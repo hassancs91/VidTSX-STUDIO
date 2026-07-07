@@ -1,0 +1,137 @@
+appId: com.learnwithhasan.vidtsx-studio
+productName: VidTSX Studio
+copyright: "Copyright (C) 2026 LearnWithHasan. All rights reserved."
+directories:
+  output: dist
+  buildResources: resources
+# ============================================
+# RELEASE WORKFLOW:
+# ============================================
+# 1. Bump version in package.json
+# 2. Build: npm run build:win  (runs electron-vite build && electron-builder --win)
+# 3. Upload these files from dist/ to the R2 bucket (releases/ path):
+#      - latest.yml
+#      - VidTSX-Studio-Setup-{version}.exe
+#      - VidTSX-Studio-Setup-{version}.exe.blockmap
+# 4. Users are notified on their next update check (within 4 hours, or app restart).
+# ============================================
+publish:
+  provider: generic
+  url: https://releases.vidtsx.com/releases
+  channel: latest
+extraResources:
+  - from: resources/binaries
+    to: binaries
+    filter:
+      - "**/*"
+  - from: resources/vendor
+    to: vendor
+    filter:
+      - "**/*.js"
+  - from: resources/skills
+    to: skills
+    filter:
+      - "**/*"
+      - "!**/.*"
+  - from: resources/icon.ico
+    to: icon.ico
+  - from: resources/icon.png
+    to: icon.png
+  # Whiteboard Studio bundled handwriting fonts (Phase 11.b). Served by the
+  # `vidtsx-font://` custom protocol; consumed by opentype.js for glyph extraction.
+  - from: resources/fonts
+    to: fonts
+    filter:
+      - "**/*.ttf"
+      - "LICENSE.txt"
+asar: true
+asarUnpack:
+  # better-sqlite3 native binding (.node) must be outside ASAR so V8 can load it.
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/bindings/**"
+  - "node_modules/file-uri-to-path/**"
+  # esbuild native .exe — spawned by @remotion/bundler at Creator preview time.
+  # Windows cannot spawn an .exe from inside ASAR, so unpack both the JS wrapper
+  # and the platform binary subpackage.
+  - "node_modules/esbuild/**"
+  - "node_modules/@esbuild/**"
+  # ── onnxruntime-node + @huggingface/transformers disabled in v0.1 — embedding
+  # feature not exposed in the UI. Worker is only spawned on first loadModel() call.
+  # When re-enabling embedding, uncomment the next line:
+  # - "node_modules/onnxruntime-node/**"
+  # ── sherpa-onnx (local STT/TTS) disabled in v0.1 — transcription/audio features
+  # not shipping yet. When re-enabling, uncomment the lines for the platforms you ship:
+  # - "node_modules/sherpa-onnx-node/**"
+  # - "node_modules/sherpa-onnx-win-x64/**"
+  # - "node_modules/sherpa-onnx-darwin-x64/**"     # only if shipping macOS
+  # - "node_modules/sherpa-onnx-darwin-arm64/**"   # only if shipping macOS
+  # - "node_modules/sherpa-onnx-linux-x64/**"      # only if shipping Linux
+  # ── Local LLM (node-llama-cpp) disabled in v0.1 to keep installer small.
+  # When the local-LLM feature ships, uncomment the next two lines:
+  # - "node_modules/node-llama-cpp/**"
+  # - "node_modules/@node-llama-cpp/**"
+files:
+  - out/**/*
+  # ── Embedding (onnxruntime-node + @huggingface/transformers) disabled in v0.1.
+  # IPC handlers in src/main/ipc/embedding-handlers.ts are still registered but nothing
+  # in the UI calls them. Worker is lazy-spawned in src/embedding-engine/embedding-engine.ts.
+  # When shipping embedding features:
+  #   1. Remove the two "!" exclusions below.
+  #   2. Uncomment "node_modules/onnxruntime-node/**" in asarUnpack above.
+  - "!node_modules/onnxruntime-node/**/*"
+  - "!node_modules/@huggingface/transformers/**/*"
+  # ── sherpa-onnx (local STT/TTS) disabled in v0.1. Packages stay in node_modules for
+  # dev (lazy-loaded via try/catch in src/audio-engine/audio-engine.ts:60-63, so the
+  # app handles their absence gracefully). When shipping transcription/audio features:
+  #   1. Remove the "!" exclusions below (at minimum sherpa-onnx-win-x64 for Windows).
+  #   2. Uncomment the matching asarUnpack lines above.
+  #   3. Add darwin/linux entries ONLY if shipping those platforms.
+  - "!node_modules/sherpa-onnx-node/**/*"
+  - "!node_modules/sherpa-onnx-win-x64/**/*"
+  - "!node_modules/sherpa-onnx-darwin-x64/**/*"
+  - "!node_modules/sherpa-onnx-darwin-arm64/**/*"
+  - "!node_modules/sherpa-onnx-linux-x64/**/*"
+  # ── Local LLM (node-llama-cpp) disabled in v0.1. Lazy-loaded in
+  # src/llm-engine/llm-local-engine.ts. When shipping local LLM:
+  #   1. Remove the two "!" exclusions below.
+  #   2. Uncomment the matching asarUnpack lines above.
+  #   3. Consider dropping unused GPU variants (cuda/vulkan) — full set adds ~965 MB.
+  - "!node_modules/node-llama-cpp/**/*"
+  - "!node_modules/@node-llama-cpp/**/*"
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: resources/icon.ico
+  # Unsigned v0.1 — updater would otherwise reject signature mismatch. Flip to true after code signing is added.
+  verifyUpdateCodeSignature: false
+  extraResources:
+    - from: resources/python/win-x64
+      to: python
+      filter:
+        - "**/*"
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "VidTSX Studio"
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
+  license: build/license.txt
+  artifactName: "VidTSX-Studio-Setup-${version}.${ext}"
+  displayLanguageSelector: false
+  menuCategory: false
+  runAfterFinish: true
+mac:
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+  extraResources:
+    - from: resources/python/darwin-${arch}
+      to: python
+      filter:
+        - "**/*"

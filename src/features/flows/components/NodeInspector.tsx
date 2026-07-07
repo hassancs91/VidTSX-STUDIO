@@ -1,0 +1,174 @@
+import { getNodeDef } from '../nodes';
+import type { ConfigField } from '../nodes/types';
+import { TextField } from './inspector-fields/TextField';
+import { PromptField } from './inspector-fields/PromptField';
+import { NumberField } from './inspector-fields/NumberField';
+import { SelectField } from './inspector-fields/SelectField';
+import { ModelPickerField } from './inspector-fields/ModelPickerField';
+import { LlmModelPickerField } from './inspector-fields/LlmModelPickerField';
+import { GalleryImagePickerField } from './inspector-fields/GalleryImagePickerField';
+import { ImageUploadField } from './inspector-fields/ImageUploadField';
+
+interface Props {
+  typeId: string;
+  config: Record<string, unknown>;
+  onPatchConfig: (patch: Record<string, unknown>) => void;
+}
+
+interface UploadValue {
+  base64: string;
+  fileName: string;
+  width: number;
+  height: number;
+  contentType: string;
+}
+
+const EMPTY_UPLOAD: UploadValue = {
+  base64: '',
+  fileName: '',
+  width: 0,
+  height: 0,
+  contentType: 'image/jpeg',
+};
+
+function asUploadValue(raw: unknown, config: Record<string, unknown>): UploadValue {
+  return {
+    base64: typeof raw === 'string' ? raw : '',
+    fileName: typeof config.fileName === 'string' ? config.fileName : '',
+    width: typeof config.width === 'number' ? config.width : 0,
+    height: typeof config.height === 'number' ? config.height : 0,
+    contentType: typeof config.contentType === 'string' ? config.contentType : 'image/jpeg',
+  };
+}
+
+function renderField(
+  field: ConfigField,
+  config: Record<string, unknown>,
+  patch: (p: Record<string, unknown>) => void,
+) {
+  const value = config[field.key];
+  switch (field.kind) {
+    case 'text':
+      return (
+        <TextField
+          label={field.label}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(next) => patch({ [field.key]: next })}
+          placeholder={field.placeholder}
+        />
+      );
+    case 'prompt':
+      return (
+        <PromptField
+          label={field.label}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(next) => patch({ [field.key]: next })}
+          placeholder={field.placeholder}
+          rows={field.rows}
+        />
+      );
+    case 'number':
+      return (
+        <NumberField
+          label={field.label}
+          value={typeof value === 'number' ? value : 0}
+          onChange={(next) => patch({ [field.key]: next })}
+          min={field.min}
+          max={field.max}
+          step={field.step}
+        />
+      );
+    case 'select':
+      return (
+        <SelectField
+          label={field.label}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(next) => patch({ [field.key]: next })}
+          options={field.options}
+        />
+      );
+    case 'model-picker': {
+      const providerKeyKey = field.providerKeyKey ?? 'providerId';
+      const providerId = config[providerKeyKey];
+      return (
+        <ModelPickerField
+          label={field.label}
+          providerId={typeof providerId === 'string' ? providerId : ''}
+          model={typeof value === 'string' ? value : ''}
+          onChange={(nextProviderId, nextModel) =>
+            patch({ [providerKeyKey]: nextProviderId, [field.key]: nextModel })
+          }
+        />
+      );
+    }
+    case 'llm-model-picker': {
+      const providerKeyKey = field.providerKeyKey ?? 'providerId';
+      const providerId = config[providerKeyKey];
+      return (
+        <LlmModelPickerField
+          label={field.label}
+          providerId={typeof providerId === 'string' ? providerId : ''}
+          model={typeof value === 'string' ? value : ''}
+          onChange={(nextProviderId, nextModel) =>
+            patch({ [providerKeyKey]: nextProviderId, [field.key]: nextModel })
+          }
+        />
+      );
+    }
+    case 'gallery-image-picker':
+      return (
+        <GalleryImagePickerField
+          label={field.label}
+          value={typeof value === 'string' ? value : ''}
+          onChange={(next) => patch({ [field.key]: next })}
+        />
+      );
+    case 'image-upload':
+      return (
+        <ImageUploadField
+          label={field.label}
+          value={asUploadValue(value, config)}
+          onChange={(next) =>
+            patch({
+              [field.key]: next.base64,
+              fileName: next.fileName,
+              width: next.width,
+              height: next.height,
+              contentType: next.contentType,
+            })
+          }
+        />
+      );
+  }
+}
+
+export function NodeInspector({ typeId, config, onPatchConfig }: Props) {
+  const def = getNodeDef(typeId);
+
+  if (!def) {
+    return (
+      <div className="p-3 text-[11px] text-accent-red">
+        Unknown node type: {typeId}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 p-3 overflow-y-auto h-full">
+      <div>
+        <h3 className="text-[13px] font-semibold text-text-primary">{def.label}</h3>
+        <p className="text-[11px] text-text-dim mt-0.5">{def.description}</p>
+      </div>
+
+      {def.configSchema.length === 0 ? (
+        <p className="text-[11px] text-text-dim">This node has no settings.</p>
+      ) : (
+        def.configSchema.map((field) => (
+          <div key={field.key + '-' + field.kind}>
+            {renderField(field, config, onPatchConfig)}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}

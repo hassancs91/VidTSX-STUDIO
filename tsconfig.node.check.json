@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "composite": false,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  }
+}

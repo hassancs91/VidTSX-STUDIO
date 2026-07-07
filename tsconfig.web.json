@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "jsx": "react-jsx",
+    "types": ["electron-vite/client"],
+    "paths": {
+      "@shared/*": ["src/shared/*"],
+      "@renderer/*": ["src/renderer/*"],
+      "@features/*": ["src/features/*"]
+    }
+  },
+  "include": ["src/renderer/**/*", "src/features/**/*", "src/shared/**/*"]
+}

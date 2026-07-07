@@ -1,0 +1,57 @@
+import { ipcMain } from 'electron';
+import { IPC } from '@shared/ipc/channels';
+import {
+  handleImageProvidersGet,
+  handleImageProvidersSave,
+  handleImageProviderTest,
+  handleImageModelsGet,
+  handleImageGenerate,
+  handleImageGenerateCancel,
+  handleImageProviderSwitch,
+} from '../image-handlers';
+import {
+  handleImageStudioSave,
+  handleImageStudioList,
+  handleImageStudioDelete,
+  handleImageStudioSaveAs,
+  handleImageStudioCopy,
+  handleImageStudioRead,
+} from '../image-studio-handlers';
+import {
+  handleImageStudioFolderCreate,
+  handleImageStudioFolderRename,
+  handleImageStudioFolderDelete,
+  handleImageStudioMoveToFolder,
+} from '../image-studio-folder-handlers';
+import {
+  handleRefImageSave,
+  handleRefImageList,
+  handleRefImageDelete,
+  handleRefImageToggle,
+  handleRefImageRead,
+} from '../ref-image-handlers';
+
+export function registerImageStudioIpc(): void {
+  ipcMain.handle(IPC.IMAGE_PROVIDERS_GET, handleImageProvidersGet);
+  ipcMain.handle(IPC.IMAGE_PROVIDERS_SAVE, handleImageProvidersSave);
+  ipcMain.handle(IPC.IMAGE_PROVIDER_TEST, handleImageProviderTest);
+  ipcMain.handle(IPC.IMAGE_MODELS_GET, handleImageModelsGet);
+  ipcMain.handle(IPC.IMAGE_GENERATE, handleImageGenerate);
+  ipcMain.handle(IPC.IMAGE_GENERATE_CANCEL, handleImageGenerateCancel);
+  ipcMain.handle(IPC.IMAGE_PROVIDER_SWITCH, handleImageProviderSwitch);
+  ipcMain.handle(IPC.IMAGE_STUDIO_SAVE, handleImageStudioSave);
+  ipcMain.handle(IPC.IMAGE_STUDIO_LIST, handleImageStudioList);
+  ipcMain.handle(IPC.IMAGE_STUDIO_DELETE, handleImageStudioDelete);
+  ipcMain.handle(IPC.IMAGE_STUDIO_SAVE_AS, handleImageStudioSaveAs);
+  ipcMain.handle(IPC.IMAGE_STUDIO_COPY, handleImageStudioCopy);
+  ipcMain.handle(IPC.IMAGE_STUDIO_READ, handleImageStudioRead);
+  ipcMain.handle(IPC.IMAGE_STUDIO_FOLDER_CREATE, handleImageStudioFolderCreate);
+  ipcMain.handle(IPC.IMAGE_STUDIO_FOLDER_RENAME, handleImageStudioFolderRename);
+  ipcMain.handle(IPC.IMAGE_STUDIO_FOLDER_DELETE, handleImageStudioFolderDelete);
+  ipcMain.handle(IPC.IMAGE_STUDIO_MOVE_TO_FOLDER, handleImageStudioMoveToFolder);
+  ipcMain.handle(IPC.REF_IMAGE_SAVE, handleRefImageSave);
+  ipcMain.handle(IPC.REF_IMAGE_LIST, handleRefImageList);
+  ipcMain.handle(IPC.REF_IMAGE_DELETE, handleRefImageDelete);
+  ipcMain.handle(IPC.REF_IMAGE_TOGGLE, handleRefImageToggle);
+  ipcMain.handle(IPC.REF_IMAGE_READ, handleRefImageRead);
+}

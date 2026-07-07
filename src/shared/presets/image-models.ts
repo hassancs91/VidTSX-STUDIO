@@ -1,0 +1,12 @@
+/**
+ * Image-model catalog entry shape, shared by provider implementations (so
+ * getSupportedModels() returns display names over IPC) and the settings UI
+ * (which renders model dropdowns before any provider is registered).
+ */
+
+export interface ImageModelCatalogEntry {
+  id: string;
+  name: string;
+  /** Credit cost per generation, when a provider exposes one. */
+  credits?: number;
+}

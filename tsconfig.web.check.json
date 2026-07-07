@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.web.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "composite": false,
+    "noEmit": true,
+    "types": []
+  }
+}

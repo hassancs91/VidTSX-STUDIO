@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@source "../../features/**/*.tsx";
+@source "../../shared/**/*.tsx";
+
+@theme {
+  --color-app-deep: #131316;
+  --color-app-base: #1a1a1e;
+  --color-app-surface: #222226;
+  --color-app-hover: #2a2a2e;
+  --color-app-active: #2a2a30;
+  --color-app-player: #0d0d0f;
+  --color-accent: #7F77DD;
+  --color-accent-light: #c8b4ff;
+  --color-accent-green: #5DCAA5;
+  --color-accent-amber: #EF9F27;
+  --color-accent-red: #F09595;
+  --color-border: #2a2a2e;
+  --color-border-hover: #3a3a3e;
+  --color-border-input: #333333;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #bbbbbb;
+  --color-text-muted: #999999;
+  --color-text-dim: #666666;
+  /* Faintest text tier — used pervasively as `text-text-ghost` for hint
+     copy. Previously undefined, so it fell back to the inherited (often
+     black) color and rendered invisible on dark surfaces. */
+  --color-text-ghost: #555555;
+  /* Status colors — referenced as `text-status-error`,
+     `var(--color-status-error)`, etc. (delete buttons, error text). Match the
+     rgba(239,68,68) error backgrounds already used elsewhere. */
+  --color-status-error: #ef4444;
+  --color-status-success: #10b981;
+}
+
+/* Skeleton loader animations */
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes skeleton-scan {
+  0% { transform: translateY(-100%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+
+@keyframes skeleton-dot-bounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-app-base);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--color-app-base);
+}
+
+body {
+  scrollbar-gutter: stable;
+}
