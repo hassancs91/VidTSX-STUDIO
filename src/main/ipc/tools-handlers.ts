@@ -3,6 +3,8 @@ import fs from 'fs/promises';
 import { dialog } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 import type {
+  VideoProbeRequest,
+  VideoProbeResponse,
   FrameExtractRequest,
   FrameExtractResponse,
   FrameExtractCancelResponse,
@@ -13,10 +15,39 @@ import type {
 } from '../../shared/ipc/types';
 import { IPC } from '../../shared/ipc/channels';
 import {
+  probeVideo,
   extractFrames,
   cancelExtraction,
   createFrameZip,
 } from '../services/frame-extractor';
+
+export async function handleVideoProbe(
+  _event: IpcMainInvokeEvent,
+  data: VideoProbeRequest
+): Promise<VideoProbeResponse> {
+  try {
+    const probe = await probeVideo(data.filePath);
+    if (probe.duration <= 0) {
+      return { success: false, error: 'Could not determine media duration' };
+    }
+    return {
+      success: true,
+      metadata: {
+        filePath: data.filePath,
+        fileName: path.basename(data.filePath),
+        durationInSeconds: probe.duration,
+        fps: probe.fps,
+        width: probe.width,
+        height: probe.height,
+      },
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
 
 export async function handleFrameExtract(
   event: IpcMainInvokeEvent,

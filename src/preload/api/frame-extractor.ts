@@ -9,11 +9,15 @@ import type {
   FrameSaveSingleResponse,
   FrameSaveZipRequest,
   FrameSaveZipResponse,
+  VideoProbeRequest,
+  VideoProbeResponse,
 } from '../../shared/ipc/types';
 
 export const frameExtractorApi = {
   // ─── Tools: Frame Extractor ───
   // Tools: Frame Extractor
+  toolsVideoProbe: (data: VideoProbeRequest): Promise<VideoProbeResponse> =>
+    ipcRenderer.invoke(IPC.TOOLS_VIDEO_PROBE, data),
   toolsFrameExtract: (data: FrameExtractRequest): Promise<FrameExtractResponse> =>
     ipcRenderer.invoke(IPC.TOOLS_FRAME_EXTRACT, data),
   toolsFrameExtractCancel: (): Promise<FrameExtractCancelResponse> =>

@@ -17,12 +17,7 @@ import {
   handleScreenshotCopy,
   handleScreenshotSave,
   handleScreenshotSaveToPath,
-  handleScreenshotCaptureHtml,
 } from '../screenshot-handlers';
-import {
-  handlePrototyperRecordStart,
-  handlePrototyperRecordStop,
-} from '../prototyper-handlers';
 
 export function registerAppShellIpc(): void {
   ipcMain.handle(IPC.APP_GET_INFO, handleAppGetInfo);
@@ -33,7 +28,4 @@ export function registerAppShellIpc(): void {
   ipcMain.handle(IPC.SCREENSHOT_COPY, handleScreenshotCopy);
   ipcMain.handle(IPC.SCREENSHOT_SAVE, handleScreenshotSave);
   ipcMain.handle(IPC.SCREENSHOT_SAVE_TO_PATH, handleScreenshotSaveToPath);
-  ipcMain.handle(IPC.SCREENSHOT_CAPTURE_HTML, handleScreenshotCaptureHtml);
-  ipcMain.handle(IPC.PROTOTYPER_RECORD_START, handlePrototyperRecordStart);
-  ipcMain.handle(IPC.PROTOTYPER_RECORD_STOP, handlePrototyperRecordStop);
 }

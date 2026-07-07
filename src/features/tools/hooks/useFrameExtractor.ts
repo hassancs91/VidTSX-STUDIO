@@ -46,7 +46,7 @@ export function useFrameExtractor() {
   const loadVideo = useCallback(async (filePath: string) => {
     setState((s) => ({ ...s, phase: 'configuring', error: null }));
     try {
-      const result = await window.api.studioFfprobe({ filePath });
+      const result = await window.api.toolsVideoProbe({ filePath });
       if (!result.success || !result.metadata) {
         setState((s) => ({
           ...s,

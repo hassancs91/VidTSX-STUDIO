@@ -18,7 +18,7 @@ export function UpdateBanner() {
 
   return (
     <div
-      className="flex items-center gap-3 bg-app-surface rounded-[8px] px-4 py-3"
+      className="flex items-center gap-3 bg-app-surface rounded-[8px] px-4 py-3 mx-3 mt-3"
       style={{
         border: '0.5px solid var(--color-border)',
         borderLeft: `3px solid ${accentColor}`,

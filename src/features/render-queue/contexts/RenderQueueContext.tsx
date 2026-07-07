@@ -105,47 +105,28 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       )
     );
 
-    // Start the render — Studio jobs generate their composition from
-    // studioInput (dispatched via studioRenderStart); everything else takes the
-    // standard single-file path (renderStart bundles if needed). Both return a
-    // jobId and emit on the shared RENDER_PROGRESS / RENDER_COMPLETE events.
-    const result =
-      nextJob.kind === 'studio' && nextJob.studioInput
-        ? await window.api.studioRenderStart({
-            input: nextJob.studioInput,
-            outputPath: nextJob.outputPath,
-            codec: nextJob.codec,
-            scale: nextJob.scale,
-            crf: nextJob.crf,
-            muted: nextJob.muted,
-            fps: nextJob.fps,
-            everyNthFrame: nextJob.everyNthFrame,
-            numberOfGifLoops: nextJob.numberOfGifLoops,
-            transparent: nextJob.transparent,
-            cpuUsage: nextJob.cpuUsage,
-            gpuBackend: nextJob.gpuBackend,
-            hardwareAcceleration: nextJob.hardwareAcceleration,
-          })
-        : await window.api.renderStart({
-            filePath: nextJob.filePath,
-            bundleUrl: nextJob.bundleUrl,
-            compositionId: nextJob.compositionId,
-            outputPath: nextJob.outputPath,
-            codec: nextJob.codec,
-            width: nextJob.width,
-            height: nextJob.height,
-            fps: nextJob.fps,
-            crf: nextJob.crf,
-            muted: nextJob.muted,
-            scale: nextJob.scale,
-            everyNthFrame: nextJob.everyNthFrame,
-            numberOfGifLoops: nextJob.numberOfGifLoops,
-            inputProps: nextJob.inputProps,
-            transparent: nextJob.transparent,
-            cpuUsage: nextJob.cpuUsage,
-            gpuBackend: nextJob.gpuBackend,
-            hardwareAcceleration: nextJob.hardwareAcceleration,
-          });
+    // Start the render (renderStart bundles if needed). Returns a jobId and
+    // emits on the shared RENDER_PROGRESS / RENDER_COMPLETE events.
+    const result = await window.api.renderStart({
+      filePath: nextJob.filePath,
+      bundleUrl: nextJob.bundleUrl,
+      compositionId: nextJob.compositionId,
+      outputPath: nextJob.outputPath,
+      codec: nextJob.codec,
+      width: nextJob.width,
+      height: nextJob.height,
+      fps: nextJob.fps,
+      crf: nextJob.crf,
+      muted: nextJob.muted,
+      scale: nextJob.scale,
+      everyNthFrame: nextJob.everyNthFrame,
+      numberOfGifLoops: nextJob.numberOfGifLoops,
+      inputProps: nextJob.inputProps,
+      transparent: nextJob.transparent,
+      cpuUsage: nextJob.cpuUsage,
+      gpuBackend: nextJob.gpuBackend,
+      hardwareAcceleration: nextJob.hardwareAcceleration,
+    });
 
     if (result.success && result.jobId) {
       setJobs((prev) =>
@@ -263,8 +244,6 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       filePath: options.filePath,
       bundleUrl: options.bundleUrl,
       compositionId: options.compositionId,
-      kind: options.kind,
-      studioInput: options.studioInput,
       outputPath,
       codec: options.codec,
       width: options.width,

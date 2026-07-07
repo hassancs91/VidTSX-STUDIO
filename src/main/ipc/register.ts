@@ -6,9 +6,7 @@ import { registerBundleIpc } from './registrations/bundle';
 import { registerRenderIpc } from './registrations/render';
 import { registerSettingsIpc } from './registrations/settings';
 import { registerWhisperIpc } from './registrations/whisper';
-import { registerStudioIpc } from './registrations/studio';
 import { registerLlmIpc } from './registrations/llm';
-import { registerWhiteboardIpc } from './registrations/whiteboard';
 import { registerFlowsIpc } from './registrations/flows';
 import { registerImageStudioIpc } from './registrations/image-studio';
 import { registerThumbnailIpc } from './registrations/thumbnail';
@@ -22,12 +20,10 @@ import { registerSystemIpc } from './registrations/system';
 import { registerDownloadIpc } from './registrations/download';
 import { registerModerationIpc } from './registrations/moderation';
 import { registerAiUsageIpc } from './registrations/ai-usage';
-import { registerHomepageIpc } from './registrations/homepage';
 import { registerProviderKeysIpc } from './registrations/provider-keys';
 import { registerVideoIpc } from './registrations/video';
 import { registerSttIpc } from './registrations/stt';
 import { registerVideoStudioIpc } from './registrations/video-studio';
-import { registerAutoCutIpc } from './registrations/auto-cut';
 import { setupLicenseIPC } from '../../license/license-manager';
 import { setupAutoUpdaterIPC } from '../../updater/auto-updater';
 import { logEngine } from '../../logging/log-engine';
@@ -48,9 +44,7 @@ export function registerAllIPC(): void {
   registerRenderIpc();
   registerSettingsIpc();
   registerWhisperIpc();
-  registerStudioIpc();
   registerLlmIpc();
-  registerWhiteboardIpc();
   registerFlowsIpc();
   registerImageStudioIpc();
   registerThumbnailIpc();
@@ -64,12 +58,10 @@ export function registerAllIPC(): void {
   registerDownloadIpc();
   registerModerationIpc();
   registerAiUsageIpc();
-  registerHomepageIpc();
   registerProviderKeysIpc();
   registerVideoIpc();
   registerSttIpc();
   registerVideoStudioIpc();
-  registerAutoCutIpc();
 
   logEngine.info('IPC', 'IPC handlers registered');
 }

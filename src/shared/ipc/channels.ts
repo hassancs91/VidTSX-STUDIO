@@ -40,11 +40,6 @@ export const IPC = {
   SCREENSHOT_COPY: 'screenshot:copy',
   SCREENSHOT_SAVE: 'screenshot:save',
   SCREENSHOT_SAVE_TO_PATH: 'screenshot:save-to-path',
-  SCREENSHOT_CAPTURE_HTML: 'screenshot:capture-html',
-
-  // Prototyper operations
-  PROTOTYPER_RECORD_START: 'prototyper:record-start',
-  PROTOTYPER_RECORD_STOP: 'prototyper:record-stop',
 
   // Bundle operations
   BUNDLE_CREATE: 'bundle:create',
@@ -163,66 +158,6 @@ export const IPC = {
   // Skills registry
   SKILLS_LIST: 'skills:list',
 
-  // Studio operations
-  STUDIO_FFPROBE: 'studio:ffprobe',
-  STUDIO_PROJECT_LIST: 'studio:project:list',
-  STUDIO_PROJECT_SAVE: 'studio:project:save',
-  STUDIO_PROJECT_LOAD: 'studio:project:load',
-  STUDIO_PROJECT_DELETE: 'studio:project:delete',
-
-  // Studio video proxy (on-demand low-res edit copy)
-  STUDIO_PROXY_GENERATE: 'studio:proxy:generate',
-  STUDIO_PROXY_CANCEL: 'studio:proxy:cancel',
-  STUDIO_PROXY_VERIFY: 'studio:proxy:verify',
-  // Push event — webContents.send only
-  STUDIO_PROXY_PROGRESS: 'studio:proxy:progress',
-
-  // Studio TSX analysis & generation
-  STUDIO_TSX_ANALYZE: 'studio:tsx:analyze',
-  STUDIO_TSX_SAVE: 'studio:tsx:save',
-  STUDIO_TSX_GET_PATH: 'studio:tsx:get-path',
-
-  // Studio final-video render/export (reuses RENDER_PROGRESS/RENDER_COMPLETE events)
-  STUDIO_RENDER_START: 'studio:render:start',
-
-  // Studio mechanical analysis (audio + STT + silences + prosody).
-  // Shared spine for auto-cut and future skills (plan-tsx, plan-sfx, etc.).
-  STUDIO_ANALYZE_RUN: 'studio:analyze:run',
-  STUDIO_ANALYZE_CANCEL: 'studio:analyze:cancel',
-  STUDIO_ANALYZE_PROGRESS: 'studio:analyze:progress',
-  // Studio auto-cut — Claude planner only. Requires analysis to exist.
-  STUDIO_AUTO_CUT_RUN: 'studio:auto-cut:run',
-  STUDIO_AUTO_CUT_CANCEL: 'studio:auto-cut:cancel',
-  // Push event — webContents.send only
-  STUDIO_AUTO_CUT_PROGRESS: 'studio:auto-cut:progress',
-
-  // Studio presets (global Claude-guidelines templates)
-  STUDIO_PRESET_LIST: 'studio:preset:list',
-  STUDIO_PRESET_SAVE: 'studio:preset:save',
-  STUDIO_PRESET_DELETE: 'studio:preset:delete',
-
-  // Studio brands (global brand profiles — voice, colors, aesthetic, etc.)
-  STUDIO_BRAND_LIST: 'studio:brand:list',
-  STUDIO_BRAND_SAVE: 'studio:brand:save',
-  STUDIO_BRAND_DELETE: 'studio:brand:delete',
-
-  // Whiteboard Studio projects
-  WHITEBOARD_PROJECT_LIST: 'whiteboard:project:list',
-  WHITEBOARD_PROJECT_SAVE: 'whiteboard:project:save',
-  WHITEBOARD_PROJECT_LOAD: 'whiteboard:project:load',
-  WHITEBOARD_PROJECT_DELETE: 'whiteboard:project:delete',
-
-  // Whiteboard Studio user SVG library
-  WHITEBOARD_USER_SVG_LIST: 'whiteboard:user-svg:list',
-  WHITEBOARD_USER_SVG_SAVE: 'whiteboard:user-svg:save',
-  WHITEBOARD_USER_SVG_DELETE: 'whiteboard:user-svg:delete',
-
-  // Whiteboard Studio user image library
-  WHITEBOARD_USER_IMAGE_LIST: 'whiteboard:user-image:list',
-  WHITEBOARD_USER_IMAGE_UPLOAD: 'whiteboard:user-image:upload',
-  WHITEBOARD_USER_IMAGE_DELETE: 'whiteboard:user-image:delete',
-
-
   // Flows (node-graph builder) — projects
   FLOWS_PROJECT_LIST: 'flows:project:list',
   FLOWS_PROJECT_CREATE: 'flows:project:create',
@@ -276,6 +211,7 @@ export const IPC = {
   LOG_WRITE: 'log:write',
 
   // Tools: Frame Extractor
+  TOOLS_VIDEO_PROBE: 'tools:video:probe',
   TOOLS_FRAME_EXTRACT: 'tools:frame:extract',
   TOOLS_FRAME_EXTRACT_PROGRESS: 'tools:frame:extract:progress',
   TOOLS_FRAME_EXTRACT_CANCEL: 'tools:frame:extract:cancel',
@@ -375,9 +311,6 @@ export const IPC = {
   AI_USAGE_GET_CHART: 'ai-usage:get-chart',
   AI_USAGE_GET_LOG: 'ai-usage:get-log',
   AI_USAGE_CLEAR: 'ai-usage:clear',
-
-  // Home page content (fetched from backend)
-  HOMEPAGE_GET: 'homepage:get',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

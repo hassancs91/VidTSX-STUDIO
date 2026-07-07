@@ -29,11 +29,6 @@ import type {
   ScreenshotSaveResponse,
   ScreenshotSaveToPathRequest,
   ScreenshotSaveToPathResponse,
-  ScreenshotCaptureHtmlRequest,
-  ScreenshotCaptureHtmlResponse,
-  PrototyperRecordStartRequest,
-  PrototyperRecordStartResponse,
-  PrototyperRecordStopResponse,
   RenderStartRequest,
   RenderStartResponse,
   RenderCancelRequest,
@@ -143,11 +138,6 @@ export interface ElectronAPI {
   screenshotCopy: (data: ScreenshotCopyRequest) => Promise<ScreenshotCopyResponse>;
   screenshotSave: (data: ScreenshotSaveRequest) => Promise<ScreenshotSaveResponse>;
   screenshotSaveToPath: (data: ScreenshotSaveToPathRequest) => Promise<ScreenshotSaveToPathResponse>;
-  screenshotCaptureHtml: (data: ScreenshotCaptureHtmlRequest) => Promise<ScreenshotCaptureHtmlResponse>;
-
-  // Prototyper operations
-  prototyperRecordStart: (data: PrototyperRecordStartRequest) => Promise<PrototyperRecordStartResponse>;
-  prototyperRecordStop: () => Promise<PrototyperRecordStopResponse>;
 
   // Render operations
   renderStart: (data: RenderStartRequest) => Promise<RenderStartResponse>;
@@ -331,20 +321,6 @@ export interface ElectronAPI {
   transcriptionProjectLoad: (data: import('../../shared/ipc/types').TranscriptionProjectLoadRequest) => Promise<import('../../shared/ipc/types').TranscriptionProjectLoadResponse>;
   transcriptionProjectDelete: (data: import('../../shared/ipc/types').TranscriptionProjectDeleteRequest) => Promise<import('../../shared/ipc/types').TranscriptionProjectDeleteResponse>;
 
-  // Whiteboard project operations
-  whiteboardProjectList: () => Promise<import('../../shared/ipc/types').WhiteboardProjectListResponse>;
-  whiteboardProjectSave: (data: import('../../shared/ipc/types').WhiteboardProjectSaveRequest) => Promise<import('../../shared/ipc/types').WhiteboardProjectSaveResponse>;
-  whiteboardProjectLoad: (data: import('../../shared/ipc/types').WhiteboardProjectLoadRequest) => Promise<import('../../shared/ipc/types').WhiteboardProjectLoadResponse>;
-  whiteboardProjectDelete: (data: import('../../shared/ipc/types').WhiteboardProjectDeleteRequest) => Promise<import('../../shared/ipc/types').WhiteboardProjectDeleteResponse>;
-
-  // Whiteboard user SVG library
-  whiteboardUserSvgList: () => Promise<import('../../shared/ipc/types').WhiteboardUserSvgListResponse>;
-  whiteboardUserSvgSave: (data: import('../../shared/ipc/types').WhiteboardUserSvgSaveRequest) => Promise<import('../../shared/ipc/types').WhiteboardUserSvgSaveResponse>;
-  whiteboardUserSvgDelete: (data: import('../../shared/ipc/types').WhiteboardUserSvgDeleteRequest) => Promise<import('../../shared/ipc/types').WhiteboardUserSvgDeleteResponse>;
-  whiteboardUserImageList: () => Promise<import('../../shared/ipc/types').WhiteboardUserImageListResponse>;
-  whiteboardUserImageUpload: (data: import('../../shared/ipc/types').WhiteboardUserImageUploadRequest) => Promise<import('../../shared/ipc/types').WhiteboardUserImageUploadResponse>;
-  whiteboardUserImageDelete: (data: import('../../shared/ipc/types').WhiteboardUserImageDeleteRequest) => Promise<import('../../shared/ipc/types').WhiteboardUserImageDeleteResponse>;
-
   // System info
   systemInfoGet: () => Promise<SystemInfoGetResponse>;
   pytorchPipInstall: (data: PyTorchPipInstallRequest) => Promise<PyTorchPipInstallResponse>;
@@ -378,37 +354,13 @@ export interface ElectronAPI {
   flowsRunList: (data: import('../../shared/ipc/types').FlowRunListRequest) => Promise<import('../../shared/ipc/types').FlowRunListResponse>;
   flowsRunLoad: (data: import('../../shared/ipc/types').FlowRunLoadRequest) => Promise<import('../../shared/ipc/types').FlowRunLoadResponse>;
 
-  // Studio video proxy (on-demand low-res edit copy)
-  studioProxyGenerate: (data: import('../../shared/ipc/types').StudioProxyGenerateRequest) => Promise<import('../../shared/ipc/types').StudioProxyGenerateResponse>;
-  studioProxyCancel: (data: import('../../shared/ipc/types').StudioProxyCancelRequest) => Promise<import('../../shared/ipc/types').StudioProxyCancelResponse>;
-  studioProxyVerify: (data: import('../../shared/ipc/types').StudioProxyVerifyRequest) => Promise<import('../../shared/ipc/types').StudioProxyVerifyResponse>;
-  onStudioProxyProgress: (callback: (progress: import('../../shared/ipc/types').StudioProxyProgress) => void) => () => void;
-
-  // Studio final-video render/export (progress via onRenderProgress/onRenderComplete, filtered by jobId)
-  studioRenderStart: (data: import('../../shared/ipc/types').StudioRenderStartRequest) => Promise<import('../../shared/ipc/types').StudioRenderStartResponse>;
-
-  // Studio mechanical analysis (audio + STT + silences + prosody)
-  studioAnalyzeRun: (data: import('../../shared/ipc/types').StudioAnalyzeRunRequest) => Promise<import('../../shared/ipc/types').StudioAnalyzeRunResponse>;
-  studioAnalyzeCancel: (data: import('../../shared/ipc/types').StudioAnalyzeCancelRequest) => Promise<import('../../shared/ipc/types').StudioAnalyzeCancelResponse>;
-  onStudioAnalyzeProgress: (callback: (progress: import('../../shared/ipc/types').StudioAnalyzeProgress) => void) => () => void;
-
-  // Studio auto-cut planner (Claude — requires analysis to exist)
-  studioAutoCutRun: (data: import('../../shared/ipc/types').StudioAutoCutRunRequest) => Promise<import('../../shared/ipc/types').StudioAutoCutRunResponse>;
-  studioAutoCutCancel: (data: import('../../shared/ipc/types').StudioAutoCutCancelRequest) => Promise<import('../../shared/ipc/types').StudioAutoCutCancelResponse>;
-  onStudioAutoCutProgress: (callback: (progress: import('../../shared/ipc/types').StudioAutoCutProgress) => void) => () => void;
-
-  // Studio presets (global Claude-guideline templates)
-  studioPresetList: () => Promise<import('../../shared/ipc/types').StudioPresetListResponse>;
-  studioPresetSave: (data: import('../../shared/ipc/types').StudioPresetSaveRequest) => Promise<import('../../shared/ipc/types').StudioPresetSaveResponse>;
-  studioPresetDelete: (data: import('../../shared/ipc/types').StudioPresetDeleteRequest) => Promise<import('../../shared/ipc/types').StudioPresetDeleteResponse>;
-
-  // Studio brands (global brand profiles)
-  studioBrandList: () => Promise<import('../../shared/ipc/types').StudioBrandListResponse>;
-  studioBrandSave: (data: import('../../shared/ipc/types').StudioBrandSaveRequest) => Promise<import('../../shared/ipc/types').StudioBrandSaveResponse>;
-  studioBrandDelete: (data: import('../../shared/ipc/types').StudioBrandDeleteRequest) => Promise<import('../../shared/ipc/types').StudioBrandDeleteResponse>;
-
-  // Homepage content
-  homepageGet: () => Promise<import('../../shared/ipc/types').HomepageGetResponse>;
+  // Tools: Frame Extractor
+  toolsVideoProbe: (data: import('../../shared/ipc/types').VideoProbeRequest) => Promise<import('../../shared/ipc/types').VideoProbeResponse>;
+  toolsFrameExtract: (data: import('../../shared/ipc/types').FrameExtractRequest) => Promise<import('../../shared/ipc/types').FrameExtractResponse>;
+  toolsFrameExtractCancel: () => Promise<import('../../shared/ipc/types').FrameExtractCancelResponse>;
+  toolsFrameSaveZip: (data: import('../../shared/ipc/types').FrameSaveZipRequest) => Promise<import('../../shared/ipc/types').FrameSaveZipResponse>;
+  toolsFrameSaveSingle: (data: import('../../shared/ipc/types').FrameSaveSingleRequest) => Promise<import('../../shared/ipc/types').FrameSaveSingleResponse>;
+  onToolsFrameExtractProgress: (callback: (data: import('../../shared/ipc/types').FrameExtractProgressEvent) => void) => () => void;
 
   // App env
   appGetIsDev: () => Promise<import('../../shared/ipc/types').AppGetIsDevResponse>;

@@ -1,6 +1,5 @@
-import { app, BrowserWindow, Menu, net, protocol } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
-import { pathToFileURL } from 'url';
 import { loadDevEnv } from './utils/load-dev-env';
 import { registerAllIPC } from './ipc/register';
 import { ensureProjectsDir } from './utils/paths';
@@ -28,16 +27,6 @@ import { migrateSettings, migrateProviderSettings } from './services/settings-mi
 import { closeDb as closeSettingsDb } from './services/settings-db';
 import { migrateAiUsage } from './services/ai-usage-migrate';
 import { closeDb as closeAiUsageDb } from './services/ai-usage-db';
-import { migrateStudioProjects } from './services/studio-projects-migrate';
-import { closeDb as closeStudioProjectsDb } from './services/studio-projects-db';
-import { closeDb as closeStudioPresetsDb } from './services/studio-presets-db';
-import { closeDb as closeStudioBrandsDb } from './services/studio-brands-db';
-import { migrateWhiteboardProjects } from './services/whiteboard-projects-migrate';
-import { closeDb as closeWhiteboardProjectsDb } from './services/whiteboard-projects-db';
-import { migrateWhiteboardSvgs } from './services/whiteboard-svgs-migrate';
-import { closeDb as closeWhiteboardSvgsDb } from './services/whiteboard-svgs-db';
-import { migrateWhiteboardImages } from './services/whiteboard-images-migrate';
-import { closeDb as closeWhiteboardImagesDb, getUserImagePath } from './services/whiteboard-images-db';
 import { migrateFlowsProjects } from './services/flows-projects-migrate';
 import { closeDb as closeFlowsProjectsDb } from './services/flows-projects-db';
 import { migrateDownloads } from './services/download-manager/download-state-migrate';
@@ -56,6 +45,8 @@ app.commandLine.appendSwitch('ignore-gpu-blocklist');
 // (matters here because a duplicate spawns a second Python sidecar and fights over the workspace).
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) {
+  // eslint-disable-next-line no-console -- logging engine is not initialized yet
+  console.error('[VidTSX] Another instance already holds the single-instance lock (an installed copy of the app also counts) — exiting.');
   app.quit();
   process.exit(0);
 }
@@ -67,19 +58,6 @@ if (process.platform === 'win32') {
 
 // Sentry must init before app 'ready' event
 initSentry();
-
-// Register custom image protocol schemes as privileged before app 'ready'.
-// Handlers themselves are wired inside app.whenReady() below.
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'vidtsx-image',
-    privileges: { secure: true, supportFetchAPI: true, bypassCSP: true },
-  },
-  {
-    scheme: 'vidtsx-font',
-    privileges: { secure: true, supportFetchAPI: true, bypassCSP: true },
-  },
-]);
 
 Menu.setApplicationMenu(null);
 
@@ -157,50 +135,6 @@ app.whenReady().then(async () => {
 
   // Migrate legacy render-queue.json + render-history.json into SQLite.
   await migrateRenderQueue();
-
-  // Migrate legacy per-project JSON files under studio-projects/ into SQLite.
-  await migrateStudioProjects();
-
-  // Initialize whiteboard projects DB (no legacy data; stub for parity).
-  await migrateWhiteboardProjects();
-
-  // Initialize whiteboard user SVG library DB (no legacy data; stub for parity).
-  await migrateWhiteboardSvgs();
-
-  // Initialize whiteboard user image library DB (no legacy data; stub for parity).
-  await migrateWhiteboardImages();
-
-  // Custom protocol that resolves vidtsx-image://{id} to the on-disk file.
-  // Path-traversal is enforced inside getUserImagePath, which only returns
-  // paths that resolve under the controlled images directory.
-  protocol.handle('vidtsx-image', async (request) => {
-    try {
-      const url = new URL(request.url);
-      const id = url.hostname || url.pathname.replace(/^\//, '');
-      const filePath = getUserImagePath(id);
-      if (!filePath) return new Response('Not found', { status: 404 });
-      return await net.fetch(pathToFileURL(filePath).toString());
-    } catch {
-      return new Response('Bad request', { status: 400 });
-    }
-  });
-
-  // Custom protocol that resolves vidtsx-font://{id} to the bundled handwriting
-  // font file (Phase 11.b). Path-traversal is enforced inside getBundledFontPath.
-  {
-    const { getBundledFontPath } = await import('./services/whiteboard-fonts');
-    protocol.handle('vidtsx-font', async (request) => {
-      try {
-        const url = new URL(request.url);
-        const id = url.hostname || url.pathname.replace(/^\//, '');
-        const filePath = getBundledFontPath(id);
-        if (!filePath) return new Response('Not found', { status: 404 });
-        return await net.fetch(pathToFileURL(filePath).toString());
-      } catch {
-        return new Response('Bad request', { status: 400 });
-      }
-    });
-  }
 
   // Initialize flows projects DB (node-graph builder).
   await migrateFlowsProjects();
@@ -302,12 +236,6 @@ app.on('will-quit', async () => {
   closeCreatorDb();
   closeSettingsDb();
   closeAiUsageDb();
-  closeStudioProjectsDb();
-  closeStudioPresetsDb();
-  closeStudioBrandsDb();
-  closeWhiteboardProjectsDb();
-  closeWhiteboardSvgsDb();
-  closeWhiteboardImagesDb();
   closeFlowsProjectsDb();
   closeDownloadsDb();
 

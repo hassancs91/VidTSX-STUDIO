@@ -5,31 +5,24 @@ import { SettingsScreen } from "./components/SettingsScreen";
 import { WorkspaceScreen, SelectedFileProvider } from "@features/workspace";
 import { TranscriptionScreen } from "@features/transcription";
 import { RenderScreen, RenderQueueProvider, useRenderQueue } from "@features/render-queue";
-import { StudioScreen } from "@features/studio";
 import { MotionScreen } from "@features/motion";
-import { PrototyperScreen } from "@features/prototyper";
-import { HomeScreen } from "@features/home/components/HomeScreen";
 import { ImageStudioScreen } from "@features/image-studio";
 import { VideoStudioScreen } from "@features/video-studio";
 import { AssetLibraryScreen } from "@features/asset-library";
 import { ToolsHubScreen } from "@features/tools";
-import { WhiteboardScreen } from "@features/whiteboard";
 import { FlowsScreen } from "@features/flows";
+import { UpdateBanner } from "./components/UpdateBanner";
 import { ToastProvider } from "./contexts/ToastContext";
 import { LicenseProvider } from "./contexts/LicenseContext";
 import { UpdaterProvider } from "./contexts/UpdaterContext";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
 const screens: Record<string, React.ComponentType> = {
-  home: HomeScreen,
   files: WorkspaceScreen,
-  studio: StudioScreen,
   transcribe: TranscriptionScreen,
   render: RenderScreen,
   creator: MotionScreen,
-  whiteboard: WhiteboardScreen,
   flows: FlowsScreen,
-  prototyper: PrototyperScreen,
   'image-studio': ImageStudioScreen,
   'video-studio': VideoStudioScreen,
   assets: AssetLibraryScreen,
@@ -42,7 +35,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
   setActiveScreen: (screen: string) => void;
 }) {
   const { activeCount } = useRenderQueue();
-  const [visitedScreens, setVisitedScreens] = useState<Set<string>>(new Set(["home"]));
+  const [visitedScreens, setVisitedScreens] = useState<Set<string>>(new Set(["creator"]));
 
   // Listen for cross-screen navigation events
   useEffect(() => {
@@ -56,7 +49,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
     return () => window.removeEventListener('vidtsx:navigate', handler);
   }, [setActiveScreen]);
 
-  const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : "home");
+  const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : "creator");
 
   useEffect(() => {
     setVisitedScreens(prev => {
@@ -73,7 +66,9 @@ function AppContent({ activeScreen, setActiveScreen }: {
           onScreenChange={setActiveScreen}
           renderBadgeCount={activeCount}
         />
-        <main className="flex-1 bg-app-base overflow-auto">
+        <div className="flex flex-col flex-1 min-w-0">
+          <UpdateBanner />
+          <main className="flex-1 bg-app-base overflow-auto">
           {Array.from(visitedScreens).map(screenId => {
             const Screen = screens[screenId];
             if (!Screen) return null;
@@ -87,7 +82,8 @@ function AppContent({ activeScreen, setActiveScreen }: {
               </div>
             );
           })}
-        </main>
+          </main>
+        </div>
       </div>
       <StatusBar />
     </div>
@@ -95,7 +91,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
 }
 
 export function App() {
-  const [activeScreen, setActiveScreen] = useState("home");
+  const [activeScreen, setActiveScreen] = useState("creator");
 
   return (
     <ToastProvider>

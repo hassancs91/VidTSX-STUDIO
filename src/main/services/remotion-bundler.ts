@@ -231,12 +231,11 @@ export async function bundleComposition(
             // use this path as rootDir (chdir doesn't go through the shim).
             path.join(app.getAppPath(), 'node_modules'),
           ];
-          // App-source path aliases. Needed by the Studio render entry, which
-          // imports the app's StudioComposition (`@features/...`) and its
-          // transitive `@shared/...` modules. Harmless for Creator user-TSX
-          // bundling — user code never uses these prefixes, so nothing else
-          // resolves differently. Base is app.getAppPath() (project root in
-          // dev; asar root packaged), mirroring electron.vite.config aliases.
+          // App-source path aliases, mirroring electron.vite.config — let
+          // generated render entries resolve app `@shared/...`/`@features/...`
+          // imports. Harmless for Creator user-TSX bundling — user code never
+          // uses these prefixes, so nothing else resolves differently. Base is
+          // app.getAppPath() (project root in dev; asar root packaged).
           config.resolve.alias = {
             ...(config.resolve.alias || {}),
             '@shared': path.join(app.getAppPath(), 'src', 'shared'),
@@ -404,12 +403,4 @@ export function cleanup(): void {
 // Get the current bundler server port (for asset serving)
 export function getBundlerPort(): number | null {
   return serverPort;
-}
-
-// Start the bundle/asset HTTP server (if not already up) and return its port.
-// Lets callers that need asset URLs BEFORE bundling (e.g. the Studio render
-// entry, which font-rewrites slot copies and builds clip URLs) get a stable
-// port without bundling first.
-export async function ensureBundlerServer(): Promise<number> {
-  return ensureServer();
 }

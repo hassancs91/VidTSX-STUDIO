@@ -1,5 +1,3 @@
-import type { StudioRenderInput } from './studio';
-
 // ─── Render operations ───
 // Render operations
 export type RenderCodec = 'h264' | 'h265' | 'vp8' | 'vp9' | 'gif' | 'prores';
@@ -105,16 +103,6 @@ export interface RenderQueueJob {
   filePath: string;
   bundleUrl?: string;
   compositionId: string;
-  // Render flavor. 'tsx' (default/omitted) = the standard single-file Creator/
-  // Motion path dispatched via renderStart. 'studio' = a Studio export whose
-  // composition is generated from `studioInput` and dispatched via
-  // studioRenderStart. Persisted jobs without this field load as 'tsx'.
-  kind?: 'tsx' | 'studio';
-  // Present only for `kind: 'studio'` — the full render input (cut clips,
-  // captions, ready slots, dims/fps) the Studio handler materializes into a
-  // Remotion entry. The settings fields above (codec/crf/scale/muted/…) carry
-  // the chosen export options.
-  studioInput?: StudioRenderInput;
   outputPath: string;
   codec: RenderCodec;
   width: number;

@@ -18,13 +18,7 @@ import type {
   LlmChatGenerateRequest,
   LlmChatGenerateResponse,
   LlmCancelResponse,
-  TsxAnalyzeRequest,
-  TsxAnalyzeResponse,
 } from '../../shared/ipc/types';
-import {
-  buildTsxAnalysisSystemPrompt,
-  parseTsxSuggestions,
-} from '../services/tsx-analysis';
 import { composeSystemPrompt } from '../services/skills-registry';
 
 export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> {
@@ -252,76 +246,5 @@ export async function handleLlmCancel(): Promise<LlmCancelResponse> {
     return { success: true };
   } catch {
     return { success: false };
-  }
-}
-
-export async function handleTsxAnalyze(
-  _event: IpcMainInvokeEvent,
-  data: TsxAnalyzeRequest
-): Promise<TsxAnalyzeResponse> {
-  try {
-    const systemPrompt = buildTsxAnalysisSystemPrompt({
-      video: {
-        durationSeconds: data.videoDurationSeconds,
-        width: data.videoWidth,
-        height: data.videoHeight,
-        fps: data.fps,
-      },
-      brand: data.brand,
-      presets: data.presets,
-    });
-
-    const segmentsJson = JSON.stringify(
-      data.segments.map((s) => ({
-        start: s.start,
-        end: s.end,
-        text: s.text,
-      }))
-    );
-
-    let userMessage = `Here are the transcript segments:\n${segmentsJson}`;
-    if (data.userPrompt?.trim()) {
-      userMessage += `\n\nUser notes about the video style and focus:\n${data.userPrompt.trim()}`;
-    }
-
-    const tsxStart = Date.now();
-    const result = await llmEngine.generate({
-      prompt: userMessage,
-      systemPrompt,
-      maxTokens: 8192,
-      temperature: 0.7,
-      sessionScope: `tsx-analyze:${tsxStart}`,
-    });
-
-    // Log usage (fire-and-forget)
-    aiUsageService.appendEntry({
-      timestamp: new Date().toISOString(),
-      provider: result.provider || 'unknown',
-      model: result.model || 'unknown',
-      featureSource: 'tsx-analysis',
-      inputTokens: result.usage?.inputTokens ?? 0,
-      outputTokens: result.usage?.outputTokens ?? 0,
-      cacheReadInputTokens: result.usage?.cacheReadInputTokens ?? 0,
-      costUsd: result.usage?.costUsd ?? 0,
-      durationMs: Date.now() - tsxStart,
-      requestType: 'llm',
-    }).catch(() => {});
-
-    log.debug('TSX analysis response received', { responseLength: result.text.length });
-
-    const suggestions = parseTsxSuggestions(result.text, data.videoDurationSeconds);
-
-    if (suggestions.length === 0) {
-      return {
-        success: true,
-        suggestions: [],
-        error: 'No suggestions generated. Try adding a description of your video.',
-      };
-    }
-
-    return { success: true, suggestions };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : 'TSX analysis failed';
-    return { success: false, error };
   }
 }

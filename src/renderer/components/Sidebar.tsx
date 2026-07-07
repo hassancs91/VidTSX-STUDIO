@@ -1,16 +1,12 @@
 import type { ReactNode } from "react";
 import {
-  Home,
   Wand2,
-  MonitorPlay,
   Images,
   Film,
   FolderOpen,
   Mic,
   Wrench,
   ListVideo,
-  FlaskConical,
-  PenTool,
   Workflow,
   Settings,
 } from "lucide-react";
@@ -34,19 +30,15 @@ const ICON_STROKE = 1.5;
 
 const navItems: NavItem[] = [
   // Primary workflow — TSX → Image → Video
-  { id: "home", label: "Home", icon: <Home size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-  { id: "studio", label: "Studio", icon: <MonitorPlay size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+  { id: "creator", label: "TSX", icon: <Wand2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "flows", label: "Flows", icon: <Workflow size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "image-studio", label: "Images", icon: <Images size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "transcribe", label: "Transcribe", icon: <Mic size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   // Secondary
-  { id: "creator", label: "TSX", icon: <Wand2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-  { id: "whiteboard", label: "Scribe", icon: <PenTool size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "video-studio", label: "Videos", icon: <Film size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "assets", label: "Assets", icon: <FolderOpen size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "tools", label: "Tools", icon: <Wrench size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "render", label: "Queue", icon: <ListVideo size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
-  { id: "prototyper", label: "Proto", icon: <FlaskConical size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
 ];
 
 const settingsItem: NavItem = {

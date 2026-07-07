@@ -10,8 +10,6 @@ import { settingsApi } from './api/settings';
 import { whisperApi } from './api/whisper';
 import { llmApi } from './api/llm';
 import { skillsApi } from './api/skills';
-import { studioApi } from './api/studio';
-import { whiteboardApi } from './api/whiteboard';
 import { flowsApi } from './api/flows';
 import { imageStudioApi } from './api/image-studio';
 import { thumbnailApi } from './api/thumbnail';
@@ -25,7 +23,6 @@ import { downloadApi } from './api/download';
 import { embeddingApi } from './api/embedding';
 import { moderationApi } from './api/moderation';
 import { aiUsageApi } from './api/ai-usage';
-import { homepageApi } from './api/homepage';
 import { videoStudioApi } from './api/video-studio';
 import { providerKeysApi } from './api/provider-keys';
 import { videoApi } from './api/video';
@@ -43,8 +40,6 @@ const api = {
   ...whisperApi,
   ...llmApi,
   ...skillsApi,
-  ...studioApi,
-  ...whiteboardApi,
   ...flowsApi,
   ...imageStudioApi,
   ...thumbnailApi,
@@ -58,7 +53,6 @@ const api = {
   ...embeddingApi,
   ...moderationApi,
   ...aiUsageApi,
-  ...homepageApi,
   ...videoStudioApi,
   ...providerKeysApi,
   ...videoApi,

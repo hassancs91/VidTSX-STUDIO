@@ -99,34 +99,3 @@ export interface ScreenshotSaveToPathResponse {
   filePath?: string;
   error?: string;
 }
-
-// ─── Screenshot: capture HTML ───
-export interface ScreenshotCaptureHtmlRequest {
-  html: string;
-  width: number;
-  height: number;
-  filePath: string;
-}
-export interface ScreenshotCaptureHtmlResponse {
-  success: boolean;
-  filePath?: string;
-  error?: string;
-}
-
-// ─── Prototyper recording ───
-// Prototyper recording
-export interface PrototyperRecordStartRequest {
-  html: string;
-  width: number;
-  height: number;
-  filePath: string;
-}
-export interface PrototyperRecordStartResponse {
-  success: boolean;
-  error?: string;
-}
-export interface PrototyperRecordStopResponse {
-  success: boolean;
-  filePath?: string;
-  error?: string;
-}

@@ -12,11 +12,6 @@ import type {
   DialogOpenResponse,
   DialogSaveRequest,
   DialogSaveResponse,
-  PrototyperRecordStartRequest,
-  PrototyperRecordStartResponse,
-  PrototyperRecordStopResponse,
-  ScreenshotCaptureHtmlRequest,
-  ScreenshotCaptureHtmlResponse,
   ScreenshotCopyRequest,
   ScreenshotCopyResponse,
   ScreenshotSaveRequest,
@@ -60,13 +55,4 @@ export const appShellApi = {
     ipcRenderer.invoke(IPC.SCREENSHOT_SAVE, data),
   screenshotSaveToPath: (data: ScreenshotSaveToPathRequest): Promise<ScreenshotSaveToPathResponse> =>
     ipcRenderer.invoke(IPC.SCREENSHOT_SAVE_TO_PATH, data),
-  screenshotCaptureHtml: (data: ScreenshotCaptureHtmlRequest): Promise<ScreenshotCaptureHtmlResponse> =>
-    ipcRenderer.invoke(IPC.SCREENSHOT_CAPTURE_HTML, data),
-
-  // ─── Prototyper operations ───
-  // Prototyper operations
-  prototyperRecordStart: (data: PrototyperRecordStartRequest): Promise<PrototyperRecordStartResponse> =>
-    ipcRenderer.invoke(IPC.PROTOTYPER_RECORD_START, data),
-  prototyperRecordStop: (): Promise<PrototyperRecordStopResponse> =>
-    ipcRenderer.invoke(IPC.PROTOTYPER_RECORD_STOP),
 };

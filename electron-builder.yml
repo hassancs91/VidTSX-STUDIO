@@ -37,13 +37,6 @@ extraResources:
     to: icon.ico
   - from: resources/icon.png
     to: icon.png
-  # Whiteboard Studio bundled handwriting fonts (Phase 11.b). Served by the
-  # `vidtsx-font://` custom protocol; consumed by opentype.js for glyph extraction.
-  - from: resources/fonts
-    to: fonts
-    filter:
-      - "**/*.ttf"
-      - "LICENSE.txt"
 asar: true
 asarUnpack:
   # better-sqlite3 native binding (.node) must be outside ASAR so V8 can load it.

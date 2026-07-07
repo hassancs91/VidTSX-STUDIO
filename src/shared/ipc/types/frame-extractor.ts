@@ -1,4 +1,23 @@
 // ─── Tools: Frame Extractor types ───
+export interface VideoProbeRequest {
+  filePath: string;
+}
+
+export interface VideoProbeMetadata {
+  filePath: string;
+  fileName: string;
+  durationInSeconds: number;
+  fps: number;
+  width: number;
+  height: number;
+}
+
+export interface VideoProbeResponse {
+  success: boolean;
+  metadata?: VideoProbeMetadata;
+  error?: string;
+}
+
 export type FrameExtractionPreset = 'custom' | 'first-frame' | 'last-frame' | 'every-x-seconds';
 
 export interface FrameExtractRequest {

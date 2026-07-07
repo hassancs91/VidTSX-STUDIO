@@ -1,7 +1,6 @@
 import { clipboard, nativeImage, dialog, BrowserWindow } from 'electron';
 import { writeFile } from 'fs/promises';
 import path from 'path';
-import { loadHtmlInWindow, cleanupTempFile } from '../services/html-loader';
 import type {
   ScreenshotCopyRequest,
   ScreenshotCopyResponse,
@@ -9,8 +8,6 @@ import type {
   ScreenshotSaveResponse,
   ScreenshotSaveToPathRequest,
   ScreenshotSaveToPathResponse,
-  ScreenshotCaptureHtmlRequest,
-  ScreenshotCaptureHtmlResponse,
 } from '../../shared/ipc/types';
 
 export async function handleScreenshotCopy(
@@ -103,46 +100,5 @@ export async function handleScreenshotSaveToPath(
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to save screenshot';
     return { success: false, error };
-  }
-}
-
-export async function handleScreenshotCaptureHtml(
-  _event: Electron.IpcMainInvokeEvent,
-  data: ScreenshotCaptureHtmlRequest
-): Promise<ScreenshotCaptureHtmlResponse> {
-  let win: BrowserWindow | null = null;
-  let tempFile: string | null = null;
-
-  try {
-    win = new BrowserWindow({
-      width: data.width,
-      height: data.height,
-      show: false,
-      webPreferences: {
-        offscreen: true,
-      },
-    });
-
-    tempFile = await loadHtmlInWindow(win, data.html);
-
-    const image = await win.webContents.capturePage();
-    if (image.isEmpty()) {
-      return { success: false, error: 'Captured empty image' };
-    }
-
-    const buffer = image.toPNG();
-    await writeFile(data.filePath, buffer);
-
-    return { success: true, filePath: data.filePath };
-  } catch (err) {
-    const error = err instanceof Error ? err.message : 'Failed to capture HTML';
-    return { success: false, error };
-  } finally {
-    if (win) {
-      win.destroy();
-    }
-    if (tempFile) {
-      await cleanupTempFile(tempFile);
-    }
   }
 }

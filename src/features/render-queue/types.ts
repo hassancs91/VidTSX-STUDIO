@@ -13,9 +13,6 @@ export interface AddJobOptions {
   fileName: string;
   bundleUrl?: string;
   compositionId: string;
-  // 'studio' jobs carry studioInput and dispatch via studioRenderStart.
-  kind?: 'tsx' | 'studio';
-  studioInput?: import('@shared/ipc/types').StudioRenderInput;
   codec: import('@shared/ipc/types').RenderCodec;
   width: number;
   height: number;

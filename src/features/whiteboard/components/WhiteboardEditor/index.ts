@@ -1,1 +1,0 @@
-export { WhiteboardEditor } from './WhiteboardEditor';
