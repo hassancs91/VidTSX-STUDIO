@@ -1,11 +1,8 @@
 import { contextBridge } from 'electron';
 import { appShellApi } from './api/app-shell';
-import { creatorApi } from './api/creator';
 import { fileApi } from './api/file';
 import { bundleApi } from './api/bundle';
 import { renderApi } from './api/render';
-import { licenseApi } from './api/license';
-import { updaterApi } from './api/updater';
 import { settingsApi } from './api/settings';
 import { whisperApi } from './api/whisper';
 import { llmApi } from './api/llm';
@@ -30,12 +27,9 @@ import { sttApi } from './api/stt';
 
 const api = {
   ...appShellApi,
-  ...creatorApi,
   ...fileApi,
   ...bundleApi,
   ...renderApi,
-  ...licenseApi,
-  ...updaterApi,
   ...settingsApi,
   ...whisperApi,
   ...llmApi,

@@ -1,16 +1,6 @@
 import { defineConfig } from 'electron-vite'
 import tailwindcss from '@tailwindcss/vite'
-import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { resolve } from 'path'
-
-const sentryPluginConfig = () =>
-  process.env.SENTRY_AUTH_TOKEN
-    ? sentryVitePlugin({
-        org: process.env.SENTRY_ORG,
-        project: process.env.SENTRY_PROJECT,
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-      })
-    : null
 
 export default defineConfig({
   main: {
@@ -34,7 +24,6 @@ export default defineConfig({
         },
       },
     },
-    plugins: [sentryPluginConfig()].filter(Boolean),
     resolve: {
       alias: {
         '@shared': resolve('src/shared'),
@@ -72,7 +61,7 @@ export default defineConfig({
     esbuild: {
       jsx: 'automatic'
     },
-    plugins: [tailwindcss(), sentryPluginConfig()].filter(Boolean),
+    plugins: [tailwindcss()],
     resolve: {
       alias: {
         '@shared': resolve('src/shared'),

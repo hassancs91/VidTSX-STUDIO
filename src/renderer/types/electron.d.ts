@@ -155,15 +155,8 @@ export interface ElectronAPI {
   onRenderEncoderResolved: (callback: (data: RenderEncoderResolvedEvent) => void) => () => void;
 
   // App shell
+  appGetInfo: () => Promise<import('../../shared/ipc/types').AppGetInfoResponse>;
   appOpenExternal: (data: import('../../shared/ipc/types').AppOpenExternalRequest) => Promise<import('../../shared/ipc/types').AppOpenExternalResponse>;
-
-  // License operations
-  licenseActivate: (data: import('../../shared/ipc/types').LicenseActivateRequest) => Promise<import('../../shared/ipc/types').LicenseActivateResponse>;
-  licenseCheck: () => Promise<import('../../shared/ipc/types').LicenseCheckResponse>;
-  licenseDeactivate: () => Promise<import('../../shared/ipc/types').LicenseDeactivateResponse>;
-  licenseGetStatus: () => Promise<import('../../shared/ipc/types').LicenseGetStatusResponse>;
-  licenseWhoami: () => Promise<import('../../shared/ipc/types').LicenseWhoamiResponse>;
-  onLicenseStatusChanged: (callback: (data: import('../../shared/ipc/types').LicenseStatusChangedEvent) => void) => () => void;
 
   // Shared provider API keys (BYOK)
   providerKeysGet: () => Promise<import('../../shared/ipc/types').ProviderKeysGetResponse>;
@@ -190,21 +183,6 @@ export interface ElectronAPI {
   videoStudioFolderRename: (data: import('../../shared/ipc/types').VideoStudioFolderRenameRequest) => Promise<import('../../shared/ipc/types').VideoStudioFolderRenameResponse>;
   videoStudioFolderDelete: (data: import('../../shared/ipc/types').VideoStudioFolderDeleteRequest) => Promise<import('../../shared/ipc/types').VideoStudioFolderDeleteResponse>;
   videoStudioMoveToFolder: (data: import('../../shared/ipc/types').VideoStudioMoveToFolderRequest) => Promise<import('../../shared/ipc/types').VideoStudioMoveToFolderResponse>;
-
-  // Updater operations
-  updaterCheck: () => Promise<import('../../shared/ipc/types').UpdaterSimpleResponse>;
-  updaterDownload: () => Promise<import('../../shared/ipc/types').UpdaterSimpleResponse>;
-  updaterInstall: () => Promise<import('../../shared/ipc/types').UpdaterSimpleResponse>;
-  updaterGetCurrentVersion: () => Promise<import('../../shared/ipc/types').UpdaterGetCurrentVersionResponse>;
-  onUpdaterUpdateAvailable: (callback: (data: import('../../shared/ipc/types').UpdaterUpdateAvailableEvent) => void) => () => void;
-  onUpdaterUpToDate: (callback: (data: import('../../shared/ipc/types').UpdaterUpToDateEvent) => void) => () => void;
-  onUpdaterDownloadProgress: (callback: (data: import('../../shared/ipc/types').UpdaterDownloadProgressEvent) => void) => () => void;
-  onUpdaterUpdateDownloaded: (callback: (data: import('../../shared/ipc/types').UpdaterUpdateDownloadedEvent) => void) => () => void;
-  onUpdaterError: (callback: (data: import('../../shared/ipc/types').UpdaterErrorEvent) => void) => () => void;
-
-  // API operations
-  apiVerify: (data: unknown) => Promise<unknown>;
-  apiSetKey: (data: unknown) => Promise<unknown>;
 
   // Settings operations
   settingsGet: () => Promise<SettingsGetResponse>;
@@ -365,12 +343,6 @@ export interface ElectronAPI {
   // App env
   appGetIsDev: () => Promise<import('../../shared/ipc/types').AppGetIsDevResponse>;
 
-  // Creator (dev-only) template push
-  creatorPushTemplate: (data: import('../../shared/ipc/types').CreatorPushTemplateRequest) => Promise<import('../../shared/ipc/types').CreatorPushTemplateResponse>;
-  creatorGenerateThumbnail: (data: import('../../shared/ipc/types').CreatorGenerateThumbnailRequest) => Promise<import('../../shared/ipc/types').CreatorGenerateThumbnailResponse>;
-  creatorLoadPushDraft: (data: import('../../shared/ipc/types').CreatorLoadDraftRequest) => Promise<import('../../shared/ipc/types').CreatorLoadDraftResponse>;
-  creatorSavePushDraft: (data: import('../../shared/ipc/types').CreatorSaveDraftRequest) => Promise<import('../../shared/ipc/types').CreatorSaveDraftResponse>;
-  creatorArchiveTsx: (data: import('../../shared/ipc/types').CreatorArchiveTsxRequest) => Promise<import('../../shared/ipc/types').CreatorArchiveTsxResponse>;
 }
 
 declare global {

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import type { WebviewTag, IpcMessageEvent } from 'electron';
 import type { CompositionConfig } from '../hooks/useComponentLoader';
 import { createRendererLogger } from '../../../renderer/utils/logger';
 
@@ -189,7 +190,7 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
   } | null>(null);
 
   // Refs
-  const webviewRef = useRef<Electron.WebviewTag | null>(null);
+  const webviewRef = useRef<WebviewTag | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const speedMenuRef = useRef<HTMLDivElement>(null);
@@ -304,7 +305,7 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
     container.innerHTML = '';
 
     // Create webview element imperatively
-    const webview = document.createElement('webview') as unknown as Electron.WebviewTag;
+    const webview = document.createElement('webview') as unknown as WebviewTag;
     webview.setAttribute('src', `${serverUrl}/preview`);
     webview.setAttribute('preload', preloadPath);
     webview.setAttribute('webpreferences', 'contextIsolation=yes, nodeIntegration=no, webSecurity=no');
@@ -314,7 +315,7 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
 
     webviewRef.current = webview;
 
-    const onIpcMessage = (event: Electron.IpcMessageEvent) => {
+    const onIpcMessage = (event: IpcMessageEvent) => {
       if (event.channel === 'preview-message') {
         handleIpcMessage(event.args[0] as Record<string, unknown>);
       }

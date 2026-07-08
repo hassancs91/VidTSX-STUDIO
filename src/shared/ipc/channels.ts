@@ -4,15 +4,6 @@ export const IPC = {
   APP_OPEN_EXTERNAL: 'app:open-external',
   APP_GET_IS_DEV: 'app:get-is-dev',
 
-  // Creator (dev-only) template push
-  CREATOR_PUSH_TEMPLATE: 'creator:push-template',
-  CREATOR_GENERATE_THUMBNAIL: 'creator:generate-thumbnail',
-  CREATOR_LOAD_PUSH_DRAFT: 'creator:load-push-draft',
-  CREATOR_SAVE_PUSH_DRAFT: 'creator:save-push-draft',
-
-  // Creator TSX archive (fires on render, silent-failure)
-  CREATOR_ARCHIVE_TSX: 'creator:archive-tsx',
-
   // File operations
   FILE_READ: 'file:read',
   FILE_WRITE: 'file:write',
@@ -68,14 +59,6 @@ export const IPC = {
   RENDER_HISTORY_LOAD: 'render:history:load',
   RENDER_HISTORY_APPEND: 'render:history:append',
 
-  // License operations
-  LICENSE_ACTIVATE: 'license:activate',
-  LICENSE_CHECK: 'license:check',
-  LICENSE_DEACTIVATE: 'license:deactivate',
-  LICENSE_GET_STATUS: 'license:get-status',
-  LICENSE_STATUS_CHANGED: 'license:status-changed',
-  LICENSE_WHOAMI: 'license:whoami',
-
   // Shared provider API keys (BYOK: fal / openrouter / assemblyai)
   PROVIDER_KEYS_GET: 'provider-keys:get',
   PROVIDER_KEYS_SAVE: 'provider-keys:save',
@@ -101,21 +84,6 @@ export const IPC = {
   VIDEO_STUDIO_FOLDER_RENAME: 'video-studio:folder:rename',
   VIDEO_STUDIO_FOLDER_DELETE: 'video-studio:folder:delete',
   VIDEO_STUDIO_MOVE_TO_FOLDER: 'video-studio:move-to-folder',
-
-  // Updater operations
-  UPDATER_CHECK: 'updater:check',
-  UPDATER_DOWNLOAD: 'updater:download',
-  UPDATER_INSTALL: 'updater:install',
-  UPDATER_GET_CURRENT_VERSION: 'updater:get-current-version',
-  UPDATER_UPDATE_AVAILABLE: 'updater:update-available',
-  UPDATER_UP_TO_DATE: 'updater:up-to-date',
-  UPDATER_DOWNLOAD_PROGRESS: 'updater:download-progress',
-  UPDATER_UPDATE_DOWNLOADED: 'updater:update-downloaded',
-  UPDATER_ERROR: 'updater:error',
-
-  // API operations
-  API_VERIFY: 'api:verify',
-  API_SET_KEY: 'api:set-key',
 
   // Settings operations
   SETTINGS_GET: 'settings:get',

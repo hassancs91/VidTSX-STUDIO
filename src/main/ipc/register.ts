@@ -1,6 +1,5 @@
 import { registerModuleHandlers } from './module-handlers';
 import { registerAppShellIpc } from './registrations/app-shell';
-import { registerCreatorIpc } from './registrations/creator';
 import { registerFileIpc } from './registrations/file';
 import { registerBundleIpc } from './registrations/bundle';
 import { registerRenderIpc } from './registrations/render';
@@ -24,21 +23,14 @@ import { registerProviderKeysIpc } from './registrations/provider-keys';
 import { registerVideoIpc } from './registrations/video';
 import { registerSttIpc } from './registrations/stt';
 import { registerVideoStudioIpc } from './registrations/video-studio';
-import { setupLicenseIPC } from '../../license/license-manager';
-import { setupAutoUpdaterIPC } from '../../updater/auto-updater';
 import { logEngine } from '../../logging/log-engine';
 
 export function registerAllIPC(): void {
   // Module operations (native player) — registers its own handlers.
   registerModuleHandlers();
 
-  // License + auto-updater own their IPC plumbing.
-  setupLicenseIPC();
-  setupAutoUpdaterIPC();
-
   // Per-feature handler registration.
   registerAppShellIpc();
-  registerCreatorIpc();
   registerFileIpc();
   registerBundleIpc();
   registerRenderIpc();

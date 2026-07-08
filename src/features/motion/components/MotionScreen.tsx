@@ -320,7 +320,6 @@ export function MotionScreen() {
           onSaveNewVersion={handleSaveNewVersion}
           saving={projectManager.loading}
           saveMessage={saveMessage}
-          generatorPrompt={generator.prompt}
         />
         {/* Library panel with resize handle + collapse */}
         <div className="flex shrink-0" style={{ width: libraryCollapsed ? 24 : libraryWidth, borderLeft: '0.5px solid var(--color-border)' }}>

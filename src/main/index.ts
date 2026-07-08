@@ -1,19 +1,14 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
-import { loadDevEnv } from './utils/load-dev-env';
 import { registerAllIPC } from './ipc/register';
 import { ensureProjectsDir } from './utils/paths';
-
-// Must run before any service that reads unprefixed env vars (e.g. template-pusher
-// reads VIDTSX_DRAFT_API_KEY). No-op in packaged builds.
-loadDevEnv();
 import { initLLMEngine } from './services/llm-init';
 import { initImageEngine } from './services/image-init';
 import { initAudioEngine } from './services/audio-init';
 import { initSttEngine } from './services/stt/stt-init';
 import { initSdImageEngine } from './services/sdimage-init';
 import { initLocalLlmEngine } from './services/llm-local-init';
-import { initSentry, initLogging } from './services/log-init';
+import { initLogging } from './services/log-init';
 import { migrateImageStudio } from './services/image-studio-migrate';
 import { closeDb as closeImageStudioDb } from './services/image-studio-db';
 import { migrateVideoStudio } from './services/video-studio-migrate';
@@ -22,7 +17,6 @@ import { migrateTranscriptionProjects } from './services/transcription-projects-
 import { closeDb as closeTranscriptionDb } from './services/transcription-projects-db';
 import { migrateRenderQueue } from './services/render-queue-migrate';
 import { closeDb as closeRenderQueueDb } from './services/render-queue-db';
-import { closeDb as closeCreatorDb } from './services/creator-db';
 import { migrateSettings, migrateProviderSettings } from './services/settings-migrate';
 import { closeDb as closeSettingsDb } from './services/settings-db';
 import { migrateAiUsage } from './services/ai-usage-migrate';
@@ -33,7 +27,6 @@ import { migrateDownloads } from './services/download-manager/download-state-mig
 import { closeDb as closeDownloadsDb } from './services/download-manager/download-state-db';
 import { initSystemMonitor, stopSystemMonitor } from './services/system-monitor';
 import { initDownloadEngine, restoreDownloads, pauseAllDownloads, flushState } from './services/download-manager';
-import { startUpdateScheduler, stopUpdateScheduler } from '../updater/auto-updater';
 import { logEngine } from '../logging/log-engine';
 
 // Enable hardware acceleration for better rendering performance
@@ -55,9 +48,6 @@ if (!gotSingleInstanceLock) {
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.learnwithhasan.vidtsx-studio');
 }
-
-// Sentry must init before app 'ready' event
-initSentry();
 
 Menu.setApplicationMenu(null);
 
@@ -190,15 +180,8 @@ app.whenReady().then(async () => {
     applicationName: 'VidTSX Studio',
     applicationVersion: app.getVersion(),
     copyright: 'Copyright (C) 2026 LearnWithHasan',
-    website: 'https://learnwithhasan.com/vidtsx',
     iconPath: path.join(process.resourcesPath, 'icon.ico'),
   });
-
-  // License system is dormant — the app is free (BYOK). setupLicenseIPC stays
-  // registered in register.ts so the shell remains functional if revived.
-
-  // Schedule auto-update checks (no-op in dev / when packaged binary unavailable)
-  startUpdateScheduler(win);
 
   // Start system resource monitor (always-on, sends push events every 2s)
   initSystemMonitor(win);
@@ -206,7 +189,6 @@ app.whenReady().then(async () => {
 
 app.on('will-quit', async () => {
   stopSystemMonitor();
-  stopUpdateScheduler();
 
   // Flush AI usage log
   const { aiUsageService } = await import('./services/ai-usage');
@@ -233,7 +215,6 @@ app.on('will-quit', async () => {
   closeVideoStudioDb();
   closeTranscriptionDb();
   closeRenderQueueDb();
-  closeCreatorDb();
   closeSettingsDb();
   closeAiUsageDb();
   closeFlowsProjectsDb();

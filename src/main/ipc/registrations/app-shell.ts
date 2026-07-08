@@ -2,11 +2,9 @@ import { ipcMain } from 'electron';
 import { IPC } from '@shared/ipc/channels';
 import {
   handleAppGetInfo,
+  handleAppGetIsDev,
   handleAppOpenExternal,
 } from '../app-handlers';
-import {
-  handleAppGetIsDev,
-} from '../creator-handlers';
 import {
   handleContextMenuShow,
 } from '../menu-handlers';

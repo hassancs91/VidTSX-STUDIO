@@ -4,6 +4,6 @@
     "skipLibCheck": true,
     "composite": false,
     "noEmit": true,
-    "types": []
+    "types": ["node"]
   }
 }

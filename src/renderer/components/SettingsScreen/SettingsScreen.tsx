@@ -33,10 +33,6 @@ export function SettingsScreen() {
     clearError: clearWhisperError,
   } = useWhisper();
 
-  const handleOpenLink = async (url: string) => {
-    await window.api.appOpenExternal({ url });
-  };
-
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
@@ -90,7 +86,6 @@ export function SettingsScreen() {
               setRenderDefaultCpuUsage={setRenderDefaultCpuUsage}
               setRenderDefaultGpuBackend={setRenderDefaultGpuBackend}
               setRenderDefaultHardwareAcceleration={setRenderDefaultHardwareAcceleration}
-              handleOpenLink={handleOpenLink}
             />
           )}
           {activeTab === 'providers' && <ProvidersTab />}

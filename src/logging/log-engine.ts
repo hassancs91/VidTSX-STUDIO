@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/electron/main';
 import type { LogLevel, LogEntry, LogConfig, ModuleLogger } from './log-types';
 import { LOG_LEVEL_PRIORITY } from './log-types';
 import { LogWriter } from './log-writer';
@@ -53,7 +52,6 @@ class LogEngine {
 
     this.writer?.append(entry);
     this.consoleOutput(entry);
-    this.sentryDispatch(entry);
   }
 
   createLogger(module: string): ModuleLogger {
@@ -107,7 +105,6 @@ class LogEngine {
 
     this.writer?.append(entry);
     this.consoleOutput(entry);
-    this.sentryDispatch(entry);
   }
 
   private consoleOutput(entry: LogEntry): void {
@@ -121,45 +118,6 @@ class LogEngine {
       console.warn(msg);
     } else {
       console.log(msg);
-    }
-  }
-
-  private sentryDispatch(entry: LogEntry): void {
-    if (!this.config?.sentryEnabled) return;
-
-    const tags = { module: entry.module, process: entry.process };
-    const extras = entry.context ?? {};
-
-    switch (entry.level) {
-      case 'warn':
-        Sentry.addBreadcrumb({
-          level: 'warning',
-          category: entry.module,
-          message: entry.message,
-          data: extras,
-        });
-        break;
-      case 'error':
-      case 'fatal': {
-        const severity = entry.level === 'fatal' ? 'fatal' : 'error';
-        if (entry.error) {
-          const err = new Error(entry.error.message);
-          err.name = entry.error.name;
-          if (entry.error.stack) err.stack = entry.error.stack;
-          Sentry.captureException(err, {
-            level: severity,
-            tags,
-            extra: extras,
-          });
-        } else {
-          Sentry.captureMessage(entry.message, {
-            level: severity,
-            tags,
-            extra: extras,
-          });
-        }
-        break;
-      }
     }
   }
 

@@ -24,8 +24,6 @@ export interface LogConfig {
   maxFileSizeMB: number;
   maxAgeDays: number;
   flushIntervalMs: number;
-  sentryDsn?: string;
-  sentryEnabled: boolean;
   environment: string;
   appVersion: string;
 }

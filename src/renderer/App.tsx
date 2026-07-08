@@ -11,10 +11,7 @@ import { VideoStudioScreen } from "@features/video-studio";
 import { AssetLibraryScreen } from "@features/asset-library";
 import { ToolsHubScreen } from "@features/tools";
 import { FlowsScreen } from "@features/flows";
-import { UpdateBanner } from "./components/UpdateBanner";
 import { ToastProvider } from "./contexts/ToastContext";
-import { LicenseProvider } from "./contexts/LicenseContext";
-import { UpdaterProvider } from "./contexts/UpdaterContext";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
 const screens: Record<string, React.ComponentType> = {
@@ -66,9 +63,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
           onScreenChange={setActiveScreen}
           renderBadgeCount={activeCount}
         />
-        <div className="flex flex-col flex-1 min-w-0">
-          <UpdateBanner />
-          <main className="flex-1 bg-app-base overflow-auto">
+        <main className="flex-1 bg-app-base overflow-auto">
           {Array.from(visitedScreens).map(screenId => {
             const Screen = screens[screenId];
             if (!Screen) return null;
@@ -82,8 +77,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
               </div>
             );
           })}
-          </main>
-        </div>
+        </main>
       </div>
       <StatusBar />
     </div>
@@ -95,18 +89,14 @@ export function App() {
 
   return (
     <ToastProvider>
-      <LicenseProvider>
-        <UpdaterProvider>
-          <RenderQueueProvider>
-            <SelectedFileProvider>
-              <AppContent
-                activeScreen={activeScreen}
-                setActiveScreen={setActiveScreen}
-              />
-            </SelectedFileProvider>
-          </RenderQueueProvider>
-        </UpdaterProvider>
-      </LicenseProvider>
+      <RenderQueueProvider>
+        <SelectedFileProvider>
+          <AppContent
+            activeScreen={activeScreen}
+            setActiveScreen={setActiveScreen}
+          />
+        </SelectedFileProvider>
+      </RenderQueueProvider>
     </ToastProvider>
   );
 }

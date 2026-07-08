@@ -85,14 +85,6 @@ export function StatusBar() {
     loadAppInfo();
   }, []);
 
-  const handleAuthorClick = async () => {
-    try {
-      await window.api.appOpenExternal({ url: 'https://learnwithhasan.com/vidtsx' });
-    } catch (error) {
-      log.error('Failed to open external link', error);
-    }
-  };
-
   const appRamMB = current ? Math.round(current.appRamBytes / 1024 / 1024) : 0;
   const ramPercent = current && current.ramTotalBytes > 0
     ? Math.round((current.ramUsedBytes / current.ramTotalBytes) * 100)
@@ -168,13 +160,12 @@ export function StatusBar() {
 
       <div className="flex-1" />
 
-      <button
-        onClick={handleAuthorClick}
-        className="text-text-muted hover:text-accent transition-colors duration-150"
-        style={{ fontSize: '10px', background: 'none', border: 'none', cursor: 'pointer' }}
+      <span
+        className="text-text-muted"
+        style={{ fontSize: '10px' }}
       >
         VidTSX
-      </button>
+      </span>
     </div>
   );
 }

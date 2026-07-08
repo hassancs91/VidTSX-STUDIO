@@ -5,13 +5,7 @@
   "main": "out/main/index.js",
   "author": {
     "name": "LearnWithHasan",
-    "email": "hassan.cs91@gmail.com",
-    "url": "https://learnwithhasan.com"
-  },
-  "homepage": "https://learnwithhasan.com/vidtsx",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/learnwithhasan/vidtsx-desktop.git"
+    "email": "hassan.cs91@gmail.com"
   },
   "license": "UNLICENSED",
   "private": true,
@@ -22,7 +16,6 @@
     "build:vendor": "node scripts/build-vendor.mjs",
     "build:win": "npm run build:vendor && electron-vite build && electron-builder --win",
     "build:mac": "npm run build:vendor && electron-vite build && electron-builder --mac",
-    "publish:win": "npm run build:vendor && electron-vite build && electron-builder --win --publish never",
     "preview": "electron-vite preview"
   },
   "devDependencies": {
@@ -32,6 +25,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/chroma-js": "2.4.5",
     "@types/express": "^5.0.0",
+    "@types/node": "22.20.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
@@ -80,14 +74,11 @@
     "@remotion/three": "^4.0.435",
     "@remotion/transitions": "4.0.435",
     "@rspack/binding-win32-x64-msvc": "^1.7.8",
-    "@sentry/electron": "7.10.0",
-    "@sentry/vite-plugin": "5.1.1",
     "@tailwindcss/oxide-win32-x64-msvc": "^4.2.1",
     "archiver": "^7.0.1",
     "better-sqlite3": "^12.9.0",
     "bufferutil": "^4.0.8",
     "core-util-is": "^1.0.3",
-    "electron-updater": "6.3.9",
     "esbuild": "0.25.0",
     "express": "4.21.0",
     "gifuct-js": "2.1.2",

@@ -1,9 +1,7 @@
 import { Button } from '@shared/components';
 import type { RenderCpuUsage, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
 import { SectionHeader } from '../SectionHeader';
-import { LicenseSection } from '../LicenseSection';
 import { AppInfoSection } from '../AppInfoSection';
-import { isFeatureEnabled } from '@shared/feature-flags';
 import { RenderTimeoutRow } from '../rows/RenderTimeoutRow';
 import { CpuUsageDefaultRow } from '../rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from '../rows/GpuBackendDefaultRow';
@@ -23,7 +21,6 @@ export function GeneralTab({
   setRenderDefaultCpuUsage,
   setRenderDefaultGpuBackend,
   setRenderDefaultHardwareAcceleration,
-  handleOpenLink,
 }: {
   outputFolder: string;
   aiModelsFolder: string;
@@ -38,7 +35,6 @@ export function GeneralTab({
   setRenderDefaultCpuUsage: (value: RenderCpuUsage) => Promise<boolean>;
   setRenderDefaultGpuBackend: (value: RenderGpuBackend) => Promise<boolean>;
   setRenderDefaultHardwareAcceleration: (value: RenderHardwareAcceleration) => Promise<boolean>;
-  handleOpenLink: (url: string) => Promise<void>;
 }) {
   const truncatePath = (p: string, maxLen = 40) => {
     if (p.length <= maxLen) return p;
@@ -49,10 +45,6 @@ export function GeneralTab({
 
   return (
     <>
-      {/* License shell is dormant (app is free / BYOK) — flip the
-          'license-ui' feature flag to resurface it. */}
-      {isFeatureEnabled('license-ui') && <LicenseSection handleOpenLink={handleOpenLink} />}
-
       <SectionHeader>Output</SectionHeader>
       <div className="bg-app-surface rounded-lg p-3 border border-border">
         <div className="flex items-center justify-between">
@@ -134,7 +126,7 @@ export function GeneralTab({
       )}
 
       <SectionHeader>About</SectionHeader>
-      <AppInfoSection handleOpenLink={handleOpenLink} />
+      <AppInfoSection />
     </>
   );
 }

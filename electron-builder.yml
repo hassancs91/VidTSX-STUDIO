@@ -4,21 +4,6 @@ copyright: "Copyright (C) 2026 LearnWithHasan. All rights reserved."
 directories:
   output: dist
   buildResources: resources
-# ============================================
-# RELEASE WORKFLOW:
-# ============================================
-# 1. Bump version in package.json
-# 2. Build: npm run build:win  (runs electron-vite build && electron-builder --win)
-# 3. Upload these files from dist/ to the R2 bucket (releases/ path):
-#      - latest.yml
-#      - VidTSX-Studio-Setup-{version}.exe
-#      - VidTSX-Studio-Setup-{version}.exe.blockmap
-# 4. Users are notified on their next update check (within 4 hours, or app restart).
-# ============================================
-publish:
-  provider: generic
-  url: https://releases.vidtsx.com/releases
-  channel: latest
 extraResources:
   - from: resources/binaries
     to: binaries
@@ -96,8 +81,6 @@ win:
     - target: nsis
       arch: [x64]
   icon: resources/icon.ico
-  # Unsigned v0.1 — updater would otherwise reject signature mismatch. Flip to true after code signing is added.
-  verifyUpdateCodeSignature: false
   extraResources:
     - from: resources/python/win-x64
       to: python

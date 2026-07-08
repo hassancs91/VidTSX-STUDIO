@@ -9,7 +9,6 @@ import type { PipelineStepLog, PipelineProgress, PipelineMode } from '@shared/ts
 import type { RenderHistoryEntry } from '@shared/ipc/types';
 import { useSmoothProgress } from '../hooks/useSmoothProgress';
 import { GifPlayer } from './GifPlayer';
-import { PushTemplateDialog } from './PushTemplateDialog';
 
 function describeRenderedEntry(entry: RenderHistoryEntry): string {
   const scale = entry.scale ?? 1;
@@ -74,7 +73,6 @@ interface MotionPreviewPanelProps {
   onSaveNewVersion: () => void;
   saving: boolean;
   saveMessage: string | null;
-  generatorPrompt?: string;
 }
 
 export function MotionPreviewPanel({
@@ -92,14 +90,11 @@ export function MotionPreviewPanel({
   onSaveNewVersion,
   saving,
   saveMessage,
-  generatorPrompt,
 }: MotionPreviewPanelProps) {
   const smoothPercent = useSmoothProgress(progress, 'edit');
   const [activeTab, setActiveTab] = useState<Tab>('preview');
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [isRenderModalOpen, setIsRenderModalOpen] = useState(false);
-  const [isPushModalOpen, setIsPushModalOpen] = useState(false);
-  const [isDev, setIsDev] = useState(false);
   const [globalsReady, setGlobalsReady] = useState(globalsInitialized);
   const { state: loaderState, loadComponent, reset: resetLoader } = useComponentLoader();
   const handleAfterSave = useCallback(() => {
@@ -169,28 +164,6 @@ export function MotionPreviewPanel({
   const handleRenderConfirm = useCallback(async (settings: RenderSettings) => {
     if (!project || loaderState.status !== 'success' || !loaderState.config) return;
 
-    // Fire-and-forget archive. Runs in parallel with addJob; failures are silent
-    // (main-side logs to Sentry) and must never affect the render pipeline.
-    const compConfig = loaderState.config;
-    const videoDurationSeconds = compConfig && compConfig.fps > 0
-      ? compConfig.durationInFrames / compConfig.fps
-      : undefined;
-    const archivePayload = {
-      tsxFilePath: project.currentVersion,
-      prompt: generatorPrompt?.trim() || savedDebug?.prompt?.trim() || 'imported',
-      modelName: output?.model ?? savedDebug?.model ?? 'unknown',
-      totalTokens: output?.usage?.totalTokens ?? savedDebug?.usage?.totalTokens ?? 0,
-      inputTokens: output?.usage?.inputTokens ?? savedDebug?.usage?.inputTokens ?? 0,
-      outputTokens: output?.usage?.outputTokens ?? savedDebug?.usage?.outputTokens ?? 0,
-      generationTimeMs: output?.durationMs ?? savedDebug?.durationMs ?? 0,
-      projectName: project.name,
-      videoDurationSeconds,
-    };
-    console.log('[CreatorArchive] firing IPC', archivePayload);
-    window.api.creatorArchiveTsx(archivePayload)
-      .then((res) => console.log('[CreatorArchive] IPC returned', res))
-      .catch((err) => console.log('[CreatorArchive] IPC rejected', err));
-
     try {
       await addJob({
         filePath: project.currentVersion,
@@ -215,7 +188,7 @@ export function MotionPreviewPanel({
       const message = err instanceof Error ? err.message : 'Failed to add to render queue';
       showToast(message, 'error');
     }
-  }, [project, loaderState, addJob, showToast, generatorPrompt, output, savedDebug]);
+  }, [project, loaderState, addJob, showToast]);
 
   // Initialize virtual module globals for Remotion player
   useEffect(() => {
@@ -226,33 +199,6 @@ export function MotionPreviewPanel({
       });
     }
   }, []);
-
-  // Detect dev mode once
-  useEffect(() => {
-    let cancelled = false;
-    window.api.appGetIsDev().then((res) => {
-      if (!cancelled) setIsDev(res.isDev);
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
-  const pushMp4Path = selectedRenderedJob?.outputPath ?? renderedJobs[0]?.outputPath ?? null;
-  const canPush = pushMp4Path !== null;
-
-  // Has this TSX already been pushed? Reload on version change or after the dialog closes
-  // (so a fresh push shows the pill immediately).
-  const [pushedAt, setPushedAt] = useState<string | null>(null);
-  useEffect(() => {
-    if (!isDev || !project?.currentVersion) {
-      setPushedAt(null);
-      return;
-    }
-    let cancelled = false;
-    window.api.creatorLoadPushDraft({ tsxFilePath: project.currentVersion }).then((res) => {
-      if (!cancelled) setPushedAt(res.draft?.pushedAt ?? null);
-    }).catch(() => { if (!cancelled) setPushedAt(null); });
-    return () => { cancelled = true; };
-  }, [isDev, project?.currentVersion, isPushModalOpen]);
 
   // Reset player when generation starts to show skeleton loader
   useEffect(() => {
@@ -312,35 +258,6 @@ export function MotionPreviewPanel({
             <span className="text-[10px] text-text-dim">
               {output.model} — {output.durationMs}ms
             </span>
-          )}
-          {isDev && canRender && pushedAt && (
-            <span
-              className="text-[10px] px-[6px] py-[2px] rounded-[4px]"
-              style={{
-                backgroundColor: 'rgba(34,197,94,0.15)',
-                color: 'rgb(34,197,94)',
-              }}
-              title={`Pushed on ${new Date(pushedAt).toLocaleString()}`}
-            >
-              ✓ Pushed
-            </span>
-          )}
-          {isDev && canRender && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setIsPushModalOpen(true)}
-              disabled={!canPush}
-              title={
-                !canPush
-                  ? 'Render the TSX first to enable push'
-                  : pushedAt
-                    ? 'Re-push this TSX (already in library)'
-                    : 'Push this TSX to your online library'
-              }
-            >
-              {pushedAt ? 'Re-push' : 'Push'}
-            </Button>
           )}
           {canRender && (
             <Button variant="primary" size="sm" onClick={() => setIsRenderModalOpen(true)}>
@@ -702,17 +619,6 @@ export function MotionPreviewPanel({
           </div>
         )}
       </div>
-
-      {/* Push template modal (dev-only) */}
-      {isDev && (
-        <PushTemplateDialog
-          isOpen={isPushModalOpen}
-          onClose={() => setIsPushModalOpen(false)}
-          tsxFilePath={project?.currentVersion ?? null}
-          mp4Path={pushMp4Path}
-          composition={loaderState.config}
-        />
-      )}
 
       {/* Render settings modal */}
       {canRender && loaderState.config && (

@@ -1,11 +1,15 @@
 import { app, shell } from 'electron';
-import type { AppGetInfoResponse, AppOpenExternalRequest, AppOpenExternalResponse } from '../../shared/ipc/types';
+import type { AppGetInfoResponse, AppGetIsDevResponse, AppOpenExternalRequest, AppOpenExternalResponse } from '../../shared/ipc/types';
 
 export async function handleAppGetInfo(): Promise<AppGetInfoResponse> {
   return {
     version: app.getVersion(),
     name: app.getName(),
   };
+}
+
+export async function handleAppGetIsDev(): Promise<AppGetIsDevResponse> {
+  return { isDev: !app.isPackaged };
 }
 
 export async function handleAppOpenExternal(
