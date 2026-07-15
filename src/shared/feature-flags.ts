@@ -12,6 +12,9 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   'video-studio': false,
   tools: false,
   'audio-engine': false,
+  // Local AI model management screen — dev-visible; off in prod until the sd-cli
+  // bundling story lands.
+  'ai-models': false,
   // License UI kept dormant — the app is free (BYOK). The license shell stays
   // compiled for possible future reuse; flip this to resurface the section.
   'license-ui': false,

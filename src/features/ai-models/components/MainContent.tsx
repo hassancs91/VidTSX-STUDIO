@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, ProgressBar } from '@shared/components';
 import { useSystemInfo } from '../hooks/use-system-info';
 import type { PyTorchDownloadState } from '../hooks/use-system-info';
+
+interface LibraryTotals {
+  imageCount: number;
+  imageBytes: number;
+}
 
 // ─── Icons ────────────────────────────────────────────────────────
 
@@ -187,6 +192,26 @@ export function MainContent() {
     pytorchCancel,
   } = useSystemInfo();
   const [refreshing, setRefreshing] = useState(false);
+  const [library, setLibrary] = useState<LibraryTotals | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.api
+      .modelsScan({ category: 'image' })
+      .then((r) => {
+        if (cancelled) return;
+        setLibrary({
+          imageCount: r.installed.length,
+          imageBytes: r.installed.reduce((sum, m) => sum + m.sizeBytes, 0),
+        });
+      })
+      .catch(() => {
+        /* library totals are best-effort */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (loading || !data) {
     return (
@@ -267,6 +292,22 @@ export function MainContent() {
           value={`${diskFreeGB} GB free`}
           ok={diskFreeGB >= 10}
         />
+      </div>
+
+      {/* ── Library ────────────────────────────────────── */}
+      <SectionHeader>Library</SectionHeader>
+      <div className="bg-app-surface rounded-lg p-3 border border-border">
+        <div className="flex items-center justify-between py-1">
+          <span className="text-[12px] text-text-secondary">Image models</span>
+          <span className="text-[12px] text-text-primary font-mono">
+            {library
+              ? `${library.imageCount} model${library.imageCount === 1 ? '' : 's'} · ${formatBytes(library.imageBytes)}`
+              : '—'}
+          </span>
+        </div>
+        <div className="text-[10px] text-text-dim mt-1">
+          Manage models in the Image tab. Audio / LLM / Embedding totals arrive when those libraries move onto the shared core.
+        </div>
       </div>
 
       {/* ── Engines ────────────────────────────────────── */}

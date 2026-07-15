@@ -1,4 +1,5 @@
 export { AiModelsTab } from './components/AiModelsTab';
+export { AiModelsScreen } from './components/AiModelsScreen';
 export { AudioModelsContent } from './components/AudioModelsContent';
 export { ImageModelsContent } from './components/ImageModelsContent';
 export { LlmModelsContent } from './components/LlmModelsContent';

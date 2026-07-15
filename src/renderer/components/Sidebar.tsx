@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Mic,
   Wrench,
+  Boxes,
   ListVideo,
   Workflow,
   Settings,
@@ -38,6 +39,7 @@ const navItems: NavItem[] = [
   { id: "video-studio", label: "Videos", icon: <Film size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "assets", label: "Assets", icon: <FolderOpen size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "tools", label: "Tools", icon: <Wrench size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+  { id: "ai-models", label: "AI", icon: <Boxes size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "render", label: "Queue", icon: <ListVideo size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
 ];
 

@@ -74,14 +74,12 @@ export function SettingsScreen() {
           {activeTab === 'general' && (
             <GeneralTab
               outputFolder={outputFolder}
-              aiModelsFolder={aiModelsFolder}
               renderTimeoutSeconds={renderTimeoutSeconds}
               renderDefaultCpuUsage={renderDefaultCpuUsage}
               renderDefaultGpuBackend={renderDefaultGpuBackend}
               renderDefaultHardwareAcceleration={renderDefaultHardwareAcceleration}
               settingsLoading={settingsLoading}
               browseOutputFolder={browseOutputFolder}
-              browseAiModelsFolder={browseAiModelsFolder}
               setRenderTimeoutSeconds={setRenderTimeoutSeconds}
               setRenderDefaultCpuUsage={setRenderDefaultCpuUsage}
               setRenderDefaultGpuBackend={setRenderDefaultGpuBackend}

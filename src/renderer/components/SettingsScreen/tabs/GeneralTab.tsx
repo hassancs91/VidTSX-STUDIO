@@ -9,28 +9,24 @@ import { HardwareAccelerationDefaultRow } from '../rows/HardwareAccelerationDefa
 
 export function GeneralTab({
   outputFolder,
-  aiModelsFolder,
   renderTimeoutSeconds,
   renderDefaultCpuUsage,
   renderDefaultGpuBackend,
   renderDefaultHardwareAcceleration,
   settingsLoading,
   browseOutputFolder,
-  browseAiModelsFolder,
   setRenderTimeoutSeconds,
   setRenderDefaultCpuUsage,
   setRenderDefaultGpuBackend,
   setRenderDefaultHardwareAcceleration,
 }: {
   outputFolder: string;
-  aiModelsFolder: string;
   renderTimeoutSeconds: number;
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
   settingsLoading: boolean;
   browseOutputFolder: () => void;
-  browseAiModelsFolder: () => void;
   setRenderTimeoutSeconds: (seconds: number) => Promise<boolean>;
   setRenderDefaultCpuUsage: (value: RenderCpuUsage) => Promise<boolean>;
   setRenderDefaultGpuBackend: (value: RenderGpuBackend) => Promise<boolean>;
@@ -93,37 +89,7 @@ export function GeneralTab({
         />
       </div>
 
-      {/* Hidden for beta: re-enable when local AI models (stt, tts, image) ship */}
-      {false && (
-        <>
-          <SectionHeader>AI Models</SectionHeader>
-          <div className="bg-app-surface rounded-lg p-3 border border-border">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px] text-text-muted mb-1">
-                  AI models download folder
-                </div>
-                <div
-                  className="text-[12px] text-text-secondary font-mono"
-                  title={aiModelsFolder}
-                >
-                  {settingsLoading ? 'Loading...' : truncatePath(aiModelsFolder)}
-                </div>
-              </div>
-              <Button
-                variant="secondary"
-                onClick={browseAiModelsFolder}
-                disabled={settingsLoading}
-              >
-                Browse
-              </Button>
-            </div>
-            <div className="text-[10px] text-text-dim mt-2">
-              Models are organized into subfolders by type (stt, tts, image, etc.)
-            </div>
-          </div>
-        </>
-      )}
+      {/* Image models folder controls moved to the dedicated "AI Models" screen. */}
 
       <SectionHeader>About</SectionHeader>
       <AppInfoSection />

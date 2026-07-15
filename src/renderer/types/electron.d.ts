@@ -343,6 +343,19 @@ export interface ElectronAPI {
   // App env
   appGetIsDev: () => Promise<import('../../shared/ipc/types').AppGetIsDevResponse>;
 
+  // Model library (generic, category-agnostic) + local image surface used by the AI Models screen
+  modelsScan: (data: import('../../shared/ipc/types').ModelsScanRequest) => Promise<import('../../shared/ipc/types').ModelsScanResponse>;
+  modelsImport: (data: import('../../shared/ipc/types').ModelsImportRequest) => Promise<import('../../shared/ipc/types').ModelsImportResponse>;
+  modelsConfigure: (data: import('../../shared/ipc/types').ModelsConfigureRequest) => Promise<import('../../shared/ipc/types').ModelsConfigureResponse>;
+  modelsRemove: (data: import('../../shared/ipc/types').ModelsRemoveRequest) => Promise<import('../../shared/ipc/types').ModelsRemoveResponse>;
+  modelsUsageGet: (data: import('../../shared/ipc/types').ModelsUsageGetRequest) => Promise<import('../../shared/ipc/types').ModelsUsageGetResponse>;
+  modelsOpenFolder: (data: import('../../shared/ipc/types').ModelsOpenFolderRequest) => Promise<import('../../shared/ipc/types').ModelsOpenFolderResponse>;
+  modelsSetFolder: (data: import('../../shared/ipc/types').ModelsSetFolderRequest) => Promise<import('../../shared/ipc/types').ModelsSetFolderResponse>;
+  sdImageStatus: () => Promise<import('../../shared/ipc/types').SdImageStatusResponse>;
+  sdImageSetActiveModel: (data: import('../../shared/ipc/types').SdImageSetActiveModelRequest) => Promise<import('../../shared/ipc/types').SdImageSetActiveModelResponse>;
+  sdImageModelDownload: (data: import('../../shared/ipc/types').SdImageModelDownloadRequest) => Promise<import('../../shared/ipc/types').SdImageModelDownloadResponse>;
+  appOpenExternal: (data: import('../../shared/ipc/types').AppOpenExternalRequest) => Promise<import('../../shared/ipc/types').AppOpenExternalResponse>;
+
 }
 
 declare global {
