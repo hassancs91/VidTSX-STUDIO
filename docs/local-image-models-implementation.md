@@ -75,57 +75,57 @@ Suggested cadence: **one commit per phase** after its Definition of Done passes.
 
 ### 1.1 Shared types — `src/shared/model-library/types.ts`
 
-- [ ] `ModelCategory` union: `'image' | 'stt' | 'tts' | 'llm' | 'embedding' | 'video'` (video reserved, unused).
-- [ ] `ModelProfileEnvelope<TMeta>` per design doc §3.4 (id, category, name, sizeBytes/sizeLabel, sourceUrl, `downloadUrl?`, `matchFileNames?`, `requirements?: { minRamGB?; minVramGB? }`, `meta: TMeta`).
-- [ ] `InstalledModel<TMeta>`: id, category, name, filePath, origin `'profile' | 'custom'`, sizeBytes, meta, `issues: ModelIssue[]`.
-- [ ] `SidecarFileV1`: `{ version: 1; category: ModelCategory; name?: string; ...categoryFields: Record<string, unknown> }` (category payload validated by the adapter, not the core).
-- [ ] `RuntimeId` union + `RuntimeStatus`.
-- [ ] Typed error/issue codes: `'missing-companion' | 'missing-runtime' | 'unrecognized' | 'missing-file' | 'unreadable-sidecar'` with per-code payload shapes (e.g. missing-companion: kind, expectedNames, searchedDirs, sourceUrl).
-- [ ] `ModelUsageRecord`: `{ lastUsedAt: string; useCount: number }`, keyed `` `${category}:${modelId}` ``.
-- [ ] `ModelCategoryDescriptor<TMeta>` interface (category, dirName, installKind `'single-file' | 'directory'`, fileExtensions, profiles, familyPresets?, allowCustomImport, requiredRuntime, classify hooks — see §1.3).
+- [x] `ModelCategory` union: `'image' | 'stt' | 'tts' | 'llm' | 'embedding' | 'video'` (video reserved, unused).
+- [x] `ModelProfileEnvelope<TMeta>` per design doc §3.4 (id, category, name, sizeBytes/sizeLabel, sourceUrl, `downloadUrl?`, `matchFileNames?`, `requirements?: { minRamGB?; minVramGB? }`, `meta: TMeta`). Added `directoryUnit?: { dirName; files }` for the directory install-kind (needed by 1.2 `matchDirectoryUnits`) and a `ScannedFile` shape shared by scanner + classifier.
+- [x] `InstalledModel<TMeta>`: id, category, name, filePath, origin `'profile' | 'custom'`, sizeBytes, meta, `issues: ModelIssue[]`.
+- [x] `SidecarFileV1`: `{ version: 1; category: ModelCategory; name?: string; [categoryField]: unknown }` (index signature = category payload spread at top level, validated by the adapter, not the core).
+- [x] `RuntimeId` union + `RuntimeStatus` (+ `RuntimeKind`, `RuntimeDescriptor`).
+- [x] Typed error/issue codes: `ModelIssue` discriminated union (`missing-companion`/`missing-runtime`/`unrecognized`/`missing-file`/`unreadable-sidecar`) with per-code payloads; plus `ModelLibraryError` class + `ModelLibraryErrorCode` for thrown ops (file-exists, import-failed, …).
+- [x] `ModelUsageRecord`: `{ lastUsedAt: string; useCount: number }`, keyed `` `${category}:${modelId}` `` (+ `ModelUsageMap`).
+- [x] `ModelCategoryDescriptor<TMeta, TResolved>` interface (category, dirName, installKind, fileExtensions, profiles, familyPresets?, allowCustomImport, requiredRuntime, `resolve()`). Classifier hooks live in `classifier.ts`'s `ClassifyContext`, not the descriptor (kept the descriptor minimal / image-ism-free).
 
 Split into multiple files under `src/shared/model-library/` if any file nears 300 lines; barrel `index.ts`.
 
 ### 1.2 Scanner — `src/main/services/model-library/scanner.ts`
 
-- [ ] `scanModelFiles(rootDir, { extensions, maxDepth = 3 }): Promise<ScannedFile[]>` — recursive, `fs/promises`, returns `{ absolutePath, fileName, sizeBytes, relDepth }`. Skips dot-dirs; tolerates missing root (returns `[]`); never throws on individual unreadable entries.
-- [ ] Directory install-kind support: `matchDirectoryUnits(rootDir, profiles)` — profile matches when `<rootDir>/<dirName>` exists and all required `files[]` exist (generalizes audio's `isModelDownloaded`; unused by image but part of the core contract).
+- [x] `scanModelFiles(rootDir, { extensions, maxDepth = 3 }): Promise<ScannedFile[]>` — recursive, `fs/promises`, returns `{ absolutePath, fileName, sizeBytes, relDepth }`. Skips dot-dirs; tolerates missing root (returns `[]`); never throws on individual unreadable entries. Extensions matched case-insensitively.
+- [x] Directory install-kind support: `matchDirectoryUnits(rootDir, profiles)` → `{ profileId, dirPath, sizeBytes }[]`; matches when `<rootDir>/<directoryUnit.dirName>` exists and all required `files[]` exist (generalizes audio's `isModelDownloaded`; unused by image but part of the core contract).
 
 ### 1.3 Classifier — `src/main/services/model-library/classifier.ts`
 
-- [ ] `classifyFile(file, ctx): Classification` where `ctx = { profiles, companionFileNames, readSidecar }`. Pipeline (design §4): profile filename match (case-insensitive, exact) → sidecar → companion inventory → unrecognized.
-- [ ] Result union: `{ kind: 'profile', profileId } | { kind: 'custom', sidecar } | { kind: 'companion', companionKind } | { kind: 'unrecognized' }`.
-- [ ] Pure function — no fs access except the injected `readSidecar`.
+- [x] `classifyFile(file, ctx): Promise<Classification>` where `ctx = { profiles, companionFileNames, readSidecar }`. Pipeline (design §4): profile filename match (case-insensitive, exact) → sidecar → companion inventory → unrecognized.
+- [x] Result union: `{ kind: 'profile', profileId } | { kind: 'custom', sidecar } | { kind: 'companion', companionKind } | { kind: 'unrecognized' }`.
+- [x] Pure function — no fs access except the injected `readSidecar` (may be sync or async; awaited). Deviation: `companionFileNames` is a `Record<lowercasedFileName, kind>` (not a bare list) so the result can carry `companionKind`.
 
 ### 1.4 Sidecars — `src/main/services/model-library/sidecars.ts`
 
-- [ ] `sidecarPathFor(modelFilePath)` → `<modelFilePath>.vidtsx.json`.
-- [ ] `readSidecar(modelFilePath)` → `SidecarFileV1 | null` (invalid JSON / wrong version → `null` + returned `'unreadable-sidecar'` issue, never throw).
-- [ ] `writeSidecar(modelFilePath, sidecar)` / `deleteSidecar(modelFilePath)`.
+- [x] `sidecarPathFor(modelFilePath)` → `<modelFilePath>.vidtsx.json`.
+- [x] `readSidecar(modelFilePath)` → `{ sidecar: SidecarFileV1 | null; issue? }`. Missing file → `{ sidecar: null }` (no issue); invalid JSON / wrong version → `{ sidecar: null, issue: 'unreadable-sidecar' }`; never throws. (Returns a result object rather than bare `| null` so the caller gets the issue — the classifier's `readSidecar` adapter takes `.sidecar`.)
+- [x] `writeSidecar(modelFilePath, sidecar)` / `deleteSidecar(modelFilePath)` (delete tolerates missing).
 
 ### 1.5 Importer — `src/main/services/model-library/importer.ts`
 
-- [ ] `importModelFile(sourcePath, destDir, mode: 'move' | 'copy')` → destPath. Move = `fs.rename`, fall back to copy+unlink on `EXDEV` (cross-volume). Collision → error `'file-exists'` (no silent overwrite). Ensure destDir exists.
+- [x] `importModelFile(sourcePath, destDir, mode: 'move' | 'copy')` → destPath. Move = `fs.rename`, fall back to copy+unlink on `EXDEV` (cross-volume). Collision → `ModelLibraryError('file-exists')` (no silent overwrite); missing source → `ModelLibraryError('missing-file')`. Ensures destDir exists.
 
 ### 1.6 Usage store — `src/main/services/model-library/usage-store.ts`
 
-- [ ] `createUsageStore(persistence: { get(): Record<string, ModelUsageRecord> | undefined; set(v): void })` → `{ recordUse(category, modelId), getAll(), getFor(category) }`. Persistence injected (phase 2 wires it to settings-db under key `modelUsage`).
+- [x] `createUsageStore(persistence: { get(): ModelUsageMap | undefined; set(v): void }, { now? })` → `{ recordUse(category, modelId), getAll(), getFor(category) }`. Persistence injected (phase 2 wires it to settings-db under key `modelUsage`). Deviation: optional injectable `now()` clock for deterministic tests (defaults to wall clock).
 
 ### 1.7 Registries — `src/main/services/model-library/category-registry.ts`, `runtime-registry.ts`
 
-- [ ] `registerCategory(descriptor)` / `getCategory(category)` / `listCategories()`.
-- [ ] `registerRuntime(descriptor)` / `getRuntimeStatus(id)`. Descriptor: `{ id, kind, isAvailable(), install? }`.
-- [ ] Barrel `src/main/services/model-library/index.ts`.
+- [x] `registerCategory(descriptor)` / `getCategory(category)` / `listCategories()` (+ `__resetCategoryRegistry` test helper). Generic `TMeta`/`TResolved` erased on storage via `as unknown as` (no `any`); callers re-narrow on read.
+- [x] `registerRuntime(descriptor)` / `getRuntimeStatus(id)` (+ `getRuntime`, `listRuntimes`, `__resetRuntimeRegistry`). Descriptor: `{ id, kind, isAvailable(), install? }`; unregistered runtime → `{ available: false, installable: false }`.
+- [x] Barrel `src/main/services/model-library/index.ts`.
 
 ### 1.8 Phase 1 tests (vitest, real temp dirs via `fs.mkdtemp(os.tmpdir())`)
 
-- [ ] `scanner.test.ts`: nested layout (old `image/<dir>/<file>` shape!), depth limit, extension filter, missing root, empty dirs.
-- [ ] `classifier.test.ts`: canonical-name → profile; renamed + sidecar → custom; `ae.safetensors` → companion; random name → unrecognized; case-insensitivity; profile match takes precedence over sidecar.
-- [ ] `sidecars.test.ts`: round-trip; corrupt JSON → null + issue; wrong version → null.
-- [ ] `importer.test.ts`: move within volume; copy; collision error; missing destDir auto-created. (EXDEV fallback: code-reviewed only — can't force cross-volume in CI.)
-- [ ] `usage-store.test.ts`: record/increment/persist via a fake persistence object.
+- [x] `scanner.test.ts`: nested layout (old `image/<dir>/<file>` shape!), depth limit, extension filter (+ case-insensitive), missing root, empty dirs, sizes; `matchDirectoryUnits` match/miss/ignore-non-dir.
+- [x] `classifier.test.ts`: canonical-name → profile; renamed + sidecar → custom; `ae.safetensors` → companion; random name → unrecognized; case-insensitivity; profile match takes precedence over sidecar; async sidecar reader.
+- [x] `sidecars.test.ts`: round-trip (incl. top-level category fields); corrupt JSON → null + issue; wrong version → null + issue; missing → null no issue; delete idempotent.
+- [x] `importer.test.ts`: move within volume; copy; collision error; missing destDir auto-created; missing source. (EXDEV fallback: code-reviewed only — can't force cross-volume in CI.)
+- [x] `usage-store.test.ts`: record/increment/persist via a fake persistence object; per-category keying; `getFor` prefix strip; `getAll`.
 
-**Definition of done**: `npm test` green; type-error counts ≤ baseline; no `electron` import anywhere under `src/main/services/model-library/` or `src/shared/model-library/` (`grep -r "from 'electron'" src/main/services/model-library src/shared/model-library` → empty).
+**Definition of done**: `npm test` green (37 tests); type-error counts ≤ baseline (node 36 / web 44); no `electron` import anywhere under `src/main/services/model-library/` or `src/shared/model-library/` (grep → empty). ✅ ALL MET.
 
 ---
 
@@ -273,3 +273,15 @@ Follow UI_SPEC.md + existing table styling. Split into sub-components (300-line 
   - `npm run build` succeeded (✓ built ~43s; main + preload + renderer all clean). `npm run dev` launched cleanly — main/preload built, renderer dev server on :5173, Electron process stayed alive (installed app was NOT running, so no single-instance-lock exit). Cleaned up the spawned electron processes afterward.
   - Deviation: added path aliases to `vitest.config.ts` (plan only specified env + include) — needed so Phase 1 core tests can import via `@shared`/`@main`. No downside.
   - **Next: Phase 1 — model-library core** (category-agnostic types + scanner/classifier/sidecars/importer/usage-store/registries + tests). Rule: no `electron` import and no settings-db import anywhere under the core dirs.
+- **2026-07-15 — Phase 1 COMPLETE (model-library core, category-agnostic).**
+  - Files created: `src/shared/model-library/{types.ts,index.ts}`; `src/main/services/model-library/{scanner,classifier,sidecars,importer,usage-store,category-registry,runtime-registry,index}.ts` + 5 `.test.ts`.
+  - **Verification:** `npm test` → **37 passed / 5 files**. Type-error counts: node **36** (= baseline), web **44** (= baseline). No `electron` import and no settings-db import under either core dir (grep clean — only doc-comment mentions of "settings").
+  - **Type-error gotcha hit & fixed:** initial `scanner.ts` typed readdir results as `Awaited<ReturnType<typeof fs.readdir>>`, which resolves to the *last* readdir overload (`Dirent<NonSharedBuffer>[]`) and added +7 node errors. Fixed with a `safeReadDir(): Promise<Dirent<string>[]>` helper (also DRYs the try/catch). Confirms the note: `.test.ts` + core source under `src/main` ARE node-checked, so keep them clean.
+  - **Deviations from plan (all noted inline in §1.x):**
+    - `classifier` `companionFileNames` is a `Record<fileName, kind>` not a bare list — required to return `companionKind` per the result union.
+    - `readSidecar` returns `{ sidecar, issue? }` (not bare `SidecarFileV1 | null`) so the caller receives the `unreadable-sidecar` issue; the classifier ctx uses a `.sidecar`-extracting adapter.
+    - `usage-store` `createUsageStore` takes an optional `{ now }` clock for deterministic tests (defaults to wall clock — `Date.now`/`new Date()` are fine in normal app code; only Workflow scripts forbid them).
+    - Added `directoryUnit?` + `ScannedFile` to shared types (needed by scanner/classifier) and `ModelLibraryError` class for thrown ops; `ModelCategoryDescriptor` is `<TMeta, TResolved>` with `resolve()`; classifier hooks live in `ClassifyContext`, keeping the descriptor image-ism-free.
+    - Registries expose `__reset*` test helpers and store descriptors generic-erased via `as unknown as` (no `any`).
+  - Design fidelity: single-file + directory install kinds both supported; sidecar spreads category fields at top level (index signature); usage keyed `${category}:${modelId}`; download policy/companion knowledge deliberately absent from the core (they're phase-2 image-adapter concerns).
+  - **Next: Phase 2 — image adapter + registry rework** (SdModelMeta envelope, flux1/flux2 split, companion data, delete `SD_MODELS_BASE_URL`/relative download fields, `sdimage-library.ts`, engine/sd-cli-runner rewire, typed errors, `imageModelsFolder` setting, generic IPC).
