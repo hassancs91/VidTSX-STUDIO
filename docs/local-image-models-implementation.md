@@ -59,11 +59,11 @@ Suggested cadence: **one commit per phase** after its Definition of Done passes.
 
 ## Phase 0 — Tooling & baseline (small)
 
-- [ ] `npm install --save-dev --save-exact vitest --legacy-peer-deps` (verify the app still launches after install, per CLAUDE.md).
-- [ ] Add scripts to `package.json`: `"test": "vitest run"`, `"test:watch": "vitest"`.
-- [ ] Create `vitest.config.ts`: node environment, include `src/**/*.test.ts`. Confirm `electron-vite build` still succeeds (test files aren't entry points, so they're excluded from bundles automatically, but verify).
-- [ ] Record the exact current type-error counts (web + node) in the Progress Log as the baseline.
-- [ ] Smoke test: create a trivial `src/main/services/model-library/__placeholder.test.ts` (`expect(1).toBe(1)`), run `npm test`, then delete it.
+- [x] `npm install --save-dev --save-exact vitest --legacy-peer-deps` (verify the app still launches after install, per CLAUDE.md).
+- [x] Add scripts to `package.json`: `"test": "vitest run"`, `"test:watch": "vitest"`.
+- [x] Create `vitest.config.ts`: node environment, include `src/**/*.test.ts`. Confirm `electron-vite build` still succeeds (test files aren't entry points, so they're excluded from bundles automatically, but verify).
+- [x] Record the exact current type-error counts (web + node) in the Progress Log as the baseline.
+- [x] Smoke test: create a trivial `src/main/services/model-library/__placeholder.test.ts` (`expect(1).toBe(1)`), run `npm test`, then delete it.
 
 **Definition of done**: `npm test` runs green; both tsc commands produce the recorded baseline; app launches (`npm run dev`).
 
@@ -265,3 +265,11 @@ Follow UI_SPEC.md + existing table styling. Split into sub-components (300-line 
 > baseline), and anything the next session must know.
 
 - **2026-07-15** — Plan created from agreed design (`local-image-models-redesign.md`). Baseline type-error counts NOT yet captured (Phase 0 task). No implementation started.
+- **2026-07-15 — Phase 0 COMPLETE.**
+  - **Type-error baseline (never exceed):** `tsconfig.web.check.json` = **44** errors; `tsconfig.node.check.json` = **36** errors (total 80). Lower than the plan's ~90 estimate — captured fresh; these are the hard ceiling. Re-ran both after the vitest install → still 44 / 36 (unchanged).
+  - Installed `vitest@4.1.10` (exact-pinned, no `^`; `--legacy-peer-deps`). Added `"test": "vitest run"` + `"test:watch": "vitest"` scripts.
+  - Created `vitest.config.ts` at repo root: node environment, `include: ['src/**/*.test.ts']`, with `@shared`/`@main`/`@logging`/`@audio-engine` aliases mirrored from `electron.vite.config.mjs` so core tests can use path aliases. Confirmed neither check tsconfig `include`s the root `vitest.config.ts`, so it can't affect the baseline. **Note for Phase 1:** `.test.ts` files under `src/main`/`src/shared` ARE included by `tsconfig.node.json`, so test files get type-checked by the node check — keep them clean (they'd otherwise inflate the node count). Import from `'vitest'` explicitly (config does not enable `globals`).
+  - Smoke test (`__placeholder.test.ts`, `expect(1).toBe(1)`) ran green via `npm test`, then deleted (`src/main/services/model-library/` is now empty).
+  - `npm run build` succeeded (✓ built ~43s; main + preload + renderer all clean). `npm run dev` launched cleanly — main/preload built, renderer dev server on :5173, Electron process stayed alive (installed app was NOT running, so no single-instance-lock exit). Cleaned up the spawned electron processes afterward.
+  - Deviation: added path aliases to `vitest.config.ts` (plan only specified env + include) — needed so Phase 1 core tests can import via `@shared`/`@main`. No downside.
+  - **Next: Phase 1 — model-library core** (category-agnostic types + scanner/classifier/sidecars/importer/usage-store/registries + tests). Rule: no `electron` import and no settings-db import anywhere under the core dirs.

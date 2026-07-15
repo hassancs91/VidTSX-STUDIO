@@ -16,7 +16,9 @@
     "build:vendor": "node scripts/build-vendor.mjs",
     "build:win": "npm run build:vendor && electron-vite build && electron-builder --win",
     "build:mac": "npm run build:vendor && electron-vite build && electron-builder --mac",
-    "preview": "electron-vite preview"
+    "preview": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.59.0",
@@ -37,7 +39,8 @@
     "electron-vite": "^5.0.0",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
-    "vite": "^7.3.2"
+    "vite": "^7.3.2",
+    "vitest": "4.1.10"
   },
   "optionalDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.59.0"
