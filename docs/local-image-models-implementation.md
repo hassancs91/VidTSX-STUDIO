@@ -258,6 +258,62 @@ Follow UI_SPEC.md + existing table styling. Split into sub-components (300-line 
 
 ---
 
+## Post-completion backlog — hardening + video (for a follow-up session)
+
+The redesign (Phases 0–4) is done and committed. Before it's "stable to ship",
+and to grow into video, here's the prioritized backlog.
+
+### A. Hardening / stabilization (make image solid)
+
+1. **Interactive UI verification** — actually click every §3.4 flow (folder change,
+   drop→Set up→sidecar persists, import move/copy, canonical rename→profile→Use
+   persists across restart, flux1 companion resolution, D1 download, delete). Never
+   run in the build sessions (non-interactive).
+2. **Download integrity check** (HIGH — root-caused a real failure). A truncated
+   `.gguf` passes sd-cli's header parse then dies "read tensor data failed" at
+   generation. In `download-manager` (or `downloadProfileModel`) verify the finished
+   `.part` size against the server `Content-Length` (and/or profile `sizeBytes`)
+   BEFORE the rename; optionally sha256 vs the HF LFS hash. Refuse to reveal a short file.
+3. **Friendly generation errors** — the engine forwards raw sd-cli stderr. Map the
+   common cases (missing companion, truncated/corrupt file "read tensor data failed",
+   OOM/VRAM, unsupported architecture on an old sd-cli) to actionable messages. The
+   backend already produces typed `missing-companion`/`missing-file` — extend to sd-cli exit parsing.
+4. **Catalog verification sweep** — gpustack SD/SD3.5 sizes + the sdxl-turbo 404 are
+   fixed (commit `14ef500`). STILL to verify: flux (leejet) sizes/links, FLUX.2 Klein
+   companion GGUF locations, the 13 Civitai/HF link-only `sourceUrl`s, flux-mini. Add a
+   dev-only script/test that HEADs every `downloadUrl` (expect 200 + sane `Content-Length`).
+5. **VRAM/RAM preflight** — `requirements.minVramGB` exists on the envelope but is
+   unused; warn before running a model too big for the detected GPU (e.g. the dev box
+   is an RTX A3000 laptop ~6 GB → SD3.5 large/flux-q8 will OOM).
+6. **sd-cli distribution** (also the gate for video, see B) — `sd-cli.exe` is
+   `*.exe`-gitignored and vanished once already. Decide: commit it (~922 KB), or
+   download it on first run from stable-diffusion.cpp GitHub releases (public/stable →
+   fits the D1 rule) with a version check. A newer build is REQUIRED for SD3.5-on-old-builds and for video.
+7. **Finish the Phase-2 deviation** — migrate Tools → Image AI Tester off the legacy
+   `SdImageModelIpc`/sd-image list IPC onto `MODELS_SCAN`, then delete the legacy shape.
+8. **Library-service tests** — `sdimage-library` scan→InstalledModel building and
+   `resolveInstalledModel` throwing have no unit test (the module imports electron via
+   settings). Add one with an injected models dir / stubbed settings.
+9. **Companion one-click download** — flux clip_l/t5xxl/ae have public HF URLs (D1-eligible);
+   offer to fetch them from the "Needs N files" row instead of only linking out.
+
+### B. Video models (Wan / LTX) — architecturally ready, needs a video adapter
+
+**Great news:** stable-diffusion.cpp (= the bundled `sd-cli` engine) generates video now
+— Wan 2.1/2.2 (T2V+I2V) and LTX-2.3 (see the repo's `docs/ltx2.md`), all via GGUF. So
+video reuses the existing runtime + GGUF scanning; NO PyTorch pipeline required. The
+category-agnostic core already reserves `ModelCategory = 'video'`.
+
+Work to add it (one `ModelCategoryDescriptor` + profiles + a video runner):
+- **Newer sd-cli.exe** with video support (the dev box's May build predates it) — ties to A6.
+- `video` descriptor: dirName `'video'`, single-file, `.gguf`/`.safetensors`, runtime `'sd-cli'`, its own families (`wan21` / `ltx` / …) + companions (Wan needs a umt5 text encoder + its VAE; LTX its own).
+- Video generation args in the runner: frame count, fps, video/frames output (sd-cli's video flags differ from image) + a `VideoGenerationRequest`.
+- Profiles sized to the hardware: **Wan 2.1 1.3B GGUF (~4–6 GB VRAM @480p)** is the sweet spot for a 6 GB laptop GPU; **LTX 2B (~6–8 GB)** is borderline; 14B/HunyuanVideo are too heavy.
+- UI: reuse the existing Remotion/video player to preview results; a `video` sub-tab in the AI Models screen.
+- Sources (2026): [stable-diffusion.cpp README (Wan/LTX)](https://github.com/leejet/stable-diffusion.cpp), [ltx2.md](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/ltx2.md), [Wan/LTX low-VRAM guide](https://localaimaster.com/blog/local-text-to-video-low-vram).
+
+---
+
 ## Progress Log
 
 > Append one entry per working session: date, phase/steps done, deviations
