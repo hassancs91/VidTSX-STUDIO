@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { InstalledModelIpc, UnrecognizedFileIpc } from '@shared/ipc/types';
 import type { ModelIssue } from '@shared/model-library/types';
+import { FitBadge } from './FitBadge';
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
@@ -68,6 +69,7 @@ function InstalledRow({
           <div className="flex items-center gap-1.5">
             <span className="text-[12px] text-text-secondary truncate">{model.name}</span>
             <FamilyBadge family={model.family} />
+            <FitBadge fit={model.fit} />
             {active && (
               <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-medium bg-accent/15 text-accent-light">ACTIVE</span>
             )}

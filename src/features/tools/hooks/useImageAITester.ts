@@ -19,6 +19,8 @@ interface GenerationState {
   seed: number | null;
   durationMs: number | null;
   error: string | null;
+  /** Set when the VRAM preflight auto-enabled CPU offload for this run. */
+  notice: string | null;
 }
 
 const INITIAL_GENERATION: GenerationState = {
@@ -33,6 +35,7 @@ const INITIAL_GENERATION: GenerationState = {
   seed: null,
   durationMs: null,
   error: null,
+  notice: null,
 };
 
 export function useImageAITester() {
@@ -174,6 +177,11 @@ export function useImageAITester() {
             ...prev,
             generating: false,
             error: result.error || 'Generation failed',
+          }));
+        } else if (result.autoOffloadEnabled) {
+          setGeneration((prev) => ({
+            ...prev,
+            notice: 'CPU offload auto-enabled — this model is larger than your GPU VRAM (slower, but avoids an out-of-memory crash).',
           }));
         }
         // On success, the complete/error events handle updating state

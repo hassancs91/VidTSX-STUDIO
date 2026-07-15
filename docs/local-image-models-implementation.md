@@ -282,9 +282,9 @@ and to grow into video, here's the prioritized backlog.
    fixed (commit `14ef500`). STILL to verify: flux (leejet) sizes/links, FLUX.2 Klein
    companion GGUF locations, the 13 Civitai/HF link-only `sourceUrl`s, flux-mini. Add a
    dev-only script/test that HEADs every `downloadUrl` (expect 200 + sane `Content-Length`).
-5. **VRAM/RAM preflight** — `requirements.minVramGB` exists on the envelope but is
-   unused; warn before running a model too big for the detected GPU (e.g. the dev box
-   is an RTX A3000 laptop ~6 GB → SD3.5 large/flux-q8 will OOM).
+5. **VRAM/RAM preflight** — ✅ **DONE 2026-07-15 (see Progress Log).** `requirements.minVramGB`
+   is now read; a pure `evaluateFit` core grades every model (fit badge on the AI Models
+   screen) and the generation path warns/offloads/blocks instead of letting sd-cli OOM.
 6. **sd-cli distribution** (also the gate for video, see B) — `sd-cli.exe` is
    `*.exe`-gitignored and vanished once already. Decide: commit it (~922 KB), or
    download it on first run from stable-diffusion.cpp GitHub releases (public/stable →
@@ -311,6 +311,40 @@ Work to add it (one `ModelCategoryDescriptor` + profiles + a video runner):
 - Profiles sized to the hardware: **Wan 2.1 1.3B GGUF (~4–6 GB VRAM @480p)** is the sweet spot for a 6 GB laptop GPU; **LTX 2B (~6–8 GB)** is borderline; 14B/HunyuanVideo are too heavy.
 - UI: reuse the existing Remotion/video player to preview results; a `video` sub-tab in the AI Models screen.
 - Sources (2026): [stable-diffusion.cpp README (Wan/LTX)](https://github.com/leejet/stable-diffusion.cpp), [ltx2.md](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/ltx2.md), [Wan/LTX low-VRAM guide](https://localaimaster.com/blog/local-text-to-video-low-vram).
+
+### C. sd-cli binary — bundled build log (updates A6 + unblocks B)
+
+**2026-07-15 — updated sd-cli to `master-778-c00a9e9` (Vulkan x64).** Resolves the A6
+"newer build required" blocker and unblocks the video adapter (B). The previous local
+build was commit `87ecb95` (*"add webp support"*, 2026-04-01) — already had `vid_gen`/
+Wan/SD3.5, but 3.5 months behind master.
+
+- **Source (official only):** `github.com/leejet/stable-diffusion.cpp/releases/download/master-778-c00a9e9/sd-master-c00a9e9-bin-win-vulkan-x64.zip` (37,696,851 bytes, verified against the release API).
+- **Backend:** Vulkan (GPU on the RTX A3000; matches the Vulkan runtime the LLM engine already uses). CPU/AVX2 fallback is built in via the `ggml-cpu-*` variant DLLs (the loader auto-picks — it selected `ggml-cpu-cascadelake.dll` on this box).
+- **⚠️ Matched-set rule:** this build **dynamically loads ggml** (unlike `87ecb95`, which
+  statically linked it into one 79 MB `stable-diffusion.dll`). The exe + ALL of these DLLs
+  must come from the SAME release zip or it fails to load: `stable-diffusion.dll`,
+  `ggml.dll`, `ggml-base.dll`, `ggml-vulkan.dll`, `ggml-cpu-*.dll` (10 CPU variants),
+  `libwebp.dll`/`libsharpyuv.dll`/`libwebpmux.dll` (webp output), `webm.dll` (video output).
+  `sd-server.exe` and the `.txt` license files are intentionally not bundled.
+- **Advertises:** SD3.5 (`sd3_flow`, SLG "nice for sd3.5 medium", `--vae-format sd3`),
+  Wan 2.1/2.2 (`--moe-boundary` MoE, `--vace-strength`), LTX2 (`--embeddings-connectors`,
+  `--audio-vae`, `--temporal-tiling`), AnimateDiff SD1.5 (`--motion-module`), FLUX.2.
+- **Verified:** `--version`/`--help` load clean (exit 0); `npm run dev` logs
+  `[SdImage] Local image engine initialized (sd-cli available)`; bk-sdm-tiny-q4_0
+  regenerates on Vulkan GPU (12 steps euler_a, 34.75 s, valid 512×512 PNG).
+
+**Optional CUDA add-on (not bundled — ~880 MB).** Vulkan is the default. To swap in the
+CUDA 12 build for max throughput on this NVIDIA GPU, download BOTH from the same release
+tag and extract both into `resources/binaries/` (the cudart zip supplies the CUDA runtime
+DLLs the build links against):
+- `…/releases/download/master-778-c00a9e9/sd-master-c00a9e9-bin-win-cuda12-x64.zip` (~345 MB)
+- `…/releases/download/master-778-c00a9e9/cudart-sd-bin-win-cu12-x64.zip` (~537 MB)
+
+Replace the Vulkan matched set with the CUDA zip's `sd-cli.exe` + `stable-diffusion.dll` +
+`ggml*.dll` (its `ggml-cuda.dll` replaces `ggml-vulkan.dll`) and add every `cudart64_*` /
+`cublas*` DLL from the cudart zip. It's the same CLI + args, so no generation-code change —
+purely a heavier DLL set. Keep a Vulkan backup to revert.
 
 ---
 
@@ -369,3 +403,12 @@ Work to add it (one `ModelCategoryDescriptor` + profiles + a video runner):
   - **Deviation / extra fix:** `build:win` had a pre-existing blocker — electron-builder.yml's NSIS `license: build/license.txt` referenced a file that never existed (batch-2 license-system removal debt; `build/` is gitignored). Created committed `LICENSE.txt` (copy of root MIT `LICENSE`) and set `license: LICENSE.txt`. This is unrelated to the redesign but was required for the build:win DoD and is legitimate release hygiene.
   - STATUS.md + auto-memory (`local-image-models-impl-progress.md`) updated.
   - **⚠️ Before shipping (NOT done in these non-interactive sessions):** (1) interactive click-through of the AI Models screen; (2) verify the unverified catalog `sourceUrl`s / FLUX.2 companion links against a real sd-cli (design §10); (3) sd-cli bundling + generation E2E; (4) retire the server-side `learnwithhasan.com/api/vidtsx/models/*` hosting.
+- **2026-07-15 — Backlog A5 COMPLETE (VRAM/RAM preflight).**
+  - **What:** compare each model's memory footprint against the detected GPU and warn the user before a too-big model reaches sd-cli. Over-VRAM is a *warning* (sd.cpp offloads to CPU/RAM); only "won't fit in RAM either" is a hard stop.
+  - **Core (electron-free, unit-tested):** `src/shared/model-library/fit.ts` — pure `evaluateFit({ minVramGB?, sizeBytes }, { vramGB?, ramGB }) → { level: ok|tight|offload|wont-fit|unknown, canOffload, reason, neededVramGB }`. VRAM need ≈ `max(minVramGB floor, sizeBytes/1e9 + 1.5 GB overhead)`; unknown VRAM → `unknown` (no scary warning); over-VRAM + RAM-unknown → `offload` (never false-block). Exported from the shared barrel. Test: `src/main/services/model-library/fit.test.ts` (10 cases across every boundary; node-checked only, like the other core tests).
+  - **Requirement source:** per-family floors `FAMILY_REQUIREMENTS` in `family-presets.ts` (sd15 2/4, sdxl 4/8, sd3 6/16, flux1 6/16, flux2 5/12 GB VRAM/RAM). Profiles use `requirements.minVramGB ?? family floor`; **custom imports rely on the pure size estimate** (no floor). The envelope's previously-unused `requirements.minVramGB` is now read (per-profile override wins).
+  - **VRAM detection:** `system-info.ts` `detectGpu()` now queries `memory.total,memory.free` (added `vramFreeMB`; graceful `null` for AMD/Intel/no-nvidia-smi). New cached `getPreflightHardware()` memoizes the nvidia-smi call so frequent rescans don't respawn it. Added `vramFreeMB` to `SystemInfoGetResponse.gpu` + a **VRAM** row on the dashboard (total · free).
+  - **Adapter + surface:** `sdimage-preflight.ts` builds the `FitRequirement` (per-profile/family/size) and grades against the cached hardware. `handleModelsScan` attaches `fit` to every `InstalledModelIpc` + `ProfileModelIpc`; `FitBadge.tsx` renders it on the installed + catalog rows ("Fits"/"Tight"/"CPU offload"/"Too big", reason in the tooltip; `unknown` → no badge). Dashboard shows VRAM.
+  - **Generation guard:** `handleSdImageGenerate` preflights the resolved model — `wont-fit` → typed `ModelLibraryError('insufficient-memory')` (new code) returned as a friendly error, **no enqueue**; `offload` with no user offload flag → auto-enables `offloadToCpu` and returns `autoOffloadEnabled` (the Image AI Tester shows a "CPU offload auto-enabled" notice). Default is warn/offload, hard-block only on wont-fit (as speced).
+  - **Verification:** type counts node **36** / web **36** (= baseline, unchanged). `npm test` = **77 passing** (67 + 10 new fit tests). `npm run build` clean. `npm run dev` boots clean (`[SdImage] Local image engine initialized (sd-cli available)`, IPC handlers registered, no errors). Manual A3000 (~6 GB) fit expectations hold in the evaluator/tests: sd15-q4 → Fits; sd35-large / flux-q8 → CPU offload or Too big (depends on RAM). **Interactive GUI click-through of the badges still pending** (non-interactive session), same as the rest of the feature.
+  - **Deviation:** the fit evaluator lives in `src/shared/model-library/` (not `src/main/services/model-library/`) so it's electron-free *and* renderer-importable (IPC types reference `FitResult`, the badge reuses it); its test stays under `src/main/services/model-library/` to remain node-checked only. Custom imports intentionally skip the family floor (pure size estimate, per the A5 note). The sd-cli binary DLLs in the working tree are the separate sd-cli-bundling effort — deliberately kept OUT of this commit (only the A5 source + this doc are staged).

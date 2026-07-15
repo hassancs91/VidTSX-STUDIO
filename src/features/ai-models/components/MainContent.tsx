@@ -248,6 +248,11 @@ export function MainContent() {
   const ramTotalGB = Math.round(data.ram.totalBytes / (1024 * 1024 * 1024));
   const diskFreeGB = Math.round(data.disk.freeBytes / (1024 * 1024 * 1024));
   const hasCuda = data.gpu.cudaVersion !== null;
+  const vramTotalGB = data.gpu.vramTotalMB !== null ? Math.round((data.gpu.vramTotalMB / 1024) * 10) / 10 : null;
+  const vramFreeGB = data.gpu.vramFreeMB !== null ? Math.round((data.gpu.vramFreeMB / 1024) * 10) / 10 : null;
+  const vramValue = vramTotalGB !== null
+    ? `${vramTotalGB} GB${vramFreeGB !== null ? ` · ${vramFreeGB} GB free` : ''}`
+    : 'Unknown';
   const pytorchInstalled = data.engines.pytorch.installed;
   const cachedWheels = data.engines.pytorch.cachedWheels ?? [];
   const pytorchBusy = pytorchDownload.status === 'downloading' || pytorchDownload.status === 'paused' || pytorchDownload.status === 'installing';
@@ -276,6 +281,11 @@ export function MainContent() {
           label="GPU"
           value={data.gpu.name ?? 'Not detected'}
           ok={data.gpu.name !== null}
+        />
+        <SystemRow
+          label="VRAM"
+          value={vramValue}
+          ok={vramTotalGB !== null}
         />
         <SystemRow
           label="CUDA"

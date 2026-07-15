@@ -21,12 +21,19 @@ import type {
   SdImageSettingsSaveResponse,
   SdImageModelIpc,
 } from '../../shared/ipc/types';
+import { ModelLibraryError } from '../../shared/model-library/types';
 import { imageLocalEngine } from '../../local-image-engine';
 import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
 import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
-import { scanImageLibrary, removeImageModel } from '../services/sdimage-library';
+import { scanImageLibrary, removeImageModel, getLastScan } from '../services/sdimage-library';
+import { evaluateInstalledFit } from '../services/sdimage-preflight';
 import { downloadProfileModel } from '../services/sdimage-download';
 import { getSdImageSettings, saveSdImageSettings } from '../services/settings';
+
+/** True when the request already opts into any CPU-offload flag. */
+function hasOffloadFlag(req: SdImageGenerateRequest): boolean {
+  return Boolean(req.offloadToCpu || req.clipOnCpu || req.vaeOnCpu);
+}
 
 export async function handleSdImageStatus(
   _event: IpcMainInvokeEvent,
@@ -138,8 +145,31 @@ export async function handleSdImageGenerate(
       event.sender.send(IPC.SDIMAGE_GENERATE_ERROR, { requestId, error });
     };
 
-    const requestId = imageLocalEngine.enqueue(data);
-    return { success: true, requestId };
+    // VRAM/RAM preflight (backlog A5): block models too big for VRAM *and* RAM
+    // with a friendly typed error; auto-enable CPU offload for over-VRAM models
+    // instead of letting sd-cli OOM. Missing/unscanned models fall through to the
+    // engine's own "not installed" handling.
+    let request = data;
+    let autoOffloadEnabled = false;
+    const modelId = data.modelId ?? imageLocalEngine.getActiveModelId();
+    if (modelId) {
+      const installed =
+        getLastScan()?.installed.find((m) => m.id === modelId) ??
+        (await scanImageLibrary()).installed.find((m) => m.id === modelId);
+      if (installed) {
+        const fit = await evaluateInstalledFit(installed);
+        if (fit.level === 'wont-fit') {
+          throw new ModelLibraryError('insufficient-memory', fit.reason);
+        }
+        if (fit.level === 'offload' && !hasOffloadFlag(request)) {
+          request = { ...request, offloadToCpu: true };
+          autoOffloadEnabled = true;
+        }
+      }
+    }
+
+    const requestId = imageLocalEngine.enqueue(request);
+    return { success: true, requestId, autoOffloadEnabled: autoOffloadEnabled || undefined };
   } catch (err) {
     return {
       success: false,

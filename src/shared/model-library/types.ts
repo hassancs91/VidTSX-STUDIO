@@ -153,7 +153,9 @@ export type ModelLibraryErrorCode =
   | 'missing-companion'
   | 'unsupported-category'
   | 'unknown-model'
-  | 'import-failed';
+  | 'import-failed'
+  /** Model is too large for both VRAM and RAM — cannot run even with CPU offload. */
+  | 'insufficient-memory';
 
 /** Thrown by importer/library operations. Carries a stable code for typed IPC errors. */
 export class ModelLibraryError extends Error {

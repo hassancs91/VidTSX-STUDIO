@@ -1,5 +1,6 @@
 // ─── Generic model-library IPC types (category-agnostic) ───
 import type { ModelCategory, ModelIssue, ModelUsageRecord } from '../../model-library/types';
+import type { FitResult } from '../../model-library/fit';
 
 /** Config a user picks in the Set-up dialog for a custom/unrecognized model. */
 export interface ModelSetupConfig {
@@ -23,6 +24,8 @@ export interface InstalledModelIpc {
   capabilities: { txt2img: boolean; img2img: boolean; reference: boolean };
   lastUsedAt: string | null;
   useCount: number;
+  /** VRAM/RAM fit verdict vs the detected hardware. Absent when hardware is undetectable. */
+  fit?: FitResult;
 }
 
 /** A catalog profile (whether or not it is installed). */
@@ -35,6 +38,8 @@ export interface ProfileModelIpc {
   /** True when a public one-click download is available (D1). */
   hasDownload: boolean;
   installed: boolean;
+  /** VRAM/RAM fit verdict vs the detected hardware. Absent when hardware is undetectable. */
+  fit?: FitResult;
 }
 
 export interface CompanionFileIpc {

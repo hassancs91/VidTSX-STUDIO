@@ -99,6 +99,8 @@ export interface SdImageGenerateResponse {
   success: boolean;
   requestId?: string;
   error?: string;
+  /** Set when the preflight auto-enabled CPU offload because the model is over VRAM. */
+  autoOffloadEnabled?: boolean;
 }
 
 export interface SdImageGenerateProgressEvent {

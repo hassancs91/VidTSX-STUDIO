@@ -15,6 +15,8 @@ import type { SystemInfoGetResponse } from '../../shared/ipc/types';
 interface GpuResult {
   name: string;
   vramTotalMB: number;
+  /** Free VRAM at query time, MB. -1 when nvidia-smi didn't report it. */
+  vramFreeMB: number;
   cudaVersion: string | null;
 }
 
@@ -22,9 +24,9 @@ function detectGpu(): Promise<GpuResult | null> {
   return new Promise((resolve) => {
     const bin = process.platform === 'win32' ? 'nvidia-smi.exe' : 'nvidia-smi';
 
-    // First query: get GPU name + vram
+    // First query: get GPU name + total/free VRAM (NVIDIA only; graceful null otherwise).
     execFile(bin, [
-      '--query-gpu=name,memory.total',
+      '--query-gpu=name,memory.total,memory.free',
       '--format=csv,noheader,nounits',
     ], { timeout: 5000, windowsHide: true }, (err, stdout) => {
       if (err) { resolve(null); return; }
@@ -37,6 +39,7 @@ function detectGpu(): Promise<GpuResult | null> {
 
       const name = parts[0];
       const vramTotalMB = parseInt(parts[1], 10) || 0;
+      const vramFreeMB = parts.length >= 3 ? (parseInt(parts[2], 10) || 0) : -1;
 
       // Second query: parse CUDA version from nvidia-smi header
       execFile(bin, [], { timeout: 5000, windowsHide: true }, (err2, stdout2) => {
@@ -47,10 +50,34 @@ function detectGpu(): Promise<GpuResult | null> {
             cudaVersion = match[1];
           }
         }
-        resolve({ name, vramTotalMB, cudaVersion });
+        resolve({ name, vramTotalMB, vramFreeMB, cudaVersion });
       });
     });
   });
+}
+
+// ─── Cached hardware snapshot for the VRAM/RAM preflight ───────────────
+
+/** Detected total VRAM / RAM in GB, for the model-fit preflight. `null` VRAM = unknown. */
+export interface PreflightHardware {
+  vramGB: number | null;
+  ramGB: number;
+}
+
+let preflightCache: PreflightHardware | null = null;
+
+/**
+ * Total VRAM/RAM (GB) for the model-fit preflight. GPU detection is memoized for
+ * the process (total VRAM is static hardware) so frequent library rescans don't
+ * re-spawn nvidia-smi. Non-NVIDIA / no nvidia-smi → `vramGB: null` (unknown).
+ */
+export async function getPreflightHardware(): Promise<PreflightHardware> {
+  if (preflightCache) return preflightCache;
+  const gpu = await detectGpu();
+  const vramGB = gpu && gpu.vramTotalMB > 0 ? gpu.vramTotalMB / 1024 : null;
+  const ramGB = os.totalmem() / (1024 * 1024 * 1024);
+  preflightCache = { vramGB, ramGB };
+  return preflightCache;
 }
 
 // ─── Disk free space ──────────────────────────────────────────────
@@ -168,6 +195,7 @@ export async function getSystemInfo(): Promise<SystemInfoGetResponse> {
       name: gpuResult?.name ?? null,
       cudaVersion: gpuResult?.cudaVersion ?? null,
       vramTotalMB: gpuResult?.vramTotalMB ?? null,
+      vramFreeMB: gpuResult && gpuResult.vramFreeMB >= 0 ? gpuResult.vramFreeMB : null,
     },
     ram: {
       totalBytes: ramTotal,

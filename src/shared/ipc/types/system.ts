@@ -29,6 +29,8 @@ export interface SystemInfoGetResponse {
     name: string | null;
     cudaVersion: string | null;
     vramTotalMB: number | null;
+    /** Free VRAM at detection time, MB. null when nvidia-smi didn't report it. */
+    vramFreeMB: number | null;
   };
   ram: {
     totalBytes: number;

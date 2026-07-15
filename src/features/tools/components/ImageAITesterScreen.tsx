@@ -365,6 +365,13 @@ export function ImageAITesterScreen({ onBack }: { onBack: () => void }) {
                 </div>
               )}
 
+              {/* Preflight notice (e.g. CPU offload auto-enabled) */}
+              {generation.notice && (
+                <div className="text-[11px] text-accent-amber bg-accent-amber/10 rounded-[6px] px-3 py-2">
+                  {generation.notice}
+                </div>
+              )}
+
               {/* Error */}
               {generation.error && (
                 <div className="text-[11px] text-accent-red bg-accent-red/10 rounded-[6px] px-3 py-2">

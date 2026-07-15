@@ -31,6 +31,12 @@ import {
   scanImageLibrary,
   type SetupConfig,
 } from '../services/sdimage-library';
+import {
+  fitFor,
+  requirementForInstalled,
+  requirementForProfile,
+} from '../services/sdimage-preflight';
+import { getPreflightHardware, type PreflightHardware } from '../services/system-info';
 import { usageStore } from '../services/model-usage';
 import { setImageModelsFolder } from '../services/settings';
 
@@ -52,6 +58,7 @@ function toSetupConfig(setup: ModelSetupConfig): SetupConfig {
 function toInstalledIpc(
   model: InstalledModel<SdModelMeta>,
   usage: Record<string, { lastUsedAt: string; useCount: number }>,
+  hardware: PreflightHardware,
 ): InstalledModelIpc {
   const record = usage[model.id];
   return {
@@ -66,6 +73,7 @@ function toInstalledIpc(
     capabilities: model.meta.capabilities,
     lastUsedAt: record?.lastUsedAt ?? null,
     useCount: record?.useCount ?? 0,
+    fit: fitFor(requirementForInstalled(model), hardware),
   };
 }
 
@@ -89,6 +97,7 @@ export async function handleModelsScan(
   try {
     const scan = await scanImageLibrary();
     const usage = usageStore.getFor('image');
+    const hardware = await getPreflightHardware();
     const installedIds = new Set(scan.installed.map((m) => m.id));
 
     const profiles: ProfileModelIpc[] = SD_MODEL_CATALOG.map((p) => ({
@@ -99,12 +108,13 @@ export async function handleModelsScan(
       sourceUrl: p.sourceUrl,
       hasDownload: Boolean(p.downloadUrl),
       installed: installedIds.has(p.id),
+      fit: fitFor(requirementForProfile(p), hardware),
     }));
 
     return {
       category: 'image',
       folder: scan.root,
-      installed: scan.installed.map((m) => toInstalledIpc(m, usage)),
+      installed: scan.installed.map((m) => toInstalledIpc(m, usage, hardware)),
       profiles,
       unrecognized: scan.unrecognized,
       companions: scan.companionsFound.map((c) => ({ fileName: c.fileName, kind: c.kind })),

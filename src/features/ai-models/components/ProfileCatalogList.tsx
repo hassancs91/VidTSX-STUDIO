@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ProgressBar } from '@shared/components';
 import type { ProfileModelIpc } from '@shared/ipc/types';
 import type { ModelDownloadStatus } from '../hooks/useImageLibrary';
+import { FitBadge } from './FitBadge';
 
 function familyLabel(family: string): string {
   const map: Record<string, string> = { sd15: 'SD 1.5', sdxl: 'SDXL', sd3: 'SD 3.x', flux1: 'FLUX.1', flux2: 'FLUX.2' };
@@ -99,6 +100,7 @@ export function ProfileCatalogList({
               <div className="flex items-center gap-1.5">
                 <span className="text-[12px] text-text-secondary truncate">{p.name}</span>
                 <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/15 text-blue-400">{familyLabel(p.family)}</span>
+                <FitBadge fit={p.fit} />
               </div>
               <div className="text-[9px] text-text-dim">{p.sizeLabel}</div>
             </div>

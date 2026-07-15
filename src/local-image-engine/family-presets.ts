@@ -121,3 +121,27 @@ export const FAMILY_PRESETS: Record<SdModelFamily, SdModelMeta> = {
 
 /** The families a user may pick for a custom import (all of them). */
 export const SD_FAMILIES: SdModelFamily[] = ['sd15', 'sdxl', 'sd3', 'flux1', 'flux2'];
+
+// ─── Per-family hardware floors (VRAM/RAM preflight) ───────────────────
+
+/**
+ * Realistic per-family memory floors used by the VRAM/RAM preflight
+ * (see {@link evaluateFit}). These are *floors* — the actual estimate is
+ * `max(minVramGB, modelFileSize + activation overhead)`, so a big quantization
+ * is driven by its file size while a small one can't dip below the family floor.
+ *
+ * The floor captures memory the file size alone understates: SD3/FLUX keep large
+ * T5/Qwen text encoders resident alongside the transformer, so even a small quant
+ * needs more VRAM than its file implies. Custom imports without a per-model
+ * requirement inherit their family's floor.
+ */
+export const FAMILY_REQUIREMENTS: Record<SdModelFamily, { minVramGB: number; minRamGB: number }> = {
+  sd15: { minVramGB: 2, minRamGB: 4 },
+  sdxl: { minVramGB: 4, minRamGB: 8 },
+  // SD3.x bundles a large T5 text encoder in the all-in-one checkpoint.
+  sd3: { minVramGB: 6, minRamGB: 16 },
+  // FLUX.1 loads clip_l + t5xxl companions in addition to the transformer.
+  flux1: { minVramGB: 6, minRamGB: 16 },
+  // FLUX.2 loads a Qwen3 LLM text encoder + VAE alongside the transformer.
+  flux2: { minVramGB: 5, minRamGB: 12 },
+};
