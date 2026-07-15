@@ -5,6 +5,7 @@ import type { ImageProviderConfig } from '../../image-engine';
 import type { ContentPresetSetting, RenderGpuBackend, RenderHardwareAcceleration, StylePresetSetting } from '../../shared/ipc/types';
 import type { ProviderCredentials, ProviderKeyId } from '../../shared/ipc/types/provider-keys';
 import type { SttProviderConfig } from '../../shared/ipc/types/stt';
+import type { ModelUsageMap } from '../../shared/model-library/types';
 import { getAllValues, getValue, setValue, setValues } from './settings-db';
 
 export type RenderCpuUsage = 'low' | 'medium' | 'high' | 'max';
@@ -42,6 +43,8 @@ export interface AppSettings {
   audioActiveSttModel?: string;
   audioActiveTtsModel?: string;
   sdImageActiveModel?: string;
+  /** Where scanned image models live. Defaults to `{aiModelsFolder}/image`. */
+  imageModelsFolder?: string;
   localLlmActiveModel?: string;
 }
 
@@ -147,6 +150,7 @@ export async function loadSettings(): Promise<AppSettings> {
     audioActiveSttModel: raw.audioActiveSttModel as string | undefined,
     audioActiveTtsModel: raw.audioActiveTtsModel as string | undefined,
     sdImageActiveModel: raw.sdImageActiveModel as string | undefined,
+    imageModelsFolder: raw.imageModelsFolder as string | undefined,
     localLlmActiveModel: raw.localLlmActiveModel as string | undefined,
   };
 }
@@ -327,6 +331,27 @@ export async function saveSdImageSettings(activeModelId?: string): Promise<void>
   if (activeModelId !== undefined) setValue('sdImageActiveModel', activeModelId);
 }
 
+/** Models folder for scanned image models. Defaults to `{aiModelsFolder}/image`. */
+export async function getImageModelsFolder(): Promise<string> {
+  const v = getValue<string>('imageModelsFolder');
+  if (v && v.length > 0) return v;
+  return path.join(await getAiModelsFolder(), 'image');
+}
+
+export async function setImageModelsFolder(folderPath: string): Promise<void> {
+  setValue('imageModelsFolder', folderPath);
+}
+
+// Local-only model usage tracking (design §6.1). Sync accessors so the
+// model-library usage store can read/write directly.
+export function getModelUsageMap(): ModelUsageMap {
+  return getValue<ModelUsageMap>('modelUsage') ?? {};
+}
+
+export function setModelUsageMap(map: ModelUsageMap): void {
+  setValue('modelUsage', map);
+}
+
 export async function getLocalLlmSettings(): Promise<{ activeModelId: string | null }> {
   return {
     activeModelId: getValue<string>('localLlmActiveModel') ?? null,
@@ -368,6 +393,8 @@ export const settingsService = {
   saveAudioSettings,
   getSdImageSettings,
   saveSdImageSettings,
+  getImageModelsFolder,
+  setImageModelsFolder,
   getLocalLlmSettings,
   saveLocalLlmSettings,
 };

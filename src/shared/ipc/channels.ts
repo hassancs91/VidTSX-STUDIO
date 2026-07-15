@@ -229,6 +229,15 @@ export const IPC = {
   SDIMAGE_SETTINGS_GET: 'sdimage:settings:get',
   SDIMAGE_SETTINGS_SAVE: 'sdimage:settings:save',
 
+  // Generic model-library operations (category-agnostic; image implemented in v1)
+  MODELS_SCAN: 'models:scan',
+  MODELS_IMPORT: 'models:import',
+  MODELS_CONFIGURE: 'models:configure',
+  MODELS_REMOVE: 'models:remove',
+  MODELS_USAGE_GET: 'models:usage:get',
+  MODELS_OPEN_FOLDER: 'models:open-folder',
+  MODELS_SET_FOLDER: 'models:set-folder',
+
   // Local LLM engine operations
   LOCAL_LLM_STATUS: 'local-llm:status',
   LOCAL_LLM_MODELS_LIST: 'local-llm:models:list',

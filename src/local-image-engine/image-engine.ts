@@ -3,19 +3,30 @@ import path from 'path';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import { app } from 'electron';
+import type { InstalledModel } from '@shared/model-library/types';
 import type {
-  SdModelDefinition,
+  SdModelMeta,
+  ResolvedSdModel,
   SdGenerationRequest,
   SdGenerationResult,
   SdGenerationProgress,
   SdQueueItem,
   SdRequestStatus,
 } from './types';
-import { SD_MODEL_CATALOG } from './model-registry';
 import { runSdCli, killActive, isRunning } from './sd-cli-runner';
 
+/**
+ * Injected by the image adapter (sdimage-init): lists installed models and
+ * resolves a model id into engine-consumable invocation data (absolute model +
+ * companion paths). `resolve` throws a typed error for a missing file/companion.
+ */
+export interface SdModelResolver {
+  list(): InstalledModel<SdModelMeta>[];
+  resolve(modelId: string): ResolvedSdModel;
+}
+
 export class ImageLocalEngine {
-  private modelsBasePath = '';
+  private resolver: SdModelResolver | null = null;
   private sdCliBinaryPath = '';
   private activeModelId: string | null = null;
   private queue: SdQueueItem[] = [];
@@ -24,9 +35,11 @@ export class ImageLocalEngine {
   onProgress: ((progress: SdGenerationProgress) => void) | null = null;
   onComplete: ((requestId: string, result: SdGenerationResult) => void) | null = null;
   onError: ((requestId: string, error: string) => void) | null = null;
+  /** Fired after a successful generation so the adapter can record usage. */
+  onModelUsed: ((modelId: string) => void) | null = null;
 
-  initialize(modelsBasePath: string, sdCliBinaryPath: string): void {
-    this.modelsBasePath = modelsBasePath;
+  initialize(resolver: SdModelResolver, sdCliBinaryPath: string): void {
+    this.resolver = resolver;
     this.sdCliBinaryPath = sdCliBinaryPath;
   }
 
@@ -38,12 +51,8 @@ export class ImageLocalEngine {
     return this.sdCliBinaryPath;
   }
 
-  getAvailableModels(): SdModelDefinition[] {
-    return SD_MODEL_CATALOG.filter((m) => !m.hidden);
-  }
-
-  getModelInfo(modelId: string): SdModelDefinition | undefined {
-    return SD_MODEL_CATALOG.find((m) => m.id === modelId);
+  getAvailableModels(): InstalledModel<SdModelMeta>[] {
+    return this.resolver?.list() ?? [];
   }
 
   getActiveModelId(): string | null {
@@ -51,11 +60,18 @@ export class ImageLocalEngine {
   }
 
   setActiveModel(modelId: string): void {
-    const model = this.getModelInfo(modelId);
-    if (!model) {
-      throw new Error(`Unknown model: ${modelId}`);
+    const installed = this.getAvailableModels().some((m) => m.id === modelId);
+    if (!installed) {
+      throw new Error(`Model not installed: ${modelId}`);
     }
     this.activeModelId = modelId;
+  }
+
+  /** Clear the active model if it is no longer installed (e.g. file deleted). */
+  clearActiveModelIfMissing(): void {
+    if (this.activeModelId && !this.getAvailableModels().some((m) => m.id === this.activeModelId)) {
+      this.activeModelId = null;
+    }
   }
 
   enqueue(request: SdGenerationRequest): string {
@@ -113,6 +129,7 @@ export class ImageLocalEngine {
     this.onProgress = null;
     this.onComplete = null;
     this.onError = null;
+    this.onModelUsed = null;
   }
 
   private async processNext(): Promise<void> {
@@ -153,24 +170,17 @@ export class ImageLocalEngine {
       throw new Error('No model selected');
     }
 
-    const modelDef = this.getModelInfo(modelId);
-    if (!modelDef) {
-      throw new Error(`Unknown model: ${modelId}`);
-    }
-
     if (!this.isSdCliAvailable()) {
       throw new Error('sd-cli binary not installed');
     }
 
-    const modelFilePath = path.join(
-      this.modelsBasePath,
-      modelDef.extractedName,
-      modelDef.modelFileName,
-    );
-
-    if (!existsSync(modelFilePath)) {
-      throw new Error(`Model file not found: ${modelFilePath}`);
+    if (!this.resolver) {
+      throw new Error('Image engine not initialized');
     }
+
+    // Resolve absolute model + companion paths (throws typed errors for a
+    // missing model file or missing required companion).
+    const resolved = this.resolver.resolve(modelId);
 
     // Create temp output directory
     const tempDir = path.join(app.getPath('temp'), 'vidtsx-sdimage');
@@ -183,11 +193,9 @@ export class ImageLocalEngine {
 
     const cliResult = await runSdCli({
       sdCliBinaryPath: this.sdCliBinaryPath,
-      modelFilePath,
-      modelDef,
+      resolved,
       request,
       outputPath,
-      modelsBasePath: this.modelsBasePath,
       requestId,
       onProgress: (progress) => {
         this.onProgress?.(progress);
@@ -200,11 +208,13 @@ export class ImageLocalEngine {
     const imageBuffer = await fs.readFile(cliResult.outputPath);
     const imageBase64 = imageBuffer.toString('base64');
 
+    this.onModelUsed?.(modelId);
+
     return {
       outputPath: cliResult.outputPath,
       imageBase64,
-      width: request.width ?? modelDef.defaults.width,
-      height: request.height ?? modelDef.defaults.height,
+      width: request.width ?? resolved.defaults.width,
+      height: request.height ?? resolved.defaults.height,
       seed: cliResult.seed,
       durationMs,
     };

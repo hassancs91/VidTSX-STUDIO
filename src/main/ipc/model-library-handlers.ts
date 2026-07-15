@@ -1,0 +1,200 @@
+import type { IpcMainInvokeEvent } from 'electron';
+import { shell } from 'electron';
+import type {
+  InstalledModelIpc,
+  ModelsConfigureRequest,
+  ModelsConfigureResponse,
+  ModelsImportRequest,
+  ModelsImportResponse,
+  ModelsOpenFolderRequest,
+  ModelsOpenFolderResponse,
+  ModelsRemoveRequest,
+  ModelsRemoveResponse,
+  ModelSetupConfig,
+  ModelsScanRequest,
+  ModelsScanResponse,
+  ModelsSetFolderRequest,
+  ModelsSetFolderResponse,
+  ModelsUsageGetRequest,
+  ModelsUsageGetResponse,
+  ProfileModelIpc,
+} from '../../shared/ipc/types';
+import type { InstalledModel } from '../../shared/model-library/types';
+import type { SdModelFamily, SdModelMeta } from '../../local-image-engine/types';
+import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
+import { SD_FAMILIES } from '../../local-image-engine/family-presets';
+import {
+  configureImageModel,
+  getImageModelsDir,
+  importImageModel,
+  removeImageModel,
+  scanImageLibrary,
+  type SetupConfig,
+} from '../services/sdimage-library';
+import { usageStore } from '../services/model-usage';
+import { setImageModelsFolder } from '../services/settings';
+
+function isImage(category: string): boolean {
+  return category === 'image';
+}
+
+function toSetupConfig(setup: ModelSetupConfig): SetupConfig {
+  if (!(SD_FAMILIES as string[]).includes(setup.family)) {
+    throw new Error(`Unsupported family: ${setup.family}`);
+  }
+  return {
+    family: setup.family as SdModelFamily,
+    name: setup.name,
+    allInOne: setup.allInOne,
+  };
+}
+
+function toInstalledIpc(
+  model: InstalledModel<SdModelMeta>,
+  usage: Record<string, { lastUsedAt: string; useCount: number }>,
+): InstalledModelIpc {
+  const record = usage[model.id];
+  return {
+    id: model.id,
+    name: model.name,
+    family: model.meta.family,
+    sizeBytes: model.sizeBytes,
+    filePath: model.filePath,
+    origin: model.origin,
+    ready: model.issues.length === 0,
+    issues: model.issues,
+    capabilities: model.meta.capabilities,
+    lastUsedAt: record?.lastUsedAt ?? null,
+    useCount: record?.useCount ?? 0,
+  };
+}
+
+export async function handleModelsScan(
+  _event: IpcMainInvokeEvent,
+  req: ModelsScanRequest,
+): Promise<ModelsScanResponse> {
+  const empty: ModelsScanResponse = {
+    category: req.category,
+    folder: '',
+    installed: [],
+    profiles: [],
+    unrecognized: [],
+    companions: [],
+  };
+
+  if (!isImage(req.category)) {
+    return { ...empty, error: 'unsupported-category' };
+  }
+
+  try {
+    const scan = await scanImageLibrary();
+    const usage = usageStore.getFor('image');
+    const installedIds = new Set(scan.installed.map((m) => m.id));
+
+    const profiles: ProfileModelIpc[] = SD_MODEL_CATALOG.map((p) => ({
+      id: p.id,
+      name: p.name,
+      family: p.meta.family,
+      sizeLabel: p.sizeLabel,
+      sourceUrl: p.sourceUrl,
+      hasDownload: Boolean(p.downloadUrl),
+      installed: installedIds.has(p.id),
+    }));
+
+    return {
+      category: 'image',
+      folder: scan.root,
+      installed: scan.installed.map((m) => toInstalledIpc(m, usage)),
+      profiles,
+      unrecognized: scan.unrecognized,
+      companions: scan.companionsFound.map((c) => ({ fileName: c.fileName, kind: c.kind })),
+    };
+  } catch (err) {
+    return { ...empty, error: err instanceof Error ? err.message : 'Scan failed' };
+  }
+}
+
+export async function handleModelsImport(
+  _event: IpcMainInvokeEvent,
+  req: ModelsImportRequest,
+): Promise<ModelsImportResponse> {
+  if (!isImage(req.category)) {
+    return { success: false, error: 'unsupported-category' };
+  }
+  try {
+    const setup = req.setup ? toSetupConfig(req.setup) : undefined;
+    const { filePath } = await importImageModel(req.sourcePath, req.mode, setup);
+    return { success: true, filePath };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Import failed' };
+  }
+}
+
+export async function handleModelsConfigure(
+  _event: IpcMainInvokeEvent,
+  req: ModelsConfigureRequest,
+): Promise<ModelsConfigureResponse> {
+  if (!isImage(req.category)) {
+    return { success: false, error: 'unsupported-category' };
+  }
+  try {
+    await configureImageModel(req.filePath, toSetupConfig(req.setup));
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Configure failed' };
+  }
+}
+
+export async function handleModelsRemove(
+  _event: IpcMainInvokeEvent,
+  req: ModelsRemoveRequest,
+): Promise<ModelsRemoveResponse> {
+  if (!isImage(req.category)) {
+    return { success: false, error: 'unsupported-category' };
+  }
+  try {
+    await removeImageModel(req.modelId, { deleteFile: req.deleteFile });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Remove failed' };
+  }
+}
+
+export async function handleModelsUsageGet(
+  _event: IpcMainInvokeEvent,
+  req: ModelsUsageGetRequest,
+): Promise<ModelsUsageGetResponse> {
+  return { usage: usageStore.getFor(req.category) };
+}
+
+export async function handleModelsOpenFolder(
+  _event: IpcMainInvokeEvent,
+  req: ModelsOpenFolderRequest,
+): Promise<ModelsOpenFolderResponse> {
+  if (!isImage(req.category)) {
+    return { success: false, error: 'unsupported-category' };
+  }
+  try {
+    const dir = await getImageModelsDir();
+    await shell.openPath(dir);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to open folder' };
+  }
+}
+
+export async function handleModelsSetFolder(
+  _event: IpcMainInvokeEvent,
+  req: ModelsSetFolderRequest,
+): Promise<ModelsSetFolderResponse> {
+  if (!isImage(req.category)) {
+    return { success: false, error: 'unsupported-category' };
+  }
+  try {
+    await setImageModelsFolder(req.folderPath);
+    const scan = await scanImageLibrary(); // rescan the new folder
+    return { success: true, folder: scan.root };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to set folder' };
+  }
+}

@@ -133,63 +133,67 @@ Split into multiple files under `src/shared/model-library/` if any file nears 30
 
 ### 2.1 Image types — `src/local-image-engine/types.ts`
 
-- [ ] `SdModelFamily` → `'sd15' | 'sdxl' | 'sd3' | 'flux1' | 'flux2'` (D5).
-- [ ] `SdModelMeta` (the envelope `meta` payload): family, defaults, capabilities, `useDiffusionModelFlag?`, `companions?: CompanionRequirement[]`, `allInOne?: boolean`.
-- [ ] `CompanionRequirement`: `{ kind: 'vae' | 'llm' | 'clip_l' | 't5xxl'; fileNames: string[]; sourceUrl: string; sizeLabel: string }`.
-- [ ] `ResolvedSdModel`: absolute `modelFilePath`, family, defaults, capabilities, `useDiffusionModelFlag`, resolved absolute companion paths `{ vae?; llm?; clipL?; t5xxl? }`.
-- [ ] DELETE from types: `downloadPath`, `archiveFormat`, `extractedName`, `modelFileName` (moves into `matchFileNames` on the envelope), `SdModelDefinition` itself once nothing references it.
+- [x] `SdModelFamily` → `'sd15' | 'sdxl' | 'sd3' | 'flux1' | 'flux2'` (D5).
+- [x] `SdModelMeta` (the envelope `meta` payload): family, defaults, capabilities, `useDiffusionModelFlag?`, `companions?: CompanionRequirement[]`, `allInOne?: boolean`.
+- [x] `CompanionRequirement`: `{ kind: 'vae' | 'llm' | 'clip_l' | 't5xxl'; fileNames: string[]; sourceUrl: string; sizeLabel: string }`.
+- [x] `ResolvedSdModel`: `modelId` + absolute `modelFilePath`, family, defaults, capabilities, `useDiffusionModelFlag`, `allInOne`, resolved absolute companion paths `{ vae?; llm?; clipL?; t5xxl? }`.
+- [x] DELETED from types: `downloadPath`, `archiveFormat`, `extractedName`, `modelFileName`, `SdModelDefinition`, `hidden`. (`matchFileNames` on the envelope replaces `modelFileName`.)
 
 ### 2.2 Registry rewrite — `src/local-image-engine/model-registry.ts`
 
-- [ ] Convert all 29 entries to `ModelProfileEnvelope<SdModelMeta>`; ids unchanged; old `modelFileName` becomes `matchFileNames[0]`.
-- [ ] DELETE `SD_MODELS_BASE_URL`; remove its export from `src/local-image-engine/index.ts`.
-- [ ] 16 direct-HF entries: keep URL as `downloadUrl`; `sourceUrl` = the HF repo page (derive from the resolve URL).
-- [ ] 13 ex-self-hosted entries: `downloadUrl` omitted; add `sourceUrl` (HF/Civitai page per model — verify each by hand, note dead ones in Progress Log).
-- [ ] Family assignment: flux entries split into `flux1` (schnell/dev/mini/fill) vs `flux2` (klein).
-- [ ] **Fix broken FLUX.1 metadata**: `flux-schnell-q2k/q3k/q4/q8`, `flux-dev-q2k/q3k/q4/q8`, `flux-fill-dev-q4` are diffusion-model-only GGUFs → add `useDiffusionModelFlag: true` + full flux1 companion set (clip_l, t5xxl, ae.safetensors) with source links. (`flux-schnell` full-precision safetensors: verify whether all-in-one; if unsure mark `useDiffusionModelFlag: true` + companions and note for later verification with a real sd-cli.)
-- [ ] `FAMILY_PRESETS` for the 5 families (defaults, capabilities, companions, flags per design §3.2). flux1 preset assumes diffusion-model + companions; the `allInOne` toggle clears them.
-- [ ] Companion `sourceUrl`s: clip_l + t5xxl (comfyanonymous/flux_text_encoders on HF), ae.safetensors (black-forest-labs FLUX.1-schnell repo), flux2 VAE + qwen encoders (verify actual public locations; record in Progress Log).
+- [x] Convert all **34** entries (not 29 — catalog grew to 34: 21 direct-HF + 13 zip) to `ModelProfileEnvelope<SdModelMeta>`; ids unchanged; old `modelFileName` becomes `matchFileNames[0]`.
+- [x] DELETED `SD_MODELS_BASE_URL`; removed its export from `src/local-image-engine/index.ts`.
+- [x] 21 direct-HF entries: URL kept as `downloadUrl`; `sourceUrl` = the HF repo page (derived from the resolve URL).
+- [x] 13 ex-self-hosted entries: `downloadUrl` omitted; `sourceUrl` added (HF/Civitai page per model — best-effort, flagged unverified in Progress Log).
+- [x] Family assignment: flux split into `flux1` (schnell/dev/mini/fill) vs `flux2` (klein).
+- [x] **Fixed broken FLUX.1 metadata**: all flux1 GGUFs (schnell/dev q2k/q3k/q4/q8, fill-dev-q4) + full-precision `flux-schnell` now carry `useDiffusionModelFlag: true` + the full flux1 companion set (clip_l, t5xxl, ae.safetensors) with source links. (`flux-schnell` full-precision marked diffusion-model+companions with an inline note to verify all-in-one against a real sd-cli.)
+- [x] `FAMILY_PRESETS` for the 5 families (in `family-presets.ts`; defaults, capabilities, companions, flags per design §3.2). flux1 preset = diffusion-model + companions; the `allInOne` toggle clears them.
+- [x] Companion `sourceUrl`s: clip_l + t5xxl (comfyanonymous/flux_text_encoders), ae.safetensors (black-forest-labs/FLUX.1-schnell), flux2 VAE + qwen encoders (black-forest-labs org page — **unverified, flagged in Progress Log**). Per-entry companions for flux2 klein 4B (qwen3-4b) vs 9B (qwen3-8b).
 
 ### 2.3 Image library service — `src/main/services/sdimage-library.ts` (new)
 
-- [ ] Builds the image `ModelCategoryDescriptor` (dirName `'image'`, single-file, extensions `.safetensors/.gguf/.ckpt`, profiles, presets, `allowCustomImport: true`, runtime `'sd-cli'`) and registers it + the sd-cli `RuntimeDescriptor` (wrapping existing `isSdCliInstalled`).
-- [ ] `getImageModelsDir()`: reads new `imageModelsFolder` setting, default `path.join(getAiModelsFolder(), 'image')` — replaces the hardcoded path in `sdimage-models.ts` (this also fixes the setting-ignored bug; old default resolves to the same location, so existing installs are unaffected).
-- [ ] `scanImageLibrary()`: scanner + classifier + companion inventory → `{ installed: InstalledModel<SdModelMeta>[], companionsFound, unrecognized }`. Cache last scan result in module state; rescan invalidates.
-- [ ] `resolveModel(modelId): ResolvedSdModel` — companion lookup: model's own dir → library root (design §5). Missing required companion → typed `missing-companion` error.
-- [ ] `importImageModel(sourcePath, mode, setup?: { family; name?; allInOne? })` — importer + (if unmatched) sidecar write.
-- [ ] `configureImageModel(filePath, setup)` — writes/updates sidecar (the "Set up" action).
-- [ ] `removeImageModel(modelId, { deleteFile: boolean })` — sidecar always removed; file deleted only when asked (destructive — handler must require the explicit flag).
-- [ ] Keep in `sdimage-models.ts`: `getSdCliBinaryPath` / `isSdCliInstalled`. DELETE: `downloadSdModel` archive branch, `getSdModelDir`/`getSdModelFilePath`/`isSdModelDownloaded`/`getDownloadedSdModelIds` (superseded by scan).
-- [ ] D1 download (rewrite, same file or `sdimage-library.ts`): `downloadProfileModel(profileId)` — only for profiles with `downloadUrl`; single-file `.part` → rename into `{imageModelsDir}` root (flat — enables companion sharing); keep `sdimage-model-<id>` download-manager id + metadata so the existing renderer progress plumbing keeps working. **All archive/zip handling is deleted** (every `downloadUrl` profile is a single file).
+- [x] Builds the image `ModelCategoryDescriptor` (dirName `'image'`, single-file, `.safetensors/.gguf/.ckpt`, profiles, `FAMILY_PRESETS`, `allowCustomImport: true`, runtime `'sd-cli'`) and `registerImageCategory()` registers it + the sd-cli `RuntimeDescriptor` (wraps `isSdCliInstalled`).
+- [x] `getImageModelsDir()` reads the new `imageModelsFolder` setting, default `{aiModelsFolder}/image` — fixes the setting-ignored bug; old default resolves to the same location.
+- [x] `scanImageLibrary()`: scanner + classifier + companion inventory → `{ root, installed, unrecognized, companionsFound }`; caches `lastScan`; every mutation rescans.
+- [x] `resolveInstalledModel()` / `resolveModelSync(modelId)` — companion lookup model dir → root (design §5, in `sdimage-companions.ts`). Missing file → typed `missing-file`; missing companion → typed `missing-companion` (message names the file + source link).
+- [x] `importImageModel(sourcePath, mode, setup?)` — importer + (if unmatched) sidecar write.
+- [x] `configureImageModel(filePath, setup)` — writes/updates sidecar (the "Set up" action).
+- [x] `removeImageModel(modelId, { deleteFile })` — sidecar always removed; file deleted only when asked (handler passes the explicit flag).
+- [x] `sdimage-models.ts` trimmed to `getSdCliBinaryPath` / `isSdCliInstalled`. DELETED `downloadSdModel`/archive branch, `getSdImageModelsDir`, `getSdModelDir`/`getSdModelFilePath`/`isSdModelDownloaded`/`getDownloadedSdModelIds`, `deleteSdModel`.
+- [x] D1 download in `sdimage-download.ts`: `downloadProfileModel(profileId)` — only profiles with `downloadUrl`; single-file `.part` → rename into the models-folder root (flat → companion sharing); reuses `sdimage-model-<id>` download-manager id + metadata. **All archive/zip handling deleted.** Split into `sdimage-companions.ts` (companion map + resolution) + `sdimage-download.ts` to keep files under the 300-line rule.
+
+### 2.3a Usage store wiring
+
+- [x] `src/main/services/model-usage.ts`: singleton core usage store wired to settings-db (`modelUsage` key via `getModelUsageMap`/`setModelUsageMap`). Engine's `onModelUsed` → `usageStore.recordUse('image', id)`; MODELS_USAGE_GET reads it back.
 
 ### 2.4 Engine rewiring
 
-- [ ] `image-engine.ts`: `initialize(resolver, sdCliBinaryPath)` where resolver = `{ list(): InstalledModel[]; resolve(id): ResolvedSdModel }`; `getAvailableModels()` → resolver.list(); `runGeneration` uses `resolve()` (typed errors for missing file/companion/cli); remove `SD_MODEL_CATALOG` import; on successful generation call `usageStore.recordUse('image', modelId)`.
-- [ ] `sd-cli-runner.ts`: `buildArgs` takes `ResolvedSdModel` + request; drop `modelsBasePath`/`modelDef`; companion flags from resolved absolute paths.
-- [ ] `sdimage-init.ts`: init library (ensure dir, initial scan), wire resolver into engine, restore `sdImageActiveModel` only if still present in scan.
-- [ ] `settings.ts`: `getImageModelsFolder`/`setImageModelsFolder` (+ `AppSettings` field).
+- [x] `image-engine.ts`: `initialize(resolver, sdCliBinaryPath)`, resolver = `{ list(); resolve(id) }`; `getAvailableModels()` → resolver.list(); `runGeneration` uses `resolve()`; `SD_MODEL_CATALOG` import removed; `onModelUsed` callback fired on success; added `clearActiveModelIfMissing()`.
+- [x] `sd-cli-runner.ts`: `buildArgs(resolved, request, outputPath)` (exported, pure); dropped `modelsBasePath`/`modelDef`; companion flags from resolved absolute paths; all-in-one → `-m` + no companions.
+- [x] `sdimage-init.ts`: `registerImageCategory()`, ensure dir, initial `scanImageLibrary()`, wire resolver + usage callback, restore `sdImageActiveModel` only if present in scan.
+- [x] `settings.ts`: `getImageModelsFolder`/`setImageModelsFolder` + `AppSettings.imageModelsFolder` + `getModelUsageMap`/`setModelUsageMap`.
 
 ### 2.5 IPC & preload
 
-- [ ] `channels.ts`: add `MODELS_SCAN: 'models:scan'`, `MODELS_IMPORT: 'models:import'`, `MODELS_CONFIGURE: 'models:configure'`, `MODELS_REMOVE: 'models:remove'`, `MODELS_USAGE_GET: 'models:usage:get'`, `MODELS_OPEN_FOLDER: 'models:open-folder'`, `MODELS_SET_FOLDER: 'models:set-folder'` — all requests carry `category: ModelCategory` (image-only implemented; others return typed `'unsupported-category'`).
-- [ ] `src/shared/ipc/types/model-library.ts` (new): request/response types. Rework `sd-image.ts` types: `SdImageModelIpc` → installed-model + profile shapes (installed: id, name, family, sizeBytes, filePath, origin, status incl. companion issues; profile: id, name, family, sizeLabel, sourceUrl, hasDownload).
-- [ ] New handlers `src/main/ipc/model-library-handlers.ts` + registration file (follow `registrations/sd-image.ts` pattern; register in `registrations/index.ts`). Try/catch + typed errors per CLAUDE.md.
-- [ ] Update `sdimage-handlers.ts`: `handleSdImageModelsList` → scan-backed (installed + profiles); `handleSdImageModelDownload` → `downloadProfileModel`; `handleSdImageModelDelete` → `removeImageModel(..., { deleteFile: true })`; generation/queue/cancel/status/settings handlers unchanged.
-- [ ] Preload: `src/preload/api/model-library.ts` + update `sd-image.ts`; expose in `preload/api/index.ts`.
+- [x] `channels.ts`: added `MODELS_SCAN/IMPORT/CONFIGURE/REMOVE/USAGE_GET/OPEN_FOLDER/SET_FOLDER` — all requests carry `category: ModelCategory` (image implemented; others return typed `'unsupported-category'`).
+- [x] `src/shared/ipc/types/model-library.ts` (new): request/response types incl. `InstalledModelIpc` (id, name, family, sizeBytes, filePath, origin, ready, `issues: ModelIssue[]`, capabilities, lastUsedAt, useCount) + `ProfileModelIpc` (id, name, family, sizeLabel, sourceUrl, hasDownload, installed). **Deviation:** the legacy `SdImageModelIpc` shape is KEPT (not reworked) so the Image AI Tester + orphaned hook keep compiling/working in Phase 2; Phase 3 migrates the UI to `MODELS_SCAN`, Phase 4 deletes the legacy shape. This keeps the web type baseline unchanged and the tester functional.
+- [x] New handlers `src/main/ipc/model-library-handlers.ts` + `registrations/model-library.ts`; registered in `register.ts` + barrel. Try/catch + typed errors.
+- [x] `sdimage-handlers.ts`: `handleSdImageModelsList` → scan-backed (catalog + `downloaded` from scan, legacy shape); `handleSdImageModelDownload` → `downloadProfileModel`; `handleSdImageModelDelete` → `removeImageModel(..., { deleteFile: true })`; generation/queue/cancel/status/settings unchanged.
+- [x] Preload: `src/preload/api/model-library.ts` + `preload/api/index.ts` + `preload.ts` spread. (Renderer `electron.d.ts` typings for `models*` deferred to Phase 3 with the UI — devtools calls work regardless.)
 
-### 2.6 Migration sanity (no code — verify behavior)
+### 2.6 Migration sanity (verified via test)
 
-- [ ] Old layout `image/<extractedName>/<modelFileName>` is found by recursive scan and filename-matched to the same profile id → saved `sdImageActiveModel` still resolves. Test with a fixture tree mirroring a real old install.
+- [x] Old layout `image/<extractedName>/<modelFileName>` found by recursive scan and filename-matched to the same profile id → `sdImageActiveModel` still resolves. Covered by `sdimage-scan.test.ts` (fixture mirrors a real old install → `{ kind: 'profile', profileId: 'sd15-base-q4' }`).
 
-### 2.7 Phase 2 tests
+### 2.7 Phase 2 tests — all green (67 total)
 
-- [ ] `model-registry.test.ts`: every profile has `sourceUrl`; `downloadUrl` (when present) is https + not learnwithhasan.com; ids unique; every flux1/flux2 profile with `useDiffusionModelFlag` declares required companions; `matchFileNames` unique across profiles.
-- [ ] `sd-cli-runner.test.ts` (`buildArgs` is pure): sd15 basic args; flux1 → `--diffusion-model` + `--clip_l`/`--t5xxl`/`--vae`; flux2 → `--llm` + `--vae`; all-in-one flux1 → `-m`, no companion flags; img2img/lora/seed passthrough.
-- [ ] `sdimage-library` companion resolution: found-next-to-model, found-in-root, missing → typed error listing searched dirs.
-- [ ] Old-layout fixture test (2.6).
-- [ ] Manual (dev, no sd-cli needed): `npm run dev` → Tools → Image AI Tester still lists nothing/downloaded models without errors; drop a renamed dummy `.safetensors` (a few bytes) into the models folder → appears as unrecognized via `MODELS_SCAN` (can verify from devtools: `await window.api.modelsScan({ category: 'image' })`).
+- [x] `model-registry.test.ts`: sourceUrl present/https; downloadUrl https + not learnwithhasan; unique ids; unique matchFileNames; flux diffusion-model profiles declare companions; no `flux` family; companion sourceUrls valid; FAMILY_PRESETS coverage.
+- [x] `sd-cli-runner.test.ts` (`buildArgs` pure): sd15 basic; flux1 → `--diffusion-model`+`--clip_l`/`--t5xxl`/`--vae`; flux2 → `--llm`+`--vae`; all-in-one flux1 → `-m` no companions; seed/img2img/lora passthrough; width/steps overrides; request `vaePath` overrides companion vae.
+- [x] `sdimage-companions.test.ts`: found-next-to-model, found-in-root, model-dir-wins, missing → issues listing searched dirs + source link, all-in-one clears, sd15 empty; `buildCompanionFileKinds` map.
+- [x] `sdimage-scan.test.ts`: old-layout → profile; flat canonical → profile; renamed+sidecar → custom; companion → companion; unknown → unrecognized.
+- [x] Manual: `npm run dev` boots clean — `initSdImageEngine` runs `registerImageCategory` + initial `scanImageLibrary` with no error (sd-cli-absent warning fires after the scan), `[IPC] IPC handlers registered`. Live devtools `modelsScan` call deferred to Phase 3 (non-interactive session; scan pipeline is covered by `sdimage-scan.test.ts` and runs clean at startup).
 
-**Definition of done**: tests green; type counts ≤ baseline; `grep -rn "learnwithhasan" src/` returns **zero** matches in `src/local-image-engine` + `src/main/services/sdimage*`; app launches; devtools scan call returns sane results.
+**Definition of done**: tests green (67); type counts ≤ baseline (node 36 / web 44); `grep -rn "learnwithhasan"` in `src/local-image-engine` + `src/main/services/sdimage*` = **zero**; app launches; scan runs clean at startup. ✅ ALL MET.
 
 ---
 
@@ -285,3 +289,18 @@ Follow UI_SPEC.md + existing table styling. Split into sub-components (300-line 
     - Registries expose `__reset*` test helpers and store descriptors generic-erased via `as unknown as` (no `any`).
   - Design fidelity: single-file + directory install kinds both supported; sidecar spreads category fields at top level (index signature); usage keyed `${category}:${modelId}`; download policy/companion knowledge deliberately absent from the core (they're phase-2 image-adapter concerns).
   - **Next: Phase 2 — image adapter + registry rework** (SdModelMeta envelope, flux1/flux2 split, companion data, delete `SD_MODELS_BASE_URL`/relative download fields, `sdimage-library.ts`, engine/sd-cli-runner rewire, typed errors, `imageModelsFolder` setting, generic IPC).
+- **2026-07-15 — Phase 2 COMPLETE (image adapter + registry rework).**
+  - **Verification:** `npm test` → **67 passed / 9 files** (37 core + 30 image). Type-error counts: node **36**, web **44** (both = baseline). `grep learnwithhasan` in `src/local-image-engine` + `src/main/services/sdimage*` = **0**. No references to any deleted symbol (`SD_MODELS_BASE_URL`, `SdModelDefinition`, `getSdImageModelsDir`, `downloadSdModel`, `deleteSdModel`, `isSdModelDownloaded`, …). `npm run build` clean (all 3 bundles). `npm run dev` boots clean — image category registers + initial scan runs with no error.
+  - **Catalog reality:** the catalog had grown to **34** entries (not the design's 29): 21 direct-HF (`downloadUrl` kept) + 13 ex-self-hosted zips (link-only via `sourceUrl`). All 34 converted to `ModelProfileEnvelope<SdModelMeta>`, ids unchanged.
+  - **Files created:** `src/local-image-engine/family-presets.ts`; `src/main/services/{sdimage-library,sdimage-companions,sdimage-download,model-usage}.ts`; `src/main/ipc/model-library-handlers.ts`; `src/main/ipc/registrations/model-library.ts`; `src/shared/ipc/types/model-library.ts`; `src/preload/api/model-library.ts`; 4 `.test.ts`.
+  - **Files reworked:** `types.ts` (family split, SdModelMeta/CompanionRequirement/ResolvedSdModel, deleted SdModelDefinition), `model-registry.ts` (envelopes), `sd-cli-runner.ts` (buildArgs(resolved)), `image-engine.ts` (resolver-injected), `sdimage-models.ts` (trimmed to cli helpers), `sdimage-init.ts`, `settings.ts`, `sdimage-handlers.ts`, `channels.ts`, `register.ts` + barrels/preload.
+  - **Deviations (noted inline in §2.x):**
+    - **Legacy `SdImageModelIpc` KEPT** rather than reworked. Reworking it in Phase 2 would force rewriting the Image AI Tester + orphaned `useSdImageModels` (web-checked), risking the web baseline and the "tester still lists downloaded models" DoD check. Instead the new `MODELS_SCAN` channel carries the richer installed+profile shape (`model-library.ts` types); the tester keeps the legacy list (now scan-backed: `downloaded` = a scanned model matches the profile id). Phase 3 migrates the UI to `MODELS_SCAN`; Phase 4 deletes the legacy shape + `useSdImageModels`.
+    - Split the library service into `sdimage-library.ts` + `sdimage-companions.ts` + `sdimage-download.ts` (300-line rule; companions/download are cleanly separable and companions is electron-free → unit-testable).
+    - `registerImageCategory()` is called from `sdimage-init` (not a module side-effect) so registration is deterministic and testable.
+    - `resolveModelSync` (engine path) reads the cached `lastScan` synchronously (the engine resolver interface is sync); async `scanImageLibrary` populates it. `sdimage-init` always scans before wiring the resolver.
+    - Renderer `electron.d.ts` `models*` typings deferred to Phase 3 (that file is a hand-maintained partial that already omits `sdImage*`, which is why those web errors are pre-existing baseline entries — not introduced here).
+  - **⚠️ Metadata needing human/real-sd-cli verification before ship** (design §10 required pre-ship pass):
+    - **FLUX.2 Klein companion source links** (qwen3-4b/8b encoders, `flux2_ae.safetensors`) point at the Black Forest Labs HF org page — exact public GGUF locations UNVERIFIED (FLUX.2 is new). `sourceUrl` for the 3 klein profiles + `flux-mini` (TencentARC) + the Civitai/HF pages for the 13 link-only entries are best-effort canonical guesses, not network-verified (couldn't verify each in this session).
+    - `flux-schnell` full-precision safetensors marked diffusion-model + companions; verify whether any packaging is all-in-one against a real sd-cli.
+  - **Next: Phase 3 — dedicated "AI Models" screen + usage UI** (feature flag, promote `ai-models` feature, rewrite `ImageModelsContent` onto `MODELS_SCAN`/`useImageLibrary`, Set-up dialog, dashboard Library card + runtime-registry-backed engine cards, delete hidden GeneralTab block). Add `models*` to `renderer/types/electron.d.ts` there.

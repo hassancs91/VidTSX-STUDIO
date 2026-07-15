@@ -14,6 +14,7 @@ import { frameExtractorApi } from './api/frame-extractor';
 import { logApi } from './api/log';
 import { audioApi } from './api/audio';
 import { sdImageApi } from './api/sd-image';
+import { modelLibraryApi } from './api/model-library';
 import { systemApi } from './api/system';
 import { localLlmApi } from './api/local-llm';
 import { downloadApi } from './api/download';
@@ -41,6 +42,7 @@ const api = {
   ...logApi,
   ...audioApi,
   ...sdImageApi,
+  ...modelLibraryApi,
   ...systemApi,
   ...localLlmApi,
   ...downloadApi,

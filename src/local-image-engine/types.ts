@@ -1,4 +1,9 @@
-export type SdModelFamily = 'sd15' | 'sdxl' | 'sd3' | 'flux';
+/**
+ * `flux` split into `flux1` / `flux2` (D5): the two generations need different
+ * sd-cli invocations (FLUX.1 → clip_l + t5xxl + vae; FLUX.2 → llm + vae), which
+ * drives required companions, preflight errors, and get-this-file links.
+ */
+export type SdModelFamily = 'sd15' | 'sdxl' | 'sd3' | 'flux1' | 'flux2';
 
 export interface SdGenerationDefaults {
   width: number;
@@ -17,34 +22,52 @@ export interface SdModelCapabilities {
   reference: boolean;
 }
 
-export interface SdModelDefinition {
-  id: string;
-  name: string;
-  family: SdModelFamily;
-  sizeBytes: number;
+/** A companion file a model needs at generation time (Flux text encoders / VAE). */
+export interface CompanionRequirement {
+  kind: 'vae' | 'llm' | 'clip_l' | 't5xxl';
+  /** Accepted canonical filenames, e.g. ['ae.safetensors']. First is the preferred name. */
+  fileNames: string[];
+  /** Where to obtain this file (HF page). */
+  sourceUrl: string;
   sizeLabel: string;
-  /** Relative path appended to SD_MODELS_BASE_URL for download */
-  downloadPath: string;
-  archiveFormat: 'tar.bz2' | 'tar.gz' | 'zip' | 'none';
-  /** Name of the extracted dir (or file) inside userData/ai-models/image/ */
-  extractedName: string;
-  /** The model file name passed to sd-cli --model */
-  modelFileName: string;
+}
+
+/**
+ * Category payload nested under `ModelProfileEnvelope<SdModelMeta>.meta`. Holds
+ * everything sd-cli needs beyond the file path itself.
+ */
+export interface SdModelMeta {
+  family: SdModelFamily;
   defaults: SdGenerationDefaults;
-  /** If true, model is excluded from the UI */
-  hidden?: boolean;
-  /** What generation modes this model supports */
   capabilities: SdModelCapabilities;
-  /** Use --diffusion-model flag instead of -m (required for Flux/SD3 multi-file models) */
+  /** Use --diffusion-model instead of -m (diffusion-model-only Flux/SD3 GGUFs). */
   useDiffusionModelFlag?: boolean;
-  /** LLM text encoder file name (FLUX.2 Klein: passed via --llm) */
-  llmEncoderFileName?: string;
-  /** CLIP-L text encoder file name (passed via --clip_l) */
-  clipLFileName?: string;
-  /** T5-XXL text encoder file name (passed via --t5xxl) */
-  t5xxlFileName?: string;
-  /** VAE model file name (passed via --vae) */
-  vaeFileName?: string;
+  /** Companion files required at generation time (Flux). */
+  companions?: CompanionRequirement[];
+  /**
+   * All-in-one checkpoint (bundled text encoders + VAE): switches to `-m` and
+   * clears companion requirements. Set via the Set-up dialog for Civitai FLUX.1
+   * checkpoints (§6.2). Overrides `useDiffusionModelFlag`/`companions`.
+   */
+  allInOne?: boolean;
+}
+
+/** Fully resolved, engine-consumable invocation data (absolute paths). */
+export interface ResolvedSdModel {
+  modelId: string;
+  modelFilePath: string;
+  family: SdModelFamily;
+  defaults: SdGenerationDefaults;
+  capabilities: SdModelCapabilities;
+  useDiffusionModelFlag?: boolean;
+  allInOne?: boolean;
+  /** Absolute paths to resolved companion files (only those the family needs). */
+  companionPaths: {
+    vae?: string;
+    llm?: string;
+    clipL?: string;
+    t5xxl?: string;
+  };
 }
 
 // ─── Generation ────────────────────────────────────────────────────

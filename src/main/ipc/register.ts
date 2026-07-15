@@ -14,6 +14,7 @@ import { registerFrameExtractorIpc } from './registrations/frame-extractor';
 import { registerAudioIpc } from './registrations/audio';
 import { registerEmbeddingIpc } from './registrations/embedding';
 import { registerSdImageIpc } from './registrations/sd-image';
+import { registerModelLibraryIpc } from './registrations/model-library';
 import { registerLocalLlmIpc } from './registrations/local-llm';
 import { registerSystemIpc } from './registrations/system';
 import { registerDownloadIpc } from './registrations/download';
@@ -45,6 +46,7 @@ export function registerAllIPC(): void {
   registerAudioIpc();
   registerEmbeddingIpc();
   registerSdImageIpc();
+  registerModelLibraryIpc();
   registerLocalLlmIpc();
   registerSystemIpc();
   registerDownloadIpc();

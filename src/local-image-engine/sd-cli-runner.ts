@@ -1,20 +1,16 @@
-import path from 'path';
 import { spawn, ChildProcess } from 'child_process';
 import type {
   SdGenerationRequest,
   SdGenerationProgress,
-  SdModelDefinition,
+  ResolvedSdModel,
 } from './types';
 
 export interface SdCliRunOptions {
   sdCliBinaryPath: string;
-  modelFilePath: string;
-  modelDef: SdModelDefinition;
+  resolved: ResolvedSdModel;
   request: SdGenerationRequest;
   outputPath: string;
   requestId: string;
-  /** Base path for resolving auxiliary files (encoders, VAE) relative to extractedName */
-  modelsBasePath: string;
   onProgress: (progress: SdGenerationProgress) => void;
 }
 
@@ -25,13 +21,22 @@ export interface SdCliRunResult {
 
 let activeProcess: ChildProcess | null = null;
 
-function buildArgs(options: SdCliRunOptions): string[] {
-  const { request, modelFilePath, outputPath, modelDef, modelsBasePath } = options;
-  const defaults = modelDef.defaults;
-  const modelDir = path.join(modelsBasePath, modelDef.extractedName);
+/**
+ * Build sd-cli args from a fully-resolved model (absolute model + companion
+ * paths) and the request. Pure — exported for unit tests. Companion flags come
+ * straight from `resolved.companionPaths`; an all-in-one checkpoint uses `-m`
+ * with no companion flags.
+ */
+export function buildArgs(
+  resolved: ResolvedSdModel,
+  request: SdGenerationRequest,
+  outputPath: string,
+): string[] {
+  const { defaults } = resolved;
+  const useDiffusionModel = Boolean(resolved.useDiffusionModelFlag) && !resolved.allInOne;
 
   const args: string[] = [
-    modelDef.useDiffusionModelFlag ? '--diffusion-model' : '-m', modelFilePath,
+    useDiffusionModel ? '--diffusion-model' : '-m', resolved.modelFilePath,
     '-p', request.prompt,
     '-W', String(request.width ?? defaults.width),
     '-H', String(request.height ?? defaults.height),
@@ -91,21 +96,22 @@ function buildArgs(options: SdCliRunOptions): string[] {
     args.push('-b', String(request.batchCount));
   }
 
-  // Auxiliary files (text encoders, VAE) defined on the model
-  if (modelDef.llmEncoderFileName) {
-    args.push('--llm', path.join(modelDir, modelDef.llmEncoderFileName));
-  }
-
-  if (modelDef.clipLFileName) {
-    args.push('--clip_l', path.join(modelDir, modelDef.clipLFileName));
-  }
-
-  if (modelDef.t5xxlFileName) {
-    args.push('--t5xxl', path.join(modelDir, modelDef.t5xxlFileName));
-  }
-
-  if (modelDef.vaeFileName && !request.vaePath) {
-    args.push('--vae', path.join(modelDir, modelDef.vaeFileName));
+  // Resolved companion files (absolute paths). All-in-one checkpoints bundle
+  // their encoders/VAE, so no companion flags are added for them.
+  if (!resolved.allInOne) {
+    const { companionPaths } = resolved;
+    if (companionPaths.llm) {
+      args.push('--llm', companionPaths.llm);
+    }
+    if (companionPaths.clipL) {
+      args.push('--clip_l', companionPaths.clipL);
+    }
+    if (companionPaths.t5xxl) {
+      args.push('--t5xxl', companionPaths.t5xxl);
+    }
+    if (companionPaths.vae && !request.vaePath) {
+      args.push('--vae', companionPaths.vae);
+    }
   }
 
   return args;
@@ -161,7 +167,7 @@ function parseSeed(output: string): number {
 
 export function runSdCli(options: SdCliRunOptions): Promise<SdCliRunResult> {
   return new Promise((resolve, reject) => {
-    const args = buildArgs(options);
+    const args = buildArgs(options.resolved, options.request, options.outputPath);
     let fullOutput = '';
 
     const proc = spawn(options.sdCliBinaryPath, args, {

@@ -12,6 +12,7 @@ export * from './image-studio';
 export * from './llm';
 export * from './local-llm';
 export * from './log';
+export * from './model-library';
 export * from './moderation';
 export * from './provider-keys';
 export * from './render';

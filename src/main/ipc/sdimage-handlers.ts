@@ -23,13 +23,9 @@ import type {
 } from '../../shared/ipc/types';
 import { imageLocalEngine } from '../../local-image-engine';
 import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
-import {
-  isSdModelDownloaded,
-  downloadSdModel,
-  deleteSdModel,
-  isSdCliInstalled,
-  getSdCliBinaryPath,
-} from '../services/sdimage-models';
+import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
+import { scanImageLibrary, removeImageModel } from '../services/sdimage-library';
+import { downloadProfileModel } from '../services/sdimage-download';
 import { getSdImageSettings, saveSdImageSettings } from '../services/settings';
 
 export async function handleSdImageStatus(
@@ -41,20 +37,27 @@ export async function handleSdImageStatus(
   };
 }
 
+/**
+ * Legacy catalog-shaped list (kept for the Image AI Tester + orphaned hook
+ * until Phase 3 migrates them to MODELS_SCAN). `downloaded` = a scanned
+ * installed model matches the profile id. Custom models are surfaced via
+ * MODELS_SCAN, not here.
+ */
 export async function handleSdImageModelsList(
   _event: IpcMainInvokeEvent,
 ): Promise<SdImageModelsListResponse> {
   try {
-    const models = imageLocalEngine.getAvailableModels();
-    const result: SdImageModelIpc[] = models.map((m) => ({
-      id: m.id,
-      name: m.name,
-      family: m.family,
-      sizeLabel: m.sizeLabel,
-      sizeBytes: m.sizeBytes,
-      downloaded: isSdModelDownloaded(m.id),
-      defaults: m.defaults,
-      capabilities: m.capabilities,
+    const scan = await scanImageLibrary();
+    const installedIds = new Set(scan.installed.map((m) => m.id));
+    const result: SdImageModelIpc[] = SD_MODEL_CATALOG.map((p) => ({
+      id: p.id,
+      name: p.name,
+      family: p.meta.family,
+      sizeLabel: p.sizeLabel,
+      sizeBytes: p.sizeBytes,
+      downloaded: installedIds.has(p.id),
+      defaults: p.meta.defaults,
+      capabilities: p.meta.capabilities,
     }));
     return { models: result };
   } catch {
@@ -67,7 +70,7 @@ export async function handleSdImageModelDownload(
   data: SdImageModelDownloadRequest,
 ): Promise<SdImageModelDownloadResponse> {
   try {
-    await downloadSdModel(data.modelId, (progress) => {
+    await downloadProfileModel(data.modelId, (progress) => {
       event.sender.send(IPC.SDIMAGE_DOWNLOAD_PROGRESS, progress);
     });
     return { success: true };
@@ -84,7 +87,7 @@ export async function handleSdImageModelDelete(
   data: SdImageModelDeleteRequest,
 ): Promise<SdImageModelDeleteResponse> {
   try {
-    await deleteSdModel(data.modelId);
+    await removeImageModel(data.modelId, { deleteFile: true });
     return { success: true };
   } catch (err) {
     return {
