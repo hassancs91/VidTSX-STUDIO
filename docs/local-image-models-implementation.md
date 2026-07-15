@@ -235,16 +235,16 @@ Follow UI_SPEC.md + existing table styling. Split into sub-components (300-line 
 
 ## Phase 4 — Cleanup & release hygiene
 
-- [ ] `src/audio-engine/model-registry.ts`: DELETE `MODELS_BASE_URL` (+ its export in `src/audio-engine/index.ts` if present); fix the doc comment ("Update this when hosting models…").
-- [ ] `src/main/ipc/audio-handlers.ts`: delete the relative-path fallback (~line 161–163) — `downloadUrl = model.downloadPath` unconditionally; drop the `MODELS_BASE_URL` import.
-- [ ] Sweep: `grep -rn "learnwithhasan" src/` → **zero** matches (docs/ may still reference it historically).
-- [ ] Sweep: `grep -rn "SD_MODELS_BASE_URL\|MODELS_BASE_URL" src/` → zero.
-- [ ] Delete orphaned code this work obsoleted: `useSdImageModels.ts` (if fully replaced), any dead `SdImage*` IPC types.
-- [ ] Type counts ≤ baseline; `npm test` green; `npm run build` + `npm run build:win` succeed.
-- [ ] Update `STATUS.md` (this work item complete) + the auto-memory progress note.
-- [ ] External reminder (not in repo): retire `learnwithhasan.com/api/vidtsx/models/*` hosting server-side once a release without the old resolver is out.
+- [x] `src/audio-engine/model-registry.ts`: DELETED `MODELS_BASE_URL` + its `index.ts` export; fixed the doc comment.
+- [x] `src/main/ipc/audio-handlers.ts`: deleted the relative-path fallback → `downloadUrl = model.downloadPath`; dropped the `MODELS_BASE_URL` import. Fixed the `downloadPath` doc comment in `audio-engine/types.ts`.
+- [x] Sweep: `grep -rn "learnwithhasan" src/` → 4 matches, all **benign** (2 test assertions that *enforce* no-learnwithhasan URLs; the Windows AppUserModelID `com.learnwithhasan.vidtsx-studio` app-identity string; 1 doc-comment rule). Zero hosting references.
+- [x] Sweep: `grep -rn "SD_MODELS_BASE_URL\|MODELS_BASE_URL" src/` → **zero**.
+- [x] Deleted orphaned `src/renderer/hooks/useSdImageModels.ts` (fully replaced by `useImageLibrary`, no importers). Legacy `SdImage*` IPC types are NOT dead — Tools → Image AI Tester still uses them; left in place.
+- [x] Type counts ≤ baseline: node **36**, web **36**; `npm test` green (**67**); `npm run build` + `npm run build:win` succeed. **Fixed a pre-existing `build:win` blocker:** electron-builder.yml pointed NSIS at the missing `build/license.txt` (batch-2 license-removal debt; `build/` is gitignored) → created committed `LICENSE.txt` from the root MIT `LICENSE` and pointed `license: LICENSE.txt`. Installer `dist/VidTSX-Studio-Setup-0.1.14.exe` now builds + signs cleanly.
+- [x] Updated `STATUS.md` + auto-memory progress note.
+- [ ] External reminder (not in repo): retire `learnwithhasan.com/api/vidtsx/models/*` hosting server-side once a release without the old resolver is out. **(server-side task — cannot be done from this repo.)**
 
-**Definition of done**: all sweeps clean, builds pass, STATUS.md updated, phase commits pushed.
+**Definition of done**: sweeps clean (no hosting refs), builds pass (incl. build:win after the license fix), STATUS.md + memory updated, phase commits made. ✅ MET.
 
 ---
 
@@ -306,3 +306,10 @@ Follow UI_SPEC.md + existing table styling. Split into sub-components (300-line 
   - **Deviations (noted inline in §3.x):** (1) engine cards NOT rewired to runtime-registry — only sd-cli is registered in v1; rewiring sherpa/llama/pytorch now would regress them, so they stay on `use-system-info` until those runtimes register (later batch). (2) per-model usage read from the scan's embedded `lastUsedAt`/`useCount` rather than a separate `MODELS_USAGE_GET` call. (3) "Reveal" opens the models folder (no per-file `showItemInFolder` channel exists). (4) Delete uses a two-click inline confirm (no modal-confirm component in the shared kit). (5) Kept legacy `useSdImageModels`/`SdImageModelIpc` for now — Phase 4 deletes them.
   - **⚠️ Interactive UI walkthrough NOT run** (non-interactive session — can't click the Electron GUI). Automated evidence only: types/build/tests pass + clean boot + backend flows unit-tested. A human should run the §3.4 click-through (folder change, drop/setup, import move/copy, canonical rename→profile→Use persist, flux1 companion resolution, D1 download bk-sdm-tiny, delete) before considering Phase 3 field-verified.
   - **Next: Phase 4 — cleanup** (audio `MODELS_BASE_URL` + fallback delete; `grep learnwithhasan src/` = 0; delete orphaned `useSdImageModels` + dead SdImage types; `npm run build:win`; update STATUS.md + memory).
+- **2026-07-15 — Phase 4 COMPLETE (cleanup & release hygiene). REDESIGN DONE (Phases 0–4).**
+  - Deleted audio `MODELS_BASE_URL` (`audio-engine/model-registry.ts` + `index.ts` export) and the relative-path fallback in `audio-handlers.ts` (→ `downloadUrl = model.downloadPath`; import dropped); fixed the `downloadPath` doc comment. Deleted orphaned `src/renderer/hooks/useSdImageModels.ts`.
+  - **Sweeps:** `SD_MODELS_BASE_URL|MODELS_BASE_URL` in src/ = **0**. `learnwithhasan` in src/ = 4, all benign (2 test guards enforcing no-learnwithhasan, the Windows AppUserModelID app-identity string, 1 doc comment) — no hosting references remain.
+  - **Verification:** node **36** / web **36** (≤ baseline; web dropped from deleting the orphaned hook + d.ts typings). `npm test` = **67 passing**. `npm run build` clean. `npm run build:win` **succeeds** → signed installer `dist/VidTSX-Studio-Setup-0.1.14.exe`.
+  - **Deviation / extra fix:** `build:win` had a pre-existing blocker — electron-builder.yml's NSIS `license: build/license.txt` referenced a file that never existed (batch-2 license-system removal debt; `build/` is gitignored). Created committed `LICENSE.txt` (copy of root MIT `LICENSE`) and set `license: LICENSE.txt`. This is unrelated to the redesign but was required for the build:win DoD and is legitimate release hygiene.
+  - STATUS.md + auto-memory (`local-image-models-impl-progress.md`) updated.
+  - **⚠️ Before shipping (NOT done in these non-interactive sessions):** (1) interactive click-through of the AI Models screen; (2) verify the unverified catalog `sourceUrl`s / FLUX.2 companion links against a real sd-cli (design §10); (3) sd-cli bundling + generation E2E; (4) retire the server-side `learnwithhasan.com/api/vidtsx/models/*` hosting.

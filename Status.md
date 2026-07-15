@@ -9,6 +9,35 @@
 
 ## Completed phases
 
+### Local AI Models redesign (open-source cleanup)
+**Status: COMPLETE (Phases 0–4) — committed; field-verification pending**
+
+Replaced the download-centric SD/Flux catalog (hosted on learnwithhasan.com) with
+a ComfyUI-style, folder-as-truth model library built on a category-agnostic core.
+Zero owner infrastructure for image models. See
+`docs/local-image-models-redesign.md` (design) + `docs/local-image-models-implementation.md`
+(plan + full Progress Log).
+
+- [x] **Phase 0** — vitest tooling + type-error baseline (node 36 / web 44).
+- [x] **Phase 1** — category-agnostic model-library core (`src/shared/model-library/`,
+  `src/main/services/model-library/`): scanner, classifier, sidecars, importer,
+  usage-store, category/runtime registries. Electron-free, injectable, 37 tests.
+- [x] **Phase 2** — image adapter + registry rework: `SdModelDefinition`→profile
+  envelopes (34 entries), `flux`→`flux1`/`flux2`, companion resolution, deleted
+  `SD_MODELS_BASE_URL`, generic `MODELS_*` IPC, engine on an injected resolver.
+- [x] **Phase 3** — dedicated flag-gated "AI Models" sidebar screen; image library
+  view rewritten onto `MODELS_SCAN` (`useImageLibrary` + Header/Installed/Catalog/
+  SetupDialog); dashboard Library card; deleted hidden GeneralTab folder block.
+- [x] **Phase 4** — deleted audio `MODELS_BASE_URL` + fallback, orphaned
+  `useSdImageModels`; fixed the dangling NSIS `build/license.txt` reference
+  (→ committed `LICENSE.txt`) so `build:win` completes. 67 tests; node 36 / web 36.
+
+**Pending before this ships (flagged in the Progress Log):**
+- Interactive UI click-through of the AI Models screen (not run — non-interactive session).
+- Catalog metadata verification: FLUX.2 Klein companion source links + the 13
+  link-only `sourceUrl`s are best-effort, not network-verified; verify with a real sd-cli.
+- sd-cli binary distribution story (still not bundled).
+
 ### Captions Generator
 **Status: COMPLETE**
 

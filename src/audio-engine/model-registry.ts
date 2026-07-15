@@ -1,12 +1,7 @@
 import type { AudioModelDefinition } from './types';
 
-/**
- * Base URL for model downloads. Used when downloadPath is a relative path.
- * When downloadPath starts with "http", it's used as-is (direct GitHub URLs).
- * Update this when hosting models on your own server and switch to relative paths.
- */
-export const MODELS_BASE_URL = 'https://learnwithhasan.com/api/vidtsx/models/audio';
-
+// All audio models download directly from public GitHub releases (absolute URLs
+// in each entry's downloadPath) — no owner infrastructure.
 const GH_ASR = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models';
 const GH_TTS = 'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models';
 

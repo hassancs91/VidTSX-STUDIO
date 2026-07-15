@@ -97,7 +97,7 @@ nsis:
   installerIcon: resources/icon.ico
   uninstallerIcon: resources/icon.ico
   installerHeaderIcon: resources/icon.ico
-  license: build/license.txt
+  license: LICENSE.txt
   artifactName: "VidTSX-Studio-Setup-${version}.${ext}"
   displayLanguageSelector: false
   menuCategory: false

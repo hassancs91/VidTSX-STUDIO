@@ -35,7 +35,7 @@ export interface AudioModelDefinition {
   language: string;
   sizeBytes: number;
   sizeLabel: string;
-  /** Relative path appended to MODELS_BASE_URL for download */
+  /** Absolute, public download URL (GitHub releases). */
   downloadPath: string;
   /** Archive format of the download */
   archiveFormat: 'tar.bz2' | 'tar.gz' | 'zip';

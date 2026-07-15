@@ -86,7 +86,6 @@ import {
   getAudioModelsDir,
 } from '../services/audio-models';
 import { enqueueDownload } from '../services/download-manager';
-import { MODELS_BASE_URL } from '../../audio-engine/model-registry';
 import { getAudioSettings, saveAudioSettings } from '../services/settings';
 import { logEngine } from '../../logging/log-engine';
 
@@ -158,9 +157,7 @@ export async function handleAudioModelDownload(
     const typeDir = path.join(getAudioModelsDir(), model.type);
     const archiveFileName = path.basename(model.downloadPath);
     const archivePath = path.join(typeDir, archiveFileName);
-    const downloadUrl = model.downloadPath.startsWith('http')
-      ? model.downloadPath
-      : `${MODELS_BASE_URL}/${model.downloadPath}`;
+    const downloadUrl = model.downloadPath;
 
     await enqueueDownload(
       {
