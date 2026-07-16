@@ -279,10 +279,12 @@ and to grow into video, here's the prioritized backlog.
    `out-of-memory` / `unsupported-model` / `missing-dll` / `cancelled` / `unknown`;
    `SDIMAGE_GENERATE_ERROR` now carries `code` + raw-tail `details` alongside the
    friendly `error`, rendered via the shared `ErrorBanner` (expandable Details).
-4. **Catalog verification sweep** — gpustack SD/SD3.5 sizes + the sdxl-turbo 404 are
-   fixed (commit `14ef500`). STILL to verify: flux (leejet) sizes/links, FLUX.2 Klein
-   companion GGUF locations, the 13 Civitai/HF link-only `sourceUrl`s, flux-mini. Add a
-   dev-only script/test that HEADs every `downloadUrl` (expect 200 + sane `Content-Length`).
+4. **Catalog verification sweep** — ✅ **DONE 2026-07-16 (see Progress Log).**
+   `model-registry.links.test.ts` HEADs every `downloadUrl` (gated behind
+   `CHECK_LINKS`; run `npm run check:links`) — non-200 fails, >10% size delta warns,
+   `sourceUrl`s/companions are status-only. The first run caught a dead sdxl-lightning
+   URL + 5 wrong sizes; flux (leejet), flux-mini, FLUX.2 Klein + companions, and all
+   link-only pages are now verified (Klein via leejet GGUF repos, with downloadUrls).
 5. **VRAM/RAM preflight** — ✅ **DONE 2026-07-15 (see Progress Log).** `requirements.minVramGB`
    is now read; a pure `evaluateFit` core grades every model (fit badge on the AI Models
    screen) and the generation path warns/offloads/blocks instead of letting sd-cli OOM.
@@ -421,3 +423,10 @@ purely a heavier DLL set. Keep a Vulkan backup to revert.
   - **Tests:** `sd-cli-failure.test.ts` — 21 cases: every signature (incl. the real multi-line "read tensor data failed" sd.cpp block, CUDA/Vulkan OOM lines, NTSTATUS codes), precedence, case-insensitivity, unknown fallback, `SdCliError` message/hint/details composition.
   - **Verification:** type counts node **36** / web **36** (= baseline, unchanged). `npm test` = **104 passing** (83 + 21 new). `npm run build` clean (~48s). `npm run dev` boots clean (`[SdImage] Local image engine initialized (sd-cli available)`). No generation-behavior change — only failure reporting.
   - **Note:** a parallel session had uncommitted work in the tree (video adapter files, download-manager changes, and two hunks in `useImageLibrary.ts`); this commit stages ONLY the A3 hunks (partial-staged `useImageLibrary.ts` via `git update-index`), the parallel work remains uncommitted in the working tree.
+- **2026-07-16 — Backlog A4 COMPLETE (catalog link sweep + catalog fixes it found).**
+  - **Tooling:** `src/local-image-engine/model-registry.links.test.ts` — gated `describe.skipIf(!process.env.CHECK_LINKS)` vitest suite (skipped in normal `npm test`, so the default suite stays network-free). HEADs every `downloadUrl` following HF's redirect to the LFS CDN (ranged-GET fallback for hosts that reject HEAD); non-200 → DEAD → suite fails (release gate); served size (Content-Length / X-Linked-Size) vs `sizeBytes` >10% → SIZE-MISMATCH warning (non-fatal). All 34 `sourceUrl`s + the unique companion `sourceUrl`s are HEADed status-only (a 200 confirms the page exists, not the file — Civitai is JS-only). Run: `npm run check:links` (new script; `cross-env@7.0.3` exact-pinned devDep for the env var on Windows).
+  - **First run found:** `sdxl-lightning` downloadUrl **DEAD(404)** — the OlegSkutte repo only ships `sdxl_lightning_4step.q8_0.gguf` (4.10 GB); entry rewritten to that file (id kept, now Q8). `flux-fill-dev-q4` **3 GB understated** (7.26 → 10.26 GB actual).
+  - **Catalog fixes (all sizes now exact server bytes via the HF API):** 8 leejet FLUX.1 GGUF entries corrected (q2k/q3k/q4/q8 × schnell/dev; up to ±5%); `flux-schnell` full-precision was **12 GB → actually 23.78 GB** (bf16); `flux-mini-q4` now points at `gpustack/FLUX.1-mini-GGUF` **with a downloadUrl** (5.35 GB — the TencentARC repo only has full-precision safetensors); the 3 **FLUX.2 Klein** entries now point at the released `leejet/FLUX.2-klein-{4B,9B}-GGUF` repos **with downloadUrls** (2.46 / 4.30 / 5.62 GB — the guessed matchFileNames matched leejet's actual filenames exactly).
+  - **FLUX.2 companions resolved** (per sd.cpp `docs/flux2.md`): VAE = `ae.safetensors` in ungated `black-forest-labs/FLUX.2-dev` (336 MB, was "160 MB @ org page"; rename to `flux2_ae.safetensors` locally to avoid colliding with FLUX.1's `ae.safetensors`; Comfy-Org's `flux2-vae.safetensors` also accepted); LLM encoders = `unsloth/Qwen3-4B-GGUF` `Qwen3-4B-Q4_0.gguf` 2.4 GB and `unsloth/Qwen3-8B-GGUF` `Qwen3-8B-Q4_K_M.gguf` 5.0 GB (**no Q4_0 exists for 8B** — fileNames updated to real filenames; Comfy-Org `qwen_3_4b/8b.safetensors` accepted as alternates).
+  - **Sweep result after fixes:** 25/25 downloadUrls OK (0 dead, 0 size-mismatch), 34/34 sourceUrl pages 200 (incl. all 6 Civitai link-only), 5/5 companion pages 200. **No genuinely dead links remain.**
+  - **Verification:** type counts node **36** / web **36** (= baseline). `npm test` = **116 passing + 3 skipped** (the gated sweep), no network. `npm run build` clean (~1m47s).

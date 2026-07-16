@@ -42,34 +42,36 @@ export const FLUX1_COMPANIONS: CompanionRequirement[] = [
   FLUX1_VAE,
 ];
 
-// FLUX.2 uses a Qwen3 LLM text encoder + its own VAE. Exact public GGUF
-// locations for the Qwen encoders are still being verified (FLUX.2 is new) —
-// the source links point at the Black Forest Labs FLUX.2 org page for now.
+// FLUX.2 uses a Qwen3 LLM text encoder + its own VAE (locations per the
+// stable-diffusion.cpp flux2 docs). The VAE ships as `ae.safetensors` in
+// black-forest-labs/FLUX.2-dev (ungated) — rename it to flux2_ae.safetensors
+// so it can't collide with the FLUX.1 ae.safetensors; Comfy-Org/flux2-klein
+// ships the same file as flux2-vae.safetensors.
 const FLUX2_VAE: CompanionRequirement = {
   kind: 'vae',
-  fileNames: ['flux2_ae.safetensors'],
-  sourceUrl: 'https://huggingface.co/black-forest-labs',
-  sizeLabel: '160 MB',
+  fileNames: ['flux2_ae.safetensors', 'flux2-vae.safetensors'],
+  sourceUrl: 'https://huggingface.co/black-forest-labs/FLUX.2-dev',
+  sizeLabel: '336 MB',
 };
 
-/** FLUX.2 Klein 4B variants: Qwen3-4B encoder. */
+/** FLUX.2 Klein 4B variants: Qwen3-4B encoder (GGUF or Comfy-Org safetensors). */
 export const FLUX2_4B_COMPANIONS: CompanionRequirement[] = [
   {
     kind: 'llm',
-    fileNames: ['qwen3-4b-q4_0.gguf'],
-    sourceUrl: 'https://huggingface.co/black-forest-labs',
-    sizeLabel: '2.5 GB',
+    fileNames: ['Qwen3-4B-Q4_0.gguf', 'qwen_3_4b.safetensors'],
+    sourceUrl: 'https://huggingface.co/unsloth/Qwen3-4B-GGUF',
+    sizeLabel: '2.4 GB',
   },
   FLUX2_VAE,
 ];
 
-/** FLUX.2 Klein 9B variant: Qwen3-8B encoder. */
+/** FLUX.2 Klein 9B variant: Qwen3-8B encoder (no Q4_0 published; Q4_K_M is the small quant). */
 export const FLUX2_9B_COMPANIONS: CompanionRequirement[] = [
   {
     kind: 'llm',
-    fileNames: ['qwen3-8b-q4_0.gguf'],
-    sourceUrl: 'https://huggingface.co/black-forest-labs',
-    sizeLabel: '4.9 GB',
+    fileNames: ['Qwen3-8B-Q4_K_M.gguf', 'qwen_3_8b.safetensors'],
+    sourceUrl: 'https://huggingface.co/unsloth/Qwen3-8B-GGUF',
+    sizeLabel: '5.0 GB',
   },
   FLUX2_VAE,
 ];
@@ -78,9 +80,14 @@ export const FLUX2_9B_COMPANIONS: CompanionRequirement[] = [
 export const FLUX2_COMPANIONS: CompanionRequirement[] = [
   {
     kind: 'llm',
-    fileNames: ['qwen3-4b-q4_0.gguf', 'qwen3-8b-q4_0.gguf'],
-    sourceUrl: 'https://huggingface.co/black-forest-labs',
-    sizeLabel: '2.5–4.9 GB',
+    fileNames: [
+      'Qwen3-4B-Q4_0.gguf',
+      'Qwen3-8B-Q4_K_M.gguf',
+      'qwen_3_4b.safetensors',
+      'qwen_3_8b.safetensors',
+    ],
+    sourceUrl: 'https://huggingface.co/unsloth/Qwen3-4B-GGUF',
+    sizeLabel: '2.4–5.0 GB',
   },
   FLUX2_VAE,
 ];
