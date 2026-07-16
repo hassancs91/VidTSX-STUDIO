@@ -124,7 +124,12 @@ export interface SdImageGenerateCompleteEvent {
 
 export interface SdImageGenerateErrorEvent {
   requestId: string;
+  /** Friendly, user-facing message. */
   error: string;
+  /** Machine-readable failure category (e.g. 'corrupt-model', 'out-of-memory'). */
+  code?: string;
+  /** Raw sd-cli output tail, for the expandable "Details" in the UI. */
+  details?: string;
 }
 
 export interface SdImageCancelRequest {

@@ -10,3 +10,4 @@ export type { ToastType, ToastAction, ToastProps } from "./Toast";
 export { RenderSettingsModal } from "./RenderSettingsModal";
 export type { RenderSettings } from "./RenderSettingsModal";
 export { SkeletonLoader } from "./SkeletonLoader";
+export { ErrorBanner } from "./ErrorBanner";

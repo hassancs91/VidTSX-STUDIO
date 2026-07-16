@@ -4,6 +4,7 @@ import type {
   SdGenerationProgress,
   ResolvedSdModel,
 } from './types';
+import { classifySdCliFailure, SdCliError } from './sd-cli-failure';
 
 export interface SdCliRunOptions {
   sdCliBinaryPath: string;
@@ -199,7 +200,8 @@ export function runSdCli(options: SdCliRunOptions): Promise<SdCliRunResult> {
 
     proc.on('error', (err) => {
       activeProcess = null;
-      reject(new Error(`sd-cli process error: ${err.message}`));
+      const raw = `sd-cli process error: ${err.message}`;
+      reject(new SdCliError(classifySdCliFailure(null, raw), raw));
     });
 
     proc.on('close', (code) => {
@@ -211,7 +213,8 @@ export function runSdCli(options: SdCliRunOptions): Promise<SdCliRunResult> {
           outputPath: options.outputPath,
         });
       } else {
-        reject(new Error(`sd-cli exited with code ${code}: ${fullOutput.slice(-500)}`));
+        const raw = `sd-cli exited with code ${code}: ${fullOutput.slice(-2000)}`;
+        reject(new SdCliError(classifySdCliFailure(code, fullOutput), raw));
       }
     });
   });

@@ -141,8 +141,8 @@ export async function handleSdImageGenerate(
     imageLocalEngine.onComplete = (requestId, result) => {
       event.sender.send(IPC.SDIMAGE_GENERATE_COMPLETE, { requestId, result });
     };
-    imageLocalEngine.onError = (requestId, error) => {
-      event.sender.send(IPC.SDIMAGE_GENERATE_ERROR, { requestId, error });
+    imageLocalEngine.onError = (requestId, error, code, details) => {
+      event.sender.send(IPC.SDIMAGE_GENERATE_ERROR, { requestId, error, code, details });
     };
 
     // VRAM/RAM preflight (backlog A5): block models too big for VRAM *and* RAM

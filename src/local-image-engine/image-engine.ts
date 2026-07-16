@@ -14,6 +14,7 @@ import type {
   SdRequestStatus,
 } from './types';
 import { runSdCli, killActive, isRunning } from './sd-cli-runner';
+import { SdCliError } from './sd-cli-failure';
 
 /**
  * Injected by the image adapter (sdimage-init): lists installed models and
@@ -34,7 +35,10 @@ export class ImageLocalEngine {
 
   onProgress: ((progress: SdGenerationProgress) => void) | null = null;
   onComplete: ((requestId: string, result: SdGenerationResult) => void) | null = null;
-  onError: ((requestId: string, error: string) => void) | null = null;
+  /** `code`/`details` are set for classified sd-cli runtime failures (raw output tail). */
+  onError:
+    | ((requestId: string, error: string, code?: string, details?: string) => void)
+    | null = null;
   /** Fired after a successful generation so the adapter can record usage. */
   onModelUsed: ((modelId: string) => void) | null = null;
 
@@ -149,8 +153,12 @@ export class ImageLocalEngine {
       // Status may have been changed to 'cancelled' by cancel() during generation
       if ((nextItem.status as SdRequestStatus) !== 'cancelled') {
         nextItem.status = 'failed';
-        const message = err instanceof Error ? err.message : 'Generation failed';
-        this.onError?.(nextItem.requestId, message);
+        if (err instanceof SdCliError) {
+          this.onError?.(nextItem.requestId, err.message, err.code, err.details);
+        } else {
+          const message = err instanceof Error ? err.message : 'Generation failed';
+          this.onError?.(nextItem.requestId, message);
+        }
       }
     } finally {
       // Remove completed/failed/cancelled items from queue

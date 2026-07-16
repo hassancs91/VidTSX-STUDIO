@@ -19,6 +19,8 @@ interface GenerationState {
   seed: number | null;
   durationMs: number | null;
   error: string | null;
+  /** Raw sd-cli output tail for a failed run — shown behind an expandable "Details". */
+  errorDetails: string | null;
   /** Set when the VRAM preflight auto-enabled CPU offload for this run. */
   notice: string | null;
 }
@@ -35,6 +37,7 @@ const INITIAL_GENERATION: GenerationState = {
   seed: null,
   durationMs: null,
   error: null,
+  errorDetails: null,
   notice: null,
 };
 
@@ -114,6 +117,7 @@ export function useImageAITester() {
           ...prev,
           generating: false,
           error: event.error,
+          errorDetails: event.details ?? null,
         }));
       },
     );

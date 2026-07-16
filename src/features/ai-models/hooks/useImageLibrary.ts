@@ -5,6 +5,13 @@ import type {
   ModelSetupConfig,
 } from '@shared/ipc/types';
 
+export interface LibraryError {
+  /** Friendly, user-facing error line. */
+  message: string;
+  /** Optional raw output shown behind an expandable "Details". */
+  details?: string;
+}
+
 export interface ModelDownloadStatus {
   progress: number;
   speedBps: number;
@@ -37,14 +44,14 @@ export function useImageLibrary() {
   const [cliInstalled, setCliInstalled] = useState(false);
   const [activeModelId, setActiveModelId] = useState<string | null>(null);
   const [downloads, setDownloads] = useState<Record<string, ModelDownloadStatus>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LibraryError | null>(null);
 
   const unsubRef = useRef<(() => void) | null>(null);
 
   const rescan = useCallback(async () => {
     const result = await window.api.modelsScan({ category: 'image' });
     setScan(result);
-    if (result.error && result.error !== 'unsupported-category') setError(result.error);
+    if (result.error && result.error !== 'unsupported-category') setError({ message: result.error });
   }, []);
 
   const load = useCallback(async () => {
@@ -58,7 +65,7 @@ export function useImageLibrary() {
       setCliInstalled(status.sdCliInstalled);
       setActiveModelId(status.activeModelId);
       setScan(scanResult);
-      if (scanResult.error && scanResult.error !== 'unsupported-category') setError(scanResult.error);
+      if (scanResult.error && scanResult.error !== 'unsupported-category') setError({ message: scanResult.error });
 
       const restored: Record<string, ModelDownloadStatus> = {};
       for (const d of downloadsResult.downloads) {
@@ -104,7 +111,7 @@ export function useImageLibrary() {
       }
 
       if (event.status === 'failed' || event.status === 'cancelled') {
-        if (event.status === 'failed') setError(event.error || 'Download failed');
+        if (event.status === 'failed') setError({ message: event.error || 'Download failed' });
         setDownloads((prev) => {
           const next = { ...prev };
           delete next[modelId];
@@ -130,14 +137,14 @@ export function useImageLibrary() {
   const setActiveModel = useCallback(async (modelId: string) => {
     const result = await window.api.sdImageSetActiveModel({ modelId });
     if (result.success) setActiveModelId(modelId);
-    else setError(result.error || 'Failed to set active model');
+    else setError({ message: result.error || 'Failed to set active model' });
   }, []);
 
   const removeModel = useCallback(
     async (modelId: string) => {
       const result = await window.api.modelsRemove({ category: 'image', modelId, deleteFile: true });
       if (!result.success) {
-        setError(result.error || 'Delete failed');
+        setError({ message: result.error || 'Delete failed' });
         return;
       }
       if (activeModelId === modelId) setActiveModelId(null);
@@ -155,7 +162,7 @@ export function useImageLibrary() {
     if (picked.canceled || !picked.folderPath) return;
     const result = await window.api.modelsSetFolder({ category: 'image', folderPath: picked.folderPath });
     if (!result.success) {
-      setError(result.error || 'Failed to change folder');
+      setError({ message: result.error || 'Failed to change folder' });
       return;
     }
     await rescan();
@@ -174,7 +181,7 @@ export function useImageLibrary() {
     async (sourcePath: string, mode: 'move' | 'copy', setup?: ModelSetupConfig) => {
       const result = await window.api.modelsImport({ category: 'image', sourcePath, mode, setup });
       if (!result.success) {
-        setError(result.error || 'Import failed');
+        setError({ message: result.error || 'Import failed' });
         return null;
       }
       await rescan();
@@ -187,7 +194,7 @@ export function useImageLibrary() {
     async (filePath: string, setup: ModelSetupConfig) => {
       const result = await window.api.modelsConfigure({ category: 'image', filePath, setup });
       if (!result.success) {
-        setError(result.error || 'Configure failed');
+        setError({ message: result.error || 'Configure failed' });
         return;
       }
       await rescan();
@@ -210,7 +217,7 @@ export function useImageLibrary() {
           delete next[profileId];
           return next;
         });
-        setError(result.error || 'Download failed');
+        setError({ message: result.error || 'Download failed' });
       }
     } catch (err) {
       setDownloads((prev) => {
@@ -218,7 +225,7 @@ export function useImageLibrary() {
         delete next[profileId];
         return next;
       });
-      setError(err instanceof Error ? err.message : 'Download failed');
+      setError({ message: err instanceof Error ? err.message : 'Download failed' });
     }
   }, [downloads]);
 

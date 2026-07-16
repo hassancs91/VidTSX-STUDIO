@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Button, ProgressBar } from '@shared/components';
+import { Button, ErrorBanner, ProgressBar } from '@shared/components';
 import { useImageAITester } from '../hooks/useImageAITester';
 
 // ─── Icons ────────────────────────────────────────────────────────────
@@ -374,9 +374,7 @@ export function ImageAITesterScreen({ onBack }: { onBack: () => void }) {
 
               {/* Error */}
               {generation.error && (
-                <div className="text-[11px] text-accent-red bg-accent-red/10 rounded-[6px] px-3 py-2">
-                  {generation.error}
-                </div>
+                <ErrorBanner message={generation.error} details={generation.errorDetails} />
               )}
             </div>
 

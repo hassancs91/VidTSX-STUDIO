@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ErrorBanner } from '@shared/components';
 import type { ModelSetupConfig } from '@shared/ipc/types';
 import { useImageLibrary } from '../hooks/useImageLibrary';
 import { ImageLibraryHeader } from './ImageLibraryHeader';
@@ -78,9 +79,8 @@ export function ImageModelsContent() {
       )}
 
       {lib.error && (
-        <div className="mt-3 px-3 py-2 rounded bg-accent-red/10 text-[11px] text-accent-red flex items-center justify-between">
-          <span>{lib.error}</span>
-          <button onClick={lib.clearError} className="text-text-dim hover:text-text-secondary ml-2">✕</button>
+        <div className="mt-3">
+          <ErrorBanner message={lib.error.message} details={lib.error.details} onDismiss={lib.clearError} />
         </div>
       )}
 
