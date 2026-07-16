@@ -18,7 +18,8 @@
     "build:mac": "npm run build:vendor && electron-vite build && electron-builder --mac",
     "preview": "electron-vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:links": "cross-env CHECK_LINKS=1 vitest run model-registry.links"
   },
   "devDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.59.0",
@@ -34,6 +35,7 @@
     "@types/three": "0.183.1",
     "@types/unzipper": "^0.10.11",
     "chroma-js": "2.4.2",
+    "cross-env": "7.0.3",
     "electron": "^41.0.2",
     "electron-builder": "^26.0.0",
     "electron-vite": "^5.0.0",
