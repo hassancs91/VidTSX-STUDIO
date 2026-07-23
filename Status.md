@@ -9,6 +9,29 @@
 
 ## Completed phases
 
+### TSX Generator stabilization + parallel jobs (Creator)
+**Status: COMPLETE — committed 2026-07-23**
+
+Full plan in `docs/tsx-generator-stability-plan.md`; contributor guide in
+`docs/tsx-generator-architecture.md`.
+
+- [x] **Phase 1** — stability foundation: compat-provider abort, agent-sdk
+  error-result detection, save/auto-save races, retry-with-backoff,
+  string-based validate, `npm run check:types` ratchet gate.
+- [x] **Phase 2** — main-process job engine (`src/main/services/tsx-jobs/`):
+  up to 4 concurrent generations with isolated `ClaudeSession`s, per-job
+  provider + cancel, atomic project naming, queued-job persistence, will-quit
+  shutdown.
+- [x] **Phase 3** — job-based Creator UI: jobs strip, center-panel ownership
+  rule, edits/fixes as jobs.
+- [x] **Phase 4** — token streaming, per-project `chat.json` refinement
+  history, pipeline tests, `local` + Z.AI providers, **props panel**
+  (AST prop extraction + live preview inputProps), custom-provider UI
+  (any OpenAI/Anthropic-compatible endpoint), library placeholder rows,
+  maxConcurrent setting, coalesced library rescans.
+- Z.AI preset verified against docs 2026-07-23: base URL
+  `https://api.z.ai/api/anthropic`, model `glm-5.2` (opt: `glm-5.2[1m]`).
+
 ### Local AI Models redesign (open-source cleanup)
 **Status: COMPLETE (Phases 0–4) — committed; field-verification pending**
 
@@ -94,6 +117,10 @@ Zero owner infrastructure for image models. See
 - [x] Code + visual view mode toggle
 - [x] Resizable divider between code and preview
 - [x] Auto-save with transpilation refresh
+- [x] Props panel (delivered later with the TSX Generator work, 2026-07-23):
+  AST-based `props-parser`, `PropsPanel`/`PropField` controls
+  (text/number/toggle/color/select), live preview updates via Player
+  `inputProps`
 
 ### Phase 3 — Remotion player integration
 **Status: COMPLETE**
