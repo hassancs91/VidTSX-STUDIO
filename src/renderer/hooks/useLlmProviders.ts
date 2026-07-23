@@ -38,7 +38,11 @@ export function useLlmProviders() {
           enabled: preset.id === 'claude-subscription',
         } as LlmProviderConfig;
       });
-      setProviders(merged);
+      // Saved providers with no matching preset are user-added custom entries.
+      const customs = result.providers.filter(
+        (p) => !result.presets.some((preset) => preset.id === p.id),
+      );
+      setProviders([...merged, ...customs]);
     } catch {
       // Silently fail — UI shows empty
     } finally {
@@ -54,6 +58,16 @@ export function useLlmProviders() {
     setProviders((prev) =>
       prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
     );
+    setSaveError(null);
+  }, []);
+
+  const addProvider = useCallback((config: LlmProviderConfig) => {
+    setProviders((prev) => [...prev, config]);
+    setSaveError(null);
+  }, []);
+
+  const removeProvider = useCallback((id: string) => {
+    setProviders((prev) => prev.filter((p) => p.id !== id));
     setSaveError(null);
   }, []);
 
@@ -119,6 +133,8 @@ export function useLlmProviders() {
     saveError,
     testStates,
     updateProvider,
+    addProvider,
+    removeProvider,
     setActiveProvider,
     saveProviders,
     testProvider,

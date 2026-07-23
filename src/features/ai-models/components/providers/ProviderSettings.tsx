@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Button, TextInput } from '@shared/components';
 import { useLlmProviders } from '@renderer/hooks/useLlmProviders';
+import { CustomProviderForm } from './CustomProviderForm';
 import type { LlmProviderConfig } from '@shared/ipc/types';
+
+const isCustomProvider = (id: string) => id.startsWith('custom-');
 
 const CheckIcon = () => (
   <svg width={12} height={12} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -39,16 +42,19 @@ function ProviderCard({
   provider,
   onUpdate,
   onTest,
+  onRemove,
   testState,
 }: {
   provider: LlmProviderConfig;
   onUpdate: (id: string, updates: Partial<LlmProviderConfig>) => void;
   onTest: (provider: LlmProviderConfig) => void;
+  onRemove?: (id: string) => void;
   testState?: { testing: boolean; success?: boolean; responseText?: string; durationMs?: number; error?: string };
 }) {
   const [showKey, setShowKey] = useState(false);
   const isSubscription = provider.authMode === 'subscription';
   const needsApiKey = provider.authMode === 'api-key';
+  const isCustom = isCustomProvider(provider.id);
 
   return (
     <div
@@ -66,6 +72,13 @@ function ProviderCard({
               className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-[#085041] text-accent-green"
             >
               Subscription
+            </span>
+          )}
+          {isCustom && (
+            <span
+              className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-[#7C4A03] text-[#FCD34D]"
+            >
+              Custom
             </span>
           )}
           {provider.type === 'anthropic-compat' && (
@@ -90,6 +103,17 @@ function ProviderCard({
             </span>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          {isCustom && onRemove && (
+            <button
+              onClick={() => onRemove(provider.id)}
+              className="flex items-center justify-center w-[20px] h-[20px] rounded-[4px] text-text-dim hover:text-accent-red hover:bg-app-hover transition-colors"
+              title="Remove provider"
+              type="button"
+            >
+              <XIcon />
+            </button>
+          )}
         <label className="flex items-center gap-1.5 cursor-pointer select-none">
           <span className="text-[10px] text-text-dim">
             {provider.enabled ? 'On' : 'Off'}
@@ -108,7 +132,26 @@ function ProviderCard({
             />
           </div>
         </label>
+        </div>
       </div>
+
+      {/* Base URL (custom providers only) */}
+      {isCustom && (
+        <div className="mb-2">
+          <div className="text-[10px] text-text-dim mb-1">
+            Base URL
+            <span className="ml-1.5 text-text-dim opacity-70">
+              ({provider.type === 'openai-compat' ? 'OpenAI' : 'Anthropic'}-compatible)
+            </span>
+          </div>
+          <TextInput
+            value={provider.baseURL || ''}
+            onChange={(e) => onUpdate(provider.id, { baseURL: e.target.value })}
+            placeholder="https://..."
+            className="w-full"
+          />
+        </div>
+      )}
 
       {/* API Key field */}
       {needsApiKey && (
@@ -200,6 +243,8 @@ export function ProviderSettings() {
     saveError,
     testStates,
     updateProvider,
+    addProvider,
+    removeProvider,
     saveProviders,
     testProvider,
   } = useLlmProviders();
@@ -215,16 +260,23 @@ export function ProviderSettings() {
   return (
     <div className="bg-app-surface rounded-lg border border-border overflow-hidden">
       {providers
-        .filter((p) => p.id === 'claude-subscription')
+        .filter((p) => p.id === 'claude-subscription' || isCustomProvider(p.id))
         .map((provider) => (
           <ProviderCard
             key={provider.id}
             provider={provider}
             onUpdate={updateProvider}
             onTest={testProvider}
+            onRemove={removeProvider}
             testState={testStates[provider.id]}
           />
         ))}
+
+      {/* Add-your-own endpoint (OSS extensibility) */}
+      <CustomProviderForm
+        existingIds={providers.map((p) => p.id)}
+        onAdd={addProvider}
+      />
 
       {/* Save button */}
       <div className="p-3 flex items-center gap-2">
