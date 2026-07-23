@@ -22,29 +22,52 @@ const HTTP_ERROR_MESSAGES: Record<number, string> = {
   404: "Model not found. Check the model name in your provider settings.",
 };
 
-export function getHumanReadableError(error: unknown, providerId: ProviderId): string {
+export function getHumanReadableError(error: unknown, _providerId: ProviderId): string {
   if (error instanceof Error) {
-    const statusMatch = error.message.match(/(\d{3})/);
+    const status = getStatusCode(error);
+    if (status && HTTP_ERROR_MESSAGES[status]) {
+      return HTTP_ERROR_MESSAGES[status];
+    }
+
+    // Fallback: match known codes as standalone numbers only — "429" but not
+    // "429ms" or "14290", since durations and token counts also appear in messages.
+    const statusMatch = error.message.match(/\b(401|404|429)\b/);
     if (statusMatch) {
-      const status = Number(statusMatch[1]);
-      if (HTTP_ERROR_MESSAGES[status]) {
-        return HTTP_ERROR_MESSAGES[status];
-      }
+      return HTTP_ERROR_MESSAGES[Number(statusMatch[1])];
     }
 
-    if ("status" in error && typeof (error as Record<string, unknown>).status === "number") {
-      const status = (error as Record<string, unknown>).status as number;
-      if (HTTP_ERROR_MESSAGES[status]) {
-        return HTTP_ERROR_MESSAGES[status];
-      }
-    }
-  }
-
-  if (error instanceof Error) {
     return error.message;
   }
 
   return String(error);
+}
+
+/**
+ * Tracks in-flight AbortControllers for a provider so a provider-level abort()
+ * can cancel every active request, while each request also honors its own
+ * caller-supplied AbortSignal.
+ */
+export class RequestAbortRegistry {
+  private controllers = new Set<AbortController>();
+
+  open(callerSignal?: AbortSignal): AbortController {
+    const controller = new AbortController();
+    if (callerSignal) {
+      if (callerSignal.aborted) controller.abort();
+      else callerSignal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+    this.controllers.add(controller);
+    return controller;
+  }
+
+  close(controller: AbortController): void {
+    this.controllers.delete(controller);
+  }
+
+  abortAll(): void {
+    for (const controller of this.controllers) controller.abort();
+    this.controllers.clear();
+  }
 }
 
 export function isCliNotFoundError(error: unknown): boolean {

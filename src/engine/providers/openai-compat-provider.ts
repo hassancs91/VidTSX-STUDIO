@@ -2,13 +2,14 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent } from "../types";
 import { LLMEngineError } from "../types";
-import { getHumanReadableError, getStatusCode } from "../utils";
+import { getHumanReadableError, getStatusCode, RequestAbortRegistry } from "../utils";
 import { logEngine } from "../../logging/log-engine";
 
 const log = logEngine.createLogger('OpenAICompat');
 
 export class OpenAICompatProvider implements LLMProvider {
   private client: OpenAI;
+  private aborts = new RequestAbortRegistry();
 
   constructor(
     readonly id: string,
@@ -50,7 +51,12 @@ export class OpenAICompatProvider implements LLMProvider {
     return messages;
   }
 
+  abort(): void {
+    this.aborts.abortAll();
+  }
+
   async generate(request: LLMRequest): Promise<LLMResponse> {
+    const controller = this.aborts.open(request.signal);
     try {
       const start = Date.now();
       const model = request.model || this.defaultModel;
@@ -60,7 +66,7 @@ export class OpenAICompatProvider implements LLMProvider {
         max_completion_tokens: request.maxTokens || 8192,
         ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
         messages: this.buildMessages(request),
-      });
+      }, { signal: controller.signal });
 
       const choice = response.choices[0];
       const text = choice?.message?.content ?? '';
@@ -76,13 +82,19 @@ export class OpenAICompatProvider implements LLMProvider {
         durationMs: Date.now() - start,
       };
     } catch (error) {
+      if (controller.signal.aborted) {
+        throw new LLMEngineError("Request cancelled", this.id, undefined, error);
+      }
       log.error('Generate failed', error, { providerId: this.id });
       const message = getHumanReadableError(error, this.id);
       throw new LLMEngineError(message, this.id, getStatusCode(error), error);
+    } finally {
+      this.aborts.close(controller);
     }
   }
 
   async *streamGenerate(request: LLMRequest): AsyncIterable<LLMStreamEvent> {
+    const controller = this.aborts.open(request.signal);
     try {
       const start = Date.now();
       const model = request.model || this.defaultModel;
@@ -94,7 +106,7 @@ export class OpenAICompatProvider implements LLMProvider {
         ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
         messages: this.buildMessages(request),
         stream: true,
-      });
+      }, { signal: controller.signal });
 
       for await (const chunk of stream) {
         const delta = chunk.choices[0]?.delta?.content;
@@ -115,9 +127,15 @@ export class OpenAICompatProvider implements LLMProvider {
         },
       };
     } catch (error) {
+      if (controller.signal.aborted) {
+        yield { type: 'error', error: 'Request cancelled' };
+        return;
+      }
       log.error('Stream generate failed', error, { providerId: this.id });
       const message = getHumanReadableError(error, this.id);
       yield { type: 'error', error: message };
+    } finally {
+      this.aborts.close(controller);
     }
   }
 }

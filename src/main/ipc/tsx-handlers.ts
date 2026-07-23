@@ -1,23 +1,13 @@
-import path from 'path';
-import fs from 'fs/promises';
 import type { IpcMainInvokeEvent } from 'electron';
 import type { TsxValidateRequest, TsxValidateResponse } from '@shared/ipc/types';
-import { getTempDir } from '../utils/paths';
-import { transpileTsx } from '../services/tsx-transpiler';
+import { transpileTsxSource } from '../services/tsx-transpiler';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../services/module-server';
 
 export async function handleTsxValidate(
   _event: IpcMainInvokeEvent,
   data: TsxValidateRequest
 ): Promise<TsxValidateResponse> {
-  const tempDir = getTempDir();
-  const fileName = `validate-${Date.now()}.tsx`;
-  const filePath = path.join(tempDir, fileName);
-
   try {
-    await fs.mkdir(tempDir, { recursive: true });
-    await fs.writeFile(filePath, data.code, 'utf-8');
-
     await ensureModuleServer();
     const baseUrl = getModuleServerBaseUrl();
 
@@ -25,7 +15,9 @@ export async function handleTsxValidate(
       return { success: false, error: 'Module server not available' };
     }
 
-    const result = await transpileTsx(filePath, baseUrl);
+    // Transpile straight from the string — no temp file, safe under
+    // concurrent validations.
+    const result = await transpileTsxSource(data.code, 'validate.tsx', baseUrl);
 
     if (!result.success) {
       return {
@@ -41,11 +33,5 @@ export async function handleTsxValidate(
       success: false,
       error: err instanceof Error ? err.message : 'Validation failed',
     };
-  } finally {
-    try {
-      await fs.unlink(filePath);
-    } catch {
-      // Ignore cleanup errors
-    }
   }
 }

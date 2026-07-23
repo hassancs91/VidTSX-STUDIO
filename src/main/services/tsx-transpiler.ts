@@ -288,16 +288,15 @@ function rewriteImports(code: string, baseUrl: string): string {
 }
 
 /**
- * Transpile a TSX file to ESM JavaScript
+ * Transpile TSX source (already in memory) to ESM JavaScript.
+ * sourceName is used only for error reporting / sourcemaps.
  */
-export async function transpileTsx(
-  filePath: string,
+export async function transpileTsxSource(
+  content: string,
+  sourceName: string,
   moduleServerBaseUrl: string
 ): Promise<TranspileOutput> {
   try {
-    // Read the source file
-    const content = await fs.readFile(filePath, 'utf-8');
-
     // Generate hash for caching
     const hash = createHash('md5').update(content).digest('hex').slice(0, 12);
 
@@ -314,7 +313,7 @@ export async function transpileTsx(
       format: 'esm',
       target: 'es2020',
       sourcemap: 'inline',
-      sourcefile: path.basename(filePath),
+      sourcefile: sourceName,
     });
 
     // Rewrite imports to use virtual modules and CDN for external packages
@@ -346,7 +345,7 @@ export async function transpileTsx(
           ? {
               line: firstError.location.line,
               column: firstError.location.column,
-              file: filePath,
+              file: sourceName,
             }
           : undefined,
       };
@@ -357,6 +356,26 @@ export async function transpileTsx(
       error: err instanceof Error ? err.message : 'Unknown error',
     };
   }
+}
+
+/**
+ * Transpile a TSX file to ESM JavaScript
+ */
+export async function transpileTsx(
+  filePath: string,
+  moduleServerBaseUrl: string
+): Promise<TranspileOutput> {
+  let content: string;
+  try {
+    content = await fs.readFile(filePath, 'utf-8');
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error',
+    };
+  }
+  // Pass the full path so error locations keep pointing at the real file.
+  return transpileTsxSource(content, filePath, moduleServerBaseUrl);
 }
 
 /**

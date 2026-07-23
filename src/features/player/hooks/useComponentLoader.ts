@@ -72,13 +72,16 @@ const initialState: LoaderState = {
 export function useComponentLoader(): UseComponentLoaderResult {
   const [state, setState] = useState<LoaderState>(initialState);
   const currentFileRef = useRef<string | null>(null);
+  const loadNonceRef = useRef(0);
 
   // Create the lazyComponent function when we have a module URL
   // Wrapped with timeout and error handling to prevent silent failures
   const lazyComponent = state.moduleUrl
     ? () => {
-        // Add timestamp to bust browser's dynamic import cache
-        const moduleUrl = `${state.moduleUrl}?t=${Date.now()}`;
+        // The cache-buster is baked into moduleUrl once per load — minting a new
+        // one per import would add a permanent browser module-map entry on every
+        // Player remount (module-map entries are never garbage collected).
+        const moduleUrl = state.moduleUrl!;
         log.debug('Starting dynamic import', { moduleUrl });
 
         return new Promise<{ default: ComponentType<unknown> }>((resolve, reject) => {
@@ -132,9 +135,12 @@ export function useComponentLoader(): UseComponentLoaderResult {
         return;
       }
 
+      // Bust the dynamic-import cache once per load so a re-save of identical
+      // content still gets a fresh module, without leaking one per mount.
+      const nonce = ++loadNonceRef.current;
       setState({
         status: 'success',
-        moduleUrl: result.moduleUrl ?? null,
+        moduleUrl: result.moduleUrl ? `${result.moduleUrl}?v=${nonce}` : null,
         config: result.compositionConfig ?? null,
         error: null,
       });

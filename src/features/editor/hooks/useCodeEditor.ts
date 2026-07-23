@@ -16,6 +16,10 @@ interface UseCodeEditorResult {
   setContent: (content: string) => void;
   save: () => Promise<void>;
   reload: () => Promise<void>;
+  /** Write any pending debounced auto-save immediately. */
+  flushPendingSave: () => Promise<void>;
+  /** Drop any pending debounced auto-save without writing. */
+  cancelPendingSave: () => void;
 }
 
 const initialState: EditorState = {
@@ -44,12 +48,44 @@ export function useCodeEditor({
   const [state, setState] = useState<EditorState>(initialState);
   const [content, setContentInternal] = useState('');
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ path: string; content: string } | null>(null);
   const lastSavedContentRef = useRef<string>('');
+  const filePathRef = useRef<string | null>(filePath);
+  filePathRef.current = filePath;
   const onAfterSaveRef = useRef(onAfterSave);
   onAfterSaveRef.current = onAfterSave;
 
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    pendingSaveRef.current = null;
+  }, []);
+
+  const flushPendingSave = useCallback(async () => {
+    const pending = pendingSaveRef.current;
+    cancelPendingSave();
+    if (!pending) return;
+
+    try {
+      const result = await window.api.fileWrite({ path: pending.path, content: pending.content });
+      // Only touch editor state if we're still on the file the write targeted.
+      if (!result.error && filePathRef.current === pending.path) {
+        lastSavedContentRef.current = pending.content;
+        setState((prev) => ({ ...prev, isDirty: false, lastSaved: new Date() }));
+      }
+    } catch (err) {
+      log.error('Flush save error', err);
+    }
+  }, [cancelPendingSave]);
+
   // Load file content when filePath changes
   useEffect(() => {
+    // Flush any pending auto-save for the previous file so switching versions
+    // never drops edits or misattributes them to the new file.
+    void flushPendingSave();
+
     if (!filePath) {
       setState({
         ...initialState,
@@ -89,7 +125,7 @@ export function useCodeEditor({
     };
 
     loadFile();
-  }, [filePath]);
+  }, [filePath, flushPendingSave]);
 
   // Save function
   const save = useCallback(async () => {
@@ -143,18 +179,26 @@ export function useCodeEditor({
         clearTimeout(saveTimeoutRef.current);
       }
 
-      // Schedule auto-save
+      // Schedule auto-save (capture the target path now — the file may change
+      // before the debounce fires)
       if (isDirty && state.filePath) {
+        const targetPath = state.filePath;
+        pendingSaveRef.current = { path: targetPath, content: newContent };
         saveTimeoutRef.current = setTimeout(() => {
-          // Check if still dirty before saving
+          // A flush/cancel or a newer edit may have superseded this write
+          if (pendingSaveRef.current?.path !== targetPath || pendingSaveRef.current.content !== newContent) {
+            return;
+          }
+          pendingSaveRef.current = null;
           if (newContent !== lastSavedContentRef.current) {
             window.api
               .fileWrite({
-                path: state.filePath!,
+                path: targetPath,
                 content: newContent,
               })
               .then((result) => {
-                if (!result.error) {
+                // Only touch editor state if we're still on the file we wrote
+                if (!result.error && filePathRef.current === targetPath) {
                   lastSavedContentRef.current = newContent;
                   setState((prev) => ({
                     ...prev,
@@ -175,14 +219,12 @@ export function useCodeEditor({
     [autoSaveDelay, state.filePath]
   );
 
-  // Cleanup timeout on unmount
+  // Flush any pending auto-save on unmount so edits are never dropped
   useEffect(() => {
     return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
+      void flushPendingSave();
     };
-  }, []);
+  }, [flushPendingSave]);
 
   // Reload file from disk
   const reload = useCallback(async () => {
@@ -211,5 +253,7 @@ export function useCodeEditor({
     setContent,
     save,
     reload,
+    flushPendingSave,
+    cancelPendingSave,
   };
 }

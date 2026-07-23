@@ -39,6 +39,41 @@ function getBundledClaudeCodePath(): string | undefined {
 
 const SESSION_IDLE_TIMEOUT_MS = 120_000;
 
+/** Fields shared by SDKResultSuccess/SDKResultError that signal a failed run. */
+interface SdkResultErrorFields {
+  subtype?: string;
+  is_error?: boolean;
+  errors?: string[];
+  terminal_reason?: string;
+  api_error_status?: number | null;
+  result?: string;
+}
+
+/**
+ * The SDK reports many failures as a `result` message with `is_error`/an error
+ * subtype rather than by throwing — usage limits arrive as
+ * `terminal_reason: 'blocking_limit'`. Returns a human-readable error message,
+ * or null if the result is a genuine success.
+ */
+function describeErrorResult(r: SdkResultErrorFields): string | null {
+  const failed = r.is_error === true || (r.subtype !== undefined && r.subtype !== "success");
+  if (!failed) return null;
+
+  if (r.terminal_reason === "blocking_limit") {
+    return "Usage limit reached for this provider. Wait for the limit to reset or switch providers.";
+  }
+  if (r.subtype === "error_max_turns") {
+    return "Generation stopped: the model hit the maximum number of turns before finishing.";
+  }
+  if (r.subtype === "error_max_budget_usd") {
+    return "Generation stopped: the configured cost budget was exhausted.";
+  }
+
+  const detail = r.errors?.filter(Boolean).join("; ")
+    || (typeof r.result === "string" ? r.result.trim() : "");
+  return detail || "Generation failed inside the Claude CLI (no details provided).";
+}
+
 export class ClaudeProvider implements LLMProvider {
   readonly id: string;
 
@@ -313,9 +348,6 @@ export class ClaudeProvider implements LLMProvider {
           });
           turnStart = Date.now();
         } else if (message.type === "result") {
-          this.sessionAlive = true;
-          this.resetIdleTimer();
-
           // Extract usage stats from SDK result
           const result = message as {
             type: 'result';
@@ -326,7 +358,28 @@ export class ClaudeProvider implements LLMProvider {
             num_turns?: number;
             usage?: { inputTokens?: number; outputTokens?: number; cacheReadInputTokens?: number };
             modelUsage?: Record<string, { inputTokens?: number; outputTokens?: number; costUSD?: number; cacheReadInputTokens?: number }>;
-          };
+          } & SdkResultErrorFields;
+
+          const resultError = describeErrorResult(result);
+          if (resultError) {
+            log.error('Result-level error from SDK', undefined, {
+              subtype: result.subtype,
+              terminalReason: result.terminal_reason,
+              apiErrorStatus: result.api_error_status,
+            });
+            if (this.pendingReject) {
+              const reject = this.pendingReject;
+              this.pendingResolve = null;
+              this.pendingReject = null;
+              const friendly = getHumanReadableError(new Error(resultError), this.id);
+              reject(new LLMEngineError(friendly, this.id, result.api_error_status ?? undefined));
+            }
+            this.closeSession();
+            return;
+          }
+
+          this.sessionAlive = true;
+          this.resetIdleTimer();
 
           const sdkUsage = result.usage;
           const costUsd = result.total_cost_usd;
@@ -463,13 +516,13 @@ export class ClaudeProvider implements LLMProvider {
 
       debugLog.push(`[engine] stream started — model: ${streamModel}, thinking: ${thinking ? JSON.stringify(thinking) : 'off'}, effort: ${effort ?? 'default'}`);
 
-      let sdkResult: {
+      let sdkResult: ({
         total_cost_usd?: number;
         duration_api_ms?: number;
         num_turns?: number;
         usage?: { inputTokens?: number; outputTokens?: number; cacheReadInputTokens?: number };
         modelUsage?: Record<string, { inputTokens?: number; outputTokens?: number; costUSD?: number; cacheReadInputTokens?: number }>;
-      } | undefined;
+      } & SdkResultErrorFields) | undefined;
 
       const contentBlocks = this.buildContentBlocks(request);
       const streamPrompt = typeof contentBlocks === 'string'
@@ -536,6 +589,12 @@ export class ClaudeProvider implements LLMProvider {
         } else if (message.type === "result") {
           sdkResult = message as typeof sdkResult;
         }
+      }
+
+      const streamResultError = sdkResult ? describeErrorResult(sdkResult) : null;
+      if (streamResultError) {
+        yield { type: "error", error: getHumanReadableError(new Error(streamResultError), this.id) };
+        return;
       }
 
       if (lastTurnText) {

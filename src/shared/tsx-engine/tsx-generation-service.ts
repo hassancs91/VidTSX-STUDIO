@@ -10,7 +10,7 @@ import type {
   PipelineMode,
   ThinkingLevel,
 } from './types';
-import type { LlmImageIpc } from '../ipc/types';
+import type { LlmImageIpc, LlmGenerateRequest, LlmGenerateResponse } from '../ipc/types';
 import { THINKING_CONFIGS } from './thinking-config';
 import { buildTsxSystemPrompt, buildVerifyPrompt } from './prompt-builder';
 import { EDIT_SYSTEM_PROMPT } from './prompts/generate-prompt';
@@ -34,6 +34,32 @@ function formatStepOutput(text: string, thinking?: string): string {
 
 function newScope(kind: string): string {
   return `${kind}:${crypto.randomUUID()}`;
+}
+
+// Transient failures worth retrying with backoff. Hard stops (cancelled,
+// subscription usage limit) are excluded — waiting a few seconds won't fix them.
+const TRANSIENT_ERROR_PATTERN =
+  /rate limit|overloaded|econnreset|econnrefused|etimedout|socket hang up|fetch failed|network error|timed? ?out|\b(429|502|503|529)\b/i;
+
+function isTransientError(message: string): boolean {
+  if (/cancelled|usage limit/i.test(message)) return false;
+  return TRANSIENT_ERROR_PATTERN.test(message);
+}
+
+const RETRY_DELAYS_MS = [2_000, 6_000];
+
+async function llmGenerateWithRetry(
+  request: LlmGenerateRequest,
+  debugLog: string[],
+): Promise<LlmGenerateResponse> {
+  let result = await window.api.llmGenerate(request);
+  for (const delayMs of RETRY_DELAYS_MS) {
+    if (result.success || !result.error || !isTransientError(result.error)) return result;
+    debugLog.push(`[Pipeline] Transient error ("${result.error}") — retrying in ${delayMs / 1000}s...`);
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    result = await window.api.llmGenerate(request);
+  }
+  return result;
 }
 
 function buildLlmRequest(
@@ -308,7 +334,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
     images: options.images,
   }, sessionScope);
 
-  const generateResult = await window.api.llmGenerate(generateRequest);
+  const generateResult = await llmGenerateWithRetry(generateRequest, debugLog);
   accumulateUsage(generateResult.usage);
 
   if (!generateResult.success || !generateResult.text) {
@@ -345,7 +371,9 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
   const verifyResult = await window.api.llmGenerate(verifyRequest);
   accumulateUsage(verifyResult.usage);
 
+  let verified = false;
   if (verifyResult.success && verifyResult.text) {
+    verified = true;
     tsxCode = extractTsxCode(verifyResult.text);
     debugLog.push(`[Pipeline] Verification complete (${verifyResult.durationMs}ms)`);
     if (verifyResult.debugLog) debugLog.push(...verifyResult.debugLog);
@@ -383,7 +411,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
     plan,
     mode,
     libraries,
-    verified: true,
+    verified,
     transpileValid,
     fixAttempts,
     usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
@@ -427,7 +455,7 @@ export async function editTsxPipeline(options: TsxEditPipelineOptions): Promise<
     images: options.images,
   }, sessionScope);
 
-  const editResult = await window.api.llmGenerate(editRequest);
+  const editResult = await llmGenerateWithRetry(editRequest, debugLog);
   accumulateUsage(editResult.usage);
 
   if (!editResult.success || !editResult.text) {

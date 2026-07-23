@@ -69,8 +69,8 @@ interface MotionPreviewPanelProps {
   onRegenerate: () => void;
   onFix: (errorMessage: string, errorLocation?: { line: number; column: number; file: string }) => void;
   onCancel: () => void;
-  onOverwrite: () => void;
-  onSaveNewVersion: () => void;
+  onOverwrite: (editedContent: string) => void;
+  onSaveNewVersion: (editedContent: string) => void;
   saving: boolean;
   saveMessage: string | null;
 }
@@ -363,7 +363,12 @@ export function MotionPreviewPanel({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={onSaveNewVersion}
+                  onClick={() => {
+                    // Pass the live editor buffer; drop any pending auto-save so it
+                    // can't re-write the current version file after we restore it
+                    codeEditor.cancelPendingSave();
+                    onSaveNewVersion(codeEditor.content);
+                  }}
                   disabled={saving || loading}
                 >
                   Save as new version
@@ -649,7 +654,11 @@ export function MotionPreviewPanel({
           </Button>
           <Button
             variant="primary"
-            onClick={() => { setShowOverwriteConfirm(false); onOverwrite(); }}
+            onClick={() => {
+              setShowOverwriteConfirm(false);
+              codeEditor.cancelPendingSave();
+              onOverwrite(codeEditor.content);
+            }}
             className="!bg-accent-amber hover:!opacity-90"
           >
             Overwrite

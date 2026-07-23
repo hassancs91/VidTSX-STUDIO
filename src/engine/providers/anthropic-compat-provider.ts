@@ -2,13 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import type { LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent } from "../types";
 import { LLMEngineError } from "../types";
-import { getHumanReadableError, getStatusCode } from "../utils";
+import { getHumanReadableError, getStatusCode, RequestAbortRegistry } from "../utils";
 import { logEngine } from "../../logging/log-engine";
 
 const log = logEngine.createLogger('AnthropicCompat');
 
 export class AnthropicCompatProvider implements LLMProvider {
   private client: Anthropic;
+  private aborts = new RequestAbortRegistry();
 
   constructor(
     readonly id: string,
@@ -39,7 +40,12 @@ export class AnthropicCompatProvider implements LLMProvider {
     }];
   }
 
+  abort(): void {
+    this.aborts.abortAll();
+  }
+
   async generate(request: LLMRequest): Promise<LLMResponse> {
+    const controller = this.aborts.open(request.signal);
     try {
       const start = Date.now();
       const model = request.model || this.defaultModel;
@@ -59,7 +65,7 @@ export class AnthropicCompatProvider implements LLMProvider {
             }
           : {}),
         messages: this.buildMessages(request),
-      });
+      }, { signal: controller.signal });
 
       const text = response.content
         .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -77,13 +83,19 @@ export class AnthropicCompatProvider implements LLMProvider {
         durationMs: Date.now() - start,
       };
     } catch (error) {
+      if (controller.signal.aborted) {
+        throw new LLMEngineError("Request cancelled", this.id, undefined, error);
+      }
       log.error('Generate failed', error, { providerId: this.id });
       const message = getHumanReadableError(error, this.id);
       throw new LLMEngineError(message, this.id, getStatusCode(error), error);
+    } finally {
+      this.aborts.close(controller);
     }
   }
 
   async *streamGenerate(request: LLMRequest): AsyncIterable<LLMStreamEvent> {
+    const controller = this.aborts.open(request.signal);
     try {
       const start = Date.now();
       const model = request.model || this.defaultModel;
@@ -104,7 +116,7 @@ export class AnthropicCompatProvider implements LLMProvider {
             }
           : {}),
         messages: this.buildMessages(request),
-      });
+      }, { signal: controller.signal });
 
       for await (const event of stream) {
         if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
@@ -129,9 +141,15 @@ export class AnthropicCompatProvider implements LLMProvider {
         },
       };
     } catch (error) {
+      if (controller.signal.aborted) {
+        yield { type: "error", error: "Request cancelled" };
+        return;
+      }
       log.error('Stream generate failed', error, { providerId: this.id });
       const message = getHumanReadableError(error, this.id);
       yield { type: "error", error: message };
+    } finally {
+      this.aborts.close(controller);
     }
   }
 }

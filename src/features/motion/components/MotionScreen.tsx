@@ -111,31 +111,25 @@ export function MotionScreen() {
     }
   }, [generator, projectManager, saveDebugLog]);
 
-  const handleOverwrite = useCallback(async () => {
+  const handleOverwrite = useCallback(async (editedContent: string) => {
     clearSaveMessage();
-    if (!projectManager.project) return;
-    const fileResult = await window.api.fileRead({ path: projectManager.project.currentVersion });
-    const content = fileResult.error ? null : fileResult.content;
-    if (!content) return;
-    const success = await projectManager.overwriteVersion(content);
+    if (!projectManager.project || !editedContent) return;
+    const success = await projectManager.overwriteVersion(editedContent);
     if (success) {
       setSaveMessage('Overwritten');
     }
   }, [projectManager]);
 
-  const handleSaveNewVersion = useCallback(async () => {
+  const handleSaveNewVersion = useCallback(async (editedContent: string) => {
     clearSaveMessage();
-    if (!projectManager.project) return;
-    // Read edited content from disk (auto-saved by code editor)
-    const fileResult = await window.api.fileRead({ path: projectManager.project.currentVersion });
-    const editedContent = fileResult.error ? null : fileResult.content;
-    if (!editedContent) return;
-    // Restore original version file before creating new version
+    if (!projectManager.project || !editedContent) return;
+    // The editor auto-saves into the current version file, so restore the
+    // original before the edits become a new version. The caller cancels any
+    // pending auto-save first, so nothing re-writes the file after this.
     const originalContent = projectManager.project.currentContent;
     if (originalContent && originalContent !== editedContent) {
       await window.api.fileWrite({ path: projectManager.project.currentVersion, content: originalContent });
     }
-    // Save edited content as new version
     const path = await projectManager.saveNewVersion(editedContent);
     if (path) {
       setSaveMessage('Saved as new version');
