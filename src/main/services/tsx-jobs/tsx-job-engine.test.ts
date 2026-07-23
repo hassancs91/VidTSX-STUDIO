@@ -100,6 +100,9 @@ describe('tsx-job-engine', () => {
     const sidecar = JSON.parse(await fs.readFile(job.versionPath!.replace(/\.tsx$/, '.debug.json'), 'utf-8'));
     expect(sidecar.prompt).toBe('a bouncing ball');
     expect(sidecar.transpileValid).toBe(true);
+    const chat = JSON.parse(await fs.readFile(path.join(job.folderPath!, 'chat.json'), 'utf-8'));
+    expect(chat).toHaveLength(2);
+    expect(chat[0]).toMatchObject({ role: 'user', content: 'a bouncing ball' });
   });
 
   it('reserves suffixed folders when jobs collide on the same name', async () => {
@@ -197,6 +200,33 @@ describe('tsx-job-engine', () => {
     expect(job.status).toBe('done');
     expect(job.folderPath).toBe(folder);
     expect(job.versionPath).toBe(path.join(folder, 'v2.tsx'));
+    // Chat history recorded, and prior turns flow into the edit request
+    const chat = JSON.parse(await fs.readFile(path.join(folder, 'chat.json'), 'utf-8'));
+    expect(chat.map((t: { role: string }) => t.role)).toEqual(['user', 'assistant']);
+  });
+
+  it('passes prior chat turns as messages on subsequent edit jobs', async () => {
+    const folder = path.join(tmpDir, `chat-target-${Date.now()}`);
+    await fs.mkdir(folder, { recursive: true });
+    await fs.writeFile(path.join(folder, 'v1.tsx'), 'const a = 1;', 'utf-8');
+    await fs.writeFile(path.join(folder, 'chat.json'), JSON.stringify([
+      { role: 'user', content: 'make the ball red', timestamp: 'x' },
+      { role: 'assistant', content: 'Applied edit — saved as v2.tsx.', timestamp: 'x' },
+    ]), 'utf-8');
+
+    const { jobId } = tsxJobEngine.start({
+      kind: 'edit',
+      prompt: 'now make it bigger',
+      options: { maxFixRetries: 0 },
+      target: { folderPath: folder, currentCode: 'const a = 1;' },
+    });
+    const job = await waitForJob(jobId!);
+    expect(job.status).toBe('done');
+
+    const editCall = llmCalls.find((r) => r.messages && r.prompt.includes('now make it bigger'));
+    expect(editCall).toBeTruthy();
+    expect(editCall!.messages![0].content).toBe('make the ball red');
+    expect(editCall!.messages!.at(-1)!.content).toContain('now make it bigger');
   });
 
   it('rejects edit jobs without a target and empty prompts', () => {

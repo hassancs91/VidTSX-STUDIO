@@ -8,6 +8,7 @@ import type {
   TsxJobListResponse,
   TsxJobClearCompletedResponse,
   TsxJobEvent,
+  TsxJobStreamEvent,
 } from '../../shared/ipc/types';
 
 export const tsxJobsApi = {
@@ -23,5 +24,10 @@ export const tsxJobsApi = {
     const handler = (_event: Electron.IpcRendererEvent, data: TsxJobEvent) => callback(data);
     ipcRenderer.on(IPC.TSXJOB_EVENT, handler);
     return () => { ipcRenderer.removeListener(IPC.TSXJOB_EVENT, handler); };
+  },
+  onTsxJobStream: (callback: (data: TsxJobStreamEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: TsxJobStreamEvent) => callback(data);
+    ipcRenderer.on(IPC.TSXJOB_STREAM, handler);
+    return () => { ipcRenderer.removeListener(IPC.TSXJOB_STREAM, handler); };
   },
 };

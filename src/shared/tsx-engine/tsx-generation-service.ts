@@ -91,7 +91,7 @@ function buildLlmRequest(
   systemPrompt: string,
   options: { providerId?: string; thinkingLevel?: string; maxTurns?: number; images?: LlmImageIpc[] },
   sessionScope?: string
-) {
+): LlmGenerateRequest {
   const thinkingLevel = (options.thinkingLevel ?? 'off') as keyof typeof THINKING_CONFIGS;
   const config = THINKING_CONFIGS[thinkingLevel];
   return {
@@ -480,6 +480,15 @@ export async function editTsxPipeline(options: TsxEditPipelineOptions, deps: Tsx
     maxTurns,
     images: options.images,
   }, sessionScope);
+
+  // Conversational continuity: prior refinement turns precede the current
+  // edit (which always carries the fresh code, so history stays lightweight).
+  if (options.chatHistory && options.chatHistory.length > 0) {
+    editRequest.messages = [
+      ...options.chatHistory,
+      { role: 'user', content: fullPrompt },
+    ];
+  }
 
   const editResult = await llmGenerateWithRetry(deps, editRequest, debugLog);
   accumulateUsage(editResult.usage);

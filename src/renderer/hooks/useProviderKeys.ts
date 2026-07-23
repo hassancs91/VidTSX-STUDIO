@@ -9,7 +9,7 @@ export interface ProviderKeysState {
 }
 
 const INITIAL: ProviderKeysState = {
-  hasKeys: { fal: false, openrouter: false, assemblyai: false },
+  hasKeys: { fal: false, openrouter: false, assemblyai: false, zai: false },
   loading: true,
   saving: false,
   error: null,

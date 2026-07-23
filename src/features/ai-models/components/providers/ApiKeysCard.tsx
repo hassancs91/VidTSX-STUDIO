@@ -29,6 +29,12 @@ const KEY_ROWS: KeyRowDef[] = [
     hint: 'Transcription with word timing + speakers · assemblyai.com',
     placeholder: 'API key',
   },
+  {
+    id: 'zai',
+    label: 'Z.AI',
+    hint: 'GLM models for generation · z.ai/model-api',
+    placeholder: 'API key',
+  },
 ];
 
 const EyeIcon = () => (

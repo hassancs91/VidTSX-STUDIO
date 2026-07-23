@@ -46,4 +46,21 @@ export const PROVIDER_PRESETS: Omit<ProviderConfig, "apiKey" | "enabled">[] = [
     authMode: "api-key",
     defaultModel: "gemini-2.5-flash",
   },
+  {
+    id: "zai",
+    name: "Z.AI (GLM)",
+    type: "agent-sdk",
+    authMode: "api-key",
+    baseURL: "https://api.z.ai/api/anthropic",
+    defaultModel: "glm-5.2",
+  },
+  {
+    // No key required — runs GGUF models loaded in AI Models → Text via
+    // node-llama-cpp. Single llama context, so requests serialize.
+    id: "local",
+    name: "Local Models (no API key)",
+    type: "local",
+    authMode: "subscription",
+    defaultModel: "local",
+  },
 ];

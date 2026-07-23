@@ -9,6 +9,7 @@ import type {
   TsxJobListResponse,
   TsxJobClearCompletedResponse,
   TsxJobEvent,
+  TsxJobStreamEvent,
 } from '@shared/ipc/types';
 import { tsxJobEngine } from '../services/tsx-jobs/tsx-job-engine';
 
@@ -23,6 +24,14 @@ export function initTsxJobBroadcast(): void {
     for (const win of BrowserWindow.getAllWindows()) {
       if (!win.isDestroyed()) {
         win.webContents.send(IPC.TSXJOB_EVENT, payload);
+      }
+    }
+  });
+  tsxJobEngine.onStream((jobId, chunk) => {
+    const payload: TsxJobStreamEvent = { jobId, chunk };
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(IPC.TSXJOB_STREAM, payload);
       }
     }
   });

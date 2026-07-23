@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process';
 
 const BASELINE = {
   'tsconfig.web.check.json': 27,
-  'tsconfig.node.check.json': 23,
+  'tsconfig.node.check.json': 22,
 };
 
 let failed = false;

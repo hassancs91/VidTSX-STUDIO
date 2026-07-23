@@ -98,6 +98,7 @@ export class ClaudeSession {
   private pendingReject: ((error: unknown) => void) | null = null;
   private pendingStart = 0;
   private pendingModel = "";
+  private pendingOnTextDelta: ((delta: string) => void) | null = null;
 
   constructor(args: ClaudeSessionArgs) {
     this.providerId = args.providerId;
@@ -128,6 +129,7 @@ export class ClaudeSession {
     content: string | ContentBlockParam[],
     model: string,
     signal?: AbortSignal,
+    onTextDelta?: (delta: string) => void,
   ): Promise<LLMResponse> {
     if (this.disposed) {
       return Promise.reject(new LLMEngineError("Session already closed", this.providerId));
@@ -154,6 +156,7 @@ export class ClaudeSession {
       this.pendingReject = reject;
       this.pendingStart = Date.now();
       this.pendingModel = model;
+      this.pendingOnTextDelta = onTextDelta ?? null;
     });
 
     const userMessage = {
@@ -226,6 +229,7 @@ export class ClaudeSession {
     const reject = this.pendingReject;
     this.pendingResolve = null;
     this.pendingReject = null;
+    this.pendingOnTextDelta = null;
     reject(error);
   }
 
@@ -234,6 +238,7 @@ export class ClaudeSession {
     const resolve = this.pendingResolve;
     this.pendingResolve = null;
     this.pendingReject = null;
+    this.pendingOnTextDelta = null;
     resolve(response);
   }
 
@@ -249,7 +254,19 @@ export class ClaudeSession {
 
     try {
       for await (const message of queryInstance) {
-        if (message.type === "assistant") {
+        if (message.type === "stream_event") {
+          // Partial-message deltas (enabled via includePartialMessages) — purely
+          // informational for live UI; the complete assistant message follows.
+          const streamEvent = (message as { type: 'stream_event'; event?: { type?: string; delta?: { type?: string; text?: string } } }).event;
+          if (
+            this.pendingOnTextDelta
+            && streamEvent?.type === 'content_block_delta'
+            && streamEvent.delta?.type === 'text_delta'
+            && streamEvent.delta.text
+          ) {
+            try { this.pendingOnTextDelta(streamEvent.delta.text); } catch { /* UI callback errors must not break the loop */ }
+          }
+        } else if (message.type === "assistant") {
           let turnThinkingChars = 0;
           let hasThinking = false;
           const blockTypes = message.message.content.map((b: { type: string }) => b.type);

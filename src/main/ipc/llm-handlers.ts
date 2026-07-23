@@ -4,7 +4,7 @@ import { llmEngine, PROVIDER_PRESETS } from '../../engine';
 
 const log = logEngine.createLogger('LLMHandlers');
 import type { ProviderConfig } from '../../engine/types';
-import { getLlmProviders, saveLlmProviders } from '../services/settings';
+import { getLlmProviders, saveLlmProviders, getProviderCredentials } from '../services/settings';
 import { extractHtmlCode } from '../../engine/utils';
 import { aiUsageService } from '../services/ai-usage';
 import type {
@@ -24,8 +24,24 @@ import { composeSystemPrompt } from '../services/skills-registry';
 export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> {
   try {
     const { providers, activeProvider } = await getLlmProviders();
+
+    // Surface auto-enabled presets that need no saved config: local models
+    // (keyless) and BYOK providers whose shared credential exists. Never send
+    // the credential itself to the renderer.
+    const savedIds = new Set(providers.map((p) => p.id));
+    const extras: ProviderConfig[] = [];
+    const localPreset = PROVIDER_PRESETS.find((p) => p.id === 'local');
+    if (localPreset && !savedIds.has('local')) {
+      extras.push({ ...localPreset, enabled: true });
+    }
+    const credentials = await getProviderCredentials();
+    const zaiPreset = PROVIDER_PRESETS.find((p) => p.id === 'zai');
+    if (zaiPreset && !savedIds.has('zai') && credentials.zai) {
+      extras.push({ ...zaiPreset, enabled: true });
+    }
+
     return {
-      providers,
+      providers: [...providers, ...extras],
       activeProvider: activeProvider || llmEngine.getActiveProvider(),
       presets: PROVIDER_PRESETS,
     };
@@ -132,7 +148,8 @@ export async function handleLlmProviderTest(
  */
 export async function runLlmGenerate(
   data: LlmGenerateRequest,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onTextDelta?: (delta: string) => void
 ): Promise<LlmGenerateResponse> {
   try {
     const start = Date.now();
@@ -156,7 +173,9 @@ export async function runLlmGenerate(
       ...(data.agentTools ? { agentTools: data.agentTools } : {}),
       ...(data.allowedTools ? { allowedTools: data.allowedTools } : {}),
       ...(data.sessionScope ? { sessionScope: data.sessionScope } : {}),
+      ...(data.messages ? { messages: data.messages } : {}),
       ...(signal ? { signal } : {}),
+      ...(onTextDelta ? { onTextDelta } : {}),
     };
 
     const result = data.providerId

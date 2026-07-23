@@ -47,6 +47,7 @@ export interface LLMRequest {
   agentTools?: string[];       // built-in Agent SDK tools to enable (e.g. 'WebFetch', 'WebSearch', 'Edit', 'Agent')
   allowedTools?: string[];     // auto-approve these tools without permission prompts
   sessionScope?: string;       // opt-in hot-session reuse key. Same value across calls that should share a session; omit or change to force a fresh session.
+  onTextDelta?: (delta: string) => void; // live text chunks as they stream. In-process callers only (functions can't cross IPC).
 }
 
 /** Per-turn timing info */
@@ -100,7 +101,7 @@ export interface LLMStreamEvent {
 export interface ProviderConfig {
   id: ProviderId;
   name: string;            // display name for UI
-  type: "agent-sdk" | "anthropic-compat" | "openai-compat" | "gemini";
+  type: "agent-sdk" | "anthropic-compat" | "openai-compat" | "gemini" | "local";
   authMode: AuthMode;      // "subscription" = use existing login, "api-key" = requires key
   apiKey?: string;         // required when authMode is "api-key"
   baseURL?: string;        // required for anthropic-compat type

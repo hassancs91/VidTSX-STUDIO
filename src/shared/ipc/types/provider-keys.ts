@@ -8,6 +8,7 @@ export interface ProviderCredentials {
   fal?: string;
   openrouter?: string;
   assemblyai?: string;
+  zai?: string;
 }
 
 export type ProviderKeyId = keyof ProviderCredentials;

@@ -1,5 +1,6 @@
 import { execSync } from "child_process";
-import type { ProviderId } from "./types";
+import type { ProviderId, LLMProvider, LLMRequest, LLMResponse } from "./types";
+import { LLMEngineError } from "./types";
 
 export interface ClaudeSubscriptionStatus {
   installed: boolean;
@@ -84,6 +85,26 @@ export function getStatusCode(error: unknown): number | undefined {
     return (error as Record<string, unknown>).status as number;
   }
   return undefined;
+}
+
+/**
+ * Run a provider's streamGenerate to completion, forwarding text deltas to
+ * request.onTextDelta. Lets providers whose generate() is one-shot serve live
+ * deltas without duplicating their request-building logic.
+ */
+export async function generateViaStream(provider: LLMProvider, request: LLMRequest): Promise<LLMResponse> {
+  let response: LLMResponse | null = null;
+  for await (const event of provider.streamGenerate!(request)) {
+    if (event.type === "text" && event.text) {
+      try { request.onTextDelta?.(event.text); } catch { /* UI callback errors must not break the stream */ }
+    } else if (event.type === "done" && event.response) {
+      response = event.response;
+    } else if (event.type === "error") {
+      throw new LLMEngineError(event.error ?? "Generation failed", provider.id);
+    }
+  }
+  if (!response) throw new LLMEngineError("Stream ended without a response", provider.id);
+  return response;
 }
 
 /**

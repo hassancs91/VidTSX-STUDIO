@@ -4,7 +4,7 @@ import type { AiFeatureSource } from '@shared/types/ai-usage';
 export interface LlmProviderPreset {
   id: string;
   name: string;
-  type: 'agent-sdk' | 'anthropic-compat' | 'openai-compat' | 'gemini';
+  type: 'agent-sdk' | 'anthropic-compat' | 'openai-compat' | 'gemini' | 'local';
   authMode: 'subscription' | 'api-key';
   baseURL?: string;
   defaultModel: string;
@@ -13,7 +13,7 @@ export interface LlmProviderPreset {
 export interface LlmProviderConfig {
   id: string;
   name: string;
-  type: 'agent-sdk' | 'anthropic-compat' | 'openai-compat' | 'gemini';
+  type: 'agent-sdk' | 'anthropic-compat' | 'openai-compat' | 'gemini' | 'local';
   authMode: 'subscription' | 'api-key';
   apiKey?: string;
   baseURL?: string;
@@ -99,6 +99,7 @@ export interface LlmGenerateRequest {
   skillIds?: string[];             // skill IDs from resources/skills/ to compose into systemPrompt
   sessionScope?: string;           // opt-in hot-session reuse key; omit or change to force a fresh session
   featureSource?: AiFeatureSource;
+  messages?: ChatMessage[];        // multi-turn history; when set, providers use it instead of prompt (last entry should be the current user turn)
 }
 
 export interface LlmGenerateResponse {

@@ -298,6 +298,7 @@ export const IPC = {
   TSXJOB_LIST: 'tsxjob:list',
   TSXJOB_CLEAR_COMPLETED: 'tsxjob:clear-completed',
   TSXJOB_EVENT: 'tsxjob:event',
+  TSXJOB_STREAM: 'tsxjob:stream',
 
   // AI Usage tracking
   AI_USAGE_GET_SUMMARY: 'ai-usage:get-summary',

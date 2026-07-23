@@ -18,6 +18,7 @@ function toHasKeys(credentials: Partial<Record<ProviderKeyId, string>>): Record<
     fal: !!credentials.fal,
     openrouter: !!credentials.openrouter,
     assemblyai: !!credentials.assemblyai,
+    zai: !!credentials.zai,
   };
 }
 
@@ -28,7 +29,7 @@ export async function handleProviderKeysGet(): Promise<ProviderKeysGetResponse> 
   } catch (err) {
     return {
       success: false,
-      hasKeys: { fal: false, openrouter: false, assemblyai: false },
+      hasKeys: { fal: false, openrouter: false, assemblyai: false, zai: false },
       error: err instanceof Error ? err.message : String(err),
     };
   }
@@ -51,7 +52,7 @@ export async function handleProviderKeysSave(
   } catch (err) {
     return {
       success: false,
-      hasKeys: { fal: false, openrouter: false, assemblyai: false },
+      hasKeys: { fal: false, openrouter: false, assemblyai: false, zai: false },
       error: err instanceof Error ? err.message : String(err),
     };
   }

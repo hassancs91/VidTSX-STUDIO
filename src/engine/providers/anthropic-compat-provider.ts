@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import type { LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent } from "../types";
 import { LLMEngineError } from "../types";
-import { getHumanReadableError, getStatusCode, RequestAbortRegistry } from "../utils";
+import { getHumanReadableError, getStatusCode, RequestAbortRegistry, generateViaStream } from "../utils";
 import { logEngine } from "../../logging/log-engine";
 
 const log = logEngine.createLogger('AnthropicCompat');
@@ -45,6 +45,7 @@ export class AnthropicCompatProvider implements LLMProvider {
   }
 
   async generate(request: LLMRequest): Promise<LLMResponse> {
+    if (request.onTextDelta) return generateViaStream(this, request);
     const controller = this.aborts.open(request.signal);
     try {
       const start = Date.now();

@@ -13,6 +13,7 @@ import type {
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { reserveProjectFolder, writeNextVersion, writeDebugSidecar } from './project-store';
+import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from './chat-store';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('TsxJobs');
@@ -54,6 +55,7 @@ function isFinished(status: TsxJobStatus): boolean {
 class TsxJobEngine {
   private jobs = new Map<string, JobRecord>();
   private listeners = new Set<(job: TsxJobIpc) => void>();
+  private streamListeners = new Set<(jobId: string, chunk: string) => void>();
   private maxConcurrent = 4;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private shuttingDown = false;
@@ -68,6 +70,12 @@ class TsxJobEngine {
   onEvent(listener: (job: TsxJobIpc) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Live LLM text chunks (throttled) for jobs in the generating step. */
+  onStream(listener: (jobId: string, chunk: string) => void): () => void {
+    this.streamListeners.add(listener);
+    return () => this.streamListeners.delete(listener);
   }
 
   list(): TsxJobIpc[] {
@@ -217,8 +225,29 @@ class TsxJobEngine {
 
   private buildDeps(record: JobRecord): TsxEngineDeps {
     const signal = record.abort.signal;
+
+    // Throttle stream deltas: accumulate and flush every 120ms. Only the
+    // generating step's text is forwarded — plan/verify/fix chatter would
+    // just flash non-code text at the user.
+    let buffer = '';
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      flushTimer = null;
+      if (!buffer) return;
+      const chunk = buffer;
+      buffer = '';
+      for (const listener of this.streamListeners) {
+        try { listener(record.snapshot.id, chunk); } catch { /* ignore */ }
+      }
+    };
+    const onTextDelta = (delta: string) => {
+      if (record.snapshot.status !== 'generating') return;
+      buffer += delta;
+      if (!flushTimer) flushTimer = setTimeout(flush, 120);
+    };
+
     return {
-      llmGenerate: (req) => runLlmGenerate({ ...req, featureSource: 'creator' }, signal),
+      llmGenerate: (req) => runLlmGenerate({ ...req, featureSource: 'tsx-generation' }, signal, onTextDelta),
       tsxValidate: (req) => validateTsxCode(req.code),
     };
   }
@@ -269,13 +298,23 @@ class TsxJobEngine {
         versionPath = await writeNextVersion(reserved.folderPath, result.text);
         snap.projectName = reserved.name;
         snap.folderPath = reserved.folderPath;
+
+        // Seed the project's refinement conversation
+        await appendChatTurns(reserved.folderPath, [
+          { role: 'user', content: record.request.prompt },
+          { role: 'assistant', content: `Generated ${path.basename(versionPath)} (${result.mode} mode).` },
+        ]).catch(() => {});
       } else {
         const target = record.request.target!;
+        const chatHistory = (await readChatHistory(target.folderPath))
+          .slice(-CHAT_CONTEXT_LIMIT)
+          .map(({ role, content }) => ({ role, content }));
         result = await editTsxPipeline({
           currentCode: target.currentCode,
           editInstruction: record.request.prompt,
           ...(record.request.providerId ? { providerId: record.request.providerId } : {}),
           ...record.request.options,
+          ...(chatHistory.length > 0 ? { chatHistory } : {}),
           onProgress,
         }, deps);
         this.throwIfAborted(record);
@@ -285,6 +324,11 @@ class TsxJobEngine {
         this.emit(record);
         versionPath = await writeNextVersion(target.folderPath, result.text);
         snap.folderPath = target.folderPath;
+
+        await appendChatTurns(target.folderPath, [
+          { role: 'user', content: record.request.prompt },
+          { role: 'assistant', content: `Applied ${record.request.kind === 'fix' ? 'fix' : 'edit'} — saved as ${path.basename(versionPath)}.` },
+        ]).catch(() => {});
       }
 
       if (result.debugLog) {

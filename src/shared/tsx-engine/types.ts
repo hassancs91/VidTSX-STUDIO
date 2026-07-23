@@ -54,6 +54,8 @@ export interface TsxEditPipelineOptions {
   maxFixRetries?: number;
   onProgress?: (progress: PipelineProgress) => void;
   images?: LlmImageIpc[];
+  /** Prior refinement turns for this project — gives edits conversational continuity. */
+  chatHistory?: { role: 'user' | 'assistant'; content: string }[];
 }
 
 export type PipelineStep = 'plan' | 'generate' | 'verify' | 'transpile' | 'fix';

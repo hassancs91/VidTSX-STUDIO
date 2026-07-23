@@ -2,6 +2,7 @@ import type {
   ProviderId, ProviderConfig, LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent, LLMUsage,
 } from "./types";
 import { ClaudeProvider } from "./providers/claude-provider";
+import { LocalLlmProvider } from "./providers/local-llm-provider";
 import { AnthropicCompatProvider } from "./providers/anthropic-compat-provider";
 import { OpenAICompatProvider } from "./providers/openai-compat-provider";
 import { GeminiProvider } from "./providers/gemini-provider";
@@ -24,6 +25,8 @@ class LLMEngine {
 
     if (config.type === "agent-sdk") {
       provider = new ClaudeProvider(config.id, config.authMode, config.defaultModel, config.apiKey, config.baseURL);
+    } else if (config.type === "local") {
+      provider = new LocalLlmProvider(config.id);
     } else if (config.type === "openai-compat") {
       if (!config.apiKey) throw new Error(`API key required for provider "${config.id}"`);
       provider = new OpenAICompatProvider(config.id, config.apiKey, config.baseURL ?? "https://api.openai.com/v1", config.defaultModel);

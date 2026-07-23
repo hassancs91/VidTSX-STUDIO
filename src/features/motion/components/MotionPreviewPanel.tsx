@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button, Modal, RenderSettingsModal, SkeletonLoader, type RenderSettings } from '@shared/components';
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
 import { CodeEditor, useCodeEditor } from '@features/editor';
+import { JobStreamView } from './JobStreamView';
 import { useRenderQueue, useRenderHistory, getFormatLabel, formatResolution, formatFileSize } from '@features/render-queue';
 import { useToast } from '@renderer/contexts/ToastContext';
 import type { MotionProject } from '../types';
@@ -71,6 +72,8 @@ interface MotionPreviewPanelProps {
   onCancel: () => void;
   onOverwrite: (editedContent: string) => void;
   onSaveNewVersion: (editedContent: string) => void;
+  /** Job whose live LLM output should stream into this panel, if any. */
+  streamJobId?: string | null;
   saving: boolean;
   saveMessage: string | null;
 }
@@ -88,6 +91,7 @@ export function MotionPreviewPanel({
   onCancel,
   onOverwrite,
   onSaveNewVersion,
+  streamJobId = null,
   saving,
   saveMessage,
 }: MotionPreviewPanelProps) {
@@ -274,17 +278,43 @@ export function MotionPreviewPanel({
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 relative flex flex-col">
           {!hasContent && !loading && (
-            <div className="flex items-center justify-center h-full">
-              <span className="text-[12px] text-text-dim">
-                Enter a prompt and click Generate to start
-              </span>
-            </div>
+            streamJobId ? (
+              <JobStreamView
+                jobId={streamJobId}
+                label="Generating — live output"
+                fallback={
+                  <div className="flex items-center justify-center h-full">
+                    <span className="text-[12px] text-text-dim">
+                      Enter a prompt and click Generate to start
+                    </span>
+                  </div>
+                }
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <span className="text-[12px] text-text-dim">
+                  Enter a prompt and click Generate to start
+                </span>
+              </div>
+            )
           )}
 
           {loading && (
-            <div className="flex-1 min-h-0 flex items-center justify-center">
-              <SkeletonLoader variant="generating" />
-            </div>
+            streamJobId ? (
+              <JobStreamView
+                jobId={streamJobId}
+                label="Editing — live output"
+                fallback={
+                  <div className="flex-1 min-h-0 flex items-center justify-center">
+                    <SkeletonLoader variant="generating" />
+                  </div>
+                }
+              />
+            ) : (
+              <div className="flex-1 min-h-0 flex items-center justify-center">
+                <SkeletonLoader variant="generating" />
+              </div>
+            )
           )}
 
           {error && (

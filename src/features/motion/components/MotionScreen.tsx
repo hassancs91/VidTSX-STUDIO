@@ -45,6 +45,16 @@ function MotionScreenContent() {
         && !['done', 'error', 'cancelled'].includes(j.status)) ?? null
     : null;
 
+  // Which job streams live output into the center panel: the open project's
+  // running edit/fix job, or — when nothing is open — the newest running
+  // generation.
+  const streamJob = openProjectJob
+    ?? (!openFolderPath
+      ? [...jobs]
+          .filter((j) => j.kind === 'generate' && j.status === 'generating')
+          .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
+      : null);
+
   // Job completion side-effects: refresh the library, open or offer the
   // result. A completing job never steals the center panel — it only
   // auto-opens when no project is open at all.
@@ -334,6 +344,7 @@ function MotionScreenContent() {
           onCancel={handleCancelOpenProjectJob}
           onOverwrite={handleOverwrite}
           onSaveNewVersion={handleSaveNewVersion}
+          streamJobId={streamJob?.id ?? null}
           saving={projectManager.loading}
           saveMessage={saveMessage}
         />

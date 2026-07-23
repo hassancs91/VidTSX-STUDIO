@@ -101,3 +101,9 @@ export interface TsxJobClearCompletedResponse {
 export interface TsxJobEvent {
   job: TsxJobIpc;
 }
+
+/** Live LLM output chunk for a job in its generating step (throttled). */
+export interface TsxJobStreamEvent {
+  jobId: string;
+  chunk: string;
+}

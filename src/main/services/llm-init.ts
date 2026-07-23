@@ -29,17 +29,36 @@ export async function initLLMEngine(): Promise<void> {
       }
 
       const credentials = await getProviderCredentials();
+      const savedIds = new Set(settings.llmProviders.map((p) => p.id));
       for (const config of settings.llmProviders) {
         try {
-          // OpenRouter uses the shared BYOK credential when the per-provider
+          // BYOK providers use the shared credential when the per-provider
           // key is empty (entered once in Settings > API Keys).
-          const effective =
-            config.id === 'openrouter' && !config.apiKey && credentials.openrouter
-              ? { ...config, apiKey: credentials.openrouter }
-              : config;
+          let effective = config;
+          if (config.id === 'openrouter' && !config.apiKey && credentials.openrouter) {
+            effective = { ...config, apiKey: credentials.openrouter };
+          } else if (config.id === 'zai' && !config.apiKey && credentials.zai) {
+            effective = { ...config, apiKey: credentials.zai };
+          }
           llmEngine.register(effective);
         } catch (err) {
           log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+
+      // Presets that work without a saved config (unless the user has saved a
+      // config for them, which then wins — including a disable):
+      // local is keyless; zai activates once its BYOK credential exists.
+      for (const preset of PROVIDER_PRESETS) {
+        if (savedIds.has(preset.id)) continue;
+        try {
+          if (preset.id === 'local') {
+            llmEngine.register({ ...preset, enabled: true });
+          } else if (preset.id === 'zai' && credentials.zai) {
+            llmEngine.register({ ...preset, apiKey: credentials.zai, enabled: true });
+          }
+        } catch (err) {
+          log.warn(`Failed to register preset provider "${preset.id}"`, { error: err instanceof Error ? err.message : String(err) });
         }
       }
     } else {
@@ -75,8 +94,8 @@ function buildDefaultConfigs(): ProviderConfig[] {
   const configs: ProviderConfig[] = [];
 
   for (const preset of PROVIDER_PRESETS) {
-    if (preset.id === 'claude-subscription') {
-      // Always enable subscription auth — it requires no API key
+    if (preset.id === 'claude-subscription' || preset.id === 'local') {
+      // Keyless providers are always enabled
       configs.push({ ...preset, enabled: true });
     }
     // Skip api-key providers when no key is configured
