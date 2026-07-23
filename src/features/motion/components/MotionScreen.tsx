@@ -1,16 +1,26 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useMotionGenerator } from '../hooks/useMotionGenerator';
 import { useMotionProject } from '../hooks/useMotionProject';
-import { generateProjectName } from '@shared/tsx-engine';
-import type { TsxPipelineResult } from '@shared/tsx-engine';
+import { TsxJobsProvider, useTsxJobs } from '../contexts/TsxJobsContext';
+import type { TsxJobIpc } from '../../../shared/ipc/types';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { MotionInputPanel } from './MotionInputPanel';
 import { MotionPreviewPanel } from './MotionPreviewPanel';
 import { MotionLibraryPanel } from './MotionLibraryPanel';
+import { MotionJobsStrip } from './MotionJobsStrip';
 
 export function MotionScreen() {
+  return (
+    <TsxJobsProvider>
+      <MotionScreenContent />
+    </TsxJobsProvider>
+  );
+}
+
+function MotionScreenContent() {
   const generator = useMotionGenerator();
   const projectManager = useMotionProject();
+  const { jobs, startJob, cancelJob } = useTsxJobs();
   const { showToast } = useToast();
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [libraryWidth, setLibraryWidth] = useState(250);
@@ -18,98 +28,105 @@ export function MotionScreen() {
   const [inputWidth, setInputWidth] = useState(280);
   const [inputCollapsed, setInputCollapsed] = useState(false);
   const resizingRef = useRef(false);
-  const activeFolderRef = useRef<string | null>(null);
-  useEffect(() => {
-    activeFolderRef.current = projectManager.project?.folderPath ?? null;
-  }, [projectManager.project?.folderPath]);
+  const projectManagerRef = useRef(projectManager);
+  projectManagerRef.current = projectManager;
 
   const clearSaveMessage = () => {
     setSaveMessage(null);
   };
 
-  const saveDebugLog = useCallback(async (versionPath: string, debug: TsxPipelineResult, prompt?: string) => {
-    if (!debug.debugLog) return;
-    const debugPath = versionPath.replace(/\.tsx$/, '.debug.json');
-    const debugData = JSON.stringify({
-      model: debug.model,
-      durationMs: debug.durationMs,
-      timestamp: new Date().toISOString(),
-      prompt,
-      turns: debug.debugLog,
-      steps: debug.steps,
-      plan: debug.plan,
-      mode: debug.mode,
-      libraries: debug.libraries,
-      verified: debug.verified,
-      transpileValid: debug.transpileValid,
-      fixAttempts: debug.fixAttempts,
-      usage: debug.usage,
-    }, null, 2);
-    await window.api.fileWrite({ path: debugPath, content: debugData });
-  }, []);
+  // The busy job for the currently open project (edit/fix in flight) drives
+  // the preview panel's progress overlay and blocks conflicting actions.
+  const openFolderPath = projectManager.project?.folderPath ?? null;
+  const openProjectJob = openFolderPath
+    ? jobs.find((j) =>
+        (j.kind === 'edit' || j.kind === 'fix')
+        && j.targetFolderPath === openFolderPath
+        && !['done', 'error', 'cancelled'].includes(j.status)) ?? null
+    : null;
+
+  // Job completion side-effects: refresh the library, open or offer the
+  // result. A completing job never steals the center panel — it only
+  // auto-opens when no project is open at all.
+  const jobStatusesRef = useRef(new Map<string, string>());
+  useEffect(() => {
+    for (const job of jobs) {
+      const prev = jobStatusesRef.current.get(job.id);
+      if (prev === job.status) continue;
+      jobStatusesRef.current.set(job.id, job.status);
+      // First sighting (initial list load / freshly queued) — no side effects
+      if (prev === undefined) continue;
+
+      const pm = projectManagerRef.current;
+      if (job.status === 'done' && job.versionPath && job.folderPath) {
+        const versionPath = job.versionPath;
+        const folderPath = job.folderPath;
+        void pm.refreshLibrary();
+        if (job.kind === 'generate') {
+          if (!pm.project) {
+            void pm.loadVersion(versionPath, folderPath);
+          } else {
+            showToast('New generation ready', 'success', {
+              label: 'Open',
+              onClick: () => { void projectManagerRef.current.loadVersion(versionPath, folderPath); },
+            });
+          }
+        } else {
+          const label = pm.project?.folderPath === folderPath
+            ? 'New version ready'
+            : `New version saved in ${folderPath.split(/[\\/]/).pop()}`;
+          showToast(label, 'success', {
+            label: 'Open',
+            onClick: () => { void projectManagerRef.current.loadVersion(versionPath, folderPath); },
+          });
+        }
+      } else if (job.status === 'error') {
+        showToast(`Generation failed: ${job.error ?? 'Unknown error'}`, 'error');
+      }
+    }
+  }, [jobs, showToast]);
 
   const handleGenerate = useCallback(async () => {
     clearSaveMessage();
-    const activeAtStart = activeFolderRef.current;
-    const promptSnapshot = generator.prompt.trim();
-    const result = await generator.generate();
-    if (result) {
-      const name = await generateProjectName(generator.prompt, generator.selectedProvider);
-      const activeNow = activeFolderRef.current;
-      const userNavigatedAway = activeAtStart !== activeNow;
-      const project = await projectManager.createProject(
-        result.text,
-        undefined,
-        name,
-        userNavigatedAway ? { setActive: false } : undefined,
-      );
-      if (project) {
-        await saveDebugLog(project.currentVersion, result, promptSnapshot);
-        if (userNavigatedAway) {
-          showToast('New generation ready', 'success', {
-            label: 'Open',
-            onClick: () => {
-              projectManager.loadVersion(project.currentVersion, project.folderPath);
-            },
-          });
-        }
-      }
-    }
-  }, [generator, projectManager, saveDebugLog, showToast]);
+    const request = generator.buildGenerateJob();
+    if (!request) return;
+    const { error } = await startJob(request);
+    if (error) showToast(error, 'error');
+  }, [generator, startJob, showToast]);
 
   const handleRegenerate = useCallback(async () => {
     clearSaveMessage();
-    if (!projectManager.project) return;
-    const promptSnapshot = generator.editPrompt.trim();
-    const result = await generator.regenerate(projectManager.project.currentContent);
-    if (result) {
-      const path = await projectManager.saveNewVersion(result.text);
-      if (path) {
-        await saveDebugLog(path, result, promptSnapshot);
-      }
-      setSaveMessage('Saved as new version');
-    }
-  }, [generator, projectManager, saveDebugLog]);
+    const project = projectManager.project;
+    if (!project) return;
+    const request = generator.buildEditJob(project.currentContent, project.folderPath);
+    if (!request) return;
+    const { error } = await startJob(request);
+    if (error) showToast(error, 'error');
+    else generator.setEditPrompt('');
+  }, [generator, projectManager, startJob, showToast]);
 
   const handleFix = useCallback(async (
     errorMessage: string,
     errorLocation?: { line: number; column: number; file: string },
   ) => {
     clearSaveMessage();
-    if (!projectManager.project) return;
-    const result = await generator.fix(
-      projectManager.project.currentContent,
-      errorMessage,
-      errorLocation,
-    );
-    if (result) {
-      const path = await projectManager.saveNewVersion(result.text);
-      if (path) {
-        await saveDebugLog(path, result, `Fix: ${errorMessage}`);
-      }
-      setSaveMessage('Fixed and saved as new version');
+    const project = projectManager.project;
+    if (!project) return;
+    const request = generator.buildFixJob(project.currentContent, project.folderPath, errorMessage, errorLocation);
+    if (!request) return;
+    const { error } = await startJob(request);
+    if (error) showToast(error, 'error');
+  }, [generator, projectManager, startJob, showToast]);
+
+  const handleCancelOpenProjectJob = useCallback(() => {
+    if (openProjectJob) void cancelJob(openProjectJob.id);
+  }, [openProjectJob, cancelJob]);
+
+  const handleOpenJob = useCallback((job: TsxJobIpc) => {
+    if (job.versionPath && job.folderPath) {
+      void projectManager.loadVersion(job.versionPath, job.folderPath);
     }
-  }, [generator, projectManager, saveDebugLog]);
+  }, [projectManager]);
 
   const handleOverwrite = useCallback(async (editedContent: string) => {
     clearSaveMessage();
@@ -242,6 +259,9 @@ export function MotionScreen() {
         )}
       </div>
 
+      {/* Generation jobs strip (hidden when no jobs) */}
+      <MotionJobsStrip onOpenJob={handleOpenJob} />
+
       {/* 3-column layout: Input | Preview+Code | Library */}
       <div className="flex-1 flex min-h-0">
         {/* Input panel with resize handle + collapse */}
@@ -284,9 +304,9 @@ export function MotionScreen() {
                   referenceImages={generator.referenceImages}
                   onReferenceImagesChange={generator.setReferenceImages}
                   onGenerate={handleGenerate}
-                  onCancel={generator.cancel}
-                  loading={generator.loading}
-                  progress={generator.progress}
+                  onCancel={() => {}}
+                  loading={false}
+                  progress={null}
                   hasProject={projectManager.project !== null}
                   onCollapse={() => setInputCollapsed(true)}
                 />
@@ -301,15 +321,17 @@ export function MotionScreen() {
         </div>
         <MotionPreviewPanel
           project={projectManager.project}
-          output={generator.output}
-          error={generator.error || projectManager.error}
-          loading={generator.loading}
-          progress={generator.progress}
+          output={null}
+          error={projectManager.error}
+          loading={openProjectJob !== null}
+          progress={openProjectJob
+            ? { step: 'generate', stepLabel: openProjectJob.progress.label, percent: openProjectJob.progress.percent }
+            : null}
           editPrompt={generator.editPrompt}
           onEditPromptChange={generator.setEditPrompt}
           onRegenerate={handleRegenerate}
           onFix={handleFix}
-          onCancel={generator.cancel}
+          onCancel={handleCancelOpenProjectJob}
           onOverwrite={handleOverwrite}
           onSaveNewVersion={handleSaveNewVersion}
           saving={projectManager.loading}

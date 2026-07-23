@@ -1,18 +1,19 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { LlmProviderConfig, LlmImageIpc } from '../../../shared/ipc/types';
-import { generateTsxPipeline, editTsxPipeline } from '@shared/tsx-engine';
-import type { ThinkingLevel, TsxPipelineResult, PipelineProgress } from '@shared/tsx-engine';
+import { useState, useEffect, useCallback } from 'react';
+import type { LlmProviderConfig, LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
+import type { ThinkingLevel } from '@shared/tsx-engine';
 import type { ColorPalette, AspectRatio } from '../types';
 import { COLOR_PALETTES, ASPECT_RATIO_OPTIONS } from '../types';
 
 export type { ThinkingLevel } from '@shared/tsx-engine';
 
+/**
+ * Generation options state for the Creator screen. Since generations run as
+ * jobs in the main process (TsxJobEngine), this hook no longer executes
+ * anything — it holds the input state and builds TsxJobStartRequest payloads.
+ */
 export function useMotionGenerator() {
   const [prompt, setPrompt] = useState('');
   const [editPrompt, setEditPrompt] = useState('');
-  const [output, setOutput] = useState<TsxPipelineResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>('off');
@@ -24,8 +25,6 @@ export function useMotionGenerator() {
   const [autoDuration, setAutoDuration] = useState(true);
   const [optimize, setOptimize] = useState(true);
   const [referenceImages, setReferenceImages] = useState<LlmImageIpc[]>([]);
-  const [progress, setProgress] = useState<PipelineProgress | null>(null);
-  const cancelledRef = useRef(false);
 
   const loadProviders = useCallback(async () => {
     try {
@@ -57,30 +56,24 @@ export function useMotionGenerator() {
     return () => window.removeEventListener('vidtsx:llm-providers-changed', handler);
   }, [loadProviders]);
 
-  const generate = useCallback(async (): Promise<TsxPipelineResult | null> => {
+  const buildGenerateJob = useCallback((): TsxJobStartRequest | null => {
     if (!prompt.trim() || !selectedProvider) return null;
 
-    setLoading(true);
-    setError(null);
-    setOutput(null);
-    setProgress(null);
-    cancelledRef.current = false;
+    const paletteEntry = COLOR_PALETTES.find((p) => p.value === colorPalette);
+    const extraInstructions = paletteEntry && paletteEntry.colors.length > 0
+      ? `Use this color palette: ${paletteEntry.colors.join(', ')}. Base the visual design around these colors.`
+      : undefined;
 
-    try {
-      const paletteEntry = COLOR_PALETTES.find((p) => p.value === colorPalette);
-      const extraInstructions = paletteEntry && paletteEntry.colors.length > 0
-        ? `Use this color palette: ${paletteEntry.colors.join(', ')}. Base the visual design around these colors.`
-        : undefined;
+    const ratioOption = ASPECT_RATIO_OPTIONS.find((o) => o.value === aspectRatio);
 
-      const ratioOption = ASPECT_RATIO_OPTIONS.find((o) => o.value === aspectRatio);
-
-      const result = await generateTsxPipeline({
-        prompt: prompt.trim(),
-        providerId: selectedProvider,
+    return {
+      kind: 'generate',
+      prompt: prompt.trim(),
+      providerId: selectedProvider,
+      options: {
         thinkingLevel,
         maxTurns: loopCount,
         optimize,
-        onProgress: setProgress,
         promptContext: {
           fps,
           videoWidth: ratioOption?.width ?? 1920,
@@ -89,84 +82,33 @@ export function useMotionGenerator() {
           ...(extraInstructions ? { extraInstructions } : {}),
         },
         ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
-      });
-      setOutput(result);
-      return result;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Generation failed';
-      setError(errorMsg);
-      setOutput({
-        text: '',
-        model: 'unknown',
-        durationMs: 0,
-        debugLog: [`Error: ${errorMsg}`],
-        steps: [],
-        mode: '2d',
-        verified: false,
-        transpileValid: false,
-        fixAttempts: 0,
-      });
-      return null;
-    } finally {
-      setLoading(false);
-      setProgress(null);
-    }
+      },
+    };
   }, [prompt, selectedProvider, thinkingLevel, loopCount, optimize, fps, colorPalette, aspectRatio, duration, autoDuration, referenceImages]);
 
-  const regenerate = useCallback(async (currentCode: string): Promise<TsxPipelineResult | null> => {
+  const buildEditJob = useCallback((currentCode: string, folderPath: string): TsxJobStartRequest | null => {
     if (!editPrompt.trim() || !selectedProvider || !currentCode) return null;
 
-    setLoading(true);
-    setError(null);
-    setOutput(null);
-    setProgress(null);
-    cancelledRef.current = false;
-
-    try {
-      const result = await editTsxPipeline({
-        currentCode,
-        editInstruction: editPrompt.trim(),
-        providerId: selectedProvider,
+    return {
+      kind: 'edit',
+      prompt: editPrompt.trim(),
+      providerId: selectedProvider,
+      options: {
         thinkingLevel,
         maxTurns: loopCount,
-        onProgress: setProgress,
         ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
-      });
-      setOutput(result);
-      return result;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Regeneration failed';
-      setError(errorMsg);
-      setOutput({
-        text: '',
-        model: 'unknown',
-        durationMs: 0,
-        debugLog: [`Error: ${errorMsg}`],
-        steps: [],
-        mode: '2d',
-        verified: false,
-        transpileValid: false,
-        fixAttempts: 0,
-      });
-      return null;
-    } finally {
-      setLoading(false);
-      setProgress(null);
-    }
+      },
+      target: { folderPath, currentCode },
+    };
   }, [editPrompt, selectedProvider, thinkingLevel, loopCount, referenceImages]);
 
-  const fix = useCallback(async (
+  const buildFixJob = useCallback((
     currentCode: string,
+    folderPath: string,
     errorMessage: string,
     errorLocation?: { line: number; column: number; file: string },
-  ): Promise<TsxPipelineResult | null> => {
+  ): TsxJobStartRequest | null => {
     if (!selectedProvider || !currentCode || !errorMessage) return null;
-
-    setLoading(true);
-    setError(null);
-    setOutput(null);
-    setProgress(null);
-    cancelledRef.current = false;
 
     const locationInfo = errorLocation
       ? ` at line ${errorLocation.line}, column ${errorLocation.column}`
@@ -177,59 +119,20 @@ export function useMotionGenerator() {
       `Fix the error. Make the minimal changes needed to resolve the issue ` +
       `while preserving the intended visual design and behavior.`;
 
-    try {
-      const result = await editTsxPipeline({
-        currentCode,
-        editInstruction: fixInstruction,
-        providerId: selectedProvider,
-        thinkingLevel,
-        maxTurns: loopCount,
-        onProgress: setProgress,
-      });
-      setOutput(result);
-      return result;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Fix failed';
-      setError(errorMsg);
-      setOutput({
-        text: '',
-        model: 'unknown',
-        durationMs: 0,
-        debugLog: [`Error: ${errorMsg}`],
-        steps: [],
-        mode: '2d',
-        verified: false,
-        transpileValid: false,
-        fixAttempts: 0,
-      });
-      return null;
-    } finally {
-      setLoading(false);
-      setProgress(null);
-    }
+    return {
+      kind: 'fix',
+      prompt: fixInstruction,
+      providerId: selectedProvider,
+      options: { thinkingLevel, maxTurns: loopCount },
+      target: { folderPath, currentCode },
+    };
   }, [selectedProvider, thinkingLevel, loopCount]);
-
-  const cancel = useCallback(async () => {
-    cancelledRef.current = true;
-    try {
-      await window.api.llmCancel();
-    } catch {
-      // Ignore cancel errors
-    }
-    setLoading(false);
-    setProgress(null);
-    setError('Generation cancelled');
-  }, []);
 
   return {
     prompt,
     setPrompt,
     editPrompt,
     setEditPrompt,
-    output,
-    setOutput,
-    loading,
-    error,
     providers,
     selectedProvider,
     setSelectedProvider,
@@ -251,10 +154,8 @@ export function useMotionGenerator() {
     setOptimize,
     referenceImages,
     setReferenceImages,
-    progress,
-    generate,
-    regenerate,
-    fix,
-    cancel,
+    buildGenerateJob,
+    buildEditJob,
+    buildFixJob,
   };
 }
