@@ -97,6 +97,16 @@ export interface TsxJobClearCompletedResponse {
   removed: number;
 }
 
+/** Omit maxConcurrent to just read the current value. */
+export interface TsxJobConfigureRequest {
+  maxConcurrent?: number;
+}
+
+export interface TsxJobConfigureResponse {
+  success: boolean;
+  maxConcurrent: number;
+}
+
 /** Push event payload: one job snapshot per change. */
 export interface TsxJobEvent {
   job: TsxJobIpc;

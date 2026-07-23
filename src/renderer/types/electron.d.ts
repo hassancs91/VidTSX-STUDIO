@@ -366,6 +366,7 @@ export interface ElectronAPI {
   tsxJobCancel: (data: import('../../shared/ipc/types').TsxJobCancelRequest) => Promise<import('../../shared/ipc/types').TsxJobCancelResponse>;
   tsxJobList: () => Promise<import('../../shared/ipc/types').TsxJobListResponse>;
   tsxJobClearCompleted: () => Promise<import('../../shared/ipc/types').TsxJobClearCompletedResponse>;
+  tsxJobConfigure: (data: import('../../shared/ipc/types').TsxJobConfigureRequest) => Promise<import('../../shared/ipc/types').TsxJobConfigureResponse>;
   onTsxJobEvent: (callback: (data: import('../../shared/ipc/types').TsxJobEvent) => void) => () => void;
   onTsxJobStream: (callback: (data: import('../../shared/ipc/types').TsxJobStreamEvent) => void) => () => void;
 

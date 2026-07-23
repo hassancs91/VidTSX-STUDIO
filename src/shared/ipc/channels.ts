@@ -297,6 +297,7 @@ export const IPC = {
   TSXJOB_CANCEL: 'tsxjob:cancel',
   TSXJOB_LIST: 'tsxjob:list',
   TSXJOB_CLEAR_COMPLETED: 'tsxjob:clear-completed',
+  TSXJOB_CONFIGURE: 'tsxjob:configure',
   TSXJOB_EVENT: 'tsxjob:event',
   TSXJOB_STREAM: 'tsxjob:stream',
 

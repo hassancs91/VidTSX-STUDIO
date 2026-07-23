@@ -67,6 +67,10 @@ class TsxJobEngine {
     }
   }
 
+  getMaxConcurrent(): number {
+    return this.maxConcurrent;
+  }
+
   onEvent(listener: (job: TsxJobIpc) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useMotionGenerator } from '../hooks/useMotionGenerator';
 import { useMotionProject } from '../hooks/useMotionProject';
-import { TsxJobsProvider, useTsxJobs } from '../contexts/TsxJobsContext';
+import { TsxJobsProvider, useTsxJobs, isJobActive } from '../contexts/TsxJobsContext';
 import type { TsxJobIpc } from '../../../shared/ipc/types';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { MotionInputPanel } from './MotionInputPanel';
@@ -30,6 +30,22 @@ function MotionScreenContent() {
   const resizingRef = useRef(false);
   const projectManagerRef = useRef(projectManager);
   projectManagerRef.current = projectManager;
+
+  // Coalesce library rescans: simultaneous job completions trigger one scan.
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleLibraryRefresh = useCallback(() => {
+    if (refreshTimerRef.current) return;
+    refreshTimerRef.current = setTimeout(() => {
+      refreshTimerRef.current = null;
+      void projectManagerRef.current.refreshLibrary();
+    }, 200);
+  }, []);
+  useEffect(() => () => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+  }, []);
+
+  // Generate jobs still running — shown as placeholder rows in the library.
+  const pendingGenerateJobs = jobs.filter((j) => j.kind === 'generate' && isJobActive(j));
 
   const clearSaveMessage = () => {
     setSaveMessage(null);
@@ -71,7 +87,7 @@ function MotionScreenContent() {
       if (job.status === 'done' && job.versionPath && job.folderPath) {
         const versionPath = job.versionPath;
         const folderPath = job.folderPath;
-        void pm.refreshLibrary();
+        scheduleLibraryRefresh();
         if (job.kind === 'generate') {
           if (!pm.project) {
             void pm.loadVersion(versionPath, folderPath);
@@ -94,7 +110,7 @@ function MotionScreenContent() {
         showToast(`Generation failed: ${job.error ?? 'Unknown error'}`, 'error');
       }
     }
-  }, [jobs, showToast]);
+  }, [jobs, showToast, scheduleLibraryRefresh]);
 
   const handleGenerate = useCallback(async () => {
     clearSaveMessage();
@@ -372,6 +388,7 @@ function MotionScreenContent() {
               <MotionLibraryPanel
                 library={projectManager.library}
                 project={projectManager.project}
+                pendingJobs={pendingGenerateJobs}
                 onLoadVersion={handleLoadVersion}
                 onRenameProject={projectManager.renameProject}
                 onRenameVersion={projectManager.renameVersion}

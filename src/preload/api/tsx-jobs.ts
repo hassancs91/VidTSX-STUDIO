@@ -7,6 +7,8 @@ import type {
   TsxJobCancelResponse,
   TsxJobListResponse,
   TsxJobClearCompletedResponse,
+  TsxJobConfigureRequest,
+  TsxJobConfigureResponse,
   TsxJobEvent,
   TsxJobStreamEvent,
 } from '../../shared/ipc/types';
@@ -20,6 +22,8 @@ export const tsxJobsApi = {
     ipcRenderer.invoke(IPC.TSXJOB_LIST),
   tsxJobClearCompleted: (): Promise<TsxJobClearCompletedResponse> =>
     ipcRenderer.invoke(IPC.TSXJOB_CLEAR_COMPLETED),
+  tsxJobConfigure: (data: TsxJobConfigureRequest): Promise<TsxJobConfigureResponse> =>
+    ipcRenderer.invoke(IPC.TSXJOB_CONFIGURE, data),
   onTsxJobEvent: (callback: (data: TsxJobEvent) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: TsxJobEvent) => callback(data);
     ipcRenderer.on(IPC.TSXJOB_EVENT, handler);

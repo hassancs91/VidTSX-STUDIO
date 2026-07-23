@@ -252,6 +252,15 @@ export async function saveSttProviders(providers: SttProviderConfig[], activePro
   setValues({ sttProviders: providers, sttActiveProvider: activeProvider });
 }
 
+export async function getTsxJobsMaxConcurrent(): Promise<number> {
+  const v = getValue<number>('tsxJobsMaxConcurrent');
+  return typeof v === 'number' && v >= 1 && v <= 4 ? v : 4;
+}
+
+export async function setTsxJobsMaxConcurrent(value: number): Promise<void> {
+  setValue('tsxJobsMaxConcurrent', value);
+}
+
 export async function getProviderCredentials(): Promise<ProviderCredentials> {
   return getValue<ProviderCredentials>('providerCredentials') ?? {};
 }
@@ -379,6 +388,8 @@ export const settingsService = {
   setRenderDefaultHardwareAcceleration,
   getLlmProviders,
   saveLlmProviders,
+  getTsxJobsMaxConcurrent,
+  setTsxJobsMaxConcurrent,
   getImageProviders,
   saveImageProviders,
   getProviderCredentials,

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Modal, Button } from '@shared/components';
 import { useRenderQueue, useRenderHistory } from '@features/render-queue';
 import type { MotionProject, LibraryProject, LibraryState, LibraryFolder } from '../types';
+import type { TsxJobIpc } from '../../../shared/ipc/types';
 import { InlineRenameInput } from './InlineRenameInput';
 import { VersionThumbnail } from '@shared/components/VersionThumbnail';
 import { MoveToFolderMenu } from './MoveToFolderMenu';
@@ -11,6 +12,8 @@ import { ChevronIcon, TrashIcon, FolderIcon, ImportIcon, FilePlusIcon, ProjectIc
 interface MotionLibraryPanelProps {
   library: LibraryState;
   project: MotionProject | null;
+  /** In-flight generate jobs shown as placeholder rows until their folder exists. */
+  pendingJobs?: TsxJobIpc[];
   onLoadVersion: (filePath: string, folderPath: string) => void;
   onRenameProject: (folderPath: string, newName: string) => void;
   onRenameVersion: (filePath: string, newName: string) => void;
@@ -29,6 +32,7 @@ interface MotionLibraryPanelProps {
 export function MotionLibraryPanel({
   library,
   project,
+  pendingJobs = [],
   onLoadVersion,
   onRenameProject,
   onRenameVersion,
@@ -524,7 +528,7 @@ export function MotionLibraryPanel({
     );
   };
 
-  const isEmpty = totalProjects === 0 && library.folders.length === 0;
+  const isEmpty = totalProjects === 0 && library.folders.length === 0 && pendingJobs.length === 0;
 
   return (
     <div
@@ -649,6 +653,30 @@ export function MotionLibraryPanel({
                 />
               </div>
             )}
+
+            {/* In-flight generations — visible before their project folder exists */}
+            {pendingJobs.map((job) => (
+              <div
+                key={job.id}
+                className="rounded-[6px] px-2 py-1.5 flex items-center gap-2"
+                style={{ border: '0.5px dashed var(--color-border)' }}
+              >
+                <div
+                  className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0"
+                  role="status"
+                />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[11px] text-text-secondary truncate" title={job.prompt}>
+                    {job.projectName ?? job.prompt}
+                  </span>
+                  <span className="text-[9px] text-text-dim">
+                    {job.status === 'queued'
+                      ? 'Queued'
+                      : `${job.progress.label} ${job.progress.percent}%`}
+                  </span>
+                </div>
+              </div>
+            ))}
 
             {/* Root-level projects (newest first) */}
             {filteredRootProjects.map((p) => renderProject(p, 0))}

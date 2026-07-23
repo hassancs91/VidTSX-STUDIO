@@ -15,6 +15,9 @@ export function isJobFinished(job: TsxJobIpc): boolean {
 interface TsxJobsContextValue {
   jobs: TsxJobIpc[];
   activeJobs: TsxJobIpc[];
+  /** Engine concurrency cap (1-4). */
+  maxConcurrent: number;
+  setMaxConcurrent: (value: number) => Promise<void>;
   startJob: (request: TsxJobStartRequest) => Promise<{ jobId?: string; error?: string }>;
   cancelJob: (jobId: string) => Promise<void>;
   clearCompleted: () => Promise<void>;
@@ -32,6 +35,7 @@ interface StreamStore {
 
 export function TsxJobsProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<TsxJobIpc[]>([]);
+  const [maxConcurrent, setMaxConcurrentState] = useState(4);
   // Stream chunks live in a ref-backed store so ~8 updates/sec per job don't
   // re-render the whole tree — only useJobStream subscribers.
   const streamRef = useRef<StreamStore>({ text: new Map(), listeners: new Map() });
@@ -40,6 +44,9 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
     let disposed = false;
     window.api.tsxJobList()
       .then((result) => { if (!disposed) setJobs(result.jobs); })
+      .catch(() => {});
+    window.api.tsxJobConfigure({})
+      .then((result) => { if (!disposed) setMaxConcurrentState(result.maxConcurrent); })
       .catch(() => {});
 
     const unsubscribe = window.api.onTsxJobEvent(({ job }) => {
@@ -83,6 +90,16 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
     return streamRef.current.text.get(jobId) ?? '';
   }, []);
 
+  const setMaxConcurrent = useCallback(async (value: number) => {
+    setMaxConcurrentState(value);
+    try {
+      const result = await window.api.tsxJobConfigure({ maxConcurrent: value });
+      setMaxConcurrentState(result.maxConcurrent);
+    } catch {
+      // Keep the optimistic value; the engine clamps on its side anyway
+    }
+  }, []);
+
   const startJob = useCallback(async (request: TsxJobStartRequest) => {
     try {
       const result = await window.api.tsxJobStart(request);
@@ -112,8 +129,8 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
   const activeJobs = useMemo(() => jobs.filter(isJobActive), [jobs]);
 
   const value = useMemo(
-    () => ({ jobs, activeJobs, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText }),
-    [jobs, activeJobs, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText],
+    () => ({ jobs, activeJobs, maxConcurrent, setMaxConcurrent, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText }),
+    [jobs, activeJobs, maxConcurrent, setMaxConcurrent, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText],
   );
 
   return <TsxJobsContext.Provider value={value}>{children}</TsxJobsContext.Provider>;

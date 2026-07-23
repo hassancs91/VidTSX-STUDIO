@@ -8,10 +8,13 @@ import type {
   TsxJobCancelResponse,
   TsxJobListResponse,
   TsxJobClearCompletedResponse,
+  TsxJobConfigureRequest,
+  TsxJobConfigureResponse,
   TsxJobEvent,
   TsxJobStreamEvent,
 } from '@shared/ipc/types';
 import { tsxJobEngine } from '../services/tsx-jobs/tsx-job-engine';
+import { setTsxJobsMaxConcurrent } from '../services/settings';
 
 let broadcastInitialized = false;
 
@@ -66,6 +69,22 @@ export async function handleTsxJobList(): Promise<TsxJobListResponse> {
     return { jobs: tsxJobEngine.list() };
   } catch {
     return { jobs: [] };
+  }
+}
+
+export async function handleTsxJobConfigure(
+  _event: IpcMainInvokeEvent,
+  data: TsxJobConfigureRequest
+): Promise<TsxJobConfigureResponse> {
+  try {
+    if (typeof data?.maxConcurrent === 'number') {
+      const clamped = Math.min(4, Math.max(1, Math.round(data.maxConcurrent)));
+      tsxJobEngine.configure({ maxConcurrent: clamped });
+      await setTsxJobsMaxConcurrent(clamped);
+    }
+    return { success: true, maxConcurrent: tsxJobEngine.getMaxConcurrent() };
+  } catch {
+    return { success: false, maxConcurrent: tsxJobEngine.getMaxConcurrent() };
   }
 }
 

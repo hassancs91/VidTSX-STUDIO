@@ -1,8 +1,6 @@
 import type { TsxJobIpc, TsxJobStatus } from '../../../shared/ipc/types';
 import { useTsxJobs, isJobActive, isJobFinished } from '../contexts/TsxJobsContext';
 
-const MAX_CONCURRENT = 4;
-
 const STATUS_LABELS: Record<TsxJobStatus, string> = {
   queued: 'Queued',
   planning: 'Planning',
@@ -39,7 +37,7 @@ interface MotionJobsStripProps {
  * click-to-open. Hidden when there are no jobs.
  */
 export function MotionJobsStrip({ onOpenJob }: MotionJobsStripProps) {
-  const { jobs, activeJobs, cancelJob, clearCompleted } = useTsxJobs();
+  const { jobs, activeJobs, maxConcurrent, setMaxConcurrent, cancelJob, clearCompleted } = useTsxJobs();
 
   if (jobs.length === 0) return null;
 
@@ -53,8 +51,18 @@ export function MotionJobsStrip({ onOpenJob }: MotionJobsStripProps) {
       className="flex items-center gap-2 px-3 py-1.5 bg-app-surface shrink-0 overflow-x-auto"
       style={{ borderBottom: '0.5px solid var(--color-border)' }}
     >
-      <span className="text-[10px] text-text-dim shrink-0" title="Running generations">
-        {runningCount}/{MAX_CONCURRENT}
+      <span className="flex items-center gap-0.5 text-[10px] text-text-dim shrink-0" title="Running generations / parallel slots">
+        {runningCount}/
+        <select
+          value={maxConcurrent}
+          onChange={(e) => void setMaxConcurrent(Number(e.target.value))}
+          className="bg-transparent text-[10px] text-text-dim hover:text-text-primary outline-none cursor-pointer"
+          title="Max parallel generations"
+        >
+          {[1, 2, 3, 4].map((n) => (
+            <option key={n} value={n}>{n}</option>
+          ))}
+        </select>
       </span>
       {ordered.map((job) => (
         <div

@@ -178,6 +178,8 @@ app.whenReady().then(async () => {
   // Re-queue TSX generation jobs that were still queued at last quit.
   // After registerAllIPC so the job-event broadcast listener is attached.
   const { tsxJobEngine } = await import('./services/tsx-jobs/tsx-job-engine');
+  const { getTsxJobsMaxConcurrent } = await import('./services/settings');
+  tsxJobEngine.configure({ maxConcurrent: await getTsxJobsMaxConcurrent() });
   await tsxJobEngine.restore();
 
   const win = createWindow();
