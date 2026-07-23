@@ -6,8 +6,15 @@ import type {
   LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent, LLMUsage, LLMTurnTiming, AuthMode, EffortLevel,
 } from "../types";
 import { LLMEngineError } from "../types";
-import { getHumanReadableError, isCliNotFoundError, getStatusCode } from "../utils";
+import { getHumanReadableError, isCliNotFoundError } from "../utils";
 import { logEngine } from "../../logging/log-engine";
+import {
+  ClaudeSession,
+  CLI_NOT_INSTALLED_MSG,
+  describeErrorResult,
+  type ClaudeSessionKeys,
+  type SdkResultErrorFields,
+} from "./claude-session";
 import {
   supportsAdaptiveThinking,
   requiresExplicitThinkingDisplay,
@@ -15,9 +22,6 @@ import {
 } from "./claude-capabilities";
 
 const log = logEngine.createLogger('ClaudeProvider');
-
-const CLI_NOT_INSTALLED_MSG =
-  "Claude Code CLI is not installed. Install it with: npm install -g @anthropic-ai/claude-code";
 
 // Bundled claude.exe lives inside app.asar in packaged builds; the SDK's default
 // path resolution returns the asar-internal path, which Windows can't spawn. The
@@ -39,69 +43,15 @@ function getBundledClaudeCodePath(): string | undefined {
 
 const SESSION_IDLE_TIMEOUT_MS = 120_000;
 
-/** Fields shared by SDKResultSuccess/SDKResultError that signal a failed run. */
-interface SdkResultErrorFields {
-  subtype?: string;
-  is_error?: boolean;
-  errors?: string[];
-  terminal_reason?: string;
-  api_error_status?: number | null;
-  result?: string;
-}
-
-/**
- * The SDK reports many failures as a `result` message with `is_error`/an error
- * subtype rather than by throwing — usage limits arrive as
- * `terminal_reason: 'blocking_limit'`. Returns a human-readable error message,
- * or null if the result is a genuine success.
- */
-function describeErrorResult(r: SdkResultErrorFields): string | null {
-  const failed = r.is_error === true || (r.subtype !== undefined && r.subtype !== "success");
-  if (!failed) return null;
-
-  if (r.terminal_reason === "blocking_limit") {
-    return "Usage limit reached for this provider. Wait for the limit to reset or switch providers.";
-  }
-  if (r.subtype === "error_max_turns") {
-    return "Generation stopped: the model hit the maximum number of turns before finishing.";
-  }
-  if (r.subtype === "error_max_budget_usd") {
-    return "Generation stopped: the configured cost budget was exhausted.";
-  }
-
-  const detail = r.errors?.filter(Boolean).join("; ")
-    || (typeof r.result === "string" ? r.result.trim() : "");
-  return detail || "Generation failed inside the Claude CLI (no details provided).";
-}
+// Each session is its own claude.exe subprocess — cap the pool so runaway
+// callers can't fork-bomb the machine. Evicts least-recently-used idle session.
+const MAX_SESSIONS = 8;
 
 export class ClaudeProvider implements LLMProvider {
   readonly id: string;
 
-  // Session state
-  private session: Query | null = null;
-  private sessionAbort: AbortController | null = null;
-  private idleTimer: ReturnType<typeof setTimeout> | null = null;
-  private sessionAlive = false;
-
-  // Input stream
-  private messageQueue: SDKUserMessage[] = [];
-  private queueResolve: (() => void) | null = null;
-
-  // Session config tracking
-  private sessionThinkingKey = "";
-  private sessionEffortKey = "";
-  private sessionModel = "";
-  private sessionScope: string | null = null;
-  private sessionSystemPrompt: string | undefined = undefined;
-
-  // Response bridge
-  private currentText = "";
-  private currentThinking = "";
-  private currentDebugLog: string[] = [];
-  private pendingResolve: ((response: LLMResponse) => void) | null = null;
-  private pendingReject: ((error: unknown) => void) | null = null;
-  private pendingStart = 0;
-  private pendingModel = "";
+  /** Hot sessions keyed by sessionScope; scope-less requests are ephemeral. */
+  private sessions = new Map<string, ClaudeSession>();
 
   constructor(
     id: string,
@@ -162,335 +112,134 @@ export class ClaudeProvider implements LLMProvider {
     return blocks;
   }
 
-  async generate(request: LLMRequest): Promise<LLMResponse> {
-    log.debug('generate() called', { baseURL: this.baseURL, defaultModel: this.defaultModel });
-    if (request.signal?.aborted) {
-      throw new LLMEngineError("Request cancelled", this.id);
-    }
-
-    // Forward caller abort to session abort
-    if (request.signal) {
-      request.signal.addEventListener("abort", () => this.sessionAbort?.abort(), { once: true });
-    }
-
-    const thinkingKey = request.thinking ? `${request.thinking.type}:${request.thinking.budgetTokens ?? 0}:${request.thinking.display ?? ''}` : 'off';
-    const effortKey = request.effort ?? '';
-    const model = request.model || this.defaultModel;
-
-    // Scope gating: no scope => always fresh; mismatch => fresh.
-    if (this.sessionAlive) {
-      if (!request.sessionScope) {
-        log.debug('closing session: no sessionScope on request');
-        this.closeSession();
-      } else if (request.sessionScope !== this.sessionScope) {
-        log.debug('closing session: scope mismatch', { incoming: request.sessionScope, live: this.sessionScope });
-        this.closeSession();
-      } else if (thinkingKey !== this.sessionThinkingKey || model !== this.sessionModel || effortKey !== this.sessionEffortKey) {
-        log.debug('closing session: thinking/effort/model changed');
-        this.closeSession();
-      } else if (request.systemPrompt !== this.sessionSystemPrompt) {
-        log.debug('closing session: systemPrompt changed');
-        this.closeSession();
-      }
-    }
-
-    if (this.sessionAlive) {
-      return this.sendToSession(request);
-    }
-
-    return this.startSession(request);
+  private buildSessionKeys(request: LLMRequest): ClaudeSessionKeys {
+    return {
+      scope: request.sessionScope ?? null,
+      thinkingKey: request.thinking
+        ? `${request.thinking.type}:${request.thinking.budgetTokens ?? 0}:${request.thinking.display ?? ''}`
+        : 'off',
+      effortKey: request.effort ?? '',
+      model: request.model || this.defaultModel,
+      systemPrompt: request.systemPrompt,
+    };
   }
 
-  private async startSession(request: LLMRequest): Promise<LLMResponse> {
-    this.closeSession();
-
-    // Track session config for change detection
-    this.sessionThinkingKey = request.thinking ? `${request.thinking.type}:${request.thinking.budgetTokens ?? 0}:${request.thinking.display ?? ''}` : 'off';
-    this.sessionEffortKey = request.effort ?? '';
-    this.sessionModel = request.model || this.defaultModel;
-    this.sessionScope = request.sessionScope ?? null;
-    this.sessionSystemPrompt = request.systemPrompt;
-
-    const env = this.buildEnv(request.model);
-    log.debug('Starting session', { baseURL: this.baseURL, defaultModel: this.defaultModel });
-
+  private createSession(keys: ClaudeSessionKeys, request: LLMRequest): ClaudeSession {
     const resolvedModel = request.model || this.defaultModel;
+    const env = this.buildEnv(request.model);
     const thinking = this.buildThinkingConfig(request, resolvedModel);
     const effort = this.buildEffort(request, resolvedModel);
-    this.sessionAbort = new AbortController();
-    this.messageQueue = [];
-    this.queueResolve = null;
-
-    const self = this;
-
-    // Create the input stream async generator
-    const inputStream = async function* (): AsyncIterable<SDKUserMessage> {
-      // Yield the first message immediately
-      yield {
-        type: "user" as const,
-        message: { role: "user" as const, content: self.buildContentBlocks(request) },
-      } as SDKUserMessage;
-
-      // Then wait for and yield subsequent messages
-      while (true) {
-        if (self.messageQueue.length > 0) {
-          yield self.messageQueue.shift()!;
-        } else {
-          await new Promise<void>((resolve) => { self.queueResolve = resolve; });
-        }
-      }
-    };
-
     const tools = request.agentTools && request.agentTools.length > 0
       ? request.agentTools
       : [] as string[];
     const maxTurns = tools.length > 0 ? (request.maxTurns || 10) : (request.maxTurns || 1);
-
     const bundledClaude = getBundledClaudeCodePath();
-    const queryInstance = query({
-      prompt: inputStream(),
-      options: {
-        ...(this.baseURL ? {} : { model: resolvedModel }),
-        systemPrompt: request.systemPrompt || undefined,
-        maxTurns,
-        tools,
-        abortController: this.sessionAbort,
-        settingSources: [],
-        ...(bundledClaude ? { pathToClaudeCodeExecutable: bundledClaude } : {}),
-        ...(Object.keys(env).length > 0 ? {
-          env,
-          settings: { env } as Record<string, unknown>,
-        } : {}),
-        ...(thinking ? { thinking } : {}),
-        ...(effort ? { effort } : {}),
-        ...(request.allowedTools ? { allowedTools: request.allowedTools } : {}),
+
+    const session = new ClaudeSession({
+      providerId: this.id,
+      keys,
+      idleTimeoutMs: SESSION_IDLE_TIMEOUT_MS,
+      debugHeader: `[engine] session started — model: ${resolvedModel}, thinking: ${thinking ? JSON.stringify(thinking) : 'off'}, effort: ${effort ?? 'default'}`,
+      onClosed: (closed) => {
+        if (keys.scope && this.sessions.get(keys.scope) === closed) {
+          this.sessions.delete(keys.scope);
+        }
       },
+      createQuery: (inputStream: AsyncIterable<SDKUserMessage>, abort: AbortController): Query =>
+        query({
+          prompt: inputStream,
+          options: {
+            ...(this.baseURL ? {} : { model: resolvedModel }),
+            systemPrompt: request.systemPrompt || undefined,
+            maxTurns,
+            tools,
+            abortController: abort,
+            settingSources: [],
+            ...(bundledClaude ? { pathToClaudeCodeExecutable: bundledClaude } : {}),
+            ...(Object.keys(env).length > 0 ? {
+              env,
+              settings: { env } as Record<string, unknown>,
+            } : {}),
+            ...(thinking ? { thinking } : {}),
+            ...(effort ? { effort } : {}),
+            ...(request.allowedTools ? { allowedTools: request.allowedTools } : {}),
+          },
+        }),
     });
 
-    this.session = queryInstance;
-    this.currentDebugLog = [
-      `[engine] session started — model: ${resolvedModel}, thinking: ${thinking ? JSON.stringify(thinking) : 'off'}, effort: ${effort ?? 'default'}`,
-    ];
-
-    // Create the promise for the first response
-    const responsePromise = new Promise<LLMResponse>((resolve, reject) => {
-      this.pendingResolve = resolve;
-      this.pendingReject = reject;
-      this.pendingStart = Date.now();
-      this.pendingModel = request.model || this.defaultModel;
-    });
-
-    // Start background message processing loop (fire and forget)
-    this.processLoop(queryInstance);
-
-    return responsePromise;
+    return session;
   }
 
-  private sendToSession(request: LLMRequest): Promise<LLMResponse> {
-    this.resetIdleTimer();
-
-    // Create promise for this response
-    const responsePromise = new Promise<LLMResponse>((resolve, reject) => {
-      this.pendingResolve = resolve;
-      this.pendingReject = reject;
-      this.pendingStart = Date.now();
-      this.pendingModel = request.model || this.defaultModel;
-    });
-
-    // Reset accumulators
-    this.currentText = "";
-    this.currentThinking = "";
-    this.currentDebugLog = [`[engine] reusing session (hot) — thinking: ${this.sessionThinkingKey}`];
-
-    // Push message into the input stream
-    this.pushMessage({
-      type: "user" as const,
-      message: { role: "user" as const, content: this.buildContentBlocks(request) },
-    } as SDKUserMessage);
-
-    return responsePromise;
-  }
-
-  private async processLoop(queryInstance: Query): Promise<void> {
-    const turnTimings: LLMTurnTiming[] = [];
-    let turnCount = 0;
-    let turnStart = Date.now();
-
-    try {
-      for await (const message of queryInstance) {
-        if (message.type === "assistant") {
-          let turnThinkingChars = 0;
-          let hasThinking = false;
-          const blockTypes = message.message.content.map((b: { type: string }) => b.type);
-          this.currentDebugLog.push(`[engine] blocks: [${blockTypes.join(', ')}]`);
-          // Only reset text if this turn has text blocks (preserve text from earlier turns)
-          const hasTextBlocks = blockTypes.includes('text');
-          if (hasTextBlocks) this.currentText = "";
-          for (const block of message.message.content) {
-            if (block.type === "text") this.currentText += block.text;
-            if (block.type === "thinking" && "thinking" in block) {
-              const thinkingText = (block as { type: "thinking"; thinking: string }).thinking;
-              this.currentThinking += thinkingText;
-              turnThinkingChars += thinkingText.length;
-              hasThinking = true;
-              this.currentDebugLog.push(`[engine] thinking: ${this.currentThinking.length} chars`);
-            }
-          }
-
-          // Record turn timing
-          turnCount++;
-          const turnDuration = Date.now() - turnStart;
-          turnTimings.push({
-            turn: turnCount,
-            durationMs: turnDuration,
-            hasThinking,
-            ...(turnThinkingChars > 0 ? { thinkingChars: turnThinkingChars } : {}),
-          });
-          turnStart = Date.now();
-        } else if (message.type === "result") {
-          // Extract usage stats from SDK result
-          const result = message as {
-            type: 'result';
-            subtype?: string;
-            total_cost_usd?: number;
-            duration_ms?: number;
-            duration_api_ms?: number;
-            num_turns?: number;
-            usage?: { inputTokens?: number; outputTokens?: number; cacheReadInputTokens?: number };
-            modelUsage?: Record<string, { inputTokens?: number; outputTokens?: number; costUSD?: number; cacheReadInputTokens?: number }>;
-          } & SdkResultErrorFields;
-
-          const resultError = describeErrorResult(result);
-          if (resultError) {
-            log.error('Result-level error from SDK', undefined, {
-              subtype: result.subtype,
-              terminalReason: result.terminal_reason,
-              apiErrorStatus: result.api_error_status,
-            });
-            if (this.pendingReject) {
-              const reject = this.pendingReject;
-              this.pendingResolve = null;
-              this.pendingReject = null;
-              const friendly = getHumanReadableError(new Error(resultError), this.id);
-              reject(new LLMEngineError(friendly, this.id, result.api_error_status ?? undefined));
-            }
-            this.closeSession();
-            return;
-          }
-
-          this.sessionAlive = true;
-          this.resetIdleTimer();
-
-          const sdkUsage = result.usage;
-          const costUsd = result.total_cost_usd;
-          const numTurns = result.num_turns;
-
-          // Log to debugLog
-          if (costUsd != null) {
-            this.currentDebugLog.push(`[engine] cost: $${costUsd.toFixed(4)}`);
-          }
-          if (numTurns != null) {
-            this.currentDebugLog.push(`[engine] turns: ${numTurns}`);
-          }
-          if (result.duration_api_ms != null) {
-            this.currentDebugLog.push(`[engine] api time: ${result.duration_api_ms}ms`);
-          }
-          if (result.modelUsage) {
-            for (const [model, mu] of Object.entries(result.modelUsage)) {
-              this.currentDebugLog.push(`[engine] model ${model} — in: ${mu.inputTokens ?? 0}, out: ${mu.outputTokens ?? 0}, cache: ${mu.cacheReadInputTokens ?? 0}, cost: $${(mu.costUSD ?? 0).toFixed(4)}`);
-            }
-          }
-
-          // Build per-model usage map
-          const modelUsageMap = result.modelUsage
-            ? Object.fromEntries(
-                Object.entries(result.modelUsage).map(([model, mu]) => [model, {
-                  inputTokens: mu.inputTokens ?? 0,
-                  outputTokens: mu.outputTokens ?? 0,
-                  ...(mu.cacheReadInputTokens ? { cacheReadInputTokens: mu.cacheReadInputTokens } : {}),
-                  ...(mu.costUSD != null ? { costUsd: mu.costUSD } : {}),
-                }])
-              )
-            : undefined;
-
-          // Aggregate tokens from modelUsage when top-level usage is zero
-          let totalInputTokens = sdkUsage?.inputTokens ?? 0;
-          let totalOutputTokens = sdkUsage?.outputTokens ?? 0;
-          let totalCacheTokens = sdkUsage?.cacheReadInputTokens ?? 0;
-          if (totalInputTokens === 0 && totalOutputTokens === 0 && modelUsageMap) {
-            for (const mu of Object.values(modelUsageMap)) {
-              totalInputTokens += mu.inputTokens;
-              totalOutputTokens += mu.outputTokens;
-              totalCacheTokens += mu.cacheReadInputTokens ?? 0;
-            }
-          }
-
-          this.currentDebugLog.push(`[engine] tokens — in: ${totalInputTokens}, out: ${totalOutputTokens}${totalCacheTokens > 0 ? `, cache: ${totalCacheTokens}` : ''}`);
-
-          // Build structured usage
-          const llmUsage: LLMUsage = {
-            inputTokens: totalInputTokens,
-            outputTokens: totalOutputTokens,
-            ...(totalCacheTokens > 0 ? { cacheReadInputTokens: totalCacheTokens } : {}),
-            ...(costUsd != null ? { costUsd } : {}),
-            ...(numTurns != null ? { numTurns } : {}),
-            ...(result.duration_api_ms != null ? { durationApiMs: result.duration_api_ms } : {}),
-            ...(turnTimings.length > 0 ? { turnTimings: [...turnTimings] } : {}),
-            ...(modelUsageMap ? { modelUsage: modelUsageMap } : {}),
-          };
-
-          if (this.pendingResolve) {
-            const resolve = this.pendingResolve;
-            this.pendingResolve = null;
-            this.pendingReject = null;
-            resolve({
-              text: this.currentText,
-              ...(this.currentThinking ? { thinking: this.currentThinking } : {}),
-              model: this.pendingModel,
-              provider: this.id,
-              usage: llmUsage,
-              durationMs: Date.now() - this.pendingStart,
-              debugLog: [...this.currentDebugLog],
-            });
-          }
-
-          // Reset for next request
-          this.currentText = "";
-          this.currentThinking = "";
-          this.currentDebugLog = [];
-          turnTimings.length = 0;
-          turnCount = 0;
-          turnStart = Date.now();
-        }
-      }
-    } catch (error) {
-      log.error('processLoop error', error, {
-        errorType: typeof error,
-        status: error instanceof Error && 'status' in error ? (error as Record<string, unknown>).status : undefined,
-      });
-      if (this.pendingReject) {
-        const reject = this.pendingReject;
-        this.pendingResolve = null;
-        this.pendingReject = null;
-
-        if (isCliNotFoundError(error)) {
-          reject(new LLMEngineError(CLI_NOT_INSTALLED_MSG, this.id, undefined, error));
-        } else {
-          const msg = getHumanReadableError(error, this.id);
-          reject(new LLMEngineError(msg, this.id, getStatusCode(error), error));
-        }
-      }
-      this.closeSession();
+  /** Close least-recently-used idle sessions when the pool is over cap. */
+  private evictOverCap(): void {
+    if (this.sessions.size <= MAX_SESSIONS) return;
+    const idle = [...this.sessions.values()]
+      .filter((s) => !s.busy)
+      .sort((a, b) => a.lastUsedAt - b.lastUsedAt);
+    for (const session of idle) {
+      if (this.sessions.size <= MAX_SESSIONS) break;
+      log.debug('Evicting idle session (pool over cap)', { scope: session.keys.scope });
+      session.close();
     }
   }
 
-  private pushMessage(msg: SDKUserMessage): void {
-    this.messageQueue.push(msg);
-    if (this.queueResolve) {
-      const resolve = this.queueResolve;
-      this.queueResolve = null;
-      resolve();
+  async generate(request: LLMRequest): Promise<LLMResponse> {
+    log.debug('generate() called', { baseURL: this.baseURL, defaultModel: this.defaultModel, scope: request.sessionScope });
+    if (request.signal?.aborted) {
+      throw new LLMEngineError("Request cancelled", this.id);
     }
+
+    const keys = this.buildSessionKeys(request);
+    const model = request.model || this.defaultModel;
+    const content = this.buildContentBlocks(request);
+
+    if (!keys.scope) {
+      // Scope-less request: one-shot session, torn down after the response
+      const session = this.createSession(keys, request);
+      try {
+        return await session.request(content, model, request.signal);
+      } finally {
+        session.close();
+      }
+    }
+
+    let session = this.sessions.get(keys.scope);
+    if (session && (!session.alive || !session.matches(keys))) {
+      log.debug('Closing session: config/scope mismatch', { scope: keys.scope });
+      session.close();
+      session = undefined;
+    }
+    if (!session) {
+      session = this.createSession(keys, request);
+      this.sessions.set(keys.scope, session);
+      this.evictOverCap();
+    }
+
+    return session.request(content, model, request.signal);
+  }
+
+  /** Abort every in-flight request and tear down all sessions (global cancel). */
+  abort(): void {
+    for (const session of [...this.sessions.values()]) {
+      session.abort();
+    }
+    this.sessions.clear();
+  }
+
+  /**
+   * Close a specific scope's session, or all sessions when no scope is given.
+   * Reflection passes use this to force a fresh conversation without touching
+   * other scopes' live sessions.
+   */
+  resetSession(sessionScope?: string): void {
+    if (sessionScope) {
+      this.sessions.get(sessionScope)?.close();
+      return;
+    }
+    for (const session of [...this.sessions.values()]) {
+      session.close();
+    }
+    this.sessions.clear();
   }
 
   async *streamGenerate(request: LLMRequest): AsyncIterable<LLMStreamEvent> {
@@ -655,45 +404,6 @@ export class ClaudeProvider implements LLMProvider {
         : getHumanReadableError(error, this.id);
       yield { type: "error", error: message };
     }
-  }
-
-  abort(): void {
-    if (this.pendingReject) {
-      const reject = this.pendingReject;
-      this.pendingResolve = null;
-      this.pendingReject = null;
-      reject(new LLMEngineError("Request cancelled", this.id));
-    }
-    this.sessionAbort?.abort();
-    this.closeSession();
-  }
-
-  resetSession(): void {
-    this.closeSession();
-  }
-
-  closeSession(): void {
-    if (this.idleTimer) {
-      clearTimeout(this.idleTimer);
-      this.idleTimer = null;
-    }
-    if (this.session) {
-      try { this.session.close(); } catch { /* ignore */ }
-      this.session = null;
-    }
-    this.sessionAbort = null;
-    this.sessionAlive = false;
-    this.sessionScope = null;
-    this.sessionSystemPrompt = undefined;
-    this.messageQueue = [];
-    this.queueResolve = null;
-    this.pendingResolve = null;
-    this.pendingReject = null;
-  }
-
-  private resetIdleTimer(): void {
-    if (this.idleTimer) clearTimeout(this.idleTimer);
-    this.idleTimer = setTimeout(() => this.closeSession(), SESSION_IDLE_TIMEOUT_MS);
   }
 
   private buildThinkingConfig(request: LLMRequest, model: string) {

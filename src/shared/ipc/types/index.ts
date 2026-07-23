@@ -24,6 +24,7 @@ export * from './stt';
 export * from './system';
 export * from './thumbnail';
 export * from './transcription';
+export * from './tsx-jobs';
 export * from './video';
 export * from './video-studio';
 export * from './whisper';

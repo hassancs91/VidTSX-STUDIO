@@ -15,6 +15,7 @@ export { logApi } from './log';
 export { audioApi } from './audio';
 export { sdImageApi } from './sd-image';
 export { sdVideoApi } from './sd-video';
+export { tsxJobsApi } from './tsx-jobs';
 export { modelLibraryApi } from './model-library';
 export { systemApi } from './system';
 export { localLlmApi } from './local-llm';

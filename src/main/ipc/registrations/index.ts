@@ -15,6 +15,7 @@ export { registerAudioIpc } from './audio';
 export { registerEmbeddingIpc } from './embedding';
 export { registerSdImageIpc } from './sd-image';
 export { registerSdVideoIpc } from './sd-video';
+export { registerTsxJobsIpc } from './tsx-jobs';
 export { registerModelLibraryIpc } from './model-library';
 export { registerLocalLlmIpc } from './local-llm';
 export { registerSystemIpc } from './system';

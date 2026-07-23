@@ -174,6 +174,12 @@ app.whenReady().then(async () => {
   await aiUsageService.init();
 
   registerAllIPC();
+
+  // Re-queue TSX generation jobs that were still queued at last quit.
+  // After registerAllIPC so the job-event broadcast listener is attached.
+  const { tsxJobEngine } = await import('./services/tsx-jobs/tsx-job-engine');
+  await tsxJobEngine.restore();
+
   const win = createWindow();
   mainWindow = win;
   win.on('closed', () => {
@@ -193,6 +199,13 @@ app.whenReady().then(async () => {
 
 app.on('will-quit', async () => {
   stopSystemMonitor();
+
+  // Abort TSX generation jobs (persists queued jobs) and tear down every LLM
+  // session so no claude.exe children are orphaned
+  const { tsxJobEngine } = await import('./services/tsx-jobs/tsx-job-engine');
+  await tsxJobEngine.shutdown();
+  const { llmEngine } = await import('../engine');
+  llmEngine.abortAll();
 
   // Flush AI usage log
   const { aiUsageService } = await import('./services/ai-usage');

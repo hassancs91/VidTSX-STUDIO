@@ -1,4 +1,5 @@
 export { generateTsx, editTsx, generateTsxPipeline, editTsxPipeline, generateProjectName } from './tsx-generation-service';
+export type { TsxEngineDeps } from './tsx-generation-service';
 export { buildTsxSystemPrompt, buildVerifyPrompt } from './prompt-builder';
 export { parsePipelineMode, parseLibraries } from './mode-parser';
 export { THINKING_CONFIGS } from './thinking-config';

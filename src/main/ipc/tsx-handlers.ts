@@ -3,10 +3,8 @@ import type { TsxValidateRequest, TsxValidateResponse } from '@shared/ipc/types'
 import { transpileTsxSource } from '../services/tsx-transpiler';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../services/module-server';
 
-export async function handleTsxValidate(
-  _event: IpcMainInvokeEvent,
-  data: TsxValidateRequest
-): Promise<TsxValidateResponse> {
+/** Validate TSX code directly — used by the IPC handler and the TSX job engine. */
+export async function validateTsxCode(code: string): Promise<TsxValidateResponse> {
   try {
     await ensureModuleServer();
     const baseUrl = getModuleServerBaseUrl();
@@ -17,7 +15,7 @@ export async function handleTsxValidate(
 
     // Transpile straight from the string — no temp file, safe under
     // concurrent validations.
-    const result = await transpileTsxSource(data.code, 'validate.tsx', baseUrl);
+    const result = await transpileTsxSource(code, 'validate.tsx', baseUrl);
 
     if (!result.success) {
       return {
@@ -34,4 +32,11 @@ export async function handleTsxValidate(
       error: err instanceof Error ? err.message : 'Validation failed',
     };
   }
+}
+
+export async function handleTsxValidate(
+  _event: IpcMainInvokeEvent,
+  data: TsxValidateRequest
+): Promise<TsxValidateResponse> {
+  return validateTsxCode(data.code);
 }

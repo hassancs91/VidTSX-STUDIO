@@ -113,7 +113,8 @@ export interface LLMProvider {
   readonly id: ProviderId;
   generate(request: LLMRequest): Promise<LLMResponse>;
   streamGenerate?(request: LLMRequest): AsyncIterable<LLMStreamEvent>;
-  resetSession?(): void;
+  /** Close the session for a scope, or all sessions when no scope is given. */
+  resetSession?(sessionScope?: string): void;
 }
 
 /** Typed error thrown by providers with context for UI display */

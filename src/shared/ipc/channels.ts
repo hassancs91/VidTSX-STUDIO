@@ -292,6 +292,13 @@ export const IPC = {
   // Moderation engine
   MODERATION_CHECK: 'moderation:check',
 
+  // TSX generation jobs (Creator — concurrent generations in main)
+  TSXJOB_START: 'tsxjob:start',
+  TSXJOB_CANCEL: 'tsxjob:cancel',
+  TSXJOB_LIST: 'tsxjob:list',
+  TSXJOB_CLEAR_COMPLETED: 'tsxjob:clear-completed',
+  TSXJOB_EVENT: 'tsxjob:event',
+
   // AI Usage tracking
   AI_USAGE_GET_SUMMARY: 'ai-usage:get-summary',
   AI_USAGE_GET_CHART: 'ai-usage:get-chart',

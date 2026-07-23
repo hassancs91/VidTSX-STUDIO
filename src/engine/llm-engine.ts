@@ -83,10 +83,21 @@ class LLMEngine {
     if (this.activeId) idsToAbort.add(this.activeId);
     if (this.lastUsedId) idsToAbort.add(this.lastUsedId);
     for (const id of idsToAbort) {
-      const provider = this.providers.get(id);
-      if (provider && 'abort' in provider && typeof (provider as { abort: () => void }).abort === 'function') {
-        (provider as { abort: () => void }).abort();
-      }
+      this.abortProvider(id);
+    }
+  }
+
+  /** Abort every registered provider — used at app shutdown so no claude.exe children are orphaned. */
+  abortAll(): void {
+    for (const id of this.providers.keys()) {
+      this.abortProvider(id);
+    }
+  }
+
+  private abortProvider(id: ProviderId): void {
+    const provider = this.providers.get(id);
+    if (provider && 'abort' in provider && typeof (provider as { abort: () => void }).abort === 'function') {
+      (provider as { abort: () => void }).abort();
     }
   }
 
@@ -142,8 +153,9 @@ class LLMEngine {
     const reflectionInstruction = request.reflectionPrompt ?? DEFAULT_REFLECTION_PROMPT;
 
     for (let i = 2; i <= loops; i++) {
-      // Reset session for clean, independent reflection
-      provider.resetSession?.();
+      // Reset this scope's session for clean, independent reflection —
+      // other scopes' live sessions must not be touched
+      provider.resetSession?.(request.sessionScope);
 
       allDebugLogs.push(`[engine] reflection pass ${i}/${loops}`);
       passStart = Date.now();
@@ -170,7 +182,7 @@ class LLMEngine {
     }
 
     // Reset session after reflection so next call starts fresh with conversation history
-    provider.resetSession?.();
+    provider.resetSession?.(request.sessionScope);
 
     // Merge usage across all passes
     const mergedUsage: LLMUsage = {

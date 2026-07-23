@@ -10,7 +10,13 @@ import type {
   PipelineMode,
   ThinkingLevel,
 } from './types';
-import type { LlmImageIpc, LlmGenerateRequest, LlmGenerateResponse } from '../ipc/types';
+import type {
+  LlmImageIpc,
+  LlmGenerateRequest,
+  LlmGenerateResponse,
+  TsxValidateRequest,
+  TsxValidateResponse,
+} from '../ipc/types';
 import { THINKING_CONFIGS } from './thinking-config';
 import { buildTsxSystemPrompt, buildVerifyPrompt } from './prompt-builder';
 import { EDIT_SYSTEM_PROMPT } from './prompts/generate-prompt';
@@ -18,6 +24,23 @@ import { PLAN_SYSTEM_PROMPT } from './prompts/plan-prompt';
 import { CLASSIFIER_SYSTEM_PROMPT } from './prompts/classifier-prompt';
 import { FIX_SYSTEM_PROMPT } from './prompts/fix-prompt';
 import { parsePipelineMode, parseLibraries } from './mode-parser';
+
+/**
+ * The two capabilities the pipeline needs from its host process. In the
+ * renderer these are IPC calls (see `rendererDeps`); in the main process the
+ * job engine injects direct engine/transpiler calls, so the same pipeline code
+ * runs in both without touching `window`.
+ */
+export interface TsxEngineDeps {
+  llmGenerate: (request: LlmGenerateRequest) => Promise<LlmGenerateResponse>;
+  tsxValidate: (request: TsxValidateRequest) => Promise<TsxValidateResponse>;
+}
+
+// The only window.api touchpoint in this file — everything below goes through deps.
+const rendererDeps: TsxEngineDeps = {
+  llmGenerate: (request) => window.api.llmGenerate(request),
+  tsxValidate: (request) => window.api.tsxValidate(request),
+};
 
 function extractTsxCode(text: string): string {
   const fenceMatch = text.match(/```(?:tsx|typescript|jsx|ts)?\s*\n([\s\S]*?)```/);
@@ -49,15 +72,16 @@ function isTransientError(message: string): boolean {
 const RETRY_DELAYS_MS = [2_000, 6_000];
 
 async function llmGenerateWithRetry(
+  deps: TsxEngineDeps,
   request: LlmGenerateRequest,
   debugLog: string[],
 ): Promise<LlmGenerateResponse> {
-  let result = await window.api.llmGenerate(request);
+  let result = await deps.llmGenerate(request);
   for (const delayMs of RETRY_DELAYS_MS) {
     if (result.success || !result.error || !isTransientError(result.error)) return result;
     debugLog.push(`[Pipeline] Transient error ("${result.error}") — retrying in ${delayMs / 1000}s...`);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
-    result = await window.api.llmGenerate(request);
+    result = await deps.llmGenerate(request);
   }
   return result;
 }
@@ -82,13 +106,13 @@ function buildLlmRequest(
   };
 }
 
-export async function generateTsx(options: TsxGenerateOptions): Promise<GenerateResult> {
+export async function generateTsx(options: TsxGenerateOptions, deps: TsxEngineDeps = rendererDeps): Promise<GenerateResult> {
   const mode: PipelineMode = options.mode ?? '2d';
   const systemPrompt = buildTsxSystemPrompt(options.promptContext, mode);
   const sessionScope = newScope('creator:gen');
   const request = buildLlmRequest(options.prompt, systemPrompt, options, sessionScope);
 
-  const result = await window.api.llmGenerate(request);
+  const result = await deps.llmGenerate(request);
 
   if (!result.success || !result.text) {
     throw new Error(result.error ?? 'Generation failed');
@@ -106,12 +130,12 @@ export async function generateTsx(options: TsxGenerateOptions): Promise<Generate
   };
 }
 
-export async function editTsx(options: TsxEditOptions): Promise<GenerateResult> {
+export async function editTsx(options: TsxEditOptions, deps: TsxEngineDeps = rendererDeps): Promise<GenerateResult> {
   const fullPrompt = `Current code:\n\`\`\`tsx\n${options.currentCode}\n\`\`\`\n\nEdit instruction: ${options.editInstruction}`;
   const sessionScope = newScope('creator:edit');
   const request = buildLlmRequest(fullPrompt, EDIT_SYSTEM_PROMPT, options, sessionScope);
 
-  const result = await window.api.llmGenerate(request);
+  const result = await deps.llmGenerate(request);
 
   if (!result.success || !result.text) {
     throw new Error(result.error ?? 'Edit failed');
@@ -129,9 +153,9 @@ export async function editTsx(options: TsxEditOptions): Promise<GenerateResult> 
   };
 }
 
-export async function generateProjectName(userPrompt: string, providerId?: string): Promise<string> {
+export async function generateProjectName(userPrompt: string, providerId?: string, deps: TsxEngineDeps = rendererDeps): Promise<string> {
   try {
-    const result = await window.api.llmGenerate({
+    const result = await deps.llmGenerate({
       prompt: userPrompt,
       systemPrompt: 'Generate a short project name (2-4 words, lowercase, kebab-case) for this animation idea. Output ONLY the name, nothing else. Example: "neon-pulse-intro", "bouncing-logo", "gradient-wave".',
       ...(providerId ? { providerId } : {}),
@@ -154,6 +178,7 @@ export async function generateProjectName(userPrompt: string, providerId?: strin
 }
 
 interface TranspileFixLoopArgs {
+  deps: TsxEngineDeps;
   tsxCode: string;
   basePercent: number;
   weight: number;
@@ -172,7 +197,7 @@ async function runTranspileFixLoop(args: TranspileFixLoopArgs): Promise<{
   transpileValid: boolean;
   fixAttempts: number;
 }> {
-  const { basePercent, weight, maxFixRetries, providerId, thinkingLevel, sessionScope, report, debugLog, steps, accumulateUsage } = args;
+  const { deps, basePercent, weight, maxFixRetries, providerId, thinkingLevel, sessionScope, report, debugLog, steps, accumulateUsage } = args;
   let tsxCode = args.tsxCode;
   let transpileValid = false;
   let fixAttempts = 0;
@@ -181,7 +206,7 @@ async function runTranspileFixLoop(args: TranspileFixLoopArgs): Promise<{
     const attemptProgress = basePercent + (weight * attempt) / (maxFixRetries + 1);
     report({ step: 'transpile', stepLabel: 'Validating...', percent: Math.round(attemptProgress) });
     debugLog.push(`[Pipeline] Transpile check (attempt ${attempt + 1})...`);
-    const validateResult = await window.api.tsxValidate({ code: tsxCode });
+    const validateResult = await deps.tsxValidate({ code: tsxCode });
 
     if (validateResult.success) {
       transpileValid = true;
@@ -208,7 +233,7 @@ async function runTranspileFixLoop(args: TranspileFixLoopArgs): Promise<{
         thinkingLevel,
       }, sessionScope);
 
-      const fixResult = await window.api.llmGenerate(fixRequest);
+      const fixResult = await deps.llmGenerate(fixRequest);
       accumulateUsage(fixResult.usage);
 
       if (fixResult.success && fixResult.text) {
@@ -228,7 +253,7 @@ async function runTranspileFixLoop(args: TranspileFixLoopArgs): Promise<{
   return { tsxCode, transpileValid, fixAttempts };
 }
 
-export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<TsxPipelineResult> {
+export async function generateTsxPipeline(options: TsxPipelineOptions, deps: TsxEngineDeps = rendererDeps): Promise<TsxPipelineResult> {
   const totalStart = Date.now();
   const debugLog: string[] = [];
   const steps: PipelineStepLog[] = [];
@@ -271,7 +296,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
       images: options.images,
     }, sessionScope);
 
-    const planResult = await window.api.llmGenerate(planRequest);
+    const planResult = await deps.llmGenerate(planRequest);
     accumulateUsage(planResult.usage);
 
     if (planResult.success && planResult.text) {
@@ -301,7 +326,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
       maxTurns: 1,
     }, sessionScope);
 
-    const classifyResult = await window.api.llmGenerate(classifyRequest);
+    const classifyResult = await deps.llmGenerate(classifyRequest);
     accumulateUsage(classifyResult.usage);
 
     if (classifyResult.success && classifyResult.text) {
@@ -334,7 +359,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
     images: options.images,
   }, sessionScope);
 
-  const generateResult = await llmGenerateWithRetry(generateRequest, debugLog);
+  const generateResult = await llmGenerateWithRetry(deps, generateRequest, debugLog);
   accumulateUsage(generateResult.usage);
 
   if (!generateResult.success || !generateResult.text) {
@@ -368,7 +393,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
     thinkingLevel: options.thinkingLevel,
   }, sessionScope);
 
-  const verifyResult = await window.api.llmGenerate(verifyRequest);
+  const verifyResult = await deps.llmGenerate(verifyRequest);
   accumulateUsage(verifyResult.usage);
 
   let verified = false;
@@ -387,6 +412,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
 
   // Step 4: Transpile check + Fix loop
   const { tsxCode: finalCode, transpileValid, fixAttempts } = await runTranspileFixLoop({
+    deps,
     tsxCode,
     basePercent,
     weight: transpileFixWeight,
@@ -418,7 +444,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions): Promise<
   };
 }
 
-export async function editTsxPipeline(options: TsxEditPipelineOptions): Promise<TsxPipelineResult> {
+export async function editTsxPipeline(options: TsxEditPipelineOptions, deps: TsxEngineDeps = rendererDeps): Promise<TsxPipelineResult> {
   const totalStart = Date.now();
   const debugLog: string[] = [];
   const steps: PipelineStepLog[] = [];
@@ -455,7 +481,7 @@ export async function editTsxPipeline(options: TsxEditPipelineOptions): Promise<
     images: options.images,
   }, sessionScope);
 
-  const editResult = await llmGenerateWithRetry(editRequest, debugLog);
+  const editResult = await llmGenerateWithRetry(deps, editRequest, debugLog);
   accumulateUsage(editResult.usage);
 
   if (!editResult.success || !editResult.text) {
@@ -479,6 +505,7 @@ export async function editTsxPipeline(options: TsxEditPipelineOptions): Promise<
 
   // Step 2: Transpile check + Fix loop
   const { tsxCode: finalCode, transpileValid, fixAttempts } = await runTranspileFixLoop({
+    deps,
     tsxCode,
     basePercent: editWeight,
     weight: transpileFixWeight,

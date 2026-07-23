@@ -15,6 +15,7 @@ import { logApi } from './api/log';
 import { audioApi } from './api/audio';
 import { sdImageApi } from './api/sd-image';
 import { sdVideoApi } from './api/sd-video';
+import { tsxJobsApi } from './api/tsx-jobs';
 import { modelLibraryApi } from './api/model-library';
 import { systemApi } from './api/system';
 import { localLlmApi } from './api/local-llm';
@@ -44,6 +45,7 @@ const api = {
   ...audioApi,
   ...sdImageApi,
   ...sdVideoApi,
+  ...tsxJobsApi,
   ...modelLibraryApi,
   ...systemApi,
   ...localLlmApi,

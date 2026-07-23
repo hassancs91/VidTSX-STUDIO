@@ -362,6 +362,11 @@ export interface ElectronAPI {
   onSdVideoGenerateComplete: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateCompleteEvent) => void) => () => void;
   onSdVideoGenerateError: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateErrorEvent) => void) => () => void;
   appOpenExternal: (data: import('../../shared/ipc/types').AppOpenExternalRequest) => Promise<import('../../shared/ipc/types').AppOpenExternalResponse>;
+  tsxJobStart: (data: import('../../shared/ipc/types').TsxJobStartRequest) => Promise<import('../../shared/ipc/types').TsxJobStartResponse>;
+  tsxJobCancel: (data: import('../../shared/ipc/types').TsxJobCancelRequest) => Promise<import('../../shared/ipc/types').TsxJobCancelResponse>;
+  tsxJobList: () => Promise<import('../../shared/ipc/types').TsxJobListResponse>;
+  tsxJobClearCompleted: () => Promise<import('../../shared/ipc/types').TsxJobClearCompletedResponse>;
+  onTsxJobEvent: (callback: (data: import('../../shared/ipc/types').TsxJobEvent) => void) => () => void;
 
 }
 

@@ -125,9 +125,14 @@ export async function handleLlmProviderTest(
   }
 }
 
-export async function handleLlmGenerate(
-  _event: IpcMainInvokeEvent,
-  data: LlmGenerateRequest
+/**
+ * Runs an LLM generation directly (no IPC round-trip). Used by the IPC handler
+ * below and by main-process callers like the TSX job engine, which also pass a
+ * per-job AbortSignal — something the IPC request cannot carry.
+ */
+export async function runLlmGenerate(
+  data: LlmGenerateRequest,
+  signal?: AbortSignal
 ): Promise<LlmGenerateResponse> {
   try {
     const start = Date.now();
@@ -151,6 +156,7 @@ export async function handleLlmGenerate(
       ...(data.agentTools ? { agentTools: data.agentTools } : {}),
       ...(data.allowedTools ? { allowedTools: data.allowedTools } : {}),
       ...(data.sessionScope ? { sessionScope: data.sessionScope } : {}),
+      ...(signal ? { signal } : {}),
     };
 
     const result = data.providerId
@@ -186,6 +192,13 @@ export async function handleLlmGenerate(
     const error = err instanceof Error ? err.message : 'Generation failed';
     return { success: false, error };
   }
+}
+
+export async function handleLlmGenerate(
+  _event: IpcMainInvokeEvent,
+  data: LlmGenerateRequest
+): Promise<LlmGenerateResponse> {
+  return runLlmGenerate(data);
 }
 
 export async function handleLlmChatGenerate(
