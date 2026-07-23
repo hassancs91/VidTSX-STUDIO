@@ -226,6 +226,7 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
     // ── Step 3: Preview app state ─────────────────────────────────────────
     let playerRef = null;
     let currentConfig = null;
+    let currentInputProps = null;
     let currentLoop = false;
     let currentRate = 1;
     let playerKey = 0; // bumped to force a full Player re-mount so R3F re-reads dpr
@@ -257,6 +258,7 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
           if (ref) startFrameReporting(ref);
         },
         component: currentComponent,
+        inputProps: currentInputProps || undefined,
         durationInFrames: config.durationInFrames,
         fps: config.fps,
         compositionWidth: config.width,
@@ -349,6 +351,7 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
           if (typeof msg.quality === 'number' && msg.quality > 0) {
             currentScale = msg.quality;
           }
+          currentInputProps = msg.inputProps || null;
           (async function() {
             try {
               var moduleUrl = msg.moduleUrl + '?t=' + Date.now();
@@ -382,6 +385,10 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
               else playerRef.play();
             }
           } catch (_) {}
+          break;
+        case 'setInputProps':
+          currentInputProps = msg.value || null;
+          doRender();
           break;
         case 'setLoop':
           currentLoop = !!msg.value;

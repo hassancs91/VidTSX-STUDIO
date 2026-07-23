@@ -1,3 +1,17 @@
+// Editable-prop extraction (props-parser → PropsPanel)
+export type PropControl = 'text' | 'number' | 'boolean' | 'color' | 'select';
+
+export type PropValue = string | number | boolean;
+
+export interface ExtractedProp {
+  name: string;
+  control: PropControl;
+  /** Statically-known default from the destructuring pattern, if any. */
+  defaultValue: PropValue | null;
+  /** String-literal union members, when control is 'select'. */
+  options?: string[];
+}
+
 // Editor state
 export interface EditorState {
   content: string;

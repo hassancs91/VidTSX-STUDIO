@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button, Modal, RenderSettingsModal, SkeletonLoader, type RenderSettings } from '@shared/components';
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
-import { CodeEditor, useCodeEditor } from '@features/editor';
+import { CodeEditor, useCodeEditor, usePropsExtractor, PropsPanel } from '@features/editor';
 import { JobStreamView } from './JobStreamView';
 import { useRenderQueue, useRenderHistory, getFormatLabel, formatResolution, formatFileSize } from '@features/render-queue';
 import { useToast } from '@renderer/contexts/ToastContext';
@@ -107,6 +107,7 @@ export function MotionPreviewPanel({
     }
   }, [project?.currentVersion, loadComponent]);
   const codeEditor = useCodeEditor({ filePath: project?.currentVersion ?? null, onAfterSave: handleAfterSave });
+  const propsExtractor = usePropsExtractor(codeEditor.content, project?.currentVersion ?? null);
   const { addJob, openFolder, openFile } = useRenderQueue();
   const { entries: historyEntries } = useRenderHistory();
   const { showToast } = useToast();
@@ -325,42 +326,54 @@ export function MotionPreviewPanel({
 
           {/* Preview tab */}
           {activeTab === 'preview' && hasContent && !loading && (
-            <div className="flex-1 min-h-0 bg-app-player rounded-lg overflow-hidden m-2">
-              {!globalsReady && (
-                <div className="flex items-center justify-center h-full">
-                  <div
-                    className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"
-                    role="status"
+            <div className="flex-1 min-h-0 m-2 flex gap-2">
+              <div className="flex-1 min-w-0 bg-app-player rounded-lg overflow-hidden">
+                {!globalsReady && (
+                  <div className="flex items-center justify-center h-full">
+                    <div
+                      className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin"
+                      role="status"
+                    />
+                  </div>
+                )}
+                {globalsReady && loaderState.status === 'loading' && (
+                  <div className="flex items-center justify-center h-full p-6">
+                    <SkeletonLoader variant="loading" />
+                  </div>
+                )}
+                {globalsReady && loaderState.status === 'error' && (
+                  <div className="flex flex-col items-center justify-center h-full p-4 gap-3">
+                    <span className="text-[11px] text-accent-red text-center whitespace-pre-wrap">
+                      {loaderState.error}
+                    </span>
+                    {project && loaderState.error && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => onFix(loaderState.error!, loaderState.errorLocation)}
+                        disabled={loading}
+                      >
+                        {loading ? 'Fixing...' : 'Fix with AI'}
+                      </Button>
+                    )}
+                  </div>
+                )}
+                {globalsReady && loaderState.status === 'success' && loaderState.moduleUrl && loaderState.config && (
+                  <IsolatedPreview
+                    moduleUrl={loaderState.moduleUrl}
+                    config={loaderState.config}
+                    inputProps={propsExtractor.inputProps}
+                    className="h-full"
                   />
-                </div>
-              )}
-              {globalsReady && loaderState.status === 'loading' && (
-                <div className="flex items-center justify-center h-full p-6">
-                  <SkeletonLoader variant="loading" />
-                </div>
-              )}
-              {globalsReady && loaderState.status === 'error' && (
-                <div className="flex flex-col items-center justify-center h-full p-4 gap-3">
-                  <span className="text-[11px] text-accent-red text-center whitespace-pre-wrap">
-                    {loaderState.error}
-                  </span>
-                  {project && loaderState.error && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => onFix(loaderState.error!, loaderState.errorLocation)}
-                      disabled={loading}
-                    >
-                      {loading ? 'Fixing...' : 'Fix with AI'}
-                    </Button>
-                  )}
-                </div>
-              )}
-              {globalsReady && loaderState.status === 'success' && loaderState.moduleUrl && loaderState.config && (
-                <IsolatedPreview
-                  moduleUrl={loaderState.moduleUrl}
-                  config={loaderState.config}
-                  className="h-full"
+                )}
+              </div>
+              {globalsReady && loaderState.status === 'success' && propsExtractor.props.length > 0 && (
+                <PropsPanel
+                  props={propsExtractor.props}
+                  values={propsExtractor.overrides}
+                  onChange={propsExtractor.setValue}
+                  onReset={propsExtractor.reset}
+                  className="w-[190px] shrink-0"
                 />
               )}
             </div>

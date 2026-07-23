@@ -10,6 +10,8 @@ const log = createRendererLogger('IsolatedPreview');
 export interface IsolatedPreviewProps {
   moduleUrl: string;
   config: CompositionConfig;
+  /** Live prop overrides forwarded to the Remotion Player's inputProps. */
+  inputProps?: Record<string, unknown>;
   className?: string;
 }
 
@@ -157,7 +159,7 @@ function ChevronIcon() {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedPreviewProps) {
+export function IsolatedPreview({ moduleUrl, config, inputProps, className = '' }: IsolatedPreviewProps) {
   // State
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [preloadPath, setPreloadPath] = useState<string | null>(null);
@@ -200,6 +202,8 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
   const lastPongRef = useRef<number>(Date.now());
   const webviewReadyRef = useRef(false);
   const pendingLoadRef = useRef<{ moduleUrl: string; config: CompositionConfig } | null>(null);
+  const inputPropsRef = useRef(inputProps);
+  inputPropsRef.current = inputProps;
 
   const { durationInFrames, fps } = config;
   const progress = durationInFrames > 0 ? currentFrame / durationInFrames : 0;
@@ -249,6 +253,7 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
             moduleUrl: pending.moduleUrl,
             config: pending.config,
             quality: PREVIEW_QUALITY_SCALE[qualityRef.current],
+            inputProps: inputPropsRef.current,
           });
         }
         break;
@@ -357,7 +362,7 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
       setStatus('loading');
       setError(null);
       setCurrentFrame(0);
-      sendToWebview({ type: 'load', moduleUrl, config, quality });
+      sendToWebview({ type: 'load', moduleUrl, config, quality, inputProps: inputPropsRef.current });
     } else {
       pendingLoadRef.current = { moduleUrl, config };
       setStatus('loading');
@@ -368,6 +373,16 @@ export function IsolatedPreview({ moduleUrl, config, className = '' }: IsolatedP
     // re-import the module every time the user tweaks the slider.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverUrl, moduleUrl, config, sendToWebview]);
+
+  // ── Forward live inputProps changes to webview ──────────────────────────
+  // Loads carry the current value themselves (inputPropsRef), so this only
+  // needs to push changes made while a composition is already showing.
+  useEffect(() => {
+    if (webviewReadyRef.current && status === 'loaded') {
+      sendToWebview({ type: 'setInputProps', value: inputProps ?? null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inputProps, sendToWebview]);
 
   // ── Persist + forward quality changes to webview ────────────────────────
   useEffect(() => {
