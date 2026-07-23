@@ -5,9 +5,9 @@ import { TranscriptViewer } from './TranscriptViewer';
 import { WHISPER_LANGUAGES, CLOUD_LANGUAGES } from '../types';
 import { useToast } from '@renderer/contexts/ToastContext';
 
-// Jump to the Settings screen (cross-screen nav handled in App.tsx).
-function goToSettings() {
-  window.dispatchEvent(new CustomEvent('vidtsx:navigate', { detail: { screen: 'settings' } }));
+// Jump to the AI Models screen (cross-screen nav handled in App.tsx).
+function goToAiModels() {
+  window.dispatchEvent(new CustomEvent('vidtsx:navigate', { detail: { screen: 'ai-models' } }));
 }
 
 const selectClass = 'w-full rounded-md px-2 py-1.5 text-[12px] text-text-secondary cursor-pointer';
@@ -189,7 +189,7 @@ export function TranscriptionScreen() {
               }}
             >
               <div className="text-[12px] text-accent-amber">
-                Whisper is not installed. Go to Settings to install it.
+                Whisper is not installed. Install it from the AI Models screen (Audio tab).
               </div>
             </div>
           )}
@@ -205,10 +205,10 @@ export function TranscriptionScreen() {
             >
               <div className="text-[12px] text-accent-amber mb-2">
                 No {cloudEntry?.provider === 'openrouter' ? 'OpenRouter' : 'AssemblyAI'} API key
-                configured. Add it in Settings to use cloud transcription.
+                configured. Add it in AI Models → Providers to use cloud transcription.
               </div>
-              <Button variant="secondary" onClick={goToSettings}>
-                Open Settings
+              <Button variant="secondary" onClick={goToAiModels}>
+                Open AI Models
               </Button>
             </div>
           )}

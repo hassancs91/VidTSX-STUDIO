@@ -39,9 +39,20 @@ import {
 import { getPreflightHardware, type PreflightHardware } from '../services/system-info';
 import { usageStore } from '../services/model-usage';
 import { setImageModelsFolder } from '../services/settings';
+import type { VideoModelMeta } from '../../local-video-engine/types';
+import { VIDEO_MODEL_CATALOG } from '../../local-video-engine/model-registry';
+import {
+  getVideoModelsDir,
+  removeVideoModel,
+  scanVideoLibrary,
+} from '../services/sdvideo-library';
 
 function isImage(category: string): boolean {
   return category === 'image';
+}
+
+function isVideo(category: string): boolean {
+  return category === 'video';
 }
 
 function toSetupConfig(setup: ModelSetupConfig): SetupConfig {
@@ -77,6 +88,64 @@ function toInstalledIpc(
   };
 }
 
+/** Video capabilities mapped into the (image-shaped) IPC capability slot. */
+function videoInstalledToIpc(
+  model: InstalledModel<VideoModelMeta>,
+  usage: Record<string, { lastUsedAt: string; useCount: number }>,
+  hardware: PreflightHardware,
+): InstalledModelIpc {
+  const record = usage[model.id];
+  const profile = VIDEO_MODEL_CATALOG.find((p) => p.id === model.id);
+  return {
+    id: model.id,
+    name: model.name,
+    family: model.meta.family,
+    sizeBytes: model.sizeBytes,
+    filePath: model.filePath,
+    origin: model.origin,
+    ready: model.issues.length === 0,
+    issues: model.issues,
+    capabilities: {
+      txt2img: model.meta.capabilities.t2v,
+      img2img: model.meta.capabilities.i2v,
+      reference: false,
+    },
+    lastUsedAt: record?.lastUsedAt ?? null,
+    useCount: record?.useCount ?? 0,
+    fit: fitFor(
+      { minVramGB: profile?.requirements?.minVramGB, sizeBytes: model.sizeBytes },
+      hardware,
+    ),
+  };
+}
+
+async function scanVideoCategory(): Promise<ModelsScanResponse> {
+  const scan = await scanVideoLibrary();
+  const usage = usageStore.getFor('video');
+  const hardware = await getPreflightHardware();
+  const installedIds = new Set(scan.installed.map((m) => m.id));
+
+  const profiles: ProfileModelIpc[] = VIDEO_MODEL_CATALOG.map((p) => ({
+    id: p.id,
+    name: p.name,
+    family: p.meta.family,
+    sizeLabel: p.sizeLabel,
+    sourceUrl: p.sourceUrl,
+    hasDownload: Boolean(p.downloadUrl),
+    installed: installedIds.has(p.id),
+    fit: fitFor({ minVramGB: p.requirements?.minVramGB, sizeBytes: p.sizeBytes }, hardware),
+  }));
+
+  return {
+    category: 'video',
+    folder: scan.root,
+    installed: scan.installed.map((m) => videoInstalledToIpc(m, usage, hardware)),
+    profiles,
+    unrecognized: scan.unrecognized,
+    companions: scan.companionsFound.map((c) => ({ fileName: c.fileName, kind: c.kind })),
+  };
+}
+
 export async function handleModelsScan(
   _event: IpcMainInvokeEvent,
   req: ModelsScanRequest,
@@ -89,6 +158,14 @@ export async function handleModelsScan(
     unrecognized: [],
     companions: [],
   };
+
+  if (isVideo(req.category)) {
+    try {
+      return await scanVideoCategory();
+    } catch (err) {
+      return { ...empty, error: err instanceof Error ? err.message : 'Scan failed' };
+    }
+  }
 
   if (!isImage(req.category)) {
     return { ...empty, error: 'unsupported-category' };
@@ -159,11 +236,15 @@ export async function handleModelsRemove(
   _event: IpcMainInvokeEvent,
   req: ModelsRemoveRequest,
 ): Promise<ModelsRemoveResponse> {
-  if (!isImage(req.category)) {
+  if (!isImage(req.category) && !isVideo(req.category)) {
     return { success: false, error: 'unsupported-category' };
   }
   try {
-    await removeImageModel(req.modelId, { deleteFile: req.deleteFile });
+    if (isVideo(req.category)) {
+      await removeVideoModel(req.modelId, { deleteFile: req.deleteFile });
+    } else {
+      await removeImageModel(req.modelId, { deleteFile: req.deleteFile });
+    }
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Remove failed' };
@@ -181,11 +262,11 @@ export async function handleModelsOpenFolder(
   _event: IpcMainInvokeEvent,
   req: ModelsOpenFolderRequest,
 ): Promise<ModelsOpenFolderResponse> {
-  if (!isImage(req.category)) {
+  if (!isImage(req.category) && !isVideo(req.category)) {
     return { success: false, error: 'unsupported-category' };
   }
   try {
-    const dir = await getImageModelsDir();
+    const dir = isVideo(req.category) ? await getVideoModelsDir() : await getImageModelsDir();
     await shell.openPath(dir);
     return { success: true };
   } catch (err) {

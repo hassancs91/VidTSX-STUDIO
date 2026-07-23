@@ -260,12 +260,17 @@ export async function downloadModel(
 
 export async function deleteModel(modelId: string): Promise<void> {
   const modelPath = getModelPath(modelId);
+  const partPath = `${modelPath}.part`;
 
-  if (!existsSync(modelPath)) {
+  const finalExists = existsSync(modelPath);
+  const partExists = existsSync(partPath);
+
+  if (!finalExists && !partExists) {
     throw new Error(`Model ${modelId} is not downloaded`);
   }
 
-  await fs.unlink(modelPath);
+  if (finalExists) await fs.unlink(modelPath);
+  if (partExists) await fs.unlink(partPath);
 }
 
 // Module state for active transcription process

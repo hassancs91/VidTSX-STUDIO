@@ -20,6 +20,14 @@ export interface DownloadOptions {
   url: string;
   /** Absolute path to write the downloaded file */
   destPath: string;
+  /**
+   * Optional final path. When set, the engine downloads to `destPath` (a temp
+   * file, e.g. `model.bin.part`) and renames it to `finalizePath` after
+   * verification/extraction but BEFORE emitting the `completed` status — so a
+   * `completed` event is never observable while the file is still partial.
+   * Serialized with the task state, so it also survives app-restart resumes.
+   */
+  finalizePath?: string;
   /** Optional SHA-256 hex digest for integrity verification */
   sha256?: string;
   /** Post-download extraction config */

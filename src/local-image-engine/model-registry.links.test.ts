@@ -174,6 +174,42 @@ describe.skipIf(!RUN_SWEEP)('catalog link sweep (CHECK_LINKS)', () => {
   );
 
   it(
+    'every companion downloadUrl is alive; served size within 10% of sizeBytes',
+    async () => {
+      const companionSets: Array<[string, CompanionRequirement[]]> = [
+        ['FLUX1_COMPANIONS', FLUX1_COMPANIONS],
+        ['FLUX2_4B_COMPANIONS', FLUX2_4B_COMPANIONS],
+        ['FLUX2_9B_COMPANIONS', FLUX2_9B_COMPANIONS],
+        ['FLUX2_COMPANIONS', FLUX2_COMPANIONS],
+      ];
+      // Dedupe by downloadUrl (a shared t5xxl appears in several sets).
+      const unique = new Map<string, { label: string; sizeBytes?: number }>();
+      for (const [setName, companions] of companionSets) {
+        for (const c of companions) {
+          if (!c.downloadUrl) continue; // link-only (gated host) — swept as a sourceUrl page below
+          if (!unique.has(c.downloadUrl)) unique.set(c.downloadUrl, { label: `${setName}:${c.kind}`, sizeBytes: c.sizeBytes });
+        }
+      }
+      const rows: SweepRow[] = await Promise.all(
+        [...unique.entries()].map(async ([url, { label, sizeBytes }]) => {
+          const result = await probeFile(url);
+          const verdict =
+            sizeBytes !== undefined
+              ? fileVerdict(result, sizeBytes)
+              : { verdict: result.status === null ? `UNREACHABLE(${result.error ?? 'unknown'})` : result.status >= 200 && result.status < 300 ? 'OK(no expected size)' : `DEAD(${result.status})`, isDead: result.status === null || result.status < 200 || result.status >= 300, isMismatch: false };
+          return { label, url, ...verdict };
+        }),
+      );
+      printTable(`companion downloadUrl sweep (${rows.length} unique URLs)`, rows);
+      const dead = rows.filter((r) => r.isDead);
+      const mismatched = rows.filter((r) => r.isMismatch);
+      for (const row of mismatched) console.warn(`WARNING ${row.label}: ${row.verdict}`);
+      expect(dead.map((r) => `${r.label}: ${r.verdict}`)).toEqual([]);
+    },
+    SWEEP_TIMEOUT_MS,
+  );
+
+  it(
     'companion sourceUrl pages respond (status report only)',
     async () => {
       const companionSets: Array<[string, CompanionRequirement[]]> = [

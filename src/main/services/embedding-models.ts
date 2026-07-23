@@ -4,9 +4,6 @@ import path from 'path';
 import { EMBEDDING_MODEL_CATALOG } from '../../embedding-engine/model-registry';
 import { getAudioModelsDir } from './audio-models';
 
-/** Marker file written after all model files are fully downloaded */
-const COMPLETE_MARKER = '.complete';
-
 /**
  * Returns the base directory for embedding models: {aiModelsFolder}/embeddings/
  */
@@ -26,23 +23,17 @@ export function getEmbeddingModelDir(modelId: string): string {
 }
 
 /**
- * Checks whether a model is fully downloaded by looking for the .complete marker.
- * Partial downloads (files on disk but incomplete) will NOT pass this check.
+ * Checks whether a model is fully downloaded: every file in the catalog entry
+ * must exist on disk. The main ONNX file is downloaded to a `.part` temp file
+ * and only renamed to its final name once complete, so partial downloads will
+ * NOT pass this check.
  */
 export function isEmbeddingModelDownloaded(modelId: string): boolean {
   const model = EMBEDDING_MODEL_CATALOG.find((m) => m.id === modelId);
   if (!model) return false;
 
   const modelDir = path.join(getEmbeddingModelsDir(), model.id);
-  return existsSync(path.join(modelDir, COMPLETE_MARKER));
-}
-
-/**
- * Writes the .complete marker after all files are successfully downloaded.
- */
-export async function markEmbeddingModelComplete(modelId: string): Promise<void> {
-  const modelDir = getEmbeddingModelDir(modelId);
-  await fs.writeFile(path.join(modelDir, COMPLETE_MARKER), '');
+  return model.files.every((file) => existsSync(path.join(modelDir, file)));
 }
 
 /**

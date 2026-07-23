@@ -1,19 +1,12 @@
 import { useState } from 'react';
-import { ProgressBar } from '@shared/components';
 import type { ProfileModelIpc } from '@shared/ipc/types';
 import type { ModelDownloadStatus } from '../hooks/useImageLibrary';
+import { DownloadCell } from './DownloadCell';
 import { FitBadge } from './FitBadge';
 
 function familyLabel(family: string): string {
-  const map: Record<string, string> = { sd15: 'SD 1.5', sdxl: 'SDXL', sd3: 'SD 3.x', flux1: 'FLUX.1', flux2: 'FLUX.2' };
+  const map: Record<string, string> = { sd15: 'SD 1.5', sdxl: 'SDXL', sd3: 'SD 3.x', flux1: 'FLUX.1', flux2: 'FLUX.2', wan21: 'Wan 2.1', wan22: 'Wan 2.2', ltx: 'LTX-2.3', lingbot: 'LingBot' };
   return map[family] ?? family.toUpperCase();
-}
-
-function formatSpeed(bps: number): string {
-  if (bps <= 0) return '';
-  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} MB/s`;
-  if (bps >= 1_000) return `${(bps / 1_000).toFixed(0)} KB/s`;
-  return `${bps} B/s`;
 }
 
 interface ProfileCatalogListProps {
@@ -24,39 +17,6 @@ interface ProfileCatalogListProps {
   onResume: (id: string) => void;
   onCancel: (id: string) => void;
   onOpenExternal: (url: string) => void;
-}
-
-function DownloadCell({
-  status,
-  onPause,
-  onResume,
-  onCancel,
-}: {
-  status: ModelDownloadStatus;
-  onPause: () => void;
-  onResume: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="w-[120px]">
-      <div className="text-[9px] text-text-dim text-right mb-0.5">
-        {status.status === 'paused' ? 'Paused' : status.status === 'queued' ? 'Queued' : `${status.progress}%`}
-      </div>
-      <ProgressBar value={status.progress} color={status.status === 'paused' ? 'amber' : 'purple'} />
-      <div className="flex items-center justify-end gap-1.5 mt-0.5">
-        {status.speedBps > 0 && status.status === 'downloading' && (
-          <span className="text-[8px] text-text-dim">{formatSpeed(status.speedBps)}</span>
-        )}
-        {status.status === 'downloading' && (
-          <button onClick={onPause} className="text-[8px] text-text-dim hover:text-text-secondary">Pause</button>
-        )}
-        {status.status === 'paused' && (
-          <button onClick={onResume} className="text-[8px] text-text-dim hover:text-accent-light">Resume</button>
-        )}
-        <button onClick={onCancel} className="text-[8px] text-text-dim hover:text-accent-red">Cancel</button>
-      </div>
-    </div>
-  );
 }
 
 export function ProfileCatalogList({
@@ -88,7 +48,7 @@ export function ProfileCatalogList({
       </div>
 
       <div className="px-3 py-1.5 text-[10px] text-text-dim border-b border-border">
-        Download a file, then drop it into your models folder — or use Import.
+        One-click download — the model and any files it needs are fetched together. Or use Import.
       </div>
 
       {filtered.length === 0 ? (

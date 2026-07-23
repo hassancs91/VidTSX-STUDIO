@@ -101,3 +101,17 @@ export function resolveCompanions(
 
   return { companionPaths, issues };
 }
+
+/**
+ * Companions of a model that are not yet on disk (searched in the models-folder
+ * root, where companions are shared across every model in the folder). All-in-one
+ * checkpoints declare none. Drives the one-click download — it fetches only what
+ * is missing, so a shared `t5xxl` is downloaded once and reused by every Flux model.
+ */
+export function missingCompanionsFor(
+  meta: SdModelMeta,
+  modelsRoot: string,
+): CompanionRequirement[] {
+  if (meta.allInOne || !meta.companions || meta.companions.length === 0) return [];
+  return meta.companions.filter((req) => !findCompanionFile(req.fileNames, [modelsRoot]));
+}

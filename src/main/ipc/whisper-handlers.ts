@@ -80,18 +80,22 @@ export async function handleWhisperModelDownload(
 
     const modelFileName = data.modelId === 'large-v3' ? 'ggml-large-v3.bin' : `ggml-${data.modelId}.bin`;
     const modelUrl = `${MODEL_URL_BASE}/${modelFileName}`;
-    const destPath = getModelPath(data.modelId);
+    const finalPath = getModelPath(data.modelId);
 
     // Ensure models directory exists
     const modelsDir = getModelsDir();
     const fs = await import('fs/promises');
     await fs.mkdir(modelsDir, { recursive: true });
 
+    // Download to a .part temp file; the engine renames it to the final name
+    // before emitting 'completed'. isModelDownloaded() checks the final path,
+    // so a partial/interrupted download never counts as installed.
     await enqueueDownload(
       {
         id: `whisper-model-${data.modelId}`,
         url: modelUrl,
-        destPath,
+        destPath: `${finalPath}.part`,
+        finalizePath: finalPath,
         metadata: { modelId: data.modelId, type: 'whisper-model' },
       },
       (progress) => {

@@ -39,6 +39,16 @@ export interface SdImageModelDownloadResponse {
   error?: string;
 }
 
+/** Fetch only the missing companion files for an already-installed model. */
+export interface SdImageDownloadCompanionsRequest {
+  modelId: string;
+}
+
+export interface SdImageDownloadCompanionsResponse {
+  success: boolean;
+  error?: string;
+}
+
 export interface SdImageModelDeleteRequest {
   modelId: string;
 }

@@ -62,7 +62,7 @@ export function buildArgs(
   }
 
   if (request.schedule) {
-    args.push('--schedule', request.schedule);
+    args.push('--scheduler', request.schedule);
   }
 
   if (request.offloadToCpu) {

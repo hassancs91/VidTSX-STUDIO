@@ -7,6 +7,7 @@ import { initImageEngine } from './services/image-init';
 import { initAudioEngine } from './services/audio-init';
 import { initSttEngine } from './services/stt/stt-init';
 import { initSdImageEngine } from './services/sdimage-init';
+import { initVideoEngine } from './services/sdvideo-init';
 import { initLocalLlmEngine } from './services/llm-local-init';
 import { initLogging } from './services/log-init';
 import { migrateImageStudio } from './services/image-studio-migrate';
@@ -152,6 +153,9 @@ app.whenReady().then(async () => {
   // Initialize local SD image engine (sd-cli)
   await initSdImageEngine();
 
+  // Register the local video model library + engine (Wan/LTX/LingBot via sd-cli)
+  await initVideoEngine();
+
   // Initialize local LLM engine (node-llama-cpp)
   await initLocalLlmEngine();
 
@@ -201,6 +205,8 @@ app.on('will-quit', async () => {
   // Clean up any running sd-cli processes
   const { imageLocalEngine } = await import('../local-image-engine');
   imageLocalEngine.dispose();
+  const { videoLocalEngine } = await import('../local-video-engine/video-engine');
+  videoLocalEngine.dispose();
 
   // Clean up audio engine (unload STT/TTS models)
   const { audioEngine } = await import('../audio-engine');

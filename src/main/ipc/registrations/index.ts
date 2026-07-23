@@ -14,6 +14,7 @@ export { registerFrameExtractorIpc } from './frame-extractor';
 export { registerAudioIpc } from './audio';
 export { registerEmbeddingIpc } from './embedding';
 export { registerSdImageIpc } from './sd-image';
+export { registerSdVideoIpc } from './sd-video';
 export { registerModelLibraryIpc } from './model-library';
 export { registerLocalLlmIpc } from './local-llm';
 export { registerSystemIpc } from './system';

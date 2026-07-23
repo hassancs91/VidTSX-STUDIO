@@ -13,20 +13,32 @@ import type {
 
 // ─── Companion requirement definitions ─────────────────────────────────
 
-// FLUX.1 text encoders live in comfyanonymous/flux_text_encoders; the VAE
-// (ae.safetensors) ships in the Black Forest Labs FLUX.1 repos.
+// FLUX.1 companions — one-click download URLs verified HTTP-200 + exact
+// Content-Length against the HuggingFace API (2026-07-22). Text encoders come
+// from comfyanonymous/flux_text_encoders (Apache-2.0, ungated — the ecosystem
+// standard). The official BFL VAE repo is GATED (login required), so the
+// `downloadUrl` points at Comfy-Org's ungated re-host, whose ae.safetensors is
+// byte-identical (same SHA-256) to the official file; `sourceUrl` still points
+// at the official page for the manual "Get ↗" fallback.
 const FLUX1_CLIP_L: CompanionRequirement = {
   kind: 'clip_l',
   fileNames: ['clip_l.safetensors'],
   sourceUrl: 'https://huggingface.co/comfyanonymous/flux_text_encoders',
   sizeLabel: '246 MB',
+  downloadUrl: 'https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors',
+  sizeBytes: 246_144_152,
 };
 
+// Prefer the fp8 encoder (4.9 GB) over fp16 (9.8 GB) — saner for quantized
+// models. fp16 stays an accepted filename so an existing fp16 is still matched.
 const FLUX1_T5XXL: CompanionRequirement = {
   kind: 't5xxl',
-  fileNames: ['t5xxl_fp16.safetensors', 't5xxl_fp8_e4m3fn.safetensors'],
+  fileNames: ['t5xxl_fp8_e4m3fn.safetensors', 't5xxl_fp16.safetensors'],
   sourceUrl: 'https://huggingface.co/comfyanonymous/flux_text_encoders',
-  sizeLabel: '9.8 GB (fp16) / 4.9 GB (fp8)',
+  sizeLabel: '4.9 GB (fp8)',
+  downloadUrl:
+    'https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors',
+  sizeBytes: 4_893_934_904,
 };
 
 const FLUX1_VAE: CompanionRequirement = {
@@ -34,6 +46,9 @@ const FLUX1_VAE: CompanionRequirement = {
   fileNames: ['ae.safetensors'],
   sourceUrl: 'https://huggingface.co/black-forest-labs/FLUX.1-schnell',
   sizeLabel: '335 MB',
+  downloadUrl:
+    'https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/vae/ae.safetensors',
+  sizeBytes: 335_304_388,
 };
 
 export const FLUX1_COMPANIONS: CompanionRequirement[] = [

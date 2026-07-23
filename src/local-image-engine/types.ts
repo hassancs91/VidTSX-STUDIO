@@ -27,9 +27,17 @@ export interface CompanionRequirement {
   kind: 'vae' | 'llm' | 'clip_l' | 't5xxl';
   /** Accepted canonical filenames, e.g. ['ae.safetensors']. First is the preferred name. */
   fileNames: string[];
-  /** Where to obtain this file (HF page). */
+  /** Where to obtain this file (HF page) — used for the manual "Get ↗" fallback. */
   sourceUrl: string;
   sizeLabel: string;
+  /**
+   * Optional stable, public, unauthenticated direct URL for the preferred
+   * filename (D1) → lets the model download fetch this companion in one click.
+   * When absent, the companion stays a manual "Get ↗" link (e.g. a gated host).
+   */
+  downloadUrl?: string;
+  /** Exact size of the `downloadUrl` file, for display/progress. */
+  sizeBytes?: number;
 }
 
 /**

@@ -22,7 +22,6 @@ import {
   getEmbeddingModelsDir,
   getEmbeddingModelDir,
   isEmbeddingModelDownloaded,
-  markEmbeddingModelComplete,
   deleteEmbeddingModel,
 } from '../services/embedding-models';
 import { enqueueDownload } from '../services/download-manager';
@@ -134,16 +133,20 @@ export async function handleEmbeddingModelDownload(
     }
 
     // 2. Enqueue the main ONNX file through the download manager
-    //    Single download ID per model — matches the audio pattern exactly
+    //    Single download ID per model — matches the audio pattern exactly.
+    //    Downloaded to .part and renamed by the engine before 'completed' is
+    //    emitted, so isEmbeddingModelDownloaded (all files present) is already
+    //    true when the renderer receives the completion event.
     if (mainFile) {
-      const destPath = path.join(modelDir, mainFile);
-      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      const finalPath = path.join(modelDir, mainFile);
+      await fs.mkdir(path.dirname(finalPath), { recursive: true });
 
       await enqueueDownload(
         {
           id: `embedding-model-${data.modelId}`,
           url: getHfFileUrl(model.hfRepoId, mainFile),
-          destPath,
+          destPath: `${finalPath}.part`,
+          finalizePath: finalPath,
           metadata: { modelId: data.modelId, type: 'embedding-model' },
         },
         (progress) => {
@@ -156,9 +159,6 @@ export async function handleEmbeddingModelDownload(
         },
       );
     }
-
-    // 3. Write the completion marker so isEmbeddingModelDownloaded returns true
-    await markEmbeddingModelComplete(data.modelId);
 
     log.info('Embedding model download complete', { modelId: data.modelId });
     return { success: true };

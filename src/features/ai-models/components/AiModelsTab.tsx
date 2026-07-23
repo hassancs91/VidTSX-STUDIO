@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { SUB_TABS, type ModelSubTab } from '../types';
 import { MainContent } from './MainContent';
-import { AudioModelsContent } from './AudioModelsContent';
+import { ProvidersContent } from './providers/ProvidersContent';
+import { AudioTabContent } from './AudioTabContent';
 import { ImageModelsContent } from './ImageModelsContent';
+import { VideoModelsContent } from './VideoModelsContent';
 import { LlmModelsContent } from './LlmModelsContent';
 import { EmbeddingModelsContent } from './EmbeddingModelsContent';
 import { ComingSoonPlaceholder } from './ComingSoonPlaceholder';
+
+const RENDERED_TABS = new Set<ModelSubTab>(['main', 'providers', 'audio', 'image', 'video', 'llms', 'embeddings']);
 
 export function AiModelsTab() {
   const [activeSubTab, setActiveSubTab] = useState<ModelSubTab>('main');
@@ -36,11 +40,13 @@ export function AiModelsTab() {
 
       {/* Sub-tab content */}
       {activeSubTab === 'main' && <MainContent />}
-      {activeSubTab === 'audio' && <AudioModelsContent />}
+      {activeSubTab === 'providers' && <ProvidersContent />}
+      {activeSubTab === 'audio' && <AudioTabContent />}
       {activeSubTab === 'image' && <ImageModelsContent />}
+      {activeSubTab === 'video' && <VideoModelsContent />}
       {activeSubTab === 'llms' && <LlmModelsContent />}
       {activeSubTab === 'embeddings' && <EmbeddingModelsContent />}
-      {activeSubTab !== 'main' && activeSubTab !== 'audio' && activeSubTab !== 'image' && activeSubTab !== 'llms' && activeSubTab !== 'embeddings' && (
+      {!RENDERED_TABS.has(activeSubTab) && (
         <ComingSoonPlaceholder label={activeLabel} />
       )}
     </div>

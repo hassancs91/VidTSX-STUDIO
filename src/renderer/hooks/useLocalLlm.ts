@@ -191,7 +191,17 @@ export function useLocalLlm() {
             return next;
           });
           setDownloadError(result.error || 'Download failed');
+          return;
         }
+        // Fallback in case the 'completed' event was missed (e.g. remount)
+        setModels((prev) =>
+          prev.map((m) => (m.id === modelId ? { ...m, downloaded: true } : m)),
+        );
+        setDownloads((prev) => {
+          const next = { ...prev };
+          delete next[modelId];
+          return next;
+        });
       } catch (err) {
         setDownloads((prev) => {
           const next = { ...prev };

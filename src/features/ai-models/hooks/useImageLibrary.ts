@@ -18,6 +18,10 @@ export interface ModelDownloadStatus {
   etaSeconds: number;
   status: 'downloading' | 'paused' | 'extracting' | 'queued';
   error: string | null;
+  /** Which file of a multi-file set is downloading (video: model / encoder / VAE). */
+  label?: string;
+  /** Engine task id of the file being downloaded (multi-file sets rotate task ids). */
+  taskId?: string;
 }
 
 const EMPTY_SCAN: ModelsScanResponse = {
@@ -31,6 +35,19 @@ const EMPTY_SCAN: ModelsScanResponse = {
 
 function mapDownloadStatus(status: string): ModelDownloadStatus['status'] {
   return (['downloading', 'paused', 'extracting', 'queued'] as const).find((s) => s === status) ?? 'queued';
+}
+
+function fileLabelOf(metadata: Record<string, string> | undefined): string | undefined {
+  if (!metadata?.fileLabel) return undefined;
+  return metadata.fileStep ? `${metadata.fileLabel} (${metadata.fileStep})` : metadata.fileLabel;
+}
+
+/** True when this event is for the last file of the model's download set. */
+function isLastFile(metadata: Record<string, string> | undefined): boolean {
+  const step = metadata?.fileStep;
+  if (!step) return true;
+  const [current, total] = step.split('/');
+  return current === total;
 }
 
 /**
@@ -79,6 +96,8 @@ export function useImageLibrary() {
           etaSeconds: d.etaSeconds,
           status: mapDownloadStatus(d.status),
           error: null,
+          label: fileLabelOf(d.metadata),
+          taskId: d.id,
         };
       }
       if (Object.keys(restored).length > 0) setDownloads(restored);
@@ -101,12 +120,16 @@ export function useImageLibrary() {
       if (!modelId) return;
 
       if (event.status === 'completed') {
-        setDownloads((prev) => {
-          const next = { ...prev };
-          delete next[modelId];
-          return next;
-        });
-        void rescan(); // the file is now in the folder → shows up as installed
+        // Each finished file may clear a "Needs N files" issue → rescan. Only the
+        // set's last file removes the progress card (Flux = model + companions).
+        if (isLastFile(event.metadata)) {
+          setDownloads((prev) => {
+            const next = { ...prev };
+            delete next[modelId];
+            return next;
+          });
+        }
+        void rescan();
         return;
       }
 
@@ -128,6 +151,8 @@ export function useImageLibrary() {
           etaSeconds: event.etaSeconds,
           status: mapDownloadStatus(event.status),
           error: null,
+          label: fileLabelOf(event.metadata),
+          taskId: event.id,
         },
       }));
     });
@@ -206,7 +231,7 @@ export function useImageLibrary() {
     if (downloads[profileId]) return;
     setDownloads((prev) => ({
       ...prev,
-      [profileId]: { progress: 0, speedBps: 0, etaSeconds: -1, status: 'queued', error: null },
+      [profileId]: { progress: 0, speedBps: 0, etaSeconds: -1, status: 'queued', error: null, taskId: `sdimage-model-${profileId}` },
     }));
     setError(null);
     try {
@@ -218,7 +243,16 @@ export function useImageLibrary() {
           return next;
         });
         setError({ message: result.error || 'Download failed' });
+        return;
       }
+      // Fallback in case the 'completed' event was missed (e.g. remount):
+      // the file is finalized on disk by now, so a rescan shows it installed.
+      setDownloads((prev) => {
+        const next = { ...prev };
+        delete next[profileId];
+        return next;
+      });
+      await rescan();
     } catch (err) {
       setDownloads((prev) => {
         const next = { ...prev };
@@ -227,18 +261,62 @@ export function useImageLibrary() {
       });
       setError({ message: err instanceof Error ? err.message : 'Download failed' });
     }
-  }, [downloads]);
+  }, [downloads, rescan]);
 
-  const pauseDownload = useCallback((id: string) => window.api.downloadPause({ id: `sdimage-model-${id}` }), []);
-  const resumeDownload = useCallback((id: string) => window.api.downloadResume({ id: `sdimage-model-${id}` }), []);
+  /** Fetch only the missing companion files for an already-installed model. */
+  const downloadCompanions = useCallback(async (modelId: string) => {
+    if (downloads[modelId]) return;
+    setDownloads((prev) => ({
+      ...prev,
+      [modelId]: { progress: 0, speedBps: 0, etaSeconds: -1, status: 'queued', error: null },
+    }));
+    setError(null);
+    try {
+      const result = await window.api.sdImageDownloadCompanions({ modelId });
+      if (!result.success) {
+        setDownloads((prev) => {
+          const next = { ...prev };
+          delete next[modelId];
+          return next;
+        });
+        setError({ message: result.error || 'Download failed' });
+        return;
+      }
+      // Fallback in case the last 'completed' event was missed (e.g. remount):
+      // all companions are finalized on disk by now.
+      setDownloads((prev) => {
+        const next = { ...prev };
+        delete next[modelId];
+        return next;
+      });
+      await rescan();
+    } catch (err) {
+      setDownloads((prev) => {
+        const next = { ...prev };
+        delete next[modelId];
+        return next;
+      });
+      setError({ message: err instanceof Error ? err.message : 'Download failed' });
+    }
+  }, [downloads, rescan]);
+
+  // Companions rotate task ids within a set, so pause/resume/cancel target the
+  // task that is actually running (falling back to the model task id).
+  const activeTaskId = useCallback(
+    (id: string) => downloads[id]?.taskId ?? `sdimage-model-${id}`,
+    [downloads],
+  );
+
+  const pauseDownload = useCallback((id: string) => window.api.downloadPause({ id: activeTaskId(id) }), [activeTaskId]);
+  const resumeDownload = useCallback((id: string) => window.api.downloadResume({ id: activeTaskId(id) }), [activeTaskId]);
   const cancelDownload = useCallback(async (id: string) => {
-    await window.api.downloadCancel({ id: `sdimage-model-${id}` });
+    await window.api.downloadCancel({ id: activeTaskId(id) });
     setDownloads((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
-  }, []);
+  }, [activeTaskId]);
 
   const openExternal = useCallback((url: string) => window.api.appOpenExternal({ url }), []);
 
@@ -258,6 +336,7 @@ export function useImageLibrary() {
     importModel,
     configureModel,
     downloadProfile,
+    downloadCompanions,
     pauseDownload,
     resumeDownload,
     cancelDownload,

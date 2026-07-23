@@ -51,20 +51,20 @@ export async function downloadLlmModel(
   const partPath = finalPath + '.part';
 
   // GGUF files are single-file downloads — no archive extraction needed.
-  // Download to a .part temp file then rename on completion. This prevents
-  // isModelDownloaded() from returning true for partial downloads.
+  // Download to a .part temp file; the engine renames it to the final name
+  // before emitting 'completed'. This prevents isModelDownloaded() from
+  // returning true for partial downloads, and ensures the rename also runs
+  // for downloads resumed after an app restart.
   await enqueueDownload(
     {
       id: getLlmDownloadId(modelId),
       url: model.downloadUrl,
       destPath: partPath,
+      finalizePath: finalPath,
       metadata: { modelId, type: 'llm-model' },
     },
     onProgress,
   );
-
-  // Download complete — rename .part to final name
-  await fs.rename(partPath, finalPath);
 
   return finalPath;
 }

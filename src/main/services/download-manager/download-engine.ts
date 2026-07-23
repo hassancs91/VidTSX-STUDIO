@@ -63,6 +63,14 @@ export async function restoreDownloads(): Promise<void> {
 
   let pausedCount = 0;
   for (const state of savedTasks) {
+    // Migrate tasks saved by older versions, where the .part → final rename
+    // lived in the calling service (which no longer exists after a restart)
+    // instead of the engine. Without this, resuming such a task would finish
+    // the download but leave the file as .part forever.
+    if (!state.options.finalizePath && state.options.destPath.endsWith('.part')) {
+      state.options.finalizePath = state.options.destPath.slice(0, -'.part'.length);
+    }
+
     // Interrupted downloads are restored as paused — user must explicitly resume
     if (state.status === 'downloading' || state.status === 'queued' || state.status === 'extracting' || state.status === 'verifying') {
       state.status = 'paused';
@@ -78,7 +86,24 @@ export async function restoreDownloads(): Promise<void> {
     });
   }
 
+  // Heal downloads that finished but were never renamed to their final name
+  // (app quit or crashed between completion and rename, or the rename was
+  // done by an older app version that skipped it). The bytes are complete —
+  // 'completed' is only ever set after the full file is on disk.
+  for (const task of tasks.values()) {
+    const { id, destPath, finalizePath } = task.state.options;
+    if (task.state.status !== 'completed' || !finalizePath) continue;
+    if (!existsSync(destPath) || existsSync(finalizePath)) continue;
+    try {
+      await renameWithRetry(destPath, finalizePath);
+      log.info('Finalized orphaned completed download', { id, finalizePath });
+    } catch (err) {
+      log.error('Failed to finalize orphaned completed download', err, { id });
+    }
+  }
+
   if (savedTasks.length > 0) {
+    persistState();
     log.info('Restored download state', { total: savedTasks.length, paused: pausedCount });
   }
 }
@@ -334,6 +359,29 @@ function makeRequest(
         totalBytes: task.state.totalBytes,
         hadExistingBytes: existingBytes > 0,
       });
+    } else if (statusCode === 416 && existingBytes > 0) {
+      // Range not satisfiable — our partial file already covers the whole
+      // download (e.g. a fully downloaded .part left by an interrupted
+      // session). Content-Range: bytes */<total> carries the real size.
+      response.resume();
+      const totalMatch = (response.headers['content-range'] ?? '').match(/\/(\d+)/);
+      const total = totalMatch ? parseInt(totalMatch[1], 10) : NaN;
+      if (total === existingBytes) {
+        log.info('Partial file already complete, skipping download', {
+          id: task.state.options.id, totalBytes: total,
+        });
+        task.state.downloadedBytes = existingBytes;
+        task.state.totalBytes = total;
+        task.request = null;
+        void onDownloadComplete(task);
+      } else {
+        // Stale or oversized partial — discard it and start from scratch
+        log.warn('Partial file does not match remote size, restarting', {
+          id: task.state.options.id, existingBytes, total,
+        });
+        makeRequest(task, url, 0, redirectCount);
+      }
+      return;
     } else if (statusCode && statusCode >= 500) {
       response.resume();
       handleDownloadError(task, new Error(`HTTP ${statusCode}`));
@@ -430,6 +478,15 @@ async function onDownloadComplete(task: DownloadTask): Promise<void> {
       log.info('Extraction complete', { id });
     }
 
+    // Finalize: reveal the temp file under its final name BEFORE broadcasting
+    // 'completed', so listeners (e.g. a folder rescan) never observe a
+    // completed download whose file is still a .part temp file.
+    const finalizePath = task.state.options.finalizePath;
+    if (finalizePath) {
+      await renameWithRetry(task.state.options.destPath, finalizePath);
+      log.info('Finalized download file', { id, finalizePath });
+    }
+
     log.info('Download completed', {
       id,
       downloadedBytes: task.state.downloadedBytes,
@@ -447,6 +504,24 @@ async function onDownloadComplete(task: DownloadTask): Promise<void> {
   }
 
   processQueue();
+}
+
+/**
+ * Rename with a short retry loop — on Windows, antivirus/indexer scans can
+ * transiently lock a freshly written file (EPERM/EBUSY/EACCES).
+ */
+async function renameWithRetry(from: string, to: string, attempts = 4): Promise<void> {
+  for (let i = 0; ; i++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      const retryable = code === 'EPERM' || code === 'EBUSY' || code === 'EACCES';
+      if (!retryable || i >= attempts - 1) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 250 * (i + 1)));
+    }
+  }
 }
 
 async function verifyHash(filePath: string, expectedSha256: string): Promise<boolean> {

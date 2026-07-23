@@ -5,6 +5,8 @@ import type {
   SdImageModelsListResponse,
   SdImageModelDownloadRequest,
   SdImageModelDownloadResponse,
+  SdImageDownloadCompanionsRequest,
+  SdImageDownloadCompanionsResponse,
   SdImageModelDeleteRequest,
   SdImageModelDeleteResponse,
   SdImageCliStatusResponse,
@@ -27,7 +29,7 @@ import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
 import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
 import { scanImageLibrary, removeImageModel, getLastScan } from '../services/sdimage-library';
 import { evaluateInstalledFit } from '../services/sdimage-preflight';
-import { downloadProfileModel } from '../services/sdimage-download';
+import { downloadProfileModel, downloadModelCompanions } from '../services/sdimage-download';
 import { getSdImageSettings, saveSdImageSettings } from '../services/settings';
 
 /** True when the request already opts into any CPU-offload flag. */
@@ -78,6 +80,23 @@ export async function handleSdImageModelDownload(
 ): Promise<SdImageModelDownloadResponse> {
   try {
     await downloadProfileModel(data.modelId, (progress) => {
+      event.sender.send(IPC.SDIMAGE_DOWNLOAD_PROGRESS, progress);
+    });
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Download failed',
+    };
+  }
+}
+
+export async function handleSdImageDownloadCompanions(
+  event: IpcMainInvokeEvent,
+  data: SdImageDownloadCompanionsRequest,
+): Promise<SdImageDownloadCompanionsResponse> {
+  try {
+    await downloadModelCompanions(data.modelId, (progress) => {
       event.sender.send(IPC.SDIMAGE_DOWNLOAD_PROGRESS, progress);
     });
     return { success: true };

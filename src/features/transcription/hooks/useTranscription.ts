@@ -261,7 +261,7 @@ export function useTranscription() {
       if (!model?.downloaded) {
         setState((prev) => ({
           ...prev,
-          error: 'Selected model is not downloaded. Go to Settings to download it.',
+          error: 'Selected model is not downloaded. Go to AI Models → Audio to download it.',
         }));
         return;
       }

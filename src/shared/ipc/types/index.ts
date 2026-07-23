@@ -17,6 +17,7 @@ export * from './moderation';
 export * from './provider-keys';
 export * from './render';
 export * from './sd-image';
+export * from './sd-video';
 export * from './settings';
 export * from './skills';
 export * from './stt';

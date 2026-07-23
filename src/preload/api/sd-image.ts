@@ -15,6 +15,8 @@ import type {
   SdImageModelDeleteResponse,
   SdImageModelDownloadRequest,
   SdImageModelDownloadResponse,
+  SdImageDownloadCompanionsRequest,
+  SdImageDownloadCompanionsResponse,
   SdImageModelsListResponse,
   SdImageQueueGetResponse,
   SdImageSetActiveModelRequest,
@@ -34,6 +36,8 @@ export const sdImageApi = {
     ipcRenderer.invoke(IPC.SDIMAGE_MODELS_LIST),
   sdImageModelDownload: (data: SdImageModelDownloadRequest): Promise<SdImageModelDownloadResponse> =>
     ipcRenderer.invoke(IPC.SDIMAGE_MODEL_DOWNLOAD, data),
+  sdImageDownloadCompanions: (data: SdImageDownloadCompanionsRequest): Promise<SdImageDownloadCompanionsResponse> =>
+    ipcRenderer.invoke(IPC.SDIMAGE_DOWNLOAD_COMPANIONS, data),
   sdImageModelDelete: (data: SdImageModelDeleteRequest): Promise<SdImageModelDeleteResponse> =>
     ipcRenderer.invoke(IPC.SDIMAGE_MODEL_DELETE, data),
   onSdImageDownloadProgress: (callback: (data: SdImageDownloadProgressEvent) => void) => {

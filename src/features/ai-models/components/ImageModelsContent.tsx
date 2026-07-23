@@ -64,6 +64,11 @@ export function ImageModelsContent() {
             onReveal={lib.openFolder}
             onSetup={(filePath, fileName) => setSetupTarget({ kind: 'configure', filePath, fileName })}
             onOpenExternal={lib.openExternal}
+            downloads={lib.downloads}
+            onDownloadCompanions={lib.downloadCompanions}
+            onPauseDownload={lib.pauseDownload}
+            onResumeDownload={lib.resumeDownload}
+            onCancelDownload={lib.cancelDownload}
           />
 
           <ProfileCatalogList

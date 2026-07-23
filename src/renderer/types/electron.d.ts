@@ -354,6 +354,13 @@ export interface ElectronAPI {
   sdImageStatus: () => Promise<import('../../shared/ipc/types').SdImageStatusResponse>;
   sdImageSetActiveModel: (data: import('../../shared/ipc/types').SdImageSetActiveModelRequest) => Promise<import('../../shared/ipc/types').SdImageSetActiveModelResponse>;
   sdImageModelDownload: (data: import('../../shared/ipc/types').SdImageModelDownloadRequest) => Promise<import('../../shared/ipc/types').SdImageModelDownloadResponse>;
+  sdImageDownloadCompanions: (data: import('../../shared/ipc/types').SdImageDownloadCompanionsRequest) => Promise<import('../../shared/ipc/types').SdImageDownloadCompanionsResponse>;
+  sdVideoModelDownload: (data: import('../../shared/ipc/types').SdVideoModelDownloadRequest) => Promise<import('../../shared/ipc/types').SdVideoModelDownloadResponse>;
+  sdVideoGenerate: (data: import('../../shared/ipc/types').SdVideoGenerateRequest) => Promise<import('../../shared/ipc/types').SdVideoGenerateResponse>;
+  sdVideoCancel: (data: import('../../shared/ipc/types').SdVideoCancelRequest) => Promise<import('../../shared/ipc/types').SdVideoCancelResponse>;
+  onSdVideoGenerateProgress: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateProgressEvent) => void) => () => void;
+  onSdVideoGenerateComplete: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateCompleteEvent) => void) => () => void;
+  onSdVideoGenerateError: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateErrorEvent) => void) => () => void;
   appOpenExternal: (data: import('../../shared/ipc/types').AppOpenExternalRequest) => Promise<import('../../shared/ipc/types').AppOpenExternalResponse>;
 
 }

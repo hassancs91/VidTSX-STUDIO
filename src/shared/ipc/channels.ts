@@ -215,6 +215,7 @@ export const IPC = {
   SDIMAGE_STATUS: 'sdimage:status',
   SDIMAGE_MODELS_LIST: 'sdimage:models:list',
   SDIMAGE_MODEL_DOWNLOAD: 'sdimage:model:download',
+  SDIMAGE_DOWNLOAD_COMPANIONS: 'sdimage:download:companions',
   SDIMAGE_MODEL_DELETE: 'sdimage:model:delete',
   SDIMAGE_DOWNLOAD_PROGRESS: 'sdimage:download:progress',
   SDIMAGE_CLI_STATUS: 'sdimage:cli:status',
@@ -228,6 +229,14 @@ export const IPC = {
   SDIMAGE_QUEUE_GET: 'sdimage:queue:get',
   SDIMAGE_SETTINGS_GET: 'sdimage:settings:get',
   SDIMAGE_SETTINGS_SAVE: 'sdimage:settings:save',
+
+  // Local video models (Wan/LTX/LingBot via sd-cli) — library uses the generic MODELS_* channels
+  SDVIDEO_MODEL_DOWNLOAD: 'sdvideo:model:download',
+  SDVIDEO_GENERATE: 'sdvideo:generate',
+  SDVIDEO_GENERATE_PROGRESS: 'sdvideo:generate:progress',
+  SDVIDEO_GENERATE_COMPLETE: 'sdvideo:generate:complete',
+  SDVIDEO_GENERATE_ERROR: 'sdvideo:generate:error',
+  SDVIDEO_CANCEL: 'sdvideo:cancel',
 
   // Generic model-library operations (category-agnostic; image implemented in v1)
   MODELS_SCAN: 'models:scan',
