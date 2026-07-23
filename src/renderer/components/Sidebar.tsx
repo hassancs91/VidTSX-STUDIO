@@ -9,7 +9,6 @@ import {
   Boxes,
   ListVideo,
   Workflow,
-  Settings,
 } from "lucide-react";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
@@ -42,12 +41,6 @@ const navItems: NavItem[] = [
   { id: "ai-models", label: "AI", icon: <Boxes size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "render", label: "Queue", icon: <ListVideo size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
 ];
-
-const settingsItem: NavItem = {
-  id: "settings",
-  label: "Settings",
-  icon: <Settings size={ICON_SIZE} strokeWidth={ICON_STROKE} />,
-};
 
 function NavButton({
   item,
@@ -123,11 +116,6 @@ export function Sidebar({ activeScreen, onScreenChange, renderBadgeCount }: Side
             onClick={() => onScreenChange("render")}
           />
         )}
-        <NavButton
-          item={settingsItem}
-          isActive={activeScreen === "settings"}
-          onClick={() => onScreenChange("settings")}
-        />
       </nav>
     </aside>
   );

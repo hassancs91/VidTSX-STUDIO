@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { Settings } from 'lucide-react';
 import { createRendererLogger } from '../utils/logger';
 import { useSystemMonitor } from '../hooks/useSystemMonitor';
+import { SettingsModal } from './SettingsModal';
 
 const log = createRendererLogger('StatusBar');
 
@@ -71,6 +73,7 @@ function TinySparkline({
 
 export function StatusBar() {
   const [version, setVersion] = useState<string>('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { current, cpuHistory, ramHistory, appRamHistory, gpuHistory } = useSystemMonitor();
 
   useEffect(() => {
@@ -160,12 +163,22 @@ export function StatusBar() {
 
       <div className="flex-1" />
 
+      <button
+        onClick={() => setSettingsOpen(true)}
+        title="Settings"
+        className="text-text-dim hover:text-text-secondary transition-colors flex items-center"
+      >
+        <Settings size={13} strokeWidth={1.5} />
+      </button>
+
       <span
         className="text-text-muted"
         style={{ fontSize: '10px' }}
       >
         VidTSX
       </span>
+
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

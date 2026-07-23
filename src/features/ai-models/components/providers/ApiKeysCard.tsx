@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button, TextInput } from '@shared/components';
-import { useProviderKeys } from '../../hooks/useProviderKeys';
+import { useProviderKeys } from '@renderer/hooks/useProviderKeys';
 import type { ProviderKeyId } from '@shared/ipc/types';
 
 interface KeyRowDef {

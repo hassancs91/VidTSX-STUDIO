@@ -1,13 +1,12 @@
-import { Button } from '@shared/components';
+import { Button, SectionHeader } from '@shared/components';
 import type { RenderCpuUsage, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
-import { SectionHeader } from '../SectionHeader';
-import { AppInfoSection } from '../AppInfoSection';
-import { RenderTimeoutRow } from '../rows/RenderTimeoutRow';
-import { CpuUsageDefaultRow } from '../rows/CpuUsageDefaultRow';
-import { GpuBackendDefaultRow } from '../rows/GpuBackendDefaultRow';
-import { HardwareAccelerationDefaultRow } from '../rows/HardwareAccelerationDefaultRow';
+import { AppInfoSection } from './AppInfoSection';
+import { RenderTimeoutRow } from './rows/RenderTimeoutRow';
+import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
+import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
+import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
 
-export function GeneralTab({
+export function GeneralSettingsContent({
   outputFolder,
   renderTimeoutSeconds,
   renderDefaultCpuUsage,

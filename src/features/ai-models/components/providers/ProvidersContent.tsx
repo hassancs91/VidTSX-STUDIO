@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ProviderSettings } from '../../ProviderSettings';
-import { ImageProviderSettings } from '../../ImageProviderSettings';
-import { AiUsageDashboard } from '../../AiUsageDashboard';
-import { SectionHeader } from '../SectionHeader';
-import { ApiKeysCard } from '../ApiKeysCard';
+import { ProviderSettings } from './ProviderSettings';
+import { ImageProviderSettings } from './ImageProviderSettings';
+import { AiUsageDashboard } from './AiUsageDashboard';
+import { SectionHeader } from '@shared/components';
+import { ApiKeysCard } from './ApiKeysCard';
 
 const PROVIDER_SUB_TABS = [
   { id: 'config' as const, label: 'Providers' },
@@ -12,7 +12,7 @@ const PROVIDER_SUB_TABS = [
 
 type ProviderSubTabId = (typeof PROVIDER_SUB_TABS)[number]['id'];
 
-export function ProvidersTab() {
+export function ProvidersContent() {
   const [subTab, setSubTab] = useState<ProviderSubTabId>('config');
 
   return (

@@ -1,6 +1,6 @@
 import { Button, TextInput } from '@shared/components';
-import { useImageProviders } from '../hooks/useImageProviders';
-import type { ImageProviderLocal } from '../hooks/useImageProviders';
+import { useImageProviders } from '@renderer/hooks/useImageProviders';
+import type { ImageProviderLocal } from '@renderer/hooks/useImageProviders';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
 
 const MODELS_BY_TYPE: Record<string, ReadonlyArray<ImageModelCatalogEntry>> = {

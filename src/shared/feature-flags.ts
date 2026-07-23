@@ -7,14 +7,14 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // Secondary (visible in production)
   assets: true,
   render: true,
-  settings: true,
+  // Local AI model management screen — also hosts AI provider config and
+  // whisper.cpp install (moved here when the Settings screen was retired),
+  // so it must stay visible in production.
+  'ai-models': true,
   // Hidden in production until ready:
   'video-studio': false,
   tools: false,
   'audio-engine': false,
-  // Local AI model management screen — dev-visible; off in prod until the sd-cli
-  // bundling story lands.
-  'ai-models': false,
   // License UI kept dormant — the app is free (BYOK). The license shell stays
   // compiled for possible future reuse; flip this to resurface the section.
   'license-ui': false,

@@ -34,6 +34,9 @@ scripts/.aws-r2-config
 # App render/temp workspace
 .vidtsx-temp/
 
+# Personal planning doc, not part of repo history
+ROADMAP.md
+
 # TypeScript
 *.tsbuildinfo
 

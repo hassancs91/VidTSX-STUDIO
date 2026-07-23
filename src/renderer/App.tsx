@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
-import { SettingsScreen } from "./components/SettingsScreen";
 import { WorkspaceScreen, SelectedFileProvider } from "@features/workspace";
 import { TranscriptionScreen } from "@features/transcription";
 import { RenderScreen, RenderQueueProvider, useRenderQueue } from "@features/render-queue";
@@ -26,7 +25,6 @@ const screens: Record<string, React.ComponentType> = {
   assets: AssetLibraryScreen,
   tools: ToolsHubScreen,
   'ai-models': AiModelsScreen,
-  settings: SettingsScreen,
 };
 
 function AppContent({ activeScreen, setActiveScreen }: {

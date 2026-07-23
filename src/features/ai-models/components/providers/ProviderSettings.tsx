@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button, TextInput } from '@shared/components';
-import { useLlmProviders } from '../hooks/useLlmProviders';
-import type { LlmProviderConfig } from '../../shared/ipc/types';
+import { useLlmProviders } from '@renderer/hooks/useLlmProviders';
+import type { LlmProviderConfig } from '@shared/ipc/types';
 
 const CheckIcon = () => (
   <svg width={12} height={12} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

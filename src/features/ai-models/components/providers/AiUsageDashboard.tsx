@@ -1,8 +1,8 @@
 import { Button } from '@shared/components';
-import { useAiUsage } from '../hooks/useAiUsage';
-import { AiUsageSummaryCards } from './AiUsageSummaryCards';
-import { AiUsageChart } from './AiUsageChart';
-import { AiUsageLogTable } from './AiUsageLogTable';
+import { useAiUsage } from '@renderer/hooks/useAiUsage';
+import { AiUsageSummaryCards } from '@renderer/components/AiUsageSummaryCards';
+import { AiUsageChart } from '@renderer/components/AiUsageChart';
+import { AiUsageLogTable } from '@renderer/components/AiUsageLogTable';
 
 export function AiUsageDashboard() {
   const {
