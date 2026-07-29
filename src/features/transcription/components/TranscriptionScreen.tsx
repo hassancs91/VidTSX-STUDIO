@@ -315,7 +315,7 @@ export function TranscriptionScreen() {
               </select>
               {downloadedModels.length === 0 && (
                 <div className="text-[10px] text-text-dim mt-1">
-                  Download a model in Settings to start transcribing
+                  Download a model in AI Models &rarr; Audio to start transcribing
                 </div>
               )}
             </div>

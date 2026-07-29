@@ -15,6 +15,13 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   'video-studio': false,
   tools: false,
   'audio-engine': false,
+  // AI Models sub-tabs still in development — "Coming soon" placeholders in
+  // production (the tabs stay visible so users see what's ahead).
+  'ai-video-models': false,
+  'ai-embedding-models': false,
+  // Flows nav entry stays visible ("flows" above), but the editor itself ships
+  // later — production renders a Coming Soon screen instead.
+  'flows-editor': false,
   // License UI kept dormant — the app is free (BYOK). The license shell stays
   // compiled for possible future reuse; flip this to resurface the section.
   'license-ui': false,

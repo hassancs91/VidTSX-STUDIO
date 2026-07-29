@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { isFeatureEnabled } from '@shared/feature-flags';
 import { SUB_TABS, type ModelSubTab } from '../types';
 import { MainContent } from './MainContent';
 import { ProvidersContent } from './providers/ProvidersContent';
@@ -43,9 +44,19 @@ export function AiModelsTab() {
       {activeSubTab === 'providers' && <ProvidersContent />}
       {activeSubTab === 'audio' && <AudioTabContent />}
       {activeSubTab === 'image' && <ImageModelsContent />}
-      {activeSubTab === 'video' && <VideoModelsContent />}
+      {activeSubTab === 'video' &&
+        (isFeatureEnabled('ai-video-models') ? (
+          <VideoModelsContent />
+        ) : (
+          <ComingSoonPlaceholder label="Video" />
+        ))}
       {activeSubTab === 'llms' && <LlmModelsContent />}
-      {activeSubTab === 'embeddings' && <EmbeddingModelsContent />}
+      {activeSubTab === 'embeddings' &&
+        (isFeatureEnabled('ai-embedding-models') ? (
+          <EmbeddingModelsContent />
+        ) : (
+          <ComingSoonPlaceholder label="Embedding" />
+        ))}
       {!RENDERED_TABS.has(activeSubTab) && (
         <ComingSoonPlaceholder label={activeLabel} />
       )}
