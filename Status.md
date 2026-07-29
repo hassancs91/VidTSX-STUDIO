@@ -9,6 +9,29 @@
 
 ## Completed phases
 
+### v1.0.0 — First public release (2026-07-29)
+**Status: COMPLETE**
+
+Public scope: TSX Creator, Image Studio, Transcribe, Assets, render queue,
+and AI Models (System / Providers / Audio-whisper / Image). Everything else
+stays visible as "Coming soon" in production and fully enabled in dev.
+
+- [x] Image Studio local models: `LocalSdImageProvider` bridges the sd-cli
+  engine into the cloud ImageEngine (provider id `local`, auto-offered when
+  ≥1 ready on-device model). Promise-based `enqueueAwait` on the local
+  engine; shared generation preflight (`applySdGenerationPreflight`);
+  provider switch persists. Verified end-to-end via CDP (bk-sdm-tiny 256²).
+- [x] Coming-soon gating (prod only): AI Models Video/LLMs/Embeddings tabs
+  (`ai-video-models` / `ai-llm-models` / `ai-embedding-models` flags; 3D was
+  already a placeholder), Flows editor (`flows-editor` flag — nav stays),
+  sherpa voice-engine section of the Audio tab (existing `audio-engine`
+  flag). Creator's keyless "Local Models" preset is gated on real
+  `llmLocalEngine.isAvailable()` because production builds exclude
+  node-llama-cpp.
+- [x] Repo made public-ready: README.md written, personal scratch notes
+  untracked, no secrets/keys in tree (verified), MIT license.
+- [x] v1.0.0 Windows installer built and published as a GitHub release.
+
 ### TSX Generator stabilization + parallel jobs (Creator)
 **Status: COMPLETE — committed 2026-07-23**
 
