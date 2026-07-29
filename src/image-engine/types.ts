@@ -51,7 +51,8 @@ export interface ImageModelInfo {
 export interface ImageProviderConfig {
   id: ImageProviderId;
   name: string;
-  type: 'fal' | 'openrouter';
+  /** 'local' is the on-device sd-cli bridge — registered directly, never stored in settings. */
+  type: 'fal' | 'openrouter' | 'local';
   apiKey: string;
   defaultModel: string;
   enabled: boolean;

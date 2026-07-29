@@ -1,8 +1,28 @@
-import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
+import { imageEngine } from '../../image-engine';
+import { LocalSdImageProvider } from '../../image-engine/providers/local-sd-provider';
 import { loadSettings, getProviderCredentials } from './settings';
+import { applySdGenerationPreflight } from './sdimage-preflight';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('ImageInit');
+
+/** Stable id of the on-device sd-cli provider. */
+export const LOCAL_IMAGE_PROVIDER_ID = 'local';
+
+/**
+ * (Re-)register the local sd-cli bridge with the cloud image engine. Safe to
+ * call repeatedly — settings saves rebuild the provider registry, so this runs
+ * again after each rebuild. Registered even when sd-cli/models are missing:
+ * the provider then reports zero models and the UI hides it.
+ */
+export function registerLocalImageProvider(): void {
+  if (imageEngine.getProviders().includes(LOCAL_IMAGE_PROVIDER_ID)) return;
+  imageEngine.registerInstance(
+    new LocalSdImageProvider(LOCAL_IMAGE_PROVIDER_ID, {
+      prepare: async (request) => (await applySdGenerationPreflight(request)).request,
+    }),
+  );
+}
 
 export async function initImageEngine(): Promise<void> {
   try {
@@ -23,7 +43,10 @@ export async function initImageEngine(): Promise<void> {
         }
       }
     }
-    // No default registration — image providers always require an API key
+    // Cloud providers require an API key; the local sd-cli bridge does not and
+    // is always registered (after the cloud ones, so it never steals "active"
+    // from a configured cloud provider).
+    registerLocalImageProvider();
 
     // Restore last active provider
     if (settings.imageActiveProvider) {

@@ -9,7 +9,10 @@
  */
 import { evaluateFit, type FitRequirement, type FitResult } from '@shared/model-library/fit';
 import type { InstalledModel } from '@shared/model-library/types';
-import type { SdModelFamily, SdModelMeta } from '../../local-image-engine/types';
+import { ModelLibraryError } from '@shared/model-library/types';
+import type { SdGenerationRequest, SdModelFamily, SdModelMeta } from '../../local-image-engine/types';
+import { imageLocalEngine } from '../../local-image-engine';
+import { getLastScan, scanImageLibrary } from './sdimage-library';
 import { FAMILY_REQUIREMENTS } from '../../local-image-engine/family-presets';
 import { SD_MODEL_CATALOG, type SdModelProfile } from '../../local-image-engine/model-registry';
 import { getPreflightHardware, type PreflightHardware } from './system-info';
@@ -51,4 +54,36 @@ export function fitFor(requirement: FitRequirement, hardware: PreflightHardware)
 export async function evaluateInstalledFit(installed: InstalledModel<SdModelMeta>): Promise<FitResult> {
   const hardware = await getPreflightHardware();
   return fitFor(requirementForInstalled(installed), hardware);
+}
+
+/** True when the request already opts into any CPU-offload flag. */
+function hasOffloadFlag(request: SdGenerationRequest): boolean {
+  return Boolean(request.offloadToCpu || request.clipOnCpu || request.vaeOnCpu);
+}
+
+/**
+ * Generation-path preflight (backlog A5): block models too big for VRAM *and*
+ * RAM with a friendly typed error; auto-enable CPU offload for over-VRAM
+ * models instead of letting sd-cli OOM. Missing/unscanned models fall through
+ * to the engine's own "not installed" handling.
+ */
+export async function applySdGenerationPreflight(
+  request: SdGenerationRequest,
+): Promise<{ request: SdGenerationRequest; autoOffloadEnabled: boolean }> {
+  const modelId = request.modelId ?? imageLocalEngine.getActiveModelId();
+  if (!modelId) return { request, autoOffloadEnabled: false };
+
+  const installed =
+    getLastScan()?.installed.find((m) => m.id === modelId) ??
+    (await scanImageLibrary()).installed.find((m) => m.id === modelId);
+  if (!installed) return { request, autoOffloadEnabled: false };
+
+  const fit = await evaluateInstalledFit(installed);
+  if (fit.level === 'wont-fit') {
+    throw new ModelLibraryError('insufficient-memory', fit.reason);
+  }
+  if (fit.level === 'offload' && !hasOffloadFlag(request)) {
+    return { request: { ...request, offloadToCpu: true }, autoOffloadEnabled: true };
+  }
+  return { request, autoOffloadEnabled: false };
 }

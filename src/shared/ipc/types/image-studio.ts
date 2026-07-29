@@ -4,7 +4,8 @@ export type ImageOperationType = 'text-to-image' | 'image-to-image' | 'multi-ref
 export interface ImageProviderInfo {
   id: string;
   name: string;
-  type: 'fal' | 'openrouter';
+  /** 'local' is the on-device sd-cli bridge (never stored in provider settings). */
+  type: 'fal' | 'openrouter' | 'local';
   defaultModel: string;
   enabled: boolean;
   hasApiKey: boolean;
@@ -29,7 +30,7 @@ export interface ImageProvidersSaveRequest {
   providers: Array<{
     id: string;
     name: string;
-    type: 'fal' | 'openrouter';
+    type: 'fal' | 'openrouter' | 'local';
     apiKey: string;
     defaultModel: string;
     enabled: boolean;

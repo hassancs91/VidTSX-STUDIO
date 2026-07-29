@@ -5,6 +5,7 @@ import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 const log = logEngine.createLogger('ImageHandlers');
 import type { ImageProviderConfig } from '../../image-engine';
 import { getImageProviders, saveImageProviders, getProviderCredentials } from '../services/settings';
+import { registerLocalImageProvider, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
 import { aiUsageService } from '../services/ai-usage';
 import type {
   ImageProvidersGetResponse,
@@ -64,18 +65,21 @@ export async function handleImageProvidersSave(
   data: ImageProvidersSaveRequest
 ): Promise<ImageProvidersSaveResponse> {
   try {
-    // Preserve existing API keys when the incoming key is empty
+    // Preserve existing API keys when the incoming key is empty. The local
+    // sd-cli bridge is never stored in settings — drop it if a caller sends it.
     const { providers: existing } = await getImageProviders();
     const existingMap = new Map(existing.map((p) => [p.id, p]));
 
-    const configs: ImageProviderConfig[] = data.providers.map((p) => ({
-      id: p.id,
-      name: p.name,
-      type: p.type,
-      apiKey: p.apiKey || existingMap.get(p.id)?.apiKey || '',
-      defaultModel: p.defaultModel,
-      enabled: p.enabled,
-    }));
+    const configs: ImageProviderConfig[] = data.providers
+      .filter((p) => p.id !== LOCAL_IMAGE_PROVIDER_ID)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        apiKey: p.apiKey || existingMap.get(p.id)?.apiKey || '',
+        defaultModel: p.defaultModel,
+        enabled: p.enabled,
+      }));
 
     await saveImageProviders(configs, data.activeProvider);
 
@@ -95,6 +99,9 @@ export async function handleImageProvidersSave(
         log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
+
+    // The rebuild above unregistered the local sd-cli bridge too — restore it.
+    registerLocalImageProvider();
 
     if (data.activeProvider) {
       try {
@@ -273,6 +280,10 @@ export async function handleImageProviderSwitch(
 ): Promise<ImageProviderSwitchResponse> {
   try {
     imageEngine.switchProvider(data.providerId);
+    // Persist so the choice survives restarts and providersGet reflects it
+    // (the stored value takes precedence over live engine state there).
+    const { providers } = await getImageProviders();
+    await saveImageProviders(providers, data.providerId);
     return { success: true };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Failed to switch image provider';

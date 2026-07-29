@@ -89,6 +89,28 @@ export class ImageLocalEngine {
     return requestId;
   }
 
+  /**
+   * Promise-based enqueue for in-process callers (e.g. the cloud image
+   * engine's Local provider). The promise settles on completion, failure, or
+   * cancellation; the usual onProgress/onComplete/onError events still fire.
+   */
+  enqueueAwait(request: SdGenerationRequest): {
+    requestId: string;
+    promise: Promise<SdGenerationResult>;
+  } {
+    const requestId = randomUUID();
+    const promise = new Promise<SdGenerationResult>((resolve, reject) => {
+      this.queue.push({
+        requestId,
+        request,
+        status: 'queued',
+        settle: { resolve, reject },
+      });
+      this.processNext();
+    });
+    return { requestId, promise };
+  }
+
   cancel(requestId: string): boolean {
     const idx = this.queue.findIndex((item) => item.requestId === requestId);
     if (idx === -1) return false;
@@ -97,6 +119,7 @@ export class ImageLocalEngine {
     if (item.status === 'queued') {
       item.status = 'cancelled';
       this.queue.splice(idx, 1);
+      item.settle?.reject(new Error('Generation cancelled'));
       return true;
     }
 
@@ -118,6 +141,7 @@ export class ImageLocalEngine {
     for (const item of this.queue) {
       if (item.status === 'queued' || item.status === 'running') {
         item.status = 'cancelled';
+        item.settle?.reject(new Error('Generation cancelled'));
       }
     }
     this.queue = [];
@@ -149,6 +173,7 @@ export class ImageLocalEngine {
       const result = await this.runGeneration(nextItem);
       nextItem.status = 'completed';
       this.onComplete?.(nextItem.requestId, result);
+      nextItem.settle?.resolve(result);
     } catch (err) {
       // Status may have been changed to 'cancelled' by cancel() during generation
       if ((nextItem.status as SdRequestStatus) !== 'cancelled') {
@@ -159,6 +184,11 @@ export class ImageLocalEngine {
           const message = err instanceof Error ? err.message : 'Generation failed';
           this.onError?.(nextItem.requestId, message);
         }
+        nextItem.settle?.reject(err instanceof Error ? err : new Error('Generation failed'));
+      } else {
+        // Cancelled mid-run: cancel() already rejected queued items; running
+        // items settle here (rejecting twice is a harmless no-op).
+        nextItem.settle?.reject(new Error('Generation cancelled'));
       }
     } finally {
       // Remove completed/failed/cancelled items from queue

@@ -14,11 +14,19 @@ export function useActiveImageProvider() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const result = await window.api.imageProvidersGet();
+      const [result, localModels] = await Promise.all([
+        window.api.imageProvidersGet(),
+        // The local sd-cli bridge isn't stored in provider settings — it's
+        // offered whenever it has at least one ready on-device model.
+        window.api.imageModelsGet({ providerId: 'local' }),
+      ]);
       if (result.success) {
         const enabled = result.providers
           .filter((p) => p.enabled && p.hasApiKey)
           .map((p) => ({ id: p.id, name: p.name }));
+        if (localModels.success && localModels.models.length > 0) {
+          enabled.push({ id: 'local', name: 'Local (open source)' });
+        }
         setProviders(enabled);
         setActiveProvider(result.activeProvider);
       } else {

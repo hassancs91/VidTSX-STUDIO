@@ -38,6 +38,16 @@ class ImageEngine {
     log.info('Provider registered', { providerId: config.id, type: config.type });
   }
 
+  /**
+   * Register a pre-built provider instance (e.g. the local sd-cli bridge,
+   * which needs no API key and isn't stored in provider settings).
+   */
+  registerInstance(provider: ImageProvider): void {
+    this.providers.set(provider.id, provider);
+    if (!this.activeId) this.activeId = provider.id;
+    log.info('Provider registered', { providerId: provider.id, type: 'instance' });
+  }
+
   unregister(id: ImageProviderId): void {
     this.providers.delete(id);
     if (this.activeId === id) {

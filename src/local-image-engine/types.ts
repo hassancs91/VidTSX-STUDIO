@@ -152,4 +152,12 @@ export interface SdQueueItem {
   requestId: string;
   request: SdGenerationRequest;
   status: SdRequestStatus;
+  /**
+   * Present for promise-based callers (`enqueueAwait`): settles when the item
+   * completes, fails, or is cancelled. Event-based callers leave it unset.
+   */
+  settle?: {
+    resolve: (result: SdGenerationResult) => void;
+    reject: (error: Error) => void;
+  };
 }
