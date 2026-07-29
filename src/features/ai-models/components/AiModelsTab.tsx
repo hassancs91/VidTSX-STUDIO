@@ -50,7 +50,12 @@ export function AiModelsTab() {
         ) : (
           <ComingSoonPlaceholder label="Video" />
         ))}
-      {activeSubTab === 'llms' && <LlmModelsContent />}
+      {activeSubTab === 'llms' &&
+        (isFeatureEnabled('ai-llm-models') ? (
+          <LlmModelsContent />
+        ) : (
+          <ComingSoonPlaceholder label="Local LLM" />
+        ))}
       {activeSubTab === 'embeddings' &&
         (isFeatureEnabled('ai-embedding-models') ? (
           <EmbeddingModelsContent />

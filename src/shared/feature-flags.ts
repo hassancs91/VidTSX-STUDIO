@@ -19,6 +19,10 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // production (the tabs stay visible so users see what's ahead).
   'ai-video-models': false,
   'ai-embedding-models': false,
+  // Local LLMs (node-llama-cpp) aren't bundled in production builds yet — the
+  // LLMs tab shows Coming Soon there (the Creator's Local provider is gated
+  // separately on real engine availability in the main process).
+  'ai-llm-models': false,
   // Flows nav entry stays visible ("flows" above), but the editor itself ships
   // later — production renders a Coming Soon screen instead.
   'flows-editor': false,

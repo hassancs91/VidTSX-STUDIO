@@ -1,6 +1,7 @@
 import { IpcMainInvokeEvent } from 'electron';
 import { logEngine } from '../../logging/log-engine';
 import { llmEngine, PROVIDER_PRESETS } from '../../engine';
+import { llmLocalEngine } from '../../llm-engine';
 
 const log = logEngine.createLogger('LLMHandlers');
 import type { ProviderConfig } from '../../engine/types';
@@ -25,12 +26,23 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
   try {
     const { providers, activeProvider } = await getLlmProviders();
 
+    // The Local provider only makes sense when node-llama-cpp is actually
+    // loadable — production builds don't bundle it yet, so hide the preset
+    // (and any stale saved config) there instead of offering a dead option.
+    const localAvailable = await llmLocalEngine.isAvailable();
+    const visibleProviders = localAvailable
+      ? providers
+      : providers.filter((p) => p.type !== 'local');
+    const visiblePresets = localAvailable
+      ? PROVIDER_PRESETS
+      : PROVIDER_PRESETS.filter((p) => p.type !== 'local');
+
     // Surface auto-enabled presets that need no saved config: local models
     // (keyless) and BYOK providers whose shared credential exists. Never send
     // the credential itself to the renderer.
     const savedIds = new Set(providers.map((p) => p.id));
     const extras: ProviderConfig[] = [];
-    const localPreset = PROVIDER_PRESETS.find((p) => p.id === 'local');
+    const localPreset = visiblePresets.find((p) => p.id === 'local');
     if (localPreset && !savedIds.has('local')) {
       extras.push({ ...localPreset, enabled: true });
     }
@@ -41,9 +53,9 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     }
 
     return {
-      providers: [...providers, ...extras],
+      providers: [...visibleProviders, ...extras],
       activeProvider: activeProvider || llmEngine.getActiveProvider(),
-      presets: PROVIDER_PRESETS,
+      presets: visiblePresets,
     };
   } catch (err) {
     return {
