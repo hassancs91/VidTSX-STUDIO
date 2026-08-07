@@ -9,6 +9,53 @@
 
 ## Completed phases
 
+### Studio (AI video editor) — Phase S1: projects & editor shell (2026-08-07)
+**Status: COMPLETE — verified end-to-end via CDP**
+
+- [x] Document schema v1 in `src/shared/types/studio.ts` (seconds-only unit
+  discipline, provenance, proposals); IPC contracts in
+  `src/shared/ipc/types/studio.ts`; 9 `STUDIO_*` channels.
+- [x] Main services (`src/main/services/studio/`): `studio-paths` (id
+  validation + cache-path traversal guard), `project-store` (folder-as-truth
+  listing, atomic tmp+rename saves, `shell.trashItem` delete with rm
+  fallback, reuses `reserveProjectFolder`), `media-import` (ffprobe probe for
+  video/audio/image, ffmpeg thumbnails to `cache/thumbs/`, content-hash for
+  future relink).
+- [x] Settings: `studioProjectsRoot` (default `~/Videos/VidTSX Studio`),
+  changeable from the browser toolbar via the existing folder dialog.
+- [x] Renderer: `ProjectBrowser` (grid cards, two-step delete),
+  `NewProjectDialog` (Landscape/Portrait/Square presets + fps),
+  `EditorShell` (CapCut layout: media pool | aspect-correct preview stage |
+  Inspector+Assistant tabs | full-width timeline scaffold with ruler and
+  V1/A1 lanes), debounced document autosave (`useStudioProject`),
+  per-project agent provider picker persisted in `settings.agent`.
+- [x] CDP-verified: create portrait 1080×1920@60 project → on-disk scaffold
+  correct → provider select persists (atomic-save rename observed in USN
+  journal) → back → card grid → delete → folder in Recycle Bin, empty state.
+  Manual test remaining: media import (native file dialog can't be driven
+  via CDP) — probe/thumbnail path is exercised in code but not clicked
+  through.
+- Automation gotcha recorded: `App.tsx` keeps every visited screen mounted
+  (`display: none`), so DOM-driving MUST filter to visible elements
+  (`offsetParent !== null`) or clicks land on hidden screens' buttons.
+
+### Studio (AI video editor) — Phase S0: gate & scaffold (2026-08-07)
+**Status: COMPLETE**
+
+Full architecture + phase plan (S0–S7) in `docs/studio/PLAN.md`. Locked
+decisions: Remotion-native `TimelineComposition` for both preview (over 720p
+proxies) and export; solid manual timeline core (S2) before auto-cut (S3);
+user-chosen studio projects root (folder-as-truth); local whisper default with
+AssemblyAI opt-in for word timestamps. Engine knowledge and skills ported from
+`D:\repos\claude-youtube-editor` (cutlib planner, render-drift lessons,
+clean-cut/make-tsx/suggest-sfx editorial policy).
+
+- [x] Flags `studio: true` (nav teaser) / `studio-editor: false` (prod shows
+  Coming Soon, dev fully enabled) — Flows-style gating.
+- [x] `src/features/studio/` scaffold: gated `StudioScreen`, draft v1 timeline
+  document schema in `types.ts`, barrel.
+- [x] Sidebar nav item (Clapperboard, after TSX) + `screens` map entry.
+
 ### v1.0.0 — First public release (2026-07-29)
 **Status: COMPLETE**
 

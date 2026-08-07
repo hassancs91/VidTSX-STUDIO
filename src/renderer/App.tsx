@@ -11,6 +11,7 @@ import { AssetLibraryScreen } from "@features/asset-library";
 import { ToolsHubScreen } from "@features/tools";
 import { AiModelsScreen } from "@features/ai-models";
 import { FlowsScreen } from "@features/flows";
+import { StudioScreen } from "@features/studio";
 import { ToastProvider } from "./contexts/ToastContext";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
@@ -19,6 +20,7 @@ const screens: Record<string, React.ComponentType> = {
   transcribe: TranscriptionScreen,
   render: RenderScreen,
   creator: MotionScreen,
+  studio: StudioScreen,
   flows: FlowsScreen,
   'image-studio': ImageStudioScreen,
   'video-studio': VideoStudioScreen,

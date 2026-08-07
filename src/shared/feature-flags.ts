@@ -26,6 +26,11 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // Flows nav entry stays visible ("flows" above), but the editor itself ships
   // later — production renders a Coming Soon screen instead.
   'flows-editor': false,
+  // Studio (AI video editor) nav entry is visible as a teaser; the editor
+  // itself is in development — production renders a Coming Soon screen.
+  // Plan: docs/studio/PLAN.md.
+  studio: true,
+  'studio-editor': false,
   // License UI kept dormant — the app is free (BYOK). The license shell stays
   // compiled for possible future reuse; flip this to resurface the section.
   'license-ui': false,

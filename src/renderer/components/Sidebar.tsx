@@ -9,6 +9,7 @@ import {
   Boxes,
   ListVideo,
   Workflow,
+  Clapperboard,
 } from "lucide-react";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
@@ -31,6 +32,8 @@ const ICON_STROKE = 1.5;
 const navItems: NavItem[] = [
   // Primary workflow — TSX → Image → Video
   { id: "creator", label: "TSX", icon: <Wand2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+  // AI video editor — Coming Soon teaser in production (docs/studio/PLAN.md)
+  { id: "studio", label: "Studio", icon: <Clapperboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "flows", label: "Flows", icon: <Workflow size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "image-studio", label: "Images", icon: <Images size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "transcribe", label: "Transcribe", icon: <Mic size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
