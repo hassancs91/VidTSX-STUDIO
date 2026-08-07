@@ -9,6 +9,50 @@
 
 ## Completed phases
 
+### Studio (AI video editor) — Phase S2: timeline core (2026-08-07)
+**Status: COMPLETE — verified end-to-end via CDP, including the Player checkpoint**
+
+- [x] `src/shared/studio/`: `time-math` (one cumulative-rounding conversion,
+  `round(b·fps) − round(a·fps)`, so 100 cuts tile with zero drift), `serialize`
+  (document → frames + asset URLs), and the data-driven `TimelineComposition`
+  used by BOTH the preview and the export.
+- [x] Timeline document reducer + undo/redo in feature state (`useTimeline`,
+  100-deep snapshot history, no global store). Pure ops in
+  `services/timeline-ops.ts`: add / move (neighbour-clamped) / split /
+  trim (source- and neighbour-bounded) / ripple-delete (per-track, so music
+  keeps its timing) / remove-asset-clips.
+- [x] Tracks/clips UI: ruler, 10-step zoom anchored on the playhead, magnetic
+  snapping to clip edges + playhead, drag-move across tracks, edge trims,
+  canvas waveforms, selection, keyboard (Space/S/Del/Backspace/Ctrl+Z/Y/
+  arrows/Home/End). Drag preview runs the real op on a scratch document, so
+  what you see mid-drag is exactly what commits.
+- [x] `@remotion/player` preview over 720p proxies; playhead lives outside
+  React state (imperative subscribe → DOM), so playback re-renders nothing.
+- [x] Background main-process jobs (tsx-job-engine pattern): proxy generator
+  (NVENC → libx264 fallback, verified on this machine) and waveform generator;
+  status per asset in the document, push events folded back into it.
+- [x] Export: generated Remotion entry embedding the serialized timeline
+  (originals, not proxies) → existing render queue. Verified output:
+  1920×1080@30, 60.000 s video / 60.053 s audio, correct picture per clip,
+  black across a deliberate gap, audio bursts at the right seconds.
+- [x] **Player-architecture checkpoint passed** (100 cuts, 720p proxies, dev
+  build — noisy machine, so ranges): playback 16.7 ms/frame (60 fps, same as a
+  2-clip timeline); scrub 17–25 ms at natural drag speed, 25–35 ms flinging
+  across the whole timeline; the editor's own JS is ~1.4 ms per scrub step, so
+  the ceiling is video decode, not the UI. No HTML5-seek fallback needed.
+  Two fixes got it there: proxies need a short GOP (`-g 15` — the encoder
+  default ~8 s made each seek decode up to 250 frames, ~20 fps), and
+  `TimelineComposition` mounts only clips within ±2 s of the current frame
+  (mounting all 100 sequences per frame halved scrub throughput).
+- Notes: proxies/waveforms are cached per project, so the same source imported
+  into two projects transcodes twice (candidate for a hash-keyed shared cache).
+  `EditorShell` imports `useRenderQueue` from `@features/render-queue`,
+  following the existing precedent in `features/motion` — the render queue is
+  app-level infrastructure exposed through context.
+- Pre-existing bug noticed while testing (NOT introduced here, affects all
+  renders): the queue shows "Bundling... 10000%" — `render-handlers.ts`
+  multiplies an already-0–100 bundler percent by 100 again.
+
 ### Studio (AI video editor) — Phase S1: projects & editor shell (2026-08-07)
 **Status: COMPLETE — verified end-to-end via CDP**
 
@@ -34,7 +78,8 @@
   journal) → back → card grid → delete → folder in Recycle Bin, empty state.
   Manual test remaining: media import (native file dialog can't be driven
   via CDP) — probe/thumbnail path is exercised in code but not clicked
-  through.
+  through. S2 exercised everything downstream of it by writing asset entries
+  straight into project.json.
 - Automation gotcha recorded: `App.tsx` keeps every visited screen mounted
   (`display: none`), so DOM-driving MUST filter to visible elements
   (`offsetParent !== null`) or clicks land on hidden screens' buttons.

@@ -184,9 +184,9 @@ export async function ensureModuleServer(): Promise<number> {
       // Basic security: only serve media files (video, audio, images)
       const ext = path.extname(filePath).toLowerCase();
       const allowedExtensions = [
-        '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v',          // video
-        '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac',          // audio
-        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', // images
+        '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mts', '.m2ts', // video
+        '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.opus',         // audio
+        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.avif', // images
       ];
       if (!allowedExtensions.includes(ext)) {
         return res.status(400).send('Invalid file type');

@@ -380,6 +380,9 @@ export interface ElectronAPI {
   studioProjectDelete: (data: import('../../shared/ipc/types').StudioProjectDeleteRequest) => Promise<import('../../shared/ipc/types').StudioProjectDeleteResponse>;
   studioMediaImport: (data: import('../../shared/ipc/types').StudioMediaImportRequest) => Promise<import('../../shared/ipc/types').StudioMediaImportResponse>;
   studioCacheRead: (data: import('../../shared/ipc/types').StudioCacheReadRequest) => Promise<import('../../shared/ipc/types').StudioCacheReadResponse>;
+  studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
+  studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;
+  onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;
 }
 
 declare global {

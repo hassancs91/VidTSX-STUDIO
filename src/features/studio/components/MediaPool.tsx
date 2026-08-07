@@ -1,20 +1,27 @@
 import { useEffect } from 'react';
-import { FileVideo, Import, Music, Image as ImageIcon, X } from 'lucide-react';
+import { FileVideo, Import, Music, Image as ImageIcon, Plus, X } from 'lucide-react';
 import type { StudioMediaAsset } from '../types';
-import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { formatDuration } from '../services/format-time';
 
 interface Props {
-  projectId: string;
   assets: StudioMediaAsset[];
   onImport: () => void;
   onRemove: (assetId: string) => void;
+  onAddToTimeline: (asset: StudioMediaAsset) => void;
   importing: boolean;
+  loadThumbnail: (assetId: string, relPath: string) => Promise<void>;
+  getThumbnail: (assetId: string) => string | null;
 }
 
-export function MediaPool({ projectId, assets, onImport, onRemove, importing }: Props) {
-  const { loadThumbnail, getThumbnail } = useStudioThumbnails(projectId);
-
+export function MediaPool({
+  assets,
+  onImport,
+  onRemove,
+  onAddToTimeline,
+  importing,
+  loadThumbnail,
+  getThumbnail,
+}: Props) {
   useEffect(() => {
     for (const asset of assets) {
       if (asset.thumbnail?.status === 'ready') {
@@ -57,6 +64,7 @@ export function MediaPool({ projectId, assets, onImport, onRemove, importing }: 
                 asset={asset}
                 thumbnail={getThumbnail(asset.id)}
                 onRemove={() => onRemove(asset.id)}
+                onAdd={() => onAddToTimeline(asset)}
               />
             ))}
           </div>
@@ -70,10 +78,12 @@ function AssetCard({
   asset,
   thumbnail,
   onRemove,
+  onAdd,
 }: {
   asset: StudioMediaAsset;
   thumbnail: string | null;
   onRemove: () => void;
+  onAdd: () => void;
 }) {
   const fileName = asset.path.split(/[\\/]/).pop() ?? asset.path;
   const KindIcon = asset.kind === 'audio' ? Music : asset.kind === 'image' ? ImageIcon : FileVideo;
@@ -82,7 +92,8 @@ function AssetCard({
     <div
       className="group relative rounded-[6px] overflow-hidden bg-app-surface"
       style={{ border: '0.5px solid var(--color-border)' }}
-      title={asset.path}
+      title={`${asset.path}\n\nDouble-click to add to the timeline`}
+      onDoubleClick={onAdd}
     >
       <div className="relative aspect-video bg-app-base flex items-center justify-center">
         {thumbnail ? (
@@ -104,6 +115,14 @@ function AssetCard({
           {asset.probe.fps ? ` · ${asset.probe.fps} fps` : ''}
         </div>
       </div>
+      <button
+        onClick={onAdd}
+        title="Add to the timeline"
+        aria-label={`Add ${fileName} to the timeline`}
+        className="absolute top-1 left-1 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/60 text-text-muted hover:text-accent-light opacity-0 group-hover:opacity-100 transition-opacity"
+      >
+        <Plus size={12} strokeWidth={2} />
+      </button>
       <button
         onClick={onRemove}
         title="Remove from project (file is not deleted)"

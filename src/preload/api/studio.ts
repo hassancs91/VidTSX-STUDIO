@@ -1,10 +1,15 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
   StudioCacheReadRequest,
   StudioCacheReadResponse,
+  StudioExportPrepareRequest,
+  StudioExportPrepareResponse,
   StudioMediaImportRequest,
   StudioMediaImportResponse,
+  StudioMediaJobEvent,
+  StudioMediaPrepareRequest,
+  StudioMediaPrepareResponse,
   StudioProjectCreateRequest,
   StudioProjectCreateResponse,
   StudioProjectDeleteRequest,
@@ -39,4 +44,13 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_IMPORT, data),
   studioCacheRead: (data: StudioCacheReadRequest): Promise<StudioCacheReadResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CACHE_READ, data),
+  studioMediaPrepare: (data: StudioMediaPrepareRequest): Promise<StudioMediaPrepareResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
+  studioExportPrepare: (data: StudioExportPrepareRequest): Promise<StudioExportPrepareResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_EXPORT_PREPARE, data),
+  onStudioMediaJobEvent: (callback: (event: StudioMediaJobEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: StudioMediaJobEvent) => callback(data);
+    ipcRenderer.on(IPC.STUDIO_MEDIA_JOB_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_MEDIA_JOB_EVENT, listener);
+  },
 };

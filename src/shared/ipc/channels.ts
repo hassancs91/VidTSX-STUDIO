@@ -317,6 +317,10 @@ export const IPC = {
   STUDIO_PROJECT_DELETE: 'studio:project:delete',
   STUDIO_MEDIA_IMPORT: 'studio:media:import',
   STUDIO_CACHE_READ: 'studio:cache:read',
+  // Studio — timeline preview, background media jobs, export
+  STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
+  STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',
+  STUDIO_EXPORT_PREPARE: 'studio:export:prepare',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

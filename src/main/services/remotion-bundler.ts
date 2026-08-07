@@ -86,9 +86,9 @@ async function ensureServer(): Promise<number> {
       const ext = path.extname(filePath).toLowerCase();
       const allowedExtensions = [
         // video
-        '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v',
+        '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mts', '.m2ts',
         // audio
-        '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac',
+        '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.opus',
         // images
         '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.avif',
         // 3D
@@ -139,6 +139,16 @@ async function ensureServer(): Promise<number> {
 
     tryPort(3100);
   });
+}
+
+/**
+ * Start (or reuse) the local asset server and return its base URL. Studio's
+ * export entry embeds `/asset?path=` URLs at generation time, i.e. before any
+ * bundling has happened, so it needs the port up front rather than guessing it.
+ */
+export async function ensureAssetServerUrl(): Promise<string> {
+  const port = await ensureServer();
+  return `http://127.0.0.1:${port}`;
 }
 
 // Update the bundle path being served

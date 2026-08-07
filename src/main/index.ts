@@ -206,6 +206,10 @@ app.on('will-quit', async () => {
   // session so no claude.exe children are orphaned
   const { tsxJobEngine } = await import('./services/tsx-jobs/tsx-job-engine');
   await tsxJobEngine.shutdown();
+
+  // Kill any ffmpeg children generating Studio proxies/waveforms
+  const { studioMediaJobs } = await import('./services/studio/media-jobs');
+  studioMediaJobs.shutdown();
   const { llmEngine } = await import('../engine');
   llmEngine.abortAll();
 

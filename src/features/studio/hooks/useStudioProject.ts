@@ -10,6 +10,7 @@ const SAVE_DEBOUNCE_MS = 600;
  *  (single-writer model: the renderer owns project.json while it's open). */
 export function useStudioProject(projectId: string) {
   const [project, setProject] = useState<StudioProject | null>(null);
+  const [folderPath, setFolderPath] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'saved' | 'pending' | 'error'>('saved');
@@ -30,6 +31,7 @@ export function useStudioProject(projectId: string) {
       if (res.success && res.project) {
         latestRef.current = res.project;
         setProject(res.project);
+        setFolderPath(res.folderPath ?? null);
         setStatus('ready');
         setError(null);
       } else {
@@ -107,5 +109,14 @@ export function useStudioProject(projectId: string) {
     [updateProject],
   );
 
-  return { project, status, error, saveState, updateProject, importMedia, removeAsset };
+  return {
+    project,
+    folderPath,
+    status,
+    error,
+    saveState,
+    updateProject,
+    importMedia,
+    removeAsset,
+  };
 }

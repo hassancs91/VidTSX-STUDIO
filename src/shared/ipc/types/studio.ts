@@ -54,6 +54,8 @@ export interface StudioProjectLoadRequest {
 export interface StudioProjectLoadResponse {
   success: boolean;
   project?: StudioProject;
+  /** Absolute project folder — the renderer builds cache/proxy URLs from it. */
+  folderPath?: string;
   error?: string;
 }
 
@@ -101,5 +103,58 @@ export interface StudioCacheReadResponse {
   /** Base64-encoded file contents. */
   data?: string;
   mime?: string;
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Timeline preview, background media jobs, export
+// ---------------------------------------------------------------------------
+
+/** Derived caches an asset needs before it plays well in the editor. */
+export type StudioMediaJobKind = 'proxy' | 'waveform';
+
+export interface StudioMediaJobEvent {
+  projectId: string;
+  assetId: string;
+  kind: StudioMediaJobKind;
+  status: 'generating' | 'ready' | 'error';
+  /** Cache-relative path, present when status is 'ready'. */
+  relPath?: string;
+  error?: string;
+}
+
+export interface StudioMediaPrepareRequest {
+  projectId: string;
+  assets: Array<{
+    id: string;
+    kind: 'video' | 'audio' | 'image';
+    path: string;
+    /** Silent sources get no waveform job — ffmpeg would just fail on them. */
+    hasAudio: boolean;
+  }>;
+}
+
+export interface StudioMediaPrepareResponse {
+  success: boolean;
+  /** Caches that already existed on disk — applied without waiting for events. */
+  ready?: StudioMediaJobEvent[];
+  /** Base URL of the local asset server the preview loads media through. */
+  assetBaseUrl?: string;
+  error?: string;
+}
+
+export interface StudioExportPrepareRequest {
+  project: StudioProject;
+}
+
+export interface StudioExportPrepareResponse {
+  success: boolean;
+  /** Generated Remotion entry to hand to the render queue. */
+  entryPath?: string;
+  compositionId?: string;
+  width?: number;
+  height?: number;
+  fps?: number;
+  durationInFrames?: number;
   error?: string;
 }

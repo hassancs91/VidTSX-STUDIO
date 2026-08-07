@@ -206,11 +206,26 @@ screen until we consciously flip `studio-editor`.
   saves); CapCut-style editor layout (media pool / preview / inspector / timeline / chat panel
   placeholders); media import + ffprobe + thumbnails; per-project agent provider/model picker.
   *Test: create landscape + portrait projects, import media, relaunch, everything persists.*
-- **S2 — Timeline core**: document reducer + undo/redo; tracks/clips UI (ruler, zoom, snap,
+- **S2 — Timeline core** ✅: document reducer + undo/redo; tracks/clips UI (ruler, zoom, snap,
   playhead, select/move/split/trim/ripple-delete); `TimelineComposition` + Player preview;
   proxy + waveform background jobs; export through the render queue.
   *Test: manually cut a talking-head video end-to-end and export it; scrub a 100-cut timeline
   smoothly (the Player-architecture checkpoint).*
+  **Checkpoint result: the Remotion-Player architecture holds — no HTML5-seek fallback needed.**
+  Measured on a 100-cut timeline over 720p proxies (dev build, dev server running, so numbers
+  are noisy run to run):
+  - Playback: 16.7 ms median frame (60 fps), identical to a 2-clip timeline.
+  - Scrub at natural drag speed (~0.1 s of media per frame): 17–25 ms median (~40–60 fps).
+  - Scrub flinging across the whole timeline (~0.5 s per frame, crossing a cut nearly every
+    frame): 25–35 ms median (~30–40 fps).
+  - The editor's own JS is ~1.4 ms per scrub step; everything above that is Player/video work,
+    so the ceiling is decode, not the timeline UI.
+
+  Two fixes got it there, both worth keeping in mind for S3+:
+  1. Proxies need a short GOP (`-g 15`). With the encoder default (~8 s between keyframes)
+     every seek decoded up to 250 frames and scrubbing sat at ~20 fps.
+  2. `TimelineComposition` mounts only clips within ±2 s of the current frame. Mounting all
+     100 `<Sequence>`s on every frame change roughly halved scrub throughput.
 - **S3 — Auto-cut** (first AI feature): word-timestamp transcription on import (whisper
   default / AssemblyAI opt-in, keyterms support); cutlib port; `studio-clean-cut` skill; agent
   chat + tools; proposal review UX on the timeline; ripple-apply; QA readouts (dead-air,
