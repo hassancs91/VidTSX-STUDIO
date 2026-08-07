@@ -306,6 +306,17 @@ export const IPC = {
   AI_USAGE_GET_CHART: 'ai-usage:get-chart',
   AI_USAGE_GET_LOG: 'ai-usage:get-log',
   AI_USAGE_CLEAR: 'ai-usage:clear',
+
+  // Studio (AI video editor) — projects & media
+  STUDIO_ROOT_GET: 'studio:root:get',
+  STUDIO_ROOT_SET: 'studio:root:set',
+  STUDIO_PROJECT_LIST: 'studio:project:list',
+  STUDIO_PROJECT_CREATE: 'studio:project:create',
+  STUDIO_PROJECT_LOAD: 'studio:project:load',
+  STUDIO_PROJECT_SAVE: 'studio:project:save',
+  STUDIO_PROJECT_DELETE: 'studio:project:delete',
+  STUDIO_MEDIA_IMPORT: 'studio:media:import',
+  STUDIO_CACHE_READ: 'studio:cache:read',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

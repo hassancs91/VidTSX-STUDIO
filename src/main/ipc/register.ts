@@ -26,6 +26,7 @@ import { registerProviderKeysIpc } from './registrations/provider-keys';
 import { registerVideoIpc } from './registrations/video';
 import { registerSttIpc } from './registrations/stt';
 import { registerVideoStudioIpc } from './registrations/video-studio';
+import { registerStudioIpc } from './registrations/studio';
 import { logEngine } from '../../logging/log-engine';
 
 export function registerAllIPC(): void {
@@ -60,6 +61,7 @@ export function registerAllIPC(): void {
   registerVideoIpc();
   registerSttIpc();
   registerVideoStudioIpc();
+  registerStudioIpc();
 
   logEngine.info('IPC', 'IPC handlers registered');
 }

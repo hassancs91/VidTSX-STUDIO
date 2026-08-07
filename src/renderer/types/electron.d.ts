@@ -370,6 +370,16 @@ export interface ElectronAPI {
   onTsxJobEvent: (callback: (data: import('../../shared/ipc/types').TsxJobEvent) => void) => () => void;
   onTsxJobStream: (callback: (data: import('../../shared/ipc/types').TsxJobStreamEvent) => void) => () => void;
 
+  // Studio (AI video editor) — projects & media
+  studioRootGet: () => Promise<import('../../shared/ipc/types').StudioRootGetResponse>;
+  studioRootSet: (data: import('../../shared/ipc/types').StudioRootSetRequest) => Promise<import('../../shared/ipc/types').StudioRootSetResponse>;
+  studioProjectList: () => Promise<import('../../shared/ipc/types').StudioProjectListResponse>;
+  studioProjectCreate: (data: import('../../shared/ipc/types').StudioProjectCreateRequest) => Promise<import('../../shared/ipc/types').StudioProjectCreateResponse>;
+  studioProjectLoad: (data: import('../../shared/ipc/types').StudioProjectLoadRequest) => Promise<import('../../shared/ipc/types').StudioProjectLoadResponse>;
+  studioProjectSave: (data: import('../../shared/ipc/types').StudioProjectSaveRequest) => Promise<import('../../shared/ipc/types').StudioProjectSaveResponse>;
+  studioProjectDelete: (data: import('../../shared/ipc/types').StudioProjectDeleteRequest) => Promise<import('../../shared/ipc/types').StudioProjectDeleteResponse>;
+  studioMediaImport: (data: import('../../shared/ipc/types').StudioMediaImportRequest) => Promise<import('../../shared/ipc/types').StudioMediaImportResponse>;
+  studioCacheRead: (data: import('../../shared/ipc/types').StudioCacheReadRequest) => Promise<import('../../shared/ipc/types').StudioCacheReadResponse>;
 }
 
 declare global {

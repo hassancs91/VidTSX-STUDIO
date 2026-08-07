@@ -361,6 +361,21 @@ export function setModelUsageMap(map: ModelUsageMap): void {
   setValue('modelUsage', map);
 }
 
+function getDefaultStudioProjectsRoot(): string {
+  return path.join(app.getPath('videos'), 'VidTSX Studio');
+}
+
+/** Root folder for Studio (AI video editor) projects — user-configurable
+ *  because proxies/renders are large and belong on a drive the user picks. */
+export async function getStudioProjectsRoot(): Promise<string> {
+  const v = getValue<string>('studioProjectsRoot');
+  return v && v.length > 0 ? v : getDefaultStudioProjectsRoot();
+}
+
+export async function setStudioProjectsRoot(folderPath: string): Promise<void> {
+  setValue('studioProjectsRoot', folderPath);
+}
+
 export async function getLocalLlmSettings(): Promise<{ activeModelId: string | null }> {
   return {
     activeModelId: getValue<string>('localLlmActiveModel') ?? null,
@@ -408,4 +423,6 @@ export const settingsService = {
   setImageModelsFolder,
   getLocalLlmSettings,
   saveLocalLlmSettings,
+  getStudioProjectsRoot,
+  setStudioProjectsRoot,
 };

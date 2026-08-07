@@ -27,6 +27,7 @@ import { videoStudioApi } from './api/video-studio';
 import { providerKeysApi } from './api/provider-keys';
 import { videoApi } from './api/video';
 import { sttApi } from './api/stt';
+import { studioApi } from './api/studio';
 
 const api = {
   ...appShellApi,
@@ -57,6 +58,7 @@ const api = {
   ...providerKeysApi,
   ...videoApi,
   ...sttApi,
+  ...studioApi,
 };
 
 contextBridge.exposeInMainWorld('api', api);
