@@ -33,6 +33,8 @@ export interface TranscribeAudioFileParams {
   detectSpeakers?: boolean;
   enableHighlights?: boolean;
   enableSentiment?: boolean;
+  /** Keep disfluencies ("um"/"uh") verbatim when the model supports it. */
+  verbatim?: boolean;
   signal: AbortSignal;
   onProgress: (percent: number, message: string) => void;
 }
@@ -64,6 +66,7 @@ export async function transcribeAudioFile(params: TranscribeAudioFileParams): Pr
     detectSpeakers: params.detectSpeakers && entry.features.speakerLabels,
     enableHighlights: params.enableHighlights && entry.features.highlights,
     enableSentiment: params.enableSentiment && entry.features.sentiment,
+    verbatim: params.verbatim && entry.features.verbatimDisfluencies,
     signal: params.signal,
     onProgress: params.onProgress,
   });

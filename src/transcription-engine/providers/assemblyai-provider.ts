@@ -28,6 +28,7 @@ const FALLBACK_FEATURES: SttModelFeatures = {
   highlights: true,
   sentiment: true,
   audioEvents: false,
+  verbatimDisfluencies: true,
 };
 
 interface AaiWord {
@@ -101,6 +102,9 @@ export class AssemblyAiProvider implements TranscriptionProvider {
       punctuate: true,
       format_text: true,
       speaker_labels: req.detectSpeakers ?? false,
+      // Verbatim "um"/"uh" — auto-cut treats fillers as cut material, so it
+      // asks for them; the transcribe feature leaves them off for captions.
+      disfluencies: req.verbatim ?? false,
     };
     if (language) {
       body.language_code = language;
@@ -186,7 +190,24 @@ export class AssemblyAiProvider implements TranscriptionProvider {
       detectSpeakers: req.detectSpeakers ?? false,
     });
 
-    return { result, words, utterances, highlights, sentiments };
+    // Snapshot of what this run actually delivered, not just what the model
+    // could do — optional extras count only when requested AND returned.
+    const features: SttModelFeatures = {
+      ...this.getCapabilities(req.model),
+      speakerLabels: (req.detectSpeakers ?? false) && utterances.some((u) => u.speaker),
+      highlights: highlights.length > 0,
+      sentiment: sentiments.length > 0,
+      verbatimDisfluencies: req.verbatim ?? false,
+    };
+
+    return {
+      result,
+      words: words.length > 0 ? words : undefined,
+      utterances: utterances.length > 0 ? utterances : undefined,
+      highlights: highlights.length > 0 ? highlights : undefined,
+      sentiments: sentiments.length > 0 ? sentiments : undefined,
+      features,
+    };
   }
 
   private async upload(audioPath: string, signal: AbortSignal): Promise<string> {

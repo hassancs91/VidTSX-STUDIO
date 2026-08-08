@@ -2,14 +2,27 @@ import { useEffect, useState } from 'react';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
-import type { StudioProject } from '../types';
+import type { StudioMediaAsset, StudioProject } from '../types';
+import type { TranscribeProgress } from '../hooks/useStudioMedia';
+import { TranscriptSection } from './TranscriptSection';
 
 interface Props {
   project: StudioProject;
   onUpdate: (updater: (prev: StudioProject) => StudioProject) => void;
+  selectedAsset: StudioMediaAsset | null;
+  onTranscribe: (asset: StudioMediaAsset, sttModelId: string) => void;
+  onCancelTranscribe: (assetId: string) => void;
+  getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
 }
 
-export function InspectorPanel({ project, onUpdate }: Props) {
+export function InspectorPanel({
+  project,
+  onUpdate,
+  selectedAsset,
+  onTranscribe,
+  onCancelTranscribe,
+  getTranscribeProgress,
+}: Props) {
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
 
   useEffect(() => {
@@ -47,6 +60,28 @@ export function InspectorPanel({ project, onUpdate }: Props) {
           </Field>
         </div>
       </section>
+
+      {selectedAsset && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>
+            Transcript · {selectedAsset.path.split(/[\\/]/).pop()}
+          </SectionLabel>
+          <TranscriptSection
+            projectId={project.id}
+            asset={selectedAsset}
+            sttModelId={project.settings.sttModelId}
+            onSttModelChange={(sttModelId) => {
+              onUpdate((prev) => ({
+                ...prev,
+                settings: { ...prev.settings, sttModelId },
+              }));
+            }}
+            onTranscribe={onTranscribe}
+            onCancel={onCancelTranscribe}
+            progress={getTranscribeProgress(selectedAsset.id)}
+          />
+        </section>
+      )}
 
       <section className="flex flex-col gap-2">
         <SectionLabel>AI Assistant</SectionLabel>

@@ -60,6 +60,9 @@ export interface CaptionWord {
   text: string;
   start: number; // seconds (same time domain as the parent segment)
   end: number;
+  // 0..1 — present when the source measures it (whisper token probabilities,
+  // AssemblyAI word confidence). Absent means "not available", not "1".
+  confidence?: number;
 }
 
 // ─── Transcript segment from whisper output ───

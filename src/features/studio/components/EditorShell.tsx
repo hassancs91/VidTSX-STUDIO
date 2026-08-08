@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, Upload } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
@@ -10,6 +10,7 @@ import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
 import { usePlayback } from '../hooks/usePlayback';
+import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import type { StudioMediaAsset } from '../types';
 import { MediaPool } from './MediaPool';
@@ -33,16 +34,48 @@ export function EditorShell({ projectId, onBack }: Props) {
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
 
   const tl = useTimeline(project, updateProject);
   const playback = usePlayback(project?.settings.fps ?? 30);
   const { loadThumbnail, getThumbnail } = useStudioThumbnails(projectId);
   const assets = useMemo(() => project?.assets ?? [], [project?.assets]);
-  const { resolvePreviewUrl, getWaveform, proxyProgress } = useStudioMedia(
-    projectId,
-    folderPath,
-    assets,
-    updateProject,
+  const {
+    resolvePreviewUrl,
+    getWaveform,
+    proxyProgress,
+    transcribe,
+    cancelTranscribe,
+    getTranscribeProgress,
+  } = useStudioMedia(projectId, folderPath, assets, updateProject);
+
+  const selectedAsset = useMemo(
+    () => assets.find((a) => a.id === selectedAssetId) ?? null,
+    [assets, selectedAssetId],
+  );
+
+  // Surface transcript job outcomes — they finish minutes after the click.
+  useEffect(() => {
+    return window.api.onStudioMediaJobEvent((event) => {
+      if (event.projectId !== projectId || event.kind !== 'transcript') return;
+      if (event.status === 'ready') {
+        showToast(`Transcript ready (${event.transcript?.wordCount ?? 0} words)`, 'success');
+      } else if (event.status === 'error') {
+        showToast(event.error ?? 'Transcription failed', 'error');
+      }
+    });
+  }, [projectId, showToast]);
+
+  const handleTranscribe = useCallback(
+    (asset: StudioMediaAsset, sttModelId?: string) => {
+      const modelId = sttModelId ?? project?.settings.sttModelId ?? DEFAULT_STT_MODEL;
+      setSelectedAssetId(asset.id);
+      setRightTab('inspector');
+      void transcribe(asset, modelId).then((error) => {
+        if (error) showToast(error, 'error');
+      });
+    },
+    [project?.settings.sttModelId, transcribe, showToast],
   );
 
   const previewTimeline = useMemo(() => {
@@ -81,6 +114,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     (assetId: string) => {
       tl.dispatch({ type: 'remove-asset-clips', assetId });
       removeAsset(assetId);
+      setSelectedAssetId((prev) => (prev === assetId ? null : prev));
     },
     [tl, removeAsset],
   );
@@ -181,9 +215,13 @@ export function EditorShell({ projectId, onBack }: Props) {
             onImport={() => void handleImport()}
             onRemove={handleRemoveAsset}
             onAddToTimeline={handleAddToTimeline}
+            onTranscribe={handleTranscribe}
+            onSelect={setSelectedAssetId}
+            selectedAssetId={selectedAssetId}
             importing={importing}
             loadThumbnail={loadThumbnail}
             getThumbnail={getThumbnail}
+            getTranscribeProgress={getTranscribeProgress}
           />
         </div>
 
@@ -216,7 +254,14 @@ export function EditorShell({ projectId, onBack }: Props) {
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
             {rightTab === 'inspector' ? (
-              <InspectorPanel project={project} onUpdate={updateProject} />
+              <InspectorPanel
+                project={project}
+                onUpdate={updateProject}
+                selectedAsset={selectedAsset}
+                onTranscribe={handleTranscribe}
+                onCancelTranscribe={(assetId) => void cancelTranscribe(assetId)}
+                getTranscribeProgress={getTranscribeProgress}
+              />
             ) : (
               <AgentPanel />
             )}

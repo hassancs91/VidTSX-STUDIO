@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { FileVideo, Import, Music, Image as ImageIcon, Plus, X } from 'lucide-react';
+import { Captions, FileVideo, Import, Music, Image as ImageIcon, Plus, X } from 'lucide-react';
 import type { StudioMediaAsset } from '../types';
+import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import { formatDuration } from '../services/format-time';
 
 interface Props {
@@ -8,9 +9,13 @@ interface Props {
   onImport: () => void;
   onRemove: (assetId: string) => void;
   onAddToTimeline: (asset: StudioMediaAsset) => void;
+  onTranscribe: (asset: StudioMediaAsset) => void;
+  onSelect: (assetId: string) => void;
+  selectedAssetId: string | null;
   importing: boolean;
   loadThumbnail: (assetId: string, relPath: string) => Promise<void>;
   getThumbnail: (assetId: string) => string | null;
+  getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
 }
 
 export function MediaPool({
@@ -18,9 +23,13 @@ export function MediaPool({
   onImport,
   onRemove,
   onAddToTimeline,
+  onTranscribe,
+  onSelect,
+  selectedAssetId,
   importing,
   loadThumbnail,
   getThumbnail,
+  getTranscribeProgress,
 }: Props) {
   useEffect(() => {
     for (const asset of assets) {
@@ -63,8 +72,12 @@ export function MediaPool({
                 key={asset.id}
                 asset={asset}
                 thumbnail={getThumbnail(asset.id)}
+                selected={asset.id === selectedAssetId}
+                transcribeProgress={getTranscribeProgress(asset.id)}
                 onRemove={() => onRemove(asset.id)}
                 onAdd={() => onAddToTimeline(asset)}
+                onTranscribe={() => onTranscribe(asset)}
+                onSelect={() => onSelect(asset.id)}
               />
             ))}
           </div>
@@ -77,22 +90,37 @@ export function MediaPool({
 function AssetCard({
   asset,
   thumbnail,
+  selected,
+  transcribeProgress,
   onRemove,
   onAdd,
+  onTranscribe,
+  onSelect,
 }: {
   asset: StudioMediaAsset;
   thumbnail: string | null;
+  selected: boolean;
+  transcribeProgress: TranscribeProgress | null;
   onRemove: () => void;
   onAdd: () => void;
+  onTranscribe: () => void;
+  onSelect: () => void;
 }) {
   const fileName = asset.path.split(/[\\/]/).pop() ?? asset.path;
   const KindIcon = asset.kind === 'audio' ? Music : asset.kind === 'image' ? ImageIcon : FileVideo;
+  const transcribable = asset.kind !== 'image' && asset.probe.hasAudio;
+  const transcribing = asset.transcript?.status === 'generating';
 
   return (
     <div
       className="group relative rounded-[6px] overflow-hidden bg-app-surface"
-      style={{ border: '0.5px solid var(--color-border)' }}
-      title={`${asset.path}\n\nDouble-click to add to the timeline`}
+      style={{
+        border: selected
+          ? '0.5px solid var(--color-accent)'
+          : '0.5px solid var(--color-border)',
+      }}
+      title={`${asset.path}\n\nClick to inspect · double-click to add to the timeline`}
+      onClick={onSelect}
       onDoubleClick={onAdd}
     >
       <div className="relative aspect-video bg-app-base flex items-center justify-center">
@@ -106,6 +134,11 @@ function AssetCard({
             {formatDuration(asset.probe.duration)}
           </span>
         )}
+        {transcribing && (
+          <span className="absolute bottom-1 left-1 px-1 py-px rounded-[3px] bg-black/70 text-[9px] text-accent-light">
+            {transcribeProgress ? `${transcribeProgress.percent}%` : '…'}
+          </span>
+        )}
       </div>
       <div className="px-1.5 py-1">
         <div className="text-[10px] text-text-primary truncate">{fileName}</div>
@@ -116,15 +149,46 @@ function AssetCard({
         </div>
       </div>
       <button
-        onClick={onAdd}
+        onClick={(e) => {
+          e.stopPropagation();
+          onAdd();
+        }}
         title="Add to the timeline"
         aria-label={`Add ${fileName} to the timeline`}
         className="absolute top-1 left-1 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/60 text-text-muted hover:text-accent-light opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <Plus size={12} strokeWidth={2} />
       </button>
+      {transcribable && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!transcribing) onTranscribe();
+          }}
+          title={
+            transcribing
+              ? 'Transcribing…'
+              : asset.transcript?.status === 'ready'
+                ? 'Transcript ready — click to re-transcribe'
+                : 'Transcribe (word timestamps for auto-cut and captions)'
+          }
+          aria-label={`Transcribe ${fileName}`}
+          className={`absolute top-1 left-[23px] flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/60 transition-opacity ${
+            transcribing
+              ? 'text-accent-light opacity-100 animate-pulse'
+              : asset.transcript?.status === 'ready'
+                ? 'text-accent-light opacity-0 group-hover:opacity-100'
+                : 'text-text-muted hover:text-accent-light opacity-0 group-hover:opacity-100'
+          }`}
+        >
+          <Captions size={12} strokeWidth={1.75} />
+        </button>
+      )}
       <button
-        onClick={onRemove}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
         title="Remove from project (file is not deleted)"
         className="absolute top-1 right-1 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/60 text-text-muted hover:text-accent-red opacity-0 group-hover:opacity-100 transition-opacity"
       >

@@ -32,6 +32,7 @@ const NO_FEATURES: SttModelFeatures = {
   highlights: false,
   sentiment: false,
   audioEvents: false,
+  verbatimDisfluencies: false,
 };
 
 export class OpenRouterSttProvider implements TranscriptionProvider {

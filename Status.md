@@ -9,6 +9,59 @@
 
 ## Completed phases
 
+### Studio (AI video editor) — Phase S3 steps 1–2: transcription + cut planner (2026-08-08)
+**Status: COMPLETE — verified end-to-end via CDP (transcribe → cancel → re-transcribe → plan JSON)**
+
+- [x] **Whisper word timestamps are now measured, not approximated.** whisper.cpp
+  runs with `-ojf` (full JSON; flag verified against the v1.8.3 binary the app
+  downloads) and the new electron-free `src/main/services/whisper-output.ts`
+  merges BPE tokens into words with real times + per-word confidence (min token
+  p). Two traps handled and unit-tested: bare punctuation tokens carry phantom
+  timestamps (a "." can sit 0.9 s after its word — timing comes from speech
+  tokens only, else pause detection dies) and sub-word merging (" Auto"+"C"+"ut").
+  Char-distribution approximation stays as the per-segment fallback.
+- [x] **Capability snapshots, never provider branching.** `SttModelFeatures`
+  gained `verbatimDisfluencies`; providers now return the features a run
+  actually delivered (whisper: measured vs fallback; AssemblyAI: what was
+  requested+returned), and `StudioAssetTranscript` records that snapshot +
+  `sttModelId` + `wordCount` in the document. `undefined` = "not available",
+  never `[]`. AssemblyAI requests `disfluencies: true` when the caller asks for
+  verbatim (auto-cut does; the transcribe feature doesn't).
+- [x] **Per-asset transcription is button-triggered only** (media-pool hover
+  action + Inspector section with engine picker persisted in
+  `settings.sttModelId`) — never on import, so b-roll/music never burn whisper
+  minutes or AssemblyAI credits. Runs as the third media-job kind (serialized —
+  whisper.ts tracks a single child process), streams percent, writes rich JSON
+  to `cache/transcripts/<assetId>.json`, folds meta into the document on
+  `ready`. Cancel mid-run removes the entry (verified live); stale
+  `'generating'` from a killed session is cleaned up on cancel too.
+- [x] **cutlib.py ported to `cut-planner.ts`** (pure logic, 25 unit tests): RMS
+  noise floor (10th percentile), speech-run atoms, snap-to-audio tails with
+  soft/punchy landings, pause compression, cut-span clamps (a tail must never
+  ride into cut SPEECH — the reference repo measured 0.70 s surviving that way).
+  Reference `tight`/`natural` styles from the clean-cut skill. Capability
+  compensation: approximate timing widens head/tail pads instead of refusing.
+  RMS comes from the waveform cache — `waveform-generator` now emits `rmsDb`
+  buckets (dBFS, 20 ms grid) alongside peaks (file version 2; v1 files
+  regenerate on first plan) because the stripped ffmpeg has no volumedetect.
+- [x] **`studio:cutplan:run` IPC** → `cut-plan-runner.ts` loads transcript +
+  envelope, writes `cache/cut-plans/<assetId>-<style>.json`, returns the plan;
+  Inspector shows stats + QA notes + path. NOTHING touches the timeline —
+  proposals/review are S3 step 3. Honest QA readout: non-verbatim engines get a
+  "filler cutting will find less" caveat instead of implied AssemblyAI parity.
+- Verified live on a 39.4 s recording with known pause positions: 73 words
+  measured (`wordTimestamps: true` snapshot in project.json, survives restart),
+  13 keep-segments, 12 pauses compressed, soft landing on the 3.3 s gap, style
+  un-widened. Also caught live: whisper pads its final decode window past the
+  real audio end (41.7 s claimed vs 39.4 s measured) — the envelope's duration
+  is authoritative in the runner, not the transcript's.
+- Notes: whisper-base word times still smear across some pauses (several known
+  SSML breaks didn't surface as word gaps — the documented "transcript lies
+  about time" failure mode; the RMS snap is what makes edges robust). AssemblyAI
+  path is wired (verbatim + snapshot) but not exercised live — would spend
+  credits. `npm run lint` referenced in CLAUDE.md doesn't exist as a script
+  (pre-existing); gates used: `check:types` ratchet 27/22 + `npm test` (229).
+
 ### Studio (AI video editor) — Phase S2: timeline core (2026-08-07)
 **Status: COMPLETE — verified end-to-end via CDP, including the Player checkpoint**
 

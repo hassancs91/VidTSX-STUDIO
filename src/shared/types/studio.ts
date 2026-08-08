@@ -7,6 +7,8 @@
 //
 // Shared between main (project-store, media-import) and renderer (editor UI).
 
+import type { SttModelFeatures } from '../presets/stt-models';
+
 export const STUDIO_SCHEMA_VERSION = 1;
 
 export type StudioAssetKind = 'video' | 'audio' | 'image';
@@ -30,10 +32,24 @@ export interface StudioAssetCacheFile {
 
 export interface StudioAssetTranscript extends StudioAssetCacheFile {
   engine: 'whisper' | 'assemblyai';
+  /** STT catalog id used (e.g. 'local-whisper/base'), for re-transcribe UX. */
+  sttModelId?: string;
   language?: string;
   /** True when word-level timestamps are available (required for auto-cut). */
   hasWords: boolean;
+  wordCount?: number;
+  /**
+   * Snapshot of what the engine actually delivered at transcription time
+   * (measured vs approximate timing, verbatim disfluencies, speakers, …).
+   * Recorded here because the catalog can change under an old transcript, and
+   * because a run can deliver less than the catalog advertises. Consumers
+   * branch on these flags, never on `engine`.
+   */
+  features?: SttModelFeatures;
 }
+
+/** The transcript fields a job event carries (path/status ride separately). */
+export type StudioAssetTranscriptMeta = Omit<StudioAssetTranscript, 'path' | 'status'>;
 
 export interface StudioMediaAsset {
   id: string;
@@ -164,6 +180,11 @@ export interface StudioProjectSettings {
   height: number;
   fps: number;
   agent: StudioAgentSettings;
+  /**
+   * STT catalog id used for per-asset transcription (Inspector picker).
+   * Absent = the app default (local whisper).
+   */
+  sttModelId?: string;
 }
 
 export interface StudioProject {

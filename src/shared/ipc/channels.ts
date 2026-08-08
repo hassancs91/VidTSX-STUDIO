@@ -321,6 +321,10 @@ export const IPC = {
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',
   STUDIO_EXPORT_PREPARE: 'studio:export:prepare',
+  // Studio — per-asset transcription (button-triggered) + auto-cut planning
+  STUDIO_TRANSCRIBE_START: 'studio:transcribe:start',
+  STUDIO_TRANSCRIBE_CANCEL: 'studio:transcribe:cancel',
+  STUDIO_CUTPLAN_RUN: 'studio:cutplan:run',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

@@ -382,6 +382,9 @@ export interface ElectronAPI {
   studioCacheRead: (data: import('../../shared/ipc/types').StudioCacheReadRequest) => Promise<import('../../shared/ipc/types').StudioCacheReadResponse>;
   studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;
+  studioTranscribeStart: (data: import('../../shared/ipc/types').StudioTranscribeStartRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeStartResponse>;
+  studioTranscribeCancel: (data: import('../../shared/ipc/types').StudioTranscribeCancelRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeCancelResponse>;
+  studioCutPlanRun: (data: import('../../shared/ipc/types').StudioCutPlanRunRequest) => Promise<import('../../shared/ipc/types').StudioCutPlanRunResponse>;
   onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;
 }
 

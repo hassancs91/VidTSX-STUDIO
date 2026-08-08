@@ -22,6 +22,12 @@ import type {
   StudioRootGetResponse,
   StudioRootSetRequest,
   StudioRootSetResponse,
+  StudioCutPlanRunRequest,
+  StudioCutPlanRunResponse,
+  StudioTranscribeCancelRequest,
+  StudioTranscribeCancelResponse,
+  StudioTranscribeStartRequest,
+  StudioTranscribeStartResponse,
 } from '../../shared/ipc/types';
 
 export const studioApi = {
@@ -48,6 +54,12 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
   studioExportPrepare: (data: StudioExportPrepareRequest): Promise<StudioExportPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_EXPORT_PREPARE, data),
+  studioTranscribeStart: (data: StudioTranscribeStartRequest): Promise<StudioTranscribeStartResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSCRIBE_START, data),
+  studioTranscribeCancel: (data: StudioTranscribeCancelRequest): Promise<StudioTranscribeCancelResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSCRIBE_CANCEL, data),
+  studioCutPlanRun: (data: StudioCutPlanRunRequest): Promise<StudioCutPlanRunResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CUTPLAN_RUN, data),
   onStudioMediaJobEvent: (callback: (event: StudioMediaJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioMediaJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_MEDIA_JOB_EVENT, listener);

@@ -11,12 +11,13 @@ import type {
 } from '../types';
 
 const FALLBACK_FEATURES: SttModelFeatures = {
-  wordTimestamps: false,
+  wordTimestamps: true,
   approximateWordTimestamps: true,
   speakerLabels: false,
   highlights: false,
   sentiment: false,
   audioEvents: false,
+  verbatimDisfluencies: false,
 };
 
 export class LocalWhisperProvider implements TranscriptionProvider {
@@ -44,27 +45,43 @@ export class LocalWhisperProvider implements TranscriptionProvider {
 
       if (req.signal.aborted) throw new Error('aborted');
 
-      // Build rich extras from segments: utterances mirror segments (whisper
-      // has no diarization); words are approximated by character distribution
-      // so timing-based consumers (auto-cut) still get word-level anchors.
+      // whisper.cpp's full JSON output carries measured token-level timings
+      // that arrive merged into segment words. Segments without them (or a
+      // whole run without them, e.g. an old binary) fall back to
+      // character-distribution approximation — the features snapshot records
+      // which of the two this run actually delivered.
+      const measured = result.segments.some((s) => s.words && s.words.length > 0);
+
       const utterances: SttUtterance[] = result.segments.map((s) => ({
         text: s.text,
         start: s.start,
         end: s.end,
       }));
-      const words: SttWord[] = result.segments.flatMap((s) => deriveApproximateWords(s));
 
-      // Attach approximate words to segments lacking them so caption tooling works.
       const segments = result.segments.map((s) =>
-        s.words && s.words.length > 0
-          ? s
-          : { ...s, words: deriveApproximateWords(s).map(({ text, start, end }) => ({ text, start, end })) },
+        s.words && s.words.length > 0 ? s : { ...s, words: deriveApproximateWords(s) },
       );
+      const words: SttWord[] = segments.flatMap(
+        (s) =>
+          s.words?.map((w) => ({
+            text: w.text,
+            start: w.start,
+            end: w.end,
+            ...(w.confidence !== undefined ? { confidence: w.confidence } : {}),
+          })) ?? [],
+      );
+
+      const features: SttModelFeatures = {
+        ...this.getCapabilities(req.model),
+        wordTimestamps: measured,
+        approximateWordTimestamps: !measured,
+      };
 
       return {
         result: { ...result, segments },
         words,
         utterances,
+        features,
       };
     } finally {
       req.signal.removeEventListener('abort', onAbort);
@@ -78,14 +95,11 @@ export class LocalWhisperProvider implements TranscriptionProvider {
 
 /**
  * Approximate per-word timing by distributing the segment's time span across
- * its words proportionally to character length. Not exact — whisper.cpp's JSON
- * output has segment bounds only — but close enough for captions and cut anchors.
+ * its words proportionally to character length. The fallback when whisper's
+ * token-level data is unavailable — close enough for captions and for cut
+ * anchors once the RMS snap pads are widened.
  */
 function deriveApproximateWords(segment: TranscriptSegment): SttWord[] {
-  if (segment.words && segment.words.length > 0) {
-    return segment.words.map((w) => ({ text: w.text, start: w.start, end: w.end }));
-  }
-
   const tokens = segment.text.split(/\s+/).filter((t) => t.length > 0);
   if (tokens.length === 0) return [];
 

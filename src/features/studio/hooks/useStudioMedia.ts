@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StudioMediaJobEvent } from '@shared/ipc/types';
-import type { StudioMediaAsset, StudioProject } from '../types';
+import { findSttEntry } from '@shared/presets/stt-models';
+import type { StudioAssetTranscript, StudioMediaAsset, StudioProject } from '../types';
 import type { ClipWaveformData } from '../components/timeline/TimelineClip';
 
 interface WaveformFile {
@@ -8,10 +9,17 @@ interface WaveformFile {
   peaks: number[];
 }
 
+export interface TranscribeProgress {
+  percent: number;
+  message?: string;
+}
+
 /**
  * Derived-media side of the editor: asks the main process for 720p proxies and
  * waveforms, folds job results back into the document, and resolves the URLs
- * the preview plays through.
+ * the preview plays through. Also owns the per-asset transcription actions —
+ * those jobs share the same event stream but only ever start from an explicit
+ * user click, never from import.
  *
  * Preview always prefers a ready proxy and falls back to the original, so the
  * editor is usable the moment media is imported and simply gets lighter once
@@ -25,26 +33,82 @@ export function useStudioMedia(
 ) {
   const [assetBaseUrl, setAssetBaseUrl] = useState<string | null>(null);
   const [waveforms, setWaveforms] = useState<Map<string, ClipWaveformData>>(new Map());
+  const [transcribeProgress, setTranscribeProgress] = useState<Map<string, TranscribeProgress>>(
+    new Map(),
+  );
   const loadingWaveforms = useRef(new Set<string>());
+
+  const patchAsset = useCallback(
+    (assetId: string, patch: (asset: StudioMediaAsset) => StudioMediaAsset) => {
+      updateProject((prev) => ({
+        ...prev,
+        assets: prev.assets.map((asset) => (asset.id === assetId ? patch(asset) : asset)),
+      }));
+    },
+    [updateProject],
+  );
+
+  const clearProgress = useCallback((assetId: string) => {
+    setTranscribeProgress((prev) => {
+      if (!prev.has(assetId)) return prev;
+      const next = new Map(prev);
+      next.delete(assetId);
+      return next;
+    });
+  }, []);
 
   const applyEvent = useCallback(
     (event: StudioMediaJobEvent) => {
       if (event.projectId !== projectId) return;
-      updateProject((prev) => ({
-        ...prev,
-        assets: prev.assets.map((asset) => {
-          if (asset.id !== event.assetId) return asset;
-          const entry = {
-            path: event.relPath ?? asset[event.kind]?.path ?? '',
-            status: event.status === 'ready' ? ('ready' as const) : event.status === 'error' ? ('error' as const) : ('generating' as const),
-          };
-          return event.kind === 'proxy'
-            ? { ...asset, proxy: entry }
-            : { ...asset, waveform: entry };
-        }),
-      }));
+
+      if (event.kind === 'transcript') {
+        if (event.status === 'generating') {
+          // Progress ticks live in transient state only — writing them into
+          // the document would spam the debounced autosave.
+          setTranscribeProgress((prev) =>
+            new Map(prev).set(event.assetId, {
+              percent: event.percent ?? 0,
+              message: event.message,
+            }),
+          );
+          return;
+        }
+        clearProgress(event.assetId);
+        patchAsset(event.assetId, (asset) => {
+          if (event.status === 'canceled') {
+            const { transcript: _removed, ...rest } = asset;
+            return rest;
+          }
+          if (event.status === 'ready') {
+            return {
+              ...asset,
+              transcript: {
+                path: event.relPath ?? asset.transcript?.path ?? '',
+                status: 'ready',
+                engine: event.transcript?.engine ?? asset.transcript?.engine ?? 'whisper',
+                sttModelId: event.transcript?.sttModelId ?? asset.transcript?.sttModelId,
+                language: event.transcript?.language,
+                hasWords: event.transcript?.hasWords ?? false,
+                wordCount: event.transcript?.wordCount,
+                features: event.transcript?.features,
+              },
+            };
+          }
+          if (!asset.transcript) return asset;
+          return { ...asset, transcript: { ...asset.transcript, status: 'error' } };
+        });
+        return;
+      }
+
+      patchAsset(event.assetId, (asset) => {
+        const entry = {
+          path: event.relPath ?? asset[event.kind]?.path ?? '',
+          status: event.status === 'ready' ? ('ready' as const) : event.status === 'error' ? ('error' as const) : ('generating' as const),
+        };
+        return event.kind === 'proxy' ? { ...asset, proxy: entry } : { ...asset, waveform: entry };
+      });
     },
-    [projectId, updateProject],
+    [projectId, patchAsset, clearProgress],
   );
 
   // Request caches whenever the set of assets changes (already-generated files
@@ -106,6 +170,52 @@ export function useStudioMedia(
     }
   }, [assets, projectId, waveforms]);
 
+  /** Start (or restart) transcription for one asset. Explicit action only. */
+  const transcribe = useCallback(
+    async (asset: StudioMediaAsset, sttModelId: string): Promise<string | null> => {
+      const res = await window.api.studioTranscribeStart({
+        projectId,
+        assetId: asset.id,
+        sourcePath: asset.path,
+        sttModelId,
+      });
+      if (!res.success) return res.error ?? 'Failed to start transcription';
+      const entry = findSttEntry(sttModelId);
+      const transcript: StudioAssetTranscript = {
+        path: `transcripts/${asset.id}.json`,
+        status: 'generating',
+        engine: entry?.provider === 'assemblyai' ? 'assemblyai' : 'whisper',
+        sttModelId,
+        hasWords: false,
+      };
+      patchAsset(asset.id, (prev) => ({ ...prev, transcript }));
+      setTranscribeProgress((prev) => new Map(prev).set(asset.id, { percent: 0 }));
+      return null;
+    },
+    [projectId, patchAsset],
+  );
+
+  const cancelTranscribe = useCallback(
+    async (assetId: string) => {
+      const res = await window.api.studioTranscribeCancel({ projectId, assetId });
+      if (!res.success) {
+        // No live job (e.g. a stale 'generating' left by a closed session) —
+        // clean the document up locally since no 'canceled' event will come.
+        clearProgress(assetId);
+        patchAsset(assetId, (asset) => {
+          const { transcript: _removed, ...rest } = asset;
+          return rest;
+        });
+      }
+    },
+    [projectId, patchAsset, clearProgress],
+  );
+
+  const getTranscribeProgress = useCallback(
+    (assetId: string): TranscribeProgress | null => transcribeProgress.get(assetId) ?? null,
+    [transcribeProgress],
+  );
+
   const cacheUrl = useCallback(
     (relPath: string): string | null => {
       if (!assetBaseUrl || !folderPath) return null;
@@ -139,5 +249,13 @@ export function useStudioMedia(
     return { total: videos.length, ready };
   }, [assets]);
 
-  return { assetBaseUrl, resolvePreviewUrl, getWaveform, proxyProgress };
+  return {
+    assetBaseUrl,
+    resolvePreviewUrl,
+    getWaveform,
+    proxyProgress,
+    transcribe,
+    cancelTranscribe,
+    getTranscribeProgress,
+  };
 }

@@ -5,8 +5,9 @@ import path from 'path';
 import https from 'https';
 import { Extract } from 'unzipper';
 import { spawn, ChildProcess } from 'child_process';
-import type { TranscriptResult, TranscriptSegment } from '../../shared/ipc/types';
+import type { TranscriptResult } from '../../shared/ipc/types';
 import { getRemotionBinariesDir } from '../utils/paths';
+import { parseWhisperJson } from './whisper-output';
 
 export interface WhisperModel {
   id: string;
@@ -374,89 +375,6 @@ async function extractAudio(
   });
 }
 
-// Parse timestamp string "HH:MM:SS,mmm" or "HH:MM:SS.mmm" to seconds
-function parseTimestamp(timestamp: string): number {
-  // Handle formats: "00:00:05,120" or "00:00:05.120" or "00:05.120"
-  const normalized = timestamp.replace(',', '.');
-  const parts = normalized.split(':');
-
-  if (parts.length === 3) {
-    // HH:MM:SS.mmm
-    const [h, m, s] = parts;
-    return parseInt(h) * 3600 + parseInt(m) * 60 + parseFloat(s);
-  } else if (parts.length === 2) {
-    // MM:SS.mmm
-    const [m, s] = parts;
-    return parseInt(m) * 60 + parseFloat(s);
-  }
-  return parseFloat(normalized) || 0;
-}
-
-// Parse whisper JSON output into our segment format
-function parseWhisperOutput(jsonPath: string, inputLanguage?: string): TranscriptResult {
-  const content = readFileSync(jsonPath, 'utf-8');
-  const data = JSON.parse(content);
-
-  // whisper.cpp JSON format varies by version:
-  // Format 1: { "segments": [{ "start": 0.0, "end": 5.0, "text": "..." }] }
-  // Format 2: { "transcription": [{ "timestamps": { "from": "00:00:00,000", "to": "00:00:05,000" }, "text": "..." }] }
-  const rawSegments = data.segments || data.transcription || [];
-
-  const segments: TranscriptSegment[] = rawSegments.map(
-    (
-      seg: {
-        id?: number;
-        start?: number;
-        end?: number;
-        text: string;
-        timestamps?: { from: string; to: string };
-        offsets?: { from: number; to: number };
-      },
-      index: number
-    ) => {
-      let start: number;
-      let end: number;
-
-      if (typeof seg.start === 'number' && typeof seg.end === 'number') {
-        // Format 1: direct numeric timestamps in seconds
-        start = seg.start;
-        end = seg.end;
-      } else if (seg.timestamps) {
-        // Format 2: string timestamps
-        start = parseTimestamp(seg.timestamps.from);
-        end = parseTimestamp(seg.timestamps.to);
-      } else if (seg.offsets) {
-        // Alternative format: offsets in milliseconds
-        start = seg.offsets.from / 1000;
-        end = seg.offsets.to / 1000;
-      } else {
-        start = 0;
-        end = 0;
-      }
-
-      return {
-        id: seg.id ?? index,
-        start,
-        end,
-        text: (seg.text || '').trim(),
-      };
-    }
-  );
-
-  // Calculate duration from last segment end time
-  const duration = segments.length > 0 ? segments[segments.length - 1].end : 0;
-
-  // Get language: prefer from JSON output, fallback to input language, then 'auto'
-  const language = data.language || data.result?.language || inputLanguage || 'auto';
-
-  return {
-    language,
-    duration,
-    segments,
-    text: segments.map((s) => s.text).join(' '),
-  };
-}
-
 // Main transcribe function
 export async function transcribe(
   options: TranscribeOptions,
@@ -519,8 +437,11 @@ export async function transcribe(
   await fs.mkdir(tempDir, { recursive: true });
   const outputBase = path.join(tempDir, `transcript-${Date.now()}`);
 
-  // -oj outputs JSON, --print-progress enables progress output to stderr
-  const args = ['-m', modelPath, '-f', audioPath, '-of', outputBase, '-oj', '--print-progress'];
+  // -oj/-ojf output full JSON — the full variant carries per-token timestamps
+  // and probabilities, which parseWhisperJson merges into measured per-word
+  // timings (verified against the v1.8.3 binary the app downloads).
+  // --print-progress enables progress output to stderr.
+  const args = ['-m', modelPath, '-f', audioPath, '-of', outputBase, '-oj', '-ojf', '--print-progress'];
 
   if (language && language !== 'auto') {
     args.push('-l', language);
@@ -585,7 +506,7 @@ export async function transcribe(
     throw new Error('Whisper did not produce output file');
   }
 
-  const result = parseWhisperOutput(jsonOutputPath, language);
+  const result = parseWhisperJson(readFileSync(jsonOutputPath, 'utf-8'), language);
 
   // Cleanup temp files
   activeTempAudioPath = null;

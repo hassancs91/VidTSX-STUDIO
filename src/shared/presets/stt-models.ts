@@ -11,13 +11,23 @@
 
 import type { SttProviderType } from '../ipc/types/stt';
 
-/** Which transcription capabilities a model supports. */
+/**
+ * Which transcription capabilities a model supports.
+ *
+ * Doubles as the per-run snapshot Studio records in the project document at
+ * transcription time: there the flags describe what that run actually
+ * delivered (e.g. whisper fell back to approximate timing), which may be
+ * narrower than what the catalog advertises. Consumers branch on these flags,
+ * never on provider names — a missing capability is compensated for
+ * (approximate timing → wider RMS snap pads; no speakers → single-speaker),
+ * not refused.
+ */
 export interface SttModelFeatures {
-  /** Exact word-level timestamps (AssemblyAI). */
+  /** Measured word-level timestamps (AssemblyAI; whisper via token-level JSON). */
   wordTimestamps: boolean;
   /**
-   * Approximate word timing derived from segment bounds (local whisper).
-   * Good enough for captions/auto-cut, less precise than exact timing.
+   * Word timing approximated from segment bounds by character distribution.
+   * The whisper fallback when token-level data is unavailable.
    */
   approximateWordTimestamps: boolean;
   /** Speaker labels / diarization. */
@@ -28,6 +38,12 @@ export interface SttModelFeatures {
   sentiment: boolean;
   /** Audio event tagging. */
   audioEvents: boolean;
+  /**
+   * Verbal disfluencies ("um", "uh") kept verbatim in the transcript. The
+   * auto-cut filler pass was calibrated on verbatim text; engines that tidy
+   * disfluencies away will under-find filler cuts (the QA readout says so).
+   */
+  verbatimDisfluencies: boolean;
 }
 
 export interface SttCatalogEntry {
@@ -54,10 +70,16 @@ const NO_FEATURES: SttModelFeatures = {
   highlights: false,
   sentiment: false,
   audioEvents: false,
+  verbatimDisfluencies: false,
 };
 
+// whisper.cpp emits measured token-level times with -ojf (verified against the
+// v1.8.3 binary the app downloads); character-distribution approximation stays
+// as the fallback when a run yields no token data. Per-run snapshots narrow
+// these two flags to what actually happened.
 const WHISPER_FEATURES: SttModelFeatures = {
   ...NO_FEATURES,
+  wordTimestamps: true,
   approximateWordTimestamps: true,
 };
 
@@ -67,6 +89,7 @@ const ASSEMBLYAI_FEATURES: SttModelFeatures = {
   speakerLabels: true,
   highlights: true,
   sentiment: true,
+  verbatimDisfluencies: true,
 };
 
 export const STT_CATALOG: readonly SttCatalogEntry[] = [

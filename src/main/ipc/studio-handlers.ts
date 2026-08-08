@@ -23,6 +23,12 @@ import type {
   StudioRootGetResponse,
   StudioRootSetRequest,
   StudioRootSetResponse,
+  StudioCutPlanRunRequest,
+  StudioCutPlanRunResponse,
+  StudioTranscribeCancelRequest,
+  StudioTranscribeCancelResponse,
+  StudioTranscribeStartRequest,
+  StudioTranscribeStartResponse,
 } from '../../shared/ipc/types';
 import { getStudioProjectsRoot, setStudioProjectsRoot } from '../services/settings';
 import {
@@ -35,6 +41,10 @@ import {
 import { importMediaFiles, MEDIA_DIALOG_FILTERS } from '../services/studio/media-import';
 import { getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
 import { studioMediaJobs } from '../services/studio/media-jobs';
+import { deleteTranscript } from '../services/studio/asset-transcriber';
+import { runCutPlan } from '../services/studio/cut-plan-runner';
+import { findSttEntry } from '../../shared/presets/stt-models';
+import { transcriptionEngine } from '../../transcription-engine';
 import { createExportEntry } from '../services/studio/export-entry';
 import { ensureAssetServerUrl } from '../services/remotion-bundler';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../services/module-server';
@@ -181,6 +191,72 @@ export async function handleStudioMediaPrepare(
     return { success: true, ready, assetBaseUrl };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare media') };
+  }
+}
+
+/**
+ * Start a per-asset transcription job. Always an explicit user action — never
+ * wired to import — and always a fresh run (an existing transcript means the
+ * user chose to re-transcribe, e.g. with a different engine).
+ */
+export async function handleStudioTranscribeStart(
+  _event: IpcMainInvokeEvent,
+  data: StudioTranscribeStartRequest,
+): Promise<StudioTranscribeStartResponse> {
+  try {
+    await getProjectDir(data.projectId); // Validates the id before any fs work.
+    const entry = findSttEntry(data.sttModelId);
+    if (!entry) return { success: false, error: `Unknown transcription model "${data.sttModelId}"` };
+    if (!entry.features.wordTimestamps && !entry.features.approximateWordTimestamps) {
+      return { success: false, error: 'This model has no word timing — pick another one' };
+    }
+    if (!transcriptionEngine.getProvider(entry.provider)) {
+      return {
+        success: false,
+        error:
+          entry.provider === 'local-whisper'
+            ? 'Local Whisper is not available'
+            : `${entry.provider} is not configured — add its API key in Settings`,
+      };
+    }
+    try {
+      await fs.access(data.sourcePath);
+    } catch {
+      return { success: false, error: 'Source file not found on disk' };
+    }
+    await deleteTranscript(data.projectId, data.assetId);
+    await studioMediaJobs.request(data.projectId, data.assetId, 'transcript', data.sourcePath, {
+      sttModelId: data.sttModelId,
+      force: true,
+    });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to start transcription') };
+  }
+}
+
+export async function handleStudioTranscribeCancel(
+  _event: IpcMainInvokeEvent,
+  data: StudioTranscribeCancelRequest,
+): Promise<StudioTranscribeCancelResponse> {
+  return { success: studioMediaJobs.cancel(data.projectId, data.assetId, 'transcript') };
+}
+
+/** Run the mechanical auto-cut pass; returns the plan JSON, applies nothing. */
+export async function handleStudioCutPlanRun(
+  _event: IpcMainInvokeEvent,
+  data: StudioCutPlanRunRequest,
+): Promise<StudioCutPlanRunResponse> {
+  try {
+    const { plan, planPath } = await runCutPlan(
+      data.projectId,
+      data.assetId,
+      data.sourcePath,
+      data.style ?? 'tight',
+    );
+    return { success: true, plan, planPath };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to plan cuts') };
   }
 }
 

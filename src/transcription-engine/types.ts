@@ -38,6 +38,10 @@ export interface SttSentiment {
 /**
  * Canonical transcript plus optional rich extras (auto-cut consumes these;
  * the transcribe feature only needs `result`).
+ *
+ * Optional signals stay `undefined` when the engine didn't produce them —
+ * never normalized to `[]` — so consumers can tell "not available" apart
+ * from "available and empty".
  */
 export interface SttRichResult {
   result: TranscriptResult;
@@ -45,6 +49,12 @@ export interface SttRichResult {
   utterances?: SttUtterance[];
   highlights?: SttHighlight[];
   sentiments?: SttSentiment[];
+  /**
+   * What this run actually delivered, which may be narrower than the
+   * catalog's advertised features (e.g. whisper fell back from measured to
+   * approximate word timing). Absent = assume the catalog entry's features.
+   */
+  features?: SttModelFeatures;
 }
 
 /** Input is ALWAYS a prepared local audio file — the pipeline does extraction. */
@@ -57,6 +67,11 @@ export interface ProviderTranscribeRequest {
   detectSpeakers?: boolean;
   enableHighlights?: boolean;
   enableSentiment?: boolean;
+  /**
+   * Keep verbal disfluencies ("um", "uh") verbatim when the provider supports
+   * it. Auto-cut wants them (fillers are cut material); captions usually don't.
+   */
+  verbatim?: boolean;
   signal: AbortSignal;
   /** Progress within the provider's own work, 0..100. */
   onProgress: (percent: number, message: string) => void;
