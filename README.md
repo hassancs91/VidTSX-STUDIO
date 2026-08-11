@@ -2,7 +2,7 @@
 
 **AI-powered desktop video studio.** Generate [Remotion](https://www.remotion.dev/) TSX video compositions with AI, create images with local open-source models or cloud providers, transcribe audio/video locally, and render everything to MP4 on your own machine.
 
-Free and open source. Bring your own API keys — no account, no telemetry, no middleman servers. Your keys are stored encrypted on your device (Electron `safeStorage`) and are only ever sent directly to the provider you choose.
+Free and open source. Bring your own API keys — no account, no middleman servers, and no telemetry by default. The only optional exception is [opt-in crash reporting](#crash-reporting-opt-in), which is off until you enable it. Your keys are stored encrypted on your device (Electron `safeStorage`) and are only ever sent directly to the provider you choose.
 
 ## Download
 
@@ -62,6 +62,14 @@ npm run check:types
 ```
 
 Built with Electron + electron-vite, React 19, TypeScript (strict), Tailwind CSS 4, and Remotion 4. Architecture notes live in [PLAN.md](PLAN.md) and `docs/`.
+
+## Crash reporting (opt-in)
+
+The app can send crash and error reports to [Sentry](https://sentry.io) to help fix bugs — but only if you turn it on in **Settings → Privacy → Send crash reports**. It is **off by default**, and nothing is ever sent without that consent.
+
+What a report contains: stack trace, app version, OS, and the module that logged the error. What it never contains: your prompts, project files, transcripts, or API keys. Filesystem paths are scrubbed of usernames before sending.
+
+The reporting endpoint (DSN) is baked in at build time via the `VITE_SENTRY_DSN` environment variable. If you build from source without setting it — the default — crash reporting is compiled out entirely and the toggle shows as unavailable: the app cannot send anything, opt-in or not.
 
 ## License
 

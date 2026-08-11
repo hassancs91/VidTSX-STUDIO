@@ -9,11 +9,14 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     renderDefaultCpuUsage,
     renderDefaultGpuBackend,
     renderDefaultHardwareAcceleration,
+    crashReportingEnabled,
+    crashReportingAvailable,
     browseOutputFolder,
     setRenderTimeoutSeconds,
     setRenderDefaultCpuUsage,
     setRenderDefaultGpuBackend,
     setRenderDefaultHardwareAcceleration,
+    setCrashReportingEnabled,
     loading: settingsLoading,
   } = useSettings();
 
@@ -27,12 +30,15 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           renderDefaultCpuUsage={renderDefaultCpuUsage}
           renderDefaultGpuBackend={renderDefaultGpuBackend}
           renderDefaultHardwareAcceleration={renderDefaultHardwareAcceleration}
+          crashReportingEnabled={crashReportingEnabled}
+          crashReportingAvailable={crashReportingAvailable}
           settingsLoading={settingsLoading}
           browseOutputFolder={browseOutputFolder}
           setRenderTimeoutSeconds={setRenderTimeoutSeconds}
           setRenderDefaultCpuUsage={setRenderDefaultCpuUsage}
           setRenderDefaultGpuBackend={setRenderDefaultGpuBackend}
           setRenderDefaultHardwareAcceleration={setRenderDefaultHardwareAcceleration}
+          setCrashReportingEnabled={setCrashReportingEnabled}
         />
       </div>
     </Modal>

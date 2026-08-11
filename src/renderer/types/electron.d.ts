@@ -85,6 +85,8 @@ import type {
   SettingsSetRenderDefaultGpuBackendResponse,
   SettingsSetRenderDefaultHardwareAccelerationRequest,
   SettingsSetRenderDefaultHardwareAccelerationResponse,
+  SettingsSetCrashReportingRequest,
+  SettingsSetCrashReportingResponse,
   SystemInfoGetResponse,
   PyTorchPipInstallRequest,
   PyTorchPipInstallResponse,
@@ -193,6 +195,7 @@ export interface ElectronAPI {
   settingsSetRenderDefaultCpuUsage: (data: SettingsSetRenderDefaultCpuUsageRequest) => Promise<SettingsSetRenderDefaultCpuUsageResponse>;
   settingsSetRenderDefaultGpuBackend: (data: SettingsSetRenderDefaultGpuBackendRequest) => Promise<SettingsSetRenderDefaultGpuBackendResponse>;
   settingsSetRenderDefaultHardwareAcceleration: (data: SettingsSetRenderDefaultHardwareAccelerationRequest) => Promise<SettingsSetRenderDefaultHardwareAccelerationResponse>;
+  settingsSetCrashReporting: (data: SettingsSetCrashReportingRequest) => Promise<SettingsSetCrashReportingResponse>;
   dialogOpenFolder: () => Promise<DialogOpenFolderResponse>;
 
   // Whisper operations

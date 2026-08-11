@@ -219,6 +219,16 @@ export async function setRenderDefaultHardwareAcceleration(value: RenderHardware
   setValue('renderDefaultHardwareAcceleration', normalizeHardwareAcceleration(value));
 }
 
+// Opt-in crash reporting (Settings > Privacy). Off unless the user explicitly
+// enabled it — absence of the key means no consent.
+export async function getCrashReportingEnabled(): Promise<boolean> {
+  return getValue<boolean>('crashReportingEnabled') === true;
+}
+
+export async function setCrashReportingEnabled(enabled: boolean): Promise<void> {
+  setValue('crashReportingEnabled', enabled === true);
+}
+
 export async function getLlmProviders(): Promise<{ providers: ProviderConfig[]; activeProvider?: string }> {
   return {
     providers: getValue<ProviderConfig[]>('llmProviders') ?? [],
@@ -401,6 +411,8 @@ export const settingsService = {
   setRenderDefaultGpuBackend,
   getRenderDefaultHardwareAcceleration,
   setRenderDefaultHardwareAcceleration,
+  getCrashReportingEnabled,
+  setCrashReportingEnabled,
   getLlmProviders,
   saveLlmProviders,
   getTsxJobsMaxConcurrent,

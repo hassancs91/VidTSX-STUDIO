@@ -15,6 +15,13 @@ class LogEngine {
   private config: LogConfig | null = null;
   private writer: LogWriter | null = null;
   private initialized = false;
+  private crashDispatch: ((entry: LogEntry) => void) | null = null;
+
+  /** Optional hook for crash reporting (see main/services/crash-reporting.ts).
+   *  Keeps Sentry out of the log engine's own dependency graph. */
+  setCrashDispatch(fn: ((entry: LogEntry) => void) | null): void {
+    this.crashDispatch = fn;
+  }
 
   async init(config: LogConfig): Promise<void> {
     if (this.initialized) return;
@@ -52,6 +59,11 @@ class LogEngine {
 
     this.writer?.append(entry);
     this.consoleOutput(entry);
+    try {
+      this.crashDispatch?.(entry);
+    } catch {
+      // Crash reporting must never break log ingestion.
+    }
   }
 
   createLogger(module: string): ModuleLogger {
@@ -105,6 +117,11 @@ class LogEngine {
 
     this.writer?.append(entry);
     this.consoleOutput(entry);
+    try {
+      this.crashDispatch?.(entry);
+    } catch {
+      // Crash reporting must never break logging.
+    }
   }
 
   private consoleOutput(entry: LogEntry): void {

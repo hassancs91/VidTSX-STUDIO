@@ -10,6 +10,10 @@ export interface SettingsGetResponse {
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  /** Opt-in crash reporting consent (off by default). */
+  crashReportingEnabled: boolean;
+  /** False when the build has no crash-reporting DSN baked in — the toggle is inert. */
+  crashReportingAvailable: boolean;
 }
 
 export interface SettingsSetOutputFolderRequest {
@@ -71,6 +75,15 @@ export interface SettingsSetRenderDefaultHardwareAccelerationRequest {
 }
 
 export interface SettingsSetRenderDefaultHardwareAccelerationResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface SettingsSetCrashReportingRequest {
+  enabled: boolean;
+}
+
+export interface SettingsSetCrashReportingResponse {
   success: boolean;
   error?: string;
 }

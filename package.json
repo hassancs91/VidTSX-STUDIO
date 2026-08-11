@@ -80,6 +80,7 @@
     "@remotion/three": "^4.0.435",
     "@remotion/transitions": "4.0.435",
     "@rspack/binding-win32-x64-msvc": "^1.7.8",
+    "@sentry/electron": "7.16.0",
     "@tailwindcss/oxide-win32-x64-msvc": "^4.2.1",
     "archiver": "^7.0.1",
     "better-sqlite3": "^12.9.0",

@@ -10,6 +10,7 @@ import { initSdImageEngine } from './services/sdimage-init';
 import { initVideoEngine } from './services/sdvideo-init';
 import { initLocalLlmEngine } from './services/llm-local-init';
 import { initLogging } from './services/log-init';
+import { initCrashReporting } from './services/crash-reporting';
 import { migrateImageStudio } from './services/image-studio-migrate';
 import { closeDb as closeImageStudioDb } from './services/image-studio-db';
 import { migrateVideoStudio } from './services/video-studio-migrate';
@@ -51,6 +52,10 @@ if (process.platform === 'win32') {
 }
 
 Menu.setApplicationMenu(null);
+
+// Opt-in crash reporting (Settings > Privacy). Sentry's native crash handler
+// must install before app 'ready'; no-ops without a build-time DSN + user consent.
+initCrashReporting();
 
 let mainWindow: BrowserWindow | null = null;
 

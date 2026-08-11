@@ -1,5 +1,6 @@
 import { dialog, IpcMainInvokeEvent } from 'electron';
-import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getCrashReportingEnabled, setCrashReportingEnabled, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { isCrashReportingAvailable, setCrashReportingConsent } from '../services/crash-reporting';
 import { setAiModelsFolderPath } from '../services/audio-models';
 import type {
   SettingsGetResponse,
@@ -17,6 +18,8 @@ import type {
   SettingsSetRenderDefaultGpuBackendResponse,
   SettingsSetRenderDefaultHardwareAccelerationRequest,
   SettingsSetRenderDefaultHardwareAccelerationResponse,
+  SettingsSetCrashReportingRequest,
+  SettingsSetCrashReportingResponse,
   DialogOpenFolderResponse,
   PromptPresetsSaveRequest,
 } from '../../shared/ipc/types';
@@ -30,10 +33,11 @@ export async function handleSettingsGet(): Promise<SettingsGetResponse> {
     const renderDefaultCpuUsage = await getRenderDefaultCpuUsage();
     const renderDefaultGpuBackend = await getRenderDefaultGpuBackend();
     const renderDefaultHardwareAcceleration = await getRenderDefaultHardwareAcceleration();
-    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration };
+    const crashReportingEnabled = await getCrashReportingEnabled();
+    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable() };
   } catch (err) {
     // Return defaults on error, let UI handle default
-    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible' };
+    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', crashReportingEnabled: false, crashReportingAvailable: false };
   }
 }
 
@@ -170,6 +174,24 @@ export async function handleSettingsSetRenderDefaultHardwareAcceleration(
   }
 }
 
+export async function handleSettingsSetCrashReporting(
+  _event: IpcMainInvokeEvent,
+  data: SettingsSetCrashReportingRequest
+): Promise<SettingsSetCrashReportingResponse> {
+  try {
+    if (typeof data.enabled !== 'boolean') {
+      return { success: false, error: 'enabled must be a boolean' };
+    }
+    await setCrashReportingEnabled(data.enabled);
+    // Apply immediately — no restart needed for JS error capture.
+    setCrashReportingConsent(data.enabled);
+    return { success: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to save settings';
+    return { success: false, error };
+  }
+}
+
 export async function handlePromptPresetsGet() {
   try {
     return await getPromptPresets();
@@ -207,6 +229,7 @@ export const settingsHandlers = {
   handleSettingsSetRenderDefaultCpuUsage,
   handleSettingsSetRenderDefaultGpuBackend,
   handleSettingsSetRenderDefaultHardwareAcceleration,
+  handleSettingsSetCrashReporting,
   handleDialogOpenFolder,
   handlePromptPresetsGet,
   handlePromptPresetsSave,

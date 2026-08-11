@@ -94,6 +94,7 @@ export const IPC = {
   SETTINGS_SET_RENDER_DEFAULT_CPU_USAGE: 'settings:set:render-default-cpu-usage',
   SETTINGS_SET_RENDER_DEFAULT_GPU_BACKEND: 'settings:set:render-default-gpu-backend',
   SETTINGS_SET_RENDER_DEFAULT_HARDWARE_ACCELERATION: 'settings:set:render-default-hardware-acceleration',
+  SETTINGS_SET_CRASH_REPORTING: 'settings:set:crash-reporting',
 
   // Dialog operations (folder picker)
   DIALOG_OPEN_FOLDER: 'dialog:open:folder',

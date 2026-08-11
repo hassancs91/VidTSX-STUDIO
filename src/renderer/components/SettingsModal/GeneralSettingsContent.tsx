@@ -5,6 +5,7 @@ import { RenderTimeoutRow } from './rows/RenderTimeoutRow';
 import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
 import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
+import { CrashReportingRow } from './rows/CrashReportingRow';
 
 export function GeneralSettingsContent({
   outputFolder,
@@ -12,24 +13,30 @@ export function GeneralSettingsContent({
   renderDefaultCpuUsage,
   renderDefaultGpuBackend,
   renderDefaultHardwareAcceleration,
+  crashReportingEnabled,
+  crashReportingAvailable,
   settingsLoading,
   browseOutputFolder,
   setRenderTimeoutSeconds,
   setRenderDefaultCpuUsage,
   setRenderDefaultGpuBackend,
   setRenderDefaultHardwareAcceleration,
+  setCrashReportingEnabled,
 }: {
   outputFolder: string;
   renderTimeoutSeconds: number;
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  crashReportingEnabled: boolean;
+  crashReportingAvailable: boolean;
   settingsLoading: boolean;
   browseOutputFolder: () => void;
   setRenderTimeoutSeconds: (seconds: number) => Promise<boolean>;
   setRenderDefaultCpuUsage: (value: RenderCpuUsage) => Promise<boolean>;
   setRenderDefaultGpuBackend: (value: RenderGpuBackend) => Promise<boolean>;
   setRenderDefaultHardwareAcceleration: (value: RenderHardwareAcceleration) => Promise<boolean>;
+  setCrashReportingEnabled: (enabled: boolean) => Promise<boolean>;
 }) {
   const truncatePath = (p: string, maxLen = 40) => {
     if (p.length <= maxLen) return p;
@@ -89,6 +96,14 @@ export function GeneralSettingsContent({
       </div>
 
       {/* Image models folder controls moved to the dedicated "AI Models" screen. */}
+
+      <SectionHeader>Privacy</SectionHeader>
+      <CrashReportingRow
+        crashReportingEnabled={crashReportingEnabled}
+        crashReportingAvailable={crashReportingAvailable}
+        setCrashReportingEnabled={setCrashReportingEnabled}
+        settingsLoading={settingsLoading}
+      />
 
       <SectionHeader>About</SectionHeader>
       <AppInfoSection />

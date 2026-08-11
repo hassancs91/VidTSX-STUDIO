@@ -9,6 +9,8 @@ interface SettingsState {
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  crashReportingEnabled: boolean;
+  crashReportingAvailable: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -22,6 +24,8 @@ export function useSettings() {
     renderDefaultCpuUsage: 'medium',
     renderDefaultGpuBackend: 'swangle',
     renderDefaultHardwareAcceleration: 'if-possible',
+    crashReportingEnabled: false,
+    crashReportingAvailable: false,
     loading: true,
     error: null,
   });
@@ -38,6 +42,8 @@ export function useSettings() {
         renderDefaultCpuUsage: result.renderDefaultCpuUsage,
         renderDefaultGpuBackend: result.renderDefaultGpuBackend,
         renderDefaultHardwareAcceleration: result.renderDefaultHardwareAcceleration,
+        crashReportingEnabled: result.crashReportingEnabled,
+        crashReportingAvailable: result.crashReportingAvailable,
         loading: false,
         error: null,
       });
@@ -163,6 +169,24 @@ export function useSettings() {
     }
   }, []);
 
+  const setCrashReportingEnabled = useCallback(async (enabled: boolean) => {
+    try {
+      const result = await window.api.settingsSetCrashReporting({ enabled });
+      if (result.success) {
+        setState((prev) => ({ ...prev, crashReportingEnabled: enabled }));
+        return true;
+      }
+      setState((prev) => ({ ...prev, error: result.error || 'Failed to save' }));
+      return false;
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to save settings',
+      }));
+      return false;
+    }
+  }, []);
+
   const setRenderTimeoutSeconds = useCallback(async (seconds: number) => {
     try {
       const result = await window.api.settingsSetRenderTimeout({ seconds });
@@ -225,6 +249,8 @@ export function useSettings() {
     renderDefaultCpuUsage: state.renderDefaultCpuUsage,
     renderDefaultGpuBackend: state.renderDefaultGpuBackend,
     renderDefaultHardwareAcceleration: state.renderDefaultHardwareAcceleration,
+    crashReportingEnabled: state.crashReportingEnabled,
+    crashReportingAvailable: state.crashReportingAvailable,
     loading: state.loading,
     error: state.error,
     setOutputFolder,
@@ -234,6 +260,7 @@ export function useSettings() {
     setRenderDefaultCpuUsage,
     setRenderDefaultGpuBackend,
     setRenderDefaultHardwareAcceleration,
+    setCrashReportingEnabled,
     browseOutputFolder,
     browseAiModelsFolder,
     reload: loadSettings,
