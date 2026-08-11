@@ -96,9 +96,15 @@ export class AssemblyAiProvider implements TranscriptionProvider {
     // auto_highlights / sentiment_analysis are English-only and conflict with
     // language_detection — only request them when we know the language is English.
     const englishKnown = language === 'en' || req.model === 'slam-1';
+    // `speech_model` was deprecated by AssemblyAI (2026) for `speech_models`,
+    // an ordered preference list. The legacy 'universal' catalog id maps to
+    // the API's own default pair (universal-3-5-pro with universal-2 fallback
+    // for languages it doesn't cover); anything else passes through as-is.
+    const speechModels =
+      req.model === 'universal' ? ['universal-3-5-pro', 'universal-2'] : [req.model];
     const body: Record<string, unknown> = {
       audio_url: audioUrl,
-      speech_model: req.model,
+      speech_models: speechModels,
       punctuate: true,
       format_text: true,
       speaker_labels: req.detectSpeakers ?? false,
