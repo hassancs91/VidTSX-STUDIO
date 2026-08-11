@@ -4,11 +4,9 @@ import { registerAllIPC } from './ipc/register';
 import { ensureProjectsDir } from './utils/paths';
 import { initLLMEngine } from './services/llm-init';
 import { initImageEngine } from './services/image-init';
-import { initAudioEngine } from './services/audio-init';
 import { initSttEngine } from './services/stt/stt-init';
-import { initSdImageEngine } from './services/sdimage-init';
-import { initVideoEngine } from './services/sdvideo-init';
-import { initLocalLlmEngine } from './services/llm-local-init';
+import { initSdImageCategory } from './services/sdimage-init';
+import { initSdVideoCategory } from './services/sdvideo-init';
 import { initLogging } from './services/log-init';
 import { initCrashReporting } from './services/crash-reporting';
 import { migrateImageStudio } from './services/image-studio-migrate';
@@ -113,6 +111,8 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(async () => {
+  const startupBegan = Date.now();
+
   // Initialize log engine (file logging) — everything else can log
   await initLogging();
 
@@ -149,20 +149,16 @@ app.whenReady().then(async () => {
   // Initialize image generation engine with saved provider configs
   await initImageEngine();
 
-  // Initialize local audio engine (sherpa-onnx STT/TTS)
-  await initAudioEngine();
-
   // Initialize transcription engine (local whisper / AssemblyAI / OpenRouter)
   await initSttEngine();
 
-  // Initialize local SD image engine (sd-cli)
-  await initSdImageEngine();
-
-  // Register the local video model library + engine (Wan/LTX/LingBot via sd-cli)
-  await initVideoEngine();
-
-  // Initialize local LLM engine (node-llama-cpp)
-  await initLocalLlmEngine();
+  // Local AI engines (sherpa-onnx audio, sd-cli image/video, node-llama-cpp)
+  // are NOT initialized here — no native addons, GPU probes, or model-folder
+  // scans at startup (V1_RELEASE_PLAN.md Phase B). Each engine lazy-inits via
+  // its ensure* function on the first IPC call that needs it. Only the
+  // model-library categories register now so on-demand scans work.
+  await initSdImageCategory();
+  await initSdVideoCategory();
 
   // Migrate legacy downloads.json into SQLite before the download engine reads state.
   await migrateDownloads();
@@ -180,7 +176,8 @@ app.whenReady().then(async () => {
 
   registerAllIPC();
 
-  // Re-queue TSX generation jobs that were still queued at last quit.
+  // Re-queue TSX generation jobs that were still queued at last quit — held,
+  // not running, so no LLM work (or claude.exe spawn) happens without the user.
   // After registerAllIPC so the job-event broadcast listener is attached.
   const { tsxJobEngine } = await import('./services/tsx-jobs/tsx-job-engine');
   const { getTsxJobsMaxConcurrent } = await import('./services/settings');
@@ -202,6 +199,8 @@ app.whenReady().then(async () => {
 
   // Start system resource monitor (always-on, sends push events every 2s)
   initSystemMonitor(win);
+
+  logEngine.info('Startup', `Main-process init complete in ${Date.now() - startupBegan}ms (ready → window created)`);
 });
 
 app.on('will-quit', async () => {

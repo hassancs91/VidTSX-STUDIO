@@ -292,10 +292,14 @@ function buildVideoDescriptor(): ModelCategoryDescriptor<VideoModelMeta, Resolve
   };
 }
 
-/** Register the video category with the model-library core + run the initial scan. */
-export async function initVideoLibrary(): Promise<void> {
+/**
+ * Register the video category with the model-library core. No disk scan —
+ * startup must not touch model folders (V1_RELEASE_PLAN.md Phase B); the first
+ * consumer runs scanVideoLibrary on demand (ensureSdVideoEngine or the
+ * model-library scan IPC).
+ */
+export async function registerVideoLibrary(): Promise<void> {
   registerCategory(buildVideoDescriptor());
   const dir = await getVideoModelsDir();
   await fs.mkdir(dir, { recursive: true });
-  await scanVideoLibrary();
 }

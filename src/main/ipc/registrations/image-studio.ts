@@ -30,13 +30,18 @@ import {
   handleRefImageToggle,
   handleRefImageRead,
 } from '../ref-image-handlers';
+import { ensureSdImageEngine } from '../../services/sdimage-init';
+import { lazily } from './lazy';
 
 export function registerImageStudioIpc(): void {
   ipcMain.handle(IPC.IMAGE_PROVIDERS_GET, handleImageProvidersGet);
   ipcMain.handle(IPC.IMAGE_PROVIDERS_SAVE, handleImageProvidersSave);
   ipcMain.handle(IPC.IMAGE_PROVIDER_TEST, handleImageProviderTest);
-  ipcMain.handle(IPC.IMAGE_MODELS_GET, handleImageModelsGet);
-  ipcMain.handle(IPC.IMAGE_GENERATE, handleImageGenerate);
+  // The cloud image engine's "local" provider bridges to the sd-cli engine —
+  // listing models / generating must lazily init it (scan + resolver) so
+  // local models work in Image Studio without visiting the AI page first.
+  ipcMain.handle(IPC.IMAGE_MODELS_GET, lazily(ensureSdImageEngine, handleImageModelsGet));
+  ipcMain.handle(IPC.IMAGE_GENERATE, lazily(ensureSdImageEngine, handleImageGenerate));
   ipcMain.handle(IPC.IMAGE_GENERATE_CANCEL, handleImageGenerateCancel);
   ipcMain.handle(IPC.IMAGE_PROVIDER_SWITCH, handleImageProviderSwitch);
   ipcMain.handle(IPC.IMAGE_STUDIO_SAVE, handleImageStudioSave);

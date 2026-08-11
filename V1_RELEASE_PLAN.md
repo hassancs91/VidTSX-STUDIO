@@ -169,6 +169,23 @@ shows no hidden pages.
 
 ## Phase B — No local models load at startup (item 1)
 
+> **STATUS: code complete (2026-08-12).** All four engines lazy-init via memoized
+> `ensure*()` functions in their init services, wired through a `lazily()` wrapper in
+> `src/main/ipc/registrations/lazy.ts` at IPC registration time (audio, local-llm,
+> sd-image, sd-video, and the cloud-image channels that serve the local provider).
+> Startup registers only the image/video model-library categories (no scans). TSX jobs
+> restore held (queued but not running) until the next user-initiated `start()`.
+> Startup timing log added to `src/main/index.ts`. Type gate at baseline; tsx-job-engine
+> tests pass (9/9). Before-evidence from the 2026-08-11 log: sherpa + node-llama-cpp
+> init took ~8.6 s of startup plus a 4.4 s GPU probe.
+> **Remaining:** live cold-start verification (blocked by the single-instance lock while
+> another dev instance runs): fresh log must show no Audio/SdImage/SdVideo/LocalLLM init
+> lines at boot, and AI-page tabs / Image Studio must lazily init on first use.
+> Design decisions taken: Q3 resolved as "restore held"; llm-handlers'
+> `handleLlmProvidersGet` still calls `llmLocalEngine.isAvailable()` on Creator mount —
+> that imports node-llama-cpp's JS but does NOT probe the GPU or load native GGML libs
+> (acceptable; absent module in packaged builds fails fast).
+
 **Outcome:** app start does zero native-addon loading, zero GPU probing, zero model-folder
 disk scans, and never spawns AI processes. Engines initialize lazily on first real use.
 Window appears faster as a side effect.
@@ -400,3 +417,5 @@ A and B are independent and could be done in either order.
 |---|---|---|---|
 | 2026-08-11 | — | Plan created; codebase audited (file refs above verified). | Start Phase A. |
 | 2026-08-11 | A | A1–A3 implemented (see STATUS note under Phase A); type-check at baseline. Incident: a `git stash` verification round-trip collided with parallel uncommitted Studio work — recovered everything; `stash@{0}` kept as backup because `EditorShell.tsx` on disk (no auto-cut wiring) diverges from the stashed copy (has auto-cut wiring) — reconcile before dropping the stash. | Dev-run acceptance check for Phase A, then Phase B. |
+| 2026-08-11 | A | Verified (dev-server env injection OFF-state + prod build with VITE_FF_TOOLS=1 inlines the flag) and committed as `479fe4c`. | Phase B. |
+| 2026-08-12 | B | Implemented lazy engine init + held TSX-job restore (see STATUS note under Phase B). | Live cold-start check once the running dev instance closes; then Phase C. |

@@ -59,6 +59,11 @@ class TsxJobEngine {
   private maxConcurrent = 4;
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   private shuttingDown = false;
+  // Jobs restored from the last quit stay queued-but-held: restarting the app
+  // must not silently spawn LLM work (V1_RELEASE_PLAN.md Phase B). The next
+  // user-initiated start() releases the hold.
+  private queueHeld = false;
+  private restoring = false;
 
   configure(options: { maxConcurrent?: number }): void {
     if (options.maxConcurrent && options.maxConcurrent >= 1 && options.maxConcurrent <= 4) {
@@ -88,6 +93,9 @@ class TsxJobEngine {
 
   start(request: TsxJobStartRequest): { jobId?: string; error?: string } {
     if (this.shuttingDown) return { error: 'App is shutting down' };
+    if (!this.restoring && this.queueHeld) {
+      this.queueHeld = false; // user engaged the generator — release held jobs
+    }
     if (!request.prompt?.trim()) return { error: 'Prompt is required' };
     if ((request.kind === 'edit' || request.kind === 'fix') && !request.target) {
       return { error: `A target project is required for ${request.kind} jobs` };
@@ -145,15 +153,25 @@ class TsxJobEngine {
     return removed;
   }
 
-  /** Re-queue jobs that were still queued when the app last quit. */
+  /**
+   * Re-queue jobs that were still queued when the app last quit — held, not
+   * running: they show as Queued but nothing spawns until the user starts a
+   * new job (which releases the hold and drains them).
+   */
   async restore(): Promise<void> {
     try {
       const raw = await fs.readFile(this.persistPath(), 'utf-8');
       const persisted = JSON.parse(raw) as PersistedJob[];
       if (Array.isArray(persisted) && persisted.length > 0) {
-        log.info('Restoring queued TSX jobs', { count: persisted.length });
-        for (const item of persisted) {
-          if (item?.request?.prompt) this.start(item.request);
+        log.info('Restoring queued TSX jobs (held until user engages)', { count: persisted.length });
+        this.queueHeld = true;
+        this.restoring = true;
+        try {
+          for (const item of persisted) {
+            if (item?.request?.prompt) this.start(item.request);
+          }
+        } finally {
+          this.restoring = false;
         }
       }
     } catch {
@@ -219,7 +237,7 @@ class TsxJobEngine {
   }
 
   private pump(): void {
-    if (this.shuttingDown) return;
+    if (this.shuttingDown || this.queueHeld) return;
     while (this.runningCount() < this.maxConcurrent) {
       const next = [...this.jobs.values()].find((r) => r.snapshot.status === 'queued');
       if (!next) return;

@@ -4,7 +4,9 @@ import { getAudioModelsDir, setAiModelsFolderPath } from './audio-models';
 import { getAiModelsFolder } from './settings';
 import { logEngine } from '../../logging/log-engine';
 
-export async function initAudioEngine(): Promise<void> {
+let initPromise: Promise<void> | null = null;
+
+async function initAudioEngine(): Promise<void> {
   // Set AI models folder from settings before anything else
   const aiModelsFolder = await getAiModelsFolder();
   setAiModelsFolderPath(aiModelsFolder);
@@ -21,5 +23,19 @@ export async function initAudioEngine(): Promise<void> {
 
   logEngine.info('Audio', 'Audio engine initialized (sherpa-onnx available)');
 
-  // Models are NOT auto-loaded on startup — loaded on demand when user requests
+  // Models are NOT auto-loaded — loaded on demand when user requests
+}
+
+/**
+ * Lazy init: `isSherpaAvailable` loads the sherpa-onnx native addon, which is
+ * too expensive for app startup (V1_RELEASE_PLAN.md Phase B). The first audio
+ * IPC call pays it once instead — registrations/audio.ts wraps the handlers
+ * that touch the engine with this.
+ */
+export function ensureAudioEngine(): Promise<void> {
+  initPromise ??= initAudioEngine().catch((err: unknown) => {
+    initPromise = null; // retry on the next call rather than caching failure
+    throw err;
+  });
+  return initPromise;
 }

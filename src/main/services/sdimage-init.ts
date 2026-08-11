@@ -11,13 +11,20 @@ import { usageStore } from './model-usage';
 import { getSdImageSettings } from './settings';
 import { logEngine } from '../../logging/log-engine';
 
-export async function initSdImageEngine(): Promise<void> {
-  // Register the image category + sd-cli runtime with the model-library core.
+/**
+ * Startup half: register the image category with the model-library core so
+ * on-demand scans/imports work. Cheap (no disk scan) — the engine itself
+ * initializes lazily via ensureSdImageEngine.
+ */
+export async function initSdImageCategory(): Promise<void> {
   registerImageCategory();
-
   const modelsDir = await getImageModelsDir();
   await fs.mkdir(modelsDir, { recursive: true });
+}
 
+let enginePromise: Promise<void> | null = null;
+
+async function initSdImageEngine(): Promise<void> {
   // Initial scan so the resolver has data and active-model restore can validate.
   await scanImageLibrary();
 
@@ -45,4 +52,18 @@ export async function initSdImageEngine(): Promise<void> {
   } catch (err) {
     logEngine.warn('SdImage', `Failed to restore SD image model: ${err}`);
   }
+}
+
+/**
+ * Lazy engine init: the models-folder scan and active-model restore run on the
+ * first IPC call that needs the local image engine (V1_RELEASE_PLAN.md Phase B)
+ * — image generation, model activation, or the AI page's Image tab — instead
+ * of at app startup.
+ */
+export function ensureSdImageEngine(): Promise<void> {
+  enginePromise ??= initSdImageEngine().catch((err: unknown) => {
+    enginePromise = null; // retry on the next call rather than caching failure
+    throw err;
+  });
+  return enginePromise;
 }
