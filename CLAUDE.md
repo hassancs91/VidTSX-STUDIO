@@ -128,6 +128,7 @@ npm run type-check   # TypeScript type checking (no emit)
 - **Phase 4+:** add unit tests for services (props-parser, queue-manager, caption-builder).
 - **IPC handlers:** test with mock electron IPC in vitest.
 - **Components:** only test complex interactive components (FileTree, Timeline). Skip simple display components.
+- **Driving the real app:** `docs/ui-automation-cdp.md` — dev launch recipe and the visibility rule that keeps automated clicks off hidden screens (every visited screen stays mounted).
 
 ## Package installation
 
