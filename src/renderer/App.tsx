@@ -40,7 +40,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
   useEffect(() => {
     const handler = (e: Event) => {
       const { screen } = (e as CustomEvent<{ screen: string }>).detail;
-      if (screen && screens[screen]) {
+      if (screen && screens[screen] && isFeatureEnabled(screen)) {
         setActiveScreen(screen);
       }
     };

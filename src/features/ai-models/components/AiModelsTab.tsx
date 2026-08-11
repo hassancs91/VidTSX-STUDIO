@@ -12,6 +12,20 @@ import { ComingSoonPlaceholder } from './ComingSoonPlaceholder';
 
 const RENDERED_TABS = new Set<ModelSubTab>(['main', 'providers', 'audio', 'image', 'video', 'llms', 'embeddings']);
 
+// Sub-tabs gated behind a feature flag are removed from the tab bar entirely
+// (not Coming-Soon placeholders) — enable via .env, see .env.example.
+const TAB_FLAGS: Partial<Record<ModelSubTab, string>> = {
+  video: 'ai-video-models',
+  llms: 'ai-llm-models',
+  '3d': 'ai-3d-models',
+  embeddings: 'ai-embedding-models',
+};
+
+const VISIBLE_TABS = SUB_TABS.filter((tab) => {
+  const flag = TAB_FLAGS[tab.id];
+  return flag === undefined || isFeatureEnabled(flag);
+});
+
 export function AiModelsTab() {
   const [activeSubTab, setActiveSubTab] = useState<ModelSubTab>('main');
 
@@ -21,7 +35,7 @@ export function AiModelsTab() {
     <div>
       {/* Sub-tab bar */}
       <div className="flex items-center gap-1 mb-4">
-        {SUB_TABS.map((tab) => (
+        {VISIBLE_TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
@@ -44,24 +58,9 @@ export function AiModelsTab() {
       {activeSubTab === 'providers' && <ProvidersContent />}
       {activeSubTab === 'audio' && <AudioTabContent />}
       {activeSubTab === 'image' && <ImageModelsContent />}
-      {activeSubTab === 'video' &&
-        (isFeatureEnabled('ai-video-models') ? (
-          <VideoModelsContent />
-        ) : (
-          <ComingSoonPlaceholder label="Video" />
-        ))}
-      {activeSubTab === 'llms' &&
-        (isFeatureEnabled('ai-llm-models') ? (
-          <LlmModelsContent />
-        ) : (
-          <ComingSoonPlaceholder label="Local LLM" />
-        ))}
-      {activeSubTab === 'embeddings' &&
-        (isFeatureEnabled('ai-embedding-models') ? (
-          <EmbeddingModelsContent />
-        ) : (
-          <ComingSoonPlaceholder label="Embedding" />
-        ))}
+      {activeSubTab === 'video' && <VideoModelsContent />}
+      {activeSubTab === 'llms' && <LlmModelsContent />}
+      {activeSubTab === 'embeddings' && <EmbeddingModelsContent />}
       {!RENDERED_TABS.has(activeSubTab) && (
         <ComingSoonPlaceholder label={activeLabel} />
       )}

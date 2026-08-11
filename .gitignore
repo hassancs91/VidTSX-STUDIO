@@ -46,6 +46,7 @@ src/**/*.js
 src/**/*.d.ts
 # Keep intentional ambient declarations:
 !src/renderer/types/*.d.ts
+!src/shared/env.d.ts
 
 # Personal scratch notes (kept local only)
 notes

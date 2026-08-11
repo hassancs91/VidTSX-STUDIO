@@ -1,7 +1,30 @@
+// Feature visibility for the renderer. Two kinds of flags:
+//
+// 1. ENV_GATED — hidden in EVERY build (dev included) unless the matching
+//    VITE_FF_* variable is set to 1/true in `.env` (see `.env.example`).
+//    Vite bakes these values into the renderer bundle at build time, so
+//    release builds must be produced with none of them set.
+// 2. FEATURE_FLAGS — plain booleans. `false` entries are dev-previews:
+//    force-enabled in dev builds, hidden in production.
+
+const ENV_GATED: Record<string, string | boolean | undefined> = {
+  tools: import.meta.env.VITE_FF_TOOLS,
+  // One switch covers the Flows nav entry and the editor behind it.
+  flows: import.meta.env.VITE_FF_FLOWS,
+  'flows-editor': import.meta.env.VITE_FF_FLOWS,
+  'video-studio': import.meta.env.VITE_FF_VIDEO_STUDIO,
+  // AI page — local model sub-tabs
+  'ai-video-models': import.meta.env.VITE_FF_AI_VIDEO,
+  'ai-llm-models': import.meta.env.VITE_FF_AI_LLM,
+  'ai-3d-models': import.meta.env.VITE_FF_AI_3D,
+  'ai-embedding-models': import.meta.env.VITE_FF_AI_EMBEDDINGS,
+  // Sherpa voice-engine section inside the Audio tab
+  'audio-engine': import.meta.env.VITE_FF_AI_AUDIO_ENGINE,
+};
+
 const FEATURE_FLAGS: Record<string, boolean> = {
   // Primary workflow — TSX → Image → Video
   creator: true,
-  flows: true,
   'image-studio': true,
   transcribe: true,
   // Secondary (visible in production)
@@ -11,21 +34,6 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // whisper.cpp install (moved here when the Settings screen was retired),
   // so it must stay visible in production.
   'ai-models': true,
-  // Hidden in production until ready:
-  'video-studio': false,
-  tools: false,
-  'audio-engine': false,
-  // AI Models sub-tabs still in development — "Coming soon" placeholders in
-  // production (the tabs stay visible so users see what's ahead).
-  'ai-video-models': false,
-  'ai-embedding-models': false,
-  // Local LLMs (node-llama-cpp) aren't bundled in production builds yet — the
-  // LLMs tab shows Coming Soon there (the Creator's Local provider is gated
-  // separately on real engine availability in the main process).
-  'ai-llm-models': false,
-  // Flows nav entry stays visible ("flows" above), but the editor itself ships
-  // later — production renders a Coming Soon screen instead.
-  'flows-editor': false,
   // Studio (AI video editor) nav entry is visible as a teaser; the editor
   // itself is in development — production renders a Coming Soon screen.
   // Plan: docs/studio/PLAN.md.
@@ -37,6 +45,10 @@ const FEATURE_FLAGS: Record<string, boolean> = {
 };
 
 export function isFeatureEnabled(id: string): boolean {
+  if (id in ENV_GATED) {
+    const value = ENV_GATED[id];
+    return value === true || value === '1' || value === 'true';
+  }
   const flag = FEATURE_FLAGS[id];
   if (flag === undefined) return false;
   return import.meta.env.DEV ? true : flag;
