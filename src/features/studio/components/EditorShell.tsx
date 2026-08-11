@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronLeft, Upload } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
@@ -10,9 +10,13 @@ import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
 import { usePlayback } from '../hooks/usePlayback';
+import { useAutoCut } from '../hooks/useAutoCut';
 import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
-import type { StudioMediaAsset } from '../types';
+import { applyCutProposal } from '../services/apply-cut-proposal';
+import { buildPreviewTimeMap } from '../services/preview-mapping';
+import { mapCutItemToTimeline } from '../services/cut-proposal';
+import type { StudioMediaAsset, StudioProposalItem } from '../types';
 import { MediaPool } from './MediaPool';
 import { PreviewPanel } from './PreviewPanel';
 import { TimelinePanel } from './TimelinePanel';
@@ -78,10 +82,128 @@ export function EditorShell({ projectId, onBack }: Props) {
     [project?.settings.sttModelId, transcribe, showToast],
   );
 
+  // ----- Auto Cut + proposal review -------------------------------------
+
+  const autoCut = useAutoCut({
+    projectId,
+    assets,
+    tl,
+    transcribe,
+    sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
+    onError: (message) => showToast(message, 'error'),
+  });
+
+  const [previewResult, setPreviewResult] = useState(false);
+  const activeProposal = tl.activeProposal;
+
+  // A fresh proposal pulls the review list into view; a closed one clears
+  // the preview toggle so the Player goes back to the real timeline.
+  useEffect(() => {
+    if (activeProposal) setRightTab('inspector');
+    else setPreviewResult(false);
+  }, [activeProposal]);
+
+  /** What the Player plays: the result preview while reviewing, else the edit. */
+  const playerTimeline = useMemo(() => {
+    if (activeProposal && previewResult) return applyCutProposal(tl.timeline, activeProposal);
+    return tl.timeline;
+  }, [tl.timeline, activeProposal, previewResult]);
+
+  // While previewing the result, the Player's clock is the CUT timeline but
+  // the panel displays the original — this map keeps the playhead jumping
+  // over cut regions instead of crawling through them.
+  const previewTimeMap = useMemo(() => {
+    if (playerTimeline === tl.timeline) return null;
+    return buildPreviewTimeMap(tl.timeline, playerTimeline);
+  }, [tl.timeline, playerTimeline]);
+
+  // Audition stop-at: pause when the playhead crosses the marker, optionally
+  // dropping a temporary preview-result mode afterwards.
+  const auditionRef = useRef<{ stopAt: number; restorePreview: boolean } | null>(null);
+  useEffect(() => {
+    return playback.subscribe((seconds) => {
+      const audition = auditionRef.current;
+      if (!audition || seconds < audition.stopAt) return;
+      auditionRef.current = null;
+      playback.player?.pause();
+      if (audition.restorePreview) setPreviewResult(false);
+    });
+  }, [playback]);
+
+  const playSpan = useCallback(
+    (start: number, stopAt: number, restorePreview: boolean) => {
+      // Give the Player one frame to adopt a just-switched timeline before
+      // seeking into it, or the seek clamps against the old duration.
+      window.setTimeout(() => {
+        auditionRef.current = { stopAt, restorePreview };
+        playback.seek(Math.max(0, start));
+        playback.player?.play();
+      }, 80);
+    },
+    [playback],
+  );
+
+  /** Hear exactly what a cut removes — always on the ORIGINAL timeline. */
+  const handlePlayRemoved = useCallback(
+    (item: StudioProposalItem) => {
+      const regions = mapCutItemToTimeline(tl.timeline, item);
+      if (regions.length === 0) {
+        showToast('This span is not on the timeline', 'error');
+        return;
+      }
+      const wasPreviewing = previewResult;
+      if (wasPreviewing) setPreviewResult(false);
+      playSpan(regions[0].start, regions[regions.length - 1].end, wasPreviewing);
+    },
+    [tl.timeline, previewResult, playSpan, showToast],
+  );
+
+  /** Hear ±1.5 s around the cut WITH the accepted cuts applied. */
+  const handlePlayJoin = useCallback(
+    (item: StudioProposalItem) => {
+      if (!activeProposal) return;
+      if (item.status === 'rejected') {
+        // A rejected cut has no join — audition the span in place instead.
+        handlePlayRemoved(item);
+        return;
+      }
+      const result = applyCutProposal(tl.timeline, activeProposal);
+      // The piece right after the join starts where the cut span ended.
+      const joins = result.tracks
+        .flatMap((t) => t.clips)
+        .filter(
+          (c) =>
+            c.assetId === item.assetId &&
+            item.sourceEnd !== undefined &&
+            Math.abs((c.sourceIn ?? 0) - item.sourceEnd) < 0.05,
+        )
+        .map((c) => c.timelineStart);
+      if (joins.length === 0) {
+        showToast('This cut leaves no join to audition', 'error');
+        return;
+      }
+      const join = Math.min(...joins);
+      const needsRestore = !previewResult;
+      if (needsRestore) setPreviewResult(true);
+      playSpan(join - 1.5, join + 1.5, needsRestore);
+    },
+    [activeProposal, tl.timeline, previewResult, playSpan, handlePlayRemoved, showToast],
+  );
+
+  /** Row click / region click: select the cut and park the playhead on it. */
+  const handleSelectCutItem = useCallback(
+    (item: StudioProposalItem) => {
+      tl.selectCut(item.id);
+      const regions = mapCutItemToTimeline(tl.timeline, item);
+      if (regions.length > 0) playback.seek(regions[0].start);
+    },
+    [tl, playback],
+  );
+
   const previewTimeline = useMemo(() => {
     if (!project) return null;
-    return serializeTimeline({ ...project, timeline: tl.timeline }, resolvePreviewUrl);
-  }, [project, tl.timeline, resolvePreviewUrl]);
+    return serializeTimeline({ ...project, timeline: playerTimeline }, resolvePreviewUrl);
+  }, [project, playerTimeline, resolvePreviewUrl]);
 
   const handleImport = useCallback(async () => {
     setImporting(true);
@@ -98,7 +220,7 @@ export function EditorShell({ projectId, onBack }: Props) {
 
   const handleAddToTimeline = useCallback(
     (asset: StudioMediaAsset) => {
-      const track = trackForAsset(tl.timeline, asset);
+      const track = trackForAsset(tl.timeline, asset, tl.selectedTrackId);
       if (!track) {
         showToast('No unlocked track can hold this media', 'error');
         return;
@@ -261,6 +383,25 @@ export function EditorShell({ projectId, onBack }: Props) {
                 onTranscribe={handleTranscribe}
                 onCancelTranscribe={(assetId) => void cancelTranscribe(assetId)}
                 getTranscribeProgress={getTranscribeProgress}
+                onAutoCut={autoCut.runAutoCut}
+                autoCutPhase={autoCut.phase}
+                review={
+                  activeProposal
+                    ? {
+                        proposal: activeProposal,
+                        timeline: tl.timeline,
+                        selectedCutId: tl.selectedCutId,
+                        dispatch: tl.dispatch,
+                        onSelectItem: handleSelectCutItem,
+                        onPlayRemoved: handlePlayRemoved,
+                        onPlayJoin: handlePlayJoin,
+                        previewResult,
+                        onTogglePreviewResult: () => setPreviewResult((v) => !v),
+                        onApplied: (summary) =>
+                          showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success'),
+                      }
+                    : null
+                }
               />
             ) : (
               <AgentPanel />
@@ -274,6 +415,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         project={project}
         tl={tl}
         playback={playback}
+        timeMap={previewTimeMap}
         getThumbnail={getThumbnail}
         getWaveform={getWaveform}
       />

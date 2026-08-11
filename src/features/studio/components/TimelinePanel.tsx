@@ -3,7 +3,10 @@ import { timelineDuration } from '@shared/studio';
 import type { StudioClip, StudioProject } from '../types';
 import type { UseTimelineResult } from '../hooks/useTimeline';
 import type { UsePlaybackResult } from '../hooks/usePlayback';
+import type { PreviewTimeMap } from '../services/preview-mapping';
 import { useClipDrag } from '../hooks/useClipDrag';
+import { useMarqueeSelect } from '../hooks/useMarqueeSelect';
+import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { clipAt, clipEndTime, findClip } from '../services/timeline-ops';
 import {
@@ -17,13 +20,19 @@ import {
 import { TimelineRuler } from './timeline/TimelineRuler';
 import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelinePlayhead } from './timeline/TimelinePlayhead';
-import { TimelineLanes, TrackHeader } from './timeline/TimelineLanes';
+import { TimelineLanes } from './timeline/TimelineLanes';
+import { TrackHeader } from './timeline/TrackHeader';
+import { AddTrackButton } from './timeline/AddTrackButton';
+import { CutRegionLayer } from './timeline/CutRegionLayer';
 import type { ClipWaveformData } from './timeline/TimelineClip';
 
 interface Props {
   project: StudioProject;
   tl: UseTimelineResult;
   playback: UsePlaybackResult;
+  /** Present while the Player previews the cut result — translates its clock
+   *  into display (original-timeline) coordinates and back. */
+  timeMap?: PreviewTimeMap | null;
   getThumbnail: (assetId: string) => string | null;
   getWaveform: (assetId: string) => ClipWaveformData | null;
 }
@@ -31,15 +40,46 @@ interface Props {
 /** Extra runway past the last clip so there's always somewhere to drag to. */
 const TAIL_SECONDS = 10;
 
-export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform }: Props) {
+export function TimelinePanel({
+  project,
+  tl,
+  playback: rawPlayback,
+  timeMap,
+  getThumbnail,
+  getWaveform,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const lanesRef = useRef<HTMLDivElement>(null);
 
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [snapEnabled, setSnapEnabled] = useState(true);
-  const [viewport, setViewport] = useState({ left: 0, width: 1200 });
+  // "Auto ripple": whether deleting closes the gap. Governs the Delete key and
+  // the toolbar delete button (single or multi-selection alike); Backspace is
+  // the explicit leave-the-gap delete regardless of the mode.
+  const [rippleEnabled, setRippleEnabled] = useState(true);
+  const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200 });
   const pxPerSecond = ZOOM_LEVELS[zoomIndex];
+
+  // Preview-result shim: everything in this panel (playhead, clock, ruler
+  // seeks, split-at-playhead, zoom anchor) works in DISPLAY coordinates —
+  // the original timeline — while the Player itself runs on the cut result.
+  const displaySecondsRef = useRef(0);
+  useEffect(() => {
+    if (!timeMap) return;
+    return rawPlayback.subscribe((s) => {
+      displaySecondsRef.current = timeMap.toOriginal(s);
+    });
+  }, [rawPlayback, timeMap]);
+  const playback = useMemo<UsePlaybackResult>(() => {
+    if (!timeMap) return rawPlayback;
+    return {
+      ...rawPlayback,
+      secondsRef: displaySecondsRef,
+      subscribe: (listener) => rawPlayback.subscribe((s) => listener(timeMap.toOriginal(s))),
+      seek: (s) => rawPlayback.seek(timeMap.toResult(s)),
+    };
+  }, [rawPlayback, timeMap]);
 
   const assetById = useMemo(
     () => new Map(project.assets.map((a) => [a.id, a])),
@@ -55,6 +95,19 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
     [assetById],
   );
 
+  // Review mode: transcript words for the assets the open proposal cuts —
+  // they drive word-boundary snapping while dragging a cut's edges.
+  const reviewAssets = useMemo(() => {
+    if (!tl.activeProposal) return [];
+    const ids = new Set(tl.activeProposal.items.map((i) => i.assetId).filter(Boolean));
+    return project.assets.filter((a) => ids.has(a.id));
+  }, [tl.activeProposal, project.assets]);
+  const wordsByAsset = useAssetTranscripts(project.id, reviewAssets);
+  const assetDurationOf = useCallback(
+    (assetId: string) => assetById.get(assetId)?.probe.duration,
+    [assetById],
+  );
+
   const getPlayheadSeconds = useCallback(
     () => playback.secondsRef.current,
     [playback.secondsRef],
@@ -64,12 +117,25 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
     timeline: tl.timeline,
     pxPerSecond,
     snapEnabled,
+    selectedClipIds: tl.selectedClipIds,
     getPlayheadSeconds,
     sourceDurationOf,
     lanesRef,
     trackHeight: TRACK_HEIGHT,
     dispatch: tl.dispatch,
     onSelect: tl.select,
+    onToggleSelect: tl.toggleSelect,
+  });
+
+  const clearSelection = useCallback(() => tl.select(null), [tl]);
+  const { marqueeRect, onLanePointerDown } = useMarqueeSelect({
+    timeline: tl.timeline,
+    pxPerSecond,
+    trackHeight: TRACK_HEIGHT,
+    lanesRef,
+    selectedClipIds: tl.selectedClipIds,
+    selectMany: tl.selectMany,
+    clearSelection,
   });
 
   const timeline = previewTimeline ?? tl.timeline;
@@ -92,7 +158,7 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
     let queued = false;
     const measure = () => {
       queued = false;
-      setViewport({ left: el.scrollLeft, width: el.clientWidth });
+      setViewport({ left: el.scrollLeft, top: el.scrollTop, width: el.clientWidth });
     };
     const onScroll = () => {
       if (queued) return;
@@ -190,6 +256,7 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
     playback,
     fps: project.settings.fps,
     durationSeconds,
+    rippleDelete: rippleEnabled,
     onSplit: splitAtPlayhead,
   });
 
@@ -206,7 +273,7 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
   return (
     <div
       ref={containerRef}
-      className="h-[240px] shrink-0 flex flex-col bg-app-deep"
+      className="h-[240px] shrink-0 flex flex-col bg-app-deep select-none"
       style={{ borderTop: '0.5px solid var(--color-border)' }}
     >
       <TimelineToolbar
@@ -215,14 +282,16 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
         fps={project.settings.fps}
         canUndo={tl.canUndo}
         canRedo={tl.canRedo}
-        hasSelection={tl.selectedClipId !== null}
+        hasSelection={tl.selectedClipIds.length > 0}
         snapEnabled={snapEnabled}
+        rippleEnabled={rippleEnabled}
         canZoomIn={zoomIndex < ZOOM_LEVELS.length - 1}
         canZoomOut={zoomIndex > 0}
         onUndo={tl.undo}
         onRedo={tl.redo}
         onSplit={splitAtPlayhead}
-        onRippleDelete={() => tl.selectedClipId && tl.remove(tl.selectedClipId, true)}
+        onDelete={() => tl.removeSelected(rippleEnabled)}
+        onToggleRipple={() => setRippleEnabled((v) => !v)}
         onToggleSnap={() => setSnapEnabled((v) => !v)}
         onZoomIn={() => zoomBy(1)}
         onZoomOut={() => zoomBy(-1)}
@@ -233,10 +302,27 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
           className="shrink-0 bg-app-surface overflow-hidden"
           style={{ width: TRACK_HEADER_WIDTH, borderRight: '0.5px solid var(--color-border)' }}
         >
-          <div style={{ height: RULER_HEIGHT, borderBottom: '0.5px solid var(--color-border)' }} />
-          {timeline.tracks.map((track) => (
-            <TrackHeader key={track.id} track={track} />
-          ))}
+          <div
+            className="flex items-center px-1"
+            style={{ height: RULER_HEIGHT, borderBottom: '0.5px solid var(--color-border)' }}
+          >
+            <AddTrackButton onAdd={(kind) => tl.dispatch({ type: 'track-add', kind })} />
+          </div>
+          {/* Follows the lanes' vertical scroll (the ruler is sticky, headers
+              can't be — they live in a sibling column). */}
+          <div style={{ transform: `translateY(${-viewport.top}px)` }}>
+            {timeline.tracks.map((track, index) => (
+              <TrackHeader
+                key={track.id}
+                track={track}
+                index={index}
+                trackCount={timeline.tracks.length}
+                selected={track.id === tl.selectedTrackId}
+                onSelect={tl.selectTrack}
+                dispatch={tl.dispatch}
+              />
+            ))}
+          </div>
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-auto relative" onWheel={onWheel}>
@@ -249,19 +335,47 @@ export function TimelinePanel({ project, tl, playback, getThumbnail, getWaveform
               />
             </div>
 
-            <div ref={lanesRef} style={{ height: lanesHeight }}>
+            <div ref={lanesRef} className="relative" style={{ height: lanesHeight }}>
               <TimelineLanes
                 timeline={timeline}
                 pxPerSecond={pxPerSecond}
-                selectedClipId={tl.selectedClipId}
+                selectedClipIds={tl.selectedClipIds}
                 visibleFrom={visibleFrom}
                 visibleTo={visibleTo}
                 labelFor={clipLabel}
                 getThumbnail={getThumbnail}
                 getWaveform={getWaveform}
                 onClipPointerDown={onClipPointerDown}
-                onDeselect={() => tl.select(null)}
+                onLanePointerDown={onLanePointerDown}
               />
+              {marqueeRect && (
+                <div
+                  className="absolute z-20 pointer-events-none rounded-[2px]"
+                  style={{
+                    left: marqueeRect.left,
+                    top: marqueeRect.top,
+                    width: marqueeRect.width,
+                    height: marqueeRect.height,
+                    border: '1px dashed var(--color-accent-light)',
+                    background: 'rgba(127, 119, 221, 0.12)',
+                  }}
+                />
+              )}
+              {tl.activeProposal && (
+                <CutRegionLayer
+                  timeline={timeline}
+                  proposal={tl.activeProposal}
+                  pxPerSecond={pxPerSecond}
+                  visibleFrom={visibleFrom}
+                  visibleTo={visibleTo}
+                  selectedCutId={tl.selectedCutId}
+                  wordsByAsset={wordsByAsset}
+                  sourceDurationOf={assetDurationOf}
+                  onSelectCut={tl.selectCut}
+                  onSeek={playback.seek}
+                  dispatch={tl.dispatch}
+                />
+              )}
             </div>
 
             {snapGuideSeconds !== null && (

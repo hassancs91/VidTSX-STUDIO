@@ -2,7 +2,7 @@
 
 > Feature module: `src/features/studio/` · Flags: `studio` (nav) / `studio-editor` (screen body)
 > Companion ledger: `docs/studio/STATUS.md` (create when S1 starts; S0 is tracked in root STATUS.md).
-> Reference implementation of the editing pipeline: `D:\repos\claude-youtube-editor` (skills + Python tools + Remotion shots). We port its data model and engine knowledge; we do not depend on it at runtime.
+> Reference implementation of the editing pipeline: `C:\Users\Malak\Documents\GitHub\claude-youtube-editor` (skills + Python tools + Remotion shots). We port its data model and engine knowledge; we do not depend on it at runtime.
 
 ## 1. Vision
 

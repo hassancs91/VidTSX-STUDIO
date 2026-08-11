@@ -15,6 +15,9 @@
   --color-accent-green: #5DCAA5;
   --color-accent-amber: #EF9F27;
   --color-accent-red: #F09595;
+  /* Info/links per UI_SPEC (`text-accent-blue`) — previously undefined, so
+     buttons using it fell back to the UA default (black) on dark surfaces. */
+  --color-accent-blue: #85B7EB;
   --color-border: #2a2a2e;
   --color-border-hover: #3a3a3e;
   --color-border-input: #333333;

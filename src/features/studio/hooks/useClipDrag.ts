@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
 import { clipEndTime, moveClip, trimClip } from '../services/timeline-ops';
+import { moveClips } from '../services/timeline-group-ops';
 import { collectSnapTargets, snapSeconds } from '../services/snapping';
 import type { TimelineAction } from './useTimeline';
 import type { ClipDragKind } from '../components/timeline/TimelineClip';
@@ -9,22 +10,33 @@ interface DragState {
   clipId: string;
   kind: ClipDragKind;
   pointerX: number;
+  pointerY: number;
   origin: StudioClip;
   originTrackId: string;
   snapTargets: number[];
   sourceDuration: number | undefined;
+  /** Non-null → this drag moves the whole selection as a group. */
+  groupIds: string[] | null;
+  /** Clip was already in a multi-selection: a no-move click collapses to it. */
+  pendingCollapse: boolean;
+  /** Lane the preview last showed the clip on — the drop commits THIS, not a
+   *  re-resolution from the pointerup coords, so boundary jitter between the
+   *  last move and the release can't flip the outcome. */
+  lastTargetTrackId: string | null;
 }
 
 interface Options {
   timeline: StudioTimeline;
   pxPerSecond: number;
   snapEnabled: boolean;
+  selectedClipIds: string[];
   getPlayheadSeconds: () => number;
   sourceDurationOf: (clip: StudioClip) => number | undefined;
   lanesRef: React.RefObject<HTMLDivElement | null>;
   trackHeight: number;
   dispatch: React.Dispatch<TimelineAction>;
   onSelect: (clipId: string) => void;
+  onToggleSelect: (clipId: string) => void;
 }
 
 function acceptsClip(track: StudioTrack, clip: StudioClip): boolean {
@@ -45,19 +57,21 @@ export function useClipDrag({
   timeline,
   pxPerSecond,
   snapEnabled,
+  selectedClipIds,
   getPlayheadSeconds,
   sourceDurationOf,
   lanesRef,
   trackHeight,
   dispatch,
   onSelect,
+  onToggleSelect,
 }: Options) {
   const dragRef = useRef<DragState | null>(null);
   const [preview, setPreview] = useState<{ timeline: StudioTimeline; guide: number | null } | null>(
     null,
   );
-  const latestRef = useRef({ timeline, pxPerSecond, snapEnabled });
-  latestRef.current = { timeline, pxPerSecond, snapEnabled };
+  const latestRef = useRef({ timeline, pxPerSecond, snapEnabled, selectedClipIds });
+  latestRef.current = { timeline, pxPerSecond, snapEnabled, selectedClipIds };
 
   const resolveTargetTrack = useCallback(
     (clientY: number, clip: StudioClip, fallbackId: string): string => {
@@ -84,7 +98,16 @@ export function useClipDrag({
         const { seconds, snappedTo } = snap
           ? snapSeconds(raw, drag.snapTargets, pps, origin.duration)
           : { seconds: raw, snappedTo: null };
+        if (drag.groupIds) {
+          // Group move: one shared delta, no track hopping — the group op
+          // clamps everyone against unselected neighbours.
+          return {
+            timeline: moveClips(current, drag.groupIds, seconds - origin.timelineStart),
+            guide: snappedTo,
+          };
+        }
         const trackId = resolveTargetTrack(clientY, origin, drag.originTrackId);
+        drag.lastTargetTrackId = trackId;
         return {
           timeline: moveClip(current, drag.clipId, seconds, trackId),
           guide: snappedTo,
@@ -116,7 +139,20 @@ export function useClipDrag({
     (event: React.PointerEvent, clip: StudioClip, kind: ClipDragKind) => {
       if (event.button !== 0) return;
       event.preventDefault();
-      onSelect(clip.id);
+
+      // Ctrl/⌘/Shift-click edits the selection and never starts a drag.
+      if (event.ctrlKey || event.metaKey || event.shiftKey) {
+        onToggleSelect(clip.id);
+        return;
+      }
+
+      const selection = latestRef.current.selectedClipIds;
+      const inGroup = selection.length > 1 && selection.includes(clip.id);
+      // Grabbing a clip of a multi-selection keeps the group (so it can be
+      // dragged); everything else collapses the selection to this clip.
+      // Trims are single-clip edits by nature.
+      const groupIds = inGroup && kind === 'move' ? [...selection] : null;
+      if (!groupIds) onSelect(clip.id);
 
       const track = latestRef.current.timeline.tracks.find((t) =>
         t.clips.some((c) => c.id === clip.id),
@@ -127,6 +163,7 @@ export function useClipDrag({
         clipId: clip.id,
         kind,
         pointerX: event.clientX,
+        pointerY: event.clientY,
         origin: clip,
         originTrackId: track.id,
         snapTargets: collectSnapTargets(
@@ -135,9 +172,12 @@ export function useClipDrag({
           clip.id,
         ),
         sourceDuration: sourceDurationOf(clip),
+        groupIds,
+        pendingCollapse: groupIds !== null,
+        lastTargetTrackId: null,
       };
     },
-    [getPlayheadSeconds, onSelect, sourceDurationOf],
+    [getPlayheadSeconds, onSelect, onToggleSelect, sourceDurationOf],
   );
 
   useEffect(() => {
@@ -154,8 +194,17 @@ export function useClipDrag({
       setPreview(null);
 
       // A click that never moved just selects — committing it would add an
-      // undo step that changes nothing.
-      if (Math.abs(event.clientX - drag.pointerX) < 2) return;
+      // undo step that changes nothing. On a multi-selection this is the
+      // moment the selection collapses to the clicked clip. Moves must check
+      // BOTH axes: dragging a clip straight down to another lane is a real
+      // move with near-zero horizontal delta. Trims only ever use X.
+      const noMove =
+        Math.abs(event.clientX - drag.pointerX) < 2 &&
+        (drag.kind !== 'move' || Math.abs(event.clientY - drag.pointerY) < 2);
+      if (noMove) {
+        if (drag.pendingCollapse) onSelect(drag.clipId);
+        return;
+      }
 
       const { pxPerSecond: pps, snapEnabled: snap } = latestRef.current;
       const deltaSeconds = (event.clientX - drag.pointerX) / pps;
@@ -166,12 +215,21 @@ export function useClipDrag({
         const seconds = snap
           ? snapSeconds(raw, drag.snapTargets, pps, origin.duration).seconds
           : raw;
-        dispatch({
-          type: 'move',
-          clipId: drag.clipId,
-          seconds,
-          toTrackId: resolveTargetTrack(event.clientY, origin, drag.originTrackId),
-        });
+        if (drag.groupIds) {
+          dispatch({
+            type: 'move-clips',
+            clipIds: drag.groupIds,
+            deltaSeconds: seconds - origin.timelineStart,
+          });
+          return;
+        }
+        const toTrackId =
+          drag.lastTargetTrackId ??
+          resolveTargetTrack(event.clientY, origin, drag.originTrackId);
+        // A purely vertical wobble that resolved back to the same lane and
+        // time is a no-op — don't burn an undo step on it.
+        if (toTrackId === drag.originTrackId && seconds === origin.timelineStart) return;
+        dispatch({ type: 'move', clipId: drag.clipId, seconds, toTrackId });
         return;
       }
 
@@ -195,7 +253,7 @@ export function useClipDrag({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
     };
-  }, [computePreview, dispatch, resolveTargetTrack]);
+  }, [computePreview, dispatch, resolveTargetTrack, onSelect]);
 
   return {
     /** Timeline to render while a drag is in flight (null when idle). */

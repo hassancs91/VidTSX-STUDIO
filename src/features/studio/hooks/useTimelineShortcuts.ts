@@ -9,6 +9,8 @@ interface Options {
   playback: UsePlaybackResult;
   fps: number;
   durationSeconds: number;
+  /** The toolbar's "auto ripple" mode: Delete closes the gap when true. */
+  rippleDelete: boolean;
   onSplit: () => void;
 }
 
@@ -31,6 +33,7 @@ export function useTimelineShortcuts({
   playback,
   fps,
   durationSeconds,
+  rippleDelete,
   onSplit,
 }: Options): void {
   useEffect(() => {
@@ -47,6 +50,12 @@ export function useTimelineShortcuts({
         } else if (key === 'y') {
           event.preventDefault();
           tl.redo();
+        } else if (key === 'a') {
+          event.preventDefault();
+          tl.selectMany(
+            tl.timeline.tracks.flatMap((t) => t.clips.map((c) => c.id)),
+            false,
+          );
         }
         return;
       }
@@ -63,14 +72,19 @@ export function useTimelineShortcuts({
           onSplit();
           break;
         case 'Delete':
-          if (!tl.selectedClipId) break;
+          if (tl.selectedClipIds.length === 0) break;
           event.preventDefault();
-          tl.remove(tl.selectedClipId, true);
+          tl.removeSelected(rippleDelete);
           break;
         case 'Backspace':
-          if (!tl.selectedClipId) break;
+          if (tl.selectedClipIds.length === 0) break;
           event.preventDefault();
-          tl.remove(tl.selectedClipId, false);
+          tl.removeSelected(false);
+          break;
+        case 'Escape':
+          if (tl.selectedClipIds.length === 0) break;
+          event.preventDefault();
+          tl.select(null);
           break;
         case 'ArrowLeft':
           event.preventDefault();
@@ -95,5 +109,5 @@ export function useTimelineShortcuts({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [containerRef, tl, playback, fps, durationSeconds, onSplit]);
+  }, [containerRef, tl, playback, fps, durationSeconds, rippleDelete, onSplit]);
 }

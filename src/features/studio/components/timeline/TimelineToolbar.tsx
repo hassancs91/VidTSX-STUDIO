@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  FoldHorizontal,
   Magnet,
   Redo2,
   Scissors,
@@ -19,12 +20,14 @@ interface Props {
   canRedo: boolean;
   hasSelection: boolean;
   snapEnabled: boolean;
+  rippleEnabled: boolean;
   canZoomIn: boolean;
   canZoomOut: boolean;
   onUndo: () => void;
   onRedo: () => void;
   onSplit: () => void;
-  onRippleDelete: () => void;
+  onDelete: () => void;
+  onToggleRipple: () => void;
   onToggleSnap: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -38,12 +41,14 @@ export function TimelineToolbar({
   canRedo,
   hasSelection,
   snapEnabled,
+  rippleEnabled,
   canZoomIn,
   canZoomOut,
   onUndo,
   onRedo,
   onSplit,
-  onRippleDelete,
+  onDelete,
+  onToggleRipple,
   onToggleSnap,
   onZoomIn,
   onZoomOut,
@@ -73,11 +78,22 @@ export function TimelineToolbar({
         <Scissors size={13} strokeWidth={1.5} />
       </ToolButton>
       <ToolButton
-        label="Ripple delete — remove and close the gap (Delete)"
-        onClick={onRippleDelete}
+        label={
+          rippleEnabled
+            ? 'Delete and close the gap (Delete)'
+            : 'Delete, leaving the gap (Delete)'
+        }
+        onClick={onDelete}
         disabled={!hasSelection}
       >
         <Trash2 size={13} strokeWidth={1.5} />
+      </ToolButton>
+      <ToolButton
+        label="Auto ripple — deleting closes the gap (Backspace always leaves it)"
+        onClick={onToggleRipple}
+        active={rippleEnabled}
+      >
+        <FoldHorizontal size={13} strokeWidth={1.5} />
       </ToolButton>
 
       <div className="flex-1" />

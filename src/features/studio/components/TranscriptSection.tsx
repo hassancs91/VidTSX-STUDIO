@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
 import { DEFAULT_STT_MODEL, sttEntriesWithTimestamps } from '@shared/presets/stt-models';
-import type { CutPlanStyleName, StudioCutPlan } from '@shared/types/studio-cut-plan';
+import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioMediaAsset } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
-import { formatDuration } from '../services/format-time';
+import type { AutoCutPhase } from '../hooks/useAutoCut';
 
 interface Props {
   projectId: string;
@@ -16,26 +16,38 @@ interface Props {
   onTranscribe: (asset: StudioMediaAsset, sttModelId: string) => void;
   onCancel: (assetId: string) => void;
   progress: TranscribeProgress | null;
+  onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
+  autoCutPhase: AutoCutPhase;
+  /** True while a proposal is open — Auto Cut waits for that review to close. */
+  reviewOpen: boolean;
 }
 
 /**
  * Inspector panel for one asset's transcript: transcribe/cancel with the
  * project's STT model, state + capability readout once it lands, and the
- * mechanical auto-cut planner whose JSON the user inspects BEFORE anything
- * touches the timeline (S3 step 3 turns these into reviewable proposals).
+ * Auto Cut entry point. Auto Cut chains transcribe → plan → proposal, so it
+ * works in one click even on a never-transcribed asset.
  */
 export function TranscriptSection({
-  projectId,
+  projectId: _projectId,
   asset,
   sttModelId,
   onSttModelChange,
   onTranscribe,
   onCancel,
   progress,
+  onAutoCut,
+  autoCutPhase,
+  reviewOpen,
 }: Props) {
   const transcript = asset.transcript;
   const modelId = sttModelId ?? DEFAULT_STT_MODEL;
-  const modelOptions = sttEntriesWithTimestamps().map((m) => ({ value: m.id, label: m.name }));
+  const modelOptions = sttEntriesWithTimestamps().map((m) => ({
+    value: m.id,
+    // The editorial cutting pass needs verbatim words with measured times —
+    // AssemblyAI is the engine that delivers both.
+    label: m.provider === 'assemblyai' ? `${m.name} · best for auto-cut` : m.name,
+  }));
 
   if (asset.kind === 'image' || !asset.probe.hasAudio) {
     return (
@@ -50,6 +62,7 @@ export function TranscriptSection({
       <div className="flex flex-col gap-2">
         <div className="text-[11px] text-text-secondary">
           Transcribing… {progress ? `${progress.percent}%` : ''}
+          {autoCutPhase === 'transcribing' ? ' (Auto Cut will run when this lands)' : ''}
         </div>
         {progress?.message && (
           <div className="text-[10px] text-text-dim truncate">{progress.message}</div>
@@ -66,7 +79,7 @@ export function TranscriptSection({
   return (
     <div className="flex flex-col gap-2">
       {transcript?.status === 'ready' ? (
-        <TranscriptReadout asset={asset} projectId={projectId} />
+        <TranscriptReadout asset={asset} />
       ) : (
         <>
           {transcript?.status === 'error' && (
@@ -95,11 +108,18 @@ export function TranscriptSection({
           </Button>
         </div>
       )}
+      <AutoCutRunner
+        asset={asset}
+        onAutoCut={onAutoCut}
+        phase={autoCutPhase}
+        reviewOpen={reviewOpen}
+        needsTranscript={transcript?.status !== 'ready'}
+      />
     </div>
   );
 }
 
-function TranscriptReadout({ asset, projectId }: { asset: StudioMediaAsset; projectId: string }) {
+function TranscriptReadout({ asset }: { asset: StudioMediaAsset }) {
   const t = asset.transcript;
   if (!t) return null;
   const timing = t.features
@@ -122,42 +142,36 @@ function TranscriptReadout({ asset, projectId }: { asset: StudioMediaAsset; proj
         {t.language ? ` · ${t.language}` : ''}
         {t.features && !t.features.verbatimDisfluencies ? ' · fillers tidied by the engine' : ''}
       </div>
-      <CutPlanRunner projectId={projectId} asset={asset} />
     </div>
   );
 }
 
-function CutPlanRunner({ projectId, asset }: { projectId: string; asset: StudioMediaAsset }) {
+/**
+ * The Auto Cut entry point. Runs the mechanical planner and opens the
+ * proposal review — via a transcription first when the asset has none.
+ */
+function AutoCutRunner({
+  asset,
+  onAutoCut,
+  phase,
+  reviewOpen,
+  needsTranscript,
+}: {
+  asset: StudioMediaAsset;
+  onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
+  phase: AutoCutPhase;
+  reviewOpen: boolean;
+  needsTranscript: boolean;
+}) {
   const [style, setStyle] = useState<CutPlanStyleName>('tight');
-  const [running, setRunning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [plan, setPlan] = useState<StudioCutPlan | null>(null);
-  const [planPath, setPlanPath] = useState<string | null>(null);
-
-  const run = async () => {
-    setRunning(true);
-    setError(null);
-    try {
-      const res = await window.api.studioCutPlanRun({
-        projectId,
-        assetId: asset.id,
-        sourcePath: asset.path,
-        style,
-      });
-      if (!res.success || !res.plan) {
-        setError(res.error ?? 'Failed to plan cuts');
-        return;
-      }
-      setPlan(res.plan);
-      setPlanPath(res.planPath ?? null);
-    } finally {
-      setRunning(false);
-    }
-  };
+  const busy = phase !== 'idle';
 
   return (
-    <div className="flex flex-col gap-2 pt-1" style={{ borderTop: '0.5px solid var(--color-border)' }}>
-      <span className="text-[10px] uppercase tracking-wider text-text-muted">Auto-cut plan</span>
+    <div
+      className="flex flex-col gap-2 pt-1"
+      style={{ borderTop: '0.5px solid var(--color-border)' }}
+    >
+      <span className="text-[10px] uppercase tracking-wider text-text-muted">Auto Cut</span>
       <div className="flex items-center gap-2">
         <div className="flex-1">
           <Select
@@ -169,34 +183,31 @@ function CutPlanRunner({ projectId, asset }: { projectId: string; asset: StudioM
             ]}
           />
         </div>
-        <Button variant="primary" size="sm" onClick={() => void run()} disabled={running}>
-          {running ? 'Planning…' : 'Plan cuts'}
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => onAutoCut(asset, style)}
+          disabled={busy || reviewOpen}
+          title={
+            reviewOpen
+              ? 'Apply or reject the open cut proposal first'
+              : 'Find silence cuts and open them for review — nothing is applied until you say so'
+          }
+        >
+          {phase === 'transcribing'
+            ? 'Transcribing…'
+            : phase === 'planning'
+              ? 'Planning…'
+              : 'Auto Cut'}
         </Button>
       </div>
-      {error && <div className="text-[10px] text-accent-red">{error}</div>}
-      {plan && (
-        <div className="flex flex-col gap-1 text-[10px] text-text-dim">
-          <div className="text-[11px] text-text-secondary">
-            Keeps {plan.stats.atomCount} segments · {formatDuration(plan.stats.keptDuration)} of{' '}
-            {formatDuration(plan.stats.sourceDuration)} ({formatDuration(plan.stats.removedDuration)}{' '}
-            removed)
-          </div>
-          <div>
-            {plan.stats.internalPauseCount} pauses compressed · noise floor{' '}
-            {plan.stats.noiseFloorDb.toFixed(1)} dB
-          </div>
-          {plan.qaNotes.map((note, i) => (
-            <div key={i} className="text-amber-500/90 leading-snug">
-              {note}
-            </div>
-          ))}
-          {planPath && (
-            <div className="break-all text-text-ghost" title="Full plan JSON — nothing was applied to the timeline">
-              {planPath}
-            </div>
-          )}
-        </div>
-      )}
+      <p className="text-[10px] text-text-dim leading-snug">
+        {reviewOpen
+          ? 'A cut proposal is open on the timeline — finish that review first.'
+          : needsTranscript
+            ? 'Transcribes with the engine above, then proposes cuts for review.'
+            : 'Proposes cuts on the timeline for review — nothing is cut until you apply.'}
+      </p>
     </div>
   );
 }

@@ -1,5 +1,4 @@
-import { Eye, EyeOff, Lock, Volume2, VolumeX } from 'lucide-react';
-import type { StudioClip, StudioTimeline, StudioTrack } from '../../types';
+import type { StudioClip, StudioTimeline } from '../../types';
 import { clipEndTime } from '../../services/timeline-ops';
 import { TRACK_HEIGHT } from '../../services/timeline-view';
 import { TimelineClip, type ClipDragKind, type ClipWaveformData } from './TimelineClip';
@@ -7,7 +6,7 @@ import { TimelineClip, type ClipDragKind, type ClipWaveformData } from './Timeli
 interface Props {
   timeline: StudioTimeline;
   pxPerSecond: number;
-  selectedClipId: string | null;
+  selectedClipIds: string[];
   /** Seconds range worth drawing — clips outside it are skipped entirely. */
   visibleFrom: number;
   visibleTo: number;
@@ -15,22 +14,24 @@ interface Props {
   getThumbnail: (assetId: string) => string | null;
   getWaveform: (assetId: string) => ClipWaveformData | null;
   onClipPointerDown: (event: React.PointerEvent, clip: StudioClip, kind: ClipDragKind) => void;
-  onDeselect: () => void;
+  /** Press on empty lane space — starts the marquee (click = deselect). */
+  onLanePointerDown: (event: React.PointerEvent) => void;
 }
 
 /** The track lanes and their clips. */
 export function TimelineLanes({
   timeline,
   pxPerSecond,
-  selectedClipId,
+  selectedClipIds,
   visibleFrom,
   visibleTo,
   labelFor,
   getThumbnail,
   getWaveform,
   onClipPointerDown,
-  onDeselect,
+  onLanePointerDown,
 }: Props) {
+  const selected = new Set(selectedClipIds);
   return (
     <>
       {timeline.tracks.map((track) => (
@@ -43,7 +44,7 @@ export function TimelineLanes({
             backgroundColor: track.kind === 'audio' ? 'rgba(0,0,0,0.18)' : 'transparent',
           }}
           onPointerDown={(e) => {
-            if (e.target === e.currentTarget) onDeselect();
+            if (e.target === e.currentTarget) onLanePointerDown(e);
           }}
         >
           {track.clips
@@ -55,7 +56,7 @@ export function TimelineLanes({
                 label={labelFor(clip)}
                 pxPerSecond={pxPerSecond}
                 heightPx={TRACK_HEIGHT}
-                selected={clip.id === selectedClipId}
+                selected={selected.has(clip.id)}
                 thumbnail={clip.assetId ? getThumbnail(clip.assetId) : null}
                 waveform={clip.assetId ? getWaveform(clip.assetId) : null}
                 onPointerDown={onClipPointerDown}
@@ -64,25 +65,5 @@ export function TimelineLanes({
         </div>
       ))}
     </>
-  );
-}
-
-/** Fixed left column: one header per lane, aligned with the lanes above. */
-export function TrackHeader({ track }: { track: StudioTrack }) {
-  const MutedIcon = track.muted ? VolumeX : Volume2;
-  const HiddenIcon = track.hidden ? EyeOff : Eye;
-  return (
-    <div
-      className="flex items-center gap-1 px-2"
-      style={{ height: TRACK_HEIGHT, borderBottom: '0.5px solid var(--color-border)' }}
-    >
-      <span className="text-[10px] font-medium text-text-muted flex-1 truncate">{track.name}</span>
-      {track.locked && <Lock size={10} strokeWidth={1.5} className="text-text-ghost" />}
-      {track.kind === 'audio' ? (
-        <MutedIcon size={11} strokeWidth={1.5} className="text-text-ghost" />
-      ) : (
-        <HiddenIcon size={11} strokeWidth={1.5} className="text-text-ghost" />
-      )}
-    </div>
   );
 }

@@ -155,6 +155,8 @@ export interface StudioProposalItem {
   text?: string;
   /** The agent's reasoning, shown in the review UI. */
   note?: string;
+  /** True once the user has dragged this span's edges — provenance stays honest. */
+  adjusted?: boolean;
 }
 
 export interface StudioProposal {

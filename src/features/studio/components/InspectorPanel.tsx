@@ -2,9 +2,14 @@ import { useEffect, useState } from 'react';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
+import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioMediaAsset, StudioProject } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
+import type { AutoCutPhase } from '../hooks/useAutoCut';
 import { TranscriptSection } from './TranscriptSection';
+import { ReviewCutsSection } from './ReviewCutsSection';
+
+type ReviewProps = Omit<React.ComponentProps<typeof ReviewCutsSection>, never>;
 
 interface Props {
   project: StudioProject;
@@ -13,6 +18,10 @@ interface Props {
   onTranscribe: (asset: StudioMediaAsset, sttModelId: string) => void;
   onCancelTranscribe: (assetId: string) => void;
   getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
+  onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
+  autoCutPhase: AutoCutPhase;
+  /** Present while a cut proposal is open — renders the review list on top. */
+  review: ReviewProps | null;
 }
 
 export function InspectorPanel({
@@ -22,6 +31,9 @@ export function InspectorPanel({
   onTranscribe,
   onCancelTranscribe,
   getTranscribeProgress,
+  onAutoCut,
+  autoCutPhase,
+  review,
 }: Props) {
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
 
@@ -37,7 +49,14 @@ export function InspectorPanel({
   ];
 
   return (
-    <div className="flex flex-col gap-4 p-3 overflow-y-auto">
+    <div className="h-full flex flex-col gap-4 p-3 overflow-y-auto">
+      {review && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Review cuts</SectionLabel>
+          <ReviewCutsSection {...review} />
+        </section>
+      )}
+
       <section className="flex flex-col gap-2">
         <SectionLabel>Project</SectionLabel>
         <Field label="Name">
@@ -79,6 +98,9 @@ export function InspectorPanel({
             onTranscribe={onTranscribe}
             onCancel={onCancelTranscribe}
             progress={getTranscribeProgress(selectedAsset.id)}
+            onAutoCut={onAutoCut}
+            autoCutPhase={autoCutPhase}
+            reviewOpen={review !== null}
           />
         </section>
       )}
