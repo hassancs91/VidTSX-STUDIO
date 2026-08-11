@@ -39,6 +39,162 @@ render click-through still pending**
 - Known gap: ffmpeg-based queue thumbnails can't decode .webp output (no
   libwebp in the stripped binary) — thumbnail is skipped gracefully.
 
+### Studio — ripple-delete toggle + track management (2026-08-11)
+**Status: COMPLETE — unit-tested (11 new tests, 284 total) + driven live via CDP**
+
+The two queued follow-ups before resuming the S3 agent pass.
+
+- [x] **Auto-ripple toggle** (`TimelinePanel.rippleEnabled`, persisted like
+  `snapEnabled` as component state, default ON). Governs the Delete key and the
+  toolbar delete button for single AND batch deletes; the button's tooltip
+  says which mode is live ("Delete and close the gap" / "Delete, leaving the
+  gap"). Backspace stays the explicit leave-the-gap delete in either mode.
+- [x] **Track management.** Pure ops in `services/track-ops.ts` (identity-on-
+  reject): add (visual tracks insert on TOP because tracks[0] paints in front;
+  audio appends), rename, reorder, delete (locked/last-track reject), flag
+  toggles — all undoable reducer actions in `useTimeline`.
+- [x] **Interactive `TrackHeader`** (own file now): click chooses the track,
+  double-click renames inline, lock + mute/hide icons are buttons, right-click
+  opens a renderer-built `FloatingMenu` (NOT the native menu — no IPC, CDP-
+  drivable) with Rename / Move up / Move down / Delete. "+ Track" button in
+  the header column's top cell adds video/overlay/audio.
+- [x] **Chosen-track pool adds**: `trackForAsset` gained a `preferredTrackId` —
+  the selected track wins when compatible (audio↔audio lanes, visual↔non-audio),
+  else the old first-compatible fallback. `useTimeline.selectedTrackId` is
+  pruned when its track leaves the document.
+- [x] Header column now follows the lanes' vertical scroll (translateY from the
+  scroll viewport) — first time track count is user-controlled, so >3 tracks
+  scroll; the ruler was already sticky.
+- Verified live on the autocut-test project: ripple ON delete closed the full
+  span (later clips slid exactly its width) and OFF left every later clip in
+  place, undo restored both; O1/A2 landed top/bottom; chosen-track add put the
+  clip on selected O1 instead of V1; rename → B-roll; lock/mute/hide labels
+  flip; locked track's menu disables Delete; Move down + Delete + full undo
+  chain returned exactly to baseline (V1/A1, 13 clips, flags cleared).
+- Mid-session note: work briefly interleaved with a `git stash -u` of the
+  whole tree; everything was restored from stash@{0} (EditorShell.tsx had to be
+  checked out from the stash explicitly). The stash entry still exists and is
+  safe to drop once confirmed.
+- **User-reported bug fixed same day: vertical clip drags "sometimes snapped
+  back" to the original track.** Two causes in `useClipDrag`: (1) the
+  click-vs-drag test on release checked ONLY horizontal movement, so a clip
+  dragged straight down/up to another lane with <2 px of X drift was discarded
+  as "a click that never moved"; (2) the drop re-resolved the target lane from
+  the pointerup coords instead of committing what the preview last showed, so
+  boundary jitter could flip the outcome. Now: moves use a 2 px box on both
+  axes (trims stay X-only), the drop commits the preview's lane
+  (`lastTargetTrackId`), and a wobble that resolves back to the identical
+  lane+time skips the dispatch instead of burning a no-op undo step. Verified
+  live via CDP with a synthetic dx=0 drag: clip hopped V2 → lane above, undo
+  restored it (previously this exact gesture always snapped back).
+
+### Studio — timeline multi-select & batch editing (2026-08-11)
+**Status: COMPLETE — unit-tested (11 new tests) + driven live via CDP**
+
+User-requested during S3.3 testing (the request surfaced after fixing native
+drag-selection painting over the timeline — `select-none` on the panel root).
+
+- [x] Selection is now a SET (`useTimeline.selectedClipIds`; `selectedClipId`
+  stays as the derived single selection for split/trim logic). Ctrl/⌘/Shift-
+  click toggles membership; plain click collapses; clicking a clip of a
+  multi-selection keeps the group so it can be dragged, and collapses on
+  release only if the pointer never moved (CapCut semantics). Stale ids are
+  pruned whenever clips leave the document (delete/undo/apply-proposal).
+- [x] `services/timeline-group-ops.ts` (pure, same identity-on-reject contract):
+  `moveClips` — one shared delta, relative positions preserved, clamped so no
+  member collides with an unselected neighbour or crosses zero (boxed-in =
+  reject), locked tracks reject; `removeClips` — batch delete with per-track
+  ripple that closes the FULL removed span; `clipsInRect` — marquee hit-test.
+- [x] Marquee drag-select (`useMarqueeSelect`): press empty lane space and drag
+  a dashed rectangle; every clip it touches joins the selection (Ctrl/Shift =
+  additive); a motionless press keeps the old deselect-click behaviour.
+- [x] Group drag rides the existing scratch-document preview (`useClipDrag`
+  gains a group mode — same snapping, no track hopping) and commits as ONE
+  `move-clips` undo step. Batch delete: Delete = ripple, Backspace = plain,
+  toolbar ripple-delete button now deletes the whole selection. New keys:
+  Ctrl+A select all, Escape clear selection.
+- Verified live: ctrl-click 2 clips → group-drag both +2 s (others untouched)
+  → undo restores; marquee across 3 clips from the empty A1 lane; Delete
+  removes all 3 with ripple; undo restores; empty-lane click clears.
+
+### Studio (AI video editor) — Phase S3 step 3: cut proposals + review on the timeline (2026-08-11)
+**Status: COMPLETE — verified live via CDP with a real AssemblyAI transcription**
+
+Live walkthrough (same session, new machine): seeded 40 s TTS recording with known
+pauses → one-click Auto Cut (chained AssemblyAI transcription, 69 words, measured
+timestamps) → 12 cuts proposed (−14.0 s, the 3.5 s SSML break found as a 3.8 s
+dead-air item) → rejected one item ("Apply 11 cuts" / grey region) → Apply split
+the clip into 12 contiguous pieces with the stats toast → ONE Ctrl+Z restored the
+full review (12 regions, proposal back to `proposed`). Two real bugs found live
+and fixed:
+- **AssemblyAI deprecated `speech_model`** (API change since S3.1): provider now
+  sends `speech_models` — legacy 'universal' maps to the API's own default pair
+  `['universal-3-5-pro','universal-2']`, other ids pass through.
+- **useAutoCut chained plan never fired**: an asset has NO transcript entry in the
+  document until the first job event, and the watcher read that `undefined` as
+  "cancelled", clearing the pending run instantly. Now `undefined` only counts as
+  cancelled after the job was seen running.
+Note: the seeded TTS clip reports noise floor −120 dB (true digital silence) —
+real recordings will show sane floors. Not exercised live: edge-drag by pointer
+(logic unit-tested; handles render), auditions by ear, export of an applied cut.
+
+User-reported bug fixed same day: **with "Preview result" on, the playhead
+crawled through cut regions** (the Player runs the shorter CUT timeline while
+the panel displays the original, so the line lagged and the video ended early).
+Fixed with `services/preview-mapping.ts` — a piecewise-linear map between the
+two clocks built from the reshaped track's clips (preserved gaps map
+proportionally, cut spans collapse to the join). `TimelinePanel` shims its
+whole playback surface (playhead, clock, ruler seeks, split-at-playhead, zoom
+anchor) into display coordinates while the map is active, so the playhead now
+JUMPS across regions and ruler seeks into a cut land on the join; EditorShell
+auditions keep talking to the raw player clock. 5 unit tests (jump, collapse,
+round-trip).
+
+Design discussion + UI mockups: claude.ai artifact "Auto-Cut Flow" (session 2026-08-11).
+Locked decisions: mechanical (silence) cuts first — the LLM editorial pass (retakes/
+fillers) is the next slice and feeds the SAME review UI; all items start accepted
+(veto-based review); AssemblyAI is the recommended engine (hint in the picker);
+ffmpeg smart-render stays deferred.
+
+- [x] **Proposals live in the undo history.** `useTimeline`'s reducer now snapshots
+  `{timeline, proposals}` (`EditDoc`) so accept/reject/adjust/apply are all undoable
+  and Ctrl+Z after Apply restores BOTH the timeline and the proposal to `proposed`
+  in one step. New actions: `proposal-add / -item-status / -item-span / -apply /
+  -reject`. Pure list edits in `services/proposal-ops.ts` (same identity-on-reject
+  contract as timeline-ops).
+- [x] **Plan → proposal** (`services/cut-proposal.ts`): keep-segments inverted into
+  cut spans (incl. leading/trailing silence), categorized `long_pause` (<2 s) vs
+  `dead_air` (≥2 s), word context in `note` ("…setup. [3.0 s] Now…") and swallowed
+  words in `text`; honest headline + planner QA notes in `agentNote`. Also:
+  source→timeline region mapping and per-item drag bounds (cuts can't overlap).
+- [x] **Apply** (`services/apply-cut-proposal.ts`): accepted spans merged, subtracted
+  from every clip playing the asset, survivors kept contiguous (per-track ripple —
+  music holds timing), sub-frame slivers dropped, reshaped clips tagged
+  `origin: {by:'agent', proposalId}`; first piece keeps its clip id. 19 new unit
+  tests across builder/mapping/apply.
+- [x] **Review UI.** `CutRegionLayer`: striped amber regions over the lanes (grey =
+  rejected), click = select + seek, selected region gets **draggable edge handles**
+  (snap to transcript word boundaries via `useAssetTranscripts` reading the cache
+  JSON over `studioCacheRead`; item marked `adjusted`). `ReviewCutsSection` in the
+  Inspector: stats header with honest before→after (runs the real apply on a
+  scratch doc), QA notes, per-item accept toggles + category/adjusted chips +
+  transcript context, Apply N cuts / Reject all.
+- [x] **Auditions.** Per cut: "Play removed" (original timeline) and "Play join"
+  (±1.5 s with accepted cuts applied — finds the post-ripple join by matching the
+  survivor clip whose `sourceIn` is the cut's end). Global "Preview result"
+  checkbox plays the whole timeline as-if-applied; all built on scratch documents
+  through the same `applyCutProposal`, so preview is exactly what commits.
+- [x] **One-click Auto Cut** (`useAutoCut` + `TranscriptSection`): transcribes first
+  when needed (chains on the transcript-ready document event), then plans, builds
+  the proposal, selects the first cut. Engine picker labels AssemblyAI entries
+  "best for auto-cut". Button disabled while a proposal is open (one review at a
+  time).
+- New machine setup fixed en route: committed `.npmrc` with `legacy-peer-deps=true`
+  (react-simple-maps@3 peer range vs React 19 — fresh clones couldn't install).
+- Pending: live CDP walkthrough (auto-cut → drag an edge → veto → apply → undo →
+  redo → export) on the S3.1 test recording; StudioProposalItem gained optional
+  `adjusted` flag (schema v1 unchanged — additive).
+
 ### Studio (AI video editor) — Phase S3 steps 1–2: transcription + cut planner (2026-08-08)
 **Status: COMPLETE — verified end-to-end via CDP (transcribe → cancel → re-transcribe → plan JSON)**
 

@@ -86,7 +86,14 @@ Downloads restore as `paused` (`download-engine.ts:74-78`) — already correct.
 
 ## Phase A — Env-driven feature flags + hide pages/tabs (items 2, 3, 4)
 
-> **STATUS: code complete (2026-08-11).** Implemented: `.env.example`, `src/shared/env.d.ts`
+> **STATUS: DONE — verified & committed as `479fe4c` (2026-08-11).** Acceptance verified
+> live: dev server injects no VITE_FF_* keys with an empty .env (all gated surfaces
+> hidden), and a production build with VITE_FF_TOOLS=1 inlines `tools: "1"` into the
+> renderer bundle (flag flips the feature on). Full-UI click-through was blocked by the
+> single-instance lock (another dev instance was running) — the running app picks the
+> same code up via HMR.
+>
+> Original implementation notes: Implemented: `.env.example`, `src/shared/env.d.ts`
 > (typed `VITE_FF_*` + `ImportMeta.env` for the check configs), rewritten
 > `feature-flags.ts` (ENV_GATED map, no blanket DEV=on), `AiModelsTab.tsx` filters gated
 > sub-tabs out of the tab bar, `App.tsx` guards `vidtsx:navigate` against hidden screens.
@@ -94,7 +101,7 @@ Downloads restore as `paused` (`download-engine.ts:74-78`) — already correct.
 > **Remaining:** manual dev-run acceptance check (empty `.env` → hidden; `VITE_FF_TOOLS=1`
 > → Tools back) — deferred because a parallel session was using the working tree.
 > Note: real script names are `check:types` (no lint script); CLAUDE.md's `type-check`/`lint`
-> are stale.
+> are stale. `.gitignore` got a `!src/shared/env.d.ts` exception (src/**/*.d.ts is ignored).
 
 **Outcome:** Tools, Flows, Videos (video-studio), and the AI sub-tabs Video / LLMs / 3D /
 Embeddings are hidden in ALL builds (including dev) unless explicitly enabled via `.env`.
