@@ -1,6 +1,11 @@
 // ─── Render operations ───
 // Render operations
-export type RenderCodec = 'h264' | 'h265' | 'vp8' | 'vp9' | 'gif' | 'prores';
+// 'webp' renders an animated WebP via the frame-sequence pipeline in
+// src/main/services/webp/ (no Remotion codec exists for it). For that codec
+// only, `crf` carries the WebP quality 1–100 (higher = better, 100 =
+// lossless) instead of an ffmpeg CRF — reusing the field keeps the queue DB
+// schema and IPC contracts unchanged.
+export type RenderCodec = 'h264' | 'h265' | 'vp8' | 'vp9' | 'gif' | 'prores' | 'webp';
 
 // Maps to Chromium's --use-gl flag, passed via Remotion's chromiumOptions.gl.
 // Software backends (swangle/swiftshader) work everywhere; GPU backends

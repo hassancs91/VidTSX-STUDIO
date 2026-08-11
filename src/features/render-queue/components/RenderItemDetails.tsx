@@ -112,7 +112,13 @@ export function RenderItemDetails({ job }: RenderItemDetailsProps) {
         <DetailRow label="CPU usage" value={cpuUsageLabel(job.cpuUsage)} />
         <DetailRow
           label="Quality"
-          value={job.codec === 'prores' ? 'ProRes 4444' : job.crf != null ? `CRF ${job.crf}` : '—'}
+          value={
+            job.codec === 'prores'
+              ? 'ProRes 4444'
+              : job.codec === 'webp'
+                ? (job.crf != null ? `Quality ${job.crf}` : '—')
+                : job.crf != null ? `CRF ${job.crf}` : '—'
+          }
         />
         <DetailRow label="FPS" value={`${job.fps}`} />
         <DetailRow label="Scale" value={scale === 1 ? '1×' : `${scale.toFixed(2)}×`} />

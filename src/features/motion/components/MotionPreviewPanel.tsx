@@ -547,6 +547,14 @@ export function MotionPreviewPanel({
                         src={renderedVideoSrc}
                         className="w-full h-full"
                       />
+                    ) : selectedRenderedJob.codec === 'webp' ? (
+                      // Chromium plays animated WebP natively in an <img>.
+                      <img
+                        key={renderedVideoSrc}
+                        src={renderedVideoSrc}
+                        className="max-w-full max-h-full object-contain"
+                        alt="Rendered animated WebP"
+                      />
                     ) : selectedRenderedJob.codec === 'prores' ? (
                       <div className="flex flex-col items-center justify-center text-center px-6 py-8 max-w-[420px]">
                         <svg

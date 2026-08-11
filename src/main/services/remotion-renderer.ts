@@ -2,6 +2,8 @@ import { renderMedia, makeCancelSignal, selectComposition } from '@remotion/rend
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import { getRemotionBinariesDir } from '../utils/paths';
+import { snapRenderScale } from '../../shared/render-scale';
+import { renderAnimatedWebp } from './webp/webp-render';
 import type {
   RenderCodec,
   RenderGpuBackend,
@@ -59,8 +61,12 @@ interface ActiveRender {
 // Active render jobs
 const activeRenders = new Map<string, ActiveRender>();
 
-// Map our codec types to Remotion codec types
+// Map our codec types to Remotion codec types. 'webp' never reaches this —
+// it branches into the frame-sequence pipeline before renderMedia is called.
 function mapCodec(codec: RenderCodec): 'h264' | 'h265' | 'vp8' | 'vp9' | 'gif' | 'prores' {
+  if (codec === 'webp') {
+    throw new Error('webp renders do not go through renderMedia');
+  }
   return codec;
 }
 
@@ -180,22 +186,80 @@ export async function renderComposition(
       return info.args;
     };
 
-    // Snap scaled dimensions to even integers — Remotion's stitchFramesToVideo
-    // rejects fractional widths (e.g. 1920 × 0.4444 = 853.33 for a 480p preset)
-    // and h264/h265 require even dims for yuv420p chroma subsampling. When the
-    // requested scale produces fractional output we materialize even-integer
-    // composition dims and reset scale to 1. For scale=1 we keep the originals
-    // untouched so the render is a perfect 1:1.
+    // Remotion's stitchFramesToVideo rejects fractional output widths (e.g.
+    // 1920 × 0.4444 = 853.33 for a 480p preset) and h264/h265 require even
+    // dims for yuv420p chroma subsampling. Downscaling must stay on the
+    // `scale` option (Chromium deviceScaleFactor — the page lays out at the
+    // composition's real size, only the bitmap is resized): materializing
+    // smaller composition dims at scale 1 re-lays-out the content, so
+    // anything sized in absolute pixels renders oversized and cropped. So
+    // snap the SCALE to the nearest value giving exact even-integer dims.
+    // Only when no such scale exists near the request (near-coprime
+    // composition dims) fall back to materializing dims — a distorted render
+    // for pixel-sized content beats a crashed one. scale=1 stays untouched
+    // so those renders are a perfect 1:1.
     const requestedScale = options.scale ?? 1;
-    const roundEven = (n: number) => Math.max(2, Math.round(n / 2) * 2);
-    const needsSnap = requestedScale !== 1
-      && (Math.round(width * requestedScale) !== width * requestedScale
-        || Math.round(height * requestedScale) !== height * requestedScale
-        || (width * requestedScale) % 2 !== 0
-        || (height * requestedScale) % 2 !== 0);
-    const renderWidth = needsSnap ? roundEven(width * requestedScale) : width;
-    const renderHeight = needsSnap ? roundEven(height * requestedScale) : height;
-    const effectiveScale = needsSnap ? 1 : requestedScale;
+    let renderWidth = width;
+    let renderHeight = height;
+    let effectiveScale = requestedScale;
+    if (requestedScale !== 1) {
+      const snapped = snapRenderScale(width, height, requestedScale);
+      if (snapped) {
+        effectiveScale = snapped.scale;
+      } else {
+        const roundEven = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+        renderWidth = roundEven(width * requestedScale);
+        renderHeight = roundEven(height * requestedScale);
+        effectiveScale = 1;
+        console.warn(
+          `[RemotionRenderer] No even-integer scale near ${requestedScale} for ${width}x${height} — ` +
+          `rendering at materialized ${renderWidth}x${renderHeight}; pixel-sized content will not scale`
+        );
+      }
+    }
+
+    // Animated WebP has no Remotion codec — render a PNG sequence and
+    // encode/mux it in the webp pipeline instead of calling renderMedia.
+    if (options.codec === 'webp') {
+      await renderAnimatedWebp(
+        {
+          bundleUrl: options.bundleUrl,
+          compositionId: options.compositionId,
+          outputPath: options.outputPath,
+          width: renderWidth,
+          height: renderHeight,
+          fps,
+          durationInFrames: totalFrames,
+          scale: effectiveScale,
+          everyNthFrame: options.everyNthFrame ?? 1,
+          loopCount: options.numberOfGifLoops ?? 0,
+          // For webp, `crf` carries the 1-100 quality (100 = lossless).
+          quality: options.crf ?? 90,
+          transparent: options.transparent === true,
+          inputProps: options.inputProps ?? {},
+          concurrency: options.cpuUsage ?? null,
+          gpuBackend: options.gpuBackend,
+          timeoutInMilliseconds: PER_FRAME_TIMEOUT_MS,
+          cancelSignal,
+        },
+        ({ stage, framesDone, totalFrames: stageTotal }) => {
+          // Frame rendering dominates wall-clock; encode+mux gets the tail.
+          const percent =
+            stage === 'render'
+              ? Math.round((framesDone / stageTotal) * 80)
+              : 80 + Math.round((framesDone / stageTotal) * 20);
+          activeRender.progress = percent;
+          onProgress({
+            jobId,
+            phase: 'rendering',
+            percent,
+            framesRendered: framesDone,
+            totalFrames: stageTotal,
+          });
+        }
+      );
+      return;
+    }
 
     await renderMedia({
       serveUrl: options.bundleUrl,

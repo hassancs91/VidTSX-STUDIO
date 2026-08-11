@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal, Button } from '@shared/components';
 import type { RenderCodec, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
+import { snapRenderScale } from '@shared/render-scale';
 
 export interface RenderSettings {
   codec: RenderCodec;
@@ -33,6 +34,7 @@ const FORMAT_OPTIONS = [
   { value: 'vp9' as RenderCodec, label: 'WebM' },
   { value: 'prores' as RenderCodec, label: 'MOV (ProRes 4444)' },
   { value: 'gif' as RenderCodec, label: 'GIF' },
+  { value: 'webp' as RenderCodec, label: 'WebP (animated)' },
 ];
 
 const QUALITY_OPTIONS = [
@@ -85,6 +87,9 @@ interface ResolutionOption {
   label: string;
   width: number;
   height: number;
+  // Exact scale factor the renderer will apply — snapped so output dims are
+  // even integers (see snapRenderScale). Label dims match this scale.
+  scale: number;
 }
 
 function makeEven(n: number): number {
@@ -112,14 +117,26 @@ function getResolutionPresets(
       label: `Original (${compWidth}\u00d7${compHeight})`,
       width: compWidth,
       height: compHeight,
+      scale: 1,
     },
   ];
 
   for (const p of presets) {
+    const requestedScale = isLandscape
+      ? p.targetHeight / compHeight
+      : p.targetHeight / compWidth;
+
+    // Snap to a scale with exact even-integer output dims so the label shows
+    // what actually renders (e.g. 480p from 1080p lands on 864\u00d7486). When no
+    // nearby scale exists, keep the approximate dims \u2014 the renderer falls
+    // back to materializing them.
+    const snapped = snapRenderScale(compWidth, compHeight, requestedScale);
     let width: number;
     let height: number;
-
-    if (isLandscape) {
+    if (snapped) {
+      width = snapped.width;
+      height = snapped.height;
+    } else if (isLandscape) {
       height = p.targetHeight;
       width = makeEven(p.targetHeight * aspectRatio);
     } else {
@@ -136,6 +153,7 @@ function getResolutionPresets(
       label: `${p.label} (${width}\u00d7${height})`,
       width,
       height,
+      scale: snapped ? snapped.scale : requestedScale,
     });
   }
 
@@ -144,6 +162,23 @@ function getResolutionPresets(
 
 function getCrf(quality: string, codec: RenderCodec): number {
   if (codec === 'gif') return 0;
+
+  // WebP reuses the crf field as canvas encoder quality, 1–100 with higher =
+  // better; 100 selects Chromium's lossless mode (see RenderCodec docs).
+  if (codec === 'webp') {
+    switch (quality) {
+      case 'best':
+        return 100;
+      case 'high':
+        return 90;
+      case 'medium':
+        return 80;
+      case 'low':
+        return 65;
+      default:
+        return 90;
+    }
+  }
 
   const isVp = codec === 'vp8' || codec === 'vp9';
 
@@ -226,9 +261,13 @@ export function RenderSettingsModal({
   const selectedFps = fpsPreset === 'original' ? compositionConfig.fps : Number(fpsPreset);
   const qualityHint = QUALITY_OPTIONS.find((q) => q.value === quality)?.hint ?? '';
   const isGif = codec === 'gif';
+  const isWebp = codec === 'webp';
+  // GIF and animated WebP share the frame-sequence options: no audio track,
+  // loop control, frame skipping, and the auto-downscale default.
+  const isAnimatedImage = isGif || isWebp;
   const isWebm = codec === 'vp8' || codec === 'vp9';
   const isProRes = codec === 'prores';
-  const supportsAlpha = isWebm || isProRes;
+  const supportsAlpha = isWebm || isProRes || isWebp;
 
   // Reset transparency when leaving an alpha-capable codec — the toggle is
   // hidden so its state would otherwise leak into the next render with an
@@ -239,9 +278,9 @@ export function RenderSettingsModal({
     }
   }, [supportsAlpha, transparent]);
 
-  // Auto-downscale when switching to GIF
+  // Auto-downscale when switching to GIF or animated WebP
   useEffect(() => {
-    if (isGif && resolution === 'original') {
+    if (isAnimatedImage && resolution === 'original') {
       const minDim = Math.min(compositionConfig.width, compositionConfig.height);
       const has480p = resolutionOptions.some((r) => r.value === '480p');
       if (minDim > 480 && has480p) {
@@ -249,25 +288,21 @@ export function RenderSettingsModal({
         setAutoDownscaled(true);
       }
     }
-    if (!isGif && autoDownscaled) {
+    if (!isAnimatedImage && autoDownscaled) {
       setAutoDownscaled(false);
     }
-  }, [isGif, resolution, compositionConfig.width, compositionConfig.height, resolutionOptions, autoDownscaled]);
+  }, [isAnimatedImage, resolution, compositionConfig.width, compositionConfig.height, resolutionOptions, autoDownscaled]);
 
   const handleRender = useCallback(() => {
     const crf = getCrf(quality, codec);
-    const everyNthFrame = isGif ? Number(smoothness) : 1;
-    const numberOfGifLoops = isGif
+    const everyNthFrame = isAnimatedImage ? Number(smoothness) : 1;
+    const numberOfGifLoops = isAnimatedImage
       ? (loopPreset === 'forever' ? null : Number(loopPreset))
       : null;
 
-    // Compute scale factor from selected resolution vs original
-    const isLandscape = compositionConfig.width >= compositionConfig.height;
-    const scale = resolution === 'original'
-      ? 1
-      : isLandscape
-        ? selectedResolution.height / compositionConfig.height
-        : selectedResolution.width / compositionConfig.width;
+    // The option carries the exact (snapped) scale its label dims were
+    // computed from — pass it through unchanged.
+    const scale = selectedResolution.scale;
 
     const cpuOption = CPU_USAGE_OPTIONS.find((o) => o.value === cpuUsage) ?? CPU_USAGE_OPTIONS[1];
 
@@ -276,7 +311,7 @@ export function RenderSettingsModal({
       scale,
       fps: selectedFps,
       crf,
-      muted: isGif ? true : !includeAudio,
+      muted: isAnimatedImage ? true : !includeAudio,
       everyNthFrame,
       numberOfGifLoops,
       transparent: supportsAlpha ? transparent : false,
@@ -286,7 +321,7 @@ export function RenderSettingsModal({
     });
 
     onClose();
-  }, [codec, resolution, selectedResolution, selectedFps, quality, includeAudio, isGif, supportsAlpha, transparent, smoothness, loopPreset, cpuUsage, gpuBackend, hardwareAcceleration, compositionConfig, onRender, onClose]);
+  }, [codec, resolution, selectedResolution, selectedFps, quality, includeAudio, isAnimatedImage, supportsAlpha, transparent, smoothness, loopPreset, cpuUsage, gpuBackend, hardwareAcceleration, compositionConfig, onRender, onClose]);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Render Settings">
@@ -372,8 +407,8 @@ export function RenderSettingsModal({
           </div>
         )}
 
-        {/* Include Audio — hidden for GIF */}
-        {!isGif && (
+        {/* Include Audio — hidden for GIF/WebP (no audio track) */}
+        {!isAnimatedImage && (
           <div className="flex items-center justify-between">
             <label className="text-[11px] text-text-muted">Include Audio</label>
             <button
@@ -406,7 +441,7 @@ export function RenderSettingsModal({
           </div>
         )}
 
-        {/* Transparent background — supported by WebM (VP8/VP9) and ProRes 4444 */}
+        {/* Transparent background — supported by WebM (VP8/VP9), ProRes 4444, and animated WebP */}
         {supportsAlpha && (
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
@@ -445,8 +480,8 @@ export function RenderSettingsModal({
           </div>
         )}
 
-        {/* GIF-specific: Smoothness */}
-        {isGif && (
+        {/* GIF/WebP: Smoothness */}
+        {isAnimatedImage && (
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] text-text-muted">Smoothness</label>
             <select
@@ -466,8 +501,8 @@ export function RenderSettingsModal({
           </div>
         )}
 
-        {/* GIF-specific: Loop */}
-        {isGif && (
+        {/* GIF/WebP: Loop */}
+        {isAnimatedImage && (
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] text-text-muted">Loop</label>
             <select

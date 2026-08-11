@@ -9,6 +9,36 @@
 
 ## Completed phases
 
+### Render pipeline — resolution-scale fix + animated WebP export (2026-08-11)
+**Status: COMPLETE — unit-tested (16 new tests) + Electron smoke test; full in-app
+render click-through still pending**
+
+- [x] **Downscaled renders no longer zoom/crop pixel-sized content** (user-
+  reported "GIF gets bigger and cut"). Root cause: fractional scales (e.g.
+  480p from 1080p = 0.4444) were worked around by materializing smaller
+  composition dims at scale 1, which re-lays-out the comp — absolute-pixel
+  content kept its design size inside a smaller canvas. Fix: `snapRenderScale`
+  (`src/shared/render-scale.ts`) picks the nearest scale with exact
+  even-integer output dims (480p → 864×486) so Remotion's deviceScaleFactor
+  path scales the finished bitmap instead; dims-materializing survives only
+  as a logged fallback for near-coprime comp sizes. Modal presets show the
+  snapped dims and pass the exact scale.
+- [x] **WebP export** (`codec: 'webp'`): Remotion has no WebP codec and its
+  bundled ffmpeg ships no libwebp (verified: encoder list has only `gif`,
+  ffprobe can't even decode webp), so `src/main/services/webp/` renders a PNG
+  sequence via `renderFrames`, encodes each frame through Chromium's canvas
+  encoder in a hidden BrowserWindow (tone-extractor pattern; quality 1.0 =
+  lossless VP8L, alpha preserved), and muxes with a hand-rolled pure
+  RIFF/VP8X/ANIM/ANMF muxer (spec-tested; pad bytes, ALPH carry-through,
+  VP8L alpha-bit detection). Zero new dependencies. `crf` is reused as WebP
+  quality 1–100 (documented on `RenderCodec`) so queue DB/IPC are unchanged.
+  Modal: WebP joins the GIF family (auto-480p, smoothness, loop, muted) plus
+  quality presets and the transparency toggle; preview panel plays it in an
+  `<img>`. Smoke-tested in real Electron: lossy-opaque + lossless-alpha
+  files decode in Chromium's decoder at correct dims.
+- Known gap: ffmpeg-based queue thumbnails can't decode .webp output (no
+  libwebp in the stripped binary) — thumbnail is skipped gracefully.
+
 ### Studio (AI video editor) — Phase S3 steps 1–2: transcription + cut planner (2026-08-08)
 **Status: COMPLETE — verified end-to-end via CDP (transcribe → cancel → re-transcribe → plan JSON)**
 

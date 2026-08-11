@@ -32,6 +32,8 @@ export function getExtensionForCodec(codec: RenderCodec): string {
       return 'mov';
     case 'gif':
       return 'gif';
+    case 'webp':
+      return 'webp';
     default:
       return 'mp4';
   }
@@ -52,6 +54,8 @@ export function getFormatLabel(codec: RenderCodec): string {
       return 'MOV';
     case 'gif':
       return 'GIF';
+    case 'webp':
+      return 'WebP';
     default:
       return 'MP4';
   }
