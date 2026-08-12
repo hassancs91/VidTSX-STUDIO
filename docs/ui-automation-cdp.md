@@ -112,6 +112,11 @@ Elements under a `display: none` ancestor report `offsetParent === null`, and th
 active screen's `display: contents` wrapper generates no box of its own, so the
 filter above is both correct and sufficient.
 
+One exception (hit in the Slice C run): `position: fixed` elements ALSO report
+`offsetParent === null`, so the filter hides them even when perfectly visible —
+the timeline's `FloatingMenu` (context menus) is fixed. Query those raw
+(`document.querySelector('[role="menu"]')`).
+
 ## Matching elements by text
 
 Two failure modes, both hit for real:

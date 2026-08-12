@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
 import { clipEndTime, moveClip, trimClip } from '../services/timeline-ops';
+import { updateClip } from '../services/clip-update-ops';
 import { moveClips } from '../services/timeline-group-ops';
 import { collectSnapTargets, snapSeconds } from '../services/snapping';
 import type { TimelineAction } from './useTimeline';
@@ -112,6 +113,16 @@ export function useClipDrag({
           timeline: moveClip(current, drag.clipId, seconds, trackId),
           guide: snappedTo,
         };
+      }
+
+      if (drag.kind === 'fade-in' || drag.kind === 'fade-out') {
+        // Fade handles drag a LENGTH, not an edge — no snapping. The op
+        // clamps to the fade invariant, so the preview shows the real result.
+        const patch =
+          drag.kind === 'fade-in'
+            ? { fadeInSec: (origin.fadeInSec ?? 0) + deltaSeconds }
+            : { fadeOutSec: (origin.fadeOutSec ?? 0) - deltaSeconds };
+        return { timeline: updateClip(current, drag.clipId, patch), guide: null };
       }
 
       const rawEdge =
@@ -230,6 +241,18 @@ export function useClipDrag({
         // time is a no-op — don't burn an undo step on it.
         if (toTrackId === drag.originTrackId && seconds === origin.timelineStart) return;
         dispatch({ type: 'move', clipId: drag.clipId, seconds, toTrackId });
+        return;
+      }
+
+      if (drag.kind === 'fade-in' || drag.kind === 'fade-out') {
+        dispatch({
+          type: 'update-clip',
+          clipId: drag.clipId,
+          patch:
+            drag.kind === 'fade-in'
+              ? { fadeInSec: (origin.fadeInSec ?? 0) + deltaSeconds }
+              : { fadeOutSec: (origin.fadeOutSec ?? 0) - deltaSeconds },
+        });
         return;
       }
 

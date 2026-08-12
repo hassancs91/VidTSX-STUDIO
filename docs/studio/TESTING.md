@@ -155,9 +155,9 @@
 - [x] All edits are single undo steps and persist across relaunch. *(CDP: 3 volume edits = 3 undo steps back to baseline; autosaved project.json restored byte-identical after undoing everything)*
 
 ### 16.2 Audio fades (in/out per clip)
-- [ ] Fade handles on clip corners (and/or Inspector fields) write `fadeIn`/`fadeOut` seconds.
-- [ ] Fade is audible in preview and identical in export; fade can't exceed clip duration; trims clamp existing fades.
-- [ ] Works on video-with-audio clips too, not just audio clips.
+- [x] Fade handles on clip corners (and/or Inspector fields) write `fadeIn`/`fadeOut` seconds. *(2026-08-12 — CDP: inspector fields committed 1 s/1 s; corner-handle drag extended 1 s → 2 s in one undo step; ramp wedges drawn on the clip)*
+- [x] Fade is audible in preview and identical in export; fade can't exceed clip duration; trims clamp existing fades. *(CDP: preview <audio>.volume read 0.5 mid-fade-in, 1.0 centre, 0.5 mid-fade-out; export envelope corr 0.904 vs ramped source (0.732 unramped), edge windows at 2 %/12 % of source level; clamping unit-tested for trim/split/speed — fade-in wins, split keeps the join silent-invariant)*
+- [x] Works on video-with-audio clips too, not just audio clips. *(CDP: fade-in on the video clip → the player <video>.volume ramped 0.5 → 1.0; same volumeProp code path feeds OffthreadVideo and Audio in export)*
 
 ### 16.3 Copy / paste / duplicate
 - [x] Ctrl+C/Ctrl+V pastes the selection at the playhead on the same tracks (or nearest compatible), Ctrl+D duplicates in place after the original. *(2026-08-12 — CDP: paste landed at End playhead selected; Ctrl+D chained right after; undo ×2 → baseline, redo → paste back.)*
@@ -165,9 +165,9 @@
 - [x] Paste across projects is cleanly refused (no half-paste): the clipboard is in-memory in the editor and dies with it — nothing to paste in another project.
 
 ### 16.4 Detach audio + per-clip mute
-- [ ] Right-click a video clip → Detach audio → muted video clip + new linked audio clip on an audio track, sample-aligned (verify by ear against the original).
+- [x] Right-click a video clip → Detach audio → muted video clip + new linked audio clip on an audio track, sample-aligned (verify by ear against the original). *(2026-08-12 — spike proved Remotion `<Audio src={video.mp4}>` in preview AND renderMedia (export envelope corr 0.861 vs the video's exact source span, 0.17 control); CDP: context menu → video Volume 0 % + new A1 clip selected; alignment by construction (same start/sourceIn/duration/speed) checked via envelope correlation)*
 - [x] Per-clip mute toggle silences just that clip in preview + export. *(2026-08-12 — Slice B1 clip inspector: muted clip span −inf in the export WAV while neighbours kept audio; gain 0 via the volume control)*
-- [ ] Undo restores the pre-detach state exactly.
+- [x] Undo restores the pre-detach state exactly. *(CDP: one Ctrl+Z → new audio clip gone AND video back to Volume 100 % — single undo step by construction, one op = both sides)*
 
 ### 16.5 Basic transitions (crossfade · dip-to-black)
 - [ ] Apply between two adjacent clips on the same track → overlap/transition renders in preview and export identically.

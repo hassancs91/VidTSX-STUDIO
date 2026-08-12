@@ -25,6 +25,9 @@ export interface SerializedClip {
   volume?: number;
   muted?: boolean;
   playbackRate?: number;
+  /** Audio fade ramp lengths in composition frames (Slice C1). */
+  fadeInFrames?: number;
+  fadeOutFrames?: number;
   transform?: StudioClipTransform;
 }
 
@@ -71,6 +74,14 @@ export function serializeTimeline(
       // overlay mid-timeline; skipping keeps the rest of the edit playable.
       if (!src && clip.kind !== 'tsx' && clip.kind !== 'caption') continue;
 
+      // Fades are durations, not positions — plain rounding, clamped so the
+      // ramps never overlap even after frame quantization.
+      const fadeInFrames = Math.min(Math.round((clip.fadeInSec ?? 0) * fps), durationInFrames);
+      const fadeOutFrames = Math.min(
+        Math.round((clip.fadeOutSec ?? 0) * fps),
+        durationInFrames - fadeInFrames,
+      );
+
       clips.push({
         id: clip.id,
         kind: clip.kind,
@@ -81,6 +92,8 @@ export function serializeTimeline(
         ...(clip.gain !== undefined ? { volume: clip.gain } : {}),
         ...(track.muted ? { muted: true } : {}),
         ...(clip.speed !== undefined && clip.speed !== 1 ? { playbackRate: clip.speed } : {}),
+        ...(fadeInFrames > 0 ? { fadeInFrames } : {}),
+        ...(fadeOutFrames > 0 ? { fadeOutFrames } : {}),
         ...(clip.transform ? { transform: clip.transform } : {}),
       });
     }

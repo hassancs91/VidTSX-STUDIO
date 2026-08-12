@@ -14,6 +14,7 @@ interface Props {
   getThumbnail: (assetId: string) => string | null;
   getWaveform: (assetId: string) => ClipWaveformData | null;
   onClipPointerDown: (event: React.PointerEvent, clip: StudioClip, kind: ClipDragKind) => void;
+  onClipContextMenu: (event: React.MouseEvent, clip: StudioClip) => void;
   /** Press on empty lane space — starts the marquee (click = deselect). */
   onLanePointerDown: (event: React.PointerEvent) => void;
 }
@@ -29,6 +30,7 @@ export function TimelineLanes({
   getThumbnail,
   getWaveform,
   onClipPointerDown,
+  onClipContextMenu,
   onLanePointerDown,
 }: Props) {
   const selected = new Set(selectedClipIds);
@@ -60,6 +62,7 @@ export function TimelineLanes({
                 thumbnail={clip.assetId ? getThumbnail(clip.assetId) : null}
                 waveform={clip.assetId ? getWaveform(clip.assetId) : null}
                 onPointerDown={onClipPointerDown}
+                onContextMenu={onClipContextMenu}
               />
             ))}
         </div>

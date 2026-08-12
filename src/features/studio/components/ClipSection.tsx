@@ -3,7 +3,8 @@ import type { Dispatch } from 'react';
 import { TextInput } from '@shared/components/TextInput';
 import type { StudioClip, StudioMediaAsset, StudioTimeline } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
-import { findClip, type ClipPatch } from '../services/timeline-ops';
+import { findClip } from '../services/timeline-ops';
+import type { ClipPatch } from '../services/clip-update-ops';
 import {
   Field,
   NumberField,
@@ -157,6 +158,27 @@ export function ClipSection({ timeline, assets, selectedClipIds, dispatch }: Pro
             Shortens/lengthens the clip in place — later clips don't move.
           </p>
         </Field>
+      )}
+
+      {hasAudio(clip.kind) && (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Fade in (s)">
+            <NumberField
+              value={clip.fadeInSec ?? 0}
+              min={0}
+              max={clip.duration}
+              onCommit={(fadeInSec) => patchClip({ fadeInSec })}
+            />
+          </Field>
+          <Field label="Fade out (s)">
+            <NumberField
+              value={clip.fadeOutSec ?? 0}
+              min={0}
+              max={clip.duration}
+              onCommit={(fadeOutSec) => patchClip({ fadeOutSec })}
+            />
+          </Field>
+        </div>
       )}
 
       {hasPicture(clip.kind) && (

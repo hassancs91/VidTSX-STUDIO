@@ -1,5 +1,13 @@
 import { Fragment } from 'react';
-import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, useCurrentFrame } from 'remotion';
+import {
+  AbsoluteFill,
+  Audio,
+  Img,
+  OffthreadVideo,
+  Sequence,
+  interpolate,
+  useCurrentFrame,
+} from 'remotion';
 import type { SerializedClip, SerializedTimeline } from './serialize';
 
 export interface TimelineCompositionProps {
@@ -66,6 +74,37 @@ function transformStyle(clip: SerializedClip): React.CSSProperties {
   };
 }
 
+/**
+ * The volume prop for a clip: a static gain when there are no fades, or a
+ * per-frame callback multiplying gain × fade ramps. The callback receives the
+ * frame relative to the clip's start (Remotion cancels `trimBefore` out via
+ * useFrameForVolumeProp), so the ramps are simple interpolations over
+ * [0, fadeIn] and [duration − fadeOut, duration] in composition frames.
+ */
+function volumeProp(clip: SerializedClip): number | ((frame: number) => number) | undefined {
+  const fadeIn = clip.fadeInFrames ?? 0;
+  const fadeOut = clip.fadeOutFrames ?? 0;
+  if (fadeIn <= 0 && fadeOut <= 0) return clip.volume;
+  const gain = clip.volume ?? 1;
+  const total = clip.durationInFrames;
+  return (frame: number) => {
+    let v = gain;
+    if (fadeIn > 0) {
+      v *= interpolate(frame, [0, fadeIn], [0, 1], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+    }
+    if (fadeOut > 0) {
+      v *= interpolate(frame, [total - fadeOut, total], [1, 0], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+    }
+    return v;
+  };
+}
+
 function ClipRenderer({ clip }: { clip: SerializedClip }) {
   const fill: React.CSSProperties = {
     width: '100%',
@@ -73,6 +112,7 @@ function ClipRenderer({ clip }: { clip: SerializedClip }) {
     objectFit: 'contain',
     ...transformStyle(clip),
   };
+  const volume = volumeProp(clip);
 
   switch (clip.kind) {
     case 'video':
@@ -82,7 +122,7 @@ function ClipRenderer({ clip }: { clip: SerializedClip }) {
           src={clip.src}
           style={fill}
           {...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {})}
-          {...(clip.volume !== undefined ? { volume: clip.volume } : {})}
+          {...(volume !== undefined ? { volume } : {})}
           {...(clip.muted ? { muted: true } : {})}
           {...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {})}
         />
@@ -95,7 +135,7 @@ function ClipRenderer({ clip }: { clip: SerializedClip }) {
         <Audio
           src={clip.src}
           {...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {})}
-          {...(clip.volume !== undefined ? { volume: clip.volume } : {})}
+          {...(volume !== undefined ? { volume } : {})}
           {...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {})}
         />
       );

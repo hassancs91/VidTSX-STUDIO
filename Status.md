@@ -9,6 +9,59 @@
 
 ## Completed phases
 
+### Studio — core-parity Session 3: Slice C (audio fades + detach audio) (2026-08-12)
+**Status: COMPLETE — unit-tested (8 new tests, 337 total) + live CDP click-through
+incl. a real export (TESTING.md §16.2 fully ticked + §16.4 completed);
+schema addition: optional `fadeInSec`/`fadeOutSec` on StudioClip (no version
+bump, old projects open untouched)**
+
+Third session of `docs/studio/CORE_PARITY_PLAN.md`.
+
+- [x] **C2 spike first (as planned).** Remotion `<Audio src={videoFile.mp4}>`
+  plays a video's audio track in preview AND in renderMedia — proved with a
+  seeded throwaway project whose audio clip pointed at the video asset with a
+  DIFFERENT source span than the muted video clip: the export's envelope
+  correlated 0.879 with the audio clip's span and 0.25 with the video's.
+  Decision: no ffmpeg audio-extract cache needed; detach reuses the asset.
+- [x] **C1 fades.** `fadeInSec`/`fadeOutSec` (timeline seconds) with one
+  invariant — both ≥ 0, sum ≤ duration, fade-in wins — enforced by
+  `clampFades` in timeline-ops and re-applied by every duration-changing op:
+  end/start trims, `setClipSpeed`, and `splitClip` (left half keeps only its
+  fade-in, right half only its fade-out, stripped BEFORE clamping so the
+  discarded fade can't eat the budget — keeps splits inaudible). Fades ride
+  `ClipPatch`/`update-clip` (one undo step per commit). Serialize emits
+  `fadeInFrames`/`fadeOutFrames` (rounded, re-clamped after quantization);
+  `TimelineComposition.volumeProp` builds gain × ramp callbacks for BOTH
+  `<OffthreadVideo>` and `<Audio>` (Remotion's volume callback receives the
+  clip-relative frame — trimBefore cancels out via useFrameForVolumeProp, and
+  playbackRate does not scale it).
+- [x] **C1 UI.** Fade in/out numeric fields in the Clip inspector section
+  (audio-bearing kinds); CapCut-style top-corner fade handles on clips with
+  translucent ramp wedges (SVG), dragged through the same useClipDrag
+  machinery as trims — preview runs the real `updateClip`, so mid-drag you
+  see the clamped truth; commit on release = one undo step.
+- [x] **C2 detach audio.** `detachAudio(timeline, clipId, newId)` in the new
+  `clip-update-ops.ts`: mutes the video (gain 0 — the one mute concept) and
+  creates an audio clip with the same assetId/timelineStart/sourceIn/
+  duration/speed (sample-aligned by construction), carrying the video's
+  pre-detach gain and fades; lands on the first unlocked audio track whose
+  span is free, else a fresh `addTrack('audio')` lane. One op = one undo step
+  restores both sides. Right-click context menu on video clips
+  (`ClipContextMenu` over the existing FloatingMenu), disabled for soundless
+  assets/already-muted clips; the new clip is selected after.
+- [x] **File split (over-300 fix).** `updateClip`/`setClipSpeed` moved from
+  timeline-ops.ts (364 → 285 lines) into `clip-update-ops.ts` alongside
+  `detachAudio`; tests moved to `clip-update-ops.test.ts`.
+- Live CDP run (throwaway seeded project, deleted after): fade fields → ramp
+  wedges + preview element volumes 0.5/1.0/0.5 across the ramps (audio AND
+  video elements); handle drag 1 s → 2 s exactly, one undo back; detach via
+  context menu → muted video + selected new A1 clip, one undo restored both;
+  real export: detached span envelope-corr 0.861 vs the right source span,
+  faded span corr 0.904 vs ramped source (0.732 raw), edges at 2 %/12 %.
+- CDP gotcha: `FloatingMenu` is position:fixed → `offsetParent === null`, so
+  the visible() filter from docs/ui-automation-cdp.md hides it — query
+  `[role="menu"]` raw.
+
 ### Studio — core-parity Session 2: Slice B1 (clip inspector) (2026-08-12)
 **Status: COMPLETE — unit-tested (11 new tests, 329 total) + live CDP click-through
 incl. a real export (TESTING.md §16.1 fully ticked + §16.4 per-clip-mute line);

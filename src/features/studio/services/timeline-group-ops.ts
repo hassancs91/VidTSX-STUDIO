@@ -4,7 +4,8 @@
 // reducer skips the undo step. One call = one undo step, however many clips.
 
 import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
-import { clipEndTime, makeClipId, updateClip, type ClipPatch } from './timeline-ops';
+import { clipEndTime, makeClipId } from './timeline-ops';
+import { updateClip, type ClipPatch } from './clip-update-ops';
 
 function sortByStart(clips: StudioClip[]): StudioClip[] {
   return [...clips].sort((a, b) => a.timelineStart - b.timelineStart);

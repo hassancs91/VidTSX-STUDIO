@@ -103,6 +103,10 @@ export interface StudioClip {
   sourceIn?: number;
   speed?: number;
   gain?: number;
+  /** Audio fade-in/out lengths in timeline seconds (additive, Slice C1).
+   *  Invariant kept by the ops: both ≥ 0 and their sum ≤ duration. */
+  fadeInSec?: number;
+  fadeOutSec?: number;
   transform?: StudioClipTransform;
   tsx?: StudioClipTsx;
   origin?: StudioClipOrigin;

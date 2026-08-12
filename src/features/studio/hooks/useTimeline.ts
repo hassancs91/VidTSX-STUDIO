@@ -11,12 +11,15 @@ import {
   moveClip,
   removeClip,
   removeClipsForAsset,
-  setClipSpeed,
   splitClip,
   trimClip,
+} from '../services/timeline-ops';
+import {
+  detachAudio,
+  setClipSpeed,
   updateClip,
   type ClipPatch,
-} from '../services/timeline-ops';
+} from '../services/clip-update-ops';
 import {
   moveClips,
   pasteClips,
@@ -77,6 +80,8 @@ export type TimelineAction =
   | { type: 'update-clip'; clipId: string; patch: ClipPatch }
   | { type: 'update-clips'; clipIds: string[]; patch: ClipPatch }
   | { type: 'clip-speed'; clipId: string; speed: number }
+  // Id minted by the caller so it can select the new audio clip after dispatch.
+  | { type: 'detach-audio'; clipId: string; newClipId: string }
   | { type: 'remove-asset-clips'; assetId: string }
   | { type: 'track-add'; kind: StudioTrackKind }
   | { type: 'track-rename'; trackId: string; name: string }
@@ -197,6 +202,11 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       return commit(
         state,
         withTimeline(doc, setClipSpeed(doc.timeline, action.clipId, action.speed)),
+      );
+    case 'detach-audio':
+      return commit(
+        state,
+        withTimeline(doc, detachAudio(doc.timeline, action.clipId, action.newClipId)),
       );
     case 'remove-asset-clips':
       return commit(state, withTimeline(doc, removeClipsForAsset(doc.timeline, action.assetId)));

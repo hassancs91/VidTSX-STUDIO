@@ -10,7 +10,7 @@ import { useMarqueeSelect } from '../hooks/useMarqueeSelect';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { usePlayheadFollow } from '../hooks/usePlayheadFollow';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
-import { clipAt, clipEndTime, findClip } from '../services/timeline-ops';
+import { clipAt, clipEndTime, findClip, makeClipId } from '../services/timeline-ops';
 import {
   DEFAULT_ZOOM_INDEX,
   RULER_HEIGHT,
@@ -19,6 +19,7 @@ import {
   ZOOM_LEVELS,
   secondsToPx,
 } from '../services/timeline-view';
+import { ClipContextMenu } from './timeline/ClipContextMenu';
 import { TimelineRuler } from './timeline/TimelineRuler';
 import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelinePlayhead } from './timeline/TimelinePlayhead';
@@ -128,6 +129,30 @@ export function TimelinePanel({
     onSelect: tl.select,
     onToggleSelect: tl.toggleSelect,
   });
+
+  // Right-click menu on a clip. Detach audio is the only entry so far — the
+  // renderer-built FloatingMenu closes over document state and stays CDP-able.
+  const [clipMenu, setClipMenu] = useState<{ x: number; y: number; clip: StudioClip } | null>(
+    null,
+  );
+  const onClipContextMenu = useCallback(
+    (event: React.MouseEvent, clip: StudioClip) => {
+      event.preventDefault();
+      tl.select(clip.id);
+      if (clip.kind !== 'video') return;
+      setClipMenu({ x: event.clientX, y: event.clientY, clip });
+    },
+    [tl],
+  );
+  const detachAudioFromMenu = useCallback(
+    (clip: StudioClip) => {
+      const newClipId = makeClipId();
+      tl.dispatch({ type: 'detach-audio', clipId: clip.id, newClipId });
+      // Selection self-prunes if the op rejected, so this is safe either way.
+      tl.select(newClipId);
+    },
+    [tl],
+  );
 
   const clearSelection = useCallback(() => tl.select(null), [tl]);
   const { marqueeRect, onLanePointerDown } = useMarqueeSelect({
@@ -384,6 +409,7 @@ export function TimelinePanel({
                 getThumbnail={getThumbnail}
                 getWaveform={getWaveform}
                 onClipPointerDown={onClipPointerDown}
+                onClipContextMenu={onClipContextMenu}
                 onLanePointerDown={onLanePointerDown}
               />
               {marqueeRect && (
@@ -440,6 +466,20 @@ export function TimelinePanel({
           )}
         </div>
       </div>
+
+      {clipMenu && (
+        <ClipContextMenu
+          x={clipMenu.x}
+          y={clipMenu.y}
+          clip={clipMenu.clip}
+          assetHasAudio={
+            clipMenu.clip.assetId === undefined ||
+            assetById.get(clipMenu.clip.assetId)?.probe.hasAudio !== false
+          }
+          onDetachAudio={detachAudioFromMenu}
+          onClose={() => setClipMenu(null)}
+        />
+      )}
     </div>
   );
 }
