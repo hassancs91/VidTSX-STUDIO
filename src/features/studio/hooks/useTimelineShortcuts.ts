@@ -12,6 +12,12 @@ interface Options {
   /** The toolbar's "auto ripple" mode: Delete closes the gap when true. */
   rippleDelete: boolean;
   onSplit: () => void;
+  onCopy: () => void;
+  /** Ctrl+V — pastes at the playhead (the handler reads it at call time). */
+  onPaste: () => void;
+  onDuplicate: () => void;
+  /** Shift+Z. */
+  onZoomToFit: () => void;
 }
 
 function isTextEntry(target: EventTarget | null): boolean {
@@ -35,6 +41,10 @@ export function useTimelineShortcuts({
   durationSeconds,
   rippleDelete,
   onSplit,
+  onCopy,
+  onPaste,
+  onDuplicate,
+  onZoomToFit,
 }: Options): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -56,6 +66,20 @@ export function useTimelineShortcuts({
             tl.timeline.tracks.flatMap((t) => t.clips.map((c) => c.id)),
             false,
           );
+        } else if (key === 'c') {
+          // Only claim Ctrl+C when clips are selected — text copy stays free.
+          if (tl.selectedClipIds.length > 0) {
+            event.preventDefault();
+            onCopy();
+          }
+        } else if (key === 'v') {
+          event.preventDefault();
+          onPaste();
+        } else if (key === 'd') {
+          if (tl.selectedClipIds.length > 0) {
+            event.preventDefault();
+            onDuplicate();
+          }
         }
         return;
       }
@@ -70,6 +94,11 @@ export function useTimelineShortcuts({
         case 'S':
           event.preventDefault();
           onSplit();
+          break;
+        case 'Z':
+          if (!event.shiftKey) break;
+          event.preventDefault();
+          onZoomToFit();
           break;
         case 'Delete':
           if (tl.selectedClipIds.length === 0) break;
@@ -109,5 +138,17 @@ export function useTimelineShortcuts({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [containerRef, tl, playback, fps, durationSeconds, rippleDelete, onSplit]);
+  }, [
+    containerRef,
+    tl,
+    playback,
+    fps,
+    durationSeconds,
+    rippleDelete,
+    onSplit,
+    onCopy,
+    onPaste,
+    onDuplicate,
+    onZoomToFit,
+  ]);
 }

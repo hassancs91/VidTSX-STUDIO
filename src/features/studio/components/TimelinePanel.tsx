@@ -5,8 +5,10 @@ import type { UseTimelineResult } from '../hooks/useTimeline';
 import type { UsePlaybackResult } from '../hooks/usePlayback';
 import type { PreviewTimeMap } from '../services/preview-mapping';
 import { useClipDrag } from '../hooks/useClipDrag';
+import { useClipboard } from '../hooks/useClipboard';
 import { useMarqueeSelect } from '../hooks/useMarqueeSelect';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
+import { usePlayheadFollow } from '../hooks/usePlayheadFollow';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { clipAt, clipEndTime, findClip } from '../services/timeline-ops';
 import {
@@ -250,6 +252,37 @@ export function TimelinePanel({
     [zoomBy],
   );
 
+  /** Shift+Z / toolbar: the zoom step that shows the whole edit, anchored at 0. */
+  const zoomToFit = useCallback(() => {
+    const el = scrollRef.current;
+    const duration = timelineDuration(tl.timeline);
+    if (!el || duration <= 0) return;
+    let index = 0;
+    for (let i = ZOOM_LEVELS.length - 1; i >= 0; i--) {
+      if (duration * ZOOM_LEVELS[i] <= el.clientWidth) {
+        index = i;
+        break;
+      }
+    }
+    setZoomIndex(index);
+    requestAnimationFrame(() => {
+      el.scrollLeft = 0;
+    });
+  }, [tl.timeline]);
+
+  usePlayheadFollow({
+    scrollRef,
+    playback,
+    isPlaying: playback.isPlaying,
+    pxPerSecond,
+  });
+
+  const clipboard = useClipboard(tl);
+  const pasteAtPlayhead = useCallback(
+    () => clipboard.paste(playback.secondsRef.current),
+    [clipboard, playback.secondsRef],
+  );
+
   useTimelineShortcuts({
     containerRef,
     tl,
@@ -258,6 +291,10 @@ export function TimelinePanel({
     durationSeconds,
     rippleDelete: rippleEnabled,
     onSplit: splitAtPlayhead,
+    onCopy: clipboard.copy,
+    onPaste: pasteAtPlayhead,
+    onDuplicate: clipboard.duplicate,
+    onZoomToFit: zoomToFit,
   });
 
   const clipLabel = useCallback(
@@ -295,6 +332,7 @@ export function TimelinePanel({
         onToggleSnap={() => setSnapEnabled((v) => !v)}
         onZoomIn={() => zoomBy(1)}
         onZoomOut={() => zoomBy(-1)}
+        onZoomToFit={zoomToFit}
       />
 
       <div className="flex flex-1 min-h-0">

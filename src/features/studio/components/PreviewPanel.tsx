@@ -11,6 +11,11 @@ interface Props {
   onSeekStart: () => void;
   /** Videos still waiting on a 720p proxy — preview runs on originals until then. */
   proxyProgress: { total: number; ready: number };
+  /** Monitoring speed for the Player — the document and export never see it. */
+  playbackRate: number;
+  /** True while an audition (or "Preview result") pins the speed to 1×. */
+  ratePinned: boolean;
+  onCycleRate: (direction: 1 | -1) => void;
 }
 
 /**
@@ -26,6 +31,9 @@ export function PreviewPanel({
   onTogglePlay,
   onSeekStart,
   proxyProgress,
+  playbackRate,
+  ratePinned,
+  onCycleRate,
 }: Props) {
   const inputProps = useMemo(() => ({ timeline }), [timeline]);
   const isEmpty = timeline.tracks.every((t) => t.clips.length === 0);
@@ -60,6 +68,7 @@ export function PreviewPanel({
               compositionHeight={timeline.height}
               style={{ width: '100%', height: '100%' }}
               controls={false}
+              playbackRate={playbackRate}
             />
           )}
         </div>
@@ -75,6 +84,19 @@ export function PreviewPanel({
         <TransportButton label={isPlaying ? 'Pause (Space)' : 'Play (Space)'} onClick={onTogglePlay}>
           {isPlaying ? <Pause size={13} strokeWidth={1.5} /> : <Play size={13} strokeWidth={1.5} />}
         </TransportButton>
+        <button
+          onClick={(event) => onCycleRate(event.shiftKey ? -1 : 1)}
+          disabled={ratePinned}
+          title={
+            ratePinned
+              ? 'Speed pinned to 1× while auditioning'
+              : 'Preview speed — monitoring only, the export is unaffected (Shift+click for slower)'
+          }
+          aria-label="Cycle preview playback speed"
+          className="h-[22px] px-1.5 rounded-[5px] text-[10px] font-mono tabular-nums text-text-muted hover:bg-app-hover hover:text-text-secondary transition-colors disabled:opacity-40 disabled:cursor-default"
+        >
+          {playbackRate}×
+        </button>
         <div className="flex-1" />
         {proxiesPending > 0 && (
           <span className="text-[10px] text-text-ghost">

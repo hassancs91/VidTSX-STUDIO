@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  Expand,
   FoldHorizontal,
   Magnet,
   Redo2,
@@ -31,6 +32,7 @@ interface Props {
   onToggleSnap: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onZoomToFit: () => void;
 }
 
 export function TimelineToolbar({
@@ -52,6 +54,7 @@ export function TimelineToolbar({
   onToggleSnap,
   onZoomIn,
   onZoomOut,
+  onZoomToFit,
 }: Props) {
   return (
     <div
@@ -106,6 +109,9 @@ export function TimelineToolbar({
       </ToolButton>
       <ToolButton label="Zoom in (Ctrl+scroll)" onClick={onZoomIn} disabled={!canZoomIn}>
         <ZoomIn size={13} strokeWidth={1.5} />
+      </ToolButton>
+      <ToolButton label="Zoom to fit the whole timeline (Shift+Z)" onClick={onZoomToFit}>
+        <Expand size={13} strokeWidth={1.5} />
       </ToolButton>
     </div>
   );

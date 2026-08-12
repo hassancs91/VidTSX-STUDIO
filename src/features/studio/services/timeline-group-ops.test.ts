@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import type { StudioTimeline } from '@shared/types/studio';
-import { clipsInRect, moveClips, removeClips } from './timeline-group-ops';
+import {
+  clipsInRect,
+  moveClips,
+  pasteClips,
+  removeClips,
+  type ClipboardEntry,
+} from './timeline-group-ops';
 
 /** V1: three cuts with gaps; A1: music + a stinger. */
 function makeTimeline(): StudioTimeline {
@@ -105,6 +111,99 @@ describe('removeClips', () => {
     const locked = makeTimeline();
     locked.tracks[0].locked = true;
     expect(removeClips(locked, ['c1'], true)).toBe(locked);
+  });
+});
+
+describe('pasteClips', () => {
+  /** Clipboard holding c2 + c3 (offsets 0 and 5 from the group start). */
+  function copyOfC2C3(): ClipboardEntry[] {
+    const t = makeTimeline();
+    return [
+      { clip: { ...t.tracks[0].clips[1] }, trackId: 'v1', offsetSeconds: 0 },
+      { clip: { ...t.tracks[0].clips[2] }, trackId: 'v1', offsetSeconds: 5 },
+    ];
+  }
+
+  it('pastes on the source tracks with relative layout and fresh ids', () => {
+    const next = pasteClips(makeTimeline(), copyOfC2C3(), 20, ['p1', 'p2']);
+    expect(v1(next)).toEqual([
+      ['c1', 0],
+      ['c2', 5],
+      ['c3', 10],
+      ['p1', 20],
+      ['p2', 25],
+    ]);
+    // The paste is a copy, not a move — source fields ride along.
+    const p1 = next.tracks[0].clips.find((c) => c.id === 'p1');
+    expect(p1).toMatchObject({ kind: 'video', assetId: 'a', sourceIn: 10, duration: 3 });
+  });
+
+  it('shifts the WHOLE group right to the nearest fit on collision', () => {
+    // Desired [0,3) + [5,7) collide with c1/c2; first delta where both fit is
+    // 12 (right after c3) — the layout is never torn apart to fill gaps.
+    const next = pasteClips(makeTimeline(), copyOfC2C3(), 0, ['p1', 'p2']);
+    expect(v1(next)).toEqual([
+      ['c1', 0],
+      ['c2', 5],
+      ['c3', 10],
+      ['p1', 12],
+      ['p2', 17],
+    ]);
+  });
+
+  it('keeps cross-track groups aligned when one track forces a shift', () => {
+    // At 4 the video copy hits c2 and the audio copy hits m1. Candidate
+    // shifts that free ONE track still collide on the other (8→ hits c3,
+    // 11→ still under c3) — the first delta where BOTH lanes are free puts
+    // both copies at 12, still perfectly aligned.
+    const t = makeTimeline();
+    const entries: ClipboardEntry[] = [
+      { clip: { ...t.tracks[0].clips[1] }, trackId: 'v1', offsetSeconds: 0 },
+      { clip: { ...t.tracks[1].clips[1] }, trackId: 'a1', offsetSeconds: 0 },
+    ];
+    const next = pasteClips(t, entries, 4, ['p1', 'p2']);
+    expect(v1(next)).toContainEqual(['p1', 12]);
+    expect(a1(next)).toContainEqual(['p2', 12]);
+  });
+
+  it('falls back to the first compatible track when the source track is gone', () => {
+    const t = makeTimeline();
+    const entries: ClipboardEntry[] = [
+      { clip: { ...t.tracks[1].clips[1] }, trackId: 'deleted-track', offsetSeconds: 0 },
+    ];
+    const next = pasteClips(t, entries, 20, ['p1']);
+    expect(a1(next)).toContainEqual(['p1', 20]);
+    expect(v1(next)).toEqual(v1(t)); // never lands an audio clip on a video lane
+  });
+
+  it('rejects when no track can hold an entry (locked or wrong kind)', () => {
+    const t = makeTimeline();
+    t.tracks[1].locked = true; // the only audio lane
+    const entries: ClipboardEntry[] = [
+      { clip: { ...t.tracks[1].clips[0] }, trackId: 'a1', offsetSeconds: 0 },
+    ];
+    expect(pasteClips(t, entries, 20)).toBe(t);
+  });
+
+  it('rejects a group that overlaps itself after track fallback', () => {
+    const t = makeTimeline();
+    const entries: ClipboardEntry[] = [
+      { clip: { ...t.tracks[0].clips[0] }, trackId: 'v1', offsetSeconds: 0 }, // dur 4
+      { clip: { ...t.tracks[0].clips[0], id: 'cx' }, trackId: 'v-gone', offsetSeconds: 2 },
+    ];
+    expect(pasteClips(t, entries, 20)).toBe(t);
+    expect(pasteClips(t, [], 20)).toBe(t);
+  });
+
+  it('clamps a negative paste position to zero', () => {
+    const t: StudioTimeline = {
+      tracks: [{ id: 'v1', kind: 'video', name: 'V1', clips: [] }],
+    };
+    const entries: ClipboardEntry[] = [
+      { clip: { id: 'c', kind: 'video', timelineStart: 9, duration: 2 }, trackId: 'v1', offsetSeconds: 0 },
+    ];
+    const next = pasteClips(t, entries, -5, ['p1']);
+    expect(next.tracks[0].clips).toEqual([expect.objectContaining({ id: 'p1', timelineStart: 0 })]);
   });
 });
 

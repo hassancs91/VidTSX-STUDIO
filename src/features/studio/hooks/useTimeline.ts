@@ -14,7 +14,12 @@ import {
   splitClip,
   trimClip,
 } from '../services/timeline-ops';
-import { moveClips, removeClips } from '../services/timeline-group-ops';
+import {
+  moveClips,
+  pasteClips,
+  removeClips,
+  type ClipboardEntry,
+} from '../services/timeline-group-ops';
 import {
   addTrack,
   moveTrack,
@@ -60,6 +65,9 @@ export type TimelineAction =
   | { type: 'remove'; clipId: string; ripple: boolean }
   | { type: 'move-clips'; clipIds: string[]; deltaSeconds: number }
   | { type: 'remove-clips'; clipIds: string[]; ripple: boolean }
+  // Ids are minted by the CALLER so it can select the new clips after
+  // dispatch — the op itself is deterministic given them.
+  | { type: 'paste'; entries: ClipboardEntry[]; atSeconds: number; newIds: string[] }
   | { type: 'remove-asset-clips'; assetId: string }
   | { type: 'track-add'; kind: StudioTrackKind }
   | { type: 'track-rename'; trackId: string; name: string }
@@ -160,6 +168,11 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       return commit(
         state,
         withTimeline(doc, removeClips(doc.timeline, action.clipIds, action.ripple)),
+      );
+    case 'paste':
+      return commit(
+        state,
+        withTimeline(doc, pasteClips(doc.timeline, action.entries, action.atSeconds, action.newIds)),
       );
     case 'remove-asset-clips':
       return commit(state, withTimeline(doc, removeClipsForAsset(doc.timeline, action.assetId)));

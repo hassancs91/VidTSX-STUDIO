@@ -9,6 +9,55 @@
 
 ## Completed phases
 
+### Studio — core-parity Session 1: Slice A (playback rate · copy/paste · timeline QoL) (2026-08-12)
+**Status: COMPLETE — unit-tested (7 new tests, 317 total) + full live CDP click-through
+(TESTING.md §16.3 / §16.6 / §16.9 ticked); no schema changes**
+
+First session of `docs/studio/CORE_PARITY_PLAN.md`.
+
+- [x] **A1 — global preview playback rate.** `PLAYBACK_RATES` [0.5, 1, 1.5, 2]
+  as `EditorShell` state (session-only, never in the document); rate button in
+  the `PreviewPanel` transport cycles up, Shift+click cycles down; wired as the
+  `playbackRate` prop on the `@remotion/player` `<Player>`. Auditions pin 1×:
+  `playSpan` (Play removed / Play join) sets an `auditioning` flag cleared when
+  the audition crosses its stop marker OR on manual pause (so an abandoned
+  audition can't leave the rate stuck), and "Preview result" pins while
+  checked — the button shows 1× disabled with an honest tooltip, then restores.
+  Measured live at 2×: double clock advance over the same wall time.
+- [x] **A2 — copy / paste / duplicate.** New pure op `pasteClips(timeline,
+  entries, atSeconds, newIds?)` in `timeline-group-ops.ts` (7 unit tests):
+  entries target their source track ids, fall back to first-compatible like
+  `trackForAsset`, keep relative layout via `offsetSeconds`, fresh clip ids; on
+  collision the WHOLE group shifts right together to the nearest fit (the
+  minimal-delta candidates are "flush against an existing clip's end");
+  identity-on-reject when an entry has no track or the group overlaps itself
+  after fallback. Reducer `paste` action = one undo step; ids are minted by the
+  caller so the paste can select the new clips (`useClipboard` runs the op
+  eagerly and skips dispatch/selection on reject). Clipboard is an in-memory
+  ref in the editor — cross-project paste refused by construction. Shortcuts
+  Ctrl+C (only claimed when clips are selected) / Ctrl+V (at playhead) /
+  Ctrl+D (paste at the selection's own end; leaves the clipboard alone) behind
+  the existing text-entry + visibility guards.
+- [x] **A3 — auto-scroll + zoom-to-fit.** `usePlayheadFollow`: on the playhead
+  exiting the lanes viewport during playback, scrolls it back in at 20% from
+  the left; a manual scroll while playing suspends following (own writes
+  announce themselves via a programmatic counter), and it resumes when the
+  playhead next walks OUT of view — the in→out transition is re-derived on
+  manual scroll too, or a stale `wasInView` made the very next frame yank the
+  view back (caught while building the CDP test). All refs, no React state.
+  Zoom-to-fit (`Shift+Z` + toolbar Expand button): largest `ZOOM_LEVELS` step
+  whose pxPerSecond shows the whole timeline, anchored at 0.
+- Live CDP run (autocut-test + editorial-test): paste at End landed selected
+  right after the last clip, Ctrl+D chained the next copy, undo ×2 → 13-clip
+  baseline, redo → 14; zoom-to-fit framed 545 px of content at scrollLeft 0;
+  follow jump re-entered at exactly 0.20, manual scroll-back stayed put,
+  following resumed after re-enter + walk-out; audition pinned 2×→1×→2×.
+- CDP testing gotcha recorded: the timeline lanes' scroll div is NOT the first
+  visible `.overflow-auto` containing clips — an outer wrapper (84 px wider,
+  never horizontally scrollable) matches first, silently reading `scrollLeft 0`
+  forever. Pick the INNERMOST matching container. Also: playback (rAF) is
+  throttled while the window is occluded — `Page.bringToFront` first.
+
 ### Studio — S3 agent pass: editorial cuts via the Assistant chat (2026-08-12)
 **Status: COMPLETE — unit-tested (19 new tests, 310 total) + full live CDP run
 (seeded TTS recording → AssemblyAI verbatim transcript → agent chat → 5-cut

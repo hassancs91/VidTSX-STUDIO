@@ -3,8 +3,8 @@
 // non-overlapping, and a rejected edit returns the IDENTICAL object so the
 // reducer skips the undo step. One call = one undo step, however many clips.
 
-import type { StudioClip, StudioTimeline } from '../types';
-import { clipEndTime } from './timeline-ops';
+import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
+import { clipEndTime, makeClipId } from './timeline-ops';
 
 function sortByStart(clips: StudioClip[]): StudioClip[] {
   return [...clips].sort((a, b) => a.timelineStart - b.timelineStart);
@@ -98,6 +98,114 @@ export function removeClips(
     return { ...track, clips: shifted };
   });
   return changed ? { ...timeline, tracks } : timeline;
+}
+
+/** One copied clip: a snapshot plus where it came from and its place in the
+ *  group. `offsetSeconds` is measured from the group's earliest clip so the
+ *  relative layout survives however far away the paste lands. */
+export interface ClipboardEntry {
+  clip: StudioClip;
+  trackId: string;
+  offsetSeconds: number;
+}
+
+/** Same lane compatibility rule as clip-factory/useClipDrag: audio clips live
+ *  on audio lanes, everything visual on any non-audio lane. */
+function trackAcceptsKind(track: StudioTrack, kind: StudioClip['kind']): boolean {
+  if (track.locked) return false;
+  return kind === 'audio' || kind === 'sfx' ? track.kind === 'audio' : track.kind !== 'audio';
+}
+
+/**
+ * Paste copied clips with their earliest member at `atSeconds`. Each entry
+ * targets its source track when that still exists and can take the clip,
+ * falling back to the first compatible unlocked track (like `trackForAsset`).
+ * On collision with existing clips the WHOLE group shifts right together to
+ * the nearest delta where every member fits — relative layout is never torn
+ * apart. Rejects (identical object back, same contract as `moveClips`) when
+ * any entry has no track to land on or the group overlaps itself.
+ */
+export function pasteClips(
+  timeline: StudioTimeline,
+  entries: ClipboardEntry[],
+  atSeconds: number,
+  newIds?: string[],
+): StudioTimeline {
+  if (entries.length === 0) return timeline;
+  const at = Math.max(0, atSeconds);
+
+  interface Placement {
+    entry: ClipboardEntry;
+    track: StudioTrack;
+    desiredStart: number;
+  }
+  const placements: Placement[] = [];
+  for (const entry of entries) {
+    const source = timeline.tracks.find((t) => t.id === entry.trackId);
+    const track =
+      source && trackAcceptsKind(source, entry.clip.kind)
+        ? source
+        : timeline.tracks.find((t) => trackAcceptsKind(t, entry.clip.kind));
+    if (!track) return timeline;
+    placements.push({ entry, track, desiredStart: at + entry.offsetSeconds });
+  }
+
+  // The group must not overlap itself (possible when entries from different
+  // source tracks fall back onto the same lane) — no shift can fix that.
+  const byTrack = new Map<string, Placement[]>();
+  for (const p of placements) {
+    const list = byTrack.get(p.track.id) ?? [];
+    list.push(p);
+    byTrack.set(p.track.id, list);
+  }
+  for (const list of byTrack.values()) {
+    const sorted = [...list].sort((a, b) => a.desiredStart - b.desiredStart);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1];
+      if (prev.desiredStart + prev.entry.clip.duration > sorted[i].desiredStart + 1e-9) {
+        return timeline;
+      }
+    }
+  }
+
+  // Find the smallest rightward shift where every member fits. The minimal
+  // fitting delta is either 0 or puts some member flush against an existing
+  // clip's end, so those are the only candidates worth testing.
+  const fits = (delta: number): boolean =>
+    placements.every((p) => {
+      const start = p.desiredStart + delta;
+      const end = start + p.entry.clip.duration;
+      return p.track.clips.every(
+        (other) => clipEndTime(other) <= start + 1e-9 || other.timelineStart >= end - 1e-9,
+      );
+    });
+  const candidates = [0];
+  for (const p of placements) {
+    for (const other of p.track.clips) {
+      const delta = clipEndTime(other) - p.desiredStart;
+      if (delta > 1e-9) candidates.push(delta);
+    }
+  }
+  const delta = candidates.sort((a, b) => a - b).find(fits);
+  if (delta === undefined) return timeline; // unreachable: past-everything always fits
+
+  const pasted = placements.map((p, index) => ({
+    trackId: p.track.id,
+    clip: {
+      ...p.entry.clip,
+      id: newIds?.[index] ?? makeClipId(),
+      timelineStart: p.desiredStart + delta,
+    },
+  }));
+  return {
+    ...timeline,
+    tracks: timeline.tracks.map((track) => {
+      const additions = pasted.filter((p) => p.trackId === track.id).map((p) => p.clip);
+      return additions.length > 0
+        ? { ...track, clips: sortByStart([...track.clips, ...additions]) }
+        : track;
+    }),
+  };
 }
 
 /** Clip ids intersecting a marquee rectangle (content px), for drag-select. */

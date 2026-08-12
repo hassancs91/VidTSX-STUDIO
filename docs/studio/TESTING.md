@@ -160,9 +160,9 @@
 - [ ] Works on video-with-audio clips too, not just audio clips.
 
 ### 16.3 Copy / paste / duplicate
-- [ ] Ctrl+C/Ctrl+V pastes the selection at the playhead on the same tracks (or nearest compatible), Ctrl+D duplicates in place after the original.
-- [ ] Multi-clip selection pastes with relative layout preserved; collision → clamp or reject identical to drag rules; one undo step.
-- [ ] Paste across projects is either supported or cleanly refused (no half-paste).
+- [x] Ctrl+C/Ctrl+V pastes the selection at the playhead on the same tracks (or nearest compatible), Ctrl+D duplicates in place after the original. *(2026-08-12 — CDP: paste landed at End playhead selected; Ctrl+D chained right after; undo ×2 → baseline, redo → paste back.)*
+- [x] Multi-clip selection pastes with relative layout preserved; collision → clamp (whole group shifts right together) or reject; one undo step. *(unit-tested in timeline-group-ops.test.ts; single-clip path driven live)*
+- [x] Paste across projects is cleanly refused (no half-paste): the clipboard is in-memory in the editor and dies with it — nothing to paste in another project.
 
 ### 16.4 Detach audio + per-clip mute
 - [ ] Right-click a video clip → Detach audio → muted video clip + new linked audio clip on an audio track, sample-aligned (verify by ear against the original).
@@ -175,15 +175,21 @@
 - [ ] Transition survives ripple ops around it without desyncing.
 
 ### 16.6 Timeline QoL (auto-scroll · zoom-to-fit · markers)
-- [ ] During playback the timeline auto-scrolls to keep the playhead in view (and stops fighting you when you scroll manually).
-- [ ] Zoom-to-fit (Shift+Z or button) frames the whole timeline.
-- [ ] M drops a marker at the playhead; markers visible on the ruler, clickable to seek, deletable, persisted.
+- [x] During playback the timeline auto-scrolls to keep the playhead in view (and stops fighting you when you scroll manually). *(2026-08-12 — CDP: playhead exiting right edge re-entered at exactly 20% from left; manual scroll-back stayed put while playing; following resumed after the playhead re-entered and walked out again.)*
+- [x] Zoom-to-fit (Shift+Z or button) frames the whole timeline. *(CDP: scrollLeft 0, last clip right edge 545 px ≤ 1121 px viewport)*
+- [ ] M drops a marker at the playhead; markers visible on the ruler, clickable to seek, deletable, persisted. *(markers are Slice D)*
 
 ### 16.7 Range export (in/out points)
 - [ ] I/O keys set in/out on the ruler; visible highlight; Export offers "Export range" honoring it exactly (frame-accurate at both ends, ffprobe the output duration).
 
 ### 16.8 Media relink
 - [ ] Opening a project with missing media offers "Locate…"; picking the moved file relinks by content hash (refuses a different file, or warns); proxies/waveforms/transcripts keyed by asset id survive the relink.
+
+### 16.9 Preview playback rate (global watch speed)
+- [x] Rate button on the preview transport cycles 1× → 1.5× → 2× → 0.5× (Shift+click cycles down); label shows the active rate. *(2026-08-12 — CDP)*
+- [x] The Player really plays at the chosen rate. *(CDP: 2 s wall advanced the clock ~1.4 s at 1× vs ~3.8 s at 2× — same startup latency, double speed)*
+- [x] Auditions pin 1×: "Play removed" disables the rate button and shows 1× for the audition's duration, then restores the chosen rate; "Preview result" pins while checked. *(CDP on the editorial-test open proposal)*
+- [x] Session-only: not persisted in the document; export is unaffected (rate is a Player prop, never serialized).
 
 ---
 

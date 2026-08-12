@@ -31,6 +31,9 @@ interface Props {
 
 type RightTab = 'inspector' | 'assistant';
 
+/** Preview monitoring speeds — a watch-speed aid, never part of the document. */
+const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
+
 export function EditorShell({ projectId, onBack }: Props) {
   const { project, folderPath, status, error, saveState, updateProject, importMedia, removeAsset } =
     useStudioProject(projectId);
@@ -97,6 +100,21 @@ export function EditorShell({ projectId, onBack }: Props) {
   const [previewResult, setPreviewResult] = useState(false);
   const activeProposal = tl.activeProposal;
 
+  // ----- Preview playback rate (A1) -------------------------------------
+  // Session-only watch speed. Auditions judge cuts by ear, so they pin the
+  // Player back to 1× for their duration; "Preview result" does the same.
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [auditioning, setAuditioning] = useState(false);
+  const ratePinned = auditioning || (activeProposal !== null && previewResult);
+  const effectiveRate = ratePinned ? 1 : playbackRate;
+  const cycleRate = useCallback((direction: 1 | -1) => {
+    setPlaybackRate((current) => {
+      const index = PLAYBACK_RATES.indexOf(current);
+      const count = PLAYBACK_RATES.length;
+      return PLAYBACK_RATES[(Math.max(0, index) + direction + count) % count];
+    });
+  }, []);
+
   // A fresh proposal pulls the review list into view — unless the user is
   // mid-conversation in the Assistant tab (the chat links to the review, and
   // the timeline regions are visible either way); a closed one clears the
@@ -153,13 +171,25 @@ export function EditorShell({ projectId, onBack }: Props) {
       const audition = auditionRef.current;
       if (!audition || seconds < audition.stopAt) return;
       auditionRef.current = null;
+      setAuditioning(false);
       playback.player?.pause();
       if (audition.restorePreview) setPreviewResult(false);
     });
   }, [playback]);
 
+  // A manually paused audition is over — release the 1× pin instead of
+  // leaving the rate stuck until the playhead happens to cross the marker.
+  useEffect(() => {
+    if (!playback.isPlaying && auditionRef.current) {
+      auditionRef.current = null;
+      setAuditioning(false);
+    }
+  }, [playback.isPlaying]);
+
   const playSpan = useCallback(
     (start: number, stopAt: number, restorePreview: boolean) => {
+      // Pin 1× before playback starts — you audition joins at real speed.
+      setAuditioning(true);
       // Give the Player one frame to adopt a just-switched timeline before
       // seeking into it, or the seek clamps against the old duration.
       window.setTimeout(() => {
@@ -383,6 +413,9 @@ export function EditorShell({ projectId, onBack }: Props) {
             onTogglePlay={playback.togglePlay}
             onSeekStart={() => playback.seek(0)}
             proxyProgress={proxyProgress}
+            playbackRate={effectiveRate}
+            ratePinned={ratePinned}
+            onCycleRate={cycleRate}
           />
         </div>
 
