@@ -440,6 +440,9 @@ export function EditorShell({ projectId, onBack }: Props) {
               <InspectorPanel
                 project={project}
                 onUpdate={updateProject}
+                timeline={tl.timeline}
+                selectedClipIds={tl.selectedClipIds}
+                timelineDispatch={tl.dispatch}
                 selectedAsset={selectedAsset}
                 onTranscribe={handleTranscribe}
                 onCancelTranscribe={(assetId) => void cancelTranscribe(assetId)}

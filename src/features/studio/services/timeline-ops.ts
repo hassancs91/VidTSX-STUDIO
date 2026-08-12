@@ -4,7 +4,7 @@
 //
 // All times are seconds — see docs/studio/PLAN.md §4.
 
-import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
+import type { StudioClip, StudioClipTransform, StudioTimeline, StudioTrack } from '../types';
 
 /** Shortest clip a trim/split may leave behind (~1 frame at 25 fps). */
 export const MIN_CLIP_DURATION = 0.04;
@@ -232,6 +232,115 @@ export function removeClip(
       : c,
   );
   return withTrackClips(timeline, track.id, shifted);
+}
+
+/** Inspector-settable clip fields. `transform` merges field-wise into the
+ *  existing transform; a field set to its neutral value is dropped, so
+ *  documents never accumulate no-op transforms. */
+export interface ClipPatch {
+  gain?: number;
+  label?: string;
+  transform?: StudioClipTransform;
+}
+
+const TRANSFORM_NEUTRAL: Required<StudioClipTransform> = {
+  x: 0,
+  y: 0,
+  scale: 1,
+  rotation: 0,
+  opacity: 1,
+};
+const TRANSFORM_KEYS = Object.keys(TRANSFORM_NEUTRAL) as (keyof StudioClipTransform)[];
+
+function sameTransform(a?: StudioClipTransform, b?: StudioClipTransform): boolean {
+  return TRANSFORM_KEYS.every((k) => (a?.[k] ?? TRANSFORM_NEUTRAL[k]) === (b?.[k] ?? TRANSFORM_NEUTRAL[k]));
+}
+
+/**
+ * Patch a clip's inspector fields. Values equal to the neutral default
+ * (gain 1, empty label, identity transform field) REMOVE the key instead of
+ * storing it. Speed is deliberately not here — it changes the clip's duration
+ * and needs neighbour clamping, see `setClipSpeed`.
+ */
+export function updateClip(
+  timeline: StudioTimeline,
+  clipId: string,
+  patch: ClipPatch,
+): StudioTimeline {
+  const found = findClip(timeline, clipId);
+  if (!found || found.track.locked) return timeline;
+  const { clip, track } = found;
+
+  const next: StudioClip = { ...clip };
+  if (patch.gain !== undefined) {
+    const gain = Math.min(2, Math.max(0, patch.gain));
+    if (gain === 1) delete next.gain;
+    else next.gain = gain;
+  }
+  if (patch.label !== undefined) {
+    const label = patch.label.trim();
+    if (label === '') delete next.label;
+    else next.label = label;
+  }
+  if (patch.transform !== undefined) {
+    const merged: StudioClipTransform = { ...clip.transform };
+    for (const key of TRANSFORM_KEYS) {
+      const value = patch.transform[key];
+      if (value === undefined || !Number.isFinite(value)) continue;
+      if (value === TRANSFORM_NEUTRAL[key]) delete merged[key];
+      else merged[key] = value;
+    }
+    if (Object.keys(merged).length === 0) delete next.transform;
+    else next.transform = merged;
+  }
+
+  const unchanged =
+    (next.gain ?? 1) === (clip.gain ?? 1) &&
+    next.label === clip.label &&
+    sameTransform(next.transform, clip.transform);
+  if (unchanged) return timeline;
+  return withTrackClips(
+    timeline,
+    track.id,
+    track.clips.map((c) => (c.id === clipId ? next : c)),
+  );
+}
+
+/**
+ * Change a clip's playback speed. The same source material now takes
+ * `sourceSpan / speed` seconds, so `timelineStart` stays put and the duration
+ * is recomputed, clamped against the next clip on the track exactly like an
+ * end-trim (a clamp cuts off tail material; no ripple in v1). Rejects when
+ * even the minimum clip length no longer fits.
+ */
+export function setClipSpeed(
+  timeline: StudioTimeline,
+  clipId: string,
+  speed: number,
+): StudioTimeline {
+  if (!Number.isFinite(speed) || speed <= 0) return timeline;
+  const found = findClip(timeline, clipId);
+  if (!found || found.track.locked) return timeline;
+  const { clip, track } = found;
+  const current = clip.speed ?? 1;
+  if (speed === current) return timeline;
+
+  const desired = (clip.duration * current) / speed;
+  const end = clipEndTime(clip);
+  const nextStart = track.clips
+    .filter((c) => c.id !== clipId && c.timelineStart >= end)
+    .reduce((min, c) => Math.min(min, c.timelineStart), Number.POSITIVE_INFINITY);
+  const duration = Math.min(desired, nextStart - clip.timelineStart);
+  if (duration < MIN_CLIP_DURATION) return timeline;
+
+  const next: StudioClip = { ...clip, duration };
+  if (speed === 1) delete next.speed;
+  else next.speed = speed;
+  return withTrackClips(
+    timeline,
+    track.id,
+    track.clips.map((c) => (c.id === clipId ? next : c)),
+  );
 }
 
 /** Drop every clip that plays a given asset — used when the asset leaves the

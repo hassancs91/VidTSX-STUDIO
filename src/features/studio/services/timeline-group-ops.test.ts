@@ -5,6 +5,7 @@ import {
   moveClips,
   pasteClips,
   removeClips,
+  updateClips,
   type ClipboardEntry,
 } from './timeline-group-ops';
 
@@ -37,6 +38,27 @@ function makeTimeline(): StudioTimeline {
 
 const v1 = (t: StudioTimeline) => t.tracks[0].clips.map((c) => [c.id, c.timelineStart]);
 const a1 = (t: StudioTimeline) => t.tracks[1].clips.map((c) => [c.id, c.timelineStart]);
+
+describe('updateClips', () => {
+  it('applies one patch to every selected clip across tracks', () => {
+    const next = updateClips(makeTimeline(), ['c1', 'm1'], { gain: 0 });
+    expect(next.tracks[0].clips[0].gain).toBe(0);
+    expect(next.tracks[1].clips[0].gain).toBe(0);
+    expect(next.tracks[0].clips[1].gain).toBeUndefined();
+  });
+
+  it('rejects the whole batch when any member is on a locked track', () => {
+    const timeline = makeTimeline();
+    timeline.tracks[1].locked = true;
+    expect(updateClips(timeline, ['c1', 'm1'], { gain: 0 })).toBe(timeline);
+  });
+
+  it('is identity when nothing changes or no clip matches', () => {
+    const timeline = makeTimeline();
+    expect(updateClips(timeline, ['c1', 'c2'], { gain: 1 })).toBe(timeline);
+    expect(updateClips(timeline, ['nope'], { gain: 0 })).toBe(timeline);
+  });
+});
 
 describe('moveClips', () => {
   it('moves the group as one, preserving relative gaps', () => {

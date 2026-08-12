@@ -4,7 +4,7 @@
 // reducer skips the undo step. One call = one undo step, however many clips.
 
 import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
-import { clipEndTime, makeClipId } from './timeline-ops';
+import { clipEndTime, makeClipId, updateClip, type ClipPatch } from './timeline-ops';
 
 function sortByStart(clips: StudioClip[]): StudioClip[] {
   return [...clips].sort((a, b) => a.timelineStart - b.timelineStart);
@@ -98,6 +98,25 @@ export function removeClips(
     return { ...track, clips: shifted };
   });
   return changed ? { ...timeline, tracks } : timeline;
+}
+
+/**
+ * Apply one inspector patch to a whole selection (multi-select volume/mute).
+ * All-or-nothing on locked tracks like `moveClips`; identity when no clip
+ * actually changes, so the reducer records at most one undo step.
+ */
+export function updateClips(
+  timeline: StudioTimeline,
+  clipIds: string[],
+  patch: ClipPatch,
+): StudioTimeline {
+  const ids = new Set(clipIds);
+  for (const track of timeline.tracks) {
+    if (track.locked && track.clips.some((c) => ids.has(c.id))) return timeline;
+  }
+  let next = timeline;
+  for (const id of clipIds) next = updateClip(next, id, patch);
+  return next;
 }
 
 /** One copied clip: a snapshot plus where it came from and its place in the

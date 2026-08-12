@@ -7,8 +7,10 @@ import {
   findFreeSlot,
   moveClip,
   removeClip,
+  setClipSpeed,
   splitClip,
   trimClip,
+  updateClip,
 } from './timeline-ops';
 
 /** V1 holds two back-to-back cuts of the same source; A1 holds a music bed. */
@@ -138,6 +140,94 @@ describe('moveClip', () => {
       ['c2', 30],
       ['c1', 40],
     ]);
+  });
+});
+
+describe('updateClip', () => {
+  it('patches gain, clamped to 0–2', () => {
+    const next = updateClip(makeTimeline(), 'c1', { gain: 5 });
+    expect(findClip(next, 'c1')!.clip.gain).toBe(2);
+    const muted = updateClip(makeTimeline(), 'c1', { gain: 0 });
+    expect(findClip(muted, 'c1')!.clip.gain).toBe(0);
+  });
+
+  it('stores neutral values by removing the key (gain 1, empty label)', () => {
+    const withGain = updateClip(makeTimeline(), 'c1', { gain: 0.5 });
+    const back = updateClip(withGain, 'c1', { gain: 1 });
+    expect('gain' in findClip(back, 'c1')!.clip).toBe(false);
+
+    const labelled = updateClip(makeTimeline(), 'c1', { label: 'Intro' });
+    expect(findClip(labelled, 'c1')!.clip.label).toBe('Intro');
+    const cleared = updateClip(labelled, 'c1', { label: '   ' });
+    expect('label' in findClip(cleared, 'c1')!.clip).toBe(false);
+  });
+
+  it('merges transform field-wise and drops neutral fields', () => {
+    const step1 = updateClip(makeTimeline(), 'c1', { transform: { opacity: 0.5 } });
+    const step2 = updateClip(step1, 'c1', { transform: { x: 100, rotation: 45 } });
+    expect(findClip(step2, 'c1')!.clip.transform).toEqual({ opacity: 0.5, x: 100, rotation: 45 });
+    // Resetting every field back to neutral removes the transform entirely.
+    const reset = updateClip(step2, 'c1', { transform: { opacity: 1, x: 0, rotation: 0 } });
+    expect('transform' in findClip(reset, 'c1')!.clip).toBe(false);
+  });
+
+  it('rejects unknown clip, locked track, and no-change patches (identity)', () => {
+    const timeline = makeTimeline();
+    expect(updateClip(timeline, 'missing', { gain: 0.5 })).toBe(timeline);
+    expect(updateClip(timeline, 'c1', { gain: 1, label: '', transform: { scale: 1 } })).toBe(
+      timeline,
+    );
+    const locked = makeTimeline();
+    locked.tracks[0].locked = true;
+    expect(updateClip(locked, 'c1', { gain: 0.5 })).toBe(locked);
+  });
+});
+
+describe('setClipSpeed', () => {
+  it('2× halves the duration in place, timelineStart and sourceIn untouched', () => {
+    const next = setClipSpeed(makeTimeline(), 'c1', 2);
+    const clip = findClip(next, 'c1')!.clip;
+    expect(clip.timelineStart).toBe(0);
+    expect(clip.duration).toBe(2.5);
+    expect(clip.sourceIn).toBe(0);
+    expect(clip.speed).toBe(2);
+  });
+
+  it('slowing down clamps against the next clip like an end-trim', () => {
+    // c1 at 0.5× wants 10 s but c2 starts at 5 — boxed in, duration stays 5.
+    const next = setClipSpeed(makeTimeline(), 'c1', 0.5);
+    const clip = findClip(next, 'c1')!.clip;
+    expect(clip.duration).toBe(5);
+    expect(clip.speed).toBe(0.5);
+    // The last clip on the track has open space — it really lengthens.
+    const tail = setClipSpeed(makeTimeline(), 'c2', 0.5);
+    expect(findClip(tail, 'c2')!.clip.duration).toBe(10);
+  });
+
+  it('round-trips: back to 1× restores the original duration and drops the key', () => {
+    const fast = setClipSpeed(makeTimeline(), 'c2', 4);
+    expect(findClip(fast, 'c2')!.clip.duration).toBe(1.25);
+    const back = setClipSpeed(fast, 'c2', 1);
+    const clip = findClip(back, 'c2')!.clip;
+    expect(clip.duration).toBe(5);
+    expect('speed' in clip).toBe(false);
+  });
+
+  it('rejects when the sped-up clip falls under the minimum duration', () => {
+    const timeline = makeTimeline();
+    timeline.tracks[0].clips[0].duration = 0.1;
+    expect(setClipSpeed(timeline, 'c1', 4)).toBe(timeline);
+  });
+
+  it('rejects invalid speeds, locked tracks, and same-speed calls (identity)', () => {
+    const timeline = makeTimeline();
+    expect(setClipSpeed(timeline, 'c1', 0)).toBe(timeline);
+    expect(setClipSpeed(timeline, 'c1', -1)).toBe(timeline);
+    expect(setClipSpeed(timeline, 'c1', Number.NaN)).toBe(timeline);
+    expect(setClipSpeed(timeline, 'c1', 1)).toBe(timeline);
+    const locked = makeTimeline();
+    locked.tracks[0].locked = true;
+    expect(setClipSpeed(locked, 'c1', 2)).toBe(locked);
   });
 });
 

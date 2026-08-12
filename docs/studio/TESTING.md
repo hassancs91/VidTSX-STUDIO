@@ -148,11 +148,11 @@
 *Each block gets checked as the feature lands. Ordered by recommended build order.*
 
 ### 16.1 Clip inspector (volume · speed · opacity/transform · label)
-- [ ] Selecting a clip shows a Clip section in the Inspector (name, track, times).
-- [ ] Volume slider (plus mute) maps to `gain`; audible in preview AND respected in export; 0 = silent.
-- [ ] Speed 0.25×–4×: clip duration on the timeline recomputes (ripple-aware or clamped — decide and test both directions); pitch behavior documented; export matches preview.
-- [ ] Opacity/scale/position/rotation numeric fields map to `transform`; visible live in preview.
-- [ ] All edits are single undo steps and persist across relaunch.
+- [x] Selecting a clip shows a Clip section in the Inspector (name, track, times). *(2026-08-12 — CDP: readouts matched the document to the centisecond; multi-select shows "N clips selected" with volume+mute only)*
+- [x] Volume slider (plus mute) maps to `gain`; audible in preview AND respected in export; 0 = silent. *(CDP: muted clip's export span digitally silent (−inf peak, WAV sample scan); mute remembers and restores the pre-mute level; multi-select volume = one undo step)*
+- [x] Speed 0.25×–4×: clip duration on the timeline recomputes — DECIDED: clamped in place against the right neighbour like an end-trim, no ripple (stated in the UI); export matches preview. *(CDP: 2× halved readout+clip width; 0.25× boxed in by a neighbour clamped trim-like; export duration 26.60 s matched the sped timeline exactly; sped clip's audio present in export)*
+- [x] Opacity/scale/position/rotation numeric fields map to `transform`; visible live in preview. *(CDP: player <video> computed style showed opacity 0.5 + matrix ≡ translate(100px)·scale(.5)·rotate(45°); identical frame extracted from the export)*
+- [x] All edits are single undo steps and persist across relaunch. *(CDP: 3 volume edits = 3 undo steps back to baseline; autosaved project.json restored byte-identical after undoing everything)*
 
 ### 16.2 Audio fades (in/out per clip)
 - [ ] Fade handles on clip corners (and/or Inspector fields) write `fadeIn`/`fadeOut` seconds.
@@ -166,7 +166,7 @@
 
 ### 16.4 Detach audio + per-clip mute
 - [ ] Right-click a video clip → Detach audio → muted video clip + new linked audio clip on an audio track, sample-aligned (verify by ear against the original).
-- [ ] Per-clip mute toggle silences just that clip in preview + export.
+- [x] Per-clip mute toggle silences just that clip in preview + export. *(2026-08-12 — Slice B1 clip inspector: muted clip span −inf in the export WAV while neighbours kept audio; gain 0 via the volume control)*
 - [ ] Undo restores the pre-detach state exactly.
 
 ### 16.5 Basic transitions (crossfade · dip-to-black)

@@ -3,17 +3,23 @@ import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
-import type { StudioMediaAsset, StudioProject } from '../types';
+import type { StudioMediaAsset, StudioProject, StudioTimeline } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { AutoCutPhase } from '../hooks/useAutoCut';
+import type { TimelineAction } from '../hooks/useTimeline';
 import { TranscriptSection } from './TranscriptSection';
 import { ReviewCutsSection } from './ReviewCutsSection';
+import { ClipSection } from './ClipSection';
 
 type ReviewProps = Omit<React.ComponentProps<typeof ReviewCutsSection>, never>;
 
 interface Props {
   project: StudioProject;
   onUpdate: (updater: (prev: StudioProject) => StudioProject) => void;
+  /** The editor's LIVE timeline (reducer state) — project.timeline lags it. */
+  timeline: StudioTimeline;
+  selectedClipIds: string[];
+  timelineDispatch: React.Dispatch<TimelineAction>;
   selectedAsset: StudioMediaAsset | null;
   onTranscribe: (asset: StudioMediaAsset, sttModelId: string) => void;
   onCancelTranscribe: (assetId: string) => void;
@@ -27,6 +33,9 @@ interface Props {
 export function InspectorPanel({
   project,
   onUpdate,
+  timeline,
+  selectedClipIds,
+  timelineDispatch,
   selectedAsset,
   onTranscribe,
   onCancelTranscribe,
@@ -50,6 +59,18 @@ export function InspectorPanel({
 
   return (
     <div className="h-full flex flex-col gap-4 p-3 overflow-y-auto">
+      {selectedClipIds.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Clip</SectionLabel>
+          <ClipSection
+            timeline={timeline}
+            assets={project.assets}
+            selectedClipIds={selectedClipIds}
+            dispatch={timelineDispatch}
+          />
+        </section>
+      )}
+
       {review && (
         <section className="flex flex-col gap-2">
           <SectionLabel>Review cuts</SectionLabel>

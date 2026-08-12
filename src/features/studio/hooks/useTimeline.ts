@@ -11,13 +11,17 @@ import {
   moveClip,
   removeClip,
   removeClipsForAsset,
+  setClipSpeed,
   splitClip,
   trimClip,
+  updateClip,
+  type ClipPatch,
 } from '../services/timeline-ops';
 import {
   moveClips,
   pasteClips,
   removeClips,
+  updateClips,
   type ClipboardEntry,
 } from '../services/timeline-group-ops';
 import {
@@ -68,6 +72,11 @@ export type TimelineAction =
   // Ids are minted by the CALLER so it can select the new clips after
   // dispatch — the op itself is deterministic given them.
   | { type: 'paste'; entries: ClipboardEntry[]; atSeconds: number; newIds: string[] }
+  // Inspector edits. The UI commits sliders on release (not per pixel), so
+  // each of these is exactly one undo step.
+  | { type: 'update-clip'; clipId: string; patch: ClipPatch }
+  | { type: 'update-clips'; clipIds: string[]; patch: ClipPatch }
+  | { type: 'clip-speed'; clipId: string; speed: number }
   | { type: 'remove-asset-clips'; assetId: string }
   | { type: 'track-add'; kind: StudioTrackKind }
   | { type: 'track-rename'; trackId: string; name: string }
@@ -173,6 +182,21 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       return commit(
         state,
         withTimeline(doc, pasteClips(doc.timeline, action.entries, action.atSeconds, action.newIds)),
+      );
+    case 'update-clip':
+      return commit(
+        state,
+        withTimeline(doc, updateClip(doc.timeline, action.clipId, action.patch)),
+      );
+    case 'update-clips':
+      return commit(
+        state,
+        withTimeline(doc, updateClips(doc.timeline, action.clipIds, action.patch)),
+      );
+    case 'clip-speed':
+      return commit(
+        state,
+        withTimeline(doc, setClipSpeed(doc.timeline, action.clipId, action.speed)),
       );
     case 'remove-asset-clips':
       return commit(state, withTimeline(doc, removeClipsForAsset(doc.timeline, action.assetId)));

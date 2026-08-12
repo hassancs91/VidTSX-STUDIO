@@ -9,6 +9,45 @@
 
 ## Completed phases
 
+### Studio — core-parity Session 2: Slice B1 (clip inspector) (2026-08-12)
+**Status: COMPLETE — unit-tested (11 new tests, 329 total) + live CDP click-through
+incl. a real export (TESTING.md §16.1 fully ticked + §16.4 per-clip-mute line);
+no schema changes (gain/speed/transform/label already existed)**
+
+Second session of `docs/studio/CORE_PARITY_PLAN.md`.
+
+- [x] **Pure ops.** `updateClip(timeline, clipId, patch)` in `timeline-ops.ts`
+  patches `gain` (clamped 0–2) / `label` / `transform` (field-wise merge);
+  neutral values (gain 1, empty label, identity transform field) REMOVE the key
+  so documents never accumulate no-op state. `setClipSpeed(timeline, clipId,
+  speed)` is separate because speed changes duration: `timelineStart` stays
+  put, duration = sourceSpan/speed, clamped against the right neighbour like an
+  end-trim (no ripple in v1 — the UI says so); rejects when even
+  `MIN_CLIP_DURATION` no longer fits. `updateClips(timeline, clipIds, patch)`
+  in `timeline-group-ops.ts` for multi-select volume/mute — all-or-nothing on
+  locked tracks like `moveClips`. All identity-on-reject, 11 unit tests.
+- [x] **Reducer.** Actions `update-clip` / `update-clips` / `clip-speed`; the
+  UI commits sliders on release and numeric/label fields on Enter/blur, so one
+  committed control change = exactly one undo step (multi-select volume = one
+  step for the whole selection).
+- [x] **UI.** `ClipSection` at the top of the Inspector when clips are
+  selected: name/track/start/length read-outs, volume slider 0–200% + mute
+  (pre-mute gain remembered per clip id in component state), speed presets
+  0.25–4× + numeric field with the "shortens/lengthens in place" note, opacity
+  slider + position/scale/rotation numeric fields (video/image/tsx only),
+  label input (empty clears). Multi-selection: "N clips selected", volume+mute
+  only. Input primitives split into `inspector-controls.tsx` (~300-line rule).
+- Live CDP run (autocut-test, restored to a byte-identical project.json via
+  undo afterwards): volume 50% → mute → unmute walked back by 3 single undos;
+  2× halved the Length readout and the clip's px width, boxed-in 0.25× clamped
+  trim-like; opacity/scale/rotation/x showed up in the player `<video>`'s
+  computed style; label renamed the timeline clip; multi-select volume was one
+  undo step. Real export while edited: duration 26.60 s matched the sped
+  timeline, muted clip's span digitally silent (WAV sample scan), extracted
+  frame showed the same translate/scale/rotate/opacity as the preview.
+- Note: `timeline-ops.ts` is at 364 lines — over the ~300 guideline because
+  the plan pins both new ops to this file; split candidate for a later pass.
+
 ### Studio — core-parity Session 1: Slice A (playback rate · copy/paste · timeline QoL) (2026-08-12)
 **Status: COMPLETE — unit-tested (7 new tests, 317 total) + full live CDP click-through
 (TESTING.md §16.3 / §16.6 / §16.9 ticked); no schema changes**
