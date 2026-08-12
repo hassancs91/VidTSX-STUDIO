@@ -11,12 +11,13 @@ import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
+import { useStudioAgent } from '../hooks/useStudioAgent';
 import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
-import type { StudioMediaAsset, StudioProposalItem } from '../types';
+import type { StudioMediaAsset, StudioProposal, StudioProposalItem } from '../types';
 import { MediaPool } from './MediaPool';
 import { PreviewPanel } from './PreviewPanel';
 import { TimelinePanel } from './TimelinePanel';
@@ -96,12 +97,39 @@ export function EditorShell({ projectId, onBack }: Props) {
   const [previewResult, setPreviewResult] = useState(false);
   const activeProposal = tl.activeProposal;
 
-  // A fresh proposal pulls the review list into view; a closed one clears
-  // the preview toggle so the Player goes back to the real timeline.
+  // A fresh proposal pulls the review list into view — unless the user is
+  // mid-conversation in the Assistant tab (the chat links to the review, and
+  // the timeline regions are visible either way); a closed one clears the
+  // preview toggle so the Player goes back to the real timeline.
+  const rightTabRef = useRef(rightTab);
+  rightTabRef.current = rightTab;
   useEffect(() => {
-    if (activeProposal) setRightTab('inspector');
-    else setPreviewResult(false);
+    if (activeProposal) {
+      if (rightTabRef.current !== 'assistant') setRightTab('inspector');
+    } else {
+      setPreviewResult(false);
+    }
   }, [activeProposal]);
+
+  // ----- Editing agent (Assistant tab) ----------------------------------
+
+  const handleAgentProposal = useCallback(
+    (proposal: StudioProposal) => {
+      tl.dispatch({ type: 'proposal-add', proposal });
+      if (proposal.items.length > 0) tl.selectCut(proposal.items[0].id);
+    },
+    [tl],
+  );
+
+  const agentChat = useStudioAgent({
+    projectId,
+    projectName: project?.name ?? '',
+    assets,
+    reviewOpen: activeProposal !== null,
+    providerId: project?.settings.agent.providerId,
+    model: project?.settings.agent.model,
+    onProposal: handleAgentProposal,
+  });
 
   /** What the Player plays: the result preview while reviewing, else the edit. */
   const playerTimeline = useMemo(() => {
@@ -404,7 +432,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 }
               />
             ) : (
-              <AgentPanel />
+              <AgentPanel agent={agentChat} />
             )}
           </div>
         </div>

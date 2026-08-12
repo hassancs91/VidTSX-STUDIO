@@ -1,6 +1,11 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
+  StudioAgentCancelRequest,
+  StudioAgentCancelResponse,
+  StudioAgentEvent,
+  StudioAgentSendRequest,
+  StudioAgentSendResponse,
   StudioCacheReadRequest,
   StudioCacheReadResponse,
   StudioExportPrepareRequest,
@@ -60,9 +65,18 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_TRANSCRIBE_CANCEL, data),
   studioCutPlanRun: (data: StudioCutPlanRunRequest): Promise<StudioCutPlanRunResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CUTPLAN_RUN, data),
+  studioAgentSend: (data: StudioAgentSendRequest): Promise<StudioAgentSendResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_AGENT_SEND, data),
+  studioAgentCancel: (data: StudioAgentCancelRequest): Promise<StudioAgentCancelResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_AGENT_CANCEL, data),
   onStudioMediaJobEvent: (callback: (event: StudioMediaJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioMediaJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_MEDIA_JOB_EVENT, listener);
     return () => ipcRenderer.removeListener(IPC.STUDIO_MEDIA_JOB_EVENT, listener);
+  },
+  onStudioAgentEvent: (callback: (event: StudioAgentEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: StudioAgentEvent) => callback(data);
+    ipcRenderer.on(IPC.STUDIO_AGENT_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_AGENT_EVENT, listener);
   },
 };

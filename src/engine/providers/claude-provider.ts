@@ -1,6 +1,6 @@
 import path from "path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { McpServerConfig, Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ContentBlockParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import type {
   LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent, LLMUsage, LLMTurnTiming, AuthMode, EffortLevel,
@@ -132,7 +132,10 @@ export class ClaudeProvider implements LLMProvider {
     const tools = request.agentTools && request.agentTools.length > 0
       ? request.agentTools
       : [] as string[];
-    const maxTurns = tools.length > 0 ? (request.maxTurns || 10) : (request.maxTurns || 1);
+    // In-process MCP tools count as tools for the turn budget even though the
+    // built-in tool list stays empty.
+    const hasTools = tools.length > 0 || Boolean(request.mcpServers);
+    const maxTurns = hasTools ? (request.maxTurns || 10) : (request.maxTurns || 1);
     const bundledClaude = getBundledClaudeCodePath();
 
     const session = new ClaudeSession({
@@ -164,6 +167,9 @@ export class ClaudeProvider implements LLMProvider {
             ...(thinking ? { thinking } : {}),
             ...(effort ? { effort } : {}),
             ...(request.allowedTools ? { allowedTools: request.allowedTools } : {}),
+            ...(request.mcpServers
+              ? { mcpServers: request.mcpServers as Record<string, McpServerConfig> }
+              : {}),
           },
         }),
     });

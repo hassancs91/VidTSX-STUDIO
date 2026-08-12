@@ -326,6 +326,10 @@ export const IPC = {
   STUDIO_TRANSCRIBE_START: 'studio:transcribe:start',
   STUDIO_TRANSCRIBE_CANCEL: 'studio:transcribe:cancel',
   STUDIO_CUTPLAN_RUN: 'studio:cutplan:run',
+  // Studio — editing agent (Assistant tab chat)
+  STUDIO_AGENT_SEND: 'studio:agent:send',
+  STUDIO_AGENT_CANCEL: 'studio:agent:cancel',
+  STUDIO_AGENT_EVENT: 'studio:agent:event',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

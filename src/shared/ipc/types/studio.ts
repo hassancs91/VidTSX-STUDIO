@@ -2,8 +2,10 @@ import type {
   StudioAssetTranscriptMeta,
   StudioMediaAsset,
   StudioProject,
+  StudioProposal,
 } from '../../types/studio';
 import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
+import type { ChatMessage } from './llm';
 
 // Studio (AI video editor) — projects & media IPC contracts.
 
@@ -200,6 +202,63 @@ export interface StudioCutPlanRunResponse {
   /** Absolute path of the written plan JSON, for external inspection. */
   planPath?: string;
   error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Editing agent (Assistant tab chat)
+// ---------------------------------------------------------------------------
+
+/** What the agent may know about an asset (goes into its system prompt). */
+export interface StudioAgentAssetInfo {
+  id: string;
+  name: string;
+  kind: 'video' | 'audio' | 'image';
+  /** Absolute source path — needed if the RMS envelope must be regenerated. */
+  path: string;
+  durationSeconds?: number;
+  transcript?: {
+    engine: string;
+    wordCount?: number;
+    /** Verbatim disfluencies preserved — the editorial pass depends on this. */
+    verbatim?: boolean;
+  };
+}
+
+export interface StudioAgentSendRequest {
+  projectId: string;
+  /** Display name for the system prompt (main never re-loads the document). */
+  projectName: string;
+  /** The new user message (also the last entry the model sees). */
+  prompt: string;
+  /** Prior chat turns, oldest first, excluding `prompt`. */
+  history: ChatMessage[];
+  assets: StudioAgentAssetInfo[];
+  /** A cut proposal is open in the review panel — propose_cuts must refuse. */
+  reviewOpen: boolean;
+  providerId?: string;
+  model?: string;
+}
+
+export interface StudioAgentSendResponse {
+  success: boolean;
+  text?: string;
+  /** Whether typed editing tools were available on the resolved provider. */
+  toolsAvailable?: boolean;
+  error?: string;
+}
+
+/** Push events streamed while an agent turn runs. */
+export type StudioAgentEvent =
+  | { projectId: string; kind: 'delta'; text: string }
+  | { projectId: string; kind: 'tool'; tool: string; detail?: string }
+  | { projectId: string; kind: 'proposal'; proposal: StudioProposal };
+
+export interface StudioAgentCancelRequest {
+  projectId: string;
+}
+
+export interface StudioAgentCancelResponse {
+  success: boolean;
 }
 
 export interface StudioExportPrepareRequest {

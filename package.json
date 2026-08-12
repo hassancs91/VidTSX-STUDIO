@@ -112,6 +112,7 @@
     "ulid": "2.4.0",
     "unbzip2-stream": "^1.4.3",
     "unzipper": "^0.12.3",
-    "utf-8-validate": "^6.0.3"
+    "utf-8-validate": "^6.0.3",
+    "zod": "4.3.6"
   }
 }

@@ -22,8 +22,10 @@ export interface RunCutPlanResult {
 /**
  * The RMS envelope comes from the waveform cache. Version-1 files predate the
  * rmsDb buckets, so those regenerate once (the peaks side is identical).
+ * Shared with the editorial pass (studio-agent), which snaps agent-authored
+ * cut spans against the same envelope.
  */
-async function loadRmsEnvelope(
+export async function loadRmsEnvelope(
   projectId: string,
   assetId: string,
   sourcePath: string,

@@ -161,7 +161,9 @@ export async function handleLlmProviderTest(
 export async function runLlmGenerate(
   data: LlmGenerateRequest,
   signal?: AbortSignal,
-  onTextDelta?: (delta: string) => void
+  onTextDelta?: (delta: string) => void,
+  /** In-process-only request fields the IPC type can't carry (live objects). */
+  extras?: { mcpServers?: Record<string, unknown> }
 ): Promise<LlmGenerateResponse> {
   try {
     const start = Date.now();
@@ -188,6 +190,7 @@ export async function runLlmGenerate(
       ...(data.messages ? { messages: data.messages } : {}),
       ...(signal ? { signal } : {}),
       ...(onTextDelta ? { onTextDelta } : {}),
+      ...(extras?.mcpServers ? { mcpServers: extras.mcpServers } : {}),
     };
 
     const result = data.providerId

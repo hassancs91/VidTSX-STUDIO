@@ -9,6 +9,75 @@
 
 ## Completed phases
 
+### Studio — S3 agent pass: editorial cuts via the Assistant chat (2026-08-12)
+**Status: COMPLETE — unit-tested (19 new tests, 310 total) + full live CDP run
+(seeded TTS recording → AssemblyAI verbatim transcript → agent chat → 5-cut
+proposal → apply → undo ×2 → redo)**
+
+The LLM editorial pass from the S3 plan: the agent reads the VERBATIM
+transcript and proposes retakes/false starts/fillers/fluff as cuts. Its output
+lands through the SAME `proposal-add` → CutRegionLayer + ReviewCutsSection
+flow as mechanical Auto Cut — the agent never touches the timeline.
+
+- [x] **Typed in-process tools through the Agent SDK.** `LLMRequest.mcpServers`
+  (main-process-only field, like `onTextDelta`) is passed into
+  `ClaudeProvider.createSession`'s query options; `runLlmGenerate` grew an
+  in-process `extras` param to carry it past the IPC type. `zod` pinned 4.3.6
+  (already a transitive dep). Providers that aren't `agent-sdk` ignore the
+  field — the agent's system prompt then honestly says it can chat but not
+  edit, and names the fix (pick an Agent-SDK provider in the Inspector).
+  Unknown provider ids (e.g. auto-registered `claude-subscription`, which is
+  NOT in the saved configs list) are assumed agent-sdk.
+- [x] **`studio-agent.ts`** (main): one in-flight turn per project, scope-less
+  runs with explicit `messages` history (no hot-session staleness), push
+  events over `STUDIO_AGENT_EVENT` (`delta` / `tool` / `proposal`), provider
+  from `project.settings.agent.providerId` (its first real consumer),
+  `featureSource: 'auto-cut'`. Two tools:
+  - `get_transcript` → **takes view** (`transcript-takes-view.ts`, port of
+    format_transcript.py): segments split on >0.8 s gaps, `#NN [s - e] (M:SS)`
+    lines, pause lines between, fillers inline as `<<uh, 12.34-12.40>>`. Warns
+    when the transcript isn't verbatim.
+  - `propose_cuts` → `editorial-cuts.ts`: clamp/drop invalid spans, merge
+    overlaps + wordless slivers (≤1 s) between cuts, then **RMS-snap edges
+    with the existing `planClip`** under `internalGap = ∞` (pause compression
+    stays Auto Cut's job) — head pads, decay tails, and the clamp that stops a
+    tail riding into cut speech all apply to agent spans. Keeps↔cuts alternate
+    1:1 with planner segments, so each item's edges are exactly what apply
+    removes. Proposal built in main: retake/false_start/filler start
+    **accepted** (veto review), fluff starts **rejected** (policy: suggest,
+    don't auto-remove); honest `agentNote` headline + the agent's summary +
+    QA notes (merged/dropped/vanished counts).
+- [x] **`resources/skills/studio-clean-cut/SKILL.md`** — the clean-cut policy
+  ported from claude-youtube-editor and composed into the system prompt via
+  `skillIds`: spoken slates outrank judgment, doubled phrase → cut the FIRST,
+  filler conservatism (standalone yes, mid-sentence careful, scripted never),
+  antecedent rule, paired-fluff notes, "the transcript lies about TIME"
+  (word-bound spans; snapping absorbs the error), every cut carries a
+  which-take-wins note.
+- [x] **Assistant tab is real** (`AgentPanel` + `useStudioAgent`): streaming
+  deltas, tool-activity chips, proposal chip linking to review, stop/clear,
+  Enter-to-send. A proposal arriving while the user is ON the Assistant tab no
+  longer yanks them to the Inspector (regions still appear on the timeline);
+  from any other tab the review pulls into view as before. One-review gating
+  holds at three layers (send context flag → tool refusal; Auto Cut button;
+  proposal-ops no-ops).
+- Live walkthrough (dev, CDP): seeded a 38 s TTS wav containing a false start
+  + "Let me say that again." slate + doubled "And what, and what" + standalone
+  "Um." + a like/subscribe CTA; AssemblyAI verbatim transcript (70 words,
+  measured times). One chat turn: agent read the takes view and proposed
+  exactly the right 5 cuts — categories correct, fluff unchecked, notes name
+  the winning take, and it flagged the one estimated boundary "needs an ear".
+  Review showed honest stats (−18.9 s proposed / −11.3 s at Apply-4), regions
+  on the A1 clip; Apply split 1→5 clips with the stats toast; two Ctrl+Z
+  returned to pristine (un-apply, then un-add); Ctrl+Y brought the full
+  review back. Type baseline ratcheted web 27→26.
+- Not exercised live: auditions by ear (buttons render; left the proposal
+  open in the `editorial-test` project to listen to), the chat-only fallback
+  on non-agent-sdk providers, and the propose-cuts-refusal path (logic
+  unit-covered). Takes view carries word times only on fillers by design —
+  the model estimates other boundaries and the snapper absorbs it; if that
+  bites, add per-word times to the view.
+
 ### Render pipeline — resolution-scale fix + animated WebP export (2026-08-11)
 **Status: COMPLETE — unit-tested (16 new tests) + Electron smoke test; full in-app
 render click-through still pending**

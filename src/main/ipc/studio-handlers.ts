@@ -29,6 +29,10 @@ import type {
   StudioTranscribeCancelResponse,
   StudioTranscribeStartRequest,
   StudioTranscribeStartResponse,
+  StudioAgentCancelRequest,
+  StudioAgentCancelResponse,
+  StudioAgentSendRequest,
+  StudioAgentSendResponse,
 } from '../../shared/ipc/types';
 import { getStudioProjectsRoot, setStudioProjectsRoot } from '../services/settings';
 import {
@@ -43,6 +47,8 @@ import { getProjectDir, safeResolveCachePath } from '../services/studio/studio-p
 import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
 import { runCutPlan } from '../services/studio/cut-plan-runner';
+import { studioAgent } from '../services/studio/studio-agent';
+import { buildAgentSystemPrompt } from '../services/studio/studio-agent-prompt';
 import { findSttEntry } from '../../shared/presets/stt-models';
 import { transcriptionEngine } from '../../transcription-engine';
 import { createExportEntry } from '../services/studio/export-entry';
@@ -276,6 +282,32 @@ export async function handleStudioExportPrepare(
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare export') };
   }
+}
+
+/** One editing-agent chat turn; deltas/tools/proposals stream as push events. */
+export async function handleStudioAgentSend(
+  _event: IpcMainInvokeEvent,
+  data: StudioAgentSendRequest,
+): Promise<StudioAgentSendResponse> {
+  try {
+    return await studioAgent.send(data, (toolsAvailable) =>
+      buildAgentSystemPrompt({
+        projectName: data.projectName,
+        assets: data.assets,
+        toolsAvailable,
+        reviewOpen: data.reviewOpen,
+      }),
+    );
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Agent request failed') };
+  }
+}
+
+export async function handleStudioAgentCancel(
+  _event: IpcMainInvokeEvent,
+  data: StudioAgentCancelRequest,
+): Promise<StudioAgentCancelResponse> {
+  return { success: studioAgent.cancel(data.projectId) };
 }
 
 const CACHE_MIME_BY_EXT: Record<string, string> = {

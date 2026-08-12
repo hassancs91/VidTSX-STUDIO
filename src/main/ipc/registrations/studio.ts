@@ -15,8 +15,11 @@ import {
   handleStudioTranscribeStart,
   handleStudioTranscribeCancel,
   handleStudioCutPlanRun,
+  handleStudioAgentSend,
+  handleStudioAgentCancel,
 } from '../studio-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
+import { studioAgent } from '../../services/studio/studio-agent';
 
 export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_ROOT_GET, handleStudioRootGet);
@@ -33,12 +36,22 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_START, handleStudioTranscribeStart);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_CANCEL, handleStudioTranscribeCancel);
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);
+  ipcMain.handle(IPC.STUDIO_AGENT_SEND, handleStudioAgentSend);
+  ipcMain.handle(IPC.STUDIO_AGENT_CANCEL, handleStudioAgentCancel);
 
   // Proxy/waveform progress is a push stream — the editor folds each 'ready'
   // event back into the open project document.
   studioMediaJobs.onEvent((event) => {
     for (const contents of webContents.getAllWebContents()) {
       if (!contents.isDestroyed()) contents.send(IPC.STUDIO_MEDIA_JOB_EVENT, event);
+    }
+  });
+
+  // Agent chat streams the same way: deltas, tool activity, and the proposal
+  // the renderer folds into the timeline document.
+  studioAgent.onEvent((event) => {
+    for (const contents of webContents.getAllWebContents()) {
+      if (!contents.isDestroyed()) contents.send(IPC.STUDIO_AGENT_EVENT, event);
     }
   });
 }

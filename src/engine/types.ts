@@ -48,6 +48,14 @@ export interface LLMRequest {
   allowedTools?: string[];     // auto-approve these tools without permission prompts
   sessionScope?: string;       // opt-in hot-session reuse key. Same value across calls that should share a session; omit or change to force a fresh session.
   onTextDelta?: (delta: string) => void; // live text chunks as they stream. In-process callers only (functions can't cross IPC).
+  /**
+   * In-process MCP servers with typed tools (Agent SDK's createSdkMcpServer
+   * output, keyed by server name). Main-process callers only — the instances
+   * hold live handler functions, so they can't cross IPC. Providers other than
+   * the Agent SDK ignore this field. Pair with allowedTools
+   * ('mcp__<server>__<tool>') so tool calls run without permission prompts.
+   */
+  mcpServers?: Record<string, unknown>;
 }
 
 /** Per-turn timing info */
