@@ -153,6 +153,27 @@ a loop can fire events. Numbers swing ±10 ms run to run on a dev machine with t
 bundler running, so take several samples and report a range, not a single figure.
 This is how the S2 100-cut scrub checkpoint in `STATUS.md` was measured.
 
+## Playback needs a visible window; scroll containers nest
+
+Two more, learned during the Slice A click-through (2026-08-12):
+
+**Playback is frozen while the window is occluded.** Chromium throttles rAF in
+a covered/backgrounded window, so the Remotion Player's clock, the playhead,
+and anything frame-driven simply stop — while React state updates (clicks,
+paste, undo) keep working, which makes the freeze easy to misread as a feature
+bug. Send `Page.bringToFront` before any test that plays.
+
+**Pick the INNERMOST scroll container.** The timeline lanes' scroll div is not
+the first visible `.overflow-auto` that contains clips — an outer wrapper (84
+px wider, never horizontally scrollable) matches earlier in document order and
+reads `scrollLeft: 0` forever, silently invalidating every scroll assertion
+and write. Filter to candidates that contain no other candidate:
+
+```js
+const cands = visible('.overflow-auto').filter((el) => el.querySelector('.cursor-grab'));
+const scrollEl = cands.find((el) => !cands.some((o) => o !== el && el.contains(o)));
+```
+
 ## Safety: delete flows differ per feature
 
 Studio project delete goes through `shell.trashItem` with an `fs.rm` fallback
