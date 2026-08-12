@@ -5,7 +5,8 @@ import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 const log = logEngine.createLogger('ImageHandlers');
 import type { ImageProviderConfig } from '../../image-engine';
 import { getImageProviders, saveImageProviders, getProviderCredentials } from '../services/settings';
-import { registerLocalImageProvider, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
+import { getProviderModels } from '../services/provider-models';
+import { initImageEngine, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
 import { aiUsageService } from '../services/ai-usage';
 import type {
   ImageProvidersGetResponse,
@@ -42,16 +43,24 @@ export async function handleImageProvidersGet(): Promise<ImageProvidersGetRespon
   try {
     const { providers, activeProvider } = await getImageProviders();
     const credentials = await getProviderCredentials();
+    // Presets merged with saved overrides. A provider is enabled exactly when
+    // its key exists ("one key unlocks the provider") — mirrors what
+    // initImageEngine actually registers, even when settings are empty.
+    const savedMap = new Map(providers.map((p) => [p.id, p]));
     return {
       success: true,
-      providers: providers.map((p) => ({
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        defaultModel: p.defaultModel,
-        enabled: p.enabled,
-        hasApiKey: !!(sharedKeyFor(p.type, credentials) || p.apiKey),
-      })),
+      providers: IMAGE_PROVIDER_PRESETS.map((preset) => {
+        const saved = savedMap.get(preset.id);
+        const hasApiKey = !!(sharedKeyFor(preset.type, credentials) || saved?.apiKey);
+        return {
+          id: preset.id,
+          name: preset.name,
+          type: preset.type,
+          defaultModel: saved?.defaultModel || preset.defaultModel,
+          enabled: hasApiKey,
+          hasApiKey,
+        };
+      }),
       activeProvider: activeProvider || imageEngine.getActiveProvider(),
     };
   } catch (err) {
@@ -83,33 +92,14 @@ export async function handleImageProvidersSave(
 
     await saveImageProviders(configs, data.activeProvider);
 
-    // Re-initialize engine with new configs
+    // Re-initialize the engine with new configs. initImageEngine registers
+    // every keyed preset with its catalog models, restores the local sd-cli
+    // bridge, and re-applies the (just saved) active provider.
     const currentProviders = imageEngine.getProviders();
     for (const id of currentProviders) {
       imageEngine.unregister(id);
     }
-
-    const credentials = await getProviderCredentials();
-    for (const config of configs) {
-      try {
-        // Shared BYOK credential wins; per-provider key is a legacy fallback.
-        const sharedKey = sharedKeyFor(config.type, credentials);
-        imageEngine.register({ ...config, apiKey: sharedKey || config.apiKey });
-      } catch (err) {
-        log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-
-    // The rebuild above unregistered the local sd-cli bridge too — restore it.
-    registerLocalImageProvider();
-
-    if (data.activeProvider) {
-      try {
-        imageEngine.switchProvider(data.activeProvider);
-      } catch {
-        // Provider not available
-      }
-    }
+    await initImageEngine();
 
     return { success: true };
   } catch (err) {
@@ -125,24 +115,31 @@ export async function handleImageProviderTest(
   try {
     const { providers } = await getImageProviders();
     const config = providers.find((p) => p.id === data.providerId);
-    const providerType = (config?.type || data.providerId) as ImageProviderConfig['type'];
+    const preset = IMAGE_PROVIDER_PRESETS.find((p) => p.id === data.providerId);
+    const providerType = (config?.type || preset?.type || data.providerId) as ImageProviderConfig['type'];
 
-    // Apply unsaved draft overrides from the Settings UI (api key, model),
+    // Apply unsaved draft overrides from the Providers UI (api key, model),
     // falling back to the shared BYOK credential.
     const credentials = await getProviderCredentials();
     const apiKey =
       data.apiKey?.trim() || sharedKeyFor(providerType, credentials) || config?.apiKey || '';
-    const defaultModel = data.defaultModel || config?.defaultModel;
+    const defaultModel = data.defaultModel || config?.defaultModel || preset?.defaultModel;
 
     if (!apiKey) {
-      return { success: false, error: 'Add an API key in Settings > API Keys first' };
+      return { success: false, error: 'Add an API key in the Providers tab first' };
     }
 
-    if (!config && !defaultModel) {
-      return { success: false, error: `Provider "${data.providerId}" not found in settings` };
+    if (!defaultModel) {
+      return { success: false, error: `No model configured for provider "${data.providerId}"` };
     }
 
-    // Create a temporary provider for testing using draft values when present
+    // Create a temporary provider for testing using draft values when present.
+    // The catalog drives the model list; a draft model id not (yet) in the
+    // catalog is appended so it can be exercised by the test.
+    const catalog = await getProviderModels(data.providerId, 'image');
+    if (defaultModel && !catalog.some((m) => m.id === defaultModel)) {
+      catalog.push({ id: defaultModel, name: defaultModel });
+    }
     const testId = `__test_${data.providerId}_${Date.now()}`;
     const testConfig: ImageProviderConfig = {
       id: testId,
@@ -151,6 +148,7 @@ export async function handleImageProviderTest(
       apiKey,
       defaultModel: defaultModel || '',
       enabled: true,
+      models: catalog,
     };
 
     imageEngine.register(testConfig);

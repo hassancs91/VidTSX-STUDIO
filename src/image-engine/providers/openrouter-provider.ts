@@ -9,6 +9,7 @@ import type {
 import { ImageEngineError } from '../types';
 import { OpenRouterClient, OpenRouterHttpError } from '@shared/providers/openrouter';
 import type { OpenRouterChatMessage, OpenRouterContentPart } from '@shared/providers/openrouter';
+import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
 
 interface OpenRouterModelDef {
   id: string;
@@ -17,7 +18,12 @@ interface OpenRouterModelDef {
   endpoints: Partial<Record<ImageOperation, string>>;
 }
 
-const OPENROUTER_MODELS: OpenRouterModelDef[] = [
+/**
+ * Default catalog. OpenRouter image generation is uniform (any model id goes
+ * through chat/completions with the same operations), so user-added catalog
+ * entries need no per-model metadata.
+ */
+const DEFAULT_OPENROUTER_MODELS: OpenRouterModelDef[] = [
   {
     id: 'black-forest-labs/flux.2-pro',
     name: 'FLUX.2 Pro',
@@ -50,19 +56,39 @@ const OPENROUTER_MODELS: OpenRouterModelDef[] = [
   },
 ];
 
+function genericOpenRouterDef(entry: ImageModelCatalogEntry): OpenRouterModelDef {
+  return {
+    id: entry.id,
+    name: entry.name || entry.id,
+    supportedOperations: ['text-to-image', 'image-to-image', 'multi-reference'],
+    endpoints: {
+      'text-to-image': 'chat/completions',
+      'image-to-image': 'chat/completions',
+      'multi-reference': 'chat/completions',
+    },
+  };
+}
+
 export class OpenRouterProvider implements ImageProvider {
   private readonly client: OpenRouterClient;
+  private readonly models: OpenRouterModelDef[];
 
   constructor(
     readonly id: string,
     apiKey: string,
-    private defaultModel: string
+    private defaultModel: string,
+    catalog?: ImageModelCatalogEntry[],
   ) {
     this.client = new OpenRouterClient({ apiKey });
+    this.models = catalog?.length
+      ? catalog.map(
+          (entry) => DEFAULT_OPENROUTER_MODELS.find((m) => m.id === entry.id) ?? genericOpenRouterDef(entry),
+        )
+      : DEFAULT_OPENROUTER_MODELS;
   }
 
   getSupportedModels(): ImageModelInfo[] {
-    const models: ImageModelInfo[] = OPENROUTER_MODELS.map((m) => ({
+    const models: ImageModelInfo[] = this.models.map((m) => ({
       id: m.id,
       name: m.name,
       supportedOperations: m.supportedOperations,
@@ -89,7 +115,7 @@ export class OpenRouterProvider implements ImageProvider {
   async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     const start = Date.now();
     const modelId = request.model || this.defaultModel;
-    const modelDef = OPENROUTER_MODELS.find((m) => m.id === modelId);
+    const modelDef = this.models.find((m) => m.id === modelId);
 
     // Known models enforce operation support; unknown models are allowed for all operations
     if (modelDef && !modelDef.supportedOperations.includes(request.operation)) {

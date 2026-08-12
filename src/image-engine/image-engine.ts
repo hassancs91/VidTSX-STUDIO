@@ -26,9 +26,9 @@ class ImageEngine {
     let provider: ImageProvider;
 
     if (config.type === 'fal') {
-      provider = new FalImageProvider(config.id, config.apiKey, config.defaultModel);
+      provider = new FalImageProvider(config.id, config.apiKey, config.defaultModel, config.models);
     } else if (config.type === 'openrouter') {
-      provider = new OpenRouterProvider(config.id, config.apiKey, config.defaultModel);
+      provider = new OpenRouterProvider(config.id, config.apiKey, config.defaultModel, config.models);
     } else {
       throw new Error(`Unknown image provider type: ${config.type}`);
     }

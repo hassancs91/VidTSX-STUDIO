@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { ProviderSettings } from './ProviderSettings';
-import { ImageProviderSettings } from './ImageProviderSettings';
 import { AiUsageDashboard } from './AiUsageDashboard';
-import { SectionHeader } from '@shared/components';
-import { ApiKeysCard } from './ApiKeysCard';
+import { ApiKeysSection } from './ApiKeysSection';
+import { ModelCatalogSection } from './ModelCatalogSection';
 
 const PROVIDER_SUB_TABS = [
   { id: 'config' as const, label: 'Providers' },
@@ -12,6 +10,11 @@ const PROVIDER_SUB_TABS = [
 
 type ProviderSubTabId = (typeof PROVIDER_SUB_TABS)[number]['id'];
 
+/**
+ * Providers tab: one unified list for API keys / provider config (a key powers
+ * every capability of its provider), plus editable per-provider model
+ * catalogs. Usage dashboard on its own inner tab.
+ */
 export function ProvidersContent() {
   const [subTab, setSubTab] = useState<ProviderSubTabId>('config');
 
@@ -38,17 +41,8 @@ export function ProvidersContent() {
 
       {subTab === 'config' && (
         <>
-          <ApiKeysCard />
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <SectionHeader>LLM Providers</SectionHeader>
-              <ProviderSettings />
-            </div>
-            <div>
-              <SectionHeader>Image Providers</SectionHeader>
-              <ImageProviderSettings />
-            </div>
-          </div>
+          <ApiKeysSection />
+          <ModelCatalogSection />
         </>
       )}
 

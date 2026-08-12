@@ -15,6 +15,7 @@ export * from './log';
 export * from './model-library';
 export * from './moderation';
 export * from './provider-keys';
+export * from './provider-models';
 export * from './render';
 export * from './sd-image';
 export * from './sd-video';

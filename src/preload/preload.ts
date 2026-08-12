@@ -25,6 +25,7 @@ import { moderationApi } from './api/moderation';
 import { aiUsageApi } from './api/ai-usage';
 import { videoStudioApi } from './api/video-studio';
 import { providerKeysApi } from './api/provider-keys';
+import { providerModelsApi } from './api/provider-models';
 import { videoApi } from './api/video';
 import { sttApi } from './api/stt';
 import { studioApi } from './api/studio';
@@ -56,6 +57,7 @@ const api = {
   ...aiUsageApi,
   ...videoStudioApi,
   ...providerKeysApi,
+  ...providerModelsApi,
   ...videoApi,
   ...sttApi,
   ...studioApi,

@@ -247,6 +247,28 @@ until the user opens a feature that needs them. No claude.exe spawns at launch.
 
 ## Phase C — Providers page restructure (item 6)
 
+> **STATUS: code complete (2026-08-12).** Implemented as planned with these decisions:
+> - **Catalogs cover image models only** (fal + OpenRouter). Video models keep their
+>   code-curated catalog — each needs a bespoke request payload (video-payloads.ts), so
+>   arbitrary user-added ids can't work. LLM default models stay free-text per provider.
+> - **"One key unlocks the provider":** image providers register whenever their shared
+>   BYOK credential (or legacy per-provider key) exists — the legacy `enabled` toggle is
+>   gone from UI and registration (`image-init.ts`, `handleImageProvidersGet` now reports
+>   presets merged with saved overrides, enabled ≡ hasApiKey).
+> - Q2 resolved: "Default LLM provider" select lives in the unified section's footer.
+> - Custom fal ids map to generic endpoints (`fal-ai/<id>`, `/edit` for image input,
+>   `image_size` param); the three shipped models keep their rich defs. OpenRouter ids
+>   are fully generic (chat/completions).
+> - New: `shared/presets/provider-model-defaults.ts`, `main/services/provider-models.ts`,
+>   PROVIDER_MODELS_GET/SAVE/RESET IPC, `useProviderModels`, `ApiKeysSection`,
+>   `ModelCatalogSection`/`Card`, `CapabilityBadge`, `LlmProviderRow`. Deleted:
+>   `ApiKeysCard`, `ProviderSettings`, `ImageProviderSettings`, `useImageProviders`.
+> - Verified: type gate at baseline (web 26 / node 22), 139 unit tests pass, full
+>   `electron-vite build` clean, new modules transform in the live dev server.
+> **Remaining:** live UI walkthrough (blocked by single-instance lock — the running dev
+> app's main process predates the new IPC; restart it to exercise the catalog flow), and
+> the C-acceptance checks (add fal model → appears in Image Studio picker; reset works).
+
 **Outcome:** one Providers experience: a single API-keys section (one key per provider,
 powering every model type), and a model-catalog manager per provider. No more
 "LLM Providers" vs "Image Providers" columns.
@@ -451,3 +473,6 @@ A and B are independent and could be done in either order.
 | 2026-08-11 | A | A1–A3 implemented (see STATUS note under Phase A); type-check at baseline. Incident: a `git stash` verification round-trip collided with parallel uncommitted Studio work — recovered everything; `stash@{0}` kept as backup because `EditorShell.tsx` on disk (no auto-cut wiring) diverges from the stashed copy (has auto-cut wiring) — reconcile before dropping the stash. | Dev-run acceptance check for Phase A, then Phase B. |
 | 2026-08-11 | A | Verified (dev-server env injection OFF-state + prod build with VITE_FF_TOOLS=1 inlines the flag) and committed as `479fe4c`. | Phase B. |
 | 2026-08-12 | B | Implemented lazy engine init + held TSX-job restore (see STATUS note under Phase B). | Live cold-start check once the running dev instance closes; then Phase C. |
+| 2026-08-12 | B | Cold start verified live: 306 ms main init (was ~13.7 s), zero engine loads, lazy sd-image init fired on Image-tab click. Committed `76a0ca2`. | Phase C. |
+| 2026-08-12 | F | Planned sd-cli install flow (upstream zip, whisper-style). Committed `b5e652a`. | Implement after D. |
+| 2026-08-12 | C | Providers restructure implemented + statically verified (see STATUS note under Phase C). | User restarts dev app → live walkthrough of keys section + catalogs; then Phase D polish. |

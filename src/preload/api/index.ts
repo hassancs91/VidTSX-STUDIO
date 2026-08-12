@@ -25,5 +25,6 @@ export { moderationApi } from './moderation';
 export { aiUsageApi } from './ai-usage';
 export { videoStudioApi } from './video-studio';
 export { providerKeysApi } from './provider-keys';
+export { providerModelsApi } from './provider-models';
 export { videoApi } from './video';
 export { sttApi } from './stt';

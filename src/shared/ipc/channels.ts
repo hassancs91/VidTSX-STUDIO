@@ -63,6 +63,11 @@ export const IPC = {
   PROVIDER_KEYS_GET: 'provider-keys:get',
   PROVIDER_KEYS_SAVE: 'provider-keys:save',
 
+  // Editable per-provider model catalogs (fal/OpenRouter image models)
+  PROVIDER_MODELS_GET: 'provider-models:get',
+  PROVIDER_MODELS_SAVE: 'provider-models:save',
+  PROVIDER_MODELS_RESET: 'provider-models:reset',
+
   // Video generation (fal queue API)
   VIDEO_GENERATE: 'video:generate',
   VIDEO_GET_JOB: 'video:get-job',

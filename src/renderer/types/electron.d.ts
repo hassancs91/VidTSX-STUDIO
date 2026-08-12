@@ -164,6 +164,11 @@ export interface ElectronAPI {
   providerKeysGet: () => Promise<import('../../shared/ipc/types').ProviderKeysGetResponse>;
   providerKeysSave: (data: import('../../shared/ipc/types').ProviderKeysSaveRequest) => Promise<import('../../shared/ipc/types').ProviderKeysSaveResponse>;
 
+  // Editable per-provider model catalogs
+  providerModelsGet: () => Promise<import('../../shared/ipc/types').ProviderModelsGetResponse>;
+  providerModelsSave: (data: import('../../shared/ipc/types').ProviderModelsSaveRequest) => Promise<import('../../shared/ipc/types').ProviderModelsSaveResponse>;
+  providerModelsReset: (data: import('../../shared/ipc/types').ProviderModelsResetRequest) => Promise<import('../../shared/ipc/types').ProviderModelsResetResponse>;
+
   // Video generation (fal queue API)
   videoGenerate: (data: import('../../shared/ipc/types').VideoGenerateRequest) => Promise<import('../../shared/ipc/types').VideoGenerateResponse>;
   videoGetJob: (jobId: string) => Promise<import('../../shared/ipc/types').VideoJobResponse>;

@@ -1,6 +1,7 @@
-import { imageEngine } from '../../image-engine';
+import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 import { LocalSdImageProvider } from '../../image-engine/providers/local-sd-provider';
 import { loadSettings, getProviderCredentials } from './settings';
+import { getProviderModels } from './provider-models';
 import { applySdGenerationPreflight } from './sdimage-preflight';
 import { logEngine } from '../../logging/log-engine';
 
@@ -28,19 +29,29 @@ export async function initImageEngine(): Promise<void> {
   try {
     const settings = await loadSettings();
     const credentials = await getProviderCredentials();
+    const saved = settings.imageProviders ?? [];
 
-    if (settings.imageProviders && settings.imageProviders.length > 0) {
-      for (const config of settings.imageProviders) {
-        try {
-          // Shared BYOK credential wins; per-provider key is a legacy fallback.
-          const sharedKey =
-            config.type === 'fal' ? credentials.fal :
-            config.type === 'openrouter' ? credentials.openrouter :
-            undefined;
-          imageEngine.register({ ...config, apiKey: sharedKey || config.apiKey });
-        } catch (err) {
-          log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
-        }
+    // One key unlocks the provider: every preset with its shared BYOK
+    // credential (or a legacy per-provider key) registers, regardless of the
+    // legacy per-provider `enabled` flag. Model lists come from the editable
+    // provider catalogs (AI page → Providers → Model Catalogs).
+    for (const preset of IMAGE_PROVIDER_PRESETS) {
+      const config = saved.find((p) => p.id === preset.id) ?? preset;
+      const sharedKey =
+        preset.type === 'fal' ? credentials.fal :
+        preset.type === 'openrouter' ? credentials.openrouter :
+        undefined;
+      const apiKey = sharedKey || config.apiKey;
+      if (!apiKey) continue;
+      try {
+        imageEngine.register({
+          ...config,
+          apiKey,
+          enabled: true,
+          models: await getProviderModels(preset.id, 'image'),
+        });
+      } catch (err) {
+        log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
     // Cloud providers require an API key; the local sd-cli bridge does not and

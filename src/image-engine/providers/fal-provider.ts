@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { ImageEngineError } from '../types';
 import { FalClient, FalHttpError } from '@shared/providers/fal';
+import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
 
 interface FalModelDef {
   id: string;
@@ -17,7 +18,12 @@ interface FalModelDef {
   sizeParam: 'aspect_ratio' | 'image_size';
 }
 
-const FAL_MODELS: FalModelDef[] = [
+/**
+ * Rich definitions for the well-known fal models (exact endpoints + size
+ * dialect). Catalog entries matching one of these ids use the rich def;
+ * user-added ids get a generic def derived from fal conventions.
+ */
+const KNOWN_FAL_MODELS: FalModelDef[] = [
   {
     id: 'nano-banana-pro',
     name: 'Nano Banana Pro',
@@ -64,19 +70,44 @@ interface FalResponse {
   images: FalImageResult[];
 }
 
+/**
+ * Def for a catalog entry with no rich definition: endpoint from fal
+ * conventions (`fal-ai/<id>` unless the id already looks like a path, `/edit`
+ * for image-input operations) and the classic `image_size` parameter.
+ */
+function genericFalDef(entry: ImageModelCatalogEntry): FalModelDef {
+  const base = entry.id.includes('/') ? entry.id : `fal-ai/${entry.id}`;
+  return {
+    id: entry.id,
+    name: entry.name || entry.id,
+    supportedOperations: ['text-to-image', 'image-to-image', 'multi-reference'],
+    endpoints: {
+      'text-to-image': base,
+      'image-to-image': `${base}/edit`,
+      'multi-reference': `${base}/edit`,
+    },
+    sizeParam: 'image_size',
+  };
+}
+
 export class FalImageProvider implements ImageProvider {
   private readonly client: FalClient;
+  private readonly models: FalModelDef[];
 
   constructor(
     readonly id: string,
     apiKey: string,
-    private defaultModel: string
+    private defaultModel: string,
+    catalog?: ImageModelCatalogEntry[],
   ) {
     this.client = new FalClient({ apiKey });
+    this.models = catalog?.length
+      ? catalog.map((entry) => KNOWN_FAL_MODELS.find((m) => m.id === entry.id) ?? genericFalDef(entry))
+      : KNOWN_FAL_MODELS;
   }
 
   getSupportedModels(): ImageModelInfo[] {
-    return FAL_MODELS.map((m) => ({
+    return this.models.map((m) => ({
       id: m.id,
       name: m.name,
       supportedOperations: m.supportedOperations,
@@ -87,11 +118,11 @@ export class FalImageProvider implements ImageProvider {
   async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     const start = Date.now();
     const modelId = request.model || this.defaultModel;
-    const modelDef = FAL_MODELS.find((m) => m.id === modelId);
+    const modelDef = this.models.find((m) => m.id === modelId);
 
     if (!modelDef) {
       throw new ImageEngineError(
-        `Unknown model "${modelId}". Available: ${FAL_MODELS.map((m) => m.id).join(', ')}`,
+        `Unknown model "${modelId}". Available: ${this.models.map((m) => m.id).join(', ')}`,
         this.id
       );
     }

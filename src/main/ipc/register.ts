@@ -23,6 +23,7 @@ import { registerDownloadIpc } from './registrations/download';
 import { registerModerationIpc } from './registrations/moderation';
 import { registerAiUsageIpc } from './registrations/ai-usage';
 import { registerProviderKeysIpc } from './registrations/provider-keys';
+import { registerProviderModelsIpc } from './registrations/provider-models';
 import { registerVideoIpc } from './registrations/video';
 import { registerSttIpc } from './registrations/stt';
 import { registerVideoStudioIpc } from './registrations/video-studio';
@@ -58,6 +59,7 @@ export function registerAllIPC(): void {
   registerModerationIpc();
   registerAiUsageIpc();
   registerProviderKeysIpc();
+  registerProviderModelsIpc();
   registerVideoIpc();
   registerSttIpc();
   registerVideoStudioIpc();

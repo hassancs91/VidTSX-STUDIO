@@ -296,6 +296,25 @@ export async function saveProviderCredentials(
 }
 
 /**
+ * User-edited provider model catalogs (AI page → Providers → Model Catalogs).
+ * Only providers×categories the user customized are stored; everything else
+ * falls back to PROVIDER_MODEL_DEFAULTS. Shape:
+ * { [providerId]: { [category]: ImageModelCatalogEntry[] } }
+ */
+export type ProviderModelOverrides = Record<
+  string,
+  Partial<Record<string, import('../../shared/presets/image-models').ImageModelCatalogEntry[]>>
+>;
+
+export async function getProviderModelOverrides(): Promise<ProviderModelOverrides> {
+  return getValue<ProviderModelOverrides>('providerModels') ?? {};
+}
+
+export async function saveProviderModelOverrides(overrides: ProviderModelOverrides): Promise<void> {
+  setValue('providerModels', overrides);
+}
+
+/**
  * Canonical OpenRouter key resolution: shared credential first, then legacy
  * per-engine provider configs (LLM, then image) as silent fallback.
  */

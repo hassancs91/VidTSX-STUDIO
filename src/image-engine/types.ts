@@ -56,6 +56,11 @@ export interface ImageProviderConfig {
   apiKey: string;
   defaultModel: string;
   enabled: boolean;
+  /**
+   * Model catalog this provider serves (user-editable, from the provider-models
+   * store). Omitted → the provider falls back to its built-in defaults.
+   */
+  models?: import('../shared/presets/image-models').ImageModelCatalogEntry[];
 }
 
 /** The interface every image provider must implement */
