@@ -366,6 +366,37 @@ all three tabs visually consistent.
 
 ---
 
+## Phase F — sd-cli install flow (local image generation is v1 scope)
+
+**Outcome:** a user without sd-cli gets a one-click in-app setup instead of the dead-end
+"sd-cli not installed" badge. Mirrors the whisper.cpp flow (official upstream release,
+downloaded on first use — nothing self-hosted).
+
+Provenance (verified in `docs/local-image-models-implementation.md:318-338`): sd-cli IS
+the official `leejet/stable-diffusion.cpp` release binary. Current pinned build on this
+machine: release `master-778-c00a9e9`, asset `sd-master-c00a9e9-bin-win-vulkan-x64.zip`
+(37,696,851 bytes). Vulkan backend = vendor-neutral GPU + built-in CPU fallback.
+**Matched-set rule:** exe + ALL DLLs must come from the same zip.
+
+- [ ] Constants: pinned release URL + SHA-256 in `src/main/services/sdcli-install.ts`
+      (new service; pattern: `whisper.ts:172` `downloadWhisperBinary`).
+- [ ] Download via the download manager → extract FULL zip to `userData/sd-cli/`
+      (never mix DLLs across releases). Windows-only for v1 (same stance as whisper).
+- [ ] `getSdCliBinaryPath()` (`sdimage-models.ts`) resolves `userData/sd-cli/` first,
+      `resources/binaries/` fallback for dev drop-ins.
+- [ ] IPC: SDCLI_INSTALL channel (+ progress via existing download broadcast);
+      SDIMAGE_CLI_STATUS response gains an `installing` state if needed.
+- [ ] UI: Image tab setup card when `!cliInstalled` — copy: "Local image generation runs
+      on your GPU (~36 MB one-time engine download)" → Set up → progress → ready badge.
+      Video tab shares binary/status automatically.
+- [ ] Error mapping: missing VC++ redist hint (copy whisper's `whisper.ts:489` message).
+- [ ] Cleanup: remove the committed ggml/stable-diffusion/webp/webm DLLs from
+      `resources/binaries` + electron-builder extraResources once install flow lands
+      (they're the same zip's contents; keeping them risks mixed DLL sets).
+      First verify nothing else links `libwebp*/webm.dll` from that folder.
+- [ ] Optional later: mirror the zip on a public repo release as fallback URL
+      (upstream is rolling-release; pin + checksum covers v1).
+
 ## Phase E — Release hardening & checklist
 
 ### Security cleanups (do these regardless)
@@ -408,7 +439,8 @@ all three tabs visually consistent.
 ## Suggested execution order
 
 A (flags/hiding, small & unblocks everything) → B (startup, isolated main-process work)
-→ C (providers restructure, biggest) → D (polish, rides on C) → E (hardening/release).
+→ C (providers restructure, biggest) → D (polish, rides on C) → F (sd-cli install flow,
+pairs naturally with D's Image-tab polish) → E (hardening/release).
 A and B are independent and could be done in either order.
 
 ## Session log
