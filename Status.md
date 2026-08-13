@@ -9,6 +9,39 @@
 
 ## Completed phases
 
+### Studio — post-gate POLISH MINI-SESSION (2026-08-14)
+**Status: COMPLETE — the three papercuts the stability gate surfaced are fixed
+and CDP-verified live; §15 performance spot-checks run on Hasan's real DJI
+session concatenated to one 27.4-min 4K/60 HEVC file. Gates: 374 tests green,
+type baselines held at 26 web / 22 node. S4 is next.**
+
+1. **Render-start freeze fixed**: `@remotion/bundler`'s webpack compile now
+   runs in an Electron utilityProcess (`src/main/services/bundle-worker.ts`,
+   new electron-vite main entry) — it was blocking the main-process event loop
+   for seconds (and calls process.chdir, so worker_threads couldn't host it).
+   Progress/errors stream back over the port; dev CLI fallback kept. New
+   `RenderPrepChip` in the Studio toolbar shows "Preparing render… n%" from
+   queue-add until frames start. CDP-verified: chip within 1 s of clicking
+   Export, IPC round-trips 2–60 ms through the entire bundle+prep.
+2. **Proxy progress**: ffmpeg `-progress pipe:1` + total duration parsed from
+   ffmpeg's own stderr banner → whole-percent events through the existing
+   StudioMediaJobEvent channel (transcript pattern) → "Proxy n%" chip + 2 px
+   bar on the pool card. Ticks stay in transient renderer state; the document
+   only sees status changes. Verified climbing live on the 27-min import.
+3. **Cache visibility**: per-project cache footer on the browser card — size
+   readout, Open in Explorer, two-step Clear (`cache-manager.ts` + 3 IPC
+   channels). Clear aborts the project's running media jobs first (Windows
+   file-lock), restores the scaffold; browser-only placement so a clear can't
+   hit an open editor. Sizes matched disk byte-for-byte.
+
+§15 verdicts (recorded in TESTING.md): transcript 27.4 min → ready in ~75 s
+(AssemblyAI, 2,258 words) — very acceptable; timeline responsive under two
+concurrent ffmpeg jobs (drag rAF median 34.8 ms, playback 16.7 ms); editor
+idle CPU 0.00 s over 10 s; proxy on 4K/60 HEVC WITHOUT NVENC projected
+multi-hour — new backlog item: hardware DECODE (d3d11va/qsv) for proxy inputs.
+§15 agent-pass item still open (transcript only 2,258 words, under the 5k
+threshold).
+
 ### Studio — STABILITY GATE PASSED (2026-08-13)
 **Status: COMPLETE — Hasan's guided manual pass over every remaining human item
 in docs/studio/TESTING.md, including the §13 S3 exit test on real multi-take

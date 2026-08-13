@@ -11,6 +11,7 @@ export default defineConfig({
         input: {
           index: resolve('src/main/index.ts'),
           'embedding-worker': resolve('src/embedding-engine/worker.ts'),
+          'bundle-worker': resolve('src/main/services/bundle-worker.ts'),
         },
         output: {
           entryFileNames: '[name].js',

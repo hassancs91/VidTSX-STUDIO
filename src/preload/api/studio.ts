@@ -6,6 +6,12 @@ import type {
   StudioAgentEvent,
   StudioAgentSendRequest,
   StudioAgentSendResponse,
+  StudioCacheClearRequest,
+  StudioCacheClearResponse,
+  StudioCacheInfoRequest,
+  StudioCacheInfoResponse,
+  StudioCacheOpenRequest,
+  StudioCacheOpenResponse,
   StudioCacheReadRequest,
   StudioCacheReadResponse,
   StudioExportPrepareRequest,
@@ -57,6 +63,12 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_IMPORT, data),
   studioCacheRead: (data: StudioCacheReadRequest): Promise<StudioCacheReadResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CACHE_READ, data),
+  studioCacheInfo: (data: StudioCacheInfoRequest): Promise<StudioCacheInfoResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CACHE_INFO, data),
+  studioCacheOpen: (data: StudioCacheOpenRequest): Promise<StudioCacheOpenResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CACHE_OPEN, data),
+  studioCacheClear: (data: StudioCacheClearRequest): Promise<StudioCacheClearResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CACHE_CLEAR, data),
   studioMediaPrepare: (data: StudioMediaPrepareRequest): Promise<StudioMediaPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
   studioMediaRelink: (data: StudioMediaRelinkRequest): Promise<StudioMediaRelinkResponse> =>

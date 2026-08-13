@@ -26,6 +26,8 @@ interface Props {
   loadThumbnail: (assetId: string, relPath: string) => Promise<void>;
   getThumbnail: (assetId: string) => string | null;
   getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
+  /** Proxy transcode percent while generating (bar + badge on the card). */
+  getProxyPercent: (assetId: string) => number | null;
   /** Source files gone from disk (Slice F) — badge + Locate… on their cards. */
   missingAssetIds: ReadonlySet<string>;
   onLocate: (asset: StudioMediaAsset) => void;
@@ -43,6 +45,7 @@ export function MediaPool({
   loadThumbnail,
   getThumbnail,
   getTranscribeProgress,
+  getProxyPercent,
   missingAssetIds,
   onLocate,
 }: Props) {
@@ -89,6 +92,7 @@ export function MediaPool({
                 thumbnail={getThumbnail(asset.id)}
                 selected={asset.id === selectedAssetId}
                 transcribeProgress={getTranscribeProgress(asset.id)}
+                proxyPercent={getProxyPercent(asset.id)}
                 missing={missingAssetIds.has(asset.id)}
                 onRemove={() => onRemove(asset.id)}
                 onAdd={() => onAddToTimeline(asset)}
@@ -109,6 +113,7 @@ function AssetCard({
   thumbnail,
   selected,
   transcribeProgress,
+  proxyPercent,
   missing,
   onRemove,
   onAdd,
@@ -120,6 +125,7 @@ function AssetCard({
   thumbnail: string | null;
   selected: boolean;
   transcribeProgress: TranscribeProgress | null;
+  proxyPercent: number | null;
   missing: boolean;
   onRemove: () => void;
   onAdd: () => void;
@@ -131,6 +137,7 @@ function AssetCard({
   const KindIcon = asset.kind === 'audio' ? Music : asset.kind === 'image' ? ImageIcon : FileVideo;
   const transcribable = asset.kind !== 'image' && asset.probe.hasAudio;
   const transcribing = asset.transcript?.status === 'generating';
+  const proxyGenerating = asset.proxy?.status === 'generating';
 
   return (
     <div
@@ -165,6 +172,22 @@ function AssetCard({
           <span className="absolute bottom-1 left-1 px-1 py-px rounded-[3px] bg-black/70 text-[9px] text-accent-light">
             {transcribeProgress ? `${transcribeProgress.percent}%` : '…'}
           </span>
+        )}
+        {proxyGenerating && !transcribing && (
+          <span
+            data-proxy-badge={asset.id}
+            title="Building the 720p preview proxy — the original plays until it's ready"
+            className="absolute bottom-1 left-1 px-1 py-px rounded-[3px] bg-black/70 text-[9px] text-accent-light"
+          >
+            Proxy {proxyPercent !== null ? `${Math.round(proxyPercent)}%` : '…'}
+          </span>
+        )}
+        {proxyGenerating && (
+          <div
+            data-proxy-progress={asset.id}
+            className="absolute bottom-0 left-0 h-[2px] bg-accent transition-[width] duration-300"
+            style={{ width: `${Math.max(2, Math.round(proxyPercent ?? 0))}%` }}
+          />
         )}
         {missing && (
           <div

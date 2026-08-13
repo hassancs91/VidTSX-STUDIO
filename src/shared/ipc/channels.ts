@@ -325,6 +325,9 @@ export const IPC = {
   STUDIO_MEDIA_IMPORT: 'studio:media:import',
   STUDIO_MEDIA_RELINK: 'studio:media:relink',
   STUDIO_CACHE_READ: 'studio:cache:read',
+  STUDIO_CACHE_INFO: 'studio:cache:info',
+  STUDIO_CACHE_OPEN: 'studio:cache:open',
+  STUDIO_CACHE_CLEAR: 'studio:cache:clear',
   // Studio — timeline preview, background media jobs, export
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',

@@ -219,10 +219,26 @@ class StudioMediaJobEngine {
       return { ...base, status: 'ready', relPath, transcript: meta };
     }
 
-    const relPath =
-      job.kind === 'proxy'
-        ? await generateProxy(job.projectId, job.assetId, job.sourcePath, job.abort.signal)
-        : await generateWaveform(job.projectId, job.assetId, job.sourcePath, job.abort.signal);
+    if (job.kind === 'proxy') {
+      // Same whole-percent throttle as transcripts; the renderer keeps these
+      // ticks in transient UI state, never the document.
+      let lastPercent = -1;
+      const relPath = await generateProxy(
+        job.projectId,
+        job.assetId,
+        job.sourcePath,
+        job.abort.signal,
+        (percent) => {
+          const rounded = Math.round(percent);
+          if (rounded === lastPercent || job.abort.signal.aborted) return;
+          lastPercent = rounded;
+          this.emit({ ...base, status: 'generating', percent: rounded });
+        },
+      );
+      return { ...base, status: 'ready', relPath };
+    }
+
+    const relPath = await generateWaveform(job.projectId, job.assetId, job.sourcePath, job.abort.signal);
     return { ...base, status: 'ready', relPath };
   }
 }

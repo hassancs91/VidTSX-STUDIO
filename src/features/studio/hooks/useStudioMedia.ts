@@ -46,6 +46,9 @@ export function useStudioMedia(
   const [transcribeProgress, setTranscribeProgress] = useState<Map<string, TranscribeProgress>>(
     new Map(),
   );
+  // Proxy transcode percent, transient like transcript progress — the document
+  // only ever sees the generating/ready/error status changes.
+  const [proxyPercents, setProxyPercents] = useState<Map<string, number>>(new Map());
   const loadingWaveforms = useRef(new Set<string>());
 
   const patchAsset = useCallback(
@@ -108,6 +111,23 @@ export function useStudioMedia(
           return { ...asset, transcript: { ...asset.transcript, status: 'error' } };
         });
         return;
+      }
+
+      if (event.kind === 'proxy') {
+        setProxyPercents((prev) => {
+          if (event.status === 'generating') {
+            if (event.percent === undefined && !prev.has(event.assetId)) return prev;
+            return new Map(prev).set(event.assetId, event.percent ?? 0);
+          }
+          if (!prev.has(event.assetId)) return prev;
+          const next = new Map(prev);
+          next.delete(event.assetId);
+          return next;
+        });
+        // Percent ticks stop here — the document already holds status
+        // 'generating' from the job's first (percent-less) event, and writing
+        // each tick would spam the debounced autosave.
+        if (event.status === 'generating' && event.percent !== undefined) return;
       }
 
       patchAsset(event.assetId, (asset) => {
@@ -228,6 +248,12 @@ export function useStudioMedia(
     [transcribeProgress],
   );
 
+  /** Proxy transcode percent while the asset's proxy is generating, else null. */
+  const getProxyPercent = useCallback(
+    (assetId: string): number | null => proxyPercents.get(assetId) ?? null,
+    [proxyPercents],
+  );
+
   /**
    * Clear an asset's transcript from the document — back to untranscribed.
    * The cache JSON stays on disk (prepare never reads transcripts back into
@@ -333,6 +359,7 @@ export function useStudioMedia(
     cancelTranscribe,
     resetTranscript,
     getTranscribeProgress,
+    getProxyPercent,
     missingAssetIds,
     relink,
   };

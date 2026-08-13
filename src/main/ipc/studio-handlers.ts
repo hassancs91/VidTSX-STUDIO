@@ -1,7 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { dialog, type IpcMainInvokeEvent } from 'electron';
+import { dialog, shell, type IpcMainInvokeEvent } from 'electron';
 import type {
+  StudioCacheClearRequest,
+  StudioCacheClearResponse,
+  StudioCacheInfoRequest,
+  StudioCacheInfoResponse,
+  StudioCacheOpenRequest,
+  StudioCacheOpenResponse,
   StudioCacheReadRequest,
   StudioCacheReadResponse,
   StudioExportPrepareRequest,
@@ -51,7 +57,8 @@ import {
   MEDIA_DIALOG_FILTERS,
   probeMedia,
 } from '../services/studio/media-import';
-import { getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
+import { getProjectCacheDir, getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
+import { clearCache, getCacheInfo } from '../services/studio/cache-manager';
 import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
 import { runCutPlan } from '../services/studio/cut-plan-runner';
@@ -414,5 +421,43 @@ export async function handleStudioCacheRead(
     return { success: true, data: buffer.toString('base64'), mime };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to read cache file') };
+  }
+}
+
+export async function handleStudioCacheInfo(
+  _event: IpcMainInvokeEvent,
+  data: StudioCacheInfoRequest,
+): Promise<StudioCacheInfoResponse> {
+  try {
+    const info = await getCacheInfo(data.projectId);
+    return { success: true, ...info };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to read cache size') };
+  }
+}
+
+export async function handleStudioCacheOpen(
+  _event: IpcMainInvokeEvent,
+  data: StudioCacheOpenRequest,
+): Promise<StudioCacheOpenResponse> {
+  try {
+    const cacheDir = await getProjectCacheDir(data.projectId);
+    // openPath returns an error string on failure, '' on success.
+    const result = await shell.openPath(cacheDir);
+    return result ? { success: false, error: result } : { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to open cache folder') };
+  }
+}
+
+export async function handleStudioCacheClear(
+  _event: IpcMainInvokeEvent,
+  data: StudioCacheClearRequest,
+): Promise<StudioCacheClearResponse> {
+  try {
+    await clearCache(data.projectId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to clear cache') };
   }
 }

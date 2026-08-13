@@ -32,6 +32,12 @@ function proxyArgs(sourcePath: string, outputPath: string, useNvenc: boolean): s
   return [
     '-hide_banner',
     '-nostdin',
+    // Machine-readable progress on stdout (out_time_us=… lines); -nostats
+    // drops the human "frame=…" spam from stderr but keeps the input banner,
+    // which is where the total duration comes from.
+    '-progress',
+    'pipe:1',
+    '-nostats',
     '-i',
     sourcePath,
     // Never upscale: min() keeps small sources at their native height.
@@ -57,6 +63,39 @@ export function proxyRelPath(assetId: string): string {
 }
 
 /**
+ * Turns ffmpeg's two output streams into a percent: `-progress pipe:1` emits
+ * `out_time_us=…` key-value lines on stdout, while the input's total duration
+ * only appears in the stderr banner ("Duration: 00:02:19.03"). Reading it from
+ * ffmpeg itself means every caller gets progress without threading probe data
+ * through the job queue.
+ */
+function createProgressParser(onPercent: (percent: number) => void) {
+  let totalSeconds: number | null = null;
+  let stderrTail = '';
+  let stdoutBuf = '';
+  return {
+    onStderr(text: string): void {
+      if (totalSeconds !== null) return;
+      // Rolling tail so a "Duration:" line split across chunks still matches.
+      stderrTail = (stderrTail + text).slice(-2000);
+      const m = /Duration:\s*(\d+):(\d\d):(\d\d(?:\.\d+)?)/.exec(stderrTail);
+      if (m) totalSeconds = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+    },
+    onStdout(chunk: Buffer): void {
+      stdoutBuf += chunk.toString();
+      const lines = stdoutBuf.split('\n');
+      stdoutBuf = lines.pop() ?? '';
+      if (totalSeconds === null || totalSeconds <= 0) return;
+      for (const line of lines) {
+        const m = /^out_time_us=(\d+)/.exec(line.trim());
+        if (!m) continue;
+        onPercent(Math.min(100, (Number(m[1]) / 1e6 / totalSeconds) * 100));
+      }
+    },
+  };
+}
+
+/**
  * Transcode a 720p H.264 proxy used by the editor preview. Originals are never
  * touched — the export re-points the same composition at them.
  */
@@ -65,6 +104,7 @@ export async function generateProxy(
   assetId: string,
   sourcePath: string,
   signal?: AbortSignal,
+  onProgress?: (percent: number) => void,
 ): Promise<string> {
   const cacheDir = await getProjectCacheDir(projectId);
   const relPath = proxyRelPath(assetId);
@@ -75,7 +115,12 @@ export async function generateProxy(
   const tmpPath = `${outputPath}.part.mp4`;
 
   const attempt = async (useNvenc: boolean) => {
-    await runFfmpeg(ffmpeg, proxyArgs(sourcePath, tmpPath, useNvenc), { signal });
+    // A fresh parser per attempt: the libx264 fallback restarts from 0%.
+    const parser = onProgress ? createProgressParser(onProgress) : undefined;
+    await runFfmpeg(ffmpeg, proxyArgs(sourcePath, tmpPath, useNvenc), {
+      signal,
+      ...(parser ? { onStdout: parser.onStdout, onStderr: parser.onStderr } : {}),
+    });
   };
 
   try {

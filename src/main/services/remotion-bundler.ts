@@ -1,5 +1,4 @@
 import { logEngine } from '../../logging/log-engine';
-import { bundle } from '@remotion/bundler';
 import { getCompositions } from '@remotion/renderer';
 
 const log = logEngine.createLogger('Bundler');
@@ -10,7 +9,8 @@ import path from 'path';
 import express from 'express';
 import type { Express } from 'express';
 import type { Server } from 'http';
-import { app } from 'electron';
+import { app, utilityProcess } from 'electron';
+import type { BundleWorkerReply, BundleWorkerRequest } from './bundle-worker';
 import { generateWrapper, cleanupWrapper } from './composition-wrapper';
 import { registerFontProxy } from './font-proxy';
 import { getRemotionBinariesDir } from '../utils/paths';
@@ -162,6 +162,43 @@ export interface BundleOptions {
   toneAudioPath?: string;
 }
 
+/**
+ * Run the webpack compile in a utility process (bundle-worker.ts). In the main
+ * process it blocked the event loop for seconds — every window froze from the
+ * moment a render started until the bundle finished — and it can't move to a
+ * worker thread because bundle() calls process.chdir.
+ */
+function bundleInWorker(
+  request: BundleWorkerRequest,
+  onProgress?: (percent: number) => void,
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const worker = utilityProcess.fork(path.join(__dirname, 'bundle-worker.js'), [], {
+      serviceName: 'vidtsx-bundle-worker',
+    });
+    let settled = false;
+    const settle = (outcome: () => void): void => {
+      if (settled) return;
+      settled = true;
+      outcome();
+      worker.kill();
+    };
+    worker.on('message', (msg: BundleWorkerReply) => {
+      if (msg.type === 'progress') onProgress?.(msg.percent);
+      else if (msg.type === 'done') settle(() => resolve(msg.bundlePath));
+      else settle(() => reject(new Error(msg.message)));
+    });
+    worker.on('exit', (code) => {
+      // Crash before a reply (OOM, missing module) — surface it instead of hanging.
+      if (!settled) {
+        settled = true;
+        reject(new Error(`Bundle worker exited before finishing (code ${code})`));
+      }
+    });
+    worker.once('spawn', () => worker.postMessage(request));
+  });
+}
+
 // Main bundle function
 export async function bundleComposition(
   entryFilePath: string,
@@ -224,42 +261,18 @@ export async function bundleComposition(
     // Bundle the composition using the entry point
     let bundlePath: string;
     try {
-      const appRoot = getAppRoot();
-      bundlePath = await bundle({
-        entryPoint,
-        outDir,
-        // rootDir must be a real OS directory — webpack chdirs into it, and
-        // chdir does NOT go through Electron's asar shim. getAppRoot() returns
-        // <install>/resources/ in packaged, project root in dev — both real.
-        rootDir: appRoot,
-        webpackOverride: (config) => {
-          config.resolve = config.resolve || {};
-          config.resolve.modules = [
-            ...(config.resolve.modules || ['node_modules']),
-            // node_modules live inside app.asar in packaged builds; Electron's
-            // asar shim makes them readable via fs/enhanced-resolve. We can NOT
-            // use this path as rootDir (chdir doesn't go through the shim).
-            path.join(app.getAppPath(), 'node_modules'),
-          ];
-          // App-source path aliases, mirroring electron.vite.config — let
-          // generated render entries resolve app `@shared/...`/`@features/...`
-          // imports. Harmless for Creator user-TSX bundling — user code never
-          // uses these prefixes, so nothing else resolves differently. Base is
-          // app.getAppPath() (project root in dev; asar root packaged).
-          config.resolve.alias = {
-            ...(config.resolve.alias || {}),
-            '@shared': path.join(app.getAppPath(), 'src', 'shared'),
-            '@features': path.join(app.getAppPath(), 'src', 'features'),
-            '@renderer': path.join(app.getAppPath(), 'src', 'renderer'),
-          };
-          return config;
+      bundlePath = await bundleInWorker(
+        {
+          entryPoint,
+          outDir,
+          // rootDir must be a real OS directory — webpack chdirs into it, and
+          // chdir does NOT go through Electron's asar shim. getAppRoot()
+          // returns <install>/resources/ in packaged, project root in dev.
+          rootDir: getAppRoot(),
+          appPath: app.getAppPath(),
         },
-        onProgress: (percent) => {
-          if (options?.onProgress) {
-            options.onProgress(percent);
-          }
-        },
-      });
+        options?.onProgress,
+      );
     } catch (bundleError) {
       log.error('Programmatic bundling failed', {
         error: bundleError instanceof Error ? bundleError.message : String(bundleError),

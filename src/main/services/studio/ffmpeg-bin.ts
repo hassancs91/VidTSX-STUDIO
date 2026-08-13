@@ -17,6 +17,9 @@ export interface RunFfmpegOptions {
   signal?: AbortSignal;
   /** Receives stdout bytes instead of them being buffered (PCM piping). */
   onStdout?: (chunk: Buffer) => void;
+  /** Receives stderr text as it streams (duration/progress parsing). The
+   *  rolling tail is still kept internally for error reporting. */
+  onStderr?: (text: string) => void;
 }
 
 /**
@@ -35,7 +38,9 @@ export async function runFfmpeg(
 
     let stderr = '';
     proc.stderr?.on('data', (chunk: Buffer) => {
-      stderr = (stderr + chunk.toString()).slice(-4000);
+      const text = chunk.toString();
+      stderr = (stderr + text).slice(-4000);
+      options.onStderr?.(text);
     });
     if (options.onStdout) proc.stdout?.on('data', options.onStdout);
 

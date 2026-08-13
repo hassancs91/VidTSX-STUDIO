@@ -115,6 +115,40 @@ export interface StudioCacheReadResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Cache visibility — size readout, open in Explorer, clear (all re-derivable:
+// proxies/waveforms regenerate on the next open, transcripts on explicit re-run)
+// ---------------------------------------------------------------------------
+
+export interface StudioCacheInfoRequest {
+  projectId: string;
+}
+
+export interface StudioCacheInfoResponse {
+  success: boolean;
+  sizeBytes?: number;
+  fileCount?: number;
+  error?: string;
+}
+
+export interface StudioCacheOpenRequest {
+  projectId: string;
+}
+
+export interface StudioCacheOpenResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface StudioCacheClearRequest {
+  projectId: string;
+}
+
+export interface StudioCacheClearResponse {
+  success: boolean;
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Timeline preview, background media jobs, export
 // ---------------------------------------------------------------------------
 

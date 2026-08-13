@@ -19,6 +19,7 @@ import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
 import type { StudioMediaAsset, StudioProposal, StudioProposalItem } from '../types';
 import { MediaPool } from './MediaPool';
+import { RenderPrepChip } from './RenderPrepChip';
 import { PreviewPanel } from './PreviewPanel';
 import { TimelinePanel } from './TimelinePanel';
 import { InspectorPanel } from './InspectorPanel';
@@ -56,6 +57,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     cancelTranscribe,
     resetTranscript,
     getTranscribeProgress,
+    getProxyPercent,
     missingAssetIds,
     relink,
   } = useStudioMedia(projectId, folderPath, assets, updateProject);
@@ -435,6 +437,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
         </span>
         <div className="flex-1" />
+        <RenderPrepChip projectId={project.id} />
         {exportRange && (
           <Button
             variant="secondary"
@@ -474,6 +477,7 @@ export function EditorShell({ projectId, onBack }: Props) {
             loadThumbnail={loadThumbnail}
             getThumbnail={getThumbnail}
             getTranscribeProgress={getTranscribeProgress}
+            getProxyPercent={getProxyPercent}
             missingAssetIds={missingAssetIds}
             onLocate={(asset) => void handleLocate(asset)}
           />

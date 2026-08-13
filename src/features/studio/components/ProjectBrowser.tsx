@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Clapperboard, FolderCog, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Clapperboard, FolderCog, FolderOpen, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import type { StudioProjectSummary } from '@shared/ipc/types';
@@ -86,6 +86,98 @@ export function ProjectBrowser({ onOpen }: Props) {
   );
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+/**
+ * Per-project cache footer: size readout + Open in Explorer + two-step Clear.
+ * Lives on the browser card (never in the editor) so a clear can only happen
+ * while the project is closed — reopening regenerates proxies/waveforms;
+ * transcripts come back on an explicit re-run (verified 2026-08-13 sweep).
+ */
+function CacheRow({ projectId }: { projectId: string }) {
+  const [sizeBytes, setSizeBytes] = useState<number | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [clearing, setClearing] = useState(false);
+
+  const refresh = useCallback(async () => {
+    const res = await window.api.studioCacheInfo({ projectId });
+    if (res.success && res.sizeBytes !== undefined) setSizeBytes(res.sizeBytes);
+  }, [projectId]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      const res = await window.api.studioCacheClear({ projectId });
+      if (res.success) await refresh();
+    } finally {
+      setClearing(false);
+      setConfirming(false);
+    }
+  };
+
+  return (
+    <div
+      data-cache-row={projectId}
+      className="flex items-center gap-1.5 mt-1 text-[9px] text-text-dim"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <span data-cache-size={projectId} className="cursor-default">
+        Cache {sizeBytes === null ? '…' : formatBytes(sizeBytes)}
+      </span>
+      <span className="flex-1" />
+      {confirming ? (
+        <>
+          <button
+            data-cache-clear-confirm={projectId}
+            onClick={() => void handleClear()}
+            disabled={clearing}
+            title="Proxies and waveforms rebuild when the project opens; transcripts need an explicit re-run"
+            className="text-accent-red hover:underline disabled:opacity-50"
+          >
+            {clearing ? 'Clearing…' : 'Really clear?'}
+          </button>
+          <button
+            onClick={() => setConfirming(false)}
+            disabled={clearing}
+            className="text-text-muted hover:underline disabled:opacity-50"
+          >
+            Cancel
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            data-cache-open={projectId}
+            onClick={() => void window.api.studioCacheOpen({ projectId })}
+            title="Open the cache folder (proxies, waveforms, transcripts, thumbnails) in Explorer"
+            className="flex items-center gap-0.5 text-text-muted hover:text-text-secondary opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <FolderOpen size={10} strokeWidth={1.5} />
+            Open
+          </button>
+          <button
+            data-cache-clear={projectId}
+            onClick={() => setConfirming(true)}
+            title="Delete all derived files — everything regenerates (transcripts need a re-run)"
+            className="text-text-muted hover:text-accent-red opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            Clear
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ProjectCard({
   project,
   onOpen,
@@ -125,6 +217,7 @@ function ProjectCard({
           {project.fps} fps · {project.assetCount} asset{project.assetCount === 1 ? '' : 's'} ·{' '}
           {formatDate(project.updatedAt)}
         </div>
+        <CacheRow projectId={project.id} />
       </div>
 
       <div
