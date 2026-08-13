@@ -35,6 +35,7 @@ import {
   setTrackFlag,
   type TrackFlag,
 } from '../services/track-ops';
+import { addMarker, moveMarker, removeMarker, renameMarker } from '../services/marker-ops';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import {
   addProposal,
@@ -83,6 +84,11 @@ export type TimelineAction =
   // Id minted by the caller so it can select the new audio clip after dispatch.
   | { type: 'detach-audio'; clipId: string; newClipId: string }
   | { type: 'remove-asset-clips'; assetId: string }
+  // Markers (Slice D1). Add ids are minted by the caller, like paste.
+  | { type: 'marker-add'; id: string; time: number; label?: string }
+  | { type: 'marker-move'; markerId: string; time: number }
+  | { type: 'marker-remove'; markerId: string }
+  | { type: 'marker-rename'; markerId: string; label: string }
   | { type: 'track-add'; kind: StudioTrackKind }
   | { type: 'track-rename'; trackId: string; name: string }
   | { type: 'track-move'; trackId: string; direction: -1 | 1 }
@@ -210,6 +216,23 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       );
     case 'remove-asset-clips':
       return commit(state, withTimeline(doc, removeClipsForAsset(doc.timeline, action.assetId)));
+    case 'marker-add':
+      return commit(
+        state,
+        withTimeline(doc, addMarker(doc.timeline, action.id, action.time, action.label)),
+      );
+    case 'marker-move':
+      return commit(
+        state,
+        withTimeline(doc, moveMarker(doc.timeline, action.markerId, action.time)),
+      );
+    case 'marker-remove':
+      return commit(state, withTimeline(doc, removeMarker(doc.timeline, action.markerId)));
+    case 'marker-rename':
+      return commit(
+        state,
+        withTimeline(doc, renameMarker(doc.timeline, action.markerId, action.label)),
+      );
     case 'track-add':
       return commit(state, withTimeline(doc, addTrack(doc.timeline, action.kind)));
     case 'track-rename':

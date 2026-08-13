@@ -4,7 +4,7 @@ import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { useRenderQueue } from '@features/render-queue';
-import { serializeTimeline } from '@shared/studio';
+import { serializeTimeline, timeToFrame } from '@shared/studio';
 import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
@@ -99,6 +99,24 @@ export function EditorShell({ projectId, onBack }: Props) {
 
   const [previewResult, setPreviewResult] = useState(false);
   const activeProposal = tl.activeProposal;
+
+  // ----- Export range (D2) -----------------------------------------------
+  // I/O points are a monitoring/export aid — component state, NEVER in the
+  // document. Session-only, like the playback rate.
+  const [rangeIn, setRangeIn] = useState<number | null>(null);
+  const [rangeOut, setRangeOut] = useState<number | null>(null);
+  const handleRangeChange = useCallback((edge: 'in' | 'out', seconds: number | null) => {
+    if (edge === 'in') setRangeIn(seconds);
+    else setRangeOut(seconds);
+  }, []);
+  /** Non-null when the two points span at least one frame — gates "Export range". */
+  const exportRange = useMemo(() => {
+    if (rangeIn === null || rangeOut === null || !project) return null;
+    const fps = project.settings.fps;
+    return timeToFrame(rangeOut, fps) > timeToFrame(Math.max(0, rangeIn), fps)
+      ? { rangeIn: Math.max(0, rangeIn), rangeOut }
+      : null;
+  }, [rangeIn, rangeOut, project]);
 
   // ----- Preview playback rate (A1) -------------------------------------
   // Session-only watch speed. Auditions judge cuts by ear, so they pin the
@@ -299,33 +317,37 @@ export function EditorShell({ projectId, onBack }: Props) {
     [tl, removeAsset],
   );
 
-  const handleExport = useCallback(async () => {
-    if (!project) return;
-    setExporting(true);
-    try {
-      const prepared = await window.api.studioExportPrepare({
-        project: { ...project, timeline: tl.timeline },
-      });
-      if (!prepared.success || !prepared.entryPath || !prepared.compositionId) {
-        showToast(prepared.error ?? 'Failed to prepare export', 'error');
-        return;
+  const handleExport = useCallback(
+    async (range?: { rangeIn: number; rangeOut: number }) => {
+      if (!project) return;
+      setExporting(true);
+      try {
+        const prepared = await window.api.studioExportPrepare({
+          project: { ...project, timeline: tl.timeline },
+          ...(range ?? {}),
+        });
+        if (!prepared.success || !prepared.entryPath || !prepared.compositionId) {
+          showToast(prepared.error ?? 'Failed to prepare export', 'error');
+          return;
+        }
+        await addJob({
+          filePath: prepared.entryPath,
+          fileName: `${project.name}${range ? ' (range)' : ''}.mp4`,
+          compositionId: prepared.compositionId,
+          codec: 'h264',
+          width: prepared.width ?? project.settings.width,
+          height: prepared.height ?? project.settings.height,
+          fps: prepared.fps ?? project.settings.fps,
+        });
+        showToast('Export added to the render queue', 'success');
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Failed to start export', 'error');
+      } finally {
+        setExporting(false);
       }
-      await addJob({
-        filePath: prepared.entryPath,
-        fileName: `${project.name}.mp4`,
-        compositionId: prepared.compositionId,
-        codec: 'h264',
-        width: prepared.width ?? project.settings.width,
-        height: prepared.height ?? project.settings.height,
-        fps: prepared.fps ?? project.settings.fps,
-      });
-      showToast('Export added to the render queue', 'success');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to start export', 'error');
-    } finally {
-      setExporting(false);
-    }
-  }, [project, tl.timeline, addJob, showToast]);
+    },
+    [project, tl.timeline, addJob, showToast],
+  );
 
   if (status === 'loading') {
     return (
@@ -375,6 +397,18 @@ export function EditorShell({ projectId, onBack }: Props) {
           {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
         </span>
         <div className="flex-1" />
+        {exportRange && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleExport(exportRange)}
+            disabled={exporting}
+            title="Render only the I→O range (set with the I and O keys; Shift+I/O clears)"
+          >
+            <Upload size={12} strokeWidth={1.75} />
+            Export range
+          </Button>
+        )}
         <Button
           variant="primary"
           size="sm"
@@ -482,6 +516,9 @@ export function EditorShell({ projectId, onBack }: Props) {
         timeMap={previewTimeMap}
         getThumbnail={getThumbnail}
         getWaveform={getWaveform}
+        rangeIn={rangeIn}
+        rangeOut={rangeOut}
+        onRangeChange={handleRangeChange}
       />
     </div>
   );

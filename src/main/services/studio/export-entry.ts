@@ -38,9 +38,13 @@ export interface StudioExportEntry {
 export async function createExportEntry(
   project: StudioProject,
   assetUrlBase: string,
+  /** Range exports render exactly this many frames (the window can run past
+   *  the last clip — trailing black/silence, like every NLE's in/out export). */
+  durationInFramesOverride?: number,
 ): Promise<StudioExportEntry> {
   const { width, height, fps } = project.settings;
-  const durationInFrames = timelineDurationInFrames(project.timeline, fps);
+  const durationInFrames =
+    durationInFramesOverride ?? timelineDurationInFrames(project.timeline, fps);
 
   const byId = new Map(project.assets.map((a) => [a.id, a]));
   // Export renders the ORIGINAL media — proxies exist only for the preview.

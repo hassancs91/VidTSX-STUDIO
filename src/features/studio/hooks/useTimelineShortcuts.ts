@@ -18,6 +18,10 @@ interface Options {
   onDuplicate: () => void;
   /** Shift+Z. */
   onZoomToFit: () => void;
+  /** M — drops a marker at the playhead. */
+  onAddMarker: () => void;
+  /** I / O set the export range point at the playhead; Shift+I / Shift+O clear it. */
+  onSetRangePoint: (edge: 'in' | 'out', clear: boolean) => void;
 }
 
 function isTextEntry(target: EventTarget | null): boolean {
@@ -45,6 +49,8 @@ export function useTimelineShortcuts({
   onPaste,
   onDuplicate,
   onZoomToFit,
+  onAddMarker,
+  onSetRangePoint,
 }: Options): void {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -100,6 +106,21 @@ export function useTimelineShortcuts({
           event.preventDefault();
           onZoomToFit();
           break;
+        case 'm':
+        case 'M':
+          event.preventDefault();
+          onAddMarker();
+          break;
+        case 'i':
+        case 'I':
+          event.preventDefault();
+          onSetRangePoint('in', event.shiftKey);
+          break;
+        case 'o':
+        case 'O':
+          event.preventDefault();
+          onSetRangePoint('out', event.shiftKey);
+          break;
         case 'Delete':
           if (tl.selectedClipIds.length === 0) break;
           event.preventDefault();
@@ -150,5 +171,7 @@ export function useTimelineShortcuts({
     onPaste,
     onDuplicate,
     onZoomToFit,
+    onAddMarker,
+    onSetRangePoint,
   ]);
 }

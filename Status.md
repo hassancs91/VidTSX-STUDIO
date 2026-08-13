@@ -9,6 +9,51 @@
 
 ## Completed phases
 
+### Studio — core-parity Session 4: Slice D (markers + range export) (2026-08-13)
+**Status: COMPLETE — unit-tested (20 new tests, 357 total) + live CDP click-through
+incl. a real frame-accurate range export (TESTING.md §16.6 markers line + §16.7 ticked);
+schema addition: optional `markers` on StudioTimeline (no version bump, old
+projects open untouched)**
+
+Fourth session of `docs/studio/CORE_PARITY_PLAN.md`.
+
+- [x] **D1 pure ops.** New `services/marker-ops.ts` (timeline-ops stays at 285
+  lines): `addMarker`/`moveMarker`/`removeMarker`/`renameMarker`, all
+  identity-on-reject, times clamped ≥ 0, list kept sorted by time, and a
+  timeline with zero markers has NO `markers` key so old documents round-trip
+  byte-identical. Reducer actions `marker-add/-move/-remove/-rename`, one undo
+  step each (add ids minted by the caller, like paste).
+- [x] **D1 UI.** M drops a marker at the playhead (text-entry + visibility
+  guards respected); `RulerMarkers` draws diamonds on the `TimelineRuler` —
+  click = seek, drag = move (3 px threshold, commit on release = one undo
+  step), double-click = inline rename popover, right-click = FloatingMenu with
+  Rename/Delete. Labels render next to the diamond. Markers persist through
+  autosave and were verified across a renderer relaunch.
+- [x] **D2 range state.** I/O keys set `rangeIn`/`rangeOut` at the playhead
+  (Shift+I/O clears the point) — component state in `EditorShell`, session-only,
+  never in the document. Ruler shows the highlighted span between the points
+  (a lone point draws a bracket); "Export range" appears in the toolbar only
+  when the points span ≥ 1 frame.
+- [x] **D2 range export.** `studioExportPrepare` request grew optional
+  `rangeIn`/`rangeOut` seconds (electron.d.ts needed no manual change — it
+  references the shared type via `import()`). Main trims the document with the
+  new shared `trim-range.ts` (`trimTimelineToRange`): edges snapped to the
+  frame grid FIRST (cumulative-rounding rule), clips cut like a split
+  (head cut advances `sourceIn` + drops fade-in, tail cut drops fade-out),
+  markers filtered+shifted — then serializes the result, so `serializeTimeline`
+  stays the single source of truth. The render length is exactly
+  `frame(out) − frame(in)` (`rangeDurationInFrames` override on
+  `createExportEntry`), so a window past the last clip renders trailing
+  black/silence like every NLE.
+- Live CDP run (seeded throwaway "range-test" project, deleted after): all
+  marker gestures + undo steps verified in the DOM; range span at exact px;
+  real export → ffprobe 5.033333 s / 151 frames == frame(7.533) − frame(2.5)
+  exactly; audio envelope corr 0.871 vs the matching source span (−0.62 vs a
+  control span); boundary frames matched the source.
+- Note: a stale parallel-session buffer had pre-written the same handler edit
+  and left a duplicate import in `studio-handlers.ts` mid-session — reconciled
+  by re-reading everything from disk before the gates.
+
 ### Studio — core-parity Session 3: Slice C (audio fades + detach audio) (2026-08-12)
 **Status: COMPLETE — unit-tested (8 new tests, 337 total) + live CDP click-through
 incl. a real export (TESTING.md §16.2 fully ticked + §16.4 completed);

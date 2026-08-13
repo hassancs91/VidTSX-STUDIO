@@ -15,3 +15,4 @@ export {
   timelineDurationInFrames,
   timeToFrame,
 } from './time-math';
+export { rangeDurationInFrames, trimTimelineToRange } from './trim-range';

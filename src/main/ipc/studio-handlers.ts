@@ -55,6 +55,7 @@ import { createExportEntry } from '../services/studio/export-entry';
 import { ensureAssetServerUrl } from '../services/remotion-bundler';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../services/module-server';
 import { timelineDuration } from '../../shared/studio/time-math';
+import { rangeDurationInFrames, trimTimelineToRange } from '../../shared/studio/trim-range';
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -272,12 +273,28 @@ export async function handleStudioExportPrepare(
   data: StudioExportPrepareRequest,
 ): Promise<StudioExportPrepareResponse> {
   try {
-    const project = data.project;
+    let project = data.project;
     if (!project?.timeline || timelineDuration(project.timeline) <= 0) {
       return { success: false, error: 'The timeline is empty — add a clip before exporting' };
     }
+    // Range export (D2): trim the document to the I→O window and serialize the
+    // result exactly like a full export — serializeTimeline stays the single
+    // source of truth. The render length is the window's exact frame count.
+    let durationOverride: number | undefined;
+    if (data.rangeIn !== undefined && data.rangeOut !== undefined) {
+      const fps = project.settings.fps;
+      const trimmed = trimTimelineToRange(project.timeline, data.rangeIn, data.rangeOut, fps);
+      if (trimmed === project.timeline) {
+        return { success: false, error: 'Invalid export range' };
+      }
+      if (timelineDuration(trimmed) <= 0) {
+        return { success: false, error: 'The export range contains no clips' };
+      }
+      durationOverride = rangeDurationInFrames(data.rangeIn, data.rangeOut, fps);
+      project = { ...project, timeline: trimmed };
+    }
     const assetBaseUrl = await ensureAssetServerUrl();
-    const entry = await createExportEntry(project, assetBaseUrl);
+    const entry = await createExportEntry(project, assetBaseUrl, durationOverride);
     return { success: true, ...entry };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare export') };

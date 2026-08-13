@@ -124,8 +124,21 @@ export interface StudioTrack {
   clips: StudioClip[];
 }
 
+/** A named point on the project timeline (additive, Slice D1). Timeline-level,
+ *  not per-track — markers annotate the edit, they don't belong to media. */
+export interface StudioMarker {
+  id: string;
+  /** Seconds on the project timeline, ≥ 0. */
+  time: number;
+  label?: string;
+  /** CSS color for the ruler diamond; absent = the UI default. */
+  color?: string;
+}
+
 export interface StudioTimeline {
   tracks: StudioTrack[];
+  /** Kept sorted by time by the marker ops; absent when there are none. */
+  markers?: StudioMarker[];
 }
 
 // ---------------------------------------------------------------------------

@@ -177,10 +177,10 @@
 ### 16.6 Timeline QoL (auto-scroll · zoom-to-fit · markers)
 - [x] During playback the timeline auto-scrolls to keep the playhead in view (and stops fighting you when you scroll manually). *(2026-08-12 — CDP: playhead exiting right edge re-entered at exactly 20% from left; manual scroll-back stayed put while playing; following resumed after the playhead re-entered and walked out again.)*
 - [x] Zoom-to-fit (Shift+Z or button) frames the whole timeline. *(CDP: scrollLeft 0, last clip right edge 545 px ≤ 1121 px viewport)*
-- [ ] M drops a marker at the playhead; markers visible on the ruler, clickable to seek, deletable, persisted. *(markers are Slice D)*
+- [x] M drops a marker at the playhead; markers visible on the ruler, clickable to seek, deletable, persisted. *(2026-08-13 — CDP: M at 3 s/8 s → diamonds at exactly 60/160 px; click seeked the clock back to 00:03.00; drag 8 s → 6 s committed as one undo step; double-click renamed via the inline popover ("Intro beat" shown next to the diamond); right-click FloatingMenu → Delete marker, one undo restored it; both markers survived a renderer relaunch + project reopen from disk)*
 
 ### 16.7 Range export (in/out points)
-- [ ] I/O keys set in/out on the ruler; visible highlight; Export offers "Export range" honoring it exactly (frame-accurate at both ends, ffprobe the output duration).
+- [x] I/O keys set in/out on the ruler; visible highlight; Export offers "Export range" honoring it exactly (frame-accurate at both ends, ffprobe the output duration). *(2026-08-13 — CDP: I at 2.5 s + O at 7.533 s drew the span (left 50 px, width 100.67 px); a lone point shows a bracket and no button; Shift+I cleared; real export via the render queue → ffprobe video stream 5.033333 s / 151 frames = exactly frame(out) − frame(in); audio envelope corr 0.871 vs the matching source span, −0.62 vs a control span)*
 
 ### 16.8 Media relink
 - [ ] Opening a project with missing media offers "Locate…"; picking the moved file relinks by content hash (refuses a different file, or warns); proxies/waveforms/transcripts keyed by asset id survive the relink.

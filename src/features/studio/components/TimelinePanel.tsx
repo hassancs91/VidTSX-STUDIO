@@ -11,6 +11,7 @@ import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { usePlayheadFollow } from '../hooks/usePlayheadFollow';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { clipAt, clipEndTime, findClip, makeClipId } from '../services/timeline-ops';
+import { makeMarkerId } from '../services/marker-ops';
 import {
   DEFAULT_ZOOM_INDEX,
   RULER_HEIGHT,
@@ -38,6 +39,10 @@ interface Props {
   timeMap?: PreviewTimeMap | null;
   getThumbnail: (assetId: string) => string | null;
   getWaveform: (assetId: string) => ClipWaveformData | null;
+  /** Export range points (Slice D2) — owned by EditorShell, shown on the ruler. */
+  rangeIn: number | null;
+  rangeOut: number | null;
+  onRangeChange: (edge: 'in' | 'out', seconds: number | null) => void;
 }
 
 /** Extra runway past the last clip so there's always somewhere to drag to. */
@@ -50,6 +55,9 @@ export function TimelinePanel({
   timeMap,
   getThumbnail,
   getWaveform,
+  rangeIn,
+  rangeOut,
+  onRangeChange,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -308,6 +316,19 @@ export function TimelinePanel({
     [clipboard, playback.secondsRef],
   );
 
+  // M — marker at the playhead (display coords, like every panel gesture).
+  const addMarkerAtPlayhead = useCallback(() => {
+    tl.dispatch({ type: 'marker-add', id: makeMarkerId(), time: playback.secondsRef.current });
+  }, [tl, playback.secondsRef]);
+
+  // I / O — export range point at the playhead; Shift clears the point.
+  const setRangePoint = useCallback(
+    (edge: 'in' | 'out', clear: boolean) => {
+      onRangeChange(edge, clear ? null : playback.secondsRef.current);
+    },
+    [onRangeChange, playback.secondsRef],
+  );
+
   useTimelineShortcuts({
     containerRef,
     tl,
@@ -320,6 +341,8 @@ export function TimelinePanel({
     onPaste: pasteAtPlayhead,
     onDuplicate: clipboard.duplicate,
     onZoomToFit: zoomToFit,
+    onAddMarker: addMarkerAtPlayhead,
+    onSetRangePoint: setRangePoint,
   });
 
   const clipLabel = useCallback(
@@ -395,6 +418,17 @@ export function TimelinePanel({
                 durationSeconds={contentSeconds}
                 pxPerSecond={pxPerSecond}
                 widthPx={widthPx}
+                markers={timeline.markers ?? []}
+                onMarkerSeek={playback.seek}
+                onMarkerMove={(markerId, time) =>
+                  tl.dispatch({ type: 'marker-move', markerId, time })
+                }
+                onMarkerRename={(markerId, label) =>
+                  tl.dispatch({ type: 'marker-rename', markerId, label })
+                }
+                onMarkerRemove={(markerId) => tl.dispatch({ type: 'marker-remove', markerId })}
+                rangeIn={rangeIn}
+                rangeOut={rangeOut}
               />
             </div>
 

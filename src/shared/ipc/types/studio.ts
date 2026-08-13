@@ -263,6 +263,11 @@ export interface StudioAgentCancelResponse {
 
 export interface StudioExportPrepareRequest {
   project: StudioProject;
+  /** Optional export range in timeline seconds (Slice D2). When both are set,
+   *  main trims the timeline to [rangeIn, rangeOut) — snapped to the frame
+   *  grid — and renders exactly that many frames. */
+  rangeIn?: number;
+  rangeOut?: number;
 }
 
 export interface StudioExportPrepareResponse {
