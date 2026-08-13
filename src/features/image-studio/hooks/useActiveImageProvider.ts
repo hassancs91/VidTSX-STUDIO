@@ -28,7 +28,24 @@ export function useActiveImageProvider() {
           enabled.push({ id: 'local', name: 'Local (open source)' });
         }
         setProviders(enabled);
-        setActiveProvider(result.activeProvider);
+        // A stale active provider (e.g. 'local' after its models were removed,
+        // or a provider whose key was cleared) dead-ends the model picker —
+        // the provider select is hidden when only one provider exists, so
+        // nothing lets the user switch away. Fall over to the first usable one.
+        const active = result.activeProvider;
+        const activeIsUsable = active !== null && enabled.some((p) => p.id === active);
+        if (!activeIsUsable && enabled.length > 0) {
+          const next = enabled[0].id;
+          const switched = await window.api.imageProviderSwitch({ providerId: next });
+          setActiveProvider(switched.success ? next : active);
+          // useImageModels listens for this and reloads the picker; the
+          // re-entrant load() here sees a usable active provider and stops.
+          if (switched.success) {
+            window.dispatchEvent(new CustomEvent('vidtsx:image-providers-changed'));
+          }
+        } else {
+          setActiveProvider(active);
+        }
       } else {
         setError('Failed to load image providers');
       }
