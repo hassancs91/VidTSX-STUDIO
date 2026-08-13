@@ -17,8 +17,8 @@
 - [ ] Rename check: edit the Name field in the Inspector → card title updates after reopening the browser; folder name unchanged.
 - [ ] Change the studio root from the browser toolbar → existing projects disappear from the list (they live in the old root), new creations land in the new root. Change it back.
 - [ ] Delete a throwaway project (two-step confirm) → folder lands in the Recycle Bin, card disappears, empty state renders when last project is gone. ✎
-- [ ] Relaunch the app → all projects still listed; open one → document identical (assets, timeline, proposals).
-- [ ] Put a corrupt `project.json` in a spare folder → browser skips it without crashing and still lists the others.
+- [ ] Relaunch the app → all projects still listed; open one → document identical (assets, timeline, proposals). ✎ (2026-08-13 sweep)
+- [ ] Put a corrupt `project.json` in a spare folder → browser skips it without crashing and still lists the others. ✎ (2026-08-13 sweep)
 
 ## 2. Media pool & import
 
@@ -27,7 +27,7 @@
 - [ ] Import the same file twice → second import either dedupes or creates a second asset — confirm whichever happens is coherent (no crash, both entries usable).
 - [ ] Proxy generation: after importing a big video, background job runs (progress on the asset) → preview scrubs smoothly once ready.
 - [ ] Waveform generation: audio-bearing assets get waveforms on their timeline clips; a silent video gets none and nothing errors.
-- [ ] Remove an asset that has clips on the timeline → its clips vanish from the timeline too; undo restores the clips (asset re-add is manual — confirm no orphan-asset crash on undo).
+- [ ] Remove an asset that has clips on the timeline → its clips vanish from the timeline too; undo restores the clips (asset re-add is manual — confirm no orphan-asset crash on undo). ✎ (2026-08-13 sweep — orphan clips render nothing, preview empty-states, no crash)
 - [ ] Move/rename a source file on disk, reopen the project → app shows the asset as missing without crashing. (Relink is a known gap — see §16.8.)
 
 ## 3. Timeline — clip editing core
@@ -35,12 +35,12 @@
 - [ ] Add to timeline from the pool → clip lands on a compatible track; with a track selected, the chosen track wins when compatible. ✎
 - [ ] Drag-move a clip horizontally → magnetic snap to clip edges + playhead; drop commits exactly what the preview showed.
 - [ ] Drag a clip straight up/down to another lane (near-zero horizontal movement) → it stays on the target lane, never snaps back. ✎
-- [ ] Neighbour clamp: drag a clip into its neighbour → it stops flush, no overlap ever commits.
-- [ ] Edge-trim both edges → bounded by source length and neighbours; waveform/label stay aligned after trim.
-- [ ] Split (S key and toolbar) at playhead → two contiguous clips, no visual seam at the join during playback.
+- [ ] Neighbour clamp: drag a clip into its neighbour → it stops flush, no overlap ever commits. ✎ (2026-08-13 sweep — landed exactly flush)
+- [ ] Edge-trim both edges → bounded by source length and neighbours; waveform/label stay aligned after trim. ✎ (2026-08-13 sweep — bounds exact incl. trim-to-0.04 s minimum; waveform alignment is eyes)
+- [ ] Split (S key and toolbar) at playhead → two contiguous clips, no visual seam at the join during playback. ✎ (2026-08-13 sweep — contiguity exact; seam-by-eye still yours)
 - [ ] Delete with ripple ON → later clips slide left by exactly the removed width, per-track (music on another track keeps its timing). ✎
 - [ ] Delete with ripple OFF / Backspace → gap stays. ✎
-- [ ] Every op above is one undo step; a long chain of ops undoes fully back to the starting state (spot-check with 10+ mixed ops). ✎ (partial)
+- [ ] Every op above is one undo step; a long chain of ops undoes fully back to the starting state (spot-check with 10+ mixed ops). ✎ (2026-08-13 sweep — 11 mixed ops incl. split/trim/move/paste/marker/ripple-delete/duplicate undone to an identical timeline)
 
 ## 4. Timeline — multi-select & batch
 
@@ -54,23 +54,23 @@
 
 - [ ] Add video/overlay/audio tracks (+ Track button) → visual tracks insert on top, audio appends. ✎
 - [ ] Rename (double-click), reorder (Move up/down), delete via context menu; locked track's Delete is disabled; last track can't be deleted. ✎
-- [ ] Lock blocks clip edits on that track (drag/trim/delete/paste); mute/hide flags flip and affect preview + export.
+- [ ] Lock blocks clip edits on that track (drag/trim/delete/paste); mute/hide flags flip and affect preview + export. ✎ (2026-08-13 sweep — all four edit kinds rejected; Hide dropped the picture, Mute silenced the lane's audio tags during playback; export shares the serializer)
 - [ ] >3 tracks → header column follows the lanes' vertical scroll; ruler stays sticky. ✎
 - [ ] Full track-management chain undoes back to baseline. ✎
 
 ## 6. Navigation, zoom, keyboard
 
-- [ ] 10-step zoom anchored on the playhead (buttons and/or Ctrl+wheel) → playhead keeps its screen position while zooming.
-- [ ] Arrow keys step one frame; Shift+Arrow steps 1 s; Home/End jump to start/end.
-- [ ] Space toggles play everywhere except while typing in an input/chat.
+- [ ] 10-step zoom anchored on the playhead (buttons and/or Ctrl+wheel) → playhead keeps its screen position while zooming. ✎ (2026-08-13 sweep — 0 px drift)
+- [ ] Arrow keys step one frame; Shift+Arrow steps 1 s; Home/End jump to start/end. ✎ (2026-08-13 sweep — End parks on the LAST frame, e.g. 30.14 of a 30.5 s edit)
+- [ ] Space toggles play everywhere except while typing in an input/chat. ✎ (2026-08-13 sweep — toggled play/pause live; dead inside the project-name input)
 - [ ] Shortcuts are dead while another screen is active (visit Creator, press Delete/Space → Studio unaffected). ✎ (by design, spot-check)
-- [ ] Snap toggle actually disables magnetic snapping.
+- [ ] Snap toggle actually disables magnetic snapping. ✎ (2026-08-13 sweep — same 5 px-off drag: snapped ON, landed raw OFF)
 
 ## 7. Playback & preview
 
 - [ ] Preview plays over proxies; the aspect stage letterboxes correctly for 16:9 / 9:16 / 1:1 projects.
 - [ ] Scrub a 100-cut timeline → still smooth (the S2 checkpoint; re-verify only if something feels off). ✎
-- [ ] Deliberate gap on the video track → black frames play, audio elsewhere continues; no crash at timeline end.
+- [ ] Deliberate gap on the video track → black frames play, audio elsewhere continues; no crash at timeline end. ✎ (2026-08-13 sweep — played through the gap: 0 video elements, audio kept playing; end-of-timeline stops cleanly. NOTE: the playhead then parks back at 0 — Remotion's `moveToBeginningWhenEnded` default; flag if you'd rather it park at the end)
 - [ ] Clip `transform`/`gain`/`speed` set by hand in project.json render correctly in preview (sanity for §16.1 before its UI exists).
 - [ ] With "Preview result" ON during a review, the playhead JUMPS across cut regions and the clock matches the shorter cut timeline. ✎
 
@@ -97,7 +97,7 @@
 - [ ] Header stats are honest: "N proposed · −X s · before → after" recomputes when items are toggled. ✎
 - [ ] Play removed / Play join audition correctly BY EAR — no clipped word attacks at joins, join plays ±1.5 s with cuts applied. **(never verified by ear — priority)**
 - [ ] Preview result checkbox plays the whole timeline as-if-applied. ✎
-- [ ] Reject all → proposal closes `rejected`, regions clear, timeline untouched. 
+- [ ] Reject all → proposal closes `rejected`, regions clear, timeline untouched. ✎ (2026-08-13 sweep — full Auto Cut → review → Reject all round-trip; document restored byte-identical afterwards via 2×undo)
 - [ ] Apply with some items vetoed → only accepted spans cut; toast shows removed seconds; proposal closes `partial`/`applied`. ✎
 
 ## 11. Editing agent (Assistant tab)
@@ -117,8 +117,8 @@
 
 - [ ] Apply is ONE undo step (timeline + proposal together); second undo removes the proposal; redo walks both back. ✎
 - [ ] After apply: survivors contiguous per track, first piece keeps its clip id, reshaped clips tagged `origin: agent`. ✎ (S3.3)
-- [ ] Autosave: make edits, force-quit the app within a second or two → relaunch loses at most the last debounce window, document not corrupted.
-- [ ] History cap: 120+ ops don't blow memory; oldest states drop silently.
+- [ ] Autosave: make edits, force-quit the app within a second or two → relaunch loses at most the last debounce window, document not corrupted. ✎ (2026-08-13 sweep — killed ~0.5 s after a drag: disk JSON valid, held the pre-edit state)
+- [ ] History cap: 120+ ops don't blow memory; oldest states drop silently. ✎ (2026-08-13 sweep — 130 marker-adds, 140 undos → exactly 30 remain, app healthy)
 
 ## 13. Export & render — **includes the S3 exit gate**
 
@@ -132,9 +132,9 @@
 
 - [ ] Kill the network mid-AssemblyAI-transcription → readable error, retry works.
 - [ ] Agent turn with no network / provider down → chat error message, app healthy.
-- [ ] Delete the `cache/` folder of a project, reopen → proxies/waveforms regenerate; auto-cut regenerates what it needs; nothing crashes.
-- [ ] Two projects open in sequence (A → browser → B) → no state bleed (selection, proposals, chat are per-project; chat clears on project switch — confirm intended behavior).
-- [ ] Very short clip (< 1 s) and zero-length edge cases: split at clip edge, trim to minimum → no NaN/negative durations anywhere.
+- [ ] Delete the `cache/` folder of a project, reopen → proxies/waveforms regenerate; auto-cut regenerates what it needs; nothing crashes. ✎ (2026-08-13 sweep — proxies/waveforms regenerated after a cache wipe; auto-cut path not re-run)
+- [ ] Two projects open in sequence (A → browser → B) → no state bleed (selection, proposals, chat are per-project; chat clears on project switch — confirm intended behavior). ✎ (2026-08-13 sweep — selection + markers clean across the switch; chat behavior still yours to confirm)
+- [ ] Very short clip (< 1 s) and zero-length edge cases: split at clip edge, trim to minimum → no NaN/negative durations anywhere. ✎ (2026-08-13 sweep — edge/1-frame splits rejected as identity; trim floors at 0.04 s; no NaN)
 - [ ] Drag a proposal region edge while playback runs → no desync/crash.
 
 ## 15. Performance spot checks

@@ -175,6 +175,21 @@ and anything frame-driven simply stop — while React state updates (clicks,
 paste, undo) keep working, which makes the freeze easy to misread as a feature
 bug. Send `Page.bringToFront` before any test that plays.
 
+**…and a MINIMIZED window is worse (2026-08-13 sweep).** Minimized means
+`document.visibilityState === 'hidden'` and rAF stops entirely —
+`Page.bringToFront` raises but does NOT restore a minimized window, so every
+rAF-fed readout (toolbar clock, playhead) freezes while pointer/keyboard
+tests keep passing. Restore it at the OS level first (user32
+`ShowWindow(hwnd, SW_RESTORE)` + `SetForegroundWindow` via PowerShell), then
+`Page.bringToFront`. Sanity-check with a
+`requestAnimationFrame`-vs-timeout race before trusting any clock assertion.
+
+**Remotion pools shared `<audio>` tags.** The Player pre-creates a handful of
+`<audio>` elements and reassigns them; counting audio tags or reading their
+`volume` proves nothing. Assert audibility with `paused === false` during
+playback (e.g. mute-track semantics: audible-tag count 1 → 0 → 1 across
+mute/unmute).
+
 **Pick the INNERMOST scroll container.** The timeline lanes' scroll div is not
 the first visible `.overflow-auto` that contains clips — an outer wrapper (84
 px wider, never horizontally scrollable) matches earlier in document order and

@@ -9,6 +9,37 @@
 
 ## Completed phases
 
+### Studio — pre-flight TESTING.md sweep (2026-08-13)
+**Status: COMPLETE — 22 machine-checkable items from §1–§14 driven live via
+CDP, ZERO app bugs found; matching items annotated ✎ in TESTING.md so Hasan's
+manual gate shrinks to the genuinely human checks (ears at joins, real
+multi-take footage, the §13 S3 exit export, network-failure paths)**
+
+Run on throwaway seeded projects (deleted after); `autocut-test` exercised for
+the Auto Cut → Reject-all round-trip and restored byte-identical.
+
+- Verified: neighbour clamp flush-stop · edge-trim bounds incl. the 0.04 s
+  floor · split contiguity · an 11-op mixed chain (split/trim/move/paste/
+  marker/ripple-delete/duplicate) undone to an identical timeline · lock
+  blocks drag/trim/delete/paste · Hide drops picture / Mute silences the lane
+  live · frame/second arrow steps, Home/End (End parks on the last frame) ·
+  zoom anchored on the playhead (0 px drift) · Space guard in inputs · snap
+  toggle on/off · gap playback (black + audio continues) and clean
+  end-of-timeline stop · Auto Cut → review → Reject all → timeline untouched ·
+  no selection/marker bleed across project switches · remove-asset-with-clips
+  undo is orphan-safe · autosave force-quit loses only the debounce window,
+  JSON intact · history cap: 130 ops → exactly the last 100 undo · corrupt
+  project.json skipped by the browser · full relaunch identity · cache-wipe
+  regeneration · project create + two-step delete to the Recycle Bin.
+- One behavior observation (not a bug): after playing past the end, the
+  playhead parks back at 0 — Remotion's `moveToBeginningWhenEnded` default.
+  Flagged in §7.3 for Hasan; set the prop to false if end-parking is wanted.
+- Two automation gotchas recorded in docs/ui-automation-cdp.md: a MINIMIZED
+  window freezes rAF and `Page.bringToFront` won't restore it (use user32
+  SW_RESTORE first), and Remotion's pooled shared `<audio>` tags mean
+  audibility must be asserted via `paused`, not tag counts/volume.
+- No source changes — docs only.
+
 ### Studio — core-parity Session 6: Slice F (media relink) (2026-08-13)
 **Status: COMPLETE — live CDP verification across three app launches (TESTING.md
 §16.8 ticked); no schema changes (consumes the `hash` media-import has written
