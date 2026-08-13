@@ -90,7 +90,7 @@ export function classifySdCliFailure(
     return {
       code: 'missing-dll',
       message: "sd-cli couldn't start — its binary or DLLs are missing or mismatched.",
-      hint: 'Reinstall or update the bundled sd-cli.',
+      hint: 'Use "Set up" on the AI page\'s Image tab to reinstall the engine. If it keeps failing, install the Visual C++ Redistributable 2015-2022 from https://aka.ms/vs/17/release/vc_redist.x64.exe and try again.',
     };
   }
 
@@ -120,7 +120,7 @@ export function classifySdCliFailure(
     return {
       code: 'missing-dll',
       message: "sd-cli couldn't start — its binary or DLLs are missing or mismatched.",
-      hint: 'Reinstall or update the bundled sd-cli.',
+      hint: 'Use "Set up" on the AI page\'s Image tab to reinstall the engine. If it keeps failing, install the Visual C++ Redistributable 2015-2022 from https://aka.ms/vs/17/release/vc_redist.x64.exe and try again.',
     };
   }
 

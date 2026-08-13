@@ -4,6 +4,7 @@ import type {
   SdImageCancelAllResponse,
   SdImageCancelRequest,
   SdImageCancelResponse,
+  SdImageCliInstallResponse,
   SdImageCliStatusResponse,
   SdImageDownloadProgressEvent,
   SdImageGenerateCompleteEvent,
@@ -47,6 +48,8 @@ export const sdImageApi = {
   },
   sdImageCliStatus: (): Promise<SdImageCliStatusResponse> =>
     ipcRenderer.invoke(IPC.SDIMAGE_CLI_STATUS),
+  sdImageCliInstall: (): Promise<SdImageCliInstallResponse> =>
+    ipcRenderer.invoke(IPC.SDIMAGE_CLI_INSTALL),
   sdImageSetActiveModel: (data: SdImageSetActiveModelRequest): Promise<SdImageSetActiveModelResponse> =>
     ipcRenderer.invoke(IPC.SDIMAGE_SET_ACTIVE_MODEL, data),
   sdImageGenerate: (data: SdImageGenerateRequest): Promise<SdImageGenerateResponse> =>

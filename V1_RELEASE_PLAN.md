@@ -405,9 +405,27 @@ all three tabs visually consistent.
 
 ## Phase F — sd-cli install flow (local image generation is v1 scope)
 
-**Outcome:** a user without sd-cli gets a one-click in-app setup instead of the dead-end
-"sd-cli not installed" badge. Mirrors the whisper.cpp flow (official upstream release,
-downloaded on first use — nothing self-hosted).
+> **STATUS: code complete (2026-08-13).** Implemented as planned:
+> - `src/main/services/sdcli-install.ts` — pinned release URL + SHA-256
+>   (`d7b6729c…1935`, hash computed from the upstream asset this session; byte size
+>   matches the documented 37,696,851 exactly). Download runs through the download
+>   manager (`id: 'sdcli-binary'`) with engine-side SHA-256 verify + full-zip extract
+>   into `userData/sd-cli/` (matched-set rule); `sd-server.exe` deleted post-extract.
+> - `getSdCliBinaryPath()` resolves `userData/sd-cli/` first, `resources/binaries/`
+>   dev drop-in fallback. New `SDIMAGE_CLI_INSTALL` IPC + `installing` on CLI status;
+>   after install the handler resets the memoized sd-image engine init so the new
+>   binary is picked up without an app restart (video engine hidden in v1 — untouched).
+> - UI: `SdCliSetupCard` on the Image tab when `!cliInstalled` (copy per plan, progress
+>   via the global DOWNLOAD_PROGRESS broadcast, survives remount via downloadGetAll).
+> - `missing-dll` classifier hint now points at the in-app Set up + VC++ redist link.
+> - Cleanup done: the 17 committed DLLs removed from `resources/binaries` (nothing
+>   else links them — verified: only sdimage-models uses getBinariesDir, libwebp only
+>   appears in a comment); electron-builder filter now excludes `*.dll`/`sd-cli.exe`/
+>   `sd-server.exe` so dev drop-ins never ship.
+> - Verified: type gate at baseline (web 26 / node 22), 374 tests, full electron-vite
+>   build clean. **Remaining:** live end-to-end install click (needs restarted dev app
+>   — pairs with the Phase C walkthrough), then a real generation on the installed
+>   engine.
 
 Provenance (verified in `docs/local-image-models-implementation.md:318-338`): sd-cli IS
 the official `leejet/stable-diffusion.cpp` release binary. Current pinned build on this
@@ -491,4 +509,5 @@ A and B are independent and could be done in either order.
 | 2026-08-12 | B | Cold start verified live: 306 ms main init (was ~13.7 s), zero engine loads, lazy sd-image init fired on Image-tab click. Committed `76a0ca2`. | Phase C. |
 | 2026-08-12 | F | Planned sd-cli install flow (upstream zip, whisper-style). Committed `b5e652a`. | Implement after D. |
 | 2026-08-12 | C | Providers restructure implemented + statically verified (see STATUS note under Phase C). | User restarts dev app → live walkthrough of keys section + catalogs; then Phase D polish. |
-| 2026-08-13 | D | Visual kit (`StatusBadge` + Panel/Select/TextInput adoption), full-width `max-w-6xl` layout, 2-col System tab, Image installed/available split, Audio side-by-side cards. Type gate + 374 tests green; CDP screenshot sweep at 1188 + 1280×800, no h-scroll. | Phase F (sd-cli install flow); Phase C walkthrough still pending app restart. |
+| 2026-08-13 | D | Visual kit (`StatusBadge` + Panel/Select/TextInput adoption), full-width `max-w-6xl` layout, 2-col System tab, Image installed/available split, Audio side-by-side cards. Type gate + 374 tests green; CDP screenshot sweep at 1188 + 1280×800, no h-scroll. Committed `ec498a2`. | Phase F (sd-cli install flow); Phase C walkthrough still pending app restart. |
+| 2026-08-13 | F | sd-cli install flow implemented (see STATUS under Phase F): pinned+hashed upstream zip via download manager → userData/sd-cli, SDIMAGE_CLI_INSTALL IPC, Image-tab setup card, DLL cleanup from resources/binaries. Type gate/tests/build green. | After app restart: Phase C acceptance walkthrough + live sd-cli install click + a real local generation. Then Phase E (hardening). |

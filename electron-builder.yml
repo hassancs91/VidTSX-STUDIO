@@ -9,6 +9,12 @@ extraResources:
     to: binaries
     filter:
       - "**/*"
+      # sd-cli + its matched DLL set are downloaded in-app (Phase F install flow,
+      # src/main/services/sdcli-install.ts) — never bundle dev drop-ins: a partial
+      # or mixed-release DLL set fails to load (matched-set rule).
+      - "!*.dll"
+      - "!sd-cli.exe"
+      - "!sd-server.exe"
   - from: resources/vendor
     to: vendor
     filter:

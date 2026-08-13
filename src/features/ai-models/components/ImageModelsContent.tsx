@@ -3,6 +3,7 @@ import { ErrorBanner } from '@shared/components';
 import type { ModelSetupConfig } from '@shared/ipc/types';
 import { useImageLibrary } from '../hooks/useImageLibrary';
 import { ImageLibraryHeader } from './ImageLibraryHeader';
+import { SdCliSetupCard } from './SdCliSetupCard';
 import { InstalledModelsList } from './InstalledModelsList';
 import { ProfileCatalogList } from './ProfileCatalogList';
 import { ModelSetupDialog, type ModelSetupResult } from './ModelSetupDialog';
@@ -50,6 +51,10 @@ export function ImageModelsContent() {
         onRescan={lib.rescan}
         onImport={handleImport}
       />
+
+      {!lib.loading && !lib.cliInstalled && (
+        <SdCliSetupCard install={lib.cliInstall} onInstall={lib.installCli} />
+      )}
 
       {lib.loading ? (
         <div className="p-4 text-[12px] text-text-muted text-center">Scanning models folder…</div>

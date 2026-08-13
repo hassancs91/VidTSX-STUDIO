@@ -363,6 +363,7 @@ export interface ElectronAPI {
   sdImageSetActiveModel: (data: import('../../shared/ipc/types').SdImageSetActiveModelRequest) => Promise<import('../../shared/ipc/types').SdImageSetActiveModelResponse>;
   sdImageModelDownload: (data: import('../../shared/ipc/types').SdImageModelDownloadRequest) => Promise<import('../../shared/ipc/types').SdImageModelDownloadResponse>;
   sdImageDownloadCompanions: (data: import('../../shared/ipc/types').SdImageDownloadCompanionsRequest) => Promise<import('../../shared/ipc/types').SdImageDownloadCompanionsResponse>;
+  sdImageCliInstall: () => Promise<import('../../shared/ipc/types').SdImageCliInstallResponse>;
   sdVideoModelDownload: (data: import('../../shared/ipc/types').SdVideoModelDownloadRequest) => Promise<import('../../shared/ipc/types').SdVideoModelDownloadResponse>;
   sdVideoGenerate: (data: import('../../shared/ipc/types').SdVideoGenerateRequest) => Promise<import('../../shared/ipc/types').SdVideoGenerateResponse>;
   sdVideoCancel: (data: import('../../shared/ipc/types').SdVideoCancelRequest) => Promise<import('../../shared/ipc/types').SdVideoCancelResponse>;

@@ -7,6 +7,7 @@ import {
   handleSdImageDownloadCompanions,
   handleSdImageModelDelete,
   handleSdImageCliStatus,
+  handleSdImageCliInstall,
   handleSdImageSetActiveModel,
   handleSdImageGenerate,
   handleSdImageCancel,
@@ -27,6 +28,7 @@ export function registerSdImageIpc(): void {
   ipcMain.handle(IPC.SDIMAGE_DOWNLOAD_COMPANIONS, handleSdImageDownloadCompanions);
   ipcMain.handle(IPC.SDIMAGE_MODEL_DELETE, handleSdImageModelDelete);
   ipcMain.handle(IPC.SDIMAGE_CLI_STATUS, handleSdImageCliStatus);
+  ipcMain.handle(IPC.SDIMAGE_CLI_INSTALL, handleSdImageCliInstall);
   ipcMain.handle(IPC.SDIMAGE_SET_ACTIVE_MODEL, lazily(ensureSdImageEngine, handleSdImageSetActiveModel));
   ipcMain.handle(IPC.SDIMAGE_GENERATE, lazily(ensureSdImageEngine, handleSdImageGenerate));
   ipcMain.handle(IPC.SDIMAGE_CANCEL, handleSdImageCancel);

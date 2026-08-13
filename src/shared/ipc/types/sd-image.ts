@@ -69,6 +69,18 @@ export interface SdImageCliStatusResponse {
   installed: boolean;
   version?: string;
   path?: string;
+  /** True while the in-app engine download/extract is running. */
+  installing?: boolean;
+}
+
+/**
+ * One-click sd-cli engine install (pinned upstream release → userData/sd-cli).
+ * Resolves when the download + extraction finished; progress arrives through
+ * the global DOWNLOAD_PROGRESS broadcast (metadata.type === 'sdcli-binary').
+ */
+export interface SdImageCliInstallResponse {
+  success: boolean;
+  error?: string;
 }
 
 export interface SdImageSetActiveModelRequest {

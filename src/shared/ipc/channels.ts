@@ -225,6 +225,7 @@ export const IPC = {
   SDIMAGE_MODEL_DELETE: 'sdimage:model:delete',
   SDIMAGE_DOWNLOAD_PROGRESS: 'sdimage:download:progress',
   SDIMAGE_CLI_STATUS: 'sdimage:cli:status',
+  SDIMAGE_CLI_INSTALL: 'sdimage:cli:install',
   SDIMAGE_SET_ACTIVE_MODEL: 'sdimage:set-active-model',
   SDIMAGE_GENERATE: 'sdimage:generate',
   SDIMAGE_GENERATE_PROGRESS: 'sdimage:generate:progress',

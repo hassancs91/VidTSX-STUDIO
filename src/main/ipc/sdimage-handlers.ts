@@ -10,6 +10,7 @@ import type {
   SdImageModelDeleteRequest,
   SdImageModelDeleteResponse,
   SdImageCliStatusResponse,
+  SdImageCliInstallResponse,
   SdImageSetActiveModelRequest,
   SdImageSetActiveModelResponse,
   SdImageGenerateRequest,
@@ -26,6 +27,8 @@ import type {
 import { imageLocalEngine } from '../../local-image-engine';
 import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
 import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
+import { installSdCli, isSdCliInstalling } from '../services/sdcli-install';
+import { resetSdImageEngine } from '../services/sdimage-init';
 import { scanImageLibrary, removeImageModel } from '../services/sdimage-library';
 import { applySdGenerationPreflight } from '../services/sdimage-preflight';
 import { downloadProfileModel, downloadModelCompanions } from '../services/sdimage-download';
@@ -123,7 +126,27 @@ export async function handleSdImageCliStatus(
   return {
     installed: isSdCliInstalled(),
     path: getSdCliBinaryPath(),
+    installing: isSdCliInstalling(),
   };
+}
+
+export async function handleSdImageCliInstall(
+  _event: IpcMainInvokeEvent,
+): Promise<SdImageCliInstallResponse> {
+  try {
+    if (!isSdCliInstalled() || isSdCliInstalling()) {
+      await installSdCli();
+      // Forget the memoized engine init so the next engine use resolves the
+      // freshly installed binary instead of the missing bundled path.
+      resetSdImageEngine();
+    }
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'sd-cli install failed',
+    };
+  }
 }
 
 export async function handleSdImageSetActiveModel(

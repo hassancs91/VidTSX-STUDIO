@@ -67,3 +67,11 @@ export function ensureSdImageEngine(): Promise<void> {
   });
   return enginePromise;
 }
+
+/**
+ * Forget the memoized init so the next engine use re-resolves the sd-cli
+ * binary path — used after the in-app install lands a binary mid-session.
+ */
+export function resetSdImageEngine(): void {
+  enginePromise = null;
+}
