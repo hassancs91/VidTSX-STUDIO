@@ -36,6 +36,12 @@ import {
   type TrackFlag,
 } from '../services/track-ops';
 import { addMarker, moveMarker, removeMarker, renameMarker } from '../services/marker-ops';
+import {
+  pruneTransitions,
+  removeTransition,
+  setTransition,
+} from '../services/transition-ops';
+import type { StudioTransitionKind } from '../types';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import {
   addProposal,
@@ -89,6 +95,9 @@ export type TimelineAction =
   | { type: 'marker-move'; markerId: string; time: number }
   | { type: 'marker-remove'; markerId: string }
   | { type: 'marker-rename'; markerId: string; label: string }
+  // Transitions (Slice E) — on the LEADING clip of a contiguous boundary.
+  | { type: 'transition-set'; clipId: string; kind: StudioTransitionKind; duration: number }
+  | { type: 'transition-remove'; clipId: string }
   | { type: 'track-add'; kind: StudioTrackKind }
   | { type: 'track-rename'; trackId: string; name: string }
   | { type: 'track-move'; trackId: string; direction: -1 | 1 }
@@ -136,8 +145,16 @@ function commit(state: HistoryState, next: EditDoc): HistoryState {
   };
 }
 
+/**
+ * Adopt an op's timeline result, running the transition-validity prune. The
+ * prune lives HERE (not in each op) so every action — including future ones —
+ * drops a transition whose boundary an edit just broke, in the same undo step.
+ * Identity is preserved end to end: a rejected op returns the same object,
+ * prune returns it untouched, and the reducer skips the undo step.
+ */
 function withTimeline(doc: EditDoc, timeline: StudioTimeline): EditDoc {
-  return timeline === doc.timeline ? doc : { ...doc, timeline };
+  const pruned = pruneTransitions(timeline);
+  return pruned === doc.timeline ? doc : { ...doc, timeline: pruned };
 }
 
 function withProposals(doc: EditDoc, proposals: StudioProposal[]): EditDoc {
@@ -233,6 +250,16 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         state,
         withTimeline(doc, renameMarker(doc.timeline, action.markerId, action.label)),
       );
+    case 'transition-set':
+      return commit(
+        state,
+        withTimeline(
+          doc,
+          setTransition(doc.timeline, action.clipId, action.kind, action.duration),
+        ),
+      );
+    case 'transition-remove':
+      return commit(state, withTimeline(doc, removeTransition(doc.timeline, action.clipId)));
     case 'track-add':
       return commit(state, withTimeline(doc, addTrack(doc.timeline, action.kind)));
     case 'track-rename':
@@ -279,7 +306,7 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
     case 'proposal-apply': {
       const proposal = doc.proposals.find((p) => p.id === action.proposalId);
       if (!proposal || proposal.status !== 'proposed') return state;
-      const timeline = applyCutProposal(doc.timeline, proposal);
+      const timeline = pruneTransitions(applyCutProposal(doc.timeline, proposal));
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);
       return commit(state, { timeline, proposals });

@@ -5,12 +5,21 @@
 // which is what makes "what you scrub is what renders" true.
 
 import type {
+  StudioClip,
   StudioClipKind,
   StudioClipTransform,
   StudioProject,
   StudioTrackKind,
+  StudioTransitionKind,
 } from '../types/studio';
-import { spanToFrames, timeToFrame, timelineDurationInFrames } from './time-math';
+import { clipEnd, spanToFrames, timeToFrame, timelineDurationInFrames } from './time-math';
+
+/** A ramp window at one edge of a serialized clip (Slice E transitions). */
+export interface SerializedTransition {
+  kind: StudioTransitionKind;
+  /** Window length in composition frames, measured from the clip's own edge. */
+  frames: number;
+}
 
 export interface SerializedClip {
   id: string;
@@ -28,6 +37,10 @@ export interface SerializedClip {
   /** Audio fade ramp lengths in composition frames (Slice C1). */
   fadeInFrames?: number;
   fadeOutFrames?: number;
+  /** Transition ramps (Slice E). `from`/`durationInFrames`/`trimBefore`
+   *  already include any crossfade extension — the composition only ramps. */
+  transitionIn?: SerializedTransition;
+  transitionOut?: SerializedTransition;
   transform?: StudioClipTransform;
 }
 
@@ -49,20 +62,119 @@ export interface SerializedTimeline {
 /** Maps an assetId to a URL the Player/renderer can fetch, or null if missing. */
 export type AssetUrlResolver = (assetId: string) => string | null;
 
+/** Geometry a transition adds to the two clips at a boundary. */
+interface BoundaryAdjustment {
+  kind: StudioTransitionKind;
+  /** Crossfade: frames the leading clip extends past the cut. */
+  extLeadFrames: number;
+  /** Crossfade: frames the trailing clip starts before the cut. */
+  extTrailFrames: number;
+  /** Ramp window on the leading clip's tail. */
+  outFrames: number;
+  /** Ramp window on the trailing clip's head. */
+  inFrames: number;
+}
+
+/** Kinds whose handles are a real media file (extension consumes source). */
+const MEDIA_KINDS: ReadonlySet<StudioClipKind> = new Set(['video', 'audio', 'sfx']);
+
+/**
+ * Crossfades borrow source material beyond the cut ("handles"), so each side
+ * clamps to what the media can actually supply — exactly like every NLE. The
+ * leading clip needs source after its out point; the trailing clip needs
+ * source before its in point (its `trimBefore`). `playbackRate` scales how
+ * fast extension frames consume source. Images/tsx have unlimited handles.
+ */
+function computeAdjustment(
+  lead: StudioClip,
+  trail: StudioClip,
+  fps: number,
+  sourceDurationOf: (assetId: string) => number | undefined,
+): BoundaryAdjustment | null {
+  const transition = lead.transitionOut;
+  if (!transition) return null;
+  const cut = clipEnd(lead);
+  const half = transition.duration / 2;
+
+  if (transition.kind === 'dip-to-black') {
+    // No extension: the leading clip ramps out over its own last half-window,
+    // the trailing one ramps in over its first — re-clamped after quantization.
+    const outFrames = Math.min(
+      timeToFrame(cut, fps) - timeToFrame(cut - half, fps),
+      spanToFrames(lead.timelineStart, cut, fps),
+    );
+    const inFrames = Math.min(
+      timeToFrame(cut + half, fps) - timeToFrame(cut, fps),
+      spanToFrames(trail.timelineStart, clipEnd(trail), fps),
+    );
+    if (outFrames <= 0 && inFrames <= 0) return null;
+    return { kind: transition.kind, extLeadFrames: 0, extTrailFrames: 0, outFrames, inFrames };
+  }
+
+  const leadRate = lead.speed ?? 1;
+  const trailRate = trail.speed ?? 1;
+  let maxLead = Number.POSITIVE_INFINITY;
+  if (MEDIA_KINDS.has(lead.kind)) {
+    const sourceDuration = lead.assetId ? sourceDurationOf(lead.assetId) : undefined;
+    if (sourceDuration === undefined) return null;
+    const availSourceSec = sourceDuration - ((lead.sourceIn ?? 0) + lead.duration * leadRate);
+    maxLead = Math.max(0, Math.floor((availSourceSec / leadRate) * fps));
+  }
+  let maxTrail = Number.POSITIVE_INFINITY;
+  if (MEDIA_KINDS.has(trail.kind)) {
+    // newTrimBefore = trimBefore − ext × rate must stay ≥ 0.
+    maxTrail = Math.max(0, Math.floor(timeToFrame(trail.sourceIn ?? 0, fps) / trailRate));
+  }
+
+  const extLeadFrames = Math.min(timeToFrame(cut + half, fps) - timeToFrame(cut, fps), maxLead);
+  const extTrailFrames = Math.min(
+    timeToFrame(cut, fps) - timeToFrame(cut - half, fps),
+    maxTrail,
+  );
+  const overlap = extLeadFrames + extTrailFrames;
+  if (overlap <= 0) return null; // no handles at all — renders as a hard cut
+  return {
+    kind: transition.kind,
+    extLeadFrames,
+    extTrailFrames,
+    outFrames: overlap,
+    inFrames: overlap,
+  };
+}
+
 export function serializeTimeline(
   project: StudioProject,
   resolveUrl: AssetUrlResolver,
 ): SerializedTimeline {
   const { fps, width, height } = project.settings;
+  const sourceDurationOf = (assetId: string) =>
+    project.assets.find((a) => a.id === assetId)?.probe.duration;
 
   const tracks: SerializedTrack[] = [];
   for (const track of project.timeline.tracks) {
     // A hidden track drops its picture; audio-only tracks have nothing to hide.
     if (track.hidden && track.kind !== 'audio') continue;
 
+    // Transition geometry per boundary, keyed by the clips it touches. Clips
+    // are sorted and non-overlapping (timeline-ops invariant). The reducer
+    // prunes non-contiguous transitions, but a loaded document never passed
+    // through the reducer — so contiguity is re-checked here, not trusted.
+    const outAdj = new Map<string, BoundaryAdjustment>();
+    const inAdj = new Map<string, BoundaryAdjustment>();
+    for (let i = 0; i < track.clips.length - 1; i++) {
+      const lead = track.clips[i];
+      const trail = track.clips[i + 1];
+      if (!lead.transitionOut) continue;
+      if (Math.abs(trail.timelineStart - clipEnd(lead)) > 1e-6) continue;
+      const adj = computeAdjustment(lead, trail, fps, sourceDurationOf);
+      if (!adj) continue;
+      outAdj.set(lead.id, adj);
+      inAdj.set(trail.id, adj);
+    }
+
     const clips: SerializedClip[] = [];
     for (const clip of track.clips) {
-      const durationInFrames = spanToFrames(
+      let durationInFrames = spanToFrames(
         clip.timelineStart,
         clip.timelineStart + clip.duration,
         fps,
@@ -73,6 +185,22 @@ export function serializeTimeline(
       // Media clips with no resolvable source would render a Remotion error
       // overlay mid-timeline; skipping keeps the rest of the edit playable.
       if (!src && clip.kind !== 'tsx' && clip.kind !== 'caption') continue;
+
+      let from = timeToFrame(clip.timelineStart, fps);
+      let trimBefore = clip.sourceIn ? timeToFrame(clip.sourceIn, fps) : undefined;
+      const rate = clip.speed ?? 1;
+
+      const out = outAdj.get(clip.id);
+      if (out) durationInFrames += out.extLeadFrames;
+      const into = inAdj.get(clip.id);
+      if (into && into.extTrailFrames > 0) {
+        from -= into.extTrailFrames;
+        durationInFrames += into.extTrailFrames;
+        trimBefore = Math.max(
+          0,
+          Math.round((trimBefore ?? 0) - into.extTrailFrames * rate),
+        );
+      }
 
       // Fades are durations, not positions — plain rounding, clamped so the
       // ramps never overlap even after frame quantization.
@@ -85,15 +213,17 @@ export function serializeTimeline(
       clips.push({
         id: clip.id,
         kind: clip.kind,
-        from: timeToFrame(clip.timelineStart, fps),
+        from,
         durationInFrames,
-        ...(clip.sourceIn ? { trimBefore: timeToFrame(clip.sourceIn, fps) } : {}),
+        ...(trimBefore ? { trimBefore } : {}),
         ...(src ? { src } : {}),
         ...(clip.gain !== undefined ? { volume: clip.gain } : {}),
         ...(track.muted ? { muted: true } : {}),
         ...(clip.speed !== undefined && clip.speed !== 1 ? { playbackRate: clip.speed } : {}),
         ...(fadeInFrames > 0 ? { fadeInFrames } : {}),
         ...(fadeOutFrames > 0 ? { fadeOutFrames } : {}),
+        ...(out ? { transitionOut: { kind: out.kind, frames: out.outFrames } } : {}),
+        ...(into ? { transitionIn: { kind: into.kind, frames: into.inFrames } } : {}),
         ...(clip.transform ? { transform: clip.transform } : {}),
       });
     }

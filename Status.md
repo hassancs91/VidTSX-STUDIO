@@ -9,6 +9,53 @@
 
 ## Completed phases
 
+### Studio — core-parity Session 5: Slice E (transitions: crossfade · dip-to-black) (2026-08-13)
+**Status: COMPLETE — design doc first (docs/studio/TRANSITIONS_DESIGN.md), then
+unit-tested (17 new tests, 374 total) + live CDP click-through incl. a real
+export; schema addition: optional `transitionOut` on StudioClip (no version
+bump, old projects open untouched)**
+
+Fifth session of `docs/studio/CORE_PARITY_PLAN.md` — the model-risk slice, so
+the design was written down before the code (review it in TRANSITIONS_DESIGN.md).
+
+- [x] **Model.** `transitionOut?: { kind: 'crossfade'|'dip-to-black', duration }`
+  on the LEADING clip; valid only while the next clip on the track starts
+  exactly at its end (1e-6 s). The document never stores an overlap.
+- [x] **Invariant enforcement — reducer-level prune.** The ops do NOT all
+  funnel through `withTrackClips` (group ops + applyCutProposal build tracks
+  inline), so validity is enforced once in `useTimeline`'s commit path:
+  `pruneTransitions` drops any transition whose boundary an edit just broke,
+  in the SAME undo step, preserving identity-on-reject. Every current and
+  future op inherits it. `splitClip` is the one case prune can't see (halves
+  stay contiguous) — it moves the field to the right half explicitly, like the
+  fade stripping. Ripple deletes that land clips flush KEEP the transition
+  (that's what a ripple means); serialize re-checks contiguity itself because
+  loaded documents never passed through the reducer.
+- [x] **Render.** `serializeTimeline` builds the overlap: crossfades extend the
+  leading clip `duration/2` past the cut and start the trailing one early,
+  each side clamped to its source handles (`trimBefore` shifts by
+  `ext × playbackRate`; images/tsx unlimited; zero handles both sides → hard
+  cut). New `transitionIn/Out { kind, frames }` on SerializedClip;
+  `TimelineComposition` draws the ramps — trailing clip opacity 0→1 (it paints
+  on top; DOM order = track order), equal-power audio (cos/sin) for
+  crossfades, linear to silence for dips — composed with gain × fades in
+  `volumeProp`. Dip needs no extension: opacity+volume V to zero at the cut.
+- [x] **Ops + reducer.** `transition-ops.ts`: `setTransition` (rejects on
+  gap/locked/unknown; clamps duration to both clips), `removeTransition`,
+  `pruneTransitions`. Actions `transition-set`/`transition-remove`, one undo
+  step each (preset re-pick = replace in place = one step).
+- [x] **UI.** `TransitionJoins`: a small square at every contiguous boundary on
+  unlocked tracks (accent-filled when set, tooltip shows kind + duration);
+  click opens a `FloatingMenu` with Crossfade/Dip × 0.5 s/1 s presets +
+  Remove. Numeric duration editing deferred (v2, Inspector).
+- Live CDP run (seeded throwaway "transition-test", deleted after): preview at
+  the crossfade cut read opacity 0.5 / volumes 0.707+0.707 and the dip cut
+  0/0; export (420 frames exactly — transitions never change length) showed a
+  half-transparent incoming picture at the cut and a pure-black dip frame; dip
+  audio >90 % attenuated inside the ramps; split handed the dip to the right
+  half; Backspace-delete pruned + single-undo restored; ripple-delete kept the
+  crossfade on the collapsed join.
+
 ### Studio — core-parity Session 4: Slice D (markers + range export) (2026-08-13)
 **Status: COMPLETE — unit-tested (20 new tests, 357 total) + live CDP click-through
 incl. a real frame-accurate range export (TESTING.md §16.6 markers line + §16.7 ticked);

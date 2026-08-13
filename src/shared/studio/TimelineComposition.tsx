@@ -74,43 +74,79 @@ function transformStyle(clip: SerializedClip): React.CSSProperties {
   };
 }
 
+/** 0→1 progress across a window, clamped. */
+function ramp(frame: number, from: number, to: number): number {
+  return interpolate(frame, [from, to], [0, 1], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+  });
+}
+
 /**
- * The volume prop for a clip: a static gain when there are no fades, or a
- * per-frame callback multiplying gain × fade ramps. The callback receives the
- * frame relative to the clip's start (Remotion cancels `trimBefore` out via
- * useFrameForVolumeProp), so the ramps are simple interpolations over
- * [0, fadeIn] and [duration − fadeOut, duration] in composition frames.
+ * The volume prop for a clip: a static gain when there are no fades or
+ * transitions, or a per-frame callback multiplying gain × fade ramps ×
+ * transition ramps. The callback receives the frame relative to the clip's
+ * start (Remotion cancels `trimBefore` out via useFrameForVolumeProp), so
+ * every ramp is an interpolation over composition frames.
+ *
+ * Transition audio (Slice E): crossfades use equal-power curves — the leading
+ * clip rides cos(θ), the trailing sin(θ), θ = progress × π/2 — so the summed
+ * energy through the overlap stays flat. Dip-to-black is a linear ramp to
+ * silence and back (a dip is SUPPOSED to reach zero).
  */
 function volumeProp(clip: SerializedClip): number | ((frame: number) => number) | undefined {
   const fadeIn = clip.fadeInFrames ?? 0;
   const fadeOut = clip.fadeOutFrames ?? 0;
-  if (fadeIn <= 0 && fadeOut <= 0) return clip.volume;
+  const tIn = clip.transitionIn;
+  const tOut = clip.transitionOut;
+  if (fadeIn <= 0 && fadeOut <= 0 && !tIn && !tOut) return clip.volume;
   const gain = clip.volume ?? 1;
   const total = clip.durationInFrames;
   return (frame: number) => {
     let v = gain;
-    if (fadeIn > 0) {
-      v *= interpolate(frame, [0, fadeIn], [0, 1], {
-        extrapolateLeft: 'clamp',
-        extrapolateRight: 'clamp',
-      });
+    if (fadeIn > 0) v *= ramp(frame, 0, fadeIn);
+    if (fadeOut > 0) v *= 1 - ramp(frame, total - fadeOut, total);
+    if (tIn && tIn.frames > 0) {
+      const p = ramp(frame, 0, tIn.frames);
+      v *= tIn.kind === 'crossfade' ? Math.sin((p * Math.PI) / 2) : p;
     }
-    if (fadeOut > 0) {
-      v *= interpolate(frame, [total - fadeOut, total], [1, 0], {
-        extrapolateLeft: 'clamp',
-        extrapolateRight: 'clamp',
-      });
+    if (tOut && tOut.frames > 0) {
+      const p = ramp(frame, total - tOut.frames, total);
+      v *= tOut.kind === 'crossfade' ? Math.cos((p * Math.PI) / 2) : 1 - p;
     }
     return v;
   };
 }
 
+/**
+ * Video opacity factor for transitions, composed with the clip's own
+ * transform opacity. Both kinds ramp IN from 0 (the crossfade's trailing clip
+ * paints on top of the still-playing leading clip; the dip rises from the
+ * composition's black). Only dip-to-black ramps OUT — a crossfade's leading
+ * clip keeps full opacity underneath the incoming one.
+ */
+function transitionOpacity(clip: SerializedClip, frame: number): number {
+  let o = 1;
+  const tIn = clip.transitionIn;
+  if (tIn && tIn.frames > 0) o *= ramp(frame, 0, tIn.frames);
+  const tOut = clip.transitionOut;
+  if (tOut && tOut.kind === 'dip-to-black' && tOut.frames > 0) {
+    o *= 1 - ramp(frame, clip.durationInFrames - tOut.frames, clip.durationInFrames);
+  }
+  return o;
+}
+
 function ClipRenderer({ clip }: { clip: SerializedClip }) {
+  // Frame relative to this clip's Sequence — drives the transition opacity.
+  const frame = useCurrentFrame();
+  const style = transformStyle(clip);
+  const opacityFactor = transitionOpacity(clip, frame);
+  if (opacityFactor < 1) style.opacity = (style.opacity as number | undefined ?? 1) * opacityFactor;
   const fill: React.CSSProperties = {
     width: '100%',
     height: '100%',
     objectFit: 'contain',
-    ...transformStyle(clip),
+    ...style,
   };
   const volume = volumeProp(clip);
 

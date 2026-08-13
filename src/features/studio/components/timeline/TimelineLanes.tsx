@@ -2,6 +2,7 @@ import type { StudioClip, StudioTimeline } from '../../types';
 import { clipEndTime } from '../../services/timeline-ops';
 import { TRACK_HEIGHT } from '../../services/timeline-view';
 import { TimelineClip, type ClipDragKind, type ClipWaveformData } from './TimelineClip';
+import { TransitionJoins } from './TransitionJoins';
 
 interface Props {
   timeline: StudioTimeline;
@@ -17,6 +18,8 @@ interface Props {
   onClipContextMenu: (event: React.MouseEvent, clip: StudioClip) => void;
   /** Press on empty lane space — starts the marquee (click = deselect). */
   onLanePointerDown: (event: React.PointerEvent) => void;
+  /** Join square at a contiguous boundary — opens the transition picker. */
+  onJoinClick: (event: React.MouseEvent, leadingClip: StudioClip) => void;
 }
 
 /** The track lanes and their clips. */
@@ -32,6 +35,7 @@ export function TimelineLanes({
   onClipPointerDown,
   onClipContextMenu,
   onLanePointerDown,
+  onJoinClick,
 }: Props) {
   const selected = new Set(selectedClipIds);
   return (
@@ -65,6 +69,13 @@ export function TimelineLanes({
                 onContextMenu={onClipContextMenu}
               />
             ))}
+          <TransitionJoins
+            track={track}
+            pxPerSecond={pxPerSecond}
+            visibleFrom={visibleFrom}
+            visibleTo={visibleTo}
+            onJoinClick={onJoinClick}
+          />
         </div>
       ))}
     </>

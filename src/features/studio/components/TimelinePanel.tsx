@@ -21,6 +21,7 @@ import {
   secondsToPx,
 } from '../services/timeline-view';
 import { ClipContextMenu } from './timeline/ClipContextMenu';
+import { FloatingMenu, type FloatingMenuItem } from './timeline/FloatingMenu';
 import { TimelineRuler } from './timeline/TimelineRuler';
 import { TimelineToolbar } from './timeline/TimelineToolbar';
 import { TimelinePlayhead } from './timeline/TimelinePlayhead';
@@ -160,6 +161,46 @@ export function TimelinePanel({
       tl.select(newClipId);
     },
     [tl],
+  );
+
+  // Transition picker (Slice E): the join square at a contiguous boundary
+  // opens a preset menu acting on the LEADING clip's transitionOut.
+  const [joinMenu, setJoinMenu] = useState<{ x: number; y: number; clip: StudioClip } | null>(
+    null,
+  );
+  const onJoinClick = useCallback((event: React.MouseEvent, clip: StudioClip) => {
+    setJoinMenu({ x: event.clientX, y: event.clientY, clip });
+  }, []);
+  const joinMenuItems: FloatingMenuItem[] = useMemo(
+    () => [
+      { id: 'crossfade-0.5', label: 'Crossfade · 0.5 s' },
+      { id: 'crossfade-1', label: 'Crossfade · 1 s' },
+      { id: 'dip-to-black-0.5', label: 'Dip to black · 0.5 s' },
+      { id: 'dip-to-black-1', label: 'Dip to black · 1 s' },
+      ...(joinMenu?.clip.transitionOut
+        ? [{ id: 'remove', label: 'Remove transition', danger: true }]
+        : []),
+    ],
+    [joinMenu],
+  );
+  const onJoinPick = useCallback(
+    (id: string) => {
+      if (!joinMenu) return;
+      if (id === 'remove') {
+        tl.dispatch({ type: 'transition-remove', clipId: joinMenu.clip.id });
+        return;
+      }
+      const [kind, duration] =
+        id === 'crossfade-0.5'
+          ? (['crossfade', 0.5] as const)
+          : id === 'crossfade-1'
+            ? (['crossfade', 1] as const)
+            : id === 'dip-to-black-0.5'
+              ? (['dip-to-black', 0.5] as const)
+              : (['dip-to-black', 1] as const);
+      tl.dispatch({ type: 'transition-set', clipId: joinMenu.clip.id, kind, duration });
+    },
+    [joinMenu, tl],
   );
 
   const clearSelection = useCallback(() => tl.select(null), [tl]);
@@ -445,6 +486,7 @@ export function TimelinePanel({
                 onClipPointerDown={onClipPointerDown}
                 onClipContextMenu={onClipContextMenu}
                 onLanePointerDown={onLanePointerDown}
+                onJoinClick={onJoinClick}
               />
               {marqueeRect && (
                 <div
@@ -500,6 +542,16 @@ export function TimelinePanel({
           )}
         </div>
       </div>
+
+      {joinMenu && (
+        <FloatingMenu
+          x={joinMenu.x}
+          y={joinMenu.y}
+          items={joinMenuItems}
+          onPick={onJoinPick}
+          onClose={() => setJoinMenu(null)}
+        />
+      )}
 
       {clipMenu && (
         <ClipContextMenu

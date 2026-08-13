@@ -170,9 +170,13 @@ export function splitClip(
   // A fade touching the cut point would make the split audible, breaking the
   // invisible-split invariant — the left half keeps only its fade-in and the
   // right half only its fade-out (stripped FIRST so the discarded fade can't
-  // eat the clamp budget), both re-clamped to their new durations.
+  // eat the clamp budget), both re-clamped to their new durations. The right
+  // half also inherits `transitionOut` (it owns the original end boundary);
+  // the left half must drop it explicitly — the halves are contiguous, so the
+  // reducer's prune pass would see a stale copy as valid.
   const leftRaw: StudioClip = { ...clip, duration: offset };
   delete leftRaw.fadeOutSec;
+  delete leftRaw.transitionOut;
   const left = clampFades(leftRaw);
   const rightRaw: StudioClip = {
     ...clip,

@@ -91,6 +91,19 @@ export interface StudioClipOrigin {
   proposalId?: string;
 }
 
+export type StudioTransitionKind = 'crossfade' | 'dip-to-black';
+
+/** A transition at the clip's END boundary (additive, Slice E). Stored on the
+ *  leading clip; meaningful only while the next clip on the same track starts
+ *  exactly at this clip's end — the reducer prunes it the moment an edit
+ *  breaks that contiguity. The document never stores an overlap; render-time
+ *  serialization builds one. See docs/studio/TRANSITIONS_DESIGN.md. */
+export interface StudioClipTransition {
+  kind: StudioTransitionKind;
+  /** Total transition length in timeline seconds, centered on the cut. */
+  duration: number;
+}
+
 export interface StudioClip {
   id: string;
   kind: StudioClipKind;
@@ -107,6 +120,7 @@ export interface StudioClip {
    *  Invariant kept by the ops: both ≥ 0 and their sum ≤ duration. */
   fadeInSec?: number;
   fadeOutSec?: number;
+  transitionOut?: StudioClipTransition;
   transform?: StudioClipTransform;
   tsx?: StudioClipTsx;
   origin?: StudioClipOrigin;

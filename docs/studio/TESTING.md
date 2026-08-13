@@ -170,9 +170,9 @@
 - [x] Undo restores the pre-detach state exactly. *(CDP: one Ctrl+Z → new audio clip gone AND video back to Volume 100 % — single undo step by construction, one op = both sides)*
 
 ### 16.5 Basic transitions (crossfade · dip-to-black)
-- [ ] Apply between two adjacent clips on the same track → overlap/transition renders in preview and export identically.
-- [ ] Duration adjustable; deleting either clip removes the transition cleanly; undo works.
-- [ ] Transition survives ripple ops around it without desyncing.
+- [x] Apply between two adjacent clips on the same track → overlap/transition renders in preview and export identically. *(2026-08-13 — CDP: join square → picker set both kinds; preview at the crossfade cut read trailing `<video>` opacity 0.5 + both volumes 0.707 (equal-power), dip cut read opacity 0/volume 0; real export: extracted cut frame shows the incoming clip half-transparent over the outgoing one, dip frame pure black; dip audio >90 % attenuated inside the ramp vs ~1× outside; duration unchanged at exactly 420 frames)*
+- [x] Duration adjustable; deleting either clip removes the transition cleanly; undo works. *(CDP: preset re-pick 1 s → 0.5 s replaced in place as one undo step; Backspace-deleting the trailing clip dropped the dip in the SAME undo step (reducer-level prune) and one Ctrl+Z restored both; three undos walked both transitions off, two redos back)*
+- [x] Transition survives ripple ops around it without desyncing. *(CDP: ripple-deleting the middle clip slid the next clip flush and the crossfade survived onto the new join; unit-tested in transition-ops.test.ts; splits hand the transition to the half that owns the boundary)*
 
 ### 16.6 Timeline QoL (auto-scroll · zoom-to-fit · markers)
 - [x] During playback the timeline auto-scrolls to keep the playhead in view (and stops fighting you when you scroll manually). *(2026-08-12 — CDP: playhead exiting right edge re-entered at exactly 20% from left; manual scroll-back stayed put while playing; following resumed after the playhead re-entered and walked out again.)*
