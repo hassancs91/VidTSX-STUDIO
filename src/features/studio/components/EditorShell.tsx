@@ -55,7 +55,30 @@ export function EditorShell({ projectId, onBack }: Props) {
     transcribe,
     cancelTranscribe,
     getTranscribeProgress,
+    missingAssetIds,
+    relink,
   } = useStudioMedia(projectId, folderPath, assets, updateProject);
+
+  // ----- Media relink (Slice F) ------------------------------------------
+  // Locate… on a missing asset. A content-hash mismatch comes back for an
+  // in-app confirm (renderer-built, so it stays CDP-able) before overriding.
+  const [relinkPrompt, setRelinkPrompt] = useState<{
+    asset: StudioMediaAsset;
+    pickedPath: string;
+  } | null>(null);
+  const handleLocate = useCallback(
+    async (asset: StudioMediaAsset, filePath?: string, allowMismatch = false) => {
+      const result = await relink(asset, filePath, allowMismatch);
+      if (result.status === 'ok') {
+        showToast('Media relinked — caches and transcript preserved', 'success');
+      } else if (result.status === 'mismatch') {
+        setRelinkPrompt({ asset, pickedPath: result.pickedPath });
+      } else if (result.status === 'error') {
+        showToast(result.message, 'error');
+      }
+    },
+    [relink, showToast],
+  );
 
   const selectedAsset = useMemo(
     () => assets.find((a) => a.id === selectedAssetId) ?? null,
@@ -436,6 +459,8 @@ export function EditorShell({ projectId, onBack }: Props) {
             loadThumbnail={loadThumbnail}
             getThumbnail={getThumbnail}
             getTranscribeProgress={getTranscribeProgress}
+            missingAssetIds={missingAssetIds}
+            onLocate={(asset) => void handleLocate(asset)}
           />
         </div>
 
@@ -519,7 +544,41 @@ export function EditorShell({ projectId, onBack }: Props) {
         rangeIn={rangeIn}
         rangeOut={rangeOut}
         onRangeChange={handleRangeChange}
+        missingAssetIds={missingAssetIds}
       />
+
+      {relinkPrompt && (
+        <div
+          data-relink-confirm
+          role="alertdialog"
+          className="fixed z-50 bottom-4 right-4 w-[300px] p-3 rounded-[8px] bg-app-surface shadow-lg flex flex-col gap-2"
+          style={{ border: '0.5px solid var(--color-accent-red, #e5484d)' }}
+        >
+          <div className="text-[11px] font-medium text-text-primary">
+            This file doesn't match the original
+          </div>
+          <div className="text-[10px] text-text-muted break-all">
+            {relinkPrompt.pickedPath.split(/[\\/]/).pop()} has different content than the media
+            this project was built with. Clips may show the wrong picture. Use it anyway?
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" size="sm" onClick={() => setRelinkPrompt(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                const { asset, pickedPath } = relinkPrompt;
+                setRelinkPrompt(null);
+                void handleLocate(asset, pickedPath, true);
+              }}
+            >
+              Use anyway
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

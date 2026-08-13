@@ -9,6 +9,44 @@
 
 ## Completed phases
 
+### Studio — core-parity Session 6: Slice F (media relink) (2026-08-13)
+**Status: COMPLETE — live CDP verification across three app launches (TESTING.md
+§16.8 ticked); no schema changes (consumes the `hash` media-import has written
+since S2); core-parity plan FINISHED → next is Hasan's full TESTING.md pass,
+then S4**
+
+Sixth and final session of `docs/studio/CORE_PARITY_PLAN.md`.
+
+- [x] **Missing detection.** `studioMediaPrepare` now `fs.access`es every
+  asset path; unreachable ones come back in a new `missing: string[]` and
+  their proxy/waveform jobs are skipped (ffmpeg would only fail). The renderer
+  keeps missing-ness as environmental state in `useStudioMedia` — deliberately
+  NOT in the document (it describes this machine, not the project).
+- [x] **UI.** Missing pool cards get a red border + "Missing" overlay with a
+  visible "Locate…" button; timeline clips whose asset is missing render a red
+  warning tint + border with a "source file missing" tooltip
+  (EditorShell → TimelinePanel → TimelineLanes → TimelineClip threading).
+- [x] **Relink IPC.** New `STUDIO_MEDIA_RELINK` following the full
+  channels/types/handler/registration/preload/electron.d.ts pattern (the last
+  one by hand — new channel). Main opens the native picker (or takes
+  `filePath` — the mismatch-retry, and `VIDTSX_RELINK_PICK` env stands in for
+  the dialog in automated runs, documented in docs/ui-automation-cdp.md),
+  verifies the pick's first-1MiB+size sha1 against the stored `asset.hash`,
+  re-probes on success, and returns `{ path, probe, hash }` for the renderer
+  to merge. Hash mismatch → renderer-built confirm card (CDP-able, like every
+  dialog in this app): Cancel or "Use anyway" (override re-probes and rewrites
+  the hash so the NEXT relink checks against reality).
+- [x] **Cache survival.** Proxies/waveforms/transcripts are keyed by asset id,
+  so they ride through untouched; the prepare effect keys on `id:path` so a
+  relink re-runs detection and only regenerates what's absent.
+- Live CDP (throwaway "relink-test" project + fixture copies, deleted after):
+  launch 1 generated caches; launch 2 (file renamed away) showed the full
+  missing UI with jobs skipped, a wrong-content pick raised the mismatch card
+  (Cancel inert; override merged with re-probe 40.07 s → 2.07 s + new hash);
+  launch 3 relinked the true moved file instantly — no prompt, stored hash
+  verified equal, proxy mtime unchanged (no regeneration), waveform still
+  drawn, document path updated and autosaved.
+
 ### Studio — core-parity Session 5: Slice E (transitions: crossfade · dip-to-black) (2026-08-13)
 **Status: COMPLETE — design doc first (docs/studio/TRANSITIONS_DESIGN.md), then
 unit-tested (17 new tests, 374 total) + live CDP click-through incl. a real

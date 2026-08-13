@@ -14,6 +14,13 @@ export interface TranscribeProgress {
   message?: string;
 }
 
+/** Outcome of a Locate… attempt, for the shell to route (toast / confirm). */
+export type RelinkResult =
+  | { status: 'ok' }
+  | { status: 'canceled' }
+  | { status: 'mismatch'; pickedPath: string }
+  | { status: 'error'; message: string };
+
 /**
  * Derived-media side of the editor: asks the main process for 720p proxies and
  * waveforms, folds job results back into the document, and resolves the URLs
@@ -32,6 +39,9 @@ export function useStudioMedia(
   updateProject: (updater: (prev: StudioProject) => StudioProject) => void,
 ) {
   const [assetBaseUrl, setAssetBaseUrl] = useState<string | null>(null);
+  // Environmental state, deliberately NOT in the document: whether the source
+  // file is reachable on THIS machine right now (Slice F relink).
+  const [missingAssetIds, setMissingAssetIds] = useState<ReadonlySet<string>>(new Set());
   const [waveforms, setWaveforms] = useState<Map<string, ClipWaveformData>>(new Map());
   const [transcribeProgress, setTranscribeProgress] = useState<Map<string, TranscribeProgress>>(
     new Map(),
@@ -112,8 +122,9 @@ export function useStudioMedia(
   );
 
   // Request caches whenever the set of assets changes (already-generated files
-  // come back as immediate 'ready' results, so this is cheap to re-run).
-  const assetKey = assets.map((a) => a.id).join(',');
+  // come back as immediate 'ready' results, so this is cheap to re-run). The
+  // key includes each asset's PATH so a relink re-runs detection and jobs.
+  const assetKey = assets.map((a) => `${a.id}:${a.path}`).join(',');
   useEffect(() => {
     if (!projectId || assets.length === 0) return;
     let cancelled = false;
@@ -130,6 +141,7 @@ export function useStudioMedia(
       .then((res) => {
         if (cancelled || !res.success) return;
         if (res.assetBaseUrl) setAssetBaseUrl(res.assetBaseUrl);
+        setMissingAssetIds(new Set(res.missing ?? []));
         for (const event of res.ready ?? []) applyEvent(event);
       });
     return () => {
@@ -216,6 +228,53 @@ export function useStudioMedia(
     [transcribeProgress],
   );
 
+  /**
+   * Locate… a missing source file. Without `filePath` main opens the native
+   * dialog; the mismatch-confirm retry passes the picked path back with
+   * `allowMismatch`. On success the new path/probe/hash merge into the asset —
+   * the prepare effect re-runs off the path change, so derived caches (keyed
+   * by asset id) come back 'ready' immediately and only regenerate if absent.
+   */
+  const relink = useCallback(
+    async (
+      asset: StudioMediaAsset,
+      filePath?: string,
+      allowMismatch = false,
+    ): Promise<RelinkResult> => {
+      const res = await window.api.studioMediaRelink({
+        projectId,
+        assetId: asset.id,
+        expectedHash: asset.hash,
+        ...(filePath ? { filePath } : {}),
+        ...(allowMismatch ? { allowMismatch } : {}),
+      });
+      if (!res.success) {
+        if (res.mismatch && res.pickedPath) {
+          return { status: 'mismatch', pickedPath: res.pickedPath };
+        }
+        return { status: 'error', message: res.error ?? 'Failed to relink media' };
+      }
+      if (res.canceled) return { status: 'canceled' };
+      const relinked = res.asset;
+      if (!relinked) return { status: 'error', message: 'Relink returned no file' };
+      patchAsset(asset.id, (prev) => {
+        const next = { ...prev, path: relinked.path, probe: relinked.probe };
+        // A stale hash would poison the NEXT relink check — replace or drop.
+        if (relinked.hash) next.hash = relinked.hash;
+        else delete next.hash;
+        return next;
+      });
+      setMissingAssetIds((prev) => {
+        if (!prev.has(asset.id)) return prev;
+        const next = new Set(prev);
+        next.delete(asset.id);
+        return next;
+      });
+      return { status: 'ok' };
+    },
+    [projectId, patchAsset],
+  );
+
   const cacheUrl = useCallback(
     (relPath: string): string | null => {
       if (!assetBaseUrl || !folderPath) return null;
@@ -257,5 +316,7 @@ export function useStudioMedia(
     transcribe,
     cancelTranscribe,
     getTranscribeProgress,
+    missingAssetIds,
+    relink,
   };
 }

@@ -11,6 +11,8 @@ import type {
   StudioMediaJobEvent,
   StudioMediaPrepareRequest,
   StudioMediaPrepareResponse,
+  StudioMediaRelinkRequest,
+  StudioMediaRelinkResponse,
   StudioProjectCreateRequest,
   StudioProjectCreateResponse,
   StudioProjectDeleteRequest,
@@ -42,7 +44,13 @@ import {
   loadProject,
   saveProject,
 } from '../services/studio/project-store';
-import { importMediaFiles, MEDIA_DIALOG_FILTERS } from '../services/studio/media-import';
+import {
+  classifyMediaKind,
+  hashFileHead,
+  importMediaFiles,
+  MEDIA_DIALOG_FILTERS,
+  probeMedia,
+} from '../services/studio/media-import';
 import { getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
 import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
@@ -180,7 +188,16 @@ export async function handleStudioMediaPrepare(
     }
 
     const ready: StudioMediaJobEvent[] = [];
+    const missing: string[] = [];
     for (const asset of data.assets) {
+      // A moved/renamed source can't feed ffmpeg — flag it for the relink UI
+      // instead of letting every derived-cache job fail (Slice F).
+      try {
+        await fs.access(asset.path);
+      } catch {
+        missing.push(asset.id);
+        continue;
+      }
       if (asset.kind === 'image') continue;
       if (asset.kind === 'video') {
         const event = await studioMediaJobs.request(data.projectId, asset.id, 'proxy', asset.path);
@@ -195,9 +212,60 @@ export async function handleStudioMediaPrepare(
       );
       if (waveform) ready.push(waveform);
     }
-    return { success: true, ready, assetBaseUrl };
+    return { success: true, ready, assetBaseUrl, ...(missing.length > 0 ? { missing } : {}) };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare media') };
+  }
+}
+
+/**
+ * Reconnect a missing source file (Slice F). Opens the native file dialog
+ * unless the renderer passes `filePath` (the mismatch-confirm retry). The
+ * picked file's content hash is checked against the stored one — a mismatch
+ * comes back to the renderer, which confirms with the user and retries with
+ * `allowMismatch`. On success the file is re-probed and the renderer merges
+ * path/probe/hash into the document; every derived cache is keyed by asset
+ * id, so proxies/waveforms/transcripts survive the relink untouched.
+ */
+export async function handleStudioMediaRelink(
+  _event: IpcMainInvokeEvent,
+  data: StudioMediaRelinkRequest,
+): Promise<StudioMediaRelinkResponse> {
+  try {
+    await getProjectDir(data.projectId); // Validates the id before any fs work.
+
+    // VIDTSX_RELINK_PICK stands in for the native file dialog in automated
+    // runs — OS pickers can't be driven over CDP (docs/ui-automation-cdp.md).
+    let filePath = data.filePath ?? process.env.VIDTSX_RELINK_PICK;
+    if (!filePath) {
+      const result = await dialog.showOpenDialog({
+        title: 'Locate Missing Media',
+        properties: ['openFile'],
+        filters: MEDIA_DIALOG_FILTERS,
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: true, canceled: true };
+      }
+      filePath = result.filePaths[0];
+    }
+
+    const kind = classifyMediaKind(filePath);
+    if (!kind) return { success: false, error: 'Unsupported file type' };
+    try {
+      await fs.access(filePath);
+    } catch {
+      return { success: false, error: 'Picked file not found on disk' };
+    }
+
+    const hash = await hashFileHead(filePath);
+    if (data.expectedHash && hash !== data.expectedHash && !data.allowMismatch) {
+      return { success: false, mismatch: true, pickedPath: filePath };
+    }
+
+    const probe = await probeMedia(filePath, kind);
+    return { success: true, asset: { path: filePath, probe, ...(hash ? { hash } : {}) } };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to relink media') };
   }
 }
 

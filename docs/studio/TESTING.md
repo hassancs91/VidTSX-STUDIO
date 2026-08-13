@@ -183,7 +183,7 @@
 - [x] I/O keys set in/out on the ruler; visible highlight; Export offers "Export range" honoring it exactly (frame-accurate at both ends, ffprobe the output duration). *(2026-08-13 — CDP: I at 2.5 s + O at 7.533 s drew the span (left 50 px, width 100.67 px); a lone point shows a bracket and no button; Shift+I cleared; real export via the render queue → ffprobe video stream 5.033333 s / 151 frames = exactly frame(out) − frame(in); audio envelope corr 0.871 vs the matching source span, −0.62 vs a control span)*
 
 ### 16.8 Media relink
-- [ ] Opening a project with missing media offers "Locate…"; picking the moved file relinks by content hash (refuses a different file, or warns); proxies/waveforms/transcripts keyed by asset id survive the relink.
+- [x] Opening a project with missing media offers "Locate…"; picking the moved file relinks by content hash (refuses a different file, or warns); proxies/waveforms/transcripts keyed by asset id survive the relink. *(2026-08-13 — CDP, three launches with the `VIDTSX_RELINK_PICK` dialog stand-in: moved file → Missing badge + Locate… on the pool card, red-tinted clip, proxy/waveform jobs skipped; picking a different-content file → in-app mismatch card (Cancel = no change; "Use anyway" = override with re-probe, duration 40.07 s → 2.07 s, hash rewritten); picking the true moved file → instant relink, no prompt, hash verified equal, and the proxy's mtime unchanged — caches keyed by asset id survived without regeneration, waveform still drawn. Native-dialog path itself is one manual click in Hasan's full pass.)*
 
 ### 16.9 Preview playback rate (global watch speed)
 - [x] Rate button on the preview transport cycles 1× → 1.5× → 2× → 0.5× (Shift+click cycles down); label shows the active rate. *(2026-08-12 — CDP)*

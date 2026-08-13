@@ -389,6 +389,7 @@ export interface ElectronAPI {
   studioMediaImport: (data: import('../../shared/ipc/types').StudioMediaImportRequest) => Promise<import('../../shared/ipc/types').StudioMediaImportResponse>;
   studioCacheRead: (data: import('../../shared/ipc/types').StudioCacheReadRequest) => Promise<import('../../shared/ipc/types').StudioCacheReadResponse>;
   studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
+  studioMediaRelink: (data: import('../../shared/ipc/types').StudioMediaRelinkRequest) => Promise<import('../../shared/ipc/types').StudioMediaRelinkResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;
   studioTranscribeStart: (data: import('../../shared/ipc/types').StudioTranscribeStartRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeStartResponse>;
   studioTranscribeCancel: (data: import('../../shared/ipc/types').StudioTranscribeCancelRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeCancelResponse>;

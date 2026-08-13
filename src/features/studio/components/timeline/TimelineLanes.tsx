@@ -20,6 +20,8 @@ interface Props {
   onLanePointerDown: (event: React.PointerEvent) => void;
   /** Join square at a contiguous boundary — opens the transition picker. */
   onJoinClick: (event: React.MouseEvent, leadingClip: StudioClip) => void;
+  /** Assets whose source file is missing — their clips get a warning tint. */
+  missingAssetIds: ReadonlySet<string>;
 }
 
 /** The track lanes and their clips. */
@@ -36,6 +38,7 @@ export function TimelineLanes({
   onClipContextMenu,
   onLanePointerDown,
   onJoinClick,
+  missingAssetIds,
 }: Props) {
   const selected = new Set(selectedClipIds);
   return (
@@ -65,6 +68,7 @@ export function TimelineLanes({
                 selected={selected.has(clip.id)}
                 thumbnail={clip.assetId ? getThumbnail(clip.assetId) : null}
                 waveform={clip.assetId ? getWaveform(clip.assetId) : null}
+                missing={clip.assetId !== undefined && missingAssetIds.has(clip.assetId)}
                 onPointerDown={onClipPointerDown}
                 onContextMenu={onClipContextMenu}
               />

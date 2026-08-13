@@ -146,6 +146,13 @@ projects root — `~/Videos/VidTSX Studio/projects/<slug>/`. That exercised the
 whole timeline, preview, proxy and export path in S2 without ever opening the
 import dialog.
 
+One dialog has a dedicated stand-in: the media-relink "Locate…" picker. Launch
+the dev app with `VIDTSX_RELINK_PICK=<absolute path>` and the relink handler
+uses that path instead of opening the dialog, so the whole renderer flow
+(mismatch confirm card, document merge, cache survival) runs for real. Unset
+in normal use — an explicit `filePath` in the request still wins over the env
+var (that's the mismatch-confirm retry).
+
 ## Synthetic drags and performance measurement
 
 React 19 picks up synthetic pointer events through the root container:

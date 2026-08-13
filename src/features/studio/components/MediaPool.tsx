@@ -1,5 +1,15 @@
 import { useEffect } from 'react';
-import { Captions, FileVideo, Import, Music, Image as ImageIcon, Plus, X } from 'lucide-react';
+import {
+  Captions,
+  FileVideo,
+  FileSearch,
+  Import,
+  Music,
+  Image as ImageIcon,
+  Plus,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
 import type { StudioMediaAsset } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import { formatDuration } from '../services/format-time';
@@ -16,6 +26,9 @@ interface Props {
   loadThumbnail: (assetId: string, relPath: string) => Promise<void>;
   getThumbnail: (assetId: string) => string | null;
   getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
+  /** Source files gone from disk (Slice F) — badge + Locate… on their cards. */
+  missingAssetIds: ReadonlySet<string>;
+  onLocate: (asset: StudioMediaAsset) => void;
 }
 
 export function MediaPool({
@@ -30,6 +43,8 @@ export function MediaPool({
   loadThumbnail,
   getThumbnail,
   getTranscribeProgress,
+  missingAssetIds,
+  onLocate,
 }: Props) {
   useEffect(() => {
     for (const asset of assets) {
@@ -74,10 +89,12 @@ export function MediaPool({
                 thumbnail={getThumbnail(asset.id)}
                 selected={asset.id === selectedAssetId}
                 transcribeProgress={getTranscribeProgress(asset.id)}
+                missing={missingAssetIds.has(asset.id)}
                 onRemove={() => onRemove(asset.id)}
                 onAdd={() => onAddToTimeline(asset)}
                 onTranscribe={() => onTranscribe(asset)}
                 onSelect={() => onSelect(asset.id)}
+                onLocate={() => onLocate(asset)}
               />
             ))}
           </div>
@@ -92,19 +109,23 @@ function AssetCard({
   thumbnail,
   selected,
   transcribeProgress,
+  missing,
   onRemove,
   onAdd,
   onTranscribe,
   onSelect,
+  onLocate,
 }: {
   asset: StudioMediaAsset;
   thumbnail: string | null;
   selected: boolean;
   transcribeProgress: TranscribeProgress | null;
+  missing: boolean;
   onRemove: () => void;
   onAdd: () => void;
   onTranscribe: () => void;
   onSelect: () => void;
+  onLocate: () => void;
 }) {
   const fileName = asset.path.split(/[\\/]/).pop() ?? asset.path;
   const KindIcon = asset.kind === 'audio' ? Music : asset.kind === 'image' ? ImageIcon : FileVideo;
@@ -115,11 +136,17 @@ function AssetCard({
     <div
       className="group relative rounded-[6px] overflow-hidden bg-app-surface"
       style={{
-        border: selected
-          ? '0.5px solid var(--color-accent)'
-          : '0.5px solid var(--color-border)',
+        border: missing
+          ? '0.5px solid var(--color-accent-red, #e5484d)'
+          : selected
+            ? '0.5px solid var(--color-accent)'
+            : '0.5px solid var(--color-border)',
       }}
-      title={`${asset.path}\n\nClick to inspect · double-click to add to the timeline`}
+      title={
+        missing
+          ? `${asset.path}\n\nSource file not found — use Locate… to reconnect it`
+          : `${asset.path}\n\nClick to inspect · double-click to add to the timeline`
+      }
       onClick={onSelect}
       onDoubleClick={onAdd}
     >
@@ -138,6 +165,30 @@ function AssetCard({
           <span className="absolute bottom-1 left-1 px-1 py-px rounded-[3px] bg-black/70 text-[9px] text-accent-light">
             {transcribeProgress ? `${transcribeProgress.percent}%` : '…'}
           </span>
+        )}
+        {missing && (
+          <div
+            data-missing-badge={asset.id}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55"
+          >
+            <span className="flex items-center gap-1 text-[10px] font-medium text-accent-red">
+              <TriangleAlert size={12} strokeWidth={1.75} />
+              Missing
+            </span>
+            <button
+              data-locate={asset.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                onLocate();
+              }}
+              title="Find the moved/renamed source file (verified by content hash)"
+              className="flex items-center gap-1 px-1.5 h-[20px] rounded-[5px] bg-app-surface text-[10px] text-text-secondary hover:text-text-primary hover:bg-app-hover transition-colors"
+              style={{ border: '0.5px solid var(--color-border-hover)' }}
+            >
+              <FileSearch size={11} strokeWidth={1.75} />
+              Locate…
+            </button>
+          </div>
         )}
       </div>
       <div className="px-1.5 py-1">

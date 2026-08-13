@@ -322,6 +322,7 @@ export const IPC = {
   STUDIO_PROJECT_SAVE: 'studio:project:save',
   STUDIO_PROJECT_DELETE: 'studio:project:delete',
   STUDIO_MEDIA_IMPORT: 'studio:media:import',
+  STUDIO_MEDIA_RELINK: 'studio:media:relink',
   STUDIO_CACHE_READ: 'studio:cache:read',
   // Studio — timeline preview, background media jobs, export
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',

@@ -10,6 +10,7 @@ import {
   handleStudioProjectDelete,
   handleStudioMediaImport,
   handleStudioMediaPrepare,
+  handleStudioMediaRelink,
   handleStudioExportPrepare,
   handleStudioCacheRead,
   handleStudioTranscribeStart,
@@ -31,6 +32,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROJECT_DELETE, handleStudioProjectDelete);
   ipcMain.handle(IPC.STUDIO_MEDIA_IMPORT, handleStudioMediaImport);
   ipcMain.handle(IPC.STUDIO_MEDIA_PREPARE, handleStudioMediaPrepare);
+  ipcMain.handle(IPC.STUDIO_MEDIA_RELINK, handleStudioMediaRelink);
   ipcMain.handle(IPC.STUDIO_EXPORT_PREPARE, handleStudioExportPrepare);
   ipcMain.handle(IPC.STUDIO_CACHE_READ, handleStudioCacheRead);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_START, handleStudioTranscribeStart);

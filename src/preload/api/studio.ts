@@ -15,6 +15,8 @@ import type {
   StudioMediaJobEvent,
   StudioMediaPrepareRequest,
   StudioMediaPrepareResponse,
+  StudioMediaRelinkRequest,
+  StudioMediaRelinkResponse,
   StudioProjectCreateRequest,
   StudioProjectCreateResponse,
   StudioProjectDeleteRequest,
@@ -57,6 +59,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_CACHE_READ, data),
   studioMediaPrepare: (data: StudioMediaPrepareRequest): Promise<StudioMediaPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
+  studioMediaRelink: (data: StudioMediaRelinkRequest): Promise<StudioMediaRelinkResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_MEDIA_RELINK, data),
   studioExportPrepare: (data: StudioExportPrepareRequest): Promise<StudioExportPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_EXPORT_PREPARE, data),
   studioTranscribeStart: (data: StudioTranscribeStartRequest): Promise<StudioTranscribeStartResponse> =>

@@ -18,6 +18,8 @@ interface Props {
   selected: boolean;
   thumbnail: string | null;
   waveform: ClipWaveformData | null;
+  /** The clip's source file is gone from disk (Slice F) — warning tint. */
+  missing?: boolean;
   onPointerDown: (event: React.PointerEvent, clip: StudioClip, kind: ClipDragKind) => void;
   onContextMenu?: (event: React.MouseEvent, clip: StudioClip) => void;
 }
@@ -43,6 +45,7 @@ function TimelineClipInner({
   selected,
   thumbnail,
   waveform,
+  missing,
   onPointerDown,
   onContextMenu,
 }: Props) {
@@ -61,13 +64,17 @@ function TimelineClipInner({
         left,
         width,
         height: heightPx - 6,
-        backgroundColor: style.fill,
-        border: selected ? `1px solid ${style.border}` : '0.5px solid rgba(255,255,255,0.14)',
-        boxShadow: selected ? `0 0 0 1px ${style.border}66` : 'none',
+        backgroundColor: missing ? 'rgba(229,72,77,0.22)' : style.fill,
+        border: missing
+          ? '1px solid #e5484d'
+          : selected
+            ? `1px solid ${style.border}`
+            : '0.5px solid rgba(255,255,255,0.14)',
+        boxShadow: selected ? `0 0 0 1px ${missing ? '#e5484d' : style.border}66` : 'none',
       }}
       onPointerDown={(e) => onPointerDown(e, clip, 'move')}
       onContextMenu={(e) => onContextMenu?.(e, clip)}
-      title={label}
+      title={missing ? `${label} — source file missing` : label}
     >
       {thumbnail && (
         <div

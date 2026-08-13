@@ -101,7 +101,7 @@ export async function probeMedia(filePath: string, kind: StudioAssetKind): Promi
 }
 
 /** First 1 MiB content hash — cheap identity for relink-when-missing. */
-async function hashFileHead(filePath: string): Promise<string | undefined> {
+export async function hashFileHead(filePath: string): Promise<string | undefined> {
   try {
     const handle = await fs.open(filePath, 'r');
     try {

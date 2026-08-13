@@ -44,6 +44,8 @@ interface Props {
   rangeIn: number | null;
   rangeOut: number | null;
   onRangeChange: (edge: 'in' | 'out', seconds: number | null) => void;
+  /** Assets whose source file is missing (Slice F) — clips get a warning tint. */
+  missingAssetIds: ReadonlySet<string>;
 }
 
 /** Extra runway past the last clip so there's always somewhere to drag to. */
@@ -59,6 +61,7 @@ export function TimelinePanel({
   rangeIn,
   rangeOut,
   onRangeChange,
+  missingAssetIds,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -487,6 +490,7 @@ export function TimelinePanel({
                 onClipContextMenu={onClipContextMenu}
                 onLanePointerDown={onLanePointerDown}
                 onJoinClick={onJoinClick}
+                missingAssetIds={missingAssetIds}
               />
               {marqueeRect && (
                 <div

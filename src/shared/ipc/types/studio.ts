@@ -1,4 +1,5 @@
 import type {
+  StudioAssetProbe,
   StudioAssetTranscriptMeta,
   StudioMediaAsset,
   StudioProject,
@@ -157,6 +158,39 @@ export interface StudioMediaPrepareResponse {
   ready?: StudioMediaJobEvent[];
   /** Base URL of the local asset server the preview loads media through. */
   assetBaseUrl?: string;
+  /** Asset ids whose source file is gone from disk (Slice F relink). Their
+   *  proxy/waveform jobs are skipped — ffmpeg would only fail on them. */
+  missing?: string[];
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Media relink (Slice F) — reconnect a moved/renamed source file
+// ---------------------------------------------------------------------------
+
+export interface StudioMediaRelinkRequest {
+  projectId: string;
+  assetId: string;
+  /** Stored content hash to verify the pick against (absent = no check). */
+  expectedHash?: string;
+  /** Use this file instead of opening the native dialog — the renderer passes
+   *  the already-picked path back when the user confirms a hash mismatch. */
+  filePath?: string;
+  /** User confirmed relinking despite a hash mismatch. */
+  allowMismatch?: boolean;
+}
+
+export interface StudioMediaRelinkResponse {
+  success: boolean;
+  canceled?: boolean;
+  /** The picked file's content hash differs from the stored one — the
+   *  renderer confirms with the user, then retries with allowMismatch. */
+  mismatch?: boolean;
+  /** Absolute path of the mismatching pick (echoed back on retry). */
+  pickedPath?: string;
+  /** On success: the fields the renderer merges into the asset. Caches stay
+   *  keyed by asset id, so proxies/waveforms/transcripts survive untouched. */
+  asset?: { path: string; probe: StudioAssetProbe; hash?: string };
   error?: string;
 }
 
