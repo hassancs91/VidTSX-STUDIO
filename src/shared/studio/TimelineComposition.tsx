@@ -19,8 +19,12 @@ export interface TimelineCompositionProps {
  *
  * A <Sequence> outside its window renders nothing, so mounting all of them is
  * pure cost — on a 100-cut timeline that was ~100 component renders per frame
- * change, and it showed up as sluggish scrubbing. The margin keeps upcoming
- * media mounted early enough to buffer before it plays.
+ * change, and it showed up as sluggish scrubbing. The margin bounds how many
+ * Sequences exist at once; `premountFor` (same window) is what makes the
+ * early mount useful: it renders the upcoming clip hidden and frozen on its
+ * first frame, so the media element is created and seeked BEFORE the cut —
+ * without it, every join flashes black for the length of a video seek.
+ * Premounting is a Player-side aid; renders wait per-frame and are unaffected.
  */
 const MOUNT_WINDOW_SECONDS = 2;
 
@@ -49,6 +53,7 @@ export function TimelineComposition({ timeline }: TimelineCompositionProps) {
               key={clip.id}
               from={clip.from}
               durationInFrames={clip.durationInFrames}
+              premountFor={margin}
               layout={clip.kind === 'audio' || clip.kind === 'sfx' ? 'none' : 'absolute-fill'}
               name={clip.id}
             >

@@ -4,9 +4,27 @@
 // caller dispatches `proposal-add`, so agent cuts land in the exact same
 // review flow as Auto Cut.
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, StudioAgentAssetInfo } from '@shared/ipc/types';
 import type { StudioMediaAsset, StudioProposal } from '../types';
+
+/**
+ * Context budget for the estimate meter. The engine doesn't report real token
+ * usage across providers, so this is a deliberate conservative floor (cloud
+ * models are 128k+; local models vary). The estimate exists to warn, not bill.
+ */
+const CONTEXT_BUDGET_TOKENS = 128_000;
+/** System prompt + skill + tool definitions, roughly. */
+const BASE_OVERHEAD_TOKENS = 2_000;
+/** Takes-view tokens per transcript word (word + timing markup). */
+const TOKENS_PER_TRANSCRIPT_WORD = 2;
+
+export interface AgentContextUsage {
+  /** Estimated tokens the NEXT turn will carry (transcripts + chat + base). */
+  estTokens: number;
+  /** estTokens over the assumed budget, uncapped (can exceed 1). */
+  ratio: number;
+}
 
 export interface AgentToolCall {
   tool: string;
@@ -166,7 +184,23 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
     if (!busy) setMessages([]);
   }, [busy]);
 
-  return { messages, busy, send, cancel, clear };
+  // Every turn is a fresh run: the agent re-reads ready transcripts via tools
+  // and carries the chat text as history — so those two are what grow the
+  // context. chars/4 is the usual rough token heuristic.
+  const contextUsage: AgentContextUsage = useMemo(() => {
+    const historyChars = messages.reduce((n, m) => n + m.text.length, 0);
+    const transcriptWords = options.assets.reduce(
+      (n, a) => n + (a.transcript?.status === 'ready' ? (a.transcript.wordCount ?? 0) : 0),
+      0,
+    );
+    const estTokens =
+      BASE_OVERHEAD_TOKENS +
+      Math.ceil(historyChars / 4) +
+      transcriptWords * TOKENS_PER_TRANSCRIPT_WORD;
+    return { estTokens, ratio: estTokens / CONTEXT_BUDGET_TOKENS };
+  }, [messages, options.assets]);
+
+  return { messages, busy, send, cancel, clear, contextUsage };
 }
 
 export type UseStudioAgentResult = ReturnType<typeof useStudioAgent>;

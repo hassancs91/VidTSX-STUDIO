@@ -229,6 +229,22 @@ export function useStudioMedia(
   );
 
   /**
+   * Clear an asset's transcript from the document — back to untranscribed.
+   * The cache JSON stays on disk (prepare never reads transcripts back into
+   * the document; the next transcription run overwrites it).
+   */
+  const resetTranscript = useCallback(
+    (assetId: string) => {
+      clearProgress(assetId);
+      patchAsset(assetId, (asset) => {
+        const { transcript: _removed, ...rest } = asset;
+        return rest;
+      });
+    },
+    [patchAsset, clearProgress],
+  );
+
+  /**
    * Locate… a missing source file. Without `filePath` main opens the native
    * dialog; the mismatch-confirm retry passes the picked path back with
    * `allowMismatch`. On success the new path/probe/hash merge into the asset —
@@ -315,6 +331,7 @@ export function useStudioMedia(
     proxyProgress,
     transcribe,
     cancelTranscribe,
+    resetTranscript,
     getTranscribeProgress,
     missingAssetIds,
     relink,

@@ -69,6 +69,9 @@ export function PreviewPanel({
               style={{ width: '100%', height: '100%' }}
               controls={false}
               playbackRate={playbackRate}
+              // NLE convention (Hasan, 2026-08-13): after playing past the
+              // end, park at the end instead of snapping back to 0.
+              moveToBeginningWhenEnded={false}
             />
           )}
         </div>

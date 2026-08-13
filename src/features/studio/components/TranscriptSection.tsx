@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
-import { DEFAULT_STT_MODEL, sttEntriesWithTimestamps } from '@shared/presets/stt-models';
+import { coerceSttEntry, sttEntriesWithTimestamps } from '@shared/presets/stt-models';
 import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioMediaAsset } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
@@ -15,6 +15,11 @@ interface Props {
   onSttModelChange: (sttModelId: string) => void;
   onTranscribe: (asset: StudioMediaAsset, sttModelId: string) => void;
   onCancel: (assetId: string) => void;
+  /** Clear the transcript entirely — the asset goes back to untranscribed. */
+  onReset: (assetId: string) => void;
+  /** Hand the asset to the Assistant for an editorial pass (agent entry point). */
+  onEditorialPass: (asset: StudioMediaAsset) => void;
+  agentBusy: boolean;
   progress: TranscribeProgress | null;
   onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
   autoCutPhase: AutoCutPhase;
@@ -35,13 +40,18 @@ export function TranscriptSection({
   onSttModelChange,
   onTranscribe,
   onCancel,
+  onReset,
+  onEditorialPass,
+  agentBusy,
   progress,
   onAutoCut,
   autoCutPhase,
   reviewOpen,
 }: Props) {
   const transcript = asset.transcript;
-  const modelId = sttModelId ?? DEFAULT_STT_MODEL;
+  // Coerce so a persisted id the catalog no longer carries (e.g. the retired
+  // slam-1) still renders a real selection instead of an empty Select.
+  const modelId = coerceSttEntry(sttModelId).id;
   const modelOptions = sttEntriesWithTimestamps().map((m) => ({
     value: m.id,
     // The editorial cutting pass needs verbatim words with measured times —
@@ -78,18 +88,36 @@ export function TranscriptSection({
 
   return (
     <div className="flex flex-col gap-2">
+      {transcript?.status === 'ready' && <TranscriptReadout asset={asset} />}
+      {transcript?.status === 'error' && (
+        <div className="text-[10px] text-accent-red">
+          Transcription failed — try again (check the model is downloaded / the API key is set).
+        </div>
+      )}
+      <Field label="Engine">
+        <Select value={modelId} onChange={onSttModelChange} options={modelOptions} />
+      </Field>
       {transcript?.status === 'ready' ? (
-        <TranscriptReadout asset={asset} />
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => onTranscribe(asset, modelId)}>
+            Re-transcribe
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onReset(asset.id)}
+            disabled={reviewOpen}
+            title={
+              reviewOpen
+                ? 'Apply or reject the open cut proposal first'
+                : 'Clear the transcript — the asset goes back to untranscribed'
+            }
+          >
+            Reset
+          </Button>
+        </div>
       ) : (
         <>
-          {transcript?.status === 'error' && (
-            <div className="text-[10px] text-accent-red">
-              Transcription failed — try again (check the model is downloaded / the API key is set).
-            </div>
-          )}
-          <Field label="Engine">
-            <Select value={modelId} onChange={onSttModelChange} options={modelOptions} />
-          </Field>
           <div>
             <Button variant="primary" size="sm" onClick={() => onTranscribe(asset, modelId)}>
               Transcribe
@@ -101,13 +129,6 @@ export function TranscriptSection({
           </p>
         </>
       )}
-      {transcript?.status === 'ready' && (
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => onTranscribe(asset, modelId)}>
-            Re-transcribe
-          </Button>
-        </div>
-      )}
       <AutoCutRunner
         asset={asset}
         onAutoCut={onAutoCut}
@@ -115,6 +136,68 @@ export function TranscriptSection({
         reviewOpen={reviewOpen}
         needsTranscript={transcript?.status !== 'ready'}
       />
+      <EditorialPassEntry
+        asset={asset}
+        onEditorialPass={onEditorialPass}
+        agentBusy={agentBusy}
+        reviewOpen={reviewOpen}
+        needsTranscript={transcript?.status !== 'ready'}
+      />
+    </div>
+  );
+}
+
+/**
+ * One-click entry into the AI editorial pass. Unlike Auto Cut this never runs
+ * silently — it hands the request to the Assistant tab, where the agent's
+ * reasoning, tool activity, and stop button stay visible, and requires a ready
+ * transcript up front (an LLM run shouldn't silently chain a transcription).
+ */
+function EditorialPassEntry({
+  asset,
+  onEditorialPass,
+  agentBusy,
+  reviewOpen,
+  needsTranscript,
+}: {
+  asset: StudioMediaAsset;
+  onEditorialPass: (asset: StudioMediaAsset) => void;
+  agentBusy: boolean;
+  reviewOpen: boolean;
+  needsTranscript: boolean;
+}) {
+  const disabled = needsTranscript || reviewOpen || agentBusy;
+  return (
+    <div
+      className="flex flex-col gap-2 pt-1"
+      style={{ borderTop: '0.5px solid var(--color-border)' }}
+    >
+      <span className="text-[10px] uppercase tracking-wider text-text-muted">
+        Editorial pass (AI)
+      </span>
+      <div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => onEditorialPass(asset)}
+          disabled={disabled}
+          title={
+            needsTranscript
+              ? 'Transcribe first — the editorial pass reads the transcript'
+              : reviewOpen
+                ? 'Apply or reject the open cut proposal first'
+                : agentBusy
+                  ? 'The assistant is already working'
+                  : 'The AI editor finds retakes, false starts, and filler, and proposes cuts for review'
+          }
+        >
+          {agentBusy ? 'Assistant is working…' : 'Editorial Pass'}
+        </Button>
+      </div>
+      <p className="text-[10px] text-text-dim leading-snug">
+        Sends the clip to the Assistant: the AI reads the transcript for retakes, false starts,
+        and filler, then proposes cuts in the same review — nothing is applied until you say so.
+      </p>
     </div>
   );
 }

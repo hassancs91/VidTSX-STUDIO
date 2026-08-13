@@ -23,6 +23,10 @@ interface Props {
   selectedAsset: StudioMediaAsset | null;
   onTranscribe: (asset: StudioMediaAsset, sttModelId: string) => void;
   onCancelTranscribe: (assetId: string) => void;
+  onResetTranscribe: (assetId: string) => void;
+  onEditorialPass: (asset: StudioMediaAsset) => void;
+  /** The Assistant is mid-run — the editorial-pass entry point waits. */
+  agentBusy: boolean;
   getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
   onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
   autoCutPhase: AutoCutPhase;
@@ -39,6 +43,9 @@ export function InspectorPanel({
   selectedAsset,
   onTranscribe,
   onCancelTranscribe,
+  onResetTranscribe,
+  onEditorialPass,
+  agentBusy,
   getTranscribeProgress,
   onAutoCut,
   autoCutPhase,
@@ -118,6 +125,9 @@ export function InspectorPanel({
             }}
             onTranscribe={onTranscribe}
             onCancel={onCancelTranscribe}
+            onReset={onResetTranscribe}
+            onEditorialPass={onEditorialPass}
+            agentBusy={agentBusy}
             progress={getTranscribeProgress(selectedAsset.id)}
             onAutoCut={onAutoCut}
             autoCutPhase={autoCutPhase}

@@ -54,6 +54,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     proxyProgress,
     transcribe,
     cancelTranscribe,
+    resetTranscript,
     getTranscribeProgress,
     missingAssetIds,
     relink,
@@ -189,6 +190,20 @@ export function EditorShell({ projectId, onBack }: Props) {
     model: project?.settings.agent.model,
     onProposal: handleAgentProposal,
   });
+
+  // One-click entry into the agent's editorial pass: switch to the Assistant
+  // tab and submit the canonical request there, so the run keeps its full
+  // chat transparency (streaming, tool chips, stop, follow-up questions).
+  const handleEditorialPass = useCallback(
+    (asset: StudioMediaAsset) => {
+      const name = asset.path.split(/[\\/]/).pop() ?? asset.id;
+      setRightTab('assistant');
+      void agentChat.send(
+        `Run an editorial pass on "${name}": find retakes, false starts, doubled phrases, and filler, and propose the cuts for my review.`,
+      );
+    },
+    [agentChat],
+  );
 
   /** What the Player plays: the result preview while reviewing, else the edit. */
   const playerTimeline = useMemo(() => {
@@ -505,6 +520,9 @@ export function EditorShell({ projectId, onBack }: Props) {
                 selectedAsset={selectedAsset}
                 onTranscribe={handleTranscribe}
                 onCancelTranscribe={(assetId) => void cancelTranscribe(assetId)}
+                onResetTranscribe={resetTranscript}
+                onEditorialPass={handleEditorialPass}
+                agentBusy={agentChat.busy}
                 getTranscribeProgress={getTranscribeProgress}
                 onAutoCut={autoCut.runAutoCut}
                 autoCutPhase={autoCut.phase}

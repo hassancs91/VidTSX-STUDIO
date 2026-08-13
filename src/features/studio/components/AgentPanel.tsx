@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { RotateCcw, Scissors, Send, Sparkles, Square, Wrench } from 'lucide-react';
+import { AlertTriangle, RotateCcw, Scissors, Send, Sparkles, Square, Wrench } from 'lucide-react';
 import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioAgent';
+
+/** Warn when the next turn is estimated at ≥40% of the context budget. */
+const CONTEXT_WARN_RATIO = 0.4;
 
 interface Props {
   agent: UseStudioAgentResult;
@@ -12,7 +15,7 @@ export function AgentPanel({ agent }: Props) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { messages, busy, send, cancel, clear } = agent;
+  const { messages, busy, send, cancel, clear, contextUsage } = agent;
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -33,6 +36,16 @@ export function AgentPanel({ agent }: Props) {
       </div>
 
       <div className="p-2.5 shrink-0" style={{ borderTop: '0.5px solid var(--color-border)' }}>
+        {contextUsage.ratio >= CONTEXT_WARN_RATIO && (
+          <div className="flex items-start gap-1.5 rounded-[6px] bg-amber-500/10 px-2 py-1.5 mb-1.5 text-[10px] text-amber-400 leading-snug">
+            <AlertTriangle size={11} strokeWidth={1.75} className="shrink-0 mt-[1px]" />
+            <span>
+              Long session — the next turn carries roughly {Math.min(999, Math.round(contextUsage.ratio * 100))}%
+              of the assistant&rsquo;s context (transcripts + this chat). Clearing the conversation (↺)
+              after applying cuts keeps it sharp.
+            </span>
+          </div>
+        )}
         <div
           className="rounded-[8px] bg-app-base px-2 py-1.5 focus-within:ring-1 focus-within:ring-accent-blue/40"
           style={{ border: '0.5px solid var(--color-border)' }}

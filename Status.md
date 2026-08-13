@@ -9,7 +9,42 @@
 
 ## Completed phases
 
-### Studio — pre-flight TESTING.md sweep (2026-08-13)
+### Studio — STABILITY GATE PASSED (2026-08-13)
+**Status: COMPLETE — Hasan's guided manual pass over every remaining human item
+in docs/studio/TESTING.md, including the §13 S3 exit test on real multi-take
+DJI footage: auto-cut (37 proposed) + editorial pass both applied → 26 clips,
+every join flush to 1e-6 s, export v 68.9333 s / a 68.9920 s (delta = AAC frame
+padding, not drift), A/V sync clean by ear at the last cut (1:03.4). S4 opens
+after a short polish mini-session.**
+
+Verified by ear/eye this session: §10.4 auditions (all clean) · §8 complete
+(AssemblyAI real recording, whisper download + offline, re-transcribe
+round-trip, wrong-key error) · §9.2 plan honesty on real footage · §11.1
+editorial pass + chat memory + plain question + stop button + second-pass
+refusal · §14.1/14.2 network kills · §7.3 decided (park at end).
+
+Fixed/built during the gate (all test+type gated):
+- **slam-1 retirement**: AssemblyAI removed the model; catalog now Universal
+  (auto → universal-3-5-pro + universal-2) with pinned entries and a legacy
+  alias; provider special-cases dropped; 401/403 now reads "AssemblyAI rejected
+  the API key — check your AssemblyAI key in Settings."
+- **Transcript UX**: Engine picker stays visible when Ready; new Reset button
+  (blocked while a review is open).
+- **Editorial Pass button** (Inspector → Assistant handoff): one-click entry
+  into the agent with full chat transparency; disabled without a transcript /
+  during review / while busy.
+- **Context warning**: Assistant estimates next-turn context (transcripts +
+  chat vs a conservative 128k budget) and banners at ≥40% pointing at the
+  existing ↺ Clear.
+- **Black-flash fix**: `premountFor` on clip Sequences — joins are seamless in
+  preview (export was never affected).
+- **Playhead parks at end** after playback (`moveToBeginningWhenEnded={false}`).
+
+Deferred with reasons (in TESTING.md): §11 Local-Models refusal (no local
+model installed), §13.5 GIF/WebP (N/A — Studio export is hard-coded h264/mp4),
+§15 long-file perf (tail of the polish session). Backlog logged: render-start
+freeze, proxy progress bar, cache visibility UI, Studio format picker, agent
+timeline-read tool, optional persistent chat.
 **Status: COMPLETE — 22 machine-checkable items from §1–§14 driven live via
 CDP, ZERO app bugs found; matching items annotated ✎ in TESTING.md so Hasan's
 manual gate shrinks to the genuinely human checks (ears at joins, real

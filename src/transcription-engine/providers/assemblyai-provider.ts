@@ -95,7 +95,7 @@ export class AssemblyAiProvider implements TranscriptionProvider {
     const language = req.language && req.language !== 'auto' ? req.language : undefined;
     // auto_highlights / sentiment_analysis are English-only and conflict with
     // language_detection — only request them when we know the language is English.
-    const englishKnown = language === 'en' || req.model === 'slam-1';
+    const englishKnown = language === 'en';
     // `speech_model` was deprecated by AssemblyAI (2026) for `speech_models`,
     // an ordered preference list. The legacy 'universal' catalog id maps to
     // the API's own default pair (universal-3-5-pro with universal-2 fallback
@@ -114,7 +114,7 @@ export class AssemblyAiProvider implements TranscriptionProvider {
     };
     if (language) {
       body.language_code = language;
-    } else if (req.model !== 'slam-1') {
+    } else {
       body.language_detection = true;
     }
     if (englishKnown && req.enableHighlights) body.auto_highlights = true;
@@ -235,7 +235,7 @@ export class AssemblyAiProvider implements TranscriptionProvider {
     }
     if (!response.ok) {
       throw new TranscriptionEngineError(
-        `AssemblyAI upload failed (${response.status})`,
+        authFailureMessage(response.status) ?? `AssemblyAI upload failed (${response.status})`,
         this.id,
         await response.text().catch(() => undefined),
       );
@@ -276,10 +276,17 @@ export class AssemblyAiProvider implements TranscriptionProvider {
       } catch {
         // ignore parse error
       }
-      throw new TranscriptionEngineError(message, this.id);
+      throw new TranscriptionEngineError(authFailureMessage(response.status) ?? message, this.id);
     }
     return (await response.json()) as T;
   }
+}
+
+/** A 401/403 is an API-key problem, not an upload/network problem — say so. */
+function authFailureMessage(status: number): string | undefined {
+  return status === 401 || status === 403
+    ? 'AssemblyAI rejected the API key — check your AssemblyAI key in Settings.'
+    : undefined;
 }
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {

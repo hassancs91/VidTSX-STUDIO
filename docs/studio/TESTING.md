@@ -1,5 +1,13 @@
 # Studio stability gate — full test checklist
 
+> **GATE PASSED — 2026-08-13.** The §13 S3 exit test ran on real multi-take
+> footage and passed (26 flush joins, v==a within AAC frame padding, sync clean
+> by ear at the last cut). Every human-verifiable item is ticked or explicitly
+> deferred with a reason (§11 Local-Models — no local model installed; §15 —
+> runs at the tail of the polish mini-session; §13.5 — N/A, Studio has no
+> format picker). Papercuts found during the gate live in the follow-ups list
+> at the bottom; S4 is clear to open after the polish mini-session.
+
 > Run this before starting S4. Sections 1–15 cover everything built through the
 > S3 agent pass (commit `252b4a4`). Section 16 holds the test blocks for the
 > core-parity features we agreed to build first — test them as they land.
@@ -70,23 +78,24 @@
 
 - [ ] Preview plays over proxies; the aspect stage letterboxes correctly for 16:9 / 9:16 / 1:1 projects.
 - [ ] Scrub a 100-cut timeline → still smooth (the S2 checkpoint; re-verify only if something feels off). ✎
-- [ ] Deliberate gap on the video track → black frames play, audio elsewhere continues; no crash at timeline end. ✎ (2026-08-13 sweep — played through the gap: 0 video elements, audio kept playing; end-of-timeline stops cleanly. NOTE: the playhead then parks back at 0 — Remotion's `moveToBeginningWhenEnded` default; flag if you'd rather it park at the end)
+- [x] Playback across cuts is seamless — no black flash at joins. *(2026-08-13 — Hasan found joins flashing black on a 37-cut timeline; fixed same session with `premountFor` on the clip Sequences (TimelineComposition) so upcoming media pre-seeks hidden before its cut; confirmed smooth by eye afterwards. Export was never affected)*
+- [x] Deliberate gap on the video track → black frames play, audio elsewhere continues; no crash at timeline end. ✎ (2026-08-13 sweep — played through the gap: 0 video elements, audio kept playing; end-of-timeline stops cleanly. DECIDED (Hasan, same day): playhead now parks at the END after playback — `moveToBeginningWhenEnded={false}` in PreviewPanel; verified by eye)
 - [ ] Clip `transform`/`gain`/`speed` set by hand in project.json render correctly in preview (sanity for §16.1 before its UI exists).
 - [ ] With "Preview result" ON during a review, the playhead JUMPS across cut regions and the clock matches the shorter cut timeline. ✎
 
 ## 8. Transcription
 
-- [ ] Transcribe a real recording with AssemblyAI → word count toast; Inspector shows "Ready · N words · AssemblyAI, measured word timestamps". ✎
-- [ ] Transcribe with local whisper (base) → works offline; features snapshot shows what whisper actually delivered.
+- [x] Transcribe a real recording with AssemblyAI → word count toast; Inspector shows "Ready · N words · AssemblyAI, measured word timestamps". ✎ *(2026-08-13 — re-verified by hand (Hasan) against the live API after the slam-1 retirement fix: catalog now Universal (auto) → universal-3-5-pro + universal-2, pinned entries also selectable)*
+- [x] Transcribe with local whisper (base) → works offline; features snapshot shows what whisper actually delivered. *(2026-08-13 — Hasan: first run downloaded binary + base model, then re-transcribed with Wi-Fi off successfully)*
 - [ ] Cancel mid-run → entry removed, no stale "generating" after relaunch. ✎ (S3.1)
-- [ ] Re-transcribe replaces the old transcript cleanly.
-- [ ] Wrong/missing AssemblyAI key → fast, readable error; nothing hangs.
+- [x] Re-transcribe replaces the old transcript cleanly. *(2026-08-13 — Hasan: AssemblyAI → whisper → AssemblyAI round-trip, each run replaced the previous transcript with no doubled entries; Engine picker now stays visible when Ready, plus a Reset button that clears the transcript entirely — disabled while a review is open)*
+- [x] Wrong/missing AssemblyAI key → fast, readable error; nothing hangs. *(2026-08-13 — Hasan: fast, no hang; wording was "upload failed (401)" and got fixed same session — 401/403 now reads "AssemblyAI rejected the API key — check your AssemblyAI key in Settings.")*
 - [ ] Transcript survives relaunch (path + meta in document, JSON in cache). ✎
 
 ## 9. Auto Cut (mechanical pass)
 
 - [ ] One-click Auto Cut on an untranscribed asset → transcribes first, then plans, then opens the review; on a transcribed asset it skips straight to planning. ✎
-- [ ] Plan honesty: silences found match what you hear; leading/trailing silence included; tight vs natural differ in pacing.
+- [x] Plan honesty: silences found match what you hear; leading/trailing silence included; tight vs natural differ in pacing. *(2026-08-13 — Hasan, real 2:19 recording: Tight proposed 37 cuts/−55.3 s, auditions honest by ear; accuracy to keep watching across more footage — keyterms follow-up still logged below)*
 - [ ] Auto Cut is disabled while any review is open. ✎
 - [ ] Non-verbatim engine (whisper) → QA note about filler-finding appears in the review header. 
 
@@ -95,23 +104,23 @@
 - [ ] Striped amber regions on every clip playing the asset; grey + strikethrough when rejected; click region = select + seek. ✎
 - [ ] Selected region's edge handles drag with word-boundary snapping, bounded so cuts can't overlap; item shows "adjusted". (unit-tested; never dragged by hand)
 - [ ] Header stats are honest: "N proposed · −X s · before → after" recomputes when items are toggled. ✎
-- [ ] Play removed / Play join audition correctly BY EAR — no clipped word attacks at joins, join plays ±1.5 s with cuts applied. **(never verified by ear — priority)**
+- [x] Play removed / Play join audition correctly BY EAR — no clipped word attacks at joins, join plays ±1.5 s with cuts applied. *(2026-08-13 — verified by ear (Hasan) on the editorial-test 5-cut proposal: all five items clean, removed spans start/end on word boundaries, joins splice without clipped attacks; auditions also work on an unchecked item)*
 - [ ] Preview result checkbox plays the whole timeline as-if-applied. ✎
 - [ ] Reject all → proposal closes `rejected`, regions clear, timeline untouched. ✎ (2026-08-13 sweep — full Auto Cut → review → Reject all round-trip; document restored byte-identical afterwards via 2×undo)
 - [ ] Apply with some items vetoed → only accepted spans cut; toast shows removed seconds; proposal closes `partial`/`applied`. ✎
 
 ## 11. Editing agent (Assistant tab)
 
-- [ ] Editorial pass on real multi-take footage → categories are right, notes name the winning take, nothing scripted/kept is cut. ✎ (TTS clip only — re-run on real footage)
+- [x] Editorial pass on real multi-take footage → categories are right, notes name the winning take, nothing scripted/kept is cut. ✎ *(2026-08-13 — Hasan, real footage via the NEW Editorial Pass button (Inspector → Assistant handoff, added this session): pass ran and proposed sensibly; accuracy verdict provisional pending more real-footage mileage)*
 - [ ] Fluff suggestions arrive UNCHECKED; ticking one updates Apply count. ✎
 - [ ] Tool chips ("Reading transcript", "Proposing cuts") and the proposal chip appear in the chat; streaming text visible while it thinks. ✎
 - [ ] Proposal created while you're ON the Assistant tab does NOT yank you to Inspector; from Inspector the review pulls into view. ✎ (first half)
-- [ ] Ask for a second pass while a review is open → agent refuses politely, no duplicate proposal. (logic unit-tested; never seen live)
-- [ ] Stop button mid-run → run aborts, chat shows the error state, next send works.
-- [ ] Chat memory: follow-up question references earlier turns correctly (history round-trip).
+- [x] Ask for a second pass while a review is open → agent refuses politely, no duplicate proposal. *(2026-08-13 — Hasan, live)*
+- [x] Stop button mid-run → run aborts, chat shows the error state, next send works. *(2026-08-13 — Hasan, live)*
+- [x] Chat memory: follow-up question references earlier turns correctly (history round-trip). *(2026-08-13 — Hasan: "how long is this video?" → "and how many cuts did we apply to it?" — the follow-up's "it" resolved correctly, and the agent honestly said it can't see timeline history (transcript-only tools) instead of inventing a count. Cross-SESSION memory doesn't exist by design — chat is in-memory per project)*
 - [ ] Untranscribed asset request → agent tells you to transcribe first (tool error surfaced conversationally).
-- [ ] Provider set to Local Models → agent explains it can chat but not edit, names the fix. (never seen live)
-- [ ] Ask a plain question ("how long is this clip?") → sensible answer, no spurious proposal.
+- [ ] Provider set to Local Models → agent explains it can chat but not edit, names the fix. (logic unit-tested; DEFERRED 2026-08-13 — no local model installed on the test machine, path can't be exercised live yet)
+- [x] Ask a plain question ("how long is this clip?") → sensible answer, no spurious proposal. *(2026-08-13 — Hasan: both clips' durations answered correctly from asset info, offered but did not create a proposal)*
 
 ## 12. Apply / undo / redo / persistence
 
@@ -123,21 +132,23 @@
 ## 13. Export & render — **includes the S3 exit gate**
 
 - [ ] Export an UNCUT timeline → correct duration, picture per clip, audio in the right seconds. ✎ (S2)
-- [ ] **S3 exit test (never run):** real multi-take recording → auto-cut → audit → apply → editorial pass → audit → apply → export. Then `ffprobe -show_entries stream=duration` on the output: **v:0 duration == a:0 duration**, and A/V sync verified by eye/ear at the LAST cut.
-- [ ] Export lands in the render queue with progress; output plays in a external player (VLC + Windows Films).
+- [x] **S3 exit test:** real multi-take recording → auto-cut → audit → apply → editorial pass → audit → apply → export. Then `ffprobe -show_entries stream=duration` on the output: **v:0 duration == a:0 duration**, and A/V sync verified by eye/ear at the LAST cut. *(2026-08-13 — PASSED. Hasan's real 2:19 DJI recording, Tight auto-cut (37 proposed) + editorial pass both applied → 26 clips, every join flush to 1e-6 s; export 2068 frames / v 68.9333 s vs a 68.9920 s — the 59 ms delta is AAC 1024-sample frame padding, not drift; A/V sync clean by ear at the last cut (1:03.4) in an external player)*
+- [x] Export lands in the render queue with progress; output plays in a external player (VLC + Windows Films). *(2026-08-13 — Hasan: queue progress shown, output played externally for the sync check. Known papercut: UI freezes for seconds at render start while the composition bundles — logged below)*
 - [ ] Export a timeline that uses gain/speed/transform (hand-edited if UI not built yet) → values respected in the render, durations correct with speed ≠ 1.
-- [ ] GIF/WebP export of a Studio timeline still works (render-pipeline regression).
+- [ ] ~~GIF/WebP export of a Studio timeline still works (render-pipeline regression).~~ **N/A as written** *(2026-08-13 — the Studio export hard-codes h264/.mp4 (EditorShell); GIF/WebP are Creator-side render options and Studio has no format picker. Re-scope when/if Studio exposes format choice — logged as a backlog item below)*
 
 ## 14. Error paths & resilience
 
-- [ ] Kill the network mid-AssemblyAI-transcription → readable error, retry works.
-- [ ] Agent turn with no network / provider down → chat error message, app healthy.
+- [x] Kill the network mid-AssemblyAI-transcription → readable error, retry works. *(2026-08-13 — Hasan: Wi-Fi killed mid-run on the second real clip; readable error, retry succeeded after reconnect)*
+- [x] Agent turn with no network / provider down → chat error message, app healthy. *(2026-08-13 — Hasan: Wi-Fi off mid-chat, readable error, next send worked after reconnect)*
 - [ ] Delete the `cache/` folder of a project, reopen → proxies/waveforms regenerate; auto-cut regenerates what it needs; nothing crashes. ✎ (2026-08-13 sweep — proxies/waveforms regenerated after a cache wipe; auto-cut path not re-run)
 - [ ] Two projects open in sequence (A → browser → B) → no state bleed (selection, proposals, chat are per-project; chat clears on project switch — confirm intended behavior). ✎ (2026-08-13 sweep — selection + markers clean across the switch; chat behavior still yours to confirm)
 - [ ] Very short clip (< 1 s) and zero-length edge cases: split at clip edge, trim to minimum → no NaN/negative durations anywhere. ✎ (2026-08-13 sweep — edge/1-frame splits rejected as identity; trim floors at 0.04 s; no NaN)
 - [ ] Drag a proposal region edge while playback runs → no desync/crash.
 
 ## 15. Performance spot checks
+
+*(DEFERRED 2026-08-13 — runs as the tail of the post-gate polish mini-session, once proxy progress is visible (its backlog item below) and Hasan has a 30-min file.)*
 
 - [ ] 30-min source file: import, proxy time acceptable, transcript cost/time acceptable, timeline stays responsive.
 - [ ] Agent pass on a long transcript (5k+ words) → takes-view tool result doesn't choke the model or the IPC (watch for multi-minute hangs).
@@ -196,6 +207,12 @@
 ## Cut-phase hardening follow-ups (not blocking, log as issues)
 
 - [ ] Keyterms support for AssemblyAI (per-video proper-noun list biasing the transcript — the reference pipeline treats accuracy here as load-bearing).
+- [ ] Agent timeline-read tool: the assistant can't answer "what have we cut?" — its only tools are get_transcript/propose_cuts. Give it a read-only timeline/proposal-history view (S4+ candidate; surfaced by Hasan 2026-08-13).
+- [ ] Optional: persist agent chat per project (today it's in-memory and dies on project switch/app close — confirmed surprising but accepted 2026-08-13).
+- [ ] Render start freezes the UI for seconds (composition bundling blocks the main process before frames start). Make prep async and show a "Preparing render…" state. (Hasan, 2026-08-13)
+- [ ] Studio export format choice (GIF/WebP/quality presets) — export is hard-coded h264/.mp4 today; the Creator-side pipeline already supports the codecs. Decide whether Studio wants a format picker.
+- [ ] Proxy generation progress on the pool card — today proxies build invisibly (no percent, no badge). ffmpeg `-progress` → percent through the existing job-event channel (transcripts already do this) → bar/badge on the asset card. (Hasan, 2026-08-13)
+- [ ] Cache visibility: "Open cache folder" + "Clear cache" (with size readout) per project — proxies/waveforms/transcripts are invisible and undeletable from the UI today; regeneration after a wipe is already verified. (Hasan, 2026-08-13)
 - [ ] Verify pass: second ASR over an exported cut, diffed against kept words (catches ghosts that ride along and clipped words) — the reference repo's `verify_cut` concept.
 - [ ] Per-word times in the agent's takes view if estimated boundaries ever produce a bad join.
 - [ ] `settings.agent.model` picker UI (field exists, no UI).

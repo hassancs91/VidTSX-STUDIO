@@ -101,8 +101,11 @@ export const STT_CATALOG: readonly SttCatalogEntry[] = [
   { id: 'local-whisper/large-v3', provider: 'local-whisper', model: 'large-v3', name: 'Whisper Large-v3 (3.1 GB)', priceText: 'Free — runs locally', requiresDownload: true, features: WHISPER_FEATURES },
 
   // ── AssemblyAI (exact word timestamps, speakers, highlights, sentiment) ──
-  { id: 'assemblyai/universal', provider: 'assemblyai', model: 'universal', name: 'AssemblyAI Universal', priceText: '~$0.27 / hour', features: ASSEMBLYAI_FEATURES },
-  { id: 'assemblyai/slam-1', provider: 'assemblyai', model: 'slam-1', name: 'AssemblyAI Slam-1 (English)', priceText: '~$0.27 / hour', features: ASSEMBLYAI_FEATURES },
+  // 'universal' is the auto pair (universal-3-5-pro with universal-2 fallback,
+  // resolved in the provider); the pinned entries pass through as-is.
+  { id: 'assemblyai/universal', provider: 'assemblyai', model: 'universal', name: 'AssemblyAI Universal (auto)', priceText: '~$0.21 / hour', features: ASSEMBLYAI_FEATURES },
+  { id: 'assemblyai/universal-3-5-pro', provider: 'assemblyai', model: 'universal-3-5-pro', name: 'AssemblyAI Universal-3.5 Pro', priceText: '~$0.21 / hour', features: ASSEMBLYAI_FEATURES },
+  { id: 'assemblyai/universal-2', provider: 'assemblyai', model: 'universal-2', name: 'AssemblyAI Universal-2 (multilingual)', priceText: '~$0.15 / hour', features: ASSEMBLYAI_FEATURES },
 
   // ── OpenRouter (plain text only — no timestamps; 60s upstream timeout per chunk) ──
   { id: 'openrouter/openai/whisper-large-v3-turbo', provider: 'openrouter', model: 'openai/whisper-large-v3-turbo', name: 'Whisper Large-v3 Turbo (OpenRouter)', priceText: 'per-minute, see openrouter.ai', maxDurationMinutes: 60, features: NO_FEATURES },
@@ -117,6 +120,12 @@ export function findSttEntry(id: string): SttCatalogEntry | undefined {
   return STT_CATALOG.find((m) => m.id === id);
 }
 
+/** Ids that once shipped in the catalog, mapped to their living replacement. */
+const LEGACY_STT_ALIASES: Record<string, string> = {
+  // AssemblyAI retired slam-1 (2026) — the API rejects it as a speech model.
+  'assemblyai/slam-1': 'assemblyai/universal',
+};
+
 /**
  * Map an unknown/legacy id (e.g. removed vidtsx-stt-* ids or bare whisper model
  * ids persisted by older versions) onto a catalog entry, else the default.
@@ -125,6 +134,8 @@ export function coerceSttEntry(id: string | undefined): SttCatalogEntry {
   if (id) {
     const direct = findSttEntry(id);
     if (direct) return direct;
+    const aliased = LEGACY_STT_ALIASES[id] ? findSttEntry(LEGACY_STT_ALIASES[id]) : undefined;
+    if (aliased) return aliased;
     const asLocal = findSttEntry(`local-whisper/${id}`);
     if (asLocal) return asLocal;
   }
