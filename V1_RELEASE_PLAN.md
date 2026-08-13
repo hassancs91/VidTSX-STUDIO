@@ -361,8 +361,23 @@ Remove it, reset defaults → back to shipped list. `npm run type-check` + `npm 
 
 ## Phase D — Visual polish: Providers + Local Models Images/Audio (item 5)
 
-**Outcome:** the three v1-visible AI surfaces (Providers, Image, Audio) look professional,
-consistent, and use the full page width.
+> **STATUS: code complete + CDP-verified (2026-08-13).** Kit decision: reuse the existing
+> `@shared/components` library and add ONE new primitive — `StatusBadge` (tinted pill,
+> tones success/warn/error/accent/info/neutral) — instead of a second design system.
+> All ad-hoc status pills now route through it (key saved, sd-cli ready, Active, fit,
+> Defaults/Customized, whisper Installed/Downloaded, Subscription/Custom); `Panel`
+> replaces hand-rolled `bg-app-surface border` cards (0.5px borders per spec); raw
+> `<select>`/`<input>` swapped for shared `Select`/`TextInput`; uppercase list headers
+> (spec violation) → 11px muted headers; `FamilyBadge` deduped into its own component.
+> Layout: screen cap 760px → `max-w-6xl mx-auto`; System tab 2-column at `lg:`
+> (System+Library | Engines+Python); whisper Engine + Default-model cards side-by-side
+> at `md:`; catalog grid 1/2/3-col; Image tab renamed to an explicit "Installed" /
+> "Available to download" split with a real empty state.
+> Verified: type gate at baseline (web 26 / node 22), 374 unit tests pass, CDP
+> screenshots of all four tabs at 1188px and emulated 1280×800 — no horizontal scroll
+> anywhere (scrollWidth === clientWidth probed per tab).
+> **Remaining:** the Providers catalog-section visual + Phase C acceptance clicks need
+> the restarted dev app (running main process predates the PROVIDER_MODELS IPC).
 
 - [ ] `AiModelsScreen.tsx:8` — drop `max-w-[760px]`; adopt a full-width layout with sane
       max (e.g. `max-w-6xl` or fluid with page-level padding per `UI_SPEC.md` layout rules).
@@ -476,3 +491,4 @@ A and B are independent and could be done in either order.
 | 2026-08-12 | B | Cold start verified live: 306 ms main init (was ~13.7 s), zero engine loads, lazy sd-image init fired on Image-tab click. Committed `76a0ca2`. | Phase C. |
 | 2026-08-12 | F | Planned sd-cli install flow (upstream zip, whisper-style). Committed `b5e652a`. | Implement after D. |
 | 2026-08-12 | C | Providers restructure implemented + statically verified (see STATUS note under Phase C). | User restarts dev app → live walkthrough of keys section + catalogs; then Phase D polish. |
+| 2026-08-13 | D | Visual kit (`StatusBadge` + Panel/Select/TextInput adoption), full-width `max-w-6xl` layout, 2-col System tab, Image installed/available split, Audio side-by-side cards. Type gate + 374 tests green; CDP screenshot sweep at 1188 + 1280×800, no h-scroll. | Phase F (sd-cli install flow); Phase C walkthrough still pending app restart. |

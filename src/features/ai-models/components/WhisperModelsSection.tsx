@@ -1,18 +1,7 @@
-import { Button, ProgressBar, SectionHeader } from '@shared/components';
+import { Button, Panel, ProgressBar, SectionHeader, StatusBadge } from '@shared/components';
+import { Select } from '@shared/components/Select';
 import { useWhisper } from '@renderer/hooks/useWhisper';
 import { useSettings } from '@renderer/hooks/useSettings';
-
-const CheckIcon = () => (
-  <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 7L5.5 10.5L12 4" />
-  </svg>
-);
-
-const XIcon = () => (
-  <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M3 3L11 11M11 3L3 11" />
-  </svg>
-);
 
 function formatSpeed(bps: number): string {
   if (bps <= 0) return '';
@@ -45,70 +34,68 @@ export function WhisperModelsSection() {
     clearError,
   } = useWhisper();
 
+  const downloadedModels = models.filter((m) => m.downloaded);
+
   return (
     <>
-      <SectionHeader>Engine</SectionHeader>
-      <div className="bg-app-surface rounded-lg p-3 border border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {binaryStatus.installed ? (
-              <>
-                <span className="text-accent-green"><CheckIcon /></span>
-                <span className="text-[12px] text-text-secondary">Installed</span>
-              </>
-            ) : (
-              <>
-                <span className="text-accent-red"><XIcon /></span>
-                <span className="text-[12px] text-text-secondary">Not installed</span>
-              </>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 items-start">
+        <div>
+          <SectionHeader>Engine</SectionHeader>
+          <Panel className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-text-secondary">whisper.cpp binary</span>
+                <StatusBadge tone={binaryStatus.installed ? 'success' : 'error'}>
+                  {binaryStatus.installed ? 'Installed' : 'Not installed'}
+                </StatusBadge>
+              </div>
+              {!binaryStatus.installed && !binaryStatus.installing && (
+                <Button variant="primary" onClick={installBinary}>Install</Button>
+              )}
+            </div>
+
+            {binaryStatus.installing && (
+              <div className="mt-3">
+                <div className="text-[11px] text-text-muted mb-1">Downloading whisper.cpp...</div>
+                <ProgressBar value={binaryStatus.progress} />
+              </div>
             )}
-          </div>
-          {!binaryStatus.installed && !binaryStatus.installing && (
-            <Button variant="primary" onClick={installBinary}>Install</Button>
-          )}
+
+            {binaryStatus.error && (
+              <div className="mt-2 text-[11px] text-accent-red">{binaryStatus.error}</div>
+            )}
+
+            {binaryStatus.installed && (
+              <div className="mt-2 text-[10px] text-text-dim font-mono break-all select-all cursor-text">
+                {binaryStatus.path}
+              </div>
+            )}
+          </Panel>
         </div>
 
-        {binaryStatus.installing && (
-          <div className="mt-3">
-            <div className="text-[11px] text-text-muted mb-1">Downloading whisper.cpp...</div>
-            <ProgressBar value={binaryStatus.progress} />
-          </div>
-        )}
-
-        {binaryStatus.error && (
-          <div className="mt-2 text-[11px] text-accent-red">{binaryStatus.error}</div>
-        )}
-
-        {binaryStatus.installed && (
-          <div className="mt-2 text-[10px] text-text-dim font-mono break-all select-all cursor-text">
-            {binaryStatus.path}
-          </div>
-        )}
-      </div>
-
-      <SectionHeader>Default model</SectionHeader>
-      <div className="bg-app-surface rounded-lg p-3 border border-border">
-        <div className="flex items-center justify-between">
-          <div className="text-[11px] text-text-muted">Model used for transcription</div>
-          <select
-            className="bg-app-base border border-border rounded px-2 py-1 text-[12px] text-text-secondary outline-none focus:border-accent cursor-pointer"
-            value={whisperModel}
-            onChange={(e) => setWhisperModel(e.target.value)}
-            disabled={settingsLoading}
-          >
-            {models.filter((m) => m.downloaded).length === 0 ? (
-              <option value={whisperModel}>{whisperModel} (not downloaded)</option>
-            ) : (
-              models.filter((m) => m.downloaded).map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))
-            )}
-          </select>
+        <div className="mt-6 md:mt-0">
+          <SectionHeader>Default model</SectionHeader>
+          <Panel className="p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-[11px] text-text-muted">Model used for transcription</div>
+              <Select
+                value={whisperModel}
+                onChange={setWhisperModel}
+                disabled={settingsLoading}
+                options={
+                  downloadedModels.length === 0
+                    ? [{ value: whisperModel, label: `${whisperModel} (not downloaded)` }]
+                    : downloadedModels.map((m) => ({ value: m.id, label: m.name }))
+                }
+                className="min-w-[180px]"
+              />
+            </div>
+          </Panel>
         </div>
       </div>
 
       <SectionHeader>Models</SectionHeader>
-      <div className="bg-app-surface rounded-lg border border-border overflow-hidden">
+      <Panel>
         {whisperLoading ? (
           <div className="p-3 text-[12px] text-text-muted">Loading models...</div>
         ) : (
@@ -127,9 +114,7 @@ export function WhisperModelsSection() {
                   <div className="flex items-center gap-2">
                     {model.downloaded ? (
                       <>
-                        <span className="flex items-center gap-1 text-[11px] text-accent-green">
-                          <CheckIcon /> Downloaded
-                        </span>
+                        <StatusBadge tone="success">Downloaded</StatusBadge>
                         <Button
                           variant="secondary"
                           onClick={() => deleteModel(model.id)}
@@ -204,7 +189,7 @@ export function WhisperModelsSection() {
             </button>
           </div>
         )}
-      </div>
+      </Panel>
     </>
   );
 }

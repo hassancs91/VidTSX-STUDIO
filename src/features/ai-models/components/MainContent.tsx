@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button, ProgressBar } from '@shared/components';
+import { Button, Panel, ProgressBar, SectionHeader } from '@shared/components';
 import { useSystemInfo } from '../hooks/use-system-info';
 import type { PyTorchDownloadState } from '../hooks/use-system-info';
 
@@ -73,14 +73,6 @@ function formatEta(seconds: number): string {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────
-
-function SectionHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <h3 className="text-[13px] font-medium text-text-primary mt-6 mb-3 first:mt-0">
-      {children}
-    </h3>
-  );
-}
 
 function SystemRow({ label, value, ok }: { label: string; value: string; ok: boolean }) {
   return (
@@ -258,201 +250,205 @@ export function MainContent() {
   const pytorchBusy = pytorchDownload.status === 'downloading' || pytorchDownload.status === 'paused' || pytorchDownload.status === 'installing';
 
   return (
-    <div className="space-y-1">
-      {/* ── System ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between mt-0 mb-3">
-        <h3 className="text-[13px] font-medium text-text-primary">System</h3>
-        <button
-          onClick={async () => { setRefreshing(true); await refresh(); setRefreshing(false); }}
-          disabled={refreshing}
-          className="text-text-muted hover:text-text-secondary transition-colors disabled:opacity-50"
-          title="Refresh system info"
-        >
-          <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className={refreshing ? 'animate-spin' : ''}>
-            <path d="M12 5a5.5 5.5 0 0 0-10 1" />
-            <path d="M2 9a5.5 5.5 0 0 0 10-1" />
-            <polyline points="12 1.5 12 5 8.5 5" />
-            <polyline points="2 12.5 2 9 5.5 9" />
-          </svg>
-        </button>
-      </div>
-      <div className="bg-app-surface rounded-lg p-3 border border-border">
-        <SystemRow
-          label="GPU"
-          value={data.gpu.name ?? 'Not detected'}
-          ok={data.gpu.name !== null}
-        />
-        <SystemRow
-          label="VRAM"
-          value={vramValue}
-          ok={vramTotalGB !== null}
-        />
-        <SystemRow
-          label="CUDA"
-          value={data.gpu.cudaVersion ?? 'N/A'}
-          ok={hasCuda}
-        />
-        <SystemRow
-          label="RAM"
-          value={`${ramTotalGB} GB`}
-          ok={ramTotalGB >= 8}
-        />
-        <SystemRow
-          label="Disk"
-          value={`${diskFreeGB} GB free`}
-          ok={diskFreeGB >= 10}
-        />
-      </div>
-
-      {/* ── Library ────────────────────────────────────── */}
-      <SectionHeader>Library</SectionHeader>
-      <div className="bg-app-surface rounded-lg p-3 border border-border">
-        <div className="flex items-center justify-between py-1">
-          <span className="text-[12px] text-text-secondary">Image models</span>
-          <span className="text-[12px] text-text-primary font-mono">
-            {library
-              ? `${library.imageCount} model${library.imageCount === 1 ? '' : 's'} · ${formatBytes(library.imageBytes)}`
-              : '—'}
-          </span>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-4 items-start">
+      {/* ── Left column: System + Library ──────────────── */}
+      <div>
+        <div className="flex items-center justify-between mt-0 mb-3">
+          <h3 className="text-[13px] font-medium text-text-primary">System</h3>
+          <button
+            onClick={async () => { setRefreshing(true); await refresh(); setRefreshing(false); }}
+            disabled={refreshing}
+            className="text-text-muted hover:text-text-secondary transition-colors disabled:opacity-50"
+            title="Refresh system info"
+          >
+            <svg width={14} height={14} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className={refreshing ? 'animate-spin' : ''}>
+              <path d="M12 5a5.5 5.5 0 0 0-10 1" />
+              <path d="M2 9a5.5 5.5 0 0 0 10-1" />
+              <polyline points="12 1.5 12 5 8.5 5" />
+              <polyline points="2 12.5 2 9 5.5 9" />
+            </svg>
+          </button>
         </div>
-        <div className="text-[10px] text-text-dim mt-1">
-          Manage models in the Image tab. Audio / LLM / Embedding totals arrive when those libraries move onto the shared core.
-        </div>
+        <Panel className="p-3">
+          <SystemRow
+            label="GPU"
+            value={data.gpu.name ?? 'Not detected'}
+            ok={data.gpu.name !== null}
+          />
+          <SystemRow
+            label="VRAM"
+            value={vramValue}
+            ok={vramTotalGB !== null}
+          />
+          <SystemRow
+            label="CUDA"
+            value={data.gpu.cudaVersion ?? 'N/A'}
+            ok={hasCuda}
+          />
+          <SystemRow
+            label="RAM"
+            value={`${ramTotalGB} GB`}
+            ok={ramTotalGB >= 8}
+          />
+          <SystemRow
+            label="Disk"
+            value={`${diskFreeGB} GB free`}
+            ok={diskFreeGB >= 10}
+          />
+        </Panel>
+
+        {/* ── Library ──────────────────────────────────── */}
+        <SectionHeader>Library</SectionHeader>
+        <Panel className="p-3">
+          <div className="flex items-center justify-between py-1">
+            <span className="text-[12px] text-text-secondary">Image models</span>
+            <span className="text-[12px] text-text-primary font-mono">
+              {library
+                ? `${library.imageCount} model${library.imageCount === 1 ? '' : 's'} · ${formatBytes(library.imageBytes)}`
+                : '—'}
+            </span>
+          </div>
+          <div className="text-[10px] text-text-dim mt-1">
+            Manage models in the Image tab. Audio / LLM / Embedding totals arrive when those libraries move onto the shared core.
+          </div>
+        </Panel>
       </div>
 
-      {/* ── Engines ────────────────────────────────────── */}
-      <SectionHeader>Engines</SectionHeader>
-      <div className="bg-app-surface rounded-lg p-3 border border-border divide-y divide-border">
-        <EngineCard
-          color={data.engines.audio.available ? 'green' : 'red'}
-          name="Audio Engine"
-          status={data.engines.audio.available ? 'Bundled' : 'Not available'}
-          capabilities="STT &middot; TTS &middot; VAD"
-        />
-        <EngineCard
-          color={data.engines.llm.available ? 'green' : 'red'}
-          name="LLM Engine"
-          status={data.engines.llm.available ? 'Bundled' : 'Not available'}
-          capabilities="Chat &middot; Scripts &middot; Translation"
-        />
-        <EngineCard
-          color="green"
-          name="Embedding Engine"
-          status="Bundled"
-          capabilities="Text &middot; Image &middot; Audio search"
-        />
-        <EngineCard
-          color={data.engines.image.available ? 'green' : 'blue'}
-          name="Image Engine"
-          status={data.engines.image.available ? 'Bundled' : 'Not available'}
-          capabilities="Image gen &middot; Video gen &middot; Upscaling"
-        />
-        {/* PyTorch row */}
-        <div className="py-2">
-          <div className="flex items-start gap-2.5">
-            <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${pytorchInstalled ? 'bg-accent-green' : 'bg-accent-amber'}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="text-[12px] text-text-primary font-medium">
-                  PyTorch Runtime
-                </span>
-                <span className="text-[11px] text-text-dim">
-                  {pytorchInstalled
-                    ? `Installed (${data.engines.pytorch.variant?.toUpperCase() ?? 'unknown'})${data.engines.pytorch.version ? ` v${data.engines.pytorch.version}` : ''}`
-                    : 'Not installed'}
-                </span>
-              </div>
-              <span className="text-[11px] text-text-dim">Voice clone &middot; 3D gen &middot; Audio separation</span>
-
-              {/* Install / Switch buttons or progress */}
-              {!pytorchBusy && pytorchDownload.status !== 'completed' && (
-                <div className="flex items-center gap-2 mt-2">
-                  {/* CPU button: Install if nothing installed, Switch if GPU is installed */}
-                  {(!pytorchInstalled || data.engines.pytorch.variant === 'gpu') && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => pytorchInstall('cpu')}
-                    >
-                      <span className="flex items-center gap-1">
-                        <DownloadIcon />
-                        {pytorchInstalled
-                          ? cachedWheels.includes('cpu') ? 'Switch to CPU' : 'Switch to CPU ~109 MB'
-                          : 'Install CPU ~109 MB'}
-                      </span>
-                    </Button>
-                  )}
-                  {/* GPU button: Install if nothing installed, Switch if CPU is installed */}
-                  {(!pytorchInstalled || data.engines.pytorch.variant === 'cpu') && (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => pytorchInstall('gpu')}
-                      disabled={!hasCuda}
-                      title={!hasCuda ? 'Requires NVIDIA GPU with CUDA' : undefined}
-                    >
-                      <span className="flex items-center gap-1">
-                        <DownloadIcon />
-                        {pytorchInstalled
-                          ? cachedWheels.includes('gpu') ? 'Switch to GPU' : 'Switch to GPU ~2.4 GB'
-                          : 'Install GPU ~2.4 GB'}
-                      </span>
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {pytorchBusy && (
-                <PyTorchDownloadProgress
-                  download={pytorchDownload}
-                  onPause={pytorchPause}
-                  onResume={pytorchResume}
-                  onCancel={pytorchCancel}
-                />
-              )}
-
-              {pytorchDownload.status === 'failed' && (
-                <div className="mt-2">
-                  <span className="text-[11px] text-accent-red">
-                    {pytorchDownload.error ?? 'Download failed'}
+      {/* ── Right column: Engines + Python ─────────────── */}
+      <div className="mt-6 lg:mt-0">
+        <SectionHeader>Engines</SectionHeader>
+        <Panel className="p-3 divide-y divide-border">
+          <EngineCard
+            color={data.engines.audio.available ? 'green' : 'red'}
+            name="Audio Engine"
+            status={data.engines.audio.available ? 'Bundled' : 'Not available'}
+            capabilities="STT &middot; TTS &middot; VAD"
+          />
+          <EngineCard
+            color={data.engines.llm.available ? 'green' : 'red'}
+            name="LLM Engine"
+            status={data.engines.llm.available ? 'Bundled' : 'Not available'}
+            capabilities="Chat &middot; Scripts &middot; Translation"
+          />
+          <EngineCard
+            color="green"
+            name="Embedding Engine"
+            status="Bundled"
+            capabilities="Text &middot; Image &middot; Audio search"
+          />
+          <EngineCard
+            color={data.engines.image.available ? 'green' : 'blue'}
+            name="Image Engine"
+            status={data.engines.image.available ? 'Bundled' : 'Not available'}
+            capabilities="Image gen &middot; Video gen &middot; Upscaling"
+          />
+          {/* PyTorch row */}
+          <div className="py-2">
+            <div className="flex items-start gap-2.5">
+              <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${pytorchInstalled ? 'bg-accent-green' : 'bg-accent-amber'}`} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-text-primary font-medium">
+                    PyTorch Runtime
                   </span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Button variant="secondary" size="sm" onClick={() => pytorchInstall('cpu')}>
-                      Retry CPU
-                    </Button>
-                    {hasCuda && (
-                      <Button variant="secondary" size="sm" onClick={() => pytorchInstall('gpu')}>
-                        Retry GPU
+                  <span className="text-[11px] text-text-dim">
+                    {pytorchInstalled
+                      ? `Installed (${data.engines.pytorch.variant?.toUpperCase() ?? 'unknown'})${data.engines.pytorch.version ? ` v${data.engines.pytorch.version}` : ''}`
+                      : 'Not installed'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-text-dim">Voice clone &middot; 3D gen &middot; Audio separation</span>
+
+                {/* Install / Switch buttons or progress */}
+                {!pytorchBusy && pytorchDownload.status !== 'completed' && (
+                  <div className="flex items-center gap-2 mt-2">
+                    {/* CPU button: Install if nothing installed, Switch if GPU is installed */}
+                    {(!pytorchInstalled || data.engines.pytorch.variant === 'gpu') && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => pytorchInstall('cpu')}
+                      >
+                        <span className="flex items-center gap-1">
+                          <DownloadIcon />
+                          {pytorchInstalled
+                            ? cachedWheels.includes('cpu') ? 'Switch to CPU' : 'Switch to CPU ~109 MB'
+                            : 'Install CPU ~109 MB'}
+                        </span>
+                      </Button>
+                    )}
+                    {/* GPU button: Install if nothing installed, Switch if CPU is installed */}
+                    {(!pytorchInstalled || data.engines.pytorch.variant === 'cpu') && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => pytorchInstall('gpu')}
+                        disabled={!hasCuda}
+                        title={!hasCuda ? 'Requires NVIDIA GPU with CUDA' : undefined}
+                      >
+                        <span className="flex items-center gap-1">
+                          <DownloadIcon />
+                          {pytorchInstalled
+                            ? cachedWheels.includes('gpu') ? 'Switch to GPU' : 'Switch to GPU ~2.4 GB'
+                            : 'Install GPU ~2.4 GB'}
+                        </span>
                       </Button>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+
+                {pytorchBusy && (
+                  <PyTorchDownloadProgress
+                    download={pytorchDownload}
+                    onPause={pytorchPause}
+                    onResume={pytorchResume}
+                    onCancel={pytorchCancel}
+                  />
+                )}
+
+                {pytorchDownload.status === 'failed' && (
+                  <div className="mt-2">
+                    <span className="text-[11px] text-accent-red">
+                      {pytorchDownload.error ?? 'Download failed'}
+                    </span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Button variant="secondary" size="sm" onClick={() => pytorchInstall('cpu')}>
+                        Retry CPU
+                      </Button>
+                      {hasCuda && (
+                        <Button variant="secondary" size="sm" onClick={() => pytorchInstall('gpu')}>
+                          Retry GPU
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </Panel>
 
-      {/* ── Python ─────────────────────────────────────── */}
-      <SectionHeader>Python</SectionHeader>
-      <div className="bg-app-surface rounded-lg p-3 border border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {data.python.available ? (
-              <span className="text-accent-green"><CheckIcon /></span>
-            ) : (
-              <span className="text-accent-amber"><WarningIcon /></span>
-            )}
-            <span className="text-[12px] text-text-primary">
-              {data.python.available
-                ? <>Python {data.python.version ?? ''} <span className="text-text-dim">(embedded)</span></>
-                : 'Python not found'}
+        {/* ── Python ───────────────────────────────────── */}
+        <SectionHeader>Python</SectionHeader>
+        <Panel className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {data.python.available ? (
+                <span className="text-accent-green"><CheckIcon /></span>
+              ) : (
+                <span className="text-accent-amber"><WarningIcon /></span>
+              )}
+              <span className="text-[12px] text-text-primary">
+                {data.python.available
+                  ? <>Python {data.python.version ?? ''} <span className="text-text-dim">(embedded)</span></>
+                  : 'Python not found'}
+              </span>
+            </div>
+            <span className="text-[11px] text-text-dim">
+              {data.python.available ? 'Bundled' : 'Not found'}
             </span>
           </div>
-          <span className="text-[11px] text-text-dim">
-            {data.python.available ? 'Bundled' : 'Not found'}
-          </span>
-        </div>
+        </Panel>
       </div>
     </div>
   );

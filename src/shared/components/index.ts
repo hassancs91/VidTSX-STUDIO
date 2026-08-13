@@ -1,6 +1,7 @@
 export { Button } from "./Button";
 export { Panel } from "./Panel";
 export { Badge } from "./Badge";
+export { StatusBadge } from "./StatusBadge";
 export { ProgressBar } from "./ProgressBar";
 export { TextInput } from "./TextInput";
 export { IconButton } from "./IconButton";

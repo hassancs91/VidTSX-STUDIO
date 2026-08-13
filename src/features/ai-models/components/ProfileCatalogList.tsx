@@ -1,13 +1,10 @@
 import { useState } from 'react';
+import { Panel, TextInput } from '@shared/components';
 import type { ProfileModelIpc } from '@shared/ipc/types';
 import type { ModelDownloadStatus } from '../hooks/useImageLibrary';
 import { DownloadCell } from './DownloadCell';
+import { FamilyBadge } from './FamilyBadge';
 import { FitBadge } from './FitBadge';
-
-function familyLabel(family: string): string {
-  const map: Record<string, string> = { sd15: 'SD 1.5', sdxl: 'SDXL', sd3: 'SD 3.x', flux1: 'FLUX.1', flux2: 'FLUX.2', wan21: 'Wan 2.1', wan22: 'Wan 2.2', ltx: 'LTX-2.3', lingbot: 'LingBot' };
-  return map[family] ?? family.toUpperCase();
-}
 
 interface ProfileCatalogListProps {
   profiles: ProfileModelIpc[];
@@ -35,15 +32,15 @@ export function ProfileCatalogList({
     : profiles;
 
   return (
-    <div className="bg-app-surface rounded-lg border border-border overflow-hidden">
-      <div className="px-3 h-[32px] flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
-        <span className="text-[10px] font-medium text-text-dim uppercase tracking-wider">Model library</span>
-        <input
+    <Panel>
+      <div className="px-3 h-[36px] flex items-center justify-between gap-3" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
+        <span className="text-[11px] font-medium text-text-muted">Available to download</span>
+        <TextInput
           type="text"
           placeholder="Search…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="bg-app-base border border-border rounded px-2 py-0.5 text-[11px] text-text-secondary placeholder:text-text-dim outline-none focus:border-accent w-[150px]"
+          className="w-[160px]"
         />
       </div>
 
@@ -59,7 +56,7 @@ export function ProfileCatalogList({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[12px] text-text-secondary truncate">{p.name}</span>
-                <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/15 text-blue-400">{familyLabel(p.family)}</span>
+                <FamilyBadge family={p.family} />
                 <FitBadge fit={p.fit} />
               </div>
               <div className="text-[9px] text-text-dim">{p.sizeLabel}</div>
@@ -87,6 +84,6 @@ export function ProfileCatalogList({
           </div>
         ))
       )}
-    </div>
+    </Panel>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button, TextInput } from '@shared/components';
+import { Select } from '@shared/components/Select';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 
 type Protocol = 'openai-compat' | 'anthropic-compat';
@@ -99,18 +100,12 @@ export function CustomProviderForm({ existingIds, onAdd }: CustomProviderFormPro
 
       <div className="mb-2">
         <div className="text-[10px] text-text-dim mb-1">Protocol</div>
-        <select
+        <Select
           value={protocol}
-          onChange={(e) => setProtocol(e.target.value as Protocol)}
-          className="w-full h-[26px] bg-app-base text-text-primary text-[11px] rounded-[6px] px-2 outline-none cursor-pointer"
-          style={{ border: '0.5px solid var(--color-border-input)' }}
-        >
-          {PROTOCOL_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          onChange={(next) => setProtocol(next as Protocol)}
+          options={PROTOCOL_OPTIONS}
+          className="w-full"
+        />
       </div>
 
       <div className="mb-2">

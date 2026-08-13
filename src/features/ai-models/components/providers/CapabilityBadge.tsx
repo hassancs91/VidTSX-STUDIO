@@ -12,7 +12,7 @@ const BADGE_STYLES: Record<string, string> = {
  */
 export function CapabilityBadge({ label }: { label: string }) {
   return (
-    <span className={`text-[9px] px-[5px] py-[1px] rounded-[4px] shrink-0 ${BADGE_STYLES[label] ?? 'bg-app-hover text-text-dim'}`}>
+    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-medium whitespace-nowrap shrink-0 ${BADGE_STYLES[label] ?? 'bg-app-hover text-text-dim'}`}>
       {label}
     </span>
   );

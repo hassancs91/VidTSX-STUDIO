@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@shared/components';
+import { Button, TextInput } from '@shared/components';
 
 const FAMILIES: { id: string; label: string; note: string }[] = [
   { id: 'sd15', label: 'SD 1.5', note: '512px · 20 steps · euler_a' },
@@ -106,12 +106,12 @@ export function ModelSetupDialog({
 
         <div className="mb-4">
           <div className="text-[11px] text-text-muted mb-1.5">Display name (optional)</div>
-          <input
+          <TextInput
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={fileName}
-            className="w-full bg-app-base border border-border rounded px-2 py-1.5 text-[12px] text-text-secondary placeholder:text-text-dim outline-none focus:border-accent"
+            className="w-full"
           />
         </div>
 

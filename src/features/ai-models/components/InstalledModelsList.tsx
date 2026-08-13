@@ -1,19 +1,16 @@
 import { useState } from 'react';
+import { Panel, StatusBadge } from '@shared/components';
 import type { InstalledModelIpc, UnrecognizedFileIpc } from '@shared/ipc/types';
 import type { ModelIssue } from '@shared/model-library/types';
 import type { ModelDownloadStatus } from '../hooks/useImageLibrary';
 import { DownloadCell } from './DownloadCell';
+import { FamilyBadge } from './FamilyBadge';
 import { FitBadge } from './FitBadge';
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(0)} MB`;
   return `${(bytes / 1_000).toFixed(0)} KB`;
-}
-
-function familyLabel(family: string): string {
-  const map: Record<string, string> = { sd15: 'SD 1.5', sdxl: 'SDXL', sd3: 'SD 3.x', flux1: 'FLUX.1', flux2: 'FLUX.2', wan21: 'Wan 2.1', wan22: 'Wan 2.2', ltx: 'LTX-2.3', lingbot: 'LingBot' };
-  return map[family] ?? family.toUpperCase();
 }
 
 function usageLabel(lastUsedAt: string | null, useCount: number): string {
@@ -25,14 +22,6 @@ function usageLabel(lastUsedAt: string | null, useCount: number): string {
 
 function missingCompanions(issues: ModelIssue[]): Extract<ModelIssue, { code: 'missing-companion' }>[] {
   return issues.filter((i): i is Extract<ModelIssue, { code: 'missing-companion' }> => i.code === 'missing-companion');
-}
-
-function FamilyBadge({ family }: { family: string }) {
-  return (
-    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/15 text-blue-400">
-      {familyLabel(family)}
-    </span>
-  );
 }
 
 interface InstalledModelsListProps {
@@ -92,9 +81,7 @@ function InstalledRow({
             <span className="text-[12px] text-text-secondary truncate">{model.name}</span>
             <FamilyBadge family={model.family} />
             <FitBadge fit={model.fit} />
-            {active && (
-              <span className="inline-block px-1.5 py-0.5 rounded text-[8px] font-medium bg-accent/15 text-accent-light">ACTIVE</span>
-            )}
+            {active && <StatusBadge tone="accent">Active</StatusBadge>}
           </div>
           <div className="text-[9px] text-text-dim font-mono truncate">
             {formatBytes(model.sizeBytes)} · {usageLabel(model.lastUsedAt, model.useCount)}
@@ -170,14 +157,18 @@ export function InstalledModelsList({
   const isEmpty = installed.length === 0 && unrecognized.length === 0;
 
   return (
-    <div className="bg-app-surface rounded-lg border border-border overflow-hidden">
-      <div className="px-3 h-[32px] flex items-center text-[10px] font-medium text-text-dim uppercase tracking-wider" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
-        Your models
+    <Panel>
+      <div className="px-3 h-[32px] flex items-center text-[11px] font-medium text-text-muted" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
+        Installed
       </div>
 
       {isEmpty ? (
-        <div className="p-4 text-[12px] text-text-muted text-center">
-          No models in this folder yet. Download one below, or use <span className="text-text-secondary">Import</span>.
+        <div className="p-6 text-center">
+          <div className="text-[12px] text-text-muted">No models installed yet</div>
+          <div className="text-[11px] text-text-dim mt-1">
+            Download one from the list below, or use <span className="text-text-secondary">Import…</span> for
+            a model file you already have.
+          </div>
         </div>
       ) : (
         <>
@@ -216,6 +207,6 @@ export function InstalledModelsList({
           ))}
         </>
       )}
-    </div>
+    </Panel>
   );
 }

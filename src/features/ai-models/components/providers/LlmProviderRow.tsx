@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Check, X, Loader2 } from 'lucide-react';
-import { Button, TextInput } from '@shared/components';
+import { Button, StatusBadge, TextInput } from '@shared/components';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import { CapabilityBadge } from './CapabilityBadge';
 
@@ -39,14 +39,10 @@ export function LlmProviderRow({ provider, isCustom, testState, onUpdate, onTest
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-[12px] text-text-secondary font-medium truncate">{provider.name}</span>
           <CapabilityBadge label="LLMs" />
-          {isSubscription && (
-            <span className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-[#085041] text-accent-green">Subscription</span>
-          )}
-          {isCustom && (
-            <span className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-[#7C4A03] text-[#FCD34D]">Custom</span>
-          )}
+          {isSubscription && <StatusBadge tone="success">Subscription</StatusBadge>}
+          {isCustom && <StatusBadge tone="warn">Custom</StatusBadge>}
           {needsApiKey && hasKey && !expanded && (
-            <span className="text-[10px] text-accent-green">key saved</span>
+            <StatusBadge tone="success">Key saved</StatusBadge>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">

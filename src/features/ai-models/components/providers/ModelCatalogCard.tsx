@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Plus, RotateCcw } from 'lucide-react';
-import { Button, TextInput } from '@shared/components';
+import { Button, Panel, StatusBadge, TextInput } from '@shared/components';
 import type { ProviderModelCatalogIpc } from '@shared/ipc/types';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
 
@@ -70,20 +70,16 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
   };
 
   return (
-    <div className="bg-app-surface rounded-lg border border-border overflow-hidden">
+    <Panel>
       {/* Header */}
       <div className="p-3 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
         <div>
           <span className="text-[12px] text-text-secondary font-medium">{providerLabel}</span>
           <span className="text-[11px] text-text-dim ml-1.5">· {categoryLabel}</span>
         </div>
-        <span
-          className={`text-[9px] px-[5px] py-[1px] rounded-[4px] ${
-            catalog.isDefault ? 'bg-app-hover text-text-dim' : 'bg-[#3C3489] text-[#AFA9EC]'
-          }`}
-        >
+        <StatusBadge tone={catalog.isDefault ? 'neutral' : 'accent'}>
           {catalog.isDefault ? 'Defaults' : 'Customized'}
-        </span>
+        </StatusBadge>
       </div>
 
       {/* Model rows */}
@@ -153,6 +149,6 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
           {rowError && <span className="text-[10px] text-accent-red">{rowError}</span>}
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

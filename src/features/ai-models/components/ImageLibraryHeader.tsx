@@ -1,4 +1,4 @@
-import { Button } from '@shared/components';
+import { Button, Panel, StatusBadge } from '@shared/components';
 
 function truncatePath(p: string, maxLen = 46): string {
   if (!p) return '(no folder)';
@@ -24,7 +24,7 @@ export function ImageLibraryHeader({
   onImport,
 }: ImageLibraryHeaderProps) {
   return (
-    <div className="bg-app-surface rounded-lg p-3 border border-border mb-4">
+    <Panel className="p-3 mb-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[11px] text-text-muted mb-0.5">Models folder</div>
@@ -33,15 +33,15 @@ export function ImageLibraryHeader({
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-[10px] px-1.5 py-0.5 rounded ${cliInstalled ? 'bg-accent-green/15 text-accent-green' : 'bg-accent-amber/15 text-accent-amber'}`}>
+          <StatusBadge tone={cliInstalled ? 'success' : 'warn'}>
             {cliInstalled ? 'sd-cli ready' : 'sd-cli not installed'}
-          </span>
+          </StatusBadge>
           <Button variant="secondary" size="sm" onClick={onChangeFolder}>Change</Button>
           <Button variant="secondary" size="sm" onClick={onOpenFolder}>Open folder</Button>
           <Button variant="secondary" size="sm" onClick={onRescan}>Rescan</Button>
           <Button variant="primary" size="sm" onClick={onImport}>Import…</Button>
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

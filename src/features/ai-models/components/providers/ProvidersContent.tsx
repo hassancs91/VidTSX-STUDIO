@@ -27,7 +27,7 @@ export function ProvidersContent() {
             key={tab.id}
             onClick={() => setSubTab(tab.id)}
             className={`
-              px-3 h-[26px] rounded-md text-[11px] font-medium transition-colors duration-150
+              px-2.5 h-[26px] rounded text-[11px] font-medium transition-colors duration-150
               ${subTab === tab.id
                 ? 'bg-app-active text-accent-light'
                 : 'text-text-muted hover:bg-app-hover hover:text-text-secondary'

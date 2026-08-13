@@ -16,7 +16,7 @@ export function AiModelsScreen() {
       </div>
 
       <div className="flex-1 overflow-auto bg-app-base p-4">
-        <div className="max-w-[760px]">
+        <div className="max-w-6xl mx-auto">
           <AiModelsTab />
         </div>
       </div>

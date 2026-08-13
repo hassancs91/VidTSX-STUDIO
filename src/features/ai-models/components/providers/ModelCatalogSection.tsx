@@ -1,4 +1,4 @@
-import { SectionHeader } from '@shared/components';
+import { Panel, SectionHeader } from '@shared/components';
 import { useProviderModels } from '@renderer/hooks/useProviderModels';
 import { ModelCatalogCard } from './ModelCatalogCard';
 
@@ -19,11 +19,11 @@ export function ModelCatalogSection() {
       </div>
 
       {loading ? (
-        <div className="bg-app-surface rounded-lg p-3 border border-border">
+        <Panel className="p-3">
           <div className="text-[12px] text-text-muted">Loading model catalogs…</div>
-        </div>
+        </Panel>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {catalogs.map((catalog) => (
             <ModelCatalogCard
               key={`${catalog.providerId}:${catalog.category}`}

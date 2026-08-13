@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff, Check, X, Loader2 } from 'lucide-react';
-import { Button, TextInput, SectionHeader } from '@shared/components';
+import { Button, Panel, StatusBadge, TextInput, SectionHeader } from '@shared/components';
+import { Select } from '@shared/components/Select';
 import { useProviderKeys } from '@renderer/hooks/useProviderKeys';
 import { useLlmProviders } from '@renderer/hooks/useLlmProviders';
 import type { LlmProviderConfig, ProviderKeyId } from '@shared/ipc/types';
@@ -124,9 +125,9 @@ export function ApiKeysSection() {
 
   if (keysLoading || llm.loading) {
     return (
-      <div className="bg-app-surface rounded-lg p-3 border border-border">
+      <Panel className="p-3">
         <div className="text-[12px] text-text-muted">Loading providers…</div>
-      </div>
+      </Panel>
     );
   }
 
@@ -141,7 +142,7 @@ export function ApiKeysSection() {
         stored locally on this machine and never sent anywhere except the provider itself.
       </div>
 
-      <div className="bg-app-surface rounded-lg border border-border overflow-hidden">
+      <Panel>
         {/* Shared BYOK keys */}
         {SHARED_KEY_ROWS.map((row) => {
           const saved = hasKeys[row.id] && !clearing.includes(row.id);
@@ -155,7 +156,7 @@ export function ApiKeysSection() {
                     <CapabilityBadge key={cap} label={cap} />
                   ))}
                   {saved && !drafts[row.id] && (
-                    <span className="text-[10px] text-accent-green">key saved</span>
+                    <StatusBadge tone="success">Key saved</StatusBadge>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -253,19 +254,15 @@ export function ApiKeysSection() {
         <div className="p-3 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-text-dim">Default LLM provider</span>
-            <select
+            <Select
               value={llm.activeProvider ?? ''}
-              onChange={(e) => {
-                llm.setActiveProvider(e.target.value || null);
+              onChange={(next) => {
+                llm.setActiveProvider(next || null);
                 setLlmDirty(true);
               }}
-              className="h-[26px] bg-app-base text-text-primary text-[11px] rounded-[6px] px-2 outline-none cursor-pointer"
-              style={{ border: '0.5px solid var(--color-border-input)' }}
-            >
-              {enabledLlmProviders.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+              options={enabledLlmProviders.map((p) => ({ value: p.id, label: p.name }))}
+              className="min-w-[160px]"
+            />
           </div>
           <div className="flex items-center gap-2 ml-auto">
             {savedFlash && <span className="text-[11px] text-accent-green">Saved ✓</span>}
@@ -277,7 +274,7 @@ export function ApiKeysSection() {
             </Button>
           </div>
         </div>
-      </div>
+      </Panel>
     </div>
   );
 }
