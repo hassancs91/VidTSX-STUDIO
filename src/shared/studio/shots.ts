@@ -36,6 +36,21 @@ function isShot(raw: unknown): raw is StudioShot {
   );
 }
 
+/** A usable assetRefs map is string→string; anything else is dropped whole —
+ *  a half-valid map would serialize a shot against assets it never declared. */
+function sanitizeAssetRefs(shot: StudioShot): StudioShot {
+  const refs = (shot as { assetRefs?: unknown }).assetRefs;
+  if (refs === undefined) return shot;
+  const valid =
+    typeof refs === 'object' &&
+    refs !== null &&
+    !Array.isArray(refs) &&
+    Object.values(refs).every((v) => typeof v === 'string');
+  if (valid) return shot;
+  const { assetRefs: _dropped, ...rest } = shot;
+  return rest;
+}
+
 /**
  * Validate the raw `shots` array of a loaded document and reconcile crash
  * leftovers: 'generating' has no owner after a restart, so it becomes 'error'
@@ -44,11 +59,14 @@ function isShot(raw: unknown): raw is StudioShot {
  */
 export function normalizeShots(raw: unknown): StudioShot[] {
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isShot).map((shot) =>
-    shot.status === 'generating'
-      ? { ...shot, status: 'error' as const, error: 'Generation was interrupted — regenerate' }
-      : shot,
-  );
+  return raw
+    .filter(isShot)
+    .map(sanitizeAssetRefs)
+    .map((shot) =>
+      shot.status === 'generating'
+        ? { ...shot, status: 'error' as const, error: 'Generation was interrupted — regenerate' }
+        : shot,
+    );
 }
 
 /**

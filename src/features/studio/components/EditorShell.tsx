@@ -383,12 +383,26 @@ export function EditorShell({ projectId, onBack }: Props) {
     [tl, showToast],
   );
 
+  // D12 import-on-use: library assets a shot pulled in arrive on the job
+  // event; the document owner merges them (id-keyed — re-delivery is a no-op).
+  const handleImportedAssets = useCallback(
+    (imported: StudioMediaAsset[]) => {
+      updateProject((prev) => {
+        const have = new Set(prev.assets.map((a) => a.id));
+        const fresh = imported.filter((a) => !have.has(a.id));
+        return fresh.length > 0 ? { ...prev, assets: [...prev.assets, ...fresh] } : prev;
+      });
+    },
+    [updateProject],
+  );
+
   const shotJobs = useShotJobs({
     projectId,
     shots: tl.shots,
     dispatch: tl.dispatch,
     onReady: handleShotReady,
     onError: (message) => showToast(message, 'error'),
+    onImportedAssets: handleImportedAssets,
   });
 
   const handleGenerateShot = useCallback(

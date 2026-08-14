@@ -25,6 +25,10 @@ import {
   snapEditorialCuts,
 } from './editorial-cuts';
 import { shotGenerator } from './shot-generator';
+import { LIBRARY_REF_PREFIX } from './shot-asset-refs';
+import { loadProject } from './project-store';
+import { generateImageAsset } from '../library/generate-image-asset';
+import { captureWebpage } from '../library/capture';
 
 const log = logEngine.createLogger('StudioAgent');
 
@@ -38,6 +42,8 @@ const ALLOWED_TOOLS = [
   'mcp__studio__propose_cuts',
   'mcp__studio__generate_tsx_shot',
   'mcp__studio__propose_shots',
+  'mcp__studio__generate_image',
+  'mcp__studio__capture_webpage',
 ];
 
 type Listener = (event: StudioAgentEvent) => void;
@@ -183,6 +189,12 @@ class StudioAgentService {
         sourceStart: z.number().optional().describe('Anchor span start, source seconds'),
         sourceEnd: z.number().optional().describe('Anchor span end, source seconds'),
         durationSeconds: z.number().optional().describe('Shot length; defaults to the anchor span length, else 5'),
+        assetRefs: z
+          .record(z.string(), z.string())
+          .optional()
+          .describe(
+            'Media INSIDE the shot: key → asset ref. Keys become assets.<key> in the generated code (letters/digits/underscore). Values: a project asset id from the inventory, or a "library:<path>" ref returned by generate_image / capture_webpage. Images and video only.',
+          ),
       },
       async (args) => {
         if (req.reviewOpen || proposalCreated) {
@@ -200,6 +212,17 @@ class StudioAgentService {
         }
         if (anchored && !req.assets.some((a) => a.id === args.assetId)) {
           return text(`Unknown asset id ${args.assetId}. Use an id from the project inventory.`, true);
+        }
+        if (args.assetRefs) {
+          const badPlain = Object.entries(args.assetRefs).filter(
+            ([, v]) => !v.startsWith(LIBRARY_REF_PREFIX) && !req.assets.some((a) => a.id === v),
+          );
+          if (badPlain.length > 0) {
+            return text(
+              `Unknown asset ref value(s): ${badPlain.map(([k, v]) => `${k}=${v}`).join(', ')}. Use a project asset id from the inventory, or the "library:<path>" ref returned by generate_image / capture_webpage.`,
+              true,
+            );
+          }
         }
         this.emit({
           projectId: req.projectId,
@@ -223,6 +246,9 @@ class StudioAgentService {
                 }
               : {}),
             ...(args.durationSeconds !== undefined ? { durationSeconds: args.durationSeconds } : {}),
+            ...(args.assetRefs && Object.keys(args.assetRefs).length > 0
+              ? { assetRefs: args.assetRefs }
+              : {}),
             ...(req.providerId ? { providerId: req.providerId } : {}),
             origin: { by: 'agent' },
             signal,
@@ -368,10 +394,85 @@ class StudioAgentService {
       },
     );
 
+    const generateImage = tool(
+      'generate_image',
+      'Generate an image with the configured image provider and file it into the app-wide asset library (origin: generated, the prompt becomes its description, auto-tagged with the project\'s active brand). Additive — no proposal. Returns a "library:<path>" ref to use in generate_tsx_shot assetRefs.',
+      {
+        prompt: z.string().describe('What the image shows — concrete and visual; saved as the asset description'),
+        folder: z.string().optional().describe("Library folder to file into (default 'generated')"),
+        aspect: z.enum(['square', 'landscape', 'portrait']).optional().describe('Default landscape (1280×720)'),
+      },
+      async (args) => {
+        this.emit({
+          projectId: req.projectId,
+          kind: 'tool',
+          tool: 'generate_image',
+          detail: args.prompt.slice(0, 60),
+        });
+        try {
+          // The active brand tags the output; a project without one (or a
+          // stale id) simply files untagged.
+          let brandId: string | undefined;
+          try {
+            brandId = (await loadProject(req.projectId)).settings.brandId;
+          } catch {
+            brandId = undefined;
+          }
+          const asset = await generateImageAsset({
+            prompt: args.prompt,
+            ...(args.folder ? { folder: args.folder } : {}),
+            ...(args.aspect ? { aspect: args.aspect } : {}),
+            ...(brandId ? { brandId } : {}),
+            signal,
+          });
+          return text(
+            `Image saved to the library: ${LIBRARY_REF_PREFIX}${asset.relPath} (${asset.width}×${asset.height}${asset.brandId ? `, brand: ${asset.brandId}` : ''}). ` +
+              `To use it inside a shot, pass it in generate_tsx_shot assetRefs, e.g. { "image1": "${LIBRARY_REF_PREFIX}${asset.relPath}" }.`,
+          );
+        } catch (err) {
+          return text(`Image generation failed: ${err instanceof Error ? err.message : String(err)}`, true);
+        }
+      },
+    );
+
+    const captureWebpageTool = tool(
+      'capture_webpage',
+      'Screenshot a webpage into the asset library (origin: captured, description: page title + URL) — screenshot material for shots. Hidden by default; pass visible=true for login-walled pages (the window opens for the user to log in and navigate, then THEY click "Capture now" — can take minutes). Returns a "library:<path>" ref for generate_tsx_shot assetRefs.',
+      {
+        url: z.string().describe('The http(s) page to capture'),
+        viewport: z.enum(['landscape', 'portrait', 'desktop']).optional().describe('landscape 1280×720 (default), portrait 390×844, desktop 1440×900 — CSS pixels, rendered at 2×'),
+        fullPage: z.boolean().optional().describe('Capture the full page height (capped ~8000 px) instead of one viewport'),
+        visible: z.boolean().optional().describe('Open the window visibly and wait for the user to log in / navigate and click Capture'),
+      },
+      async (args) => {
+        this.emit({
+          projectId: req.projectId,
+          kind: 'tool',
+          tool: 'capture_webpage',
+          detail: `${args.url}${args.visible ? ' (visible)' : ''}`,
+        });
+        try {
+          const result = await captureWebpage({
+            url: args.url,
+            ...(args.viewport ? { viewport: args.viewport } : {}),
+            ...(args.fullPage !== undefined ? { fullPage: args.fullPage } : {}),
+            ...(args.visible !== undefined ? { visible: args.visible } : {}),
+            signal,
+          });
+          return text(
+            `Captured "${result.title || result.url}" → ${LIBRARY_REF_PREFIX}${result.relPath} (${result.width}×${result.height}). ` +
+              `To use it inside a shot, pass it in generate_tsx_shot assetRefs, e.g. { "screenshot1": "${LIBRARY_REF_PREFIX}${result.relPath}" }.`,
+          );
+        } catch (err) {
+          return text(`Webpage capture failed: ${err instanceof Error ? err.message : String(err)}`, true);
+        }
+      },
+    );
+
     return createSdkMcpServer({
       name: 'studio',
       version: '1.0.0',
-      tools: [getTranscript, proposeCuts, generateTsxShot, proposeShots],
+      tools: [getTranscript, proposeCuts, generateTsxShot, proposeShots, generateImage, captureWebpageTool],
     });
   }
 }

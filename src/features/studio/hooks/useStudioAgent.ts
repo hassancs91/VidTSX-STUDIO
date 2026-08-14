@@ -65,6 +65,7 @@ function toAgentAsset(asset: StudioMediaAsset): StudioAgentAssetInfo {
     name: assetName(asset),
     kind: asset.kind,
     path: asset.path,
+    ...(asset.description ? { description: asset.description } : {}),
     durationSeconds: asset.probe.duration,
     ...(ready && asset.transcript
       ? {

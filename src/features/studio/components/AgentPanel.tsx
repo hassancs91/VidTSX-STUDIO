@@ -5,6 +5,16 @@ import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioA
 /** Warn when the next turn is estimated at ≥40% of the context budget. */
 const CONTEXT_WARN_RATIO = 0.4;
 
+/** Friendly labels for agent tool events; unknown tools show their raw name. */
+const TOOL_LABELS: Record<string, string> = {
+  get_transcript: 'Reading transcript',
+  propose_cuts: 'Proposing cuts',
+  generate_tsx_shot: 'Generating shot',
+  propose_shots: 'Proposing shots',
+  generate_image: 'Generating image',
+  capture_webpage: 'Capturing webpage',
+};
+
 interface Props {
   agent: UseStudioAgentResult;
 }
@@ -117,7 +127,7 @@ function MessageRow({ message }: { message: AgentChatMessage }) {
         <div key={i} className="flex items-center gap-1 text-[10px] text-text-muted">
           <Wrench size={10} strokeWidth={1.75} className="shrink-0" />
           <span className="truncate">
-            {call.tool === 'get_transcript' ? 'Reading transcript' : call.tool === 'propose_cuts' ? 'Proposing cuts' : call.tool}
+            {TOOL_LABELS[call.tool] ?? call.tool}
             {call.detail ? ` — ${call.detail}` : ''}
           </span>
         </div>

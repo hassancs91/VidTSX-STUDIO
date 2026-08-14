@@ -8,6 +8,7 @@ import {
   interpolate,
   useCurrentFrame,
 } from 'remotion';
+import type { ShotRuntimeProps } from '../types/studio';
 import type { SerializedClip, SerializedTimeline } from './serialize';
 
 export interface TimelineCompositionProps {
@@ -19,9 +20,10 @@ export interface TimelineCompositionProps {
    * wrapped in an error boundary by the supplier), the export entry will pass
    * static imports. A missing entry renders nothing — the supplier
    * substitutes a placeholder component when it wants one, so this
-   * composition stays dumb.
+   * composition stays dumb. Each component receives the clip's serialized
+   * `tsx.props` (resolved asset URLs, D12).
    */
-  components?: Record<string, React.ComponentType>;
+  components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
 }
 
 /**
@@ -156,7 +158,7 @@ function ClipRenderer({
   components,
 }: {
   clip: SerializedClip;
-  components?: Record<string, React.ComponentType>;
+  components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
 }) {
   // Frame relative to this clip's Sequence — drives the transition opacity.
   const frame = useCurrentFrame();
@@ -216,7 +218,7 @@ function ClipRenderer({
       return (
         <AbsoluteFill style={style}>
           <Sequence from={-offset} layout="absolute-fill">
-            <ShotComponent />
+            <ShotComponent {...clip.tsx?.props} />
           </Sequence>
         </AbsoluteFill>
       );

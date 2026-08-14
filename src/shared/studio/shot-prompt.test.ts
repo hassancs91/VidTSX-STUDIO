@@ -99,3 +99,39 @@ describe('buildShotExtraInstructions', () => {
     expect(text.indexOf('const WORDS')).toBeGreaterThan(text.indexOf('## Brand'));
   });
 });
+
+describe('media assets section (D12)', () => {
+  const base = { kind: 'cutaway' as const, width: 1280, height: 720, fps: 30, durationSeconds: 5 };
+
+  it('no assets → no assets section', () => {
+    expect(buildShotExtraInstructions(base)).not.toContain('## Media assets');
+    expect(buildShotExtraInstructions({ ...base, assets: [] })).not.toContain('## Media assets');
+  });
+
+  it('lists each asset with kind, dimensions, duration, and description', () => {
+    const out = buildShotExtraInstructions({
+      ...base,
+      assets: [
+        { key: 'logo', kind: 'image', width: 1024, height: 1024, description: 'white on transparent' },
+        { key: 'demo', kind: 'video', width: 1920, height: 1080, durationSeconds: 8 },
+      ],
+    });
+    expect(out).toContain('## Media assets (MANDATORY usage)');
+    expect(out).toContain('`assets.logo` (image, 1024×1024) — white on transparent');
+    expect(out).toContain('`assets.demo` (video, 1920×1080, 8.0 s)');
+    expect(out).toContain('assets: Record<string, string>');
+    expect(out).toContain('<Img src={assets.key}>');
+    expect(out).toMatch(/NEVER hardcode a file path/);
+  });
+
+  it('assets section coexists with brand and WORDS blocks', () => {
+    const out = buildShotExtraInstructions({
+      ...base,
+      kind: 'title',
+      words: [{ text: 'hi', start: 0, end: 0.4 }],
+      assets: [{ key: 'logo', kind: 'image' }],
+    });
+    expect(out).toContain('## Media assets (MANDATORY usage)');
+    expect(out).toContain('## Word timings (shot-local seconds)');
+  });
+});

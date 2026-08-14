@@ -292,6 +292,8 @@ export interface StudioAgentAssetInfo {
   kind: 'video' | 'audio' | 'image';
   /** Absolute source path — needed if the RMS envelope must be regenerated. */
   path: string;
+  /** Caption the agent reads to pick the right asset (D12/L2). */
+  description?: string;
   durationSeconds?: number;
   transcript?: {
     engine: string;
@@ -378,6 +380,9 @@ export interface StudioShotGenerateRequest {
   name?: string;
   /** Word-sync anchor (D7) — source-media seconds on a transcribed asset. */
   anchor?: { assetId: string; sourceStart: number; sourceEnd: number };
+  /** Media inside the shot (D12): key → project asset id or 'library:<relPath>'
+   *  (library values import on use; the registry stores project ids). */
+  assetRefs?: Record<string, string>;
   durationSeconds?: number;
   /** edit/regenerate: the existing shot (folder) to write the next version of. */
   shotId?: string;
@@ -407,6 +412,10 @@ export interface StudioShotJobEvent {
   /** Registry-shaped snapshot — present on every status so the renderer can
    *  adopt the provisional, final, or error entry via `shots-adopt`. */
   shot?: StudioShot;
+  /** Library assets imported on use for this shot (D12) — rides the first
+   *  'generating' event; the renderer merges them into project.assets (the
+   *  document owner), keyed by id so re-delivery is harmless. */
+  importedAssets?: StudioMediaAsset[];
   error?: string;
 }
 

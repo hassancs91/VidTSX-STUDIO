@@ -1,4 +1,4 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
   LibraryBrandDefaultSetRequest,
@@ -8,6 +8,9 @@ import type {
   LibraryBrandSaveRequest,
   LibraryBrandSaveResponse,
   LibraryBrandsGetResponse,
+  LibraryCaptureEvent,
+  LibraryCaptureTriggerRequest,
+  LibraryCaptureTriggerResponse,
   LibraryDescriptionSetRequest,
   LibraryDescriptionSetResponse,
   LibraryIndexGetResponse,
@@ -43,4 +46,15 @@ export const libraryApi = {
     data: LibraryBrandDefaultSetRequest
   ): Promise<LibraryBrandDefaultSetResponse> =>
     ipcRenderer.invoke(IPC.LIBRARY_BRAND_DEFAULT_SET, data),
+
+  // ─── Visible web capture handshake (L6/D12) ───
+  libraryCaptureTrigger: (
+    data: LibraryCaptureTriggerRequest
+  ): Promise<LibraryCaptureTriggerResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_CAPTURE_TRIGGER, data),
+  onLibraryCaptureEvent: (callback: (event: LibraryCaptureEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: LibraryCaptureEvent) => callback(data);
+    ipcRenderer.on(IPC.LIBRARY_CAPTURE_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.LIBRARY_CAPTURE_EVENT, listener);
+  },
 };

@@ -359,6 +359,12 @@ export const IPC = {
   LIBRARY_BRAND_SAVE: 'library:brand:save',
   LIBRARY_BRAND_DELETE: 'library:brand:delete',
   LIBRARY_BRAND_DEFAULT_SET: 'library:brand:default:set',
+
+  // Asset library — visible web capture handshake (L6/D12): main pushes
+  // 'pending' while a visible capture window waits; the renderer chip fires
+  // the trigger (capture or cancel).
+  LIBRARY_CAPTURE_TRIGGER: 'library:capture:trigger',
+  LIBRARY_CAPTURE_EVENT: 'library:capture:event',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

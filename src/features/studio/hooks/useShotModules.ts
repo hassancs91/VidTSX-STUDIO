@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState, createElement, type ComponentType } from 'react';
 import { setupVirtualModuleGlobals } from '@features/player';
-import type { StudioShot } from '../types';
+import type { ShotRuntimeProps, StudioShot } from '../types';
 import { ShotErrorBoundary, ShotPlaceholder } from '../components/ShotErrorBoundary';
+
+/** A shot component as the composition renders it — receives the serialized
+ *  runtime props (resolved asset URLs, D12). */
+type ShotComponent = ComponentType<ShotRuntimeProps>;
 
 /**
  * The preview's shot-component supplier (TSX_SHOTS_DESIGN.md D4): for every
@@ -23,11 +27,11 @@ import { ShotErrorBoundary, ShotPlaceholder } from '../components/ShotErrorBound
 export function useShotModules(
   projectId: string,
   shots: StudioShot[],
-): Record<string, ComponentType> {
-  const [components, setComponents] = useState<Record<string, ComponentType>>({});
+): Record<string, ShotComponent> {
+  const [components, setComponents] = useState<Record<string, ShotComponent>>({});
   // shotId@version → the wrapped component (or a load in flight). Survives
   // re-renders; entries for versions no longer active are dropped below.
-  const cacheRef = useRef(new Map<string, ComponentType | Promise<ComponentType>>());
+  const cacheRef = useRef(new Map<string, ShotComponent | Promise<ShotComponent>>());
 
   const ready = useMemo(() => shots.filter((s) => s.status === 'ready'), [shots]);
 
@@ -39,7 +43,7 @@ export function useShotModules(
       if (!wanted.has(key)) cache.delete(key);
     }
 
-    async function load(shot: StudioShot): Promise<ComponentType> {
+    async function load(shot: StudioShot): Promise<ShotComponent> {
       // Pins the app's own React/Remotion instances onto the virtual-module
       // globals BEFORE any shot imports — this is what makes the shot's
       // useCurrentFrame() resolve against the hosting Player (Spike 0).
@@ -53,20 +57,24 @@ export function useShotModules(
         throw new Error(res.error ?? 'Failed to prepare shot module');
       }
       const mod = (await import(/* @vite-ignore */ res.moduleUrl)) as {
-        default: ComponentType;
+        default: ShotComponent;
       };
       if (typeof mod.default !== 'function') {
         throw new Error('Shot module has no component default export');
       }
       const Inner = mod.default;
-      const Wrapped: ComponentType = () =>
-        createElement(ShotErrorBoundary, { label: shot.name, children: createElement(Inner) });
+      // Forward the serializer's runtime props through the boundary (D12).
+      const Wrapped: ShotComponent = (props) =>
+        createElement(ShotErrorBoundary, {
+          label: shot.name,
+          children: createElement(Inner, props),
+        });
       return Wrapped;
     }
 
     const rebuild = () => {
       if (cancelled) return;
-      const next: Record<string, ComponentType> = {};
+      const next: Record<string, ShotComponent> = {};
       for (const shot of ready) {
         const entry = cache.get(`${shot.id}@${shot.activeVersion}`);
         next[shot.id] =
@@ -83,7 +91,7 @@ export function useShotModules(
       const pending = load(shot)
         .catch((err: unknown) => {
           const detail = err instanceof Error ? err.message : String(err);
-          const Failed: ComponentType = () =>
+          const Failed: ShotComponent = () =>
             createElement(ShotPlaceholder, { label: shot.name, detail });
           return Failed;
         })

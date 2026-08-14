@@ -126,6 +126,7 @@ export async function handleStudioShotGenerate(
             brief: data.brief!,
             ...(data.name ? { name: data.name } : {}),
             ...(data.anchor ? { anchor: data.anchor } : {}),
+            ...(data.assetRefs ? { assetRefs: data.assetRefs } : {}),
             ...(data.durationSeconds !== undefined ? { durationSeconds: data.durationSeconds } : {}),
             ...(data.providerId ? { providerId: data.providerId } : {}),
             origin: { by: 'user' },

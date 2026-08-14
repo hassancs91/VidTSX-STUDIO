@@ -5,6 +5,7 @@
 // which is what makes "what you scrub is what renders" true.
 
 import type {
+  ShotRuntimeProps,
   StudioClip,
   StudioClipKind,
   StudioClipTransform,
@@ -46,8 +47,10 @@ export interface SerializedClip {
   transitionOut?: SerializedTransition;
   transform?: StudioClipTransform;
   /** TSX shot reference (S4) — the composition looks the component up in its
-   *  parallel `components` map by shotId. */
-  tsx?: { shotId: string; mode: 'cutaway' | 'overlay' };
+   *  parallel `components` map by shotId. `props` is the D12 runtime-props
+   *  channel: asset refs resolved to per-environment URLs (and, later,
+   *  whatever else the serializer derives for the component). */
+  tsx?: { shotId: string; mode: 'cutaway' | 'overlay'; props?: ShotRuntimeProps };
 }
 
 export interface SerializedTrack {
@@ -194,11 +197,31 @@ export function serializeTimeline(
 
       // Same drop rule for tsx clips whose shot the document can't resolve to
       // renderable code (missing from the registry, still generating, error).
+      let tsxProps: ShotRuntimeProps | undefined;
       if (clip.kind === 'tsx') {
         const shot = clip.tsx
           ? project.shots.find((s) => s.id === clip.tsx?.shotId)
           : undefined;
         if (!shot || shot.status !== 'ready') continue;
+
+        // Asset refs resolve through the same resolver as clip src, so the
+        // preview/export URL asymmetry stays this function's problem (D12).
+        // An unresolvable ref drops the clip — the media missing-src rule;
+        // rendering the shot with a broken <Img> would error mid-timeline.
+        if (shot.assetRefs && Object.keys(shot.assetRefs).length > 0) {
+          const assets: Record<string, string> = {};
+          let missing = false;
+          for (const [key, assetId] of Object.entries(shot.assetRefs)) {
+            const url = resolveUrl(assetId);
+            if (!url) {
+              missing = true;
+              break;
+            }
+            assets[key] = url;
+          }
+          if (missing) continue;
+          tsxProps = { assets };
+        }
       }
 
       let from = timeToFrame(clip.timelineStart, fps);
@@ -244,7 +267,13 @@ export function serializeTimeline(
         ...(into ? { transitionIn: { kind: into.kind, frames: into.inFrames } } : {}),
         ...(clip.transform ? { transform: clip.transform } : {}),
         ...(clip.kind === 'tsx' && clip.tsx
-          ? { tsx: { shotId: clip.tsx.shotId, mode: clip.tsx.mode } }
+          ? {
+              tsx: {
+                shotId: clip.tsx.shotId,
+                mode: clip.tsx.mode,
+                ...(tsxProps ? { props: tsxProps } : {}),
+              },
+            }
           : {}),
       });
     }

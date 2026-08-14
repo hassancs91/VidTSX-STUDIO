@@ -59,6 +59,9 @@ export interface StudioMediaAsset {
   probe: StudioAssetProbe;
   /** Content hash for relink-when-missing. */
   hash?: string;
+  /** Human/AI caption. Carried from the library index on import-on-use (D12);
+   *  what the agent reads to pick the right asset. */
+  description?: string;
   thumbnail?: StudioAssetCacheFile;
   proxy?: StudioAssetCacheFile;
   waveform?: StudioAssetCacheFile;
@@ -183,10 +186,23 @@ export interface StudioShot {
   config?: { durationInFrames: number; fps: number; width: number; height: number };
   /** What the shot was synced to — enables regenerate re-sync (D7). */
   anchor?: { assetId: string; sourceStart: number; sourceEnd: number };
+  /** Media inside the shot (D12): ref key → project asset id. The serializer
+   *  resolves each ref to a per-environment URL and passes the map to the
+   *  component as its `assets` prop; generated code writes
+   *  `<Img src={assets.key}>`, never a file path. */
+  assetRefs?: Record<string, string>;
   /** Original brief, for the inspector. */
   prompt?: string;
   origin?: StudioClipOrigin;
   error?: string;
+}
+
+/** Props the serializer passes to a shot component at render time (D12).
+ *  A general channel, extensible by design — D13 captions rides it next with
+ *  a live word-stream member; add siblings here, never a parallel mechanism. */
+export interface ShotRuntimeProps {
+  /** Resolved asset URLs keyed by the shot's assetRef keys. */
+  assets?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------

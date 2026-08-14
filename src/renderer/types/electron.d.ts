@@ -419,6 +419,10 @@ export interface ElectronAPI {
   libraryBrandSave: (data: import('../../shared/ipc/types').LibraryBrandSaveRequest) => Promise<import('../../shared/ipc/types').LibraryBrandSaveResponse>;
   libraryBrandDelete: (data: import('../../shared/ipc/types').LibraryBrandDeleteRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDeleteResponse>;
   libraryBrandDefaultSet: (data: import('../../shared/ipc/types').LibraryBrandDefaultSetRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDefaultSetResponse>;
+
+  // Asset library — visible web capture handshake (L6/D12)
+  libraryCaptureTrigger: (data: import('../../shared/ipc/types').LibraryCaptureTriggerRequest) => Promise<import('../../shared/ipc/types').LibraryCaptureTriggerResponse>;
+  onLibraryCaptureEvent: (callback: (event: import('../../shared/ipc/types').LibraryCaptureEvent) => void) => () => void;
 }
 
 declare global {

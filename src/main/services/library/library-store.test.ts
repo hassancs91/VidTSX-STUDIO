@@ -12,7 +12,13 @@ vi.mock('electron', () => ({
   app: { getPath: () => tmpDir, isPackaged: false },
 }));
 
-import { findLibraryFileByHash, loadIndex, scanLibrary, setDescription } from './library-store';
+import {
+  findLibraryFileByHash,
+  loadIndex,
+  scanLibrary,
+  setDescription,
+  upsertEntry,
+} from './library-store';
 import { getLibrarySizes, invalidateLibrarySizes } from './library-sizes';
 
 let root = '';
@@ -79,5 +85,53 @@ describe('library-sizes', () => {
     expect(sizes.total).toBe(introBytes + logoBytes);
     expect(sizes.folders['']).toBe(sizes.total);
     expect(sizes.folders['brand']).toBe(0); // logo moved out in the tests above
+  });
+});
+
+describe('upsertEntry — born-managed content (D12)', () => {
+  it('registers a new file with origin, description, brand tag, and hash bookkeeping', async () => {
+    await fs.mkdir(path.join(root, 'generated'), { recursive: true });
+    await fs.writeFile(path.join(root, 'generated', 'card.png'), 'generated-bytes');
+    const entry = await upsertEntry(root, 'generated/card.png', {
+      origin: 'generated',
+      description: 'dark navy stat card',
+      brandId: 'acme-test',
+    });
+    expect(entry).toMatchObject({
+      relPath: 'generated/card.png',
+      origin: 'generated',
+      description: 'dark navy stat card',
+      brandId: 'acme-test',
+    });
+    expect(entry.hash).toBeTruthy();
+    expect(entry.size).toBe('generated-bytes'.length);
+  });
+
+  it('survives a reconcile scan without being downgraded to imported', async () => {
+    const entries = await scanLibrary(root);
+    const kept = entries.find((e) => e.relPath === 'generated/card.png');
+    expect(kept?.origin).toBe('generated');
+    expect(kept?.description).toBe('dark navy stat card');
+    expect(kept?.brandId).toBe('acme-test');
+  });
+
+  it('updates in place on re-upsert and refuses paths outside the root', async () => {
+    const entry = await upsertEntry(root, 'generated/card.png', {
+      origin: 'generated',
+      description: 'updated caption',
+    });
+    expect(entry.description).toBe('updated caption');
+    expect(entry.brandId).toBe('acme-test'); // untouched fields survive
+    const index = await loadIndex(root);
+    expect(index.entries.filter((e) => e.relPath === 'generated/card.png')).toHaveLength(1);
+    await expect(
+      upsertEntry(root, '../outside.png', { origin: 'generated' })
+    ).rejects.toThrow();
+  });
+
+  it('throws when the file is not on disk', async () => {
+    await expect(
+      upsertEntry(root, 'generated/ghost.png', { origin: 'generated' })
+    ).rejects.toThrow();
   });
 });

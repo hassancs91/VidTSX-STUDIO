@@ -1,7 +1,11 @@
 import path from 'path';
 import fs from 'fs/promises';
 import { logEngine } from '../../../logging/log-engine';
-import type { LibraryIndexEntry, LibraryIndexFile } from '../../../shared/types/asset-library';
+import type {
+  LibraryAssetOrigin,
+  LibraryIndexEntry,
+  LibraryIndexFile,
+} from '../../../shared/types/asset-library';
 import { hashFileHead } from '../studio/media-import';
 import { reconcileIndex, type DiskFileStat } from './library-reconcile';
 import {
@@ -109,6 +113,48 @@ export function setDescription(root: string, relPath: string, description: strin
     const trimmed = description.trim();
     entry.description = trimmed === '' ? undefined : trimmed;
     await writeIndex(root, index);
+  });
+}
+
+/**
+ * Register a file that was just written into the library as born-managed
+ * content (D12: `generated` / `captured`). The reconcile scan only ever mints
+ * `origin: 'imported'` entries, so files the app creates must enter the index
+ * here — with the origin, description, and brand tag they are born with, and
+ * the hash/size/mtime bookkeeping that keeps the next scan from re-keying
+ * them. Updates in place if the relPath is already indexed.
+ */
+export function upsertEntry(
+  root: string,
+  relPath: string,
+  meta: { origin: LibraryAssetOrigin; description?: string; brandId?: string },
+): Promise<LibraryIndexEntry> {
+  return serialize(root, async () => {
+    const absPath = resolveLibraryPath(root, relPath); // traversal guard
+    const stat = await fs.stat(absPath); // throws if the file is not on disk
+    const hash = await hashFileHead(absPath);
+    const index = await loadIndex(root);
+    const existing = index.entries.find((e) => e.relPath === relPath);
+    const entry: LibraryIndexEntry = {
+      ...(existing ?? { addedAt: new Date().toISOString() }),
+      relPath,
+      origin: meta.origin,
+      ...(hash !== undefined ? { hash } : {}),
+      ...(meta.description !== undefined ? { description: meta.description } : {}),
+      ...(meta.brandId !== undefined ? { brandId: meta.brandId } : {}),
+      size: stat.size,
+      mtimeMs: stat.mtimeMs,
+    };
+    if (existing) {
+      index.entries[index.entries.indexOf(existing)] = entry;
+    } else {
+      index.entries.push(entry);
+      index.entries.sort((a, b) => a.relPath.localeCompare(b.relPath));
+    }
+    // The file exists again — a tombstone for this path is stale.
+    index.tombstones = index.tombstones.filter((t) => t.relPath !== relPath);
+    await writeIndex(root, index);
+    return entry;
   });
 }
 

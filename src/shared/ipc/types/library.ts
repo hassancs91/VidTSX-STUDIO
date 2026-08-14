@@ -91,3 +91,22 @@ export interface LibraryBrandDefaultSetResponse {
   success: boolean;
   error?: string;
 }
+
+// ─── Visible web capture handshake (L6/D12) ───
+
+/** library:capture:event — pushed while a VISIBLE capture waits for the user
+ *  ('pending' shows the chip, 'closed' hides it). */
+export interface LibraryCaptureEvent {
+  state: 'pending' | 'closed';
+  url?: string;
+}
+
+/** library:capture:trigger — the chip's buttons: take the shot, or abandon. */
+export interface LibraryCaptureTriggerRequest {
+  action: 'capture' | 'cancel';
+}
+
+export interface LibraryCaptureTriggerResponse {
+  success: boolean;
+  error?: string;
+}

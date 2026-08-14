@@ -41,6 +41,27 @@ hints belong only in unbranded projects). Briefs should describe content and
 motion; the brand supplies the look. To apply a brand (or a brand change) to
 an existing shot, regenerate it — baked versions never restyle themselves.
 
+## Media inside shots
+
+Real media (logos, screenshots, product footage) is what makes shots look
+professional — reach for it instead of describing imagery in the brief:
+
+- Pass media via `assetRefs` on `generate_tsx_shot`: key → a project asset id
+  from the inventory, or a `library:<path>` ref. Keys become `assets.<key>`
+  in the generated code — name them like identifiers (`logo`, `screenshot1`).
+  Images and video only; audio belongs on the timeline.
+- `generate_image(prompt, ...)` makes new art (brand-tagged, filed in the
+  library) — logos-adjacent graphics, illustrations, backgrounds. The prompt
+  becomes the asset's description; write it like a caption.
+- `capture_webpage(url, ...)` screenshots a page — THE source for product/
+  dashboard/fake-screencast material. Use `visible: true` only for
+  login-walled pages, and tell the user first: a browser window will open for
+  them to log in and navigate, then THEY click "Capture now".
+- Do not put URLs or file paths in the brief — the pipeline injects an asset
+  table for the refs you pass, and the shot receives real URLs as props.
+- The description on a library/project asset is what you search and design
+  against; when you make assets, leave good descriptions behind.
+
 ## Anchors
 
 - Anchor a shot when it should sync to speech (`assetId` + `sourceStart`/

@@ -9,6 +9,90 @@
 
 ## Completed phases
 
+### Studio — D12 MEDIA INSIDE SHOTS (2026-08-14)
+**Status: DONE — per TSX_SHOTS_DESIGN.md §D12 Rev 2 + ASSET_LIBRARY_DESIGN.md
+§L5/§L6, CDP-verified end-to-end INCLUDING a real export.** The serializer
+grew a GENERAL runtime-props channel (D13 captions rides it next):
+`SerializedClip.tsx.props?: ShotRuntimeProps` (`shared/types/studio.ts` —
+extensible object, `assets` is its first member), resolved through the SAME
+`AssetUrlResolver` as clip src (module-server proxies in preview, bundle
+server :3100 at export — the entry needs zero template changes, props ride
+the serialized TIMELINE). **Missing/unresolvable ref → clip drop**, the
+missing-src rule. `ClipRenderer` spreads `clip.tsx.props`; `useShotModules`
+wrappers/placeholders became props-forwarding (`ShotComponent =
+ComponentType<ShotRuntimeProps>`). **Registry**: `assetRefs?:
+Record<key, projectAssetId>` on `StudioShot`, sanitized in `normalizeShots`
+(malformed map stripped whole), carried through `foldShot` (which silently
+dropped unknown fields — extended), the generator's provisional/saved
+snapshots, `StudioShotGenerateRequest`, and the regenerate button
+(`ShotClipSection` passes `shot.assetRefs`). **Import-on-use seam**
+(`services/studio/shot-asset-refs.ts`): tool-side ref values are project
+asset ids OR `library:<relPath>`; library values import on use via
+`importMediaFiles` (probe/thumbnail/hash, referenced in place, index
+description carried into new `StudioMediaAsset.description`), idempotent by
+normalized path then content hash; imported assets ride
+`StudioShotJobEvent.importedAssets` on the FIRST generating event →
+`useShotJobs.onImportedAssets` → EditorShell merges id-keyed into
+project.assets. Library NEVER appears in project.json (paths point into it,
+referenced in place — by design). **Prompt contract**:
+`buildShotExtraInstructions` gained `assets` ("## Media assets (MANDATORY
+usage)" — typed `{ assets }` prop, per-key table with dims/duration/
+description, never a path/staticFile; brand+WORDS coexistence pinned).
+**Agent surface** (studio-agent.ts): `generate_tsx_shot` gained `assetRefs`
+(zod 4: `z.record(z.string(), z.string())` — single-arg is a compile error);
+NEW `generate_image` (wraps imageEngine active provider, files into
+`generated/` via new `library-filing.ts` slug/reserve helpers, born-managed
+`origin: 'generated'`, prompt = description, ACTIVE-BRAND AUTO-TAG via
+project.settings.brandId with stale-id degrade, bills new `featureSource:
+'studio-shot-asset'`, additive/no proposal); NEW `capture_webpage`
+(`services/library/capture.ts`: hardened hidden BrowserWindow — sandbox,
+per-capture in-memory partition, ALL permission requests denied,
+window.open denied, muted, 2× render via zoomFactor+double-size window,
+settle delay, full-page = tall window capped 8000px physical; files
+`captures/<domain>/<title-slug>.png`, description "title — URL"). **Visible
+capture mode** for auth walls: window shows, main pushes
+LIBRARY_CAPTURE_EVENT 'pending' → `CaptureChip` (app-root fixed chip, CDP-
+drivable) → LIBRARY_CAPTURE_TRIGGER capture/cancel resolves it; 5-min
+walk-away timeout. **Library store** gained `upsertEntry` (reconcile only
+mints origin 'imported'; born-managed content enters here with hash/size/
+mtime bookkeeping so the next scan keeps it — pinned by test).
+`StudioAgentAssetInfo` + prompt asset lines gained `description` (Rev 2).
+Of the updater session's dirty files only channels.ts + electron.d.ts were
+touched (additive capture-channel blocks, staged as HEAD+my-lines blobs).
+**Tests +32 → 540 total** (serializer ref resolution + missing-ref drop +
+empty-refs, normalizeShots sanitize, prompt assets section, upsertEntry
+CRUD/rescan-survival/traversal, filing slug/domain/description/reserve
+collision, parseLibraryRef/refKey/matchExistingAsset idempotency/
+buildPromptAssets audio-reject). Type baselines 26/22 exact. **Live CDP
+proof (Shots core test)**: agent turn "capture learnwithhasan.com → cutaway
+using it → propose" ran all three tools (labels in AgentPanel); capture
+filed `captures/learnwithhasan.com/build-real-products-with-ai-vibe-enginee
+.png` (2560×1440 crisp 2×, index entry origin 'captured' + title—URL
+description); import-on-use put it in project.assets WITH description +
+pool thumbnail; registry got `assetRefs: { screenshot: <project-id> }`;
+generated v1 (claude-opus-5, 50s, 0 fix loops) destructures `{ assets }`
+and renders `<Img src={assets.screenshot}>`; review panel → Preview shot
+showed the REAL screenshot on a branded card in the Player; Place 1 shot →
+clip at 6s on V1; **Export → Done**: entry TIMELINE carries
+`props.assets.screenshot` as a :3100 bundle URL, ffmpeg frame at 8s of the
+rendered MP4 contains the screenshot pixels + brand-amber caption.
+Visible mode proven: example.com visible capture → chip appeared → CDP
+clicked "Capture now" → `captures/example.com/example-domain.png`.
+generate_image proven wired with graceful error (local SD registered but
+sd-cli not installed — no BYOK image key on this machine; its filing path
+is shared with capture + unit-tested). Leftovers kept deliberately: the two
+captures in the library, "Site showcase" shot placed at 6s in "Shots core
+test" (D13/D14 test state). Known limits (deliberate): scroll-and-stitch
+over-cap fallback not implemented (cap captures top 8000px); no gate check
+that generated code only references provided asset keys (prompt-enforced;
+the model added a dead staticFile fallback once — harmless, serializer
+drops unresolvable refs before render); `search_assets` still deferred to
+library slices; MediaPool "Add from library" picker + library-screen
+Capture button land with the library UI slices (the seam is the service).
+NEXT per roadmap: **D13 CAPTIONS** (CAPTIONS_DESIGN.md, implementation-
+ready — rides this props channel), then D14 Creator import, then library
+describe/organize.
+
 ### Studio — D11 BRANDS (2026-08-14)
 **Status: DONE — brands slice per TSX_SHOTS_DESIGN.md §D11 Rev 2 +
 ASSET_LIBRARY_DESIGN.md §L3 Rev 3, CDP-verified end-to-end with a REAL

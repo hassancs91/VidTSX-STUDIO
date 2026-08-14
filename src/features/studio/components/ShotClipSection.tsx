@@ -87,6 +87,7 @@ export function ShotClipSection({ projectId, clip, shot, dispatch, progress, onE
         brief: shot.prompt,
         name: shot.name,
         ...(shot.anchor ? { anchor: shot.anchor } : {}),
+        ...(shot.assetRefs ? { assetRefs: shot.assetRefs } : {}),
         ...(shot.config
           ? { durationSeconds: shot.config.durationInFrames / shot.config.fps }
           : {}),

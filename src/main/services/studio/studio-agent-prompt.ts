@@ -11,7 +11,8 @@ function assetLine(asset: StudioAgentAssetInfo): string {
   const transcript = asset.transcript
     ? `transcript: ${asset.transcript.engine}${asset.transcript.verbatim ? ' (verbatim)' : ' (cleaned — fillers removed by the engine)'}${asset.transcript.wordCount !== undefined ? `, ${asset.transcript.wordCount} words` : ''}`
     : 'no transcript yet';
-  return `- ${asset.id} — "${asset.name}" (${asset.kind}, ${duration}; ${transcript})`;
+  const description = asset.description ? ` — "${asset.description}"` : '';
+  return `- ${asset.id} — "${asset.name}" (${asset.kind}, ${duration}; ${transcript})${description}`;
 }
 
 export interface BuildAgentPromptInput {
@@ -40,8 +41,10 @@ export function buildAgentSystemPrompt(input: BuildAgentPromptInput): string {
       'Your tools:',
       '- `get_transcript(assetId, startSeconds?, endSeconds?)` — returns the takes view of an asset\'s word-level transcript: numbered segments split on speech pauses, pause durations between them, and filler words marked inline as `<<uh 12.34-12.40>>` with their exact source-time bounds in seconds. For a range ask ("shots for the first 5 minutes") read only that slice.',
       '- `propose_cuts(assetId, cuts, summary)` — submit your editorial cuts as source-time spans (seconds). Each cut needs `start`, `end`, a `category` (`retake` | `false_start` | `filler` | `fluff`), and a short `note` saying why it goes and which take wins. The spans you send are snapped to the real audio automatically (lead-in pads, decay tails measured from the RMS envelope), so place boundaries on word bounds from the transcript and do not try to add padding yourself.',
-      '- `generate_tsx_shot(kind, brief, ...)` — generate ONE shot through the TSX pipeline (a minute or more per shot; up to 10 per pass). Anchor it to a transcript span to bake word-synced timings into the shot; titles require an anchor.',
+      '- `generate_tsx_shot(kind, brief, ...)` — generate ONE shot through the TSX pipeline (a minute or more per shot; up to 10 per pass). Anchor it to a transcript span to bake word-synced timings into the shot; titles require an anchor. Pass real media INTO the shot via `assetRefs` (key → project asset id or a `library:<path>` ref) — the shot renders them with <Img>/<OffthreadVideo>.',
       '- `propose_shots(items, summary)` — after generating, submit ALL of this pass\'s shots as one shot-plan proposal for the user\'s review.',
+      '- `generate_image(prompt, folder?, aspect?)` — make an image with the user\'s configured image provider, filed into the asset library (brand-tagged, prompt saved as its description). Use it to create logos-adjacent art, illustrations, and backgrounds for shots, then reference the returned `library:<path>` in `assetRefs`.',
+      '- `capture_webpage(url, viewport?, fullPage?, visible?)` — screenshot a webpage into the asset library; the screenshot material for product/dashboard shots. Pass `visible: true` ONLY for login-walled pages — the user logs in and clicks Capture themselves (may take minutes; tell them what to do first).',
       '',
       'Workflow for an editorial (cuts) pass:',
       '1. Call `get_transcript` for the asset the user wants edited (transcribed assets only).',

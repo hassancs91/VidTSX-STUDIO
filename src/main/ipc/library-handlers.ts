@@ -8,6 +8,8 @@ import type {
   LibraryBrandSaveRequest,
   LibraryBrandSaveResponse,
   LibraryBrandsGetResponse,
+  LibraryCaptureTriggerRequest,
+  LibraryCaptureTriggerResponse,
   LibraryDescriptionSetRequest,
   LibraryDescriptionSetResponse,
   LibraryIndexGetResponse,
@@ -16,6 +18,7 @@ import type {
   LibraryRootSetResponse,
   LibrarySizesGetResponse,
 } from '@shared/ipc/types';
+import { triggerVisibleCapture } from '../services/library/capture';
 import { getDefaultBrandId, setDefaultBrandId } from '../services/library/brand-default';
 import {
   createBrand,
@@ -173,6 +176,25 @@ export async function handleLibraryRootSet(
     }
     setLibraryRootOverride(data.root);
     return { success: true, root: await ensureLibraryRoot() };
+  } catch (err) {
+    return { success: false, error: errorMessage(err) };
+  }
+}
+
+/**
+ * library:capture:trigger — the visible-capture chip's buttons. Resolves the
+ * waiting capture in services/library/capture.ts; false when nothing waits
+ * (the window was closed or the capture already finished).
+ */
+export async function handleLibraryCaptureTrigger(
+  _event: Electron.IpcMainInvokeEvent,
+  data: LibraryCaptureTriggerRequest
+): Promise<LibraryCaptureTriggerResponse> {
+  try {
+    if (!triggerVisibleCapture(data.action)) {
+      return { success: false, error: 'No visible capture is waiting' };
+    }
+    return { success: true };
   } catch (err) {
     return { success: false, error: errorMessage(err) };
   }

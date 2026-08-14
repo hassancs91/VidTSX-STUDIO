@@ -60,3 +60,21 @@ describe('normalizeShots', () => {
     expect(result).toEqual([good]);
   });
 });
+
+describe('normalizeShots assetRefs hygiene (D12)', () => {
+  it('keeps a valid string→string assetRefs map', () => {
+    const withRefs = shot({ assetRefs: { logo: 'asset-1', demo: 'asset-2' } });
+    expect(normalizeShots([withRefs])).toEqual([withRefs]);
+  });
+
+  it('strips a malformed assetRefs map whole, keeping the shot', () => {
+    const bad = [
+      shot({ assetRefs: { logo: 42 } as unknown as Record<string, string> }),
+      shot({ id: 'shot-b', assetRefs: ['x'] as unknown as Record<string, string> }),
+      shot({ id: 'shot-c', assetRefs: 'nope' as unknown as Record<string, string> }),
+    ];
+    const result = normalizeShots(bad);
+    expect(result).toHaveLength(3);
+    for (const s of result) expect(s.assetRefs).toBeUndefined();
+  });
+});

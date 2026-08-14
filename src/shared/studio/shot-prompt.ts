@@ -8,6 +8,18 @@ import type { StudioShotKind } from '../types/studio';
 import type { StudioBrand } from '../types/asset-library';
 import { formatWordsBlock, type ShotAnchorWord } from './shot-words';
 
+/** One row of the asset table the model designs against (D12) — everything it
+ *  may know about a ref except the URL, which only exists at render time. */
+export interface ShotPromptAsset {
+  /** The `assets.<key>` name the generated code must use. */
+  key: string;
+  kind: 'video' | 'image';
+  width?: number;
+  height?: number;
+  durationSeconds?: number;
+  description?: string;
+}
+
 export interface ShotPromptInput {
   kind: StudioShotKind;
   /** Timeline settings the shot must match. */
@@ -19,6 +31,8 @@ export interface ShotPromptInput {
   words?: ShotAnchorWord[];
   /** The project's active brand (D11) — injected as a mandatory style contract. */
   brand?: StudioBrand;
+  /** Media provided to the component via the `assets` prop (D12). */
+  assets?: ShotPromptAsset[];
 }
 
 const BACKGROUND_RULE: Record<StudioShotKind, string> = {
@@ -61,6 +75,10 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
     lines.push('', ...buildBrandLines(input.brand, input.kind));
   }
 
+  if (input.assets && input.assets.length > 0) {
+    lines.push('', ...buildAssetLines(input.assets));
+  }
+
   if (input.words && input.words.length > 0) {
     lines.push(
       '',
@@ -82,8 +100,42 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
  * family strings (the shot import lint is react+remotion only, so
  * @remotion/google-fonts is NOT available inside shots — a Google font not
  * installed on the machine falls back down the stack), style notes verbatim.
- * Logo files exist in the library but cannot be embedded until D12 assetRefs.
+ * Logo files ride the D12 assets channel above, not the brand block.
  */
+/**
+ * The media contract (D12): the component gets its files through a single
+ * `assets` prop — URLs minted per environment by the serializer — so the
+ * generated code must never contain a path, URL, or staticFile() call.
+ */
+function buildAssetLines(assets: ShotPromptAsset[]): string[] {
+  const describe = (a: ShotPromptAsset): string => {
+    const dims = a.width && a.height ? `, ${a.width}×${a.height}` : '';
+    const dur = a.durationSeconds !== undefined ? `, ${a.durationSeconds.toFixed(1)} s` : '';
+    const desc = a.description ? ` — ${a.description}` : '';
+    return `- \`assets.${a.key}\` (${a.kind}${dims}${dur})${desc}`;
+  };
+  return [
+    '## Media assets (MANDATORY usage)',
+    '',
+    'The component receives real media files through a single `assets` prop — a map of key → URL, provided at render time. Type the component exactly like this and default-export it:',
+    '',
+    '```tsx',
+    'const Shot: React.FC<{ assets: Record<string, string> }> = ({ assets }) => {',
+    '  // ...',
+    '};',
+    'export default Shot;',
+    '```',
+    '',
+    'Available assets (design the shot around them — use each one unless the brief says otherwise):',
+    '',
+    ...assets.map(describe),
+    '',
+    `- Render images with <Img src={assets.key}> and videos with <OffthreadVideo src={assets.key}> (both imported from 'remotion').`,
+    '- NEVER hardcode a file path, http/data URL, or staticFile() call — the URL differs between preview and export; only the `assets` prop values are correct.',
+    '- Only the keys listed above exist. Do not invent others.',
+  ];
+}
+
 function buildBrandLines(brand: StudioBrand, kind: StudioShotKind): string[] {
   const p = brand.palette;
   const fontStack = (family: string): string =>

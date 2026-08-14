@@ -41,6 +41,7 @@ import {
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-jobs/chat-store';
 import { readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
+import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
 import { loadProject } from './project-store';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
@@ -63,6 +64,9 @@ export interface GenerateShotRequest {
   brief: string;
   name?: string;
   anchor?: ShotAnchor;
+  /** Media inside the shot (D12): key → project asset id or 'library:<relPath>'.
+   *  Library values are imported on use; the registry stores project ids. */
+  assetRefs?: Record<string, string>;
   durationSeconds?: number;
   providerId?: string;
   origin: StudioClipOrigin;
@@ -194,6 +198,14 @@ class ShotGeneratorService {
 
     const words = req.anchor ? await this.bakeAnchorWords(req.projectId, req.anchor) : undefined;
 
+    // D12: resolve asset refs BEFORE reserving the folder — a bad ref (unknown
+    // id, missing library file, audio) fails fast with a pointed error and
+    // never leaves a half-born shot. Library refs import on use here.
+    let resolvedRefs: ResolvedShotAssetRefs | undefined;
+    if (req.assetRefs && Object.keys(req.assetRefs).length > 0) {
+      resolvedRefs = await resolveShotAssetRefs(project, req.assetRefs);
+    }
+
     // D11: the project's active brand rides every generate/regenerate as a
     // mandatory style contract — read from project.json like width/height/fps,
     // so the agent tool and the pool button both get it with no plumbing. A
@@ -234,6 +246,7 @@ class ShotGeneratorService {
       activeVersion: 1,
       status: 'generating',
       ...(req.anchor ? { anchor: req.anchor } : {}),
+      ...(resolvedRefs ? { assetRefs: resolvedRefs.refs } : {}),
       prompt: req.brief,
       origin: req.origin,
     };
@@ -245,6 +258,11 @@ class ShotGeneratorService {
       percent: 0,
       message: 'Starting…',
       shot: provisional,
+      // Library files imported on use ride the FIRST event so the renderer
+      // adopts them into project.assets before the shot could ever serialize.
+      ...(resolvedRefs && resolvedRefs.imported.length > 0
+        ? { importedAssets: resolvedRefs.imported }
+        : {}),
     });
 
     await this.acquireSlot();
@@ -265,6 +283,7 @@ class ShotGeneratorService {
               durationSeconds,
               ...(words ? { words } : {}),
               ...(brand ? { brand } : {}),
+              ...(resolvedRefs ? { assets: resolvedRefs.promptAssets } : {}),
             }),
           },
           mode: '2d',

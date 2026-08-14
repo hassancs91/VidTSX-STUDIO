@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch } from 'react';
 import type { StudioShotJobEvent } from '@shared/ipc/types';
-import type { StudioShot } from '../types';
+import type { StudioMediaAsset, StudioShot } from '../types';
 import type { TimelineAction } from './useTimeline';
 
 export interface ShotJobProgress {
@@ -26,6 +26,9 @@ interface Options {
   /** A generate/regenerate run finished — pool inserts hook in here. */
   onReady?: (shot: StudioShot, op: StudioShotJobEvent['op']) => void;
   onError?: (message: string) => void;
+  /** Library assets imported on use (D12) — the document owner merges them
+   *  into project.assets, keyed by id so re-delivery is harmless. */
+  onImportedAssets?: (assets: StudioMediaAsset[]) => void;
 }
 
 /** Existing entry updated in place, or the event's snapshot appended. */
@@ -48,13 +51,24 @@ function foldShot(shots: StudioShot[], event: StudioShotJobEvent): StudioShot[] 
           status: incoming.status,
           activeVersion: incoming.activeVersion,
           ...(incoming.config ? { config: incoming.config } : {}),
+          ...(incoming.assetRefs ? { assetRefs: incoming.assetRefs } : {}),
           ...(incoming.error !== undefined ? { error: incoming.error } : {}),
         };
   if (event.op !== 'edit' && incoming.error === undefined) delete merged.error;
+  // Generate/regenerate snapshots are built fresh from the request — absent
+  // assetRefs means the new version uses none (same rule as `error` above).
+  if (event.op !== 'edit' && incoming.assetRefs === undefined) delete merged.assetRefs;
   return shots.map((s, i) => (i === index ? merged : s));
 }
 
-export function useShotJobs({ projectId, shots, dispatch, onReady, onError }: Options) {
+export function useShotJobs({
+  projectId,
+  shots,
+  dispatch,
+  onReady,
+  onError,
+  onImportedAssets,
+}: Options) {
   const [progress, setProgress] = useState<Map<string, ShotJobProgress>>(new Map());
 
   const shotsRef = useRef(shots);
@@ -63,10 +77,18 @@ export function useShotJobs({ projectId, shots, dispatch, onReady, onError }: Op
   onReadyRef.current = onReady;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onImportedAssetsRef = useRef(onImportedAssets);
+  onImportedAssetsRef.current = onImportedAssets;
 
   useEffect(() => {
     return window.api.onStudioShotJobEvent((event) => {
       if (event.projectId !== projectId) return;
+
+      // Adopt imported assets FIRST — the shot snapshot on this same event
+      // already carries assetRefs pointing at their ids.
+      if (event.importedAssets && event.importedAssets.length > 0) {
+        onImportedAssetsRef.current?.(event.importedAssets);
+      }
 
       setProgress((prev) => {
         const next = new Map(prev);
