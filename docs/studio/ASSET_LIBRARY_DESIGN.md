@@ -9,6 +9,13 @@
 > navigates** — the better the user (and the AI) organizes it, the better
 > the agent picks and generates. Descriptions and structure are not
 > cosmetics; they are generation quality.
+>
+> **Rev 2 — 2026-08-14, after the adversarial grill.** L7's relink claim
+> corrected (silent relink-by-hash is NEW v1 scope — today's relink is a
+> manual picker that merely hash-verifies); the hash algorithm is pinned to
+> the shared `hashFileHead`; organize skips assets the open project
+> references; a deletion policy is added; capture hardened (tall-window
+> single capture, permission denies); auto-describe gets a consent note.
 
 ## What this builds on
 
@@ -36,7 +43,11 @@
   ```ts
   interface LibraryIndexEntry {
     relPath: string;            // key; POSIX separators
-    hash: string;               // content hash — identity across moves
+    hash: string;               // Rev 2: hashFileHead — sha1 of first
+                                // 1 MiB + size (media-import.ts:104).
+                                // MUST be the same algorithm projects use,
+                                // or library↔project matching (L7) can
+                                // never work.
     description?: string;       // the human/AI-authored signal (L2)
     brandId?: string;           // optional brand tag (L3)
     origin: 'imported' | 'generated' | 'captured';
@@ -52,6 +63,12 @@
   states).
 - Type is derived (extension + probe), not stored user-side; `kind`
   video/audio/image follows the existing asset-kind rules.
+- *(Rev 2)* **Deleting a library asset**: v1 has no cross-project `used_in`
+  tracking (ledgered), so delete warns generically ("projects using this
+  file will show it as missing"), keeps the index entry as a tombstone, and
+  affected projects fall back to the missing-asset placeholder + relink
+  path. Deleting the file is always the user's explicit call, never the
+  AI's — organize proposes *moves* only.
 
 **Recommendation:** as drawn. Managed content (`generated`, `captured`) is
 *born* inside the library; imported footage for a specific edit keeps living
@@ -72,6 +89,8 @@ transparent, use on dark backgrounds"* beats any filename.
   one vision call per asset, per-item progress via the media-job event
   pattern, results land as editable descriptions. Failures per-item, never
   batch-fatal.
+- *(Rev 2)* First AI describe (auto or batch) shows a one-time consent
+  note — describing sends the image to the configured cloud provider.
 - Generated assets get their generation prompt as the initial description
   (free and accurate); captures get page title + URL (L6).
 
@@ -141,7 +160,9 @@ any project document, progress as events.
 
   Default `brandScope`: active brand + unbranded when the project has a
   brand; `'any'` on request. Also searches the open project's own assets
-  (footage) — one tool, two scopes, clearly labeled in the output.
+  (footage) — one tool, two scopes, clearly labeled in the output. *(Rev 2:
+  `StudioAgentAssetInfo` gains `description` so project footage rows carry
+  their captions too.)*
 - **`generate_image({ prompt, folder?, aspect? })`** — wraps `imageEngine`
   (BYOK, same provider config as the app's image features). Files into the
   given folder or `generated/`; auto-tags active brand; prompt becomes the
@@ -163,10 +184,14 @@ separate v2 feature.
 - **Capture service** (`src/main/services/library/capture.ts`): hardened
   hidden window — `sandbox: true`, isolated non-persistent session, no
   privileged preload, external navigation confined — it renders arbitrary
-  web content and gets browser-level trust only. Viewport presets (16:9,
-  portrait, device widths), `deviceScaleFactor: 2` for crisp shot material,
-  full-page via scroll-and-stitch, network-idle + settle-delay heuristics
-  before the shot.
+  web content and gets browser-level trust only. *(Rev 2)* The window also
+  **denies all permission requests** (camera/mic/geolocation/notifications)
+  and `window.open` (`setWindowOpenHandler` → deny). Viewport presets
+  (16:9, portrait, device widths), `deviceScaleFactor: 2` for crisp shot
+  material, network-idle + settle-delay heuristics before the shot.
+  *(Rev 2)* Full-page = a **tall window sized to content height** (capped
+  ~8000 px) captured in one shot; scroll-and-stitch only as the over-cap
+  fallback — stitching duplicates sticky headers and fixed elements.
 - **Auth-walled pages**: **visible capture mode** — the window opens
   visibly, the user logs in and navigates, then hits Capture. No credential
   handling on our side, covers dashboards/account pages.
@@ -186,11 +211,17 @@ but its material pipeline ships now.
   screenshots/ (currently in logos/)"* — presented as a reviewable list with
   per-item accept/reject, then applied as real disk moves + index re-key.
   Bulk file changes get the same gate as bulk timeline changes.
-- **The move-safety rule that makes this OK**: projects reference library
-  assets by path, so moves could orphan them — except relink-by-hash
-  already exists for missing assets. **The library is the first place
-  relink searches**; a project opening with a stale path heals silently by
-  hash. This rule is load-bearing for the whole feature.
+- *(Rev 2 — grill correction)* **The move-safety rule is NEW scope, not
+  reuse.** Today's relink is a manual file-picker that merely hash-verifies
+  the user's pick (`studio-handlers.ts:237`); no code searches anywhere.
+  What v1 must build: on project open, a missing asset first triggers a
+  silent **library hash-search** (same `hashFileHead` algorithm — L1) and
+  heals the path automatically; the picker stays as the fallback. And
+  because organize can run while a project is open (relink-on-open never
+  fires mid-session), **organize skips assets the currently-open project
+  references** — labeled "in use, close the project to move"; they move
+  cleanly later and heal on next open. This rule is load-bearing for the
+  whole feature, and it is real work, budgeted as such.
 - Ambient nudges ("3 assets look misfiled") → v2; v1 is user-triggered only.
 
 **Recommendation:** ship organize in v1 — it is the feature that makes
@@ -240,12 +271,16 @@ The library never appears in `project.json` — the import-on-use seam
 4. **L5** — `search_assets` defaults to active-brand + unbranded scope;
    `generate_image` and `capture_webpage` file-and-tag automatically with
    no proposal of their own: **OK?**
-5. **L6** — capture via hidden Electron window (sandboxed, scale 2,
-   full-page stitch) + visible mode for logged-in pages; web only in v1:
-   **OK?**
-6. **L7** — AI organize ships in v1 behind the review gate, with
-   library-first relink-by-hash as the safety rule: **OK?**
+5. **L6 (Rev 2)** — capture via hidden Electron window (sandboxed,
+   permission-denying, scale 2, tall-window single capture with stitch
+   fallback) + visible mode for logged-in pages; web only in v1: **OK?**
+6. **L7 (Rev 2)** — AI organize ships in v1 behind the review gate; the
+   library hash-search relink is built as **new v1 scope** (shared
+   `hashFileHead` algorithm), and organize skips assets referenced by the
+   currently-open project: **OK?**
 7. **L8** — v1 library UI lives as a tab inside the Studio media pool
    (standalone screen later): **OK?**
-8. **Implementation order** — library core → shots core → brands + capture
+8. **Implementation order (Rev 2)** — **Spike 0 first** (packaged-preview
+   import test, shots doc D4) since it alone can invalidate an
+   architectural choice; then library core → shots core → brands + capture
    + AI curation (each slice independently testable): **OK?**

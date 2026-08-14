@@ -11,6 +11,17 @@
 > shots) added. Library / brand storage / capture internals live in the
 > companion `ASSET_LIBRARY_DESIGN.md`; everything parked for later is
 > ledgered in `V2_FEATURES.md`.
+>
+> **Rev 3 — 2026-08-14, after the adversarial grill (self-review + blind
+> code-review agent).** Fixes applied: D4 re-founded on **Spike 0** (the
+> cited in-renderer precedent turned out to be dead code) with
+> bake-to-proxy the named fallback; tsx clips gain `sourceIn`/frame-offset
+> semantics (fixes split-restart + crossfade desync); shot proposal items
+> are source-anchored (a frozen `timelineStart` was stale-by-design, and
+> main has no timeline to map with); reject keeps files; one open proposal
+> across ALL kinds; export pre-flight copies + font-normalizes shot
+> sources; the shots↔undo integration is enumerated. Library-side grill
+> fixes are in `ASSET_LIBRARY_DESIGN.md` Rev 2.
 
 ## What already exists (the design builds on, not around, these)
 
@@ -20,7 +31,9 @@
   `case 'tsx'` as `null` today, and `serialize.ts:187` already exempts tsx
   clips from the "must resolve a src" drop. **No shipping document contains a
   tsx clip yet** — nothing creates them — so reshaping `StudioClipTsx` is safe
-  without a schema-version bump (noted per decision below).
+  without a schema-version bump (noted per decision below). *(Rev 3)* This
+  window closes the moment any S4 build writes a tsx clip to a real project:
+  the reshape lands in the FIRST S4 commit, before any such build exists.
 - **Generation pipeline**: `generateTsxPipeline` / `editTsxPipeline`
   (`src/shared/tsx-engine/tsx-generation-service.ts:256/:447`) are
   process-agnostic via `TsxEngineDeps { llmGenerate, tsxValidate }` — main can
@@ -41,10 +54,13 @@
 - **Preview execution machinery** (Creator): esbuild transpile in main
   (`tsx-transpiler.ts`), import-rewrite to the module server's virtual
   modules so user code shares the app's one React/Remotion instance, dynamic
-  `import()` of the served ESM. Two consumers exist: the isolated `<webview>`
-  (`IsolatedPreview`) and the **in-renderer** variant
-  (`useComponentLoader.ts` + `setupVirtualModuleGlobals()`), which is the one
-  Studio needs — a webview cannot composite inside the timeline Player.
+  `import()` of the served ESM. *(Rev 3 correction)* Only the isolated
+  `<webview>` consumer (`IsolatedPreview`) is actually exercised today; the
+  in-renderer path (`useComponentLoader.lazyComponent` +
+  `setupVirtualModuleGlobals()`) is assembled but has **no live consumer** —
+  its one user (`VideoPlayer.tsx`) is a deprecated stub. Studio needs the
+  in-renderer shape (a webview cannot composite inside the timeline
+  Player), so it must be *proven*, not assumed — Spike 0 in D4.
 - **Agent layer**: in-process MCP tools (`studio-agent.ts`), the
   `propose_cuts` pattern (main never writes the document; proposals travel as
   events, the renderer reducer owns apply), `formatTakesView` transcript
@@ -198,9 +214,24 @@ getting shot code into it:
   Components aren't data; eval in the composition would run in the render's
   headless Chrome too.
 
-**Recommendation: A**, with B kept in the back pocket as a *per-shot* "bake
-for preview" performance escape hatch *(v2)* if a heavy shot (3D) ever drags
-scrubbing — the S2 evidence rule applies (only with measurements).
+**Recommendation: A, gated on Spike 0** *(Rev 3)*. The grill showed Option
+A's "existing precedent" is dead code, and production adds two untested
+conditions: the packaged renderer loads over `file://` with
+`webSecurity: true` (`src/main/index.ts:83` disables it only in dev,
+explicitly *for* the module server), so a shot import is a cross-origin
+module `import()` from a `file://` page. CORS `*` is already set on the
+module server, so it plausibly works — but nothing has ever run it.
+
+**Spike 0 — runs FIRST, before any other S4 work**: in a **packaged
+build**, dynamic-import a transpiled module from the module server into the
+app renderer, mount it inside an in-app `<Player>`, and verify
+`useCurrentFrame()` tracks the host Player (shared React/Remotion instances
+across the boundary). Pass → Option A as designed. Fail → **Option B is the
+named fallback** (bake shots to transparent proxy video for preview; export
+stays live TSX), promoted from v2 escape hatch to contingency — D5's
+component-map contract survives either way; only the preview supplier
+changes. Per-shot bake as a *performance* aid for heavy shots remains v2,
+evidence-gated (the S2 rule).
 
 Mechanics: a new `STUDIO_SHOT_MODULE` IPC (`{ projectId, shotId }` →
 `{ moduleUrl, config } | error`) keeps path authority in main (renderer never
@@ -229,12 +260,22 @@ TimelineCompositionProps += components?: Record<string, React.ComponentType>
 ```
 
 - `ClipRenderer` `case 'tsx'`: look up `components[clip.tsx.shotId]`; render
-  inside the existing transform/opacity styling so `transform`, fades, and
-  **transitions already work on shots for free** — tsx is not in
-  `MEDIA_KINDS`, so crossfade handles are already unlimited
-  (`serialize.ts:79`). Missing component → `null` (the preview supplier
-  substitutes a placeholder component instead, so the shared composition
-  stays dumb).
+  inside the existing transform/opacity styling so `transform` and fades
+  compose exactly as for media. Missing component → `null` (the preview
+  supplier substitutes a placeholder component instead, so the shared
+  composition stays dumb).
+- *(Rev 3)* **tsx clips get real `sourceIn` semantics.** Shot clips are
+  created with `sourceIn: 0`; the serializer emits `trimBefore` for them
+  like any media clip; `ClipRenderer` applies it as a frame offset (a
+  nested `<Sequence from={-trimBefore}>` around the component). One
+  mechanism fixes two grill findings: **split** now yields a right half
+  that *continues* the animation (split already advances a defined
+  `sourceIn`, `timeline-ops.ts:186`; undefined meant restart-from-zero),
+  and a **crossfade into** a shot stays content-aligned (the serializer's
+  `trimBefore` compensation at `serialize.ts:199` now applies, so baked
+  word timings no longer shift earlier by the extension). Transitions on
+  shots remain unlimited-handle (`MEDIA_KINDS` excludes tsx) — but not
+  "for free" as Rev 1 claimed: this offset is the price, paid once.
 - *(Rev 2)* Shots that use media declare `assetRefs: Record<key, assetId>` on
   the shot (D12); the serializer resolves each ref through the **same
   `AssetUrlResolver` machinery as clip `src`** (module server in preview,
@@ -256,23 +297,34 @@ geometry changes.
 
 Extend `createExportEntry` (`export-entry.ts`): for each `ready` shot
 referenced by the serialized timeline, emit a static import of its active
-version (POSIX-normalized absolute path) and pass the map:
+version and pass the map:
 
 ```tsx
-import Shot_a1b2 from 'C:/Users/.../projects/slug/shots/a1b2/v2.tsx';
+// Rev 3: imports point at normalized COPIES in the entry's temp dir,
+// written by the export pre-flight (fonts rewritten, casing canonical).
+import Shot_a1b2 from './shot-a1b2-v2.tsx';
 const SHOT_COMPONENTS = { 'a1b2': Shot_a1b2 };
 <TimelineComposition timeline={TIMELINE} components={SHOT_COMPONENTS} />
 ```
 
-- webpack compiles the shot files like any TSX; `react`/`remotion` resolve via
-  the `node_modules` patch already in `bundle-worker.ts:44`. **Verify at
-  implementation** that the bundler's TSX rule applies to files outside the
-  app path (it tests by extension, but this is the one assumption worth a
-  spike before committing to the entry shape).
-- Export-prepare gains a pre-flight: every referenced shot re-validated with
-  `validateTsxCode`; a failing shot blocks export with a pointed message
-  (cheaper and clearer than letting webpack fail mid-bundle, though
-  `formatBundleError` remains the backstop for resolve errors).
+- webpack compiles the shot copies like any TSX; `react`/`remotion` resolve
+  via the `node_modules` patch already in `bundle-worker.ts:44`. *(Rev 3 —
+  spike resolved, then superseded)* Verified against `@remotion/bundler`'s
+  shipped webpack config: the `\.tsx?$` rule has **no include/exclude** — it
+  compiles by extension anywhere on disk, so out-of-app-path imports would
+  work directly. We copy anyway (next bullet), which also sidesteps the
+  case-sensitive-paths plugin and any network-drive quirks.
+- *(Rev 3)* Export-prepare's pre-flight **normalizes and copies** each
+  referenced shot source into the entry's temp dir; the entry imports the
+  copies. The same `rewriteFontUrls` pass the preview transpiler applies
+  per served file runs here — without it, brand Google-Fonts load through
+  the local proxy in preview but hit gstatic.com from headless Chrome at
+  export (divergent output; hard failure offline), because the wrapper only
+  ever normalizes the *entry* file (`composition-wrapper.ts:258`). Copying
+  is safe because shots are single-file by lint (no relative imports). The
+  pre-flight also re-validates each shot with `validateTsxCode` and blocks
+  export with a pointed message on failure (`formatBundleError` remains the
+  backstop for anything that slips through).
 - **Import surface (the preview/render gap)**: preview can pull any package
   from esm.sh; the render bundle only resolves what's installed. v1 shots are
   therefore restricted to `react` + `remotion` (+ nothing else): the skill
@@ -313,10 +365,18 @@ Word timings stay baked — two different problems, two mechanisms.
 
 Placement + drift rules (documented behavior):
 
-- The tool proposes `timelineStart` by mapping `anchor.sourceStart` through
-  the current timeline (`mapCutItemToTimeline` machinery in
-  `cut-proposal.ts:138`); the clip's duration defaults to the shot's
-  `config` duration.
+- *(Rev 3)* Placement is **source-anchored, renderer-mapped**: proposal
+  items carry the anchor (`assetId` + `sourceStart` — fields
+  `StudioProposalItem` already has) and the *renderer* maps them to a
+  timeline position at review and again at apply, via the existing
+  `mapCutItemToTimeline` (`cut-proposal.ts:138`) — the cut-proposal
+  discipline, which is exactly what keeps items honest while the user keeps
+  editing during a two-pipeline-lengths bulk pass. (A frozen
+  `timelineStart` was doubly wrong: stale after any ripple, and main —
+  whose `StudioAgentSendRequest` carries no timeline — could never have
+  computed it.) Unanchored shots fall back to a stored `timelineStart`,
+  re-anchored to the playhead at apply if the spot is taken. Clip duration
+  defaults to the shot's `config` duration.
 - Moving the clip keeps internal sync (timings are shot-local). Ripple edits
   move the shot clip with its lane like any clip.
 - Cutting the master *underneath* the shot's span desyncs the inner word
@@ -347,6 +407,12 @@ by kind, + shot-local word table from the transcript when anchored), run
 tsxValidate: validateTsxCode }`, `featureSource: 'studio-tsx-shot'`,
 `sessionScope: 'studio:tsx-shot:<uuid>'`; write `v1.tsx` + sidecar; emit
 progress as agent `tool` events (the pipeline's `onProgress` maps cleanly).
+*(Rev 3)* The acceptance gate is three checks: esbuild transpile, the
+import/single-file lint (react + remotion only, **no relative imports** —
+what makes export's copy step safe), and a `compositionConfig` **parse**
+check — `parseCompositionConfig` silently falls back to 300 frames / 30 fps
+on any non-literal value, so an unparsed config must be a fix-loop error,
+never a silent default.
 The nested-LLM-inside-a-tool-call shape is fine — `runLlmGenerate` is
 re-entrant and `propose_cuts` already does main-side compute in a tool.
 
@@ -383,7 +449,9 @@ cleaner but retypes proposal-ops and the review UI for no v1 gain):
 ```ts
 StudioProposalItem += {
   shotId?: string;
-  timelineStart?: number;   // proposed placement, timeline seconds
+  // Placement is source-anchored: assetId/sourceStart already exist on the
+  // item; the RENDERER maps them to timeline coords at review/apply (D7).
+  timelineStart?: number;   // fallback for UNANCHORED shots only (Rev 3)
   duration?: number;
   mode?: 'cutaway' | 'overlay';
 }
@@ -394,15 +462,27 @@ Apply = insert tsx clips (+ create the overlay track if needed) with
 existing `proposal-apply` path (which needs its `kind === 'cut-plan'` filters
 in `useTimeline.activeProposal` and the review components generalized — a
 `ReviewShotsSection` sibling of `ReviewCutsSection`, with scratch-apply
-preview exactly like cuts audition today). Reject = shot files deleted, shot
-removed from the registry (it was agent-authored; chat can redo it). The
-agent's single-proposal-per-run guard carries over.
+preview exactly like cuts audition today). *(Rev 3)* Reject = close the
+proposal and drop the registry entry — **files stay on disk**. Reject is an
+undoable reducer action; deleting files under it would make undo restore an
+entry pointing at nothing. This is the D9 rule applied uniformly: no file
+deletion on any undoable action (folder-as-truth already ignores
+unreferenced folders). The single-proposal guard carries over and *(Rev 3)*
+becomes **kind-agnostic**: today `activeProposal` filters
+`kind === 'cut-plan'` (`useTimeline.ts:450`), so a live shots review would
+not stop the agent opening a cut plan on top of it — two open reviews, one
+scratch-applied to the preview, is a state nothing defines. Rule: **one
+open proposal at a time, across all kinds** (`reviewOpen` counts any), and
+`handleAgentProposal`'s unconditional `selectCut(items[0])` branches by
+proposal kind.
 
 **Direct user entry** *(kept, small)*: a "Generate shot" action in the media
 pool / inspector drives the same main-side service over a
 `STUDIO_SHOT_GENERATE` IPC + a `StudioShotJobEvent` push channel (the
-transcript/proxy job-event pattern), and inserts the clip directly
-(user-initiated, undoable, no proposal) — "buttons and chat converge". The
+transcript/proxy job-event pattern), and inserts the clip directly —
+*(Rev 3)* the playhead position is recorded at click time and the clip
+lands there (first free span on the target lane) when generation completes,
+selected, as one undoable step — "buttons and chat converge". The
 Creator's `tsx-job-engine` is not reused: its statuses/channels are
 Creator-UI-shaped, and shots don't need its persistence/queue for v1.
 
@@ -410,9 +490,13 @@ Creator-UI-shaped, and shots don't need its persistence/queue for v1.
 ported `make-tsx` design policy — composition craft, pacing, the required
 `export const compositionConfig` (literal values only — the parser does not
 evaluate expressions), background rules per kind (cutaway: opaque fill;
-overlay/title: fully transparent), the react/remotion-only import rule, the
-marked `WORDS`/timing-constants block, and *when* to reach for the tool (word
-tables in the takes-view markup it already reads via `get_transcript`).
+overlay/title: fully transparent), the react/remotion-only + single-file
+import rule, the marked `WORDS`/timing-constants block, *(Rev 3)* all
+timing math in **seconds × fps via `useVideoConfig()`** (a literal
+`compositionConfig` is still required, but the animation must survive an
+fps change — never hardcode frame counts), and *when* to reach for the tool
+(word tables in the takes-view markup it already reads via
+`get_transcript`).
 Policy in the skill, contract in the tool schema — the `studio-clean-cut`
 split, kept.
 
@@ -446,6 +530,22 @@ main-side `shot-generator.ts` service.
   'error'`, clips render the placeholder, inspector offers regenerate —
   mirrors missing-media handling; nothing crashes, nothing is silently
   dropped from the document.
+- *(Rev 3)* **Document/undo integration, enumerated** — the grill showed
+  "one field bump" undersold it. `EditDoc` grows `shots`, which touches
+  every hand-built literal in the reducer: `commit()`'s identity
+  short-circuit (`useTimeline.ts:137` — a shots-only change would otherwise
+  be swallowed), the `proposal-apply` case's `{ timeline, proposals }`
+  literal (which as-written would *drop* the field), `reset`, `EMPTY_DOC`,
+  and the write-back effect's guard + write. And **generation completing is
+  not a committed action**: a background `shot-add`/status flip enters
+  through a non-committing path (like `reset` — no history entry), so a
+  finishing shot never wipes the user's redo stack or plants an undo step
+  they didn't perform. Undoable shot ops are exactly the user-meaningful
+  ones: `shot-set-version`, delete-with-clips, and the proposal actions.
+- *(Rev 3)* **Reconcile on open**: scan `shots/` against the registry —
+  entries stuck `generating` (crash mid-run) flip to `error`; folders with
+  no registry entry are ignored (the same folder-as-truth stance versions
+  already take).
 
 **Recommendation:** as above — the invariant is that clips reference an id
 that the document always resolves *somehow* (ready / error / placeholder),
@@ -460,9 +560,10 @@ never a dangling file path.
   picker (folder-scanned), edit-instruction box (→ edit job), Regenerate,
   "resize to shot length" when mismatched.
 - **Timeline**: tsx clips get a distinct tint + kind glyph; otherwise they
-  are ordinary clips (move/trim/split/transitions all already work — split of
-  a baked-timing shot yields two windows into the same animation, which is
-  correct and cheap).
+  are ordinary clips — move/trim as-is; *(Rev 3)* split and crossfades stay
+  content-aligned via the tsx `sourceIn`/frame-offset semantics (D5;
+  without them, the right half of a split would restart the animation from
+  frame 0 — the Rev 1 "works for free" claim was wrong).
 - **Review**: `ReviewShotsSection` with per-item accept/reject + "Preview
   shot" audition (scratch-apply + park, the cuts pattern).
 
@@ -549,19 +650,22 @@ templates/library.
    playing underneath), never displace the master track: **OK?**
 3. **Title (D2)** — a skill category of overlay (text-first + word-synced),
    not a third schema mode: **OK?**
-4. **Preview (D4)** — live in-renderer modules (shared React/Remotion
-   instances, error-boundary + placeholder containment), accepting that a
-   pathological infinite loop in shot code can hang the editor; bake-to-proxy
-   only as a measured v2 escape hatch: **OK?**
+4. **Preview (D4, Rev 3)** — Option A gated on **Spike 0** (packaged-build
+   cross-origin module import into an in-app Player), run before any other
+   S4 work; bake-to-proxy is the named fallback if it fails; error-boundary
+   + placeholder containment; accepted: a pathological infinite loop in
+   shot code can hang the editor: **OK?**
 5. **Import surface (D6)** — v1 shots may import `react` + `remotion` only,
    enforced by tool-side lint (three/R3F deferred): **OK, or include the
    three stack now?**
 6. **Word sync (D7)** — baked shot-local timings + recorded anchor
    (regenerate re-bakes); props-driven sync deferred to S5-adjacent work:
    **OK?**
-7. **Proposal flow (D8)** — generate-then-propose so review can preview;
-   rejected shots are deleted; direct pool-button generation inserts without
-   a proposal: **OK?**
+7. **Proposal flow (D8, Rev 3)** — generate-then-propose so review can
+   preview; rejected shots keep their files (registry entry removed — no
+   file deletion on any undoable action); **one open proposal at a time
+   across all kinds**; direct pool-button generation inserts at the
+   recorded playhead without a proposal: **OK?**
 8. **Proposal item shape (D8)** — extend `StudioProposalItem` with optional
    shot fields (no discriminated union yet): **OK?**
 9. **Versioning (D9)** — per-shot `activeVersion` (no per-clip pin); on
@@ -578,3 +682,7 @@ templates/library.
 13. **Media in shots (D12, Rev 2)** — `assetRefs` resolved to asset props by
     the serializer (the one props channel); import-on-use seam;
     `generate_image` runs without its own proposal: **OK?**
+14. **tsx `sourceIn` semantics (D5, Rev 3)** — shot clips carry
+    `sourceIn: 0`, the serializer emits `trimBefore`, the composition
+    applies a frame offset (split continuity + crossfade alignment):
+    **OK?**

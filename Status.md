@@ -41,6 +41,30 @@ Implementation order: library core → shots core → brands/capture/curation.
 UX walkthrough artifact published (claude.ai). Both design docs awaiting
 Hasan's checklist answers.
 
+**Rev 3 (same day, after adversarial grill — self-review + blind
+code-review agent, at Hasan's request):** 8 substantive findings fixed
+across both docs. Headline: the D4 preview "in-renderer precedent" was
+dead code (webview path is the only exercised consumer; packaged builds
+load file:// with webSecurity on) → **Spike 0** (packaged-build ESM import
+into an in-app Player) now runs FIRST and gates the preview architecture,
+bake-to-proxy promoted to named fallback. Also fixed: tsx clips gain
+sourceIn/frame-offset semantics (split restarted the animation; a
+crossfade-in shifted baked word timings by the extension); shot proposal
+items are source-anchored, renderer-mapped (frozen timelineStart was
+stale-by-design and main has no timeline); reject keeps files (no file
+deletion under any undoable action); reviewOpen goes kind-agnostic (one
+open proposal across all kinds); export pre-flight copies +
+font-normalizes shot sources (wrapper only rewrites the entry file);
+shots↔EditDoc/undo integration enumerated (generation completion is
+non-committing); library relink-by-hash re-scoped as NEW work (today's
+relink is a manual picker), hashFileHead pinned as the shared algorithm,
+organize skips in-use assets; capture hardened (tall-window capture,
+permission/window.open denies); library deletion policy + describe consent
+added. Verified good news: Remotion's webpack .tsx rule has no
+include/exclude — out-of-root shot files compile (spike closed by reading
+the shipped config; superseded by the copy step anyway). Docs now at
+TSX_SHOTS_DESIGN Rev 3 (checklist 14 items) / ASSET_LIBRARY_DESIGN Rev 2.
+
 ### Studio — post-gate POLISH MINI-SESSION (2026-08-14)
 **Status: COMPLETE — the three papercuts the stability gate surfaced are fixed
 and CDP-verified live; §15 performance spot-checks run on Hasan's real DJI
