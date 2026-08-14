@@ -401,7 +401,10 @@ export interface ElectronAPI {
   studioAgentSend: (data: import('../../shared/ipc/types').StudioAgentSendRequest) => Promise<import('../../shared/ipc/types').StudioAgentSendResponse>;
   studioAgentCancel: (data: import('../../shared/ipc/types').StudioAgentCancelRequest) => Promise<import('../../shared/ipc/types').StudioAgentCancelResponse>;
   studioShotModule: (data: import('../../shared/ipc/types').StudioShotModuleRequest) => Promise<import('../../shared/ipc/types').StudioShotModuleResponse>;
+  studioShotGenerate: (data: import('../../shared/ipc/types').StudioShotGenerateRequest) => Promise<import('../../shared/ipc/types').StudioShotGenerateResponse>;
+  studioShotVersions: (data: import('../../shared/ipc/types').StudioShotVersionsRequest) => Promise<import('../../shared/ipc/types').StudioShotVersionsResponse>;
   onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;
+  onStudioShotJobEvent: (callback: (event: import('../../shared/ipc/types').StudioShotJobEvent) => void) => () => void;
   onStudioAgentEvent: (callback: (event: import('../../shared/ipc/types').StudioAgentEvent) => void) => () => void;
 
   // Asset library — index overlay, sizes, root override

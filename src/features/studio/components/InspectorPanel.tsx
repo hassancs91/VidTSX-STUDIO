@@ -3,15 +3,20 @@ import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
-import type { StudioMediaAsset, StudioProject, StudioTimeline } from '../types';
+import type { StudioMediaAsset, StudioProject, StudioShot, StudioTimeline } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { AutoCutPhase } from '../hooks/useAutoCut';
 import type { TimelineAction } from '../hooks/useTimeline';
+import type { ShotJobProgress } from '../hooks/useShotJobs';
+import { findClip } from '../services/timeline-ops';
 import { TranscriptSection } from './TranscriptSection';
 import { ReviewCutsSection } from './ReviewCutsSection';
+import { ReviewShotsSection } from './ReviewShotsSection';
 import { ClipSection } from './ClipSection';
+import { ShotClipSection } from './ShotClipSection';
 
 type ReviewProps = Omit<React.ComponentProps<typeof ReviewCutsSection>, never>;
+type ReviewShotsProps = Omit<React.ComponentProps<typeof ReviewShotsSection>, never>;
 
 interface Props {
   project: StudioProject;
@@ -32,6 +37,12 @@ interface Props {
   autoCutPhase: AutoCutPhase;
   /** Present while a cut proposal is open — renders the review list on top. */
   review: ReviewProps | null;
+  /** Present while a shot-plan proposal is open (kind-agnostic single slot). */
+  reviewShots: ReviewShotsProps | null;
+  /** The LIVE shot registry (reducer state), for the tsx-clip section. */
+  shots: StudioShot[];
+  getShotProgress: (shotId: string) => ShotJobProgress | null;
+  onShotError: (message: string) => void;
 }
 
 export function InspectorPanel({
@@ -50,8 +61,20 @@ export function InspectorPanel({
   onAutoCut,
   autoCutPhase,
   review,
+  reviewShots,
+  shots,
+  getShotProgress,
+  onShotError,
 }: Props) {
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
+
+  // The shot behind the selected tsx clip, when exactly one clip is selected.
+  const singleClip =
+    selectedClipIds.length === 1 ? (findClip(timeline, selectedClipIds[0])?.clip ?? null) : null;
+  const selectedShot =
+    singleClip?.kind === 'tsx' && singleClip.tsx
+      ? (shots.find((s) => s.id === singleClip.tsx?.shotId) ?? null)
+      : null;
 
   useEffect(() => {
     void window.api.llmProvidersGet().then((res) => {
@@ -78,10 +101,31 @@ export function InspectorPanel({
         </section>
       )}
 
+      {singleClip?.kind === 'tsx' && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Shot</SectionLabel>
+          <ShotClipSection
+            projectId={project.id}
+            clip={singleClip}
+            shot={selectedShot}
+            dispatch={timelineDispatch}
+            progress={selectedShot ? getShotProgress(selectedShot.id) : null}
+            onError={onShotError}
+          />
+        </section>
+      )}
+
       {review && (
         <section className="flex flex-col gap-2">
           <SectionLabel>Review cuts</SectionLabel>
           <ReviewCutsSection {...review} />
+        </section>
+      )}
+
+      {reviewShots && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Review shots</SectionLabel>
+          <ReviewShotsSection {...reviewShots} />
         </section>
       )}
 

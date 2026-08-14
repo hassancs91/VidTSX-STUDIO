@@ -342,6 +342,10 @@ export const IPC = {
   STUDIO_AGENT_EVENT: 'studio:agent:event',
   // Studio — TSX shots (S4): transpile a shot version for the preview Player
   STUDIO_SHOT_MODULE: 'studio:shot:module',
+  // Studio — TSX shot generation (S4 D8): pipeline runs + push events
+  STUDIO_SHOT_GENERATE: 'studio:shot:generate',
+  STUDIO_SHOT_VERSIONS: 'studio:shot:versions',
+  STUDIO_SHOT_JOB_EVENT: 'studio:shot:job-event',
 
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',

@@ -6,6 +6,7 @@ export type AiFeatureSource =
   | 'image-generation'
   | 'flows'
   | 'auto-cut'
+  | 'studio-tsx-shot'
   | 'provider-test'
   | 'other';
 

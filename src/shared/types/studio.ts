@@ -222,6 +222,14 @@ export interface StudioProposalItem {
   note?: string;
   /** True once the user has dragged this span's edges — provenance stays honest. */
   adjusted?: boolean;
+  // Shot plans (S4 D8). Placement is source-anchored via assetId/sourceStart
+  // above, renderer-mapped at review AND apply (the cut-proposal discipline);
+  // `timelineStart` is the fallback for UNANCHORED shots only.
+  shotId?: string;
+  timelineStart?: number;
+  /** Clip length in timeline seconds (defaults to the shot's config length). */
+  duration?: number;
+  mode?: 'cutaway' | 'overlay';
 }
 
 export interface StudioProposal {

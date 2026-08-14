@@ -1,18 +1,29 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Captions,
+  Clapperboard,
   FileVideo,
   FileSearch,
   Import,
   Music,
   Image as ImageIcon,
   Plus,
+  Sparkles,
   TriangleAlert,
   X,
 } from 'lucide-react';
-import type { StudioMediaAsset } from '../types';
+import { Button } from '@shared/components/Button';
+import { Select } from '@shared/components/Select';
+import type { StudioMediaAsset, StudioShot } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
+import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { formatDuration } from '../services/format-time';
+
+export interface GenerateShotSpec {
+  kind: 'cutaway' | 'overlay';
+  brief: string;
+  durationSeconds: number;
+}
 
 interface Props {
   assets: StudioMediaAsset[];
@@ -31,6 +42,12 @@ interface Props {
   /** Source files gone from disk (Slice F) — badge + Locate… on their cards. */
   missingAssetIds: ReadonlySet<string>;
   onLocate: (asset: StudioMediaAsset) => void;
+  // TSX shots (S4 D10)
+  shots: StudioShot[];
+  getShotProgress: (shotId: string) => ShotJobProgress | null;
+  onAddShot: (shot: StudioShot) => void;
+  onRemoveShot: (shotId: string) => void;
+  onGenerateShot: (spec: GenerateShotSpec) => void;
 }
 
 export function MediaPool({
@@ -48,6 +65,11 @@ export function MediaPool({
   getProxyPercent,
   missingAssetIds,
   onLocate,
+  shots,
+  getShotProgress,
+  onAddShot,
+  onRemoveShot,
+  onGenerateShot,
 }: Props) {
   useEffect(() => {
     for (const asset of assets) {
@@ -77,7 +99,7 @@ export function MediaPool({
 
       <div className="flex-1 overflow-y-auto p-2">
         {assets.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 text-center pt-10 px-3">
+          <div className="flex flex-col items-center gap-2 text-center pt-6 pb-4 px-3">
             <FileVideo size={26} strokeWidth={1.25} className="text-text-ghost" />
             <div className="text-[11px] text-text-dim">
               Import video, audio, or images to get started.
@@ -103,7 +125,179 @@ export function MediaPool({
             ))}
           </div>
         )}
+
+        <ShotsSection
+          shots={shots}
+          getShotProgress={getShotProgress}
+          onAddShot={onAddShot}
+          onRemoveShot={onRemoveShot}
+          onGenerateShot={onGenerateShot}
+        />
       </div>
+    </div>
+  );
+}
+
+const SHOT_KIND_STYLE: Record<string, string> = {
+  cutaway: 'bg-accent/20 text-accent-light',
+  overlay: 'bg-accent-blue/15 text-accent-blue',
+  title: 'bg-amber-500/15 text-amber-500',
+};
+
+/** "Shots" pool section (D10): generated TSX shots — list, add, generate. */
+function ShotsSection({
+  shots,
+  getShotProgress,
+  onAddShot,
+  onRemoveShot,
+  onGenerateShot,
+}: {
+  shots: StudioShot[];
+  getShotProgress: (shotId: string) => ShotJobProgress | null;
+  onAddShot: (shot: StudioShot) => void;
+  onRemoveShot: (shotId: string) => void;
+  onGenerateShot: (spec: GenerateShotSpec) => void;
+}) {
+  const [formOpen, setFormOpen] = useState(false);
+  const [kind, setKind] = useState<'cutaway' | 'overlay'>('cutaway');
+  const [brief, setBrief] = useState('');
+  const [duration, setDuration] = useState('5');
+
+  const submit = () => {
+    const trimmed = brief.trim();
+    const seconds = Number(duration);
+    if (!trimmed || !(seconds > 0)) return;
+    onGenerateShot({ kind, brief: trimmed, durationSeconds: seconds });
+    setBrief('');
+    setFormOpen(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-2 mt-3" data-shots-section>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-wider text-text-muted">Shots</span>
+        <button
+          onClick={() => setFormOpen((v) => !v)}
+          data-generate-shot-toggle
+          title="Generate a TSX shot from a text brief (word-synced titles live in the Assistant chat)"
+          className="flex items-center gap-1 px-1.5 h-[20px] rounded-[5px] text-[10px] text-text-muted hover:bg-app-hover hover:text-text-secondary transition-colors"
+        >
+          <Sparkles size={11} strokeWidth={1.5} />
+          Generate
+        </button>
+      </div>
+
+      {formOpen && (
+        <div
+          className="flex flex-col gap-2 p-2 rounded-[6px] bg-app-surface"
+          style={{ border: '0.5px solid var(--color-border)' }}
+          data-generate-shot-form
+        >
+          <Select
+            value={kind}
+            onChange={(v) => setKind(v as 'cutaway' | 'overlay')}
+            options={[
+              { value: 'cutaway', label: 'Cutaway (covers the footage)' },
+              { value: 'overlay', label: 'Overlay (transparent, on top)' },
+            ]}
+          />
+          <textarea
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            placeholder="What should the shot show?"
+            rows={3}
+            data-shot-brief
+            className="bg-app-base text-text-primary rounded-[6px] px-[8px] py-[6px] text-[11px] focus:outline-none resize-none"
+            style={{ border: '0.5px solid var(--color-border-input)' }}
+          />
+          <div className="flex items-center gap-2">
+            <input
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              data-shot-duration
+              className="w-[48px] bg-app-base text-text-primary rounded-[6px] px-[8px] h-[24px] text-[11px] focus:outline-none"
+              style={{ border: '0.5px solid var(--color-border-input)' }}
+            />
+            <span className="text-[10px] text-text-dim">seconds</span>
+            <div className="flex-1" />
+            <Button variant="primary" size="sm" disabled={!brief.trim()} onClick={submit}>
+              Generate
+            </Button>
+          </div>
+          <p className="text-[9px] text-text-dim leading-snug">
+            The clip lands at the playhead when generation finishes. For word-synced titles,
+            ask the Assistant.
+          </p>
+        </div>
+      )}
+
+      {shots.length === 0 && !formOpen ? (
+        <div className="text-[10px] text-text-dim px-1">
+          No shots yet — generate one here or ask the Assistant.
+        </div>
+      ) : (
+        shots.map((shot) => {
+          const progress = getShotProgress(shot.id);
+          const generating = shot.status === 'generating' || progress?.status === 'generating';
+          return (
+            <div
+              key={shot.id}
+              data-shot-card={shot.id}
+              className="group relative flex items-center gap-2 px-2 py-[6px] rounded-[6px] bg-app-surface"
+              style={{
+                border:
+                  shot.status === 'error'
+                    ? '0.5px solid var(--color-accent-red, #e5484d)'
+                    : '0.5px solid var(--color-border)',
+              }}
+              title={
+                shot.status === 'error'
+                  ? (shot.error ?? 'Generation failed')
+                  : `${shot.prompt ?? shot.name}\n\nDouble-click to add at the playhead`
+              }
+              onDoubleClick={() => {
+                if (shot.status === 'ready') onAddShot(shot);
+              }}
+            >
+              <Clapperboard size={14} strokeWidth={1.5} className="text-text-ghost shrink-0" />
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-[10px] text-text-primary truncate">{shot.name}</span>
+                <span className="text-[9px] text-text-muted truncate">
+                  {generating
+                    ? `${progress?.message ?? 'Generating…'}${progress?.percent !== undefined ? ` ${progress.percent}%` : ''}`
+                    : shot.status === 'error'
+                      ? 'failed — see Inspector'
+                      : `v${shot.activeVersion}${shot.config ? ` · ${(shot.config.durationInFrames / shot.config.fps).toFixed(1)} s` : ''}`}
+                </span>
+              </div>
+              <span
+                className={`text-[8px] font-bold uppercase tracking-wide px-[5px] py-[1px] rounded-full shrink-0 ${SHOT_KIND_STYLE[shot.kind] ?? ''}`}
+              >
+                {shot.kind}
+              </span>
+              {shot.status === 'ready' && (
+                <button
+                  onClick={() => onAddShot(shot)}
+                  title="Add to the timeline at the playhead"
+                  aria-label={`Add shot ${shot.name} to the timeline`}
+                  className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted hover:text-accent-light opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                >
+                  <Plus size={12} strokeWidth={2} />
+                </button>
+              )}
+              {!generating && (
+                <button
+                  onClick={() => onRemoveShot(shot.id)}
+                  title="Remove the shot and its clips (files stay on disk)"
+                  className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted hover:text-accent-red opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                >
+                  <X size={11} strokeWidth={1.75} />
+                </button>
+              )}
+            </div>
+          );
+        })
+      )}
     </div>
   );
 }

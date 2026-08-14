@@ -50,3 +50,24 @@ export function normalizeShots(raw: unknown): StudioShot[] {
       : shot,
   );
 }
+
+/**
+ * Shot ids a serialized timeline actually references (deduped, in first-use
+ * order) — the export entry emits static imports for exactly these (D6).
+ * Structural parameter type so serialize.ts and tests can both feed it.
+ */
+export function referencedShotIds(timeline: {
+  tracks: Array<{ clips: Array<{ tsx?: { shotId: string } }> }>;
+}): string[] {
+  const seen = new Set<string>();
+  const ids: string[] = [];
+  for (const track of timeline.tracks) {
+    for (const clip of track.clips) {
+      if (clip.tsx && !seen.has(clip.tsx.shotId)) {
+        seen.add(clip.tsx.shotId);
+        ids.push(clip.tsx.shotId);
+      }
+    }
+  }
+  return ids;
+}

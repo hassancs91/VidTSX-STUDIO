@@ -44,6 +44,7 @@ import {
 } from '../services/transition-ops';
 import type { StudioTransitionKind } from '../types';
 import { applyCutProposal } from '../services/apply-cut-proposal';
+import { applyShotProposal, insertShotClip } from '../services/apply-shot-proposal';
 import {
   addProposal,
   closeProposal,
@@ -133,6 +134,10 @@ export type TimelineAction =
   // background generation finishing enters via 'shots-adopt' instead.
   | { type: 'shot-set-version'; shotId: string; version: number }
   | { type: 'shot-remove'; shotId: string }
+  // Pool-button insert (D8): the clip lands at the playhead recorded when
+  // Generate was clicked, as ONE undo step. Id minted by the caller so it can
+  // select the new clip after dispatch.
+  | { type: 'shot-clip-insert'; shot: StudioShot; preferredStart: number; newClipId: string }
   // Non-committing adopt: replaces the registry WITHOUT a history entry, and
   // rewrites past/future so undoing an unrelated edit can't resurrect a
   // pre-generation registry (a finishing shot must never plant an undo step
@@ -329,17 +334,33 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
     case 'proposal-apply': {
       const proposal = doc.proposals.find((p) => p.id === action.proposalId);
       if (!proposal || proposal.status !== 'proposed') return state;
-      const timeline = pruneTransitions(applyCutProposal(doc.timeline, proposal));
+      const applyByKind =
+        proposal.kind === 'shot-plan'
+          ? applyShotProposal(doc.timeline, proposal, doc.shots)
+          : applyCutProposal(doc.timeline, proposal);
+      const timeline = pruneTransitions(applyByKind);
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);
       // Carrying `shots` here matters: a hand-built literal would drop it (D9).
       return commit(state, { timeline, proposals, shots: doc.shots });
     }
-    case 'proposal-reject':
-      return commit(
-        state,
-        withProposals(doc, closeProposal(doc.proposals, action.proposalId, false)),
-      );
+    case 'proposal-reject': {
+      const proposal = doc.proposals.find((p) => p.id === action.proposalId);
+      const proposals = closeProposal(doc.proposals, action.proposalId, false);
+      if (proposals === doc.proposals) return state;
+      // Rejecting a shot plan drops its registry entries too — files stay on
+      // disk (no file deletion under any undoable action, D9); undo restores
+      // the entries because disk was never touched.
+      let shots = doc.shots;
+      if (proposal?.kind === 'shot-plan') {
+        const dropped = new Set(
+          proposal.items.map((i) => i.shotId).filter((id): id is string => id !== undefined),
+        );
+        const filtered = doc.shots.filter((s) => !dropped.has(s.id));
+        if (filtered.length !== doc.shots.length) shots = filtered;
+      }
+      return commit(state, { timeline: doc.timeline, proposals, shots });
+    }
     case 'shot-set-version': {
       const shots = setShotVersion(doc.shots, action.shotId, action.version);
       return commit(state, shots === doc.shots ? doc : { ...doc, shots });
@@ -352,6 +373,14 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       const next = withTimeline(doc, removeClipsForShot(doc.timeline, action.shotId));
       return commit(state, { ...next, shots });
     }
+    case 'shot-clip-insert':
+      return commit(
+        state,
+        withTimeline(
+          doc,
+          insertShotClip(doc.timeline, action.shot, action.preferredStart, action.newClipId),
+        ),
+      );
     case 'shots-adopt': {
       if (state.projectId === null) return state;
       const adopt = (entry: EditDoc): EditDoc => ({ ...entry, shots: action.shots });
@@ -499,12 +528,11 @@ export function useTimeline(
     dispatch({ type: 'remove-clips', clipIds: removeSelectedRef.current, ripple });
   }, []);
 
-  // The open cut-plan under review, if any (one at a time by construction:
-  // the Auto Cut button is disabled while a proposal is open).
+  // The open proposal under review, if any. KIND-AGNOSTIC (D8 Rev 3): one
+  // open proposal at a time across cut plans AND shot plans — two live
+  // reviews, one scratch-applied to the preview, is a state nothing defines.
   const activeProposal = useMemo(() => {
-    const open = state.present.proposals.filter(
-      (p) => p.kind === 'cut-plan' && p.status === 'proposed',
-    );
+    const open = state.present.proposals.filter((p) => p.status === 'proposed');
     return open.length > 0 ? open[open.length - 1] : null;
   }, [state.present.proposals]);
 

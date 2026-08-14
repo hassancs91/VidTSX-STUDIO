@@ -9,6 +9,77 @@
 
 ## Completed phases
 
+### Studio — S4 SHOTS GENERATION (2026-08-14)
+**Status: DONE — third S4 shots slice (D8 + D7 + D6 + D10 per
+TSX_SHOTS_DESIGN.md Rev 4), verified live with REAL Claude-subscription
+generation over CDP.** Main-side `shot-generator.ts` drives the shared
+`generateTsxPipeline`/`editTsxPipeline` with the shot ACCEPTANCE GATE
+injected as the pipeline's `tsxValidate` dep — esbuild transpile + the
+react/remotion-only single-file import lint (`shared/studio/shot-lint.ts`)
++ a `compositionConfig` PARSE check — so a lint/config violation is a
+fix-loop error the pipeline repairs, never the parser's silent 300-frame
+default. Main writes ONLY `shots/<id>/v*.tsx` (+ debug sidecars +
+`chat.json`); the registry lives in the renderer document via push events
+(`STUDIO_SHOT_JOB_EVENT`) folded by `useShotJobs` through the
+non-committing `shots-adopt` — an edit's version bump is the one undoable
+dispatch (`shot-set-version`). **D8 agent path**: `generate_tsx_shot`
+(one shot per call, 10-per-pass cap, refuses while a review is open) +
+`propose_shots` (ONE `shot-plan` proposal, built by shared
+`buildShotPlanProposal`, source-anchored items); `get_transcript` gained
+`startSeconds`/`endSeconds`; skillIds now compose `studio-make-tsx` (new
+folder skill: briefs/anchors/pass discipline/from-scratch) next to
+clean-cut; system prompt carries the shots workflow + plan-cheap gate +
+FROM-SCRATCH mode (Rev 4). `reviewOpen` is now KIND-AGNOSTIC
+(`useTimeline.activeProposal` dropped its cut-plan filter;
+`handleAgentProposal` and the reviews branch by kind; CutRegionLayer
+renders for cut plans only). **D7**: anchored shots bake the anchor
+span's words to shot-local seconds into the prompt (`shot-words.ts`,
+marked WORDS block; anchor recorded on the shot; regenerate re-bakes).
+**D8 pool path**: `STUDIO_SHOT_GENERATE` IPC (reservation handshake via
+`onReserved`, then detached; ops generate/edit/regenerate) — playhead
+recorded at click, clip lands there on ready as ONE undo step
+(`shot-clip-insert` + `insertShotClip`), selected. **From-scratch rule**
+(no footage anywhere): shots land on the MASTER lane as opaque cutaways —
+proposals back-to-back in order, pool inserts too. **D6 export (the "tsx
+renders as NOTHING" fix)**: `createExportEntry` pre-flights every
+referenced ready shot (re-validate + lint + config parse → pointed error
+BLOCKS the export), copies each source font-normalized
+(`rewriteFontUrls`) into the entry temp dir as `studio-entry-*` (swept by
+the same TTL), and emits static imports + a `SHOT_COMPONENTS` map passed
+as `components` (emission helpers pure in `shared/studio/shot-export.ts`).
+**D10**: MediaPool "Shots" section (status/progress/version badges, add
+at playhead, delete, Generate form → pool path), `ShotClipSection` in the
+Inspector (anchor readout, folder-scanned version picker via
+`STUDIO_SHOT_VERSIONS`, edit box → editTsxPipeline, Regenerate, "Resize
+clip to shot length" via trim), `ReviewShotsSection` (accept/reject +
+"Preview shot" scratch-apply audition that derives the REAL landing spot
+by running applyShotProposal on a scratch copy). 48 new unit tests
+(import-lint allow/reject table, anchor→shot-local word math incl.
+boundary/clamp/rounding, export emission for exactly the referenced ready
+shots, proposal build + reducer apply/reject round-trips incl.
+registry-drop-on-reject + restore-on-undo, from-scratch placement,
+pool-insert). Gates green: 462 tests, 26/22 type baselines. **Live CDP
+proof (real Claude subscription provider)**: pool Generate → provisional
+card with streaming percent → ready in ~75 s → clip at the playhead on
+the master lane (from-scratch), stat-card pixels in the Player with the
+counter overlay compositing on top; inspector edit box ("42 → 99…") →
+v2 in ~20 s with the edit visibly applied, undo/redo flips
+activeVersion 2→1→2; agent chat → generate ("Thanks End Card") →
+`shot-plan` proposal → ReviewShotsSection → audition plays the shot at
+its future landing spot → "Place 1 shot" → clip at 3–6 s back-to-back,
+origin {agent, proposalId}, proposal `applied` (and the open proposal
+SURVIVED a full app reload mid-review); export prepare → entry with 3
+static shot imports (active versions pinned, error shot excluded) +
+components map + normalized copies; hand-corrupted shot (lodash import)
+→ export BLOCKED with "Shot "Thanks End Card" (v1) failed export
+validation: Import "lodash" is not allowed…"; full render queued and
+completed to `studio-shots-core-test_*.mp4`. NOT in this slice: D11
+brands, D12 assetRefs/generate_image/capture_webpage (next per design
+order), bulk-pass live drill (unit-covered; needs a transcribed longform
+project). Known wart: pool-path shot names are slugged briefs (no name
+field in the pool form yet). NEXT per roadmap: lean canvas manipulation,
+then brands/capture/curation.
+
 ### Studio — EDITOR ERGONOMICS (2026-08-14)
 **Status: DONE — resizable panes + track-menu discoverability, requested by
 Hasan after shots core; CDP-verified live through the real input pipeline.**

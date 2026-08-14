@@ -532,7 +532,7 @@ export function TimelinePanel({
                   }}
                 />
               )}
-              {tl.activeProposal && (
+              {tl.activeProposal && tl.activeProposal.kind === 'cut-plan' && (
                 <CutRegionLayer
                   timeline={timeline}
                   proposal={tl.activeProposal}

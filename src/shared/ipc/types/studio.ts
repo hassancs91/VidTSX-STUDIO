@@ -4,6 +4,8 @@ import type {
   StudioMediaAsset,
   StudioProject,
   StudioProposal,
+  StudioShot,
+  StudioShotKind,
 } from '../../types/studio';
 import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
 import type { ChatMessage } from './llm';
@@ -354,6 +356,69 @@ export interface StudioShotModuleResponse {
   moduleUrl?: string;
   /** The shot's own compositionConfig, parsed from the source. */
   config?: { durationInFrames: number; fps: number; width: number; height: number };
+  error?: string;
+}
+
+// ---------------------------------------------------------------------------
+// TSX shot generation (S4 D8) — request/response is a fast-fail handshake;
+// completion streams over STUDIO_SHOT_JOB_EVENT (the media-job pattern). Main
+// writes ONLY shots/<id>/v*.tsx — the renderer owns the registry via the
+// non-committing `shots-adopt`, so the two never race over project.json.
+// ---------------------------------------------------------------------------
+
+export type StudioShotGenerateOp = 'generate' | 'edit' | 'regenerate';
+
+export interface StudioShotGenerateRequest {
+  projectId: string;
+  op: StudioShotGenerateOp;
+  /** generate/regenerate: what the shot should show. */
+  kind?: StudioShotKind;
+  brief?: string;
+  /** Display name; derived from the brief when absent. */
+  name?: string;
+  /** Word-sync anchor (D7) — source-media seconds on a transcribed asset. */
+  anchor?: { assetId: string; sourceStart: number; sourceEnd: number };
+  durationSeconds?: number;
+  /** edit/regenerate: the existing shot (folder) to write the next version of. */
+  shotId?: string;
+  /** edit: version the instruction applies to (the shot's activeVersion). */
+  activeVersion?: number;
+  /** edit: the change instruction (inspector edit box). */
+  instruction?: string;
+  providerId?: string;
+}
+
+export interface StudioShotGenerateResponse {
+  success: boolean;
+  /** Reserved shot id (generate) or the target id (edit/regenerate). */
+  shotId?: string;
+  error?: string;
+}
+
+/** Push events for shot pipeline runs (agent tool calls emit these too). */
+export interface StudioShotJobEvent {
+  projectId: string;
+  shotId: string;
+  op: StudioShotGenerateOp;
+  status: 'generating' | 'ready' | 'error';
+  /** 0..100 pipeline progress while 'generating'. */
+  percent?: number;
+  message?: string;
+  /** Registry-shaped snapshot — present on every status so the renderer can
+   *  adopt the provisional, final, or error entry via `shots-adopt`. */
+  shot?: StudioShot;
+  error?: string;
+}
+
+export interface StudioShotVersionsRequest {
+  projectId: string;
+  shotId: string;
+}
+
+export interface StudioShotVersionsResponse {
+  success: boolean;
+  /** Versions on disk, ascending (folder-as-truth — scanned, not stored). */
+  versions?: number[];
   error?: string;
 }
 

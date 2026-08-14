@@ -35,8 +35,13 @@ import type {
   StudioRootGetResponse,
   StudioRootSetRequest,
   StudioRootSetResponse,
+  StudioShotGenerateRequest,
+  StudioShotGenerateResponse,
+  StudioShotJobEvent,
   StudioShotModuleRequest,
   StudioShotModuleResponse,
+  StudioShotVersionsRequest,
+  StudioShotVersionsResponse,
   StudioCutPlanRunRequest,
   StudioCutPlanRunResponse,
   StudioTranscribeCancelRequest,
@@ -89,6 +94,15 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_AGENT_CANCEL, data),
   studioShotModule: (data: StudioShotModuleRequest): Promise<StudioShotModuleResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_MODULE, data),
+  studioShotGenerate: (data: StudioShotGenerateRequest): Promise<StudioShotGenerateResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOT_GENERATE, data),
+  studioShotVersions: (data: StudioShotVersionsRequest): Promise<StudioShotVersionsResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOT_VERSIONS, data),
+  onStudioShotJobEvent: (callback: (event: StudioShotJobEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: StudioShotJobEvent) => callback(data);
+    ipcRenderer.on(IPC.STUDIO_SHOT_JOB_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_SHOT_JOB_EVENT, listener);
+  },
   onStudioMediaJobEvent: (callback: (event: StudioMediaJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioMediaJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_MEDIA_JOB_EVENT, listener);

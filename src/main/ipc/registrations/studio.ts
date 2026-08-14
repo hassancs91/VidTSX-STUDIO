@@ -22,9 +22,14 @@ import {
   handleStudioAgentSend,
   handleStudioAgentCancel,
 } from '../studio-handlers';
-import { handleStudioShotModule } from '../studio-shot-handlers';
+import {
+  handleStudioShotGenerate,
+  handleStudioShotModule,
+  handleStudioShotVersions,
+} from '../studio-shot-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
+import { shotGenerator } from '../../services/studio/shot-generator';
 
 export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_ROOT_GET, handleStudioRootGet);
@@ -48,6 +53,8 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_AGENT_SEND, handleStudioAgentSend);
   ipcMain.handle(IPC.STUDIO_AGENT_CANCEL, handleStudioAgentCancel);
   ipcMain.handle(IPC.STUDIO_SHOT_MODULE, handleStudioShotModule);
+  ipcMain.handle(IPC.STUDIO_SHOT_GENERATE, handleStudioShotGenerate);
+  ipcMain.handle(IPC.STUDIO_SHOT_VERSIONS, handleStudioShotVersions);
 
   // Proxy/waveform progress is a push stream — the editor folds each 'ready'
   // event back into the open project document.
@@ -62,6 +69,14 @@ export function registerStudioIpc(): void {
   studioAgent.onEvent((event) => {
     for (const contents of webContents.getAllWebContents()) {
       if (!contents.isDestroyed()) contents.send(IPC.STUDIO_AGENT_EVENT, event);
+    }
+  });
+
+  // Shot pipeline runs (agent tool calls AND pool-button jobs) stream the
+  // same way — the renderer adopts registry entries via `shots-adopt`.
+  shotGenerator.onEvent((event) => {
+    for (const contents of webContents.getAllWebContents()) {
+      if (!contents.isDestroyed()) contents.send(IPC.STUDIO_SHOT_JOB_EVENT, event);
     }
   });
 }

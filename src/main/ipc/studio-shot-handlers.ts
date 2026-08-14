@@ -8,18 +8,28 @@
 // (Spike 0, PASS 2026-08-14).
 
 import fs from 'fs/promises';
+import path from 'path';
 import type { IpcMainInvokeEvent } from 'electron';
 import type {
+  StudioShotGenerateRequest,
+  StudioShotGenerateResponse,
   StudioShotModuleRequest,
   StudioShotModuleResponse,
+  StudioShotVersionsRequest,
+  StudioShotVersionsResponse,
 } from '../../shared/ipc/types';
-import { getShotVersionPath } from '../services/studio/studio-paths';
+import { getProjectDir, getShotVersionPath } from '../services/studio/studio-paths';
+import { isValidShotId } from '../../shared/studio/shots';
+import { shotGenerator } from '../services/studio/shot-generator';
 import { transpileTsxCached } from '../services/tsx-transpiler';
 import {
   ensureModuleServer,
   getModuleServerBaseUrl,
   storeTranspileResult,
 } from '../services/module-server';
+import { logEngine } from '../../logging/log-engine';
+
+const log = logEngine.createLogger('StudioShotIpc');
 
 export async function handleStudioShotModule(
   _event: IpcMainInvokeEvent,
@@ -65,6 +75,103 @@ export async function handleStudioShotModule(
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Failed to prepare shot module',
+    };
+  }
+}
+
+/**
+ * Pool-button generation (D8 "direct user entry"): fast-fail handshake that
+ * returns the reserved/target shot id, then the pipeline runs detached —
+ * completion arrives as STUDIO_SHOT_JOB_EVENT pushes, exactly like
+ * transcript/proxy jobs. The renderer records the playhead at click time and
+ * inserts the clip when the ready event lands.
+ */
+export async function handleStudioShotGenerate(
+  _event: IpcMainInvokeEvent,
+  data: StudioShotGenerateRequest,
+): Promise<StudioShotGenerateResponse> {
+  try {
+    if (data.op === 'edit') {
+      if (!data.shotId || !data.activeVersion || !data.instruction?.trim()) {
+        return { success: false, error: 'Edit needs a shot, its active version, and an instruction' };
+      }
+      const edit = shotGenerator.edit({
+        projectId: data.projectId,
+        shotId: data.shotId,
+        activeVersion: data.activeVersion,
+        instruction: data.instruction,
+        ...(data.providerId ? { providerId: data.providerId } : {}),
+      });
+      edit.catch((err) => log.warn('Shot edit failed', { error: String(err) }));
+      return { success: true, shotId: data.shotId };
+    }
+
+    if (!data.kind || !data.brief?.trim()) {
+      return { success: false, error: 'A shot kind and brief are required' };
+    }
+    if (data.op === 'regenerate' && !data.shotId) {
+      return { success: false, error: 'Regenerate needs the existing shot id' };
+    }
+    // Wait ONLY for the folder reservation (the id exists from then on) so
+    // the renderer can track the run; the pipeline continues detached and
+    // completion arrives as push events. A pre-pipeline failure (no
+    // transcript for the anchor, bad project id) still fails fast here.
+    const shotId = await new Promise<string>((resolve, reject) => {
+      let reserved = false;
+      shotGenerator
+        .generate(
+          {
+            projectId: data.projectId,
+            kind: data.kind!,
+            brief: data.brief!,
+            ...(data.name ? { name: data.name } : {}),
+            ...(data.anchor ? { anchor: data.anchor } : {}),
+            ...(data.durationSeconds !== undefined ? { durationSeconds: data.durationSeconds } : {}),
+            ...(data.providerId ? { providerId: data.providerId } : {}),
+            origin: { by: 'user' },
+            onReserved: (id) => {
+              reserved = true;
+              resolve(id);
+            },
+          },
+          data.op === 'regenerate' ? data.shotId : undefined,
+        )
+        .catch((err) => {
+          // After reservation the failure is delivered as an error event.
+          if (!reserved) reject(err instanceof Error ? err : new Error(String(err)));
+          else log.warn('Shot generation failed after handshake', { error: String(err) });
+        });
+    });
+    return { success: true, shotId };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to start shot generation',
+    };
+  }
+}
+
+/** Folder-as-truth version list for the inspector's version picker (D10). */
+export async function handleStudioShotVersions(
+  _event: IpcMainInvokeEvent,
+  data: StudioShotVersionsRequest,
+): Promise<StudioShotVersionsResponse> {
+  try {
+    if (!isValidShotId(data.shotId)) {
+      return { success: false, error: `Invalid shot id: ${data.shotId}` };
+    }
+    const dir = path.join(await getProjectDir(data.projectId), 'shots', data.shotId);
+    const entries = await fs.readdir(dir);
+    const versions = entries
+      .map((entry) => /^v(\d+)\.tsx$/.exec(entry)?.[1])
+      .filter((v): v is string => v !== undefined)
+      .map(Number)
+      .sort((a, b) => a - b);
+    return { success: true, versions };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to list shot versions',
     };
   }
 }

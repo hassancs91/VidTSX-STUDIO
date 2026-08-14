@@ -10,6 +10,7 @@ import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
 import { useShotModules } from '../hooks/useShotModules';
+import { useShotJobs } from '../hooks/useShotJobs';
 import { usePaneSize } from '../hooks/usePaneSize';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
@@ -17,10 +18,12 @@ import { useStudioAgent } from '../hooks/useStudioAgent';
 import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import { applyCutProposal } from '../services/apply-cut-proposal';
+import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-proposal';
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
-import type { StudioMediaAsset, StudioProposal, StudioProposalItem } from '../types';
-import { MediaPool } from './MediaPool';
+import { makeClipId } from '../services/timeline-ops';
+import type { StudioMediaAsset, StudioProposal, StudioProposalItem, StudioShot } from '../types';
+import { MediaPool, type GenerateShotSpec } from './MediaPool';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
 import { PreviewPanel } from './PreviewPanel';
@@ -181,7 +184,11 @@ export function EditorShell({ projectId, onBack }: Props) {
   const handleAgentProposal = useCallback(
     (proposal: StudioProposal) => {
       tl.dispatch({ type: 'proposal-add', proposal });
-      if (proposal.items.length > 0) tl.selectCut(proposal.items[0].id);
+      // Auto-selecting parks the playhead on a CUT region; shot items get
+      // selected by the user from the review list instead.
+      if (proposal.kind === 'cut-plan' && proposal.items.length > 0) {
+        tl.selectCut(proposal.items[0].id);
+      }
     },
     [tl],
   );
@@ -212,17 +219,22 @@ export function EditorShell({ projectId, onBack }: Props) {
 
   /** What the Player plays: the result preview while reviewing, else the edit. */
   const playerTimeline = useMemo(() => {
-    if (activeProposal && previewResult) return applyCutProposal(tl.timeline, activeProposal);
+    if (activeProposal && previewResult) {
+      return activeProposal.kind === 'shot-plan'
+        ? applyShotProposal(tl.timeline, activeProposal, tl.shots)
+        : applyCutProposal(tl.timeline, activeProposal);
+    }
     return tl.timeline;
-  }, [tl.timeline, activeProposal, previewResult]);
+  }, [tl.timeline, tl.shots, activeProposal, previewResult]);
 
   // While previewing the result, the Player's clock is the CUT timeline but
   // the panel displays the original — this map keeps the playhead jumping
-  // over cut regions instead of crawling through them.
+  // over cut regions instead of crawling through them. Shot previews only ADD
+  // clips (nothing moves), so the clocks already agree — no map.
   const previewTimeMap = useMemo(() => {
-    if (playerTimeline === tl.timeline) return null;
+    if (playerTimeline === tl.timeline || activeProposal?.kind === 'shot-plan') return null;
     return buildPreviewTimeMap(tl.timeline, playerTimeline);
-  }, [tl.timeline, playerTimeline]);
+  }, [tl.timeline, playerTimeline, activeProposal?.kind]);
 
   // Audition stop-at: pause when the playhead crosses the marker, optionally
   // dropping a temporary preview-result mode afterwards.
@@ -322,6 +334,119 @@ export function EditorShell({ projectId, onBack }: Props) {
   // Live shot components for the preview Player (S4). The serializer reads
   // the REDUCER's shots — the document copy lags one write-back effect.
   const shotComponents = useShotModules(projectId, tl.shots);
+
+  // ----- Shot generation (S4 D8/D10) -------------------------------------
+  // Pool-button inserts: the playhead is recorded at click time and the clip
+  // lands there when the ready event arrives — one undoable step, selected.
+  const pendingShotInserts = useRef(new Map<string, number>());
+  const handleShotReady = useCallback(
+    (shot: StudioShot, op: 'generate' | 'edit' | 'regenerate') => {
+      if (op === 'generate') {
+        const insertAt = pendingShotInserts.current.get(shot.id);
+        if (insertAt !== undefined) {
+          pendingShotInserts.current.delete(shot.id);
+          const newClipId = makeClipId();
+          tl.dispatch({ type: 'shot-clip-insert', shot, preferredStart: insertAt, newClipId });
+          tl.select(newClipId);
+          showToast(`Shot "${shot.name}" ready — placed at the playhead`, 'success');
+        } else {
+          showToast(`Shot "${shot.name}" ready`, 'success');
+        }
+      } else if (op === 'regenerate') {
+        showToast(`Shot "${shot.name}" regenerated (v${shot.activeVersion})`, 'success');
+      }
+    },
+    [tl, showToast],
+  );
+
+  const shotJobs = useShotJobs({
+    projectId,
+    shots: tl.shots,
+    dispatch: tl.dispatch,
+    onReady: handleShotReady,
+    onError: (message) => showToast(message, 'error'),
+  });
+
+  const handleGenerateShot = useCallback(
+    (spec: GenerateShotSpec) => {
+      const insertAt = playback.secondsRef.current;
+      void window.api
+        .studioShotGenerate({
+          projectId,
+          op: 'generate',
+          kind: spec.kind,
+          brief: spec.brief,
+          durationSeconds: spec.durationSeconds,
+          ...(project?.settings.agent.providerId
+            ? { providerId: project.settings.agent.providerId }
+            : {}),
+        })
+        .then((res) => {
+          if (res.success && res.shotId) {
+            pendingShotInserts.current.set(res.shotId, insertAt);
+          } else if (!res.success) {
+            showToast(res.error ?? 'Failed to start shot generation', 'error');
+          }
+        });
+    },
+    [projectId, project?.settings.agent.providerId, playback, showToast],
+  );
+
+  const handleAddShot = useCallback(
+    (shot: StudioShot) => {
+      const newClipId = makeClipId();
+      tl.dispatch({
+        type: 'shot-clip-insert',
+        shot,
+        preferredStart: playback.secondsRef.current,
+        newClipId,
+      });
+      tl.select(newClipId);
+    },
+    [tl, playback],
+  );
+
+  const handleRemoveShot = useCallback(
+    (shotId: string) => {
+      tl.dispatch({ type: 'shot-remove', shotId });
+    },
+    [tl],
+  );
+
+  // ----- Shot-plan review handlers (the cuts pattern, D10) ----------------
+  const handleSelectShotItem = useCallback(
+    (item: StudioProposalItem) => {
+      tl.selectCut(item.id);
+      const at = shotItemPlacement(tl.timeline, item);
+      if (at !== null) playback.seek(at);
+    },
+    [tl, playback],
+  );
+
+  /** Audition one proposed shot in place, on the preview-result timeline. */
+  const handlePlayShot = useCallback(
+    (item: StudioProposalItem) => {
+      if (!activeProposal) return;
+      const shot = item.shotId ? tl.shots.find((s) => s.id === item.shotId) : undefined;
+      const duration =
+        item.duration ??
+        (shot?.config ? shot.config.durationInFrames / shot.config.fps : 5);
+      // Where the shot ACTUALLY lands: run the real apply on a scratch copy
+      // and find its clip — covers sequence placement (from-scratch) and
+      // collision push-downs, not just the mapped anchor.
+      const applied = applyShotProposal(tl.timeline, activeProposal, tl.shots);
+      const placedClip = applied.tracks
+        .flatMap((t) => t.clips)
+        .find(
+          (c) => c.tsx?.shotId === item.shotId && c.origin?.proposalId === activeProposal.id,
+        );
+      const start = placedClip?.timelineStart ?? shotItemPlacement(tl.timeline, item) ?? 0;
+      const needsRestore = !previewResult;
+      if (needsRestore) setPreviewResult(true);
+      playSpan(Math.max(0, start - 0.5), start + duration + 0.5, needsRestore);
+    },
+    [activeProposal, tl.shots, tl.timeline, previewResult, playSpan],
+  );
 
   // ----- Resizable panes (ergonomics, 2026-08-14) ------------------------
   // Per-machine window state, remembered in localStorage. Defaults match the
@@ -500,6 +625,11 @@ export function EditorShell({ projectId, onBack }: Props) {
             getProxyPercent={getProxyPercent}
             missingAssetIds={missingAssetIds}
             onLocate={(asset) => void handleLocate(asset)}
+            shots={tl.shots}
+            getShotProgress={shotJobs.getShotProgress}
+            onAddShot={handleAddShot}
+            onRemoveShot={handleRemoveShot}
+            onGenerateShot={handleGenerateShot}
           />
         </div>
 
@@ -566,7 +696,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 onAutoCut={autoCut.runAutoCut}
                 autoCutPhase={autoCut.phase}
                 review={
-                  activeProposal
+                  activeProposal && activeProposal.kind !== 'shot-plan'
                     ? {
                         proposal: activeProposal,
                         timeline: tl.timeline,
@@ -582,6 +712,25 @@ export function EditorShell({ projectId, onBack }: Props) {
                       }
                     : null
                 }
+                reviewShots={
+                  activeProposal?.kind === 'shot-plan'
+                    ? {
+                        proposal: activeProposal,
+                        shots: tl.shots,
+                        selectedCutId: tl.selectedCutId,
+                        dispatch: tl.dispatch,
+                        onSelectItem: handleSelectShotItem,
+                        onPlayShot: handlePlayShot,
+                        previewResult,
+                        onTogglePreviewResult: () => setPreviewResult((v) => !v),
+                        onApplied: (summary) =>
+                          showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success'),
+                      }
+                    : null
+                }
+                shots={tl.shots}
+                getShotProgress={shotJobs.getShotProgress}
+                onShotError={(message) => showToast(message, 'error')}
               />
             ) : (
               <AgentPanel agent={agentChat} />
