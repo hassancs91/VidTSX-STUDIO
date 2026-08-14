@@ -9,6 +9,23 @@
 
 ## Completed phases
 
+### Studio — S4 TSX SHOTS: DESIGN REVIEW OPEN (2026-08-14)
+**Status: DESIGN WRITTEN, AWAITING HASAN'S REVIEW — no implementation.**
+`docs/studio/TSX_SHOTS_DESIGN.md` (same pattern as TRANSITIONS_DESIGN.md):
+decisions D1–D10 with options + recommendations and an inline-answerable
+checklist. Core recommendations: `shots[]` registry in the document with
+clips referencing `shotId` (replaces the `filePath` stub — safe, no tsx clips
+shipped); cutaways cover from an upper lane (never displace the master);
+title = word-synced overlay skill category; preview via live in-renderer ESM
+modules sharing the app's React/Remotion (error-boundary containment); export
+via static shot imports in the generated entry (react+remotion import
+allowlist, pre-flight validation); baked shot-local word timings + recorded
+anchor for regenerate re-sync; generate-then-propose `shot-plan` proposals
+through the existing audit gate; per-shot `activeVersion` for edit/regenerate
+round-trips. One implementation spike flagged: confirm the bundler's TSX rule
+compiles files outside the app path before locking the entry shape.
+Implementation starts after review.
+
 ### Studio — post-gate POLISH MINI-SESSION (2026-08-14)
 **Status: COMPLETE — the three papercuts the stability gate surfaced are fixed
 and CDP-verified live; §15 performance spot-checks run on Hasan's real DJI
