@@ -73,9 +73,25 @@ library extends the app's EXISTING `asset-library` Assets screen over
 settings override for disk-space freedom; brands live at `brands/` inside
 the assets root, visible in the screen); (b) describe degrades gracefully
 with no AI provider — imports never block, a dismissible note explains why
-descriptions matter, manual entry always works. NEXT: **Spike 0**
-(packaged-build ESM import into an in-app Player — gates the preview
-architecture), then library core → shots core → brands/capture/curation.
+descriptions matter, manual entry always works.
+
+**Spike 0 VERDICT: PASS (2026-08-14) — preview Option A confirmed.** In a
+packaged win-unpacked build (renderer on `file://` out of app.asar,
+`webSecurity: true`), the renderer dynamic-imported a transpiled TSX module
+from the module server (`http://127.0.0.1:3200/modules/<hash>.js`), mounted
+it in an in-app `<Player>`, and the module's `useCurrentFrame()` matched the
+host Player's frame EXACTLY on 20/20 samples over 4 s (e.g. t=205ms both 5 …
+t=2806ms both 83) — shared React/Remotion instances work across the origin
+boundary; the virtual `remotion`/`react` module imports crossed cleanly too.
+No CORS, CSP, or module-resolution errors in the renderer console (the app
+ships no CSP; the module server already sends `ACAO: *`). Bake-to-proxy
+(Option B) stays a dormant fallback — not activated. Evidence + method:
+invoke-only harness `window.__runSpike0(tsxPath)` in
+`src/renderer/spike0-harness.tsx` (installed from `main.tsx`, inert until
+called; drive via CDP per `docs/ui-automation-cdp.md`, works in packaged
+builds via `--remote-debugging-port`). Verified in dev first, then in
+`dist/win-unpacked`. NEXT: **library core** → shots core →
+brands/capture/curation.
 
 ### Studio — post-gate POLISH MINI-SESSION (2026-08-14)
 **Status: COMPLETE — the three papercuts the stability gate surfaced are fixed

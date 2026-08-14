@@ -222,6 +222,16 @@ explicitly *for* the module server), so a shot import is a cross-origin
 module `import()` from a `file://` page. CORS `*` is already set on the
 module server, so it plausibly works — but nothing has ever run it.
 
+> **Spike 0 VERDICT: PASS (2026-08-14).** Packaged win-unpacked build
+> (renderer at `file:///…/app.asar/out/renderer/index.html`, webSecurity on)
+> dynamic-imported `http://127.0.0.1:3200/modules/<hash>.js`, mounted it in an
+> in-app `<Player>`, and the module's `useCurrentFrame()` matched the host
+> Player exactly on 20/20 samples over 4 s (no CORS/CSP/module errors; virtual
+> React/Remotion imports also crossed the origin cleanly). Option A confirmed
+> as designed. Harness kept invoke-only: `window.__runSpike0(tsxPath)`
+> (`src/renderer/spike0-harness.tsx`), driven via CDP per
+> `docs/ui-automation-cdp.md`.
+
 **Spike 0 — runs FIRST, before any other S4 work**: in a **packaged
 build**, dynamic-import a transpiled module from the module server into the
 app renderer, mount it inside an in-app `<Player>`, and verify
