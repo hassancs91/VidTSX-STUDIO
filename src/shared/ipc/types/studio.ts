@@ -183,6 +183,9 @@ export interface StudioMediaPrepareRequest {
     path: string;
     /** Silent sources get no waveform job — ffmpeg would just fail on them. */
     hasAudio: boolean;
+    /** Stored content hash — lets a missing source heal silently from the
+     *  asset library before falling back to the manual relink picker. */
+    hash?: string;
   }>;
 }
 
@@ -195,6 +198,10 @@ export interface StudioMediaPrepareResponse {
   /** Asset ids whose source file is gone from disk (Slice F relink). Their
    *  proxy/waveform jobs are skipped — ffmpeg would only fail on them. */
   missing?: string[];
+  /** Missing sources found again in the asset library by content hash
+   *  (ASSET_LIBRARY_DESIGN.md L7) — the renderer merges the new path into
+   *  the document; derived caches are keyed by asset id and survive. */
+  healed?: Array<{ assetId: string; path: string }>;
   error?: string;
 }
 

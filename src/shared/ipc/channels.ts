@@ -340,6 +340,13 @@ export const IPC = {
   STUDIO_AGENT_SEND: 'studio:agent:send',
   STUDIO_AGENT_CANCEL: 'studio:agent:cancel',
   STUDIO_AGENT_EVENT: 'studio:agent:event',
+
+  // Asset library — index overlay (descriptions), sizes, root override
+  LIBRARY_INDEX_GET: 'library:index:get',
+  LIBRARY_DESCRIPTION_SET: 'library:description:set',
+  LIBRARY_SIZES_GET: 'library:sizes:get',
+  LIBRARY_ROOT_GET: 'library:root:get',
+  LIBRARY_ROOT_SET: 'library:root:set',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

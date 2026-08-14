@@ -16,6 +16,8 @@ interface AssetGridProps {
   onRename: (entry: AssetEntry) => void;
   onDelete: (entry: AssetEntry) => void;
   onMove: (sourcePath: string, targetFolder: string) => void;
+  /** Optional per-tile subtitle (folder size, description). */
+  subtitleFor?: (entry: AssetEntry) => string | undefined;
 }
 
 interface MenuState {
@@ -39,6 +41,7 @@ export function AssetGrid(props: AssetGridProps) {
     onRename,
     onDelete,
     onMove,
+    subtitleFor,
   } = props;
 
   const [menu, setMenu] = useState<MenuState | null>(null);
@@ -68,6 +71,7 @@ export function AssetGrid(props: AssetGridProps) {
             entry={entry}
             selected={selectedPath === entry.node.path}
             moduleServerUrl={moduleServerUrl}
+            subtitle={subtitleFor?.(entry)}
             isDropTarget={dropTargetPath === entry.node.path}
             onOpen={() => onOpen(entry.node.path)}
             onSelect={() => onSelect(entry.node.path)}

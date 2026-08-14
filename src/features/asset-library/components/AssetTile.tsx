@@ -15,6 +15,8 @@ interface AssetTileProps {
   entry: AssetEntry;
   selected: boolean;
   moduleServerUrl: string | null;
+  /** Optional line under the name (folder size, description) — replaces the ext line. */
+  subtitle?: string;
   onOpen: () => void;
   onSelect: () => void;
   onCopyPath: () => void;
@@ -43,6 +45,7 @@ export function AssetTile({
   entry,
   selected,
   moduleServerUrl,
+  subtitle,
   onOpen,
   onSelect,
   onCopyPath,
@@ -125,10 +128,17 @@ export function AssetTile({
       <div className="text-[11px] leading-tight text-text-muted truncate" title={entry.node.name}>
         {entry.node.name}
       </div>
-      {!isFolder && entry.ext && (
-        <div className="text-[9px] uppercase tracking-wider text-text-dim">
-          {entry.ext.replace('.', '')}
+      {subtitle ? (
+        <div className="text-[9px] leading-tight text-text-dim truncate" title={subtitle}>
+          {subtitle}
         </div>
+      ) : (
+        !isFolder &&
+        entry.ext && (
+          <div className="text-[9px] uppercase tracking-wider text-text-dim">
+            {entry.ext.replace('.', '')}
+          </div>
+        )
       )}
     </button>
   );

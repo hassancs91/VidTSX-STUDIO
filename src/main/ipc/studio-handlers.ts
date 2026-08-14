@@ -58,6 +58,8 @@ import {
   probeMedia,
 } from '../services/studio/media-import';
 import { getProjectCacheDir, getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
+import { getLibraryRoot } from '../services/library/library-paths';
+import { findLibraryFileByHash } from '../services/library/library-store';
 import { clearCache, getCacheInfo } from '../services/studio/cache-manager';
 import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
@@ -196,18 +198,28 @@ export async function handleStudioMediaPrepare(
 
     const ready: StudioMediaJobEvent[] = [];
     const missing: string[] = [];
+    const healed: Array<{ assetId: string; path: string }> = [];
     for (const asset of data.assets) {
-      // A moved/renamed source can't feed ffmpeg — flag it for the relink UI
-      // instead of letting every derived-cache job fail (Slice F).
+      // A moved/renamed source can't feed ffmpeg. Before flagging it for the
+      // relink UI (Slice F), search the asset library by content hash — a
+      // file reorganized in the library heals silently (L7 move-safety rule);
+      // the manual picker stays as the fallback.
+      let sourcePath = asset.path;
       try {
-        await fs.access(asset.path);
+        await fs.access(sourcePath);
       } catch {
-        missing.push(asset.id);
-        continue;
+        const found = asset.hash ? await findLibraryFileByHash(getLibraryRoot(), asset.hash) : null;
+        if (found && classifyMediaKind(found) === asset.kind) {
+          healed.push({ assetId: asset.id, path: found });
+          sourcePath = found;
+        } else {
+          missing.push(asset.id);
+          continue;
+        }
       }
       if (asset.kind === 'image') continue;
       if (asset.kind === 'video') {
-        const event = await studioMediaJobs.request(data.projectId, asset.id, 'proxy', asset.path);
+        const event = await studioMediaJobs.request(data.projectId, asset.id, 'proxy', sourcePath);
         if (event) ready.push(event);
       }
       if (!asset.hasAudio) continue;
@@ -215,11 +227,17 @@ export async function handleStudioMediaPrepare(
         data.projectId,
         asset.id,
         'waveform',
-        asset.path,
+        sourcePath,
       );
       if (waveform) ready.push(waveform);
     }
-    return { success: true, ready, assetBaseUrl, ...(missing.length > 0 ? { missing } : {}) };
+    return {
+      success: true,
+      ready,
+      assetBaseUrl,
+      ...(missing.length > 0 ? { missing } : {}),
+      ...(healed.length > 0 ? { healed } : {}),
+    };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare media') };
   }

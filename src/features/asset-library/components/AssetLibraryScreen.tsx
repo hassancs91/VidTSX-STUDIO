@@ -1,17 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAssetLibrary } from '../hooks/useAssetLibrary';
 import { useAssetActions } from '../hooks/useAssetActions';
 import { useAssetClipboard } from '../hooks/useAssetClipboard';
+import { useLibraryIndex, toLibraryRelPath } from '../hooks/useLibraryIndex';
 import { AssetToolbar } from './AssetToolbar';
 import { AssetBreadcrumb } from './AssetBreadcrumb';
 import { AssetGrid } from './AssetGrid';
+import { AssetSearchBar } from './AssetSearchBar';
+import { AssetDetailsPanel } from './AssetDetailsPanel';
+import {
+  filterAssets,
+  flattenAssetFiles,
+  formatBytes,
+  type CategoryFilter,
+} from '../services/asset-search';
 import type { AssetEntry } from '../types';
 
 export function AssetLibraryScreen() {
-  const { rootPath, currentPath, entries, loading, error, navigate, refresh } = useAssetLibrary();
+  const { rootPath, currentPath, entries, nodes, loading, error, navigate, refresh } =
+    useAssetLibrary();
+  const { metaByRelPath, sizes, refreshIndex, saveDescription } = useLibraryIndex();
+
+  // Any disk change re-lists the folder AND re-scans the index overlay,
+  // so rel-path keys (and sizes) stay in step with reality.
+  const onChanged = useCallback(async () => {
+    await refresh();
+    await refreshIndex();
+  }, [refresh, refreshIndex]);
+
   const { importFiles, createFolder, renameNode, moveNode, deleteNode } = useAssetActions({
     currentPath,
-    onChanged: refresh,
+    onChanged,
   });
   const { copyAssetUrl, copyRawPath } = useAssetClipboard();
 
@@ -19,6 +38,36 @@ export function AssetLibraryScreen() {
   const [moduleServerUrl, setModuleServerUrl] = useState<string | null>(null);
   const [renamingEntry, setRenamingEntry] = useState<AssetEntry | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<CategoryFilter>('all');
+
+  const metaFor = useCallback(
+    (absPath: string) =>
+      rootPath ? metaByRelPath.get(toLibraryRelPath(rootPath, absPath)) : undefined,
+    [rootPath, metaByRelPath]
+  );
+
+  // Searching flattens the listed subtree — the breadcrumb is the scope,
+  // so searching at the root searches the whole library.
+  const searching = query.trim() !== '' || category !== 'all';
+  const displayedEntries = useMemo(
+    () =>
+      searching
+        ? filterAssets(flattenAssetFiles(nodes), query, category, (p) => metaFor(p)?.description)
+        : entries,
+    [searching, nodes, query, category, entries, metaFor]
+  );
+
+  const subtitleFor = useCallback(
+    (entry: AssetEntry): string | undefined => {
+      if (entry.node.type === 'folder') {
+        const bytes = sizes?.folders[toLibraryRelPath(rootPath, entry.node.path)];
+        return bytes !== undefined ? formatBytes(bytes) : undefined;
+      }
+      return metaFor(entry.node.path)?.description;
+    },
+    [sizes, rootPath, metaFor]
+  );
 
   // Fetch the module server URL once so image previews can load via /asset.
   // Falls back to null if unavailable — non-image tiles render type icons either way.
@@ -41,11 +90,21 @@ export function AssetLibraryScreen() {
   }, [currentPath]);
 
   const handleOpen = (path: string) => {
-    const entry = entries.find((e) => e.node.path === path);
+    const entry = displayedEntries.find((e) => e.node.path === path);
     if (entry?.node.type === 'folder') {
       navigate(entry.node.path);
     }
   };
+
+  const selectedEntry =
+    selectedPath !== null
+      ? displayedEntries.find((e) => e.node.path === selectedPath && e.node.type === 'file')
+      : undefined;
+  const selectedPreviewUrl =
+    selectedEntry && selectedEntry.category === 'image' && moduleServerUrl
+      ? `${moduleServerUrl}/asset?path=${encodeURIComponent(selectedEntry.node.path)}`
+      : null;
+  const currentFolderBytes = sizes?.folders[toLibraryRelPath(rootPath, currentPath)];
 
   const handleDelete = (entry: AssetEntry) => {
     const isFolder = entry.node.type === 'folder';
@@ -83,27 +142,54 @@ export function AssetLibraryScreen() {
         <AssetToolbar
           onImport={importFiles}
           onCreateFolder={createFolder}
-          onRefresh={() => void refresh()}
+          onRefresh={() => void onChanged()}
         />
+        <AssetSearchBar query={query} onQuery={setQuery} category={category} onCategory={setCategory} />
         <AssetBreadcrumb rootPath={rootPath} currentPath={currentPath} onNavigate={navigate} />
       </header>
 
-      <div className="flex-1 min-h-0 overflow-auto">
-        <AssetGrid
-          entries={entries}
-          loading={loading}
-          error={error}
-          selectedPath={selectedPath}
-          moduleServerUrl={moduleServerUrl}
-          onSelect={setSelectedPath}
-          onOpen={handleOpen}
-          onCopyUrl={copyAssetUrl}
-          onCopyRawPath={copyRawPath}
-          onRename={handleRename}
-          onDelete={handleDelete}
-          onMove={moveNode}
-        />
+      <div className="flex-1 min-h-0 flex">
+        <div className="flex-1 min-w-0 overflow-auto">
+          <AssetGrid
+            entries={displayedEntries}
+            loading={loading}
+            error={error}
+            selectedPath={selectedPath}
+            moduleServerUrl={moduleServerUrl}
+            subtitleFor={subtitleFor}
+            onSelect={setSelectedPath}
+            onOpen={handleOpen}
+            onCopyUrl={copyAssetUrl}
+            onCopyRawPath={copyRawPath}
+            onRename={handleRename}
+            onDelete={handleDelete}
+            onMove={moveNode}
+          />
+        </div>
+        {selectedEntry && (
+          <AssetDetailsPanel
+            entry={selectedEntry}
+            meta={metaFor(selectedEntry.node.path)}
+            previewUrl={selectedPreviewUrl}
+            onSaveDescription={saveDescription}
+            onClose={() => setSelectedPath(null)}
+          />
+        )}
       </div>
+
+      <footer
+        className="flex items-center justify-between px-4 py-1.5 text-[10px] text-text-dim"
+        style={{ borderTop: '0.5px solid var(--color-border)' }}
+      >
+        <span>
+          {displayedEntries.length} item{displayedEntries.length === 1 ? '' : 's'}
+          {searching ? ' (filtered)' : ''}
+          {!searching && currentFolderBytes !== undefined
+            ? ` · ${formatBytes(currentFolderBytes)}`
+            : ''}
+        </span>
+        {sizes && <span>Library total {formatBytes(sizes.total)}</span>}
+      </footer>
 
       {renamingEntry && (
         <RenameDialog

@@ -29,6 +29,7 @@ import { providerModelsApi } from './api/provider-models';
 import { videoApi } from './api/video';
 import { sttApi } from './api/stt';
 import { studioApi } from './api/studio';
+import { libraryApi } from './api/library';
 
 const api = {
   ...appShellApi,
@@ -61,6 +62,7 @@ const api = {
   ...videoApi,
   ...sttApi,
   ...studioApi,
+  ...libraryApi,
 };
 
 contextBridge.exposeInMainWorld('api', api);

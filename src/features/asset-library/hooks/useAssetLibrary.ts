@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { TreeNode } from '@shared/ipc/types';
 import type { AssetEntry } from '../types';
 import { classifyAsset } from '../services/file-type';
 
@@ -6,6 +7,8 @@ interface UseAssetLibraryResult {
   rootPath: string;
   currentPath: string;
   entries: AssetEntry[];
+  /** Raw subtree of currentPath (recursive) — search flattens this. */
+  nodes: TreeNode[];
   loading: boolean;
   error: string | null;
   navigate: (path: string) => void;
@@ -19,6 +22,7 @@ export function useAssetLibrary(): UseAssetLibraryResult {
   const [rootPath, setRootPath] = useState<string>('');
   const [currentPath, setCurrentPath] = useState<string>('');
   const [entries, setEntries] = useState<AssetEntry[]>([]);
+  const [nodes, setNodes] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,9 +34,12 @@ export function useAssetLibrary(): UseAssetLibraryResult {
       if (res.error) {
         setError(res.error);
         setEntries([]);
+        setNodes([]);
         return;
       }
-      const next: AssetEntry[] = (res.nodes ?? []).map((node) => {
+      // Dot-entries (`.vidtsx` index folder, `.DS_Store`, …) stay hidden.
+      const visible = (res.nodes ?? []).filter((node) => !node.name.startsWith('.'));
+      const next: AssetEntry[] = visible.map((node) => {
         if (node.type === 'folder') {
           return { node, category: 'other', ext: '' };
         }
@@ -40,9 +47,11 @@ export function useAssetLibrary(): UseAssetLibraryResult {
         return { node, category, ext };
       });
       setEntries(next);
+      setNodes(visible);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to read directory');
       setEntries([]);
+      setNodes([]);
     } finally {
       setLoading(false);
     }
@@ -76,5 +85,5 @@ export function useAssetLibrary(): UseAssetLibraryResult {
     if (currentPath) await loadDir(currentPath);
   }, [currentPath, loadDir]);
 
-  return { rootPath, currentPath, entries, loading, error, navigate, refresh };
+  return { rootPath, currentPath, entries, nodes, loading, error, navigate, refresh };
 }

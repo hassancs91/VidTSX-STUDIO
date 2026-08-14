@@ -402,6 +402,13 @@ export interface ElectronAPI {
   studioAgentCancel: (data: import('../../shared/ipc/types').StudioAgentCancelRequest) => Promise<import('../../shared/ipc/types').StudioAgentCancelResponse>;
   onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;
   onStudioAgentEvent: (callback: (event: import('../../shared/ipc/types').StudioAgentEvent) => void) => () => void;
+
+  // Asset library — index overlay, sizes, root override
+  libraryIndexGet: () => Promise<import('../../shared/ipc/types').LibraryIndexGetResponse>;
+  libraryDescriptionSet: (data: import('../../shared/ipc/types').LibraryDescriptionSetRequest) => Promise<import('../../shared/ipc/types').LibraryDescriptionSetResponse>;
+  librarySizesGet: () => Promise<import('../../shared/ipc/types').LibrarySizesGetResponse>;
+  libraryRootGet: () => Promise<import('../../shared/ipc/types').LibraryRootGetResponse>;
+  libraryRootSet: (data: import('../../shared/ipc/types').LibraryRootSetRequest) => Promise<import('../../shared/ipc/types').LibraryRootSetResponse>;
 }
 
 declare global {

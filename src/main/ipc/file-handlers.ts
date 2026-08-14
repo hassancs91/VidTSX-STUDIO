@@ -1,7 +1,8 @@
 import { dialog, IpcMainInvokeEvent } from 'electron';
 import fs from 'fs/promises';
 import path from 'path';
-import { getProjectsDir, getAssetsDir, ensureAssetsDir } from '../utils/paths';
+import { getProjectsDir } from '../utils/paths';
+import { ensureLibraryRoot } from '../services/library/library-paths';
 import type {
   FileListRequest,
   FileListResponse,
@@ -334,8 +335,9 @@ export async function handleFileGetProjectsDir(): Promise<FileGetProjectsDirResp
 }
 
 export async function handleFileGetAssetsDir(): Promise<FileGetAssetsDirResponse> {
-  await ensureAssetsDir();
-  return { path: getAssetsDir() };
+  // Honors the assets-root override (library-paths); the default is still
+  // userData/assets via getAssetsDir().
+  return { path: await ensureLibraryRoot() };
 }
 
 export const fileHandlers = {

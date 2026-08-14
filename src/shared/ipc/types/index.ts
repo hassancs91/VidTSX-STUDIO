@@ -9,6 +9,7 @@ export * from './file';
 export * from './flows';
 export * from './frame-extractor';
 export * from './image-studio';
+export * from './library';
 export * from './llm';
 export * from './local-llm';
 export * from './log';

@@ -156,12 +156,19 @@ export function useStudioMedia(
           kind: a.kind,
           path: a.path,
           hasAudio: a.probe.hasAudio,
+          hash: a.hash,
         })),
       })
       .then((res) => {
         if (cancelled || !res.success) return;
         if (res.assetBaseUrl) setAssetBaseUrl(res.assetBaseUrl);
         setMissingAssetIds(new Set(res.missing ?? []));
+        // Silent library heal (L7): main found the moved file by content
+        // hash — merge the new path. The prepare effect re-runs off the
+        // path change and comes back clean; caches are keyed by asset id.
+        for (const heal of res.healed ?? []) {
+          patchAsset(heal.assetId, (asset) => ({ ...asset, path: heal.path }));
+        }
         for (const event of res.ready ?? []) applyEvent(event);
       });
     return () => {

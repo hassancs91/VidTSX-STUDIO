@@ -9,6 +9,36 @@
 
 ## Completed phases
 
+### Studio — S4 LIBRARY CORE (2026-08-14)
+**Status: DONE — first implementation slice of the S4 asset library
+(ASSET_LIBRARY_DESIGN.md L1/L2-manual/L4/L7-relink), CDP-verified live.**
+The Assets screen (existing `asset-library` feature) now carries the index
+overlay: `<assetsRoot>/.vidtsx/index.json` (disk-as-truth, dot-folder kept
+out of the grid), entries keyed by POSIX relPath with `hashFileHead`
+content hashes — new files gain entries, Explorer-moves re-key by hash
+(description survives, proven in tests + live), deletions tombstone for
+7 days and resurrect on re-import of the same bytes. Manual descriptions:
+right-hand details panel (type/size/origin/added/path + textarea, saved on
+blur, optimistic with rollback). Search over name+description with type
+chips (All/Video/Audio/Image/Other) — breadcrumb is the scope, root =
+whole library; sizes per folder (tile subtitles) + footer totals, cached
+with invalidation on index writes. Assets-root settings override
+(`assetsRootOverride` in the settings KV; `library:root:get/set` IPC —
+read via settings-db directly, NOT settings.ts, which the parallel updater
+session owns; fold a typed accessor in later). **L7 move-safety rule
+shipped**: `studioMediaPrepare` now hash-searches the library for missing
+sources and heals paths silently (renderer merges via `healed[]`; manual
+picker stays the fallback). New: `src/main/services/library/*` (paths,
+pure reconcile, store, sizes), `library-handlers` + registration, preload
+`libraryApi`, `shared/types/asset-library.ts` (NOTE: `types/library.ts`
+was already taken by the Creator project library), renderer
+`useLibraryIndex`/`AssetSearchBar`/`AssetDetailsPanel`/`asset-search`.
+19 new unit tests (reconcile matrix, store+sizes on temp dir with
+Explorer-move + stale-index heal, search filters). Gates green (393
+tests, 26/22 type baselines). NOT in this slice (design order): describe
+jobs + no-provider nudge, brands, capture, organize, origin/brand filter
+chips, probe backfill — next slices per the design docs.
+
 ### Studio — S4 TSX SHOTS: DESIGN REVIEW OPEN (2026-08-14)
 **Status: DESIGN WRITTEN, AWAITING HASAN'S REVIEW — no implementation.**
 `docs/studio/TSX_SHOTS_DESIGN.md` (same pattern as TRANSITIONS_DESIGN.md):
