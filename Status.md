@@ -69,8 +69,13 @@ deliberately: brand "Acme Test" (assets root) + project "Brand Inherit
 Test" for D12 testing. Known limits (deliberate): brand-scoped
 `search_assets` behavior deferred to the library slices (index brandId tags
 already exist), logos not embeddable until D12 assetRefs, no
-palette-from-logo/interview skill (v2). NEXT per roadmap: D12 (assetRefs,
-generate_image, capture_webpage), then library describe/organize.
+palette-from-logo/interview skill (v2). NEXT per roadmap (extended with
+Hasan 2026-08-14): D12 (assetRefs, generate_image, capture_webpage — now
+explicitly building the serializer-props channel), then **D13 CAPTIONS**
+(CAPTIONS_DESIGN.md — implementation-ready: ~10 curated TSX templates,
+live props-derived word stream, brand-aware), **D14 Creator import**
+(TSX_SHOTS_DESIGN.md §D14 — conform-on-import; small, can slot into any
+gap), then library describe/organize.
 
 ### Studio — LEAN CANVAS MANIPULATION (2026-08-14)
 **Status: DONE — the interaction slice scheduled right after shots UI

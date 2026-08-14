@@ -49,10 +49,16 @@
 
 ## TSX shots
 
-- **Props-driven live word sync** — serializer-injected word arrays so
-  title shots re-sync automatically under edits; v1 bakes shot-local
-  timings + records the anchor (regenerate re-bakes). Caption-shaped work;
-  coordinate with S5.
+- **Props-driven live word sync for TITLE SHOTS** — *(updated 2026-08-14:
+  the props channel itself moves to v1 — D12 builds serializer props and
+  D13 captions are live-derived through it, `CAPTIONS_DESIGN.md`.)* What
+  stays v2 is wiring existing title shots to that channel so they re-sync
+  under edits; v1 titles keep baked timings + anchor (regenerate re-bakes).
+- **Widened shot import surface** — module-server/import-map + export
+  plumbing so shots can import the Creator 2d allowlist natively
+  (`chroma-js`, `@remotion/shapes`/`paths`/`transitions`, google-fonts,
+  `tone`); makes D14 Creator imports faithful without the conform pass and
+  subsumes the three/R3F surface item below.
 - **Auto re-sync after under-shot cuts** — detect drift via the anchor and
   offer/perform regenerate automatically (v1: inspector flag + manual
   regenerate).

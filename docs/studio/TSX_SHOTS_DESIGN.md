@@ -643,6 +643,49 @@ What makes shots look professional: logos, screenshots, product footage
 - **Perf note**: video-inside-a-shot means a second decoder during preview —
   fine for short cutaways; added to the perf guardrails to measure, not fear.
 
+## D13. Captions *(added 2026-08-14)*
+
+Template-driven, live-derived captions — full design in
+**`CAPTIONS_DESIGN.md`** (implementation-ready, decisions answered).
+Scheduled right after D12 because it rides D12's serializer-props channel:
+the caption layer receives its word stream as props derived from the master
+lane at serialize time (never baked — answered explicitly), and ~10 curated
+react+remotion template components ship as app resources, brand-aware via
+D11.
+
+## D14. Import from TSX Creator *(added 2026-08-14, Rev 1)*
+
+Users build compositions in the Creator; Studio should take them in as
+shots. Mechanically cheap — Creator projects are folders of `v*.tsx` under
+`getProjectsDir()` with the same `compositionConfig` convention and shared
+pipelines.
+
+- **Import flow**: MediaPool Shots menu grows "Import from Creator" (main
+  service lists Creator projects: name, updatedAt, latest version) and a
+  generic "Import .tsx file…" picker — both funnel into the same path: copy
+  the chosen source into a new `shots/<id>/v1.tsx` and run the existing
+  acceptance gate (transpile + lint + config parse). Pass → ready shot with
+  `origin: { by: 'user' }`, name from the Creator project; no stored brief,
+  so Regenerate is naturally disabled (correct — there is nothing to
+  regenerate from) while Edit works as usual.
+- **The allowlist gap, decided as conform-on-import**: Creator 2d comps may
+  import `chroma-js`, `@remotion/shapes`/`paths`/`transitions`,
+  `@remotion/google-fonts`, `tone` — all installed, so *rendering* is fine —
+  but the Studio shot preview resolves only `react` + `remotion` as modules
+  (decision #5). Clean files import instantly (many simple Creator comps
+  qualify). Files with extra imports get a pointed error plus a **"Convert
+  for Studio"** action: one `editTsxPipeline` pass with a conform
+  instruction (inline shapes/colors, swap google-fonts to font-family
+  stacks) validated by the same gate; the untouched original is kept
+  alongside as `original.tsx` for reference. Trade-off accepted: one LLM
+  run, and conversion can shift the look slightly.
+- **V2 ledger**: the *widened import surface* — module-server/import-map +
+  export plumbing so shots can import the Creator 2d allowlist natively (no
+  conversion, faithful imports; subsumes the three/R3F surface item). The
+  reverse direction ("open shot in Creator editor") also stays v2.
+- Feature isolation holds: a main-process service reads Creator folders;
+  the two renderer features never import each other.
+
 ## Out of scope (v2+)
 
 Ledgered with owners and context in **`V2_FEATURES.md`** — headline items:
