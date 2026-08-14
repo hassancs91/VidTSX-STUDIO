@@ -9,6 +9,61 @@
 
 ## Completed phases
 
+### Studio — LEAN CANVAS MANIPULATION (2026-08-14)
+**Status: DONE — the interaction slice scheduled right after shots UI
+(2026-08-14 roadmap decision with Hasan; full rotate/crop/multi-select stays
+in V2_FEATURES.md), CDP-verified live with real pointer gestures.** Select a
+clip → bounding box + 4 corner handles over the Player; drag to MOVE, corner
+drag for uniform SCALE (opposite corner anchored); click-in-player selects
+the topmost painted clip. The document side (`StudioClipTransform`,
+`update-clip`, transformStyle) was untouched — this is purely the
+interaction layer. **Math is a pure service**
+(`features/studio/services/canvas-transform.ts`, 22 unit tests): player-rect
+→ composition mapping (`fitScale`/`playerPointToComp`), `clipBox` from the
+transformStyle semantics (element center = comp center + x/y, box = comp ×
+scale; the box is the ELEMENT — letterboxed picture and inspector-set
+rotation deliberately not represented), `moveGesture` (round + clamp
+±10000), `scaleGesture` (pointer projected onto the fixed diagonal, clamp
+1%–1000% — the Inspector's exact ranges — anchor recomputed so it never
+drifts), `hitTestClip` (serializer paint order: tracks[0] topmost, trailing
+clip over leading through crossfade overlaps, visual kinds only, hidden
+tracks skipped for free by using the serialization), and
+`overrideClipTransform` (live-preview injection). **`CanvasOverlay.tsx`**
+mounts via a new PreviewPanel `overlay` slot (absolute inset-0 over the
+aspect box so its own rect IS the player rect, ResizeObserver-tracked);
+window-listener drag (the PaneDivider pattern), rAF-throttled; box shows
+only when ONE visual clip is selected AND the playhead is inside its span
+AND the track is unlocked/visible AND the Player shows the real timeline
+(`playerTimeline === tl.timeline` — hidden during Preview result; never in
+an export by construction). **Undo discipline:** drags live-preview through
+an ephemeral serialized override in EditorShell (zero reducer dispatches per
+pixel — CDP-proven: inspector still read 0/0 mid-drag), ONE `update-clip` on
+pointer-up; `updateClip`'s identity check makes no-op gestures free.
+**PreviewPanel restructure:** the aspect box no longer clips (Player moved
+into an inner rounded overflow-hidden div; the PANEL clips instead) so a
+box dragged past the frame edge keeps its handles reachable over the
+letterbox — beyond the panel (~16 px + letterbox slack) handles clip and the
+Inspector numbers are the fallback (canvas zoom is V2). Box clicks are NOT
+swallowed: a non-drag click inside the box falls through to the root
+hit-test so a clip painted ABOVE the selected one stays click-selectable
+(drag-end clicks guarded by a justDragged ref). **Live CDP proof (real
+`Input.dispatchMouseEvent` gestures, shots-core-test + Test projects):**
+box appears exactly over the frame for identity transform and matches
+committed offsets; move drag (−40,−25) player px → inspector −101/−63 (the
+predicted comp-px rounding, fit 0.3977); SE-corner drag to 70% → scale 70,
+x −293 / y −171 (closed-form match), NW anchor drift 0.0 px; first Ctrl+Z
+reverted ONLY the scale, second ONLY the move; picture followed live
+mid-drag with the button still down; box absent for: audio clip (via detach
+→ auto-selected A1 clip → undone), playhead outside span (two cases),
+nothing selected; click-in-player switched selection V1 → topmost FX1
+overlay per paint order. Gates green: 484 tests (462 + 22), type baselines
+26/22. Known limits (deliberate, lean): no rotate/crop/multi-select/
+snapping (V2), box ignores inspector-set rotation, handles unreachable past
+the panel edge, overlay hit-box for tsx overlay shots is the full comp
+element (transparent pixels included). NEXT per roadmap: D11 brands, then
+D12 (assetRefs, generate_image, capture_webpage), then library
+describe/organize.
+
 ### Studio — S4 SHOTS GENERATION (2026-08-14)
 **Status: DONE — third S4 shots slice (D8 + D7 + D6 + D10 per
 TSX_SHOTS_DESIGN.md Rev 4), verified live with REAL Claude-subscription

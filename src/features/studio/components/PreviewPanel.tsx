@@ -18,6 +18,9 @@ interface Props {
   /** True while an audition (or "Preview result") pins the speed to 1×. */
   ratePinned: boolean;
   onCycleRate: (direction: 1 | -1) => void;
+  /** Canvas-manipulation overlay (absolute inset-0) — rendered over the
+   *  Player inside the aspect box, so its rect IS the composition's rect. */
+  overlay?: React.ReactNode;
 }
 
 /**
@@ -37,6 +40,7 @@ export function PreviewPanel({
   playbackRate,
   ratePinned,
   onCycleRate,
+  overlay,
 }: Props) {
   const inputProps = useMemo(() => ({ timeline, components }), [timeline, components]);
   const isEmpty = timeline.tracks.every((t) => t.clips.length === 0);
@@ -44,39 +48,48 @@ export function PreviewPanel({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-app-player">
-      <div className="flex-1 min-h-0 flex items-center justify-center p-4">
+      {/* The panel clips the canvas overlay (overflow-hidden HERE), while the
+          aspect box below does NOT — a manipulation box dragged past the frame
+          edge keeps its handles reachable over the letterbox area instead of
+          being cut off at the picture. */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4 overflow-hidden">
         <div
-          className="relative bg-black rounded-[4px] overflow-hidden flex items-center justify-center"
+          className="relative flex items-center justify-center"
           style={{
             aspectRatio: `${timeline.width} / ${timeline.height}`,
             maxWidth: '100%',
             maxHeight: '100%',
             width: timeline.width >= timeline.height ? '100%' : 'auto',
             height: timeline.width >= timeline.height ? 'auto' : '100%',
-            border: '0.5px solid var(--color-border)',
           }}
         >
-          {isEmpty ? (
-            <span className="text-[11px] text-text-ghost select-none px-4 text-center">
-              {timeline.width}×{timeline.height} — add media to the timeline to preview it
-            </span>
-          ) : (
-            <Player
-              ref={playerRef}
-              component={TimelineComposition}
-              inputProps={inputProps}
-              durationInFrames={timeline.durationInFrames}
-              fps={timeline.fps}
-              compositionWidth={timeline.width}
-              compositionHeight={timeline.height}
-              style={{ width: '100%', height: '100%' }}
-              controls={false}
-              playbackRate={playbackRate}
-              // NLE convention (Hasan, 2026-08-13): after playing past the
-              // end, park at the end instead of snapping back to 0.
-              moveToBeginningWhenEnded={false}
-            />
-          )}
+          <div
+            className="absolute inset-0 bg-black rounded-[4px] overflow-hidden flex items-center justify-center"
+            style={{ border: '0.5px solid var(--color-border)' }}
+          >
+            {isEmpty ? (
+              <span className="text-[11px] text-text-ghost select-none px-4 text-center">
+                {timeline.width}×{timeline.height} — add media to the timeline to preview it
+              </span>
+            ) : (
+              <Player
+                ref={playerRef}
+                component={TimelineComposition}
+                inputProps={inputProps}
+                durationInFrames={timeline.durationInFrames}
+                fps={timeline.fps}
+                compositionWidth={timeline.width}
+                compositionHeight={timeline.height}
+                style={{ width: '100%', height: '100%' }}
+                controls={false}
+                playbackRate={playbackRate}
+                // NLE convention (Hasan, 2026-08-13): after playing past the
+                // end, park at the end instead of snapping back to 0.
+                moveToBeginningWhenEnded={false}
+              />
+            )}
+          </div>
+          {!isEmpty && overlay}
         </div>
       </div>
 

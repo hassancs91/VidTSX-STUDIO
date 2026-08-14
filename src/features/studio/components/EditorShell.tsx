@@ -22,7 +22,15 @@ import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-pro
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
-import type { StudioMediaAsset, StudioProposal, StudioProposalItem, StudioShot } from '../types';
+import { overrideClipTransform } from '../services/canvas-transform';
+import type {
+  StudioClipTransform,
+  StudioMediaAsset,
+  StudioProposal,
+  StudioProposalItem,
+  StudioShot,
+} from '../types';
+import { CanvasOverlay } from './CanvasOverlay';
 import { MediaPool, type GenerateShotSpec } from './MediaPool';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
@@ -455,13 +463,39 @@ export function EditorShell({ projectId, onBack }: Props) {
   const rightPane = usePaneSize('right', 270, 220, 460);
   const timelinePane = usePaneSize('timeline', 240, 140, 520);
 
-  const previewTimeline = useMemo(() => {
+  const serializedTimeline = useMemo(() => {
     if (!project) return null;
     return serializeTimeline(
       { ...project, timeline: playerTimeline, shots: tl.shots },
       resolvePreviewUrl,
     );
   }, [project, playerTimeline, tl.shots, resolvePreviewUrl]);
+
+  // ----- Canvas manipulation (lean slice, 2026-08-14) ---------------------
+  // A drag on the Player's bounding box live-previews through this ephemeral
+  // override — layered over the serialization so the reducer sees nothing per
+  // pixel — and commits ONE update-clip on pointer-up (one undo step).
+  const [canvasOverride, setCanvasOverride] = useState<{
+    clipId: string;
+    transform: StudioClipTransform;
+  } | null>(null);
+  const previewTimeline = useMemo(() => {
+    if (!serializedTimeline || !canvasOverride) return serializedTimeline;
+    return overrideClipTransform(
+      serializedTimeline,
+      canvasOverride.clipId,
+      canvasOverride.transform,
+    );
+  }, [serializedTimeline, canvasOverride]);
+  const handleCanvasCommit = useCallback(
+    (clipId: string, transform: StudioClipTransform) => {
+      tl.dispatch({ type: 'update-clip', clipId, patch: { transform } });
+    },
+    [tl],
+  );
+  // The overlay is an editing affordance over the REAL timeline only — while
+  // a review's "Preview result" scratch-applies a proposal, it disappears.
+  const canvasEnabled = playerTimeline === tl.timeline;
 
   const handleImport = useCallback(async () => {
     setImporting(true);
@@ -652,6 +686,19 @@ export function EditorShell({ projectId, onBack }: Props) {
             playbackRate={effectiveRate}
             ratePinned={ratePinned}
             onCycleRate={cycleRate}
+            overlay={
+              canvasEnabled ? (
+                <CanvasOverlay
+                  serialized={previewTimeline}
+                  timeline={tl.timeline}
+                  selectedClipId={tl.selectedClipId}
+                  onSelect={tl.select}
+                  subscribePlayhead={playback.subscribe}
+                  onLiveTransform={setCanvasOverride}
+                  onCommit={handleCanvasCommit}
+                />
+              ) : null
+            }
           />
         </div>
 
