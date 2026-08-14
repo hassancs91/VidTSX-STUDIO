@@ -2,9 +2,15 @@
 
 > Phase S4 of `docs/studio/PLAN.md`. Written before the code, per the
 > "design first" rule — this is the reviewable artifact, same pattern as
-> `TRANSITIONS_DESIGN.md` (Slice E). Each decision D1–D10 lays out options,
-> names a recommendation, and the checklist at the end is answerable inline.
+> `TRANSITIONS_DESIGN.md` (Slice E). Each decision lays out options, names a
+> recommendation, and the checklist at the end is answerable inline.
 > Decisions here are v1; anything marked *(v2)* is deliberately out.
+>
+> **Rev 2 — 2026-08-14, after the review discussion with Hasan.** D5/D7/D8
+> amended (shot asset props, bulk passes), D11 (brands) and D12 (media inside
+> shots) added. Library / brand storage / capture internals live in the
+> companion `ASSET_LIBRARY_DESIGN.md`; everything parked for later is
+> ledgered in `V2_FEATURES.md`.
 
 ## What already exists (the design builds on, not around, these)
 
@@ -211,7 +217,12 @@ shot id, supplied differently per consumer but rendered identically:
 
 ```ts
 // serialize.ts
-SerializedClip += tsx?: { shotId: string; mode: 'cutaway' | 'overlay' }
+SerializedClip += tsx?: {
+  shotId: string;
+  mode: 'cutaway' | 'overlay';
+  /** Rev 2: shot asset refs resolved to URLs per environment (D12). */
+  props?: { assets?: Record<string, string> };   // ref key → URL
+}
 
 // TimelineComposition.tsx
 TimelineCompositionProps += components?: Record<string, React.ComponentType>
@@ -224,6 +235,13 @@ TimelineCompositionProps += components?: Record<string, React.ComponentType>
   (`serialize.ts:79`). Missing component → `null` (the preview supplier
   substitutes a placeholder component instead, so the shared composition
   stays dumb).
+- *(Rev 2)* Shots that use media declare `assetRefs: Record<key, assetId>` on
+  the shot (D12); the serializer resolves each ref through the **same
+  `AssetUrlResolver` machinery as clip `src`** (module server in preview,
+  bundle server in export) and passes `{ assets }` as props to the component.
+  Generated code references `assets.<key>`, never a file path — the
+  preview/export URL asymmetry stays the serializer's problem, exactly as it
+  does for media clips.
 - Preview supplier: `useShotModules` map, each entry wrapped in
   `ShotErrorBoundary`; not-yet-loaded/failed → placeholder component.
 - Export supplier: the generated entry (D6) builds the map from static
@@ -289,6 +307,10 @@ flat `SttWord[]`). The shot needs word timing relative to itself.
 is *reconstructible*: regenerate re-reads the transcript for
 `anchor.assetId/sourceStart/sourceEnd` and re-bakes.
 
+*(Rev 2)* The asset-props channel added in D5/D12 does not reopen this
+decision: it carries only URLs, which genuinely must resolve per environment.
+Word timings stay baked — two different problems, two mechanisms.
+
 Placement + drift rules (documented behavior):
 
 - The tool proposes `timelineStart` by mapping `anchor.sourceStart` through
@@ -315,6 +337,7 @@ Placement + drift rules (documented behavior):
   sourceStart: z.number().optional(),     // anchor span, source seconds
   sourceEnd: z.number().optional(),
   durationSeconds: z.number().optional(), // default: anchor span length
+  assetRefs: z.record(z.string()).optional(), // key → asset id (Rev 2, D12)
 }
 ```
 
@@ -326,6 +349,29 @@ tsxValidate: validateTsxCode }`, `featureSource: 'studio-tsx-shot'`,
 progress as agent `tool` events (the pipeline's `onProgress` maps cleanly).
 The nested-LLM-inside-a-tool-call shape is fine — `runLlmGenerate` is
 re-entrant and `propose_cuts` already does main-side compute in a tool.
+
+*(Rev 2)* The handler additionally injects the project's **active brand**
+(D11) into the prompt context — palette as required tokens, fonts, style
+notes verbatim — and resolves `assetRefs` into an asset table (name, kind,
+dimensions from the existing probe data) the model designs against. The
+companion tools `search_assets`, `generate_image`, and `capture_webpage`
+(defined in `ASSET_LIBRARY_DESIGN.md`) let a shots pass find or make its own
+material; images/captures are additive assets, so they carry no proposal of
+their own — the shot proposal is where the outcome is judged.
+
+**Bulk passes** *(Rev 2)* — "add shots for the first 5 minutes" is the same
+machinery at scale: N tool calls, one `shot-plan` proposal with N items. The
+discipline the skill enforces is **plan cheap, generate expensive**: for a
+multi-shot ask the agent first posts a textual shot list in chat (anchors +
+one-liners) and gets a go-ahead *before* burning pipeline runs — a cheap
+conversational gate ahead of the visual proposal gate. `get_transcript`
+gains optional `startSeconds`/`endSeconds` so a range ask reads only its
+slice, and a per-pass cap of 10 shots guards runaway passes (the agent asks
+before exceeding it, like the single-proposal rule). The tool stays strictly
+one-shot-per-call — simpler progress attribution and failure isolation when
+one of seven shots dies in its fix loop. Generation runs up to 4 concurrent
+(the Creator's cap), so a 7-shot pass costs roughly two pipeline-lengths of
+wall clock.
 
 **Proposal flow — generate-then-propose.** Review must let Hasan *see* the
 shot before accepting, so generation happens first, then a `shot-plan`
@@ -420,13 +466,61 @@ never a dangling file path.
 - **Review**: `ReviewShotsSection` with per-item accept/reject + "Preview
   shot" audition (scratch-apply + park, the cuts pattern).
 
+## D11. Brands *(Rev 2)*
+
+Ported intent of the reference `brand-setup` skill, made native. Storage and
+UI detail live in `ASSET_LIBRARY_DESIGN.md` §L3; what shots need to know:
+
+- **App-level library, multiple brands** at `<studioRoot>/brands/<slug>/`
+  (`brand.json` + logo refs into the asset library). `defaultBrandId` lives
+  in Studio settings; a new project **copies** the default into
+  `project.settings.brandId` at creation — explicit, so changing the app
+  default later never silently restyles an old project. Switchable per
+  project any time.
+- **v1 brand shape**: name, palette (primary / secondary / background /
+  text / accent), fonts (Google + system in v1; local font files are
+  ledgered for v2), logo asset refs, free-text style notes.
+- **Generation contract**: the shot tool injects the active brand into the
+  prompt context and the `studio-make-tsx` skill mandates honoring it —
+  palette tokens, brand fonts, logo placement per notes. Existing shot
+  versions keep their look (baked TSX); the inspector offers **"Restyle to
+  brand"** = a regenerate with the (new) brand injected.
+- **Brand-scoped search**: assets carry an optional `brandId` tag; with an
+  active brand, `search_assets` defaults to brand-tagged + unbranded assets
+  — a smaller haystack for the agent, automatically.
+
+## D12. Media inside shots *(Rev 2)*
+
+What makes shots look professional: logos, screenshots, product footage
+*inside* the generated composition.
+
+- **`assetRefs: Record<key, assetId>` on the shot** (D1 registry). The
+  serializer resolves refs to URLs per environment and passes them as
+  `assets` props (D5); generated code uses `<Img src={assets.logo}>` /
+  `<OffthreadVideo src={assets.demo}>` — never a file path.
+- **Import-on-use seam**: the app-level library is a *picking surface, not a
+  reference domain*. The moment a library asset is used — timeline clip or
+  shot ref — it is imported into the project as a normal `StudioMediaAsset`
+  (referenced in place at its library path, description carried along). The
+  document stays self-contained; probe/proxy/thumbnails/relink machinery
+  untouched; the library never appears in `project.json`.
+- **`generate_image` agent tool** (wraps the existing `imageEngine`): output
+  is *born managed* in the library (`generated` origin), auto-tagged with
+  the active brand, its generation prompt saved as the initial description.
+  Additive → no proposal of its own; visible as a tool event, judged through
+  the shot proposal that uses it.
+- **`capture_webpage`** feeds screenshot material the same way (library doc
+  §L6) — the road to fake-screencast-style shots.
+- **Perf note**: video-inside-a-shot means a second decoder during preview —
+  fine for short cutaways; added to the perf guardrails to measure, not fear.
+
 ## Out of scope (v2+)
 
-Screenshot-based shots (fake-screencast port); props-driven word sync;
-3D/three import surface; per-shot bake-to-proxy; auto re-sync after
-under-shot cuts; per-clip version pinning; opening shots in the Creator
-editor (feature isolation — shots are files, the pipeline is shared, the
-UIs stay separate); shot templates/library.
+Ledgered with owners and context in **`V2_FEATURES.md`** — headline items:
+fake-screencast skill port; props-driven word sync; three/R3F import
+surface; per-shot bake-to-proxy preview; auto re-sync after under-shot
+cuts; per-clip version pinning; opening shots in the Creator editor; shot
+templates/library.
 
 ## Test plan sketch
 
@@ -434,7 +528,9 @@ UIs stay separate); shot templates/library.
   drop, transitions on tsx clips); shot ops (add/set-version/delete with
   clip cascade, undo round-trips); shot-plan proposal build/apply/reject;
   anchor → shot-local word math; import-lint allow/reject table;
-  export-entry emits imports + map for exactly the referenced ready shots.
+  export-entry emits imports + map for exactly the referenced ready shots;
+  *(Rev 2)* asset-ref resolution (preview vs export URLs, missing ref →
+  shot drop rule); brand-context injection snapshot; bulk-pass cap guard.
 - **Live CDP**: chat → generate (progress events) → review → apply → shot
   visible in Player at the anchor word (frame screenshot); edit round-trip
   (v2 appears, preview updates, undo returns to v1); broken-shot placeholder
@@ -473,3 +569,12 @@ UIs stay separate); shot templates/library.
 10. **Deletion (D9)** — deleting a referenced shot prompts and removes its
     clips in one undo step; files stay on disk (unreferenced folders are
     ignored): **OK?**
+11. **Bulk passes (D8, Rev 2)** — chat-level plan gate before multi-shot
+    generation; `get_transcript` range params; 10-shot per-pass cap; tool
+    stays one-shot-per-call: **OK?**
+12. **Brands (D11, Rev 2)** — app-level multiple brands, default copied into
+    the project at creation (never restyled retroactively); v1 fonts limited
+    to Google + system: **OK?**
+13. **Media in shots (D12, Rev 2)** — `assetRefs` resolved to asset props by
+    the serializer (the one props channel); import-on-use seam;
+    `generate_image` runs without its own proposal: **OK?**

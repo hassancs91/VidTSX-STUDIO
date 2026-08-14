@@ -26,6 +26,21 @@ round-trips. One implementation spike flagged: confirm the bundler's TSX rule
 compiles files outside the app path before locking the entry shape.
 Implementation starts after review.
 
+**Rev 2 (same day, after live discussion with Hasan):** D5/D7/D8 amended
+(shot asset props resolved by the serializer, bulk shot passes with a
+chat-plan gate + 10-shot cap, brand/asset injection into generation);
+D11 brands + D12 media-in-shots added (checklist now 13 items). Two new
+docs: `docs/studio/ASSET_LIBRARY_DESIGN.md` (disk-as-truth library +
+index.json, AI describe/organize behind the audit gate, brands with
+default, search/filter/sizes, web capture via hidden Electron window —
+no Playwright; checklist L1–L8) and `docs/studio/V2_FEATURES.md` (parked
+ledger: screen capture, optimize/compress, local fonts, fake-screencast
+port, props-driven word sync, …). Scope decision: v1 = full library +
+professional TSX generation; web capture only (screen capture v2).
+Implementation order: library core → shots core → brands/capture/curation.
+UX walkthrough artifact published (claude.ai). Both design docs awaiting
+Hasan's checklist answers.
+
 ### Studio — post-gate POLISH MINI-SESSION (2026-08-14)
 **Status: COMPLETE — the three papercuts the stability gate surfaced are fixed
 and CDP-verified live; §15 performance spot-checks run on Hasan's real DJI
