@@ -27,8 +27,9 @@
   infrastructure. Source: Hasan, library discussion.
 - **Ambient organize nudges** — "3 assets look misfiled" surfaced passively
   (v1 organize is user-triggered behind the review gate).
-- **Standalone library screen** — v1 is a tab in the Studio media pool;
-  promote to its own screen when the library outgrows it.
+- ~~Standalone library screen~~ — resolved in v1: the library extends the
+  app's existing `asset-library` Assets screen (library doc L8 Rev 3), so
+  a dedicated screen already exists.
 - **Local model auto-describe** — vision descriptions via local models
   (v1 uses the app-default cloud provider).
 - **Cross-project usage tracking** — `used_in` per asset (the reference

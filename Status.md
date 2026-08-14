@@ -65,6 +65,18 @@ include/exclude — out-of-root shot files compile (spike closed by reading
 the shipped config; superseded by the copy step anyway). Docs now at
 TSX_SHOTS_DESIGN Rev 3 (checklist 14 items) / ASSET_LIBRARY_DESIGN Rev 2.
 
+**DESIGN PHASE CLOSED (2026-08-14): both checklists ANSWERED by Hasan in
+chat — all recommendations accepted.** Shots #5: react + remotion only.
+Two library amendments folded in as ASSET_LIBRARY_DESIGN Rev 3: (a) the
+library extends the app's EXISTING `asset-library` Assets screen over
+`userData/assets` (a new Studio-pool tab was wrong; assets root gains a
+settings override for disk-space freedom; brands live at `brands/` inside
+the assets root, visible in the screen); (b) describe degrades gracefully
+with no AI provider — imports never block, a dismissible note explains why
+descriptions matter, manual entry always works. NEXT: **Spike 0**
+(packaged-build ESM import into an in-app Player — gates the preview
+architecture), then library core → shots core → brands/capture/curation.
+
 ### Studio — post-gate POLISH MINI-SESSION (2026-08-14)
 **Status: COMPLETE — the three papercuts the stability gate surfaced are fixed
 and CDP-verified live; §15 performance spot-checks run on Hasan's real DJI

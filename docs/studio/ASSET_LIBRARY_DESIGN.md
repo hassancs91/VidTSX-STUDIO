@@ -10,6 +10,13 @@
 > the agent picks and generates. Descriptions and structure are not
 > cosmetics; they are generation quality.
 >
+> **Rev 3 — 2026-08-14, Hasan's checklist review.** Two amendments: the
+> library extends the **existing `asset-library` feature** (the Assets
+> screen over `userData/assets` — L1/L8 revised; a new Studio-pool tab was
+> wrong, my miss), and describe degrades gracefully with **no AI provider
+> configured** (L2). All checklist items otherwise accepted as recommended
+> — the checklist below is ANSWERED; this doc is implementation-ready.
+>
 > **Rev 2 — 2026-08-14, after the adversarial grill.** L7's relink claim
 > corrected (silent relink-by-hash is NEW v1 scope — today's relink is a
 > manual picker that merely hash-verifies); the hash algorithm is pinned to
@@ -31,11 +38,17 @@
 
 ## L1. Location & source of truth — real folders, one overlay
 
-- **Disk-as-truth**: the library lives at `<studioRoot>/library/` with real
-  folders the user creates (`logos/`, `screenshots/`, `b-roll/`, `music/`,
-  …). Organize in the app *or* in Explorer; the pool mirrors reality. No
-  virtual-tree/disk-tree sync bugs, and users with existing organized
-  folders get credit instantly (importing a folder preserves its structure).
+- **Disk-as-truth**: *(Rev 3)* the library IS the app's existing Assets
+  root — `userData/assets` (`getAssetsDir`, `src/main/utils/paths.ts:16`),
+  already browsed by the `asset-library` feature's Assets screen — with
+  real folders the user creates (`logos/`, `screenshots/`, `b-roll/`,
+  `music/`, …). Organize in the app *or* in Explorer; the screen mirrors
+  reality. No virtual-tree/disk-tree sync bugs, and users with existing
+  organized folders get credit instantly (importing a folder preserves its
+  structure). Because media libraries get big and userData lives on C:, a
+  **settings override for the assets root** ships with this slice (default
+  unchanged; moving = move the folder + update the setting — the index
+  travels inside the folder).
 - **One overlay the disk can't hold**: `library/index.json` — per-asset
   metadata keyed by library-relative path, rename-resilient via content
   hash:
@@ -91,6 +104,12 @@ transparent, use on dark backgrounds"* beats any filename.
   batch-fatal.
 - *(Rev 2)* First AI describe (auto or batch) shows a one-time consent
   note — describing sends the image to the configured cloud provider.
+- *(Rev 3)* **No AI provider configured → nothing breaks.** Imports never
+  block on describe; auto/batch describe simply shows as unavailable, and
+  the library surfaces a dismissible note in the assets view: descriptions
+  and folder structure are what make the Studio agent pick the right asset
+  — write them manually, or configure an AI provider in Settings to draft
+  them for you. Manual descriptions are always available either way.
 - Generated assets get their generation prompt as the initial description
   (free and accurate); captures get page title + URL (L6).
 
@@ -99,9 +118,11 @@ project footage imports.
 
 ## L3. Brands — multiple, default, orthogonal to folders
 
-- **Storage**: `<studioRoot>/brands/<slug>/brand.json`; as many brands as
-  the user wants. Logo files are ordinary library assets (brand-tagged);
-  `brand.json` references them by library path + hash.
+- **Storage**: *(Rev 3)* `brands/<slug>/brand.json` **inside the assets
+  root** — visible in the Assets screen like any folder ("brands feature in
+  assets", as asked); as many brands as the user wants. Logo files are
+  ordinary library assets (brand-tagged); `brand.json` references them by
+  library path + hash.
 
   ```ts
   interface StudioBrand {
@@ -230,16 +251,27 @@ safe.
 
 ## L8. Module layout & IPC
 
+*(Rev 3 — corrected: the app already has an Assets screen; extend it.)*
+
 ```
+src/features/asset-library/  EXTEND the existing feature (screen, grid,
+                             breadcrumbs, categories, clipboard survive):
+                             + index overlay (descriptions, brand tags),
+                             + search/filter chips, sizes, describe/organize
+                             flows, capture button, Brands section
+src/features/studio/…        thin "Add from library" picker in the media
+                             pool, reading the same services — import-on-use
+                             is the only crossing point
 src/main/services/library/   library-store (index, scan, moves), describe-job,
-                             capture, sizes
-src/features/studio/…        v1 surface: a "Library" tab in the media pool
-                             (browse/search/filter, describe, organize,
-                             capture, brand assign); standalone screen → v2
+                             capture, sizes (new — today the feature is
+                             renderer + generic file-list IPC only)
 src/shared/types/library.ts  index entry, brand, IPC contracts
 src/main/ipc/library-handlers.ts + registrations/library.ts
 src/preload/api/library.ts
 ```
+
+Feature isolation holds: `asset-library` and `studio` never import each
+other; both talk to `src/shared/` types and the library IPC surface.
 
 House rules apply (IPC-only bridge, services own logic, ~300 lines/file).
 The library never appears in `project.json` — the import-on-use seam
@@ -259,7 +291,12 @@ The library never appears in `project.json` — the import-on-use seam
 
 ---
 
-## Decision checklist (answer inline)
+## Decision checklist — ANSWERED (Hasan, 2026-08-14)
+
+All items accepted as recommended, with two amendments folded in above:
+**#2** gains the no-provider graceful path (L2 Rev 3) and **#7** is
+corrected to extend the existing `asset-library` feature instead of a
+Studio-pool tab (L8 Rev 3). Original items kept for the record:
 
 1. **L1** — disk-as-truth at `<studioRoot>/library/` with `index.json`
    overlay keyed by relPath + hash: **OK?**
@@ -278,8 +315,9 @@ The library never appears in `project.json` — the import-on-use seam
    library hash-search relink is built as **new v1 scope** (shared
    `hashFileHead` algorithm), and organize skips assets referenced by the
    currently-open project: **OK?**
-7. **L8** — v1 library UI lives as a tab inside the Studio media pool
-   (standalone screen later): **OK?**
+7. **L8 (Rev 3, corrected per Hasan)** — the library extends the existing
+   `asset-library` Assets screen; Studio gets only a thin "Add from
+   library" picker: **ANSWERED — yes.**
 8. **Implementation order (Rev 2)** — **Spike 0 first** (packaged-preview
    import test, shots doc D4) since it alone can invalidate an
    architectural choice; then library core → shots core → brands + capture

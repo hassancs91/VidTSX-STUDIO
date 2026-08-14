@@ -572,8 +572,9 @@ never a dangling file path.
 Ported intent of the reference `brand-setup` skill, made native. Storage and
 UI detail live in `ASSET_LIBRARY_DESIGN.md` §L3; what shots need to know:
 
-- **App-level library, multiple brands** at `<studioRoot>/brands/<slug>/`
-  (`brand.json` + logo refs into the asset library). `defaultBrandId` lives
+- **App-level library, multiple brands** at `brands/<slug>/` inside the
+  assets root (the existing `asset-library` feature's tree — see the
+  library doc L1/L3 Rev 3; `brand.json` + logo refs). `defaultBrandId` lives
   in Studio settings; a new project **copies** the default into
   `project.settings.brandId` at creation — explicit, so changing the app
   default later never silently restyles an old project. Switchable per
@@ -641,7 +642,12 @@ templates/library.
 
 ---
 
-## Decision checklist (answer inline)
+## Decision checklist — ANSWERED (Hasan, 2026-08-14)
+
+All 14 items accepted as recommended (walked through in chat; #2 cutaway
+semantics and #4 the Spike 0 gate explained and confirmed; #5 answered:
+**react + remotion only** in v1). This doc is implementation-ready pending
+Spike 0's verdict on D4. Original items kept for the record:
 
 1. **Shot registry (D1)** — top-level `shots: StudioShot[]`, clips carry
    `tsx: { shotId, mode }` (replacing `filePath`, no schema bump since no
