@@ -1,4 +1,4 @@
-import type { StudioClip, StudioTimeline } from '../../types';
+import type { StudioClip, StudioTimeline, StudioTrack } from '../../types';
 import { clipEndTime } from '../../services/timeline-ops';
 import { TRACK_HEIGHT } from '../../services/timeline-view';
 import { TimelineClip, type ClipDragKind, type ClipWaveformData } from './TimelineClip';
@@ -18,6 +18,9 @@ interface Props {
   onClipContextMenu: (event: React.MouseEvent, clip: StudioClip) => void;
   /** Press on empty lane space — starts the marquee (click = deselect). */
   onLanePointerDown: (event: React.PointerEvent) => void;
+  /** Right-click on empty lane space — opens the track options menu (the
+   *  header cell is narrow; the lane is where the mouse actually is). */
+  onLaneContextMenu: (event: React.MouseEvent, track: StudioTrack) => void;
   /** Join square at a contiguous boundary — opens the transition picker. */
   onJoinClick: (event: React.MouseEvent, leadingClip: StudioClip) => void;
   /** Assets whose source file is missing — their clips get a warning tint. */
@@ -37,6 +40,7 @@ export function TimelineLanes({
   onClipPointerDown,
   onClipContextMenu,
   onLanePointerDown,
+  onLaneContextMenu,
   onJoinClick,
   missingAssetIds,
 }: Props) {
@@ -54,6 +58,9 @@ export function TimelineLanes({
           }}
           onPointerDown={(e) => {
             if (e.target === e.currentTarget) onLanePointerDown(e);
+          }}
+          onContextMenu={(e) => {
+            if (e.target === e.currentTarget) onLaneContextMenu(e, track);
           }}
         >
           {track.clips

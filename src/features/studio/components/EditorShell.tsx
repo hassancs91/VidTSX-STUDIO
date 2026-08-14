@@ -10,6 +10,7 @@ import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
 import { useShotModules } from '../hooks/useShotModules';
+import { usePaneSize } from '../hooks/usePaneSize';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -20,6 +21,7 @@ import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
 import type { StudioMediaAsset, StudioProposal, StudioProposalItem } from '../types';
 import { MediaPool } from './MediaPool';
+import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
 import { PreviewPanel } from './PreviewPanel';
 import { TimelinePanel } from './TimelinePanel';
@@ -321,6 +323,13 @@ export function EditorShell({ projectId, onBack }: Props) {
   // the REDUCER's shots — the document copy lags one write-back effect.
   const shotComponents = useShotModules(projectId, tl.shots);
 
+  // ----- Resizable panes (ergonomics, 2026-08-14) ------------------------
+  // Per-machine window state, remembered in localStorage. Defaults match the
+  // previous fixed layout so an untouched install looks identical.
+  const poolPane = usePaneSize('pool', 230, 160, 420);
+  const rightPane = usePaneSize('right', 270, 220, 460);
+  const timelinePane = usePaneSize('timeline', 240, 140, 520);
+
   const previewTimeline = useMemo(() => {
     if (!project) return null;
     return serializeTimeline(
@@ -470,9 +479,12 @@ export function EditorShell({ projectId, onBack }: Props) {
         </Button>
       </div>
 
-      {/* Main row: media pool | preview | right panel */}
+      {/* Main row: media pool | preview | right panel — dividers resizable */}
       <div className="flex flex-1 min-h-0">
-        <div className="w-[230px] shrink-0" style={{ borderRight: '0.5px solid var(--color-border)' }}>
+        <div
+          className="shrink-0"
+          style={{ width: poolPane.size, borderRight: '0.5px solid var(--color-border)' }}
+        >
           <MediaPool
             assets={project.assets}
             onImport={() => void handleImport()}
@@ -491,6 +503,13 @@ export function EditorShell({ projectId, onBack }: Props) {
           />
         </div>
 
+        <PaneDivider
+          orientation="col"
+          label="Resize media pool"
+          onDelta={poolPane.resizeBy}
+          onEnd={poolPane.persist}
+        />
+
         <div className="flex-1 min-w-0 flex flex-col">
           <PreviewPanel
             timeline={previewTimeline}
@@ -506,9 +525,16 @@ export function EditorShell({ projectId, onBack }: Props) {
           />
         </div>
 
+        <PaneDivider
+          orientation="col"
+          label="Resize inspector panel"
+          onDelta={(d) => rightPane.resizeBy(-d)}
+          onEnd={rightPane.persist}
+        />
+
         <div
-          className="w-[270px] shrink-0 flex flex-col bg-app-deep"
-          style={{ borderLeft: '0.5px solid var(--color-border)' }}
+          className="shrink-0 flex flex-col bg-app-deep"
+          style={{ width: rightPane.size, borderLeft: '0.5px solid var(--color-border)' }}
         >
           <div className="flex h-[32px] shrink-0" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
             <RightTabButton
@@ -564,7 +590,13 @@ export function EditorShell({ projectId, onBack }: Props) {
         </div>
       </div>
 
-      {/* Timeline spans the full width, CapCut-style */}
+      {/* Timeline spans the full width, CapCut-style; height user-resizable */}
+      <PaneDivider
+        orientation="row"
+        label="Resize timeline"
+        onDelta={(d) => timelinePane.resizeBy(-d)}
+        onEnd={timelinePane.persist}
+      />
       <TimelinePanel
         project={project}
         tl={tl}
@@ -576,6 +608,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         rangeOut={rangeOut}
         onRangeChange={handleRangeChange}
         missingAssetIds={missingAssetIds}
+        heightPx={timelinePane.size}
       />
 
       {relinkPrompt && (

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Eye, EyeOff, Lock, LockOpen, Volume2, VolumeX } from 'lucide-react';
+import { Eye, EyeOff, Lock, LockOpen, MoreVertical, Volume2, VolumeX } from 'lucide-react';
 import type { StudioTrack } from '../../types';
 import type { TimelineAction } from '../../hooks/useTimeline';
 import { TRACK_HEIGHT } from '../../services/timeline-view';
+import { trackMenuItems } from '../../services/track-menu';
 import { FloatingMenu } from './FloatingMenu';
 
 interface Props {
@@ -13,16 +14,37 @@ interface Props {
   selected: boolean;
   onSelect: (trackId: string | null) => void;
   dispatch: React.Dispatch<TimelineAction>;
+  /** The lane-background context menu picked Rename for this track — open the
+   *  inline editor here (the input lives in the header, not the lane). */
+  renameRequested: boolean;
+  onRenameRequestHandled: () => void;
 }
 
 /**
  * Fixed left column cell for one lane. Click chooses the track (pool-adds
- * land on the chosen track), the icons toggle lock and mute/hide, and
- * right-click opens rename/reorder/delete. Double-click the name to rename.
+ * land on the chosen track), the icons toggle lock and mute/hide, and the
+ * kebab button OR right-click opens rename/reorder/delete. Double-click the
+ * name to rename.
  */
-export function TrackHeader({ track, index, trackCount, selected, onSelect, dispatch }: Props) {
+export function TrackHeader({
+  track,
+  index,
+  trackCount,
+  selected,
+  onSelect,
+  dispatch,
+  renameRequested,
+  onRenameRequestHandled,
+}: Props) {
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
   const [editing, setEditing] = useState(false);
+  const kebabRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!renameRequested) return;
+    setEditing(true);
+    onRenameRequestHandled();
+  }, [renameRequested, onRenameRequestHandled]);
 
   const toggleFlag = (flag: 'locked' | 'muted' | 'hidden', value: boolean) =>
     dispatch({ type: 'track-flag', trackId: track.id, flag, value });
@@ -33,7 +55,7 @@ export function TrackHeader({ track, index, trackCount, selected, onSelect, disp
 
   return (
     <div
-      className={`flex items-center gap-1 px-1.5 cursor-default ${
+      className={`group flex items-center gap-1 px-1.5 cursor-default ${
         selected ? 'bg-app-active' : 'hover:bg-app-hover'
       }`}
       style={{ height: TRACK_HEIGHT, borderBottom: '0.5px solid var(--color-border)' }}
@@ -88,22 +110,31 @@ export function TrackHeader({ track, index, trackCount, selected, onSelect, disp
           <HiddenIcon size={11} strokeWidth={1.5} />
         </HeaderToggle>
       )}
+      {/* Always-reachable entry to the same menu as right-click — the menu was
+          effectively invisible when right-click was the only way in. */}
+      <button
+        ref={kebabRef}
+        title={`${track.name} options`}
+        aria-label={`${track.name} options`}
+        onClick={(e) => {
+          e.stopPropagation();
+          const rect = kebabRef.current?.getBoundingClientRect();
+          setMenuAt(rect ? { x: rect.left, y: rect.bottom + 2 } : { x: e.clientX, y: e.clientY });
+        }}
+        className={`flex items-center justify-center w-[16px] h-[16px] rounded-[4px] transition-colors ${
+          menuAt
+            ? 'text-text-secondary'
+            : 'text-text-ghost opacity-0 group-hover:opacity-100 hover:text-text-secondary'
+        }`}
+      >
+        <MoreVertical size={11} strokeWidth={1.5} />
+      </button>
 
       {menuAt && (
         <FloatingMenu
           x={menuAt.x}
           y={menuAt.y}
-          items={[
-            { id: 'rename', label: 'Rename' },
-            { id: 'up', label: 'Move up', disabled: index === 0 },
-            { id: 'down', label: 'Move down', disabled: index === trackCount - 1 },
-            {
-              id: 'delete',
-              label: track.clips.length > 0 ? `Delete (${track.clips.length} clips)` : 'Delete',
-              disabled: Boolean(track.locked) || trackCount <= 1,
-              danger: true,
-            },
-          ]}
+          items={trackMenuItems(track, index, trackCount)}
           onPick={(id) => {
             if (id === 'rename') setEditing(true);
             else if (id === 'up') dispatch({ type: 'track-move', trackId: track.id, direction: -1 });

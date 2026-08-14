@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { timelineDuration } from '@shared/studio';
-import type { StudioClip, StudioProject } from '../types';
+import type { StudioClip, StudioProject, StudioTrack } from '../types';
 import type { UseTimelineResult } from '../hooks/useTimeline';
 import type { UsePlaybackResult } from '../hooks/usePlayback';
 import type { PreviewTimeMap } from '../services/preview-mapping';
@@ -12,6 +12,7 @@ import { usePlayheadFollow } from '../hooks/usePlayheadFollow';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { clipAt, clipEndTime, findClip, makeClipId } from '../services/timeline-ops';
 import { makeMarkerId } from '../services/marker-ops';
+import { trackMenuItems } from '../services/track-menu';
 import {
   DEFAULT_ZOOM_INDEX,
   RULER_HEIGHT,
@@ -46,6 +47,8 @@ interface Props {
   onRangeChange: (edge: 'in' | 'out', seconds: number | null) => void;
   /** Assets whose source file is missing (Slice F) — clips get a warning tint. */
   missingAssetIds: ReadonlySet<string>;
+  /** Panel height in px — user-resizable via the divider above (EditorShell). */
+  heightPx: number;
 }
 
 /** Extra runway past the last clip so there's always somewhere to drag to. */
@@ -62,6 +65,7 @@ export function TimelinePanel({
   rangeOut,
   onRangeChange,
   missingAssetIds,
+  heightPx,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -399,11 +403,31 @@ export function TimelinePanel({
     [assetById],
   );
 
+  // Track options from the LANE background too — the header cell is narrow
+  // and its right-click affordance went unnoticed (Hasan, 2026-08-14).
+  // Rename is forwarded to the header, where the inline editor lives.
+  const [trackMenu, setTrackMenu] = useState<{ x: number; y: number; trackId: string } | null>(
+    null,
+  );
+  const [renameTrackId, setRenameTrackId] = useState<string | null>(null);
+  const onLaneContextMenu = useCallback(
+    (event: React.MouseEvent, track: StudioTrack) => {
+      event.preventDefault();
+      tl.selectTrack(track.id);
+      setTrackMenu({ x: event.clientX, y: event.clientY, trackId: track.id });
+    },
+    [tl],
+  );
+  const menuTrackIndex = trackMenu
+    ? timeline.tracks.findIndex((t) => t.id === trackMenu.trackId)
+    : -1;
+  const menuTrack = menuTrackIndex >= 0 ? timeline.tracks[menuTrackIndex] : null;
+
   return (
     <div
       ref={containerRef}
-      className="h-[240px] shrink-0 flex flex-col bg-app-deep select-none"
-      style={{ borderTop: '0.5px solid var(--color-border)' }}
+      className="shrink-0 flex flex-col bg-app-deep select-none"
+      style={{ height: heightPx, borderTop: '0.5px solid var(--color-border)' }}
     >
       <TimelineToolbar
         subscribe={playback.subscribe}
@@ -450,6 +474,8 @@ export function TimelinePanel({
                 selected={track.id === tl.selectedTrackId}
                 onSelect={tl.selectTrack}
                 dispatch={tl.dispatch}
+                renameRequested={renameTrackId === track.id}
+                onRenameRequestHandled={() => setRenameTrackId(null)}
               />
             ))}
           </div>
@@ -489,6 +515,7 @@ export function TimelinePanel({
                 onClipPointerDown={onClipPointerDown}
                 onClipContextMenu={onClipContextMenu}
                 onLanePointerDown={onLanePointerDown}
+                onLaneContextMenu={onLaneContextMenu}
                 onJoinClick={onJoinClick}
                 missingAssetIds={missingAssetIds}
               />
@@ -554,6 +581,23 @@ export function TimelinePanel({
           items={joinMenuItems}
           onPick={onJoinPick}
           onClose={() => setJoinMenu(null)}
+        />
+      )}
+
+      {trackMenu && menuTrack && (
+        <FloatingMenu
+          x={trackMenu.x}
+          y={trackMenu.y}
+          items={trackMenuItems(menuTrack, menuTrackIndex, timeline.tracks.length)}
+          onPick={(id) => {
+            if (id === 'rename') setRenameTrackId(menuTrack.id);
+            else if (id === 'up')
+              tl.dispatch({ type: 'track-move', trackId: menuTrack.id, direction: -1 });
+            else if (id === 'down')
+              tl.dispatch({ type: 'track-move', trackId: menuTrack.id, direction: 1 });
+            else if (id === 'delete') tl.dispatch({ type: 'track-remove', trackId: menuTrack.id });
+          }}
+          onClose={() => setTrackMenu(null)}
         />
       )}
 

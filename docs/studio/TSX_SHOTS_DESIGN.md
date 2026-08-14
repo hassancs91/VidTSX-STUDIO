@@ -22,6 +22,23 @@
 > across ALL kinds; export pre-flight copies + font-normalizes shot
 > sources; the shots↔undo integration is enumerated. Library-side grill
 > fixes are in `ASSET_LIBRARY_DESIGN.md` Rev 2.
+>
+> **Rev 4 — 2026-08-14, scope additions after the shots-core discussion
+> with Hasan (shots core itself SHIPPED, commit da556e5).** (a) **D8 gains
+> a from-scratch mode**: a project with no master footage is a first-class
+> scenario — the agent plans scenes as a textual list in chat (the existing
+> chat-plan gate), generates shots without anchors, and the placement
+> default branches: with no master footage, shots land **back-to-back as
+> opaque cutaways on the master lane** instead of an upper lane. Word sync
+> is simply absent without a transcript; a user-supplied VO file +
+> existing STT re-enables it. Image material via `generate_image` (D12) as
+> already designed. The `studio-make-tsx` skill and the agent system
+> prompt must both carry this mode. (b) A **lean canvas-manipulation
+> slice** (move/scale selected clips directly in the Player; transform
+> schema + inspector already exist) is scheduled immediately after D10 —
+> full version (rotate/crop/multi-select) ledgered in `V2_FEATURES.md`
+> alongside the **generative end-to-end pipeline** (image/video models +
+> TTS + SFX, no raw footage).
 
 ## What already exists (the design builds on, not around, these)
 

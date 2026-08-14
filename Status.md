@@ -9,6 +9,36 @@
 
 ## Completed phases
 
+### Studio — EDITOR ERGONOMICS (2026-08-14)
+**Status: DONE — resizable panes + track-menu discoverability, requested by
+Hasan after shots core; CDP-verified live through the real input pipeline.**
+Three draggable pane dividers (`PaneDivider`, window-listener drag — the
+Creator's ResizableDivider pattern; pointer capture dies the moment the
+cursor leaves a 5 px strip): media pool width (160–420), inspector width
+(220–460), timeline height (140–520). Sizes persist per machine via
+`usePaneSize` → localStorage `studio.pane.*` (deliberately NOT settings KV
+or the document — it's window state); defaults match the old fixed layout
+exactly. Track options were *functional but invisible* (right-click worked
+only on the narrow header cell — verified live, not a bug): now a kebab
+(⋮) button on each header (hover-revealed) opens the same menu, AND
+right-clicking empty lane background opens it too (`onLaneContextMenu` →
+TimelinePanel-owned FloatingMenu; menu items unified in
+`services/track-menu.ts` so header + lane can't drift; lane-menu Rename
+forwards to the header's inline editor via a `renameRequested` prop).
+`TimelinePanel` takes `heightPx`. Live proof (real
+`Input.dispatchMouseEvent`): timeline 240→300→400 by drag, pool 230→290,
+both restored after reload from localStorage; kebab menu opens; lane
+right-click menu opens; Delete removes the track and Ctrl+Z restores it
+(4→3→4). Gates green (414 tests, 26/22). **CDP harness gotcha learned: a
+`Page.reload` kills `Input.*` event routing on that WebSocket session —
+reconnect after every reload or synthetic input silently no-ops.**
+**Roadmap decisions recorded this session (with Hasan):** (1) lean canvas
+manipulation (move/scale clips directly in the Player) scheduled right
+after shots UI D10 — full rotate/crop/multi-select in V2_FEATURES.md; (2)
+D8 gains a from-scratch mode (TSX-only videos, no raw footage) — Rev 4
+note in TSX_SHOTS_DESIGN.md; full generative end-to-end (image/video
+models + TTS + SFX) ledgered in V2_FEATURES.md.
+
 ### Studio — S4 SHOTS CORE (2026-08-14)
 **Status: DONE — second implementation slice of S4 TSX shots
 (TSX_SHOTS_DESIGN.md D1/D4/D5/D9), CDP-verified live.** The document grew

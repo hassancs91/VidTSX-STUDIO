@@ -70,6 +70,33 @@
 - **Screenshot-based shots, advanced** — beyond fake-screencast: scroll
   video captures, interaction recordings as shot material.
 
+## Editor canvas & layout
+
+- **Canvas manipulation, full version** — the lean slice (scheduled right
+  after shots UI D10, decision 2026-08-14: select in timeline → bounding
+  box in the Player, drag to move x/y, corner handles for uniform scale,
+  click-in-player select via serializer paint order) stays v1.5; v2 adds
+  rotation handles, cropping, and multi-select group transforms. The
+  document/renderer side (`StudioClipTransform`, Inspector numeric
+  controls) already exists — this is interaction-layer work only.
+- **Track-height zoom** — per-lane or global lane-height control
+  (`TRACK_HEIGHT` is a constant today; pane sizes became flexible in the
+  v1 ergonomics slice, lane height did not).
+
+## Generative end-to-end videos
+
+- **Full generative pipeline** — create videos entirely without raw
+  footage: TSX shots + image models + **video models** (generated clips as
+  timeline assets, the app's video-generation stack already exists) +
+  **audio** (TTS narration / music generation) + **SFX** (auto-proposed
+  from the existing SFX machinery). Decision 2026-08-14: v1 folds a
+  *from-scratch mode* into the D8 shots slice (agent plans scenes in chat,
+  generates shots, places them back-to-back as opaque cutaways on the
+  master lane; images via `generate_image`); narration/music/video-model
+  material and one-prompt "make me a video" orchestration are v2. Note the
+  neat v1.5 bridge: user drops their own VO file, transcribes it with the
+  existing STT machinery, and word-synced titles work against it for free.
+
 ## Agent & pipeline
 
 - **Bundle dry-run gate** — optional post-generation `bundleComposition`
