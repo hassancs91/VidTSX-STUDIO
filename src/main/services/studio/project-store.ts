@@ -7,6 +7,7 @@ import {
   type StudioProject,
 } from '../../../shared/types/studio';
 import type { StudioProjectSummary } from '../../../shared/ipc/types/studio';
+import { normalizeShots } from '../../../shared/studio/shots';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
 import {
   ensureProjectScaffold,
@@ -46,6 +47,9 @@ export function migrateProject(raw: unknown, folderId: string): StudioProject {
     assets: Array.isArray(doc.assets) ? doc.assets : [],
     timeline: doc.timeline && Array.isArray(doc.timeline.tracks) ? doc.timeline : { tracks: [] },
     proposals: Array.isArray(doc.proposals) ? doc.proposals : [],
+    // Validates entries and flips crash-stuck 'generating' shots to 'error'
+    // (reconcile-on-open, TSX_SHOTS_DESIGN.md D9).
+    shots: normalizeShots(doc.shots),
   };
 }
 
@@ -97,6 +101,7 @@ export async function createProject(
       ],
     },
     proposals: [],
+    shots: [],
   };
   await writeProjectFile(folderPath, project);
   return project;

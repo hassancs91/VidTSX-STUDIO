@@ -27,7 +27,10 @@ export interface SerializedClip {
   /** Absolute frame on the timeline where the clip starts. */
   from: number;
   durationInFrames: number;
-  /** Frames into the source media (Remotion's `trimBefore`). */
+  /** Frames into the source media (Remotion's `trimBefore`). For tsx clips it
+   *  is a plain frame offset the composition applies itself — and it may be
+   *  NEGATIVE: a crossfade-in extends the clip's head, and the shot's frame 0
+   *  must stay put at the original boundary or baked word timings shift. */
   trimBefore?: number;
   /** Resolved http URL of the media, or null when the asset is missing. */
   src?: string;
@@ -42,6 +45,9 @@ export interface SerializedClip {
   transitionIn?: SerializedTransition;
   transitionOut?: SerializedTransition;
   transform?: StudioClipTransform;
+  /** TSX shot reference (S4) — the composition looks the component up in its
+   *  parallel `components` map by shotId. */
+  tsx?: { shotId: string; mode: 'cutaway' | 'overlay' };
 }
 
 export interface SerializedTrack {
@@ -186,6 +192,15 @@ export function serializeTimeline(
       // overlay mid-timeline; skipping keeps the rest of the edit playable.
       if (!src && clip.kind !== 'tsx' && clip.kind !== 'caption') continue;
 
+      // Same drop rule for tsx clips whose shot the document can't resolve to
+      // renderable code (missing from the registry, still generating, error).
+      if (clip.kind === 'tsx') {
+        const shot = clip.tsx
+          ? project.shots.find((s) => s.id === clip.tsx?.shotId)
+          : undefined;
+        if (!shot || shot.status !== 'ready') continue;
+      }
+
       let from = timeToFrame(clip.timelineStart, fps);
       let trimBefore = clip.sourceIn ? timeToFrame(clip.sourceIn, fps) : undefined;
       const rate = clip.speed ?? 1;
@@ -196,10 +211,13 @@ export function serializeTimeline(
       if (into && into.extTrailFrames > 0) {
         from -= into.extTrailFrames;
         durationInFrames += into.extTrailFrames;
-        trimBefore = Math.max(
-          0,
-          Math.round((trimBefore ?? 0) - into.extTrailFrames * rate),
-        );
+        // Media can't rewind before source frame 0, so the shift clamps — the
+        // handle math already capped the extension to what trimBefore allows.
+        // A tsx clip has no such floor: its offset must go negative so the
+        // shot's internal clock stays anchored to the original clip start
+        // (baked word timings would otherwise fire early by the extension).
+        const shifted = Math.round((trimBefore ?? 0) - into.extTrailFrames * rate);
+        trimBefore = clip.kind === 'tsx' ? shifted : Math.max(0, shifted);
       }
 
       // Fades are durations, not positions — plain rounding, clamped so the
@@ -225,6 +243,9 @@ export function serializeTimeline(
         ...(out ? { transitionOut: { kind: out.kind, frames: out.outFrames } } : {}),
         ...(into ? { transitionIn: { kind: into.kind, frames: into.inFrames } } : {}),
         ...(clip.transform ? { transform: clip.transform } : {}),
+        ...(clip.kind === 'tsx' && clip.tsx
+          ? { tsx: { shotId: clip.tsx.shotId, mode: clip.tsx.mode } }
+          : {}),
       });
     }
     tracks.push({ id: track.id, kind: track.kind, clips });

@@ -1,7 +1,7 @@
 // Turning a media asset into a clip: the one place that decides default
 // durations and which lane a kind belongs on.
 
-import type { StudioClip, StudioMediaAsset, StudioTimeline, StudioTrack } from '../types';
+import type { StudioClip, StudioMediaAsset, StudioShot, StudioTimeline, StudioTrack } from '../types';
 import { makeClipId } from './timeline-ops';
 
 /** How long a still image occupies the timeline when first placed. */
@@ -44,5 +44,26 @@ export function clipFromAsset(asset: StudioMediaAsset): StudioClip {
     duration,
     sourceIn: 0,
     origin: { by: 'user' },
+  };
+}
+
+/** Default clip duration when a shot has no parsed config to take it from. */
+export const DEFAULT_SHOT_DURATION = 5;
+
+/** A timeline clip referencing a shot registry entry (S4). `sourceIn: 0` is
+ *  load-bearing: split advances a DEFINED sourceIn, which is what keeps the
+ *  right half continuing the animation instead of restarting it (D5). */
+export function clipFromShot(shot: StudioShot): StudioClip {
+  const duration = shot.config
+    ? Math.max(0.1, shot.config.durationInFrames / shot.config.fps)
+    : DEFAULT_SHOT_DURATION;
+  return {
+    id: makeClipId(),
+    kind: 'tsx',
+    timelineStart: 0,
+    duration,
+    sourceIn: 0,
+    tsx: { shotId: shot.id, mode: shot.kind === 'cutaway' ? 'cutaway' : 'overlay' },
+    origin: shot.origin ?? { by: 'user' },
   };
 }

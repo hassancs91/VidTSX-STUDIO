@@ -16,3 +16,4 @@ export {
   timeToFrame,
 } from './time-math';
 export { rangeDurationInFrames, trimTimelineToRange } from './trim-range';
+export { isValidShotId, normalizeShots } from './shots';

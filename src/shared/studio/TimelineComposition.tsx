@@ -12,6 +12,16 @@ import type { SerializedClip, SerializedTimeline } from './serialize';
 
 export interface TimelineCompositionProps {
   timeline: SerializedTimeline;
+  /**
+   * TSX shot components keyed by shotId (S4). Components can't ride
+   * `inputProps`, so each consumer supplies its own map over the same
+   * serialized timeline: the preview passes live-imported ESM modules (each
+   * wrapped in an error boundary by the supplier), the export entry will pass
+   * static imports. A missing entry renders nothing — the supplier
+   * substitutes a placeholder component when it wants one, so this
+   * composition stays dumb.
+   */
+  components?: Record<string, React.ComponentType>;
 }
 
 /**
@@ -37,7 +47,7 @@ const MOUNT_WINDOW_SECONDS = 2;
  * reverse — the last array entry goes down first and the top lane lands on
  * top, matching how the timeline panel reads.
  */
-export function TimelineComposition({ timeline }: TimelineCompositionProps) {
+export function TimelineComposition({ timeline, components }: TimelineCompositionProps) {
   const frame = useCurrentFrame();
   const painted = [...timeline.tracks].reverse();
   const margin = timeline.fps * MOUNT_WINDOW_SECONDS;
@@ -57,7 +67,7 @@ export function TimelineComposition({ timeline }: TimelineCompositionProps) {
               layout={clip.kind === 'audio' || clip.kind === 'sfx' ? 'none' : 'absolute-fill'}
               name={clip.id}
             >
-              <ClipRenderer clip={clip} />
+              <ClipRenderer clip={clip} components={components} />
             </Sequence>
           ))}
         </Fragment>
@@ -141,7 +151,13 @@ function transitionOpacity(clip: SerializedClip, frame: number): number {
   return o;
 }
 
-function ClipRenderer({ clip }: { clip: SerializedClip }) {
+function ClipRenderer({
+  clip,
+  components,
+}: {
+  clip: SerializedClip;
+  components?: Record<string, React.ComponentType>;
+}) {
   // Frame relative to this clip's Sequence — drives the transition opacity.
   const frame = useCurrentFrame();
   const style = transformStyle(clip);
@@ -185,9 +201,29 @@ function ClipRenderer({ clip }: { clip: SerializedClip }) {
       if (!clip.src) return null;
       return <Img src={clip.src} style={fill} />;
 
-    // TSX shots (S4) and caption clips (S5) render nothing yet — their clips
-    // still occupy the timeline so the document round-trips unchanged.
-    case 'tsx':
+    // TSX shots (S4): the component arrives via the parallel `components`
+    // map. The nested Sequence applies `trimBefore` as a frame offset —
+    // `from={-trimBefore}` starts the shot's internal clock earlier, so a
+    // split's right half CONTINUES the animation instead of restarting it,
+    // and a crossfade-in (negative trimBefore) delays frame 0 to the
+    // original boundary so baked timings stay put. Shots are visual-only;
+    // the master clip's audio keeps playing underneath (cover, not
+    // displace — D2).
+    case 'tsx': {
+      const ShotComponent = clip.tsx ? components?.[clip.tsx.shotId] : undefined;
+      if (!ShotComponent) return null;
+      const offset = clip.trimBefore ?? 0;
+      return (
+        <AbsoluteFill style={style}>
+          <Sequence from={-offset} layout="absolute-fill">
+            <ShotComponent />
+          </Sequence>
+        </AbsoluteFill>
+      );
+    }
+
+    // Caption clips (S5) render nothing yet — their clips still occupy the
+    // timeline so the document round-trips unchanged.
     case 'caption':
     default:
       return null;

@@ -77,12 +77,14 @@ export interface StudioClipTransform {
   opacity?: number;
 }
 
-/** TSX shot semantics (from the reference pipeline): on a `video` track the
- *  shot is a cutaway (replaces picture, master audio continues); on an
- *  `overlay` track it composites transparently over the picture. */
+/** TSX shot reference (S4). The clip points at a `StudioShot` registry entry
+ *  by id — never at a file path — so edit/regenerate round-trips are one
+ *  `activeVersion` bump on the shot, not a clip sweep. `mode` is explicit on
+ *  the clip (not derived from track kind): it records compositing intent —
+ *  cutaway = opaque full-frame cover, overlay = transparent composite — and a
+ *  drag between lanes must not silently change it. */
 export interface StudioClipTsx {
-  /** Path relative to the project's shots/ folder. */
-  filePath: string;
+  shotId: string;
   mode: 'cutaway' | 'overlay';
 }
 
@@ -153,6 +155,38 @@ export interface StudioTimeline {
   tracks: StudioTrack[];
   /** Kept sorted by time by the marker ops; absent when there are none. */
   markers?: StudioMarker[];
+}
+
+// ---------------------------------------------------------------------------
+// TSX shots (S4) — generated compositions the timeline references by id.
+// See docs/studio/TSX_SHOTS_DESIGN.md D1/D9.
+// ---------------------------------------------------------------------------
+
+export type StudioShotKind = 'cutaway' | 'overlay' | 'title';
+
+export type StudioShotStatus = 'generating' | 'ready' | 'error';
+
+export interface StudioShot {
+  /** Also the folder name under the project's shots/ directory. */
+  id: string;
+  /** Display name, from the brief. */
+  name: string;
+  /** `title` is a skill category of overlay (text-first + word-synced), not a
+   *  third rendering mode — clips still carry mode 'cutaway' | 'overlay'. */
+  kind: StudioShotKind;
+  createdAt: string;
+  /** Version the timeline uses, e.g. 2 → shots/<id>/v2.tsx. Disk versions are
+   *  append-only; this pointer is document state, so switching is undoable. */
+  activeVersion: number;
+  status: StudioShotStatus;
+  /** Snapshot of the shot's own compositionConfig (fps/dims/frames). */
+  config?: { durationInFrames: number; fps: number; width: number; height: number };
+  /** What the shot was synced to — enables regenerate re-sync (D7). */
+  anchor?: { assetId: string; sourceStart: number; sourceEnd: number };
+  /** Original brief, for the inspector. */
+  prompt?: string;
+  origin?: StudioClipOrigin;
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -230,4 +264,7 @@ export interface StudioProject {
   assets: StudioMediaAsset[];
   timeline: StudioTimeline;
   proposals: StudioProposal[];
+  /** TSX shot registry (S4). Normalized to [] on load — no schema bump: no
+   *  document shipped before this field existed with a tsx clip in it. */
+  shots: StudioShot[];
 }

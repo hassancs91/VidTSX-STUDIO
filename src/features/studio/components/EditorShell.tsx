@@ -9,6 +9,7 @@ import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
+import { useShotModules } from '../hooks/useShotModules';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -316,10 +317,17 @@ export function EditorShell({ projectId, onBack }: Props) {
     [tl, playback],
   );
 
+  // Live shot components for the preview Player (S4). The serializer reads
+  // the REDUCER's shots — the document copy lags one write-back effect.
+  const shotComponents = useShotModules(projectId, tl.shots);
+
   const previewTimeline = useMemo(() => {
     if (!project) return null;
-    return serializeTimeline({ ...project, timeline: playerTimeline }, resolvePreviewUrl);
-  }, [project, playerTimeline, resolvePreviewUrl]);
+    return serializeTimeline(
+      { ...project, timeline: playerTimeline, shots: tl.shots },
+      resolvePreviewUrl,
+    );
+  }, [project, playerTimeline, tl.shots, resolvePreviewUrl]);
 
   const handleImport = useCallback(async () => {
     setImporting(true);
@@ -486,6 +494,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         <div className="flex-1 min-w-0 flex flex-col">
           <PreviewPanel
             timeline={previewTimeline}
+            components={shotComponents}
             playerRef={playback.playerRef}
             isPlaying={playback.isPlaying}
             onTogglePlay={playback.togglePlay}

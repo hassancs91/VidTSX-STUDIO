@@ -35,6 +35,8 @@ import type {
   StudioRootGetResponse,
   StudioRootSetRequest,
   StudioRootSetResponse,
+  StudioShotModuleRequest,
+  StudioShotModuleResponse,
   StudioCutPlanRunRequest,
   StudioCutPlanRunResponse,
   StudioTranscribeCancelRequest,
@@ -85,6 +87,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_AGENT_SEND, data),
   studioAgentCancel: (data: StudioAgentCancelRequest): Promise<StudioAgentCancelResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_AGENT_CANCEL, data),
+  studioShotModule: (data: StudioShotModuleRequest): Promise<StudioShotModuleResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOT_MODULE, data),
   onStudioMediaJobEvent: (callback: (event: StudioMediaJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioMediaJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_MEDIA_JOB_EVENT, listener);

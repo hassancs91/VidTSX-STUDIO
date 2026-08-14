@@ -340,6 +340,8 @@ export const IPC = {
   STUDIO_AGENT_SEND: 'studio:agent:send',
   STUDIO_AGENT_CANCEL: 'studio:agent:cancel',
   STUDIO_AGENT_EVENT: 'studio:agent:event',
+  // Studio — TSX shots (S4): transpile a shot version for the preview Player
+  STUDIO_SHOT_MODULE: 'studio:shot:module',
 
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',

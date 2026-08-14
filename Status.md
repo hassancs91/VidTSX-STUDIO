@@ -9,6 +9,56 @@
 
 ## Completed phases
 
+### Studio — S4 SHOTS CORE (2026-08-14)
+**Status: DONE — second implementation slice of S4 TSX shots
+(TSX_SHOTS_DESIGN.md D1/D4/D5/D9), CDP-verified live.** The document grew
+the shot registry: `StudioShot` + required `StudioProject.shots[]`
+(normalized to `[]` on load — no schema bump; `migrateProject` would
+otherwise DROP the field, it rebuilds from an explicit list), and
+`StudioClipTsx` reshaped to `{ shotId, mode }` (the `filePath` stub is
+gone; nothing ever wrote it). **D5 contract**: `SerializedClip.tsx
+{ shotId, mode }`; serializer drops tsx clips whose shot is missing or not
+`ready`; tsx clips carry real `sourceIn`/`trimBefore` semantics applied by
+`ClipRenderer` as a nested `<Sequence from={-trimBefore}>` — and for tsx
+the crossfade-in shift is NOT clamped at 0 (negative offset keeps the
+shot's frame 0 anchored at the original boundary so baked timings can't
+fire early). **D4 preview**: `STUDIO_SHOT_MODULE` IPC
+(`{projectId, shotId, version}` → `{moduleUrl, config}`; path authority in
+main via `getShotVersionPath` with shot-id validation; `transpileTsxCached`
++ module server, content-hash URL = automatic re-import on version bump),
+renderer `useShotModules(projectId, shots)` (loads every ready shot's
+active version, `setupVirtualModuleGlobals()` before first import,
+`shotId@version` cache), each component wrapped in `ShotErrorBoundary` +
+labeled placeholder — preview supplier only, per design. **D9**: `EditDoc`
+grew `shots` (commit identity check, `proposal-apply` literal, reset,
+EMPTY_DOC, write-back all carry it); actions `shot-set-version` (undoable
+pointer flip), `shot-remove` (registry entry + referencing clips, ONE undo
+step, files stay on disk), `shots-adopt` (non-committing: rewrites
+past/present/future so a background generation completing neither plants
+an undo step nor gets wiped by one); reconcile-on-open flips crash-stuck
+`generating` → `error` in `normalizeShots` (shared/studio/shots.ts, used
+by main's migrate). Also: `clipFromShot` in clip-factory (`sourceIn: 0` is
+load-bearing for split continuity). New files: `shared/studio/shots.ts`,
+`main/ipc/studio-shot-handlers.ts`, `features/studio/hooks/useShotModules.ts`,
+`features/studio/components/ShotErrorBoundary.tsx` (class — the sanctioned
+boundary exception), `features/studio/services/shot-ops.ts`. 21 new unit
+tests (normalize/reconcile matrix, tsx serialize incl. negative-trimBefore
+crossfade case, shot ops + reducer round-trips incl. shots-adopt history
+rewrite). Gates green: 414 tests, 26/22 type baselines. **Live CDP proof**
+(seeded `shots-core-test` project, frame-counter shot): shot renders in
+the Player frame-synced (playhead 1.00s → counter 30); `sourceIn: 2` clip
+shows 90 at 6.00s (offset mechanics); a REAL UI split at 2s produced a
+right half that continues (90 at 3s, `sourceIn: 2` persisted — restart bug
+would read 30); stuck-`generating` shot flipped to `error` in the saved
+doc and its clip dropped from preview while staying on the timeline; a
+runtime-throwing shot rendered the labeled placeholder with the app fully
+alive, and recovered after fix + reopen. NOT in this slice (say-so per
+plan): D8 generation/proposals/`studio-make-tsx` skill/pool button, D7
+word-sync bake, **D6 export wrapper + pre-flight — a tsx clip currently
+renders as NOTHING in an export** (entry passes no `components`), D10
+pool/inspector shot UI, D11 brands, D12 assetRefs props channel — next
+slices per the design order.
+
 ### Studio — S4 LIBRARY CORE (2026-08-14)
 **Status: DONE — first implementation slice of the S4 asset library
 (ASSET_LIBRARY_DESIGN.md L1/L2-manual/L4/L7-relink), CDP-verified live.**

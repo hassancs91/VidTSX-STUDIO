@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import { isValidShotId } from '../../../shared/studio/shots';
 import { getStudioProjectsRoot } from '../settings';
 
 /** Folder-name ids only — blocks path traversal through project ids. */
@@ -33,6 +34,22 @@ export async function ensureProjectScaffold(projectDir: string): Promise<void> {
   await fs.mkdir(path.join(projectDir, 'cache', 'thumbs'), { recursive: true });
   await fs.mkdir(path.join(projectDir, 'shots'), { recursive: true });
   await fs.mkdir(path.join(projectDir, 'renders'), { recursive: true });
+}
+
+/** Resolve shots/<shotId>/v<version>.tsx — id/version validation is the path
+ *  safety here (both become path segments; neither may traverse). */
+export async function getShotVersionPath(
+  projectId: string,
+  shotId: string,
+  version: number,
+): Promise<string> {
+  if (!isValidShotId(shotId)) {
+    throw new Error(`Invalid shot id: ${shotId}`);
+  }
+  if (!Number.isInteger(version) || version < 1) {
+    throw new Error(`Invalid shot version: ${String(version)}`);
+  }
+  return path.join(await getProjectDir(projectId), 'shots', shotId, `v${version}.tsx`);
 }
 
 /** Resolve a cache-relative path, refusing anything that escapes cache/. */

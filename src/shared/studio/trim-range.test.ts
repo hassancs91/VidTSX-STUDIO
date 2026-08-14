@@ -83,6 +83,7 @@ describe('trimTimelineToRange', () => {
       assets: [],
       timeline: next,
       proposals: [],
+      shots: [],
     };
     const serialized = serializeTimeline(project, () => 'http://x/asset');
     const frames = serialized.tracks[0].clips.reduce((sum, c) => sum + c.durationInFrames, 0);

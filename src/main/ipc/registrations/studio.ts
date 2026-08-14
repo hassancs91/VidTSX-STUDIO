@@ -22,6 +22,7 @@ import {
   handleStudioAgentSend,
   handleStudioAgentCancel,
 } from '../studio-handlers';
+import { handleStudioShotModule } from '../studio-shot-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
 
@@ -46,6 +47,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);
   ipcMain.handle(IPC.STUDIO_AGENT_SEND, handleStudioAgentSend);
   ipcMain.handle(IPC.STUDIO_AGENT_CANCEL, handleStudioAgentCancel);
+  ipcMain.handle(IPC.STUDIO_SHOT_MODULE, handleStudioShotModule);
 
   // Proxy/waveform progress is a push stream — the editor folds each 'ready'
   // event back into the open project document.

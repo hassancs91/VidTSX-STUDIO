@@ -336,6 +336,27 @@ export interface StudioAgentCancelResponse {
   success: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// TSX shots (S4) — preview module resolution. Path authority stays in main:
+// the renderer sends ids and a version number, never a file path.
+// ---------------------------------------------------------------------------
+
+export interface StudioShotModuleRequest {
+  projectId: string;
+  shotId: string;
+  /** The shot's activeVersion — document state the renderer owns. */
+  version: number;
+}
+
+export interface StudioShotModuleResponse {
+  success: boolean;
+  /** Module-server URL of the transpiled ESM, ready to dynamic-import. */
+  moduleUrl?: string;
+  /** The shot's own compositionConfig, parsed from the source. */
+  config?: { durationInFrames: number; fps: number; width: number; height: number };
+  error?: string;
+}
+
 export interface StudioExportPrepareRequest {
   project: StudioProject;
   /** Optional export range in timeline seconds (Slice D2). When both are set,

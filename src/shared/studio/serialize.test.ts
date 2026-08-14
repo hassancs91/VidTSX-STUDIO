@@ -22,6 +22,7 @@ function project(clips: StudioClip[], assetDuration = 40): StudioProject {
     ],
     timeline: { tracks: [{ id: 'v1', kind: 'video', name: 'V1', clips }] },
     proposals: [],
+    shots: [],
   };
 }
 

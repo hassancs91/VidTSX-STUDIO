@@ -3,6 +3,7 @@ import type {
   StudioClip,
   StudioProject,
   StudioProposal,
+  StudioShot,
   StudioTimeline,
   StudioTrackKind,
 } from '../types';
@@ -49,23 +50,32 @@ import {
   setProposalItemSpan,
   setProposalItemStatus,
 } from '../services/proposal-ops';
+import { removeClipsForShot, removeShot, setShotVersion } from '../services/shot-ops';
 
 /** Undo depth. Edit documents are small (a 100-cut edit is a few KB), so
  *  whole-document snapshots are cheaper than maintaining inverse operations. */
 const HISTORY_LIMIT = 100;
 
 /**
- * The undoable slice of the project: the timeline AND the proposals. They
- * share one history so applying a proposal (timeline change + status change)
- * is a single Ctrl+Z step that restores both sides consistently.
+ * The undoable slice of the project: the timeline, the proposals, AND the
+ * shot registry (S4). They share one history so applying a proposal (timeline
+ * change + status change) or deleting a shot (registry entry + its clips) is
+ * a single Ctrl+Z step that restores every side consistently.
  */
 interface EditDoc {
   timeline: StudioTimeline;
   proposals: StudioProposal[];
+  shots: StudioShot[];
 }
 
 export type TimelineAction =
-  | { type: 'reset'; projectId: string; timeline: StudioTimeline; proposals: StudioProposal[] }
+  | {
+      type: 'reset';
+      projectId: string;
+      timeline: StudioTimeline;
+      proposals: StudioProposal[];
+      shots: StudioShot[];
+    }
   | { type: 'add'; trackId: string; clip: StudioClip; preferredStart?: number }
   | { type: 'move'; clipId: string; seconds: number; toTrackId?: string }
   | {
@@ -119,6 +129,15 @@ export type TimelineAction =
     }
   | { type: 'proposal-apply'; proposalId: string }
   | { type: 'proposal-reject'; proposalId: string }
+  // Shots (S4, D9). Undoable ops are exactly the user-meaningful ones; a
+  // background generation finishing enters via 'shots-adopt' instead.
+  | { type: 'shot-set-version'; shotId: string; version: number }
+  | { type: 'shot-remove'; shotId: string }
+  // Non-committing adopt: replaces the registry WITHOUT a history entry, and
+  // rewrites past/future so undoing an unrelated edit can't resurrect a
+  // pre-generation registry (a finishing shot must never plant an undo step
+  // the user didn't perform, nor be wiped by one).
+  | { type: 'shots-adopt'; shots: StudioShot[] }
   | { type: 'undo' }
   | { type: 'redo' };
 
@@ -129,12 +148,16 @@ interface HistoryState {
   future: EditDoc[];
 }
 
-const EMPTY_DOC: EditDoc = { timeline: { tracks: [] }, proposals: [] };
+const EMPTY_DOC: EditDoc = { timeline: { tracks: [] }, proposals: [], shots: [] };
 
 function commit(state: HistoryState, next: EditDoc): HistoryState {
   // Ops return the same object when they reject an edit (locked track, illegal
   // split point, unknown proposal) — those must not create an undo step.
-  if (next.timeline === state.present.timeline && next.proposals === state.present.proposals) {
+  if (
+    next.timeline === state.present.timeline &&
+    next.proposals === state.present.proposals &&
+    next.shots === state.present.shots
+  ) {
     return state;
   }
   return {
@@ -168,7 +191,7 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       return {
         projectId: action.projectId,
         past: [],
-        present: { timeline: action.timeline, proposals: action.proposals },
+        present: { timeline: action.timeline, proposals: action.proposals, shots: action.shots },
         future: [],
       };
     case 'add':
@@ -309,13 +332,36 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       const timeline = pruneTransitions(applyCutProposal(doc.timeline, proposal));
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);
-      return commit(state, { timeline, proposals });
+      // Carrying `shots` here matters: a hand-built literal would drop it (D9).
+      return commit(state, { timeline, proposals, shots: doc.shots });
     }
     case 'proposal-reject':
       return commit(
         state,
         withProposals(doc, closeProposal(doc.proposals, action.proposalId, false)),
       );
+    case 'shot-set-version': {
+      const shots = setShotVersion(doc.shots, action.shotId, action.version);
+      return commit(state, shots === doc.shots ? doc : { ...doc, shots });
+    }
+    case 'shot-remove': {
+      // Registry entry + every clip referencing it, one undo step. Files stay
+      // on disk (no file deletion under any undoable action, D9).
+      const shots = removeShot(doc.shots, action.shotId);
+      if (shots === doc.shots) return state;
+      const next = withTimeline(doc, removeClipsForShot(doc.timeline, action.shotId));
+      return commit(state, { ...next, shots });
+    }
+    case 'shots-adopt': {
+      if (state.projectId === null) return state;
+      const adopt = (entry: EditDoc): EditDoc => ({ ...entry, shots: action.shots });
+      return {
+        projectId: state.projectId,
+        past: state.past.map(adopt),
+        present: adopt(state.present),
+        future: state.future.map(adopt),
+      };
+    }
     case 'undo': {
       const previous = state.past[state.past.length - 1];
       if (!previous) return state;
@@ -379,6 +425,7 @@ export function useTimeline(
         projectId,
         timeline: loaded.timeline,
         proposals: loaded.proposals ?? [],
+        shots: loaded.shots ?? [],
       });
     }
   }, [projectId]);
@@ -390,13 +437,20 @@ export function useTimeline(
     // back, and writing would mark a freshly opened project dirty.
     const doc = state.present;
     if (
-      (doc.timeline === project.timeline && doc.proposals === project.proposals) ||
+      (doc.timeline === project.timeline &&
+        doc.proposals === project.proposals &&
+        doc.shots === project.shots) ||
       doc === writtenRef.current
     ) {
       return;
     }
     writtenRef.current = doc;
-    updateProject((prev) => ({ ...prev, timeline: doc.timeline, proposals: doc.proposals }));
+    updateProject((prev) => ({
+      ...prev,
+      timeline: doc.timeline,
+      proposals: doc.proposals,
+      shots: doc.shots,
+    }));
   }, [state.present, state.projectId, project, updateProject]);
 
   /** Replace the selection with one clip (or clear it with null). */
@@ -458,6 +512,7 @@ export function useTimeline(
     () => ({
       timeline: state.projectId ? state.present.timeline : EMPTY_DOC.timeline,
       proposals: state.projectId ? state.present.proposals : EMPTY_DOC.proposals,
+      shots: state.projectId ? state.present.shots : EMPTY_DOC.shots,
       activeProposal,
       dispatch,
       remove,
