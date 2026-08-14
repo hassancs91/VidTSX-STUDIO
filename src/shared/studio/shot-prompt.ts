@@ -5,6 +5,7 @@
 // file is the per-call contract with exact numbers baked in.)
 
 import type { StudioShotKind } from '../types/studio';
+import type { StudioBrand } from '../types/asset-library';
 import { formatWordsBlock, type ShotAnchorWord } from './shot-words';
 
 export interface ShotPromptInput {
@@ -16,6 +17,8 @@ export interface ShotPromptInput {
   durationSeconds: number;
   /** Anchor words re-based to shot-local seconds (D7), when anchored. */
   words?: ShotAnchorWord[];
+  /** The project's active brand (D11) — injected as a mandatory style contract. */
+  brand?: StudioBrand;
 }
 
 const BACKGROUND_RULE: Record<StudioShotKind, string> = {
@@ -54,6 +57,10 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
     '- Do not render a progress bar, watermark, or debug text unless asked.',
   ];
 
+  if (input.brand) {
+    lines.push('', ...buildBrandLines(input.brand, input.kind));
+  }
+
   if (input.words && input.words.length > 0) {
     lines.push(
       '',
@@ -68,4 +75,37 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
   }
 
   return lines.join('\n');
+}
+
+/**
+ * The brand contract (D11): palette tokens as required colors, fonts as CSS
+ * family strings (the shot import lint is react+remotion only, so
+ * @remotion/google-fonts is NOT available inside shots — a Google font not
+ * installed on the machine falls back down the stack), style notes verbatim.
+ * Logo files exist in the library but cannot be embedded until D12 assetRefs.
+ */
+function buildBrandLines(brand: StudioBrand, kind: StudioShotKind): string[] {
+  const p = brand.palette;
+  const fontStack = (family: string): string =>
+    /\bsans-serif$|\bserif$|\bmonospace$/.test(family.trim())
+      ? family
+      : `'${family}', 'Segoe UI', sans-serif`;
+  const lines = [
+    `## Brand: ${brand.name} (MANDATORY styling)`,
+    '',
+    'Every color and font in this shot comes from the brand. Do not invent your own palette.',
+    '',
+    `- Primary: ${p.primary}`,
+    `- Secondary: ${p.secondary}`,
+    `- Background: ${p.background}${kind === 'cutaway' ? ' (use this for the opaque full-frame background)' : ' (reference only — this shot type keeps its background transparent)'}`,
+    `- Text: ${p.text}`,
+    `- Accent: ${p.accent} (use sparingly — emphasis, highlights, the current word in word-synced text)`,
+    `- Display font (headings/numbers): fontFamily: "${fontStack(brand.fonts.display)}"`,
+    `- Body font (labels/paragraphs): fontFamily: "${fontStack(brand.fonts.body ?? brand.fonts.display)}"`,
+    '- Do NOT import any font package — set fontFamily strings exactly as given above.',
+  ];
+  if (brand.styleNotes) {
+    lines.push('', 'Brand style notes (follow them):', brand.styleNotes);
+  }
+  return lines;
 }

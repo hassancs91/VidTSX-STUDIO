@@ -1,4 +1,5 @@
-import type { LibraryIndexEntry, LibrarySizes } from '../../types/asset-library';
+import type { LibraryIndexEntry, LibrarySizes, StudioBrand } from '../../types/asset-library';
+import type { StudioBrandInput } from '../../studio/brand';
 
 // ─── Asset library — index overlay, sizes, root override ───
 
@@ -46,5 +47,47 @@ export interface LibraryRootSetRequest {
 export interface LibraryRootSetResponse {
   success: boolean;
   root?: string;
+  error?: string;
+}
+
+// ─── Brands (L3/D11) ───
+
+/** library:brands:get — every brand plus the app-wide default pointer. */
+export interface LibraryBrandsGetResponse {
+  success: boolean;
+  brands?: StudioBrand[];
+  defaultBrandId?: string;
+  error?: string;
+}
+
+/** library:brand:save — create (no brandId) or update (brandId) one brand. */
+export interface LibraryBrandSaveRequest {
+  brandId?: string;
+  input: StudioBrandInput;
+}
+
+export interface LibraryBrandSaveResponse {
+  success: boolean;
+  brand?: StudioBrand;
+  error?: string;
+}
+
+/** library:brand:delete — remove brands/<id>/; clears the default if it pointed there. */
+export interface LibraryBrandDeleteRequest {
+  brandId: string;
+}
+
+export interface LibraryBrandDeleteResponse {
+  success: boolean;
+  error?: string;
+}
+
+/** library:brand:default:set — set or clear (null) the app-wide default brand. */
+export interface LibraryBrandDefaultSetRequest {
+  brandId: string | null;
+}
+
+export interface LibraryBrandDefaultSetResponse {
+  success: boolean;
   error?: string;
 }

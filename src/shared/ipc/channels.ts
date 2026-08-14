@@ -353,6 +353,12 @@ export const IPC = {
   LIBRARY_SIZES_GET: 'library:sizes:get',
   LIBRARY_ROOT_GET: 'library:root:get',
   LIBRARY_ROOT_SET: 'library:root:set',
+
+  // Asset library — brands (L3/D11)
+  LIBRARY_BRANDS_GET: 'library:brands:get',
+  LIBRARY_BRAND_SAVE: 'library:brand:save',
+  LIBRARY_BRAND_DELETE: 'library:brand:delete',
+  LIBRARY_BRAND_DEFAULT_SET: 'library:brand:default:set',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

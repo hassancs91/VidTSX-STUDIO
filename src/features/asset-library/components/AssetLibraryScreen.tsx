@@ -3,7 +3,9 @@ import { useAssetLibrary } from '../hooks/useAssetLibrary';
 import { useAssetActions } from '../hooks/useAssetActions';
 import { useAssetClipboard } from '../hooks/useAssetClipboard';
 import { useLibraryIndex, toLibraryRelPath } from '../hooks/useLibraryIndex';
+import { useBrands } from '../hooks/useBrands';
 import { AssetToolbar } from './AssetToolbar';
+import { BrandsDialog } from './BrandsDialog';
 import { AssetBreadcrumb } from './AssetBreadcrumb';
 import { AssetGrid } from './AssetGrid';
 import { AssetSearchBar } from './AssetSearchBar';
@@ -38,6 +40,8 @@ export function AssetLibraryScreen() {
   const [moduleServerUrl, setModuleServerUrl] = useState<string | null>(null);
   const [renamingEntry, setRenamingEntry] = useState<AssetEntry | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [brandsOpen, setBrandsOpen] = useState(false);
+  const brandsApi = useBrands();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
 
@@ -143,6 +147,7 @@ export function AssetLibraryScreen() {
           onImport={importFiles}
           onCreateFolder={createFolder}
           onRefresh={() => void onChanged()}
+          onBrands={() => setBrandsOpen(true)}
         />
         <AssetSearchBar query={query} onQuery={setQuery} category={category} onCategory={setCategory} />
         <AssetBreadcrumb rootPath={rootPath} currentPath={currentPath} onNavigate={navigate} />
@@ -190,6 +195,18 @@ export function AssetLibraryScreen() {
         </span>
         {sizes && <span>Library total {formatBytes(sizes.total)}</span>}
       </footer>
+
+      {brandsOpen && (
+        <BrandsDialog
+          brands={brandsApi.brands}
+          defaultBrandId={brandsApi.defaultBrandId}
+          onSave={brandsApi.saveBrand}
+          onDelete={brandsApi.deleteBrand}
+          onSetDefault={brandsApi.setDefault}
+          onMutated={() => void onChanged()}
+          onClose={() => setBrandsOpen(false)}
+        />
+      )}
 
       {renamingEntry && (
         <RenameDialog

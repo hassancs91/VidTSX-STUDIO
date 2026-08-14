@@ -32,6 +32,15 @@ footage or the chat. So the brief must be self-contained and visual:
 - Do NOT put timing math, frame counts, or config values in the brief — the
   tool injects the exact duration/fps/word table itself.
 
+## Brand
+
+When the project has an active brand, the tool injects its palette, fonts,
+and style notes into every generate/regenerate as a MANDATORY contract — do
+not restate colors or fonts in the brief, and do not fight it ("brand feel"
+hints belong only in unbranded projects). Briefs should describe content and
+motion; the brand supplies the look. To apply a brand (or a brand change) to
+an existing shot, regenerate it — baked versions never restyle themselves.
+
 ## Anchors
 
 - Anchor a shot when it should sync to speech (`assetId` + `sourceStart`/

@@ -260,6 +260,12 @@ export interface StudioProjectSettings {
    * Absent = the app default (local whisper).
    */
   sttModelId?: string;
+  /**
+   * Active brand for shot generation (D11) — a brand id in the app-level
+   * library. Copied from the Studio default at creation (explicit snapshot);
+   * switchable per project any time. Absent = no brand injection.
+   */
+  brandId?: string;
 }
 
 export interface StudioProject {

@@ -62,3 +62,36 @@ export interface LibrarySizes {
   total: number;
   folders: Record<string, number>;
 }
+
+// ─── Brands (ASSET_LIBRARY_DESIGN.md L3, TSX_SHOTS_DESIGN.md D11) ───
+
+/** CSS color strings — hex or any valid CSS color, injected verbatim. */
+export interface StudioBrandPalette {
+  primary: string;
+  secondary: string;
+  background: string;
+  text: string;
+  accent: string;
+}
+
+/**
+ * One brand, stored as `brands/<id>/brand.json` inside the assets root —
+ * a real folder, visible in the Assets screen. `id` IS the folder slug
+ * (folder-as-truth, like project ids). Multiple brands; `defaultBrandId`
+ * in Studio settings is copied into `project.settings.brandId` at project
+ * creation (explicit snapshot — changing the default never restyles
+ * existing projects).
+ */
+export interface StudioBrand {
+  id: string;
+  name: string;
+  palette: StudioBrandPalette;
+  /** Google/system font family names (v1); local font files are v2. */
+  fonts: { display: string; body?: string };
+  /** Library-relative paths of logo assets. Consumed by shots in D12. */
+  logoRefs: string[];
+  /** Free text, injected verbatim into generation prompts (logo placement, tone). */
+  styleNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}

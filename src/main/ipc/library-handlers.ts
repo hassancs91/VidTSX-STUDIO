@@ -1,6 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type {
+  LibraryBrandDefaultSetRequest,
+  LibraryBrandDefaultSetResponse,
+  LibraryBrandDeleteRequest,
+  LibraryBrandDeleteResponse,
+  LibraryBrandSaveRequest,
+  LibraryBrandSaveResponse,
+  LibraryBrandsGetResponse,
   LibraryDescriptionSetRequest,
   LibraryDescriptionSetResponse,
   LibraryIndexGetResponse,
@@ -9,6 +16,14 @@ import type {
   LibraryRootSetResponse,
   LibrarySizesGetResponse,
 } from '@shared/ipc/types';
+import { getDefaultBrandId, setDefaultBrandId } from '../services/library/brand-default';
+import {
+  createBrand,
+  deleteBrand,
+  listBrands,
+  readBrand,
+  updateBrand,
+} from '../services/library/brand-store';
 import {
   ensureLibraryRoot,
   getDefaultLibraryRoot,
@@ -64,6 +79,74 @@ export async function handleLibraryRootGet(): Promise<LibraryRootGetResponse> {
       defaultRoot: getDefaultLibraryRoot(),
       isOverride: getLibraryRootOverride() !== undefined,
     };
+  } catch (err) {
+    return { success: false, error: errorMessage(err) };
+  }
+}
+
+// ─── Brands (L3/D11) ───
+
+export async function handleLibraryBrandsGet(): Promise<LibraryBrandsGetResponse> {
+  try {
+    const root = await ensureLibraryRoot();
+    const brands = await listBrands(root);
+    const defaultBrandId = getDefaultBrandId();
+    return {
+      success: true,
+      brands,
+      // Surface the default only while it points at a real brand — a stale
+      // pointer (deleted outside the app) reads as "no default".
+      ...(defaultBrandId && brands.some((b) => b.id === defaultBrandId)
+        ? { defaultBrandId }
+        : {}),
+    };
+  } catch (err) {
+    return { success: false, error: errorMessage(err) };
+  }
+}
+
+export async function handleLibraryBrandSave(
+  _event: Electron.IpcMainInvokeEvent,
+  data: LibraryBrandSaveRequest
+): Promise<LibraryBrandSaveResponse> {
+  try {
+    const root = await ensureLibraryRoot();
+    const brand = data.brandId
+      ? await updateBrand(root, data.brandId, data.input)
+      : await createBrand(root, data.input);
+    return { success: true, brand };
+  } catch (err) {
+    return { success: false, error: errorMessage(err) };
+  }
+}
+
+export async function handleLibraryBrandDelete(
+  _event: Electron.IpcMainInvokeEvent,
+  data: LibraryBrandDeleteRequest
+): Promise<LibraryBrandDeleteResponse> {
+  try {
+    const root = await ensureLibraryRoot();
+    await deleteBrand(root, data.brandId);
+    if (getDefaultBrandId() === data.brandId) setDefaultBrandId(null);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err) };
+  }
+}
+
+export async function handleLibraryBrandDefaultSet(
+  _event: Electron.IpcMainInvokeEvent,
+  data: LibraryBrandDefaultSetRequest
+): Promise<LibraryBrandDefaultSetResponse> {
+  try {
+    if (data.brandId !== null) {
+      const root = await ensureLibraryRoot();
+      if (!(await readBrand(root, data.brandId))) {
+        return { success: false, error: `Brand not found: ${data.brandId}` };
+      }
+    }
+    setDefaultBrandId(data.brandId);
+    return { success: true };
   } catch (err) {
     return { success: false, error: errorMessage(err) };
   }

@@ -5,9 +5,10 @@ interface AssetToolbarProps {
   onImport: () => void;
   onCreateFolder: (name: string) => void;
   onRefresh: () => void;
+  onBrands: () => void;
 }
 
-export function AssetToolbar({ onImport, onCreateFolder, onRefresh }: AssetToolbarProps) {
+export function AssetToolbar({ onImport, onCreateFolder, onRefresh, onBrands }: AssetToolbarProps) {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderName, setFolderName] = useState('');
 
@@ -62,6 +63,20 @@ export function AssetToolbar({ onImport, onCreateFolder, onRefresh }: AssetToolb
           <FolderIcon open={false} /> New Folder
         </button>
       )}
+
+      <button
+        type="button"
+        onClick={onBrands}
+        data-brands-button
+        className="
+          flex items-center gap-1.5 px-3 py-1.5 rounded
+          bg-app-surface text-text-secondary text-[12px]
+          hover:bg-app-hover transition-colors
+        "
+        title="Brand palettes, fonts, and style notes injected into generated shots"
+      >
+        Brands
+      </button>
 
       <div className="flex-1" />
 

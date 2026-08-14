@@ -43,6 +43,8 @@ import type {
   StudioAgentSendResponse,
 } from '../../shared/ipc/types';
 import { getStudioProjectsRoot, setStudioProjectsRoot } from '../services/settings';
+import { getDefaultBrandId } from '../services/library/brand-default';
+import { readBrand } from '../services/library/brand-store';
 import {
   createProject,
   deleteProject,
@@ -113,7 +115,14 @@ export async function handleStudioProjectCreate(
     if (!(data.width > 0) || !(data.height > 0) || !(data.fps > 0)) {
       return { success: false, error: 'Invalid project dimensions or fps' };
     }
-    const project = await createProject(data.name, data.width, data.height, data.fps);
+    // D11: snapshot the Studio default brand into the new project — validated
+    // against the library so a stale default (deleted brand) copies nothing.
+    const defaultBrandId = getDefaultBrandId();
+    const brandId =
+      defaultBrandId && (await readBrand(getLibraryRoot(), defaultBrandId))
+        ? defaultBrandId
+        : undefined;
+    const project = await createProject(data.name, data.width, data.height, data.fps, brandId);
     return { success: true, project };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to create project') };

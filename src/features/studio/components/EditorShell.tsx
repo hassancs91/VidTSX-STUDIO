@@ -12,6 +12,7 @@ import { useTimeline } from '../hooks/useTimeline';
 import { useShotModules } from '../hooks/useShotModules';
 import { useShotJobs } from '../hooks/useShotJobs';
 import { usePaneSize } from '../hooks/usePaneSize';
+import { useBrandList } from '../hooks/useBrandList';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -124,6 +125,21 @@ export function EditorShell({ projectId, onBack }: Props) {
       });
     },
     [project?.settings.sttModelId, transcribe, showToast],
+  );
+
+  // ----- Brand (D11): non-undoable settings edit, like sttModelId ---------
+
+  const brandList = useBrandList();
+  const handleSetBrand = useCallback(
+    (brandId: string | null) => {
+      updateProject((prev) => {
+        const settings = { ...prev.settings };
+        if (brandId) settings.brandId = brandId;
+        else delete settings.brandId;
+        return { ...prev, settings };
+      });
+    },
+    [updateProject],
   );
 
   // ----- Auto Cut + proposal review -------------------------------------
@@ -664,6 +680,9 @@ export function EditorShell({ projectId, onBack }: Props) {
             onAddShot={handleAddShot}
             onRemoveShot={handleRemoveShot}
             onGenerateShot={handleGenerateShot}
+            brands={brandList}
+            brandId={project.settings.brandId}
+            onSetBrand={handleSetBrand}
           />
         </div>
 

@@ -48,6 +48,10 @@ interface Props {
   onAddShot: (shot: StudioShot) => void;
   onRemoveShot: (shotId: string) => void;
   onGenerateShot: (spec: GenerateShotSpec) => void;
+  // Brand (D11): the project's active brand, injected into every generate/regenerate
+  brands: Array<{ id: string; name: string }>;
+  brandId: string | undefined;
+  onSetBrand: (brandId: string | null) => void;
 }
 
 export function MediaPool({
@@ -70,6 +74,9 @@ export function MediaPool({
   onAddShot,
   onRemoveShot,
   onGenerateShot,
+  brands,
+  brandId,
+  onSetBrand,
 }: Props) {
   useEffect(() => {
     for (const asset of assets) {
@@ -132,6 +139,9 @@ export function MediaPool({
           onAddShot={onAddShot}
           onRemoveShot={onRemoveShot}
           onGenerateShot={onGenerateShot}
+          brands={brands}
+          brandId={brandId}
+          onSetBrand={onSetBrand}
         />
       </div>
     </div>
@@ -151,12 +161,18 @@ function ShotsSection({
   onAddShot,
   onRemoveShot,
   onGenerateShot,
+  brands,
+  brandId,
+  onSetBrand,
 }: {
   shots: StudioShot[];
   getShotProgress: (shotId: string) => ShotJobProgress | null;
   onAddShot: (shot: StudioShot) => void;
   onRemoveShot: (shotId: string) => void;
   onGenerateShot: (spec: GenerateShotSpec) => void;
+  brands: Array<{ id: string; name: string }>;
+  brandId: string | undefined;
+  onSetBrand: (brandId: string | null) => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [kind, setKind] = useState<'cutaway' | 'overlay'>('cutaway');
@@ -186,6 +202,31 @@ function ShotsSection({
           Generate
         </button>
       </div>
+
+      {(brands.length > 0 || brandId) && (
+        <div className="flex items-center gap-1.5" data-shot-brand-picker>
+          <span
+            className="text-[10px] text-text-dim shrink-0"
+            title="Palette, fonts, and style notes injected into every generated and regenerated shot. Manage brands on the Assets screen."
+          >
+            Brand
+          </span>
+          <div className="flex-1 min-w-0">
+            <Select
+              value={brandId ?? ''}
+              onChange={(v) => onSetBrand(v === '' ? null : v)}
+              options={[
+                { value: '', label: 'No brand' },
+                ...brands.map((b) => ({ value: b.id, label: b.name })),
+                // A stale id (brand deleted) shows as itself so the fallback is visible
+                ...(brandId && !brands.some((b) => b.id === brandId)
+                  ? [{ value: brandId, label: `${brandId} (missing)` }]
+                  : []),
+              ]}
+            />
+          </div>
+        </div>
+      )}
 
       {formOpen && (
         <div

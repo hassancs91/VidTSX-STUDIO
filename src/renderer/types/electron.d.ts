@@ -413,6 +413,12 @@ export interface ElectronAPI {
   librarySizesGet: () => Promise<import('../../shared/ipc/types').LibrarySizesGetResponse>;
   libraryRootGet: () => Promise<import('../../shared/ipc/types').LibraryRootGetResponse>;
   libraryRootSet: (data: import('../../shared/ipc/types').LibraryRootSetRequest) => Promise<import('../../shared/ipc/types').LibraryRootSetResponse>;
+
+  // Asset library — brands (L3/D11)
+  libraryBrandsGet: () => Promise<import('../../shared/ipc/types').LibraryBrandsGetResponse>;
+  libraryBrandSave: (data: import('../../shared/ipc/types').LibraryBrandSaveRequest) => Promise<import('../../shared/ipc/types').LibraryBrandSaveResponse>;
+  libraryBrandDelete: (data: import('../../shared/ipc/types').LibraryBrandDeleteRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDeleteResponse>;
+  libraryBrandDefaultSet: (data: import('../../shared/ipc/types').LibraryBrandDefaultSetRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDefaultSetResponse>;
 }
 
 declare global {

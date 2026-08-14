@@ -9,6 +9,69 @@
 
 ## Completed phases
 
+### Studio — D11 BRANDS (2026-08-14)
+**Status: DONE — brands slice per TSX_SHOTS_DESIGN.md §D11 Rev 2 +
+ASSET_LIBRARY_DESIGN.md §L3 Rev 3, CDP-verified end-to-end with a REAL
+Claude-subscription regenerate.** App-level MULTIPLE brands at
+`brands/<slug>/brand.json` inside the assets root (folder-as-truth; the
+folder slug IS the brand id, reserved via `reserveProjectFolder` so name
+collisions get `-2`). **Shape** (`StudioBrand`, shared/types/asset-library):
+name, palette (primary/secondary/background/text/accent — CSS colors,
+breakout-char-rejecting lenient validation in `shared/studio/brand.ts`),
+fonts (display/body family names), logoRefs (library relPaths, consumed in
+D12 — UI is a comma-list input), styleNotes (≤2000 chars, injected
+verbatim). **Store** (`services/library/brand-store.ts`): CRUD against an
+explicit root (temp-dir testable), atomic tmp+rename writes, corrupt
+folders skipped on list, traversal-guarded ids. `defaultBrandId` in
+`brand-default.ts` straight through settings-db (`studioDefaultBrandId`) —
+settings.ts NEVER touched (owned by the parallel updater session; the
+assetsRootOverride precedent). **Default copy at creation**:
+`createProject` gained optional `brandId`; the create handler resolves the
+default and validates it still exists (stale → copies nothing) — explicit
+snapshot, changing the app default never restyles existing projects;
+`migrateProject` spreads settings wholesale so brandId survives round-trips
+(pinned by test). **Generation contract**: `buildShotExtraInstructions`
+gained `brand?` — "## Brand: <name> (MANDATORY styling)" block with palette
+tokens (background line flips cutaway-use vs overlay-reference), fonts as
+CSS family stacks ("'Georgia', 'Segoe UI', sans-serif" — shots lint is
+react+remotion ONLY, so no @remotion/google-fonts inside shots; uninstalled
+Google fonts fall down the stack — v1 limit), style notes verbatim.
+`shot-generator.generate()` reads `project.settings.brandId` from
+project.json (like width/height/fps — agent tool AND pool button get it
+with zero plumbing), `readBrand` degrades stale ids to unbranded with a
+warn. Edits inject nothing (no prompt-context channel in editTsxPipeline) —
+"apply the (new) brand" IS Regenerate, per the answered design. **IPC**: 4
+channels (LIBRARY_BRANDS_GET returns brands + validated defaultBrandId,
+BRAND_SAVE create/update, BRAND_DELETE clears a pointing default,
+BRAND_DEFAULT_SET validates existence); of the updater session's dirty
+files only channels.ts + electron.d.ts were touched (additive blocks,
+staged as HEAD+my-lines blobs via hash-object/update-index). **UI (lean)**:
+Assets toolbar "Brands" button → BrandsDialog (rows with 5 palette
+swatches, fonts line, DEFAULT badge, set/unset default, edit, delete-with-
+confirm; BrandForm with live swatch previews and shared-validator inline
+errors); MediaPool Shots section "Brand" Select (No brand / brands /
+"<id> (missing)" for stale) → non-undoable settings edit through
+updateProject, the sttModelId pattern. studio-make-tsx SKILL.md gained a
+Brand section (don't restate colors in briefs; regenerate to restyle).
+**Tests +24 → 508 total** (validator table incl. CSS-breakout rejection,
+normalize round-trip, store CRUD/slug-collision/corrupt-skip/traversal,
+prompt-block snapshot incl. background flip + font fallback + WORDS
+coexistence, createProject copy + migrate carry). Type baselines 26/22
+exact. **Live CDP proof**: Brands dialog → "Acme Test" (ocean palette,
+Georgia) → brand.json on disk verbatim; Set default → badge; New Project →
+project.json carries `brandId: acme-test`; picker pre-selected in the new
+project; "Shots core test" switched to the brand (persisted); Inspector
+Regenerate on the Counter overlay → ~3 min real pipeline → v2.tsx defines
+`COLORS` = the EXACT five brand hexes + Georgia TYPOGRAPHY (values the
+original brief never contained — injection proven), player shows the navy/
+serif/amber look, pool card v2 · 5.0 s; screenshots taken. Leftovers kept
+deliberately: brand "Acme Test" (assets root) + project "Brand Inherit
+Test" for D12 testing. Known limits (deliberate): brand-scoped
+`search_assets` behavior deferred to the library slices (index brandId tags
+already exist), logos not embeddable until D12 assetRefs, no
+palette-from-logo/interview skill (v2). NEXT per roadmap: D12 (assetRefs,
+generate_image, capture_webpage), then library describe/organize.
+
 ### Studio — LEAN CANVAS MANIPULATION (2026-08-14)
 **Status: DONE — the interaction slice scheduled right after shots UI
 (2026-08-14 roadmap decision with Hasan; full rotate/crop/multi-select stays

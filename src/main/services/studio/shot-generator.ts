@@ -39,6 +39,8 @@ import {
   writeDebugSidecar,
 } from '../tsx-jobs/project-store';
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-jobs/chat-store';
+import { readBrand } from '../library/brand-store';
+import { getLibraryRoot } from '../library/library-paths';
 import { loadProject } from './project-store';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
@@ -192,6 +194,21 @@ class ShotGeneratorService {
 
     const words = req.anchor ? await this.bakeAnchorWords(req.projectId, req.anchor) : undefined;
 
+    // D11: the project's active brand rides every generate/regenerate as a
+    // mandatory style contract — read from project.json like width/height/fps,
+    // so the agent tool and the pool button both get it with no plumbing. A
+    // stale brandId (brand deleted) degrades to no brand, never a hard
+    // failure. Edits have no prompt-context channel; "apply the (new) brand
+    // to an existing shot" IS regenerate.
+    const brandId = project.settings.brandId;
+    const brand = brandId ? await readBrand(getLibraryRoot(), brandId) : null;
+    if (brandId && !brand) {
+      log.warn('Project brandId has no matching brand — generating unbranded', {
+        projectId: req.projectId,
+        brandId,
+      });
+    }
+
     // Reserve the folder (new shots) BEFORE any LLM work so the id exists
     // for progress events; regenerate reuses the existing folder.
     const projectDir = await getProjectDir(req.projectId);
@@ -247,6 +264,7 @@ class ShotGeneratorService {
               fps,
               durationSeconds,
               ...(words ? { words } : {}),
+              ...(brand ? { brand } : {}),
             }),
           },
           mode: '2d',
