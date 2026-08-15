@@ -81,10 +81,17 @@ Pure function in `shared/studio/caption-words.ts`, serializer-called:
 - Trim/split/move of master clips need no caption logic at all — the next
   serialize re-derives. That is the whole point of decision #2.
 
-## C3. Template pack
+## C3. Template pack *(Rev 2 — pack-shaped per PACKS_DESIGN.md)*
 
-- `resources/caption-templates/<id>.tsx` + `manifest.json` (id, display
-  name, config defaults **per aspect** — 9:16 wants a higher bottom margin
+- *(Rev 2, 2026-08-14)* Templates load through the **pack convention**
+  (`PACKS_DESIGN.md`): the built-in ten ship as ONE pack at
+  `resources/caption-templates/core/` (`pack.json` + templates); the loader
+  ALSO scans `packs/` in the assets root, so future purchasable caption
+  packs are folder drops — no loader changes. `templateId` is namespaced
+  (`core/word-pop`); a missing template degrades gracefully (stale-brandId
+  precedent), never hard-fails the document.
+- Per pack: `<templateId>.tsx` + `manifest.json` (ids, display names,
+  config defaults **per aspect** — 9:16 wants a higher bottom margin
   and larger scale than 16:9 — and sample words for gallery previews).
 - Component contract: default-exported react+remotion component (same
   import lint as shots — they must be resolvable by the preview module
@@ -114,9 +121,11 @@ Pure function in `shared/studio/caption-words.ts`, serializer-called:
 
 Multiple caption layers / per-region captions; caption text overrides
 decoupled from the transcript; animated emoji/keyword decoration; template
-marketplace / user-authored templates; per-clip caption styles; title-shot
-re-sync via the props channel (the channel exists after D12+D13 — wiring
-title shots to it is its own small slice).
+marketplace / store UI (the LOADER is pack-shaped in v1 per PACKS_DESIGN.md
+— only the commerce/browse layer is deferred); user-authored templates;
+per-clip caption styles; title-shot re-sync via the props channel (the
+channel exists after D12+D13 — wiring title shots to it is its own small
+slice).
 
 ## Test plan sketch
 
