@@ -9,10 +9,13 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { IpcMainInvokeEvent } from 'electron';
+import { dialog, type IpcMainInvokeEvent } from 'electron';
 import type {
+  StudioCreatorProjectsResponse,
   StudioShotGenerateRequest,
   StudioShotGenerateResponse,
+  StudioShotImportRequest,
+  StudioShotImportResponse,
   StudioShotModuleRequest,
   StudioShotModuleResponse,
   StudioShotVersionsRequest,
@@ -21,6 +24,9 @@ import type {
 import { getProjectDir, getShotVersionPath } from '../services/studio/studio-paths';
 import { isValidShotId } from '../../shared/studio/shots';
 import { shotGenerator } from '../services/studio/shot-generator';
+import { listCreatorProjects } from '../services/studio/creator-projects';
+import { importShot } from '../services/studio/shot-import';
+import { getProjectsDir } from '../utils/paths';
 import { transpileTsxCached } from '../services/tsx-transpiler';
 import {
   ensureModuleServer,
@@ -148,6 +154,92 @@ export async function handleStudioShotGenerate(
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Failed to start shot generation',
+    };
+  }
+}
+
+/** The Creator source adapter for the import picker (D14) — one of several
+ *  sources; the import handler below is the same for all of them. */
+export async function handleStudioCreatorProjects(): Promise<StudioCreatorProjectsResponse> {
+  try {
+    return { success: true, projects: await listCreatorProjects() };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to list Creator projects',
+    };
+  }
+}
+
+/**
+ * Import a TSX as a shot (D14). No `sourcePath` means "let the user find one"
+ * — the OS picker stays in main, so the thin renderer callers differ only in
+ * whether they already know the file. A clean import is fast and its ready
+ * entry arrives on the shot job stream; a conform run returns after the folder
+ * is reserved and streams progress like a generation.
+ */
+export async function handleStudioShotImport(
+  _event: IpcMainInvokeEvent,
+  data: StudioShotImportRequest,
+): Promise<StudioShotImportResponse> {
+  try {
+    let sourcePath = data.sourcePath;
+    if (!sourcePath) {
+      const result = await dialog.showOpenDialog({
+        title: 'Import a TSX composition',
+        defaultPath: getProjectsDir(),
+        properties: ['openFile'],
+        filters: [{ name: 'TSX composition', extensions: ['tsx'] }],
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: true, canceled: true };
+      }
+      sourcePath = result.filePaths[0];
+    }
+
+    // Same handshake as generation: resolve as soon as the shot folder exists
+    // (instant for a clean import, one reservation for a conform run) and let
+    // the rest arrive as job events. A failure BEFORE any folder is reserved —
+    // unreadable file, failed gate — resolves with its outcome instead.
+    const source = sourcePath;
+    const outcome = await new Promise<Awaited<ReturnType<typeof importShot>>>((resolve) => {
+      let reserved = false;
+      importShot({
+        projectId: data.projectId,
+        sourcePath: source,
+        ...(data.name ? { name: data.name } : {}),
+        ...(data.conform ? { conform: true } : {}),
+        ...(data.providerId ? { providerId: data.providerId } : {}),
+        onReserved: (shotId) => {
+          reserved = true;
+          resolve({ shotId });
+        },
+      })
+        .then((result) => {
+          if (!reserved) resolve(result);
+        })
+        .catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Import failed';
+          if (!reserved) resolve({ error: message });
+          else log.warn('Shot import failed after handshake', { error: message });
+        });
+    });
+    if (outcome.error) {
+      return {
+        success: false,
+        error: outcome.error,
+        ...(outcome.conformable ? { conformable: true } : {}),
+        // Echoed so "Convert for Studio" can re-import the very same source
+        // the user picked, including through the OS dialog.
+        sourcePath,
+        ...(data.name ? { name: data.name } : {}),
+      };
+    }
+    return { success: true, ...(outcome.shotId ? { shotId: outcome.shotId } : {}) };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to import the composition',
     };
   }
 }

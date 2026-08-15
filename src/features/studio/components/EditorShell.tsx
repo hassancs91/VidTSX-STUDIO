@@ -374,7 +374,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   // lands there when the ready event arrives — one undoable step, selected.
   const pendingShotInserts = useRef(new Map<string, number>());
   const handleShotReady = useCallback(
-    (shot: StudioShot, op: 'generate' | 'edit' | 'regenerate') => {
+    (shot: StudioShot, op: 'generate' | 'edit' | 'regenerate' | 'import') => {
       if (op === 'generate') {
         const insertAt = pendingShotInserts.current.get(shot.id);
         if (insertAt !== undefined) {
@@ -388,6 +388,10 @@ export function EditorShell({ projectId, onBack }: Props) {
         }
       } else if (op === 'regenerate') {
         showToast(`Shot "${shot.name}" regenerated (v${shot.activeVersion})`, 'success');
+      } else if (op === 'import') {
+        // Imports land in the pool only (D14) — the user places them, so no
+        // recorded playhead is involved.
+        showToast(`Imported "${shot.name}" — add it from the Shots pool`, 'success');
       }
     },
     [tl, showToast],
@@ -762,6 +766,10 @@ export function EditorShell({ projectId, onBack }: Props) {
             onAddShot={handleAddShot}
             onRemoveShot={handleRemoveShot}
             onGenerateShot={handleGenerateShot}
+            projectId={projectId}
+            {...(project.settings.agent.providerId
+              ? { providerId: project.settings.agent.providerId }
+              : {})}
             brands={brandList}
             brandId={project.settings.brandId}
             onSetBrand={handleSetBrand}

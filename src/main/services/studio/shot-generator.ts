@@ -43,6 +43,7 @@ import { readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
 import { loadProject } from './project-store';
+import { shotJobEvents } from './shot-job-events';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
 import { logEngine } from '../../../logging/log-engine';
@@ -108,24 +109,40 @@ export async function validateShotCode(code: string): Promise<TsxValidateRespons
   return { success: true };
 }
 
+/**
+ * The engine deps every shot pipeline runs with: the LLM call plus the
+ * ACCEPTANCE GATE as `tsxValidate`. Exported because the import service's
+ * conform pass (D14) must be validated by the very same gate — one definition
+ * of "acceptable shot code", whether it was generated or imported.
+ */
+export function buildShotEngineDeps(
+  providerId: string | undefined,
+  signal?: AbortSignal,
+): TsxEngineDeps {
+  return {
+    llmGenerate: (req) =>
+      runLlmGenerate(
+        {
+          ...req,
+          ...(providerId && !req.providerId ? { providerId } : {}),
+          featureSource: 'studio-tsx-shot',
+        },
+        signal,
+      ),
+    tsxValidate: (req) => validateShotCode(req.code),
+  };
+}
+
 class ShotGeneratorService {
-  private listeners = new Set<Listener>();
   private running = 0;
   private waiters: Array<() => void> = [];
 
   onEvent(listener: Listener): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return shotJobEvents.onEvent(listener);
   }
 
   private emit(event: StudioShotJobEvent): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(event);
-      } catch {
-        // Listener errors must not break a run.
-      }
-    }
+    shotJobEvents.emit(event);
   }
 
   private async acquireSlot(): Promise<void> {
@@ -144,18 +161,7 @@ class ShotGeneratorService {
   }
 
   private buildDeps(providerId: string | undefined, signal?: AbortSignal): TsxEngineDeps {
-    return {
-      llmGenerate: (req) =>
-        runLlmGenerate(
-          {
-            ...req,
-            ...(providerId && !req.providerId ? { providerId } : {}),
-            featureSource: 'studio-tsx-shot',
-          },
-          signal,
-        ),
-      tsxValidate: (req) => validateShotCode(req.code),
-    };
+    return buildShotEngineDeps(providerId, signal);
   }
 
   /** Anchor words re-based to shot-local seconds (D7). Throws when the anchor

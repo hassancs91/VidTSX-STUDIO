@@ -23,7 +23,9 @@ import {
   handleStudioAgentCancel,
 } from '../studio-handlers';
 import {
+  handleStudioCreatorProjects,
   handleStudioShotGenerate,
+  handleStudioShotImport,
   handleStudioShotModule,
   handleStudioShotVersions,
 } from '../studio-shot-handlers';
@@ -33,7 +35,7 @@ import {
 } from '../studio-caption-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
-import { shotGenerator } from '../../services/studio/shot-generator';
+import { shotJobEvents } from '../../services/studio/shot-job-events';
 
 export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_ROOT_GET, handleStudioRootGet);
@@ -59,6 +61,8 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_SHOT_MODULE, handleStudioShotModule);
   ipcMain.handle(IPC.STUDIO_SHOT_GENERATE, handleStudioShotGenerate);
   ipcMain.handle(IPC.STUDIO_SHOT_VERSIONS, handleStudioShotVersions);
+  ipcMain.handle(IPC.STUDIO_SHOT_IMPORT, handleStudioShotImport);
+  ipcMain.handle(IPC.STUDIO_CREATOR_PROJECTS, handleStudioCreatorProjects);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATES, handleStudioCaptionTemplates);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, handleStudioCaptionTemplateModule);
 
@@ -78,9 +82,9 @@ export function registerStudioIpc(): void {
     }
   });
 
-  // Shot pipeline runs (agent tool calls AND pool-button jobs) stream the
-  // same way — the renderer adopts registry entries via `shots-adopt`.
-  shotGenerator.onEvent((event) => {
+  // Shot jobs (agent tool calls, pool-button generations, D14 imports) stream
+  // the same way — the renderer adopts registry entries via `shots-adopt`.
+  shotJobEvents.onEvent((event) => {
     for (const contents of webContents.getAllWebContents()) {
       if (!contents.isDestroyed()) contents.send(IPC.STUDIO_SHOT_JOB_EVENT, event);
     }

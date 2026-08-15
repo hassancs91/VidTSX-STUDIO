@@ -653,7 +653,11 @@ lane at serialize time (never baked — answered explicitly), and ~10 curated
 react+remotion template components ship as app resources, brand-aware via
 D11.
 
-## D14. Import from TSX Creator *(added 2026-08-14, Rev 1)*
+## D14. Import from TSX Creator *(added 2026-08-14, Rev 1 — SHIPPED 2026-08-16)*
+
+> Shipped as one source-agnostic accept path (`shot-import.ts`) plus a Creator
+> source adapter (`creator-projects.ts`) and an OS file picker — see Status.md.
+
 
 Users build compositions in the Creator; Studio should take them in as
 shots. Mechanically cheap — Creator projects are folders of `v*.tsx` under

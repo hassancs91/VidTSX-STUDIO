@@ -9,6 +9,72 @@
 
 ## Completed phases
 
+### Studio — D14 CREATOR IMPORT (2026-08-16)
+**Status: DONE — per TSX_SHOTS_DESIGN.md §D14 Rev 1 + PACKS_DESIGN.md
+"tsx-template", CDP-verified end-to-end INCLUDING a real export.** The slice is
+ONE source-agnostic accept path: `importShot({projectId, sourcePath, name?,
+conform?})` (`main/services/studio/shot-import.ts`) takes a SOURCE FILE + a
+DISPLAY NAME, copies it to `shots/<id>/v1.tsx`, runs the EXISTING gate
+(`validateShotCode` = transpile + react/remotion lint + compositionConfig
+parse — imports still require the config, D13's opt-out is captions-only) and
+returns a ready entry. Callers are thin and interchangeable: the Creator picker
+(`creator-projects.ts` scans `getProjectsDir()` for folders of `v*.tsx` →
+name/updatedAt/latest version, newest first, parameterized root for tests), the
+OS file picker (no `sourcePath` → main opens the dialog), and later a
+tsx-template PACK folder — which is why the service never learns the Creator
+exists (PACKS_DESIGN.md's door, the caption-loader precedent).
+**Registry shape**: `origin: { by: 'user' }`, kind `cutaway` (an imported comp
+is a standalone full-frame piece), config snapshot from the source, and NO
+stored `prompt` — so Regenerate is correctly disabled ("No stored brief to
+regenerate from") while Edit works unchanged. Adoption reuses the SHOT JOB
+STREAM: the bus moved out of the generator into `shot-job-events.ts` (both
+services publish; op gained `'import'`), so the renderer folds imports through
+the same `shots-adopt` path with zero new machinery. Imports land in the pool
+only — the user places them (no recorded playhead, so no handshake race).
+**Conform-on-import (the allowlist gap)**: `classifyShotImport` (pure, shared)
+splits out-of-allowlist imports into CONFORMABLE (chroma-js,
+@remotion/shapes|paths|transitions, @remotion/google-fonts, tone — subpaths
+included) vs BLOCKING (relative/absolute paths, unknown packages), and refuses
+to offer conversion when a blocking import or a non-import lint error rides
+along, or when the file doesn't even transpile — never burn an LLM run that
+can't succeed. A conformable failure writes NOTHING and returns a pointed error
++ `conformable: true`; "Convert for Studio" re-imports the same source with
+`conform: true`, which reserves the folder, writes the untouched `original.tsx`
+FIRST, runs ONE `editTsxPipeline` pass whose validate dep is the same gate, and
+writes v1 only if it passes (`original.tsx` is not a `v<n>.tsx`, so the version
+scan, preview and export copy all ignore it).
+**Tests +26 → 628 total** (conformable/blocking/dedup/dynamic-import
+classification, otherErrors gating, failure-message wording, conform
+instruction, name derivation incl. `v3.tsx` → folder name, Creator scan
+ordering/latest-version/skips, folder collision → `-2`, original.tsx
+preservation, imported-shot snapshot has no prompt/anchor/assetRefs). Type
+baselines 26/22 exact. Of the updater session's dirty files only channels.ts
+and electron.d.ts were touched (additive, staged as HEAD+my-lines blobs).
+**Live CDP proof (Auto Cut Test, 1280×720, captions ON with core/word-pop +
+brand Acme Test)**: picker listed both seeded Creator projects with the LATEST
+version (clean-orbit → v2, sorted by mtime) → importing clean-orbit produced a
+ready `cutaway` shot in ~1 s whose `v1.tsx` is BYTE-IDENTICAL to the Creator's
+v2, placed on O1 and painted in the Player → importing shapes-badge (imports
+@remotion/shapes + @remotion/google-fonts/Inter + chroma-js) wrote no files and
+showed the pointed error with the Convert action → Convert ran ~20 s and passed
+the gate: the triangle became an inline `<svg>` path, chroma-js a small hex
+mixer, the font a `"Inter", system-ui` stack, compositionConfig untouched, and
+`original.tsx` byte-identical to the source → Regenerate disabled / Apply edit
+worked on the imported shot ("deep blue background" → v2, preview updated) →
+**Export → Done**: ffmpeg frames at 1.5 s and 9.5 s of the rendered mp4 contain
+the imported shot pixels, with the live caption line painted over the first —
+imported shots and D13 captions coexist through the D6 copy path.
+Reusable test state: Creator projects `clean-orbit` (v1 draft + v2 real) and
+`shapes-badge` (allowlist-gap source) under the Creator projects root; Auto Cut
+Test now carries both imported shots.
+Known limits (deliberate): imports are always `cutaway` (no kind picker), one
+conform pass with no retry ladder, conversion can shift the look, and a failed
+conversion leaves an error shot the user deletes. V2 ledger unchanged: the
+widened import surface (module-server import-map so shots import the Creator 2d
+allowlist natively) and "open shot in Creator editor". NEXT per roadmap:
+**library describe/organize (L2/L7)** — the L7 organize-skips-open-project rule
+is real new scope.
+
 ### Studio — D13 CAPTIONS (2026-08-15)
 **Status: DONE — per CAPTIONS_DESIGN.md (C1–C4) + PACKS_DESIGN.md, CDP-verified
 end-to-end INCLUDING a real export.** Captions are **live props-derived, never

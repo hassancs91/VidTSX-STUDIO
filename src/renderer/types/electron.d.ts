@@ -403,6 +403,8 @@ export interface ElectronAPI {
   studioShotModule: (data: import('../../shared/ipc/types').StudioShotModuleRequest) => Promise<import('../../shared/ipc/types').StudioShotModuleResponse>;
   studioShotGenerate: (data: import('../../shared/ipc/types').StudioShotGenerateRequest) => Promise<import('../../shared/ipc/types').StudioShotGenerateResponse>;
   studioShotVersions: (data: import('../../shared/ipc/types').StudioShotVersionsRequest) => Promise<import('../../shared/ipc/types').StudioShotVersionsResponse>;
+  studioShotImport: (data: import('../../shared/ipc/types').StudioShotImportRequest) => Promise<import('../../shared/ipc/types').StudioShotImportResponse>;
+  studioCreatorProjects: () => Promise<import('../../shared/ipc/types').StudioCreatorProjectsResponse>;
   studioCaptionTemplates: () => Promise<import('../../shared/ipc/types').StudioCaptionTemplatesResponse>;
   studioCaptionTemplateModule: (data: import('../../shared/ipc/types').StudioCaptionTemplateModuleRequest) => Promise<import('../../shared/ipc/types').StudioCaptionTemplateModuleResponse>;
   onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;

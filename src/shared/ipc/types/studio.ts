@@ -369,7 +369,9 @@ export interface StudioShotModuleResponse {
 // non-committing `shots-adopt`, so the two never race over project.json.
 // ---------------------------------------------------------------------------
 
-export type StudioShotGenerateOp = 'generate' | 'edit' | 'regenerate';
+/** 'import' (D14) rides the same job stream as the pipeline ops: a clean
+ *  import emits one 'ready', a conform run emits progress like a generation. */
+export type StudioShotGenerateOp = 'generate' | 'edit' | 'regenerate' | 'import';
 
 export interface StudioShotGenerateRequest {
   projectId: string;
@@ -430,6 +432,52 @@ export interface StudioShotVersionsResponse {
   /** Versions on disk, ascending (folder-as-truth — scanned, not stored). */
   versions?: number[];
   error?: string;
+}
+
+/** One importable TSX Creator project (D14) — a folder of v*.tsx. */
+export interface StudioCreatorProject {
+  /** Folder name, also the display name. */
+  id: string;
+  name: string;
+  /** mtime of the latest version file, ISO. */
+  updatedAt: string;
+  latestVersion: number;
+  /** Absolute path of that latest version — what the import service takes. */
+  filePath: string;
+}
+
+export interface StudioCreatorProjectsResponse {
+  success: boolean;
+  projects?: StudioCreatorProject[];
+  error?: string;
+}
+
+/** Import a TSX as a shot (D14). SOURCE-AGNOSTIC on purpose: a source file
+ *  plus a display name is the whole contract, so the Creator picker, the OS
+ *  file picker and (later) a tsx-template pack are interchangeable callers. */
+export interface StudioShotImportRequest {
+  projectId: string;
+  /** Absolute path of the .tsx. Omitted → main opens the OS file picker. */
+  sourcePath?: string;
+  /** Display name; derived from the path when absent. */
+  name?: string;
+  /** "Convert for Studio": one conform pass before the gate (allowlist gap). */
+  conform?: boolean;
+  providerId?: string;
+}
+
+export interface StudioShotImportResponse {
+  success: boolean;
+  /** Present once the shot folder exists; the ready entry arrives as a job event. */
+  shotId?: string;
+  /** The file picker was dismissed — not an error. */
+  canceled?: boolean;
+  error?: string;
+  /** The failure is only the allowlist gap — the caller may offer Convert. */
+  conformable?: boolean;
+  /** Echoed back so the Convert action can re-import the same source. */
+  sourcePath?: string;
+  name?: string;
 }
 
 export interface StudioExportPrepareRequest {

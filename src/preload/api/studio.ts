@@ -14,6 +14,7 @@ import type {
   StudioCacheOpenResponse,
   StudioCacheReadRequest,
   StudioCacheReadResponse,
+  StudioCreatorProjectsResponse,
   StudioExportPrepareRequest,
   StudioExportPrepareResponse,
   StudioMediaImportRequest,
@@ -37,6 +38,8 @@ import type {
   StudioRootSetResponse,
   StudioShotGenerateRequest,
   StudioShotGenerateResponse,
+  StudioShotImportRequest,
+  StudioShotImportResponse,
   StudioShotJobEvent,
   StudioShotModuleRequest,
   StudioShotModuleResponse,
@@ -101,6 +104,10 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_SHOT_GENERATE, data),
   studioShotVersions: (data: StudioShotVersionsRequest): Promise<StudioShotVersionsResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_VERSIONS, data),
+  studioShotImport: (data: StudioShotImportRequest): Promise<StudioShotImportResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOT_IMPORT, data),
+  studioCreatorProjects: (): Promise<StudioCreatorProjectsResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CREATOR_PROJECTS),
   studioCaptionTemplates: (): Promise<StudioCaptionTemplatesResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CAPTION_TEMPLATES),
   studioCaptionTemplateModule: (
