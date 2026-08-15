@@ -39,6 +39,15 @@ export function getVendorDir(): string {
   return path.join(app.getAppPath(), 'resources', 'vendor');
 }
 
+export function getCaptionTemplatesDir(): string {
+  // Built-in caption packs (PACKS_DESIGN.md): resources/caption-templates/<packId>/.
+  // Dev: the repo folder. Packaged: resources/caption-templates via extraResources.
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'caption-templates');
+  }
+  return path.join(app.getAppPath(), 'resources', 'caption-templates');
+}
+
 export function getSkillsDir(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'skills');

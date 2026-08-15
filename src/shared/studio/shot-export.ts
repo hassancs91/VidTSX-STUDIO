@@ -23,6 +23,16 @@ export function shotEntryRef(shot: StudioShot, projectId: string): ShotEntryRef 
   };
 }
 
+/** The caption template's normalized copy in the entry dir (D13). Its import
+ *  identifier is fixed — there is exactly one caption layer per project. */
+export function captionEntryRef(templateId: string, projectId: string): ShotEntryRef {
+  return {
+    shotId: templateId,
+    identifier: 'CaptionTemplate',
+    fileName: `studio-entry-${projectId}-caption-${templateId.replace(/\//g, '-')}.tsx`,
+  };
+}
+
 export function buildShotEntryParts(refs: ShotEntryRef[]): {
   imports: string;
   componentsLiteral: string;

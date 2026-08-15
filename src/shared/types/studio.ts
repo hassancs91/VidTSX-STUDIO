@@ -8,6 +8,11 @@
 // Shared between main (project-store, media-import) and renderer (editor UI).
 
 import type { SttModelFeatures } from '../presets/stt-models';
+import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
+
+// Caption types are a sibling file (they are a published contract for pack
+// authors), re-exported here so every consumer keeps one import site.
+export * from './studio-captions';
 
 export const STUDIO_SCHEMA_VERSION = 1;
 
@@ -203,6 +208,11 @@ export interface StudioShot {
 export interface ShotRuntimeProps {
   /** Resolved asset URLs keyed by the shot's assetRef keys. */
   assets?: Record<string, string>;
+  /** D13 captions: the word stream derived from the master lane at serialize
+   *  time, plus the resolved style/palette. Present only on the serializer's
+   *  caption overlay entry — a shot never sees it. Captions ride this channel
+   *  ON PURPOSE: one props transport, so preview and export can't diverge. */
+  captions?: CaptionRuntimeProps;
 }
 
 // ---------------------------------------------------------------------------
@@ -297,4 +307,8 @@ export interface StudioProject {
   /** TSX shot registry (S4). Normalized to [] on load — no schema bump: no
    *  document shipped before this field existed with a tsx clip in it. */
   shots: StudioShot[];
+  /** Caption layer (D13) — ONE layer, spanning the master lane. Absent = no
+   *  captions; no schema bump (the shots-field precedent). The words are NOT
+   *  stored: they are derived from the timeline on every serialize. */
+  captions?: StudioCaptionLayer;
 }

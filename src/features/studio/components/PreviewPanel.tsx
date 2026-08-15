@@ -2,11 +2,14 @@ import { useMemo, type ComponentType } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
 import { Pause, Play, SkipBack } from 'lucide-react';
 import { TimelineComposition, type SerializedTimeline } from '@shared/studio';
+import type { CaptionRuntimeProps } from '@shared/types/studio';
 
 interface Props {
   timeline: SerializedTimeline;
   /** Live TSX shot components keyed by shotId (S4) — see useShotModules. */
   components: Record<string, ComponentType>;
+  /** The live-imported caption template (D13), when a layer is enabled. */
+  captionComponent?: ComponentType<CaptionRuntimeProps>;
   playerRef: (ref: PlayerRef | null) => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
@@ -32,6 +35,7 @@ interface Props {
 export function PreviewPanel({
   timeline,
   components,
+  captionComponent,
   playerRef,
   isPlaying,
   onTogglePlay,
@@ -42,7 +46,10 @@ export function PreviewPanel({
   onCycleRate,
   overlay,
 }: Props) {
-  const inputProps = useMemo(() => ({ timeline, components }), [timeline, components]);
+  const inputProps = useMemo(
+    () => ({ timeline, components, captionComponent }),
+    [timeline, components, captionComponent],
+  );
   const isEmpty = timeline.tracks.every((t) => t.clips.length === 0);
   const proxiesPending = proxyProgress.total - proxyProgress.ready;
 

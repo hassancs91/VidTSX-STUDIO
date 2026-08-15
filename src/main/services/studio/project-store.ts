@@ -8,6 +8,7 @@ import {
 } from '../../../shared/types/studio';
 import type { StudioProjectSummary } from '../../../shared/ipc/types/studio';
 import { normalizeShots } from '../../../shared/studio/shots';
+import { normalizeCaptionLayer } from '../../../shared/studio/caption-layer';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
 import {
   ensureProjectScaffold,
@@ -37,6 +38,10 @@ export function migrateProject(raw: unknown, folderId: string): StudioProject {
   ) {
     throw new Error('project.json is missing width/height/fps settings');
   }
+  // Caption layer (D13): clamped into range, dropped whole when unusable. An
+  // uninstalled templateId survives on purpose — reinstalling the pack must
+  // bring the captions back (PACKS_DESIGN.md graceful degrade).
+  const captions = normalizeCaptionLayer(doc.captions);
   return {
     schemaVersion: STUDIO_SCHEMA_VERSION,
     id: folderId,
@@ -50,6 +55,7 @@ export function migrateProject(raw: unknown, folderId: string): StudioProject {
     // Validates entries and flips crash-stuck 'generating' shots to 'error'
     // (reconcile-on-open, TSX_SHOTS_DESIGN.md D9).
     shots: normalizeShots(doc.shots),
+    ...(captions ? { captions } : {}),
   };
 }
 

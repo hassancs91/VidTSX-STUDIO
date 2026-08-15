@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import type { CaptionTemplateDefaults } from '@shared/studio';
 import type {
+  StudioCaptionLayer,
+  StudioCaptionStyle,
   StudioClip,
   StudioProject,
   StudioProposal,
@@ -7,6 +10,12 @@ import type {
   StudioTimeline,
   StudioTrackKind,
 } from '../types';
+import {
+  applyCaptionTemplate,
+  removeCaptions,
+  setCaptionsEnabled,
+  updateCaptionStyle,
+} from '../services/caption-ops';
 import {
   addClip,
   moveClip,
@@ -58,15 +67,18 @@ import { removeClipsForShot, removeShot, setShotVersion } from '../services/shot
 const HISTORY_LIMIT = 100;
 
 /**
- * The undoable slice of the project: the timeline, the proposals, AND the
- * shot registry (S4). They share one history so applying a proposal (timeline
- * change + status change) or deleting a shot (registry entry + its clips) is
- * a single Ctrl+Z step that restores every side consistently.
+ * The undoable slice of the project: the timeline, the proposals, the shot
+ * registry (S4) AND the caption layer (D13). They share one history so
+ * applying a proposal (timeline change + status change), deleting a shot
+ * (registry entry + its clips) or restyling captions is a single Ctrl+Z step
+ * that restores every side consistently.
  */
 interface EditDoc {
   timeline: StudioTimeline;
   proposals: StudioProposal[];
   shots: StudioShot[];
+  /** null = the project has no caption layer (the document field is absent). */
+  captions: StudioCaptionLayer | null;
 }
 
 export type TimelineAction =
@@ -76,6 +88,7 @@ export type TimelineAction =
       timeline: StudioTimeline;
       proposals: StudioProposal[];
       shots: StudioShot[];
+      captions: StudioCaptionLayer | null;
     }
   | { type: 'add'; trackId: string; clip: StudioClip; preferredStart?: number }
   | { type: 'move'; clipId: string; seconds: number; toTrackId?: string }
@@ -143,6 +156,12 @@ export type TimelineAction =
   // pre-generation registry (a finishing shot must never plant an undo step
   // the user didn't perform, nor be wiped by one).
   | { type: 'shots-adopt'; shots: StudioShot[] }
+  // Captions (D13). Each is exactly one undo step; the words themselves are
+  // never stored — they re-derive from the timeline on every serialize.
+  | { type: 'caption-apply'; templateId: string; seed?: CaptionTemplateDefaults }
+  | { type: 'caption-style'; patch: Partial<StudioCaptionStyle> }
+  | { type: 'caption-enabled'; enabled: boolean }
+  | { type: 'caption-remove' }
   | { type: 'undo' }
   | { type: 'redo' };
 
@@ -153,7 +172,12 @@ interface HistoryState {
   future: EditDoc[];
 }
 
-const EMPTY_DOC: EditDoc = { timeline: { tracks: [] }, proposals: [], shots: [] };
+const EMPTY_DOC: EditDoc = {
+  timeline: { tracks: [] },
+  proposals: [],
+  shots: [],
+  captions: null,
+};
 
 function commit(state: HistoryState, next: EditDoc): HistoryState {
   // Ops return the same object when they reject an edit (locked track, illegal
@@ -161,7 +185,8 @@ function commit(state: HistoryState, next: EditDoc): HistoryState {
   if (
     next.timeline === state.present.timeline &&
     next.proposals === state.present.proposals &&
-    next.shots === state.present.shots
+    next.shots === state.present.shots &&
+    next.captions === state.present.captions
   ) {
     return state;
   }
@@ -196,7 +221,12 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       return {
         projectId: action.projectId,
         past: [],
-        present: { timeline: action.timeline, proposals: action.proposals, shots: action.shots },
+        present: {
+          timeline: action.timeline,
+          proposals: action.proposals,
+          shots: action.shots,
+          captions: action.captions,
+        },
         future: [],
       };
     case 'add':
@@ -341,8 +371,10 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       const timeline = pruneTransitions(applyByKind);
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);
-      // Carrying `shots` here matters: a hand-built literal would drop it (D9).
-      return commit(state, { timeline, proposals, shots: doc.shots });
+      // Spreading `doc` matters: a hand-built literal drops the fields this
+      // action doesn't touch (it dropped `shots` once — D9, and `captions`
+      // would go the same way).
+      return commit(state, { ...doc, timeline, proposals });
     }
     case 'proposal-reject': {
       const proposal = doc.proposals.find((p) => p.id === action.proposalId);
@@ -359,7 +391,7 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         const filtered = doc.shots.filter((s) => !dropped.has(s.id));
         if (filtered.length !== doc.shots.length) shots = filtered;
       }
-      return commit(state, { timeline: doc.timeline, proposals, shots });
+      return commit(state, { ...doc, proposals, shots });
     }
     case 'shot-set-version': {
       const shots = setShotVersion(doc.shots, action.shotId, action.version);
@@ -381,6 +413,22 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
           insertShotClip(doc.timeline, action.shot, action.preferredStart, action.newClipId),
         ),
       );
+    case 'caption-apply': {
+      const captions = applyCaptionTemplate(doc.captions, action.templateId, action.seed);
+      return commit(state, captions === doc.captions ? doc : { ...doc, captions });
+    }
+    case 'caption-style': {
+      const captions = updateCaptionStyle(doc.captions, action.patch);
+      return commit(state, captions === doc.captions ? doc : { ...doc, captions });
+    }
+    case 'caption-enabled': {
+      const captions = setCaptionsEnabled(doc.captions, action.enabled);
+      return commit(state, captions === doc.captions ? doc : { ...doc, captions });
+    }
+    case 'caption-remove': {
+      const captions = removeCaptions(doc.captions);
+      return commit(state, captions === doc.captions ? doc : { ...doc, captions });
+    }
     case 'shots-adopt': {
       if (state.projectId === null) return state;
       const adopt = (entry: EditDoc): EditDoc => ({ ...entry, shots: action.shots });
@@ -455,6 +503,7 @@ export function useTimeline(
         timeline: loaded.timeline,
         proposals: loaded.proposals ?? [],
         shots: loaded.shots ?? [],
+        captions: loaded.captions ?? null,
       });
     }
   }, [projectId]);
@@ -468,18 +517,25 @@ export function useTimeline(
     if (
       (doc.timeline === project.timeline &&
         doc.proposals === project.proposals &&
-        doc.shots === project.shots) ||
+        doc.shots === project.shots &&
+        doc.captions === (project.captions ?? null)) ||
       doc === writtenRef.current
     ) {
       return;
     }
     writtenRef.current = doc;
-    updateProject((prev) => ({
-      ...prev,
-      timeline: doc.timeline,
-      proposals: doc.proposals,
-      shots: doc.shots,
-    }));
+    updateProject((prev) => {
+      const next = {
+        ...prev,
+        timeline: doc.timeline,
+        proposals: doc.proposals,
+        shots: doc.shots,
+      };
+      // Absent, not null: "no captions" is a MISSING field in project.json.
+      if (doc.captions) next.captions = doc.captions;
+      else delete next.captions;
+      return next;
+    });
   }, [state.present, state.projectId, project, updateProject]);
 
   /** Replace the selection with one clip (or clear it with null). */
@@ -541,6 +597,7 @@ export function useTimeline(
       timeline: state.projectId ? state.present.timeline : EMPTY_DOC.timeline,
       proposals: state.projectId ? state.present.proposals : EMPTY_DOC.proposals,
       shots: state.projectId ? state.present.shots : EMPTY_DOC.shots,
+      captions: state.projectId ? state.present.captions : EMPTY_DOC.captions,
       activeProposal,
       dispatch,
       remove,

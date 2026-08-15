@@ -8,11 +8,19 @@ import {
   interpolate,
   useCurrentFrame,
 } from 'remotion';
-import type { ShotRuntimeProps } from '../types/studio';
+import type { CaptionRuntimeProps, ShotRuntimeProps } from '../types/studio';
 import type { SerializedClip, SerializedTimeline } from './serialize';
 
 export interface TimelineCompositionProps {
   timeline: SerializedTimeline;
+  /**
+   * The caption template component (D13). Supplied the same way shot
+   * components are — a component can't ride serialized data — while its PROPS
+   * ride `clip.tsx.props.captions` like every other runtime prop. Absent (or
+   * an uninstalled pack) simply paints no captions: a missing template must
+   * never hard-fail a project (PACKS_DESIGN.md graceful degrade).
+   */
+  captionComponent?: React.ComponentType<CaptionRuntimeProps>;
   /**
    * TSX shot components keyed by shotId (S4). Components can't ride
    * `inputProps`, so each consumer supplies its own map over the same
@@ -49,7 +57,11 @@ const MOUNT_WINDOW_SECONDS = 2;
  * reverse — the last array entry goes down first and the top lane lands on
  * top, matching how the timeline panel reads.
  */
-export function TimelineComposition({ timeline, components }: TimelineCompositionProps) {
+export function TimelineComposition({
+  timeline,
+  components,
+  captionComponent,
+}: TimelineCompositionProps) {
   const frame = useCurrentFrame();
   const painted = [...timeline.tracks].reverse();
   const margin = timeline.fps * MOUNT_WINDOW_SECONDS;
@@ -69,7 +81,11 @@ export function TimelineComposition({ timeline, components }: TimelineCompositio
               layout={clip.kind === 'audio' || clip.kind === 'sfx' ? 'none' : 'absolute-fill'}
               name={clip.id}
             >
-              <ClipRenderer clip={clip} components={components} />
+              <ClipRenderer
+                clip={clip}
+                components={components}
+                captionComponent={captionComponent}
+              />
             </Sequence>
           ))}
         </Fragment>
@@ -156,9 +172,11 @@ function transitionOpacity(clip: SerializedClip, frame: number): number {
 function ClipRenderer({
   clip,
   components,
+  captionComponent,
 }: {
   clip: SerializedClip;
   components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
+  captionComponent?: React.ComponentType<CaptionRuntimeProps>;
 }) {
   // Frame relative to this clip's Sequence — drives the transition opacity.
   const frame = useCurrentFrame();
@@ -224,9 +242,23 @@ function ClipRenderer({
       );
     }
 
-    // Caption clips (S5) render nothing yet — their clips still occupy the
-    // timeline so the document round-trips unchanged.
-    case 'caption':
+    // The caption layer (D13): ONE serializer-emitted clip spanning the
+    // composition, whose props carry the word stream derived from the master
+    // lane. Word timings are TIMELINE seconds, so the overlay deliberately
+    // gets no `trimBefore` offset — its clock is the composition's.
+    // Document-authored caption clips (S5 leftovers) carry no props and
+    // render nothing, exactly as before.
+    case 'caption': {
+      const captionProps = clip.tsx?.props?.captions;
+      if (!captionComponent || !captionProps) return null;
+      const CaptionTemplate = captionComponent;
+      return (
+        <AbsoluteFill style={style}>
+          <CaptionTemplate {...captionProps} />
+        </AbsoluteFill>
+      );
+    }
+
     default:
       return null;
   }

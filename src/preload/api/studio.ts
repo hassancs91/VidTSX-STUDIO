@@ -42,6 +42,9 @@ import type {
   StudioShotModuleResponse,
   StudioShotVersionsRequest,
   StudioShotVersionsResponse,
+  StudioCaptionTemplatesResponse,
+  StudioCaptionTemplateModuleRequest,
+  StudioCaptionTemplateModuleResponse,
   StudioCutPlanRunRequest,
   StudioCutPlanRunResponse,
   StudioTranscribeCancelRequest,
@@ -98,6 +101,12 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_SHOT_GENERATE, data),
   studioShotVersions: (data: StudioShotVersionsRequest): Promise<StudioShotVersionsResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_VERSIONS, data),
+  studioCaptionTemplates: (): Promise<StudioCaptionTemplatesResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CAPTION_TEMPLATES),
+  studioCaptionTemplateModule: (
+    data: StudioCaptionTemplateModuleRequest,
+  ): Promise<StudioCaptionTemplateModuleResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, data),
   onStudioShotJobEvent: (callback: (event: StudioShotJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioShotJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_SHOT_JOB_EVENT, listener);

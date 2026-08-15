@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, Upload } from 'lucide-react';
+import { Captions, ChevronLeft, Upload } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { useRenderQueue } from '@features/render-queue';
-import { serializeTimeline, timeToFrame } from '@shared/studio';
+import {
+  deriveCaptionSegments,
+  masterLane,
+  serializeTimeline,
+  timeToFrame,
+  untranscribedMasterClips,
+  type CaptionSerializeContext,
+} from '@shared/studio';
 import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
@@ -13,6 +20,8 @@ import { useShotModules } from '../hooks/useShotModules';
 import { useShotJobs } from '../hooks/useShotJobs';
 import { usePaneSize } from '../hooks/usePaneSize';
 import { useBrandList } from '../hooks/useBrandList';
+import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
+import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -32,6 +41,7 @@ import type {
   StudioShot,
 } from '../types';
 import { CanvasOverlay } from './CanvasOverlay';
+import { CaptionsPanel } from './CaptionsPanel';
 import { MediaPool, type GenerateShotSpec } from './MediaPool';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
@@ -45,7 +55,7 @@ interface Props {
   onBack: () => void;
 }
 
-type RightTab = 'inspector' | 'assistant';
+type RightTab = 'inspector' | 'assistant' | 'captions';
 
 /** Preview monitoring speeds — a watch-speed aid, never part of the document. */
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
@@ -493,13 +503,57 @@ export function EditorShell({ projectId, onBack }: Props) {
   const rightPane = usePaneSize('right', 270, 220, 460);
   const timelinePane = usePaneSize('timeline', 240, 140, 520);
 
+  // ----- Captions (D13) ---------------------------------------------------
+  // The layer is document state (reducer-owned, undoable); the WORDS are not
+  // — they are derived from the timeline on every serialize, so an edit to
+  // the master lane moves the captions with it and nothing can desync.
+  const captionLayer = tl.captions;
+  const activeBrand = useMemo(
+    () => brandList.find((b) => b.id === project?.settings.brandId) ?? null,
+    [brandList, project?.settings.brandId],
+  );
+  // Only the master lane's assets need transcripts loaded, and only while a
+  // caption layer exists — no captions, no IPC.
+  const captionAssets = useMemo(() => {
+    if (!captionLayer) return [];
+    const lane = masterLane(playerTimeline);
+    const ids = new Set((lane?.clips ?? []).map((c) => c.assetId).filter(Boolean));
+    return assets.filter((a) => ids.has(a.id));
+  }, [captionLayer, playerTimeline, assets]);
+  const captionWords = useAssetTranscripts(projectId, captionAssets);
+  const captionContext = useMemo<CaptionSerializeContext | undefined>(
+    () => (captionLayer ? { words: captionWords, brand: activeBrand } : undefined),
+    [captionLayer, captionWords, activeBrand],
+  );
+  const captionComponent = useCaptionTemplate(
+    captionLayer?.enabled ? captionLayer.templateId : null,
+  );
+  // Panel feedback: how much the current edit actually derives (which is not
+  // the transcript's length — cuts remove words), and which master clips
+  // can't contribute because they were never transcribed.
+  const captionWordCount = useMemo(
+    () =>
+      captionLayer
+        ? deriveCaptionSegments(playerTimeline, captionWords).reduce(
+            (total, segment) => total + segment.words.length,
+            0,
+          )
+        : 0,
+    [captionLayer, playerTimeline, captionWords],
+  );
+  const untranscribedCaptionClips = useMemo(
+    () => (captionLayer ? untranscribedMasterClips(playerTimeline, captionWords).length : 0),
+    [captionLayer, playerTimeline, captionWords],
+  );
+
   const serializedTimeline = useMemo(() => {
     if (!project) return null;
     return serializeTimeline(
-      { ...project, timeline: playerTimeline, shots: tl.shots },
+      { ...project, timeline: playerTimeline, shots: tl.shots, ...(captionLayer ? { captions: captionLayer } : {}) },
       resolvePreviewUrl,
+      captionContext,
     );
-  }, [project, playerTimeline, tl.shots, resolvePreviewUrl]);
+  }, [project, playerTimeline, tl.shots, captionLayer, captionContext, resolvePreviewUrl]);
 
   // ----- Canvas manipulation (lean slice, 2026-08-14) ---------------------
   // A drag on the Player's bounding box live-previews through this ephemeral
@@ -643,6 +697,20 @@ export function EditorShell({ projectId, onBack }: Props) {
           {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
         </span>
         <div className="flex-1" />
+        <button
+          onClick={() => setRightTab('captions')}
+          title="Captions — pick a style for the master lane (C4)"
+          aria-label="Captions"
+          data-captions-entry
+          className={`flex items-center gap-1 h-[24px] px-1.5 rounded-[6px] text-[11px] transition-colors ${
+            captionLayer?.enabled
+              ? 'text-accent bg-app-active'
+              : 'text-text-muted hover:bg-app-hover hover:text-text-secondary'
+          }`}
+        >
+          <Captions size={13} strokeWidth={1.5} />
+          Captions
+        </button>
         <RenderPrepChip projectId={project.id} />
         {exportRange && (
           <Button
@@ -711,6 +779,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           <PreviewPanel
             timeline={previewTimeline}
             components={shotComponents}
+            captionComponent={captionComponent}
             playerRef={playback.playerRef}
             isPlaying={playback.isPlaying}
             onTogglePlay={playback.togglePlay}
@@ -753,13 +822,32 @@ export function EditorShell({ projectId, onBack }: Props) {
               onClick={() => setRightTab('inspector')}
             />
             <RightTabButton
+              label="Captions"
+              isActive={rightTab === 'captions'}
+              onClick={() => setRightTab('captions')}
+            />
+            <RightTabButton
               label="Assistant"
               isActive={rightTab === 'assistant'}
               onClick={() => setRightTab('assistant')}
             />
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            {rightTab === 'inspector' ? (
+            {rightTab === 'captions' ? (
+              <CaptionsPanel
+                project={project}
+                layer={captionLayer}
+                brand={activeBrand}
+                wordCount={captionWordCount}
+                untranscribedCount={untranscribedCaptionClips}
+                onApply={(templateId, seed) =>
+                  tl.dispatch({ type: 'caption-apply', templateId, ...(seed ? { seed } : {}) })
+                }
+                onStyle={(patch) => tl.dispatch({ type: 'caption-style', patch })}
+                onSetEnabled={(enabled) => tl.dispatch({ type: 'caption-enabled', enabled })}
+                onRemove={() => tl.dispatch({ type: 'caption-remove' })}
+              />
+            ) : rightTab === 'inspector' ? (
               <InspectorPanel
                 project={project}
                 onUpdate={updateProject}

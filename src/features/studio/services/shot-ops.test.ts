@@ -98,8 +98,13 @@ describe('clipFromShot', () => {
 
 function freshState(shots: StudioShot[], clips: StudioClip[] = [], proposals: StudioProposal[] = []) {
   return timelineReducer(
-    { projectId: null, past: [], present: { timeline: { tracks: [] }, proposals: [], shots: [] }, future: [] },
-    { type: 'reset', projectId: 'p', timeline: timeline(clips), proposals, shots },
+    {
+      projectId: null,
+      past: [],
+      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null },
+      future: [],
+    },
+    { type: 'reset', projectId: 'p', timeline: timeline(clips), proposals, shots, captions: null },
   );
 }
 

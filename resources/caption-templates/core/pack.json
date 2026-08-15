@@ -1,0 +1,8 @@
+{
+  "id": "core",
+  "name": "Core Captions",
+  "version": "1.0.0",
+  "type": "caption-style",
+  "author": "VidTSX",
+  "description": "The ten built-in caption styles — karaoke, word-pop, pill, punch, rolling, stroke, gradient, bounce, dim-past and minimal."
+}

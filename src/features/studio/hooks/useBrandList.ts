@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
+import type { StudioBrandPalette } from '@shared/types/asset-library';
 
 export interface BrandOption {
   id: string;
   name: string;
+  /** Colors + fonts — what caption templates paint with (D13). The shot
+   *  pipeline injects the brand in main, so only captions read these here. */
+  palette: StudioBrandPalette;
+  fonts: { display: string; body?: string };
 }
 
 /**
@@ -18,7 +23,7 @@ export function useBrandList(): BrandOption[] {
     let cancelled = false;
     void window.api.libraryBrandsGet().then((res) => {
       if (!cancelled && res.success && res.brands) {
-        setBrands(res.brands.map(({ id, name }) => ({ id, name })));
+        setBrands(res.brands.map(({ id, name, palette, fonts }) => ({ id, name, palette, fonts })));
       }
     });
     return () => {

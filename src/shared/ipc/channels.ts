@@ -346,6 +346,9 @@ export const IPC = {
   STUDIO_SHOT_GENERATE: 'studio:shot:generate',
   STUDIO_SHOT_VERSIONS: 'studio:shot:versions',
   STUDIO_SHOT_JOB_EVENT: 'studio:shot:job-event',
+  // Studio — caption templates (D13): pack listing + preview module URL
+  STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
+  STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',
 
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',

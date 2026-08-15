@@ -27,6 +27,10 @@ import {
   handleStudioShotModule,
   handleStudioShotVersions,
 } from '../studio-shot-handlers';
+import {
+  handleStudioCaptionTemplateModule,
+  handleStudioCaptionTemplates,
+} from '../studio-caption-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
 import { shotGenerator } from '../../services/studio/shot-generator';
@@ -55,6 +59,8 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_SHOT_MODULE, handleStudioShotModule);
   ipcMain.handle(IPC.STUDIO_SHOT_GENERATE, handleStudioShotGenerate);
   ipcMain.handle(IPC.STUDIO_SHOT_VERSIONS, handleStudioShotVersions);
+  ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATES, handleStudioCaptionTemplates);
+  ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, handleStudioCaptionTemplateModule);
 
   // Proxy/waveform progress is a push stream — the editor folds each 'ready'
   // event back into the open project document.

@@ -9,6 +9,93 @@
 
 ## Completed phases
 
+### Studio — D13 CAPTIONS (2026-08-15)
+**Status: DONE — per CAPTIONS_DESIGN.md (C1–C4) + PACKS_DESIGN.md, CDP-verified
+end-to-end INCLUDING a real export.** Captions are **live props-derived, never
+baked**: the serializer derives the word stream from the MASTER LANE at
+serialize time and passes it through D12's runtime-props channel, so cutting
+the master re-derives on the next serialize and nothing can desync (the D7 bake
+stays what it is — a 3-second title mechanism).
+**Document (C1)**: `captions?: StudioCaptionLayer` on the project
+(`shared/types/studio-captions.ts` — a sibling file because the template props
+are a PUBLISHED contract for pack authors); one layer, whole master lane,
+absent field = no captions (no schema bump, shots-field precedent).
+`normalizeCaptionLayer` on load clamps scale/wordsPerGroup/position, drops a
+layer with no templateId, and **keeps an uninstalled templateId on purpose**
+(reinstalling the pack must bring the captions back). The layer joined the
+reducer's undoable `EditDoc` beside timeline/proposals/shots — apply / style /
+disable / remove are each ONE undo step (`services/caption-ops.ts`,
+identity-on-reject). Writing back deletes the field rather than storing null.
+**Derivation (C2, `shared/studio/caption-words.ts`)**: master lane = the
+BOTTOM-most video track with clips (new visual lanes stack on top), falling
+back to the first audio lane with clips for voice-over projects. Per clip:
+slice words to the visible source window (a word belongs when it STARTS inside
+it), clamp ends, re-base to timeline seconds through `speed`, concat in
+timeline order. Gaps simply have no words; untranscribed clips contribute
+nothing and are surfaced as "N clips have no transcript". Grouping breaks on
+`wordsPerGroup`, on punctuation, on pauses > 0.6 s, and NEVER across a clip
+boundary.
+**Pack-shaped loader (C3 Rev 2 + PACKS_DESIGN.md)**: the built-in ten ship as
+ONE pack at `resources/caption-templates/core/` (`pack.json` + `manifest.json`
++ ten `.tsx`), and the loader ALSO scans `packs/` in the assets root, so a
+purchasable pack is a folder drop with zero loader changes
+(`main/services/studio/caption-packs.ts`, `scanCaptionRoots(builtIn, installed)`
+for testability). `templateId` is namespaced (`core/word-pop`) and that is what
+the document stores; duplicate pack id → whole pack skipped, first root wins;
+corrupt pack / ghost template / wrong type → skipped with a warning; a missing
+pack degrades gracefully everywhere. Manifest defaults are per-aspect style
+SEEDS (scale + wordsPerGroup only — fields with no home on the document are
+dropped, so a pack can't seed what the style can't hold).
+**Rendering**: the serializer emits ONE synthetic `kind: 'caption'` track FIRST
+(painted last = over everything) carrying `tsx.props.captions` = `{ groups,
+style, palette }`; `ShotRuntimeProps` gained the `captions` member (one props
+transport, no parallel mechanism). `TimelineComposition`'s dead `'caption'`
+case now renders the supplied `captionComponent` (absent → null). Palette
+resolves brand-or-override BEFORE the template sees it (templates never read
+the brand system; same react+remotion-only lint as shots, with
+`requireCompositionConfig: false` — an overlay has no length of its own).
+`referencedShotIds` skips caption clips (its shotId is a template id).
+**Export (D6 pattern)**: `loadCaptionContext` reads the master lane's
+transcripts from the project cache + the active brand, the template file is
+validated/font-rewritten/copied beside the shot copies, and the entry imports
+it as `captionComponent`. A missing pack or a stale brand logs and exports
+without captions — never a failed render.
+**UI (C4)**: toolbar "Captions" entry + a third right-panel tab; gallery cards
+are tiny lazy-mounted (IntersectionObserver) Players running the REAL template
+over the manifest's sample words; position / size / words-per-group /
+UPPERCASE / brand-colors toggle with a custom override.
+**Tests +62 → 602 total** (derivation windows/re-base/speed/concat/gaps/
+untranscribed, grouping breaks, master-lane pick, layer normalize + palette
+resolution, pack parse/namespacing/traversal-refusal/defaults, loader
+discovery/collision/ghost/corrupt/missing-root + the shipped core pack loads
+with all ten, serializer emission present/absent/disabled/re-derive/not-a-shot,
+caption reducer actions incl. undo/redo round-trip). Type baselines 26/22
+exact. Of the updater session's dirty files only channels.ts, electron.d.ts and
+electron-builder.yml were touched (additive blocks, staged as HEAD+my-lines
+blobs — audit the diff, and decode git output as UTF-8 or em-dashes mojibake).
+**Live CDP proof (Auto Cut Test, 1280×720, 69-word transcript, 11 master
+clips)**: gallery listed all ten from the pack with animated cards → applying
+Word Pop showed captions at the playhead and "58 words from the master lane"
+(the EDIT's words, not the transcript's 69) → ripple-deleting the first master
+clip re-derived to 53 words and a different line at the SAME timeline second
+("AutoCut test." → "it flows naturally") → apply/undo/redo round-tripped →
+selecting brand "Acme Test" repainted the live word from fallback amber/Inter
+to the brand accent in Georgia → **Export → Done**: the entry's TIMELINE
+carries 21 groups / 58 words + the resolved brand palette, the copied template
+file sits beside it, and ffmpeg frames at 2.1 s and 4.23 s contain the caption
+pixels matching what the preview showed at the same second. Missing-pack
+degrade proven by pointing the document at `bought/neon`: project opened, panel
+warned, no captions painted, layer preserved, and picking an installed style
+recovered it. One export attempt failed with a Remotion compositor
+"No frame found at position …" seek error; re-running with captions ON
+succeeded, so it is the known compositor flake, not the caption layer.
+Known limits (deliberate): one layer per project, no per-region captions, no
+caption text editor (fix the transcript, captions re-derive), crossfade
+overlaps interleave briefly, no store/pack-manager UI (folder drop is install
+v1). NEXT per roadmap: **D14 Creator import** (TSX_SHOTS_DESIGN.md §D14 — keep
+the import service source-agnostic; it doubles as the tsx-template pack door),
+then library describe/organize.
+
 ### Studio — D12 MEDIA INSIDE SHOTS (2026-08-14)
 **Status: DONE — per TSX_SHOTS_DESIGN.md §D12 Rev 2 + ASSET_LIBRARY_DESIGN.md
 §L5/§L6, CDP-verified end-to-end INCLUDING a real export.** The serializer

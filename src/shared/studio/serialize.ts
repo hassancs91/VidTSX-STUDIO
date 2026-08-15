@@ -13,7 +13,10 @@ import type {
   StudioTrackKind,
   StudioTransitionKind,
 } from '../types/studio';
+import type { StudioBrand } from '../types/asset-library';
 import { clipEnd, spanToFrames, timeToFrame, timelineDurationInFrames } from './time-math';
+import { deriveCaptionGroups, type CaptionWordSource } from './caption-words';
+import { resolveCaptionPalette, resolvedStyle } from './caption-layer';
 
 /** A ramp window at one edge of a serialized clip (Slice E transitions). */
 export interface SerializedTransition {
@@ -70,6 +73,23 @@ export interface SerializedTimeline {
 
 /** Maps an assetId to a URL the Player/renderer can fetch, or null if missing. */
 export type AssetUrlResolver = (assetId: string) => string | null;
+
+/** The id the synthetic caption track and its clip carry. Stable so the
+ *  Player's Sequence identity survives re-serialization. */
+export const CAPTION_TRACK_ID = 'captions';
+
+/**
+ * What the serializer needs to derive captions (D13). The CALLER supplies the
+ * words — the renderer reads the transcript cache over IPC, the export entry
+ * reads it from disk — so this function stays pure and synchronous.
+ */
+export interface CaptionSerializeContext {
+  /** Word transcripts by asset id; an absent asset contributes nothing. */
+  words: CaptionWordSource;
+  /** The project's active brand, for a layer styled with 'brand' colors. A
+   *  stale brandId simply arrives as null and the built-in palette is used. */
+  brand?: Pick<StudioBrand, 'palette' | 'fonts'> | null;
+}
 
 /** Geometry a transition adds to the two clips at a boundary. */
 interface BoundaryAdjustment {
@@ -151,9 +171,56 @@ function computeAdjustment(
   };
 }
 
+/**
+ * The caption layer as a serialized top overlay (D13 §C3): ONE clip spanning
+ * the composition, carrying the derived word stream through the SAME
+ * `tsx.props` channel D12 built for shot assets. `shotId` holds the namespaced
+ * templateId — the consumer supplies the component, exactly like shots.
+ *
+ * Returns null when there are no captions to paint (absent/disabled layer, or
+ * a master lane with no transcribed words yet), so the composition never
+ * mounts an empty overlay.
+ */
+function serializeCaptions(
+  project: StudioProject,
+  durationInFrames: number,
+  context: CaptionSerializeContext,
+): SerializedTrack | null {
+  const layer = project.captions;
+  if (!layer || !layer.enabled || durationInFrames <= 0) return null;
+  const groups = deriveCaptionGroups(project.timeline, context.words, layer.style.wordsPerGroup);
+  if (groups.length === 0) return null;
+  return {
+    id: CAPTION_TRACK_ID,
+    kind: 'caption',
+    clips: [
+      {
+        id: CAPTION_TRACK_ID,
+        kind: 'caption',
+        from: 0,
+        durationInFrames,
+        tsx: {
+          shotId: layer.templateId,
+          mode: 'overlay',
+          props: {
+            captions: {
+              groups,
+              style: resolvedStyle(layer.style),
+              palette: resolveCaptionPalette(layer.style.colors, context.brand),
+            },
+          },
+        },
+      },
+    ],
+  };
+}
+
 export function serializeTimeline(
   project: StudioProject,
   resolveUrl: AssetUrlResolver,
+  /** Captions (D13). Omitted = no caption layer is emitted, which is what
+   *  every non-caption caller (and every pre-D13 test) wants. */
+  captions?: CaptionSerializeContext,
 ): SerializedTimeline {
   const { fps, width, height } = project.settings;
   const sourceDurationOf = (assetId: string) =>
@@ -280,11 +347,17 @@ export function serializeTimeline(
     tracks.push({ id: track.id, kind: track.kind, clips });
   }
 
+  const durationInFrames = timelineDurationInFrames(project.timeline, fps);
+
+  // Captions paint over everything: tracks are in UI order and the composition
+  // paints in reverse, so the caption lane goes FIRST.
+  const captionTrack = captions ? serializeCaptions(project, durationInFrames, captions) : null;
+
   return {
     width,
     height,
     fps,
-    durationInFrames: timelineDurationInFrames(project.timeline, fps),
-    tracks,
+    durationInFrames,
+    tracks: captionTrack ? [captionTrack, ...tracks] : tracks,
   };
 }

@@ -162,7 +162,7 @@ describe('reducer round-trips (shot proposals, D8/D9)', () => {
   const baseState = (shots: StudioShot[], prop: StudioProposal) => ({
     projectId: 'p1',
     past: [],
-    present: { timeline: masterTimeline(), proposals: [prop], shots },
+    present: { timeline: masterTimeline(), proposals: [prop], shots, captions: null },
     future: [],
   });
 
@@ -205,7 +205,7 @@ describe('reducer round-trips (shot proposals, D8/D9)', () => {
     const s1 = {
       projectId: 'p1',
       past: [],
-      present: { timeline: masterTimeline(), proposals: [], shots: [shot()] },
+      present: { timeline: masterTimeline(), proposals: [], shots: [shot()], captions: null },
       future: [],
     };
     const s2 = timelineReducer(s1, {

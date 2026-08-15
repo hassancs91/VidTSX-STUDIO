@@ -8,6 +8,7 @@ import type {
   StudioShotKind,
 } from '../../types/studio';
 import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
+import type { CaptionAspect, CaptionTemplateDefaults } from '../../studio/caption-pack';
 import type { ChatMessage } from './llm';
 
 // Studio (AI video editor) — projects & media IPC contracts.
@@ -449,5 +450,40 @@ export interface StudioExportPrepareResponse {
   height?: number;
   fps?: number;
   durationInFrames?: number;
+  error?: string;
+}
+
+// ─── Caption templates (D13, PACKS_DESIGN.md) ───────────────────────────────
+
+/** A caption template as the panel lists it — namespaced id + display data.
+ *  The absolute file path stays in main; the renderer only ever asks for a
+ *  module URL by id. */
+export interface StudioCaptionTemplateInfo {
+  /** `<packId>/<itemId>`, e.g. 'core/word-pop' — what the document stores. */
+  templateId: string;
+  name: string;
+  packId: string;
+  packName: string;
+  description?: string;
+  /** Words the gallery card animates in its mini-Player. */
+  sampleWords?: string[];
+  /** Per-aspect style seeds applied when the user first picks this template. */
+  defaults?: Partial<Record<CaptionAspect, CaptionTemplateDefaults>>;
+}
+
+export interface StudioCaptionTemplatesResponse {
+  success: boolean;
+  templates?: StudioCaptionTemplateInfo[];
+  error?: string;
+}
+
+export interface StudioCaptionTemplateModuleRequest {
+  templateId: string;
+}
+
+export interface StudioCaptionTemplateModuleResponse {
+  success: boolean;
+  /** Module-server URL the renderer dynamic-imports into the Player. */
+  moduleUrl?: string;
   error?: string;
 }

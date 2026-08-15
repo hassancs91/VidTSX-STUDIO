@@ -9,11 +9,22 @@ import { serializeTimeline } from '../../../shared/studio/serialize';
 import { timelineDurationInFrames } from '../../../shared/studio/time-math';
 import { referencedShotIds } from '../../../shared/studio/shots';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
-import { buildShotEntryParts, shotEntryRef } from '../../../shared/studio/shot-export';
+import {
+  buildShotEntryParts,
+  captionEntryRef,
+  shotEntryRef,
+} from '../../../shared/studio/shot-export';
+import type { CaptionSerializeContext } from '../../../shared/studio/serialize';
+import type { SourceWord } from '../../../shared/studio/caption-words';
+import { masterLane } from '../../../shared/studio/caption-words';
 import type { StudioProject, StudioShot } from '../../../shared/types/studio';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { rewriteFontUrls } from '../font-proxy';
+import { readBrand } from '../library/brand-store';
+import { getLibraryRoot } from '../library/library-paths';
+import { readTranscriptFile } from './asset-transcriber';
+import { resolveCaptionTemplate } from './caption-packs';
 import { getShotVersionPath } from './studio-paths';
 
 const log = logEngine.createLogger('StudioExport');
@@ -72,6 +83,87 @@ async function prepareShotSource(
 }
 
 /**
+ * Everything the serializer needs to derive captions at export (D13): the
+ * word transcripts of the master lane's assets, read from the project cache,
+ * plus the active brand for 'brand'-colored layers. Returns undefined when
+ * the project has no enabled caption layer, so the export path is untouched
+ * for every project without captions.
+ *
+ * The words are read HERE rather than stored in the document on purpose: the
+ * caption layer follows the edit, so the export derives from the same
+ * transcript the editor previewed (fix a typo → both change).
+ */
+async function loadCaptionContext(
+  project: StudioProject,
+): Promise<CaptionSerializeContext | undefined> {
+  const layer = project.captions;
+  if (!layer || !layer.enabled) return undefined;
+
+  const lane = masterLane(project.timeline);
+  const assetIds = new Set(
+    (lane?.clips ?? [])
+      .map((clip) => clip.assetId)
+      .filter((id): id is string => id !== undefined),
+  );
+  const words = new Map<string, SourceWord[]>();
+  for (const assetId of assetIds) {
+    const transcript = await readTranscriptFile(project.id, assetId);
+    if (transcript?.words?.length) {
+      words.set(
+        assetId,
+        transcript.words.map((w) => ({ text: w.text, start: w.start, end: w.end })),
+      );
+    }
+  }
+
+  // A stale brandId resolves to null and the built-in palette takes over —
+  // an uninstalled brand must never block an export.
+  const brand = project.settings.brandId
+    ? await readBrand(getLibraryRoot(), project.settings.brandId).catch(() => null)
+    : null;
+
+  return { words, brand };
+}
+
+/**
+ * Export pre-flight for the caption template (D13): the same validate +
+ * font-normalize + copy step shots get (D6), so a template renders in the
+ * bundle exactly as it did in the preview. Returns null when the layer is
+ * absent, disabled, derived nothing, or its pack is not installed — captions
+ * degrade to "no captions", they never fail an export.
+ */
+async function prepareCaptionTemplate(
+  project: StudioProject,
+  serialized: { tracks: Array<{ kind: string; clips: Array<{ tsx?: { shotId: string } }> }> },
+  assetUrlBase: string,
+): Promise<{ fileName: string; identifier: string; source: string } | null> {
+  const templateId = serialized.tracks.find((t) => t.kind === 'caption')?.clips[0]?.tsx?.shotId;
+  if (!templateId) return null;
+
+  const template = await resolveCaptionTemplate(templateId);
+  if (!template) {
+    log.warn('Caption template not installed — exporting without captions', { templateId });
+    return null;
+  }
+  const label = `Caption template "${template.name}"`;
+  const source = await fs.readFile(template.filePath, 'utf-8');
+  const transpile = await validateTsxCode(source);
+  if (!transpile.success) {
+    throw new Error(`${label} failed export validation: ${transpile.error ?? 'transpile error'}`);
+  }
+  const lint = lintShotSource(source, { requireCompositionConfig: false });
+  if (!lint.ok) {
+    throw new Error(`${label} failed export validation: ${lint.errors.join(' ')}`);
+  }
+  const ref = captionEntryRef(templateId, project.id);
+  return {
+    fileName: ref.fileName,
+    identifier: ref.identifier,
+    source: rewriteFontUrls(source, assetUrlBase),
+  };
+}
+
+/**
  * Build the Remotion entry for an export.
  *
  * The timeline is embedded in the generated file rather than passed as
@@ -91,12 +183,17 @@ export async function createExportEntry(
     durationInFramesOverride ?? timelineDurationInFrames(project.timeline, fps);
 
   const byId = new Map(project.assets.map((a) => [a.id, a]));
+  const captionContext = await loadCaptionContext(project);
   // Export renders the ORIGINAL media — proxies exist only for the preview.
-  const serialized = serializeTimeline(project, (assetId) => {
-    const asset = byId.get(assetId);
-    if (!asset) return null;
-    return `${assetUrlBase}/asset?path=${encodeURIComponent(asset.path)}`;
-  });
+  const serialized = serializeTimeline(
+    project,
+    (assetId) => {
+      const asset = byId.get(assetId);
+      if (!asset) return null;
+      return `${assetUrlBase}/asset?path=${encodeURIComponent(asset.path)}`;
+    },
+    captionContext,
+  );
 
   // TSX shots (D6): pre-flight each referenced ready shot, then statically
   // import a normalized COPY from the entry's temp dir — webpack compiles the
@@ -120,12 +217,21 @@ export async function createExportEntry(
     await fs.writeFile(path.join(dir, shotRefs[i].fileName), normalized, 'utf-8');
   }
 
+  // The caption template copy rides beside the shot copies (same TTL sweep).
+  const caption = await prepareCaptionTemplate(project, serialized, assetUrlBase);
+  if (caption) {
+    await fs.writeFile(path.join(dir, caption.fileName), caption.source, 'utf-8');
+  }
+
   const { imports, componentsLiteral } = buildShotEntryParts(shotRefs);
+  const captionImport = caption
+    ? `import ${caption.identifier} from './${caption.fileName}';`
+    : '';
   const compositionId = `studio-${project.id}`;
   const source = `// Auto-generated VidTSX Studio export entry — safe to delete.
 import React from 'react';
 import { TimelineComposition } from '@shared/studio';
-${imports ? `${imports}\n` : ''}
+${imports ? `${imports}\n` : ''}${captionImport ? `${captionImport}\n` : ''}
 export const compositionConfig = {
   id: "${compositionId}",
   width: ${width},
@@ -137,7 +243,7 @@ export const compositionConfig = {
 const TIMELINE = ${JSON.stringify(serialized)};
 ${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}
 export default function StudioTimelineExport() {
-  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''} />;
+  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''} />;
 }
 `;
 

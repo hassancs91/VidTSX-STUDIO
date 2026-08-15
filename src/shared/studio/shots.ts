@@ -75,12 +75,16 @@ export function normalizeShots(raw: unknown): StudioShot[] {
  * Structural parameter type so serialize.ts and tests can both feed it.
  */
 export function referencedShotIds(timeline: {
-  tracks: Array<{ clips: Array<{ tsx?: { shotId: string } }> }>;
+  tracks: Array<{ clips: Array<{ kind?: string; tsx?: { shotId: string } }> }>;
 }): string[] {
   const seen = new Set<string>();
   const ids: string[] = [];
   for (const track of timeline.tracks) {
     for (const clip of track.clips) {
+      // The caption overlay (D13) rides the same `tsx` channel but its shotId
+      // is a namespaced TEMPLATE id, not a registry entry — the export entry
+      // copies it through its own caption step.
+      if (clip.kind === 'caption') continue;
       if (clip.tsx && !seen.has(clip.tsx.shotId)) {
         seen.add(clip.tsx.shotId);
         ids.push(clip.tsx.shotId);

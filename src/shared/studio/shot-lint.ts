@@ -40,7 +40,15 @@ export interface ShotLintResult {
  *   - must export `const compositionConfig = { ... }` (parsed in main; the
  *     parser's silent 300-frame fallback is exactly what this gate prevents)
  */
-export function lintShotSource(code: string): ShotLintResult {
+export interface ShotLintOptions {
+  /** Caption templates (D13) are overlays spanning the timeline, not standalone
+   *  compositions — they have no length/size of their own to declare, so the
+   *  config requirement is lifted for them. Every other rule still applies:
+   *  single file, react+remotion only, default export. */
+  requireCompositionConfig?: boolean;
+}
+
+export function lintShotSource(code: string, options: ShotLintOptions = {}): ShotLintResult {
   const errors: string[] = [];
 
   for (const spec of collectImportSpecifiers(code)) {
@@ -59,7 +67,10 @@ export function lintShotSource(code: string): ShotLintResult {
     errors.push('The shot must have a default export (the composition component).');
   }
 
-  if (!/export\s+const\s+compositionConfig\s*=/.test(code)) {
+  if (
+    options.requireCompositionConfig !== false &&
+    !/export\s+const\s+compositionConfig\s*=/.test(code)
+  ) {
     errors.push(
       'The shot must export `const compositionConfig = { ... }` with literal values.',
     );

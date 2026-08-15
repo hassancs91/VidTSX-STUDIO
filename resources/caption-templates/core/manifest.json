@@ -1,0 +1,114 @@
+{
+  "templates": [
+    {
+      "id": "karaoke",
+      "name": "Karaoke",
+      "description": "A line of words; the spoken one fills with the accent color.",
+      "sampleWords": ["watch", "the", "words", "light", "up"],
+      "defaults": {
+        "portrait": { "scale": 1.05, "wordsPerGroup": 3 },
+        "landscape": { "scale": 1, "wordsPerGroup": 4 },
+        "square": { "scale": 1, "wordsPerGroup": 3 }
+      }
+    },
+    {
+      "id": "word-pop",
+      "name": "Word Pop",
+      "description": "Hormozi-style: each word punches in, heavy and stroked.",
+      "sampleWords": ["this", "one", "pops", "hard"],
+      "defaults": {
+        "portrait": { "scale": 1.15, "wordsPerGroup": 2 },
+        "landscape": { "scale": 1, "wordsPerGroup": 3 },
+        "square": { "scale": 1.05, "wordsPerGroup": 2 }
+      }
+    },
+    {
+      "id": "boxed-pill",
+      "name": "Boxed Pill",
+      "description": "Words on a rounded background pill — readable over anything.",
+      "sampleWords": ["clean", "and", "readable"],
+      "defaults": {
+        "portrait": { "scale": 1, "wordsPerGroup": 3 },
+        "landscape": { "scale": 0.95, "wordsPerGroup": 4 },
+        "square": { "scale": 1, "wordsPerGroup": 3 }
+      }
+    },
+    {
+      "id": "one-word-punch",
+      "name": "One Word Punch",
+      "description": "One enormous word at a time, centered.",
+      "sampleWords": ["one", "word", "only"],
+      "defaults": {
+        "portrait": { "scale": 1.2, "wordsPerGroup": 1 },
+        "landscape": { "scale": 1.1, "wordsPerGroup": 1 },
+        "square": { "scale": 1.15, "wordsPerGroup": 1 }
+      }
+    },
+    {
+      "id": "two-line-rolling",
+      "name": "Two-Line Rolling",
+      "description": "The previous line stays above while the new one rolls in.",
+      "sampleWords": ["lines", "roll", "up", "as", "you", "speak"],
+      "defaults": {
+        "portrait": { "scale": 0.95, "wordsPerGroup": 3 },
+        "landscape": { "scale": 0.9, "wordsPerGroup": 4 },
+        "square": { "scale": 0.95, "wordsPerGroup": 3 }
+      }
+    },
+    {
+      "id": "bold-stroke",
+      "name": "Bold Stroke",
+      "description": "Thick outlined caps — survives any busy background.",
+      "sampleWords": ["bold", "outlined", "caps"],
+      "defaults": {
+        "portrait": { "scale": 1.1, "wordsPerGroup": 3 },
+        "landscape": { "scale": 1, "wordsPerGroup": 4 },
+        "square": { "scale": 1.05, "wordsPerGroup": 3 }
+      }
+    },
+    {
+      "id": "gradient-active",
+      "name": "Gradient Active",
+      "description": "The current word is painted with a brand gradient.",
+      "sampleWords": ["gradient", "on", "the", "live", "word"],
+      "defaults": {
+        "portrait": { "scale": 1.05, "wordsPerGroup": 3 },
+        "landscape": { "scale": 1, "wordsPerGroup": 4 },
+        "square": { "scale": 1, "wordsPerGroup": 3 }
+      }
+    },
+    {
+      "id": "bounce-in",
+      "name": "Bounce In",
+      "description": "Every group springs in from below with a soft bounce.",
+      "sampleWords": ["bouncy", "little", "captions"],
+      "defaults": {
+        "portrait": { "scale": 1.05, "wordsPerGroup": 3 },
+        "landscape": { "scale": 1, "wordsPerGroup": 4 },
+        "square": { "scale": 1, "wordsPerGroup": 3 }
+      }
+    },
+    {
+      "id": "dim-past",
+      "name": "Dim Past",
+      "description": "Spoken words dim back, the live word stays bright.",
+      "sampleWords": ["spoken", "words", "fade", "back"],
+      "defaults": {
+        "portrait": { "scale": 1, "wordsPerGroup": 4 },
+        "landscape": { "scale": 0.95, "wordsPerGroup": 5 },
+        "square": { "scale": 1, "wordsPerGroup": 4 }
+      }
+    },
+    {
+      "id": "minimal-line",
+      "name": "Minimal Line",
+      "description": "A quiet single line — no animation, maximum legibility.",
+      "sampleWords": ["quiet", "and", "simple"],
+      "defaults": {
+        "portrait": { "scale": 0.9, "wordsPerGroup": 4 },
+        "landscape": { "scale": 0.85, "wordsPerGroup": 5 },
+        "square": { "scale": 0.9, "wordsPerGroup": 4 }
+      }
+    }
+  ]
+}

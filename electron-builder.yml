@@ -24,6 +24,13 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Built-in caption packs (D13, PACKS_DESIGN.md). Ships as plain source: the
+  # app transpiles a template on use, exactly like a project's TSX shots.
+  - from: resources/caption-templates
+    to: caption-templates
+    filter:
+      - "**/*"
+      - "!**/.*"
   - from: resources/icon.ico
     to: icon.ico
   - from: resources/icon.png
