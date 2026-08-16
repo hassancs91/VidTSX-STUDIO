@@ -5,7 +5,7 @@
 
 ## Project overview
 
-VidTSX Studio is an Electron desktop app for previewing, editing, and rendering TSX-based video compositions (built on Remotion). It includes a template store, media library with S3 storage, caption generator with local Whisper, and a standalone transcription tool.
+VidTSX Studio is an Electron desktop app for previewing, editing, and rendering TSX-based video compositions (built on Remotion). It is local-first and serverless: local asset library, caption generator with local Whisper, a standalone transcription tool, and AI features powered by the user's own provider keys or local models. (The originally planned cloud template store / S3 media library were retired 2026-08-16 — see Phases 6–7 and "No backend API".)
 
 **Target platforms:** macOS (arm64 + x64), Windows (x64)
 **Tech stack:** Electron, React, TypeScript , Vite , Remotion , Tailwind CSS 
@@ -45,17 +45,12 @@ vidtsx-studio/
 │   │   │   ├── register.ts          # Registers all IPC handlers
 │   │   │   ├── file-handlers.ts     # File system operations
 │   │   │   ├── render-handlers.ts   # Remotion render orchestration
-│   │   │   ├── whisper-handlers.ts  # Whisper model + transcription
-│   │   │   ├── media-handlers.ts    # S3 upload/download
-│   │   │   └── store-handlers.ts    # Template store API
+│   │   │   └── whisper-handlers.ts  # Whisper model + transcription
 │   │   ├── services/
 │   │   │   ├── remotion-renderer.ts # @remotion/renderer wrapper
 │   │   │   ├── remotion-bundler.ts  # @remotion/bundler wrapper
 │   │   │   ├── ffmpeg.ts            # ffmpeg binary management
-│   │   │   ├── whisper.ts           # whisper.cpp binary + model management
-│   │   │   └── vidtsx-api.ts        # Unified API client for learnwithhasan.com
-│   │   │                             # Handles: auth, media, templates, license
-│   │   │                             # S3 credentials NEVER in the app
+│   │   │   └── whisper.ts           # whisper.cpp binary + model management
 │   │   └── utils/
 │   │       ├── paths.ts             # App data, temp dirs, binary paths
 │   │       └── logger.ts            # Main process logging
@@ -116,7 +111,7 @@ vidtsx-studio/
 │   │   │   │   └── template-sync.ts
 │   │   │   └── types.ts
 │   │   │
-│   │   ├── media/                   # Media library (S3)
+│   │   ├── media/                   # Media library (local)
 │   │   │   ├── components/
 │   │   │   │   ├── MediaScreen.tsx
 │   │   │   │   ├── MediaGrid.tsx
@@ -271,45 +266,23 @@ vidtsx-studio/
 
 ---
 
-### Phase 6: Media library (API proxy to S3)
+### Phase 6: Media library — RETIRED (2026-08-16)
 
-**IMPORTANT:** The app NEVER talks to S3 directly. All media operations go through
-your backend API at learnwithhasan.com. S3 credentials stay server-side only.
-
-- [ ] Build API client service (src/main/services/vidtsx-api.ts) — single HTTP client for ALL backend calls
-- [ ] API key setup: user enters API key in Settings → stored securely via electron safeStorage
-- [ ] Auth: every request sends `Authorization: Bearer {api_key}` header
-- [ ] Upload flow: drag file → app sends to `POST /api/vidtsx/media/upload` → backend stores in S3 → returns public URL
-- [ ] List files: `GET /api/vidtsx/media` → returns file list with URLs, sizes, types
-- [ ] Delete files: `DELETE /api/vidtsx/media/{id}`
-- [ ] Storage quota: `GET /api/vidtsx/media/quota` → returns { used, limit } in bytes
-- [ ] Media grid: thumbnails for images, icons for other types
-- [ ] Copy media URL to clipboard (presigned URL from backend, or public CDN URL)
-- [ ] Inline media picker in props panel (for "file" type props)
-- [ ] Handle 401 (invalid/expired API key) → prompt user to re-enter key
-- [ ] Handle 413 (quota exceeded) → show storage limit warning
-
-**Completion test:** enter API key in settings, upload image via media screen, see it in grid with storage bar, copy URL, paste in TSX code, render → image appears in output.
+Originally: cloud media storage via an API proxy at learnwithhasan.com backed by S3.
+**Cut with the whole backend-API track** — the app is local-first with no hosted services
+(solo-builder scope; see V1_RELEASE_PLAN.md session log 2026-08-16). Local media handling
+is covered by the Assets library that was actually built instead.
 
 ---
 
-### Phase 7: Template store (uses same API client)
+### Phase 7: Template store — RETIRED (2026-08-16)
 
-All template operations go through the same API client and API key from Phase 6.
-
-- [ ] Template listing: `GET /api/vidtsx/templates?category=X&search=Y` → paginated results
-- [ ] Template detail: `GET /api/vidtsx/templates/{id}` → metadata + preview thumbnail URL
-- [ ] License check: `GET /api/vidtsx/license` → returns { tier: "free"|"pro", expiresAt }
-- [ ] Download template: `GET /api/vidtsx/templates/{id}/download` → returns TSX file content (403 if pro-only + no license)
-- [ ] Template store UI: grid with cards, category filter tabs, search, free/pro badges
-- [ ] Click free template → downloads and adds to workspace
-- [ ] Click pro template (no license) → shows "Unlock all templates" modal with purchase link
-- [ ] Click pro template (has license) → downloads and adds to workspace
-- [ ] Downloaded templates stored in `~/.vidtsx/templates/`
-- [ ] Template updates: `GET /api/vidtsx/templates/{id}/version` → check for newer versions
-- [ ] "Use template" → opens in editor with props panel
-
-**Completion test:** enter API key, browse store, see free/pro templates, download a free one, open it in editor, customize props, render.
+Originally: a free/pro template store served by the learnwithhasan API with license tiers.
+**Cut with the backend-API track.** The current direction is simpler and serverless:
+template packs distributed as files from vidtsx.com / GitHub Releases, announced through
+the Phase I feed (V1_RELEASE_PLAN.md) — free packs as the email lead magnet, paid packs as
+a later monetization step under FSL (see "Source license" below). No license checks, no
+API, no server.
 
 ---
 
@@ -343,7 +316,7 @@ All template operations go through the same API client and API key from Phase 6.
 ### Phase 10: Polish + distribution
 - [ ] Auto-updater (electron-updater, GitHub Releases)
 - [ ] App icons (macOS icns + Windows ico)
-- [ ] Settings screen: API key management, default output folder, license status, whisper models, about
+- [ ] Settings screen: provider API key management, default output folder, whisper models, about
 - [ ] Error boundary + crash reporter
 - [ ] First-launch onboarding (3-step: import first file, preview, render)
 - [ ] Code signing (macOS notarization + Windows signing)
@@ -399,47 +372,25 @@ We use whisper.cpp (C++ binary) rather than OpenAI's Python Whisper because:
 
 Binary is downloaded on first use, not bundled (saves 5MB per platform from installer).
 
-### API proxy architecture (security-critical)
-The desktop app NEVER stores S3 credentials. All cloud operations go through your backend:
+### No backend API — local-first (decided 2026-08-16; replaces the retired "API proxy architecture")
 
-```
-Desktop App  →  learnwithhasan.com/api/vidtsx/*  →  MinIO S3
-             (API key in header)              (S3 keys server-side only)
-```
+The learnwithhasan.com API proxy (media-to-S3, template store, license tiers) is **cut
+entirely**. The app is local-first and serverless: no user accounts, no VidTSX API key,
+no cloud storage, no quota. Hosted services are out of scope for a solo builder — this
+also removes a whole class of credential/decompilation risk the old design existed to
+mitigate.
 
-**One API key controls everything:**
-- Media uploads/downloads/deletes (backend proxies to S3)
-- Template browsing and downloading (backend checks license tier)
-- License verification (free vs pro)
-- Storage quota enforcement (backend tracks per-user usage)
+What remains network-facing, all outbound-only and disclosed in the README:
 
-**Why not direct S3 access:**
-- Electron apps are trivially decompilable (`npx asar extract app.asar`)
-- Any embedded S3 credentials can be extracted in minutes
-- A leaked S3 key = full read/write access to ALL users' files
-- API keys are per-user, revocable, rate-limitable, and auditable
+- **Provider APIs** (Claude, fal, AssemblyAI, …) called with the *user's own* keys —
+  keys held in the main process (`safeStorage` per Phase E/Q4), never the renderer.
+- **Auto-update feed** (electron-updater, GitHub Releases / vidtsx.com).
+- **Announcements feed** — static `vidtsx.com/app/feed.json`, data-only
+  (V1_RELEASE_PLAN.md Phase I).
+- **Binary/model downloads on first use** (whisper.cpp, sd-cli, models).
 
-**API key storage in the app:**
-- Stored using Electron's `safeStorage.encryptString()` → encrypted at rest using OS keychain
-- Decrypted only in the main process, never sent to the renderer
-- The renderer calls IPC → main process adds the auth header → sends the HTTP request
-
-**Backend endpoints (your Django API):**
-```
-POST   /api/vidtsx/auth/verify          → validate API key, return user info
-GET    /api/vidtsx/license               → return { tier, expiresAt }
-GET    /api/vidtsx/media                 → list user's files
-POST   /api/vidtsx/media/upload          → upload file (multipart), enforce quota
-DELETE /api/vidtsx/media/{id}            → delete file
-GET    /api/vidtsx/media/quota           → return { used, limit }
-GET    /api/vidtsx/templates             → list templates (paginated, filterable)
-GET    /api/vidtsx/templates/{id}        → template metadata
-GET    /api/vidtsx/templates/{id}/download → return TSX content (checks license)
-```
-
-**Media URL strategy:**
-Backend returns either a CDN public URL or a presigned S3 URL (expires in 7 days).
-Users paste these URLs into their TSX code. On expiry, the app can request a fresh URL.
+The security principles from the retired design survive as rules: nothing secret ships
+in the app bundle, and any key the app stores stays main-process-only behind IPC.
 
 ### IPC safety
 All IPC uses `ipcMain.handle` / `ipcRenderer.invoke` (promise-based).
@@ -478,9 +429,8 @@ remotion: 4.0.435
 # Editor
 @monaco-editor/react: 4.7.0        # Latest stable (supports React 19)
 
-# Cloud / API (NO S3 SDK — app uses API proxy)
-# @aws-sdk/client-s3: NOT NEEDED — all S3 ops go through your backend API
-# The app only needs fetch/node HTTP to call learnwithhasan.com/api/vidtsx/*
+# Cloud / API — none. No backend, no S3 SDK (see "No backend API" decision).
+# Outbound calls (provider APIs, feeds, binary downloads) use native fetch in main.
 
 # Packaging & updates
 electron-builder: 26.8.1           # Latest stable
@@ -497,7 +447,7 @@ electron-updater: 6.8.3            # Latest stable
 - **React 19 + Remotion 4:** Fully supported since Remotion v4.0.236. The Remotion Editor Starter template uses React 19 + Tailwind v4 as its default stack.
 - **Electron 41 + Vite 7:** electron-vite 5.0 is the bridge. It handles separate Vite configs for main, preload, and renderer processes.
 - **Tailwind v4:** Uses CSS-first configuration (`@import "tailwindcss"` in CSS) instead of the old `tailwind.config.js` approach. The `@tailwindcss/vite` plugin handles compilation.
-- **API proxy:** The app uses Node.js native `fetch()` (available in Electron 41) to call your backend. No S3 SDK needed. API key is encrypted at rest using `safeStorage` and only decrypted in the main process.
+- **Networking:** Node.js native `fetch()` (available in Electron 41) covers all outbound calls (provider APIs, feeds, downloads). Provider keys are encrypted at rest using `safeStorage` and only decrypted in the main process.
 
 ---
 

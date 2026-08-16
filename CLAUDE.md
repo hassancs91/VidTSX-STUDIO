@@ -53,9 +53,9 @@ This is VidTSX Studio, an Electron desktop app for rendering TSX video compositi
 - Do NOT create global state stores (Redux, Zustand) until explicitly needed. Start with React context + hooks.
 - Do NOT bundle whisper models or ffmpeg in the app. Download them on first use.
 - Do NOT use `window.require()` — it's a security hole.
-- Do NOT install `@aws-sdk/client-s3` or any S3 SDK. The app does NOT talk to S3 directly.
-- Do NOT embed any cloud storage credentials, secrets, or access keys in the app. ALL cloud operations go through the backend API at learnwithhasan.com/api/vidtsx/ using the user's API key.
-- Do NOT send the user's API key to the renderer process. The main process holds the key (encrypted via safeStorage) and adds it to HTTP request headers.
+- Do NOT add any backend service, user accounts, or cloud storage. The app is local-first and serverless (backend-API track retired 2026-08-16 — see PLAN.md "No backend API"). Outbound network is limited to: provider APIs with the user's own keys, the update/announcement feeds, and first-use binary/model downloads.
+- Do NOT embed any credentials, secrets, or access keys in the app bundle.
+- Do NOT send provider API keys to the renderer process. The main process holds keys (safeStorage) and adds them to HTTP request headers; the renderer only ever sees has-key booleans.
 
 ## How to work on this project
 
