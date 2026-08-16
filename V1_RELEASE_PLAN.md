@@ -896,15 +896,18 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 (would technically forbid freelancers editing client videos — avoid). Full rationale in
 `PLAN.md` § "Source license".
 
-- [ ] Add `LICENSE.md` — FSL-1.1-MIT text (template at fsl.software), copyright Hasan Aboul Hasan.
-- [ ] README language: **"free and source-available"** / fair source. Never claim
-      "open source" (FSL is not OSI-approved; the distinction WILL be called out on HN).
-      Honest framing is an asset: "every release becomes MIT open source after two years."
-- [ ] README Remotion note: VidTSX is free; the Remotion engine underneath is free for
-      individuals and companies ≤3 people — larger companies need their own Remotion
-      company license (Remotion licenses the *user* of the software, not just the developer).
-      Also: talk to the Remotion team pre-launch — they actively promote apps built on
-      Remotion (free distribution).
+- [x] Add `LICENSE.md` — DONE 2026-08-16: verbatim FSL-1.1-MIT template fetched from
+      the canonical getsentry/fsl.software repo, copyright 2026 Hasan Aboul Hasan.
+- [x] README language — DONE 2026-08-16: "free and source-available", fair-source
+      framing with the "why not open source" note, MIT-after-2-years stated. Also
+      fixed en route: the stale `[MIT](LICENSE)` footer, an "open source" claim, a
+      **`safeStorage` encryption claim that isn't true yet** (Q4 open — keys are
+      plaintext today; restore the claim if/when Q4 lands), the provider list
+      (OpenAI/Gemini/custom removed per H2/H5, Kimi added), the "visible as
+      previews" line (Phase A hid them), and a PLAN.md link (private post-flip).
+- [x] README Remotion note — DONE 2026-08-16 (≤3-person rule, licenses-the-user
+      point, link to remotion.dev/license). Still to do pre-launch: talk to the
+      Remotion team — they actively promote apps built on Remotion.
 - [ ] CLA via cla-assistant (GitHub app, ~5 min setup) **before merging any outside PR**,
       so relicensing rights are retained. Cannot be added retroactively.
 - [ ] Keep the non-forkable identity under Hasan's control: the VidTSX name, vidtsx.com,

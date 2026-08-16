@@ -2,7 +2,7 @@
 
 **AI-powered desktop video studio.** Generate [Remotion](https://www.remotion.dev/) TSX video compositions with AI, create images with local open-source models or cloud providers, transcribe audio/video locally, and render everything to MP4 on your own machine.
 
-Free and open source. Bring your own API keys — no account, no middleman servers, and no telemetry by default. The only optional exception is [opt-in crash reporting](#crash-reporting-opt-in), which is off until you enable it. Your keys are stored encrypted on your device (Electron `safeStorage`) and are only ever sent directly to the provider you choose.
+Free and source-available. Bring your own API keys — no account, no middleman servers, and no telemetry by default. The only optional exception is [opt-in crash reporting](#crash-reporting-opt-in), which is off until you enable it. Your keys are stored locally on your device and are only ever sent directly to the provider you choose.
 
 ## Download
 
@@ -15,7 +15,7 @@ Grab the latest Windows installer from the [Releases page](https://github.com/ha
 ### 🪄 TSX Creator
 Describe a video and get a working Remotion TSX composition with live preview.
 
-- Works with **Claude (subscription or API key), OpenRouter, OpenAI, Google Gemini, MiniMax, Z.AI (GLM)**, or **any custom OpenAI/Anthropic-compatible endpoint**.
+- Works with **Claude (subscription or API key), OpenRouter, MiniMax, Z.AI (GLM), and Kimi (Moonshot)**. More providers (OpenAI, Gemini, custom endpoints) return in a future release.
 - Up to 4 parallel generation jobs with streaming output.
 - Refinement chat per project ("make the title bounce"), AI error fixing, and a props panel that turns your component's props into live-editable controls.
 - Full Monaco code editor with auto-save and instant preview refresh.
@@ -41,7 +41,7 @@ One screen to manage everything local: system/GPU capability detection, provider
 Render TSX compositions to MP4 locally through Remotion with a persistent job queue, progress tracking, and desktop notifications.
 
 ### Coming soon
-**Flows** (node-based AI workflow automation), **Video Studio**, and local **video / 3D / LLM / embedding** model support are visible in the app as previews and land in future releases.
+**Flows** (node-based AI workflow automation), **Video Studio**, and local **video / 3D / LLM / embedding** model support are in development and land in future releases.
 
 ## Requirements
 
@@ -61,7 +61,7 @@ npm test           # unit tests
 npm run check:types
 ```
 
-Built with Electron + electron-vite, React 19, TypeScript (strict), Tailwind CSS 4, and Remotion 4. Architecture notes live in [PLAN.md](PLAN.md) and `docs/`.
+Built with Electron + electron-vite, React 19, TypeScript (strict), Tailwind CSS 4, and Remotion 4.
 
 ## Crash reporting (opt-in)
 
@@ -73,4 +73,24 @@ The reporting endpoint (DSN) is baked in at build time via the `VITE_SENTRY_DSN`
 
 ## License
 
-[MIT](LICENSE) © Hasan Aboul Hasan
+VidTSX Studio is **free and source-available** under the
+[Functional Source License, FSL-1.1-MIT](LICENSE.md) © Hasan Aboul Hasan.
+
+In plain words: use it, modify it, fork it — including for commercial video
+work — freely. The one thing you may not do is offer the software itself (or a
+substantially similar product) as a competing product or service. **Each
+release automatically becomes MIT open source two years after it ships**, so
+everything here is permanently headed for full open source.
+
+> Why not "open source"? FSL is not an OSI-approved license, so we don't use
+> the term. It is [fair source](https://fair.io) — the same model used by
+> Sentry and GitButler.
+
+### A note on Remotion
+
+VidTSX Studio is free, but the [Remotion](https://www.remotion.dev/) engine it
+renders with has its own license: free for individuals and companies of up to
+3 people; larger companies need a
+[Remotion company license](https://www.remotion.dev/license). Remotion
+licenses the *user* of the software, so this applies to you as the person
+rendering videos, not just to us as developers.
