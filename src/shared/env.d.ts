@@ -16,6 +16,10 @@ interface ImportMetaEnv {
   readonly VITE_FF_AI_3D?: string
   readonly VITE_FF_AI_EMBEDDINGS?: string
   readonly VITE_FF_AI_AUDIO_ENGINE?: string
+  /** Custom compat-endpoint provider form (H5, renderer). */
+  readonly VITE_FF_CUSTOM_PROVIDER?: string
+  /** Restore the V1-hidden LLM presets (H4, MAIN process — llm-handlers). */
+  readonly VITE_FF_ALL_PROVIDERS?: string
   /** Crash-reporting endpoint, baked in at build time (main process only). */
   readonly VITE_SENTRY_DSN?: string
 }

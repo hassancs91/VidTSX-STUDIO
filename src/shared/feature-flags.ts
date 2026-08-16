@@ -20,6 +20,10 @@ const ENV_GATED: Record<string, string | boolean | undefined> = {
   'ai-embedding-models': import.meta.env.VITE_FF_AI_EMBEDDINGS,
   // Sherpa voice-engine section inside the Audio tab
   'audio-engine': import.meta.env.VITE_FF_AI_AUDIO_ENGINE,
+  // Custom OpenAI/Anthropic-compatible endpoint form (Phase H5): flagged off
+  // so V1 ships exactly one engine path (agent-sdk). The form itself is
+  // untouched — only its entry point is gated. Returns un-flagged in V2.
+  'custom-provider': import.meta.env.VITE_FF_CUSTOM_PROVIDER,
 };
 
 const FEATURE_FLAGS: Record<string, boolean> = {

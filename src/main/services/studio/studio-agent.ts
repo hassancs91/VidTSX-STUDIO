@@ -14,6 +14,7 @@ import type {
 import type { StudioShot } from '../../../shared/types/studio';
 import { buildShotPlanProposal, SHOTS_PER_PASS_CAP } from '../../../shared/studio/shot-proposal';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
+import { llmEngine } from '../../../engine';
 import { getLlmProviders } from '../settings';
 import { logEngine } from '../../../logging/log-engine';
 import { readTranscriptFile } from './asset-transcriber';
@@ -83,8 +84,21 @@ class StudioAgentService {
     const abort = new AbortController();
     this.runs.set(req.projectId, abort);
     try {
-      const toolsAvailable = await this.resolveToolSupport(req.providerId);
-      const mcpServer = toolsAvailable ? this.buildTools(req, abort.signal) : null;
+      // H2: a per-project provider that no longer exists must not error every
+      // turn — fall back to the app default, matching the Inspector's
+      // "(unavailable — agent uses the app default)" label.
+      const providerId =
+        req.providerId && llmEngine.getProviders().includes(req.providerId)
+          ? req.providerId
+          : undefined;
+      if (req.providerId && !providerId) {
+        log.warn('Project provider not registered — using app default', {
+          requested: req.providerId,
+        });
+      }
+
+      const toolsAvailable = await this.resolveToolSupport(providerId);
+      const mcpServer = toolsAvailable ? this.buildTools(req, abort.signal, providerId) : null;
       const memoryBlock = await this.buildMemoryBlock(req.projectId);
 
       const extras = {
@@ -99,7 +113,7 @@ class StudioAgentService {
           skillIds: AGENT_SKILL_IDS,
           maxTurns: AGENT_MAX_TURNS,
           featureSource: 'auto-cut',
-          ...(req.providerId ? { providerId: req.providerId } : {}),
+          ...(providerId ? { providerId } : {}),
           ...(req.model ? { model: req.model } : {}),
           ...(toolsAvailable ? { allowedTools: ALLOWED_TOOLS } : {}),
         },
@@ -169,7 +183,7 @@ class StudioAgentService {
     }
   }
 
-  private buildTools(req: StudioAgentSendRequest, signal: AbortSignal) {
+  private buildTools(req: StudioAgentSendRequest, signal: AbortSignal, providerId?: string) {
     // Live per-run state shared by the tools: one proposal per turn (cuts OR
     // shots — kind-agnostic, matching the renderer's one-open-review rule),
     // the shots generated this pass, and the per-pass generation cap.
@@ -291,7 +305,7 @@ class StudioAgentService {
             ...(args.assetRefs && Object.keys(args.assetRefs).length > 0
               ? { assetRefs: args.assetRefs }
               : {}),
-            ...(req.providerId ? { providerId: req.providerId } : {}),
+            ...(providerId ? { providerId } : {}),
             origin: { by: 'agent' },
             signal,
           });

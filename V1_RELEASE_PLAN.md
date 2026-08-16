@@ -593,11 +593,18 @@ make capture effortless; they do not make it work. Build in that order.
       paths) and toggle-off landed in the G1 store; citation needs no prompt
       work (the spike hit 9/9 with the plain M4 block). G6's residue is G5 UI
       affordances (cap message, toggle control, provenance display).
-- [ ] **G-spike. Dilution spike before G ships (Rev 2.6 — do not skip).**
-      Reuse the `.vidtsx-temp` harness: pad the memory block to 40 filler
-      rules plus the two measurable ones; fluff suppression and the note
-      format must still hold across runs. If adherence degrades, the fix is
-      ordering the most-recently-edited rules last — not a smaller cap.
+- [x] **G-spike. Dilution spike — RAN 2026-08-16, PASSED 6/6.**
+      `.vidtsx-temp/spike/dilution-spike.mjs`, `claude-opus-5`, 3× control
+      (2 rules, 571-char block) vs 3× diluted (42 rules — the two measured
+      rules buried at positions 15 and 30 among 40 orthogonal fillers,
+      3,314-char block, exact shipped-composer shape incl. preamble).
+      Result: identical, perfect adherence in both arms — 0 fluff cuts,
+      4/4 segment-numbered notes, correct brand spelling, citation present,
+      every run. The diluted agent still listed would-be fluff spots in
+      prose unprompted (arm-B behavior preserved). **The 50-rule cap holds
+      at ~42 rules with no measurable dilution.** En route the harness
+      exposed that the proven block carries an instruction preamble the M4
+      sketch omitted — composer fixed to match (`b98aa4f`).
 - [ ] **G7. Live CDP acceptance.** State a general preference → one proposal →
       accept → visible in the memory dialog with agent provenance → next turn
       **behaves** differently and says why → toggle off → the behaviour
@@ -677,7 +684,9 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       `local` already self-hides when node-llama-cpp isn't loadable
       (`llm-handlers.ts:32`) — leave it exactly as is.
 
-- [ ] **H1a. Add the `kimi` preset — verified, and it is a data-only change.**
+- [x] **H1a. Add the `kimi` preset — DONE 2026-08-16** (one entry in
+      `PROVIDER_PRESETS`, exactly as predicted below; endpoint answers are H6's job).
+      Original verification notes:
       Moonshot ships an Anthropic-compatible endpoint (`POST /anthropic/v1/messages`)
       specifically so Claude Code works against it unmodified. Confirmed 2026-08-16:
       base URL `https://api.moonshot.ai/anthropic`, model id `kimi-k3`, auth via
@@ -691,7 +700,17 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       (Sources: [platform.kimi.ai — Use Kimi in Claude Code](https://platform.kimi.ai/docs/guide/claude-code-kimi),
       [Kimi Code docs — Claude Code](https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html),
       [MoonshotAI/Kimi-K2 #129 — canonical `/anthropic/v1/messages` reference](https://github.com/MoonshotAI/Kimi-K2/issues/129).)
-- [ ] **H2. Hide presets without stranding existing configs.** **Rev 2 — the rule is
+- [x] **H2. Hide presets without stranding existing configs. DONE 2026-08-16.**
+      As built: `V1_HIDDEN_PRESET_IDS = {openai, gemini}` filters `presets` only in
+      `handleLlmProvidersGet`; saved configs never filtered (unit-tested); active
+      pointer at a filtered preset with no saved config falls back to the first
+      usable returned provider (renderer display only — main still reads settings
+      unfiltered). Per-project `agent.providerId`: unknown ids render as
+      "(unavailable — agent uses the app default)" via pure
+      `buildAgentProviderOptions` (tested), and `studio-agent.send` now actually
+      falls back to the app default for unregistered ids (+ threads the resolved
+      id into `generate_tsx_shot`), so the label is honest. 8 new tests.
+      **Rev 2 — the rule is
       one line: filter `presets`, NEVER `providers`.** The local filter at
       `llm-handlers.ts:32-38` filters *both* (its own comment says "and any stale saved
       config") — correct for `local`, which genuinely cannot run, and **exactly the bug
@@ -722,7 +741,11 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       The existing prompt branch already tells them so in chat. That is enough for V1 —
       this app has no released installs yet, so the grandfathered case is theoretical.
       Revisit when V2 re-introduces Gemini.
-- [ ] **H4. Re-enable behind a flag, not a rebuild.** Hidden presets come back via the
+- [x] **H4. Re-enable behind a flag, not a rebuild. DONE 2026-08-16** —
+      `VITE_FF_ALL_PROVIDERS=1` restores the hidden presets, read main-side in the
+      handler (unit-tested via stubEnv); `VITE_FF_CUSTOM_PROVIDER=1` restores the
+      custom form (H5). Both in `.env.example` + typed in `env.d.ts`.
+      Original note: Hidden presets come back via the
       Phase A env-flag mechanism so a dev build can demo any provider without a release.
       **Verified 2026-08-16:** the preset filter lives in the MAIN process
       (`llm-handlers.ts`), and the shared `VITE_` prefix does reach main-process
@@ -730,7 +753,9 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       main), so the mechanism works there unchanged — read the flag in the handler,
       not in renderer `feature-flags.ts`.
 - [x] **H5. Compat paths — DECIDED (Hasan, 2026-08-16): option (b), flag the
-      custom-endpoint form off for V1.** With H1 narrowing to six `agent-sdk` presets,
+      custom-endpoint form off for V1. IMPLEMENTED 2026-08-16** — entry point gated
+      behind `VITE_FF_CUSTOM_PROVIDER` in `ApiKeysSection`; already-saved custom
+      providers still render and work (only NEW ones are gated). With H1 narrowing to six `agent-sdk` presets,
       `CustomProviderForm` (`CustomProviderForm.tsx:9,37`) would be the *only* way to
       reach `openai-compat` or `anthropic-compat` — i.e. the single remaining untested
       engine path in an otherwise uniform release. Flagging it off (Phase A mechanism,
@@ -1030,4 +1055,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-16 | I + licensing | **Strategy session with Hasan — plan updates only, no code.** Direction set: goals are **email list, traffic, GitHub stars — no revenue work now**; no hosted APIs/cloud rendering (solo scope); learnwithhasan API integration is out, site is **vidtsx.com** (~7k existing users). License decided: **FSL-1.1-MIT** + CLA + "source-available" language + Remotion README note (new section above + `PLAN.md` § Source license). Announcements feed designed and added as **Phase I** (static `feed.json` on vidtsx.com, updater-pattern client, trust rules). vidtsx.com relaunch work (download page w/ optional email, free template-pack lead magnet, monthly drops, client-side web tools, one-week launch) recorded in the post-V1 backlog. | Implement G1 (store + types) → G2 (prompt composition). Phase I can slot in anytime. |
 | 2026-08-16 | G | **G1+G2 implemented.** Store (`agent-memory.ts` at `userData/studio/memory.json`, atomic write, cap + profile-singleton enforcement, corrupt-file set-aside), pure composition (`agent-memory-prompt.ts`, tier → createdAt → id, profile-then-vocab truncation, rules never dropped), `composeSystemPrompt` trailing param, injection wired into `studio-agent.send` via `extras.trailingSystemPrompt` (block appended after skills). 26 new tests; full suite 709 green; type gate at baseline (web 26 / node 22). Injection is live but inert until G5 gives memories a way to exist. | G5 (manual entry + MemoryDialog in Studio) — the remaining piece of the value half; then G3+G4 (propose_memory + proposal card). |
 | 2026-08-16 | G (grill) | **Adversarial review of G1+G2 + the remaining plan; 3 confirmed defects fixed with regression tests.** D1: truncation could emit a bare header block and silently vanish an oversized profile (now returns empty + truncation logged in studio-agent). D2: concurrent upserts lost records — read-modify-write race (mutations now serialized through a queue). D3: multi-line text broke the block's markdown list / could fake a `###` section (whitespace collapsed in store AND composer; profile keeps paragraphs). Also: fixed-epoch backfill for hand-edited records missing timestamps (determinism), per-kind text limits + alias cap (`MEMORY_TEXT_LIMITS`), 7 new tests (33 total for memory). Plan updated: dilution spike now an explicit G checkbox; G6 marked mostly-absorbed; H4 main-process flag mechanism verified; H6 keys logistics flagged; I1/I6 small print; licensing gains the "what goes public" decision (history verified secret-free); Phase E checklist commands corrected (`check:types`, no lint). | G5 after the updater session lands its dirty files (channels.ts, preload, settings.ts, StatusBar all collide). Hasan: H6 keys + the public-docs decision. |
+| 2026-08-16 | G-spike + H | **Dilution spike PASSED 6/6** (control vs 42-rule diluted block on `claude-opus-5`: 0 fluff cuts, 4/4 `#N` notes, brand + citation, both arms — the 50 cap holds; composer preamble gap found+fixed en route, `b98aa4f`). **Phase H code complete minus H6**: `kimi` preset (H1a), preset narrowing to the six agent-sdk rows with filter-presets-only + active-pointer fallback + per-project "(unavailable)" option + studio-agent default fallback (H2), `VITE_FF_ALL_PROVIDERS` / `VITE_FF_CUSTOM_PROVIDER` flags (H4/H5). 8 new tests; suite 724 green; type gate back at baseline after adding the two env vars to `env.d.ts`. | H6 smoke tests once Hasan has the four provider keys. G5 after the updater session lands. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

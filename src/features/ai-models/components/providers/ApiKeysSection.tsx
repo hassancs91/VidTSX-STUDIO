@@ -5,6 +5,7 @@ import { Select } from '@shared/components/Select';
 import { useProviderKeys } from '@renderer/hooks/useProviderKeys';
 import { useLlmProviders } from '@renderer/hooks/useLlmProviders';
 import type { LlmProviderConfig, ProviderKeyId } from '@shared/ipc/types';
+import { isFeatureEnabled } from '@shared/feature-flags';
 import { CapabilityBadge } from './CapabilityBadge';
 import { LlmProviderRow, type LlmProviderTestState } from './LlmProviderRow';
 import { CustomProviderForm } from './CustomProviderForm';
@@ -242,13 +243,18 @@ export function ApiKeysSection() {
           />
         ))}
 
-        <CustomProviderForm
-          existingIds={llm.providers.map((p) => p.id)}
-          onAdd={(config) => {
-            llm.addProvider(config);
-            setLlmDirty(true);
-          }}
-        />
+        {/* H5: V1 ships one engine path — the compat-endpoint form is
+            dev-flagged (VITE_FF_CUSTOM_PROVIDER). Saved custom providers
+            still render above; only NEW ones are gated. */}
+        {isFeatureEnabled('custom-provider') && (
+          <CustomProviderForm
+            existingIds={llm.providers.map((p) => p.id)}
+            onAdd={(config) => {
+              llm.addProvider(config);
+              setLlmDirty(true);
+            }}
+          />
+        )}
 
         {/* Footer: default LLM + save */}
         <div className="p-3 flex items-center gap-3 flex-wrap">

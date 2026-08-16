@@ -22,6 +22,21 @@ import type {
 } from '../../shared/ipc/types';
 import { composeSystemPrompt } from '../services/skills-registry';
 
+// V1 ships only `agent-sdk` presets (V1_RELEASE_PLAN Phase H1) — every visible
+// provider gets tools AND prompt caching; nothing ships degraded. `openai` and
+// `gemini` return in V2 with real tool-translation layers. The one-line H2
+// rule: filter PRESETS only, NEVER saved providers — a saved config for a
+// hidden preset keeps working (grandfathered).
+const V1_HIDDEN_PRESET_IDS = new Set(['openai', 'gemini']);
+
+/** H4 dev override: VITE_FF_ALL_PROVIDERS=1 restores the hidden presets.
+ *  The shared VITE_ prefix reaches main-process import.meta.env under
+ *  electron-vite (same mechanism as crash-reporting's VITE_SENTRY_DSN). */
+function allPresetsEnabled(): boolean {
+  const v = import.meta.env?.VITE_FF_ALL_PROVIDERS;
+  return v === '1' || v === 'true';
+}
+
 export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> {
   try {
     const { providers, activeProvider } = await getLlmProviders();
@@ -29,13 +44,18 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     // The Local provider only makes sense when node-llama-cpp is actually
     // loadable — production builds don't bundle it yet, so hide the preset
     // (and any stale saved config) there instead of offering a dead option.
+    // This local case is the ONE exception to the filter-presets-only rule,
+    // because a local config genuinely cannot run.
     const localAvailable = await llmLocalEngine.isAvailable();
     const visibleProviders = localAvailable
       ? providers
       : providers.filter((p) => p.type !== 'local');
-    const visiblePresets = localAvailable
+    let visiblePresets = localAvailable
       ? PROVIDER_PRESETS
       : PROVIDER_PRESETS.filter((p) => p.type !== 'local');
+    if (!allPresetsEnabled()) {
+      visiblePresets = visiblePresets.filter((p) => !V1_HIDDEN_PRESET_IDS.has(p.id));
+    }
 
     // Surface auto-enabled presets that need no saved config: local models
     // (keyless) and BYOK providers whose shared credential exists. Never send
@@ -52,16 +72,31 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
       extras.push({ ...zaiPreset, enabled: true });
     }
 
+    // H2 stranding guard: an active pointer at a preset this handler filtered
+    // (stale `local`, or a hidden preset with no saved config) would render a
+    // blank select while main kept using it. Fall back to the first usable
+    // returned provider — renderer display only; main's resolveToolSupport
+    // reads settings unfiltered and stays the truth.
+    const returned = [...visibleProviders, ...extras];
+    const resolvedActive = activeProvider || llmEngine.getActiveProvider();
+    const filteredIds = new Set(
+      PROVIDER_PRESETS.filter((p) => !visiblePresets.some((v) => v.id === p.id)).map((p) => p.id),
+    );
+    const activeOut =
+      resolvedActive && filteredIds.has(resolvedActive) && !returned.some((p) => p.id === resolvedActive)
+        ? (returned.find((p) => p.enabled)?.id ?? null)
+        : resolvedActive;
+
     return {
-      providers: [...visibleProviders, ...extras],
-      activeProvider: activeProvider || llmEngine.getActiveProvider(),
+      providers: returned,
+      activeProvider: activeOut,
       presets: visiblePresets,
     };
   } catch (err) {
     return {
       providers: [],
       activeProvider: null,
-      presets: PROVIDER_PRESETS,
+      presets: PROVIDER_PRESETS.filter((p) => !V1_HIDDEN_PRESET_IDS.has(p.id)),
     };
   }
 }

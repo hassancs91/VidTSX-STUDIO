@@ -9,6 +9,7 @@ import type { AutoCutPhase } from '../hooks/useAutoCut';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { findClip } from '../services/timeline-ops';
+import { buildAgentProviderOptions } from '../services/provider-options';
 import { TranscriptSection } from './TranscriptSection';
 import { ReviewCutsSection } from './ReviewCutsSection';
 import { ReviewShotsSection } from './ReviewShotsSection';
@@ -82,10 +83,7 @@ export function InspectorPanel({
     });
   }, []);
 
-  const providerOptions = [
-    { value: '', label: 'App default (active provider)' },
-    ...providers.map((p) => ({ value: p.id, label: p.name })),
-  ];
+  const providerOptions = buildAgentProviderOptions(providers, project.settings.agent.providerId);
 
   return (
     <div className="h-full flex flex-col gap-4 p-3 overflow-y-auto">

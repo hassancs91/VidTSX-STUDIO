@@ -55,6 +55,18 @@ export const PROVIDER_PRESETS: Omit<ProviderConfig, "apiKey" | "enabled">[] = [
     defaultModel: "glm-5.2",
   },
   {
+    // Moonshot ships an Anthropic-compatible endpoint specifically so Claude
+    // Code works against it unmodified — buildEnv() already does the required
+    // ANTHROPIC_AUTH_TOKEN + empty ANTHROPIC_API_KEY dance for any preset
+    // with a baseURL (claude-provider.ts:71-89). V1_RELEASE_PLAN H1a.
+    id: "kimi",
+    name: "Kimi (Moonshot)",
+    type: "agent-sdk",
+    authMode: "api-key",
+    baseURL: "https://api.moonshot.ai/anthropic",
+    defaultModel: "kimi-k3",
+  },
+  {
     // No key required — runs GGUF models loaded in AI Models → Text via
     // node-llama-cpp. Single llama context, so requests serialize.
     id: "local",
