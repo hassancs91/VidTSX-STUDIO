@@ -9,6 +9,8 @@ interface UseLibraryIndexResult {
   refreshIndex: () => Promise<void>;
   /** Optimistic description save; returns false (and reverts) on failure. */
   saveDescription: (relPath: string, description: string) => Promise<boolean>;
+  /** Fold in a description main ALREADY persisted (the AI describe batch). */
+  applyDescription: (relPath: string, description: string) => void;
 }
 
 /** POSIX rel path from the assets root — the index key. */
@@ -79,5 +81,15 @@ export function useLibraryIndex(): UseLibraryIndexResult {
     [metaByRelPath]
   );
 
-  return { metaByRelPath, sizes, refreshIndex, saveDescription };
+  // No optimism and no revert: the describe job writes the index main-side
+  // before it emits, so this only mirrors a fact that already landed.
+  const applyDescription = useCallback((relPath: string, description: string) => {
+    setMetaByRelPath((prev) => {
+      const previous = prev.get(relPath);
+      if (!previous) return prev;
+      return new Map(prev).set(relPath, { ...previous, description });
+    });
+  }, []);
+
+  return { metaByRelPath, sizes, refreshIndex, saveDescription, applyDescription };
 }

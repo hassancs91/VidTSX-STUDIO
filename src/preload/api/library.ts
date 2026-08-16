@@ -11,9 +11,20 @@ import type {
   LibraryCaptureEvent,
   LibraryCaptureTriggerRequest,
   LibraryCaptureTriggerResponse,
+  LibraryDescribeAvailabilityResponse,
+  LibraryDescribeCancelResponse,
+  LibraryDescribeJobEvent,
+  LibraryDescribeStartRequest,
+  LibraryDescribeStartResponse,
   LibraryDescriptionSetRequest,
   LibraryDescriptionSetResponse,
   LibraryIndexGetResponse,
+  LibraryOrganizeApplyRequest,
+  LibraryOrganizeApplyResponse,
+  LibraryOrganizeSuggestRequest,
+  LibraryOrganizeSuggestResponse,
+  LibraryPrefsSetRequest,
+  LibraryPrefsSetResponse,
   LibraryRootGetResponse,
   LibraryRootSetRequest,
   LibraryRootSetResponse,
@@ -34,6 +45,33 @@ export const libraryApi = {
     ipcRenderer.invoke(IPC.LIBRARY_ROOT_GET),
   libraryRootSet: (data: LibraryRootSetRequest): Promise<LibraryRootSetResponse> =>
     ipcRenderer.invoke(IPC.LIBRARY_ROOT_SET, data),
+
+  // ─── AI descriptions — availability, consent, batch job (L2) ───
+  libraryDescribeAvailability: (): Promise<LibraryDescribeAvailabilityResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_DESCRIBE_AVAILABILITY),
+  libraryPrefsSet: (data: LibraryPrefsSetRequest): Promise<LibraryPrefsSetResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_PREFS_SET, data),
+  libraryDescribeStart: (
+    data: LibraryDescribeStartRequest
+  ): Promise<LibraryDescribeStartResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_DESCRIBE_START, data),
+  libraryDescribeCancel: (): Promise<LibraryDescribeCancelResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_DESCRIBE_CANCEL),
+  onLibraryDescribeEvent: (callback: (event: LibraryDescribeJobEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: LibraryDescribeJobEvent) => callback(data);
+    ipcRenderer.on(IPC.LIBRARY_DESCRIBE_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.LIBRARY_DESCRIBE_EVENT, listener);
+  },
+
+  // ─── AI organize — suggest, review, apply (L7) ───
+  libraryOrganizeSuggest: (
+    data: LibraryOrganizeSuggestRequest
+  ): Promise<LibraryOrganizeSuggestResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_ORGANIZE_SUGGEST, data),
+  libraryOrganizeApply: (
+    data: LibraryOrganizeApplyRequest
+  ): Promise<LibraryOrganizeApplyResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_ORGANIZE_APPLY, data),
 
   // ─── Brands (L3/D11) ───
   libraryBrandsGet: (): Promise<LibraryBrandsGetResponse> =>

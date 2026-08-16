@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Clapperboard } from 'lucide-react';
 import { isFeatureEnabled } from '@shared/feature-flags';
+import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
 import { ProjectBrowser } from './ProjectBrowser';
 import { EditorShell } from './EditorShell';
 
@@ -37,12 +37,14 @@ export function StudioScreen() {
 }
 
 function StudioScreenInner() {
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  // The open project is app-wide state, not screen-local: the Assets screen
+  // reads it so AI organize can skip assets this session references
+  // (ASSET_LIBRARY_DESIGN.md L7 Rev 2). Screens stay mounted when the user
+  // navigates away, so a project stays genuinely open while they curate.
+  const { openProjectId, setOpenProjectId } = useOpenProject();
 
-  if (activeProjectId) {
-    return (
-      <EditorShell projectId={activeProjectId} onBack={() => setActiveProjectId(null)} />
-    );
+  if (openProjectId) {
+    return <EditorShell projectId={openProjectId} onBack={() => setOpenProjectId(null)} />;
   }
-  return <ProjectBrowser onOpen={setActiveProjectId} />;
+  return <ProjectBrowser onOpen={setOpenProjectId} />;
 }

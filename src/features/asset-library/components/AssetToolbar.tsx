@@ -6,9 +6,29 @@ interface AssetToolbarProps {
   onCreateFolder: (name: string) => void;
   onRefresh: () => void;
   onBrands: () => void;
+  /** AI curation (L2/L7) — both disabled together when no provider exists. */
+  onDescribe: () => void;
+  onOrganize: () => void;
+  /** Why the AI actions are unavailable; also their tooltip. */
+  aiDisabledReason?: string;
+  describeBusy: boolean;
+  organizeBusy: boolean;
+  /** How many assets "Describe with AI" would cover right now. */
+  describeCount: number;
 }
 
-export function AssetToolbar({ onImport, onCreateFolder, onRefresh, onBrands }: AssetToolbarProps) {
+export function AssetToolbar({
+  onImport,
+  onCreateFolder,
+  onRefresh,
+  onBrands,
+  onDescribe,
+  onOrganize,
+  aiDisabledReason,
+  describeBusy,
+  organizeBusy,
+  describeCount,
+}: AssetToolbarProps) {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderName, setFolderName] = useState('');
 
@@ -76,6 +96,45 @@ export function AssetToolbar({ onImport, onCreateFolder, onRefresh, onBrands }: 
         title="Brand palettes, fonts, and style notes injected into generated shots"
       >
         Brands
+      </button>
+
+      {/* AI curation. Unavailable is a state, not an error (L2 Rev 3) — the
+          buttons stay visible and explain themselves in the tooltip. */}
+      <button
+        type="button"
+        onClick={onDescribe}
+        disabled={Boolean(aiDisabledReason) || describeBusy || describeCount === 0}
+        data-describe-button
+        className="
+          flex items-center gap-1.5 px-3 py-1.5 rounded
+          bg-app-surface text-text-secondary text-[12px]
+          hover:bg-app-hover transition-colors
+          disabled:opacity-40 disabled:hover:bg-app-surface disabled:cursor-not-allowed
+        "
+        title={
+          aiDisabledReason ??
+          (describeCount === 0
+            ? 'Every image here already has a description'
+            : `Draft descriptions for ${describeCount} image${describeCount === 1 ? '' : 's'} with no description yet`)
+        }
+      >
+        {describeBusy ? 'Describing…' : 'Describe with AI'}
+      </button>
+
+      <button
+        type="button"
+        onClick={onOrganize}
+        disabled={Boolean(aiDisabledReason) || organizeBusy}
+        data-organize-button
+        className="
+          flex items-center gap-1.5 px-3 py-1.5 rounded
+          bg-app-surface text-text-secondary text-[12px]
+          hover:bg-app-hover transition-colors
+          disabled:opacity-40 disabled:hover:bg-app-surface disabled:cursor-not-allowed
+        "
+        title={aiDisabledReason ?? 'Propose a tidier folder layout — you review every move'}
+      >
+        {organizeBusy ? 'Thinking…' : 'Organize'}
       </button>
 
       <div className="flex-1" />

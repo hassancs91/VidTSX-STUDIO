@@ -366,6 +366,21 @@ export const IPC = {
   LIBRARY_BRAND_DELETE: 'library:brand:delete',
   LIBRARY_BRAND_DEFAULT_SET: 'library:brand:default:set',
 
+  // Asset library — AI descriptions (L2): availability + one-time consent,
+  // and a batch describe job whose per-item results arrive on the event
+  // channel (the media-job push pattern).
+  LIBRARY_DESCRIBE_AVAILABILITY: 'library:describe:availability',
+  LIBRARY_PREFS_SET: 'library:prefs:set',
+  LIBRARY_DESCRIBE_START: 'library:describe:start',
+  LIBRARY_DESCRIBE_CANCEL: 'library:describe:cancel',
+  LIBRARY_DESCRIBE_EVENT: 'library:describe:event',
+
+  // Asset library — AI organize (L7): suggest a move plan, then apply the
+  // moves the user accepted. Assets the open project references are never
+  // proposed, and the rule is re-checked at apply time.
+  LIBRARY_ORGANIZE_SUGGEST: 'library:organize:suggest',
+  LIBRARY_ORGANIZE_APPLY: 'library:organize:apply',
+
   // Asset library — visible web capture handshake (L6/D12): main pushes
   // 'pending' while a visible capture window waits; the renderer chip fires
   // the trigger (capture or cancel).

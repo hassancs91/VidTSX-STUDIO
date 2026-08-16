@@ -14,6 +14,7 @@ import { AiModelsScreen } from "@features/ai-models";
 import { FlowsScreen } from "@features/flows";
 import { StudioScreen } from "@features/studio";
 import { ToastProvider } from "./contexts/ToastContext";
+import { OpenProjectProvider } from "./contexts/OpenProjectContext";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
 const screens: Record<string, React.ComponentType> = {
@@ -95,10 +96,14 @@ export function App() {
     <ToastProvider>
       <RenderQueueProvider>
         <SelectedFileProvider>
-          <AppContent
-            activeScreen={activeScreen}
-            setActiveScreen={setActiveScreen}
-          />
+          {/* Studio publishes the open project here; Assets reads it so AI
+              organize can refuse to move what a live session references. */}
+          <OpenProjectProvider>
+            <AppContent
+              activeScreen={activeScreen}
+              setActiveScreen={setActiveScreen}
+            />
+          </OpenProjectProvider>
         </SelectedFileProvider>
       </RenderQueueProvider>
     </ToastProvider>

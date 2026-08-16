@@ -4,12 +4,19 @@ import { useAssetActions } from '../hooks/useAssetActions';
 import { useAssetClipboard } from '../hooks/useAssetClipboard';
 import { useLibraryIndex, toLibraryRelPath } from '../hooks/useLibraryIndex';
 import { useBrands } from '../hooks/useBrands';
+import { useLibraryDescribe } from '../hooks/useLibraryDescribe';
+import { useLibraryOrganize } from '../hooks/useLibraryOrganize';
 import { AssetToolbar } from './AssetToolbar';
 import { BrandsDialog } from './BrandsDialog';
 import { AssetBreadcrumb } from './AssetBreadcrumb';
 import { AssetGrid } from './AssetGrid';
 import { AssetSearchBar } from './AssetSearchBar';
 import { AssetDetailsPanel } from './AssetDetailsPanel';
+import { DescribeNote } from './DescribeNote';
+import { DescribeProgress } from './DescribeProgress';
+import { DescribeConsentDialog } from './DescribeConsentDialog';
+import { OrganizeDialog } from './OrganizeDialog';
+import { describeTargets } from '../services/describe-targets';
 import {
   filterAssets,
   flattenAssetFiles,
@@ -21,7 +28,8 @@ import type { AssetEntry } from '../types';
 export function AssetLibraryScreen() {
   const { rootPath, currentPath, entries, nodes, loading, error, navigate, refresh } =
     useAssetLibrary();
-  const { metaByRelPath, sizes, refreshIndex, saveDescription } = useLibraryIndex();
+  const { metaByRelPath, sizes, refreshIndex, saveDescription, applyDescription } =
+    useLibraryIndex();
 
   // Any disk change re-lists the folder AND re-scans the index overlay,
   // so rel-path keys (and sizes) stay in step with reality.
@@ -29,6 +37,12 @@ export function AssetLibraryScreen() {
     await refresh();
     await refreshIndex();
   }, [refresh, refreshIndex]);
+
+  // AI descriptions fold straight into the index already in state — one
+  // re-scan per batch instead of one per asset.
+  const describe = useLibraryDescribe(applyDescription);
+  const organize = useLibraryOrganize(() => void onChanged());
+  const [pendingDescribe, setPendingDescribe] = useState<string[] | null>(null);
 
   const { importFiles, createFolder, renameNode, moveNode, deleteNode } = useAssetActions({
     currentPath,
@@ -72,6 +86,79 @@ export function AssetLibraryScreen() {
     },
     [sizes, rootPath, metaFor]
   );
+
+  // Batch scope = what the breadcrumb is showing (the whole subtree), minus
+  // assets that already have a description. Same rule the toolbar counts.
+  const describeScope = useMemo(
+    () =>
+      flattenAssetFiles(nodes)
+        .map((entry) => toLibraryRelPath(rootPath, entry.node.path))
+        .filter((relPath) => relPath !== ''),
+    [nodes, rootPath]
+  );
+  const describeTargetPaths = useMemo(
+    () => describeTargets(describeScope, metaByRelPath),
+    [describeScope, metaByRelPath]
+  );
+
+  /** Consent first, then the batch — main refuses it the other way round. */
+  const runDescribe = useCallback(
+    async (relPaths: string[]) => {
+      if (relPaths.length === 0) return;
+      if (!describe.prefs?.describeConsentAt) {
+        setPendingDescribe(relPaths);
+        return;
+      }
+      await describe.startBatch(relPaths);
+    },
+    [describe]
+  );
+
+  const confirmConsent = useCallback(async () => {
+    const relPaths = pendingDescribe ?? [];
+    setPendingDescribe(null);
+    await describe.grantConsent();
+    await describe.startBatch(relPaths);
+  }, [pendingDescribe, describe]);
+
+  /**
+   * Auto-describe on import (L2): ON by default for LIBRARY imports — this
+   * path only. Project footage comes in through the Studio media pool and
+   * never reaches here. Silent when describing is unavailable or unconsented:
+   * an import must never block or nag on a describe.
+   */
+  const handleImport = useCallback(async () => {
+    const before = new Set(describeScope);
+    await importFiles();
+    const res = await window.api.libraryIndexGet();
+    if (!res.success || !res.entries) return;
+    if (!describe.availability?.available) return;
+    if (!describe.prefs?.autoDescribeOnImport || !describe.prefs.describeConsentAt) return;
+
+    const fresh = describeTargets(
+      res.entries.map((e) => e.relPath).filter((relPath) => !before.has(relPath)),
+      new Map(res.entries.map((e) => [e.relPath, e]))
+    );
+    if (fresh.length > 0) await describe.startBatch(fresh);
+  }, [describeScope, importFiles, describe]);
+
+  // Refresh re-probes the provider too: this screen stays mounted for the
+  // app's lifetime, so it is the user's way to pick up a provider they just
+  // configured in Settings without restarting.
+  const handleRefresh = useCallback(async () => {
+    await onChanged();
+    await describe.refreshAvailability();
+  }, [onChanged, describe]);
+
+  const aiDisabledReason =
+    describe.availability && !describe.availability.available
+      ? `${describe.availability.message} Describe and Organize need one.`
+      : undefined;
+  const showNote =
+    describe.availability !== null &&
+    !describe.availability.available &&
+    describe.prefs !== null &&
+    !describe.prefs.noProviderNoteDismissed;
 
   // Fetch the module server URL once so image previews can load via /asset.
   // Falls back to null if unavailable — non-image tiles render type icons either way.
@@ -144,11 +231,37 @@ export function AssetLibraryScreen() {
       >
         <h1 className="text-[14px] font-medium text-text-primary">Assets</h1>
         <AssetToolbar
-          onImport={importFiles}
+          onImport={() => void handleImport()}
           onCreateFolder={createFolder}
-          onRefresh={() => void onChanged()}
+          onRefresh={() => void handleRefresh()}
           onBrands={() => setBrandsOpen(true)}
+          onDescribe={() => void runDescribe(describeTargetPaths)}
+          onOrganize={() => void organize.suggest()}
+          aiDisabledReason={aiDisabledReason}
+          describeBusy={describe.batch.running}
+          organizeBusy={organize.suggesting}
+          describeCount={describeTargetPaths.length}
         />
+        {showNote && describe.availability && !describe.availability.available && (
+          <DescribeNote
+            message={describe.availability.message}
+            onDismiss={() => void describe.dismissNote()}
+          />
+        )}
+        {(describe.batch.running || describe.batch.summary) && (
+          <DescribeProgress
+            running={describe.batch.running}
+            done={describe.batch.done}
+            total={describe.batch.total}
+            summary={describe.batch.summary}
+            onCancel={() => void describe.cancelBatch()}
+          />
+        )}
+        {organize.error && !organize.plan && (
+          <div className="text-[11px] text-red-400" data-organize-error>
+            {organize.error}
+          </div>
+        )}
         <AssetSearchBar query={query} onQuery={setQuery} category={category} onCategory={setCategory} />
         <AssetBreadcrumb rootPath={rootPath} currentPath={currentPath} onNavigate={navigate} />
       </header>
@@ -205,6 +318,27 @@ export function AssetLibraryScreen() {
           onSetDefault={brandsApi.setDefault}
           onMutated={() => void onChanged()}
           onClose={() => setBrandsOpen(false)}
+        />
+      )}
+
+      {pendingDescribe && describe.availability?.available && (
+        <DescribeConsentDialog
+          count={pendingDescribe.length}
+          providerId={describe.availability.providerId}
+          onAllow={() => void confirmConsent()}
+          onCancel={() => setPendingDescribe(null)}
+        />
+      )}
+
+      {organize.plan && (
+        <OrganizeDialog
+          plan={organize.plan}
+          applying={organize.applying}
+          error={organize.error}
+          onToggle={organize.toggle}
+          onSetAll={organize.setAllAccepted}
+          onApply={() => void organize.apply()}
+          onClose={organize.close}
         />
       )}
 

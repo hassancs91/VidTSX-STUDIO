@@ -424,6 +424,17 @@ export interface ElectronAPI {
   libraryBrandDelete: (data: import('../../shared/ipc/types').LibraryBrandDeleteRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDeleteResponse>;
   libraryBrandDefaultSet: (data: import('../../shared/ipc/types').LibraryBrandDefaultSetRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDefaultSetResponse>;
 
+  // Asset library — AI descriptions (L2)
+  libraryDescribeAvailability: () => Promise<import('../../shared/ipc/types').LibraryDescribeAvailabilityResponse>;
+  libraryPrefsSet: (data: import('../../shared/ipc/types').LibraryPrefsSetRequest) => Promise<import('../../shared/ipc/types').LibraryPrefsSetResponse>;
+  libraryDescribeStart: (data: import('../../shared/ipc/types').LibraryDescribeStartRequest) => Promise<import('../../shared/ipc/types').LibraryDescribeStartResponse>;
+  libraryDescribeCancel: () => Promise<import('../../shared/ipc/types').LibraryDescribeCancelResponse>;
+  onLibraryDescribeEvent: (callback: (event: import('../../shared/ipc/types').LibraryDescribeJobEvent) => void) => () => void;
+
+  // Asset library — AI organize (L7)
+  libraryOrganizeSuggest: (data: import('../../shared/ipc/types').LibraryOrganizeSuggestRequest) => Promise<import('../../shared/ipc/types').LibraryOrganizeSuggestResponse>;
+  libraryOrganizeApply: (data: import('../../shared/ipc/types').LibraryOrganizeApplyRequest) => Promise<import('../../shared/ipc/types').LibraryOrganizeApplyResponse>;
+
   // Asset library — visible web capture handshake (L6/D12)
   libraryCaptureTrigger: (data: import('../../shared/ipc/types').LibraryCaptureTriggerRequest) => Promise<import('../../shared/ipc/types').LibraryCaptureTriggerResponse>;
   onLibraryCaptureEvent: (callback: (event: import('../../shared/ipc/types').LibraryCaptureEvent) => void) => () => void;

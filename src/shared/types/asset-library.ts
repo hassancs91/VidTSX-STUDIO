@@ -63,6 +63,39 @@ export interface LibrarySizes {
   folders: Record<string, number>;
 }
 
+// ─── AI descriptions (ASSET_LIBRARY_DESIGN.md L2) ───
+
+/**
+ * Why describe is (un)available. Describing runs a vision call on the
+ * **app-default** LLM provider — library curation has no project context,
+ * so the provider is a fixed rule, not a per-call choice. Every negative
+ * reason degrades the same way (L2 Rev 3): imports still land, the Assets
+ * view shows a dismissible note, and manual descriptions keep working.
+ */
+export type LibraryDescribeUnavailableReason = 'no-provider' | 'no-default' | 'no-key';
+
+export type LibraryDescribeAvailability =
+  | { available: true; providerId: string }
+  | {
+      available: false;
+      reason: LibraryDescribeUnavailableReason;
+      /** User-facing one-liner naming what is missing. */
+      message: string;
+    };
+
+/** App-level library preferences (consent, note dismissal, import default). */
+export interface LibraryPrefs {
+  /** ISO timestamp of the one-time "describing sends images to the cloud"
+   *  consent (L2 Rev 2). Undefined = never granted, so the first AI
+   *  describe must ask. */
+  describeConsentAt?: string;
+  /** The no-provider note is dismissible and stays dismissed (L2 Rev 3). */
+  noProviderNoteDismissed: boolean;
+  /** Auto-describe on LIBRARY import — default ON. Project footage imports
+   *  never consult this: they go through the Studio media path. */
+  autoDescribeOnImport: boolean;
+}
+
 // ─── Brands (ASSET_LIBRARY_DESIGN.md L3, TSX_SHOTS_DESIGN.md D11) ───
 
 /** CSS color strings — hex or any valid CSS color, injected verbatim. */
