@@ -164,18 +164,24 @@ export async function loadSkill(id: string): Promise<SkillManifest | null> {
 export async function composeSystemPrompt(
   basePrompt: string,
   skillIds: string[],
+  /** Appended AFTER the skill sections — the cache-cheapest position, since
+   *  editing it (e.g. agent memory) never re-writes the skill text out of
+   *  the cached prompt prefix (AGENT_MEMORY_DESIGN.md §Rev 2.5). */
+  trailing?: string,
 ): Promise<string> {
-  if (skillIds.length === 0) return basePrompt;
-  const map = await loadAll();
   const sections: string[] = [];
-  for (const id of skillIds) {
-    const skill = map.get(id);
-    if (!skill) {
-      logger.warn(`Skill not found: ${id}`);
-      continue;
+  if (skillIds.length > 0) {
+    const map = await loadAll();
+    for (const id of skillIds) {
+      const skill = map.get(id);
+      if (!skill) {
+        logger.warn(`Skill not found: ${id}`);
+        continue;
+      }
+      sections.push(`## Skill: ${skill.name}\n\n${skill.body}`);
     }
-    sections.push(`## Skill: ${skill.name}\n\n${skill.body}`);
   }
+  if (trailing) sections.push(trailing);
   if (sections.length === 0) return basePrompt;
   return `${basePrompt}\n\n---\n\n${sections.join('\n\n')}`;
 }

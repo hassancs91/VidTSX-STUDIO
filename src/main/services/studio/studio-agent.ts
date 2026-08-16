@@ -27,6 +27,8 @@ import {
 import { shotGenerator } from './shot-generator';
 import { LIBRARY_REF_PREFIX } from './shot-asset-refs';
 import { loadProject } from './project-store';
+import { listMemories } from './agent-memory';
+import { composeMemoryBlock } from './agent-memory-prompt';
 import { generateImageAsset } from '../library/generate-image-asset';
 import { captureWebpage } from '../library/capture';
 
@@ -83,7 +85,12 @@ class StudioAgentService {
     try {
       const toolsAvailable = await this.resolveToolSupport(req.providerId);
       const mcpServer = toolsAvailable ? this.buildTools(req, abort.signal) : null;
+      const memoryBlock = await this.buildMemoryBlock(req.projectId);
 
+      const extras = {
+        ...(mcpServer ? { mcpServers: { studio: mcpServer } } : {}),
+        ...(memoryBlock ? { trailingSystemPrompt: memoryBlock } : {}),
+      };
       const result = await runLlmGenerate(
         {
           prompt: req.prompt,
@@ -98,7 +105,7 @@ class StudioAgentService {
         },
         abort.signal,
         (delta) => this.emit({ projectId: req.projectId, kind: 'delta', text: delta }),
-        mcpServer ? { mcpServers: { studio: mcpServer } } : undefined,
+        Object.keys(extras).length > 0 ? extras : undefined,
       );
 
       return {
@@ -109,6 +116,34 @@ class StudioAgentService {
       };
     } finally {
       this.runs.delete(req.projectId);
+    }
+  }
+
+  /** Active in-scope memories, composed as the LAST system-prompt block —
+   *  after the skills — so a memory edit never re-writes the skill text out
+   *  of the prompt cache. Memory must never break a turn: any failure here
+   *  logs and the turn runs without it. */
+  private async buildMemoryBlock(projectId: string): Promise<string | undefined> {
+    try {
+      const memories = await listMemories();
+      let brandId: string | undefined;
+      try {
+        brandId = (await loadProject(projectId)).settings.brandId;
+      } catch {
+        brandId = undefined; // No project brand — app-wide memories still apply.
+      }
+      const composed = composeMemoryBlock(memories, { ...(brandId ? { brandId } : {}) });
+      if (composed.rulesOverflowBy > 0) {
+        log.warn('Memory rules alone exceed the prompt budget — block emitted whole', {
+          overflowChars: composed.rulesOverflowBy,
+        });
+      }
+      return composed.block || undefined;
+    } catch (err) {
+      log.warn('Agent memory unavailable for this turn', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return undefined;
     }
   }
 

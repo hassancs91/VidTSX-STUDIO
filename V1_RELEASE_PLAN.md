@@ -537,12 +537,16 @@ review gate as shot-plan, cut-plan and library organize.
 block with no tool involved and got the entire measured behaviour change. G3+G4
 make capture effortless; they do not make it work. Build in that order.
 
-- [ ] **G1. Store + types.** `shared/types/studio-memory.ts`;
+- [x] **G1. Store + types. DONE 2026-08-16.** `shared/types/studio-memory.ts`;
       `main/services/studio/agent-memory.ts` at `userData/studio/memory.json`,
       atomic tmp+rename (project-store precedent). *Not* the assets root —
       that holds content and is relocatable; memory is behaviour.
       **Rev 2**: no `lastCitedAt` field. `brandId` on the record, no UI.
-- [ ] **G2. Prompt composition (PURE).** `agent-memory-prompt.ts`: scope
+      As built: `listMemories`/`upsertMemory`/`setMemoryActive`/`deleteMemory`;
+      cap enforced in the store (create + re-activate paths); profile singleton
+      (QM1) enforced on upsert; corrupt file set aside as `.corrupt`, never
+      silently overwritten; provenance immutable on update.
+- [x] **G2. Prompt composition (PURE). DONE 2026-08-16.** `agent-memory-prompt.ts`: scope
       filter → tier order (rules → vocabulary → profile) → char budget.
       Truncation drops profile first, then vocabulary; **rules are
       never silently dropped**. Unit-tested with no fs and no provider.
@@ -553,6 +557,16 @@ make capture effortless; they do not make it work. Build in that order.
       skills, not folded into the base prompt — otherwise every memory edit
       re-writes 10.5 KB of skill text out of cache. Needs
       `composeSystemPrompt(base, skillIds, trailing?)`.
+      As built: `composeMemoryBlock(memories, {brandId?, budget?})` returns
+      `{block, droppedProfile, droppedVocabulary, rulesOverflowBy}`; ordering
+      tier → createdAt → id (updatedAt proven irrelevant by test); trailing
+      param added to `composeSystemPrompt` and threaded through
+      `runLlmGenerate` via `extras.trailingSystemPrompt` (in-process only —
+      the renderer can never inject trailing prompt text); `studio-agent.send`
+      composes the block per turn (brand from the open project, failure never
+      breaks a turn). 26 new tests incl. cache-stability byte-identity,
+      budget coherence at the 50/7000 constants, and the block-after-skills
+      ordering invariant (Rev 2.8).
 - [ ] **G3. `propose_memory` tool + pending queue.** One proposal per turn,
       general preferences only ("I always want tight cuts" yes; "make this one
       shorter" no), never a duplicate of an active memory. Proposals persist
@@ -960,4 +974,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-16 | G | Agent memory added to v1 scope (item 7) and designed with Hasan — full design in `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8). Four decisions answered: gated capture (manual + agent-proposed, silent inference rejected), app-wide scope with optional brand, all three tiers (rule/vocabulary/profile), Studio agent only. Rides existing seams: `composeSystemPrompt` for injection, `propose_memory` as a sibling of `propose_cuts`/`propose_shots`, the shot/cut-plan review gate for capture. Nothing implemented yet. | Implement G1 (store + types) → G2 (pure prompt composition). |
 | 2026-08-16 | G+H | **Design session only — no feature code.** Grilled both plans and revised them (`AGENT_MEMORY_DESIGN.md` §Rev 2, Phase G/H/Q6 above). Ran a 12-run spike through the real Agent-SDK options object on `claude-opus-5`: injection changes behaviour decisively (fluff cuts 2,2,2 baseline vs 0×9 with memory; note format 0/13 vs 36/36), `propose_memory` triggers 3/3 on general preferences and 0/3 on one-offs, citation works as prose 9/9 but is unparseable to ids. Verified in code: Studio agent passes no `sessionScope` so there is no hot session to evict; the SDK exposes no mid-conversation system message (`SDKUserMessage` is `MessageParam`); a string `systemPrompt` is taken verbatim; `composeSystemPrompt` puts skills *after* base so memory must be appended last. **Cut**: `lastCitedAt` + staleness pruning, brand-scope UI, the Assets memory section (→ a Studio dialog), the "replaces →" picker, profile-as-list. **Fixed**: budget 2000/cap 40 didn't fit → 4000/25. **New H finding**: `CustomProviderForm` ships both compat engine paths regardless of preset hiding (H5). | Implement G1 (store + types) → G2 (pure prompt composition, block appended last). |
 | 2026-08-16 | I + licensing | **Strategy session with Hasan — plan updates only, no code.** Direction set: goals are **email list, traffic, GitHub stars — no revenue work now**; no hosted APIs/cloud rendering (solo scope); learnwithhasan API integration is out, site is **vidtsx.com** (~7k existing users). License decided: **FSL-1.1-MIT** + CLA + "source-available" language + Remotion README note (new section above + `PLAN.md` § Source license). Announcements feed designed and added as **Phase I** (static `feed.json` on vidtsx.com, updater-pattern client, trust rules). vidtsx.com relaunch work (download page w/ optional email, free template-pack lead magnet, monthly drops, client-side web tools, one-week launch) recorded in the post-V1 backlog. | Implement G1 (store + types) → G2 (prompt composition). Phase I can slot in anytime. |
+| 2026-08-16 | G | **G1+G2 implemented.** Store (`agent-memory.ts` at `userData/studio/memory.json`, atomic write, cap + profile-singleton enforcement, corrupt-file set-aside), pure composition (`agent-memory-prompt.ts`, tier → createdAt → id, profile-then-vocab truncation, rules never dropped), `composeSystemPrompt` trailing param, injection wired into `studio-agent.send` via `extras.trailingSystemPrompt` (block appended after skills). 26 new tests; full suite 709 green; type gate at baseline (web 26 / node 22). Injection is live but inert until G5 gives memories a way to exist. | G5 (manual entry + MemoryDialog in Studio) — the remaining piece of the value half; then G3+G4 (propose_memory + proposal card). |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

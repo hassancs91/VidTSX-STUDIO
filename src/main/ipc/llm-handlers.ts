@@ -162,15 +162,21 @@ export async function runLlmGenerate(
   data: LlmGenerateRequest,
   signal?: AbortSignal,
   onTextDelta?: (delta: string) => void,
-  /** In-process-only request fields the IPC type can't carry (live objects). */
-  extras?: { mcpServers?: Record<string, unknown> }
+  /** In-process-only request fields the IPC type can't carry (live objects)
+   *  or that must never come from the renderer (trailing prompt text). */
+  extras?: { mcpServers?: Record<string, unknown>; trailingSystemPrompt?: string }
 ): Promise<LlmGenerateResponse> {
   try {
     const start = Date.now();
 
-    const composedSystemPrompt = data.skillIds && data.skillIds.length > 0
-      ? await composeSystemPrompt(data.systemPrompt ?? '', data.skillIds)
-      : data.systemPrompt;
+    const composedSystemPrompt =
+      (data.skillIds && data.skillIds.length > 0) || extras?.trailingSystemPrompt
+        ? await composeSystemPrompt(
+            data.systemPrompt ?? '',
+            data.skillIds ?? [],
+            extras?.trailingSystemPrompt,
+          )
+        : data.systemPrompt;
 
     const request = {
       prompt: data.prompt,
