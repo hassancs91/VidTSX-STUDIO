@@ -17,6 +17,8 @@
 5. Polish the AI Providers and Local Models (Images, Audio) pages — professional, clean, full-page width.
 6. Restructure the AI Providers page: one unified section for API keys (one key per provider,
    used for all model types), plus per-provider editable model catalogs (defaults + add/remove/reset).
+7. **Agent memory** — the Studio agent should get better at editing *your* videos over time by
+   accumulating a small, inspectable set of preferences you told it. *(Added 2026-08-16.)*
 
 ---
 
@@ -452,6 +454,69 @@ machine: release `master-778-c00a9e9`, asset `sd-master-c00a9e9-bin-win-vulkan-x
 - [ ] Optional later: mirror the zip on a public repo release as fallback URL
       (upstream is rolling-release; pin + checksum covers v1).
 
+## Phase G — Agent memory: the editor that learns how you work (item 7)
+
+> **Full design: `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8).** This section is
+> the tactical slice; the design doc holds the record shape, the prompt block,
+> and the reasoning. Decisions 1–4 there are ANSWERED (Hasan, 2026-08-16).
+
+The only product feature in this plan — the other six items are release
+hygiene. It is here because "the app gets better the more I use it" is a v1
+selling point, not a v2 nicety.
+
+**Shape**: three tiers of memory (`rule` — imperatives the agent obeys;
+`vocabulary` — proper nouns and their manglings; `profile` — durable facts
+about the channel), app-wide by default with optional **brand** scope, read
+by the **Studio editing agent only** in v1.
+
+**Almost no new machinery.** `composeSystemPrompt` (`skills-registry.ts:164`)
+already appends composed blocks to the agent's system prompt and the agent
+already passes `skillIds` (`studio-agent.ts:92`) — memory is one more block.
+`propose_memory` is a sibling of the existing `propose_cuts` / `propose_shots`
+in-process tools, riding the agent event stream rather than a new channel.
+
+**The load-bearing rule**: *nothing enters memory the user did not see and
+accept.* Capture has two doors — you write it, or the agent proposes it and it
+lands as a pending card you accept / edit / reject. **Silent inference is
+rejected outright**, not deferred: a rejected cut plan is an ambiguous signal,
+and guessing wrong writes a permanent rule from a misreading. This is the same
+review gate as shot-plan, cut-plan and library organize.
+
+- [ ] **G1. Store + types.** `shared/types/studio-memory.ts`;
+      `main/services/studio/agent-memory.ts` at `userData/studio/memory.json`,
+      atomic tmp+rename (project-store precedent). *Not* the assets root —
+      that holds content and is relocatable; memory is behaviour.
+- [ ] **G2. Prompt composition (PURE).** `agent-memory-prompt.ts`: scope
+      filter → tier order (rules → vocabulary → profile) → char budget
+      (~2000). Truncation drops profile first, then vocabulary; **rules are
+      never silently dropped**. Unit-tested with no fs and no provider.
+- [ ] **G3. `propose_memory` tool + pending queue.** One proposal per turn,
+      general preferences only ("I always want tight cuts" yes; "make this one
+      shorter" no), never a duplicate of an active memory. Proposals persist
+      until answered so navigation doesn't lose one.
+- [ ] **G4. Studio surface.** Proposal card in the assistant panel, where the
+      correction happened — accept / edit-then-accept / reject, with
+      same-kind active memories shown inline so conflicts are visible, plus a
+      "replaces →" picker.
+- [ ] **G5. Assets surface.** Memory section beside Brands (same screen, same
+      shape of data): browse by tier, edit, toggle active, delete, with
+      provenance and last-cited shown.
+- [ ] **G6. Hygiene.** `MAX_ACTIVE_RULES` (40) with forced pruning at the cap;
+      toggle-off rather than delete; **"applied because"** — the agent cites
+      the memories it followed, which stamps `lastCitedAt` and turns "it
+      learned" into something auditable.
+- [ ] **G7. Live CDP acceptance.** State a general preference → one proposal →
+      accept → visible in Assets with agent provenance → next turn cites it
+      and behaviour matches → toggle off → citation stops → a one-off
+      instruction produces NO proposal.
+
+**Explicitly out of v1** (M8): semantic retrieval (embeddings exist, but only
+earn their cost past the budget), the STT vocabulary feed (no word-boost hook
+exists in the transcriber today — real new scope, high value, separate slice),
+and any reach beyond the Studio agent.
+
+---
+
 ## Phase E — Release hardening & checklist
 
 ### Security cleanups (do these regardless)
@@ -490,13 +555,27 @@ machine: release `master-778-c00a9e9`, asset `sd-master-c00a9e9-bin-win-vulkan-x
   defer if it drags.
 - **Q5 — Sidebar order after hiding** Flows/Videos/Tools: keep remaining order as-is, or
   regroup? Proposed: keep as-is, zero-risk.
+- **Q6 — Agent memory (G) vs the release date:** G is the one *feature* in an otherwise
+  hygiene-only plan, and it is the largest remaining item. If the release date tightens,
+  G1+G2+G5 (store, prompt composition, manual entry in Assets) still ship a real
+  "preferences the agent follows" feature; G3+G4 (agent-proposed capture) are what make it
+  *learn*, and are the half to defer. Proposed: ship G whole — the learning half is the
+  selling point — but treat that split as the pressure valve.
+- **QM1 / QM2** — two smaller open questions live in
+  `docs/studio/AGENT_MEMORY_DESIGN.md` (profile as list vs free text; whether
+  `lastCitedAt` drives an automatic stale-rule nudge).
 
 ## Suggested execution order
 
 A (flags/hiding, small & unblocks everything) → B (startup, isolated main-process work)
 → C (providers restructure, biggest) → D (polish, rides on C) → F (sd-cli install flow,
-pairs naturally with D's Image-tab polish) → E (hardening/release).
+pairs naturally with D's Image-tab polish) → **G (agent memory)** → E (hardening/release).
 A and B are independent and could be done in either order.
+
+G sits late but before E on purpose: it is the only item that changes product behaviour, so
+it wants the most soak time before the release checklist — but it depends on nothing in
+A–F, so it can move earlier if the Studio agent work is fresh in mind. Within G, G1→G2 are
+the foundation (store + pure prompt composition) and G3→G4 are the half that makes it learn.
 
 ## Session log
 
@@ -511,4 +590,5 @@ A and B are independent and could be done in either order.
 | 2026-08-12 | C | Providers restructure implemented + statically verified (see STATUS note under Phase C). | User restarts dev app → live walkthrough of keys section + catalogs; then Phase D polish. |
 | 2026-08-13 | D | Visual kit (`StatusBadge` + Panel/Select/TextInput adoption), full-width `max-w-6xl` layout, 2-col System tab, Image installed/available split, Audio side-by-side cards. Type gate + 374 tests green; CDP screenshot sweep at 1188 + 1280×800, no h-scroll. Committed `ec498a2`. | Phase F (sd-cli install flow); Phase C walkthrough still pending app restart. |
 | 2026-08-13 | F | sd-cli install flow implemented (see STATUS under Phase F): pinned+hashed upstream zip via download manager → userData/sd-cli, SDIMAGE_CLI_INSTALL IPC, Image-tab setup card, DLL cleanup from resources/binaries. Type gate/tests/build green. | After app restart: Phase C acceptance walkthrough + live sd-cli install click + a real local generation. Then Phase E (hardening). |
+| 2026-08-16 | G | Agent memory added to v1 scope (item 7) and designed with Hasan — full design in `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8). Four decisions answered: gated capture (manual + agent-proposed, silent inference rejected), app-wide scope with optional brand, all three tiers (rule/vocabulary/profile), Studio agent only. Rides existing seams: `composeSystemPrompt` for injection, `propose_memory` as a sibling of `propose_cuts`/`propose_shots`, the shot/cut-plan review gate for capture. Nothing implemented yet. | Implement G1 (store + types) → G2 (pure prompt composition). |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |
