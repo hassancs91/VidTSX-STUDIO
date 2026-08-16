@@ -885,16 +885,37 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 - [ ] Keep the non-forkable identity under Hasan's control: the VidTSX name, vidtsx.com,
       the update feed, and the announcements feed (Phase I). Trademark registration is a
       later, optional step — note it and move on.
-- [ ] **Decide what goes public with the repo (added 2026-08-16 — Hasan's call).**
-      The tracked working docs (`V1_RELEASE_PLAN.md`, `PLAN.md`, `Status.md`,
-      `UI_SPEC.md`, `docs/studio/AGENT_MEMORY_DESIGN.md`) and the commit log narrate
-      the full strategy: launch plan, email-list goals, the ~7k-user figure,
-      monetization thinking, session logs. Either that ships as deliberate
-      build-in-public transparency, or the docs get pruned / the repo re-rooted
-      before the flip. **Verified 2026-08-16: this is a positioning decision, not a
-      security one** — no secrets exist anywhere in history (the only committed
-      `.env*` files held a public API URL and were removed in `319d0ad`; the
-      live-secrets root `.env` was never tracked).
+- [ ] **DECIDED (Hasan, 2026-08-16): prune before the flip — the public repo starts
+      fresh.** V1 goes out as a single initial push (re-rooted, no history), and all
+      private docs and plans are gitignored in the public repo. This repo stays
+      private forever, keeping the full history and the versioned working docs, so
+      parallel sessions keep working exactly as today. (Context: verified 2026-08-16
+      that no secrets exist anywhere in history — the prune is positioning, not
+      security.) Mechanics at flip time:
+      - [ ] **Triage the tracked .md set.** Private (excluded + gitignored in the
+            public repo): all root-level working docs — `V1_RELEASE_PLAN.md`,
+            `PLAN.md`, `Status.md`, `UI_SPEC.md`, `BUGS.md`, `DESIGN_PLAN.md`,
+            `CAPTION_STYLES_PLAN.md`, `FLOWS.md`, `STEP-3.2b-WRAPPER-GENERATION.md`,
+            `llm-engine-spec-v2.md`, `mac-check.md`, `my_notes.md` — plus the whole
+            `docs/` tree (plans, design docs, release checklists). Public:
+            `README.md`, `LICENSE.md`, `resources/skills/**` (app content, ships in
+            builds), `src/main/services/download-manager/README.md` (code-adjacent),
+            vendored license files. Anything borderline defaults to private — it can
+            be published deliberately later; it cannot be unpublished.
+      - [ ] **`CLAUDE.md` references break.** It opens with "Read PLAN.md /
+            UI_SPEC.md / STATUS.md first" — all private post-flip. Either keep
+            `CLAUDE.md` private too (and ship a public `CONTRIBUTING.md` later) or
+            rewrite it standalone. Default: private.
+      - [ ] **Flip procedure:** finalize v1 in this private repo → new empty public
+            repo → copy the working tree minus private docs → add the private-docs
+            section to the public `.gitignore` (so a future `git add -A` in a public
+            clone can never re-add them) → single initial commit, tag `v1.0.0` →
+            push public.
+      - [ ] **Post-flip workflow (small open question, decide at flip):** where
+            day-to-day work happens once outside PRs arrive — keep developing here
+            and sync releases out, or develop in the public repo with private docs
+            on disk untracked (they lose git versioning there; this private repo
+            can remain their archive).
 
 ---
 
