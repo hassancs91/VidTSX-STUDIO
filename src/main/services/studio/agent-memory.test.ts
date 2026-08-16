@@ -2,7 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { MAX_ACTIVE_RULES } from '../../../shared/types/studio-memory';
+import {
+  MAX_ACTIVE_RULES,
+  MAX_MEMORY_ALIASES,
+  MEMORY_TEXT_LIMITS,
+} from '../../../shared/types/studio-memory';
 
 let tmpDir = '';
 
@@ -130,6 +134,69 @@ describe('agent-memory store', () => {
 
     const created = await upsertMemory({ kind: 'rule', text: 'Fresh start.', source: { by: 'user' } });
     expect(await listMemories()).toEqual([created]);
+  });
+
+  it('concurrent mutations are serialized — no lost writes (D2)', async () => {
+    await Promise.all([
+      upsertMemory({ kind: 'rule', text: 'Rule A.', source: { by: 'user' } }),
+      upsertMemory({ kind: 'rule', text: 'Rule B.', source: { by: 'user' } }),
+      upsertMemory({ kind: 'vocabulary', text: 'Name', source: { by: 'user' } }),
+    ]);
+    expect(await listMemories()).toHaveLength(3);
+  });
+
+  it('a failed mutation does not wedge the queue', async () => {
+    await expect(upsertMemory({ kind: 'rule', text: ' ', source: { by: 'user' } })).rejects.toThrow();
+    const after = await upsertMemory({ kind: 'rule', text: 'Still works.', source: { by: 'user' } });
+    expect(after.text).toBe('Still works.');
+  });
+
+  it('collapses internal whitespace for rules/vocabulary; profile keeps paragraphs (D3)', async () => {
+    const rule = await upsertMemory({
+      kind: 'rule',
+      text: 'Cut filler\n\ntight.',
+      source: { by: 'user' },
+    });
+    expect(rule.text).toBe('Cut filler tight.');
+    const profile = await upsertMemory({
+      kind: 'profile',
+      text: 'Line one.\r\n\r\n\r\nLine two.',
+      source: { by: 'user' },
+    });
+    expect(profile.text).toBe('Line one.\n\nLine two.');
+  });
+
+  it('enforces per-kind text limits and clamps aliases (D5)', async () => {
+    await expect(
+      upsertMemory({
+        kind: 'rule',
+        text: 'R'.repeat(MEMORY_TEXT_LIMITS.rule + 1),
+        source: { by: 'user' },
+      }),
+    ).rejects.toThrow('limited to');
+    const vocab = await upsertMemory({
+      kind: 'vocabulary',
+      text: 'Name',
+      aliases: Array.from({ length: MAX_MEMORY_ALIASES + 5 }, (_, i) => `alias-${i}`),
+      source: { by: 'user' },
+    });
+    expect(vocab.aliases).toHaveLength(MAX_MEMORY_ALIASES);
+  });
+
+  it('backfills missing timestamps with a FIXED epoch, stable across reads (D4)', async () => {
+    await fs.mkdir(path.dirname(memoryFilePath()), { recursive: true });
+    await fs.writeFile(
+      memoryFilePath(),
+      JSON.stringify({
+        schemaVersion: 1,
+        memories: [{ id: 'hand-edited', kind: 'rule', text: 'No timestamps.', active: true, source: { by: 'user' } }],
+      }),
+      'utf-8',
+    );
+    const first = await listMemories();
+    const second = await listMemories();
+    expect(first[0].createdAt).toBe('1970-01-01T00:00:00.000Z');
+    expect(second[0].createdAt).toBe(first[0].createdAt);
   });
 
   it('invalid records in a valid file are dropped, valid ones kept', async () => {

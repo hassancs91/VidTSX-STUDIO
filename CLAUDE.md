@@ -106,9 +106,13 @@ npm run dev          # Start dev server + Electron
 npm run build        # Build for production
 npm run build:mac    # Build .dmg for macOS
 npm run build:win    # Build .exe for Windows
-npm run lint         # ESLint check
-npm run type-check   # TypeScript type checking (no emit)
+npm run check:types  # TypeScript type gate (baseline-checked via scripts/check-types.mjs)
+npx vitest run       # Unit tests
 ```
+
+> There is NO `lint` or `type-check` script — `check:types` is the gate, and it
+> compares error counts against a recorded baseline (web/node) rather than
+> requiring zero.
 
 ## File naming conventions
 

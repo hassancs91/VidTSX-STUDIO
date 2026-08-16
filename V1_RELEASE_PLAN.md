@@ -589,6 +589,15 @@ make capture effortless; they do not make it work. Build in that order.
       **Rev 2**: citation is a user-facing trust feature only. No
       `lastCitedAt` stamp, no staleness pruning — the citations are prose and
       cannot be mapped to ids reliably (§Rev 2.3).
+      **Update 2026-08-16: mostly absorbed.** The cap (create + re-activate
+      paths) and toggle-off landed in the G1 store; citation needs no prompt
+      work (the spike hit 9/9 with the plain M4 block). G6's residue is G5 UI
+      affordances (cap message, toggle control, provenance display).
+- [ ] **G-spike. Dilution spike before G ships (Rev 2.6 — do not skip).**
+      Reuse the `.vidtsx-temp` harness: pad the memory block to 40 filler
+      rules plus the two measurable ones; fluff suppression and the note
+      format must still hold across runs. If adherence degrades, the fix is
+      ordering the most-recently-edited rules last — not a smaller cap.
 - [ ] **G7. Live CDP acceptance.** State a general preference → one proposal →
       accept → visible in the memory dialog with agent provenance → next turn
       **behaves** differently and says why → toggle off → the behaviour
@@ -715,6 +724,11 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       Revisit when V2 re-introduces Gemini.
 - [ ] **H4. Re-enable behind a flag, not a rebuild.** Hidden presets come back via the
       Phase A env-flag mechanism so a dev build can demo any provider without a release.
+      **Verified 2026-08-16:** the preset filter lives in the MAIN process
+      (`llm-handlers.ts`), and the shared `VITE_` prefix does reach main-process
+      `import.meta.env` (precedent: `crash-reporting.ts` reads `VITE_SENTRY_DSN` in
+      main), so the mechanism works there unchanged — read the flag in the handler,
+      not in renderer `feature-flags.ts`.
 - [x] **H5. Compat paths — DECIDED (Hasan, 2026-08-16): option (b), flag the
       custom-endpoint form off for V1.** With H1 narrowing to six `agent-sdk` presets,
       `CustomProviderForm` (`CustomProviderForm.tsx:9,37`) would be the *only* way to
@@ -742,6 +756,9 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       preset is wrong; nothing in this repo proves which.
       Any provider that fails H6 ships hidden and moves to V2. Better a set of four that
       works than six that were assumed.
+      **Logistics (flagged 2026-08-16): H6 needs funded accounts + API keys for
+      Z.AI, MiniMax, OpenRouter, and Kimi** — none has ever executed in this app.
+      Hasan sets these up ahead of the test session so H6 isn't a release-day stall.
 
 **What this does and does not buy.** It buys a smaller *supported* surface and a real
 feedback loop — the honest reasons. It does **not** buy per-provider caching data
@@ -818,6 +835,9 @@ chip/card), so it should feel native next to `UpdateChip`/`useUpdater`.
 - [ ] **I1. Feed service** — `src/main/services/news-feed.ts`: fetch (main-process fetch/net),
       JSON parse, schema validation + clamping, date-window + `minAppVersion` filtering,
       last-good cache. Feed URL is a constant in ONE place.
+      Clamp the **messages array length** too (not just string lengths), and note
+      `minAppVersion` needs a small semver compare — no such util exists in the app yet
+      (don't pull in a dependency for three-part numeric compare).
 - [ ] **I2. Settings** — `newsEnabled: boolean` (default true) + `newsDismissedIds: string[]`
       in the existing settings service (they're small; no new store).
 - [ ] **I3. IPC** — `NEWS_GET` (validated messages minus dismissed, empty when disabled),
@@ -827,6 +847,8 @@ chip/card), so it should feel native next to `UpdateChip`/`useUpdater`.
       `UpdateChip`.
 - [ ] **I5. Settings toggle** in General settings ("Show news and announcements").
 - [ ] **I6. README disclosure** line (pairs with the licensing section's README work).
+      One sentence covering BOTH launch-time fetches — the announcements feed AND the
+      update check — so the privacy story is stated once, completely.
 
 **vidtsx.com isn't ready yet — that's fine.** The site work is post-V1 (see backlog); the
 client ships inert (404/offline → silently nothing) and lights up whenever the first
@@ -863,6 +885,16 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 - [ ] Keep the non-forkable identity under Hasan's control: the VidTSX name, vidtsx.com,
       the update feed, and the announcements feed (Phase I). Trademark registration is a
       later, optional step — note it and move on.
+- [ ] **Decide what goes public with the repo (added 2026-08-16 — Hasan's call).**
+      The tracked working docs (`V1_RELEASE_PLAN.md`, `PLAN.md`, `Status.md`,
+      `UI_SPEC.md`, `docs/studio/AGENT_MEMORY_DESIGN.md`) and the commit log narrate
+      the full strategy: launch plan, email-list goals, the ~7k-user figure,
+      monetization thinking, session logs. Either that ships as deliberate
+      build-in-public transparency, or the docs get pruned / the repo re-rooted
+      before the flip. **Verified 2026-08-16: this is a positioning decision, not a
+      security one** — no secrets exist anywhere in history (the only committed
+      `.env*` files held a public API URL and were removed in `319d0ad`; the
+      live-secrets root `.env` was never tracked).
 
 ---
 
@@ -879,8 +911,9 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 
 ### Final checklist
 
-- [ ] `npm run type-check`, `npm run lint`, `npm run build:win`; install the artifact on a
-      clean Windows profile.
+- [ ] `npm run check:types` (the real gate — `type-check` and `lint` scripts do NOT
+      exist; baseline-checked via `scripts/check-types.mjs`), `npx vitest run`,
+      `npm run build:win`; install the artifact on a clean Windows profile.
 - [ ] Cold-start check on the installed build: no model loads, no GPU probe, no spawned
       AI processes (Task Manager + startup log).
 - [ ] Hidden surfaces absent in the artifact; env flags verified OFF in the build env.
@@ -975,4 +1008,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-16 | G+H | **Design session only — no feature code.** Grilled both plans and revised them (`AGENT_MEMORY_DESIGN.md` §Rev 2, Phase G/H/Q6 above). Ran a 12-run spike through the real Agent-SDK options object on `claude-opus-5`: injection changes behaviour decisively (fluff cuts 2,2,2 baseline vs 0×9 with memory; note format 0/13 vs 36/36), `propose_memory` triggers 3/3 on general preferences and 0/3 on one-offs, citation works as prose 9/9 but is unparseable to ids. Verified in code: Studio agent passes no `sessionScope` so there is no hot session to evict; the SDK exposes no mid-conversation system message (`SDKUserMessage` is `MessageParam`); a string `systemPrompt` is taken verbatim; `composeSystemPrompt` puts skills *after* base so memory must be appended last. **Cut**: `lastCitedAt` + staleness pruning, brand-scope UI, the Assets memory section (→ a Studio dialog), the "replaces →" picker, profile-as-list. **Fixed**: budget 2000/cap 40 didn't fit → 4000/25. **New H finding**: `CustomProviderForm` ships both compat engine paths regardless of preset hiding (H5). | Implement G1 (store + types) → G2 (pure prompt composition, block appended last). |
 | 2026-08-16 | I + licensing | **Strategy session with Hasan — plan updates only, no code.** Direction set: goals are **email list, traffic, GitHub stars — no revenue work now**; no hosted APIs/cloud rendering (solo scope); learnwithhasan API integration is out, site is **vidtsx.com** (~7k existing users). License decided: **FSL-1.1-MIT** + CLA + "source-available" language + Remotion README note (new section above + `PLAN.md` § Source license). Announcements feed designed and added as **Phase I** (static `feed.json` on vidtsx.com, updater-pattern client, trust rules). vidtsx.com relaunch work (download page w/ optional email, free template-pack lead magnet, monthly drops, client-side web tools, one-week launch) recorded in the post-V1 backlog. | Implement G1 (store + types) → G2 (prompt composition). Phase I can slot in anytime. |
 | 2026-08-16 | G | **G1+G2 implemented.** Store (`agent-memory.ts` at `userData/studio/memory.json`, atomic write, cap + profile-singleton enforcement, corrupt-file set-aside), pure composition (`agent-memory-prompt.ts`, tier → createdAt → id, profile-then-vocab truncation, rules never dropped), `composeSystemPrompt` trailing param, injection wired into `studio-agent.send` via `extras.trailingSystemPrompt` (block appended after skills). 26 new tests; full suite 709 green; type gate at baseline (web 26 / node 22). Injection is live but inert until G5 gives memories a way to exist. | G5 (manual entry + MemoryDialog in Studio) — the remaining piece of the value half; then G3+G4 (propose_memory + proposal card). |
+| 2026-08-16 | G (grill) | **Adversarial review of G1+G2 + the remaining plan; 3 confirmed defects fixed with regression tests.** D1: truncation could emit a bare header block and silently vanish an oversized profile (now returns empty + truncation logged in studio-agent). D2: concurrent upserts lost records — read-modify-write race (mutations now serialized through a queue). D3: multi-line text broke the block's markdown list / could fake a `###` section (whitespace collapsed in store AND composer; profile keeps paragraphs). Also: fixed-epoch backfill for hand-edited records missing timestamps (determinism), per-kind text limits + alias cap (`MEMORY_TEXT_LIMITS`), 7 new tests (33 total for memory). Plan updated: dilution spike now an explicit G checkbox; G6 marked mostly-absorbed; H4 main-process flag mechanism verified; H6 keys logistics flagged; I1/I6 small print; licensing gains the "what goes public" decision (history verified secret-free); Phase E checklist commands corrected (`check:types`, no lint). | G5 after the updater session lands its dirty files (channels.ts, preload, settings.ts, StatusBar all collide). Hasan: H6 keys + the public-docs decision. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

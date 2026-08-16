@@ -138,6 +138,13 @@ class StudioAgentService {
           overflowChars: composed.rulesOverflowBy,
         });
       }
+      // No silent caps: truncation must be visible somewhere.
+      if (composed.droppedProfile || composed.droppedVocabulary > 0) {
+        log.warn('Memory block truncated to fit the prompt budget', {
+          droppedProfile: composed.droppedProfile,
+          droppedVocabulary: composed.droppedVocabulary,
+        });
+      }
       return composed.block || undefined;
     } catch (err) {
       log.warn('Agent memory unavailable for this turn', {

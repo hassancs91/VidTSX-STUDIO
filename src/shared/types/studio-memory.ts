@@ -44,3 +44,17 @@ export const MAX_ACTIVE_RULES = 50;
  *  from cache after the first turn). 50 rules × ~80 chars ≈ 4,000 leaves
  *  ~3,000 for vocabulary + profile (§Rev 2.6). */
 export const MEMORY_PROMPT_BUDGET = 7000;
+
+/** Per-record text ceilings, enforced by the store and mirrored as
+ *  maxLength in the entry UI. Sanity ceilings, not budget guarantees —
+ *  observed rule length in the spike was 60–110 chars; 300 is generous.
+ *  They exist so one pasted wall of text can't silently blow the block
+ *  budget (truncation would drop the profile without the user noticing). */
+export const MEMORY_TEXT_LIMITS: Record<StudioMemoryKind, number> = {
+  rule: 300,
+  vocabulary: 120,
+  profile: 2500,
+};
+
+/** Cap on vocabulary aliases per entry (extras are dropped, not errored). */
+export const MAX_MEMORY_ALIASES = 10;

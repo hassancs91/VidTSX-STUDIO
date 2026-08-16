@@ -55,6 +55,19 @@ describe('composeMemoryBlock — scope + shape', () => {
     expect(block).not.toContain('### About you and your channel');
   });
 
+  it('multi-line rule/vocabulary text renders as one list line; profile keeps paragraphs (D3)', () => {
+    const { block } = composeMemoryBlock([
+      mem('rule', 'Cut filler tight.\n\n### Fake section'),
+      mem('vocabulary', 'Learn\nWith\nHasan'),
+      mem('profile', 'Line one.\r\n\r\n\r\n\r\nLine two.'),
+    ]);
+    expect(block).toContain('- Cut filler tight. ### Fake section');
+    expect(block).toContain('- "Learn With Hasan"');
+    expect(block).toContain('Line one.\n\nLine two.');
+    // The fake header must not have become a real one.
+    expect(block).not.toMatch(/^### Fake section/m);
+  });
+
   it('vocabulary renders aliases; entries without aliases render bare', () => {
     const { block } = composeMemoryBlock([
       mem('vocabulary', 'Remotion', { aliases: ['remotion', 'emotion'] }),
@@ -172,6 +185,20 @@ describe('composeMemoryBlock — budget truncation', () => {
     expect(result.droppedVocabulary).toBe(1);
     expect(result.rulesOverflowBy).toBeGreaterThan(0);
     expect(result.block.length - 100).toBe(result.rulesOverflowBy);
+  });
+
+  it('never emits a bare header: nothing surviving truncation → empty block (D1)', () => {
+    const result = composeMemoryBlock([mem('profile', 'P'.repeat(8000))]);
+    expect(result.block).toBe('');
+    expect(result.droppedProfile).toBe(true);
+    expect(result.rulesOverflowBy).toBe(0);
+
+    const withVocab = composeMemoryBlock(
+      [mem('profile', 'P'.repeat(8000)), mem('vocabulary', 'V'.repeat(100))],
+      { budget: 50 },
+    );
+    expect(withVocab.block).toBe('');
+    expect(withVocab.droppedVocabulary).toBe(1);
   });
 
   it('budget coherence: a full rule set at observed max length still fits vocabulary (the 40-vs-2000 test)', () => {

@@ -53,23 +53,35 @@ function byTierThenCreatedAtThenId(a: StudioMemory, b: StudioMemory): number {
   return 0;
 }
 
+/** Rules and vocabulary render as single markdown list lines — internal
+ *  newlines would escape the list (or fake a `###` section header), so
+ *  they collapse to spaces here even though the store normalizes too. */
+function singleLine(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/** Profile keeps its paragraphs; just normalize line endings and runs. */
+function profileText(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function renderVocabularyLine(memory: StudioMemory): string {
-  const aliases = (memory.aliases ?? []).filter((alias) => alias.trim().length > 0);
+  const aliases = (memory.aliases ?? []).map(singleLine).filter((alias) => alias.length > 0);
   const notPart = aliases.length > 0 ? ` (not ${aliases.map((a) => `"${a}"`).join(', ')})` : '';
-  return `- "${memory.text}"${notPart}`;
+  return `- "${singleLine(memory.text)}"${notPart}`;
 }
 
 /** Assemble the block from already-sorted tier groups. */
 function render(rules: StudioMemory[], vocabulary: StudioMemory[], profile: StudioMemory[]): string {
   const sections: string[] = [BLOCK_HEADER];
   if (rules.length > 0) {
-    sections.push(`${RULES_HEADER}\n${rules.map((m) => `- ${m.text}`).join('\n')}`);
+    sections.push(`${RULES_HEADER}\n${rules.map((m) => `- ${singleLine(m.text)}`).join('\n')}`);
   }
   if (vocabulary.length > 0) {
     sections.push(`${VOCABULARY_HEADER}\n${vocabulary.map(renderVocabularyLine).join('\n')}`);
   }
   if (profile.length > 0) {
-    sections.push(`${PROFILE_HEADER}\n${profile.map((m) => m.text).join('\n\n')}`);
+    sections.push(`${PROFILE_HEADER}\n${profile.map((m) => profileText(m.text)).join('\n\n')}`);
   }
   return sections.join('\n\n');
 }
@@ -103,6 +115,17 @@ export function composeMemoryBlock(
   while (block.length > budget && vocabulary.length > 0) {
     vocabulary = vocabulary.slice(0, -1);
     block = render(rules, vocabulary, []);
+  }
+
+  // Nothing useful survived (e.g. an oversized profile and no rules) —
+  // never inject a bare header with no content under it.
+  if (rules.length === 0 && vocabulary.length === 0) {
+    return {
+      block: '',
+      droppedProfile: profile.length > 0,
+      droppedVocabulary: allVocabulary.length,
+      rulesOverflowBy: 0,
+    };
   }
 
   return {
