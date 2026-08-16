@@ -19,6 +19,8 @@
    used for all model types), plus per-provider editable model catalogs (defaults + add/remove/reset).
 7. **Agent memory** — the Studio agent should get better at editing *your* videos over time by
    accumulating a small, inspectable set of preferences you told it. *(Added 2026-08-16.)*
+8. **Narrow the V1 provider surface** to a small set we can actually support and learn from,
+   with the rest re-enabled after feedback. *(Added 2026-08-16.)*
 
 ---
 
@@ -517,6 +519,62 @@ and any reach beyond the Studio agent.
 
 ---
 
+## Phase H — Narrow the V1 provider surface (item 8)
+
+Ship fewer providers than the engine supports, so V1 has a support surface we can
+actually stand behind, then re-enable the rest on feedback. Same instinct as Phase A's
+hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
+
+**Two facts settle which providers are worth keeping** (verified 2026-08-16):
+
+| Preset | `type` | Agent SDK path | Prompt caching | Studio agent tools |
+|---|---|---|---|---|
+| `claude-subscription`, `claude-api` | `agent-sdk` | ✅ | ✅ automatic | ✅ |
+| `zai` (Z.AI GLM) | `agent-sdk` | ✅ | ✅ automatic | ✅ |
+| `minimax`, `openrouter` | `agent-sdk` | ✅ | ✅ automatic | ✅ |
+| `openai` | `openai-compat` | ❌ | ❌ none | ❌ |
+| `gemini` | `gemini` | ❌ | ❌ none | ❌ |
+| `local` | `local` | ❌ | ❌ none | ❌ | 
+
+1. **Caching is a property of the `agent-sdk` path, not of each provider.**
+   `claude-provider.ts` calls `query()` from `@anthropic-ai/claude-agent-sdk`, which places
+   cache breakpoints itself — the repo contains **no `cache_control` at all**, yet the
+   Studio agent logs ~95% of input tokens as cache reads. Every `agent-sdk` preset
+   inherits that; `gemini` / `openai-compat` / `local` get nothing and don't even report
+   `cacheReadInputTokens`. So "compare caching across providers" has only **two** possible
+   answers (agent-sdk: yes; everything else: no) no matter how many presets ship.
+2. **Tools are `agent-sdk`-only** — `resolveToolSupport` returns
+   `config.type === 'agent-sdk'` (`studio-agent.ts:124`). On `gemini` the Studio agent is
+   built with no MCP server: no `propose_cuts`, no `propose_shots`, no
+   `generate_tsx_shot`, and (Phase G) **no `propose_memory`**. It can still chat, and the
+   non-agentic AI features (describe, organize, TSX generation) work fine.
+
+- [ ] **H1. Pick the set, with eyes open.** Proposed: `claude-subscription` + `claude-api`
+      (the reference path), `zai` (agent-sdk, cheap, full feature parity), and `gemini`
+      (the one genuinely different engine implementation). Note `gemini` ships *knowingly*
+      degraded on the Studio agent — see H3. `local` already self-hides when
+      node-llama-cpp isn't loadable (`llm-handlers.ts:32`).
+- [ ] **H2. Hide presets without stranding existing configs.** Filter `PROVIDER_PRESETS`
+      the way the local provider is already filtered — but **a user who has a now-hidden
+      provider configured must keep working**, and if their `activeProvider` points at a
+      hidden preset, migrate it rather than leaving it dangling. This exact failure mode
+      already bit us once: the stale-`activeProvider` picker dead-end fixed in `01d717c`.
+      A hidden preset means "can't add a new one", never "your saved config vanished".
+- [ ] **H3. Say what a provider can't do, in the UI.** Selecting a non-`agent-sdk`
+      provider should state plainly that the Studio agent runs without tools there
+      (no cut/shot/memory proposals) — a designed degradation, surfaced, not discovered.
+- [ ] **H4. Re-enable behind a flag, not a rebuild.** Hidden presets come back via the
+      Phase A env-flag mechanism so a dev build can demo any provider without a release.
+
+**What this does and does not buy.** It buys a smaller support surface and a real
+feedback loop — the honest reasons. It does **not** buy per-provider caching data
+(fact 1), and a Claude + Z.AI pair is a single caching data point, not two. If we also
+want the `openai-compat` engine path covered before scaling, `openai` is the only preset
+that exercises it — worth adding as a fourth if we care, and worth knowing we're *not*
+testing it if we don't.
+
+---
+
 ## Phase E — Release hardening & checklist
 
 ### Security cleanups (do these regardless)
@@ -569,8 +627,13 @@ and any reach beyond the Studio agent.
 
 A (flags/hiding, small & unblocks everything) → B (startup, isolated main-process work)
 → C (providers restructure, biggest) → D (polish, rides on C) → F (sd-cli install flow,
-pairs naturally with D's Image-tab polish) → **G (agent memory)** → E (hardening/release).
+pairs naturally with D's Image-tab polish) → **G (agent memory)** → **H (narrow the provider surface)** → E (hardening/release).
 A and B are independent and could be done in either order.
+
+H comes after G on purpose: Phase G is the thing whose provider behaviour differs most
+(agent-proposed capture needs `agent-sdk` tools), so pick the shipping set once memory
+exists and its degradation on `gemini` is visible rather than predicted. H is small and
+could slip to just before E if G runs long.
 
 G sits late but before E on purpose: it is the only item that changes product behaviour, so
 it wants the most soak time before the release checklist — but it depends on nothing in

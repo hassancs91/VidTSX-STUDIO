@@ -92,6 +92,26 @@ a user rejecting a cut plan may be rejecting the pacing, the take choice, or
 their own earlier instruction — and guessing wrong writes a permanent rule
 from a misreading.
 
+### Door 2 needs tool support — Door 1 never does
+
+`propose_memory` is an in-process MCP tool, and this app treats tools as
+**agent-sdk-only**: `resolveToolSupport` returns `config.type === 'agent-sdk'`
+(`studio-agent.ts:124`), so on a `gemini`, `openai-compat` or `local` provider
+the agent is built with no MCP server at all and `buildSystemPrompt` switches
+to its no-tools variant. That is a deliberate, already-shipped degradation —
+`propose_cuts`, `propose_shots` and the rest are equally unavailable there.
+
+Consequences for memory, which the UI must reflect rather than discover:
+
+- **Injection (M4) works on every provider.** Every provider takes a system
+  prompt, so memories always steer the agent.
+- **Agent-proposed capture works only on `agent-sdk` providers.** On the
+  others the Studio surface must say so plainly — *"your AI provider can't
+  propose memories; add them yourself in Assets"* — not silently never
+  propose, which reads as the feature being broken.
+- **Manual entry is the universal floor**, exactly as it is for descriptions
+  under L2 Rev 3. Memory is never fully unavailable.
+
 ## M3. Scope — app-wide by default, brand when it matters
 
 A memory with no `brandId` applies to every project. A memory with one
@@ -135,6 +155,48 @@ large prompt.
 
 Composition is a **pure function** of (memories, brandId, budget) — no fs, no
 provider — so ordering, filtering and truncation are unit-testable.
+
+### Prompt caching — why the system prompt is the right home
+
+Caching is a **prefix match**, and the render order is `tools` → `system` →
+`messages`. Memory in the system prompt therefore sits in the *stable* prefix,
+ahead of the volatile conversation, which is the best possible place for it:
+the cost is **one cache write plus N cheap reads**, not `memory_tokens × N
+requests`. A ~500-token block across a 20-turn session costs about 2.5 turns'
+worth of tokens rather than 20. Memory is close to an ideal cache payload —
+large, stable, re-read every turn.
+
+This is not theoretical here. The Studio agent already runs at ~95% of input
+tokens served from cache (108,861 cache-read vs 5,242 uncached across its
+logged runs) with **no `cache_control` anywhere in this codebase** — the Claude
+Agent SDK places the breakpoints itself on the `agent-sdk` provider path.
+
+Three rules follow, and the first is load-bearing:
+
+1. **The block MUST be a deterministic function of the active memory set.**
+   Order by tier, then by a stable key (`createdAt`, then `id`). **Never order
+   or filter by `lastCitedAt`**, never iterate a `Set`, and never render a
+   timestamp into the text. `lastCitedAt` mutates whenever the agent cites a
+   memory, so letting it reach the block would reorder the prefix on almost
+   every turn and silently invalidate the cache forever — no error, just full
+   price. It is a column in the Assets UI only.
+2. **Accepting a memory mid-session invalidates the cached prefix** for the
+   rest of that conversation (one extra cache write on the history, then
+   reads resume). This is bounded, rare and user-initiated, so v1 accepts it.
+   The proper fix is a mid-conversation system message — appending
+   `{role: "system", …}` to `messages[]` rather than editing the top-level
+   system prompt preserves the prefix — but it is model-gated and it is not
+   yet established whether the Agent SDK exposes it. Treat as a later
+   optimization, and verify against the Agent SDK docs before assuming it.
+3. **Changing the system prompt does not invalidate the tools cache** (system
+   and messages only). So a memory edit never re-bills the tool schemas —
+   another reason memory belongs in `system` rather than ahead of `tools`.
+
+Caching is a property of the **provider path**, not of this feature: only
+`agent-sdk` providers get it today (`gemini`, `openai-compat` and `local` set
+no breakpoints and do not even report `cacheReadInputTokens` back). Memory
+costs more per turn on those providers — a reason to prefer `agent-sdk`
+providers, not a reason to change this design.
 
 ## M5. Hygiene — the part that decides if this compounds or rots
 
@@ -219,6 +281,12 @@ Named so they do not get built by accident:
   before vocabulary before rules; rules never silently dropped; vocabulary
   alias rendering; empty memory set produces no block at all; cap
   enforcement; proposal accept / accept-edited / reject; duplicate rejection.
+- **Cache stability (pure, and the one that silently rots if missed)**: the
+  composed block is **byte-identical** across two builds of the same active
+  set when `lastCitedAt` differs, when the input array order differs, and
+  when the set is passed as a `Set` rather than an array; no timestamp
+  appears anywhere in the output; toggling a memory to `active: false`
+  changes the block exactly once and deterministically.
 - **Store**: atomic write round-trip, `active:false` excluded from the block
   but retained on disk, `lastCitedAt` stamping.
 - **Live CDP**: state a general preference in the assistant → one proposal
