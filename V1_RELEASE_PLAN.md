@@ -6,7 +6,7 @@
 >
 > Companion docs: `PLAN.md` (master architecture), `STATUS.md` (overall progress),
 > `UI_SPEC.md` (visual language). This file supersedes nothing — it is the tactical plan
-> for the 6 pre-release items only.
+> for the pre-release items only.
 
 ## Goals (from Hasan)
 
@@ -22,6 +22,11 @@
 8. **Narrow the V1 provider surface** to a small set we can actually support and learn from,
    with the rest re-enabled after feedback. *(Added 2026-08-16. Decided 2026-08-16: six
    `agent-sdk` presets — Claude ×2, Z.AI, MiniMax, OpenRouter, Kimi. See Phase H.)*
+9. **In-app announcements feed** — a dismissible card fed from a static JSON on vidtsx.com,
+   so Hasan can change in-app messaging (news, template drops, links to his sites) anytime
+   without shipping a release. *(Added 2026-08-16. See Phase I.)*
+10. **License + repo prep before going public** — FSL-1.1-MIT, CLA, Remotion note,
+    "source-available" language. *(Decided 2026-08-16. See "Licensing & repo prep".)*
 
 ## Post-V1 backlog (recorded, not scheduled)
 
@@ -30,6 +35,23 @@
   caching story. Likely dedicated SDKs rather than stretching `ProviderConfig`. Decide
   the shape when we get there; Phase H's "what this buys" note has the asymmetry.
 - **Custom OpenAI/Anthropic-compatible endpoint form**, un-flagged (H5).
+- **vidtsx.com relaunch (discussed 2026-08-16 — Hasan works on the site later).** Goals for
+  this whole track are **email list, traffic, GitHub stars — explicitly not revenue for now**.
+  No hosted APIs, no cloud rendering, no backend services (out of scope for a solo builder).
+  - Download page on vidtsx.com (mirroring GitHub Releases) with *optional* email capture —
+    never hard-gate the download; a lead magnet converts better than a gate.
+  - Lead magnet: a **free template pack** ("N motion graphics templates for VidTSX — free,
+    enter email"). Doubles as the seed of a later paid catalog.
+  - **Monthly template drops** as the recurring touchpoint: one drop = email + YouTube video
+    + tweet + changelog release. Paid packs/addons come much later, once the list is large
+    (FSL makes Hasan the only party who can sell commercially in the ecosystem).
+  - Free **client-side** web tools on vidtsx.com for SEO top-of-funnel (caption styler,
+    browser template gallery via Remotion Player) — nothing that needs backend maintenance.
+  - **Launch week, all in one week** (stars compound early; a staggered rollout wastes the
+    spike): email the existing ~7k vidtsx.com users, YouTube video, Show HN
+    ("Show HN: VidTSX — a free AI video editor with local models"), Product Hunt.
+    README doubles as the landing page: demo GIF above the fold, 30-second feature list.
+  - Upload the first `feed.json` (Phase I ships the client inert until the site has the file).
 - **Skills tuning surface.** The agent's editorial judgment is an editable markdown file
   in a shipped build (`resources/skills/*/SKILL.md`, copied to `resources/skills` next to
   the .exe by `electron-builder.yml:32-33`), but a change needs an app restart and there
@@ -725,6 +747,111 @@ Expect V2 to argue for dedicated SDKs there rather than stretching the preset sh
 
 ---
 
+## Phase I — Announcements feed (item 9)
+
+**Outcome:** the app shows a dismissible announcements card (news, template drops, links to
+Hasan's sites) whose content is a **static JSON file fetched from
+`https://vidtsx.com/app/feed.json`** — no backend, no API, no release needed to change the
+message. Upload a new file → every running app picks it up next launch.
+
+**Why static-file over GitHub raw or an API** (discussed 2026-08-16): vidtsx.com is already
+owned and will serve the auto-update feed anyway — one trusted domain for everything the app
+phones. GitHub raw would make every copy change a public commit and caches ~5 min. An API is
+maintenance/scaling burden for zero benefit; if fancier targeting is ever wanted, the static
+file can be swapped for a dynamic endpoint without touching the app (the app only knows a URL).
+
+**Implementation mirrors the updater pattern** (feed service in main → IPC → hook →
+chip/card), so it should feel native next to `UpdateChip`/`useUpdater`.
+
+### Trust rules (non-negotiable for a source-available app — auditors must come away *more* confident)
+
+1. **Data only, never code or HTML.** JSON with plain-text fields + a URL, rendered into
+   predefined card layouts. Nothing remote is evaluated or rendered as markup — a
+   compromised feed can at worst show a weird sentence.
+2. **Schema-validate and clamp in main**: cap string lengths, accept `https://` links only,
+   open them externally via the existing shell-open IPC — never in the app window.
+3. **Dismissible + opt-out**: every message has an `id`; dismissed ids persist locally and
+   never reshow. Settings checkbox "Show news and announcements" (default on) turns the
+   whole feature off.
+4. **Polite fetch**: once per launch (or 24 h), cache last-good response, fail silently when
+   offline/404. Plain GET, no query params, nothing about the user in the request.
+5. **Disclose it**: one line in README/privacy — "On launch the app fetches
+   `vidtsx.com/app/feed.json` to show announcements; no user data is sent; disable in
+   Settings."
+
+### Feed schema (v1)
+
+```json
+{
+  "messages": [
+    {
+      "id": "2026-08-template-pack",
+      "type": "announcement",        // announcement | tip | promo — styling hook only
+      "title": "New: 20 free motion graphics templates",
+      "body": "Grab the August template drop.",
+      "url": "https://vidtsx.com/templates",
+      "cta": "Get templates",
+      "startsAt": "2026-08-20",      // optional — schedule campaigns by uploading once
+      "endsAt": "2026-09-20",        // optional
+      "minAppVersion": "1.0.0"       // optional — target by version
+    }
+  ]
+}
+```
+
+### Tasks
+
+- [ ] **I1. Feed service** — `src/main/services/news-feed.ts`: fetch (main-process fetch/net),
+      JSON parse, schema validation + clamping, date-window + `minAppVersion` filtering,
+      last-good cache. Feed URL is a constant in ONE place.
+- [ ] **I2. Settings** — `newsEnabled: boolean` (default true) + `newsDismissedIds: string[]`
+      in the existing settings service (they're small; no new store).
+- [ ] **I3. IPC** — `NEWS_GET` (validated messages minus dismissed, empty when disabled),
+      `NEWS_DISMISS` — channels/types/preload/register per CLAUDE.md recipe.
+- [ ] **I4. UI** — `useNews` hook + dismissible `NewsCard` on the workspace/start screen
+      (most room, least intrusive); optional tiny unread chip in `StatusBar` behaving like
+      `UpdateChip`.
+- [ ] **I5. Settings toggle** in General settings ("Show news and announcements").
+- [ ] **I6. README disclosure** line (pairs with the licensing section's README work).
+
+**vidtsx.com isn't ready yet — that's fine.** The site work is post-V1 (see backlog); the
+client ships inert (404/offline → silently nothing) and lights up whenever the first
+`feed.json` is uploaded. That's why this can land in V1 without any site dependency.
+
+**Acceptance:** point the URL constant at a local test file → card renders; dismiss persists
+across restart; Settings toggle hides everything; offline/404/garbage JSON → silent, no
+errors surfaced; a message with `endsAt` in the past never renders; link opens in the
+default browser, not in-app.
+
+---
+
+## Licensing & repo prep (item 10 — decided 2026-08-16, must land before the repo goes public)
+
+**License: FSL-1.1-MIT** (Functional Source License — Sentry's, also used by GitButler).
+Free to use/modify/fork including for commercial video work; nobody may build a competing
+product/service from the code; each release auto-converts to **MIT after 2 years**. Chosen
+over: BUSL (heavier, corporate), n8n's Sustainable Use License (more restrictive),
+Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm Noncommercial
+(would technically forbid freelancers editing client videos — avoid). Full rationale in
+`PLAN.md` § "Source license".
+
+- [ ] Add `LICENSE.md` — FSL-1.1-MIT text (template at fsl.software), copyright Hasan Aboul Hasan.
+- [ ] README language: **"free and source-available"** / fair source. Never claim
+      "open source" (FSL is not OSI-approved; the distinction WILL be called out on HN).
+      Honest framing is an asset: "every release becomes MIT open source after two years."
+- [ ] README Remotion note: VidTSX is free; the Remotion engine underneath is free for
+      individuals and companies ≤3 people — larger companies need their own Remotion
+      company license (Remotion licenses the *user* of the software, not just the developer).
+      Also: talk to the Remotion team pre-launch — they actively promote apps built on
+      Remotion (free distribution).
+- [ ] CLA via cla-assistant (GitHub app, ~5 min setup) **before merging any outside PR**,
+      so relicensing rights are retained. Cannot be added retroactively.
+- [ ] Keep the non-forkable identity under Hasan's control: the VidTSX name, vidtsx.com,
+      the update feed, and the announcements feed (Phase I). Trademark registration is a
+      later, optional step — note it and move on.
+
+---
+
 ## Phase E — Release hardening & checklist
 
 ### Security cleanups (do these regardless)
@@ -743,6 +870,8 @@ Expect V2 to argue for dedicated SDKs there rather than stretching the preset sh
 - [ ] Cold-start check on the installed build: no model loads, no GPU probe, no spawned
       AI processes (Task Manager + startup log).
 - [ ] Hidden surfaces absent in the artifact; env flags verified OFF in the build env.
+- [ ] `LICENSE.md` (FSL-1.1-MIT) present; README says "source-available" (not "open source")
+      and carries the Remotion note + the feed disclosure line (I6).
 - [ ] Update `STATUS.md` (v1 scope section at `:264` + tech-debt list) when phases land.
 
 ---
@@ -795,7 +924,10 @@ Expect V2 to argue for dedicated SDKs there rather than stretching the preset sh
 
 A (flags/hiding, small & unblocks everything) → B (startup, isolated main-process work)
 → C (providers restructure, biggest) → D (polish, rides on C) → F (sd-cli install flow,
-pairs naturally with D's Image-tab polish) → **G (agent memory)** → **H (narrow the provider surface)** → E (hardening/release).
+pairs naturally with D's Image-tab polish) → **G (agent memory)** → **H (narrow the provider surface)**
+→ **I (announcements feed — small, independent, mirrors the updater; can slot anywhere after
+the updater work)** → **Licensing & repo prep** (files + README, zero code risk, must precede
+the public repo) → E (hardening/release).
 A and B are independent and could be done in either order.
 
 **Rev 2 note on ordering**: G's spike is done, so G1→G2 can start cold. H2's
@@ -827,4 +959,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-13 | F | sd-cli install flow implemented (see STATUS under Phase F): pinned+hashed upstream zip via download manager → userData/sd-cli, SDIMAGE_CLI_INSTALL IPC, Image-tab setup card, DLL cleanup from resources/binaries. Type gate/tests/build green. | After app restart: Phase C acceptance walkthrough + live sd-cli install click + a real local generation. Then Phase E (hardening). |
 | 2026-08-16 | G | Agent memory added to v1 scope (item 7) and designed with Hasan — full design in `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8). Four decisions answered: gated capture (manual + agent-proposed, silent inference rejected), app-wide scope with optional brand, all three tiers (rule/vocabulary/profile), Studio agent only. Rides existing seams: `composeSystemPrompt` for injection, `propose_memory` as a sibling of `propose_cuts`/`propose_shots`, the shot/cut-plan review gate for capture. Nothing implemented yet. | Implement G1 (store + types) → G2 (pure prompt composition). |
 | 2026-08-16 | G+H | **Design session only — no feature code.** Grilled both plans and revised them (`AGENT_MEMORY_DESIGN.md` §Rev 2, Phase G/H/Q6 above). Ran a 12-run spike through the real Agent-SDK options object on `claude-opus-5`: injection changes behaviour decisively (fluff cuts 2,2,2 baseline vs 0×9 with memory; note format 0/13 vs 36/36), `propose_memory` triggers 3/3 on general preferences and 0/3 on one-offs, citation works as prose 9/9 but is unparseable to ids. Verified in code: Studio agent passes no `sessionScope` so there is no hot session to evict; the SDK exposes no mid-conversation system message (`SDKUserMessage` is `MessageParam`); a string `systemPrompt` is taken verbatim; `composeSystemPrompt` puts skills *after* base so memory must be appended last. **Cut**: `lastCitedAt` + staleness pruning, brand-scope UI, the Assets memory section (→ a Studio dialog), the "replaces →" picker, profile-as-list. **Fixed**: budget 2000/cap 40 didn't fit → 4000/25. **New H finding**: `CustomProviderForm` ships both compat engine paths regardless of preset hiding (H5). | Implement G1 (store + types) → G2 (pure prompt composition, block appended last). |
+| 2026-08-16 | I + licensing | **Strategy session with Hasan — plan updates only, no code.** Direction set: goals are **email list, traffic, GitHub stars — no revenue work now**; no hosted APIs/cloud rendering (solo scope); learnwithhasan API integration is out, site is **vidtsx.com** (~7k existing users). License decided: **FSL-1.1-MIT** + CLA + "source-available" language + Remotion README note (new section above + `PLAN.md` § Source license). Announcements feed designed and added as **Phase I** (static `feed.json` on vidtsx.com, updater-pattern client, trust rules). vidtsx.com relaunch work (download page w/ optional email, free template-pack lead magnet, monthly drops, client-side web tools, one-week launch) recorded in the post-V1 backlog. | Implement G1 (store + types) → G2 (prompt composition). Phase I can slot in anytime. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

@@ -356,6 +356,30 @@ All template operations go through the same API client and API key from Phase 6.
 
 ## Key technical decisions
 
+### Source license (decided 2026-08-16)
+
+VidTSX Studio releases under **FSL-1.1-MIT** (Functional Source License, written by Sentry —
+also used by GitButler). What it means:
+
+- Anyone can use, modify, and fork the app for free — including for commercial video work.
+- Nobody may use the code to build a product or service that competes with VidTSX
+  (no rebrands-for-sale, no "VidTSX Cloud" by a third party).
+- Each release automatically converts to plain **MIT after 2 years**.
+
+Consequences that shape everything else:
+
+- **Marketing language is "free and source-available" (fair source), never "open source"** —
+  FSL is not OSI-approved and misusing the term invites (justified) backlash on HN/Reddit.
+- **CLA before the first outside PR** (cla-assistant GitHub app) so relicensing rights are
+  retained. Solo project today, but this cannot be added retroactively.
+- **README carries a Remotion note**: VidTSX itself is free; the underlying Remotion engine
+  is free for individuals and companies up to 3 people — larger companies need their own
+  Remotion company license (Remotion licenses the *user*, not just the developer).
+- The non-forkable identity is the **name + vidtsx.com + the update/announcement feeds** —
+  keep those under Hasan's control regardless of what happens to the code.
+- Hasan is the only party who can sell commercially in the ecosystem (template packs,
+  addons) — that is the long-term monetization seam, deliberately deferred for now.
+
 ### Dynamic TSX loading strategy
 The hardest part of the app is loading arbitrary TSX files in the Remotion player. Strategy:
 1. User imports/creates a .tsx file
