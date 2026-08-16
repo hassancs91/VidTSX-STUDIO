@@ -42,6 +42,8 @@ describe('composeMemoryBlock — scope + shape', () => {
     ]);
     expect(result.block).toBe(
       '## How this editor works with you\n\n' +
+        'These are things the user told you. Follow them. When you follow one, say ' +
+        'which one in your reply ("applied because …").\n\n' +
         '### Rules you have set\n- Cut filler tight.\n\n' +
         '### Names and spellings\n- "LearnWithHasan" (not "learn with Hassan")\n\n' +
         '### About you and your channel\nAI coding tutorials, 8-15 minutes.',

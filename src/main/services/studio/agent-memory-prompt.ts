@@ -22,7 +22,13 @@ const TIER_ORDER: Record<StudioMemory['kind'], number> = {
   profile: 2,
 };
 
-const BLOCK_HEADER = '## How this editor works with you';
+// Header + instruction preamble, exactly as proven in the Rev 2 spike — the
+// 9/9 citation rate came from the "say which one" line, so it is part of the
+// evidence-backed block, not decoration (AGENT_MEMORY_DESIGN.md §Rev 2.3).
+const BLOCK_HEADER =
+  '## How this editor works with you\n\n' +
+  'These are things the user told you. Follow them. When you follow one, say ' +
+  'which one in your reply ("applied because …").';
 const RULES_HEADER = '### Rules you have set';
 const VOCABULARY_HEADER = '### Names and spellings';
 const PROFILE_HEADER = '### About you and your channel';
