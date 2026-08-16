@@ -9,6 +9,86 @@
 
 ## Completed phases
 
+### Studio — L2/L7 LIBRARY DESCRIBE + ORGANIZE (2026-08-16)
+**Status: DONE — per ASSET_LIBRARY_DESIGN.md §L2 + §L7, CDP-verified end to
+end INCLUDING a real vision batch, a real organize pass, and a real
+hash-heal.** The slice is built around **L7 Rev 2's move-safety rule**, not
+around the move plan.
+**THE RULE**: a Studio project references library files IN PLACE by absolute
+path, and the hash-heal only runs on project OPEN — so moving a file out from
+under a live session breaks it until the next open. Organize therefore never
+proposes assets the currently-open project references; they return as
+`skipped` ("in use, close the project to move"), **not** as rejected
+proposals, because nothing about the suggestion was wrong — only its timing.
+The exclusion is keyed by **rel path AND content hash**, so a project whose
+stored path already went stale still pins the bytes. Enforced **twice**: at
+suggest, and again at APPLY, since the user can open a project between
+reviewing a plan and accepting it and the renderer is not the authority on a
+safety rule. A skipped asset does **not** reserve its destination against
+another move.
+**Confirmed already-shipped, deliberately not rebuilt**: the hash-search half
+(`studio-handlers.ts:211-228` → `healed` folded in at `useStudioMedia.ts:169`),
+manual description editing, and the index re-key — `scanLibrary` already
+re-keys a moved file by hash and carries its description
+(`library-reconcile.ts` pass 2), so `applyMoves` is `fs.rename` + ONE re-scan
+rather than a second, divergent re-key implementation.
+**Knowing what's open** crosses a feature boundary (`asset-library` and
+`studio` must not import each other), so it lives in a renderer-level
+`OpenProjectContext` (ToastContext precedent): Studio publishes, Assets
+reads. Screens stay mounted, so a project stays genuinely open while curating.
+**Descriptions (L2)**: vision call on the **app-default provider** (curation
+has no project context — a fixed rule). Batch describe copies the media-job
+engine — broadcast stream, per-item progress, concurrency 3, **per-item
+failure isolation** (one bad PNG fails one asset, never the batch). Batch
+**fills gaps, never overwrites** an existing description. Auto-describe on
+import is ON for library imports only; project footage goes through the
+Studio media pool and never reaches this path. The one-time consent (Rev 2)
+is enforced **in main** — a batch is refused until it exists. No provider
+(Rev 3) is a first-class state: both AI buttons disable with an explaining
+tooltip, a dismissible note says why descriptions and folders matter, and
+manual descriptions keep working. Availability re-probes on window focus and
+on Refresh — this screen never unmounts, so a provider configured later in
+Settings would otherwise stay invisible until restart (found while driving
+the app; fixed in this slice).
+**Modules**: `library-prefs` (consent/dismissal/import default, read straight
+from the settings KV like `library-paths` — settings.ts is a parallel
+workstream), `describe-availability`, `describe-asset`, `describe-job`,
+`organize-plan` (PURE — the in-use rule lives and is tested here),
+`organize-suggest` (prompt + tolerant parse, pure), `organize-run` (the LLM
+call), `organize-apply` (disk moves, split out so they carry none of the
+provider import chain), `library-ai-handlers`, and 6 IPC channels.
+**Tests +55 → 683 total** (in-use exclusion by path and by hash, skipped ≠
+destination-reserving, protected `brands/` and `.vidtsx/`, collisions and
+no-ops discarded, real disk moves + re-key with the description carried and
+NO tombstone, apply-time refusal, describe failure isolation, cancel,
+non-image filtering, dedup, no-provider degradation, tolerant plan parsing).
+Type baselines 26/22 exact. Of the updater session's dirty files only
+`channels.ts` and `electron.d.ts` were touched, staged as HEAD+my-lines blobs.
+**Live CDP proof**: consent dialog → real batch described 3 assets in ~7 s
+with genuine "what it is + how to use it" one-liners → manual edit persists →
+moved a library file behind the app's back (`captures/learnwithhasan.com/` →
+`Logos/`) → opening **"Shots core test"** HEALED the path by content hash with
+no picker → Organize **with that project still open** proposed 2 free moves
+and SKIPPED the healed in-use asset with the exact label → rejected one move,
+applied the other: file moved on disk, index re-keyed, the hand-written
+description survived, no new tombstone → cleared the default provider and the
+note + disabled buttons appeared while manual descriptions still saved →
+provider config restored byte-identical.
+**Note on the test project**: "Shots core test" is the project that references
+a library asset in place; "Auto Cut Test" only points at media outside the
+library, so it cannot exercise the skip.
+**Reusable test state**: the library now carries a deliberately misfiled
+in-use asset at `Logos/build-real-products-with-ai-vibe-enginee.png` (pinned
+by "Shots core test" — re-run Organize with it open to re-prove the skip),
+`captures/example.com/example-domain-shot.png` (moved by a real organize
+apply, hand-written description), and `claudecode-color-2.png` at the root
+(a rejected move). Describe consent is now granted on this machine.
+Known limits (deliberate): organize reads at most 400 assets per pass, one
+pass with no retry, and describe covers images only (the vision attachment
+carries nothing else). **Ambient nudges stay v2, as designed.**
+NEXT per roadmap: remaining library polish (L4/L5 agent-facing search) or the
+V1 release walkthrough — see V1_RELEASE_PLAN.md.
+
 ### Studio — D14 CREATOR IMPORT (2026-08-16)
 **Status: DONE — per TSX_SHOTS_DESIGN.md §D14 Rev 1 + PACKS_DESIGN.md
 "tsx-template", CDP-verified end-to-end INCLUDING a real export.** The slice is
