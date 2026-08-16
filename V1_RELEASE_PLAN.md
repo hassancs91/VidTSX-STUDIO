@@ -458,9 +458,19 @@ machine: release `master-778-c00a9e9`, asset `sd-master-c00a9e9-bin-win-vulkan-x
 
 ## Phase G — Agent memory: the editor that learns how you work (item 7)
 
-> **Full design: `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8).** This section is
-> the tactical slice; the design doc holds the record shape, the prompt block,
-> and the reasoning. Decisions 1–4 there are ANSWERED (Hasan, 2026-08-16).
+> **Full design: `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8, plus §Rev 2).**
+> This section is the tactical slice; the design doc holds the record shape,
+> the prompt block, and the reasoning. Decisions 1–4 there are ANSWERED
+> (Hasan, 2026-08-16).
+>
+> **Rev 2 (2026-08-16) — grilled with a spike before any code.** Four arms ×
+> 3 runs on `claude-opus-5` through the real Agent-SDK options object:
+> a memory block suppressed fluff cuts in **9/9** runs where the baseline
+> proposed them in **3/3**, and forced a note format in **36/36** cut notes
+> where the baseline managed **0/13**. `propose_memory` fired once on a general
+> preference in **3/3** and stayed silent on a one-off in **3/3**. Citation
+> works as prose (**9/9**) but is **not parseable into a signal** — so
+> `lastCitedAt` is cut. Full evidence in the design doc §Rev 2.
 
 The only product feature in this plan — the other six items are release
 hygiene. It is here because "the app gets better the more I use it" is a v1
@@ -484,33 +494,51 @@ rejected outright**, not deferred: a rejected cut plan is an ambiguous signal,
 and guessing wrong writes a permanent rule from a misreading. This is the same
 review gate as shot-plan, cut-plan and library organize.
 
+**The value half is G1+G2+G5.** Arm B of the spike used a *hand-written* memory
+block with no tool involved and got the entire measured behaviour change. G3+G4
+make capture effortless; they do not make it work. Build in that order.
+
 - [ ] **G1. Store + types.** `shared/types/studio-memory.ts`;
       `main/services/studio/agent-memory.ts` at `userData/studio/memory.json`,
       atomic tmp+rename (project-store precedent). *Not* the assets root —
       that holds content and is relocatable; memory is behaviour.
+      **Rev 2**: no `lastCitedAt` field. `brandId` on the record, no UI.
 - [ ] **G2. Prompt composition (PURE).** `agent-memory-prompt.ts`: scope
-      filter → tier order (rules → vocabulary → profile) → char budget
-      (~2000). Truncation drops profile first, then vocabulary; **rules are
+      filter → tier order (rules → vocabulary → profile) → char budget.
+      Truncation drops profile first, then vocabulary; **rules are
       never silently dropped**. Unit-tested with no fs and no provider.
+      **Rev 2**: budget **4000** chars / **25** rules (40-vs-2000 didn't fit —
+      design doc §Rev 2.6), and the block is appended **after** the composed
+      skills, not folded into the base prompt — otherwise every memory edit
+      re-writes 10.5 KB of skill text out of cache. Needs
+      `composeSystemPrompt(base, skillIds, trailing?)`.
 - [ ] **G3. `propose_memory` tool + pending queue.** One proposal per turn,
       general preferences only ("I always want tight cuts" yes; "make this one
       shorter" no), never a duplicate of an active memory. Proposals persist
       until answered so navigation doesn't lose one.
+      **Rev 2**: the prose policy tested clean untuned (3/3 and 0/3) — ship it
+      as written in M2, don't redesign it.
 - [ ] **G4. Studio surface.** Proposal card in the assistant panel, where the
       correction happened — accept / edit-then-accept / reject, with
-      same-kind active memories shown inline so conflicts are visible, plus a
-      "replaces →" picker.
-- [ ] **G5. Assets surface.** Memory section beside Brands (same screen, same
-      shape of data): browse by tier, edit, toggle active, delete, with
-      provenance and last-cited shown.
-- [ ] **G6. Hygiene.** `MAX_ACTIVE_RULES` (40) with forced pruning at the cap;
-      toggle-off rather than delete; **"applied because"** — the agent cites
-      the memories it followed, which stamps `lastCitedAt` and turns "it
-      learned" into something auditable.
+      same-kind active memories shown inline so conflicts are visible.
+      **Rev 2**: no "replaces →" picker — showing the list does the work.
+- [ ] **G5. Management surface — in Studio, not Assets.** A `MemoryDialog` off
+      the assistant panel: browse by tier, edit, toggle active, delete, with
+      provenance. **Rev 2**: moved off the Assets screen (design doc M6 Rev 2)
+      — memory is app state, not library content (M7's own argument), and the
+      Assets toolbar is already Brands · Describe · Organize · Refresh.
+      `asset-library` stays untouched.
+- [ ] **G6. Hygiene.** `MAX_ACTIVE_RULES` (25) — at the cap, accepting requires
+      deactivating something; toggle-off rather than delete; **"applied
+      because"** — the agent cites the memories it followed in its reply.
+      **Rev 2**: citation is a user-facing trust feature only. No
+      `lastCitedAt` stamp, no staleness pruning — the citations are prose and
+      cannot be mapped to ids reliably (§Rev 2.3).
 - [ ] **G7. Live CDP acceptance.** State a general preference → one proposal →
-      accept → visible in Assets with agent provenance → next turn cites it
-      and behaviour matches → toggle off → citation stops → a one-off
-      instruction produces NO proposal.
+      accept → visible in the memory dialog with agent provenance → next turn
+      **behaves** differently and says why → toggle off → the behaviour
+      reverts → a one-off instruction produces NO proposal.
+      **Rev 2**: assert behaviour, not citation, on the toggle-off leg.
 
 **Explicitly out of v1** (M8): semantic retrieval (embeddings exist, but only
 earn their cost past the budget), the STT vocabulary feed (no word-boost hook
@@ -549,29 +577,74 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
    `generate_tsx_shot`, and (Phase G) **no `propose_memory`**. It can still chat, and the
    non-agentic AI features (describe, organize, TSX generation) work fine.
 
+> **Rev 2 (2026-08-16) — one verified fact reframes this whole phase.**
+> **Hiding presets does not narrow the shipped engine surface.**
+> `CustomProviderForm.tsx:9,37` lets any user create a provider with
+> `protocol: 'openai-compat' | 'anthropic-compat'` against an arbitrary base
+> URL, and C4 deliberately kept that form in the unified API-keys section. So
+> **both compat engine paths ship in V1 whether or not the `openai` preset is
+> visible** — and `anthropic-compat` isn't even in the table below. Hiding
+> presets narrows the *supported, documented* surface (a real goal), not the
+> *reachable code* (which is what "a support surface we can stand behind"
+> sounds like it means). Decide which one you want; see H5.
+
 - [ ] **H1. Pick the set, with eyes open.** Proposed: `claude-subscription` + `claude-api`
       (the reference path), `zai` (agent-sdk, cheap, full feature parity), and `gemini`
       (the one genuinely different engine implementation). Note `gemini` ships *knowingly*
       degraded on the Studio agent — see H3. `local` already self-hides when
       node-llama-cpp isn't loadable (`llm-handlers.ts:32`).
-- [ ] **H2. Hide presets without stranding existing configs.** Filter `PROVIDER_PRESETS`
-      the way the local provider is already filtered — but **a user who has a now-hidden
-      provider configured must keep working**, and if their `activeProvider` points at a
-      hidden preset, migrate it rather than leaving it dangling. This exact failure mode
-      already bit us once: the stale-`activeProvider` picker dead-end fixed in `01d717c`.
-      A hidden preset means "can't add a new one", never "your saved config vanished".
+- [ ] **H2. Hide presets without stranding existing configs.** **Rev 2 — the rule is
+      one line: filter `presets`, NEVER `providers`.** The local filter at
+      `llm-handlers.ts:32-38` filters *both* (its own comment says "and any stale saved
+      config") — correct for `local`, which genuinely cannot run, and **exactly the bug
+      to avoid here**. `handleLlmProvidersGet` returns three lists; only `presets` (the
+      "add a new one" menu) may shrink.
+      Two stranding vectors to close, one of them not previously named:
+      - `llmActiveProvider` pointing at a hidden preset with no saved config → migrate
+        to the first usable provider, mirroring `useActiveImageProvider`'s fix in
+        `01d717c`. Note `resolveToolSupport` (`studio-agent.ts:118`) reads
+        `getLlmProviders()` from settings **unfiltered**, so main keeps the truth — the
+        divergence is renderer-only, which is why filtering in the handler is safe.
+      - **Per-project `project.settings.agent.providerId`** (`InspectorPanel.tsx:187`).
+        This is persisted per Studio project, and the Select's options come from
+        `llmProvidersGet().providers.filter(p => p.enabled)`. If that list ever loses a
+        provider a project still points at, the dropdown renders blank while the project
+        keeps *sending* that providerId every turn — the UI and the run silently
+        disagree. Following the filter-presets-only rule prevents this; add a test that
+        an unknown/hidden `agent.providerId` renders as an explicit
+        "(unavailable — using app default)" option rather than an empty select.
 - [ ] **H3. Say what a provider can't do, in the UI.** Selecting a non-`agent-sdk`
       provider should state plainly that the Studio agent runs without tools there
       (no cut/shot/memory proposals) — a designed degradation, surfaced, not discovered.
+      Cheapest home: the helper line already under the Provider select in
+      `InspectorPanel.tsx:198-201`, which is where the choice is actually made.
+      **Note the Phase G interaction**: memory *injection* works on every provider
+      (every provider takes a system prompt), only agent-*proposed* capture is
+      agent-sdk-only. The copy must say that, or users on `gemini` will assume memory
+      is broken rather than half-available.
 - [ ] **H4. Re-enable behind a flag, not a rebuild.** Hidden presets come back via the
       Phase A env-flag mechanism so a dev build can demo any provider without a release.
+- [ ] **H5. Decide the compat paths on purpose. (Rev 2 — new.)** Given the Rev 2 fact
+      above, pick one and write it down:
+      - **(a) Keep the custom-endpoint form** → `openai-compat` and `anthropic-compat`
+        ship and **must be smoke-tested before release** (one generation each through a
+        custom endpoint). Hiding the `openai` preset then buys nothing in path coverage
+        and should be argued on support-surface grounds alone.
+      - **(b) Flag the custom-endpoint form off for V1** → the compat paths genuinely
+        don't ship, `openai` stays hidden, and the tested surface is `agent-sdk` +
+        `gemini` only. Costs power users their custom endpoints.
+      **Proposed: (a)**, because the form is already built, shipped and useful, and two
+      smoke tests are cheaper than removing a feature. What is *not* acceptable is
+      shipping (a) while believing (b) — that is how "untested" becomes an accident
+      instead of a decision.
 
-**What this does and does not buy.** It buys a smaller support surface and a real
+**What this does and does not buy.** It buys a smaller *supported* surface and a real
 feedback loop — the honest reasons. It does **not** buy per-provider caching data
-(fact 1), and a Claude + Z.AI pair is a single caching data point, not two. If we also
-want the `openai-compat` engine path covered before scaling, `openai` is the only preset
-that exercises it — worth adding as a fourth if we care, and worth knowing we're *not*
-testing it if we don't.
+(fact 1); a Claude + Z.AI pair is a single caching data point, not two. **Rev 2**: it
+also does not buy reduced engine-path exposure while the custom-endpoint form ships
+(H5). ~~If we also want the `openai-compat` engine path covered before scaling,
+`openai` is the only preset that exercises it~~ — superseded: the custom form exercises
+it too.
 
 ---
 
@@ -615,13 +688,31 @@ testing it if we don't.
   regroup? Proposed: keep as-is, zero-risk.
 - **Q6 — Agent memory (G) vs the release date:** G is the one *feature* in an otherwise
   hygiene-only plan, and it is the largest remaining item. If the release date tightens,
-  G1+G2+G5 (store, prompt composition, manual entry in Assets) still ship a real
+  G1+G2+G5 (store, prompt composition, manual entry) still ship a real
   "preferences the agent follows" feature; G3+G4 (agent-proposed capture) are what make it
-  *learn*, and are the half to defer. Proposed: ship G whole — the learning half is the
-  selling point — but treat that split as the pressure valve.
-- **QM1 / QM2** — two smaller open questions live in
-  `docs/studio/AGENT_MEMORY_DESIGN.md` (profile as list vs free text; whether
-  `lastCitedAt` drives an automatic stale-rule nudge).
+  *learn*, and are the half to defer. ~~Proposed: ship G whole — the learning half is the
+  selling point~~
+  **ANSWERED Rev 2 (2026-08-16), and the framing was backwards.** The spike separates
+  *value* from *narrative* cleanly:
+  - **All of the measured behaviour change comes from G1+G2+G5.** Arm B injected a
+    hand-written block and got 9/9 fluff suppression, 36/36 note-format compliance and
+    3/3 citation — with no `propose_memory` tool in the run at all. Injection is the
+    product.
+  - **G3+G4 is convenience, not capability.** It works (3/3 correct, 0/3 false
+    positives, untuned), and it is what makes the feature *feel* like learning rather
+    than like a settings page. That is a real marketing difference and a small
+    engineering one — a tool definition plus one card.
+  - **So: what does V1 lose if memory ships in V1.1?** Nothing structural. Every other
+    item in this plan is hygiene, and none depends on G. What V1 loses is its only
+    reason for an existing user to notice the release. That is a positioning cost, not
+    a technical one, and it is Hasan's call — but it is now a call made against
+    evidence rather than a guess about whether the feature works.
+  - **Recommendation: ship G1+G2+G5 in V1 as non-negotiable, and G3+G4 in V1 if H and E
+    are on schedule when G lands.** The pressure valve stays, but it is now cutting the
+    cheap half rather than the valuable one.
+- **QM1 / QM2** — ~~two smaller open questions~~ **both answered in Rev 2** of
+  `docs/studio/AGENT_MEMORY_DESIGN.md`: profile is one free-text box (QM1);
+  QM2 is moot because `lastCitedAt` is cut.
 
 ## Suggested execution order
 
@@ -629,6 +720,10 @@ A (flags/hiding, small & unblocks everything) → B (startup, isolated main-proc
 → C (providers restructure, biggest) → D (polish, rides on C) → F (sd-cli install flow,
 pairs naturally with D's Image-tab polish) → **G (agent memory)** → **H (narrow the provider surface)** → E (hardening/release).
 A and B are independent and could be done in either order.
+
+**Rev 2 note on ordering**: G's spike is done, so G1→G2 can start cold. H2's
+filter-presets-only rule and H5's compat-path decision are independent of G and could be
+taken any time; only H3's copy needs G's degradation to be real.
 
 H comes after G on purpose: Phase G is the thing whose provider behaviour differs most
 (agent-proposed capture needs `agent-sdk` tools), so pick the shipping set once memory
@@ -654,4 +749,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-13 | D | Visual kit (`StatusBadge` + Panel/Select/TextInput adoption), full-width `max-w-6xl` layout, 2-col System tab, Image installed/available split, Audio side-by-side cards. Type gate + 374 tests green; CDP screenshot sweep at 1188 + 1280×800, no h-scroll. Committed `ec498a2`. | Phase F (sd-cli install flow); Phase C walkthrough still pending app restart. |
 | 2026-08-13 | F | sd-cli install flow implemented (see STATUS under Phase F): pinned+hashed upstream zip via download manager → userData/sd-cli, SDIMAGE_CLI_INSTALL IPC, Image-tab setup card, DLL cleanup from resources/binaries. Type gate/tests/build green. | After app restart: Phase C acceptance walkthrough + live sd-cli install click + a real local generation. Then Phase E (hardening). |
 | 2026-08-16 | G | Agent memory added to v1 scope (item 7) and designed with Hasan — full design in `docs/studio/AGENT_MEMORY_DESIGN.md` (M1–M8). Four decisions answered: gated capture (manual + agent-proposed, silent inference rejected), app-wide scope with optional brand, all three tiers (rule/vocabulary/profile), Studio agent only. Rides existing seams: `composeSystemPrompt` for injection, `propose_memory` as a sibling of `propose_cuts`/`propose_shots`, the shot/cut-plan review gate for capture. Nothing implemented yet. | Implement G1 (store + types) → G2 (pure prompt composition). |
+| 2026-08-16 | G+H | **Design session only — no feature code.** Grilled both plans and revised them (`AGENT_MEMORY_DESIGN.md` §Rev 2, Phase G/H/Q6 above). Ran a 12-run spike through the real Agent-SDK options object on `claude-opus-5`: injection changes behaviour decisively (fluff cuts 2,2,2 baseline vs 0×9 with memory; note format 0/13 vs 36/36), `propose_memory` triggers 3/3 on general preferences and 0/3 on one-offs, citation works as prose 9/9 but is unparseable to ids. Verified in code: Studio agent passes no `sessionScope` so there is no hot session to evict; the SDK exposes no mid-conversation system message (`SDKUserMessage` is `MessageParam`); a string `systemPrompt` is taken verbatim; `composeSystemPrompt` puts skills *after* base so memory must be appended last. **Cut**: `lastCitedAt` + staleness pruning, brand-scope UI, the Assets memory section (→ a Studio dialog), the "replaces →" picker, profile-as-list. **Fixed**: budget 2000/cap 40 didn't fit → 4000/25. **New H finding**: `CustomProviderForm` ships both compat engine paths regardless of preset hiding (H5). | Implement G1 (store + types) → G2 (pure prompt composition, block appended last). |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

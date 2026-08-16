@@ -9,6 +9,55 @@
 
 ## Completed phases
 
+### V1 Phase G + H — PLANS GRILLED AND REVISED (2026-08-16)
+**Status: DESIGN ONLY — no feature code. `docs/studio/AGENT_MEMORY_DESIGN.md`
+§Rev 2 + Phase G/H/Q6 in `V1_RELEASE_PLAN.md`.**
+The open question was whether agent memory is worth building at all, so it got
+tested before it got built. A throwaway harness (`.vidtsx-temp/`, gitignored)
+drove `query()` with **the same options object `claude-provider.ts:151-174`
+builds** — string systemPrompt, `settingSources: []`, a real in-process MCP
+server — on `claude-opus-5`, against the real agent prompt + both real skill
+files. 4 arms × 3 runs, all 12 clean.
+**Injection works, decisively**: a one-line user rule ("never propose fluff
+cuts") suppressed fluff in **9/9** runs where the baseline proposed 2 every
+time (**3/3**); a note-format rule hit **36/36** vs the baseline's **0/13**.
+It also *reduced variance* — the memory arm produced an identical cut-category
+sequence all three runs where the baseline produced three different ones.
+**Capture triggers correctly untuned**: `propose_memory` fired exactly once on
+a general preference (**3/3**) and never on a one-off (**3/3**), even when the
+one-off was the kind of pacing instruction that invites a mis-file.
+**Citation is prose, not a signal**: the agent cites reliably (**9/9**) and
+reads well, but mapping "your standing rule says never propose fluff" back to a
+memory id is fuzzy matching — my own scoring regex, written against a known
+fixture, missed a plainly-worded citation. So **`lastCitedAt` is cut**, and
+with it the staleness-pruning story and M4's most dangerous cache rule.
+**Verified in code, changing two design claims**: the Studio agent passes no
+`sessionScope`, so `generate()` takes the ephemeral branch and every turn
+already spawns and tears down its own claude.exe — `matches()`'s systemPrompt
+check never runs, so accepting a memory mid-conversation costs exactly one
+cache write (M4's stance holds, for a different reason). And the SDK exposes
+**no** mid-conversation system message (`SDKUserMessage.message` is a
+`MessageParam`); the real mechanism is `SYSTEM_PROMPT_DYNAMIC_BOUNDARY`,
+recorded and deliberately not taken. A string `systemPrompt` is passed
+verbatim with no SDK preamble, so M4's caching premise is sound — but
+`composeSystemPrompt` appends skills *after* base, so **memory must be appended
+last** or every edit re-writes 10.5 KB of skill text out of cache.
+**Cut from G**: `lastCitedAt`, brand-scope UI (field + pure filter stay, so
+there is never a migration), the Assets memory section (→ one Studio dialog —
+memory is app state, not library content, by M7's own argument), the
+"replaces →" picker, profile-as-list. **Fixed**: budget 2000 chars vs cap 40
+rules never fit (~3,200 chars of rules) → **4000 / 25**, with a stated review
+trigger.
+**Phase H's premise moved**: `CustomProviderForm` lets users create
+`openai-compat`/`anthropic-compat` providers, so **both compat engine paths
+ship whether or not the `openai` preset is hidden** — hiding narrows the
+*supported* surface, not the reachable code (new H5 decides this on purpose).
+H2's rule is now one line: **filter `presets`, never `providers`** — the local
+filter at `llm-handlers.ts:32-38` drops saved configs too, which is right for
+`local` and exactly the bug to avoid here. Second stranding vector named:
+per-project `settings.agent.providerId` can leave the Inspector select blank
+while the project keeps sending that provider every turn.
+
 ### Studio — L2/L7 LIBRARY DESCRIBE + ORGANIZE (2026-08-16)
 **Status: DONE — per ASSET_LIBRARY_DESIGN.md §L2 + §L7, CDP-verified end to
 end INCLUDING a real vision batch, a real organize pass, and a real

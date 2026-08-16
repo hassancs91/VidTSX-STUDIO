@@ -4,6 +4,14 @@
 > use it. Not by guessing: by accumulating a small, inspectable set of things
 > you told it, and reading them on every turn.
 
+> **Rev 2 (2026-08-16) — grilled, with a measurement behind it.** The design
+> below is Rev 1 and stands except where a `Rev 2:` callout says otherwise.
+> The evidence and the revised decisions live in **§Rev 2** at the bottom;
+> read it before building. Headline: injection **works** (12/12 runs), agent
+> proposal **triggers correctly** (3/3 general, 0/3 one-off), citation **works
+> as prose but cannot be parsed into a machine signal** — so `lastCitedAt` is
+> cut.
+
 ## What this builds on
 
 Almost none of this is new machinery. Three seams already exist:
@@ -57,12 +65,13 @@ export interface StudioMemory {
     | { by: 'agent'; projectId: string; acceptedAt: string };
   createdAt: string;
   updatedAt: string;
-  /** Stamped when the agent CITES this memory in a turn (M5) — not when it
-   *  is merely injected. This is the "which of my rules actually matter"
-   *  signal that makes pruning possible. */
-  lastCitedAt?: string;
+  /** REMOVED in Rev 2 — citation is prose, not a parseable signal. See §Rev 2.3.
+   *  lastCitedAt?: string; */
 }
 ```
+
+> **Rev 2:** `lastCitedAt` is **cut from the record**. `brandId` **stays in the
+> record and in the pure scope filter, but ships with no UI** (§Rev 2.4).
 
 ## M2. Capture — two doors, both gated
 
@@ -85,6 +94,14 @@ The policy for *when* to propose ships as agent prompt policy (the
   to reject reflexively, which destroys the gate's value.
 - Never propose something already in memory (the active set is in its prompt,
   so it can see the duplicates).
+
+> **Rev 2 — this policy was tested before building anything and it holds.**
+> With the three bullets above as prose in the prompt and a throwaway
+> `propose_memory` tool: a turn where the user states a general preference
+> proposed exactly **one** memory in **3/3** runs; a turn where the user gives a
+> one-off instruction ("make this one especially tight, I need it under 45 s
+> for this upload") proposed **0** in **3/3**. No tuning was needed. Details in
+> §Rev 2.2.
 
 **Explicitly out of scope: silent inference.** The agent may not conclude a
 lesson from a rejection, a re-cut, or an undo. Those signals are ambiguous —
@@ -126,6 +143,14 @@ gets the one extra dimension that genuinely differs, and no more.
 Scope is resolved at prompt-build time, not at write time, so re-pointing a
 project at another brand changes which memories apply with no migration.
 
+> **Rev 2 — field yes, UI no.** `brandId` stays in the record and in the pure
+> scope filter (three lines, unit-tested), because that is what makes the
+> dimension free to add later with no migration. It ships with **no picker and
+> no brand column** in v1: every memory is created app-wide. The whole assets
+> root today holds exactly one brand, `acme-test`, a fixture — there is no
+> second channel to scope against, so the UI would be built for a user who does
+> not exist yet. See §Rev 2.4.
+
 ## M4. Injection — one composed block, hard budget
 
 The active, in-scope memories become a single block appended to the agent's
@@ -145,6 +170,16 @@ system prompt through the existing composition step:
 ### About you and your channel
 AI coding tutorials for developers, 8–15 minutes, direct and practical.
 ```
+
+> **Rev 2 — the block must be the LAST thing in the system prompt**, after the
+> composed skills, not part of the base prompt. `composeSystemPrompt` renders
+> `${basePrompt}\n\n---\n\n${skills}` (`skills-registry.ts:164`), so a memory
+> block folded into `buildAgentSystemPrompt`'s output would sit *ahead* of
+> 10,508 chars (~2,600 tokens) of `studio-clean-cut` + `studio-make-tsx`, and
+> every memory edit would re-write those skill blocks at cache-write price for
+> nothing. Implementation: `composeSystemPrompt(base, skillIds, trailing?)`
+> with the memory block passed as `trailing` — prompt assembly stays in one
+> place. See §Rev 2.5.
 
 Ordering is **rules → vocabulary → profile**, and it is load-bearing: under a
 character budget (`MEMORY_PROMPT_BUDGET`, ~2000 chars to start) the lowest
@@ -183,11 +218,23 @@ Three rules follow, and the first is load-bearing:
 2. **Accepting a memory mid-session invalidates the cached prefix** for the
    rest of that conversation (one extra cache write on the history, then
    reads resume). This is bounded, rare and user-initiated, so v1 accepts it.
-   The proper fix is a mid-conversation system message — appending
-   `{role: "system", …}` to `messages[]` rather than editing the top-level
-   system prompt preserves the prefix — but it is model-gated and it is not
-   yet established whether the Agent SDK exposes it. Treat as a later
-   optimization, and verify against the Agent SDK docs before assuming it.
+   ~~The proper fix is a mid-conversation system message…~~
+   > **Rev 2 — verified, and both halves of this were wrong in a useful way.**
+   > (a) There is **no session to evict**: `studio-agent.ts` passes no
+   > `sessionScope`, so `ClaudeProvider.generate` takes the scope-less branch
+   > and closes the session in a `finally` (`claude-provider.ts:203-211`) —
+   > every Studio turn already spawns and tears down its own claude.exe. The
+   > `matches()` systemPrompt check (`claude-session.ts:112-118`) is never
+   > consulted for this agent, so a mid-conversation memory change costs
+   > exactly one server-side cache write and nothing else. **M4's "v1 accepts
+   > it" stance holds, and cheaply.**
+   > (b) The speculated fix **does not exist**: `SDKUserMessage.message` is an
+   > Anthropic `MessageParam`, whose role is `user | assistant` only — the SDK
+   > exposes no `{role:"system"}` in `messages[]`. The mechanism it *does*
+   > expose is `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` with a `string[]` systemPrompt,
+   > which splits a custom prompt into a globally-cacheable static prefix and a
+   > session-dynamic suffix. That is a different (and better) optimization than
+   > the one guessed at — see §Rev 2.5 for why it is **not** worth taking in G.
 3. **Changing the system prompt does not invalidate the tools cache** (system
    and messages only). So a memory edit never re-bills the tool schemas —
    another reason memory belongs in `system` rather than ahead of `tools`.
@@ -209,14 +256,29 @@ mechanism. Five countermeasures, all cheap:
   existing active memories of the same kind and scope right in the card, with
   a "replaces →" picker. Deterministic and free; no LLM, no false confidence.
   (LLM-assisted conflict detection is a later refinement, not v1.)
-- **A cap** — `MAX_ACTIVE_RULES` (40). At the cap, accepting requires
+- **A cap** — ~~`MAX_ACTIVE_RULES` (40)~~. At the cap, accepting requires
   deactivating something. Unbounded memory is worse than none.
+  > **Rev 2 — 40 and 2000 are arithmetically incompatible.** The rules in the
+  > spike ran 60–110 chars; at ~80 chars, 40 rules is ~3,200 chars, so a full
+  > rule set overflows a 2,000-char budget on its own — and "rules are never
+  > silently dropped" then fires permanently. Revised to
+  > **`MEMORY_PROMPT_BUDGET = 4000` chars, `MAX_ACTIVE_RULES = 25`**, which
+  > leaves ~2,000 chars for rules and ~2,000 for vocabulary + profile. Both are
+  > still provisional; §Rev 2.6 gives the derivation and the review trigger.
 - **Toggle off, not just delete** — preserves history and makes "did this
   rule cause that?" answerable by flipping it.
 - **"Applied because"** — when the agent follows a memory it says so in its
-  reply, and that citation stamps `lastCitedAt`. This is what turns "the app
-  learned" from a feeling into something you can audit, and it gives the
-  pruning UI a real signal: rules never cited in months are the ones to cut.
+  reply. ~~and that citation stamps `lastCitedAt`~~
+  > **Rev 2 — keep the prose, cut the timestamp.** The agent cites reliably
+  > (9/9 runs) and the citations read well, so this ships as the trust feature
+  > it was meant to be. But it is **prose, not a signal**: the reply says
+  > "applied because of your rule that you decide what's off-topic yourself" or
+  > "your standing rule says never propose fluff" — mapping that back to a
+  > memory `id` is fuzzy matching. In the spike my own scoring regex, written
+  > knowing the exact fixture, **missed a plainly-worded citation**. A stamp
+  > derived from that would be wrong often enough that "never cited in months"
+  > would prune rules the agent had been following all along. `lastCitedAt` is
+  > cut, and with it the pruning-UI story; §Rev 2.3 says what replaces it.
 
 ## M6. Surfaces — two views, one store
 
@@ -224,13 +286,40 @@ mechanism. Five countermeasures, all cheap:
 correction happened. A user who just told the agent something wants "I'll
 remember that" *right there*, not on another screen.
 
-**In Assets (beside Brands)** — the browse, edit, toggle and prune surface,
+~~**In Assets (beside Brands)**~~ — the browse, edit, toggle and prune surface,
 grouped by tier, with provenance and last-cited shown. Brands already lives
 here (L3 Rev 3) and is the same shape of thing: durable, cross-project
 preference data that is not a file.
 
 Feature isolation holds: `asset-library` and `studio` never import each
 other. Both talk to `src/shared/` types and the memory IPC surface.
+
+> **Rev 2 — one surface, in Studio. Memory does not go on the Assets screen.**
+> Three reasons, in order of weight:
+> 1. **M7 already argues against it.** Memory is stored in
+>    `userData/studio/memory.json` and explicitly *not* in the assets root,
+>    because "that root holds content; memory is behaviour". The same sentence
+>    that keeps memory out of the assets *folder* keeps it off the assets
+>    *screen*. Brands are asset-adjacent — logos and palettes are real files in
+>    that root. Memory is not.
+> 2. **The Assets screen is filling up.** L2/L7 added Describe with AI,
+>    Organize, a dismissible no-provider note and a progress strip; the toolbar
+>    is already Brands · Describe · Organize · Refresh. A fifth entry point to
+>    an unrelated feature is how a screen becomes a junk drawer.
+> 3. **Two surfaces was never load-bearing.** M6's own argument is that the
+>    proposal card belongs where the correction happened. The management view
+>    can live one click away from it.
+>
+> **Revised**: one `MemoryDialog`, opened from the assistant panel
+> (`AgentPanel`), holding browse / edit / toggle / delete. Proposal cards stay
+> inline in the panel. `asset-library` is untouched, so the feature-isolation
+> question disappears rather than being managed.
+>
+> The cost, stated plainly: app-wide data is only reachable from inside an open
+> project. That is acceptable while the Studio agent is memory's only consumer
+> (M8) — there is nowhere else it could be read *from*. If memory ever reaches
+> TSX generation or image prompts, it earns a home outside Studio, and adding
+> an Assets toolbar button then is a one-line change.
 
 ## M7. Module layout & IPC
 
@@ -244,9 +333,11 @@ src/main/services/studio/
   agent-memory-proposals.ts              pending queue (survives navigation)
 src/main/ipc/memory-handlers.ts + registrations/memory.ts
 src/preload/api/memory.ts
-src/features/asset-library/components/MemorySection.tsx   management UI
-src/features/studio/components/…          proposal card in the assistant panel
+src/features/studio/components/MemoryDialog.tsx      management UI (Rev 2)
+src/features/studio/components/MemoryProposalCard.tsx  in the assistant panel
 ```
+
+> **Rev 2:** the management UI moved out of `asset-library` (M6 Rev 2).
 
 **Storage**: `userData/studio/memory.json`, atomic tmp+rename. Not the assets
 root — that root is relocatable and shareable, and it holds *content*
@@ -310,8 +401,260 @@ Named so they do not get built by accident:
 Open, to settle while building:
 
 - **QM1** — Does the profile tier want to be one free-text box rather than a
-  list of entries? Proposed: keep it a list for a uniform record and UI, but
-  render it as a single paragraph in the prompt block.
+  list of entries? ~~Proposed: keep it a list~~ **ANSWERED Rev 2: one free-text
+  box.** The block renders profile as a single paragraph either way, so a list
+  buys a uniform record shape and costs a second editing affordance for a
+  field that changes once a year. Store it as one `profile`-kind entry;
+  editing replaces its `text`.
 - **QM2** — Should `lastCitedAt` drive an automatic "stale rule" prompt after
-  N months, or stay a column the user reads? Proposed: a column in v1; any
-  automatic nudge is the same ambient-suggestion pattern deferred in L7.
+  N months, or stay a column the user reads? **MOOT Rev 2** — `lastCitedAt` is
+  cut (§Rev 2.3). Neither.
+
+---
+
+# Rev 2 (2026-08-16) — the grill, with evidence
+
+Rev 1 was designed but unproven. This section is what four hours of
+verification and one spike changed. **Nothing was implemented**; the spike is
+a throwaway harness under `.vidtsx-temp/` (gitignored), not app code.
+
+## Rev 2.0 — The spike, and why it is trustworthy
+
+`memory-spike.mjs` drives `query()` from `@anthropic-ai/claude-agent-sdk` with
+**the same options object `claude-provider.ts:151-174` builds** — string
+`systemPrompt`, `settingSources: []`, an in-process `createSdkMcpServer` — on
+`claude-opus-5`, the model the Studio agent actually logs (10/11 auto-cut runs
+in the ai-usage DB). The system prompt is the real `buildAgentSystemPrompt`
+text plus the two real skill files read off disk. Tools are real MCP tools
+(`get_transcript`, `propose_cuts`, `propose_memory`) that record their args.
+The fixture is a 62 s takes-view transcript with a retake behind a spoken
+"Other take." slate, two standalone fillers, two fluff spans, and the channel
+name mis-transcribed as "learn with Hassan".
+
+Four arms × 3 runs, all 12 succeeded:
+
+| Arm | Memory block | `propose_memory` | User turn |
+|---|---|---|---|
+| A | — | — | "Do an editorial pass" |
+| B | yes | — | "Do an editorial pass" |
+| C | yes | yes | pass + **general** preference ("I always want…on every project") |
+| D | yes | yes | pass + **one-off** ("make this one tight, under 45 s for this upload") |
+
+The memory block held two rules ("never propose fluff cuts — I decide what is
+off-topic myself"; "every cut note must name its segment number, like #4"),
+one vocabulary entry (LearnWithHasan) and one profile line — 573 chars total.
+
+## Rev 2.1 — Is memory worth building? **Yes. This is the finding that carries the phase.**
+
+| Probe | A (no memory) | B/C/D (memory) |
+|---|---|---|
+| `fluff` cuts proposed | **2, 2, 2** | **0** in all 9 runs |
+| Cut notes naming their segment (`#4`) | **0 / 13** | **36 / 36** |
+| Correct "LearnWithHasan" spelling used | 0 / 3 | 8 / 9 |
+
+Perfect separation on both rules, 12/12, with no prompt tuning. A one-line
+user-authored rule reliably overrides a shipped skill's explicit instruction —
+`studio-clean-cut` tells the agent to propose fluff as suggest-only, and the
+memory rule suppressed it every time without the agent going silent about it
+(it listed the fluff spots in prose instead, unprompted: *"Two spots you may
+want to look at on your own…"*). That is the behaviour you would want and it
+was not asked for.
+
+Secondary finding, unlooked-for: **memory reduced output variance.** Arm A
+produced three different cut-category sequences across three runs; arm B
+produced the identical sequence `filler|retake|retake|filler` all three times.
+
+Vocabulary is real but weaker than rules: the correct spelling appeared in 8/9
+memory runs and 0/3 baseline runs, but the *mangled* form also appears in every
+arm — the agent quotes the transcript verbatim when explaining a cut, which is
+correct behaviour. Vocabulary steers what the agent *writes*, not what it
+*quotes*. Do not oversell that tier in UI copy.
+
+**Verdict: build it.** The doubt in "no evidence that user-authored rules
+measurably change agent output" is resolved as strongly as a spike can resolve
+it.
+
+## Rev 2.2 — Does `propose_memory` trigger sanely? **Yes, untuned.**
+
+Arm C proposed exactly **one** memory in **3/3** runs — never two, never zero.
+Arm D proposed **0** in **3/3**. The three C proposals were near-identical in
+wording, all correctly typed `rule`, and none duplicated an entry already in
+the block:
+
+> *"Always cut every 'um' and 'uh' in every project — no exceptions, including
+> ones inside otherwise-kept sentences."*
+
+Arm D is the more interesting result. "Make this one especially tight, I need
+it under 45 seconds for this upload" is exactly the sentence a
+reflex-proposing agent would mis-file as a pacing preference, and it proposed
+nothing in every run — while still *saying* in prose that it could not reach
+45 s without the fluff its standing rule forbids. It understood the
+instruction, applied it, and correctly judged it non-durable.
+
+The over-proposing risk that motivated the "one per turn" cap does not appear
+to need the cap. **Keep the cap anyway** — it costs one sentence of prose and
+the failure it prevents (trained reflex-rejection) is unrecoverable.
+
+## Rev 2.3 — Will the agent cite? **Yes as prose. No as a signal. `lastCitedAt` is cut.**
+
+Citation rate across memory arms: **9/9**. The citations are good — specific,
+naturally worded, and they name *which* rule:
+
+> "No fluff proposed — applied because of your rule that you decide what's
+> off-topic yourself."
+> "The only remaining fat is fluff, and your standing rule says never propose
+> fluff — you decide off-topic yourself."
+
+So M5's user-facing promise is delivered. What is **not** delivered is the
+machine signal M5 built on top of it. Stamping `lastCitedAt` means mapping
+that free prose back to a memory `id`, and the spike produced the cleanest
+possible demonstration that this is unreliable: my first scoring regex —
+written by me, with the fixture in front of me, matching seven different
+citation phrasings — scored the second quote above as **no citation**, because
+it says "your standing rule" and I had only written "your rule". A 1-in-9
+miss rate in a hand-tuned detector against a known fixture is a floor, not a
+ceiling, on what a shipped parser would do.
+
+The consequence is not "the stamp is a bit noisy". It is that the pruning
+story inverts: `lastCitedAt` would read `null` on rules the agent has been
+obeying, and "never cited in months — cut it?" would recommend deleting
+working rules.
+
+**Cut:** the `lastCitedAt` field, the last-cited column in the management UI,
+the "which rules actually matter" pruning affordance, and — as a bonus — M4's
+most dangerous correctness rule, the one forbidding `lastCitedAt` from
+reaching the prompt block. A field that does not exist cannot silently
+invalidate the cache. (The deterministic-ordering rule itself **stays**: order
+by tier then `createdAt` then `id`, never iterate a `Set`, never render a
+timestamp. It is still the rule that a `Map` iteration or a `.sort()` on
+`updatedAt` would violate.)
+
+**What replaces it:** nothing, deliberately. At `MAX_ACTIVE_RULES = 25` the
+entire memory set fits on one screen with its provenance and creation date.
+A human reading 25 lines does not need staleness analytics; they need the
+list to be short, which the cap already guarantees. Structured citation (a
+`cite_memory(ids)` tool, or `[mem:id]` markers in the reply) is the honest way
+to get the signal back — it is agent-sdk-only, costs a turn, and pollutes the
+chat, so it is not v1.
+
+## Rev 2.4 — Is brand scope premature? **The UI is. The field is not.**
+
+The assets root contains exactly one brand, `acme-test` — a fixture. There is
+no second channel for a brand-scoped memory to distinguish.
+
+But M3's own argument makes the split cheap: scope resolves at prompt-build
+time, so keeping `brandId` on the record and in the pure filter means the
+dimension can be surfaced later with **no migration and no re-write of the
+composition function** — the filter is already written and already tested.
+What costs real work is the UI: a scope picker on every memory card, a
+"which brand does this project use" affordance next to it, and the explaining
+that both require.
+
+**Ship:** the field, the filter, and unit tests for both (no-brand applies
+everywhere; branded applies only on match). **Defer:** every pixel of it.
+Every memory created in v1 is app-wide.
+
+## Rev 2.5 — Does `systemPrompt` land where M4 claims? **Yes — but the block is in the wrong position.**
+
+Verified against `claude-provider.ts` and the SDK's own type declarations:
+
+- `options.systemPrompt` takes the string **verbatim as the entire system
+  prompt**. The SDK's `excludeDynamicSections` option documents that it "has
+  no effect when `systemPrompt` is a string" — i.e. on our path the SDK
+  injects no cwd / git-status / memory-path preamble of its own. The prompt we
+  compose is the whole system block, ahead of `messages`. **M4's caching
+  premise is correct.**
+- The render order `tools → system → messages` holds, so a memory edit never
+  re-bills the MCP tool schemas. **M4 rule 3 confirmed.**
+
+Two corrections, one of them actionable:
+
+1. **Position (actionable).** `composeSystemPrompt` appends skills *after* the
+   base prompt. Memory folded into the base prompt would sit ahead of 10,508
+   chars of skills and re-write them on every memory edit. Memory must be
+   appended **last**; see the M4 callout for the signature change.
+2. **The system prompt is not as static as M4 implies (accepted, not fixed).**
+   `buildAgentSystemPrompt` embeds the live project asset inventory — asset
+   ids, names, durations, transcript state — near the *top*, before the tool
+   contract and before the skills. Importing or transcribing an asset
+   therefore already invalidates the whole system prefix mid-session, and has
+   since the agent shipped. The measured ~95% cache-read rate is achieved
+   *despite* this, because inventory changes are rare within a conversation.
+   Memory sitting last is unaffected by it either way.
+
+   The SDK does expose the fix — `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` as a
+   standalone element of a `string[]` systemPrompt splits the prompt into a
+   globally-cacheable static prefix and a session-dynamic suffix, so
+   role + skills + memory could be cached across sessions with the inventory
+   after the boundary. **Not in G**: it means re-ordering the shipped agent
+   prompt (inventory to the bottom), it changes cache behaviour for a feature
+   memory does not own, and the win is invisible next to the ~95% already
+   being served. Recorded here so the next person does not have to re-find it.
+
+## Rev 2.6 — Are the numbers guesses? **They were, and they contradicted each other.**
+
+40 rules × ~80 chars ≈ 3,200 chars cannot fit a 2,000-char budget, so a user
+at the cap would permanently trip the "rules alone exceed the budget → emit
+whole and log the overflow" branch. The two constants were never checked
+against each other.
+
+Measured anchors, from the ai-usage DB and the spike:
+
+| Quantity | Value |
+|---|---|
+| Average Studio agent turn, input | **10,713 tokens** (487 uncached + 10,226 cache-read) |
+| Base prompt + both skills | 16,190 chars ≈ **4,050 tokens** |
+| Spike memory block that produced 12/12 rule adherence | **573 chars ≈ 145 tokens** |
+| Observed rule length | 60–110 chars |
+
+Revised: **`MEMORY_PROMPT_BUDGET = 4000` chars** (~1,000 tokens, **~9% of an
+average turn's input**, nearly all of it cache-read after the first turn) and
+**`MAX_ACTIVE_RULES = 25`** (~2,000 chars of rules, leaving ~2,000 for
+vocabulary and profile). These now fit.
+
+They are still provisional — no real user has any memories — so they ship with
+a stated **review trigger**: revisit when either (a) a user hits
+`MAX_ACTIVE_RULES`, or (b) the memory block exceeds 10% of average turn input
+measured from the ai-usage DB. Say this in the code comment, not just here.
+Note the spike's 573-char block moved behaviour perfectly, so the budget is
+sized for growth, not for adequacy.
+
+## Rev 2.7 — Revised slice, and what got cut
+
+**Cut from v1** (each with its reason above):
+
+1. `lastCitedAt`, the last-cited column, and the staleness-pruning story — Rev 2.3.
+2. Brand-scope UI (field and filter stay) — Rev 2.4.
+3. The Assets-screen memory section; one Studio dialog instead — M6 Rev 2.
+4. The **"replaces →" picker** on the proposal card. Showing the same-kind
+   active memories inline is free and does the real work (the user sees the
+   conflict); a supersede-rewiring control is real UI for a case that needs
+   two near-duplicate rules to exist first. Show the list, let the user reject
+   or edit.
+5. Profile as a list of entries — one free-text box (QM1).
+
+**Kept, and now evidence-backed**: injection (Rev 2.1), the propose policy
+(Rev 2.2), citation as prose (Rev 2.3), the cap and the review gate.
+
+**Order to build**, unchanged in shape but re-weighted: G1 (store) → G2 (pure
+composition, memory appended last) → G5 (manual entry + the Studio dialog) is
+where **all** the measured value sits — arm B used a hand-written block and
+got the full effect with no tool involved. G3 (`propose_memory`) + G4
+(proposal card) are the *convenience* half, not the *value* half. They also
+now carry the least risk of any part of the phase, because the policy that
+worried us most tested clean on the first try.
+
+## Rev 2.8 — Revised test plan deltas
+
+Everything in the Rev 1 sketch stands, minus the `lastCitedAt` stamping test,
+plus:
+
+- **Ordering (pure)**: the composed prompt places the memory block **after**
+  the skill sections. This is a cache-cost invariant, so assert it.
+- **Budget coherence (pure)**: `MAX_ACTIVE_RULES` rules of the observed
+  maximum length still leave room for at least one vocabulary entry under
+  `MEMORY_PROMPT_BUDGET`. This is the test that would have caught 40-vs-2000.
+- **Live CDP**, revised: the acceptance script drops "toggle it off → the next
+  turn stops citing it" as a *citation* assertion and asserts the *behaviour*
+  instead — with the fluff rule active the agent proposes no fluff cuts; with
+  it toggled off, it does. Behaviour is what the spike showed is reliable.
