@@ -9,9 +9,41 @@
 
 ## Completed phases
 
-### V1 Phase G + H — PLANS GRILLED AND REVISED (2026-08-16)
+### V1 Phase G + H — PLANS GRILLED, REVISED, DECIDED (2026-08-16)
 **Status: DESIGN ONLY — no feature code. `docs/studio/AGENT_MEMORY_DESIGN.md`
 §Rev 2 + Phase G/H/Q6 in `V1_RELEASE_PLAN.md`.**
+
+**DECISIONS TAKEN (Hasan, 2026-08-16), after the grill below:**
+- **V1 ships six `agent-sdk` presets and nothing else** — `claude-subscription`,
+  `claude-api`, `zai`, `minimax`, `openrouter`, and **`kimi` (new)**. Kimi is
+  Anthropic-native (`https://api.moonshot.ai/anthropic`, model `kimi-k3`, auth
+  via `ANTHROPIC_AUTH_TOKEN` with `ANTHROPIC_API_KEY` unset) and `buildEnv()`
+  at `claude-provider.ts:71-89` already does exactly that — so it is **one
+  preset row, zero new code**. `openai` and `gemini` move to **V2**, where they
+  need real tool-translation layers (likely dedicated SDKs), not preset rows.
+  The custom-endpoint form is flagged off for V1 (H5), so **V1 is one engine
+  path** with tools + caching everywhere and nothing shipped degraded — which
+  cuts H3 almost entirely.
+- **NEW GATE (H6)**: the ai-usage DB shows `claude-subscription` is the **only
+  provider that has ever executed in this app** (27 runs, 2026-08-11→16). The
+  other five are config assertions, not evidence. Each needs one real agent
+  turn (text + a tool call + non-zero cache read) before release; any that
+  fails ships hidden. `openrouter` first — its `baseURL` has no `/anthropic`
+  suffix, unlike every other routed preset, and nothing here proves it answers
+  in Anthropic shape.
+- **`MAX_ACTIVE_RULES = 50`, `MEMORY_PROMPT_BUDGET = 7000` chars** (was
+  25/4000, originally an impossible 40/2000). Rationale: the two skills already
+  inject **10,508 chars every turn**, so a 7,000-char memory block is the
+  smaller half of what already ships. The review trigger changed with it — the
+  risk at 50 is **instruction dilution, not cost**, and no token metric will
+  show it; a dilution spike (pad to 40 rules, re-check adherence) should run
+  before G ships.
+- **Skills question answered** (§Rev 2.9): the migrated clean-cut flow **is** a
+  real skill file and is editable in a packaged build (`extraResources`, not
+  inside `app.asar`) — but edits need a restart (`clearSkillCache()` exists and
+  is called by nothing) and the *workflow* half is still hardcoded in
+  `studio-agent-prompt.ts`. Memory and skills are the same mechanism; memory is
+  the user-facing one, skill editing is a developer affordance. Backlogged.
 The open question was whether agent memory is worth building at all, so it got
 tested before it got built. A throwaway harness (`.vidtsx-temp/`, gitignored)
 drove `query()` with **the same options object `claude-provider.ts:151-174`

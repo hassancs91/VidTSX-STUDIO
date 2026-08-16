@@ -20,7 +20,24 @@
 7. **Agent memory** — the Studio agent should get better at editing *your* videos over time by
    accumulating a small, inspectable set of preferences you told it. *(Added 2026-08-16.)*
 8. **Narrow the V1 provider surface** to a small set we can actually support and learn from,
-   with the rest re-enabled after feedback. *(Added 2026-08-16.)*
+   with the rest re-enabled after feedback. *(Added 2026-08-16. Decided 2026-08-16: six
+   `agent-sdk` presets — Claude ×2, Z.AI, MiniMax, OpenRouter, Kimi. See Phase H.)*
+
+## Post-V1 backlog (recorded, not scheduled)
+
+- **Gemini + OpenAI providers (V2).** Not preset rows — each needs a real
+  tool-translation layer so the Studio agent's six in-process tools work, plus its own
+  caching story. Likely dedicated SDKs rather than stretching `ProviderConfig`. Decide
+  the shape when we get there; Phase H's "what this buys" note has the asymmetry.
+- **Custom OpenAI/Anthropic-compatible endpoint form**, un-flagged (H5).
+- **Skills tuning surface.** The agent's editorial judgment is an editable markdown file
+  in a shipped build (`resources/skills/*/SKILL.md`, copied to `resources/skills` next to
+  the .exe by `electron-builder.yml:32-33`), but a change needs an app restart and there
+  is no UI. `clearSkillCache()` (`skills-registry.ts:206`) exists and is called by
+  nothing; `SKILLS_LIST` IPC exists and is consumed only by the flagged-off Tools chat.
+  A list/edit/save screen is wiring, not architecture. Pairs with moving workflow prose
+  out of the hardcoded `studio-agent-prompt.ts` into the skill so more of the flow is
+  tunable without a build. Full analysis: `AGENT_MEMORY_DESIGN.md` §Rev 2.9.
 
 ---
 
@@ -507,8 +524,10 @@ make capture effortless; they do not make it work. Build in that order.
       filter → tier order (rules → vocabulary → profile) → char budget.
       Truncation drops profile first, then vocabulary; **rules are
       never silently dropped**. Unit-tested with no fs and no provider.
-      **Rev 2**: budget **4000** chars / **25** rules (40-vs-2000 didn't fit —
-      design doc §Rev 2.6), and the block is appended **after** the composed
+      **DECIDED**: budget **7000** chars / **50** rules (the original 2000/40 was
+      arithmetically impossible — design doc §Rev 2.6; 50 because the two skills
+      already inject 10,508 chars per turn, so a 7,000-char memory block is the
+      smaller half of what already ships), and the block is appended **after** the composed
       skills, not folded into the base prompt — otherwise every memory edit
       re-writes 10.5 KB of skill text out of cache. Needs
       `composeSystemPrompt(base, skillIds, trailing?)`.
@@ -528,7 +547,7 @@ make capture effortless; they do not make it work. Build in that order.
       — memory is app state, not library content (M7's own argument), and the
       Assets toolbar is already Brands · Describe · Organize · Refresh.
       `asset-library` stays untouched.
-- [ ] **G6. Hygiene.** `MAX_ACTIVE_RULES` (25) — at the cap, accepting requires
+- [ ] **G6. Hygiene.** `MAX_ACTIVE_RULES` (50) — at the cap, accepting requires
       deactivating something; toggle-off rather than delete; **"applied
       because"** — the agent cites the memories it followed in its reply.
       **Rev 2**: citation is a user-facing trust feature only. No
@@ -577,6 +596,14 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
    `generate_tsx_shot`, and (Phase G) **no `propose_memory`**. It can still chat, and the
    non-agentic AI features (describe, organize, TSX generation) work fine.
 
+> **DECIDED (Hasan, 2026-08-16) — read H1 first; it supersedes the framing below.**
+> V1 ships **six `agent-sdk` presets and nothing else**: Claude ×2, Z.AI, MiniMax,
+> OpenRouter, Kimi. `openai` and `gemini` move to V2, where they want dedicated SDKs
+> or a real tool-translation layer rather than a preset row. The custom-endpoint form
+> is flagged off (H5). Net effect: **one engine path in V1**, every provider with tools
+> and caching, nothing shipped degraded — which cuts H3 almost entirely and makes H6
+> (smoke-test each one) the only real remaining work.
+
 > **Rev 2 (2026-08-16) — one verified fact reframes this whole phase.**
 > **Hiding presets does not narrow the shipped engine surface.**
 > `CustomProviderForm.tsx:9,37` lets any user create a provider with
@@ -588,11 +615,37 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
 > *reachable code* (which is what "a support surface we can stand behind"
 > sounds like it means). Decide which one you want; see H5.
 
-- [ ] **H1. Pick the set, with eyes open.** Proposed: `claude-subscription` + `claude-api`
-      (the reference path), `zai` (agent-sdk, cheap, full feature parity), and `gemini`
-      (the one genuinely different engine implementation). Note `gemini` ships *knowingly*
-      degraded on the Studio agent — see H3. `local` already self-hides when
-      node-llama-cpp isn't loadable (`llm-handlers.ts:32`).
+- [x] **H1. Pick the set. DECIDED (Hasan, 2026-08-16): V1 is 100% `agent-sdk`.**
+      Every shipped provider gets tools *and* prompt caching; no provider ships degraded.
+
+      | Ship in V1 | `baseURL` | default model | status |
+      |---|---|---|---|
+      | `claude-subscription` | — (native) | `claude-sonnet-4-6` | exists |
+      | `claude-api` | — (native) | `claude-sonnet-4-6` | exists |
+      | `zai` (Z.AI GLM) | `https://api.z.ai/api/anthropic` | `glm-5.2` | exists |
+      | `minimax` | `https://api.minimax.io/anthropic` | `MiniMax-M2.7` | exists |
+      | `openrouter` | `https://openrouter.ai/api` | `anthropic/claude-sonnet-4-6` | exists — **verify, see H6** |
+      | `kimi` (Moonshot) | `https://api.moonshot.ai/anthropic` | `kimi-k3` | **NEW — add preset** |
+
+      **Deferred to V2**: `openai`, `gemini` (each wants a dedicated SDK / a real
+      tool-translation layer, not a preset), and the custom-endpoint form (H5).
+      `local` already self-hides when node-llama-cpp isn't loadable
+      (`llm-handlers.ts:32`) — leave it exactly as is.
+
+- [ ] **H1a. Add the `kimi` preset — verified, and it is a data-only change.**
+      Moonshot ships an Anthropic-compatible endpoint (`POST /anthropic/v1/messages`)
+      specifically so Claude Code works against it unmodified. Confirmed 2026-08-16:
+      base URL `https://api.moonshot.ai/anthropic`, model id `kimi-k3`, auth via
+      `ANTHROPIC_AUTH_TOKEN`, and Moonshot explicitly requires `ANTHROPIC_API_KEY` to be
+      unset because the two conflict.
+      **Our `buildEnv()` already does exactly this** — `claude-provider.ts:71-89` sets
+      `ANTHROPIC_BASE_URL`, forces `ANTHROPIC_API_KEY = ''` ("must be empty when using
+      custom base URL") and puts the key in `ANTHROPIC_AUTH_TOKEN` whenever a `baseURL`
+      is present. So Kimi is **one entry in `PROVIDER_PRESETS` plus a credential row** —
+      no provider class, no engine branch, no new code path.
+      (Sources: [platform.kimi.ai — Use Kimi in Claude Code](https://platform.kimi.ai/docs/guide/claude-code-kimi),
+      [Kimi Code docs — Claude Code](https://www.kimi.com/code/docs/en/third-party-tools/claude-code.html),
+      [MoonshotAI/Kimi-K2 #129 — canonical `/anthropic/v1/messages` reference](https://github.com/MoonshotAI/Kimi-K2/issues/129).)
 - [ ] **H2. Hide presets without stranding existing configs.** **Rev 2 — the rule is
       one line: filter `presets`, NEVER `providers`.** The local filter at
       `llm-handlers.ts:32-38` filters *both* (its own comment says "and any stale saved
@@ -613,38 +666,62 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
         disagree. Following the filter-presets-only rule prevents this; add a test that
         an unknown/hidden `agent.providerId` renders as an explicit
         "(unavailable — using app default)" option rather than an empty select.
-- [ ] **H3. Say what a provider can't do, in the UI.** Selecting a non-`agent-sdk`
-      provider should state plainly that the Studio agent runs without tools there
-      (no cut/shot/memory proposals) — a designed degradation, surfaced, not discovered.
-      Cheapest home: the helper line already under the Provider select in
-      `InspectorPanel.tsx:198-201`, which is where the choice is actually made.
-      **Note the Phase G interaction**: memory *injection* works on every provider
-      (every provider takes a system prompt), only agent-*proposed* capture is
-      agent-sdk-only. The copy must say that, or users on `gemini` will assume memory
-      is broken rather than half-available.
+- [x] **H3. Say what a provider can't do, in the UI. — MOSTLY CUT by H1's decision.**
+      With V1 100% `agent-sdk`, nothing shipped is degraded, so there is no warning to
+      write and no half-available memory to explain. **Keep the code** — the no-tools
+      branch in `buildAgentSystemPrompt` and `resolveToolSupport`'s
+      `config.type === 'agent-sdk'` check stay exactly as they are; they are the correct
+      fallback for an unknown config and they are what V2's Gemini/OpenAI work builds on.
+      **Residual, one line**: a user who somehow ends up on a non-agent-sdk config (a
+      grandfathered install, a hand-edited settings row) still gets a tool-less agent.
+      The existing prompt branch already tells them so in chat. That is enough for V1 —
+      this app has no released installs yet, so the grandfathered case is theoretical.
+      Revisit when V2 re-introduces Gemini.
 - [ ] **H4. Re-enable behind a flag, not a rebuild.** Hidden presets come back via the
       Phase A env-flag mechanism so a dev build can demo any provider without a release.
-- [ ] **H5. Decide the compat paths on purpose. (Rev 2 — new.)** Given the Rev 2 fact
-      above, pick one and write it down:
-      - **(a) Keep the custom-endpoint form** → `openai-compat` and `anthropic-compat`
-        ship and **must be smoke-tested before release** (one generation each through a
-        custom endpoint). Hiding the `openai` preset then buys nothing in path coverage
-        and should be argued on support-surface grounds alone.
-      - **(b) Flag the custom-endpoint form off for V1** → the compat paths genuinely
-        don't ship, `openai` stays hidden, and the tested surface is `agent-sdk` +
-        `gemini` only. Costs power users their custom endpoints.
-      **Proposed: (a)**, because the form is already built, shipped and useful, and two
-      smoke tests are cheaper than removing a feature. What is *not* acceptable is
-      shipping (a) while believing (b) — that is how "untested" becomes an accident
-      instead of a decision.
+- [x] **H5. Compat paths — DECIDED (Hasan, 2026-08-16): option (b), flag the
+      custom-endpoint form off for V1.** With H1 narrowing to six `agent-sdk` presets,
+      `CustomProviderForm` (`CustomProviderForm.tsx:9,37`) would be the *only* way to
+      reach `openai-compat` or `anthropic-compat` — i.e. the single remaining untested
+      engine path in an otherwise uniform release. Flagging it off (Phase A mechanism,
+      `VITE_FF_CUSTOM_PROVIDER`) makes V1 genuinely one code path with zero untested
+      engines, and nothing to smoke-test beyond H6.
+      Cost, stated: power users lose custom endpoints for one release. It returns in V2
+      with `openai` and `gemini`. The form itself is untouched — only its entry point is
+      gated, so re-enabling is a flag flip, not a rebuild of the feature.
+
+- [ ] **H6. Smoke-test every shipped provider once. (Rev 2 — new, and non-optional.)**
+      The ai-usage DB is unambiguous: across 27 logged runs from 2026-08-11 to
+      2026-08-16, **`claude-subscription` is the only provider that has ever executed in
+      this app.** `zai`, `minimax`, `openrouter` and `kimi` are config assertions, not
+      evidence — "typed `agent-sdk`" says the request will be *built*, not that the
+      endpoint answers it. That is the same class of assumption this session already
+      caught twice elsewhere.
+      Per provider, before release: one Studio agent turn that (a) returns text and
+      (b) successfully calls `get_transcript` + `propose_cuts`, and one check that
+      `cacheReadInputTokens` comes back non-zero on the second turn.
+      **`openrouter` is the one to test first** — its `baseURL` is
+      `https://openrouter.ai/api`, with no `/anthropic` suffix, unlike every other
+      routed preset. Either it exposes `/api/v1/messages` in Anthropic shape or the
+      preset is wrong; nothing in this repo proves which.
+      Any provider that fails H6 ships hidden and moves to V2. Better a set of four that
+      works than six that were assumed.
 
 **What this does and does not buy.** It buys a smaller *supported* surface and a real
 feedback loop — the honest reasons. It does **not** buy per-provider caching data
-(fact 1); a Claude + Z.AI pair is a single caching data point, not two. **Rev 2**: it
-also does not buy reduced engine-path exposure while the custom-endpoint form ships
-(H5). ~~If we also want the `openai-compat` engine path covered before scaling,
-`openai` is the only preset that exercises it~~ — superseded: the custom form exercises
-it too.
+(fact 1); six `agent-sdk` presets are still **one** caching data point, not six.
+~~If we also want the `openai-compat` engine path covered before scaling, `openai` is
+the only preset that exercises it~~ — superseded twice: the custom form exercises it
+too (Rev 2), and with H5 flagging that form off, no compat path ships at all.
+
+**Why adding four providers is not "adding four providers."** `zai`, `minimax`,
+`openrouter` and `kimi` are all the same code: `ClaudeProvider` with a `baseURL`, which
+`buildEnv()` turns into `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`
+(`claude-provider.ts:71-89`). They cost a preset row and a credential row each, and they
+inherit tools, caching, thinking and the session pool for free. That asymmetry is the
+whole reason `openai`/`gemini` are the ones deferred: those need a provider class, a
+tool-translation layer, and their own caching story — days of work, not rows in an array.
+Expect V2 to argue for dedicated SDKs there rather than stretching the preset shape.
 
 ---
 

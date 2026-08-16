@@ -261,10 +261,10 @@ mechanism. Five countermeasures, all cheap:
   > **Rev 2 — 40 and 2000 are arithmetically incompatible.** The rules in the
   > spike ran 60–110 chars; at ~80 chars, 40 rules is ~3,200 chars, so a full
   > rule set overflows a 2,000-char budget on its own — and "rules are never
-  > silently dropped" then fires permanently. Revised to
-  > **`MEMORY_PROMPT_BUDGET = 4000` chars, `MAX_ACTIVE_RULES = 25`**, which
-  > leaves ~2,000 chars for rules and ~2,000 for vocabulary + profile. Both are
-  > still provisional; §Rev 2.6 gives the derivation and the review trigger.
+  > silently dropped" then fires permanently. ~~Revised to 4000 / 25~~
+  > **DECIDED (Hasan, 2026-08-16): `MAX_ACTIVE_RULES = 50`,
+  > `MEMORY_PROMPT_BUDGET = 7000` chars.** §Rev 2.6 gives the derivation, and
+  > the review trigger that changed with it.
 - **Toggle off, not just delete** — preserves history and makes "did this
   rule cause that?" answerable by flipping it.
 - **"Applied because"** — when the agent follows a memory it says so in its
@@ -529,10 +529,13 @@ by tier then `createdAt` then `id`, never iterate a `Set`, never render a
 timestamp. It is still the rule that a `Map` iteration or a `.sort()` on
 `updatedAt` would violate.)
 
-**What replaces it:** nothing, deliberately. At `MAX_ACTIVE_RULES = 25` the
-entire memory set fits on one screen with its provenance and creation date.
-A human reading 25 lines does not need staleness analytics; they need the
-list to be short, which the cap already guarantees. Structured citation (a
+**What replaces it:** nothing, deliberately. The whole memory set is a bounded,
+grouped, human-readable list with provenance and creation date on every row.
+At `MAX_ACTIVE_RULES = 50` that is a short scroll rather than a single screen
+(it was 25 when this was first written), so grouping by tier and showing
+provenance do more work than they would have — but the conclusion holds: a
+person reading their own 50 rules does not need staleness analytics, and a
+staleness number derived from unparseable prose would actively mislead them. Structured citation (a
 `cite_memory(ids)` tool, or `[mem:id]` markers in the reply) is the honest way
 to get the signal back — it is agent-sdk-only, costs a turn, and pollutes the
 chat, so it is not v1.
@@ -607,17 +610,38 @@ Measured anchors, from the ai-usage DB and the spike:
 | Spike memory block that produced 12/12 rule adherence | **573 chars ≈ 145 tokens** |
 | Observed rule length | 60–110 chars |
 
-Revised: **`MEMORY_PROMPT_BUDGET = 4000` chars** (~1,000 tokens, **~9% of an
-average turn's input**, nearly all of it cache-read after the first turn) and
-**`MAX_ACTIVE_RULES = 25`** (~2,000 chars of rules, leaving ~2,000 for
-vocabulary and profile). These now fit.
+**DECIDED (Hasan, 2026-08-16): `MAX_ACTIVE_RULES = 50`,
+`MEMORY_PROMPT_BUDGET = 7000` chars.** 50 rules × ~80 chars ≈ 4,000 for rules,
+leaving ~3,000 for vocabulary and profile.
 
-They are still provisional — no real user has any memories — so they ship with
-a stated **review trigger**: revisit when either (a) a user hits
-`MAX_ACTIVE_RULES`, or (b) the memory block exceeds 10% of average turn input
-measured from the ai-usage DB. Say this in the code comment, not just here.
-Note the spike's 573-char block moved behaviour perfectly, so the budget is
-sized for growth, not for adequacy.
+The argument for 50 over my proposed 25 is the right one, and it is an
+argument from what already ships: **the two skills inject 10,508 chars into
+every single turn** and no one has ever worried about it. A 7,000-char memory
+budget is ~1,750 tokens — **two-thirds the size of the skill payload already
+riding along**, and after the first turn nearly all of it is served from cache.
+Being stingy here would be optimizing the smaller half of the prompt while the
+larger half goes unexamined.
+
+**The review trigger changes with the number, and this is the part to carry
+into the code comment.** At 25 the risk was cost; at 50 the risk is
+**instruction dilution** — 50 imperatives competing with each other and with
+two skills. Cost is measurable and fine. Adherence at scale is *unmeasured*:
+the spike proved 2 rules hold perfectly, and says nothing about 40. So the
+trigger is no longer "memory exceeds N% of input" but:
+
+> Revisit when a user with many active rules reports the agent ignoring one.
+> That is the failure mode this number risks, and it is invisible in the
+> telemetry — no token count will show it.
+
+Two mitigations that cost nothing and should ship with the cap:
+- Truncation order matters far more at 50 than at 25. The rules → vocabulary →
+  profile ordering is already specified; test it at a full rule set, not a
+  toy one.
+- **A dilution spike is cheap and should run before G ships**: reuse the
+  harness, pad the block to 40 filler rules plus the two measurable ones, and
+  check whether fluff suppression and the note format still hold 12/12. If
+  adherence degrades, the fix is not a smaller cap — it is ordering the most
+  recently edited rules last, where models weight hardest.
 
 ## Rev 2.7 — Revised slice, and what got cut
 
@@ -658,3 +682,52 @@ plus:
   turn stops citing it" as a *citation* assertion and asserts the *behaviour*
   instead — with the fluff rule active the agent proposes no fluff cuts; with
   it toggled off, it does. Behaviour is what the spike showed is reliable.
+
+## Rev 2.9 — Memory and skills are the same mechanism (asked 2026-08-16)
+
+*"Is the clean-cut flow we migrated from the original editor a skill, or is it
+hardcoded — and can I improve the agent's flow later by improving the skills?"*
+
+**It is a real skill**, `resources/skills/studio-clean-cut/SKILL.md`, plain
+markdown with frontmatter, loaded by `skills-registry.ts` and composed into the
+system prompt. Same for `studio-make-tsx`. But the agent's behaviour is spread
+across three layers with very different edit costs, and only the first is the
+skill:
+
+| Layer | Lives in | Cost to change |
+|---|---|---|
+| **Judgment** — what counts as a retake, cut the FIRST doubled phrase, fluff is suggest-only, distrust the timestamps | `SKILL.md` | edit a text file |
+| **Workflow** — the role, the numbered steps, "plan cheap / generate expensive", the 10-shots-per-pass cap, the tool list | `studio-agent-prompt.ts` (hardcoded TS) | rebuild |
+| **Mechanics** — RMS snapping, span validation, the category enum | `editorial-cuts.ts`, `snapEditorialCuts` | real code |
+
+**Skills are editable in a shipped build today.** `getSkillsDir()`
+(`paths.ts:51-56`) resolves to `process.resourcesPath/skills` when packaged, and
+`electron-builder.yml:32-33` copies `resources/skills` there as `extraResources`
+— a plain folder next to the .exe, deliberately **not** inside `app.asar`. The
+editorial policy can be edited on an installed machine with a text editor.
+
+**Two gaps, both small, both already half-built:**
+- `loadAll()` memoizes into a module cache (`skills-registry.ts:116`), so an
+  edit needs an app restart. `clearSkillCache()` exists at `:206` and is
+  **called by nothing** — the reload hook was written and never wired.
+- `SKILLS_LIST` IPC exists (`channels.ts:143`) but is consumed only by the
+  Tools AI chat, which is feature-flagged off in V1. There is no skills UI.
+
+**The V1.1+ shape**, if flow-tuning between releases becomes a goal: a small
+skills screen (list → edit body → save → `clearSkillCache()`), plus
+progressively moving workflow prose out of `studio-agent-prompt.ts` into the
+skill, so more of the flow is tunable without shipping a build. The loader, the
+IPC and the cache reset already exist; this is wiring, not architecture.
+
+**Why this belongs in the memory doc.** Memory and skills are *the same
+mechanism* — markdown blocks composed into one system prompt by
+`composeSystemPrompt`. The spike showed a **573-char memory block override an
+explicit instruction inside a 4,826-char shipped skill** (§Rev 2.1: the skill
+says propose fluff as suggest-only; the memory rule suppressed it 9/9). So
+memory is already user-editable skill patching, scoped and gated.
+
+That has a design consequence worth stating: **skill editing is a developer
+affordance, not a user feature.** Users get memory — gated, inspectable,
+per-user, capped. Skills stay the shipped baseline that memory patches. Do not
+build a user-facing skill editor on the argument that "users want to tune the
+agent"; they want memory, and it is safer.
