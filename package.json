@@ -7,7 +7,7 @@
     "name": "LearnWithHasan",
     "email": "hassan.cs91@gmail.com"
   },
-  "license": "MIT",
+  "license": "FSL-1.1-MIT",
   "private": true,
   "scripts": {
     "postinstall": "electron-builder install-app-deps",
