@@ -30,3 +30,4 @@ export { videoApi } from './video';
 export { sttApi } from './stt';
 export { updaterApi } from './updater';
 export { libraryApi } from './library';
+export { memoryApi } from './memory';

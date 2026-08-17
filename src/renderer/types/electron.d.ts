@@ -411,6 +411,12 @@ export interface ElectronAPI {
   onStudioShotJobEvent: (callback: (event: import('../../shared/ipc/types').StudioShotJobEvent) => void) => () => void;
   onStudioAgentEvent: (callback: (event: import('../../shared/ipc/types').StudioAgentEvent) => void) => () => void;
 
+  // Studio — agent memory (G5)
+  memoryList: () => Promise<import('../../shared/ipc/types').MemoryListResponse>;
+  memorySave: (data: import('../../shared/ipc/types').MemorySaveRequest) => Promise<import('../../shared/ipc/types').MemorySaveResponse>;
+  memorySetActive: (data: import('../../shared/ipc/types').MemorySetActiveRequest) => Promise<import('../../shared/ipc/types').MemorySetActiveResponse>;
+  memoryDelete: (data: import('../../shared/ipc/types').MemoryDeleteRequest) => Promise<import('../../shared/ipc/types').MemoryDeleteResponse>;
+
   // Auto-update
   updaterGetState: () => Promise<import('../../shared/ipc/types').UpdaterGetStateResponse>;
   updaterCheck: (data?: import('../../shared/ipc/types').UpdaterCheckRequest) => Promise<import('../../shared/ipc/types').UpdaterCheckResponse>;

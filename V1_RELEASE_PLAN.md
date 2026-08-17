@@ -577,12 +577,23 @@ make capture effortless; they do not make it work. Build in that order.
       correction happened — accept / edit-then-accept / reject, with
       same-kind active memories shown inline so conflicts are visible.
       **Rev 2**: no "replaces →" picker — showing the list does the work.
-- [ ] **G5. Management surface — in Studio, not Assets.** A `MemoryDialog` off
-      the assistant panel: browse by tier, edit, toggle active, delete, with
-      provenance. **Rev 2**: moved off the Assets screen (design doc M6 Rev 2)
-      — memory is app state, not library content (M7's own argument), and the
-      Assets toolbar is already Brands · Describe · Organize · Refresh.
-      `asset-library` stays untouched.
+- [x] **G5. Management surface — in Studio, not Assets. DONE 2026-08-17.**
+      A `MemoryDialog` off the assistant panel: browse by tier, edit, toggle
+      active, delete, with provenance. **Rev 2**: moved off the Assets screen
+      (design doc M6 Rev 2) — memory is app state, not library content (M7's
+      own argument), and the Assets toolbar is already Brands · Describe ·
+      Organize · Refresh. `asset-library` stays untouched.
+      As built: `MEMORY_LIST/SAVE/DELETE/SET_ACTIVE` channels →
+      `memory-handlers.ts` (+ `registrations/memory.ts`) → `preload/api/memory.ts`
+      → `window.api` (ElectronAPI mirror updated by hand). The save handler
+      hardcodes `{ by: 'user' }` provenance — the request carries no source
+      field, so the renderer cannot forge agent provenance (handler test).
+      UI: Brain button in `AgentPanel` → `MemoryDialog` + `MemoryEntryForm` +
+      `useAgentMemory`; sections ordered tier → createdAt → id so the list the
+      user reads is the list the agent reads; G6 residue landed here (cap
+      count + at-cap notice with add disabled, On/Off toggle, provenance line,
+      profile as one free-text box per QM1). 8 new handler tests; suite 756
+      green; type gate at baseline.
 - [ ] **G6. Hygiene.** `MAX_ACTIVE_RULES` (50) — at the cap, accepting requires
       deactivating something; toggle-off rather than delete; **"applied
       because"** — the agent cites the memories it followed in its reply.
@@ -593,6 +604,7 @@ make capture effortless; they do not make it work. Build in that order.
       paths) and toggle-off landed in the G1 store; citation needs no prompt
       work (the spike hit 9/9 with the plain M4 block). G6's residue is G5 UI
       affordances (cap message, toggle control, provenance display).
+      **Update 2026-08-17: residue landed with G5** — nothing left in G6.
 - [x] **G-spike. Dilution spike — RAN 2026-08-16, PASSED 6/6.**
       `.vidtsx-temp/spike/dilution-spike.mjs`, `claude-opus-5`, 3× control
       (2 rules, 571-char block) vs 3× diluted (42 rules — the two measured
@@ -1067,4 +1079,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-17 | Updater landed | **Verified + landed the parallel updater session's work** (`9117a19`): reviewed all 28 files against its own plan (docs/auto-update-plan.md — Phases A–D complete), confirmed the will-quit race fix, ran suite (740 green), type gate (baseline), and a clean production build. Vendor-file line-ending noise dropped; `my_notes.md` left untracked. Cosmetic gap noted: toast has no "Later" action so `updateSkippedVersion` is UI-unreachable. **License reconciled to FSL-1.1-MIT everywhere** (`ab4bb3b`): package.json SPDX id, LICENSE.txt (NSIS EULA) now FSL, duplicate MIT LICENSE removed — LICENSE.md is canonical. **The dirty-files blockade is over: G5, G3/G4, G7 and I2–I5 are now unblocked.** | G5 (MemoryDialog + memory IPC) next; then I2–I5; H6 still awaits provider keys. |
 | 2026-08-17 | Updater E2E | **Auto-update E2E test PASSED — all 7 matrix items** (docs/auto-update-e2e-test-plan.md; results in auto-update-plan.md §12). Throwaway releases-only public repo `vidtsx-update-test` (created + deleted same day, zero source pushed). Three local builds (0.9.0/0.9.1/0.9.2) on a local-only branch, since deleted; main untouched. Proven for real: silent check at +30 s, **differential download (15.6 MB of 302 MB, 5%)**, busy gate (refusal reason + chip suppression + 20 s unblock), 600 ms manual-check spinner + "You're on the latest version.", Restart chip → silent NSIS (no installer window, 300 ms monitor) → relaunch as new version in ~45 s, install-on-quit (~30 s, no auto-relaunch), one-toast rule, feed-down 404 → error only in Settings. Draft-then-publish valve rehearsed 3×. **Two findings: (1) BUG to fix pre-V1 — Settings "What's new" shows escaped literal HTML (GitHub feeds HTML, UpdateSection renders via ReactMarkdown); (2) minor — transcription.db WAL sidecars survive shutdown (0-byte, harmless).** Env notes recorded in §12: winCodeSign cache needs one-time manual extract; clear ELECTRON_RUN_AS_NODE when launching the packaged exe from a dev shell. gh CLI installed (user-scope) + authed with repo/delete_repo. | Fix the release-notes rendering bug; then the real flip only repeats a proven flow. G5 (MemoryDialog) next per previous entry. |
 | 2026-08-17 | Updater E2E fixes | **Both E2E findings resolved (`122498f`).** (1) Release-notes bug FIXED: `normalizeReleaseNotes` → `services/updater/release-notes.ts` with a dependency-free HTML→markdown converter (GitHub provider feeds HTML; markdown feeds pass through untouched); 8 unit tests incl. the exact HTML captured in the E2E run. (2) transcription.db WAL finding downgraded to NOT-a-bug: sidecars were stale debris from an Aug 13 force-kill (file mtimes prove it); the DB is lazily opened, no session since had opened it, `closeDb` correctly no-ops. Suite 748 green; type gate at baseline (web 26 / node 22). | G5 (MemoryDialog + memory IPC). The real flip now repeats a fully proven flow. |
+| 2026-08-17 | G | **G5 implemented — manual entry + MemoryDialog; the value half (G1+G2+G5) is now complete.** Memory IPC surface per the CLAUDE.md recipe: `MEMORY_LIST/SAVE/DELETE/SET_ACTIVE` in channels.ts, req/res types in `shared/ipc/types/studio-memory.ts`, `memory-handlers.ts` + `registrations/memory.ts`, `preload/api/memory.ts`, ElectronAPI mirror updated by hand (gate stayed at baseline). Save handler stamps `{ by: 'user' }` provenance itself — the request has no source field, so the renderer cannot forge agent provenance (asserted in the 8 new handler tests). UI: Brain button in `AgentPanel` opens `MemoryDialog` (Modal, UI_SPEC idiom via the BrandsDialog precedent): Rules with `n/50 active` + at-cap notice + add disabled at cap, Names & spellings with aliases, profile as one free-text box (QM1) with dirty-save; every row shows provenance + On/Off toggle + edit/delete; list order matches the composed block (tier → createdAt → id). G6 residue absorbed — G6 is now empty. Suite 756 green; type gate web 26 / node 22. | G3 (`propose_memory` + pending queue) → G4 (proposal card) → G7 (live CDP acceptance). I2–I5 also unblocked. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

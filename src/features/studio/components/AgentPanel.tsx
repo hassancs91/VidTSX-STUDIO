@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, RotateCcw, Scissors, Send, Sparkles, Square, Wrench } from 'lucide-react';
+import { AlertTriangle, Brain, RotateCcw, Scissors, Send, Sparkles, Square, Wrench } from 'lucide-react';
 import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioAgent';
+import { MemoryDialog } from './MemoryDialog';
 
 /** Warn when the next turn is estimated at ≥40% of the context budget. */
 const CONTEXT_WARN_RATIO = 0.4;
@@ -23,6 +24,7 @@ interface Props {
  *  land on the timeline + Inspector review flow — never applied directly. */
 export function AgentPanel({ agent }: Props) {
   const [draft, setDraft] = useState('');
+  const [memoryOpen, setMemoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const { messages, busy, send, cancel, clear, contextUsage } = agent;
@@ -74,6 +76,9 @@ export function AgentPanel({ agent }: Props) {
             className="w-full resize-none bg-transparent text-[11px] text-text-primary placeholder:text-text-ghost outline-none leading-snug"
           />
           <div className="flex items-center justify-end gap-1 pt-1">
+            <IconAction title="Memory — rules, names, and profile the assistant follows" onClick={() => setMemoryOpen(true)}>
+              <Brain size={12} strokeWidth={1.75} />
+            </IconAction>
             {messages.length > 0 && !busy && (
               <IconAction title="Clear conversation" onClick={clear}>
                 <RotateCcw size={12} strokeWidth={1.75} />
@@ -91,6 +96,8 @@ export function AgentPanel({ agent }: Props) {
           </div>
         </div>
       </div>
+
+      <MemoryDialog isOpen={memoryOpen} onClose={() => setMemoryOpen(false)} />
     </div>
   );
 }

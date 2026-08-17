@@ -363,6 +363,14 @@ export const IPC = {
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',
 
+  // Studio — agent memory (G5): manual entry + MemoryDialog. App-wide user
+  // preference data read by the Studio editing agent; store lives in main
+  // (userData/studio/memory.json), the renderer only sees the records.
+  MEMORY_LIST: 'memory:list',
+  MEMORY_SAVE: 'memory:save',
+  MEMORY_DELETE: 'memory:delete',
+  MEMORY_SET_ACTIVE: 'memory:set-active',
+
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',
   LIBRARY_DESCRIPTION_SET: 'library:description:set',
