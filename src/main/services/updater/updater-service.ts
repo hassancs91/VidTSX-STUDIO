@@ -28,6 +28,7 @@ import {
   setUpdateSkippedVersion,
 } from '../settings';
 import { getUpdateBlockers } from './update-gate';
+import { normalizeReleaseNotes } from './release-notes';
 
 /** Delay after launch before the first check — keeps startup I/O clean. */
 const FIRST_CHECK_DELAY_MS = 30_000;
@@ -74,20 +75,6 @@ function push(patch: Partial<UpdaterState>): void {
 function markUnsupported(reason: string): void {
   push({ status: 'unsupported', unsupportedReason: reason });
   logEngine.info('Updater', `Auto-update unavailable: ${reason}`);
-}
-
-/**
- * electron-updater hands back either a string or per-version note objects.
- * The renderer should only ever see one markdown string.
- */
-function normalizeReleaseNotes(info: UpdateInfo): string | null {
-  const notes = info.releaseNotes;
-  if (!notes) return null;
-  if (typeof notes === 'string') return notes;
-  return notes
-    .map((entry) => (entry.version ? `## ${entry.version}\n\n${entry.note ?? ''}` : entry.note ?? ''))
-    .filter((chunk) => chunk.trim().length > 0)
-    .join('\n\n') || null;
 }
 
 /** Turns updater/network failures into sentences a non-technical user can act on. */

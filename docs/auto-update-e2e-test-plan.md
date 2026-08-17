@@ -2,10 +2,11 @@
 
 > Status: **PASSED 2026-08-17** (all 7 matrix items, including the optional
 > install-on-quit round). Companion to `docs/auto-update-plan.md` (§12 has
-> the result summary). Two findings, neither blocking the flow:
-> release-notes HTML rendering bug (fix before V1) and transcription.db
-> WAL sidecars surviving shutdown (minor). The updater is no longer
-> "code-complete but untested".
+> the result summary). Two findings, both resolved same day: release-notes
+> HTML rendering bug (fixed — `services/updater/release-notes.ts`) and
+> transcription.db WAL sidecars (not a bug — stale debris from an Aug 13
+> force-kill; the DB is lazily opened and no session since had opened it).
+> The updater is no longer "code-complete but untested".
 >
 > Session note: run phases in order; each is independently stoppable. The
 > working tree must be clean before Phase 1 (it is — updater landed `9117a19`).

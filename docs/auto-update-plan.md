@@ -602,16 +602,20 @@ install-on-quit, all on this machine. Every §11 matrix item passed:
   usable. Deleting/renaming the feed repo has a short GitHub CDN stale-cache window
   (a check seconds later still got the old 200) — harmless.
 
-**Findings to fix before V1:**
+**Findings (both resolved same day):**
 
-1. **Release-notes rendering bug (renderer):** GitHub delivers `releaseNotes` as
-   HTML (electron-updater converts the markdown body), but `UpdateSection.tsx`
-   renders it with ReactMarkdown → users see escaped literal `<h2>…` markup. Fix:
-   sanitize+render HTML (rehype-raw) or convert to markdown/text in
-   `normalizeReleaseNotes`.
-2. **Minor:** `transcription.db-wal/-shm` survive graceful shutdown (0-byte WAL, no
-   data at risk; repros on a plain quit — likely a second open handle or a Windows
-   delete race). Worth a look, not a blocker.
+1. **Release-notes rendering bug — FIXED.** GitHub delivers `releaseNotes` as HTML
+   (electron-updater converts the markdown body), but `UpdateSection.tsx` rendered
+   it with ReactMarkdown → users saw escaped literal `<h2>…` markup. Fix:
+   `normalizeReleaseNotes` moved to `services/updater/release-notes.ts` with a
+   dependency-free HTML→markdown converter (GitHub's converter emits a small tag
+   set); plain-markdown feeds pass through untouched. 8 unit tests, including the
+   exact HTML captured in the E2E run.
+2. **`transcription.db-wal/-shm` after shutdown — NOT a bug.** The sidecars were
+   stale debris from a force-killed session on 2026-08-13: the transcription DB is
+   lazily opened, no session since had opened it, so `closeDb` correctly no-ops and
+   nothing ever touched the leftover files. SQLite cleans them on the next
+   transcription use; the shutdown path is correct as written.
 
 Build note for release day: electron-builder's winCodeSign cache fails to extract in
 a normal shell (macOS symlinks need symlink privilege). One-time fix: extract
