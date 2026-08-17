@@ -775,15 +775,10 @@ const importsList = features
 const registerContent =
   `import { registerModuleHandlers } from './module-handlers';\n` +
   `${importsList}\n` +
-  `import { setupLicenseIPC } from '../../license/license-manager';\n` +
-  `import { setupAutoUpdaterIPC } from '../../updater/auto-updater';\n` +
   `import { logEngine } from '../../logging/log-engine';\n\n` +
   `export function registerAllIPC(): void {\n` +
   `  // Module operations (native player) — registers its own handlers.\n` +
   `  registerModuleHandlers();\n\n` +
-  `  // License + auto-updater own their IPC plumbing.\n` +
-  `  setupLicenseIPC();\n` +
-  `  setupAutoUpdaterIPC();\n\n` +
   `  // Per-feature handler registration.\n` +
   `${registerLines}\n\n` +
   `  logEngine.info('IPC', 'IPC handlers registered');\n` +

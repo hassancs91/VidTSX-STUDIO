@@ -1,0 +1,59 @@
+name: Release
+
+# Tag-driven releases: `npm version <patch|minor|major>` then push the tag.
+# electron-builder uploads to a DRAFT GitHub release (see electron-builder.yml).
+# Draft releases are invisible to electron-updater, so nothing reaches users until
+# the release is published by hand — that manual step is the rollout safety valve.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      # Required for electron-builder to create/upload the release.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # postinstall runs `electron-builder install-app-deps`, which rebuilds
+      # better-sqlite3 against Electron's ABI.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check (baseline gate)
+        run: npm run check:types
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build renderer + main
+        run: npm run build
+        env:
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+
+      - name: Package and publish draft release
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Keeps the installer inspectable even if the release upload fails.
+      - name: Upload installer artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
+          if-no-files-found: warn
+          retention-days: 14

@@ -6,6 +6,7 @@ import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
 import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
 import { CrashReportingRow } from './rows/CrashReportingRow';
+import { UpdateSection } from './UpdateSection';
 
 export function GeneralSettingsContent({
   outputFolder,
@@ -104,6 +105,9 @@ export function GeneralSettingsContent({
         setCrashReportingEnabled={setCrashReportingEnabled}
         settingsLoading={settingsLoading}
       />
+
+      <SectionHeader>Updates</SectionHeader>
+      <UpdateSection />
 
       <SectionHeader>About</SectionHeader>
       <AppInfoSection />

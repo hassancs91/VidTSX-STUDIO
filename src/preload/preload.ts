@@ -29,6 +29,7 @@ import { providerModelsApi } from './api/provider-models';
 import { videoApi } from './api/video';
 import { sttApi } from './api/stt';
 import { studioApi } from './api/studio';
+import { updaterApi } from './api/updater';
 import { libraryApi } from './api/library';
 
 const api = {
@@ -62,6 +63,7 @@ const api = {
   ...videoApi,
   ...sttApi,
   ...studioApi,
+  ...updaterApi,
   ...libraryApi,
 };
 

@@ -7,7 +7,7 @@
     "name": "LearnWithHasan",
     "email": "hassan.cs91@gmail.com"
   },
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "postinstall": "electron-builder install-app-deps",
@@ -15,6 +15,7 @@
     "build": "npm run build:vendor && electron-vite build",
     "build:vendor": "node scripts/build-vendor.mjs",
     "build:win": "npm run build:vendor && electron-vite build && electron-builder --win",
+    "publish:win": "npm run build && electron-builder --win --publish always",
     "build:mac": "npm run build:vendor && electron-vite build && electron-builder --mac",
     "preview": "electron-vite preview",
     "test": "vitest run",
@@ -86,6 +87,7 @@
     "better-sqlite3": "^12.9.0",
     "bufferutil": "^4.0.8",
     "core-util-is": "^1.0.3",
+    "electron-updater": "6.8.9",
     "esbuild": "0.25.0",
     "express": "4.21.0",
     "gifuct-js": "2.1.2",

@@ -4,6 +4,16 @@ export const IPC = {
   APP_OPEN_EXTERNAL: 'app:open-external',
   APP_GET_IS_DEV: 'app:get-is-dev',
 
+  // Auto-update operations
+  UPDATER_GET_STATE: 'updater:get-state',
+  UPDATER_CHECK: 'updater:check',
+  UPDATER_DOWNLOAD: 'updater:download',
+  UPDATER_CANCEL: 'updater:cancel',
+  UPDATER_INSTALL: 'updater:install',
+  UPDATER_SET_PREFS: 'updater:set-prefs',
+  /** Push: full UpdaterState on every transition. */
+  UPDATER_STATE: 'updater:state',
+
   // File operations
   FILE_READ: 'file:read',
   FILE_WRITE: 'file:write',

@@ -28,6 +28,7 @@ import { registerVideoIpc } from './registrations/video';
 import { registerSttIpc } from './registrations/stt';
 import { registerVideoStudioIpc } from './registrations/video-studio';
 import { registerStudioIpc } from './registrations/studio';
+import { registerUpdaterIpc } from './registrations/updater';
 import { registerLibraryIpc } from './registrations/library';
 import { logEngine } from '../../logging/log-engine';
 
@@ -65,6 +66,7 @@ export function registerAllIPC(): void {
   registerSttIpc();
   registerVideoStudioIpc();
   registerStudioIpc();
+  registerUpdaterIpc();
   registerLibraryIpc();
 
   logEngine.info('IPC', 'IPC handlers registered');

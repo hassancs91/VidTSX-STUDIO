@@ -2,7 +2,7 @@ import { app } from 'electron';
 import path from 'path';
 import type { ProviderConfig } from '../../engine/types';
 import type { ImageProviderConfig } from '../../image-engine';
-import type { ContentPresetSetting, RenderGpuBackend, RenderHardwareAcceleration, StylePresetSetting } from '../../shared/ipc/types';
+import type { ContentPresetSetting, RenderGpuBackend, RenderHardwareAcceleration, StylePresetSetting, UpdateChannel } from '../../shared/ipc/types';
 import type { ProviderCredentials, ProviderKeyId } from '../../shared/ipc/types/provider-keys';
 import type { SttProviderConfig } from '../../shared/ipc/types/stt';
 import type { ModelUsageMap } from '../../shared/model-library/types';
@@ -227,6 +227,35 @@ export async function getCrashReportingEnabled(): Promise<boolean> {
 
 export async function setCrashReportingEnabled(enabled: boolean): Promise<void> {
   setValue('crashReportingEnabled', enabled === true);
+}
+
+// ─── Auto-update preferences (docs/auto-update-plan.md) ───
+// Downloading in the background is the default: the whole point is that the bits
+// are already local by the time the user is told an update exists.
+
+export async function getUpdateAutoDownload(): Promise<boolean> {
+  return getValue<boolean>('updateAutoDownload') !== false;
+}
+
+export async function setUpdateAutoDownload(enabled: boolean): Promise<void> {
+  setValue('updateAutoDownload', enabled === true);
+}
+
+export async function getUpdateChannel(): Promise<UpdateChannel> {
+  return getValue<string>('updateChannel') === 'beta' ? 'beta' : 'stable';
+}
+
+export async function setUpdateChannel(channel: UpdateChannel): Promise<void> {
+  setValue('updateChannel', channel === 'beta' ? 'beta' : 'stable');
+}
+
+/** Version the user dismissed via "Later". Suppresses auto-nagging only. */
+export async function getUpdateSkippedVersion(): Promise<string | null> {
+  return getValue<string>('updateSkippedVersion') || null;
+}
+
+export async function setUpdateSkippedVersion(version: string | null): Promise<void> {
+  setValue('updateSkippedVersion', version ?? '');
 }
 
 export async function getLlmProviders(): Promise<{ providers: ProviderConfig[]; activeProvider?: string }> {

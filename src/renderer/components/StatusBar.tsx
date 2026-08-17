@@ -3,6 +3,7 @@ import { Settings } from 'lucide-react';
 import { createRendererLogger } from '../utils/logger';
 import { useSystemMonitor } from '../hooks/useSystemMonitor';
 import { SettingsModal } from './SettingsModal';
+import { UpdateChip } from './UpdateChip';
 
 const log = createRendererLogger('StatusBar');
 
@@ -162,6 +163,8 @@ export function StatusBar() {
       )}
 
       <div className="flex-1" />
+
+      <UpdateChip />
 
       <button
         onClick={() => setSettingsOpen(true)}

@@ -1,6 +1,16 @@
 appId: com.learnwithhasan.vidtsx-studio
 productName: VidTSX Studio
 copyright: "Copyright (C) 2026 LearnWithHasan. All rights reserved."
+# Auto-update feed (docs/auto-update-plan.md). electron-builder writes latest.yml +
+# a .blockmap next to the installer; electron-updater reads them from the release
+# matching tag v${version}.
+# releaseType: draft is the rollout safety valve — draft releases are INVISIBLE to
+# the updater, so CI can upload, we smoke-test, and only "Publish" makes it live.
+publish:
+  provider: github
+  owner: hassancs91
+  repo: VidTSX-STUDIO
+  releaseType: draft
 directories:
   output: dist
   buildResources: resources
@@ -103,7 +113,11 @@ nsis:
   oneClick: false
   perMachine: false
   allowElevation: true
-  allowToChangeInstallationDirectory: true
+  # Deliberately false: a per-user install lands in %LOCALAPPDATA%\Programs and
+  # updates apply silently with no UAC prompt. Letting the user pick C:\Program Files
+  # would make every silent update need elevation, which is the classic
+  # "the update ran but nothing happened" bug. See docs/auto-update-plan.md §8.
+  allowToChangeInstallationDirectory: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: "VidTSX Studio"

@@ -28,4 +28,5 @@ export { providerKeysApi } from './provider-keys';
 export { providerModelsApi } from './provider-models';
 export { videoApi } from './video';
 export { sttApi } from './stt';
+export { updaterApi } from './updater';
 export { libraryApi } from './library';

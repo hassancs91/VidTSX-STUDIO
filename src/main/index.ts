@@ -10,23 +10,17 @@ import { initSdVideoCategory } from './services/sdvideo-init';
 import { initLogging } from './services/log-init';
 import { initCrashReporting } from './services/crash-reporting';
 import { migrateImageStudio } from './services/image-studio-migrate';
-import { closeDb as closeImageStudioDb } from './services/image-studio-db';
 import { migrateVideoStudio } from './services/video-studio-migrate';
-import { closeDb as closeVideoStudioDb } from './services/video-studio-db';
 import { migrateTranscriptionProjects } from './services/transcription-projects-migrate';
-import { closeDb as closeTranscriptionDb } from './services/transcription-projects-db';
 import { migrateRenderQueue } from './services/render-queue-migrate';
-import { closeDb as closeRenderQueueDb } from './services/render-queue-db';
 import { migrateSettings, migrateProviderSettings } from './services/settings-migrate';
-import { closeDb as closeSettingsDb } from './services/settings-db';
 import { migrateAiUsage } from './services/ai-usage-migrate';
-import { closeDb as closeAiUsageDb } from './services/ai-usage-db';
 import { migrateFlowsProjects } from './services/flows-projects-migrate';
-import { closeDb as closeFlowsProjectsDb } from './services/flows-projects-db';
 import { migrateDownloads } from './services/download-manager/download-state-migrate';
-import { closeDb as closeDownloadsDb } from './services/download-manager/download-state-db';
-import { initSystemMonitor, stopSystemMonitor } from './services/system-monitor';
-import { initDownloadEngine, restoreDownloads, pauseAllDownloads, flushState } from './services/download-manager';
+import { initSystemMonitor } from './services/system-monitor';
+import { initDownloadEngine, restoreDownloads } from './services/download-manager';
+import { initUpdater } from './services/updater/updater-service';
+import { gracefulShutdown } from './services/shutdown';
 import { logEngine } from '../logging/log-engine';
 
 // Enable hardware acceleration for better rendering performance
@@ -200,56 +194,28 @@ app.whenReady().then(async () => {
   // Start system resource monitor (always-on, sends push events every 2s)
   initSystemMonitor(win);
 
+  // Auto-update: first check is delayed 30s so it never competes with startup.
+  initUpdater(win);
+
   logEngine.info('Startup', `Main-process init complete in ${Date.now() - startupBegan}ms (ready → window created)`);
 });
 
-app.on('will-quit', async () => {
-  stopSystemMonitor();
-
-  // Abort TSX generation jobs (persists queued jobs) and tear down every LLM
-  // session so no claude.exe children are orphaned
-  const { tsxJobEngine } = await import('./services/tsx-jobs/tsx-job-engine');
-  await tsxJobEngine.shutdown();
-
-  // Kill any ffmpeg children generating Studio proxies/waveforms
-  const { studioMediaJobs } = await import('./services/studio/media-jobs');
-  studioMediaJobs.shutdown();
-  const { llmEngine } = await import('../engine');
-  llmEngine.abortAll();
-
-  // Flush AI usage log
-  const { aiUsageService } = await import('./services/ai-usage');
-  await aiUsageService.shutdown();
-
-  // Pause all active downloads and persist state
-  pauseAllDownloads();
-  await flushState();
-
-  // Clean up any running sd-cli processes
-  const { imageLocalEngine } = await import('../local-image-engine');
-  imageLocalEngine.dispose();
-  const { videoLocalEngine } = await import('../local-video-engine/video-engine');
-  videoLocalEngine.dispose();
-
-  // Clean up audio engine (unload STT/TTS models)
-  const { audioEngine } = await import('../audio-engine');
-  audioEngine.dispose();
-
-  // Clean up local LLM engine (free GPU memory)
-  const { llmLocalEngine } = await import('../llm-engine');
-  await llmLocalEngine.dispose();
-
-  // Close SQLite DBs cleanly so WAL/SHM sidecars merge back.
-  closeImageStudioDb();
-  closeVideoStudioDb();
-  closeTranscriptionDb();
-  closeRenderQueueDb();
-  closeSettingsDb();
-  closeAiUsageDb();
-  closeFlowsProjectsDb();
-  closeDownloadsDb();
-
-  await logEngine.shutdown();
+// Electron does NOT await async 'will-quit' listeners, so the teardown below used
+// to race the process exit — harmless most of the time, but fatal when an
+// auto-update installer starts copying files over a half-merged SQLite WAL.
+// Defer the quit once, await the shared teardown, then exit for real.
+// gracefulShutdown() is idempotent and self-limiting (10s cap), so a hung
+// subsystem delays the quit briefly instead of wedging it.
+let quitHandled = false;
+app.on('will-quit', (event) => {
+  if (quitHandled) return;
+  quitHandled = true;
+  event.preventDefault();
+  // Re-quit rather than app.exit(): the second pass falls through this guard and
+  // lets Electron run its normal quit sequence, which is what emits 'quit' — the
+  // event electron-updater's autoInstallOnAppQuit hook listens for. app.exit()
+  // would skip it and silently break install-on-next-quit.
+  void gracefulShutdown().finally(() => app.quit());
 });
 
 app.on('window-all-closed', () => {

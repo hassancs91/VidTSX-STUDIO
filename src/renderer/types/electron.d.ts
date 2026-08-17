@@ -411,6 +411,15 @@ export interface ElectronAPI {
   onStudioShotJobEvent: (callback: (event: import('../../shared/ipc/types').StudioShotJobEvent) => void) => () => void;
   onStudioAgentEvent: (callback: (event: import('../../shared/ipc/types').StudioAgentEvent) => void) => () => void;
 
+  // Auto-update
+  updaterGetState: () => Promise<import('../../shared/ipc/types').UpdaterGetStateResponse>;
+  updaterCheck: (data?: import('../../shared/ipc/types').UpdaterCheckRequest) => Promise<import('../../shared/ipc/types').UpdaterCheckResponse>;
+  updaterDownload: () => Promise<import('../../shared/ipc/types').UpdaterDownloadResponse>;
+  updaterCancel: () => Promise<import('../../shared/ipc/types').UpdaterCancelResponse>;
+  updaterInstall: () => Promise<import('../../shared/ipc/types').UpdaterInstallResponse>;
+  updaterSetPrefs: (data: import('../../shared/ipc/types').UpdaterSetPrefsRequest) => Promise<import('../../shared/ipc/types').UpdaterSetPrefsResponse>;
+  onUpdaterState: (callback: (data: import('../../shared/ipc/types').UpdaterStateEvent) => void) => () => void;
+
   // Asset library — index overlay, sizes, root override
   libraryIndexGet: () => Promise<import('../../shared/ipc/types').LibraryIndexGetResponse>;
   libraryDescriptionSet: (data: import('../../shared/ipc/types').LibraryDescriptionSetRequest) => Promise<import('../../shared/ipc/types').LibraryDescriptionSetResponse>;
