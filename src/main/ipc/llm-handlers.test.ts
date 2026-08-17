@@ -63,7 +63,8 @@ afterEach(() => {
 });
 
 describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
-  it('hides openai and gemini from presets; the six agent-sdk presets remain', async () => {
+  it('hides openai, gemini, and zai from presets; the five V1 agent-sdk presets remain', async () => {
+    // zai joined the hidden set 2026-08-17 (Hasan: skip Z.AI for V1).
     const res = await handleLlmProvidersGet();
     const ids = res.presets.map((p) => p.id);
     expect(ids).toEqual([
@@ -71,7 +72,6 @@ describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
       'claude-api',
       'minimax',
       'openrouter',
-      'zai',
       'kimi',
     ]);
     expect(res.presets.every((p) => p.type === 'agent-sdk')).toBe(true);
@@ -92,6 +92,7 @@ describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
     const ids = res.presets.map((p) => p.id);
     expect(ids).toContain('openai');
     expect(ids).toContain('gemini');
+    expect(ids).toContain('zai');
     expect(ids).not.toContain('local'); // local stays availability-gated
   });
 

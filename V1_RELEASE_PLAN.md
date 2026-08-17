@@ -796,7 +796,34 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       with `openai` and `gemini`. The form itself is untouched — only its entry point is
       gated, so re-enabling is a flag flip, not a rebuild of the feature.
 
-- [ ] **H6. Smoke-test every shipped provider once. (Rev 2 — new, and non-optional.)**
+      > **Update (Hasan, 2026-08-17): Z.AI is CUT from V1** — the shipped set is
+      > five presets: Claude ×2, OpenRouter, MiniMax, Kimi. `zai` joined
+      > `V1_HIDDEN_PRESET_IDS` (same grandfathering rule; returns via
+      > `VITE_FF_ALL_PROVIDERS` or in V2).
+
+- [~] **H6. Smoke-test every shipped provider once. (Rev 2 — new, and non-optional.)**
+      **PRE-FLIGHT PASSED 2026-08-17 for openrouter + minimax; kimi functional
+      with a caching caveat.** Headless spike (`.vidtsx-temp/spike/h6-provider-smoke.mjs`)
+      mirroring `createSession()`'s routed path exactly (env-based baseURL +
+      AUTH_TOKEN, no `model` in options, real skills + takes-view fixture,
+      in-process MCP `get_transcript`/`propose_cuts`), keys from `.env`:
+      - **openrouter PASS** — the suspect suffix-less `baseURL` DOES serve
+        Anthropic-shape messages: text + both tools + 5 cuts, cache reads on
+        both turns (13,905 t1 / 4,460 t2). The phase's biggest unknown is closed.
+      - **minimax PASS** — text + both tools + 5 cuts, cache reads both turns
+        (10,302 t1 / 3,691 t2).
+      - **kimi FUNCTIONAL, caching unproven on multi-turn (2/2 runs)** — text +
+        both tools + 5 good cuts every run, and turn-1 cache reads prove
+        Moonshot's cache exists (hits on repeated identical requests), but the
+        immediate turn-2 with the same system prefix reports 0 cache reads and
+        an input count (~3.7k) that doesn't even cover the ~13k prompt — their
+        `/anthropic` usage reporting may simply differ. Functional contract
+        fully met; the economics leg is ambiguous, not failed. **Ship it** —
+        hiding a working provider over an unproven usage report would trade a
+        real feature for bookkeeping. Revisit if users report runaway Kimi costs.
+      Remaining in-app leg (fold into the G7 live session): configure each key
+      in the Providers UI and run one Studio agent turn per provider, confirming
+      the ai-usage DB logs the run.
       The ai-usage DB is unambiguous: across 27 logged runs from 2026-08-11 to
       2026-08-16, **`claude-subscription` is the only provider that has ever executed in
       this app.** `zai`, `minimax`, `openrouter` and `kimi` are config assertions, not
@@ -1110,4 +1137,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-17 | G | **G5 implemented — manual entry + MemoryDialog; the value half (G1+G2+G5) is now complete.** Memory IPC surface per the CLAUDE.md recipe: `MEMORY_LIST/SAVE/DELETE/SET_ACTIVE` in channels.ts, req/res types in `shared/ipc/types/studio-memory.ts`, `memory-handlers.ts` + `registrations/memory.ts`, `preload/api/memory.ts`, ElectronAPI mirror updated by hand (gate stayed at baseline). Save handler stamps `{ by: 'user' }` provenance itself — the request has no source field, so the renderer cannot forge agent provenance (asserted in the 8 new handler tests). UI: Brain button in `AgentPanel` opens `MemoryDialog` (Modal, UI_SPEC idiom via the BrandsDialog precedent): Rules with `n/50 active` + at-cap notice + add disabled at cap, Names & spellings with aliases, profile as one free-text box (QM1) with dirty-save; every row shows provenance + On/Off toggle + edit/delete; list order matches the composed block (tier → createdAt → id). G6 residue absorbed — G6 is now empty. Suite 756 green; type gate web 26 / node 22. | G3 (`propose_memory` + pending queue) → G4 (proposal card) → G7 (live CDP acceptance). I2–I5 also unblocked. |
 | 2026-08-17 | G | **G3+G4 implemented — Phase G is code-complete; only G7 (live CDP acceptance) remains.** G3: `agent-memory-proposals.ts` (in-memory main-process queue, one pending per project, survives navigation), `propose_memory` tool in the studio MCP server (own per-turn flag, duplicate guard vs active set, text-limit check), M2 policy prose verbatim in the agent prompt, new `memory-proposal` agent event kind. G4: `MemoryProposalCard` (accept / edit-then-accept / reject, same-kind active memories inline, cap error keeps the card up for retry) + `useMemoryProposals` + `MEMORY_PROPOSALS_GET`/`MEMORY_PROPOSAL_RESOLVE` IPC; accept stamps agent provenance in main from the queued proposal — the renderer can edit text/aliases but never kind or source. M2 degraded-provider note in MemoryDialog via `toolsAvailable`. 10 new tests; suite 766 green; gate web 26 / node 22. | G7 live CDP acceptance (needs an agent-sdk provider + a transcribed project). Then I2–I5. |
 | 2026-08-17 | I | **I2–I6 implemented — Phase I is complete; the announcements client ships inert until vidtsx.com serves feed.json.** Settings fields (`newsEnabled` default-on, `newsDismissedIds` capped 200), news IPC (`NEWS_GET`/`NEWS_DISMISS`/`NEWS_SET_ENABLED` — the third channel added because the toggle needs a write path; disabled short-circuits BEFORE the fetch so off means no request), `useNews` + `NewsCard` app-level beside CaptureChip (one message at a time, type-accented, CTA via shell-open), `NewsRow` toggle under Privacy, README "Launch-time network requests" disclosure covering update check + feed together (I6). StatusBar chip skipped as unnecessary. 6 new tests; suite 772 green; gate web 26 / node 22. | G7 live CDP acceptance; H6 provider smoke tests (Hasan's keys); then the licensing flip checklist + Phase E. |
+| 2026-08-17 | H | **V1 provider set final (Hasan): Claude ×2 + OpenRouter + MiniMax + Kimi; Z.AI cut** — `zai` added to `V1_HIDDEN_PRESET_IDS` (grandfathered like openai/gemini, returns via flag), H2 tests updated to the five-preset expectation. **H6 pre-flight RUN with real keys** (headless spike mirroring the exact `createSession()` routed path): openrouter **PASS** (the suffix-less baseURL question is closed — Anthropic-shape confirmed, cache reads both turns), minimax **PASS**, kimi functional 3/3 runs (text + tools + good cuts) but multi-turn cache reads report 0 (2/2) with under-counted input — judged a usage-reporting quirk, shipping anyway. Keys stay in `.env` (NOT app settings yet). Suite 772 green; gate at baseline. | In-app H6 leg + G7 in one live session: enter the three keys in Providers UI, one agent turn each, then the G7 memory acceptance script on claude. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

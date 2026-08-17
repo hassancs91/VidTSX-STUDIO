@@ -27,7 +27,10 @@ import { composeSystemPrompt } from '../services/skills-registry';
 // `gemini` return in V2 with real tool-translation layers. The one-line H2
 // rule: filter PRESETS only, NEVER saved providers — a saved config for a
 // hidden preset keeps working (grandfathered).
-const V1_HIDDEN_PRESET_IDS = new Set(['openai', 'gemini']);
+// `zai` joined the hidden set 2026-08-17 (Hasan: V1 ships Claude ×2 +
+// OpenRouter + MiniMax + Kimi; Z.AI returns later) — same grandfathering
+// rule applies: a saved zai config keeps working, only the preset row hides.
+const V1_HIDDEN_PRESET_IDS = new Set(['openai', 'gemini', 'zai']);
 
 /** H4 dev override: VITE_FF_ALL_PROVIDERS=1 restores the hidden presets.
  *  The shared VITE_ prefix reaches main-process import.meta.env under
