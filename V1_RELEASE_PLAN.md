@@ -636,11 +636,32 @@ make capture effortless; they do not make it work. Build in that order.
       at ~42 rules with no measurable dilution.** En route the harness
       exposed that the proven block carries an instruction preamble the M4
       sketch omitted — composer fixed to match (`b98aa4f`).
-- [ ] **G7. Live CDP acceptance.** State a general preference → one proposal →
+- [x] **G7. Live CDP acceptance. PASSED 2026-08-17 — all five legs, on
+      `claude-subscription` (claude-opus-5), project `autocut-test`.**
+      State a general preference → one proposal →
       accept → visible in the memory dialog with agent provenance → next turn
       **behaves** differently and says why → toggle off → the behaviour
       reverts → a one-off instruction produces NO proposal.
       **Rev 2**: assert behaviour, not citation, on the toggle-off leg.
+      As run (test rule: start every reply with a "TL;DR:" line):
+      1. "From now on, I always want…" → **exactly one** proposal card, kind
+         Rule, correct text. 2. Accept → card gone, rule in MemoryDialog with
+         **"Accepted from the assistant · Aug 17, 2026"** provenance, On.
+      3. Next turn: reply opens `TL;DR:` and cites — *"Applied the "TL;DR:"
+         rule you set."* 4. Toggle off → behaviour reverts, with one honest
+         wrinkle: in the SAME conversation the model kept the prefix, because
+         the user's instruction is still in chat history — that is
+         conversation-following, not the memory block. In a **cleared
+         conversation** (memory's actual job) the prefix disappeared; toggling
+         back on in that same fresh conversation (no instruction anywhere in
+         history) brought `TL;DR:` back — the injection alone drives the
+         behaviour, counterfactual proven both directions. 5. "…just this
+         once" → zero proposals. Test rule deleted, conversation cleared,
+         project provider reset to App default after the run.
+      **Note for docs/support**: "toggle it off" takes full effect in the
+      next conversation — within the conversation where you asked for the
+      behaviour, the chat history itself keeps it alive. Expected LLM
+      behaviour, not a bug.
 
 **Explicitly out of v1** (M8): semantic retrieval (embeddings exist, but only
 earn their cost past the budget), the STT vocabulary feed (no word-boost hook
@@ -801,7 +822,36 @@ hiding of Tools/Flows/Videos, applied to `src/engine/presets.ts`.
       > `V1_HIDDEN_PRESET_IDS` (same grandfathering rule; returns via
       > `VITE_FF_ALL_PROVIDERS` or in V2).
 
-- [~] **H6. Smoke-test every shipped provider once. (Rev 2 — new, and non-optional.)**
+- [x] **H6. Smoke-test every shipped provider once. (Rev 2 — new, and non-optional.)
+      COMPLETE 2026-08-17 — in-app leg PASSED for all three routed providers.**
+      Live CDP session on the dev app: all three keys entered through the real
+      Providers UI, saved in one Save Changes click, then one Studio agent turn per
+      provider on `autocut-test` (transcribed project) driven through the Assistant
+      panel. Every run called `get_transcript`, returned correct text, and landed in
+      the ai-usage DB: **openrouter** (anthropic/claude-sonnet-4-6, 6,793 cache-read
+      tokens, 7.7 s), **minimax** (MiniMax-M2.7, 5,475 cache-read, 7.5 s), **kimi**
+      (kimi-k3, 5,632 cache-read, 18.5 s — nonzero cache reads in-app, softening the
+      pre-flight's multi-turn reporting quirk). No provider ships hidden.
+      **The leg caught two real V1 bugs, both fixed en route** (this is why the
+      in-app pass existed):
+      1. **Kimi had no key-entry row** — `ApiKeysSection`'s `LLM_ONLY_IDS` was
+         missing `'kimi'`, so the preset existed but a user could never configure
+         it. One-line fix.
+      2. **A fresh OpenRouter key didn't enable the provider** — the shared BYOK
+         credential registered `zai` but not `openrouter` in `initLLMEngine`'s
+         no-saved-config loop, `handleLlmProvidersGet` had the same asymmetry in
+         its extras, and a saved `enabled:false` row (an artifact of the wholesale
+         provider save — the shared row has no toggle) pinned it dead. Fixed by
+         mirroring the zai branches for openrouter, presenting credential-backed
+         openrouter as enabled (Phase C rule: the key IS the enablement), and
+         making `handleLlmProvidersSave` re-run `initLLMEngine()` instead of
+         registering the raw request — which also fixes a third latent bug where
+         any LLM-row save dropped ALL credential-backed/keyless providers from the
+         engine until restart. 2 new handler tests.
+      **Leftover flagged, not fixed**: the Z.AI shared-key row still renders in the
+      Providers UI although the zai preset is hidden (cut 2026-08-17) — decide
+      whether to gate the row with the same `V1_HIDDEN_PRESET_IDS` mechanism or
+      keep it for grandfathered keys.
       **PRE-FLIGHT PASSED 2026-08-17 for openrouter + minimax; kimi functional
       with a caching caveat.** Headless spike (`.vidtsx-temp/spike/h6-provider-smoke.mjs`)
       mirroring `createSession()`'s routed path exactly (env-based baseURL +
@@ -1138,4 +1188,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-17 | G | **G3+G4 implemented — Phase G is code-complete; only G7 (live CDP acceptance) remains.** G3: `agent-memory-proposals.ts` (in-memory main-process queue, one pending per project, survives navigation), `propose_memory` tool in the studio MCP server (own per-turn flag, duplicate guard vs active set, text-limit check), M2 policy prose verbatim in the agent prompt, new `memory-proposal` agent event kind. G4: `MemoryProposalCard` (accept / edit-then-accept / reject, same-kind active memories inline, cap error keeps the card up for retry) + `useMemoryProposals` + `MEMORY_PROPOSALS_GET`/`MEMORY_PROPOSAL_RESOLVE` IPC; accept stamps agent provenance in main from the queued proposal — the renderer can edit text/aliases but never kind or source. M2 degraded-provider note in MemoryDialog via `toolsAvailable`. 10 new tests; suite 766 green; gate web 26 / node 22. | G7 live CDP acceptance (needs an agent-sdk provider + a transcribed project). Then I2–I5. |
 | 2026-08-17 | I | **I2–I6 implemented — Phase I is complete; the announcements client ships inert until vidtsx.com serves feed.json.** Settings fields (`newsEnabled` default-on, `newsDismissedIds` capped 200), news IPC (`NEWS_GET`/`NEWS_DISMISS`/`NEWS_SET_ENABLED` — the third channel added because the toggle needs a write path; disabled short-circuits BEFORE the fetch so off means no request), `useNews` + `NewsCard` app-level beside CaptureChip (one message at a time, type-accented, CTA via shell-open), `NewsRow` toggle under Privacy, README "Launch-time network requests" disclosure covering update check + feed together (I6). StatusBar chip skipped as unnecessary. 6 new tests; suite 772 green; gate web 26 / node 22. | G7 live CDP acceptance; H6 provider smoke tests (Hasan's keys); then the licensing flip checklist + Phase E. |
 | 2026-08-17 | H | **V1 provider set final (Hasan): Claude ×2 + OpenRouter + MiniMax + Kimi; Z.AI cut** — `zai` added to `V1_HIDDEN_PRESET_IDS` (grandfathered like openai/gemini, returns via flag), H2 tests updated to the five-preset expectation. **H6 pre-flight RUN with real keys** (headless spike mirroring the exact `createSession()` routed path): openrouter **PASS** (the suffix-less baseURL question is closed — Anthropic-shape confirmed, cache reads both turns), minimax **PASS**, kimi functional 3/3 runs (text + tools + good cuts) but multi-turn cache reads report 0 (2/2) with under-counted input — judged a usage-reporting quirk, shipping anyway. Keys stay in `.env` (NOT app settings yet). Suite 772 green; gate at baseline. | In-app H6 leg + G7 in one live session: enter the three keys in Providers UI, one agent turn each, then the G7 memory acceptance script on claude. |
+| 2026-08-17 | H6+G7 | **Live-session leg PASSED — Phase G and Phase H are now fully complete.** In-app H6: three keys entered via the real Providers UI, one Studio agent turn per provider on `autocut-test`, all three landed in ai-usage with cache reads (openrouter 6,793 / minimax 5,475 / kimi 5,632 — kimi's in-app cache reads are nonzero, softening the pre-flight quirk). The leg caught + fixed two V1 bugs: kimi missing from `LLM_ONLY_IDS` (no key-entry row existed), and a fresh OpenRouter shared credential never enabling the LLM provider (llm-init/llm-handlers zai-branch asymmetry + `enabled:false` artifact from the wholesale save; save path now re-runs `initLLMEngine()`, also fixing a latent bug where any LLM-row save dropped credential-backed providers until restart). G7: all five legs passed on claude-subscription (proposal → accept w/ agent provenance → behaves + cites → toggle-off reverts (asserted in a cleared conversation; in-conversation history keeps the behaviour alive — expected, noted for docs) → one-off produces no proposal), counterfactual proven both directions; test rule deleted after. Flagged, not fixed: Z.AI shared-key row still renders though the preset is hidden. Suite 774 green (+2 handler tests); gate at baseline (web 26 / node 22). | Licensing flip checklist + Phase E hardening (incl. rotating the root `.env` keys before the repo goes public). |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

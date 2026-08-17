@@ -6,6 +6,7 @@ import { llmLocalEngine } from '../../llm-engine';
 const log = logEngine.createLogger('LLMHandlers');
 import type { ProviderConfig } from '../../engine/types';
 import { getLlmProviders, saveLlmProviders, getProviderCredentials } from '../services/settings';
+import { initLLMEngine } from '../services/llm-init';
 import { extractHtmlCode } from '../../engine/utils';
 import { aiUsageService } from '../services/ai-usage';
 import type {
@@ -50,9 +51,15 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     // This local case is the ONE exception to the filter-presets-only rule,
     // because a local config genuinely cannot run.
     const localAvailable = await llmLocalEngine.isAvailable();
-    const visibleProviders = localAvailable
-      ? providers
-      : providers.filter((p) => p.type !== 'local');
+    const credentials = await getProviderCredentials();
+    const visibleProviders = (localAvailable ? providers : providers.filter((p) => p.type !== 'local'))
+      // OpenRouter has no enable toggle in the UI — the shared BYOK credential
+      // IS the enablement (Phase C rule), and a saved `enabled: false` is an
+      // artifact of the wholesale provider save. Mirror what initLLMEngine
+      // registers so the renderer (Inspector provider select) sees the truth.
+      .map((p) =>
+        p.id === 'openrouter' && !p.apiKey && credentials.openrouter ? { ...p, enabled: true } : p,
+      );
     let visiblePresets = localAvailable
       ? PROVIDER_PRESETS
       : PROVIDER_PRESETS.filter((p) => p.type !== 'local');
@@ -69,10 +76,11 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     if (localPreset && !savedIds.has('local')) {
       extras.push({ ...localPreset, enabled: true });
     }
-    const credentials = await getProviderCredentials();
-    const zaiPreset = PROVIDER_PRESETS.find((p) => p.id === 'zai');
-    if (zaiPreset && !savedIds.has('zai') && credentials.zai) {
-      extras.push({ ...zaiPreset, enabled: true });
+    for (const id of ['openrouter', 'zai'] as const) {
+      const preset = PROVIDER_PRESETS.find((p) => p.id === id);
+      if (preset && !savedIds.has(id) && credentials[id]) {
+        extras.push({ ...preset, enabled: true });
+      }
     }
 
     // H2 stranding guard: an active pointer at a preset this handler filtered
@@ -111,27 +119,15 @@ export async function handleLlmProvidersSave(
   try {
     await saveLlmProviders(data.providers, data.activeProvider);
 
-    // Re-initialize engine with new configs
+    // Re-materialize the engine from the just-saved settings via the same
+    // path boot uses. Registering `data.providers` raw here used to drop the
+    // BYOK credential merge and the keyless presets (local, credential-backed
+    // openrouter/zai) until the next app restart.
     const currentProviders = llmEngine.getProviders();
     for (const id of currentProviders) {
       llmEngine.unregister(id);
     }
-
-    for (const config of data.providers) {
-      try {
-        llmEngine.register(config);
-      } catch (err) {
-        log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-
-    if (data.activeProvider) {
-      try {
-        llmEngine.switchProvider(data.activeProvider);
-      } catch {
-        // Provider not available
-      }
-    }
+    await initLLMEngine();
 
     return { success: true };
   } catch (err) {

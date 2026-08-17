@@ -57,7 +57,14 @@ const SHARED_KEY_ROWS: SharedKeyRowDef[] = [
 ];
 
 /** LLM providers whose key lives in their own provider config (not shared). */
-const LLM_ONLY_IDS = new Set(['claude-subscription', 'claude-api', 'openai', 'gemini', 'minimax']);
+const LLM_ONLY_IDS = new Set([
+  'claude-subscription',
+  'claude-api',
+  'openai',
+  'gemini',
+  'minimax',
+  'kimi',
+]);
 
 interface ImageTestState {
   testing: boolean;
@@ -70,7 +77,8 @@ interface ImageTestState {
  * The unified provider list: every credential the app can use, in one place.
  * Shared BYOK keys (fal / OpenRouter / AssemblyAI / Z.AI) power all their
  * capabilities at once; LLM-only providers (Claude / OpenAI / Gemini /
- * MiniMax / custom endpoints) carry their key on the provider entry itself.
+ * MiniMax / Kimi / custom endpoints) carry their key on the provider entry
+ * itself.
  */
 export function ApiKeysSection() {
   const { hasKeys, loading: keysLoading, saving: keysSaving, error: keysError, saveKeys } = useProviderKeys();

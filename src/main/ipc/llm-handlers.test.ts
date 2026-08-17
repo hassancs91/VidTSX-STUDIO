@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   providers: [] as unknown[],
   activeProvider: null as string | null,
   localAvailable: false,
+  credentials: {} as Record<string, string>,
 }));
 
 vi.mock('electron', () => ({
@@ -37,7 +38,10 @@ vi.mock('../services/settings', () => ({
     activeProvider: state.activeProvider,
   }),
   saveLlmProviders: async () => {},
-  getProviderCredentials: async () => ({}),
+  getProviderCredentials: async () => state.credentials,
+}));
+vi.mock('../services/llm-init', () => ({
+  initLLMEngine: async () => {},
 }));
 vi.mock('../services/ai-usage', () => ({
   aiUsageService: { appendEntry: async () => {} },
@@ -60,6 +64,7 @@ afterEach(() => {
   state.providers = [];
   state.activeProvider = null;
   state.localAvailable = false;
+  state.credentials = {};
 });
 
 describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
@@ -94,6 +99,41 @@ describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
     expect(ids).toContain('gemini');
     expect(ids).toContain('zai');
     expect(ids).not.toContain('local'); // local stays availability-gated
+  });
+
+  it('a shared OpenRouter credential surfaces the provider with no saved config (H6 in-app fix)', async () => {
+    // The Providers UI stores the OpenRouter key as a shared BYOK credential,
+    // not on an llmProviders config — the credential alone must make the
+    // provider selectable (Phase C rule: the key IS the enablement).
+    state.credentials = { openrouter: 'sk-or-test' };
+    const res = await handleLlmProvidersGet();
+    const row = res.providers.find((p) => p.id === 'openrouter');
+    expect(row?.enabled).toBe(true);
+  });
+
+  it('a saved openrouter config with enabled:false and no own key is presented enabled when the credential exists', async () => {
+    // enabled:false on the openrouter row is an artifact of the wholesale
+    // provider save (the shared row has no toggle), not a user choice.
+    state.providers = [
+      {
+        id: 'openrouter',
+        name: 'OpenRouter (300+ models)',
+        type: 'agent-sdk',
+        authMode: 'api-key',
+        baseURL: 'https://openrouter.ai/api',
+        defaultModel: 'anthropic/claude-sonnet-4-6',
+        enabled: false,
+      },
+    ];
+    state.credentials = { openrouter: 'sk-or-test' };
+    const res = await handleLlmProvidersGet();
+    const row = res.providers.find((p) => p.id === 'openrouter');
+    expect(row?.enabled).toBe(true);
+
+    // Without the credential the saved value stands.
+    state.credentials = {};
+    const bare = await handleLlmProvidersGet();
+    expect(bare.providers.find((p) => p.id === 'openrouter')?.enabled).toBe(false);
   });
 
   it('an active pointer at a filtered preset with no saved config falls back (H2 guard)', async () => {

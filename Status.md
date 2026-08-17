@@ -9,6 +9,21 @@
 
 ## Completed phases
 
+### V1 Phases G + H — COMPLETE, live-session acceptance PASSED (2026-08-17)
+**The H6 gate below is closed.** All shipped providers have now executed for
+real in-app: keys entered via the Providers UI, one Studio agent turn each on a
+transcribed project, all landing in ai-usage with non-zero cache reads
+(openrouter / minimax / kimi; Z.AI was cut from V1 on 2026-08-17 — the shipped
+set is five presets). The in-app leg caught and fixed two bugs: kimi had no
+key-entry row (`LLM_ONLY_IDS`), and a fresh OpenRouter shared credential never
+enabled the LLM provider (plus a latent bug where any LLM-row save dropped
+credential-backed providers from the engine until restart — the save path now
+re-runs `initLLMEngine()`). G7 memory acceptance passed all five legs on
+claude-subscription, including a both-directions counterfactual (toggle
+off/on in a cleared conversation). Details: `V1_RELEASE_PLAN.md` H6/G7 + the
+2026-08-17 session-log row. **Remaining for V1: licensing flip checklist +
+Phase E hardening (rotate root `.env` keys before the repo goes public).**
+
 ### V1 Phase G + H — PLANS GRILLED, REVISED, DECIDED (2026-08-16)
 **Status: DESIGN ONLY — no feature code. `docs/studio/AGENT_MEMORY_DESIGN.md`
 §Rev 2 + Phase G/H/Q6 in `V1_RELEASE_PLAN.md`.**
