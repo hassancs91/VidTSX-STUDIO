@@ -419,6 +419,11 @@ export interface ElectronAPI {
   memoryProposalsGet: (data: import('../../shared/ipc/types').MemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryProposalsGetResponse>;
   memoryProposalResolve: (data: import('../../shared/ipc/types').MemoryProposalResolveRequest) => Promise<import('../../shared/ipc/types').MemoryProposalResolveResponse>;
 
+  // Announcements feed (Phase I)
+  newsGet: () => Promise<import('../../shared/ipc/types').NewsGetResponse>;
+  newsDismiss: (data: import('../../shared/ipc/types').NewsDismissRequest) => Promise<import('../../shared/ipc/types').NewsDismissResponse>;
+  newsSetEnabled: (data: import('../../shared/ipc/types').NewsSetEnabledRequest) => Promise<import('../../shared/ipc/types').NewsSetEnabledResponse>;
+
   // Auto-update
   updaterGetState: () => Promise<import('../../shared/ipc/types').UpdaterGetStateResponse>;
   updaterCheck: (data?: import('../../shared/ipc/types').UpdaterCheckRequest) => Promise<import('../../shared/ipc/types').UpdaterCheckResponse>;

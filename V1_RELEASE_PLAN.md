@@ -898,17 +898,26 @@ chip/card), so it should feel native next to `UpdateChip`/`useUpdater`.
       expired campaigns die in cache too, `NEWS_FEED_URL` constant in one place,
       never throws). 16 tests. I2/I3 layer on `getNewsMessages()` once the updater
       session frees settings.ts/channels.ts.
-- [ ] **I2. Settings** — `newsEnabled: boolean` (default true) + `newsDismissedIds: string[]`
-      in the existing settings service (they're small; no new store).
-- [ ] **I3. IPC** — `NEWS_GET` (validated messages minus dismissed, empty when disabled),
-      `NEWS_DISMISS` — channels/types/preload/register per CLAUDE.md recipe.
-- [ ] **I4. UI** — `useNews` hook + dismissible `NewsCard` on the workspace/start screen
-      (most room, least intrusive); optional tiny unread chip in `StatusBar` behaving like
-      `UpdateChip`.
-- [ ] **I5. Settings toggle** in General settings ("Show news and announcements").
-- [ ] **I6. README disclosure** line (pairs with the licensing section's README work).
-      One sentence covering BOTH launch-time fetches — the announcements feed AND the
-      update check — so the privacy story is stated once, completely.
+- [x] **I2. Settings — DONE 2026-08-17.** `newsEnabled` (default true) +
+      `newsDismissedIds` in the existing settings service; dismissed list
+      capped at 200 (oldest dropped — long-expired ids anyway).
+- [x] **I3. IPC — DONE 2026-08-17.** `NEWS_GET` (validated messages minus
+      dismissed; empty when disabled, and disabled means NO fetch at all —
+      off = the app doesn't phone), `NEWS_DISMISS`, plus `NEWS_SET_ENABLED`
+      (the I5 toggle needs a write path; kept cohesive with the news channels
+      rather than growing the SETTINGS_* surface). 6 handler tests.
+- [x] **I4. UI — DONE 2026-08-17.** `useNews` + `NewsCard` mounted app-level
+      in `App.tsx` beside `CaptureChip` (the default screen is Creator, not a
+      start screen — app-level chrome shows regardless of screen and touches
+      no feature module). Bottom-right toast idiom, type-colored left accent,
+      one message at a time (dismissing reveals the next), CTA opens
+      externally via the existing shell-open IPC. StatusBar unread chip
+      skipped — the card already is the unobtrusive surface.
+- [x] **I5. Settings toggle — DONE 2026-08-17.** Self-contained `NewsRow`
+      (UpdateSection precedent) under Settings → General → Privacy.
+- [x] **I6. README disclosure — DONE 2026-08-17.** "Launch-time network
+      requests" section covering BOTH fetches (update check + feed) plus the
+      provider/binary-download carve-out, above the crash-reporting section.
 
 **vidtsx.com isn't ready yet — that's fine.** The site work is post-V1 (see backlog); the
 client ships inert (404/offline → silently nothing) and lights up whenever the first
@@ -1100,4 +1109,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-17 | Updater E2E fixes | **Both E2E findings resolved (`122498f`).** (1) Release-notes bug FIXED: `normalizeReleaseNotes` → `services/updater/release-notes.ts` with a dependency-free HTML→markdown converter (GitHub provider feeds HTML; markdown feeds pass through untouched); 8 unit tests incl. the exact HTML captured in the E2E run. (2) transcription.db WAL finding downgraded to NOT-a-bug: sidecars were stale debris from an Aug 13 force-kill (file mtimes prove it); the DB is lazily opened, no session since had opened it, `closeDb` correctly no-ops. Suite 748 green; type gate at baseline (web 26 / node 22). | G5 (MemoryDialog + memory IPC). The real flip now repeats a fully proven flow. |
 | 2026-08-17 | G | **G5 implemented — manual entry + MemoryDialog; the value half (G1+G2+G5) is now complete.** Memory IPC surface per the CLAUDE.md recipe: `MEMORY_LIST/SAVE/DELETE/SET_ACTIVE` in channels.ts, req/res types in `shared/ipc/types/studio-memory.ts`, `memory-handlers.ts` + `registrations/memory.ts`, `preload/api/memory.ts`, ElectronAPI mirror updated by hand (gate stayed at baseline). Save handler stamps `{ by: 'user' }` provenance itself — the request has no source field, so the renderer cannot forge agent provenance (asserted in the 8 new handler tests). UI: Brain button in `AgentPanel` opens `MemoryDialog` (Modal, UI_SPEC idiom via the BrandsDialog precedent): Rules with `n/50 active` + at-cap notice + add disabled at cap, Names & spellings with aliases, profile as one free-text box (QM1) with dirty-save; every row shows provenance + On/Off toggle + edit/delete; list order matches the composed block (tier → createdAt → id). G6 residue absorbed — G6 is now empty. Suite 756 green; type gate web 26 / node 22. | G3 (`propose_memory` + pending queue) → G4 (proposal card) → G7 (live CDP acceptance). I2–I5 also unblocked. |
 | 2026-08-17 | G | **G3+G4 implemented — Phase G is code-complete; only G7 (live CDP acceptance) remains.** G3: `agent-memory-proposals.ts` (in-memory main-process queue, one pending per project, survives navigation), `propose_memory` tool in the studio MCP server (own per-turn flag, duplicate guard vs active set, text-limit check), M2 policy prose verbatim in the agent prompt, new `memory-proposal` agent event kind. G4: `MemoryProposalCard` (accept / edit-then-accept / reject, same-kind active memories inline, cap error keeps the card up for retry) + `useMemoryProposals` + `MEMORY_PROPOSALS_GET`/`MEMORY_PROPOSAL_RESOLVE` IPC; accept stamps agent provenance in main from the queued proposal — the renderer can edit text/aliases but never kind or source. M2 degraded-provider note in MemoryDialog via `toolsAvailable`. 10 new tests; suite 766 green; gate web 26 / node 22. | G7 live CDP acceptance (needs an agent-sdk provider + a transcribed project). Then I2–I5. |
+| 2026-08-17 | I | **I2–I6 implemented — Phase I is complete; the announcements client ships inert until vidtsx.com serves feed.json.** Settings fields (`newsEnabled` default-on, `newsDismissedIds` capped 200), news IPC (`NEWS_GET`/`NEWS_DISMISS`/`NEWS_SET_ENABLED` — the third channel added because the toggle needs a write path; disabled short-circuits BEFORE the fetch so off means no request), `useNews` + `NewsCard` app-level beside CaptureChip (one message at a time, type-accented, CTA via shell-open), `NewsRow` toggle under Privacy, README "Launch-time network requests" disclosure covering update check + feed together (I6). StatusBar chip skipped as unnecessary. 6 new tests; suite 772 green; gate web 26 / node 22. | G7 live CDP acceptance; H6 provider smoke tests (Hasan's keys); then the licensing flip checklist + Phase E. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

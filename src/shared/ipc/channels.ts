@@ -363,6 +363,12 @@ export const IPC = {
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',
 
+  // Announcements feed (Phase I) — static vidtsx.com/app/feed.json, validated
+  // in main; the renderer only ever sees clamped plain-text messages.
+  NEWS_GET: 'news:get',
+  NEWS_DISMISS: 'news:dismiss',
+  NEWS_SET_ENABLED: 'news:set-enabled',
+
   // Studio — agent memory (G5): manual entry + MemoryDialog. App-wide user
   // preference data read by the Studio editing agent; store lives in main
   // (userData/studio/memory.json), the renderer only sees the records.

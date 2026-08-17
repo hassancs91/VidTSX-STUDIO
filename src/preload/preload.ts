@@ -32,6 +32,7 @@ import { studioApi } from './api/studio';
 import { updaterApi } from './api/updater';
 import { libraryApi } from './api/library';
 import { memoryApi } from './api/memory';
+import { newsApi } from './api/news';
 
 const api = {
   ...appShellApi,
@@ -67,6 +68,7 @@ const api = {
   ...updaterApi,
   ...libraryApi,
   ...memoryApi,
+  ...newsApi,
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -6,6 +6,7 @@ import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
 import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
 import { CrashReportingRow } from './rows/CrashReportingRow';
+import { NewsRow } from './rows/NewsRow';
 import { UpdateSection } from './UpdateSection';
 
 export function GeneralSettingsContent({
@@ -99,12 +100,15 @@ export function GeneralSettingsContent({
       {/* Image models folder controls moved to the dedicated "AI Models" screen. */}
 
       <SectionHeader>Privacy</SectionHeader>
-      <CrashReportingRow
-        crashReportingEnabled={crashReportingEnabled}
-        crashReportingAvailable={crashReportingAvailable}
-        setCrashReportingEnabled={setCrashReportingEnabled}
-        settingsLoading={settingsLoading}
-      />
+      <div className="flex flex-col gap-2">
+        <CrashReportingRow
+          crashReportingEnabled={crashReportingEnabled}
+          crashReportingAvailable={crashReportingAvailable}
+          setCrashReportingEnabled={setCrashReportingEnabled}
+          settingsLoading={settingsLoading}
+        />
+        <NewsRow />
+      </div>
 
       <SectionHeader>Updates</SectionHeader>
       <UpdateSection />

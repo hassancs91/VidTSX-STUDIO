@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { CaptureChip } from "./components/CaptureChip";
+import { NewsCard } from "./components/NewsCard";
 import { WorkspaceScreen, SelectedFileProvider } from "@features/workspace";
 import { TranscriptionScreen } from "@features/transcription";
 import { RenderScreen, RenderQueueProvider, useRenderQueue } from "@features/render-queue";
@@ -85,6 +86,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
       </div>
       <StatusBar />
       <CaptureChip />
+      <NewsCard />
     </div>
   );
 }

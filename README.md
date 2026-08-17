@@ -63,6 +63,10 @@ npm run check:types
 
 Built with Electron + electron-vite, React 19, TypeScript (strict), Tailwind CSS 4, and Remotion 4.
 
+## Launch-time network requests
+
+On launch the app makes two plain GET requests, neither carrying any user data: an update check against this repo's GitHub releases, and a fetch of `vidtsx.com/app/feed.json` to show in-app announcements (dismissible; turn off entirely in **Settings → Privacy → Show news and announcements**). Beyond these, the app only reaches the network for AI providers you configure with your own keys and for first-use binary/model downloads.
+
 ## Crash reporting (opt-in)
 
 The app can send crash and error reports to [Sentry](https://sentry.io) to help fix bugs — but only if you turn it on in **Settings → Privacy → Send crash reports**. It is **off by default**, and nothing is ever sent without that consent.

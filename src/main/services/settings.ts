@@ -258,6 +258,33 @@ export async function setUpdateSkippedVersion(version: string | null): Promise<v
   setValue('updateSkippedVersion', version ?? '');
 }
 
+// ─── Announcements feed (V1_RELEASE_PLAN Phase I) ───
+// Default ON; the card is dismissible per message and the whole feature
+// turns off here. Dismissed ids persist so a message never reshows.
+
+export async function getNewsEnabled(): Promise<boolean> {
+  return getValue<boolean>('newsEnabled') !== false;
+}
+
+export async function setNewsEnabled(enabled: boolean): Promise<void> {
+  setValue('newsEnabled', enabled === true);
+}
+
+/** The feed itself is capped at 20 messages; this cap only bounds years of
+ *  accumulated dismissals (oldest dropped first — long-expired ids anyway). */
+const MAX_NEWS_DISMISSED_IDS = 200;
+
+export async function getNewsDismissedIds(): Promise<string[]> {
+  const v = getValue<string[]>('newsDismissedIds');
+  return Array.isArray(v) ? v.filter((id): id is string => typeof id === 'string') : [];
+}
+
+export async function addNewsDismissedId(id: string): Promise<void> {
+  const current = await getNewsDismissedIds();
+  if (current.includes(id)) return;
+  setValue('newsDismissedIds', [...current, id].slice(-MAX_NEWS_DISMISSED_IDS));
+}
+
 export async function getLlmProviders(): Promise<{ providers: ProviderConfig[]; activeProvider?: string }> {
   return {
     providers: getValue<ProviderConfig[]>('llmProviders') ?? [],
@@ -461,6 +488,10 @@ export const settingsService = {
   setRenderDefaultHardwareAcceleration,
   getCrashReportingEnabled,
   setCrashReportingEnabled,
+  getNewsEnabled,
+  setNewsEnabled,
+  getNewsDismissedIds,
+  addNewsDismissedId,
   getLlmProviders,
   saveLlmProviders,
   getTsxJobsMaxConcurrent,

@@ -31,3 +31,4 @@ export { sttApi } from './stt';
 export { updaterApi } from './updater';
 export { libraryApi } from './library';
 export { memoryApi } from './memory';
+export { newsApi } from './news';
