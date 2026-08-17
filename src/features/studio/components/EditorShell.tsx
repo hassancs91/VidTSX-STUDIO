@@ -909,7 +909,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 onShotError={(message) => showToast(message, 'error')}
               />
             ) : (
-              <AgentPanel agent={agentChat} />
+              <AgentPanel projectId={project.id} agent={agentChat} />
             )}
           </div>
         </div>

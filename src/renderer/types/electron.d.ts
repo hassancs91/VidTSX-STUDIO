@@ -416,6 +416,8 @@ export interface ElectronAPI {
   memorySave: (data: import('../../shared/ipc/types').MemorySaveRequest) => Promise<import('../../shared/ipc/types').MemorySaveResponse>;
   memorySetActive: (data: import('../../shared/ipc/types').MemorySetActiveRequest) => Promise<import('../../shared/ipc/types').MemorySetActiveResponse>;
   memoryDelete: (data: import('../../shared/ipc/types').MemoryDeleteRequest) => Promise<import('../../shared/ipc/types').MemoryDeleteResponse>;
+  memoryProposalsGet: (data: import('../../shared/ipc/types').MemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryProposalsGetResponse>;
+  memoryProposalResolve: (data: import('../../shared/ipc/types').MemoryProposalResolveRequest) => Promise<import('../../shared/ipc/types').MemoryProposalResolveResponse>;
 
   // Auto-update
   updaterGetState: () => Promise<import('../../shared/ipc/types').UpdaterGetStateResponse>;

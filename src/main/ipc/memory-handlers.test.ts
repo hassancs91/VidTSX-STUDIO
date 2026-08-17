@@ -17,9 +17,14 @@ vi.mock('../services/studio/agent-memory', () => store);
 import {
   handleMemoryDelete,
   handleMemoryList,
+  handleMemoryProposalResolve,
+  handleMemoryProposalsGet,
   handleMemorySave,
   handleMemorySetActive,
 } from './memory-handlers';
+// The proposals queue is real module state, not a mock — resolve tests
+// exercise the actual pending/removed transitions.
+import { addProposal, clearAllProposals, hasPendingProposal } from '../services/studio/agent-memory-proposals';
 
 const event = {} as Parameters<typeof handleMemorySave>[0];
 
@@ -35,6 +40,7 @@ const record: StudioMemory = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  clearAllProposals();
 });
 
 describe('handleMemorySave', () => {
@@ -106,5 +112,93 @@ describe('handleMemorySetActive / handleMemoryDelete', () => {
     store.deleteMemory.mockResolvedValue(undefined);
     expect(await handleMemoryDelete(event, { id: 'm1' })).toEqual({ success: true });
     expect(store.deleteMemory).toHaveBeenCalledWith('m1');
+  });
+});
+
+describe('handleMemoryProposalResolve', () => {
+  it('accept stamps AGENT provenance from the pending proposal, then removes it', async () => {
+    const p = addProposal({ projectId: 'proj1', kind: 'rule', text: 'Always cut ums' });
+    store.upsertMemory.mockResolvedValue(record);
+    const res = await handleMemoryProposalResolve(event, {
+      proposalId: p.id,
+      projectId: 'proj1',
+      action: 'accept',
+    });
+    expect(res).toEqual({ success: true, memory: record });
+    expect(store.upsertMemory).toHaveBeenCalledWith({
+      kind: 'rule',
+      text: 'Always cut ums',
+      source: { by: 'agent', projectId: 'proj1', acceptedAt: expect.any(String) },
+    });
+    expect(hasPendingProposal('proj1')).toBe(false);
+  });
+
+  it('accept-edited uses the edited text/aliases but keeps the proposal kind', async () => {
+    const p = addProposal({
+      projectId: 'proj1',
+      kind: 'vocabulary',
+      text: 'LearnWithHasan',
+      aliases: ['learn with Hassan'],
+    });
+    store.upsertMemory.mockResolvedValue(record);
+    await handleMemoryProposalResolve(event, {
+      proposalId: p.id,
+      projectId: 'proj1',
+      action: 'accept',
+      edited: { text: 'LearnWithHasan (channel)', aliases: ['LearnWithHassan'] },
+    });
+    expect(store.upsertMemory).toHaveBeenCalledWith({
+      kind: 'vocabulary',
+      text: 'LearnWithHasan (channel)',
+      aliases: ['LearnWithHassan'],
+      source: { by: 'agent', projectId: 'proj1', acceptedAt: expect.any(String) },
+    });
+  });
+
+  it('a store refusal (the rule cap) leaves the proposal PENDING for retry', async () => {
+    const p = addProposal({ projectId: 'proj1', kind: 'rule', text: 'One more rule' });
+    store.upsertMemory.mockRejectedValue(new Error('You already have 50 active rules'));
+    const res = await handleMemoryProposalResolve(event, {
+      proposalId: p.id,
+      projectId: 'proj1',
+      action: 'accept',
+    });
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('50 active rules');
+    expect(hasPendingProposal('proj1')).toBe(true);
+  });
+
+  it('reject removes the proposal without touching the store', async () => {
+    const p = addProposal({ projectId: 'proj1', kind: 'rule', text: 'Nope' });
+    const res = await handleMemoryProposalResolve(event, {
+      proposalId: p.id,
+      projectId: 'proj1',
+      action: 'reject',
+    });
+    expect(res).toEqual({ success: true });
+    expect(store.upsertMemory).not.toHaveBeenCalled();
+    expect(hasPendingProposal('proj1')).toBe(false);
+  });
+
+  it('an unknown or already-resolved proposal is a typed error', async () => {
+    const res = await handleMemoryProposalResolve(event, {
+      proposalId: 'gone',
+      projectId: 'proj1',
+      action: 'accept',
+    });
+    expect(res.success).toBe(false);
+    expect(res.error).toContain('no longer pending');
+  });
+
+  it('proposals-get returns the pending card for its project only', async () => {
+    const p = addProposal({ projectId: 'proj1', kind: 'rule', text: 'Rule' });
+    expect(await handleMemoryProposalsGet(event, { projectId: 'proj1' })).toEqual({
+      success: true,
+      proposals: [p],
+    });
+    expect(await handleMemoryProposalsGet(event, { projectId: 'proj2' })).toEqual({
+      success: true,
+      proposals: [],
+    });
   });
 });

@@ -30,6 +30,8 @@ import { LIBRARY_REF_PREFIX } from './shot-asset-refs';
 import { loadProject } from './project-store';
 import { listMemories } from './agent-memory';
 import { composeMemoryBlock } from './agent-memory-prompt';
+import { addProposal, hasPendingProposal } from './agent-memory-proposals';
+import { MEMORY_TEXT_LIMITS } from '../../../shared/types/studio-memory';
 import { generateImageAsset } from '../library/generate-image-asset';
 import { captureWebpage } from '../library/capture';
 
@@ -47,6 +49,7 @@ const ALLOWED_TOOLS = [
   'mcp__studio__propose_shots',
   'mcp__studio__generate_image',
   'mcp__studio__capture_webpage',
+  'mcp__studio__propose_memory',
 ];
 
 type Listener = (event: StudioAgentEvent) => void;
@@ -525,10 +528,76 @@ class StudioAgentService {
       },
     );
 
+    // One memory proposal per turn (its own flag — independent of the
+    // cuts/shots review panel; the card lives in the chat, not the Inspector).
+    let memoryProposalCreated = false;
+
+    const proposeMemory = tool(
+      'propose_memory',
+      'Propose ONE durable memory (rule / vocabulary / profile) when the user states a GENERAL preference. Never applied directly — it becomes a card the user accepts, edits, or rejects. Do not treat it as remembered until they accept.',
+      {
+        kind: z.enum(['rule', 'vocabulary', 'profile']),
+        text: z
+          .string()
+          .describe(
+            'The memory as the agent will read it back: rules are one imperative sentence; vocabulary is the CORRECT spelling; profile is a durable fact about the user/channel.',
+          ),
+        aliases: z
+          .array(z.string())
+          .optional()
+          .describe('vocabulary only — the misspellings this entry corrects'),
+      },
+      async (args) => {
+        this.emit({
+          projectId: req.projectId,
+          kind: 'tool',
+          tool: 'propose_memory',
+          detail: args.text.slice(0, 60),
+        });
+        if (memoryProposalCreated || hasPendingProposal(req.projectId)) {
+          return text(
+            "A memory proposal is already waiting for the user's decision. Do not propose another until they answer it.",
+            true,
+          );
+        }
+        const trimmed = args.text.replace(/\s+/g, ' ').trim();
+        if (!trimmed) return text('A memory proposal needs text.', true);
+        const limit = MEMORY_TEXT_LIMITS[args.kind];
+        if (trimmed.length > limit) {
+          return text(`A ${args.kind} memory is limited to ${limit} characters — shorten it.`, true);
+        }
+        try {
+          // The active set is in the prompt, but guard anyway: a duplicate
+          // card teaches the user to reject reflexively.
+          const existing = await listMemories();
+          const duplicate = existing.find(
+            (m) => m.active && m.kind === args.kind && m.text.toLowerCase() === trimmed.toLowerCase(),
+          );
+          if (duplicate) {
+            return text('That is already in the active memory set — do not propose it again.', true);
+          }
+          const proposal = addProposal({
+            projectId: req.projectId,
+            kind: args.kind,
+            text: trimmed,
+            ...(args.aliases ? { aliases: args.aliases } : {}),
+          });
+          memoryProposalCreated = true;
+          this.emit({ projectId: req.projectId, kind: 'memory-proposal', proposal });
+          return text(
+            'Proposal shown to the user as a card in this panel — they may accept, edit, or reject it. ' +
+              'Do not treat it as remembered yet, and do not propose another this turn.',
+          );
+        } catch (err) {
+          return text(err instanceof Error ? err.message : String(err), true);
+        }
+      },
+    );
+
     return createSdkMcpServer({
       name: 'studio',
       version: '1.0.0',
-      tools: [getTranscript, proposeCuts, generateTsxShot, proposeShots, generateImage, captureWebpageTool],
+      tools: [getTranscript, proposeCuts, generateTsxShot, proposeShots, generateImage, captureWebpageTool, proposeMemory],
     });
   }
 }

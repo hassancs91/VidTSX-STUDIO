@@ -567,16 +567,35 @@ make capture effortless; they do not make it work. Build in that order.
       breaks a turn). 26 new tests incl. cache-stability byte-identity,
       budget coherence at the 50/7000 constants, and the block-after-skills
       ordering invariant (Rev 2.8).
-- [ ] **G3. `propose_memory` tool + pending queue.** One proposal per turn,
-      general preferences only ("I always want tight cuts" yes; "make this one
-      shorter" no), never a duplicate of an active memory. Proposals persist
-      until answered so navigation doesn't lose one.
+- [x] **G3. `propose_memory` tool + pending queue. DONE 2026-08-17.** One
+      proposal per turn, general preferences only ("I always want tight cuts"
+      yes; "make this one shorter" no), never a duplicate of an active memory.
+      Proposals persist until answered so navigation doesn't lose one.
       **Rev 2**: the prose policy tested clean untuned (3/3 and 0/3) — ship it
       as written in M2, don't redesign it.
-- [ ] **G4. Studio surface.** Proposal card in the assistant panel, where the
-      correction happened — accept / edit-then-accept / reject, with
-      same-kind active memories shown inline so conflicts are visible.
-      **Rev 2**: no "replaces →" picker — showing the list does the work.
+      As built: `agent-memory-proposals.ts` in-memory queue in main (survives
+      renderer navigation; ONE pending per project — the tool refuses a second
+      until the user answers, so cards can't stack into reflex-rejection);
+      `propose_memory` tool in `studio-agent.buildTools` with its own per-turn
+      flag (independent of the cuts/shots review panel), server-side duplicate
+      guard vs the active set, and text-limit check; M2's three policy bullets
+      verbatim in `studio-agent-prompt.ts`; proposals ride the existing
+      `STUDIO_AGENT_EVENT` stream as a new `memory-proposal` event kind.
+- [x] **G4. Studio surface. DONE 2026-08-17.** Proposal card in the assistant
+      panel, where the correction happened — accept / edit-then-accept /
+      reject, with same-kind active memories shown inline so conflicts are
+      visible. **Rev 2**: no "replaces →" picker — showing the list does the work.
+      As built: `MemoryProposalCard` + `useMemoryProposals` (fetches pending
+      on mount via `MEMORY_PROPOSALS_GET`, folds `memory-proposal` events in
+      live); resolve via `MEMORY_PROPOSAL_RESOLVE` — accept stamps
+      `{ by: 'agent', projectId, acceptedAt }` in MAIN from the queued
+      proposal (kind is not renderer-editable; only text/aliases are), and a
+      store refusal (rule cap) leaves the proposal PENDING so the user can
+      make room and retry. M2's degraded-provider note ships: chat-only
+      providers surface "your AI provider can't propose memories — add them
+      yourself" in the MemoryDialog (via `toolsAvailable` from the last turn).
+      10 new tests (queue semantics + all resolve paths); suite 766 green;
+      gate at baseline.
 - [x] **G5. Management surface — in Studio, not Assets. DONE 2026-08-17.**
       A `MemoryDialog` off the assistant panel: browse by tier, edit, toggle
       active, delete, with provenance. **Rev 2**: moved off the Assets screen
@@ -1080,4 +1099,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-17 | Updater E2E | **Auto-update E2E test PASSED — all 7 matrix items** (docs/auto-update-e2e-test-plan.md; results in auto-update-plan.md §12). Throwaway releases-only public repo `vidtsx-update-test` (created + deleted same day, zero source pushed). Three local builds (0.9.0/0.9.1/0.9.2) on a local-only branch, since deleted; main untouched. Proven for real: silent check at +30 s, **differential download (15.6 MB of 302 MB, 5%)**, busy gate (refusal reason + chip suppression + 20 s unblock), 600 ms manual-check spinner + "You're on the latest version.", Restart chip → silent NSIS (no installer window, 300 ms monitor) → relaunch as new version in ~45 s, install-on-quit (~30 s, no auto-relaunch), one-toast rule, feed-down 404 → error only in Settings. Draft-then-publish valve rehearsed 3×. **Two findings: (1) BUG to fix pre-V1 — Settings "What's new" shows escaped literal HTML (GitHub feeds HTML, UpdateSection renders via ReactMarkdown); (2) minor — transcription.db WAL sidecars survive shutdown (0-byte, harmless).** Env notes recorded in §12: winCodeSign cache needs one-time manual extract; clear ELECTRON_RUN_AS_NODE when launching the packaged exe from a dev shell. gh CLI installed (user-scope) + authed with repo/delete_repo. | Fix the release-notes rendering bug; then the real flip only repeats a proven flow. G5 (MemoryDialog) next per previous entry. |
 | 2026-08-17 | Updater E2E fixes | **Both E2E findings resolved (`122498f`).** (1) Release-notes bug FIXED: `normalizeReleaseNotes` → `services/updater/release-notes.ts` with a dependency-free HTML→markdown converter (GitHub provider feeds HTML; markdown feeds pass through untouched); 8 unit tests incl. the exact HTML captured in the E2E run. (2) transcription.db WAL finding downgraded to NOT-a-bug: sidecars were stale debris from an Aug 13 force-kill (file mtimes prove it); the DB is lazily opened, no session since had opened it, `closeDb` correctly no-ops. Suite 748 green; type gate at baseline (web 26 / node 22). | G5 (MemoryDialog + memory IPC). The real flip now repeats a fully proven flow. |
 | 2026-08-17 | G | **G5 implemented — manual entry + MemoryDialog; the value half (G1+G2+G5) is now complete.** Memory IPC surface per the CLAUDE.md recipe: `MEMORY_LIST/SAVE/DELETE/SET_ACTIVE` in channels.ts, req/res types in `shared/ipc/types/studio-memory.ts`, `memory-handlers.ts` + `registrations/memory.ts`, `preload/api/memory.ts`, ElectronAPI mirror updated by hand (gate stayed at baseline). Save handler stamps `{ by: 'user' }` provenance itself — the request has no source field, so the renderer cannot forge agent provenance (asserted in the 8 new handler tests). UI: Brain button in `AgentPanel` opens `MemoryDialog` (Modal, UI_SPEC idiom via the BrandsDialog precedent): Rules with `n/50 active` + at-cap notice + add disabled at cap, Names & spellings with aliases, profile as one free-text box (QM1) with dirty-save; every row shows provenance + On/Off toggle + edit/delete; list order matches the composed block (tier → createdAt → id). G6 residue absorbed — G6 is now empty. Suite 756 green; type gate web 26 / node 22. | G3 (`propose_memory` + pending queue) → G4 (proposal card) → G7 (live CDP acceptance). I2–I5 also unblocked. |
+| 2026-08-17 | G | **G3+G4 implemented — Phase G is code-complete; only G7 (live CDP acceptance) remains.** G3: `agent-memory-proposals.ts` (in-memory main-process queue, one pending per project, survives navigation), `propose_memory` tool in the studio MCP server (own per-turn flag, duplicate guard vs active set, text-limit check), M2 policy prose verbatim in the agent prompt, new `memory-proposal` agent event kind. G4: `MemoryProposalCard` (accept / edit-then-accept / reject, same-kind active memories inline, cap error keeps the card up for retry) + `useMemoryProposals` + `MEMORY_PROPOSALS_GET`/`MEMORY_PROPOSAL_RESOLVE` IPC; accept stamps agent provenance in main from the queued proposal — the renderer can edit text/aliases but never kind or source. M2 degraded-provider note in MemoryDialog via `toolsAvailable`. 10 new tests; suite 766 green; gate web 26 / node 22. | G7 live CDP acceptance (needs an agent-sdk provider + a transcribed project). Then I2–I5. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

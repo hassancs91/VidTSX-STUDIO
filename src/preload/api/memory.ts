@@ -4,6 +4,10 @@ import type {
   MemoryDeleteRequest,
   MemoryDeleteResponse,
   MemoryListResponse,
+  MemoryProposalResolveRequest,
+  MemoryProposalResolveResponse,
+  MemoryProposalsGetRequest,
+  MemoryProposalsGetResponse,
   MemorySaveRequest,
   MemorySaveResponse,
   MemorySetActiveRequest,
@@ -19,4 +23,10 @@ export const memoryApi = {
     ipcRenderer.invoke(IPC.MEMORY_SET_ACTIVE, data),
   memoryDelete: (data: MemoryDeleteRequest): Promise<MemoryDeleteResponse> =>
     ipcRenderer.invoke(IPC.MEMORY_DELETE, data),
+  memoryProposalsGet: (data: MemoryProposalsGetRequest): Promise<MemoryProposalsGetResponse> =>
+    ipcRenderer.invoke(IPC.MEMORY_PROPOSALS_GET, data),
+  memoryProposalResolve: (
+    data: MemoryProposalResolveRequest
+  ): Promise<MemoryProposalResolveResponse> =>
+    ipcRenderer.invoke(IPC.MEMORY_PROPOSAL_RESOLVE, data),
 };

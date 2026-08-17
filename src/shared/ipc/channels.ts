@@ -370,6 +370,11 @@ export const IPC = {
   MEMORY_SAVE: 'memory:save',
   MEMORY_DELETE: 'memory:delete',
   MEMORY_SET_ACTIVE: 'memory:set-active',
+  // G3/G4: agent proposals pending the user's accept/edit/reject. New
+  // proposals ride the STUDIO_AGENT_EVENT stream; GET re-fetches after
+  // navigation.
+  MEMORY_PROPOSALS_GET: 'memory:proposals:get',
+  MEMORY_PROPOSAL_RESOLVE: 'memory:proposal:resolve',
 
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',

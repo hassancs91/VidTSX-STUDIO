@@ -8,6 +8,7 @@ import type {
   StudioShotKind,
 } from '../../types/studio';
 import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
+import type { StudioMemoryProposal } from '../../types/studio-memory';
 import type { CaptionAspect, CaptionTemplateDefaults } from '../../studio/caption-pack';
 import type { ChatMessage } from './llm';
 
@@ -331,7 +332,8 @@ export interface StudioAgentSendResponse {
 export type StudioAgentEvent =
   | { projectId: string; kind: 'delta'; text: string }
   | { projectId: string; kind: 'tool'; tool: string; detail?: string }
-  | { projectId: string; kind: 'proposal'; proposal: StudioProposal };
+  | { projectId: string; kind: 'proposal'; proposal: StudioProposal }
+  | { projectId: string; kind: 'memory-proposal'; proposal: StudioMemoryProposal };
 
 export interface StudioAgentCancelRequest {
   projectId: string;

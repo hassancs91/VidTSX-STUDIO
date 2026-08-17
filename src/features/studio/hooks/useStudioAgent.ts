@@ -89,6 +89,10 @@ const msgId = () => `msg_${++nextId}_${Date.now().toString(36)}`;
 export function useStudioAgent(options: UseStudioAgentOptions) {
   const [messages, setMessages] = useState<AgentChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
+  /** Whether the resolved provider drives typed tools (undefined until the
+   *  first turn answers). false = chat-only provider — memory proposals and
+   *  cut/shot tools are unavailable, and the UI should say so. */
+  const [toolsAvailable, setToolsAvailable] = useState<boolean | undefined>(undefined);
 
   // The event stream and send() need the latest options without resubscribing.
   const optionsRef = useRef(options);
@@ -156,6 +160,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           ...(opts.providerId ? { providerId: opts.providerId } : {}),
           ...(opts.model ? { model: opts.model } : {}),
         });
+        if (response.toolsAvailable !== undefined) setToolsAvailable(response.toolsAvailable);
         patchPending((msg) => ({
           ...msg,
           pending: false,
@@ -201,7 +206,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
     return { estTokens, ratio: estTokens / CONTEXT_BUDGET_TOKENS };
   }, [messages, options.assets]);
 
-  return { messages, busy, send, cancel, clear, contextUsage };
+  return { messages, busy, send, cancel, clear, contextUsage, toolsAvailable };
 }
 
 export type UseStudioAgentResult = ReturnType<typeof useStudioAgent>;

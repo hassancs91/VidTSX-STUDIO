@@ -8,6 +8,10 @@ import type {
   MemoryDeleteRequest,
   MemoryDeleteResponse,
   MemoryListResponse,
+  MemoryProposalResolveRequest,
+  MemoryProposalResolveResponse,
+  MemoryProposalsGetRequest,
+  MemoryProposalsGetResponse,
   MemorySaveRequest,
   MemorySaveResponse,
   MemorySetActiveRequest,
@@ -19,6 +23,11 @@ import {
   setMemoryActive,
   upsertMemory,
 } from '../services/studio/agent-memory';
+import {
+  findProposal,
+  getPendingProposals,
+  removeProposal,
+} from '../services/studio/agent-memory-proposals';
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -72,5 +81,47 @@ export async function handleMemoryDelete(
     return { success: true };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to delete the memory') };
+  }
+}
+
+export async function handleMemoryProposalsGet(
+  _event: IpcMainInvokeEvent,
+  data: MemoryProposalsGetRequest,
+): Promise<MemoryProposalsGetResponse> {
+  return { success: true, proposals: getPendingProposals(data.projectId) };
+}
+
+/** The review-gate decision. Accept stamps AGENT provenance — this is the
+ *  only path that does, and it copies the kind from the pending proposal in
+ *  main, never from the renderer. A store refusal (rule cap, bad text)
+ *  leaves the proposal pending so the user can make room and retry. */
+export async function handleMemoryProposalResolve(
+  _event: IpcMainInvokeEvent,
+  data: MemoryProposalResolveRequest,
+): Promise<MemoryProposalResolveResponse> {
+  const proposal = findProposal(data.projectId, data.proposalId);
+  if (!proposal) {
+    return { success: false, error: 'That proposal is no longer pending.' };
+  }
+  if (data.action === 'reject') {
+    removeProposal(data.projectId, data.proposalId);
+    return { success: true };
+  }
+  try {
+    const aliases = data.edited ? data.edited.aliases : proposal.aliases;
+    const memory = await upsertMemory({
+      kind: proposal.kind,
+      text: data.edited?.text ?? proposal.text,
+      ...(aliases && aliases.length > 0 ? { aliases } : {}),
+      source: {
+        by: 'agent',
+        projectId: proposal.projectId,
+        acceptedAt: new Date().toISOString(),
+      },
+    });
+    removeProposal(data.projectId, data.proposalId);
+    return { success: true, memory };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to save the memory') };
   }
 }

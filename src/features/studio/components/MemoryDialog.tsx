@@ -15,6 +15,10 @@ type Editing = { kind: 'rule' | 'vocabulary'; memory?: StudioMemory } | null;
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  /** From the last agent turn: false = chat-only provider, so the agent
+   *  cannot propose memories and the UI must say so plainly (M2) rather
+   *  than silently never proposing. */
+  canPropose?: boolean;
 }
 
 /** Management surface for agent memory (G5, design doc M6 Rev 2): browse by
@@ -22,7 +26,7 @@ interface Props {
  *  Nothing enters memory the user did not see and accept; this dialog is the
  *  manual door. The agent re-reads the store every turn, so changes here
  *  steer the very next assistant reply. */
-export function MemoryDialog({ isOpen, onClose }: Props) {
+export function MemoryDialog({ isOpen, onClose, canPropose }: Props) {
   const { memories, loading, error, refresh, save, toggleActive, remove, clearError } =
     useAgentMemory();
   const [editing, setEditing] = useState<Editing>(null);
@@ -85,8 +89,15 @@ export function MemoryDialog({ isOpen, onClose }: Props) {
           <>
             <p className="text-[11px] text-text-dim leading-snug">
               The editing assistant reads everything active here on every turn. Nothing is
-              remembered unless you add it yourself — turning an entry off keeps it without
-              steering the assistant.
+              remembered unless you add it yourself or accept a proposal — turning an entry
+              off keeps it without steering the assistant.
+              {canPropose === false && (
+                <span className="text-text-muted">
+                  {' '}
+                  This project&rsquo;s AI provider can&rsquo;t propose memories — add them here
+                  yourself.
+                </span>
+              )}
             </p>
 
             <TierSection

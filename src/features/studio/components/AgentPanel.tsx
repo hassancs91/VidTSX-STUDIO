@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Brain, RotateCcw, Scissors, Send, Sparkles, Square, Wrench } from 'lucide-react';
 import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioAgent';
+import { useMemoryProposals } from '../hooks/useMemoryProposals';
 import { MemoryDialog } from './MemoryDialog';
+import { MemoryProposalCard } from './MemoryProposalCard';
 
 /** Warn when the next turn is estimated at ≥40% of the context budget. */
 const CONTEXT_WARN_RATIO = 0.4;
@@ -14,25 +16,28 @@ const TOOL_LABELS: Record<string, string> = {
   propose_shots: 'Proposing shots',
   generate_image: 'Generating image',
   capture_webpage: 'Capturing webpage',
+  propose_memory: 'Proposing a memory',
 };
 
 interface Props {
+  projectId: string;
   agent: UseStudioAgentResult;
 }
 
 /** The Assistant tab: chat with the editing agent. Cut proposals it creates
  *  land on the timeline + Inspector review flow — never applied directly. */
-export function AgentPanel({ agent }: Props) {
+export function AgentPanel({ projectId, agent }: Props) {
   const [draft, setDraft] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const memoryProposals = useMemoryProposals(projectId);
 
-  const { messages, busy, send, cancel, clear, contextUsage } = agent;
+  const { messages, busy, send, cancel, clear, contextUsage, toolsAvailable } = agent;
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, memoryProposals.proposals.length]);
 
   const submit = () => {
     const text = draft.trim();
@@ -44,7 +49,22 @@ export function AgentPanel({ agent }: Props) {
   return (
     <div className="flex flex-col h-full">
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-2.5 py-2 space-y-2.5">
-        {messages.length === 0 ? <EmptyState /> : messages.map((m) => <MessageRow key={m.id} message={m} />)}
+        {messages.length === 0 && memoryProposals.proposals.length === 0 ? (
+          <EmptyState />
+        ) : (
+          messages.map((m) => <MessageRow key={m.id} message={m} />)
+        )}
+        {memoryProposals.proposals.map((p) => (
+          <MemoryProposalCard
+            key={p.id}
+            proposal={p}
+            sameKindActive={memoryProposals.sameKindActive(p)}
+            error={memoryProposals.error}
+            resolving={memoryProposals.resolving}
+            onAccept={(edited) => void memoryProposals.accept(p, edited)}
+            onReject={() => void memoryProposals.reject(p)}
+          />
+        ))}
       </div>
 
       <div className="p-2.5 shrink-0" style={{ borderTop: '0.5px solid var(--color-border)' }}>
@@ -97,7 +117,11 @@ export function AgentPanel({ agent }: Props) {
         </div>
       </div>
 
-      <MemoryDialog isOpen={memoryOpen} onClose={() => setMemoryOpen(false)} />
+      <MemoryDialog
+        isOpen={memoryOpen}
+        onClose={() => setMemoryOpen(false)}
+        {...(toolsAvailable !== undefined ? { canPropose: toolsAvailable } : {})}
+      />
     </div>
   );
 }

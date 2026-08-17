@@ -31,6 +31,22 @@ export interface StudioMemory {
   updatedAt: string;
 }
 
+/** A pending memory proposal (G3): the agent called `propose_memory` and the
+ *  result is waiting for the user's decision as a card in the assistant
+ *  panel. NEVER applied directly — accept/edit/reject is the same review
+ *  gate as cut plans and shot plans. Pending proposals live in main so
+ *  renderer navigation doesn't lose them. */
+export interface StudioMemoryProposal {
+  id: string;
+  /** The project whose assistant panel shows the card. */
+  projectId: string;
+  kind: StudioMemoryKind;
+  text: string;
+  /** vocabulary only — manglings the entry would correct. */
+  aliases?: string[];
+  createdAt: string;
+}
+
 /** Hard cap on ACTIVE rules — at the cap, accepting one requires
  *  deactivating another (unbounded memory is worse than none). 50 was
  *  decided against the skills already shipping 10,508 chars per turn

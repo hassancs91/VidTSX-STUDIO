@@ -1,4 +1,8 @@
-import type { StudioMemory, StudioMemoryKind } from '../../types/studio-memory';
+import type {
+  StudioMemory,
+  StudioMemoryKind,
+  StudioMemoryProposal,
+} from '../../types/studio-memory';
 
 // Studio — agent memory (G5): manual entry + MemoryDialog.
 // Design: docs/studio/AGENT_MEMORY_DESIGN.md (M6/M7, Rev 2).
@@ -50,6 +54,41 @@ export interface MemorySetActiveRequest {
 
 export interface MemorySetActiveResponse {
   success: boolean;
+  memory?: StudioMemory;
+  error?: string;
+}
+
+/** memory:proposals:get — pending proposals for one project, so the card
+ *  survives renderer navigation (fetched on panel mount; new ones arrive on
+ *  the agent event stream). */
+export interface MemoryProposalsGetRequest {
+  projectId: string;
+}
+
+export interface MemoryProposalsGetResponse {
+  success: boolean;
+  proposals?: StudioMemoryProposal[];
+  error?: string;
+}
+
+/** memory:proposal:resolve — the user's decision on a pending card.
+ *  accept lands the memory with agent provenance; passing `edited` is the
+ *  edit-then-accept door (kind is fixed — only text/aliases are editable).
+ *  If the store refuses (e.g. the rule cap), the proposal STAYS pending so
+ *  the user can make room and retry. reject discards it. */
+export interface MemoryProposalResolveRequest {
+  proposalId: string;
+  projectId: string;
+  action: 'accept' | 'reject';
+  edited?: {
+    text: string;
+    aliases?: string[];
+  };
+}
+
+export interface MemoryProposalResolveResponse {
+  success: boolean;
+  /** The saved record on accept. */
   memory?: StudioMemory;
   error?: string;
 }
