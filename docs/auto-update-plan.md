@@ -581,6 +581,44 @@ manual-test territory.
 Phases A–D are the shippable core. E–G are quality/trust work that does not block a first
 public auto-updating release on Windows.
 
+### E2E test result — 2026-08-17: PASSED
+
+The full flow was exercised for real via a throwaway releases-only public repo
+(`docs/auto-update-e2e-test-plan.md`; repo created, used, and deleted the same day —
+no source ever pushed). 0.9.0 installed → 0.9.1 via Restart chip → 0.9.2 via
+install-on-quit, all on this machine. Every §11 matrix item passed:
+
+- Silent auto-check at launch+30 s → staged 11 s later; chip `Updating… N%` →
+  `Update ready · Restart`; exactly ONE toast; zero modals.
+- **Differential download works**: 15.6 MB transferred of a 302 MB installer (5%).
+- Busy gate: install refused with `busy` + "1 download in progress", chip suppressed;
+  cancel → unblocked in 20 s (30 s poll).
+- Manual path: 600 ms spinner hold observed; "You're on the latest version."
+- Restart install: click → relaunch ~45 s, **no installer window** (300 ms monitor),
+  single-instance lock released, marker log confirmed new version, userData intact.
+- Install-on-quit: silent ~30 s install after normal quit, no auto-relaunch (correct).
+- Feed-down (natural 404 after repo deletion): error only in Settings
+  ("No published release was found for this build channel."), status bar clean, retry
+  usable. Deleting/renaming the feed repo has a short GitHub CDN stale-cache window
+  (a check seconds later still got the old 200) — harmless.
+
+**Findings to fix before V1:**
+
+1. **Release-notes rendering bug (renderer):** GitHub delivers `releaseNotes` as
+   HTML (electron-updater converts the markdown body), but `UpdateSection.tsx`
+   renders it with ReactMarkdown → users see escaped literal `<h2>…` markup. Fix:
+   sanitize+render HTML (rehype-raw) or convert to markdown/text in
+   `normalizeReleaseNotes`.
+2. **Minor:** `transcription.db-wal/-shm` survive graceful shutdown (0-byte WAL, no
+   data at risk; repros on a plain quit — likely a second open handle or a Windows
+   delete race). Worth a look, not a blocker.
+
+Build note for release day: electron-builder's winCodeSign cache fails to extract in
+a normal shell (macOS symlinks need symlink privilege). One-time fix: extract
+`winCodeSign-2.6.0.7z` into `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0`
+with `-x!darwin`. Also: launching the packaged exe from a Claude Code/VS Code shell
+requires clearing `ELECTRON_RUN_AS_NODE`.
+
 ### What has to happen before a user can actually update
 
 The app code is done; the *feed* does not exist yet. In order:
