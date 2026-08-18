@@ -1093,9 +1093,14 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 
 ### Security cleanups (do these regardless)
 
-- [ ] **Rotate the secrets currently sitting in root `.env`** (AssemblyAI, ElevenLabs,
-      Gemini, Notion, Fal). The file is gitignored and unread by code, but the keys are live
-      on disk; after rotating, strip it down to feature flags only (per `.env.example`).
+- [x] **Rotate the secrets currently sitting in root `.env` — DONE (Hasan, 2026-08-18).**
+      Old values revoked at the providers; the lines still sitting in `.env` are dead
+      material. Two follow-ons still open:
+      - [ ] Strip `.env` to feature flags only (per `.env.example`) — Hasan does this
+            (some lines may serve outside pipeline scripts; only he knows which).
+      - [ ] Re-enter the NEW keys in the app (Providers UI: OpenRouter / MiniMax /
+            Kimi, + AssemblyAI if rotated) — the app still holds the pre-rotation
+            values, so those providers will fail auth until re-entered.
 - [x] ~~Consider~~ **`safeStorage` encryption — DONE 2026-08-18 (Q4 resolved: in V1).**
       Implemented at the `settings-db.ts` boundary, wider than Q4 asked: the four
       secret-bearing keys (`providerCredentials`, `llmProviders`, `imageProviders`,
