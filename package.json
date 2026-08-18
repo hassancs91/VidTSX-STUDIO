@@ -1,5 +1,6 @@
 {
   "name": "vidtsx-studio",
+  "productName": "VidTSX Studio",
   "version": "1.0.0",
   "description": "Desktop video composition editor powered by Remotion — render TSX scenes to MP4 locally.",
   "main": "out/main/index.js",
