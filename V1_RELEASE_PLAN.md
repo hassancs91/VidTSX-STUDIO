@@ -1075,9 +1075,22 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 - [ ] **Rotate the secrets currently sitting in root `.env`** (AssemblyAI, ElevenLabs,
       Gemini, Notion, Fal). The file is gitignored and unread by code, but the keys are live
       on disk; after rotating, strip it down to feature flags only (per `.env.example`).
-- [ ] Consider `safeStorage` encryption for `providerCredentials`
-      (`settings.ts:264-284`) as called for in `PLAN.md:398,476`. If deferred past v1,
-      record it in STATUS.md "Known issues / tech debt". *(Q4.)*
+- [x] ~~Consider~~ **`safeStorage` encryption — DONE 2026-08-18 (Q4 resolved: in V1).**
+      Implemented at the `settings-db.ts` boundary, wider than Q4 asked: the four
+      secret-bearing keys (`providerCredentials`, `llmProviders`, `imageProviders`,
+      `sttProviders`) are encrypted via OS keystore (DPAPI) on write, legacy plaintext
+      rows stay readable (transparent migration), and `migrateSensitiveSettings()` at
+      startup re-encrypts them in place followed by `wal_checkpoint(TRUNCATE)` + `VACUUM`
+      so the old plaintext is actually gone from freed pages/WAL, not just superseded.
+      Keystore unavailable → plaintext fallback (never lose keys); undecryptable row
+      (DB copied to another OS user) → reads as unset, never garbage. Verified live
+      against the real DB holding the H6 keys: byte-scan before (all 4 keys plaintext)
+      → one app start (migration log line) → byte-scan after (zero plaintext bytes,
+      `enc.v1:` marker present), and all IPC reads intact. 8 new tests (better-sqlite3
+      faked in-memory — the node_modules build is Electron-ABI and won't load under
+      plain-node vitest). README's key-storage line now carries the encryption claim
+      (restored per the licensing-pass note), and the stale Z.AI provider mention was
+      fixed en route.
 
 ### Final checklist
 
@@ -1104,9 +1117,11 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
 - **Q3 — TSX job restore behavior (B5):** restore queued jobs as paused (proposed) vs keep
   auto-resume. Auto-resume contradicts "nothing runs on start", but changes current behavior
   for existing users.
-- **Q4 — safeStorage for API keys:** in v1 or deferred? Proposed: in v1 if it's a
-  contained change to `settings.ts` (+ transparent migration of existing plaintext keys);
-  defer if it drags.
+- **Q4 — safeStorage for API keys:** ~~in v1 or deferred?~~ **ANSWERED 2026-08-18:
+  in V1, done.** Landed as a contained change to `settings-db.ts` (one layer below the
+  `settings.ts` the question predicted — every secret-bearing key crosses that boundary,
+  so one seam covers all four) with transparent migration + post-migration VACUUM.
+  See Phase E "Security cleanups".
 - **Q5 — Sidebar order after hiding** Flows/Videos/Tools: keep remaining order as-is, or
   regroup? Proposed: keep as-is, zero-risk.
 - **Q6 — Agent memory (G) vs the release date:** G is the one *feature* in an otherwise
@@ -1189,4 +1204,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-17 | I | **I2–I6 implemented — Phase I is complete; the announcements client ships inert until vidtsx.com serves feed.json.** Settings fields (`newsEnabled` default-on, `newsDismissedIds` capped 200), news IPC (`NEWS_GET`/`NEWS_DISMISS`/`NEWS_SET_ENABLED` — the third channel added because the toggle needs a write path; disabled short-circuits BEFORE the fetch so off means no request), `useNews` + `NewsCard` app-level beside CaptureChip (one message at a time, type-accented, CTA via shell-open), `NewsRow` toggle under Privacy, README "Launch-time network requests" disclosure covering update check + feed together (I6). StatusBar chip skipped as unnecessary. 6 new tests; suite 772 green; gate web 26 / node 22. | G7 live CDP acceptance; H6 provider smoke tests (Hasan's keys); then the licensing flip checklist + Phase E. |
 | 2026-08-17 | H | **V1 provider set final (Hasan): Claude ×2 + OpenRouter + MiniMax + Kimi; Z.AI cut** — `zai` added to `V1_HIDDEN_PRESET_IDS` (grandfathered like openai/gemini, returns via flag), H2 tests updated to the five-preset expectation. **H6 pre-flight RUN with real keys** (headless spike mirroring the exact `createSession()` routed path): openrouter **PASS** (the suffix-less baseURL question is closed — Anthropic-shape confirmed, cache reads both turns), minimax **PASS**, kimi functional 3/3 runs (text + tools + good cuts) but multi-turn cache reads report 0 (2/2) with under-counted input — judged a usage-reporting quirk, shipping anyway. Keys stay in `.env` (NOT app settings yet). Suite 772 green; gate at baseline. | In-app H6 leg + G7 in one live session: enter the three keys in Providers UI, one agent turn each, then the G7 memory acceptance script on claude. |
 | 2026-08-17 | H6+G7 | **Live-session leg PASSED — Phase G and Phase H are now fully complete.** In-app H6: three keys entered via the real Providers UI, one Studio agent turn per provider on `autocut-test`, all three landed in ai-usage with cache reads (openrouter 6,793 / minimax 5,475 / kimi 5,632 — kimi's in-app cache reads are nonzero, softening the pre-flight quirk). The leg caught + fixed two V1 bugs: kimi missing from `LLM_ONLY_IDS` (no key-entry row existed), and a fresh OpenRouter shared credential never enabling the LLM provider (llm-init/llm-handlers zai-branch asymmetry + `enabled:false` artifact from the wholesale save; save path now re-runs `initLLMEngine()`, also fixing a latent bug where any LLM-row save dropped credential-backed providers until restart). G7: all five legs passed on claude-subscription (proposal → accept w/ agent provenance → behaves + cites → toggle-off reverts (asserted in a cleared conversation; in-conversation history keeps the behaviour alive — expected, noted for docs) → one-off produces no proposal), counterfactual proven both directions; test rule deleted after. Flagged, not fixed: Z.AI shared-key row still renders though the preset is hidden. Suite 774 green (+2 handler tests); gate at baseline (web 26 / node 22). | Licensing flip checklist + Phase E hardening (incl. rotating the root `.env` keys before the repo goes public). |
+| 2026-08-18 | E (Q4) | **safeStorage encryption at rest landed — first Phase E item done.** All four secret-bearing settings keys encrypted via DPAPI at the `settings-db.ts` boundary; transparent read of legacy plaintext; startup `migrateSensitiveSettings()` + checkpoint/VACUUM so old plaintext leaves the disk for real. Verified live on the real DB (byte-scan: 4/4 keys plaintext before → 0/4 after, `enc.v1:` marker present, IPC reads intact, migration log line seen). README key-storage line upgraded with the encryption claim (per the licensing-pass note) + stale Z.AI provider mention fixed. 8 new tests (in-memory better-sqlite3 fake); suite 782 green; gate at baseline (web 26 / node 22). | Remaining E: Hasan rotates the root `.env` keys (now that settings-db is encrypted, re-entering rotated keys in the app leaves no plaintext residue), updater-toast "Later" action, final build/install checklist. Licensing flip checklist unchanged. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |

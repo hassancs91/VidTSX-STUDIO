@@ -14,6 +14,7 @@ import { migrateVideoStudio } from './services/video-studio-migrate';
 import { migrateTranscriptionProjects } from './services/transcription-projects-migrate';
 import { migrateRenderQueue } from './services/render-queue-migrate';
 import { migrateSettings, migrateProviderSettings } from './services/settings-migrate';
+import { migrateSensitiveSettings } from './services/settings-db';
 import { migrateAiUsage } from './services/ai-usage-migrate';
 import { migrateFlowsProjects } from './services/flows-projects-migrate';
 import { migrateDownloads } from './services/download-manager/download-state-migrate';
@@ -136,6 +137,11 @@ app.whenReady().then(async () => {
   // BYOK migration: seed shared provider credentials from legacy per-engine
   // configs and drop removed VidTSX provider rows. Must run before engine init.
   await migrateProviderSettings();
+
+  // Encrypt plaintext provider keys at rest (safeStorage / Q4). After the
+  // migrations above so it re-encrypts their final shape; before engine init
+  // is irrelevant — reads handle both forms transparently.
+  migrateSensitiveSettings();
 
   // Initialize LLM engine with saved provider configs
   await initLLMEngine();

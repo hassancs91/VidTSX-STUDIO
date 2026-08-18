@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { app } from 'electron';
+import { app, safeStorage } from 'electron';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import { logEngine } from '../../logging/log-engine';
@@ -7,6 +7,66 @@ import { logEngine } from '../../logging/log-engine';
 const log = logEngine.createLogger('settings-db');
 
 let db: Database.Database | null = null;
+
+/**
+ * Settings whose values carry API keys — encrypted at rest via the OS
+ * keystore (DPAPI on Windows) when available (PLAN.md safeStorage / Q4).
+ * Encryption is per-OS-user: a settings.db copied to another machine or
+ * Windows profile loses these values (they read back as unset, never as
+ * garbage). Plaintext rows from older installs stay readable and are
+ * re-encrypted by migrateSensitiveSettings() at startup.
+ */
+const ENCRYPTED_KEYS = new Set([
+  'providerCredentials',
+  'llmProviders',
+  'imageProviders',
+  'sttProviders',
+]);
+
+/** Stored shape of an encrypted value: a JSON string "enc.v1:<base64>". */
+const ENC_PREFIX = 'enc.v1:';
+
+function encryptionAvailable(): boolean {
+  try {
+    // safeStorage must not be touched before app ready on some platforms.
+    return app.isReady() && safeStorage.isEncryptionAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/** JSON-encode a value for storage, encrypting sensitive keys when possible. */
+function encodeValue(key: string, value: unknown): string {
+  const json = JSON.stringify(value);
+  if (!ENCRYPTED_KEYS.has(key) || !encryptionAvailable()) return json;
+  try {
+    const cipher = safeStorage.encryptString(json).toString('base64');
+    return JSON.stringify(ENC_PREFIX + cipher);
+  } catch (err) {
+    // Never lose the value over a keystore hiccup — store plaintext, as before.
+    log.warn(`Encrypting setting "${key}" failed — storing plaintext`, {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return json;
+  }
+}
+
+/** Undo encodeValue on an already-JSON-parsed value. */
+function decodeParsed(key: string, parsed: unknown): unknown {
+  if (!ENCRYPTED_KEYS.has(key)) return parsed;
+  if (typeof parsed !== 'string' || !parsed.startsWith(ENC_PREFIX)) return parsed;
+  try {
+    const plain = safeStorage.decryptString(
+      Buffer.from(parsed.slice(ENC_PREFIX.length), 'base64'),
+    );
+    return JSON.parse(plain) as unknown;
+  } catch (err) {
+    log.warn(`Failed to decrypt setting "${key}" — treating as unset`, {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
 
 export function getSettingsDir(): string {
   return path.join(app.getPath('userData'), 'settings');
@@ -63,7 +123,7 @@ export function getValue<T>(key: string): T | undefined {
     .get(key) as { value: string } | undefined;
   if (!row) return undefined;
   try {
-    return JSON.parse(row.value) as T;
+    return decodeParsed(key, JSON.parse(row.value)) as T;
   } catch {
     return undefined;
   }
@@ -78,7 +138,8 @@ export function getAllValues(): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const row of rows) {
     try {
-      out[row.key] = JSON.parse(row.value);
+      const value = decodeParsed(row.key, JSON.parse(row.value));
+      if (value !== undefined) out[row.key] = value;
     } catch {
       // skip malformed entries
     }
@@ -98,7 +159,7 @@ export function setValue(key: string, value: unknown): void {
       `INSERT INTO app_settings (key, value) VALUES (?, ?)
        ON CONFLICT(key) DO UPDATE SET value = excluded.value`
     )
-    .run(key, JSON.stringify(value));
+    .run(key, encodeValue(key, value));
 }
 
 /** Upsert multiple values atomically. */
@@ -112,8 +173,48 @@ export function setValues(entries: Record<string, unknown>): void {
   const txn = database.transaction((obj: Record<string, unknown>) => {
     for (const [k, v] of Object.entries(obj)) {
       if (v === undefined) remove.run(k);
-      else upsert.run(k, JSON.stringify(v));
+      else upsert.run(k, encodeValue(k, v));
     }
   });
   txn(entries);
+}
+
+/**
+ * One-time, idempotent startup migration: re-save any sensitive setting that
+ * is still stored in plaintext so it lands encrypted. No-op when the OS
+ * keystore is unavailable or every row is already encrypted. Call after app
+ * ready (safeStorage requirement).
+ */
+export function migrateSensitiveSettings(): void {
+  if (!encryptionAvailable()) return;
+  const database = getDb();
+  let migrated = 0;
+  for (const key of ENCRYPTED_KEYS) {
+    const row = database
+      .prepare('SELECT value FROM app_settings WHERE key = ?')
+      .get(key) as { value: string } | undefined;
+    if (!row) continue;
+    try {
+      const parsed = JSON.parse(row.value) as unknown;
+      const alreadyEncrypted = typeof parsed === 'string' && parsed.startsWith(ENC_PREFIX);
+      if (alreadyEncrypted || parsed === undefined) continue;
+      setValue(key, parsed);
+      migrated += 1;
+    } catch {
+      // Malformed row — leave it; getValue treats it as unset anyway.
+    }
+  }
+  if (migrated > 0) {
+    // The overwritten plaintext can linger in freed pages and the WAL;
+    // checkpoint + VACUUM rebuilds the file so it's actually gone from disk.
+    try {
+      database.pragma('wal_checkpoint(TRUNCATE)');
+      database.exec('VACUUM');
+    } catch (err) {
+      log.warn('Post-migration VACUUM failed (non-fatal)', {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+    log.info('Encrypted plaintext sensitive settings at rest', { migrated });
+  }
 }

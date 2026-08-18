@@ -2,7 +2,7 @@
 
 **AI-powered desktop video studio.** Generate [Remotion](https://www.remotion.dev/) TSX video compositions with AI, create images with local open-source models or cloud providers, transcribe audio/video locally, and render everything to MP4 on your own machine.
 
-Free and source-available. Bring your own API keys — no account, no middleman servers, and no telemetry by default. The only optional exception is [opt-in crash reporting](#crash-reporting-opt-in), which is off until you enable it. Your keys are stored locally on your device and are only ever sent directly to the provider you choose.
+Free and source-available. Bring your own API keys — no account, no middleman servers, and no telemetry by default. The only optional exception is [opt-in crash reporting](#crash-reporting-opt-in), which is off until you enable it. Your keys are stored locally on your device — encrypted at rest with the OS keystore (Windows DPAPI) when available — and are only ever sent directly to the provider you choose.
 
 ## Download
 
@@ -15,7 +15,7 @@ Grab the latest Windows installer from the [Releases page](https://github.com/ha
 ### 🪄 TSX Creator
 Describe a video and get a working Remotion TSX composition with live preview.
 
-- Works with **Claude (subscription or API key), OpenRouter, MiniMax, Z.AI (GLM), and Kimi (Moonshot)**. More providers (OpenAI, Gemini, custom endpoints) return in a future release.
+- Works with **Claude (subscription or API key), OpenRouter, MiniMax, and Kimi (Moonshot)**. More providers (OpenAI, Gemini, Z.AI, custom endpoints) return in a future release.
 - Up to 4 parallel generation jobs with streaming output.
 - Refinement chat per project ("make the title bounce"), AI error fixing, and a props panel that turns your component's props into live-editable controls.
 - Full Monaco code editor with auto-save and instant preview refresh.
