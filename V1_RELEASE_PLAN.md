@@ -1011,16 +1011,24 @@ default browser, not in-app.
 
 ## Licensing & repo prep (item 10 — decided 2026-08-16, must land before the repo goes public)
 
-> **⚠️ PREMISE INVALIDATED — discovered 2026-08-18 during the Phase E checklist.**
-> This section assumes the repo is private and "goes public" at a controlled flip.
-> **It is already public** (github.com/hassancs91/VidTSX-STUDIO, public since creation
-> 2026-07-07), with a v1.0.0 release from 2026-07-29 (2 downloads), 1 star, 2 forks,
-> and all working docs in the visible history (~70 commits behind local main).
-> No secrets anywhere in it (verified), so this is a positioning problem, not a
-> security one — but the prune/flip mechanics below need Hasan to re-decide:
-> keep developing in the open (simplest, docs stay visible), or take the repo private
-> now and do the planned fresh-push flip (the 2 forks keep the old history either way).
-> Also: **the 1.0.0 version number is burned** by the July release — ship ≥1.0.1.
+> **⚠️ 2026-08-18: the repo was found PUBLIC (since 2026-07-07, with a July v1.0.0
+> release, 2 downloads, 2 forks) — Hasan took it PRIVATE the same day.** Verified
+> after the change: visibility PRIVATE, anonymous access 404s. The controlled-flip
+> plan below is executable again, with these residues:
+> - **One detached fork survives publicly**: `JanPienaar/VidTSX-STUDIO` (snapshot
+>   ~2026-08-01 — old code under the then-current MIT license, plus the working docs
+>   of that date). Legitimately obtained while public; nothing actionable.
+> - The July v1.0.0 release still exists inside the now-private repo. Its 2 downloaded
+>   copies can never auto-update (feed 404s) — acceptable orphans.
+> - **Version numbering**: on the planned FRESH public repo, `1.0.0` is usable again
+>   (no release exists there). Only if THIS repo is ever re-publicized must the old
+>   release+tag be deleted / the version bumped.
+> - **Repo naming at flip**: the updater feed (electron-builder.yml `publish` + the
+>   shipped app-update.yml) points at `hassancs91/VidTSX-STUDIO`. If the fresh public
+>   repo takes that name, rename THIS private repo first; otherwise update the publish
+>   config before the release build.
+> - Also noticed while checking: `hassancs91/vidtsx-desktop` (an older incarnation of
+>   the app) is PUBLIC and was touched 2026-08-18 — confirm that's intentional.
 
 **License: FSL-1.1-MIT** (Functional Source License — Sentry's, also used by GitButler).
 Free to use/modify/fork including for commercial video work; nobody may build a competing
