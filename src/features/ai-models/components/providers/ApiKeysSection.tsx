@@ -140,6 +140,16 @@ export function ApiKeysSection() {
     );
   }
 
+  // Z.AI is cut from V1 (it sits in V1_HIDDEN_PRESET_IDS main-side): its key
+  // row hides with the preset. Grandfathering matches H2/H5 — an install with
+  // a zai key already saved keeps the row so the key can be changed/removed,
+  // and the H4 dev flag restores it along with the presets.
+  const allProvidersFlag =
+    import.meta.env.VITE_FF_ALL_PROVIDERS === '1' || import.meta.env.VITE_FF_ALL_PROVIDERS === 'true';
+  const sharedRows = SHARED_KEY_ROWS.filter(
+    (row) => row.id !== 'zai' || hasKeys.zai || allProvidersFlag,
+  );
+
   const llmRows = llm.providers.filter((p) => LLM_ONLY_IDS.has(p.id) || isCustomProvider(p.id));
   const enabledLlmProviders = llm.providers.filter((p) => p.enabled);
 
@@ -153,7 +163,7 @@ export function ApiKeysSection() {
 
       <Panel>
         {/* Shared BYOK keys */}
-        {SHARED_KEY_ROWS.map((row) => {
+        {sharedRows.map((row) => {
           const saved = hasKeys[row.id] && !clearing.includes(row.id);
           const test = imageTests[row.id];
           return (
