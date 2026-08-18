@@ -1011,6 +1011,17 @@ default browser, not in-app.
 
 ## Licensing & repo prep (item 10 — decided 2026-08-16, must land before the repo goes public)
 
+> **⚠️ PREMISE INVALIDATED — discovered 2026-08-18 during the Phase E checklist.**
+> This section assumes the repo is private and "goes public" at a controlled flip.
+> **It is already public** (github.com/hassancs91/VidTSX-STUDIO, public since creation
+> 2026-07-07), with a v1.0.0 release from 2026-07-29 (2 downloads), 1 star, 2 forks,
+> and all working docs in the visible history (~70 commits behind local main).
+> No secrets anywhere in it (verified), so this is a positioning problem, not a
+> security one — but the prune/flip mechanics below need Hasan to re-decide:
+> keep developing in the open (simplest, docs stay visible), or take the repo private
+> now and do the planned fresh-push flip (the 2 forks keep the old history either way).
+> Also: **the 1.0.0 version number is burned** by the July release — ship ≥1.0.1.
+
 **License: FSL-1.1-MIT** (Functional Source License — Sentry's, also used by GitButler).
 Free to use/modify/fork including for commercial video work; nobody may build a competing
 product/service from the code; each release auto-converts to **MIT after 2 years**. Chosen
@@ -1094,17 +1105,48 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
       (restored per the licensing-pass note), and the stale Z.AI provider mention was
       fixed en route.
 
-### Final checklist
+### Final checklist — RUN 2026-08-18, all items PASS (findings below)
 
-- [ ] `npm run check:types` (the real gate — `type-check` and `lint` scripts do NOT
-      exist; baseline-checked via `scripts/check-types.mjs`), `npx vitest run`,
-      `npm run build:win`; install the artifact on a clean Windows profile.
-- [ ] Cold-start check on the installed build: no model loads, no GPU probe, no spawned
-      AI processes (Task Manager + startup log).
-- [ ] Hidden surfaces absent in the artifact; env flags verified OFF in the build env.
-- [ ] `LICENSE.md` (FSL-1.1-MIT) present; README says "source-available" (not "open source")
-      and carries the Remotion note + the feed disclosure line (I6).
-- [ ] Update `STATUS.md` (v1 scope section at `:264` + tech-debt list) when phases land.
+- [x] `npm run check:types` (baseline web 26 / node 22), `npx vitest run` (782 green),
+      `npm run build:win` → `VidTSX-Studio-Setup-1.0.0.exe` (317 MB, signed, blockmap);
+      installed via `/S` and exercised on a **true clean profile** (dev userData set
+      aside, first-run from zero, then restored).
+- [x] Cold-start on the installed build: 235–540 ms main init, only cheap provider
+      registrations, **no** sherpa/llama/GPU-probe/model-scan lines, **no** AI processes
+      spawned (claude/sherpa/llama/sd-cli/whisper checked via process list). First-run
+      with no keys registers exactly claude-subscription + local / local image /
+      local-whisper — correct.
+- [x] Hidden surfaces absent: renderer bundle inlines every env-gated flag as `void 0`,
+      main bundle's `__vite_import_meta_env__ = {}` — proven at the artifact level.
+- [x] `LICENSE.md` FSL-1.1-MIT + package.json SPDX; README "source-available" + why-not-OSS
+      note + Remotion section + launch-time network disclosure + (new) encryption claim.
+- [x] STATUS.md tech-debt list checked — nothing stale to add.
+
+**Findings (2026-08-18 checklist run):**
+1. **THE REPO IS ALREADY PUBLIC — the licensing-flip premise is wrong.** `origin` =
+   github.com/hassancs91/VidTSX-STUDIO, visibility PUBLIC (created 2026-07-07), with a
+   **published `v1.0.0` release dated 2026-07-29** (real installer asset, 2 downloads),
+   1 star, **2 forks**, and the full working tree as of ~70 commits ago — including every
+   "private" doc (PLAN.md, Status.md, UI_SPEC.md, BUGS.md, docs/ tree, CLAUDE.md,
+   .claude/ settings). Verified no secrets in history (2026-08-16 check still holds; the
+   public .claude files are permission allowlists only). Consequences needing HASAN's
+   decisions: (a) the "pruned fresh public repo, this one stays private" plan needs
+   rework or the prune moment has passed — note the 2 forks retain the current history
+   regardless; (b) **version 1.0.0 is burned** — a different 1.0.0 is already published,
+   so installed copies of it will never see our build as an update (electron-updater
+   never offers same-version); the real release should be ≥1.0.1, or delete the old
+   release+tag and accept its 2 downloads are orphaned; (c) the installed build's
+   updater ALREADY talks to that release feed (log: "latest version: 1.0.0").
+2. **Packaged and dev builds share userData** (`%APPDATA%/vidtsx-studio`) — package.json
+   has no `productName`, so Electron's app name is the same in both. Harmless for end
+   users (no dev checkout), surprising on dev machines (installed app reads dev
+   settings). Setting `productName` in package.json would separate them but also moves
+   DEV userData — decide before release or accept as-is.
+3. **One unreproduced silent exit on the very first run**: full clean startup logged
+   (235 ms, module server up), then the process vanished ~16–20 s in with no error, no
+   crash dialog, no Windows event-log entry. Two subsequent truly-cold first-runs
+   (profile deleted) were stable 40 s+. Recorded as observed-once; re-check on the next
+   installed-build session.
 
 ---
 
@@ -1209,4 +1251,5 @@ the foundation (store + pure prompt composition) and G3→G4 are the half that m
 | 2026-08-18 | E (Q4) | **safeStorage encryption at rest landed — first Phase E item done.** All four secret-bearing settings keys encrypted via DPAPI at the `settings-db.ts` boundary; transparent read of legacy plaintext; startup `migrateSensitiveSettings()` + checkpoint/VACUUM so old plaintext leaves the disk for real. Verified live on the real DB (byte-scan: 4/4 keys plaintext before → 0/4 after, `enc.v1:` marker present, IPC reads intact, migration log line seen). README key-storage line upgraded with the encryption claim (per the licensing-pass note) + stale Z.AI provider mention fixed. 8 new tests (in-memory better-sqlite3 fake); suite 782 green; gate at baseline (web 26 / node 22). | Remaining E: Hasan rotates the root `.env` keys (now that settings-db is encrypted, re-entering rotated keys in the app leaves no plaintext residue), updater-toast "Later" action, final build/install checklist. Licensing flip checklist unchanged. |
 | 2026-08-18 | E | **Updater "Later" action landed — `updateSkippedVersion` is now user-reachable** (the updater E2E's cosmetic finding). `Toast`/`ToastContext` gained an optional muted `secondaryAction`; the update-ready toast offers Restart · Later, and the status-bar chip gets a Later button beside Restart. Skip semantics kept honest: it silences the nag for that version only (toast + chip gated on `skippedVersion`), the staged update still applies on next quit (`autoInstallOnAppQuit`), Settings → Updates still offers it, and the existing service-side guard already stops auto re-downloads of a skipped version. Copy says so: "Okay — vX will install next time you quit." Gate at baseline, suite 782 green; boot-smoked in dev (full flow re-verifies with the proven E2E harness at next release build). | Remaining E: key rotation (Hasan) + final build/install checklist. |
 | 2026-08-18 | H (residue) | **Z.AI key row hidden (Hasan's call on the H6 flag).** `ApiKeysSection` filters the zai shared row with the preset's own grandfathering rule: visible only when a zai key is already saved (change/remove stays possible) or under `VITE_FF_ALL_PROVIDERS=1`. Live-verified: shared rows are Fal / OpenRouter / AssemblyAI; Kimi LLM row present. Gate at baseline; suite 782 green. | Remaining: key rotation (Hasan) + final build/install checklist; licensing flip. |
+| 2026-08-18 | E (checklist) | **Final release checklist RUN — all items PASS** (build → signed 1.0.0 installer, silent install, TRUE clean-profile first-run ×3, cold-start clean: 235–540 ms, zero engine loads/AI spawns, first-run registers keyless providers only; hidden surfaces proven off at the bundle level). **Three findings, one major: the repo is ALREADY PUBLIC** (since 2026-07-07; v1.0.0 release published 2026-07-29 w/ 2 downloads, 1 star, 2 forks, all working docs visible) — licensing-flip premise invalid, **1.0.0 is burned** (ship ≥1.0.1), and the installed build's updater already reads that release feed. Minor: packaged+dev builds share `%APPDATA%/vidtsx-studio` (no productName in package.json); one unreproduced silent exit on the very first run (clean log, no crash record; stable on 2 cold retries). Details in Phase E "Final checklist". | Hasan decides: open-development vs private+flip; release version ≥1.0.1; productName split or accept shared userData. Then key rotation + release. |
 | 2026-08-13 | C+F | Live CDP walkthrough on restarted dev app — ALL PASS: catalogs render from IPC, key save/remove ("Key saved" badge), add custom fal id → row + Customized, remove → gone, reset → Defaults; sd-cli Set up click → 36 MB download+extract → "sd-cli ready", full matched set in userData/sd-cli, `--version` exits 0 (commit c00a9e9). Found+fixed a real picker bug en route: stale `activeProvider` ('local' with 0 ready models) dead-ends the Image Studio model picker because the provider select hides at 1 provider — `useActiveImageProvider` now falls over to the first usable provider; after the fix the custom catalog id shows in the picker. All walkthrough state cleaned up (no fal key, catalog Defaults, AssemblyAI untouched). | A real local generation (needs a model download, e.g. 654 MB BK-SDM-Tiny) — optional pre-E. Then Phase E (hardening). |
