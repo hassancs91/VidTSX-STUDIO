@@ -6,10 +6,16 @@ interface ToastItem {
   message: string;
   type: ToastType;
   action?: ToastAction;
+  secondaryAction?: ToastAction;
 }
 
 interface ToastContextValue {
-  showToast: (message: string, type: ToastType, action?: ToastAction) => void;
+  showToast: (
+    message: string,
+    type: ToastType,
+    action?: ToastAction,
+    secondaryAction?: ToastAction,
+  ) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -22,9 +28,9 @@ export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const showToast = useCallback(
-    (message: string, type: ToastType, action?: ToastAction) => {
+    (message: string, type: ToastType, action?: ToastAction, secondaryAction?: ToastAction) => {
       const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-      setToasts((prev) => [...prev, { id, message, type, action }]);
+      setToasts((prev) => [...prev, { id, message, type, action, secondaryAction }]);
     },
     []
   );
@@ -49,6 +55,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
               message={toast.message}
               type={toast.type}
               action={toast.action}
+              secondaryAction={toast.secondaryAction}
               onClose={() => removeToast(toast.id)}
             />
           </div>

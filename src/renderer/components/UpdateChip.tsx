@@ -11,13 +11,17 @@ import { useToast } from '../contexts/ToastContext';
  * They surface only in Settings → Updates, where the user asked.
  */
 export function UpdateChip() {
-  const { state, blocked, install } = useUpdater();
+  const { state, blocked, install, skipVersion } = useUpdater();
   const { showToast } = useToast();
   const announcedVersion = useRef<string | null>(null);
 
   const status = state?.status;
   const version = state?.availableVersion ?? null;
-  const isReady = status === 'downloaded' && !blocked;
+  // "Later" was clicked for exactly this version: stop nagging. The staged
+  // update still applies on the next normal quit (autoInstallOnAppQuit), and
+  // Settings → Updates keeps offering it — skip silences the nag only.
+  const skipped = version !== null && state?.skippedVersion === version;
+  const isReady = status === 'downloaded' && !blocked && !skipped;
 
   // The gate is polled every 30s, so a render can start between the chip
   // appearing and the click landing. Answer with the reason instead of nothing.
@@ -29,15 +33,23 @@ export function UpdateChip() {
     }
   }, [install, showToast]);
 
+  const handleLater = useCallback(() => {
+    if (!version) return;
+    void skipVersion(version);
+    showToast(`Okay — ${version} will install next time you quit.`, 'info');
+  }, [version, skipVersion, showToast]);
+
   useEffect(() => {
     // One announcement per version, and only once it is genuinely actionable.
     if (!isReady || !version || announcedVersion.current === version) return;
     announcedVersion.current = version;
-    showToast(`VidTSX Studio ${version} is ready to install.`, 'info', {
-      label: 'Restart',
-      onClick: () => { void handleInstall(); },
-    });
-  }, [isReady, version, showToast, handleInstall]);
+    showToast(
+      `VidTSX Studio ${version} is ready to install.`,
+      'info',
+      { label: 'Restart', onClick: () => { void handleInstall(); } },
+      { label: 'Later', onClick: handleLater },
+    );
+  }, [isReady, version, showToast, handleInstall, handleLater]);
 
   if (!state) return null;
 
@@ -60,14 +72,24 @@ export function UpdateChip() {
   if (!isReady) return null;
 
   return (
-    <button
-      onClick={() => { void handleInstall(); }}
-      title={`Restart to install version ${version}`}
-      className="text-accent-light hover:text-accent transition-colors flex items-center gap-1"
-      style={{ fontSize: '10px' }}
-    >
-      <ArrowUpCircle size={11} strokeWidth={1.5} />
-      Update ready · Restart
-    </button>
+    <span className="flex items-center gap-1.5">
+      <button
+        onClick={() => { void handleInstall(); }}
+        title={`Restart to install version ${version}`}
+        className="text-accent-light hover:text-accent transition-colors flex items-center gap-1"
+        style={{ fontSize: '10px' }}
+      >
+        <ArrowUpCircle size={11} strokeWidth={1.5} />
+        Update ready · Restart
+      </button>
+      <button
+        onClick={handleLater}
+        title={`Skip ${version} for now — it installs when you next quit; Settings → Updates still offers it`}
+        className="text-text-dim hover:text-text-secondary transition-colors"
+        style={{ fontSize: '10px' }}
+      >
+        Later
+      </button>
+    </span>
   );
 }

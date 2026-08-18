@@ -11,6 +11,8 @@ export interface ToastProps {
   message: string;
   type: ToastType;
   action?: ToastAction;
+  /** Muted second choice rendered before the primary action (e.g. "Later"). */
+  secondaryAction?: ToastAction;
   onClose: () => void;
   duration?: number;
 }
@@ -21,7 +23,7 @@ const accentColors: Record<ToastType, string> = {
   info: 'var(--color-accent)',
 };
 
-export function Toast({ message, type, action, onClose, duration = 3000 }: ToastProps) {
+export function Toast({ message, type, action, secondaryAction, onClose, duration = 3000 }: ToastProps) {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -53,6 +55,19 @@ export function Toast({ message, type, action, onClose, duration = 3000 }: Toast
 
       {/* Message */}
       <span className="text-[12px] text-text-secondary flex-1">{message}</span>
+
+      {/* Secondary action (muted) */}
+      {secondaryAction && (
+        <button
+          onClick={() => {
+            secondaryAction.onClick();
+            onClose();
+          }}
+          className="text-[11px] text-text-dim hover:text-text-secondary transition-colors whitespace-nowrap"
+        >
+          {secondaryAction.label}
+        </button>
+      )}
 
       {/* Action button */}
       {action && (
