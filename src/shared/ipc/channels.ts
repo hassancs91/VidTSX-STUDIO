@@ -359,6 +359,9 @@ export const IPC = {
   // Studio — TSX import (S4 D14): source-agnostic accept path + Creator list
   STUDIO_SHOT_IMPORT: 'studio:shot:import',
   STUDIO_CREATOR_PROJECTS: 'studio:creator:projects',
+  // Studio — shots/ ↔ registry reconcile (SHOT_QUALITY Q1c): adopt orphan and
+  // dropped-in shot folders on project open / window focus
+  STUDIO_SHOTS_RECONCILE: 'studio:shots:reconcile',
   // Studio — caption templates (D13): pack listing + preview module URL
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',

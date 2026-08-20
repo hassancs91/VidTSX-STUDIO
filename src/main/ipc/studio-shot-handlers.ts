@@ -20,12 +20,15 @@ import type {
   StudioShotModuleResponse,
   StudioShotVersionsRequest,
   StudioShotVersionsResponse,
+  StudioShotsReconcileRequest,
+  StudioShotsReconcileResponse,
 } from '../../shared/ipc/types';
 import { getProjectDir, getShotVersionPath } from '../services/studio/studio-paths';
 import { isValidShotId } from '../../shared/studio/shots';
 import { shotGenerator } from '../services/studio/shot-generator';
 import { listCreatorProjects } from '../services/studio/creator-projects';
 import { importShot } from '../services/studio/shot-import';
+import { reconcileShots } from '../services/studio/shot-reconcile';
 import { getProjectsDir } from '../utils/paths';
 import { transpileTsxCached } from '../services/tsx-transpiler';
 import {
@@ -245,6 +248,23 @@ export async function handleStudioShotImport(
 }
 
 /** Folder-as-truth version list for the inspector's version picker (D10). */
+/** Q1c: adopt orphan / dropped-in shot folders. Adoptions ride the job-event
+ *  stream; the response is the toast/banner summary. */
+export async function handleStudioShotsReconcile(
+  _event: IpcMainInvokeEvent,
+  data: StudioShotsReconcileRequest,
+): Promise<StudioShotsReconcileResponse> {
+  try {
+    const result = await reconcileShots(data.projectId, data.knownShotIds);
+    return { success: true, adopted: result.adopted, failures: result.failures };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Shot reconcile failed',
+    };
+  }
+}
+
 export async function handleStudioShotVersions(
   _event: IpcMainInvokeEvent,
   data: StudioShotVersionsRequest,

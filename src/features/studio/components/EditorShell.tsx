@@ -25,6 +25,7 @@ import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
+import type { ShotImportFailure } from '../hooks/useShotImport';
 import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import { applyCutProposal } from '../services/apply-cut-proposal';
@@ -124,6 +125,57 @@ export function EditorShell({ projectId, onBack }: Props) {
       }
     });
   }, [projectId, showToast]);
+
+  // ----- shots/ ↔ registry reconcile (SHOT_QUALITY_DESIGN Q1c) -----------
+  // On open and window focus: adopt crash orphans and linked-folder drop-ins.
+  // Adopted entries arrive on the shot job stream (folded like any producer's);
+  // the response only drives the toast and the Convert banner. The id list
+  // rides a ref so adoption-driven document changes don't retrigger the scan
+  // (main coalesces concurrent calls anyway).
+  const [reconcileFailure, setReconcileFailure] = useState<ShotImportFailure | null>(null);
+  const knownShotIdsRef = useRef<string[]>([]);
+  knownShotIdsRef.current = (project?.shots ?? []).map((s) => s.id);
+  useEffect(() => {
+    if (status !== 'ready') return undefined;
+    let disposed = false;
+    const run = async () => {
+      const res = await window.api.studioShotsReconcile({
+        projectId,
+        knownShotIds: knownShotIdsRef.current,
+      });
+      if (disposed || !res.success) return;
+      const adopted = res.adopted ?? [];
+      if (adopted.length > 0) {
+        showToast(
+          adopted.length === 1
+            ? `Adopted shot "${adopted[0]!.name}" from disk`
+            : `Adopted ${adopted.length} shots from disk`,
+          'success',
+        );
+      }
+      for (const failure of res.failures ?? []) {
+        if (failure.conformable) {
+          // Route into the pool's import-failure banner — its Convert button
+          // re-enters the D14 conform path with this source.
+          setReconcileFailure({
+            message: `${failure.shotId}: ${failure.error}`,
+            conformable: true,
+            sourcePath: failure.sourcePath,
+            name: failure.shotId,
+          });
+        } else {
+          showToast(`${failure.shotId}: ${failure.error}`, 'error');
+        }
+      }
+    };
+    void run();
+    const onFocus = () => void run();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      disposed = true;
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [status, projectId, showToast]);
 
   const handleTranscribe = useCallback(
     (asset: StudioMediaAsset, sttModelId?: string) => {
@@ -774,6 +826,8 @@ export function EditorShell({ projectId, onBack }: Props) {
             brands={brandList}
             brandId={project.settings.brandId}
             onSetBrand={handleSetBrand}
+            reconcileFailure={reconcileFailure}
+            onReconcileFailureShown={() => setReconcileFailure(null)}
           />
         </div>
 

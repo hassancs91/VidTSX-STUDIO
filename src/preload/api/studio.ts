@@ -40,6 +40,8 @@ import type {
   StudioShotGenerateResponse,
   StudioShotImportRequest,
   StudioShotImportResponse,
+  StudioShotsReconcileRequest,
+  StudioShotsReconcileResponse,
   StudioShotJobEvent,
   StudioShotModuleRequest,
   StudioShotModuleResponse,
@@ -106,6 +108,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_SHOT_VERSIONS, data),
   studioShotImport: (data: StudioShotImportRequest): Promise<StudioShotImportResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_IMPORT, data),
+  studioShotsReconcile: (data: StudioShotsReconcileRequest): Promise<StudioShotsReconcileResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOTS_RECONCILE, data),
   studioCreatorProjects: (): Promise<StudioCreatorProjectsResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CREATOR_PROJECTS),
   studioCaptionTemplates: (): Promise<StudioCaptionTemplatesResponse> =>

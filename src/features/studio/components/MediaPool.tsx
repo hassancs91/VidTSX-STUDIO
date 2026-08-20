@@ -19,7 +19,7 @@ import { Select } from '@shared/components/Select';
 import type { StudioMediaAsset, StudioShot } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
-import { useShotImport } from '../hooks/useShotImport';
+import { useShotImport, type ShotImportFailure } from '../hooks/useShotImport';
 import { formatDuration } from '../services/format-time';
 
 export interface GenerateShotSpec {
@@ -59,6 +59,9 @@ interface Props {
   brands: Array<{ id: string; name: string }>;
   brandId: string | undefined;
   onSetBrand: (brandId: string | null) => void;
+  /** Q1c reconcile found a convertible drop-in — shown via the import banner. */
+  reconcileFailure: ShotImportFailure | null;
+  onReconcileFailureShown: () => void;
 }
 
 export function MediaPool({
@@ -86,6 +89,8 @@ export function MediaPool({
   brands,
   brandId,
   onSetBrand,
+  reconcileFailure,
+  onReconcileFailureShown,
 }: Props) {
   useEffect(() => {
     for (const asset of assets) {
@@ -153,6 +158,8 @@ export function MediaPool({
           brands={brands}
           brandId={brandId}
           onSetBrand={onSetBrand}
+          reconcileFailure={reconcileFailure}
+          onReconcileFailureShown={onReconcileFailureShown}
         />
       </div>
     </div>
@@ -177,6 +184,8 @@ function ShotsSection({
   brands,
   brandId,
   onSetBrand,
+  reconcileFailure,
+  onReconcileFailureShown,
 }: {
   shots: StudioShot[];
   getShotProgress: (shotId: string) => ShotJobProgress | null;
@@ -188,6 +197,8 @@ function ShotsSection({
   brands: Array<{ id: string; name: string }>;
   brandId: string | undefined;
   onSetBrand: (brandId: string | null) => void;
+  reconcileFailure: ShotImportFailure | null;
+  onReconcileFailureShown: () => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -195,6 +206,16 @@ function ShotsSection({
   const [brief, setBrief] = useState('');
   const [duration, setDuration] = useState('5');
   const shotImport = useShotImport({ projectId, ...(providerId ? { providerId } : {}) });
+
+  // A convertible drop-in found by the Q1c reconcile lands in the same banner
+  // a failed picker import uses — Convert then runs the normal conform path.
+  const { reportFailure } = shotImport;
+  useEffect(() => {
+    if (!reconcileFailure) return;
+    reportFailure(reconcileFailure);
+    setImportOpen(true);
+    onReconcileFailureShown();
+  }, [reconcileFailure, reportFailure, onReconcileFailureShown]);
 
   const submit = () => {
     const trimmed = brief.trim();

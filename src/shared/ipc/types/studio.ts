@@ -486,6 +486,30 @@ export interface StudioShotImportResponse {
   name?: string;
 }
 
+// Shots/ ↔ registry reconcile (SHOT_QUALITY_DESIGN.md Q1c): the renderer sends
+// the ids it already has; adopted entries travel as shot job events (the
+// adoption path), the response only summarizes for the toast/banner.
+export interface StudioShotsReconcileRequest {
+  projectId: string;
+  knownShotIds: string[];
+}
+
+export interface StudioShotsReconcileFailure {
+  shotId: string;
+  /** Newest version file — Convert re-enters the import path with this. */
+  sourcePath: string;
+  error: string;
+  /** Only the allowlist gap failed — the caller may offer Convert. */
+  conformable: boolean;
+}
+
+export interface StudioShotsReconcileResponse {
+  success: boolean;
+  adopted?: StudioShot[];
+  failures?: StudioShotsReconcileFailure[];
+  error?: string;
+}
+
 export interface StudioExportPrepareRequest {
   project: StudioProject;
   /** Optional export range in timeline seconds (Slice D2). When both are set,

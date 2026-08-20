@@ -94,6 +94,9 @@ export function useShotImport({ projectId, providerId }: Options) {
     busy,
     failure,
     clearFailure: useCallback(() => setFailure(null), []),
+    /** Surface a failure raised outside the hook (Q1c reconcile) through the
+     *  same banner — Convert works because sourcePath rides along. */
+    reportFailure: useCallback((f: ShotImportFailure) => setFailure(f), []),
     loadCreatorProjects,
     importFromCreator,
     importFromFile,
