@@ -305,6 +305,20 @@ Build pieces:
    just after; Q5 Refine button once the kit gives it something to refine.
 5. **Scripted capture** — after the kit, as an ASSET_LIBRARY_DESIGN rev.
 
+> **Rev 2 — 2026-08-20: Slice 1 SHIPPED (commits SQ1–SQ4) and live-proven on
+> "Raw Footage Test" (drop-in adopted on open, agent listed the full pool via
+> `list_shots`, transcript persisted, Creator Studio section live).**
+> Implementation notes vs the doc: (a) reconcile failures are surfaced via
+> toast/banner and NEVER minted as error registry entries — an error card per
+> focus rescan would re-litter the pool; the Q1c "error-status pool entry"
+> line is superseded. (b) The Q2 open-project warning shipped as a
+> save-time heads-up toast rather than a pre-save confirm: append-only writes
+> made the blocking dialog pure friction, and MotionScreen (which owns the
+> save UI) was carrying parallel-session edits. Revisit only if the toast
+> proves too quiet. (c) Replay cap N=30 is implemented as 30 exchanges
+> (60 messages). Remaining unproven leg: Creator-save → v(n+1) → Studio
+> version picker, unit-tested but not yet walked in the app.
+
 ## Checklist — ANSWERED (Hasan, 2026-08-20)
 
 Decided in chat 2026-08-19 and recorded above, not re-asked: Q1d location +
