@@ -26,6 +26,28 @@ Note the app takes a single-instance lock. An installed copy of VidTSX Studio
 running in the background will make the dev instance exit immediately; close it
 first.
 
+Two more launch/driving lessons (2026-08-20, Slice 2 A/B run):
+
+- **Add `--disable-features=CalculateNativeWinOcclusion`** (plus
+  `--disable-backgrounding-occluded-windows --disable-renderer-backgrounding`)
+  to the dev launch when screenshots matter. Windows occlusion tracking marks
+  a fully-covered window `visibilityState: "hidden"`, the compositor stops
+  producing frames, and `Page.captureScreenshot` hangs forever — while
+  `Runtime.evaluate` and `Input.dispatchMouseEvent` keep working, which makes
+  it look like a driver bug. `Page.bringToFront` does not reliably fix it
+  when another window keeps re-covering the app.
+- **Never let a CDP failure strand a pressed mouse button.** If the driver
+  dies between `mousePressed` and `mouseReleased` (e.g. a screenshot timeout
+  in the same session), the page keeps the button down and every later
+  `mouseMoved` becomes a drag — this silently moved a timeline clip by 40
+  seconds before it was caught. Wrap press/release in try/catch and send a
+  best-effort `mouseReleased` on any error. Also measure coordinates and
+  click in the SAME driver session — panel scroll positions shift between
+  connects, and a stale rect clicks the wrong thing. A control found by text
+  can also sit BELOW its panel's fold (`offsetParent` non-null, but
+  `elementFromPoint` returns whatever paints there) — `scrollIntoView` it,
+  then re-measure, then click.
+
 ## Minimal driver
 
 ```js
