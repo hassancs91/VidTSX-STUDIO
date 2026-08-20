@@ -42,6 +42,7 @@ import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-job
 import { readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
+import { getShotExemplars } from './shot-exemplars';
 import { loadProject } from './project-store';
 import { shotJobEvents } from './shot-job-events';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
@@ -220,6 +221,10 @@ class ShotGeneratorService {
     // to an existing shot" IS regenerate.
     const brandId = project.settings.brandId;
     const brand = brandId ? await readBrand(getLibraryRoot(), brandId) : null;
+
+    // Q3a: built-in exemplars of this kind ride every generate/regenerate as
+    // the quality bar. Loader degrades to [] — never blocks generation.
+    const exemplars = await getShotExemplars(req.kind);
     if (brandId && !brand) {
       log.warn('Project brandId has no matching brand — generating unbranded', {
         projectId: req.projectId,
@@ -290,6 +295,7 @@ class ShotGeneratorService {
               ...(words ? { words } : {}),
               ...(brand ? { brand } : {}),
               ...(resolvedRefs ? { assets: resolvedRefs.promptAssets } : {}),
+              ...(exemplars.length > 0 ? { exemplars } : {}),
             }),
           },
           mode: '2d',

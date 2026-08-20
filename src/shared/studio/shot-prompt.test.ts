@@ -36,6 +36,31 @@ describe('buildShotExtraInstructions', () => {
     expect(text).toMatch(/seconds × fps using the fps from useVideoConfig/);
   });
 
+  // ── Craft block + exemplars (Q3a/Q3c) ──────────────────────────────────
+
+  it('always opens with the craft block, before the contract', () => {
+    const text = buildShotExtraInstructions({ ...BASE, kind: 'cutaway' });
+    const craft = text.indexOf('## Craft (MANDATORY design discipline)');
+    expect(craft).toBe(0);
+    expect(text).toContain('One accent per beat');
+  });
+
+  it('renders exemplars as fenced code between craft and contract; none → no section', () => {
+    const without = buildShotExtraInstructions({ ...BASE, kind: 'cutaway' });
+    expect(without).not.toContain('## Exemplars');
+    const text = buildShotExtraInstructions({
+      ...BASE,
+      kind: 'cutaway',
+      exemplars: [{ name: 'Steps Row', description: 'stagger rhythm', code: 'const x = 1;\n' }],
+    });
+    const exemplars = text.indexOf('## Exemplars — the bar to match');
+    const contract = text.indexOf('## Studio shot contract');
+    expect(exemplars).toBeGreaterThan(text.indexOf('## Craft'));
+    expect(contract).toBeGreaterThan(exemplars);
+    expect(text).toContain('### Steps Row — stagger rhythm');
+    expect(text).toContain('```tsx\nconst x = 1;\n```');
+  });
+
   // ── Brand injection (D11) ──────────────────────────────────────────────
 
   const BRAND = {

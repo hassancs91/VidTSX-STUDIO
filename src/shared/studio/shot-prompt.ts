@@ -41,6 +41,39 @@ export interface ShotPromptInput {
   brand?: StudioBrand;
   /** Media provided to the component via the `assets` prop (D12). */
   assets?: ShotPromptAsset[];
+  /** Finished exemplar shots of this kind (Q3a) — injected as the quality bar. */
+  exemplars?: ShotExemplar[];
+}
+
+/**
+ * The craft block (Q3c): taste-as-rules. Static text, deliberately placed —
+ * with the exemplars — BEFORE every variable section, so the prompt prefix
+ * stays cache-friendly across shots of the same kind.
+ */
+const CRAFT_LINES: readonly string[] = [
+  '## Craft (MANDATORY design discipline)',
+  '',
+  '- Stagger every entrance: sibling elements arrive 0.1–0.25 s apart, never all at once.',
+  '- Easing families: entrances ease-out; exits ease-in; moves and handoffs ease-in-out; overshoot ("back") only for small punctuation (a badge, a tick) — never for headlines or text blocks.',
+  '- Rise-and-settle is the default entrance: fade in while translating ~20–30 px. Nothing pops unless the beat calls for it.',
+  '- Spatial rhythm: pick ONE clear composition (centered stack, thirds split, or card row) and hold it. Consistent gaps; keep primary content ≥ 120 px from the frame edges.',
+  '- Density ceiling: at most one headline, one support line, and one group of 3–5 items visible at once. More content means revealing in beats — or cutting it.',
+  '- One accent per beat: exactly one element carries the accent color or the dominant motion at any moment; everything else settles to ink/muted.',
+  '- Hold layout: reveal with opacity/transform only — text must never reflow or re-center as words or items land.',
+  '- Overlays and titles exit clean: fade out over the last ~0.4 s. Cutaways may hold to the cut.',
+  '- When a WORDS table is present, land reveals ON word starts — choreograph to the speech, not to arbitrary times.',
+];
+
+function buildExemplarLines(exemplars: ShotExemplar[]): string[] {
+  const lines = [
+    '## Exemplars — the bar to match',
+    '',
+    'The finished shots below set the expected level of layout, staggering and choreography for this shot kind. Match their LEVEL, never their content: your subject comes from the brief; your palette and fonts come from the Brand block when present; and your compositionConfig uses EXACTLY the literal values in the contract below — never the exemplars’ values.',
+  ];
+  for (const exemplar of exemplars) {
+    lines.push('', `### ${exemplar.name} — ${exemplar.description}`, '', '```tsx', exemplar.code.trimEnd(), '```');
+  }
+  return lines;
 }
 
 const BACKGROUND_RULE: Record<StudioShotKind, string> = {
@@ -54,7 +87,11 @@ const BACKGROUND_RULE: Record<StudioShotKind, string> = {
 
 export function buildShotExtraInstructions(input: ShotPromptInput): string {
   const durationInFrames = Math.round(input.durationSeconds * input.fps);
-  const lines: string[] = [
+  const lines: string[] = [...CRAFT_LINES, ''];
+  if (input.exemplars && input.exemplars.length > 0) {
+    lines.push(...buildExemplarLines(input.exemplars), '');
+  }
+  lines.push(
     '## Studio shot contract (MANDATORY)',
     '',
     'You are generating a SHOT — a short composition placed on a video-editor timeline, not a standalone video.',
@@ -77,7 +114,7 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
     '- Default-export the component.',
     `- All animation timing must be computed as seconds × fps using the fps from useVideoConfig() — never hardcode frame counts anywhere except the compositionConfig literal above. The shot is ${input.durationSeconds} seconds long.`,
     '- Do not render a progress bar, watermark, or debug text unless asked.',
-  ];
+  );
 
   if (input.brand) {
     lines.push('', ...buildBrandLines(input.brand, input.kind));
