@@ -9,6 +9,33 @@
 
 ## Completed phases
 
+### SHOT_QUALITY Slice 1 — CONTINUITY + LINKED FOLDER SHIPPED, live-proven (2026-08-20)
+**`docs/studio/SHOT_QUALITY_DESIGN.md` Q1 + Q2, commits SQ1–SQ4.** Written
+after the raw-footage E2E test stranded a session's generated shots from the
+agent. (a) The agent request now carries the registry snapshot; `list_shots`
+reads it and `propose_shots` places any READY registry shot — shots from
+earlier sessions are proposable again. (b) `shot-reconcile.ts` scans `shots/`
+against the registry on project open + window focus: gate-passing orphan/
+dropped-in folders are adopted through the D14 gate onto the shot job-event
+stream (toast), convertible failures land in the existing Convert-for-Studio
+banner, and failures are never minted as registry entries. (c) The Assistant
+transcript persists per project (`agent-chat.json` beside project.json,
+write-behind, corrupt-set-aside; replay capped at the last 30 exchanges; ↺ is
+now "New conversation" with rotate-keep-3; the context-usage warning counts
+only the replay window). (d) The Creator library gains a **Studio** section —
+a live view of every Studio project's shot folders (`studio-shot-library.ts` +
+`StudioShotsSection.tsx`); saves into a Studio folder are append-only
+(overwrite redirects to v(n+1), next number = MAX existing version) with an
+open-project heads-up toast. Live-proven on "Raw Footage Test": a planted
+Creator comp drop-in was adopted on open (toast + registry + pool), the agent
+listed all nine pool shots via `list_shots`, the transcript file appeared
+after the turn, and the Creator section listed 4 projects / 8 shots.
+NOT yet live-proven: the Creator-save→v(n+1)→Studio-version-picker loop
+(unit-tested only) — worth one manual pass. MotionScreen/TsxJobsContext were
+deliberately untouched (parallel-session dirty files).
+**Next: Slice 2 (Layer A exemplars + briefs + craft block, then the Q3d A/B
+regen on Raw Footage Test).**
+
 ### V1 Phases G + H — COMPLETE, live-session acceptance PASSED (2026-08-17)
 **The H6 gate below is closed.** All shipped providers have now executed for
 real in-app: keys entered via the Providers UI, one Studio agent turn each on a
