@@ -4,6 +4,19 @@
 // project inventory, and the tool contract.
 
 import type { StudioAgentAssetInfo } from '../../../shared/ipc/types/studio';
+import type { StudioShot } from '../../../shared/types/studio';
+
+/** One pool line per shot — shared by the system prompt and `list_shots`. */
+export function formatShotLine(shot: StudioShot): string {
+  const duration = shot.config
+    ? `${(shot.config.durationInFrames / shot.config.fps).toFixed(1)} s`
+    : 'unknown length';
+  const anchor = shot.anchor
+    ? `, anchored to ${shot.anchor.assetId} ${shot.anchor.sourceStart.toFixed(1)}–${shot.anchor.sourceEnd.toFixed(1)}s`
+    : ', unanchored';
+  const origin = shot.origin?.by === 'user' ? ', imported' : '';
+  return `- ${shot.id} — "${shot.name}" (${shot.kind}, ${duration}, v${shot.activeVersion}, ${shot.status}${anchor}${origin})`;
+}
 
 function assetLine(asset: StudioAgentAssetInfo): string {
   const duration =
@@ -18,6 +31,8 @@ function assetLine(asset: StudioAgentAssetInfo): string {
 export interface BuildAgentPromptInput {
   projectName: string;
   assets: StudioAgentAssetInfo[];
+  /** Registry snapshot — the pool survives sessions, so the agent must see it. */
+  shots: StudioShot[];
   toolsAvailable: boolean;
   reviewOpen: boolean;
 }
@@ -32,6 +47,16 @@ export function buildAgentSystemPrompt(input: BuildAgentPromptInput): string {
     '',
     ...(input.assets.length > 0 ? input.assets.map(assetLine) : ['(none imported yet)']),
     '',
+    '## Shot pool (TSX shots already in this project)',
+    '',
+    ...(input.shots.length > 0
+      ? [
+          ...input.shots.map(formatShotLine),
+          '',
+          'These shots persist across sessions — including ones generated in earlier conversations. Any READY shot can be placed with propose_shots by its id; never regenerate a shot that already exists unless the user wants it changed.',
+        ]
+      : ['(empty — no shots generated or imported yet)']),
+    '',
   ];
 
   if (input.toolsAvailable) {
@@ -42,7 +67,8 @@ export function buildAgentSystemPrompt(input: BuildAgentPromptInput): string {
       '- `get_transcript(assetId, startSeconds?, endSeconds?)` — returns the takes view of an asset\'s word-level transcript: numbered segments split on speech pauses, pause durations between them, and filler words marked inline as `<<uh 12.34-12.40>>` with their exact source-time bounds in seconds. For a range ask ("shots for the first 5 minutes") read only that slice.',
       '- `propose_cuts(assetId, cuts, summary)` — submit your editorial cuts as source-time spans (seconds). Each cut needs `start`, `end`, a `category` (`retake` | `false_start` | `filler` | `fluff`), and a short `note` saying why it goes and which take wins. The spans you send are snapped to the real audio automatically (lead-in pads, decay tails measured from the RMS envelope), so place boundaries on word bounds from the transcript and do not try to add padding yourself.',
       '- `generate_tsx_shot(kind, brief, ...)` — generate ONE shot through the TSX pipeline (a minute or more per shot; up to 10 per pass). Anchor it to a transcript span to bake word-synced timings into the shot; titles require an anchor. Pass real media INTO the shot via `assetRefs` (key → project asset id or a `library:<path>` ref) — the shot renders them with <Img>/<OffthreadVideo>.',
-      '- `propose_shots(items, summary)` — after generating, submit ALL of this pass\'s shots as one shot-plan proposal for the user\'s review.',
+      '- `list_shots()` — the current shot pool with full detail (ids, status, anchors). The pool section above is the turn-start snapshot; call this after generating to see both.',
+      '- `propose_shots(items, summary)` — submit shots as one shot-plan proposal for the user\'s review. Accepts this pass\'s generated shots AND any ready shot already in the pool — re-proposing an existing shot is how a stranded or unplaced shot gets onto the timeline without regenerating it.',
       '- `generate_image(prompt, folder?, aspect?)` — make an image with the user\'s configured image provider, filed into the asset library (brand-tagged, prompt saved as its description). Use it to create logos-adjacent art, illustrations, and backgrounds for shots, then reference the returned `library:<path>` in `assetRefs`.',
       '- `capture_webpage(url, viewport?, fullPage?, visible?)` — screenshot a webpage into the asset library; the screenshot material for product/dashboard shots. Pass `visible: true` ONLY for login-walled pages — the user logs in and clicks Capture themselves (may take minutes; tell them what to do first).',
       '- `propose_memory(kind, text, aliases?)` — propose ONE durable memory. It is never applied directly: it becomes a card the user accepts, edits, or rejects.',

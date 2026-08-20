@@ -413,6 +413,7 @@ export async function handleStudioAgentSend(
       buildAgentSystemPrompt({
         projectName: data.projectName,
         assets: data.assets,
+        shots: data.shots,
         toolsAvailable,
         reviewOpen: data.reviewOpen,
       }),

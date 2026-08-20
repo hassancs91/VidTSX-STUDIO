@@ -20,6 +20,7 @@ import { logEngine } from '../../../logging/log-engine';
 import { readTranscriptFile } from './asset-transcriber';
 import { loadRmsEnvelope } from './cut-plan-runner';
 import { formatTakesView } from './transcript-takes-view';
+import { formatShotLine } from './studio-agent-prompt';
 import {
   EDITORIAL_CATEGORIES,
   buildEditorialProposal,
@@ -45,6 +46,7 @@ const AGENT_MAX_TURNS = 32;
 const ALLOWED_TOOLS = [
   'mcp__studio__get_transcript',
   'mcp__studio__propose_cuts',
+  'mcp__studio__list_shots',
   'mcp__studio__generate_tsx_shot',
   'mcp__studio__propose_shots',
   'mcp__studio__generate_image',
@@ -327,9 +329,40 @@ class StudioAgentService {
       },
     );
 
+    // The pool as the agent may see it right now: the renderer's turn-start
+    // registry snapshot, overlaid with anything generated this pass.
+    const poolView = (): Map<string, StudioShot> => {
+      const merged = new Map(req.shots.map((s) => [s.id, s] as const));
+      for (const [id, shot] of generatedShots) merged.set(id, shot);
+      return merged;
+    };
+    // propose_shots placement rule: this pass's shots always qualify; anything
+    // else must be a READY registry shot (this is what un-strands shots
+    // generated in earlier sessions).
+    const resolveProposable = (shotId: string): StudioShot | undefined => {
+      const generated = generatedShots.get(shotId);
+      if (generated) return generated;
+      const pooled = req.shots.find((s) => s.id === shotId);
+      return pooled?.status === 'ready' ? pooled : undefined;
+    };
+
+    const listShots = tool(
+      'list_shots',
+      "List the project's shot pool: every TSX shot in the registry — including ones generated in earlier sessions — plus any generated this pass. Any READY shot can be placed with propose_shots by its id.",
+      {},
+      async () => {
+        this.emit({ projectId: req.projectId, kind: 'tool', tool: 'list_shots' });
+        const pool = poolView();
+        if (pool.size === 0) {
+          return text('The shot pool is empty — no shots have been generated or imported yet.');
+        }
+        return text([...pool.values()].map(formatShotLine).join('\n'));
+      },
+    );
+
     const proposeShots = tool(
       'propose_shots',
-      'Submit the shots generated this pass as ONE shot-plan proposal for the review panel, where the user previews and accepts/rejects each before anything lands on the timeline. Call at most once per pass, with ALL the generated shots.',
+      'Submit shots as ONE shot-plan proposal for the review panel, where the user previews and accepts/rejects each before anything lands on the timeline. Accepts shots generated this pass AND any ready shot already in the pool (see list_shots) — re-proposing an existing shot places it without regenerating. Call at most once per pass, with ALL the shots to place.',
       {
         items: z
           .array(
@@ -353,13 +386,13 @@ class StudioAgentService {
         if (req.reviewOpen || proposalCreated) {
           return text('A proposal is already open in the review panel. Ask the user to apply or reject it first, then try again.', true);
         }
-        const unknown = args.items.filter((i) => !generatedShots.has(i.shotId));
+        const unknown = args.items.filter((i) => !resolveProposable(i.shotId));
         if (unknown.length > 0) {
-          return text(`Unknown shot id(s): ${unknown.map((i) => i.shotId).join(', ')} — propose only shots generated this pass.`, true);
+          return text(`Unknown or not-ready shot id(s): ${unknown.map((i) => i.shotId).join(', ')} — propose shots generated this pass or READY shots from the pool (call list_shots to check).`, true);
         }
         const proposal = buildShotPlanProposal(
           args.items.map((item) => ({
-            shot: generatedShots.get(item.shotId)!,
+            shot: resolveProposable(item.shotId)!,
             ...(item.mode ? { mode: item.mode } : {}),
             ...(item.timelineStart !== undefined ? { timelineStart: item.timelineStart } : {}),
             ...(item.note ? { note: item.note } : {}),
@@ -597,7 +630,7 @@ class StudioAgentService {
     return createSdkMcpServer({
       name: 'studio',
       version: '1.0.0',
-      tools: [getTranscript, proposeCuts, generateTsxShot, proposeShots, generateImage, captureWebpageTool, proposeMemory],
+      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, captureWebpageTool, proposeMemory],
     });
   }
 }

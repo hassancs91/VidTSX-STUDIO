@@ -314,6 +314,10 @@ export interface StudioAgentSendRequest {
   /** Prior chat turns, oldest first, excluding `prompt`. */
   history: ChatMessage[];
   assets: StudioAgentAssetInfo[];
+  /** Registry snapshot (renderer owns the document): the agent's view of the
+   *  shot pool. `list_shots` reads it; `propose_shots` may place any READY
+   *  member — this is what un-strands shots from earlier sessions. */
+  shots: StudioShot[];
   /** A cut proposal is open in the review panel — propose_cuts must refuse. */
   reviewOpen: boolean;
   providerId?: string;

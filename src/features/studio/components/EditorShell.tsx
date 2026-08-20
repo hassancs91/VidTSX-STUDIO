@@ -231,6 +231,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     projectId,
     projectName: project?.name ?? '',
     assets,
+    shots: project?.shots ?? [],
     reviewOpen: activeProposal !== null,
     providerId: project?.settings.agent.providerId,
     model: project?.settings.agent.model,

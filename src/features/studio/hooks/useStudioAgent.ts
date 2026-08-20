@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, StudioAgentAssetInfo } from '@shared/ipc/types';
-import type { StudioMediaAsset, StudioProposal } from '../types';
+import type { StudioMediaAsset, StudioProposal, StudioShot } from '../types';
 
 /**
  * Context budget for the estimate meter. The engine doesn't report real token
@@ -47,6 +47,9 @@ export interface UseStudioAgentOptions {
   projectId: string;
   projectName: string;
   assets: StudioMediaAsset[];
+  /** The shot-pool registry — snapshotted per turn so the agent can list and
+   *  re-propose shots from earlier sessions, not only this pass's. */
+  shots: StudioShot[];
   /** A cut proposal is open in the review panel. */
   reviewOpen: boolean;
   providerId?: string | undefined;
@@ -156,6 +159,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           prompt: trimmed,
           history,
           assets: opts.assets.map(toAgentAsset),
+          shots: opts.shots,
           reviewOpen: opts.reviewOpen,
           ...(opts.providerId ? { providerId: opts.providerId } : {}),
           ...(opts.model ? { model: opts.model } : {}),
