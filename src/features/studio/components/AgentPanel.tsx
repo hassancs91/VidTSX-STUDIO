@@ -11,6 +11,7 @@ const CONTEXT_WARN_RATIO = 0.4;
 /** Friendly labels for agent tool events; unknown tools show their raw name. */
 const TOOL_LABELS: Record<string, string> = {
   get_transcript: 'Reading transcript',
+  list_shots: 'Checking the shot pool',
   propose_cuts: 'Proposing cuts',
   generate_tsx_shot: 'Generating shot',
   propose_shots: 'Proposing shots',
@@ -73,8 +74,8 @@ export function AgentPanel({ projectId, agent }: Props) {
             <AlertTriangle size={11} strokeWidth={1.75} className="shrink-0 mt-[1px]" />
             <span>
               Long session — the next turn carries roughly {Math.min(999, Math.round(contextUsage.ratio * 100))}%
-              of the assistant&rsquo;s context (transcripts + this chat). Clearing the conversation (↺)
-              after applying cuts keeps it sharp.
+              of the assistant&rsquo;s context (transcripts + recent chat). Starting a new
+              conversation (↺) after applying cuts keeps it sharp — the old one is kept on disk.
             </span>
           </div>
         )}
@@ -100,7 +101,7 @@ export function AgentPanel({ projectId, agent }: Props) {
               <Brain size={12} strokeWidth={1.75} />
             </IconAction>
             {messages.length > 0 && !busy && (
-              <IconAction title="Clear conversation" onClick={clear}>
+              <IconAction title="New conversation — the current one is kept on disk" onClick={clear}>
                 <RotateCcw size={12} strokeWidth={1.75} />
               </IconAction>
             )}

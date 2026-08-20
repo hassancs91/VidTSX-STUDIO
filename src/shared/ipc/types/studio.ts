@@ -332,6 +332,48 @@ export interface StudioAgentSendResponse {
   error?: string;
 }
 
+// Persisted Assistant transcript (SHOT_QUALITY_DESIGN.md Q1d): display rows
+// as the renderer keeps them, written beside project.json after each turn.
+export interface StudioAgentChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  /** Tool activity chips shown above the reply. */
+  toolCalls?: Array<{ tool: string; detail?: string }>;
+  /** Set when the turn produced a proposal. */
+  proposalNote?: string;
+  error?: boolean;
+}
+
+export interface StudioAgentChatLoadRequest {
+  projectId: string;
+}
+
+export interface StudioAgentChatLoadResponse {
+  success: boolean;
+  messages?: StudioAgentChatMessage[];
+  error?: string;
+}
+
+export interface StudioAgentChatSaveRequest {
+  projectId: string;
+  messages: StudioAgentChatMessage[];
+}
+
+export interface StudioAgentChatSaveResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface StudioAgentChatResetRequest {
+  projectId: string;
+}
+
+export interface StudioAgentChatResetResponse {
+  success: boolean;
+  error?: string;
+}
+
 /** Push events streamed while an agent turn runs. */
 export type StudioAgentEvent =
   | { projectId: string; kind: 'delta'; text: string }

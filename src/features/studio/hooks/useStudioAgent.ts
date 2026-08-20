@@ -5,7 +5,7 @@
 // review flow as Auto Cut.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ChatMessage, StudioAgentAssetInfo } from '@shared/ipc/types';
+import type { ChatMessage, StudioAgentAssetInfo, StudioAgentChatMessage } from '@shared/ipc/types';
 import type { StudioMediaAsset, StudioProposal, StudioShot } from '../types';
 
 /**
@@ -19,6 +19,22 @@ const BASE_OVERHEAD_TOKENS = 2_000;
 /** Takes-view tokens per transcript word (word + timing markup). */
 const TOKENS_PER_TRANSCRIPT_WORD = 2;
 
+/**
+ * Replay cap (SHOT_QUALITY_DESIGN.md Q1d, N=30): the UI keeps the whole
+ * persisted transcript, but a turn replays only the most recent 30 exchanges
+ * (user + assistant pairs). Append-only history keeps the prompt cache warm;
+ * a rolling summary would invalidate the prefix every turn.
+ */
+const REPLAY_TURN_CAP = 30;
+const REPLAY_MESSAGE_CAP = REPLAY_TURN_CAP * 2;
+
+/** The replayed window: newest messages, capped, errors and blanks dropped. */
+function replayWindow(messages: AgentChatMessage[]): AgentChatMessage[] {
+  return messages
+    .filter((m) => !m.error && m.text.trim().length > 0)
+    .slice(-REPLAY_MESSAGE_CAP);
+}
+
 export interface AgentContextUsage {
   /** Estimated tokens the NEXT turn will carry (transcripts + chat + base). */
   estTokens: number;
@@ -31,15 +47,8 @@ export interface AgentToolCall {
   detail?: string;
 }
 
-export interface AgentChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  text: string;
-  /** Tool activity shown as chips above the reply. */
-  toolCalls?: AgentToolCall[];
-  /** Set when this turn produced a cut proposal. */
-  proposalNote?: string;
-  error?: boolean;
+/** Display row = the persisted shape (Q1d) plus the live-stream flag. */
+export interface AgentChatMessage extends StudioAgentChatMessage {
   pending?: boolean;
 }
 
@@ -101,6 +110,40 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
+  // ----- Persistence (Q1d): load on open, write-behind after each turn -----
+  // The renderer owns the live list; agent-chat.json beside project.json is
+  // the durable copy. `loaded` gates the write-behind so the initial empty
+  // state never clobbers an existing transcript.
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    let disposed = false;
+    setLoaded(false);
+    setMessages([]);
+    void window.api.studioAgentChatLoad({ projectId: options.projectId }).then((res) => {
+      if (disposed) return;
+      if (res.success && res.messages) {
+        setMessages(res.messages);
+      }
+      setLoaded(true);
+    });
+    return () => {
+      disposed = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.projectId]);
+
+  useEffect(() => {
+    if (!loaded || busy) return;
+    // Strip the live-stream flag; a pending row must never persist.
+    const persistable: StudioAgentChatMessage[] = messages
+      .filter((m) => !m.pending)
+      .map(({ pending: _pending, ...rest }) => rest);
+    void window.api.studioAgentChatSave({
+      projectId: optionsRef.current.projectId,
+      messages: persistable,
+    });
+  }, [messages, busy, loaded]);
+
   const patchPending = useCallback((patch: (msg: AgentChatMessage) => AgentChatMessage) => {
     setMessages((prev) => {
       const last = prev[prev.length - 1];
@@ -142,9 +185,12 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
       if (!trimmed || busy) return;
       const opts = optionsRef.current;
 
-      const history: ChatMessage[] = messages
-        .filter((m) => !m.error && m.text.trim().length > 0)
-        .map((m) => ({ role: m.role, content: m.text }));
+      // Only the replay window rides the request (Q1d cap) — the full
+      // transcript stays visible in the panel and on disk.
+      const history: ChatMessage[] = replayWindow(messages).map((m) => ({
+        role: m.role,
+        content: m.text,
+      }));
 
       setMessages((prev) => [
         ...prev,
@@ -190,15 +236,23 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
     void window.api.studioAgentCancel({ projectId: optionsRef.current.projectId });
   }, []);
 
+  /** "New conversation" (Q1d): rotate the transcript aside on disk (newest 3
+   *  rotations kept), then clear the panel. Restart is no longer a reset, so
+   *  reset must be a choice. */
   const clear = useCallback(() => {
-    if (!busy) setMessages([]);
+    if (busy) return;
+    void window.api
+      .studioAgentChatReset({ projectId: optionsRef.current.projectId })
+      .then(() => setMessages([]));
   }, [busy]);
 
   // Every turn is a fresh run: the agent re-reads ready transcripts via tools
   // and carries the chat text as history — so those two are what grow the
-  // context. chars/4 is the usual rough token heuristic.
+  // context. chars/4 is the usual rough token heuristic. Only the REPLAYED
+  // window counts (Q1d): a long persisted transcript beyond the cap is never
+  // sent, so it must not inflate the warning.
   const contextUsage: AgentContextUsage = useMemo(() => {
-    const historyChars = messages.reduce((n, m) => n + m.text.length, 0);
+    const historyChars = replayWindow(messages).reduce((n, m) => n + m.text.length, 0);
     const transcriptWords = options.assets.reduce(
       (n, a) => n + (a.transcript?.status === 'ready' ? (a.transcript.wordCount ?? 0) : 0),
       0,

@@ -3,6 +3,12 @@ import { IPC } from '../../shared/ipc/channels';
 import type {
   StudioAgentCancelRequest,
   StudioAgentCancelResponse,
+  StudioAgentChatLoadRequest,
+  StudioAgentChatLoadResponse,
+  StudioAgentChatResetRequest,
+  StudioAgentChatResetResponse,
+  StudioAgentChatSaveRequest,
+  StudioAgentChatSaveResponse,
   StudioAgentEvent,
   StudioAgentSendRequest,
   StudioAgentSendResponse,
@@ -100,6 +106,12 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_AGENT_SEND, data),
   studioAgentCancel: (data: StudioAgentCancelRequest): Promise<StudioAgentCancelResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_AGENT_CANCEL, data),
+  studioAgentChatLoad: (data: StudioAgentChatLoadRequest): Promise<StudioAgentChatLoadResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_AGENT_CHAT_LOAD, data),
+  studioAgentChatSave: (data: StudioAgentChatSaveRequest): Promise<StudioAgentChatSaveResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_AGENT_CHAT_SAVE, data),
+  studioAgentChatReset: (data: StudioAgentChatResetRequest): Promise<StudioAgentChatResetResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_AGENT_CHAT_RESET, data),
   studioShotModule: (data: StudioShotModuleRequest): Promise<StudioShotModuleResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_MODULE, data),
   studioShotGenerate: (data: StudioShotGenerateRequest): Promise<StudioShotGenerateResponse> =>

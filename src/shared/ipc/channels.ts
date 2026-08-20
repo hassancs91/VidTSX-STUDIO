@@ -350,6 +350,10 @@ export const IPC = {
   STUDIO_AGENT_SEND: 'studio:agent:send',
   STUDIO_AGENT_CANCEL: 'studio:agent:cancel',
   STUDIO_AGENT_EVENT: 'studio:agent:event',
+  // Studio — persisted Assistant transcript (SHOT_QUALITY Q1d)
+  STUDIO_AGENT_CHAT_LOAD: 'studio:agent:chat:load',
+  STUDIO_AGENT_CHAT_SAVE: 'studio:agent:chat:save',
+  STUDIO_AGENT_CHAT_RESET: 'studio:agent:chat:reset',
   // Studio — TSX shots (S4): transpile a shot version for the preview Player
   STUDIO_SHOT_MODULE: 'studio:shot:module',
   // Studio — TSX shot generation (S4 D8): pipeline runs + push events

@@ -39,6 +39,12 @@ import type {
   StudioTranscribeStartResponse,
   StudioAgentCancelRequest,
   StudioAgentCancelResponse,
+  StudioAgentChatLoadRequest,
+  StudioAgentChatLoadResponse,
+  StudioAgentChatResetRequest,
+  StudioAgentChatResetResponse,
+  StudioAgentChatSaveRequest,
+  StudioAgentChatSaveResponse,
   StudioAgentSendRequest,
   StudioAgentSendResponse,
 } from '../../shared/ipc/types';
@@ -68,6 +74,7 @@ import { deleteTranscript } from '../services/studio/asset-transcriber';
 import { runCutPlan } from '../services/studio/cut-plan-runner';
 import { studioAgent } from '../services/studio/studio-agent';
 import { buildAgentSystemPrompt } from '../services/studio/studio-agent-prompt';
+import { loadAgentChat, resetAgentChat, saveAgentChat } from '../services/studio/agent-chat-store';
 import { findSttEntry } from '../../shared/presets/stt-models';
 import { transcriptionEngine } from '../../transcription-engine';
 import { createExportEntry } from '../services/studio/export-entry';
@@ -428,6 +435,43 @@ export async function handleStudioAgentCancel(
   data: StudioAgentCancelRequest,
 ): Promise<StudioAgentCancelResponse> {
   return { success: studioAgent.cancel(data.projectId) };
+}
+
+// Persisted Assistant transcript (Q1d) — renderer owns the list, main does the
+// disk I/O beside project.json.
+export async function handleStudioAgentChatLoad(
+  _event: IpcMainInvokeEvent,
+  data: StudioAgentChatLoadRequest,
+): Promise<StudioAgentChatLoadResponse> {
+  try {
+    return { success: true, messages: await loadAgentChat(data.projectId) };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to load the conversation') };
+  }
+}
+
+export async function handleStudioAgentChatSave(
+  _event: IpcMainInvokeEvent,
+  data: StudioAgentChatSaveRequest,
+): Promise<StudioAgentChatSaveResponse> {
+  try {
+    await saveAgentChat(data.projectId, data.messages);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to save the conversation') };
+  }
+}
+
+export async function handleStudioAgentChatReset(
+  _event: IpcMainInvokeEvent,
+  data: StudioAgentChatResetRequest,
+): Promise<StudioAgentChatResetResponse> {
+  try {
+    await resetAgentChat(data.projectId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to reset the conversation') };
+  }
 }
 
 const CACHE_MIME_BY_EXT: Record<string, string> = {

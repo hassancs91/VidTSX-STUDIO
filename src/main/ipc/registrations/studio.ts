@@ -21,6 +21,9 @@ import {
   handleStudioCutPlanRun,
   handleStudioAgentSend,
   handleStudioAgentCancel,
+  handleStudioAgentChatLoad,
+  handleStudioAgentChatSave,
+  handleStudioAgentChatReset,
 } from '../studio-handlers';
 import {
   handleStudioCreatorProjects,
@@ -59,6 +62,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);
   ipcMain.handle(IPC.STUDIO_AGENT_SEND, handleStudioAgentSend);
   ipcMain.handle(IPC.STUDIO_AGENT_CANCEL, handleStudioAgentCancel);
+  ipcMain.handle(IPC.STUDIO_AGENT_CHAT_LOAD, handleStudioAgentChatLoad);
+  ipcMain.handle(IPC.STUDIO_AGENT_CHAT_SAVE, handleStudioAgentChatSave);
+  ipcMain.handle(IPC.STUDIO_AGENT_CHAT_RESET, handleStudioAgentChatReset);
   ipcMain.handle(IPC.STUDIO_SHOT_MODULE, handleStudioShotModule);
   ipcMain.handle(IPC.STUDIO_SHOT_GENERATE, handleStudioShotGenerate);
   ipcMain.handle(IPC.STUDIO_SHOT_VERSIONS, handleStudioShotVersions);
