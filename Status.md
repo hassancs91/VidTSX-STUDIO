@@ -9,6 +9,29 @@
 
 ## Completed phases
 
+### SHOT_QUALITY Slice 2 — QUALITY LAYER A SHIPPED, A/B-proven (2026-08-20)
+**`docs/studio/SHOT_QUALITY_DESIGN.md` Q3a–Q3d, commits SQ6–SQ9.** What the
+pipeline model reads got three upgrades, all prompt/resource-side: (a) an
+**exemplars pack** at `resources/shot-exemplars/core/` — six brand-scrubbed
+finished shots, two per kind, each ≤120 lines and contract-compliant (titles
+drive the injected WORDS block; react+remotion imports only; seconds×fps
+timing), packaged exactly like caption packs and loaded per kind by
+`shot-exemplars.ts` (corrupt/missing → degrade to none, never a failed
+generation); (b) a **craft block** (stagger discipline, easing families,
+spatial rhythm, density ceilings, one accent per beat, hold-layout,
+exit-clean) that — with the exemplars — opens `buildShotExtraInstructions`
+BEFORE every variable section, so the prompt prefix stays cache-friendly;
+(c) the make-tsx skill's brief grammar is now **storyboard-grade**: content →
+regions (proportions) → beats quoting exact transcript cue words → density/
+motion intent, with span-anchoring the default for cutaways/overlays too.
+**Q3d honesty gate PASSED** — intro title + end card regenerated live on
+"Raw Footage Test" (claude-subscription, one pass, 0 fix attempts each):
+the title went from a flat word stream to a three-line composition with a
+96 px payoff line and disciplined accent use; the end card kept its layout
+(same brief) but gained damped-to-rest motion and proper stagger. Median
+moved → kit slice (Q4) is next and worth its scope. Layer A never touches
+the fake-screencast gap — as calibrated.
+
 ### SHOT_QUALITY Slice 1 — CONTINUITY + LINKED FOLDER SHIPPED, live-proven (2026-08-20)
 **`docs/studio/SHOT_QUALITY_DESIGN.md` Q1 + Q2, commits SQ1–SQ4.** Written
 after the raw-footage E2E test stranded a session's generated shots from the
