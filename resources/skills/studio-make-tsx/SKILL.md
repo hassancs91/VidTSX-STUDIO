@@ -16,21 +16,43 @@ Shots are short generated Remotion compositions placed on the timeline:
 - **title** — an overlay whose text reveals in sync with the spoken words.
   ALWAYS anchored to a transcript span; a title without word sync is pointless.
 
-## Briefs that work
+## Briefs that work — write a storyboard, not a caption
 
 The pipeline model sees ONLY your brief plus the mechanical contract (exact
-dimensions/fps/duration, background rule, word table). It cannot see the
-footage or the chat. So the brief must be self-contained and visual:
+dimensions/fps/duration, background rule, word table, craft rules, exemplar
+shots). It cannot see the footage or the chat. A one-line brief produces a
+generic shot; a storyboard-grade brief produces a designed one. Structure
+every brief as **content → regions → beats → mood**:
 
-- Say what is on screen, roughly where, and how it moves: "Dark navy card
-  sliding up with three stat rows appearing one by one: 87% retention, 3.2x
-  speed, $0 cost — big white numbers, small gray labels."
-- Name colors/typography intent when it matters ("brand feel: minimal, white
-  on near-black, one amber accent").
+- **Content** — what the shot says, in one line.
+- **Regions** — where things sit, as proportions: "left 60%: the terminal
+  card; right 40%: three stat rows", "bottom band: a single pill".
+- **Beats keyed to cue words** — for anchored shots, quote the exact
+  transcript words each reveal lands on: "on 'three steps' the row appears;
+  on 'completely free' the badge stamps in". The pipeline receives word
+  timings for the whole anchor span, so ANY quoted word is a usable cue —
+  this is how cutaways and overlays sync to speech, not just titles.
+- **Density and motion intent** — "calm: two elements, rise-and-settle" or
+  "energetic: quick staggers, one highlighter sweep on the payoff word".
+
+Example cutaway brief: "Pricing comparison. Left 55%: our plan card with
+three feature rows; right 45%: the 'other tools' column, dimmed. Beats: on
+'every editor' both cards rise; on 'hundred dollars' their price counts up;
+on 'ours is free' our price swaps to $0 with an underline wipe. Calm — one
+accent at a time."
+
+Also:
+
 - For titles: say HOW words reveal ("each word pops in as it is spoken,
   settled words stay dimmed white, current word amber").
+- Name typography intent only when unbranded ("brand feel: minimal, white
+  on near-black, one amber accent").
 - Do NOT put timing math, frame counts, or config values in the brief — the
-  tool injects the exact duration/fps/word table itself.
+  tool injects the exact duration/fps/word table itself. Cue WORDS, not cue
+  seconds.
+- Do NOT restate the craft rules (stagger, easing, density) — the pipeline
+  already enforces them; the brief spends its words on content, regions and
+  beats.
 
 ## Brand
 
@@ -66,8 +88,15 @@ professional — reach for it instead of describing imagery in the brief:
 
 - Anchor a shot when it should sync to speech (`assetId` + `sourceStart`/
   `sourceEnd` in source seconds, on word bounds from `get_transcript`).
+- **Default to anchoring cutaways and overlays too, not just titles.** An
+  unanchored cutaway can only animate on a timer; an anchored one gets the
+  span's word table and can land every reveal on a spoken cue. Read the span
+  first (`get_transcript(assetId, start, end)`), pick the cue words, then
+  write the beats into the brief.
 - The anchor span IS the default shot length — pick a span that reads as one
-  beat (typically 2–8 s). Titles: anchor exactly the phrase being emphasized.
+  beat (typically 2–8 s; a multi-beat cutaway can run longer when the brief
+  choreographs each beat). Titles: anchor exactly the phrase being
+  emphasized.
 - Unanchored shots (transitions, scene cards, from-scratch scenes) take an
   explicit `durationSeconds` and, when proposed, an optional `timelineStart`.
 
