@@ -41,6 +41,13 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Built-in shot exemplars (SHOT_QUALITY_DESIGN.md Q3a). Plain source, read as
+  # text and injected into the shot generation prompt — never executed.
+  - from: resources/shot-exemplars
+    to: shot-exemplars
+    filter:
+      - "**/*"
+      - "!**/.*"
   - from: resources/icon.ico
     to: icon.ico
   - from: resources/icon.png

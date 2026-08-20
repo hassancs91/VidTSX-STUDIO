@@ -8,6 +8,14 @@ import type { StudioShotKind } from '../types/studio';
 import type { StudioBrand } from '../types/asset-library';
 import { formatWordsBlock, type ShotAnchorWord } from './shot-words';
 
+/** One exemplar shot (Q3a, SHOT_QUALITY_DESIGN.md): finished brand-scrubbed
+ *  code injected into the prompt as the quality bar for this shot kind. */
+export interface ShotExemplar {
+  name: string;
+  description: string;
+  code: string;
+}
+
 /** One row of the asset table the model designs against (D12) — everything it
  *  may know about a ref except the URL, which only exists at render time. */
 export interface ShotPromptAsset {

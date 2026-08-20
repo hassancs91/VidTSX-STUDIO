@@ -1,0 +1,40 @@
+{
+  "exemplars": [
+    {
+      "id": "steps-row",
+      "kind": "cutaway",
+      "name": "Steps Row",
+      "description": "Eyebrow + headline + a three-card row: entrance stagger on a fixed rhythm, arrows leading each card, everything rise-and-settle."
+    },
+    {
+      "id": "two-stage-statement",
+      "kind": "cutaway",
+      "name": "Two-Stage Statement",
+      "description": "Two beats in one shot: chips join under a claim, then a phase handoff to the payoff line with a highlighter sweep."
+    },
+    {
+      "id": "code-chip",
+      "kind": "overlay",
+      "name": "Code Chip",
+      "description": "Bottom-band file chip: clean enter AND exit, container first then staggered content lines, dark interior independent of brand."
+    },
+    {
+      "id": "badge-pill",
+      "kind": "overlay",
+      "name": "Badge Pill",
+      "description": "A single punctuation mark over footage: pill rises in, tick stamps with overshoot, whole thing exits before the end."
+    },
+    {
+      "id": "word-pop-title",
+      "kind": "title",
+      "name": "Word Pop Title",
+      "description": "WORDS-driven: each word pops on its spoken start, the word being spoken carries the accent, the line never reflows."
+    },
+    {
+      "id": "accent-underline-title",
+      "kind": "title",
+      "name": "Accent Underline Title",
+      "description": "WORDS-driven phrase reveal: words fade in on their own starts; the payoff word takes the accent and an underline wipe on its cue."
+    }
+  ]
+}

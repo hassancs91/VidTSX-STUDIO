@@ -48,6 +48,15 @@ export function getCaptionTemplatesDir(): string {
   return path.join(app.getAppPath(), 'resources', 'caption-templates');
 }
 
+export function getShotExemplarsDir(): string {
+  // Built-in shot exemplar packs (SHOT_QUALITY_DESIGN.md Q3a):
+  // resources/shot-exemplars/<packId>/. Same shipping shape as caption packs.
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'shot-exemplars');
+  }
+  return path.join(app.getAppPath(), 'resources', 'shot-exemplars');
+}
+
 export function getSkillsDir(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'skills');
