@@ -8,6 +8,7 @@ import { VersionThumbnail } from '@shared/components/VersionThumbnail';
 import { MoveToFolderMenu } from './MoveToFolderMenu';
 import { useThumbnails } from '@shared/hooks/useThumbnails';
 import { ChevronIcon, TrashIcon, FolderIcon, ImportIcon, FilePlusIcon, ProjectIcon, TsxIcon, ImageIcon } from '@shared/components/library-icons';
+import { StudioShotsSection } from './StudioShotsSection';
 
 interface MotionLibraryPanelProps {
   library: LibraryState;
@@ -635,8 +636,14 @@ export function MotionLibraryPanel({
         }}
       >
         {isEmpty && !creatingFolder ? (
-          <div className="flex items-center justify-center h-full">
-            <span className="text-[13px] text-text-dim text-center px-2">No projects yet</span>
+          <div className="flex flex-col gap-1 h-full">
+            <div className="flex-1 flex items-center justify-center">
+              <span className="text-[13px] text-text-dim text-center px-2">No projects yet</span>
+            </div>
+            <StudioShotsSection
+              onLoadVersion={onLoadVersion}
+              activeFolderPath={project?.folderPath}
+            />
           </div>
         ) : (
           <div className="flex flex-col gap-1">
@@ -691,6 +698,12 @@ export function MotionLibraryPanel({
 
             {/* Folders */}
             {filteredFolders.map((folder) => renderFolder(folder))}
+
+            {/* Studio projects' shot folders — a live view (SHOT_QUALITY Q2) */}
+            <StudioShotsSection
+              onLoadVersion={onLoadVersion}
+              activeFolderPath={project?.folderPath}
+            />
 
             {/* Root drop zone (visible during drag) */}
             {draggingProject && (

@@ -552,6 +552,28 @@ export interface StudioShotsReconcileResponse {
   error?: string;
 }
 
+// Linked folder (SHOT_QUALITY_DESIGN.md Q2): the Creator library's live view
+// of Studio shot folders — folders of v*.tsx, listed in place, never copied.
+export interface StudioShotLibraryShotIpc {
+  shotId: string;
+  name: string;
+  folderPath: string;
+  /** Absolute version paths, ascending (v1 first). */
+  versions: string[];
+}
+
+export interface StudioShotLibraryProjectIpc {
+  projectId: string;
+  projectName: string;
+  shots: StudioShotLibraryShotIpc[];
+}
+
+export interface StudioShotLibraryResponse {
+  success: boolean;
+  projects?: StudioShotLibraryProjectIpc[];
+  error?: string;
+}
+
 export interface StudioExportPrepareRequest {
   project: StudioProject;
   /** Optional export range in timeline seconds (Slice D2). When both are set,

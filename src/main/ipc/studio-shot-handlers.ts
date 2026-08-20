@@ -22,6 +22,7 @@ import type {
   StudioShotVersionsResponse,
   StudioShotsReconcileRequest,
   StudioShotsReconcileResponse,
+  StudioShotLibraryResponse,
 } from '../../shared/ipc/types';
 import { getProjectDir, getShotVersionPath } from '../services/studio/studio-paths';
 import { isValidShotId } from '../../shared/studio/shots';
@@ -29,6 +30,7 @@ import { shotGenerator } from '../services/studio/shot-generator';
 import { listCreatorProjects } from '../services/studio/creator-projects';
 import { importShot } from '../services/studio/shot-import';
 import { reconcileShots } from '../services/studio/shot-reconcile';
+import { listStudioShotLibrary } from '../services/studio/studio-shot-library';
 import { getProjectsDir } from '../utils/paths';
 import { transpileTsxCached } from '../services/tsx-transpiler';
 import {
@@ -248,6 +250,18 @@ export async function handleStudioShotImport(
 }
 
 /** Folder-as-truth version list for the inspector's version picker (D10). */
+/** Q2: the Creator library's Studio section — shot folders listed in place. */
+export async function handleStudioShotLibrary(): Promise<StudioShotLibraryResponse> {
+  try {
+    return { success: true, projects: await listStudioShotLibrary() };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to list Studio shots',
+    };
+  }
+}
+
 /** Q1c: adopt orphan / dropped-in shot folders. Adoptions ride the job-event
  *  stream; the response is the toast/banner summary. */
 export async function handleStudioShotsReconcile(

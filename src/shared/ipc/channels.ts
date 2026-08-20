@@ -366,6 +366,9 @@ export const IPC = {
   // Studio — shots/ ↔ registry reconcile (SHOT_QUALITY Q1c): adopt orphan and
   // dropped-in shot folders on project open / window focus
   STUDIO_SHOTS_RECONCILE: 'studio:shots:reconcile',
+  // Studio — linked folder (SHOT_QUALITY Q2): the Creator library's live view
+  // of every Studio project's shot folders
+  STUDIO_SHOT_LIBRARY: 'studio:shot:library',
   // Studio — caption templates (D13): pack listing + preview module URL
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',

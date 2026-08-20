@@ -403,6 +403,7 @@ export interface ElectronAPI {
   studioAgentChatLoad: (data: import('../../shared/ipc/types').StudioAgentChatLoadRequest) => Promise<import('../../shared/ipc/types').StudioAgentChatLoadResponse>;
   studioAgentChatSave: (data: import('../../shared/ipc/types').StudioAgentChatSaveRequest) => Promise<import('../../shared/ipc/types').StudioAgentChatSaveResponse>;
   studioAgentChatReset: (data: import('../../shared/ipc/types').StudioAgentChatResetRequest) => Promise<import('../../shared/ipc/types').StudioAgentChatResetResponse>;
+  studioShotLibrary: () => Promise<import('../../shared/ipc/types').StudioShotLibraryResponse>;
   studioAgentCancel: (data: import('../../shared/ipc/types').StudioAgentCancelRequest) => Promise<import('../../shared/ipc/types').StudioAgentCancelResponse>;
   studioShotModule: (data: import('../../shared/ipc/types').StudioShotModuleRequest) => Promise<import('../../shared/ipc/types').StudioShotModuleResponse>;
   studioShotGenerate: (data: import('../../shared/ipc/types').StudioShotGenerateRequest) => Promise<import('../../shared/ipc/types').StudioShotGenerateResponse>;

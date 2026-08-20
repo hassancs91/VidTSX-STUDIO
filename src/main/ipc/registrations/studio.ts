@@ -32,6 +32,7 @@ import {
   handleStudioShotModule,
   handleStudioShotVersions,
   handleStudioShotsReconcile,
+  handleStudioShotLibrary,
 } from '../studio-shot-handlers';
 import {
   handleStudioCaptionTemplateModule,
@@ -70,6 +71,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_SHOT_VERSIONS, handleStudioShotVersions);
   ipcMain.handle(IPC.STUDIO_SHOT_IMPORT, handleStudioShotImport);
   ipcMain.handle(IPC.STUDIO_SHOTS_RECONCILE, handleStudioShotsReconcile);
+  ipcMain.handle(IPC.STUDIO_SHOT_LIBRARY, handleStudioShotLibrary);
   ipcMain.handle(IPC.STUDIO_CREATOR_PROJECTS, handleStudioCreatorProjects);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATES, handleStudioCaptionTemplates);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, handleStudioCaptionTemplateModule);

@@ -1,6 +1,20 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { MotionProject, LibraryState } from '../types';
 import { scanLibrary } from '@shared/services/library-scanner';
+import { useToast } from '@renderer/contexts/ToastContext';
+import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
+
+/** Highest existing v<N>.tsx number in a version list (0 when none). Saves
+ *  must append past the MAX, not past the COUNT — a folder with a deleted
+ *  middle version (v1, v3) must never overwrite v3. */
+function maxVersionNumber(versions: string[]): number {
+  let max = 0;
+  for (const versionPath of versions) {
+    const n = Number(/v(\d+)\.tsx$/i.exec(versionPath)?.[1]);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return max;
+}
 
 export function getNextUniqueName(baseName: string, library: LibraryState): string {
   const allNames = [
@@ -24,6 +38,32 @@ export function useMotionProject() {
   const [library, setLibrary] = useState<LibraryState>({ folders: [], rootProjects: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
+  const { openProjectId } = useOpenProject();
+  const openProjectIdRef = useRef(openProjectId);
+  openProjectIdRef.current = openProjectId;
+
+  // ----- Linked folder (SHOT_QUALITY_DESIGN.md Q2) -------------------------
+  // A Studio shot folder opened from the library's Studio section is edited
+  // IN PLACE, but append-only: overwrite is redirected to a new version, and
+  // a save into the currently-open Studio project gets a heads-up toast.
+  const studioProjectsPrefixRef = useRef<string | null>(null);
+  useEffect(() => {
+    void window.api.studioRootGet().then((res) => {
+      if (res.root) {
+        studioProjectsPrefixRef.current = `${res.root.replace(/\\/g, '/')}/projects/`;
+      }
+    });
+  }, []);
+
+  /** The Studio project id a folder belongs to, or null for Creator folders. */
+  const studioProjectIdOf = useCallback((folderPath: string): string | null => {
+    const prefix = studioProjectsPrefixRef.current;
+    if (!prefix) return null;
+    const normalized = folderPath.replace(/\\/g, '/');
+    if (!normalized.startsWith(prefix) || !normalized.includes('/shots/')) return null;
+    return normalized.slice(prefix.length).split('/')[0] ?? null;
+  }, []);
 
   const listVersions = useCallback(async (folderPath: string): Promise<string[]> => {
     try {
@@ -134,13 +174,25 @@ export function useMotionProject() {
 
     try {
       const versions = await listVersions(project.folderPath);
-      const nextNum = versions.length + 1;
+      const nextNum = maxVersionNumber(versions) + 1;
       const versionPath = `${project.folderPath}/v${nextNum}.tsx`;
 
       const result = await window.api.fileWrite({ path: versionPath, content });
       if (!result.success) {
         setError(result.error || 'Failed to save version');
         return null;
+      }
+
+      // Q2 open-project heads-up: the version lands on disk either way
+      // (append-only writes are safe); this is about preview surprise.
+      const studioProjectId = studioProjectIdOf(project.folderPath);
+      if (studioProjectId) {
+        showToast(
+          studioProjectId === openProjectIdRef.current
+            ? `Saved v${nextNum} into the open Studio project — pick it in the shot's version picker to use it`
+            : `Saved v${nextNum} into Studio project "${studioProjectId}"`,
+          'success',
+        );
       }
 
       const updatedVersions = [...versions, versionPath];
@@ -159,10 +211,18 @@ export function useMotionProject() {
     } finally {
       setLoading(false);
     }
-  }, [project, listVersions, refreshLibrary]);
+  }, [project, listVersions, refreshLibrary, studioProjectIdOf, showToast]);
 
   const overwriteVersion = useCallback(async (content: string): Promise<boolean> => {
     if (!project) return false;
+
+    // Studio shot folders are append-only (Q2 decision): an in-place edit of
+    // an existing version would race Studio's preview cache and undo history,
+    // so overwrite becomes save-as-next-version there.
+    if (studioProjectIdOf(project.folderPath)) {
+      return (await saveNewVersion(content)) !== null;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -185,7 +245,7 @@ export function useMotionProject() {
     } finally {
       setLoading(false);
     }
-  }, [project]);
+  }, [project, saveNewVersion, studioProjectIdOf]);
 
   const renameProject = useCallback(async (folderPath: string, newName: string): Promise<boolean> => {
     try {
