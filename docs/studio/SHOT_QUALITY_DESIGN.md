@@ -319,6 +319,28 @@ Build pieces:
 > (60 messages). Remaining unproven leg: Creator-save → v(n+1) → Studio
 > version picker, unit-tested but not yet walked in the app.
 
+> **Rev 3 — 2026-08-20: Slice 2 (Layer A) SHIPPED (commits SQ6–SQ9) and the
+> Q3d A/B ran live on "Raw Footage Test".** Q3a: 6 exemplars (2/kind, each
+> ≤120 lines, brand-scrubbed, contract-compliant — titles model the injected
+> WORDS block verbatim) at `resources/shot-exemplars/core/`, caption-pack
+> shape, loader degrades to none. Q3c: craft block + per-kind exemplars open
+> `buildShotExtraInstructions` BEFORE the variable contract — static-first for
+> the prompt cache. Q3b: SKILL.md briefs are now content → regions → beats
+> (quoting transcript cue words) → mood, and anchoring cutaways/overlays is
+> the default. **Q3d verdict: Layer A moves the median — proceed to the kit
+> slice.** Intro title v1→v2: a flat single-size word stream became a
+> three-line composition (62/96/62 px with weight hierarchy), the payoff
+> phrase "5 building blocks" held bright with a permanently-amber numeral,
+> spoken-word accent + settle-dim for the rest, clean block exit with the
+> accent rule retracting — the calibrated "layout/choreography improve"
+> outcome, clearly visible in stills. End card v1→v2: same layout (same
+> brief — expected), but craft polish landed: damped glow breathing that
+> RESTS before the final hold, 0.2 s pill stagger, center-out rule wipe,
+> overshoot confined to the pills. Both regens: single pass, 0 fix attempts,
+> ~70 s each (claude-subscription). As calibrated, nothing screencast-shaped
+> improved — that waits on the kit (Q4). Before/after stills in the session
+> report to Hasan (not committed).
+
 ## Checklist — ANSWERED (Hasan, 2026-08-20)
 
 Decided in chat 2026-08-19 and recorded above, not re-asked: Q1d location +
