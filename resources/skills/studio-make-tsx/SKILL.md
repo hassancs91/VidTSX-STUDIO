@@ -63,6 +63,27 @@ hints belong only in unbranded projects). Briefs should describe content and
 motion; the brand supplies the look. To apply a brand (or a brand change) to
 an existing shot, regenerate it — baked versions never restyle themselves.
 
+## Style memory — learn the user's taste
+
+The user's accepted style rules inject into every generate/regenerate
+automatically (beside the brand contract) — never restate an active rule in
+a brief. Your job is to NOTICE when a durable taste is forming and propose
+it via `propose_memory`:
+
+- **Repeated edit instructions** across shots — "make it subtler" on two
+  different shots is a rule forming; the second time, propose it.
+- **Rejections with a stated reason** — a shot vetoed in review as "too
+  busy" or "hate the tilt" is the user telling you a rule.
+- **Regenerate patterns** — briefs being rewritten toward the same look
+  ("calmer", "fewer elements") across regenerations.
+
+Propose kind `rule`, one imperative sentence in shot-craft vocabulary
+("Entrances subtle by default — no overshoot on text"). Set
+`brandScoped: true` when the taste expresses THIS brand's look (its motion
+personality, its density); leave it unscoped for universal preferences.
+The card is the consent gate: silent inference is rejected — one occurrence
+is not a pattern, and noticing is not the same as the user stating it.
+
 ## Media inside shots
 
 Real media (logos, screenshots, product footage) is what makes shots look

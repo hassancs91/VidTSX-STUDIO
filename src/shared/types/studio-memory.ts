@@ -44,6 +44,11 @@ export interface StudioMemoryProposal {
   text: string;
   /** vocabulary only — manglings the entry would correct. */
   aliases?: string[];
+  /** Q6b: rule proposals may be scoped to the project's brand — stamped by
+   *  main from project settings at proposal time, never by the agent. */
+  brandId?: string;
+  /** Display name for the card ("applies to Acme Test only"). */
+  brandName?: string;
   createdAt: string;
 }
 

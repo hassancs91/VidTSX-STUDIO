@@ -60,3 +60,26 @@ describe('agent-memory-proposals queue', () => {
     expect(getPendingProposals('proj1')).toEqual([]);
   });
 });
+
+describe('brand-scoped proposals (Q6b)', () => {
+  it('carries brandId/brandName through to the pending proposal', () => {
+    clearAllProposals();
+    const proposal = addProposal({
+      projectId: 'p1',
+      kind: 'rule',
+      text: 'Subtler entrances.',
+      brandId: 'acme-test',
+      brandName: 'Acme Test',
+    });
+    expect(proposal.brandId).toBe('acme-test');
+    expect(proposal.brandName).toBe('Acme Test');
+    expect(getPendingProposals('p1')[0]).toMatchObject({ brandId: 'acme-test' });
+  });
+
+  it('omits the fields entirely when unscoped', () => {
+    clearAllProposals();
+    const proposal = addProposal({ projectId: 'p2', kind: 'rule', text: 'Tight cuts.' });
+    expect('brandId' in proposal).toBe(false);
+    expect('brandName' in proposal).toBe(false);
+  });
+});

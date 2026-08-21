@@ -23,6 +23,8 @@ export interface AddProposalInput {
   kind: StudioMemoryKind;
   text: string;
   aliases?: string[];
+  brandId?: string;
+  brandName?: string;
 }
 
 export function getPendingProposals(projectId: string): StudioMemoryProposal[] {
@@ -48,6 +50,8 @@ export function addProposal(input: AddProposalInput): StudioMemoryProposal {
     kind: input.kind,
     text: input.text,
     ...(input.aliases && input.aliases.length > 0 ? { aliases: input.aliases } : {}),
+    ...(input.brandId ? { brandId: input.brandId } : {}),
+    ...(input.brandName ? { brandName: input.brandName } : {}),
     createdAt: new Date().toISOString(),
   };
   pending.set(input.projectId, proposal);

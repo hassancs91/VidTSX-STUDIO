@@ -113,6 +113,7 @@ export async function handleMemoryProposalResolve(
       kind: proposal.kind,
       text: data.edited?.text ?? proposal.text,
       ...(aliases && aliases.length > 0 ? { aliases } : {}),
+      ...(proposal.brandId ? { brandId: proposal.brandId } : {}),
       source: {
         by: 'agent',
         projectId: proposal.projectId,

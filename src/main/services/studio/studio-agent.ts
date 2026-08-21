@@ -35,6 +35,8 @@ import { addProposal, hasPendingProposal } from './agent-memory-proposals';
 import { MEMORY_TEXT_LIMITS } from '../../../shared/types/studio-memory';
 import { generateImageAsset } from '../library/generate-image-asset';
 import { captureWebpage } from '../library/capture';
+import { readBrand } from '../library/brand-store';
+import { getLibraryRoot } from '../library/library-paths';
 
 const log = logEngine.createLogger('StudioAgent');
 
@@ -579,6 +581,12 @@ class StudioAgentService {
           .array(z.string())
           .optional()
           .describe('vocabulary only — the misspellings this entry corrects'),
+        brandScoped: z
+          .boolean()
+          .optional()
+          .describe(
+            "rules only — true when the rule expresses THIS brand's look rather than a universal preference; the rule then applies only to projects using the current brand",
+          ),
       },
       async (args) => {
         this.emit({
@@ -600,6 +608,20 @@ class StudioAgentService {
           return text(`A ${args.kind} memory is limited to ${limit} characters — shorten it.`, true);
         }
         try {
+          // Q6b: brand scoping is stamped by MAIN from project settings —
+          // the agent only ever says "this is about the brand", never which.
+          let brandId: string | undefined;
+          let brandName: string | undefined;
+          if (args.brandScoped) {
+            if (args.kind !== 'rule') {
+              return text('brandScoped applies only to rules — propose it as a rule or drop the scope.', true);
+            }
+            brandId = (await loadProject(req.projectId)).settings.brandId;
+            if (!brandId) {
+              return text('This project has no active brand — propose the rule unscoped instead.', true);
+            }
+            brandName = (await readBrand(getLibraryRoot(), brandId))?.name;
+          }
           // The active set is in the prompt, but guard anyway: a duplicate
           // card teaches the user to reject reflexively.
           const existing = await listMemories();
@@ -614,6 +636,8 @@ class StudioAgentService {
             kind: args.kind,
             text: trimmed,
             ...(args.aliases ? { aliases: args.aliases } : {}),
+            ...(brandId ? { brandId } : {}),
+            ...(brandName ? { brandName } : {}),
           });
           memoryProposalCreated = true;
           this.emit({ projectId: req.projectId, kind: 'memory-proposal', proposal });

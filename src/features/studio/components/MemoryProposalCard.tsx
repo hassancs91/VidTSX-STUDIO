@@ -58,6 +58,11 @@ export function MemoryProposalCard({
         <Brain size={11} strokeWidth={1.75} className="shrink-0" />
         <span className="font-medium">Remember this?</span>
         <span className="text-text-ghost">· {KIND_LABELS[proposal.kind]}</span>
+        {proposal.brandId && (
+          <span className="text-text-ghost truncate">
+            · {proposal.brandName ?? proposal.brandId} only
+          </span>
+        )}
       </div>
 
       {editing ? (
