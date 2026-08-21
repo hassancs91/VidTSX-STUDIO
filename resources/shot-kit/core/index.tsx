@@ -20,4 +20,16 @@ export {
   type CodeSeg,
 } from './vscode';
 export { AgentFeed, AgentInputDock, type FeedLine } from './agent-feed';
+export {
+  BrowserWindow,
+  Marker,
+  Ring,
+  CursorPointer,
+  sampleCursor,
+  browserChromeH,
+  BROWSER_CHROME,
+  type BrowserPage,
+  type NavStep,
+  type CursorKey,
+} from './browser';
 export { KitIcon, type KitIconName } from './icons';
