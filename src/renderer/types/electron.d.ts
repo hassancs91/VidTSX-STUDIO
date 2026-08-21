@@ -423,6 +423,8 @@ export interface ElectronAPI {
   memoryDelete: (data: import('../../shared/ipc/types').MemoryDeleteRequest) => Promise<import('../../shared/ipc/types').MemoryDeleteResponse>;
   memoryProposalsGet: (data: import('../../shared/ipc/types').MemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryProposalsGetResponse>;
   memoryProposalResolve: (data: import('../../shared/ipc/types').MemoryProposalResolveRequest) => Promise<import('../../shared/ipc/types').MemoryProposalResolveResponse>;
+  memoryPromotionsGet: (data: import('../../shared/ipc/types').MemoryPromotionsGetRequest) => Promise<import('../../shared/ipc/types').MemoryPromotionsGetResponse>;
+  memoryPromotionResolve: (data: import('../../shared/ipc/types').MemoryPromotionResolveRequest) => Promise<import('../../shared/ipc/types').MemoryPromotionResolveResponse>;
 
   // Announcements feed (Phase I)
   newsGet: () => Promise<import('../../shared/ipc/types').NewsGetResponse>;

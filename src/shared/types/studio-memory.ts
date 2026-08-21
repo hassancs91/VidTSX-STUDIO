@@ -52,6 +52,28 @@ export interface StudioMemoryProposal {
   createdAt: string;
 }
 
+/** Q6c: a pending "promote this rule into the brand" card. Composed by MAIN
+ *  at proposal time (rule text, brand, resulting notes) so the card shows
+ *  the exact outcome; accept re-validates against a fresh brand read. */
+export interface StudioStylePromotionProposal {
+  id: string;
+  projectId: string;
+  /** The brand-scoped rule memory being promoted (retired on accept). */
+  memoryId: string;
+  ruleText: string;
+  brandId: string;
+  brandName: string;
+  /** The agent's named evidence — which shots/spans the rule held across. */
+  evidence: string;
+  /** styleNotes before and after, for the card's preview. */
+  currentStyleNotes?: string;
+  proposedStyleNotes: string;
+  /** Exact substring of the current notes the promotion removes, when the
+   *  2000-char cap forces a displacement — the proposal must say so. */
+  displaces?: string;
+  createdAt: string;
+}
+
 /** Hard cap on ACTIVE rules — at the cap, accepting one requires
  *  deactivating another (unbounded memory is worse than none). 50 was
  *  decided against the skills already shipping 10,508 chars per turn

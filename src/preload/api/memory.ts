@@ -4,6 +4,10 @@ import type {
   MemoryDeleteRequest,
   MemoryDeleteResponse,
   MemoryListResponse,
+  MemoryPromotionResolveRequest,
+  MemoryPromotionResolveResponse,
+  MemoryPromotionsGetRequest,
+  MemoryPromotionsGetResponse,
   MemoryProposalResolveRequest,
   MemoryProposalResolveResponse,
   MemoryProposalsGetRequest,
@@ -29,4 +33,10 @@ export const memoryApi = {
     data: MemoryProposalResolveRequest
   ): Promise<MemoryProposalResolveResponse> =>
     ipcRenderer.invoke(IPC.MEMORY_PROPOSAL_RESOLVE, data),
+  memoryPromotionsGet: (data: MemoryPromotionsGetRequest): Promise<MemoryPromotionsGetResponse> =>
+    ipcRenderer.invoke(IPC.MEMORY_PROMOTIONS_GET, data),
+  memoryPromotionResolve: (
+    data: MemoryPromotionResolveRequest
+  ): Promise<MemoryPromotionResolveResponse> =>
+    ipcRenderer.invoke(IPC.MEMORY_PROMOTION_RESOLVE, data),
 };

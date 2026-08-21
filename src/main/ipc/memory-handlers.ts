@@ -8,6 +8,10 @@ import type {
   MemoryDeleteRequest,
   MemoryDeleteResponse,
   MemoryListResponse,
+  MemoryPromotionResolveRequest,
+  MemoryPromotionResolveResponse,
+  MemoryPromotionsGetRequest,
+  MemoryPromotionsGetResponse,
   MemoryProposalResolveRequest,
   MemoryProposalResolveResponse,
   MemoryProposalsGetRequest,
@@ -28,6 +32,14 @@ import {
   getPendingProposals,
   removeProposal,
 } from '../services/studio/agent-memory-proposals';
+import {
+  findPromotion,
+  getPendingPromotions,
+  removePromotion,
+} from '../services/studio/agent-style-promotions';
+import { applyStyleNotesPromotion } from '../../shared/studio/brand';
+import { readBrand, updateBrand } from '../services/library/brand-store';
+import { getLibraryRoot } from '../services/library/library-paths';
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -124,5 +136,67 @@ export async function handleMemoryProposalResolve(
     return { success: true, memory };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to save the memory') };
+  }
+}
+
+export async function handleMemoryPromotionsGet(
+  _event: IpcMainInvokeEvent,
+  data: MemoryPromotionsGetRequest,
+): Promise<MemoryPromotionsGetResponse> {
+  return { success: true, proposals: getPendingPromotions(data.projectId) };
+}
+
+/** Q6c accept = one click, both halves in main: write the rule into the
+ *  brand's styleNotes, then retire the memory (styleNotes carries it now —
+ *  leaving both active would double-inject). Recomposed against a FRESH
+ *  brand read: notes may have changed since the card was minted. A brand
+ *  write failure leaves the proposal pending for retry. */
+export async function handleMemoryPromotionResolve(
+  _event: IpcMainInvokeEvent,
+  data: MemoryPromotionResolveRequest,
+): Promise<MemoryPromotionResolveResponse> {
+  const proposal = findPromotion(data.projectId, data.proposalId);
+  if (!proposal) {
+    return { success: false, error: 'That promotion is no longer pending.' };
+  }
+  if (data.action === 'reject') {
+    removePromotion(data.projectId, data.proposalId);
+    return { success: true };
+  }
+  try {
+    const root = getLibraryRoot();
+    const brand = await readBrand(root, proposal.brandId);
+    if (!brand) {
+      removePromotion(data.projectId, data.proposalId);
+      return { success: false, error: 'The brand no longer exists — promotion discarded.' };
+    }
+    const composed = applyStyleNotesPromotion(brand.styleNotes, proposal.ruleText, proposal.displaces);
+    if (composed.ok) {
+      await updateBrand(root, proposal.brandId, {
+        name: brand.name,
+        palette: brand.palette,
+        fonts: brand.fonts,
+        logoRefs: brand.logoRefs,
+        styleNotes: composed.next,
+      });
+    } else if (composed.reason !== 'already-present') {
+      // Notes changed underneath the card (edited in the Brand form) and the
+      // promotion no longer fits as proposed — surface it, keep the card.
+      return {
+        success: false,
+        error:
+          composed.reason === 'over-cap'
+            ? `The style notes changed and the rule no longer fits (over by ${String(composed.overBy ?? 0)} chars). Reject the card and let the agent re-propose.`
+            : 'The style notes changed and the text this promotion displaces is gone. Reject the card and let the agent re-propose.',
+      };
+    }
+    // Retire the promoted memory — styleNotes carries the rule from here on.
+    await setMemoryActive(proposal.memoryId, false).catch(() => {
+      // Memory already deleted by the user — the brand write stands.
+    });
+    removePromotion(data.projectId, data.proposalId);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to apply the promotion') };
   }
 }

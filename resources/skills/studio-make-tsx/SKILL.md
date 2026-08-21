@@ -84,6 +84,13 @@ personality, its density); leave it unscoped for universal preferences.
 The card is the consent gate: silent inference is rejected — one occurrence
 is not a pattern, and noticing is not the same as the user stating it.
 
+When a brand-scoped rule has proven itself — several shots generated under
+it without correction — propose promoting it into the brand's style notes
+(`propose_style_promotion`): the brand then carries the taste permanently
+(and portably), and the memory retires. Name the evidence in the proposal
+("held across intro-title, end-card and published-guide"); if the notes are
+near their cap, the tool makes you say exactly what the promotion displaces.
+
 ## Media inside shots
 
 Real media (logos, screenshots, product footage) is what makes shots look

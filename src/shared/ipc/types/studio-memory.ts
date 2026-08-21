@@ -2,6 +2,7 @@ import type {
   StudioMemory,
   StudioMemoryKind,
   StudioMemoryProposal,
+  StudioStylePromotionProposal,
 } from '../../types/studio-memory';
 
 // Studio — agent memory (G5): manual entry + MemoryDialog.
@@ -90,5 +91,31 @@ export interface MemoryProposalResolveResponse {
   success: boolean;
   /** The saved record on accept. */
   memory?: StudioMemory;
+  error?: string;
+}
+
+/** memory:promotions:get — pending style promotions for one project (Q6c),
+ *  same navigation-survival contract as memory proposals. */
+export interface MemoryPromotionsGetRequest {
+  projectId: string;
+}
+
+export interface MemoryPromotionsGetResponse {
+  success: boolean;
+  proposals?: StudioStylePromotionProposal[];
+  error?: string;
+}
+
+/** memory:promotion:resolve — accept updates the brand's styleNotes AND
+ *  retires the promoted memory (one click, both halves in main); reject
+ *  discards the card. A brand write failure leaves the proposal pending. */
+export interface MemoryPromotionResolveRequest {
+  proposalId: string;
+  projectId: string;
+  action: 'accept' | 'reject';
+}
+
+export interface MemoryPromotionResolveResponse {
+  success: boolean;
   error?: string;
 }

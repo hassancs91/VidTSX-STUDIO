@@ -3,6 +3,8 @@ import { IPC } from '@shared/ipc/channels';
 import {
   handleMemoryDelete,
   handleMemoryList,
+  handleMemoryPromotionResolve,
+  handleMemoryPromotionsGet,
   handleMemoryProposalResolve,
   handleMemoryProposalsGet,
   handleMemorySave,
@@ -16,4 +18,6 @@ export function registerMemoryIpc(): void {
   ipcMain.handle(IPC.MEMORY_DELETE, handleMemoryDelete);
   ipcMain.handle(IPC.MEMORY_PROPOSALS_GET, handleMemoryProposalsGet);
   ipcMain.handle(IPC.MEMORY_PROPOSAL_RESOLVE, handleMemoryProposalResolve);
+  ipcMain.handle(IPC.MEMORY_PROMOTIONS_GET, handleMemoryPromotionsGet);
+  ipcMain.handle(IPC.MEMORY_PROMOTION_RESOLVE, handleMemoryPromotionResolve);
 }

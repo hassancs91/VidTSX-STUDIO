@@ -391,6 +391,9 @@ export const IPC = {
   // navigation.
   MEMORY_PROPOSALS_GET: 'memory:proposals:get',
   MEMORY_PROPOSAL_RESOLVE: 'memory:proposal:resolve',
+  // Q6c: pending style promotions (brand styleNotes + memory retire on accept).
+  MEMORY_PROMOTIONS_GET: 'memory:promotions:get',
+  MEMORY_PROMOTION_RESOLVE: 'memory:promotion:resolve',
 
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',

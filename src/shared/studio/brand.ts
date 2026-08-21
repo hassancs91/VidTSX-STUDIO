@@ -69,6 +69,49 @@ export function validateBrandInput(input: StudioBrandInput): string[] {
   return errors;
 }
 
+/** Result of composing a styleNotes promotion (Q6c). */
+export type StyleNotesPromotionResult =
+  | { ok: true; next: string }
+  | { ok: false; reason: 'already-present' | 'displaces-not-found' | 'over-cap'; overBy?: number };
+
+/**
+ * Compose the styleNotes text a promotion would produce (Q6c) — pure, used
+ * at proposal time (to show the outcome on the card) and again at accept
+ * time against a fresh brand read (styleNotes may have changed since).
+ * The rule appends as a `- ` line; `displaces` names an exact substring of
+ * the current notes to remove first (the "what it displaces" the proposal
+ * must state when the cap would otherwise overflow).
+ */
+export function applyStyleNotesPromotion(
+  current: string | undefined,
+  ruleText: string,
+  displaces?: string,
+): StyleNotesPromotionResult {
+  let base = (current ?? '').replace(/\r\n/g, '\n');
+  const rule = ruleText.trim();
+  if (base.toLowerCase().includes(rule.toLowerCase())) {
+    return { ok: false, reason: 'already-present' };
+  }
+  if (displaces !== undefined) {
+    const target = displaces.replace(/\r\n/g, '\n');
+    const at = base.indexOf(target);
+    if (target.trim() === '' || at === -1) {
+      return { ok: false, reason: 'displaces-not-found' };
+    }
+    base = (base.slice(0, at) + base.slice(at + target.length))
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  } else {
+    base = base.trim();
+  }
+  const next = base === '' ? `- ${rule}` : `${base}\n- ${rule}`;
+  if (next.length > STYLE_NOTES_MAX) {
+    return { ok: false, reason: 'over-cap', overBy: next.length - STYLE_NOTES_MAX };
+  }
+  return { ok: true, next };
+}
+
 /**
  * Normalize a parsed brand.json. The folder name is the id (folder-as-truth,
  * like projects). Returns null for documents too broken to use — the store

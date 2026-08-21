@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   STYLE_NOTES_MAX,
+  applyStyleNotesPromotion,
   isPlausibleCssColor,
   normalizeBrand,
   validateBrandInput,
@@ -83,5 +84,49 @@ describe('normalizeBrand', () => {
     expect(normalizeBrand({}, 'b')).toBeNull();
     expect(normalizeBrand({ ...raw, palette: { primary: '#fff' } }, 'b')).toBeNull();
     expect(normalizeBrand({ ...raw, fonts: {} }, 'b')).toBeNull();
+  });
+});
+
+describe('applyStyleNotesPromotion (Q6c)', () => {
+  it('appends as a list line; empty notes start the list', () => {
+    expect(applyStyleNotesPromotion(undefined, 'Subtler entrances.')).toEqual({
+      ok: true,
+      next: '- Subtler entrances.',
+    });
+    expect(applyStyleNotesPromotion('Keep it minimal.', 'Subtler entrances.')).toEqual({
+      ok: true,
+      next: 'Keep it minimal.\n- Subtler entrances.',
+    });
+  });
+
+  it('refuses a rule the notes already carry (case-insensitive)', () => {
+    const r = applyStyleNotesPromotion('- subtler ENTRANCES.', 'Subtler entrances.');
+    expect(r).toEqual({ ok: false, reason: 'already-present' });
+  });
+
+  it('displaces an exact substring and tidies the leftover blank lines', () => {
+    const current = 'Line one.\n\n- Old rule to retire.\n\nLine three.';
+    const r = applyStyleNotesPromotion(current, 'New rule.', '- Old rule to retire.\n');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.next).toBe('Line one.\n\nLine three.\n- New rule.');
+    }
+  });
+
+  it('rejects a displaces string that is not present', () => {
+    expect(applyStyleNotesPromotion('Notes.', 'Rule.', 'never there')).toEqual({
+      ok: false,
+      reason: 'displaces-not-found',
+    });
+  });
+
+  it('reports over-cap with the overflow size', () => {
+    const current = 'x'.repeat(STYLE_NOTES_MAX - 5);
+    const r = applyStyleNotesPromotion(current, 'A longer new rule.');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe('over-cap');
+      expect(r.overBy).toBeGreaterThan(0);
+    }
   });
 });

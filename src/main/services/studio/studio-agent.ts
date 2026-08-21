@@ -32,6 +32,8 @@ import { loadProject } from './project-store';
 import { listMemories } from './agent-memory';
 import { composeMemoryBlock } from './agent-memory-prompt';
 import { addProposal, hasPendingProposal } from './agent-memory-proposals';
+import { addPromotion, hasPendingPromotion } from './agent-style-promotions';
+import { applyStyleNotesPromotion } from '../../../shared/studio/brand';
 import { MEMORY_TEXT_LIMITS } from '../../../shared/types/studio-memory';
 import { generateImageAsset } from '../library/generate-image-asset';
 import { captureWebpage } from '../library/capture';
@@ -54,6 +56,7 @@ const ALLOWED_TOOLS = [
   'mcp__studio__generate_image',
   'mcp__studio__capture_webpage',
   'mcp__studio__propose_memory',
+  'mcp__studio__propose_style_promotion',
 ];
 
 type Listener = (event: StudioAgentEvent) => void;
@@ -595,9 +598,9 @@ class StudioAgentService {
           tool: 'propose_memory',
           detail: args.text.slice(0, 60),
         });
-        if (memoryProposalCreated || hasPendingProposal(req.projectId)) {
+        if (memoryProposalCreated || hasPendingProposal(req.projectId) || hasPendingPromotion(req.projectId)) {
           return text(
-            "A memory proposal is already waiting for the user's decision. Do not propose another until they answer it.",
+            "A proposal card is already waiting for the user's decision. Do not propose another until they answer it.",
             true,
           );
         }
@@ -651,10 +654,115 @@ class StudioAgentService {
       },
     );
 
+    // One promotion card per turn, sharing the "one open card" discipline
+    // with memory proposals (either kind pending blocks both tools).
+    let stylePromotionCreated = false;
+
+    const proposeStylePromotion = tool(
+      'propose_style_promotion',
+      "Propose promoting ONE stable brand-scoped style rule from memory into the brand's styleNotes (Q6c). Use only when the rule has held across multiple shots — name that evidence. Never applied directly: it becomes a card; on accept the brand is updated and the memory retires (styleNotes then carries the rule instead).",
+      {
+        rule: z
+          .string()
+          .describe(
+            'The rule EXACTLY as it appears in your memory block — main resolves it to the stored brand-scoped rule.',
+          ),
+        evidence: z
+          .string()
+          .describe(
+            'The named evidence shown to the user: which shots/regenerations the rule held across (e.g. "applied on intro-title, end-card and published-guide without correction").',
+          ),
+        displaces: z
+          .string()
+          .optional()
+          .describe(
+            'Only when the 2000-char styleNotes cap would overflow: the exact substring of the CURRENT styleNotes this promotion removes to make room.',
+          ),
+      },
+      async (args) => {
+        this.emit({
+          projectId: req.projectId,
+          kind: 'tool',
+          tool: 'propose_style_promotion',
+          detail: args.rule.slice(0, 60),
+        });
+        if (
+          stylePromotionCreated ||
+          memoryProposalCreated ||
+          hasPendingPromotion(req.projectId) ||
+          hasPendingProposal(req.projectId)
+        ) {
+          return text(
+            "A proposal card is already waiting for the user's decision. Do not propose another until they answer it.",
+            true,
+          );
+        }
+        const evidence = args.evidence.replace(/\s+/g, ' ').trim();
+        if (!evidence) {
+          return text('A promotion needs its evidence named — which shots did the rule hold across?', true);
+        }
+        try {
+          const brandId = (await loadProject(req.projectId)).settings.brandId;
+          if (!brandId) {
+            return text('This project has no active brand — there is nothing to promote into.', true);
+          }
+          const brand = await readBrand(getLibraryRoot(), brandId);
+          if (!brand) {
+            return text('The project brand no longer exists — nothing to promote into.', true);
+          }
+          const wanted = args.rule.replace(/\s+/g, ' ').trim().toLowerCase();
+          const memory = (await listMemories()).find(
+            (m) =>
+              m.active &&
+              m.kind === 'rule' &&
+              m.brandId === brandId &&
+              m.text.toLowerCase() === wanted,
+          );
+          if (!memory) {
+            return text(
+              `No active brand-scoped rule matches that text for brand "${brand.name}". Promote only rules that exist in your memory block and were accepted as brand-scoped.`,
+              true,
+            );
+          }
+          const composed = applyStyleNotesPromotion(brand.styleNotes, memory.text, args.displaces);
+          if (!composed.ok) {
+            if (composed.reason === 'already-present') {
+              return text('The styleNotes already carry this rule — tell the user the memory can simply be retired.', true);
+            }
+            if (composed.reason === 'displaces-not-found') {
+              return text('`displaces` must be an exact substring of the CURRENT styleNotes — it was not found.', true);
+            }
+            return text(
+              `Promoting would exceed the ${String(2000)}-char styleNotes cap by ${String(composed.overBy ?? 0)} chars. Name what it displaces: pass \`displaces\` with an exact substring of the current styleNotes to remove.\n\nCurrent styleNotes:\n${brand.styleNotes ?? ''}`,
+              true,
+            );
+          }
+          const proposal = addPromotion({
+            projectId: req.projectId,
+            memoryId: memory.id,
+            ruleText: memory.text,
+            brandId,
+            brandName: brand.name,
+            evidence,
+            ...(brand.styleNotes !== undefined ? { currentStyleNotes: brand.styleNotes } : {}),
+            proposedStyleNotes: composed.next,
+            ...(args.displaces !== undefined ? { displaces: args.displaces } : {}),
+          });
+          stylePromotionCreated = true;
+          this.emit({ projectId: req.projectId, kind: 'style-promotion-proposal', proposal });
+          return text(
+            'Promotion shown to the user as a card in this panel — on accept the brand styleNotes update and the memory retires. Do not treat it as done yet, and do not propose another this turn.',
+          );
+        } catch (err) {
+          return text(err instanceof Error ? err.message : String(err), true);
+        }
+      },
+    );
+
     return createSdkMcpServer({
       name: 'studio',
       version: '1.0.0',
-      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, captureWebpageTool, proposeMemory],
+      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, captureWebpageTool, proposeMemory, proposeStylePromotion],
     });
   }
 }
