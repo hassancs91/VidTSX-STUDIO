@@ -341,6 +341,47 @@ Build pieces:
 > improved — that waits on the kit (Q4). Before/after stills in the session
 > report to Hasan (not committed).
 
+> **Rev 4 — 2026-08-21: Slice 3 (the kit, Q4) SHIPPED (commits SQ10–SQ18) and
+> the A/B ran live on "Raw Footage Test".** Pack at `resources/shot-kit/core/`
+> (kitVersion 1.0.0): chrome ×4 with the **navigable BrowserWindow** flagship
+> (typed URL → loading spinner + progress rule → reveal → scripted scroll →
+> navigate again; cursor path + click ripples), TypedText, AgentFeed +
+> AgentInputDock, StatBlock, EASINGS, plus internal theme tokens and a
+> no-lucide icon set — all brand-scrubbed to a `theme` prop. Delivery is a
+> serve-time esbuild bundle at `/virtual/vidtsx-kit.js` (NOT a browser import
+> map — the "import map" was always specifier rewriting in tsx-transpiler, and
+> the kit rides `VIRTUAL_SHIM_PACKAGES`); shot lint gained exactly one entry.
+> Export pinning is **folder-as-truth**: the first accepted kit-importing
+> version snapshots the pack into `<project>/kit/<version>/` (write-once — no
+> project.json field, so main never races the renderer autosave; the doc's
+> "kit version the project was built against" line is implemented as
+> first-snapshot-wins), and the entry copy step copies that snapshot beside
+> the shot copies and rewrites the specifier. The checklist's "capture gains a
+> tall-viewport option" already existed as `fullPage` (asset-library phase) —
+> it shipped as steering text in the tool description + skill instead.
+> Pre-A/B fix (SQ10): `v*.debug.json` now records the composed system prompt
+> + sha256 + section list — which immediately paid for itself (below).
+>
+> **A/B verdict ("Published guide" cutaway, same brief × 4 regens, 0 fix
+> attempts each): the kit decisively closes the screencast gap — but only
+> after a pipeline bug fix the sidecar exposed.** v2 (manifest in prompt):
+> craft improved, kit ignored, chrome still hand-drawn. v3 (+ "a brief that
+> describes chrome is asking for the kit component" + exemplar re-cut): the
+> model DEFINED its own `const BrowserWindow` rather than import. v4
+> (+ MUST/SUPERSEDES/defect naming): same. Root cause (SQ17): the VERIFY step
+> ran on the bare mode checklist — its own import allowlist predates the kit,
+> so it "fixed" kit imports away and even rewrote the contract's
+> `durationInFrames` to `durationInSeconds` (visible in v2's config; the
+> pipeline has been silently fighting the shot contract since D6).
+> `buildVerifyPrompt` now appends the caller contract with an explicit
+> override header. v5 (v4 prompt + that fix — a clean isolation): imports
+> `@vidtsx/kit`, renders the REAL captured page inside BrowserWindow with a
+> scripted scroll, pinned `kit/1.0.0/` into the project, previews through the
+> virtual module in the live Player. Stills: `kit-slice-ab-report.html`
+> (local, untracked — the raw-footage-test-report precedent).
+> Q3a re-cut note: `browser-walkthrough` (kit vocabulary, 101 lines) replaced
+> `two-stage-statement` as the second cutaway exemplar; the other five stand.
+
 ## Checklist — ANSWERED (Hasan, 2026-08-20)
 
 Decided in chat 2026-08-19 and recorded above, not re-asked: Q1d location +

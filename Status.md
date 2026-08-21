@@ -9,6 +9,45 @@
 
 ## Completed phases
 
+### SHOT_QUALITY Slice 3 — THE KIT (Q4) SHIPPED, A/B-proven (2026-08-21)
+**`docs/studio/SHOT_QUALITY_DESIGN.md` Q4 (Rev 4), commits SQ10–SQ18.**
+Shots can now import `@vidtsx/kit`. (a) **The pack** at
+`resources/shot-kit/core/` (kitVersion 1.0.0): the **navigable
+BrowserWindow** flagship (typed URL → loading state → page reveal → scripted
+scroll → navigate again, pages = capture stills, cursor + click ripples),
+VSCodeWindow + CodeEditorPane + ImageViewerPane, TerminalWindow,
+GenericWindow, TypedText, AgentFeed + AgentInputDock, StatBlock, EASINGS —
+brand-scrubbed to a `theme` prop, no icon/font library deps, plus the
+MANIFEST the prompt cites verbatim. (b) **Delivery**: `kit-bundler.ts`
+esbuild-bundles the pack (react/remotion external → virtual URLs) and the
+module server serves `/virtual/vidtsx-kit.js`; the transpiler maps the
+specifier via `VIRTUAL_SHIM_PACKAGES`; shot lint gained exactly ONE
+allowlist entry (subpaths still rejected — tested). (c) **Export pinning**
+(`shot-kit-pin.ts`): first accepted kit-importing version snapshots the pack
+into `<project>/kit/<version>/` (write-once, folder-as-truth — no
+project.json field, no autosave race); the entry copy step copies the
+snapshot beside the shot copies as `studio-entry-<pid>-kit-<version>/` and
+rewrites the specifier; the sweeper learned prefix-matched directories.
+(d) **Prompt/skill**: KIT section (manifest verbatim, craft → KIT →
+exemplars → contract ordering), `browser-walkthrough` kit exemplar replaced
+`two-stage-statement`, make-tsx skill teaches screencast briefs +
+`fullPage: true` captures ("tall viewport" already existed as fullPage).
+(e) **SQ10 pre-A/B fix**: `v*.debug.json` records the composed system
+prompt + sha256 + section list — which found the slice's real bug:
+(f) **SQ17**: the VERIFY step ran on the bare mode checklist and silently
+"fixed" contract-compliant shots — stripping kit imports and rewriting
+`durationInFrames` → `durationInSeconds` — since D6. It now reviews under
+the appended caller contract. **A/B on "Published guide" (same brief ×4,
+0 fix attempts each): manifest alone → ignored (v2); prompt hardening →
+model re-implemented `const BrowserWindow` locally (v3, v4); + verify fix →
+v5 imports the kit, real captured page inside real chrome with scripted
+scroll, `kit/1.0.0/` pinned, live Player renders through the virtual
+module.** Stills in `kit-slice-ab-report.html` (local, untracked). Driven
+end-to-end via CDP (occlusion flags + restore-minimized recipe held).
+NOT yet live-proven: export render of a kit shot (pinning is unit-tested;
+worth one manual export pass), and the agent-driven browser-shot flow with
+fresh fullPage captures.
+
 ### SHOT_QUALITY Slice 2 — QUALITY LAYER A SHIPPED, A/B-proven (2026-08-20)
 **`docs/studio/SHOT_QUALITY_DESIGN.md` Q3a–Q3d, commits SQ6–SQ9.** What the
 pipeline model reads got three upgrades, all prompt/resource-side: (a) an
