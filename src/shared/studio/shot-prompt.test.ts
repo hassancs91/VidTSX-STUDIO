@@ -61,6 +61,29 @@ describe('buildShotExtraInstructions', () => {
     expect(text).toContain('```tsx\nconst x = 1;\n```');
   });
 
+  // ── Kit section (Q4) ───────────────────────────────────────────────────
+
+  it('no kit → no KIT section, import rule stays react+remotion', () => {
+    const text = buildShotExtraInstructions({ ...BASE, kind: 'cutaway' });
+    expect(text).not.toContain('## Component kit');
+    expect(text).toMatch(/ONLY from 'react' and 'remotion'/);
+  });
+
+  it('kit: manifest verbatim between craft and exemplars, import rule widens', () => {
+    const text = buildShotExtraInstructions({
+      ...BASE,
+      kind: 'cutaway',
+      exemplars: [{ name: 'Steps Row', description: 'stagger rhythm', code: 'const x = 1;\n' }],
+      kit: { version: '1.0.0', manifest: '# @vidtsx/kit — component manifest\n\n## BrowserWindow\nprops here' },
+    });
+    const kit = text.indexOf(`## Component kit — '@vidtsx/kit' (v1.0.0)`);
+    expect(kit).toBeGreaterThan(text.indexOf('## Craft'));
+    expect(text.indexOf('## Exemplars')).toBeGreaterThan(kit);
+    expect(text).toContain('## BrowserWindow\nprops here');
+    expect(text).toMatch(/ONLY from 'react', 'remotion', and '@vidtsx\/kit'/);
+    expect(text).not.toMatch(/ONLY from 'react' and 'remotion'/);
+  });
+
   // ── Brand injection (D11) ──────────────────────────────────────────────
 
   const BRAND = {

@@ -533,7 +533,7 @@ class StudioAgentService {
       {
         url: z.string().describe('The http(s) page to capture'),
         viewport: z.enum(['landscape', 'portrait', 'desktop']).optional().describe('landscape 1280×720 (default), portrait 390×844, desktop 1440×900 — CSS pixels, rendered at 2×'),
-        fullPage: z.boolean().optional().describe('Capture the full page height (capped ~8000 px) instead of one viewport'),
+        fullPage: z.boolean().optional().describe('Capture the full page height (capped ~8000 px) instead of one viewport. Use this for stills that will scroll inside the kit BrowserWindow — a full-height still gives the fake browser real scroll range (divide the reported height by 2 for CSS px when writing scroll targets)'),
         visible: z.boolean().optional().describe('Open the window visibly and wait for the user to log in / navigate and click Capture'),
       },
       async (args) => {

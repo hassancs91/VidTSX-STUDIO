@@ -43,6 +43,10 @@ export interface ShotPromptInput {
   assets?: ShotPromptAsset[];
   /** Finished exemplar shots of this kind (Q3a) — injected as the quality bar. */
   exemplars?: ShotExemplar[];
+  /** The component kit (Q4): version + MANIFEST.md cited verbatim. When absent
+   *  the import rule stays react+remotion only — a model without the manifest
+   *  would only guess at kit names. */
+  kit?: { version: string; manifest: string };
 }
 
 /**
@@ -63,6 +67,20 @@ const CRAFT_LINES: readonly string[] = [
   '- Overlays and titles exit clean: fade out over the last ~0.4 s. Cutaways may hold to the cut.',
   '- When a WORDS table is present, land reveals ON word starts — choreograph to the speech, not to arbitrary times.',
 ];
+
+/** The KIT section (Q4): the pack manifest verbatim, framed with when-to-use
+ *  policy. Static per app version — placed with the other static sections
+ *  BEFORE everything variable, for the prompt-prefix cache. */
+function buildKitLines(kit: { version: string; manifest: string }): string[] {
+  return [
+    `## Component kit — '@vidtsx/kit' (v${kit.version})`,
+    '',
+    'You MAY import from \'@vidtsx/kit\'. It holds pre-built fake-screencast and stat components; whenever the brief calls for anything app-shaped — a browser session, a code editor, a terminal run, an AI agent working, a stats row — USE the kit component instead of hand-building window chrome. Hand-built chrome next to these reads as a quality drop.',
+    'Pass the Brand palette/fonts through each component\'s `theme` prop (the kit never reads the brand itself). The manifest below is the complete API — import ONLY names it lists, exactly as documented.',
+    '',
+    kit.manifest.trimEnd(),
+  ];
+}
 
 function buildExemplarLines(exemplars: ShotExemplar[]): string[] {
   const lines = [
@@ -88,6 +106,9 @@ const BACKGROUND_RULE: Record<StudioShotKind, string> = {
 export function buildShotExtraInstructions(input: ShotPromptInput): string {
   const durationInFrames = Math.round(input.durationSeconds * input.fps);
   const lines: string[] = [...CRAFT_LINES, ''];
+  if (input.kit) {
+    lines.push(...buildKitLines(input.kit), '');
+  }
   if (input.exemplars && input.exemplars.length > 0) {
     lines.push(...buildExemplarLines(input.exemplars), '');
   }
@@ -110,7 +131,9 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
     '};',
     '```',
     '',
-    `- Imports: ONLY from 'react' and 'remotion'. No other packages, no relative imports, everything in this single file.`,
+    input.kit
+      ? `- Imports: ONLY from 'react', 'remotion', and '@vidtsx/kit' (kit API per the manifest above). No other packages, no subpaths, no relative imports, everything in this single file.`
+      : `- Imports: ONLY from 'react' and 'remotion'. No other packages, no relative imports, everything in this single file.`,
     '- Default-export the component.',
     `- All animation timing must be computed as seconds × fps using the fps from useVideoConfig() — never hardcode frame counts anywhere except the compositionConfig literal above. The shot is ${input.durationSeconds} seconds long.`,
     '- Do not render a progress bar, watermark, or debug text unless asked.',

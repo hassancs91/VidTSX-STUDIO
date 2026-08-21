@@ -45,6 +45,7 @@ import { getLibraryRoot } from '../library/library-paths';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
 import { getShotExemplars } from './shot-exemplars';
 import { ensureProjectKitSnapshot, shotUsesKit } from './shot-kit-pin';
+import { getShotKitPromptInfo } from './shot-kit';
 import { loadProject } from './project-store';
 import { shotJobEvents } from './shot-job-events';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
@@ -227,6 +228,9 @@ class ShotGeneratorService {
     // Q3a: built-in exemplars of this kind ride every generate/regenerate as
     // the quality bar. Loader degrades to [] — never blocks generation.
     const exemplars = await getShotExemplars(req.kind);
+    // Q4: the kit manifest rides as the component API. Degrades to null —
+    // the prompt then omits the KIT section and keeps the react+remotion rule.
+    const kit = await getShotKitPromptInfo();
     if (brandId && !brand) {
       log.warn('Project brandId has no matching brand — generating unbranded', {
         projectId: req.projectId,
@@ -298,6 +302,7 @@ class ShotGeneratorService {
               ...(brand ? { brand } : {}),
               ...(resolvedRefs ? { assets: resolvedRefs.promptAssets } : {}),
               ...(exemplars.length > 0 ? { exemplars } : {}),
+              ...(kit ? { kit } : {}),
             }),
           },
           mode: '2d',

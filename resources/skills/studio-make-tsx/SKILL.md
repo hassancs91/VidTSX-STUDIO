@@ -84,6 +84,30 @@ professional — reach for it instead of describing imagery in the brief:
 - The description on a library/project asset is what you search and design
   against; when you make assets, leave good descriptions behind.
 
+## The component kit — fake screencasts
+
+The pipeline can import `@vidtsx/kit`: pre-built window chrome (navigable
+browser, VS Code, terminal, generic window), TypedText, AgentFeed, StatBlock.
+The pipeline model gets the full component manifest automatically — you never
+list props — but the BRIEF decides whether a kit shot happens. When the
+narration is about software (a website, an editor, a terminal run, an AI agent
+working), ask for the app surface by name and script what it does:
+
+- Browser: "a fake browser types learnwithhasan.com, the captured homepage
+  loads, scrolls to the pricing table on 'completely free', then navigates to
+  /docs". Supply the page stills yourself: `capture_webpage` with
+  `fullPage: true` — a full-height still is what gives the fake browser real
+  scroll range. Pass them via `assetRefs` and say which asset is which page.
+- Editor/agent: "VS Code with the project tree, a prompt typed into the agent
+  dock, then the tool feed streams: read file, edit file, done" — name the
+  file rows and feed lines you want; those strings appear on screen verbatim.
+- Terminal: "terminal runs the install: the command line, six output lines
+  appearing on their cues, an ok line on 'that's it'."
+
+A screencast-shaped brief WITHOUT the kit vocabulary produces hand-drawn
+chrome — always say "fake browser / VS Code window / terminal window" so the
+pipeline reaches for the kit component.
+
 ## Anchors
 
 - Anchor a shot when it should sync to speech (`assetId` + `sourceStart`/
