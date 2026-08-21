@@ -27,8 +27,9 @@ import type {
   TsxValidateResponse,
 } from '../../../shared/ipc/types';
 import type { StudioClipOrigin, StudioShot, StudioShotKind } from '../../../shared/types/studio';
+import type { StudioBrand } from '../../../shared/types/asset-library';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
-import { buildShotExtraInstructions } from '../../../shared/studio/shot-prompt';
+import { buildShotExtraInstructions, buildRefineInstruction } from '../../../shared/studio/shot-prompt';
 import { sliceAnchorWords, type ShotAnchorWord } from '../../../shared/studio/shot-words';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
@@ -45,6 +46,8 @@ import { getLibraryRoot } from '../library/library-paths';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
 import { composeShotStyleMemory, type ShotStyleMemory } from './agent-memory-prompt';
 import { listMemories } from './agent-memory';
+import { renderShotStills } from './shot-stills';
+import type { LlmImageIpc } from '../../../shared/ipc/types/llm';
 import { getShotExemplars } from './shot-exemplars';
 import { ensureProjectKitSnapshot, shotUsesKit } from './shot-kit-pin';
 import { getShotKitPromptInfo } from './shot-kit';
@@ -89,6 +92,15 @@ export interface EditShotRequest {
   /** The document's activeVersion — the code the instruction applies to. */
   activeVersion: number;
   instruction: string;
+  providerId?: string;
+  signal?: AbortSignal;
+}
+
+export interface RefineShotRequest {
+  projectId: string;
+  shotId: string;
+  /** The document's activeVersion — the version being critiqued. */
+  activeVersion: number;
   providerId?: string;
   signal?: AbortSignal;
 }
@@ -444,6 +456,123 @@ class ShotGeneratorService {
       throw err instanceof Error ? err : new Error(message);
     } finally {
       this.releaseSlot();
+    }
+  }
+
+  /** Refine round-trip (Q5): render stills of the current version, send them
+   *  with the brief + brand contract through ONE critique-and-revise edit
+   *  pass. User-triggered, capped at one round per click by construction. */
+  async refine(req: RefineShotRequest): Promise<StudioShot> {
+    const versionPath = await getShotVersionPath(req.projectId, req.shotId, req.activeVersion);
+    const currentCode = await fs.readFile(versionPath, 'utf-8');
+    const folderPath = path.dirname(versionPath);
+    const progress = (percent: number, message: string) =>
+      this.emit({
+        projectId: req.projectId,
+        shotId: req.shotId,
+        op: 'refine',
+        status: 'generating',
+        percent,
+        message,
+      });
+
+    try {
+      progress(0, 'Rendering stills…');
+      // Stills ride the bundler/still renderer, not the LLM slot — render
+      // them before queueing for a pipeline slot.
+      const project = await loadProject(req.projectId);
+      const shot = project.shots.find((s) => s.id === req.shotId);
+      const stills = await renderShotStills(req.projectId, req.shotId, 3);
+      const images: LlmImageIpc[] = [];
+      for (const stillPath of stills.paths) {
+        images.push({
+          data: (await fs.readFile(stillPath)).toString('base64'),
+          mediaType: 'image/jpeg',
+        });
+      }
+
+      const brandId = project.settings.brandId;
+      const brand = brandId ? await readBrand(getLibraryRoot(), brandId) : null;
+      let styleRules: string[] = [];
+      try {
+        styleRules =
+          composeShotStyleMemory(await listMemories(), { ...(brandId ? { brandId } : {}) })
+            .styleMemory?.rules ?? [];
+      } catch {
+        // Refine without learned style rather than not at all.
+      }
+      const instruction = buildRefineInstruction({
+        frames: stills.frames,
+        fps: shot?.config?.fps ?? project.settings.fps,
+        ...(shot?.prompt ? { brief: shot.prompt } : {}),
+        ...(brand ? { brand } : {}),
+        styleRules,
+      });
+
+      progress(30, 'Critiquing…');
+      await this.acquireSlot();
+      try {
+        const chatHistory = (await readChatHistory(folderPath))
+          .slice(-CHAT_CONTEXT_LIMIT)
+          .map(({ role, content }) => ({ role, content }));
+        const result = await editTsxPipeline(
+          {
+            currentCode,
+            editInstruction: instruction,
+            images,
+            ...(req.providerId ? { providerId: req.providerId } : {}),
+            ...(chatHistory.length > 0 ? { chatHistory } : {}),
+            onProgress: (p) => progress(30 + Math.round(p.percent * 0.7), p.stepLabel),
+          },
+          this.buildDeps(req.providerId, req.signal),
+        );
+
+        if (req.signal?.aborted) throw new Error('Cancelled');
+        if (!result.transpileValid) {
+          throw new Error('The refined shot never passed validation — the previous version is untouched.');
+        }
+
+        const newVersionPath = await writeNextVersion(folderPath, result.text);
+        const version = Number(/v(\d+)\.tsx$/.exec(path.basename(newVersionPath))?.[1]);
+        await this.writeSidecarAndChat(
+          newVersionPath,
+          folderPath,
+          result,
+          `Refine pass — stills critique of v${req.activeVersion} (frames ${stills.frames.join(', ')})`,
+        );
+        await this.pinKitIfUsed(req.projectId, result.text);
+
+        const config = parseCompositionConfig(result.text);
+        const refined: StudioShot = {
+          // Partial snapshot, exactly like edit(): the renderer merges
+          // version+config onto its registry entry.
+          id: req.shotId,
+          name: req.shotId,
+          kind: 'overlay',
+          createdAt: new Date().toISOString(),
+          activeVersion: version,
+          status: 'ready',
+          ...(config
+            ? {
+                config: {
+                  durationInFrames: config.durationInFrames,
+                  fps: config.fps,
+                  width: config.width,
+                  height: config.height,
+                },
+              }
+            : {}),
+        };
+        this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'ready', shot: refined });
+        return refined;
+      } finally {
+        this.releaseSlot();
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Shot refine failed';
+      this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'error', error: message });
+      log.error('Shot refine failed', err, { projectId: req.projectId, shotId: req.shotId });
+      throw err instanceof Error ? err : new Error(message);
     }
   }
 

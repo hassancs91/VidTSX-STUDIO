@@ -419,8 +419,10 @@ export interface StudioShotModuleResponse {
 // ---------------------------------------------------------------------------
 
 /** 'import' (D14) rides the same job stream as the pipeline ops: a clean
- *  import emits one 'ready', a conform run emits progress like a generation. */
-export type StudioShotGenerateOp = 'generate' | 'edit' | 'regenerate' | 'import';
+ *  import emits one 'ready', a conform run emits progress like a generation.
+ *  'refine' (Q5) is the stills-critique round: render stills of the active
+ *  version, one vision critique-and-revise edit pass, next version. */
+export type StudioShotGenerateOp = 'generate' | 'edit' | 'regenerate' | 'import' | 'refine';
 
 export interface StudioShotGenerateRequest {
   projectId: string;
@@ -436,9 +438,9 @@ export interface StudioShotGenerateRequest {
    *  (library values import on use; the registry stores project ids). */
   assetRefs?: Record<string, string>;
   durationSeconds?: number;
-  /** edit/regenerate: the existing shot (folder) to write the next version of. */
+  /** edit/regenerate/refine: the existing shot (folder) to write the next version of. */
   shotId?: string;
-  /** edit: version the instruction applies to (the shot's activeVersion). */
+  /** edit/refine: version the op applies to (the shot's activeVersion). */
   activeVersion?: number;
   /** edit: the change instruction (inspector edit box). */
   instruction?: string;

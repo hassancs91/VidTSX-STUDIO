@@ -39,10 +39,11 @@ function foldShot(shots: StudioShot[], event: StudioShotJobEvent): StudioShot[] 
   if (index < 0) return [...shots, incoming];
   const existing = shots[index];
   const merged: StudioShot =
-    event.op === 'edit'
+    event.op === 'edit' || event.op === 'refine'
       ? {
-          // Edits only refresh the config snapshot here — the version bump is
-          // dispatched separately as the undoable step.
+          // Edit/refine only refresh the config snapshot here — the version
+          // bump is dispatched separately as the undoable step, and their
+          // partial snapshots must never strip registry fields (assetRefs).
           ...existing,
           ...(incoming.config ? { config: incoming.config } : {}),
         }
@@ -54,10 +55,11 @@ function foldShot(shots: StudioShot[], event: StudioShotJobEvent): StudioShot[] 
           ...(incoming.assetRefs ? { assetRefs: incoming.assetRefs } : {}),
           ...(incoming.error !== undefined ? { error: incoming.error } : {}),
         };
-  if (event.op !== 'edit' && incoming.error === undefined) delete merged.error;
+  const partialSnapshot = event.op === 'edit' || event.op === 'refine';
+  if (!partialSnapshot && incoming.error === undefined) delete merged.error;
   // Generate/regenerate snapshots are built fresh from the request — absent
   // assetRefs means the new version uses none (same rule as `error` above).
-  if (event.op !== 'edit' && incoming.assetRefs === undefined) delete merged.assetRefs;
+  if (!partialSnapshot && incoming.assetRefs === undefined) delete merged.assetRefs;
   return shots.map((s, i) => (i === index ? merged : s));
 }
 
@@ -118,7 +120,7 @@ export function useShotJobs({
       }
 
       if (event.status === 'ready' && event.shot) {
-        if (event.op === 'edit') {
+        if (event.op === 'edit' || event.op === 'refine') {
           dispatch({
             type: 'shot-set-version',
             shotId: event.shotId,

@@ -76,6 +76,22 @@ export function ShotClipSection({ projectId, clip, shot, dispatch, progress, onE
       });
   };
 
+  // Q5: one critique-and-revise round per click — stills of the current
+  // version go to the vision model, the revision lands as the next version.
+  const refine = () => {
+    if (busy || shot.status !== 'ready') return;
+    void window.api
+      .studioShotGenerate({
+        projectId,
+        op: 'refine',
+        shotId: shot.id,
+        activeVersion: shot.activeVersion,
+      })
+      .then((res) => {
+        if (!res.success) onError(res.error ?? 'Failed to start the refine pass');
+      });
+  };
+
   const regenerate = () => {
     if (busy || !shot.prompt) return;
     void window.api
@@ -169,6 +185,15 @@ export function ShotClipSection({ projectId, clip, shot, dispatch, progress, onE
           title={shot.prompt ? 'Fresh take with the original brief (re-bakes word sync)' : 'No stored brief to regenerate from'}
         >
           Regenerate
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={busy || shot.status !== 'ready'}
+          onClick={refine}
+          title="Render stills of this version and run one critique-and-revise pass (vision provider)"
+        >
+          Refine
         </Button>
       </div>
 

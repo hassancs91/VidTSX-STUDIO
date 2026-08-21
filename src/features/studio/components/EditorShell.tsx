@@ -12,6 +12,7 @@ import {
   untranscribedMasterClips,
   type CaptionSerializeContext,
 } from '@shared/studio';
+import type { StudioShotGenerateOp } from '@shared/ipc/types';
 import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
@@ -427,7 +428,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   // lands there when the ready event arrives — one undoable step, selected.
   const pendingShotInserts = useRef(new Map<string, number>());
   const handleShotReady = useCallback(
-    (shot: StudioShot, op: 'generate' | 'edit' | 'regenerate' | 'import') => {
+    (shot: StudioShot, op: StudioShotGenerateOp) => {
       if (op === 'generate') {
         const insertAt = pendingShotInserts.current.get(shot.id);
         if (insertAt !== undefined) {

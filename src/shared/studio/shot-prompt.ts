@@ -267,3 +267,45 @@ function buildBrandLines(brand: StudioBrand, kind: StudioShotKind): string[] {
   }
   return lines;
 }
+
+/** The Q5 critique-and-revise instruction: what the vision model reads next
+ *  to the stills. Pure and exported for tests. The mechanical contract
+ *  (config literals, imports, word table) is already IN the code being
+ *  edited — the instruction pins it as untouchable and spends its words on
+ *  what the stills actually show. */
+export function buildRefineInstruction(input: {
+  frames: number[];
+  fps: number;
+  brief?: string;
+  brand?: StudioBrand;
+  styleRules?: string[];
+}): string {
+  const lines = [
+    `REFINE PASS (one round). Attached are ${input.frames.length} rendered stills of this shot as it currently plays, at frames ${input.frames.join(', ')} (${input.fps} fps).`,
+    '',
+    'First critique what the stills actually show — layout balance, spacing and margins, type hierarchy and legibility, color discipline, density, anything skewed/clipped/misaligned or visually cheap. Then revise the code to fix ONLY what the critique found. Do not redesign the shot; keep its concept, structure and choreography.',
+    '',
+    'Hard constraints:',
+    '- Keep the exported compositionConfig EXACTLY as it is (same literal values).',
+    "- Keep imports exactly as they are — same packages, no additions beyond what the file already uses.",
+    '- Keep any WORDS table and word-synced timings verbatim.',
+    '- Preserve the background rule (opaque cutaway / transparent overlay) as the current code has it.',
+  ];
+  if (input.brief) {
+    lines.push('', 'The brief this shot was built from (the stills should serve it):', input.brief);
+  }
+  if (input.brand) {
+    const p = input.brand.palette;
+    lines.push(
+      '',
+      `Brand contract (MANDATORY): primary ${p.primary}, secondary ${p.secondary}, background ${p.background}, text ${p.text}, accent ${p.accent} (sparingly). Display font "${input.brand.fonts.display}", body "${input.brand.fonts.body ?? input.brand.fonts.display}".`,
+    );
+    if (input.brand.styleNotes) {
+      lines.push('Brand style notes (follow them):', input.brand.styleNotes);
+    }
+  }
+  if (input.styleRules && input.styleRules.length > 0) {
+    lines.push('', 'Learned style rules (user-approved — they win over defaults):', ...input.styleRules.map((r) => `- ${r}`));
+  }
+  return lines.join('\n');
+}

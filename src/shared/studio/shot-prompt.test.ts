@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildShotExtraInstructions } from './shot-prompt';
+import { buildRefineInstruction, buildShotExtraInstructions } from './shot-prompt';
 
 const BASE = { width: 1920, height: 1080, fps: 30, durationSeconds: 4 } as const;
 
@@ -226,5 +226,39 @@ describe('learned style section (Q6a)', () => {
     });
     expect(text).toContain('## Learned style (MANDATORY, user-approved)');
     expect(text).toContain('- One accent color max.');
+  });
+});
+
+describe('buildRefineInstruction (Q5)', () => {
+  it('names the frames, pins the hard constraints, and stays critique-scoped', () => {
+    const text = buildRefineInstruction({ frames: [36, 120, 203], fps: 30 });
+    expect(text).toContain('3 rendered stills');
+    expect(text).toContain('frames 36, 120, 203 (30 fps)');
+    expect(text).toContain('compositionConfig EXACTLY');
+    expect(text).toContain('Keep any WORDS table');
+    expect(text).not.toContain('## ');
+  });
+
+  it('carries brief, brand contract and learned rules when given', () => {
+    const text = buildRefineInstruction({
+      frames: [10],
+      fps: 30,
+      brief: 'Browser walkthrough of the guide.',
+      brand: {
+        id: 'acme-test',
+        name: 'Acme Test',
+        palette: { primary: '#111111', secondary: '#222222', background: '#000000', text: '#ffffff', accent: '#ffaa00' },
+        fonts: { display: 'Inter' },
+        logoRefs: [],
+        styleNotes: 'Minimal, calm.',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      styleRules: ['Subtler entrances.'],
+    });
+    expect(text).toContain('Browser walkthrough of the guide.');
+    expect(text).toContain('accent #ffaa00');
+    expect(text).toContain('Minimal, calm.');
+    expect(text).toContain('- Subtler entrances.');
   });
 });

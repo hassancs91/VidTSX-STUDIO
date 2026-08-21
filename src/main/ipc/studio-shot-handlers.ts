@@ -117,6 +117,20 @@ export async function handleStudioShotGenerate(
       return { success: true, shotId: data.shotId };
     }
 
+    if (data.op === 'refine') {
+      if (!data.shotId || !data.activeVersion) {
+        return { success: false, error: 'Refine needs a shot and its active version' };
+      }
+      const refine = shotGenerator.refine({
+        projectId: data.projectId,
+        shotId: data.shotId,
+        activeVersion: data.activeVersion,
+        ...(data.providerId ? { providerId: data.providerId } : {}),
+      });
+      refine.catch((err) => log.warn('Shot refine failed', { error: String(err) }));
+      return { success: true, shotId: data.shotId };
+    }
+
     if (!data.kind || !data.brief?.trim()) {
       return { success: false, error: 'A shot kind and brief are required' };
     }
