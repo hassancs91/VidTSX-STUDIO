@@ -1,0 +1,8 @@
+{
+  "id": "core",
+  "name": "VidTSX core shot kit",
+  "version": "1.0.0",
+  "type": "shot-kit",
+  "author": "VidTSX",
+  "description": "Fake-screencast and stat components served to shots as '@vidtsx/kit': window chrome (generic / VS Code / navigable browser / terminal), TypedText, AgentFeed, StatBlock, EASINGS. Brand-neutral: components take theme tokens as props and never import a brand system."
+}
