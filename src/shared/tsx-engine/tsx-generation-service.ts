@@ -388,7 +388,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions, deps: Tsx
   debugLog.push(`[Pipeline] Step 3: Verifying TSX (mode=${mode})...`);
   const stepVerifyStart = Date.now();
   const verifyPrompt = `Review and fix this Remotion TSX composition:\n\n\`\`\`tsx\n${tsxCode}\n\`\`\``;
-  const verifyRequest = buildLlmRequest(verifyPrompt, buildVerifyPrompt(mode), {
+  const verifyRequest = buildLlmRequest(verifyPrompt, buildVerifyPrompt(mode, options.promptContext), {
     providerId: options.providerId,
     thinkingLevel: options.thinkingLevel,
   }, sessionScope);
