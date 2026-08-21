@@ -433,6 +433,43 @@ Build pieces:
 > `style-memory-refine-ab-report.html` (local, untracked). Ledgered still:
 > always-on automatic refine rounds; a richer per-brand style file.
 
+> **Rev 6 — 2026-08-21: PLAN COMPLETE. Q4b (scripted capture) SHIPPED
+> (commits SQ26–SQ29) and A/B-proven live; the Slice-1 leftover leg is
+> proven; every slice of this doc is now built and live-verified.**
+>
+> **Slice-1 leg (Creator-save → v(n+1) → Studio picker), walked in the real
+> app on end-card:** save landed as v(n+1) with the previous version
+> byte-identical after save, both heads-up toast variants observed
+> (open-project and not-open), the Studio Inspector picker listed the new
+> version WITHOUT flipping activeVersion, and deleting the file dropped it
+> from the picker on rescan. The walk surfaced two defects, both fixed and
+> re-verified live (SQ26): (a) the Creator code editor's 500 ms auto-save
+> wrote edits IN PLACE into the current v(n).tsx — append-only folders now
+> disable auto-save, Ctrl+S becomes Save-as-new-version, and the Overwrite
+> button is hidden there; (b) the library's Studio section refreshed only on
+> window focus, so in-app screen switches served a stale "newest" (observed
+> loading v2 while v3 was newest and saving a byte-identical v4) — opening a
+> shot now rescans the folder first, and saves bump a refresh key.
+>
+> **Q4b shipped per the answered ASSET_LIBRARY_DESIGN Rev 4 checklist**
+> (typed steps, new `capture_scripted` tool agent-only, partial-with-error,
+> hidden-window only): service in `capture-script.ts` over a shared
+> `capture-window.ts` hardening (SQ27), tool + allow-list + when-to-script
+> skill text (SQ28). **A/B verdict (one ask on "Raw Footage Test"): works
+> end-to-end first try** — a 9-step script captured learnwithhasan.com in 3
+> labeled states, the agent generated `homepage-walkthrough` (kit
+> BrowserWindow over `assets.stateTop/Middle/Bottom`), 0 fix attempts, 96 s;
+> propose_shots placed it, apply was one undo step, undo restored the
+> timeline exactly. Stills: `scripted-capture-ab-report.html` (local,
+> untracked). Blemish → skill text (SQ29): fixed cookie banners ride every
+> still, so the skill now tells the agent to spend a click dismissing them
+> first. Known limitation (ledger): placement proposals assume uncut source
+> lengths when guessing timeline positions.
+>
+> **Remaining items are the v2 ledger only**: always-on refine rounds,
+> per-brand style file, kit component forking, scripted capture through a
+> visible logged-in window, script-builder UI, cross-project used_in.
+
 ## Checklist — ANSWERED (Hasan, 2026-08-20)
 
 Decided in chat 2026-08-19 and recorded above, not re-asked: Q1d location +

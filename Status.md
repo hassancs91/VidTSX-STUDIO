@@ -9,6 +9,31 @@
 
 ## Completed phases
 
+### SHOT_QUALITY COMPLETE — Q4b scripted capture SHIPPED + Slice-1 leg proven (2026-08-21)
+**`docs/studio/SHOT_QUALITY_DESIGN.md` Rev 6 / `ASSET_LIBRARY_DESIGN.md` Rev 4
+(L6b), commits SQ26–SQ29. Every slice of the shot-quality plan is now built
+and live-verified; leftovers are the v2 ledger.**
+Opened by walking the last unproven Slice-1 leg (Creator-save → v(n+1) →
+Studio version picker) live on end-card: append-only save, both heads-up
+toast variants, picker shows the new version without flipping activeVersion,
+folder-as-truth drop after delete. The walk caught two defects, fixed +
+re-verified live (SQ26): the code editor's 500 ms auto-save wrote IN PLACE
+into Studio shot versions (now buffer-only there; Ctrl+S = new version;
+Overwrite hidden), and the library's Studio section served a stale "newest"
+between window focuses (now rescans on open/expand/save). Then **Q4b**:
+`capture_scripted` — typed steps (navigate/wait/scroll/type/click/capture,
+zod discriminated union), agent-authored strings never execute as page code,
+partial-stills-with-named-failure, 10 s/step + 120 s/script caps, hidden
+window only — over a new shared `capture-window.ts` hardening used by both
+capture paths (SQ27); new tool + allow-list + when-to-script skill text with
+the two-source rule (SQ28); cookie-banner-dismissal guidance after the A/B
+(SQ29). **A/B: one ask → 9-step script → 3 labeled stills of
+learnwithhasan.com (top/mid/bottom) → `homepage-walkthrough` kit
+BrowserWindow shot over the real states, 0 fix attempts, 96 s; placed via
+propose_shots, applied as one undo step, undone cleanly.** Stills:
+`scripted-capture-ab-report.html` (local, untracked). Ledgered: visible-mode
+scripting, script-builder UI, timeline-aware placement positions.
+
 ### SHOT_QUALITY Slice 4 — STYLE MEMORY (Q6) + REFINE (Q5) SHIPPED, live-proven (2026-08-21)
 **`docs/studio/SHOT_QUALITY_DESIGN.md` Q5 + Q6 (Rev 5), commits SQ20–SQ25.**
 Opened by proving Slice 3's two remaining legs: (i) **kit export RENDER** —

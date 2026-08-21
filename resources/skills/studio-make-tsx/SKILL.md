@@ -115,7 +115,11 @@ professional — reach for it instead of describing imagery in the brief:
   deterministic); scripted stills only supply the real CONTENT states the
   fake browser displays. One state = plain `capture_webpage`; never script
   what a single `fullPage` still already covers. Hidden window only — no
-  login walls.
+  login walls. Sites with a cookie-consent banner: spend the first steps
+  dismissing it (`click` on its accept button, common selectors are worth a
+  try) — fixed banners ride EVERY still and ghost across cross-blends; a
+  failed click costs nothing (the stills still land, the failure names the
+  step).
 - Do not put URLs or file paths in the brief — the pipeline injects an asset
   table for the refs you pass, and the shot receives real URLs as props.
 - The description on a library/project asset is what you search and design
