@@ -7,6 +7,9 @@ const log = createRendererLogger('CodeEditor');
 interface UseCodeEditorOptions {
   filePath: string | null;
   autoSaveDelay?: number;
+  /** false = never write the file on edit; the buffer only persists through an
+   *  explicit save action (append-only folders — Studio shot versions). */
+  autoSave?: boolean;
   onAfterSave?: () => void;
 }
 
@@ -43,6 +46,7 @@ const initialState: EditorState = {
 export function useCodeEditor({
   filePath,
   autoSaveDelay = 500,
+  autoSave = true,
   onAfterSave,
 }: UseCodeEditorOptions): UseCodeEditorResult {
   const [state, setState] = useState<EditorState>(initialState);
@@ -181,7 +185,7 @@ export function useCodeEditor({
 
       // Schedule auto-save (capture the target path now — the file may change
       // before the debounce fires)
-      if (isDirty && state.filePath) {
+      if (autoSave && isDirty && state.filePath) {
         const targetPath = state.filePath;
         pendingSaveRef.current = { path: targetPath, content: newContent };
         saveTimeoutRef.current = setTimeout(() => {
@@ -216,7 +220,7 @@ export function useCodeEditor({
         }, autoSaveDelay);
       }
     },
-    [autoSaveDelay, state.filePath]
+    [autoSave, autoSaveDelay, state.filePath]
   );
 
   // Flush any pending auto-save on unmount so edits are never dropped

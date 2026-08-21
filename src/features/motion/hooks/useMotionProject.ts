@@ -36,6 +36,9 @@ export function getNextUniqueName(baseName: string, library: LibraryState): stri
 export function useMotionProject() {
   const [project, setProject] = useState<MotionProject | null>(null);
   const [library, setLibrary] = useState<LibraryState>({ folders: [], rootProjects: [] });
+  // Bumped when a save lands in a Studio shot folder, so the library's Studio
+  // section rescans without waiting for a window-focus event.
+  const [studioShotsRefreshKey, setStudioShotsRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
@@ -187,6 +190,7 @@ export function useMotionProject() {
       // (append-only writes are safe); this is about preview surprise.
       const studioProjectId = studioProjectIdOf(project.folderPath);
       if (studioProjectId) {
+        setStudioShotsRefreshKey((k) => k + 1);
         showToast(
           studioProjectId === openProjectIdRef.current
             ? `Saved v${nextNum} into the open Studio project — pick it in the shot's version picker to use it`
@@ -556,6 +560,8 @@ export default function MyComposition() {
     library,
     loading,
     error,
+    studioProjectIdOf,
+    studioShotsRefreshKey,
     createProject,
     loadVersion,
     saveNewVersion,

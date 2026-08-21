@@ -16,27 +16,44 @@ interface StudioShotsSectionProps {
   onLoadVersion: (filePath: string, folderPath: string) => void;
   /** The folder open in the editor — highlights the matching shot row. */
   activeFolderPath?: string | undefined;
+  /** Bumped by the owner after a save lands in a Studio shot folder, so the
+   *  list rescans without waiting for a window-focus event. */
+  refreshKey?: number;
 }
 
-export function StudioShotsSection({ onLoadVersion, activeFolderPath }: StudioShotsSectionProps) {
+export function StudioShotsSection({ onLoadVersion, activeFolderPath, refreshKey = 0 }: StudioShotsSectionProps) {
   const [projects, setProjects] = useState<StudioShotLibraryProjectIpc[]>([]);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedShots, setExpandedShots] = useState<Set<string>>(new Set());
 
+  const refresh = () => {
+    void window.api.studioShotLibrary().then((res) => {
+      if (res.success && res.projects) setProjects(res.projects);
+    });
+  };
+
   useEffect(() => {
-    let disposed = false;
-    const refresh = () => {
-      void window.api.studioShotLibrary().then((res) => {
-        if (!disposed && res.success && res.projects) setProjects(res.projects);
-      });
-    };
     refresh();
     window.addEventListener('focus', refresh);
-    return () => {
-      disposed = true;
-      window.removeEventListener('focus', refresh);
-    };
-  }, []);
+    return () => window.removeEventListener('focus', refresh);
+    // refreshKey re-triggers the scan after an in-app save.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
+  /** Open a shot at its CURRENT newest version: the mounted list can be stale
+   *  (it refreshes on focus/save, not on every screen switch), so re-scan
+   *  before resolving "newest" — folder-as-truth. */
+  const openShotFresh = (shotFolderPath: string) => {
+    void window.api.studioShotLibrary().then((res) => {
+      if (!res.success || !res.projects) return;
+      setProjects(res.projects);
+      const shot = res.projects
+        .flatMap((p) => p.shots)
+        .find((s) => s.folderPath === shotFolderPath);
+      const newest = shot?.versions[shot.versions.length - 1];
+      if (newest) onLoadVersion(newest, shotFolderPath);
+    });
+  };
 
   if (projects.length === 0) return null;
 
@@ -65,7 +82,10 @@ export function StudioShotsSection({ onLoadVersion, activeFolderPath }: StudioSh
           >
             <div className="flex items-center gap-1 px-2 py-1.5 transition-colors hover:bg-app-hover text-text-secondary">
               <button
-                onClick={() => toggle(setExpandedProjects, project.projectId)}
+                onClick={() => {
+                  if (!isExpanded) refresh();
+                  toggle(setExpandedProjects, project.projectId);
+                }}
                 className="shrink-0 cursor-pointer"
               >
                 <ChevronIcon open={isExpanded} />
@@ -75,7 +95,10 @@ export function StudioShotsSection({ onLoadVersion, activeFolderPath }: StudioSh
               </span>
               <span
                 className="text-[12px] font-medium truncate flex-1 cursor-pointer"
-                onClick={() => toggle(setExpandedProjects, project.projectId)}
+                onClick={() => {
+                  if (!isExpanded) refresh();
+                  toggle(setExpandedProjects, project.projectId);
+                }}
               >
                 {project.projectName}
               </span>
@@ -96,7 +119,7 @@ export function StudioShotsSection({ onLoadVersion, activeFolderPath }: StudioSh
                           isActive ? 'text-accent-light' : 'text-text-muted'
                         }`}
                         onClick={() => {
-                          if (newest) onLoadVersion(newest, shot.folderPath);
+                          openShotFresh(shot.folderPath);
                           toggle(setExpandedShots, shotKey);
                         }}
                       >

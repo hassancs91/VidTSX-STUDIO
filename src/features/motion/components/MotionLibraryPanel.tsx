@@ -28,6 +28,8 @@ interface MotionLibraryPanelProps {
   onImportProject: (parentFolder?: string) => void;
   onCreateEmpty: (parentFolder?: string) => void;
   onCollapse?: () => void;
+  /** Bumped after a save into a Studio shot folder — see StudioShotsSection. */
+  studioShotsRefreshKey?: number;
 }
 
 export function MotionLibraryPanel({
@@ -47,6 +49,7 @@ export function MotionLibraryPanel({
   onImportProject,
   onCreateEmpty,
   onCollapse,
+  studioShotsRefreshKey,
 }: MotionLibraryPanelProps) {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
@@ -643,6 +646,7 @@ export function MotionLibraryPanel({
             <StudioShotsSection
               onLoadVersion={onLoadVersion}
               activeFolderPath={project?.folderPath}
+              refreshKey={studioShotsRefreshKey}
             />
           </div>
         ) : (
@@ -703,6 +707,7 @@ export function MotionLibraryPanel({
             <StudioShotsSection
               onLoadVersion={onLoadVersion}
               activeFolderPath={project?.folderPath}
+              refreshKey={studioShotsRefreshKey}
             />
 
             {/* Root drop zone (visible during drag) */}

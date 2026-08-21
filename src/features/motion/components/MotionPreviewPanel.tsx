@@ -72,6 +72,10 @@ interface MotionPreviewPanelProps {
   onCancel: () => void;
   onOverwrite: (editedContent: string) => void;
   onSaveNewVersion: (editedContent: string) => void;
+  /** Studio shot folders are append-only (SHOT_QUALITY_DESIGN Q2): no
+   *  auto-save into the current version, Ctrl+S saves a NEW version, and the
+   *  Overwrite button is hidden. */
+  appendOnly?: boolean;
   /** Job whose live LLM output should stream into this panel, if any. */
   streamJobId?: string | null;
   saving: boolean;
@@ -91,6 +95,7 @@ export function MotionPreviewPanel({
   onCancel,
   onOverwrite,
   onSaveNewVersion,
+  appendOnly = false,
   streamJobId = null,
   saving,
   saveMessage,
@@ -106,7 +111,11 @@ export function MotionPreviewPanel({
       loadComponent(project.currentVersion);
     }
   }, [project?.currentVersion, loadComponent]);
-  const codeEditor = useCodeEditor({ filePath: project?.currentVersion ?? null, onAfterSave: handleAfterSave });
+  const codeEditor = useCodeEditor({
+    filePath: project?.currentVersion ?? null,
+    autoSave: !appendOnly,
+    onAfterSave: handleAfterSave,
+  });
   const propsExtractor = usePropsExtractor(codeEditor.content, project?.currentVersion ?? null);
   const { addJob, openFolder, openFile } = useRenderQueue();
   const { entries: historyEntries } = useRenderHistory();
@@ -387,7 +396,7 @@ export function MotionPreviewPanel({
                   filePath={project!.currentVersion}
                   content={codeEditor.content}
                   onChange={codeEditor.setContent}
-                  onSave={codeEditor.save}
+                  onSave={appendOnly ? () => onSaveNewVersion(codeEditor.content) : codeEditor.save}
                   className="h-full"
                 />
               </div>
@@ -395,14 +404,18 @@ export function MotionPreviewPanel({
                 className="shrink-0 px-3 py-2 flex items-center gap-2"
                 style={{ borderTop: '0.5px solid var(--color-border)' }}
               >
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setShowOverwriteConfirm(true)}
-                  disabled={saving || loading}
-                >
-                  Overwrite
-                </Button>
+                {/* Append-only folders (Studio shots) never write in place —
+                    the only save is a new version. */}
+                {!appendOnly && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowOverwriteConfirm(true)}
+                    disabled={saving || loading}
+                  >
+                    Overwrite
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   size="sm"

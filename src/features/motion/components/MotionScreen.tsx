@@ -360,6 +360,7 @@ function MotionScreenContent() {
           onCancel={handleCancelOpenProjectJob}
           onOverwrite={handleOverwrite}
           onSaveNewVersion={handleSaveNewVersion}
+          appendOnly={!!(projectManager.project && projectManager.studioProjectIdOf(projectManager.project.folderPath))}
           streamJobId={streamJob?.id ?? null}
           saving={projectManager.loading}
           saveMessage={saveMessage}
@@ -386,6 +387,7 @@ function MotionScreenContent() {
           ) : (
             <div className="flex-1 min-w-0 flex flex-col">
               <MotionLibraryPanel
+                studioShotsRefreshKey={projectManager.studioShotsRefreshKey}
                 library={projectManager.library}
                 project={projectManager.project}
                 pendingJobs={pendingGenerateJobs}
