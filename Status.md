@@ -9,6 +9,40 @@
 
 ## Completed phases
 
+### SHOT_QUALITY Slice 4 — STYLE MEMORY (Q6) + REFINE (Q5) SHIPPED, live-proven (2026-08-21)
+**`docs/studio/SHOT_QUALITY_DESIGN.md` Q5 + Q6 (Rev 5), commits SQ20–SQ25.**
+Opened by proving Slice 3's two remaining legs: (i) **kit export RENDER** —
+published-guide v5 range-exported 0–8 s; entry dir got
+`studio-entry-<pid>-kit-1.0.0/` with the specifier rewritten, render
+completed first try (8.06 s, 1080p30); (ii) **agent-driven browser shot** —
+one ask produced a `fullPage` capture (6453×9882) and a kit
+BrowserWindow walkthrough shot, 0 fix attempts. Then the slice:
+(a) **Q6a** — brand-filtered rule/profile memories inject into every shot
+generate/regenerate as a `## Learned style` section beside the brand
+contract (`composeShotStyleMemory`, 2000-char budget, profile drops first,
+rules never silently dropped); proven via sidecar section list AND the
+regenerated intro-title v3 whose entrance code cites the rule. (b) **Q6b** —
+skill + system-prompt capture triggers (repeated edit instructions,
+reasoned rejections, regenerate patterns → gated `propose_memory`; silent
+inference stays rejected); rule proposals can be `brandScoped` — main
+stamps the project's brandId, never the agent. (c) **Q6c** — new gated
+`propose_style_promotion` tool + card: agent names the evidence (no hard
+counter), proposal shows the resulting styleNotes size and what it
+displaces under the 2000 cap; accept = one click doing brand write + memory
+retire in one handler (recomposed against a fresh brand read). Live-proven
+end-to-end: the agent promoted the seeded rule citing this session's real
+shots; brand.json carries it, memory retired. (d) **Q5 Refine** — Inspector
+button beside Regenerate: 3 stills through the **export-parity path**
+(`renderShotStills`: synthetic one-clip timeline → createExportEntry → same
+kit pin/bundle → `renderStill`), stills + brief + brand + learned rules
+through ONE `editTsxPipeline` vision pass (its dormant `images` option,
+first user), new `refine` op folds renderer-side like edit. Live: one click
+on published-guide v5 → v6 in ~110 s with a 7-point critique that caught
+the known tilt flaw (6.4°→4.2°), the cropped headline, the shadow band,
+amber overuse, AND applied the learned no-overshoot rule. Stills + verdicts
+in `style-memory-refine-ab-report.html` (local, untracked). Automatic
+refine rounds stay ledgered until cost/quality says otherwise.
+
 ### SHOT_QUALITY Slice 3 — THE KIT (Q4) SHIPPED, A/B-proven (2026-08-21)
 **`docs/studio/SHOT_QUALITY_DESIGN.md` Q4 (Rev 4), commits SQ10–SQ18.**
 Shots can now import `@vidtsx/kit`. (a) **The pack** at

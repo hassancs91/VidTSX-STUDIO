@@ -382,6 +382,57 @@ Build pieces:
 > Q3a re-cut note: `browser-walkthrough` (kit vocabulary, 101 lines) replaced
 > `two-stage-statement` as the second cutaway exemplar; the other five stand.
 
+> **Rev 5 — 2026-08-21: Slice 4 (style memory Q6 + Refine Q5) SHIPPED
+> (commits SQ20–SQ25) and live-proven on "Raw Footage Test" — and the two
+> legs Rev 4 left unproven are now proven:** a kit shot range-export
+> RENDERED end-to-end (entry dir `studio-entry-<pid>-kit-1.0.0/`, specifier
+> rewritten, 8.06 s mp4, no flake), and one agent ask produced a fullPage
+> capture (6453×9882) + a kit BrowserWindow walkthrough shot, 0 fix
+> attempts.
+> Implementation notes vs the doc: (a) **Q6a** rides `ShotPromptInput` as
+> pre-composed data (`composeShotStyleMemory` in agent-memory-prompt.ts —
+> rule+profile only, same pure filter/ordering; budget 2000 =
+> `SHOT_STYLE_PROMPT_BUDGET`, styleNotes parity; profile drops first, rules
+> never silently dropped) and renders as `## Learned style (MANDATORY,
+> user-approved)` AFTER the brand block; edits still inject nothing —
+> generate/regenerate only, as designed. Verified in the sidecar section
+> list, and the regenerated intro-title v3 cites the rule in code.
+> (b) **Q6b** required one plumbing addition the doc didn't call out:
+> `propose_memory` gained `brandScoped` (rules only) — MAIN stamps the
+> project's brandId at proposal time, the agent never names a brand id; the
+> card shows the scope; accept writes `brandId` through to the store the
+> Q6a filter reads. (c) **Q6c** shipped as its own tool
+> `propose_style_promotion(rule, evidence, displaces?)` + StylePromotionCard
+> (NOT a propose_memory variant): the agent names the rule by its text,
+> main resolves it against active brand-scoped rules and composes the
+> outcome via pure `applyStyleNotesPromotion` (append as a `- ` line; over
+> the 2000 cap the tool refuses until `displaces` names an exact substring
+> of the current notes); accept is one handler doing brand write + memory
+> retire, recomposed against a FRESH brand read (notes changed underneath →
+> the card errors and stays; already-present → retire-only). Either kind of
+> open card blocks both proposal tools. Live-proven: the agent promoted the
+> seeded subtle-entrances rule citing this session's actual shots as
+> evidence; brand.json carries it, the memory retired. (d) **Q5** stills
+> come from the EXPORT path, not the capture window: `renderShotStills`
+> builds a synthetic one-clip timeline, runs it through `createExportEntry`
+> (same kit pin + specifier rewrite + webpack bundle as a real export) and
+> `@remotion/renderer` renderStill ×3 (15–85% window, JPEG q85, TTL-swept
+> dir) — export parity for free, at bundle-cost only a button click pays.
+> The critique pass is ONE `editTsxPipeline` run with the stills as
+> `images` (the option existed unused since D9 — first user), instruction =
+> critique framing + brief + brand palette/fonts/styleNotes + learned
+> rules, hard constraints pinning config/imports/WORDS. New `refine` op on
+> the shot job stream folds renderer-side like `edit` (partial snapshot —
+> assetRefs survive; version flip is the undoable dispatch). **Refine
+> verdict: one click on published-guide v5 → v6 in ~110 s, 0 fix attempts,
+> with a 7-point critique that caught the known perspective tilt
+> (6.4°→4.2°), the 146%-zoom headline crop, a shadow band, edge-flush
+> pills, amber overuse — and cited the learned no-overshoot rule. Residual:
+> the headline still crops slightly at some scroll positions; a second
+> click would likely catch it.** Stills:
+> `style-memory-refine-ab-report.html` (local, untracked). Ledgered still:
+> always-on automatic refine rounds; a richer per-brand style file.
+
 ## Checklist — ANSWERED (Hasan, 2026-08-20)
 
 Decided in chat 2026-08-19 and recorded above, not re-asked: Q1d location +
