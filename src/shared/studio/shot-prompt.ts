@@ -75,7 +75,8 @@ function buildKitLines(kit: { version: string; manifest: string }): string[] {
   return [
     `## Component kit — '@vidtsx/kit' (v${kit.version})`,
     '',
-    'You MAY import from \'@vidtsx/kit\'. It holds pre-built fake-screencast and stat components; whenever the brief calls for anything app-shaped — a browser session, a code editor, a terminal run, an AI agent working, a stats row — USE the kit component instead of hand-building window chrome. Hand-built chrome next to these reads as a quality drop.',
+    'You MUST import from \'@vidtsx/kit\' whenever the brief calls for anything app-shaped — a browser session, a code editor, a terminal run, an AI agent working, a stats row. This section SUPERSEDES the "Allowed imports" list above: \'@vidtsx/kit\' is a first-class import for this shot. Do NOT re-implement kit components locally — declaring your own `const BrowserWindow = ...` (or TerminalWindow, VSCodeWindow, TypedText, …) when the kit exports one is a DEFECT; import the kit component and configure it with props. Hand-built chrome next to the kit\'s reads as a quality drop.',
+    'A brief that DESCRIBES chrome visually ("a browser window with three dots and an address bar", "an editor", "a terminal panel") is asking for the matching kit component — build what it describes WITH the kit, never by hand. When a page-screenshot asset is provided, it belongs INSIDE BrowserWindow as a page still (`src: assets.<key>`), not floating bare.',
     'Pass the Brand palette/fonts through each component\'s `theme` prop (the kit never reads the brand itself). The manifest below is the complete API — import ONLY names it lists, exactly as documented.',
     '',
     kit.manifest.trimEnd(),
