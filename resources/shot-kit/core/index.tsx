@@ -7,4 +7,17 @@ export { TypedText, typeDuration } from './typed-text';
 export { GenericWindow, WINDOW_TITLE_H } from './window';
 export { TerminalWindow, type TermLine } from './terminal';
 export { StatBlock, type StatItem } from './stat-block';
+export {
+  VSCodeWindow,
+  ImageViewerPane,
+  CodeEditorPane,
+  GROUP_TOP,
+  VSCODE_COLORS,
+  VSCODE_LAYOUT,
+  type ExplorerRow,
+  type EditorGroup,
+  type CodeLine,
+  type CodeSeg,
+} from './vscode';
+export { AgentFeed, AgentInputDock, type FeedLine } from './agent-feed';
 export { KitIcon, type KitIconName } from './icons';
