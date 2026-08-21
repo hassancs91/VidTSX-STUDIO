@@ -12,7 +12,8 @@ import { getPreviewHtml } from './preview-html';
 import { getToneExtractHtml } from './tone-extract-html';
 import { registerFontProxy } from './font-proxy';
 import type { TranspileResult } from './tsx-transpiler';
-import { getVendorDir } from '../utils/paths';
+import { getVendorDir, getShotKitDir } from '../utils/paths';
+import { bundleKitFromDir } from './kit-bundler';
 
 // Module state
 let moduleApp: Express | null = null;
@@ -151,6 +152,22 @@ export async function ensureModuleServer(): Promise<number> {
     moduleApp.get('/virtual/remotion-three.js', (_req: Request, res: Response) => {
       log.debug('Serving virtual: remotion-three.js');
       res.send(getVirtualRemotionThreeModule());
+    });
+
+    // Serve the shot-kit pack as '@vidtsx/kit' (SHOT_QUALITY_DESIGN Q4). The
+    // pack is bundled on first request and re-bundled only when its sources
+    // change; missing/broken pack → 404 and shots simply can't import it.
+    moduleApp.get('/virtual/vidtsx-kit.js', async (_req: Request, res: Response) => {
+      log.debug('Serving virtual: vidtsx-kit.js');
+      const baseUrl = getModuleServerBaseUrl();
+      const bundle = baseUrl
+        ? await bundleKitFromDir(path.join(getShotKitDir(), 'core'), baseUrl)
+        : null;
+      if (bundle) {
+        res.send(bundle.code);
+      } else {
+        res.status(404).send('// @vidtsx/kit is not available (shot-kit pack missing or failed to bundle)');
+      }
     });
 
     // Google Fonts proxy + on-disk cache (see font-proxy.ts).

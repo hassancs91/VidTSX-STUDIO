@@ -27,7 +27,7 @@ const CONFORMABLE_MODULES: readonly string[] = [
 ];
 
 /** What the shot preview resolves natively — never needs conforming. */
-const SHOT_MODULES: ReadonlySet<string> = new Set(['react', 'remotion']);
+const SHOT_MODULES: ReadonlySet<string> = new Set(['react', 'remotion', '@vidtsx/kit']);
 
 /** Subpaths count: `@remotion/google-fonts/Inter`, `@remotion/transitions/slide`. */
 export function isConformableModule(specifier: string): boolean {

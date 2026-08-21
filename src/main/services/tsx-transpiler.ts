@@ -133,6 +133,9 @@ const LOCAL_VENDOR_PACKAGES: Record<string, string> = {
 // <Text> (and other async R3F children) from blanking the whole canvas.
 const VIRTUAL_SHIM_PACKAGES: Record<string, string> = {
   '@remotion/three': 'remotion-three.js',
+  // The shot kit (SHOT_QUALITY_DESIGN Q4): bundled from resources/shot-kit/core
+  // by kit-bundler and served as a single virtual module.
+  '@vidtsx/kit': 'vidtsx-kit.js',
 };
 
 // Packages whose transitive deps should be inlined by esm.sh (?bundle-deps).

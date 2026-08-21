@@ -48,6 +48,14 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Built-in shot kit (SHOT_QUALITY_DESIGN.md Q4). Plain TSX source: bundled at
+  # runtime by kit-bundler and served as the '@vidtsx/kit' virtual module;
+  # copied beside shot copies (version-pinned) at export.
+  - from: resources/shot-kit
+    to: shot-kit
+    filter:
+      - "**/*"
+      - "!**/.*"
   - from: resources/icon.ico
     to: icon.ico
   - from: resources/icon.png

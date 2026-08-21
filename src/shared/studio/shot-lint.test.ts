@@ -50,10 +50,17 @@ describe('lintShotSource (acceptance-gate table)', () => {
     expect(lintShotSource(VALID_SHOT)).toEqual({ ok: true, errors: [] });
   });
 
+  it('accepts the @vidtsx/kit import (SHOT_QUALITY_DESIGN Q4 — the one widened entry)', () => {
+    const shot = `import { BrowserWindow, EASINGS } from '@vidtsx/kit';\n${VALID_SHOT}`;
+    expect(lintShotSource(shot)).toEqual({ ok: true, errors: [] });
+  });
+
   it.each([
-    ['third-party package', `import _ from 'lodash';`, /only import from 'react' and 'remotion'/],
+    ['third-party package', `import _ from 'lodash';`, /only import from 'react', 'remotion', and '@vidtsx\/kit'/],
     ['react subpath', `import { jsx } from 'react/jsx-runtime';`, /only import from/],
     ['remotion subpath', `import { Player } from '@remotion/player';`, /only import from/],
+    ['kit subpath', `import { EASINGS } from '@vidtsx/kit/easings';`, /only import from/],
+    ['other @vidtsx package', `import x from '@vidtsx/other';`, /only import from/],
     ['relative import', `import { helper } from './helper';`, /single-file/],
     ['parent-relative import', `import x from '../shared';`, /single-file/],
     ['dynamic import', `const m = import('three');`, /only import from/],

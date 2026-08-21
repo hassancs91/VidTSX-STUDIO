@@ -1,13 +1,15 @@
 // Import/single-file lint for generated TSX shots (TSX_SHOTS_DESIGN.md D6/D8).
 //
-// v1 shots may import `react` and `remotion` ONLY, from a single file. This is
-// what closes the preview/render gap (the preview can pull anything from
-// esm.sh; the render bundle resolves only what is installed) and what makes
-// the export pre-flight's copy step safe (no relative imports to break).
-// The lint runs inside the generation acceptance gate, so a violation is a
-// fix-loop error the pipeline repairs — never a latent export failure.
+// Shots may import `react`, `remotion`, and `@vidtsx/kit` ONLY, from a single
+// file. This is what closes the preview/render gap (the preview can pull
+// anything from esm.sh; the render bundle resolves only what is installed —
+// the kit is served virtually in preview and copied+pinned at export,
+// SHOT_QUALITY_DESIGN Q4) and what makes the export pre-flight's copy step
+// safe (no relative imports to break). The lint runs inside the generation
+// acceptance gate, so a violation is a fix-loop error the pipeline repairs —
+// never a latent export failure.
 
-const ALLOWED_IMPORTS: ReadonlySet<string> = new Set(['react', 'remotion']);
+const ALLOWED_IMPORTS: ReadonlySet<string> = new Set(['react', 'remotion', '@vidtsx/kit']);
 
 /** Static `import ... from 'x'` / bare `import 'x'` / `export ... from 'x'`. */
 const STATIC_IMPORT_PATTERN =
@@ -34,7 +36,7 @@ export interface ShotLintResult {
 /**
  * The pure half of the shot acceptance gate (the other checks — esbuild
  * transpile and compositionConfig parse — live in main). Rules:
- *   - imports restricted to `react` + `remotion` (no subpaths, no packages)
+ *   - imports restricted to `react` + `remotion` + `@vidtsx/kit` (no subpaths)
  *   - single file: no relative or absolute import paths
  *   - must default-export the component
  *   - must export `const compositionConfig = { ... }` (parsed in main; the
@@ -58,7 +60,7 @@ export function lintShotSource(code: string, options: ShotLintOptions = {}): Sho
       );
     } else if (!ALLOWED_IMPORTS.has(spec)) {
       errors.push(
-        `Import "${spec}" is not allowed: shots may only import from 'react' and 'remotion'.`,
+        `Import "${spec}" is not allowed: shots may only import from 'react', 'remotion', and '@vidtsx/kit'.`,
       );
     }
   }

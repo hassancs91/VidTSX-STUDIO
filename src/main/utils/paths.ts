@@ -57,6 +57,15 @@ export function getShotExemplarsDir(): string {
   return path.join(app.getAppPath(), 'resources', 'shot-exemplars');
 }
 
+export function getShotKitDir(): string {
+  // Built-in shot-kit packs (SHOT_QUALITY_DESIGN.md Q4): resources/shot-kit/<packId>/.
+  // Same shipping shape as caption packs / shot exemplars.
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'shot-kit');
+  }
+  return path.join(app.getAppPath(), 'resources', 'shot-kit');
+}
+
 export function getSkillsDir(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'skills');
