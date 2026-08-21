@@ -9,6 +9,59 @@
 
 ## Completed phases
 
+### V1 BUILD ORDER Slices 1+2 — AUTO-SAVE HARDENING + ELEVENLABS STT SHIPPED (2026-08-21)
+**`docs/NEXT_FEATURES_DESIGN.md` Q10 + Q3 (build-order rows 1–2), commits
+NF1–NF3. Checklist recommendations approved by Hasan; both slices gate-green
+(866 tests, +22 new; type baselines 26/22 exact).**
+**Slice 1 (Q10, NF1)**: (a) Quit-flush — `useStudioProject` gained `flush()`
+plus `beforeunload`/window-`blur` listeners, and a main-side close guard
+(`ipc/flush-guard.ts`, installed in `createWindow`) that defers the first
+window close over a `studio:flush:request` push until the renderer acks
+(`studio:flush:ack`) or 1.5 s passes; `OpenProjectContext` acks instantly
+when no project is open so non-Studio closes stay instant. (b) Rotating
+snapshots — new `snapshot-store.ts`: `<project>/snapshots/project.<ISO>.json`
+(colon-free stamps, atomic tmp+rename, NEVER under cache/), written on
+project open (deduped by newest-stamp ≥ updatedAt) and by the save handler
+whenever the newest snapshot is >10 min old (saves only happen while editing,
+so no idle timer); retention = newest 20 whole + older thinned to newest per
+UTC day (`selectSnapshotsToPrune` is pure + tested); file names are
+pattern-validated before becoming path segments. (c) "Restore version…" —
+project name in the editor toolbar is now a menu button (FloatingMenu) →
+`RestoreVersionDialog` (two-step inline confirm, CDP-drivable `data-*`
+hooks); restore flushes first, main snapshots the current state (the undo
+path), writes the snapshot as project.json, and the renderer swaps the doc +
+resets the timeline reducer (undo history dies with the replaced document —
+by design; the safety snapshot is the way back) + success toast carries an
+Undo action that restores the safety snapshot. 12 new snapshot-store tests
+(round-trip, dedupe, staleness, retention incl. same-day collapse, traversal
+refusal, corrupt refusal). NOT yet live-proven: one manual pass (close
+mid-edit → reopen intact; restore → undo restore) is worth doing.
+**Slice 2 (Q3, NF2)**: ElevenLabs Scribe v2 as a fourth STT provider, by the
+checklist: `SttProviderType`/`TranscribeEngine` += `'elevenlabs'`,
+`ProviderCredentials.elevenlabs` (rides the existing safeStorage blob),
+has-key plumbing, ApiKeysSection row, engine registration + `stt-init` seed
+(`defaultModel: 'scribe_v2'`), catalog `elevenlabs/scribe-v2` (~$0.22/hr;
+wordTimestamps + speakerLabels + audioEvents — the catalog's first audioEvents
+user; **verbatimDisfluencies deliberately OFF** until proven on Raw Footage
+Test audio, so AssemblyAI stays the auto-cut pick). Provider is ONE
+synchronous multipart POST (`xi-api-key`, global fetch + FormData — the
+codebase's first multipart upload) on pre-extracted audio; `words[]` filters
+`spacing`/`audio_event` entries (events only narrow the per-run features
+snapshot); diarized runs derive utterances from speaker runs (speaker change/
+pause/sentence/length breaks) so segment speakers work without native
+utterances. The design's "zero consumer change" claim was FALSE for the
+Transcribe screen — its three provider-name branches (hasKeys state,
+cloudKeyPresent chain, missing-key copy) are now generalized via a new
+`STT_PROVIDER_LABELS`; Studio's picker needed nothing (capability-gated), and
+`StudioAssetTranscript.engine` widened to record `'elevenlabs'` honestly
+(asset-transcriber, optimistic patch, Inspector label). 10 new provider tests
+(vi.stubGlobal fetch — first provider-level STT tests): word filtering,
+multipart shape, auto-detect, speaker mapping, feature narrowing, 401 copy,
+detail-message surfacing, utterance grouping. NOT yet live-proven: a real
+Scribe v2 run needs Hasan's ElevenLabs key (enters via the new Providers
+row); the verbatim A/B on Raw Footage Test audio then decides
+`verbatimDisfluencies`. Usage logging stays out of scope (that's slice 4).
+
 ### SHOT_QUALITY COMPLETE — Q4b scripted capture SHIPPED + Slice-1 leg proven (2026-08-21)
 **`docs/studio/SHOT_QUALITY_DESIGN.md` Rev 6 / `ASSET_LIBRARY_DESIGN.md` Rev 4
 (L6b), commits SQ26–SQ29. Every slice of the shot-quality plan is now built
