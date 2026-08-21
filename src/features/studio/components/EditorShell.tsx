@@ -44,6 +44,8 @@ import type {
 } from '../types';
 import { CanvasOverlay } from './CanvasOverlay';
 import { CaptionsPanel } from './CaptionsPanel';
+import { FloatingMenu } from './timeline/FloatingMenu';
+import { RestoreVersionDialog, formatSavedAt } from './RestoreVersionDialog';
 import { MediaPool, type GenerateShotSpec } from './MediaPool';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
@@ -63,14 +65,25 @@ type RightTab = 'inspector' | 'assistant' | 'captions';
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
 
 export function EditorShell({ projectId, onBack }: Props) {
-  const { project, folderPath, status, error, saveState, updateProject, importMedia, removeAsset } =
-    useStudioProject(projectId);
+  const {
+    project,
+    folderPath,
+    status,
+    error,
+    saveState,
+    updateProject,
+    importMedia,
+    removeAsset,
+    restoreVersion,
+  } = useStudioProject(projectId);
   const { showToast } = useToast();
   const { addJob } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
+  const [projectMenu, setProjectMenu] = useState<{ x: number; y: number } | null>(null);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const tl = useTimeline(project, updateProject);
   const playback = usePlayback(project?.settings.fps ?? 30);
@@ -204,6 +217,44 @@ export function EditorShell({ projectId, onBack }: Props) {
     },
     [updateProject],
   );
+
+  // ----- Restore version (Q10) -------------------------------------------
+  // Swap the whole document for a snapshot: the hook flushes + persists, the
+  // reducer gets an explicit reset (undo history dies with the replaced
+  // document — the safety snapshot main just wrote is the way back), and the
+  // toast's Undo restores that safety snapshot through the same path.
+  const restoreVersionRef = useRef<(file: string, savedAt?: string) => Promise<boolean>>(
+    async () => false,
+  );
+  const handleRestoreVersion = useCallback(
+    async (file: string, savedAt?: string): Promise<boolean> => {
+      const res = await restoreVersion(file);
+      if (!res.success || !res.project) {
+        showToast(res.error ?? 'Failed to restore version', 'error');
+        return false;
+      }
+      const doc = res.project;
+      tl.dispatch({
+        type: 'reset',
+        projectId: doc.id,
+        timeline: doc.timeline,
+        proposals: doc.proposals,
+        shots: doc.shots,
+        captions: doc.captions ?? null,
+      });
+      const undoFile = res.undoFile;
+      showToast(
+        savedAt ? `Restored version from ${formatSavedAt(savedAt)}` : 'Previous state restored',
+        'success',
+        undoFile
+          ? { label: 'Undo', onClick: () => void restoreVersionRef.current(undoFile) }
+          : undefined,
+      );
+      return true;
+    },
+    [restoreVersion, tl.dispatch, showToast],
+  );
+  restoreVersionRef.current = handleRestoreVersion;
 
   // ----- Auto Cut + proposal review -------------------------------------
 
@@ -742,9 +793,18 @@ export function EditorShell({ projectId, onBack }: Props) {
         >
           <ChevronLeft size={16} strokeWidth={1.5} />
         </button>
-        <span className="text-[13px] font-medium text-text-secondary truncate max-w-[280px]">
+        <button
+          type="button"
+          data-project-menu
+          title="Project menu"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            setProjectMenu({ x: rect.left, y: rect.bottom + 4 });
+          }}
+          className="text-[13px] font-medium text-text-secondary truncate max-w-[280px] hover:text-text-primary transition-colors"
+        >
           {project.name}
-        </span>
+        </button>
         <span
           className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-app-active text-text-muted"
           style={{ border: '0.5px solid var(--color-border)' }}
@@ -1024,6 +1084,24 @@ export function EditorShell({ projectId, onBack }: Props) {
           </div>
         </div>
       )}
+
+      {projectMenu && (
+        <FloatingMenu
+          x={projectMenu.x}
+          y={projectMenu.y}
+          items={[{ id: 'restore', label: 'Restore version…' }]}
+          onPick={(id) => {
+            if (id === 'restore') setRestoreOpen(true);
+          }}
+          onClose={() => setProjectMenu(null)}
+        />
+      )}
+      <RestoreVersionDialog
+        projectId={project.id}
+        isOpen={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        onRestore={handleRestoreVersion}
+      />
     </div>
   );
 }

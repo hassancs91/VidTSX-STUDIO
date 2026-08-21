@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { StudioSnapshotRestoreResponse } from '@shared/ipc/types';
 import type { StudioProject } from '../types';
 
 type Status = 'loading' | 'ready' | 'error';
@@ -63,13 +64,58 @@ export function useStudioProject(projectId: string) {
     }, SAVE_DEBOUNCE_MS);
   }, [persist]);
 
+  /** Cancel the debounce and save now (no-op when nothing is dirty). */
+  const flush = useCallback(async () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    await persist();
+  }, [persist]);
+
   // Flush pending edits when the editor closes.
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      void persist();
+      void flush();
     };
-  }, [persist]);
+  }, [flush]);
+
+  // Q10 quit-flush hardening: React cleanup does not run on window close or
+  // app quit, so the debounce alone could lose the last ~600 ms of edits.
+  // beforeunload posts the save invoke synchronously before teardown, blur is
+  // free insurance, and the main-process close guard defers the close until
+  // this hook acks that the flush landed.
+  useEffect(() => {
+    const flushNow = () => void flush();
+    window.addEventListener('beforeunload', flushNow);
+    window.addEventListener('blur', flushNow);
+    const unsubscribe = window.api.onStudioFlushRequest(() => {
+      void flush().finally(() => void window.api.studioFlushAck());
+    });
+    return () => {
+      window.removeEventListener('beforeunload', flushNow);
+      window.removeEventListener('blur', flushNow);
+      unsubscribe();
+    };
+  }, [flush]);
+
+  // Q10 restore: flush first so a pending save can never overwrite the
+  // restored file, then swap the in-memory document for what main wrote.
+  // The caller resets the timeline reducer from the returned project.
+  const restoreVersion = useCallback(
+    async (file: string): Promise<StudioSnapshotRestoreResponse> => {
+      await flush();
+      const res = await window.api.studioProjectSnapshotRestore({ id: projectId, file });
+      if (res.success && res.project) {
+        latestRef.current = res.project;
+        dirtyRef.current = false;
+        setProject(res.project);
+        setSaveState('saved');
+      }
+      return res;
+    },
+    [projectId, flush],
+  );
 
   const updateProject = useCallback(
     (updater: (prev: StudioProject) => StudioProject) => {
@@ -118,5 +164,6 @@ export function useStudioProject(projectId: string) {
     updateProject,
     importMedia,
     removeAsset,
+    restoreVersion,
   };
 }

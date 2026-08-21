@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
 import { registerAllIPC } from './ipc/register';
+import { installQuitFlushGuard } from './ipc/flush-guard';
 import { ensureProjectsDir } from './utils/paths';
 import { initLLMEngine } from './services/llm-init';
 import { initImageEngine } from './services/image-init';
@@ -95,6 +96,10 @@ function createWindow(): BrowserWindow {
   win.once('ready-to-show', () => {
     win.show();
   });
+
+  // Q10 quit-flush: defer the first close while the Studio editor flushes its
+  // debounced autosave (the renderer acks instantly when nothing is dirty).
+  installQuitFlushGuard(win);
 
   if (process.env.ELECTRON_RENDERER_URL) {
     win.loadURL(process.env.ELECTRON_RENDERER_URL);

@@ -90,6 +90,45 @@ export interface StudioProjectDeleteResponse {
   error?: string;
 }
 
+// ── Rotating project snapshots + quit-flush handshake (Q10) ──
+
+export interface StudioProjectSnapshotInfo {
+  /** File name inside <project>/snapshots/ — also the restore handle. */
+  file: string;
+  /** ISO timestamp the snapshot was taken. */
+  savedAt: string;
+  sizeBytes: number;
+}
+
+export interface StudioSnapshotListRequest {
+  id: string;
+}
+
+export interface StudioSnapshotListResponse {
+  success: boolean;
+  /** Newest first. */
+  snapshots?: StudioProjectSnapshotInfo[];
+  error?: string;
+}
+
+export interface StudioSnapshotRestoreRequest {
+  id: string;
+  file: string;
+}
+
+export interface StudioSnapshotRestoreResponse {
+  success: boolean;
+  /** The restored document, already written to project.json. */
+  project?: StudioProject;
+  /** Safety snapshot of the pre-restore state — restore it to undo. */
+  undoFile?: string;
+  error?: string;
+}
+
+export interface StudioFlushAckResponse {
+  success: boolean;
+}
+
 export interface StudioMediaImportRequest {
   projectId: string;
 }

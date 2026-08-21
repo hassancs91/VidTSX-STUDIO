@@ -28,6 +28,10 @@ import type {
   StudioProjectLoadResponse,
   StudioProjectSaveRequest,
   StudioProjectSaveResponse,
+  StudioSnapshotListRequest,
+  StudioSnapshotListResponse,
+  StudioSnapshotRestoreRequest,
+  StudioSnapshotRestoreResponse,
   StudioRootGetResponse,
   StudioRootSetRequest,
   StudioRootSetResponse,
@@ -58,6 +62,13 @@ import {
   loadProject,
   saveProject,
 } from '../services/studio/project-store';
+import {
+  listSnapshots,
+  readSnapshot,
+  snapshotIfDue,
+  snapshotOnOpen,
+  writeSnapshot,
+} from '../services/studio/snapshot-store';
 import {
   classifyMediaKind,
   hashFileHead,
@@ -145,6 +156,8 @@ export async function handleStudioProjectLoad(
       loadProject(data.id),
       getProjectDir(data.id),
     ]);
+    // Q10 pre-edit safety copy — never fails the open (logged internally).
+    await snapshotOnOpen(project);
     return { success: true, project, folderPath };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to load project') };
@@ -157,9 +170,49 @@ export async function handleStudioProjectSave(
 ): Promise<StudioProjectSaveResponse> {
   try {
     const updatedAt = await saveProject(data.project);
+    // Q10: every ~10 minutes of active editing becomes a snapshot. Saves only
+    // happen while editing, so hooking the save handler needs no idle timer.
+    await snapshotIfDue({ ...data.project, updatedAt });
     return { success: true, updatedAt };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to save project') };
+  }
+}
+
+export async function handleStudioProjectSnapshotList(
+  _event: IpcMainInvokeEvent,
+  data: StudioSnapshotListRequest,
+): Promise<StudioSnapshotListResponse> {
+  try {
+    return { success: true, snapshots: await listSnapshots(data.id) };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to list snapshots') };
+  }
+}
+
+export async function handleStudioProjectSnapshotRestore(
+  _event: IpcMainInvokeEvent,
+  data: StudioSnapshotRestoreRequest,
+): Promise<StudioSnapshotRestoreResponse> {
+  try {
+    const restored = await readSnapshot(data.id, data.file);
+    // Snapshot the current state FIRST — restore must itself be restorable,
+    // never destructive (Q10). An unreadable current document is the one case
+    // where restoring proceeds without the safety copy: it IS the repair.
+    let undoFile: string | undefined;
+    try {
+      undoFile = await writeSnapshot(await loadProject(data.id));
+    } catch {
+      // fall through — nothing usable to preserve
+    }
+    const updatedAt = await saveProject(restored);
+    return {
+      success: true,
+      project: { ...restored, updatedAt },
+      ...(undoFile ? { undoFile } : {}),
+    };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to restore snapshot') };
   }
 }
 

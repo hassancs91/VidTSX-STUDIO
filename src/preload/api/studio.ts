@@ -39,6 +39,11 @@ import type {
   StudioProjectLoadResponse,
   StudioProjectSaveRequest,
   StudioProjectSaveResponse,
+  StudioSnapshotListRequest,
+  StudioSnapshotListResponse,
+  StudioSnapshotRestoreRequest,
+  StudioSnapshotRestoreResponse,
+  StudioFlushAckResponse,
   StudioRootGetResponse,
   StudioRootSetRequest,
   StudioRootSetResponse,
@@ -81,6 +86,14 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_SAVE, data),
   studioProjectDelete: (data: StudioProjectDeleteRequest): Promise<StudioProjectDeleteResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_DELETE, data),
+  studioProjectSnapshotList: (data: StudioSnapshotListRequest): Promise<StudioSnapshotListResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, data),
+  studioProjectSnapshotRestore: (
+    data: StudioSnapshotRestoreRequest,
+  ): Promise<StudioSnapshotRestoreResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, data),
+  studioFlushAck: (): Promise<StudioFlushAckResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_FLUSH_ACK),
   studioMediaImport: (data: StudioMediaImportRequest): Promise<StudioMediaImportResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_IMPORT, data),
   studioCacheRead: (data: StudioCacheReadRequest): Promise<StudioCacheReadResponse> =>
@@ -147,5 +160,10 @@ export const studioApi = {
     const listener = (_e: IpcRendererEvent, data: StudioAgentEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_AGENT_EVENT, listener);
     return () => ipcRenderer.removeListener(IPC.STUDIO_AGENT_EVENT, listener);
+  },
+  onStudioFlushRequest: (callback: () => void): (() => void) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC.STUDIO_FLUSH_REQUEST, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_FLUSH_REQUEST, listener);
   },
 };

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 /**
  * Which Studio project is currently OPEN in the editor, app-wide.
@@ -27,6 +27,20 @@ const OpenProjectContext = createContext<OpenProjectContextValue | null>(null);
 
 export function OpenProjectProvider({ children }: { children: ReactNode }) {
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
+
+  // Q10 quit-flush: the main-process close guard waits for one flush ack.
+  // With no Studio project open there is nothing to flush — ack immediately
+  // so closing the window stays instant. When a project IS open, the editor's
+  // own listener (useStudioProject) acks after its save lands, and this
+  // fallback stays silent.
+  const openRef = useRef<string | null>(null);
+  openRef.current = openProjectId;
+  useEffect(() => {
+    return window.api.onStudioFlushRequest(() => {
+      if (openRef.current === null) void window.api.studioFlushAck();
+    });
+  }, []);
+
   const value = useMemo(() => ({ openProjectId, setOpenProjectId }), [openProjectId]);
   return <OpenProjectContext.Provider value={value}>{children}</OpenProjectContext.Provider>;
 }

@@ -8,6 +8,8 @@ import {
   handleStudioProjectLoad,
   handleStudioProjectSave,
   handleStudioProjectDelete,
+  handleStudioProjectSnapshotList,
+  handleStudioProjectSnapshotRestore,
   handleStudioMediaImport,
   handleStudioMediaPrepare,
   handleStudioMediaRelink,
@@ -38,6 +40,7 @@ import {
   handleStudioCaptionTemplateModule,
   handleStudioCaptionTemplates,
 } from '../studio-caption-handlers';
+import { registerFlushAck } from '../flush-guard';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
 import { shotJobEvents } from '../../services/studio/shot-job-events';
@@ -50,6 +53,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROJECT_LOAD, handleStudioProjectLoad);
   ipcMain.handle(IPC.STUDIO_PROJECT_SAVE, handleStudioProjectSave);
   ipcMain.handle(IPC.STUDIO_PROJECT_DELETE, handleStudioProjectDelete);
+  ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, handleStudioProjectSnapshotList);
+  ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, handleStudioProjectSnapshotRestore);
+  registerFlushAck();
   ipcMain.handle(IPC.STUDIO_MEDIA_IMPORT, handleStudioMediaImport);
   ipcMain.handle(IPC.STUDIO_MEDIA_PREPARE, handleStudioMediaPrepare);
   ipcMain.handle(IPC.STUDIO_MEDIA_RELINK, handleStudioMediaRelink);

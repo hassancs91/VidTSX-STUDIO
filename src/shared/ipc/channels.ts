@@ -332,6 +332,11 @@ export const IPC = {
   STUDIO_PROJECT_LOAD: 'studio:project:load',
   STUDIO_PROJECT_SAVE: 'studio:project:save',
   STUDIO_PROJECT_DELETE: 'studio:project:delete',
+  // Studio — rotating project snapshots + quit-flush handshake (Q10)
+  STUDIO_PROJECT_SNAPSHOT_LIST: 'studio:project:snapshot:list',
+  STUDIO_PROJECT_SNAPSHOT_RESTORE: 'studio:project:snapshot:restore',
+  STUDIO_FLUSH_REQUEST: 'studio:flush:request',
+  STUDIO_FLUSH_ACK: 'studio:flush:ack',
   STUDIO_MEDIA_IMPORT: 'studio:media:import',
   STUDIO_MEDIA_RELINK: 'studio:media:relink',
   STUDIO_CACHE_READ: 'studio:cache:read',

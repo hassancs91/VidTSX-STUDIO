@@ -387,6 +387,10 @@ export interface ElectronAPI {
   studioProjectLoad: (data: import('../../shared/ipc/types').StudioProjectLoadRequest) => Promise<import('../../shared/ipc/types').StudioProjectLoadResponse>;
   studioProjectSave: (data: import('../../shared/ipc/types').StudioProjectSaveRequest) => Promise<import('../../shared/ipc/types').StudioProjectSaveResponse>;
   studioProjectDelete: (data: import('../../shared/ipc/types').StudioProjectDeleteRequest) => Promise<import('../../shared/ipc/types').StudioProjectDeleteResponse>;
+  studioProjectSnapshotList: (data: import('../../shared/ipc/types').StudioSnapshotListRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotListResponse>;
+  studioProjectSnapshotRestore: (data: import('../../shared/ipc/types').StudioSnapshotRestoreRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotRestoreResponse>;
+  studioFlushAck: () => Promise<import('../../shared/ipc/types').StudioFlushAckResponse>;
+  onStudioFlushRequest: (callback: () => void) => () => void;
   studioMediaImport: (data: import('../../shared/ipc/types').StudioMediaImportRequest) => Promise<import('../../shared/ipc/types').StudioMediaImportResponse>;
   studioCacheRead: (data: import('../../shared/ipc/types').StudioCacheReadRequest) => Promise<import('../../shared/ipc/types').StudioCacheReadResponse>;
   studioCacheInfo: (data: import('../../shared/ipc/types').StudioCacheInfoRequest) => Promise<import('../../shared/ipc/types').StudioCacheInfoResponse>;
