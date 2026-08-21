@@ -12,8 +12,11 @@ import { lintShotSource } from '../../../shared/studio/shot-lint';
 import {
   buildShotEntryParts,
   captionEntryRef,
+  kitEntryDirName,
+  rewriteKitImport,
   shotEntryRef,
 } from '../../../shared/studio/shot-export';
+import { copyKitPinTo, resolveKitPinForExport, shotUsesKit } from './shot-kit-pin';
 import type { CaptionSerializeContext } from '../../../shared/studio/serialize';
 import type { SourceWord } from '../../../shared/studio/caption-words';
 import { masterLane } from '../../../shared/studio/caption-words';
@@ -212,15 +215,31 @@ export async function createExportEntry(
   await fs.mkdir(dir, { recursive: true });
   await pruneOldEntries(dir);
 
+  // Prepare everything BEFORE writing: whether any copy imports @vidtsx/kit
+  // decides the kit pin, and the pin's version names the folder the copies'
+  // rewritten imports point at (Q4 export pinning).
+  const preparedShots: string[] = [];
+  for (const shot of usedShots) {
+    preparedShots.push(await prepareShotSource(project, shot, assetUrlBase));
+  }
+  const caption = await prepareCaptionTemplate(project, serialized, assetUrlBase);
+
+  let kitDirName = '';
+  if (preparedShots.some(shotUsesKit) || (caption !== null && shotUsesKit(caption.source))) {
+    const pin = await resolveKitPinForExport(project.id);
+    kitDirName = kitEntryDirName(project.id, pin.version);
+    await copyKitPinTo(pin, path.join(dir, kitDirName));
+    log.debug('Copied pinned kit beside the shot copies', { kitDirName });
+  }
+  const pinKit = (source: string) => (kitDirName ? rewriteKitImport(source, kitDirName) : source);
+
   for (let i = 0; i < usedShots.length; i++) {
-    const normalized = await prepareShotSource(project, usedShots[i], assetUrlBase);
-    await fs.writeFile(path.join(dir, shotRefs[i].fileName), normalized, 'utf-8');
+    await fs.writeFile(path.join(dir, shotRefs[i].fileName), pinKit(preparedShots[i]), 'utf-8');
   }
 
   // The caption template copy rides beside the shot copies (same TTL sweep).
-  const caption = await prepareCaptionTemplate(project, serialized, assetUrlBase);
   if (caption) {
-    await fs.writeFile(path.join(dir, caption.fileName), caption.source, 'utf-8');
+    await fs.writeFile(path.join(dir, caption.fileName), pinKit(caption.source), 'utf-8');
   }
 
   const { imports, componentsLiteral } = buildShotEntryParts(shotRefs);
@@ -258,15 +277,17 @@ export default function StudioTimelineExport() {
 async function pruneOldEntries(dir: string): Promise<void> {
   try {
     const now = Date.now();
-    const files = await fs.readdir(dir);
+    const entries = await fs.readdir(dir, { withFileTypes: true });
     await Promise.all(
-      files
-        .filter((f) => f.startsWith('studio-entry-') && f.endsWith('.tsx'))
-        .map(async (file) => {
-          const full = path.join(dir, file);
+      entries
+        // Entry files AND pinned-kit copy folders — everything the entry step
+        // writes carries the studio-entry- prefix precisely so this sweep owns it.
+        .filter((e) => e.name.startsWith('studio-entry-') && (e.isDirectory() || e.name.endsWith('.tsx')))
+        .map(async (entry) => {
+          const full = path.join(dir, entry.name);
           const stat = await fs.stat(full).catch(() => null);
           if (stat && now - stat.mtimeMs > ENTRY_TTL_MS) {
-            await fs.rm(full, { force: true }).catch(() => {});
+            await fs.rm(full, { force: true, recursive: entry.isDirectory() }).catch(() => {});
           }
         }),
     );

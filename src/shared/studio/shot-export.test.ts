@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { StudioShot } from '../types/studio';
 import { referencedShotIds } from './shots';
-import { buildShotEntryParts, shotEntryRef } from './shot-export';
+import { buildShotEntryParts, kitEntryDirName, rewriteKitImport, shotEntryRef } from './shot-export';
 
 function shot(overrides: Partial<StudioShot> = {}): StudioShot {
   return {
@@ -57,5 +57,23 @@ describe('shotEntryRef / buildShotEntryParts (export entry emission, D6)', () =>
 
   it('emits nothing for zero shots (entry stays byte-identical to pre-S4)', () => {
     expect(buildShotEntryParts([])).toEqual({ imports: '', componentsLiteral: '' });
+  });
+});
+
+describe('kit export pinning (Q4)', () => {
+  it('kit dir name carries the sweeper prefix and the pinned version', () => {
+    expect(kitEntryDirName('proj-1', '1.0.0')).toBe('studio-entry-proj-1-kit-1.0.0');
+  });
+
+  it('rewrites every @vidtsx/kit import to the pinned copy, any quote style', () => {
+    const source = [
+      `import { BrowserWindow } from '@vidtsx/kit';`,
+      `import { EASINGS } from "@vidtsx/kit";`,
+      `const label = "@vidtsx/kit stays untouched in strings";`,
+    ].join('\n');
+    const out = rewriteKitImport(source, 'studio-entry-p-kit-1.0.0');
+    expect(out).toContain(`from './studio-entry-p-kit-1.0.0/index.tsx';`);
+    expect(out).not.toMatch(/from\s*['"]@vidtsx\/kit['"]/);
+    expect(out).toContain('stays untouched in strings');
   });
 });

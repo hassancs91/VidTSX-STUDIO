@@ -33,6 +33,18 @@ export function captionEntryRef(templateId: string, projectId: string): ShotEntr
   };
 }
 
+/** The pinned kit copy's folder inside the entry dir (SHOT_QUALITY_DESIGN Q4).
+ *  The `studio-entry-` prefix keeps it inside the entry sweeper's TTL. */
+export function kitEntryDirName(projectId: string, kitVersion: string): string {
+  return `studio-entry-${projectId}-kit-${kitVersion}`;
+}
+
+/** Point a copy's '@vidtsx/kit' import at the pinned kit copy beside it, so
+ *  the export bundles the exact kit the project was built against. */
+export function rewriteKitImport(source: string, kitDirName: string): string {
+  return source.replace(/from\s*['"]@vidtsx\/kit['"]/g, `from './${kitDirName}/index.tsx'`);
+}
+
 export function buildShotEntryParts(refs: ShotEntryRef[]): {
   imports: string;
   componentsLiteral: string;

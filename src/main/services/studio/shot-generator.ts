@@ -44,6 +44,7 @@ import { readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
 import { getShotExemplars } from './shot-exemplars';
+import { ensureProjectKitSnapshot, shotUsesKit } from './shot-kit-pin';
 import { loadProject } from './project-store';
 import { shotJobEvents } from './shot-job-events';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
@@ -383,6 +384,7 @@ class ShotGeneratorService {
       const newVersionPath = await writeNextVersion(folderPath, result.text);
       const version = Number(/v(\d+)\.tsx$/.exec(path.basename(newVersionPath))?.[1]);
       await this.writeSidecarAndChat(newVersionPath, folderPath, result, req.instruction);
+      await this.pinKitIfUsed(req.projectId, result.text);
 
       const config = parseCompositionConfig(result.text);
       const shot: StudioShot = {
@@ -427,6 +429,7 @@ class ShotGeneratorService {
     const versionPath = await writeNextVersion(folderPath, result.text);
     const version = Number(/v(\d+)\.tsx$/.exec(path.basename(versionPath))?.[1]);
     await this.writeSidecarAndChat(versionPath, folderPath, result, brief);
+    await this.pinKitIfUsed(projectId, result.text);
 
     // The gate guarantees this parses; the snapshot feeds clip defaults.
     const config = parseCompositionConfig(result.text);
@@ -445,6 +448,14 @@ class ShotGeneratorService {
           }
         : {}),
     };
+  }
+
+  /** Q4 export pinning: the first accepted kit-importing version snapshots the
+   *  installed kit into <project>/kit/<version>/ (write-once inside). Never
+   *  fails the save — the export path has its own fallback. */
+  private async pinKitIfUsed(projectId: string, source: string): Promise<void> {
+    if (!shotUsesKit(source)) return;
+    await ensureProjectKitSnapshot(projectId).catch(() => {});
   }
 
   private async writeSidecarAndChat(

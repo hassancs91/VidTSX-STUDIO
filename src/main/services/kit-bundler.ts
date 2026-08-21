@@ -50,7 +50,8 @@ async function hashKitSources(kitDir: string): Promise<string | null> {
   return hash.digest('hex').slice(0, 12);
 }
 
-async function readKitVersion(kitDir: string): Promise<string> {
+/** kitVersion from a pack dir's pack.json ('0.0.0' when unreadable). */
+export async function readKitPackVersion(kitDir: string): Promise<string> {
   try {
     const raw = JSON.parse(await fs.readFile(path.join(kitDir, 'pack.json'), 'utf-8')) as {
       version?: unknown;
@@ -87,7 +88,7 @@ export async function bundleKitFromDir(kitDir: string, baseUrl: string): Promise
       logLevel: 'silent',
     });
     const code = rewriteKitExternals(result.outputFiles[0].text, baseUrl);
-    const bundle: KitBundle = { code, hash: sourceHash, version: await readKitVersion(kitDir) };
+    const bundle: KitBundle = { code, hash: sourceHash, version: await readKitPackVersion(kitDir) };
     cache = { key, bundle };
     log.info('Shot kit bundled', { version: bundle.version, hash: sourceHash, bytes: code.length });
     return bundle;
