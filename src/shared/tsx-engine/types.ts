@@ -96,6 +96,9 @@ export interface TsxPipelineResult {
   steps: PipelineStepLog[];
   plan?: string;
   mode: PipelineMode;
+  /** Exact system prompt the generate/edit step ran with — recorded in the
+   *  debug sidecar so output changes can be attributed to prompt changes. */
+  systemPrompt?: string;
   libraries?: string[];
   verified: boolean;
   transpileValid: boolean;

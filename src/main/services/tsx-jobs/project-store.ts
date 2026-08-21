@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { createHash } from 'crypto';
 import { getProjectsDir } from '../../utils/paths';
 
 const MAX_NAME_ATTEMPTS = 100;
@@ -70,4 +71,23 @@ export async function writeNextVersion(folderPath: string, content: string): Pro
 export async function writeDebugSidecar(versionPath: string, data: unknown): Promise<void> {
   const debugPath = versionPath.replace(/\.tsx$/, '.debug.json');
   await fs.writeFile(debugPath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+/**
+ * Sidecar fields for the exact system prompt a version was generated with:
+ * full text for forensics, a hash for cheap cross-version "did it change?",
+ * and the ordered `## ` section titles as a table of contents. Empty object
+ * when the pipeline didn't report one (older engine paths).
+ */
+export function describeSystemPrompt(systemPrompt: string | undefined): Record<string, unknown> {
+  if (!systemPrompt) return {};
+  const sections = systemPrompt
+    .split('\n')
+    .filter((line) => line.startsWith('## '))
+    .map((line) => line.slice(3).trim());
+  return {
+    systemPrompt,
+    systemPromptSha256: createHash('sha256').update(systemPrompt).digest('hex'),
+    systemPromptSections: sections,
+  };
 }

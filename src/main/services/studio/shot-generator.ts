@@ -37,6 +37,7 @@ import {
   reserveProjectFolder,
   writeNextVersion,
   writeDebugSidecar,
+  describeSystemPrompt,
 } from '../tsx-jobs/project-store';
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-jobs/chat-store';
 import { readBrand } from '../library/brand-store';
@@ -457,6 +458,7 @@ class ShotGeneratorService {
       durationMs: result.durationMs,
       timestamp: new Date().toISOString(),
       prompt: userText,
+      ...describeSystemPrompt(result.systemPrompt),
       turns: result.debugLog,
       steps: result.steps,
       plan: result.plan,

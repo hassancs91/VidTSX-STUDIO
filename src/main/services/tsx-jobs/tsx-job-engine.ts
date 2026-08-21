@@ -12,7 +12,7 @@ import type {
 } from '@shared/ipc/types';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
-import { reserveProjectFolder, writeNextVersion, writeDebugSidecar } from './project-store';
+import { reserveProjectFolder, writeNextVersion, writeDebugSidecar, describeSystemPrompt } from './project-store';
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from './chat-store';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -359,6 +359,7 @@ class TsxJobEngine {
           durationMs: result.durationMs,
           timestamp: new Date().toISOString(),
           prompt: record.request.prompt,
+          ...describeSystemPrompt(result.systemPrompt),
           turns: result.debugLog,
           steps: result.steps,
           plan: result.plan,
