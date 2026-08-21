@@ -37,6 +37,12 @@ import { applyStyleNotesPromotion } from '../../../shared/studio/brand';
 import { MEMORY_TEXT_LIMITS } from '../../../shared/types/studio-memory';
 import { generateImageAsset } from '../library/generate-image-asset';
 import { captureWebpage } from '../library/capture';
+import {
+  captureScripted,
+  SCRIPT_MAX_CAPTURES,
+  SCRIPT_MAX_STEPS,
+  type CaptureScriptStep,
+} from '../library/capture-script';
 import { readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
 
@@ -55,6 +61,7 @@ const ALLOWED_TOOLS = [
   'mcp__studio__propose_shots',
   'mcp__studio__generate_image',
   'mcp__studio__capture_webpage',
+  'mcp__studio__capture_scripted',
   'mcp__studio__propose_memory',
   'mcp__studio__propose_style_promotion',
 ];
@@ -566,6 +573,71 @@ class StudioAgentService {
       },
     );
 
+    // Scripted capture (ASSET_LIBRARY_DESIGN L6b / Q4b): typed steps, no
+    // agent-authored code — selectors are data, text becomes input events.
+    const captureStepSchema = z.discriminatedUnion('op', [
+      z.object({ op: z.literal('navigate'), url: z.string().describe('http(s) page to load') }),
+      z.object({
+        op: z.literal('wait'),
+        ms: z.number().int().min(50).max(10_000).optional().describe('fixed delay (default 500)'),
+        selector: z.string().optional().describe('instead: wait until this CSS selector is visible (up to 10 s)'),
+      }),
+      z.object({
+        op: z.literal('scroll'),
+        to: z.union([z.number(), z.string()]).describe("y in CSS px, 'bottom', or a CSS selector to scroll to"),
+      }),
+      z.object({
+        op: z.literal('type'),
+        selector: z.string().describe('CSS selector of the field (clicked to focus first)'),
+        text: z.string().max(500).describe('typed as real key events; \\n presses Enter'),
+      }),
+      z.object({ op: z.literal('click'), selector: z.string().describe('CSS selector; clicked at its center with real mouse events') }),
+      z.object({
+        op: z.literal('capture'),
+        label: z.string().min(1).describe("what this state shows, e.g. 'pricing section, annual toggle on' — becomes the searchable description"),
+        fullPage: z.boolean().optional().describe('grow to full page height (capped ~8000 px) for this still, then restore'),
+      }),
+    ]);
+
+    const captureScriptedTool = tool(
+      'capture_scripted',
+      `Drive a webpage through several REAL states and capture a still of each — menus opened, forms filled, different scroll depths of one walkthrough. Same hardened hidden window, filing, and "library:<path>" refs as capture_webpage (which stays the right tool for a single still). The kit still renders the MOTION (typing, cursors, scrolling); scripted stills only supply real content states. Up to ${SCRIPT_MAX_STEPS} steps / ${SCRIPT_MAX_CAPTURES} captures, ~10 s per step, 120 s per script, one script at a time. On a failed step you get the stills captured so far plus which step failed — retry with a fixed script or use what landed. Hidden window only: login-walled pages need the user's visible capture_webpage flow instead.`,
+      {
+        url: z.string().describe('The http(s) page the script starts on'),
+        viewport: z.enum(['landscape', 'portrait', 'desktop']).optional().describe('landscape 1280×720 (default), portrait 390×844, desktop 1440×900 — CSS pixels, rendered at 2×'),
+        steps: z.array(captureStepSchema).min(1).max(SCRIPT_MAX_STEPS).describe('Run in order; include a capture step for every state worth keeping'),
+      },
+      async (args) => {
+        this.emit({
+          projectId: req.projectId,
+          kind: 'tool',
+          tool: 'capture_scripted',
+          detail: `${args.url} (${args.steps.length} steps)`,
+        });
+        try {
+          const result = await captureScripted({
+            url: args.url,
+            ...(args.viewport ? { viewport: args.viewport } : {}),
+            steps: args.steps as CaptureScriptStep[],
+            signal,
+          });
+          const lines = result.stills.map(
+            (s) => `- "${s.label}" → ${LIBRARY_REF_PREFIX}${s.relPath} (${s.width}×${s.height})`,
+          );
+          const failure = result.failedStep
+            ? `\nStep ${result.failedStep.index + 1} (${result.failedStep.op}) FAILED: ${result.failedStep.error}. The stills above were captured before the failure and are usable.`
+            : '';
+          return text(
+            `Scripted capture ${result.failedStep ? 'stopped early' : 'complete'}: ${result.stills.length} still(s).\n${lines.join('\n')}${failure}\n` +
+              `Use them in generate_tsx_shot assetRefs, e.g. { "state1": "${LIBRARY_REF_PREFIX}${result.stills[0]?.relPath ?? '…'}" }.`,
+            result.stills.length === 0,
+          );
+        } catch (err) {
+          return text(`Scripted capture failed: ${err instanceof Error ? err.message : String(err)}`, true);
+        }
+      },
+    );
+
     // One memory proposal per turn (its own flag — independent of the
     // cuts/shots review panel; the card lives in the chat, not the Inspector).
     let memoryProposalCreated = false;
@@ -762,7 +834,7 @@ class StudioAgentService {
     return createSdkMcpServer({
       name: 'studio',
       version: '1.0.0',
-      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, captureWebpageTool, proposeMemory, proposeStylePromotion],
+      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, captureWebpageTool, captureScriptedTool, proposeMemory, proposeStylePromotion],
     });
   }
 }

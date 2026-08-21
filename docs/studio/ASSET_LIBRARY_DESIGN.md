@@ -10,6 +10,12 @@
 > the agent picks and generates. Descriptions and structure are not
 > cosmetics; they are generation quality.
 >
+> **Rev 4 — 2026-08-21, scripted capture (SHOT_QUALITY_DESIGN Q4b).** The
+> follow-on `SHOT_QUALITY_DESIGN.md` scheduled here: a scripted multi-state
+> capture (navigate → wait → scroll → type → click → capture N stills) on the
+> same hardened hidden window. New section L6b + its own checklist at the end.
+> No change to L1–L8; the no-Playwright decision is reaffirmed.
+>
 > **Rev 3 — 2026-08-14, Hasan's checklist review.** Two amendments: the
 > library extends the **existing `asset-library` feature** (the Assets
 > screen over `userData/assets` — L1/L8 revised; a new Studio-pool tab was
@@ -225,6 +231,101 @@ separate v2 feature.
 shots (pan/zoom/cursor over a capture) — the skill port itself stays in v2,
 but its material pipeline ships now.
 
+## L6b. Scripted capture — Q4b (Rev 4)
+
+`capture_webpage` supplies one still per call. Multi-state pages — an opened
+menu, a filled form, several scroll depths of one walkthrough — need the page
+*driven* into each state first. The two-source rule (SHOT_QUALITY_DESIGN Q4b)
+stands: the kit renders the **motion** (typing, cursors, scrolls — synthetic
+is crisper and deterministic); scripted capture supplies real **content**
+states only.
+
+**Mechanism (decided, reaffirmed):** the same hardened hidden `BrowserWindow`
+in `main/services/library/capture.ts` — sandbox, in-memory session,
+permission denies, `window.open` deny, http(s)-only, 2× render — driven via
+`webContents.sendInputEvent` (real input events, so hover/focus/menus behave)
+plus `executeJavaScript` for element *measurement only*. **No Playwright.**
+Stills file into `captures/<domain>/` exactly like `capture_webpage`, origin
+`captured`, described for search.
+
+### S1. Script shape — typed steps, not free-form code
+
+- **(a) Typed step array** (recommended): a zod-validated discriminated union
+  the agent emits as JSON:
+
+  ```ts
+  type CaptureStep =
+    | { op: 'navigate'; url: string }                   // http(s) only, same assert
+    | { op: 'wait'; ms?: number; selector?: string }    // ms ≤ 10 000; selector = wait-for-visible
+    | { op: 'scroll'; to: number | 'bottom' | string }  // y px, bottom, or CSS selector
+    | { op: 'type'; selector: string; text: string }    // click-focus, then per-char key events
+    | { op: 'click'; selector: string }                 // measure center → real mouse events
+    | { op: 'capture'; label: string; fullPage?: boolean };
+  ```
+
+  Selectors are CSS only. Caps: ≤ 30 steps, ≤ 10 captures per script — the
+  step list is bounded, auditable, and the failure report can name the exact
+  step. Element lookup runs in-page but only ever *returns a rect*; nothing
+  the agent writes executes as page code.
+- **(b) Free-form JS string** run via `executeJavaScript`: maximal power,
+  rejected — arbitrary agent-authored code running against arbitrary web
+  content is exactly the surface the capture hardening exists to avoid, and
+  step-level timeouts/reporting become guesswork.
+
+`capture` shoots the current viewport; `fullPage: true` reuses the L6
+tall-window grow (capped), captures, then restores the prior size with a
+settle delay so later steps see the original layout. Each still's
+description: `«label» — «page title» (url)`; `label` is **required** — the
+description is what `search_assets` reads (the L2 thesis), and the agent
+knows why it captured each state.
+
+### S2. Agent surface — a new tool, not a `capture_webpage` param
+
+New tool **`capture_scripted({ url, viewport?, steps })`** beside
+`capture_webpage` in the roster + allow-list (`studio-agent.ts`), returning
+`{ stills: [{ relPath, label, width, height }], failedStep? }`.
+
+- Keeps `capture_webpage` the cheap single-shot door with its stable
+  single-result shape; the scripted tool has its own zod schema, its own
+  description teaching when-to-script, and its own N-result shape.
+- Precedent: Q6c shipped `propose_style_promotion` as its own tool rather
+  than a `propose_memory` variant, for the same reasons (schema clarity, the
+  card/return shape differs).
+- Additive like the other capture: files-and-tags with no proposal;
+  visible as a tool event; `featureSource: 'studio-shot-asset'` unchanged.
+- v1 doors: **agent tool only.** The library screen's Capture button stays
+  single-shot — a script-builder UI is not v1 (ledgered).
+
+### S3. Failure & timeout semantics — partial stills, named failure
+
+- **Partial-with-error (recommended):** a failing step stops the script;
+  stills already captured stay in the library (they are real assets on disk)
+  and the result names the failed step + reason
+  (`failedStep: { index, op, error }`). The agent retries or works with what
+  landed. Precedent: describe-job failures are per-item, never batch-fatal.
+- All-or-nothing rejected: deleting good stills because step 7 timed out
+  helps nobody; the agent would just re-capture the same states.
+- **Timeouts:** per-step default 10 s (`wait.ms` may extend itself to its
+  own value, ≤ 10 s; `navigate` gets the existing 45 s load timeout), whole
+  script capped at 120 s wall clock. One scripted capture at a time
+  (the `pendingVisible` mutual-exclusion precedent, generalized).
+
+### S4. Visible mode / login walls — out of scope v1
+
+Scripted capture is **hidden-window only** in v1. Auth-walled pages keep the
+existing visible manual mode (user logs in, hits Capture — one still).
+Scripting a visible window the user is simultaneously interacting with is
+two drivers fighting one page; "user logs in visibly, then the script takes
+over" is ledgered v2 (`V2_FEATURES.md`).
+
+### Skill text (rides with the build, wording per SHOT_QUALITY_DESIGN)
+
+`studio-make-tsx` gains when-to-script guidance: script when one walkthrough
+needs the page in **several states** (opened menu, filled form, 2–3 scroll
+depths); the kit BrowserWindow still renders the motion — scripted capture
+only supplies the real content states. Single-state pages stay on
+`capture_webpage` (with `fullPage` for scroll material).
+
 ## L7. AI organize — suggestions with the audit gate
 
 - **"Organize" action**: an agent pass reads the index (names, descriptions,
@@ -322,3 +423,17 @@ Studio-pool tab (L8 Rev 3). Original items kept for the record:
    import test, shots doc D4) since it alone can invalidate an
    architectural choice; then library core → shots core → brands + capture
    + AI curation (each slice independently testable): **OK?**
+
+## Q4b checklist — Rev 4 (scripted capture) — ANSWERED (Hasan, 2026-08-21)
+
+All three accepted as recommended in-session; S4 (visible/login out of
+scope v1) not vetoed. Items kept for the record:
+
+1. **S1** — typed step array (navigate / wait / scroll / type / click /
+   capture), CSS selectors, caps ≤ 30 steps / ≤ 10 captures, required
+   `label` per capture, `fullPage` per capture with size-restore: **OK?**
+2. **S2** — new `capture_scripted` tool beside `capture_webpage` (not a
+   param on it); agent-only door in v1 (no script-builder UI): **OK?**
+3. **S3** — partial-stills on failure with `failedStep` report; 10 s
+   per-step / 120 s per-script timeouts; one scripted capture at a time:
+   **OK?**

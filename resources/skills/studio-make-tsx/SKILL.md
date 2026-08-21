@@ -107,6 +107,15 @@ professional — reach for it instead of describing imagery in the brief:
   dashboard/fake-screencast material. Use `visible: true` only for
   login-walled pages, and tell the user first: a browser window will open for
   them to log in and navigate, then THEY click "Capture now".
+- `capture_scripted(url, steps)` when one walkthrough needs the page in
+  SEVERAL states — a menu opened, a form filled, two or three scroll depths —
+  script it into each state (navigate → wait → scroll → type → click) and
+  capture a labeled still per state. Two-source rule: the kit still renders
+  the MOTION (typing, cursors, scrolling — synthetic is crisper and
+  deterministic); scripted stills only supply the real CONTENT states the
+  fake browser displays. One state = plain `capture_webpage`; never script
+  what a single `fullPage` still already covers. Hidden window only — no
+  login walls.
 - Do not put URLs or file paths in the brief — the pipeline injects an asset
   table for the refs you pass, and the shot receives real URLs as props.
 - The description on a library/project asset is what you search and design
