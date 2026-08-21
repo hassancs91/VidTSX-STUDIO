@@ -43,6 +43,8 @@ import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-job
 import { readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
+import { composeShotStyleMemory, type ShotStyleMemory } from './agent-memory-prompt';
+import { listMemories } from './agent-memory';
 import { getShotExemplars } from './shot-exemplars';
 import { ensureProjectKitSnapshot, shotUsesKit } from './shot-kit-pin';
 import { getShotKitPromptInfo } from './shot-kit';
@@ -225,6 +227,26 @@ class ShotGeneratorService {
     const brandId = project.settings.brandId;
     const brand = brandId ? await readBrand(getLibraryRoot(), brandId) : null;
 
+    // Q6a: learned style rides every generate/regenerate beside the brand
+    // contract — brand-filtered rule/profile memories, budgeted. Store read
+    // degrades to none; a memory failure never blocks generation.
+    let styleMemory: ShotStyleMemory | null = null;
+    try {
+      const composed = composeShotStyleMemory(await listMemories(), {
+        ...(brandId ? { brandId } : {}),
+      });
+      styleMemory = composed.styleMemory;
+      if (composed.droppedProfile || composed.rulesOverflowBy > 0) {
+        log.warn('Shot style memory over budget', {
+          projectId: req.projectId,
+          droppedProfile: composed.droppedProfile,
+          rulesOverflowBy: composed.rulesOverflowBy,
+        });
+      }
+    } catch (error) {
+      log.warn('Shot style memory read failed — generating without it', { error: String(error) });
+    }
+
     // Q3a: built-in exemplars of this kind ride every generate/regenerate as
     // the quality bar. Loader degrades to [] — never blocks generation.
     const exemplars = await getShotExemplars(req.kind);
@@ -303,6 +325,7 @@ class ShotGeneratorService {
               ...(resolvedRefs ? { assets: resolvedRefs.promptAssets } : {}),
               ...(exemplars.length > 0 ? { exemplars } : {}),
               ...(kit ? { kit } : {}),
+              ...(styleMemory ? { styleMemory } : {}),
             }),
           },
           mode: '2d',

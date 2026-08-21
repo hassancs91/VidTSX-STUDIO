@@ -13,6 +13,7 @@
 
 import {
   MEMORY_PROMPT_BUDGET,
+  SHOT_STYLE_PROMPT_BUDGET,
   type StudioMemory,
 } from '../../../shared/types/studio-memory';
 
@@ -90,6 +91,66 @@ function render(rules: StudioMemory[], vocabulary: StudioMemory[], profile: Stud
     sections.push(`${PROFILE_HEADER}\n${profile.map((m) => profileText(m.text)).join('\n\n')}`);
   }
   return sections.join('\n\n');
+}
+
+/** Data for the shot pipeline's "Learned style" section (Q6a) — the section
+ *  text itself is rendered by buildShotExtraInstructions in shared/, which
+ *  cannot import from main/; this composer returns plain data instead of a
+ *  block string. Same filter and ordering as composeMemoryBlock; rule +
+ *  profile only (vocabulary is agent-side spelling guidance, not shot
+ *  style). Budget: profile drops first, rules are NEVER silently dropped —
+ *  overflow is reported for the caller to log. */
+export interface ShotStyleMemory {
+  rules: string[];
+  profile?: string;
+}
+
+export interface ComposedShotStyleMemory {
+  /** null when no active in-scope rule/profile memories exist. */
+  styleMemory: ShotStyleMemory | null;
+  droppedProfile: boolean;
+  rulesOverflowBy: number;
+}
+
+export function composeShotStyleMemory(
+  memories: readonly StudioMemory[],
+  options: ComposeMemoryBlockOptions = {},
+): ComposedShotStyleMemory {
+  const budget = options.budget ?? SHOT_STYLE_PROMPT_BUDGET;
+  const inScope = memories
+    .filter((m) => m.active && (m.brandId === undefined || m.brandId === options.brandId))
+    .filter((m) => m.kind === 'rule' || m.kind === 'profile')
+    .slice()
+    .sort(byTierThenCreatedAtThenId);
+
+  if (inScope.length === 0) {
+    return { styleMemory: null, droppedProfile: false, rulesOverflowBy: 0 };
+  }
+
+  const rules = inScope.filter((m) => m.kind === 'rule').map((m) => singleLine(m.text));
+  const profileEntries = inScope.filter((m) => m.kind === 'profile');
+  const profile =
+    profileEntries.length > 0
+      ? profileEntries.map((m) => profileText(m.text)).join('\n\n')
+      : undefined;
+
+  const size = (withProfile: boolean): number =>
+    rules.join('\n').length + (withProfile && profile ? profile.length : 0);
+
+  if (profile !== undefined && size(true) <= budget) {
+    return { styleMemory: { rules, profile }, droppedProfile: false, rulesOverflowBy: 0 };
+  }
+
+  const droppedProfile = profile !== undefined;
+  if (rules.length === 0) {
+    // Only an oversized profile — never inject a section with nothing in it.
+    return { styleMemory: null, droppedProfile, rulesOverflowBy: 0 };
+  }
+  return {
+    styleMemory: { rules },
+    droppedProfile,
+    rulesOverflowBy: Math.max(0, size(false) - budget),
+  };
 }
 
 export function composeMemoryBlock(

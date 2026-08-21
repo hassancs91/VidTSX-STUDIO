@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_ACTIVE_RULES,
   MEMORY_PROMPT_BUDGET,
+  SHOT_STYLE_PROMPT_BUDGET,
   type StudioMemory,
   type StudioMemoryKind,
 } from '../../../shared/types/studio-memory';
-import { composeMemoryBlock } from './agent-memory-prompt';
+import { composeMemoryBlock, composeShotStyleMemory } from './agent-memory-prompt';
 
 let seq = 0;
 
@@ -214,5 +215,66 @@ describe('composeMemoryBlock — budget truncation', () => {
     expect(result.rulesOverflowBy).toBe(0);
     expect(result.droppedVocabulary).toBe(0);
     expect(result.block).toContain('LearnWithHasan');
+  });
+});
+
+describe('composeShotStyleMemory — Q6a pipeline injection', () => {
+  it('empty or all-inactive set yields null', () => {
+    expect(composeShotStyleMemory([]).styleMemory).toBeNull();
+    expect(composeShotStyleMemory([mem('rule', 'r', { active: false })]).styleMemory).toBeNull();
+  });
+
+  it('takes rules and profile, never vocabulary', () => {
+    const result = composeShotStyleMemory([
+      mem('vocabulary', 'LearnWithHasan'),
+      mem('rule', 'Subtler entrances.'),
+      mem('profile', 'AI tutorials channel.'),
+    ]);
+    expect(result.styleMemory).toEqual({
+      rules: ['Subtler entrances.'],
+      profile: 'AI tutorials channel.',
+    });
+  });
+
+  it('brand filter: unscoped always applies, scoped only on match', () => {
+    const memories = [
+      mem('rule', 'Global rule.'),
+      mem('rule', 'Acme rule.', { brandId: 'acme-test' }),
+      mem('rule', 'Other-brand rule.', { brandId: 'other' }),
+    ];
+    expect(composeShotStyleMemory(memories, { brandId: 'acme-test' }).styleMemory?.rules).toEqual([
+      'Global rule.',
+      'Acme rule.',
+    ]);
+    expect(composeShotStyleMemory(memories).styleMemory?.rules).toEqual(['Global rule.']);
+  });
+
+  it('rules order is createdAt then id, and multi-line text collapses to one line', () => {
+    const late = mem('rule', 'Second\nrule.');
+    const early = mem('rule', 'First rule.', { createdAt: '2020-01-01T00:00:00.000Z' });
+    expect(composeShotStyleMemory([late, early]).styleMemory?.rules).toEqual([
+      'First rule.',
+      'Second rule.',
+    ]);
+  });
+
+  it('over budget: profile drops first, rules never dropped and overflow reported', () => {
+    const bigProfile = mem('profile', 'p'.repeat(SHOT_STYLE_PROMPT_BUDGET));
+    const rule = mem('rule', 'Keep me.');
+    const dropped = composeShotStyleMemory([bigProfile, rule]);
+    expect(dropped.styleMemory).toEqual({ rules: ['Keep me.'] });
+    expect(dropped.droppedProfile).toBe(true);
+    expect(dropped.rulesOverflowBy).toBe(0);
+
+    const manyRules = Array.from({ length: 12 }, (_, i) => mem('rule', `${i}-` + 'r'.repeat(280)));
+    const overflow = composeShotStyleMemory(manyRules);
+    expect(overflow.styleMemory?.rules).toHaveLength(12);
+    expect(overflow.rulesOverflowBy).toBeGreaterThan(0);
+  });
+
+  it('an oversized profile alone yields null, never an empty section', () => {
+    const result = composeShotStyleMemory([mem('profile', 'p'.repeat(SHOT_STYLE_PROMPT_BUDGET + 1))]);
+    expect(result.styleMemory).toBeNull();
+    expect(result.droppedProfile).toBe(true);
   });
 });

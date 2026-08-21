@@ -28,6 +28,14 @@ export interface ShotPromptAsset {
   description?: string;
 }
 
+/** Learned style memories (Q6a) — user-approved rules from the agent memory
+ *  store, brand-filtered and budgeted by the caller (main composes; this
+ *  shared module only renders). */
+export interface ShotStyleMemoryInput {
+  rules: string[];
+  profile?: string;
+}
+
 export interface ShotPromptInput {
   kind: StudioShotKind;
   /** Timeline settings the shot must match. */
@@ -47,6 +55,10 @@ export interface ShotPromptInput {
    *  the import rule stays react+remotion only — a model without the manifest
    *  would only guess at kit names. */
   kit?: { version: string; manifest: string };
+  /** Learned style rules (Q6a) — injected beside the brand contract on every
+   *  generate/regenerate. Deterministic: does not depend on the agent copying
+   *  rules into briefs. */
+  styleMemory?: ShotStyleMemoryInput;
 }
 
 /**
@@ -144,6 +156,10 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
     lines.push('', ...buildBrandLines(input.brand, input.kind));
   }
 
+  if (input.styleMemory && (input.styleMemory.rules.length > 0 || input.styleMemory.profile)) {
+    lines.push('', ...buildStyleMemoryLines(input.styleMemory));
+  }
+
   if (input.assets && input.assets.length > 0) {
     lines.push('', ...buildAssetLines(input.assets));
   }
@@ -203,6 +219,27 @@ function buildAssetLines(assets: ShotPromptAsset[]): string[] {
     '- NEVER hardcode a file path, http/data URL, or staticFile() call — the URL differs between preview and export; only the `assets` prop values are correct.',
     '- Only the keys listed above exist. Do not invent others.',
   ];
+}
+
+/**
+ * The learned-style block (Q6a): rules the user has approved into the agent
+ * memory store, brand-filtered and budgeted by the caller. Sits beside the
+ * brand contract — style memory refines the craft/exemplar defaults (and
+ * wins over them on conflict); the Brand block still owns palette and fonts.
+ */
+function buildStyleMemoryLines(styleMemory: ShotStyleMemoryInput): string[] {
+  const lines = [
+    '## Learned style (MANDATORY, user-approved)',
+    '',
+    'The editor has approved these standing style rules. Follow every one — they refine the Craft defaults and the exemplars above, and on any conflict with those sections the rules below win. Palette and fonts still come from the Brand block.',
+  ];
+  if (styleMemory.rules.length > 0) {
+    lines.push('', ...styleMemory.rules.map((rule) => `- ${rule}`));
+  }
+  if (styleMemory.profile) {
+    lines.push('', 'About this editor and their channel (context, not hard rules):', '', styleMemory.profile);
+  }
+  return lines;
 }
 
 function buildBrandLines(brand: StudioBrand, kind: StudioShotKind): string[] {

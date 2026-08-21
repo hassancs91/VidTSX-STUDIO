@@ -61,6 +61,12 @@ export const MAX_ACTIVE_RULES = 50;
  *  ~3,000 for vocabulary + profile (§Rev 2.6). */
 export const MEMORY_PROMPT_BUDGET = 7000;
 
+/** Character budget for the learned-style block injected into the SHOT
+ *  pipeline prompt (Q6a) — rule + profile memories only, brand-filtered.
+ *  Sized to the brand styleNotes cap (2000): the two blocks sit side by
+ *  side in the shot prompt and neither should dwarf the other. */
+export const SHOT_STYLE_PROMPT_BUDGET = 2000;
+
 /** Per-record text ceilings, enforced by the store and mirrored as
  *  maxLength in the entry UI. Sanity ceilings, not budget guarantees —
  *  observed rule length in the spike was 60–110 chars; 300 is generous.

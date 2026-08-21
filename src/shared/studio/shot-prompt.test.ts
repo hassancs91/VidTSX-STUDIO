@@ -183,3 +183,48 @@ describe('media assets section (D12)', () => {
     expect(out).toContain('## Word timings (shot-local seconds)');
   });
 });
+
+describe('learned style section (Q6a)', () => {
+  const brand = {
+    id: 'acme-test',
+    name: 'Acme Test',
+    palette: { primary: '#111111', secondary: '#222222', background: '#000000', text: '#ffffff', accent: '#ffaa00' },
+    fonts: { display: 'Inter' },
+    logoRefs: [],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+
+  it('absent styleMemory (or empty) renders no section', () => {
+    expect(buildShotExtraInstructions({ ...BASE, kind: 'cutaway' })).not.toContain('## Learned style');
+    expect(
+      buildShotExtraInstructions({ ...BASE, kind: 'cutaway', styleMemory: { rules: [] } }),
+    ).not.toContain('## Learned style');
+  });
+
+  it('renders rules as a list and the profile as context, after the brand block', () => {
+    const text = buildShotExtraInstructions({
+      ...BASE,
+      kind: 'cutaway',
+      brand,
+      styleMemory: { rules: ['Subtler entrances.'], profile: 'AI tutorials channel.' },
+    });
+    const brandIdx = text.indexOf('## Brand: Acme Test');
+    const styleIdx = text.indexOf('## Learned style (MANDATORY, user-approved)');
+    expect(brandIdx).toBeGreaterThan(-1);
+    expect(styleIdx).toBeGreaterThan(brandIdx);
+    expect(text).toContain('- Subtler entrances.');
+    expect(text).toContain('AI tutorials channel.');
+    expect(text).toMatch(/rules below win/);
+  });
+
+  it('renders without a brand too (unbranded projects still learn)', () => {
+    const text = buildShotExtraInstructions({
+      ...BASE,
+      kind: 'overlay',
+      styleMemory: { rules: ['One accent color max.'] },
+    });
+    expect(text).toContain('## Learned style (MANDATORY, user-approved)');
+    expect(text).toContain('- One accent color max.');
+  });
+});
