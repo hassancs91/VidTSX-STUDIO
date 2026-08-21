@@ -223,7 +223,12 @@ export function useStudioMedia(
       const transcript: StudioAssetTranscript = {
         path: `transcripts/${asset.id}.json`,
         status: 'generating',
-        engine: entry?.provider === 'assemblyai' ? 'assemblyai' : 'whisper',
+        engine:
+          entry?.provider === 'assemblyai'
+            ? 'assemblyai'
+            : entry?.provider === 'elevenlabs'
+              ? 'elevenlabs'
+              : 'whisper',
         sttModelId,
         hasWords: false,
       };

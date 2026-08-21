@@ -29,7 +29,7 @@ export interface StudioTranscriptFile {
   version: 1;
   createdAt: string;
   sttModelId: string;
-  engine: 'whisper' | 'assemblyai';
+  engine: 'whisper' | 'assemblyai' | 'elevenlabs';
   language?: string;
   /** What the run actually delivered (see StudioAssetTranscript.features). */
   features: SttModelFeatures;
@@ -134,7 +134,12 @@ export async function transcribeAsset(
       version: 1,
       createdAt: new Date().toISOString(),
       sttModelId,
-      engine: entry.provider === 'local-whisper' ? 'whisper' : 'assemblyai',
+      engine:
+        entry.provider === 'local-whisper'
+          ? 'whisper'
+          : entry.provider === 'elevenlabs'
+            ? 'elevenlabs'
+            : 'assemblyai',
       language: rich.result.language,
       features: rich.features ?? entry.features,
       duration: rich.result.duration,

@@ -1,13 +1,13 @@
 /**
  * Provider-agnostic transcription IPC types (local whisper / AssemblyAI /
- * OpenRouter). Replaces the removed VidtsxTranscribeRun* surface — the
- * request/progress/response shapes mirror it so renderer hooks migrate with
- * channel renames only.
+ * ElevenLabs / OpenRouter). Replaces the removed VidtsxTranscribeRun*
+ * surface — the request/progress/response shapes mirror it so renderer hooks
+ * migrate with channel renames only.
  */
 
 import type { TranscriptResult } from './whisper';
 
-export type SttProviderType = 'local-whisper' | 'assemblyai' | 'openrouter';
+export type SttProviderType = 'local-whisper' | 'assemblyai' | 'elevenlabs' | 'openrouter';
 
 /** Provider configuration stored in user settings (mirrors ImageProviderConfig). */
 export interface SttProviderConfig {

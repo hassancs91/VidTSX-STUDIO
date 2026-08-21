@@ -218,7 +218,8 @@ function TranscriptReadout({ asset }: { asset: StudioMediaAsset }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="text-[11px] text-text-secondary">
-        Ready · {t.wordCount ?? 0} words · {t.engine === 'whisper' ? 'Whisper' : 'AssemblyAI'}
+        Ready · {t.wordCount ?? 0} words ·{' '}
+        {t.engine === 'whisper' ? 'Whisper' : t.engine === 'elevenlabs' ? 'ElevenLabs' : 'AssemblyAI'}
       </div>
       <div className="text-[10px] text-text-dim">
         {timing}

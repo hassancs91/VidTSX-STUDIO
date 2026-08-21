@@ -48,6 +48,13 @@ const SHARED_KEY_ROWS: SharedKeyRowDef[] = [
     capabilities: ['Transcription'],
   },
   {
+    id: 'elevenlabs',
+    label: 'ElevenLabs',
+    hint: 'elevenlabs.io — Scribe transcription',
+    placeholder: 'API key',
+    capabilities: ['Transcription'],
+  },
+  {
     id: 'zai',
     label: 'Z.AI',
     hint: 'z.ai/model-api — GLM models',

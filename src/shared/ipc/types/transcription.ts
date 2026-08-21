@@ -2,13 +2,15 @@ import type { TranscriptResult } from './whisper';
 
 /**
  * Which engine produced a transcript. Canonical values are the STT provider
- * types ('local-whisper' | 'assemblyai' | 'openrouter'); 'whisper' and
- * 'vidtsx' are legacy values persisted by older versions (treat 'whisper' as
- * 'local-whisper'; 'vidtsx' projects load read-only onto the default model).
+ * types ('local-whisper' | 'assemblyai' | 'elevenlabs' | 'openrouter');
+ * 'whisper' and 'vidtsx' are legacy values persisted by older versions (treat
+ * 'whisper' as 'local-whisper'; 'vidtsx' projects load read-only onto the
+ * default model).
  */
 export type TranscribeEngine =
   | 'local-whisper'
   | 'assemblyai'
+  | 'elevenlabs'
   | 'openrouter'
   | 'whisper'
   | 'vidtsx';

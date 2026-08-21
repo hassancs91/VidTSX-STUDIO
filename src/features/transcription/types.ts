@@ -12,6 +12,7 @@ export type { WhisperModel } from '@shared/ipc/types';
 // STT catalog (single source of truth, shared with auto-cut).
 export {
   STT_CATALOG,
+  STT_PROVIDER_LABELS,
   DEFAULT_STT_MODEL,
   findSttEntry,
   coerceSttEntry,

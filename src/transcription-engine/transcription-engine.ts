@@ -7,6 +7,7 @@ import type {
 import { TranscriptionEngineError } from './types';
 import { LocalWhisperProvider } from './providers/local-whisper-provider';
 import { AssemblyAiProvider } from './providers/assemblyai-provider';
+import { ElevenLabsProvider } from './providers/elevenlabs-provider';
 import { OpenRouterSttProvider } from './providers/openrouter-stt-provider';
 import { logEngine } from '../logging/log-engine';
 
@@ -28,6 +29,8 @@ class TranscriptionEngine {
       provider = new LocalWhisperProvider(config.id);
     } else if (config.type === 'assemblyai') {
       provider = new AssemblyAiProvider(config.id, config.apiKey);
+    } else if (config.type === 'elevenlabs') {
+      provider = new ElevenLabsProvider(config.id, config.apiKey);
     } else if (config.type === 'openrouter') {
       provider = new OpenRouterSttProvider(config.id, config.apiKey);
     } else {

@@ -1,6 +1,7 @@
 // Registers transcription providers on app start (and again after provider
-// key / config changes). Local whisper is always seeded; AssemblyAI and
-// OpenRouter register only when their shared credential exists.
+// key / config changes). Local whisper is always seeded; AssemblyAI,
+// ElevenLabs, and OpenRouter register only when their shared credential
+// exists.
 
 import { transcriptionEngine } from '../../../transcription-engine';
 import type { SttProviderConfig } from '../../../shared/ipc/types/stt';
@@ -33,6 +34,12 @@ export async function initSttEngine(): Promise<void> {
         { id: 'assemblyai', name: 'AssemblyAI', type: 'assemblyai', apiKey: '', defaultModel: 'universal', enabled: true },
       ];
     }
+    if (!configs.some((p) => p.type === 'elevenlabs')) {
+      configs = [
+        ...configs,
+        { id: 'elevenlabs', name: 'ElevenLabs', type: 'elevenlabs', apiKey: '', defaultModel: 'scribe_v2', enabled: true },
+      ];
+    }
     if (!configs.some((p) => p.type === 'openrouter')) {
       configs = [
         ...configs,
@@ -52,6 +59,7 @@ export async function initSttEngine(): Promise<void> {
       try {
         const sharedKey =
           config.type === 'assemblyai' ? credentials.assemblyai :
+          config.type === 'elevenlabs' ? credentials.elevenlabs :
           config.type === 'openrouter' ? credentials.openrouter :
           undefined;
         const effective = { ...config, apiKey: sharedKey || config.apiKey };

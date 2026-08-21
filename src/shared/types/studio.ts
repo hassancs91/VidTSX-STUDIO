@@ -36,7 +36,7 @@ export interface StudioAssetCacheFile {
 }
 
 export interface StudioAssetTranscript extends StudioAssetCacheFile {
-  engine: 'whisper' | 'assemblyai';
+  engine: 'whisper' | 'assemblyai' | 'elevenlabs';
   /** STT catalog id used (e.g. 'local-whisper/base'), for re-transcribe UX. */
   sttModelId?: string;
   language?: string;

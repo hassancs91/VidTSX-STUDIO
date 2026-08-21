@@ -18,6 +18,7 @@ import {
   ACCEPTED_MEDIA_EXTENSIONS,
   isAudioExtension,
   STT_CATALOG,
+  STT_PROVIDER_LABELS,
   findSttEntry,
   coerceSttEntry,
 } from '../types';
@@ -49,7 +50,12 @@ export function useTranscription() {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [models, setModels] = useState<WhisperModel[]>([]);
   const [whisperReady, setWhisperReady] = useState(false);
-  const [hasKeys, setHasKeys] = useState({ fal: false, openrouter: false, assemblyai: false });
+  const [hasKeys, setHasKeys] = useState({
+    fal: false,
+    openrouter: false,
+    assemblyai: false,
+    elevenlabs: false,
+  });
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
   // The currently-selected cloud entry and whether it supports speaker labels.
@@ -57,6 +63,7 @@ export function useTranscription() {
   const supportsSpeakers = cloudEntry?.features.speakerLabels ?? false;
   const cloudKeyPresent =
     cloudEntry?.provider === 'assemblyai' ? hasKeys.assemblyai :
+    cloudEntry?.provider === 'elevenlabs' ? hasKeys.elevenlabs :
     cloudEntry?.provider === 'openrouter' ? hasKeys.openrouter :
     false;
 
@@ -274,7 +281,7 @@ export function useTranscription() {
       if (!cloudKeyPresent) {
         setState((prev) => ({
           ...prev,
-          error: `No ${cloudEntry.provider === 'assemblyai' ? 'AssemblyAI' : 'OpenRouter'} API key configured. Add it in Settings to use cloud transcription.`,
+          error: `No ${STT_PROVIDER_LABELS[cloudEntry.provider]} API key configured. Add it in Settings to use cloud transcription.`,
         }));
         return;
       }

@@ -2,7 +2,7 @@ import { Button, ProgressBar } from '@shared/components';
 import { useTranscription, type EngineChoice } from '../hooks/useTranscription';
 import { useTranscriptionProjects } from '../hooks/useTranscriptionProjects';
 import { TranscriptViewer } from './TranscriptViewer';
-import { WHISPER_LANGUAGES, CLOUD_LANGUAGES } from '../types';
+import { WHISPER_LANGUAGES, CLOUD_LANGUAGES, STT_PROVIDER_LABELS } from '../types';
 import { useToast } from '@renderer/contexts/ToastContext';
 
 // Jump to the AI Models screen (cross-screen nav handled in App.tsx).
@@ -204,7 +204,7 @@ export function TranscriptionScreen() {
               }}
             >
               <div className="text-[12px] text-accent-amber mb-2">
-                No {cloudEntry?.provider === 'openrouter' ? 'OpenRouter' : 'AssemblyAI'} API key
+                No {cloudEntry ? STT_PROVIDER_LABELS[cloudEntry.provider] : 'provider'} API key
                 configured. Add it in AI Models → Providers to use cloud transcription.
               </div>
               <Button variant="secondary" onClick={goToAiModels}>

@@ -92,6 +92,17 @@ const ASSEMBLYAI_FEATURES: SttModelFeatures = {
   verbatimDisfluencies: true,
 };
 
+// verbatimDisfluencies deliberately OFF until Scribe's verbatim behavior is
+// verified on real footage (Q3, decided 2026-08-21) — the auto-cut filler
+// pass depends on verbatim "um"/"uh", so AssemblyAI stays the recommended
+// pick for the editorial pass until then.
+const ELEVENLABS_FEATURES: SttModelFeatures = {
+  ...NO_FEATURES,
+  wordTimestamps: true,
+  speakerLabels: true,
+  audioEvents: true,
+};
+
 export const STT_CATALOG: readonly SttCatalogEntry[] = [
   // ── Local whisper.cpp (free, offline) — ids match whisper.ts MODEL_DEFINITIONS ──
   { id: 'local-whisper/tiny', provider: 'local-whisper', model: 'tiny', name: 'Whisper Tiny (75 MB)', priceText: 'Free — runs locally', requiresDownload: true, features: WHISPER_FEATURES },
@@ -107,6 +118,9 @@ export const STT_CATALOG: readonly SttCatalogEntry[] = [
   { id: 'assemblyai/universal-3-5-pro', provider: 'assemblyai', model: 'universal-3-5-pro', name: 'AssemblyAI Universal-3.5 Pro', priceText: '~$0.21 / hour', features: ASSEMBLYAI_FEATURES },
   { id: 'assemblyai/universal-2', provider: 'assemblyai', model: 'universal-2', name: 'AssemblyAI Universal-2 (multilingual)', priceText: '~$0.15 / hour', features: ASSEMBLYAI_FEATURES },
 
+  // ── ElevenLabs Scribe (exact word timestamps, up to 32 speakers, audio events) ──
+  { id: 'elevenlabs/scribe-v2', provider: 'elevenlabs', model: 'scribe_v2', name: 'ElevenLabs Scribe v2', priceText: '~$0.22 / hour', features: ELEVENLABS_FEATURES },
+
   // ── OpenRouter (plain text only — no timestamps; 60s upstream timeout per chunk) ──
   { id: 'openrouter/openai/whisper-large-v3-turbo', provider: 'openrouter', model: 'openai/whisper-large-v3-turbo', name: 'Whisper Large-v3 Turbo (OpenRouter)', priceText: 'per-minute, see openrouter.ai', maxDurationMinutes: 60, features: NO_FEATURES },
   { id: 'openrouter/openai/whisper-large-v3', provider: 'openrouter', model: 'openai/whisper-large-v3', name: 'Whisper Large-v3 (OpenRouter)', priceText: 'per-minute, see openrouter.ai', maxDurationMinutes: 60, features: NO_FEATURES },
@@ -115,6 +129,14 @@ export const STT_CATALOG: readonly SttCatalogEntry[] = [
 
 /** Free + offline once the model is downloaded; works with zero configuration. */
 export const DEFAULT_STT_MODEL = 'local-whisper/base' as const;
+
+/** Display names for provider-facing UI copy (missing-key warnings etc.). */
+export const STT_PROVIDER_LABELS: Record<SttProviderType, string> = {
+  'local-whisper': 'Local Whisper',
+  assemblyai: 'AssemblyAI',
+  elevenlabs: 'ElevenLabs',
+  openrouter: 'OpenRouter',
+};
 
 export function findSttEntry(id: string): SttCatalogEntry | undefined {
   return STT_CATALOG.find((m) => m.id === id);

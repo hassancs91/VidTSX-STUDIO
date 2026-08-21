@@ -8,6 +8,7 @@ export interface ProviderCredentials {
   fal?: string;
   openrouter?: string;
   assemblyai?: string;
+  elevenlabs?: string;
   zai?: string;
 }
 
