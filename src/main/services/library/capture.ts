@@ -13,7 +13,6 @@
 // No credential handling on our side.
 
 import fs from 'fs/promises';
-import { BrowserWindow, session } from 'electron';
 import type { LibraryCaptureEvent } from '../../../shared/ipc/types/library';
 import { logEngine } from '../../../logging/log-engine';
 import { ensureLibraryRoot } from './library-paths';
@@ -24,22 +23,19 @@ import {
   reserveLibraryFile,
   slugify,
 } from './library-filing';
+import {
+  assertHttpUrl,
+  createCaptureWindow,
+  CAPTURE_SCALE as SCALE,
+  MAX_CAPTURE_HEIGHT,
+  VIEWPORTS,
+  type CaptureViewport,
+} from './capture-window';
 
 const log = logEngine.createLogger('WebCapture');
 
-export type CaptureViewport = 'landscape' | 'portrait' | 'desktop';
+export type { CaptureViewport } from './capture-window';
 
-/** CSS-pixel viewport presets; rendering runs at 2× via zoom for crisp shot
- *  material (the window is created at 2× physical size). */
-const VIEWPORTS: Record<CaptureViewport, { width: number; height: number }> = {
-  landscape: { width: 1280, height: 720 },
-  portrait: { width: 390, height: 844 },
-  desktop: { width: 1440, height: 900 },
-};
-
-const SCALE = 2;
-/** Full-page cap in PHYSICAL pixels (L6) — taller pages capture the top. */
-const MAX_CAPTURE_HEIGHT = 8000;
 const LOAD_TIMEOUT_MS = 45_000;
 const SETTLE_DELAY_MS = 1_500;
 /** Visible mode waits for a human; give up eventually so an agent turn can't
@@ -68,7 +64,6 @@ type CaptureEventListener = (event: LibraryCaptureEvent) => void;
 
 const listeners = new Set<CaptureEventListener>();
 let pendingVisible: ((action: 'capture' | 'cancel') => void) | null = null;
-let captureSeq = 0;
 
 export function onCaptureEvent(listener: CaptureEventListener): () => void {
   listeners.add(listener);
@@ -94,46 +89,13 @@ export function triggerVisibleCapture(action: 'capture' | 'cancel'): boolean {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function assertHttpUrl(url: string): void {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw new Error(`Not a valid URL: ${url}`);
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new Error(`Only http(s) pages can be captured (got ${parsed.protocol}//).`);
-  }
-}
-
 export async function captureWebpage(req: CaptureWebpageRequest): Promise<CaptureWebpageResult> {
   assertHttpUrl(req.url);
   if (req.visible && pendingVisible) {
     throw new Error('A visible capture is already waiting for the user — finish or cancel it first.');
   }
   const viewport = VIEWPORTS[req.viewport ?? 'landscape'];
-
-  // Fresh in-memory session per capture: no 'persist:' prefix → nothing on
-  // disk, and nothing shared with the app or previous captures.
-  const ses = session.fromPartition(`webpage-capture-${++captureSeq}`);
-  ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
-  ses.setPermissionCheckHandler(() => false);
-
-  const win = new BrowserWindow({
-    show: req.visible === true,
-    width: viewport.width * SCALE,
-    height: viewport.height * SCALE,
-    webPreferences: {
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false,
-      session: ses,
-      backgroundThrottling: false,
-      zoomFactor: SCALE,
-    },
-  });
-  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  win.webContents.setAudioMuted(true);
+  const win = createCaptureWindow(req.viewport ?? 'landscape', req.visible === true);
 
   const destroy = () => {
     if (!win.isDestroyed()) win.destroy();
