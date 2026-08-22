@@ -17,4 +17,12 @@ export const IMAGE_PROVIDER_PRESETS: ImageProviderConfig[] = [
     defaultModel: 'black-forest-labs/flux.2-pro',
     enabled: false,
   },
+  {
+    id: 'cloudflare',
+    name: 'Cloudflare Workers AI',
+    type: 'cloudflare',
+    apiKey: '',
+    defaultModel: '@cf/black-forest-labs/flux-1-schnell',
+    enabled: false,
+  },
 ];

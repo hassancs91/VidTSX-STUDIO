@@ -41,6 +41,14 @@ const SHARED_KEY_ROWS: SharedKeyRowDef[] = [
     imageTest: true,
   },
   {
+    id: 'cloudflare',
+    label: 'Cloudflare Workers AI',
+    hint: 'dash.cloudflare.com → API tokens (Workers AI scope) — 10k free neurons/day',
+    placeholder: 'API token',
+    capabilities: ['Images'],
+    imageTest: true,
+  },
+  {
     id: 'assemblyai',
     label: 'AssemblyAI',
     hint: 'assemblyai.com — word timing + speakers',
@@ -88,7 +96,7 @@ interface ImageTestState {
  * itself.
  */
 export function ApiKeysSection() {
-  const { hasKeys, loading: keysLoading, saving: keysSaving, error: keysError, saveKeys } = useProviderKeys();
+  const { hasKeys, cloudflareAccountId, loading: keysLoading, saving: keysSaving, error: keysError, saveKeys } = useProviderKeys();
   const llm = useLlmProviders();
 
   const [drafts, setDrafts] = useState<Partial<Record<ProviderKeyId, string>>>({});
@@ -97,18 +105,27 @@ export function ApiKeysSection() {
   const [llmDirty, setLlmDirty] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [imageTests, setImageTests] = useState<Partial<Record<ProviderKeyId, ImageTestState>>>({});
+  // null = untouched; the saved value renders until the user edits the field.
+  const [accountIdDraft, setAccountIdDraft] = useState<string | null>(null);
 
-  const keysDirty = clearing.length > 0 || Object.values(drafts).some((v) => v && v.trim().length > 0);
+  const accountIdDirty = accountIdDraft !== null && accountIdDraft.trim() !== cloudflareAccountId;
+  const keysDirty =
+    clearing.length > 0 || accountIdDirty || Object.values(drafts).some((v) => v && v.trim().length > 0);
   const dirty = keysDirty || llmDirty;
   const saving = keysSaving || llm.saving;
 
   const handleSave = async () => {
     let ok = true;
     if (keysDirty) {
-      ok = (await saveKeys(drafts, clearing.length ? clearing : undefined)) && ok;
+      ok = (await saveKeys(
+        drafts,
+        clearing.length ? clearing : undefined,
+        accountIdDirty ? (accountIdDraft ?? '').trim() : undefined,
+      )) && ok;
       if (ok) {
         setDrafts({});
         setClearing([]);
+        setAccountIdDraft(null);
       }
     }
     if (llmDirty) {
@@ -129,7 +146,11 @@ export function ApiKeysSection() {
   const testImageProvider = async (id: ProviderKeyId) => {
     setImageTests((prev) => ({ ...prev, [id]: { testing: true } }));
     try {
-      const result = await window.api.imageProviderTest({ providerId: id, apiKey: drafts[id]?.trim() || undefined });
+      const result = await window.api.imageProviderTest({
+        providerId: id,
+        apiKey: drafts[id]?.trim() || undefined,
+        accountId: id === 'cloudflare' ? accountIdDraft?.trim() || undefined : undefined,
+      });
       setImageTests((prev) => ({
         ...prev,
         [id]: { testing: false, success: result.success, durationMs: result.durationMs, error: result.error },
@@ -173,6 +194,9 @@ export function ApiKeysSection() {
         {sharedRows.map((row) => {
           const saved = hasKeys[row.id] && !clearing.includes(row.id);
           const test = imageTests[row.id];
+          // Cloudflare needs both credential halves before a test can run.
+          const missingAccountId =
+            row.id === 'cloudflare' && !(accountIdDraft ?? cloudflareAccountId).trim();
           return (
             <div key={row.id} className="p-3" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
               <div className="flex items-center justify-between gap-2 mb-1">
@@ -189,7 +213,7 @@ export function ApiKeysSection() {
                   {row.imageTest && (
                     <button
                       onClick={() => testImageProvider(row.id)}
-                      disabled={test?.testing || (!saved && !drafts[row.id]?.trim())}
+                      disabled={test?.testing || (!saved && !drafts[row.id]?.trim()) || missingAccountId}
                       className="text-[10px] text-text-dim hover:text-text-secondary transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
                       title="Generates a tiny test image with this key"
                       type="button"
@@ -240,6 +264,19 @@ export function ApiKeysSection() {
                   {visible[row.id] ? <EyeOff size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
                 </button>
               </div>
+              {row.id === 'cloudflare' && (
+                <div className="mt-1.5">
+                  <div className="text-[10px] text-text-dim mb-1">
+                    Account ID — dash.cloudflare.com, right sidebar of your account home (not a secret)
+                  </div>
+                  <TextInput
+                    value={accountIdDraft ?? cloudflareAccountId}
+                    onChange={(e) => setAccountIdDraft(e.target.value)}
+                    placeholder="Cloudflare account ID"
+                    className="w-full"
+                  />
+                </div>
+              )}
               {test && !test.testing && (
                 <div className={`flex items-center gap-1 text-[10px] mt-1 ${test.success ? 'text-accent-green' : 'text-accent-red'}`}>
                   {test.success ? <Check size={11} strokeWidth={2} /> : <X size={11} strokeWidth={2} />}

@@ -3,13 +3,16 @@ import type { ProviderKeyId } from '@shared/ipc/types';
 
 export interface ProviderKeysState {
   hasKeys: Record<ProviderKeyId, boolean>;
+  /** Cloudflare account id — plain (non-secret) companion to the cloudflare token. */
+  cloudflareAccountId: string;
   loading: boolean;
   saving: boolean;
   error: string | null;
 }
 
 const INITIAL: ProviderKeysState = {
-  hasKeys: { fal: false, openrouter: false, assemblyai: false, elevenlabs: false, zai: false },
+  hasKeys: { fal: false, openrouter: false, assemblyai: false, elevenlabs: false, zai: false, cloudflare: false },
+  cloudflareAccountId: '',
   loading: true,
   saving: false,
   error: null,
@@ -29,6 +32,7 @@ export function useProviderKeys() {
       setState((prev) => ({
         ...prev,
         hasKeys: res.hasKeys,
+        cloudflareAccountId: res.cloudflareAccountId ?? '',
         loading: false,
         error: res.success ? null : (res.error ?? 'Failed to load keys'),
       }));
@@ -46,13 +50,18 @@ export function useProviderKeys() {
   }, [refresh]);
 
   const saveKeys = useCallback(
-    async (keys: Partial<Record<ProviderKeyId, string>>, clear?: ProviderKeyId[]) => {
+    async (
+      keys: Partial<Record<ProviderKeyId, string>>,
+      clear?: ProviderKeyId[],
+      cloudflareAccountId?: string,
+    ) => {
       setState((prev) => ({ ...prev, saving: true, error: null }));
       try {
-        const res = await window.api.providerKeysSave({ keys, clear });
+        const res = await window.api.providerKeysSave({ keys, clear, cloudflareAccountId });
         setState((prev) => ({
           ...prev,
           hasKeys: res.hasKeys,
+          cloudflareAccountId: res.cloudflareAccountId ?? prev.cloudflareAccountId,
           saving: false,
           error: res.success ? null : (res.error ?? 'Failed to save keys'),
         }));

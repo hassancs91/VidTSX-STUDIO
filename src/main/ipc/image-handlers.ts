@@ -4,7 +4,7 @@ import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 
 const log = logEngine.createLogger('ImageHandlers');
 import type { ImageProviderConfig } from '../../image-engine';
-import { getImageProviders, saveImageProviders, getProviderCredentials } from '../services/settings';
+import { getImageProviders, saveImageProviders, getProviderCredentials, getCloudflareAccountId } from '../services/settings';
 import { getProviderModels } from '../services/provider-models';
 import { initImageEngine, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
 import { aiUsageService } from '../services/ai-usage';
@@ -36,6 +36,7 @@ function sharedKeyFor(
 ): string {
   if (type === 'fal') return credentials.fal ?? '';
   if (type === 'openrouter') return credentials.openrouter ?? '';
+  if (type === 'cloudflare') return credentials.cloudflare ?? '';
   return '';
 }
 
@@ -133,6 +134,16 @@ export async function handleImageProviderTest(
       return { success: false, error: `No model configured for provider "${data.providerId}"` };
     }
 
+    // Cloudflare's second credential half — draft from the UI wins, then the
+    // stored plain settings value.
+    const accountId =
+      providerType === 'cloudflare'
+        ? data.accountId?.trim() || (await getCloudflareAccountId())
+        : undefined;
+    if (providerType === 'cloudflare' && !accountId) {
+      return { success: false, error: 'Add your Cloudflare account ID in the Providers tab first' };
+    }
+
     // Create a temporary provider for testing using draft values when present.
     // The catalog drives the model list; a draft model id not (yet) in the
     // catalog is appended so it can be exercised by the test.
@@ -146,6 +157,7 @@ export async function handleImageProviderTest(
       name: config?.name || data.providerId,
       type: providerType,
       apiKey,
+      accountId,
       defaultModel: defaultModel || '',
       enabled: true,
       models: catalog,

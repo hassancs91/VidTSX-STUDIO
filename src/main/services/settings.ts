@@ -352,6 +352,20 @@ export async function saveProviderCredentials(
 }
 
 /**
+ * Cloudflare account id — the non-secret half of the Workers AI credential
+ * pair (the API token lives in providerCredentials under safeStorage). Stored
+ * as an ordinary plaintext settings value (NEXT_FEATURES_DESIGN §Q2).
+ */
+export async function getCloudflareAccountId(): Promise<string> {
+  const v = getValue<string>('cloudflareAccountId');
+  return typeof v === 'string' ? v : '';
+}
+
+export async function setCloudflareAccountId(accountId: string): Promise<void> {
+  setValue('cloudflareAccountId', accountId.trim());
+}
+
+/**
  * User-edited provider model catalogs (AI page → Providers → Model Catalogs).
  * Only providers×categories the user customized are stored; everything else
  * falls back to PROVIDER_MODEL_DEFAULTS. Shape:
@@ -500,6 +514,8 @@ export const settingsService = {
   saveImageProviders,
   getProviderCredentials,
   saveProviderCredentials,
+  getCloudflareAccountId,
+  setCloudflareAccountId,
   getOpenRouterApiKey,
   getSttProviders,
   saveSttProviders,

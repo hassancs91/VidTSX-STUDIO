@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { FalImageProvider } from './providers/fal-provider';
 import { OpenRouterProvider } from './providers/openrouter-provider';
+import { CloudflareImageProvider } from './providers/cloudflare-provider';
 import { logEngine } from '../logging/log-engine';
 
 const log = logEngine.createLogger('Image');
@@ -29,6 +30,11 @@ class ImageEngine {
       provider = new FalImageProvider(config.id, config.apiKey, config.defaultModel, config.models);
     } else if (config.type === 'openrouter') {
       provider = new OpenRouterProvider(config.id, config.apiKey, config.defaultModel, config.models);
+    } else if (config.type === 'cloudflare') {
+      if (!config.accountId) {
+        throw new Error(`Cloudflare account ID required for image provider "${config.id}"`);
+      }
+      provider = new CloudflareImageProvider(config.id, config.apiKey, config.accountId, config.defaultModel, config.models);
     } else {
       throw new Error(`Unknown image provider type: ${config.type}`);
     }

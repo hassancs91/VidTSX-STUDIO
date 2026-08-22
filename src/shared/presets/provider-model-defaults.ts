@@ -36,6 +36,15 @@ export const PROVIDER_MODEL_DEFAULTS: Record<
       { id: 'black-forest-labs/flux.2-flex', name: 'FLUX.2 Flex' },
     ],
   },
+  cloudflare: {
+    image: [
+      { id: '@cf/black-forest-labs/flux-1-schnell', name: 'FLUX.1 Schnell' },
+      { id: '@cf/black-forest-labs/flux-2-klein-9b', name: 'FLUX.2 Klein 9B' },
+      { id: '@cf/black-forest-labs/flux-2-dev', name: 'FLUX.2 Dev' },
+      { id: '@cf/leonardo/lucid-origin', name: 'Lucid Origin' },
+      { id: '@cf/bytedance/stable-diffusion-xl-lightning', name: 'SDXL Lightning' },
+    ],
+  },
 };
 
 /** Every provider×category pair that has a default catalog, in display order. */

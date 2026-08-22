@@ -5,7 +5,7 @@ export interface ImageProviderInfo {
   id: string;
   name: string;
   /** 'local' is the on-device sd-cli bridge (never stored in provider settings). */
-  type: 'fal' | 'openrouter' | 'local';
+  type: 'fal' | 'openrouter' | 'cloudflare' | 'local';
   defaultModel: string;
   enabled: boolean;
   hasApiKey: boolean;
@@ -30,7 +30,7 @@ export interface ImageProvidersSaveRequest {
   providers: Array<{
     id: string;
     name: string;
-    type: 'fal' | 'openrouter' | 'local';
+    type: 'fal' | 'openrouter' | 'cloudflare' | 'local';
     apiKey: string;
     defaultModel: string;
     enabled: boolean;
@@ -49,6 +49,8 @@ export interface ImageProviderTestRequest {
   apiKey?: string;
   /** Draft default model — if set, takes precedence over the saved one for this test only */
   defaultModel?: string;
+  /** Draft Cloudflare account id — if set, takes precedence over the saved one for this test only */
+  accountId?: string;
 }
 
 export interface ImageProviderTestResponse {

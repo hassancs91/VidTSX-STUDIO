@@ -1,6 +1,6 @@
 import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 import { LocalSdImageProvider } from '../../image-engine/providers/local-sd-provider';
-import { loadSettings, getProviderCredentials } from './settings';
+import { loadSettings, getProviderCredentials, getCloudflareAccountId } from './settings';
 import { getProviderModels } from './provider-models';
 import { applySdGenerationPreflight } from './sdimage-preflight';
 import { logEngine } from '../../logging/log-engine';
@@ -40,13 +40,19 @@ export async function initImageEngine(): Promise<void> {
       const sharedKey =
         preset.type === 'fal' ? credentials.fal :
         preset.type === 'openrouter' ? credentials.openrouter :
+        preset.type === 'cloudflare' ? credentials.cloudflare :
         undefined;
       const apiKey = sharedKey || config.apiKey;
       if (!apiKey) continue;
+      // Cloudflare needs both credential halves — without the account id the
+      // run URL can't be built, so the provider stays unregistered.
+      const accountId = preset.type === 'cloudflare' ? await getCloudflareAccountId() : undefined;
+      if (preset.type === 'cloudflare' && !accountId) continue;
       try {
         imageEngine.register({
           ...config,
           apiKey,
+          accountId,
           enabled: true,
           models: await getProviderModels(preset.id, 'image'),
         });
