@@ -249,15 +249,16 @@ export function getChartRows(filter: AiUsageFilter): {
   timestamp: string;
   provider: string;
   tokens: number;
+  costUsd: number;
 }[] {
   const database = getDb();
   const where = buildWhere(filter);
   return database
     .prepare(
-      `SELECT timestamp, provider, (input_tokens + output_tokens) AS tokens
+      `SELECT timestamp, provider, (input_tokens + output_tokens) AS tokens, cost_usd AS costUsd
        FROM ai_usage_entries${where.sql}`
     )
-    .all(...where.params) as { timestamp: string; provider: string; tokens: number }[];
+    .all(...where.params) as { timestamp: string; provider: string; tokens: number; costUsd: number }[];
 }
 
 export function getLog(

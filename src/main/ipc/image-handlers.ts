@@ -6,6 +6,7 @@ const log = logEngine.createLogger('ImageHandlers');
 import type { ImageProviderConfig } from '../../image-engine';
 import { getImageProviders, saveImageProviders, getProviderCredentials, getCloudflareAccountId } from '../services/settings';
 import { getProviderModels } from '../services/provider-models';
+import { getDefaultImageModelPriceUsd } from '../../shared/presets/provider-model-defaults';
 import { initImageEngine, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
 import { aiUsageService } from '../services/ai-usage';
 import type {
@@ -174,6 +175,21 @@ export async function handleImageProviderTest(
         numImages: 1,
       });
 
+      // Log the test generation like the LLM provider test does — it is a
+      // real billed request.
+      aiUsageService.appendEntry({
+        timestamp: new Date().toISOString(),
+        provider: data.providerId,
+        model: result.model || defaultModel,
+        featureSource: 'provider-test',
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadInputTokens: 0,
+        costUsd: getDefaultImageModelPriceUsd(data.providerId, result.model || defaultModel),
+        durationMs: result.durationMs ?? 0,
+        requestType: 'image',
+      }).catch(() => {});
+
       return {
         success: true,
         durationMs: result.durationMs,
@@ -237,16 +253,19 @@ export async function handleImageGenerate(
       ? await imageEngine.generateWith(data.providerId, engineRequest)
       : await imageEngine.generate(engineRequest);
 
-    // Log usage (fire-and-forget)
+    // Log usage (fire-and-forget). Cost = shipped-default per-image estimate
+    // × images returned; unknown models/providers (incl. local) stay $0.
+    const usageProvider = data.providerId || imageEngine.getActiveProvider() || 'unknown';
+    const usageModel = result.model || data.model || 'unknown';
     aiUsageService.appendEntry({
       timestamp: new Date().toISOString(),
-      provider: data.providerId || imageEngine.getActiveProvider() || 'unknown',
-      model: result.model || data.model || 'unknown',
+      provider: usageProvider,
+      model: usageModel,
       featureSource: 'image-generation',
       inputTokens: 0,
       outputTokens: 0,
       cacheReadInputTokens: 0,
-      costUsd: 0,
+      costUsd: getDefaultImageModelPriceUsd(usageProvider, usageModel) * result.images.length,
       durationMs: result.durationMs ?? 0,
       requestType: 'image',
     }).catch(() => {});

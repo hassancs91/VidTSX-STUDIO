@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { AiUsageSummary, AiUsageChartData, AiUsageEntry, AiUsagePeriod } from '../../shared/types/ai-usage';
+import type { AiUsageSummary, AiUsageChartData, AiUsageEntry, AiUsagePeriod, AiUsageMetric } from '../../shared/types/ai-usage';
 
 export function useAiUsage() {
   const [summary, setSummary] = useState<AiUsageSummary | null>(null);
@@ -7,6 +7,7 @@ export function useAiUsage() {
   const [logEntries, setLogEntries] = useState<AiUsageEntry[]>([]);
   const [logTotal, setLogTotal] = useState(0);
   const [period, setPeriod] = useState<AiUsagePeriod>('daily');
+  const [metric, setMetric] = useState<AiUsageMetric>('tokens');
   const [loading, setLoading] = useState(true);
   const [providerFilter, setProviderFilter] = useState<string | undefined>(undefined);
 
@@ -18,11 +19,11 @@ export function useAiUsage() {
   }, [providerFilter]);
 
   const loadChart = useCallback(async () => {
-    const res = await window.api.aiUsageGetChart({ period, provider: providerFilter });
+    const res = await window.api.aiUsageGetChart({ period, metric, provider: providerFilter });
     if (res.success && res.chartData) {
       setChartData(res.chartData);
     }
-  }, [period, providerFilter]);
+  }, [period, metric, providerFilter]);
 
   const loadLog = useCallback(async (offset = 0) => {
     const res = await window.api.aiUsageGetLog({ limit: 50, offset, provider: providerFilter });
@@ -59,7 +60,7 @@ export function useAiUsage() {
     refresh();
   }, [refresh]);
 
-  // Re-fetch chart when period changes
+  // Re-fetch chart when period or metric changes
   useEffect(() => {
     loadChart();
   }, [loadChart]);
@@ -71,6 +72,8 @@ export function useAiUsage() {
     logTotal,
     period,
     setPeriod,
+    metric,
+    setMetric,
     providerFilter,
     setProviderFilter,
     loading,

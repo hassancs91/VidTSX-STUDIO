@@ -56,6 +56,12 @@ export interface SttCatalogEntry {
   name: string;
   /** Informational price display — no billing logic in the app. */
   priceText?: string;
+  /**
+   * Estimated price per audio hour, for the usage dashboard's cost column
+   * only (multiplied by transcript duration). Informational like priceText —
+   * absent/unknown logs $0. Local models omit it (free).
+   */
+  pricePerHourUsd?: number;
   /** Enforced cap, in minutes (OpenRouter text-only entries). */
   maxDurationMinutes?: number;
   /** Local whisper models must be downloaded before use. */
@@ -114,17 +120,17 @@ export const STT_CATALOG: readonly SttCatalogEntry[] = [
   // ── AssemblyAI (exact word timestamps, speakers, highlights, sentiment) ──
   // 'universal' is the auto pair (universal-3-5-pro with universal-2 fallback,
   // resolved in the provider); the pinned entries pass through as-is.
-  { id: 'assemblyai/universal', provider: 'assemblyai', model: 'universal', name: 'AssemblyAI Universal (auto)', priceText: '~$0.21 / hour', features: ASSEMBLYAI_FEATURES },
-  { id: 'assemblyai/universal-3-5-pro', provider: 'assemblyai', model: 'universal-3-5-pro', name: 'AssemblyAI Universal-3.5 Pro', priceText: '~$0.21 / hour', features: ASSEMBLYAI_FEATURES },
-  { id: 'assemblyai/universal-2', provider: 'assemblyai', model: 'universal-2', name: 'AssemblyAI Universal-2 (multilingual)', priceText: '~$0.15 / hour', features: ASSEMBLYAI_FEATURES },
+  { id: 'assemblyai/universal', provider: 'assemblyai', model: 'universal', name: 'AssemblyAI Universal (auto)', priceText: '~$0.21 / hour', pricePerHourUsd: 0.21, features: ASSEMBLYAI_FEATURES },
+  { id: 'assemblyai/universal-3-5-pro', provider: 'assemblyai', model: 'universal-3-5-pro', name: 'AssemblyAI Universal-3.5 Pro', priceText: '~$0.21 / hour', pricePerHourUsd: 0.21, features: ASSEMBLYAI_FEATURES },
+  { id: 'assemblyai/universal-2', provider: 'assemblyai', model: 'universal-2', name: 'AssemblyAI Universal-2 (multilingual)', priceText: '~$0.15 / hour', pricePerHourUsd: 0.15, features: ASSEMBLYAI_FEATURES },
 
   // ── ElevenLabs Scribe (exact word timestamps, up to 32 speakers, audio events) ──
-  { id: 'elevenlabs/scribe-v2', provider: 'elevenlabs', model: 'scribe_v2', name: 'ElevenLabs Scribe v2', priceText: '~$0.22 / hour', features: ELEVENLABS_FEATURES },
+  { id: 'elevenlabs/scribe-v2', provider: 'elevenlabs', model: 'scribe_v2', name: 'ElevenLabs Scribe v2', priceText: '~$0.22 / hour', pricePerHourUsd: 0.22, features: ELEVENLABS_FEATURES },
 
   // ── OpenRouter (plain text only — no timestamps; 60s upstream timeout per chunk) ──
   { id: 'openrouter/openai/whisper-large-v3-turbo', provider: 'openrouter', model: 'openai/whisper-large-v3-turbo', name: 'Whisper Large-v3 Turbo (OpenRouter)', priceText: 'per-minute, see openrouter.ai', maxDurationMinutes: 60, features: NO_FEATURES },
   { id: 'openrouter/openai/whisper-large-v3', provider: 'openrouter', model: 'openai/whisper-large-v3', name: 'Whisper Large-v3 (OpenRouter)', priceText: 'per-minute, see openrouter.ai', maxDurationMinutes: 60, features: NO_FEATURES },
-  { id: 'openrouter/openai/whisper-1', provider: 'openrouter', model: 'openai/whisper-1', name: 'Whisper 1 (OpenRouter)', priceText: '~$0.006 / minute', maxDurationMinutes: 60, features: NO_FEATURES },
+  { id: 'openrouter/openai/whisper-1', provider: 'openrouter', model: 'openai/whisper-1', name: 'Whisper 1 (OpenRouter)', priceText: '~$0.006 / minute', pricePerHourUsd: 0.36, maxDurationMinutes: 60, features: NO_FEATURES },
 ];
 
 /** Free + offline once the model is downloaded; works with zero configuration. */

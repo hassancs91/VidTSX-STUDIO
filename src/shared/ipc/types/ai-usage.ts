@@ -1,4 +1,4 @@
-import type { AiUsageSummary, AiUsagePeriod, AiUsageChartData, AiUsageEntry, AiFeatureSource } from '@shared/types/ai-usage';
+import type { AiUsageSummary, AiUsagePeriod, AiUsageMetric, AiUsageChartData, AiUsageEntry, AiFeatureSource } from '@shared/types/ai-usage';
 
 // ─── AI Usage tracking ───
 export interface AiUsageGetSummaryRequest {
@@ -15,6 +15,8 @@ export interface AiUsageGetSummaryResponse {
 
 export interface AiUsageGetChartRequest {
   period: AiUsagePeriod;
+  /** Y-axis metric; defaults to 'tokens'. */
+  metric?: AiUsageMetric;
   startDate?: string;
   endDate?: string;
   provider?: string;

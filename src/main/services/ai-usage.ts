@@ -4,6 +4,7 @@ import type {
   AiUsageSummary,
   AiUsageChartData,
   AiUsagePeriod,
+  AiUsageMetric,
   AiUsageFilter,
 } from '../../shared/types/ai-usage';
 import * as db from './ai-usage-db';
@@ -56,21 +57,26 @@ class AiUsageService {
     return db.getSummary(filter);
   }
 
-  getChartData(period: AiUsagePeriod, filter: AiUsageFilter = {}): AiUsageChartData {
+  getChartData(
+    period: AiUsagePeriod,
+    filter: AiUsageFilter = {},
+    metric: AiUsageMetric = 'tokens'
+  ): AiUsageChartData {
     const keyFn = period === 'daily' ? getDayKey : period === 'weekly' ? getWeekKey : getMonthKey;
 
     const rows = db.getChartRows(filter);
 
     const timeKeys = new Set<string>();
     const providerSet = new Set<string>();
-    const matrix = new Map<string, number>(); // "timeKey|provider" -> tokens
+    const matrix = new Map<string, number>(); // "timeKey|provider" -> metric value
 
     for (const row of rows) {
       const timeKey = keyFn(row.timestamp);
       timeKeys.add(timeKey);
       providerSet.add(row.provider);
       const mapKey = `${timeKey}|${row.provider}`;
-      matrix.set(mapKey, (matrix.get(mapKey) ?? 0) + row.tokens);
+      const value = metric === 'requests' ? 1 : metric === 'cost' ? row.costUsd : row.tokens;
+      matrix.set(mapKey, (matrix.get(mapKey) ?? 0) + value);
     }
 
     const sortedKeys = [...timeKeys].sort();

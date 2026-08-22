@@ -12,6 +12,8 @@ export function AiUsageDashboard() {
     logTotal,
     period,
     setPeriod,
+    metric,
+    setMetric,
     loading,
     refresh,
     loadMore,
@@ -42,7 +44,13 @@ export function AiUsageDashboard() {
       <AiUsageSummaryCards summary={summary} />
 
       {/* Chart */}
-      <AiUsageChart chartData={chartData} period={period} onPeriodChange={setPeriod} />
+      <AiUsageChart
+        chartData={chartData}
+        period={period}
+        onPeriodChange={setPeriod}
+        metric={metric}
+        onMetricChange={setMetric}
+      />
 
       {/* Log table */}
       <AiUsageLogTable

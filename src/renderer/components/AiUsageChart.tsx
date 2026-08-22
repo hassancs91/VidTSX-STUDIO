@@ -1,9 +1,11 @@
-import type { AiUsageChartData, AiUsagePeriod } from '../../shared/types/ai-usage';
+import type { AiUsageChartData, AiUsagePeriod, AiUsageMetric } from '../../shared/types/ai-usage';
 
 interface AiUsageChartProps {
   chartData: AiUsageChartData | null;
   period: AiUsagePeriod;
   onPeriodChange: (period: AiUsagePeriod) => void;
+  metric: AiUsageMetric;
+  onMetricChange: (metric: AiUsageMetric) => void;
 }
 
 const PERIODS: Array<{ id: AiUsagePeriod; label: string }> = [
@@ -11,6 +13,18 @@ const PERIODS: Array<{ id: AiUsagePeriod; label: string }> = [
   { id: 'weekly', label: 'Weekly' },
   { id: 'monthly', label: 'Monthly' },
 ];
+
+const METRICS: Array<{ id: AiUsageMetric; label: string }> = [
+  { id: 'tokens', label: 'Tokens' },
+  { id: 'requests', label: 'Requests' },
+  { id: 'cost', label: 'Cost' },
+];
+
+const METRIC_TITLES: Record<AiUsageMetric, string> = {
+  tokens: 'Tokens Over Time',
+  requests: 'Requests Over Time',
+  cost: 'Estimated Cost Over Time',
+};
 
 // Distinct colors for provider lines on dark background
 const LINE_COLORS = [
@@ -30,13 +44,24 @@ const Y_AXIS_WIDTH = 50;
 const CHART_WIDTH = 560;
 const DOT_RADIUS = 3;
 
-function formatYValue(v: number): string {
+function formatYValue(v: number, metric: AiUsageMetric): string {
+  if (metric === 'cost') {
+    if (v >= 100) return '$' + v.toFixed(0);
+    if (v >= 1) return '$' + v.toFixed(2);
+    return '$' + v.toFixed(3);
+  }
   if (v >= 1_000_000) return (v / 1_000_000).toFixed(1) + 'M';
   if (v >= 1_000) return (v / 1_000).toFixed(0) + 'K';
   return v.toFixed(0);
 }
 
-export function AiUsageChart({ chartData, period, onPeriodChange }: AiUsageChartProps) {
+function formatTooltipValue(v: number, metric: AiUsageMetric): string {
+  if (metric === 'cost') return '$' + v.toFixed(4);
+  if (metric === 'requests') return `${v.toLocaleString()} request${v === 1 ? '' : 's'}`;
+  return `${v.toLocaleString()} tokens`;
+}
+
+export function AiUsageChart({ chartData, period, onPeriodChange, metric, onMetricChange }: AiUsageChartProps) {
   const hasData = chartData && chartData.labels.length > 0 && chartData.series.length > 0;
 
   // Compute max token value across all series
@@ -56,7 +81,7 @@ export function AiUsageChart({ chartData, period, onPeriodChange }: AiUsageChart
   // Grid lines
   const gridLines = [0.25, 0.5, 0.75, 1].map((frac) => ({
     y: CHART_HEIGHT * (1 - frac),
-    label: formatYValue(maxTokens * frac),
+    label: formatYValue(maxTokens * frac, metric),
   }));
 
   function getX(i: number): number {
@@ -70,25 +95,45 @@ export function AiUsageChart({ chartData, period, onPeriodChange }: AiUsageChart
 
   return (
     <div className="bg-app-surface rounded-lg p-3 border border-border">
-      {/* Header: title + period selector */}
+      {/* Header: title + metric + period selectors */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] text-text-muted font-medium">Tokens Over Time</span>
-        <div className="flex items-center gap-1">
-          {PERIODS.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => onPeriodChange(p.id)}
-              className={`
-                px-2 h-[22px] rounded text-[10px] font-medium transition-colors duration-150
-                ${period === p.id
-                  ? 'bg-app-active text-accent-light'
-                  : 'text-text-dim hover:bg-app-hover hover:text-text-muted'
-                }
-              `}
-            >
-              {p.label}
-            </button>
-          ))}
+        <span className="text-[11px] text-text-muted font-medium">{METRIC_TITLES[metric]}</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            {METRICS.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => onMetricChange(m.id)}
+                className={`
+                  px-2 h-[22px] rounded text-[10px] font-medium transition-colors duration-150
+                  ${metric === m.id
+                    ? 'bg-app-active text-accent-light'
+                    : 'text-text-dim hover:bg-app-hover hover:text-text-muted'
+                  }
+                `}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="w-px h-[14px] bg-border" />
+          <div className="flex items-center gap-1">
+            {PERIODS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onPeriodChange(p.id)}
+                className={`
+                  px-2 h-[22px] rounded text-[10px] font-medium transition-colors duration-150
+                  ${period === p.id
+                    ? 'bg-app-active text-accent-light'
+                    : 'text-text-dim hover:bg-app-hover hover:text-text-muted'
+                  }
+                `}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -186,7 +231,7 @@ export function AiUsageChart({ chartData, period, onPeriodChange }: AiUsageChart
                         className="hover:r-[5px]"
                       >
                         <title>
-                          {series.provider} — {chartData.labels[i]}: {v.toLocaleString()} tokens
+                          {series.provider} — {chartData.labels[i]}: {formatTooltipValue(v, metric)}
                         </title>
                       </circle>
                     ))}

@@ -30,11 +30,15 @@ export async function handleAiUsageGetChart(
   data: AiUsageGetChartRequest,
 ): Promise<AiUsageGetChartResponse> {
   try {
-    const chartData = aiUsageService.getChartData(data.period, {
-      startDate: data.startDate,
-      endDate: data.endDate,
-      provider: data.provider,
-    });
+    const chartData = aiUsageService.getChartData(
+      data.period,
+      {
+        startDate: data.startDate,
+        endDate: data.endDate,
+        provider: data.provider,
+      },
+      data.metric,
+    );
     return { success: true, chartData };
   } catch (err) {
     return { success: false, error: String(err) };

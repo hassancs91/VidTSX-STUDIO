@@ -28,6 +28,12 @@ export interface VideoModelCatalogEntry {
   allowedDurations: readonly number[];
   /** Aspect ratios this model accepts. */
   allowedAspectRatios: readonly string[];
+  /**
+   * Estimated price per second of output video, for the usage dashboard's
+   * cost column only (× requested duration). Informational — fal is the
+   * billing authority; absent/unknown logs $0.
+   */
+  pricePerSecondUsd?: number;
 }
 
 export const VIDEO_MAX_PROMPT_CHARS = 4000;
@@ -43,6 +49,7 @@ export const VIDEO_MODEL_CATALOG: readonly VideoModelCatalogEntry[] = [
     supportsAudio: false,
     allowedDurations: [5, 10],
     allowedAspectRatios: ['16:9', '9:16', '1:1'],
+    pricePerSecondUsd: 0.08,
   },
   {
     id: 'veo-3-fast',
@@ -54,6 +61,7 @@ export const VIDEO_MODEL_CATALOG: readonly VideoModelCatalogEntry[] = [
     supportsAudio: true,
     allowedDurations: [8],
     allowedAspectRatios: ['16:9', '9:16'],
+    pricePerSecondUsd: 0.15,
   },
   {
     id: 'wan-2.5',
@@ -76,6 +84,7 @@ export const VIDEO_MODEL_CATALOG: readonly VideoModelCatalogEntry[] = [
     supportsAudio: false,
     allowedDurations: [6, 10],
     allowedAspectRatios: ['16:9'],
+    pricePerSecondUsd: 0.045,
   },
   {
     id: 'seedance-1-lite',
@@ -87,6 +96,7 @@ export const VIDEO_MODEL_CATALOG: readonly VideoModelCatalogEntry[] = [
     supportsAudio: false,
     allowedDurations: [5, 10],
     allowedAspectRatios: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'],
+    pricePerSecondUsd: 0.03,
   },
 ];
 

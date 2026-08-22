@@ -11,6 +11,7 @@ import type {
   SttTranscribeRunRequest,
 } from '../../../shared/ipc/types/stt';
 import { extractAudioToWav, isAudioFile } from './extract-audio';
+import { aiUsageService } from '../ai-usage';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('stt-run');
@@ -59,7 +60,8 @@ export async function transcribeAudioFile(params: TranscribeAudioFileParams): Pr
   }
 
   const language = params.language && params.language !== 'auto' ? params.language : undefined;
-  return transcriptionEngine.transcribeWith(entry.provider, {
+  const start = Date.now();
+  const rich = await transcriptionEngine.transcribeWith(entry.provider, {
     audioPath: params.audioPath,
     model: entry.model,
     language,
@@ -70,6 +72,25 @@ export async function transcribeAudioFile(params: TranscribeAudioFileParams): Pr
     signal: params.signal,
     onProgress: params.onProgress,
   });
+
+  // Usage log (fire-and-forget) — every STT caller (Transcribe screen, Studio
+  // asset-transcriber, auto-cut) funnels through here. Cost is the catalog's
+  // informational per-hour estimate × transcript audio duration; local whisper
+  // and unpriced entries log $0.
+  aiUsageService.appendEntry({
+    timestamp: new Date().toISOString(),
+    provider: entry.provider,
+    model: entry.model,
+    featureSource: 'transcription',
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    costUsd: (entry.pricePerHourUsd ?? 0) * ((rich.result.duration || 0) / 3600),
+    durationMs: Date.now() - start,
+    requestType: 'stt',
+  }).catch(() => {});
+
+  return rich;
 }
 
 export async function runSttTranscription(

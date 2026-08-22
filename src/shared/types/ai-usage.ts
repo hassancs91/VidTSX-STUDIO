@@ -11,10 +11,11 @@ export type AiFeatureSource =
   | 'library-describe'
   | 'library-organize'
   | 'provider-test'
+  | 'transcription'
   | 'other';
 
 /** Type of AI request */
-export type AiRequestType = 'llm' | 'image' | 'local-llm';
+export type AiRequestType = 'llm' | 'image' | 'local-llm' | 'stt' | 'video';
 
 /** A single logged AI API request */
 export interface AiUsageEntry {
@@ -41,6 +42,12 @@ export interface AiUsageSummary {
 
 /** Chart time period */
 export type AiUsagePeriod = 'daily' | 'weekly' | 'monthly';
+
+/**
+ * What the chart's y-axis plots. Tokens only exist for LLM requests; requests
+ * and cost make the non-token types (image, stt, video) visible.
+ */
+export type AiUsageMetric = 'tokens' | 'requests' | 'cost';
 
 /** A single provider's token data across time buckets */
 export interface AiUsageChartSeries {

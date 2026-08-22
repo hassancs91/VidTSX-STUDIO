@@ -3,11 +3,13 @@ import {
   coerceVideoAspect,
   coerceVideoDuration,
   coerceVideoModel,
+  getVideoModel,
   VIDEO_MAX_PROMPT_CHARS,
 } from '../../shared/presets/video-models';
 import type { VideoGenerateRequest, VideoJobData } from '../../shared/ipc/types/video';
 import { buildVideoPayload } from './video-payloads';
 import { getProviderCredentials } from './settings';
+import { aiUsageService } from './ai-usage';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('VideoGen');
@@ -19,6 +21,8 @@ interface TrackedJob {
   durationSeconds: number;
   aspectRatio: string;
   hasAudio: boolean;
+  /** Submit time, for the usage log's wall-clock duration. */
+  submittedAt: number;
 }
 
 /** fal queue result shape shared by the curated video models. */
@@ -65,6 +69,7 @@ export async function submitVideoJob(req: VideoGenerateRequest): Promise<string>
     durationSeconds: normalized.durationSeconds,
     aspectRatio: normalized.aspectRatio,
     hasAudio: normalized.generateAudio ?? false,
+    submittedAt: Date.now(),
   });
 
   log.info('Video job submitted', { jobId: submitted.requestId, model: model.id, endpoint });
@@ -101,6 +106,22 @@ export async function getVideoJob(jobId: string): Promise<VideoJobData> {
       return { ...base, status: 'failed', error: 'Generation completed but returned no video.' };
     }
     jobs.delete(jobId);
+
+    // Usage log (fire-and-forget) — video generation's completion path. Cost
+    // is the catalog's informational per-second estimate × requested duration.
+    aiUsageService.appendEntry({
+      timestamp: new Date().toISOString(),
+      provider: 'fal',
+      model: tracked.model,
+      featureSource: 'flows',
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadInputTokens: 0,
+      costUsd: (getVideoModel(tracked.model)?.pricePerSecondUsd ?? 0) * tracked.durationSeconds,
+      durationMs: Date.now() - tracked.submittedAt,
+      requestType: 'video',
+    }).catch(() => {});
+
     return { ...base, status: 'completed', videoUrl };
   } catch (err) {
     jobs.delete(jobId);
