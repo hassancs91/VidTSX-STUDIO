@@ -9,6 +9,41 @@
 
 ## Completed phases
 
+### V1 BUILD ORDER Slice 3 — CLOUDFLARE WORKERS AI IMAGES SHIPPED (2026-08-22)
+**`docs/NEXT_FEATURES_DESIGN.md` Q2 (build-order row 3), commits NF4+.
+Checklist recommendations approved by Hasan (token = secret credential,
+account id = plain settings field); gate-green (872 tests, +6 new; type
+baselines 26/22 exact); smoke-launched + CDP-verified in the real app.**
+Third cloud image provider, by the fal/OpenRouter checklist, with the
+two-credential wrinkle: `ProviderCredentials.cloudflare` holds the **API
+token** (rides the existing safeStorage blob) while the **account id** is a
+plain `cloudflareAccountId` settings value — carried on the providerKeys
+get/save IPC (it's not a secret, so it round-trips to the renderer), edited
+in a field under the key input in the new ApiKeysSection row, and injected
+into the runtime `ImageProviderConfig.accountId` at registration only (never
+persisted inside `imageProviders`). New `@shared/providers/cloudflare`
+client POSTs `accounts/{id}/ai/run/{model}` and **sniffs the response
+Content-Type** to normalize both output dialects to `GeneratedImage.base64`
+(flux/leonardo JSON-base64 vs SD/SDXL raw binary) — so user-added catalog
+ids work with zero per-model output metadata. `CloudflareImageProvider`
+keeps per-model *input* dialects: flux-1-schnell = JSON prompt-only (no size
+params), lucid-origin/sdxl-lightning = JSON + clamped width/height, flux-2
+klein-9b/dev = multipart form (even prompt-only) with `input_image_0..3`
+Blobs for image-to-image/multi-reference (verified against CF's changelog
+curl examples). One run = one image → loops for `numImages`. 429/neuron
+errors map to a "daily free tier exhausted (10k neurons/day, resets 00:00
+UTC)" message. Default catalog (`provider-model-defaults.ts`, user-editable
+as usual): flux-1-schnell (default, ≈170 free images/day), flux-2-klein-9b,
+flux-2-dev, lucid-origin, sdxl-lightning. Existing red-circle `imageTest`
+flow works as-is (row has the flag; test IPC gained a draft `accountId`
+override; Test button also gates on account id presence). Engine
+registration skips cloudflare when either credential half is missing. 6 new
+provider tests (stubbed fetch): JSON dialect + URL/auth shape, binary
+dialect + dimension clamping, multipart multi-reference form fields,
+free-tier 429 mapping, unsupported-operation refusal, numImages loop. NOT
+yet live-proven: a real generation needs Hasan's CF token + account id
+(enters via the new Providers row → Test).
+
 ### V1 BUILD ORDER Slices 1+2 — AUTO-SAVE HARDENING + ELEVENLABS STT SHIPPED (2026-08-21)
 **`docs/NEXT_FEATURES_DESIGN.md` Q10 + Q3 (build-order rows 1–2), commits
 NF1–NF3. Checklist recommendations approved by Hasan; both slices gate-green
