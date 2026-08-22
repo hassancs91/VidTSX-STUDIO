@@ -9,6 +9,46 @@
 
 ## Completed phases
 
+### V1 BUILD ORDER Slice 4 — USAGE-TRACKING FIX SHIPPED (2026-08-22)
+**`docs/NEXT_FEATURES_DESIGN.md` Q4 (build-order row 4), commits NF6+.
+Gate-green (878 tests, +6 new; type baselines 26/22 exact); CDP-verified
+live against real historical usage data.** Closes the gaps: before this,
+only LLM + image generation logged (image at $0 flat), STT and fal video
+nowhere. (1) `AiRequestType` += `'stt' | 'video'`; `AiFeatureSource` +=
+`'transcription'`. (2) STT logs in `transcribeAudioFile` — the funnel ALL
+three callers share (Transcribe screen, Studio asset-transcriber, auto-cut;
+the design named the IPC handler but the service-level chokepoint covers
+auto-cut too, which bypasses that handler); cost = new informational
+`pricePerHourUsd` on `STT_CATALOG` entries (from their own priceText:
+AssemblyAI 0.21/0.21/0.15, Scribe 0.22, whisper-1 0.36; local + unpriced
+= $0) × `result.duration`. (3) fal video logs in `getVideoJob`'s completed
+path (`requestType: 'video'`, featureSource `'flows'`, wall-clock via new
+`submittedAt` on TrackedJob); cost = new `pricePerSecondUsd` on
+`VIDEO_MODEL_CATALOG` (kling 0.08, veo-3-fast 0.15, hailuo 0.045, seedance
+0.03 — web-verified; wan-2.5 deliberately unpriced, rate varies by
+resolution). (4) Image cost: `priceUsd` on `ImageModelCatalogEntry` +
+shipped defaults (nano-banana-pro 0.15, nano-banana-2/seedream 0.04,
+flux.2-pro 0.03, CF flux-1-schnell 0.0006/klein 0.015/dev 0.05) read via
+`getDefaultImageModelPriceUsd` — looked up from the SHIPPED defaults at
+logging time because `sanitizeEntries` strips user catalog edits to
+id+name, so user overrides can't lose prices; × images returned. All price
+fields are documented as informational estimates — the provider bills, we
+chart. (5) Chart metric toggle **Tokens | Requests | Cost** end-to-end:
+`AiUsageMetric` type → `getChartRows` also selects cost_usd →
+`getChartData(period, filter, metric)` → chart IPC `metric?` param →
+`useAiUsage` metric state → toggle in `AiUsageChart` beside the period
+picker (dynamic title, $-formatted y-axis + tooltips). Log table needed
+nothing (columns generalize, as designed). (6) `handleImageProviderTest`
+now logs (featureSource `'provider-test'`, priced) — the LLM/image test
+asymmetry closed. No DB migration (TEXT columns); ring buffer stays 10k.
+6 new tests: chart metric aggregation ×3 (vi.mock'd db — first ai-usage
+service tests) + price-lookup ×3. Live-verified via CDP: toggle switches
+title/axes ("Estimated Cost Over Time", $1.32–$5.29 from real prior LLM
+entries), Requests view surfaces all four providers' lines. NOT yet
+live-proven: actual stt/video entries appearing (needs a real transcription
+/video run — piggybacks on the same manual passes already queued for
+slices 2–3).
+
 ### V1 BUILD ORDER Slice 3 — CLOUDFLARE WORKERS AI IMAGES SHIPPED (2026-08-22)
 **`docs/NEXT_FEATURES_DESIGN.md` Q2 (build-order row 3), commits NF4+.
 Checklist recommendations approved by Hasan (token = secret credential,
