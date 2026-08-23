@@ -36,6 +36,8 @@ export interface SdVideoGenerateResponse {
   /** True when the VRAM preflight auto-enabled CPU offload. */
   autoOffloadEnabled?: boolean;
   error?: string;
+  /** Set when Content Safety blocked the request (error carries the copy). */
+  blocked?: import('../../content-safety/types').ContentSafetyBlockInfo;
 }
 
 export interface SdVideoGenerateProgressEvent {

@@ -9,6 +9,7 @@ import { getProviderModels } from '../services/provider-models';
 import { getDefaultImageModelPriceUsd } from '../../shared/presets/provider-model-defaults';
 import { initImageEngine, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
 import { aiUsageService } from '../services/ai-usage';
+import { ModerationBlockedError } from '../../shared/content-safety';
 import type {
   ImageProvidersGetResponse,
   ImageProvidersSaveRequest,
@@ -279,6 +280,9 @@ export async function handleImageGenerate(
   } catch (err) {
     if (ctrl?.signal.aborted) {
       return { success: false, error: 'Image generation cancelled' };
+    }
+    if (err instanceof ModerationBlockedError) {
+      return { success: false, error: err.message, blocked: err.toBlockInfo() };
     }
     const error = err instanceof Error ? err.message : 'Image generation failed';
     return { success: false, error };

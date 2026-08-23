@@ -4,6 +4,8 @@
  * same shape the Flows generate-video node used with the removed VidTSX API.
  */
 
+import type { ContentSafetyBlockInfo } from '../../content-safety/types';
+
 export interface VideoGenerateRequest {
   prompt: string;
   /** Catalog model id from @shared/presets/video-models. */
@@ -19,7 +21,12 @@ export interface VideoGenerateRequest {
 
 export type VideoGenerateResponse =
   | { success: true; data: { jobId: string } }
-  | { success: false; error: string };
+  | {
+      success: false;
+      error: string;
+      /** Set when Content Safety blocked the request (error carries the copy). */
+      blocked?: ContentSafetyBlockInfo;
+    };
 
 export type VideoJobStatus = 'pending' | 'running' | 'completed' | 'failed';
 

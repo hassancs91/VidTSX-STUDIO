@@ -25,6 +25,22 @@ const LEET_MAP: Record<string, string> = {
 const INVISIBLE_RE = /[\u200B\u200C\u200D\uFEFF\u00AD\u2060\u180E]/g;
 
 /**
+ * Cyrillic/Greek characters that are visually identical (or near-identical)
+ * to Latin letters. Applied as a separate variant so genuine Cyrillic/Greek
+ * terms in the word list still match their own untranslated variant.
+ */
+const HOMOGLYPH_MAP: Record<string, string> = {
+  // Cyrillic \u2192 Latin
+  '\u0430': 'a', '\u0432': 'b', '\u0435': 'e', '\u0451': 'e', '\u043A': 'k', '\u043C': 'm',
+  '\u043D': 'h', '\u043E': 'o', '\u0440': 'p', '\u0441': 'c', '\u0442': 't', '\u0443': 'y',
+  '\u0445': 'x', '\u0456': 'i', '\u0457': 'i', '\u0458': 'j', '\u0455': 's', '\u0501': 'd',
+  '\u051B': 'q', '\u051D': 'w', '\u04BB': 'h',
+  // Greek \u2192 Latin
+  '\u03B1': 'a', '\u03B2': 'b', '\u03B5': 'e', '\u03B9': 'i', '\u03BA': 'k', '\u03BD': 'v',
+  '\u03BF': 'o', '\u03C1': 'p', '\u03C4': 't', '\u03C5': 'u', '\u03C7': 'x',
+};
+
+/**
  * Decode leet-speak substitutions in a lowercased string.
  */
 function leetDecode(text: string): string {
@@ -41,7 +57,9 @@ function leetDecode(text: string): string {
  * Only removes a separator when it sits between two word characters.
  */
 function removeSeparators(text: string): string {
-  return text.replace(/(\w)[.\-_*~|/\\]+(\w)/g, '$1$2');
+  // Lookahead keeps the following word char unconsumed so alternating
+  // patterns ("n.u.d.e") collapse fully in one pass.
+  return text.replace(/(\w)[.\-_*~|/\\]+(?=\w)/g, '$1');
 }
 
 /**
@@ -58,6 +76,18 @@ function collapseRepeats(text: string): string {
  */
 function stripDiacritics(text: string): string {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * Map Cyrillic/Greek lookalike characters onto their Latin twins.
+ * Catches "nudе" (Cyrillic е), "pοrn" (Greek ο).
+ */
+function foldHomoglyphs(text: string): string {
+  let result = '';
+  for (const ch of text) {
+    result += HOMOGLYPH_MAP[ch] ?? ch;
+  }
+  return result;
 }
 
 /**
@@ -79,6 +109,10 @@ export function normalizeForModeration(text: string): string[] {
   // Pre-processing: strip invisible chars, then lowercase
   const cleaned = text.replace(INVISIBLE_RE, '');
   const lower = cleaned.toLowerCase();
+  // NFKC folds compatibility forms: full-width "ｎｕｄｅ" → "nude",
+  // circled/styled letters, ligatures. Kept as its own base so genuine
+  // CJK/Arabic terms still match the untouched variant.
+  const nfkcLower = cleaned.normalize('NFKC').toLowerCase();
 
   const variants = new Set<string>();
   variants.add(lower);
@@ -87,9 +121,14 @@ export function normalizeForModeration(text: string): string[] {
   variants.add(collapseRepeats(lower));
   variants.add(stripDiacritics(lower));
   variants.add(stripArabicDiacritics(lower));
+  variants.add(nfkcLower);
+  variants.add(foldHomoglyphs(lower));
 
   // Combined: leet decode + separator removal (catches "n.u.d.3")
   variants.add(removeSeparators(leetDecode(lower)));
+  // Combined: NFKC + homoglyph + leet + separators (catches "ｎ.ｕ.ｄ.3"
+  // and Cyrillic-laced leet like "nуd3")
+  variants.add(removeSeparators(leetDecode(foldHomoglyphs(nfkcLower))));
 
   return [...variants];
 }

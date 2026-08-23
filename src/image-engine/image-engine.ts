@@ -9,6 +9,8 @@ import type {
 import { FalImageProvider } from './providers/fal-provider';
 import { OpenRouterProvider } from './providers/openrouter-provider';
 import { CloudflareImageProvider } from './providers/cloudflare-provider';
+import { checkGenerationPrompt } from '../moderation-engine/generation-gate';
+import { ModerationBlockedError } from '../shared/content-safety';
 import { logEngine } from '../logging/log-engine';
 
 const log = logEngine.createLogger('Image');
@@ -86,6 +88,7 @@ class ImageEngine {
 
   async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     log.debug('Generate request', { provider: this.activeId, model: request.model, operation: request.operation });
+    this.guardPrompt(request);
     return this.getActive().generate(request);
   }
 
@@ -95,7 +98,22 @@ class ImageEngine {
   ): Promise<ImageGenerationResponse> {
     const provider = this.providers.get(providerId);
     if (!provider) throw new Error(`Image provider "${providerId}" not registered`);
+    this.guardPrompt(request);
     return provider.generate(request);
+  }
+
+  /**
+   * Content Safety Gate A: every prompt reaching the engine — Image Studio,
+   * Flows, agent tools, provider tests, all providers current and future —
+   * is checked against the curated generation blocklist before any provider
+   * (and any API spend) sees it. Always on; no setting disables it (D2d).
+   */
+  private guardPrompt(request: ImageGenerationRequest): void {
+    const result = checkGenerationPrompt(request.prompt);
+    if (result.blocked) {
+      log.info('Prompt blocked by Content Safety', { category: result.category });
+      throw new ModerationBlockedError('prompt', result.category ?? 'sexual');
+    }
   }
 
   private getActive(): ImageProvider {

@@ -9,6 +9,8 @@ import type {
   SdVideoModelDownloadResponse,
 } from '../../shared/ipc/types';
 import { ModelLibraryError } from '@shared/model-library/types';
+import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
+import { ModerationBlockedError } from '../../shared/content-safety';
 import { downloadVideoProfileModel } from '../services/sdvideo-download';
 import { getLastVideoScan, scanVideoLibrary, videoProfileById } from '../services/sdvideo-library';
 import { videoLocalEngine } from '../../local-video-engine/video-engine';
@@ -40,6 +42,13 @@ export async function handleSdVideoGenerate(
   data: SdVideoGenerateRequest,
 ): Promise<SdVideoGenerateResponse> {
   try {
+    // Content Safety Gate A — the positive prompt only. The negative prompt
+    // is deliberately unchecked: naming unsafe content there EXCLUDES it.
+    const safety = checkGenerationPrompt(data.prompt);
+    if (safety.blocked) {
+      throw new ModerationBlockedError('prompt', safety.category ?? 'sexual');
+    }
+
     // Wire up push events for this generation
     videoLocalEngine.onProgress = (progress) => {
       event.sender.send(IPC.SDVIDEO_GENERATE_PROGRESS, progress);
@@ -76,6 +85,9 @@ export async function handleSdVideoGenerate(
     const requestId = videoLocalEngine.enqueue(request);
     return { success: true, requestId, autoOffloadEnabled: autoOffloadEnabled || undefined };
   } catch (err) {
+    if (err instanceof ModerationBlockedError) {
+      return { success: false, error: err.message, blocked: err.toBlockInfo() };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Generation failed',

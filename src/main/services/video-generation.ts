@@ -7,6 +7,8 @@ import {
   VIDEO_MAX_PROMPT_CHARS,
 } from '../../shared/presets/video-models';
 import type { VideoGenerateRequest, VideoJobData } from '../../shared/ipc/types/video';
+import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
+import { ModerationBlockedError } from '../../shared/content-safety';
 import { buildVideoPayload } from './video-payloads';
 import { getProviderCredentials } from './settings';
 import { aiUsageService } from './ai-usage';
@@ -46,6 +48,11 @@ export async function submitVideoJob(req: VideoGenerateRequest): Promise<string>
   }
   if (req.prompt.length > VIDEO_MAX_PROMPT_CHARS) {
     throw new Error(`Prompt too long (max ${VIDEO_MAX_PROMPT_CHARS} characters).`);
+  }
+  // Content Safety Gate A — visual prompt fields only (D3).
+  const safety = checkGenerationPrompt(req.prompt);
+  if (safety.blocked) {
+    throw new ModerationBlockedError('prompt', safety.category ?? 'sexual');
   }
 
   const model = coerceVideoModel(req.model);

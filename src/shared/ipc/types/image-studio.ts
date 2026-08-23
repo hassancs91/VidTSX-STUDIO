@@ -1,4 +1,6 @@
 // ─── Image generation types ───
+import type { ContentSafetyBlockInfo } from '../../content-safety/types';
+
 export type ImageOperationType = 'text-to-image' | 'image-to-image' | 'multi-reference';
 
 export interface ImageProviderInfo {
@@ -99,6 +101,8 @@ export interface ImageGenerateResponse {
   model?: string;
   durationMs?: number;
   error?: string;
+  /** Set when Content Safety blocked the request (error carries the copy). */
+  blocked?: ContentSafetyBlockInfo;
 }
 
 export interface ImageGenerateCancelRequest {

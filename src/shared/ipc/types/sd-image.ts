@@ -1,4 +1,6 @@
 // ─── Local SD Image Engine types ───
+import type { ContentSafetyBlockInfo } from '../../content-safety/types';
+
 export interface SdImageStatusResponse {
   sdCliInstalled: boolean;
   sdCliVersion?: string;
@@ -121,6 +123,8 @@ export interface SdImageGenerateResponse {
   success: boolean;
   requestId?: string;
   error?: string;
+  /** Set when Content Safety blocked the request (error carries the copy). */
+  blocked?: ContentSafetyBlockInfo;
   /** Set when the preflight auto-enabled CPU offload because the model is over VRAM. */
   autoOffloadEnabled?: boolean;
 }

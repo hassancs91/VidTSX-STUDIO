@@ -26,6 +26,8 @@ import type {
 } from '../../shared/ipc/types';
 import { imageLocalEngine } from '../../local-image-engine';
 import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
+import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
+import { ModerationBlockedError } from '../../shared/content-safety';
 import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
 import { installSdCli, isSdCliInstalling } from '../services/sdcli-install';
 import { resetSdImageEngine } from '../services/sdimage-init';
@@ -170,6 +172,13 @@ export async function handleSdImageGenerate(
   data: SdImageGenerateRequest,
 ): Promise<SdImageGenerateResponse> {
   try {
+    // Content Safety Gate A — the positive prompt only. The negative prompt
+    // is deliberately unchecked: naming unsafe content there EXCLUDES it.
+    const safety = checkGenerationPrompt(data.prompt);
+    if (safety.blocked) {
+      throw new ModerationBlockedError('prompt', safety.category ?? 'sexual');
+    }
+
     // Wire up push events for this generation
     imageLocalEngine.onProgress = (progress) => {
       event.sender.send(IPC.SDIMAGE_GENERATE_PROGRESS, progress);
@@ -186,6 +195,9 @@ export async function handleSdImageGenerate(
     const requestId = imageLocalEngine.enqueue(request);
     return { success: true, requestId, autoOffloadEnabled: autoOffloadEnabled || undefined };
   } catch (err) {
+    if (err instanceof ModerationBlockedError) {
+      return { success: false, error: err.message, blocked: err.toBlockInfo() };
+    }
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Generation failed',
