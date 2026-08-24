@@ -17,6 +17,7 @@ import type { LibraryCaptureEvent } from '../../../shared/ipc/types/library';
 import { logEngine } from '../../../logging/log-engine';
 import { ensureLibraryRoot } from './library-paths';
 import { upsertEntry } from './library-store';
+import { checkImageBuffer } from '../content-safety/image-safety';
 import {
   captureDescription,
   domainFolder,
@@ -185,6 +186,10 @@ export async function captureWebpage(req: CaptureWebpageRequest): Promise<Captur
     const png = image.toPNG();
     if (png.length === 0) throw new Error('Capture produced an empty image');
     const size = image.getSize();
+
+    // Content Safety Gate B (D2c call site 5): captured pixels are checked
+    // before they land in the asset library. Throws to abort the capture.
+    await checkImageBuffer(png);
 
     const finalUrl = page.url || req.url;
     const root = await ensureLibraryRoot();

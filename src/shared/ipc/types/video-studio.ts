@@ -39,6 +39,8 @@ export interface VideoStudioSaveResponse {
   success: boolean;
   entry?: VideoStudioEntry;
   error?: string;
+  /** Set when Content Safety blocked the clip (error carries the copy). */
+  blocked?: import('../../content-safety/types').ContentSafetyBlockInfo;
 }
 
 export interface VideoStudioListResponse {

@@ -66,10 +66,12 @@ export interface SdVideoGenerateCompleteEvent {
 export interface SdVideoGenerateErrorEvent {
   requestId: string;
   error: string;
-  /** Classified sd-cli failure code (corrupt-model, out-of-memory, …). */
+  /** Classified sd-cli failure code (corrupt-model, out-of-memory, content-safety, …). */
   code?: string;
   /** Raw sd-cli output tail for the expandable "Details". */
   details?: string;
+  /** Set when Content Safety blocked the result (error carries the copy). */
+  blocked?: import('../../content-safety/types').ContentSafetyBlockInfo;
 }
 
 export interface SdVideoCancelRequest {

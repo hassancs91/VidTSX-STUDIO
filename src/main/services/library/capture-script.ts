@@ -16,6 +16,7 @@ import { logEngine } from '../../../logging/log-engine';
 import { ensureLibraryRoot } from './library-paths';
 import { upsertEntry } from './library-store';
 import { domainFolder, reserveLibraryFile, slugify } from './library-filing';
+import { checkImageBuffer } from '../content-safety/image-safety';
 import {
   assertHttpUrl,
   createCaptureWindow,
@@ -284,6 +285,10 @@ export async function captureScripted(req: ScriptedCaptureRequest): Promise<Scri
         const png = image.toPNG();
         if (png.length === 0) throw new Error('capture produced an empty image');
         const size = image.getSize();
+
+        // Content Safety Gate B (D2c call site 5): a blocked still fails this
+        // step by name — earlier stills stay (partial-stills semantics).
+        await checkImageBuffer(png);
 
         const root = await ensureLibraryRoot();
         const folder = domainFolder(page.url);

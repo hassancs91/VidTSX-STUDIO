@@ -21,6 +21,8 @@ import {
   getVideoFilePath,
 } from '../services/video-studio-db';
 import { extractThumbnail, buildThumbnailFileName } from '../services/video-thumbnailer';
+import { checkVideoBuffer } from '../services/content-safety/video-safety';
+import { ModerationBlockedError } from '../../shared/content-safety';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('video-studio-handlers');
@@ -70,6 +72,10 @@ export async function handleVideoStudioSave(
 
     const { bytes, contentType } = await downloadVideo(data.url);
 
+    // Content Safety Gate B (D2c call site 4): 2 fps samples + first/middle/
+    // last frames of the generated clip, before anything lands in the library.
+    await checkVideoBuffer(bytes, contentType === 'video/webm' ? '.webm' : '.mp4');
+
     const entry = await saveVideo({
       bytes,
       prompt: data.prompt,
@@ -106,6 +112,9 @@ export async function handleVideoStudioSave(
 
     return { success: true, entry };
   } catch (err) {
+    if (err instanceof ModerationBlockedError) {
+      return { success: false, error: err.message, blocked: err.toBlockInfo() };
+    }
     const error = err instanceof Error ? err.message : 'Failed to save video';
     return { success: false, error };
   }

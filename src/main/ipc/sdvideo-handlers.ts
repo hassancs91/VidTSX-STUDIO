@@ -8,9 +8,11 @@ import type {
   SdVideoModelDownloadRequest,
   SdVideoModelDownloadResponse,
 } from '../../shared/ipc/types';
+import fs from 'fs/promises';
 import { ModelLibraryError } from '@shared/model-library/types';
 import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
 import { ModerationBlockedError } from '../../shared/content-safety';
+import { checkVideoFile } from '../services/content-safety/video-safety';
 import { downloadVideoProfileModel } from '../services/sdvideo-download';
 import { getLastVideoScan, scanVideoLibrary, videoProfileById } from '../services/sdvideo-library';
 import { videoLocalEngine } from '../../local-video-engine/video-engine';
@@ -54,7 +56,23 @@ export async function handleSdVideoGenerate(
       event.sender.send(IPC.SDVIDEO_GENERATE_PROGRESS, progress);
     };
     videoLocalEngine.onComplete = (requestId, result) => {
-      event.sender.send(IPC.SDVIDEO_GENERATE_COMPLETE, { requestId, result });
+      // Content Safety Gate B on the sampled frames — an arbitrary local
+      // checkpoint is the #1 leak path (D1). Fail-closed on check failure.
+      void (async () => {
+        try {
+          await checkVideoFile(result.outputPath);
+          event.sender.send(IPC.SDVIDEO_GENERATE_COMPLETE, { requestId, result });
+        } catch (err) {
+          fs.unlink(result.outputPath).catch(() => {}); // never keep blocked pixels on disk
+          const blocked = err instanceof ModerationBlockedError ? err.toBlockInfo() : undefined;
+          event.sender.send(IPC.SDVIDEO_GENERATE_ERROR, {
+            requestId,
+            error: err instanceof Error ? err.message : 'Blocked by Content Safety',
+            code: 'content-safety',
+            blocked,
+          });
+        }
+      })();
     };
     videoLocalEngine.onError = (requestId, error, code, details) => {
       event.sender.send(IPC.SDVIDEO_GENERATE_ERROR, { requestId, error, code, details });
