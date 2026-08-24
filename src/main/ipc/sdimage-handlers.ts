@@ -26,8 +26,10 @@ import type {
 } from '../../shared/ipc/types';
 import { imageLocalEngine } from '../../local-image-engine';
 import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
+import fs from 'fs/promises';
 import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
 import { ModerationBlockedError } from '../../shared/content-safety';
+import { checkImageBase64 } from '../services/content-safety/image-safety';
 import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
 import { installSdCli, isSdCliInstalling } from '../services/sdcli-install';
 import { resetSdImageEngine } from '../services/sdimage-init';
@@ -184,7 +186,24 @@ export async function handleSdImageGenerate(
       event.sender.send(IPC.SDIMAGE_GENERATE_PROGRESS, progress);
     };
     imageLocalEngine.onComplete = (requestId, result) => {
-      event.sender.send(IPC.SDIMAGE_GENERATE_COMPLETE, { requestId, result });
+      // Content Safety Gate B on the pixels — the local queue bypasses the
+      // cloud image engine's chokepoint, and an arbitrary checkpoint is the
+      // #1 leak path (D1). Fail-closed: any check failure blocks the result.
+      void (async () => {
+        try {
+          await checkImageBase64(result.imageBase64);
+          event.sender.send(IPC.SDIMAGE_GENERATE_COMPLETE, { requestId, result });
+        } catch (err) {
+          fs.unlink(result.outputPath).catch(() => {}); // never keep blocked pixels on disk
+          const blocked = err instanceof ModerationBlockedError ? err.toBlockInfo() : undefined;
+          event.sender.send(IPC.SDIMAGE_GENERATE_ERROR, {
+            requestId,
+            error: err instanceof Error ? err.message : 'Blocked by Content Safety',
+            code: 'content-safety',
+            blocked,
+          });
+        }
+      })();
     };
     imageLocalEngine.onError = (requestId, error, code, details) => {
       event.sender.send(IPC.SDIMAGE_GENERATE_ERROR, { requestId, error, code, details });

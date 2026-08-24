@@ -56,6 +56,13 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Content Safety classifier (CONTENT_SAFETY_DESIGN.md D2d): bundled fp16 ONNX
+  # + metadata. Deliberate exception to download-on-first-use — the fail-closed
+  # gate must never have an absent state.
+  - from: resources/content-safety
+    to: content-safety
+    filter:
+      - "**/*"
   - from: resources/icon.ico
     to: icon.ico
   - from: resources/icon.png
@@ -71,10 +78,10 @@ asarUnpack:
   # and the platform binary subpackage.
   - "node_modules/esbuild/**"
   - "node_modules/@esbuild/**"
-  # ── onnxruntime-node + @huggingface/transformers disabled in v0.1 — embedding
-  # feature not exposed in the UI. Worker is only spawned on first loadModel() call.
-  # When re-enabling embedding, uncomment the next line:
-  # - "node_modules/onnxruntime-node/**"
+  # onnxruntime-node native binding — required by the Content Safety worker
+  # (src/content-safety-engine/worker.ts). CPU-only per-platform binaries; the
+  # non-shipped platforms and DirectML extras are excluded in `files` below.
+  - "node_modules/onnxruntime-node/**"
   # ── sherpa-onnx (local STT/TTS) disabled in v0.1 — transcription/audio features
   # not shipping yet. When re-enabling, uncomment the lines for the platforms you ship:
   # - "node_modules/sherpa-onnx-node/**"
@@ -88,13 +95,13 @@ asarUnpack:
   # - "node_modules/@node-llama-cpp/**"
 files:
   - out/**/*
-  # ── Embedding (onnxruntime-node + @huggingface/transformers) disabled in v0.1.
-  # IPC handlers in src/main/ipc/embedding-handlers.ts are still registered but nothing
-  # in the UI calls them. Worker is lazy-spawned in src/embedding-engine/embedding-engine.ts.
-  # When shipping embedding features:
-  #   1. Remove the two "!" exclusions below.
-  #   2. Uncomment "node_modules/onnxruntime-node/**" in asarUnpack above.
-  - "!node_modules/onnxruntime-node/**/*"
+  # ── onnxruntime-node ships for the Content Safety gate (NF9) — CPU execution
+  # provider only (Rev 1 decision 1). Linux binaries never ship; the win/mac
+  # cross-platform and DirectML exclusions live under win.files / mac.files.
+  - "!node_modules/onnxruntime-node/bin/napi-v6/linux/**/*"
+  # ── @huggingface/transformers still excluded — embedding feature not exposed
+  # in v0.1 (its worker only ever loads on an embedding loadModel() call, which
+  # nothing in the UI issues). The Content Safety worker uses raw onnxruntime.
   - "!node_modules/@huggingface/transformers/**/*"
   # ── sherpa-onnx (local STT/TTS) disabled in v0.1. Packages stay in node_modules for
   # dev (lazy-loaded via try/catch in src/audio-engine/audio-engine.ts:60-63, so the
@@ -119,6 +126,15 @@ win:
     - target: nsis
       arch: [x64]
   icon: resources/icon.ico
+  files:
+    # CPU-only ORT for win-x64: drop mac/arm binaries and the DirectML
+    # execution-provider DLLs (+36 MB, and a GPU EP adds driver failure modes
+    # to a fail-closed gate — Rev 1 decision 1).
+    - "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**/*"
+    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**/*"
+    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/DirectML.dll"
+    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxcompiler.dll"
+    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxil.dll"
   extraResources:
     - from: resources/python/win-x64
       to: python
@@ -148,6 +164,9 @@ mac:
   target:
     - target: dmg
       arch: [arm64, x64]
+  files:
+    # CPU-only ORT for mac: win32 binaries never ship in the dmg.
+    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/**/*"
   extraResources:
     - from: resources/python/darwin-${arch}
       to: python

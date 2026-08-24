@@ -66,6 +66,17 @@ export function getShotKitDir(): string {
   return path.join(app.getAppPath(), 'resources', 'shot-kit');
 }
 
+export function getContentSafetyDir(): string {
+  // The bundled Gate B classifier (CONTENT_SAFETY_DESIGN.md D2d): shipped in
+  // the installer as a documented exception to download-on-first-use — a
+  // fail-closed safety gate must not have an absent state.
+  // Dev: the repo folder. Packaged: resources/content-safety via extraResources.
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'content-safety');
+  }
+  return path.join(app.getAppPath(), 'resources', 'content-safety');
+}
+
 export function getSkillsDir(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'skills');

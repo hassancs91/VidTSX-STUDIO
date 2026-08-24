@@ -1,0 +1,36 @@
+{
+  "source": "Marqo/nsfw-image-detection-384",
+  "license": "Apache-2.0",
+  "file": "nsfw-image-detection-384.fp16.onnx",
+  "sha256": "868c759f8167ddf048bc8f603132b00db0f78ee0297a76359ed1619c252ffb23",
+  "opset": 17,
+  "inputName": "pixel_values",
+  "outputName": "logits",
+  "inputSize": [
+    3,
+    384,
+    384
+  ],
+  "mean": [
+    0.5,
+    0.5,
+    0.5
+  ],
+  "std": [
+    0.5,
+    0.5,
+    0.5
+  ],
+  "interpolation": "bicubic",
+  "labels": [
+    "NSFW",
+    "SFW"
+  ],
+  "nsfwIndex": 0,
+  "maxParityDrift": 0.0007704496383666992,
+  "exportedWith": {
+    "torch": "2.13.0+cpu",
+    "timm": "1.0.28",
+    "onnx": "1.22.0"
+  }
+}

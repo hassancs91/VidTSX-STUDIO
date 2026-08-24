@@ -1,5 +1,6 @@
 import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 import { LocalSdImageProvider } from '../../image-engine/providers/local-sd-provider';
+import { installContentSafetyGuard } from './content-safety/install';
 import { loadSettings, getProviderCredentials, getCloudflareAccountId } from './settings';
 import { getProviderModels } from './provider-models';
 import { applySdGenerationPreflight } from './sdimage-preflight';
@@ -17,6 +18,9 @@ export const LOCAL_IMAGE_PROVIDER_ID = 'local';
  * the provider then reports zero models and the UI hides it.
  */
 export function registerLocalImageProvider(): void {
+  // Guard first: any caller that can register a provider can trigger a
+  // generation, and the engine refuses to run without Gate B installed.
+  installContentSafetyGuard();
   if (imageEngine.getProviders().includes(LOCAL_IMAGE_PROVIDER_ID)) return;
   imageEngine.registerInstance(
     new LocalSdImageProvider(LOCAL_IMAGE_PROVIDER_ID, {
@@ -26,6 +30,7 @@ export function registerLocalImageProvider(): void {
 }
 
 export async function initImageEngine(): Promise<void> {
+  installContentSafetyGuard();
   try {
     const settings = await loadSettings();
     const credentials = await getProviderCredentials();

@@ -2,6 +2,7 @@ import type {
   ImageProviderId,
   ImageProviderConfig,
   ImageProvider,
+  ImageSafetyGuard,
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageModelInfo,
@@ -18,6 +19,16 @@ const log = logEngine.createLogger('Image');
 class ImageEngine {
   private providers = new Map<ImageProviderId, ImageProvider>();
   private activeId: ImageProviderId | null = null;
+  private safetyGuard: ImageSafetyGuard | null = null;
+
+  /**
+   * Install the Content Safety pixel classifier (Gate B). Called by main at
+   * init; until it happens, every generation refuses to run (fail-closed —
+   * D2d: a safety gate must not have an absent state).
+   */
+  setSafetyGuard(guard: ImageSafetyGuard): void {
+    this.safetyGuard = guard;
+  }
 
   register(config: ImageProviderConfig): void {
     if (!config.enabled) return;
@@ -88,8 +99,7 @@ class ImageEngine {
 
   async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     log.debug('Generate request', { provider: this.activeId, model: request.model, operation: request.operation });
-    this.guardPrompt(request);
-    return this.getActive().generate(request);
+    return this.runGuarded(this.getActive(), request);
   }
 
   async generateWith(
@@ -98,15 +108,49 @@ class ImageEngine {
   ): Promise<ImageGenerationResponse> {
     const provider = this.providers.get(providerId);
     if (!provider) throw new Error(`Image provider "${providerId}" not registered`);
-    this.guardPrompt(request);
-    return provider.generate(request);
+    return this.runGuarded(provider, request);
   }
 
   /**
-   * Content Safety Gate A: every prompt reaching the engine — Image Studio,
-   * Flows, agent tools, provider tests, all providers current and future —
-   * is checked against the curated generation blocklist before any provider
-   * (and any API spend) sees it. Always on; no setting disables it (D2d).
+   * The Content Safety chokepoint: every generation — Image Studio, Flows,
+   * agent tools, provider tests, all providers current and future — passes
+   * Gate A (prompt), Gate B on input reference images BEFORE any provider
+   * call, and Gate B on every output pixel before it crosses to the caller.
+   * Always on; no setting disables it (D2d), and a missing classifier
+   * blocks generation rather than skipping the check.
+   */
+  private async runGuarded(
+    provider: ImageProvider,
+    request: ImageGenerationRequest,
+  ): Promise<ImageGenerationResponse> {
+    this.guardPrompt(request);
+
+    const guard = this.safetyGuard;
+    if (!guard) {
+      throw new Error(
+        'Content Safety is not initialized, so image generation is blocked (fail-closed).',
+      );
+    }
+    // Input references (img2img / multi-reference): checked before any
+    // provider sees them — also keeps NSFW source images off cloud APIs.
+    if (request.sourceImage) {
+      await guard.checkImage(request.sourceImage, 'input');
+    }
+    for (const ref of request.referenceImages ?? []) {
+      await guard.checkImage(ref, 'input');
+    }
+
+    const response = await provider.generate(request);
+
+    for (const image of response.images) {
+      await guard.checkImage(image.base64, 'output');
+    }
+    return response;
+  }
+
+  /**
+   * Content Safety Gate A: the curated generation blocklist, checked before
+   * any provider (and any API spend) sees the prompt.
    */
   private guardPrompt(request: ImageGenerationRequest): void {
     const result = checkGenerationPrompt(request.prompt);

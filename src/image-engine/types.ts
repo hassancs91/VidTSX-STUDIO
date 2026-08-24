@@ -76,6 +76,16 @@ export interface ImageProvider {
   getSupportedModels(): ImageModelInfo[];
 }
 
+/**
+ * Content Safety Gate B hook, injected by main at init (the classifier needs
+ * Electron/worker infrastructure this module must not import). The engine is
+ * fail-closed: with no guard installed, generation refuses to run.
+ */
+export interface ImageSafetyGuard {
+  /** Throws (ModerationBlockedError or fail-closed Error) to block. */
+  checkImage(base64: string, context: 'input' | 'output'): Promise<void>;
+}
+
 /** Typed error thrown by image providers */
 export class ImageEngineError extends Error {
   constructor(
