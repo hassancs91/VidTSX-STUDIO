@@ -42,7 +42,10 @@ import {
 } from '../studio-caption-handlers';
 import {
   handleStudioPackageExport,
+  handleStudioPackageImport,
+  handleStudioPackageInspect,
   handleStudioPackagePlan,
+  handleStudioShotConform,
 } from '../studio-package-handlers';
 import { registerFlushAck } from '../flush-guard';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
@@ -85,6 +88,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_CREATOR_PROJECTS, handleStudioCreatorProjects);
   ipcMain.handle(IPC.STUDIO_PACKAGE_PLAN, handleStudioPackagePlan);
   ipcMain.handle(IPC.STUDIO_PACKAGE_EXPORT, handleStudioPackageExport);
+  ipcMain.handle(IPC.STUDIO_PACKAGE_INSPECT, handleStudioPackageInspect);
+  ipcMain.handle(IPC.STUDIO_PACKAGE_IMPORT, handleStudioPackageImport);
+  ipcMain.handle(IPC.STUDIO_SHOT_CONFORM, handleStudioShotConform);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATES, handleStudioCaptionTemplates);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, handleStudioCaptionTemplateModule);
 

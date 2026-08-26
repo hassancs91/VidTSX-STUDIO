@@ -63,6 +63,12 @@ import type {
   StudioCaptionTemplateModuleRequest,
   StudioCaptionTemplateModuleResponse,
   StudioPackageEvent,
+  StudioPackageImportRequest,
+  StudioPackageImportResponse,
+  StudioPackageInspectRequest,
+  StudioPackageInspectResponse,
+  StudioShotConformRequest,
+  StudioShotConformResponse,
   StudioPackageExportRequest,
   StudioPackageExportResponse,
   StudioPackagePlanRequest,
@@ -160,6 +166,12 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_PLAN, data),
   studioPackageExport: (data: StudioPackageExportRequest): Promise<StudioPackageExportResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_EXPORT, data),
+  studioPackageInspect: (data: StudioPackageInspectRequest): Promise<StudioPackageInspectResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACKAGE_INSPECT, data),
+  studioPackageImport: (data: StudioPackageImportRequest): Promise<StudioPackageImportResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACKAGE_IMPORT, data),
+  studioShotConform: (data: StudioShotConformRequest): Promise<StudioShotConformResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOT_CONFORM, data),
   onStudioPackageEvent: (callback: (event: StudioPackageEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioPackageEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_PACKAGE_EVENT, listener);

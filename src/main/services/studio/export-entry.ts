@@ -24,8 +24,7 @@ import type { StudioProject, StudioShot } from '../../../shared/types/studio';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { rewriteFontUrls } from '../font-proxy';
-import { readBrand } from '../library/brand-store';
-import { getLibraryRoot } from '../library/library-paths';
+import { resolveProjectBrand } from './project-brand';
 import { readTranscriptFile } from './asset-transcriber';
 import { resolveCaptionTemplate } from './caption-packs';
 import { getShotVersionPath } from './studio-paths';
@@ -121,9 +120,9 @@ async function loadCaptionContext(
 
   // A stale brandId resolves to null and the built-in palette takes over —
   // an uninstalled brand must never block an export.
-  const brand = project.settings.brandId
-    ? await readBrand(getLibraryRoot(), project.settings.brandId).catch(() => null)
-    : null;
+  // Q7f: an imported project that kept its package's tokens project-local
+  // resolves through the same helper, so preview and export cannot disagree.
+  const brand = await resolveProjectBrand(project.id, project.settings.brandId);
 
   return { words, brand };
 }

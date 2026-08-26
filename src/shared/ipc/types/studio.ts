@@ -545,6 +545,23 @@ export interface StudioCreatorProjectsResponse {
 /** Import a TSX as a shot (D14). SOURCE-AGNOSTIC on purpose: a source file
  *  plus a display name is the whole contract, so the Creator picker, the OS
  *  file picker and (later) a tsx-template pack are interchangeable callers. */
+/** "Convert for Studio" for a shot already in the project (Q7d import card).
+ *  Lands as a NEW VERSION in the SAME shot folder — the id every clip
+ *  references must survive the conversion. */
+export interface StudioShotConformRequest {
+  projectId: string;
+  shotId: string;
+  providerId?: string;
+}
+
+export interface StudioShotConformResponse {
+  success: boolean;
+  shotId?: string;
+  /** The version the shot now points at. */
+  version?: number;
+  error?: string;
+}
+
 export interface StudioShotImportRequest {
   projectId: string;
   /** Absolute path of the .tsx. Omitted → main opens the OS file picker. */

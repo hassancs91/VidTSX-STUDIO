@@ -77,3 +77,92 @@ export interface StudioPackageEvent {
   percent: number;
   message: string;
 }
+
+// ─── Import (Q7d) ───────────────────────────────────────────────────────────
+
+/** The brand tokens a package carries, as the import dialog shows them. */
+export interface StudioPackageBrandSnapshot {
+  name: string;
+  palette: { primary: string; secondary: string; background: string; text: string; accent: string };
+  fonts: { display: string; body?: string };
+  styleNotes?: string;
+}
+
+/** What a package says about itself, read without writing anything. */
+export interface StudioPackageInfo {
+  filePath: string;
+  formatVersion: number;
+  schemaVersion: number;
+  kind: PackageKind;
+  app: { name: string; version: string };
+  createdAt: string;
+  project: { name: string; width: number; height: number; fps: number };
+  mediaStrategy: PackageMediaStrategy;
+  counts: { assets: number; media: number; shots: number; transcripts: number };
+  totalBytes: number;
+  kitVersion?: string;
+  captionPacks?: string[];
+  hasAgentChat: boolean;
+  brandSnapshot?: StudioPackageBrandSnapshot;
+  /** Set when this build cannot open the package — the reason, in one line. */
+  incompatible?: string;
+}
+
+export interface StudioPackageInspectRequest {
+  /** Omitted → main opens the OS file picker. */
+  filePath?: string;
+}
+
+export interface StudioPackageInspectResponse {
+  success: boolean;
+  /** The picker was dismissed — not an error. */
+  canceled?: boolean;
+  info?: StudioPackageInfo;
+  error?: string;
+}
+
+/** Q7f brand offer, resolved in the dialog before the import runs. */
+export type StudioPackageBrandChoice =
+  | { mode: 'match'; brandId: string }
+  | { mode: 'create' }
+  | { mode: 'snapshot' }
+  | { mode: 'none' };
+
+export interface StudioPackageShotReport {
+  shotId: string;
+  name: string;
+  /** ready · convert (only the allowlist gap) · error (needs a manual edit). */
+  verdict: 'ready' | 'convert' | 'error';
+  error?: string;
+}
+
+export interface StudioPackageRelinkItem {
+  assetId: string;
+  name: string;
+  reason: 'no-media' | 'proxy-only';
+}
+
+export interface StudioPackageImportReport {
+  projectId: string;
+  name: string;
+  kind: PackageKind;
+  shots: StudioPackageShotReport[];
+  relink: StudioPackageRelinkItem[];
+  captionPacks: Array<{ packId: string; installed: boolean; reason?: string }>;
+  kit?: { version: string; installed: boolean };
+  brand: { applied: StudioPackageBrandChoice['mode']; brandId?: string; error?: string };
+  warnings: string[];
+}
+
+export interface StudioPackageImportRequest {
+  filePath: string;
+  /** Rename on import; defaults to the package's project name. */
+  name?: string;
+  brand?: StudioPackageBrandChoice;
+}
+
+export interface StudioPackageImportResponse {
+  success: boolean;
+  report?: StudioPackageImportReport;
+  error?: string;
+}

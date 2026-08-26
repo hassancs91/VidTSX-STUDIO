@@ -427,6 +427,9 @@ export interface ElectronAPI {
   studioCaptionTemplateModule: (data: import('../../shared/ipc/types').StudioCaptionTemplateModuleRequest) => Promise<import('../../shared/ipc/types').StudioCaptionTemplateModuleResponse>;
   studioPackagePlan: (data: import('../../shared/ipc/types').StudioPackagePlanRequest) => Promise<import('../../shared/ipc/types').StudioPackagePlanResponse>;
   studioPackageExport: (data: import('../../shared/ipc/types').StudioPackageExportRequest) => Promise<import('../../shared/ipc/types').StudioPackageExportResponse>;
+  studioPackageInspect: (data: import('../../shared/ipc/types').StudioPackageInspectRequest) => Promise<import('../../shared/ipc/types').StudioPackageInspectResponse>;
+  studioPackageImport: (data: import('../../shared/ipc/types').StudioPackageImportRequest) => Promise<import('../../shared/ipc/types').StudioPackageImportResponse>;
+  studioShotConform: (data: import('../../shared/ipc/types').StudioShotConformRequest) => Promise<import('../../shared/ipc/types').StudioShotConformResponse>;
   onStudioPackageEvent: (callback: (event: import('../../shared/ipc/types').StudioPackageEvent) => void) => () => void;
   onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;
   onStudioShotJobEvent: (callback: (event: import('../../shared/ipc/types').StudioShotJobEvent) => void) => () => void;

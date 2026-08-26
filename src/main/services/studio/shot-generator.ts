@@ -41,8 +41,7 @@ import {
   describeSystemPrompt,
 } from '../tsx-jobs/project-store';
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-jobs/chat-store';
-import { readBrand } from '../library/brand-store';
-import { getLibraryRoot } from '../library/library-paths';
+import { resolveProjectBrand } from './project-brand';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
 import { composeShotStyleMemory, type ShotStyleMemory } from './agent-memory-prompt';
 import { listMemories } from './agent-memory';
@@ -237,7 +236,9 @@ class ShotGeneratorService {
     // failure. Edits have no prompt-context channel; "apply the (new) brand
     // to an existing shot" IS regenerate.
     const brandId = project.settings.brandId;
-    const brand = brandId ? await readBrand(getLibraryRoot(), brandId) : null;
+    // Q7f: falls back to <project>/brand.json when the project keeps an
+    // imported package's tokens project-local instead of adopting a brand.
+    const brand = await resolveProjectBrand(req.projectId, brandId);
 
     // Q6a: learned style rides every generate/regenerate beside the brand
     // contract — brand-filtered rule/profile memories, budgeted. Store read
@@ -492,7 +493,7 @@ class ShotGeneratorService {
       }
 
       const brandId = project.settings.brandId;
-      const brand = brandId ? await readBrand(getLibraryRoot(), brandId) : null;
+      const brand = await resolveProjectBrand(req.projectId, brandId);
       let styleRules: string[] = [];
       try {
         styleRules =

@@ -371,6 +371,7 @@ export const IPC = {
   STUDIO_SHOT_JOB_EVENT: 'studio:shot:job-event',
   // Studio — TSX import (S4 D14): source-agnostic accept path + Creator list
   STUDIO_SHOT_IMPORT: 'studio:shot:import',
+  STUDIO_SHOT_CONFORM: 'studio:shot:conform',
   STUDIO_CREATOR_PROJECTS: 'studio:creator:projects',
   // Studio — shots/ ↔ registry reconcile (SHOT_QUALITY Q1c): adopt orphan and
   // dropped-in shot folders on project open / window focus
@@ -381,6 +382,8 @@ export const IPC = {
   // Studio — caption templates (D13): pack listing + preview module URL
   STUDIO_PACKAGE_PLAN: 'studio:package:plan',
   STUDIO_PACKAGE_EXPORT: 'studio:package:export',
+  STUDIO_PACKAGE_INSPECT: 'studio:package:inspect',
+  STUDIO_PACKAGE_IMPORT: 'studio:package:import',
   STUDIO_PACKAGE_EVENT: 'studio:package:event',
 
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
