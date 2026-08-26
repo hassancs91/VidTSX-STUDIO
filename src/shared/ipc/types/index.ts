@@ -27,6 +27,7 @@ export * from './skills';
 export * from './stt';
 export * from './studio';
 export * from './studio-memory';
+export * from './studio-package';
 export * from './system';
 export * from './thumbnail';
 export * from './transcription';

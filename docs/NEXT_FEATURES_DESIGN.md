@@ -35,7 +35,7 @@
 | 4 | **Usage-tracking fix** | Q4: `AiRequestType` += `stt`/`video`; log STT + fal-video handlers; `pricePerHourUsd` on STT catalog + `priceUsd` on image models; chart Tokens\|Requests\|Cost toggle; log image provider-test | S | **SHIPPED 2026-08-22** (NF6) |
 | 5 | **Content Safety enforcement** | **`CONTENT_SAFETY_DESIGN.md`** (grilled): Gate B pixel classifier (Marqo 384 ONNX bundled, banded thresholds, 5 call sites incl. input refs + video frames + captures, fail-closed, utilityProcess-hosted) + Gate A curated prompt blocklist (visual fields only; profanity never blocks) + ZERO LLM hooks + Content Safety page + eval harness | M | **SHIPPED 2026-08-26** (NF8–NF12; ensemble rejected on eval, bands frozen 0.8/0.2; Hasan's blocklist review + full-set eval re-run open — see doc Rev 2) |
 | 6 | **Gemini/agy subscription image provider** | Q1: `type 'gemini-cli'`, TS port of gen-image.ps1 logic into `agy-cli.ts` service, `registerInstance` pattern, setup card (detect + auth probe + install instructions), concurrency-1 queue, aspect bucketing, 3-ref cap. Plumbing built two-wide for the deferred mmx provider | M | **SHIPPED 2026-08-26** (NF13–NF14; live agy generation CDP-verified; stdin-pipe hang found + fixed) |
-| 7 | **Project packages** | Q7: `.vidtsx` zip (manifest w/ `packs/`, `kind`, `replaceable` reserved), export dialog (3 media strategies, agent-chat opt-in), import (validate → migrate → new id → media into `<project>/media/` → D14 gate per shot → brand offer), zip-slip + caps, kitVersion pinning against the SHIPPED `shot-kit-pin.ts` scheme, file association | M | pending |
+| 7 | **Project packages** | Q7: `.vidtsx` zip (manifest w/ `packs/`, `kind`, `replaceable` reserved), export dialog (3 media strategies, agent-chat opt-in), import (validate → migrate → new id → media into `<project>/media/` → D14 gate per shot → brand offer), zip-slip + caps, kitVersion pinning against the SHIPPED `shot-kit-pin.ts` scheme, file association | M | **IN PROGRESS 2026-08-26** (NF16 format + writer) |
 | 8 | **Text-based editing slice 1** | Q5a: Transcript panel beside preview; click-to-seek; karaoke highlight; select-to-delete (inverse `clipWords` → editorial-snapper edges → `apply-cut-proposal` as `user_cut`, direct apply, one undo step); show-deletions pills + restore; filler highlight + remove-in-selection; read-only while a cut review is open. Flag `studio-text-edit` | L | pending |
 | 9 | **Pack system E1 — transitions** | Q8a/b: pack registry service (scan/validate/degrade), `StudioClipTransition.kind` → namespaced string (schema v2 migration), TransitionRenderer, core pack (crossfade, dip, wipe, slide, zoom, flip via @remotion/transitions), luma-wipe support, picker UI. **Reserve `keyframes` + `effects[]` schema shapes here** (Q9 binding) | M | pending |
 | 10 | *(optional V1 closer)* **Pack system E2 — effects tiers 1–3** | Q8c: `effects[]`, EffectProps contract, param-schema-driven Inspector, core pack incl. chroma key + Adjust (single-pass + dither rules, Q9b), ephemeral preview. Flag/dev-preview | L | V1-or-V2, Hasan's call |
@@ -1184,10 +1184,14 @@ constraint exists between the two tracks.
     worded per Q13d honesty rules? [recommend: yes] · LLM chat blocks only
     unambiguous sexual-content requests (mentions/discussion allowed)?
     [recommend: yes]
-14. **Q7**: `.vidtsx` zip format with the Q7b contents policy?
-   [recommend: yes] · agent-chat.json opt-in (default OFF)?
-   [recommend: yes] · Three media strategies (full / proxies / relink)?
-   [recommend: yes] · Package feature sequenced relative to the kit slice
-   (before or after, never during)? [recommend: after — manifest carries
-   kitVersion from day one] · Template flavor deferred to a second slice,
-   but `kind` + `replaceable` reserved in the manifest now? [recommend: yes]
+14. **Q7**: **DECIDED (Hasan, 2026-08-26) — all five as recommended.**
+   `.vidtsx` zip format with the Q7b contents policy? **yes** ·
+   agent-chat.json opt-in (default OFF)? **yes** — and the same checkbox
+   governs per-shot `chat.json`, which is the same kind of private
+   conversation · Three media strategies (full / proxies / relink)? **yes** ·
+   Package feature sequenced relative to the kit slice (before or after,
+   never during)? **after** — the manifest carries `kitVersion` from day
+   one, against the SHIPPED folder-as-truth `shot-kit-pin.ts` scheme (no new
+   pinning mechanism) · Template flavor deferred to a second slice, but
+   `kind` + `replaceable` reserved in the manifest now? **yes** — plus
+   `packs`/`packs/` reserved for Q8, and `role` beside `replaceable`.

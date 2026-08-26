@@ -27,7 +27,7 @@
   "devDependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.59.0",
     "@tailwindcss/vite": "^4.2.1",
-    "@types/archiver": "^7.0.0",
+    "@types/archiver": "7.0.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/chroma-js": "2.4.5",
     "@types/express": "^5.0.0",
@@ -36,7 +36,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/three": "0.183.1",
-    "@types/unzipper": "^0.10.11",
+    "@types/unzipper": "0.10.11",
     "chroma-js": "2.4.2",
     "cross-env": "7.0.3",
     "electron": "^41.0.2",
@@ -84,7 +84,7 @@
     "@rspack/binding-win32-x64-msvc": "^1.7.8",
     "@sentry/electron": "7.16.0",
     "@tailwindcss/oxide-win32-x64-msvc": "^4.2.1",
-    "archiver": "^7.0.1",
+    "archiver": "7.0.1",
     "better-sqlite3": "^12.9.0",
     "bufferutil": "^4.0.8",
     "core-util-is": "^1.0.3",
@@ -115,7 +115,7 @@
     "tone": "15.1.22",
     "ulid": "2.4.0",
     "unbzip2-stream": "^1.4.3",
-    "unzipper": "^0.12.3",
+    "unzipper": "0.12.3",
     "utf-8-validate": "^6.0.3",
     "zod": "4.3.6"
   }

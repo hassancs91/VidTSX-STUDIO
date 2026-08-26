@@ -62,6 +62,11 @@ import type {
   StudioCaptionTemplatesResponse,
   StudioCaptionTemplateModuleRequest,
   StudioCaptionTemplateModuleResponse,
+  StudioPackageEvent,
+  StudioPackageExportRequest,
+  StudioPackageExportResponse,
+  StudioPackagePlanRequest,
+  StudioPackagePlanResponse,
   StudioCutPlanRunRequest,
   StudioCutPlanRunResponse,
   StudioTranscribeCancelRequest,
@@ -150,6 +155,15 @@ export const studioApi = {
     const listener = (_e: IpcRendererEvent, data: StudioShotJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_SHOT_JOB_EVENT, listener);
     return () => ipcRenderer.removeListener(IPC.STUDIO_SHOT_JOB_EVENT, listener);
+  },
+  studioPackagePlan: (data: StudioPackagePlanRequest): Promise<StudioPackagePlanResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACKAGE_PLAN, data),
+  studioPackageExport: (data: StudioPackageExportRequest): Promise<StudioPackageExportResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACKAGE_EXPORT, data),
+  onStudioPackageEvent: (callback: (event: StudioPackageEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: StudioPackageEvent) => callback(data);
+    ipcRenderer.on(IPC.STUDIO_PACKAGE_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_PACKAGE_EVENT, listener);
   },
   onStudioMediaJobEvent: (callback: (event: StudioMediaJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioMediaJobEvent) => callback(data);

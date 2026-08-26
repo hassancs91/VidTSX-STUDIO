@@ -379,6 +379,10 @@ export const IPC = {
   // of every Studio project's shot folders
   STUDIO_SHOT_LIBRARY: 'studio:shot:library',
   // Studio — caption templates (D13): pack listing + preview module URL
+  STUDIO_PACKAGE_PLAN: 'studio:package:plan',
+  STUDIO_PACKAGE_EXPORT: 'studio:package:export',
+  STUDIO_PACKAGE_EVENT: 'studio:package:event',
+
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',
 
