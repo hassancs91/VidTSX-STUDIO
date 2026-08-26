@@ -162,6 +162,7 @@ export const IPC = {
   IMAGE_GENERATE: 'image:generate',
   IMAGE_GENERATE_CANCEL: 'image:generate:cancel',
   IMAGE_PROVIDER_SWITCH: 'image:provider:switch',
+  IMAGE_CLI_STATUS: 'image:cli:status',
 
   // Image Studio operations
   IMAGE_STUDIO_SAVE: 'image-studio:save',

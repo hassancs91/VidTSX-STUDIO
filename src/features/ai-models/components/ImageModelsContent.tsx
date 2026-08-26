@@ -4,6 +4,7 @@ import type { ModelSetupConfig } from '@shared/ipc/types';
 import { useImageLibrary } from '../hooks/useImageLibrary';
 import { ImageLibraryHeader } from './ImageLibraryHeader';
 import { SdCliSetupCard } from './SdCliSetupCard';
+import { GeminiCliSetupCard } from './GeminiCliSetupCard';
 import { InstalledModelsList } from './InstalledModelsList';
 import { ProfileCatalogList } from './ProfileCatalogList';
 import { ModelSetupDialog, type ModelSetupResult } from './ModelSetupDialog';
@@ -55,6 +56,8 @@ export function ImageModelsContent() {
       {!lib.loading && !lib.cliInstalled && (
         <SdCliSetupCard install={lib.cliInstall} onInstall={lib.installCli} />
       )}
+
+      <GeminiCliSetupCard />
 
       {lib.loading ? (
         <div className="p-4 text-[12px] text-text-muted text-center">Scanning models folder…</div>

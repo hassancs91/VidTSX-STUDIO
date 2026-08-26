@@ -7,7 +7,12 @@ import type { ImageProviderConfig } from '../../image-engine';
 import { getImageProviders, saveImageProviders, getProviderCredentials, getCloudflareAccountId } from '../services/settings';
 import { getProviderModels } from '../services/provider-models';
 import { getDefaultImageModelPriceUsd } from '../../shared/presets/provider-model-defaults';
-import { initImageEngine, LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
+import {
+  initImageEngine,
+  GEMINI_CLI_IMAGE_PROVIDER_ID,
+  INSTANCE_IMAGE_PROVIDER_IDS,
+} from '../services/image-init';
+import { agyCliService } from '../services/agy-cli';
 import { aiUsageService } from '../services/ai-usage';
 import { ModerationBlockedError } from '../../shared/content-safety';
 import type {
@@ -24,6 +29,8 @@ import type {
   ImageGenerateCancelResponse,
   ImageProviderSwitchRequest,
   ImageProviderSwitchResponse,
+  ImageCliStatusRequest,
+  ImageCliStatusResponse,
 } from '../../shared/ipc/types';
 
 // Active in-flight image generations keyed by caller-supplied callId. The
@@ -77,13 +84,14 @@ export async function handleImageProvidersSave(
   data: ImageProvidersSaveRequest
 ): Promise<ImageProvidersSaveResponse> {
   try {
-    // Preserve existing API keys when the incoming key is empty. The local
-    // sd-cli bridge is never stored in settings — drop it if a caller sends it.
+    // Preserve existing API keys when the incoming key is empty. Instance
+    // providers (local sd-cli, the CLI bridges) are never stored in settings —
+    // drop them if a caller sends them.
     const { providers: existing } = await getImageProviders();
     const existingMap = new Map(existing.map((p) => [p.id, p]));
 
     const configs: ImageProviderConfig[] = data.providers
-      .filter((p) => p.id !== LOCAL_IMAGE_PROVIDER_ID)
+      .filter((p) => !INSTANCE_IMAGE_PROVIDER_IDS.includes(p.id))
       .map((p) => ({
         id: p.id,
         name: p.name,
@@ -209,6 +217,13 @@ export async function handleImageModelsGet(
   data: ImageModelsGetRequest
 ): Promise<ImageModelsGetResponse> {
   try {
+    // The gemini-cli bridge reports models from a cached availability probe;
+    // make sure one has run so the first listing (e.g. Image Studio load)
+    // sees the provider without visiting the AI page first.
+    const target = data?.providerId ?? imageEngine.getActiveProvider();
+    if (target === GEMINI_CLI_IMAGE_PROVIDER_ID) {
+      await agyCliService.ensureProbed().catch(() => {});
+    }
     const models = imageEngine.getModels(data?.providerId);
     return {
       success: true,
@@ -305,6 +320,35 @@ export async function handleImageGenerateCancel(
   activeImageGenerates.delete(data.callId);
   log.info('Cancelled in-flight image generation', { callId: data.callId });
   return { success: true, cancelled: true };
+}
+
+/**
+ * Detection + auth probe for the CLI-bridge providers (AI Models → Image
+ * setup cards). One list response so the deferred mmx provider slots in
+ * without a new channel.
+ */
+export async function handleImageCliStatus(
+  _event: IpcMainInvokeEvent,
+  data?: ImageCliStatusRequest,
+): Promise<ImageCliStatusResponse> {
+  try {
+    const status = await agyCliService.probeStatus(data?.force ?? false);
+    return {
+      success: true,
+      statuses: [
+        {
+          id: GEMINI_CLI_IMAGE_PROVIDER_ID,
+          installed: status.installed,
+          authenticated: status.authenticated,
+          binaryPath: status.binaryPath,
+          detail: status.detail,
+        },
+      ],
+    };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to probe CLI providers';
+    return { success: false, statuses: [], error };
+  }
 }
 
 export async function handleImageProviderSwitch(

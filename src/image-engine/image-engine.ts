@@ -48,6 +48,10 @@ class ImageEngine {
         throw new Error(`Cloudflare account ID required for image provider "${config.id}"`);
       }
       provider = new CloudflareImageProvider(config.id, config.apiKey, config.accountId, config.defaultModel, config.models);
+    } else if (config.type === 'local' || config.type === 'gemini-cli' || config.type === 'minimax-cli') {
+      throw new Error(
+        `Image provider type "${config.type}" is a CLI bridge — it registers via registerInstance(), not settings`,
+      );
     } else {
       throw new Error(`Unknown image provider type: ${config.type}`);
     }

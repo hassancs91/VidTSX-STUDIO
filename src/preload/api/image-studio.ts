@@ -9,6 +9,8 @@ import type {
   ImageModelsGetResponse,
   ImageProviderSwitchRequest,
   ImageProviderSwitchResponse,
+  ImageCliStatusRequest,
+  ImageCliStatusResponse,
   ImageProviderTestRequest,
   ImageProviderTestResponse,
   ImageProvidersGetResponse,
@@ -63,6 +65,8 @@ export const imageStudioApi = {
     ipcRenderer.invoke(IPC.IMAGE_GENERATE_CANCEL, data),
   imageProviderSwitch: (data: ImageProviderSwitchRequest): Promise<ImageProviderSwitchResponse> =>
     ipcRenderer.invoke(IPC.IMAGE_PROVIDER_SWITCH, data),
+  imageCliStatus: (data?: ImageCliStatusRequest): Promise<ImageCliStatusResponse> =>
+    ipcRenderer.invoke(IPC.IMAGE_CLI_STATUS, data),
 
   // ─── Image Studio operations ───
   // Image Studio operations

@@ -1,5 +1,7 @@
 import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 import { LocalSdImageProvider } from '../../image-engine/providers/local-sd-provider';
+import { GeminiCliImageProvider } from '../../image-engine/providers/gemini-cli-provider';
+import { agyCliService } from './agy-cli';
 import { installContentSafetyGuard } from './content-safety/install';
 import { loadSettings, getProviderCredentials, getCloudflareAccountId } from './settings';
 import { getProviderModels } from './provider-models';
@@ -10,6 +12,19 @@ const log = logEngine.createLogger('ImageInit');
 
 /** Stable id of the on-device sd-cli provider. */
 export const LOCAL_IMAGE_PROVIDER_ID = 'local';
+
+/** Stable id of the Antigravity (Google subscription) CLI provider. */
+export const GEMINI_CLI_IMAGE_PROVIDER_ID = 'gemini-cli';
+
+/**
+ * Providers registered as instances (no API key, never stored in provider
+ * settings). Settings-save filters these ids out. Two-wide by design: the
+ * deferred MiniMax/mmx provider joins this list when it lands.
+ */
+export const INSTANCE_IMAGE_PROVIDER_IDS: readonly string[] = [
+  LOCAL_IMAGE_PROVIDER_ID,
+  GEMINI_CLI_IMAGE_PROVIDER_ID,
+];
 
 /**
  * (Re-)register the local sd-cli bridge with the cloud image engine. Safe to
@@ -26,6 +41,22 @@ export function registerLocalImageProvider(): void {
     new LocalSdImageProvider(LOCAL_IMAGE_PROVIDER_ID, {
       prepare: async (request) => (await applySdGenerationPreflight(request)).request,
     }),
+  );
+}
+
+/**
+ * (Re-)register the Antigravity CLI bridge (Nano Banana 2 on the Google AI
+ * subscription). Always registered; it reports zero models until the CLI is
+ * detected and authenticated (probed lazily on first model listing — no CLI
+ * spawn at startup). Content Safety needs nothing provider-specific: the
+ * engine's fail-closed runGuarded chokepoint covers this provider like any
+ * other.
+ */
+export function registerGeminiCliImageProvider(): void {
+  installContentSafetyGuard();
+  if (imageEngine.getProviders().includes(GEMINI_CLI_IMAGE_PROVIDER_ID)) return;
+  imageEngine.registerInstance(
+    new GeminiCliImageProvider(GEMINI_CLI_IMAGE_PROVIDER_ID, agyCliService),
   );
 }
 
@@ -65,10 +96,11 @@ export async function initImageEngine(): Promise<void> {
         log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
-    // Cloud providers require an API key; the local sd-cli bridge does not and
-    // is always registered (after the cloud ones, so it never steals "active"
+    // Cloud providers require an API key; the CLI bridges do not and are
+    // always registered (after the cloud ones, so they never steal "active"
     // from a configured cloud provider).
     registerLocalImageProvider();
+    registerGeminiCliImageProvider();
 
     // Restore last active provider
     if (settings.imageActiveProvider) {

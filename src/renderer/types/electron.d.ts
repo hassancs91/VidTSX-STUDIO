@@ -74,6 +74,8 @@ import type {
   ImageStudioMoveToFolderRequest,
   ImageStudioMoveToFolderResponse,
   ImageProviderSwitchRequest,
+  ImageCliStatusRequest,
+  ImageCliStatusResponse,
   ImageProviderSwitchResponse,
   SettingsSetAiModelsFolderRequest,
   SettingsSetAiModelsFolderResponse,
@@ -245,6 +247,9 @@ export interface ElectronAPI {
 
   // Image provider switch
   imageProviderSwitch: (data: ImageProviderSwitchRequest) => Promise<ImageProviderSwitchResponse>;
+
+  // CLI-bridge image providers (agy today, mmx later): detect + auth probe
+  imageCliStatus: (data?: ImageCliStatusRequest) => Promise<ImageCliStatusResponse>;
 
   // Reference image library
   refImageSave: (data: import('../../shared/ipc/types').RefImageSaveRequest) => Promise<import('../../shared/ipc/types').RefImageSaveResponse>;

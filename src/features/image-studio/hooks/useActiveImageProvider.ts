@@ -14,11 +14,13 @@ export function useActiveImageProvider() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [result, localModels] = await Promise.all([
+      const [result, localModels, geminiModels] = await Promise.all([
         window.api.imageProvidersGet(),
-        // The local sd-cli bridge isn't stored in provider settings — it's
-        // offered whenever it has at least one ready on-device model.
+        // The CLI bridges aren't stored in provider settings — each is offered
+        // whenever it reports at least one ready model (local: an on-device
+        // model exists; gemini-cli: agy is installed and signed in).
         window.api.imageModelsGet({ providerId: 'local' }),
+        window.api.imageModelsGet({ providerId: 'gemini-cli' }),
       ]);
       if (result.success) {
         const enabled = result.providers
@@ -26,6 +28,9 @@ export function useActiveImageProvider() {
           .map((p) => ({ id: p.id, name: p.name }));
         if (localModels.success && localModels.models.length > 0) {
           enabled.push({ id: 'local', name: 'Local (open source)' });
+        }
+        if (geminiModels.success && geminiModels.models.length > 0) {
+          enabled.push({ id: 'gemini-cli', name: 'Google (subscription)' });
         }
         setProviders(enabled);
         // A stale active provider (e.g. 'local' after its models were removed,

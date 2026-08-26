@@ -8,6 +8,7 @@ import {
   handleImageGenerate,
   handleImageGenerateCancel,
   handleImageProviderSwitch,
+  handleImageCliStatus,
 } from '../image-handlers';
 import {
   handleImageStudioSave,
@@ -44,6 +45,7 @@ export function registerImageStudioIpc(): void {
   ipcMain.handle(IPC.IMAGE_GENERATE, lazily(ensureSdImageEngine, handleImageGenerate));
   ipcMain.handle(IPC.IMAGE_GENERATE_CANCEL, handleImageGenerateCancel);
   ipcMain.handle(IPC.IMAGE_PROVIDER_SWITCH, handleImageProviderSwitch);
+  ipcMain.handle(IPC.IMAGE_CLI_STATUS, handleImageCliStatus);
   ipcMain.handle(IPC.IMAGE_STUDIO_SAVE, handleImageStudioSave);
   ipcMain.handle(IPC.IMAGE_STUDIO_LIST, handleImageStudioList);
   ipcMain.handle(IPC.IMAGE_STUDIO_DELETE, handleImageStudioDelete);

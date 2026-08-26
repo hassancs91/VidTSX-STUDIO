@@ -3,11 +3,19 @@ import type { ContentSafetyBlockInfo } from '../../content-safety/types';
 
 export type ImageOperationType = 'text-to-image' | 'image-to-image' | 'multi-reference';
 
+/** CLI-bridge types are registered directly and never stored in provider settings. */
+export type ImageProviderType =
+  | 'fal'
+  | 'openrouter'
+  | 'cloudflare'
+  | 'local'
+  | 'gemini-cli'
+  | 'minimax-cli';
+
 export interface ImageProviderInfo {
   id: string;
   name: string;
-  /** 'local' is the on-device sd-cli bridge (never stored in provider settings). */
-  type: 'fal' | 'openrouter' | 'cloudflare' | 'local';
+  type: ImageProviderType;
   defaultModel: string;
   enabled: boolean;
   hasApiKey: boolean;
@@ -32,7 +40,7 @@ export interface ImageProvidersSaveRequest {
   providers: Array<{
     id: string;
     name: string;
-    type: 'fal' | 'openrouter' | 'cloudflare' | 'local';
+    type: ImageProviderType;
     apiKey: string;
     defaultModel: string;
     enabled: boolean;
@@ -112,6 +120,28 @@ export interface ImageGenerateCancelRequest {
 export interface ImageGenerateCancelResponse {
   success: boolean;
   cancelled?: boolean;
+  error?: string;
+}
+
+// ─── CLI-bridge provider status (setup cards) ───
+export interface ImageCliStatusRequest {
+  /** Force a fresh probe (the "Check again" button); otherwise a recent result may be reused. */
+  force?: boolean;
+}
+
+export interface ImageCliProviderStatus {
+  /** Provider id: 'gemini-cli' today; 'minimax-cli' when the mmx provider lands. */
+  id: string;
+  installed: boolean;
+  authenticated: boolean;
+  binaryPath: string;
+  /** Short failure detail when the auth probe did not succeed. */
+  detail?: string;
+}
+
+export interface ImageCliStatusResponse {
+  success: boolean;
+  statuses: ImageCliProviderStatus[];
   error?: string;
 }
 

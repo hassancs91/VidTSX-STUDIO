@@ -51,8 +51,12 @@ export interface ImageModelInfo {
 export interface ImageProviderConfig {
   id: ImageProviderId;
   name: string;
-  /** 'local' is the on-device sd-cli bridge — registered directly, never stored in settings. */
-  type: 'fal' | 'openrouter' | 'cloudflare' | 'local';
+  /**
+   * 'local' is the on-device sd-cli bridge; 'gemini-cli' the Antigravity
+   * (Google subscription) bridge; 'minimax-cli' reserved for the deferred mmx
+   * provider. All three are registered directly, never stored in settings.
+   */
+  type: 'fal' | 'openrouter' | 'cloudflare' | 'local' | 'gemini-cli' | 'minimax-cli';
   apiKey: string;
   /**
    * Cloudflare only: the account id half of the credential pair. Not a secret
