@@ -17,6 +17,7 @@ import type {
   StudioPackageInfo,
   StudioPackageInspectRequest,
   StudioPackageInspectResponse,
+  StudioPackagePendingResponse,
   StudioShotConformRequest,
   StudioShotConformResponse,
   StudioPackageExportRequest,
@@ -31,6 +32,7 @@ import {
   VIDTSX_PACKAGE_EXTENSION,
 } from '../../shared/studio/project-package';
 import { normalizeBrand } from '../../shared/studio/brand';
+import { takePendingPackage } from '../services/studio/package-open';
 import { importPackage, inspectPackage } from '../services/studio/project-package-import';
 import { conformShot } from '../services/studio/shot-conform';
 import {
@@ -99,7 +101,10 @@ export async function handleStudioPackageExport(
   try {
     if (!data?.project?.id) return { success: false, error: 'No project to package' };
 
-    let destPath = data.destPath;
+    // VIDTSX_PACKAGE_SAVE stands in for the native save dialog in automated
+    // runs — OS pickers can't be driven over CDP (docs/ui-automation-cdp.md),
+    // the VIDTSX_RELINK_PICK precedent.
+    let destPath = data.destPath ?? process.env.VIDTSX_PACKAGE_SAVE;
     if (!destPath) {
       const result = await dialog.showSaveDialog({
         title: 'Export project package',
@@ -149,7 +154,8 @@ export async function handleStudioPackageInspect(
   data: StudioPackageInspectRequest,
 ): Promise<StudioPackageInspectResponse> {
   try {
-    let filePath = data?.filePath;
+    // VIDTSX_PACKAGE_PICK stands in for the native open dialog (see above).
+    let filePath = data?.filePath ?? process.env.VIDTSX_PACKAGE_PICK;
     if (!filePath) {
       const picked = await dialog.showOpenDialog({
         title: 'Import project package',
@@ -239,4 +245,14 @@ export async function handleStudioShotConform(
     log.error('Shot conform failed', err, { projectId: data?.projectId, shotId: data?.shotId });
     return { success: false, error: errorMessage(err, 'Could not convert that shot') };
   }
+}
+
+/**
+ * Claim the `.vidtsx` the OS handed us (file association). One-shot by design:
+ * the path parks in main precisely because the project browser may not be
+ * mounted yet, and two claimants must not both start an import.
+ */
+export async function handleStudioPackagePending(): Promise<StudioPackagePendingResponse> {
+  const filePath = takePendingPackage();
+  return filePath ? { filePath } : {};
 }

@@ -11,6 +11,14 @@ publish:
   owner: hassancs91
   repo: VidTSX-STUDIO
   releaseType: draft
+# Double-clicking a project package opens the import dialog (Q7a). The path
+# arrives on argv (Windows/Linux) or via 'open-file' (macOS); both funnel into
+# src/main/services/studio/package-open.ts.
+fileAssociations:
+  - ext: vidtsx
+    name: VidTSX project package
+    description: VidTSX Studio project package
+    role: Editor
 directories:
   output: dist
   buildResources: resources

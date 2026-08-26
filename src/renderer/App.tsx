@@ -51,6 +51,15 @@ function AppContent({ activeScreen, setActiveScreen }: {
     return () => window.removeEventListener('vidtsx:navigate', handler);
   }, [setActiveScreen]);
 
+  // A double-clicked .vidtsx: main parks the path and says "a package is
+  // waiting". All this listener does is put the Studio screen on — the project
+  // browser claims the path once it is mounted.
+  useEffect(() => {
+    return window.api.onStudioPackageOpenFile(() => {
+      if (isFeatureEnabled('studio')) setActiveScreen('studio');
+    });
+  }, [setActiveScreen]);
+
   const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : "creator");
 
   useEffect(() => {

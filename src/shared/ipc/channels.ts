@@ -385,6 +385,8 @@ export const IPC = {
   STUDIO_PACKAGE_INSPECT: 'studio:package:inspect',
   STUDIO_PACKAGE_IMPORT: 'studio:package:import',
   STUDIO_PACKAGE_EVENT: 'studio:package:event',
+  STUDIO_PACKAGE_PENDING: 'studio:package:pending',
+  STUDIO_PACKAGE_OPEN_FILE: 'studio:package:open-file',
 
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',

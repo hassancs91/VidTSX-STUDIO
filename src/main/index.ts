@@ -23,6 +23,12 @@ import { initSystemMonitor } from './services/system-monitor';
 import { initDownloadEngine, restoreDownloads } from './services/download-manager';
 import { initUpdater } from './services/updater/updater-service';
 import { gracefulShutdown } from './services/shutdown';
+import {
+  hasPendingPackage,
+  packagePathFromArgv,
+  setPendingPackage,
+} from './services/studio/package-open';
+import { IPC } from '../shared/ipc/channels';
 import { logEngine } from '../logging/log-engine';
 
 // Enable hardware acceleration for better rendering performance
@@ -53,11 +59,29 @@ initCrashReporting();
 
 let mainWindow: BrowserWindow | null = null;
 
-app.on('second-instance', () => {
+/** Park a double-clicked .vidtsx and tell the window to go to Studio. The path
+ *  waits in main until the project browser claims it, so a cold start into
+ *  another screen cannot drop it. */
+function queuePackageOpen(filePath: string): void {
+  setPendingPackage(filePath);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC.STUDIO_PACKAGE_OPEN_FILE, { filePath });
+  }
+}
+
+app.on('second-instance', (_event, argv) => {
+  const packagePath = packagePathFromArgv(argv);
+  if (packagePath) queuePackageOpen(packagePath);
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
   }
+});
+
+// macOS hands file-association opens here rather than on argv.
+app.on('open-file', (event, filePath) => {
+  event.preventDefault();
+  queuePackageOpen(filePath);
 });
 
 function createWindow(): BrowserWindow {
@@ -95,6 +119,11 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => {
     win.show();
+    // A cold-start double-click: the browser also claims on mount, so this is
+    // purely the nudge that gets the user to the Studio screen.
+    if (hasPendingPackage()) {
+      win.webContents.send(IPC.STUDIO_PACKAGE_OPEN_FILE, {});
+    }
   });
 
   // Q10 quit-flush: defer the first close while the Studio editor flushes its
@@ -109,6 +138,10 @@ function createWindow(): BrowserWindow {
 
   return win;
 }
+
+// A .vidtsx passed on the command line (Windows/Linux file association).
+const launchPackagePath = packagePathFromArgv(process.argv);
+if (launchPackagePath) setPendingPackage(launchPackagePath);
 
 app.whenReady().then(async () => {
   const startupBegan = Date.now();

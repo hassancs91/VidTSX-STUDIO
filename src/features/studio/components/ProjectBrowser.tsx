@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Clapperboard, FolderCog, FolderOpen, Plus, Trash2 } from 'lucide-react';
+import { Clapperboard, FolderCog, FolderOpen, Package, PackageOpen, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import type { StudioProjectSummary } from '@shared/ipc/types';
 import { useStudioProjects } from '../hooks/useStudioProjects';
 import { NewProjectDialog } from './NewProjectDialog';
+import { ExportPackageDialog } from './ExportPackageDialog';
+import { ImportPackageDialog } from './ImportPackageDialog';
 import { formatDate } from '../services/format-time';
 
 interface Props {
@@ -12,8 +14,31 @@ interface Props {
 }
 
 export function ProjectBrowser({ onOpen }: Props) {
-  const { status, projects, root, error, create, remove, changeRoot } = useStudioProjects();
+  const { status, projects, root, error, create, remove, refresh, changeRoot } = useStudioProjects();
   const [showNew, setShowNew] = useState(false);
+  const [importPath, setImportPath] = useState<string | undefined>(undefined);
+  const [showImport, setShowImport] = useState(false);
+  const [exportTarget, setExportTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // A double-clicked .vidtsx parks in main until the browser is on screen. The
+  // push event only NAVIGATES here; the path is claimed on mount too, so a
+  // launch straight into another screen still finds it.
+  useEffect(() => {
+    const claim = async (): Promise<void> => {
+      const res = await window.api.studioPackagePending();
+      if (res.filePath) {
+        setImportPath(res.filePath);
+        setShowImport(true);
+      }
+    };
+    void claim();
+    return window.api.onStudioPackageOpenFile(() => void claim());
+  }, []);
+
+  const openImport = (filePath?: string): void => {
+    setImportPath(filePath);
+    setShowImport(true);
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -31,6 +56,12 @@ export function ProjectBrowser({ onOpen }: Props) {
             <FolderCog size={13} strokeWidth={1.5} className="shrink-0" />
             <span className="truncate">{root || 'Projects folder'}</span>
           </button>
+          <Button variant="secondary" size="sm" onClick={() => openImport(undefined)} data-import-package>
+            <span className="flex items-center gap-1">
+              <PackageOpen size={13} strokeWidth={1.75} />
+              Import
+            </span>
+          </Button>
           <Button variant="primary" size="sm" onClick={() => setShowNew(true)}>
             <span className="flex items-center gap-1">
               <Plus size={13} strokeWidth={2} />
@@ -55,9 +86,14 @@ export function ProjectBrowser({ onOpen }: Props) {
               Create a project to start editing — landscape for longs, portrait for
               shorts. Media stays where it is; the project references it in place.
             </div>
-            <Button variant="primary" onClick={() => setShowNew(true)}>
-              Create your first project
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="primary" onClick={() => setShowNew(true)}>
+                Create your first project
+              </Button>
+              <Button variant="secondary" onClick={() => openImport(undefined)}>
+                Import a package
+              </Button>
+            </div>
           </div>
         )}
         {projects.length > 0 && (
@@ -68,11 +104,36 @@ export function ProjectBrowser({ onOpen }: Props) {
                 project={project}
                 onOpen={() => onOpen(project.id)}
                 onDelete={() => void remove(project.id)}
+                onExport={() => setExportTarget({ id: project.id, name: project.name })}
               />
             ))}
           </div>
         )}
       </div>
+
+      <ImportPackageDialog
+        isOpen={showImport}
+        filePath={importPath}
+        onClose={() => {
+          setShowImport(false);
+          setImportPath(undefined);
+          void refresh();
+        }}
+        onOpenProject={(projectId) => {
+          setShowImport(false);
+          setImportPath(undefined);
+          onOpen(projectId);
+        }}
+      />
+
+      {exportTarget && (
+        <ExportPackageDialog
+          isOpen
+          projectId={exportTarget.id}
+          projectName={exportTarget.name}
+          onClose={() => setExportTarget(null)}
+        />
+      )}
 
       <NewProjectDialog
         isOpen={showNew}
@@ -182,10 +243,12 @@ function ProjectCard({
   project,
   onOpen,
   onDelete,
+  onExport,
 }: {
   project: StudioProjectSummary;
   onOpen: () => void;
   onDelete: () => void;
+  onExport: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const isPortrait = project.height > project.width;
@@ -240,14 +303,25 @@ function ProjectCard({
             </button>
           </div>
         ) : (
-          <button
-            onClick={() => setConfirming(true)}
-            title="Delete project"
-            className="flex items-center justify-center w-[22px] h-[22px] rounded-[5px] bg-app-base text-text-muted hover:text-accent-red transition-colors"
-            style={{ border: '0.5px solid var(--color-border)' }}
-          >
-            <Trash2 size={12} strokeWidth={1.5} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onExport}
+              data-export-package={project.id}
+              title="Export as a .vidtsx package — one file carrying the timeline, shots, transcripts and media"
+              className="flex items-center justify-center w-[22px] h-[22px] rounded-[5px] bg-app-base text-text-muted hover:text-text-secondary transition-colors"
+              style={{ border: '0.5px solid var(--color-border)' }}
+            >
+              <Package size={12} strokeWidth={1.5} />
+            </button>
+            <button
+              onClick={() => setConfirming(true)}
+              title="Delete project"
+              className="flex items-center justify-center w-[22px] h-[22px] rounded-[5px] bg-app-base text-text-muted hover:text-accent-red transition-colors"
+              style={{ border: '0.5px solid var(--color-border)' }}
+            >
+              <Trash2 size={12} strokeWidth={1.5} />
+            </button>
+          </div>
         )}
       </div>
     </div>

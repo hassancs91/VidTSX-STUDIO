@@ -71,6 +71,20 @@ export interface StudioPackageExportResponse {
   error?: string;
 }
 
+/** "A package is waiting." The OS handed the app a `.vidtsx` (double-click /
+ *  file association); the PATH parks in main until the project browser claims
+ *  it, so this event's job is only to get the user to the Studio screen — the
+ *  path rides along when it is known, and is absent on a cold start where the
+ *  browser will claim it on mount anyway. */
+export interface StudioPackageOpenFileEvent {
+  filePath?: string;
+}
+
+export interface StudioPackagePendingResponse {
+  /** The parked path, cleared by this read. Absent when there is none. */
+  filePath?: string;
+}
+
 /** Push progress for a long export/import. */
 export interface StudioPackageEvent {
   op: 'export' | 'import';

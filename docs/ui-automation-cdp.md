@@ -168,7 +168,14 @@ projects root — `~/Videos/VidTSX Studio/projects/<slug>/`. That exercised the
 whole timeline, preview, proxy and export path in S2 without ever opening the
 import dialog.
 
-One dialog has a dedicated stand-in: the media-relink "Locate…" picker. Launch
+Three dialogs have dedicated stand-ins. `VIDTSX_PACKAGE_SAVE=<absolute path>`
+replaces the `.vidtsx` export save dialog and `VIDTSX_PACKAGE_PICK=<absolute
+path>` replaces the import open dialog, so the whole export → import round trip
+(strategy tiles with real sizes, the asset table, the import report cards) can be
+clicked through for real. An explicit path in the IPC request still wins over
+either env var.
+
+The third: the media-relink "Locate…" picker. Launch
 the dev app with `VIDTSX_RELINK_PICK=<absolute path>` and the relink handler
 uses that path instead of opening the dialog, so the whole renderer flow
 (mismatch confirm card, document merge, cache survival) runs for real. Unset

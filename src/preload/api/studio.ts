@@ -67,6 +67,8 @@ import type {
   StudioPackageImportResponse,
   StudioPackageInspectRequest,
   StudioPackageInspectResponse,
+  StudioPackageOpenFileEvent,
+  StudioPackagePendingResponse,
   StudioShotConformRequest,
   StudioShotConformResponse,
   StudioPackageExportRequest,
@@ -166,6 +168,13 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_PLAN, data),
   studioPackageExport: (data: StudioPackageExportRequest): Promise<StudioPackageExportResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_EXPORT, data),
+  studioPackagePending: (): Promise<StudioPackagePendingResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACKAGE_PENDING),
+  onStudioPackageOpenFile: (callback: (event: StudioPackageOpenFileEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: StudioPackageOpenFileEvent) => callback(data);
+    ipcRenderer.on(IPC.STUDIO_PACKAGE_OPEN_FILE, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_PACKAGE_OPEN_FILE, listener);
+  },
   studioPackageInspect: (data: StudioPackageInspectRequest): Promise<StudioPackageInspectResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_INSPECT, data),
   studioPackageImport: (data: StudioPackageImportRequest): Promise<StudioPackageImportResponse> =>

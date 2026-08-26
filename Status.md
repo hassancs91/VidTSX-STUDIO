@@ -9,6 +9,76 @@
 
 ## Completed phases
 
+### V1 BUILD ORDER Slice 7 — PROJECT PACKAGES (.vidtsx) SHIPPED (2026-08-26)
+**`docs/NEXT_FEATURES_DESIGN.md` Q7 (build-order row 7), commits NF16–NF18.
+Gate-green per commit (1,105 tests, +81 new; type baselines 26/22 exact);
+CDP-verified live: a real project exported and re-imported through the UI,
+and the file association proven by firing a second instance with a .vidtsx
+on argv.** One file carries a whole Studio project — backup, machine
+migration, hand-off, and (later, Q7g) something a creator sells.
+(1) **Format** (NF16): `manifest.json` with format/app/schema versions,
+per-file sha256 + size, the asset table (originalName/hash/originalBytes so
+even a no-media package can relink), counts and `kitVersion`. Reserved from
+day one per the Q8 constraint: manifest `kind` ('project' | 'template'),
+per-asset `replaceable` + `role`, and `packs`/`packs/` — v1 writes
+`kind: 'project'` and never writes `packs`, but all of it round-trips
+through the validator so a v1 reader can NAME a template package instead of
+choking on it (caption packs get their own `caption-packs/` folder so they
+never collide with the reserve). Caps: 20k entries, 256 GiB total, 64 GiB per
+media file, 64 MiB for anything the app PARSES — the split matters because
+the small cap is the one guarding a JSON parser and the TSX gate.
+(2) **Writer** (NF16): plan-then-write, so the dialog can size all three
+strategies without touching a file. Policy per Q7b — always project.json +
+shots + transcripts + cut-plans + thumbs + the kit pin + a tokens-only brand
+snapshot; NEVER proxies/waveforms/renders. project.json is REWRITTEN (media
+refs go package-relative, proxy/waveform pointers dropped) so nothing
+absolute from the exporter's machine survives; transcript/thumbnail refs need
+no rewriting at all because cache-relative paths already match package paths.
+Each entry is hashed from the bytes actually streamed (one pass over
+multi-GB media), media is STORED not deflated, and a failed write unlinks the
+partial file. Zip deps pinned exact (archiver 7.0.1 / unzipper 0.12.3) — no
+new dependency was needed.
+(3) **Import** (NF17): the manifest is the ALLOWLIST (a stowaway entry is
+never read or written); zip-slip is checked twice (string-only name check
+before any resolve, then resolve + containment on every target); declared
+size must equal the zip's own uncompressed size BEFORE a byte lands (the
+zip-bomb shape); every file is hashed as it is written. A newer
+format/schema version is refused with a message naming the app version that
+wrote it. Always a NEW project id, `migrateProject` as the document gate,
+and every path-bearing field rewritten — a package that puts
+`../../../evil.jpg` in `thumbnail.path` gets `thumbs/<id>.jpg`. The **D14
+gate re-runs on every shot** (mandatory — the exporter's machine proves
+nothing): pass = ready, allowlist-gap-only = a Convert card, anything else =
+an error card, and the project still opens. Assets with no media get a
+project-local PLACEHOLDER path, which routes them through the EXISTING
+prepare → library-hash-heal → Locate… flow with zero new machinery. A failed
+import leaves nothing behind.
+(4) **Brand** (Q7f) all three offers real: match one of yours / create from
+the snapshot / keep the tokens project-local at `<project>/brand.json` — the
+last one made real by `project-brand.ts`, one `resolveProjectBrand()` now
+used by shot generate, shot refine and the export entry's caption palette
+(library brand wins; the snapshot is the fallback, including when a library
+brandId has gone stale). The exporter's brandId is always dropped.
+(5) **Convert in place** (NF17): `shot-conform.ts` — shot-import conforms on
+the way IN and can reserve a fresh folder, but an imported shot's id and the
+clips referencing it arrived together, so a conversion lands as a NEW VERSION
+IN THE SAME FOLDER; re-importing would orphan every clip.
+(6) **UI + association** (NF18): export dialog (three strategy tiles carrying
+real totals, per-asset table, chat opt-in), import dialog (manifest summary,
+brand offer, report cards), `.vidtsx` file association via electron-builder
+with the OS hand-off funnelled through one pending slot in main — the push
+event only navigates, the PATH waits until the project browser claims it, so
+a cold start into another screen cannot drop it. Two new CDP dialog
+stand-ins (`VIDTSX_PACKAGE_SAVE`/`VIDTSX_PACKAGE_PICK`, the
+`VIDTSX_RELINK_PICK` precedent) documented in `docs/ui-automation-cdp.md`.
+**One judgement call for Hasan:** the chat opt-in governs BOTH
+`agent-chat.json` and per-shot `chat.json` — Q7a lists the latter
+unconditionally, but Q7b's reason ("it's a private conversation") applies to
+both. Say the word to split them. **Noted from the live walk:** for a small
+source clip the proxies-only package can be LARGER than full media (a 0.4 MB
+clip's 720p proxy is 0.6 MB); the tile shows the real number, so the dialog
+is honest about it rather than promising "smaller".
+
 ### SLICE 5 FOLLOW-UPS CLOSED — blocklist pruning + mailto + eval re-run (2026-08-26)
 **Commit NF15. Hasan's Gate A review pass applied: −41 verified-collision
 terms → 1,223 (the review artifact was found deleted; rebuilt from source

@@ -44,6 +44,7 @@ import {
   handleStudioPackageExport,
   handleStudioPackageImport,
   handleStudioPackageInspect,
+  handleStudioPackagePending,
   handleStudioPackagePlan,
   handleStudioShotConform,
 } from '../studio-package-handlers';
@@ -91,6 +92,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PACKAGE_INSPECT, handleStudioPackageInspect);
   ipcMain.handle(IPC.STUDIO_PACKAGE_IMPORT, handleStudioPackageImport);
   ipcMain.handle(IPC.STUDIO_SHOT_CONFORM, handleStudioShotConform);
+  ipcMain.handle(IPC.STUDIO_PACKAGE_PENDING, handleStudioPackagePending);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATES, handleStudioCaptionTemplates);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, handleStudioCaptionTemplateModule);
 
