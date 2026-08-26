@@ -64,6 +64,69 @@ describe('checkGenerationPrompt — golden policy tests (CONTENT_SAFETY_DESIGN.m
     );
   });
 
+  describe('pruned collision terms stay allowed (Hasan review pass 2026-08-26)', () => {
+    it.each([
+      // en homonyms / idioms
+      'a shark bite in the ocean',
+      'sound bite from the interview',
+      'strap on your helmet and go',
+      'debt snowballing out of control',
+      'shrimping boats at dawn in louisiana',
+      'chef tossing salad in a bowl',
+      'guitar fingering chart for beginners',
+      'in nineteen sixty-nine we landed on the moon',
+      'a girl on top of a mountain at sunrise',
+      'spread legs shoulder-width apart yoga pose',
+      'kids ball kicking drills on the pitch',
+      'olympic snatch lift technique',
+      'beat off the competition this quarter',
+      'full of spunk and energy',
+      'axe wound first aid demonstration',
+      'cipa battery rating test for cameras',
+      'king cnut commanding the tide',
+      'ball-peen hammer on a workbench',
+      'a golf threesome on the fairway',
+      'the hooker throws into the scrum',
+      'rooster cock crowing at dawn on a farm',
+      'moby dick illustration for a book cover',
+      'the camera acts as a voyeur in this film style',
+      'kum plaj ve deniz manzarasi', // tr: sand, beach and sea view
+      // cross-language innocents
+      'concha pastry on a plate in a bakery', // es: pastry/seashell
+      'aftrekken van breuken uitgelegd', // nl: subtracting fractions
+      'rosette piping on a wedding cake', // de-listed, English word
+      'une chatte qui dort sur le canape', // fr: sleeping cat
+      'houten poppen in een speelgoedwinkel', // nl/de: wooden dolls
+      'ramoner la cheminee avant l hiver', // fr: chimney sweeping
+      'فرّج الله همّه', // ar: relief (religious phrase)
+      'قضيب حديد على السكة', // ar: iron rod on the rail
+      'مبادل حراري في المصنع', // ar: heat exchanger
+      'چکلا بیلن سے روٹی بنائیں', // ur: chakla rolling board
+      'sike that was just a joke',
+      // CJK substring collisions
+      'ドローンのローターを交換する', // ja: replacing drone rotors
+      '温泉の脱衣所で着替える', // ja: onsen changing room
+      '裸足で砂浜を歩く', // ja: walking barefoot
+      '完全変態の昆虫の図', // ja: insect metamorphosis diagram
+      '动物交配行为的纪录片', // zh: animal-mating documentary
+    ])('allows %j', (prompt) => {
+      expect(checkGenerationPrompt(prompt).blocked).toBe(false);
+    });
+
+    it.each([
+      // neighbors of pruned terms keep blocking
+      ['suck my cock', 'sexual'],
+      ['big black cock photo', 'nudity'],
+      ['suck my dick', 'sexual'],
+      ['strap-on harness photo', 'sexual'], // separator removal → 'strapon'
+      ['nude woman on a bed', 'nudity'],
+    ] as const)('still blocks %j', (prompt, category) => {
+      const r = checkGenerationPrompt(prompt);
+      expect(r.blocked).toBe(true);
+      expect(r.category).toBe(category);
+    });
+  });
+
   describe('language-blind collisions stay allowed', () => {
     it.each([
       'I am happy today', // tr "am" dropped

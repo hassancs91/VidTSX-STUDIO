@@ -9,6 +9,23 @@
 
 ## Completed phases
 
+### SLICE 5 FOLLOW-UPS CLOSED — blocklist pruning + mailto + eval re-run (2026-08-26)
+**Commit NF15. Hasan's Gate A review pass applied: −41 verified-collision
+terms → 1,223 (the review artifact was found deleted; rebuilt from source
+and walked in-session; every drop verified to fire against the live gate
+first). Headliners: fr `bite` (= English "bite" — blocked every innocent
+English prompt containing the word), es `concha`, nl `aftrekken`
+(subtraction), ar `فرج` (relief), ja `ローター` (rotor), zh `交配`
+(animal mating). All 40 pruned prompts + 5 retained-coverage neighbors
+pinned as golden tests (moderation suite 47→92). Mailto
+`support@vidtsx.com` CONFIRMED final. Eval: the assumed CF/agy accrual had
+not happened (still the 12 NF12 starters); re-run reproduces NF12 exactly
+(11/12, FP 8.3%, sweep flat) — bands stay frozen 0.8/0.2, no retuning.
+Bulk generation of the remaining ~490 SFW eval images approved + started
+(agy). Full detail: CONTENT_SAFETY_DESIGN.md "Rev 2 amendments". Still
+open from slice 5: full-set eval re-run once images land; live
+cloud-provider + video legs (ride Hasan's testing pass).**
+
 ### V1 BUILD ORDER Slice 6 — GEMINI/AGY SUBSCRIPTION IMAGE PROVIDER SHIPPED (2026-08-26)
 **`docs/NEXT_FEATURES_DESIGN.md` Q1 (build-order row 6), commits NF13–NF14.
 Gate-green (983 tests, +31 new; type baselines 26/22 exact); live-verified

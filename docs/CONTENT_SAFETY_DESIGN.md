@@ -380,12 +380,49 @@ proven for real (it caught the DLL conflict: generation refused with an
 explicit error, nothing passed silently); Gate B input-reference check
 exercised through a live img2img call.
 
-**Open items:** Hasan's blocklist review pass (artifact); confirm the
-false-positive mailto address (`support@vidtsx.com` is a placeholder in
-`ContentSafetyContent.tsx`); full-set eval re-run before the flip; a real
-cloud-provider generation + one video generation once keys are re-entered
-(the pipeline below the provider call is live-proven, the provider leg
-rides Hasan's testing pass).
+**Open items:** full-set eval re-run before the flip (set generation in
+progress — see amendment 3); a real cloud-provider generation + one video
+generation once keys are re-entered (the pipeline below the provider call
+is live-proven, the provider leg rides Hasan's testing pass).
+
+## Rev 2 amendments — Hasan's review pass CLOSED (2026-08-26)
+
+1. **Blocklist pruning applied: −41 terms → 1,223** (1,201 curated + 22
+   minors). The "Gate A Blocklist Review" artifact was found deleted; the
+   review was rebuilt from `generation-blocklist.ts` + matcher semantics
+   and walked in-session. Every candidate collision was **verified to fire
+   against the live gate before dropping** (40/40 fired). Verdicts, all
+   confirmed by Hasan per recommendation:
+   - *English homonyms/idioms (24):* `strap on`, `snowballing`,
+     `shrimping`, `tossing salad`, `fingering`, `sixty-nine`,
+     `girl on top`, `spread legs`, `ball kicking`, `snatch`, `beat off`,
+     `spunk`, `axe wound`, `cipa`, `cnut`, `peen`, `threesome`, `hooker`,
+     `cock`, `cocks`, `dick`, `dicks`, `voyeur`, `kum`.
+   - *Cross-language innocents (12):* fr `bite` (= everyday English
+     "bite" — the worst live FP), fr `chatte`/`ramoner`, es `concha`,
+     nl `aftrekken`, de `rosette`/`poppen`, ar `فرج`/`قضيب`/`مبادل`,
+     ur `چکلا`, tr `sike`.
+   - *CJK substring collisions (5):* ja `ローター` (rotor), `脱衣`
+     (脱衣所), `裸` (裸足/裸眼; `裸の女性` retained), `変態`
+     (metamorphosis), zh `交配` (biological mating).
+   - Rationale: Gate B (pixels) is the security boundary (D0), so Gate A
+     drops trade zero safety for the FP win. Compound/neighbor terms all
+     retained (`suck my cock`, `black cock`, `strapon`, `voyeurweb`, …).
+     Everything else keep-as-is: minors additions untouchable, anatomy
+     register kept (consistent with Gate B blocking anatomy diagrams).
+   - All 40 verified prompts + 5 retained-coverage prompts are pinned as
+     golden tests in `generation-gate.test.ts` (moderation suite 47→92).
+   - Known cosmetic leftover: typo variant `voyuer` remains while
+     `voyeur` was dropped — fires only on the literal misspelling.
+2. **Mailto confirmed:** `support@vidtsx.com` in `ContentSafetyContent.tsx`
+   is final (Hasan, 2026-08-26). No code change.
+3. **Eval set status:** the assumed CF/agy accrual had NOT happened —
+   `.vidtsx-temp/eval-images` still held only the 12 NF12 starters. Re-run
+   on those 12 reproduces NF12 exactly (11/12 pass, anatomy-diagram FP at
+   p=0.859, FP 8.3%, edge sweep flat 0.10–0.50) — bands stay frozen at
+   0.8/0.2. Bulk generation of the remaining ~490 SFW images (agy
+   subscription path, D6 categories) approved by Hasan and kicked off
+   2026-08-26; the full-set re-run happens when it lands.
 
 ## Key sources
 

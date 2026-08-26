@@ -11,8 +11,15 @@
  * A language-blind collision pass dropped terms that are common innocent
  * words in other languages or domains (e.g. Turkish "am" = English "am",
  * "sperm" = sperm whale, "kinky" = hair type, Italian "sega" = SEGA,
- * ja katakana "カント" = Kant). The full include/exclude rationale is in
- * the NF8 curation review handed to Hasan; pending his review pass.
+ * ja katakana "カント" = Kant). Hasan's review pass (2026-08-26) dropped 41
+ * further collision terms — English homonyms/idioms (fr "bite" = English
+ * "bite", "snatch" = the Olympic lift, "fingering" = guitar charts…),
+ * cross-language innocents (es "concha" = pastry/shell, nl "aftrekken" =
+ * subtraction, ar "فرج" = relief…), and CJK terms that fire inside longer
+ * words ("ローター" = rotor, "脱衣" in 脱衣所…). Rationale + verdicts are in
+ * docs/CONTENT_SAFETY_DESIGN.md Rev 2 amendments; the pruned prompts are
+ * pinned as golden tests in generation-gate.test.ts. Gate B (pixels) is the
+ * security boundary, so Gate A drops trade no safety for the FP win.
  *
  * MINORS_TERMS below are sexualized-minor terms — hard block, first
  * curation priority; the block includes additions not present in the
@@ -66,7 +73,7 @@ const MINORS_ADDITIONS: ModerationTerm[] = [
 ];
 
 const CURATED_TERMS: ModerationTerm[] = [
-  // ── en (702 terms)
+  // ── en (678 terms)
   t('0ral seks', 'sexual', 'en', 'high'),
   t('0ral sex', 'sexual', 'en', 'high'),
   t('0rg@sm', 'sexual', 'en', 'high'),
@@ -95,7 +102,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('assfuck', 'sexual', 'en', 'high'),
   t('auto erotic', 'sexual', 'en', 'high'),
   t('autoerotic', 'sexual', 'en', 'high'),
-  t('axe wound', 'nudity', 'en', 'high'),
   t('b*ttf*ck', 'sexual', 'en', 'high'),
   t('b00bs', 'nudity', 'en', 'high'),
   t('b00bz', 'nudity', 'en', 'high'),
@@ -104,7 +110,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('baby juice', 'sexual', 'en', 'high'),
   t('ball gag', 'sexual', 'en', 'high'),
   t('ball gravy', 'sexual', 'en', 'high'),
-  t('ball kicking', 'sexual', 'en', 'high'),
   t('ball licking', 'sexual', 'en', 'high'),
   t('ball sack', 'nudity', 'en', 'high'),
   t('ball sucking', 'sexual', 'en', 'high'),
@@ -122,7 +127,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('beastiality', 'sexual', 'en', 'high'),
   t('beastility', 'sexual', 'en', 'high'),
   t('beat my meat', 'sexual', 'en', 'high'),
-  t('beat off', 'sexual', 'en', 'high'),
   t('beat the meat', 'sexual', 'en', 'high'),
   t('beat your meat', 'sexual', 'en', 'high'),
   t('beaver cleaver', 'sexual', 'en', 'high'),
@@ -193,7 +197,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('chocolate rosebuds', 'sexual', 'en', 'high'),
   t('chode', 'nudity', 'en', 'high'),
   t('choke the chicken', 'sexual', 'en', 'high'),
-  t('cipa', 'nudity', 'en', 'high'),
   t('cl*t', 'nudity', 'en', 'high'),
   t('cl1t', 'nudity', 'en', 'high'),
   t('cleveland steamer', 'sexual', 'en', 'high'),
@@ -203,13 +206,10 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('clover clamps', 'sexual', 'en', 'high'),
   t('cnnt', 'nudity', 'en', 'high'),
   t('cnt', 'nudity', 'en', 'high'),
-  t('cnut', 'nudity', 'en', 'high'),
-  t('cock', 'nudity', 'en', 'high'),
   t('cock droplets', 'sexual', 'en', 'high'),
   t('cock snot', 'sexual', 'en', 'high'),
   t('cock suck', 'sexual', 'en', 'high'),
   t('cock sucking', 'sexual', 'en', 'high'),
-  t('cocks', 'nudity', 'en', 'high'),
   t('cockskin', 'nudity', 'en', 'high'),
   t('cocksucc', 'sexual', 'en', 'high'),
   t('cocksuck', 'sexual', 'en', 'high'),
@@ -288,10 +288,8 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('deep throat', 'sexual', 'en', 'high'),
   t('deepthroat', 'sexual', 'en', 'high'),
   t('dendrophilia', 'sexual', 'en', 'high'),
-  t('dick', 'nudity', 'en', 'high'),
   t('dickjuice', 'sexual', 'en', 'high'),
   t('dickmilk', 'sexual', 'en', 'high'),
-  t('dicks', 'nudity', 'en', 'high'),
   t('dickskin', 'nudity', 'en', 'high'),
   t('dickvag', 'nudity', 'en', 'high'),
   t('dickz', 'nudity', 'en', 'high'),
@@ -364,7 +362,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('fingerfuckers', 'sexual', 'en', 'high'),
   t('fingerfucking', 'sexual', 'en', 'high'),
   t('fingerfucks', 'sexual', 'en', 'high'),
-  t('fingering', 'sexual', 'en', 'high'),
   t('fingerpop', 'sexual', 'en', 'high'),
   t('fistfuck', 'sexual', 'en', 'high'),
   t('fistfucked', 'sexual', 'en', 'high'),
@@ -393,7 +390,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('gaysex', 'sexual', 'en', 'high'),
   t('genitals', 'nudity', 'en', 'high'),
   t('giant cock', 'nudity', 'en', 'high'),
-  t('girl on top', 'sexual', 'en', 'high'),
   t('girls gone wild', 'pornography', 'en', 'high'),
   t('girly bits', 'nudity', 'en', 'high'),
   t('goatcx', 'pornography', 'en', 'high'),
@@ -413,7 +409,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('harry palms', 'sexual', 'en', 'high'),
   t('hentai', 'pornography', 'en', 'high'),
   t('homoerotic', 'sexual', 'en', 'high'),
-  t('hooker', 'sexual', 'en', 'high'),
   t('horniest', 'sexual', 'en', 'high'),
   t('horny', 'sexual', 'en', 'high'),
   t('hot carl', 'sexual', 'en', 'high'),
@@ -470,7 +465,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('kock', 'nudity', 'en', 'high'),
   t('kooch', 'nudity', 'en', 'high'),
   t('kootch', 'nudity', 'en', 'high'),
-  t('kum', 'sexual', 'en', 'high'),
   t('kumer', 'sexual', 'en', 'high'),
   t('kummer', 'sexual', 'en', 'high'),
   t('kumming', 'sexual', 'en', 'high'),
@@ -568,7 +562,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('pedophl', 'sexual', 'en', 'high'),
   t('pedos', 'sexual', 'en', 'high'),
   t('pedoz', 'sexual', 'en', 'high'),
-  t('peen', 'nudity', 'en', 'high'),
   t('peener', 'nudity', 'en', 'high'),
   t('pegging', 'sexual', 'en', 'high'),
   t('penis', 'nudity', 'en', 'high'),
@@ -671,12 +664,8 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('shlong', 'nudity', 'en', 'high'),
   t('shmale', 'pornography', 'en', 'high'),
   t('shota', 'sexual', 'en', 'high'),
-  t('shrimping', 'sexual', 'en', 'high'),
-  t('sixty-nine', 'sexual', 'en', 'high'),
   t('smut', 'pornography', 'en', 'high'),
-  t('snatch', 'nudity', 'en', 'high'),
   t('snatch licker', 'sexual', 'en', 'high'),
-  t('snowballing', 'sexual', 'en', 'high'),
   t('sodomize', 'sexual', 'en', 'high'),
   t('sodomy', 'sexual', 'en', 'high'),
   t('sp*nk', 'sexual', 'en', 'high'),
@@ -685,9 +674,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('splooge', 'sexual', 'en', 'high'),
   t('splooge moose', 'sexual', 'en', 'high'),
   t('spooge', 'sexual', 'en', 'high'),
-  t('spread legs', 'sexual', 'en', 'high'),
-  t('spunk', 'sexual', 'en', 'high'),
-  t('strap on', 'sexual', 'en', 'high'),
   t('strapon', 'sexual', 'en', 'high'),
   t('strappado', 'sexual', 'en', 'high'),
   t('strip club', 'sexual', 'en', 'high'),
@@ -708,7 +694,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('teets', 'nudity', 'en', 'high'),
   t('testical', 'nudity', 'en', 'high'),
   t('testicle', 'nudity', 'en', 'high'),
-  t('threesome', 'sexual', 'en', 'high'),
   t('throat yogurt', 'sexual', 'en', 'high'),
   t('throater', 'sexual', 'en', 'high'),
   t('throating', 'sexual', 'en', 'high'),
@@ -726,7 +711,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('titwank', 'sexual', 'en', 'high'),
   t('tongue in a', 'sexual', 'en', 'high'),
   t('topless', 'nudity', 'en', 'high'),
-  t('tossing salad', 'sexual', 'en', 'high'),
   t('tribadism', 'sexual', 'en', 'high'),
   t('trouser snake', 'nudity', 'en', 'high'),
   t('trousersnake', 'nudity', 'en', 'high'),
@@ -747,7 +731,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('violet wand', 'sexual', 'en', 'high'),
   t('vjayjay', 'nudity', 'en', 'high'),
   t('vorarephilia', 'sexual', 'en', 'high'),
-  t('voyeur', 'sexual', 'en', 'high'),
   t('voyeurweb', 'pornography', 'en', 'high'),
   t('voyuer', 'sexual', 'en', 'high'),
   t('vulva', 'nudity', 'en', 'high'),
@@ -770,7 +753,7 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('yiffy', 'pornography', 'en', 'high'),
   t('zoophilia', 'sexual', 'en', 'high'),
 
-  // ── ar (20 terms)
+  // ── ar (17 terms)
   t('احتلام', 'sexual', 'ar', 'high'),
   t('اغتصاب', 'sexual', 'ar', 'high'),
   t('بز', 'nudity', 'ar', 'high'),
@@ -785,11 +768,8 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('سحاق', 'sexual', 'ar', 'high'),
   t('سكس', 'sexual', 'ar', 'high'),
   t('شرج', 'nudity', 'ar', 'high'),
-  t('فرج', 'nudity', 'ar', 'high'),
-  t('قضيب', 'nudity', 'ar', 'high'),
   t('كس', 'nudity', 'ar', 'high'),
   t('لواط', 'sexual', 'ar', 'high'),
-  t('مبادل', 'sexual', 'ar', 'high'),
   t('نيك', 'sexual', 'ar', 'high'),
 
   // ── bn (6 terms)
@@ -800,7 +780,7 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('পোদ মারা', 'sexual', 'bn', 'high'),
   t('মেয়ের পুটকি', 'nudity', 'bn', 'high'),
 
-  // ── de (24 terms)
+  // ── de (22 terms)
   t('bumsen', 'sexual', 'de', 'high'),
   t('fick', 'sexual', 'de', 'high'),
   t('ficken', 'sexual', 'de', 'high'),
@@ -816,8 +796,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('orgasmus', 'sexual', 'de', 'high'),
   t('pimmel', 'nudity', 'de', 'high'),
   t('pimpern', 'sexual', 'de', 'high'),
-  t('poppen', 'sexual', 'de', 'high'),
-  t('rosette', 'nudity', 'de', 'high'),
   t('schnackeln', 'sexual', 'de', 'high'),
   t('schwanz', 'nudity', 'de', 'high'),
   t('tittchen', 'nudity', 'de', 'high'),
@@ -826,9 +804,8 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('wichse', 'sexual', 'de', 'high'),
   t('wichsen', 'sexual', 'de', 'high'),
 
-  // ── es (20 terms)
+  // ── es (19 terms)
   t('chucha', 'nudity', 'es', 'high'),
-  t('concha', 'nudity', 'es', 'high'),
   t('coprofagía', 'sexual', 'es', 'high'),
   t('coño', 'nudity', 'es', 'high'),
   t('culeada', 'sexual', 'es', 'high'),
@@ -848,22 +825,19 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('tetas grandes', 'nudity', 'es', 'high'),
   t('verga', 'nudity', 'es', 'high'),
 
-  // ── fr (22 terms)
+  // ── fr (19 terms)
   t('bander', 'sexual', 'fr', 'high'),
-  t('bite', 'nudity', 'fr', 'high'),
   t('brackmard', 'nudity', 'fr', 'high'),
   t('branlage', 'sexual', 'fr', 'high'),
   t('branler', 'sexual', 'fr', 'high'),
   t('branlette', 'sexual', 'fr', 'high'),
   t('brouter le cresson', 'sexual', 'fr', 'high'),
-  t('chatte', 'nudity', 'fr', 'high'),
   t('clito', 'nudity', 'fr', 'high'),
   t('cramouille', 'nudity', 'fr', 'high'),
   t('enculer', 'sexual', 'fr', 'high'),
   t('jouir', 'sexual', 'fr', 'high'),
   t('ménage à trois', 'sexual', 'fr', 'high'),
   t('palucher', 'sexual', 'fr', 'high'),
-  t('ramoner', 'sexual', 'fr', 'high'),
   t('teuch', 'nudity', 'fr', 'high'),
   t('tringler', 'sexual', 'fr', 'high'),
   t('trique', 'nudity', 'fr', 'high'),
@@ -941,7 +915,7 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('trombare', 'sexual', 'it', 'high'),
   t('zinne', 'nudity', 'it', 'high'),
 
-  // ── ja (109 terms)
+  // ── ja (105 terms)
   t('g スポット', 'sexual', 'ja', 'high'),
   t('s ＆ m', 'sexual', 'ja', 'high'),
   t('sm女王', 'sexual', 'ja', 'high'),
@@ -1003,7 +977,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('マスターベーション', 'sexual', 'ja', 'high'),
   t('レイプ', 'sexual', 'ja', 'high'),
   t('ロリータ', 'sexual', 'ja', 'high'),
-  t('ローター', 'sexual', 'ja', 'high'),
   t('中出し', 'pornography', 'ja', 'high'),
   t('乱交', 'sexual', 'ja', 'high'),
   t('乳首', 'nudity', 'ja', 'high'),
@@ -1013,7 +986,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('勃起する', 'sexual', 'ja', 'high'),
   t('合意の性交', 'sexual', 'ja', 'high'),
   t('売春婦', 'sexual', 'ja', 'high'),
-  t('変態', 'pornography', 'ja', 'high'),
   t('夢精', 'sexual', 'ja', 'high'),
   t('大陰唇', 'nudity', 'ja', 'high'),
   t('射精', 'sexual', 'ja', 'high'),
@@ -1038,10 +1010,8 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('糞尿愛好症', 'sexual', 'ja', 'high'),
   t('緊縛', 'sexual', 'ja', 'high'),
   t('肛門', 'nudity', 'ja', 'high'),
-  t('脱衣', 'nudity', 'ja', 'high'),
   t('膣', 'nudity', 'ja', 'high'),
   t('茶色のシャワー', 'sexual', 'ja', 'high'),
-  t('裸', 'nudity', 'ja', 'high'),
   t('裸の女性', 'nudity', 'ja', 'high'),
   t('覗き', 'sexual', 'ja', 'high'),
   t('貞操帯', 'sexual', 'ja', 'high'),
@@ -1079,10 +1049,9 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('포르노', 'pornography', 'ko', 'high'),
   t('후장', 'nudity', 'ko', 'high'),
 
-  // ── nl (36 terms)
+  // ── nl (35 terms)
   t('afberen', 'sexual', 'nl', 'high'),
   t('afrukken', 'sexual', 'nl', 'high'),
-  t('aftrekken', 'sexual', 'nl', 'high'),
   t('afwerkplaats', 'sexual', 'nl', 'high'),
   t('afzuigen', 'sexual', 'nl', 'high'),
   t('beffen', 'sexual', 'nl', 'high'),
@@ -1182,7 +1151,7 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('อมนกเขา', 'sexual', 'th', 'high'),
   t('เย็ด', 'sexual', 'th', 'high'),
 
-  // ── tr (66 terms)
+  // ── tr (65 terms)
   t('amcık', 'nudity', 'tr', 'high'),
   t('amcıklar', 'nudity', 'tr', 'high'),
   t('amcıklara', 'nudity', 'tr', 'high'),
@@ -1210,7 +1179,6 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('saksocuya', 'sexual', 'tr', 'high'),
   t('saksocuyu', 'sexual', 'tr', 'high'),
   t('sik', 'nudity', 'tr', 'high'),
-  t('sike', 'nudity', 'tr', 'high'),
   t('siker sikmez', 'sexual', 'tr', 'high'),
   t('siki', 'nudity', 'tr', 'high'),
   t('sikilir sikilmez', 'sexual', 'tr', 'high'),
@@ -1250,18 +1218,16 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('yarağı', 'nudity', 'tr', 'high'),
   t('yarağın', 'nudity', 'tr', 'high'),
 
-  // ── ur (3 terms)
+  // ── ur (2 terms)
   t('لنڈ', 'nudity', 'ur', 'high'),
   t('لونڈ', 'nudity', 'ur', 'high'),
-  t('چکلا', 'sexual', 'ur', 'high'),
 
-  // ── zh (87 terms)
+  // ── zh (86 terms)
   t('三级片', 'pornography', 'zh', 'high'),
   t('乳交', 'sexual', 'zh', 'high'),
   t('乳头', 'nudity', 'zh', 'high'),
   t('乳房', 'nudity', 'zh', 'high'),
   t('乳波臀浪', 'sexual', 'zh', 'high'),
-  t('交配', 'sexual', 'zh', 'high'),
   t('做爱', 'sexual', 'zh', 'high'),
   t('军妓', 'sexual', 'zh', 'high'),
   t('几八', 'nudity', 'zh', 'high'),
@@ -1345,7 +1311,7 @@ const CURATED_TERMS: ModerationTerm[] = [
   t('龟头', 'nudity', 'zh', 'high'),
 ];
 
-/** 1242 curated terms + 22 minors additions. */
+/** 1201 curated terms + 22 minors additions (Hasan pruning pass 2026-08-26: −41 collision terms). */
 export const GENERATION_BLOCKLIST: ModerationTerm[] = [
   ...MINORS_ADDITIONS,
   ...CURATED_TERMS,
