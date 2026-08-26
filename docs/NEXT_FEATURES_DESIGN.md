@@ -39,6 +39,9 @@
 | 8 | **Text-based editing slice 1** | Q5a: Transcript panel beside preview; click-to-seek; karaoke highlight; select-to-delete (inverse `clipWords` → editorial-snapper edges → `apply-cut-proposal` as `user_cut`, direct apply, one undo step); show-deletions pills + restore; filler highlight + remove-in-selection; read-only while a cut review is open. Flag `studio-text-edit` | L | pending |
 | 9 | **Pack system E1 — transitions** | Q8a/b: pack registry service (scan/validate/degrade), `StudioClipTransition.kind` → namespaced string (schema v2 migration), TransitionRenderer, core pack (crossfade, dip, wipe, slide, zoom, flip via @remotion/transitions), luma-wipe support, picker UI. **Reserve `keyframes` + `effects[]` schema shapes here** (Q9 binding) | M | pending |
 | 10 | *(optional V1 closer)* **Pack system E2 — effects tiers 1–3** | Q8c: `effects[]`, EffectProps contract, param-schema-driven Inspector, core pack incl. chroma key + Adjust (single-pass + dither rules, Q9b), ephemeral preview. Flag/dev-preview | L | V1-or-V2, Hasan's call |
+| P0 | **Preview: proxy hygiene** | **`PREVIEW_ARCHITECTURE.md`** W0+W2: delete the dead NVENC branch (bundled ffmpeg has no hardware encoders), `-hwaccel d3d11va` on the transcode input with guarded fallback. One file (`proxy-generator.ts`), gated on nothing | XS | **proposed — pending Hasan** |
+| S0 | **Preview: decoder measurement spike** | **`PREVIEW_ARCHITECTURE.md`** §D4: add `@remotion/media@4.0.435` (same train — verified on npm), swap `case 'video'` behind a dev flag, measure scrub fps / decoder count / preview-vs-export frame diff incl. a D-Log clip. Nothing ships; its result decides P1–P3 | XS–S | **proposed — pending Hasan** (run before slice 9) |
+| P1–P3 | **Preview: proxy tier + decoder adoption** | **`PREVIEW_ARCHITECTURE.md`** §E3/§F: W4 intraframe-proxy A/B + W3 timeline-first ordering (P1); if S0 passes, Remotion train bump + `@remotion/media` in BOTH hosts + re-vendor + export regression (P2, M); W1 skip-predicate w/ keyframe probe + W5 preview-quality setting (P3) | S / M / S–M | **proposed — gated on S0** |
 
 **Deferred by decision (2026-08-20), design retained as plan-of-record:**
 MiniMax/mmx provider (Q1) · background removal / vision analysis engine
@@ -1089,6 +1092,46 @@ the hooks themselves are small).
 
 ---
 
+## Q14 — Preview/render engine: stay, hybrid, dual, or replace?
+
+> **RESEARCHED 2026-08-26 into its own doc: `docs/PREVIEW_ARCHITECTURE.md`**
+> — Hasan's ask: weigh our Remotion approach against CapCut, Premiere Pro
+> and Camtasia and recommend a course. That doc carries the competitor
+> research (live-source, with inferred items marked), the four options
+> with a named recommendation each, the WebCodecs evaluation, the sized
+> near-term wins, and its own inline-answerable checklist. **Nothing there
+> is decided until Hasan marks it.**
+>
+> Headline findings, so this tracker is readable without opening it:
+> **nobody ships a pixel-accurate preview** — CapCut, Adobe and TechSmith
+> each document the fidelity trade in their own help pages; our
+> one-renderer-two-hosts WYSIWYG is the property none of them have, and
+> its whole price is `<video>` seek-per-frame. The hybrid *compositor* is
+> confirmed a trap (the only provably bounded fast path is the identity
+> transform — which is exactly Adobe's smart-render predicate, and exactly
+> the still-unbuilt PLAN §5 S3+ export optimisation). The dual renderer is
+> what Premiere already built for user-authored comps (MOGRT → AELib), and
+> MOGRTs are its documented slow path — our TSX shots would be the same,
+> except they are the product. Recommended course: **"one renderer, better
+> decoders"** — keep the compositor, replace the decoder under it with
+> `@remotion/media` (Mediabunny + WebCodecs), which is **on our exact
+> 4.0.435 train** (verified on npm), works in the Player *and* in
+> `renderMedia`, and is documented as frame-perfect. `@remotion/webcodecs`
+> and `@remotion/media-parser` — the two packages already sitting unused
+> in our tree — are **discontinued in the unreleased v5.0**, so they are
+> not the route.
+>
+> Binding on other slices *now*, even though the build comes later:
+> **E1 (Q8b transitions) doubles live decoders through every overlap**, so
+> the S0 spike belongs before or with E1 and P2 must not land *during* it
+> (same file); **E2b's WebGL texture hook** differs between
+> `useOffthreadVideoTexture()` and `@remotion/media`'s
+> `onVideoFrame`/`effects` — confirm in S0 so E2b isn't authored twice;
+> **Q9b is unchanged** — the 8-bit sRGB ceiling is a Chromium-raster
+> property, not a decoder one.
+
+---
+
 ## §7 — Interference map with SHOT_QUALITY_DESIGN.md
 
 | SHOT_QUALITY item | Touchpoint | Verdict |
@@ -1195,3 +1238,13 @@ constraint exists between the two tracks.
    pinning mechanism) · Template flavor deferred to a second slice, but
    `kind` + `replaceable` reserved in the manifest now? **yes** — plus
    `packs`/`packs/` reserved for Q8, and `role` beside `replaceable`.
+15. **Q14**: the preview/render-engine question is answered in
+    **`PREVIEW_ARCHITECTURE.md`** — its 12-item checklist is the one to
+    answer (invariant · reject hybrid compositor · reject dual renderer ·
+    close engine replacement · WebCodecs route = `@remotion/media` · run the
+    S0 spike next · adopt in BOTH hosts if it passes · `<Audio>` stays put
+    for now · reordered near-term wins S0 → W0+W2 → W4 → W3 → W1 → W5 ·
+    delete the dead NVENC branch · smart-render passthrough stays ledgered ·
+    claims language). Then slot the P0/S0/P1–P3 rows into the build order
+    relative to slices 8–9. [recommend: P0 any time; S0 before slice 9;
+    everything else gated on S0's numbers]
