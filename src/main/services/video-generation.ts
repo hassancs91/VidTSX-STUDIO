@@ -9,6 +9,7 @@ import {
 import type { VideoGenerateRequest, VideoJobData } from '../../shared/ipc/types/video';
 import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
 import { ModerationBlockedError } from '../../shared/content-safety';
+import { recordBlocked } from './content-safety/blocked-counters';
 import { buildVideoPayload } from './video-payloads';
 import { getProviderCredentials } from './settings';
 import { aiUsageService } from './ai-usage';
@@ -52,6 +53,7 @@ export async function submitVideoJob(req: VideoGenerateRequest): Promise<string>
   // Content Safety Gate A — visual prompt fields only (D3).
   const safety = checkGenerationPrompt(req.prompt);
   if (safety.blocked) {
+    recordBlocked('prompt');
     throw new ModerationBlockedError('prompt', safety.category ?? 'sexual');
   }
 

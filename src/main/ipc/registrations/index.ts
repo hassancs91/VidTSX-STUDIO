@@ -21,6 +21,7 @@ export { registerLocalLlmIpc } from './local-llm';
 export { registerSystemIpc } from './system';
 export { registerDownloadIpc } from './download';
 export { registerModerationIpc } from './moderation';
+export { registerContentSafetyIpc } from './content-safety';
 export { registerAiUsageIpc } from './ai-usage';
 export { registerProviderKeysIpc } from './provider-keys';
 export { registerVideoIpc } from './video';

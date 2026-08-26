@@ -8,9 +8,10 @@ import { ImageModelsContent } from './ImageModelsContent';
 import { VideoModelsContent } from './VideoModelsContent';
 import { LlmModelsContent } from './LlmModelsContent';
 import { EmbeddingModelsContent } from './EmbeddingModelsContent';
+import { ContentSafetyContent } from './ContentSafetyContent';
 import { ComingSoonPlaceholder } from './ComingSoonPlaceholder';
 
-const RENDERED_TABS = new Set<ModelSubTab>(['main', 'providers', 'audio', 'image', 'video', 'llms', 'embeddings']);
+const RENDERED_TABS = new Set<ModelSubTab>(['main', 'providers', 'audio', 'image', 'video', 'llms', 'embeddings', 'safety']);
 
 // Sub-tabs gated behind a feature flag are removed from the tab bar entirely
 // (not Coming-Soon placeholders) — enable via .env, see .env.example.
@@ -61,6 +62,7 @@ export function AiModelsTab() {
       {activeSubTab === 'video' && <VideoModelsContent />}
       {activeSubTab === 'llms' && <LlmModelsContent />}
       {activeSubTab === 'embeddings' && <EmbeddingModelsContent />}
+      {activeSubTab === 'safety' && <ContentSafetyContent />}
       {!RENDERED_TABS.has(activeSubTab) && (
         <ComingSoonPlaceholder label={activeLabel} />
       )}

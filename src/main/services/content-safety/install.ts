@@ -1,5 +1,6 @@
 import { imageEngine } from '../../../image-engine';
 import { checkImageBase64 } from './image-safety';
+import { recordBlocked } from './blocked-counters';
 
 /**
  * Wire Content Safety Gate B into the image engine. Idempotent; called from
@@ -9,5 +10,6 @@ import { checkImageBase64 } from './image-safety';
 export function installContentSafetyGuard(): void {
   imageEngine.setSafetyGuard({
     checkImage: (base64) => checkImageBase64(base64),
+    onPromptBlocked: () => recordBlocked('prompt'),
   });
 }

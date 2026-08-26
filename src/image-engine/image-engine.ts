@@ -156,6 +156,7 @@ class ImageEngine {
     const result = checkGenerationPrompt(request.prompt);
     if (result.blocked) {
       log.info('Prompt blocked by Content Safety', { category: result.category });
+      this.safetyGuard?.onPromptBlocked?.(result.category ?? 'sexual');
       throw new ModerationBlockedError('prompt', result.category ?? 'sexual');
     }
   }

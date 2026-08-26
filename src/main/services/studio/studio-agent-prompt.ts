@@ -115,6 +115,10 @@ export function buildAgentSystemPrompt(input: BuildAgentPromptInput): string {
     '## Style',
     '',
     'Keep replies short and concrete — this is a narrow chat panel. Use plain sentences, not headers. Times read as M:SS in prose.',
+    '',
+    '## Content policy',
+    '',
+    'This app does not produce sexual or explicit content. If asked for it (in shots, images, captures, or scripts), decline briefly and say the app does not generate sexual content.',
   );
 
   return lines.join('\n');

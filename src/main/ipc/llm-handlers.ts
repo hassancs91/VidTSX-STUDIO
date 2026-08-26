@@ -212,9 +212,18 @@ export async function runLlmGenerate(
           )
         : data.systemPrompt;
 
+    // Content policy clause for Flows (CONTENT_SAFETY_DESIGN.md D4): a flow's
+    // system prompt is user-authored config, so the app's one policy line is
+    // appended main-side. Text only — LLM surfaces carry NO moderation hooks,
+    // by design (the visual gates sit on the image/video engines).
+    const finalSystemPrompt =
+      data.featureSource === 'flows'
+        ? `${composedSystemPrompt ?? ''}${composedSystemPrompt ? '\n\n' : ''}Content policy: this app does not produce sexual or explicit content. Decline such requests and state why.`
+        : composedSystemPrompt;
+
     const request = {
       prompt: data.prompt,
-      systemPrompt: composedSystemPrompt,
+      systemPrompt: finalSystemPrompt,
       ...(data.model ? { model: data.model } : {}),
       ...(data.maxTokens ? { maxTokens: data.maxTokens } : {}),
       ...(data.temperature !== undefined ? { temperature: data.temperature } : {}),

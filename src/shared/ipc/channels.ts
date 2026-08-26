@@ -309,6 +309,9 @@ export const IPC = {
   // Moderation engine
   MODERATION_CHECK: 'moderation:check',
 
+  // Content Safety (always-on visual-generation gate)
+  CONTENT_SAFETY_STATUS: 'content-safety:status',
+
   // TSX generation jobs (Creator — concurrent generations in main)
   TSXJOB_START: 'tsxjob:start',
   TSXJOB_CANCEL: 'tsxjob:cancel',

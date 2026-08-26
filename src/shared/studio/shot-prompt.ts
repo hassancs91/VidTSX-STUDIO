@@ -150,6 +150,7 @@ export function buildShotExtraInstructions(input: ShotPromptInput): string {
     '- Default-export the component.',
     `- All animation timing must be computed as seconds × fps using the fps from useVideoConfig() — never hardcode frame counts anywhere except the compositionConfig literal above. The shot is ${input.durationSeconds} seconds long.`,
     '- Do not render a progress bar, watermark, or debug text unless asked.',
+    '- Never depict sexual or explicit content; if the brief asks for it, render a neutral placeholder card stating the content was declined.',
   );
 
   if (input.brand) {

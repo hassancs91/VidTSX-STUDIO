@@ -7,6 +7,7 @@ import { safetyEngine } from '../../../content-safety-engine/safety-engine';
 import { classifyBand } from '../../../content-safety-engine/bands';
 import type { SafetyModelConfig } from '../../../content-safety-engine/types';
 import { ModerationBlockedError } from '../../../shared/content-safety';
+import { recordBlocked } from './blocked-counters';
 import { getContentSafetyDir } from '../../utils/paths';
 import { getFfmpegBinary } from '../studio/ffmpeg-bin';
 import { logEngine } from '../../../logging/log-engine';
@@ -166,6 +167,7 @@ export async function checkImageBuffer(buffer: Buffer): Promise<void> {
   const band = classifyBand(nsfwProbability);
   if (band !== 'pass') {
     log.info('Image blocked by classifier', { band, p: Number(nsfwProbability.toFixed(4)) });
+    recordBlocked('image');
     throw new ModerationBlockedError('image', band);
   }
 }

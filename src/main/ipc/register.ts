@@ -21,6 +21,7 @@ import { registerLocalLlmIpc } from './registrations/local-llm';
 import { registerSystemIpc } from './registrations/system';
 import { registerDownloadIpc } from './registrations/download';
 import { registerModerationIpc } from './registrations/moderation';
+import { registerContentSafetyIpc } from './registrations/content-safety';
 import { registerAiUsageIpc } from './registrations/ai-usage';
 import { registerProviderKeysIpc } from './registrations/provider-keys';
 import { registerProviderModelsIpc } from './registrations/provider-models';
@@ -61,6 +62,7 @@ export function registerAllIPC(): void {
   registerSystemIpc();
   registerDownloadIpc();
   registerModerationIpc();
+  registerContentSafetyIpc();
   registerAiUsageIpc();
   registerProviderKeysIpc();
   registerProviderModelsIpc();

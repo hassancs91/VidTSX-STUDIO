@@ -84,6 +84,8 @@ export interface ImageProvider {
 export interface ImageSafetyGuard {
   /** Throws (ModerationBlockedError or fail-closed Error) to block. */
   checkImage(base64: string, context: 'input' | 'output'): Promise<void>;
+  /** Observer for Gate A trips at the engine chokepoint (local counters). */
+  onPromptBlocked?(category: string): void;
 }
 
 /** Typed error thrown by image providers */

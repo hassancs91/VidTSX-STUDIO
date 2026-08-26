@@ -22,6 +22,7 @@ import { localLlmApi } from './api/local-llm';
 import { downloadApi } from './api/download';
 import { embeddingApi } from './api/embedding';
 import { moderationApi } from './api/moderation';
+import { contentSafetyApi } from './api/content-safety';
 import { aiUsageApi } from './api/ai-usage';
 import { videoStudioApi } from './api/video-studio';
 import { providerKeysApi } from './api/provider-keys';
@@ -58,6 +59,7 @@ const api = {
   ...downloadApi,
   ...embeddingApi,
   ...moderationApi,
+  ...contentSafetyApi,
   ...aiUsageApi,
   ...videoStudioApi,
   ...providerKeysApi,

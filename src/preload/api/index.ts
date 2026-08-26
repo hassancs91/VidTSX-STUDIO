@@ -22,6 +22,7 @@ export { localLlmApi } from './local-llm';
 export { downloadApi } from './download';
 export { embeddingApi } from './embedding';
 export { moderationApi } from './moderation';
+export { contentSafetyApi } from './content-safety';
 export { aiUsageApi } from './ai-usage';
 export { videoStudioApi } from './video-studio';
 export { providerKeysApi } from './provider-keys';

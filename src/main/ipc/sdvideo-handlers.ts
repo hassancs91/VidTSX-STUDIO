@@ -13,6 +13,7 @@ import { ModelLibraryError } from '@shared/model-library/types';
 import { checkGenerationPrompt } from '../../moderation-engine/generation-gate';
 import { ModerationBlockedError } from '../../shared/content-safety';
 import { checkVideoFile } from '../services/content-safety/video-safety';
+import { recordBlocked } from '../services/content-safety/blocked-counters';
 import { downloadVideoProfileModel } from '../services/sdvideo-download';
 import { getLastVideoScan, scanVideoLibrary, videoProfileById } from '../services/sdvideo-library';
 import { videoLocalEngine } from '../../local-video-engine/video-engine';
@@ -48,6 +49,7 @@ export async function handleSdVideoGenerate(
     // is deliberately unchecked: naming unsafe content there EXCLUDES it.
     const safety = checkGenerationPrompt(data.prompt);
     if (safety.blocked) {
+      recordBlocked('prompt');
       throw new ModerationBlockedError('prompt', safety.category ?? 'sexual');
     }
 

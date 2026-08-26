@@ -105,6 +105,7 @@ import type {
   AiUsageClearResponse,
   ModerationCheckRequest,
   ModerationCheckResponse,
+  ContentSafetyStatusResponse,
 } from '../../shared/ipc/types';
 
 export interface ElectronAPI {
@@ -321,6 +322,9 @@ export interface ElectronAPI {
 
   // Moderation engine
   moderationCheck: (data: ModerationCheckRequest) => Promise<ModerationCheckResponse>;
+
+  // Content Safety
+  contentSafetyStatus: () => Promise<ContentSafetyStatusResponse>;
 
   // AI Usage tracking
   aiUsageGetSummary: (data: AiUsageGetSummaryRequest) => Promise<AiUsageGetSummaryResponse>;
