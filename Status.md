@@ -9,6 +9,44 @@
 
 ## Completed phases
 
+### V1 BUILD ORDER Slice 6 — GEMINI/AGY SUBSCRIPTION IMAGE PROVIDER SHIPPED (2026-08-26)
+**`docs/NEXT_FEATURES_DESIGN.md` Q1 (build-order row 6), commits NF13–NF14.
+Gate-green (983 tests, +31 new; type baselines 26/22 exact); live-verified
+via CDP: one real Nano Banana 2 generation driven through the new
+"Google (subscription)" provider row in Image Studio — agy spawn → NDJSON
+DONE gate → brain-dir harvest → Gate B output classification → gallery
+save, ~30 s, $0 (subscription-billed).** (1) `gemini-cli` CLI-bridge
+provider (`GeminiCliImageProvider`, registerInstance like the local SD
+bridge, zero models until agy detected + authed → UI hides it): TS port of
+the proven `gen-image.ps1` recipe split into pure
+`agy-cli-protocol.ts` (unit-tested: VERBATIM prompt pinning, DONE-event
+success gating because exit 0 lies, non-recursive brain-dir harvest,
+conversation_id sibling-of-init) + spawning `agy-cli.ts` service
+(concurrency-1 promise-chain queue, 300 s timeout, abort→kill,
+GEMINI_API_KEY/GOOGLE_API_KEY stripped from the child env so billing can
+never route to the metered API). Provider caps refs at 3 with the
+fold-into-prompt message, buckets width/height onto agy's 8-aspect set
+(log-distance nearest), stages base64 refs as temp files (+`--add-dir`),
+output always JPEG with SOF-parsed real dimensions. Injected
+`AgyCliBridge` keeps image-engine free of main imports (local-SD
+prepare-hook precedent). (2) Setup card on AI Models → Image
+(`GeminiCliSetupCard` + `useGeminiCliStatus`): detect
+`%LOCALAPPDATA%\agy\bin\agy.exe`, auth probe = `agy models` exit 0,
+install command + manual sign-in instructions (app never automates OAuth),
+window-focus re-probe with 60 s throttle, force-probe "Check again";
+becoming ready broadcasts `vidtsx:image-providers-changed` so the Image
+Studio provider list updates without remount. One `IMAGE_CLI_STATUS`
+channel returns a status LIST. (3) Plumbing two-wide for the deferred
+MiniMax/mmx provider: type union `'gemini-cli' | 'minimax-cli'`,
+`INSTANCE_IMAGE_PROVIDER_IDS` filter (settings-save drops CLI ids),
+engine register() rejects CLI types with a registerInstance pointer.
+(4) ZERO bespoke safety code — the engine's fail-closed `runGuarded`
+chokepoint covers the provider (log-verified: output classified before the
+complete event). Usage logs ride the generic handler path (provider
+`gemini-cli`, $0). (5) NF14 smoke-catch: agy hangs forever on an open
+stdin pipe — spawn now uses `stdio: ['ignore','pipe','pipe']` (the ps1
+never hit this because PowerShell hands agy the console's stdin).
+
 ### V1 BUILD ORDER Slice 5 — CONTENT SAFETY ENFORCEMENT SHIPPED (2026-08-26)
 **`docs/CONTENT_SAFETY_DESIGN.md` Rev 1 plan implemented as written (Rev 2
 records the results), commits NF8–NF12. Gate-green per commit (948 tests,
