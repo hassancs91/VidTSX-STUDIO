@@ -1,13 +1,22 @@
-import { parentPort } from 'worker_threads';
 import path from 'path';
 import { existsSync } from 'fs';
 import type { SafetyModelConfig, SafetyWorkerRequest, SafetyWorkerResponse } from './types';
 
 /**
- * Prepend the onnxruntime-node DLL directory to PATH on Windows.
- * The native onnxruntime_binding.node needs onnxruntime.dll and companion
- * DLLs in the same directory — same probe as the embedding worker
- * (src/embedding-engine/worker.ts) and loadSherpa().
+ * Content Safety classifier host process.
+ *
+ * Runs as an Electron utilityProcess (NOT a worker_thread — a deliberate
+ * deviation from the embedding-worker pattern): sherpa-onnx ships its own
+ * older onnxruntime.dll, and Windows resolves DLL dependencies per PROCESS
+ * by base name, so once sherpa loads in main, the 1.24.3 binding fails with
+ * "The operating system cannot run %1" in any thread of that process. A
+ * separate process has its own DLL space and is immune to the conflict —
+ * found live during the slice-5 CDP smoke walk.
+ */
+
+/**
+ * Prepend the onnxruntime-node DLL directory to PATH on Windows so the
+ * native binding finds onnxruntime.dll (same probe as the embedding worker).
  */
 if (process.platform === 'win32') {
   const arch = process.arch; // 'x64' or 'arm64'
@@ -29,6 +38,14 @@ if (process.platform === 'win32') {
   }
 }
 
+/** Electron utility processes talk over process.parentPort. */
+const parentPort = (process as unknown as {
+  parentPort: {
+    postMessage(msg: unknown): void;
+    on(event: 'message', listener: (e: { data: SafetyWorkerRequest }) => void): void;
+  };
+}).parentPort;
+
 interface OrtTensor {
   data: Float32Array;
 }
@@ -41,7 +58,7 @@ let config: SafetyModelConfig | null = null;
 let TensorCtor: (new (type: string, data: Float32Array, dims: number[]) => unknown) | null = null;
 
 function send(msg: SafetyWorkerResponse): void {
-  parentPort!.postMessage(msg);
+  parentPort.postMessage(msg);
 }
 
 /** CHW float32 tensor from RGB24 bytes, normalized with the model's mean/std. */
@@ -57,11 +74,11 @@ function toInputTensor(rgb: Uint8Array, cfg: SafetyModelConfig): Float32Array {
   return data;
 }
 
-parentPort!.on('message', async (msg: SafetyWorkerRequest) => {
+async function handle(msg: SafetyWorkerRequest): Promise<void> {
   try {
     switch (msg.type) {
       case 'loadModel': {
-        // Dynamic import so the native binding only loads inside the worker.
+        // Dynamic import so the native binding only loads inside this process.
         // CPU EP only — GPU providers add init/driver failure modes to a
         // fail-closed gate for an imperceptible speedup (Rev 1 decision 1).
         const ort = await import('onnxruntime-node');
@@ -81,15 +98,17 @@ parentPort!.on('message', async (msg: SafetyWorkerRequest) => {
         }
         const [channels, height, width] = config.inputSize;
         const expected = channels * height * width;
-        if (msg.rgb.length !== expected) {
+        // Structured clone can deliver the bytes as a plain Uint8Array or Buffer.
+        const rgb = msg.rgb instanceof Uint8Array ? msg.rgb : new Uint8Array(msg.rgb as ArrayBufferLike);
+        if (rgb.length !== expected) {
           send({
             type: 'error',
             requestId: msg.requestId,
-            error: `Bad input size: got ${msg.rgb.length} bytes, expected ${expected}`,
+            error: `Bad input size: got ${rgb.length} bytes, expected ${expected}`,
           });
           return;
         }
-        const input = new TensorCtor('float32', toInputTensor(msg.rgb, config), [1, channels, height, width]);
+        const input = new TensorCtor('float32', toInputTensor(rgb, config), [1, channels, height, width]);
         const outputs = await session.run({ [config.inputName]: input });
         const logits = outputs[config.outputName].data;
         // Softmax over the class logits
@@ -116,4 +135,8 @@ parentPort!.on('message', async (msg: SafetyWorkerRequest) => {
       error: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+parentPort.on('message', (e) => {
+  void handle(e.data);
 });

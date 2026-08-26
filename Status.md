@@ -9,6 +9,55 @@
 
 ## Completed phases
 
+### V1 BUILD ORDER Slice 5 — CONTENT SAFETY ENFORCEMENT SHIPPED (2026-08-26)
+**`docs/CONTENT_SAFETY_DESIGN.md` Rev 1 plan implemented as written (Rev 2
+records the results), commits NF8–NF12. Gate-green per commit (948 tests,
++70 new; type baselines 26/22 exact); CDP-verified live: prompt block in
+the real Image Studio UI, Content Safety page with persisting counters, and
+one full Gate B round trip (input-ref check → real provider generation →
+output check, classifier warm in its own process).**
+(1) **Gate A** (NF8): curated `generation-blocklist.ts` — 1,264 terms
+re-tagged from the 4,571-term list by sexual/nudity/pornography INTENT
+(profanity/slurs never block), +22 sexualized-minor additions, −33
+language-blind collisions (tr `am`, `sperm` whale, `kinky` hair, SEGA,
+katakana Kant…); normalizer hardened (NFKC, Cyrillic/Greek homoglyphs,
+separator-lookahead fix, no-space-script boundaries for zh/ja/th);
+engine-chokepoint guard on `imageEngine` + hooks on fal video submit and
+both local sd queues; typed `ModerationBlockedError {gate, category}`
+destructured to `blocked?` on IPC responses, message = the D5 renderer
+copy. Curation review artifact handed to Hasan (his pruning pass open).
+(2) **Gate B** (NF9): self-exported fp16 Marqo ONNX (11.4 MB, sha256
+868c759f…, parity drift 7.7e-4, export script committed; bundled via
+extraResources as the documented download-on-first-use exception);
+onnxruntime-node 1.24.3 direct pinned dep, packaged CPU-only (DirectML
+stripped, linux never ships); `runGuarded` covers img2img/multi-ref INPUTS
+before any provider call and every output; NO guard installed = generation
+refused (fail-closed); local SD results classified before the complete
+event, blocked files unlinked; decode via nativeImage with ffmpeg
+image2pipe/png fallback (trimmed Remotion ffmpeg has no rawvideo muxer);
+undecodable = blocked. (3) NF10: video sampling — 2 fps via `-r` (no fps
+filter in the trimmed build) + first/middle/last anchors + native-res
+center-crop pass ≥3000px, any frame trips → clip blocked; wired into the
+fal save path and local Wan; both capture write sites classify the PNG
+before it reaches the library. (4) NF11: always-visible `safety` sub-tab
+(AI screen) with policy copy, classifier state + sha, and local blocked
+counters (settings KV, NOT ai-usage; one CONTENT_SAFETY_STATUS channel);
+policy clause in agent prompt + shot contract + appended main-side for
+flows; **LLM-hook-absence CI test** pins D4 (engine/llm-handlers/
+tsx-engine/stt/agent/captions reference no gate symbol). (5) NF12: eval
+harness (`scripts/content-safety-eval.mjs`, dev-only) + 12-image agy SFW
+starter set: Marqo 11/12 pass (margins ≤0.086; one FP: anatomy textbook
+diagram p=0.859, accepted recall-greedy), **OR-ensemble REJECTED** (xs
+flags 6/12 SFW portraits/swimwear/flat → FP 8.3%→58.3%), **bands frozen
+0.8/0.2**. The walk caught a real bug fixed in NF12: sherpa-onnx's older
+onnxruntime.dll poisons per-process DLL resolution, so the classifier now
+runs in an Electron **utilityProcess** (own DLL space) instead of a worker
+thread — fail-closed held throughout (generation refused, never passed).
+NOT yet live-proven: a real cloud video generation + captures against the
+gate (piggybacks Hasan's testing pass); full ~500-image eval re-run before
+the public flip; confirm the `support@vidtsx.com` placeholder mailto in
+`ContentSafetyContent.tsx`.
+
 ### V1 BUILD ORDER Slice 4 — USAGE-TRACKING FIX SHIPPED (2026-08-22)
 **`docs/NEXT_FEATURES_DESIGN.md` Q4 (build-order row 4), commits NF6+.
 Gate-green (878 tests, +6 new; type baselines 26/22 exact); CDP-verified
