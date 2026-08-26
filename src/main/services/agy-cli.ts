@@ -190,7 +190,13 @@ class AgyCliService implements AgyCliBridge {
       delete env.GEMINI_API_KEY;
       delete env.GOOGLE_API_KEY;
 
-      const child = spawn(this.getBinaryPath(), args, { env, windowsHide: true });
+      // stdin MUST be 'ignore': agy hangs forever on an open stdin pipe
+      // (verified 2026-08-26 — `agy models` in 2s with ignore, timeout with pipe).
+      const child = spawn(this.getBinaryPath(), args, {
+        env,
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
       let stdout = '';
       let stderr = '';
       let timedOut = false;
