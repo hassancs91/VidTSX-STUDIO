@@ -73,6 +73,7 @@
     "@remotion/gif": "4.0.435",
     "@remotion/google-fonts": "4.0.435",
     "@remotion/lottie": "4.0.435",
+    "@remotion/media": "4.0.435",
     "@remotion/media-utils": "4.0.435",
     "@remotion/noise": "4.0.435",
     "@remotion/paths": "4.0.435",

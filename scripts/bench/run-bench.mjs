@@ -26,6 +26,7 @@ const REPO = path.resolve(HERE, '../..');
 const HARNESS = path.join(HERE, 'harness');
 const HARNESS_URL = 'http://localhost:5199/';
 const CDP_PORT = 9333;
+const NL = String.fromCharCode(10);
 const OUT_DIR = path.join(REPO, '.vidtsx-temp', 'bench');
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,8 @@ function parseArgs(argv) {
     only: null,
     keepOpen: false,
     label: null,
+    engine: 'offthread',
+    mediaLog: true,
   };
   for (const arg of argv.slice(2)) {
     const [k, v] = arg.replace(/^--/, '').split('=');
@@ -52,12 +55,17 @@ function parseArgs(argv) {
     else if (k === 'layers') out.layers = Number(v);
     else if (k === 'only') out.only = v;
     else if (k === 'label') out.label = v;
+    else if (k === 'engine') out.engine = v;
+    else if (k === 'media-log') out.mediaLog = v !== 'off' && v !== 'false';
     else if (k === 'keep-open') out.keepOpen = true;
     else throw new Error(`Unknown flag: --${k}`);
   }
   if (!out.fromProject) throw new Error('--from-project=<studio project id> is required');
   if (out.media !== 'proxy' && out.media !== 'original') {
     throw new Error('--media must be "proxy" or "original"');
+  }
+  if (out.engine !== 'offthread' && out.engine !== 'webcodecs') {
+    throw new Error('--engine must be "offthread" (shipping) or "webcodecs" (@remotion/media, T2)');
   }
   return out;
 }
@@ -114,7 +122,7 @@ async function loadSources({ fromProject, media }) {
  * Scrub speeds are named after how the S2 checkpoint in Status.md described
  * them, so today's numbers stay comparable with the ones already on file.
  */
-function buildScenarios({ sources, clips, layers }) {
+function buildScenarios({ sources, clips, layers, engine, mediaLog }) {
   const base = {
     width: 1920,
     height: 1080,
@@ -129,6 +137,8 @@ function buildScenarios({ sources, clips, layers }) {
     durationMs: 0,
     mode: 'scrub',
     stepFrames: 1,
+    engine,
+    mediaLog,
   };
   return [
     { ...base, label: 'scrub-natural', stepFrames: 1 },
@@ -244,6 +254,10 @@ async function main() {
   console.log(`\nVidTSX preview bench (T0)`);
   console.log(`  project : ${args.fromProject}`);
   console.log(`  media   : ${args.media} — ${sources.length} source(s)`);
+  console.log(
+    `  engine  : ${args.engine}${args.engine === 'webcodecs' ? ' (@remotion/media — EXPERIMENTAL, T2)' : ' (shipping <OffthreadVideo>)'}` +
+      `${args.engine === 'webcodecs' && !args.mediaLog ? '  [control: canvas tap DISARMED]' : ''}`,
+  );
   for (const s of sources.slice(0, 6)) {
     // `dims`/`codec` describe the SOURCE asset; in proxy mode the file being
     // decoded is the 720p transcode of it, which is the point of the tier.
@@ -251,8 +265,13 @@ async function main() {
   }
   console.log(`  fixture : ${args.clips} clips × ${args.layers} layer(s), runs=${args.runs}\n`);
 
-  const scenarios = buildScenarios({ sources, clips: args.clips, layers: args.layers })
-    .filter((s) => !args.only || s.label === args.only);
+  const scenarios = buildScenarios({
+    sources,
+    clips: args.clips,
+    layers: args.layers,
+    engine: args.engine,
+    mediaLog: args.mediaLog,
+  }).filter((s) => !args.only || s.label === args.only);
 
   // Spawn vite's JS entry with this Node, not the `vite.cmd` shim: Node >= 20
   // refuses to spawn .cmd/.bat without a shell (EINVAL), and going through a
@@ -330,6 +349,10 @@ async function main() {
           warmup: summarise(raw.warmupFrameMs),
           heapMb: raw.heapMb,
           notes: raw.notes ?? [],
+          presentedVia: raw.presentedVia ?? null,
+          decoders: raw.decoders ?? null,
+          elements: raw.elements ?? null,
+          canvasDraws: raw.canvasDraws ?? 0,
         });
         if (cfg.mode === 'playback') {
           // Presented-frame gaps, not rAF gaps: a frozen picture still ticks rAF.
@@ -363,6 +386,7 @@ async function main() {
   await fs.writeFile(outPath, JSON.stringify(report, null, 2));
 
   printTable(report);
+  printDecoderSection(report);
   console.log(`\nreport: ${path.relative(REPO, outPath)}\n`);
   if (!args.keepOpen) process.exit(0);
 }
@@ -458,6 +482,62 @@ async function gitSha() {
     p.on('close', () => resolve(out.trim() || null));
     p.on('error', () => resolve(null));
   });
+}
+
+/**
+ * The T2 half of the report: which decoder actually ran.
+ *
+ * A speed number is meaningless without it. `@remotion/media` silently falls
+ * back to <OffthreadVideo> per clip for anything it cannot decode, so a
+ * "webcodecs" run that quietly fell back would otherwise be reported as the
+ * new decoder performing exactly like the old one — a true statement about the
+ * numbers and a completely false one about the cause.
+ */
+function printDecoderSection(report) {
+  if (report.args.engine !== 'webcodecs') return;
+  const runs = report.scenarios.flatMap((s) => s.runs);
+  const via = runs.reduce(
+    (a, r) => ({
+      video: a.video + (r.presentedVia?.video ?? 0),
+      canvas: a.canvas + (r.presentedVia?.canvas ?? 0),
+    }),
+    { video: 0, canvas: 0 },
+  );
+  const decoders = runs.map((r) => r.decoders).filter(Boolean);
+  const created = decoders.reduce((a, d) => a + d.created, 0);
+  const maxOpen = decoders.reduce((a, d) => Math.max(a, d.open), 0);
+  const codecs = [...new Set(decoders.flatMap((d) => d.configured))];
+  const checks = [];
+  for (const d of decoders) {
+    for (const c of d.supportChecks) {
+      if (!checks.some((x) => x.codec === c.codec && x.supported === c.supported)) checks.push(c);
+    }
+  }
+  const errors = [...new Set(decoders.flatMap((d) => d.errors))];
+  const els = runs.map((r) => r.elements).filter(Boolean);
+
+  console.log(NL + '  decoder path');
+  console.log('  ' + '-'.repeat(92));
+  const total = via.video + via.canvas;
+  const pctCanvas = total ? Math.round((via.canvas / total) * 100) : 0;
+  console.log(
+    `  presented via      canvas (WebCodecs) ${via.canvas}   video (OffthreadVideo fallback) ${via.video}   -> ${pctCanvas}% WebCodecs`,
+  );
+  console.log(`  VideoDecoders      created ${created}, max concurrently open ${maxOpen}`);
+  if (codecs.length) console.log(`  codecs configured  ${codecs.join(', ')}`);
+  for (const c of checks) {
+    console.log(`  isConfigSupported  ${c.codec} -> ${c.supported ? 'SUPPORTED' : 'NOT SUPPORTED (falls back)'}`);
+  }
+  if (els.length) {
+    console.log(
+      `  elements mounted   <video> max ${Math.max(...els.map((e) => e.videos))}, <canvas> max ${Math.max(...els.map((e) => e.canvases))}`,
+    );
+  }
+  for (const e of errors) console.log(`  decoder error      ${e}`);
+  if (via.canvas === 0 && via.video > 0) {
+    console.log(NL + '  ** FULL FALLBACK: nothing decoded through WebCodecs. The numbers above');
+    console.log('     describe <OffthreadVideo>, not @remotion/media. **');
+  }
 }
 
 main().catch((err) => {

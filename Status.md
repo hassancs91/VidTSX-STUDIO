@@ -36,9 +36,55 @@ run T0). Nothing in the architecture doc is DECIDED until Hasan marks it.
   visibly lag. It now uses `requestVideoFrameCallback`. **The `57 ms` in
   `proxy-generator.ts` and the `17–25 ms` in the S2 checkpoint below may
   measure the same wrong thing — do not compare them with T0 numbers.**
-- **NEXT: T2, the decoder swap** (`@remotion/media@4.0.435` — verified to
-  exist at our exact pin). One dependency, one `case` in
-  `TimelineComposition.tsx` behind a flag, then re-run T0 and diff.
+- **T2 DONE (2026-08-28)** — the decoder swap. `@remotion/media@4.0.435` added
+  at the exact pin (no train movement), `case 'video'` swapped behind
+  `src/shared/studio/media-engine.ts`. **Default is `offthread`: nothing that
+  ships changed.** Run either arm with
+  `--engine=offthread|webcodecs`; colour with
+  `node scripts/bench/run-frame-diff.mjs`. Gates green (1,105 tests, types
+  26/22, `electron-vite build` clean).
+- **T2's answer is CONDITIONAL — it inverts on layer count, so do not quote it
+  as a yes or a no.** At **1 layer** the shipping path wins: proxy fling 32.6 ms
+  vs 47.7 ms, and 4K fling 280 ms vs an outright 400 ms timeout (254/300
+  missed). At **3 layers** the shipping path collapses (fling 400 ms, 142
+  misses) while WebCodecs holds at **134 ms with zero misses** — 3× better.
+  The best single number in the test is **4K natural scrub 90 ms → 19 ms**,
+  the decode-forward win §D2 predicted, undone by the fling and playback cases.
+- **Two risks the architecture doc flagged did NOT materialise.** DJI 4K 10-bit
+  HEVC (`hev1.2.4.H150`) **decodes natively** — 100% of frames through
+  WebCodecs, zero fallbacks, zero `<video>` elements. And colour holds on
+  D-Log: **0.15/255 systematic shift**, i.e. 0.06%. §D3.2 and §D3.3 are
+  answered with pixels.
+- **Two things it did NOT settle, stated plainly.** (1) The **export half** of
+  the fallback question is unmeasured — preview never falls back, so there is
+  nothing to match, but `video-for-rendering` is a different code path and
+  nobody has run an export on this engine. (2) **4K playback drops 59.9 → 8.4
+  fps**, and that is a real regression that needs explaining before the idea is
+  dismissed *or* adopted — Mediabunny's `CanvasSink` rasterises a full
+  3840×2160 RGBA frame into a 960 px player, which would be a configuration
+  problem rather than a WebCodecs one.
+- **Recommendation on file: keep the dep and the flag, default off; do not ship
+  the swap.** The result is conditional, and T3's premise ("the winning decoder
+  changes what the right proxy is") is now genuinely open. Deleting the dep and
+  the `case` stays cheap and is Hasan's call.
+- **T0's instrument needed extending, and that is itself a finding.**
+  `@remotion/media` draws into a `<canvas>`, so it has **no `<video>`** and
+  `requestVideoFrameCallback` does not exist on it — T0 unchanged reports
+  150/150 misses, a fake catastrophe. `scripts/bench/harness/probes.ts` taps
+  the engine's own `Drew frame <s>` trace, the only channel giving both *when*
+  and *which*. **Two further traps were caught by the control disagreeing**
+  (a frame already on screen, and the free step across a cut where
+  `premountFor` already painted), plus a third now refused rather than
+  reported: multi-layer playback fps is unmeasurable on **both** engines
+  (they reported "10000 fps" and "Infinity fps"). All four are written up in
+  `scripts/bench/README.md`.
+- **Bench hygiene learned the hard way: run control and treatment in the SAME
+  session.** Proxy fling p50 reads 48.3 ms cold and 32.6 ms warm — same
+  command, same code. A fresh treatment run against a remembered baseline
+  credits the decoder for the page cache.
+- **NEXT: T3, the proxy codec A/B** — now unblocked, and more interesting than
+  before: T2 did not crown a decoder, so the "tune the proxy against the
+  winning decoder" ordering no longer has a winner to wait for.
 - Source material: `raw/` = 9 DJI clips, 15 GB, **27 min** of 3840×2160 60 fps
   10-bit HEVC. Enough for T0–T5; T6 must synthesise 3 h from it.
 

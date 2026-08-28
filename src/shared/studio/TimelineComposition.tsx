@@ -8,7 +8,9 @@ import {
   interpolate,
   useCurrentFrame,
 } from 'remotion';
+import { Video as WebCodecsVideo } from '@remotion/media';
 import type { CaptionRuntimeProps, ShotRuntimeProps } from '../types/studio';
+import { getStudioMediaEngine, getStudioMediaLogLevel } from './media-engine';
 import type { SerializedClip, SerializedTimeline } from './serialize';
 
 export interface TimelineCompositionProps {
@@ -192,18 +194,29 @@ function ClipRenderer({
   const volume = volumeProp(clip);
 
   switch (clip.kind) {
-    case 'video':
+    case 'video': {
       if (!clip.src) return null;
-      return (
-        <OffthreadVideo
-          src={clip.src}
-          style={fill}
-          {...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {})}
-          {...(volume !== undefined ? { volume } : {})}
-          {...(clip.muted ? { muted: true } : {})}
-          {...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {})}
-        />
-      );
+      // Identical props to both tags: the swap under test is the DECODER, so
+      // anything else differing between the two arms would confound the
+      // measurement. `@remotion/media`'s <Video> accepts the same trimBefore /
+      // volume / muted / playbackRate contract.
+      const videoProps = {
+        src: clip.src,
+        style: fill,
+        ...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {}),
+        ...(volume !== undefined ? { volume } : {}),
+        ...(clip.muted ? { muted: true } : {}),
+        ...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {}),
+      };
+      // T2 (experimental, off by default — see media-engine.ts). <Audio> stays
+      // on the `remotion` tag deliberately: the WebCodecs audio path does not
+      // preserve pitch under playbackRate, and we expose clip playbackRate, so
+      // that is a separate decision (PREVIEW_ARCHITECTURE.md §D3.5).
+      if (getStudioMediaEngine() === 'webcodecs') {
+        return <WebCodecsVideo {...videoProps} logLevel={getStudioMediaLogLevel()} />;
+      }
+      return <OffthreadVideo {...videoProps} />;
+    }
 
     case 'audio':
     case 'sfx':

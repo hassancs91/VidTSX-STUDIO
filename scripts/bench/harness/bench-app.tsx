@@ -18,7 +18,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Player, type PlayerRef } from '@remotion/player';
 import { TimelineComposition } from '@shared/studio/TimelineComposition';
+import {
+  setStudioMediaEngine,
+  STUDIO_MEDIA_LOG_LEVEL_GLOBAL,
+  type StudioMediaEngine,
+} from '@shared/studio/media-engine';
 import type { SerializedClip, SerializedTimeline } from '@shared/studio/serialize';
+import {
+  awaitCanvasDraw,
+  canvasDrawCount,
+  canvasDrawsSince,
+  canvasShowsFrame,
+  installCanvasPresentationTap,
+  installDecoderCensus,
+  lastCanvasDraw,
+  readDecoderCensus,
+  readElementCensus,
+  resetCanvasPresentationTap,
+  resetDecoderCensus,
+  type DecoderCensus,
+  type ElementCensus,
+} from './probes';
 
 // ---------------------------------------------------------------------------
 // Config + result shapes (mirrored in run-bench.mjs — keep both in step)
@@ -52,6 +72,18 @@ export interface BenchConfig {
   /** Settle time after mounting before the first seek. */
   settleMs: number;
   durationMs: number;
+  /**
+   * Decoder under test (T2). 'offthread' is the shipping path and the T0
+   * baseline; 'webcodecs' is `@remotion/media`. Set on the global BEFORE the
+   * composition mounts, because the tag is chosen at render time.
+   */
+  engine: StudioMediaEngine;
+  /**
+   * Whether the canvas presentation tap is armed. Off is the CONTROL run: the
+   * tap needs `@remotion/media` at logLevel 'trace', and a benchmark has no
+   * business trusting an instrument whose own cost it has not measured.
+   */
+  mediaLog: boolean;
 }
 
 interface BenchResult {
@@ -83,6 +115,21 @@ interface BenchResult {
   heapMb: number | null;
   startedAt: string;
   notes: string[];
+  /** Which probe reported each hit — the fallback question, counted. */
+  presentedVia: { video: number; canvas: number };
+  decoders: DecoderCensus;
+  elements: ElementCensus;
+  canvasDraws: number;
+}
+
+/** What `showFrame` guarantees before the driver screenshots the page. */
+export interface ShowFrameResult {
+  /** Source-media time actually presented, or null if nothing arrived. */
+  mediaTime: number | null;
+  presented: boolean;
+  via: 'video' | 'canvas' | null;
+  /** Player bounding box in CSS pixels, so the driver can clip the capture. */
+  rect: { x: number; y: number; width: number; height: number } | null;
 }
 
 interface VideoFrameMeta {
@@ -100,6 +147,7 @@ declare global {
     vidtsxBench?: {
       ready: boolean;
       run: (cfg: BenchConfig) => Promise<BenchResult>;
+      showFrame: (cfg: BenchConfig, frame: number) => Promise<ShowFrameResult>;
     };
   }
 }
@@ -205,12 +253,16 @@ function expectedSourceTime(cfg: BenchConfig, frame: number): number {
  * crossing a cut hands over to a premounted element, and picking the wrong one
  * would record a timeout on exactly the steps that matter most.
  */
+type PresentedVia = 'video' | 'canvas' | null;
+
 function seekAndAwaitFrame(
   seek: () => void,
   targetSec: number,
   toleranceSec: number,
   timeoutMs: number,
-): Promise<{ ms: number; errMs: number; miss: boolean; freebie: boolean }> {
+  engine: StudioMediaEngine,
+  lastPresented: number | null,
+): Promise<{ ms: number; errMs: number; miss: boolean; freebie: boolean; via: PresentedVia; mediaTime: number | null }> {
   const videos = mountedVideos();
 
   // Already showing it? Then there is nothing to decode and no callback will
@@ -218,14 +270,83 @@ function seekAndAwaitFrame(
   for (const v of videos) {
     if (v.readyState >= 2 && Math.abs(v.currentTime - targetSec) <= toleranceSec) {
       seek();
-      return Promise.resolve({ ms: 0, errMs: Math.abs(v.currentTime - targetSec) * 1000, miss: false, freebie: true });
+      return Promise.resolve({ ms: 0, errMs: Math.abs(v.currentTime - targetSec) * 1000, miss: false, freebie: true, via: 'video', mediaTime: v.currentTime });
     }
+  }
+
+  // Same check for the canvas path, and it is NOT optional: consecutive
+  // composition frames routinely map to the same source frame (30 fps
+  // composition, 60 fps source), and when they do the canvas is not redrawn
+  // because nothing changed. Without this the step waits 400 ms for a draw
+  // that is never coming and is recorded as a miss — the first webcodecs run
+  // reported 8 and 24 misses against the control's 8 and 23 CACHED steps, the
+  // same steps counted as catastrophe instead of as the best case.
+  //
+  // `lastPresented` is the frame this probe last resolved on, not
+  // `lastCanvasDraw()`: with three clips mounted, the most recent draw is
+  // often a premounting neighbour painting its own first frame, which says
+  // nothing about what the viewer is looking at.
+  if (engine === 'webcodecs') {
+    const shown = lastPresented ?? lastCanvasDraw()?.mediaTime ?? null;
+    if (shown !== null && Math.abs(shown - targetSec) <= toleranceSec) {
+      seek();
+      return Promise.resolve({ ms: 0, errMs: Math.abs(shown - targetSec) * 1000, miss: false, freebie: true, via: 'canvas', mediaTime: shown });
+    }
+    // The step that crosses a cut: a PREMOUNTED clip painted this frame
+    // already, on a different canvas than the one the playhead was on. The
+    // mount window is 2 s, so that is how far back a still-displayed premount
+    // draw can be.
+    if (canvasShowsFrame(targetSec, toleranceSec, 2500)) {
+      seek();
+      return Promise.resolve({ ms: 0, errMs: 0, miss: false, freebie: true, via: 'canvas', mediaTime: targetSec });
+    }
+  }
+
+  // Both probes run at once, and the first match wins. That is not belt-and-
+  // braces: `@remotion/media` falls back to <OffthreadVideo> per clip for
+  // anything it cannot decode, so a single timeline can present some frames
+  // through a canvas and others through a <video>. Listening on only the
+  // expected one would record the fallback as a miss and report the swap as a
+  // catastrophe — which is exactly the misreading this test exists to avoid.
+  if (engine === 'webcodecs') {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (r: { ms: number; errMs: number; miss: boolean; freebie: boolean; via: PresentedVia; mediaTime: number | null }) => {
+        if (settled) return;
+        settled = true;
+        resolve(r);
+      };
+      const t0 = performance.now();
+
+      awaitCanvasDraw(targetSec, toleranceSec, timeoutMs).then((r) => {
+        if (!r.miss) finish({ ms: r.ms, errMs: r.errMs, miss: false, freebie: false, via: 'canvas', mediaTime: r.mediaTime });
+        else finish({ ms: timeoutMs, errMs: Number.NaN, miss: true, freebie: false, via: null, mediaTime: null });
+      });
+
+      const listenFallback = (v: RvfcVideo) => {
+        if (typeof v.requestVideoFrameCallback !== 'function') return;
+        v.requestVideoFrameCallback((_now, meta) => {
+          if (settled) return;
+          const err = Math.abs(meta.mediaTime - targetSec);
+          if (err <= toleranceSec) {
+            finish({ ms: performance.now() - t0, errMs: err * 1000, miss: false, freebie: false, via: 'video', mediaTime: meta.mediaTime });
+          } else {
+            listenFallback(v);
+          }
+        });
+      };
+      for (const v of videos) listenFallback(v);
+      seek();
+      requestAnimationFrame(() => {
+        if (!settled) for (const v of mountedVideos()) listenFallback(v);
+      });
+    });
   }
 
   return new Promise((resolve) => {
     let settled = false;
     const t0 = performance.now();
-    const finish = (r: { ms: number; errMs: number; miss: boolean; freebie: boolean }) => {
+    const finish = (r: { ms: number; errMs: number; miss: boolean; freebie: boolean; via: PresentedVia; mediaTime: number | null }) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -237,7 +358,7 @@ function seekAndAwaitFrame(
       v.requestVideoFrameCallback((_now, meta) => {
         const err = Math.abs(meta.mediaTime - targetSec);
         if (err <= toleranceSec) {
-          finish({ ms: performance.now() - t0, errMs: err * 1000, miss: false, freebie: false });
+          finish({ ms: performance.now() - t0, errMs: err * 1000, miss: false, freebie: false, via: 'video', mediaTime: meta.mediaTime });
         } else if (!settled) {
           listen(v); // a stale frame flushed out first — keep waiting
         }
@@ -245,7 +366,7 @@ function seekAndAwaitFrame(
     };
 
     const timer = setTimeout(
-      () => finish({ ms: timeoutMs, errMs: Number.NaN, miss: true, freebie: false }),
+      () => finish({ ms: timeoutMs, errMs: Number.NaN, miss: true, freebie: false, via: null, mediaTime: null }),
       timeoutMs,
     );
 
@@ -280,6 +401,10 @@ function BenchApp() {
   const [config, setConfig] = useState<BenchConfig | null>(null);
   const [status, setStatus] = useState('idle — waiting for run-bench.mjs');
   const timeline = useMemo(() => (config ? buildTimeline(config) : null), [config]);
+  // What is currently mounted, readable without adding `config` to callback
+  // deps (which would rebuild the entry points on every scenario).
+  const configRef = useRef<BenchConfig | null>(null);
+  configRef.current = config;
 
   // Resolves once React has COMMITTED the timeline the caller just set, so
   // `run()` never starts seeking a Player that is still showing the old one.
@@ -298,6 +423,17 @@ function BenchApp() {
     const notes: string[] = [];
     setStatus(`running ${cfg.label}…`);
     await assertRafIsLive();
+
+    // Engine and log level are read at RENDER time, so both have to be in
+    // place before the composition mounts — after would silently measure the
+    // previous scenario's decoder.
+    setStudioMediaEngine(cfg.engine);
+    (globalThis as Record<string, unknown>)[STUDIO_MEDIA_LOG_LEVEL_GLOBAL] =
+      cfg.engine === 'webcodecs' && cfg.mediaLog ? 'trace' : 'info';
+    if (cfg.mediaLog) installCanvasPresentationTap();
+    installDecoderCensus();
+    resetCanvasPresentationTap();
+    resetDecoderCensus();
 
     await new Promise<void>((resolve) => {
       mountedFor.current = { label: cfg.label, resolve };
@@ -318,8 +454,18 @@ function BenchApp() {
     const warmupFrameMs: number[] = [];
     let misses = 0;
     let freebies = 0;
+    const presentedVia = { video: 0, canvas: 0 };
 
-    if (mountedVideos().every((v) => typeof v.requestVideoFrameCallback !== 'function')) {
+    // The instrument has to be able to see the path under test. On the
+    // WebCodecs engine that means either the trace tap is armed, or there are
+    // <video> elements because it fell back — with neither, the run would time
+    // out on every step and look like a total failure of the decoder rather
+    // than a total failure of the measurement.
+    if (cfg.engine === 'webcodecs') {
+      if (!cfg.mediaLog) {
+        notes.push('CONTROL RUN: canvas tap disarmed — canvas-presented frames are invisible to the probe');
+      }
+    } else if (mountedVideos().every((v) => typeof v.requestVideoFrameCallback !== 'function')) {
       notes.push('requestVideoFrameCallback unavailable — presentation timing unmeasurable');
     }
 
@@ -343,6 +489,7 @@ function BenchApp() {
       };
       for (const v of mountedVideos()) watch(v);
 
+      const playbackFrom = performance.now();
       player.play();
       let last = await nextFrame();
       const until = performance.now() + cfg.durationMs;
@@ -352,8 +499,35 @@ function BenchApp() {
         last = t;
       }
       player.pause();
+
+      // On the WebCodecs engine the frames never touched a <video>, so the
+      // gaps come from the draw stream instead. Same quantity — time between
+      // presented frames — read off whichever surface actually presented.
+      if (cfg.engine === 'webcodecs') {
+        // Only meaningful on a single layer. The trace log does not say WHICH
+        // canvas drew, so with N layers the stream interleaves N surfaces
+        // painting together and the gaps between them collapse toward zero —
+        // a 3-layer run reported "10000 fps", which is the merge artefact
+        // talking, not the picture. Refusing to report is the only honest
+        // option; the scrub scenarios are unaffected because they match on
+        // media time rather than on ordering.
+        if (cfg.layers > 1) {
+          notes.push(`playback fps not measurable on the canvas path with ${cfg.layers} layers — draw stream interleaves surfaces`);
+        } else {
+          const draws = canvasDrawsSince(playbackFrom);
+          for (let i = 1; i < draws.length; i++) presented.push(draws[i].at - draws[i - 1].at);
+        }
+      }
+      // Same merge artefact on the video path: N layers means N <video>
+      // elements presenting together, and the gap between two different
+      // elements' frames is not a frame interval. A 3-layer offthread run
+      // reported "Infinity fps" from a 0 ms median gap.
+      if (cfg.layers > 1 && cfg.engine === 'offthread') {
+        presented.length = 0;
+        notes.push(`playback fps not measurable with ${cfg.layers} layers — ${cfg.layers} video elements present concurrently`);
+      }
       frameMs.push(...presented);
-      if (presented.length === 0) {
+      if (presented.length === 0 && cfg.layers === 1) {
         notes.push('playback presented no video frames — the picture was frozen');
       }
     } else {
@@ -367,6 +541,9 @@ function BenchApp() {
       const tolerance = 0.9 / cfg.fps;
       let frame = 0;
       let lastRaf = await nextFrame();
+      // What the viewer is currently looking at, in source seconds. The canvas
+      // probe needs it to recognise a frame that is already on screen.
+      let lastPresented: number | null = null;
       for (let i = 0; i < total; i++) {
         frame = (frame + cfg.stepFrames) % Math.max(1, timelineDuration(cfg));
         const target = expectedSourceTime(cfg, frame);
@@ -380,7 +557,10 @@ function BenchApp() {
           target,
           tolerance,
           400,
+          cfg.engine,
+          lastPresented,
         );
+        if (r.mediaTime !== null) lastPresented = r.mediaTime;
         const t = await nextFrame();
         const rafDelta = t - lastRaf;
         lastRaf = t;
@@ -393,6 +573,7 @@ function BenchApp() {
         if (Number.isFinite(r.errMs)) frameErrMs.push(r.errMs);
         if (r.miss) misses++;
         if (r.freebie) freebies++;
+        if (r.via) presentedVia[r.via]++;
         rafMs.push(rafDelta);
         seekMs.push(sync);
       }
@@ -412,15 +593,80 @@ function BenchApp() {
       heapMb: mem ? Math.round(mem.usedJSHeapSize / 1048576) : null,
       startedAt: new Date().toISOString(),
       notes,
+      presentedVia,
+      // Read while the composition is still mounted: unmounting closes the
+      // decoders, and "how many were open at once" is the whole question.
+      decoders: readDecoderCensus(),
+      elements: readElementCensus(),
+      canvasDraws: canvasDrawCount(),
     };
     setStatus(`done ${cfg.label} — ${frameMs.length} samples, ${misses} missed`);
     return result;
   }, []);
 
+  /**
+   * Mounts `cfg`, seeks to `frame`, and resolves once that frame is on screen.
+   *
+   * The colour/fidelity half of T2 (docs/PREVIEW_TESTS_PLAN.md). The driver
+   * then screenshots the composited page, so the comparison is of what the
+   * viewer actually sees — including any colour management the compositor
+   * applies on the way to the screen, which is the part a canvas readback
+   * would miss and which is exactly where the two decoders could disagree on
+   * 10-bit D-Log.
+   *
+   * Waiting for PRESENTATION rather than sleeping is the whole point: a fixed
+   * delay would screenshot whatever happened to be up, and on the slow tier
+   * that is routinely the previous frame — a colour diff of two different
+   * frames would look like a decoder disagreement.
+   */
+  const showFrame = useCallback(async (cfg: BenchConfig, frame: number): Promise<ShowFrameResult> => {
+    await assertRafIsLive();
+    setStudioMediaEngine(cfg.engine);
+    (globalThis as Record<string, unknown>)[STUDIO_MEDIA_LOG_LEVEL_GLOBAL] =
+      cfg.engine === 'webcodecs' ? 'trace' : 'info';
+    installCanvasPresentationTap();
+    installDecoderCensus();
+
+    if (configRef.current?.label !== cfg.label) {
+      resetCanvasPresentationTap();
+      await new Promise<void>((resolve) => {
+        mountedFor.current = { label: cfg.label, resolve };
+        setConfig(cfg);
+      });
+      await new Promise((r) => setTimeout(r, cfg.settleMs));
+    }
+
+    const player = playerRef.current;
+    if (!player) throw new Error('Player ref never attached');
+    const target = expectedSourceTime(cfg, frame);
+    const r = await seekAndAwaitFrame(
+      () => player.seekTo(frame),
+      target,
+      0.9 / cfg.fps,
+      2000,
+      cfg.engine,
+      null,
+    );
+    // One more compositor pass, so the screenshot cannot race the paint that
+    // presentation only just triggered.
+    await nextFrame();
+    await nextFrame();
+
+    const el = document.querySelector('.stage > div') ?? document.querySelector('.stage');
+    const box = el?.getBoundingClientRect();
+    setStatus(`showFrame ${cfg.engine} @${frame} — ${r.miss ? 'MISS' : `${r.mediaTime?.toFixed(3)}s`}`);
+    return {
+      mediaTime: r.mediaTime,
+      presented: !r.miss,
+      via: r.via,
+      rect: box ? { x: box.x, y: box.y, width: box.width, height: box.height } : null,
+    };
+  }, []);
+
   // The driver polls for `window.vidtsxBench.ready`, so publishing the entry
   // point has to happen after mount — never during render.
   useEffect(() => {
-    window.vidtsxBench = { ready: true, run };
+    window.vidtsxBench = { ready: true, run, showFrame };
   }, [run]);
 
   return (
