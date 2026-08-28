@@ -7,6 +7,41 @@
 
 ---
 
+## IN PROGRESS: preview-engine test wave (T0–T7) — building PAUSED (2026-08-28)
+
+**Hasan's call: stop building and measure before deciding.** Slice 8
+(text-based editing) is NOT started and is deliberately on hold.
+
+Read in this order: **`docs/PREVIEW_TESTS_PLAN.md`** (the wave, T0–T7, status
+per test, pass/fail criteria) → `docs/PREVIEW_ARCHITECTURE.md` (the options
+and the 12-item checklist the wave feeds) → `scripts/bench/README.md` (how to
+run T0). Nothing in the architecture doc is DECIDED until Hasan marks it.
+
+- **T0 DONE (`a164e3b`)** — preview scrub benchmark harness:
+  `node scripts/bench/run-bench.mjs --from-project=raw-footage-test
+  --media=proxy|original`. Mounts the REAL `TimelineComposition` in a real
+  Player inside Electron (same Chromium the app ships). Reports to
+  `.vidtsx-temp/bench/`. Gates green, no product code touched.
+- **Baseline** (DJI 4K/60/10-bit HEVC): proxy scrub 16.6 ms natural / 48.3 ms
+  fling; original 101.5 ms / 281 ms with 70 misses; **playback 59.9 fps on
+  both**; the app's own JS is **0.1 ms/step everywhere**.
+- **Three findings that bind later work:** (1) our code is not the
+  bottleneck, it is entirely decode; (2) proxies buy ~6× and the residual
+  pain is *flinging* on proxies, which is what T3's all-intra proxy attacks;
+  (3) the same 4K file that costs 281 ms per SEEK plays back at 59.9 fps —
+  seeking is the cost, not decoding, which is the measured form of the
+  WebCodecs argument in PREVIEW_ARCHITECTURE §D.
+- **Measurement warning:** T0's first version measured `requestAnimationFrame`
+  and reported a flawless 16.7 ms (= 60 Hz vsync) for configurations that
+  visibly lag. It now uses `requestVideoFrameCallback`. **The `57 ms` in
+  `proxy-generator.ts` and the `17–25 ms` in the S2 checkpoint below may
+  measure the same wrong thing — do not compare them with T0 numbers.**
+- **NEXT: T2, the decoder swap** (`@remotion/media@4.0.435` — verified to
+  exist at our exact pin). One dependency, one `case` in
+  `TimelineComposition.tsx` behind a flag, then re-run T0 and diff.
+- Source material: `raw/` = 9 DJI clips, 15 GB, **27 min** of 3840×2160 60 fps
+  10-bit HEVC. Enough for T0–T5; T6 must synthesise 3 h from it.
+
 ## Completed phases
 
 ### V1 BUILD ORDER Slice 7 — PROJECT PACKAGES (.vidtsx) SHIPPED (2026-08-26)
