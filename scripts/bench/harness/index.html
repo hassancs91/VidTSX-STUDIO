@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>VidTSX preview bench</title>
+    <style>
+      html, body { margin: 0; background: #101317; color: #e7edf2; font: 13px/1.5 system-ui, sans-serif; }
+      #root { display: flex; flex-direction: column; height: 100vh; }
+      .stage { flex: 1; display: grid; place-items: center; padding: 16px; }
+      .status { padding: 10px 16px; border-top: 1px solid #2b343d; font-family: ui-monospace, monospace; white-space: pre; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./bench-app.tsx"></script>
+  </body>
+</html>
