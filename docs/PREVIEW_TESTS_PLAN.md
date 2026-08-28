@@ -229,7 +229,9 @@ the T0 baseline table.**
 
 Replicated over two runs. At three layers the shipping path **collapses** —
 nine simultaneous `<video>` elements each servicing a seek — while the
-WebCodecs path degrades gracefully.
+WebCodecs path degrades gracefully. **But see the follow-up below: the driver
+is the concurrent `<video>` count, not the layer count, and two layers of
+ordinary-length clips is perfectly fine.**
 
 **Note on playback fps.** 59.9 → 30.0 on proxies is *not* a smoothness loss.
 The composition is 30 fps and the sources are 59.94 fps: `<OffthreadVideo>`
@@ -301,6 +303,54 @@ than "within tolerance". **Its one limit:** had the decoders disagreed, this
 test could not say which was right — the pre-agreed escalation trigger to build
 the export leg. It did not fire. T1 remains worth building as its own
 instrument; T2 simply did not depend on it.
+
+### Follow-up: what the 3-layer collapse actually is (measured after the fact)
+
+The first write-up of this test said the shipping path "collapses at 3 layers".
+**That was measured on one run and stated too broadly.** Pinning it down changes
+the conclusion, so the correction matters more than the original claim.
+
+**It is not layer count. It is the number of `<video>` elements alive at once**,
+which is `layers × clips inside the 2 s mount window` — so a dense sequence of
+short clips multiplies it exactly the same way a stack of layers does.
+
+| fixture | `<video>` alive | fling p50 | fling misses |
+|---|---|---|---|
+| 1 layer, 1.2 s clips | 3 | 32.6 ms | 0 / 300 |
+| 2 layers, **6 s** clips | 2 | 32.6 ms | **0 / 300** |
+| 3 layers, **6 s** clips | 3 | 51 ms | 53 / 300 |
+| 2 layers, 1.2 s clips | 6 | **400 ms** | **270 / 300** |
+| 3 layers, 1.2 s clips | 9 | **400 ms** | **142 / 150** |
+
+Read down the `<video>` column, not the layer column: **two layers of ordinary
+6-second clips is completely fine (zero misses), and two layers of 1.2-second
+clips is a catastrophe.** Same layer count, opposite outcome. The cliff sits
+between 3 and 6 concurrent elements.
+
+That reframes the T2 result above. WebCodecs is not "better with layers" — it is
+better *at concurrency*, degrading smoothly where `<video>` elements fall off a
+cliff (at 2 layers × 1.2 s it holds 85.6 ms with zero misses against 400 ms and
+270 misses). The 1-layer comparison, where `<OffthreadVideo>` wins, is measuring
+the regime the shipping path is good at.
+
+**This is a finding about what ships today, independent of T2**, and it is the
+first hard evidence for a limit the architecture doc only guessed at. Two
+consequences worth carrying forward:
+
+- **It is a concrete C1 optimisation lead.** `MOUNT_WINDOW_SECONDS = 2` plus
+  `premountFor` is what multiplies the element count. Capping how many video
+  clips may be mounted at once — or shrinking the window when the timeline is
+  cut-dense — attacks the cliff directly, in the engine we already ship, with
+  no dependency change. **Not implemented: building is paused.**
+- **It changes what T6 (long-project stress) should look for.** The failure
+  mode to hunt is not project length but *local cut density around the
+  playhead*, which a long project makes more likely rather than causes.
+
+**Caveat on the fixture.** Every layer here is packed wall-to-wall with clips,
+so all N layers have video at every instant — harsher than a real edit, where
+an overlay is usually occasional. The `<video>`-count column is the transferable
+number; the layer and clip-length columns are just two ways of arriving at it.
+Reproduce with `--layers` and `--clip-seconds`.
 
 ### Verdict — measured, and it does not resolve to yes or no
 

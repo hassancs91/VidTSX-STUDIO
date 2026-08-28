@@ -43,6 +43,7 @@ function parseArgs(argv) {
     only: null,
     keepOpen: false,
     label: null,
+    clipSeconds: 1.2,
     engine: 'offthread',
     mediaLog: true,
   };
@@ -55,6 +56,7 @@ function parseArgs(argv) {
     else if (k === 'layers') out.layers = Number(v);
     else if (k === 'only') out.only = v;
     else if (k === 'label') out.label = v;
+    else if (k === 'clip-seconds') out.clipSeconds = Number(v);
     else if (k === 'engine') out.engine = v;
     else if (k === 'media-log') out.mediaLog = v !== 'off' && v !== 'false';
     else if (k === 'keep-open') out.keepOpen = true;
@@ -122,14 +124,14 @@ async function loadSources({ fromProject, media }) {
  * Scrub speeds are named after how the S2 checkpoint in Status.md described
  * them, so today's numbers stay comparable with the ones already on file.
  */
-function buildScenarios({ sources, clips, layers, engine, mediaLog }) {
+function buildScenarios({ sources, clips, layers, engine, mediaLog, clipSeconds }) {
   const base = {
     width: 1920,
     height: 1080,
     fps: 30,
     clips,
     layers,
-    clipSeconds: 1.2,
+    clipSeconds,
     sources: sources.map(({ url, durationSec }) => ({ url, durationSec })),
     warmupSteps: 20,
     settleMs: 1500,
@@ -271,6 +273,7 @@ async function main() {
     layers: args.layers,
     engine: args.engine,
     mediaLog: args.mediaLog,
+    clipSeconds: args.clipSeconds,
   }).filter((s) => !args.only || s.label === args.only);
 
   // Spawn vite's JS entry with this Node, not the `vite.cmd` shim: Node >= 20
