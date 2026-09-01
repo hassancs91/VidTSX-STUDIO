@@ -1,18 +1,11 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { logEngine } from '../../../logging/log-engine';
 import { getProjectCacheDir } from './studio-paths';
 import { getFfmpegBinary, runFfmpeg } from './ffmpeg-bin';
-
-const log = logEngine.createLogger('StudioProxy');
 
 export const PROXY_DIR = 'proxies';
 /** Preview height. 720p keeps decode cheap enough for a Player-driven scrub. */
 const PROXY_HEIGHT = 720;
-
-/** Sticky once NVENC is known to be unavailable — the reference pipeline was
- *  NVENC-only, and this app must run on machines without it (PLAN §9). */
-let nvencUnavailable = false;
 
 /**
  * Keyframe interval, in frames. Proxies exist to be *scrubbed*, and a seek has
@@ -22,13 +15,17 @@ let nvencUnavailable = false;
  */
 const PROXY_GOP = 15;
 
-function encoderArgs(useNvenc: boolean): string[] {
-  return useNvenc
-    ? ['-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', '30', '-g', String(PROXY_GOP)]
-    : ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-g', String(PROXY_GOP)];
+/**
+ * libx264 only. The bundled ffmpeg is Remotion's stripped build and has no
+ * hardware encoders at all (`-encoders` lists none — see
+ * docs/hardware-video-encoding-windows.md), so an NVENC attempt can only ever
+ * fail; the old try-NVENC-first branch cost one doomed spawn per session.
+ */
+function encoderArgs(): string[] {
+  return ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-g', String(PROXY_GOP)];
 }
 
-function proxyArgs(sourcePath: string, outputPath: string, useNvenc: boolean): string[] {
+function proxyArgs(sourcePath: string, outputPath: string): string[] {
   return [
     '-hide_banner',
     '-nostdin',
@@ -42,8 +39,8 @@ function proxyArgs(sourcePath: string, outputPath: string, useNvenc: boolean): s
     sourcePath,
     // Never upscale: min() keeps small sources at their native height.
     '-vf',
-    `scale=-2:min(${PROXY_HEIGHT}\\,ih)`,
-    ...encoderArgs(useNvenc),
+    `scale=-2:min(${PROXY_HEIGHT}\,ih)`,
+    ...encoderArgs(),
     '-pix_fmt',
     'yuv420p',
     '-c:a',
@@ -113,31 +110,16 @@ export async function generateProxy(
 
   const ffmpeg = await getFfmpegBinary('ffmpeg');
   const tmpPath = `${outputPath}.part.mp4`;
-
-  const attempt = async (useNvenc: boolean) => {
-    // A fresh parser per attempt: the libx264 fallback restarts from 0%.
-    const parser = onProgress ? createProgressParser(onProgress) : undefined;
-    await runFfmpeg(ffmpeg, proxyArgs(sourcePath, tmpPath, useNvenc), {
-      signal,
-      ...(parser ? { onStdout: parser.onStdout, onStderr: parser.onStderr } : {}),
-    });
-  };
+  const parser = onProgress ? createProgressParser(onProgress) : undefined;
 
   try {
-    if (!nvencUnavailable) {
-      try {
-        await attempt(true);
-      } catch (err) {
-        if (signal?.aborted) throw err;
-        nvencUnavailable = true;
-        log.info('NVENC unavailable for proxies, falling back to libx264', {
-          error: err instanceof Error ? err.message.slice(0, 200) : String(err),
-        });
-        await attempt(false);
-      }
-    } else {
-      await attempt(false);
-    }
+    // Below-normal priority: proxies are background work and must never make
+    // the editor stutter, however many cores ffmpeg decides to use.
+    await runFfmpeg(ffmpeg, proxyArgs(sourcePath, tmpPath), {
+      signal,
+      priority: 'below-normal',
+      ...(parser ? { onStdout: parser.onStdout, onStderr: parser.onStderr } : {}),
+    });
     // Rename only after a clean exit so a killed ffmpeg can't leave a
     // half-written proxy that later looks "ready".
     await fs.rename(tmpPath, outputPath);

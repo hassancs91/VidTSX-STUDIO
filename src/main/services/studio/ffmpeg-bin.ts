@@ -1,4 +1,5 @@
 import { spawn } from 'child_process';
+import os from 'os';
 import { getRemotionBinariesDir } from '../../utils/paths';
 
 /** ffmpeg/ffprobe come from Remotion's bundled binaries — the app ships no
@@ -13,6 +14,19 @@ export async function getFfmpegBinary(type: 'ffmpeg' | 'ffprobe'): Promise<strin
   });
 }
 
+/**
+ * OS scheduling priority for a background transcode. ffmpeg saturates every
+ * core it is given; at normal priority that starves the renderer and the UI
+ * stutters while proxies generate. Below-normal keeps the encode running flat
+ * out on an idle machine but lets anything interactive win the contention.
+ */
+export type FfmpegPriority = 'below-normal' | 'idle';
+
+const PRIORITY_VALUES: Record<FfmpegPriority, number> = {
+  'below-normal': os.constants.priority.PRIORITY_BELOW_NORMAL,
+  idle: os.constants.priority.PRIORITY_LOW,
+};
+
 export interface RunFfmpegOptions {
   signal?: AbortSignal;
   /** Receives stdout bytes instead of them being buffered (PCM piping). */
@@ -20,6 +34,10 @@ export interface RunFfmpegOptions {
   /** Receives stderr text as it streams (duration/progress parsing). The
    *  rolling tail is still kept internally for error reporting. */
   onStderr?: (text: string) => void;
+  /** Lower the child's scheduling priority (background work only — leave unset
+   *  for anything the user is waiting on). Best effort: a failed setPriority
+   *  never fails the transcode. */
+  priority?: FfmpegPriority;
 }
 
 /**
@@ -35,6 +53,14 @@ export async function runFfmpeg(
     const proc = spawn(binary, args, {
       stdio: ['ignore', options.onStdout ? 'pipe' : 'ignore', 'pipe'],
     });
+
+    if (options.priority && proc.pid !== undefined) {
+      try {
+        os.setPriority(proc.pid, PRIORITY_VALUES[options.priority]);
+      } catch {
+        // Not fatal: the transcode just runs at normal priority.
+      }
+    }
 
     let stderr = '';
     proc.stderr?.on('data', (chunk: Buffer) => {

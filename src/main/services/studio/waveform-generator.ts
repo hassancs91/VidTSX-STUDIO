@@ -125,7 +125,7 @@ export async function generateWaveform(
       'wav',
       '-',
     ],
-    { signal, onStdout: consume },
+    { signal, onStdout: consume, priority: 'below-normal' },
   );
 
   if (samplesInBucket > 0) {
