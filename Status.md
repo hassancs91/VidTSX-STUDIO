@@ -7,6 +7,71 @@
 
 ---
 
+## 2026-09-02 — proxy pipeline: priority bugfix, T4 + T3 measured, segmented resumable proxies SHIPPED
+
+**Sanctioned inside the pause as a bugfix plus two wave tests.** Trigger: Hasan
+opened the migrated video-2 project (one 6.3 GB 4K60 H.264 master) and proxy
+generation pinned every core at NORMAL priority; closing the app mid-transcode
+restarted the file from 0%. Slice 8 still on hold; the PREVIEW_ARCHITECTURE
+checklist is still unanswered (deliberately).
+
+- **Bugfix (`9a3559b`):** every proxy/waveform ffmpeg child runs at
+  **below-normal priority** (`runFfmpeg({ priority })`, `os.setPriority` on
+  the child, best effort) and the dead NVENC-first branch is gone (the stripped
+  ffmpeg has no hardware encoders; it cost one doomed spawn per session).
+  Verified live: `PriorityClass BelowNormal` on the child; renderer rAF p50
+  16.7 ms / max 49.9 ms / zero frames over 50 ms while a 4K proxy generated.
+- **T4 DONE — hardware decode.** `-hwaccel d3d11va` halves the CPU bill on
+  either GPU (8,414 → ~3,900–4,200 CPU-s for 1,002 s of 4K60), but only the
+  *discrete* adapter shortens the wait (908 → 567 s, 1.6×); the default
+  adapter on a hybrid laptop is the iGPU and saves no time (939 s). Proven by
+  the Windows GPU-VideoDecode counter, not inferred. Shipped:
+  `proxy-hwaccel.ts` enumerates adapters once per session and prefers a
+  discrete one; guarded sticky fallback to software like the NVENC precedent.
+  Bench: `scripts/bench/run-proxy-cost.mjs`. Full numbers in
+  `docs/PREVIEW_TESTS_PLAN.md` §T4.
+- **T3 DONE — proxy codec.** Six variants, T0 against each in one session
+  with the control first and last (control held at 32.1–32.9 ms fling p50).
+  **All-intra 540p CRF 28 shipped**: fling p50 32 → 25 ms (31 → 41 steps/s),
+  12% faster to encode, **2.6× disk** (~23 MB/min of 4K60); the p90 tail
+  (43–53 ms) did not move on any variant — it is seek machinery, not decode.
+  MJPEG is **unplayable** in Chromium's `<video>` (295/300 misses). Two
+  constants to reverse if Hasan prefers 720p fidelity. §T3 has the table.
+- **Segmented, resumable proxy generation (`proxy-generator.ts` +
+  `proxy-segments.ts` + `proxy-concat.ts`):** fixed 60 s windows → per-window
+  files in `cache/proxies/<assetId>/` (renamed into place only after a clean
+  exit, pid-suffixed `.part` names so an orphaned ffmpeg cannot collide) →
+  one AAC pass → concat-demuxer stream copy → same final `proxies/<id>.mp4`
+  path; media-jobs and the renderer are untouched. Resume = skip finished
+  windows; a `plan.json` manifest (profile tag, source size/mtime, window)
+  makes foreign leftovers get wiped, not joined. Progress is one honest
+  percent across windows + audio + join and never goes backwards.
+  **Kill test, live:** hard-killed the app with 2 of 11 windows done → both
+  survived with their mtimes, no orphan ffmpeg → reopened → log `Resumed
+  proxy from finished segments {resumed: 2, total: 11}` → finished. Worst-case
+  loss is one window (≤ 60 s of source, ~50 s of work).
+- **Frame-exact join was the hard part, and it was measured three times.**
+  Container durations of x264 B-frame segments run a frame long at some joins
+  (shifted every later frame); an input-side `-t` is packet-based and leaked a
+  duplicate frame at 5 of 10 joins on the H.264 master (37,898 frames vs
+  37,893); the shipping form — input `-ss`, output absolute `-to`, `-copyts`,
+  explicit per-file `duration` lines read from the segments — reproduces the
+  single-pass pts sequence exactly on the test clip and gives the master its
+  37,893 frames. Matroska segments lose to their millisecond timebase.
+- **Fresh T0 on the shipped result** (video-2 master, old 720p GOP-15 proxy vs
+  the new segmented all-intra 540p one, control first and last in one
+  session): fling p50 31.2 → 26.3 ms, natural scrub 16.6 ms and playback 59.9
+  fps on both, frame-accuracy err 8.5 → 7.2 ms. Nothing regressed; the join is
+  invisible to the Player.
+- **Gates:** 1,157 tests (1,105 + 52 new: segment planning/resume, progress
+  aggregation, generator with mocked ffmpeg incl. hwaccel latch and cancel,
+  join maths, adapter parsing/choice, runFfmpeg priority), types 26/22 exact.
+- **DECISION GATE for Hasan (not built):** GPU *encode* via a
+  download-full-ffmpeg-on-first-use (NVENC/QSV/AMF). With decode on the GPU the
+  remaining cost is x264 at 540p, ~1.5–2 CPU-s per source second; the wait on
+  this laptop is now ~1.2–1.8× realtime. Decode-only may be enough; the ~100 MB
+  download and the CRF→bitrate mapping are the costs. Build only on a yes.
+
 ## IN PROGRESS: preview-engine test wave (T0–T7) — building PAUSED (2026-08-28)
 
 **Hasan's call: stop building and measure before deciding.** Slice 8

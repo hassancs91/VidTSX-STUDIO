@@ -59,6 +59,7 @@ function parseArgs(argv) {
     else if (k === 'clip-seconds') out.clipSeconds = Number(v);
     else if (k === 'engine') out.engine = v;
     else if (k === 'media-log') out.mediaLog = v !== 'off' && v !== 'false';
+    else if (k === 'proxy-dir') out.proxyDir = path.resolve(v);
     else if (k === 'keep-open') out.keepOpen = true;
     else throw new Error(`Unknown flag: --${k}`);
   }
@@ -81,7 +82,7 @@ function studioProjectsRoot() {
   return process.env.VIDTSX_STUDIO_ROOT ?? path.join(os.homedir(), 'Videos', 'VidTSX Studio');
 }
 
-async function loadSources({ fromProject, media }) {
+async function loadSources({ fromProject, media, proxyDir }) {
   const projectDir = path.join(studioProjectsRoot(), 'projects', fromProject);
   const file = path.join(projectDir, 'project.json');
   if (!fsSync.existsSync(file)) throw new Error(`No project.json at ${file}`);
@@ -91,7 +92,10 @@ async function loadSources({ fromProject, media }) {
   for (const asset of project.assets) {
     if (asset.kind !== 'video') continue;
     let filePath;
-    if (media === 'proxy') {
+    if (media === 'proxy' && proxyDir) {
+      // T3: a variant proxy built outside the app, named by asset id.
+      filePath = path.join(proxyDir, `${asset.id}.mp4`);
+    } else if (media === 'proxy') {
       if (asset.proxy?.status !== 'ready') continue;
       filePath = path.join(projectDir, 'cache', asset.proxy.path);
     } else {
@@ -109,7 +113,9 @@ async function loadSources({ fromProject, media }) {
   if (sources.length === 0) {
     throw new Error(
       media === 'proxy'
-        ? `No ready proxies in "${fromProject}" — open it in the app once and let them finish.`
+        ? proxyDir
+          ? `No <assetId>.mp4 files for "${fromProject}" in ${proxyDir}.`
+          : `No ready proxies in "${fromProject}" — open it in the app once and let them finish.`
         : `No original video files found for "${fromProject}".`,
     );
   }
@@ -255,7 +261,7 @@ async function main() {
 
   console.log(`\nVidTSX preview bench (T0)`);
   console.log(`  project : ${args.fromProject}`);
-  console.log(`  media   : ${args.media} — ${sources.length} source(s)`);
+  console.log(`  media   : ${args.media} — ${sources.length} source(s)${args.proxyDir ? `  [proxy-dir ${args.proxyDir}]` : ''}`);
   console.log(
     `  engine  : ${args.engine}${args.engine === 'webcodecs' ? ' (@remotion/media — EXPERIMENTAL, T2)' : ' (shipping <OffthreadVideo>)'}` +
       `${args.engine === 'webcodecs' && !args.mediaLog ? '  [control: canvas tap DISARMED]' : ''}`,

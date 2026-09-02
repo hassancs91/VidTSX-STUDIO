@@ -40,8 +40,8 @@ rest stays a decision Hasan makes knowing that's what it is.
 | **T0** | **Scrub benchmark harness** | (instrument) how long from asking for a frame to that frame being presented | ½ day | **DONE 2026-08-28** — `a164e3b`, results below |
 | **T1** | **Fidelity baseline** | (instrument) what our WYSIWYG claim is worth *today*: pixel diff of preview vs export on the same project | ½ day | pending — T2 did not need it (see T2 colour), still unbuilt |
 | **T2** | **Decoder swap** | Is `@remotion/media` faster? Does colour hold on D-Log? Does 4K HEVC decode or fall back? | ~1 day | **DONE 2026-08-28** — conditional: loses at 1 layer, wins at 3. Colour holds; HEVC decodes. Results below |
-| **T3** | **Proxy codec A/B** | What proxies should be made of (all-intra vs GOP 5 vs today's GOP 15 vs MJPEG) | ½ day | pending — **now unblocked**; T2 leaves the decoder question genuinely open |
-| **T4** | **Proxy generation cost** | How long a real project makes you wait, and whether `-hwaccel d3d11va` on the input helps | ~2 h | pending |
+| **T3** | **Proxy codec A/B** | What proxies should be made of (all-intra vs GOP 5 vs today's GOP 15 vs MJPEG) | ½ day | **DONE 2026-09-02** — all-intra 540p: fling p50 32 → 25 ms, 12% faster to make, 2.6× disk; tail unchanged; MJPEG will not play. Shipped as the proxy profile. Results below |
+| **T4** | **Proxy generation cost** | How long a real project makes you wait, and whether `-hwaccel d3d11va` on the input helps | ~2 h | **DONE 2026-09-02** — yes, but only on the *discrete* adapter (1.6× faster, half the CPU); the default adapter halves CPU and saves no time. Results below |
 | **T5** | **Resolution ceiling** | Replaces the *assertion* that 8K breaks with a number and a failure mode | ½ day | pending |
 | **T6** | **Long-project stress** | Whether 3–5 h of 4K is a supported use case or a documented limit | ~1 day | pending |
 | **T7** | **Effects load probe** | Whether slice 10 needs "disable effects in preview" from day one | ½ day | optional |
@@ -393,37 +393,170 @@ and is Hasan's call.
    above is already fixed upstream — at the cost of re-vendoring
    `resources/vendor/`, per §D3.1.
 
-## T3 — proxy codec A/B (pending, after T2)
+## T3 — proxy codec A/B · DONE 2026-09-02
 
 **Question:** what should stand-in copies be made of? Premiere's own docs give
 the mechanism: intraframe media can be reduced at decode time, long-GOP media
 must reconstruct a whole GOP first.
 
-**Method:** build the same footage four ways — all-intra `-g 1` @540p CRF 28,
-`-g 5` @720p CRF 26, today's `-g 15` @720p CRF 26, and MJPEG `-q:v 5` — then
-run T0 against each. Record scrub p50/p90, disk footprint, and transcode time.
+**Method:** the three DJI clips of `raw-footage-test` (370 s of 4K60 10-bit
+HEVC) built six ways with `scripts/bench/run-proxy-cost.mjs` (`--gop
+--height --crf --codec --out`), every variant decoded on the same NVIDIA
+adapter so the encoder is the only thing that differs, then T0 pointed at each
+folder with its new `--proxy-dir` flag. The four planned variants plus two
+added to attribute the result: all-intra at 720p (is it the GOP or the
+frame size?) and GOP 15 at 540p (is it just the frame size?). Fixture as T0:
+40 clips × 1 layer, 1920×1080 @ 30 fps, runs=2.
 
-**Pass:** a variant that materially beats GOP 15 on the *fling* case at an
-acceptable disk cost. Explicitly **after T2**, because the winning decoder
-changes what the right proxy is; tuning against a decoder we are about to
-replace is measurement we would redo.
+**Every scrub number below comes from one session with the shipping profile
+run first and last as the control**, per the hygiene T2 taught: fling p50 on
+the control read 32.9 / 32.1 / 32.7 / 32.5 / 32.3 ms across the five
+sessions, so the instrument held still.
+
+| variant | encode wall (370 s) | CPU-s | disk | fling p50 | fling p90 | misses | natural p50 |
+|---|---|---|---|---|---|---|---|
+| **GOP 15 · 720p · CRF 26** (shipping until today) | 332 s | 1,920 | **53 MB** | 32.5 ms · 31 steps/s | 49 ms | 0 | 16.6 ms |
+| GOP 5 · 720p · CRF 26 | 309 s | 1,919 | 105 MB (2.0×) | 28.5 ms · 35/s | 51 ms | 1 | 16.6 ms |
+| **all-intra · 540p · CRF 28** | **291 s** | **1,609** | 141 MB (2.6×) | **24.6 ms · 41/s** | 43–53 ms | 0–1 | 16.6 ms |
+| all-intra · 720p · CRF 28 | 303 s | 1,773 | 223 MB (4.2×) | 29.5 ms | **400 ms** | **16** | 16.6 ms |
+| GOP 15 · 540p · CRF 26 | 308 s | 1,648 | 39 MB (0.7×) | 30.1 ms | 43 ms | 1 | 16.6 ms |
+| MJPEG · 720p · q 5 | 294 s | 1,574 | **925 MB (17×)** | — | — | **295 / 300** | — |
+
+What the table says:
+
+1. **Natural scrub and playback are vsync-bound on every playable variant**
+   (16.6 ms, 59.9 fps). There is nothing left to win there; the codec only
+   matters for the fling.
+2. **All-intra at 540p is the winner on two of the three criteria** — fling
+   median 32 → 25 ms (24% better, 31 → 41 steps per second) and the fastest
+   encode (12% less wall, 16% fewer CPU-seconds) — and loses on the third at
+   2.6× the disk: about **23 MB per minute of 4K60 source**, so ~1.4 GB per
+   hour of footage, ~7 GB for a 5-hour project.
+3. **The tail did not move.** p90 sits at 43–53 ms for every playable
+   variant including the control. That is three 60 Hz frames and reads as a
+   seek-machinery cost, not a decode cost — which is consistent with T0's
+   finding that the app's own work is 0.1 ms per step and with T2's decoder
+   churn observation. All-intra buys the median, not the hitch.
+4. **The win is part GOP, part frame size.** GOP 15 at 540p alone gets 30.1
+   ms at 0.7× disk; all-intra at 720p gets 29.5 ms but with a broken tail (16
+   misses, 400 ms p90, 4.2× disk). Only the combination — one keyframe per
+   frame *and* fewer bytes per frame — moves the median cleanly.
+5. **MJPEG is disqualified outright**: Chromium's `<video>` does not decode
+   MJPEG in mp4 — 295 of 300 steps missed, playback presented 0 fps. Not
+   slow: unplayable. And 17× the disk before that.
+6. **One tail event, recorded not hidden.** In the session run right after a
+   generation pass, the second all-intra-540 run reported 46.7 ms with 74
+   misses. Two further sessions (four runs) put it at 24.2–26.2 ms with 0–1
+   misses, so it is treated as machine state (page cache / thermal after 20
+   minutes of transcoding), not the codec. Worth knowing if it ever recurs.
+
+**Decision: ship all-intra 540p CRF 28 as the proxy profile** (`PROXY_HEIGHT
+= 540`, `PROXY_GOP = 1`, `PROXY_CRF = 28` in `proxy-generator.ts`). It is a
+judgement — a 24% median gain against 2.6× disk and a slightly softer
+preview frame — and it is two constants to reverse; the segment-folder
+manifest carries the profile tag, so a reversal never concatenates old and
+new windows. Existing proxies are not regenerated; only new or deleted
+ones get the new profile.
+
+**Pass criterion "materially beats GOP 15 on the fling case at acceptable
+disk cost": met on the median, honestly not on the tail.**
+
+**Confirmed on the shipped pipeline** (segmented + concat, video-2's 632 s
+H.264 master, old proxy kept as the control, run first and last):
+
+| video-2 proxy | fling p50 | natural p50 | playback | err p50 |
+|---|---|---|---|---|
+| old · 720p GOP 15 (single pass) | 31.2 / 33.1 ms | 16.6 ms | 59.9 fps | 8.5 ms |
+| **new · 540p all-intra, 11 windows joined** | **26.3 ms** | 16.6 ms | 59.9 fps | 7.2 ms |
+
+The joined file scrubs and plays exactly like a single-pass one — which is
+the point of the frame-exact join work described in Status.md.
 
 ---
 
-## T4 — proxy generation cost (pending)
+## T4 — proxy generation cost · DONE 2026-09-02
 
 **Question:** how long does a real project make you wait, and does
 `-hwaccel d3d11va` on the transcode *input* help? (The bundled ffmpeg has no
 hardware **encoders** — verified — so the NVENC branch in `proxy-generator.ts`
-is dead code that costs one failed spawn per session. It goes in the same
-commit.)
+was dead code costing one failed spawn per session. Deleted in `9a3559b`,
+the same commit that put every proxy/waveform ffmpeg at below-normal
+priority.)
 
-**Method:** time a full proxy pass over the 27 min of 4K in `raw/`, with and
-without the hwaccel flag, at `maxConcurrent = 2`. **Do not** set
-`-hwaccel_output_format` — the `scale` filter needs frames in system memory.
+`node scripts/bench/run-proxy-cost.mjs --from-project=raw-footage-test --file=<video-2 master> --variants=sw,d3d11va,d3d11va1`
 
-**Pass:** a measurable win with a guarded fallback (hwaccel can fail per
-machine and per codec, exactly like NVENC did).
+**Method:** the exact command `proxy-generator.ts` runs (720p, libx264
+veryfast, CRF 26, GOP 15, AAC 128k) over the three DJI clips of
+`raw-footage-test` (370 s of 3840×2160 59.94 fps 10-bit HEVC) plus the
+video-2 master (632 s of 3840×2160 59.94 fps 8-bit H.264, 6.3 GB), two files
+at a time, once per decode variant. `-hwaccel_output_format` is **not** set —
+the `scale` filter needs frames in system memory. Per file, ffmpeg's own
+`-benchmark` gives the CPU seconds it consumed; machine-wide CPU comes from
+`os.cpus()` sampled every second; and the Windows *GPU Engine / VideoDecode*
+performance counter, sampled per adapter, proves the decoder actually ran on
+the GPU (ffmpeg falls back to software **silently** when a hwaccel cannot be
+set up, and would otherwise have reported software numbers under a hardware
+label).
+
+**The default adapter is the wrong one on a hybrid laptop.** DXGI enumerates
+the Intel iGPU as adapter 0 and the GTX 1650 Ti as adapter 1, and ffmpeg's
+`-hwaccel d3d11va` takes adapter 0 unless told otherwise. The two are not
+close:
+
+| variant | wall for 1002 s of source | realtime | CPU-seconds | machine CPU | GPU decode engine |
+|---|---|---|---|---|---|
+| software decode (shipping) | **908 s** | 1.10× | **8,414** | 95% | 0% |
+| `d3d11va` adapter 0 — Intel UHD | 939 s | 1.07× | 3,886 | 53% | Intel 41% avg / 55% max |
+| `d3d11va` adapter 1 — NVIDIA | **567 s** | **1.77×** | 4,195 | 78% | NVIDIA 71% avg / 78% max |
+
+Per file, so the two source types can be told apart (wall seconds; two files
+were always running at once, so these are contended numbers, not clip-alone
+numbers):
+
+| file | software | Intel d3d11va | NVIDIA d3d11va |
+|---|---|---|---|
+| DJI 0270 · 139 s HEVC 10-bit | 605 | 251 | 220 |
+| DJI 0271 · 73 s HEVC 10-bit | 201 | 129 | 114 |
+| DJI 0272 · 158 s HEVC 10-bit | 303 | 268 | 232 |
+| video-2 master · 632 s H.264 8-bit | 559 | **939** | 529 |
+
+Three things this says:
+
+1. **Software decode of 4K60 10-bit HEVC is the cost, not the x264 encode.**
+   8,414 CPU-seconds for 1,002 seconds of source is 8.4 cores busy for the
+   whole pass. That is what pinned the machine when video-2 opened, and it is
+   why the priority fix (`9a3559b`) mattered before any speed-up: the wait is
+   ~1× realtime either way, the difference is whether the editor is usable
+   during it.
+2. **Hardware decode halves the CPU bill on either adapter; only the discrete
+   one shortens the wait.** The Intel path decodes the HEVC clips about 2×
+   faster than software but is *slower* than software on the 8-bit H.264
+   master (939 s vs 559 s) — its decode-and-download path saturates at about
+   one 4K60 stream, and two were running. Net: no time saved, but the machine
+   is half idle instead of pinned. The NVIDIA path is 1.6× faster on the whole
+   pass and never worse than software on any file.
+3. **The proof mattered.** The first version of the bench inferred "engaged"
+   from a log line that only `-hwaccel auto` prints, and would have marked
+   every hardware run as a software fallback. The counter is the evidence;
+   the CPU-seconds halving is the corroboration.
+
+**What ships (same session):** `proxy-hwaccel.ts` enumerates d3d11va
+adapters once per session (`-init_hw_device d3d11va=dx:N`, no media touched,
+~100 ms each), prefers the first non-Intel adapter, else the iGPU, else
+software; `proxy-generator.ts` puts the chosen `-hwaccel d3d11va
+-hwaccel_device N` on every segment's input with the same sticky fallback the
+NVENC branch had — one failure and the session finishes in software. On a
+desktop with one discrete card adapter 0 *is* that card and nothing changes.
+
+**Pass:** met. A guarded, measurable win — on this machine, 1.6× on the wall
+clock and half the CPU, with the caveat that the default-adapter half of the
+win is CPU relief only.
+
+**Not settled here:** the GPU-*encode* question (download a full ffmpeg on
+first use for NVENC/QSV/AMF). With decode on the GPU the remaining cost is
+x264 at 720p, which the per-file CPU numbers put at roughly 2 CPU-seconds
+per source second — real but no longer the wall. That is Hasan's call, made
+with these numbers rather than by default (see Status.md).
 
 ---
 
