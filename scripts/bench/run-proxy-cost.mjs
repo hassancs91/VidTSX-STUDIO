@@ -1,7 +1,9 @@
-// T4 — proxy generation cost.
+// T4 — proxy generation cost (and T4b — GPU encode).
 //
 //   node scripts/bench/run-proxy-cost.mjs --from-project=raw-footage-test
 //   node scripts/bench/run-proxy-cost.mjs --file="C:\path\master.mp4" --variants=sw,d3d11va
+//   node scripts/bench/run-proxy-cost.mjs --from-project=raw-footage-test --variants=d3d11va1 \
+//        --ffmpeg=.vidtsx-temp/ffmpeg-full/.../bin/ffmpeg.exe --encoder=nvenc --cq=28 --preset=p4
 //
 // Runs the SAME transcode the app runs (proxy-generator.ts: 720p, libx264
 // veryfast, CRF 26, GOP 15, AAC 128k) over every video asset of a Studio
@@ -16,6 +18,19 @@
 //   d3d11va1  same on adapter index 1 (hybrid laptops: index 0 is usually the
 //             iGPU, 1 the discrete card)
 //   dxva2     the older API, for comparison
+//   nvdec     -hwaccel cuda without an output format: NVDEC decodes, frames
+//             come down to system memory like d3d11va. Needed with NVENC —
+//             on the tested driver NVENC cannot use the D3D11 decode device
+//             ("CreateInputBuffer failed"), but shares a CUDA one fine.
+//   cuda      -hwaccel cuda -hwaccel_output_format cuda: frames STAY on the
+//             NVIDIA GPU and are scaled with scale_cuda (full build only,
+//             only meaningful with --encoder=nvenc)
+//
+// --encoder picks the OUTPUT side (T4b): x264 (default, what ships), nvenc,
+// qsv, amf. The hardware encoders have no CRF: --cq is the constant-quality
+// knob (nvenc -cq / qsv -global_quality / amf -qp), --preset the vendor
+// preset. --ffmpeg points at a full build, because the bundled one has no
+// hardware encoders at all.
 //
 // Numbers recorded per file: wall seconds, ffmpeg's own `-benchmark` line
 // (utime/stime = CPU seconds the process actually consumed, which is the
@@ -36,14 +51,24 @@ import { fileURLToPath } from 'url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
 const OUT_DIR = path.join(REPO, '.vidtsx-temp', 'bench');
-const FFMPEG = path.join(REPO, 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe');
+const BUNDLED_FFMPEG = path.join(REPO, 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe');
+let FFMPEG = BUNDLED_FFMPEG;
 
 const VARIANTS = {
   sw: [],
   d3d11va: ['-hwaccel', 'd3d11va'],
   d3d11va1: ['-hwaccel', 'd3d11va', '-hwaccel_device', '1'],
   dxva2: ['-hwaccel', 'dxva2'],
+  nvdec: ['-hwaccel', 'cuda'],
+  // d3d11va decode on adapter 1 with a separate CUDA device for the encoder:
+  // NVENC handed the decoder's D3D11 device fails CreateInputBuffer, but a
+  // CUDA device declared up front is picked for it instead. Order matters —
+  // the d3d11va device must be declared first or decode lands on adapter 0.
+  d3d11va1cu: ['-init_hw_device', 'd3d11va=dx:1', '-init_hw_device', 'cuda=cu', '-hwaccel', 'd3d11va', '-hwaccel_device', 'dx'],
+  cuda: ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda'],
 };
+
+const ENCODERS = ['x264', 'nvenc', 'qsv', 'amf'];
 
 function parseArgs(argv) {
   const out = {
@@ -60,6 +85,10 @@ function parseArgs(argv) {
     codec: 'x264',
     q: 5,
     out: null,
+    ffmpeg: null,
+    encoder: 'x264',
+    cq: 28,
+    preset: null,
   };
   for (const arg of argv.slice(2)) {
     const i = arg.indexOf('=');
@@ -78,11 +107,17 @@ function parseArgs(argv) {
     else if (k === 'codec') out.codec = v;
     else if (k === 'q') out.q = Number(v);
     else if (k === 'out') out.out = v;
+    else if (k === 'ffmpeg') out.ffmpeg = v;
+    else if (k === 'encoder') out.encoder = v;
+    else if (k === 'cq') out.cq = Number(v);
+    else if (k === 'preset') out.preset = v;
     else throw new Error(`Unknown flag: --${k}`);
   }
   for (const v of out.variants) {
     if (!VARIANTS[v]) throw new Error(`Unknown variant ${v}; known: ${Object.keys(VARIANTS).join(',')}`);
   }
+  if (!ENCODERS.includes(out.encoder)) throw new Error(`Unknown encoder ${out.encoder}; known: ${ENCODERS.join(',')}`);
+  if (out.ffmpeg) FFMPEG = path.resolve(REPO, out.ffmpeg);
   if (!out.fromProject && out.files.length === 0) throw new Error('--from-project=<id> or --file=<path> required');
   return out;
 }
@@ -110,7 +145,7 @@ async function loadFiles(args) {
 }
 
 async function probe(file) {
-  const ffprobe = FFMPEG.replace(/ffmpeg\.exe$/, 'ffprobe.exe');
+  const ffprobe = BUNDLED_FFMPEG.replace(/ffmpeg\.exe$/, 'ffprobe.exe');
   const json = await new Promise((resolve, reject) => {
     const p = spawn(ffprobe, ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', file]);
     let s = '';
@@ -127,17 +162,45 @@ async function probe(file) {
   };
 }
 
+/**
+ * Output-side args per encoder. The hardware encoders take a constant-quality
+ * number instead of CRF; the scales are NOT the same as x264's, which is why
+ * T4b tunes --cq until the file size matches the x264 profile's.
+ */
+function encoderArgs(args) {
+  const g = ['-g', String(args.gop), ...(args.gop === 1 ? ['-bf', '0'] : [])];
+  switch (args.encoder) {
+    case 'nvenc':
+      // NVENC's intra-only form is "-g 0" (ffmpeg maps it to frameIntervalP=0,
+      // gopLength=1); "-g 1" trips its "GOP length > B-frames + 1" check even
+      // with -bf 0. Verified: every frame comes out key_frame=1 pict_type=I.
+      return ['-c:v', 'h264_nvenc', '-preset', args.preset ?? 'p4', '-rc', 'vbr', '-cq', String(args.cq), '-b:v', '0',
+        ...(args.gop === 1 ? ['-g', '0', '-bf', '0'] : g)];
+    case 'qsv':
+      return ['-c:v', 'h264_qsv', '-preset', args.preset ?? 'medium', '-global_quality', String(args.cq), ...g];
+    case 'amf':
+      return ['-c:v', 'h264_amf', '-quality', args.preset ?? 'balanced', '-rc', 'cqp', '-qp_i', String(args.cq), '-qp_p', String(args.cq), ...g];
+    default:
+      return ['-c:v', 'libx264', '-preset', args.preset ?? 'veryfast', '-crf', String(args.crf), ...g];
+  }
+}
+
 /** Mirrors proxy-generator.ts's command exactly, plus the variant's input args and -benchmark. */
 function proxyArgs(variantArgs, source, output, args) {
+  const onGpu = variantArgs.includes('-hwaccel_output_format');
   return [
     '-hide_banner', '-nostdin', '-loglevel', 'verbose', '-benchmark',
     ...variantArgs,
     '-i', source,
     ...(args.limitSeconds ? ['-t', String(args.limitSeconds)] : []),
-    '-vf', `scale=-2:min(${args.height}\\,ih)`,
+    // On the cuda path the frames never come down to system memory: scale_cuda
+    // resizes and converts to 8-bit on the card and NVENC reads them there.
+    ...(onGpu
+      ? ['-vf', `scale_cuda=w=-2:h=min(${args.height}\\,ih):format=yuv420p`]
+      : ['-vf', `scale=-2:min(${args.height}\\,ih)`]),
     ...(args.codec === 'mjpeg'
       ? ['-c:v', 'mjpeg', '-q:v', String(args.q), '-pix_fmt', 'yuvj420p']
-      : ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(args.crf), '-g', String(args.gop), '-pix_fmt', 'yuv420p']),
+      : [...encoderArgs(args), ...(onGpu ? [] : ['-pix_fmt', 'yuv420p'])]),
     '-c:a', 'aac', '-b:a', '128k',
     '-movflags', '+faststart',
     '-y', output,
@@ -156,7 +219,11 @@ function runOne(variant, src, output, args) {
     proc.on('error', reject);
     proc.on('close', async (code) => {
       const wallSec = Number(process.hrtime.bigint() - t0) / 1e9;
-      if (code !== 0) return reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(-1500)}`));
+      if (code !== 0) {
+        // The tail rarely names the cause; the whole log does.
+        await fs.writeFile(`${output}.stderr.log`, stderr).catch(() => {});
+        return reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(-1500)} (full log: ${output}.stderr.log)`));
+      }
       const bench = /bench: utime=([\d.]+)s stime=([\d.]+)s rtime=([\d.]+)s/.exec(stderr);
       const hwLines = stderr
         .split(/\r?\n/)
@@ -219,13 +286,13 @@ function cpuSampler() {
  * adapter; a silent software fallback shows ~0 on both. This is the proof
  * the log cannot give.
  */
-function gpuSampler() {
+function gpuSampler(engine = 'VideoDecode') {
   if (process.platform !== 'win32') return { stop: () => null };
   // Re-enumerate on every sample: -Continuous freezes the instance list at the
   // first sample, so an ffmpeg that starts later never appears. Both GPUs on
   // this laptop call themselves phys_0; the LUID is what tells them apart.
   const script =
-    "while ($true) { Get-Counter '\\GPU Engine(*engtype_VideoDecode)\\Utilization Percentage' -ErrorAction SilentlyContinue | " +
+    `while ($true) { Get-Counter '\\GPU Engine(*engtype_${engine})\\Utilization Percentage' -ErrorAction SilentlyContinue | ` +
     'ForEach-Object { $t=@{}; foreach ($c in $_.CounterSamples) { if ($c.InstanceName -match "luid_0x[0-9a-f]+_0x([0-9a-f]+)_phys") { $t[$matches[1]] += $c.CookedValue } }; ' +
     "Write-Output (($t.GetEnumerator() | ForEach-Object { $_.Key + '=' + [math]::Round($_.Value,1) }) -join ' ') } }";
   const ps = spawn('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], {
@@ -266,7 +333,11 @@ async function runVariant(variant, files, args) {
   const queue = [...files];
   const results = [];
   const sampler = cpuSampler();
-  const gpu = gpuSampler();
+  const gpu = gpuSampler('VideoDecode');
+  // The encode engine is the proof for --encoder=nvenc|qsv|amf, the same way
+  // the decode engine is the proof for d3d11va: an encoder that quietly ran
+  // on the CPU (or errored into a fallback) shows ~0 here.
+  const gpuEnc = gpuSampler('VideoEncode');
   const t0 = process.hrtime.bigint();
   const worker = async () => {
     while (queue.length) {
@@ -286,18 +357,25 @@ async function runVariant(variant, files, args) {
   const wallSec = Number(process.hrtime.bigint() - t0) / 1e9;
   const avgCpuPct = sampler.stop();
   const gpuDecode = gpu.stop();
+  const gpuEncode = gpuEnc.stop();
   const gpuMax = gpuDecode ? Math.max(...Object.values(gpuDecode).map((g) => g.max)) : 0;
   const sourceSec = results.reduce((a, x) => a + x.sourceSec, 0);
   const cpuSec = results.every((x) => x.cpuSec != null) ? results.reduce((a, x) => a + x.cpuSec, 0) : null;
+  const outMb = r(results.reduce((a, x) => a + x.outMb, 0));
   return {
     variant,
+    encoder: args.encoder,
+    ffmpeg: FFMPEG,
     inputArgs: VARIANTS[variant],
+    encoderArgs: encoderArgs(args),
+    outMb,
     wallSec: r(wallSec),
     sourceSec: r(sourceSec),
     realtimeX: r(sourceSec / wallSec),
     cpuSec: cpuSec != null ? r(cpuSec) : null,
     avgMachineCpuPct: avgCpuPct,
     gpuDecode,
+    gpuEncode,
     // Engaged = no setup failure AND the decode engine actually lit up.
     hwaccelEngaged: variant === 'sw' ? null : results.every((x) => !x.hwaccelSetupFailed) && gpuMax > 5,
     files: results,
@@ -314,13 +392,13 @@ async function main() {
     );
   }
   console.log(
-    `  variants=${args.variants.join(',')} concurrency=${args.concurrency} priority=${args.priority}` +
-      `${args.limitSeconds ? ` limit=${args.limitSeconds}s` : ''}\n`,
+    `  variants=${args.variants.join(',')} encoder=${args.encoder} concurrency=${args.concurrency} priority=${args.priority}` +
+      `${args.limitSeconds ? ` limit=${args.limitSeconds}s` : ''}\n  ffmpeg=${FFMPEG}\n`,
   );
 
   const report = {
     tool: 'proxy-cost-bench',
-    version: 1,
+    version: 2,
     startedAt: new Date().toISOString(),
     machine: {
       platform: `${os.platform()} ${os.release()}`,
@@ -337,17 +415,15 @@ async function main() {
     console.log('');
   }
 
-  console.log('  variant     wall      source   realtime   cpu-sec   machine-cpu   hwaccel       gpu-decode (avg/max per adapter)');
-  console.log('  ' + '-'.repeat(110));
+  console.log('  variant     wall      source   realtime   cpu-sec   machine-cpu   out-MB   hwaccel       gpu-decode (avg/max per adapter)  |  gpu-encode');
+  console.log('  ' + '-'.repeat(130));
   for (const v of report.variants) {
     const hw = v.hwaccelEngaged === null ? '-' : v.hwaccelEngaged ? 'engaged' : 'NOT ENGAGED';
-    const gpuText = v.gpuDecode
-      ? Object.entries(v.gpuDecode).map(([k, g]) => `${k} ${g.avg}/${g.max}%`).join('  ')
-      : '(no counter)';
+    const gpuText = (g) => (g ? Object.entries(g).map(([k, x]) => `${k} ${x.avg}/${x.max}%`).join('  ') : '(no counter)');
     console.log(
       `  ${v.variant.padEnd(9)} ${String(v.wallSec + 's').padStart(8)} ${String(v.sourceSec + 's').padStart(9)}` +
         ` ${String(v.realtimeX + 'x').padStart(9)} ${String(v.cpuSec ?? '?').padStart(9)}` +
-        ` ${String((v.avgMachineCpuPct ?? '?') + '%').padStart(12)}   ${hw.padEnd(12)}  ${gpuText}`,
+        ` ${String((v.avgMachineCpuPct ?? '?') + '%').padStart(12)} ${String(v.outMb).padStart(8)}   ${hw.padEnd(12)}  ${gpuText(v.gpuDecode)}  |  ${gpuText(v.gpuEncode)}`,
     );
   }
 

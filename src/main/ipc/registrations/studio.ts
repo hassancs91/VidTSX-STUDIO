@@ -48,6 +48,11 @@ import {
   handleStudioPackagePlan,
   handleStudioShotConform,
 } from '../studio-package-handlers';
+import {
+  handleStudioProxyEncoderInstall,
+  handleStudioProxyEncoderSetEnabled,
+  handleStudioProxyEncoderStatus,
+} from '../studio-proxy-encoder-handlers';
 import { registerFlushAck } from '../flush-guard';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
@@ -72,6 +77,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_CACHE_INFO, handleStudioCacheInfo);
   ipcMain.handle(IPC.STUDIO_CACHE_OPEN, handleStudioCacheOpen);
   ipcMain.handle(IPC.STUDIO_CACHE_CLEAR, handleStudioCacheClear);
+  ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_STATUS, handleStudioProxyEncoderStatus);
+  ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_INSTALL, handleStudioProxyEncoderInstall);
+  ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_SET_ENABLED, handleStudioProxyEncoderSetEnabled);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_START, handleStudioTranscribeStart);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_CANCEL, handleStudioTranscribeCancel);
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);

@@ -6,6 +6,7 @@ import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
 import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
 import { CrashReportingRow } from './rows/CrashReportingRow';
+import { ProxyGpuEncoderRow } from './rows/ProxyGpuEncoderRow';
 import { NewsRow } from './rows/NewsRow';
 import { UpdateSection } from './UpdateSection';
 
@@ -95,6 +96,7 @@ export function GeneralSettingsContent({
           setRenderTimeoutSeconds={setRenderTimeoutSeconds}
           settingsLoading={settingsLoading}
         />
+        <ProxyGpuEncoderRow />
       </div>
 
       {/* Image models folder controls moved to the dedicated "AI Models" screen. */}

@@ -1,6 +1,10 @@
 import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
+  StudioProxyEncoderInstallResponse,
+  StudioProxyEncoderSetEnabledRequest,
+  StudioProxyEncoderSetEnabledResponse,
+  StudioProxyEncoderStatusResponse,
   StudioAgentCancelRequest,
   StudioAgentCancelResponse,
   StudioAgentChatLoadRequest,
@@ -117,6 +121,12 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_CACHE_OPEN, data),
   studioCacheClear: (data: StudioCacheClearRequest): Promise<StudioCacheClearResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CACHE_CLEAR, data),
+  studioProxyEncoderStatus: (): Promise<StudioProxyEncoderStatusResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_STATUS),
+  studioProxyEncoderInstall: (): Promise<StudioProxyEncoderInstallResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_INSTALL),
+  studioProxyEncoderSetEnabled: (data: StudioProxyEncoderSetEnabledRequest): Promise<StudioProxyEncoderSetEnabledResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_SET_ENABLED, data),
   studioMediaPrepare: (data: StudioMediaPrepareRequest): Promise<StudioMediaPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
   studioMediaRelink: (data: StudioMediaRelinkRequest): Promise<StudioMediaRelinkResponse> =>

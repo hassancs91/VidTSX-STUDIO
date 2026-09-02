@@ -19,6 +19,7 @@ export * from './content-safety';
 export * from './news';
 export * from './provider-keys';
 export * from './provider-models';
+export * from './proxy-encoder';
 export * from './render';
 export * from './sd-image';
 export * from './sd-video';

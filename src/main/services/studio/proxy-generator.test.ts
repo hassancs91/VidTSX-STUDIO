@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * real temp folder. Which commands ran, in what order, is what is asserted.
  */
 const calls: string[][] = [];
+const binaries: string[] = [];
 const priorities: (string | undefined)[] = [];
 let failOn: ((args: string[]) => boolean) | null = null;
 let hangOn: ((args: string[]) => boolean) | null = null;
@@ -16,11 +17,12 @@ let hangOn: ((args: string[]) => boolean) | null = null;
 vi.mock('./ffmpeg-bin', () => ({
   getFfmpegBinary: async () => 'ffmpeg',
   runFfmpeg: async (
-    _bin: string,
+    bin: string,
     args: string[],
     opts: { signal?: AbortSignal; onStdout?: (b: Buffer) => void; priority?: string },
   ) => {
     calls.push(args);
+    binaries.push(bin);
     priorities.push(opts.priority);
     if (hangOn?.(args)) {
       await new Promise<void>((_, reject) => opts.signal?.addEventListener('abort', () => reject(new Error('Cancelled'))));
@@ -60,6 +62,17 @@ vi.mock('./proxy-hwaccel', () => ({
   detectDecodeArgs: async () => ['-hwaccel', 'd3d11va', '-hwaccel_device', '1'],
 }));
 
+// The opt-in GPU encoder (ffmpeg-full.ts): off unless a test resolves one.
+let gpuEncoder: { ffmpeg: string; encoder: 'nvenc' | 'qsv' | 'amf' } | null = null;
+const gpuFailures: string[] = [];
+vi.mock('./ffmpeg-full', () => ({
+  resolveProxyGpuEncoder: async () => gpuEncoder,
+  markProxyGpuEncoderFailed: (encoder: string, err: unknown) => {
+    gpuFailures.push(`${encoder}: ${err instanceof Error ? err.message : String(err)}`);
+    gpuEncoder = null; // the real latch makes the next resolve return null
+  },
+}));
+
 vi.mock('../../../logging/log-engine', () => ({
   logEngine: { createLogger: () => ({ info: () => {}, warn: () => {}, error: () => {} }) },
 }));
@@ -83,7 +96,10 @@ describe('generateProxy (segmented, resumable)', () => {
     source = path.join(root, 'source.mp4');
     await fs.writeFile(source, 'video');
     calls.length = 0;
+    binaries.length = 0;
     priorities.length = 0;
+    gpuEncoder = null;
+    gpuFailures.length = 0;
     failOn = null;
     hangOn = null;
     probeDuration = 200;
@@ -234,5 +250,78 @@ describe('generateProxy (segmented, resumable)', () => {
     await generateProxy('proj', 'asset-1', source);
     expect(priorities).toHaveLength(6);
     expect(priorities.every((p) => p === 'below-normal')).toBe(true);
+  });
+
+  describe('opt-in GPU encoder', () => {
+    it('windows use the full binary and NVENC on the card; audio and concat stay on the bundled ffmpeg', async () => {
+      gpuEncoder = { ffmpeg: 'C:/full/ffmpeg.exe', encoder: 'nvenc' };
+      await generateProxy('proj', 'asset-1', source);
+      const segments = calls.filter(isSegment);
+      expect(segments).toHaveLength(4);
+      for (const seg of segments) {
+        expect(seg).toContain('h264_nvenc');
+        expect(seg).not.toContain('libx264');
+        expect(seg).not.toContain('d3d11va'); // NVDEC feeds NVENC directly
+        expect(seg.slice(seg.indexOf('-hwaccel'), seg.indexOf('-hwaccel') + 4)).toEqual(['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda']);
+        expect(seg[seg.indexOf('-vf') + 1]).toMatch(/^scale_cuda=/);
+        expect(seg).not.toContain('-pix_fmt');
+        expect(seg).toContain('-copyts');
+      }
+      expect(binaries.filter((b) => b === 'C:/full/ffmpeg.exe')).toHaveLength(4);
+      expect(binaries.filter((b) => b === 'ffmpeg')).toHaveLength(2); // audio + concat
+      expect(priorities.every((p) => p === 'below-normal')).toBe(true);
+      expect(await fs.readdir(path.join(cacheDir, 'proxies'))).toEqual(['asset-1.mp4']);
+    });
+
+    it('QSV keeps the d3d11va decode, the software scaler and an explicit pixel format', async () => {
+      gpuEncoder = { ffmpeg: 'C:/full/ffmpeg.exe', encoder: 'qsv' };
+      await generateProxy('proj', 'asset-1', source);
+      const seg = calls.filter(isSegment)[0];
+      expect(seg).toContain('h264_qsv');
+      // (The d3d11va latch tripped by this file's first test means the decode
+      // args are [] here; what matters is that the NVIDIA-only cuda path is
+      // not used and the frames go through the software scaler.)
+      expect(seg).not.toContain('cuda');
+      expect(seg[seg.indexOf('-vf') + 1]).toMatch(/^scale=/);
+      expect(seg.slice(seg.indexOf('-pix_fmt'), seg.indexOf('-pix_fmt') + 2)).toEqual(['-pix_fmt', 'nv12']);
+    });
+
+    it('a GPU failure latches the fallback, wipes the GPU windows and restarts the asset on x264', async () => {
+      gpuEncoder = { ffmpeg: 'C:/full/ffmpeg.exe', encoder: 'nvenc' };
+      // Window 0 succeeds on the GPU, window 1 fails.
+      failOn = (args) => args.includes('h264_nvenc') && outputArg(args).includes('seg-0001');
+      await generateProxy('proj', 'asset-1', source);
+      expect(gpuFailures).toEqual(['nvenc: ffmpeg exited with code 1: boom']);
+      const segments = calls.filter(isSegment);
+      // 2 GPU attempts, then all 4 windows again on x264 — the GPU window 0 was not kept.
+      expect(segments.map((s) => (s.includes('h264_nvenc') ? 'gpu' : 'x264'))).toEqual(['gpu', 'gpu', 'x264', 'x264', 'x264', 'x264']);
+      expect(calls.filter(isConcat)).toHaveLength(1);
+      expect(await fs.readdir(path.join(cacheDir, 'proxies'))).toEqual(['asset-1.mp4']);
+    });
+
+    it('x264 leftovers are discarded when the GPU profile takes over, and vice versa', async () => {
+      // A killed x264 run left one finished window.
+      failOn = (args) => isSegment(args) && outputArg(args).includes('seg-0001');
+      await expect(generateProxy('proj', 'asset-1', source)).rejects.toThrow();
+      const segDir = path.join(cacheDir, 'proxies', 'asset-1');
+      expect(await fs.readdir(segDir)).toContain('seg-0000.mp4');
+      // Now the GPU encoder is on: the x264 window must not be joined to GPU ones.
+      calls.length = 0;
+      failOn = null;
+      gpuEncoder = { ffmpeg: 'C:/full/ffmpeg.exe', encoder: 'nvenc' };
+      await generateProxy('proj', 'asset-1', source);
+      expect(calls.filter(isSegment).map(targetName)).toEqual(['seg-0000.mp4', 'seg-0001.mp4', 'seg-0002.mp4', 'seg-0003.mp4']);
+    });
+
+    it('cancel during a GPU window does not latch the fallback', async () => {
+      gpuEncoder = { ffmpeg: 'C:/full/ffmpeg.exe', encoder: 'nvenc' };
+      const ac = new AbortController();
+      hangOn = (args) => isSegment(args) && outputArg(args).includes('seg-0001');
+      const run = generateProxy('proj', 'asset-1', source, ac.signal);
+      await vi.waitFor(() => expect(calls.filter(isSegment)).toHaveLength(2));
+      ac.abort();
+      await expect(run).rejects.toThrow(/Cancelled/);
+      expect(gpuFailures).toEqual([]);
+    });
   });
 });

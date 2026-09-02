@@ -405,6 +405,9 @@ export interface ElectronAPI {
   studioCacheInfo: (data: import('../../shared/ipc/types').StudioCacheInfoRequest) => Promise<import('../../shared/ipc/types').StudioCacheInfoResponse>;
   studioCacheOpen: (data: import('../../shared/ipc/types').StudioCacheOpenRequest) => Promise<import('../../shared/ipc/types').StudioCacheOpenResponse>;
   studioCacheClear: (data: import('../../shared/ipc/types').StudioCacheClearRequest) => Promise<import('../../shared/ipc/types').StudioCacheClearResponse>;
+  studioProxyEncoderStatus: () => Promise<import('../../shared/ipc/types').StudioProxyEncoderStatusResponse>;
+  studioProxyEncoderInstall: () => Promise<import('../../shared/ipc/types').StudioProxyEncoderInstallResponse>;
+  studioProxyEncoderSetEnabled: (data: import('../../shared/ipc/types').StudioProxyEncoderSetEnabledRequest) => Promise<import('../../shared/ipc/types').StudioProxyEncoderSetEnabledResponse>;
   studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
   studioMediaRelink: (data: import('../../shared/ipc/types').StudioMediaRelinkRequest) => Promise<import('../../shared/ipc/types').StudioMediaRelinkResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;

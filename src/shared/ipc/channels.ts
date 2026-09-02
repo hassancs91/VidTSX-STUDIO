@@ -347,6 +347,10 @@ export const IPC = {
   STUDIO_CACHE_INFO: 'studio:cache:info',
   STUDIO_CACHE_OPEN: 'studio:cache:open',
   STUDIO_CACHE_CLEAR: 'studio:cache:clear',
+  // Studio — optional GPU proxy encoder (downloaded full ffmpeg, off by default)
+  STUDIO_PROXY_ENCODER_STATUS: 'studio:proxy-encoder:status',
+  STUDIO_PROXY_ENCODER_INSTALL: 'studio:proxy-encoder:install',
+  STUDIO_PROXY_ENCODER_SET_ENABLED: 'studio:proxy-encoder:set-enabled',
   // Studio — timeline preview, background media jobs, export
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',

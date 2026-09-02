@@ -42,6 +42,7 @@ rest stays a decision Hasan makes knowing that's what it is.
 | **T2** | **Decoder swap** | Is `@remotion/media` faster? Does colour hold on D-Log? Does 4K HEVC decode or fall back? | ~1 day | **DONE 2026-08-28** — conditional: loses at 1 layer, wins at 3. Colour holds; HEVC decodes. Results below |
 | **T3** | **Proxy codec A/B** | What proxies should be made of (all-intra vs GOP 5 vs today's GOP 15 vs MJPEG) | ½ day | **DONE 2026-09-02** — all-intra 540p: fling p50 32 → 25 ms, 12% faster to make, 2.6× disk; tail unchanged; MJPEG will not play. Shipped as the proxy profile. Results below |
 | **T4** | **Proxy generation cost** | How long a real project makes you wait, and whether `-hwaccel d3d11va` on the input helps | ~2 h | **DONE 2026-09-02** — yes, but only on the *discrete* adapter (1.6× faster, half the CPU); the default adapter halves CPU and saves no time. Results below |
+| **T4b** | **GPU encode** | Is a downloaded full ffmpeg with NVENC worth an opt-in setting? | ~½ day | **DONE 2026-09-02** — yes, but only with the *whole* pipeline on the card (NVDEC → `scale_cuda` → NVENC): 1.9× on wall, **31× less CPU**, same size, scrubs the same. NVENC fed from system memory is *slower* than x264. Shipped opt-in, off by default. Results below |
 | **T5** | **Resolution ceiling** | Replaces the *assertion* that 8K breaks with a number and a failure mode | ½ day | pending |
 | **T6** | **Long-project stress** | Whether 3–5 h of 4K is a supported use case or a documented limit | ~1 day | pending |
 | **T7** | **Effects load probe** | Whether slice 10 needs "disable effects in preview" from day one | ½ day | optional |
@@ -557,6 +558,195 @@ first use for NVENC/QSV/AMF). With decode on the GPU the remaining cost is
 x264 at 720p, which the per-file CPU numbers put at roughly 2 CPU-seconds
 per source second — real but no longer the wall. That is Hasan's call, made
 with these numbers rather than by default (see Status.md).
+
+---
+
+## T4b — GPU encode · DONE 2026-09-02
+
+**Question:** Hasan's decision gate from T4 — with decode already on the GPU,
+is it worth downloading a full ffmpeg on request so proxies can be *encoded*
+on the GPU too (NVENC / Quick Sync / AMF)? Build only on a measured yes.
+
+**Method:** `scripts/bench/run-proxy-cost.mjs` grew `--ffmpeg=<path>`,
+`--encoder=x264|nvenc|qsv|amf`, `--cq`, `--preset`, two more decode variants
+(`nvdec`, `cuda`, `d3d11va1cu`) and a *VideoEncode* GPU-engine sampler next to
+the *VideoDecode* one — the same proof-not-inference rule as T4: an encoder
+that quietly ran on the CPU shows ~0 on the encode engine. Same footage as T4
+(three DJI 4K60 10-bit HEVC clips + the video-2 4K60 H.264 master, 1,002 s),
+concurrency 2, and this time every arm makes the *shipped* profile (540p,
+all-intra) so the encoder is the only difference. Then T0 against the
+resulting proxies, control first and last in one session.
+
+**Getting a working binary took three tries, and each one is a product
+fact:**
+
+1. gyan.dev's current *essentials* build (ffmpeg 9.0.1, 111 MB) lists
+   `h264_nvenc` and then refuses to open it: *"Driver does not support the
+   required nvenc API version. Required: 13.1 Found: 13.0 … minimum driver
+   610.00"*. This laptop runs 592.82. So `-encoders` is necessary and not
+   sufficient — the shipped probe **functionally encodes two frames** per
+   candidate and records what opened, not what was listed.
+2. gyan.dev deletes old versions (every 7.x/8.x URL is a 404), so a pinned
+   catalogue entry with a SHA-256 has to come from BtbN's **dated monthly
+   autobuild** releases, which stay up and publish `checksums.sha256`.
+   Shipped entry: `autobuild-2026-08-31-13-27` →
+   `ffmpeg-n8.1.2-50-g1a748fe2cd-win64-gpl-shared-8.1.zip` (80 MB, GPL v3,
+   NVENC API 13.0 = driver 570+). The static variant is 168 MB for the same
+   binaries; the shared one is chosen for the download size, and the 120 MB
+   of headers/import libs it also carries are deleted after the probe.
+3. NVENC's arguments are not x264's: `-g 1` is rejected ("Gop Length should
+   be greater than number of B frames + 1", even with `-bf 0`) — intra-only
+   is **`-g 0`**; there is no CRF — `-rc vbr -cq N -b:v 0`; and on this
+   driver NVENC **cannot use the d3d11va decode device** (`CreateInputBuffer
+   failed: EncodeAPI Internal Error`), it needs a CUDA device. Verified:
+   every output frame is `key_frame=1 pict_type=I`, 37,893 frames on the
+   master, all packets flagged K.
+
+**Tuning the quality knob (60 s of DJI 0271, one file at a time):**
+
+| variant | wall | realtime | CPU-s | MB / 60 s | GPU decode / encode |
+|---|---|---|---|---|---|
+| **x264 CRF 28** (bundled, d3d11va adapter 1) — control | 91.1 s | 0.66× | 250.6 | **22.8** | 36% / 0 |
+| NVENC, frames via system memory (NVDEC → CPU `scale` → NVENC), cq 28 | 58.4 s | 1.03× | 162.6 | 39.2 | 50% / 9% |
+| same, cq 32 | 55.7 s | 1.08× | 167.7 | 26.1 | |
+| same, cq 36 | 53.0 s | 1.13× | 163.8 | 17.0 | |
+| same, cq 40 | 52.3 s | 1.15× | 147.3 | 11.3 | |
+| NVENC, d3d11va adapter 1 decode + separate CUDA device, cq 32 | 66.7 s | 0.90× | 170.9 | 26.1 | 44% / 8% |
+| **NVENC, whole pipeline on the card** (NVDEC → `scale_cuda` → NVENC), cq 32 | **12.1 s** | **4.94×** | **8.2** | 25.3 | **100%** / 19% |
+
+Two things this settles: the size-matched constant-quality value is **cq 33**
+(interpolating 32 → 26.1 MB and 36 → 17.0 MB against x264's 22.8 MB; the
+full pass below confirms it to 0.1%), and **the CPU-side 4K scaler costs
+more than x264 does at 540p** — with decode *and* encode on the GPU, the
+system-memory path still burns ~2.7 CPU-seconds per source second just
+downloading and resizing 4K frames. Only the path that never brings frames
+down to the CPU wins.
+
+**Full pass (1,002 s of source, two files at a time, 540p all-intra, cq 33):**
+
+| arm | wall | realtime | CPU-s | machine CPU | disk | GPU decode / encode |
+|---|---|---|---|---|---|---|
+| **x264 CRF 28** — what ships by default | 518 s | 1.93× | **3,281** | 75% | 392.6 MB | 70% / 0 |
+| **NVENC, whole pipeline on the card** | **272 s** | **3.69×** | **107** | **30%** | 393.0 MB | **99%** / 13% |
+| NVENC, d3d11va decode → CPU scale → NVENC (the "decode stays d3d11va" arm) | 556 s | 1.80× | 2,741 | 68% | 395.0 MB | 68% / 9% |
+
+Per file, wall seconds (x264 / full-GPU NVENC / system-memory NVENC):
+
+| file | x264 | NVENC on-card | NVENC via sysmem |
+|---|---|---|---|
+| DJI 0270 · 139 s HEVC 10-bit | 216 | **56** | 224 |
+| DJI 0271 · 73 s HEVC 10-bit | 98 | **30** | 114 |
+| DJI 0272 · 158 s HEVC 10-bit | 204 | **63** | 218 |
+| video-2 master · 632 s H.264 8-bit | 484 | **272** | 524 |
+
+What the numbers say:
+
+1. **The on-card path is the only one worth shipping.** 1.9× on the pass
+   (bounded by NVDEC at ~2.4× realtime per stream, which is why the 632 s
+   master alone sets the wall), **31× fewer CPU-seconds**, the machine at
+   30% instead of pinned at 75%, and the same bytes on disk. On the 10-bit
+   HEVC clips the per-file gain is 3.2–3.9×; on the 8-bit H.264 master 1.8×.
+2. **The system-memory arm is a loss** — slower than x264 on every file.
+   Hardware encoders are not a drop-in for `-c:v libx264`; the frames have
+   to stay where the encoder is. This is why the shipped NVENC path decodes
+   with `-hwaccel cuda` (NVDEC, the same silicon d3d11va drives on that
+   adapter) rather than the d3d11va args proxy-hwaccel.ts picks: the task
+   said "decode stays d3d11va", and the measurement says that arm is the
+   slow one. `scale_d3d11` (present in this build) would have been the
+   vendor-neutral way to keep frames on the card, but it fails to configure
+   on the 10-bit source (`Failed to configure output pad`); QSV and AMF
+   therefore ship on the system-memory shape, unmeasured (no AMD here; Quick
+   Sync on the iGPU opened in the probe but was not benchmarked), guarded by
+   the same sticky fallback.
+3. **Quality is size-matched, not proven equal.** cq 33 lands within 0.1% of
+   x264 CRF 28 on the same footage (NVENC writes Main profile, x264 High).
+   No PSNR/VMAF was run; for a 540p scrub proxy the bytes-per-frame parity
+   plus the T0 result below is the bar that was set.
+
+**T0 on the NVENC proxies** (raw-footage-test, 40 clips × 1 layer, runs=2,
+fling p50 per run; control first and last):
+
+| session | control (first) | NVENC | control (last) |
+|---|---|---|---|
+| A — control = the project's cached proxies (still the *old* 720p GOP-15 profile; T3 did not regenerate existing ones) | 33.0 / 33.0 ms | 29.6 / 26.7 ms (2 misses each) | 33.6 / 33.3 ms |
+| **B — control = this pass's x264 540p all-intra proxies** | 28.5 / 25.7 ms | **21.3 / 21.7 ms, 0 misses** | 23.1 / 25.4 ms |
+
+Natural scrub 16.6 ms and playback 59.9 fps on every run; frame-accuracy err
+p50 8.4–8.5 ms on both. NVENC's all-intra proxies scrub at least as well as
+x264's — same GOP structure, same size, and a Main-profile stream is if
+anything cheaper to decode. On the video-2 master the same session shape
+gave 25.8 / 26.0 → NVENC 29.9 / 24.9 → 25.2 / 23.7 ms, with one 32-miss
+tail event on the first NVENC run and later a 21-miss one on a *control*
+run that overlapped a dev-app build — the T3 hygiene note again (machine
+state, not the codec). The clean video-2 rerun is under *Live verification*.
+
+**Decision: build it, opt-in, off by default.** What ships (same session):
+
+- `src/main/services/studio/ffmpeg-full.ts` — the pinned catalogue entry
+  (URL, SHA-256, 80 MB, GPL v3) through the existing download manager into
+  `userData/ffmpeg-full/`; the functional encoder probe cached in
+  `encoders.json`; the sticky per-session fallback.
+- `src/main/services/studio/proxy-encoders.ts` — pure: `-encoders` parsing,
+  preference (NVENC › QSV › AMF), per-vendor args, the on-card plan for
+  NVENC, profile tags (`nvenc-540p-intra-q33` etc.) so a folder of x264
+  windows is never joined to GPU ones.
+- `proxy-generator.ts` — when the setting is on and an encoder opened, every
+  window runs on the full binary at the same below-normal priority; one
+  failure latches the session to x264, wipes that asset's GPU windows and
+  restarts it on x264. Audio pass, concat, media-jobs and the renderer
+  contract are untouched; the Remotion export never sees the binary.
+- Settings › Rendering › **"Faster proxy generation (GPU encoder)"** —
+  Download (~76 MB) until installed, then "Detected: NVIDIA NVENC" (or
+  "no supported GPU encoder works on this machine" with the checkbox
+  disabled), the checkbox, and the fallback notice when it fired.
+  `THIRD_PARTY_NOTICES.md` carries the GPL notice.
+
+**Live verification** (dev app driven over CDP, `docs/ui-automation-cdp.md`):
+
+- **Download via the row:** clicked *Download (~76 MB)* → 10 / 41 / 74 / 100%
+  in 8 s → verifying → extracted → row reads **"Detected: NVIDIA NVENC"**,
+  checkbox enabled. `encoders.json`: listed `nvenc, qsv, amf`, working
+  `nvenc, qsv` — AMF listed and refused, exactly the case the functional
+  probe exists for. `lib/`, `include/`, `doc/` removed; `LICENSE.txt` kept.
+- **Enable → delete video-2's proxy → open project:** the ffmpeg child is
+  `userData/ffmpeg-full/…/bin/ffmpeg.exe` with `-hwaccel cuda
+  -hwaccel_output_format cuda … scale_cuda … h264_nvenc`, **PriorityClass
+  BelowNormal**; Windows GPU-engine counters during the run: VideoEncode
+  10.6%, VideoDecode 100% (NVDEC-bound, as the bench said). Segment manifest
+  `profile: "nvenc-540p-intra-q33"`. Finished in ~5 min (the x264 wait on
+  this file was 6 min 10 s; the master is 8-bit H.264, where NVDEC's ~2.3×
+  is the ceiling — the 10-bit HEVC clips are where the 3–4× lives): **37,893
+  frames, every packet a keyframe, duration 632.192 s**.
+- **Kill/resume on the GPU path:** hard-killed the app with window 0 done
+  and window 1 in flight → `seg-0000.mp4` + `seg-0001.mp4.<pid>.part.mp4`
+  survived, no orphan ffmpeg → relaunched → log `Resumed proxy from finished
+  segments` → finished with **37,893 frames, all keyframes, byte-identical
+  size (260,386,344) to the uninterrupted run**.
+- **Disable → next proxy is x264 again:** unticked the box, deleted the
+  proxy, reopened: the child is the *bundled* `@remotion/compositor…/ffmpeg.exe`
+  with `-hwaccel d3d11va -hwaccel_device 1 … -c:v libx264 -preset veryfast
+  -crf 28 -g 1`, `BelowNormal`, manifest `profile: "x264-540p-g1-crf28"`.
+  Nothing about the default path changed.
+- **Fresh T0 on the in-app GPU proxy (video-2) — relative result only.**
+  Three trios were run in the afternoon (x264 backup → in-app NVENC → x264),
+  and in every one the NVENC file tracked or beat its same-session control:
+  32.7 / 32.3 ms vs 33.1 / 35.7 and 34.0 / 38.7 ms in the cleanest; 46.8 /
+  45.3 vs 40.5 / 38.3 and 56.8 / 35.1 in the worst. But **the control itself
+  had moved** from the morning's 25.8 / 26.0 ms (0 misses) to 33–57 ms with
+  20–50 misses, on the identical file, while natural scrub (16.6 ms) and
+  playback (59.9 fps) stayed vsync-bound. That is the T3 hygiene event at
+  full size — machine state after ~5 hours of transcodes and builds (and an
+  orphaned `cmd.exe` from 28 Aug found burning one core), not the proxy —
+  so the absolute number for the in-app file is **not claimed**. The
+  morning session B above (bench-made NVENC proxy, same encoder and
+  settings, 21–22 ms vs 23–28 ms, 0 misses) is the measurement; the in-app
+  file is the same profile, byte-count and keyframe structure. Rerun the
+  trio on a cold machine before quoting a number for it.
+
+**Pass criterion "a clear win on wall time at comparable quality/size": met
+on the on-card path (1.9× wall, 31× CPU, 0.1% size, T0 equal or better),
+and explicitly *not* met on the system-memory path, which is why the
+feature ships one way and not the other.**
 
 ---
 

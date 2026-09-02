@@ -229,6 +229,18 @@ export async function setCrashReportingEnabled(enabled: boolean): Promise<void> 
   setValue('crashReportingEnabled', enabled === true);
 }
 
+// ─── Studio proxies: optional GPU encoder (T4b, docs/PREVIEW_TESTS_PLAN.md) ───
+// Off unless the user turned it on; it also needs the downloaded full ffmpeg
+// and a working hardware encoder before the generator uses it.
+
+export async function getProxyGpuEncoderEnabled(): Promise<boolean> {
+  return getValue<boolean>('proxyGpuEncoderEnabled') === true;
+}
+
+export async function setProxyGpuEncoderEnabled(enabled: boolean): Promise<void> {
+  setValue('proxyGpuEncoderEnabled', enabled === true);
+}
+
 // ─── Auto-update preferences (docs/auto-update-plan.md) ───
 // Downloading in the background is the default: the whole point is that the bits
 // are already local by the time the user is told an update exists.

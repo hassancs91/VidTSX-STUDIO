@@ -6,6 +6,8 @@ import { getFfmpegBinary, runFfmpeg } from './ffmpeg-bin';
 import { probeMedia } from './media-import';
 import { planConcatEntries, readTiming, videoOffsetSec } from './proxy-concat';
 import { detectDecodeArgs } from './proxy-hwaccel';
+import { markProxyGpuEncoderFailed, resolveProxyGpuEncoder } from './ffmpeg-full';
+import { gpuSegmentPlan, type GpuSegmentPlan } from './proxy-encoders';
 import {
   AUDIO_FILE,
   CONCAT_LIST_FILE,
@@ -45,13 +47,18 @@ const PROXY_CRF = 28;
 const PROXY_PROFILE = `x264-${PROXY_HEIGHT}p-g${PROXY_GOP}-crf${PROXY_CRF}`;
 
 /**
- * libx264 only. The bundled ffmpeg is Remotion's stripped build and has no
- * hardware encoders at all (`-encoders` lists none — see
- * docs/hardware-video-encoding-windows.md), so an NVENC attempt can only ever
- * fail; the old try-NVENC-first branch cost one doomed spawn per session.
+ * The bundled ffmpeg is Remotion's stripped build and has no hardware encoders
+ * at all (`-encoders` lists none — see docs/hardware-video-encoding-windows.md).
+ * The opt-in GPU path (ffmpeg-full.ts + proxy-encoders.ts, T4b) uses a
+ * separately downloaded build; when it is not resolved, this is the profile.
  */
-function encoderArgs(): string[] {
-  return ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(PROXY_CRF), '-g', String(PROXY_GOP)];
+function x264Plan(hwaccelArgs: string[]): GpuSegmentPlan {
+  return {
+    inputArgs: hwaccelArgs,
+    videoFilter: `scale=-2:min(${PROXY_HEIGHT}\\,ih)`,
+    outputArgs: ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', String(PROXY_CRF), '-g', String(PROXY_GOP), '-pix_fmt', 'yuv420p'],
+    profile: PROXY_PROFILE,
+  };
 }
 
 /**
@@ -76,10 +83,10 @@ const COMMON_ARGS = ['-hide_banner', '-nostdin', '-progress', 'pipe:1', '-nostat
  * 10 joins on the video-2 master). `-copyts` keeps source pts on every
  * frame, which is what lets the join be exact.
  */
-function segmentArgs(sourcePath: string, segment: ProxySegment, outputPath: string, hwaccelArgs: string[]): string[] {
+function segmentArgs(sourcePath: string, segment: ProxySegment, outputPath: string, plan: GpuSegmentPlan): string[] {
   return [
     ...COMMON_ARGS,
-    ...hwaccelArgs,
+    ...plan.inputArgs,
     ...(segment.startSec > 0 ? ['-ss', String(segment.startSec)] : []),
     '-i',
     sourcePath,
@@ -92,10 +99,8 @@ function segmentArgs(sourcePath: string, segment: ProxySegment, outputPath: stri
     '-an',
     // Never upscale: min() keeps small sources at their native height.
     '-vf',
-    `scale=-2:min(${PROXY_HEIGHT}\\,ih)`,
-    ...encoderArgs(),
-    '-pix_fmt',
-    'yuv420p',
+    plan.videoFilter,
+    ...plan.outputArgs,
     '-y',
     outputPath,
   ];
@@ -226,11 +231,15 @@ export async function generateProxy(
     fs.stat(sourcePath),
   ]);
   const hwaccelArgs = hwaccelUnavailable ? [] : await detectDecodeArgs(ffmpeg);
+  // Opt-in GPU encoder: a different binary and a different profile tag, so a
+  // folder of x264 windows is discarded rather than joined to GPU ones.
+  const gpu = await resolveProxyGpuEncoder();
+  const gpuPlan = gpu ? gpuSegmentPlan(gpu.encoder, PROXY_HEIGHT, hwaccelArgs) : null;
   const totalSec = probe.duration;
   const plan = planSegments(totalSec);
   await prepareSegmentDir(segDir, {
     version: 1,
-    profile: PROXY_PROFILE,
+    profile: gpuPlan?.profile ?? PROXY_PROFILE,
     windowSec: SEGMENT_SECONDS,
     sourceBytes: sourceStat.size,
     sourceMtimeMs: Math.round(sourceStat.mtimeMs),
@@ -255,7 +264,7 @@ export async function generateProxy(
     const partPath = partPathFor(finalPath);
     const onStdout = createOutTimeParser((sec) => progress.segmentTick(segment, sec));
     const run = (useHwaccel: boolean) =>
-      runFfmpeg(ffmpeg, segmentArgs(sourcePath, segment, partPath, useHwaccel ? hwaccelArgs : []), {
+      runFfmpeg(ffmpeg, segmentArgs(sourcePath, segment, partPath, x264Plan(useHwaccel ? hwaccelArgs : [])), {
         signal,
         // Below-normal priority: proxies are background work and must never
         // make the editor stutter, however many cores ffmpeg decides to use.
@@ -263,7 +272,25 @@ export async function generateProxy(
         onStdout,
       });
     try {
-      if (hwaccelUnavailable || hwaccelArgs.length === 0) {
+      if (gpu && gpuPlan) {
+        // GPU window: the full binary, same priority. One failure latches the
+        // session to x264 (ffmpeg-full.ts); this asset's folder carries the
+        // GPU profile tag, so it is wiped and the whole asset restarts on
+        // x264 rather than joining windows from two encoders.
+        try {
+          await runFfmpeg(gpu.ffmpeg, segmentArgs(sourcePath, segment, partPath, gpuPlan), {
+            signal,
+            priority: 'below-normal',
+            onStdout,
+          });
+        } catch (err) {
+          if (signal?.aborted) throw err;
+          markProxyGpuEncoderFailed(gpu.encoder, err);
+          await fs.rm(partPath, { force: true }).catch(() => {});
+          await fs.rm(segDir, { recursive: true, force: true }).catch(() => {});
+          return generateProxy(projectId, assetId, sourcePath, signal, onProgress);
+        }
+      } else if (hwaccelUnavailable || hwaccelArgs.length === 0) {
         await run(false);
       } else {
         try {
