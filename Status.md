@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-09-03 — T6 (long-project stress) and T5 (resolution ceiling) MEASURED; the preview test wave is done except T1/T7
+
+**No product code.** Building stays paused, slice 8 on hold, the
+PREVIEW_ARCHITECTURE checklist still Hasan's to mark. Everything below is in
+`docs/PREVIEW_TESTS_PLAN.md` §T5/§T6 with a report file behind every number
+(`.vidtsx-temp/bench/t6/`, `t5/`, `samples/`). Instruments added under
+`scripts/bench/`: `seed-long-project.mjs` (a multi-hour Studio project on
+disk from the 4 real 4K60 sources), `sample-machine.mjs` (per-process working
+sets incl. Remotion's browser/compositor, machine memory, GPU decode/encode
+counters, 15–30 s), `watch-proxies.mjs`, `t6-session.mjs` (a driven editing
+session over CDP), `studio-export.mjs` (an export through the real UI, timed
+from the app's own queue).
+
+- **T6 — 3 h of 4K60 (44 assets, 11,025 s, 275 clips), answer for Hasan:
+  supported to open, proxy and edit; NOT supported to export today.**
+  Proxy queue 1 h 54 min on x264 / ~1 h 03 min with the GPU encoder on (its
+  first real-project number; 1 h 16 min as measured, 13 min of it Modern
+  Standby); 4.5 GB of proxies; cold open 2.9 s, warm 0.8 s; editor usable
+  while the queue runs. Session: 90 min of driven editing + 5.7 h idle, app
+  peak 1.4 GB across all processes, JS heap flat, trimmed to 400 MB under a
+  287-MB-free squeeze with zero errors, no crash. Scrub cost identical to the
+  3-asset control at every layer count (the only collapse is T2's
+  element-count cliff, reproduced on both). **Export: ~1.08 frames/s** from
+  4K60 HEVC — the compositor decodes every source frame in software — so the
+  3 h timeline is **~3.5 days**; started, stable, cancelled at 86 min. The
+  wall is export time; passthrough for untouched spans (PLAN §5, unbuilt) is
+  the only fix in sight.
+- **T5 — 8K exports correctly.** 30 s at 1080p/4K/6K/8K: all 900 frames at
+  the right dimensions; 8K = 434 MB in 28 min 39 s with the stitcher ffmpeg
+  at 7.8 GB and 101 MB of machine memory left. The ceiling is memory, not
+  resolution; the named failure below it is Remotion's `No frame found at
+  position N` (OffthreadVideo cache starvation, hit on 2 of 4 1080p runs when
+  < 0.5 GB was free). Frame rate 0.5–1.4/s at every size.
+- **Findings for tickets (not fixed, building paused):** Studio Export passes
+  no `cpuUsage`, so Settings › Rendering › CPU usage never reaches it;
+  failed or cancelled exports leave `%TEMP%emotion-*-assets` source copies
+  (1.2–1.9 GB each here, ~33 GB for the 3 h project) and a cancel leaves the
+  headless browser running; `renderQueueLoad` rewrites active jobs to
+  "interrupted" if called mid-render (it is the startup path — scripts must
+  read `renderQueueGet`).
+- **Machine hygiene learned the hard way:** this laptop has 15.7 GB, not 32;
+  it was shared all day with ~13 GB of other processes and Defender; it
+  enters Modern Standby when idle and that stops ffmpeg, samplers and renders
+  (holes are documented per result; a keep-awake is now part of the recipe);
+  an elevated orphan `cmd.exe` burns ~0.7 core and cannot be killed from a
+  normal shell (PID 7608 today, 4628 before). The dev harness also reloads
+  the renderer page (Vite client reconnect) after pauses — dev-only.
+- **Memory updated:** `studio-scale-limits-open` is now evidence, not
+  reasoning. T7 not run. Gates untouched (no `src/` change).
+
 ## 2026-09-02 (later) — T4b measured: opt-in GPU proxy encoder SHIPPED (off by default)
 
 **The decision gate below was answered by Hasan with a yes, conditional on

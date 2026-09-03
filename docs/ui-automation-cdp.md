@@ -237,3 +237,30 @@ Studio project delete goes through `shell.trashItem` with an `fs.rm` fallback
 Other features call `fs.rm` directly, which is permanent. Never drive a delete
 through a text-matched button without visibility scoping, and prefer seeding
 throwaway state on disk over deleting anything real.
+
+## Long runs: standby, the render queue, and the dev page (2026-09-03, T5/T6)
+
+Three things that cost a measurement each during the long-project wave:
+
+- **The laptop enters Modern Standby when nobody touches it, and that
+  suspends everything** — ffmpeg proxy children, Remotion renders, your own
+  samplers. Synthetic CDP input does not count as activity. Before a run
+  longer than a few minutes, hold the machine awake from a background
+  PowerShell: `Add-Type` a `kernel32!SetThreadExecutionState` binding and call
+  it with `ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED`
+  (`0x80000003`), then keep that process alive; the state is released when
+  it exits. Check every timing afterwards for holes (`scripts/bench/
+  sample-machine.mjs` output makes them obvious).
+- **Never call `window.api.renderQueueLoad()` while a render is active.** It is
+  the startup-recovery path: it rewrites every `rendering` row in the queue
+  DB to `error: "Render was interrupted when the app closed"`. The render
+  itself carries on in the main process. Read active renders from
+  `window.api.renderQueueGet()`; read the outcome from `renderHistoryLoad()`
+  after the job leaves the active list. `scripts/bench/studio-export.mjs`
+  does it this way.
+- **The dev page reloads itself after a pause** (the Vite client reconnecting
+  to the dev server), which closes your CDP socket mid-await and drops the
+  renderer's in-memory queue state — the main process is unaffected.
+  Reconnect and retry rather than dying (see the `evaluate` wrapper in
+  `studio-export.mjs`); for a multi-hour render, prefer a built app.
+

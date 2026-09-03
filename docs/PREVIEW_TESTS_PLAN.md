@@ -43,9 +43,9 @@ rest stays a decision Hasan makes knowing that's what it is.
 | **T3** | **Proxy codec A/B** | What proxies should be made of (all-intra vs GOP 5 vs today's GOP 15 vs MJPEG) | ½ day | **DONE 2026-09-02** — all-intra 540p: fling p50 32 → 25 ms, 12% faster to make, 2.6× disk; tail unchanged; MJPEG will not play. Shipped as the proxy profile. Results below |
 | **T4** | **Proxy generation cost** | How long a real project makes you wait, and whether `-hwaccel d3d11va` on the input helps | ~2 h | **DONE 2026-09-02** — yes, but only on the *discrete* adapter (1.6× faster, half the CPU); the default adapter halves CPU and saves no time. Results below |
 | **T4b** | **GPU encode** | Is a downloaded full ffmpeg with NVENC worth an opt-in setting? | ~½ day | **DONE 2026-09-02** — yes, but only with the *whole* pipeline on the card (NVDEC → `scale_cuda` → NVENC): 1.9× on wall, **31× less CPU**, same size, scrubs the same. NVENC fed from system memory is *slower* than x264. Shipped opt-in, off by default. Results below |
-| **T5** | **Resolution ceiling** | Replaces the *assertion* that 8K breaks with a number and a failure mode | ½ day | pending |
-| **T6** | **Long-project stress** | Whether 3–5 h of 4K is a supported use case or a documented limit | ~1 day | pending |
-| **T7** | **Effects load probe** | Whether slice 10 needs "disable effects in preview" from day one | ½ day | optional |
+| **T5** | **Resolution ceiling** | Replaces the *assertion* that 8K breaks with a number and a failure mode | ½ day | **DONE 2026-09-03** — 8K exports correctly (900 frames, 434 MB, 28 min for 30 s); the walls are memory (stitcher ffmpeg 0.5 → 7.8 GB from 1080p to 8K, compositor cache starvation = `No frame found at position`) and time (0.5–1.4 frames/s from 4K60 HEVC at any output size). Results below |
+| **T6** | **Long-project stress** | Whether 3–5 h of 4K is a supported use case or a documented limit | ~1 day | **DONE 2026-09-03** — documented limit, wall named: **export** (~1 frame/s from 4K60 HEVC → 3 h timeline ≈ 3.5 days). Proxies are a wait (1 h 54 min x264 / ~1 h 03 min GPU for 3 h), session memory is not a wall (1.4 GB peak, no crash in 7 h), scrub cost is unchanged by length. Results below |
+| **T7** | **Effects load probe** | Whether slice 10 needs "disable effects in preview" from day one | ½ day | optional — not run 2026-09-03 (T5/T6 took the day); T2's element-count cliff is the nearest datum |
 
 **Source material (checked 2026-08-28):** `raw/` holds **9 DJI clips, 15 GB,
 27 minutes total — 3840×2160, 60 fps, 10-bit HEVC (D-Log)**. Enough for
@@ -750,37 +750,394 @@ feature ships one way and not the other.**
 
 ---
 
-## T5 — resolution ceiling (pending)
+## T5 — resolution ceiling · DONE 2026-09-03
 
 **Question:** where does export actually break? The "8K won't work" claim in
-`studio-scale-limits-open` memory is *reasoning, not evidence* — export
-rasterises a Chromium page at composition size, and that has never been tested
+`studio-scale-limits-open` memory was *reasoning, not evidence* — export
+rasterises a Chromium page at composition size, and that had never been tested
 above 4K.
 
-**Method:** same 30 s project exported at 1080p / 4K / 6K / 8K. Record wall
-time, peak memory, and the failure mode when it fails (OOM? renderer crash?
-silent wrong output?). Note the even-integer `scale` snapping in
-`remotion-renderer.ts` interacts here.
+**Method.** One 30 s project per resolution, seeded on disk by
+`scripts/bench/seed-long-project.mjs --assets=1 --timeline-seconds=30
+--width/--height` (`t5-1080p`, `t5-4k`, `t5-6k`, `t5-8k`): the same 4K60
+10-bit HEVC DJI clip (139 s source, first 30 s on the timeline), 30 fps, 900
+frames, h264. Each was exported through the real UI — the Studio **Export**
+button, over CDP (`t5-export.mjs`) — after its proxy job had finished so no
+transcode overlapped the render, and timed from the app's own render queue
+(main-process `renderQueueGet` while active, then the render history). Every
+output was ffprobed for dimensions **and** frame count. The machine sampler
+ran at 15 s with Remotion's headless browser and compositor (`remotion.exe`)
+reported separately from the app.
 
-**Pass:** a documented ceiling with a named failure mode, so product copy can
-state a limit instead of a guess.
+**Instrument finding first, because it cost two runs:** polling
+`renderQueueLoad` *during* a render rewrites every `rendering` row in the
+queue DB to `error: "Render was interrupted when the app closed"` — it is the
+startup-recovery path, not a status read. The render itself was unaffected
+(main-process truth said `rendering`, the file landed), but the persisted
+record of the first 1080p run says "interrupted". Anyone scripting the queue
+must read active renders from `renderQueueGet`.
+
+| output | result | wall (render start → done) | frames/s | output size | headless browser peak | compositor peak | stitcher ffmpeg peak | machine avail. min |
+|---|---|---|---|---|---|---|---|---|
+| **1080p** 1920×1080 · run 1 | ✅ 900 frames, 1920×1080 | 20 min 07 s | 0.75 | 35.3 MB | 2.0 GB | — (not sampled yet) | 0.5 GB | 172 MB |
+| 1080p · run 2 | ❌ **`Compositor error: No frame found at position 245999`** (t ≈ 4.1 s) after 5 min 20 s | — | — | — | 1.6 GB | 0.2 GB | — | 751 MB |
+| 1080p · run 3 | ❌ same error, position 55999 (t ≈ 0.9 s) after 2 min 52 s | — | — | — | 1.9 GB | 0.3 GB | — | 258 MB |
+| 1080p · run 4 | ✅ 900 frames | 16 min 23 s | 0.92 | 35.5 MB | 2.0 GB | 0.7 GB | 0.5 GB | 431 MB |
+| **4K** 3840×2160 | ✅ 900 frames, 3840×2160 | **10 min 33 s** | 1.42 | 148.6 MB | 2.6 GB | 0.9 GB | 1.9 GB | 420 MB |
+| **6K** 6144×3456 | ✅ 900 frames, 6144×3456 | **19 min 53 s** | 0.75 | 309.8 MB | 3.6 GB | 1.6 GB | **4.8 GB** | 830 MB (commit 36.1 of 39.8 GB) |
+| **8K** 7680×4320 | ✅ 900 frames, 7680×4320 | **28 min 39 s** | 0.52 | 434.2 MB | 3.9 GB | 1.6 GB | **7.8 GB** | **101 MB** (commit 40.3 GB — past the 39.8 GB limit read at the start; the pagefile grew) |
+
+Sources: `.vidtsx-temp/bench/t5/export-*.log|json`,
+`.vidtsx-temp/bench/samples/2026-09-03T13-*__t5-exports-2.jsonl`, the
+dev-server log for the compositor backtrace.
+
+What the numbers say:
+
+1. **Export speed is not about the output size — it is the 4K60 HEVC source.**
+   1080p, 4K and 6K all land between 0.75 and 1.4 frames per second, and the
+   spread is machine load, not resolution (the 4K run, on the quietest
+   stretch, was the fastest). The GPU VideoDecode counter sat at ≤ 10% for
+   every export: Remotion's compositor extracts each source frame in
+   *software* from the 10-bit HEVC original, twelve frames in flight, and that
+   is the whole budget. **30 s of timeline ≈ 10–20 min of export** on this
+   laptop, at any output size up to 6K.
+2. **The failure mode below the ceiling is memory, and it is named.** Two of
+   four 1080p runs died inside the first five seconds of timeline with
+   `Compositor error: No frame found at position N` — Remotion's own
+   troubleshooting page attributes it to the OffthreadVideo frame cache being
+   too small for the memory available, so extracted frames are evicted before
+   they are read. Both failures happened with 0.26–0.75 GB of machine memory
+   free (this laptop: 15.7 GB, ~13 GB held by other processes); both
+   successes had ≥ 0.43 GB. It is intermittent, the job shows the error in
+   the queue, and the export must be restarted from zero. This is the first
+   documented export failure and it is a *machine-memory* wall, not a
+   resolution one.
+3. **Memory scales with output size where you would expect it**: the headless
+   browser 2.0 → 2.6 → 3.6 GB and the stitching ffmpeg 0.5 → 1.9 → 4.8 GB from
+   1080p to 6K and **7.8 GB at 8K**, where machine commit passed the 39.8 GB
+   limit the session started with (Windows grew the pagefile) and available
+   memory bottomed at 101 MB. 8K *completed* — 900 correct frames, 434 MB —
+   but with nothing to spare on a 16 GB laptop that had 13 GB in other hands;
+   the next step up, or a second concurrent export, would not.
+   Two more facts from the same runs: Remotion **copies every source file
+   into `%TEMP%\remotion-v4.0.435-assets…`** before extracting frames (1.2 GB
+   for this one clip; a 3-hour project's 44 sources would be ~33 GB of
+   copies per export), and **a failed export leaves that copy behind** — the
+   two compositor failures left 2.4 GB in `%TEMP%`; the successful runs
+   cleaned theirs up.
+4. **Scale snapping did not enter.** Studio exports pass no `scale`, so the
+   composition renders at 1:1 and the even-integer snapping in
+   `remotion-renderer.ts` is never consulted; 6144×3456 and 7680×4320 are
+   even and need none. The 480p-preset case it exists for is a different
+   path.
+5. **The Settings › Rendering CPU-usage default does not reach Studio
+   exports.** `handleExport` passes no `cpuUsage`, so every run above used
+   Remotion's default concurrency regardless of the setting (verified: set to
+   *Low* before run 4; the queue item still reads "All cores"). The other
+   render screens pass their own value. A one-line product gap, noted, not
+   fixed (building is paused).
+
+**Pass criterion "a documented ceiling with a named failure mode": met, and
+the ceiling is not where the memory said.** 8K exports correctly on this
+machine; there is no resolution at which the pipeline produces wrong
+dimensions or a wrong frame count. The two walls that actually exist are
+(a) **memory** — the stitching ffmpeg roughly doubles per step
+(0.5 → 1.9 → 4.8 → 7.8 GB) and the compositor cache starves first, with the
+named error `No frame found at position N`; 8K needs ~14 GB across
+Remotion's processes and is the practical edge on a 16 GB machine — and
+(b) **time** — ~0.5–1.4 frames/s from 4K60 HEVC sources at any output size,
+so a minute of timeline is 10–40 minutes of export. Product copy can say
+"exports up to 8K; 8K needs a 32 GB machine to be comfortable" and be
+telling the truth. Repeat on the Intel-iGPU laptop before quoting the
+frame rate, per the caveat at the top of this file.
 
 ---
 
-## T6 — long-project stress (pending)
+## T6 — long-project stress · DONE 2026-09-03
 
 **Question:** Hasan's actual question — 3–5 h of 4K, many clips. Supported use
-case, or documented limit?
+case, or documented limit? The memory said "proxy generation, session memory,
+or export" would be the wall, as reasoning; this replaces it with numbers.
 
-**Method:** synthesise ~3 h by importing the `raw/` clips repeatedly as
-separate assets. Measure: project open time, full proxy-queue duration, memory
-across a 2 h session, scrub p50 at length (T0 against the real project), and
-whether the export survives. The one hard datapoint we have is the
-raw-footage E2E run, which passed but hit an OOM crash mid-run and recovered.
+**Method.** `scripts/bench/seed-long-project.mjs` writes a Studio project
+straight to disk (`docs/ui-automation-cdp.md`, "Getting past native dialogs"):
+the four real 4K60 sources the app already knows — three DJI 10-bit HEVC clips
+(139 + 73 + 158 s) and the video-2 H.264 master (632 s), 1,002 s per set —
+imported **11 times over as 44 separate assets** (every asset id gets its own
+proxy, waveform and thumbnail, so the per-asset queue is stressed honestly),
+cut into 45 s pieces and laid round-robin so neighbouring clips never share a
+file. Result: **`t6-stress-3h` — 44 assets, 11,025 s (3.06 h) of 4K60 source,
+275 clips on one video track**, 1920×1080 @ 30. The 5 h case is the same
+project × 1.6 and is extrapolated, not run, below. Everything was measured on
+the dev app driven over CDP (`--remote-debugging-port=9222`), with
+`scripts/bench/sample-machine.mjs` sampling every 30 s (per-process working set
+for every process of the app plus every ffmpeg, machine-wide available memory,
+CPU load, the Windows GPU-engine VideoDecode/VideoEncode counters, bytes in
+`cache/`) and a watcher recording when each proxy landed.
 
-**Pass:** either a supported path with known waits, or a documented limit with
-the specific wall named (proxy generation, session memory, or export duration
-— the three hypotheses in the memory).
+**Machine caveat that applies to every T6 number.** This laptop has **15.7 GB
+of RAM, not 32**, and during the whole wave it was shared with ~13 GB of
+other processes (VS Code, Chrome, eight other Claude sessions, a Django test
+suite someone was running, Windows Defender scanning every proxy segment as it
+was written — MsMpEng alone read 36% of the machine in one sample — and an
+elevated orphan `cmd.exe` burning ~0.7 of a core that could not be killed:
+access denied). Available memory sat between 0.4 and 3.7 GB. So the memory
+numbers are the app's *own* working sets (which are what transfer) and the
+wall-clock numbers are pessimistic by some tens of percent against a clean
+machine.
+
+### 1. Opening, and the full proxy queue — x264 default vs the GPU encoder
+
+| | **x264 (default)** | **GPU encoder ON** (Settings › Rendering) |
+|---|---|---|
+| open → editor usable (cold: no proxies, waveforms or thumbnails) | *(not retained — see note 4)* | **2.9 s** (`openMs: 2897`, 26 clips painted, no "Loading…" seen) |
+| open with everything cached (warm) | — | **0.8 s** (`openMs: 806`) |
+| first ffmpeg after open | 11 s | 9 s |
+| **full queue, 44 proxies + 44 waveforms** | **1 h 53 min 46 s** (first ffmpeg → last proxy landed) | **1 h 15 min 35 s** as measured, **~1 h 03 min** excluding a 13-min Modern Standby hole (see the caveat at the end of §4) |
+| realtime factor (11,025 s of source) | 1.62× | 2.43× measured · ~2.9× awake |
+| speed-up | — | **1.51× measured · ~1.8× awake** |
+| disk written to `cache/proxies/` | 4.55 GB | 4.53 GB |
+| CPU load, machine-wide mean over the queue | 81% | 81% (Defender included) |
+| GPU VideoDecode, mean / max | 64% / 83% | **87% / 100%** |
+| GPU VideoEncode, mean / max | 0 | 11% / 21% |
+| app working set — main / renderer / all app processes | 45–176 / 227–605 / 391–1,094 MB | 49–172 / 206–550 / 391–962 MB |
+| ffmpeg children (2 at a time), max working set | ~730 MB each | 599 MB |
+| machine available memory, minimum | **16 MB** (at the open) | 540 MB |
+
+Sources: `.vidtsx-temp/bench/t6/watch-proxy-{x264,nvenc}.log`, proxy file
+mtimes, and `.vidtsx-temp/bench/samples/…__t6-3h-proxy-{x264,nvenc}.jsonl`.
+Every GPU-pass child was verified live as the downloaded full build with
+`-hwaccel cuda -hwaccel_output_format cuda … scale_cuda … h264_nvenc`, priority
+BelowNormal (the x264 pass: the bundled build with `-hwaccel d3d11va
+-hwaccel_device 1 … libx264`). One NVENC proxy probed: 960×540, 4,381 packets
+for 73.09 s at 59.94 fps — frame-exact, like T4b.
+
+What the numbers say:
+
+1. **The proxy queue is the first wall, and it is a wait, not a failure.** Three
+   hours of 4K60 costs **~1 h 54 min** on the shipping x264 path and **~1 h 03
+   min** with the opt-in GPU encoder (1 h 16 min as measured, 13 min of which
+   the machine was in standby), on a loaded laptop. Scaled linearly, the
+   5 h project is **~3 h 10 min / ~1 h 45 min**. Both passes ran to completion:
+   88 jobs, no error, no retry, no orphan process. The 1.51× GPU speed-up
+   (1.8× awake) is a little below T4b's 1.9× for two known reasons: eleven of the 44 assets are the
+   8-bit H.264 master, where NVDEC tops out at ~2.3× (the counter read 87%
+   mean, 100% max — the queue is decode-bound, exactly as T4b said), and
+   Defender was taking a third of the CPU.
+2. **The editor is usable while the queue runs.** The cold open painted the
+   timeline in 2.9 s with "Building 44 preview proxies…" in the status and the
+   preview playing the originals; the renderer stayed at 200–600 MB throughout
+   both passes. The app's own footprint does not scale with the queue — the
+   ffmpeg children do (two × ~600–730 MB), which is what the concurrency-2 cap
+   bounds.
+3. **The one near-OOM moment was the open on the x264 pass**, when the app
+   spiked to 1,094 MB (thumbnails and probes for 44 assets, gpu-process at 400
+   MB) while two ffmpegs started and the rest of this machine held 13 GB:
+   available memory read **16 MB** for one sample and recovered. Nothing
+   crashed. This is the shape of the OOM in the 2026-08-19 E2E memory (that
+   one had Claude and a 4K original preview on top), and it is a
+   machine-memory event, not an app leak — see §3.
+4. **The x264-pass cold-open time was not retained** (the session that
+   measured it was cut before the number was written down; the screenshot and
+   the watcher timestamps survived). The GPU-pass open is the same code path
+   under identical cache-absent conditions, so 2.9 s is quoted for both.
+
+### 2. Scrub at length — T0 against the real project
+
+Control = `raw-footage-test` (3 assets, its old 720p GOP-15 proxies), run
+**first and last** in each chain per the T3/T4b hygiene. The 44-asset project
+carries the shipping 540p all-intra NVENC proxies, so the comparison is "big
+project on the new profile" vs "small project on the old profile"; the
+absolute control level is what says the instrument held.
+
+**Chain 1 — the default T0 fixture (40 clips × 1.2 s):**
+
+| run | natural p50 | fling p50 (run 1 / run 2) | fling p90 | misses |
+|---|---|---|---|---|
+| control A (3 assets, 1 layer) | 16.6 ms | 33.6 / 49.1 ms | 400 ms | 0 / 47 |
+| **t6-stress-3h, 1 layer** | 16.6 ms | 38.7 / **30.2 ms** | 400 ms | 47 / 5 |
+| t6-stress-3h, 3 layers | 400 ms | 400 / 400 ms | 400 ms | 150 / 150 |
+| control B (1 layer) | 16.6 ms | 33.5 / 32.7 ms | 51.9 ms | 0 / 0 |
+| control at 3 layers | 51 ms | 400 / 400 ms | 400 ms | 142 / 142 |
+| t6-stress-3h, 3 layers (rerun) | 33.6 → 400 ms | 400 / 400 ms | 400 ms | 150 / 150 |
+| t6-stress-3h, 2 layers | 19.8 → 400 ms | 400 / 400 ms | 400 ms | 145 / 145 |
+| control C (1 layer) | 16.6 ms | 33.4 / 41.2 ms | 400 ms | 0 / 46 |
+
+**Chain 2 — the T2 "long" fixture (20 clips × 6 s, the shape T2 showed
+survives multi-layer):**
+
+| run | natural p50 | fling p50 (run 1 / run 2) | fling p90 | misses |
+|---|---|---|---|---|
+| control, 3 layers | 41.1 / 35.9 ms | 59.3 / 49.2 ms | 400 ms | 47 / 21 |
+| **t6-stress-3h, 3 layers** | 32.2 / 16.7 ms | 42.7 / 51.3 ms | 400 ms | 38 / 58 |
+| **t6-stress-3h, 2 layers** | 16.6 ms | **27.7 / 26.4 ms** | 45.8 ms | 1 / 0 |
+| control, 2 layers | 33.2 ms | 33.0 / 33.3 ms | 65.8 ms | 1 / 0 |
+| control D (1 layer) | 16.6 ms | 33.0 / 33.3 ms | 50.2 ms | 0 / 0 |
+
+Reports: `.vidtsx-temp/bench/2026-09-03T04-4*…05-1*__*__t6-*.json`.
+
+What the numbers say:
+
+5. **The control held.** Across 32 minutes and eight control runs the clean
+   fling p50 read 33.6 / 33.5 / 32.7 / 33.4 / 33.0 / 33.3 ms (T2's baseline for
+   this proxy was 32.6 ms); three single runs hit the known tail event (400 ms
+   p90, ~46 misses) and are shown, not averaged away. No drift, so the session
+   is valid.
+6. **Project length and asset count do not change scrub cost.** At one layer
+   the 3-hour, 44-file project scrubs at 16.6 ms natural and 30 ms fling — the
+   T3 all-intra number — with playback at 59.9 fps. At two layers on 6 s clips
+   it is *better* than the control (27 vs 33 ms, ≤ 1 miss) because of the
+   proxy profile. At three layers both projects sit in the same tail-miss
+   regime T2 documented (p50 43–59 ms, 20–60 misses).
+7. **The collapses in chain 1 are the T2 element-count cliff, not T6.**
+   Two or three layers of 1.2 s clips means 6–9 `<video>` elements alive at
+   once, and both the 3-asset control and the 44-asset project fall to 400 ms
+   and total misses on that fixture, exactly as §T2's follow-up table shows.
+   That finding stands unchanged: the risk in a long project is *local cut
+   density around the playhead*, not the length.
+
+### 3. Session memory — 2 h with the project open
+
+**Method.** With all 44 proxies present, the project was opened (warm open
+**0.8 s**) and a scripted editor session was driven over CDP
+(`t6-session.mjs`): every ~75 s — 24 frame-steps, 12 one-second steps, 8 s of
+playback, a split at the playhead, undo, a random 10–70 s jump, and every
+sixth cycle a jump to End and back to Home. The sampler ran at 30 s; the
+driver logged the renderer's JS heap and a 500 ms `requestAnimationFrame`
+count each cycle. The document on disk stayed at 275 clips throughout (the
+split/undo pair nets to zero; autosave wrote it after every cycle).
+
+**What happened:** **71 cycles, 90 minutes of continuous driven editing**
+(05:21–06:51 UTC), then the driver's CDP socket died when this harness was
+suspended — not the app: the renderer process kept its PID from 05:20 until
+the app was closed after 12:38, no `render-process-gone`, nothing in the
+Windows Application log, and the project stayed open and idle for another
+**5.7 hours** after the driver stopped. (The two page reloads seen at 06:51 and
+12:34 are the Vite dev client reconnecting after a pause — a dev-server
+artefact that does not exist in a built app.)
+
+| | editing (0–90 min) | idle, project open (90 min → 4 h) | idle, after memory trim (4 h → 7 h) |
+|---|---|---|---|
+| renderer working set | 284 → 548 → 642 → **756 MB peak** (60 min), then trimmed by the OS to 324–509 MB | **429 MB flat** | 117–147 MB |
+| main process | 165–188 MB | 90 MB | 55–62 MB |
+| all app processes (main + renderer + GPU + utility) | 695 → **1,391 MB peak** | 656 MB | 275–316 MB |
+| renderer JS heap (used) | **97–129 MB, median 112 — flat** | — | — |
+| rAF rate at each snapshot | 60 Hz median (one 0 Hz reading, at the pause) | — | — |
+| driver errors | **0** | — | — |
+
+Sources: `.vidtsx-temp/bench/samples/2026-09-03T05-19-38-524Z__t6-3h-session.jsonl`
+(555 samples), `.vidtsx-temp/bench/t6/session-driver.log` (143 snapshots).
+
+What the numbers say:
+
+8. **Session memory is not the wall.** The JS heap is flat for the whole
+   session — whatever grows is outside it (decoded-frame and compositor
+   buffers behind the `<video>` elements the mount window keeps alive), and
+   the OS reclaimed it on demand: when another process took 5 GB of commit at
+   06:15 (a WSL VM and the orphan `cmd.exe`, available memory down to 287 MB)
+   the renderer was trimmed from 756 to ~400 MB **and the driver kept cycling
+   at 60 Hz with zero errors**. The app's whole footprint for a 3-hour,
+   44-asset, 275-clip project peaked at 1.4 GB across all its processes and
+   sat at 0.66 GB idle.
+9. **The 2026-08-19 OOM is now attributable.** That crash had a 4K *original*
+   playing in the preview (no proxy yet), two x264 proxy transcodes at
+   normal priority and a Claude session on a machine with ~2 GB free. Every
+   one of those pieces has since moved: proxies are 540p (T3), the transcodes
+   run at below-normal priority (bugfix 9a3559b) and, this session, the app
+   rode out a harder squeeze (287 MB available) without a crash. It was a
+   machine-memory event, and the app's own working set is not what filled the
+   machine.
+
+
+### 4. Export — does a full-length export survive?
+
+**Method.** The Export button on the 3-hour project (330,749 frames at 30
+fps, 1920×1080, h264), driven over CDP like T5, with `framesRendered` read
+from the app's own `render:progress` events every 30 s and the sampler at
+15 s. The intent was never to wait for the file: T5 had already put the
+frame rate at 0.5–1.4 frames/s, which makes 330,749 frames a multi-day job.
+The question was whether it *starts and stays alive* on a project this size,
+what it costs while it runs, and what the honest projection is.
+
+**What happened:** the render started 11 s after the click and was
+**cancelled by hand after 86 minutes at 1,974 frames (0.6%)**, alive and
+progressing. Measured on the continuous, awake stretch 16:07–16:28 UTC:
+**1,270 frames in 1,180 s = 1.08 frames/s** (the first hour includes a
+59-minute Modern Standby hole — see the caveat below — and is not a rate).
+
+| | value |
+|---|---|
+| frames/s, awake | **1.08** (T5 range 0.5–1.4) |
+| projection for the 3 h timeline | **~85 h ≈ 3.5 days**; 5 h ≈ 6 days |
+| main process (holds the render) | 441–581 MB (idle: 80–90 MB) |
+| Remotion headless browser | 0.7–2.4 GB |
+| compositor (`remotion.exe`) | up to 1.9 GB |
+| stitcher ffmpeg | 0.5 GB |
+| machine available memory, minimum | 203 MB |
+| `%TEMP%` source copies at cancel | 1.85 GB (2 of 44 sources reached) |
+| after cancel | active list empty within 1 s; **10 `chrome-headless-shell` processes (0.7 GB) and the 1.85 GB temp copy left behind**; no partial output file |
+
+Sources: `.vidtsx-temp/bench/t6/export-3h*.log`, `…/samples/…__t5-exports-2.jsonl`.
+
+What the numbers say:
+
+10. **Export is the wall, and it is time, not stability.** Nothing broke: the
+    render ran, memory was flat (main ~0.5 GB, Remotion ~3–4 GB across its
+    processes — the same shape as a 30 s export), and cancel worked. But at
+    ~1 frame/s a 3-hour 4K60-HEVC timeline is **three and a half days** of
+    export on this laptop, and the shipped pipeline has no way to shorten
+    it: every frame is rasterised through Chromium and every source frame
+    is decoded in software by the compositor (GPU VideoDecode ≤ 10%
+    throughout). Smart-render/passthrough for untouched spans is ledgered in
+    `docs/studio/PLAN.md` §5 and unbuilt; without it the long project is not
+    exportable in practice.
+11. **Two leaks at the edges, both small and both real:** a cancelled or
+    failed export leaves its `%TEMP%\remotion-v4.0.435-assets…` source
+    copies on disk (1.2–1.9 GB here; up to ~33 GB for this project), and a
+    cancel leaves the headless browser processes running until the app
+    exits. Neither affects the next render; both are worth a ticket.
+
+**Machine caveat, discovered in this test and applying to two numbers
+above.** This laptop enters **Modern Standby** when nobody touches it, and a
+suspended machine stops everything — the sampler files show the holes
+(`t6-3h-proxy-nvenc`: 21:19–21:32; `t6-3h-session`: 10:08–10:26 and
+10:37–12:32, after the driver had finished; `t5-exports-2`: 15:08–16:06).
+Two results are affected: **the GPU-encoder proxy queue in §1 contains a
+13-minute hole** (proxy 10 landed 21:18:57, proxy 11 at 21:32:04, with
+landings every 1–2 min either side), so its honest wall is **~62–63 min,
+2.9× realtime, 1.8× over x264** — closer to T4b's 1.9× — and the first hour
+of the export above is not a rate. The x264 queue, the T0 chains, the 90-min
+session and all four T5 exports have no holes. A keep-awake
+(`SetThreadExecutionState`) was armed for the rest of the wave once this was
+found.
+
+
+### Verdict
+
+**Pass criterion — "a supported path with known waits, or a documented limit
+with the specific wall named": met, as a documented limit, and the wall is
+named.** Of the three hypotheses in the memory:
+
+- **Proxy generation — a wait, not a wall.** 3 h of 4K60 = ~1 h 54 min on
+  the default path, ~1 h 03 min with the GPU encoder on; 5 h ≈ 3 h 10 min /
+  1 h 45 min. Completed twice without an error, resumable, and the editor is
+  usable meanwhile. 1.4 GB of proxies per hour of source.
+- **Session memory — not a wall.** Peak 1.4 GB across all app processes for
+  44 assets / 275 clips / 3 h, flat JS heap, reclaimable on pressure, no
+  crash in 7 h with the project open. Scrub cost is unchanged by project
+  length; the only preview cliff is T2's element-count one.
+- **Export — the wall.** ~1 frame/s from 4K60 HEVC sources at any output
+  size, so the 3 h timeline is ~3.5 days and 5 h ~6 days, on a machine that
+  needs ≥ ~0.5 GB free or the compositor cache starves. Nothing in the
+  shipped pipeline shortens it.
+
+**Answer for Hasan:** *3–5 hours of 4K is a supported project to open, proxy
+and edit — expect one to three hours of proxy generation you can work
+through — but it is not a supported project to export today: at about one
+frame per second the export of a 3-hour timeline is three and a half days,
+and that is the wall. The way through is passthrough export for untouched
+spans (ledgered, unbuilt), not more memory or a faster GPU.*
+
 
 ---
 
