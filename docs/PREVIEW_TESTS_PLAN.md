@@ -46,7 +46,7 @@ rest stays a decision Hasan makes knowing that's what it is.
 | **T5** | **Resolution ceiling** | Replaces the *assertion* that 8K breaks with a number and a failure mode | ½ day | **DONE 2026-09-03** — 8K exports correctly (900 frames, 434 MB, 28 min for 30 s); the walls are memory (stitcher ffmpeg 0.5 → 7.8 GB from 1080p to 8K, compositor cache starvation = `No frame found at position`) and time (0.5–1.4 frames/s from 4K60 HEVC at any output size). Results below |
 | **T6** | **Long-project stress** | Whether 3–5 h of 4K is a supported use case or a documented limit | ~1 day | **DONE 2026-09-03** — documented limit, wall named: **export** (~1 frame/s from 4K60 HEVC → 3 h timeline ≈ 3.5 days). Proxies are a wait (1 h 54 min x264 / ~1 h 03 min GPU for 3 h), session memory is not a wall (1.4 GB peak, no crash in 7 h), scrub cost is unchanged by length. Results below |
 | **T7** | **Effects load probe** | Whether slice 10 needs "disable effects in preview" from day one | ½ day | optional — not run 2026-09-03 (T5/T6 took the day); T2's element-count cliff is the nearest datum |
-| **T8** | **Export path options + tests** | Whether long-form export can be fixed, and how: `@remotion/media` decoder for export (T8a), all-intra intermediates (T8b), the ffmpeg NVDEC→NVENC passthrough floor (T8c) | 3 × ~30 min | **planned 2026-09-04** — research recorded below; tests agreed with Hasan, not yet run |
+| **T8** | **Export path options + tests** | Whether long-form export can be fixed, and how: `@remotion/media` decoder for export (T8a), all-intra intermediates (T8b), the ffmpeg NVDEC→NVENC passthrough floor (T8c) | 3 × ~30 min | **DONE 2026-09-04** — the screenshot is the wall, not the decode: every browser path lands at 1.8–2.3 frames/s once the source decode is removed or cheapened (T8a `<Video>` cannot decode HEVC in headless Chrome at all and falls back; with a GPU backend it hangs; on H.264 it engages and is a wash; T8b all-intra intermediate +15–25 %, 0.9 GB/min). The ffmpeg passthrough floor (T8c) is **3.4× realtime, 3 CPU-s, colour intact** — ~100× the browser. Results below |
 
 **Source material (checked 2026-08-28):** `raw/` holds **9 DJI clips, 15 GB,
 27 minutes total — 3840×2160, 60 fps, 10-bit HEVC (D-Log)**. Enough for
@@ -1154,7 +1154,7 @@ whether Q8c's "disable effects in preview" toggle ships with E2 or later.
 
 ---
 
-## T8 — the export path: options researched, three tests planned · 2026-09-04
+## T8 — the export path: options researched, three tests planned and MEASURED · 2026-09-04
 
 **Where this comes from.** T6 named export time as the long-form wall (~1
 frame/s from 4K60 HEVC at any output size, §T6 §4). Hasan asked whether
@@ -1260,3 +1260,176 @@ Sources: [renderMedia()](https://www.remotion.dev/docs/renderer/render-media),
 [Performance](https://www.remotion.dev/docs/performance),
 [NVIDIA on CapCut simultaneous scene encoding](https://blogs.nvidia.com/blog/computex-studio-laptops-encoding-capcut/),
 [Frame.io on smart rendering](https://workflow.frame.io/guide/smart-rendering).
+
+### Results · measured 2026-09-04
+
+**Method.** The T5 30 s project re-seeded (`seed-long-project.mjs
+--id=t5-1080p --assets=1 --timeline-seconds=30`: the 139 s DJI 4K60 10-bit
+HEVC clip, first 30 s, 1920×1080 @ 30, 900 frames, h264), exported through
+the dev app over CDP with `scripts/bench/studio-export.mjs`, timed from the
+app's own queue (`renderQueueGet` while active), every output ffprobed for
+frame count and dimensions, the machine sampler at 15 s, a keep-awake armed
+for the whole wave (no holes in the sample file). Two ways to start the same
+render: the **Export button** (the T5 recipe) and the **direct path** (the
+same `studioExportPrepare` + `renderStart` the button issues, which the bench
+needs so it can hand Remotion a patched entry, a GL backend, or a
+concurrency). The decoder swap is the composition's own switch
+(`src/shared/studio/media-engine.ts`, a global read at render time): the
+bench writes a sibling copy of the generated export entry that sets it, so
+**no product code changed**. New instruments beside the export driver:
+`t8-ffmpeg.mjs` (T8b intermediates and the T8c passthrough, with ffmpeg CPU
+time), `t8-output-diff.mjs` (two exports compared at the same frame indices:
+per-channel mean absolute difference, share of pixels over 8 and 24, a
+side-by-side still with the amplified diff), `t8-seed-intra.mjs` (the same
+30 s project pointed at another file) and `t8-headless-decode-probe.mjs`
+(Remotion's own `chrome-headless-shell` launched with Remotion's GL flags,
+asked `VideoDecoder.isConfigSupported` per codec). Machine as in T5/T6: 15.7
+GB, 0.4–2.3 GB free, other sessions running, the elevated orphan `cmd.exe`
+(PID 21028, 10,600 CPU-s by midday) still burning a core. Sources:
+`.vidtsx-temp/bench/t8/*.log|json`, `…/t8/stills/`,
+`.vidtsx-temp/bench/samples/2026-09-04T11-1*__t8-exports.jsonl`.
+
+**Run-to-run noise, stated first.** The two OffthreadVideo controls on the
+same file disagree by 1.6×: 1.17 frames/s from the Export button (the first
+render of the day: its 1.2 GB source copy was cold, 384 MB free at the low
+point) and 1.93 frames/s from the direct path 35 minutes later. T5 saw the
+same spread (0.75–1.4). Every comparison below is read against the *nearest*
+control in time and the ratios, not the absolute rates, are the finding.
+
+#### The exports
+
+| run | source | decoder in the browser | Chromium GL | wall (render start → done) | frames/s | output | headless browser peak | compositor peak | GPU VideoDecode |
+|---|---|---|---|---|---|---|---|---|---|
+| **control** (Export button) | DJI HEVC 10-bit | `<OffthreadVideo>` | swangle (the Settings default) | 12 min 47 s | **1.17** | ✅ 900 frames, 32.4 MB | 2.3 GB | 0.3 GB | 0 |
+| **control 2** (direct path) | same | `<OffthreadVideo>` | swangle | 7 min 47 s | **1.93** | ✅ 900, 35.5 MB | 3.5 GB | 1.4 GB | 0 |
+| **T8a** `<Video>` | same | `@remotion/media` → **fell back to `<OffthreadVideo>`** ("Cannot decode …, falling back", source copied) | swangle | 8 min 17 s | 1.81 | ✅ 900, 35.5 MB | 3.3 GB | 1.2 GB | 0 |
+| **T8a** `<Video>` + GPU | same | `@remotion/media`, WebCodecs engaged, **no frame ever returned** | **angle** (D3D11) | ❌ **10 min 01 s, 0 frames** — `Timeout while extracting frame at time 0.2sec` (twice) | 0 | — | 2.0 GB | 10 MB | 0 on both adapters |
+| **T8a** `<Video>` on H.264 | video-2 H.264 master (632 s, 6.3 GB), first 30 s | `@remotion/media`, **engaged**, software WebCodecs, no source copy, no fallback | swangle | 7 min 12 s | **2.08** | ✅ 900, 32.0 MB | 3.7 GB | 11 MB (nothing to extract) | 0 |
+| H.264 control | same | `<OffthreadVideo>` | swangle | 8 min 02 s (the first 65 s at 1 % = copying the 6.3 GB source into `%TEMP%`; ~2.2 frames/s once rendering) | **1.87** | ✅ 900, 32.2 MB | 3.7 GB | 1.5 GB | 0 |
+| **T8b** intermediate | NVENC all-intra 4K h264, 8-bit (452 MB for 30 s) | `<OffthreadVideo>` | swangle | 6 min 37 s | **2.27** | ✅ 900, 35.8 MB | 3.7 GB | 1.4 GB | 0 |
+
+Colour, against the Export-button control at frames 30/300/600/870
+(`t8-output-diff.mjs`, side-by-sides in `…/t8/stills/`): the fallback run
+differs by a mean of 0.6–1.6/255 per channel with ≤ 0.34 % of pixels over
+24 (encoder noise — it *is* OffthreadVideo); the all-intra intermediate by
+1.0–1.9/255, ≤ 0.34 % over 24 — **an 8-bit yuv420p intermediate of the
+10-bit D-Log source exports the same picture**; the H.264 WebCodecs export
+against its own OffthreadVideo control likewise (1.6–2.3/255, ≤ 0.46 % over
+24, channel means within 2).
+
+#### What the headless shell can decode (`t8-headless-decode-probe.mjs`)
+
+Remotion 4.0.435 renders in `HeadlessChrome/144.0.7559.20`. WebCodecs is
+secure-context-only: on `about:blank` `VideoDecoder` does not exist at all
+(the render page is `http://localhost:<port>`, which counts as secure, so
+the probe navigates to loopback first).
+
+| `gl` | WebGL reports | HEVC Main10 4K | H.264 High 4K | AV1 | VP9 |
+|---|---|---|---|---|---|
+| **swangle** (default; every Studio export) | SwiftShader | **no** — hardware, software and no-preference all `false` | software only | software only | software only |
+| **angle** | D3D11 on the **Intel UHD Graphics** (not the GTX 1650 Ti) | prefer-hardware **true** | hardware and software | software only | hardware and software |
+
+So under the shipping configuration `<Video>` can never decode the DJI
+files: Chrome has no software HEVC decoder, `@remotion/media` sees
+`cannot-decode` and silently mounts `<OffthreadVideo>` instead (one warning
+line in the render log, nothing in the queue record). Handing the shell a
+real GPU makes the iGPU's HEVC decoder *report* itself, and the render then
+hangs on the very first frame until Remotion's per-frame timeout (600 s
+here) kills it — CPU 9 %, both adapters' VideoDecode counters at zero the
+whole time. Where the tag *does* engage (H.264, software decode in the tab)
+it renders at 2.08 frames/s against 1.87 for OffthreadVideo on the same
+file, i.e. within the noise — and it wins the ~60 s OffthreadVideo spends
+copying the 6.3 GB master before the first frame, plus 1.5 GB of compositor
+memory.
+
+#### T8b — the intermediates
+
+| intermediate (first 30 s of the DJI clip, 3840×2160, 59.94 fps, all-intra) | make time | ffmpeg CPU | size | rate | per minute of 4K60 |
+|---|---|---|---|---|---|
+| **h264_nvenc** `-g 0 -bf 0 -cq 18 -preset p4`, NVDEC → system memory → NVENC | 33.8 s (0.89× realtime) | 134 CPU-s | 451.6 MB | 120 Mbps | **0.90 GB** |
+| libx264 `-g 1 -bf 0 -crf 16 -preset veryfast` | 51.4 s (0.58×) | 527 CPU-s | 697.2 MB | 186 Mbps | 1.39 GB |
+
+The all-on-card shape (NVDEC → `scale_cuda=format=yuv420p` → NVENC, T4b's
+plan) **produced solid green frames of 1.6 KB each** when the size does not
+change — with or without an explicit 3840×2160 — while the same filter with
+a real resize (T8c, 1080p) is fine. The shipped proxy path always resizes,
+so it is unaffected; a future full-resolution intermediate must not reuse
+the on-card plan without a frame check. The NVENC intermediate above
+therefore decodes on the card, converts p010 → yuv420p on the CPU (that is
+the 134 CPU-s) and encodes on the card.
+
+Export from the NVENC intermediate: **2.27 frames/s vs 1.93** for the
+nearest OffthreadVideo control (+18 %; +25 % against the fallback run) with
+the same memory shape. Cheap frames help, but the compositor's decode of the
+4K60 HEVC original was never the bulk of the second per frame.
+
+#### T8c — the passthrough floor (no browser)
+
+The T4b pipeline on the same 30 s: `-hwaccel cuda` → `scale_cuda` 1920×1080
+→ `h264_nvenc` (p5, VBR, `-bf 2 -g 60`), conformed to 30 fps, AAC.
+
+| | wall | ffmpeg CPU | realtime | size | rate | frames |
+|---|---|---|---|---|---|---|
+| cq 23 | **8.8 s** | **3.3 CPU-s** | **3.4×** | 30.3 MB | 8.1 Mbps (control: 32.4 MB, 8.6 Mbps) | 902 |
+| cq 19 | 8.6 s | 3.9 CPU-s | 3.5× | 52.8 MB | 14.1 Mbps | 902 |
+
+Against the Export-button control at the same frame indices: **per-channel
+means within 1/255** (colour intact, as T4b's proxies were), mean absolute
+difference 1.9–6.1/255 and up to 5.6 % of pixels over 24, all of it on
+motion edges — the side-by-side still shows the hand one source frame
+apart. That is the frame *mapping*, not the picture: ffmpeg's `-r 30`
+conform of a 59.94 fps source picks a different one of each pair than
+Remotion's time-exact seek does (902 frames vs 900 is the same effect). A
+passthrough span has to reproduce Remotion's frame choice, which is exactly
+the join T1 exists to prove.
+
+The 9 s runs are shorter than the sampler's interval, so no VideoDecode /
+VideoEncode sample landed inside them; T4b's counters already showed this
+pipeline on the card (decode engine 100 %, encode 10 %).
+
+#### What the numbers say
+
+1. **The screenshot is the wall, not the decode.** Remove the source decode
+   from the browser entirely (H.264 through WebCodecs: 2.08 frames/s), make
+   it nearly free (all-intra intermediate: 2.27), or leave it to
+   OffthreadVideo (1.17–1.93): every path lands between 1.8 and 2.3 frames
+   per second at 1080p on this laptop. The 3 h T6 timeline is **~40 h at the
+   best of them**, against ~85 h in T6 — an improvement, not a fix. Nothing
+   that keeps a Chromium screenshot per frame gets within an order of
+   magnitude of realtime.
+2. **The decoder swap is not available for our camera files.** Under the
+   shipped GL backend headless Chrome cannot decode HEVC, `@remotion/media`
+   falls back silently, and the export is OffthreadVideo with an extra
+   warning; with a GPU backend it deadlocks on frame one. It would need a
+   Remotion train bump (the media package is "experimental" at 4.0.435), a
+   per-file codec probe, `disallowFallbackToOffthreadVideo`, and even then
+   it only pays on H.264 — and there it buys the source-copy minute and 1.5
+   GB, not frame rate.
+3. **Intermediates are a modest, disk-heavy lever**: +18–25 % on frame
+   rate for 0.9 GB per minute of 4K60 (NVENC) and a transcode that itself
+   runs at 0.9× realtime here. For a touched span they are worth having
+   only as a side effect of something else (the proxy path already makes
+   them at 540p); they are not the touched-span answer.
+4. **Passthrough is a different order of magnitude.** 3.4× realtime, 3
+   CPU-seconds for 30 s, colour intact, file size at the control's. On this
+   GPU the 3 h timeline's untouched footage is **~53 min** at 1080p instead
+   of days, and a 20–40 min talking-head export's footage is 6–12 min. What
+   stays slow is whatever still goes through the browser: at ~2 frames/s a
+   TSX shot, transition or captioned span costs ~15 s of export per second
+   of timeline, so 3 min of touched spans is ~45 min.
+5. **Findings for tickets** (not fixed, building paused): OffthreadVideo
+   copies the *whole* source file into `%TEMP%` before the first frame (65
+   s for the 6.3 GB master here; T5 already logged the leak on failure);
+   `@remotion/media`'s fallback leaves no trace in the queue record; the
+   on-card NVENC plan corrupts frames at identity size (guard any future
+   full-res use); a direct `renderStart` is invisible to the renderer's
+   queue (bench-only, but the export IPC has no "who owns this job" field).
+
+**Pass criteria.** T8a — "frames/s vs the T5 figure; decode counter > 0;
+colour diff": measured, the counter never left zero, the swap cannot engage
+on HEVC and is a wash on H.264; colour identical where it ran. T8b —
+"frames/s; size per minute": 2.27 frames/s, 0.90 GB/min. T8c — "wall
+(expect ~12 s); bytes; a still": 8.8 s, 30.3 MB, stills in `…/t8/stills/`.
+**The decision is Hasan's; the tests do not choose.** The synthetic projects
+`t5-1080p`, `t5-1080p-intra`, `t5-1080p-h264` and the intermediates under
+`.vidtsx-temp/bench/t8/` were left on disk for inspection.

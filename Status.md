@@ -7,6 +7,58 @@
 
 ---
 
+## 2026-09-04 (later) — T8a/T8b/T8c MEASURED: the screenshot is the export wall, passthrough is the only order-of-magnitude lever; nothing decided
+
+**No product code.** Building stays paused; the decision (passthrough vs
+hybrid) is Hasan's. Everything is in `docs/PREVIEW_TESTS_PLAN.md` §T8
+"Results", with a report file behind every number (`.vidtsx-temp/bench/t8/`,
+stills in `…/t8/stills/`, sampler `…/samples/…__t8-exports.jsonl`, no
+standby holes). Bench additions under `scripts/bench/`: `studio-export.mjs`
+grew `--media-engine` (patches a sibling copy of the generated export entry
+so the composition's own decoder switch flips for one render), `--direct-gpu`,
+`--direct-hw`, `--tag`, and captures the `render:complete` event for direct
+renders; new `t8-ffmpeg.mjs`, `t8-output-diff.mjs`, `t8-seed-intra.mjs`,
+`t8-headless-decode-probe.mjs`.
+
+- **Controls first, because the noise is 1.6×:** the same OffthreadVideo
+  export of the T5 30 s HEVC project ran at 1.17 frames/s from the Export
+  button (first render of the day, cold source copy) and 1.93 from the
+  direct path 35 min later. Ratios are the finding, not rates.
+- **T8a — `<Video>` from `@remotion/media` cannot help the DJI files.**
+  Under Remotion's default GL backend headless Chrome has no HEVC decoder
+  (probe: HEVC Main10 unsupported in every mode; H.264/AV1/VP9 software
+  only), so the tag silently falls back to OffthreadVideo — same rate (1.81
+  frames/s), same picture, one warning line in the render log. With
+  `gl: angle` the shell gets D3D11 on the Intel iGPU, reports hardware HEVC,
+  and the render hangs on the first frame until the 600 s timeout, twice
+  (`Timeout while extracting frame at time 0.2sec`, GPU decode counters
+  zero). On the H.264 master the tag engages (software WebCodecs) and lands
+  at 2.08 frames/s vs 1.87 for OffthreadVideo — a wash, though it skips
+  OffthreadVideo's 65 s copy of the 6.3 GB source and 1.5 GB of compositor
+  memory.
+- **T8b — all-intra 4K intermediate:** NVENC 0.90 GB per minute of 4K60
+  (120 Mbps) made at 0.89× realtime; x264 crf 16 1.39 GB/min. Exporting
+  from it: 2.27 frames/s (+18 % on the nearest control), colour identical.
+  Found on the way: the on-card NVENC plan (`scale_cuda=format=yuv420p`,
+  T4b's shape) emits solid-green 1.6 KB frames when the size does not
+  change — the shipped proxy path always resizes, so it is unaffected.
+- **T8c — the passthrough floor:** the same 30 s through ffmpeg NVDEC →
+  `scale_cuda` → NVENC at 1080p: **8.8 s, 3.3 CPU-s, 3.4× realtime**, 30.3
+  MB vs the control's 32.4 MB, channel means within 1/255. The only
+  differences are on motion edges: ffmpeg's `-r 30` conform of a 59.94 fps
+  source picks a different frame of each pair than Remotion's time-exact
+  seek (902 vs 900 frames) — the frame mapping T1 must prove.
+- **What the numbers say:** every browser path lands at 1.8–2.3 frames/s
+  once decode is removed or cheapened, so the 3 h timeline is ~40 h at
+  best (T6: ~85 h); passthrough puts its untouched footage at ~53 min on
+  this GPU, and whatever still goes through the browser costs ~15 s per
+  second of timeline.
+- Left on disk for inspection: projects `t5-1080p`, `t5-1080p-intra`,
+  `t5-1080p-h264` (Recycle-Bin delete via the app when done) and the
+  intermediates in `.vidtsx-temp/bench/t8/` (~1.2 GB). Render timeout
+  setting verified back at 600 s; `%TEMP%` clean; memories
+  `studio-next-session-tasks` and `studio-scale-limits-open` updated.
+
 ## 2026-09-04 — export path discussed and researched; three tests planned (T8a/b/c), nothing built
 
 **No code.** Hasan read the T6 verdict (export is the wall) and asked whether

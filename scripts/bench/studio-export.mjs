@@ -2,6 +2,7 @@
 // app's own render-queue records.
 //   node scripts/bench/studio-export.mjs --project="T6 stress 0.01h" --match="7680×4320" --out=<file.json> [--skip-proxy-wait]
 //   node scripts/bench/studio-export.mjs --project="T6 stress 3h" --id=t6-stress-3h --direct-cpu=2 --out=<file.json>
+//   node scripts/bench/studio-export.mjs --project="T6 stress 3h" --id=t5-1080p --media-engine=webcodecs [--direct-gpu=angle] [--direct-hw=disable] --tag=t8a --out=<file.json>   (T8a)
 // Needs the dev app running with --remote-debugging-port=9222 (docs/ui-automation-cdp.md).
 // open the project card whose text contains --project (and --match, to pick
 // among same-named cards, e.g. the width label "7680×4320"), wait until the
@@ -114,27 +115,63 @@ if (!('skip-proxy-wait' in args)) {
 const histBefore = await evaluate(`const h = await window.api.renderHistoryLoad(); return (h.entries ?? []).map((e) => e.outputPath);`);
 const clickT = Date.now();
 let clicked;
-if (args['direct-cpu'] !== undefined || args['direct-scale'] !== undefined) {
+if (args['direct-cpu'] !== undefined || args['direct-scale'] !== undefined || args['media-engine'] !== undefined || args['direct-gpu'] !== undefined || args['direct-hw'] !== undefined) {
   // The export IPC path: the same studioExportPrepare + renderStart the Export
   // button issues, but with an explicit concurrency (`cpuUsage`, passed
   // verbatim to Remotion's `concurrency`) and/or `scale`. The Export button
   // itself passes neither, so the Settings › Rendering CPU default does not
   // reach Studio exports (measured 2026-09-03).
-  clicked = await evaluate(`
+  //
+  // T8a (2026-09-04): `--media-engine=webcodecs` renders the SAME entry with
+  // <Video> from @remotion/media instead of <OffthreadVideo>. The composition
+  // reads the decoder from a global at render time (src/shared/studio/
+  // media-engine.ts), so the bench writes a sibling copy of the generated entry
+  // that sets that global before mounting — no product code changes. The copy
+  // lives beside the original (same webpack aliases, same TTL sweep).
+  // `--direct-gpu=<swangle|angle|...>` and `--direct-hw=<disable|if-possible>`
+  // override the Settings defaults for chromiumOptions.gl / hardwareAcceleration.
+  const prepared = await evaluate(`
     const id = ${JSON.stringify(args.id ?? '')};
     const loaded = await window.api.studioProjectLoad({ id });
-    if (!loaded.success) return 'load failed: ' + loaded.error;
+    if (!loaded.success) return { error: 'load failed: ' + loaded.error };
     const prepared = await window.api.studioExportPrepare({ project: loaded.project });
-    if (!prepared.success) return 'prepare failed: ' + prepared.error;
+    if (!prepared.success) return { error: 'prepare failed: ' + prepared.error };
     const dir = await window.api.renderGetVideosDir();
+    return { prepared, dir: dir.path ?? dir.videosDir ?? dir };`);
+  if (prepared.error) { log({ step: 'export-click', clicked: prepared.error }); process.exit(1); }
+  let entryPath = prepared.prepared.entryPath;
+  if (args['media-engine']) {
+    const original = await fs.readFile(entryPath, 'utf8');
+    const patched = original.replace(
+      /(export const compositionConfig)/,
+      `// T8a bench patch: decoder swap for this render only (media-engine.ts global).
+globalThis.__vidtsxStudioMediaEngine = ${JSON.stringify(args['media-engine'])};
+globalThis.__vidtsxStudioMediaLogLevel = ${JSON.stringify(args['media-log'] ?? 'info')};
+
+$1`,
+    );
+    if (patched === original) throw new Error('entry patch failed: compositionConfig anchor not found');
+    entryPath = entryPath.replace(/\.tsx$/, `-${args['media-engine']}.tsx`);
+    await fs.writeFile(entryPath, patched, 'utf8');
+    log({ step: 'entry-patched', entryPath });
+  }
+  clicked = await evaluate(`
+    // A direct renderStart is not a queue job the renderer tracks, so its
+    // outcome (and any error text) only arrives on the render:complete push
+    // event — capture it on window for the final record.
+    if (!window.__t8complete) { window.__t8complete = []; window.api.onRenderComplete((d) => window.__t8complete.push(d)); }
+    const prepared = ${JSON.stringify(prepared.prepared)};
     const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const outputPath = (dir.path ?? dir.videosDir ?? dir) + '/' + prepared.compositionId + '_' + stamp + '-direct.mp4';
+    const tag = ${JSON.stringify(args.tag ?? (args['media-engine'] ?? 'direct'))};
+    const outputPath = ${JSON.stringify(prepared.dir)} + '/' + prepared.compositionId + '_' + stamp + '-' + tag + '.mp4';
     const cpu = ${JSON.stringify(args['direct-cpu'] ?? null)};
     const res = await window.api.renderStart({
-      filePath: prepared.entryPath, compositionId: prepared.compositionId, outputPath, codec: 'h264',
+      filePath: ${JSON.stringify(entryPath)}, compositionId: prepared.compositionId, outputPath, codec: 'h264',
       width: prepared.width, height: prepared.height, fps: prepared.fps,
       ...(cpu !== null && cpu !== '' ? { cpuUsage: /^\\d+$/.test(cpu) ? Number(cpu) : cpu } : {}),
       ...(${JSON.stringify(args['direct-scale'] ?? null)} ? { scale: Number(${JSON.stringify(args['direct-scale'] ?? '1')}) } : {}),
+      ...(${JSON.stringify(args['direct-gpu'] ?? null)} ? { gpuBackend: ${JSON.stringify(args['direct-gpu'] ?? null)} } : {}),
+      ...(${JSON.stringify(args['direct-hw'] ?? null)} ? { hardwareAcceleration: ${JSON.stringify(args['direct-hw'] ?? null)} } : {}),
     });
     return JSON.stringify({ res, outputPath, width: prepared.width, height: prepared.height, frames: prepared.durationInFrames });`);
 } else {
@@ -161,7 +198,8 @@ while (Date.now() - clickT < 12 * 3600 * 1000) {
   await sleep(2000);
   const hist = await evaluate(`const h = await window.api.renderHistoryLoad(); return (h.entries ?? []).filter((e) => e.outputPath === ${JSON.stringify(seen.outputPath)});`);
   const persisted = await evaluate(`const r = await window.api.renderQueueLoad(); return (r.jobs ?? []).filter((j) => j.id === ${JSON.stringify(seen.jobId)}).map((j) => ({ status: j.status, progress: j.progress, framesRendered: j.framesRendered, totalFrames: j.totalFrames, fileSize: j.fileSize, error: j.error, createdAt: j.createdAt, startedAt: j.startedAt, completedAt: j.completedAt, encoderName: j.encoderName, encoderHardwareAccelerated: j.encoderHardwareAccelerated, width: j.width, height: j.height, scale: j.scale }));`);
-  final = { jobId: seen.jobId, outputPath: seen.outputPath, compositionId: seen.compositionId, clickedAt: new Date(clickT).toISOString(), renderStartedAt: new Date(startedAt).toISOString(), finishedAt: new Date(finishedAt).toISOString(), wallMsFromClick: finishedAt - clickT, wallMsFromStart: finishedAt - startedAt, history: hist[0] ?? null, persisted: persisted[0] ?? null };
+  const complete = await evaluate(`return (window.__t8complete ?? []).filter((d) => d.jobId === ${JSON.stringify(seen.jobId)});`);
+  final = { jobId: seen.jobId, outputPath: seen.outputPath, compositionId: seen.compositionId, clickedAt: new Date(clickT).toISOString(), renderStartedAt: new Date(startedAt).toISOString(), finishedAt: new Date(finishedAt).toISOString(), wallMsFromClick: finishedAt - clickT, wallMsFromStart: finishedAt - startedAt, history: hist[0] ?? null, persisted: persisted[0] ?? null, complete: complete[0] ?? null };
   break;
 }
 log({ step: 'final', ...final });
