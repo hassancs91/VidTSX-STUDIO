@@ -38,7 +38,7 @@ rest stays a decision Hasan makes knowing that's what it is.
 | # | Test | Answers | Size | Status |
 |---|---|---|---|---|
 | **T0** | **Scrub benchmark harness** | (instrument) how long from asking for a frame to that frame being presented | ½ day | **DONE 2026-08-28** — `a164e3b`, results below |
-| **T1** | **Fidelity baseline** | (instrument) what our WYSIWYG claim is worth *today*: pixel diff of preview vs export on the same project | ½ day | pending — T2 did not need it (see T2 colour), still unbuilt |
+| **T1** | **Fidelity baseline** | (instrument) what our WYSIWYG claim is worth *today*: pixel diff of preview vs export on the same project — and whether a passthrough join is provable inside it | ½ day | **DONE 2026-09-04** — tolerance = mean ≤ 4.8/255, ≤ 3.0 % of pixels over 24, one source frame of timing (preview shows the frame *before* t, export the *nearest*), +2–3/255 preview brightness. ffmpeg passthrough with the nearest-pts select: mean ≤ 1.74, **0 % over 24**, same frame at every index, both codecs; the join is frame-exact and audio-continuous with one encoder + TS video-only intermediates + one audio pass. Every Remotion export's audio is +42.7 ms. Results below |
 | **T2** | **Decoder swap** | Is `@remotion/media` faster? Does colour hold on D-Log? Does 4K HEVC decode or fall back? | ~1 day | **DONE 2026-08-28** — conditional: loses at 1 layer, wins at 3. Colour holds; HEVC decodes. Results below |
 | **T3** | **Proxy codec A/B** | What proxies should be made of (all-intra vs GOP 5 vs today's GOP 15 vs MJPEG) | ½ day | **DONE 2026-09-02** — all-intra 540p: fling p50 32 → 25 ms, 12% faster to make, 2.6× disk; tail unchanged; MJPEG will not play. Shipped as the proxy profile. Results below |
 | **T4** | **Proxy generation cost** | How long a real project makes you wait, and whether `-hwaccel d3d11va` on the input helps | ~2 h | **DONE 2026-09-02** — yes, but only on the *discrete* adapter (1.6× faster, half the CPU); the default adapter halves CPU and saves no time. Results below |
@@ -120,22 +120,196 @@ Test DJI clips (3840×2160, 60 fps, 10-bit HEVC), 2 runs.
 
 ---
 
-## T1 — fidelity baseline (instrument, pending)
+## T1 — fidelity baseline · DONE 2026-09-04
 
-**Question:** what is our WYSIWYG claim actually worth today? Preview decodes
-720p proxies, export decodes originals — so there is already a gap, and it has
-never been measured. Without this number, "the new decoder is within
-tolerance" has no tolerance to be within.
+**Question:** what is our WYSIWYG claim actually worth today, as a number —
+and is a passthrough export (`docs/studio/PLAN.md` §5) provable *within*
+that number? Hasan decided 2026-09-04: passthrough first, full hybrid only
+later and per span type. T1 gates the build. Three legs, all on the same
+30 s spans at the same composition frames, on the D-Log clip (`t5-1080p`:
+DJI 4K60 10-bit HEVC, 1920×1080 @ 30, 900 frames) **and** ordinary footage
+(`t5-1080p-h264`: the video-2 4K60 H.264 master), each repeated.
 
-**Method:** pick a reference project; capture N preview frames (CDP screenshot
-of the Player at known frames, or an offscreen Player render) and the matching
-frames from a real `renderMedia` export; pixel-diff them. Report per-frame max
-channel delta and a perceptual delta, on ordinary footage *and* on a D-Log clip
-(where colour handling differs most).
+**Method.** Frames are compared by *index*: composition frame f against
+frame f of a 30 fps CFR file, per channel mean absolute difference, share
+of pixels over 8 and over 24, max delta, and a side-by-side still
+(`t1-diff.mjs`, the `t8-output-diff` format generalised to PNG inputs and
+an index offset). Frame *identity* is settled separately: `t1-frame-map.mjs`
+pulls the six source frames around t = sourceIn + f/30 (input-seeked with
+`-copyts`, so each candidate's pts is read, not assumed) and reports which
+one a given picture actually is — the mapping rule is measured, never
+inferred from a diff. Instruments, all under `scripts/bench/`:
 
-**Pass/fail:** there is no pass/fail — this test *produces* the tolerance that
-T2 is then judged against. It fails only if it cannot produce a stable number
-across repeat runs.
+| script | does |
+|---|---|
+| `t1-preview-capture.mjs` | the **real** preview: opens the project in the dev app over CDP, finds the Player handle by walking the React fiber tree up from the `<video>` (no product code), seeks, waits for `requestVideoFrameCallback` to report the presented `mediaTime`, captures the Player box at **1:1** (a DPR-1 emulated viewport converged so the box is exactly 1920 px wide) |
+| `t1-frame-map.mjs` | which source frame a picture (export frame or screenshot) shows |
+| `t1-diff.mjs` | the pixel diff + stills, `--b-offset` for sub-compositions |
+| `t8-ffmpeg.mjs --conform=nearest\|fps-near\|r30 --source-in --first=ceil --source` | the passthrough spans with a chosen frame-mapping rule |
+| `t1-join.mjs` | passthrough span + browser span → one file (`ts` = PLAN §5's TS intermediates, `mp4` = the proxy generator's concat recipe, `--audio` = one audio pass) |
+| `t1-audio-offset.mjs` | lag of one file's audio against another by normalised cross-correlation in 1 s windows (±120 ms) |
+
+Two CDP lessons that cost time: an occluded window presents nothing (rvfc
+never fires) and `Page.captureScreenshot` hangs — the capture script now
+maximises and foregrounds the app window at the OS level first; and a
+killed run leaves `Emulation.setDeviceMetricsOverride` in force for the next
+one (clear it on entry). Sources: `.vidtsx-temp/bench/t1/` (`preview/`,
+`frame-map/`, `stills/` with 200 side-by-sides, `join/`, `audio/`,
+`summary.json` — one row per comparison), the two Export-button runs
+`join-export.json` / `cut-export.json`, the passthroughs in `…/bench/t8/`.
+
+### Leg 0 — which source frame each side shows (the mapping rule)
+
+Every 30 fps composition frame f has to pick one of the 59.94 fps source
+frames K near t = f/30. Measured on 14 indices per file:
+
+| picture | rule | evidence |
+|---|---|---|
+| **Remotion export** (`<OffthreadVideo>`, healthy run) | **nearest pts to t** — K = round(t·60000/1001) | control 2, the H.264 control and the two-clip cut export agree at all 14 indices, including f=30 → K 60, f=600 → 1199, f=870 → 1738 |
+| Remotion export, **first frame of a composition** that starts mid-source (`startFrom` 450) | **first frame with pts ≥ t** (ceil) | the sub-composition shows K 900 at its frame 0 where the full export shows 899; frames 1+ nearest again |
+| Remotion export at a **timeline cut** inside one composition | nearest — same as no cut | two-clip project (0–15 s from source 0, 15–30 s from source 15): frame 450 = K 899, **byte-identical** to the single-clip export at 448–452 |
+| Remotion export, **memory-starved** run (control 1, 384 MB free) | **not a rule** | duplicates K 59 at f=29 *and* 30, shows 898 / 899 / 902 at 449–451, ceil at 870 and 899; the cache manager (`frame_cache.rs get_item_id`, threshold 10⁹) returns whatever nearest frame survived eviction |
+| **Preview** (Player, 540p proxy in a `<video>`) | **last frame with pts ≤ t** (floor) — K = floor(t·60000/1001) | rvfc `mediaTime` at every capture: f=30 → 0.984317 (K 59), f=600 → 19.986633 (K 1198); both codecs, both passes |
+| ffmpeg `-r 30` conform (T8c) | two source frames early — K = 2f−3 | f=30 → 57, f=600 → 1196; 902 frames |
+| ffmpeg `fps=30:round=near` | nearest for the first seconds, ceil later (drift) | f=300 → 600, f=870 → 1739; 900 frames |
+| **`select` on absolute pts, nearest** (the new `--conform=nearest`) | nearest, every index | matches the healthy export at all 14 indices; `--first=ceil` matches the sub-composition's frame 0 |
+
+So preview and export already disagree on *which frame* on roughly half of
+all frames (whenever the nearest source frame lies after t): a one-source-
+frame (16.7 ms) timing difference that has always been part of the WYSIWYG
+gap and had never been measured.
+
+**The frame-mapping rule, written down for the build:** for output frame n
+of a span starting at source time S = startFrom/fps: take the source frame
+with the pts nearest to S + n/fps (ties by measurement do not occur at
+59.94 → 30). In ffmpeg, with `-ss (S − ½ source frame)` so the nearest
+frame *before* S is decoded, `-copyts`, then
+`select='eq(floor((S+round((t−S)·30)/30)/D+0.5),round(t/D))'` (D = one source
+frame in seconds), `setpts=N/(30·TB)`, `-r 30 -fps_mode cfr -frames:v N`.
+Neither `-r 30` nor the `fps` filter reproduces it. A span rendered by the
+browser as its *own* composition shows the ceil frame at its first frame
+(`--first=ceil` reproduces that) — see leg 3 for what the build does about it.
+
+### Leg 1 — preview vs export today (the tolerance)
+
+10 frames (1, 29, 30, 300, 449, 450, 451, 600, 870, 899), the Player at 1:1
+over the shipped 540p all-intra proxy, against a healthy export of the same
+project:
+
+| span | mean abs diff per channel | pixels > 8 | pixels > 24 | max | repeat (pass A vs B) |
+|---|---|---|---|---|---|
+| **D-Log HEVC** (vs control 2) | **3.35 – 4.80 / 255** | 15.3 – 18.5 % | 0.84 – **3.01 %** | 208 | **0 / 0 / 0** — screenshots byte-identical |
+| D-Log HEVC (vs control 1, the starved run) | 3.38 – 5.13 | 15.8 – 18.9 % | 0.89 – 3.37 % | 208 | — |
+| **H.264 master** (vs its control) | **3.15 – 4.32 / 255** | 14.4 – 17.5 % | 1.06 – 1.48 % | 154 | 0 / 0 / 0 |
+
+Two things make up the number. (1) The timing: at f=1, 29, 30 and 600 the
+preview shows the source frame *before* the one the export shows (those are
+the rows at 3 % over 24 and max 200+). (2) A uniform shift: the preview is
+brighter — whole-frame means 164/155/148 vs 164/152/149 on the D-Log clip
+(+2–3 on green), 166/154/150 vs 164/152/148 on H.264 (+2 on every channel).
+The frame-map makes the side clear: the preview is 3.5–3.9/255 from the
+source frame it shows; the export is 1.3–1.6 from the source frame *it*
+shows; so the gap lives on the preview side (proxy encode + the `<video>`
+element's colour conversion), not in the export. Neither the proxy
+(`yuv420p tv bt709`) nor the source is mis-tagged; the export itself is
+tagged `yuvj420p pc bt470bg` — Remotion's PNG → x264 path, self-consistent
+but a different tag set from every camera file and from the passthrough.
+
+**Tolerance = leg 1's D-Log row: per-frame mean ≤ 4.8/255, ≤ 18.5 % of
+pixels over 8, ≤ 3.0 % over 24, max 208, plus one source frame of timing
+on about half of all frames and a +2–3/255 preview-side brightness offset.**
+That is what the WYSIWYG claim is worth today, and it is stable (repeat: 0).
+
+### Leg 2 — export vs ffmpeg passthrough
+
+The T8c pipeline (NVDEC → `scale_cuda` 1920×1080 → `h264_nvenc` p5 VBR cq 23)
+with the nearest-pts select above, against the same healthy exports:
+
+| span | mean abs diff | pixels > 8 | pixels > 24 | max | repeat (encode A vs B) | wall / CPU for 30 s |
+|---|---|---|---|---|---|---|
+| **D-Log HEVC** nearest vs control 2 | **1.23 – 1.71 / 255** | 0.91 – 1.6 % | **0 %** | 44 | 0 / 0 / 0 — NVENC output byte-identical | 7.7 s / 3.6 CPU-s (3.9×) |
+| **H.264 master** nearest vs its control | **0.97 – 1.74 / 255** | 0.87 – 1.7 % | **0 %** | 40 | 0 / 0 / 0 | 15.7 s / 7.8 CPU-s (1.9×) |
+| for contrast: T8c's `-r 30` vs control 2 | 1.43 – 6.13 | up to 13.8 % | up to **5.57 %** | 227 | — | — |
+| for scale: control 2 vs control 1 (two Remotion runs) | 0 – 3.12 | up to 7.8 % | up to 2.6 % (where the starved run picked other frames; 0 % elsewhere) | 195 | — | — |
+| for scale: cut export vs control 2 (two healthy Remotion runs) | **0** at 448–452 | 0 | 0 | 0 | — | — |
+
+Channel means within 1/255 at every index (colour intact, as T8c found).
+With the mapping fixed, the passthrough is **three times closer to the
+export than the preview is** on every metric, and it never puts a pixel
+over 24. Its residue is encoder noise (x264 CRF vs NVENC cq 23) on the same
+source frame. Healthy Remotion exports are themselves deterministic
+(byte-identical frames run to run), so this is a real bound, not noise.
+
+### Leg 3 — the join
+
+Passthrough 0–15 s (450 frames, nearest) + a browser-rendered 15–30 s
+(`t5-1080p-join`: the same clip as its own composition with `startFrom`
+450, exported through the Export button, 467 s at 0.96 frames/s — the day's
+memory again) concatenated, checked against the two-clip **cut export**
+(the real timeline case) and against the single-clip export.
+
+**Video at the seam.**
+
+| join | frames | video pts at the seam | 448 / 449 | **450** | 451 / 452 / 460… | what happened |
+|---|---|---|---|---|---|---|
+| mixed encoders, proxy-generator **mp4 concat** recipe | 900 | 14.988 → **87.91 s** | — | — | — | the concat demuxer cannot place Remotion's x264 file (edit list, other timebase) after an NVENC file: timestamps jump, duration 175 s |
+| mixed encoders, **TS** intermediates | 900 | 14.9877 → 15.021 (whole file +21 ms) | 1.44 / 1.46 | *not decodable* | — | the decoder drops frames at the SPS/PPS switch (frame 450 cannot be extracted), and the file carries the first half's `tv/bt709` tags over the second half's `pc/bt470bg` payload |
+| **same encoder**: browser frames decoded to RGB → NVENC with the passthrough's settings, **TS video-only** intermediates, one audio pass muxed last | **900** | exact: 14.9667, **15.000**, 15.0333 (start 0.000) | 1.44 / 1.46 | 3.14 (1.67 % > 24) | 1.73 / 1.71 / 1.66 … 1.70 at 899, **0 % > 24** | no duplicated or dropped frame; the seam is invisible except frame 450 |
+| same encoder, mp4 concat recipe | 900 | start **0.021 s** | same | same | same | the mp4 route starts the video 21 ms late (the first file's audio priming); TS wins |
+
+Frame 450 in the same-encoder join is the sub-composition's ceil frame
+(K 900) against the cut export's nearest frame (K 899) — the one rule
+difference from leg 0, and it is the browser span's, not the passthrough's:
+the passthrough with `--first=ceil` matches the sub-composition at 1.43
+(frames 0–2 and 449 at 1.4–1.7), with nearest it matches the cut export.
+Everything else at the seam is two encoder generations (x264 export → NVENC
+re-encode) at 1.6–2.0/255, 0 % over 24 — under leg 2's bound, a third of
+leg 1's.
+
+**Audio at the seam.**
+
+| file | lag vs the source's own audio at 0.5 / 13.5 / 14.5 / 15.2 / 16 / 29 s |
+|---|---|
+| passthrough (ffmpeg, either span, either codec) | 0 / 0 / 0 / 0 / 0 / 0 ms |
+| **every Remotion export** — HEVC control, H.264 control, cut export, sub-composition | **+42.7 ms** at every window (2048 samples; the export's audio edit list starts at media time 0, i.e. no priming skip, 1409 AAC frames for 30.0 s) |
+| join with the halves' **own** audio (TS or mp4) | 21.3 / 21.3 / 21.3 / **82.7** / 82.7 / 82.7 ms — a **61 ms jump at the seam** |
+| join with **one audio pass** for the whole span (TS video-only + that track) | **0 / 0 / 0 / 0 / 0 / 0 ms** |
+
+So a seam is audio-continuous only with a single audio pass over the whole
+timeline (the proxy generator's own lesson, re-measured), and that pass
+will sit 42.7 ms off every export the app makes today. Which of the two is
+lip-synced to the picture is not something T1 can say (it needs a clap on a
+known frame); that every Remotion export carries a fixed +42.7 ms is new,
+and is a ticket in its own right.
+
+### Verdict
+
+Pass criterion "a stable number across repeat runs": met — every repeat is
+0 (screenshots, NVENC encodes, healthy exports). **The tolerance is leg 1:
+mean ≤ 4.8/255, ≤ 3.0 % of pixels over 24, one source frame of timing, a
++2–3/255 preview offset.** Leg 2 sits at mean ≤ 1.74, 0 % over 24 and the
+same source frame at every index, on both the D-Log HEVC and the H.264
+master; leg 3's seam is at leg 2's level with no dropped or duplicated
+frame and 0 ms of audio offset when the audio is one pass. **The
+passthrough join is provable at the tolerance, with a margin of about 3×,
+under four conditions the build has to meet:** the nearest-pts select (not
+`-r`/`fps`), one encoder for both span kinds (browser frames encoded by our
+ffmpeg with the passthrough's settings, never Remotion's x264 file
+concatenated as-is), TS video-only intermediates with the audio muxed last
+from one pass, and the first frame of every browser-rendered span handled
+(render it one frame early and drop the lead-in, or accept the sub-
+composition's ceil frame — a one-source-frame deviation inside the leg 1
+tolerance, outside leg 2's).
+
+**Findings for tickets** (building paused, none fixed): Remotion export
+audio +42.7 ms vs the source on every export; exports tagged `yuvj420p pc
+bt470bg`; the preview's +2–3/255 brightness offset over proxies; a memory-
+starved export silently shows the wrong source frame (dup/skip) and there
+is no way to tell from the queue record; Studio exports of a 15 s
+sub-composition still take 7.8 min (0.96 frames/s — the touched-span
+cost T8 predicted). Left on disk: projects `t5-1080p-join`, `t5-1080p-cut`
+(Recycle-Bin delete via the app), ~1.2 GB under `.vidtsx-temp/bench/t1/`; the
+12 `%TEMP%emotion-v4…` folders today's exports left behind are empty (48 KB).
 
 ---
 

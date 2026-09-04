@@ -7,6 +7,63 @@
 
 ---
 
+## 2026-09-04 (evening) — T1 MEASURED: the WYSIWYG tolerance is a number, and the passthrough join is provable inside it
+
+**No product code.** Hasan decided passthrough-first (smart render for
+untouched spans, `docs/studio/PLAN.md` §5; full hybrid later, per span type
+if the numbers demand it). T1 was the gate and it ran today: three legs on
+the same 30 s spans at the same frame indices, on the D-Log HEVC clip and
+the H.264 master, every comparison repeated. Everything is in
+`docs/PREVIEW_TESTS_PLAN.md` **§T1** with a report file behind every number
+(`.vidtsx-temp/bench/t1/`: `preview/`, `frame-map/`, 200 side-by-side
+stills, `join/`, `audio/`, `summary.json`). Instruments under
+`scripts/bench/`: `t1-preview-capture.mjs` (the real Player over CDP at 1:1,
+seeked through the PlayerRef found by a fiber walk, presentation confirmed
+by `requestVideoFrameCallback`), `t1-frame-map.mjs` (which *source* frame a
+picture shows), `t1-diff.mjs`, `t1-join.mjs`, `t1-audio-offset.mjs`, and
+`t8-ffmpeg.mjs` grew `--conform=nearest --source-in --first=ceil --source`.
+
+- **The frame-mapping rule, measured not inferred:** a healthy Remotion
+  export shows the source frame whose pts is **nearest** to f/30 (three
+  exports, 14 indices each, incl. a real timeline cut — byte-identical to
+  the single-clip export); the **preview** shows the last frame **at or
+  before** f/30, so the two already disagree by one source frame on about
+  half of all frames. ffmpeg's `-r 30` is two frames early and `fps=` drifts
+  to ceil; a per-frame `select` on absolute pts reproduces Remotion at every
+  index. A span rendered as its *own* composition shows the ceil frame at
+  its first frame only. A memory-starved export (this morning's control,
+  384 MB free) shows duplicated and skipped source frames — the compositor
+  returns whatever survived eviction, silently.
+- **Leg 1 — the tolerance (preview vs export today):** mean 3.4–4.8/255
+  per channel, 15–18.5 % of pixels over 8, up to **3.0 % over 24**, plus the
+  one-frame timing and a +2–3/255 brightness offset on the preview side
+  (proxy + `<video>`; the export is 1.3–1.6 from its source frame, the
+  preview 3.5–3.9 from its). Repeat: 0.
+- **Leg 2 — export vs passthrough** (NVDEC → `scale_cuda` → NVENC with the
+  nearest select): mean **≤ 1.74/255, 0 % over 24**, same frame at every
+  index, D-Log and H.264 alike; repeat encodes byte-identical; 3.9× realtime
+  on HEVC. Three times inside leg 1 on every metric.
+- **Leg 3 — the join:** passthrough 0–15 s + browser-rendered 15–30 s. Mixed
+  encoders cannot be concatenated (the mp4 recipe jumps to 87 s at the seam,
+  the TS route drops frames at the SPS/PPS switch and mis-tags the second
+  half); with the browser frames encoded by our ffmpeg to the passthrough's
+  settings, **TS video-only intermediates give exactly 900 frames with exact
+  pts and a seam at leg 2's level** (1.4–2.0/255, 0 % over 24), except the
+  browser span's ceil first frame. Audio: **every Remotion export is +42.7 ms
+  late** against the source; the passthrough is at 0; concatenating the
+  halves' own audio jumps 61 ms at the seam; **one audio pass is 0 ms at
+  every window**.
+- **Verdict:** the passthrough join is provable at the tolerance with ~3×
+  margin, under four build conditions (nearest select; one encoder for both
+  span kinds; TS video-only + one audio pass muxed last; handle the first
+  frame of browser spans — render one frame early and drop it). Findings for
+  tickets: +42.7 ms export audio; exports tagged `yuvj420p pc bt470bg`;
+  preview brightness offset; starved exports show wrong frames with no trace.
+- Left on disk: projects `t5-1080p-join`, `t5-1080p-cut` (Recycle-Bin delete
+  via the app), ~1.2 GB in `.vidtsx-temp/bench/t1/`; the 12 `%TEMP%\remotion-v4…`
+  folders today's exports left behind are empty (48 KB). Dev app left
+  running; keep-awake released.
+
 ## 2026-09-04 (later) — T8a/T8b/T8c MEASURED: the screenshot is the export wall, passthrough is the only order-of-magnitude lever; nothing decided
 
 **No product code.** Building stays paused; the decision (passthrough vs
