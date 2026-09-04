@@ -42,6 +42,14 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Python worker scripts for the optional AI runtime (docs/ai-runtime-implementation-plan.md).
+  # Source only (KB): the runtime itself (Python + torch, 334 MB / 2.6 GB) is downloaded on first
+  # use from R2 through the download engine and never bundled. Replaces resources/python.
+  - from: resources/pipelines
+    to: pipelines
+    filter:
+      - "**/*"
+      - "!**/__pycache__/**"
   # Built-in caption packs (D13, PACKS_DESIGN.md). Ships as plain source: the
   # app transpiles a template on use, exactly like a project's TSX shots.
   - from: resources/caption-templates
@@ -143,11 +151,6 @@ win:
     - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/DirectML.dll"
     - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxcompiler.dll"
     - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxil.dll"
-  extraResources:
-    - from: resources/python/win-x64
-      to: python
-      filter:
-        - "**/*"
 nsis:
   oneClick: false
   perMachine: false
@@ -175,8 +178,3 @@ mac:
   files:
     # CPU-only ORT for mac: win32 binaries never ship in the dmg.
     - "!node_modules/onnxruntime-node/bin/napi-v6/win32/**/*"
-  extraResources:
-    - from: resources/python/darwin-${arch}
-      to: python
-      filter:
-        - "**/*"
