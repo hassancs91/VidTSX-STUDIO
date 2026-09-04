@@ -46,6 +46,7 @@ rest stays a decision Hasan makes knowing that's what it is.
 | **T5** | **Resolution ceiling** | Replaces the *assertion* that 8K breaks with a number and a failure mode | ½ day | **DONE 2026-09-03** — 8K exports correctly (900 frames, 434 MB, 28 min for 30 s); the walls are memory (stitcher ffmpeg 0.5 → 7.8 GB from 1080p to 8K, compositor cache starvation = `No frame found at position`) and time (0.5–1.4 frames/s from 4K60 HEVC at any output size). Results below |
 | **T6** | **Long-project stress** | Whether 3–5 h of 4K is a supported use case or a documented limit | ~1 day | **DONE 2026-09-03** — documented limit, wall named: **export** (~1 frame/s from 4K60 HEVC → 3 h timeline ≈ 3.5 days). Proxies are a wait (1 h 54 min x264 / ~1 h 03 min GPU for 3 h), session memory is not a wall (1.4 GB peak, no crash in 7 h), scrub cost is unchanged by length. Results below |
 | **T7** | **Effects load probe** | Whether slice 10 needs "disable effects in preview" from day one | ½ day | optional — not run 2026-09-03 (T5/T6 took the day); T2's element-count cliff is the nearest datum |
+| **T8** | **Export path options + tests** | Whether long-form export can be fixed, and how: `@remotion/media` decoder for export (T8a), all-intra intermediates (T8b), the ffmpeg NVDEC→NVENC passthrough floor (T8c) | 3 × ~30 min | **planned 2026-09-04** — research recorded below; tests agreed with Hasan, not yet run |
 
 **Source material (checked 2026-08-28):** `raw/` holds **9 DJI clips, 15 GB,
 27 minutes total — 3840×2160, 60 fps, 10-bit HEVC (D-Log)**. Enough for
@@ -1150,3 +1151,112 @@ TSX shots on screen at once.
 
 **Pass:** a clip/effect count at which preview drops below usable, informing
 whether Q8c's "disable effects in preview" toggle ships with E2 or later.
+
+---
+
+## T8 — the export path: options researched, three tests planned · 2026-09-04
+
+**Where this comes from.** T6 named export time as the long-form wall (~1
+frame/s from 4K60 HEVC at any output size, §T6 §4). Hasan asked whether
+that means long 4K exports are simply impossible, how CapCut is so fast,
+whether Remotion can render on the GPU or in parallel chunks, and whether
+TSX shots could be pre-rendered to video and everything composited in one
+GPU pass. This section records the answers, with sources, and the three
+tests he agreed to run before any build decision. **Nothing here is decided
+or built** — building is still paused.
+
+### Why CapCut is fast, and where our 70× goes
+
+CapCut is a native engine: the camera file is decoded on the GPU (NVDEC),
+effects run as shaders, the result is encoded on the GPU (NVENC), and frames
+never leave the card. On RTX cards with two or more encoders it also splits
+the timeline into independent scenes and feeds one to each encoder
+("simultaneous scene encoding", ~80% faster with dual encoders per NVIDIA).
+We already built that pipeline shape once — the T4b proxy generator (NVDEC →
+`scale_cuda` → NVENC) runs at **2.4× realtime** on this laptop. Export runs at
+**~1 frame/s = 1/30 realtime**. The ~70× gap is the browser-screenshot design,
+not the hardware.
+
+An export has four steps; the GPU can help with two:
+
+| step | GPU today? | note |
+|---|---|---|
+| decode the source frame | **no** | OffthreadVideo's compositor is CPU-only, no hwaccel switch. Only `<Video>` from `@remotion/media` (WebCodecs inside the headless browser) *could* reach a hardware decoder, if headless Chrome is given a GPU — unmeasured |
+| draw the page | yes (`chromiumOptions.gl`; Studio exports pass none) | cheap either way — not where the seconds go |
+| the screenshot per frame | never | this is the architecture |
+| encode | yes from Remotion 4.0.484 (NVENC, Windows); we ship 4.0.435 | a small share of our export time |
+
+### Parallelism: already on, and chunking does not help one machine
+
+`renderMedia` renders in parallel by default — **half the CPU threads** (six
+browser tabs here), which is why the CPU sat at 85–96% in every T5/T6 export.
+Chunked rendering exists and is documented ("distributed rendering": equal
+frame counts per chunk, `h264-ts`, `enforceAudioTrack`, seamless-AAC or
+`pcm-16`, then `combineChunks`, which the docs call "a hard-to-use API most
+people should not use directly"). Remotion Lambda is that recipe on many
+machines. On **one** machine chunking adds nothing: the cores are already
+saturated by the tabs. It pays only with more machines, and each chunk
+downloads every asset it touches (44 sources × up to 6.3 GB here). Cloud
+rendering with the user's own AWS keys is possible in principle but conflicts
+with the local-first rule — a product decision, not an optimisation.
+
+### The levers inside Remotion, rated honestly
+
+| lever | expected gain | status |
+|---|---|---|
+| `offthreadVideoCacheSizeInBytes` / concurrency tuning | fixes T5's `No frame found at position` starvation; ±30% speed | cheap, not a 70× fix |
+| hardware-accelerated *encoding* (4.0.484+) | small; larger files, no CRF | needs a Remotion bump (all packages, same version) |
+| `toneMapped: false`, JPEG frames | small | quality trade |
+| `<Video>` from `@remotion/media` for export | unknown — large if a hardware decoder engages; Remotion's performance page now says OffthreadVideo "is not optimized" and recommends it; T2 proved it decodes our DJI HEVC with colour intact *in preview* | **test 1** |
+| all-intra intermediates for touched spans (Premiere's "optimised media") | likely several ×; still a screenshot per frame; disk-heavy (~1–2 GB/min at 4K) | **test 2** |
+| passthrough for untouched spans (smart render, PLAN §5) | footage spans at 2.4× realtime via the T4b pipeline; only touched spans through the browser; joins via the frame-exact concat already proven for proxies | the design; **T1 must prove the join** |
+
+### Hasan's idea: pre-render TSX to video, composite everything in one GPU pass
+
+Realistic, and it is how many tools work: render each TSX shot to a short
+alpha video (the renderer already does ProRes 4444 / VP9-alpha), then ffmpeg
+overlays them on the footage with GPU decode, `overlay_cuda`, NVENC. Cutaways
+never touch the source, TSX shots are short, the long footage never enters
+the browser — CapCut-class speed. It is exactly the **hybrid compositor**
+that `docs/PREVIEW_ARCHITECTURE.md` marks as the one design not to take, for
+one reason: preview drawn by Remotion, export drawn by ffmpeg, so *every
+composited frame* must agree between two renderers. The concrete drift
+points: transitions (crossfade/dip re-implemented as `xfade`), clip
+transforms (scale/position/opacity), blends beyond plain alpha, colour when
+an sRGB overlay meets 10-bit D-Log footage, and captions (TSX overlays that
+can span the whole video). Each is a second implementation that must match
+the first pixel-for-pixel, and T1 is the only way to know.
+
+| design | untouched footage | spans with TSX / transitions / captions | preview = export |
+|---|---|---|---|
+| today: all Remotion | browser, ~1 frame/s | browser | by construction |
+| passthrough (smart render) | ffmpeg GPU, 2.4× realtime | browser | by construction; the joins need T1 |
+| full hybrid (Hasan's) | ffmpeg GPU | ffmpeg GPU + pre-rendered TSX | must be proven per feature; T1 forever |
+
+Worth keeping in view: the 3-hour figure is the raw ingest. A talking-head
+export after the editorial pass is 20–40 min of final video — ~15 h today;
+passthrough brings the footage part to ~12 min and leaves the touched spans,
+which is exactly what the tests below size.
+
+### The three tests (agreed 2026-09-04, ~30 min each, on the T5 30 s project)
+
+| # | test | what it decides | pass/read-out |
+|---|---|---|---|
+| **T8a** | export the 30 s project with `<Video>` from `@remotion/media` instead of `<OffthreadVideo>`; watch the GPU VideoDecode counter and frames/s | whether the decoder swap alone moves export off ~1 frame/s, and whether a hardware decoder engages in headless Chrome | frames/s vs the T5 1080p figure (0.75–0.92); decode counter > 0 = hardware engaged; colour diff vs the OffthreadVideo output (run-frame-diff-style) |
+| **T8b** | pre-transcode the clip to an all-intra 4K intermediate (x264 `-g 1` or NVENC `-g 0`, full res) and export from it | whether touched spans need intermediates (cheap frames) or the decoder swap | frames/s; intermediate size per minute |
+| **T8c** | run the same 30 s through plain ffmpeg NVDEC → NVENC at 1080p (the T4b pipeline, no browser) | the passthrough floor, and the size/quality of a passthrough-encoded span for T1 to compare against | wall (expect ~12 s); bytes; a still for the fidelity diff |
+
+Then decide: passthrough first (most of the speed, one renderer), the
+touched-span path from T8a/T8b, and the full hybrid only for span types
+where the numbers say the browser is still the wall. T1 gates all three.
+
+Sources: [renderMedia()](https://www.remotion.dev/docs/renderer/render-media),
+[How Remotion Lambda works](https://www.remotion.dev/docs/lambda/how-lambda-works),
+[Distributed rendering](https://www.remotion.dev/docs/distributed-rendering),
+[combineChunks()](https://www.remotion.dev/docs/renderer/combine-chunks),
+[OffthreadVideo](https://www.remotion.dev/docs/offthreadvideo),
+[@remotion/media Video](https://www.remotion.dev/docs/media/video),
+[Hardware acceleration](https://www.remotion.dev/docs/hardware-acceleration),
+[Performance](https://www.remotion.dev/docs/performance),
+[NVIDIA on CapCut simultaneous scene encoding](https://blogs.nvidia.com/blog/computex-studio-laptops-encoding-capcut/),
+[Frame.io on smart rendering](https://workflow.frame.io/guide/smart-rendering).

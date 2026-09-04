@@ -7,6 +7,25 @@
 
 ---
 
+## 2026-09-04 — export path discussed and researched; three tests planned (T8a/b/c), nothing built
+
+**No code.** Hasan read the T6 verdict (export is the wall) and asked whether
+long 4K exports are simply impossible, how CapCut is so fast, whether Remotion
+can use the GPU or render in parallel chunks, and whether TSX shots could be
+pre-rendered to video and composited in one GPU pass. Answered with sources in
+`docs/PREVIEW_TESTS_PLAN.md` **§T8**: CapCut's speed is an all-on-GPU native
+pipeline (the shape our T4b proxy generator already has, 2.4× realtime here);
+Remotion already renders in parallel (half the threads) so chunking adds
+nothing on one machine; its GPU options cover drawing and encoding, never the
+per-frame screenshot or the CPU source decode; the hybrid "pre-render TSX,
+composite in ffmpeg" is realistic and is the design the architecture doc
+warns about (two renderers must agree on every frame). Recommendation
+recorded: passthrough for untouched spans first, T1 gates it. **Agreed next
+step: three ~30-min tests on the T5 30 s project** — T8a `<Video>` from
+`@remotion/media` for export, T8b export from an all-intra intermediate, T8c
+the ffmpeg NVDEC→NVENC passthrough floor. Building stays paused; the
+decision is Hasan's after the numbers.
+
 ## 2026-09-03 — T6 (long-project stress) and T5 (resolution ceiling) MEASURED; the preview test wave is done except T1/T7
 
 **No product code.** Building stays paused, slice 8 on hold, the
