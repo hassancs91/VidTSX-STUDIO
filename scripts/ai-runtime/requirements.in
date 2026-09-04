@@ -1,0 +1,25 @@
+# AI runtime stack — top-level pins for BOTH variants (cu126 / cpu).
+#
+# One requirements.in serves both variants; only the torch index differs. Lock with
+# compile-locks.ps1 (uv pip compile --generate-hashes --emit-index-url --index-strategy
+# unsafe-best-match). Never edit the .lock files by hand.
+#
+# Every package here has a cp311 / abi3 / pure-python Windows wheel (Stage 0 §11 Q1):
+# nothing is ever built from source, so the build box needs no compiler.
+#
+# Stage 0 changes vs the lab's v1 list: torchvision dropped (nothing imports it — proven by
+# renaming it away), moderngl + glcontext added for texture baking later without a stack bump.
+torch
+transformers
+einops
+omegaconf
+numpy
+pillow
+trimesh
+scikit-image
+rembg
+onnxruntime
+xatlas
+safetensors
+moderngl==5.12.0
+glcontext==3.0.0
