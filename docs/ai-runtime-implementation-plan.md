@@ -1,6 +1,6 @@
 # AI Runtime — implementation plan (background removal + 3D Studio)
 
-> **Status: PLANNED (2026-09-04).** Stage 0 of `docs/local-python-runtime-plan.md` passed (GO).
+> **Status: Stages 1–4 BUILT (2026-09-05); Stage 5 next.** Stage 0 of `docs/local-python-runtime-plan.md` passed (GO).
 > This document is the **step-by-step build plan** for putting the downloadable Python runtime
 > into the app with its first two models. It **replaces Stages 1–5** of the runtime plan; the
 > design (§0–§2), the Stage 0 record (§3.4) and the risks (§10) there still apply.
@@ -465,3 +465,44 @@ the shared runtime; TripoSG / Hunyuan3D-2mini need the 8 GB VM to validate.
     946 MB in `%APPDATA%\VidTSX Studio\ai-runtime\2026.09.1-cpu`. Remove from the row deletes the folder. Not exercised here: the
     2.6 GB cu126 download path (same code, ~25 min at this uplink) and Repair — both are Stage 5 checklist items.
     Dev note: `electron-vite dev` needs `-w` to rebuild the main process on change (docs/ui-automation-cdp.md recipe lacks it).
+- 2026-09-05 — **Stage 3 built + E2E PASSED** (commits `b9b9f30` engine, `86daf46` python-models service, `03b81a0` rembg UI/IPC/agent tool;
+  the shared job skeleton `python-model-job.ts` landed with Stage 4's `520aa8e`).
+  - `src/local-python-engine/`: `runPipeline` (temp request JSON, `spawn` windowsHide, env HF_HUB_OFFLINE/TRANSFORMERS_OFFLINE/PYTHONUTF8,
+    `CUDA_VISIBLE_DEVICES=-1` only when forcing CPU, JSON-lines parser tolerant of split chunks + noise, 8 KB stderr ring, `taskkill /T /F`
+    on cancel or idle timeout, `0xC0000106` → `path-too-long`), `classifyPythonFailure` (protocol codes incl. `network`, spawn, timeout,
+    DLL exit codes, no-result), `PythonLocalEngine` serial queue (jobs serialised app-wide; caller-supplied requestId so progress can be
+    subscribed before the first event), `mock-runner.cjs` (CommonJS so a copy named `runner.py` runs under node too — the service test
+    drives the real `startPythonModel` path with it). 41 engine tests, no Python in CI.
+  - `src/main/services/python-models/`: `registry.ts` (rembg-u2net + triposr with original-host URLs, sha256, bytes, `dest`, companions,
+    licence, `vramMb`, `cpuOk`, and one **capability descriptor** each: inputs/outputs/zod options/`toolId`/`estimatedSeconds`),
+    `request-builder.ts` (strict zod validation; rembg → `rembgHome`, triposr → `modelDir`/`dinoConfigPath`/`mcResolution`/`seed`/
+    `previewPath`), `download.ts` (per-file `.part` + `finalizePath` + sha256, `fileLabel`/`fileStep` metadata, companions shared by dest,
+    remove never deletes another model's companions), `status.ts` (present = exact byte count), `service.ts` = `preflightPythonModel` →
+    structured `{ ready:false, reason, message, action:{kind,label,variant,bytes} }`, `ensurePythonModelReady` (runtime install/update/
+    repair then model download), `startPythonModel`/`runPythonModel` (+ provenance sidecar `<output>.json`, usage recorded). 33 tests
+    + `registry.links.test` in the `check:links` sweep.
+  - IPC `pymodel:*` (status/download/cancel-download/remove/preflight/install) and `rembg:*` (run/progress/complete/error/cancel); the
+    rembg handler resolves a gallery image or a dropped file, writes `<stem>-nobg.png` into the images folder and registers it with the
+    new `images.derived_from` column (additive `ALTER TABLE` on open). Image Studio: scissors action on cards + lightbox, toolbar
+    "Remove background…" file button, gallery file-drop overlay, `useRemoveBackground` hook, floating status card (stage + Cancel +
+    ErrorBanner with Details), one install dialog (copy from the preflight; "Use the smaller CPU-only runtime" link). AI page Image tab:
+    "Image tools" section (rembg row: licence badge, size, `needs AI runtime` badge, Download / Remove / Install runtime + model) behind
+    `ai-system-runtimes`. Studio agent: `remove_background(image, alphaMatting?, postProcessMask?)` built from the descriptor
+    (`library:<path>` in → `<name>-nobg.png` filed next to it, origin generated); returns the preflight message when the runtime is missing.
+  - **E2E (dev app over CDP, this box, runtime folder empty at start):**
+    - Dropped plush photo → dialog "Background removal runs on your computer. Download the AI runtime (2.8 GB) and the model (176 MB)?"
+      (GPU recommended: GTX 1650 Ti, driver 592.82). Clicked the GPU button: card showed "Installing the AI runtime · 2%" at 43 s;
+      **Cancel** → runtime download cancelled, card cleared (this exposed that cancel did not stop a runtime download the job started —
+      fixed in `python-model-job.ts`: cancel now stops worker, model download and that runtime download).
+    - Re-triggered, clicked **"Use the smaller CPU-only runtime (280 MB)"**: download 84 s, extract → 149 s, verify (triposr selftest)
+      → 156 s, warm-up (rembg first launch + triposr `--warmup`) → 228 s, model download 176 MB → 279 s, first run: worker 5.26 s
+      (load-model 0.83, process 1.74, export 0.51 on the 12 MP photo) → **`busy-nobg.png` 3024×4032 in the gallery 286 s after the click.**
+    - Gallery image (1024², nano-banana sketch): **4.4 s click → new entry**, worker 3.87 s, `derivedFrom` set to the source id.
+    - Cancel during "Preparing runtime": card gone **19 ms** after Cancel, no entry, no orphan worker.
+    - Corrupt model (4 MB overwritten in place, size unchanged): "Cannot load background-removal model 'u2net': [ONNXRuntimeError] … INVALID_PROTOBUF
+      … Remove the model on the AI page and download it again." with the raw tail behind Details — classified `weights-corrupt`. Restored from the lab copy.
+    - Image tools section renders: "Background removal (u2net) · MIT · Ready · 176 MB · ~3s CPU · licence · source ↗ · Remove".
+  - Decisions: (1) the install dialog's primary button is the recommended variant, the CPU link is secondary (plan §9.1); (2) `ready` +
+    `import` map to "Preparing runtime", `load-model`/`process`/`export` to "Removing background" (plan §7.2 resolved: no protocol change
+    needed beyond Stage 2's `stage: import`); (3) sidecars live next to the output (`busy-nobg.json` in the images folder) — the gallery
+    lists DB rows only, so they are invisible in the UI; (4) `isnet-general-use` (plan §9.3) deferred — not quality-checked this session.
