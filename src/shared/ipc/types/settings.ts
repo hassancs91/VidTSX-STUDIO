@@ -1,4 +1,5 @@
 import type { RenderCpuUsage, RenderGpuBackend, RenderHardwareAcceleration } from './render';
+import type { ExportEngineId } from '../../studio/export-engines';
 
 // ─── Settings operations ───
 // Settings operations
@@ -10,6 +11,8 @@ export interface SettingsGetResponse {
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  /** Studio export engine the Export dialog starts on (docs/export-engines-plan.md D2). */
+  renderDefaultExportEngine: ExportEngineId;
   /** Opt-in crash reporting consent (off by default). */
   crashReportingEnabled: boolean;
   /** False when the build has no crash-reporting DSN baked in — the toggle is inert. */
@@ -75,6 +78,15 @@ export interface SettingsSetRenderDefaultHardwareAccelerationRequest {
 }
 
 export interface SettingsSetRenderDefaultHardwareAccelerationResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface SettingsSetRenderDefaultExportEngineRequest {
+  exportEngine: ExportEngineId;
+}
+
+export interface SettingsSetRenderDefaultExportEngineResponse {
   success: boolean;
   error?: string;
 }

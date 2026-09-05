@@ -34,6 +34,7 @@ import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-pro
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
+import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
 import type {
   StudioClipTransform,
@@ -46,6 +47,7 @@ import { CanvasOverlay } from './CanvasOverlay';
 import { CaptionsPanel } from './CaptionsPanel';
 import { FloatingMenu } from './timeline/FloatingMenu';
 import { RestoreVersionDialog, formatSavedAt } from './RestoreVersionDialog';
+import { ExportDialog, type ExportChoice } from './ExportDialog';
 import { MediaPool, type GenerateShotSpec } from './MediaPool';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
@@ -81,6 +83,8 @@ export function EditorShell({ projectId, onBack }: Props) {
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Open Export dialog; carries the I→O range for "Export range". */
+  const [exportDialog, setExportDialog] = useState<{ range?: { rangeIn: number; rangeOut: number } } | null>(null);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [projectMenu, setProjectMenu] = useState<{ x: number; y: number } | null>(null);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -726,9 +730,11 @@ export function EditorShell({ projectId, onBack }: Props) {
     [tl, removeAsset],
   );
 
+  // The Export button opens the dialog (engine picker, docs/export-engines-
+  // plan.md D2); the dialog's confirm prepares the entry and queues the job.
   const handleExport = useCallback(
-    async (range?: { rangeIn: number; rangeOut: number }) => {
-      if (!project) return;
+    async (choice: ExportChoice, range?: { rangeIn: number; rangeOut: number }): Promise<boolean> => {
+      if (!project) return false;
       setExporting(true);
       try {
         const prepared = await window.api.studioExportPrepare({
@@ -737,7 +743,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         });
         if (!prepared.success || !prepared.entryPath || !prepared.compositionId) {
           showToast(prepared.error ?? 'Failed to prepare export', 'error');
-          return;
+          return false;
         }
         await addJob({
           filePath: prepared.entryPath,
@@ -747,10 +753,14 @@ export function EditorShell({ projectId, onBack }: Props) {
           width: prepared.width ?? project.settings.width,
           height: prepared.height ?? project.settings.height,
           fps: prepared.fps ?? project.settings.fps,
+          exportEngine: choice.engineId,
+          verifyAgainstEngine: choice.verifyAgainstEngine,
         });
         showToast('Export added to the render queue', 'success');
+        return true;
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Failed to start export', 'error');
+        return false;
       } finally {
         setExporting(false);
       }
@@ -834,7 +844,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => void handleExport(exportRange)}
+            onClick={() => setExportDialog({ range: exportRange })}
             disabled={exporting}
             title="Render only the I→O range (set with the I and O keys; Shift+I/O clears)"
           >
@@ -845,7 +855,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         <Button
           variant="primary"
           size="sm"
-          onClick={() => void handleExport()}
+          onClick={() => setExportDialog({})}
           disabled={exporting}
           title="Render the timeline through the render queue"
         >
@@ -1101,6 +1111,16 @@ export function EditorShell({ projectId, onBack }: Props) {
         isOpen={restoreOpen}
         onClose={() => setRestoreOpen(false)}
         onRestore={handleRestoreVersion}
+      />
+      <ExportDialog
+        isOpen={exportDialog !== null}
+        onClose={() => setExportDialog(null)}
+        rangeLabel={
+          exportDialog?.range
+            ? `${formatDuration(exportDialog.range.rangeIn)} – ${formatDuration(exportDialog.range.rangeOut)}`
+            : null
+        }
+        onExport={(choice) => handleExport(choice, exportDialog?.range)}
       />
     </div>
   );

@@ -13,6 +13,8 @@ import type {
   SettingsSetRenderDefaultGpuBackendResponse,
   SettingsSetRenderDefaultHardwareAccelerationRequest,
   SettingsSetRenderDefaultHardwareAccelerationResponse,
+  SettingsSetRenderDefaultExportEngineRequest,
+  SettingsSetRenderDefaultExportEngineResponse,
   SettingsSetCrashReportingRequest,
   SettingsSetCrashReportingResponse,
   SettingsSetRenderTimeoutRequest,
@@ -40,6 +42,8 @@ export const settingsApi = {
     ipcRenderer.invoke(IPC.SETTINGS_SET_RENDER_DEFAULT_GPU_BACKEND, data),
   settingsSetRenderDefaultHardwareAcceleration: (data: SettingsSetRenderDefaultHardwareAccelerationRequest): Promise<SettingsSetRenderDefaultHardwareAccelerationResponse> =>
     ipcRenderer.invoke(IPC.SETTINGS_SET_RENDER_DEFAULT_HARDWARE_ACCELERATION, data),
+  settingsSetRenderDefaultExportEngine: (data: SettingsSetRenderDefaultExportEngineRequest): Promise<SettingsSetRenderDefaultExportEngineResponse> =>
+    ipcRenderer.invoke(IPC.SETTINGS_SET_RENDER_DEFAULT_EXPORT_ENGINE, data),
   settingsSetCrashReporting: (data: SettingsSetCrashReportingRequest): Promise<SettingsSetCrashReportingResponse> =>
     ipcRenderer.invoke(IPC.SETTINGS_SET_CRASH_REPORTING, data),
   dialogOpenFolder: (): Promise<DialogOpenFolderResponse> =>

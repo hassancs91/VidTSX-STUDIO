@@ -28,6 +28,7 @@ import { resolveProjectBrand } from './project-brand';
 import { readTranscriptFile } from './asset-transcriber';
 import { resolveCaptionTemplate } from './caption-packs';
 import { getShotVersionPath } from './studio-paths';
+import { writeExportContext } from './export-engines/export-context';
 
 const log = logEngine.createLogger('StudioExport');
 
@@ -270,7 +271,11 @@ export default function StudioTimelineExport() {
   await fs.writeFile(entryPath, source, 'utf-8');
   log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length });
 
-  return { entryPath, compositionId, width, height, fps, durationInFrames };
+  const entry: StudioExportEntry = { entryPath, compositionId, width, height, fps, durationInFrames };
+  // The export engines read the document back when the render starts
+  // (docs/export-engines-plan.md) — a sidecar beside the entry, same sweep.
+  await writeExportContext({ project, entry });
+  return entry;
 }
 
 async function pruneOldEntries(dir: string): Promise<void> {
@@ -281,7 +286,7 @@ async function pruneOldEntries(dir: string): Promise<void> {
       entries
         // Entry files AND pinned-kit copy folders — everything the entry step
         // writes carries the studio-entry- prefix precisely so this sweep owns it.
-        .filter((e) => e.name.startsWith('studio-entry-') && (e.isDirectory() || e.name.endsWith('.tsx')))
+        .filter((e) => e.name.startsWith('studio-entry-') && (e.isDirectory() || e.name.endsWith('.tsx') || e.name.endsWith('.tsx.json')))
         .map(async (entry) => {
           const full = path.join(dir, entry.name);
           const stat = await fs.stat(full).catch(() => null);

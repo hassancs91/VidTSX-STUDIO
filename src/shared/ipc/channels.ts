@@ -109,6 +109,7 @@ export const IPC = {
   SETTINGS_SET_RENDER_DEFAULT_CPU_USAGE: 'settings:set:render-default-cpu-usage',
   SETTINGS_SET_RENDER_DEFAULT_GPU_BACKEND: 'settings:set:render-default-gpu-backend',
   SETTINGS_SET_RENDER_DEFAULT_HARDWARE_ACCELERATION: 'settings:set:render-default-hardware-acceleration',
+  SETTINGS_SET_RENDER_DEFAULT_EXPORT_ENGINE: 'settings:set:render-default-export-engine',
   SETTINGS_SET_CRASH_REPORTING: 'settings:set:crash-reporting',
 
   // Dialog operations (folder picker)
@@ -389,6 +390,7 @@ export const IPC = {
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',
   STUDIO_EXPORT_PREPARE: 'studio:export:prepare',
+  STUDIO_EXPORT_ENGINES_LIST: 'studio:export:engines:list',
   // Studio — per-asset transcription (button-triggered) + auto-cut planning
   STUDIO_TRANSCRIBE_START: 'studio:transcribe:start',
   STUDIO_TRANSCRIBE_CANCEL: 'studio:transcribe:cancel',

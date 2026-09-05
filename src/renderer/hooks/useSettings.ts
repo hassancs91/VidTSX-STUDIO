@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { RenderCpuUsage, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
+import { DEFAULT_EXPORT_ENGINE_ID, type ExportEngineId } from '@shared/studio/export-engines';
 
 interface SettingsState {
   outputFolder: string;
@@ -9,6 +10,7 @@ interface SettingsState {
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  renderDefaultExportEngine: ExportEngineId;
   crashReportingEnabled: boolean;
   crashReportingAvailable: boolean;
   loading: boolean;
@@ -24,6 +26,7 @@ export function useSettings() {
     renderDefaultCpuUsage: 'medium',
     renderDefaultGpuBackend: 'swangle',
     renderDefaultHardwareAcceleration: 'if-possible',
+    renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID,
     crashReportingEnabled: false,
     crashReportingAvailable: false,
     loading: true,
@@ -42,6 +45,7 @@ export function useSettings() {
         renderDefaultCpuUsage: result.renderDefaultCpuUsage,
         renderDefaultGpuBackend: result.renderDefaultGpuBackend,
         renderDefaultHardwareAcceleration: result.renderDefaultHardwareAcceleration,
+        renderDefaultExportEngine: result.renderDefaultExportEngine ?? DEFAULT_EXPORT_ENGINE_ID,
         crashReportingEnabled: result.crashReportingEnabled,
         crashReportingAvailable: result.crashReportingAvailable,
         loading: false,
@@ -169,6 +173,24 @@ export function useSettings() {
     }
   }, []);
 
+  const setRenderDefaultExportEngine = useCallback(async (exportEngine: ExportEngineId) => {
+    try {
+      const result = await window.api.settingsSetRenderDefaultExportEngine({ exportEngine });
+      if (result.success) {
+        setState((prev) => ({ ...prev, renderDefaultExportEngine: exportEngine }));
+        return true;
+      }
+      setState((prev) => ({ ...prev, error: result.error || 'Failed to save' }));
+      return false;
+    } catch (err) {
+      setState((prev) => ({
+        ...prev,
+        error: err instanceof Error ? err.message : 'Failed to save settings',
+      }));
+      return false;
+    }
+  }, []);
+
   const setCrashReportingEnabled = useCallback(async (enabled: boolean) => {
     try {
       const result = await window.api.settingsSetCrashReporting({ enabled });
@@ -249,6 +271,7 @@ export function useSettings() {
     renderDefaultCpuUsage: state.renderDefaultCpuUsage,
     renderDefaultGpuBackend: state.renderDefaultGpuBackend,
     renderDefaultHardwareAcceleration: state.renderDefaultHardwareAcceleration,
+    renderDefaultExportEngine: state.renderDefaultExportEngine,
     crashReportingEnabled: state.crashReportingEnabled,
     crashReportingAvailable: state.crashReportingAvailable,
     loading: state.loading,
@@ -260,6 +283,7 @@ export function useSettings() {
     setRenderDefaultCpuUsage,
     setRenderDefaultGpuBackend,
     setRenderDefaultHardwareAcceleration,
+    setRenderDefaultExportEngine,
     setCrashReportingEnabled,
     browseOutputFolder,
     browseAiModelsFolder,

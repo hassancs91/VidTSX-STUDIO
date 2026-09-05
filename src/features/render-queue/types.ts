@@ -27,4 +27,7 @@ export interface AddJobOptions {
   cpuUsage?: string | null;
   gpuBackend?: import('@shared/ipc/types').RenderGpuBackend;
   hardwareAcceleration?: import('@shared/ipc/types').RenderHardwareAcceleration;
+  /** Studio exports: the engine + the shared finishing stage (docs/export-engines-plan.md). */
+  exportEngine?: import('@shared/studio/export-engines').ExportEngineId;
+  verifyAgainstEngine?: import('@shared/studio/export-engines').ExportEngineId;
 }

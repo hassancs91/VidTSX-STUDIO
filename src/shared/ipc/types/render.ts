@@ -1,3 +1,5 @@
+import type { ExportEngineId } from '../../studio/export-engines';
+
 // ─── Render operations ───
 // Render operations
 // 'webp' renders an animated WebP via the frame-sequence pipeline in
@@ -36,6 +38,13 @@ export interface RenderStartRequest {
   cpuUsage?: string | null;
   gpuBackend?: RenderGpuBackend;
   hardwareAcceleration?: RenderHardwareAcceleration;
+  /** Studio exports only: route through this export engine + the shared
+   *  finishing stage (docs/export-engines-plan.md). Absent = the plain
+   *  Remotion render every other composition gets. */
+  exportEngine?: ExportEngineId;
+  /** Dev verification mode (D5): also export through this engine and report
+   *  the pixel diff + audio offset between the two. Ignored in packaged builds. */
+  verifyAgainstEngine?: ExportEngineId;
 }
 
 export interface RenderStartResponse {
@@ -53,7 +62,9 @@ export interface RenderCancelResponse {
   error?: string;
 }
 
-export type RenderPhase = 'preparing' | 'extracting_audio' | 'bundling' | 'rendering';
+// 'finishing' = the export engines' shared finishing stage (audio pass + mux);
+// 'verifying' = the dev-only second export + diff (D5).
+export type RenderPhase = 'preparing' | 'extracting_audio' | 'bundling' | 'rendering' | 'finishing' | 'verifying';
 
 export interface RenderProgressEvent {
   jobId: string;
@@ -70,6 +81,10 @@ export interface RenderCompleteEvent {
   outputPath?: string;
   fileSize?: number;
   error?: string;
+  /** Engine notes for the queue record (e.g. the verification summary). */
+  message?: string;
+  /** Verification report (D5) written beside the export, when it ran. */
+  reportPath?: string;
 }
 
 // Fired once per render when ffmpeg's encoder choice is resolved — lets the
@@ -123,6 +138,11 @@ export interface RenderQueueJob {
   cpuUsage?: string | null;
   gpuBackend?: RenderGpuBackend;
   hardwareAcceleration?: RenderHardwareAcceleration;
+  exportEngine?: ExportEngineId;
+  verifyAgainstEngine?: ExportEngineId;
+  /** Free text the engine attached on completion (verification summary, D4 notice). */
+  message?: string;
+  reportPath?: string;
   // Resolved once ffmpeg starts — ground truth about whether the HW-encoding
   // preference actually picked a hardware encoder or fell back to CPU.
   encoderName?: string;

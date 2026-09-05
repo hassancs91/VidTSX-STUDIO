@@ -22,10 +22,13 @@ import {
 } from '../services/caption-composition';
 import { generateThumbnail } from '../services/thumbnail-generator';
 import { getOutputFolder, getRenderTimeoutSeconds, getRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration } from '../services/settings';
+import { cancelStudioExport, readExportContext, runStudioExport } from '../services/studio/export-engines';
 import { IPC } from '../../shared/ipc/channels';
 import type {
   RenderStartRequest,
   RenderStartResponse,
+  RenderPhase,
+  RenderCompleteEvent,
   RenderCancelRequest,
   RenderCancelResponse,
   RenderQueueGetRequest,
@@ -61,7 +64,7 @@ export async function handleRenderStart(
   const jobId = randomUUID();
   const webContents = event.sender;
 
-  const sendProgress = (percent: number, phase: 'preparing' | 'extracting_audio' | 'bundling' | 'rendering', message?: string, framesRendered?: number, totalFrames?: number): void => {
+  const sendProgress = (percent: number, phase: RenderPhase, message?: string, framesRendered?: number, totalFrames?: number): void => {
     if (webContents.isDestroyed()) return;
     webContents.send(IPC.RENDER_PROGRESS, {
       jobId,
@@ -73,9 +76,10 @@ export async function handleRenderStart(
     });
   };
 
-  const sendComplete = (success: boolean, outputPath?: string, fileSize?: number, error?: string): void => {
+  const sendComplete = (success: boolean, outputPath?: string, fileSize?: number, error?: string, extra?: { message?: string; reportPath?: string }): void => {
     if (webContents.isDestroyed()) return;
-    webContents.send(IPC.RENDER_COMPLETE, { jobId, success, outputPath, fileSize, error });
+    const event: RenderCompleteEvent = { jobId, success, outputPath, fileSize, error, ...extra };
+    webContents.send(IPC.RENDER_COMPLETE, event);
   };
 
   const sendEncoderResolved = (encoderName: string, hardwareAccelerated: boolean): void => {
@@ -216,6 +220,40 @@ export async function handleRenderStart(
       const gpuBackend = data.gpuBackend ?? (await getRenderDefaultGpuBackend());
       const hardwareAcceleration = data.hardwareAcceleration ?? (await getRenderDefaultHardwareAcceleration());
 
+      // Studio exports go through an export engine + the shared finishing
+      // stage (docs/export-engines-plan.md); the bundle above is shared.
+      if (data.exportEngine) {
+        const context = await readExportContext(data.filePath);
+        if (!context) {
+          sendComplete(false, undefined, undefined, 'This export was prepared by an older version. Open the project and export again.');
+          return;
+        }
+        try {
+          const result = await runStudioExport({
+            jobId,
+            engineId: data.exportEngine,
+            verifyAgainstEngine: data.verifyAgainstEngine,
+            project: context.project,
+            entry: context.entry,
+            bundleUrl,
+            outputPath: data.outputPath,
+            render: {
+              crf: data.crf,
+              cpuUsage: data.cpuUsage,
+              gpuBackend,
+              hardwareAcceleration,
+              timeoutInMilliseconds: renderTimeoutSeconds * 1000,
+            },
+            onProgress: (phase, percent, frames, message) => sendProgress(percent, phase, message, frames?.done, frames?.total),
+            onEncoderResolved: (info) => sendEncoderResolved(info.encoderName, info.hardwareAccelerated),
+          });
+          sendComplete(true, result.outputPath, result.fileSize, undefined, { message: result.message, reportPath: result.reportPath });
+        } catch (err) {
+          sendComplete(false, undefined, undefined, err instanceof Error ? err.message : String(err));
+        }
+        return;
+      }
+
       await renderComposition(
         {
           bundleUrl,
@@ -283,7 +321,9 @@ export async function handleRenderCancel(
       return { success: false, error: 'Missing jobId' };
     }
 
-    const cancelled = cancelRender(data.jobId);
+    // A Studio export owns its own signal (engine + audio pass + mux); the
+    // plain Remotion cancel covers every other render.
+    const cancelled = cancelStudioExport(data.jobId) || cancelRender(data.jobId);
     if (!cancelled) {
       return { success: false, error: 'Job not found or already completed' };
     }

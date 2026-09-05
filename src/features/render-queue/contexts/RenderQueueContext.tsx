@@ -126,6 +126,8 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       cpuUsage: nextJob.cpuUsage,
       gpuBackend: nextJob.gpuBackend,
       hardwareAcceleration: nextJob.hardwareAcceleration,
+      exportEngine: nextJob.exportEngine,
+      verifyAgainstEngine: nextJob.verifyAgainstEngine,
     });
 
     if (result.success && result.jobId) {
@@ -191,6 +193,8 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
                 progress: event.success ? 100 : job.progress,
                 fileSize: event.fileSize,
                 error: event.error,
+                message: event.message,
+                reportPath: event.reportPath,
                 completedAt: Date.now(),
               }
             : job
@@ -259,6 +263,8 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       cpuUsage: options.cpuUsage,
       gpuBackend: options.gpuBackend,
       hardwareAcceleration: options.hardwareAcceleration,
+      exportEngine: options.exportEngine,
+      verifyAgainstEngine: options.verifyAgainstEngine,
       status: 'queued',
       progress: 0,
       framesRendered: 0,

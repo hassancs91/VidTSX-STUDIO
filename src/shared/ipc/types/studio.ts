@@ -10,6 +10,7 @@ import type {
 import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
 import type { StudioMemoryProposal, StudioStylePromotionProposal } from '../../types/studio-memory';
 import type { CaptionAspect, CaptionTemplateDefaults } from '../../studio/caption-pack';
+import type { ExportEngineId } from '../../studio/export-engines';
 import type { ChatMessage } from './llm';
 
 // Studio (AI video editor) — projects & media IPC contracts.
@@ -652,6 +653,24 @@ export interface StudioExportPrepareResponse {
   fps?: number;
   durationInFrames?: number;
   error?: string;
+}
+
+/** One registered export engine as the Export dialog / Settings see it:
+ *  availability is a main-process fact (a missing optional binary), the
+ *  wording comes from the shared catalogue. */
+export interface StudioExportEngineStatus {
+  id: ExportEngineId;
+  available: boolean;
+  /** Why it is greyed out, when it is. */
+  unavailableReason?: string;
+}
+
+export interface StudioExportEnginesListResponse {
+  engines: StudioExportEngineStatus[];
+  /** Settings › Rendering default (D2). */
+  defaultId: ExportEngineId;
+  /** Dev builds only: the hidden verification mode (D5) may be offered. */
+  verifyAvailable: boolean;
 }
 
 // ─── Caption templates (D13, PACKS_DESIGN.md) ───────────────────────────────

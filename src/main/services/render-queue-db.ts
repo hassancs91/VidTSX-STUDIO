@@ -9,6 +9,7 @@ import type {
   RenderCodec,
 } from '../../shared/ipc/types';
 import { logEngine } from '../../logging/log-engine';
+import { isExportEngineId } from '../../shared/studio/export-engines';
 
 const log = logEngine.createLogger('render-queue-db');
 
@@ -84,7 +85,18 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_render_history_completed_at ON render_history(completed_at DESC);
   `);
 
+  // Studio export engine (docs/export-engines-plan.md): a queued export must
+  // keep its engine across a restart, or it would silently render the old way.
+  ensureColumn(db, 'render_queue', 'export_engine', 'TEXT');
+
   return db;
+}
+
+function ensureColumn(database: Database.Database, table: string, column: string, type: string): void {
+  const cols = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === column)) {
+    database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }
 
 export function closeDb(): void {
@@ -120,6 +132,7 @@ interface QueueRow {
   input_props: string | null;
   transparent: number | null;
   cpu_usage: string | null;
+  export_engine: string | null;
   status: string;
   progress: number;
   frames_rendered: number;
@@ -167,6 +180,7 @@ function rowToQueueJob(row: QueueRow): RenderQueueJob {
     inputProps: parseInputProps(row.input_props),
     transparent: row.transparent === null ? undefined : row.transparent === 1,
     cpuUsage: row.cpu_usage,
+    exportEngine: isExportEngineId(row.export_engine) ? row.export_engine : undefined,
     status: row.status as RenderQueueJobStatus,
     progress: row.progress,
     framesRendered: row.frames_rendered,
@@ -227,13 +241,13 @@ export function saveQueueJobs(jobs: RenderQueueJob[]): void {
     `INSERT INTO render_queue
        (id, file_name, file_path, bundle_url, composition_id, output_path,
         codec, width, height, fps, crf, muted, scale, every_nth_frame,
-        number_of_gif_loops, input_props, transparent, cpu_usage,
+        number_of_gif_loops, input_props, transparent, cpu_usage, export_engine,
         status, progress, frames_rendered, total_frames, file_size, error,
         created_at, completed_at)
      VALUES
        (@id, @fileName, @filePath, @bundleUrl, @compositionId, @outputPath,
         @codec, @width, @height, @fps, @crf, @muted, @scale, @everyNthFrame,
-        @numberOfGifLoops, @inputProps, @transparent, @cpuUsage,
+        @numberOfGifLoops, @inputProps, @transparent, @cpuUsage, @exportEngine,
         @status, @progress, @framesRendered, @totalFrames, @fileSize, @error,
         @createdAt, @completedAt)`
   );
@@ -260,6 +274,7 @@ export function saveQueueJobs(jobs: RenderQueueJob[]): void {
         inputProps: j.inputProps ? JSON.stringify(j.inputProps) : null,
         transparent: boolToInt(j.transparent),
         cpuUsage: j.cpuUsage ?? null,
+        exportEngine: j.exportEngine ?? null,
         status: j.status,
         progress: j.progress,
         framesRendered: j.framesRendered,

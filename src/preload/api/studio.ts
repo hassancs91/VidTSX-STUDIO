@@ -25,6 +25,7 @@ import type {
   StudioCacheReadRequest,
   StudioCacheReadResponse,
   StudioCreatorProjectsResponse,
+  StudioExportEnginesListResponse,
   StudioExportPrepareRequest,
   StudioExportPrepareResponse,
   StudioMediaImportRequest,
@@ -133,6 +134,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_RELINK, data),
   studioExportPrepare: (data: StudioExportPrepareRequest): Promise<StudioExportPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_EXPORT_PREPARE, data),
+  studioExportEnginesList: (): Promise<StudioExportEnginesListResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_EXPORT_ENGINES_LIST),
   studioTranscribeStart: (data: StudioTranscribeStartRequest): Promise<StudioTranscribeStartResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_TRANSCRIBE_START, data),
   studioTranscribeCancel: (data: StudioTranscribeCancelRequest): Promise<StudioTranscribeCancelResponse> =>

@@ -14,6 +14,7 @@ import {
   handleStudioMediaPrepare,
   handleStudioMediaRelink,
   handleStudioExportPrepare,
+  handleStudioExportEnginesList,
   handleStudioCacheRead,
   handleStudioCacheInfo,
   handleStudioCacheOpen,
@@ -73,6 +74,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_MEDIA_PREPARE, handleStudioMediaPrepare);
   ipcMain.handle(IPC.STUDIO_MEDIA_RELINK, handleStudioMediaRelink);
   ipcMain.handle(IPC.STUDIO_EXPORT_PREPARE, handleStudioExportPrepare);
+  ipcMain.handle(IPC.STUDIO_EXPORT_ENGINES_LIST, handleStudioExportEnginesList);
   ipcMain.handle(IPC.STUDIO_CACHE_READ, handleStudioCacheRead);
   ipcMain.handle(IPC.STUDIO_CACHE_INFO, handleStudioCacheInfo);
   ipcMain.handle(IPC.STUDIO_CACHE_OPEN, handleStudioCacheOpen);

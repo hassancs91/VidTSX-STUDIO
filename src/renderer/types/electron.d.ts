@@ -201,6 +201,7 @@ export interface ElectronAPI {
   settingsSetRenderDefaultCpuUsage: (data: SettingsSetRenderDefaultCpuUsageRequest) => Promise<SettingsSetRenderDefaultCpuUsageResponse>;
   settingsSetRenderDefaultGpuBackend: (data: SettingsSetRenderDefaultGpuBackendRequest) => Promise<SettingsSetRenderDefaultGpuBackendResponse>;
   settingsSetRenderDefaultHardwareAcceleration: (data: SettingsSetRenderDefaultHardwareAccelerationRequest) => Promise<SettingsSetRenderDefaultHardwareAccelerationResponse>;
+  settingsSetRenderDefaultExportEngine: (data: import('../../shared/ipc/types').SettingsSetRenderDefaultExportEngineRequest) => Promise<import('../../shared/ipc/types').SettingsSetRenderDefaultExportEngineResponse>;
   settingsSetCrashReporting: (data: SettingsSetCrashReportingRequest) => Promise<SettingsSetCrashReportingResponse>;
   dialogOpenFolder: () => Promise<DialogOpenFolderResponse>;
 
@@ -443,6 +444,7 @@ export interface ElectronAPI {
   studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
   studioMediaRelink: (data: import('../../shared/ipc/types').StudioMediaRelinkRequest) => Promise<import('../../shared/ipc/types').StudioMediaRelinkResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;
+  studioExportEnginesList: () => Promise<import('../../shared/ipc/types').StudioExportEnginesListResponse>;
   studioTranscribeStart: (data: import('../../shared/ipc/types').StudioTranscribeStartRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeStartResponse>;
   studioTranscribeCancel: (data: import('../../shared/ipc/types').StudioTranscribeCancelRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeCancelResponse>;
   studioCutPlanRun: (data: import('../../shared/ipc/types').StudioCutPlanRunRequest) => Promise<import('../../shared/ipc/types').StudioCutPlanRunResponse>;

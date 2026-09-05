@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-09-06 — EXPORT ENGINES Stage 1 DONE: the engine seam, gated on both reference projects
+
+Building resumed for the export-engines plan (`docs/export-engines-plan.md`, D1–D7
+locked 2026-09-04). Stage 1 = the seam every engine plugs into, the Remotion path
+moved behind it, and the gate met: **the default engine exports `t5-1080p` and
+`t5-1080p-cut` at 0 % of pixels over 24 vs the 2026-09-04 control at frames
+1/300/449/450/451/600/899 (900 frames, `yuv420p tv bt709`), and the audio reads
+0 ms at every window against the DJI camera file (was +42.7 ms on every export).**
+Full log with the numbers: the plan's §Stage 1 log.
+
+- **The seam**: `src/shared/studio/export-engines.ts` (catalogue: ids, trade-off
+  wording, default) + `src/main/services/studio/export-engines/` — `ExportEngine`
+  (`availability`, `produce → { videoPath, audioPath?, notes? }`), registry,
+  `remotion-engine.ts`, `finishing.ts` (D7: probe → mux → probe, fails loudly on a
+  tag mismatch), `run-export.ts`, `verify.ts` + `frame-diff.ts` + `audio-offset.ts`
+  (D5: the T1 instruments in product form), `export-context.ts` (trimmed document
+  beside the entry). Queue jobs carry `exportEngine` (new DB column); the render
+  handler branches on it after the shared bundle step. Settings › Rendering
+  "Default Studio export" (D2); Studio's Export button now opens `ExportDialog.tsx`
+  — picker on the default, labels are the trade-off, never the mechanism (D3);
+  dev verify controls behind localStorage `vidtsx:export-verify`.
+- **Three findings that shaped it**: (1) a separate Remotion audio-only pass
+  costs 7 min against 8.6 min of frames (Remotion re-downloads the 1.3 GB source
+  per `renderMedia`), so the Remotion engine renders one pass to `.mkv` with PCM
+  audio and hands it over — the finishing stage still owns the only AAC encode;
+  (2) Remotion's `colorSpace: 'bt709'` leaves primaries/transfer untagged —
+  `remotion-color-args.ts` extends its zscale filter; (3) the +42.7 ms was AAC
+  priming lost in Remotion's ADTS stream-copy — PCM in, one `aac` encode → 0 ms.
+- **Verified in the real app over CDP** (`scripts/bench/export-engine-run.mjs`
+  drives the dialog): `t5-1080p` 522 s render-start → file; `t5-1080p-cut` 9 min
+  + its verification reference; verify mode on a seeded 3 s two-clip project:
+  Remotion vs Remotion diff 0 at 7 frames, audio 0 ms, report + stills beside the
+  export. Remotion's bundled ffmpeg has no `select`/`hstack`/rawvideo/f32 — the
+  instrument seeks, pipes WAV and tiles in JS.
+- Gates: check:types 26/22 (baseline), vitest 1,350 green (+35). Not done, Stage 4
+  tickets: queue rows persist `framesRendered 0`; `%TEMP%\remotion-v4…` copies
+  per render. Left on disk: project `t5-1080p-cut3s`, three exports + two
+  `.verify-remotion.mp4` + one `.verify/` folder under `Videos\VidTSX`.
+- **Next: Stage 2** — `passthrough-engine.ts` at the narrowest predicate under
+  T1's four conditions, audio as an ffmpeg one pass handed over as `audioPath`,
+  gated by the verify mode against the Remotion engine on both reference projects.
+
 ## 2026-09-05 (later) — VIDEO PROVIDERS Stage 1 DONE: provider registry (refactor, nothing user-visible)
 
 `src/shared/providers/registry.ts` is now the single definition of every shared BYOK

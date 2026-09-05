@@ -1,5 +1,6 @@
 import { dialog, IpcMainInvokeEvent } from 'electron';
-import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getCrashReportingEnabled, setCrashReportingEnabled, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getRenderDefaultExportEngine, setRenderDefaultExportEngine, getCrashReportingEnabled, setCrashReportingEnabled, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { DEFAULT_EXPORT_ENGINE_ID, isExportEngineId } from '../../shared/studio/export-engines';
 import { isCrashReportingAvailable, setCrashReportingConsent } from '../services/crash-reporting';
 import { setAiModelsFolderPath } from '../services/audio-models';
 import type {
@@ -18,6 +19,8 @@ import type {
   SettingsSetRenderDefaultGpuBackendResponse,
   SettingsSetRenderDefaultHardwareAccelerationRequest,
   SettingsSetRenderDefaultHardwareAccelerationResponse,
+  SettingsSetRenderDefaultExportEngineRequest,
+  SettingsSetRenderDefaultExportEngineResponse,
   SettingsSetCrashReportingRequest,
   SettingsSetCrashReportingResponse,
   DialogOpenFolderResponse,
@@ -33,11 +36,28 @@ export async function handleSettingsGet(): Promise<SettingsGetResponse> {
     const renderDefaultCpuUsage = await getRenderDefaultCpuUsage();
     const renderDefaultGpuBackend = await getRenderDefaultGpuBackend();
     const renderDefaultHardwareAcceleration = await getRenderDefaultHardwareAcceleration();
+    const renderDefaultExportEngine = await getRenderDefaultExportEngine();
     const crashReportingEnabled = await getCrashReportingEnabled();
-    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable() };
+    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, renderDefaultExportEngine, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable() };
   } catch (err) {
     // Return defaults on error, let UI handle default
-    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', crashReportingEnabled: false, crashReportingAvailable: false };
+    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, crashReportingEnabled: false, crashReportingAvailable: false };
+  }
+}
+
+export async function handleSettingsSetRenderDefaultExportEngine(
+  _event: IpcMainInvokeEvent,
+  data: SettingsSetRenderDefaultExportEngineRequest
+): Promise<SettingsSetRenderDefaultExportEngineResponse> {
+  try {
+    if (!isExportEngineId(data.exportEngine)) {
+      return { success: false, error: `Unknown export engine: ${String(data.exportEngine)}` };
+    }
+    await setRenderDefaultExportEngine(data.exportEngine);
+    return { success: true };
+  } catch (err) {
+    const error = err instanceof Error ? err.message : 'Failed to save settings';
+    return { success: false, error };
   }
 }
 
@@ -229,6 +249,7 @@ export const settingsHandlers = {
   handleSettingsSetRenderDefaultCpuUsage,
   handleSettingsSetRenderDefaultGpuBackend,
   handleSettingsSetRenderDefaultHardwareAcceleration,
+  handleSettingsSetRenderDefaultExportEngine,
   handleSettingsSetCrashReporting,
   handleDialogOpenFolder,
   handlePromptPresetsGet,

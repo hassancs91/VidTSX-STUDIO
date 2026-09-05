@@ -1,8 +1,9 @@
 # Export engines — the passthrough build as an opt-in engine
 
 > Decided with Hasan 2026-09-04, right after T1 (`docs/PREVIEW_TESTS_PLAN.md`
-> §T1) proved the passthrough join inside the WYSIWYG tolerance. Nothing
-> below is built yet. Companion: `docs/studio/PLAN.md` §5 ("smart render"),
+> §T1) proved the passthrough join inside the WYSIWYG tolerance. Stage 1 (the
+> engine seam) is built and gated — see §Stage 1 log at the end; Stages 2–4
+> are not. Companion: `docs/studio/PLAN.md` §5 ("smart render"),
 > `docs/PREVIEW_ARCHITECTURE.md` §C2 (why only the identity transform is a
 > safe fast path).
 
@@ -59,7 +60,7 @@ frame**, 900 frames, audio lag 0 ms at every window.
 
 | stage | scope | done when |
 |---|---|---|
-| **1 — engine seam** | `ExportEngine` interface + registry in main (`src/main/services/studio/export-engines/`), the Remotion path moved behind it untouched, the shared finishing stage (D7) with the audio correction (D6), Settings default + Export dialog picker (D2/D3), verification mode behind a dev flag (D5) | the default engine exports byte-for-byte what it did before, minus the 42.7 ms; the picker exists but lists one engine |
+| **1 — engine seam** · **DONE 2026-09-05** | `ExportEngine` interface + registry in main (`src/main/services/studio/export-engines/`), the Remotion path moved behind it untouched, the shared finishing stage (D7) with the audio correction (D6), Settings default + Export dialog picker (D2/D3), verification mode behind a dev flag (D5) | the default engine exports byte-for-byte what it did before, minus the 42.7 ms; the picker exists but lists one engine — **met**: `t1-diff` vs the 2026-09-04 control 0 % over 24 at 1/300/449/450/451/600/899 on both reference projects, 900 frames, `yuv420p tv bt709`, audio 0 ms at every window vs the camera file (log below) |
 | **2 — passthrough, narrowest predicate** | single video track, pure cuts, no effects/captions/shots; the span planner decides from the document alone; touched spans still go to the browser and are encoded per condition 2; join per condition 3; "copies N %" in the dialog; the D4 message | T1 gate passes on both reference projects; the 3 h T6 project exports in about an hour instead of days |
 | **3 — widen the predicate** | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled |
 | **4 — polish** | progress that shows copied vs rendered time, cancel that cleans intermediates, the temp-copy leak from T5, the CPU-usage setting reaching Studio exports | tickets closed, `STATUS.md` row |
@@ -67,3 +68,84 @@ frame**, 900 frames, audio lag 0 ms at every window.
 Open, not blocking: the clap test (D6) on the first Stage 1 build; whether
 the fast engine should also become the default once Stage 3 has held for a
 release.
+
+## Stage 1 log — the engine seam · DONE 2026-09-05/06
+
+**What the seam looks like.** `src/shared/studio/export-engines.ts` is the
+catalogue (ids, the user-facing trade-off wording, the default); the
+implementations live in `src/main/services/studio/export-engines/`:
+`types.ts` (`ExportEngine`: `availability()` + `produce(input) → { videoPath,
+audioPath?, notes? }`), `registry.ts` (register / resolve / list, catalogue
+ids only), `remotion-engine.ts` (engine 1), `finishing.ts` (D7: probe →
+mux → probe), `run-export.ts` (engine → audio → finish → verify, owns the
+scratch dir and the cancel signal), `verify.ts` + `frame-diff.ts` +
+`audio-offset.ts` (D5: the T1 instruments in product form, pure maths
+unit-tested), `export-context.ts` (the trimmed document written beside the
+entry so a queued job survives a restart). A render-queue job carries
+`exportEngine`; `render-handlers.ts` branches on it after the bundle step
+every render shares. Settings › Rendering "Default Studio export" (D2);
+Studio's Export button opens `ExportDialog.tsx` — picker on the default,
+labels show the trade-off, never the mechanism (D3); the dev verify
+controls appear only when localStorage `vidtsx:export-verify` is `1` in a
+dev build. Adding an engine = one catalogue entry, one file, one
+`registerExportEngine` line.
+
+**Three findings that changed the shape while building:**
+
+1. *One browser walk, not two.* The first cut rendered video-only and ran a
+   separate Remotion audio-only pass for D7's "single audio pass": 8.6 min
+   of frames + **7 min of audio** on t5-1080p — Remotion downloads every
+   source again per `renderMedia` call (1.3 GB over loopback), video
+   disabled or not. So an engine may hand over the audio its one pass
+   produced (`audioPath`); the Remotion engine renders `.mkv` with
+   `audioCodec: 'pcm-16'` and the finishing stage still owns the only AAC
+   encode. `audio-pass.ts` stays for engines that make no audio.
+2. *Remotion's `colorSpace: 'bt709'` tags only matrix + range*; primaries
+   and transfer come out "unknown" (its `-color_primaries`/`-color_trc`
+   flags lose to the zscale output). `src/main/services/remotion-color-args.ts`
+   extends the pre-stitcher's zscale filter (`primaries=709:transfer=709`,
+   a pure tag on the same pixels). The finishing stage verifies all five
+   tags before and after the mux and fails loudly on a mismatch (the first
+   run did: "colour primaries is untagged").
+3. *The +42.7 ms was AAC priming*: Remotion compresses its mixed WAV to raw
+   ADTS and stream-copies it into the mp4, so the 2048-sample encoder delay
+   is never declared. PCM in, one `aac` encode in the mux (320 kb/s, cutoff
+   18 kHz — Remotion's settings) → 0 ms.
+
+**Gate (the DONE criterion), default engine through the real dialog over CDP:**
+
+| project | file | `t1-diff` vs control 2 at 1 / 300 / 449 / 450 / 451 / 600 / 899 | `t1-audio-offset` vs `raw/DJI_20260813142309_0270_D.MP4` at 0.5 / 7 / 13.5 / 14.5 / 15.2 / 16 / 22 / 29 s | wall |
+|---|---|---|---|---|
+| `t5-1080p` | `studio-t5-1080p_2026-09-05T20-26-51.mp4`, 900 frames, `yuv420p tv bt709 bt709 bt709`, 31,222,896 B | **0 % over 24 at every frame**; mean 1.26–2.04/255, 1.0–2.2 % over 8, max 51 (the 601-full → 709-limited round trip, both files decoded to RGB) | **0 ms at every window, corr 1.000** | 522 s from render start to file (frames + mux) |
+| `t5-1080p-cut` | `studio-t5-1080p-cut_2026-09-05T20-38-40.mp4`, 900 frames, same tags, same byte count | **0 % over 24 at every frame**, rows identical to the single-clip export (byte-identical frames, as T1 measured) | **0 ms at every window, corr 1.000** | 9 min, then the verification reference |
+
+Verification mode (D5) on the seeded 3 s two-clip project `t5-1080p-cut3s`
+(`…/Videos/VidTSX/studio-t5-1080p-cut3s_2026-09-05T21-00-46.verify.json`):
+Remotion vs Remotion → 7 frames (1, 30, 44, 45, 46, 60, 89), **diff 0 at
+every frame**, audio vs reference 0 ms; 148 s for both renders + the diff.
+Stills (a | b | ×8 diff) beside the report. The camera-file audio check
+needs a first clip longer than 2 s (skipped on the seed; the 30 s gate rows
+above are that check, run by hand).
+
+**Remotion's bundled ffmpeg has no `select`, `hstack`, rawvideo muxer/demuxer
+or f32 muxer**, so the instrument seeks (`-ss (n − ½)/fps`, byte-identical
+to `select=eq(n,N)`), pipes WAV, and tiles stills in JS → image2pipe → png.
+
+Gates: check:types 26/22 (baseline), 1,350 vitest green (+35: catalogue,
+registry, settings default, colour policy, frame diff, audio offset, verify
+helpers, zscale rewrite). Bench: `scripts/bench/export-engine-run.mjs`
+(the real dialog over CDP, `--verify=<engine>`), `export-engine-wait.mjs`.
+
+Left on disk: projects `t5-1080p-cut3s` (seed), the three 2026-09-05 exports
++ two `.verify-remotion.mp4` references + a `.verify/` stills folder under
+`Videos\VidTSX`. Not done (Stage 4 tickets): queue rows persist
+`framesRendered 0`, the `%TEMP%\remotion-v4…` asset copies per render.
+
+**Stage 2's first commit:** `passthrough-engine.ts` + its catalogue entry
+(needsFullFfmpeg) + one registry line, producing `{ videoPath }` only for a
+single-video-track pure-cut timeline: the span planner from the document,
+copied spans via ffmpeg-full with T1's nearest-pts select, browser spans
+through the Remotion engine re-encoded by our ffmpeg, TS intermediates,
+and an ffmpeg one-pass audio handed over as `audioPath` — gated by the
+verify mode above against the Remotion engine on `t5-1080p` and
+`t5-1080p-cut`.

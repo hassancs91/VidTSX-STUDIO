@@ -10,6 +10,7 @@ import type {
   StudioCacheOpenResponse,
   StudioCacheReadRequest,
   StudioCacheReadResponse,
+  StudioExportEnginesListResponse,
   StudioExportPrepareRequest,
   StudioExportPrepareResponse,
   StudioMediaImportRequest,
@@ -89,6 +90,8 @@ import { loadAgentChat, resetAgentChat, saveAgentChat } from '../services/studio
 import { findSttEntry } from '../../shared/presets/stt-models';
 import { transcriptionEngine } from '../../transcription-engine';
 import { createExportEntry } from '../services/studio/export-entry';
+import { isExportVerifyAvailable, listExportEngineStatus } from '../services/studio/export-engines';
+import { getRenderDefaultExportEngine } from '../services/settings';
 import { ensureAssetServerUrl } from '../services/remotion-bundler';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../services/module-server';
 import { timelineDuration } from '../../shared/studio/time-math';
@@ -460,6 +463,16 @@ export async function handleStudioExportPrepare(
     return { success: true, ...entry };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare export') };
+  }
+}
+
+/** Export dialog / Settings picker rows (docs/export-engines-plan.md D2/D3). */
+export async function handleStudioExportEnginesList(): Promise<StudioExportEnginesListResponse> {
+  const defaultId = await getRenderDefaultExportEngine();
+  try {
+    return { engines: await listExportEngineStatus(), defaultId, verifyAvailable: isExportVerifyAvailable() };
+  } catch {
+    return { engines: [{ id: defaultId, available: true }], defaultId, verifyAvailable: false };
   }
 }
 

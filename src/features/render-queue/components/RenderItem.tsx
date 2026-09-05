@@ -67,7 +67,9 @@ export function RenderItem({ job, onCancel, onRetry, onOpenFile, onOpenFolder }:
           const label =
             phase === 'preparing' ? 'Preparing' :
             phase === 'extracting_audio' ? 'Extracting audio' :
-            phase === 'bundling' ? 'Bundling' : 'Working';
+            phase === 'bundling' ? 'Bundling' :
+            phase === 'finishing' ? (liveProgress?.message ?? 'Finishing') :
+            phase === 'verifying' ? 'Verifying' : 'Working';
           return `${label}... ${Math.round(progress)}%`;
         }
         return `${Math.round(progress)}%`;

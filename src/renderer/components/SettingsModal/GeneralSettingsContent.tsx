@@ -1,10 +1,12 @@
 import { Button, SectionHeader } from '@shared/components';
 import type { RenderCpuUsage, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
+import type { ExportEngineId } from '@shared/studio/export-engines';
 import { AppInfoSection } from './AppInfoSection';
 import { RenderTimeoutRow } from './rows/RenderTimeoutRow';
 import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
 import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
+import { ExportEngineDefaultRow } from './rows/ExportEngineDefaultRow';
 import { CrashReportingRow } from './rows/CrashReportingRow';
 import { ProxyGpuEncoderRow } from './rows/ProxyGpuEncoderRow';
 import { NewsRow } from './rows/NewsRow';
@@ -16,6 +18,7 @@ export function GeneralSettingsContent({
   renderDefaultCpuUsage,
   renderDefaultGpuBackend,
   renderDefaultHardwareAcceleration,
+  renderDefaultExportEngine,
   crashReportingEnabled,
   crashReportingAvailable,
   settingsLoading,
@@ -24,6 +27,7 @@ export function GeneralSettingsContent({
   setRenderDefaultCpuUsage,
   setRenderDefaultGpuBackend,
   setRenderDefaultHardwareAcceleration,
+  setRenderDefaultExportEngine,
   setCrashReportingEnabled,
 }: {
   outputFolder: string;
@@ -31,6 +35,7 @@ export function GeneralSettingsContent({
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  renderDefaultExportEngine: ExportEngineId;
   crashReportingEnabled: boolean;
   crashReportingAvailable: boolean;
   settingsLoading: boolean;
@@ -39,6 +44,7 @@ export function GeneralSettingsContent({
   setRenderDefaultCpuUsage: (value: RenderCpuUsage) => Promise<boolean>;
   setRenderDefaultGpuBackend: (value: RenderGpuBackend) => Promise<boolean>;
   setRenderDefaultHardwareAcceleration: (value: RenderHardwareAcceleration) => Promise<boolean>;
+  setRenderDefaultExportEngine: (value: ExportEngineId) => Promise<boolean>;
   setCrashReportingEnabled: (enabled: boolean) => Promise<boolean>;
 }) {
   const truncatePath = (p: string, maxLen = 40) => {
@@ -89,6 +95,11 @@ export function GeneralSettingsContent({
         <HardwareAccelerationDefaultRow
           renderDefaultHardwareAcceleration={renderDefaultHardwareAcceleration}
           setRenderDefaultHardwareAcceleration={setRenderDefaultHardwareAcceleration}
+          settingsLoading={settingsLoading}
+        />
+        <ExportEngineDefaultRow
+          renderDefaultExportEngine={renderDefaultExportEngine}
+          setRenderDefaultExportEngine={setRenderDefaultExportEngine}
           settingsLoading={settingsLoading}
         />
         <RenderTimeoutRow

@@ -157,7 +157,9 @@ export function RenderItemDetails({ job }: RenderItemDetailsProps) {
               value={
                 liveProgress.phase === 'preparing' ? 'Preparing' :
                 liveProgress.phase === 'extracting_audio' ? 'Extracting audio' :
-                liveProgress.phase === 'bundling' ? 'Bundling' : liveProgress.phase
+                liveProgress.phase === 'bundling' ? 'Bundling' :
+                liveProgress.phase === 'finishing' ? (liveProgress.message ?? 'Finishing') :
+                liveProgress.phase === 'verifying' ? (liveProgress.message ?? 'Verifying') : liveProgress.phase
               }
             />
           )}

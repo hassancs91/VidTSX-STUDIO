@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import { getRemotionBinariesDir } from '../utils/paths';
 import { snapRenderScale } from '../../shared/render-scale';
 import { renderAnimatedWebp } from './webp/webp-render';
+import { withBt709FilterTags } from './remotion-color-args';
 import type {
   RenderCodec,
   RenderGpuBackend,
@@ -44,6 +45,16 @@ export interface RenderOptions {
   hardwareAcceleration?: RenderHardwareAcceleration;
   // Per-frame timeout passed to Remotion. undefined = use DEFAULT_RENDER_TIMEOUT_MS.
   timeoutInMilliseconds?: number;
+  // Remotion's colorSpace: 'bt709' converts the frames to limited-range
+  // BT.709 and tags them (yuv420p tv bt709) — the Studio export engines'
+  // shared colour policy. undefined = Remotion default (yuvj420p pc bt470bg,
+  // what every non-Studio render has always produced).
+  colorSpace?: 'bt709';
+  // Audio track codec. 'pcm-16' keeps Remotion's mixed WAV as-is (the output
+  // must be .mkv for h264) — the Studio export engines take it that way so the
+  // only AAC encode happens in their finishing stage, with the encoder delay
+  // recorded. undefined = Remotion default (AAC via raw ADTS, stream-copied).
+  audioCodec?: 'pcm-16';
 }
 
 const DEFAULT_RENDER_TIMEOUT_MS = 600_000;
@@ -173,6 +184,7 @@ export async function renderComposition(
     // pre-stitcher/stitcher phases.
     let encoderReported = false;
     const ffmpegOverride = (info: { type: 'pre-stitcher' | 'stitcher'; args: string[] }): string[] => {
+      const args = options.colorSpace === 'bt709' ? withBt709FilterTags(info.args) : info.args;
       if (!encoderReported) {
         const encoderName = extractVideoEncoder(info.args);
         if (encoderName) {
@@ -183,7 +195,7 @@ export async function renderComposition(
           });
         }
       }
-      return info.args;
+      return args;
     };
 
     // Remotion's stitchFramesToVideo rejects fractional output widths (e.g.
@@ -298,6 +310,8 @@ export async function renderComposition(
       // at ~10–15% larger files for the same CRF. Remotion strict-validates this
       // option and rejects any codec other than h264, so spread it conditionally.
       ...(options.codec === 'h264' ? { x264Preset: 'veryfast' as const } : {}),
+      ...(options.colorSpace ? { colorSpace: options.colorSpace } : {}),
+      ...(options.audioCodec ? { audioCodec: options.audioCodec } : {}),
       ffmpegOverride,
       timeoutInMilliseconds: PER_FRAME_TIMEOUT_MS,
       cancelSignal,

@@ -6,6 +6,7 @@ import type { ContentPresetSetting, RenderGpuBackend, RenderHardwareAcceleration
 import type { ProviderCredentials, ProviderKeyId } from '../../shared/ipc/types/provider-keys';
 import type { SttProviderConfig } from '../../shared/ipc/types/stt';
 import type { ModelUsageMap } from '../../shared/model-library/types';
+import { normalizeExportEngineId, type ExportEngineId } from '../../shared/studio/export-engines';
 import { getAllValues, getValue, setValue, setValues } from './settings-db';
 
 export type RenderCpuUsage = 'low' | 'medium' | 'high' | 'max';
@@ -34,6 +35,7 @@ export interface AppSettings {
   renderDefaultCpuUsage: RenderCpuUsage;
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
+  renderDefaultExportEngine: ExportEngineId;
   llmProviders?: ProviderConfig[];
   llmActiveProvider?: string;
   imageProviders?: ImageProviderConfig[];
@@ -141,6 +143,7 @@ export async function loadSettings(): Promise<AppSettings> {
     renderDefaultCpuUsage: normalizeCpuUsage(raw.renderDefaultCpuUsage),
     renderDefaultGpuBackend: normalizeGpuBackend(raw.renderDefaultGpuBackend),
     renderDefaultHardwareAcceleration: normalizeHardwareAcceleration(raw.renderDefaultHardwareAcceleration),
+    renderDefaultExportEngine: normalizeExportEngineId(raw.renderDefaultExportEngine),
     llmProviders: raw.llmProviders as ProviderConfig[] | undefined,
     llmActiveProvider: raw.llmActiveProvider as string | undefined,
     imageProviders: raw.imageProviders as ImageProviderConfig[] | undefined,
@@ -217,6 +220,17 @@ export async function getRenderDefaultHardwareAcceleration(): Promise<RenderHard
 
 export async function setRenderDefaultHardwareAcceleration(value: RenderHardwareAcceleration): Promise<void> {
   setValue('renderDefaultHardwareAcceleration', normalizeHardwareAcceleration(value));
+}
+
+// Studio export engine the Export dialog starts on (docs/export-engines-plan.md
+// D2). Ships as the catalogue's first entry; an unknown saved id (an engine
+// removed in a later build) falls back to it rather than blocking exports.
+export async function getRenderDefaultExportEngine(): Promise<ExportEngineId> {
+  return normalizeExportEngineId(getValue<string>('renderDefaultExportEngine'));
+}
+
+export async function setRenderDefaultExportEngine(value: ExportEngineId): Promise<void> {
+  setValue('renderDefaultExportEngine', normalizeExportEngineId(value));
 }
 
 // Opt-in crash reporting (Settings > Privacy). Off unless the user explicitly
@@ -512,6 +526,8 @@ export const settingsService = {
   setRenderDefaultGpuBackend,
   getRenderDefaultHardwareAcceleration,
   setRenderDefaultHardwareAcceleration,
+  getRenderDefaultExportEngine,
+  setRenderDefaultExportEngine,
   getCrashReportingEnabled,
   setCrashReportingEnabled,
   getNewsEnabled,
