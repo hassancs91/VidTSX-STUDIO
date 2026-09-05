@@ -405,7 +405,7 @@ the shared runtime; TripoSG / Hunyuan3D-2mini need the 8 GB VM to validate.
     `%USERPROFILE%\.wrangler`, `AWS_*`/`R2_*`/`CLOUDFLARE_*` env). `scripts/ai-runtime/upload-r2.ps1` (rclone, multipart —
     wrangler's `r2 object put` cannot take a 2.6 GB object) is written; the README header lists the one-time
     `rclone config create r2 s3 provider=Cloudflare …` step. Catalogue URLs are printed with the placeholder
-    `https://R2_PUBLIC_BASE_URL` until the bucket's custom domain exists (`-BaseUrl` / `VIDTSX_R2_PUBLIC_BASE`).
+    `https://R2_PUBLIC_BASE_URL` at build time; Hasan supplied the custom domain **https://cdn.vidtsx.com** (bucket `vidtsx-cdn`) on 2026-09-05 and it became the scripts’ default.
   - **cpu build: 252 s total** — copy 4.6 s, sync 21.6 s, prune 11.7 s (include 40.2 MB, .lib 44.1 MB, 151 `tests` dirs
     42.5 MB), flatten 2.2 s, selftest 65.9 s (triposr 4.0 s cuda=false; rembg 61.7 s first launch), **zip 127 s**, sha256 0.9 s.
     Result: **14,190 files, 899,222,488 B on disk → `2026.09.1-cpu.zip` 279,969,216 B (267 MiB), sha256
@@ -417,3 +417,51 @@ the shared runtime; TripoSG / Hunyuan3D-2mini need the 8 GB VM to validate.
   - **Stage 1 status: DONE except the R2 upload** (blocked on credentials, see above). Catalogue entries for both variants
     are in `.vidtsx-temp/ai-runtime/2026.09.1-{cu126,cpu}.catalogue.ts` (placeholder base URL) and in the session
     report; they enter code in Stage 2 (`catalogue.ts`). Next: Stage 2 (§3).
+- 2026-09-05 — **R2 upload.** Hasan created bucket `vidtsx-cdn` (custom domain **https://cdn.vidtsx.com**) and put a read-write
+  and a read-only S3 key pair in the git-ignored `.env` (`R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID_RW`/`_R`,
+  `R2_SECRET_ACCESS_KEY_RW`/`_R`). `upload-r2.ps1` now reads `.env`, defines the rclone remote through process-local
+  `RCLONE_CONFIG_R2_*` variables (no config file with secrets), and fetches a portable rclone 1.75.1 into
+  `%LOCALAPPDATA%\vidtsx-tools\rclone\` when none is on PATH. Bucket-scoped tokens cannot `ListBuckets` (403 on `lsd r2:`),
+  so the preflight lists inside the bucket. The read-only key is for checks only — the app never carries a key; the
+  bucket is public through the custom domain.
+  - Attempt 1 (4 × 64 MB parts, rclone defaults): **failed at 43 % after 12 min** — a ~20 s outage made the S3 SDK report
+    `failed to get rate limit token, retry quota exceeded` (StatusCode 0) and each of rclone's 3 whole-file retries
+    restarted from zero within seconds. Upload speed here is ~2 MB/s (cu126 ≈ 22 min).
+  - Attempt 2 flags: `--s3-chunk-size 32M --s3-upload-concurrency 1 --low-level-retries 60 --retries 6 --retries-sleep 30s
+    --timeout 5m --contimeout 1m`, cpu variant first.
+  - Attempt 2: **cpu uploaded in 183 s, remote size verified, public URL live** (`https://cdn.vidtsx.com/ai-runtime/2026.09.1-cpu.zip`
+    → 200, Content-Length 279,969,216; `.sha256` sidecar readable). cu126 upload in progress at ~2 MB/s with per-part retries
+    absorbing the blips (rclone's counter passed 100 % because retried parts are counted twice; no whole-file restart).
+  - **cu126 uploaded: 2,815.9 s (47 min, 0.9 MB/s effective incl. retried parts), remote size verified, public URL live**
+    (`https://cdn.vidtsx.com/ai-runtime/2026.09.1-cu126.zip` → 200, Content-Length 2,758,592,573). **Both runtimes are on R2.**
+    The `-CheckReadOnly` probe crashed on a PS 5.1 quirk (`2>$null` on a native command under `$ErrorActionPreference='Stop'`
+    → NativeCommandError) after the read-only key had successfully listed 6 objects; fixed (`-q`, no redirect) and re-run below.
+  - Re-run with `-SkipUpload -CheckReadOnly`: both remote sizes verified, both public URLs HEAD 200 with matching Content-Length,
+    read-only key lists the 6 objects and gets **403 AccessDenied on PutObject** — permissions are as intended. `upload-r2.ps1`
+    gained `-SkipUpload` for exactly this re-check.
+- 2026-09-05 — **Stage 2 built while the upload ran** (Hasan: "can't we continue building while uploading?"). Four pathspec
+  commits: `18c4855` download-engine `mirrors[]` fallback (+2 tests); `ae63347` `src/main/services/ai-runtime/` (catalogue with both
+  entries, manifest reader, pure preflight — variant by driver ≥ 525.60 + VRAM ≥ 4 GB, path budget 259 − maxRel − 1, disk = zip +
+  extracted + 5 % —, nvidia-smi facts incl. driver, selftest/warm-up spawner mapping `0xC0000106` → path-too-long, install with
+  inflight guard → engine task into `<name>.tmp` → manifest check → both selftests → `triposr --warmup` → atomic rename → old
+  versions removed, repair, remove, status state machine, `registerRuntime('pytorch', kind 'python-runtime')`; runners gain
+  `--warmup` and the request path emits `stage: "import"` — MUST-change #6 resolved; `check:links` now sweeps every `*.links.test`;
+  28 unit tests incl. the install flow against a mocked engine); `be447e0` IPC `ai-runtime:status/install/repair/remove` +
+  `status-changed` push, preload, `useAiRuntime` hook, `AiRuntimeRow` on the System tab (Install recommended / "Use the smaller
+  CPU-only runtime" / Update / Repair / Remove, DownloadCell progress, Verifying / Warming-up phases, preflight issues inline, "?"
+  tooltip with licences), replacing the PyTorch-wheel row + Python panel; `f7ea855` retire `detectPython/detectPyTorch/cachedWheels`,
+  `PYTORCH_PIP_INSTALL` (channel, handler, preload, types), `SystemInfoGetResponse.engines.pytorch/python`, `getPython*` in paths.ts,
+  and `resources/python` (891 files). Gates: 1,210 vitest tests pass, check:types at baseline (26/22).
+  Design notes: the install "verify" step warms **both** pipelines (rembg first launch ≈ 60 s here); status is pushed on every
+  phase change rather than polled; the row stays behind `ai-system-runtimes` until Stage 3 (set `VITE_FF_AI_SYSTEM_RUNTIMES=1`
+  in `.env` to see it in dev — done on this box). Deferred to Stage 5: sha256 on whisper/SD model downloads and whisper onto the
+  download engine (plan §3 step 10 "while here" items).
+  - **Stage 2 E2E on this box (dev app driven over CDP, `VITE_FF_AI_SYSTEM_RUNTIMES=1`):** the row rendered "AI Runtime · Not
+    installed · Install GPU runtime · 2.8 GB / Use the smaller CPU-only runtime (280 MB)" with the recommendation reason (GTX 1650 Ti,
+    driver 592.82). First probe caught a real bug: the disk guard read 0 bytes free because the runtime root did not exist yet →
+    `freeBytesAt` now walks up to the nearest existing ancestor. Clicking the CPU link: **installed in 266 s** — download 130 s
+    (267 MB from cdn.vidtsx.com at 1–3.5 MB/s, engine `verifying` → `extracting` 58 s), then the service phases `verifying`
+    (triposr selftest 9 s) → `warming-up` (rembg 57 s first launch, triposr `--warmup` 9 s) → `installed · CPU · 2026.09.1`,
+    946 MB in `%APPDATA%\VidTSX Studio\ai-runtime\2026.09.1-cpu`. Remove from the row deletes the folder. Not exercised here: the
+    2.6 GB cu126 download path (same code, ~25 min at this uplink) and Repair — both are Stage 5 checklist items.
+    Dev note: `electron-vite dev` needs `-w` to rebuild the main process on change (docs/ui-automation-cdp.md recipe lacks it).

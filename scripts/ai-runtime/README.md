@@ -27,7 +27,7 @@ version; a model that needs new pins goes into the *next* runtime version, never
 | `build-stack.ps1 <variant> <version>` | the build: interpreter → sync → prune → flatten licences → selftest → `manifest.json` → zip → sha256 → catalogue entry |
 | `stack-tools.py` | stdlib helper used by the build: tree stats and the reproducible deflate/zip64 archive |
 | `verify-stack.mjs <zip>` | the Stage 1 test: extract with the app's exact `unzipper` call, check the manifest, run both pipelines' `--selftest` |
-| `upload-r2.ps1 -Version … -Bucket …` | rclone upload of both zips + sidecars to R2, prints URLs |
+| `upload-r2.ps1 -Version …` | rclone upload of both zips + sidecars to R2 using the `.env` keys, prints URLs |
 
 The worker scripts the runtime executes live in `resources/pipelines/` (shipped in the installer
 via `extraResources`): `common/protocol.py`, `triposr/runner.py` + vendored `tsr/`, `rembg/runner.py`.
@@ -64,11 +64,16 @@ Measured 2026-09-04 on the dev box with a warm uv cache: cu126 build 405 s (zip 
    `--expect-cuda` only on a box with an NVIDIA card. `--force-cpu` sets `CUDA_VISIBLE_DEVICES=-1`
    (the value must be `-1`, never empty — Win32 drops empty env values). The first selftest on freshly
    extracted files takes ~30 s (Defender scanning ~27k new files); that is expected and recorded.
-5. **Upload to R2** (one-time rclone setup is in the header of `upload-r2.ps1`):
+5. **Upload to R2.** Credentials live in the repo's git-ignored `.env` (`R2_ACCOUNT_ID`, `R2_BUCKET_NAME`,
+   `R2_ACCESS_KEY_ID_RW` / `R2_SECRET_ACCESS_KEY_RW`; the `_R` pair is read-only and only used by
+   `-CheckReadOnly`). The script hands them to rclone as process-local `RCLONE_CONFIG_R2_*` variables and
+   fetches a portable rclone into `%LOCALAPPDATA%\vidtsx-tools\rclone\` on first use.
    ```powershell
-   powershell -File scripts\ai-runtime\upload-r2.ps1 -Version 2026.09.1 -Bucket <bucket> -BaseUrl https://<custom domain>
+   powershell -File scripts\ai-runtime\upload-r2.ps1 -Version 2026.09.1 -BaseUrl https://<public domain> -CheckReadOnly
    ```
-   Objects land at `ai-runtime/<version>-<variant>.zip` (+ `.sha256`, `.manifest.json`).
+   Objects land at `ai-runtime/<version>-<variant>.zip` (+ `.sha256`, `.manifest.json`). Remote sizes are
+   checked after each upload; with `-BaseUrl` the public URL is HEAD-checked too. The bucket must be publicly
+   readable (custom domain or r2.dev URL) — the app never carries a key.
 6. **Paste the two catalogue entries** (`.catalogue.ts`, with the real base URL) into
    `src/main/services/ai-runtime/catalogue.ts` (Stage 2), then `npm run check:links` and
    `npm run check:types`.

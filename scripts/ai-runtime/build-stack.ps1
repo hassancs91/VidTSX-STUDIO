@@ -45,8 +45,8 @@ param(
   # Where the runtime folder, zip and sidecars land.
   [string]$OutDir,
 
-  # Public base of the R2 bucket (custom domain). Falls back to $env:VIDTSX_R2_PUBLIC_BASE,
-  # then to a placeholder you must replace before pasting the catalogue entry.
+  # Public base of the R2 bucket. Default: $env:VIDTSX_R2_PUBLIC_BASE, else the bucket's custom
+  # domain https://cdn.vidtsx.com (bucket vidtsx-cdn, prefix ai-runtime/).
   [string]$BaseUrl,
 
   [ValidateRange(1, 9)]
@@ -66,7 +66,7 @@ $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repo = (Resolve-Path (Join-Path $here '..\..')).Path
 if (-not $OutDir) { $OutDir = Join-Path $repo '.vidtsx-temp\ai-runtime' }
 if (-not $BaseUrl) {
-  if ($env:VIDTSX_R2_PUBLIC_BASE) { $BaseUrl = $env:VIDTSX_R2_PUBLIC_BASE } else { $BaseUrl = 'https://R2_PUBLIC_BASE_URL' }
+  if ($env:VIDTSX_R2_PUBLIC_BASE) { $BaseUrl = $env:VIDTSX_R2_PUBLIC_BASE } else { $BaseUrl = 'https://cdn.vidtsx.com' }
 }
 $BaseUrl = $BaseUrl.TrimEnd('/')
 
