@@ -24,6 +24,11 @@ def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--request", type=str)
     ap.add_argument("--selftest", action="store_true")
+    # --warmup: selftest + import the whole pipeline (transformers, rembg, skimage, trimesh) and exit.
+    # The app runs it once after installing the runtime so the first launch of fresh files
+    # (Defender scan + .pyc compilation, ~100 s in Stage 0) happens then, not on the user's
+    # first generation.
+    ap.add_argument("--warmup", action="store_true")
     return ap.parse_args()
 
 
@@ -50,10 +55,10 @@ def emit_ready(torch):
 def main():
     args = parse_args()
     P.install_cancel_handlers()
-    if not args.selftest and not args.request:
-        raise P.RequestError("--request <file> or --selftest is required")
+    if not args.selftest and not args.warmup and not args.request:
+        raise P.RequestError("--request <file>, --selftest or --warmup is required")
 
-    req = {} if args.selftest else P.read_request(args.request)
+    req = {} if (args.selftest or args.warmup) else P.read_request(args.request)
     if req.get("rembgHome"):
         os.environ["U2NET_HOME"] = req["rembgHome"]   # must precede `import rembg`
 
@@ -63,11 +68,19 @@ def main():
     if args.selftest:
         return
 
+    P.stage("import")
     import numpy as np
     from PIL import Image, ImageOps
     import trimesh
     from tsr.system import TSR
     from tsr.utils import remove_background, resize_foreground, scale_tensor, get_spherical_cameras
+
+    if args.warmup:
+        import rembg  # noqa: F401  (onnxruntime + pymatting/numba, the other slow first import)
+        import skimage.measure  # noqa: F401
+        P.emit({"type": "result", "outputPath": None,
+                "stats": {"warmup": True, "seconds": round(time.perf_counter() - T0, 2)}})
+        return
 
     for key in ("imagePath", "outputPath", "modelDir", "dinoConfigPath"):
         if not req.get(key):

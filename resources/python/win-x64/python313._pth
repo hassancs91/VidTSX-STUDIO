@@ -1,5 +1,0 @@
-python313.zip
-.
-
-# Enable site packages so pip works
-import site

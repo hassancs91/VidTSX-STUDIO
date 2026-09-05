@@ -30,6 +30,7 @@ export * from './studio';
 export * from './studio-memory';
 export * from './studio-package';
 export * from './system';
+export * from './ai-runtime';
 export * from './thumbnail';
 export * from './transcription';
 export * from './tsx-jobs';

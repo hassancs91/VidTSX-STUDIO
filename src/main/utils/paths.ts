@@ -123,23 +123,27 @@ export async function ensureTempDir(): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
-export function getPythonDir(): string {
-  // In production, electron-builder copies the platform-specific folder to resources/python/
+// ─── AI runtime (downloadable Python + PyTorch) ───────────────────────────
+// docs/ai-runtime-implementation-plan.md §3. The runtime itself is downloaded into
+// userData; the worker scripts it runs ship with the app in resources/pipelines.
+
+export function getAiRuntimeRoot(): string {
+  return path.join(app.getPath('userData'), 'ai-runtime');
+}
+
+/** `{userData}/ai-runtime/<version>-<variant>` — the extracted runtime folder. */
+export function getAiRuntimeDir(version: string, variant: string): string {
+  return path.join(getAiRuntimeRoot(), `${version}-${variant}`);
+}
+
+export function getAiRuntimePython(version: string, variant: string): string {
+  return path.join(getAiRuntimeDir(version, variant), 'python', 'python.exe');
+}
+
+export function getPipelinesDir(): string {
+  // Dev: resources/pipelines in the repo. Packaged: resources/pipelines via extraResources.
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'python');
+    return path.join(process.resourcesPath, 'pipelines');
   }
-  // In dev, resolve the platform+arch subdirectory
-  const platformDir = process.platform === 'win32'
-    ? 'win-x64'
-    : `darwin-${process.arch}`;
-  return path.join(app.getAppPath(), 'resources', 'python', platformDir);
-}
-
-export function getPythonExePath(): string {
-  const exe = process.platform === 'win32' ? 'python.exe' : 'bin/python3';
-  return path.join(getPythonDir(), exe);
-}
-
-export function getPythonPackagesDir(): string {
-  return path.join(app.getPath('userData'), 'python-packages');
+  return path.join(app.getAppPath(), 'resources', 'pipelines');
 }

@@ -46,6 +46,8 @@ def parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--request", type=str)
     ap.add_argument("--selftest", action="store_true")
+    # Same as --selftest here: the selftest already imports everything this pipeline uses.
+    ap.add_argument("--warmup", action="store_true")
     return ap.parse_args()
 
 
@@ -65,10 +67,11 @@ def model_file(rembg_home: str, model: str) -> str:
 def main():
     args = parse_args()
     P.install_cancel_handlers()
-    if not args.selftest and not args.request:
-        raise P.RequestError("--request <file> or --selftest is required")
+    selftest = args.selftest or args.warmup
+    if not selftest and not args.request:
+        raise P.RequestError("--request <file>, --selftest or --warmup is required")
 
-    req = {} if args.selftest else P.read_request(args.request)
+    req = {} if selftest else P.read_request(args.request)
     if req.get("rembgHome"):
         os.environ["U2NET_HOME"] = req["rembgHome"]   # must precede `import rembg`; wins over REMBG_HOME
 
@@ -83,7 +86,7 @@ def main():
         rembg_version = "unknown"
 
     emit_ready(ort, rembg_version)
-    if args.selftest:
+    if selftest:
         return
 
     for key in ("imagePath", "outputPath", "rembgHome"):

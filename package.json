@@ -21,7 +21,7 @@
     "preview": "electron-vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:links": "cross-env CHECK_LINKS=1 vitest run model-registry.links",
+    "check:links": "cross-env CHECK_LINKS=1 vitest run .links.test",
     "check:types": "node scripts/check-types.mjs"
   },
   "devDependencies": {
