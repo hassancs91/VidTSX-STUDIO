@@ -141,7 +141,16 @@ export async function preflightPythonModel(modelId: string): Promise<PythonModel
 
   // Runtime missing / update / broken: is it installable here?
   const status = await getAiRuntimeStatus();
-  const rec = status.variants[status.recommendedVariant];
+  let variant = status.recommendedVariant;
+  let rec = status.variants[variant];
+  // The GPU build may fail a guard the CPU build passes (7.7 GB vs 1.2 GB of disk):
+  // offer the CPU runtime instead of a dead end (Stage 5 disk-guard E2E).
+  let fallbackNote = '';
+  if (rec.issue && variant === 'cu126' && status.variants.cpu.issue === null) {
+    fallbackNote = ` The GPU runtime cannot be installed here (${rec.issue.message.replace(/\.$/, '')}), so the smaller CPU runtime is offered instead.`;
+    variant = 'cpu';
+    rec = status.variants.cpu;
+  }
   if (rec.issue) {
     const reason = rec.issue.code === 'path-too-long' ? 'path-too-long' : rec.issue.code === 'disk' ? 'disk' : rec.issue.code === 'unsupported-platform' ? 'unsupported-platform' : 'runtime-missing';
     return { ready: false, modelId, reason, message: rec.issue.message };
@@ -158,7 +167,7 @@ export async function preflightPythonModel(modelId: string): Promise<PythonModel
           : modelMissing
             ? `Download ${runtimeLabel} and ${modelLabel(bytesMissing)}`
             : `Download ${runtimeLabel}`,
-    variant: status.recommendedVariant,
+    variant,
     runtimeBytes: rec.bytes,
     modelBytes: bytesMissing,
   };
@@ -170,7 +179,7 @@ export async function preflightPythonModel(modelId: string): Promise<PythonModel
       : rt.state === 'update-available'
         ? `${what} runs on your computer. This version of the app needs AI runtime ${AI_RUNTIME_VERSION}.`
         : `${what} runs on your computer. Download the AI runtime (${rec.sizeLabel})${modelMissing ? ` and the model (${formatModelBytes(bytesMissing)})` : ''}?`;
-  return { ready: false, modelId, reason, message, action };
+  return { ready: false, modelId, reason, message: message + fallbackNote, action };
 }
 
 /**

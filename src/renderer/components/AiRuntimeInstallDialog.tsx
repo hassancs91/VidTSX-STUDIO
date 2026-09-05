@@ -46,7 +46,7 @@ export function AiRuntimeInstallDialog({ title, preflight, note, onConfirm, onCa
           <p className="text-[11px] text-text-dim leading-relaxed">
             The AI runtime is a separate Python + PyTorch download kept in the app data folder. It powers background removal and Image → 3D and can be removed any time from the AI page (System tab).
             {note ? ` ${note}` : ''}
-            {recommended && runtime ? ` Recommended here: the ${VARIANT_LABEL[recommended]} runtime — ${runtime.recommendationReason}` : ''}
+            {recommended && runtime && recommended === runtime.recommendedVariant ? ` Recommended here: the ${VARIANT_LABEL[recommended]} runtime — ${runtime.recommendationReason}` : ''}
           </p>
         )}
         {!action && (
