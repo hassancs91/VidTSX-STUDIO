@@ -9,6 +9,7 @@ import { RenderScreen, RenderQueueProvider, useRenderQueue } from "@features/ren
 import { MotionScreen } from "@features/motion";
 import { ImageStudioScreen } from "@features/image-studio";
 import { VideoStudioScreen } from "@features/video-studio";
+import { ThreeDStudioScreen } from "@features/threed-studio";
 import { AssetLibraryScreen } from "@features/asset-library";
 import { ToolsHubScreen } from "@features/tools";
 import { AiModelsScreen } from "@features/ai-models";
@@ -27,6 +28,7 @@ const screens: Record<string, React.ComponentType> = {
   flows: FlowsScreen,
   'image-studio': ImageStudioScreen,
   'video-studio': VideoStudioScreen,
+  'threed-studio': ThreeDStudioScreen,
   assets: AssetLibraryScreen,
   tools: ToolsHubScreen,
   'ai-models': AiModelsScreen,

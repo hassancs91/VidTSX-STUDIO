@@ -5,6 +5,8 @@ import { resolve } from 'path'
 // pure services. Tests run in a Node environment (no Electron); core modules must
 // not import 'electron', so nothing here shims it.
 export default defineConfig({
+  // Component smoke tests render with the automatic JSX runtime (no React import).
+  esbuild: { jsx: 'automatic' },
   resolve: {
     alias: {
       '@shared': resolve('src/shared'),

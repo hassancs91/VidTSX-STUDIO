@@ -11,11 +11,13 @@ interface ImportMetaEnv {
   readonly VITE_FF_TOOLS?: string
   readonly VITE_FF_FLOWS?: string
   readonly VITE_FF_VIDEO_STUDIO?: string
+  readonly VITE_FF_THREED_STUDIO?: string;
   readonly VITE_FF_AI_VIDEO?: string
   readonly VITE_FF_AI_LLM?: string
   readonly VITE_FF_AI_3D?: string
   readonly VITE_FF_AI_EMBEDDINGS?: string
   readonly VITE_FF_AI_AUDIO_ENGINE?: string
+  readonly VITE_FF_AI_SYSTEM_RUNTIMES?: string
   /** Custom compat-endpoint provider form (H5, renderer). */
   readonly VITE_FF_CUSTOM_PROVIDER?: string
   /** Restore the V1-hidden LLM presets (H4, MAIN process — llm-handlers). */

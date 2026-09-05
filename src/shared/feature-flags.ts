@@ -13,6 +13,8 @@ const ENV_GATED: Record<string, string | boolean | undefined> = {
   flows: import.meta.env.VITE_FF_FLOWS,
   'flows-editor': import.meta.env.VITE_FF_FLOWS,
   'video-studio': import.meta.env.VITE_FF_VIDEO_STUDIO,
+  // 3D Studio (image → 3D on the AI runtime) — dev-visible via VITE_FF_THREED_STUDIO until Stage 5
+  'threed-studio': import.meta.env.VITE_FF_THREED_STUDIO,
   // AI page — local model sub-tabs
   'ai-video-models': import.meta.env.VITE_FF_AI_VIDEO,
   'ai-llm-models': import.meta.env.VITE_FF_AI_LLM,
@@ -20,6 +22,9 @@ const ENV_GATED: Record<string, string | boolean | undefined> = {
   'ai-embedding-models': import.meta.env.VITE_FF_AI_EMBEDDINGS,
   // Sherpa voice-engine section inside the Audio tab
   'audio-engine': import.meta.env.VITE_FF_AI_AUDIO_ENGINE,
+  // AI page — System tab rows for runtimes no feature consumes yet
+  // (Python panel, PyTorch Runtime row, Embedding Engine card).
+  'ai-system-runtimes': import.meta.env.VITE_FF_AI_SYSTEM_RUNTIMES,
   // Custom OpenAI/Anthropic-compatible endpoint form (Phase H5): flagged off
   // so V1 ships exactly one engine path (agent-sdk). The form itself is
   // untouched — only its entry point is gated. Returns un-flagged in V2.
