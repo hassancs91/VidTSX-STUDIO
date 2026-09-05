@@ -21,6 +21,8 @@ import { registerLocalLlmIpc } from './registrations/local-llm';
 import { registerSystemIpc } from './registrations/system';
 import { registerDownloadIpc } from './registrations/download';
 import { registerAiRuntimeIpc } from './registrations/ai-runtime';
+import { registerPythonModelsIpc } from './registrations/python-models';
+import { registerRembgIpc } from './registrations/rembg';
 import { registerModerationIpc } from './registrations/moderation';
 import { registerContentSafetyIpc } from './registrations/content-safety';
 import { registerAiUsageIpc } from './registrations/ai-usage';
@@ -63,6 +65,8 @@ export function registerAllIPC(): void {
   registerSystemIpc();
   registerDownloadIpc();
   registerAiRuntimeIpc();
+  registerPythonModelsIpc();
+  registerRembgIpc();
   registerModerationIpc();
   registerContentSafetyIpc();
   registerAiUsageIpc();

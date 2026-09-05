@@ -6,7 +6,10 @@ import { useImageGeneration } from '../hooks/useImageGeneration';
 import { usePromptPresets } from '../hooks/usePromptPresets';
 import { useActiveImageProvider } from '../hooks/useActiveImageProvider';
 import { useImageSelection } from '../hooks/useImageSelection';
+import { useRemoveBackground } from '../hooks/useRemoveBackground';
 import { ControlPanel } from './ControlPanel';
+import { RemoveBackgroundDialog } from './RemoveBackgroundDialog';
+import { RemoveBackgroundStatus } from './RemoveBackgroundStatus';
 import { ImageGallery } from './ImageGallery';
 import { FolderBreadcrumb } from './FolderBreadcrumb';
 import { CreateFolderDialog } from './CreateFolderDialog';
@@ -121,6 +124,30 @@ export function ImageStudioScreen() {
     onImageSaved,
     activeFolderId,
   });
+
+  // "Remove background" (AI runtime + rembg): gallery images, the lightbox, and files
+  // dropped or picked from outside the app. The hook owns the job; main does the work.
+  const rembg = useRemoveBackground({
+    onImageSaved,
+    onDone: (_entry, seconds) => showToast(`Background removed in ${seconds.toFixed(1)}s`, 'success'),
+    activeFolderId,
+  });
+  const removeBgFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleRemoveBackground = useCallback((image: GalleryImage) => {
+    void rembg.start({ kind: 'image', id: image.id }, image.fileName);
+  }, [rembg]);
+
+  const handleRemoveBackgroundFile = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = String(reader.result).split(',')[1] ?? '';
+      if (!base64) return;
+      void rembg.start({ kind: 'base64', base64, fileName: file.name, contentType: file.type }, file.name);
+    };
+    reader.onerror = () => showToast('Could not read that file', 'error');
+    reader.readAsDataURL(file);
+  }, [rembg, showToast]);
 
   // Show toast for hook errors
   useEffect(() => {
@@ -276,7 +303,7 @@ export function ImageStudioScreen() {
     filteredImages.length > 0 && selectedIds.size === filteredImages.length;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       {/* Toolbar */}
       <div
         className="flex items-center h-[40px] px-3 bg-app-surface shrink-0 gap-2"
@@ -306,6 +333,35 @@ export function ImageStudioScreen() {
 
         {/* Search & filters */}
         <div className="flex items-center gap-1.5">
+          {/* Remove background from a file outside the gallery */}
+          <button
+            type="button"
+            className="h-[26px] px-2 rounded flex items-center gap-1 text-[11px] bg-app-base border border-border text-text-secondary hover:border-accent hover:text-accent-light transition-colors disabled:opacity-50"
+            onClick={() => removeBgFileInputRef.current?.click()}
+            disabled={rembg.job !== null}
+            title="Remove the background of an image file (or drop one onto the gallery)"
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="6" cy="6" r="3" />
+              <circle cx="6" cy="18" r="3" />
+              <line x1="20" y1="4" x2="8.12" y2="15.88" />
+              <line x1="14.47" y1="14.48" x2="20" y2="20" />
+              <line x1="8.12" y1="8.12" x2="12" y2="12" />
+            </svg>
+            Remove background…
+          </button>
+          <input
+            ref={removeBgFileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleRemoveBackgroundFile(file);
+              e.target.value = '';
+            }}
+          />
+
           {/* New Folder button */}
           {activeFolderId === null && (
             <button
@@ -457,6 +513,8 @@ export function ImageStudioScreen() {
           onDelete={removeEntry}
           onBulkDelete={handleBulkDelete}
           onUseAsInput={handleUseAsInput}
+          onRemoveBackground={handleRemoveBackground}
+          onDropImageFile={handleRemoveBackgroundFile}
           selectedIds={selectedIds}
           onToggleSelect={handleToggleSelect}
           onSelectAll={handleSelectAll}
@@ -469,7 +527,12 @@ export function ImageStudioScreen() {
         />
       </div>
 
+      <RemoveBackgroundStatus job={rembg.job} error={rembg.error} onCancel={() => void rembg.cancel()} onDismissError={rembg.clearError} />
+
       {/* Dialogs */}
+      {rembg.prompt && (
+        <RemoveBackgroundDialog prompt={rembg.prompt} onConfirm={(v) => void rembg.confirmInstall(v)} onCancel={rembg.dismissPrompt} />
+      )}
       {showCreateFolder && (
         <CreateFolderDialog
           onConfirm={handleCreateFolder}

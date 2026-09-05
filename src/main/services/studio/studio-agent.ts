@@ -36,6 +36,8 @@ import { addPromotion, hasPendingPromotion } from './agent-style-promotions';
 import { applyStyleNotesPromotion } from '../../../shared/studio/brand';
 import { MEMORY_TEXT_LIMITS } from '../../../shared/types/studio-memory';
 import { generateImageAsset } from '../library/generate-image-asset';
+import { preflightRemoveBackground, removeBackgroundAsset } from '../library/remove-background-asset';
+import { pythonModelById } from '../python-models/registry';
 import { captureWebpage } from '../library/capture';
 import {
   captureScripted,
@@ -60,6 +62,7 @@ const ALLOWED_TOOLS = [
   'mcp__studio__generate_tsx_shot',
   'mcp__studio__propose_shots',
   'mcp__studio__generate_image',
+  'mcp__studio__remove_background',
   'mcp__studio__capture_webpage',
   'mcp__studio__capture_scripted',
   'mcp__studio__propose_memory',
@@ -539,6 +542,44 @@ class StudioAgentService {
       },
     );
 
+    // remove_background (plan §7b wave-1): the catalogue descriptor supplies the tool
+    // id, description and option schema; the library bridge runs the shared service.
+    const rembgProfile = pythonModelById('rembg-u2net');
+    const removeBackgroundTool = tool(
+      rembgProfile?.capability.toolId ?? 'remove_background',
+      `${rembgProfile?.capability.description ?? 'Remove the background from an image.'} Takes a "library:<path>" ref (from generate_image / capture_webpage, or any library image) and files the cut-out next to it as "<name>-nobg.png" (origin: generated). Returns a new "library:<path>" ref for generate_tsx_shot assetRefs. Needs the AI runtime installed (AI page → System tab); when it is missing the tool says so instead of installing.`,
+      {
+        image: z.string().describe('The source image as a "library:<path>" ref'),
+        ...(rembgProfile ? { alphaMatting: rembgProfile.capability.options.alphaMatting, postProcessMask: rembgProfile.capability.options.postProcessMask } : {}),
+      },
+      async (args) => {
+        this.emit({ projectId: req.projectId, kind: 'tool', tool: 'remove_background', detail: args.image.slice(0, 60) });
+        try {
+          const pre = await preflightRemoveBackground();
+          if (!pre.ready) {
+            return text(
+              `Background removal is not available yet: ${pre.message}${pre.action ? ` The user can fix it from the AI page (System tab): "${pre.action.label}".` : ''} Ask the user to install it, then try again.`,
+              true,
+            );
+          }
+          const asset = await removeBackgroundAsset({
+            relPath: args.image,
+            options: {
+              ...(typeof args.alphaMatting === 'boolean' ? { alphaMatting: args.alphaMatting } : {}),
+              ...(typeof args.postProcessMask === 'boolean' ? { postProcessMask: args.postProcessMask } : {}),
+            },
+            signal,
+          });
+          return text(
+            `Background removed → ${LIBRARY_REF_PREFIX}${asset.relPath}${asset.width && asset.height ? ` (${asset.width}×${asset.height}` : ' ('}, ${asset.seconds.toFixed(1)} s). ` +
+              `Use it in generate_tsx_shot assetRefs, e.g. { "cutout": "${LIBRARY_REF_PREFIX}${asset.relPath}" }.`,
+          );
+        } catch (err) {
+          return text(`Background removal failed: ${err instanceof Error ? err.message : String(err)}`, true);
+        }
+      },
+    );
+
     const captureWebpageTool = tool(
       'capture_webpage',
       'Screenshot a webpage into the asset library (origin: captured, description: page title + URL) — screenshot material for shots. Hidden by default; pass visible=true for login-walled pages (the window opens for the user to log in and navigate, then THEY click "Capture now" — can take minutes). Returns a "library:<path>" ref for generate_tsx_shot assetRefs.',
@@ -834,7 +875,7 @@ class StudioAgentService {
     return createSdkMcpServer({
       name: 'studio',
       version: '1.0.0',
-      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, captureWebpageTool, captureScriptedTool, proposeMemory, proposeStylePromotion],
+      tools: [getTranscript, proposeCuts, listShots, generateTsxShot, proposeShots, generateImage, removeBackgroundTool, captureWebpageTool, captureScriptedTool, proposeMemory, proposeStylePromotion],
     });
   }
 }

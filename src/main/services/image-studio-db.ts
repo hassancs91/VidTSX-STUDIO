@@ -63,6 +63,13 @@ export function getDb(): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_refs_created_at ON reference_images(created_at DESC);
   `);
 
+  // Additive migration: images.derived_from (the gallery image a result was made from,
+  // e.g. "Remove background"). Older databases lack the column.
+  const cols = db.prepare('PRAGMA table_info(images)').all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === 'derived_from')) {
+    db.exec('ALTER TABLE images ADD COLUMN derived_from TEXT');
+  }
+
   return db;
 }
 
@@ -89,7 +96,10 @@ interface ImageRow {
   created_at: number;
   duration_ms: number;
   folder_id: string | null;
+  derived_from: string | null;
 }
+
+const IMAGE_COLUMNS = 'id, file_name, prompt, model, width, height, content_type, created_at, duration_ms, folder_id, derived_from';
 
 function rowToEntry(row: ImageRow): ImageStudioEntry {
   return {
@@ -103,6 +113,7 @@ function rowToEntry(row: ImageRow): ImageStudioEntry {
     createdAt: row.created_at,
     durationMs: row.duration_ms,
     folderId: row.folder_id,
+    derivedFrom: row.derived_from,
   };
 }
 
@@ -216,10 +227,7 @@ export async function listImages(): Promise<{
   await fs.mkdir(getImagesDir(), { recursive: true });
   const database = getDb();
   const imageRows = database
-    .prepare(
-      `SELECT id, file_name, prompt, model, width, height, content_type, created_at, duration_ms, folder_id
-       FROM images ORDER BY created_at DESC`
-    )
+    .prepare(`SELECT ${IMAGE_COLUMNS} FROM images ORDER BY created_at DESC`)
     .all() as ImageRow[];
   const folderRows = database
     .prepare('SELECT id, name, created_at FROM folders ORDER BY created_at DESC')
@@ -228,6 +236,80 @@ export async function listImages(): Promise<{
     entries: imageRows.map(rowToEntry),
     folders: folderRows.map(rowToFolder),
     basePath: getImagesDir(),
+  };
+}
+
+/** One gallery entry by id, or null. */
+export function getImageEntry(id: string): ImageStudioEntry | null {
+  const row = getDb().prepare(`SELECT ${IMAGE_COLUMNS} FROM images WHERE id = ?`).get(id) as ImageRow | undefined;
+  return row ? rowToEntry(row) : null;
+}
+
+/** Absolute path of a gallery image's file, or null when unknown / outside the images dir. */
+export function getImageFilePath(id: string): string | null {
+  const row = getDb().prepare('SELECT file_name FROM images WHERE id = ?').get(id) as { file_name: string } | undefined;
+  if (!row) return null;
+  return safeResolvePath(getImagesDir(), row.file_name);
+}
+
+/**
+ * Register a file that a service already wrote INTO the images folder (e.g. the
+ * background-removal result) as a gallery entry. The file must live directly in
+ * getImagesDir(); the row records where it came from through `derivedFrom`.
+ */
+export async function registerImageFile(
+  filePath: string,
+  metadata: {
+    prompt: string;
+    model: string;
+    width: number | null;
+    height: number | null;
+    contentType: string;
+    durationMs: number;
+    folderId?: string | null;
+    derivedFrom?: string | null;
+  },
+): Promise<ImageStudioEntry> {
+  const fileName = path.basename(filePath);
+  if (safeResolvePath(getImagesDir(), fileName) !== path.resolve(filePath)) {
+    throw new Error('registerImageFile: the file must be inside the Image Studio images folder');
+  }
+  await fs.stat(filePath); // throws if missing
+  const database = getDb();
+  let folderId = metadata.folderId ?? null;
+  if (folderId && !database.prepare('SELECT 1 FROM folders WHERE id = ?').get(folderId)) folderId = null;
+  const id = crypto.randomUUID();
+  const createdAt = Date.now();
+  database
+    .prepare(
+      `INSERT INTO images (id, file_name, prompt, model, width, height, content_type, created_at, duration_ms, folder_id, derived_from)
+       VALUES (@id, @fileName, @prompt, @model, @width, @height, @contentType, @createdAt, @durationMs, @folderId, @derivedFrom)`
+    )
+    .run({
+      id,
+      fileName,
+      prompt: metadata.prompt,
+      model: metadata.model,
+      width: metadata.width,
+      height: metadata.height,
+      contentType: metadata.contentType,
+      createdAt,
+      durationMs: metadata.durationMs,
+      folderId,
+      derivedFrom: metadata.derivedFrom ?? null,
+    });
+  return {
+    id,
+    fileName,
+    prompt: metadata.prompt,
+    model: metadata.model,
+    width: metadata.width,
+    height: metadata.height,
+    contentType: metadata.contentType,
+    createdAt,
+    durationMs: metadata.durationMs,
+    folderId,
+    derivedFrom: metadata.derivedFrom ?? null,
   };
 }
 

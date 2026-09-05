@@ -19,9 +19,10 @@ interface ImageLightboxProps {
   onCopy: (id: string) => void;
   onDelete: (id: string) => void;
   onUseAsInput: (image: GalleryImage) => void;
+  onRemoveBackground?: (image: GalleryImage) => void;
 }
 
-export function ImageLightbox({ images, currentIndex, onNavigate, onClose, onSaveAs, onCopy, onDelete, onUseAsInput }: ImageLightboxProps) {
+export function ImageLightbox({ images, currentIndex, onNavigate, onClose, onSaveAs, onCopy, onDelete, onUseAsInput, onRemoveBackground }: ImageLightboxProps) {
   const image = images[currentIndex];
   const total = images.length;
   const hasPrev = total > 1;
@@ -129,6 +130,11 @@ export function ImageLightbox({ images, currentIndex, onNavigate, onClose, onSav
           <Button variant="secondary" onClick={() => onUseAsInput(image)}>
             Use as Input
           </Button>
+          {onRemoveBackground && (
+            <Button variant="secondary" onClick={() => onRemoveBackground(image)}>
+              Remove background
+            </Button>
+          )}
           <Button variant="secondary" onClick={() => onSaveAs(image.id)}>
             Save As
           </Button>

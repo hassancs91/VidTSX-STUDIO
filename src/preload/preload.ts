@@ -19,6 +19,8 @@ import { tsxJobsApi } from './api/tsx-jobs';
 import { modelLibraryApi } from './api/model-library';
 import { systemApi } from './api/system';
 import { aiRuntimeApi } from './api/ai-runtime';
+import { pythonModelsApi } from './api/python-models';
+import { rembgApi } from './api/rembg';
 import { localLlmApi } from './api/local-llm';
 import { downloadApi } from './api/download';
 import { embeddingApi } from './api/embedding';
@@ -57,6 +59,8 @@ const api = {
   ...modelLibraryApi,
   ...systemApi,
   ...aiRuntimeApi,
+  ...pythonModelsApi,
+  ...rembgApi,
   ...localLlmApi,
   ...downloadApi,
   ...embeddingApi,

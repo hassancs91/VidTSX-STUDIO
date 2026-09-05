@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ErrorBanner } from '@shared/components';
+import { isFeatureEnabled } from '@shared/feature-flags';
 import type { ModelSetupConfig } from '@shared/ipc/types';
 import { useImageLibrary } from '../hooks/useImageLibrary';
 import { ImageLibraryHeader } from './ImageLibraryHeader';
@@ -8,6 +9,11 @@ import { GeminiCliSetupCard } from './GeminiCliSetupCard';
 import { InstalledModelsList } from './InstalledModelsList';
 import { ProfileCatalogList } from './ProfileCatalogList';
 import { ModelSetupDialog, type ModelSetupResult } from './ModelSetupDialog';
+import { ImageToolsSection } from './ImageToolsSection';
+
+// Runtime-backed image tools (background removal) stay behind the runtime flag until
+// Stage 5 of docs/ai-runtime-implementation-plan.md.
+const SHOW_IMAGE_TOOLS = isFeatureEnabled('ai-system-runtimes');
 
 function baseName(p: string): string {
   const parts = p.split(/[\\/]/);
@@ -88,6 +94,8 @@ export function ImageModelsContent() {
             onCancel={lib.cancelDownload}
             onOpenExternal={lib.openExternal}
           />
+
+          {SHOW_IMAGE_TOOLS && <ImageToolsSection />}
         </div>
       )}
 

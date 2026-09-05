@@ -51,6 +51,16 @@ const MoveOutIcon = () => (
   </svg>
 );
 
+const ScissorsIcon = () => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="6" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <line x1="20" y1="4" x2="8.12" y2="15.88" />
+    <line x1="14.47" y1="14.48" x2="20" y2="20" />
+    <line x1="8.12" y1="8.12" x2="12" y2="12" />
+  </svg>
+);
+
 const CheckIcon = () => (
   <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12" />
@@ -64,6 +74,8 @@ interface ImageCardProps {
   onCopy: (id: string) => void;
   onDelete: (id: string) => void;
   onUseAsInput: (image: GalleryImage) => void;
+  /** "Remove background" — omitted when the feature is unavailable. */
+  onRemoveBackground?: (image: GalleryImage) => void;
   onMoveToRoot?: (id: string) => void;
   selected?: boolean;
   selectionMode?: boolean;
@@ -77,6 +89,7 @@ export function ImageCard({
   onCopy,
   onDelete,
   onUseAsInput,
+  onRemoveBackground,
   onMoveToRoot,
   selected = false,
   selectionMode = false,
@@ -153,6 +166,11 @@ export function ImageCard({
             <ActionButton title="Use as Input" onClick={(e) => { e.stopPropagation(); onUseAsInput(image); }}>
               <UseAsInputIcon />
             </ActionButton>
+            {onRemoveBackground && (
+              <ActionButton title="Remove background" onClick={(e) => { e.stopPropagation(); onRemoveBackground(image); }}>
+                <ScissorsIcon />
+              </ActionButton>
+            )}
             <ActionButton title="Save As" onClick={(e) => { e.stopPropagation(); onSaveAs(image.id); }}>
               <DownloadIcon />
             </ActionButton>

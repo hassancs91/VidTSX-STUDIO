@@ -34,6 +34,9 @@ interface ImageGalleryProps {
   onDelete: (id: string) => void;
   onBulkDelete: (ids: string[]) => Promise<void> | void;
   onUseAsInput: (image: GalleryImage) => void;
+  onRemoveBackground?: (image: GalleryImage) => void;
+  /** An image file dropped onto the gallery from outside the app. */
+  onDropImageFile?: (file: File) => void;
   onFolderClick: (folderId: string) => void;
   onFolderRename: (id: string, name: string) => void;
   onFolderDelete: (id: string) => void;
@@ -59,6 +62,8 @@ export function ImageGallery({
   onDelete,
   onBulkDelete,
   onUseAsInput,
+  onRemoveBackground,
+  onDropImageFile,
   onFolderClick,
   onFolderRename,
   onFolderDelete,
@@ -136,6 +141,33 @@ export function ImageGallery({
     setViewingIndex(null);
   }, [onUseAsInput]);
 
+  const handleRemoveBackground = useCallback((image: GalleryImage) => {
+    onRemoveBackground?.(image);
+    setViewingIndex(null);
+  }, [onRemoveBackground]);
+
+  // External file drop (Explorer → gallery): the file is handed to the screen, which
+  // runs "Remove background" on it. Internal card drags carry text/image-id, not files.
+  const [fileDragOver, setFileDragOver] = useState(false);
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes('Files');
+  const handleFileDragOver = useCallback((e: React.DragEvent) => {
+    if (!onDropImageFile || !hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setFileDragOver(true);
+  }, [onDropImageFile]);
+  const handleFileDragLeave = useCallback((e: React.DragEvent) => {
+    if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+    setFileDragOver(false);
+  }, []);
+  const handleFileDrop = useCallback((e: React.DragEvent) => {
+    if (!onDropImageFile || !hasFiles(e)) return;
+    e.preventDefault();
+    setFileDragOver(false);
+    const file = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+    if (file) onDropImageFile(file);
+  }, [onDropImageFile]);
+
   const handleConfirmBulkDelete = useCallback(async () => {
     const ids = Array.from(selectedIds);
     setShowBulkDelete(false);
@@ -187,7 +219,17 @@ export function ImageGallery({
   const allVisibleSelected = images.length > 0 && selectionCount === images.length;
 
   return (
-    <div className={isEmpty ? 'flex-1 min-h-0 flex flex-col p-4' : 'flex-1 min-h-0 overflow-auto p-4 relative'}>
+    <div
+      className={isEmpty ? 'flex-1 min-h-0 flex flex-col p-4 relative' : 'flex-1 min-h-0 overflow-auto p-4 relative'}
+      onDragOver={handleFileDragOver}
+      onDragLeave={handleFileDragLeave}
+      onDrop={handleFileDrop}
+    >
+      {fileDragOver && (
+        <div className="absolute inset-2 z-40 rounded-lg border-2 border-dashed border-accent bg-app-base/80 flex items-center justify-center pointer-events-none">
+          <span className="text-[12px] text-accent-light">Drop an image to remove its background</span>
+        </div>
+      )}
       {/* Sticky bulk action bar */}
       {selectionMode && (
         <div
@@ -278,6 +320,7 @@ export function ImageGallery({
                       onCopy={onCopy}
                       onDelete={requestDelete}
                       onUseAsInput={onUseAsInput}
+                      onRemoveBackground={onRemoveBackground ? handleRemoveBackground : undefined}
                       onMoveToRoot={onMoveToRoot}
                       selected={selectedIds.has(image.id)}
                       selectionMode={selectionMode}
@@ -348,6 +391,7 @@ export function ImageGallery({
           onCopy={onCopy}
           onDelete={requestDelete}
           onUseAsInput={handleUseAsInput}
+          onRemoveBackground={onRemoveBackground ? handleRemoveBackground : undefined}
         />
       )}
 

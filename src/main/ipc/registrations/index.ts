@@ -27,3 +27,5 @@ export { registerProviderKeysIpc } from './provider-keys';
 export { registerVideoIpc } from './video';
 export { registerSttIpc } from './stt';
 export { registerVideoStudioIpc } from './video-studio';
+export { registerPythonModelsIpc } from './python-models';
+export { registerRembgIpc } from './rembg';

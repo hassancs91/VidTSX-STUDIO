@@ -321,6 +321,21 @@ export interface ElectronAPI {
   aiRuntimeRemove: () => Promise<import('../../shared/ipc/types').AiRuntimeRemoveResponse>;
   onAiRuntimeStatusChanged: (callback: (status: import('../../shared/ipc/types').AiRuntimeStatusChangedEvent) => void) => () => void;
 
+  // Runtime-backed Python models (catalogue status / download / preflight / install)
+  pythonModelStatus: (data?: import('../../shared/ipc/types').PythonModelStatusRequest) => Promise<import('../../shared/ipc/types').PythonModelStatusResponse>;
+  pythonModelDownload: (data: import('../../shared/ipc/types').PythonModelDownloadRequest) => Promise<import('../../shared/ipc/types').PythonModelDownloadResponse>;
+  pythonModelCancelDownload: (data: import('../../shared/ipc/types').PythonModelCancelDownloadRequest) => Promise<import('../../shared/ipc/types').PythonModelCancelDownloadResponse>;
+  pythonModelRemove: (data: import('../../shared/ipc/types').PythonModelRemoveRequest) => Promise<import('../../shared/ipc/types').PythonModelRemoveResponse>;
+  pythonModelPreflight: (data: import('../../shared/ipc/types').PythonModelPreflightRequest) => Promise<import('../../shared/ipc/types').PythonModelPreflightResponse>;
+  pythonModelInstall: (data: import('../../shared/ipc/types').PythonModelInstallRequest) => Promise<import('../../shared/ipc/types').PythonModelInstallResponse>;
+
+  // Background removal (Image Studio)
+  rembgRun: (data: import('../../shared/ipc/types').RembgRunRequest) => Promise<import('../../shared/ipc/types').RembgRunResponse>;
+  rembgCancel: (data: import('../../shared/ipc/types').RembgCancelRequest) => Promise<import('../../shared/ipc/types').RembgCancelResponse>;
+  onRembgProgress: (callback: (data: import('../../shared/ipc/types').RembgProgressEvent) => void) => () => void;
+  onRembgComplete: (callback: (data: import('../../shared/ipc/types').RembgCompleteEvent) => void) => () => void;
+  onRembgError: (callback: (data: import('../../shared/ipc/types').RembgErrorEvent) => void) => () => void;
+
   // Download manager operations
   downloadEnqueue: (data: DownloadEnqueueRequest) => Promise<DownloadEnqueueResponse>;
   downloadPause: (data: DownloadControlRequest) => Promise<DownloadControlResponse>;

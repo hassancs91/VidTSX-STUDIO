@@ -236,6 +236,8 @@ export interface ImageStudioEntry {
   createdAt: number;
   durationMs: number;
   folderId?: string | null;
+  /** Id of the gallery image this one was derived from (e.g. "Remove background"). */
+  derivedFrom?: string | null;
 }
 
 export interface ImageStudioSaveRequest {

@@ -19,6 +19,8 @@ export { tsxJobsApi } from './tsx-jobs';
 export { modelLibraryApi } from './model-library';
 export { systemApi } from './system';
 export { aiRuntimeApi } from './ai-runtime';
+export { pythonModelsApi } from './python-models';
+export { rembgApi } from './rembg';
 export { localLlmApi } from './local-llm';
 export { downloadApi } from './download';
 export { embeddingApi } from './embedding';
