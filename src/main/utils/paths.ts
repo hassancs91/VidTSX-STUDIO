@@ -140,6 +140,25 @@ export function getAiRuntimePython(version: string, variant: string): string {
   return path.join(getAiRuntimeDir(version, variant), 'python', 'python.exe');
 }
 
+/**
+ * `{userData}/ai-models/python` — weights + companions for runtime-backed models
+ * (docs/ai-runtime-implementation-plan.md §4 step 2). Each catalogue file declares
+ * its `dest` relative to this root (e.g. `rembg/models/u2net/u2net.onnx`).
+ */
+export function getPythonModelsRoot(): string {
+  return path.join(app.getPath('userData'), 'ai-models', 'python');
+}
+
+/** Temp folder for the worker request JSON files (one per run, deleted after). */
+export function getPythonRequestsDir(): string {
+  return path.join(getTempDir(), 'python-requests');
+}
+
+/** `{userData}/threed-studio` — 3D Studio models + db (plan §5 step 3). */
+export function getThreedStudioDir(): string {
+  return path.join(app.getPath('userData'), 'threed-studio');
+}
+
 export function getPipelinesDir(): string {
   // Dev: resources/pipelines in the repo. Packaged: resources/pipelines via extraResources.
   if (app.isPackaged) {

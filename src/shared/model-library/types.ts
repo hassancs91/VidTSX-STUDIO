@@ -11,8 +11,8 @@
  * See docs/local-image-models-redesign.md §3.4 for the design rationale.
  */
 
-/** Every model category the library can host. `video` is reserved (unused in v1). */
-export type ModelCategory = 'image' | 'stt' | 'tts' | 'llm' | 'embedding' | 'video';
+/** Every model category the library can host. `3d` is backed by the Python runtime catalogue. */
+export type ModelCategory = 'image' | 'stt' | 'tts' | 'llm' | 'embedding' | 'video' | '3d';
 
 /**
  * How a model is laid out on disk.

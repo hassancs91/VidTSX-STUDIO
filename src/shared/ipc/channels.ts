@@ -302,6 +302,34 @@ export const IPC = {
   AI_RUNTIME_REMOVE: 'ai-runtime:remove',
   AI_RUNTIME_STATUS_CHANGED: 'ai-runtime:status-changed',
 
+  // Runtime-backed Python models (catalogue status / download / preflight — plan §4 step 4, §7b)
+  PYMODEL_STATUS: 'pymodel:status',
+  PYMODEL_DOWNLOAD: 'pymodel:download',
+  PYMODEL_CANCEL_DOWNLOAD: 'pymodel:cancel-download',
+  PYMODEL_REMOVE: 'pymodel:remove',
+  PYMODEL_PREFLIGHT: 'pymodel:preflight',
+  PYMODEL_INSTALL: 'pymodel:install',
+
+  // Background removal (rembg) in Image Studio
+  REMBG_RUN: 'rembg:run',
+  REMBG_PROGRESS: 'rembg:progress',
+  REMBG_COMPLETE: 'rembg:complete',
+  REMBG_ERROR: 'rembg:error',
+  REMBG_CANCEL: 'rembg:cancel',
+
+  // Image → 3D (TripoSR) + 3D Studio storage (plan §5 step 4)
+  SD3D_GENERATE: 'sd3d:generate',
+  SD3D_GENERATE_PROGRESS: 'sd3d:generate:progress',
+  SD3D_GENERATE_COMPLETE: 'sd3d:generate:complete',
+  SD3D_GENERATE_ERROR: 'sd3d:generate:error',
+  SD3D_CANCEL: 'sd3d:cancel',
+  THREED_STUDIO_LIST: 'threed-studio:list',
+  THREED_STUDIO_READ: 'threed-studio:read',
+  THREED_STUDIO_DELETE: 'threed-studio:delete',
+  THREED_STUDIO_SAVE_AS: 'threed-studio:save-as',
+  THREED_STUDIO_SAVE_TO_LIBRARY: 'threed-studio:save-to-library',
+  THREED_STUDIO_OPEN_FOLDER: 'threed-studio:open-folder',
+
   // System resource monitor (push event only — always on)
   SYSTEM_MONITOR_DATA: 'system:monitor:data',
 
