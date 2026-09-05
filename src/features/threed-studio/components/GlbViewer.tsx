@@ -1,7 +1,16 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stage, useGLTF } from '@react-three/drei';
+import { Euler } from 'three';
 import type { Group, Mesh, Material } from 'three';
+
+/**
+ * TripoSR world → three.js: the runner's meshes are x-forward / y-right / z-up (Stage 0
+ * orientation probe: camera forward ≈ −x, camera right = +y, up = +z), three.js is y-up
+ * looking down −z. Rotate −90° about X (z→y) then −90° about Y (x→z): the photo's front
+ * faces the default camera and viewer-left stays on the left.
+ */
+export const TRIPOSR_TO_THREE = new Euler(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ');
 
 export type ViewerBackground = 'dark' | 'light' | 'grid';
 
@@ -43,7 +52,11 @@ function Model({ url, wireframe }: { url: string; wireframe: boolean }) {
   useEffect(() => {
     applyWireframe(scene, wireframe);
   }, [scene, wireframe]);
-  return <primitive object={scene} />;
+  return (
+    <group rotation={TRIPOSR_TO_THREE}>
+      <primitive object={scene} />
+    </group>
+  );
 }
 
 const BG: Record<ViewerBackground, string> = { dark: '#15151a', light: '#e8e8ec', grid: '#1d1d24' };

@@ -62,6 +62,7 @@ describe('buildPythonRequest', () => {
       foregroundRatio: 0.85,
       device: 'auto',
       previewPath: 'C:\\out\\preview.png',
+      previewSize: 320,
     });
     expect('seed' in req).toBe(false);
 
@@ -71,8 +72,9 @@ describe('buildPythonRequest', () => {
       options: { quality: '512', removeBackground: false, seed: 42, device: 'cpu' }, device: 'auto',
     });
     expect(cpu).toMatchObject({ mcResolution: 512, removeBackground: false, seed: 42, device: 'cpu' });
-    const forced = buildPythonRequest({ profile: triposr, modelsRoot: root, imagePath: 'i', outputPath: 'o', options: {}, device: 'cpu' });
+    const forced = buildPythonRequest({ profile: triposr, modelsRoot: root, imagePath: 'i', outputPath: 'o', options: {}, device: 'cpu', previewPath: 'p' });
     expect(forced.device).toBe('cpu');
+    expect(forced.previewSize).toBe(160); // CPU NeRF render: 27 s at 320², ~7 s at 160²
   });
 
   it('output extensions follow the artifact kind', () => {

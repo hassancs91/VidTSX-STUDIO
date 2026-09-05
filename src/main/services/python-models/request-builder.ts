@@ -75,7 +75,8 @@ export function buildPythonRequest(input: BuildRequestInput): Record<string, unk
         foregroundRatio: typeof options.foregroundRatio === 'number' ? options.foregroundRatio : 0.85,
         device: input.device === 'cpu' ? 'cpu' : (options.device === 'cpu' ? 'cpu' : 'auto'),
         ...(typeof options.seed === 'number' ? { seed: options.seed } : {}),
-        ...(input.previewPath ? { previewPath: input.previewPath } : {}),
+        // NeRF preview: 320² costs ~1 s on the GPU but 27 s on the CPU (measured) → 160² there.
+        ...(input.previewPath ? { previewPath: input.previewPath, previewSize: input.device === 'cpu' || options.device === 'cpu' ? 160 : 320 } : {}),
       };
     }
     default:
