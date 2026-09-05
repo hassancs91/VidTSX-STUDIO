@@ -336,6 +336,19 @@ export interface ElectronAPI {
   onRembgComplete: (callback: (data: import('../../shared/ipc/types').RembgCompleteEvent) => void) => () => void;
   onRembgError: (callback: (data: import('../../shared/ipc/types').RembgErrorEvent) => void) => () => void;
 
+  // Image → 3D (TripoSR) + 3D Studio storage
+  sd3dGenerate: (data: import('../../shared/ipc/types').Sd3dGenerateRequest) => Promise<import('../../shared/ipc/types').Sd3dGenerateResponse>;
+  sd3dCancel: (data: import('../../shared/ipc/types').Sd3dCancelRequest) => Promise<import('../../shared/ipc/types').Sd3dCancelResponse>;
+  onSd3dGenerateProgress: (callback: (data: import('../../shared/ipc/types').Sd3dGenerateProgressEvent) => void) => () => void;
+  onSd3dGenerateComplete: (callback: (data: import('../../shared/ipc/types').Sd3dGenerateCompleteEvent) => void) => () => void;
+  onSd3dGenerateError: (callback: (data: import('../../shared/ipc/types').Sd3dGenerateErrorEvent) => void) => () => void;
+  threedStudioList: () => Promise<import('../../shared/ipc/types').ThreedStudioListResponse>;
+  threedStudioRead: (data: import('../../shared/ipc/types').ThreedStudioReadRequest) => Promise<import('../../shared/ipc/types').ThreedStudioReadResponse>;
+  threedStudioDelete: (data: import('../../shared/ipc/types').ThreedStudioDeleteRequest) => Promise<import('../../shared/ipc/types').ThreedStudioDeleteResponse>;
+  threedStudioSaveAs: (data: import('../../shared/ipc/types').ThreedStudioSaveAsRequest) => Promise<import('../../shared/ipc/types').ThreedStudioSaveAsResponse>;
+  threedStudioSaveToLibrary: (data: import('../../shared/ipc/types').ThreedStudioSaveToLibraryRequest) => Promise<import('../../shared/ipc/types').ThreedStudioSaveToLibraryResponse>;
+  threedStudioOpenFolder: (data?: import('../../shared/ipc/types').ThreedStudioOpenFolderRequest) => Promise<import('../../shared/ipc/types').ThreedStudioOpenFolderResponse>;
+
   // Download manager operations
   downloadEnqueue: (data: DownloadEnqueueRequest) => Promise<DownloadEnqueueResponse>;
   downloadPause: (data: DownloadControlRequest) => Promise<DownloadControlResponse>;

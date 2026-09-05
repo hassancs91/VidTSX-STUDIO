@@ -23,6 +23,8 @@ import { registerDownloadIpc } from './registrations/download';
 import { registerAiRuntimeIpc } from './registrations/ai-runtime';
 import { registerPythonModelsIpc } from './registrations/python-models';
 import { registerRembgIpc } from './registrations/rembg';
+import { registerSd3dIpc } from './registrations/sd3d';
+import { registerThreedStudioIpc } from './registrations/threed-studio';
 import { registerModerationIpc } from './registrations/moderation';
 import { registerContentSafetyIpc } from './registrations/content-safety';
 import { registerAiUsageIpc } from './registrations/ai-usage';
@@ -67,6 +69,8 @@ export function registerAllIPC(): void {
   registerAiRuntimeIpc();
   registerPythonModelsIpc();
   registerRembgIpc();
+  registerSd3dIpc();
+  registerThreedStudioIpc();
   registerModerationIpc();
   registerContentSafetyIpc();
   registerAiUsageIpc();

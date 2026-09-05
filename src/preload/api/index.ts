@@ -21,6 +21,8 @@ export { systemApi } from './system';
 export { aiRuntimeApi } from './ai-runtime';
 export { pythonModelsApi } from './python-models';
 export { rembgApi } from './rembg';
+export { sd3dApi } from './sd3d';
+export { threedStudioApi } from './threed-studio';
 export { localLlmApi } from './local-llm';
 export { downloadApi } from './download';
 export { embeddingApi } from './embedding';

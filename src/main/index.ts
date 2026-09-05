@@ -9,6 +9,7 @@ import { initSttEngine } from './services/stt/stt-init';
 import { initSdImageCategory } from './services/sdimage-init';
 import { initSdVideoCategory } from './services/sdvideo-init';
 import { initAiRuntime } from './services/ai-runtime';
+import { registerThreedCategory } from './services/python-models/threed-category';
 import { initLogging } from './services/log-init';
 import { initCrashReporting } from './services/crash-reporting';
 import { migrateImageStudio } from './services/image-studio-migrate';
@@ -200,6 +201,7 @@ app.whenReady().then(async () => {
   await initSdVideoCategory();
   // AI runtime (downloadable Python + PyTorch): registry entry + staging cleanup, no Python spawned.
   await initAiRuntime();
+  registerThreedCategory();
 
   // Migrate legacy downloads.json into SQLite before the download engine reads state.
   await migrateDownloads();

@@ -21,6 +21,8 @@ import { systemApi } from './api/system';
 import { aiRuntimeApi } from './api/ai-runtime';
 import { pythonModelsApi } from './api/python-models';
 import { rembgApi } from './api/rembg';
+import { sd3dApi } from './api/sd3d';
+import { threedStudioApi } from './api/threed-studio';
 import { localLlmApi } from './api/local-llm';
 import { downloadApi } from './api/download';
 import { embeddingApi } from './api/embedding';
@@ -61,6 +63,8 @@ const api = {
   ...aiRuntimeApi,
   ...pythonModelsApi,
   ...rembgApi,
+  ...sd3dApi,
+  ...threedStudioApi,
   ...localLlmApi,
   ...downloadApi,
   ...embeddingApi,

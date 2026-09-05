@@ -29,3 +29,5 @@ export { registerSttIpc } from './stt';
 export { registerVideoStudioIpc } from './video-studio';
 export { registerPythonModelsIpc } from './python-models';
 export { registerRembgIpc } from './rembg';
+export { registerSd3dIpc } from './sd3d';
+export { registerThreedStudioIpc } from './threed-studio';

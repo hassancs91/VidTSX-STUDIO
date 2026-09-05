@@ -1,4 +1,11 @@
-"""TripoSR worker (VidTSX plan §1.2/§1.3).  python runner.py --request <json> | --selftest"""
+"""TripoSR worker (VidTSX plan §1.2/§1.3).  python runner.py --request <json> | --selftest
+
+Request fields (absolute paths): imagePath, outputPath (.glb), modelDir, dinoConfigPath,
+rembgHome, rembgModel, mcResolution (256|512), removeBackground, foregroundRatio, device
+(auto|cpu|cuda), seed, previewPath (view-0 NeRF render PNG), previewSize, orientationCheck.
+Events: ready -> stage import -> load-model -> preprocess -> encode -> shape (progress per slab)
+-> export -> [preview] -> result.
+"""
 import argparse
 import itertools
 import os
@@ -92,6 +99,9 @@ def main():
     chunk = int(req.get("chunkSize", 8192))
     device = pick_device(str(req.get("device", "auto")))
     stage_t = {}
+    # Reproducibility knob for the UI (TripoSR itself is close to deterministic).
+    if req.get("seed") is not None:
+        torch.manual_seed(int(req["seed"]))
 
     def timed(name):
         stage_t[name] = time.perf_counter()
@@ -178,6 +188,20 @@ def main():
     mesh.export(req["outputPath"])
     done("export")
 
+    # ---- preview: NeRF render of view 0 (the thumbnail 3D Studio shows). After the
+    # export so a render problem never loses the mesh; skipped when not requested.
+    preview_path = req.get("previewPath")
+    if preview_path:
+        timed("preview")
+        try:
+            size = int(req.get("previewSize", 320))
+            os.makedirs(os.path.dirname(os.path.abspath(preview_path)), exist_ok=True)
+            model.render(scene_codes, n_views=1, return_type="pil", height=size, width=size)[0][0].save(preview_path)
+        except Exception as exc:  # noqa: BLE001
+            P.log(f"preview render failed: {exc}")
+            preview_path = None
+        done("preview")
+
     stats = {
         "vertices": int(mesh.vertices.shape[0]),
         "faces": int(mesh.faces.shape[0]),
@@ -185,6 +209,8 @@ def main():
         "windingConsistent": bool(mesh.is_winding_consistent),
         "volume": float(mesh.volume) if mesh.is_watertight else None,
         "outputBytes": os.path.getsize(req["outputPath"]),
+        "previewPath": preview_path or None,
+        "seed": req.get("seed"),
         "device": device,
         "mcResolution": mc_res,
         "seconds": round(time.perf_counter() - T0, 2),

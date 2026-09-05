@@ -46,6 +46,9 @@ import {
   removeVideoModel,
   scanVideoLibrary,
 } from '../services/sdvideo-library';
+import { listPythonModelStatuses, removePythonModel } from '../services/python-models';
+import { threedModelPrimaryPath } from '../services/python-models/threed-category';
+import { getPythonModelsRoot } from '../utils/paths';
 
 function isImage(category: string): boolean {
   return category === 'image';
@@ -53,6 +56,48 @@ function isImage(category: string): boolean {
 
 function isVideo(category: string): boolean {
   return category === 'video';
+}
+
+function isThreed(category: string): boolean {
+  return category === '3d';
+}
+
+/** '3d' is catalogue-backed (plan §5 step 1): installed = every file present, runtime = pytorch. */
+async function scanThreedCategory(): Promise<ModelsScanResponse> {
+  const statuses = await listPythonModelStatuses('3d');
+  const usage = usageStore.getFor('3d');
+  return {
+    category: '3d',
+    folder: getPythonModelsRoot(),
+    installed: statuses
+      .filter((m) => m.installed)
+      .map((m) => ({
+        id: m.id,
+        name: m.name,
+        family: 'triposr',
+        sizeBytes: m.sizeBytes,
+        filePath: threedModelPrimaryPath(m.id) ?? '',
+        origin: 'profile' as const,
+        ready: m.ready,
+        issues: m.runtime.state === 'installed' ? [] : [{ code: 'missing-runtime' as const, runtime: 'pytorch' as const }],
+        capabilities: { txt2img: false, img2img: true, reference: false },
+        lastUsedAt: usage[m.id]?.lastUsedAt ?? null,
+        useCount: usage[m.id]?.useCount ?? 0,
+        ...(m.fit ? { fit: m.fit } : {}),
+      })),
+    profiles: statuses.map((m) => ({
+      id: m.id,
+      name: m.name,
+      family: 'triposr',
+      sizeLabel: m.sizeLabel,
+      sourceUrl: m.sourceUrl,
+      hasDownload: true,
+      installed: m.installed,
+      ...(m.fit ? { fit: m.fit } : {}),
+    })),
+    unrecognized: [],
+    companions: [],
+  };
 }
 
 function toSetupConfig(setup: ModelSetupConfig): SetupConfig {
@@ -167,6 +212,14 @@ export async function handleModelsScan(
     }
   }
 
+  if (isThreed(req.category)) {
+    try {
+      return await scanThreedCategory();
+    } catch (err) {
+      return { ...empty, error: err instanceof Error ? err.message : 'Scan failed' };
+    }
+  }
+
   if (!isImage(req.category)) {
     return { ...empty, error: 'unsupported-category' };
   }
@@ -236,11 +289,13 @@ export async function handleModelsRemove(
   _event: IpcMainInvokeEvent,
   req: ModelsRemoveRequest,
 ): Promise<ModelsRemoveResponse> {
-  if (!isImage(req.category) && !isVideo(req.category)) {
+  if (!isImage(req.category) && !isVideo(req.category) && !isThreed(req.category)) {
     return { success: false, error: 'unsupported-category' };
   }
   try {
-    if (isVideo(req.category)) {
+    if (isThreed(req.category)) {
+      await removePythonModel(req.modelId);
+    } else if (isVideo(req.category)) {
       await removeVideoModel(req.modelId, { deleteFile: req.deleteFile });
     } else {
       await removeImageModel(req.modelId, { deleteFile: req.deleteFile });
