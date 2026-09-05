@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-09-05 — AI RUNTIME + REMOVE BACKGROUND + 3D STUDIO: Stage 5 hardening DONE, release-wired (waits for the V1 flip)
+
+**Shipped behind three flags now ON for release** (`ai-system-runtimes`, `ai-3d-models`,
+`threed-studio` moved from `.env`-gated to plain `FEATURE_FLAGS: true`): an optional,
+downloadable Python + PyTorch runtime (cdn.vidtsx.com, 280 MB CPU / 2.8 GB GPU) with
+two curated models — **Remove background** in Image Studio (u2net 176 MB, ISNet 179 MB
+used automatically once downloaded) and **3D Studio** (TripoSR 1.7 GB, image → GLB).
+Plan + full numbers: `docs/ai-runtime-implementation-plan.md` §10 (2026-09-05 Stage 5).
+
+Stage 5 verified on this box (GTX 1650 Ti 4 GB, dev app over CDP):
+- **Guards through the real UI** with the new `VIDTSX_AI_RUNTIME_OVERRIDES` dev stand-in:
+  path-too-long (194 chars > 132 budget → both install buttons disabled, both feature
+  dialogs say so), disk (1 GB → both blocked; 3 GB → GPU blocked, **CPU offered instead**,
+  a fix made on the spot), driver floor (470 → CPU recommended, GPU link disabled with the
+  message), VRAM floor (2 GB → same), 512³ disabled on the real 4 GB card.
+- **Update path** (fake `2026.09.2` served locally): row "Update available · 2026.09.1 →
+  2026.09.2", both features' dialogs "Update the AI runtime", CPU update 149 s, old
+  cu126 folder removed after success; **Repair** 142 s; **Remove** now asks inline
+  "keep models" / "runtime + models (1.9 GB)" — both verified on disk.
+- **The real 2.6 GB GPU download through the row**: ≈ 20 min end to end at this
+  2.5–3.5 MB/s uplink (resumed leg 783 s: download 497 s, sha256 31 s, extract 166 s,
+  verify 14 s, warm-up 75 s) → "Installed · GPU · 2026.09.1 · 4.6 GB on disk". An app
+  restart mid-download (my own edit) resumed from the 1.24 GB partial file.
+- **Error matrix**: corrupt TripoSR weights → readable "weights damaged … re-download"
+  (a truncated file is caught by the byte count before Python runs); missing package →
+  "incomplete or damaged … Use Repair" (doubled hint fixed); runtime at a 178-char path →
+  now "path too long" instead of "Repair"; Remove while a job runs → worker cancelled
+  first, no EBUSY; cancel at 5 stages of 3D + 2 of rembg → card gone 1.5 s, no orphans, no
+  leftovers. OOM cannot be forced on this WDDM box (512³ on 4 GB succeeds, peak 3.25 GB;
+  torch spills to shared memory) — covered by Stage 0 + the classifier test.
+- **Leftovers closed**: CPU copy "1½–2 min" (measured 96–124 s); ISNet quality check
+  (tighter fur edge, 43 % fewer faint pixels, +1.7 s → shipped as a second entry);
+  sha256 on every whisper + SD model download and the whisper binary onto the download
+  engine; GLB preview on asset tiles/details (shared `GlbViewer`); "Library meshes"
+  section in the 3D prompt (context field; caller wiring pending, see the plan).
+- **Not done: the rented GPU VM** (no TensorDock/Paperspace account on this box) —
+  runbook written into `docs/gpu-cloud-testing-plan.md`, ~45 min once an account exists.
+
+Commits: `0242148` `9557da0` `6060af7` `b1d770f` `6b8b0da` `36951df` `4cd63cd` `2f6be0e`
+`ec35745` + the docs commit. Gates: check:types 26/22 (baseline), vitest 1,314 passing (+16).
 ## 2026-09-04 (evening) — T1 MEASURED: the WYSIWYG tolerance is a number, and the passthrough join is provable inside it
 
 **No product code.** Hasan decided passthrough-first (smart render for

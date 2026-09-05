@@ -1,6 +1,6 @@
 # AI Runtime — implementation plan (background removal + 3D Studio)
 
-> **Status: Stages 1–4 BUILT (2026-09-05); Stage 5 next.** Stage 0 of `docs/local-python-runtime-plan.md` passed (GO).
+> **Status: Stages 1–5 DONE (2026-09-05) — release-wired, flags on; only the rented-GPU-VM leg (§6 step 4) waits for an account.** Stage 0 of `docs/local-python-runtime-plan.md` passed (GO).
 > This document is the **step-by-step build plan** for putting the downloadable Python runtime
 > into the app with its first two models. It **replaces Stages 1–5** of the runtime plan; the
 > design (§0–§2), the Stage 0 record (§3.4) and the risks (§10) there still apply.
@@ -546,3 +546,79 @@ the shared runtime; TripoSG / Hunyuan3D-2mini need the 8 GB VM to validate.
     release and the Image Studio action un-flagged (it already is); STATUS.md + V1_RELEASE_PLAN.md rows; GPU VM run (`docs/gpu-cloud-testing-plan.md`).
   - Commits this session: `b9b9f30` `86daf46` `03b81a0` (Stage 3), `520aa8e` `ade4647` `d5eb7bb` (Stage 4), `c72d514` `9ff132c` (log), `b5571d0` (runtime refresh).
     Gates at every commit: check:types 26/22 (baseline), vitest 1,298 passing (+98 this session).
+- 2026-09-05 — **Stage 5 DONE (hardening + release).** Nine pathspec commits, gates at every one (check:types 26/22 baseline,
+  vitest 1,314 passing, +16). Everything below was driven through the real dev app over CDP on the 4 GB box (GTX 1650 Ti, driver 592.82,
+  LongPathsEnabled = 0), one launch per preflight case. Drivers live in the session scratchpad (`b1-guards.mjs`, `b2-runtime.mjs`,
+  `b4-errors.mjs`, `b5-final.mjs`); `docs/ui-automation-cdp.md` documents the new stand-in.
+  - **Step 1 — guards end to end** via `VIDTSX_AI_RUNTIME_OVERRIDES` (dev-only JSON env var: `root`, `freeBytes`, `driverVersion`,
+    `vramTotalMB`, `gpuName`; parser unit-tested, ignored when packaged; commit `9557da0`):
+    - path-too-long (root 178 chars → install dir 194 > budget 132): both row buttons disabled with the LongPathsEnabled message, both
+      feature preflights `path-too-long`, the Image Studio dialog shows the message + "This cannot be fixed from here".
+    - disk 1 GB free: both variants blocked ("7.7 GB needed … 1.0 GB free" / "1.2 GB needed"), dialog likewise. **Disk 3 GB free exposed a
+      dead end**: only the GPU build fails (7.7 GB) while the CPU build fits (1.2 GB), yet the dialogs said "cannot be fixed" → the preflight
+      now falls back to the CPU variant with one explaining sentence, and the dialog drops its "Recommended here: GPU …" line when the offered
+      variant is not the recommendation (`6b8b0da`). Verified: "Download the AI runtime (280 MB)? The GPU runtime cannot be installed here
+      (Not enough disk space …), so the smaller CPU runtime is offered instead."
+    - driver floor (470.00): recommended CPU, "Use the GPU runtime instead" disabled with "NVIDIA driver 470.00 is older than 525.60 …";
+      dialogs offer the 280 MB download with "Recommended here: the CPU runtime — …". VRAM floor (2 GB): same shape, "has 2 GB of VRAM;
+      the GPU runtime needs 4 GB", and the 3D panel's 512³ button says "Your GPU has 2 GB". On the real card 512³ is disabled with
+      "Your GPU has 4 GB; 512³ needs 8 GB (or the CPU runtime)".
+  - **Step 2 — update / repair / remove** with a fake `2026.09.2-cpu.zip` (the real cpu zip with its manifest rewritten, 285,154,134 B,
+    served from `python -m http.server` on 127.0.0.1; `AI_RUNTIME_VERSION` + the cpu entry bumped locally, reverted after, never committed):
+    row "Update available · 2026.09.1 → 2026.09.2 / Update GPU runtime · 2.8 GB / Use the smaller CPU-only runtime (285 MB)"; both
+    preflights `runtime-update` with "This version of the app needs AI runtime 2026.09.2." + action "Update the AI runtime (2.8 GB)"; the
+    3D dialog shows it with the CPU link. CPU update through the link: **149 s** (download 2 s local, extract 62 s, verify 8 s, warm-up
+    73 s, finalize 2 s) → "Installed · CPU · 2026.09.2", **`2026.09.1-cu126` removed after success**. **Repair: 142 s** (same phases; rm
+    → re-download → verify → warm-up). **Remove** replaces `window.confirm` with an inline choice — "Remove runtime, keep models" /
+    "Remove runtime + models (1.9 GB)" / Keep (companions counted once; `AI_RUNTIME_REMOVE` gained `includeModels`) — both verified on
+    disk (models kept; then everything gone, weights restored from the lab copy). A status read taken mid-deletion scanned as "broken"
+    with an ENOENT manifest error (also during Repair's rm): the service now exposes `isAiRuntimeRemoving`, status says "missing" while
+    removing and hides the scan reason while installing/removing; `removePythonModel` prunes the emptied folders (`36951df`).
+  - **Step 3 — the real cu126 download through the row** (cdn.vidtsx.com, this uplink 2.5–3.5 MB/s): first leg 18:33 → 45 % (1.24 GB) in
+    ~7 min, then **interrupted by my own edit** (a shared prompt file is imported by main → electron-vite restarted the main process; the
+    install promise died, the engine kept the task paused, the partial zip stayed). Clicking Install again **resumed from 1.24 GB**
+    (percent 45 → 47 within seconds): download done at 497 s, sha256 verify 31 s, unzipper extract 166 s, triposr selftest 14 s, warm-up
+    75 s (rembg first launch 63 s + triposr `--warmup` 12 s), **installed at 783 s** — ≈ 20 min of wall time end to end for 2.76 GB,
+    row "Installed · GPU · 2026.09.1 · torch 2.14.0+cu126 · 4.6 GB on disk". The resume-after-restart path is therefore proven too.
+    Lesson for the CDP doc: any `src/shared/**` file main imports restarts main; renderer edits reload the page and kill the driver's
+    socket (the main-process work continues).
+  - **Step 4 — error matrix through both UIs** (GPU runtime):
+    - Normal run after the fresh install: robot 46 s click → card (warm-up did its job; 80,649 verts as always).
+    - Corrupt TripoSR weights (8 MB overwritten in place at 64 MB, size unchanged — the lab's `triposr-corrupt` is 100 MB and is correctly
+      treated as *missing*, i.e. the byte-count presence check catches truncation before Python ever runs): banner "The model weights are
+      damaged or incomplete. Re-download the model. PytorchStreamReader failed reading file data/13 … Remove the model on the AI page and
+      download it again." + Details; no entry, folder removed, no orphan. Copy note: torch's own paragraph sits between the two sentences.
+    - Missing package (`einops` renamed): 3D banner "The AI runtime is incomplete or damaged (No module named 'einops'). Use Repair on the
+      AI Runtime row." — the classifier appended the same hint a second time on both screens (`onnxruntime` renamed → same on the Image
+      Studio card); fixed in `2f6be0e` (hint skipped when the runner already wrote it).
+    - **OOM could not be forced on this box**: 512³ forced through the IPC on the 4 GB card **succeeds** (70 s, 170,093 verts, peak
+      3,252 MB — the 8 GB floor is conservative but leaves only ~800 MB), and with a hog holding all but 148 MB of VRAM a 256³ run still
+      completes in 34 s: on Windows/WDDM torch spills into shared system memory instead of raising. The `oom` code + hint remain covered
+      by Stage 0 (mc 1024, 293 s) and the classifier table test. Cap kept.
+    - Path too long at the worker level (runtime copied to a 178-char root, 13,470 files): python.exe starts, a deep `onnxruntime.capi`
+      file cannot be opened → ImportError → the banner said "Use Repair", which cannot help. The classifier now reports `path-too-long`
+      when an import message quotes a path longer than 259 chars (`2f6be0e`). Through a junction the folder is not even found (Dirent
+      `isDirectory()` is false for reparse points) — the install guard is what really protects this case.
+    - **Runtime removed while a job is running** (3D at "Loading model"): Remove → worker cancelled first ("Cancelling Python jobs before
+      removing the runtime"), tree gone, folder deleted with no EBUSY, 3D card cleared, state missing.
+    - **Cancel at every stage**: 3D at 0.4 s (Preparing runtime), 8 s (Loading model), 22 s (Encoding), 25.5 s (Shape 19 %), 30 s (Shape
+      31 %); rembg at 0.3 s and 2.5 s (Preparing runtime): card gone **1.5 s** after Cancel every time (taskkill tree teardown), no orphan
+      python, no entry, no model folder left behind (12 dirs before and after).
+  - **Step 5 — leftovers**: 3D copy "1½–2 min on the CPU" / "~40 s on the GPU", catalogue estimate cpu 110 s (`0242148`); **ISNet quality
+    check** (plush 12 MP, installed cu126 runtime, onnxruntime CPU): visibly tighter fur edge and no grey halo, faint (alpha < 32) pixels
+    62,909 vs 110,322 (−43 %), residue outside the subject 12 px at alpha 1 vs 0, chair identical; 6.0 s vs 4.3 s (process 3.2 vs 1.5 s)
+    → shipped as `rembg-isnet` (178,648,008 B, sha256 `60920e99…d964a`, Apache-2.0 DIS weights); `preferredRembgModelId()` makes
+    "Remove background" and the Studio agent bridge use it once downloaded, u2net stays the dialog's download (`b1d770f`). **sha256 on
+    every whisper model (LFS pointers) and all 28 SD image downloadUrls (25 profiles + 3 companions), whisper binary onto the download
+    engine** (`6060af7`). Optional §5 steps 6–7: `GlbViewer` moved to `src/shared/components/` with a `rotation` prop, asset tiles show
+    the `-preview.png` sibling, the details panel renders the live viewer (module server now serves `.glb`); `TsxPromptContext.libraryMeshes`
+    + a "Library meshes" section (useGLTF + staticFile + delayRender recipe, TripoSR Euler) — **no caller fills the field yet**
+    (`useMotionGenerator.ts` is mid-edit in a parallel session; wiring = `libraryIndexGet()` → `.glb` entries) (`4cd63cd`).
+  - **Step 6 — rented GPU VM: NOT RUN.** No TensorDock / Paperspace account or key exists on this box. The exact runbook (install through
+    the row, both models, 512³ with `peakVramMb`, the update path, timings to record) is in `docs/gpu-cloud-testing-plan.md`; ~45 min once
+    an account exists. Nothing in the code waits for it.
+  - **Step 7 — release wiring**: `ai-system-runtimes`, `ai-3d-models`, `threed-studio` are plain `FEATURE_FLAGS: true` (`ec35745`); the
+    three `VITE_FF_*` names left `env.d.ts` / `.env.example`. Final launch with no `.env` flags: sidebar "3D", row "Installed · GPU",
+    Image tools lists u2net (Ready) + ISNet (Download), rembg run 26 s (first launch of the re-copied files). STATUS.md + V1_RELEASE_PLAN.md
+    rows carry the release-notes wording ("optional download: 280 MB / 2.8 GB runtime + 176 MB / 1.7 GB models").
+  - Commits: `0242148` `9557da0` `6060af7` `b1d770f` `6b8b0da` `36951df` `4cd63cd` `2f6be0e` `ec35745` + this log.

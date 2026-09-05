@@ -182,6 +182,19 @@ uses that path instead of opening the dialog, so the whole renderer flow
 in normal use — an explicit `filePath` in the request still wins over the env
 var (that's the mismatch-confirm retry).
 
+A fourth stand-in covers the AI runtime's preflight guards, whose inputs are
+machine facts (2026-09-05, Stage 5): `VIDTSX_AI_RUNTIME_OVERRIDES` is one JSON
+object — `{"root":"C:/very/long/path","freeBytes":1000000000,"driverVersion":
+"470.00","vramTotalMB":2048,"gpuName":null}` — read once per process and ignored
+in packaged builds. `root` replaces the runtime folder (a 190-char path trips
+the MAX_PATH guard; a short empty one makes the runtime "missing" so the
+install buttons render), `freeBytes` the disk probe, the GPU fields nvidia-smi.
+Each guard is a separate launch. Two things learned driving them: the Image
+Studio "Remove background…" input is the `accept="image/*"` input whose
+previous sibling is that button (the gallery has several file inputs), and a
+status read taken while Remove is deleting the folder used to scan as
+"broken" — fixed, but poll for `missing`, not for "not installed".
+
 ## Synthetic drags and performance measurement
 
 React 19 picks up synthetic pointer events through the root container:
