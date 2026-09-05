@@ -129,7 +129,7 @@ export const PYTHON_MODEL_CATALOG: readonly PythonModelProfile[] = [
     category: '3d',
     section: '3d',
     name: 'TripoSR (image → 3D)',
-    summary: 'Turns one photo into a textured 3D mesh (GLB). About 35 s on a 4 GB GPU, about a minute on the CPU.',
+    summary: 'Turns one photo into a textured 3D mesh (GLB). About 40 s on a 4 GB GPU, 1½–2 minutes on the CPU.',
     pipeline: 'triposr',
     runtime: { id: 'pytorch', stack: PYTHON_MODEL_STACK },
     files: [
@@ -164,9 +164,10 @@ export const PYTHON_MODEL_CATALOG: readonly PythonModelProfile[] = [
       inputs: [{ kind: 'image' }],
       outputs: [{ kind: 'model3d' }],
       options: TRIPOSR_OPTIONS,
-      description: 'Generate a 3D mesh (GLB with vertex colours) from a single image of an object. Background is removed automatically. Slow: ~35 s on a GPU, ~1 min on the CPU.',
+      description: 'Generate a 3D mesh (GLB with vertex colours) from a single image of an object. Background is removed automatically. Slow: ~40 s on a GPU, 1.5–2 min on the CPU.',
       needs: 'ai-runtime',
-      estimatedSeconds: { gpu: 35, cpu: 65 },
+      // Measured through the app on the 4 GB test box (Stage 4 E2E): GPU 42 s warm incl. the preview, CPU 96–124 s.
+      estimatedSeconds: { gpu: 40, cpu: 110 },
       toolId: 'generate_3d',
     },
   },

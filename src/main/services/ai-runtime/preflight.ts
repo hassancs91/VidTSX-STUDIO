@@ -5,7 +5,7 @@
  * Stage 0 evidence behind each rule:
  * - variant: cu126 needs an NVIDIA card, driver >= 525.60 (CUDA 12 minor-version
  *   compatibility) and >= 4 GB VRAM (TripoSR at mc 256 peaks at ~2.1 GB); everything
- *   else runs the cpu build ("about a minute per model").
+ *   else runs the cpu build ("1½–2 minutes per model" through the app).
  * - path budget: the deepest file in the runtime is `maxRelativePathLength` chars; on a
  *   default Windows (LongPathsEnabled off) len(root) + that + 1 must stay <= 259 or
  *   python.exe dies with 0xC0000106 / `import torch` fails on a 350-char file.
@@ -47,7 +47,7 @@ export interface VariantChoice {
  */
 export function chooseVariant(gpu: GpuFacts | null, minDriver: string | null): VariantChoice {
   if (!gpu || !gpu.name) {
-    return { variant: 'cpu', reason: 'No NVIDIA GPU detected — the CPU runtime runs everywhere (about a minute per 3D model).' };
+    return { variant: 'cpu', reason: 'No NVIDIA GPU detected — the CPU runtime runs everywhere (1½–2 minutes per 3D model).' };
   }
   if (gpu.vramTotalMB !== null && gpu.vramTotalMB > 0 && gpu.vramTotalMB < CU126_MIN_VRAM_MB) {
     return { variant: 'cpu', reason: `${gpu.name} has ${Math.round(gpu.vramTotalMB / 1024 * 10) / 10} GB of VRAM; the GPU runtime needs 4 GB.` };

@@ -28,6 +28,11 @@ function runtimeIssue(model: PythonModelStatusIpc): string | null {
   }
 }
 
+/** "3s" below 90 s, "2 min" above — the catalogue numbers are estimates, not stopwatch readings. */
+function formatSeconds(s: number): string {
+  return s >= 90 ? `${Math.round(s / 60)} min` : `${s}s`;
+}
+
 /**
  * One catalogue row for a runtime-backed model: name, licence, size, the "needs AI
  * runtime" badge (the `missing-runtime` issue rendered for the first time), fit badge
@@ -60,7 +65,7 @@ export function PythonModelRow({ model, download, onDownload, onInstallAll, onRe
             {model.sizeLabel}
             {model.bytesMissing > 0 && model.bytesMissing !== model.sizeBytes ? ` · ${Math.round(model.bytesMissing / 1_000_000)} MB to download` : ''}
             {' · '}
-            {model.cpuOk ? `~${seconds.cpu}s CPU` : ''}{model.vramMb ? ` · ~${seconds.gpu}s GPU (${Math.round(model.vramMb / 1024)} GB+)` : ''}
+            {model.cpuOk ? `~${formatSeconds(seconds.cpu)} CPU` : ''}{model.vramMb ? ` · ~${formatSeconds(seconds.gpu)} GPU (${Math.round(model.vramMb / 1024)} GB+)` : ''}
             {' · '}
             <button onClick={() => onOpenExternal(model.licence.url)} className="hover:text-accent-light hover:underline" title={model.licence.url}>licence</button>
             {' · '}

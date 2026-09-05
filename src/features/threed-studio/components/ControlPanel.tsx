@@ -78,7 +78,8 @@ export function ControlPanel({ runtime, job, error, onGenerate, onCancel, onDism
   const busy = job !== null;
   const canGenerate = draft !== null && !busy;
   const gpu = runtime.variant === 'cu126';
-  const estimate = runtime.variant === null ? null : gpu && !forceCpu ? '~35 s on the GPU' : 'about a minute on the CPU';
+  // Stage 4 E2E through the app: GPU ~40 s (35 s + preview), CPU 95–125 s on a 6-core laptop.
+  const estimate = runtime.variant === null ? null : gpu && !forceCpu ? '~40 s on the GPU' : '1½–2 min on the CPU';
 
   const generate = () => {
     if (!draft) return;
