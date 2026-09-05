@@ -506,3 +506,27 @@ the shared runtime; TripoSG / Hunyuan3D-2mini need the 8 GB VM to validate.
     `import` map to "Preparing runtime", `load-model`/`process`/`export` to "Removing background" (plan §7.2 resolved: no protocol change
     needed beyond Stage 2's `stage: import`); (3) sidecars live next to the output (`busy-nobg.json` in the images folder) — the gallery
     lists DB rows only, so they are invisible in the UI; (4) `isnet-general-use` (plan §9.3) deferred — not quality-checked this session.
+- 2026-09-05 — **Stage 4 built + E2E PASSED on the CPU runtime** (commits `520aa8e` service side, `ade4647` screen/viewer/tab, `d5eb7bb` fixes).
+  - Service side: `python-model-job.ts` (the install-then-run skeleton both screens use), `sd3d-handlers.ts` (TripoSR through
+    `startPythonModel` into `{userData}/threed-studio/models/<id>/{mesh.glb, input.png, preview.png, request.json}` + `threed-studio.db`;
+    a failed/cancelled run removes its folder), `threed-studio-handlers.ts` (list/read/delete/save-as/save-to-library → `generated/3d/`
+    via `reserveLibraryFile` + `upsertEntry` with the preview PNG as a sibling/open-folder), `runner.py` + `seed` and `previewPath`
+    (NeRF view-0 after the export), `'3d'` category adapter (`threed-category.ts`, MODELS_SCAN/REMOVE answer for `'3d'`).
+  - Screen: `src/features/threed-studio/` — ControlPanel (drop-zone + file picker + "From Image Studio…" picker, quality capped by VRAM:
+    256 on ≤ 4 GB, 512 only ≥ 8 GB or on the CPU runtime, remove-background toggle on by default, seed + "New seed", CPU override on a
+    GPU runtime), ModelGallery/ModelCard (NeRF preview + input inset), ModelLightbox with `GlbViewer` (drei Canvas + useGLTF + Stage +
+    OrbitControls, wireframe + dark/light/grid, WebGL fallback) and Save to asset library / Save As / Open folder / Regenerate / New seed /
+    Delete; staged progress Preparing runtime → Loading model → Preparing image → Shape (slab %) → Export → Saving with Cancel. AI Models
+    3D tab (runtime card = `AiRuntimeRow`, catalogue rows with MIT / Fits / needs-runtime badges) behind `ai-3d-models`; sidebar "3D" +
+    screen behind `threed-studio` (`VITE_FF_THREED_STUDIO`). Shared `AiRuntimeInstallDialog` (renderer) now serves both features.
+  - **E2E (CPU runtime, TripoSR weights copied from the lab into `%APPDATA%\VidTSX Studio\ai-models\python\`):**
+    - Chair: **123.7 s click → card** (worker 121.65 s: load-model 29.5 s cold disk, preprocess 1.9, encode 21.5, shape 35.8 with live %,
+      export 0.02, preview 26.7 s at 320²). 41,864 verts / 83,732 faces, watertight — identical to Stage 0. Lightbox canvas 1520×949;
+      "Save to asset library" → `generated/3d/product-png.glb` (+ `-preview.png`). Two findings fixed in `d5eb7bb`: the mesh rendered from the
+      side (TripoSR is x-forward/z-up → `Euler(-π/2, -π/2, 0, 'YXZ')` on the model group; the red-left probe's axes from RESULTS.md), the preview
+      render is 160² on the CPU (robot afterwards: **7.6 s** instead of 27 s), names drop the extension.
+    - Robot: **96.1 s** (load 17.4, preprocess 2.3, encode 22.1, shape 38.6, preview 7.6), 80,649 verts — identical to Stage 0.
+    - Cancel at 12 s (during load-model): card cleared, no entry, the reserved model folder removed, no orphan python.
+    - 3D tab: "AI Runtime · Installed · CPU · 2026.09.1" card + "TripoSR (image → 3D) · MIT · Fits · Ready · 1.7 GB · ~65s CPU · ~35s GPU (4 GB+)".
+    - Card numbers: CPU generation is ~95–125 s through the app on this i7-10750H (Stage 0's 66 s was a warm lab loop without the
+      preview and with the ckpt in the page cache); the control panel says "about a minute on the CPU" — revisit the copy in Stage 5.
