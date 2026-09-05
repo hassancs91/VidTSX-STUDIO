@@ -92,7 +92,7 @@ export function ThreeDStudioScreen() {
             runtime={runtime}
             job={generation.job}
             error={generation.error}
-            onGenerate={(s) => void generation.generate(s)}
+            onGenerate={(s) => { void runtime.refresh(); void generation.generate(s); }}
             onCancel={() => void generation.cancel()}
             onDismissError={generation.clearError}
             prefill={prefill}
