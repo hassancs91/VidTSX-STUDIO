@@ -81,13 +81,24 @@ export async function getInstalledAiRuntime(): Promise<AiRuntimeInstalledInfo | 
   return scan.kind === 'installed' && scan.info.version === AI_RUNTIME_VERSION ? scan.info : null;
 }
 
+/**
+ * Free bytes on the drive holding `dir`. The runtime root does not exist before the
+ * first install, so walk up to the nearest existing ancestor (userData, then the drive)
+ * instead of reporting 0 and blocking the Install button with a bogus disk issue.
+ */
 async function freeBytesAt(dir: string): Promise<number> {
-  try {
-    const s = await statfs(dir);
-    return Number(s.bfree) * Number(s.bsize);
-  } catch {
-    return 0;
+  let probe = dir;
+  for (let i = 0; i < 6; i++) {
+    try {
+      const s = await statfs(probe);
+      return Number(s.bfree) * Number(s.bsize);
+    } catch {
+      const parent = path.dirname(probe);
+      if (parent === probe) break;
+      probe = parent;
+    }
   }
+  return 0;
 }
 
 export async function getAiRuntimeStatus(): Promise<AiRuntimeStatus> {
