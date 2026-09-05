@@ -562,11 +562,38 @@ function handleDownloadError(task: DownloadTask, err: Error): void {
     return;
   }
 
+  if (switchToNextMirror(task, err)) return;
+
   log.error('Download failed', err, { id, retries: task.state.retryCount });
   setStatus(task, 'failed', err.message);
   task.deferred?.reject(err);
   task.deferred = null;
   processQueue();
+}
+
+/**
+ * Move the task onto its next mirror URL (if any) instead of failing. Retries reset
+ * because they were spent on the previous host. Returns false when no mirror is left.
+ */
+function switchToNextMirror(task: DownloadTask, err: Error): boolean {
+  const mirrors = task.state.options.mirrors;
+  if (!mirrors || mirrors.length === 0) return false;
+  const [next, ...rest] = mirrors;
+  log.warn('Primary URL failed, switching to mirror', {
+    id: task.state.options.id, failedUrl: task.state.options.url, mirror: next, error: err.message,
+  });
+  task.state.options.url = next;
+  task.state.options.mirrors = rest;
+  task.state.retryCount = 0;
+  task.state.lastError = err.message;
+  task.state.status = 'queued';
+  task.state.updatedAt = new Date().toISOString();
+  persistState();
+  task.retryTimer = setTimeout(() => {
+    task.retryTimer = null;
+    processQueue();
+  }, 0);
+  return true;
 }
 
 // ─── Internal: progress & state helpers ───────────────────────────

@@ -18,6 +18,14 @@ export interface DownloadOptions {
   id: string;
   /** Source URL */
   url: string;
+  /**
+   * Fallback URLs for the SAME bytes (mirrors), tried in order when `url` fails for
+   * good — a 4xx, a non-transient socket error, or exhausted transient retries.
+   * Consumed as they are used (persisted with the task), so a restart resumes on the
+   * mirror it had reached. A partial file is kept across the switch: mirrors serve
+   * identical content and the sha256 check still guards the result.
+   */
+  mirrors?: string[];
   /** Absolute path to write the downloaded file */
   destPath: string;
   /**

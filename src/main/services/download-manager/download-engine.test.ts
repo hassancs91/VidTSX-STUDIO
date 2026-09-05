@@ -29,6 +29,12 @@ beforeAll(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'download-engine-test-'));
   // Range-aware server, mimicking HuggingFace/CDN resume semantics
   server = http.createServer((req, res) => {
+    // A dead primary host for the mirror-fallback test: 404, never retried.
+    if (req.url?.startsWith('/gone/')) {
+      res.writeHead(404);
+      res.end('not here');
+      return;
+    }
     const range = req.headers.range;
     if (range) rangeRequests.push(range);
     const total = FILE_BODY.length;
@@ -197,5 +203,40 @@ describe('restoreDownloads startup heal', () => {
 
     expect(existsSync(partPath)).toBe(false);
     expect(await fs.readFile(finalPath, 'utf8')).toBe(FILE_BODY);
+  });
+});
+
+describe('mirror fallback', () => {
+  it('switches to the next mirror when the primary URL fails for good (404)', async () => {
+    const destPath = path.join(tmpDir, 'mirrored.bin');
+    const statuses: string[] = [];
+    const unsub = onDownloadProgress((p: DownloadProgress) => {
+      if (p.id === 'test-mirror') statuses.push(p.status);
+    });
+    try {
+      await enqueueDownload({
+        id: 'test-mirror',
+        url: `${baseUrl}/gone/mirrored.bin`,
+        mirrors: [`${baseUrl}/gone/still-gone.bin`, `${baseUrl}/mirrored.bin`],
+        destPath,
+      });
+    } finally {
+      unsub();
+    }
+    expect(await fs.readFile(destPath, 'utf8')).toBe(FILE_BODY);
+    expect(statuses).not.toContain('failed');
+    expect(statuses[statuses.length - 1]).toBe('completed');
+  });
+
+  it('still fails when every mirror is dead', async () => {
+    const destPath = path.join(tmpDir, 'never.bin');
+    await expect(
+      enqueueDownload({
+        id: 'test-mirror-dead',
+        url: `${baseUrl}/gone/a.bin`,
+        mirrors: [`${baseUrl}/gone/b.bin`],
+        destPath,
+      }),
+    ).rejects.toThrow(/HTTP error: 404/);
   });
 });
