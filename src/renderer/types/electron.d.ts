@@ -90,8 +90,6 @@ import type {
   SettingsSetCrashReportingRequest,
   SettingsSetCrashReportingResponse,
   SystemInfoGetResponse,
-  PyTorchPipInstallRequest,
-  PyTorchPipInstallResponse,
   DownloadEnqueueRequest,
   DownloadEnqueueResponse,
   DownloadControlRequest,
@@ -315,7 +313,13 @@ export interface ElectronAPI {
 
   // System info
   systemInfoGet: () => Promise<SystemInfoGetResponse>;
-  pytorchPipInstall: (data: PyTorchPipInstallRequest) => Promise<PyTorchPipInstallResponse>;
+
+  // AI runtime (downloadable Python + PyTorch)
+  aiRuntimeStatus: () => Promise<import('../../shared/ipc/types').AiRuntimeStatusResponse>;
+  aiRuntimeInstall: (data?: import('../../shared/ipc/types').AiRuntimeInstallRequest) => Promise<import('../../shared/ipc/types').AiRuntimeInstallResponse>;
+  aiRuntimeRepair: () => Promise<import('../../shared/ipc/types').AiRuntimeRepairResponse>;
+  aiRuntimeRemove: () => Promise<import('../../shared/ipc/types').AiRuntimeRemoveResponse>;
+  onAiRuntimeStatusChanged: (callback: (status: import('../../shared/ipc/types').AiRuntimeStatusChangedEvent) => void) => () => void;
 
   // Download manager operations
   downloadEnqueue: (data: DownloadEnqueueRequest) => Promise<DownloadEnqueueResponse>;

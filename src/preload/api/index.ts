@@ -18,6 +18,7 @@ export { sdVideoApi } from './sd-video';
 export { tsxJobsApi } from './tsx-jobs';
 export { modelLibraryApi } from './model-library';
 export { systemApi } from './system';
+export { aiRuntimeApi } from './ai-runtime';
 export { localLlmApi } from './local-llm';
 export { downloadApi } from './download';
 export { embeddingApi } from './embedding';

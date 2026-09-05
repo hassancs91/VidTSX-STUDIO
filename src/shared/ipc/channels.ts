@@ -294,7 +294,13 @@ export const IPC = {
 
   // System info (one-shot dashboard snapshot)
   SYSTEM_INFO_GET: 'system:info:get',
-  PYTORCH_PIP_INSTALL: 'pytorch:pip:install',
+
+  // AI runtime (downloadable Python + PyTorch stack — docs/ai-runtime-implementation-plan.md §3)
+  AI_RUNTIME_STATUS: 'ai-runtime:status',
+  AI_RUNTIME_INSTALL: 'ai-runtime:install',
+  AI_RUNTIME_REPAIR: 'ai-runtime:repair',
+  AI_RUNTIME_REMOVE: 'ai-runtime:remove',
+  AI_RUNTIME_STATUS_CHANGED: 'ai-runtime:status-changed',
 
   // System resource monitor (push event only — always on)
   SYSTEM_MONITOR_DATA: 'system:monitor:data',

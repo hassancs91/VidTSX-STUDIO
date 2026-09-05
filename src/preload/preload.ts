@@ -18,6 +18,7 @@ import { sdVideoApi } from './api/sd-video';
 import { tsxJobsApi } from './api/tsx-jobs';
 import { modelLibraryApi } from './api/model-library';
 import { systemApi } from './api/system';
+import { aiRuntimeApi } from './api/ai-runtime';
 import { localLlmApi } from './api/local-llm';
 import { downloadApi } from './api/download';
 import { embeddingApi } from './api/embedding';
@@ -55,6 +56,7 @@ const api = {
   ...tsxJobsApi,
   ...modelLibraryApi,
   ...systemApi,
+  ...aiRuntimeApi,
   ...localLlmApi,
   ...downloadApi,
   ...embeddingApi,

@@ -8,6 +8,7 @@ import { initImageEngine } from './services/image-init';
 import { initSttEngine } from './services/stt/stt-init';
 import { initSdImageCategory } from './services/sdimage-init';
 import { initSdVideoCategory } from './services/sdvideo-init';
+import { initAiRuntime } from './services/ai-runtime';
 import { initLogging } from './services/log-init';
 import { initCrashReporting } from './services/crash-reporting';
 import { migrateImageStudio } from './services/image-studio-migrate';
@@ -197,6 +198,8 @@ app.whenReady().then(async () => {
   // model-library categories register now so on-demand scans work.
   await initSdImageCategory();
   await initSdVideoCategory();
+  // AI runtime (downloadable Python + PyTorch): registry entry + staging cleanup, no Python spawned.
+  await initAiRuntime();
 
   // Migrate legacy downloads.json into SQLite before the download engine reads state.
   await migrateDownloads();

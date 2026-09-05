@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Button, Panel, ProgressBar, SectionHeader } from '@shared/components';
+import { Panel, SectionHeader } from '@shared/components';
+import { isFeatureEnabled } from '@shared/feature-flags';
 import { useSystemInfo } from '../hooks/use-system-info';
-import type { PyTorchDownloadState } from '../hooks/use-system-info';
+import { AiRuntimeRow } from './AiRuntimeRow';
 
 interface LibraryTotals {
   imageCount: number;
@@ -23,31 +24,6 @@ const WarningIcon = () => (
   </svg>
 );
 
-const PauseIcon = () => (
-  <svg width={10} height={10} viewBox="0 0 10 10" fill="currentColor">
-    <rect x="1.5" y="1" width="2.5" height="8" rx="0.5" />
-    <rect x="6" y="1" width="2.5" height="8" rx="0.5" />
-  </svg>
-);
-
-const PlayIcon = () => (
-  <svg width={10} height={10} viewBox="0 0 10 10" fill="currentColor">
-    <path d="M2 1.5L8.5 5L2 8.5V1.5Z" />
-  </svg>
-);
-
-const CancelIcon = () => (
-  <svg width={10} height={10} viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round">
-    <path d="M2 2L8 8M8 2L2 8" />
-  </svg>
-);
-
-const DownloadIcon = () => (
-  <svg width={12} height={12} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 2v6M3.5 5.5L6 8l2.5-2.5M2 10h8" />
-  </svg>
-);
-
 // ─── Formatters ───────────────────────────────────────────────────
 
 function formatBytes(bytes: number): string {
@@ -55,21 +31,6 @@ function formatBytes(bytes: number): string {
   if (bytes >= 1_000_000_000) return `${(bytes / 1_000_000_000).toFixed(0)} GB`;
   if (bytes >= 1_000_000) return `${(bytes / 1_000_000).toFixed(0)} MB`;
   return `${(bytes / 1_000).toFixed(0)} KB`;
-}
-
-function formatSpeed(bps: number): string {
-  if (bps <= 0) return '';
-  if (bps >= 1_000_000) return `${(bps / 1_000_000).toFixed(1)} MB/s`;
-  if (bps >= 1_000) return `${(bps / 1_000).toFixed(0)} KB/s`;
-  return `${bps} B/s`;
-}
-
-function formatEta(seconds: number): string {
-  if (seconds < 0) return '';
-  if (seconds < 60) return `~${seconds}s`;
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return s > 0 ? `~${m}m ${s}s` : `~${m}m`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────
@@ -119,70 +80,10 @@ function EngineCard({ color, name, status, capabilities }: EngineCardProps) {
   );
 }
 
-function PyTorchDownloadProgress({
-  download,
-  onPause,
-  onResume,
-  onCancel,
-}: {
-  download: PyTorchDownloadState;
-  onPause: () => void;
-  onResume: () => void;
-  onCancel: () => void;
-}) {
-  const isPaused = download.status === 'paused';
-  const isInstalling = download.status === 'installing';
-
-  return (
-    <div className="mt-2 space-y-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] text-text-secondary">
-          {isInstalling ? 'Installing dependencies...' : isPaused ? 'Paused' : 'Downloading...'}
-          {' '}{Math.round(download.percent)}%
-        </span>
-        <div className="flex items-center gap-2">
-          {download.speedBps > 0 && (
-            <span className="text-[10px] text-text-dim">{formatSpeed(download.speedBps)}</span>
-          )}
-          {download.etaSeconds > 0 && (
-            <span className="text-[10px] text-text-dim">{formatEta(download.etaSeconds)}</span>
-          )}
-        </div>
-      </div>
-      <ProgressBar value={download.percent} color={isPaused ? 'amber' : 'purple'} />
-      {!isInstalling && (
-        <div className="flex items-center gap-1.5 mt-1">
-          {isPaused ? (
-            <button onClick={onResume} className="text-[10px] text-text-muted hover:text-text-secondary flex items-center gap-0.5" title="Resume">
-              <PlayIcon /> Resume
-            </button>
-          ) : (
-            <button onClick={onPause} className="text-[10px] text-text-muted hover:text-text-secondary flex items-center gap-0.5" title="Pause">
-              <PauseIcon /> Pause
-            </button>
-          )}
-          <button onClick={onCancel} className="text-[10px] text-text-muted hover:text-accent-red flex items-center gap-0.5" title="Cancel">
-            <CancelIcon /> Cancel
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────
 
 export function MainContent() {
-  const {
-    data,
-    loading,
-    refresh,
-    pytorchDownload,
-    pytorchInstall,
-    pytorchPause,
-    pytorchResume,
-    pytorchCancel,
-  } = useSystemInfo();
+  const { data, loading, refresh } = useSystemInfo();
   const [refreshing, setRefreshing] = useState(false);
   const [library, setLibrary] = useState<LibraryTotals | null>(null);
 
@@ -245,9 +146,9 @@ export function MainContent() {
   const vramValue = vramTotalGB !== null
     ? `${vramTotalGB} GB${vramFreeGB !== null ? ` · ${vramFreeGB} GB free` : ''}`
     : 'Unknown';
-  const pytorchInstalled = data.engines.pytorch.installed;
-  const cachedWheels = data.engines.pytorch.cachedWheels ?? [];
-  const pytorchBusy = pytorchDownload.status === 'downloading' || pytorchDownload.status === 'paused' || pytorchDownload.status === 'installing';
+  // The AI Runtime row and the Embedding Engine card stay behind the
+  // ai-system-runtimes flag until a feature consumes them (Stage 3 turns it on).
+  const showUnusedRuntimes = isFeatureEnabled('ai-system-runtimes');
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-4 items-start">
@@ -314,7 +215,7 @@ export function MainContent() {
         </Panel>
       </div>
 
-      {/* ── Right column: Engines + Python ─────────────── */}
+      {/* ── Right column: Engines ──────────────────────── */}
       <div className="mt-6 lg:mt-0">
         <SectionHeader>Engines</SectionHeader>
         <Panel className="p-3 divide-y divide-border">
@@ -330,125 +231,24 @@ export function MainContent() {
             status={data.engines.llm.available ? 'Bundled' : 'Not available'}
             capabilities="Chat &middot; Scripts &middot; Translation"
           />
-          <EngineCard
-            color="green"
-            name="Embedding Engine"
-            status="Bundled"
-            capabilities="Text &middot; Image &middot; Audio search"
-          />
+          {showUnusedRuntimes && (
+            <EngineCard
+              color="green"
+              name="Embedding Engine"
+              status="Bundled"
+              capabilities="Text &middot; Image &middot; Audio search"
+            />
+          )}
           <EngineCard
             color={data.engines.image.available ? 'green' : 'blue'}
             name="Image Engine"
             status={data.engines.image.available ? 'Bundled' : 'Not available'}
             capabilities="Image gen &middot; Video gen &middot; Upscaling"
           />
-          {/* PyTorch row */}
-          <div className="py-2">
-            <div className="flex items-start gap-2.5">
-              <div className={`w-2 h-2 rounded-full mt-1 shrink-0 ${pytorchInstalled ? 'bg-accent-green' : 'bg-accent-amber'}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-text-primary font-medium">
-                    PyTorch Runtime
-                  </span>
-                  <span className="text-[11px] text-text-dim">
-                    {pytorchInstalled
-                      ? `Installed (${data.engines.pytorch.variant?.toUpperCase() ?? 'unknown'})${data.engines.pytorch.version ? ` v${data.engines.pytorch.version}` : ''}`
-                      : 'Not installed'}
-                  </span>
-                </div>
-                <span className="text-[11px] text-text-dim">Voice clone &middot; 3D gen &middot; Audio separation</span>
-
-                {/* Install / Switch buttons or progress */}
-                {!pytorchBusy && pytorchDownload.status !== 'completed' && (
-                  <div className="flex items-center gap-2 mt-2">
-                    {/* CPU button: Install if nothing installed, Switch if GPU is installed */}
-                    {(!pytorchInstalled || data.engines.pytorch.variant === 'gpu') && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => pytorchInstall('cpu')}
-                      >
-                        <span className="flex items-center gap-1">
-                          <DownloadIcon />
-                          {pytorchInstalled
-                            ? cachedWheels.includes('cpu') ? 'Switch to CPU' : 'Switch to CPU ~109 MB'
-                            : 'Install CPU ~109 MB'}
-                        </span>
-                      </Button>
-                    )}
-                    {/* GPU button: Install if nothing installed, Switch if CPU is installed */}
-                    {(!pytorchInstalled || data.engines.pytorch.variant === 'cpu') && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => pytorchInstall('gpu')}
-                        disabled={!hasCuda}
-                        title={!hasCuda ? 'Requires NVIDIA GPU with CUDA' : undefined}
-                      >
-                        <span className="flex items-center gap-1">
-                          <DownloadIcon />
-                          {pytorchInstalled
-                            ? cachedWheels.includes('gpu') ? 'Switch to GPU' : 'Switch to GPU ~2.4 GB'
-                            : 'Install GPU ~2.4 GB'}
-                        </span>
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {pytorchBusy && (
-                  <PyTorchDownloadProgress
-                    download={pytorchDownload}
-                    onPause={pytorchPause}
-                    onResume={pytorchResume}
-                    onCancel={pytorchCancel}
-                  />
-                )}
-
-                {pytorchDownload.status === 'failed' && (
-                  <div className="mt-2">
-                    <span className="text-[11px] text-accent-red">
-                      {pytorchDownload.error ?? 'Download failed'}
-                    </span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Button variant="secondary" size="sm" onClick={() => pytorchInstall('cpu')}>
-                        Retry CPU
-                      </Button>
-                      {hasCuda && (
-                        <Button variant="secondary" size="sm" onClick={() => pytorchInstall('gpu')}>
-                          Retry GPU
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          {/* AI Runtime (downloadable Python + PyTorch) — docs/ai-runtime-implementation-plan.md §3 */}
+          {showUnusedRuntimes && <AiRuntimeRow />}
         </Panel>
 
-        {/* ── Python ───────────────────────────────────── */}
-        <SectionHeader>Python</SectionHeader>
-        <Panel className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {data.python.available ? (
-                <span className="text-accent-green"><CheckIcon /></span>
-              ) : (
-                <span className="text-accent-amber"><WarningIcon /></span>
-              )}
-              <span className="text-[12px] text-text-primary">
-                {data.python.available
-                  ? <>Python {data.python.version ?? ''} <span className="text-text-dim">(embedded)</span></>
-                  : 'Python not found'}
-              </span>
-            </div>
-            <span className="text-[11px] text-text-dim">
-              {data.python.available ? 'Bundled' : 'Not found'}
-            </span>
-          </div>
-        </Panel>
       </div>
     </div>
   );
