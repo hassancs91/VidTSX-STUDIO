@@ -27,5 +27,7 @@ export {
   computeAiRuntimeState,
 } from './status';
 export { runPipelineSelftest, AiRuntimeSelftestError } from './selftest';
+export { getAiRuntimeDevOverrides, parseAiRuntimeDevOverrides } from './dev-overrides';
+export type { AiRuntimeDevOverrides } from './dev-overrides';
 export type { AiRuntimePipeline, ReadyEvent } from './selftest';
 export { initAiRuntime } from './register';

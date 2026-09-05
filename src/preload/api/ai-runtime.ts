@@ -3,6 +3,7 @@ import { IPC } from '../../shared/ipc/channels';
 import type {
   AiRuntimeInstallRequest,
   AiRuntimeInstallResponse,
+  AiRuntimeRemoveRequest,
   AiRuntimeRemoveResponse,
   AiRuntimeRepairResponse,
   AiRuntimeStatusChangedEvent,
@@ -17,8 +18,8 @@ export const aiRuntimeApi = {
     ipcRenderer.invoke(IPC.AI_RUNTIME_INSTALL, data),
   aiRuntimeRepair: (): Promise<AiRuntimeRepairResponse> =>
     ipcRenderer.invoke(IPC.AI_RUNTIME_REPAIR),
-  aiRuntimeRemove: (): Promise<AiRuntimeRemoveResponse> =>
-    ipcRenderer.invoke(IPC.AI_RUNTIME_REMOVE),
+  aiRuntimeRemove: (data: AiRuntimeRemoveRequest = {}): Promise<AiRuntimeRemoveResponse> =>
+    ipcRenderer.invoke(IPC.AI_RUNTIME_REMOVE, data),
   onAiRuntimeStatusChanged: (callback: (status: AiRuntimeStatusChangedEvent) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, status: AiRuntimeStatusChangedEvent) => callback(status);
     ipcRenderer.on(IPC.AI_RUNTIME_STATUS_CHANGED, handler);

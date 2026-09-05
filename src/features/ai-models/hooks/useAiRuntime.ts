@@ -83,8 +83,8 @@ export function useAiRuntime() {
     await refresh();
   }, [refresh]);
 
-  const remove = useCallback(async () => {
-    const res = await window.api.aiRuntimeRemove();
+  const remove = useCallback(async (includeModels = false) => {
+    const res = await window.api.aiRuntimeRemove({ includeModels });
     if (!res.success) setError(res.error ?? 'Failed to remove the runtime');
     await refresh();
   }, [refresh]);

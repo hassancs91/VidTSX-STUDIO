@@ -1,6 +1,7 @@
 import { app } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
+import { getAiRuntimeDevOverrides } from '../services/ai-runtime/dev-overrides';
 
 export function getAppRoot(): string {
   if (app.isPackaged) {
@@ -128,7 +129,9 @@ export async function ensureTempDir(): Promise<void> {
 // userData; the worker scripts it runs ship with the app in resources/pipelines.
 
 export function getAiRuntimeRoot(): string {
-  return path.join(app.getPath('userData'), 'ai-runtime');
+  // Dev-only stand-in so automated runs can exercise the MAX_PATH guard (see dev-overrides.ts).
+  const override = getAiRuntimeDevOverrides()?.root;
+  return override ?? path.join(app.getPath('userData'), 'ai-runtime');
 }
 
 /** `{userData}/ai-runtime/<version>-<variant>` — the extracted runtime folder. */

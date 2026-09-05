@@ -97,6 +97,11 @@ export interface AiRuntimeRepairResponse {
   error?: string;
 }
 
+export interface AiRuntimeRemoveRequest {
+  /** Also delete every downloaded runtime-backed model (weights + companions). Default false. */
+  includeModels?: boolean;
+}
+
 export interface AiRuntimeRemoveResponse {
   success: boolean;
   error?: string;

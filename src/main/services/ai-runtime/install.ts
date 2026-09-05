@@ -30,6 +30,8 @@ import { aiRuntimePythonPath, readAiRuntimeManifest } from './manifest';
 import { checkDisk, checkPathBudget, checkPlatform, chooseVariant, readLongPathsEnabled } from './preflight';
 import { runPipelineSelftest } from './selftest';
 import { getGpuFacts } from './gpu';
+import { getAiRuntimeDevOverrides } from './dev-overrides';
+import { pythonLocalEngine } from '../../../local-python-engine';
 
 const log = logEngine.createLogger('AiRuntimeInstall');
 
@@ -117,6 +119,8 @@ async function renameWithRetry(from: string, to: string, attempts = 6): Promise<
 }
 
 async function freeBytesAt(dir: string): Promise<number> {
+  const override = getAiRuntimeDevOverrides()?.freeBytes;
+  if (override !== undefined) return override;
   try {
     const s = await statfs(dir);
     return Number(s.bfree) * Number(s.bsize);
@@ -244,7 +248,11 @@ export function repairAiRuntime(variant?: AiRuntimeVariant): Promise<void> {
   return installAiRuntime({ variant, repair: true });
 }
 
-/** Delete every installed runtime folder. Cancels an in-flight download first. */
+/**
+ * Delete every installed runtime folder. Cancels an in-flight download first, and any
+ * queued or running Python job (its python.exe lives in the folder about to go; the
+ * job settles as cancelled and the screen clears — the user asked for the removal).
+ */
 export async function removeAiRuntime(): Promise<void> {
   for (const d of getAllDownloads()) {
     if (d.metadata?.type === AI_RUNTIME_DOWNLOAD_TYPE && !['completed', 'failed', 'cancelled'].includes(d.status)) {
@@ -253,6 +261,14 @@ export async function removeAiRuntime(): Promise<void> {
   }
   if (inflight) {
     await inflight.catch(() => {});
+  }
+  if (pythonLocalEngine.pending().length > 0) {
+    log.info('Cancelling Python jobs before removing the runtime', { jobs: pythonLocalEngine.pending().length });
+    pythonLocalEngine.cancelAll();
+    // taskkill /T /F takes ~1 s to tear the tree down (Stage 0); wait so rm -rf does not hit EBUSY.
+    for (let i = 0; i < 25 && pythonLocalEngine.isBusy(); i++) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
   }
   const root = getAiRuntimeRoot();
   const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);

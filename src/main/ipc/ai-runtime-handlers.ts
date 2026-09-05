@@ -4,6 +4,7 @@ import { IPC } from '@shared/ipc/channels';
 import type {
   AiRuntimeInstallRequest,
   AiRuntimeInstallResponse,
+  AiRuntimeRemoveRequest,
   AiRuntimeRemoveResponse,
   AiRuntimeRepairResponse,
   AiRuntimeStatusChangedEvent,
@@ -17,6 +18,7 @@ import {
   repairAiRuntime,
   scanInstalledRuntime,
 } from '../services/ai-runtime';
+import { PYTHON_MODEL_CATALOG, removePythonModel } from '../services/python-models';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('AiRuntimeIpc');
@@ -65,9 +67,19 @@ export async function handleAiRuntimeRepair(_event: IpcMainInvokeEvent): Promise
   }
 }
 
-export async function handleAiRuntimeRemove(_event: IpcMainInvokeEvent): Promise<AiRuntimeRemoveResponse> {
+/** Runtime only, or runtime + every downloaded runtime-backed model (weights and companions). */
+export async function handleAiRuntimeRemove(
+  _event: IpcMainInvokeEvent,
+  data: AiRuntimeRemoveRequest = {},
+): Promise<AiRuntimeRemoveResponse> {
   try {
     await removeAiRuntime();
+    if (data.includeModels) {
+      for (const profile of PYTHON_MODEL_CATALOG) {
+        await removePythonModel(profile.id);
+      }
+      log.info('Runtime-backed models removed with the runtime', { models: PYTHON_MODEL_CATALOG.length });
+    }
     return { success: true };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to remove the AI runtime') };

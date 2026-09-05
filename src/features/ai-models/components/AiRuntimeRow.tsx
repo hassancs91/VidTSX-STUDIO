@@ -1,9 +1,14 @@
+import { useState } from 'react';
 import { Button } from '@shared/components';
 import type { AiRuntimeStatus, AiRuntimeVariant } from '../../../shared/ipc/types';
 import { useAiRuntime } from '../hooks/useAiRuntime';
 import { DownloadCell } from './DownloadCell';
 
 const VARIANT_LABEL: Record<AiRuntimeVariant, string> = { cu126: 'GPU', cpu: 'CPU' };
+
+function formatBytes(bytes: number): string {
+  return bytes >= 1_000_000_000 ? `${(bytes / 1_000_000_000).toFixed(1)} GB` : `${Math.round(bytes / 1_000_000)} MB`;
+}
 
 const DOT: Record<AiRuntimeStatus['state'], string> = {
   installed: 'bg-accent-green',
@@ -52,6 +57,8 @@ function phaseLabel(s: AiRuntimeStatus): string {
  */
 export function AiRuntimeRow() {
   const { status, download, error, loading, install, repair, remove, pause, resume, cancel } = useAiRuntime();
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [modelBytes, setModelBytes] = useState<number | null>(null);
 
   if (loading || !status) {
     return (
@@ -72,10 +79,21 @@ export function AiRuntimeRow() {
   const recIssue = rec.issue;
   const message = status.lastError ?? error;
 
+  // Remove asks inline: runtime only, or runtime + the downloaded models (plan §6 step 2).
   const onRemove = async () => {
-    if (window.confirm('Remove the AI runtime? Background removal and 3D generation will need it downloaded again.')) {
-      await remove();
+    setConfirmRemove(true);
+    setModelBytes(null);
+    const res = await window.api.pythonModelStatus({}).catch(() => null);
+    if (res?.success) {
+      // Companions are listed under every model that needs them — count each file once.
+      const byDest = new Map<string, number>();
+      for (const m of res.models) for (const f of m.files) if (f.present) byDest.set(f.dest, f.bytes);
+      setModelBytes([...byDest.values()].reduce((n, b) => n + b, 0));
     }
+  };
+  const doRemove = async (includeModels: boolean) => {
+    setConfirmRemove(false);
+    await remove(includeModels);
   };
 
   return (
@@ -115,7 +133,7 @@ export function AiRuntimeRow() {
                   <button
                     onClick={() => install(other.variant)}
                     disabled={other.issue !== null}
-                    title={other.issue?.message ?? (other.variant === 'cpu' ? 'Smaller download, runs on any PC (about a minute per 3D model)' : 'Needs an NVIDIA GPU with 4 GB and a recent driver')}
+                    title={other.issue?.message ?? (other.variant === 'cpu' ? 'Smaller download, runs on any PC (1½–2 minutes per 3D model)' : 'Needs an NVIDIA GPU with 4 GB and a recent driver')}
                     className="text-[10px] text-text-muted hover:text-text-secondary disabled:opacity-50 disabled:cursor-not-allowed underline-offset-2 hover:underline"
                   >
                     {other.variant === 'cpu' ? `Use the smaller CPU-only runtime (${other.sizeLabel})` : `Use the GPU runtime instead (${other.sizeLabel})`}
@@ -153,6 +171,28 @@ export function AiRuntimeRow() {
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent animate-pulse mr-1.5 align-middle" />
               {phaseLabel(status)}
               {status.install?.message && <span className="text-text-dim"> — {status.install.message}</span>}
+            </div>
+          )}
+
+          {confirmRemove && !busy && (
+            <div className="mt-2 rounded border border-border bg-app-base p-2 space-y-1.5" data-testid="ai-runtime-remove-confirm">
+              <div className="text-[11px] text-text-secondary">
+                Remove the AI runtime? Background removal and Image → 3D will need it downloaded again; a job in progress is cancelled.
+                {modelBytes !== null && modelBytes > 0 ? ` Downloaded models (${formatBytes(modelBytes)}) can stay for a later reinstall or go with it.` : ''}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="secondary" size="sm" onClick={() => void doRemove(false)}>
+                  {modelBytes ? 'Remove runtime, keep models' : 'Remove runtime'}
+                </Button>
+                {modelBytes !== null && modelBytes > 0 && (
+                  <Button variant="secondary" size="sm" onClick={() => void doRemove(true)}>
+                    {`Remove runtime + models (${formatBytes(modelBytes)})`}
+                  </Button>
+                )}
+                <button type="button" onClick={() => setConfirmRemove(false)} className="text-[10px] text-text-muted hover:text-text-secondary underline-offset-2 hover:underline">
+                  Keep
+                </button>
+              </div>
             </div>
           )}
 

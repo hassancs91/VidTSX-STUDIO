@@ -318,7 +318,7 @@ export interface ElectronAPI {
   aiRuntimeStatus: () => Promise<import('../../shared/ipc/types').AiRuntimeStatusResponse>;
   aiRuntimeInstall: (data?: import('../../shared/ipc/types').AiRuntimeInstallRequest) => Promise<import('../../shared/ipc/types').AiRuntimeInstallResponse>;
   aiRuntimeRepair: () => Promise<import('../../shared/ipc/types').AiRuntimeRepairResponse>;
-  aiRuntimeRemove: () => Promise<import('../../shared/ipc/types').AiRuntimeRemoveResponse>;
+  aiRuntimeRemove: (data?: import('../../shared/ipc/types').AiRuntimeRemoveRequest) => Promise<import('../../shared/ipc/types').AiRuntimeRemoveResponse>;
   onAiRuntimeStatusChanged: (callback: (status: import('../../shared/ipc/types').AiRuntimeStatusChangedEvent) => void) => () => void;
 
   // Runtime-backed Python models (catalogue status / download / preflight / install)

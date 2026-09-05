@@ -17,6 +17,7 @@ import { AI_RUNTIME_CATALOGUE, AI_RUNTIME_VARIANTS, AI_RUNTIME_VERSION, formatRu
 import { aiRuntimePythonPath, readAiRuntimeManifest } from './manifest';
 import { checkDisk, checkPathBudget, checkPlatform, chooseVariant, readLongPathsEnabled, rootBudgetChars } from './preflight';
 import { getGpuFacts } from './gpu';
+import { getAiRuntimeDevOverrides } from './dev-overrides';
 import { getAiRuntimeInstallProgress, getAiRuntimeLastError, isAiRuntimeInstalling } from './install';
 
 export type InstalledScan =
@@ -87,6 +88,8 @@ export async function getInstalledAiRuntime(): Promise<AiRuntimeInstalledInfo | 
  * instead of reporting 0 and blocking the Install button with a bogus disk issue.
  */
 async function freeBytesAt(dir: string): Promise<number> {
+  const override = getAiRuntimeDevOverrides()?.freeBytes;
+  if (override !== undefined) return override;
   let probe = dir;
   for (let i = 0; i < 6; i++) {
     try {

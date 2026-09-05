@@ -5,6 +5,7 @@
  */
 import { execFile } from 'child_process';
 import type { GpuFacts } from './preflight';
+import { getAiRuntimeDevOverrides } from './dev-overrides';
 
 let cache: Promise<GpuFacts | null> | null = null;
 
@@ -32,8 +33,21 @@ function query(): Promise<GpuFacts | null> {
   });
 }
 
+/** Dev-only stand-ins (VIDTSX_AI_RUNTIME_OVERRIDES) so the driver / VRAM guards can be driven in a test. */
+function applyOverrides(facts: GpuFacts | null): GpuFacts | null {
+  const o = getAiRuntimeDevOverrides();
+  if (!o) return facts;
+  if (o.gpuName === null) return null;
+  const base: GpuFacts = facts ?? { name: null, driverVersion: null, vramTotalMB: null };
+  return {
+    name: o.gpuName ?? base.name,
+    driverVersion: o.driverVersion !== undefined ? o.driverVersion : base.driverVersion,
+    vramTotalMB: o.vramTotalMB !== undefined ? o.vramTotalMB : base.vramTotalMB,
+  };
+}
+
 export function getGpuFacts(): Promise<GpuFacts | null> {
-  cache ??= query();
+  cache ??= query().then(applyOverrides);
   return cache;
 }
 
