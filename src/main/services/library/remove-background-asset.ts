@@ -8,10 +8,11 @@
 import path from 'path';
 import { ensureLibraryRoot, resolveLibraryPath, toLibraryRelPath } from './library-paths';
 import { upsertEntry } from './library-store';
-import { runPythonModel, preflightPythonModel, type RunPythonModelResult } from '../python-models';
+import { runPythonModel, preflightPythonModel, preferredRembgModelId, REMBG_DEFAULT_MODEL_ID, type RunPythonModelResult } from '../python-models';
 import type { PythonModelPreflightIpc } from '@shared/ipc/types/python-models';
 
-export const REMBG_MODEL_ID = 'rembg-u2net';
+/** The model the install dialog offers; the run itself upgrades to ISNet when it is downloaded. */
+export const REMBG_MODEL_ID = REMBG_DEFAULT_MODEL_ID;
 
 export interface RemoveBackgroundAssetRequest {
   /** Library-relative path of the source image (a "library:" prefix is accepted). */
@@ -44,7 +45,7 @@ export async function removeBackgroundAsset(req: RemoveBackgroundAssetRequest): 
   const relPath = stripLibraryPrefix(req.relPath).replace(/\\/g, '/');
   const absSource = resolveLibraryPath(root, relPath); // traversal guard
   const result: RunPythonModelResult = await runPythonModel({
-    modelId: REMBG_MODEL_ID,
+    modelId: await preferredRembgModelId(),
     input: { imagePath: absSource },
     options: {
       alphaMatting: req.options?.alphaMatting === true,

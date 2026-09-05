@@ -19,6 +19,13 @@ describe('validatePythonOptions', () => {
 });
 
 describe('buildPythonRequest', () => {
+  it('rembg-isnet: same request shape with the ISNet session name', () => {
+    const isnet = pythonModelById('rembg-isnet')!;
+    const req = buildPythonRequest({ profile: isnet, modelsRoot: root, imagePath: 'C:\\in\\a.png', outputPath: 'C:\\out\\a-nobg.png', options: {}, device: 'cpu' });
+    expect(req.model).toBe('isnet-general-use');
+    expect(String(req.rembgHome)).toBe(path.join(root, 'rembg'));
+  });
+
   it('rembg: paths + rembgHome under the models root, CPU, booleans defaulted', () => {
     const req = buildPythonRequest({
       profile: rembg, modelsRoot: root,

@@ -54,7 +54,7 @@ export function buildPythonRequest(input: BuildRequestInput): Record<string, unk
         imagePath,
         outputPath,
         rembgHome: rembgHomeFor(modelsRoot),
-        model: 'u2net',
+        model: profile.rembgModel ?? 'u2net',
         device: 'cpu',
         alphaMatting: options.alphaMatting === true,
         postProcessMask: options.postProcessMask === true,

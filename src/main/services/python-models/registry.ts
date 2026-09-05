@@ -62,6 +62,8 @@ export interface PythonModelProfile {
   vramMb: number | null;
   /** True when the model runs (acceptably) without a GPU. */
   cpuOk: boolean;
+  /** rembg pipeline only: the session name (`models/<name>/<name>.onnx`). Default u2net. */
+  rembgModel?: 'u2net' | 'isnet-general-use';
   capability: PythonCapabilityDescriptor;
 }
 
@@ -114,6 +116,7 @@ export const PYTHON_MODEL_CATALOG: readonly PythonModelProfile[] = [
     sourceUrl: 'https://github.com/danielgatis/rembg',
     vramMb: null,
     cpuOk: true,
+    rembgModel: 'u2net',
     capability: {
       inputs: [{ kind: 'image' }],
       outputs: [{ kind: 'image' }],
@@ -122,6 +125,42 @@ export const PYTHON_MODEL_CATALOG: readonly PythonModelProfile[] = [
       needs: 'ai-runtime',
       estimatedSeconds: { gpu: 3, cpu: 3 },
       toolId: 'remove_background',
+    },
+  },
+  {
+    // Stage 5 quality check (plan §9.3, 2026-09-05, 12 MP plush photo): tighter fur edge
+    // and 43 % fewer faint (alpha < 32) pixels than u2net, no residue; 6.0 s vs 4.3 s.
+    // "Remove background" uses it automatically once downloaded (preferredRembgModelId).
+    id: 'rembg-isnet',
+    category: 'image',
+    section: 'image-tools',
+    name: 'Background removal (ISNet)',
+    summary: 'Sharper edges on fur and hair than u2net. Used automatically by Remove background once downloaded. 3–6 s on the CPU.',
+    pipeline: 'rembg',
+    runtime: { id: 'pytorch', stack: PYTHON_MODEL_STACK },
+    files: [
+      {
+        url: 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx',
+        sha256: '60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a',
+        bytes: 178_648_008,
+        dest: 'rembg/models/isnet-general-use/isnet-general-use.onnx',
+        label: 'Background-removal model (ISNet)',
+      },
+    ],
+    companions: [],
+    licence: { name: 'MIT (rembg) · Apache-2.0 (ISNet/DIS weights)', url: 'https://github.com/xuebinqin/DIS/blob/main/LICENSE.md' },
+    sourceUrl: 'https://github.com/xuebinqin/DIS',
+    vramMb: null,
+    cpuOk: true,
+    rembgModel: 'isnet-general-use',
+    capability: {
+      inputs: [{ kind: 'image' }],
+      outputs: [{ kind: 'image' }],
+      options: REMBG_OPTIONS,
+      description: 'Remove the background from an image with the ISNet model (sharper edges on fur and hair than u2net), producing a PNG with transparency. Runs locally on the CPU in a few seconds.',
+      needs: 'ai-runtime',
+      estimatedSeconds: { gpu: 5, cpu: 5 },
+      toolId: 'remove_background_isnet',
     },
   },
   {

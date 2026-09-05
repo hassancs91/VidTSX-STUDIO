@@ -14,10 +14,8 @@ import type { RembgCancelRequest, RembgCancelResponse, RembgRunRequest, RembgRun
 import { getTempDir } from '../utils/paths';
 import { getImageEntry, getImageFilePath, registerImageFile } from '../services/image-studio-db';
 import { getImagesDir } from '../services/image-studio-files';
-import { startPythonModel } from '../services/python-models';
+import { preferredRembgModelId, startPythonModel } from '../services/python-models';
 import { cancelModelJob, startModelJob } from './python-model-job';
-
-const MODEL_ID = 'rembg-u2net';
 
 const STAGE_MESSAGE: Record<string, string> = {
   starting: 'Starting the AI runtime',
@@ -69,6 +67,8 @@ async function resolveSource(req: RembgRunRequest): Promise<Source> {
 
 export async function handleRembgRun(event: IpcMainInvokeEvent, req: RembgRunRequest): Promise<RembgRunResponse> {
   try {
+    // ISNet when downloaded, u2net otherwise (the dialog only ever offers the u2net download).
+    const MODEL_ID = await preferredRembgModelId();
     const result = await startModelJob<RembgStage, { entry: Awaited<ReturnType<typeof registerImageFile>>; seconds: number }>({
       modelId: MODEL_ID,
       sender: event.sender,

@@ -93,6 +93,21 @@ function hookEngine(): void {
 
 // ─── Preflight ──────────────────────────────────────────────────────────
 
+export const REMBG_DEFAULT_MODEL_ID = 'rembg-u2net';
+export const REMBG_PREFERRED_MODEL_ID = 'rembg-isnet';
+
+/**
+ * Which background-removal model "Remove background" should run: ISNet when its
+ * weights are on disk (sharper edges, plan §9.3), otherwise u2net — the default the
+ * install dialog offers, and the companion TripoSR needs anyway. `root` is for tests.
+ */
+export async function preferredRembgModelId(root?: string): Promise<string> {
+  const isnet = pythonModelById(REMBG_PREFERRED_MODEL_ID);
+  if (!isnet) return REMBG_DEFAULT_MODEL_ID;
+  const files = await checkPythonModelFiles(isnet, root);
+  return files.every((f) => f.present) ? REMBG_PREFERRED_MODEL_ID : REMBG_DEFAULT_MODEL_ID;
+}
+
 function modelLabel(bytes: number): string {
   return `the model (${formatModelBytes(bytes)})`;
 }
