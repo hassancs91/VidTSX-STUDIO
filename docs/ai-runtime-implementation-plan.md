@@ -530,3 +530,19 @@ the shared runtime; TripoSG / Hunyuan3D-2mini need the 8 GB VM to validate.
     - 3D tab: "AI Runtime · Installed · CPU · 2026.09.1" card + "TripoSR (image → 3D) · MIT · Fits · Ready · 1.7 GB · ~65s CPU · ~35s GPU (4 GB+)".
     - Card numbers: CPU generation is ~95–125 s through the app on this i7-10750H (Stage 0's 66 s was a warm lab loop without the
       preview and with the ckpt in the page cache); the control panel says "about a minute on the CPU" — revisit the copy in Stage 5.
+- 2026-09-05 — **Stage 4 E2E on the GPU runtime + session close-out.** The built `2026.09.1-cu126` stack from `.vidtsx-temp\ai-runtime\` was
+  copied into `%APPDATA%\VidTSX Studio\ai-runtime\` (25 s locally; the 2.6 GB download path itself stays a Stage 5 item — 25 min at this uplink).
+  Status row → "Installed · GPU · 2026.09.1", preflight `device: gpu`.
+  - Chair, **first launch of the fresh files**: 137.6 s (ready 39 s, imports → 71 s, load-model 50.5 s — Defender; encode 3.2, shape 4.9, preview 4.2 at 320²),
+    peak VRAM 2,596 MB (lab 1,866 + the preview render). Robot, warm: **42.2 s click → card** (load-model 17.1, preprocess 0.9, encode 3.0, shape 4.9,
+    preview 3.2), 80,649 verts. "From Image Studio…" picker + seed 42 on the palm-sketch cut-out: **41.5 s**, 32,936 verts, `seed: 42` stored and shown.
+    Card copy "~35 s on the GPU" holds (+3 s preview); CPU is 95–125 s through the app.
+  - Found and fixed (`useThreeDRuntime`): the panel's GPU/CPU line and quality cap only followed push events; now re-read on focus + before Generate.
+  - Stage 4 items not exercised: "runtime removed mid-way" (plan §5.9), the optional GlbViewer on asset tiles (§5.6) and the "Library meshes" prompt
+    section (§5.7) — both left for Stage 5 / later; Flows nodes wait for the Flows runner.
+  - **Left for Stage 5 (plan §6):** cu126 download through the row on a clean box; Repair + update path (`2026.09.2` fake bump); the error matrix through
+    both UIs (OOM at 512 on 4 GB, path-too-long, disk, runtime removed while queued); `isnet-general-use` quality check; "about a minute on the CPU"
+    copy vs the measured 95–125 s; sha256 on whisper/SD downloads (Stage 2 leftover); flags `ai-system-runtimes` / `ai-3d-models` / `threed-studio` on for
+    release and the Image Studio action un-flagged (it already is); STATUS.md + V1_RELEASE_PLAN.md rows; GPU VM run (`docs/gpu-cloud-testing-plan.md`).
+  - Commits this session: `b9b9f30` `86daf46` `03b81a0` (Stage 3), `520aa8e` `ade4647` `d5eb7bb` (Stage 4), `c72d514` `9ff132c` (log), `b5571d0` (runtime refresh).
+    Gates at every commit: check:types 26/22 (baseline), vitest 1,298 passing (+98 this session).
