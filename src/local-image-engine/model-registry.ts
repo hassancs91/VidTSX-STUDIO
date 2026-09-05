@@ -34,6 +34,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['model_q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/Sashkanik13/bk-sdm-tiny-text2img-gguf',
     downloadUrl: 'https://huggingface.co/Sashkanik13/bk-sdm-tiny-text2img-gguf/resolve/main/model_q4_0.gguf',
+    sha256: '63c37ad4560a340467ecfdca5bf3d04026932ac75c2eaa7969802cc6b3c4f5be',
     meta: {
       family: 'sd15',
       defaults: { width: 512, height: 512, steps: 4, cfgScale: 7.0, sampler: 'lcm' },
@@ -54,6 +55,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v1-5-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v1-5-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v1-5-GGUF/resolve/main/stable-diffusion-v1-5-Q4_0.gguf',
+    sha256: 'c2f6e92f9d08d69cc673a1003528ac8199274b3c0eaec88d5fbefe5af67bd42b',
     meta: {
       family: 'sd15',
       defaults: { width: 512, height: 512, steps: 20, cfgScale: 7.0, sampler: 'euler_a' },
@@ -70,6 +72,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v1-5-Q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v1-5-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v1-5-GGUF/resolve/main/stable-diffusion-v1-5-Q8_0.gguf',
+    sha256: 'a51037fac577d133fe3b83a4a0c2a7605615786f07bdec397378143fe0361f32',
     meta: {
       family: 'sd15',
       defaults: { width: 512, height: 512, steps: 20, cfgScale: 7.0, sampler: 'euler_a' },
@@ -101,6 +104,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['Realistic_Vision_V6.0_NV_B1_fp16.safetensors'],
     sourceUrl: 'https://huggingface.co/SG161222/Realistic_Vision_V6.0_B1_noVAE',
     downloadUrl: 'https://huggingface.co/SG161222/Realistic_Vision_V6.0_B1_noVAE/resolve/main/Realistic_Vision_V6.0_NV_B1_fp16.safetensors',
+    sha256: 'c48bfd159cd7a6507b128685e963c398fa72399cefafaf603781df50ce836cc7',
     meta: {
       family: 'sd15',
       defaults: { width: 512, height: 512, steps: 25, cfgScale: 7.0, sampler: 'euler_a' },
@@ -166,6 +170,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-xl-base-1.0-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-xl-base-1.0-GGUF/resolve/main/stable-diffusion-xl-base-1.0-Q4_0.gguf',
+    sha256: '4ab9818c9b3428eca96834c51fe294885608480991463f55bd9be53c822567c3',
     meta: {
       family: 'sdxl',
       defaults: { width: 1024, height: 1024, steps: 25, cfgScale: 5.0, sampler: 'euler' },
@@ -182,6 +187,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-xl-1.0-turbo-Q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-xl-1.0-turbo-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-xl-1.0-turbo-GGUF/resolve/main/stable-diffusion-xl-1.0-turbo-Q8_0.gguf',
+    sha256: '32b5ede87470ff486a5abcff3954cc2650292a2601af1c17724108e0abb5905d',
     meta: {
       family: 'sdxl',
       defaults: { width: 512, height: 512, steps: 1, cfgScale: 1.0, sampler: 'euler' },
@@ -198,6 +204,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['sdxl_lightning_4step.q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/OlegSkutte/SDXL-Lightning-GGUF',
     downloadUrl: 'https://huggingface.co/OlegSkutte/SDXL-Lightning-GGUF/resolve/main/sdxl_lightning_4step.q8_0.gguf',
+    sha256: '3a8b2ea93d0b0c5e72c82ed518aea715203173e2afbf8b7e47335d7f8799ef78',
     meta: {
       family: 'sdxl',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'lcm' },
@@ -278,6 +285,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v3-5-medium-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-medium-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-medium-GGUF/resolve/main/stable-diffusion-v3-5-medium-Q4_0.gguf',
+    sha256: '455a86af144d3726d054b9f1d980274dacebdcd722227571c6d34a5555494f21',
     meta: {
       family: 'sd3',
       defaults: { width: 1024, height: 1024, steps: 28, cfgScale: 4.5, sampler: 'euler' },
@@ -294,6 +302,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v3-5-medium-Q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-medium-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-medium-GGUF/resolve/main/stable-diffusion-v3-5-medium-Q8_0.gguf',
+    sha256: 'df88100deef8af5f77cb0f35da785cebca9b82850ceabbec2a7057a7a116b33c',
     meta: {
       family: 'sd3',
       defaults: { width: 1024, height: 1024, steps: 28, cfgScale: 4.5, sampler: 'euler' },
@@ -310,6 +319,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v3-5-large-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-large-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-large-GGUF/resolve/main/stable-diffusion-v3-5-large-Q4_0.gguf',
+    sha256: 'b1fcabab3af5dbb828c020281e93090bfb0aad29a4b065eb0d847988a94190f0',
     meta: {
       family: 'sd3',
       defaults: { width: 1024, height: 1024, steps: 28, cfgScale: 4.5, sampler: 'euler' },
@@ -326,6 +336,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v3-5-large-Q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-large-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-large-GGUF/resolve/main/stable-diffusion-v3-5-large-Q8_0.gguf',
+    sha256: '69f4297a8c8e48187486c603ac47f6919dddd49bc0a869553afd4784982406fe',
     meta: {
       family: 'sd3',
       defaults: { width: 1024, height: 1024, steps: 28, cfgScale: 4.5, sampler: 'euler' },
@@ -342,6 +353,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['stable-diffusion-v3-5-large-turbo-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-large-turbo-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/stable-diffusion-v3-5-large-turbo-GGUF/resolve/main/stable-diffusion-v3-5-large-turbo-Q4_0.gguf',
+    sha256: '118d16dd3907d19fe3f59645778148c1e0b7a11409e55eb84c69028283b9b02c',
     meta: {
       family: 'sd3',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 0, sampler: 'euler' },
@@ -362,6 +374,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux-2-klein-4b-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q4_0.gguf',
+    sha256: 'd1023499ef3f2f82ff7c50e6778495195c1b6cc34835741778868428111f9ff4',
     meta: {
       family: 'flux2',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -380,6 +393,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux-2-klein-4b-Q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.2-klein-4B-GGUF/resolve/main/flux-2-klein-4b-Q8_0.gguf',
+    sha256: '0bba6951258ec8f92d51114a8fa13e66828297bfff58a738f52729b3ef66fa28',
     meta: {
       family: 'flux2',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -398,6 +412,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux-2-klein-9b-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.2-klein-9B-GGUF',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.2-klein-9B-GGUF/resolve/main/flux-2-klein-9b-Q4_0.gguf',
+    sha256: 'a7e77afa96871d16679ff7b949bd25f20c8179f219c4b662cac91e81ed99b944',
     meta: {
       family: 'flux2',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -420,6 +435,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-schnell-q2_k.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q2_k.gguf',
+    sha256: 'e23c3c58b5475937419dd34ec0ccac301d8348ceadd7838eb367e6ce9329c836',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -438,6 +454,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-dev-q2_k.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q2_k.gguf',
+    sha256: '616422ef06d522b7f324e72cbd8f9f2058ea0449cae4fbac04a6357542f1eef0',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 20, cfgScale: 1.0, sampler: 'euler' },
@@ -456,6 +473,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-schnell-q3_k.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q3_k.gguf',
+    sha256: '2d30aa9b115ad70ddca447cffd4bfd23ec2f50cf4d56e75cef2f6cd65f80816d',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -474,6 +492,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-dev-q3_k.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q3_k.gguf',
+    sha256: '5c49d16134e8b69b73abe88e70d5ba8aabf2f01e5aa8c725e8941d60249a8d45',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 20, cfgScale: 1.0, sampler: 'euler' },
@@ -492,6 +511,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['FLUX.1-mini-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/FLUX.1-mini-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/FLUX.1-mini-GGUF/resolve/main/FLUX.1-mini-Q4_0.gguf',
+    sha256: 'd96f5d9b5ec4c67796ab67b5576ecf28c0703a8d8fa70d303be4a322a9b76737',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 20, cfgScale: 1.0, sampler: 'euler' },
@@ -510,6 +530,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-schnell-q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q4_0.gguf',
+    sha256: '4f30741d2bfc786c92934ce925fcb0a43df3441e76504b797c3d5d5f0878fa6f',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -528,6 +549,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-schnell-q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-schnell-gguf/resolve/main/flux1-schnell-q8_0.gguf',
+    sha256: '098c424cfa97526d9227da984563ad1509298f7573458ed210cd5ba0220ab635',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 4, cfgScale: 1.0, sampler: 'euler' },
@@ -566,6 +588,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-dev-q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q4_0.gguf',
+    sha256: '76f39405137fea92a617d83f5a9721870a03d1e75f233dc96b59cd50bbb45152',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 20, cfgScale: 1.0, sampler: 'euler' },
@@ -584,6 +607,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['flux1-dev-q8_0.gguf'],
     sourceUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf',
     downloadUrl: 'https://huggingface.co/leejet/FLUX.1-dev-gguf/resolve/main/flux1-dev-q8_0.gguf',
+    sha256: 'f1a060bfcd0b5f57dbb0026ae123dc7ac3651972a9c3283e0e40026fb5fa6952',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 20, cfgScale: 1.0, sampler: 'euler' },
@@ -602,6 +626,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
     matchFileNames: ['FLUX.1-Fill-dev-Q4_0.gguf'],
     sourceUrl: 'https://huggingface.co/gpustack/FLUX.1-Fill-dev-GGUF',
     downloadUrl: 'https://huggingface.co/gpustack/FLUX.1-Fill-dev-GGUF/resolve/main/FLUX.1-Fill-dev-Q4_0.gguf',
+    sha256: 'a82901365cf0bf548039d08ab161c551952ed60e4cc21a20dca952a8ef0e8d4f',
     meta: {
       family: 'flux1',
       defaults: { width: 1024, height: 1024, steps: 20, cfgScale: 1.0, sampler: 'euler' },

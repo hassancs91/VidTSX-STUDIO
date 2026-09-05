@@ -68,6 +68,11 @@ export interface ModelProfileEnvelope<TMeta> {
    * download (D1). Never a learnwithhasan.com URL.
    */
   downloadUrl?: string;
+  /**
+   * sha256 of the `downloadUrl` file (hex). The download engine verifies it before the
+   * file is revealed; a mismatch fails the download instead of leaving a bad model.
+   */
+  sha256?: string;
   /** single-file categories: canonical filenames used to auto-match scanned files. */
   matchFileNames?: string[];
   /** directory categories: extracted dir + required files (generalizes audio's isModelDownloaded). */

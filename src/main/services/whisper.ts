@@ -1,12 +1,11 @@
 import { app } from 'electron';
 import fs from 'fs/promises';
-import { createWriteStream, existsSync, createReadStream, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import path from 'path';
-import https from 'https';
-import { Extract } from 'unzipper';
 import { spawn, ChildProcess } from 'child_process';
 import type { TranscriptResult } from '../../shared/ipc/types';
 import { getRemotionBinariesDir } from '../utils/paths';
+import { enqueueDownload } from './download-manager';
 import { parseWhisperJson } from './whisper-output';
 
 export interface WhisperModel {
@@ -25,18 +24,33 @@ export interface DownloadProgress {
 
 type ProgressCallback = (progress: DownloadProgress) => void;
 
-// Model definitions
+// Model definitions — exact byte counts from the ggerganov/whisper.cpp LFS pointers (2026-09-05).
 const MODEL_DEFINITIONS: Omit<WhisperModel, 'downloaded'>[] = [
-  { id: 'tiny', name: 'Tiny', size: '75 MB', sizeBytes: 78_000_000 },
-  { id: 'base', name: 'Base', size: '142 MB', sizeBytes: 148_000_000 },
-  { id: 'small', name: 'Small', size: '466 MB', sizeBytes: 488_000_000 },
-  { id: 'medium', name: 'Medium', size: '1.5 GB', sizeBytes: 1_530_000_000 },
-  { id: 'large-v3', name: 'Large-v3', size: '3.1 GB', sizeBytes: 3_300_000_000 },
+  { id: 'tiny', name: 'Tiny', size: '75 MB', sizeBytes: 77_691_713 },
+  { id: 'base', name: 'Base', size: '142 MB', sizeBytes: 147_951_465 },
+  { id: 'small', name: 'Small', size: '466 MB', sizeBytes: 487_601_967 },
+  { id: 'medium', name: 'Medium', size: '1.5 GB', sizeBytes: 1_533_763_059 },
+  { id: 'large-v3', name: 'Large-v3', size: '3.1 GB', sizeBytes: 3_095_033_483 },
 ];
+
+/**
+ * sha256 of each ggml model file (from the Hugging Face LFS pointers of
+ * ggerganov/whisper.cpp at `main`, 2026-09-05). The download engine verifies the file
+ * before revealing it, so a truncated or tampered model never counts as installed.
+ */
+export const WHISPER_MODEL_SHA256: Record<string, string> = {
+  tiny: 'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21',
+  base: '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
+  small: '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
+  medium: '6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208',
+  'large-v3': '64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2',
+};
 
 // whisper.cpp release info - using latest stable release from ggml-org
 const WHISPER_RELEASE_TAG = 'v1.8.3';
 const WHISPER_BINARY_URL_WINDOWS = `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_RELEASE_TAG}/whisper-bin-x64.zip`;
+/** sha256 of whisper-bin-x64.zip for v1.8.3 (computed 2026-09-05, 3,968,674 bytes). */
+const WHISPER_BINARY_SHA256_WINDOWS = 'd824b1e37599f882b396e73f1ee0bfd5d0529f700314c48311dcbd00b803321d';
 
 // HuggingFace model URL pattern
 export const MODEL_URL_BASE = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
@@ -78,76 +92,6 @@ export async function getAvailableModels(): Promise<WhisperModel[]> {
   }));
 }
 
-async function downloadFile(
-  url: string,
-  destPath: string,
-  onProgress?: ProgressCallback,
-  maxRedirects = 5
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = (currentUrl: string, redirectCount: number) => {
-      if (redirectCount > maxRedirects) {
-        reject(new Error('Too many redirects'));
-        return;
-      }
-
-      https.get(currentUrl, (response) => {
-        // Handle redirects
-        if (response.statusCode === 301 || response.statusCode === 302) {
-          const redirectUrl = response.headers.location;
-          if (!redirectUrl) {
-            reject(new Error('Redirect without location header'));
-            return;
-          }
-          request(redirectUrl, redirectCount + 1);
-          return;
-        }
-
-        if (response.statusCode !== 200) {
-          reject(new Error(`HTTP error: ${response.statusCode}`));
-          return;
-        }
-
-        const totalBytes = parseInt(response.headers['content-length'] || '0', 10);
-        let downloadedBytes = 0;
-
-        const fileStream = createWriteStream(destPath);
-
-        response.on('data', (chunk: Buffer) => {
-          downloadedBytes += chunk.length;
-          if (onProgress && totalBytes > 0) {
-            onProgress({
-              percent: Math.round((downloadedBytes / totalBytes) * 100),
-              downloadedBytes,
-              totalBytes,
-            });
-          }
-        });
-
-        response.pipe(fileStream);
-
-        fileStream.on('finish', () => {
-          fileStream.close();
-          resolve();
-        });
-
-        fileStream.on('error', (err) => {
-          fs.unlink(destPath).catch(() => {});
-          reject(err);
-        });
-
-        response.on('error', (err) => {
-          fileStream.close();
-          fs.unlink(destPath).catch(() => {});
-          reject(err);
-        });
-      }).on('error', reject);
-    };
-
-    request(url, 0);
-  });
-}
-
 // Helper function to recursively find and copy all DLLs from a directory
 async function copyAllDllsRecursive(
   sourceDir: string,
@@ -181,16 +125,21 @@ export async function downloadWhisperBinary(onProgress?: ProgressCallback): Prom
   const binaryPath = getWhisperBinaryPath();
 
   try {
-    // Download the zip file
-    await downloadFile(WHISPER_BINARY_URL_WINDOWS, zipPath, onProgress);
-
-    // Extract the zip
-    await new Promise<void>((resolve, reject) => {
-      createReadStream(zipPath)
-        .pipe(Extract({ path: whisperDir }))
-        .on('close', resolve)
-        .on('error', reject);
-    });
+    // Download through the engine (resume, sha256 before extraction, zip extraction,
+    // archive deleted after) — the same path every other binary and model uses.
+    await enqueueDownload(
+      {
+        id: 'whisper-binary',
+        url: WHISPER_BINARY_URL_WINDOWS,
+        destPath: zipPath,
+        sha256: WHISPER_BINARY_SHA256_WINDOWS,
+        extraction: { format: 'zip', destDir: whisperDir, deleteArchive: true },
+        metadata: { type: 'whisper-binary' },
+      },
+      onProgress
+        ? (p) => onProgress({ percent: Math.max(0, p.percent), downloadedBytes: p.downloadedBytes, totalBytes: p.totalBytes })
+        : undefined,
+    );
 
     // The zip extracts to a Release/ subdirectory with whisper-cli.exe and DLLs
     const releaseDir = path.join(whisperDir, 'Release');
@@ -232,29 +181,6 @@ export async function downloadWhisperBinary(onProgress?: ProgressCallback): Prom
   } catch (err) {
     // Clean up on error
     await fs.unlink(zipPath).catch(() => {});
-    throw err;
-  }
-}
-
-export async function downloadModel(
-  modelId: string,
-  onProgress?: ProgressCallback
-): Promise<void> {
-  const modelsDir = getModelsDir();
-  await fs.mkdir(modelsDir, { recursive: true });
-
-  const modelPath = getModelPath(modelId);
-  const tempPath = modelPath + '.tmp';
-
-  // Use special URL for large-v3
-  const modelFileName = modelId === 'large-v3' ? 'ggml-large-v3.bin' : `ggml-${modelId}.bin`;
-  const modelUrl = `${MODEL_URL_BASE}/${modelFileName}`;
-
-  try {
-    await downloadFile(modelUrl, tempPath, onProgress);
-    await fs.rename(tempPath, modelPath);
-  } catch (err) {
-    await fs.unlink(tempPath).catch(() => {});
     throw err;
   }
 }
@@ -546,7 +472,6 @@ export const whisperService = {
   getModelPath,
   getAvailableModels,
   downloadWhisperBinary,
-  downloadModel,
   deleteModel,
   transcribe,
   cancelTranscription,

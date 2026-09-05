@@ -38,6 +38,8 @@ export interface CompanionRequirement {
   downloadUrl?: string;
   /** Exact size of the `downloadUrl` file, for display/progress. */
   sizeBytes?: number;
+  /** sha256 (hex) of the `downloadUrl` file — verified by the download engine before reveal. */
+  sha256?: string;
 }
 
 /**

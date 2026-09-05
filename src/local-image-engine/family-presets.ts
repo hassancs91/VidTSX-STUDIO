@@ -26,6 +26,7 @@ const FLUX1_CLIP_L: CompanionRequirement = {
   sourceUrl: 'https://huggingface.co/comfyanonymous/flux_text_encoders',
   sizeLabel: '246 MB',
   downloadUrl: 'https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/clip_l.safetensors',
+  sha256: '660c6f5b1abae9dc498ac2d21e1347d2abdb0cf6c0c0c8576cd796491d9a6cdd',
   sizeBytes: 246_144_152,
 };
 
@@ -38,6 +39,7 @@ const FLUX1_T5XXL: CompanionRequirement = {
   sizeLabel: '4.9 GB (fp8)',
   downloadUrl:
     'https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors',
+  sha256: '7d330da4816157540d6bb7838bf63a0f02f573fc48ca4d8de34bb0cbfd514f09',
   sizeBytes: 4_893_934_904,
 };
 
@@ -48,6 +50,7 @@ const FLUX1_VAE: CompanionRequirement = {
   sizeLabel: '335 MB',
   downloadUrl:
     'https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/vae/ae.safetensors',
+  sha256: 'afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38',
   sizeBytes: 335_304_388,
 };
 

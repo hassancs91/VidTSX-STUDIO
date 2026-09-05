@@ -40,6 +40,8 @@ interface DownloadFile {
   taskId: string;
   /** When true a download failure throws; companions are best-effort (false). */
   required: boolean;
+  /** Catalogue sha256 (hex); the engine refuses to reveal a file that does not match. */
+  sha256?: string;
 }
 
 const COMPANION_LABELS: Record<CompanionRequirement['kind'], string> = {
@@ -60,6 +62,7 @@ function companionFiles(meta: SdModelMeta, modelsDir: string): DownloadFile[] {
       label: COMPANION_LABELS[companion.kind] ?? companion.kind,
       taskId: `sdimage-companion-${companion.fileNames[0].toLowerCase()}`,
       required: false,
+      ...(companion.sha256 ? { sha256: companion.sha256 } : {}),
     });
   }
   return files;
@@ -90,6 +93,7 @@ async function runDownloadSet(
           url: file.url,
           destPath: `${finalPath}.part`,
           finalizePath: finalPath,
+          ...(file.sha256 ? { sha256: file.sha256 } : {}),
           metadata: {
             modelId,
             type: 'sdimage-model',
@@ -141,6 +145,7 @@ export async function downloadProfileModel(
       label: 'Model',
       taskId: `sdimage-model-${profileId}`,
       required: true,
+      ...(profile.sha256 ? { sha256: profile.sha256 } : {}),
     },
     ...companionFiles(profile.meta, modelsDir),
   ];

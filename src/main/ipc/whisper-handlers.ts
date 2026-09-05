@@ -11,6 +11,7 @@ import {
   getModelPath,
   getModelsDir,
   MODEL_URL_BASE,
+  WHISPER_MODEL_SHA256,
 } from '../services/whisper';
 import { enqueueDownload } from '../services/download-manager';
 import type {
@@ -96,6 +97,8 @@ export async function handleWhisperModelDownload(
         url: modelUrl,
         destPath: `${finalPath}.part`,
         finalizePath: finalPath,
+        // Verified before the rename: a mismatch fails the download instead of leaving a bad model.
+        ...(WHISPER_MODEL_SHA256[data.modelId] ? { sha256: WHISPER_MODEL_SHA256[data.modelId] } : {}),
         metadata: { modelId: data.modelId, type: 'whisper-model' },
       },
       (progress) => {

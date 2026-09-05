@@ -21,6 +21,16 @@ describe('SD_MODEL_CATALOG', () => {
     }
   });
 
+  it('every downloadUrl (profile and companion) carries a sha256 the engine can verify', () => {
+    const HEX64 = /^[0-9a-f]{64}$/;
+    for (const p of SD_MODEL_CATALOG) {
+      if (p.downloadUrl) expect(p.sha256, p.id).toMatch(HEX64);
+      for (const c of p.meta.companions ?? []) {
+        if (c.downloadUrl) expect(c.sha256, `${p.id}/${c.kind}`).toMatch(HEX64);
+      }
+    }
+  });
+
   it('has unique ids', () => {
     const ids = SD_MODEL_CATALOG.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
