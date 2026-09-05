@@ -1,6 +1,6 @@
-import type { ProviderConfig } from "./types";
+import type { LlmProviderPreset } from "./types";
 
-export const PROVIDER_PRESETS: Omit<ProviderConfig, "apiKey" | "enabled">[] = [
+export const PROVIDER_PRESETS: LlmProviderPreset[] = [
   {
     id: "claude-subscription",
     name: "Claude (My Subscription)",
@@ -30,6 +30,7 @@ export const PROVIDER_PRESETS: Omit<ProviderConfig, "apiKey" | "enabled">[] = [
     authMode: "api-key",
     baseURL: "https://openrouter.ai/api",
     defaultModel: "anthropic/claude-sonnet-4-6",
+    credentialId: "openrouter",
   },
   {
     id: "openai",
@@ -53,6 +54,7 @@ export const PROVIDER_PRESETS: Omit<ProviderConfig, "apiKey" | "enabled">[] = [
     authMode: "api-key",
     baseURL: "https://api.z.ai/api/anthropic",
     defaultModel: "glm-5.2",
+    credentialId: "zai",
   },
   {
     // Moonshot ships an Anthropic-compatible endpoint specifically so Claude

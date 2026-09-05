@@ -136,6 +136,31 @@ describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
     expect(bare.providers.find((p) => p.id === 'openrouter')?.enabled).toBe(false);
   });
 
+  it('the shared-key enablement rule is generic: a saved zai config with enabled:false is presented enabled when its credential exists', async () => {
+    // Stage 1 of the video-providers plan made the rule read `credentialId`
+    // from the preset instead of special-casing openrouter — zai (and every
+    // later shared-credential provider) gets the same artifact correction.
+    const savedZai: ProviderConfig = {
+      id: 'zai',
+      name: 'Z.AI (GLM)',
+      type: 'agent-sdk',
+      authMode: 'api-key',
+      baseURL: 'https://api.z.ai/api/anthropic',
+      defaultModel: 'glm-5.2',
+      enabled: false,
+    };
+    state.providers = [savedZai];
+    state.credentials = { zai: 'zai-test' };
+    const res = await handleLlmProvidersGet();
+    expect(res.providers.find((p) => p.id === 'zai')?.enabled).toBe(true);
+
+    // A saved per-provider key means the user manages it themselves — the
+    // saved flag stands.
+    state.providers = [{ ...savedZai, apiKey: 'own-key' }];
+    const own = await handleLlmProvidersGet();
+    expect(own.providers.find((p) => p.id === 'zai')?.enabled).toBe(false);
+  });
+
   it('an active pointer at a filtered preset with no saved config falls back (H2 guard)', async () => {
     state.activeProvider = 'gemini';
     const res = await handleLlmProvidersGet();

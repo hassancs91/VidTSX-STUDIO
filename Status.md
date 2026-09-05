@@ -7,6 +7,26 @@
 
 ---
 
+## 2026-09-05 (later) — VIDEO PROVIDERS Stage 1 DONE: provider registry (refactor, nothing user-visible)
+
+`src/shared/providers/registry.ts` is now the single definition of every shared BYOK
+provider (fal, openrouter, cloudflare, assemblyai, elevenlabs, zai). `ProviderKeyId` /
+`ProviderCredentials` derive from it; the Providers-page key rows (labels, hints,
+placeholders, capability badges, test buttons, Cloudflare account-id field) render from
+it (`SHARED_KEY_ROWS` deleted); the `hasKeys` map is built from its ids. Every engine
+preset names its `credentialId` (LLM openrouter/zai, image fal/openrouter/cloudflare,
+new `transcription-engine/presets.ts` for STT) and `image-init` / `llm-init` /
+`stt-init` / `image-handlers` / `llm-handlers` / `llm-provider-filter` read
+`credentials[preset.credentialId]` instead of inline ternaries and id special-cases.
+New test `registry.test.ts` pins preset→registry resolution, ids ≡ union, and
+badge ⊆ consuming engines. Verified: type gate at baseline (web 26 / node 22), 1318
+tests green, Providers page CDP-compared against HEAD row by row — identical, then one
+two deliberate changes on Hasan's say-so: OpenRouter now carries the `Transcription`
+badge it always earned (`stt-init` registers it), and the Phase C "shared key IS the
+enablement" rule is generic (every preset with a `credentialId`, not OpenRouter only —
+fixes a saved zai config stranded at `enabled: false`). Full log: `docs/video-providers-plan.md` §6. Next: Stage 2 (video
+engine extraction) on Hasan's go. Uncommitted — commit by pathspec when asked.
+
 ## 2026-09-05 — AI RUNTIME + REMOVE BACKGROUND + 3D STUDIO: Stage 5 hardening DONE, release-wired (waits for the V1 flip)
 
 **Shipped behind three flags now ON for release** (`ai-system-runtimes`, `ai-3d-models`,

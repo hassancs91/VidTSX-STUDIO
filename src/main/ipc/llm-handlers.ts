@@ -53,13 +53,15 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     const localAvailable = await llmLocalEngine.isAvailable();
     const credentials = await getProviderCredentials();
     const visibleProviders = (localAvailable ? providers : providers.filter((p) => p.type !== 'local'))
-      // OpenRouter has no enable toggle in the UI — the shared BYOK credential
-      // IS the enablement (Phase C rule), and a saved `enabled: false` is an
-      // artifact of the wholesale provider save. Mirror what initLLMEngine
-      // registers so the renderer (Inspector provider select) sees the truth.
-      .map((p) =>
-        p.id === 'openrouter' && !p.apiKey && credentials.openrouter ? { ...p, enabled: true } : p,
-      );
+      // Shared-credential providers (presets with a `credentialId`) have no
+      // enable toggle in the UI — the shared BYOK key IS the enablement
+      // (Phase C rule), and a saved `enabled: false` is an artifact of the
+      // wholesale provider save. Mirror what initLLMEngine registers so the
+      // renderer (Inspector provider select) sees the truth.
+      .map((p) => {
+        const credentialId = PROVIDER_PRESETS.find((preset) => preset.id === p.id)?.credentialId;
+        return credentialId && !p.apiKey && credentials[credentialId] ? { ...p, enabled: true } : p;
+      });
     let visiblePresets = localAvailable
       ? PROVIDER_PRESETS
       : PROVIDER_PRESETS.filter((p) => p.type !== 'local');
@@ -76,11 +78,9 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     if (localPreset && !savedIds.has('local')) {
       extras.push({ ...localPreset, enabled: true });
     }
-    for (const id of ['openrouter', 'zai'] as const) {
-      const preset = PROVIDER_PRESETS.find((p) => p.id === id);
-      if (preset && !savedIds.has(id) && credentials[id]) {
-        extras.push({ ...preset, enabled: true });
-      }
+    for (const preset of PROVIDER_PRESETS) {
+      if (!preset.credentialId || savedIds.has(preset.id)) continue;
+      if (credentials[preset.credentialId]) extras.push({ ...preset, enabled: true });
     }
 
     // H2 stranding guard: an active pointer at a preset this handler filtered

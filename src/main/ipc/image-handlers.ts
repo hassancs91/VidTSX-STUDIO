@@ -38,15 +38,14 @@ import type {
 // imageGenerateCancel IPC abort the underlying fetch while it's running.
 const activeImageGenerates = new Map<string, AbortController>();
 
-// Shared BYOK credential for a provider type ('' when none applies).
+// Shared BYOK credential for a provider type ('' when no preset names one —
+// instance providers such as local sd-cli have no credential).
 function sharedKeyFor(
   type: ImageProviderConfig['type'],
   credentials: Awaited<ReturnType<typeof getProviderCredentials>>,
 ): string {
-  if (type === 'fal') return credentials.fal ?? '';
-  if (type === 'openrouter') return credentials.openrouter ?? '';
-  if (type === 'cloudflare') return credentials.cloudflare ?? '';
-  return '';
+  const preset = IMAGE_PROVIDER_PRESETS.find((p) => p.type === type);
+  return preset ? credentials[preset.credentialId] ?? '' : '';
 }
 
 export async function handleImageProvidersGet(): Promise<ImageProvidersGetResponse> {

@@ -5,6 +5,7 @@ import type {
   ProviderKeysSaveRequest,
   ProviderKeysSaveResponse,
 } from '../../shared/ipc/types/provider-keys';
+import { PROVIDER_KEY_IDS } from '../../shared/providers/registry';
 import {
   getProviderCredentials,
   saveProviderCredentials,
@@ -18,25 +19,15 @@ import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('ProviderKeys');
 
+// Every registry id gets a boolean, so a new provider entry surfaces here
+// without a hand-edit.
 function toHasKeys(credentials: Partial<Record<ProviderKeyId, string>>): Record<ProviderKeyId, boolean> {
-  return {
-    fal: !!credentials.fal,
-    openrouter: !!credentials.openrouter,
-    assemblyai: !!credentials.assemblyai,
-    elevenlabs: !!credentials.elevenlabs,
-    zai: !!credentials.zai,
-    cloudflare: !!credentials.cloudflare,
-  };
+  const out = {} as Record<ProviderKeyId, boolean>;
+  for (const id of PROVIDER_KEY_IDS) out[id] = !!credentials[id];
+  return out;
 }
 
-const NO_KEYS: Record<ProviderKeyId, boolean> = {
-  fal: false,
-  openrouter: false,
-  assemblyai: false,
-  elevenlabs: false,
-  zai: false,
-  cloudflare: false,
-};
+const NO_KEYS: Record<ProviderKeyId, boolean> = toHasKeys({});
 
 export async function handleProviderKeysGet(): Promise<ProviderKeysGetResponse> {
   try {

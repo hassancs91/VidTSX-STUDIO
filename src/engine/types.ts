@@ -1,3 +1,5 @@
+import type { ProviderKeyId } from "../shared/providers/registry";
+
 /** Provider identifier */
 export type ProviderId = string; // e.g. "claude", "minimax", "deepseek"
 
@@ -115,6 +117,15 @@ export interface ProviderConfig {
   baseURL?: string;        // required for anthropic-compat type
   defaultModel: string;
   enabled: boolean;
+}
+
+/**
+ * A built-in provider definition. Presets with a `credentialId` are unlocked
+ * by that shared BYOK key (Providers page row); the rest carry their key on
+ * the saved config itself, or need none.
+ */
+export interface LlmProviderPreset extends Omit<ProviderConfig, "apiKey" | "enabled"> {
+  credentialId?: ProviderKeyId;
 }
 
 /** The interface every provider must implement */

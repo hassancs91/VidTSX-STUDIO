@@ -1,21 +1,13 @@
 /**
- * Shared bring-your-own-key provider credentials.
- * One key per external provider, entered once in Settings and consumed by
- * every engine (LLM, image, video, transcription). Raw keys never cross the
- * IPC boundary to the renderer — only hasKeys booleans do.
+ * Shared bring-your-own-key provider credentials — IPC surface.
+ * The id union and credentials shape derive from the provider registry
+ * (`@shared/providers/registry`); this file only carries the request/response
+ * types. Raw keys never cross the IPC boundary to the renderer — only hasKeys
+ * booleans do.
  */
-export interface ProviderCredentials {
-  fal?: string;
-  openrouter?: string;
-  assemblyai?: string;
-  elevenlabs?: string;
-  zai?: string;
-  /** Cloudflare Workers AI API token. The account id half of the pair is not
-   *  a secret and lives in a plain settings field (`cloudflareAccountId`). */
-  cloudflare?: string;
-}
+import type { ProviderKeyId } from '../../providers/registry';
 
-export type ProviderKeyId = keyof ProviderCredentials;
+export type { ProviderKeyId, ProviderCredentials } from '../../providers/registry';
 
 export interface ProviderKeysGetResponse {
   success: boolean;

@@ -1,5 +1,6 @@
 import { llmEngine, PROVIDER_PRESETS } from '../../engine';
 import type { ProviderConfig } from '../../engine/types';
+import type { ProviderCredentials } from '../../shared/providers/registry';
 import { loadSettings, saveLlmProviders, getProviderCredentials } from './settings';
 import { logEngine } from '../../logging/log-engine';
 
@@ -32,16 +33,16 @@ export async function initLLMEngine(): Promise<void> {
       const savedIds = new Set(settings.llmProviders.map((p) => p.id));
       for (const config of settings.llmProviders) {
         try {
-          // BYOK providers use the shared credential when the per-provider
-          // key is empty (entered once in Settings > API Keys). OpenRouter has
-          // no enable toggle in the UI, so a saved `enabled: false` is an
-          // artifact of the wholesale provider save, not a user choice —
-          // the shared key existing IS the enablement (Phase C rule).
+          // Shared-credential providers use the key from their Providers-page
+          // row when the per-provider key is empty. Those rows have no enable
+          // toggle, so a saved `enabled: false` is an artifact of the
+          // wholesale provider save, not a user choice — the shared key
+          // existing IS the enablement (Phase C rule, generic since Stage 1
+          // of the video-providers plan; it used to apply to OpenRouter only).
           let effective = config;
-          if (config.id === 'openrouter' && !config.apiKey && credentials.openrouter) {
-            effective = { ...config, apiKey: credentials.openrouter, enabled: true };
-          } else if (config.id === 'zai' && !config.apiKey && credentials.zai) {
-            effective = { ...config, apiKey: credentials.zai };
+          const sharedKey = sharedCredentialFor(config.id, credentials);
+          if (sharedKey && !config.apiKey) {
+            effective = { ...config, apiKey: sharedKey, enabled: true };
           }
           llmEngine.register(effective);
         } catch (err) {
@@ -51,16 +52,15 @@ export async function initLLMEngine(): Promise<void> {
 
       // Presets that work without a saved config (unless the user has saved a
       // config for them, which then wins — including a disable): local is
-      // keyless; openrouter/zai activate once their BYOK credential exists.
+      // keyless; shared-credential presets activate once their key exists.
       for (const preset of PROVIDER_PRESETS) {
         if (savedIds.has(preset.id)) continue;
         try {
+          const sharedKey = preset.credentialId ? credentials[preset.credentialId] : undefined;
           if (preset.id === 'local') {
             llmEngine.register({ ...preset, enabled: true });
-          } else if (preset.id === 'openrouter' && credentials.openrouter) {
-            llmEngine.register({ ...preset, apiKey: credentials.openrouter, enabled: true });
-          } else if (preset.id === 'zai' && credentials.zai) {
-            llmEngine.register({ ...preset, apiKey: credentials.zai, enabled: true });
+          } else if (sharedKey) {
+            llmEngine.register({ ...preset, apiKey: sharedKey, enabled: true });
           }
         } catch (err) {
           log.warn(`Failed to register preset provider "${preset.id}"`, { error: err instanceof Error ? err.message : String(err) });
@@ -93,6 +93,12 @@ export async function initLLMEngine(): Promise<void> {
   } catch (err) {
     log.warn('Engine initialization failed (non-fatal)', { error: err instanceof Error ? err.message : String(err) });
   }
+}
+
+/** The shared BYOK key a saved config's preset names, if any. */
+function sharedCredentialFor(id: string, credentials: ProviderCredentials): string | undefined {
+  const preset = PROVIDER_PRESETS.find((p) => p.id === id);
+  return preset?.credentialId ? credentials[preset.credentialId] : undefined;
 }
 
 function buildDefaultConfigs(): ProviderConfig[] {

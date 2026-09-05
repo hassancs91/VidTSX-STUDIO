@@ -3,48 +3,28 @@
 // ElevenLabs, and OpenRouter register only when their shared credential
 // exists.
 
-import { transcriptionEngine } from '../../../transcription-engine';
-import type { SttProviderConfig } from '../../../shared/ipc/types/stt';
+import {
+  transcriptionEngine,
+  STT_PROVIDER_PRESETS,
+  toSttProviderConfig,
+} from '../../../transcription-engine';
 import { getProviderCredentials, getSttProviders, saveSttProviders } from '../settings';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('SttInit');
-
-const BUILTIN_LOCAL_WHISPER: SttProviderConfig = {
-  id: 'local-whisper',
-  name: 'Local Whisper',
-  type: 'local-whisper',
-  apiKey: '',
-  defaultModel: 'base',
-  enabled: true,
-};
 
 export async function initSttEngine(): Promise<void> {
   try {
     const { providers, activeProvider } = await getSttProviders();
     const credentials = await getProviderCredentials();
 
+    // Seed any preset the saved list lacks (matched by type): local whisper
+    // goes first, remote providers append in preset order.
     let configs = providers;
-    if (!configs.some((p) => p.type === 'local-whisper')) {
-      configs = [BUILTIN_LOCAL_WHISPER, ...configs];
-    }
-    if (!configs.some((p) => p.type === 'assemblyai')) {
-      configs = [
-        ...configs,
-        { id: 'assemblyai', name: 'AssemblyAI', type: 'assemblyai', apiKey: '', defaultModel: 'universal', enabled: true },
-      ];
-    }
-    if (!configs.some((p) => p.type === 'elevenlabs')) {
-      configs = [
-        ...configs,
-        { id: 'elevenlabs', name: 'ElevenLabs', type: 'elevenlabs', apiKey: '', defaultModel: 'scribe_v2', enabled: true },
-      ];
-    }
-    if (!configs.some((p) => p.type === 'openrouter')) {
-      configs = [
-        ...configs,
-        { id: 'openrouter', name: 'OpenRouter', type: 'openrouter', apiKey: '', defaultModel: 'openai/whisper-large-v3-turbo', enabled: true },
-      ];
+    for (const preset of STT_PROVIDER_PRESETS) {
+      if (configs.some((p) => p.type === preset.type)) continue;
+      const config = toSttProviderConfig(preset);
+      configs = preset.type === 'local-whisper' ? [config, ...configs] : [...configs, config];
     }
     if (configs !== providers) {
       await saveSttProviders(configs, activeProvider);
@@ -57,11 +37,10 @@ export async function initSttEngine(): Promise<void> {
 
     for (const config of configs) {
       try {
-        const sharedKey =
-          config.type === 'assemblyai' ? credentials.assemblyai :
-          config.type === 'elevenlabs' ? credentials.elevenlabs :
-          config.type === 'openrouter' ? credentials.openrouter :
-          undefined;
+        // Saved configs predate `credentialId`, so resolve it from the preset
+        // of the same type.
+        const preset = STT_PROVIDER_PRESETS.find((p) => p.type === config.type);
+        const sharedKey = preset?.credentialId ? credentials[preset.credentialId] : undefined;
         const effective = { ...config, apiKey: sharedKey || config.apiKey };
         if (config.type !== 'local-whisper' && !effective.apiKey) {
           continue; // no key yet — provider stays unregistered until one is saved

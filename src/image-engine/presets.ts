@@ -1,6 +1,6 @@
-import type { ImageProviderConfig } from './types';
+import type { ImageProviderPreset } from './types';
 
-export const IMAGE_PROVIDER_PRESETS: ImageProviderConfig[] = [
+export const IMAGE_PROVIDER_PRESETS: ImageProviderPreset[] = [
   {
     id: 'fal',
     name: 'Fal.ai',
@@ -8,6 +8,7 @@ export const IMAGE_PROVIDER_PRESETS: ImageProviderConfig[] = [
     apiKey: '',
     defaultModel: 'nano-banana-pro',
     enabled: false,
+    credentialId: 'fal',
   },
   {
     id: 'openrouter',
@@ -16,6 +17,7 @@ export const IMAGE_PROVIDER_PRESETS: ImageProviderConfig[] = [
     apiKey: '',
     defaultModel: 'black-forest-labs/flux.2-pro',
     enabled: false,
+    credentialId: 'openrouter',
   },
   {
     id: 'cloudflare',
@@ -24,5 +26,6 @@ export const IMAGE_PROVIDER_PRESETS: ImageProviderConfig[] = [
     apiKey: '',
     defaultModel: '@cf/black-forest-labs/flux-1-schnell',
     enabled: false,
+    credentialId: 'cloudflare',
   },
 ];

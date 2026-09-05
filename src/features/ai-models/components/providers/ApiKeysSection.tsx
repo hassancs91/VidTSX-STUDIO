@@ -6,70 +6,12 @@ import { useProviderKeys } from '@renderer/hooks/useProviderKeys';
 import { useLlmProviders } from '@renderer/hooks/useLlmProviders';
 import type { LlmProviderConfig, ProviderKeyId } from '@shared/ipc/types';
 import { isFeatureEnabled } from '@shared/feature-flags';
+import { PROVIDER_REGISTRY, PROVIDER_CAPABILITY_LABELS } from '@shared/providers/registry';
 import { CapabilityBadge } from './CapabilityBadge';
 import { LlmProviderRow, type LlmProviderTestState } from './LlmProviderRow';
 import { CustomProviderForm } from './CustomProviderForm';
 
 const isCustomProvider = (id: string) => id.startsWith('custom-');
-
-interface SharedKeyRowDef {
-  id: ProviderKeyId;
-  label: string;
-  hint: string;
-  placeholder: string;
-  capabilities: string[];
-  /** Row offers a live image-generation test (fal / OpenRouter). */
-  imageTest?: boolean;
-}
-
-/** One key per provider — every capability it powers uses the same credential. */
-const SHARED_KEY_ROWS: SharedKeyRowDef[] = [
-  {
-    id: 'fal',
-    label: 'Fal',
-    hint: 'fal.ai/dashboard/keys',
-    placeholder: 'key_id:key_secret',
-    capabilities: ['Images', 'Video'],
-    imageTest: true,
-  },
-  {
-    id: 'openrouter',
-    label: 'OpenRouter',
-    hint: 'openrouter.ai/keys',
-    placeholder: 'sk-or-…',
-    capabilities: ['Images', 'LLMs'],
-    imageTest: true,
-  },
-  {
-    id: 'cloudflare',
-    label: 'Cloudflare Workers AI',
-    hint: 'dash.cloudflare.com → API tokens (Workers AI scope) — 10k free neurons/day',
-    placeholder: 'API token',
-    capabilities: ['Images'],
-    imageTest: true,
-  },
-  {
-    id: 'assemblyai',
-    label: 'AssemblyAI',
-    hint: 'assemblyai.com — word timing + speakers',
-    placeholder: 'API key',
-    capabilities: ['Transcription'],
-  },
-  {
-    id: 'elevenlabs',
-    label: 'ElevenLabs',
-    hint: 'elevenlabs.io — Scribe transcription',
-    placeholder: 'API key',
-    capabilities: ['Transcription'],
-  },
-  {
-    id: 'zai',
-    label: 'Z.AI',
-    hint: 'z.ai/model-api — GLM models',
-    placeholder: 'API key',
-    capabilities: ['LLMs'],
-  },
-];
 
 /** LLM providers whose key lives in their own provider config (not shared). */
 const LLM_ONLY_IDS = new Set([
@@ -174,7 +116,9 @@ export function ApiKeysSection() {
   // and the H4 dev flag restores it along with the presets.
   const allProvidersFlag =
     import.meta.env.VITE_FF_ALL_PROVIDERS === '1' || import.meta.env.VITE_FF_ALL_PROVIDERS === 'true';
-  const sharedRows = SHARED_KEY_ROWS.filter(
+  // One key per provider — every capability it powers uses the same
+  // credential. Rows, badges and test buttons come from the provider registry.
+  const sharedRows = PROVIDER_REGISTRY.filter(
     (row) => row.id !== 'zai' || hasKeys.zai || allProvidersFlag,
   );
 
@@ -196,21 +140,22 @@ export function ApiKeysSection() {
           const test = imageTests[row.id];
           // Cloudflare needs both credential halves before a test can run.
           const missingAccountId =
-            row.id === 'cloudflare' && !(accountIdDraft ?? cloudflareAccountId).trim();
+            row.extraField?.key === 'cloudflareAccountId' &&
+            !(accountIdDraft ?? cloudflareAccountId).trim();
           return (
             <div key={row.id} className="p-3" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
               <div className="flex items-center justify-between gap-2 mb-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-[12px] text-text-secondary font-medium">{row.label}</span>
+                  <span className="text-[12px] text-text-secondary font-medium">{row.name}</span>
                   {row.capabilities.map((cap) => (
-                    <CapabilityBadge key={cap} label={cap} />
+                    <CapabilityBadge key={cap} label={PROVIDER_CAPABILITY_LABELS[cap]} />
                   ))}
                   {saved && !drafts[row.id] && (
                     <StatusBadge tone="success">Key saved</StatusBadge>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {row.imageTest && (
+                  {row.test === 'image' && (
                     <button
                       onClick={() => testImageProvider(row.id)}
                       disabled={test?.testing || (!saved && !drafts[row.id]?.trim()) || missingAccountId}
@@ -237,7 +182,7 @@ export function ApiKeysSection() {
                   )}
                 </div>
               </div>
-              <div className="text-[10px] text-text-dim mb-1">{row.hint}</div>
+              <div className="text-[10px] text-text-dim mb-1">{row.keyHint}</div>
               <div className="flex items-center gap-1">
                 <TextInput
                   type={visible[row.id] ? 'text' : 'password'}
@@ -252,7 +197,7 @@ export function ApiKeysSection() {
                       ? 'Key will be removed on save'
                       : saved
                         ? 'Enter new key to replace…'
-                        : row.placeholder
+                        : row.keyPlaceholder
                   }
                   className="flex-1"
                 />
@@ -264,15 +209,13 @@ export function ApiKeysSection() {
                   {visible[row.id] ? <EyeOff size={14} strokeWidth={2} /> : <Eye size={14} strokeWidth={2} />}
                 </button>
               </div>
-              {row.id === 'cloudflare' && (
+              {row.extraField?.key === 'cloudflareAccountId' && (
                 <div className="mt-1.5">
-                  <div className="text-[10px] text-text-dim mb-1">
-                    Account ID — dash.cloudflare.com, right sidebar of your account home (not a secret)
-                  </div>
+                  <div className="text-[10px] text-text-dim mb-1">{row.extraField.hint}</div>
                   <TextInput
                     value={accountIdDraft ?? cloudflareAccountId}
                     onChange={(e) => setAccountIdDraft(e.target.value)}
-                    placeholder="Cloudflare account ID"
+                    placeholder={row.extraField.placeholder}
                     className="w-full"
                   />
                 </div>

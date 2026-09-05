@@ -73,12 +73,7 @@ export async function initImageEngine(): Promise<void> {
     // provider catalogs (AI page → Providers → Model Catalogs).
     for (const preset of IMAGE_PROVIDER_PRESETS) {
       const config = saved.find((p) => p.id === preset.id) ?? preset;
-      const sharedKey =
-        preset.type === 'fal' ? credentials.fal :
-        preset.type === 'openrouter' ? credentials.openrouter :
-        preset.type === 'cloudflare' ? credentials.cloudflare :
-        undefined;
-      const apiKey = sharedKey || config.apiKey;
+      const apiKey = credentials[preset.credentialId] || config.apiKey;
       if (!apiKey) continue;
       // Cloudflare needs both credential halves — without the account id the
       // run URL can't be built, so the provider stays unregistered.

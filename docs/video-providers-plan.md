@@ -1,0 +1,315 @@
+# Video providers plan — fal + Seedance direct, and a provider registry
+
+> Planned and **locked 2026-09-04** with Hasan. Motivation: shipping V1 of
+> *VidTSX* with no reachable video-model generation looks odd. Cloud video
+> generation already exists in code (fal queue, five models) but only the Flows
+> "Generate Video" node calls it, and both Flows and the Videos screen are
+> hidden in V1 builds. This doc records (1) the audit of how providers are
+> structured today, (2) the target architecture, (3) the provider facts
+> verified on the web, (4) the build stages, (5) the decisions taken.
+>
+> Companion docs: `V1_RELEASE_PLAN.md` (goal 11 points here; Phase C is the
+> Providers restructure this builds on), `docs/CONTENT_SAFETY_DESIGN.md` (gates
+> the engine must keep), `docs/flows-plan.md` (the node that consumes the
+> engine), `docs/agents-plan.md` (the `generate_video` tool consumes the same
+> engine).
+
+---
+
+## 0. Decisions (locked 2026-09-04)
+
+| # | Decision | Outcome |
+|---|---|---|
+| D1 | Unhide the Videos screen for V1 | **Yes.** Videos becomes the video-generation tool (panel + gallery, like Images). Flows stays hidden; the node still ships for dev/V2. Name stays "Videos". |
+| D2 | Direct Seedance route | **BytePlus ModelArk only.** Volcengine (AK/SK signing, CN residency) deferred; the provider class keeps it a base-URL + auth-strategy change. |
+| D3 | V1 default fal video catalog | **Seedance-focused five:** Seedance 2.5, Seedance 2.0, Seedance 2.0 Fast, Kling 2.5 Turbo Pro, Veo 3 Fast. WAN 2.5 preview, Hailuo 02, Seedance 1.0 Lite leave the defaults (their dialects stay in code so users can add them back). |
+| D4 | Reference inputs in the Videos panel | **Images, video, and audio** — full Seedance 2 reference-to-video in V1 (first/last frame, ≤9 reference images, ≤3 reference videos, ≤3 reference audios). |
+| D5 | Job persistence across restarts | In-memory for V1, job record shaped for persistence (Claude's call). |
+| D6 | Scope before the V1 flip | **Full five stages** (~5 sessions). |
+| D7 | Callable from anywhere | **Yes** (§2.5): engine in main, library entry point `generateVideoAsset`, IPC for screens, `generate_video` agent tool when agents Stage 1 lands. |
+
+---
+
+## 1. Audit — how providers are structured today
+
+### What exists (and is good)
+
+| Layer | Where | Notes |
+|---|---|---|
+| Shared BYOK credentials | `src/shared/ipc/types/provider-keys.ts`, `settings.ts` (safeStorage) | One key per provider; renderer only sees has-key booleans. Keys: fal, openrouter, assemblyai, elevenlabs, zai, cloudflare. |
+| LLM engine | `src/engine/` | `LLMProvider` interface, registry (`llmEngine`), `PROVIDER_PRESETS`, `llm-init.ts`. |
+| Image engine | `src/image-engine/` | `ImageProvider` interface, registry with the **fail-closed Content Safety chokepoint** (`runGuarded`), presets, `image-init.ts`. The model to copy. |
+| Transcription engine | `src/transcription-engine/` | Same pattern (AssemblyAI, ElevenLabs, OpenRouter, local whisper). |
+| Editable model catalogs | `shared/presets/provider-model-defaults.ts`, `main/services/provider-models.ts`, `ModelCatalogSection` | Image only (`ProviderModelCategory = 'image'`). Seeded defaults + user overrides + reset. |
+| Providers UI | `features/ai-models/components/providers/ApiKeysSection.tsx` | One row per key with capability badges; LLM presets in the same list. |
+| Usage log | `ai-usage.ts` | `requestType` already includes `'video'`; fal video logs on completion. |
+| Cloud video | `main/services/video-generation.ts` + `video-payloads.ts` + `shared/presets/video-models.ts` | fal queue only. In-memory job map. Per-model request dialect is a `switch` on model id. |
+| Video Studio | `features/video-studio/` | Gallery + folders + `videoStudioSave` (downloads the URL, runs **Gate B on sampled frames**, indexes in SQLite). No generate panel; empty state says "generate one in Flows". |
+| Library image entry point | `main/services/library/generate-image-asset.ts` | Wraps `imageEngine`, files the result as managed library content. The agents plan's `generate_image` tool wraps this. The template for video (§2.5). |
+| Local video | `src/local-video-engine/` | Wan/LTX model library via sd-cli. Generation blocked on a newer sd.cpp build (backlog A6). Dev-flagged. Out of scope here. |
+
+### What makes adding a provider harder than it should be
+
+1. **No video engine.** `video-generation.ts` instantiates `FalQueueClient` directly. A second video provider means a fork of that file, not a new provider class. Video is the only capability without an engine + provider interface.
+2. **A new credential touches six places.** `ProviderCredentials` (closed interface) → `SHARED_KEY_ROWS` in `ApiKeysSection` → the inline ternary in `image-init.ts` (`preset.type === 'fal' ? credentials.fal : …`) → id special-cases in `llm-init.ts` (`openrouter`, `zai`) → `SHARED_CREDENTIAL_IDS` in `llm-provider-filter.ts` → `settings.ts` save/summary. Nothing derives from a single provider definition.
+3. **Capability badges are hand-typed strings** (`capabilities: ['Images', 'Video']`) in the UI, not derived from which engines actually register the provider. They drift.
+4. **Video model catalog is code-only** because every model had its own dialect. True for the 2025 fal models (Kling `"5"` vs Veo `"8s"`), but the Seedance 2.x family on fal shares one schema (`prompt / duration / aspect_ratio / resolution / generate_audio / seed`). A catalog entry that names its *dialect* makes video catalogs user-editable for any model in a known family.
+5. **Video inputs skip Gate B.** `submitVideoJob` runs Gate A on the prompt only; first/last-frame images go to the provider unchecked (the image engine checks input references before any provider call). Output is gated only if the clip is saved via `videoStudioSave`; the Flows node already holds the remote URL before that. The engine must own both gates.
+6. **Jobs are in-memory** and the renderer polls per job. Fine for Flows; a Video Studio panel with several clips in flight wants a job list the UI can subscribe to, and ideally survives a restart (fal/BytePlus jobs keep running server-side).
+
+### Verdict
+
+The LLM / image / STT layers are in decent shape: interface + registry + presets + init, shared credentials, editable catalogs, a chokepoint for safety. Video is the outlier. The one structural fix worth doing before adding providers is a **single provider registry** that the credentials type, the key rows, the capability badges, and every `*-init.ts` derive from — then "add a provider" is one entry plus one provider class.
+
+---
+
+## 2. Target architecture
+
+### 2.1 Provider registry (structural fix, all capabilities)
+
+New `src/shared/providers/registry.ts`:
+
+```ts
+export type ProviderCapability = 'llm' | 'image' | 'video' | 'stt';
+
+export interface ProviderDefinition {
+  id: ProviderKeyId;               // 'fal' | 'byteplus' | 'openrouter' | …
+  name: string;                    // 'Fal.ai'
+  keyHint: string;                 // 'fal.ai/dashboard/keys'
+  keyPlaceholder: string;          // 'key_id:key_secret'
+  capabilities: ProviderCapability[];
+  /** Extra non-secret field (Cloudflare account id). */
+  extraField?: { key: 'cloudflareAccountId'; label: string; hint: string };
+  /** Which engine test button the row offers. */
+  test?: 'image' | 'video' | 'llm';
+}
+
+export const PROVIDER_REGISTRY: readonly ProviderDefinition[] = [ … ];
+```
+
+Derived from it:
+- `ProviderKeyId` = union of registry ids (replaces the hand-written interface; `ProviderCredentials = Partial<Record<ProviderKeyId, string>>`).
+- `ApiKeysSection` rows (labels, hints, badges, test buttons) — delete `SHARED_KEY_ROWS`.
+- `image-init.ts` / `llm-init.ts` / STT init look up `credentials[preset.credentialId]` instead of ternaries; each engine preset gains a `credentialId`.
+- `llm-provider-filter.ts` derives `SHARED_CREDENTIAL_IDS` from presets with a `credentialId`.
+- `V1_HIDDEN_PRESET_IDS` / Z.AI grandfathering keeps working (filter by id as today).
+
+This is a refactor with no behaviour change. It lands first so the video work adds `byteplus` in one place.
+
+### 2.2 Video engine (`src/video-engine/`, mirrors `src/image-engine/`)
+
+```
+src/video-engine/
+  types.ts            VideoProvider, VideoModelInfo, VideoJob*, VideoEngineError
+  video-engine.ts     registry + Gate A/B chokepoint + job tracker + usage log
+  presets.ts          VIDEO_PROVIDER_PRESETS (fal, byteplus)
+  dialects.ts         request-body builders keyed by dialect id (not model id)
+  providers/
+    fal-video-provider.ts        (absorbs video-generation.ts + video-payloads.ts)
+    byteplus-video-provider.ts   (ModelArk async tasks API)
+  index.ts
+src/shared/providers/byteplus/   http client (create task / get task), errors
+src/shared/providers/fal/        + storage upload helper (reference video/audio files)
+```
+
+**Provider interface** — async by nature, so unlike image it is submit + poll:
+
+```ts
+interface VideoProvider {
+  readonly id: string;
+  submit(request: VideoGenerationRequest): Promise<{ providerJobId: string }>;
+  poll(providerJobId: string): Promise<VideoPollResult>;   // pending | running | completed{url} | failed{error}
+  cancel?(providerJobId: string): Promise<void>;
+  getSupportedModels(): VideoModelInfo[];
+}
+```
+
+**Request** (what every caller passes; the engine normalizes against the model's capabilities):
+
+```ts
+interface VideoGenerationRequest {
+  providerId?: string;               // default: active video provider
+  model: string;                     // catalog id
+  prompt: string;
+  durationSeconds?: number | 'auto';
+  aspectRatio?: string;              // 'auto' allowed where the model supports it
+  resolution?: '480p' | '720p' | '1080p' | '4k';
+  generateAudio?: boolean;
+  seed?: number;
+  firstFrame?: MediaInput;           // { kind: 'base64' | 'path' | 'url', value, contentType? }
+  lastFrame?: MediaInput;
+  references?: { images?: MediaInput[]; videos?: MediaInput[]; audios?: MediaInput[] };
+  signal?: AbortSignal;              // main-process callers only
+}
+```
+
+**Model info** carries capabilities so pickers narrow themselves (today Flows shows the union and clamps at submit):
+
+```ts
+interface VideoModelInfo {
+  id: string; name: string; tagline?: string;
+  dialect: VideoDialectId;                     // 'fal-seedance-2' | 'fal-kling-2.5' | 'fal-veo-3' | 'byteplus-seedance' | …
+  durations: { kind: 'discrete'; values: number[] } | { kind: 'range'; min: number; max: number; auto?: boolean };
+  aspectRatios: string[];
+  resolutions?: string[];                      // '480p' | '720p' | '1080p' | '4k'
+  supports: { audio: boolean; firstFrame: boolean; lastFrame: boolean; references?: { images: number; videos: number; audios: number } };
+  pricePerSecondUsd?: number;                  // informational (usage dashboard)
+}
+```
+
+**Dialects** replace the `switch (model.id)`: a small table `dialect → (model, request) → { endpoint | modelId, body }`. Every Seedance 2.x slug on fal maps to one dialect; every Seedance id on BytePlus maps to one. A user-added catalog id inherits its provider's default dialect unless the entry names another. The fal Seedance dialect picks the endpoint from the inputs: references present → `reference-to-video`, first frame → `image-to-video`, else `text-to-video`.
+
+**Media inputs.** Images travel as data URIs (both providers accept them; fal already does). Reference **video/audio files are too large for data URIs** — the fal provider uploads them through fal's storage API (new helper in `shared/providers/fal/`, verified at build time) and passes the returned URLs; BytePlus needs verification of whether `video_url`/`audio_url` accept base64 or require public URLs — if URLs only, Stage 3 uses the fal storage helper as a neutral host *only when the user also has a fal key*, and otherwise disables video/audio references for BytePlus in the UI (capability flag on the model info). Reference files are copied into the Video Studio folder alongside the output so a job is reproducible.
+
+**Engine chokepoint** (`runGuarded`, same rule as images — always on, fail-closed):
+1. Gate A on the prompt (exists today).
+2. Gate B on every input image (first frame, last frame, reference images) *before* any provider sees them — closes the gap in §1.5. Reference **videos** go through the existing `checkVideoBuffer` frame sampler before upload; audio is not gated (no classifier; same as STT input today).
+3. On completion the engine **downloads the clip into Video Studio via the existing save path** (which runs the frame-sampling Gate B) and returns the local entry, not the remote URL. Callers (Flows, Studio panel, library, agents) never hold an ungated URL. Flows today saves as a side effect; this makes it the only path.
+
+**Job tracker**: `Map<jobId, VideoJobRecord>` where the record is `{ jobId, providerId, providerJobId, request (minus media bytes), submittedAt, status, entryId?, error? }` plus a `webContents.send` push (`video:job-progress`) so the UI subscribes instead of polling per job. In-memory for V1 (D5); the record is plain JSON so persisting it to settings and resuming polling on startup is a later add.
+
+**Usage**: log on completion as today; cost = catalog `pricePerSecondUsd × duration` (fal) or the BytePlus response `usage` when present. `featureSource` is whichever caller submitted (`'video-studio' | 'flows' | 'library' | 'agent'`).
+
+### 2.3 Catalogs — video becomes a category
+
+- `ProviderModelCategory = 'image' | 'video'`.
+- `PROVIDER_MODEL_DEFAULTS.fal.video` (D3 five) and `.byteplus.video` (Seedance 2.0, Seedance 2.5) replace `VIDEO_MODEL_CATALOG`. Entry type becomes a discriminated union (`ImageModelCatalogEntry | VideoModelCatalogEntry`); the store's `sanitizeEntries` keeps `id`, `name`, and for video `dialect` (validated against the dialect table).
+- `ModelCatalogCard` renders a dialect select for video cards (defaulting to the provider's default dialect).
+- `video-models.ts` keeps the coerce helpers and re-exports from the defaults file (one source of truth, per V1 Phase C3). Legacy saved flows carrying WAN / Hailuo / Seedance 1.0 Lite ids still resolve (dialects stay in code); if the id is absent from the user's catalog the node shows it as "not in catalog — add it in Providers" rather than silently coercing to the default.
+
+### 2.4 Surfaces
+
+**Providers page**: new BytePlus row (from the registry) with a `[Video]` badge and a "Test" that spends nothing — it calls the list-tasks endpoint. Two new catalog cards: *fal — Video*, *BytePlus — Video*.
+
+**Videos screen → generation tool** (D1). Mirror Image Studio's split: `VideoControlPanel` on the left (provider select via `useActiveVideoProvider`, model select filtered by provider, prompt, duration / aspect / resolution constrained by the model's capabilities, audio toggle, first / last frame pickers reusing `ReferenceImageLibrary` from Image Studio *moved to `src/shared/`* since two features need it, reference images from the same library, reference video/audio pickers from the Asset Library or a file dialog with the per-model count/size/duration limits shown), gallery on the right with in-flight job cards (status, elapsed, cancel). Generated clips land in the current folder like Flows does. Empty-state copy no longer points at Flows.
+
+**Flows "Generate Video" node**: gains a provider select; model list reads the engine; per-model constraints come from `VideoModelInfo` instead of the union lists; gets `references` inputs (image list, video, audio). Behaviour otherwise unchanged.
+
+**Nav**: `video-studio` flag flipped on for V1 (D1). Flows stays hidden.
+
+### 2.5 Callable from anywhere (D7)
+
+Video gets the same three entry points images have, all over one engine:
+
+| Caller | Images today | Video (this plan) |
+|---|---|---|
+| Screens (renderer) | `imageGenerate` IPC → `imageEngine` | `videoGenerate` / `videoGetJob` / `videoCancel` IPC + `video:job-progress` push → `videoEngine` |
+| Main-process services | `library/generate-image-asset.ts` wraps `imageEngine`, files the result as managed library content | `library/generate-video-asset.ts` wraps `videoEngine.generateAndWait()`, files the clip in Video Studio **and** the Asset Library (`generated/`, origin `'generated'`, brand-tagged) |
+| Agents | `generate_image` tool over `generateImageAsset` (agents plan wave 1) | `generate_video` tool over `generateVideoAsset`, `needs: 'video-provider'`, returns a `video` artifact — both already reserved in `docs/agents-plan.md` |
+
+`generateAndWait(request, { onProgress?, signal })` is the awaiting form (submit → poll → download → gate → file → return entry); screens use the job-record form for cards. Studio's agent can call the same tool later to drop a generated clip on the timeline; that is a Studio feature, not part of this plan.
+
+---
+
+## 3. Provider facts (verified 2026-09-04)
+
+### fal.ai (existing key, queue API already implemented)
+
+Seedance 2.x endpoints share one input schema — the reason the dialect approach works:
+
+| Endpoint | Inputs | Notes |
+|---|---|---|
+| `bytedance/seedance-2.0/text-to-video` | prompt, resolution 480p/720p/1080p/**4k**, duration auto or 4–15, aspect auto/21:9/16:9/4:3/1:1/3:4/9:16, generate_audio (default true), seed, bitrate_mode | ~$0.30/s at 720p standard |
+| `bytedance/seedance-2.0/fast/text-to-video` | same | ~$0.24/s |
+| `bytedance/seedance-2.0/image-to-video` (+ `/fast/`) | + `image_url`, `end_image_url` (≤30 MB each) | 480p/720p/1080p |
+| `bytedance/seedance-2.0/reference-to-video` | + `image_urls` (≤9), `video_urls` (≤3, 2–15 s combined, <50 MB), `audio_urls` (≤3, ≤15 s combined, ≤15 MB each); prompt references `@Image1` etc.; 12 files max | ~$0.30/s, ~$0.18/s when a video input is present |
+| `bytedance/seedance-2.5/text-to-video` | duration auto or **4–30**, resolution 480p/720p, aspect as above, generate_audio, seed | ~$0.47/s at 720p, ~$0.22/s at 480p |
+| `bytedance/seedance-2.5/image-to-video`, `bytedance/seedance-2.5/reference-to-video` | as 2.0 counterparts | — |
+
+Output for all: `{ video: { url, content_type, file_name, file_size }, seed }` — matches the `FalVideoResult` shape already parsed.
+
+Kling 2.5 Turbo Pro and Veo 3 Fast keep their existing dialects and stay in the defaults (D3). WAN 2.5, Hailuo 02, Seedance 1.0 Lite dialects stay in code, out of the defaults.
+
+### Seedance direct — BytePlus ModelArk (international) vs Volcengine Ark (China)
+
+| | BytePlus ModelArk (**chosen, D2**) | Volcengine Ark (deferred) |
+|---|---|---|
+| Base URL | `https://ark.ap-southeast.bytepluses.com/api/v3` | `ark.cn-beijing.volces.com` / `ark.ap-southeast-1.volces.com` |
+| Auth | `Authorization: Bearer <ARK_API_KEY>` — a plain API key, fits `ProviderCredentials` | AK/SK HMAC-SHA256 request signing; CN data residency |
+| Seedance 2.0 model id | `dreamina-seedance-2-0-260128` (from the DataCamp walkthrough; re-verify in the console) | `doubao-seedance-2-*` |
+| Seedance 2.5 | ModelArk has 2.5 docs (prompt guide + tutorial pages exist); exact model id **to verify at build time** | `doubao-seedance-2-5` — API live since 2026-08-07 |
+| Create / poll | `POST /contents/generations/tasks` → `{ id }`; `GET /contents/generations/tasks/{id}` → `{ status: queued|running|succeeded|failed|cancelled, content: { video_url }, usage }` | same API family |
+| Request body | `model`, `content: [{ type:'text', text }, { type:'image_url', image_url:{url}, role:'first_frame'|'last_frame'|'reference_image' }, { type:'video_url', … }, { type:'audio_url', … }]`, `resolution` (480p/720p/1080p/4k), `ratio`, `duration` (`"4s"`…`"15s"`, 2.5 to 30 s), `generate_audio`, `watermark`, `seed`, `camera_fixed`, `return_last_frame` | same |
+| Billing | Prepaid model-specific token packs (e.g. ~7 M tokens ≈ $30); tokens ≈ height × width × frames / 1024 | per-second RMB |
+
+The BytePlus request-body field names above come from third-party write-ups (the ModelArk doc pages render client-side and could not be fetched). Stage 3 starts by opening the real `Create a video generation task` page and pinning the schema, both model ids, and whether `video_url`/`audio_url` accept base64, before writing the dialect.
+
+---
+
+## 4. Stages (each one session, each independently shippable)
+
+**Stage 1 — Provider registry (refactor, no behaviour change).** `registry.ts`; derive `ProviderKeyId`/`ProviderCredentials`; engine presets get `credentialId`; `image-init`/`llm-init`/STT init read credentials by id; `ApiKeysSection` rows and `llm-provider-filter` derive from the registry; unit test that every preset's `credentialId` exists in the registry. Type gate at baseline; Providers page pixel-identical.
+
+**Stage 2 — Video engine extraction (behaviour-preserving).** Create `src/video-engine/` with the fal provider absorbing `video-generation.ts` + `video-payloads.ts`; dialect table with the five existing dialects; `VideoModelInfo` capabilities; engine chokepoint with Gate B on input frames and download-then-return; job tracker + `video:job-progress` push + cancel; `video-init.ts`; `generateAndWait`; `library/generate-video-asset.ts`. Existing IPC keeps working (`videoGenerate` gains optional `providerId`, default fal). Flows node unchanged and re-tested against a real fal key. Unit tests for dialects, the job tracker (mock provider), and the chokepoint order.
+
+**Stage 3 — BytePlus provider + catalogs + reference uploads.** Verify ModelArk schema/model ids from the console; `shared/providers/byteplus/` client; `byteplus-video-provider.ts` + `byteplus-seedance` dialect; `byteplus` in the registry (one entry → key row appears); fal storage upload helper for reference video/audio; `ProviderModelCategory` gains `'video'` with dialect-aware entries; default catalogs per D3; catalog cards with the dialect select; usage cost from catalog / `usage`. Acceptance: set a BytePlus key → generate a Seedance 2.5 clip from Flows; add a new fal Seedance slug in the catalog → it appears in the picker and works; a reference-to-video job with one image, one video, one audio completes on fal.
+
+**Stage 4 — Videos generation panel.** Move `ReferenceImageLibrary` to `src/shared/`; `useVideoProviders` / `useVideoModels` / `useVideoGeneration` / `useVideoJobs` hooks; `VideoControlPanel` (provider, model, prompt, constrained duration/aspect/resolution, audio, first/last frame, reference images/video/audio with limits shown); job cards in the gallery; cancel; errors incl. Content Safety block copy. Empty-state copy updated.
+
+**Stage 5 — Flows node, flag flip, agent tool stub, docs, E2E.** Flows node reads provider + `VideoModelInfo` and gains reference inputs; `video-studio` flag on for V1 (D1); `generate_video` tool definition written against `generateVideoAsset` (registered when agents Stage 1 lands); `V1_RELEASE_PLAN.md` checklist rows ("cloud video: fal Seedance + BytePlus Seedance generated, gated, saved, logged"); `STATUS.md`; manual E2E on real keys for each provider × (t2v, i2v, reference) with the usage dashboard checked; update `docs/CONTENT_SAFETY_DESIGN.md` call-site list (input frames, reference videos, download-then-return).
+
+Rough total: five sessions. Stages 1–2 are pure structure and can be reviewed on their own; nothing user-visible changes until Stage 3.
+
+---
+
+## 5. Open items carried into the stages (not decisions, just verification)
+
+- ModelArk exact schema, Seedance 2.5 model id, base64 support for video/audio references (Stage 3, first hour).
+- fal storage upload API shape for a raw-HTTP client (Stage 3).
+- Whether Kling 2.5 Turbo Pro and Veo 3 Fast slugs on fal are still current (Stage 2 re-test; the catalog is editable if they moved).
+- Ordering against Hasan's V1 testing pass and the T8 export tests: this plan is ready to start at Stage 1 whenever he says go.
+
+
+---
+
+## 6. Stage log
+
+### Stage 1 — provider registry (DONE 2026-09-05, refactor only, nothing user-visible)
+
+- **New** `src/shared/providers/registry.ts`: `PROVIDER_REGISTRY` (fal, openrouter,
+  cloudflare, assemblyai, elevenlabs, zai — in Providers-page row order, badges in
+  `capabilities` order), `ProviderKeyId` = union of its ids, `ProviderCredentials` =
+  `Partial<Record<ProviderKeyId, string>>`, `PROVIDER_KEY_IDS`, `PROVIDER_CAPABILITY_LABELS`,
+  `isProviderKeyId`, `getProviderDefinition`. The array is written `as const satisfies`
+  a shape interface, then exported as `readonly ProviderDefinition[]` with `id` narrowed
+  to the union — so consumers can read `extraField` / `test` on any row.
+- `src/shared/ipc/types/provider-keys.ts` keeps only the IPC request/response types and
+  re-exports the two derived types. `provider-keys-handlers.ts` builds `hasKeys` from
+  `PROVIDER_KEY_IDS` (no more hand-typed six-key objects).
+- **Presets gain `credentialId`.** LLM: new `LlmProviderPreset` type (`engine/types.ts`),
+  openrouter + zai carry it. Image: `ImageProviderPreset` (required `credentialId`), all
+  three cloud presets carry it. STT: new `src/transcription-engine/presets.ts`
+  (`STT_PROVIDER_PRESETS` incl. local whisper, `toSttProviderConfig` strips the id before
+  the seed is persisted) — `stt-init.ts` seeds from it instead of four inline literals.
+- **Credential lookup by id** replaces every ternary / id special-case: `image-init.ts`
+  (`credentials[preset.credentialId]`), `image-handlers.ts` `sharedKeyFor` (via the preset
+  of that type), `llm-init.ts` (`sharedCredentialFor(id)`), `llm-handlers.ts` extras loop
+  (presets with a `credentialId`), `stt-init.ts` (preset of the same type). The Phase C
+  enablement rule (a saved config with no own key + a shared key ⇒ `enabled: true`,
+  since shared rows have no toggle) used to apply to OpenRouter only — an oversight from
+  when zai joined the shared rows. Hasan approved making it generic: `llm-init.ts` and
+  the `llm-handlers.ts` get mapper now apply it to every preset with a `credentialId`
+  (new llm-handlers test case for zai). Only affects installs with a saved zai config
+  carrying the save artifact, i.e. grandfathered dev machines.
+- `ApiKeysSection` rows derive from the registry (`SHARED_KEY_ROWS` deleted, −85 lines).
+  Z.AI grandfathering and the Cloudflare account-id field (`extraField`) unchanged.
+  `llm-provider-filter.ts` derives its shared-credential set from LLM presets with a
+  `credentialId` (shared → engine/presets import; data + type only, bundles fine).
+- **Test** `src/shared/providers/registry.test.ts` (4 cases): unique ids + a label per
+  capability; registry ids ≡ `ProviderKeyId` (compile-time `Record` both ways + runtime
+  guard); every LLM/image/STT preset `credentialId` exists; every declared badge is backed
+  by a consuming engine preset (video excluded until Stage 2 lands a preset).
+- **Verified:** `check:types` web 26 / node 22 (baseline, none in touched files); vitest
+  133 files / 1318 tests green; Providers page driven via CDP on the running dev app —
+  5 rows (Z.AI hidden, no key) identical to HEAD's `SHARED_KEY_ROWS` in label, badge
+  order, hint, placeholder, test button, and the account-id field; `Debugger.scriptParsed`
+  confirmed the page runs the registry build (no `SHARED_KEY_ROWS` in the live source).
+  Main-process changes were not exercised live (the dev instance predates them); the
+  type gate + the existing llm-handlers test cover them until the next restart.
+- **One visible change, Hasan's call after the identical-page check:** the badge test
+  found OpenRouter also powers transcription (`stt-init` registers it) but its row showed
+  only `[Images] [LLMs]`. Hasan asked for the badge — OpenRouter's registry entry now
+  declares `'stt'`, the row reads `[Images] [LLMs] [Transcription]`, and the badge test
+  is two-directional (badge ⇔ consuming engine preset).
+- **Next:** Stage 2 (video engine extraction). `video-generation.ts` still reads
+  `credentials.fal` directly — it moves into the fal video provider there.

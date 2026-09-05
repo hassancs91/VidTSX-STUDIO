@@ -1,3 +1,5 @@
+import type { ProviderKeyId } from '../shared/providers/registry';
+
 /** Provider identifier for image generation services */
 export type ImageProviderId = string;
 
@@ -71,6 +73,15 @@ export interface ImageProviderConfig {
    * store). Omitted → the provider falls back to its built-in defaults.
    */
   models?: import('../shared/presets/image-models').ImageModelCatalogEntry[];
+}
+
+/**
+ * A built-in cloud provider definition: the shared BYOK credential that
+ * unlocks it (one key per provider, entered once in Providers). Instance
+ * providers (local sd-cli, CLI bridges) have no preset.
+ */
+export interface ImageProviderPreset extends ImageProviderConfig {
+  credentialId: ProviderKeyId;
 }
 
 /** The interface every image provider must implement */
