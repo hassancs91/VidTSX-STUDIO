@@ -18,7 +18,7 @@ import { aiRuntimePythonPath, readAiRuntimeManifest } from './manifest';
 import { checkDisk, checkPathBudget, checkPlatform, chooseVariant, readLongPathsEnabled, rootBudgetChars } from './preflight';
 import { getGpuFacts } from './gpu';
 import { getAiRuntimeDevOverrides } from './dev-overrides';
-import { getAiRuntimeInstallProgress, getAiRuntimeLastError, isAiRuntimeInstalling } from './install';
+import { getAiRuntimeInstallProgress, getAiRuntimeLastError, isAiRuntimeInstalling, isAiRuntimeRemoving } from './install';
 
 export type InstalledScan =
   | { kind: 'none' }
@@ -136,8 +136,11 @@ export async function getAiRuntimeStatus(): Promise<AiRuntimeStatus> {
   }
 
   const installing = isAiRuntimeInstalling();
-  const state = computeAiRuntimeState(scan, AI_RUNTIME_VERSION, installing);
-  const lastError = getAiRuntimeLastError() ?? (scan.kind === 'broken' ? scan.reason : null);
+  const removing = isAiRuntimeRemoving();
+  // A folder caught half-deleted (Remove, or Repair's rm before the re-download) scans as
+  // "broken"; while we are the ones deleting it the truthful state is missing / installing.
+  const state = removing ? 'missing' : computeAiRuntimeState(scan, AI_RUNTIME_VERSION, installing);
+  const lastError = getAiRuntimeLastError() ?? (scan.kind === 'broken' && !installing && !removing ? scan.reason : null);
 
   return {
     state,

@@ -254,6 +254,23 @@ export function repairAiRuntime(variant?: AiRuntimeVariant): Promise<void> {
  * job settles as cancelled and the screen clears — the user asked for the removal).
  */
 export async function removeAiRuntime(): Promise<void> {
+  removing = true;
+  try {
+    await doRemove();
+  } finally {
+    removing = false;
+    notify();
+  }
+}
+
+let removing = false;
+
+/** True while removeAiRuntime is deleting folders (a status read then says "missing", not "broken"). */
+export function isAiRuntimeRemoving(): boolean {
+  return removing;
+}
+
+async function doRemove(): Promise<void> {
   for (const d of getAllDownloads()) {
     if (d.metadata?.type === AI_RUNTIME_DOWNLOAD_TYPE && !['completed', 'failed', 'cancelled'].includes(d.status)) {
       cancelDownload(d.id);

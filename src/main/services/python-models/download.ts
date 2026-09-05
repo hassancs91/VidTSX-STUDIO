@@ -90,6 +90,10 @@ export async function removePythonModel(modelId: string): Promise<void> {
     const abs = pythonModelFilePath(file, root);
     await fs.rm(abs, { force: true, maxRetries: 3, retryDelay: 200 }).catch(() => {});
     await fs.rm(`${abs}.part`, { force: true }).catch(() => {});
+    // Prune the now-empty folders up to the models root (rmdir fails on non-empty ones).
+    for (let dir = path.dirname(abs); dir.startsWith(root) && dir !== root; dir = path.dirname(dir)) {
+      try { await fs.rmdir(dir); } catch { break; }
+    }
   }
   log.info('Model removed', { modelId });
 }
