@@ -18,6 +18,24 @@ const DLL_EXIT_CODES = new Set([
 ]);
 
 const REPAIR_HINT = 'Use Repair on the AI Runtime row of the AI page (System tab).';
+const LONG_PATH_HINT = 'Enable long paths (LongPathsEnabled = 1) or use a shorter Windows user name, then reinstall the runtime.';
+
+/** Windows MAX_PATH; a module path longer than this inside an import error is the real cause. */
+const MAX_PATH_CHARS = 259;
+const WIN_PATH_RE = /[A-Za-z]:\\[^\n'"()]+/g;
+
+/** True when the message quotes a Windows path the loader could not have opened on a default box. */
+export function mentionsTooLongPath(message: string): boolean {
+  for (const m of message.match(WIN_PATH_RE) ?? []) {
+    if (m.trim().length > MAX_PATH_CHARS) return true;
+  }
+  return false;
+}
+
+/** The runner already ends its import message with "Use Repair on the AI Runtime row." — don't say it twice. */
+function withRepairHint(message: string): PythonFailure {
+  return /repair/i.test(message) ? { code: 'import', message } : { code: 'import', message, hint: REPAIR_HINT };
+}
 
 function fromProtocol(err: PythonErrorEvent): PythonFailure {
   // The runner's messages already read well (Stage 0 error matrix); keep them and add the fix.
@@ -27,7 +45,12 @@ function fromProtocol(err: PythonErrorEvent): PythonFailure {
     case 'cuda-mismatch':
       return { code: 'cuda-mismatch', message: err.message, hint: 'Update the NVIDIA driver, or install the CPU runtime from the AI page.' };
     case 'import':
-      return { code: 'import', message: err.message, hint: REPAIR_HINT };
+      // Stage 5 long-root run: python.exe starts but a deep module's file cannot be opened
+      // (> MAX_PATH) and surfaces as an ImportError — Repair would not help, the path would.
+      if (mentionsTooLongPath(err.message)) {
+        return { code: 'path-too-long', message: 'The AI runtime folder path is too long for Windows (a module file sits beyond 259 characters).', hint: LONG_PATH_HINT };
+      }
+      return withRepairHint(err.message);
     case 'weights-corrupt':
       return { code: 'weights-corrupt', message: err.message, hint: 'Remove the model on the AI page and download it again.' };
     case 'cancelled':
@@ -71,7 +94,7 @@ export function classifyPythonFailure(input: PythonFailureInput): PythonFailure 
     return {
       code: 'path-too-long',
       message: 'The AI runtime folder path is too long for Windows (STATUS_NAME_TOO_LONG).',
-      hint: 'Enable long paths (LongPathsEnabled = 1) or use a shorter Windows user name, then reinstall the runtime.',
+      hint: LONG_PATH_HINT,
     };
   }
   if (code !== null && DLL_EXIT_CODES.has(code)) {

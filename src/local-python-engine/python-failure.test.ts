@@ -7,6 +7,7 @@ const cases: Array<[string, PythonFailureInput, PythonFailureCode, RegExp]> = [
   ['protocol oom', { exitCode: 1, protocolError: { type: 'error', code: 'oom', message: 'Ran out of memory (GPU). CUDA out of memory.' } }, 'oom', /Ran out of memory/],
   ['protocol cuda-mismatch', { exitCode: 1, protocolError: { type: 'error', code: 'cuda-mismatch', message: 'driver' } }, 'cuda-mismatch', /driver/],
   ['protocol import → Repair hint', { exitCode: 1, protocolError: { type: 'error', code: 'import', message: "No module named 'einops'" } }, 'import', /einops/],
+  ['protocol import quoting a > MAX_PATH module file → path-too-long (Stage 5 long-root run)', { exitCode: 1, protocolError: { type: 'error', code: 'import', message: `cannot import name 'onnxruntime_validation' from 'onnxruntime.capi' (C:\\Users\\Malak\\${'x'.repeat(230)}\\python\\Lib\\site-packages\\onnxruntime\\capi\\__init__.py)` } }, 'path-too-long', /too long/],
   ['protocol weights-corrupt', { exitCode: 1, protocolError: { type: 'error', code: 'weights-corrupt', message: 'central directory' } }, 'weights-corrupt', /central directory/],
   ['protocol bad-request', { exitCode: 1, protocolError: { type: 'error', code: 'bad-request', message: 'Input image not found: x' } }, 'bad-request', /Input image not found/],
   ['protocol network = app bug', { exitCode: 1, protocolError: { type: 'error', code: 'network', message: 'ConnectionError github.com' } }, 'network', /github/],
@@ -30,6 +31,13 @@ describe('classifyPythonFailure', () => {
       expect(f.message).toMatch(re);
     });
   }
+
+  it('does not repeat the Repair hint the runner already wrote (Stage 5 error-matrix copy check)', () => {
+    const f = classifyPythonFailure({ exitCode: 1, protocolError: { type: 'error', code: 'import', message: "The AI runtime is incomplete or damaged (No module named 'einops'). Use Repair on the AI Runtime row." } });
+    expect(f.code).toBe('import');
+    expect(f.hint).toBeUndefined();
+    expect(new PythonRunError(f, '').message.match(/Repair/g)).toHaveLength(1);
+  });
 
   it('PythonRunError carries code, hint and the raw details', () => {
     const err = new PythonRunError(classifyPythonFailure({ exitCode: 1, protocolError: { type: 'error', code: 'import', message: 'm' } }), 'raw tail');
