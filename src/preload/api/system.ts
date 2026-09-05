@@ -1,8 +1,6 @@
 import { ipcRenderer } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
-  PyTorchPipInstallRequest,
-  PyTorchPipInstallResponse,
   SystemInfoGetResponse,
   SystemMonitorDataEvent,
 } from '../../shared/ipc/types';
@@ -20,6 +18,4 @@ export const systemApi = {
   // System info
   systemInfoGet: (): Promise<SystemInfoGetResponse> =>
     ipcRenderer.invoke(IPC.SYSTEM_INFO_GET),
-  pytorchPipInstall: (data: PyTorchPipInstallRequest): Promise<PyTorchPipInstallResponse> =>
-    ipcRenderer.invoke(IPC.PYTORCH_PIP_INSTALL, data),
 };

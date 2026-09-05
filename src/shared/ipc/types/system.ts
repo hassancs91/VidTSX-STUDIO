@@ -13,16 +13,6 @@ export interface SystemMonitorDataEvent {
   };
 }
 
-// ─── PyTorch pip install ───
-export interface PyTorchPipInstallRequest {
-  wheelPath: string;
-}
-
-export interface PyTorchPipInstallResponse {
-  success: boolean;
-  error?: string;
-}
-
 // ─── System info (Main tab dashboard) ───
 export interface SystemInfoGetResponse {
   gpu: {
@@ -45,11 +35,5 @@ export interface SystemInfoGetResponse {
     llm: { available: boolean; backend?: string };
     embedding: { available: boolean };
     image: { available: boolean };
-    pytorch: { installed: boolean; version?: string; variant?: 'cpu' | 'gpu'; cachedWheels?: ('cpu' | 'gpu')[] };
-  };
-  python: {
-    available: boolean;
-    version: string | null;
-    path: string | null;
   };
 }
