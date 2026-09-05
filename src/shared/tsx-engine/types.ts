@@ -24,6 +24,11 @@ export interface TsxPromptContext {
   durationSeconds?: number;
   category?: string;
   extraInstructions?: string;
+  /**
+   * Saved GLB meshes the 3D prompt may reference (asset library, absolute paths) —
+   * plan §5 step 7 "Library meshes". Empty/undefined = no section in the prompt.
+   */
+  libraryMeshes?: Array<{ path: string; description?: string; generated?: boolean }>;
 }
 
 export interface TsxGenerateOptions {

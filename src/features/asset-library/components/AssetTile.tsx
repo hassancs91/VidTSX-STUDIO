@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   FolderIcon,
   ImageIcon,
@@ -58,8 +59,17 @@ export function AssetTile({
 }: AssetTileProps) {
   const isFolder = entry.node.type === 'folder';
   const isImage = entry.category === 'image';
-  const previewUrl = isImage && moduleServerUrl
-    ? `${moduleServerUrl}/asset?path=${encodeURIComponent(entry.node.path)}`
+  // Images preview themselves; a 3D model previews through the `<name>-preview.png`
+  // sibling that "Save to asset library" writes next to it (plan §5 step 6) — when the
+  // sibling is absent the request 404s and the tile falls back to the cube icon.
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const previewPath = isImage
+    ? entry.node.path
+    : entry.category === 'model3d' && entry.ext.toLowerCase() === '.glb'
+      ? entry.node.path.replace(/\.glb$/i, '-preview.png')
+      : null;
+  const previewUrl = previewPath && moduleServerUrl && !previewFailed
+    ? `${moduleServerUrl}/asset?path=${encodeURIComponent(previewPath)}`
     : null;
 
   return (
@@ -93,6 +103,7 @@ export function AssetTile({
             alt={entry.node.name}
             className="w-full h-full object-cover"
             draggable={false}
+            onError={() => setPreviewFailed(true)}
           />
         ) : (
           <span className={`scale-[2.4] ${isFolder ? 'text-accent-light' : 'text-text-muted'}`}>

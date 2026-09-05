@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
+import { Euler } from 'three';
+import { GlbViewer } from '@shared/components/GlbViewer';
 import type { LibraryIndexEntry } from '@shared/types/asset-library';
 import type { AssetEntry } from '../types';
 import { formatBytes } from '../services/asset-search';
+
+/** TripoSR's axis convention (see 3D Studio's GlbViewer wrapper) — the library's only generator of GLBs. */
+const TRIPOSR_TO_THREE = new Euler(-Math.PI / 2, -Math.PI / 2, 0, 'YXZ');
 
 interface AssetDetailsPanelProps {
   entry: AssetEntry;
   meta: LibraryIndexEntry | undefined;
   previewUrl: string | null;
+  /** Module-server URL of a selected .glb (plan §5 step 6) — rendered in the shared viewer. */
+  glbUrl?: string | null;
   onSaveDescription: (relPath: string, description: string) => Promise<boolean>;
   onClose: () => void;
 }
@@ -21,6 +28,7 @@ export function AssetDetailsPanel({
   entry,
   meta,
   previewUrl,
+  glbUrl = null,
   onSaveDescription,
   onClose,
 }: AssetDetailsPanelProps) {
@@ -62,6 +70,16 @@ export function AssetDetailsPanel({
         <div className="w-full rounded bg-app-deep overflow-hidden">
           <img src={previewUrl} alt={entry.node.name} className="w-full object-contain" draggable={false} />
         </div>
+      )}
+      {glbUrl && (
+        // Generated GLBs come from TripoSR (x-forward / z-up); imported ones render as authored.
+        <GlbViewer
+          key={glbUrl}
+          url={glbUrl}
+          autoRotate
+          rotation={meta?.origin === 'generated' ? TRIPOSR_TO_THREE : undefined}
+          className="w-full aspect-square rounded overflow-hidden"
+        />
       )}
 
       <dl className="flex flex-col gap-1 text-[11px]">

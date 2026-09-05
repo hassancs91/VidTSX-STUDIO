@@ -204,6 +204,7 @@ export async function ensureModuleServer(): Promise<number> {
         '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mts', '.m2ts', // video
         '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.opus',         // audio
         '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.avif', // images
+        '.glb', '.gltf',                                                   // 3D meshes (asset-library GlbViewer)
       ];
       if (!allowedExtensions.includes(ext)) {
         return res.status(400).send('Invalid file type');

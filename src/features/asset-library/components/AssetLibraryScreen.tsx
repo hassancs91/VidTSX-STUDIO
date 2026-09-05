@@ -195,6 +195,10 @@ export function AssetLibraryScreen() {
     selectedEntry && selectedEntry.category === 'image' && moduleServerUrl
       ? `${moduleServerUrl}/asset?path=${encodeURIComponent(selectedEntry.node.path)}`
       : null;
+  const selectedGlbUrl =
+    selectedEntry && selectedEntry.category === 'model3d' && selectedEntry.ext.toLowerCase() === '.glb' && moduleServerUrl
+      ? `${moduleServerUrl}/asset?path=${encodeURIComponent(selectedEntry.node.path)}`
+      : null;
   const currentFolderBytes = sizes?.folders[toLibraryRelPath(rootPath, currentPath)];
 
   const handleDelete = (entry: AssetEntry) => {
@@ -289,6 +293,7 @@ export function AssetLibraryScreen() {
             entry={selectedEntry}
             meta={metaFor(selectedEntry.node.path)}
             previewUrl={selectedPreviewUrl}
+            glbUrl={selectedGlbUrl}
             onSaveDescription={saveDescription}
             onClose={() => setSelectedPath(null)}
           />
