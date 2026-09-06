@@ -168,7 +168,10 @@ export const passthroughExportEngine: ExportEngine = {
       audioPath = videoPath; // no sound at all → the finishing stage writes no audio track
     } else {
       audioPath = path.join(workDir, 'audio.wav');
-      await runFfmpeg(tools.ffmpeg, audioPassArgs(audioPlan, audioPath), { signal });
+      const graphPath = path.join(workDir, 'audio-graph.txt');
+      const pass = audioPassArgs(audioPlan, audioPath, graphPath);
+      await fs.writeFile(graphPath, pass.graph, 'utf-8');
+      await runFfmpeg(tools.ffmpeg, pass.args, { signal });
     }
     return { videoPath, audioPath, notes };
   },

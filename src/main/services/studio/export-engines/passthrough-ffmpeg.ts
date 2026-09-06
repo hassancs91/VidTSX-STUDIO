@@ -231,13 +231,20 @@ export function joinArgs(listPath: string, outputPath: string, color: ExportColo
   ];
 }
 
+export interface AudioPass {
+  args: string[];
+  /** The filter graph, written to `graphPath` by the caller before spawning. */
+  graph: string;
+}
+
 /**
  * The one audio pass (D6/D7, condition 3): every audible clip's source audio
  * trimmed sample-exactly, silence for the rest, concatenated at 48 kHz stereo
  * into a WAV the finishing stage AAC-encodes once. Same-asset segments share
- * one input.
+ * one input. The graph goes through `-filter_complex_script` — inline, 275
+ * segments overran Windows' command line (spawn ENAMETOOLONG, 2026-09-06).
  */
-export function audioPassArgs(plan: ExportAudioPlan, outputPath: string): string[] {
+export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPath: string): AudioPass {
   const inputs: string[] = [];
   const inputIndex = new Map<string, number>();
   const labels: string[] = [];
@@ -261,13 +268,16 @@ export function audioPassArgs(plan: ExportAudioPlan, outputPath: string): string
   });
   const total = plan.duration.toFixed(6);
   graph.push(`${labels.join('')}concat=n=${labels.length}:v=0:a=1,atrim=end=${total},apad=whole_dur=${total}[out]`);
-  return [
-    ...COMMON,
-    ...inputs.flatMap((p) => ['-i', p]),
-    '-filter_complex', graph.join(';'),
-    '-map', '[out]', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le',
-    outputPath,
-  ];
+  return {
+    args: [
+      ...COMMON,
+      ...inputs.flatMap((p) => ['-i', p]),
+      '-filter_complex_script', graphPath,
+      '-map', '[out]', '-ar', '48000', '-ac', '2', '-c:a', 'pcm_s16le',
+      outputPath,
+    ],
+    graph: graph.join(';\n') + '\n',
+  };
 }
 
 /** Pure: the frame counter from ffmpeg's `-stats` line. */

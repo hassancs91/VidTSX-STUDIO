@@ -120,14 +120,17 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     const { ffmpeg, ffprobe } = bins();
     await fs.mkdir(OUT, { recursive: true });
     const wav = path.join(OUT, 'audio.wav');
-    await run(ffmpeg, audioPassArgs({
-      duration: 11,
-      segments: [
-        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 0, duration: 5 },
-        { kind: 'silence', duration: 1 },
-        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 15, duration: 5 },
-      ],
-    }, wav));
+    const graphPath = path.join(OUT, 'audio-graph.txt');
+    // 300 segments: the inline form of this overran the Windows command line.
+    const segments: Parameters<typeof audioPassArgs>[0]['segments'] = [];
+    for (let i = 0; i < 100; i++) {
+      segments.push({ kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 0, duration: 0.05 });
+      segments.push({ kind: 'silence', duration: 0.01 });
+      segments.push({ kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 15, duration: 0.05 });
+    }
+    const pass = audioPassArgs({ duration: 11, segments }, wav, graphPath);
+    await fs.writeFile(graphPath, pass.graph);
+    await run(ffmpeg, pass.args);
     const s = JSON.parse(await run(ffprobe, ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', wav])) as { streams: Array<Record<string, string>>; format: { duration: string } };
     expect(s.streams[0].codec_name).toBe('pcm_s16le');
     expect(s.streams[0].sample_rate).toBe('48000');
