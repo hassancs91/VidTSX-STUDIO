@@ -116,10 +116,12 @@ describe('audioPassArgs (the one pass)', () => {
     // The graph rides a script file (275 segments overran the Windows command line inline).
     expect(args).not.toContain('-filter_complex');
     expect(args.join(' ')).toContain('-filter_complex_script graph.txt -map [out] -ar 48000 -ac 2 -c:a pcm_s16le audio.wav');
+    // Every source segment is pinned to its planned length (a short audio stream
+    // at a clip tail shifted every later segment by −44.7 ms on the 3 h project).
     expect(graph).toBe(
-      '[0:a:0]atrim=start=0.000000:end=15.000000,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[s0];\n' +
+      '[0:a:0]aresample=async=1:first_pts=0,atrim=start=0.000000:end=15.000000,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=15.000000,atrim=end=15.000000[s0];\n' +
       'anullsrc=r=48000:cl=stereo,atrim=duration=1.000000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[s1];\n' +
-      '[0:a:0]atrim=start=15.000000:end=30.000000,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[s2];\n' +
+      '[0:a:0]aresample=async=1:first_pts=0,atrim=start=15.000000:end=30.000000,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=15.000000,atrim=end=15.000000[s2];\n' +
       '[s0][s1][s2]concat=n=3:v=0:a=1,atrim=end=31.000000,apad=whole_dur=31.000000[out]\n',
     );
   });

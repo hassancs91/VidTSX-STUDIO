@@ -116,6 +116,49 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(j.pts.map((t, i) => Math.abs(t - i / 30)).filter((d) => d > 1e-4)).toEqual([]);
   }, 120_000);
 
+  it('a clip tail whose audio ends before the container still contributes its full length', async () => {
+    // DJI 0271: container 73.0897 s, audio ends ~44.7 ms earlier. The seeded 3 h
+    // project's tail clip 45 → 73.09 s came up short and shifted everything after it.
+    const src = path.join(REPO, 'raw', 'DJI_20260813142610_0271_D.MP4');
+    const { ffmpeg, ffprobe } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    const wav = path.join(OUT, 'tail-audio.wav');
+    const graphPath = path.join(OUT, 'tail-audio-graph.txt');
+    const pass = audioPassArgs({
+      duration: 33.09,
+      segments: [
+        { kind: 'source', assetId: 'b', assetPath: src, sourceIn: 45, duration: 28.09 },
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 0, duration: 5 },
+      ],
+    }, wav, graphPath);
+    await fs.writeFile(graphPath, pass.graph);
+    await run(ffmpeg, pass.args);
+    const s = JSON.parse(await run(ffprobe, ['-v', 'error', '-show_format', '-of', 'json', wav])) as { format: { duration: string } };
+    expect(Math.abs(Number(s.format.duration) - 33.09)).toBeLessThan(0.001);
+    // The second segment must start at exactly 28.09 s: its first second matches the 0270 file's first second at lag 0.
+    const decode = (file: string, ss: number, t: number) => new Promise<Float32Array>((resolve, reject) => {
+      const p = spawn(ffmpeg, ['-v', 'error', '-nostdin', '-ss', String(ss), '-t', String(t), '-i', file, '-vn', '-ac', '1', '-ar', '48000', '-f', 'f32le', '-']);
+      const chunks: Buffer[] = [];
+      p.stdout.on('data', (c: Buffer) => chunks.push(c));
+      p.on('close', (code) => { if (code !== 0) reject(new Error('decode failed')); const b = Buffer.concat(chunks); resolve(new Float32Array(b.buffer, b.byteOffset, Math.floor(b.length / 4))); });
+    });
+    const ref = await decode(SOURCE, 1, 1);
+    const cand = await decode(wav, 28.09 + 1 - 0.2, 1.4);
+    let best = { lag: 0, corr: -2 };
+    let rr = 0;
+    for (let i = 0; i < ref.length; i++) rr += ref[i] * ref[i];
+    for (let lag = 0; lag + ref.length <= cand.length; lag++) {
+      let rc = 0;
+      let cc = 0;
+      for (let i = 0; i < ref.length; i++) { const c = cand[lag + i]; rc += ref[i] * c; cc += c * c; }
+      const corr = rc / Math.sqrt(rr * cc + 1e-12);
+      if (corr > best.corr) best = { lag, corr };
+    }
+    const lagMs = (best.lag / 48000 - 0.2) * 1000;
+    expect(best.corr).toBeGreaterThan(0.99);
+    expect(Math.abs(lagMs)).toBeLessThan(1);
+  }, 120_000);
+
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {
     const { ffmpeg, ffprobe } = bins();
     await fs.mkdir(OUT, { recursive: true });

@@ -243,6 +243,14 @@ export interface AudioPass {
  * into a WAV the finishing stage AAC-encodes once. Same-asset segments share
  * one input. The graph goes through `-filter_complex_script` — inline, 275
  * segments overran Windows' command line (spawn ENAMETOOLONG, 2026-09-06).
+ *
+ * Every source segment contributes EXACTLY its planned length: a camera
+ * file's audio can end before its container (DJI 0271: 44.7 ms short), and a
+ * segment trimmed to the clip's end then came up short, so every later
+ * segment played early — measured as −44.7 ms per such clip tail, −491 ms by
+ * the middle of the 3 h project. `apad=whole_dur` + `atrim=end` pin the
+ * length; `aresample=first_pts=0` makes the timestamps start at 0 so a late
+ * audio start pads with silence instead of shifting the trim.
  */
 export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPath: string): AudioPass {
   const inputs: string[] = [];
@@ -262,7 +270,8 @@ export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPa
         inputIndex.set(seg.assetPath, idx);
       }
       const end = (seg.sourceIn + seg.duration).toFixed(6);
-      graph.push(`[${idx}:a:0]atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt}${label}`);
+      const dur = seg.duration.toFixed(6);
+      graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
     }
     labels.push(label);
   });
