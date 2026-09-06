@@ -6,11 +6,15 @@
 import { logEngine } from '../../../../logging/log-engine';
 import { registerExportEngine, hasExportEngine, listExportEngineIds } from './registry';
 import { remotionExportEngine } from './remotion-engine';
+import { passthroughExportEngine } from './passthrough-engine';
 
 const log = logEngine.createLogger('ExportEngines');
 
 export function initExportEngines(): void {
   if (!hasExportEngine(remotionExportEngine.id)) registerExportEngine(remotionExportEngine);
+  // Stage 2: the passthrough hybrid. Registered always; its availability()
+  // greys the picker row out until the full ffmpeg download is installed.
+  if (!hasExportEngine(passthroughExportEngine.id)) registerExportEngine(passthroughExportEngine);
   log.info('Export engines registered', { engines: listExportEngineIds() });
 }
 

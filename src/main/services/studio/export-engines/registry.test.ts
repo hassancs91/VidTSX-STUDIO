@@ -29,7 +29,7 @@ describe('export-engine registry', () => {
   it('resolves a registered engine and refuses an unknown one loudly', () => {
     registerExportEngine(fake('remotion'));
     expect(resolveExportEngine('remotion').id).toBe('remotion');
-    expect(() => resolveExportEngine('passthrough')).toThrow(/not available in this build/);
+    expect(() => resolveExportEngine('passthrough')).toThrow(/not available in this build/); // in the catalogue, not registered here
     expect(() => resolveExportEngine('')).toThrow();
   });
 

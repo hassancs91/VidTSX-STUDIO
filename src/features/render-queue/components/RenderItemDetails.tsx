@@ -151,6 +151,9 @@ export function RenderItemDetails({ job }: RenderItemDetailsProps) {
               value={etaMs != null ? formatDuration(etaMs) : '—'}
             />
           )}
+          {job.status === 'rendering' && liveProgress?.phase === 'rendering' && liveProgress.message && (
+            <DetailRow label="Note" value={liveProgress.message} />
+          )}
           {job.status === 'rendering' && liveProgress?.phase && liveProgress.phase !== 'rendering' && (
             <DetailRow
               label="Phase"

@@ -97,7 +97,10 @@ log({ step: 'browser', cards: nav });
 const open = await evaluate(`
   const name = ${JSON.stringify(args.project)};
   const cards = visible('.cursor-pointer').filter((el) => el.querySelector('.truncate'));
-  const card = cards.find((el) => [...el.querySelectorAll('.truncate')].some((t) => t.textContent.trim() === name))
+  const titles = (el) => [...el.querySelectorAll('.truncate')].map((t) => t.textContent.trim());
+  // Exact title, then "<name> (…)" (the T1 cards carry a parenthesised note; "T1 cut" must not match "T1 cut 3s"), then loose.
+  const card = cards.find((el) => titles(el).some((t) => t === name))
+    ?? cards.find((el) => titles(el).some((t) => t.startsWith(name + ' (')))
     ?? cards.find((el) => el.textContent.includes(name + ' ') || el.textContent.trim().endsWith(name));
   if (!card) return { error: 'no card' };
   const t0 = performance.now(); card.click();
@@ -105,8 +108,8 @@ const open = await evaluate(`
   return { error: 'open timeout' };`);
 log({ step: 'open', ...open });
 if (open.error) process.exit(1);
-// 3. wait for proxies
-for (let i = 0; i < 240; i++) {
+// 3. wait for proxies (--proxy-wait=<minutes>, default 20 — a seeded 3 h project builds 44 of them)
+for (let i = 0; i < Number(args['proxy-wait'] ?? 20) * 12; i++) {
   const building = await evaluate(`return [...document.querySelectorAll('span, div')].some((e) => e.offsetParent !== null && e.children.length === 0 && /Building \\d+ preview prox/.test(e.textContent));`);
   if (!building && i > 2) break;
   await sleep(5000);

@@ -12,7 +12,7 @@
  * here + one implementation file + one `registerExportEngine` call.
  */
 
-export type ExportEngineId = 'remotion';
+export type ExportEngineId = 'remotion' | 'passthrough';
 
 export interface ExportEngineDefinition {
   id: ExportEngineId;
@@ -22,6 +22,9 @@ export interface ExportEngineDefinition {
   description: string;
   /** Needs the optional full ffmpeg download (the GPU proxy encoder's binary). */
   needsFullFfmpeg: boolean;
+  /** The dialog states "copies N % of this timeline" for this engine (D4),
+   *  from the shared span planner (`export-spans.ts`). */
+  reportsCopiedShare: boolean;
 }
 
 /** Picker order. The first entry is what ships as the default. */
@@ -31,6 +34,15 @@ export const EXPORT_ENGINES: readonly ExportEngineDefinition[] = [
     label: 'Standard',
     description: 'Renders every frame exactly as the preview shows it. Works for every timeline.',
     needsFullFfmpeg: false,
+    reportsCopiedShare: false,
+  },
+  {
+    id: 'passthrough',
+    label: 'Fast',
+    description:
+      'Copies untouched footage straight from the source files and renders only the edited parts. Needs the GPU encoder download.',
+    needsFullFfmpeg: true,
+    reportsCopiedShare: true,
   },
 ] as const;
 

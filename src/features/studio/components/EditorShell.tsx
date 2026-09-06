@@ -1120,6 +1120,8 @@ export function EditorShell({ projectId, onBack }: Props) {
             ? `${formatDuration(exportDialog.range.rangeIn)} – ${formatDuration(exportDialog.range.rangeOut)}`
             : null
         }
+        project={project ? { ...project, timeline: tl.timeline } : null}
+        range={exportDialog?.range}
         onExport={(choice) => handleExport(choice, exportDialog?.range)}
       />
     </div>

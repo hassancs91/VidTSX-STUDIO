@@ -72,6 +72,8 @@ export function RenderItem({ job, onCancel, onRetry, onOpenFile, onOpenFolder }:
             phase === 'verifying' ? 'Verifying' : 'Working';
           return `${label}... ${Math.round(progress)}%`;
         }
+        // An engine's notice while it renders (docs/export-engines-plan.md D4).
+        if (liveProgress?.message) return `${liveProgress.message} ${Math.round(progress)}%`;
         return `${Math.round(progress)}%`;
       }
       case 'queued':

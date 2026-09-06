@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal } from '@shared/components/Modal';
 import { Button } from '@shared/components/Button';
 import type { StudioExportEngineStatus } from '@shared/ipc/types';
+import type { StudioProject } from '@shared/types/studio';
 import { DEFAULT_EXPORT_ENGINE_ID, EXPORT_ENGINES, type ExportEngineId } from '@shared/studio/export-engines';
+import { copiedPercent, planExportSpans } from '@shared/studio/export-spans';
+import { rangeDurationInFrames, trimTimelineToRange } from '@shared/studio/trim-range';
 
 /** localStorage key that reveals the dev verification controls (D5). */
 export const EXPORT_VERIFY_FLAG = 'vidtsx:export-verify';
@@ -17,6 +20,9 @@ interface Props {
   onClose: () => void;
   /** Non-null for "Export range" — shown so the user knows what they commit. */
   rangeLabel: string | null;
+  /** The document as it will be exported (live timeline), for "copies N %" (D4). */
+  project: StudioProject | null;
+  range?: { rangeIn: number; rangeOut: number };
   /** Resolves when the job is queued (or failed with a toast); the dialog closes on true. */
   onExport: (choice: ExportChoice) => Promise<boolean>;
 }
@@ -28,7 +34,7 @@ interface Props {
  * exists. The verification controls (D5) only appear in dev builds when the
  * `vidtsx:export-verify` localStorage flag is set.
  */
-export function ExportDialog({ isOpen, onClose, rangeLabel, onExport }: Props) {
+export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onExport }: Props) {
   const [engines, setEngines] = useState<StudioExportEngineStatus[]>([]);
   const [selected, setSelected] = useState<ExportEngineId>(DEFAULT_EXPORT_ENGINE_ID);
   const [verifyAvailable, setVerifyAvailable] = useState(false);
@@ -36,6 +42,16 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, onExport }: Props) {
   const [verifyAgainst, setVerifyAgainst] = useState<ExportEngineId>(DEFAULT_EXPORT_ENGINE_ID);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // What the copying engine would copy of THIS timeline (D4), decided from
+  // the document alone by the shared planner — the same one the engine runs.
+  const copied = useMemo(() => {
+    if (!isOpen || !project) return null;
+    const fps = project.settings.fps;
+    const doc = range ? { ...project, timeline: trimTimelineToRange(project.timeline, range.rangeIn, range.rangeOut, fps) } : project;
+    const frames = range ? rangeDurationInFrames(range.rangeIn, range.rangeOut, fps) : undefined;
+    return copiedPercent(planExportSpans(doc, frames));
+  }, [isOpen, project, range]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -99,6 +115,13 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, onExport }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] text-text-primary">{def.label}</div>
                 <div className="text-[10px] text-text-dim">{def.description}</div>
+                {def.reportsCopiedShare && copied !== null && (
+                  <div className="text-[10px] text-text-muted mt-0.5" data-export-copied={copied}>
+                    {copied > 0
+                      ? `Copies ${copied} % of this timeline.`
+                      : 'Copies nothing on this timeline — every frame renders, as with Standard.'}
+                  </div>
+                )}
                 {!status.available && status.unavailableReason && (
                   <div className="text-[10px] text-text-ghost mt-0.5">{status.unavailableReason}</div>
                 )}

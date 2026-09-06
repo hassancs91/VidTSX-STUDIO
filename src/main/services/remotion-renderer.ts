@@ -55,6 +55,10 @@ export interface RenderOptions {
   // only AAC encode happens in their finishing stage, with the encoder delay
   // recorded. undefined = Remotion default (AAC via raw ADTS, stream-copied).
   audioCodec?: 'pcm-16';
+  // Render only these composition frames (inclusive, absolute). The Studio
+  // passthrough engine renders each browser span this way, one frame early
+  // (docs/export-engines-plan.md condition 4). undefined = the whole composition.
+  frameRange?: [number, number];
 }
 
 const DEFAULT_RENDER_TIMEOUT_MS = 600_000;
@@ -312,6 +316,7 @@ export async function renderComposition(
       ...(options.codec === 'h264' ? { x264Preset: 'veryfast' as const } : {}),
       ...(options.colorSpace ? { colorSpace: options.colorSpace } : {}),
       ...(options.audioCodec ? { audioCodec: options.audioCodec } : {}),
+      ...(options.frameRange ? { frameRange: options.frameRange } : {}),
       ffmpegOverride,
       timeoutInMilliseconds: PER_FRAME_TIMEOUT_MS,
       cancelSignal,
