@@ -95,11 +95,13 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   const compAspect = settings.width / settings.height;
   if (Math.abs(sourceAspect - compAspect) > 1e-3) return 'aspect ratio (letterboxed)';
   // The last output slot sits one composition frame before the clip's end, so
-  // a clip that ends exactly at the source's end still has a nearest source
-  // frame for every slot. The engine counts every piece's frames anyway and
-  // sends a short one back to the browser.
+  // a clip may overrun the source by up to half a composition frame and every
+  // slot still has a nearest source frame (measured 2026-09-06: a seeded 3 h
+  // project's millisecond-rounded clip ends overran by 0.3–0.5 ms and sent
+  // 5 % of an all-cuts timeline to the browser). The engine counts every
+  // piece's frames anyway and sends a short one back to the browser.
   const sourceEnd = (clip.sourceIn ?? 0) + clip.duration;
-  if (sourceEnd > asset.probe.duration + EPS) return 'runs past the source end';
+  if (sourceEnd > asset.probe.duration + 0.5 / settings.fps + EPS) return 'runs past the source end';
   return null;
 }
 

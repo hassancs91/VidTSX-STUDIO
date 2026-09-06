@@ -162,6 +162,8 @@ describe('copyBlocker', () => {
     expect(copyBlocker(clip('a', 0, 5, 0), { ...asset, probe: { ...asset.probe, width: undefined } }, settings)).toBe('unknown source size');
     expect(copyBlocker(clip('a', 0, 10, 130), asset, settings)).toBe('runs past the source end');
     expect(copyBlocker(clip('a', 0, 4.022233, 135), asset, settings)).toBeNull(); // ends exactly at the source end
+    expect(copyBlocker(clip('a', 0, 4.023, 135), asset, settings)).toBeNull(); // overruns by 0.8 ms (millisecond-rounded document)
+    expect(copyBlocker(clip('a', 0, 4.04, 135), asset, settings)).toBe('runs past the source end'); // more than half a frame
     expect(copyBlocker(clip('a', 0, 5, 0), undefined, settings)).toBe('missing asset');
     expect(copyBlocker({ ...clip('a', 0, 5, 0), kind: 'image' }, asset, settings)).toBe('image clip');
   });
