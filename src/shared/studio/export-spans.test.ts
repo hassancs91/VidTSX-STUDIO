@@ -183,11 +183,44 @@ describe('planExportSpans edges', () => {
     ]);
   });
 
-  it('renders everything in the browser for captions, a second video track, or no video track', () => {
+  it('renders everything in the browser for captions, or no video track', () => {
     expect(planExportSpans(project([video([clip('a', 0, 5, 0)])], { captions: { enabled: true } as StudioProject['captions'] })).reason).toBe('captions');
-    const two = project([video([clip('a', 0, 5, 0)]), video([clip('b', 0, 5, 0)], { id: 'v2' })]);
-    expect(planExportSpans(two)).toMatchObject({ copiedFrames: 0, reason: 'more than one video track', spans: [{ kind: 'browser', from: 0, frames: 150 }] });
     expect(planExportSpans(project([audioTrack])).reason).toBe('no video track');
+  });
+
+  it('several video tracks: the topmost pure cut covering a piece is copied and hides what is below (Stage 3 slice 2)', () => {
+    // The T1 cut as two tracks: V1 (top) 15–30 s from source 15 over V2 0–30 s from 0 — the same spans as t5-1080p-cut.
+    const stacked = project([video([clip('top', 15, 15, 15)]), video([clip('base', 0, 30, 0)], { id: 'v2' })]);
+    expect(planExportSpans(stacked).spans).toEqual([
+      { kind: 'copy', from: 0, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 0, firstFrameCeil: false },
+      { kind: 'copy', from: 450, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 450, firstFrameCeil: false },
+    ]);
+    // The upper clip in the middle: the base shows on both sides and resumes its source position.
+    const middle = project([video([clip('top', 10, 10, 60)]), video([clip('base', 0, 30, 0)], { id: 'v2' })]);
+    expect(planExportSpans(middle).spans.map((s) => [s.kind, s.from, s.frames, (s as { sourceFrame?: number }).sourceFrame])).toEqual([
+      ['copy', 0, 300, 0],
+      ['copy', 300, 300, 1800],
+      ['copy', 600, 300, 600],
+    ]);
+    // An upper clip that only partly covers (transformed) sends ITS piece to the browser, the rest stays copied.
+    const partly = project([video([clip('top', 10, 10, 60, { transform: { scale: 0.5 } })]), video([clip('base', 0, 30, 0)], { id: 'v2' })]);
+    expect(planExportSpans(partly).spans.map((s) => [s.kind, s.from, s.frames])).toEqual([
+      ['copy', 0, 300],
+      ['browser', 300, 300],
+      ['copy', 600, 300],
+    ]);
+    expect(planExportSpans(partly).spans[1]).toMatchObject({ reason: 'transform' });
+    // A gap on every track is black; a dropped upper clip lets the lower one through.
+    const gap = project([video([clip('top', 0, 5, 0)]), video([clip('base', 10, 5, 0)], { id: 'v2' })]);
+    expect(planExportSpans(gap).spans.map((s) => [s.kind, s.from, s.frames])).toEqual([['copy', 0, 150], ['black', 150, 150], ['copy', 300, 150]]);
+    const dropped = project([video([clip('top', 0, 5, 0, { assetId: 'gone' })]), video([clip('base', 0, 5, 0)], { id: 'v2' })]);
+    expect(planExportSpans(dropped).spans).toEqual([{ kind: 'copy', from: 0, frames: 150, assetId: ASSET, assetPath: DJI, sourceFrame: 0, firstFrameCeil: false }]);
+    // A covered clip has opened its file: when it comes back into view its first frame is the nearest, not the ceil.
+    const other = { ...T5.assets[0], id: 'o', path: 'C:\\raw\\other.MP4' };
+    const covered = project([video([clip('top', 0, 5, 0)]), video([clip('base', 0, 10, 20, { assetId: 'o' })], { id: 'v2' })], { assets: [T5.assets[0], other] });
+    expect(planExportSpans(covered).spans[1]).toMatchObject({ kind: 'copy', from: 150, assetId: 'o', sourceFrame: 750, firstFrameCeil: false });
+    // The dialog's share counts every copied piece.
+    expect(copiedPercent(planExportSpans(partly))).toBe(67);
   });
 
   it('a hidden video track paints nothing (the serializer drops it)', () => {
@@ -234,12 +267,50 @@ describe('planExportAudio', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0)], { muted: true })]))?.segments).toEqual([{ kind: 'silence', duration: 2 }]);
   });
 
-  it('refuses what only the browser mixes exactly (later Stage 3 slices); a static gain no longer does', () => {
+  it('refuses what only the browser mixes exactly (fades, speed, two clips at once on one track); a static gain no longer does', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { gain: 0.8 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2, gain: 0.8 }]);
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { fadeOutSec: 0.2 })])]))).toBeNull();
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { speed: 1.5 })])]))).toBeNull();
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), { ...audioTrack, clips: [{ ...clip('m', 0, 2, 0), kind: 'audio' }] }]))).toBeNull();
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), video([clip('b', 1, 2, 0)], { id: 'v2' })]))).toBeNull();
+    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), { ...audioTrack, clips: [{ ...clip('m', 0, 2, 0, { fadeInSec: 0.1 }), kind: 'audio' }] }]))).toBeNull();
+    // Overlapping clips on ONE track (a document the timeline ops never write) — not modelled.
+    expect(planExportAudio(project([video([clip('a', 0, 2, 0), clip('b', 1, 2, 0)])]))).toBeNull();
+  });
+
+  it('mixes an audio-track clip as a second chain with its own gain, covering the whole timeline (Stage 3 slice 2)', () => {
+    const music = { id: 'mus', kind: 'audio' as const, path: 'C:\\raw\\music-40s.wav', probe: { duration: 40, hasAudio: true, codec: 'pcm_s16le' } };
+    const p = project(
+      [video([clip('a', 0, 15, 0), clip('b', 15, 15, 15)]), { ...audioTrack, clips: [{ ...clip('m', 5, 20, 2, { gain: 0.5 }), kind: 'audio', assetId: 'mus' }] }],
+      { assets: [T5.assets[0], music] },
+    );
+    const plan = planExportAudio(p);
+    expect(plan?.duration).toBe(30);
+    expect(plan?.segments).toEqual([
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 15 },
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 15, duration: 15 },
+    ]);
+    expect(plan?.chains).toEqual([[
+      { kind: 'silence', duration: 5 },
+      { kind: 'source', assetId: 'mus', assetPath: 'C:\\raw\\music-40s.wav', sourceIn: 2, duration: 20, gain: 0.5 },
+      { kind: 'silence', duration: 5 },
+    ]]);
+    // The picture is untouched by an audio track: both clips still copied.
+    expect(planExportSpans(p).copiedFrames).toBe(900);
+    // A muted audio track contributes no chain; a soundless track neither; a second video track with sound does.
+    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), { ...audioTrack, muted: true, clips: [{ ...clip('m', 0, 2, 0), kind: 'audio' }] }]))?.chains).toBeUndefined();
+    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), audioTrack]))?.chains).toBeUndefined();
+    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), video([clip('b', 1, 2, 0)], { id: 'v2' })]))?.chains).toEqual([[
+      { kind: 'silence', duration: 1 },
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2 },
+    ]]);
+    // Only sound on an audio track: it is the first chain, no `chains`.
+    const only = planExportAudio(project([{ ...audioTrack, clips: [{ ...clip('m', 1, 2, 0), kind: 'audio' }] }]));
+    expect(only?.chains).toBeUndefined();
+    expect(only?.segments).toEqual([{ kind: 'silence', duration: 1 }, { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2 }]);
+    // A range window trims every chain alike.
+    expect(planExportAudio(p, 300)?.chains).toEqual([[
+      { kind: 'silence', duration: 5 },
+      { kind: 'source', assetId: 'mus', assetPath: 'C:\\raw\\music-40s.wav', sourceIn: 2, duration: 5, gain: 0.5 },
+    ]]);
   });
 
   it('trims the audio to a range window that ends inside a clip', () => {

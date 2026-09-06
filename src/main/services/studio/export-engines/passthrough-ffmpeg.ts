@@ -254,33 +254,45 @@ export interface AudioPass {
  *
  * A segment's static gain (Stage 3) is one linear `volume=` on that segment,
  * the multiplier Remotion applies for a static `volume` prop.
+ *
+ * Several chains (slice 2: one per track with sound) are each concatenated
+ * and pinned to the whole length, then summed by `amix … normalize=0` — the
+ * very filter `@remotion/renderer` merges a composition's audio with, so the
+ * levels are Remotion's. One chain keeps Stage 2's graph to the byte.
  */
 export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPath: string): AudioPass {
   const inputs: string[] = [];
   const inputIndex = new Map<string, number>();
-  const labels: string[] = [];
   const graph: string[] = [];
   const fmt = 'aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo';
-  plan.segments.forEach((seg: AudioSegment, i) => {
-    const label = `[s${i}]`;
-    if (seg.kind === 'silence') {
-      graph.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${seg.duration.toFixed(6)},${fmt}${label}`);
-    } else {
-      let idx = inputIndex.get(seg.assetPath);
-      if (idx === undefined) {
-        idx = inputs.length;
-        inputs.push(seg.assetPath);
-        inputIndex.set(seg.assetPath, idx);
-      }
-      const end = (seg.sourceIn + seg.duration).toFixed(6);
-      const dur = seg.duration.toFixed(6);
-      const gain = seg.gain !== undefined ? `,volume=${seg.gain.toFixed(6)}` : '';
-      graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
-    }
-    labels.push(label);
-  });
   const total = plan.duration.toFixed(6);
-  graph.push(`${labels.join('')}concat=n=${labels.length}:v=0:a=1,atrim=end=${total},apad=whole_dur=${total}[out]`);
+  const chains = [plan.segments, ...(plan.chains ?? [])];
+  const mixed: string[] = [];
+  chains.forEach((segments, k) => {
+    const labels: string[] = [];
+    segments.forEach((seg: AudioSegment, i) => {
+      const label = k === 0 ? `[s${i}]` : `[c${k}s${i}]`;
+      if (seg.kind === 'silence') {
+        graph.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${seg.duration.toFixed(6)},${fmt}${label}`);
+      } else {
+        let idx = inputIndex.get(seg.assetPath);
+        if (idx === undefined) {
+          idx = inputs.length;
+          inputs.push(seg.assetPath);
+          inputIndex.set(seg.assetPath, idx);
+        }
+        const end = (seg.sourceIn + seg.duration).toFixed(6);
+        const dur = seg.duration.toFixed(6);
+        const gain = seg.gain !== undefined ? `,volume=${seg.gain.toFixed(6)}` : '';
+        graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
+      }
+      labels.push(label);
+    });
+    const out = chains.length === 1 ? '[out]' : `[m${k}]`;
+    graph.push(`${labels.join('')}concat=n=${labels.length}:v=0:a=1,atrim=end=${total},apad=whole_dur=${total}${out}`);
+    mixed.push(out);
+  });
+  if (chains.length > 1) graph.push(`${mixed.join('')}amix=inputs=${chains.length}:dropout_transition=0:normalize=0[out]`);
   return {
     args: [
       ...COMMON,

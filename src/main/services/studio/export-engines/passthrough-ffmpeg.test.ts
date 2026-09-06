@@ -145,6 +145,42 @@ describe('audioPassArgs with gain (Stage 3)', () => {
   });
 });
 
+describe('audioPassArgs with a second chain (Stage 3 slice 2)', () => {
+  it('concatenates and pins each chain, then sums them with Remotion\'s amix (normalize=0)', () => {
+    const { args, graph } = audioPassArgs({
+      duration: 30,
+      segments: [
+        { kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 15 },
+        { kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 15, duration: 15 },
+      ],
+      chains: [[
+        { kind: 'silence', duration: 5 },
+        { kind: 'source', assetId: 'm', assetPath: 'M.wav', sourceIn: 2, duration: 20, gain: 0.5 },
+        { kind: 'silence', duration: 5 },
+      ]],
+    }, 'audio.wav', 'graph.txt');
+    expect(args.filter((a) => a === '-i')).toHaveLength(2);
+    expect(args[args.indexOf('-i') + 1]).toBe('A.MP4');
+    expect(args[args.lastIndexOf('-i') + 1]).toBe('M.wav');
+    const lines = graph.trimEnd().split(';\n');
+    expect(lines).toHaveLength(8);
+    expect(lines[2]).toBe('[s0][s1]concat=n=2:v=0:a=1,atrim=end=30.000000,apad=whole_dur=30.000000[m0]');
+    expect(lines[3]).toBe('anullsrc=r=48000:cl=stereo,atrim=duration=5.000000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[c1s0]');
+    expect(lines[4]).toBe('[1:a:0]aresample=async=1:first_pts=0,atrim=start=2.000000:end=22.000000,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,volume=0.500000,apad=whole_dur=20.000000,atrim=end=20.000000[c1s1]');
+    expect(lines[5]).toBe('anullsrc=r=48000:cl=stereo,atrim=duration=5.000000,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo[c1s2]');
+    expect(lines[6]).toBe('[c1s0][c1s1][c1s2]concat=n=3:v=0:a=1,atrim=end=30.000000,apad=whole_dur=30.000000[m1]');
+    // Exactly @remotion/renderer's merge filter (create-ffmpeg-merge-filter.js).
+    expect(lines[7]).toBe('[m0][m1]amix=inputs=2:dropout_transition=0:normalize=0[out]');
+  });
+
+  it('one chain keeps the Stage 2 graph to the byte (no amix, [out] on the concat)', () => {
+    const one = audioPassArgs({ duration: 2, segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 2 }] }, 'o.wav', 'g.txt').graph;
+    expect(one).not.toContain('amix');
+    expect(one).toContain('concat=n=1:v=0:a=1,atrim=end=2.000000,apad=whole_dur=2.000000[out]');
+    expect(audioPassArgs({ duration: 2, segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 2 }], chains: [] }, 'o.wav', 'g.txt').graph).toBe(one);
+  });
+});
+
 describe('small parsers', () => {
   it('reads the last frame counter from a -stats chunk', () => {
     expect(parseStatsFrame('frame=   12 fps=0.0 q=0.0 size=0KiB\rframe=  340 fps=120')).toBe(340);

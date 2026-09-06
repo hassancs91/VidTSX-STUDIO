@@ -194,6 +194,52 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(rms(plain) / rms(await decode(SOURCE, 0.5, 1))).toBeGreaterThan(0.99);
   }, 120_000);
 
+  it('two chains sum sample for sample: the base plus the second at gain 0.5, lag 0 (Stage 3 slice 2)', async () => {
+    const { ffmpeg } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    const wav = path.join(OUT, 'mix-audio.wav');
+    const graphPath = path.join(OUT, 'mix-audio-graph.txt');
+    const pass = audioPassArgs({
+      duration: 4,
+      segments: [{ kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 0, duration: 4 }],
+      chains: [[
+        { kind: 'silence', duration: 1 },
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 15, duration: 2, gain: 0.5 },
+        { kind: 'silence', duration: 1 },
+      ]],
+    }, wav, graphPath);
+    await fs.writeFile(graphPath, pass.graph);
+    await run(ffmpeg, pass.args);
+    const decode = (file: string, ss: number, t: number) => new Promise<Float32Array>((resolve, reject) => {
+      const p = spawn(ffmpeg, ['-v', 'error', '-nostdin', '-ss', String(ss), '-t', String(t), '-i', file, '-vn', '-ac', '1', '-ar', '48000', '-f', 'f32le', '-']);
+      const chunks: Buffer[] = [];
+      p.stdout.on('data', (c: Buffer) => chunks.push(c));
+      p.on('close', (code) => { if (code !== 0) reject(new Error('decode failed')); const b = Buffer.concat(chunks); resolve(new Float32Array(b.buffer, b.byteOffset, Math.floor(b.length / 4))); });
+    });
+    const rms = (x: Float32Array) => Math.sqrt(x.reduce((a, v) => a + v * v, 0) / x.length);
+    const corr = (x: Float32Array, y: Float32Array) => {
+      let xy = 0; let xx = 0; let yy = 0;
+      for (let i = 0; i < x.length; i++) { xy += x[i] * y[i]; xx += x[i] * x[i]; yy += y[i] * y[i]; }
+      return xy / Math.sqrt(xx * yy);
+    };
+    // Inside the second chain's segment (2.0–3.0 s): the sum of the source at 2 s and half the source at 16 s.
+    const a = await decode(SOURCE, 2, 1);
+    const b = await decode(SOURCE, 16, 1);
+    const expected = new Float32Array(a.length);
+    for (let i = 0; i < a.length; i++) expected[i] = a[i] + 0.5 * b[i];
+    const got = await decode(wav, 2, 1);
+    expect(got.length).toBe(expected.length);
+    expect(corr(got, expected)).toBeGreaterThan(0.999);
+    expect(rms(got) / rms(expected)).toBeGreaterThan(0.99);
+    expect(rms(got) / rms(expected)).toBeLessThan(1.01);
+    // Outside it (0.0–1.0 s), the base chain alone.
+    const plain = await decode(wav, 0, 1);
+    const ref = await decode(SOURCE, 0, 1);
+    expect(corr(plain, ref)).toBeGreaterThan(0.999);
+    expect(rms(plain) / rms(ref)).toBeGreaterThan(0.99);
+    expect(rms(plain) / rms(ref)).toBeLessThan(1.01);
+  }, 120_000);
+
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {
     const { ffmpeg, ffprobe } = bins();
     await fs.mkdir(OUT, { recursive: true });

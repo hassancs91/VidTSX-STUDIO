@@ -163,7 +163,7 @@ export const passthroughExportEngine: ExportEngine = {
     const audioPlan = planExportAudio(project, entry.durationInFrames);
     let audioPath: string | undefined;
     if (!audioPlan) {
-      notes.push('Audio mixed by the standard path (fades, speed, transitions or audio tracks are present).');
+      notes.push('Audio mixed by the standard path (fades, speed, transitions or overlapping clips on one track are present).');
     } else if (!audioPlan.segments.some((s) => s.kind === 'source')) {
       audioPath = videoPath; // no sound at all → the finishing stage writes no audio track
     } else {
@@ -172,6 +172,7 @@ export const passthroughExportEngine: ExportEngine = {
       const pass = audioPassArgs(audioPlan, audioPath, graphPath);
       await fs.writeFile(graphPath, pass.graph, 'utf-8');
       await runFfmpeg(tools.ffmpeg, pass.args, { signal });
+      if (audioPlan.chains) notes.push(`Mixed ${audioPlan.chains.length + 1} audio chains in the one pass.`);
     }
     return { videoPath, audioPath, notes };
   },

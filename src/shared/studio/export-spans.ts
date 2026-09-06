@@ -16,10 +16,25 @@
  * composition's background). Every widening (Stage 3) is a change here and a
  * re-run of the T1 gate.
  *
+ * Stage 3 widening 3 (slice 2): SEVERAL video tracks. Tracks are painted
+ * bottom-up in reverse document order (`TimelineComposition.tsx`), so the
+ * topmost clip covering a piece is the one on screen; when it is a pure cut
+ * it fills the frame and hides every clip below it, so the piece is copied
+ * from it alone. A piece whose topmost clip is not a pure cut goes to the
+ * browser (a transformed or letterboxed upper clip only PARTLY covers what is
+ * below — the browser composites it); a piece no track covers is black.
+ * Covered clips still open their files in the browser (every mounted tag
+ * extracts frames), so they count for the ceil rule below.
+ *
  * Stage 3 widening 1 (2026-09-06): a clip whose only change is its GAIN is
  * still a pure cut of the picture — the video is copied and the gain rides
  * into the one audio pass as `volume=` (Remotion applies a static volume as
  * the same linear multiplier, `TimelineComposition.tsx` volumeProp).
+ * Widening 2 (slice 2): audio-track clips no longer send the sound to the
+ * browser walk — every track with audible clips is its own chain of source
+ * cuts + silence, and the pass sums the chains without normalising, which is
+ * what Remotion does with every <Audio>/<Video> of a composition
+ * (`amix … normalize=0` in `@remotion/renderer`'s merge filter).
  *
  * Frame arithmetic mirrors `serialize.ts` exactly: clip edges through
  * `timeToFrame` / `spanToFrames`, the source offset as Remotion's whole-frame
@@ -144,11 +159,9 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
   const visible = project.timeline.tracks.filter((t) => !t.hidden || t.kind === 'audio');
   const videoTracks = visible.filter((t) => t.kind === 'video' && t.clips.length > 0);
   if (videoTracks.length === 0) return whole('no video track');
-  if (videoTracks.length > 1) return whole('more than one video track');
   if (project.captions?.enabled) return whole('captions');
-  const base = videoTracks[0];
 
-  // Anything painted over the base track: overlay-track clips.
+  // Anything painted over the video tracks: overlay-track clips.
   const touched: Piece[] = visible
     .filter((t) => t.kind === 'overlay' || t.kind === 'caption')
     .flatMap((t) => trackIntervals(t, fps));
@@ -156,27 +169,34 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
   const byId = new Map(project.assets.map((a) => [a.id, a]));
   const settings = project.settings;
 
-  // Boundaries: every clip edge on the base track and every touched edge.
+  // Every video track's clips, document order = top of the stack first.
+  const layers = videoTracks.map((track) => {
+    const clips = track.clips
+      .map((clip) => {
+        const from = timeToFrame(clip.timelineStart, fps);
+        const frames = spanToFrames(clip.timelineStart, clipEnd(clip), fps);
+        const asset = clip.assetId ? byId.get(clip.assetId) : undefined;
+        // A clip the serializer would drop (no resolvable source) paints nothing.
+        const dropped = clip.kind !== 'tsx' && clip.kind !== 'caption' && !asset;
+        const blocker = dropped ? null : copyBlocker(clip, asset, settings);
+        return { clip, from, to: from + frames, asset, dropped, blocker };
+      })
+      .filter((c) => c.to > c.from)
+      .sort((a, b) => a.from - b.from);
+    // A transition changes BOTH clips at the boundary — the next clip too.
+    for (let i = 0; i < clips.length - 1; i++) {
+      if (clips[i].clip.transitionOut && !clips[i + 1].blocker) clips[i + 1].blocker = 'transition';
+    }
+    return clips;
+  });
+
+  // Boundaries: every clip edge on every video track and every touched edge.
   const cuts = new Set<number>([0, totalFrames]);
-  const baseClips = base.clips
-    .map((clip) => {
-      const from = timeToFrame(clip.timelineStart, fps);
-      const frames = spanToFrames(clip.timelineStart, clipEnd(clip), fps);
-      const asset = clip.assetId ? byId.get(clip.assetId) : undefined;
-      // A clip the serializer would drop (no resolvable source) paints nothing.
-      const dropped = clip.kind !== 'tsx' && clip.kind !== 'caption' && !asset;
-      const blocker = dropped ? null : copyBlocker(clip, asset, settings);
-      // A transition changes BOTH clips at the boundary — the next clip too.
-      return { clip, from, to: from + frames, asset, dropped, blocker };
-    })
-    .filter((c) => c.to > c.from)
-    .sort((a, b) => a.from - b.from);
-  for (let i = 0; i < baseClips.length - 1; i++) {
-    if (baseClips[i].clip.transitionOut && !baseClips[i + 1].blocker) baseClips[i + 1].blocker = 'transition';
-  }
-  for (const c of baseClips) {
-    cuts.add(c.from);
-    cuts.add(c.to);
+  for (const layer of layers) {
+    for (const c of layer) {
+      cuts.add(c.from);
+      cuts.add(c.to);
+    }
   }
   for (const t of touched) {
     cuts.add(t.from);
@@ -187,7 +207,7 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
   const spans: ExportSpan[] = [];
   let copiedFrames = 0;
   // Source files the browser has opened before a given piece, for the ceil rule
-  // above: every clip shown so far (copied or rendered) has opened its file.
+  // above: every clip mounted so far (copied, rendered or covered) has opened its file.
   const opened = new Set<string>();
   const push = (span: ExportSpan) => {
     const last = spans[spans.length - 1];
@@ -206,15 +226,20 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       push({ kind: 'browser', from, frames, reason: 'overlay' });
       continue;
     }
-    // Clips are non-overlapping on a track (timeline-ops invariant); take the topmost that covers.
-    const covering = baseClips.find((c) => c.from <= from && to <= c.to && !c.dropped);
+    // Clips are non-overlapping on a track (timeline-ops invariant); the stack
+    // of clips covering this piece, topmost first.
+    const stack = layers.flatMap((layer) => {
+      const c = layer.find((x) => x.from <= from && to <= x.to && !x.dropped);
+      return c ? [c] : [];
+    });
+    const covering = stack[0];
     if (!covering) {
       push({ kind: 'black', from, frames });
       continue;
     }
     const assetPath = (covering.asset as StudioMediaAsset).path;
     const opensFile = !opened.has(assetPath);
-    opened.add(assetPath);
+    for (const c of stack) opened.add((c.asset as StudioMediaAsset).path);
     if (covering.blocker) {
       push({ kind: 'browser', from, frames, reason: covering.blocker });
       continue;
@@ -242,82 +267,4 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
   return plan;
 }
 
-// ─── Audio ───────────────────────────────────────────────────────────────────
-
-export type AudioSegment =
-  | {
-      kind: 'source';
-      assetId: string;
-      assetPath: string;
-      sourceIn: number;
-      duration: number;
-      /** The clip's static gain (linear), only when it is not unity — `volume=` in the pass. */
-      gain?: number;
-    }
-  | { kind: 'silence'; duration: number };
-
-export interface ExportAudioPlan {
-  /** Contiguous, covering [0, duration) in timeline seconds. */
-  segments: AudioSegment[];
-  duration: number;
-}
-
-/**
- * The whole-timeline audio as ONE ffmpeg pass, when every audible clip is a
- * plain cut (what T1 measured at 0 ms against the camera file), at unity gain
- * or a static gain of its own (Stage 3: a linear `volume=` on that segment).
- * Null when the mix needs what only the browser walk reproduces exactly —
- * fades, speed, transitions, audio tracks (later Stage 3 slices); the engine
- * then hands `audioPath` back undefined and the finishing stage renders it.
- */
-export function planExportAudio(project: StudioProject, durationInFrames?: number): ExportAudioPlan | null {
-  const { fps } = project.settings;
-  const totalFrames = durationInFrames ?? timelineDurationInFrames(project.timeline, fps);
-  if (!(fps > 0) || totalFrames <= 0) return null;
-  const duration = totalFrames / fps;
-  const byId = new Map(project.assets.map((a) => [a.id, a]));
-
-  const audible: Array<{ from: number; to: number; seg: AudioSegment }> = [];
-  for (const track of project.timeline.tracks) {
-    if (track.hidden && track.kind !== 'audio') continue;
-    for (const clip of track.clips) {
-      const from = timeToFrame(clip.timelineStart, fps);
-      const frames = spanToFrames(clip.timelineStart, clipEnd(clip), fps);
-      if (frames <= 0) continue;
-      const asset = clip.assetId ? byId.get(clip.assetId) : undefined;
-      if (clip.kind === 'tsx' || clip.kind === 'caption' || clip.kind === 'image') continue; // silent kinds
-      if (!asset) continue; // dropped by the serializer
-      if (track.kind === 'audio' || clip.kind === 'audio' || clip.kind === 'sfx') return null;
-      if (clip.speed !== undefined && clip.speed !== 1) return null;
-      if ((clip.fadeInSec ?? 0) > 0 || (clip.fadeOutSec ?? 0) > 0) return null;
-      if (clip.transitionOut) return null;
-      if (track.muted || !asset.probe.hasAudio) continue;
-      const trimBefore = clip.sourceIn ? timeToFrame(clip.sourceIn, fps) : 0;
-      const gain = clip.gain !== undefined && clip.gain !== 1 ? { gain: clip.gain } : {};
-      audible.push({
-        from,
-        to: from + frames,
-        seg: { kind: 'source', assetId: asset.id, assetPath: asset.path, sourceIn: trimBefore / fps, duration: frames / fps, ...gain },
-      });
-    }
-  }
-  audible.sort((a, b) => a.from - b.from);
-  // Two audible clips at once would be a mix — not a plain cut.
-  for (let i = 0; i < audible.length - 1; i++) {
-    if (audible[i + 1].from < audible[i].to) return null;
-  }
-
-  const segments: AudioSegment[] = [];
-  let cursor = 0;
-  for (const a of audible) {
-    const from = Math.min(a.from, totalFrames);
-    const to = Math.min(a.to, totalFrames);
-    if (to <= from) continue;
-    if (from > cursor) segments.push({ kind: 'silence', duration: (from - cursor) / fps });
-    const seg = a.seg as Extract<AudioSegment, { kind: 'source' }>;
-    segments.push(to - a.from === a.to - a.from ? seg : { ...seg, duration: (to - from) / fps });
-    cursor = to;
-  }
-  if (cursor < totalFrames) segments.push({ kind: 'silence', duration: (totalFrames - cursor) / fps });
-  return { segments, duration };
-}
+export { planExportAudio, type AudioSegment, type ExportAudioPlan } from './export-audio';

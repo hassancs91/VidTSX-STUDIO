@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-09-06 — EXPORT ENGINES Stage 3 slice 2: audio tracks mixed in the one pass, several video tracks copied
+
+Stage 3 of `docs/export-engines-plan.md`, slice 2 (slice 1 = 28a8236). Two widenings of
+the passthrough engine's predicate, each gated through the real dialog; full log with
+the numbers: the plan's §Stage 3 log, slice 2.
+
+- **Widened: audio tracks.** The audio planner (now `src/shared/studio/export-audio.ts`,
+  re-exported by `export-spans.ts`) plans every track with sound as its own chain of
+  source cuts + silence over the whole timeline, with the clips' gains; the one ffmpeg
+  pass concatenates and pins each chain, then sums them with
+  `amix=inputs=N:dropout_transition=0:normalize=0` — the filter `@remotion/renderer`
+  itself merges a composition's audio with, so the levels are Remotion's. One chain
+  keeps the Stage 2 graph to the byte. Two audible clips overlapping on one track still
+  send the audio to the browser walk.
+- **Widened: several video tracks.** `planExportSpans` cuts at every clip edge on every
+  video track and copies each piece from the TOPMOST clip covering it when that clip is a
+  pure cut (it fills the frame and hides everything below); a transformed or letterboxed
+  upper clip sends its piece to the browser, a gap on every track is black, a dropped
+  upper clip lets the lower one through, and covered clips count as having opened their
+  files for slice 1's ceil rule.
+- **Gate — `t5-1080p-cut-music`** (the T1 cut with a pink-noise music clip on A1 from
+  5 to 25 s at gain 0.5): H.264 stream **byte-identical** to the Stage 2 cut export;
+  verify vs the Remotion engine max 0.01 % over 24 at the seven frames; `t1-diff` vs
+  the 2026-09-04 control **0 % over 24 at every frame**; audio **0 ms and level 1.000
+  at all eight windows vs a plain Remotion export** of the same project, 0 ms vs the
+  camera file; the mixed music itself at **lag 0.00 ms and 0.98 of its gained level** in
+  the export-minus-camera residual, the same rows the Remotion export reads.
+- **Gate — `t5-1080p-cut-stack`** (the T1 cut as two tracks: V1 15–30 s, muted, over
+  V2 0–30 s): the dialog states "Copies 100 %"; video AND
+  audio streams **byte-identical** to the Stage 2 cut export; verify max 0.01 % over 24;
+  `t1-diff` 0 % over 24 at every frame; audio 0 ms vs the camera file at all eight windows.
+- **Earlier gates unchanged:** `t5-1080p`, `t5-1080p-cut` and `t5-1080p-cut-gain`
+  re-exported with video AND audio streams byte-identical to their previous files.
+- New instruments: `scripts/bench/t1-audio-level.mjs` (1 s RMS ratio per window) and
+  `t1-audio-residual.mjs` (export − camera correlated with the music file: a quiet
+  mixed track cannot be timed by correlating the music against the mix, and `-ss` on
+  an AAC mp4 lands 16 samples off — decode whole files).
+- Gates: check:types 26/22 (baseline), vitest 1,415 (+4) green, live ffmpeg tests 6 (+1).
+- **Next: Stage 3 slice 3** — audio fades and crossfade transitions in the one pass
+  (`afade` / the equal-power curves, gated per window against a plain Remotion export),
+  speed changes measured first (`atempo` vs Remotion's resampling), the long-return
+  question; then Stage 4 (progress copied vs rendered, cancel cleanup, the 10 GB
+  finishing mux, merge nearby browser spans, QSV/AMF unmeasured).
+
 ## 2026-09-06 — EXPORT ENGINES Stage 3 slice 1: the different-file cut measured, gain-only clips copied
 
 Stage 3 of `docs/export-engines-plan.md` widens the passthrough engine's predicate one
