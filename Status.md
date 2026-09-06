@@ -7,6 +7,49 @@
 
 ---
 
+## 2026-09-06 — EXPORT ENGINES Stage 2 DONE: the passthrough engine at its narrowest predicate, gated on both reference projects
+
+Stage 2 of `docs/export-engines-plan.md` (D1–D7; Stage 1 seam committed 57becff).
+The picker's second row, "Fast", copies plain cuts of video assets with the full
+ffmpeg's NVDEC → nearest-pts select → NVENC under T1's four conditions and renders
+only touched spans in the browser; the gate held: **0 % of pixels over 24 vs the
+2026-09-04 control at 1/300/449/450/451/600/899 on `t5-1080p` and `t5-1080p-cut`,
+≤ 0.01 % vs the Stage 1 Remotion engine in verify mode, audio 0 ms at every window
+vs the DJI camera file, copied spans at 3.7–4.2× realtime, a re-export byte-identical
+on video and audio.** Full log with the numbers: the plan's §Stage 2 log.
+
+- **Behind the seam**: `src/shared/studio/export-spans.ts` (pure span planner +
+  audio planner, decides from the document alone; the dialog uses it for "Copies
+  N % of this timeline") and `src/main/services/studio/export-engines/passthrough-
+  {engine,ffmpeg,browser,probe}.ts` (availability = full ffmpeg + a working hardware
+  encoder; pieces = copy / black / browser, every piece's frame count checked, TS
+  join checked, one ffmpeg audio pass handed over as `audioPath`, D4 notice while a
+  nothing-to-copy timeline renders). `remotion-renderer.ts` gained `frameRange`.
+- **Findings**: NVENC writes primaries/transfer only from the frames (`setparams`
+  in every span graph); against the Stage 1 Remotion engine the copied spans carry
+  a ~200-pixel edge residue (0.01 % over 24, max 44) that no scaler moves — colour
+  conversion, not frame mapping (flat across the cut); the select clamps the slot
+  index so a whole-frame-early seek stays exact.
+- **Verified in the real app over CDP**: `t5-1080p` 900 frames in 7.2 s (4.19×),
+  `t5-1080p-cut` 450 + 450 in 4.1 + 3.9 s; file ready ~13 s after the plan. **The
+  re-seeded 3 h T6 project (275 clips, 330,749 frames, 100 % copied) exported in
+  1 h 32 min** — 61 min of copied spans (HEVC 4.2×, the H.264 master 2.6×), ~7 min
+  join + audio, 24 min in the finishing mux of the 10.6 GB file — against T6's
+  ≈ 3.5 days; its first clip diffs 0 % over 24 vs the control and the audio reads
+  0 ms vs the camera file at seven positions across the whole timeline (no drift).
+  Four earlier 3 h runs found and fixed, each re-gated: sub-frame clip overruns
+  sent 5 % to the browser (planner bound); clip tails one frame short where the
+  video stream ends before the container (held-tail piece); `ENAMETOOLONG` on the
+  275-segment audio graph (script file); a camera file's audio ending 44.7 ms
+  before its container shifted every later clip's audio (segments pinned to their
+  planned length) — a fault no 30 s gate could see.
+- Gates: check:types 26/22 (baseline), vitest 1,406 green (+31), 2 live ffmpeg tests
+  behind `VIDTSX_LIVE_FFMPEG=1`. Bench: `passthrough-video-hash.mjs`;
+  `export-engine-run.mjs` matches card titles exactly and takes `--proxy-wait`.
+- **Next: Stage 3** — widen the predicate (gain-only clips with `volume=` in the
+  audio pass, audio tracks, then multiple video tracks), each widening re-gated;
+  measure a cut between two different source files first.
+
 ## 2026-09-06 — EXPORT ENGINES Stage 1 DONE: the engine seam, gated on both reference projects
 
 Building resumed for the export-engines plan (`docs/export-engines-plan.md`, D1–D7
