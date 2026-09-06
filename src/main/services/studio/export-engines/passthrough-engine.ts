@@ -163,7 +163,7 @@ export const passthroughExportEngine: ExportEngine = {
     const audioPlan = planExportAudio(project, entry.durationInFrames);
     let audioPath: string | undefined;
     if (!audioPlan) {
-      notes.push('Audio mixed by the standard path (gain, fades, speed, transitions or audio tracks are present).');
+      notes.push('Audio mixed by the standard path (fades, speed, transitions or audio tracks are present).');
     } else if (!audioPlan.segments.some((s) => s.kind === 'source')) {
       audioPath = videoPath; // no sound at all → the finishing stage writes no audio track
     } else {

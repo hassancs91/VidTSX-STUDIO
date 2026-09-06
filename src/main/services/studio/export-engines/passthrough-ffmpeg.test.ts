@@ -127,6 +127,24 @@ describe('audioPassArgs (the one pass)', () => {
   });
 });
 
+describe('audioPassArgs with gain (Stage 3)', () => {
+  it('applies volume=<gain> on that segment only, after the format and before the length pin', () => {
+    const { graph } = audioPassArgs({
+      duration: 30,
+      segments: [
+        { kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 15 },
+        { kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 15, duration: 15, gain: 0.5 },
+      ],
+    }, 'audio.wav', 'graph.txt');
+    const lines = graph.split(';\n');
+    expect(lines[0]).not.toContain('volume=');
+    expect(lines[1]).toContain('aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,volume=0.500000,apad=whole_dur=15.000000,atrim=end=15.000000[s1]');
+    // A muted clip is a plain multiply by 0, not a silence segment (its length is still pinned from the source).
+    const muted = audioPassArgs({ duration: 5, segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 5, gain: 0 }] }, 'o.wav', 'g.txt').graph;
+    expect(muted).toContain('volume=0.000000,apad');
+  });
+});
+
 describe('small parsers', () => {
   it('reads the last frame counter from a -stats chunk', () => {
     expect(parseStatsFrame('frame=   12 fps=0.0 q=0.0 size=0KiB\rframe=  340 fps=120')).toBe(340);

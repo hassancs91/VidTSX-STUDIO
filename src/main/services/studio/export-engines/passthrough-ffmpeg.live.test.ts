@@ -159,6 +159,41 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(Math.abs(lagMs)).toBeLessThan(1);
   }, 120_000);
 
+  it('a gain-only segment is the source at that level, still at lag 0 (Stage 3)', async () => {
+    const { ffmpeg } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    const wav = path.join(OUT, 'gain-audio.wav');
+    const graphPath = path.join(OUT, 'gain-audio-graph.txt');
+    const pass = audioPassArgs({
+      duration: 4,
+      segments: [
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 0, duration: 2 },
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 15, duration: 2, gain: 0.5 },
+      ],
+    }, wav, graphPath);
+    await fs.writeFile(graphPath, pass.graph);
+    await run(ffmpeg, pass.args);
+    const decode = (file: string, ss: number, t: number) => new Promise<Float32Array>((resolve, reject) => {
+      const p = spawn(ffmpeg, ['-v', 'error', '-nostdin', '-ss', String(ss), '-t', String(t), '-i', file, '-vn', '-ac', '1', '-ar', '48000', '-f', 'f32le', '-']);
+      const chunks: Buffer[] = [];
+      p.stdout.on('data', (c: Buffer) => chunks.push(c));
+      p.on('close', (code) => { if (code !== 0) reject(new Error('decode failed')); const b = Buffer.concat(chunks); resolve(new Float32Array(b.buffer, b.byteOffset, Math.floor(b.length / 4))); });
+    });
+    const rms = (x: Float32Array) => Math.sqrt(x.reduce((a, v) => a + v * v, 0) / x.length);
+    const ref = await decode(SOURCE, 15.5, 1);
+    const cand = await decode(wav, 2.5, 1);
+    // Half the level (−6.02 dB) within 1 %, and the same samples: correlation ~1 at lag 0.
+    expect(rms(cand) / rms(ref)).toBeGreaterThan(0.495);
+    expect(rms(cand) / rms(ref)).toBeLessThan(0.505);
+    let rc = 0;
+    let rr = 0;
+    let cc = 0;
+    for (let i = 0; i < ref.length; i++) { rc += ref[i] * cand[i]; rr += ref[i] * ref[i]; cc += cand[i] * cand[i]; }
+    expect(rc / Math.sqrt(rr * cc)).toBeGreaterThan(0.999);
+    const plain = await decode(wav, 0.5, 1);
+    expect(rms(plain) / rms(await decode(SOURCE, 0.5, 1))).toBeGreaterThan(0.99);
+  }, 120_000);
+
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {
     const { ffmpeg, ffprobe } = bins();
     await fs.mkdir(OUT, { recursive: true });

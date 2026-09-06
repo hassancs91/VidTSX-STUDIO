@@ -3,8 +3,8 @@
 > Decided with Hasan 2026-09-04, right after T1 (`docs/PREVIEW_TESTS_PLAN.md`
 > §T1) proved the passthrough join inside the WYSIWYG tolerance. Stage 1 (the
 > engine seam) and Stage 2 (the passthrough engine at its narrowest predicate)
-> are built and gated — see the §Stage 1 and §Stage 2 logs at the end; Stages
-> 3–4 are not. Companion: `docs/studio/PLAN.md` §5 ("smart render"),
+> are built and gated — see the §Stage 1 and §Stage 2 logs at the end; Stage 3
+> is under way one widening at a time (§Stage 3 log); Stage 4 is not. Companion: `docs/studio/PLAN.md` §5 ("smart render"),
 > `docs/PREVIEW_ARCHITECTURE.md` §C2 (why only the identity transform is a
 > safe fast path).
 
@@ -63,7 +63,7 @@ frame**, 900 frames, audio lag 0 ms at every window.
 |---|---|---|
 | **1 — engine seam** · **DONE 2026-09-05** | `ExportEngine` interface + registry in main (`src/main/services/studio/export-engines/`), the Remotion path moved behind it untouched, the shared finishing stage (D7) with the audio correction (D6), Settings default + Export dialog picker (D2/D3), verification mode behind a dev flag (D5) | the default engine exports byte-for-byte what it did before, minus the 42.7 ms; the picker exists but lists one engine — **met**: `t1-diff` vs the 2026-09-04 control 0 % over 24 at 1/300/449/450/451/600/899 on both reference projects, 900 frames, `yuv420p tv bt709`, audio 0 ms at every window vs the camera file (log below) |
 | **2 — passthrough, narrowest predicate** · **DONE 2026-09-06** | single video track, pure cuts, no effects/captions/shots; the span planner decides from the document alone; touched spans still go to the browser and are encoded per condition 2; join per condition 3; "copies N %" in the dialog; the D4 message | T1 gate passes on both reference projects; the 3 h T6 project exports in about an hour instead of days — **met**: 0 % over 24 vs the 2026-09-04 control at 1/300/449/450/451/600/899 on both projects, ≤ 0.01 % vs the Stage 1 Remotion engine in verify mode, audio 0 ms vs the camera file at every window, copied spans at 3.7–4.2× realtime, a re-export byte-identical; the 3 h project (275 clips, 100 % copied) exports in 1 h 32 min — 61 min of copied spans, 24 min in the finishing mux — against T6's ≈ 3.5 days, audio in sync end to end |
-| **3 — widen the predicate** | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled |
+| **3 — widen the predicate** · **slice 1 DONE 2026-09-06** (partial) | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled — **slice 1 met**: the different-file cut measured (the export shows the ceil frame on the first frame after it opens a source file, the nearest on a same-file cut or a return; the planner carries it, the A-B-A seed reads 0 % over 24 at both cuts) and gain-only clips copied (video byte-identical to the Stage 2 cut export, audio 0 ms vs the camera file and vs an independent Remotion export at eight windows, level 0.4995–0.4997 on the gained clip and 1.000 vs Remotion); the Stage 2 gates re-run byte-identical. Next slices: audio tracks (amix), multiple video tracks |
 | **4 — polish** | progress that shows copied vs rendered time, cancel that cleans intermediates, the temp-copy leak from T5, the CPU-usage setting reaching Studio exports | tickets closed, `STATUS.md` row |
 
 Open, not blocking: the clap test (D6) on the first Stage 1 build; whether
@@ -314,3 +314,89 @@ video copied, `volume=` in the audio pass — gated by verify mode on
 `t5-1080p-cut` with a gain of 0.5 on clip B and the camera-file check; then
 audio tracks (a mixed second input in the one pass) before multiple video
 tracks. Measure a cut between two different source files first.
+
+## Stage 3 log — widening the predicate · slice 1 DONE 2026-09-06
+
+**Slice 1 = measure the different-file cut, then gain-only clips.** Two
+planner changes (`src/shared/studio/export-spans.ts`), one line in the audio
+pass (`passthrough-ffmpeg.ts`), no engine change; the seeds come from the new
+`scripts/bench/seed-cut-projects.mjs`.
+
+**Finding 1 — a cut to a different source file shows the CEIL frame; a
+return to a file already opened shows the nearest.** T1 leg 0 had measured
+only same-file cuts (nearest) and the first frame of a composition that
+opens mid-source (ceil); the planner had assumed nearest at every cut. Two
+seeds through the real dialog in verify mode against the Remotion engine,
+each frame identified against the camera file's own frames (source frame K
+scaled to 1080p, diffed against the export's frame):
+
+| seed | question | Remotion at the cut | passthrough |
+|---|---|---|---|
+| `t5-1080p-cut-files` (0270 0–3 s, then 0272 from 15 s; 6 s, cut at frame 90) | the first clip of a second file | frame 90 = **K 900** — nearest is 899 (15 s × 59.94 = 899.1); K 900 reads 0.01 % over 24 against it, K 899 0.56 %; frames 89 and 91 nearest (178, 901) | with nearest (899): **0.51 % over 24, max 142** at frame 90 (a wrong frame's signature), 0 % at 89 and 91, 0.01 % elsewhere |
+| `t5-1080p-cut-files2` (0270 0–3 s → 0272 from 6.667 s → 0270 from 30 s; 9 s, A-B-A, cuts at 90 and 180) | "ceil" or "the frame after the nearest"? and a return to an opened file | frame 90 = **K 400**, where nearest = ceil = 400 (401 reads 0.61 %) → it is the ceil rule, not nearest + 1; frame 180 (back to 0270) = **K 1798, the nearest** (1798 reads 0.016 %, ceil 1799 0.047 %) | "ceil on every change of file" put 1799 at 180: 0.02 % over 24, max 53 (a near-static shot, so a wrong frame reads low here); "ceil on the first clip of each file" puts 1798 there: **0 % at 180**, max 0.01 % over the 8 sampled frames (1/89/90/91/179/180/181/269), audio 0 ms vs reference and camera (`…cut-files2_2026-09-06T15-44-45.mp4`) |
+
+So the rule (`docs/PREVIEW_TESTS_PLAN.md` §T1 leg 0 gained the two rows):
+the export shows the ceil frame on the first frame it extracts after OPENING
+a source file — the composition opening mid-source, or the first clip of
+that file on the timeline; every later clip of an opened file, a same-file
+cut or a return, shows the nearest. `planExportSpans` keeps the set of files
+every piece so far has shown (copied or rendered) and sets `firstFrameCeil`
+on a copy span whose file is new (and `sourceFrame > 0`); the select builder
+already took it. Open, not blocking: whether the compositor closes an idle
+file on a long timeline so that a return after minutes becomes an open
+(ceil) — unmeasured; one source frame at one frame, inside the T1 tolerance,
+and the verify instrument shows it as a ~0.5 % row at that cut.
+
+**Widening 1 — gain-only clips.** `copyBlocker` no longer returns `gain`;
+`planExportAudio` carries `gain` (only when ≠ 1) on the source segment and
+`audioPassArgs` applies `volume=<gain>` between the format and the length
+pin — the linear multiplier Remotion applies for a static `volume` prop
+(`TimelineComposition.tsx` volumeProp; fades and transitions still go to the
+browser walk). A gain of 0 is a multiply by 0, the segment keeps its pinned
+length. Unit tests: the planner (copied, gain carried, unity dropped, fades /
+speed still block), the graph, and a live pin (`VIDTSX_LIVE_FFMPEG=1`): the
+gained segment reads 0.5× the camera file's RMS within 1 % at correlation
+> 0.999, lag 0.
+
+**Gate — `t5-1080p-cut-gain` (the T1 cut with gain 0.5 on clip B), through
+the real dialog.** Verify mode shares the candidate's audio pass with the
+reference, so the level and timing were also read against a plain Remotion
+export of the same project (`…cut-gain_2026-09-06T16-04-32.mp4`, 11 min 20 s
+from click) and against the camera file:
+
+| check | result |
+|---|---|
+| file | `studio-t5-1080p-cut-gain_2026-09-06T15-50-36.mp4`, 900 frames, `yuv420p tv bt709 bt709 bt709`, 30,279,550 B, "Copied 100 % of this timeline (2 of 2 spans)" |
+| verify vs the Stage 1 Remotion engine at 1/300/449/450/451/600/899 | mean 2.17–2.51, **max 0.01 % over 24** (300, 450; 0 elsewhere), max 44 — the Stage 2 rows; audio vs camera 0 ms (0.5/6.8/13.5 s) |
+| `t1-diff` vs control 2 at the seven frames | **0 % over 24 at every frame**, mean 1.36–1.71, max 44 |
+| `t1-audio-offset` vs the camera file at 0.5/7/13.5/14.5/15.2/16/22/29 s | **0 ms at every window, corr 1.000** — clip B included (the correlation is normalised) |
+| level vs the camera file (1 s RMS) | 0.9954–0.9993 before the cut (the AAC round trip), **0.4992–0.4997 = −6.01…−6.03 dB** at 15.2/16/22/29 s |
+| `t1-audio-offset` vs the Remotion export at the eight windows | **0 ms at every window, corr 1.000** |
+| level vs the Remotion export | **1.000** at every window (1.0014 at 22 s) — both apply the same multiplier |
+| `passthrough-video-hash` vs the Stage 2 cut export `…T08-27-39.mp4` | **H.264 stream byte-identical** (sha 5c39f15f…, 29,346,491 B); audio stream differs, as it must |
+| copied spans | 450 frames in 4.68 s (3.21×) + 450 in 3.90 s (3.85×); `framesMs` 9,152, mux 4.9 s; 716 s from click including the reference render |
+
+**Stage 2 gates re-run on the widened planner — nothing moved:**
+
+| project | file | vs the Stage 2 export | `t1-diff` vs control 2 at the seven frames | `t1-audio-offset` vs camera at the eight windows | wall |
+|---|---|---|---|---|---|
+| `t5-1080p` | `studio-t5-1080p_2026-09-06T16-20-12.mp4` | **video AND audio streams byte-identical** to `…T08-16-28.mp4` (5b327678… / d3434a40…) | 0 % over 24 at every frame, mean 1.36–1.71 | 0 ms, corr 1.000 | 17 s from click |
+| `t5-1080p-cut` | `studio-t5-1080p-cut_2026-09-06T16-16-14.mp4` | **video AND audio streams byte-identical** to `…T08-27-39.mp4` (5c39f15f… / d3434a40…) | 0 % over 24 at every frame, mean 1.36–1.71 | 0 ms, corr 1.000 | ~2 min from click (driver wait included) |
+
+Gates: check:types 26/22 (baseline), vitest 1,411 green (+5; a first run had two failures that did not reproduce on the rerun while the gate exports were running), live ffmpeg
+tests 5 (+1). Reports + stills beside the exports (`*.verify.json`,
+`*.verify/`), the diffs under `.vidtsx-temp/bench/t1/stills/stage3-*`, the
+driver logs under `.vidtsx-temp/bench/stage3/`; seeds `t5-1080p-cut-files`,
+`t5-1080p-cut-files2`, `t5-1080p-cut-gain` on disk. Two driver lessons: a
+card title with a space or a `×` must be quoted INSIDE the argument
+(`'"--project=T1 cut"'` in a PowerShell `Start-Process` list, or run the
+driver from Bash) — a bare `--project=T1 cut files` matched "T1 " loosely
+and exported the wrong project; and someone opening Settings by hand in the
+shared dev app mid-run makes the driver report "no Export button".
+
+**Not done, by design (slice 2):** audio tracks — a music clip under the
+cut as a mixed second chain in the one pass (`amix=normalize=0`, Remotion
+sums tracks without normalising; seed a project with a music clip under the
+T1 cut and gate level + offset against a plain Remotion export exactly as
+above); then multiple video tracks where lower tracks are fully covered; the
+long-return question above. Slice 2 should be the audio-track widening.

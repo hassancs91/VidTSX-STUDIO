@@ -1,5 +1,7 @@
 // Span planner (docs/export-engines-plan.md Stage 2) on the two T1 reference
-// documents and the edges Stage 2 draws: one video track, pure cuts only.
+// documents and the edges Stage 2 draws: one video track, pure cuts only —
+// plus Stage 3's first widening (gain-only clips: video copied, gain carried
+// into the one audio pass).
 import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioProject, StudioTrack } from '../types/studio';
 import { copiedPercent, copyBlocker, planExportAudio, planExportSpans } from './export-spans';
@@ -83,6 +85,36 @@ describe('planExportSpans edges', () => {
     expect(planExportSpans(T5_CUT).spans[1]).toMatchObject({ firstFrameCeil: false });
   });
 
+  it('the first clip of a source file takes the ceil frame on its first frame; a same-file cut or a return to an opened file the nearest (Stage 3, measured)', () => {
+    const DJI2 = 'C:\\Users\\Malak\\Documents\\GitHub\\VidTSX-STUDIO\\raw\\DJI_20260813142800_0272_D.MP4';
+    const ASSET2 = '4f0c2c8e-1d3b-4b7a-9c6e-0272aaaa0272';
+    const twoFiles = project([video([
+      clip('a', 0, 3, 0),
+      clip('b', 3, 3, 15, { assetId: ASSET2 }),
+      clip('c', 6, 3, 30),
+      clip('d', 9, 3, 60),
+      clip('e', 12, 3, 40, { assetId: ASSET2, transform: { scale: 1.1 } }),
+      clip('f', 15, 3, 60, { assetId: ASSET2 }),
+    ])], {
+      assets: [
+        { id: ASSET, kind: 'video', path: DJI, probe: { duration: 139.022233, width: 3840, height: 2160, fps: 59.94, hasAudio: true, codec: 'hevc' } },
+        { id: ASSET2, kind: 'video', path: DJI2, probe: { duration: 157.9745, width: 3840, height: 2160, fps: 59.94, hasAudio: true, codec: 'hevc' } },
+      ],
+    });
+    expect(planExportSpans(twoFiles).spans).toEqual([
+      { kind: 'copy', from: 0, frames: 90, assetId: ASSET, assetPath: DJI, sourceFrame: 0, firstFrameCeil: false },
+      // The first clip of the second file: the browser opens it here → ceil (K 900 measured where nearest is 899).
+      { kind: 'copy', from: 90, frames: 90, assetId: ASSET2, assetPath: DJI2, sourceFrame: 450, firstFrameCeil: true },
+      // Back to the first file, still open in the browser → nearest (K 1798 measured).
+      { kind: 'copy', from: 180, frames: 90, assetId: ASSET, assetPath: DJI, sourceFrame: 900, firstFrameCeil: false },
+      // Same file as the previous span: a plain cut → nearest.
+      { kind: 'copy', from: 270, frames: 90, assetId: ASSET, assetPath: DJI, sourceFrame: 1800, firstFrameCeil: false },
+      { kind: 'browser', from: 360, frames: 90, reason: 'transform' },
+      // The second file was opened by the rendered clip before this one → nearest.
+      { kind: 'copy', from: 450, frames: 90, assetId: ASSET2, assetPath: DJI2, sourceFrame: 1800, firstFrameCeil: false },
+    ]);
+  });
+
   it('fills gaps with black and a range window\'s tail too', () => {
     const plan = planExportSpans(project([video([clip('a', 0, 2, 0), clip('b', 3, 2, 10)])]), 200);
     expect(plan.spans.map((s) => [s.kind, s.from, s.frames])).toEqual([
@@ -117,10 +149,30 @@ describe('planExportSpans edges', () => {
   });
 
   it('merges adjacent browser pieces into one span', () => {
-    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 }), clip('b', 5, 5, 20, { gain: 0.5 })])]));
+    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 }), clip('b', 5, 5, 20, { fadeInSec: 0.5 })])]));
     expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'speed' }]);
     expect(plan.copiedFrames).toBe(0);
     expect(plan.reason).toBe('speed');
+  });
+
+  it('a gain-only clip is still a pure cut of the picture (Stage 3): copied, its gain carried to the audio pass', () => {
+    const gained = project([video([clip('clip_t1_cut_a', 0, 15, 0), clip('clip_t1_cut_b', 15, 15, 15, { gain: 0.5 })]), audioTrack]);
+    expect(copyBlocker(gained.timeline.tracks[0].clips[1], gained.assets[0], gained.settings)).toBeNull();
+    expect(planExportSpans(gained).spans).toEqual(planExportSpans(T5_CUT).spans);
+    expect(planExportAudio(gained)?.segments).toEqual([
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 15 },
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 15, duration: 15, gain: 0.5 },
+    ]);
+    // Unity gain is no gain; a muted clip (gain 0) still copies its picture.
+    expect(planExportAudio(project([video([clip('a', 0, 5, 0, { gain: 1 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 5 }]);
+    expect(planExportAudio(project([video([clip('a', 0, 5, 0, { gain: 0 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 5, gain: 0 }]);
+    expect(planExportSpans(project([video([clip('a', 0, 5, 0, { gain: 0 })])])).copiedFrames).toBe(150);
+  });
+
+  it('fades, speed and transitions still block both the picture and the one-pass audio', () => {
+    expect(copyBlocker(clip('a', 0, 5, 0, { fadeOutSec: 1 }), T5.assets[0], T5.settings)).toBe('fade');
+    expect(copyBlocker(clip('a', 0, 5, 0, { speed: 2 }), T5.assets[0], T5.settings)).toBe('speed');
+    expect(planExportAudio(project([video([clip('a', 0, 5, 0, { gain: 0.5, fadeInSec: 1 })])]))).toBeNull();
   });
 
   it('a transition touches both clips at the boundary', () => {
@@ -182,8 +234,8 @@ describe('planExportAudio', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0)], { muted: true })]))?.segments).toEqual([{ kind: 'silence', duration: 2 }]);
   });
 
-  it('refuses what only the browser mixes exactly (Stage 3)', () => {
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0, { gain: 0.8 })])]))).toBeNull();
+  it('refuses what only the browser mixes exactly (later Stage 3 slices); a static gain no longer does', () => {
+    expect(planExportAudio(project([video([clip('a', 0, 2, 0, { gain: 0.8 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2, gain: 0.8 }]);
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { fadeOutSec: 0.2 })])]))).toBeNull();
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { speed: 1.5 })])]))).toBeNull();
     expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), { ...audioTrack, clips: [{ ...clip('m', 0, 2, 0), kind: 'audio' }] }]))).toBeNull();

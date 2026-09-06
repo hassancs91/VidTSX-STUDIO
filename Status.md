@@ -7,6 +7,47 @@
 
 ---
 
+## 2026-09-06 — EXPORT ENGINES Stage 3 slice 1: the different-file cut measured, gain-only clips copied
+
+Stage 3 of `docs/export-engines-plan.md` widens the passthrough engine's predicate one
+span type at a time, each re-gated. Slice 1 first measured what T1 had not — a cut
+between two DIFFERENT source files — then let gain-only clips through. Full log with
+the numbers: the plan's §Stage 3 log.
+
+- **Measured: the export shows the CEIL source frame on the first frame after it opens
+  a file** (the first clip of each source file on the timeline) and the nearest
+  everywhere else — a same-file cut or a return to a file already opened. Two seeds
+  through the real dialog in verify mode, each frame identified against the camera
+  file's own frames: `t5-1080p-cut-files` (0270, then 0272 from 15 s) shows K 900 at
+  the cut where nearest is 899, and the passthrough's nearest read 0.51 % over 24
+  against it; `t5-1080p-cut-files2` (A-B-A) shows K 400 where ceil = nearest (not 401,
+  so it is the ceil rule and not "the frame after the nearest") and K 1798, the
+  nearest, on the return. `planExportSpans` now sets `firstFrameCeil` on a copy span
+  whose source file no earlier piece has shown; the A-B-A seed then reads max 0.01 %
+  over 24 at all 8 sampled frames, 0 % at both cuts. `docs/PREVIEW_TESTS_PLAN.md`
+  §T1 leg 0 gained the two rows. Seeds: `scripts/bench/seed-cut-projects.mjs`.
+- **Widened: gain-only clips.** `copyBlocker` no longer blocks on `gain`; the audio
+  planner carries the clip's static gain on its segment and the one ffmpeg audio pass
+  applies `volume=<gain>` there — the linear multiplier Remotion uses for a static
+  `volume` prop. Fades, speed, transitions and audio tracks still go to the browser walk.
+- **Gate** on `t5-1080p-cut-gain` (the T1 cut with gain 0.5 on clip B): verify vs the
+  Remotion engine max 0.01 % over 24 at the seven frames (the Stage 2 rows); `t1-diff`
+  vs the 2026-09-04 control **0 % over 24 at every frame**; audio **0 ms at all eight
+  windows vs the camera file AND vs an independent Remotion export** of the same
+  project; level 1.000 vs that export at every window, 0.4995–0.4997 (−6.03 dB) vs the
+  camera file on the gained clip; the H.264 stream **byte-identical** to the Stage 2
+  cut export; spans at 3.2× and 3.9× realtime.
+- **Stage 2 gates unchanged:** `t5-1080p` and `t5-1080p-cut` re-exported with video
+  AND audio streams byte-identical to the Stage 2 files, 0 % over 24 vs the control at
+  the seven frames, 0 ms vs the camera file at the eight windows.
+- Gates: check:types 26/22 (baseline), vitest 1,411 green (+5), live ffmpeg tests 5
+  (+1: the gained segment at 0.5× the camera file's RMS, lag 0).
+- **Next: Stage 3 slice 2** — audio tracks as a mixed second chain in the one pass
+  (`amix=normalize=0`; seed a music clip under the T1 cut, gate level + offset against
+  a plain Remotion export as above), then multiple video tracks where lower tracks are
+  fully covered. Open: whether a return to a file after minutes (the compositor closing
+  an idle file) shows the ceil frame — unmeasured, one source frame at one cut.
+
 ## 2026-09-06 — EXPORT ENGINES Stage 2 DONE: the passthrough engine at its narrowest predicate, gated on both reference projects
 
 Stage 2 of `docs/export-engines-plan.md` (D1–D7; Stage 1 seam committed 57becff).

@@ -168,6 +168,8 @@ frames K near t = f/30. Measured on 14 indices per file:
 | **Remotion export** (`<OffthreadVideo>`, healthy run) | **nearest pts to t** — K = round(t·60000/1001) | control 2, the H.264 control and the two-clip cut export agree at all 14 indices, including f=30 → K 60, f=600 → 1199, f=870 → 1738 |
 | Remotion export, **first frame of a composition** that starts mid-source (`startFrom` 450) | **first frame with pts ≥ t** (ceil) | the sub-composition shows K 900 at its frame 0 where the full export shows 899; frames 1+ nearest again |
 | Remotion export at a **timeline cut** inside one composition | nearest — same as no cut | two-clip project (0–15 s from source 0, 15–30 s from source 15): frame 450 = K 899, **byte-identical** to the single-clip export at 448–452 |
+| Remotion export at a cut to a **different source file** (export-engines Stage 3, 2026-09-06) | **ceil** on the first frame after the file is *opened* — the first clip of that file on the timeline | `t5-1080p-cut-files` (0270 0–3 s, then 0272 from 15 s): frame 90 = K 900 where nearest is 899 (the passthrough's nearest 899 read 0.51 % over 24 against it, max 142); with 0272 from 6.667 s, where nearest = ceil = 400, frame 90 = K 400 and not 401 — the ceil, not "the frame after the nearest" |
+| Remotion export on a **return to a file already opened** | nearest — like a same-file cut | `t5-1080p-cut-files2` (0270 0–3 s → 0272 → 0270 from 30 s): frame 180 = K 1798, the nearest (ceil 1799 reads 0.047 % against it, 1798 0.016 %); whether the compositor closing an idle file on a long timeline turns a return into an open is unmeasured (a one-source-frame deviation at one frame, inside the tolerance) |
 | Remotion export, **memory-starved** run (control 1, 384 MB free) | **not a rule** | duplicates K 59 at f=29 *and* 30, shows 898 / 899 / 902 at 449–451, ceil at 870 and 899; the cache manager (`frame_cache.rs get_item_id`, threshold 10⁹) returns whatever nearest frame survived eviction |
 | **Preview** (Player, 540p proxy in a `<video>`) | **last frame with pts ≤ t** (floor) — K = floor(t·60000/1001) | rvfc `mediaTime` at every capture: f=30 → 0.984317 (K 59), f=600 → 19.986633 (K 1198); both codecs, both passes |
 | ffmpeg `-r 30` conform (T8c) | two source frames early — K = 2f−3 | f=30 → 57, f=600 → 1196; 902 frames |
@@ -189,6 +191,11 @@ frame in seconds), `setpts=N/(30·TB)`, `-r 30 -fps_mode cfr -frames:v N`.
 Neither `-r 30` nor the `fps` filter reproduces it. A span rendered by the
 browser as its *own* composition shows the ceil frame at its first frame
 (`--first=ceil` reproduces that) — see leg 3 for what the build does about it.
+The same ceil rule applies to the first frame of the FIRST clip of every
+source file on the timeline (the export opens the file there, measured
+2026-09-06, rows above); a later clip of a file already opened — a same-file
+cut or a return — shows the nearest. The span planner
+(`src/shared/studio/export-spans.ts`, `firstFrameCeil`) carries both cases.
 
 ### Leg 1 — preview vs export today (the tolerance)
 

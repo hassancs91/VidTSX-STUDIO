@@ -251,6 +251,9 @@ export interface AudioPass {
  * the middle of the 3 h project. `apad=whole_dur` + `atrim=end` pin the
  * length; `aresample=first_pts=0` makes the timestamps start at 0 so a late
  * audio start pads with silence instead of shifting the trim.
+ *
+ * A segment's static gain (Stage 3) is one linear `volume=` on that segment,
+ * the multiplier Remotion applies for a static `volume` prop.
  */
 export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPath: string): AudioPass {
   const inputs: string[] = [];
@@ -271,7 +274,8 @@ export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPa
       }
       const end = (seg.sourceIn + seg.duration).toFixed(6);
       const dur = seg.duration.toFixed(6);
-      graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
+      const gain = seg.gain !== undefined ? `,volume=${seg.gain.toFixed(6)}` : '';
+      graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
     }
     labels.push(label);
   });

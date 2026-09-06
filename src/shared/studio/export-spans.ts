@@ -9,12 +9,17 @@
  *
  * Narrowest predicate (Stage 2): ONE visible video track carries the picture;
  * a clip is copyable when it is a video clip of a video asset with no
- * transform, speed, gain, fades or transitions, whose source fills the frame
+ * transform, speed, fades or transitions, whose source fills the frame
  * (same aspect as the composition — `objectFit: contain` would letterbox) and
  * stays inside the source's duration. Anything an overlay track or the caption
  * layer paints over is a browser span; gaps in the base track are black (the
  * composition's background). Every widening (Stage 3) is a change here and a
  * re-run of the T1 gate.
+ *
+ * Stage 3 widening 1 (2026-09-06): a clip whose only change is its GAIN is
+ * still a pure cut of the picture — the video is copied and the gain rides
+ * into the one audio pass as `volume=` (Remotion applies a static volume as
+ * the same linear multiplier, `TimelineComposition.tsx` volumeProp).
  *
  * Frame arithmetic mirrors `serialize.ts` exactly: clip edges through
  * `timeToFrame` / `spanToFrames`, the source offset as Remotion's whole-frame
@@ -33,8 +38,13 @@ export interface CopySpan {
   assetPath: string;
   /** Source position of `from`, in whole COMPOSITION frames (Remotion's trimBefore + offset). */
   sourceFrame: number;
-  /** True when this span opens the composition mid-source (T1 leg 3: the first
-   *  frame after a seek shows the ceil frame, not the nearest). */
+  /** True when the browser would show the CEIL source frame on this span's
+   *  first frame instead of the nearest: the first frame Remotion extracts
+   *  after OPENING a source file — the composition opening mid-source (T1
+   *  leg 3) or the first clip of a file that the timeline has not shown
+   *  before (measured 2026-09-06 on the `t5-1080p-cut-files*` seeds: a cut to
+   *  a new file shows K 900 where nearest is 899; a return to a file already
+   *  opened shows the nearest, like a same-file cut). */
   firstFrameCeil: boolean;
 }
 
@@ -86,7 +96,6 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   if (!asset) return 'missing asset';
   if (asset.kind !== 'video') return `${asset.kind} asset`;
   if (clip.speed !== undefined && clip.speed !== 1) return 'speed';
-  if (clip.gain !== undefined && clip.gain !== 1) return 'gain';
   if ((clip.fadeInSec ?? 0) > 0 || (clip.fadeOutSec ?? 0) > 0) return 'fade';
   if (clip.transitionOut) return 'transition';
   if (!isIdentityTransform(clip)) return 'transform';
@@ -177,6 +186,9 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
 
   const spans: ExportSpan[] = [];
   let copiedFrames = 0;
+  // Source files the browser has opened before a given piece, for the ceil rule
+  // above: every clip shown so far (copied or rendered) has opened its file.
+  const opened = new Set<string>();
   const push = (span: ExportSpan) => {
     const last = spans[spans.length - 1];
     if (last && last.kind === 'browser' && span.kind === 'browser' && last.from + last.frames === span.from) {
@@ -200,6 +212,9 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       push({ kind: 'black', from, frames });
       continue;
     }
+    const assetPath = (covering.asset as StudioMediaAsset).path;
+    const opensFile = !opened.has(assetPath);
+    opened.add(assetPath);
     if (covering.blocker) {
       push({ kind: 'browser', from, frames, reason: covering.blocker });
       continue;
@@ -212,9 +227,9 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       from,
       frames,
       assetId: clip.assetId as string,
-      assetPath: (covering.asset as StudioMediaAsset).path,
+      assetPath,
       sourceFrame,
-      firstFrameCeil: from === 0 && sourceFrame > 0,
+      firstFrameCeil: opensFile && sourceFrame > 0,
     });
     copiedFrames += frames;
   }
@@ -230,7 +245,15 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
 // ─── Audio ───────────────────────────────────────────────────────────────────
 
 export type AudioSegment =
-  | { kind: 'source'; assetId: string; assetPath: string; sourceIn: number; duration: number }
+  | {
+      kind: 'source';
+      assetId: string;
+      assetPath: string;
+      sourceIn: number;
+      duration: number;
+      /** The clip's static gain (linear), only when it is not unity — `volume=` in the pass. */
+      gain?: number;
+    }
   | { kind: 'silence'; duration: number };
 
 export interface ExportAudioPlan {
@@ -241,10 +264,11 @@ export interface ExportAudioPlan {
 
 /**
  * The whole-timeline audio as ONE ffmpeg pass, when every audible clip is a
- * plain cut at unity gain (what T1 measured at 0 ms against the camera file).
+ * plain cut (what T1 measured at 0 ms against the camera file), at unity gain
+ * or a static gain of its own (Stage 3: a linear `volume=` on that segment).
  * Null when the mix needs what only the browser walk reproduces exactly —
- * gain, fades, speed, transitions, audio tracks (Stage 3); the engine then
- * hands `audioPath` back undefined and the finishing stage renders it.
+ * fades, speed, transitions, audio tracks (later Stage 3 slices); the engine
+ * then hands `audioPath` back undefined and the finishing stage renders it.
  */
 export function planExportAudio(project: StudioProject, durationInFrames?: number): ExportAudioPlan | null {
   const { fps } = project.settings;
@@ -265,15 +289,15 @@ export function planExportAudio(project: StudioProject, durationInFrames?: numbe
       if (!asset) continue; // dropped by the serializer
       if (track.kind === 'audio' || clip.kind === 'audio' || clip.kind === 'sfx') return null;
       if (clip.speed !== undefined && clip.speed !== 1) return null;
-      if (clip.gain !== undefined && clip.gain !== 1) return null;
       if ((clip.fadeInSec ?? 0) > 0 || (clip.fadeOutSec ?? 0) > 0) return null;
       if (clip.transitionOut) return null;
       if (track.muted || !asset.probe.hasAudio) continue;
       const trimBefore = clip.sourceIn ? timeToFrame(clip.sourceIn, fps) : 0;
+      const gain = clip.gain !== undefined && clip.gain !== 1 ? { gain: clip.gain } : {};
       audible.push({
         from,
         to: from + frames,
-        seg: { kind: 'source', assetId: asset.id, assetPath: asset.path, sourceIn: trimBefore / fps, duration: frames / fps },
+        seg: { kind: 'source', assetId: asset.id, assetPath: asset.path, sourceIn: trimBefore / fps, duration: frames / fps, ...gain },
       });
     }
   }
