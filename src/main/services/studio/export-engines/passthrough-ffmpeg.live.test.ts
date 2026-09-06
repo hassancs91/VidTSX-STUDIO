@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { EXPORT_COLOR } from './types';
-import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, joinArgs } from './passthrough-ffmpeg';
+import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, joinArgs } from './passthrough-ffmpeg';
 
 const LIVE = process.env.VIDTSX_LIVE_FFMPEG === '1';
 const REPO = path.resolve(__dirname, '../../../../..');
@@ -92,6 +92,29 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(rgb.length).toBe(1920 * 1080 * 3);
     expect(max).toBeLessThanOrEqual(2);
   }, 300_000);
+
+  it('a clip running to the container end comes up short and the held tail completes it', async () => {
+    const { ffmpeg, ffprobe } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    // 0270: stream 8333 frames (last pts 139.0056), container 139.022233. A
+    // clip from 138.0 s to the container end = 31 slots; slot 30 at 139.0 s
+    // has a frame (K 8332), slot 31 would not — ask for 32 to force the miss.
+    const short = path.join(OUT, 'short.ts');
+    await run(ffmpeg, copySpanArgs({ ...base, sourceFrame: 4140, frames: 32, firstFrameCeil: false, outputPath: short }));
+    const got = (await probeFrames(ffprobe, short)).count;
+    expect(got).toBeLessThan(32);
+    expect(got).toBeGreaterThanOrEqual(30);
+    const tail = path.join(OUT, 'short-tail.ts');
+    await run(ffmpeg, holdLastFrameArgs({ ...base, inputPath: short, lastFrame: got - 1, frames: 32 - got, outputPath: tail }));
+    expect((await probeFrames(ffprobe, tail)).count).toBe(32 - got);
+    const list = path.join(OUT, 'short-list.txt');
+    await fs.writeFile(list, concatListText([{ path: short, frames: got }, { path: tail, frames: 32 - got }], 30));
+    const joined = path.join(OUT, 'short-joined.mp4');
+    await run(ffmpeg, joinArgs(list, joined, EXPORT_COLOR));
+    const j = await probeFrames(ffprobe, joined);
+    expect(j.count).toBe(32);
+    expect(j.pts.map((t, i) => Math.abs(t - i / 30)).filter((d) => d > 1e-4)).toEqual([]);
+  }, 120_000);
 
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {
     const { ffmpeg, ffprobe } = bins();

@@ -182,6 +182,39 @@ export function browserSpanArgs(a: BrowserSpanArgs): string[] {
   ];
 }
 
+export interface HoldLastFrameArgs {
+  encoder: ProxyGpuEncoder;
+  /** The short copy piece. */
+  inputPath: string;
+  /** Index of its last frame. */
+  lastFrame: number;
+  /** How many frames to produce, all showing that frame. */
+  frames: number;
+  fps: number;
+  color: ExportColorPolicy;
+  outputPath: string;
+}
+
+/**
+ * A source's video stream can end a few milliseconds before its container
+ * (DJI files: the audio runs on), so a clip that runs to the container's end
+ * asks for a source frame past the last one. The browser shows the last frame
+ * there; this makes the same frames from the short piece's own last frame —
+ * one extra encoder generation on one or two frames, instead of minutes of
+ * browser rendering per clip tail.
+ */
+export function holdLastFrameArgs(a: HoldLastFrameArgs): string[] {
+  return [
+    ...COMMON,
+    '-i', a.inputPath,
+    '-vf', `trim=start_frame=${a.lastFrame},tpad=stop=${a.frames - 1}:stop_mode=clone,setpts=N/(${a.fps}*TB),format=yuv420p,${colorParamsFilter(a.color)}`,
+    ...outputTimingArgs(a.fps, a.frames),
+    ...spanEncoderArgs(a.encoder),
+    ...colorFlagArgs(a.color),
+    '-an', '-f', 'mpegts', a.outputPath,
+  ];
+}
+
 /** concat-demuxer list with explicit durations, so each piece's offset is exactly frames/fps. */
 export function concatListText(pieces: ReadonlyArray<{ path: string; frames: number }>, fps: number): string {
   const quote = (p: string) => p.replace(/\\/g, '/').replace(/'/g, "'\\''");

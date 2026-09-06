@@ -8,6 +8,7 @@ import {
   browserSpanArgs,
   concatListText,
   copySpanArgs,
+  holdLastFrameArgs,
   isConstantFrameRate,
   joinArgs,
   nearestSelectFilter,
@@ -80,6 +81,13 @@ describe('span argument builders', () => {
     expect(s).toContain('-i r.mkv -vf trim=start_frame=1,setpts=N/(30*TB),format=yuv420p,setparams=');
     expect(s).toContain('-frames:v 450 -c:v h264_nvenc -preset p5 -rc vbr -cq 23');
     expect(s).toContain('-f mpegts r.ts');
+  });
+
+  it("a clip tail past the stream end holds the short piece's last frame", () => {
+    const s = holdLastFrameArgs({ ...base, inputPath: 's.ts', lastFrame: 688, frames: 2, outputPath: 't.ts' }).join(' ');
+    expect(s).toContain('-i s.ts -vf trim=start_frame=688,tpad=stop=1:stop_mode=clone,setpts=N/(30*TB),format=yuv420p,setparams=');
+    expect(s).toContain('-r 30 -fps_mode cfr -frames:v 2 -c:v h264_nvenc');
+    expect(s).toContain('-f mpegts t.ts');
   });
 
   it('the concat list carries forward slashes, quoting and exact durations', () => {

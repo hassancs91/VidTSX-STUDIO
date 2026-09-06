@@ -34,6 +34,7 @@ import {
   browserSpanArgs,
   concatListText,
   copySpanArgs,
+  holdLastFrameArgs,
   isConstantFrameRate,
   joinArgs,
   parseStatsFrame,
@@ -50,6 +51,9 @@ export const NO_WORKING_ENCODER =
   'The GPU encoder download is installed, but no supported hardware encoder works on this machine (NVIDIA, Intel Quick Sync or AMD needed).';
 /** D4: shown in the queue while a nothing-to-copy timeline renders. */
 export const NOTHING_TO_COPY_MESSAGE = 'Nothing on this timeline can be copied — rendering every frame, as the standard export does.';
+
+/** A copy piece short by this many frames at most holds its last frame (the stream ended before its container). */
+const HOLD_LAST_FRAME_MAX = 3;
 
 interface Tools {
   ffmpeg: string;
@@ -94,26 +98,45 @@ export const passthroughExportEngine: ExportEngine = {
     const progress = (extra: number) => input.onProgress({ framesDone: framesDone + extra, totalFrames: plan.totalFrames, message });
     progress(0);
     for (const [i, span] of plan.spans.entries()) {
-      const piecePath = path.join(workDir, `span-${String(i).padStart(4, '0')}.ts`);
+      let piecePath = path.join(workDir, `span-${String(i).padStart(4, '0')}.ts`);
       const startedAt = Date.now();
       await producePiece(input, tools, sources, span, i, piecePath, progress);
+      let expected = span.frames;
       let count = await countPackets(tools.ffprobe, piecePath, signal);
-      if (count !== span.frames && span.kind === 'copy') {
-        // A source whose stream ends before its container says (the select ran
-        // out of frames): the browser shows whatever the standard export shows.
-        log.warn('Copied span came up short; rendering it in the browser instead', { jobId: input.jobId, index: i, frames: span.frames, count });
-        const demoted: ExportSpan = { kind: 'browser', from: span.from, frames: span.frames, reason: 'source ended early' };
-        plan.spans[i] = demoted;
-        plan.copiedFrames -= span.frames;
-        await producePiece(input, tools, sources, demoted, i, piecePath, progress);
-        count = await countPackets(tools.ffprobe, piecePath, signal);
+      if (count !== expected && span.kind === 'copy') {
+        // The source's video stream ended before its container (the select ran
+        // out of frames by a frame or two): hold the last frame, as the browser
+        // does past a video's end.
+        const missing = expected - count;
+        if (missing > 0 && missing <= HOLD_LAST_FRAME_MAX) {
+          const tailPath = piecePath.replace(/\.ts$/, '-tail.ts');
+          await runFfmpeg(tools.ffmpeg, holdLastFrameArgs({ encoder: tools.encoder, inputPath: piecePath, lastFrame: count - 1, frames: missing, fps: entry.fps, color, outputPath: tailPath }), { signal });
+          if ((await countPackets(tools.ffprobe, tailPath, signal)) === missing) {
+            log.info('Held the last source frame at a clip tail', { jobId: input.jobId, index: i, frames: span.frames, copied: count, held: missing });
+            pieces.push({ path: piecePath, frames: count });
+            piecePath = tailPath;
+            expected = missing;
+            count = missing;
+          }
+        }
+        if (count !== expected) {
+          // Anything else: the browser shows whatever the standard export shows.
+          log.warn('Copied span came up short; rendering it in the browser instead', { jobId: input.jobId, index: i, frames: span.frames, count });
+          const demoted: ExportSpan = { kind: 'browser', from: span.from, frames: span.frames, reason: 'source ended early' };
+          plan.spans[i] = demoted;
+          plan.copiedFrames -= span.frames;
+          piecePath = path.join(workDir, `span-${String(i).padStart(4, '0')}.ts`);
+          expected = span.frames;
+          await producePiece(input, tools, sources, demoted, i, piecePath, progress);
+          count = await countPackets(tools.ffprobe, piecePath, signal);
+        }
       }
-      if (count !== span.frames) {
-        throw new Error(`Span ${i} (${plan.spans[i].kind}, frames ${span.from}–${span.from + span.frames - 1}) produced ${count} frames instead of ${span.frames}.`);
+      if (count !== expected) {
+        throw new Error(`Span ${i} (${plan.spans[i].kind}, frames ${span.from}–${span.from + span.frames - 1}) produced ${count} frames instead of ${expected}.`);
       }
       const ms = Date.now() - startedAt;
-      log.info('Span done', { jobId: input.jobId, index: i, kind: span.kind, frames: span.frames, ms, realtime: Math.round(((span.frames / entry.fps) / (ms / 1000)) * 100) / 100 });
-      pieces.push({ path: piecePath, frames: span.frames });
+      log.info('Span done', { jobId: input.jobId, index: i, kind: plan.spans[i].kind, frames: span.frames, ms, realtime: Math.round(((span.frames / entry.fps) / (ms / 1000)) * 100) / 100 });
+      pieces.push({ path: piecePath, frames: expected });
       framesDone += span.frames;
       progress(0);
     }
