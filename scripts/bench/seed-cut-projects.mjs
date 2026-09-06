@@ -8,6 +8,9 @@
 //   node scripts/bench/seed-cut-projects.mjs music      → t5-1080p-cut-music  (the T1 cut with a music clip on A1, 5–25 s, gain 0.5;
 //                                                          generates raw/music-40s.wav — pink noise + a 330 Hz tone — with the full ffmpeg if missing)
 //   node scripts/bench/seed-cut-projects.mjs stack      → t5-1080p-cut-stack  (the T1 cut as two tracks: V1 15–30 s from 15 s, muted, over V2 0–30 s)
+//   node scripts/bench/seed-cut-projects.mjs fade       → t5-1080p-cut-fade   (the T1 cut: fade out 0.5 s on clip A; gain 0.5, fade in 1 s + fade out 2 s on clip B — slice 3)
+//   node scripts/bench/seed-cut-projects.mjs xfade      → t5-1080p-cut-xfade  (the T1 cut with a 1 s crossfade at 15 s — slice 3)
+//   node scripts/bench/seed-cut-projects.mjs speed      → t5-1080p-cut-speed  (the T1 cut with clip B at speed 1.5; the music clip on A1 2–12 s from 2 s at speed 1.5, gain 0.5 — slice 3's measurement)
 //   … [--force] to overwrite project.json (cache/ is left alone)
 //
 // Writes ~/Videos/VidTSX Studio/projects/<id>/project.json straight to disk, in
@@ -77,6 +80,18 @@ const seeds = {
       { id: 'a1', kind: 'audio', name: 'A1', clips: [] },
     ] },
   },
+  'fade': base('t5-1080p-cut-fade', 'T1 cut fade (0-15 s | 15-30 s, fade out 0.5 s on A, gain 0.5 + fade in 1 s + fade out 2 s on B)', [A0270], [
+    clip('clip_t1_cut_a', A0270.id, 0, 15, 0, { fadeOutSec: 0.5 }),
+    clip('clip_t1_cut_b', A0270.id, 15, 15, 15, { gain: 0.5, fadeInSec: 1, fadeOutSec: 2 }),
+  ]),
+  'xfade': base('t5-1080p-cut-xfade', 'T1 cut xfade (0-15 s | 15-30 s, 1 s crossfade at 15 s)', [A0270], [
+    clip('clip_t1_cut_a', A0270.id, 0, 15, 0, { transitionOut: { kind: 'crossfade', duration: 1 } }),
+    clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
+  ]),
+  'speed': base('t5-1080p-cut-speed', 'T1 cut speed (0-15 s | 15-30 s at speed 1.5 on B, music on A1 2-12 s from 2 s at speed 1.5)', [A0270, MUSIC], [
+    clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
+    clip('clip_t1_cut_b', A0270.id, 15, 15, 15, { speed: 1.5 }),
+  ]),
   'music': base('t5-1080p-cut-music', 'T1 cut music (0-15 s | 15-30 s, music on A1 5-25 s from 2 s at gain 0.5)', [A0270, MUSIC], [
     clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
     clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
@@ -84,12 +99,16 @@ const seeds = {
 };
 const project = seeds[which];
 if (!project) {
-  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack [--force]');
+  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | speed [--force]');
   process.exit(1);
 }
 if (which === 'music') {
   ensureMusic();
   project.timeline.tracks[1].clips.push({ ...clip('clip_t1_music', MUSIC.id, 5, 20, 2, { gain: 0.5 }), kind: 'audio' });
+}
+if (which === 'speed') {
+  ensureMusic();
+  project.timeline.tracks[1].clips.push({ ...clip('clip_t1_music_speed', MUSIC.id, 2, 10, 2, { gain: 0.5, speed: 1.5 }), kind: 'audio' });
 }
 for (const a of project.assets) {
   if (!fsSync.existsSync(a.path)) { console.error(`Source missing: ${a.path}`); process.exit(1); }

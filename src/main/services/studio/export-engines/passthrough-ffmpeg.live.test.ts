@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { EXPORT_COLOR } from './types';
-import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, joinArgs } from './passthrough-ffmpeg';
+import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, joinArgs, remotionVolumeExpression } from './passthrough-ffmpeg';
 
 const LIVE = process.env.VIDTSX_LIVE_FFMPEG === '1';
 const REPO = path.resolve(__dirname, '../../../../..');
@@ -238,6 +238,73 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(corr(plain, ref)).toBeGreaterThan(0.999);
     expect(rms(plain) / rms(ref)).toBeGreaterThan(0.99);
     expect(rms(plain) / rms(ref)).toBeLessThan(1.01);
+  }, 120_000);
+
+  it('a faded segment is Remotion\'s own chain sample for sample: the staircase on the decoder\'s buffers, lag 0 (Stage 3 slice 3)', async () => {
+    const { ffmpeg } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    // A 1 s fade-in whose first frame Remotion drops (the asset starts at frame 1 of the fade), then 1 s flat, at gain 0.5.
+    const volumes: number[] = [];
+    for (let f = 0; f < 59; f++) volumes.push(0.5 * Math.min(1, (f + 1) / 30));
+    const sourceIn = 15 + 1 / 30;
+    const wav = path.join(OUT, 'fade-audio.wav');
+    const graphPath = path.join(OUT, 'fade-audio-graph.txt');
+    const pass = audioPassArgs({
+      duration: 3,
+      fps: 30,
+      segments: [
+        { kind: 'silence', duration: 1 + 1 / 30 },
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn, duration: 59 / 30 },
+      ].map((seg) => (seg.kind === 'source' ? { ...seg, volumes } : seg)) as Parameters<typeof audioPassArgs>[0]['segments'],
+    }, wav, graphPath);
+    await fs.writeFile(graphPath, pass.graph);
+    await run(ffmpeg, pass.args);
+    // Remotion's preprocess chain for the same asset (preprocess-audio-track.js + stringify-ffmpeg-filter.js), verbatim.
+    const ref = path.join(OUT, 'fade-remotion.wav');
+    const expr = remotionVolumeExpression(volumes, sourceIn, 30);
+    await run(ffmpeg, ['-y', '-v', 'error', '-nostdin', '-vn', '-i', SOURCE, '-ac', '2',
+      '-af', `aformat=sample_fmts=s16:sample_rates=48000,atrim=start=15.0333333333:end=17,volume='${expr}':eval=frame`,
+      '-c:a', 'pcm_s16le', '-ar', '48000', ref]);
+    const decode = (file: string, extra: string[] = []) => new Promise<Float32Array>((resolve, reject) => {
+      const p = spawn(ffmpeg, ['-v', 'error', '-nostdin', ...extra, '-i', file, '-vn', '-ac', '1', '-ar', '48000', '-f', 'f32le', '-']);
+      const chunks: Buffer[] = [];
+      p.stdout.on('data', (c: Buffer) => chunks.push(c));
+      p.on('close', (code) => { if (code !== 0) reject(new Error('decode failed')); const b = Buffer.concat(chunks); resolve(new Float32Array(b.buffer, b.byteOffset, Math.floor(b.length / 4))); });
+    });
+    const rms = (x: Float32Array) => Math.sqrt(x.reduce((a, v) => a + v * v, 0) / x.length);
+    const corr = (x: Float32Array, y: Float32Array) => {
+      let xy = 0; let xx = 0; let yy = 0;
+      for (let i = 0; i < x.length; i++) { xy += x[i] * y[i]; xx += x[i] * x[i]; yy += y[i] * y[i]; }
+      return xy / Math.sqrt(xx * yy);
+    };
+    // Whole files, indexed by sample: ours starts the segment after 1 + 1/30 s = 49,600 samples of silence.
+    const ours = await decode(wav);
+    const theirs = await decode(ref);
+    const lead = 49_600;
+    const win = 4_800;
+    // 100 ms windows inside the ramp and on the flat part: the same samples (s16 rounding apart), the same
+    // level, and the best lag over ±2 samples is 0 — the silence and the trim place the segment exactly.
+    for (const off of [0, 12_000, 26_400, 70_400]) {
+      const b = theirs.subarray(off, off + win);
+      let best = { lag: 99, c: -2 };
+      for (let lag = -2; lag <= 2; lag++) {
+        const c = corr(ours.subarray(lead + off + lag, lead + off + lag + win), b);
+        if (c > best.c) best = { lag, c };
+      }
+      expect(best.lag).toBe(0);
+      expect(best.c).toBeGreaterThan(0.9999);
+      const a = ours.subarray(lead + off, lead + off + win);
+      expect(rms(a) / rms(b)).toBeGreaterThan(0.998);
+      expect(rms(a) / rms(b)).toBeLessThan(1.002);
+    }
+    // And the ramp really ramps: the flat part at 0.5 of the camera file (0.505 after Remotion's 1/97 rounding), the first 100 ms at a fraction of it.
+    const flat = ours.subarray(lead + 70_400, lead + 70_400 + 24_000);
+    const cam = await decode(SOURCE, ['-ss', String(sourceIn + 70_400 / 48_000), '-t', '0.5']);
+    expect(rms(flat) / rms(cam)).toBeGreaterThan(0.5);
+    expect(rms(flat) / rms(cam)).toBeLessThan(0.515);
+    const early = ours.subarray(lead, lead + win);
+    const camEarly = await decode(SOURCE, ['-ss', String(sourceIn), '-t', '0.1']);
+    expect(rms(early) / rms(camEarly)).toBeLessThan(0.06);
   }, 120_000);
 
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {

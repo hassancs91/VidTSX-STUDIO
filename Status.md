@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-09-07 — EXPORT ENGINES Stage 3 slice 3: speed measured, audio fades and crossfades in the one pass
+
+Stage 3 of `docs/export-engines-plan.md`, slice 3 (slice 2 = 2c564c6). Speed measured first,
+then two widenings of the passthrough engine's predicate, each gated through the real dialog;
+full log with the numbers: the plan's §Stage 3 log, slice 3.
+
+- **Measured: speed.** A Remotion export of a clip at speed 1.5 shows the source frame NEAREST
+  to S + 1.5·n/fps (every third 59.94 fps frame; nearest, not ceil, when the file is already
+  open) and plays its audio through `@remotion/renderer`'s pitch-preserving `atempo` chain
+  (`aformat s16 48k, atempo=1.50000, atrim` at post-tempo times). Our full ffmpeg reproduces
+  it — lag 0 ms, corr 1.000, level 1.000 against the export; Remotion's bundled ffmpeg 7.1
+  and our 8.1.2 produce **bit-identical PCM** for the chain (a plain resample reads corr 0.3
+  at random lags). Not widened in this slice; the recipe is recorded for the next one.
+- **Found: how Remotion applies a volume curve** — one value per rendered frame; a frame at
+  volume 0 registers no audio (a fade-in's first frame is silent, the asset starts one frame
+  late); values rounded to 1/97 steps (a faded clip at gain 0.5 plays at 0.505); the filter
+  `volume='if(between(t,…))':eval=frame` evaluated per decoded audio buffer in source time;
+  every asset placed with a whole-millisecond `adelay`, so any clip whose first audible frame
+  is off the ms grid plays up to 0.5 ms early (−0.3 ms measured on both reference exports
+  against the camera file). The pass keeps the exact frame time (D6).
+- **Widened: audio fades.** The audio planner reads the SAME serialization the composition
+  receives (`serializeTimeline` with a stub resolver) and carries the per-frame curve of a
+  faded clip; the pass emits Remotion's own expression (`remotionVolumeExpression`) right
+  after the trim, on decoder buffers the chain shares with Remotion's (verified). A fade never
+  touches the picture, so a faded clip is copied.
+- **Widened: transitions.** Only a transition's window goes to the browser (both clips paint
+  there); the pieces either side are copied from the serializer's extended geometry; a
+  crossfade's two overlapping clips become two lanes summed by the same `amix`.
+- **Gate — `t5-1080p-cut-fade`** (A fade-out 0.5 s; B gain 0.5, fade-in 1 s, fade-out 2 s):
+  "Copies 100 %"; H.264 stream **byte-identical** to the Stage 2 cut export; verify vs the
+  Remotion engine max 0.01 % over 24 at the seven frames; `t1-diff` vs the control **0 % over
+  24 at every frame**; audio **0 ms vs the camera file at all eight windows**; level vs the
+  plain Remotion export **1.000 at all eight 1 s windows and 0.998–1.003 in 100 ms windows
+  inside the ramps** (two near-silent windows 0.98, where Remotion's 16-sample early placement
+  changes the window's content); B's flat part 0.505 of the camera level on both exports, as
+  the 1/97 rounding predicts; the offset vs the Remotion export reads +0.3 ms on the faded-in
+  clip only — Remotion's whole-ms placement, which reads −0.3 ms against the camera.
+- **Gate — `t5-1080p-cut-xfade`** (1 s crossfade at 15 s): "Copies 97 %"; verify vs the
+  Remotion engine **0 % over 24 at all seven frames** (the blended window frames included);
+  `t1-diff` vs the control 0 % over 24 on the copied frames; audio **0 ms vs the camera at all
+  eight windows**, level 1.000 vs the plain Remotion export outside the window; inside it the
+  pass reads the composition's coherent cos + sin sum (this seed crossfades one recording with
+  itself, peak 1.417) within 0.02 of a camera-file model at every 20 ms step, while the Remotion
+  export reads the same model with its trailing clip 16 samples early (a comb filter) — the
+  whole-ms placement above. New instrument: `scripts/bench/t1-audio-gain-curve.mjs`.
+- **Earlier gates unchanged:** `t5-1080p`, `t5-1080p-cut`, `t5-1080p-cut-gain`,
+  `t5-1080p-cut-music`, `t5-1080p-cut-stack` re-exported with video AND audio streams
+  byte-identical to their earlier files.
+- Gates: check:types 26/22 (baseline), vitest 1,419 green, live ffmpeg tests 7 (+1: a faded
+  segment against Remotion's chain run verbatim, lag 0, corr > 0.9999, level within 0.2 %).
+- **Next: Stage 3 slice 4 — speed** by the recorded recipe; the long-return question; then
+  Stage 4 (progress copied vs rendered, cancel cleanup, the 10 GB finishing mux, merge nearby
+  browser spans — a 30-frame transition window pays a full bundle + Chrome start).
+
 ## 2026-09-06 — EXPORT ENGINES Stage 3 slice 2: audio tracks mixed in the one pass, several video tracks copied
 
 Stage 3 of `docs/export-engines-plan.md`, slice 2 (slice 1 = 28a8236). Two widenings of

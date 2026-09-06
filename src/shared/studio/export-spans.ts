@@ -36,13 +36,19 @@
  * what Remotion does with every <Audio>/<Video> of a composition
  * (`amix … normalize=0` in `@remotion/renderer`'s merge filter).
  *
- * Frame arithmetic mirrors `serialize.ts` exactly: clip edges through
- * `timeToFrame` / `spanToFrames`, the source offset as Remotion's whole-frame
- * `trimBefore` (`timeToFrame(sourceIn)`), so a copied span asks for the same
- * source instant the browser would.
+ * Slice 3: a FADE never touches the picture (`TimelineComposition.tsx` reads
+ * fadeIn/fadeOut only in volumeProp), so a faded clip is copied and its curve
+ * rides into the audio pass; a TRANSITION paints both clips of the boundary
+ * only inside its window (the trailing clip fading in over the leading one,
+ * or the dip), so only that window goes to the browser and the rest of both
+ * clips is copied. The clip geometry comes from the serializer itself
+ * (`serializeTimeline` with a stub resolver): the crossfade handles, the
+ * shifted `trimBefore`, the dropped clips — so a copied span asks for the
+ * same source instant the browser would.
  */
-import type { StudioClip, StudioMediaAsset, StudioProject, StudioTrack } from '../types/studio';
-import { clipEnd, spanToFrames, timeToFrame, timelineDurationInFrames } from './time-math';
+import type { StudioClip, StudioMediaAsset, StudioProject } from '../types/studio';
+import { serializeTimeline } from './serialize';
+import { timelineDurationInFrames } from './time-math';
 
 export interface CopySpan {
   kind: 'copy';
@@ -111,8 +117,6 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   if (!asset) return 'missing asset';
   if (asset.kind !== 'video') return `${asset.kind} asset`;
   if (clip.speed !== undefined && clip.speed !== 1) return 'speed';
-  if ((clip.fadeInSec ?? 0) > 0 || (clip.fadeOutSec ?? 0) > 0) return 'fade';
-  if (clip.transitionOut) return 'transition';
   if (!isIdentityTransform(clip)) return 'transform';
   if (!asset.probe.width || !asset.probe.height) return 'unknown source size';
   const sourceAspect = asset.probe.width / asset.probe.height;
@@ -134,17 +138,6 @@ interface Piece {
   to: number;
 }
 
-/** Frame intervals [from, to) of every clip on a track, in composition frames. */
-function trackIntervals(track: StudioTrack, fps: number): Piece[] {
-  const out: Piece[] = [];
-  for (const clip of track.clips) {
-    const from = timeToFrame(clip.timelineStart, fps);
-    const frames = spanToFrames(clip.timelineStart, clipEnd(clip), fps);
-    if (frames > 0) out.push({ from, to: from + frames });
-  }
-  return out;
-}
-
 export function planExportSpans(project: StudioProject, durationInFrames?: number): ExportSpanPlan {
   const { fps } = project.settings;
   const totalFrames = durationInFrames ?? timelineDurationInFrames(project.timeline, fps);
@@ -156,46 +149,54 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
   });
   if (!(fps > 0) || totalFrames <= 0) return { spans: [], totalFrames: 0, copiedFrames: 0, reason: 'empty timeline' };
 
-  const visible = project.timeline.tracks.filter((t) => !t.hidden || t.kind === 'audio');
-  const videoTracks = visible.filter((t) => t.kind === 'video' && t.clips.length > 0);
-  if (videoTracks.length === 0) return whole('no video track');
+  const hasVideoTrack = project.timeline.tracks.some((t) => !t.hidden && t.kind === 'video' && t.clips.length > 0);
+  if (!hasVideoTrack) return whole('no video track');
   if (project.captions?.enabled) return whole('captions');
 
-  // Anything painted over the video tracks: overlay-track clips.
-  const touched: Piece[] = visible
-    .filter((t) => t.kind === 'overlay' || t.kind === 'caption')
-    .flatMap((t) => trackIntervals(t, fps));
-
   const byId = new Map(project.assets.map((a) => [a.id, a]));
+  const docClips = new Map(project.timeline.tracks.flatMap((t) => t.clips).map((c) => [c.id, c]));
+  // The serialization the composition receives (hidden tracks and unresolvable
+  // clips already dropped, transition handles applied); the stub resolver only
+  // says whether the asset exists.
+  const timeline = serializeTimeline(project, (id) => (byId.has(id) ? id : null));
   const settings = project.settings;
 
-  // Every video track's clips, document order = top of the stack first.
-  const layers = videoTracks.map((track) => {
-    const clips = track.clips
-      .map((clip) => {
-        const from = timeToFrame(clip.timelineStart, fps);
-        const frames = spanToFrames(clip.timelineStart, clipEnd(clip), fps);
-        const asset = clip.assetId ? byId.get(clip.assetId) : undefined;
-        // A clip the serializer would drop (no resolvable source) paints nothing.
-        const dropped = clip.kind !== 'tsx' && clip.kind !== 'caption' && !asset;
-        const blocker = dropped ? null : copyBlocker(clip, asset, settings);
-        return { clip, from, to: from + frames, asset, dropped, blocker };
-      })
-      .filter((c) => c.to > c.from)
-      .sort((a, b) => a.from - b.from);
-    // A transition changes BOTH clips at the boundary — the next clip too.
-    for (let i = 0; i < clips.length - 1; i++) {
-      if (clips[i].clip.transitionOut && !clips[i + 1].blocker) clips[i + 1].blocker = 'transition';
-    }
-    return clips;
-  });
+  // Anything painted over the video tracks: overlay-track clips.
+  const touched: Piece[] = timeline.tracks
+    .filter((t) => t.kind === 'overlay' || t.kind === 'caption')
+    .flatMap((t) => t.clips.map((c) => ({ from: c.from, to: c.from + c.durationInFrames })));
 
-  // Boundaries: every clip edge on every video track and every touched edge.
+  // Every video track's clips, document order = top of the stack first.
+  const layers = timeline.tracks
+    .filter((t) => t.kind === 'video')
+    .map((track) =>
+      track.clips
+        .map((sc) => {
+          const doc = docClips.get(sc.id);
+          const asset = doc?.assetId ? byId.get(doc.assetId) : undefined;
+          const blocker = doc ? copyBlocker(doc, asset, settings) : 'unknown clip';
+          const from = sc.from;
+          const to = from + sc.durationInFrames;
+          // A transition's window: both clips of the boundary paint there.
+          const windows: Piece[] = [];
+          if (sc.transitionIn && sc.transitionIn.frames > 0) windows.push({ from, to: Math.min(to, from + sc.transitionIn.frames) });
+          if (sc.transitionOut && sc.transitionOut.frames > 0) windows.push({ from: Math.max(from, to - sc.transitionOut.frames), to });
+          return { sc, from, to, asset, blocker, windows, trimBefore: sc.trimBefore ?? 0 };
+        })
+        .filter((c) => c.to > c.from)
+        .sort((a, b) => a.from - b.from),
+    );
+
+  // Boundaries: every clip edge and transition edge on every video track and every touched edge.
   const cuts = new Set<number>([0, totalFrames]);
   for (const layer of layers) {
     for (const c of layer) {
       cuts.add(c.from);
       cuts.add(c.to);
+      for (const w of c.windows) {
+        cuts.add(w.from);
+        cuts.add(w.to);
+      }
     }
   }
   for (const t of touched) {
@@ -226,10 +227,10 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       push({ kind: 'browser', from, frames, reason: 'overlay' });
       continue;
     }
-    // Clips are non-overlapping on a track (timeline-ops invariant); the stack
-    // of clips covering this piece, topmost first.
+    // The stack of clips covering this piece, topmost first (clips on one
+    // track overlap only inside a transition window, which is a browser piece).
     const stack = layers.flatMap((layer) => {
-      const c = layer.find((x) => x.from <= from && to <= x.to && !x.dropped);
+      const c = layer.find((x) => x.from <= from && to <= x.to);
       return c ? [c] : [];
     });
     const covering = stack[0];
@@ -237,22 +238,24 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       push({ kind: 'black', from, frames });
       continue;
     }
-    const assetPath = (covering.asset as StudioMediaAsset).path;
-    const opensFile = !opened.has(assetPath);
-    for (const c of stack) opened.add((c.asset as StudioMediaAsset).path);
+    const opensFile = covering.asset ? !opened.has(covering.asset.path) : false;
+    for (const c of stack) if (c.asset) opened.add(c.asset.path);
     if (covering.blocker) {
       push({ kind: 'browser', from, frames, reason: covering.blocker });
       continue;
     }
-    const clip = covering.clip;
-    const trimBefore = clip.sourceIn ? timeToFrame(clip.sourceIn, fps) : 0;
-    const sourceFrame = trimBefore + (from - covering.from);
+    if (covering.windows.some((w) => w.from < to && from < w.to)) {
+      push({ kind: 'browser', from, frames, reason: 'transition' });
+      continue;
+    }
+    const asset = covering.asset as StudioMediaAsset;
+    const sourceFrame = covering.trimBefore + (from - covering.from);
     push({
       kind: 'copy',
       from,
       frames,
-      assetId: clip.assetId as string,
-      assetPath,
+      assetId: asset.id,
+      assetPath: asset.path,
       sourceFrame,
       firstFrameCeil: opensFile && sourceFrame > 0,
     });

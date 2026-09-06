@@ -253,13 +253,65 @@ export interface AudioPass {
  * audio start pads with silence instead of shifting the trim.
  *
  * A segment's static gain (Stage 3) is one linear `volume=` on that segment,
- * the multiplier Remotion applies for a static `volume` prop.
+ * the multiplier Remotion applies for a static `volume` prop. A segment whose
+ * volume MOVES (slice 3: fades, transitions) gets Remotion's own per-frame
+ * expression instead (`remotionVolumeExpression`), placed right after the
+ * trim so `t` is SOURCE time as in Remotion's chain.
  *
  * Several chains (slice 2: one per track with sound) are each concatenated
  * and pinned to the whole length, then summed by `amix … normalize=0` — the
  * very filter `@remotion/renderer` merges a composition's audio with, so the
  * levels are Remotion's. One chain keeps Stage 2's graph to the byte.
  */
+/**
+ * Pure: the per-frame volume expression `@remotion/renderer` writes for an
+ * asset whose volume changes (assets/ffmpeg-volume-expression.js, the same
+ * construction): every frame's value rounded to 1/97 steps at 3 dp
+ * (roundVolumeToAvoidStackOverflow — ffmpeg's expression depth), the last
+ * value repeated once so the trailing half frame is covered, the values
+ * grouped and nested most-common-last, each group a sum of `between(t, …)`
+ * windows half a frame either side of the frame's SOURCE time, 4 dp. With
+ * `eval=frame` ffmpeg evaluates it once per decoded audio buffer at the
+ * buffer's first pts, so a fade is a staircase on the decoder's buffer
+ * boundaries — boundaries the pass shares with Remotion's chain (measured
+ * 2026-09-06: the same 896/1024-sample frames at the same pts on the DJI
+ * file through `aresample=async=1:first_pts=0,atrim` and through Remotion's
+ * `aformat,atrim` alike). So a faded clip at gain 0.5 plays its flat part at
+ * 0.505 in a Remotion export, and so does the pass.
+ */
+export function remotionVolumeExpression(volumes: readonly number[], sourceIn: number, fps: number): string {
+  if (volumes.length === 0) throw new Error('volume curve without frames');
+  const padded = [...volumes, volumes[volumes.length - 1]];
+  const groups = new Map<number, number[]>();
+  padded.forEach((v, f) => {
+    const r = Number((Math.round(v * 97) / 97).toFixed(3));
+    const g = groups.get(r);
+    if (g) g.push(f);
+    else groups.set(r, [f]);
+  });
+  // The order Remotion iterates its map (Object.keys: integer keys first,
+  // ascending, then insertion order), then a stable sort by count so the most
+  // common value is the final else.
+  const entries = [...groups.entries()];
+  const isIndex = (v: number) => Number.isInteger(v) && v >= 0;
+  const ordered = [...entries.filter(([v]) => isIndex(v)).sort((a, b) => a[0] - b[0]), ...entries.filter(([v]) => !isIndex(v))]
+    .sort((a, b) => a[1].length - b[1].length);
+  const windows = (frames: number[]): string => {
+    const runs: number[][] = [];
+    for (const f of frames) {
+      const last = runs[runs.length - 1];
+      if (last && f === last[last.length - 1] + 1) last.push(f);
+      else runs.push([f]);
+    }
+    return runs
+      .map((r) => `between(t,${((r[0] - 0.5) / fps + sourceIn).toFixed(4)},${((r[r.length - 1] + 0.5) / fps + sourceIn).toFixed(4)})`)
+      .join('+');
+  };
+  const build = (arr: Array<[number, number[]]>): string =>
+    arr.length === 1 ? String(arr[0][0]) : `if(${windows(arr[0][1])},${arr[0][0]},${build(arr.slice(1))})`;
+  return build(ordered);
+}
+
 export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPath: string): AudioPass {
   const inputs: string[] = [];
   const inputIndex = new Map<string, number>();
@@ -284,7 +336,12 @@ export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPa
         const end = (seg.sourceIn + seg.duration).toFixed(6);
         const dur = seg.duration.toFixed(6);
         const gain = seg.gain !== undefined ? `,volume=${seg.gain.toFixed(6)}` : '';
-        graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
+        let curve = '';
+        if (seg.volumes) {
+          if (!(plan.fps && plan.fps > 0)) throw new Error('an audio plan with a volume curve needs its fps');
+          curve = `,volume='${remotionVolumeExpression(seg.volumes, seg.sourceIn, plan.fps)}':eval=frame`;
+        }
+        graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end}${curve},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
       }
       labels.push(label);
     });

@@ -14,6 +14,7 @@ import {
   nearestSelectFilter,
   parseFrameRate,
   parseStatsFrame,
+  remotionVolumeExpression,
   seekSeconds,
   spanEncoderArgs,
 } from './passthrough-ffmpeg';
@@ -178,6 +179,35 @@ describe('audioPassArgs with a second chain (Stage 3 slice 2)', () => {
     expect(one).not.toContain('amix');
     expect(one).toContain('concat=n=1:v=0:a=1,atrim=end=2.000000,apad=whole_dur=2.000000[out]');
     expect(audioPassArgs({ duration: 2, segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 2 }], chains: [] }, 'o.wav', 'g.txt').graph).toBe(one);
+  });
+});
+
+describe('audioPassArgs with a volume curve (Stage 3 slice 3)', () => {
+  it('writes Remotion\'s per-frame expression: 1/97 rounding, a padded last frame, half-frame windows in source time, most common value last', () => {
+    // A faded clip at gain 0.5 whose curve has settled: 0.5 rounds to 49/97 = 0.505.
+    expect(remotionVolumeExpression([0.5, 1, 1, 1], 15, 30)).toBe('if(between(t,14.9833,15.0167),0.505,1)');
+    // Consecutive frames of one value share a window; separate runs are summed.
+    expect(remotionVolumeExpression([1, 0.5, 0.5, 1, 0.5], 0, 30)).toBe('if(between(t,-0.0167,0.0167)+between(t,0.0833,0.1167),1,0.505)');
+    // Values that round alike are one group; the padded frame extends the last window by a frame.
+    expect(remotionVolumeExpression([0.503, 0.507], 2, 30)).toBe('0.505');
+    expect(remotionVolumeExpression([1 / 30, 1], 15, 30)).toBe('if(between(t,14.9833,15.0167),0.031,1)');
+  });
+
+  it('places the expression right after the trim (t = source time), no static volume, fps required', () => {
+    const plan = {
+      duration: 4,
+      fps: 30,
+      segments: [
+        { kind: 'source' as const, assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 2 },
+        { kind: 'source' as const, assetId: 'a', assetPath: 'A.MP4', sourceIn: 15 + 1 / 30, duration: 2 - 1 / 30, volumes: [0.25, 0.5, 0.75, 1] },
+      ],
+    };
+    const lines = audioPassArgs(plan, 'audio.wav', 'graph.txt').graph.split(';\n');
+    expect(lines[0]).not.toContain('eval=frame');
+    expect(lines[1]).toBe(
+      "[0:a:0]aresample=async=1:first_pts=0,atrim=start=15.033333:end=17.000000,volume='if(between(t,15.0167,15.0500),0.247,if(between(t,15.0500,15.0833),0.505,if(between(t,15.0833,15.1167),0.753,1)))':eval=frame,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=1.966667,atrim=end=1.966667[s1]",
+    );
+    expect(() => audioPassArgs({ ...plan, fps: undefined }, 'audio.wav', 'graph.txt')).toThrow(/fps/);
   });
 });
 

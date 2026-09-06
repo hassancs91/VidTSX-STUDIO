@@ -1,7 +1,7 @@
 // T1 — which SOURCE frame does a Remotion export show at composition frame f?
 // (docs/PREVIEW_TESTS_PLAN.md §T1, leg 2's prerequisite.)
 //
-//   node scripts/bench/t1-frame-map.mjs --export=<remotion-export.mp4 | png-template-with-{f}> --source=<camera.mp4> [--source-in=0] [--frames=30,300,600,870,899] [--label=t1-map-hevc]
+//   node scripts/bench/t1-frame-map.mjs --export=<remotion-export.mp4 | png-template-with-{f}> --source=<camera.mp4> [--source-in=0] [--rate=1 --from=0] [--frames=30,300,600,870,899] [--label=t1-map-hevc]
 //
 // --export may also be a PNG template with {f} for the frame number (the
 // Player screenshots from t1-preview-capture.mjs), which answers the same
@@ -35,6 +35,10 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, ...
 const frames = (args.frames ?? '30,300,600,870,899').split(',').map(Number);
 const label = args.label ?? 't1-frame-map';
 const sourceIn = Number(args['source-in'] ?? 0);
+// Slice 3 speed measurement: a clip at playbackRate `rate` starting at composition
+// frame `from` shows source time sourceIn + rate * (f - from) / 30 at frame f.
+const rate = Number(args.rate ?? 1);
+const fromFrame = Number(args.from ?? 0);
 const SRC_NUM = 60000, SRC_DEN = 1001; // 59.94 fps — both reference sources
 const COMP_FPS = 30;
 
@@ -93,7 +97,7 @@ async function main() {
   await fs.mkdir(OUT_DIR, { recursive: true });
   const rows = [];
   for (const f of frames) {
-    const t = sourceIn + f / COMP_FPS;
+    const t = sourceIn + (rate * (f - fromFrame)) / COMP_FPS;
     const exportPng = path.join(OUT_DIR, `${label}-f${f}-export.png`);
     if (args.export.includes('{f}')) await fs.copyFile(args.export.replace('{f}', String(f)), exportPng);
     else await extractExportFrame(ffmpeg, args.export, f, exportPng);

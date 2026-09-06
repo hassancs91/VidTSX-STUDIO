@@ -5,7 +5,7 @@
 // or a mixed track can be read against the camera file, the music file or a
 // plain Remotion export of the same project.
 //
-//   node scripts/bench/t1-audio-level.mjs --a=<reference> --b=<candidate> [--b-offset=0] [--windows=0.5,7,13.5,14.5,15.2,16,22,29]
+//   node scripts/bench/t1-audio-level.mjs --a=<reference> --b=<candidate> [--b-offset=0] [--windows=0.5,7,13.5,14.5,15.2,16,22,29] [--win=1]
 //
 // --b-offset shifts the candidate's timeline (seconds) when it starts at a
 // different source time than the reference. Decodes through the full ffmpeg
@@ -22,6 +22,8 @@ const args = Object.fromEntries(process.argv.slice(2).map((a) => { const [k, ...
 const RATE = 48000;
 const windows = (args.windows ?? '0.5,7,13.5,14.5,15.2,16,22,29').split(',').map(Number);
 const bOffset = Number(args['b-offset'] ?? 0);
+// Window length in seconds (1 s by default; 0.1 s reads a level INSIDE a fade ramp — slice 3).
+const win = Number(args.win ?? 1);
 
 function findFfmpeg() {
   const root = path.join(process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'), 'VidTSX Studio', 'ffmpeg-full');
@@ -55,8 +57,8 @@ if (!args.a || !args.b) { console.error('usage: --a=<reference> --b=<candidate> 
 console.log(`reference ${args.a}\ncandidate ${args.b}${bOffset ? ` (offset ${bOffset} s)` : ''}`);
 console.log('window_s  rms_ref   rms_cand  ratio   dB');
 for (const w of windows) {
-  const a = await decode(args.a, w, 1);
-  const b = await decode(args.b, w + bOffset, 1);
+  const a = await decode(args.a, w, win);
+  const b = await decode(args.b, w + bOffset, win);
   const ra = rms(a);
   const rb = rms(b);
   const ratio = rb / ra;

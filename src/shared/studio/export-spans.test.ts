@@ -4,7 +4,7 @@
 // into the one audio pass).
 import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioProject, StudioTrack } from '../types/studio';
-import { copiedPercent, copyBlocker, planExportAudio, planExportSpans } from './export-spans';
+import { copiedPercent, copyBlocker, planExportAudio, planExportSpans, type AudioSegment } from './export-spans';
 
 const DJI = 'C:\\Users\\Malak\\Documents\\GitHub\\VidTSX-STUDIO\\raw\\DJI_20260813142309_0270_D.MP4';
 const ASSET = 'c9ed8f79-f1c6-4c8f-92ce-7c92a4a1b106';
@@ -62,6 +62,7 @@ describe('planExportSpans on the T1 reference documents', () => {
   it('plans the audio of both as plain source cuts covering the whole 30 s', () => {
     expect(planExportAudio(T5)).toEqual({
       duration: 30,
+      fps: 30,
       segments: [{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 30 }],
     });
     expect(planExportAudio(T5_CUT)?.segments).toEqual([
@@ -139,17 +140,20 @@ describe('planExportSpans edges', () => {
   });
 
   it('splits a copied clip around an overlay and resumes the source position after it', () => {
-    const overlay: StudioTrack = { id: 'o1', kind: 'overlay', name: 'O1', clips: [{ id: 't', kind: 'tsx', timelineStart: 4, duration: 2, tsx: { shotId: 's', mode: 'overlay' } }] };
+    const overlay: StudioTrack = { id: 'o1', kind: 'overlay', name: 'O1', clips: [{ ...clip('t', 4, 2, 0), transform: { scale: 0.5 } }] };
     const plan = planExportSpans(project([overlay, video([clip('a', 0, 10, 20)])]));
     expect(plan.spans).toEqual([
       { kind: 'copy', from: 0, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 600, firstFrameCeil: true },
       { kind: 'browser', from: 120, frames: 60, reason: 'overlay' },
       { kind: 'copy', from: 180, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 780, firstFrameCeil: false },
     ]);
+    // A tsx overlay whose shot the document cannot render is dropped by the serializer — it paints nothing, so nothing is touched (slice 3: the planner reads the serialization).
+    const ghost: StudioTrack = { id: 'o1', kind: 'overlay', name: 'O1', clips: [{ id: 't', kind: 'tsx', timelineStart: 4, duration: 2, tsx: { shotId: 's', mode: 'overlay' } }] };
+    expect(planExportSpans(project([ghost, video([clip('a', 0, 10, 20)])])).copiedFrames).toBe(300);
   });
 
   it('merges adjacent browser pieces into one span', () => {
-    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 }), clip('b', 5, 5, 20, { fadeInSec: 0.5 })])]));
+    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 }), clip('b', 5, 5, 20, { transform: { opacity: 0.5 } })])]));
     expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'speed' }]);
     expect(plan.copiedFrames).toBe(0);
     expect(plan.reason).toBe('speed');
@@ -169,17 +173,32 @@ describe('planExportSpans edges', () => {
     expect(planExportSpans(project([video([clip('a', 0, 5, 0, { gain: 0 })])])).copiedFrames).toBe(150);
   });
 
-  it('fades, speed and transitions still block both the picture and the one-pass audio', () => {
-    expect(copyBlocker(clip('a', 0, 5, 0, { fadeOutSec: 1 }), T5.assets[0], T5.settings)).toBe('fade');
+  it('speed still blocks both the picture and the one-pass audio; a fade blocks neither (slice 3: the picture never fades)', () => {
+    expect(copyBlocker(clip('a', 0, 5, 0, { fadeOutSec: 1 }), T5.assets[0], T5.settings)).toBeNull();
     expect(copyBlocker(clip('a', 0, 5, 0, { speed: 2 }), T5.assets[0], T5.settings)).toBe('speed');
-    expect(planExportAudio(project([video([clip('a', 0, 5, 0, { gain: 0.5, fadeInSec: 1 })])]))).toBeNull();
+    expect(planExportAudio(project([video([clip('a', 0, 5, 0, { speed: 2 })])]))).toBeNull();
+    expect(planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 })])])).copiedFrames).toBe(0);
+    const faded = project([video([clip('clip_t1_cut_a', 0, 15, 0, { fadeOutSec: 0.5 }), clip('clip_t1_cut_b', 15, 15, 15, { gain: 0.5, fadeInSec: 1, fadeOutSec: 2 })]), audioTrack]);
+    expect(planExportSpans(faded).spans).toEqual(planExportSpans(T5_CUT).spans);
   });
 
-  it('a transition touches both clips at the boundary', () => {
+  it('a transition sends only its window to the browser; the rest of both clips is copied from the serializer\'s geometry (slice 3)', () => {
+    // 1 s crossfade at 5 s: 15 frames of handle each side (the serializer's computeAdjustment), so the
+    // leading clip runs to 165 and the trailing one starts at 135 from source frame 585.
     const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { transitionOut: { kind: 'crossfade', duration: 1 } }), clip('b', 5, 5, 20), clip('c', 10, 5, 40)])]));
-    expect(plan.spans.map((s) => [s.kind, s.from, s.frames])).toEqual([
-      ['browser', 0, 300],
-      ['copy', 300, 150],
+    expect(plan.spans.map((s) => [s.kind, s.from, s.frames, s.kind === 'copy' ? s.sourceFrame : (s as { reason?: string }).reason])).toEqual([
+      ['copy', 0, 135, 0],
+      ['browser', 135, 30, 'transition'],
+      ['copy', 165, 135, 615],
+      ['copy', 300, 150, 1200],
+    ]);
+    expect(plan.copiedFrames).toBe(420);
+    // Dip-to-black: no handles, the window is half a second either side of the cut.
+    const dip = planExportSpans(project([video([clip('a', 0, 5, 0, { transitionOut: { kind: 'dip-to-black', duration: 1 } }), clip('b', 5, 5, 20)])]));
+    expect(dip.spans.map((s) => [s.kind, s.from, s.frames])).toEqual([
+      ['copy', 0, 135],
+      ['browser', 135, 30],
+      ['copy', 165, 135],
     ]);
   });
 
@@ -239,7 +258,7 @@ describe('copyBlocker', () => {
   const settings = T5.settings;
   it('names each Stage 2 disqualifier', () => {
     expect(copyBlocker(clip('a', 0, 5, 0), asset, settings)).toBeNull();
-    expect(copyBlocker(clip('a', 0, 5, 0, { fadeInSec: 0.5 }), asset, settings)).toBe('fade');
+    expect(copyBlocker(clip('a', 0, 5, 0, { fadeInSec: 0.5 }), asset, settings)).toBeNull(); // slice 3: a fade is audio-only
     expect(copyBlocker(clip('a', 0, 5, 0, { transform: { x: 3 } }), asset, settings)).toBe('transform');
     expect(copyBlocker(clip('a', 0, 5, 0, { transform: { x: 0, scale: 1, opacity: 1 } }), asset, settings)).toBeNull();
     expect(copyBlocker(clip('a', 0, 5, 0, { transform: { opacity: 0.5 } }), asset, settings)).toBe('transform');
@@ -267,13 +286,66 @@ describe('planExportAudio', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0)], { muted: true })]))?.segments).toEqual([{ kind: 'silence', duration: 2 }]);
   });
 
-  it('refuses what only the browser mixes exactly (fades, speed, two clips at once on one track); a static gain no longer does', () => {
+  it('refuses speed (Remotion\'s atempo, measured not reproduced); a static gain, a fade and two clips at once are planned', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { gain: 0.8 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2, gain: 0.8 }]);
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0, { fadeOutSec: 0.2 })])]))).toBeNull();
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { speed: 1.5 })])]))).toBeNull();
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0)]), { ...audioTrack, clips: [{ ...clip('m', 0, 2, 0, { fadeInSec: 0.1 }), kind: 'audio' }] }]))).toBeNull();
-    // Overlapping clips on ONE track (a document the timeline ops never write) — not modelled.
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0), clip('b', 1, 2, 0)])]))).toBeNull();
+    // A fade-out over the last 6 frames: one asset over the whole clip, its curve the composition's linear ramp.
+    const out = planExportAudio(project([video([clip('a', 0, 2, 0, { fadeOutSec: 0.2 })])]));
+    expect(out?.fps).toBe(30);
+    const seg = out?.segments[0] as Extract<AudioSegment, { kind: 'source' }>;
+    expect([seg.sourceIn, seg.duration, seg.gain, seg.volumes?.length]).toEqual([0, 2, undefined, 60]);
+    expect(seg.volumes?.slice(53)).toEqual([1, 1, 1 - 1 / 6, 1 - 2 / 6, 1 - 3 / 6, 1 - 4 / 6, 1 - 5 / 6]);
+    // A fade-in on an audio-track clip: frame 0 is at volume 0 and Remotion registers no asset for it —
+    // the asset starts one frame late, at source frame 1, and the chain opens with one frame of silence.
+    const inn = planExportAudio(project([video([clip('a', 0, 2, 0)]), { ...audioTrack, clips: [{ ...clip('m', 0, 2, 0, { fadeInSec: 0.1 }), kind: 'audio' }] }]));
+    const chain = inn?.chains?.[0] as AudioSegment[];
+    expect(chain[0]).toEqual({ kind: 'silence', duration: 1 / 30 });
+    const m = chain[1] as Extract<AudioSegment, { kind: 'source' }>;
+    expect([m.sourceIn, m.duration, m.volumes?.length]).toEqual([1 / 30, 59 / 30, 59]);
+    expect(m.volumes?.slice(0, 3)).toEqual([1 / 3, 2 / 3, 1]);
+    // Overlapping clips on ONE track sound together, as two lanes summed by the pass.
+    const two = planExportAudio(project([video([clip('a', 0, 2, 0), clip('b', 1, 2, 0)])]));
+    expect(two?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2 }, { kind: 'silence', duration: 1 }]);
+    expect(two?.chains).toEqual([[{ kind: 'silence', duration: 1 }, { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2 }]]);
+  });
+
+  it('plans the T1 fade seed: a fade-out curve on A, a one-frame-late curve at gain 0.5 on B (slice 3)', () => {
+    const faded = project([video([clip('clip_t1_cut_a', 0, 15, 0, { fadeOutSec: 0.5 }), clip('clip_t1_cut_b', 15, 15, 15, { gain: 0.5, fadeInSec: 1, fadeOutSec: 2 })]), audioTrack]);
+    const plan = planExportAudio(faded);
+    expect(plan?.chains).toBeUndefined();
+    expect(plan?.segments.map((s) => s.kind)).toEqual(['source', 'silence', 'source']);
+    const [a, gap, b] = plan?.segments as [Extract<AudioSegment, { kind: 'source' }>, AudioSegment, Extract<AudioSegment, { kind: 'source' }>];
+    expect([a.sourceIn, a.duration, a.volumes?.length]).toEqual([0, 15, 450]);
+    expect(a.volumes?.[434]).toBe(1);
+    expect(a.volumes?.[435]).toBe(1);
+    expect(a.volumes?.[436]).toBeCloseTo(14 / 15, 12);
+    expect(a.volumes?.[449]).toBeCloseTo(1 / 15, 12);
+    expect(gap).toEqual({ kind: 'silence', duration: 1 / 30 });
+    expect([b.sourceIn, b.duration, b.volumes?.length, b.gain]).toEqual([451 / 30, 449 / 30, 449, undefined]);
+    expect(b.volumes?.[0]).toBeCloseTo(0.5 / 30, 12);
+    expect(b.volumes?.[29]).toBe(0.5);
+    expect(b.volumes?.[388]).toBe(0.5);
+    expect(b.volumes?.[448]).toBeCloseTo(0.5 / 60, 12);
+  });
+
+  it('plans a crossfade as two lanes with the equal-power curves on the serializer\'s extended clips (slice 3)', () => {
+    const x = project([video([clip('clip_t1_cut_a', 0, 15, 0, { transitionOut: { kind: 'crossfade', duration: 1 } }), clip('clip_t1_cut_b', 15, 15, 15)]), audioTrack]);
+    const plan = planExportAudio(x);
+    const a = plan?.segments[0] as Extract<AudioSegment, { kind: 'source' }>;
+    // A runs 465 frames (15 handle frames past the cut), cos over its last 30.
+    expect([a.sourceIn, a.duration, a.volumes?.length]).toEqual([0, 15.5, 465]);
+    expect(a.volumes?.[435]).toBe(1);
+    expect(a.volumes?.[450]).toBeCloseTo(Math.cos(Math.PI / 4), 12);
+    expect(a.volumes?.[464]).toBeCloseTo(Math.cos((29 / 30) * (Math.PI / 2)), 12);
+    expect(plan?.segments[1]).toEqual({ kind: 'silence', duration: 14.5 });
+    // B starts at 435 from source frame 435, sin over its first 30 — frame 0 (sin 0 = 0) unregistered.
+    const lane = plan?.chains?.[0] as AudioSegment[];
+    expect(lane[0]).toEqual({ kind: 'silence', duration: 436 / 30 });
+    const b = lane[1] as Extract<AudioSegment, { kind: 'source' }>;
+    expect([b.sourceIn, b.duration, b.volumes?.length]).toEqual([436 / 30, 464 / 30, 464]);
+    expect(b.volumes?.[0]).toBeCloseTo(Math.sin((1 / 30) * (Math.PI / 2)), 12);
+    expect(b.volumes?.[29]).toBe(1);
+    expect(lane).toHaveLength(2);
   });
 
   it('mixes an audio-track clip as a second chain with its own gain, covering the whole timeline (Stage 3 slice 2)', () => {

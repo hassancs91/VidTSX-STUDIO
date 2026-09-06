@@ -63,7 +63,7 @@ frame**, 900 frames, audio lag 0 ms at every window.
 |---|---|---|
 | **1 — engine seam** · **DONE 2026-09-05** | `ExportEngine` interface + registry in main (`src/main/services/studio/export-engines/`), the Remotion path moved behind it untouched, the shared finishing stage (D7) with the audio correction (D6), Settings default + Export dialog picker (D2/D3), verification mode behind a dev flag (D5) | the default engine exports byte-for-byte what it did before, minus the 42.7 ms; the picker exists but lists one engine — **met**: `t1-diff` vs the 2026-09-04 control 0 % over 24 at 1/300/449/450/451/600/899 on both reference projects, 900 frames, `yuv420p tv bt709`, audio 0 ms at every window vs the camera file (log below) |
 | **2 — passthrough, narrowest predicate** · **DONE 2026-09-06** | single video track, pure cuts, no effects/captions/shots; the span planner decides from the document alone; touched spans still go to the browser and are encoded per condition 2; join per condition 3; "copies N %" in the dialog; the D4 message | T1 gate passes on both reference projects; the 3 h T6 project exports in about an hour instead of days — **met**: 0 % over 24 vs the 2026-09-04 control at 1/300/449/450/451/600/899 on both projects, ≤ 0.01 % vs the Stage 1 Remotion engine in verify mode, audio 0 ms vs the camera file at every window, copied spans at 3.7–4.2× realtime, a re-export byte-identical; the 3 h project (275 clips, 100 % copied) exports in 1 h 32 min — 61 min of copied spans, 24 min in the finishing mux — against T6's ≈ 3.5 days, audio in sync end to end |
-| **3 — widen the predicate** · **slices 1 + 2 DONE 2026-09-06** (partial) | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled — **slice 1 met**: the different-file cut measured (the export shows the ceil frame on the first frame after it opens a source file, the nearest on a same-file cut or a return; the planner carries it, the A-B-A seed reads 0 % over 24 at both cuts) and gain-only clips copied (video byte-identical to the Stage 2 cut export, audio 0 ms vs the camera file and vs an independent Remotion export at eight windows, level 0.4995–0.4997 on the gained clip and 1.000 vs Remotion); the Stage 2 gates re-run byte-identical. **Slice 2 met**: audio tracks mixed in the one pass (a music clip under the T1 cut: video byte-identical to the Stage 2 cut export, audio 0 ms and level 1.000 vs a plain Remotion export at eight windows, the mixed music at lag 0 and 0.98 of its gained level in the export-minus-camera residual on both exports alike) and several video tracks (the T1 cut as two stacked tracks: video AND audio byte-identical to the Stage 2 cut export, 0 % over 24 vs the control, audio 0 ms vs the camera); the three earlier gates re-run byte-identical on video AND audio. Next: clips whose only change is a trim are already copied (a trim is a cut); the long-return question; Stage 4 |
+| **3 — widen the predicate** · **slices 1–3 DONE 2026-09-06/07** (partial) | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled — **slice 1 met**: the different-file cut measured (the export shows the ceil frame on the first frame after it opens a source file, the nearest on a same-file cut or a return; the planner carries it, the A-B-A seed reads 0 % over 24 at both cuts) and gain-only clips copied (video byte-identical to the Stage 2 cut export, audio 0 ms vs the camera file and vs an independent Remotion export at eight windows, level 0.4995–0.4997 on the gained clip and 1.000 vs Remotion); the Stage 2 gates re-run byte-identical. **Slice 2 met**: audio tracks mixed in the one pass (a music clip under the T1 cut: video byte-identical to the Stage 2 cut export, audio 0 ms and level 1.000 vs a plain Remotion export at eight windows, the mixed music at lag 0 and 0.98 of its gained level in the export-minus-camera residual on both exports alike) and several video tracks (the T1 cut as two stacked tracks: video AND audio byte-identical to the Stage 2 cut export, 0 % over 24 vs the control, audio 0 ms vs the camera); the three earlier gates re-run byte-identical on video AND audio. **Slice 3 met**: speed measured (Remotion = the nearest source frame on the scaled time line + a pitch-preserving `atempo` that our ffmpeg reproduces bit for bit — the recipe for the next slice, not widened yet); audio fades in the one pass (a faded clip's picture copied byte-identical to the Stage 2 cut export; its audio Remotion's own per-frame `volume=` expression on the same decoder buffers: 0 ms vs the camera file at eight windows, level 1.000 vs a plain Remotion export in 1 s windows outside the ramps and in 100 ms windows inside them); crossfade transitions (only the 30-frame window rendered, 97 % copied; 0 % over 24 vs both references at every sampled frame; the equal-power sum of the two lanes matches a model of the composition within 0.02, where the Remotion export is comb-filtered by its own whole-millisecond asset placement); the five earlier gates re-run byte-identical on video AND audio. Next: speed by the recorded recipe; the long-return question; Stage 4 |
 | **4 — polish** | progress that shows copied vs rendered time, cancel that cleans intermediates, the temp-copy leak from T5, the CPU-usage setting reaching Studio exports | tickets closed, `STATUS.md` row |
 
 Open, not blocking: the clap test (D6) on the first Stage 1 build; whether
@@ -518,3 +518,184 @@ the one pass (`afade` / the equal-power curves of `TimelineComposition.tsx`
 volumeProp, per-frame — gate level per window against a plain Remotion export
 as above); speed changes (`atempo` does not match Remotion's playbackRate
 resampling — measure first); the long-return question; then Stage 4.
+
+## Stage 3 log — slice 3 · DONE 2026-09-07
+
+**Slice 3 = speed measured first, then audio fades and crossfade transitions
+in the one pass.** The audio planner now reads the SAME serialization the
+composition receives (`serializeTimeline` with a stub resolver, so the fade
+rounding, the crossfade handles and the shifted `trimBefore` are the
+serializer's by construction) and carries a per-frame volume curve; the span
+planner copies faded clips and sends only a transition's window to the
+browser; the audio pass writes Remotion's own per-frame `volume=` expression.
+No engine change. Seeds `fade`, `xfade`, `speed` in
+`scripts/bench/seed-cut-projects.mjs`; `t1-audio-level.mjs` gained `--win`
+(a 100 ms window reads a level INSIDE a ramp), `t1-frame-map.mjs` gained
+`--rate`/`--from` (a sped clip's time line).
+
+**Finding 1 — what Remotion does to a sped clip (`t5-1080p-cut-speed`: clip B
+at speed 1.5 from source 15 s, a music clip on A1 at speed 1.5, plain
+Remotion export `…cut-speed_2026-09-06T20-37-33.mp4`).** Picture: output
+frame n of the clip shows the source frame NEAREST to 15 s + 1.5·n/30 —
+frames 450…456 show K 899, 902, 905, 908, 911, 914, 917 (every third source
+frame; 899 is the nearest, not the ceil, because the file was already open
+for clip A), frame 600 (t = 22.5 s) K 1349, frame 899 (37.45 s) K 2245, all
+"nearest" by `t1-frame-map` — the slice-1 rule with the time line scaled.
+Audio: `@remotion/renderer` runs `atempo=<rate.toFixed(5)>` BEFORE its trim
+(`calculate-atempo.js`, `stringify-ffmpeg-filter.js`: `aformat s16 48k,
+atempo, atrim` at post-tempo times — trimLeft = trimBefore/(fps·rate), i.e.
+the same source instant), a pitch-preserving WSOLA stretch, not a resample.
+Measured: clip B against our full ffmpeg's `atempo=1.50000,atrim=start=10:
+end=25` of the camera file reads **lag 0 ms, corr 1.000 at 0.5/3/7/10/14 s,
+level 0.999–1.000**; the sped music's export-minus-camera residual against
+the same `atempo` of the music file reads **lag 0.00 ms, corr 0.984–0.988,
+level 0.98** (the AAC round trip — the rows the slice-2 music gate read) and
+against a plain resample (`asetrate·1.5,aresample`) corr 0.2–0.4 at random
+lags. And Remotion's bundled ffmpeg 7.1 and our 8.1.2 produce **bit-identical
+PCM** for the same `atempo` chain (camera and music alike, md5 of the s16
+payload) — so ffmpeg CAN reproduce Remotion's speed exactly: audio =
+Remotion's chain verbatim, picture = the nearest select with `t = S +
+rate·n/fps`. Not widened in this slice (the fades and transitions were the
+scope); it is the recipe for the next one. Until then a sped clip stays a
+browser span and sends the whole audio to the Remotion pass.
+
+**Finding 2 — how Remotion applies a volume curve (read in
+`@remotion/renderer`, then verified against the real export).** For an
+`<OffthreadVideo>`/`<Audio>` with a volume callback, every rendered frame
+registers the value the callback returns (`TimelineComposition.tsx`
+volumeProp: gain × linear fade ramps × the equal-power crossfade / linear
+dip curves, on whole frames); a frame whose value is 0 registers NOTHING, so
+the asset starts one frame late on a fade-in (frame 0 of a faded-in clip is
+silent, the audio starts at source frame trimBefore + 1 — the crossfade's
+trailing clip too, sin 0 = 0). `calculate-asset-positions.js` collects one
+value per frame; `ffmpeg-volume-expression.js` rounds each to 1/97 steps at
+3 dp (`roundVolumeToAvoidStackOverflow` — ffmpeg's expression depth of 100),
+repeats the last value once, groups the values and nests them most-common-
+last as `if(between(t,a,b)+…,v,…)` with windows half a frame either side of
+the frame's SOURCE time (4 dp), and the filter runs `volume='…':eval=frame`
+— evaluated once per decoded audio buffer at the buffer's first pts. So a
+Remotion fade is a staircase on the decoder's 1024-sample buffers, not a
+per-sample ramp and not exactly a per-video-frame one; and a faded clip at
+gain 0.5 plays its flat part at **0.505** (49/97), which the camera-file level
+below confirms. Two consequences for the pass: (a) the chain must share the
+decoder's buffer boundaries — it does: `aresample=async=1:first_pts=0,atrim`
+and Remotion's `aformat,atrim` give the same 896/1024-sample frames at the
+same pts on the DJI file (`ashowinfo`), and the 7.1/8.1 outputs of one such
+`volume` chain are bit-identical; (b) the expression is placed right after
+the trim, before `asetpts`, so `t` is source time as in Remotion's chain.
+Third finding, from the same file: Remotion places each asset with
+`adelay=<whole ms>` (`padStart·1000).toFixed(0)`), so a clip whose first
+audible frame is off the millisecond grid — every fade-in at 30 fps, frame
+451 = 15.0333 s → 15033 ms — plays up to 0.5 ms EARLY in a Remotion export.
+The pass keeps the exact frame time (D6: the camera file is the reference).
+Both predictions hold on the plain Remotion export of the fade seed
+(`…cut-fade_2026-09-06T20-54-59.mp4`) against the camera file: clip A (no
+fade-in) 0 ms at 0.5/7/13.5 s, clip B **−0.3 ms (−16 samples) at 14.5/15.2/
+16/22/29 s**; level 0.9954–0.9995 on A and **0.5027–0.5044 on B's flat part**
+(0.505 × the AAC round trip; slice 1's plain gain-0.5 clip read 0.4992–
+0.4997). So the gate below reads the pass at 0 ms against the camera on both
+clips and at +0.3 ms against the Remotion export on clip B — the Remotion
+defect, not the pass's. The crossfade reference (`…cut-xfade_2026-09-06T21-
+05-38.mp4`) reads the same: A 0 ms, B (first audible frame 436 = 14.533 s)
+−0.3 ms at 14.5/15.2/16/22/29 s, and inside the window the two equal-power
+halves of the same file add up to 1.03–1.29 of the camera level in 100 ms
+windows (energy adds: two different moments of one recording).
+
+**Widening 4 — fades.** `copyBlocker` no longer returns `fade` (the picture
+never fades: `transformStyle`/`transitionOpacity` do not read it), so a faded
+clip's span is copied. `planExportAudio` (rewritten on the serialization)
+gives a curved clip one source segment per run of audible frames, starting
+at that run's source position, with `volumes` = the composition's per-frame
+values; `audioPassArgs` turns it into `remotionVolumeExpression` (the
+construction above, tested string-for-string) and `eval=frame`. Unit tests:
+the T1 fade seed's plan (A's 15-frame ramp, B one frame late at source
+451/30 with 0.5/30 … 0.5 … 0.5/60), the fade-out curve values, the one-frame
+silence before a faded-in audio clip, the expression's rounding / padding /
+windows / ordering, the graph line, fps required. Live pin
+(`VIDTSX_LIVE_FFMPEG=1`): a 1 s fade-in at gain 0.5 through the pass versus
+Remotion's preprocess chain run verbatim on the same file — **best lag 0
+over ±2 samples, corr > 0.9999, level within 0.2 % in 100 ms windows inside
+and after the ramp**; the flat part 0.505 of the camera file, the first
+100 ms under 6 % of it.
+
+**Widening 5 — transitions.** The span planner takes each video track's
+clips from the serializer (the leading clip extended by its handle, the
+trailing one started early with the shifted `trimBefore`) and sends ONLY the
+transition window to the browser (`reason: 'transition'`; both clips paint
+there — the trailing one fading in over the leading one, or the dip to
+black); the pieces either side are copies whose source position continues
+exactly (a 1 s crossfade at 5 s: copy 0–135, browser 135–165, copy from 165
+at source frame 615). The audio planner puts two clips that sound at once on
+one track into two LANES, each its own chain, summed by the same `amix` — a
+crossfade is the cos curve on the leading clip's last 30 frames and the sin
+curve on the trailing clip's first 30 (its frame 0 silent, per finding 2).
+Unit tests: the crossfade and dip-to-black span plans, the two-lane audio
+plan with the equal-power values, overlapping clips on one track (no longer
+null: they sound together, as in the composition).
+
+**Gate — `t5-1080p-cut-fade` (the T1 cut with a 0.5 s fade-out on clip A
+and gain 0.5 + a 1 s fade-in + a 2 s fade-out on clip B), through the real
+dialog in verify mode; the dialog states "Copies 100 % of this timeline".**
+Verify mode shares the candidate's audio pass, so the audio was gated against
+the plain Remotion export of the same project (`…cut-fade_2026-09-06T20-54-59.mp4`)
+and against the camera file:
+
+| check | result |
+|---|---|
+| file | `studio-t5-1080p-cut-fade_2026-09-06T22-18-48.mp4`, 900 frames, `yuv420p tv bt709 bt709 bt709`, 30,283,517 B, "Copied 100 % of this timeline (2 of 2 spans)" |
+| `passthrough-video-hash` vs the Stage 2 cut export `…T08-27-39.mp4` | **H.264 stream byte-identical** (sha 5c39f15f…, 29,346,491 B) — a fade never touches the picture; the audio stream differs, as it must |
+| verify vs the Stage 1 Remotion engine at 1/300/449/450/451/600/899 | mean 2.16–2.51, **max 0.01 % over 24** (300, 450; 0 elsewhere), max 44 — the Stage 2 rows; audio vs reference 0 ms at 0.5/14.3/28.5 s, vs camera 0 ms |
+| `t1-diff` vs control 2 at the seven frames | **0 % over 24 at every frame**, mean 1.36–1.54, max 44 |
+| `t1-audio-offset` vs the plain Remotion export at 0.5/7/13.5/14.5/15.2/16/22/29 s | **0 ms** at 0.5/7/13.5 s (clip A, fade-out included at 14.2 s: corr 0.954 across the quiet ramp), **+0.3 ms (16 samples)** at 14.5/15.2/16/22/29 s and inside B's ramps at 15.1/28.3/28.9 s — Remotion's whole-ms `adelay` on the faded-in clip (finding 2); the same export reads −0.3 ms against the camera there |
+| `t1-audio-level` vs Remotion, 1 s windows | **1.000 at every window** (0.9998–1.0037, the 1.0037 at 16 s = the first second after the fade-in) |
+| `t1-audio-level` vs Remotion INSIDE the ramps, 100 ms windows: A's fade-out at 14.5/14.6/14.7/14.8/14.9 s; B's fade-in at 15.05/15.283/15.533/15.783/15.95 s (0 / ¼ / ½ / ¾ / end); B's fade-out at 28.0/28.5/29.0/29.5/29.9 s | **0.998–1.003 at thirteen of the fifteen windows**; 0.977 at 15.05 s and 0.982 at 15.783 s — the two near-silent windows of the recording (RMS 0.005 and 0.0017), where Remotion's 16-sample shift changes what falls inside a 100 ms window |
+| `t1-audio-offset` vs the camera file at the eight windows | **0 ms at every window**; corr 1.000 outside the ramps, 0.887–0.947 inside them (a ramp against a flat reference) |
+| `t1-audio-level` vs the camera file | 0.9954–0.9993 on A; **0.5046 / 0.5045 at 16 / 22 s** on B's flat part = 0.505 (Remotion's 1/97 rounding of gain 0.5) × the AAC round trip, the row the Remotion export reads (0.5027 / 0.5044); 0.109 / 0.382 / 0.172 at 14.5 / 15.2 / 29 s inside the ramps, equal to Remotion's 0.109 / 0.382 / 0.172 |
+| copied spans | 2 of 2, 900 frames; 26.7 min from click in verify mode (the reference render + diff; a first run 30 s after the app restart found no project cards and was rerun) |
+
+**Gate — `t5-1080p-cut-xfade` (the T1 cut with a 1 s crossfade at 15 s),
+through the real dialog in verify mode; the dialog states "Copies 97 % of
+this timeline" (870 of 900 frames — only the 30-frame window renders).** The
+plain Remotion export of the same project is `…cut-xfade_2026-09-06T21-05-38.mp4`:
+
+| check | result |
+|---|---|
+| file | `studio-t5-1080p-cut-xfade_2026-09-06T21-19-54.mp4`, 900 frames, `yuv420p tv bt709 bt709 bt709`, 30,498,448 B, 3 spans (copy 0–435, browser 435–465, copy 465–900), "Mixed 2 audio chains in the one pass" (the two lanes) |
+| verify vs the Stage 1 Remotion engine at 1/300/449/450/451/600/899 | copied frames mean 2.16–2.51, **max 0.01 % over 24** (300), max 42 — the Stage 2 rows; the three frames INSIDE the crossfade window (browser-rendered, both clips blended) mean 0.99–1.04, **0 % over 24**, max 40; audio vs reference 0 ms at 0.5/14.3/28.5 s, vs camera 0 ms |
+| `t1-diff` vs control 2 at 1/300/434/465/600/899 (the copied frames either side of the window) | **0 % over 24** at 1/300/434/600/899, 0.01 % at 465 (the first copied frame after the window: nearest, same file open — a wrong frame reads 0.5 %), mean 1.36–1.55, max 44 |
+| `t1-audio-offset` vs the plain Remotion export at the eight windows | **0 ms** at 0.5/7/13.5 s (clip A), **+0.3 ms (16 samples)** at 14.5/15.2/16/22/29 s (clip B: Remotion's whole-ms `adelay`, finding 2 — the Remotion export reads −0.3 ms against the camera at the same windows, the pass 0 ms) |
+| `t1-audio-level` vs Remotion, 1 s windows | **1.000** at 0.5/7/13.5/16/22/29 s (0.9998–1.0033); 1.15 and 1.06 at 14.5 and 15.2 s (inside the window — next row) |
+| inside the crossfade, `t1-audio-gain-curve` at 20 ms steps (both clips are the SAME recording at the same instant here, so the export ÷ camera ratio is the applied curve) | the pass reads the composition's coherent sum cos + sin — 1.07 at 14.56 s, **1.417 at 15.00 s**, 1.00 at 15.52 s — within 0.02 of a model built from the camera file and the two 1/97-rounded curves at every step; the Remotion export reads 1.06 → 1.33 → 1.07/0.98 (a notch at 15.08–15.12 s) → a 1.16 plateau → 0.98 — within 0.01 of the SAME model with the trailing clip 16 samples early at every step, notch and plateau included. So inside a crossfade of one file with itself Remotion's ms placement comb-filters the sum (first notch 1.5 kHz); with two different sources the sum is incoherent and level-neutral. The pass keeps the frame-exact sum the preview plays |
+| `t1-audio-offset` vs the camera file at the eight windows | **0 ms at every window**, corr 1.000 outside the window, 0.999/0.991 at 14.5/15.2 s |
+| wall | 42 min from click, of which the two-clip Remotion reference render + diff was most (the copied spans themselves as on `t5-1080p-cut`) |
+
+**Stage 2 + slice 1 + slice 2 gates re-run on the widened planners — nothing moved:**
+
+| project | file | vs the earlier export | wall |
+|---|---|---|---|
+| `t5-1080p` | `studio-t5-1080p_2026-09-06T22-01-13.mp4` | **video AND audio streams byte-identical** to `…T08-16-28.mp4` (5b327678… / d3434a40…) | 4.8 min from click as the driver measures it (its waits included) |
+| `t5-1080p-cut` | `studio-t5-1080p-cut_2026-09-06T22-06-09.mp4` | **video AND audio byte-identical** to `…T08-27-39.mp4` (5c39f15f… / d3434a40…) | 2.9 min |
+| `t5-1080p-cut-gain` | `studio-t5-1080p-cut-gain_2026-09-06T22-09-13.mp4` | **video AND audio byte-identical** to `…T15-50-36.mp4` (5c39f15f… / dfa537ec…) | 2.9 min |
+| `t5-1080p-cut-music` | `studio-t5-1080p-cut-music_2026-09-06T22-12-17.mp4` | **video AND audio byte-identical** to `…T17-15-09.mp4` (5c39f15f… / e18e0a4b…) | 2.8 min |
+| `t5-1080p-cut-stack` | `studio-t5-1080p-cut-stack_2026-09-06T22-15-42.mp4` | **video AND audio byte-identical** to `…T17-49-06.mp4` (5c39f15f… / d3434a40…) | 3.1 min |
+
+Gates: check:types 26/22 (baseline), vitest 1,419 green (+4 files' worth: 49
+in the planner + builder files; a first full run had two failures that did not
+reproduce on the rerun, as in slice 1), live ffmpeg tests 7 (+1). Reports +
+stills beside the exports, the driver logs under `.vidtsx-temp/bench/stage3/`
+(`*-slice3*`, `fade-*`, `xfade-*`, `speed-*`, `*-pt3`); seeds
+`t5-1080p-cut-fade`, `t5-1080p-cut-xfade`, `t5-1080p-cut-speed` on disk. Two
+driver lessons: editing `src/shared` while a driver waits reloads the renderer
+and the driver never sees its completion event (the export itself finishes;
+kill the driver, do not re-export); and the first driver run right after a
+restart can find no project cards yet — run it again.
+
+**Not done, by design (next slice):** speed — the recipe is in finding 1
+(audio = Remotion's `aformat,atempo,atrim` chain verbatim, bit-identical
+across ffmpeg 7.1/8.1; picture = the nearest select with the clip's rate on
+the time line; `copyBlocker`'s source-end bound then needs `duration × rate`,
+and a crossfade handle on a sped clip consumes `rate` source frames per
+frame as the serializer already computes); the long-return question; then
+Stage 4 (progress copied vs rendered, cancel cleanup, the 10 GB finishing
+mux, merge nearby browser spans — the crossfade window is a 30-frame span
+that pays a full bundle + Chrome start, QSV/AMF unmeasured).
