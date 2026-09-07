@@ -49,6 +49,14 @@ const REGISTRY = [
     test: 'image',
   },
   {
+    id: 'byteplus',
+    name: 'BytePlus ModelArk',
+    keyHint: 'console.byteplus.com/ark → API keys — Seedance video, direct',
+    keyPlaceholder: 'ARK API key',
+    capabilities: ['video'],
+    test: 'video',
+  },
+  {
     id: 'openrouter',
     name: 'OpenRouter',
     keyHint: 'openrouter.ai/keys',

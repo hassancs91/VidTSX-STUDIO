@@ -1,6 +1,9 @@
 import { videoEngine, VIDEO_PROVIDER_PRESETS } from '../../video-engine';
+import type { VideoRegisterOptions } from '../../video-engine';
+import { FalStorageClient } from '../../shared/providers/fal';
 import { installVideoContentSafetyGuard } from './content-safety/install';
 import { getProviderCredentials } from './settings';
+import { getProviderVideoModels } from './provider-models';
 import { aiUsageService } from './ai-usage';
 import { saveVideoFromUrl, videoEntryFilePath } from './video-studio-save';
 import { logEngine } from '../../logging/log-engine';
@@ -36,7 +39,9 @@ function installFinishing(): void {
         model: usage.model,
         featureSource: usage.featureSource,
         inputTokens: 0,
-        outputTokens: 0,
+        // BytePlus bills video by tokens and reports them on the finished
+        // task; fal reports none, so the row stays at 0 there.
+        outputTokens: usage.outputTokens ?? 0,
         cacheReadInputTokens: 0,
         costUsd: usage.costUsd,
         durationMs: usage.durationMs,
@@ -49,13 +54,23 @@ function installFinishing(): void {
 /**
  * (Re-)register cloud video providers from the shared BYOK credentials. Safe
  * to call repeatedly — key saves call it so a new key takes effect at once,
- * and a removed key unregisters its provider.
+ * and a removed key unregisters its provider. Model lists come from the
+ * editable provider catalogs (AI page → Providers → Model Catalogs), so a
+ * catalog save re-registers with the new list.
  */
 export async function initVideoEngine(): Promise<void> {
   installVideoContentSafetyGuard();
   installFinishing();
   try {
     const credentials = await getProviderCredentials();
+    // ModelArk takes reference videos only as URLs, so a fal key doubles as
+    // the host that makes them usable there (plan §2.2). Without one, the
+    // BytePlus models report zero reference videos and the input is hidden.
+    const falKey = credentials.fal;
+    const options: VideoRegisterOptions = falKey
+      ? { mediaUploader: new FalStorageClient({ apiKey: falKey }) }
+      : {};
+
     for (const preset of VIDEO_PROVIDER_PRESETS) {
       const apiKey = credentials[preset.credentialId];
       if (!apiKey) {
@@ -63,7 +78,10 @@ export async function initVideoEngine(): Promise<void> {
         continue;
       }
       try {
-        videoEngine.register({ ...preset, apiKey, enabled: true });
+        videoEngine.register(
+          { ...preset, apiKey, enabled: true, models: await getProviderVideoModels(preset.id) },
+          options,
+        );
       } catch (err) {
         log.warn(`Failed to register provider "${preset.id}"`, {
           error: err instanceof Error ? err.message : String(err),

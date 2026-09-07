@@ -37,6 +37,7 @@ describe('provider registry', () => {
     // diverge, one of these two assignments stops type-checking.
     const fromUnion: Record<ProviderKeyId, true> = {
       fal: true,
+      byteplus: true,
       openrouter: true,
       cloudflare: true,
       assemblyai: true,
@@ -50,7 +51,7 @@ describe('provider registry', () => {
     expect(fromRuntime).toEqual(fromUnion);
     // Runtime half: the guard agrees with the array.
     for (const id of PROVIDER_KEY_IDS) expect(isProviderKeyId(id)).toBe(true);
-    expect(isProviderKeyId('byteplus')).toBe(false);
+    expect(isProviderKeyId('not-a-provider')).toBe(false);
   });
 
   it('every engine preset credentialId exists in the registry', () => {

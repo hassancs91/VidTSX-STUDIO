@@ -1,16 +1,19 @@
 /**
- * Single source of truth for cloud video generation models (fal.ai queue API).
- * Mirrors the image (image-models.ts) and STT (stt-models.ts) catalogs so every
- * tool — the Flows "Generate Video" node today, the Videos panel later — reads
- * model ids, names, endpoints, and the per-model duration / aspect-ratio
- * constraints from one place.
+ * Single source of truth for cloud video generation models. Mirrors the image
+ * (image-models.ts) and STT (stt-models.ts) catalogs so every tool — the Flows
+ * "Generate Video" node, the Videos panel later — reads model ids, names,
+ * endpoints and the per-model duration / aspect-ratio / reference constraints
+ * from one place.
  *
- * Endpoints live on fal.ai; verify each slug + schema on
- * https://fal.ai/models/{slug}/api when adding or upgrading a model. The
- * request-body *dialect* (duration as "5" vs "8s", resolution fields, frame
- * image key names) is named per entry and implemented once per family in
- * src/video-engine/dialects.ts — a new model in a known family is a catalog
- * entry, not new code.
+ * This file holds the *types and helpers*; the entries live in
+ * video-model-entries.ts and are re-exported here, and the editable
+ * per-provider default catalogs are composed from them in
+ * provider-model-defaults.ts.
+ *
+ * The request-body *dialect* (duration as "5" vs "8s", resolution fields,
+ * frame image key names, ModelArk's content array) is named per entry and
+ * implemented once per family in src/video-engine/dialects.ts — a new model in
+ * a known family is a catalog entry, not new code.
  */
 
 /**
@@ -18,23 +21,50 @@
  * schema version, not by model id: every slug in a family shares one builder.
  */
 export type VideoDialectId =
+  | 'fal-seedance-2'
   | 'fal-seedance-1'
   | 'fal-kling-2.5'
   | 'fal-veo-3'
   | 'fal-wan-2.5'
   | 'fal-hailuo-02'
-  | 'fal-generic';
+  | 'fal-generic'
+  | 'byteplus-seedance';
 
 export const VIDEO_DIALECT_IDS: readonly VideoDialectId[] = [
+  'fal-seedance-2',
   'fal-seedance-1',
   'fal-kling-2.5',
   'fal-veo-3',
   'fal-wan-2.5',
   'fal-hailuo-02',
   'fal-generic',
+  'byteplus-seedance',
 ];
 
+/** Short labels for the catalog card's dialect select. */
+export const VIDEO_DIALECT_LABELS: Record<VideoDialectId, string> = {
+  'fal-seedance-2': 'Seedance 2.x (fal)',
+  'fal-seedance-1': 'Seedance 1.x (fal)',
+  'fal-kling-2.5': 'Kling 2.5 (fal)',
+  'fal-veo-3': 'Veo 3.x (fal)',
+  'fal-wan-2.5': 'WAN 2.5 (fal)',
+  'fal-hailuo-02': 'Hailuo 02 (fal)',
+  'fal-generic': 'Generic (fal)',
+  'byteplus-seedance': 'Seedance (BytePlus ModelArk)',
+};
+
+export function isVideoDialectId(value: string): value is VideoDialectId {
+  return (VIDEO_DIALECT_IDS as readonly string[]).includes(value);
+}
+
 export type VideoResolution = '480p' | '720p' | '1080p' | '4k';
+
+/** Per-model reference-input limits (Seedance omni reference-to-video). */
+export interface VideoReferenceLimits {
+  images: number;
+  videos: number;
+  audios: number;
+}
 
 export interface VideoModelCatalogEntry {
   id: string;
@@ -44,16 +74,28 @@ export interface VideoModelCatalogEntry {
   tagline: string;
   /** Request-body dialect (src/video-engine/dialects.ts). */
   dialect: VideoDialectId;
-  /** fal endpoint for text-to-video. */
+  /**
+   * Text-to-video route. A fal endpoint slug; for direct-API providers
+   * (BytePlus) it is the provider-side model id.
+   */
   textToVideoEndpoint: string;
-  /** fal endpoint when a first-frame image is provided (image-to-video). */
+  /** Route used when a first-frame image is provided (image-to-video). */
   imageToVideoEndpoint?: string;
+  /** Route used when reference images / videos / audio are provided. */
+  referenceToVideoEndpoint?: string;
   /** Whether the model accepts a last/tail frame (image-to-video only). */
   supportsLastFrame: boolean;
   /** Whether the model can generate audio. */
   supportsAudio: boolean;
+  /** Whether the model accepts a seed. Absent = yes (the older families). */
+  supportsSeed?: boolean;
   /** Discrete durations (seconds) this model accepts. */
   allowedDurations: readonly number[];
+  /**
+   * Continuous duration range, for models that take any whole second in a
+   * span (Seedance 2.x). `allowedDurations` then only seeds legacy pickers.
+   */
+  durationRange?: { min: number; max: number; auto?: boolean };
   /** Aspect ratios this model accepts. */
   allowedAspectRatios: readonly string[];
   /**
@@ -62,91 +104,34 @@ export interface VideoModelCatalogEntry {
    * resolution field.
    */
   resolutions?: readonly VideoResolution[];
+  /** Reference-input limits; absent → the model has no reference route. */
+  references?: VideoReferenceLimits;
   /**
    * Estimated price per second of output video, for the usage dashboard's
-   * cost column only (× requested duration). Informational — fal is the
-   * billing authority; absent/unknown logs $0.
+   * cost column only (× requested duration). Informational — the provider is
+   * the billing authority; absent/unknown logs $0.
    */
   pricePerSecondUsd?: number;
 }
 
+export {
+  FAL_VIDEO_MODELS,
+  FAL_LEGACY_VIDEO_MODELS,
+  BYTEPLUS_VIDEO_MODELS,
+  VIDEO_MODEL_CATALOG,
+} from './video-model-entries';
+
+import { VIDEO_MODEL_CATALOG as KNOWN_VIDEO_MODELS } from './video-model-entries';
+
 export const VIDEO_MAX_PROMPT_CHARS = 4000;
 
-export const VIDEO_MODEL_CATALOG: readonly VideoModelCatalogEntry[] = [
-  {
-    id: 'kling-2.5-turbo-pro',
-    name: 'Kling 2.5 Turbo Pro',
-    tagline: '1080p, strong motion',
-    dialect: 'fal-kling-2.5',
-    textToVideoEndpoint: 'fal-ai/kling-video/v2.5-turbo/pro/text-to-video',
-    imageToVideoEndpoint: 'fal-ai/kling-video/v2.5-turbo/pro/image-to-video',
-    supportsLastFrame: true,
-    supportsAudio: false,
-    allowedDurations: [5, 10],
-    allowedAspectRatios: ['16:9', '9:16', '1:1'],
-    pricePerSecondUsd: 0.08,
-  },
-  {
-    id: 'veo-3-fast',
-    name: 'Veo 3 Fast',
-    tagline: '720p, with audio',
-    dialect: 'fal-veo-3',
-    textToVideoEndpoint: 'fal-ai/veo3/fast',
-    imageToVideoEndpoint: 'fal-ai/veo3/fast/image-to-video',
-    supportsLastFrame: false,
-    supportsAudio: true,
-    allowedDurations: [8],
-    allowedAspectRatios: ['16:9', '9:16'],
-    pricePerSecondUsd: 0.15,
-  },
-  {
-    id: 'wan-2.5',
-    name: 'WAN 2.5',
-    tagline: '1080p, with audio',
-    dialect: 'fal-wan-2.5',
-    textToVideoEndpoint: 'fal-ai/wan-25-preview/text-to-video',
-    imageToVideoEndpoint: 'fal-ai/wan-25-preview/image-to-video',
-    supportsLastFrame: false,
-    supportsAudio: true,
-    allowedDurations: [5, 10],
-    allowedAspectRatios: ['16:9', '9:16', '1:1'],
-    resolutions: ['720p'],
-  },
-  {
-    id: 'hailuo-02',
-    name: 'MiniMax Hailuo 02',
-    tagline: '768p, natural motion',
-    dialect: 'fal-hailuo-02',
-    textToVideoEndpoint: 'fal-ai/minimax/hailuo-02/standard/text-to-video',
-    imageToVideoEndpoint: 'fal-ai/minimax/hailuo-02/standard/image-to-video',
-    supportsLastFrame: false,
-    supportsAudio: false,
-    allowedDurations: [6, 10],
-    allowedAspectRatios: ['16:9'],
-    pricePerSecondUsd: 0.045,
-  },
-  {
-    id: 'seedance-1-lite',
-    name: 'Seedance 1.0 Lite',
-    tagline: '720p, fast + cheap',
-    dialect: 'fal-seedance-1',
-    textToVideoEndpoint: 'fal-ai/bytedance/seedance/v1/lite/text-to-video',
-    imageToVideoEndpoint: 'fal-ai/bytedance/seedance/v1/lite/image-to-video',
-    supportsLastFrame: true,
-    supportsAudio: false,
-    allowedDurations: [5, 10],
-    allowedAspectRatios: ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'],
-    resolutions: ['720p'],
-    pricePerSecondUsd: 0.03,
-  },
-];
-
 export const DEFAULT_VIDEO_MODEL = 'kling-2.5-turbo-pro' as const;
+export const DEFAULT_BYTEPLUS_VIDEO_MODEL = 'dreamina-seedance-2-5-260628' as const;
 export const DEFAULT_VIDEO_ASPECT_RATIO = '16:9' as const;
 export const DEFAULT_VIDEO_DURATION = 5 as const;
 
 export function getVideoModel(id: string): VideoModelCatalogEntry | undefined {
-  return VIDEO_MODEL_CATALOG.find((m) => m.id === id);
+  return KNOWN_VIDEO_MODELS.find((m) => m.id === id);
 }
 
 /**
@@ -179,7 +164,11 @@ export function pickAllowedAspect(allowed: readonly string[], raw: string): stri
 
 /** Clamp a duration to one the model accepts (see closestAllowedDuration). */
 export function coerceVideoDuration(modelId: string, raw: number): number {
-  return closestAllowedDuration(coerceVideoModel(modelId).allowedDurations, raw);
+  const model = coerceVideoModel(modelId);
+  if (model.durationRange) {
+    return Math.min(model.durationRange.max, Math.max(model.durationRange.min, Math.round(raw)));
+  }
+  return closestAllowedDuration(model.allowedDurations, raw);
 }
 
 /** Clamp an aspect ratio to one the model accepts, falling back to its first. */

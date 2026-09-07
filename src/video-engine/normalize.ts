@@ -17,6 +17,8 @@ export interface ResolvedMedia {
   firstFrame?: ProviderMediaInput;
   lastFrame?: ProviderMediaInput;
   referenceImages: ProviderMediaInput[];
+  referenceVideos: ProviderMediaInput[];
+  referenceAudios: ProviderMediaInput[];
 }
 
 function normalizeDuration(model: VideoModelInfo, raw: number | undefined): number {
@@ -40,14 +42,23 @@ function normalizeResolution(
  * submitVideoJob applied before the engine existed: nearest duration, allowed
  * aspect (16:9 fallback), audio only where supported, a last frame only with
  * a first frame on a model that takes one, frames only where the model has an
- * image-to-video route.
+ * image-to-video route, and no more reference inputs of each kind than the
+ * model takes (extras are dropped rather than failing the whole job).
  */
 export function normalizeVideoRequest(
   model: VideoModelInfo,
   request: VideoGenerationRequest,
   media: ResolvedMedia,
 ): VideoProviderRequest {
-  const firstFrame = model.supports.firstFrame ? media.firstFrame : undefined;
+  const limits = model.supports.references;
+  const referenceImages = limits ? media.referenceImages.slice(0, limits.images) : [];
+  const referenceVideos = limits ? media.referenceVideos.slice(0, limits.videos) : [];
+  const referenceAudios = limits ? media.referenceAudios.slice(0, limits.audios) : [];
+  const usingReferences =
+    referenceImages.length > 0 || referenceVideos.length > 0 || referenceAudios.length > 0;
+  // The reference route and the frame route are mutually exclusive on both
+  // providers, so references win and the frames are dropped.
+  const firstFrame = model.supports.firstFrame && !usingReferences ? media.firstFrame : undefined;
   const lastFrame = firstFrame && model.supports.lastFrame ? media.lastFrame : undefined;
   const resolution = normalizeResolution(model, request.resolution);
   const seed =
@@ -62,7 +73,9 @@ export function normalizeVideoRequest(
     ...(seed !== undefined ? { seed } : {}),
     ...(firstFrame ? { firstFrame } : {}),
     ...(lastFrame ? { lastFrame } : {}),
-    ...(media.referenceImages.length ? { referenceImages: media.referenceImages } : {}),
+    ...(referenceImages.length ? { referenceImages } : {}),
+    ...(referenceVideos.length ? { referenceVideos } : {}),
+    ...(referenceAudios.length ? { referenceAudios } : {}),
     ...(request.signal ? { signal: request.signal } : {}),
   };
 }
@@ -82,6 +95,11 @@ export function summarizeRequest(
     ...(normalized.seed !== undefined ? { seed: normalized.seed } : {}),
     hasFirstFrame: Boolean(normalized.firstFrame),
     hasLastFrame: Boolean(normalized.lastFrame),
+    referenceCounts: {
+      images: normalized.referenceImages?.length ?? 0,
+      videos: normalized.referenceVideos?.length ?? 0,
+      audios: normalized.referenceAudios?.length ?? 0,
+    },
     ...(folderId !== undefined ? { folderId } : {}),
   };
 }

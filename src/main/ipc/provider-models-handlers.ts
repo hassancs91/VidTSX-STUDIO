@@ -12,9 +12,15 @@ import {
   resetProviderModels,
 } from '../services/provider-models';
 import { initImageEngine } from '../services/image-init';
+import { initVideoEngine } from '../services/video-init';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('ProviderModels');
+
+async function reregister(category: ProviderModelsSaveRequest['category']): Promise<void> {
+  if (category === 'video') await initVideoEngine();
+  else await initImageEngine();
+}
 
 export async function handleProviderModelsGet(): Promise<ProviderModelsGetResponse> {
   try {
@@ -34,8 +40,9 @@ export async function handleProviderModelsSave(
 ): Promise<ProviderModelsSaveResponse> {
   try {
     await saveProviderModels(req.providerId, req.category, req.models);
-    // Re-register image providers so the new model list is live immediately.
-    await initImageEngine();
+    // Re-register the engine that serves this category, so the new list is
+    // live in every picker immediately.
+    await reregister(req.category);
     log.info('Catalog saved', { providerId: req.providerId, category: req.category, count: req.models.length });
     return { success: true, catalogs: await getProviderModelCatalogs() };
   } catch (err) {
@@ -53,7 +60,7 @@ export async function handleProviderModelsReset(
 ): Promise<ProviderModelsResetResponse> {
   try {
     await resetProviderModels(req.providerId, req.category);
-    await initImageEngine();
+    await reregister(req.category);
     log.info('Catalog reset to defaults', { providerId: req.providerId, category: req.category });
     return { success: true, catalogs: await getProviderModelCatalogs() };
   } catch (err) {

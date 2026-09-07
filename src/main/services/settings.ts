@@ -399,7 +399,12 @@ export async function setCloudflareAccountId(accountId: string): Promise<void> {
  */
 export type ProviderModelOverrides = Record<
   string,
-  Partial<Record<string, import('../../shared/presets/image-models').ImageModelCatalogEntry[]>>
+  Partial<
+    Record<
+      string,
+      import('../../shared/presets/provider-model-defaults').ProviderModelCatalogEntry[]
+    >
+  >
 >;
 
 export async function getProviderModelOverrides(): Promise<ProviderModelOverrides> {

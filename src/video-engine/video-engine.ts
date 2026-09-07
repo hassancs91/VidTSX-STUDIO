@@ -13,10 +13,12 @@ import type {
   VideoUsageLogger,
 } from './types';
 import { FalVideoProvider } from './providers/fal-video-provider';
+import { BytePlusVideoProvider } from './providers/byteplus-video-provider';
+import type { VideoMediaUploader } from './providers/byteplus-video-provider';
 import { VideoJobTracker } from './job-tracker';
 import type { VideoJobTrackerOptions } from './job-tracker';
-import { normalizeVideoRequest, summarizeRequest } from './normalize';
-import { resolveMediaInput } from './media-input';
+import { summarizeRequest } from './normalize';
+import { prepareInputMedia } from './input-media-gate';
 import { VIDEO_MAX_PROMPT_CHARS } from '../shared/presets/video-models';
 import { checkGenerationPrompt } from '../moderation-engine/generation-gate';
 import { ModerationBlockedError } from '../shared/content-safety';
@@ -31,6 +33,11 @@ const DEFAULT_TRACKER_OPTIONS: VideoJobTrackerOptions = {
 };
 
 const TERMINAL = new Set<VideoJobRecord['status']>(['completed', 'failed', 'cancelled']);
+
+export interface VideoRegisterOptions {
+  /** Host for reference media a provider cannot take inline (BytePlus video). */
+  mediaUploader?: VideoMediaUploader;
+}
 
 class VideoEngine {
   private providers = new Map<VideoProviderId, VideoProvider>();
@@ -61,12 +68,20 @@ class VideoEngine {
     this.usageLogger = logger;
   }
 
-  register(config: VideoProviderConfig): void {
+  register(config: VideoProviderConfig, options: VideoRegisterOptions = {}): void {
     if (!config.enabled) return;
     if (!config.apiKey) throw new Error(`API key required for video provider "${config.id}"`);
     let provider: VideoProvider;
     if (config.type === 'fal') {
       provider = new FalVideoProvider(config.id, config.apiKey, config.defaultModel, config.models);
+    } else if (config.type === 'byteplus') {
+      provider = new BytePlusVideoProvider(
+        config.id,
+        config.apiKey,
+        config.defaultModel,
+        config.models,
+        options.mediaUploader ? { mediaUploader: options.mediaUploader } : {},
+      );
     } else {
       throw new Error(`Unknown video provider type: ${String(config.type)}`);
     }
@@ -198,16 +213,7 @@ class VideoEngine {
     const model = models.find((m) => m.id === request.model) ?? models[0];
     if (!model) throw new Error(`Video provider "${provider.id}" has no models.`);
 
-    const normalized = normalizeVideoRequest(model, request, {
-      ...(request.firstFrame ? { firstFrame: await resolveMediaInput(request.firstFrame) } : {}),
-      ...(request.lastFrame ? { lastFrame: await resolveMediaInput(request.lastFrame) } : {}),
-      referenceImages: await Promise.all((request.references?.images ?? []).map(resolveMediaInput)),
-    });
-
-    // Gate B on inputs — also keeps NSFW source images off cloud APIs.
-    for (const image of [normalized.firstFrame, normalized.lastFrame, ...(normalized.referenceImages ?? [])]) {
-      if (image) await guard.checkImage(image, 'input');
-    }
+    const normalized = await prepareInputMedia({ model, request, guard, provider });
 
     const { providerJobId } = await provider.submit(normalized);
     const now = Date.now();
@@ -228,7 +234,7 @@ class VideoEngine {
   /** Download → sampled-frame Gate B → Video Studio, then the usage log. */
   private async finishJob(
     record: VideoJobRecord,
-    completed: { url: string; contentType?: string },
+    completed: { url: string; contentType?: string; usage?: { completionTokens?: number } },
   ): Promise<VideoJobResult> {
     const store = this.clipStore;
     if (!store) throw new Error('Content Safety is not initialized, so the clip is blocked (fail-closed).');
@@ -247,8 +253,13 @@ class VideoEngine {
       providerId: record.providerId,
       model: record.request.model,
       featureSource: record.featureSource,
+      // The catalog's per-second estimate is the only cost figure fal gives;
+      // BytePlus bills on the tokens it reports, which ride along untouched.
       costUsd: (model?.pricePerSecondUsd ?? 0) * record.request.durationSeconds,
       durationMs: Date.now() - record.submittedAt,
+      ...(completed.usage?.completionTokens !== undefined
+        ? { outputTokens: completed.usage.completionTokens }
+        : {}),
     });
     return result;
   }

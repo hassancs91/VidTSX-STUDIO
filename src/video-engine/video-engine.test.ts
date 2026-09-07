@@ -275,3 +275,103 @@ describe('videoEngine job tracker', () => {
     expect(harness.cancel).toHaveBeenCalled();
   });
 });
+
+describe('reference media', () => {
+  const REFERENCE_MODEL: VideoModelInfo = {
+    ...MODEL,
+    supports: {
+      audio: false,
+      firstFrame: true,
+      lastFrame: true,
+      references: { images: 2, videos: 1, audios: 1 },
+    },
+  };
+
+  function referenceHarness() {
+    const order: string[] = [];
+    const harness = stubProvider([{ status: 'completed', url: 'https://cdn/clip.mp4' }], order);
+    const uploaded: Array<{ kind: string; value: string }> = [];
+    harness.provider.getSupportedModels = () => [REFERENCE_MODEL];
+    harness.provider.uploadMedia = vi.fn(async (input, kind) => {
+      order.push(`upload:${kind}`);
+      uploaded.push({ kind, value: input.value });
+      return { kind: 'url' as const, value: `https://cdn/${kind}.bin` };
+    });
+    return { harness, order, uploaded };
+  }
+
+  it('gates a reference video before it is uploaded, and uploads before submit', async () => {
+    const { harness, order } = referenceHarness();
+    const guard = passingGuard(order);
+    guard.checkVideo = vi.fn(async () => {
+      order.push('gateB-video');
+    });
+    const { engine } = engineWith(harness, guard);
+
+    await engine.submit({
+      model: 'm1',
+      prompt: 'ok',
+      references: {
+        images: [{ kind: 'base64', value: PNG }],
+        videos: [{ kind: 'base64', value: 'AAAA' }],
+        audios: [{ kind: 'base64', value: 'BBBB' }],
+      },
+    });
+
+    expect(order).toEqual(['gateB', 'gateB-video', 'upload:video', 'upload:audio', 'provider.submit']);
+    const sent = harness.submit.mock.calls[0][0];
+    expect(sent.referenceVideos).toEqual([{ kind: 'url', value: 'https://cdn/video.bin' }]);
+    expect(sent.referenceAudios).toEqual([{ kind: 'url', value: 'https://cdn/audio.bin' }]);
+    expect(sent.firstFrame).toBeUndefined();
+  });
+
+  it('refuses a reference video when no sampler is installed (fail-closed)', async () => {
+    const { harness } = referenceHarness();
+    const { engine } = engineWith(harness, passingGuard());
+    await expect(
+      engine.submit({
+        model: 'm1',
+        prompt: 'ok',
+        references: { videos: [{ kind: 'base64', value: 'AAAA' }] },
+      }),
+    ).rejects.toThrow(/blocked \(fail-closed\)/);
+    expect(harness.submit).not.toHaveBeenCalled();
+  });
+
+  it('drops references past the model limits and records the counts', async () => {
+    const { harness, order } = referenceHarness();
+    const guard = passingGuard(order);
+    guard.checkVideo = vi.fn(async () => undefined);
+    const { engine } = engineWith(harness, guard);
+
+    const record = await engine.submit({
+      model: 'm1',
+      prompt: 'ok',
+      references: {
+        images: [
+          { kind: 'base64', value: PNG },
+          { kind: 'base64', value: PNG },
+          { kind: 'base64', value: PNG },
+        ],
+      },
+    });
+
+    expect(harness.submit.mock.calls[0][0].referenceImages).toHaveLength(2);
+    expect(record.request.referenceCounts).toEqual({ images: 2, videos: 0, audios: 0 });
+  });
+
+  it('logs the provider token count on the usage entry when one is reported', async () => {
+    const order: string[] = [];
+    const harness = stubProvider(
+      [{ status: 'completed', url: 'https://cdn/clip.mp4', usage: { completionTokens: 12345 } }],
+      order,
+    );
+    const { engine } = engineWith(harness);
+    const usage = vi.fn();
+    engine.setUsageLogger(usage);
+
+    await engine.generateAndWait({ model: 'm1', prompt: 'ok' });
+
+    expect(usage).toHaveBeenCalledWith(expect.objectContaining({ outputTokens: 12345 }));
+  });
+});

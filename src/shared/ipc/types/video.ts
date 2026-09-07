@@ -8,6 +8,13 @@ import type { ContentSafetyBlockInfo } from '../../content-safety/types';
 import type { AiFeatureSource } from '../../types/ai-usage';
 import type { VideoStudioEntry } from './video-studio';
 
+/** Reference media a caller passes: base64 bytes, a local path, or a URL. */
+export interface VideoMediaInputIpc {
+  kind: 'base64' | 'path' | 'url';
+  value: string;
+  contentType?: string;
+}
+
 export interface VideoGenerateRequest {
   prompt: string;
   /** Catalog model id from @shared/presets/video-models. */
@@ -25,6 +32,72 @@ export interface VideoGenerateRequest {
   folderId?: string | null;
   /** Usage-log attribution; defaults to 'flows'. */
   featureSource?: AiFeatureSource;
+  /** Output resolution, where the model has one. */
+  resolution?: string;
+  /**
+   * Seedance omni references. Images may be base64; videos and audio are
+   * uploaded by the provider first, so a path or URL is cheapest.
+   */
+  references?: {
+    images?: VideoMediaInputIpc[];
+    videos?: VideoMediaInputIpc[];
+    audios?: VideoMediaInputIpc[];
+  };
+}
+
+export interface VideoProviderInfo {
+  id: string;
+  name: string;
+  /** True when this provider is the engine's current default. */
+  isActive: boolean;
+}
+
+/** Capability view of one model, so pickers narrow themselves. */
+export interface VideoModelInfoIpc {
+  id: string;
+  name: string;
+  tagline?: string;
+  durations:
+    | { kind: 'discrete'; values: number[] }
+    | { kind: 'range'; min: number; max: number; auto?: boolean };
+  aspectRatios: string[];
+  resolutions?: string[];
+  supports: {
+    audio: boolean;
+    firstFrame: boolean;
+    lastFrame: boolean;
+    references?: { images: number; videos: number; audios: number };
+  };
+  pricePerSecondUsd?: number;
+}
+
+export interface VideoProvidersGetResponse {
+  success: boolean;
+  providers: VideoProviderInfo[];
+  activeProvider: string | null;
+  error?: string;
+}
+
+export interface VideoModelsGetRequest {
+  providerId?: string;
+}
+
+export interface VideoModelsGetResponse {
+  success: boolean;
+  models: VideoModelInfoIpc[];
+  error?: string;
+}
+
+/** Providers-page "Test": proves the key works and generates nothing. */
+export interface VideoProviderTestRequest {
+  providerId: string;
+  apiKey?: string;
+}
+
+export interface VideoProviderTestResponse {
+  success: boolean;
+  durationMs?: number;
+  error?: string;
 }
 
 export type VideoGenerateResponse =

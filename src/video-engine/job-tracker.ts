@@ -7,6 +7,7 @@ import type {
   VideoJobResult,
   VideoJobStatus,
   VideoProvider,
+  VideoProviderUsage,
 } from './types';
 
 const log = logEngine.createLogger('VideoJobs');
@@ -23,7 +24,7 @@ export interface VideoJobTrackerOptions {
 /** Finishing step run once the provider reports a clip: download → gate → file. */
 export type VideoJobFinisher = (
   record: VideoJobRecord,
-  completed: { url: string; contentType?: string },
+  completed: { url: string; contentType?: string; usage?: VideoProviderUsage },
 ) => Promise<VideoJobResult>;
 
 const TERMINAL: ReadonlySet<VideoJobStatus> = new Set(['completed', 'failed', 'cancelled']);

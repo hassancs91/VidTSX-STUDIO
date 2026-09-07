@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ProviderKeyId } from '@shared/ipc/types';
+import { PROVIDER_KEY_IDS } from '@shared/providers/registry';
 
 export interface ProviderKeysState {
   hasKeys: Record<ProviderKeyId, boolean>;
@@ -11,7 +12,12 @@ export interface ProviderKeysState {
 }
 
 const INITIAL: ProviderKeysState = {
-  hasKeys: { fal: false, openrouter: false, assemblyai: false, elevenlabs: false, zai: false, cloudflare: false },
+  // One entry per registry provider; the type is keyed by ProviderKeyId, so a
+  // new provider is a compile error here until it is listed.
+  hasKeys: Object.fromEntries(PROVIDER_KEY_IDS.map((id) => [id, false])) as Record<
+    ProviderKeyId,
+    boolean
+  >,
   cloudflareAccountId: '',
   loading: true,
   saving: false,

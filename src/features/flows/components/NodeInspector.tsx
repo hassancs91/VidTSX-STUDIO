@@ -6,6 +6,7 @@ import { NumberField } from './inspector-fields/NumberField';
 import { SelectField } from './inspector-fields/SelectField';
 import { ModelPickerField } from './inspector-fields/ModelPickerField';
 import { LlmModelPickerField } from './inspector-fields/LlmModelPickerField';
+import { VideoModelPickerField } from './inspector-fields/VideoModelPickerField';
 import { GalleryImagePickerField } from './inspector-fields/GalleryImagePickerField';
 import { ImageUploadField } from './inspector-fields/ImageUploadField';
 
@@ -106,6 +107,20 @@ function renderField(
       const providerId = config[providerKeyKey];
       return (
         <LlmModelPickerField
+          label={field.label}
+          providerId={typeof providerId === 'string' ? providerId : ''}
+          model={typeof value === 'string' ? value : ''}
+          onChange={(nextProviderId, nextModel) =>
+            patch({ [providerKeyKey]: nextProviderId, [field.key]: nextModel })
+          }
+        />
+      );
+    }
+    case 'video-model-picker': {
+      const providerKeyKey = field.providerKeyKey ?? 'providerId';
+      const providerId = config[providerKeyKey];
+      return (
+        <VideoModelPickerField
           label={field.label}
           providerId={typeof providerId === 'string' ? providerId : ''}
           model={typeof value === 'string' ? value : ''}

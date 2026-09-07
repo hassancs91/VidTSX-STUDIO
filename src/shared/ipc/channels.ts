@@ -83,6 +83,9 @@ export const IPC = {
   VIDEO_GET_JOB: 'video:get-job',
   VIDEO_CANCEL: 'video:cancel',
   VIDEO_JOB_PROGRESS: 'video:job-progress',
+  VIDEO_PROVIDERS_GET: 'video:providers:get',
+  VIDEO_MODELS_GET: 'video:models:get',
+  VIDEO_PROVIDER_TEST: 'video:provider:test',
 
   // Provider-agnostic transcription (local whisper / AssemblyAI / OpenRouter)
   STT_TRANSCRIBE_RUN: 'stt:transcribe:run',

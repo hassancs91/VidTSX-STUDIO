@@ -85,6 +85,23 @@ export function ApiKeysSection() {
     setLlmDirty(true);
   };
 
+  /** Video keys prove themselves by listing tasks — no generation, no spend. */
+  const testVideoProvider = async (id: ProviderKeyId) => {
+    setImageTests((prev) => ({ ...prev, [id]: { testing: true } }));
+    try {
+      const result = await window.api.videoProviderTest({
+        providerId: id,
+        apiKey: drafts[id]?.trim() || undefined,
+      });
+      setImageTests((prev) => ({
+        ...prev,
+        [id]: { testing: false, success: result.success, durationMs: result.durationMs, error: result.error },
+      }));
+    } catch {
+      setImageTests((prev) => ({ ...prev, [id]: { testing: false, success: false, error: 'Test request failed' } }));
+    }
+  };
+
   const testImageProvider = async (id: ProviderKeyId) => {
     setImageTests((prev) => ({ ...prev, [id]: { testing: true } }));
     try {
@@ -155,12 +172,18 @@ export function ApiKeysSection() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {row.test === 'image' && (
+                  {(row.test === 'image' || row.test === 'video') && (
                     <button
-                      onClick={() => testImageProvider(row.id)}
+                      onClick={() =>
+                        row.test === 'video' ? testVideoProvider(row.id) : testImageProvider(row.id)
+                      }
                       disabled={test?.testing || (!saved && !drafts[row.id]?.trim()) || missingAccountId}
                       className="text-[10px] text-text-dim hover:text-text-secondary transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-default"
-                      title="Generates a tiny test image with this key"
+                      title={
+                        row.test === 'video'
+                          ? 'Checks this key against the video API — generates nothing'
+                          : 'Generates a tiny test image with this key'
+                      }
                       type="button"
                     >
                       {test?.testing ? (

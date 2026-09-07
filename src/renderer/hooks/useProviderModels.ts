@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ProviderModelCatalogIpc, ProviderModelsSaveResponse } from '@shared/ipc/types';
-import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
-import type { ProviderModelCategory } from '@shared/presets/provider-model-defaults';
+import type {
+  ProviderModelCatalogEntry,
+  ProviderModelCategory,
+} from '@shared/presets/provider-model-defaults';
 
 /**
  * Editable per-provider model catalogs (AI page → Providers → Model Catalogs).
- * Every save/reset re-registers the image providers in the main process, so
- * dependent pickers refresh via the image-providers-changed event.
+ * Every save/reset re-registers that category's providers in the main process,
+ * so dependent pickers refresh via the providers-changed events.
  */
 export function useProviderModels() {
   const [catalogs, setCatalogs] = useState<ProviderModelCatalogIpc[]>([]);
@@ -19,6 +21,7 @@ export function useProviderModels() {
       setCatalogs(res.catalogs);
       setError(null);
       window.dispatchEvent(new CustomEvent('vidtsx:image-providers-changed'));
+      window.dispatchEvent(new CustomEvent('vidtsx:video-providers-changed'));
     } else {
       setError(res.error ?? 'Failed to update model catalog');
     }
@@ -45,7 +48,7 @@ export function useProviderModels() {
   }, []);
 
   const save = useCallback(
-    async (providerId: string, category: ProviderModelCategory, models: ImageModelCatalogEntry[]) => {
+    async (providerId: string, category: ProviderModelCategory, models: ProviderModelCatalogEntry[]) => {
       setBusy(true);
       try {
         return applyResponse(await window.api.providerModelsSave({ providerId, category, models }));

@@ -174,6 +174,9 @@ export interface ElectronAPI {
   videoGenerate: (data: import('../../shared/ipc/types').VideoGenerateRequest) => Promise<import('../../shared/ipc/types').VideoGenerateResponse>;
   videoGetJob: (jobId: string) => Promise<import('../../shared/ipc/types').VideoJobResponse>;
   videoCancel: (data: import('../../shared/ipc/types').VideoCancelRequest) => Promise<import('../../shared/ipc/types').VideoCancelResponse>;
+  videoProvidersGet: () => Promise<import('../../shared/ipc/types').VideoProvidersGetResponse>;
+  videoModelsGet: (data?: import('../../shared/ipc/types').VideoModelsGetRequest) => Promise<import('../../shared/ipc/types').VideoModelsGetResponse>;
+  videoProviderTest: (data: import('../../shared/ipc/types').VideoProviderTestRequest) => Promise<import('../../shared/ipc/types').VideoProviderTestResponse>;
   onVideoJobProgress: (callback: (data: import('../../shared/ipc/types').VideoJobProgressEvent) => void) => () => void;
 
   // Provider-agnostic transcription

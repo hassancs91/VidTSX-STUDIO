@@ -7,6 +7,55 @@
 
 ---
 
+## 2026-09-07 — VIDEO PROVIDERS Stage 3 DONE: BytePlus ModelArk, editable video catalogs, reference-to-video
+
+Stage 3 of `docs/video-providers-plan.md`. Video generation now has a second
+provider and user-editable model catalogs, and Seedance omni references (image +
+video + audio) work end to end. Full log with what was verified how: the plan's
+§6 Stage 3 log.
+
+- **Schema pinned first** (the plan's §5 open items, now closed): the ModelArk
+  docs render client-side, so the reference was decoded out of the page's own
+  embedded document JSON. Base URL, bearer auth, create/get/delete task, the
+  `content` array with roles, the six statuses, `usage.completion_tokens`, and
+  the four model ids (`dreamina-seedance-2-5-260628`, `-2-0-260128`,
+  `-2-0-fast-260128`, `-2-0-mini-260615`). **Images and audio may be base64 data
+  URIs; video may not** — reference clips need a URL, so they go through fal
+  storage, and without a fal key the BytePlus models report zero reference
+  videos. Seedance 2.x takes no `seed`. On fal: the 2.5 / 2.0 / 2.0-fast slugs
+  and **Veo 3.1 Fast**, which takes the D3 slot the deprecated `fal-ai/veo3/fast`
+  held (the old entry stays in code so saved flows still resolve).
+- **New**: `shared/providers/byteplus/` (ModelArk client), `fal/fal-storage.ts`
+  (initiate + PUT, 90 MB cap), `byteplus-video-provider.ts`, and the
+  `fal-seedance-2` + `byteplus-seedance` dialects. Catalogs gained a **video**
+  category: stored rows keep id + name + dialect and everything else is
+  re-derived on load from a per-dialect capability template plus route
+  derivation, so a user-added slug can't carry stale capabilities and a known id
+  keeps its verified ones.
+- **The chokepoint moved to `input-media-gate.ts`** and runs in one order:
+  resolve → Gate B on every input image and the frame sampler on every reference
+  clip → **only then** upload what can't travel inline. A reference video with no
+  sampler is refused (fail-closed).
+- **Surfaces**: `byteplus` is one registry entry (key row, `[Video]` badge,
+  credential slot) with a Test button that lists tasks and spends nothing; the
+  Flows node's model select is now a provider+model picker fed by the engine, and
+  the node gained reference-image/video/audio inputs and a Resolution field.
+- **Gates**: `check:types` web 26 / node 22 (baseline); vitest 146 files / 1445
+  tests green (+26 this stage). **Live** 11/11 keyless checks over CDP, plus the
+  Providers page, both catalog cards and the Flows inspector driven for real.
+- **Live fal E2E PASSED**: Seedance 2.5 reference-to-video, 4 s at 480p with one
+  image, one video and one audio reference — gated, uploaded, generated in 374 s,
+  downloaded, sampled again, filed as one Video Studio entry (1.70 MB, local
+  `file://`, fal URL only as `sourceUrl`), usage row `fal / seedance-2.5 / flows /
+  $1.88`. The first attempt was refused by Gate B on a synthetic reference image
+  before any upload — the input gate working as designed.
+- **Open for Hasan**: **a BytePlus ModelArk key** (none on this machine, so the
+  BytePlus half of the acceptance is untested against the real API; activating
+  Seedance 2.x there also needs balance > $30, a Savings Plan at that tier, or a
+  resource pack). Also: cost estimates are per model, not per resolution, so the
+  $1.88 above over-states a 480p clip.
+- **Next**: Stage 4 — the Videos generation panel.
+
 ## 2026-09-07 — EXPORT ENGINES Stage 3 slice 4: speed in the one pass and the copied picture
 
 Stage 3 of `docs/export-engines-plan.md`, slice 4 (slice 3 = 6ee7087). The recipe slice 3

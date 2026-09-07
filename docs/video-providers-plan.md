@@ -414,3 +414,156 @@ Rough total: five sessions. Stages 1–2 are pure structure and can be reviewed 
   (`dialect: 'fal-veo-3'`, `resolutions: ['720p','1080p','4k']`, durations 4/6/8) —
   Hasan's call.
 - **Next:** Stage 3 (BytePlus provider + catalogs + reference uploads).
+
+### Stage 3 — BytePlus ModelArk provider, video catalogs, reference uploads (DONE 2026-09-07)
+
+**The first hour was the schema (§5, now closed).** The ModelArk doc pages render
+client-side, so `WebFetch` returns only the nav — the article is embedded in the
+page as a Quill delta inside `window._ROUTER_DATA`, and decoding that gives the
+real reference. What it pins:
+
+- **Endpoints** — `POST/GET/DELETE https://ark.ap-southeast.bytepluses.com/api/v3/contents/generations/tasks[/{id}]`,
+  `Authorization: Bearer <ARK_API_KEY>` (a plain key, so it fits the shared BYOK
+  store — D2's reason for choosing ModelArk over Volcengine holds). Statuses:
+  `queued | running | succeeded | failed | cancelled | expired`; the response
+  carries `content.video_url` (valid 24 h) and `usage.completion_tokens` (video
+  models bill on those, input tokens always 0). DELETE cancels a *queued* task
+  and deletes the record of a finished one; a running task cannot be cancelled.
+- **Body** — `model` + one `content` array of typed items, each with a `role`:
+  `{type:'text',text}`, `{type:'image_url',image_url:{url},role:'first_frame'|'last_frame'|'reference_image'}`,
+  `{type:'video_url',…,role:'reference_video'}`, `{type:'audio_url',…,role:'reference_audio'}`,
+  plus `resolution`, `ratio`, `duration` (whole seconds or `-1` = model picks),
+  `generate_audio`, `watermark`, `seed`, `camera_fixed`, `return_last_frame`.
+  First-frame / first-and-last-frame / omni-reference are **mutually exclusive**
+  by API rule, and frame images fix the ratio (`adaptive` is the only legal value).
+- **Base64 support (the open item)** — `image_url` accepts `data:image/<fmt>;base64,…`
+  (≤30 MB) and `audio_url` accepts `data:audio/<fmt>;base64,…` (≤15 MB), but
+  **`video_url` takes a URL or an `asset://` id only**. So the plan's fallback is
+  the real path: reference videos for BytePlus go through fal storage, and
+  without a fal key the BytePlus models report **zero** reference videos.
+- **Model ids** — `dreamina-seedance-2-5-260628`, `dreamina-seedance-2-0-260128`,
+  `dreamina-seedance-2-0-fast-260128`, `dreamina-seedance-2-0-mini-260615`.
+  2.5: duration 4–30 s (or −1), 480p/720p/1080p, refs 30 images / 10 videos /
+  10 audios. 2.0 series: 4–15 s, 480p/720p(/1080p/4k on the base model), refs
+  9/3/3. **Neither 2.x family takes a `seed`** (nor `camera_fixed`) — that is
+  1.x only, so the catalog entries carry `supportsSeed: false` and the dialect
+  omits it.
+- **fal** — `bytedance/seedance-2.5/{text,image,reference}-to-video` and the same
+  three for `seedance-2.0` and `seedance-2.0/fast`: one schema (`prompt`,
+  `duration` `auto|4..30`, `aspect_ratio` `auto|21:9|16:9|4:3|1:1|3:4|9:16`,
+  `resolution`, `generate_audio`, `bitrate_mode`; `image_url`/`end_image_url` on
+  the image route; `image_urls`/`video_urls`/`audio_urls` on the reference route,
+  addressed from the prompt as `@Image1` / `@Video1` / `@Audio1`). **Veo 3.1
+  Fast confirmed** (`fal-ai/veo3.1/fast` + `/image-to-video`, 4s/6s/8s,
+  720p/1080p/4k) and takes the D3 slot the deprecated `fal-ai/veo3/fast` held.
+- **fal storage** (the other §5 item) — `POST https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3`
+  with `Authorization: Key …` and `{content_type, file_name}` returns
+  `{upload_url, file_url}`; PUT the bytes to the signed URL (no auth) and pass
+  `file_url`. Single-request uploads only up to 90 MB (fal's own client switches
+  to multipart above that) — over it we refuse with a clear message.
+
+**What shipped**
+
+- **`src/shared/providers/byteplus/`** — typed ModelArk client (create / get /
+  delete / list tasks) with the ARK error code and message surfaced, mirroring
+  the fal client's shape. **`src/shared/providers/fal/fal-storage.ts`** — the
+  two-step upload above, used by both video providers.
+- **`byteplus-video-provider.ts`** + the **`byteplus-seedance` dialect**: the
+  dialect builds the `content` array and picks the task type from the inputs
+  (references win, then frames, else text); the provider only knows the task
+  protocol, maps the six statuses, and reports `usage.completion_tokens`. Its
+  `uploadMedia` hosts reference videos through fal storage when a fal key
+  exists, keeps audio inline as a data URI, and **without a host reports
+  `references.videos: 0`** so the capability never lies to a picker.
+- **`fal-seedance-2` dialect** for the 2.x family (one builder, three routes),
+  `fal-veo-3` gained the `resolution` field 3.1 added, and the fal provider
+  gained `uploadMedia` (reference video *and* audio go to fal storage).
+- **Catalogs are a category now**: `ProviderModelCategory = 'image' | 'video'`,
+  entries are a discriminated union, and `PROVIDER_MODEL_DEFAULTS.fal.video`
+  (D3's five, with Veo 3.1 Fast) and `.byteplus.video` (the four ModelArk ids)
+  replace the code-only list. Stored rows keep only **id + name + dialect**; the
+  rest is re-derived on load by `hydrateVideoEntry` from a **per-dialect
+  capability template** plus route derivation — a slug that names a route
+  (`…/seedance-2.5/text-to-video`) yields its siblings, one that does not
+  (`fal-ai/veo3.1/fast`) gets `/image-to-video` appended, and a ModelArk id
+  serves all three. So a user-added model can never carry stale hand-written
+  capabilities, and a known id keeps its verified ones.
+- **Reference media end-to-end**: the request type, the IPC, the engine and the
+  Flows node all carry `references.{images,videos,audios}`; the normalizer clamps
+  each list to the model's limits and drops the frame route when references are
+  present (the APIs forbid mixing). The chokepoint moved into
+  `input-media-gate.ts` and runs in one order — resolve → **Gate B on every
+  image, and the frame sampler on every reference clip** → only then host what
+  cannot travel inline. A reference video with no sampler installed is refused
+  (fail-closed), and nothing is uploaded before it is gated.
+- **Surfaces**: `byteplus` is one registry entry, so its key row, `[Video]` badge
+  and `ProviderCredentials` slot all appear from that; its **Test** button calls
+  list-tasks and spends nothing. `videoProvidersGet` / `videoModelsGet` are new,
+  and the Flows node's model select is now a **`video-model-picker`** fed by the
+  engine (provider + model, with a Resolution field and the three reference
+  inputs added). A catalog save re-registers the engine for that category, so a
+  new model reaches every picker at once.
+- **Usage**: cost stays the catalog's per-second estimate × duration; when a
+  provider reports spend of its own (ModelArk tokens) it rides along as the usage
+  row's `outputTokens` rather than being converted into a guessed price.
+
+**Verified**
+
+- `check:types` web 26 / node 22 (both at baseline); vitest **146 files / 1445
+  tests green** (+70 since Stage 2's run, of which 26 are this stage: the two new
+  dialects across all three routes, route derivation and entry hydration, the
+  BytePlus provider's status mapping / task body / uploader-gated reference
+  limits, and the engine's reference gating order).
+- **Live, keyless (dev app over CDP), 11/11**: the engine serves the D3 five with
+  Veo 3.1 Fast and no `veo-3-fast`; Seedance 2.5 reports a 4–30 s *range*, audio,
+  and 30/10/10 references; both video catalogs exist and every row carries its
+  dialect; **adding `bytedance/seedance-2.5/fast/text-to-video` produced the two
+  sibling routes and the family's capabilities and reached the picker**, and
+  Reset restored the shipped five; a bad BytePlus key fails with ModelArk's own
+  message (`The API key format is incorrect`, plus its request id) — proof the
+  client, auth and error path are right without spending anything; Gate A still
+  refuses a blocked prompt over IPC before any provider lookup.
+- **Live UI**: the Providers page shows the **BytePlus ModelArk** row with the
+  `[Video]` badge, the `ARK API key` placeholder, the console hint and a Test
+  button; Model Catalogs shows **Fal · Video models** and **BytePlus · Video
+  models**, each row printing its dialect, each card with the "Request dialect"
+  select defaulted to that provider's family. The Flows node's inspector now
+  reads **Model — Provider** (Fal.ai) and **Model — Model** (the five, live from
+  the engine) plus Resolution, and the node carries six input ports (prompt,
+  first/last frame, reference images/video/audio).
+- **Live fal E2E PASSED — reference-to-video with one image, one video and one
+  audio.** Seedance 2.5, 4 s, 480p, audio on, references: the Stage 2 Kling clip
+  (5.04 s, 1080p, 9.04 MB) as `@Video1`, its thumbnail as `@Image1`, a 3 s mp3 as
+  `@Audio1`. The main log tells the whole chokepoint in order: `Classifier
+  loaded` → Gate B on the reference image → `Sampling video {frames: 15, 1920x1080}`
+  → **then** `FalStorage Uploaded reference media {video/mp4, 9043223}` and
+  `{audio/mpeg, 24467}` → `Video job submitted` → (374 s later) `Sampling video
+  {frames: 13, 854x480}` on the *output* → filed. Result: one Video Studio entry
+  (1.70 MB, 480p as asked, thumbnail written), `videoUrl` a local `file://`, the
+  fal CDN URL kept only as `sourceUrl`, and the usage row `fal / seedance-2.5 /
+  flows / video / $1.88 / 374.6 s`.
+- **Gate B proved itself on the way in**: the first attempt used synthetic test
+  media, and `ContentSafety Image blocked by classifier {band: borderline, p: 0.3049}`
+  refused the flat colour card *before* any upload or provider call — exactly the
+  §1.5 hole Stage 2 closed for frames, now covering reference inputs too.
+
+**Open / for Hasan**
+
+- **BytePlus needs a key.** Everything up to the key is verified live (row, badge,
+  catalog, dialect, client, auth error, engine registration), but no ModelArk key
+  exists on this machine, so the Seedance-2.5-from-Flows-on-BytePlus half of the
+  acceptance is untested against the real API. Activating Seedance 2.x on
+  ModelArk also has a prerequisite: a balance over USD 30, an AI Savings Plan at
+  that tier, or a Seedance resource pack.
+- **Cost estimates are per model, not per resolution.** The $1.88 above is
+  0.47 × 4 s, the 720p list rate, for a 480p clip that costs roughly a fifth of
+  that on fal. The dashboard already calls the column an estimate; a price map
+  per resolution (and the "with video input" discount) is a small Stage 4 add.
+- The renderer logged one `reactflow.js` uncaught error at 14:31 — from the
+  driver's synthetic `DragEvent` with an empty `dataTransfer`, not from the node
+  (the node was created and configured fine straight after).
+
+**Next:** Stage 4 — the Videos generation panel (`ReferenceImageLibrary` moves to
+`src/shared/`, the control panel with the constrained fields these capabilities
+now describe, job cards, cancel).
+

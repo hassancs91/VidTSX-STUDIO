@@ -1,7 +1,8 @@
 import { imageEngine } from '../../../image-engine';
 import { videoEngine } from '../../../video-engine';
 import { checkImageBase64, checkImageBuffer } from './image-safety';
-import { readInputImageBytes } from './input-media';
+import { readInputImageBytes, readInputMediaBytes } from './input-media';
+import { checkVideoBuffer } from './video-safety';
 import { recordBlocked } from './blocked-counters';
 
 /**
@@ -17,14 +18,17 @@ export function installContentSafetyGuard(): void {
 }
 
 /**
- * Same wiring for the video engine's input images (first / last / reference
- * frames, checked before any provider call). The output side — sampled
- * frames of the finished clip — runs inside the clip store the engine
- * finishes through (video-studio-save.ts), so both gates stay in one path.
+ * Same wiring for the video engine's input media: images (first / last /
+ * reference frames) go straight to the classifier, and reference videos
+ * through the same frame sampler the finished clip goes through — both before
+ * any provider call, and before a reference clip is uploaded anywhere. The
+ * output side runs inside the clip store the engine finishes through
+ * (video-studio-save.ts), so every gate stays in one path.
  */
 export function installVideoContentSafetyGuard(): void {
   videoEngine.setSafetyGuard({
     checkImage: async (input) => checkImageBuffer(await readInputImageBytes(input)),
+    checkVideo: async (input) => checkVideoBuffer(await readInputMediaBytes(input, 'video')),
     onPromptBlocked: () => recordBlocked('prompt'),
   });
 }

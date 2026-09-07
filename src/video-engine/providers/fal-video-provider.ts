@@ -1,8 +1,9 @@
-import { FalQueueClient, FalHttpError } from '@shared/providers/fal';
+import { FalQueueClient, FalStorageClient, FalHttpError } from '@shared/providers/fal';
 import type { FalQueueSubmitResult } from '@shared/providers/fal';
-import { VIDEO_MODEL_CATALOG } from '@shared/presets/video-models';
+import { FAL_VIDEO_MODELS } from '@shared/presets/video-models';
 import type { VideoModelCatalogEntry } from '@shared/presets/video-models';
 import type {
+  ProviderMediaInput,
   VideoModelInfo,
   VideoPollResult,
   VideoProvider,
@@ -24,6 +25,7 @@ interface FalVideoResult {
  */
 export class FalVideoProvider implements VideoProvider {
   private readonly client: FalQueueClient;
+  private readonly storage: FalStorageClient;
   private readonly models: VideoModelCatalogEntry[];
   private readonly jobs = new Map<string, FalQueueSubmitResult>();
 
@@ -34,7 +36,28 @@ export class FalVideoProvider implements VideoProvider {
     catalog?: VideoModelCatalogEntry[],
   ) {
     this.client = new FalQueueClient({ apiKey });
-    this.models = catalog?.length ? catalog : [...VIDEO_MODEL_CATALOG];
+    this.storage = new FalStorageClient({ apiKey });
+    this.models = catalog?.length ? catalog : [...FAL_VIDEO_MODELS];
+  }
+
+  /** Reference clips are far too large for a data URI — they go to fal storage. */
+  async uploadMedia(
+    input: ProviderMediaInput,
+    kind: 'video' | 'audio',
+    signal?: AbortSignal,
+  ): Promise<ProviderMediaInput> {
+    if (input.kind === 'url') return input;
+    const match = /^data:([^;,]+);base64,(.*)$/s.exec(input.value);
+    const base64 = match ? match[2] : input.value;
+    const contentType =
+      input.contentType ?? match?.[1] ?? (kind === 'video' ? 'video/mp4' : 'audio/mpeg');
+    const url = await this.storage.upload(
+      Buffer.from(base64, 'base64'),
+      contentType,
+      undefined,
+      signal,
+    );
+    return { kind: 'url', value: url, contentType };
   }
 
   getSupportedModels(): VideoModelInfo[] {

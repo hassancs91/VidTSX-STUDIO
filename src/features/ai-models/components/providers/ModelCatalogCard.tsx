@@ -1,22 +1,42 @@
 import { useState } from 'react';
 import { X, Plus, RotateCcw } from 'lucide-react';
 import { Button, Panel, StatusBadge, TextInput } from '@shared/components';
+import { Select } from '@shared/components/Select';
 import type { ProviderModelCatalogIpc } from '@shared/ipc/types';
-import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
+import type { ProviderModelCatalogEntry } from '@shared/presets/provider-model-defaults';
+import {
+  VIDEO_DIALECT_IDS,
+  VIDEO_DIALECT_LABELS,
+  type VideoDialectId,
+} from '@shared/presets/video-models';
 
 const PROVIDER_LABELS: Record<string, string> = {
   fal: 'Fal',
+  byteplus: 'BytePlus',
   openrouter: 'OpenRouter',
+  cloudflare: 'Cloudflare',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
   image: 'Image models',
+  video: 'Video models',
+};
+
+/** The dialect a provider's new video entries default to. */
+const DEFAULT_DIALECT: Record<string, VideoDialectId> = {
+  fal: 'fal-seedance-2',
+  byteplus: 'byteplus-seedance',
+};
+
+const VIDEO_ID_PLACEHOLDER: Record<string, string> = {
+  fal: 'Endpoint (e.g. bytedance/seedance-2.5/text-to-video)',
+  byteplus: 'ModelArk model id (e.g. dreamina-seedance-2-5-260628)',
 };
 
 export interface ModelCatalogCardProps {
   catalog: ProviderModelCatalogIpc;
   busy: boolean;
-  onSave: (models: ImageModelCatalogEntry[]) => Promise<boolean>;
+  onSave: (models: ProviderModelCatalogEntry[]) => Promise<boolean>;
   onReset: () => Promise<boolean>;
 }
 
@@ -26,8 +46,11 @@ export interface ModelCatalogCardProps {
  * process re-registers providers so pickers update right away.
  */
 export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalogCardProps) {
+  const isVideo = catalog.category === 'video';
+  const defaultDialect = DEFAULT_DIALECT[catalog.providerId] ?? 'fal-generic';
   const [newId, setNewId] = useState('');
   const [newName, setNewName] = useState('');
+  const [newDialect, setNewDialect] = useState<VideoDialectId>(defaultDialect);
   const [confirmReset, setConfirmReset] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
 
@@ -42,7 +65,10 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
       return;
     }
     setRowError(null);
-    const ok = await onSave([...catalog.models, { id, name: newName.trim() || id }]);
+    const entry = isVideo
+      ? { id, name: newName.trim() || id, dialect: newDialect }
+      : { id, name: newName.trim() || id };
+    const ok = await onSave([...catalog.models, entry as ProviderModelCatalogEntry]);
     if (ok) {
       setNewId('');
       setNewName('');
@@ -95,6 +121,11 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
               {model.name !== model.id && (
                 <div className="text-[10px] text-text-dim truncate">{model.id}</div>
               )}
+              {'dialect' in model && (
+                <div className="text-[10px] text-text-dim truncate">
+                  {VIDEO_DIALECT_LABELS[model.dialect] ?? model.dialect}
+                </div>
+              )}
             </div>
             <button
               onClick={() => handleRemove(model.id)}
@@ -116,7 +147,13 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
             value={newId}
             onChange={(e) => setNewId(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') void handleAdd(); }}
-            placeholder={catalog.providerId === 'fal' ? 'Model id or endpoint (e.g. fal-ai/flux/dev)' : 'Model id (e.g. google/gemini-3-pro-image)'}
+            placeholder={
+              isVideo
+                ? (VIDEO_ID_PLACEHOLDER[catalog.providerId] ?? 'Model id')
+                : catalog.providerId === 'fal'
+                  ? 'Model id or endpoint (e.g. fal-ai/flux/dev)'
+                  : 'Model id (e.g. google/gemini-3-pro-image)'
+            }
             className="flex-1"
           />
           <TextInput
@@ -130,6 +167,21 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
             <span className="flex items-center gap-1"><Plus size={12} strokeWidth={2} /> Add</span>
           </Button>
         </div>
+        {isVideo && (
+          <div className="mb-2">
+            <div className="text-[10px] text-text-dim mb-1">
+              Request dialect — the API family whose request body this model speaks.
+            </div>
+            <Select
+              value={newDialect}
+              onChange={(next) => setNewDialect(next as VideoDialectId)}
+              options={VIDEO_DIALECT_IDS.map((id) => ({
+                value: id,
+                label: VIDEO_DIALECT_LABELS[id],
+              }))}
+            />
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <button
             onClick={handleReset}

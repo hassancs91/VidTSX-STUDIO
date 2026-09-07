@@ -14,6 +14,7 @@ export type ConfigField =
   | { kind: 'select'; key: string; label: string; options: { value: string; label: string }[] }
   | { kind: 'model-picker'; key: string; label: string; providerKeyKey?: string }
   | { kind: 'llm-model-picker'; key: string; label: string; providerKeyKey?: string }
+  | { kind: 'video-model-picker'; key: string; label: string; providerKeyKey?: string }
   | { kind: 'gallery-image-picker'; key: string; label: string }
   | { kind: 'image-upload'; key: string; label: string };
 

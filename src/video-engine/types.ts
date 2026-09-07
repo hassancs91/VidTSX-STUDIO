@@ -65,6 +65,9 @@ export interface VideoProviderRequest {
   firstFrame?: ProviderMediaInput;
   lastFrame?: ProviderMediaInput;
   referenceImages?: ProviderMediaInput[];
+  /** Reference clips, already hosted where the provider can fetch them. */
+  referenceVideos?: ProviderMediaInput[];
+  referenceAudios?: ProviderMediaInput[];
   signal?: AbortSignal;
 }
 
@@ -90,9 +93,14 @@ export interface VideoModelInfo {
   pricePerSecondUsd?: number;
 }
 
+/** Provider-reported spend, when the API returns one (BytePlus tokens). */
+export interface VideoProviderUsage {
+  completionTokens?: number;
+}
+
 export type VideoPollResult =
   | { status: 'pending' | 'running' }
-  | { status: 'completed'; url: string; contentType?: string }
+  | { status: 'completed'; url: string; contentType?: string; usage?: VideoProviderUsage }
   | { status: 'failed'; error: string };
 
 /** The interface every video provider implements — async, so submit + poll. */
@@ -102,13 +110,23 @@ export interface VideoProvider {
   poll(providerJobId: string, signal?: AbortSignal): Promise<VideoPollResult>;
   cancel?(providerJobId: string): Promise<void>;
   getSupportedModels(): VideoModelInfo[];
+  /**
+   * Host local bytes somewhere this provider can fetch them, for reference
+   * media too large to inline (video everywhere, audio on fal). Absent means
+   * the provider takes reference media inline only.
+   */
+  uploadMedia?(
+    input: ProviderMediaInput,
+    kind: 'video' | 'audio',
+    signal?: AbortSignal,
+  ): Promise<ProviderMediaInput>;
 }
 
 /** Provider configuration (one entry per cloud provider). */
 export interface VideoProviderConfig {
   id: VideoProviderId;
   name: string;
-  type: 'fal';
+  type: 'fal' | 'byteplus';
   apiKey: string;
   defaultModel: string;
   enabled: boolean;
@@ -134,6 +152,8 @@ export interface VideoJobRequestSummary {
   seed?: number;
   hasFirstFrame: boolean;
   hasLastFrame: boolean;
+  /** How many reference inputs of each kind the job carried. */
+  referenceCounts?: { images: number; videos: number; audios: number };
   folderId?: string | null;
 }
 
@@ -183,6 +203,11 @@ export interface VideoGenerationResult extends VideoJobResult {
 export interface VideoSafetyGuard {
   /** Throws (ModerationBlockedError or fail-closed Error) to block. */
   checkImage(input: ProviderMediaInput, context: 'input'): Promise<void>;
+  /**
+   * Same for a reference video, over sampled frames. Absent means reference
+   * videos cannot be gated, so the engine refuses them (fail-closed).
+   */
+  checkVideo?(input: ProviderMediaInput, context: 'input'): Promise<void>;
   /** Observer for Gate A trips at the engine chokepoint (local counters). */
   onPromptBlocked?(category: string): void;
 }
@@ -215,6 +240,8 @@ export interface VideoUsageEntry {
   featureSource: AiFeatureSource;
   costUsd: number;
   durationMs: number;
+  /** Provider-reported output tokens (BytePlus bills on these). */
+  outputTokens?: number;
 }
 
 export type VideoUsageLogger = (entry: VideoUsageEntry) => void;

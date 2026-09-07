@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildVideoPayload, mediaToUrl, VIDEO_DIALECTS } from './dialects';
+import { deriveVideoRoutes, hydrateVideoEntry } from './dialect-capabilities';
 import {
   VIDEO_DIALECT_IDS,
   VIDEO_MODEL_CATALOG,
@@ -142,5 +143,148 @@ describe('fal-generic', () => {
     // No image-to-video endpoint → text-to-video, but the frame still rides along.
     expect(endpoint).toBe('fal-ai/custom/text-to-video');
     expect(body).toEqual({ prompt: 'a calm lake at dawn', duration: '5', aspect_ratio: '16:9', image_url: `data:image/png;base64,${PNG}` });
+  });
+});
+
+describe('fal-seedance-2', () => {
+  it('text-to-video: one schema with duration, aspect, resolution and audio', () => {
+    const { endpoint, body } = buildVideoPayload(
+      entry('seedance-2.5'),
+      request({ durationSeconds: 12, generateAudio: true, resolution: '1080p' }),
+    );
+    expect(endpoint).toBe('bytedance/seedance-2.5/text-to-video');
+    expect(body).toEqual({
+      prompt: 'a calm lake at dawn',
+      duration: '12',
+      aspect_ratio: '16:9',
+      resolution: '1080p',
+      generate_audio: true,
+    });
+  });
+
+  it('image-to-video: frames go inline and the ratio follows the first frame', () => {
+    const { endpoint, body } = buildVideoPayload(
+      entry('seedance-2.0'),
+      request({
+        firstFrame: { kind: 'base64', value: PNG },
+        lastFrame: { kind: 'url', value: 'https://x/last.png' },
+      }),
+    );
+    expect(endpoint).toBe('bytedance/seedance-2.0/image-to-video');
+    expect(body.aspect_ratio).toBe('auto');
+    expect(body.image_url).toBe(`data:image/png;base64,${PNG}`);
+    expect(body.end_image_url).toBe('https://x/last.png');
+  });
+
+  it('reference-to-video wins over frames and sends URL lists', () => {
+    const { endpoint, body } = buildVideoPayload(
+      entry('seedance-2.5'),
+      request({
+        referenceImages: [{ kind: 'url', value: 'https://x/1.png' }],
+        referenceVideos: [{ kind: 'url', value: 'https://x/1.mp4' }],
+        referenceAudios: [{ kind: 'url', value: 'https://x/1.mp3' }],
+      }),
+    );
+    expect(endpoint).toBe('bytedance/seedance-2.5/reference-to-video');
+    expect(body.image_urls).toEqual(['https://x/1.png']);
+    expect(body.video_urls).toEqual(['https://x/1.mp4']);
+    expect(body.audio_urls).toEqual(['https://x/1.mp3']);
+    expect(body.image_url).toBeUndefined();
+  });
+
+  it('sends no seed — the family takes none', () => {
+    const { body } = buildVideoPayload(entry('seedance-2.5'), request({ seed: 7 }));
+    expect(body.seed).toBeUndefined();
+  });
+});
+
+describe('byteplus-seedance', () => {
+  it('text-to-video: one content array, the model id as the route', () => {
+    const model = entry('dreamina-seedance-2-5-260628');
+    const { endpoint, body } = buildVideoPayload(
+      model,
+      request({ durationSeconds: 8, generateAudio: true, resolution: '720p' }),
+    );
+    expect(endpoint).toBe('dreamina-seedance-2-5-260628');
+    expect(body).toEqual({
+      model: 'dreamina-seedance-2-5-260628',
+      content: [{ type: 'text', text: 'a calm lake at dawn' }],
+      ratio: '16:9',
+      duration: 8,
+      generate_audio: true,
+      watermark: false,
+      resolution: '720p',
+    });
+  });
+
+  it('image-to-video: roles on the frames, and an adaptive ratio', () => {
+    const { body } = buildVideoPayload(
+      entry('dreamina-seedance-2-0-260128'),
+      request({
+        firstFrame: { kind: 'base64', value: PNG },
+        lastFrame: { kind: 'url', value: 'https://x/last.png' },
+      }),
+    );
+    expect(body.ratio).toBe('adaptive');
+    expect(body.content).toEqual([
+      { type: 'text', text: 'a calm lake at dawn' },
+      { type: 'image_url', image_url: { url: `data:image/png;base64,${PNG}` }, role: 'first_frame' },
+      { type: 'image_url', image_url: { url: 'https://x/last.png' }, role: 'last_frame' },
+    ]);
+  });
+
+  it('reference-to-video: one item per reference, each with its role', () => {
+    const { body } = buildVideoPayload(
+      entry('dreamina-seedance-2-5-260628'),
+      request({
+        firstFrame: { kind: 'base64', value: PNG },
+        referenceImages: [{ kind: 'url', value: 'https://x/1.png' }],
+        referenceVideos: [{ kind: 'url', value: 'https://x/1.mp4' }],
+        referenceAudios: [{ kind: 'url', value: 'https://x/1.mp3' }],
+      }),
+    );
+    expect(body.content).toEqual([
+      { type: 'text', text: 'a calm lake at dawn' },
+      { type: 'image_url', image_url: { url: 'https://x/1.png' }, role: 'reference_image' },
+      { type: 'video_url', video_url: { url: 'https://x/1.mp4' }, role: 'reference_video' },
+      { type: 'audio_url', audio_url: { url: 'https://x/1.mp3' }, role: 'reference_audio' },
+    ]);
+  });
+});
+
+describe('catalog hydration', () => {
+  it('derives sibling routes from a slug that names one', () => {
+    expect(deriveVideoRoutes('bytedance/seedance-2.5/text-to-video', 'fal-seedance-2')).toEqual({
+      textToVideoEndpoint: 'bytedance/seedance-2.5/text-to-video',
+      imageToVideoEndpoint: 'bytedance/seedance-2.5/image-to-video',
+      referenceToVideoEndpoint: 'bytedance/seedance-2.5/reference-to-video',
+    });
+  });
+
+  it('treats a slug with no route as the whole app (Veo)', () => {
+    expect(deriveVideoRoutes('fal-ai/veo3.1/fast', 'fal-veo-3')).toEqual({
+      textToVideoEndpoint: 'fal-ai/veo3.1/fast',
+      imageToVideoEndpoint: 'fal-ai/veo3.1/fast/image-to-video',
+    });
+  });
+
+  it('gives a hand-added slug its family capabilities, and a known id its own', () => {
+    const added = hydrateVideoEntry({ id: 'bytedance/seedance-9.9/text-to-video', dialect: 'fal-seedance-2' });
+    expect(added.supportsAudio).toBe(true);
+    expect(added.references).toEqual({ images: 9, videos: 3, audios: 3 });
+    expect(added.name).toBe('bytedance/seedance-9.9/text-to-video');
+
+    const known = hydrateVideoEntry({ id: 'seedance-2.5', dialect: 'fal-seedance-2', name: 'Renamed' });
+    expect(known.name).toBe('Renamed');
+    expect(known.references).toEqual({ images: 30, videos: 10, audios: 10 });
+    expect(known.durationRange).toEqual({ min: 4, max: 30, auto: true });
+  });
+
+  it('routes every BytePlus task type through the one model id', () => {
+    expect(deriveVideoRoutes('dreamina-seedance-2-5-260628', 'byteplus-seedance')).toEqual({
+      textToVideoEndpoint: 'dreamina-seedance-2-5-260628',
+      imageToVideoEndpoint: 'dreamina-seedance-2-5-260628',
+      referenceToVideoEndpoint: 'dreamina-seedance-2-5-260628',
+    });
   });
 });

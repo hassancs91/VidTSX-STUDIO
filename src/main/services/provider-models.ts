@@ -5,30 +5,59 @@
  * both read the merged view, so a saved catalog immediately drives every
  * model picker and provider registration.
  */
-import type { ImageModelCatalogEntry } from '../../shared/presets/image-models';
 import {
   getDefaultProviderModels,
+  isVideoCatalogEntry,
   listDefaultCatalogKeys,
+  type ProviderModelCatalogEntry,
   type ProviderModelCategory,
 } from '../../shared/presets/provider-model-defaults';
+import { isVideoDialectId } from '../../shared/presets/video-models';
+import type { VideoDialectId, VideoModelCatalogEntry } from '../../shared/presets/video-models';
+import { hydrateVideoEntry } from '../../video-engine';
 import { getProviderModelOverrides, saveProviderModelOverrides } from './settings';
+
+/** Family a video entry falls back to when none is named or it is unknown. */
+const DEFAULT_VIDEO_DIALECT: Record<string, VideoDialectId> = {
+  byteplus: 'byteplus-seedance',
+  fal: 'fal-seedance-2',
+};
 
 export interface ProviderModelCatalog {
   providerId: string;
   category: ProviderModelCategory;
-  models: ImageModelCatalogEntry[];
+  models: ProviderModelCatalogEntry[];
   /** True when no user override is stored — the list equals the shipped defaults. */
   isDefault: boolean;
 }
 
-function sanitizeEntries(models: ImageModelCatalogEntry[]): ImageModelCatalogEntry[] {
+/**
+ * Stored rows keep only what a user can meaningfully edit — id, name, and for
+ * video the dialect. Everything else (routes, durations, aspect ratios,
+ * reference limits) is re-derived from the dialect on load, so a saved
+ * catalog can never carry stale or hand-written capabilities.
+ */
+function sanitizeEntries(
+  models: ProviderModelCatalogEntry[],
+  category: ProviderModelCategory,
+  providerId: string,
+): ProviderModelCatalogEntry[] {
   const seen = new Set<string>();
-  const clean: ImageModelCatalogEntry[] = [];
+  const clean: ProviderModelCatalogEntry[] = [];
   for (const entry of models) {
     const id = entry.id?.trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    clean.push({ id, name: entry.name?.trim() || id });
+    if (category === 'video') {
+      const named = isVideoCatalogEntry(entry) ? entry.dialect : undefined;
+      const dialect =
+        named && isVideoDialectId(named)
+          ? named
+          : (DEFAULT_VIDEO_DIALECT[providerId] ?? 'fal-generic');
+      clean.push(hydrateVideoEntry({ id, dialect, ...(entry.name ? { name: entry.name } : {}) }));
+    } else {
+      clean.push({ id, name: entry.name?.trim() || id });
+    }
   }
   return clean;
 }
@@ -41,7 +70,9 @@ export async function getProviderModelCatalogs(): Promise<ProviderModelCatalog[]
     return {
       providerId,
       category,
-      models: stored ? sanitizeEntries(stored) : getDefaultProviderModels(providerId, category),
+      models: stored
+        ? sanitizeEntries(stored, category, providerId)
+        : getDefaultProviderModels(providerId, category),
       isDefault: !stored,
     };
   });
@@ -51,18 +82,28 @@ export async function getProviderModelCatalogs(): Promise<ProviderModelCatalog[]
 export async function getProviderModels(
   providerId: string,
   category: ProviderModelCategory,
-): Promise<ImageModelCatalogEntry[]> {
+): Promise<ProviderModelCatalogEntry[]> {
   const overrides = await getProviderModelOverrides();
   const stored = overrides[providerId]?.[category];
-  return stored ? sanitizeEntries(stored) : getDefaultProviderModels(providerId, category);
+  return stored
+    ? sanitizeEntries(stored, category, providerId)
+    : getDefaultProviderModels(providerId, category);
+}
+
+/** The video view of a catalog, for registering a video provider. */
+export async function getProviderVideoModels(
+  providerId: string,
+): Promise<VideoModelCatalogEntry[]> {
+  const models = await getProviderModels(providerId, 'video');
+  return models.filter(isVideoCatalogEntry);
 }
 
 export async function saveProviderModels(
   providerId: string,
   category: ProviderModelCategory,
-  models: ImageModelCatalogEntry[],
+  models: ProviderModelCatalogEntry[],
 ): Promise<void> {
-  const clean = sanitizeEntries(models);
+  const clean = sanitizeEntries(models, category, providerId);
   if (clean.length === 0) {
     throw new Error('A model catalog needs at least one model — use Reset to restore defaults.');
   }

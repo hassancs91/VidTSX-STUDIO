@@ -4,15 +4,31 @@
  * User edits are stored as overrides in settings (`providerModels`); resetting
  * a catalog falls back to these entries.
  *
- * Image only for now: image APIs are uniform per provider, so user-added ids
- * work generically. Video models are NOT user-editable yet — each catalog
- * entry names its request-body dialect (see video-models.ts +
- * src/video-engine/dialects.ts); the video category lands with the BytePlus
- * provider (docs/video-providers-plan.md Stage 3).
+ * Image APIs are uniform per provider, so a user-added image id works
+ * generically. Video entries additionally name their request-body *dialect*
+ * (video-models.ts + src/video-engine/dialects.ts), which is what makes video
+ * catalogs editable too: a new slug in a family already implemented needs no
+ * code, only an entry naming that family.
  */
 import type { ImageModelCatalogEntry } from './image-models';
+import type { VideoModelCatalogEntry } from './video-models';
+import {
+  BYTEPLUS_VIDEO_MODELS,
+  DEFAULT_BYTEPLUS_VIDEO_MODEL,
+  DEFAULT_VIDEO_MODEL,
+  FAL_VIDEO_MODELS,
+} from './video-models';
 
-export type ProviderModelCategory = 'image';
+export type ProviderModelCategory = 'image' | 'video';
+
+export type ProviderModelCatalogEntry = ImageModelCatalogEntry | VideoModelCatalogEntry;
+
+/** A video entry is the one that names a dialect. */
+export function isVideoCatalogEntry(
+  entry: ProviderModelCatalogEntry,
+): entry is VideoModelCatalogEntry {
+  return 'dialect' in entry;
+}
 
 export interface ProviderModelCatalogKey {
   providerId: string;
@@ -22,7 +38,7 @@ export interface ProviderModelCatalogKey {
 /** providerId → category → default entries. */
 export const PROVIDER_MODEL_DEFAULTS: Record<
   string,
-  Partial<Record<ProviderModelCategory, readonly ImageModelCatalogEntry[]>>
+  Partial<Record<ProviderModelCategory, readonly ProviderModelCatalogEntry[]>>
 > = {
   // priceUsd = estimated cost per ~1MP image, for the usage dashboard only
   // (the provider is the billing authority; models without a verified rate
@@ -33,6 +49,10 @@ export const PROVIDER_MODEL_DEFAULTS: Record<
       { id: 'nano-banana-2', name: 'Nano Banana 2', priceUsd: 0.04 },
       { id: 'seedream-v4.5', name: 'SeedREAM v4.5', priceUsd: 0.04 },
     ],
+    video: FAL_VIDEO_MODELS,
+  },
+  byteplus: {
+    video: BYTEPLUS_VIDEO_MODELS,
   },
   openrouter: {
     image: [
@@ -52,6 +72,12 @@ export const PROVIDER_MODEL_DEFAULTS: Record<
   },
 };
 
+/** The model a provider's video catalog offers first. */
+export const DEFAULT_VIDEO_MODEL_BY_PROVIDER: Record<string, string> = {
+  fal: DEFAULT_VIDEO_MODEL,
+  byteplus: DEFAULT_BYTEPLUS_VIDEO_MODEL,
+};
+
 /** Every provider×category pair that has a default catalog, in display order. */
 export function listDefaultCatalogKeys(): ProviderModelCatalogKey[] {
   const keys: ProviderModelCatalogKey[] = [];
@@ -66,7 +92,7 @@ export function listDefaultCatalogKeys(): ProviderModelCatalogKey[] {
 export function getDefaultProviderModels(
   providerId: string,
   category: ProviderModelCategory,
-): ImageModelCatalogEntry[] {
+): ProviderModelCatalogEntry[] {
   return [...(PROVIDER_MODEL_DEFAULTS[providerId]?.[category] ?? [])];
 }
 
@@ -77,5 +103,5 @@ export function getDefaultProviderModels(
  */
 export function getDefaultImageModelPriceUsd(providerId: string, modelId: string): number {
   const entry = PROVIDER_MODEL_DEFAULTS[providerId]?.image?.find((m) => m.id === modelId);
-  return entry?.priceUsd ?? 0;
+  return entry && !isVideoCatalogEntry(entry) ? (entry.priceUsd ?? 0) : 0;
 }

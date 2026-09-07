@@ -9,11 +9,32 @@ import type {
   VideoGenerateResponse,
   VideoJobData,
   VideoJobResponse,
+  VideoMediaInputIpc,
+  VideoModelsGetRequest,
+  VideoModelsGetResponse,
+  VideoProvidersGetResponse,
+  VideoProviderTestRequest,
+  VideoProviderTestResponse,
 } from '../../shared/ipc/types/video';
-import { videoEngine, mediaInputFromString } from '../../video-engine';
-import type { VideoJobRecord } from '../../video-engine';
+import { videoEngine, mediaInputFromString, VIDEO_PROVIDER_PRESETS } from '../../video-engine';
+import type { MediaInput, VideoJobRecord } from '../../video-engine';
+import type { VideoResolution } from '../../shared/presets/video-models';
 import { initVideoEngine } from '../services/video-init';
+import { getProviderCredentials } from '../services/settings';
+import { BytePlusArkClient } from '../../shared/providers/byteplus';
+import { isProviderKeyId } from '../../shared/providers/registry';
 import { ModerationBlockedError } from '../../shared/content-safety';
+
+const VIDEO_RESOLUTIONS: readonly string[] = ['480p', '720p', '1080p', '4k'];
+
+function toMediaInputs(items: VideoMediaInputIpc[] | undefined): MediaInput[] | undefined {
+  if (!items?.length) return undefined;
+  return items.map((item) => ({
+    kind: item.kind,
+    value: item.value,
+    ...(item.contentType ? { contentType: item.contentType } : {}),
+  }));
+}
 
 /** Job record → the IPC shape. The URL is the gated local clip, never remote. */
 export function toVideoJobData(record: VideoJobRecord): VideoJobData {
@@ -51,6 +72,24 @@ export async function handleVideoGenerate(
       ...(req.seed !== undefined ? { seed: req.seed } : {}),
       ...(req.firstFrame ? { firstFrame: mediaInputFromString(req.firstFrame) } : {}),
       ...(req.lastFrame ? { lastFrame: mediaInputFromString(req.lastFrame) } : {}),
+      ...(req.resolution && VIDEO_RESOLUTIONS.includes(req.resolution)
+        ? { resolution: req.resolution as VideoResolution }
+        : {}),
+      ...(req.references
+        ? {
+            references: {
+              ...(toMediaInputs(req.references.images)
+                ? { images: toMediaInputs(req.references.images)! }
+                : {}),
+              ...(toMediaInputs(req.references.videos)
+                ? { videos: toMediaInputs(req.references.videos)! }
+                : {}),
+              ...(toMediaInputs(req.references.audios)
+                ? { audios: toMediaInputs(req.references.audios)! }
+                : {}),
+            },
+          }
+        : {}),
       ...(req.folderId !== undefined ? { folderId: req.folderId } : {}),
       featureSource: req.featureSource ?? 'flows',
     });
@@ -81,6 +120,66 @@ export async function handleVideoCancel(
   try {
     await videoEngine.cancel(req.jobId);
     return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Registered video providers, for the model pickers. */
+export async function handleVideoProvidersGet(): Promise<VideoProvidersGetResponse> {
+  try {
+    if (videoEngine.getProviders().length === 0) await initVideoEngine();
+    const active = videoEngine.getActiveProvider();
+    const providers = videoEngine.getProviders().map((id) => ({
+      id,
+      name: VIDEO_PROVIDER_PRESETS.find((p) => p.id === id)?.name ?? id,
+      isActive: id === active,
+    }));
+    return { success: true, providers, activeProvider: active };
+  } catch (err) {
+    return {
+      success: false,
+      providers: [],
+      activeProvider: null,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/** One provider's models, with the capabilities pickers narrow themselves by. */
+export async function handleVideoModelsGet(
+  _event: IpcMainInvokeEvent,
+  req: VideoModelsGetRequest = {},
+): Promise<VideoModelsGetResponse> {
+  try {
+    if (videoEngine.getProviders().length === 0) await initVideoEngine();
+    return { success: true, models: videoEngine.getModels(req.providerId) };
+  } catch (err) {
+    return { success: false, models: [], error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * Providers-page test for a video key. Costs nothing: it lists the account's
+ * recent tasks rather than generating anything. The draft key from the input
+ * is used when given, so a key can be tested before it is saved.
+ */
+export async function handleVideoProviderTest(
+  _event: IpcMainInvokeEvent,
+  req: VideoProviderTestRequest,
+): Promise<VideoProviderTestResponse> {
+  const started = Date.now();
+  try {
+    if (req.providerId !== 'byteplus') {
+      return { success: false, error: `No video test for provider "${req.providerId}".` };
+    }
+    if (!isProviderKeyId(req.providerId)) {
+      return { success: false, error: `Unknown provider "${req.providerId}".` };
+    }
+    const apiKey = req.apiKey?.trim() || (await getProviderCredentials())[req.providerId];
+    if (!apiKey) return { success: false, error: 'No API key saved for this provider.' };
+    await new BytePlusArkClient({ apiKey }).listTasks();
+    return { success: true, durationMs: Date.now() - started };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : String(err) };
   }
