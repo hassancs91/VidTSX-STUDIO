@@ -1,21 +1,29 @@
 // The `generate_video` agent tool — reserved in `docs/agents-plan.md` (wave 1)
-// and specified by `docs/video-providers-plan.md` §2.5 / D7. Written in the
-// video plan's Stage 5, REGISTERED when the agents plan's Stage 1 lands: it is
-// deliberately not imported anywhere yet, because there is no registry to put
-// it in.
+// and specified by `docs/video-providers-plan.md` §2.5 / D7.
 //
-// It is a thin wrapper on `generateVideoAsset`, the same entry point Studio's
-// shot assets use, so the tool inherits the engine's whole contract: Gate A on
-// the prompt, Gate B on every input frame before any provider sees it, the
-// clip downloaded and frame-sampled before it is filed, and a usage row. The
-// tool never holds a provider URL — cloud video URLs expire (24 h on
-// ModelArk), so the local Video Studio entry is the only durable artifact.
+// It SUBMITS and returns (agents plan §1.5, decided 2026-09-07). The first
+// draft of this tool awaited `generateVideoAsset`, which awaits
+// `videoEngine.generateAndWait` — three to six minutes in live runs, one
+// reference-to-video job past thirteen. That was copied from Studio's blocking
+// `generate_image`, which is reasonable at 10–30 s and not at 13 minutes. Two
+// reasons it had to move: parallelism is the product (a short-film agent wants
+// eight clips, and blocking makes that forty minutes of frozen chat), and the
+// SDK's in-process tool timeout has never been tested anywhere near that long.
+//
+// The clip is still gated the same way — Gate A on the prompt inside
+// `videoEngine.submit`, Gate B on every input frame and on the output before
+// the engine files it. The tool never holds a provider URL: cloud video URLs
+// expire (24 h on ModelArk), so the local file is the only durable artifact,
+// and it reaches the asset library through the completion step
+// (`fileVideoAsset`), which the session re-drives on open for any terminal job
+// that never got filed.
 
 import { z } from 'zod';
 import { videoEngine } from '../../../../video-engine';
-import { generateVideoAsset } from '../../library/generate-video-asset';
+import { submitVideoAsset } from '../../library/generate-video-asset';
 import type { VideoResolution } from '../../../../shared/presets/video-models';
 import type { AgentToolDef, AgentToolResult } from './types';
+import { toolText } from './types';
 
 const RESOLUTIONS = ['480p', '720p', '1080p', '4k'] as const;
 
@@ -48,7 +56,6 @@ const schema = {
     .boolean()
     .optional()
     .describe('Ask the model for audio, where it makes any (Seedance / Veo).'),
-  folder: z.string().optional().describe('Library folder to file into (default "generated").'),
 };
 
 type GenerateVideoArgs = {
@@ -59,37 +66,32 @@ type GenerateVideoArgs = {
   aspectRatio?: string;
   resolution?: VideoResolution;
   generateAudio?: boolean;
-  folder?: string;
 };
-
-function text(content: string, isError = false): AgentToolResult {
-  return { content: [{ type: 'text', text: content }], ...(isError ? { isError: true } : {}) };
-}
 
 export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
   id: 'generate_video',
   description:
-    'Generate a video clip with the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo) and file it into the asset library (origin: generated, the prompt as its description, tagged with the active brand). Minutes per clip and billed per second, so generate one at a time and say what you are about to spend. Returns a "video" artifact backed by a local file — the provider URL expires.',
+    'Submit a video clip to the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo). Returns immediately with a job id; the clip takes MINUTES and is billed per second, so say what you are about to spend before calling. END YOUR TURN after submitting — you will be told when the job finishes and given a "video" artifact backed by a local file.',
   needs: 'video-provider',
   schema,
   async handler(args, ctx): Promise<AgentToolResult> {
     const models = videoEngine.getModels(args.providerId);
     if (models.length === 0) {
-      return text(
+      return toolText(
         'No video provider is configured. Ask the user to add a Fal or BytePlus ModelArk key in AI → Providers.',
         true,
       );
     }
     if (args.model && !models.some((m) => m.id === args.model)) {
-      return text(
+      return toolText(
         `"${args.model}" is not in the catalog. Available: ${models.map((m) => m.id).join(', ')}.`,
         true,
       );
     }
 
-    ctx.emit?.(args.prompt.slice(0, 60));
+    ctx.emitProgress(args.prompt.slice(0, 60));
     try {
-      const asset = await generateVideoAsset({
+      const record = await submitVideoAsset({
         prompt: args.prompt,
         ...(args.providerId ? { providerId: args.providerId } : {}),
         ...(args.model ? { model: args.model } : {}),
@@ -97,32 +99,27 @@ export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
         ...(args.aspectRatio ? { aspectRatio: args.aspectRatio } : {}),
         ...(args.resolution ? { resolution: args.resolution } : {}),
         ...(args.generateAudio !== undefined ? { generateAudio: args.generateAudio } : {}),
-        ...(args.folder ?? ctx.libraryFolder ? { folder: args.folder ?? ctx.libraryFolder } : {}),
-        ...(ctx.brandId ? { brandId: ctx.brandId } : {}),
         featureSource: 'agent',
+        // Load-bearing: cancelling the run cancels the provider job, so a
+        // cancelled run stops paying for a video.
         signal: ctx.signal,
       });
 
+      const { request } = record;
       return {
-        ...text(
-          `Video generated: ${asset.relPath} (${asset.durationSeconds.toFixed(1)} s, ${asset.aspectRatio}${asset.hasAudio ? ', with audio' : ''}${asset.brandId ? `, brand: ${asset.brandId}` : ''}). It is also in Video Studio as entry ${asset.entryId}.`,
+        ...toolText(
+          `Video job ${record.jobId} submitted to ${record.providerId} (${request.model}, ${request.durationSeconds}s, ${request.aspectRatio}${request.resolution ? `, ${request.resolution}` : ''}). It takes minutes. End your turn now — you will be told when it finishes.`,
         ),
         artifact: {
-          kind: 'video',
-          title: asset.description.slice(0, 80) || 'Generated video',
-          payload: {
-            entryId: asset.entryId,
-            relPath: asset.relPath,
-            durationSeconds: asset.durationSeconds,
-            aspectRatio: asset.aspectRatio,
-            hasAudio: asset.hasAudio,
-          },
+          kind: 'job',
+          title: args.prompt.slice(0, 80) || 'Generated video',
+          payload: { jobId: record.jobId, job: 'video', status: record.status },
         },
       };
     } catch (err) {
       // Content Safety refusals arrive here too — the message is the user-
       // facing copy, so pass it through rather than paraphrasing it.
-      return text(
+      return toolText(
         `Video generation failed: ${err instanceof Error ? err.message : String(err)}`,
         true,
       );

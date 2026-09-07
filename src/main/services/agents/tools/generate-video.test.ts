@@ -1,31 +1,41 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeToolContext } from './test-context';
 
 const getModels = vi.fn();
-const generateVideoAsset = vi.fn();
+const submitVideoAsset = vi.fn();
 
 vi.mock('../../../../video-engine', () => ({ videoEngine: { getModels: () => getModels() } }));
 vi.mock('../../library/generate-video-asset', () => ({
-  generateVideoAsset: (req: unknown) => generateVideoAsset(req),
+  submitVideoAsset: (req: unknown) => submitVideoAsset(req),
 }));
 
 const { generateVideoTool } = await import('./generate-video');
 
-const ctx = { signal: new AbortController().signal };
-
-const ASSET = {
-  relPath: 'generated/a-calm-lake.mp4',
-  entryId: 'vid-1',
-  durationSeconds: 4.04,
-  aspectRatio: '16:9',
-  hasAudio: true,
-  description: 'a calm lake at dawn',
+const RECORD = {
+  jobId: 'job-77',
+  providerId: 'fal',
+  providerJobId: 'p-1',
+  featureSource: 'agent',
+  status: 'pending',
+  submittedAt: 0,
+  updatedAt: 0,
+  request: {
+    model: 'seedance-2.5',
+    prompt: 'a calm lake at dawn',
+    durationSeconds: 4,
+    aspectRatio: '16:9',
+    resolution: '480p',
+    generateAudio: false,
+    hasFirstFrame: false,
+    hasLastFrame: false,
+  },
 };
 
 beforeEach(() => {
   getModels.mockReset();
-  generateVideoAsset.mockReset();
+  submitVideoAsset.mockReset();
   getModels.mockReturnValue([{ id: 'seedance-2.5' }, { id: 'kling-2.5-turbo-pro' }]);
-  generateVideoAsset.mockResolvedValue(ASSET);
+  submitVideoAsset.mockResolvedValue(RECORD);
 });
 
 describe('generate_video tool', () => {
@@ -34,53 +44,72 @@ describe('generate_video tool', () => {
     expect(generateVideoTool.needs).toBe('video-provider');
   });
 
-  it('refuses with no provider configured, without calling the library', async () => {
+  it('refuses with no provider configured, without submitting', async () => {
     getModels.mockReturnValue([]);
-    const res = await generateVideoTool.handler({ prompt: 'a lake' }, ctx);
+    const res = await generateVideoTool.handler({ prompt: 'a lake' }, makeToolContext());
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('AI → Providers');
-    expect(generateVideoAsset).not.toHaveBeenCalled();
+    expect(submitVideoAsset).not.toHaveBeenCalled();
   });
 
   it('lists the catalog when the model id is unknown', async () => {
-    const res = await generateVideoTool.handler({ prompt: 'a lake', model: 'nope' }, ctx);
+    const res = await generateVideoTool.handler(
+      { prompt: 'a lake', model: 'nope' },
+      makeToolContext(),
+    );
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('seedance-2.5');
-    expect(generateVideoAsset).not.toHaveBeenCalled();
+    expect(submitVideoAsset).not.toHaveBeenCalled();
   });
 
-  it('files under the agent feature source and returns a video artifact', async () => {
+  it('SUBMITS and returns a job artifact — it never waits for the clip', async () => {
     const res = await generateVideoTool.handler(
       { prompt: 'a calm lake at dawn', resolution: '480p', durationSeconds: 4 },
-      { ...ctx, brandId: 'brand-1', libraryFolder: 'agent-run' },
+      makeToolContext({ brandId: 'brand-1', libraryFolder: 'agents/test/session' }),
     );
     expect(res.isError).toBeUndefined();
-    expect(generateVideoAsset).toHaveBeenCalledWith(
+    expect(submitVideoAsset).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: 'a calm lake at dawn',
         resolution: '480p',
         durationSeconds: 4,
-        folder: 'agent-run',
-        brandId: 'brand-1',
         featureSource: 'agent',
       }),
     );
+    // The job shape carries only what exists at submit time (plan §1.4): no
+    // relPath, no duration of a file that does not exist yet.
     expect(res.artifact).toEqual({
-      kind: 'video',
+      kind: 'job',
       title: 'a calm lake at dawn',
-      payload: {
-        entryId: 'vid-1',
-        relPath: 'generated/a-calm-lake.mp4',
-        durationSeconds: 4.04,
-        aspectRatio: '16:9',
-        hasAudio: true,
-      },
+      payload: { jobId: 'job-77', job: 'video', status: 'pending' },
     });
+    expect(res.content[0].text).toContain('End your turn now');
+  });
+
+  it('passes ctx.signal through, so cancelling a run stops paying for the clip', async () => {
+    const controller = new AbortController();
+    await generateVideoTool.handler(
+      { prompt: 'a lake' },
+      makeToolContext({ signal: controller.signal }),
+    );
+    expect(submitVideoAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('does not choose the library folder itself — filing happens on completion', async () => {
+    await generateVideoTool.handler(
+      { prompt: 'a lake' },
+      makeToolContext({ libraryFolder: 'agents/test/session' }),
+    );
+    const req = submitVideoAsset.mock.calls[0][0] as Record<string, unknown>;
+    expect(req).not.toHaveProperty('folder');
+    expect(req).not.toHaveProperty('brandId');
   });
 
   it('passes a Content Safety refusal through as the tool error', async () => {
-    generateVideoAsset.mockRejectedValue(new Error('Blocked by Content Safety — nudity.'));
-    const res = await generateVideoTool.handler({ prompt: 'x' }, ctx);
+    submitVideoAsset.mockRejectedValue(new Error('Blocked by Content Safety — nudity.'));
+    const res = await generateVideoTool.handler({ prompt: 'x' }, makeToolContext());
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('Blocked by Content Safety');
     expect(res.artifact).toBeUndefined();

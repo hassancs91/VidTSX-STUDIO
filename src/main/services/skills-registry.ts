@@ -1,37 +1,13 @@
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import type { SkillManifest } from '@shared/types/skills';
+import { parseSkillFrontmatter } from '@shared/skills/parse-skill';
 import { getSkillsDir } from '../utils/paths';
 import { logEngine } from '../../logging/log-engine';
 
 const logger = logEngine.createLogger('Skills');
 
-const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
-
 let cache: Map<string, SkillManifest> | null = null;
-
-function parseFrontmatter(raw: string): { meta: Record<string, string>; body: string } {
-  const match = FRONTMATTER_RE.exec(raw);
-  if (!match) return { meta: {}, body: raw };
-
-  const meta: Record<string, string> = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const idx = trimmed.indexOf(':');
-    if (idx === -1) continue;
-    const key = trimmed.slice(0, idx).trim();
-    let value = trimmed.slice(idx + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-    if (key) meta[key] = value;
-  }
-  return { meta, body: match[2].trimStart() };
-}
 
 async function listFolderResources(folderPath: string): Promise<string[]> {
   const results: string[] = [];
@@ -63,7 +39,7 @@ async function loadFolderSkill(
   } catch {
     return null;
   }
-  const { meta, body } = parseFrontmatter(raw);
+  const { meta, body } = parseSkillFrontmatter(raw);
   if (!meta.name || !meta.description) {
     logger.warn(`Skill ${id} (folder) missing required frontmatter (name, description) — skipped`);
     return null;
@@ -97,7 +73,7 @@ async function loadFlatSkill(
     logger.warn(`Failed to read skill ${id}`, { err: String(err) });
     return null;
   }
-  const { meta, body } = parseFrontmatter(raw);
+  const { meta, body } = parseSkillFrontmatter(raw);
   if (!meta.name || !meta.description) {
     logger.warn(`Skill ${id} missing required frontmatter (name, description) — skipped`);
     return null;

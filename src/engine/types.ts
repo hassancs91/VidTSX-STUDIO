@@ -58,7 +58,28 @@ export interface LLMRequest {
    * ('mcp__<server>__<tool>') so tool calls run without permission prompts.
    */
   mcpServers?: Record<string, unknown>;
+  /**
+   * Working directory for the Agent SDK's own file tools. Main-process callers
+   * only; pair it with `canUseTool`, which is what actually confines them.
+   */
+  cwd?: string;
+  /**
+   * The SDK's permission hook. Main-process callers only (a live function).
+   * The agents feature passes its file-tool path guard here, so Read/Write/
+   * Edit/Glob/Grep cannot leave the session workspace. Typed structurally so
+   * this module does not import the SDK.
+   */
+  canUseTool?: LlmToolPermission;
 }
+
+export type LlmToolPermission = (
+  toolName: string,
+  input: Record<string, unknown>,
+  options: { signal: AbortSignal },
+) => Promise<
+  | { behavior: 'allow'; updatedInput: Record<string, unknown> }
+  | { behavior: 'deny'; message: string }
+>;
 
 /** Per-turn timing info */
 export interface LLMTurnTiming {

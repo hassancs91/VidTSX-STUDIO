@@ -4,7 +4,7 @@ import { llmEngine, PROVIDER_PRESETS } from '../../engine';
 import { llmLocalEngine } from '../../llm-engine';
 
 const log = logEngine.createLogger('LLMHandlers');
-import type { ProviderConfig } from '../../engine/types';
+import type { LlmToolPermission, ProviderConfig } from '../../engine/types';
 import { getLlmProviders, saveLlmProviders, getProviderCredentials } from '../services/settings';
 import { initLLMEngine } from '../services/llm-init';
 import { extractHtmlCode } from '../../engine/utils';
@@ -198,7 +198,13 @@ export async function runLlmGenerate(
   onTextDelta?: (delta: string) => void,
   /** In-process-only request fields the IPC type can't carry (live objects)
    *  or that must never come from the renderer (trailing prompt text). */
-  extras?: { mcpServers?: Record<string, unknown>; trailingSystemPrompt?: string }
+  extras?: {
+    mcpServers?: Record<string, unknown>;
+    trailingSystemPrompt?: string;
+    /** Agent SDK cwd + permission hook — the agents feature's file-tool guard. */
+    cwd?: string;
+    canUseTool?: LlmToolPermission;
+  }
 ): Promise<LlmGenerateResponse> {
   try {
     const start = Date.now();
@@ -240,6 +246,8 @@ export async function runLlmGenerate(
       ...(signal ? { signal } : {}),
       ...(onTextDelta ? { onTextDelta } : {}),
       ...(extras?.mcpServers ? { mcpServers: extras.mcpServers } : {}),
+      ...(extras?.cwd ? { cwd: extras.cwd } : {}),
+      ...(extras?.canUseTool ? { canUseTool: extras.canUseTool } : {}),
     };
 
     const result = data.providerId

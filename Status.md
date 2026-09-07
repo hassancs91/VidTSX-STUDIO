@@ -7,6 +7,89 @@
 
 ---
 
+## 2026-09-07 — AGENTS Stage 1 DONE: tool registry, runner, artifact store, wave-1 tools
+
+Stage 1 of `docs/agents-plan.md` (§4). A runner that takes a manifest, builds
+its tool server, runs a turn and produces artifacts — proven from vitest, not
+from the app. No IPC handlers and no screens yet, so nothing is reachable from
+the UI. Nothing under `src/main/services/studio/` was touched. Full log with
+the contract deltas: the plan's §4 "Stage 1 outcome".
+
+- **The write/read split is real** (§1.3): a tool RETURNS an artifact draft,
+  `tool-server.ts` hands it to the runner's `fileArtifact`, and
+  `artifact-store.ts` is the one write path — it assigns `<kind>-<n>` ids over
+  one per-session sequence, `createdAt`, the producer, and the version. Tools
+  read prior artifacts through `ctx.readArtifacts()`, which returns copies. A
+  handler that throws cannot leave a half-written store, and a draft whose
+  `relPath` is absolute or climbs out is refused before anything is written.
+- **`generate_video` was converted to the job shape, and that was not a
+  handler change.** `generate-video-asset.ts` split into `submitVideoAsset`
+  and `fileVideoAsset`, because the library copy, the brand read and the
+  upsert all happened after the wait. The awaiting form is gone — it had
+  exactly one caller. **The idempotency key is the job id**: filing builds
+  `<folder>/<slug>-<12 hex of jobId><ext>` instead of calling
+  `reserveLibraryFile`, which would have handed out a `-2` name and duplicated
+  the clip on the second call. `video-jobs.ts` reconciles off the TERMINAL
+  `VideoJobRecord`, never off the subscription event: one job, a whole session
+  on open, and a live watch that is only an optimisation over those. Filing
+  that throws does NOT mark the job failed — the clip is gated and on disk, and
+  the next session open retries. A job the in-memory tracker has lost is
+  reported failed rather than left pending forever. `ctx.signal` still reaches
+  the engine, so cancelling a run stops paying for a video.
+- **`ask_user` ships NON-BLOCKING, and the step 0 experiment is still owed.**
+  Every row that decides between the forms is a long blocking wait, so the
+  decision rule was applied to what is already known: the blocking form is
+  chosen only if it passes the 15- and 65-minute rows, neither has been
+  observed, so the non-blocking form ships. It survives an hour away and an app
+  restart. The one row that can still change code — "does the model end its
+  turn after asking", 10 runs — belongs to Stage 3, when there is a real chat
+  to run it in; the enforcement the plan describes is deliberately NOT
+  implemented without the measurement.
+- **The file-tool guard is the one piece of security code, and it is wired.**
+  `file-tool-guard.ts` resolves every path argument (`..` normalised, symlinks
+  followed through the existing prefix, so a Write to a not-yet-existing file
+  is still checked) and denies anything outside the session workspace. Network
+  tools pass; every other tool name is denied, Bash included. Reaching the SDK
+  needed two additive engine fields — `cwd` and `canUseTool` on `LLMRequest`,
+  through `claude-provider`'s session query and `runLlmGenerate`'s extras —
+  typed structurally so `src/engine/` still does not import the SDK. The runner
+  passes them ONLY when `workspace.sdkFileTools` is true.
+- **Four contract additions to §1.3**, each forced by a real consumer:
+  `ctx.callId` (a context per CALL, since a tool cannot know the call id an
+  event needs), `result.supersedes` (what "the runner assigns the version"
+  takes as input), `result.jobRequest` (a render tool cannot emit an event
+  carrying an artifact id that does not exist until the runner files the
+  draft), and `ctx.ask` returning `InteractionAskResult` rather than a reply —
+  under the non-blocking form the ordinary outcome is "posted", which is not a
+  reply at all. The `answered` case is there so switching forms later touches
+  `interaction-broker.ts` and nothing else.
+- **The system prompt is static for the session**, as §1.2 requires: AGENT.md,
+  skills, starter answers, tool availability, memory LAST. There is no way to
+  pass an artifact list into it — the model learns ids from tool results and
+  `list_artifacts`.
+- **Wave-1 tools**: `write_document`, `generate_composition`,
+  `edit_composition` (new version, prior file untouched), `render_composition`
+  (mints a job and returns), `generate_image`, `generate_video`, `ask_user`,
+  `list_artifacts`. The model never names a file: titles are slugged and
+  counted. `tsx-deps.ts` composes the acceptance gate from the same three
+  shared pieces Studio's `validateShotCode` composes rather than importing
+  Studio's copy.
+- One shared-code touch: the SKILL.md frontmatter parser moved to
+  `src/shared/skills/parse-skill.ts`; `skills-registry.ts` imports it.
+- Tests: 80 across 10 files — guard matrix (`..`, absolute, symlink, Glob/Grep
+  roots, non-string args, every other tool name), artifact store (ids,
+  versions, containment, corrupt-file rotation, copies), broker (post, reject a
+  second, the fixed answer format, cancel, adopt across a restart), prompt
+  order, registry selection and capability gating, the video reconciler
+  (idempotent, re-driven, retried), the runner against a stub LLM, and one
+  turn's worth of real tool calls end to end. Gates: `check:types` at baseline
+  (web 26, node 10), `npx vitest run` green (1564 passed).
+- **Before Stage 2**: no IPC handlers, no preload, no screens; no
+  `getAgentsDir` / `getBuiltinAgentsDir` / `getAgentSessionsDir` /
+  `getAgentOutputFolder`; no session store — the runner takes a session object
+  and a persist hook. Manifest subagents parse and validate but are not passed
+  to the SDK; nothing in wave 1 declares any.
+
 ## 2026-09-07 — AGENTS Stage 0 DONE: contracts and shared types
 
 Stage 0 of `docs/agents-plan.md` (§3). Types only — nothing runs yet, nothing

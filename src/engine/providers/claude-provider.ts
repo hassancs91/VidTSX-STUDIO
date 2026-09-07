@@ -1,6 +1,6 @@
 import path from "path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { McpServerConfig, Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { CanUseTool, McpServerConfig, Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ContentBlockParam } from "@anthropic-ai/sdk/resources/messages/messages";
 import type {
   LLMProvider, LLMRequest, LLMResponse, LLMStreamEvent, LLMUsage, LLMTurnTiming, AuthMode, EffortLevel,
@@ -170,6 +170,9 @@ export class ClaudeProvider implements LLMProvider {
             ...(request.mcpServers
               ? { mcpServers: request.mcpServers as Record<string, McpServerConfig> }
               : {}),
+            // The agents feature's file-tool path guard (agents plan §1.2).
+            ...(request.cwd ? { cwd: request.cwd } : {}),
+            ...(request.canUseTool ? { canUseTool: request.canUseTool as CanUseTool } : {}),
           },
         }),
     });
