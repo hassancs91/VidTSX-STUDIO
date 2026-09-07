@@ -7,6 +7,76 @@
 
 ---
 
+## 2026-09-08 — AGENTS Stage 2 DONE: package reader, validator, install and signing
+
+Stage 2 of `docs/agents-plan.md` (§5). A `.vidtsxagent` file can now be read,
+validated, signed, verified, installed, shadowed, downgraded and removed — all
+proven from vitest against temp roots, none of it reachable from the UI yet
+(that is Stage 3). Full log with the contract deltas: the plan's §5 "Stage 2
+outcome". 53 new tests in 4 files; `check:types` at baseline; the suite green.
+
+- **One zip layer, two formats.** `services/packages/zip-reader.ts` now holds
+  the container guarantees — entry caps, duplicate-name refusal,
+  manifest-as-allowlist, declared == actual before a byte is written, both
+  zip-slip gates, sha256 hashed as each file lands — and
+  `studio/project-package-unzip.ts` is reduced to the `.vidtsx` spec
+  (manifest name, parser, limits, the "not a readable .vidtsx package"
+  sentence). The 255 existing package tests pass UNCHANGED, which is what made
+  the refactor safe to make. Asked and decided with Hasan first, because §5
+  wanted it and the plan's own rule 4 forbade touching `services/studio/`;
+  decision 6 is about the Studio AGENT, and duplicating a security gate is
+  worse than editing the file.
+- **The signature covers what the publisher WROTE.** Two bugs found while
+  writing the tests, both fixed by carrying the manifest through untouched.
+  Verifying against the zod-parsed manifest would have failed on every package
+  whose author omitted `description` (zod fills `''`) or carried a key zod
+  strips — so verification runs on `rawManifest`. And the installed folder is
+  folder-as-truth, but `agent.json` describes the other entries rather than
+  appearing among them, so `extractAll` never writes it: the installer copies
+  `manifestBytes` byte for byte, because a re-serialisation stops verifying.
+  There is a test that edits an installed `agent.json` in place and asserts the
+  agent drops off the list.
+- **A publisher is matched by KEY BYTES, never by the keyId it claims.**
+  Otherwise anyone naming their key `vidtsx-1` would get the accent tag; there
+  is a test for exactly that impersonation. Outcomes as §1.6 specifies: known
+  key = verified, valid-but-unknown = signed-unknown (installs), unsigned =
+  installs with a warning, invalid = REFUSED before anything touches disk.
+- **`publishers.ts` ships empty on purpose, and that is the one thing owed.**
+  No VidTSX signing key exists yet, so no signature can honestly be attributed
+  to us. `node scripts/agent-pack.mjs --genkey` prints the private key to store
+  outside the repo (`VIDTSX_AGENT_SIGNING_KEY`) and the exact `publishers.ts`
+  entry to paste — Hasan's to run, since the private half must never reach a
+  session.
+- **Installs are rename-swaps.** Extract to a sibling staging folder, rotate
+  the live folder to `.bak`, rename staging in; a failed swap puts the backup
+  back. So a crash leaves either the old agent or the new one, never half of
+  each, and a refused package leaves the installed one exactly as it was.
+  Newer replaces, equal reinstalls, older returns `needsConfirm: 'downgrade'`
+  and writes nothing until confirmed. Highest version wins across the two
+  roots, equal prefers the built-in — so removing a user copy brings the
+  built-in back with no special casing.
+- **`agent-pack --check` IS the install validator.** The script bundles
+  `parseAgentManifest` and `signAgentManifest` straight out of `src/` with
+  esbuild, so packer and app cannot drift on the rules or on what "canonical
+  JSON" means. The round-trip test drives the real script in a child process:
+  `--check` clean, `--check` reporting three problems at once and exiting 1,
+  then pack → sign → install → scan.
+- **Deliberately NOT done, and Stage 3 owns it:** the `.vidtsxagent` file
+  association. §5 asked for it, but `package-open.ts` holds one global pending
+  slot that `studio-package-handlers.ts` claims — a second extension needs that
+  slot to carry a kind and its consumer to change with it — and none of it can
+  be tested until an Agents screen exists. The Import button and drag-and-drop
+  cover installing; double-click is convenience. `extraResources`
+  (`resources/agents → agents`) IS wired.
+- Also: entry-path safety, duplicate entries, the size caps and a reserved-name
+  rule (a manifest may never list `signature.json` or `licensee.json`) moved
+  into `parseAgentManifest`, where `--check` can apply them offline;
+  `ARTIFACT_KINDS` / `INTERACTION_KINDS` became values; `shared/agents/tool-ids.ts`
+  is the bundleable copy of the registry's ids, with `registry.test.ts`
+  asserting the two are equal; four `paths.ts` helpers
+  (`getAgentsDir` / `getBuiltinAgentsDir` / `getAgentSessionsDir` /
+  `getAgentOutputFolder`), which Stage 1 had listed as owed.
+
 ## 2026-09-07 — AGENTS Stage 1 DONE: tool registry, runner, artifact store, wave-1 tools
 
 Stage 1 of `docs/agents-plan.md` (§4). A runner that takes a manifest, builds

@@ -19,6 +19,7 @@
 // package apart from a project one instead of choking on it.
 
 import type { StudioAssetKind } from '../types/studio';
+import { isSafeEntryPath as isSafeZipEntryPath } from '../packages/entry-path';
 
 export const VIDTSX_PACKAGE_FORMAT_VERSION = 1;
 export const VIDTSX_PACKAGE_EXTENSION = '.vidtsx';
@@ -125,42 +126,14 @@ export interface VidtsxManifest {
   brand?: boolean;
 }
 
-const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
-/** Control characters (and DEL) never belong in a portable entry name. */
-function hasControlChars(value: string): boolean {
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (code < 0x20 || code === 0x7f) return true;
-  }
-  return false;
-}
-
-const WINDOWS_ILLEGAL = /[<>:"|?*]/;
-
 /**
- * Is this zip entry name safe to join onto an extraction root?
- *
- * Deliberately string-only (no `path`), so the check is identical in main, in
- * the renderer, and in tests — and so it runs BEFORE any resolve, which is
- * where zip-slip normally sneaks through. The reader still resolves and
- * re-checks containment afterwards; this is the first of the two gates.
+ * Is this zip entry name safe to join onto an extraction root? The predicate
+ * itself lives in `shared/packages/entry-path.ts` — it is shared with the
+ * agents package format — and is wrapped here with this format's path cap, so
+ * this module stays the one place the `.vidtsx` reader takes its rules from.
  */
 export function isSafeEntryPath(name: string): boolean {
-  if (typeof name !== 'string') return false;
-  if (name === '' || name.length > PACKAGE_LIMITS.maxPathLength) return false;
-  // A backslash is a path separator on Windows — a name carrying one is either
-  // malicious or unportable, and both answers are "no".
-  if (name.includes('\\')) return false;
-  if (name.startsWith('/')) return false;
-  if (/^[a-zA-Z]:/.test(name)) return false;
-  if (hasControlChars(name)) return false;
-  if (WINDOWS_ILLEGAL.test(name)) return false;
-  for (const segment of name.split('/')) {
-    if (segment === '' || segment === '.' || segment === '..') return false;
-    if (segment.endsWith('.') || segment.endsWith(' ')) return false;
-    if (WINDOWS_RESERVED.test(segment.split('.')[0])) return false;
-  }
-  return true;
+  return isSafeZipEntryPath(name, PACKAGE_LIMITS.maxPathLength);
 }
 
 /** Media entries get the generous cap; anything the app parses gets the small one. */

@@ -79,6 +79,15 @@ extraResources:
     to: content-safety
     filter:
       - "**/*"
+  # Built-in agents (docs/agents-plan.md §1.5, §1.6): one folder per agent at
+  # agents/<namespace>/<name>/, read-only. A user copy of the same id under
+  # userData shadows one of these only when its version is HIGHER, so an app
+  # update that ships a newer built-in takes over again on its own.
+  - from: resources/agents
+    to: agents
+    filter:
+      - "**/*"
+      - "!**/.*"
   - from: resources/icon.ico
     to: icon.ico
   - from: resources/icon.png

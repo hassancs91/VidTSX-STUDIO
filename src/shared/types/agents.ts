@@ -98,7 +98,11 @@ export interface InstalledAgent {
 // Artifacts (§1.4)
 // ---------------------------------------------------------------------------
 
-export type ArtifactKind = 'document' | 'composition' | 'video' | 'image-set' | 'job';
+/** Every artifact kind, as a value: the manifest validator checks a package's
+ *  declared kinds against this list at install time (plan §1.1). */
+export const ARTIFACT_KINDS = ['document', 'composition', 'video', 'image-set', 'job'] as const;
+
+export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
 /** Markdown inside the session workspace. */
 export interface DocumentPayload {
@@ -196,7 +200,10 @@ export type AgentArtifactDraft = {
 // Interactions (§1.3, §1.5)
 // ---------------------------------------------------------------------------
 
-export type InteractionKind = 'form' | 'pick' | 'approve';
+/** Wave-1 interaction kinds, as a value (see `ARTIFACT_KINDS`). */
+export const INTERACTION_KINDS = ['form', 'pick', 'approve'] as const;
+
+export type InteractionKind = (typeof INTERACTION_KINDS)[number];
 
 export interface InteractionFormField {
   id: string;

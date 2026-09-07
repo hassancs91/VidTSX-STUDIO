@@ -10,10 +10,12 @@ be frozen into flows).
 
 ## Start here (for the session that begins the work)
 
-0. **Stages 0 and 1 are DONE (2026-09-07).** Read section 3, then section 4
-   in full — including the step 0 record and the "Stage 1 outcome" subsection,
-   which name four contract deltas and the two things Stage 1 left owed. Then
-   start at Stage 2 (section 5).
+0. **Stages 0, 1 and 2 are DONE (Stage 2 on 2026-09-08).** Read section 4's
+   step 0 record and "Stage 1 outcome" subsection (four contract deltas, two
+   items still owed — the `ask_user` experiment's ten-run row is one of them),
+   then section 5's "Stage 2 outcome" subsection (five more deltas, the
+   signing key that does not exist yet, and the file association Stage 2
+   deliberately left for Stage 3). Then start at Stage 3 (section 6).
 1. Preconditions: the V1 flip has shipped as 1.0.0, and `check:types` plus
    `npx vitest run` are green on `main`. Confirm both before touching code.
 2. Read sections 0, 1, and 2 in full, then only the stage you are on.
@@ -23,8 +25,12 @@ be frozen into flows).
    rule alone. Two of its rows are still owed.
 4. Rules that hold for every stage: nothing under
    `src/main/services/studio/` changes except the optional `agentId` field
-   in 1.10; tool ids are append-only; every new file follows CLAUDE.md
-   (feature isolation, IPC-only bridge, ~300 lines, named exports).
+   in 1.10 and — decided 2026-09-08, see the Stage 2 outcome —
+   `project-package-unzip.ts` becoming a thin caller of the shared zip
+   reader, since decision 6 is about the Studio AGENT and duplicating a
+   security gate is worse than touching the file; tool ids are append-only;
+   every new file follows CLAUDE.md (feature isolation, IPC-only bridge,
+   ~300 lines, named exports).
 5. Record outcomes in this file as they happen: the step 0 numbers in
    section 4, manual acceptance results in section 10, and a STATUS.md entry
    per finished stage.
@@ -973,6 +979,92 @@ newer-but-incompatible shows "needs app X".
 Done when: `scripts/agent-pack.mjs --check` passes on the test agent folder,
 and a round trip pack, install, list works from a vitest using a temp
 userData.
+
+### Stage 2 outcome (2026-09-08) — what was built, and what it changes downstream
+
+Both "done when" criteria are met from vitest: `agent-pack-script.test.ts` runs
+the REAL `scripts/agent-pack.mjs` in a child process — `--check` on a good
+folder, `--check` on a folder with three separate problems, then pack → sign →
+install → scan — against temp roots. 53 new tests in 4 files (133 across 14 in
+`services/agents/`); `check:types` at baseline (web 26, node 10); the full suite
+green at 1617 passed.
+
+**The §5 file list contradicted rule 4, and the answer was to split it.** §5
+asks for two edits under `src/main/services/studio/`, which rule 4 forbids.
+Asked and decided 2026-09-08:
+
+- `project-package-unzip.ts` DOES become a thin caller of the new generic
+  reader. The alternative was ~150 lines of zip-slip and hash-verification
+  logic copied into an agents-side file, where the next fix would land in one
+  copy and silently not the other. The 255 existing package tests pass
+  unchanged, which is what makes the refactor safe to make.
+- `package-open.ts` is NOT touched, and `fileAssociations` does not yet gain
+  `vidtsxagent`. Double-click-to-install is convenience the Import button and
+  drag-and-drop cover, `package-open.ts` holds ONE global pending slot that
+  `studio-package-handlers.ts` claims (a second extension needs that slot to
+  carry a kind, and its consumer to change with it), and none of it can be
+  tested end to end until there is an Agents screen. **Stage 3 owns it.**
+
+**Contract deltas — what Stage 3 onward codes against:**
+
+1. `OpenedZipPackage` gained **`rawManifest`** and **`manifestBytes`**, and
+   both fix real bugs found while writing the tests. A signature covers what
+   the PUBLISHER wrote: verifying against the zod-parsed manifest would have
+   failed on every package whose author omitted `description` (zod fills `''`)
+   or carried a key zod strips. And the installed folder needs `agent.json` on
+   disk — it is folder-as-truth — but `agent.json` describes the other entries
+   rather than appearing among them, so `extractAll` never writes it. It is
+   copied byte for byte, because a re-serialisation stops verifying.
+2. `parseAgentManifest` now also enforces **entry-path safety** (the first
+   zip-slip gate, via the moved `isSafeEntryPath`), duplicate entries, the
+   per-entry and total size caps, and `AGENT_RESERVED_ENTRIES` — a manifest may
+   never list `signature.json` or `licensee.json`. §1.1 always implied these;
+   Stage 0 had left them to the reader, and the reader is the wrong place for
+   a rule `agent-pack --check` must apply offline.
+3. `ARTIFACT_KINDS` and `INTERACTION_KINDS` are now **values** in
+   `shared/types/agents.ts`, with the types derived from them, because the
+   validator needs the list at runtime.
+4. `shared/agents/tool-ids.ts` (`AGENT_TOOL_IDS`) is a bundleable copy of the
+   registry's ids. `agent-pack --check` and (from Stage 3) the renderer's
+   capability summary need the names without importing every tool and, through
+   them, Electron. `registry.test.ts` asserts the two are equal.
+5. `isSafeEntryPath` moved to `shared/packages/entry-path.ts`;
+   `shared/studio/project-package.ts` wraps it with its own path cap, so its
+   callers and tests are unchanged.
+
+**Two things are owed before an agent can carry the accent tag.**
+`publishers.ts` ships EMPTY, deliberately: no VidTSX signing key exists yet, so
+no signature can honestly be attributed to us and every signed package reads
+"Signed, unverified publisher". Generating one is a two-minute job —
+`node scripts/agent-pack.mjs --genkey` prints the private key to store outside
+the repo (pointed at by `VIDTSX_AGENT_SIGNING_KEY`) and the exact
+`publishers.ts` entry to paste — but it is Hasan's to run, because the private
+half must never reach a session. Second: a package is matched to a publisher by
+its KEY BYTES, never by the `keyId` it claims, and there is a test for exactly
+that impersonation.
+
+**Built-ins have no signature and need none** — they are inside the signed
+installer. `readAgentFolder` therefore reports `signature: 'unsigned'` for
+them, and the Stage 3 card must let `origin: 'builtin'` outrank the trust tag
+rather than labelling a shipped agent "Unverified" (§1.7).
+
+**Files as built:** `src/main/services/packages/zip-reader.ts` (the generic
+half) with `studio/project-package-unzip.ts` reduced to the `.vidtsx` spec;
+under `src/main/services/agents/`: `agent-package.ts`, `agent-signing.ts`,
+`agent-store.ts`, `agent-updates.ts`, `agent-package-context.ts` (the seam that
+reaches Electron, the tool registry and the TSX gate, so `agent-package.ts`
+stays a pure function of its deps and is testable without an app),
+`test-package-builder.ts` (test-only, and able to build BAD packages on
+purpose); `src/shared/packages/entry-path.ts`, `src/shared/agents/publishers.ts`,
+`src/shared/agents/tool-ids.ts`; `scripts/agent-pack.mjs`; four `paths.ts`
+helpers; `resources/agents/` with a README; the `extraResources` line.
+
+**Not started, and Stage 3 owns them:** no IPC handlers and no preload — the 14
+channels still answer to nothing, and `buildAgentPackageDeps()` is written and
+imported by nothing; the `.vidtsxagent` file association (above); the D14 gate
+does not run under `agent-pack --check`, which validates everything pure but
+cannot reach the module server from a plain node script, so a bad packaged TSX
+is caught at install rather than at pack time.
 
 ## 6. Stage 3 — Agents page, workspace, wave-1 viewers — ~3 sessions
 

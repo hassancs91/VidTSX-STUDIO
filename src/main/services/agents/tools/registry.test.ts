@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { AGENT_TOOL_IDS } from '../../../../shared/agents/tool-ids';
 import { getTool, listToolIds, selectTools } from './registry';
 import { sdkToolName } from './tool-server';
 
@@ -6,19 +7,12 @@ const ALL = { imageProvider: true, videoProvider: true };
 const NONE = { imageProvider: false, videoProvider: false };
 
 describe('tool registry', () => {
-  it('registers the wave-1 set', () => {
-    expect(listToolIds().sort()).toEqual(
-      [
-        'ask_user',
-        'edit_composition',
-        'generate_composition',
-        'generate_image',
-        'generate_video',
-        'list_artifacts',
-        'render_composition',
-        'write_document',
-      ].sort(),
-    );
+  // AGENT_TOOL_IDS is the bundleable copy of this list — `agent-pack --check`
+  // and the renderer read it because reaching the registry means importing
+  // every tool and, through them, Electron. This assertion is what stops the
+  // two drifting.
+  it('registers the wave-1 set, and it matches AGENT_TOOL_IDS', () => {
+    expect(listToolIds().sort()).toEqual([...AGENT_TOOL_IDS].sort());
   });
 
   it('selects only what the manifest asked for, in manifest order', () => {

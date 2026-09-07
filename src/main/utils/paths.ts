@@ -2,6 +2,7 @@ import { app } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { getAiRuntimeDevOverrides } from '../services/ai-runtime/dev-overrides';
+import { slugifyName } from '../services/agents/tools/workspace-files';
 
 export function getAppRoot(): string {
   if (app.isPackaged) {
@@ -168,4 +169,36 @@ export function getPipelinesDir(): string {
     return path.join(process.resourcesPath, 'pipelines');
   }
   return path.join(app.getAppPath(), 'resources', 'pipelines');
+}
+
+// ─── Agents (docs/agents-plan.md §1.5, §1.11) ───────────────────────────────
+
+/** `{userData}/agents/<namespace>/<name>` — user-installed agents, folder-as-truth. */
+export function getAgentsDir(): string {
+  return path.join(app.getPath('userData'), 'agents');
+}
+
+/** Built-in agents shipped with the app; read-only, and shadowed by a newer
+ *  user copy of the same id (§1.6). Dev: the repo folder. Packaged:
+ *  resources/agents via extraResources. */
+export function getBuiltinAgentsDir(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'agents');
+  }
+  return path.join(app.getAppPath(), 'resources', 'agents');
+}
+
+/** `{userData}/agent-sessions/<namespace>.<name>/<sessionId>` (§1.5). */
+export function getAgentSessionsDir(): string {
+  return path.join(app.getPath('userData'), 'agent-sessions');
+}
+
+/**
+ * Where a session's generated media files in the Asset Library (§1.11) —
+ * `agents/<agent-name>/<session-title>`, RELATIVE to the library root, which
+ * is what `generateImageAsset` / `fileVideoAsset` take. Renaming a session
+ * never moves files, so this is called once per session and stored.
+ */
+export function getAgentOutputFolder(agentName: string, sessionTitle: string): string {
+  return `agents/${slugifyName(agentName, 'agent')}/${slugifyName(sessionTitle, 'session')}`;
 }

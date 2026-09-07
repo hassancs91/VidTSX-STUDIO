@@ -7,6 +7,7 @@
 // serves the install validator, `agent-pack.mjs --check`, and unit tests.
 
 import { z } from 'zod';
+import { isSafeEntryPath } from '../packages/entry-path';
 import { parseAgentId } from './ids';
 import { validateStarter, type StarterTree } from './starter';
 import {
@@ -29,6 +30,14 @@ export const AGENT_LIMITS = {
   maxTools: 32,
   maxSubagents: 8,
 } as const;
+
+/**
+ * Entries the manifest may never list. `signature.json` signs the manifest, so
+ * the manifest cannot hash it; `licensee.json` is added by the store AFTER
+ * signing (§1.6). Both are read through the zip reader's explicit unlisted door
+ * instead, and a package listing either is malformed rather than merely odd.
+ */
+export const AGENT_RESERVED_ENTRIES: readonly string[] = ['signature.json', 'licensee.json'];
 
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9a-zA-Z.-]+)?$/;
 
@@ -167,7 +176,35 @@ export function parseAgentManifest(raw: unknown, ctx: ManifestContext = {}): Age
     problems.push(`needs VidTSX ${m.minAppVersion} (this app is ${ctx.appVersion})`);
   }
 
-  const paths = new Set(m.files.map((f) => f.path));
+  // Entry names are the FIRST zip-slip gate (the reader resolves and re-checks
+  // afterwards), and the caps here are what stop a small manifest fronting for
+  // a large extraction. `--check` runs this same block, so an author sees the
+  // problem before shipping rather than a buyer seeing it at install.
+  const paths = new Set<string>();
+  let totalBytes = 0;
+  for (const file of m.files) {
+    if (!isSafeEntryPath(file.path)) {
+      problems.push(`files: unsafe entry path "${file.path}"`);
+      continue;
+    }
+    if (AGENT_RESERVED_ENTRIES.includes(file.path)) {
+      problems.push(`files: "${file.path}" is written by the store and must not be listed`);
+      continue;
+    }
+    if (paths.has(file.path)) {
+      problems.push(`files: duplicate entry "${file.path}"`);
+      continue;
+    }
+    if (file.size > AGENT_LIMITS.maxEntryBytes) {
+      problems.push(`files: "${file.path}" is ${file.size} bytes (max ${AGENT_LIMITS.maxEntryBytes})`);
+    }
+    totalBytes += file.size;
+    paths.add(file.path);
+  }
+  if (totalBytes > AGENT_LIMITS.maxTotalBytes) {
+    problems.push(`files: ${totalBytes} bytes total (max ${AGENT_LIMITS.maxTotalBytes})`);
+  }
+
   if (!paths.has(m.prompt)) {
     problems.push(`prompt "${m.prompt}" is not listed in files[]`);
   }
