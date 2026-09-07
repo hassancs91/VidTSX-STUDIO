@@ -711,6 +711,16 @@ job cards in the grid while clips are generating.
 - **Only the two Seedance 2.5 entries have per-resolution rates.** Everything
   else still estimates at its 720p headline rate, labelled "at list rate" in the
   panel. The reference-with-video-input discount is not modelled either.
+- **Route is a pricing dimension the catalog does not model** (measured in Stage
+  5, after this stage shipped). `pricePerSecondByResolutionUsd` is keyed on
+  resolution alone, but BytePlus image-to-video billed **77,260 completion
+  tokens against text-to-video's 38,830** for the same 4 s at 480p — roughly
+  double for the same length and resolution. So a 480p i2v job on ModelArk is
+  estimated at about half what it costs, and the per-resolution fix this stage
+  made is right for t2v and understates i2v. Pricing that is honest across
+  routes needs the rate keyed on (route, resolution), or — better for BytePlus,
+  which already reports the number — the usage row's `outputTokens` converted at
+  the published per-million rate instead of estimated at all.
 - Reference **video/audio** are chosen through a native file dialog, which CDP
   cannot drive; the live run exercised that picker through its drop handler with
   a real path instead, which is the same code path a drop takes.
