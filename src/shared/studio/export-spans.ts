@@ -45,6 +45,15 @@
  * (`serializeTimeline` with a stub resolver): the crossfade handles, the
  * shifted `trimBefore`, the dropped clips — so a copied span asks for the
  * same source instant the browser would.
+ *
+ * Slice 4: SPEED. A clip at rate r ≥ 1 is still a pure cut of the picture,
+ * on a scaled time line: output frame n of a span starting at source frame S
+ * shows the source frame nearest to (S + r·n)/fps (measured 2026-09-06 on
+ * `t5-1080p-cut-speed`: K 899, 902, 905 … every third 59.94 fps frame at
+ * 1.5×). The span carries `rate`; `sourceFrame` may then be fractional
+ * (trimBefore + r × the offset into the clip, as the composition computes
+ * it). Slow motion (r < 1) stays a browser span: a source frame would have to
+ * serve several output slots and the select cannot repeat one.
  */
 import type { StudioClip, StudioMediaAsset, StudioProject } from '../types/studio';
 import { serializeTimeline } from './serialize';
@@ -57,8 +66,12 @@ export interface CopySpan {
   frames: number;
   assetId: string;
   assetPath: string;
-  /** Source position of `from`, in whole COMPOSITION frames (Remotion's trimBefore + offset). */
+  /** Source position of `from`, in COMPOSITION frames (Remotion's trimBefore +
+   *  offset × rate) — whole unless the clip has a rate. */
   sourceFrame: number;
+  /** Slice 4: the clip's playback rate, only when it is not 1 — the copied
+   *  span's time line is S + rate·n/fps. */
+  rate?: number;
   /** True when the browser would show the CEIL source frame on this span's
    *  first frame instead of the nearest: the first frame Remotion extracts
    *  after OPENING a source file — the composition opening mid-source (T1
@@ -116,7 +129,9 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   if (clip.kind !== 'video') return `${clip.kind} clip`;
   if (!asset) return 'missing asset';
   if (asset.kind !== 'video') return `${asset.kind} asset`;
-  if (clip.speed !== undefined && clip.speed !== 1) return 'speed';
+  const rate = clip.speed !== undefined && clip.speed !== 1 ? clip.speed : 1;
+  if (!(rate > 0)) return 'speed';
+  if (rate < 1) return 'slow motion';
   if (!isIdentityTransform(clip)) return 'transform';
   if (!asset.probe.width || !asset.probe.height) return 'unknown source size';
   const sourceAspect = asset.probe.width / asset.probe.height;
@@ -127,9 +142,11 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   // slot still has a nearest source frame (measured 2026-09-06: a seeded 3 h
   // project's millisecond-rounded clip ends overran by 0.3–0.5 ms and sent
   // 5 % of an all-cuts timeline to the browser). The engine counts every
-  // piece's frames anyway and sends a short one back to the browser.
-  const sourceEnd = (clip.sourceIn ?? 0) + clip.duration;
-  if (sourceEnd > asset.probe.duration + 0.5 / settings.fps + EPS) return 'runs past the source end';
+  // piece's frames anyway and sends a short one back to the browser. A sped
+  // clip consumes `rate` source seconds per timeline second (slice 4), and its
+  // slots sit `rate` composition frames apart.
+  const sourceEnd = (clip.sourceIn ?? 0) + clip.duration * rate;
+  if (sourceEnd > asset.probe.duration + (0.5 * rate) / settings.fps + EPS) return 'runs past the source end';
   return null;
 }
 
@@ -181,7 +198,8 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
           const windows: Piece[] = [];
           if (sc.transitionIn && sc.transitionIn.frames > 0) windows.push({ from, to: Math.min(to, from + sc.transitionIn.frames) });
           if (sc.transitionOut && sc.transitionOut.frames > 0) windows.push({ from: Math.max(from, to - sc.transitionOut.frames), to });
-          return { sc, from, to, asset, blocker, windows, trimBefore: sc.trimBefore ?? 0 };
+          const rate = sc.playbackRate !== undefined && sc.playbackRate !== 1 ? sc.playbackRate : 1;
+          return { sc, from, to, asset, blocker, windows, trimBefore: sc.trimBefore ?? 0, rate };
         })
         .filter((c) => c.to > c.from)
         .sort((a, b) => a.from - b.from),
@@ -249,7 +267,7 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       continue;
     }
     const asset = covering.asset as StudioMediaAsset;
-    const sourceFrame = covering.trimBefore + (from - covering.from);
+    const sourceFrame = covering.trimBefore + (from - covering.from) * covering.rate;
     push({
       kind: 'copy',
       from,
@@ -257,6 +275,7 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       assetId: asset.id,
       assetPath: asset.path,
       sourceFrame,
+      ...(covering.rate !== 1 ? { rate: covering.rate } : {}),
       firstFrameCeil: opensFile && sourceFrame > 0,
     });
     copiedFrames += frames;

@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-09-07 — EXPORT ENGINES Stage 3 slice 4: speed in the one pass and the copied picture
+
+Stage 3 of `docs/export-engines-plan.md`, slice 4 (slice 3 = 6ee7087). The recipe slice 3
+measured is now the engine: a sped clip's picture is copied on the scaled time line and its
+audio is Remotion's own `atempo` chain in the one pass. Full log with the numbers: the plan's
+§Stage 3 log, slice 4.
+
+- **Widened: the picture of a sped clip.** `copyBlocker` accepts a rate ≥ 1 (the source-end
+  bound scales with it); a copy span carries `rate` and its source position is
+  trimBefore + rate × offset, as the composition computes it; `nearestSelectFilter` maps slot n
+  to S + rate·n/fps. Without a rate the select string is byte for byte Stage 2's. Slow motion
+  (rate < 1) stays a browser span: one source frame would serve several slots and `select`
+  cannot repeat a frame.
+- **Widened: the audio of a sped clip.** `planExportAudio` no longer returns null on
+  `playbackRate`; the segment carries `rate`, and the pass writes Remotion's chain verbatim —
+  `aformat s16 48k`, `calculateATempo` ported (square roots outside 0.5–2), `atrim` at
+  post-tempo times in Remotion's microsecond form, the volume right after the trim — then the
+  pin. A curve on a sped clip sits on the post-tempo time line (`sourceIn / rate`), read from
+  `seamless-aac-trim.js` + `ffmpeg-volume-expression.js` and confirmed on a real export. Live
+  pins: the pass's sped segment, with and without a fade, is **byte-identical PCM** to
+  Remotion's chain run directly.
+- **Measured: a sped clip that opens a file shows the CEIL frame** (K 7671 where nearest is
+  7670 on the new `t5-1080p-cut-speed2` seed), the nearest after that (every fourth 59.94 fps
+  frame at 2×), and a near-tie (9464.53) resolves to the nearest — the slice-1 rule with the time
+  line scaled, which the planner already applied. A clip that runs to 0272's container end
+  needs no held tail at 2× (the last slot sits rate/30 s before the end, past the 16.5 ms the
+  DJI video streams fall short).
+- **Gate — `t5-1080p-cut-speed`** (B at 1.5×, music at 1.5×): "Copies 100 %"; the frame map
+  reads the SAME source frames as the plain Remotion export at 450…456/600/899 (K 899, 902 …
+  917, 1349, 2245); `t1-diff` vs that export max 0.01 % over 24 at the seven frames, 0 % vs the
+  control on clip A; clip A's 450 access units byte-identical to the Stage 2 cut export; audio
+  **0 ms and level 1.000 vs the Remotion export at all eight windows**, clip B 0 ms / 0.999 vs the
+  pre-stretched camera reference, the sped music at lag 0 / 0.986 of its gained level on both
+  exports alike. (The verify-mode reference render was lost to a PC shutdown after the export
+  had finished; the on-disk plain Remotion export is the same engine and stood in.)
+- **Gate — `t5-1080p-cut-speed2`** (0272 at 2× to its end with gain 0.5 + 1 s fades, music at
+  3×): "Copies 100 %"; the same K as the Remotion export at every mapped frame (ceil on the
+  first); max 0.01 % over 24 at the seven frames; audio 0 ms on clip A and **+0.3 ms on the
+  faded-in sped clip** — Remotion's whole-ms placement (the Remotion export reads −0.3 ms
+  against the stretched camera reference, the pass 0 ms); level 1.000 in 1 s windows and
+  0.996–1.005 in 100 ms windows inside both ramps; the flat part 0.504 = 0.505 × AAC on both;
+  the 3× music at lag 0 / corr 0.987 / level 0.985 on both.
+- **Earlier gates unchanged:** `t5-1080p`, `t5-1080p-cut`, `t5-1080p-cut-gain`,
+  `t5-1080p-cut-music`, `t5-1080p-cut-stack`, `t5-1080p-cut-fade`, `t5-1080p-cut-xfade`
+  re-exported with video AND audio streams byte-identical to their earlier files.
+- Gates: check:types 26/22 (baseline), vitest 1,425 green (+6 planner/builder tests), live
+  ffmpeg tests 8 (+1).
+- **Stage 3 is complete for what the predicate names** (cuts, gain, audio tracks, several
+  video tracks, fades, transitions, speed ≥ 1). Still browser spans: slow motion (a
+  frame-duplication recipe to measure), transforms, letterboxed sources, overlays, captions.
+  **Next: Stage 4** — progress that shows copied vs rendered time, cancel that cleans
+  intermediates, the 10 GB finishing mux, merging nearby browser spans (a 30-frame transition
+  window pays a full bundle + Chrome start), QSV/AMF unmeasured; the long-return question.
+
 ## 2026-09-07 — EXPORT ENGINES Stage 3 slice 3: speed measured, audio fades and crossfades in the one pass
 
 Stage 3 of `docs/export-engines-plan.md`, slice 3 (slice 2 = 2c564c6). Speed measured first,

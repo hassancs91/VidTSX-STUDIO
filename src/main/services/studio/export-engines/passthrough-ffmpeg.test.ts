@@ -14,6 +14,8 @@ import {
   nearestSelectFilter,
   parseFrameRate,
   parseStatsFrame,
+  remotionAtempoFilter,
+  remotionTrimMicros,
   remotionVolumeExpression,
   seekSeconds,
   spanEncoderArgs,
@@ -32,6 +34,27 @@ describe('nearestSelectFilter (condition 1)', () => {
   it('takes the ceil frame for slot 0 when the composition opens mid-source (T1 leg 3)', () => {
     const f = nearestSelectFilter({ sourceFrame: 450, fps: 30, sourceFrameRate: DJI, firstFrameCeil: true });
     expect(f).toContain('if(lt(max(round((t-(450/30))*30)\\,0)\\,1)\\,ceil((450/30)/(1001/60000)-0.000001)\\,floor(');
+  });
+
+  it('a sped span (slice 4) maps slot n to S + rate·n/fps and keeps the Stage 2 string without a rate', () => {
+    expect(nearestSelectFilter({ sourceFrame: 450, fps: 30, sourceFrameRate: DJI, firstFrameCeil: false, rate: 1.5 })).toBe(
+      "select='eq(floor(((450/30)+1.5*max(round((t-(450/30))*30/1.5)\\,0)/30)/(1001/60000)+0.5)\\,round(t/(1001/60000)))'",
+    );
+    expect(nearestSelectFilter({ sourceFrame: 450, fps: 30, sourceFrameRate: DJI, firstFrameCeil: false, rate: 1 })).toBe(
+      nearestSelectFilter({ sourceFrame: 450, fps: 30, sourceFrameRate: DJI, firstFrameCeil: false }),
+    );
+    // A fractional source position (a sped clip split by an overlay) is printed as JS prints it.
+    expect(nearestSelectFilter({ sourceFrame: 870, fps: 30, sourceFrameRate: DJI, firstFrameCeil: false, rate: 1.5 })).toContain('(870/30)+1.5*');
+    expect(nearestSelectFilter({ sourceFrame: 451.5, fps: 30, sourceFrameRate: DJI, firstFrameCeil: false, rate: 1.5 })).toContain('(451.5/30)');
+    // The ceil rule on the first frame is unchanged by the rate.
+    expect(nearestSelectFilter({ sourceFrame: 3839, fps: 30, sourceFrameRate: DJI, firstFrameCeil: true, rate: 2 })).toContain('if(lt(max(round((t-(3839/30))*30/2)\\,0)\\,1)\\,ceil((3839/30)/(1001/60000)-0.000001)\\,floor(');
+    // The same maths in JS at 1.5×: slots 0…6 of the speed seed pick K 899, 902, 905, 908, 911, 914, 917 (measured).
+    const D = 1001 / 60000;
+    const K = (n: number) => Math.floor((450 / 30 + (1.5 * n) / 30) / D + 0.5);
+    expect([0, 1, 2, 3, 4, 5, 6].map(K)).toEqual([899, 902, 905, 908, 911, 914, 917]);
+    expect(K(150)).toBe(1349);
+    expect(K(449)).toBe(2245);
+    expect(() => nearestSelectFilter({ sourceFrame: 0, fps: 30, sourceFrameRate: DJI, firstFrameCeil: false, rate: 0 })).toThrow(/rate/);
   });
 
   it('seeks one source frame early, never before 0', () => {
@@ -208,6 +231,61 @@ describe('audioPassArgs with a volume curve (Stage 3 slice 3)', () => {
       "[0:a:0]aresample=async=1:first_pts=0,atrim=start=15.033333:end=17.000000,volume='if(between(t,15.0167,15.0500),0.247,if(between(t,15.0500,15.0833),0.505,if(between(t,15.0833,15.1167),0.753,1)))':eval=frame,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=1.966667,atrim=end=1.966667[s1]",
     );
     expect(() => audioPassArgs({ ...plan, fps: undefined }, 'audio.wav', 'graph.txt')).toThrow(/fps/);
+  });
+});
+
+describe('audioPassArgs with a playback rate (Stage 3 slice 4)', () => {
+  it('ports Remotion\'s atempo chain and trim strings', () => {
+    expect(remotionAtempoFilter(1)).toBeNull();
+    expect(remotionAtempoFilter(1.5)).toBe('atempo=1.50000');
+    expect(remotionAtempoFilter(2)).toBe('atempo=2.00000');
+    expect(remotionAtempoFilter(0.5)).toBe('atempo=0.50000');
+    expect(remotionAtempoFilter(3)).toBe('atempo=1.73205,atempo=1.73205');
+    expect(remotionAtempoFilter(0.25)).toBe('atempo=0.50000,atempo=0.50000');
+    expect(remotionAtempoFilter(5)).toBe('atempo=1.49535,atempo=1.49535,atempo=1.49535,atempo=1.49535');
+    expect(() => remotionAtempoFilter(0)).toThrow(/rate/);
+    expect(remotionTrimMicros(10)).toBe('10000000us');
+    expect(remotionTrimMicros(450 / 30 / 1.5 + 3 / 30)).toBe('10100000us'); // 10.100000000000001 → floored
+    expect(remotionTrimMicros(0.3 - 0.1)).toBe('200000us'); // 199999.99999999997 → ceiled
+    expect(remotionTrimMicros(451 / 30 / 1.5)).toBe('10022222.222222222us'); // fractional microseconds, as Remotion prints them
+    expect(remotionTrimMicros(1e-13)).toBe('0us'); // "1e-7us" → Remotion's e-notation guard
+  });
+
+  it('writes a sped segment as Remotion\'s chain: aformat s16 48k, atempo, atrim at post-tempo times, then the pin', () => {
+    const { graph } = audioPassArgs({
+      duration: 30,
+      segments: [
+        { kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 15 },
+        { kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 15, duration: 15, rate: 1.5 },
+      ],
+    }, 'audio.wav', 'graph.txt');
+    const lines = graph.split(';\n');
+    expect(lines[0]).toBe('[0:a:0]aresample=async=1:first_pts=0,atrim=start=0.000000:end=15.000000,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=15.000000,atrim=end=15.000000[s0]');
+    // 15 s of source at 1.5× starts at 10 s of the stretched stream and lasts the segment's 15 timeline seconds.
+    expect(lines[1]).toBe('[0:a:0]aformat=sample_fmts=s16:sample_rates=48000,atempo=1.50000,atrim=10000000us:25000000us,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=15.000000,atrim=end=15.000000[s1]');
+    // A static gain rides right after the trim, as Remotion orders it; a rate outside 0.5–2 chains square roots.
+    const gained = audioPassArgs({ duration: 10, segments: [{ kind: 'source', assetId: 'm', assetPath: 'M.wav', sourceIn: 2, duration: 10, gain: 0.5, rate: 3 }] }, 'o.wav', 'g.txt').graph;
+    expect(gained).toContain('[0:a:0]aformat=sample_fmts=s16:sample_rates=48000,atempo=1.73205,atempo=1.73205,atrim=666666.6666666666us:10666666.666666666us,volume=0.500000,asetpts=PTS-STARTPTS,aformat=');
+    // A rate of exactly 1 is the Stage 2 line.
+    expect(audioPassArgs({ duration: 2, segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 2, rate: 1 }] }, 'o.wav', 'g.txt').graph).toBe(
+      audioPassArgs({ duration: 2, segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn: 0, duration: 2 }] }, 'o.wav', 'g.txt').graph,
+    );
+  });
+
+  it('puts a curve on a sped segment on the post-tempo time line: windows of 1/fps from the trim point', () => {
+    // A fade-in on a clip at 2× from source frame 450: the asset starts at frame 1 = source (450 + 2)/30, trim point (450/30)/2 + 1/30.
+    const sourceIn = 452 / 30;
+    const { graph } = audioPassArgs({
+      duration: 4,
+      fps: 30,
+      segments: [{ kind: 'source', assetId: 'a', assetPath: 'A.MP4', sourceIn, duration: 4 / 30, rate: 2, volumes: [0.25, 0.5, 0.75, 1] }],
+    }, 'audio.wav', 'graph.txt');
+    const trimLeft = sourceIn / 2; // = 7.5333…
+    expect(graph).toBe(
+      `[0:a:0]aformat=sample_fmts=s16:sample_rates=48000,atempo=2.00000,atrim=${remotionTrimMicros(trimLeft)}:${remotionTrimMicros(trimLeft + 4 / 30)},volume='if(between(t,7.5167,7.5500),0.247,if(between(t,7.5500,7.5833),0.505,if(between(t,7.5833,7.6167),0.753,1)))':eval=frame,asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,apad=whole_dur=0.133333,atrim=end=0.133333[s0];\n` +
+      '[s0]concat=n=1:v=0:a=1,atrim=end=4.000000,apad=whole_dur=4.000000[out]\n',
+    );
+    expect(remotionTrimMicros(trimLeft)).toBe('7533333.333333333us');
   });
 });
 

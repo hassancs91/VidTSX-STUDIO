@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { EXPORT_COLOR } from './types';
-import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, joinArgs, remotionVolumeExpression } from './passthrough-ffmpeg';
+import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, joinArgs, remotionTrimMicros, remotionVolumeExpression } from './passthrough-ffmpeg';
 
 const LIVE = process.env.VIDTSX_LIVE_FFMPEG === '1';
 const REPO = path.resolve(__dirname, '../../../../..');
@@ -306,6 +306,84 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     const camEarly = await decode(SOURCE, ['-ss', String(sourceIn), '-t', '0.1']);
     expect(rms(early) / rms(camEarly)).toBeLessThan(0.06);
   }, 120_000);
+
+  it('a sped segment is Remotion\'s atempo chain bit for bit, and a curve on it sits on the post-tempo time line (Stage 3 slice 4)', async () => {
+    const { ffmpeg } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    const pcm = (file: string, extra: string[] = []) => new Promise<Buffer>((resolve, reject) => {
+      const p = spawn(ffmpeg, ['-v', 'error', '-nostdin', ...extra, '-i', file, '-vn', '-f', 's16le', '-']);
+      const chunks: Buffer[] = [];
+      p.stdout.on('data', (c: Buffer) => chunks.push(c));
+      p.on('close', (code) => (code === 0 ? resolve(Buffer.concat(chunks)) : reject(new Error('decode failed'))));
+    });
+    // 1. The speed seed's clip B: 15 s of the camera file from 15 s at 1.5×, after 1 s of silence. Remotion's chain run
+    //    directly (`aformat s16 48k, atempo=1.50000, atrim` at post-tempo times — slice 3 measured it bit-identical to
+    //    Remotion's bundled ffmpeg 7.1 and lag 0 / level 1.000 against the real export) must be the pass's samples exactly.
+    const wav = path.join(OUT, 'speed-audio.wav');
+    const graphPath = path.join(OUT, 'speed-audio-graph.txt');
+    const pass = audioPassArgs({
+      duration: 4,
+      segments: [
+        { kind: 'silence', duration: 1 },
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn: 15, duration: 3, rate: 1.5 },
+      ],
+    }, wav, graphPath);
+    await fs.writeFile(graphPath, pass.graph);
+    await run(ffmpeg, pass.args);
+    const ref = path.join(OUT, 'speed-remotion.wav');
+    await run(ffmpeg, ['-y', '-v', 'error', '-nostdin', '-vn', '-i', SOURCE,
+      '-af', 'aformat=sample_fmts=s16:sample_rates=48000,atempo=1.50000,atrim=10000000us:13000000us',
+      '-c:a', 'pcm_s16le', ref]);
+    const ours = await pcm(wav);
+    const theirs = await pcm(ref);
+    const lead = 48_000 * 4; // 1 s of stereo s16
+    expect(ours.length).toBe(48_000 * 4 * 4);
+    expect(theirs.length).toBe(48_000 * 4 * 3);
+    expect(Buffer.compare(ours.subarray(lead, lead + theirs.length), theirs)).toBe(0);
+    expect(ours.subarray(0, lead).every((b) => b === 0)).toBe(true);
+
+    // 2. The same segment with a 1 s fade-in at gain 0.5 whose first frame Remotion drops: the asset starts at the source
+    //    instant of frame 1 (450 + 1.5 frames), its trim point (450/30)/1.5 + 1/30 on the stretched stream, and its
+    //    windows are 1/30 of POST-tempo audio each — Remotion's stringify-ffmpeg-filter.js chain for a sped asset with a
+    //    volume array (getActualTrimLeft seamless: audioStartFrame/fps/rate + sinceStart/fps; ffmpegVolumeExpression with
+    //    trimLeft = that). Run verbatim, it must again be the pass's samples exactly.
+    const volumes: number[] = [];
+    for (let f = 0; f < 89; f++) volumes.push(0.5 * Math.min(1, (f + 1) / 30));
+    const sourceIn = (450 + 1.5) / 30;
+    const trimLeft = 450 / 30 / 1.5 + 1 / 30;
+    const wav2 = path.join(OUT, 'speed-fade-audio.wav');
+    const graphPath2 = path.join(OUT, 'speed-fade-audio-graph.txt');
+    const pass2 = audioPassArgs({
+      duration: 4,
+      fps: 30,
+      segments: [
+        { kind: 'silence', duration: 1 + 1 / 30 },
+        { kind: 'source', assetId: 'a', assetPath: SOURCE, sourceIn, duration: 89 / 30, rate: 1.5, volumes },
+      ],
+    }, wav2, graphPath2);
+    await fs.writeFile(graphPath2, pass2.graph);
+    await run(ffmpeg, pass2.args);
+    const ref2 = path.join(OUT, 'speed-fade-remotion.wav');
+    const expr = remotionVolumeExpression(volumes, trimLeft, 30);
+    await run(ffmpeg, ['-y', '-v', 'error', '-nostdin', '-vn', '-i', SOURCE,
+      '-af', `aformat=sample_fmts=s16:sample_rates=48000,atempo=1.50000,atrim=${remotionTrimMicros(trimLeft)}:${remotionTrimMicros(trimLeft + 89 / 30)},volume='${expr}':eval=frame`,
+      '-c:a', 'pcm_s16le', ref2]);
+    const ours2 = await pcm(wav2);
+    const theirs2 = await pcm(ref2);
+    const lead2 = Math.round((1 + 1 / 30) * 48_000) * 4;
+    expect(Buffer.compare(ours2.subarray(lead2, lead2 + theirs2.length), theirs2)).toBe(0);
+    // And the curve really is a fade on the stretched audio: the flat part at 0.505 of the plain sped segment, the first 100 ms far below it.
+    const rms = (b: Buffer, from: number, len: number) => {
+      let acc = 0;
+      for (let i = from; i < from + len; i += 2) { const v = b.readInt16LE(i); acc += v * v; }
+      return Math.sqrt(acc / (len / 2));
+    };
+    const flat2 = rms(ours2, lead2 + 48_000 * 4 * 2, 43_200 * 4);            // 2–2.9 s into the faded segment (frames 60–89: flat)
+    const flat1 = rms(ours, lead + 48_000 * 4 * 2 + 1_600 * 4, 43_200 * 4);  // the same stretched audio in the plain run (its segment starts 1 frame earlier)
+    expect(flat2 / flat1).toBeGreaterThan(0.495);
+    expect(flat2 / flat1).toBeLessThan(0.515);
+    expect(rms(ours2, lead2, 4_800 * 4) / rms(ours, lead + 1_600 * 4, 4_800 * 4)).toBeLessThan(0.06);
+  }, 180_000);
 
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {
     const { ffmpeg, ffprobe } = bins();

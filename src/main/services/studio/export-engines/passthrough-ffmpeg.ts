@@ -11,7 +11,9 @@
  *    on absolute pts (`-copyts`, seeking one source frame early so a nearest
  *    frame just before S is still decoded), `setpts` onto the exact fps grid,
  *    then `-r fps -fps_mode cfr -frames:v N`. Never `-r` alone, never `fps=`
- *    (both pick other frames — measured in §T1 leg 0).
+ *    (both pick other frames — measured in §T1 leg 0). A sped span (slice 4)
+ *    is the same rule on the scaled time line, S + rate·n/fps (measured
+ *    2026-09-06: every third 59.94 fps frame at 1.5×).
  * 2. One encoder for both span kinds — browser spans are decoded from
  *    Remotion's intermediate and encoded HERE with the copied spans' settings.
  * 3. Join through MPEG-TS video-only intermediates; the audio is one pass over
@@ -70,26 +72,34 @@ export function outputTimingArgs(fps: number, frames: number): string[] {
 }
 
 export interface SelectOptions {
-  /** Source time of output frame 0, in whole composition frames (S = sourceFrame / fps). */
+  /** Source time of output frame 0, in composition frames (S = sourceFrame / fps) — whole unless the span has a rate. */
   sourceFrame: number;
   fps: number;
   sourceFrameRate: FrameRate;
   /** T1 leg 3: the first frame after opening a file shows the ceil frame. */
   firstFrameCeil: boolean;
+  /** Slice 4: the clip's playback rate (absent = 1) — slot n sits at S + rate·n/fps. */
+  rate?: number;
 }
 
 /**
  * Pure: the `select` filter implementing condition 1. Keep source frame K
  * (= round(t/D), D = one source frame) iff it is the nearest source frame to
- * the output slot it itself is nearest to: n = max(0, round((t − S)·fps)),
- * slot time S + n/fps, nearest K there = floor(slotTime/D + 0.5). Rationals
- * are written as fractions so ffmpeg evaluates the same doubles this side does.
+ * the output slot it itself is nearest to: n = max(0, round((t − S)·fps/r)),
+ * slot time S + r·n/fps, nearest K there = floor(slotTime/D + 0.5). Rationals
+ * are written as fractions so ffmpeg evaluates the same doubles this side
+ * does; a rate is written as JS prints it (its shortest round-trip form, so
+ * strtod gives back the same double). Without a rate the string is exactly
+ * what Stage 2 wrote.
  */
 export function nearestSelectFilter(o: SelectOptions): string {
   const S = `(${o.sourceFrame}/${o.fps})`;
   const D = `(${o.sourceFrameRate.den}/${o.sourceFrameRate.num})`;
-  const n = `max(round((t-${S})*${o.fps})\\,0)`;
-  const nearestK = `floor((${S}+${n}/${o.fps})/${D}+0.5)`;
+  const r = o.rate !== undefined && o.rate !== 1 ? o.rate : undefined;
+  if (r !== undefined && !(r > 0)) throw new Error(`select needs a positive rate, got ${r}`);
+  const n = r === undefined ? `max(round((t-${S})*${o.fps})\\,0)` : `max(round((t-${S})*${o.fps}/${r})\\,0)`;
+  const slot = r === undefined ? `${S}+${n}/${o.fps}` : `${S}+${r}*${n}/${o.fps}`;
+  const nearestK = `floor((${slot})/${D}+0.5)`;
   const wantK = o.firstFrameCeil ? `if(lt(${n}\\,1)\\,ceil(${S}/${D}-0.000001)\\,${nearestK})` : nearestK;
   return `select='eq(${wantK}\\,round(t/${D}))'`;
 }
@@ -262,7 +272,48 @@ export interface AudioPass {
  * and pinned to the whole length, then summed by `amix … normalize=0` — the
  * very filter `@remotion/renderer` merges a composition's audio with, so the
  * levels are Remotion's. One chain keeps Stage 2's graph to the byte.
+ *
+ * A segment with a RATE (slice 4) is Remotion's chain verbatim instead of the
+ * resample + trim above: `aformat=sample_fmts=s16:sample_rates=48000`, the
+ * `atempo` chain, then `atrim` at POST-tempo times (`sourceIn / rate`, its
+ * planned length after that — `seamless-aac-trim.js` getActualTrimLeft with
+ * seamless = true: audioStartFrame/fps/rate + sinceStart/fps), the volume
+ * (static or per-frame) right after the trim as Remotion orders it — with
+ * the curve's windows on the post-tempo time line, since every registered
+ * frame is 1/fps of the stretched audio — then our pin. Measured in slice 3:
+ * this chain's PCM is bit-identical between ffmpeg 7.1 and 8.1.
  */
+/**
+ * Pure: `@remotion/renderer`'s `calculateATempo` (assets/calculate-atempo.js)
+ * verbatim — `atempo=<rate to 5 dp>` inside ffmpeg's 0.5–2 range, else the
+ * square root twice, recursively. Null at rate 1. The chain is a
+ * pitch-preserving WSOLA stretch, and ffmpeg 7.1 (Remotion's) and 8.1 (ours)
+ * produce bit-identical PCM for it (measured 2026-09-06).
+ */
+export function remotionAtempoFilter(rate: number): string | null {
+  if (!(rate > 0)) throw new Error(`atempo needs a positive rate, got ${rate}`);
+  if (rate === 1) return null;
+  if (rate >= 0.5 && rate <= 2) return `atempo=${rate.toFixed(5)}`;
+  const half = remotionAtempoFilter(Math.sqrt(rate));
+  return `${half},${half}`;
+}
+
+/**
+ * Pure: a trim point as `@remotion/renderer` writes it (stringify-ffmpeg-filter.js
+ * `stringifyTrim`): whole microseconds with a floating-point clean-up (a
+ * fraction under 1e-7 floors, over 1 − 1e-7 ceils; anything in between is
+ * printed as JS prints the double, and ffmpeg's duration parser keeps the
+ * whole microseconds). Same value as `start=<s>` — measured bit-identical —
+ * but written Remotion's way so the graph reads as its chain.
+ */
+export function remotionTrimMicros(seconds: number): string {
+  let value = seconds * 1_000_000;
+  if (value % 1 < 0.0000001) value = Math.floor(value);
+  else if (value % 1 > 0.9999999) value = Math.ceil(value);
+  const text = `${value}us`;
+  return text.includes('e-') ? '0us' : text;
+}
+
 /**
  * Pure: the per-frame volume expression `@remotion/renderer` writes for an
  * asset whose volume changes (assets/ffmpeg-volume-expression.js, the same
@@ -336,12 +387,21 @@ export function audioPassArgs(plan: ExportAudioPlan, outputPath: string, graphPa
         const end = (seg.sourceIn + seg.duration).toFixed(6);
         const dur = seg.duration.toFixed(6);
         const gain = seg.gain !== undefined ? `,volume=${seg.gain.toFixed(6)}` : '';
+        const rate = seg.rate !== undefined && seg.rate !== 1 ? seg.rate : undefined;
+        // Remotion's `t` for the volume windows: source time, or post-tempo time on a sped segment.
+        const trimLeft = rate === undefined ? seg.sourceIn : seg.sourceIn / rate;
         let curve = '';
         if (seg.volumes) {
           if (!(plan.fps && plan.fps > 0)) throw new Error('an audio plan with a volume curve needs its fps');
-          curve = `,volume='${remotionVolumeExpression(seg.volumes, seg.sourceIn, plan.fps)}':eval=frame`;
+          curve = `,volume='${remotionVolumeExpression(seg.volumes, trimLeft, plan.fps)}':eval=frame`;
         }
-        graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end}${curve},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
+        if (rate === undefined) {
+          graph.push(`[${idx}:a:0]aresample=async=1:first_pts=0,atrim=start=${seg.sourceIn.toFixed(6)}:end=${end}${curve},asetpts=PTS-STARTPTS,${fmt}${gain},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
+        } else {
+          const tempo = remotionAtempoFilter(rate);
+          const trim = `atrim=${remotionTrimMicros(trimLeft)}:${remotionTrimMicros(trimLeft + seg.duration)}`;
+          graph.push(`[${idx}:a:0]aformat=sample_fmts=s16:sample_rates=48000,${tempo},${trim}${curve}${gain},asetpts=PTS-STARTPTS,${fmt},apad=whole_dur=${dur},atrim=end=${dur}${label}`);
+        }
       }
       labels.push(label);
     });

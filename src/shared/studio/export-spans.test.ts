@@ -153,10 +153,10 @@ describe('planExportSpans edges', () => {
   });
 
   it('merges adjacent browser pieces into one span', () => {
-    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 }), clip('b', 5, 5, 20, { transform: { opacity: 0.5 } })])]));
-    expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'speed' }]);
+    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 0.5 }), clip('b', 5, 5, 20, { transform: { opacity: 0.5 } })])]));
+    expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'slow motion' }]);
     expect(plan.copiedFrames).toBe(0);
-    expect(plan.reason).toBe('speed');
+    expect(plan.reason).toBe('slow motion');
   });
 
   it('a gain-only clip is still a pure cut of the picture (Stage 3): copied, its gain carried to the audio pass', () => {
@@ -173,13 +173,41 @@ describe('planExportSpans edges', () => {
     expect(planExportSpans(project([video([clip('a', 0, 5, 0, { gain: 0 })])])).copiedFrames).toBe(150);
   });
 
-  it('speed still blocks both the picture and the one-pass audio; a fade blocks neither (slice 3: the picture never fades)', () => {
+  it('a fade blocks neither the picture nor the one-pass audio (slice 3: the picture never fades); slow motion still blocks the picture (slice 4)', () => {
     expect(copyBlocker(clip('a', 0, 5, 0, { fadeOutSec: 1 }), T5.assets[0], T5.settings)).toBeNull();
-    expect(copyBlocker(clip('a', 0, 5, 0, { speed: 2 }), T5.assets[0], T5.settings)).toBe('speed');
-    expect(planExportAudio(project([video([clip('a', 0, 5, 0, { speed: 2 })])]))).toBeNull();
-    expect(planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 2 })])])).copiedFrames).toBe(0);
+    expect(copyBlocker(clip('a', 0, 5, 0, { speed: 0.5 }), T5.assets[0], T5.settings)).toBe('slow motion');
+    expect(copyBlocker(clip('a', 0, 5, 0, { speed: 0 }), T5.assets[0], T5.settings)).toBe('speed');
+    expect(planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 0.5 })])])).copiedFrames).toBe(0);
     const faded = project([video([clip('clip_t1_cut_a', 0, 15, 0, { fadeOutSec: 0.5 }), clip('clip_t1_cut_b', 15, 15, 15, { gain: 0.5, fadeInSec: 1, fadeOutSec: 2 })]), audioTrack]);
     expect(planExportSpans(faded).spans).toEqual(planExportSpans(T5_CUT).spans);
+  });
+
+  it('a sped clip is copied on the scaled time line (slice 4): the span carries the rate, its source position is trimBefore + offset × rate', () => {
+    // The speed seed: clip B at 1.5× from source 15 s — the same two spans as the T1 cut, the second at rate 1.5.
+    const sped = project([video([clip('clip_t1_cut_a', 0, 15, 0), clip('clip_t1_cut_b', 15, 15, 15, { speed: 1.5 })]), audioTrack]);
+    expect(copyBlocker(sped.timeline.tracks[0].clips[1], sped.assets[0], sped.settings)).toBeNull();
+    expect(planExportSpans(sped).spans).toEqual([
+      { kind: 'copy', from: 0, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 0, firstFrameCeil: false },
+      { kind: 'copy', from: 450, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 450, rate: 1.5, firstFrameCeil: false },
+    ]);
+    expect(copiedPercent(planExportSpans(sped))).toBe(100);
+    // Split by an overlay: the piece after it resumes at trimBefore + offset × rate — a fractional composition frame.
+    const overlay: StudioTrack = { id: 'o1', kind: 'overlay', name: 'O1', clips: [{ ...clip('t', 4, 2, 0), transform: { scale: 0.5 } }] };
+    const split = planExportSpans(project([overlay, video([clip('a', 0, 10, 20, { speed: 1.5 })])]));
+    expect(split.spans).toEqual([
+      { kind: 'copy', from: 0, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 600, rate: 1.5, firstFrameCeil: true },
+      { kind: 'browser', from: 120, frames: 60, reason: 'overlay' },
+      { kind: 'copy', from: 180, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 600 + 180 * 1.5, rate: 1.5, firstFrameCeil: false },
+    ]);
+    expect(planExportSpans(project([video([clip('a', 0, 10, 20, { speed: 1.25 })])])).spans[0]).toMatchObject({ rate: 1.25, sourceFrame: 600 });
+    // The source-end bound scales with the rate: 10 s at 2× consumes 20 s of source.
+    const asset = T5.assets[0];
+    expect(copyBlocker(clip('a', 0, 10, 119.022233, { speed: 2 }), asset, T5.settings)).toBeNull(); // ends exactly at the source end
+    expect(copyBlocker(clip('a', 0, 10, 119.05, { speed: 2 }), asset, T5.settings)).toBeNull(); // overruns by 28 ms < half a slot (33 ms at 2×)
+    expect(copyBlocker(clip('a', 0, 10, 119.06, { speed: 2 }), asset, T5.settings)).toBe('runs past the source end');
+    expect(copyBlocker(clip('a', 0, 10, 130, { speed: 2 }), asset, T5.settings)).toBe('runs past the source end');
+    // A rate of exactly 1 is no rate.
+    expect(planExportSpans(project([video([clip('a', 0, 10, 20, { speed: 1 })])])).spans[0]).not.toHaveProperty('rate');
   });
 
   it('a transition sends only its window to the browser; the rest of both clips is copied from the serializer\'s geometry (slice 3)', () => {
@@ -286,9 +314,10 @@ describe('planExportAudio', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0)], { muted: true })]))?.segments).toEqual([{ kind: 'silence', duration: 2 }]);
   });
 
-  it('refuses speed (Remotion\'s atempo, measured not reproduced); a static gain, a fade and two clips at once are planned', () => {
+  it('a static gain, a fade, two clips at once and a playback rate (slice 4) are planned', () => {
     expect(planExportAudio(project([video([clip('a', 0, 2, 0, { gain: 0.8 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2, gain: 0.8 }]);
-    expect(planExportAudio(project([video([clip('a', 0, 2, 0, { speed: 1.5 })])]))).toBeNull();
+    // A sped clip: the segment carries the rate; sourceIn is the source instant, duration the timeline length.
+    expect(planExportAudio(project([video([clip('a', 0, 2, 5, { speed: 1.5 })])]))?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 5, duration: 2, rate: 1.5 }]);
     // A fade-out over the last 6 frames: one asset over the whole clip, its curve the composition's linear ramp.
     const out = planExportAudio(project([video([clip('a', 0, 2, 0, { fadeOutSec: 0.2 })])]));
     expect(out?.fps).toBe(30);
@@ -307,6 +336,32 @@ describe('planExportAudio', () => {
     const two = planExportAudio(project([video([clip('a', 0, 2, 0), clip('b', 1, 2, 0)])]));
     expect(two?.segments).toEqual([{ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2 }, { kind: 'silence', duration: 1 }]);
     expect(two?.chains).toEqual([[{ kind: 'silence', duration: 1 }, { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 2 }]]);
+  });
+
+  it('plans the speed seed (slice 4): clip B at 1.5× and the music clip at 1.5× with its gain, on the source time line', () => {
+    const music = { id: 'mus', kind: 'audio' as const, path: 'C:\\raw\\music-40s.wav', probe: { duration: 40, hasAudio: true, codec: 'pcm_s16le' } };
+    const p = project(
+      [video([clip('a', 0, 15, 0), clip('b', 15, 15, 15, { speed: 1.5 })]), { ...audioTrack, clips: [{ ...clip('m', 2, 10, 2, { gain: 0.5, speed: 1.5 }), kind: 'audio', assetId: 'mus' }] }],
+      { assets: [T5.assets[0], music] },
+    );
+    const plan = planExportAudio(p);
+    expect(plan?.segments).toEqual([
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 0, duration: 15 },
+      { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 15, duration: 15, rate: 1.5 },
+    ]);
+    expect(plan?.chains).toEqual([[
+      { kind: 'silence', duration: 2 },
+      { kind: 'source', assetId: 'mus', assetPath: 'C:\\raw\\music-40s.wav', sourceIn: 2, duration: 10, gain: 0.5, rate: 1.5 },
+      { kind: 'silence', duration: 18 },
+    ]]);
+    // A sped clip with a fade-in: the asset starts one frame late, at the source instant of frame 1 = (trimBefore + 1 × rate)/fps,
+    // and the curve keeps one value per composition frame (each 1/fps of post-tempo audio).
+    const faded = planExportAudio(project([video([clip('a', 0, 15, 0), clip('b', 15, 15, 15, { speed: 2, gain: 0.5, fadeInSec: 1 })])]));
+    expect(faded?.segments[1]).toEqual({ kind: 'silence', duration: 1 / 30 });
+    const b = faded?.segments[2] as Extract<AudioSegment, { kind: 'source' }>;
+    expect([b.sourceIn, b.duration, b.rate, b.volumes?.length, b.gain]).toEqual([(450 + 2) / 30, 449 / 30, 2, 449, undefined]);
+    expect(b.volumes?.[0]).toBeCloseTo(0.5 / 30, 12);
+    expect(b.volumes?.[29]).toBe(0.5);
   });
 
   it('plans the T1 fade seed: a fade-out curve on A, a one-frame-late curve at gain 0.5 on B (slice 3)', () => {

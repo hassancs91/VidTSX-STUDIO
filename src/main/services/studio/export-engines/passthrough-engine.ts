@@ -8,8 +8,9 @@
  * re-encoded by our ffmpeg with the copied spans' settings (conditions 2, 4).
  * Gaps are black. The pieces are MPEG-TS video-only intermediates joined by
  * stream copy (condition 3); the audio is one ffmpeg pass over the whole
- * timeline handed to the finishing stage as `audioPath`, or left to the
- * standard path when the mix needs what only the browser reproduces exactly.
+ * timeline handed to the finishing stage as `audioPath` (slice 4: every
+ * document the planner reads — gains, fades, transitions, tracks and speed —
+ * is planned; the standard path is only the fallback for an empty plan).
  *
  * It never steps aside (D4): a timeline with nothing to copy still runs here,
  * with every frame through the browser and a note saying so.
@@ -163,7 +164,7 @@ export const passthroughExportEngine: ExportEngine = {
     const audioPlan = planExportAudio(project, entry.durationInFrames);
     let audioPath: string | undefined;
     if (!audioPlan) {
-      notes.push('Audio mixed by the standard path (fades, speed, transitions or overlapping clips on one track are present).');
+      notes.push('Audio mixed by the standard path (the one pass could not plan this timeline).');
     } else if (!audioPlan.segments.some((s) => s.kind === 'source')) {
       audioPath = videoPath; // no sound at all → the finishing stage writes no audio track
     } else {
@@ -230,6 +231,7 @@ async function producePiece(
           encoder: tools.encoder,
           sourcePath: span.assetPath,
           sourceFrame: span.sourceFrame,
+          ...(span.rate !== undefined ? { rate: span.rate } : {}),
           sourceFrameRate: source.frameRate,
           firstFrameCeil: span.firstFrameCeil,
           frames: span.frames,

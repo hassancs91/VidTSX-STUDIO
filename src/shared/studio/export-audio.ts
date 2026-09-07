@@ -17,6 +17,14 @@
  * (`passthrough-ffmpeg.ts`). Two clips sounding at once on one track (a
  * crossfade's overlap) are two lanes, each its own chain — `amix` sums them
  * exactly as Remotion's merge filter does.
+ *
+ * Slice 4: a clip at a playback rate carries `rate`; its `sourceIn` is still
+ * the SOURCE instant of its first audible frame (trimBefore + k·rate, as the
+ * composition reads it), and the pass turns that into Remotion's own chain
+ * (`aformat s16 48k, atempo, atrim` at post-tempo times — measured
+ * bit-identical between ffmpeg 7.1 and 8.1 in slice 3). A frame of such a
+ * clip is 1/fps of POST-tempo audio, so a curve on a sped clip keeps its
+ * per-frame shape; only the time line it sits on is divided by the rate.
  */
 import type { StudioMediaAsset, StudioProject } from '../types/studio';
 import { serializeTimeline, type SerializedClip } from './serialize';
@@ -31,6 +39,10 @@ export type AudioSegment =
       duration: number;
       /** The clip's static gain (linear), only when it is not unity — `volume=` in the pass. */
       gain?: number;
+      /** Slice 4: the clip's playback rate, only when it is not 1 — Remotion's
+       *  `atempo` chain in the pass; `sourceIn` / `duration` stay source
+       *  seconds / timeline seconds (the trim is at `sourceIn / rate`). */
+      rate?: number;
       /** Slice 3: the volume of every frame of this segment as the composition
        *  evaluates it (gain × fades × transitions), when it is not constant —
        *  `volume=<Remotion's expression>:eval=frame` in the pass. `gain` is
@@ -107,10 +119,13 @@ function hasVolumeCurve(clip: SerializedClip): boolean {
 function clipAudibles(clip: SerializedClip, asset: StudioMediaAsset, fps: number): Audible[] {
   const total = clip.durationInFrames;
   const trimBefore = clip.trimBefore ?? 0;
-  const base = { kind: 'source' as const, assetId: asset.id, assetPath: asset.path };
+  const rate = clip.playbackRate !== undefined && clip.playbackRate !== 1 ? clip.playbackRate : 1;
+  const base = { kind: 'source' as const, assetId: asset.id, assetPath: asset.path, ...(rate !== 1 ? { rate } : {}) };
+  // The source instant of the clip's frame k: trimBefore + k·rate composition frames (Remotion's getExpectedMediaFrame).
+  const sourceAt = (k: number) => (trimBefore + k * rate) / fps;
   if (!hasVolumeCurve(clip)) {
     const gain = clip.volume !== undefined && clip.volume !== 1 ? { gain: clip.volume } : {};
-    return [{ from: clip.from, to: clip.from + total, seg: { ...base, sourceIn: trimBefore / fps, duration: total / fps, ...gain } }];
+    return [{ from: clip.from, to: clip.from + total, seg: { ...base, sourceIn: sourceAt(0), duration: total / fps, ...gain } }];
   }
   const volumes: number[] = [];
   for (let f = 0; f < total; f++) volumes.push(clipVolumeAt(clip, f));
@@ -126,7 +141,7 @@ function clipAudibles(clip: SerializedClip, asset: StudioMediaAsset, fps: number
     const run = volumes.slice(start, end);
     const flat = run.every((v) => v === run[0]);
     const level = flat ? (run[0] !== 1 ? { gain: run[0] } : {}) : { volumes: run };
-    out.push({ from: clip.from + start, to: clip.from + end, seg: { ...base, sourceIn: (trimBefore + start) / fps, duration: (end - start) / fps, ...level } });
+    out.push({ from: clip.from + start, to: clip.from + end, seg: { ...base, sourceIn: sourceAt(start), duration: (end - start) / fps, ...level } });
     start = end;
   }
   return out;
@@ -171,13 +186,12 @@ function laneChain(audible: Audible[], totalFrames: number, fps: number): AudioS
  * plain cut (what T1 measured at 0 ms against the camera file) at unity gain,
  * a static gain of its own (Stage 3: a linear `volume=` on that segment) or a
  * volume curve (slice 3: fades and transitions, Remotion's per-frame
- * expression). Each track with sound is a chain (video clips of video assets,
- * audio/sfx clips of any asset with an audio stream), or several when its
- * clips overlap; the chains are summed by the pass as Remotion sums them
- * (slice 2). Null when the mix needs what the pass does not reproduce —
- * speed (Remotion's `atempo`, measured in slice 3, not reproduced); the
- * engine then hands `audioPath` back undefined and the finishing stage
- * renders it.
+ * expression) or a playback rate (slice 4: Remotion's `atempo` chain). Each
+ * track with sound is a chain (video clips of video assets, audio/sfx clips
+ * of any asset with an audio stream), or several when its clips overlap; the
+ * chains are summed by the pass as Remotion sums them (slice 2). Null only
+ * for an empty or rateless composition; the engine then hands `audioPath`
+ * back undefined and the finishing stage renders it.
  */
 export function planExportAudio(project: StudioProject, durationInFrames?: number): ExportAudioPlan | null {
   const { fps } = project.settings;
@@ -198,7 +212,6 @@ export function planExportAudio(project: StudioProject, durationInFrames?: numbe
       const doc = docClips.get(clip.id);
       const asset = doc?.assetId ? byId.get(doc.assetId) : undefined;
       if (!asset || asset.kind === 'image' || !asset.probe.hasAudio) continue;
-      if (clip.playbackRate !== undefined) return null;
       audible.push(...clipAudibles(clip, asset, fps));
     }
     for (const lane of lanes(audible)) {
