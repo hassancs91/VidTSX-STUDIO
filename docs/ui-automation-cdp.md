@@ -321,14 +321,29 @@ Three things that cost a measurement each during the long-project wave:
 
 ## Clicking: three ways to hit the wrong thing (2026-09-07, video Stage 5)
 
-**Never click by a selector loose enough to match something destructive.** A
-cleanup loop meant to clear reference-media chips was written as "the single
-button inside any visible div whose first titled span looks like a path". Job
-cards matched it too, and the loop pressed **Cancel** on two live cloud video
-jobs — several minutes and about a dollar each. Scope the query to the group you
-mean (`groupDiv('Reference Videos')`, then its own children), assert the element
-you found reads what you expect before you click it, and never loop a click over
-a set you have not printed first.
+**A loose fallback match is fine where the worst case is harmless, and never
+where it can reach a destructive control.** A cleanup loop meant to clear
+reference-media chips was written as "the single button inside any visible div
+whose first titled span looks like a path". Job cards matched it too, and the
+loop pressed **Cancel** on two live cloud video jobs — several minutes and about
+a dollar each, unrecoverable. The bench driver has the same shape in its project
+matching (exact, then parenthesised, then a loose `includes`) and it picked the
+wrong project once; that was survivable only because the worst an export does is
+write a new file. So grade the fallback by what it can reach: for Cancel,
+Delete, Run, or anything that spends money, **match exactly or refuse to act**.
+Either way, scope the query to the group you mean (`groupDiv('Reference
+Videos')`, then its own children), assert the element reads what you expect
+before clicking, and never loop a click over a set you have not printed first.
+
+**Prefer `element.click()` — a rect you never compute cannot go stale.** For
+buttons, cards, chips and tabs, matching the element and calling `.click()` on
+it removes the whole coordinate failure mode below: nothing to scroll into view,
+nothing to mis-measure, and no way for a click to land on a neighbour. Reserve
+`Input.dispatchMouseEvent` for the cases where a real pointer sequence is the
+thing being tested — a drag, or React Flow's canvas, which selects a node only
+from a genuine event and ignores a synthetic `.click()`.
+
+When you do need coordinates, two traps:
 
 **Filter by visibility before you take an element's rect.** The visibility rule
 above is not only about clicking hidden screens: an unfiltered
@@ -349,9 +364,8 @@ Two related notes:
 - `Input.dispatchMouseEvent` coordinates are CSS pixels and land exactly, device
   pixel ratio notwithstanding — calibrate before blaming it (arm a capturing
   `mousedown` listener, dispatch at a known point, read back `clientX/clientY`).
-  When a coordinate click "does nothing", the usual causes are the two above,
-  not the mapping. `element.click()` is a fine fallback for plain buttons, but
-  React Flow's canvas needs the real event to select a node.
+  When a coordinate click "does nothing", the causes are the two above, not the
+  mapping.
 - **A backslash Windows path loses one level of escaping through
   `Runtime.evaluate`** — `\v` in `...\video-studio\videos\...` came back as a
   vertical tab, and the path arrived relative, so the main process resolved it
