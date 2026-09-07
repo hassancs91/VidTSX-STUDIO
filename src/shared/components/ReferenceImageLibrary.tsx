@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { ReferenceImageEntry } from '../../../shared/ipc/types';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { ReferenceImageEntry } from '../ipc/types';
+import { ReferenceImageDropZone } from './ReferenceImageDropZone';
 
 interface ReferenceImageLibraryProps {
   onEnabledImagesChange: (base64Images: string[]) => void;
@@ -7,6 +8,14 @@ interface ReferenceImageLibraryProps {
   label?: string;
   pendingEnable?: { id: string; base64: string; contentType: string } | null;
   onConsumePendingEnable?: () => void;
+  /**
+   * Where the "enabled" ticks live. `'shared'` (the default) persists them on
+   * the reference-image manifest, so every mounted library agrees — what
+   * Image Studio has always done. `'local'` keeps them in this instance only,
+   * which is what lets two pickers (a first and a last frame) share the same
+   * library of images without fighting over one global flag.
+   */
+  selection?: 'shared' | 'local';
 }
 
 function readFileAsBase64(file: File): Promise<{ base64: string; contentType: string; name: string }> {
@@ -30,13 +39,25 @@ export function ReferenceImageLibrary({
   label = 'Reference Images',
   pendingEnable = null,
   onConsumePendingEnable,
+  selection = 'shared',
 }: ReferenceImageLibraryProps) {
   const [entries, setEntries] = useState<ReferenceImageEntry[]>([]);
+  const [localEnabled, setLocalEnabled] = useState<string[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
   const base64Cache = useRef<Record<string, string>>({});
   const cacheOrderRef = useRef<string[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
   const prevEnabledIdsRef = useRef<string>('');
+
+  const isLocal = selection === 'local';
+
+  // The one place either mode is read from, so everything below is agnostic.
+  const enabledIds = useMemo(
+    () =>
+      entries
+        .filter((e) => (isLocal ? localEnabled.includes(e.id) : e.enabled))
+        .map((e) => e.id),
+    [entries, localEnabled, isLocal],
+  );
 
   const addToCache = useCallback((id: string, data: string) => {
     if (!base64Cache.current[id]) {
@@ -85,6 +106,15 @@ export function ReferenceImageLibrary({
       return;
     }
 
+    if (isLocal) {
+      setLocalEnabled((prev) => {
+        if (singleSelect) return [id];
+        return prev.includes(id) ? prev : [...prev, id];
+      });
+      onConsumePendingEnable?.();
+      return;
+    }
+
     // Apply singleSelect / multi-select enable semantics, then consume.
     (async () => {
       if (singleSelect) {
@@ -103,32 +133,27 @@ export function ReferenceImageLibrary({
       }
       onConsumePendingEnable?.();
     })();
-  }, [pendingEnable, entries, singleSelect, onConsumePendingEnable, addToCache]);
+  }, [pendingEnable, entries, singleSelect, onConsumePendingEnable, addToCache, isLocal]);
 
   // Push enabled images to parent whenever enabled set changes
   useEffect(() => {
-    const enabledIds = entries
-      .filter((e) => e.enabled)
-      .map((e) => e.id)
-      .join(',');
-
-    if (enabledIds === prevEnabledIdsRef.current) return;
-    prevEnabledIdsRef.current = enabledIds;
+    const key = enabledIds.join(',');
+    if (key === prevEnabledIdsRef.current) return;
+    prevEnabledIdsRef.current = key;
 
     let cancelled = false;
 
     const pushEnabled = async () => {
-      const enabled = entries.filter((e) => e.enabled);
       const base64List: string[] = [];
-      for (const entry of enabled) {
+      for (const id of enabledIds) {
         if (cancelled) return;
-        if (base64Cache.current[entry.id]) {
-          base64List.push(base64Cache.current[entry.id]);
+        if (base64Cache.current[id]) {
+          base64List.push(base64Cache.current[id]);
         } else {
-          const res = await window.api.refImageRead({ id: entry.id });
+          const res = await window.api.refImageRead({ id });
           if (cancelled) return;
           if (res.success && res.base64) {
-            addToCache(entry.id, res.base64);
+            addToCache(id, res.base64);
             base64List.push(res.base64);
           }
         }
@@ -140,7 +165,7 @@ export function ReferenceImageLibrary({
     pushEnabled();
 
     return () => { cancelled = true; };
-  }, [entries, onEnabledImagesChange]);
+  }, [enabledIds, onEnabledImagesChange, addToCache]);
 
   const loadThumbnail = async (id: string) => {
     if (thumbnails[id]) return;
@@ -154,7 +179,16 @@ export function ReferenceImageLibrary({
   const handleToggle = useCallback(async (id: string) => {
     const entry = entries.find((e) => e.id === id);
     if (!entry) return;
-    const newEnabled = !entry.enabled;
+    const newEnabled = !enabledIds.includes(id);
+
+    // Local mode never writes the shared manifest — that is the whole point.
+    if (isLocal) {
+      setLocalEnabled((prev) => {
+        if (!newEnabled) return prev.filter((x) => x !== id);
+        return singleSelect ? [id] : [...prev, id];
+      });
+      return;
+    }
 
     if (singleSelect && newEnabled) {
       const othersToDisable = entries.filter((e) => e.enabled && e.id !== id);
@@ -166,11 +200,12 @@ export function ReferenceImageLibrary({
 
     await window.api.refImageToggle({ id, enabled: newEnabled });
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, enabled: newEnabled } : e)));
-  }, [entries, singleSelect]);
+  }, [entries, singleSelect, enabledIds, isLocal]);
 
   const handleDelete = useCallback(async (id: string) => {
     await window.api.refImageDelete({ id });
     setEntries((prev) => prev.filter((e) => e.id !== id));
+    setLocalEnabled((prev) => prev.filter((x) => x !== id));
     delete base64Cache.current[id];
     cacheOrderRef.current = cacheOrderRef.current.filter((cid) => cid !== id);
     setThumbnails((prev) => {
@@ -193,27 +228,11 @@ export function ReferenceImageLibrary({
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleFiles(e.dataTransfer.files);
-  }, [handleFiles]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
 
-  const handleClick = () => inputRef.current?.click();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      handleFiles(e.target.files);
-      e.target.value = '';
-    }
-  };
 
-  const enabledCount = entries.filter((e) => e.enabled).length;
+  const enabledCount = enabledIds.length;
 
   return (
     <div>
@@ -224,14 +243,16 @@ export function ReferenceImageLibrary({
       {/* Thumbnails grid */}
       {entries.length > 0 && (
         <div className="flex gap-1.5 mb-1.5 flex-wrap">
-          {entries.map((entry) => (
+          {entries.map((entry) => {
+            const isOn = enabledIds.includes(entry.id);
+            return (
             <div key={entry.id} className="relative group">
               {/* Thumbnail */}
               <img
                 src={thumbnails[entry.id] ? `data:${entry.contentType};base64,${thumbnails[entry.id]}` : undefined}
                 alt={entry.originalName}
                 className={`w-[52px] h-[52px] object-cover rounded border transition-all cursor-pointer ${
-                  entry.enabled ? 'border-accent opacity-100' : 'border-border opacity-40'
+                  isOn ? 'border-accent opacity-100' : 'border-border opacity-40'
                 }`}
                 onClick={() => handleToggle(entry.id)}
               />
@@ -240,13 +261,13 @@ export function ReferenceImageLibrary({
               <button
                 type="button"
                 className={`absolute bottom-0.5 right-0.5 w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] transition-all ${
-                  entry.enabled
+                  isOn
                     ? 'bg-accent text-white'
                     : 'bg-app-surface border border-border text-transparent'
                 }`}
                 onClick={() => handleToggle(entry.id)}
               >
-                {entry.enabled && (
+                {isOn && (
                   <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
@@ -262,33 +283,12 @@ export function ReferenceImageLibrary({
                 x
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Drop zone */}
-      <div
-        className="flex flex-col items-center justify-center border border-dashed border-border rounded-lg py-3 px-3 cursor-pointer hover:border-text-dim hover:bg-app-base/50 transition-colors"
-        onClick={handleClick}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" className="text-text-dim mb-0.5">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="12" y1="8" x2="12" y2="16" />
-          <line x1="8" y1="12" x2="16" y2="12" />
-        </svg>
-        <span className="text-[10px] text-text-dim">Drop or click to add reference images</span>
-      </div>
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={handleInputChange}
-      />
+      <ReferenceImageDropZone onFiles={handleFiles} />
     </div>
   );
 }

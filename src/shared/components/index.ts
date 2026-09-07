@@ -13,3 +13,5 @@ export type { RenderSettings } from "./RenderSettingsModal";
 export { SkeletonLoader } from "./SkeletonLoader";
 export { SectionHeader } from "./SectionHeader";
 export { ErrorBanner } from "./ErrorBanner";
+export { ReferenceImageLibrary } from "./ReferenceImageLibrary";
+export { ReferenceImageDropZone } from "./ReferenceImageDropZone";

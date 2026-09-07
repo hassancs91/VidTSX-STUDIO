@@ -584,3 +584,128 @@ real reference. What it pins:
 `src/shared/`, the control panel with the constrained fields these capabilities
 now describe, job cards, cancel).
 
+### Stage 4 — the Videos generation panel (DONE 2026-09-07)
+
+The Videos screen stops being a gallery you can only fill from Flows. It gets
+Image Studio's split: a control panel on the left, the gallery on the right, and
+job cards in the grid while clips are generating.
+
+**What shipped**
+
+- **`ReferenceImageLibrary` moved to `src/shared/components/`** (both Image
+  Studio call sites import it from there now) and gained a
+  **`selection: 'shared' | 'local'`** prop. It had persisted every tick on the
+  reference-image manifest — right for Image Studio, but it makes two pickers on
+  one screen fight over one global flag, and the first- and last-frame pickers
+  are exactly that case. `'local'` keeps the ticks in the instance while still
+  sharing the library of images; the default is unchanged, so Image Studio
+  behaves as before. Its drop zone split out as `ReferenceImageDropZone` to keep
+  the file under 300 lines.
+- **Four hooks** in `features/video-studio/hooks/`: `useVideoProviders`
+  (providers with a key, plus the panel's pick — there is no
+  `videoProviderSwitch` IPC because `videoGenerate` takes a `providerId` per
+  job, so the choice is panel state seeded from the engine's active provider),
+  `useVideoModels` (one provider's models, reloaded on
+  `vidtsx:video-providers-changed` so a catalog edit reaches the picker),
+  `useVideoJobs` (cards driven **entirely by the `video:job-progress` push** —
+  the renderer never polls; a completed job drops its card and refreshes the
+  gallery, a failed or cancelled one stays until dismissed) and
+  `useVideoGeneration` (submit, and the block copy on refusal).
+- **`VideoControlPanel`** with mode tabs, prompt, provider, model and the media
+  pickers, plus **`VideoModelFields`** for duration / aspect / resolution /
+  audio. Every option is read from the model's `VideoModelInfo`: a discrete
+  duration list renders chips, a range renders a slider labelled with its
+  bounds, aspect and resolution render only the published values, and the audio
+  toggle appears only where the model generates audio. The **mode tabs are the
+  routes the model actually has** — the reference and frame routes are mutually
+  exclusive on both providers (the normalizer drops the frames), so offering
+  them as one form would have promised a combination neither API accepts.
+  `services/model-constraints.ts` holds the clamping and is unit-tested.
+- **`ReferenceMediaPicker`** for reference video and audio: files are chosen as
+  **local paths** (`dialogOpen`, or a drop) so the bytes never enter the
+  renderer — the engine gates them and the provider hosts them. Each picker
+  prints its per-model limit and hides itself when that limit is 0, which is how
+  a BytePlus-only install correctly shows no reference-video input.
+- **Job cards** in the gallery grid (`VideoJobCard`): status, elapsed time — the
+  honest signal, since neither provider reports a percentage — the prompt,
+  Cancel while running, Dismiss when not, and the Content Safety copy verbatim
+  when a job was blocked. Jobs suppress the gallery's empty state, and the
+  **empty-state copy no longer points at Flows** ("generate one with the panel
+  on the left").
+- `usePanelResize` extracted to `src/shared/hooks/` for the drag divider.
+
+**Two items folded in from Stage 3's open list**
+
+- **Cost estimates are per resolution now.** `pricePerSecondByResolutionUsd` on
+  the catalog entry flows through `VideoModelInfo` and the IPC; the engine bills
+  a job at the requested resolution's rate and falls back to the headline (720p)
+  rate otherwise, and the panel prints the estimate live, marking it "at list
+  rate" where no per-resolution rate exists. Rates added: **fal Seedance 2.5
+  {480p 0.22, 720p 0.47}** (section 3's figures) and **BytePlus Seedance 2.5
+  {480p 0.10, 720p 0.23}** — the latter corroborated by the real run, whose
+  38,830 completion tokens at ModelArk's $10.70/M is $0.4155 for a 4 s 480p
+  clip, i.e. $0.104/s. Every other model still estimates at its headline rate
+  and says so; a full rate card is follow-up work.
+- **`outputTokens` was already surfaced** — the usage log table has an "Out
+  Tokens" column and the BytePlus rows carry 38,830 in it. Nothing to fix; the
+  Stage 3 note was pessimistic.
+- The type gate's **node baseline dropped 22 → 10**. Moving a renderer component
+  into `src/shared/` exposed that `tsconfig.node.check.json` never saw the
+  `window.api` ambient declaration (it lives under `src/renderer`), so every
+  shared module touching `window.api` counted as errors. Adding that one `.d.ts`
+  to the node config's `include` fixed those and the pre-existing ones.
+
+**Verified**
+
+- `check:types` web 26 / node **10** (new baseline); vitest **147 files / 1459
+  tests green** (+14: the constraint service's clamping, mode derivation and
+  cost estimate, and two engine cases pinning the per-resolution billing).
+- **Live in the dev app (CDP, flags on), driven from the panel itself:**
+  - **fal generated** — Seedance 2.5, 4 s, 480p: card Queued → Generating →
+    filed at 197 s, 2.89 MB, thumbnail written, local `file://`, the fal URL
+    only as `sourceUrl`; usage `fal / seedance-2.5 / video-studio / $0.88`.
+  - **BytePlus generated** — `dreamina-seedance-2-5-260628`, 4 s, 480p,
+    submitted while the fal job was still running (**two cards side by side**):
+    filed at 265 s, 4.62 MB; usage `byteplus / … / video-studio / $0.40` with
+    `outputTokens 38830`. Against the Stage 3 rows for the same clips ($1.88 and
+    $0.92) that is the per-resolution fix, measured.
+  - **Fields narrow per model, live**: Seedance 2.5 → a 4–30 s *slider*, 7
+    aspects, 3 resolutions, audio, all three modes; Veo 3.1 Fast → discrete
+    4/6/8 s, 2 aspects, 720p/1080p/4k, **no Reference tab**; Kling → no
+    Reference tab either; BytePlus Seedance 2.5 → its own `adaptive` aspect
+    rather than fal's `auto`. Veo's estimate reads "at list rate", the Seedance
+    pair's does not.
+  - **Reference job from the panel** — a real clip thumbnail as `@Image1` and a
+    real Video Studio clip dropped as `@Video1` (pickers reading "Reference
+    Images (max 30) (1/1 active)", "Reference Videos (1/10)", "Reference Audio
+    (0/10)"). The main log tells the chokepoint in order: `Sampling video` on
+    the input clip → **then** `FalStorage Uploaded reference media` → **then**
+    `Video job submitted` → output sampling → filed, 1.09 MB; usage $0.88.
+  - **Cancel** — Generating → **Cancelled in 2 s**, the card kept with its
+    Cancelled chip and a Dismiss button.
+  - **Blocked prompt** — the panel showed *"Blocked by Content Safety — sexual
+    content. Rephrase your prompt … See AI → Content Safety."* and **no job card
+    was created**; main logged `Prompt blocked by Content Safety` with no
+    provider lookup.
+  - **Empty-state copy** — an empty folder reads "This folder is empty" / "Drag
+    videos here, or generate one with the panel on the left".
+
+**Open / for Hasan**
+
+- **In-flight jobs are renderer state (D5).** A renderer reload drops the cards
+  while the job keeps running in main and still files its clip — there is no
+  "list active jobs" IPC for the panel to re-attach with. Fine for V1 as
+  decided; the job record is already shaped for persistence. (Found the hard
+  way: writing driver artifacts *inside* the repo trips Vite's watcher and
+  full-reloads the renderer — keep them outside it.)
+- **Only the two Seedance 2.5 entries have per-resolution rates.** Everything
+  else still estimates at its 720p headline rate, labelled "at list rate" in the
+  panel. The reference-with-video-input discount is not modelled either.
+- Reference **video/audio** are chosen through a native file dialog, which CDP
+  cannot drive; the live run exercised that picker through its drop handler with
+  a real path instead, which is the same code path a drop takes.
+
+**Next:** Stage 5 — the Flows node reading the same capabilities, the
+`video-studio` flag flipped on for V1 (D1), the `generate_video` agent tool
+definition, the V1 checklist rows, and the Content Safety call-site list.
+

@@ -69,6 +69,8 @@ export interface VideoModelInfoIpc {
     references?: { images: number; videos: number; audios: number };
   };
   pricePerSecondUsd?: number;
+  /** Per-resolution rates, where the provider publishes them. */
+  pricePerSecondByResolutionUsd?: Partial<Record<string, number>>;
 }
 
 export interface VideoProvidersGetResponse {

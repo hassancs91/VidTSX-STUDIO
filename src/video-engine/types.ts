@@ -91,6 +91,8 @@ export interface VideoModelInfo {
     references?: { images: number; videos: number; audios: number };
   };
   pricePerSecondUsd?: number;
+  /** Per-resolution rates, where the provider publishes them. */
+  pricePerSecondByResolutionUsd?: Partial<Record<VideoResolution, number>>;
 }
 
 /** Provider-reported spend, when the API returns one (BytePlus tokens). */

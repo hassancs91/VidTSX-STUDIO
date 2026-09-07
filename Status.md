@@ -7,6 +7,50 @@
 
 ---
 
+## 2026-09-07 — VIDEO PROVIDERS Stage 4 DONE: the Videos generation panel
+
+Stage 4 of `docs/video-providers-plan.md`. The Videos screen is a generation
+tool now, not just a gallery: Image Studio's split, with the control panel on
+the left, the gallery on the right, and job cards in the grid while clips
+generate. Full log: the plan's section 6.
+
+- **The panel offers only what the chosen model publishes.** Duration renders
+  as chips for a discrete list and as a labelled slider for a range; aspect and
+  resolution list the model's own values; the audio toggle appears only where
+  the model makes audio; and the mode tabs (Generate / Frames / Reference) are
+  the routes that model actually has — the frame and reference routes are
+  mutually exclusive on both providers, so one combined form would have
+  promised a request neither API accepts. Live: Seedance 2.5 shows a 4–30 s
+  slider and all three modes, Veo 3.1 Fast shows 4/6/8 s and **no Reference
+  tab**, and BytePlus shows its own `adaptive` aspect where fal says `auto`.
+- **`ReferenceImageLibrary` moved to `src/shared/`** and learned a `'local'`
+  selection mode. It used to persist every tick on the shared manifest, which
+  made two pickers on one screen fight over one flag — and first frame + last
+  frame is exactly that. Image Studio's behaviour is unchanged.
+- **Reference video and audio travel as local paths**, so the bytes never enter
+  the renderer; each picker prints its per-model limit and disappears when that
+  limit is 0 (which is how a BytePlus-only install correctly offers no
+  reference video). Job cards show status, elapsed time, Cancel, and the
+  Content Safety copy verbatim when a job is refused.
+- **Cost estimates are per resolution now** — the Stage 3 open item. The engine
+  bills at the requested resolution's published rate and falls back to the
+  headline (720p) rate otherwise, with the panel marking the fallback "at list
+  rate". Measured on the same clips Stage 3 logged: **fal $1.88 → $0.88** and
+  **BytePlus $0.92 → $0.40**. The other Stage 3 item needed nothing: the usage
+  table already has an "Out Tokens" column and the BytePlus rows carry 38,830.
+- **Live acceptance, all from the panel**: a clip generated on fal (197 s) and
+  one on BytePlus (265 s) running side by side as two cards; a reference job
+  with a real image and a real clip, whose main log shows Gate B sampling the
+  input clip **before** the upload and the submit; a cancel that landed in 2 s;
+  and a blocked prompt that showed the Content Safety copy and created no job
+  at all.
+- **Gates**: `check:types` web 26 / node **10** — the node baseline dropped from
+  22 because moving a renderer component into `src/shared/` revealed that the
+  node config never saw the `window.api` declaration. vitest **1459 green**.
+- **Next**: Stage 5 — the Flows node on the same capabilities, the
+  `video-studio` flag flipped on for V1, the `generate_video` agent tool, and
+  the V1 checklist rows.
+
 ## 2026-09-07 — VIDEO PROVIDERS Stage 3 DONE: BytePlus ModelArk, editable video catalogs, reference-to-video
 
 Stage 3 of `docs/video-providers-plan.md`. Video generation now has a second

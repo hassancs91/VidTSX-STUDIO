@@ -1,4 +1,4 @@
-import type { VideoModelCatalogEntry } from '../shared/presets/video-models';
+import type { VideoModelCatalogEntry, VideoResolution } from '../shared/presets/video-models';
 import type { VideoDurationSpec, VideoModelInfo } from './types';
 
 function durationSpec(entry: VideoModelCatalogEntry): VideoDurationSpec {
@@ -32,6 +32,9 @@ export function toVideoModelInfo(entry: VideoModelCatalogEntry): VideoModelInfo 
         : {}),
     },
     ...(entry.pricePerSecondUsd !== undefined ? { pricePerSecondUsd: entry.pricePerSecondUsd } : {}),
+    ...(entry.pricePerSecondByResolutionUsd
+      ? { pricePerSecondByResolutionUsd: { ...entry.pricePerSecondByResolutionUsd } }
+      : {}),
   };
 }
 
@@ -57,4 +60,20 @@ export function withReferenceLimits(
       },
     },
   };
+}
+
+/**
+ * The per-second rate to estimate a job at: the resolution's own published
+ * rate where the catalog carries one, else the model's headline (720p) rate,
+ * else zero. Informational — the provider is the billing authority.
+ */
+export function modelRatePerSecond(
+  model: VideoModelInfo | undefined,
+  resolution: VideoResolution | undefined,
+): number {
+  if (!model) return 0;
+  const byResolution = resolution
+    ? model.pricePerSecondByResolutionUsd?.[resolution]
+    : undefined;
+  return byResolution ?? model.pricePerSecondUsd ?? 0;
 }

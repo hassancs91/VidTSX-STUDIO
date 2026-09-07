@@ -1,6 +1,12 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import { usePanelResize } from '@shared/hooks/usePanelResize';
 import { useVideoGallery } from '../hooks/useVideoGallery';
 import { useVideoSelection } from '../hooks/useVideoSelection';
+import { useVideoProviders } from '../hooks/useVideoProviders';
+import { useVideoModels } from '../hooks/useVideoModels';
+import { useVideoJobs } from '../hooks/useVideoJobs';
+import { useVideoGeneration } from '../hooks/useVideoGeneration';
+import { VideoControlPanel } from './VideoControlPanel';
 import { VideoGallery } from './VideoGallery';
 import { FolderBreadcrumb } from './FolderBreadcrumb';
 import { CreateFolderDialog } from './CreateFolderDialog';
@@ -33,6 +39,23 @@ export function VideoStudioScreen() {
   } = useVideoGallery();
 
   const { selectedIds, clear, selectAll, pruneToVisible, toggle } = useVideoSelection();
+
+  const { providers, selectedProvider, setSelectedProvider } = useVideoProviders();
+  const { models, loading: modelsLoading } = useVideoModels(selectedProvider);
+  // A finished job has already been filed in Video Studio by the engine, so
+  // the gallery just reloads rather than being handed the entry.
+  const { jobs, now, track, cancel, dismiss } = useVideoJobs({
+    onCompleted: () => {
+      void refresh();
+    },
+  });
+  const {
+    generate,
+    isSubmitting,
+    error: generationError,
+  } = useVideoGeneration({ activeFolderId, onJobSubmitted: track });
+
+  const { width: panelWidth, onResizeStart } = usePanelResize({ min: 280, max: 480 });
 
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [folderPendingDelete, setFolderPendingDelete] = useState<string | null>(null);
@@ -187,7 +210,25 @@ export function VideoStudioScreen() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-h-0 flex flex-col">
+      <div className="flex flex-1 min-h-0">
+        <div className="shrink-0 h-full" style={{ width: panelWidth }}>
+          <VideoControlPanel
+            providers={providers}
+            selectedProvider={selectedProvider}
+            onProviderChange={setSelectedProvider}
+            models={models}
+            modelsLoading={modelsLoading}
+            isSubmitting={isSubmitting}
+            error={generationError}
+            onGenerate={generate}
+          />
+        </div>
+        {/* Resize handle */}
+        <div
+          className="w-[4px] shrink-0 cursor-col-resize hover:bg-accent/30 active:bg-accent/50 transition-colors"
+          onMouseDown={onResizeStart}
+          style={{ borderRight: '0.5px solid var(--color-border)' }}
+        />
         <VideoGallery
           videos={videos}
           loading={loading}
@@ -207,6 +248,10 @@ export function VideoStudioScreen() {
           onToggleSelect={handleToggle}
           onSelectAll={handleSelectAll}
           onClearSelection={clear}
+          jobs={jobs}
+          jobsNow={now}
+          onCancelJob={(id) => void cancel(id)}
+          onDismissJob={dismiss}
         />
       </div>
 

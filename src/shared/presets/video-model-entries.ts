@@ -32,6 +32,9 @@ export const FAL_VIDEO_MODELS: readonly VideoModelCatalogEntry[] = [
     resolutions: ['720p', '480p', '1080p'],
     references: { images: 30, videos: 10, audios: 10 },
     pricePerSecondUsd: 0.47,
+    // fal publishes 2.5 per resolution; without this a 480p clip was
+    // estimated at the 720p rate (the $1.88 in the Stage 3 log).
+    pricePerSecondByResolutionUsd: { '480p': 0.22, '720p': 0.47 },
   },
   {
     id: 'seedance-2.0',
@@ -185,6 +188,10 @@ export const BYTEPLUS_VIDEO_MODELS: readonly VideoModelCatalogEntry[] = [
     resolutions: ['720p', '480p', '1080p'],
     references: { images: 30, videos: 10, audios: 10 },
     pricePerSecondUsd: 0.23,
+    // ModelArk bills video tokens ($10.70/M without a video input). The real
+    // 4 s 480p run returned 38830 tokens = $0.4155, i.e. $0.104/s — which is
+    // the published 480p rate, against the $0.92 the flat estimate logged.
+    pricePerSecondByResolutionUsd: { '480p': 0.10, '720p': 0.23 },
   },
   {
     id: 'dreamina-seedance-2-0-260128',

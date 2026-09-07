@@ -18,6 +18,7 @@ import type { VideoMediaUploader } from './providers/byteplus-video-provider';
 import { VideoJobTracker } from './job-tracker';
 import type { VideoJobTrackerOptions } from './job-tracker';
 import { summarizeRequest } from './normalize';
+import { modelRatePerSecond } from './model-info';
 import { prepareInputMedia } from './input-media-gate';
 import { VIDEO_MAX_PROMPT_CHARS } from '../shared/presets/video-models';
 import { checkGenerationPrompt } from '../moderation-engine/generation-gate';
@@ -255,7 +256,10 @@ class VideoEngine {
       featureSource: record.featureSource,
       // The catalog's per-second estimate is the only cost figure fal gives;
       // BytePlus bills on the tokens it reports, which ride along untouched.
-      costUsd: (model?.pricePerSecondUsd ?? 0) * record.request.durationSeconds,
+      // A model that publishes a rate for the requested resolution is billed
+      // at that rate — the headline figure is the 720p one, so without it a
+      // 480p clip logged high.
+      costUsd: modelRatePerSecond(model, record.request.resolution) * record.request.durationSeconds,
       durationMs: Date.now() - record.submittedAt,
       ...(completed.usage?.completionTokens !== undefined
         ? { outputTokens: completed.usage.completionTokens }

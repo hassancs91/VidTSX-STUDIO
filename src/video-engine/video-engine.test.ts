@@ -21,6 +21,19 @@ const MODEL: VideoModelInfo = {
   pricePerSecondUsd: 0.1,
 };
 
+/** A model whose provider publishes a rate per resolution (Seedance 2.5). */
+const PRICED_MODEL: VideoModelInfo = {
+  id: 'm2',
+  name: 'Model Two',
+  dialect: 'fal-seedance-2',
+  durations: { kind: 'discrete', values: [4, 8] },
+  aspectRatios: ['16:9'],
+  resolutions: ['720p', '480p'],
+  supports: { audio: false, firstFrame: false, lastFrame: false },
+  pricePerSecondUsd: 0.47,
+  pricePerSecondByResolutionUsd: { '480p': 0.22, '720p': 0.47 },
+};
+
 const ENTRY: VideoStudioEntry = {
   id: 'entry-1',
   fileName: 'vid-1.mp4',
@@ -61,7 +74,7 @@ function stubProvider(polls: VideoPollResult[], order: string[] = []): Harness {
     submit,
     cancel,
     poll: async () => (remaining.length > 1 ? remaining.shift()! : remaining[0]),
-    getSupportedModels: () => [MODEL],
+    getSupportedModels: () => [MODEL, PRICED_MODEL],
   };
   return { provider, submit, cancel, polls, order };
 }
@@ -207,6 +220,40 @@ describe('videoEngine job tracker', () => {
     expect(usage).toHaveBeenCalledWith(
       expect.objectContaining({ providerId: 'stub', model: 'm1', featureSource: 'flows', costUsd: 0.5 }),
     );
+  });
+
+  it('bills at the rate published for the requested resolution', async () => {
+    const harness = stubProvider([{ status: 'completed', url: 'https://cdn/clip.mp4' }]);
+    const { engine } = engineWith(harness);
+    const usage = vi.fn();
+    engine.setUsageLogger(usage);
+
+    const submitted = await engine.submit({
+      model: 'm2',
+      prompt: 'a sunny mountain landscape',
+      durationSeconds: 4,
+      resolution: '480p',
+    });
+    await untilTerminal(() => engine.getJob(submitted.jobId));
+
+    // 0.22 x 4s, not the 0.47 headline rate that over-stated a 480p clip.
+    expect(usage).toHaveBeenCalledWith(expect.objectContaining({ model: 'm2', costUsd: 0.88 }));
+  });
+
+  it('falls back to the headline rate when the resolution has none', async () => {
+    const harness = stubProvider([{ status: 'completed', url: 'https://cdn/clip.mp4' }]);
+    const { engine } = engineWith(harness);
+    const usage = vi.fn();
+    engine.setUsageLogger(usage);
+
+    const submitted = await engine.submit({
+      model: 'm1',
+      prompt: 'a sunny mountain landscape',
+      durationSeconds: 5,
+    });
+    await untilTerminal(() => engine.getJob(submitted.jobId));
+
+    expect(usage).toHaveBeenCalledWith(expect.objectContaining({ model: 'm1', costUsd: 0.5 }));
   });
 
   it('a provider failure ends the job as failed with the message', async () => {

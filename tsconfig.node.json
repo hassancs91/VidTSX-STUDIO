@@ -8,5 +8,5 @@
       "@main/*": ["src/main/*"]
     }
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/logging/**/*", "src/license/**/*", "src/updater/**/*", "electron.vite.config.*"]
+  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/logging/**/*", "src/license/**/*", "src/updater/**/*", "src/renderer/types/electron.d.ts", "electron.vite.config.*"]
 }

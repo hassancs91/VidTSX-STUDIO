@@ -110,8 +110,14 @@ export interface VideoModelCatalogEntry {
    * Estimated price per second of output video, for the usage dashboard's
    * cost column only (× requested duration). Informational — the provider is
    * the billing authority; absent/unknown logs $0.
+   *
+   * This is the model's headline (720p) rate. Where the provider publishes a
+   * rate per resolution, `pricePerSecondByResolutionUsd` carries it and wins;
+   * without one a 480p job is estimated at the 720p rate and reads high.
    */
   pricePerSecondUsd?: number;
+  /** Per-resolution rates, where the provider publishes them. */
+  pricePerSecondByResolutionUsd?: Partial<Record<VideoResolution, number>>;
 }
 
 export {

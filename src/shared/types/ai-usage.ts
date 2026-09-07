@@ -4,6 +4,7 @@ export type AiFeatureSource =
   | 'tsx-generation'
   | 'tsx-analysis'
   | 'image-generation'
+  | 'video-studio'
   | 'flows'
   | 'auto-cut'
   | 'studio-tsx-shot'

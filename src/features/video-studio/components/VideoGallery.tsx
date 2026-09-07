@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { GalleryVideo, GalleryFolder } from '../types';
+import type { GalleryVideo, GalleryFolder, VideoJobView } from '../types';
+import { VideoJobCard } from './VideoJobCard';
 import { VideoCard } from './VideoCard';
 import { VideoLightbox } from './VideoLightbox';
 import { FolderCard } from './FolderCard';
@@ -39,6 +40,12 @@ interface VideoGalleryProps {
   onToggleSelect: (id: string, additive: boolean) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
+  /** In-flight (and just-failed) generations, newest first. */
+  jobs?: VideoJobView[];
+  /** Wall clock for the job cards' elapsed times. */
+  jobsNow?: number;
+  onCancelJob?: (jobId: string) => void;
+  onDismissJob?: (jobId: string) => void;
 }
 
 export function VideoGallery({
@@ -56,6 +63,10 @@ export function VideoGallery({
   onFolderDelete,
   onMoveToFolder,
   onMoveToRoot,
+  jobs = [],
+  jobsNow = 0,
+  onCancelJob,
+  onDismissJob,
   selectedIds,
   onToggleSelect,
   onSelectAll,
@@ -177,7 +188,8 @@ export function VideoGallery({
 
   const showFolders = activeFolderId === null && folders.length > 0;
   const hasVideos = videos.length > 0;
-  const isEmpty = !hasVideos && !showFolders;
+  const hasJobs = jobs.length > 0;
+  const isEmpty = !hasVideos && !showFolders && !hasJobs;
   const allVisibleSelected = videos.length > 0 && selectionCount === videos.length;
 
   return (
@@ -241,8 +253,8 @@ export function VideoGallery({
           </span>
           <span className="text-[11px] mt-1">
             {activeFolderId
-              ? 'Drag videos here, or generate one in Flows'
-              : 'Generate a video via the Flows feature; it will land here.'}
+              ? 'Drag videos here, or generate one with the panel on the left'
+              : 'Describe a shot in the panel on the left to generate your first clip.'}
           </span>
         </div>
       ) : (
@@ -257,6 +269,15 @@ export function VideoGallery({
                 alignContent: 'start',
               }}
             >
+              {jobs.map((job) => (
+                <VideoJobCard
+                  key={job.jobId}
+                  job={job}
+                  now={jobsNow}
+                  onCancel={(id) => onCancelJob?.(id)}
+                  onDismiss={(id) => onDismissJob?.(id)}
+                />
+              ))}
               {visibleVideos.map((video) => (
                 <VideoCard
                   key={video.id}
@@ -271,10 +292,12 @@ export function VideoGallery({
                 />
               ))}
             </div>
-            {!hasVideos && (
+            {!hasVideos && !hasJobs && (
               <div className="flex flex-col items-center justify-center py-10 text-text-dim">
                 <span className="text-[13px]">No videos yet</span>
-                <span className="text-[11px] mt-1">Generate a video via Flows</span>
+                <span className="text-[11px] mt-1">
+                  Generate one with the panel on the left
+                </span>
               </div>
             )}
             {hasMore && (

@@ -5,7 +5,7 @@ import type { GenerationSettings, AspectRatioPreset, ImageMode } from '../types'
 import { ASPECT_RATIO_KEYS } from '../services/aspect-ratios';
 import { STYLE_PRESETS as DEFAULT_STYLE_PRESETS, CONTENT_PRESETS as DEFAULT_CONTENT_PRESETS } from '../services/style-presets';
 import { ImageInput } from './ImageInput';
-import { ReferenceImageLibrary } from './ReferenceImageLibrary';
+import { ReferenceImageLibrary } from '@shared/components/ReferenceImageLibrary';
 import { BulkControlPanel } from './BulkControlPanel';
 import type { ImageModelInfoIpc, ContentPresetSetting, StylePresetSetting } from '../../../shared/ipc/types';
 import type { ImageStudioEntry } from '../../../shared/ipc/types';
