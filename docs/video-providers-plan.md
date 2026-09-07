@@ -542,6 +542,25 @@ real reference. What it pins:
   (1.70 MB, 480p as asked, thumbnail written), `videoUrl` a local `file://`, the
   fal CDN URL kept only as `sourceUrl`, and the usage row `fal / seedance-2.5 /
   flows / video / $1.88 / 374.6 s`.
+- **Live BytePlus E2E PASSED — the acceptance's other half, run from Flows.** A
+  two-node flow (Prompt → Generate Video) pinned to `providerId: 'byteplus'` /
+  `dreamina-seedance-2-5-260628`, 4 s, 480p, 16:9, was built through
+  `flowsProjectCreate` and **Run** was clicked in the UI, so the node's own
+  `execute()` drove it. `Video job submitted {provider: 'byteplus', model:
+  'dreamina-seedance-2-5-260628'}` → Complete in **371 s**; the node preview
+  played the local clip and the run badge read Complete. One Video Studio entry
+  (1.02 MB, **854×480 / 4.04 s** — the requested 480p and duration came back
+  exactly), thumbnail written, `videoUrl` a local `file://`, and `sourceUrl` the
+  ModelArk TOS signed URL — which **expires in 24 h with a 100-download cap**, so
+  download-then-return is not a nicety here, it is the only way the clip survives.
+  Usage row: `byteplus / dreamina-seedance-2-5-260628 / flows / video / $0.92 /
+  366.6 s` with **`outputTokens: 38830`** — the `usage.completion_tokens` ModelArk
+  bills on, carried through as designed (fal reports none and logs 0).
+  Beforehand, the Providers **Test** button authenticated the saved key against
+  the real list-tasks endpoint in 980 ms, and Seedance 2.5 reported
+  `references: {images: 30, videos: 10, audios: 10}` — the 10 videos only because
+  a fal key is present to host them; without one the same model reports 0.
+
 - **Gate B proved itself on the way in**: the first attempt used synthetic test
   media, and `ContentSafety Image blocked by classifier {band: borderline, p: 0.3049}`
   refused the flat colour card *before* any upload or provider call — exactly the
@@ -549,12 +568,10 @@ real reference. What it pins:
 
 **Open / for Hasan**
 
-- **BytePlus needs a key.** Everything up to the key is verified live (row, badge,
-  catalog, dialect, client, auth error, engine registration), but no ModelArk key
-  exists on this machine, so the Seedance-2.5-from-Flows-on-BytePlus half of the
-  acceptance is untested against the real API. Activating Seedance 2.x on
-  ModelArk also has a prerequisite: a balance over USD 30, an AI Savings Plan at
-  that tier, or a Seedance resource pack.
+- ~~BytePlus needs a key.~~ **Key entered by Hasan 2026-09-07; the BytePlus half
+  of the acceptance now PASSES too** — see the live BytePlus E2E above. The
+  ModelArk activation prerequisite still applies to any fresh account: a balance
+  over USD 30, an AI Savings Plan at that tier, or a Seedance resource pack.
 - **Cost estimates are per model, not per resolution.** The $1.88 above is
   0.47 × 4 s, the 720p list rate, for a 480p clip that costs roughly a fifth of
   that on fal. The dashboard already calls the column an estimate; a price map

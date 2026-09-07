@@ -49,11 +49,19 @@ video + audio) work end to end. Full log with what was verified how: the plan's
   `file://`, fal URL only as `sourceUrl`), usage row `fal / seedance-2.5 / flows /
   $1.88`. The first attempt was refused by Gate B on a synthetic reference image
   before any upload — the input gate working as designed.
-- **Open for Hasan**: **a BytePlus ModelArk key** (none on this machine, so the
-  BytePlus half of the acceptance is untested against the real API; activating
-  Seedance 2.x there also needs balance > $30, a Savings Plan at that tier, or a
-  resource pack). Also: cost estimates are per model, not per resolution, so the
-  $1.88 above over-states a 480p clip.
+- **Live BytePlus E2E PASSED** (key entered by Hasan the same evening): a
+  Prompt → Generate Video flow pinned to BytePlus / Seedance 2.5, 4 s at 480p,
+  **Run clicked in the UI** — Complete in 371 s, one Video Studio entry
+  (1.02 MB, 854×480 / 4.04 s, thumbnail written), local `file://` handed back and
+  the ModelArk URL kept only as `sourceUrl` (it expires in 24 h with a
+  100-download cap, so downloading is the only way the clip survives). Usage row
+  `byteplus / dreamina-seedance-2-5-260628 / flows / $0.92` carrying
+  **`outputTokens: 38830`** — the ModelArk token count it actually bills on. The
+  Test button authenticated the key in 980 ms without generating anything.
+- **Open for Hasan**: cost estimates are per model, not per resolution, so both
+  480p rows above over-state (fal $1.88, BytePlus $0.92). A fresh ModelArk
+  account also needs balance > $30, a Savings Plan at that tier, or a resource
+  pack before Seedance 2.x activates.
 - **Next**: Stage 4 — the Videos generation panel.
 
 ## 2026-09-07 — EXPORT ENGINES Stage 3 slice 4: speed in the one pass and the copied picture
