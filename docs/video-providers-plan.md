@@ -692,12 +692,22 @@ job cards in the grid while clips are generating.
 
 **Open / for Hasan**
 
-- **In-flight jobs are renderer state (D5).** A renderer reload drops the cards
-  while the job keeps running in main and still files its clip — there is no
-  "list active jobs" IPC for the panel to re-attach with. Fine for V1 as
-  decided; the job record is already shaped for persistence. (Found the hard
-  way: writing driver artifacts *inside* the repo trips Vite's watcher and
-  full-reloads the renderer — keep them outside it.)
+- **In-flight jobs are renderer state (D5).** `useVideoJobs` holds the cards in
+  `useState` and nothing rehydrates them on mount, so a renderer reload would
+  drop them while the job keeps running in main and still files its clip —
+  there is no "list active jobs" IPC for the panel to re-attach with. Fine for
+  V1 as decided; the job record is already shaped for persistence. This is a
+  property of the code, not something the acceptance run hit: an earlier draft
+  of this log claimed a reload had wiped the cards mid-run and blamed Vite's
+  watcher for picking up driver artifacts written inside the repo. Both halves
+  were wrong. A screenshot from later in the same run still shows the Cancelled
+  card, and a direct probe (plant a marker on `window`, write a .png, .mjs and
+  .json into `.vidtsx-temp/`, re-read the marker) shows it **surviving all
+  three** — `.vidtsx-temp/` is outside the module graph and does not trigger a
+  reload. What actually happened was a driver-side miss: the `jobCards()` DOM
+  selector returned `[]` while a card was on screen. Editing a file Vite
+  actually imports (anything under `src/`) is the thing that reloads a waiting
+  driver's page, as the export-engines sessions found.
 - **Only the two Seedance 2.5 entries have per-resolution rates.** Everything
   else still estimates at its 720p headline rate, labelled "at list rate" in the
   panel. The reference-with-video-input discount is not modelled either.
