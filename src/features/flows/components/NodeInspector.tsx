@@ -7,6 +7,7 @@ import { SelectField } from './inspector-fields/SelectField';
 import { ModelPickerField } from './inspector-fields/ModelPickerField';
 import { LlmModelPickerField } from './inspector-fields/LlmModelPickerField';
 import { VideoModelPickerField } from './inspector-fields/VideoModelPickerField';
+import { VideoModelOptionsField } from './inspector-fields/VideoModelOptionsField';
 import { GalleryImagePickerField } from './inspector-fields/GalleryImagePickerField';
 import { ImageUploadField } from './inspector-fields/ImageUploadField';
 
@@ -127,6 +128,19 @@ function renderField(
           onChange={(nextProviderId, nextModel) =>
             patch({ [providerKeyKey]: nextProviderId, [field.key]: nextModel })
           }
+        />
+      );
+    }
+    case 'video-model-options': {
+      const providerKeyKey = field.providerKeyKey ?? 'providerId';
+      const providerId = config[providerKeyKey];
+      const model = config[field.modelKey ?? 'model'];
+      return (
+        <VideoModelOptionsField
+          providerId={typeof providerId === 'string' ? providerId : ''}
+          model={typeof model === 'string' ? model : ''}
+          config={config}
+          onPatch={patch}
         />
       );
     }

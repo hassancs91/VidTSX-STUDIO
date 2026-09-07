@@ -19,27 +19,12 @@ interface Config extends Record<string, unknown> {
 const POLL_INTERVAL_MS = 3000;
 const MAX_WAIT_MS = 10 * 60 * 1000;
 
-// The model list is no longer a static union: the picker reads it from the
-// engine, so a catalog edit or a second provider shows up without a rebuild.
-// These two lists stay as the raw choices; the engine clamps each to what the
-// selected model accepts (nearest duration, allowed aspect).
-const ASPECT_OPTIONS = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9'].map((a) => ({
-  value: a,
-  label: a,
-}));
-
-const DURATION_OPTIONS = [4, 5, 6, 8, 10, 12, 15, 20, 25, 30].map((d) => ({
-  value: String(d),
-  label: `${d}s`,
-}));
-
-const RESOLUTION_OPTIONS = [
-  { value: '', label: 'Model default' },
-  { value: '480p', label: '480p' },
-  { value: '720p', label: '720p' },
-  { value: '1080p', label: '1080p' },
-  { value: '4k', label: '4K' },
-];
+// Nothing about this node's options is a static union any more. The picker
+// reads the provider + model list from the engine, and 'video-model-options'
+// reads duration / aspect / resolution / audio / seed from the selected
+// model's VideoModelInfo — the same capabilities the Videos panel narrows
+// itself by. The engine still clamps at submit; the difference is that the
+// node no longer *offers* a value the model would have to be corrected on.
 
 function asString(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined;
@@ -107,19 +92,7 @@ export const generateVideoNode: NodeTypeDefinition<Config> = {
   },
   configSchema: [
     { kind: 'video-model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
-    { kind: 'select', key: 'aspectRatio', label: 'Aspect ratio', options: ASPECT_OPTIONS },
-    { kind: 'select', key: 'durationSeconds', label: 'Duration (s)', options: DURATION_OPTIONS },
-    { kind: 'select', key: 'resolution', label: 'Resolution', options: RESOLUTION_OPTIONS },
-    {
-      kind: 'select',
-      key: 'generateAudio',
-      label: 'Generate audio',
-      options: [
-        { value: 'off', label: 'Off' },
-        { value: 'on', label: 'On (Seedance / Veo / WAN)' },
-      ],
-    },
-    { kind: 'text', key: 'seed', label: 'Seed (optional)', placeholder: 'leave blank for random' },
+    { kind: 'video-model-options', key: 'modelOptions', providerKeyKey: 'providerId' },
   ],
   async execute(inputs, config, ctx) {
     const prompt = asString(inputs.prompt);
@@ -148,8 +121,8 @@ export const generateVideoNode: NodeTypeDefinition<Config> = {
     const seedRaw = asString(config.seed);
     const seed = seedRaw !== undefined && Number.isFinite(Number(seedRaw)) ? Number(seedRaw) : undefined;
 
-    // The engine clamps duration / aspect / resolution / audio to what the
-    // chosen model accepts, so the node passes the raw choice through.
+    // The inspector already narrowed these to the model's own values; the
+    // engine clamps again on the way in, as it does for every caller.
     const submit = await window.api.videoGenerate({
       prompt,
       model: config.model,

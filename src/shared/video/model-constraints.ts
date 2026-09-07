@@ -1,10 +1,11 @@
-import type { VideoModelInfoIpc } from '@shared/ipc/types';
-import type { VideoPanelMode } from '../types';
+import type { VideoModelInfoIpc } from '../ipc/types';
+import type { VideoRouteMode } from './types';
 
 /**
- * Panel-side clamping against a model's published capabilities. The engine
- * clamps again on the way in — this exists so the picker never *offers* a
- * value the model would reject, not as a second source of truth.
+ * Clamping against a model's published capabilities, shared by the Videos
+ * panel and the Flows "Generate Video" node. The engine clamps again on the
+ * way in — this exists so a picker never *offers* a value the model would
+ * reject, not as a second source of truth.
  */
 
 const PREFERRED_ASPECT = '16:9';
@@ -45,15 +46,15 @@ export function clampResolution(
 }
 
 /** Which routes this model actually has — the panel's mode tabs. */
-export function availableModes(model: VideoModelInfoIpc): VideoPanelMode[] {
-  const modes: VideoPanelMode[] = ['generate'];
+export function availableModes(model: VideoModelInfoIpc): VideoRouteMode[] {
+  const modes: VideoRouteMode[] = ['generate'];
   if (model.supports.firstFrame) modes.push('frames');
   const refs = model.supports.references;
   if (refs && (refs.images > 0 || refs.videos > 0 || refs.audios > 0)) modes.push('reference');
   return modes;
 }
 
-export function clampMode(model: VideoModelInfoIpc, wanted: VideoPanelMode): VideoPanelMode {
+export function clampMode(model: VideoModelInfoIpc, wanted: VideoRouteMode): VideoRouteMode {
   const modes = availableModes(model);
   return modes.includes(wanted) ? wanted : 'generate';
 }

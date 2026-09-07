@@ -98,7 +98,7 @@ work. So the bands are deliberately aggressive:
 Band edges are constants tuned on our own eval set (D6), not user
 settings.
 
-### D2c. Call sites — one code path, five callers
+### D2c. Call sites — one code path, six callers
 
 `moderationService.checkImage(buffer)` (warm ONNX session in a
 worker/utilityProcess — the embedding-worker pattern; CPU EP sufficient at
@@ -117,7 +117,25 @@ this size, DirectML optional):
    CPU). Any frame trips → whole clip blocked. 4K frames additionally
    scan a center crop at native res (downscale can shrink small explicit
    regions below detectability).
-5. `capture_webpage` outputs before they land in the asset library.
+5. **Video input media**, added by the video-providers plan (Stage 2 for
+   frames, Stage 3 for references) and owned by `video-engine/
+   input-media-gate.ts` — one order for every caller (Videos panel, the
+   Flows node, `generateVideoAsset`, the `generate_video` agent tool):
+   resolve → `checkImage` on the **first frame, last frame and every
+   reference image**, and the **2 fps frame sampler on every reference
+   clip** → only then upload what cannot travel inline. Nothing is hosted
+   or submitted before it is gated, and a reference clip with no sampler
+   installed is refused rather than passed (D2d). Reference *audio* is not
+   gated — there is no classifier for it, the same position STT input
+   takes.
+6. `capture_webpage` outputs before they land in the asset library.
+
+**Download-then-return (video, Stage 2).** A completed cloud video job is
+never handed back as a provider URL. The engine downloads the clip, files it
+through the Video Studio save path — which is call site 4 — and returns the
+local entry. So the output gate cannot be skipped by a caller that only
+wanted the URL, and the clip survives the provider's own expiry (ModelArk's
+signed URLs last 24 h).
 
 ### D2d. Fail-closed + no kill switch
 

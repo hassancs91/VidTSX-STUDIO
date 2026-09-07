@@ -27,6 +27,7 @@ export function toVideoModelInfo(entry: VideoModelCatalogEntry): VideoModelInfo 
       audio: entry.supportsAudio,
       firstFrame: Boolean(entry.imageToVideoEndpoint),
       lastFrame: entry.supportsLastFrame,
+      seed: entry.supportsSeed !== false,
       ...(entry.references && entry.referenceToVideoEndpoint
         ? { references: { ...entry.references } }
         : {}),

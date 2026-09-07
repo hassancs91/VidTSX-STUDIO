@@ -319,3 +319,47 @@ Three things that cost a measurement each during the long-project wave:
   Reconnect and retry rather than dying (see the `evaluate` wrapper in
   `studio-export.mjs`); for a multi-hour render, prefer a built app.
 
+## Clicking: three ways to hit the wrong thing (2026-09-07, video Stage 5)
+
+**Never click by a selector loose enough to match something destructive.** A
+cleanup loop meant to clear reference-media chips was written as "the single
+button inside any visible div whose first titled span looks like a path". Job
+cards matched it too, and the loop pressed **Cancel** on two live cloud video
+jobs — several minutes and about a dollar each. Scope the query to the group you
+mean (`groupDiv('Reference Videos')`, then its own children), assert the element
+you found reads what you expect before you click it, and never loop a click over
+a set you have not printed first.
+
+**Filter by visibility before you take an element's rect.** The visibility rule
+above is not only about clicking hidden screens: an unfiltered
+`document.querySelectorAll('.react-flow__node')` returns nodes from *every* flow
+editor visited this session, because those screens stay mounted. The first match
+was a node in a hidden editor, its `getBoundingClientRect()` was stale, and
+every click computed from it landed on empty canvas. `visible(sel)` first, then
+`rectOf`.
+
+**Scroll before you measure.** A rect with a negative `y` means the element is
+above the scroll port; the click is dispatched into nothing and the run carries
+on as if it had worked. `el.scrollIntoView({ block: 'center' })` and *then* take
+the rect — the panel scrolls as fields are added, so a rect that was valid two
+steps ago may not be now.
+
+Two related notes:
+
+- `Input.dispatchMouseEvent` coordinates are CSS pixels and land exactly, device
+  pixel ratio notwithstanding — calibrate before blaming it (arm a capturing
+  `mousedown` listener, dispatch at a known point, read back `clientX/clientY`).
+  When a coordinate click "does nothing", the usual causes are the two above,
+  not the mapping. `element.click()` is a fine fallback for plain buttons, but
+  React Flow's canvas needs the real event to select a node.
+- **A backslash Windows path loses one level of escaping through
+  `Runtime.evaluate`** — `\v` in `...\video-studio\videos\...` came back as a
+  vertical tab, and the path arrived relative, so the main process resolved it
+  against the repo and reported ENOENT. Pass forward slashes; Windows fs calls
+  take them.
+
+**`Page.captureScreenshot` hangs when the window is occluded.** It answers
+promptly for a while and then simply never returns, which reads exactly like a
+dead renderer — meanwhile `Runtime.evaluate` still answers in milliseconds. Ping
+with an evaluate before concluding anything, and pass `fromSurface: false`,
+which captures without the compositor and does not hang.

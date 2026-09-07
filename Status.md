@@ -7,6 +7,59 @@
 
 ---
 
+## 2026-09-07 — VIDEO PROVIDERS Stage 5 DONE: the plan is CLOSED, and Videos ships in V1
+
+Stage 5 of `docs/video-providers-plan.md`, the last one. No new provider work:
+the Flows node learns what the panel already knows, the Videos screen comes out
+from behind its flag, and the agent tool is written against the shipped engine.
+Full log: the plan's section 6.
+
+- **The Flows "Generate Video" node offers only what its model accepts.** It had
+  static aspect / duration / resolution lists — the union of every model — and
+  let the engine clamp at submit, so a saved flow could carry a duration its
+  model never takes and a seed the model ignores. Those selects are now one
+  `video-model-options` inspector field reading the model's `VideoModelInfo`,
+  and it **re-clamps the saved config** when the model changes. Live on BytePlus
+  Seedance 2.5: a 4–30 s *slider*, aspect chips including BytePlus's own
+  `adaptive`, resolutions `720p/480p/1080p` with no "Model default" and no 4K,
+  an audio toggle, **no Seed field at all** — and a node deliberately created
+  with `resolution: ''` and `seed: '12345'` came back saved as `'720p'` and
+  `''`.
+- **`supports.seed` now reaches the pickers.** It lived on the catalog entry and
+  stopped there, so nothing downstream could know that neither Seedance 2.x
+  family takes a seed.
+- **`video-studio` is on for V1 (D1).** It is a plain flag set `true` now;
+  `VITE_FF_VIDEO_STUDIO` is retired from `.env.example` and `env.d.ts`. Proved by
+  launching the dev app *without* the variable and finding Videos in the nav —
+  the same launch hid it yesterday. **Flows stays env-gated.**
+- **`generate_video` is written and not registered** — a thin wrapper on
+  `generateVideoAsset` with `needs: 'video-provider'` and a `video` artifact
+  pointing at the local clip, never a provider URL. `docs/agents-plan.md` §1.3
+  owns the registry; agents Stage 1 plugs it in.
+- **The provider matrix is complete.** Stage 4 had covered fal t2v, BytePlus t2v
+  and fal reference; this stage ran the last three from the panel at 4 s / 480p —
+  **fal i2v** (187.7 s, $0.88), **BytePlus i2v** (229.1 s, $0.40) and **BytePlus
+  reference-to-video** (320.4 s, $0.40) — plus the Flows node itself (167.1 s,
+  $0.40, feature source `flows`). The log shows the chokepoint in order for the
+  reference job: the input clip frame-sampled → **then** uploaded to fal storage
+  (ModelArk takes a reference video only as a URL) → **then** submitted → output
+  sampled → filed.
+- **Found on the way**: ModelArk refuses a first frame under 300 px tall, and
+  said so in its own words in the panel with no job created — a Video Studio
+  *thumbnail* is too small to use as a first frame. And a careless driver loop
+  cancelled two live jobs by clicking a job card's Cancel; the app handled it
+  correctly (BytePlus refused to cancel a running task, as documented). Three
+  clicking lessons went into `docs/ui-automation-cdp.md`.
+- **Docs**: `docs/CONTENT_SAFETY_DESIGN.md` D2c is six callers with the video
+  input gate written out in order; `V1_RELEASE_PLAN.md` gains a cloud-video
+  checklist (all PASS bar one artifact check deferred to the next `build:win`)
+  and two known issues for the release notes.
+- **Gates**: `check:types` web 26 / node 10 (baseline); vitest **1466 green**
+  (+7).
+- **Next**: nothing in this plan. Goal 11 of `V1_RELEASE_PLAN.md` is met and the
+  remaining V1 work is Hasan's testing pass, the licence flip and the installer
+  rebuild.
+
 ## 2026-09-07 — VIDEO PROVIDERS Stage 4 DONE: the Videos generation panel
 
 Stage 4 of `docs/video-providers-plan.md`. The Videos screen is a generation

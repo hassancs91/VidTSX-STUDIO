@@ -15,6 +15,10 @@ export type ConfigField =
   | { kind: 'model-picker'; key: string; label: string; providerKeyKey?: string }
   | { kind: 'llm-model-picker'; key: string; label: string; providerKeyKey?: string }
   | { kind: 'video-model-picker'; key: string; label: string; providerKeyKey?: string }
+  // Duration / aspect / resolution / audio / seed read from the selected
+  // model's capabilities. Owns those config keys itself, the way
+  // 'image-upload' owns fileName/width/height — so it needs no `label`.
+  | { kind: 'video-model-options'; key: string; providerKeyKey?: string; modelKey?: string }
   | { kind: 'gallery-image-picker'; key: string; label: string }
   | { kind: 'image-upload'; key: string; label: string };
 

@@ -9,6 +9,7 @@ export type AiFeatureSource =
   | 'auto-cut'
   | 'studio-tsx-shot'
   | 'studio-shot-asset'
+  | 'agent'
   | 'library-describe'
   | 'library-organize'
   | 'provider-test'

@@ -17,7 +17,7 @@ const MODEL: VideoModelInfo = {
   dialect: 'fal-generic',
   durations: { kind: 'discrete', values: [5, 10] },
   aspectRatios: ['16:9', '9:16'],
-  supports: { audio: false, firstFrame: true, lastFrame: true },
+  supports: { audio: false, firstFrame: true, lastFrame: true, seed: true },
   pricePerSecondUsd: 0.1,
 };
 
@@ -29,7 +29,7 @@ const PRICED_MODEL: VideoModelInfo = {
   durations: { kind: 'discrete', values: [4, 8] },
   aspectRatios: ['16:9'],
   resolutions: ['720p', '480p'],
-  supports: { audio: false, firstFrame: false, lastFrame: false },
+  supports: { audio: false, firstFrame: false, lastFrame: false, seed: true },
   pricePerSecondUsd: 0.47,
   pricePerSecondByResolutionUsd: { '480p': 0.22, '720p': 0.47 },
 };
@@ -330,6 +330,7 @@ describe('reference media', () => {
       audio: false,
       firstFrame: true,
       lastFrame: true,
+      seed: true,
       references: { images: 2, videos: 1, audios: 1 },
     },
   };

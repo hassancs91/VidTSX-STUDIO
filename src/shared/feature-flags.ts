@@ -12,7 +12,6 @@ const ENV_GATED: Record<string, string | boolean | undefined> = {
   // One switch covers the Flows nav entry and the editor behind it.
   flows: import.meta.env.VITE_FF_FLOWS,
   'flows-editor': import.meta.env.VITE_FF_FLOWS,
-  'video-studio': import.meta.env.VITE_FF_VIDEO_STUDIO,
   // AI page — local model sub-tabs
   'ai-video-models': import.meta.env.VITE_FF_AI_VIDEO,
   'ai-llm-models': import.meta.env.VITE_FF_AI_LLM,
@@ -30,6 +29,11 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   creator: true,
   'image-studio': true,
   transcribe: true,
+  // Videos — the cloud video generation tool (panel + gallery). Unhidden for
+  // V1 by D1 of docs/video-providers-plan.md, once the five stages landed:
+  // the engine, both providers, the panel, and this node's narrowed fields.
+  // Flows stays env-gated. Nothing generates without the user's own key.
+  'video-studio': true,
   // Secondary (visible in production)
   assets: true,
   render: true,

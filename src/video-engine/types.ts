@@ -88,6 +88,8 @@ export interface VideoModelInfo {
     audio: boolean;
     firstFrame: boolean;
     lastFrame: boolean;
+    /** The 2.x Seedance families ignore a seed; the dialect omits it there. */
+    seed: boolean;
     references?: { images: number; videos: number; audios: number };
   };
   pricePerSecondUsd?: number;

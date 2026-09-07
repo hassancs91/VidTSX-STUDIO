@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Button, ReferenceImageLibrary } from '@shared/components';
+import { Button, ReferenceImageLibrary, VideoModelFields } from '@shared/components';
 import type { VideoModelInfoIpc, VideoProviderInfo } from '@shared/ipc/types';
-import { VideoModelFields } from './VideoModelFields';
 import { ReferenceMediaPicker } from './ReferenceMediaPicker';
 import {
   availableModes,
@@ -11,7 +10,7 @@ import {
   clampResolution,
   estimatedCostUsd,
   isCostRateApproximate,
-} from '../services/model-constraints';
+} from '@shared/video/model-constraints';
 import type { VideoGenerationSettings, VideoPanelMode } from '../types';
 
 const MODE_LABELS: Record<VideoPanelMode, string> = {

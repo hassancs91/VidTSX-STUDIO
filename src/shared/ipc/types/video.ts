@@ -66,6 +66,8 @@ export interface VideoModelInfoIpc {
     audio: boolean;
     firstFrame: boolean;
     lastFrame: boolean;
+    /** False where the model ignores a seed (both Seedance 2.x families). */
+    seed: boolean;
     references?: { images: number; videos: number; audios: number };
   };
   pricePerSecondUsd?: number;

@@ -10,7 +10,6 @@ interface ImportMetaEnv {
   DEV: boolean
   readonly VITE_FF_TOOLS?: string
   readonly VITE_FF_FLOWS?: string
-  readonly VITE_FF_VIDEO_STUDIO?: string
   readonly VITE_FF_AI_VIDEO?: string
   readonly VITE_FF_AI_LLM?: string
   readonly VITE_FF_AI_EMBEDDINGS?: string

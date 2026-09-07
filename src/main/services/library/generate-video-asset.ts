@@ -9,6 +9,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { videoEngine } from '../../../video-engine';
 import type { MediaInput, VideoJobListener } from '../../../video-engine';
+import type { VideoResolution } from '../../../shared/presets/video-models';
+import type { AiFeatureSource } from '../../../shared/types/ai-usage';
 import { ensureLibraryRoot } from './library-paths';
 import { upsertEntry } from './library-store';
 import { readBrand } from './brand-store';
@@ -16,10 +18,15 @@ import { GENERATED_FOLDER, reserveLibraryFile, sanitizeFolder, slugify } from '.
 
 export interface GenerateVideoAssetRequest {
   prompt: string;
+  /** Video provider id; defaults to the engine's active provider. */
+  providerId?: string;
   /** Catalog model id; defaults to the active provider's default model. */
   model?: string;
   durationSeconds?: number;
   aspectRatio?: string;
+  /** The engine clamps to the model's own list, and the job is billed at that
+   *  resolution's published rate. */
+  resolution?: VideoResolution;
   generateAudio?: boolean;
   firstFrame?: MediaInput;
   lastFrame?: MediaInput;
@@ -28,6 +35,9 @@ export interface GenerateVideoAssetRequest {
   /** Brand to auto-tag (the project's active brand). Stale ids degrade to
    *  untagged — the clip is still made. */
   brandId?: string;
+  /** Who asked: Studio's own shot assets by default, `'agent'` for the
+   *  `generate_video` tool. Only affects the usage log's attribution. */
+  featureSource?: AiFeatureSource;
   onProgress?: VideoJobListener;
   signal?: AbortSignal;
 }
@@ -48,20 +58,22 @@ export async function generateVideoAsset(
 ): Promise<GeneratedVideoAsset> {
   if (!videoEngine.getActiveProvider()) {
     throw new Error(
-      'No video provider is configured — ask the user to add a Fal API key in Settings → AI Providers.',
+      'No video provider is configured — ask the user to add a Fal or BytePlus ModelArk key in AI → Providers.',
     );
   }
-  const model = req.model ?? videoEngine.getModels()[0]?.id ?? '';
+  const model = req.model ?? videoEngine.getModels(req.providerId)[0]?.id ?? '';
   const result = await videoEngine.generateAndWait(
     {
       model,
       prompt: req.prompt,
+      ...(req.providerId ? { providerId: req.providerId } : {}),
       ...(req.durationSeconds !== undefined ? { durationSeconds: req.durationSeconds } : {}),
       ...(req.aspectRatio ? { aspectRatio: req.aspectRatio } : {}),
+      ...(req.resolution ? { resolution: req.resolution } : {}),
       ...(req.generateAudio !== undefined ? { generateAudio: req.generateAudio } : {}),
       ...(req.firstFrame ? { firstFrame: req.firstFrame } : {}),
       ...(req.lastFrame ? { lastFrame: req.lastFrame } : {}),
-      featureSource: 'studio-shot-asset',
+      featureSource: req.featureSource ?? 'studio-shot-asset',
       ...(req.signal ? { signal: req.signal } : {}),
     },
     { ...(req.onProgress ? { onProgress: req.onProgress } : {}) },

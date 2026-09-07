@@ -181,7 +181,7 @@ Embeddings are hidden in ALL builds (including dev) unless explicitly enabled vi
       |---|---|---|
       | `tools` | off | `VITE_FF_TOOLS` |
       | `flows-editor` (+ Flows nav item) | off | `VITE_FF_FLOWS` |
-      | `video-studio` | off | `VITE_FF_VIDEO_STUDIO` |
+      | `video-studio` | off | `VITE_FF_VIDEO_STUDIO` | *(superseded 2026-09-07: **on by default**, no env override — see goal 11 / `docs/video-providers-plan.md` D1. The var is retired.)*
       | `ai-video-models` | off | `VITE_FF_AI_VIDEO` |
       | `ai-llm-models` | off | `VITE_FF_AI_LLM` |
       | `ai-3d-models` (new flag) | off | `VITE_FF_AI_3D` |
@@ -1166,6 +1166,56 @@ Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm No
    crash dialog, no Windows event-log entry. Two subsequent truly-cold first-runs
    (profile deleted) were stable 40 s+. Recorded as observed-once; re-check on the next
    installed-build session.
+
+### Cloud video (goal 11) — checked 2026-09-07, all PASS
+
+Added when `docs/video-providers-plan.md` closed at its Stage 5. Everything below
+was run live against Hasan's own fal and BytePlus ModelArk keys.
+
+- [x] **fal Seedance generated, gated, saved, logged.** Text-to-video, image-to-video
+      and reference-to-video all completed from the Videos panel on
+      `bytedance/seedance-2.5`. Every clip is downloaded and frame-sampled by Gate B
+      **before** it is filed, lands in Video Studio with a thumbnail, and keeps the fal
+      CDN URL only as `sourceUrl`. Usage rows carry provider / model / feature source /
+      per-resolution cost (e.g. `fal · seedance-2.5 · video-studio · $0.88` for 4 s at
+      480p).
+- [x] **BytePlus ModelArk Seedance generated, gated, saved, logged.** Same three routes
+      on `dreamina-seedance-2-5-260628`, including reference-to-video — whose reference
+      clip ModelArk will not take inline, so the engine hosts it through fal storage
+      **after** gating it, never before. Usage rows carry ModelArk's own
+      `usage.completion_tokens` in the Out Tokens column. Download-then-return is not a
+      nicety here: ModelArk's signed URLs expire in 24 h with a 100-download cap.
+- [x] **Input media is gated on the way in.** Gate B runs on first frame, last frame and
+      every reference image, and the 2 fps frame sampler on every reference clip, before
+      any provider call or upload. A reference clip with no sampler installed is refused
+      (fail-closed). Proven twice by refusal: a synthetic colour card was blocked as
+      borderline before any provider saw it. `docs/CONTENT_SAFETY_DESIGN.md` D2c lists
+      the call sites.
+- [x] **A blocked prompt costs nothing.** Gate A refuses before the provider lookup; the
+      panel shows the Content Safety copy and creates no job card.
+- [x] **Keys stay in the main process.** Both providers read `credentials[preset.credentialId]`
+      from safeStorage at engine init and on every key save; the renderer sees has-key
+      booleans and a provider list. The Providers-page **Test** button for BytePlus lists
+      tasks and generates nothing.
+- [x] **The Videos screen is visible in a V1 build.** `video-studio` is a plain
+      `FEATURE_FLAGS` entry set `true`; `VITE_FF_VIDEO_STUDIO` is gone from
+      `.env.example` and `env.d.ts`. Verified live by launching the dev app **without**
+      the variable. **Flows stays env-gated** and must not appear in a release build —
+      re-confirm with the existing "renderer bundle inlines every env-gated flag as
+      `void 0`" artifact check when the installer is rebuilt.
+- [ ] **Re-run the artifact-level hidden-surface check on the next `build:win`.** The
+      2026-08-18 run predates the flag change; the expectation now is that `video-studio`
+      is *present* and Flows is still absent.
+
+**Known issues to carry into the release notes**
+
+- In-flight video job cards are renderer state (plan D5). A renderer reload drops the
+  cards while the job keeps running in main and still files its clip; there is no "list
+  active jobs" IPC to re-attach with.
+- Cost figures in the usage dashboard are estimates from the catalog's per-second rate.
+  Only the two Seedance 2.5 entries carry per-resolution rates; everything else is
+  labelled "at list rate". Neither the reference-with-video-input discount nor the higher
+  image-to-video token cost is modelled.
 
 ---
 

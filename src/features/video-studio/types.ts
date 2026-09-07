@@ -1,4 +1,5 @@
 import type { VideoStudioEntry, VideoStudioFolder } from '../../shared/ipc/types';
+import type { VideoRouteMode } from '../../shared/video/types';
 
 export interface GalleryVideo extends VideoStudioEntry {
   /** file:// URL to the video file on disk. */
@@ -13,8 +14,9 @@ export interface GalleryFolder extends VideoStudioFolder {
   coverThumbnailUrls: string[];
 }
 
-/** Which route the panel is composing — the engine treats these as exclusive. */
-export type VideoPanelMode = 'generate' | 'frames' | 'reference';
+/** Which route the panel is composing — the engine treats these as exclusive.
+ *  The Flows node narrows itself by the same three, so the type is shared. */
+export type VideoPanelMode = VideoRouteMode;
 
 /** What the control panel hands the generation hook. */
 export interface VideoGenerationSettings {

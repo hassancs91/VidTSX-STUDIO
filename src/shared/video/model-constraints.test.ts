@@ -17,7 +17,7 @@ function model(overrides: Partial<VideoModelInfoIpc> = {}): VideoModelInfoIpc {
     name: 'M',
     durations: { kind: 'discrete', values: [5, 10] },
     aspectRatios: ['16:9', '9:16'],
-    supports: { audio: false, firstFrame: false, lastFrame: false },
+    supports: { audio: false, firstFrame: false, lastFrame: false, seed: true },
     ...overrides,
   };
 }
@@ -76,6 +76,7 @@ describe('modes follow the routes a model actually has', () => {
         audio: true,
         firstFrame: true,
         lastFrame: true,
+        seed: true,
         references: { images: 9, videos: 3, audios: 3 },
       },
     });
@@ -88,6 +89,7 @@ describe('modes follow the routes a model actually has', () => {
         audio: false,
         firstFrame: true,
         lastFrame: false,
+        seed: true,
         references: { images: 0, videos: 0, audios: 0 },
       },
     });

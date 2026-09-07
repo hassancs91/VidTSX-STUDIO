@@ -719,3 +719,153 @@ job cards in the grid while clips are generating.
 `video-studio` flag flipped on for V1 (D1), the `generate_video` agent tool
 definition, the V1 checklist rows, and the Content Safety call-site list.
 
+### Stage 5 — the Flows node, the flag flip, the agent tool, the docs (DONE 2026-09-07) — **this closes the plan**
+
+The last stage carries no new provider work. It makes the Flows node read the
+same capabilities the panel reads, unhides Videos for V1, writes the agent tool
+against the shipped engine, and brings the two release documents up to date.
+
+**What shipped**
+
+- **The Flows node's fields are the model's fields now.** `generate-video.ts`
+  offered `ASPECT_OPTIONS` / `DURATION_OPTIONS` / `RESOLUTION_OPTIONS` as static
+  unions and let the engine clamp at submit, so a saved flow could carry a
+  duration its model never accepts and a seed the model ignores. Those four
+  selects plus the seed text field collapse into one new inspector field kind,
+  **`video-model-options`**, which reads the selected model's `VideoModelInfo`
+  over `videoModelsGet` and renders exactly what that model publishes. It also
+  **re-clamps the stored config** whenever the model changes — the node never
+  keeps a value the model would have to be corrected on — and prints the
+  per-run cost estimate the panel prints. Like `image-upload`, the field owns a
+  fixed set of config keys (`durationSeconds`, `aspectRatio`, `resolution`,
+  `generateAudio`, `seed`) rather than one.
+- **Shared, not duplicated** (the plan's instruction): `model-constraints.ts`
+  and its test moved from `features/video-studio/services/` to
+  **`src/shared/video/`**, and `VideoModelFields` from
+  `features/video-studio/components/` to **`src/shared/components/`** — the same
+  move Stage 4 made for `ReferenceImageLibrary`, and for the same reason: a
+  feature module must never import from another feature module. The panel's
+  `VideoPanelMode` is now an alias of the shared `VideoRouteMode`, so every
+  video-studio call site is unchanged.
+- **`supports.seed` joins `VideoModelInfo`.** `supportsSeed` lived on the catalog
+  entry and stopped there, so no picker could know. It now flows to the IPC
+  info, which is what lets the node hide the Seed field on both Seedance 2.x
+  families and clear a stored seed rather than keep a promise the flow cannot
+  keep.
+- **`video-studio` is on for V1 (D1).** The flag moved out of `ENV_GATED` into
+  `FEATURE_FLAGS` as `true`; `VITE_FF_VIDEO_STUDIO` is retired from
+  `.env.example` and `env.d.ts` because nothing reads it any more. **Flows stays
+  env-gated.**
+- **`generate_video`, written and not registered.**
+  `src/main/services/agents/tools/generate-video.ts` wraps `generateVideoAsset`
+  with a zod schema, `needs: 'video-provider'`, and a `video` artifact carrying
+  the Video Studio entry id and the library path — never a provider URL, because
+  ModelArk's expire in 24 h. It is deliberately imported by nothing:
+  `docs/agents-plan.md` §1.3 owns the registry, and agents Stage 1 registers it.
+  The `types.ts` next to it is the **smallest** provisional slice of that plan's
+  `AgentToolDef` needed to type the definition, marked as Stage 1's to replace.
+  `generateVideoAsset` gained `providerId`, `resolution` and an optional
+  `featureSource` on the way (a new `'agent'` value in `AiFeatureSource`), and
+  its "add a Fal API key in Settings → AI Providers" message was two things
+  stale at once.
+- **Docs**: `docs/CONTENT_SAFETY_DESIGN.md` D2c is six callers now, with the
+  video input-media gate written out in its real order (resolve → Gate B on
+  frames and reference images, frame sampler on reference clips → only then host
+  what cannot travel inline) and a paragraph on download-then-return.
+  `V1_RELEASE_PLAN.md` gains the cloud-video checklist rows and a note on the
+  flipped flag.
+
+**Verified**
+
+- `check:types` web 26 / node 10 (both at baseline); vitest **149 files / 1466
+  tests green** (+7: the seed capability mapping in both directions, and the
+  agent tool's provider gate, unknown-model listing, `'agent'` attribution,
+  artifact shape and Content-Safety pass-through).
+- **The flag flip, proved by absence**: the dev app was launched with
+  `VITE_FF_FLOWS=1` and **no** `VITE_FF_VIDEO_STUDIO`, and the Videos tab is in
+  the nav with the generation panel behind it. Under Stage 4's code that same
+  launch hid the screen.
+- **The Flows inspector, live on BytePlus Seedance 2.5**: Duration is a
+  **4–30 s slider** (not the old ten-value select); Aspect Ratio lists
+  `16:9 9:16 1:1 4:3 3:4 21:9 adaptive` — including BytePlus's own `adaptive`,
+  which the static union never had; Resolution lists `720p 480p 1080p` with no
+  "Model default" row and no 4K; the audio toggle is present because this model
+  makes audio; **there is no Seed input at all**; and the estimate reads
+  `~$6.90 estimated per run` for the 30 s the node was seeded with. The node had
+  been created with `resolution: ''` and `seed: '12345'` on purpose — the
+  inspector re-clamped the **saved** config to `resolution: '720p'`, `seed: ''`.
+- **The node still runs.** Duration and resolution set through the narrowed
+  controls themselves (4 s, 480p — both persisted to the saved flow), then Run:
+  complete in **167.1 s**, the node preview playing the local `file://` clip
+  (readyState 4, 4.04 s), the clip filed with a thumbnail and the ModelArk URL
+  kept only as `sourceUrl`, and the usage row reading `byteplus /
+  dreamina-seedance-2-5-260628 / **flows** / $0.40` — the feature source that
+  tells the node apart from the panel.
+- **The provider matrix is complete.** Stage 4 covered fal t2v, BytePlus t2v and
+  fal reference; this stage ran the remaining three from the Videos panel, all
+  4 s at 480p:
+
+  | leg | provider · model | took | usage row |
+  |---|---|---|---|
+  | image-to-video | fal · `seedance-2.5` | 187.7 s | `$0.88`, 0 out-tokens |
+  | image-to-video | byteplus · `dreamina-seedance-2-5-260628` | 229.1 s | `$0.40`, **77 260** out-tokens |
+  | reference-to-video | byteplus · `dreamina-seedance-2-5-260628` | 320.4 s | `$0.40`, 38 830 out-tokens |
+
+  Each clip was downloaded, frame-sampled and filed with a thumbnail; the
+  provider URL survives only as `sourceUrl` (fal CDN for the first, ModelArk TOS
+  for the other two). The BytePlus image-to-video job bills **twice** the
+  out-tokens of a text-to-video job of the same length and resolution — worth
+  knowing, since the catalog's per-second estimate does not model it.
+- **The chokepoint order, in the log, for the BytePlus reference job**:
+  `Sampling video` on the input clip → **then** `FalStorage Uploaded reference
+  media` → **then** `Video job submitted` → `Sampling video` on the output. That
+  is the ModelArk fallback working as designed: `video_url` takes a URL or an
+  asset id only, so a reference clip is hosted through fal storage — and it is
+  gated before it is hosted, not after.
+
+**Found while driving**
+
+- **ModelArk refuses an image under 300 px tall.** The first BytePlus i2v
+  attempt used a Video Studio *thumbnail* (480×270) as the first frame and came
+  back `expected the height to be at least 300px, but received a 480x270px image
+  instead` with its request id — the provider's own message, surfaced verbatim
+  in the panel, and no job card created. Re-seeding the reference library with a
+  full-resolution frame (854×480, drawn out of a real clip through a `<video>` +
+  canvas in the renderer) fixed it. Worth a line in the panel's first-frame hint
+  later; it is not something the catalog can express today.
+- **Two live jobs were lost to a careless driver.** A cleanup loop that clicked
+  "the button inside any div matching a loose selector" hit two job cards'
+  **Cancel** instead of the reference chips it meant to clear. The app behaved
+  correctly throughout — the fal job cancelled, and BytePlus answered with its
+  documented refusal to cancel a *running* task, logged as `Provider cancel
+  failed (job already marked cancelled)`. The lesson is the driver's, and it is
+  now in `docs/ui-automation-cdp.md`: never click by a selector loose enough to
+  match something destructive.
+- Two more driver lessons, same doc: an unfiltered `document.querySelectorAll`
+  picks **stale nodes from screens that stay mounted by design** (the first
+  React Flow node found belonged to a previously-opened editor, and its rect led
+  every click astray); and a backslash Windows path loses one level of escaping
+  through `Runtime.evaluate` (`\v` ate the `v` of `video-studio`), so pass
+  forward slashes.
+
+**Open / for Hasan**
+
+- **Cost estimates are per model and resolution, not per route.** The
+  reference-with-video-input discount is still not modelled, and the BytePlus
+  double-token observation above says image-to-video is not priced like
+  text-to-video either. Every model without a per-resolution rate is still
+  labelled "at list rate".
+- **In-flight job cards remain renderer state (D5)**, with no "list active jobs"
+  IPC to re-attach after a reload. Unchanged from Stage 4, still fine for V1,
+  and worth a known-issues line.
+- The `generate_video` tool and its provisional types file are **dead code until
+  agents Stage 1**. That is deliberate, but it means the first agents session
+  should reconcile `AgentToolDef` with `docs/agents-plan.md` §1.3 rather than
+  adopt the stub as-is.
+
+**This closes the video-providers plan.** All five stages are done: the provider
+registry (592bca4), the video engine (f5030c5), BytePlus ModelArk with editable
+catalogs and reference-to-video (5de9aec), the Videos generation panel (12d85ae),
+and this stage. Video generation now has the shape every other capability has —
+an engine, a provider interface, editable catalogs, one safety chokepoint and
+three entry points — and it is reachable in a V1 build.
