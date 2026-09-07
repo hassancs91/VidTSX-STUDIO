@@ -313,3 +313,104 @@ Rough total: five sessions. Stages 1–2 are pure structure and can be reviewed 
   is two-directional (badge ⇔ consuming engine preset).
 - **Next:** Stage 2 (video engine extraction). `video-generation.ts` still reads
   `credentials.fal` directly — it moves into the fal video provider there.
+
+### Stage 2 — video engine extraction (DONE 2026-09-06, behaviour-preserving, fal E2E passed on the real key)
+
+- **New `src/video-engine/`** mirroring `src/image-engine/`: `types.ts` (`VideoProvider`
+  = submit + poll + optional cancel, `VideoModelInfo` with `dialect` + capabilities,
+  `VideoGenerationRequest` / normalized `VideoProviderRequest`, `VideoJobRecord` in the
+  plain-JSON §2.2 shape, `VideoSafetyGuard`, `VideoClipStore`, `VideoEngineError`),
+  `video-engine.ts` (registry + chokepoint + `submit` / `generateAndWait` + usage log
+  via an injected logger), `job-tracker.ts` (Map<jobId, record>, one abortable poll loop
+  per job, subscribers, cancel, 1 h retention of finished records), `dialects.ts`
+  (`VIDEO_DIALECTS: Record<VideoDialectId, builder>` — the `switch (model.id)` from
+  `video-payloads.ts` became five family builders + `fal-generic`; endpoint picked from
+  the inputs), `normalize.ts` (the old `submitVideoJob` clamps, now capability-driven),
+  `model-info.ts`, `media-input.ts` (`path` → base64; the IPC's "base64 or https" string
+  → `MediaInput`), `presets.ts` (fal only, `credentialId: 'fal'`),
+  `providers/fal-video-provider.ts` (absorbs `video-generation.ts` + `video-payloads.ts`,
+  both deleted; keeps fal's status/response/cancel URLs per request). `FalQueueClient`
+  gained `cancelUrl` + `cancel()` (PUT, 202 → true, 400 ALREADY_COMPLETED → false).
+- **Catalog** (`shared/presets/video-models.ts`): every entry names its `dialect`
+  (`fal-kling-2.5`, `fal-veo-3`, `fal-wan-2.5`, `fal-hailuo-02`, `fal-seedance-1`) and,
+  where the dialect sends one, `resolutions` (WAN + Seedance 1 → `['720p']`, the value
+  the old payloads hard-coded). `allowedDurations` / `allowedAspectRatios` and the
+  coerce helpers keep their names (the Flows node reads them unchanged); the helpers
+  now delegate to capability-list forms (`closestAllowedDuration`, `pickAllowedAspect`)
+  the engine shares.
+- **Chokepoint, always on, fail-closed.** `submit()` runs prompt validation + Gate A
+  first (before the provider lookup, as `submitVideoJob` did — a flagged prompt is
+  refused even with no key). `runGuarded` then refuses without BOTH the input guard and
+  the clip store, normalizes against the model, runs **Gate B on first frame, last
+  frame, and reference images before the provider call (closes §1.5)**, submits, and
+  starts the tracker. On the provider's COMPLETED the tracker calls the engine's finish
+  step: the clip store = the same `saveVideoFromUrl` the IPC uses (download →
+  `checkVideoBuffer` 2 fps frame sampling → SQLite + thumbnail), then the usage log
+  (`pricePerSecondUsd × duration`, the caller's `featureSource`). The record carries
+  the **local Video Studio entry**; a Gate B trip on the output marks the job `failed`
+  with `blocked` info and no entry.
+- **Main wiring**: `services/video-init.ts` (guard + clip store + usage logger, then
+  `credentials[preset.credentialId]` per preset; a removed key unregisters) called from
+  `main/index.ts` after the image engine and from `provider-keys-handlers.ts` on every
+  key save. `content-safety/install.ts` gained `installVideoContentSafetyGuard`
+  (`input-media.ts` reads base64 / data URI / https inputs, 30 MB cap, fetch failure
+  blocks). `services/video-studio-save.ts` is the download/gate/save/thumbnail path
+  extracted from `video-studio-handlers.ts` (the handler is now thin) plus
+  `findVideoEntryByFileUrl` / `fileVideoInFolder`. `library/generate-video-asset.ts`
+  mirrors `generate-image-asset.ts` over `generateAndWait` (copies the Video Studio
+  clip into `generated/`, origin `generated`, brand-tagged, `featureSource:
+  'studio-shot-asset'`).
+- **IPC**: `videoGenerate` gains optional `providerId` (default: active = fal),
+  `folderId`, `featureSource` (default `'flows'`, what the old code hard-coded).
+  `videoGetJob` reads the tracker (no provider call per poll any more) and returns
+  `entry` + `videoUrl` = the **`file://` URL of the gated local clip** (never the remote
+  URL) + `providerId` / `blocked`; status gains `'cancelled'`. New `videoCancel` and
+  the `video:job-progress` push (`onVideoJobProgress` in preload + `electron.d.ts`),
+  bridged in `video-handlers.ts` to every window.
+- **Flows node unchanged — and how it still works.** The node re-saves whatever
+  `videoUrl` it gets through `videoStudioSave`. That handler now recognises a `file://`
+  URL inside the clips folder and resolves it to the existing entry (no second
+  download, no second gate) and files it into the node's `folderId` — so `videoRef`,
+  the gallery refresh event, and the flow-folder placement behave exactly as before,
+  with one download instead of two. Stage 5 drops the node's save call.
+- **Tests** (+22, suite 143 files / 1375 green): `dialects.test.ts` (one case per
+  dialect incl. i2v + last frame, `mediaToUrl`, table ⇔ catalog); `video-engine.test.ts`
+  (order Gate A → Gate B × 2 → provider; flagged prompt never reaches Gate B or the
+  provider; Gate B block never reaches the provider; refuses without guard / without
+  store; Gate A before the provider lookup; normalization; tracker submit → pending →
+  running → completed with the store call and the usage entry, provider failure, output
+  Gate B block → `failed` + `blocked`, cancel → provider.cancel + no further polls,
+  `generateAndWait` resolve / reject / abort-signal cancel). `registry.test.ts` now
+  cross-checks the `video` badge against `VIDEO_PROVIDER_PRESETS` (the Stage 1
+  exclusion is gone). `check:types` web 26 / node 22 (baseline).
+- **Live (dev app, CDP, restarted on the new main)** — 11/11 keyless checks:
+  `videoGenerate` without a key → the provider message; flagged prompt over IPC →
+  `blocked {prompt, nudity}` and the Content Safety counter incremented; empty prompt,
+  unknown job, cancel-unknown; progress subscription; `videoStudioSave` of a public
+  10 s Big Buck Bunny clip → download → classifier loaded → frames sampled → entry
+  (0.99 MB, 3.5 s); the `file://` re-save returned the same entry id with no duplicate;
+  a `file://` outside the clips folder refused; probe entry deleted. Side note: the
+  w3schools BBB sample was **blocked** by Gate B ("possibly explicit", a cartoon
+  frame) — the recall-greedy band at work, not a regression.
+- **Live fal E2E — PASSED (2026-09-06, real key, entered mid-session: the engine
+  re-registered on save with no restart).** CDP driver seeded a Prompt → Generate Video
+  flow (unchanged node, default config: Kling 2.5 Turbo Pro, 5 s, 16:9, audio off),
+  opened it, clicked Run. Push events `pending → running → completed` in 117 s; the
+  completed event carried the local entry and `videoUrl =
+  file:///…/video-studio/videos/vid-…-320b8ea9.mp4`; `videoGetJob` returned the same;
+  the Flows badge read **Complete** and the node's `<video>` played the local file
+  (readyState 4, 5.04 s); Video Studio gained exactly **one** entry (9.04 MB mp4, the fal
+  URL recorded as `sourceUrl`, thumbnail extracted) — the node's re-save resolved to it,
+  no duplicate; the usage dashboard logged `fal / kling-2.5-turbo-pro / flows / video /
+  $0.40 / 152.7 s`. Main log: `Video job submitted → ContentSafety Sampling video →
+  Classifier loaded` (Gate B on the output frames ran before the entry existed).
+- **§5 slug re-check (fal, 2026-09-06)**: `fal-ai/kling-video/v2.5-turbo/pro/text-to-video`
+  + `/image-to-video` live, schema unchanged (duration "5"/"10", 16:9/9:16/1:1).
+  **`fal-ai/veo3/fast` is deprecated** ("This endpoint is deprecated … no longer
+  supported"). Successor: **`fal-ai/veo3.1/fast`** and `fal-ai/veo3.1/fast/image-to-video`
+  — same dialect (duration `4s/6s/8s`, `aspect_ratio` 16:9/9:16 + `auto` on i2v,
+  `generate_audio`, `seed`) plus `resolution` 720p/1080p/4k. Not swapped in Stage 2
+  (behaviour-preserving); the D3 default catalog in Stage 3 should carry Veo 3.1 Fast
+  (`dialect: 'fal-veo-3'`, `resolutions: ['720p','1080p','4k']`, durations 4/6/8) —
+  Hasan's call.
+- **Next:** Stage 3 (BytePlus provider + catalogs + reference uploads).

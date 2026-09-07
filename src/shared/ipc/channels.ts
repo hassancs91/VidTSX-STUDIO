@@ -78,9 +78,11 @@ export const IPC = {
   PROVIDER_MODELS_SAVE: 'provider-models:save',
   PROVIDER_MODELS_RESET: 'provider-models:reset',
 
-  // Video generation (fal queue API)
+  // Video generation (src/video-engine — cloud providers, BYOK)
   VIDEO_GENERATE: 'video:generate',
   VIDEO_GET_JOB: 'video:get-job',
+  VIDEO_CANCEL: 'video:cancel',
+  VIDEO_JOB_PROGRESS: 'video:job-progress',
 
   // Provider-agnostic transcription (local whisper / AssemblyAI / OpenRouter)
   STT_TRANSCRIBE_RUN: 'stt:transcribe:run',

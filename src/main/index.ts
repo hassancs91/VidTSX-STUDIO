@@ -5,6 +5,7 @@ import { installQuitFlushGuard } from './ipc/flush-guard';
 import { ensureProjectsDir } from './utils/paths';
 import { initLLMEngine } from './services/llm-init';
 import { initImageEngine } from './services/image-init';
+import { initVideoEngine } from './services/video-init';
 import { initSttEngine } from './services/stt/stt-init';
 import { initExportEngines } from './services/studio/export-engines';
 import { initSdImageCategory } from './services/sdimage-init';
@@ -189,6 +190,9 @@ app.whenReady().then(async () => {
 
   // Initialize image generation engine with saved provider configs
   await initImageEngine();
+
+  // Initialize cloud video generation engine (fal) from the shared credentials
+  await initVideoEngine();
 
   // Initialize transcription engine (local whisper / AssemblyAI / OpenRouter)
   await initSttEngine();

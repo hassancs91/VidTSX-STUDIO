@@ -243,6 +243,48 @@ on video and audio.** Full log with the numbers: the plan's §Stage 2 log.
   audio pass, audio tracks, then multiple video tracks), each widening re-gated;
   measure a cut between two different source files first.
 
+## 2026-09-06 — VIDEO PROVIDERS Stage 2 DONE: the video engine, extracted behind the Content Safety chokepoint
+
+Stage 2 of `docs/video-providers-plan.md` (D1–D7 locked 2026-09-04; Stage 1 registry
+shipped 2026-09-05). Behaviour-preserving: nothing user-visible changes, the Flows
+"Generate Video" node is untouched. Full log with what was verified how: the plan's
+§6 Stage 2 log.
+
+- **`src/video-engine/`** mirrors `src/image-engine/`: `VideoProvider` (submit + poll
+  + cancel), `VideoModelInfo` with a **dialect id + capabilities**, a dialect table
+  (`dialects.ts`, the five fal families + generic — the model-id `switch` is gone), a
+  job tracker (in-memory Map, one poll loop per job, subscribers, cancel), presets with
+  `credentialId`, and the fal provider absorbing `video-generation.ts` +
+  `video-payloads.ts` (both deleted). `video-init.ts` registers from the shared
+  credentials at startup and on every key save.
+- **Chokepoint, fail-closed like images**: Gate A on the prompt before the provider
+  lookup; **Gate B on first / last / reference frames before any provider call**
+  (audit §1.5 closed); on completion the engine downloads the clip through the one
+  Video Studio save path (frame-sampling Gate B) and the job record carries the
+  **local entry — callers never see the remote URL**. `generateAndWait` +
+  `library/generate-video-asset.ts` give main-process callers (agents later) the same
+  entry point images have.
+- **IPC**: `videoGenerate` gains optional `providerId` / `folderId` / `featureSource`;
+  `videoGetJob` reads the tracker; new `videoCancel` + `video:job-progress` push.
+  `videoStudioSave` resolves a `file://` URL inside the clips folder to its existing
+  entry, which is how the unchanged Flows node keeps its `videoRef` / folder filing
+  with one download instead of two.
+- **Gates**: `check:types` web 26 / node 22 (baseline); vitest 143 files / 1375 tests
+  green (+22: dialect builders, tracker with a mock provider, chokepoint order).
+  **Live** (dev app via CDP): 11/11 keyless checks — Gate A over IPC with the counter
+  incrementing, unknown-job / cancel paths, the progress subscription, and a real
+  download → classifier → frame-sampling → save → `file://` re-save round trip.
+- **Live fal E2E PASSED** (real key entered mid-session, engine re-registered on
+  save): the unchanged Flows node ran Prompt → Generate Video (Kling 2.5 Turbo Pro,
+  5 s) via CDP — push `pending → running → completed` in 117 s, one Video Studio
+  entry (9.04 MB, thumbnail), node preview playing the local `file://` clip, badge
+  Complete, usage row `fal / kling-2.5-turbo-pro / flows / $0.40`.
+- **Open for Hasan**: §5 re-check — Kling 2.5 Turbo Pro slug current; **Veo 3 Fast
+  (`fal-ai/veo3/fast`) is deprecated on fal** — successor `fal-ai/veo3.1/fast` (same
+  dialect + 1080p/4k); the swap belongs to the Stage 3 default catalog.
+- **Next**: Stage 3 — BytePlus ModelArk provider, video catalog category, reference
+  uploads.
+
 ## 2026-09-06 — EXPORT ENGINES Stage 1 DONE: the engine seam, gated on both reference projects
 
 Building resumed for the export-engines plan (`docs/export-engines-plan.md`, D1–D7
@@ -410,6 +452,22 @@ picture shows), `t1-diff.mjs`, `t1-join.mjs`, `t1-audio-offset.mjs`, and
   via the app), ~1.2 GB in `.vidtsx-temp/bench/t1/`; the 12 `%TEMP%\remotion-v4…`
   folders today's exports left behind are empty (48 KB). Dev app left
   running; keep-awake released.
+
+## 2026-09-04 — cloud video providers planned and LOCKED (no code)
+
+**No code.** Hasan flagged that shipping V1 of *VidTSX* with no reachable video
+generation looks odd (cloud video exists in `video-generation.ts` but only the
+hidden Flows node calls it). Audited the provider layers: LLM/image/STT have
+interface + registry + presets; video is the outlier (no engine, model-id
+`switch` for payloads, input frames skip Gate B); a new credential touches ~6
+files. Plan in `docs/video-providers-plan.md`, decisions locked with Hasan:
+Videos screen becomes the generation tool (unhidden for V1), BytePlus ModelArk
+for Seedance direct (Volcengine deferred), Seedance-focused fal defaults,
+images + video + audio references in V1, callable from screens / library /
+agents over one engine. Five stages: provider registry refactor → `src/video-engine/`
+extraction → BytePlus provider + editable video catalogs + reference uploads →
+Videos generate panel → Flows node + flag flip + E2E. `V1_RELEASE_PLAN.md` goal 11
+added. Starts at Stage 1 when Hasan says go.
 
 ## 2026-09-04 (later) — T8a/T8b/T8c MEASURED: the screenshot is the export wall, passthrough is the only order-of-magnitude lever; nothing decided
 

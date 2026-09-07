@@ -5,8 +5,10 @@
  * a catalog falls back to these entries.
  *
  * Image only for now: image APIs are uniform per provider, so user-added ids
- * work generically. Video models are NOT user-editable — each needs its own
- * request-payload dialect (see video-models.ts + video-payloads.ts).
+ * work generically. Video models are NOT user-editable yet — each catalog
+ * entry names its request-body dialect (see video-models.ts +
+ * src/video-engine/dialects.ts); the video category lands with the BytePlus
+ * provider (docs/video-providers-plan.md Stage 3).
  */
 import type { ImageModelCatalogEntry } from './image-models';
 

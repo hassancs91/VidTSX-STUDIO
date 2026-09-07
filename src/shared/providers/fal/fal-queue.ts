@@ -15,6 +15,7 @@ interface QueueSubmitApiResponse {
   request_id: string;
   status_url: string;
   response_url: string;
+  cancel_url?: string;
 }
 
 interface QueueStatusApiResponse {
@@ -25,9 +26,9 @@ interface QueueStatusApiResponse {
 
 /**
  * Client for fal.ai's async queue API (long-running jobs like video generation).
- * IMPORTANT: status/result polling MUST use the URLs returned by submit verbatim —
- * subpath endpoints (e.g. fal-ai/veo3/fast) poll at the base app path, so
- * constructing poll URLs by string concatenation breaks.
+ * IMPORTANT: status/result/cancel calls MUST use the URLs returned by submit
+ * verbatim — subpath endpoints (e.g. fal-ai/veo3/fast) poll at the base app
+ * path, so constructing poll URLs by string concatenation breaks.
  */
 export class FalQueueClient {
   private readonly apiKey: string;
@@ -53,6 +54,7 @@ export class FalQueueClient {
       requestId: data.request_id,
       statusUrl: data.status_url,
       responseUrl: data.response_url,
+      ...(data.cancel_url ? { cancelUrl: data.cancel_url } : {}),
     };
   }
 
@@ -69,9 +71,25 @@ export class FalQueueClient {
     return this.request<TResponse>(responseUrl, { method: 'GET' }, signal);
   }
 
+  /**
+   * Ask the queue to cancel a request (PUT on the submit response's
+   * cancel_url). Resolves true when fal accepted the cancellation (202), false
+   * when the request had already completed (400 ALREADY_COMPLETED); other
+   * failures throw. A runner only stops if the app implements cancellation.
+   */
+  async cancel(cancelUrl: string, signal?: AbortSignal): Promise<boolean> {
+    try {
+      await this.request<unknown>(cancelUrl, { method: 'PUT' }, signal);
+      return true;
+    } catch (error) {
+      if (error instanceof FalHttpError && error.statusCode === 400) return false;
+      throw error;
+    }
+  }
+
   private async request<TResponse>(
     url: string,
-    init: { method: 'GET' | 'POST'; body?: Record<string, unknown> },
+    init: { method: 'GET' | 'POST' | 'PUT'; body?: Record<string, unknown> },
     signal?: AbortSignal,
   ): Promise<TResponse> {
     let response: Response;

@@ -173,6 +173,8 @@ export interface ElectronAPI {
   // Video generation (fal queue API)
   videoGenerate: (data: import('../../shared/ipc/types').VideoGenerateRequest) => Promise<import('../../shared/ipc/types').VideoGenerateResponse>;
   videoGetJob: (jobId: string) => Promise<import('../../shared/ipc/types').VideoJobResponse>;
+  videoCancel: (data: import('../../shared/ipc/types').VideoCancelRequest) => Promise<import('../../shared/ipc/types').VideoCancelResponse>;
+  onVideoJobProgress: (callback: (data: import('../../shared/ipc/types').VideoJobProgressEvent) => void) => () => void;
 
   // Provider-agnostic transcription
   sttTranscribeRun: (req: import('../../shared/ipc/types').SttTranscribeRunRequest) => Promise<import('../../shared/ipc/types').SttTranscribeRunResponse>;

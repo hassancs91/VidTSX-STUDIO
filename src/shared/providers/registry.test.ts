@@ -16,6 +16,7 @@ import {
 import { PROVIDER_PRESETS } from '../../engine/presets';
 import { IMAGE_PROVIDER_PRESETS } from '../../image-engine/presets';
 import { STT_PROVIDER_PRESETS } from '../../transcription-engine/presets';
+import { VIDEO_PROVIDER_PRESETS } from '../../video-engine/presets';
 
 const registryIds = new Set<string>(PROVIDER_KEY_IDS);
 
@@ -62,20 +63,22 @@ describe('provider registry', () => {
     for (const preset of STT_PROVIDER_PRESETS) {
       if (preset.credentialId) expect(registryIds.has(preset.credentialId)).toBe(true);
     }
+    for (const preset of VIDEO_PROVIDER_PRESETS) {
+      expect(registryIds.has(preset.credentialId)).toBe(true);
+    }
   });
 
   it('capability badges match the engine presets that consume each key', () => {
-    // Video has no engine preset until Stage 2 (fal is wired directly in
-    // video-generation.ts), so only the three preset-backed capabilities are
-    // cross-checked here, in both directions: no badge without a consuming
-    // engine, and no consuming engine without a badge.
-    const consumers: Record<Exclude<ProviderCapability, 'video'>, Set<string>> = {
+    // Cross-checked in both directions: no badge without a consuming engine
+    // preset, and no consuming engine preset without a badge.
+    const consumers: Record<ProviderCapability, Set<string>> = {
       llm: new Set(PROVIDER_PRESETS.flatMap((p) => (p.credentialId ? [p.credentialId] : []))),
       image: new Set(IMAGE_PROVIDER_PRESETS.map((p) => p.credentialId)),
       stt: new Set(STT_PROVIDER_PRESETS.flatMap((p) => (p.credentialId ? [p.credentialId] : []))),
+      video: new Set(VIDEO_PROVIDER_PRESETS.map((p) => p.credentialId)),
     };
     for (const entry of PROVIDER_REGISTRY) {
-      for (const cap of ['llm', 'image', 'stt'] as const) {
+      for (const cap of ['llm', 'image', 'stt', 'video'] as const) {
         const declared = entry.capabilities.includes(cap);
         const consumed = consumers[cap].has(entry.id);
         expect({ id: entry.id, cap, declared }).toEqual({ id: entry.id, cap, declared: consumed });

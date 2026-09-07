@@ -13,50 +13,13 @@ import type {
   VideoStudioReadPathRequest,
   VideoStudioReadPathResponse,
 } from '../../shared/ipc/types';
+import { listVideos, deleteVideo, getVideoFilePath } from '../services/video-studio-db';
 import {
-  saveVideo,
-  setThumbnail,
-  listVideos,
-  deleteVideo,
-  getVideoFilePath,
-} from '../services/video-studio-db';
-import { extractThumbnail, buildThumbnailFileName } from '../services/video-thumbnailer';
-import { checkVideoBuffer } from '../services/content-safety/video-safety';
+  saveVideoFromUrl,
+  findVideoEntryByFileUrl,
+  fileVideoInFolder,
+} from '../services/video-studio-save';
 import { ModerationBlockedError } from '../../shared/content-safety';
-import { logEngine } from '../../logging/log-engine';
-
-const log = logEngine.createLogger('video-studio-handlers');
-
-const MAX_VIDEO_BYTES = 500 * 1024 * 1024; // 500 MB cap
-
-async function downloadVideo(url: string): Promise<{ bytes: Buffer; contentType: string }> {
-  let res: Response;
-  try {
-    res = await fetch(url);
-  } catch (err) {
-    throw new Error(
-      err instanceof Error ? `Network error fetching video: ${err.message}` : 'Network error fetching video',
-    );
-  }
-  if (!res.ok) {
-    throw new Error(`Failed to download video (HTTP ${res.status})`);
-  }
-  const contentLength = Number(res.headers.get('content-length') || '0');
-  if (contentLength > MAX_VIDEO_BYTES) {
-    throw new Error(`Video too large (${contentLength} bytes > ${MAX_VIDEO_BYTES} cap)`);
-  }
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length > MAX_VIDEO_BYTES) {
-    throw new Error(`Video too large (${buf.length} bytes > ${MAX_VIDEO_BYTES} cap)`);
-  }
-  const headerType = res.headers.get('content-type') || '';
-  // VidTSX S3 often returns binary/octet-stream — default to mp4.
-  const contentType =
-    headerType === 'video/mp4' || headerType === 'video/webm' || headerType === 'video/quicktime'
-      ? headerType
-      : 'video/mp4';
-  return { bytes: buf, contentType };
-}
 
 export async function handleVideoStudioSave(
   _event: IpcMainInvokeEvent,
@@ -66,50 +29,31 @@ export async function handleVideoStudioSave(
     if (!data.url || typeof data.url !== 'string') {
       return { success: false, error: 'Missing video URL' };
     }
+
+    // A clip the video engine already downloaded, gated, and filed: the
+    // caller holds its local file URL. Re-saving resolves to the existing
+    // entry (no second download, no second gate) and only files it into the
+    // requested folder.
+    if (/^file:/i.test(data.url)) {
+      const existing = await findVideoEntryByFileUrl(data.url);
+      if (!existing) return { success: false, error: 'Video is not in Video Studio' };
+      return { success: true, entry: await fileVideoInFolder(existing, data.folderId) };
+    }
+
     if (!/^https?:\/\//i.test(data.url)) {
       return { success: false, error: 'URL must be http(s)' };
     }
 
-    const { bytes, contentType } = await downloadVideo(data.url);
-
-    // Content Safety Gate B (D2c call site 4): 2 fps samples + first/middle/
-    // last frames of the generated clip, before anything lands in the library.
-    await checkVideoBuffer(bytes, contentType === 'video/webm' ? '.webm' : '.mp4');
-
-    const entry = await saveVideo({
-      bytes,
+    const entry = await saveVideoFromUrl({
+      url: data.url,
       prompt: data.prompt,
       model: data.model,
-      aspectRatio: data.aspectRatio ?? null,
-      durationSeconds: data.durationSeconds ?? null,
-      hasAudio: data.hasAudio ?? false,
-      contentType,
-      creditsConsumed: data.creditsConsumed ?? null,
-      sourceUrl: data.url,
-      folderId: data.folderId ?? null,
+      aspectRatio: data.aspectRatio,
+      durationSeconds: data.durationSeconds,
+      hasAudio: data.hasAudio,
+      creditsConsumed: data.creditsConsumed,
+      folderId: data.folderId,
     });
-
-    // Fire-and-forget thumbnail extraction. Failure is non-fatal.
-    const videoPath = path.join((await listVideos()).basePath, entry.fileName);
-    const thumbName = buildThumbnailFileName(entry.fileName);
-    extractThumbnail(videoPath, thumbName)
-      .then(async (result) => {
-        if (result) {
-          try {
-            await setThumbnail(entry.id, thumbName);
-          } catch (err) {
-            log.warn('Failed to set thumbnail filename', {
-              err: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-      })
-      .catch((err) => {
-        log.warn('Thumbnail task threw', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-      });
-
     return { success: true, entry };
   } catch (err) {
     if (err instanceof ModerationBlockedError) {

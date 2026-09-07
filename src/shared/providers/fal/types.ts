@@ -14,6 +14,8 @@ export interface FalQueueSubmitResult {
   requestId: string;
   statusUrl: string;
   responseUrl: string;
+  /** Cancel endpoint (PUT); absent when the queue response omits it. */
+  cancelUrl?: string;
 }
 
 export interface FalQueueStatusResult {
