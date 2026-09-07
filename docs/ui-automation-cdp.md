@@ -185,6 +185,22 @@ const byText = (text, sel = 'button') =>
 buttons — there is a "Transcribe" in the sidebar *and* in the Studio inspector.
 Find the panel first, then query inside it, with an exact trimmed-text match.
 
+**An empty result is not evidence the app lost state — screenshot before you
+conclude anything.** (2026-09-07, the Videos generation panel.) A helper that
+collected job cards by testing `textContent` against `/^(Queued|Generating|
+Complete|Failed|Cancelled)/` returned `[]` twice while a Cancelled card was
+plainly on screen, as a screenshot taken minutes later showed. That empty list
+was read as "the renderer reloaded and dropped its in-memory state", and a
+mechanism was invented to explain it — Vite's watcher picking up driver
+artifacts — which a direct probe then disproved (plant a marker on `window`,
+write files, re-read the marker: it survives; `.vidtsx-temp/` is outside the
+module graph). Both the conclusion and its explanation were wrong, and the only
+real fault was the selector. A text-prefix match is brittle in exactly the way
+the two failure modes above describe, so when a query comes back empty and the
+inference would be "the app broke", capture a screenshot first: the app is the
+cheaper thing to check, and it is the harness that is usually at fault. This is
+the second such case in one day — the other was the launcher, above.
+
 ## Getting past native dialogs
 
 OS file pickers cannot be driven through CDP. For folder-as-truth features, seed
