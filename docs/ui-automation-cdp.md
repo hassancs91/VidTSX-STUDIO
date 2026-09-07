@@ -26,6 +26,32 @@ Note the app takes a single-instance lock. An installed copy of VidTSX Studio
 running in the background will make the dev instance exit immediately; close it
 first.
 
+**Keep the launching process alive until a page target answers** (2026-09-07,
+two sessions, same invocation, opposite results). One session's launcher
+returned about a second after spawning the app, and again about twenty seconds
+later on a second try; the app booted properly each time — its log recorded
+main-process init complete and the window created at 14:19:05, 14:19:48 and
+14:21:12 — and then vanished within roughly fifteen seconds, three times over.
+The other session launched through
+`.vidtsx-temp/bench/stage3/restart-dev-app.ps1`, whose tail polls
+`/json/list` for up to 180 s and therefore stays alive until the window
+answers; that app outlived the session on both restarts that afternoon. A
+launch left running in the background from the Bash tool worked as well, and
+it is long-lived for the same reason. Every attempt on both sides had
+`ELECTRON_RUN_AS_NODE` cleared (confirmed empty) and both output streams
+redirected to files, so neither of those is the explanation here and the
+mechanism is unconfirmed. Treat it as a rule anyway: launch through that
+script, or from any launcher that stays alive until a `type: "page"` target
+appears — never from a call that returns as soon as the process is spawned.
+Passing the launch as a shell command string (`bash -c "sleep 45; bash
+run.sh"`) also exited silently; pass a script FILE instead.
+
+Readiness time varies widely — that script's own poll reported 28 s on one
+restart and 92 s on the next, same machine, same command — so always poll,
+never sleep a fixed amount. Give the app about a minute more before the first
+driver run: a run 30 s after a healthy restart found no project cards and
+exited.
+
 Two more launch/driving lessons (2026-08-20, Slice 2 A/B run):
 
 - **Add `--disable-features=CalculateNativeWinOcclusion`** (plus
