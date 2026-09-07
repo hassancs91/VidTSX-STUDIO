@@ -491,6 +491,23 @@ export const IPC = {
   // the trigger (capture or cancel).
   LIBRARY_CAPTURE_TRIGGER: 'library:capture:trigger',
   LIBRARY_CAPTURE_EVENT: 'library:capture:event',
+  // Agents (docs/agents-plan.md) — installed declarative agents, their saved
+  // sessions, and one run stream. AGENT_RUN_EVENT is push-only (deltas, tool
+  // chips, artifacts, interaction requests, render job requests).
+  AGENTS_LIST: 'agents:list',
+  AGENTS_INSPECT: 'agents:inspect',
+  AGENTS_INSTALL: 'agents:install',
+  AGENTS_REMOVE: 'agents:remove',
+  AGENTS_CHECK_UPDATE: 'agents:check-update',
+  AGENT_SESSIONS_LIST: 'agents:sessions:list',
+  AGENT_SESSION_CREATE: 'agents:session:create',
+  AGENT_SESSION_LOAD: 'agents:session:load',
+  AGENT_SESSION_DELETE: 'agents:session:delete',
+  AGENT_RUN_SEND: 'agents:run:send',
+  AGENT_RUN_CANCEL: 'agents:run:cancel',
+  AGENT_RUN_EVENT: 'agents:run:event',
+  AGENT_INTERACTION_REPLY: 'agents:interaction:reply',
+  AGENT_ARTIFACT_ACTION: 'agents:artifact:action',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

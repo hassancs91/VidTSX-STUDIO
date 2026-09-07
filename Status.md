@@ -7,6 +7,53 @@
 
 ---
 
+## 2026-09-07 — AGENTS Stage 0 DONE: contracts and shared types
+
+Stage 0 of `docs/agents-plan.md` (§3). Types only — nothing runs yet, nothing
+under `src/main/services/studio/` was touched, and no screen changed. Every
+later stage now codes against fixed shapes.
+
+- **`src/shared/types/agents.ts`** — the manifest interface, `InstalledAgent`
+  (manifest + `builtin | user` origin + signature status + a manual update
+  record), the five wave-1 artifact kinds with per-kind payloads, and
+  `AgentArtifactDraft` as `AgentArtifact` minus `id`/`createdAt`/`producer`/
+  `version`, derived from the same payload map so a draft can never drift from
+  the stored form. Interaction request/reply, `AgentRunEvent`, `AgentSession`,
+  `AgentSessionSummary`.
+- **The write/read split is in the types** (plan §1.3, decided 2026-09-07): a
+  tool returns a *draft* and only the runner mints ids. The `job` payload
+  documents its own before/after rule — minted at submit with `jobId`, `job`,
+  `status`, and nothing else; the output arrives later as a separate artifact
+  whose id is written back into `resultArtifactId`.
+- **`src/shared/agents/ids.ts`** — `parseAgentId` / `assertAgentId`, plus
+  `agentDirSegments` (install root, two segments) and `agentDirName` (the flat
+  `<ns>.<name>` session folder). The id is the only user string that becomes a
+  path, so paths are built from PARSED segments and nothing downstream splits
+  the raw string.
+- **`src/shared/agents/starter.ts`** — starter tree types and `validateStarter`:
+  node-id grammar, size caps, every `next` resolves, no cycles, `$end`
+  reachable, unreachable nodes flagged, and every `{{ref}}` in `opening` names
+  a node. The walker and the template renderer are Stage 4's.
+- **`src/shared/agents/manifest.ts`** — `parseAgentManifest` (zod), the package
+  constants and `AGENT_LIMITS`. It is PURE: what needs the running app (which
+  tool ids exist, which artifact/interaction kinds are registered, what version
+  this build is) arrives through an optional `ManifestContext`, so one function
+  serves the install validator, `agent-pack.mjs --check`, and the tests. It
+  collects every problem and throws them together, because an author fixing a
+  package should see the whole list. `compareAgentVersions` lives here rather
+  than importing main's `compareVersions` — shared may not import main.
+- **IPC** — `src/shared/ipc/types/agents.ts` and fourteen channels
+  (`AGENTS_LIST/INSPECT/INSTALL/REMOVE/CHECK_UPDATE`, four session channels,
+  `AGENT_RUN_SEND/CANCEL/EVENT`, `AGENT_INTERACTION_REPLY`,
+  `AGENT_ARTIFACT_ACTION`). No handlers yet — Stage 3 registers them.
+- Tests: `manifest.test.ts` (id grammar, semver, unknown tool ids, `Bash`
+  refused always and file tools only behind `workspace.sdkFileTools`,
+  `minAppVersion` too high, prompt/icon not listed in `files[]`, non-https
+  `updateUrl`, all-problems-at-once) and `starter.test.ts` (the §1.1 example,
+  bad entry, dangling `next`, cycle, unreachable `$end`, orphan node, bad node
+  ids, `select:"many"` without a node-level next, unknown `{{ref}}`). 23 tests.
+- Gates: `check:types` at baseline (web 26, node 10), `npx vitest run` green.
+
 ## 2026-09-07 — VIDEO PROVIDERS Stage 5 DONE: the plan is CLOSED, and Videos ships in V1
 
 Stage 5 of `docs/video-providers-plan.md`, the last one. No new provider work:
