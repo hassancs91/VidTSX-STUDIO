@@ -1566,7 +1566,12 @@ thing the user actually typed; the first real run filed into
    double-clicked `.vidtsxagent` and drop it. Two new channels,
    `AGENTS_PACKAGE_OPEN_FILE` (push, navigates) and `AGENTS_PENDING_PACKAGE`
    (the claim), mirror the Studio pair exactly; `electron-builder.yml` gained the
-   `vidtsxagent` association.
+   `vidtsxagent` association. One thing the Studio pair did not need:
+   getting the user to the Agents SCREEN is not enough, because the GALLERY is
+   what claims the path and it is not mounted while an agent workspace is open.
+   `AgentsScreen` therefore closes the workspace on that event. Found by testing
+   it — the first attempt landed on the screen with the workspace still up and
+   the package sat unclaimed.
 4. **`InstalledAgent` gained `iconUrl`, filled in by the IPC layer.** §8 asks for
    an `icon.png` and the manifest has always had `icon`, but nothing read it —
    `AgentCard` drew the same lucide glyph for every agent, so two built-ins would
@@ -1664,12 +1669,13 @@ AGENT.md, skills/social-motion/SKILL.md, icon.png}`,
 `resources/agents/vidtsx/assistant/{agent.json, AGENT.md, icon.png}`;
 `features/agents/components/{StarterFlow, QuickStarts}.tsx`,
 `features/agents/hooks/useAgentStarter.ts`,
-`features/agents/services/starter-cards.ts` (+ test);
+`features/agents/services/{starter-cards, render-job-match}.ts` (+ tests);
 `main/services/packages/pending-open.ts` (+ test, both `git mv`d out of
 `services/studio/`). Touched: `AgentWorkspace.tsx` (the starter orchestration
 moved into the hook, so the component is back under the house limit),
 `AgentChat.tsx` (prefill, quick starts, the disabled-composer hint),
 `AgentCard.tsx` (the icon), `AgentGallery.tsx` (the pending claim),
+`AgentsScreen.tsx` (closing the workspace when a package arrives — see below),
 `useAgentRun.ts`, `useAgentRenderBridge.ts`, `useAgentSessions.ts`,
 `interactions/{types, FormCard, PickCard}`, `main/index.ts`,
 `agent-handlers.ts`, `registrations/agents.ts`, `studio-package-handlers.ts`,
