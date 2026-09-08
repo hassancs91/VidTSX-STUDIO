@@ -240,10 +240,14 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       const { path: dir } = await window.api.renderGetVideosDir();
       videosDirRef.current = dir;
     }
-    const outputPath = generateOutputPath(options.compositionId, videosDirRef.current, options.codec);
+    // A caller may name the file (agent renders file into the library, §1.11);
+    // otherwise the queue picks a timestamped name in the videos folder.
+    const outputPath =
+      options.outputPath ??
+      generateOutputPath(options.compositionId, videosDirRef.current, options.codec);
 
     const newJob: RenderQueueJob = {
-      id: generateJobId(),
+      id: options.id ?? generateJobId(),
       fileName: options.fileName,
       filePath: options.filePath,
       bundleUrl: options.bundleUrl,

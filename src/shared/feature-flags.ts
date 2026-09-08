@@ -52,6 +52,10 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // Plan: docs/studio/PLAN.md.
   studio: true,
   'studio-editor': false,
+  // Agents (docs/agents-plan.md) — installable declarative agents on their own
+  // page. Dev-preview: force-enabled in dev, hidden in production until the
+  // stages after this one (interactions, the built-in Motion Post agent) land.
+  agents: false,
   // License UI kept dormant — the app is free (BYOK). The license shell stays
   // compiled for possible future reuse; flip this to resurface the section.
   'license-ui': false,

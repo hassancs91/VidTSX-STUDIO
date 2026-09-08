@@ -10,12 +10,16 @@ be frozen into flows).
 
 ## Start here (for the session that begins the work)
 
-0. **Stages 0, 1 and 2 are DONE (Stage 2 on 2026-09-08).** Read section 4's
-   step 0 record and "Stage 1 outcome" subsection (four contract deltas, two
-   items still owed — the `ask_user` experiment's ten-run row is one of them),
-   then section 5's "Stage 2 outcome" subsection (five more deltas, the
-   signing key that does not exist yet, and the file association Stage 2
-   deliberately left for Stage 3). Then start at Stage 3 (section 6).
+0. **Stages 0, 1, 2 and 3 are DONE (Stage 3 on 2026-09-08).** Read each
+   stage's "outcome" subsection before its successor: section 4 (Stage 1's
+   four contract deltas, and the step 0 record — its last open row was
+   measured during Stage 3 at **0 of 10**, so no runner-enforced stop was
+   added), section 5 (Stage 2's five deltas, the signing key that does not
+   exist yet), and section 6 (Stage 3's six deltas, the placeholder that
+   stands in for interactions, and the file association still owed). Then
+   start at Stage 4 (section 7).
+   Agents are reachable from the UI behind `feature-flags.ts` `agents: false`
+   — force-enabled in dev, hidden in production.
 1. Preconditions: the V1 flip has shipped as 1.0.0, and `check:types` plus
    `npx vitest run` are green on `main`. Confirm both before touching code.
 2. Read sections 0, 1, and 2 in full, then only the stage you are on.
@@ -780,18 +784,31 @@ What is still owed, and what it would change:
 | reply after 15 min, blocking, `CLAUDE_CODE_STREAM_CLOSE_TIMEOUT` raised | not run — the row that would let the blocking form be chosen |
 | reply after 65 min (cache expired) | not run |
 | app killed and relaunched while waiting | not run; non-blocking passes by construction |
-| model ends its turn after asking, 10 runs | **not run, and this one matters now** |
+| model ends its turn after asking, 10 runs | **RUN 2026-09-08 (Stage 3): 0 of 10 kept going** |
 | extra tokens per question | not measured |
 
-The "model ends its turn" row is the one that can still change Stage 1 code.
-The plan says that if the model keeps going after asking in more than 1 of 10
-runs, the runner must enforce the stop by ending the query after the
-`ask_user` result. That enforcement is NOT implemented, because implementing
-it without the measurement would be guessing. What is in place instead: the
-tool's description and its result text both tell the model to end its turn
-and call nothing else. Run the ten trials in Stage 3, when there is a real
-agent and a real chat to run them in, and add the enforcement only if the
-count says to.
+**The "model ends its turn" row: 0 of 10 (2026-09-08).** Ten real turns, in the
+real app, on `claude-subscription`, against a throwaway agent
+(`dev/asktest`) whose prompt was deliberately NEUTRAL about stopping — "Work in
+small steps and use your judgement about when to ask" — carrying
+`write_document`, `ask_user` and `list_artifacts`. Every trial got the same
+brief ("write two hook variants as a document, then find out which one I want
+you to develop"), ran in a fresh session, and was scored on the run stream: a
+trial "kept going" if ANY tool call followed the `ask_user` call in the same
+turn.
+
+All ten produced exactly `write_document → ask_user` and stopped. None called a
+tool after asking, and all ten persisted the question into `session.json`, which
+is the round trip the non-blocking form depends on.
+
+The decision rule says the runner enforces the stop only if MORE THAN 1 of 10
+keeps going. **0 of 10, so no enforcement was added** — the tool's description
+and its result text ("End your turn now and wait") are carrying it. If a later
+agent or a different provider shows the failure, the change is still one place:
+end the query after the `ask_user` result in `agent-runner.ts`.
+
+The remaining rows are the long blocking waits, and they only matter if the
+blocking form is ever reconsidered. It is not currently a candidate.
 
 Switching to the blocking form later touches `interaction-broker.ts` and
 nothing else: `InteractionAskResult` already carries an `answered` case, and
@@ -1099,6 +1116,146 @@ queue, open folder).
 Done when: a fixture session with one of each wave-1 artifact renders every
 viewer, and each handoff lands in the target screen.
 
+### Stage 3 outcome (2026-09-08) — what was built, and what it changes downstream
+
+**Scope, agreed with Hasan before starting.** §6 estimates ~3 sessions, so the
+cut taken was "all of §6 except the starter tree", plus the two things Stage 2
+left: the ten `ask_user` trials (run — see §4) and the `.vidtsxagent` file
+association (deliberately NOT done, see below). `StarterFlow.tsx` and
+`QuickStarts.tsx` are deferred to Stage 4, which already owns the starter
+walker: `shared/agents/starter.ts` has `validateStarter` and nothing else, so
+building the UI now would have meant inventing `nextNode` and `renderOpening`
+for Stage 4 to rewrite. A new session opens on an empty chat box instead.
+
+**The done-when criterion is met in the REAL app**, not only from vitest. A
+fixture session carrying one of each wave-1 artifact was seeded on disk and
+driven over CDP:
+
+| artifact | viewer showed |
+|---|---|
+| `document-1` | rendered markdown — H1, bold runs, list items |
+| `composition-2` | `IsolatedPreview` webview on `127.0.0.1:3200/preview`, transport reading `00:00.00 / 00:03.00` |
+| `image-set-3` | the image, served as `/asset?path=…` |
+| `job-4` | "Render queue · Done" and "The finished video is artifact video-5" |
+| `video-5` | a live `<video>` with the scrub bar at `00:00 / 00:27` |
+
+and every handoff landed in its target screen:
+
+| action | result |
+|---|---|
+| Save to Library | toast naming `agents/stage-3-fixture/fixture-session/two-hook-variants.md`, Assets screen active |
+| Copy path | the workspace TSX path on the clipboard |
+| Open in TSX | Creator active with the project `fixture-card / v1.tsx` open |
+| Render | Queue active, a real row rendering `fixture-card.tsx` MP4/1080p |
+| Add to Studio | disabled with no open project (and the IPC refuses with the same sentence); with a project open, the shot landed at `projects/t5-1080p-cut-xfade/shots/fixture-card` |
+| Open folder | IPC success (it shells out to Explorer) |
+
+**The render round trip completed for real.** The action-bar Render minted
+`job-6`, the bridge enqueued it into the app's ONE render queue under that job
+id with an output path inside the session's library folder, the queue rendered
+it, the renderer reported completion over `AGENT_JOB_UPDATE`, and main filed
+`agents/stage-3-fixture/fixture-session/fixture-card.mp4` into the asset library
+(`origin: generated`, the composition title as its description), appended
+`video-7`, and wrote `resultArtifactId: video-7` back onto `job-6`. That is
+§1.5's long-job shape and §1.11's filing, end to end, in the app.
+
+**Contract deltas — what Stage 4 onward codes against:**
+
+1. **Three new channels.** `AGENT_ARTIFACT_RESOLVE` is what §1.5's "the viewer
+   asks main to re-transpile and serve on demand" actually needed: viewers are
+   plain components with no IPC, so ONE channel returns whatever the kind needs
+   — markdown text, a freshly served `moduleUrl`, or `/asset?path=` urls — and
+   no path reaches the renderer. `AGENT_JOB_UPDATE` is the render queue
+   reporting back (it lives in the renderer, so main cannot subscribe to it the
+   way it subscribes to the video engine). `AGENT_SESSION_RENAME` is §6's
+   session list, which says "rename".
+2. **`AgentSession` gained `libraryFolder` and `brandId`.** §1.11 fixes the
+   output folder at creation and says renaming must not move already-filed
+   media — which only works if the folder is STORED rather than recomputed from
+   the current title. `brandId` is the library default, read once at create, and
+   it is what `VideoJobDeps.filing` and the render filing both take.
+3. **`AgentJobRequest` gained `tsxPath` and `outputPath`; `JobPayload` gained
+   `outputRelPath`.** The render queue takes a FILE PATH, and only the session
+   knows where §1.11 wants the output — so `buildQueueRequest` in
+   `render-jobs.ts` completes the half-request the tool returns. The
+   library-relative `outputRelPath` is stamped on the job artifact so a session
+   reopened after a restart can reconcile by asking the disk.
+4. **The runner no longer emits `job-request` itself.** Stage 1 had it emit
+   straight after calling the hook; the event has to carry paths only the
+   session service can supply, so `AgentRunnerHooks.requestJob` now owns the
+   emit. The same change gave `persistPendingInteraction` and `requestJob` a
+   `sessionId` argument — brokers are per session and the hooks were being asked
+   to guess which session had asked.
+5. **`AGENTS_INSPECT` with NEITHER an id nor a path opens the OS picker**, with
+   `VIDTSX_AGENT_PICK` standing in for it — the fourth such stand-in, matching
+   the three in `docs/ui-automation-cdp.md`. Import is therefore drivable end to
+   end, which is how the import dialog was verified.
+6. **`AgentArtifactActionRequest` gained `projectId`**, and the response gained
+   `open`. "Add to Studio" needs the open Studio project, which the renderer
+   knows from `useOpenProject` and main will not guess; "Open in TSX" writes a
+   Creator project and hands back the paths so the target screen can open it.
+
+**Two house-rule judgements, both visible in the code.** §1.3 names Image
+Studio's `ImageCard` / `ImageLightbox` as what `ImageSetViewer` reuses, and
+`RenderItem` for the job viewer. Both live inside OTHER features, and a viewer
+that Flows also consumes must not reach into one — so the grid, the lightbox and
+the job row are written fresh in `renderer/components/artifact-viewers/`. They
+are small; the isolation rule is worth more than the duplication. Second: the
+agents feature DOES import `@features/render-queue` and `@features/player`,
+following the precedent `features/motion` and `features/studio` already set —
+the queue and the player are app-level services in this codebase, not peer
+features.
+
+**A bug the real app found that the tests did not.** Opening an agent created a
+spurious empty session every time, because the workspace read "the session list
+has not answered yet" as "there are no sessions". `useAgentSessions` now exposes
+`loaded` and the workspace waits for it. Worth remembering as the argument for
+driving the app: nothing in the unit tests could have seen it.
+
+**Not started, and later stages own them:**
+
+- **The `.vidtsxagent` file association** — still owed, and still exactly as
+  Stage 2 left it. `package-open.ts` holds ONE global pending slot that
+  `studio-package-handlers.ts` claims; a second extension needs that slot to
+  carry a kind and its consumer to change with it, and rule 4 covers that file.
+  Asked and decided with Hasan 2026-09-08: SKIP for this stage. Import and
+  drag-and-drop both work, double-click is convenience, and it cannot be
+  verified end to end without a packaged installer build. Land it with Stage 5,
+  when there is a shipped agent to double-click a package against.
+- **Interactions are a placeholder.** `ask_user` ships and works — the ten
+  trials in §4 prove the round trip — so a session CAN end up holding a
+  question. `PendingQuestionCard` shows what was asked and offers "Dismiss and
+  keep chatting" (which sends the `cancelled` reply the broker understands), so
+  the state is legible and escapable. Stage 4 replaces it with the real
+  `form` / `pick` / `approve` registry.
+- **`publishers.ts` is still EMPTY**, so every signed package reads "Signed,
+  unverified publisher". The card and both dialogs handle all four outcomes
+  today, including the rule that `origin: 'builtin'` outranks the trust tag —
+  there is a test for that specific case, because a shipped agent reading
+  "Unverified. Use at your own risk" is the exact thing Stage 2 warned about.
+  Generating the key is Hasan's (`node scripts/agent-pack.mjs --genkey`).
+- No memory button on the chat header (§1.10 is Stage 4), no `run_flow`, no
+  `propose_memory`, and the manifest's `subagents` are still parsed and ignored.
+
+**Files as built.** Main: `services/agents/{agent-sessions, agent-service,
+session-context, render-jobs, artifact-paths, artifact-actions, job-notes}.ts`,
+`ipc/{agent-handlers, agent-run-handlers}.ts`, `ipc/registrations/agents.ts`,
+`preload/api/agents.ts`, plus the `electron.d.ts` block. Renderer, shared with
+Flows: `renderer/components/artifact-viewers/{registry, types, ViewerFrame,
+DocumentViewer, CompositionViewer, VideoViewer, ImageSetViewer, JobViewer}` and
+`renderer/components/agent-chat/AgentMessageRow.tsx`. Feature:
+`features/agents/` — `components/{AgentsScreen, AgentGallery, AgentCard,
+AgentDetailsDialog, ImportAgentDialog, TrustBadge, AgentWorkspace, AgentChat,
+SessionList, PendingQuestionCard}.tsx`, `components/stage/{ArtifactStage,
+Filmstrip, ActionBar}.tsx`, `hooks/{useInstalledAgents, useAgentSessions,
+useAgentProviders, useAgentRun, useAgentRenderBridge, useArtifactViewerData,
+useArtifactActions}.ts`, `services/{event-folding, manifest-summary}.ts`,
+`types.ts`, `index.ts`. Touched elsewhere: `App.tsx`, `Sidebar.tsx`,
+`feature-flags.ts` (`agents: false`), `render-queue/types.ts` +
+`RenderQueueContext.tsx` (optional `id` and `outputPath` on `addJob`), and
+`motion/hooks/useMotionProject.ts` (the `vidtsx:creator-open` listener).
+38 new tests in 4 files — 171 across 18 in the two agents folders.
+
 ## 7. Stage 4 — Interactions — ~1 session
 
 Files: `src/features/agents/interactions/registry.ts`, `FormCard.tsx`,
@@ -1171,16 +1328,31 @@ event folding; replay window.
 
 Manual, in-app (record results here when run):
 1. Import an unsigned test package: "Unsigned" warning, installs.
+   **PASS 2026-09-08 (Stage 3).** A packed `dev/stage3-fixture` read through
+   the import dialog showed "Unverified. Use at your own risk", the
+   "VidTSX has not reviewed this agent" notice, and all five capability lines
+   derived from its manifest. One click installed it and the card appeared.
 2. Import the same id at a newer version: replaces, `.bak` present. Older:
-   asks.
-3. Tampered package: refused with reason.
+   asks. **Covered by vitest** (`agent-store.test.ts`); the dialog's downgrade
+   branch is wired to `needsConfirm` but has not been clicked through.
+3. Tampered package: refused with reason. **Covered by vitest.** The dialog
+   shows the refusal in place of the manifest — the same path as row 1's read
+   failure, not separately exercised.
 4. Motion Post: brief, pick, composition, approve, render, video, on
-   `claude-subscription`. Token totals: (fill in).
-5. Provider without tools: degraded notice, chat still answers.
-6. Remove the user copy of a built-in: the built-in returns.
+   `claude-subscription`. Token totals: (fill in). — **Stage 5**, no agent yet.
+5. Provider without tools: degraded notice, chat still answers. NOT RUN — the
+   notice renders off `toolsAvailable`, which no run has returned false for.
+6. Remove the user copy of a built-in: the built-in returns. NOT RUN — nothing
+   ships built-in until Stage 5. Removing a plain user copy works (both Stage 3
+   fixtures were removed through the IPC at the end of the session).
 7. "Check for update" with a newer version in the JSON: dialog shows it,
    the button opens the browser, importing the downloaded file replaces the
-   old version.
+   old version. NOT RUN — needs a feed to point at; the fixture agents declare
+   no `updateUrl`, so their menus correctly have no such item.
+
+Added during Stage 3, and passing in the real app: **one of each wave-1
+artifact renders its viewer, and all six handoffs land in their target screen**
+— the tables in section 6's "Stage 3 outcome".
 
 ## 11. Risks
 

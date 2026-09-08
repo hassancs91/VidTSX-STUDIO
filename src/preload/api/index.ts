@@ -38,3 +38,4 @@ export { updaterApi } from './updater';
 export { libraryApi } from './library';
 export { memoryApi } from './memory';
 export { newsApi } from './news';
+export { agentsApi } from './agents';

@@ -64,7 +64,7 @@ async function makeRunner() {
   pending = [];
   const runner = new AgentRunner({
     emit: (e) => events.push(e),
-    persistPendingInteraction: async (r) => {
+    persistPendingInteraction: async (_sessionId, r) => {
       pending.push(r);
     },
   });

@@ -9,6 +9,13 @@ export type {
 
 // Additional types for the add job operation
 export interface AddJobOptions {
+  /** Caller-supplied job id. Agent renders pass the id their `job` artifact
+   *  was minted with (agents plan §1.5) so the queue row and the artifact are
+   *  the same job; everything else lets the queue mint one. */
+  id?: string;
+  /** Absolute output path, overriding the default videos folder. Agent renders
+   *  write into the session's library folder (§1.11). */
+  outputPath?: string;
   filePath: string;
   fileName: string;
   bundleUrl?: string;

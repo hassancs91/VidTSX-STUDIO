@@ -38,6 +38,7 @@ import { registerMemoryIpc } from './registrations/memory';
 import { registerNewsIpc } from './registrations/news';
 import { registerUpdaterIpc } from './registrations/updater';
 import { registerLibraryIpc } from './registrations/library';
+import { registerAgentsIpc } from './registrations/agents';
 import { logEngine } from '../../logging/log-engine';
 
 export function registerAllIPC(): void {
@@ -84,6 +85,7 @@ export function registerAllIPC(): void {
   registerNewsIpc();
   registerUpdaterIpc();
   registerLibraryIpc();
+  registerAgentsIpc();
 
   logEngine.info('IPC', 'IPC handlers registered');
 }

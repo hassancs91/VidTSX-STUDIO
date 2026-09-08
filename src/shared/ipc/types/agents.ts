@@ -5,6 +5,7 @@
 import type {
   AgentArtifact,
   AgentChatMessage,
+  AgentJobStatus,
   AgentSession,
   AgentSessionSummary,
   InstalledAgent,
@@ -21,7 +22,11 @@ export interface AgentsListResponse {
 }
 
 export interface AgentsInspectRequest {
-  /** An installed agent id, or a package file to read without installing. */
+  /**
+   * An installed agent id, or a package file to read without installing.
+   * NEITHER means "let the user find one": main opens the OS picker, so the
+   * renderer never handles a path it did not already have.
+   */
   agentId?: string;
   filePath?: string;
 }
@@ -29,6 +34,10 @@ export interface AgentsInspectRequest {
 export interface AgentsInspectResponse {
   success: boolean;
   agent?: InstalledAgent;
+  /** The package that was read, when main picked it. */
+  filePath?: string;
+  /** The picker was dismissed — not an error. */
+  canceled?: boolean;
   /** Per-buyer stamp the store added; never signed, shown for information. */
   licensee?: { name: string; orderId?: string; issuedAt?: string };
   error?: string;
@@ -119,6 +128,18 @@ export interface AgentSessionDeleteResponse {
   error?: string;
 }
 
+export interface AgentSessionRenameRequest {
+  agentId: string;
+  sessionId: string;
+  title: string;
+}
+
+export interface AgentSessionRenameResponse {
+  success: boolean;
+  session?: AgentSession;
+  error?: string;
+}
+
 // ─── Runs ───
 
 export interface AgentRunSendRequest {
@@ -138,6 +159,7 @@ export interface AgentRunSendResponse {
 }
 
 export interface AgentRunCancelRequest {
+  agentId: string;
   sessionId: string;
 }
 
@@ -146,6 +168,7 @@ export interface AgentRunCancelResponse {
 }
 
 export interface AgentInteractionReplyRequest {
+  agentId: string;
   sessionId: string;
   reply: InteractionReply;
 }
@@ -170,6 +193,9 @@ export interface AgentArtifactActionRequest {
   sessionId: string;
   artifactId: string;
   action: AgentArtifactActionKind;
+  /** `open-in-studio` only: the Studio project the shot is imported into. The
+   *  renderer knows it from `useOpenProject`; main will not guess one. */
+  projectId?: string;
 }
 
 export interface AgentArtifactActionResponse {
@@ -178,5 +204,45 @@ export interface AgentArtifactActionResponse {
   relPath?: string;
   /** Screen the renderer should navigate to, when the action asks for one. */
   navigateTo?: 'creator' | 'studio' | 'render' | 'assets';
+  /** `open-in-creator`: the project written for the target screen to open. */
+  open?: { folderPath: string; versionPath: string };
+  error?: string;
+}
+
+// ─── Viewer data (§1.5 "the viewer asks main to re-transpile and serve") ───
+
+export interface AgentArtifactResolveRequest {
+  agentId: string;
+  sessionId: string;
+  artifactId: string;
+}
+
+export interface AgentArtifactResolveResponse {
+  success: boolean;
+  /** `document`: the markdown body, read from the session workspace. */
+  text?: string;
+  /** `composition`: a live module url, re-transpiled when the store is cold. */
+  moduleUrl?: string;
+  /** `video` / `image-set`: one servable url per file, in payload order. */
+  assetUrls?: string[];
+  error?: string;
+}
+
+// ─── Render jobs the renderer's queue owns (§1.5) ───
+
+export interface AgentJobUpdateRequest {
+  agentId: string;
+  sessionId: string;
+  /** The `job` artifact minted at submit time. */
+  artifactId: string;
+  status: AgentJobStatus;
+  progress?: number;
+  /** Where the queue wrote the file, on a completed render. */
+  outputPath?: string;
+  error?: string;
+}
+
+export interface AgentJobUpdateResponse {
+  success: boolean;
   error?: string;
 }

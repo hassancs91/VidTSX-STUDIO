@@ -1,0 +1,219 @@
+// One agent, open (agents plan §1.7): sessions on the far left, the chat, and
+// the artifact stage. The 38 % split mirrors Studio's panel/preview proportions.
+//
+// §1.8's rule is enforced at the top: with no usable LLM provider there is one
+// empty state and NO session is created. That is deliberate — creating a
+// session the user cannot run would leave an empty folder behind for every
+// visit to this screen.
+
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, Bot } from 'lucide-react';
+import type { InstalledAgent } from '@shared/types/agents';
+import { useToast } from '@renderer/contexts/ToastContext';
+import { useAgentProviders } from '../hooks/useAgentProviders';
+import { useAgentRenderBridge } from '../hooks/useAgentRenderBridge';
+import { useAgentRun } from '../hooks/useAgentRun';
+import { useAgentSessions } from '../hooks/useAgentSessions';
+import { useArtifactActions } from '../hooks/useArtifactActions';
+import { useArtifactViewerData } from '../hooks/useArtifactViewerData';
+import { AgentChat } from './AgentChat';
+import { PendingQuestionCard } from './PendingQuestionCard';
+import { SessionList } from './SessionList';
+import { ArtifactStage } from './stage/ArtifactStage';
+
+interface Props {
+  agent: InstalledAgent;
+  onBack: () => void;
+}
+
+export function AgentWorkspace({ agent, onBack }: Props) {
+  const agentId = agent.manifest.id;
+  const { showToast } = useToast();
+  const { sessions, loaded: sessionsLoaded, create, remove, rename, refresh } = useAgentSessions(agentId);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  const lastProvider = sessions[0]?.providerId;
+  const providers = useAgentProviders(lastProvider);
+
+  const render = useAgentRenderBridge(agentId, sessionId);
+  const run = useAgentRun({
+    agentId,
+    sessionId,
+    ...(providers.providerId ? { providerId: providers.providerId } : {}),
+    onJobRequest: (request) => void render.enqueue(request),
+  });
+  const viewer = useArtifactViewerData(agentId, sessionId, run.selected);
+  const actions = useArtifactActions(agentId, sessionId);
+
+  // Open the most recent session, or start one — but only once a provider
+  // exists (§1.8), so a machine with none never accumulates empty sessions.
+  useEffect(() => {
+    if (!providers.loaded || !providers.usable || !sessionsLoaded || sessionId) return;
+    if (sessions.length > 0) {
+      setSessionId(sessions[0].id);
+      return;
+    }
+    void create({ ...(providers.providerId ? { providerId: providers.providerId } : {}) }).then(
+      (session) => {
+        if (session) setSessionId(session.id);
+      },
+    );
+  }, [providers.loaded, providers.usable, providers.providerId, sessionsLoaded, sessions, sessionId, create]);
+
+  const newSession = useCallback(async () => {
+    const session = await create({
+      ...(providers.providerId ? { providerId: providers.providerId } : {}),
+    });
+    if (session) setSessionId(session.id);
+  }, [create, providers.providerId]);
+
+  const deleteSession = useCallback(
+    async (id: string) => {
+      await remove(id);
+      if (id === sessionId) setSessionId(null);
+    },
+    [remove, sessionId],
+  );
+
+  // A finished turn can rename the session (first prompt becomes the title),
+  // so the list is re-read whenever the agent stops working.
+  useEffect(() => {
+    if (!run.busy) void refresh();
+  }, [run.busy, refresh]);
+
+  const runAction = useCallback(
+    async (action: Parameters<typeof actions.run>[1]) => {
+      if (!run.selected) return;
+      const result = await actions.run(run.selected.id, action);
+      showToast(result.message, result.ok ? 'success' : 'error');
+    },
+    [actions, run.selected, showToast],
+  );
+
+  const liveJob =
+    run.selected?.kind === 'job' ? render.liveJob(run.selected.payload.jobId) : null;
+
+  return (
+    <div className="flex flex-col h-full">
+      <div
+        className="flex items-center gap-2 px-3 h-[40px] shrink-0 bg-app-surface"
+        style={{ borderBottom: '0.5px solid var(--color-border)' }}
+      >
+        <button
+          onClick={onBack}
+          title="All agents"
+          className="flex items-center justify-center w-[22px] h-[22px] rounded-[5px] text-text-muted hover:bg-app-hover"
+        >
+          <ArrowLeft size={14} strokeWidth={1.75} />
+        </button>
+        <Bot size={14} strokeWidth={1.5} className="text-accent-light" />
+        <span className="text-[13px] font-medium text-text-secondary">{agent.manifest.name}</span>
+        <span className="text-[10px] text-text-dim">{agent.manifest.version}</span>
+      </div>
+
+      {!providers.loaded ? (
+        <div className="flex-1 flex items-center justify-center text-[11px] text-text-dim">
+          Checking providers…
+        </div>
+      ) : !providers.usable ? (
+        <NoProviderState />
+      ) : (
+        <div className="flex flex-1 min-h-0">
+          <div
+            className="w-[180px] shrink-0 bg-app-deep"
+            style={{ borderRight: '0.5px solid var(--color-border)' }}
+          >
+            <SessionList
+              sessions={sessions}
+              activeId={sessionId}
+              onSelect={setSessionId}
+              onCreate={() => void newSession()}
+              onRename={(id, title) => void rename(id, title)}
+              onDelete={(id) => void deleteSession(id)}
+            />
+          </div>
+
+          <div
+            className="w-[38%] min-w-[280px] shrink-0"
+            style={{ borderRight: '0.5px solid var(--color-border)' }}
+          >
+            <AgentChat
+              agentName={agent.manifest.name}
+              agentDescription={agent.manifest.description}
+              messages={run.messages}
+              busy={run.busy}
+              waitingForAnswer={run.pendingInteraction !== null}
+              {...(run.toolsAvailable !== undefined ? { toolsAvailable: run.toolsAvailable } : {})}
+              providers={providers.providers}
+              providerId={providers.providerId}
+              onProviderChange={providers.setProviderId}
+              onSend={(text) => void run.send(text)}
+              onCancel={run.cancel}
+              onNewSession={() => void newSession()}
+            />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <ArtifactStage
+              artifacts={run.artifacts}
+              selected={run.selected}
+              resolved={viewer.resolved}
+              resolving={viewer.loading}
+              {...(viewer.error !== undefined ? { resolveError: viewer.error } : {})}
+              {...(liveJob
+                ? {
+                    live: {
+                      progress: liveJob.progress,
+                      onCancel: () => render.cancel(liveJob.id),
+                    },
+                  }
+                : {})}
+              actionRunning={actions.running}
+              studioProjectOpen={actions.studioProjectOpen}
+              onSelect={run.select}
+              onAction={(action) => void runAction(action)}
+              {...(run.pendingInteraction
+                ? {
+                    interactionCard: (
+                      <PendingQuestionCard
+                        request={run.pendingInteraction}
+                        onDismiss={() =>
+                          void run.answer({
+                            requestId: run.pendingInteraction!.id,
+                            status: 'cancelled',
+                          })
+                        }
+                      />
+                    ),
+                  }
+                : {})}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** §1.8: no usable provider means no starter, no chat box, and no session. */
+function NoProviderState() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-2.5 text-center px-6">
+      <Bot size={48} strokeWidth={1} className="text-text-ghost" />
+      <div className="text-[14px] text-text-muted">Configure an AI provider to use agents</div>
+      <div className="text-[12px] text-text-dim max-w-[340px] leading-snug">
+        Agents run on your own provider key. Add one on the AI page, then come back.
+      </div>
+      <button
+        onClick={() =>
+          window.dispatchEvent(
+            new CustomEvent('vidtsx:navigate', { detail: { screen: 'ai-models' } }),
+          )
+        }
+        className="mt-1 rounded-[6px] bg-accent px-2.5 py-1 text-[11px] text-white"
+      >
+        Open the AI page
+      </button>
+    </div>
+  );
+}

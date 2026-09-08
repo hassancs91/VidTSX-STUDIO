@@ -7,6 +7,63 @@
 
 ---
 
+## 2026-09-08 — AGENTS Stage 3 DONE: the Agents page, the workspace, wave-1 viewers
+
+Stage 3 of `docs/agents-plan.md` (§6). Everything Stages 0–2 built is now
+reachable: an agent can be imported, opened, talked to, and its results viewed
+and handed off. Full log with the six contract deltas: the plan's §6 "Stage 3
+outcome". 38 new tests in 4 files (171 across 18 in the two agents folders);
+`check:types` at baseline; the suite green at 1655.
+
+Scope was agreed first — §6 estimates ~3 sessions, so the cut was "all of §6
+except the starter tree", which Stage 4 already owns the walker for.
+
+- **17 IPC channels answer, and the seams Stages 1–2 left were the bodies.**
+  `agent-handlers.ts` and `agent-run-handlers.ts` are thin: `scanAgents`,
+  `installAgentPackage`, `removeAgent` and `checkAgentUpdate` are the four
+  gallery handlers, and `buildAgentPackageDeps()` — written by Stage 2 and
+  imported by nothing — is what they hand them. `agent-service.ts` is the one
+  object the IPC layer talks to; it owns the runner, the artifact stores and
+  the two job reconcilers.
+- **The session store is new and is the piece Stage 1 named but did not build.**
+  `agent-sessions.ts` writes `session.json` and `chat.json` under
+  `agent-sessions/<namespace>.<name>/<sessionId>/`, folder-as-truth like the
+  agent store, corrupt records rotated aside rather than deleted. `libraryFolder`
+  is fixed at CREATE and stored, because §1.11 says renaming a session must not
+  move media its artifacts already point at — a folder recomputed from the
+  current title would quietly do exactly that.
+- **The render round trip runs end to end in the real app.** Render on the
+  action bar mints a `job` artifact, `buildQueueRequest` completes it with the
+  TSX path and an output path inside the session's library folder, the app's ONE
+  render queue renders it under the agent's own job id, the renderer reports
+  back over the new `AGENT_JOB_UPDATE`, and main files the mp4 into the asset
+  library (`origin: generated`) and appends the `video` artifact whose id lands
+  in `resultArtifactId`. Verified with a real render, not a fake one.
+- **Viewers live under `renderer/components/artifact-viewers/` so Flows can
+  share them**, keyed by kind in a registry that only grows. §1.3 named Image
+  Studio's `ImageCard`/`ImageLightbox` and the queue's `RenderItem` as things to
+  reuse; both sit inside other features, and a viewer Flows also consumes must
+  not reach into one — so the grid, the lightbox and the job row are written
+  fresh. Small components; the isolation rule is worth more.
+- **The step 0 experiment Stage 1 left owed was run: 0 of 10.** Ten real turns
+  on `claude-subscription` against a throwaway agent with a deliberately neutral
+  prompt. Every trial produced `write_document → ask_user` and stopped; none
+  called a tool after asking, and all ten persisted the question to
+  `session.json`. The plan's rule adds a runner-enforced stop only above 1 of
+  10, so nothing was added — the tool's description and result text carry it.
+- **Driving the app found a bug the tests could not.** Opening an agent created
+  a spurious empty session every time, because the workspace read "the session
+  list has not answered yet" as "there are no sessions". `useAgentSessions` now
+  exposes `loaded` and the workspace waits for it.
+- **Still owed before Stage 4 ships anything user-visible:** interactions are a
+  placeholder card (`ask_user` works, so a session can hold a question — the
+  card shows it and lets the user dismiss it); the `.vidtsxagent` file
+  association is deliberately still unclaimed (rule 4 covers `package-open.ts`,
+  and Import plus drag-and-drop cover the need); and `publishers.ts` is still
+  empty, so every signed package reads "Signed, unverified publisher" until
+  `agent-pack.mjs --genkey` is run. The screen ships behind
+  `feature-flags.ts` `agents: false` — visible in dev, hidden in production.
+
 ## 2026-09-08 — AGENTS Stage 2 DONE: package reader, validator, install and signing
 
 Stage 2 of `docs/agents-plan.md` (§5). A `.vidtsxagent` file can now be read,

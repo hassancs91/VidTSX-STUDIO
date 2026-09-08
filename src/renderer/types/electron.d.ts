@@ -530,6 +530,26 @@ export interface ElectronAPI {
   // Asset library — visible web capture handshake (L6/D12)
   libraryCaptureTrigger: (data: import('../../shared/ipc/types').LibraryCaptureTriggerRequest) => Promise<import('../../shared/ipc/types').LibraryCaptureTriggerResponse>;
   onLibraryCaptureEvent: (callback: (event: import('../../shared/ipc/types').LibraryCaptureEvent) => void) => () => void;
+
+  // Agents — installed declarative agents, saved sessions, one run stream
+  // (docs/agents-plan.md §6)
+  agentsList: () => Promise<import('../../shared/ipc/types').AgentsListResponse>;
+  agentsInspect: (data: import('../../shared/ipc/types').AgentsInspectRequest) => Promise<import('../../shared/ipc/types').AgentsInspectResponse>;
+  agentsInstall: (data: import('../../shared/ipc/types').AgentsInstallRequest) => Promise<import('../../shared/ipc/types').AgentsInstallResponse>;
+  agentsRemove: (data: import('../../shared/ipc/types').AgentsRemoveRequest) => Promise<import('../../shared/ipc/types').AgentsRemoveResponse>;
+  agentsCheckUpdate: (data: import('../../shared/ipc/types').AgentsCheckUpdateRequest) => Promise<import('../../shared/ipc/types').AgentsCheckUpdateResponse>;
+  agentSessionsList: (data: import('../../shared/ipc/types').AgentSessionsListRequest) => Promise<import('../../shared/ipc/types').AgentSessionsListResponse>;
+  agentSessionCreate: (data: import('../../shared/ipc/types').AgentSessionCreateRequest) => Promise<import('../../shared/ipc/types').AgentSessionCreateResponse>;
+  agentSessionLoad: (data: import('../../shared/ipc/types').AgentSessionLoadRequest) => Promise<import('../../shared/ipc/types').AgentSessionLoadResponse>;
+  agentSessionDelete: (data: import('../../shared/ipc/types').AgentSessionDeleteRequest) => Promise<import('../../shared/ipc/types').AgentSessionDeleteResponse>;
+  agentSessionRename: (data: import('../../shared/ipc/types').AgentSessionRenameRequest) => Promise<import('../../shared/ipc/types').AgentSessionRenameResponse>;
+  agentRunSend: (data: import('../../shared/ipc/types').AgentRunSendRequest) => Promise<import('../../shared/ipc/types').AgentRunSendResponse>;
+  agentRunCancel: (data: import('../../shared/ipc/types').AgentRunCancelRequest) => Promise<import('../../shared/ipc/types').AgentRunCancelResponse>;
+  agentInteractionReply: (data: import('../../shared/ipc/types').AgentInteractionReplyRequest) => Promise<import('../../shared/ipc/types').AgentInteractionReplyResponse>;
+  onAgentRunEvent: (callback: (event: import('../../shared/types/agents').AgentRunEvent) => void) => () => void;
+  agentArtifactResolve: (data: import('../../shared/ipc/types').AgentArtifactResolveRequest) => Promise<import('../../shared/ipc/types').AgentArtifactResolveResponse>;
+  agentArtifactAction: (data: import('../../shared/ipc/types').AgentArtifactActionRequest) => Promise<import('../../shared/ipc/types').AgentArtifactActionResponse>;
+  agentJobUpdate: (data: import('../../shared/ipc/types').AgentJobUpdateRequest) => Promise<import('../../shared/ipc/types').AgentJobUpdateResponse>;
 }
 
 declare global {

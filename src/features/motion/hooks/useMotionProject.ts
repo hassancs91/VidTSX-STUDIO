@@ -555,6 +555,24 @@ export default function MyComposition() {
     return await createProject(template, parentFolder, uniqueName);
   }, [createProject, library]);
 
+  // An agent handoff ("Open in Creator", agents plan §1.4) writes the
+  // composition as a fresh project folder and then asks this screen to open it.
+  // The listener lives here rather than in MotionScreen because loadVersion and
+  // refreshLibrary are both this hook's, and the event carries nothing else.
+  const openRef = useRef({ loadVersion, refreshLibrary });
+  openRef.current = { loadVersion, refreshLibrary };
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ folderPath?: string; versionPath?: string }>).detail;
+      if (!detail?.versionPath) return;
+      void openRef.current.refreshLibrary().then(() =>
+        openRef.current.loadVersion(detail.versionPath as string, detail.folderPath),
+      );
+    };
+    window.addEventListener('vidtsx:creator-open', handler);
+    return () => window.removeEventListener('vidtsx:creator-open', handler);
+  }, []);
+
   return {
     project,
     library,

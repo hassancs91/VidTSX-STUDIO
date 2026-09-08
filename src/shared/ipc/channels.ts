@@ -503,11 +503,20 @@ export const IPC = {
   AGENT_SESSION_CREATE: 'agents:session:create',
   AGENT_SESSION_LOAD: 'agents:session:load',
   AGENT_SESSION_DELETE: 'agents:session:delete',
+  AGENT_SESSION_RENAME: 'agents:session:rename',
   AGENT_RUN_SEND: 'agents:run:send',
   AGENT_RUN_CANCEL: 'agents:run:cancel',
   AGENT_RUN_EVENT: 'agents:run:event',
   AGENT_INTERACTION_REPLY: 'agents:interaction:reply',
   AGENT_ARTIFACT_ACTION: 'agents:artifact:action',
+  // A viewer asks main for what it needs to SHOW an artifact: a re-served
+  // module url for a composition (the module store is in-memory, §1.5), the
+  // markdown for a document, asset urls for library media. Paths stay in main.
+  AGENT_ARTIFACT_RESOLVE: 'agents:artifact:resolve',
+  // The renderer owns the render queue (§1.5), so it is the only place that
+  // knows a queued agent render moved on. It reports back here and main files
+  // the output and appends the `video` artifact.
+  AGENT_JOB_UPDATE: 'agents:job:update',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

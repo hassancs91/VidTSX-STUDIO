@@ -10,6 +10,7 @@ import {
   ListVideo,
   Workflow,
   Clapperboard,
+  Bot,
   Box,
 } from "lucide-react";
 import { isFeatureEnabled } from "@shared/feature-flags";
@@ -35,6 +36,8 @@ const navItems: NavItem[] = [
   { id: "studio", label: "Studio", icon: <Clapperboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   // Primary workflow — TSX → Image → Video
   { id: "creator", label: "TSX", icon: <Wand2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
+  // Installable declarative agents (docs/agents-plan.md); dev-preview until release.
+  { id: "agents", label: "Agents", icon: <Bot size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "flows", label: "Flows", icon: <Workflow size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "image-studio", label: "Images", icon: <Images size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   { id: "transcribe", label: "Transcribe", icon: <Mic size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },

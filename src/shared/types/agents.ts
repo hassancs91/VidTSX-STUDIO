@@ -157,6 +157,13 @@ export interface JobPayload {
   progress?: number;
   error?: string;
   resultArtifactId?: string;
+  /**
+   * Renders only: where the output will be, RELATIVE to the library root.
+   * Known at submit time (§1.11 builds the folder from the session), so a
+   * session reopened after a restart can reconcile by asking whether that file
+   * exists — the render queue lives in the renderer and main cannot ask it.
+   */
+  outputRelPath?: string;
 }
 
 export type ArtifactPayload =
@@ -258,6 +265,11 @@ export interface AgentJobRequest {
   /** Library-relative folder the output is written into (§1.11). */
   outputFolder?: string;
   outputName?: string;
+  /** Absolute TSX the render queue renders — it takes file paths, not urls. */
+  tsxPath?: string;
+  /** Absolute output path inside the library folder, so the queue writes the
+   *  file where §1.11 wants it and filing is a library upsert, not a copy. */
+  outputPath?: string;
 }
 
 export type AgentRunEvent =
@@ -289,6 +301,14 @@ export interface AgentSession {
   lastOpenedAt: string;
   providerId?: string;
   starter?: StarterAnswers;
+  /**
+   * Library-relative folder this session's media files into (§1.11), fixed at
+   * creation. Stored rather than recomputed because renaming a session must
+   * not move files that artifacts already point at.
+   */
+  libraryFolder?: string;
+  /** Brand generated media is auto-tagged with; the library default at create. */
+  brandId?: string;
   /** Library-relative image shown on the sessions list. */
   thumbnailRelPath?: string;
   /** Non-blocking `ask_user`: the question the user still owes an answer to. */

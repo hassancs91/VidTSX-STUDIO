@@ -15,6 +15,7 @@ import { ToolsHubScreen } from "@features/tools";
 import { AiModelsScreen } from "@features/ai-models";
 import { FlowsScreen } from "@features/flows";
 import { StudioScreen } from "@features/studio";
+import { AgentsScreen } from "@features/agents";
 import { ToastProvider } from "./contexts/ToastContext";
 import { OpenProjectProvider } from "./contexts/OpenProjectContext";
 import { isFeatureEnabled } from "@shared/feature-flags";
@@ -25,6 +26,7 @@ const screens: Record<string, React.ComponentType> = {
   render: RenderScreen,
   creator: MotionScreen,
   studio: StudioScreen,
+  agents: AgentsScreen,
   flows: FlowsScreen,
   'image-studio': ImageStudioScreen,
   'video-studio': VideoStudioScreen,

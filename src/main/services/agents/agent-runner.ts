@@ -69,10 +69,18 @@ export interface AgentRunResult {
 
 export interface AgentRunnerHooks {
   emit(event: AgentRunEvent): void;
-  /** Persist the session's pending question (§1.5 non-blocking `ask_user`). */
-  persistPendingInteraction(request: AgentSession['pendingInteraction'] | null): Promise<void>;
+  /**
+   * Persist the session's pending question (§1.5 non-blocking `ask_user`).
+   * The session id is passed because brokers are per session and the caller's
+   * store writes into that session's folder — a hook that had to guess which
+   * session asked would write the question into the wrong one.
+   */
+  persistPendingInteraction(
+    sessionId: string,
+    request: AgentSession['pendingInteraction'] | null,
+  ): Promise<void>;
   /** Hand a submitted render to the renderer's queue. */
-  requestJob?(request: AgentJobRequest): void;
+  requestJob?(sessionId: string, request: AgentJobRequest): void;
 }
 
 export class AgentRunner {
@@ -89,7 +97,7 @@ export class AgentRunner {
       sessionId: session.id,
       emit: (request) =>
         this.hooks.emit({ sessionId: session.id, kind: 'interaction', request }),
-      persist: (request) => this.hooks.persistPendingInteraction(request),
+      persist: (request) => this.hooks.persistPendingInteraction(session.id, request),
       onCleared: (requestId) =>
         this.hooks.emit({ sessionId: session.id, kind: 'interaction-cleared', requestId }),
     });
@@ -232,9 +240,12 @@ export class AgentRunner {
         producer: { tool: string; callId: string },
         options: { supersedes?: string },
       ) => ctx.store.add(draft, producer, options),
+      // The hook emits `job-request` itself rather than this file doing it
+      // (Stage 3): only the session service knows where the output belongs in
+      // the library (§1.11), and the renderer's queue must be handed a request
+      // that already carries those paths, not one it has to complete.
       requestJob: (request: AgentJobRequest) => {
-        this.hooks.requestJob?.(request);
-        this.hooks.emit({ sessionId, kind: 'job-request', request });
+        this.hooks.requestJob?.(sessionId, request);
       },
     };
   }
