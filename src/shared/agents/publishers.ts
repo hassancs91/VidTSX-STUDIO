@@ -22,12 +22,21 @@ export interface AgentPublisher {
 }
 
 /**
- * Empty until VidTSX's own signing key is generated (`agent-pack.mjs --genkey`,
- * private half stored outside the repo). Until then every signed package reads
- * as "Signed, unverified publisher", which is the correct answer: no key has
- * been published, so no signature can be attributed to us.
+ * VidTSX's own key, generated 2026-09-08 with `agent-pack.mjs --genkey`; the
+ * private half lives outside the repo, named by `VIDTSX_AGENT_SIGNING_KEY`.
+ *
+ * Adding a key here is a claim about identity, so the bar for a new entry is
+ * the same as the bar for shipping code: it says the app vouches for whatever
+ * that key signs. A package signed by any OTHER key still installs — it reads
+ * "Signed, unverified publisher" — so this list gates the tag, never the user.
  */
-export const AGENT_PUBLISHERS: readonly AgentPublisher[] = [];
+export const AGENT_PUBLISHERS: readonly AgentPublisher[] = [
+  {
+    keyId: 'vidtsx-1',
+    name: 'VidTSX',
+    publicKey: 'MCowBQYDK2VwAyEA9t8BEX8685J5lz3bkDhG0oRA4ry3AdYY5elbFrHF4qE=',
+  },
+];
 
 /** The publisher owning this exact key, or undefined. */
 export function findPublisherByKey(

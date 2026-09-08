@@ -1051,8 +1051,11 @@ Asked and decided 2026-09-08:
    callers and tests are unchanged.
 
 **Two things are owed before an agent can carry the accent tag.**
-`publishers.ts` ships EMPTY, deliberately: no VidTSX signing key exists yet, so
-no signature can honestly be attributed to us and every signed package reads
+*(The first was settled on 2026-09-08 — see §10 row 14. `publishers.ts` now
+carries `vidtsx-1`, and a package signed with it reads "Verified by VidTSX" in
+the real app. The paragraph is kept because its second half is still the rule.)*
+`publishers.ts` shipped EMPTY, deliberately: no VidTSX signing key existed, so
+no signature could honestly be attributed to us and every signed package read
 "Signed, unverified publisher". Generating one is a two-minute job —
 `node scripts/agent-pack.mjs --genkey` prints the private key to store outside
 the repo (pointed at by `VIDTSX_AGENT_SIGNING_KEY`) and the exact
@@ -1465,10 +1468,14 @@ Touched: `agent-runner.ts`, `agent-sessions.ts`, `session-context.ts`,
   `StarterAnswers` is unchanged, so `prompt-compose.ts` needs nothing.
 - **The `.vidtsxagent` file association** — still owed, still exactly as Stages 2
   and 3 left it, still meant to land with Stage 5.
-- **`publishers.ts` is still EMPTY.** Every signed package reads "Signed,
-  unverified publisher"; the Stage 4 fixture was unsigned and read "Unverified.
-  Use at your own risk", correctly. Generating the key is Hasan's
-  (`node scripts/agent-pack.mjs --genkey`).
+- ~~**`publishers.ts` is still EMPTY.**~~ **Done 2026-09-08, after the Stage 4
+  commit.** Hasan ran `--genkey` and pasted the public half; `publishers.ts`
+  carries `vidtsx-1` and the accent tag was proven end to end (§10 row 14).
+  `publishers.test.ts` guards the shipped list, because a mistyped key here
+  fails SILENTLY — verification matches on key bytes, so a bad entry simply
+  never matches and every VidTSX package reads "Signed, unverified publisher"
+  with no error. Nothing else in the suite would notice: every other signing
+  test injects its own list.
 - **`reorder` and `edit` interactions** are wave 2 (§13) — one registry entry
   each, and no change to `ArtifactStage` or `AgentWorkspace`.
 - No `run_flow`; the manifest's `subagents` are still parsed and ignored.
@@ -1567,6 +1574,17 @@ agent, on `claude-subscription` — the tables in section 7's "Stage 4 outcome")
     by name ("applied because of …"). **PASS 2026-09-08.**
 13. Studio's own Memory button, after `MemoryDialog` moved to
     `renderer/components/memory/`: opens, lists, unchanged. **PASS 2026-09-08.**
+14. **A package signed with VidTSX's own key reads "Verified by VidTSX".**
+    **PASS 2026-09-08** — the row that could not be run until a key existed.
+    Hasan generated the key and pasted only the public half; the fixture was
+    packed with `agent-pack.mjs --key <path outside the repo>` (the script reads
+    the file, so the private half never entered a session), and the install
+    returned `signature: 'verified'` with the card showing the tag in the accent
+    tone (`#c8b4ff` on the purple tint) and no "VidTSX has not reviewed this
+    agent" notice. **This also proves the pasted public key is the half of the
+    pair that was saved** — a mismatch would have shown as "Signed, unverified
+    publisher" with no error anywhere, which is why it was checked before the
+    key was committed.
 
 ## 11. Risks
 
