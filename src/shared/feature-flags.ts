@@ -53,9 +53,13 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   studio: true,
   'studio-editor': false,
   // Agents (docs/agents-plan.md) — installable declarative agents on their own
-  // page. Dev-preview: force-enabled in dev, hidden in production until the
-  // stages after this one (interactions, the built-in Motion Post agent) land.
-  agents: false,
+  // page. Unhidden for 1.1.0 once all seven stages landed (§9 "Stage 6
+  // outcome"): two built-in agents ship in the installer, and this flag is
+  // COUPLED to the version bump that went with it — both built-ins declare
+  // `minAppVersion: 1.1.0`, and a manifest is validated against the running app
+  // version, so shipping this flag on an app below 1.1.0 would show an empty
+  // gallery. Nothing runs without the user's own provider.
+  agents: true,
   // License UI kept dormant — the app is free (BYOK). The license shell stays
   // compiled for possible future reuse; flip this to resurface the section.
   'license-ui': false,

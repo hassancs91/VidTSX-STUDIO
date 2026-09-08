@@ -9,7 +9,7 @@
     "url": "https://vidtsx.com"
   },
   "license": "MIT",
-  "minAppVersion": "1.0.0",
+  "minAppVersion": "1.1.0",
   "icon": "icon.png",
   "prompt": "AGENT.md",
   "tools": [
