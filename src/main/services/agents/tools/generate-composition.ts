@@ -45,7 +45,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
   schema,
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.title);
-    const deps = buildAgentTsxDeps(ctx.providerId, ctx.signal);
+    const deps = buildAgentTsxDeps(ctx.providerId, ctx.signal, ctx.agentId);
     try {
       const result = await generateTsxPipeline(
         {

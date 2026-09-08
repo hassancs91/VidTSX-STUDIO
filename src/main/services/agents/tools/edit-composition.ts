@@ -62,7 +62,7 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
           ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
           onProgress: (progress) => ctx.emitProgress(`${prior.title}: ${progress.stepLabel}`),
         },
-        buildAgentTsxDeps(ctx.providerId, ctx.signal),
+        buildAgentTsxDeps(ctx.providerId, ctx.signal, ctx.agentId),
       );
       if (!result.transpileValid) {
         return toolText(
