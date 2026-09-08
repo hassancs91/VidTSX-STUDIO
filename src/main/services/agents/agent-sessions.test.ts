@@ -123,7 +123,12 @@ describe('pending interactions', () => {
       sessionId: session.id,
       callId: 'call-1',
       createdAt: new Date().toISOString(),
-      payload: { kind: 'pick', title: 'Which hook?', candidates: [], select: 'one' },
+      payload: {
+        kind: 'pick',
+        title: 'Which hook?',
+        candidates: [{ id: 'a', label: 'Hook A' }],
+        select: 'one',
+      },
     };
 
     await setPendingInteraction(AGENT_ID, session.id, request);
@@ -131,6 +136,29 @@ describe('pending interactions', () => {
 
     await setPendingInteraction(AGENT_ID, session.id, null);
     expect((await readAgentSession(AGENT_ID, session.id))?.pendingInteraction).toBeUndefined();
+  });
+
+  it('drops a malformed question rather than handing it to a card', async () => {
+    // A hand-edited or truncated session.json. The zod at the tool boundary
+    // never saw this — the question was written before the app closed — so the
+    // read path is the only place that can catch it (§7).
+    const session = await make();
+    const file = path.join(agentSessionDir(AGENT_ID, session.id), 'session.json');
+    const raw = JSON.parse(await fs.readFile(file, 'utf-8')) as Record<string, unknown>;
+    raw.pendingInteraction = {
+      id: 'q-2',
+      sessionId: session.id,
+      callId: 'call-2',
+      createdAt: new Date().toISOString(),
+      // A pick with nothing to click — the tool refuses this too.
+      payload: { kind: 'pick', title: 'Which?', candidates: [], select: 'one' },
+    };
+    await fs.writeFile(file, JSON.stringify(raw), 'utf-8');
+
+    const loaded = await readAgentSession(AGENT_ID, session.id);
+    // The session still opens; only the unanswerable question is gone.
+    expect(loaded?.id).toBe(session.id);
+    expect(loaded?.pendingInteraction).toBeUndefined();
   });
 });
 

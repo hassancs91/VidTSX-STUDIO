@@ -20,6 +20,10 @@ import {
   handleAgentArtifactResolve,
   handleAgentArtifactAction,
 } from '../agent-run-handlers';
+import {
+  handleAgentMemoryProposalsGet,
+  handleAgentMemoryProposalResolve,
+} from '../agent-memory-handlers';
 import { agentService } from '../../services/agents/agent-service';
 
 export function registerAgentsIpc(): void {
@@ -41,6 +45,9 @@ export function registerAgentsIpc(): void {
   ipcMain.handle(IPC.AGENT_JOB_UPDATE, handleAgentJobUpdate);
   ipcMain.handle(IPC.AGENT_ARTIFACT_RESOLVE, handleAgentArtifactResolve);
   ipcMain.handle(IPC.AGENT_ARTIFACT_ACTION, handleAgentArtifactAction);
+
+  ipcMain.handle(IPC.AGENT_MEMORY_PROPOSALS_GET, handleAgentMemoryProposalsGet);
+  ipcMain.handle(IPC.AGENT_MEMORY_PROPOSAL_RESOLVE, handleAgentMemoryProposalResolve);
 
   // The run stream: deltas, tool chips, artifacts, interaction requests and the
   // render requests the renderer's queue picks up. Same broadcast shape the

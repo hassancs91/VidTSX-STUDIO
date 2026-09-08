@@ -1,6 +1,6 @@
 // Starters — the guided, branching first questions an agent package ships
-// (agents plan §1.9). Types plus the install-time validator live here; the
-// walker and the `opening` template renderer arrive with Stage 4.
+// (agents plan §1.9). Types, the install-time validator, the walker and the
+// `opening` template renderer (§7 names all four).
 //
 // A starter runs entirely in the renderer: no provider, no tokens, offline.
 // There is no expression language — branching is only `next` per option — so
@@ -167,4 +167,81 @@ export function validateStarter(tree: StarterTree): string[] {
   }
 
   return errors;
+}
+
+// ---------------------------------------------------------------------------
+// The walker (§7) — pure, so the renderer can run a starter with no provider,
+// no tokens and no IPC. `validateStarter` above has already proven the tree is
+// a DAG that reaches `$end`, so nothing here has to guard against a cycle; it
+// guards only against answers, which come from a user and can be anything.
+// ---------------------------------------------------------------------------
+
+/** One node's answer, as it is stored on `AgentSession.starter`. */
+export interface StarterAnswer {
+  /** Option ids for a select node; `$other` when the user typed instead. */
+  ids?: string[];
+  /** The typed text — a text node's answer, or the "Other…" field. */
+  text?: string;
+}
+
+/**
+ * Where the tree goes after `nodeId`, given what the user answered there.
+ * Returns `$end` when the starter is finished, or `null` when the node id is
+ * not in the tree (a session whose agent was updated under it).
+ *
+ * `select: "many"` and text nodes have no per-option branch — they use the
+ * node's own `next`, which the validator requires them to carry.
+ */
+export function nextNode(
+  tree: StarterTree,
+  nodeId: string,
+  answer: StarterAnswer,
+): string | null {
+  const node = tree.nodes[nodeId];
+  if (!node) return null;
+  if (isStarterTextNode(node)) return node.next;
+  if (node.select === 'many') return node.next ?? STARTER_END;
+
+  const chosen = answer.ids?.[0];
+  if (chosen === STARTER_OTHER) return node.otherNext ?? node.next ?? STARTER_END;
+  const option = node.options.find((o) => o.id === chosen);
+  // An unanswered or unrecognised choice falls through to the node's own next
+  // rather than dead-ending: "Skip and chat" leaves exactly this state.
+  return option?.next ?? node.next ?? STARTER_END;
+}
+
+/** The words one answer contributes to a template — a label, or what was typed. */
+function answerText(node: StarterNode | undefined, answer: StarterAnswer): string {
+  if (!node || isStarterTextNode(node)) return (answer.text ?? '').trim();
+  const labels = (answer.ids ?? [])
+    .map((id) =>
+      id === STARTER_OTHER
+        ? (answer.text ?? '').trim()
+        : (node.options.find((o) => o.id === id)?.label ?? ''),
+    )
+    .filter((label) => label.length > 0);
+  if (labels.length > 0) return labels.join(', ');
+  return (answer.text ?? '').trim();
+}
+
+/**
+ * `opening` with every `{{nodeId}}` filled in (§1.9). The result becomes the
+ * PREFILLED first message in the chat box, never an auto-send, so the user
+ * sees exactly what the starter produced and can edit it.
+ *
+ * Partial answers are the normal case, not an error: every step offers "Skip
+ * and chat". An unanswered reference renders as nothing and the surrounding
+ * whitespace collapses, so a half-filled template still reads as a sentence
+ * rather than showing `{{brief}}` to the user.
+ */
+export function renderOpening(tree: StarterTree, answers: Record<string, StarterAnswer>): string {
+  const filled = tree.opening.replace(/\{\{\s*([^}\s]+)\s*\}\}/g, (_match, ref: string) => {
+    const answer = answers[ref];
+    return answer ? answerText(tree.nodes[ref], answer) : '';
+  });
+  return filled
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([,.:;!?])/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

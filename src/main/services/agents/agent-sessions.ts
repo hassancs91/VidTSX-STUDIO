@@ -31,6 +31,7 @@ import type {
   StarterAnswers,
 } from '../../../shared/types/agents';
 import { agentDirName } from '../../../shared/agents/ids';
+import { isInteractionRequest } from '../../../shared/agents/interactions';
 import { getAgentSessionsDir, getAgentOutputFolder } from '../../utils/paths';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -154,7 +155,17 @@ export async function readAgentSession(
   const raw = await readJsonFile(
     path.join(agentSessionDir(agentId, sessionId), SESSION_FILE_NAME),
   );
-  return isSession(raw) ? raw : null;
+  if (!isSession(raw)) return null;
+  // A pending question is the one field in here that a CARD renders directly,
+  // and the only one the tool-boundary zod never saw (it was written before the
+  // app closed, and the file may have been hand-edited since). A malformed one
+  // is dropped rather than handed to the registry — the user loses a question
+  // they can no longer answer, which is better than a stage that throws.
+  if (raw.pendingInteraction !== undefined && !isInteractionRequest(raw.pendingInteraction)) {
+    log.warn('Dropping a malformed pending question', { agentId, sessionId });
+    return { ...raw, pendingInteraction: undefined };
+  }
+  return raw;
 }
 
 /** Read-modify-write one session. Returns null when it is gone. */

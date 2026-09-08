@@ -3,7 +3,7 @@ import { AlertTriangle, Brain, RotateCcw, Scissors, Send, Sparkles, Square, Wren
 import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioAgent';
 import { useMemoryProposals } from '../hooks/useMemoryProposals';
 import { useStylePromotions } from '../hooks/useStylePromotions';
-import { MemoryDialog } from './MemoryDialog';
+import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { StylePromotionCard } from './StylePromotionCard';
 

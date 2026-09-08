@@ -10,14 +10,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Bot } from 'lucide-react';
 import type { InstalledAgent } from '@shared/types/agents';
 import { useToast } from '@renderer/contexts/ToastContext';
+import { getInteractionCard } from '@renderer/components/interactions/registry';
+import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
 import { useAgentProviders } from '../hooks/useAgentProviders';
 import { useAgentRenderBridge } from '../hooks/useAgentRenderBridge';
 import { useAgentRun } from '../hooks/useAgentRun';
 import { useAgentSessions } from '../hooks/useAgentSessions';
 import { useArtifactActions } from '../hooks/useArtifactActions';
 import { useArtifactViewerData } from '../hooks/useArtifactViewerData';
+import { useAgentMemoryProposals } from '../hooks/useAgentMemoryProposals';
+import { useInteractionPreviews } from '../hooks/useInteractionPreviews';
 import { AgentChat } from './AgentChat';
-import { PendingQuestionCard } from './PendingQuestionCard';
+import { MemoryProposalCard } from './MemoryProposalCard';
 import { SessionList } from './SessionList';
 import { ArtifactStage } from './stage/ArtifactStage';
 
@@ -44,6 +48,9 @@ export function AgentWorkspace({ agent, onBack }: Props) {
   });
   const viewer = useArtifactViewerData(agentId, sessionId, run.selected);
   const actions = useArtifactActions(agentId, sessionId);
+  const previews = useInteractionPreviews(agentId, sessionId, run.pendingInteraction, run.artifacts);
+  const memory = useAgentMemoryProposals(agentId, sessionId);
+  const [memoryOpen, setMemoryOpen] = useState(false);
 
   // Open the most recent session, or start one — but only once a provider
   // exists (§1.8), so a machine with none never accumulates empty sessions.
@@ -92,6 +99,26 @@ export function AgentWorkspace({ agent, onBack }: Props) {
 
   const liveJob =
     run.selected?.kind === 'job' ? render.liveJob(run.selected.payload.jobId) : null;
+
+  // A pending question renders through the SHARED registry (§1.3), so a wave-2
+  // kind is one registry entry and no change here. `answer` sends it as the
+  // next user message — the non-blocking form (§1.5) — and "Skip and chat"
+  // sends the cancelled reply the broker already understands.
+  const request = run.pendingInteraction;
+  const InteractionCard = request ? getInteractionCard(request.payload.kind) : null;
+  const pending =
+    request && InteractionCard ? (
+      <InteractionCard
+        request={request}
+        previews={previews}
+        busy={run.busy}
+        restored={run.interactionRestored}
+        onAnswer={(values) =>
+          void run.answer({ requestId: request.id, status: 'answered', values })
+        }
+        onCancel={() => void run.answer({ requestId: request.id, status: 'cancelled' })}
+      />
+    ) : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -150,6 +177,19 @@ export function AgentWorkspace({ agent, onBack }: Props) {
               onSend={(text) => void run.send(text)}
               onCancel={run.cancel}
               onNewSession={() => void newSession()}
+              onOpenMemory={() => setMemoryOpen(true)}
+              {...(memory.proposals[0]
+                ? {
+                    memoryProposal: (
+                      <MemoryProposalCard
+                        proposal={memory.proposals[0]}
+                        agentName={agent.manifest.name}
+                        error={memory.error}
+                        onResolve={(input) => void memory.resolve(input)}
+                      />
+                    ),
+                  }
+                : {})}
             />
           </div>
 
@@ -172,25 +212,18 @@ export function AgentWorkspace({ agent, onBack }: Props) {
               studioProjectOpen={actions.studioProjectOpen}
               onSelect={run.select}
               onAction={(action) => void runAction(action)}
-              {...(run.pendingInteraction
-                ? {
-                    interactionCard: (
-                      <PendingQuestionCard
-                        request={run.pendingInteraction}
-                        onDismiss={() =>
-                          void run.answer({
-                            requestId: run.pendingInteraction!.id,
-                            status: 'cancelled',
-                          })
-                        }
-                      />
-                    ),
-                  }
-                : {})}
+              {...(pending ? { interactionCard: pending } : {})}
             />
           </div>
         </div>
       )}
+
+      <MemoryDialog
+        isOpen={memoryOpen}
+        onClose={() => setMemoryOpen(false)}
+        agentScope={{ agentId, agentName: agent.manifest.name }}
+        {...(run.toolsAvailable !== undefined ? { canPropose: run.toolsAvailable } : {})}
+      />
     </div>
   );
 }

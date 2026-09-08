@@ -16,6 +16,7 @@ import { editCompositionTool } from './edit-composition';
 import { renderCompositionTool } from './render-composition';
 import { generateImageTool } from './generate-image';
 import { generateVideoTool } from './generate-video';
+import { proposeMemoryTool } from './propose-memory';
 
 /** The registry stores definitions with their arg types erased; the zod schema
  *  validates before a handler ever sees the object. */
@@ -91,8 +92,7 @@ export function selectTools(toolIds: string[], capabilities: ToolCapabilities): 
   return { tools, missing, unavailable };
 }
 
-// Wave 1 (plan §1.3). `run_flow` joins when Flows lands; `propose_memory`
-// with Stage 4's memory work.
+// Wave 1 (plan §1.3). `run_flow` joins when Flows lands.
 registerTool(writeDocumentTool);
 registerTool(generateCompositionTool);
 registerTool(editCompositionTool);
@@ -101,3 +101,4 @@ registerTool(generateImageTool);
 registerTool(generateVideoTool);
 registerTool(askUserTool);
 registerTool(listArtifactsTool);
+registerTool(proposeMemoryTool);

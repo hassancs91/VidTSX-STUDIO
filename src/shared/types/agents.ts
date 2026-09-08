@@ -3,6 +3,7 @@
 // no process-specific imports, so main and the renderer share one definition.
 
 import type { StarterTree } from '../agents/starter';
+import type { StudioMemoryKind } from './studio-memory';
 
 // ---------------------------------------------------------------------------
 // Package manifest (§1.1)
@@ -272,6 +273,26 @@ export interface AgentJobRequest {
   outputPath?: string;
 }
 
+/**
+ * A pending `propose_memory` card (agents plan §1.10). Nothing enters memory
+ * that the user did not see and accept, so the tool only ever queues one of
+ * these — the write happens on accept, with the SCOPE the user chose.
+ */
+export interface AgentMemoryProposal {
+  id: string;
+  agentId: string;
+  /** The session whose stage shows the card. */
+  sessionId: string;
+  kind: StudioMemoryKind;
+  text: string;
+  /** vocabulary only — manglings the entry would correct. */
+  aliases?: string[];
+  createdAt: string;
+}
+
+/** §1.10's scope line: this agent only, or every agent and Studio. */
+export type AgentMemoryScope = 'agent' | 'all';
+
 export type AgentRunEvent =
   | { sessionId: string; kind: 'delta'; text: string }
   | { sessionId: string; kind: 'tool'; tool: string; callId: string; detail?: string }
@@ -280,6 +301,7 @@ export type AgentRunEvent =
   | { sessionId: string; kind: 'artifact-updated'; artifact: AgentArtifact }
   | { sessionId: string; kind: 'interaction'; request: InteractionRequest }
   | { sessionId: string; kind: 'interaction-cleared'; requestId: string }
+  | { sessionId: string; kind: 'memory-proposal'; proposal: AgentMemoryProposal }
   | { sessionId: string; kind: 'job-request'; request: AgentJobRequest }
   | { sessionId: string; kind: 'done'; text?: string; error?: string; cancelled?: boolean };
 

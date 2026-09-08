@@ -517,6 +517,11 @@ export const IPC = {
   // knows a queued agent render moved on. It reports back here and main files
   // the output and appends the `video` artifact.
   AGENT_JOB_UPDATE: 'agents:job:update',
+  // `propose_memory` cards (§1.10). The proposal itself rides AGENT_RUN_EVENT;
+  // GET re-fetches after navigation, RESOLVE is the user's accept/reject and
+  // carries the SCOPE they chose — this agent, or every agent.
+  AGENT_MEMORY_PROPOSALS_GET: 'agents:memory:proposals:get',
+  AGENT_MEMORY_PROPOSAL_RESOLVE: 'agents:memory:proposal:resolve',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

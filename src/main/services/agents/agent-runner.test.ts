@@ -116,6 +116,47 @@ describe('AgentRunner.send', () => {
     expect(request().featureSource).toBe('agent');
   });
 
+  it('withholds propose_memory unless the manifest opts in (§1.10)', async () => {
+    // An agent that names the tool but never declared `memory.propose` gets the
+    // READ side only: the memory block still composes, it just cannot ask to
+    // write. Filtered at RUN time so adding the field later needs no reinstall.
+    const { runner, store } = await makeRunner();
+    await runner.send(ctx(store, manifest({ tools: ['write_document', 'propose_memory'] })), {
+      prompt: 'hello',
+      history: [],
+    });
+    expect(request().allowedTools).toEqual(['mcp__vidtsx__write_document']);
+  });
+
+  it('gives propose_memory to an agent that declared memory.propose', async () => {
+    const { runner, store } = await makeRunner();
+    await runner.send(
+      ctx(
+        store,
+        manifest({ tools: ['write_document', 'propose_memory'], memory: { propose: true } }),
+      ),
+      { prompt: 'hello', history: [] },
+    );
+    expect(request().allowedTools).toEqual([
+      'mcp__vidtsx__write_document',
+      'mcp__vidtsx__propose_memory',
+    ]);
+  });
+
+  it('puts the memory block last in the system prompt, after the skills', async () => {
+    // Ordering is the cache invariant: editing memory must not rewrite the
+    // skill text out of the cached prefix (§1.2 step 3).
+    const { runner, store } = await makeRunner();
+    const runCtx = ctx(store);
+    await runner.send(
+      { ...runCtx, memoryBlock: '## How this editor works with you - Cut filler tight.' },
+      { prompt: 'hello', history: [] },
+    );
+    const prompt = request().systemPrompt as string;
+    expect(prompt).toContain('Cut filler tight.');
+    expect(prompt.trimEnd().endsWith('Cut filler tight.')).toBe(true);
+  });
+
   it('takes maxTurns and effort from the manifest defaults', async () => {
     const { runner, store } = await makeRunner();
     await runner.send(

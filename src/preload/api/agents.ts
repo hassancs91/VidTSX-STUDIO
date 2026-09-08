@@ -10,6 +10,10 @@ import type {
   AgentInteractionReplyResponse,
   AgentJobUpdateRequest,
   AgentJobUpdateResponse,
+  AgentMemoryProposalResolveRequest,
+  AgentMemoryProposalResolveResponse,
+  AgentMemoryProposalsGetRequest,
+  AgentMemoryProposalsGetResponse,
   AgentRunCancelRequest,
   AgentRunCancelResponse,
   AgentRunSendRequest,
@@ -82,4 +86,14 @@ export const agentsApi = {
     ipcRenderer.invoke(IPC.AGENT_ARTIFACT_ACTION, data),
   agentJobUpdate: (data: AgentJobUpdateRequest): Promise<AgentJobUpdateResponse> =>
     ipcRenderer.invoke(IPC.AGENT_JOB_UPDATE, data),
+
+  // -- Memory proposals (1.10) --
+  agentMemoryProposalsGet: (
+    data: AgentMemoryProposalsGetRequest,
+  ): Promise<AgentMemoryProposalsGetResponse> =>
+    ipcRenderer.invoke(IPC.AGENT_MEMORY_PROPOSALS_GET, data),
+  agentMemoryProposalResolve: (
+    data: AgentMemoryProposalResolveRequest,
+  ): Promise<AgentMemoryProposalResolveResponse> =>
+    ipcRenderer.invoke(IPC.AGENT_MEMORY_PROPOSAL_RESOLVE, data),
 };

@@ -146,7 +146,15 @@ export class AgentRunner {
       }
 
       const toolsAvailable = await resolveToolSupport(providerId);
-      const selection = selectTools(ctx.manifest.tools, resolveToolCapabilities());
+      // §1.10: `propose_memory` is opt-in. An agent that lists it without
+      // declaring `memory: { propose: true }` gets the READ side only — the
+      // memory block still composes into its prompt, it just cannot ask to
+      // write. Filtered here rather than at install so an existing package
+      // keeps working when the manifest field is added later.
+      const requestedTools = ctx.manifest.memory?.propose
+        ? ctx.manifest.tools
+        : ctx.manifest.tools.filter((id) => id !== 'propose_memory');
+      const selection = selectTools(requestedTools, resolveToolCapabilities());
       if (selection.missing.length > 0) {
         log.warn('Manifest names tools this app does not have', {
           agentId: ctx.manifest.id,

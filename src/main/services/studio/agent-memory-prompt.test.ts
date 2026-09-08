@@ -278,3 +278,52 @@ describe('composeShotStyleMemory — Q6a pipeline injection', () => {
     expect(result.droppedProfile).toBe(true);
   });
 });
+
+describe('composeMemoryBlock — agent scope (agents plan §1.10)', () => {
+  const appWide = () => mem('rule', 'Always caption in sentence case.');
+  const motionPost = () => mem('rule', 'Open on the product shot.', { agentId: 'vidtsx/motion-post' });
+  const otherAgent = () => mem('rule', 'Never use stock footage.', { agentId: 'vidtsx/short-film' });
+
+  it('Studio sees only app-wide entries — exactly what it saw before agents', () => {
+    // No agentId in the options is the Studio call. This is the regression that
+    // matters: an agent-scoped rule must never reach the editing assistant.
+    const { block } = composeMemoryBlock([appWide(), motionPost(), otherAgent()]);
+    expect(block).toContain('Always caption in sentence case.');
+    expect(block).not.toContain('Open on the product shot.');
+    expect(block).not.toContain('Never use stock footage.');
+  });
+
+  it('an agent session sees app-wide entries plus its own, and no other agent’s', () => {
+    const { block } = composeMemoryBlock([appWide(), motionPost(), otherAgent()], {
+      agentId: 'vidtsx/motion-post',
+    });
+    expect(block).toContain('Always caption in sentence case.');
+    expect(block).toContain('Open on the product shot.');
+    expect(block).not.toContain('Never use stock footage.');
+  });
+
+  it('brand scope and agent scope both apply', () => {
+    const branded = mem('rule', 'Use the Acme wordmark.', {
+      agentId: 'vidtsx/motion-post',
+      brandId: 'acme',
+    });
+    expect(
+      composeMemoryBlock([branded], { agentId: 'vidtsx/motion-post', brandId: 'acme' }).block,
+    ).toContain('Use the Acme wordmark.');
+    // Right agent, wrong brand.
+    expect(
+      composeMemoryBlock([branded], { agentId: 'vidtsx/motion-post', brandId: 'other' }).block,
+    ).toBe('');
+    // Right brand, wrong agent.
+    expect(composeMemoryBlock([branded], { agentId: 'vidtsx/other', brandId: 'acme' }).block).toBe(
+      '',
+    );
+  });
+
+  it('keeps agent-scoped rules out of the shot pipeline', () => {
+    // composeShotStyleMemory feeds Studio's shot prompt, which never passes an
+    // agentId — so an agent's rules must be invisible to it.
+    const { styleMemory } = composeShotStyleMemory([appWide(), motionPost()]);
+    expect(styleMemory?.rules).toEqual(['Always caption in sentence case.']);
+  });
+});

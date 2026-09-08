@@ -37,6 +37,12 @@ const PROFILE_HEADER = '### About you and your channel';
 export interface ComposeMemoryBlockOptions {
   /** The open project's brand; brand-scoped memories apply only on match. */
   brandId?: string;
+  /**
+   * Agents plan §1.10. Undefined = a Studio composition, which sees only
+   * app-wide entries — exactly the set that existed before agents. Set = an
+   * agent session, which sees app-wide entries PLUS its own.
+   */
+  agentId?: string;
   /** Character budget — defaults to MEMORY_PROMPT_BUDGET. */
   budget?: number;
 }
@@ -119,6 +125,9 @@ export function composeShotStyleMemory(
   const budget = options.budget ?? SHOT_STYLE_PROMPT_BUDGET;
   const inScope = memories
     .filter((m) => m.active && (m.brandId === undefined || m.brandId === options.brandId))
+    // Agent-scoped rules must NOT reach the shot pipeline: this composer feeds
+    // Studio's shot prompt, and options.agentId is always undefined there.
+    .filter((m) => m.agentId === undefined || m.agentId === options.agentId)
     .filter((m) => m.kind === 'rule' || m.kind === 'profile')
     .slice()
     .sort(byTierThenCreatedAtThenId);
@@ -160,6 +169,7 @@ export function composeMemoryBlock(
   const budget = options.budget ?? MEMORY_PROMPT_BUDGET;
   const inScope = memories
     .filter((m) => m.active && (m.brandId === undefined || m.brandId === options.brandId))
+    .filter((m) => m.agentId === undefined || m.agentId === options.agentId)
     .slice()
     .sort(byTierThenCreatedAtThenId);
 

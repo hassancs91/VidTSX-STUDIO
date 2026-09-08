@@ -27,6 +27,9 @@ export interface MemorySaveRequest {
   aliases?: string[];
   /** Kept for record parity (Rev 2.4); the v1 UI never sets it. */
   brandId?: string;
+  /** Agents plan §1.10 — scope a manually entered rule to one agent. Set only
+   *  by the agents Memory dialog; Studio's never sends it. */
+  agentId?: string;
 }
 
 export interface MemorySaveResponse {

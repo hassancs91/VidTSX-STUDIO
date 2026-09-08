@@ -6,8 +6,8 @@
 // on the STAGE, and the chat shows only the one-line waiting state, because a
 // pick between two images needs room the chat column does not have.
 
-import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, RotateCcw, Send, Square } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { AlertTriangle, Brain, RotateCcw, Send, Square } from 'lucide-react';
 import { AgentMessageRow } from '@renderer/components/agent-chat/AgentMessageRow';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import type { AgentChatRow } from '../types';
@@ -26,6 +26,10 @@ interface Props {
   onSend: (text: string) => void;
   onCancel: () => void;
   onNewSession: () => void;
+  /** §1.10 — opens the shared MemoryDialog scoped to this agent. */
+  onOpenMemory: () => void;
+  /** A pending `propose_memory` card, rendered under the conversation. */
+  memoryProposal?: ReactNode;
 }
 
 export function AgentChat({
@@ -41,6 +45,8 @@ export function AgentChat({
   onSend,
   onCancel,
   onNewSession,
+  onOpenMemory,
+  memoryProposal,
 }: Props) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -77,6 +83,14 @@ export function AgentChat({
           ))}
         </select>
         <button
+          onClick={onOpenMemory}
+          title="What this agent remembers"
+          data-agent-memory-button
+          className="flex items-center justify-center w-[20px] h-[20px] rounded-[5px] text-text-muted hover:bg-app-hover"
+        >
+          <Brain size={12} strokeWidth={1.75} />
+        </button>
+        <button
           onClick={onNewSession}
           title="New session"
           className="flex items-center justify-center w-[20px] h-[20px] rounded-[5px] text-text-muted hover:bg-app-hover"
@@ -103,6 +117,7 @@ export function AgentChat({
             <AgentMessageRow key={m.id} message={m} toolLabels={AGENT_TOOL_LABELS} />
           ))
         )}
+        {memoryProposal}
         {waitingForAnswer ? (
           <div className="rounded-[6px] bg-accent-blue/10 px-2 py-1.5 text-[10px] text-accent-blue leading-snug">
             Waiting for your choice — answer it on the right.

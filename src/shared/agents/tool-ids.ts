@@ -19,6 +19,7 @@ export const AGENT_TOOL_IDS = [
   'generate_video',
   'ask_user',
   'list_artifacts',
+  'propose_memory',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

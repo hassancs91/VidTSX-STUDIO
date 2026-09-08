@@ -40,6 +40,8 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
   const [artifacts, setArtifacts] = useState<AgentArtifact[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pendingInteraction, setPendingInteraction] = useState<InteractionRequest | null>(null);
+  /** The pending question came off disk, not off this run's stream (§1.5). */
+  const [interactionRestored, setInteractionRestored] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toolsAvailable, setToolsAvailable] = useState<boolean | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -61,6 +63,7 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
       setArtifacts([]);
       setSelectedId(null);
       setPendingInteraction(null);
+      setInteractionRestored(false);
       return;
     }
     let disposed = false;
@@ -71,6 +74,7 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
       if (result.success && result.session) {
         setSession(result.session);
         setPendingInteraction(result.session.pendingInteraction ?? null);
+        setInteractionRestored(result.session.pendingInteraction !== undefined);
         setMessages(
           (result.messages ?? []).map((m) => ({ id: m.id, role: m.role, text: m.text })),
         );
@@ -109,6 +113,7 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
           break;
         case 'interaction':
           setPendingInteraction(event.request);
+          setInteractionRestored(false);
           setMessages((rows) => noteOnPending(rows, 'Waiting for your answer.'));
           break;
         case 'interaction-cleared':
@@ -174,6 +179,7 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
       const id = sessionIdRef.current;
       if (!id) return;
       setPendingInteraction(null);
+      setInteractionRestored(false);
       setBusy(true);
       setMessages((rows) => [
         ...rows,
@@ -211,6 +217,7 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
     selected,
     select,
     pendingInteraction,
+    interactionRestored,
     busy,
     loading,
     toolsAvailable,

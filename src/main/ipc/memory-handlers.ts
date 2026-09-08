@@ -64,6 +64,7 @@ export async function handleMemorySave(
       text: data.text,
       ...(data.aliases ? { aliases: data.aliases } : {}),
       ...(data.brandId ? { brandId: data.brandId } : {}),
+      ...(data.agentId ? { agentId: data.agentId } : {}),
       source: { by: 'user' },
     });
     return { success: true, memory };

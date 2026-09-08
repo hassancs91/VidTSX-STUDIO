@@ -10,7 +10,11 @@ export type StudioMemoryKind = 'rule' | 'vocabulary' | 'profile';
 
 export type StudioMemorySource =
   | { by: 'user' }
-  | { by: 'agent'; projectId: string; acceptedAt: string };
+  /** Accepted from a proposal card. `projectId` names the Studio project that
+   *  proposed it; `agentId` the installed agent that did (agents plan §1.10).
+   *  Exactly one is set in practice — both are optional so neither side has to
+   *  invent an id for the other's field. */
+  | { by: 'agent'; projectId?: string; agentId?: string; acceptedAt: string };
 
 export interface StudioMemory {
   id: string;
@@ -24,6 +28,11 @@ export interface StudioMemory {
    *  created in v1 is app-wide; the filter exists so brand scope needs no
    *  migration later. */
   brandId?: string;
+  /** Agents plan §1.10, following the `brandId` pattern: undefined = applies to
+   *  every agent AND to Studio; set = only that agent's sessions. Studio never
+   *  sets it and never passes one when reading, so its own view of the store is
+   *  exactly the set of entries that existed before agents. */
+  agentId?: string;
   /** Off, not deleted — keeps the history without steering the agent. */
   active: boolean;
   source: StudioMemorySource;

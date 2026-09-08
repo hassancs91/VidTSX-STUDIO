@@ -10,14 +10,15 @@ be frozen into flows).
 
 ## Start here (for the session that begins the work)
 
-0. **Stages 0, 1, 2 and 3 are DONE (Stage 3 on 2026-09-08).** Read each
+0. **Stages 0, 1, 2, 3 and 4 are DONE (Stages 3 and 4 on 2026-09-08).** Read each
    stage's "outcome" subsection before its successor: section 4 (Stage 1's
    four contract deltas, and the step 0 record — its last open row was
    measured during Stage 3 at **0 of 10**, so no runner-enforced stop was
    added), section 5 (Stage 2's five deltas, the signing key that does not
    exist yet), and section 6 (Stage 3's six deltas, the placeholder that
-   stands in for interactions, and the file association still owed). Then
-   start at Stage 4 (section 7).
+   stands in for interactions, and the file association still owed), and
+   section 7 (Stage 4's six deltas, the §7 line about "expired" that was wrong,
+   and the starter UI deferred to Stage 5). Then start at Stage 5 (section 8).
    Agents are reachable from the UI behind `feature-flags.ts` `agents: false`
    — force-enabled in dev, hidden in production.
 1. Preconditions: the V1 flip has shipped as 1.0.0, and `check:types` plus
@@ -1285,6 +1286,197 @@ Done when a Motion Post session accepts a proposed rule scoped to the agent
 and the next Studio session does not see it, while an "all agents" rule is
 visible in both.
 
+### Stage 4 outcome (2026-09-08) — what was built, and what it changes downstream
+
+**Scope, agreed with Hasan before starting.** §7 estimates ~1 session and Stage 3
+handed this stage the starter tree as well, so the cut taken was: the whole of
+§7 as written — interactions and the memory half — **plus the pure starter
+walker** (`nextNode`, `renderOpening`, with tests), deferring only
+`StarterFlow.tsx` and `QuickStarts.tsx` to Stage 5. The argument for that split:
+Motion Post is the first agent that actually carries a `starter` tree in its
+manifest, so building the UI now means driving it against a tree invented for
+the purpose, while building it in Stage 5 means driving it against the real one.
+Stage 5 inherits two small components, not a design problem — the walker they
+need is written and tested.
+
+**Both "done when" criteria are met in the REAL app**, not only from vitest.
+A throwaway agent (`dev/stage4`, `memory: { propose: true }`, tools
+`write_document` / `ask_user` / `list_artifacts` / `propose_memory`) was packed,
+installed and driven over CDP on `claude-subscription`.
+
+Criterion 1 — *a scripted test-agent turn asks for a pick between two documents
+and the chosen title appears in the model's next message*:
+
+| step | what happened |
+|---|---|
+| the turn | `write_document` × 2, then one `ask_user` (`kind: "pick"`), then it stopped |
+| the card | the real `PickCard` on the stage: two candidates with detail lines, "Choose one", Send locked on "Nothing chosen yet" |
+| the click | second candidate selected, `aria-pressed="true"`, Send unlocked |
+| the reply | `[Answer to question q-31a3da46] confession: I timed how long I lasted before checking my phone` |
+| the model | named the chosen hook and built on it — `document-3` is titled "… — 6s reel build" |
+
+The other two wave-1 cards were driven too, though §7 does not ask for them:
+`FormCard` collected a select + a required text + a multiline in one card
+(Send blocked on "Platform is required" until filled) and delivered
+`platform: Reels; tone: dry and understated; notes: no music, no captions`;
+`ApproveCard` went `0 of 3 decided` → `3 of 3` with Send locked in between and
+delivered `document-1: approved (…); document-2: approved (…); document-3:
+rejected (…)`. "Skip and chat" was exercised on a live card and sent the
+`cancelled` reply the broker already understood.
+
+Criterion 2 — *a session accepts a proposed rule scoped to the agent, the next
+Studio session does not see it, while an "all agents" rule is visible in both*:
+
+| where | what it showed |
+|---|---|
+| the card | "Remember this?", the proposed text editable, and the scope line — "Stage Four only" / "All agents" |
+| accepted `agent` | stored with `agentId: dev/stage4`, `source: { by: 'agent', agentId: 'dev/stage4' }` |
+| accepted `all` | stored with no `agentId` — app-wide |
+| agents dialog, agent tab | the agent-scoped rule only |
+| agents dialog, "All agents" tab | the two app-wide rules only |
+| **Studio's own dialog** | "Assistant memory", no scope tabs, exactly the two app-wide rules — **the agent-scoped rule is absent** |
+
+And the prompt side proved itself unprompted: a later turn in the agent session
+replied "**applied because of 'keep every hook under eight words'**" — the
+agent-scoped rule, reaching that agent's composed block and no other.
+
+**The four decisions §7 left open, and how they were resolved:**
+
+1. **Interactions live in `src/renderer/components/interactions/`** (§1.3), not
+   `src/features/agents/interactions/` (§7's file list). §1.3 is the one that
+   gives the reason — Flows shares the registry for its run checkpoints — and
+   Stage 3 set the precedent with `artifact-viewers/`. **The plan contradicts
+   itself here; §1.3 wins.**
+2. **No zod copy of the `ask_user` payloads in `shared/types/agents.ts`.** That
+   file's header says types only because both processes import it, and
+   `tools/ask-user.ts` already validates at the tool boundary — the one place
+   untrusted model input enters. Everything downstream is a payload the app
+   itself built, so a second schema would validate our own output. The one real
+   gap zod at the boundary does not close is a `session.json` that was
+   hand-edited or written by an older build: its `pendingInteraction` reaches a
+   card without ever passing the tool. `shared/agents/interactions.ts` closes
+   exactly that with pure structural guards (no zod, no bundle cost), and
+   `readAgentSession` drops a malformed question rather than handing it to the
+   registry. There is a test for it, and the first thing the guard caught was a
+   fixture in `agent-sessions.test.ts` carrying `candidates: []` — a pick card
+   with nothing to click, which `ask-user.ts` also refuses.
+3. **The `agentId` touch to `src/main/services/studio/` was asked and approved**
+   (rule 4). It is 44 lines across two files: `agent-memory.ts` carries the
+   field through `UpsertMemoryInput`, `normalizeRecord` and the record build,
+   loosens the agent-provenance branch so `projectId` is optional, and counts
+   `MAX_ACTIVE_RULES` **per scope**; `agent-memory-prompt.ts` gains `agentId` on
+   the options and one filter clause in `composeMemoryBlock` **and one in
+   `composeShotStyleMemory`** — that second one is what keeps agent-scoped rules
+   out of Studio's shot pipeline, and it has its own test.
+   `agent-memory-proposals.ts` is NOT touched: agents got their own
+   session-keyed queue.
+4. **`MemoryDialog` moved to `src/renderer/components/memory/`**, asked and
+   approved, as a pure `git mv` of three files (`MemoryDialog`,
+   `MemoryEntryForm`, `useAgentMemory`) with `formatDate` inlined so nothing
+   reaches back into `features/studio/`. `AgentPanel.tsx` changed one import
+   line. It was already at the ~300-line house limit, so `MemoryRow` came out
+   into its own file. Studio's own Memory button was clicked in the real app
+   after the move, and behaves exactly as before.
+
+**Contract deltas — what Stage 5 onward codes against:**
+
+1. **`InteractionReply.values` has a convention now, and it is load-bearing.**
+   The KEY is the model's own id and the VALUE is the words the user read,
+   because the broker renders entries as `key: value` into the fixed
+   `[Answer to question <id>] …` message. `pick` keys by candidate id and values
+   with the label (which is what makes the §7 criterion true at all); `approve`
+   keys by item id and values `approved (label)` / `rejected (label)`; `form`
+   keys by field id and OMITS a skipped optional field rather than sending an
+   empty string. That shaping lives in
+   `renderer/components/interactions/values.ts` as pure functions — the renderer
+   has no component test rig (vitest is node-only, `*.test.ts` only), so keeping
+   it out of the components is what makes it checkable.
+2. **`AgentRunEvent` gained `memory-proposal`**, and
+   `AGENT_MEMORY_PROPOSALS_GET` / `AGENT_MEMORY_PROPOSAL_RESOLVE` are two new
+   channels. The card arrives live on the run stream and is re-fetched on mount,
+   the same two sources the Studio proposal path uses, because the queue lives in
+   main precisely so navigation cannot lose it.
+3. **`StudioMemorySource`'s agent variant is now
+   `{ by: 'agent'; projectId?; agentId?; acceptedAt }`.** A Studio proposal names
+   the project; an agent proposal names the agent. Provenance is stamped in main
+   on both paths and is not a field of either request, so the renderer cannot
+   forge it.
+4. **`propose_memory` is opt-in at RUN time, not at install.** An agent that
+   lists the tool without declaring `memory: { propose: true }` gets the read
+   side only — the memory block still composes into its prompt, it just cannot
+   ask to write. Filtered in `agent-runner.send` rather than in the validator so
+   an already-installed package starts working the moment its manifest declares
+   the field. `AGENT_TOOL_IDS` gained `propose_memory` (append-only, §11).
+5. **The memory block is filled.** `agent-memory-block.ts` composes it per turn
+   (app-wide + this agent's, brand filter unchanged) and `buildRunContext` puts
+   it on the run context, so §1.2 step 3's trailing block is no longer a
+   parameter nobody fills. A read failure is logged and swallowed — a session
+   that cannot read memory still runs.
+6. **`§7's "a pending request that survives an app restart shows as expired" is
+   wrong, and was not implemented.** That line was written while the blocking
+   `ask_user` form was still a candidate. Under the non-blocking form that
+   shipped, the reply is an ordinary next user message, so a restored question is
+   *fully answerable* — `InteractionBroker.adopt` exists for exactly that. The
+   card says "Asked in an earlier run — your answer still reaches the agent"
+   instead, driven by a `restored` flag `useAgentRun` sets when the question came
+   off disk rather than off the stream. This was proven by accident: an HMR
+   reload mid-run reset the app to its home screen, and re-opening the workspace
+   brought the question back and answered it successfully.
+
+**A driver trap worth recording, and the fix that is not a test hack.** The
+first attempt to click a pick candidate clicked the **filmstrip thumbnail**
+instead: the filmstrip shows the same document titles the candidates do, and the
+usual "sort by `textContent.length`, take the shortest" rule from
+`docs/ui-automation-cdp.md` picks the thumbnail, because the candidate button
+also carries a `detail` line. A direct `.click()` on it changed nothing, which
+looked like a broken handler for a while. The card now publishes
+`data-interaction-card="<kind>"` on its root and `data-interaction-option` +
+`aria-pressed` on each candidate — the same convention `MemoryDialog` already
+uses with `data-memory-row` — so a caller can scope to the card. `aria-pressed`
+earns its place independently.
+
+**Files as built.** Shared with Flows:
+`renderer/components/interactions/{types, registry, InteractionShell, FormCard,
+PickCard, ApproveCard, values}.ts(x)` and
+`renderer/components/memory/{MemoryDialog, MemoryEntryForm, MemoryRow,
+useAgentMemory}` (the move). Shared: `shared/agents/interactions.ts` (the
+guards), `shared/agents/starter.ts` (+ `nextNode`, `renderOpening`),
+`shared/types/agents.ts` (`AgentMemoryProposal`, `AgentMemoryScope`, the run
+event), `shared/types/studio-memory.ts` (`agentId`, the source variant),
+`shared/agents/tool-ids.ts`. Main: `services/agents/{memory-proposals,
+agent-memory-block}.ts`, `services/agents/tools/propose-memory.ts`,
+`ipc/agent-memory-handlers.ts`, and the two channels. Feature:
+`features/agents/hooks/{useInteractionPreviews, useAgentMemoryProposals}.ts`,
+`features/agents/components/MemoryProposalCard.tsx`, with
+`PendingQuestionCard.tsx` **deleted** — the Stage 3 placeholder it replaced.
+Touched: `agent-runner.ts`, `agent-sessions.ts`, `session-context.ts`,
+`AgentChat.tsx`, `AgentWorkspace.tsx`, `AgentPanel.tsx` (one import),
+`memory-handlers.ts`, `electron.d.ts`, the two approved `services/studio/` files.
+43 new tests in 5 files; 1698 passing overall, `check:types` at baseline
+(web 26, node 10).
+
+**Not started, and later stages own them:**
+
+- **`StarterFlow.tsx` and `QuickStarts.tsx`** — the agreed cut, above. The
+  walker they consume is written and tested (`nextNode` covers the `$other`
+  branch, `select: "many"`, an unanswered node, and a node the tree no longer
+  has; `renderOpening` covers labels, typed text, joined many-selects and
+  partial answers, which must never show the user a raw `{{ref}}`).
+  `StarterAnswers` is unchanged, so `prompt-compose.ts` needs nothing.
+- **The `.vidtsxagent` file association** — still owed, still exactly as Stages 2
+  and 3 left it, still meant to land with Stage 5.
+- **`publishers.ts` is still EMPTY.** Every signed package reads "Signed,
+  unverified publisher"; the Stage 4 fixture was unsigned and read "Unverified.
+  Use at your own risk", correctly. Generating the key is Hasan's
+  (`node scripts/agent-pack.mjs --genkey`).
+- **`reorder` and `edit` interactions** are wave 2 (§13) — one registry entry
+  each, and no change to `ArtifactStage` or `AgentWorkspace`.
+- No `run_flow`; the manifest's `subagents` are still parsed and ignored.
+- `assets/agents/stage-3-fixture/` is still in the asset library. Deleting the
+  folder from disk would leave stale rows in `assets/.vidtsx/index.json`, and
+  there is no library-delete IPC to drive — it wants the Assets screen's own
+  delete flow, on a real library, which was not worth the risk unattended.
+
 ## 8. Stage 5 — Built-in test agent "Motion Post" — ~1 session
 
 Folder `resources/agents/vidtsx/motion-post/`:
@@ -1353,6 +1545,28 @@ Manual, in-app (record results here when run):
 Added during Stage 3, and passing in the real app: **one of each wave-1
 artifact renders its viewer, and all six handoffs land in their target screen**
 — the tables in section 6's "Stage 3 outcome".
+
+Added during Stage 4, and passing in the real app (`dev/stage4`, a throwaway
+agent, on `claude-subscription` — the tables in section 7's "Stage 4 outcome"):
+
+8. `ask_user` `pick` between two documents: the card renders on the stage, the
+   chosen TITLE reaches the model, and its next message builds on it.
+   **PASS 2026-09-08.**
+9. `ask_user` `form` (select + required text + multiline) and `approve`
+   (accept two, reject one): Send stays locked until the card is answerable, and
+   every answer reaches the model in the `[Answer to question <id>] …` format.
+   **PASS 2026-09-08.** Not required by §7; driven because they ship.
+10. A pending question that outlived a reload comes back on the card, says it
+    was asked in an earlier run, and is still answerable. **PASS 2026-09-08** —
+    found by accident when an HMR reload reset the app mid-run.
+11. "Skip and chat" on a live card sends the `cancelled` reply and the
+    conversation continues. **PASS 2026-09-08.**
+12. `propose_memory` accepted scoped to the agent, and a second accepted for all
+    agents: the agent's dialog shows each on its own tab, Studio's dialog shows
+    only the app-wide ones, and a later agent turn cited the agent-scoped rule
+    by name ("applied because of …"). **PASS 2026-09-08.**
+13. Studio's own Memory button, after `MemoryDialog` moved to
+    `renderer/components/memory/`: opens, lists, unchanged. **PASS 2026-09-08.**
 
 ## 11. Risks
 

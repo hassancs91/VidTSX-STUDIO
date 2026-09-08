@@ -7,6 +7,67 @@
 
 ---
 
+## 2026-09-08 — AGENTS Stage 4 DONE: interactions, the mid-run round trip, memory per agent
+
+Stage 4 of `docs/agents-plan.md` (§7). The `ask_user` round trip that has worked
+since Stage 1 now has real cards behind it, and agents remember things — with
+the user choosing how far each memory reaches. Full log with the six contract
+deltas and the four decisions §7 left open: the plan's §7 "Stage 4 outcome".
+43 new tests in 5 files; `check:types` at baseline (web 26, node 10); the suite
+green at 1698.
+
+Scope was agreed first. §7 estimates ~1 session and Stage 3 handed this stage
+the starter tree too, so the cut was: all of §7 — interactions and memory —
+plus the pure starter walker (`nextNode`, `renderOpening`, tested), deferring
+only `StarterFlow.tsx` and `QuickStarts.tsx` to Stage 5. Motion Post is the
+first agent that actually carries a `starter` tree, so its UI gets driven
+against the real one instead of a fixture invented for the purpose.
+
+**Interactions.** `form`, `pick` and `approve` cards in a registry under
+`src/renderer/components/interactions/`, shared with Flows the way the artifact
+viewers are (§1.3 says there; §7's file list says the feature folder — the
+plan contradicts itself and §1.3 has the reason). `PendingQuestionCard`, the
+Stage 3 placeholder, is deleted. The answer shaping lives apart from the
+components in `values.ts`, because it decides what the model reads and the
+renderer has no component test rig: `pick` keys by candidate id and values with
+the label the user saw, which is exactly what makes §7's criterion true.
+
+**Memory (§1.10).** `StudioMemory` gained `agentId` — the one additive touch to
+`src/main/services/studio/` rule 4 permits, asked and approved before writing,
+44 lines across two files. Undefined still means app-wide, so every Studio read
+returns exactly the set it returned before. `propose_memory` is a registry tool,
+opt-in through the manifest at RUN time, and the proposal card carries the scope
+line the agent does not get to set. `MemoryDialog` moved to
+`src/renderer/components/memory/` (asked and approved) so both features open the
+same dialog; `AgentPanel.tsx` changed one import line.
+
+**Both criteria proven in the real app, over CDP.** A packed throwaway agent on
+`claude-subscription` wrote two documents, asked for a pick between them, and —
+after the second candidate was clicked and sent — named that title in its next
+message and built on it. A proposed rule accepted "this agent only" is visible
+on the agents dialog's own tab and **absent from Studio's**, while one accepted
+"all agents" shows in both; a later agent turn cited the scoped rule by name
+without being asked to. `form` and `approve` were driven too, though §7 does not
+require them.
+
+Two things the app caught that the tests could not. A pending question that
+outlives a reload is **not** "expired" as §7 says — that line predates the
+non-blocking form winning, and under it the reply is an ordinary message, so the
+question is fully answerable; the card now says it was asked in an earlier run
+instead. And a pick candidate and a filmstrip thumbnail carry the same document
+title, so the usual shortest-text selector clicks the thumbnail: the cards now
+publish `data-interaction-card` and `data-interaction-option` (plus
+`aria-pressed`), matching the `data-memory-row` convention already in the
+dialog.
+
+Next: Stage 5 — the built-in "Motion Post" agent, which also carries
+`StarterFlow` / `QuickStarts` and the `.vidtsxagent` file association. Still
+owed and Hasan's to run: `node scripts/agent-pack.mjs --genkey`, without which
+`publishers.ts` stays empty and every signed package reads "Signed, unverified
+publisher".
+
+---
+
 ## 2026-09-08 — AGENTS Stage 3 DONE: the Agents page, the workspace, wave-1 viewers
 
 Stage 3 of `docs/agents-plan.md` (§6). Everything Stages 0–2 built is now

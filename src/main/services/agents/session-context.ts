@@ -12,6 +12,7 @@ import type { AgentRunEvent, AgentSession, InstalledAgent } from '../../../share
 import { AgentArtifactStore } from './artifact-store';
 import type { AgentRunContext } from './agent-runner';
 import { loadAgentSkills } from './agent-skills';
+import { buildAgentMemoryBlock } from './agent-memory-block';
 import { agentSessionDir, agentWorkspaceDir, readAgentSession } from './agent-sessions';
 import type { RenderJobDeps } from './render-jobs';
 import type { VideoJobDeps } from './video-jobs';
@@ -58,13 +59,19 @@ export async function openSessionContext(
   return { agent, session, store, workspaceDir: agentWorkspaceDir(agentId, sessionId) };
 }
 
-/** The runner's context: the prompt body and skills read off the agent folder. */
+/** The runner's context: the prompt body, skills and memory block for a turn. */
 export async function buildRunContext(ctx: AgentSessionContext): Promise<AgentRunContext> {
   const promptBody = await fs.readFile(
     path.join(ctx.agent.dir, ctx.agent.manifest.prompt),
     'utf-8',
   );
   await fs.mkdir(ctx.workspaceDir, { recursive: true });
+  // §1.10: app-wide memories plus the ones scoped to this agent, read fresh per
+  // turn so accepting a rule steers the very next reply.
+  const memoryBlock = await buildAgentMemoryBlock({
+    agentId: ctx.agent.manifest.id,
+    ...(ctx.session.brandId ? { brandId: ctx.session.brandId } : {}),
+  });
   return {
     session: ctx.session,
     manifest: ctx.agent.manifest,
@@ -72,6 +79,7 @@ export async function buildRunContext(ctx: AgentSessionContext): Promise<AgentRu
     skills: await loadAgentSkills(ctx.agent.dir),
     workspaceDir: ctx.workspaceDir,
     store: ctx.store,
+    ...(memoryBlock ? { memoryBlock } : {}),
     ...(ctx.session.libraryFolder ? { libraryFolder: ctx.session.libraryFolder } : {}),
     ...(ctx.session.brandId ? { brandId: ctx.session.brandId } : {}),
   };

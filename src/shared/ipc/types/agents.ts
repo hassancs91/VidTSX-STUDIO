@@ -2,10 +2,13 @@
 // path it could act on: it sends ids and receives records, and every path in a
 // payload is relative to a root main owns.
 
+import type { StudioMemory } from '../../types/studio-memory';
 import type {
   AgentArtifact,
   AgentChatMessage,
   AgentJobStatus,
+  AgentMemoryProposal,
+  AgentMemoryScope,
   AgentSession,
   AgentSessionSummary,
   InstalledAgent,
@@ -244,5 +247,46 @@ export interface AgentJobUpdateRequest {
 
 export interface AgentJobUpdateResponse {
   success: boolean;
+  error?: string;
+}
+
+// ─── Memory proposals (§1.10) ───
+
+export interface AgentMemoryProposalsGetRequest {
+  agentId: string;
+  sessionId: string;
+}
+
+export interface AgentMemoryProposalsGetResponse {
+  success: boolean;
+  proposals?: AgentMemoryProposal[];
+  error?: string;
+}
+
+/**
+ * The user's decision on a card. `scope` is the §1.10 line the AGENT never
+ * gets to set: 'agent' stamps the entry with this agent's id, 'all' leaves it
+ * app-wide so Studio and every other agent read it too. `edited` is the
+ * edit-then-accept door — kind is fixed, only the text and aliases move.
+ *
+ * A store refusal (the rule cap) leaves the card PENDING so the user can make
+ * room and retry, exactly as the Studio proposal path does.
+ */
+export interface AgentMemoryProposalResolveRequest {
+  agentId: string;
+  sessionId: string;
+  proposalId: string;
+  action: 'accept' | 'reject';
+  scope?: AgentMemoryScope;
+  edited?: {
+    text: string;
+    aliases?: string[];
+  };
+}
+
+export interface AgentMemoryProposalResolveResponse {
+  success: boolean;
+  /** The saved record on accept. */
+  memory?: StudioMemory;
   error?: string;
 }

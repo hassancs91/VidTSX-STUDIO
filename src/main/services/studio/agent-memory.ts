@@ -75,6 +75,8 @@ export interface UpsertMemoryInput {
   text: string;
   aliases?: string[];
   brandId?: string;
+  /** Agents plan §1.10 — scope this entry to one installed agent. */
+  agentId?: string;
   source: StudioMemorySource;
 }
 
@@ -96,9 +98,20 @@ function normalizeRecord(raw: unknown): StudioMemory | null {
   if (typeof doc.text !== 'string') return null;
   const text = normalizeText(doc.kind, doc.text).slice(0, MEMORY_TEXT_LIMITS[doc.kind]);
   if (text.length === 0) return null;
+  // Agent provenance no longer requires a projectId: an agents-side proposal
+  // carries an agentId instead (§1.10). Either identifies where it came from.
   const source: StudioMemorySource =
-    doc.source && doc.source.by === 'agent' && typeof doc.source.projectId === 'string'
-      ? { by: 'agent', projectId: doc.source.projectId, acceptedAt: String(doc.source.acceptedAt ?? '') }
+    doc.source && doc.source.by === 'agent'
+      ? {
+          by: 'agent',
+          ...(typeof doc.source.projectId === 'string' && doc.source.projectId
+            ? { projectId: doc.source.projectId }
+            : {}),
+          ...(typeof doc.source.agentId === 'string' && doc.source.agentId
+            ? { agentId: doc.source.agentId }
+            : {}),
+          acceptedAt: String(doc.source.acceptedAt ?? ''),
+        }
       : { by: 'user' };
   const aliases = normalizeAliases(
     Array.isArray(doc.aliases) ? doc.aliases.filter((a): a is string => typeof a === 'string') : undefined,
@@ -109,6 +122,7 @@ function normalizeRecord(raw: unknown): StudioMemory | null {
     text,
     ...(aliases.length > 0 ? { aliases } : {}),
     ...(typeof doc.brandId === 'string' && doc.brandId ? { brandId: doc.brandId } : {}),
+    ...(typeof doc.agentId === 'string' && doc.agentId ? { agentId: doc.agentId } : {}),
     active: doc.active !== false,
     source,
     createdAt: typeof doc.createdAt === 'string' ? doc.createdAt : EPOCH,
@@ -159,13 +173,18 @@ async function writeFileAtomic(memories: StudioMemory[]): Promise<void> {
   await fs.rename(tmpPath, filePath);
 }
 
-function assertRuleCap(memories: StudioMemory[], excludeId?: string): void {
+/** The cap is counted PER SCOPE (§1.10): an agent's own rules are their own
+ *  budget, so one busy agent cannot use up the app-wide allowance and vice
+ *  versa. With no agent-scoped entries in the store this counts exactly what it
+ *  counted before, which is why Studio's behaviour is unchanged. */
+function assertRuleCap(memories: StudioMemory[], excludeId?: string, agentId?: string): void {
   const activeRules = memories.filter(
-    (m) => m.kind === 'rule' && m.active && m.id !== excludeId,
+    (m) => m.kind === 'rule' && m.active && m.id !== excludeId && m.agentId === agentId,
   ).length;
   if (activeRules >= MAX_ACTIVE_RULES) {
+    const scope = agentId ? ' for this agent' : '';
     throw new Error(
-      `You already have ${MAX_ACTIVE_RULES} active rules (the cap). Deactivate one to make room.`,
+      `You already have ${MAX_ACTIVE_RULES} active rules${scope} (the cap). Deactivate one to make room.`,
     );
   }
 }
@@ -202,6 +221,7 @@ export async function upsertMemory(input: UpsertMemoryInput): Promise<StudioMemo
       text,
       ...(aliases.length > 0 ? { aliases } : {}),
       ...(input.brandId ? { brandId: input.brandId } : {}),
+      ...(input.agentId ? { agentId: input.agentId } : {}),
       active: existing?.active ?? true,
       source: existing?.source ?? input.source,
       createdAt: existing?.createdAt ?? now,
@@ -209,7 +229,7 @@ export async function upsertMemory(input: UpsertMemoryInput): Promise<StudioMemo
     };
 
     if (record.kind === 'rule' && record.active) {
-      assertRuleCap(memories, record.id);
+      assertRuleCap(memories, record.id, record.agentId);
     }
 
     const next = existing
@@ -227,7 +247,7 @@ export async function setMemoryActive(id: string, active: boolean): Promise<Stud
     if (!existing) throw new Error(`Unknown memory id: ${id}`);
     if (existing.active === active) return existing;
     if (active && existing.kind === 'rule') {
-      assertRuleCap(memories, id);
+      assertRuleCap(memories, id, existing.agentId);
     }
     const record: StudioMemory = { ...existing, active, updatedAt: new Date().toISOString() };
     await writeFileAtomic(memories.map((m) => (m.id === id ? record : m)));

@@ -550,6 +550,8 @@ export interface ElectronAPI {
   agentArtifactResolve: (data: import('../../shared/ipc/types').AgentArtifactResolveRequest) => Promise<import('../../shared/ipc/types').AgentArtifactResolveResponse>;
   agentArtifactAction: (data: import('../../shared/ipc/types').AgentArtifactActionRequest) => Promise<import('../../shared/ipc/types').AgentArtifactActionResponse>;
   agentJobUpdate: (data: import('../../shared/ipc/types').AgentJobUpdateRequest) => Promise<import('../../shared/ipc/types').AgentJobUpdateResponse>;
+  agentMemoryProposalsGet: (data: import('../../shared/ipc/types').AgentMemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').AgentMemoryProposalsGetResponse>;
+  agentMemoryProposalResolve: (data: import('../../shared/ipc/types').AgentMemoryProposalResolveRequest) => Promise<import('../../shared/ipc/types').AgentMemoryProposalResolveResponse>;
 }
 
 declare global {
