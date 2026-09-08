@@ -223,6 +223,7 @@ class VideoEngine {
       providerId: provider.id,
       providerJobId,
       featureSource: request.featureSource ?? 'other',
+      ...(request.agentId ? { agentId: request.agentId } : {}),
       request: summarizeRequest(normalized, request.folderId),
       submittedAt: now,
       updatedAt: now,
@@ -254,6 +255,7 @@ class VideoEngine {
       providerId: record.providerId,
       model: record.request.model,
       featureSource: record.featureSource,
+      ...(record.agentId ? { agentId: record.agentId } : {}),
       // The catalog's per-second estimate is the only cost figure fal gives;
       // BytePlus bills on the tokens it reports, which ride along untouched.
       // A model that publishes a rate for the requested resolution is billed

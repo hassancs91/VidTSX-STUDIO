@@ -1,4 +1,4 @@
-import type { AiUsageSummary, AiUsagePeriod, AiUsageMetric, AiUsageChartData, AiUsageEntry, AiFeatureSource } from '@shared/types/ai-usage';
+import type { AiUsageAgentTotal, AiUsageSummary, AiUsagePeriod, AiUsageMetric, AiUsageChartData, AiUsageEntry, AiFeatureSource } from '@shared/types/ai-usage';
 
 // ─── AI Usage tracking ───
 export interface AiUsageGetSummaryRequest {
@@ -33,6 +33,20 @@ export interface AiUsageGetLogRequest {
   offset?: number;
   provider?: string;
   featureSource?: AiFeatureSource;
+  /** `<namespace>/<name>` — one agent's own rows (agents plan §9). */
+  agentId?: string;
+}
+
+export interface AiUsageGetAgentsRequest {
+  startDate?: string;
+  endDate?: string;
+  provider?: string;
+}
+
+export interface AiUsageGetAgentsResponse {
+  success: boolean;
+  agents?: AiUsageAgentTotal[];
+  error?: string;
 }
 
 export interface AiUsageGetLogResponse {

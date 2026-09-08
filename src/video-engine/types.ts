@@ -49,6 +49,9 @@ export interface VideoGenerationRequest {
   folderId?: string | null;
   /** Which surface submitted the job — the usage log's featureSource. */
   featureSource?: AiFeatureSource;
+  /** `<namespace>/<name>` when an agent asked for it (agents plan §9). Rides
+   *  alongside `featureSource` for the same reason and to the same place. */
+  agentId?: string;
   /** Main-process callers only: aborts the submit request and the job. */
   signal?: AbortSignal;
 }
@@ -176,6 +179,7 @@ export interface VideoJobRecord {
   providerId: VideoProviderId;
   providerJobId: string;
   featureSource: AiFeatureSource;
+  agentId?: string;
   request: VideoJobRequestSummary;
   submittedAt: number;
   updatedAt: number;
@@ -242,6 +246,7 @@ export interface VideoUsageEntry {
   providerId: VideoProviderId;
   model: string;
   featureSource: AiFeatureSource;
+  agentId?: string;
   costUsd: number;
   durationMs: number;
   /** Provider-reported output tokens (BytePlus bills on these). */

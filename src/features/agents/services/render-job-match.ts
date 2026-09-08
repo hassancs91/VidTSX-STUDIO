@@ -69,3 +69,35 @@ export function matchRenderJob(
     (a) => a.payload.outputRelPath && output.endsWith(normalize(a.payload.outputRelPath)),
   );
 }
+
+/**
+ * The queue row a `job` artifact belongs to, or undefined — the SAME matching
+ * rule as `matchRenderJob`, run the other way.
+ *
+ * Both directions are needed and neither is derivable from the other in a
+ * component: the reporting effect walks the ROWS and asks which artifact each
+ * belongs to, while the stage holds ONE artifact and asks which row is showing
+ * its progress. Stage 5 fixed only the first, which is why from the moment a
+ * render actually started the stage showed no progress bar and no Cancel button
+ * — `liveJob` was still looking the row up by the artifact's own job id, and
+ * that id had just been rewritten (see the note at the top of this file). No
+ * orphan job was left behind, but the user had no way to cancel one either.
+ *
+ * The id is tried first, for the same reason: it is exact while the row still
+ * wears it. On the path fallback a LIVE row wins over a settled one, because an
+ * agent that renders twice to the same output name leaves two rows sharing a
+ * path and only one of them is the render this artifact is waiting on.
+ */
+export function matchRenderRow<TRow extends QueueRowIdentity & { status?: string }>(
+  artifact: AgentArtifact,
+  rows: readonly TRow[],
+): TRow | undefined {
+  if (artifact.kind !== 'job' || artifact.payload.job !== 'render') return undefined;
+  const byId = rows.find((row) => row.id === artifact.payload.jobId);
+  if (byId) return byId;
+  const relPath = artifact.payload.outputRelPath;
+  if (!relPath) return undefined;
+  const suffix = normalize(relPath);
+  const byPath = rows.filter((row) => row.outputPath && normalize(row.outputPath).endsWith(suffix));
+  return byPath.find((row) => row.status === 'queued' || row.status === 'rendering') ?? byPath[0];
+}

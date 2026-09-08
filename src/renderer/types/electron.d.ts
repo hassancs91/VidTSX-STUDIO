@@ -101,6 +101,8 @@ import type {
   AiUsageGetChartRequest,
   AiUsageGetChartResponse,
   AiUsageGetLogRequest,
+  AiUsageGetAgentsRequest,
+  AiUsageGetAgentsResponse,
   AiUsageGetLogResponse,
   AiUsageClearResponse,
   ModerationCheckRequest,
@@ -373,6 +375,7 @@ export interface ElectronAPI {
   aiUsageGetSummary: (data: AiUsageGetSummaryRequest) => Promise<AiUsageGetSummaryResponse>;
   aiUsageGetChart: (data: AiUsageGetChartRequest) => Promise<AiUsageGetChartResponse>;
   aiUsageGetLog: (data: AiUsageGetLogRequest) => Promise<AiUsageGetLogResponse>;
+  aiUsageGetAgents: (data: AiUsageGetAgentsRequest) => Promise<AiUsageGetAgentsResponse>;
   aiUsageClear: () => Promise<AiUsageClearResponse>;
 
   // Flows (node-graph builder) projects

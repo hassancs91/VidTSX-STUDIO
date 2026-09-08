@@ -46,6 +46,7 @@ function installFinishing(): void {
         costUsd: usage.costUsd,
         durationMs: usage.durationMs,
         requestType: 'video',
+        ...(usage.agentId ? { agentId: usage.agentId } : {}),
       })
       .catch(() => {});
   });

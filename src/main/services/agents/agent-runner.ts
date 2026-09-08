@@ -203,6 +203,7 @@ export class AgentRunner {
         abort.signal,
         (delta) => this.hooks.emit({ sessionId, kind: 'delta', text: delta }),
         {
+          agentId: ctx.session.agentId,
           ...(built ? { mcpServers: { [AGENT_MCP_SERVER_NAME]: built.server } } : {}),
           ...(fileTools
             ? { cwd: ctx.workspaceDir, canUseTool: createFileToolGuard(ctx.workspaceDir) }

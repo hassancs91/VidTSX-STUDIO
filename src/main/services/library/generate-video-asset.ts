@@ -46,6 +46,8 @@ export interface SubmitVideoAssetRequest {
   /** Who asked: Studio's own shot assets by default, `'agent'` for the
    *  `generate_video` tool. Only affects the usage log's attribution. */
   featureSource?: AiFeatureSource;
+  /** `<namespace>/<name>` when an agent asked for it (agents plan §9). */
+  agentId?: string;
   /** Cancels the submit AND the provider job — a cancelled run stops paying. */
   signal?: AbortSignal;
 }
@@ -94,6 +96,7 @@ export async function submitVideoAsset(req: SubmitVideoAssetRequest): Promise<Vi
     ...(req.firstFrame ? { firstFrame: req.firstFrame } : {}),
     ...(req.lastFrame ? { lastFrame: req.lastFrame } : {}),
     featureSource: req.featureSource ?? 'studio-shot-asset',
+    ...(req.agentId ? { agentId: req.agentId } : {}),
     ...(req.signal ? { signal: req.signal } : {}),
   });
 }

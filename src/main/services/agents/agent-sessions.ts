@@ -64,26 +64,46 @@ export function agentWorkspaceDir(agentId: string, sessionId: string): string {
   return path.join(agentSessionDir(agentId, sessionId), WORK_DIR_NAME);
 }
 
-async function readJsonFile(file: string): Promise<unknown | null> {
+/** Rotate, never delete (the store rule): a session the user spent an hour on
+ *  must not vanish because one write was interrupted. */
+async function rotateCorruptFile(file: string, reason: string): Promise<void> {
+  const aside = file.replace(/\.json$/, `.corrupt.${Date.now()}.json`);
+  await fs.rename(file, aside).catch(() => {});
+  log.warn('Corrupt session file set aside', { aside, error: reason });
+}
+
+/**
+ * Read one of a session's JSON files, rotating anything unusable aside.
+ *
+ * `isValid` matters as much as the parse does. A file that parses but carries
+ * the wrong SHAPE used to fall straight through to the caller's default — and
+ * for `chat.json` the caller's default is an empty transcript, which the next
+ * `appendAgentChat` would then write back over the top of. Bad JSON was safe
+ * and good JSON of the wrong shape silently destroyed the history; both are
+ * corruption, so both rotate.
+ */
+async function readJsonFile(
+  file: string,
+  isValid?: (value: unknown) => boolean,
+): Promise<unknown | null> {
   let raw: string;
   try {
     raw = await fs.readFile(file, 'utf-8');
   } catch {
     return null;
   }
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as unknown;
+    parsed = JSON.parse(raw) as unknown;
   } catch (err) {
-    // Rotate, never delete (the store rule): a session the user spent an hour
-    // on must not vanish because one write was interrupted.
-    const aside = file.replace(/\.json$/, `.corrupt.${Date.now()}.json`);
-    await fs.rename(file, aside).catch(() => {});
-    log.warn('Corrupt session file set aside', {
-      aside,
-      error: err instanceof Error ? err.message : String(err),
-    });
+    await rotateCorruptFile(file, err instanceof Error ? err.message : String(err));
     return null;
   }
+  if (isValid && !isValid(parsed)) {
+    await rotateCorruptFile(file, 'parsed but did not match the expected shape');
+    return null;
+  }
+  return parsed;
 }
 
 /** Temp file then rename, so a crash leaves the previous version intact. */
@@ -154,6 +174,7 @@ export async function readAgentSession(
 ): Promise<AgentSession | null> {
   const raw = await readJsonFile(
     path.join(agentSessionDir(agentId, sessionId), SESSION_FILE_NAME),
+    isSession,
   );
   if (!isSession(raw)) return null;
   // A pending question is the one field in here that a CARD renders directly,
@@ -226,7 +247,7 @@ export async function listAgentSessions(agentId: string): Promise<AgentSessionSu
   for (const entry of entries) {
     if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
     const dir = path.join(root, entry.name);
-    const raw = await readJsonFile(path.join(dir, SESSION_FILE_NAME));
+    const raw = await readJsonFile(path.join(dir, SESSION_FILE_NAME), isSession);
     if (!isSession(raw)) continue;
     const artifacts = await readArtifacts(dir);
     const thumbnail = raw.thumbnailRelPath ?? thumbnailFrom(artifacts);
@@ -249,14 +270,23 @@ export async function deleteAgentSession(agentId: string, sessionId: string): Pr
   log.info('Deleted agent session', { agentId, sessionId });
 }
 
+function isPersistedChat(value: unknown): value is PersistedChat {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as Partial<PersistedChat>).messages)
+  );
+}
+
 export async function readAgentChat(
   agentId: string,
   sessionId: string,
 ): Promise<AgentChatMessage[]> {
-  const raw = await readJsonFile(path.join(agentSessionDir(agentId, sessionId), CHAT_FILE_NAME));
-  if (typeof raw !== 'object' || raw === null) return [];
-  const messages = (raw as Partial<PersistedChat>).messages;
-  return Array.isArray(messages) ? messages : [];
+  const raw = await readJsonFile(
+    path.join(agentSessionDir(agentId, sessionId), CHAT_FILE_NAME),
+    isPersistedChat,
+  );
+  return isPersistedChat(raw) ? raw.messages : [];
 }
 
 export async function writeAgentChat(

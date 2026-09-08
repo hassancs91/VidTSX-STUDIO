@@ -366,6 +366,7 @@ export const IPC = {
   AI_USAGE_GET_SUMMARY: 'ai-usage:get-summary',
   AI_USAGE_GET_CHART: 'ai-usage:get-chart',
   AI_USAGE_GET_LOG: 'ai-usage:get-log',
+  AI_USAGE_GET_AGENTS: 'ai-usage:get-agents',
   AI_USAGE_CLEAR: 'ai-usage:clear',
 
   // Studio (AI video editor) — projects & media

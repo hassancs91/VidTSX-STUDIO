@@ -32,6 +32,16 @@ export interface AiUsageEntry {
   costUsd: number;
   durationMs: number;
   requestType: AiRequestType;
+  /**
+   * Which installed agent the request was made for — `<namespace>/<name>`,
+   * set only when `featureSource` is `'agent'` (agents plan §9).
+   *
+   * `featureSource` alone cannot answer "what did this agent cost me", and it
+   * never will: every agent shares the one source. It is optional because rows
+   * logged before the column existed have no agent, and because most of the
+   * app is not an agent at all.
+   */
+  agentId?: string;
 }
 
 /** Aggregated summary for the dashboard */
@@ -69,6 +79,17 @@ export interface AiUsageFilter {
   endDate?: string;
   provider?: string;
   featureSource?: AiFeatureSource;
+  agentId?: string;
+}
+
+/** One agent's share of the usage in a window — the by-agent breakdown. */
+export interface AiUsageAgentTotal {
+  agentId: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  costUsd: number;
 }
 
 /** Versioned storage format */

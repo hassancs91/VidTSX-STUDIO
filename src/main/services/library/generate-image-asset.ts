@@ -11,6 +11,7 @@ import { ensureLibraryRoot } from './library-paths';
 import { upsertEntry } from './library-store';
 import { readBrand } from './brand-store';
 import { GENERATED_FOLDER, reserveLibraryFile, sanitizeFolder, slugify } from './library-filing';
+import type { AiFeatureSource } from '../../../shared/types/ai-usage';
 
 export type ImageAspect = 'square' | 'landscape' | 'portrait';
 
@@ -30,6 +31,10 @@ export interface GenerateImageAssetRequest {
    *  untagged — the image is still made. */
   brandId?: string;
   signal?: AbortSignal;
+  /** Usage attribution. Defaults to Studio's shot asset, its first caller. */
+  featureSource?: AiFeatureSource;
+  /** `<namespace>/<name>` when an agent asked for it (agents plan §9). */
+  agentId?: string;
 }
 
 export interface GeneratedImageAsset {
@@ -66,13 +71,14 @@ export async function generateImageAsset(
       timestamp: new Date().toISOString(),
       provider: imageEngine.getActiveProvider() ?? 'unknown',
       model: result.model || 'unknown',
-      featureSource: 'studio-shot-asset',
+      featureSource: req.featureSource ?? 'studio-shot-asset',
       inputTokens: 0,
       outputTokens: 0,
       cacheReadInputTokens: 0,
       costUsd: 0,
       durationMs: result.durationMs ?? 0,
       requestType: 'image',
+      ...(req.agentId ? { agentId: req.agentId } : {}),
     })
     .catch(() => {});
 

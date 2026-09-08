@@ -34,7 +34,20 @@ export async function validateAgentCompositionCode(code: string): Promise<TsxVal
   return { success: true };
 }
 
-export function buildAgentTsxDeps(providerId: string | undefined, signal?: AbortSignal): TsxEngineDeps {
+/**
+ * `agentId` is stamped on every usage row the pipeline produces (§9).
+ *
+ * It matters more here than on the runner's own turns: a composition costs
+ * several pipeline calls — draft, fix loop, sometimes a repair — and Stage 5's
+ * token tables measured roughly two thirds of a run's wall clock on this side.
+ * Attributing only the chat turns would have credited each agent with a
+ * fraction of what it actually spends.
+ */
+export function buildAgentTsxDeps(
+  providerId: string | undefined,
+  signal?: AbortSignal,
+  agentId?: string,
+): TsxEngineDeps {
   return {
     llmGenerate: (req) =>
       runLlmGenerate(
@@ -44,6 +57,8 @@ export function buildAgentTsxDeps(providerId: string | undefined, signal?: Abort
           featureSource: 'agent',
         },
         signal,
+        undefined,
+        agentId ? { agentId } : undefined,
       ),
     tsxValidate: (req) => validateAgentCompositionCode(req.code),
   };

@@ -6,6 +6,8 @@ import type {
   AiUsageGetChartResponse,
   AiUsageGetLogRequest,
   AiUsageGetLogResponse,
+  AiUsageGetAgentsRequest,
+  AiUsageGetAgentsResponse,
   AiUsageGetSummaryRequest,
   AiUsageGetSummaryResponse,
 } from '../../shared/ipc/types';
@@ -19,6 +21,8 @@ export const aiUsageApi = {
     ipcRenderer.invoke(IPC.AI_USAGE_GET_CHART, data),
   aiUsageGetLog: (data: AiUsageGetLogRequest): Promise<AiUsageGetLogResponse> =>
     ipcRenderer.invoke(IPC.AI_USAGE_GET_LOG, data),
+  aiUsageGetAgents: (data: AiUsageGetAgentsRequest): Promise<AiUsageGetAgentsResponse> =>
+    ipcRenderer.invoke(IPC.AI_USAGE_GET_AGENTS, data),
   aiUsageClear: (): Promise<AiUsageClearResponse> =>
     ipcRenderer.invoke(IPC.AI_USAGE_CLEAR),
 };

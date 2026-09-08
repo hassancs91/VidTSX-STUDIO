@@ -3,6 +3,7 @@ import { app } from 'electron';
 import { mkdirSync } from 'fs';
 import path from 'path';
 import type {
+  AiUsageAgentTotal,
   AiUsageEntry,
   AiUsageFilter,
   AiUsageSummary,
@@ -50,14 +51,42 @@ export function getDb(): Database.Database {
       cache_read_input_tokens INTEGER NOT NULL,
       cost_usd REAL NOT NULL,
       duration_ms INTEGER NOT NULL,
-      request_type TEXT NOT NULL
+      request_type TEXT NOT NULL,
+      agent_id TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_ai_usage_timestamp_desc ON ai_usage_entries(timestamp DESC);
     CREATE INDEX IF NOT EXISTS idx_ai_usage_provider ON ai_usage_entries(provider);
     CREATE INDEX IF NOT EXISTS idx_ai_usage_feature_source ON ai_usage_entries(feature_source);
   `);
 
+  addMissingColumns(db);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_ai_usage_agent_id ON ai_usage_entries(agent_id);');
+
   return db;
+}
+
+/**
+ * Additive migration for a database that predates a column.
+ *
+ * `CREATE TABLE IF NOT EXISTS` above does nothing to an existing table, so a
+ * user upgrading into the agents release has a table with no `agent_id`, and
+ * every insert naming it would throw — taking the whole usage log down over a
+ * column that only agents fill. Adding it here is safe both ways: SQLite's
+ * `ADD COLUMN` is O(1) and the existing rows read back as NULL, which is
+ * exactly what "this request was not made for an agent" means.
+ *
+ * The index is created afterwards, and outside this function, because it names
+ * the column and would fail on the same old database if it ran first.
+ */
+function addMissingColumns(database: Database.Database): void {
+  const columns = database.prepare('PRAGMA table_info(ai_usage_entries)').all() as {
+    name: string;
+  }[];
+  const have = new Set(columns.map((c) => c.name));
+  if (!have.has('agent_id')) {
+    database.exec('ALTER TABLE ai_usage_entries ADD COLUMN agent_id TEXT');
+    log.info('Added agent_id to the AI usage table');
+  }
 }
 
 export function closeDb(): void {
@@ -86,6 +115,7 @@ interface UsageRow {
   cost_usd: number;
   duration_ms: number;
   request_type: string;
+  agent_id: string | null;
 }
 
 function rowToEntry(row: UsageRow): AiUsageEntry {
@@ -101,6 +131,7 @@ function rowToEntry(row: UsageRow): AiUsageEntry {
     costUsd: row.cost_usd,
     durationMs: row.duration_ms,
     requestType: row.request_type as AiRequestType,
+    ...(row.agent_id ? { agentId: row.agent_id } : {}),
   };
 }
 
@@ -130,6 +161,10 @@ function buildWhere(filter: AiUsageFilter): WhereClause {
     conditions.push('feature_source = ?');
     params.push(filter.featureSource);
   }
+  if (filter.agentId) {
+    conditions.push('agent_id = ?');
+    params.push(filter.agentId);
+  }
   const sql = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
   return { sql, params };
 }
@@ -142,8 +177,8 @@ export function insertEntry(entry: AiUsageEntry): void {
   const insert = database.prepare(
     `INSERT INTO ai_usage_entries
        (id, timestamp, provider, model, feature_source, input_tokens, output_tokens,
-        cache_read_input_tokens, cost_usd, duration_ms, request_type)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        cache_read_input_tokens, cost_usd, duration_ms, request_type, agent_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const txn = database.transaction(() => {
@@ -158,7 +193,8 @@ export function insertEntry(entry: AiUsageEntry): void {
       entry.cacheReadInputTokens,
       entry.costUsd,
       entry.durationMs,
-      entry.requestType
+      entry.requestType,
+      entry.agentId ?? null
     );
     enforceMaxEntries(database);
   });
@@ -189,8 +225,8 @@ export function bulkInsert(entries: AiUsageEntry[]): void {
   const insert = database.prepare(
     `INSERT OR IGNORE INTO ai_usage_entries
        (id, timestamp, provider, model, feature_source, input_tokens, output_tokens,
-        cache_read_input_tokens, cost_usd, duration_ms, request_type)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        cache_read_input_tokens, cost_usd, duration_ms, request_type, agent_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   const txn = database.transaction((batch: AiUsageEntry[]) => {
@@ -206,7 +242,8 @@ export function bulkInsert(entries: AiUsageEntry[]): void {
         e.cacheReadInputTokens,
         e.costUsd,
         e.durationMs,
-        e.requestType
+        e.requestType,
+        e.agentId ?? null
       );
     }
     enforceMaxEntries(database);
@@ -290,4 +327,31 @@ export function getLog(
 export function clearAll(): void {
   const database = getDb();
   database.prepare('DELETE FROM ai_usage_entries').run();
+}
+
+/**
+ * Usage grouped by agent, biggest spender first (agents plan §9).
+ *
+ * Rows with no `agent_id` are excluded rather than bucketed as "unknown": every
+ * request the app makes outside an agent is one of those, so an "unknown" row
+ * would simply be the whole rest of the app under a misleading name.
+ */
+export function getAgentTotals(filter: AiUsageFilter): AiUsageAgentTotal[] {
+  const database = getDb();
+  const where = buildWhere(filter);
+  const clause = where.sql ? `${where.sql} AND agent_id IS NOT NULL` : ' WHERE agent_id IS NOT NULL';
+  return database
+    .prepare(
+      `SELECT
+         agent_id AS agentId,
+         COUNT(*) AS requests,
+         COALESCE(SUM(input_tokens), 0) AS inputTokens,
+         COALESCE(SUM(output_tokens), 0) AS outputTokens,
+         COALESCE(SUM(cache_read_input_tokens), 0) AS cacheReadInputTokens,
+         COALESCE(SUM(cost_usd), 0) AS costUsd
+       FROM ai_usage_entries${clause}
+       GROUP BY agent_id
+       ORDER BY costUsd DESC, requests DESC`
+    )
+    .all(...where.params) as AiUsageAgentTotal[];
 }

@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useRenderQueue } from '@features/render-queue';
 import type { RenderQueueJobStatus } from '@shared/ipc/types';
 import type { AgentArtifact, AgentJobRequest, AgentJobStatus } from '@shared/types/agents';
-import { matchRenderJob } from '../services/render-job-match';
+import { matchRenderJob, matchRenderRow } from '../services/render-job-match';
 
 /** Queue vocabulary → artifact vocabulary. */
 const STATUS: Record<RenderQueueJobStatus, AgentJobStatus> = {
@@ -93,9 +93,15 @@ export function useAgentRenderBridge(
     [cancelJob],
   );
 
-  /** Live progress for the job viewer, straight off the queue row. */
+  /** Live progress for the job viewer, straight off the queue row.
+   *
+   *  Takes the ARTIFACT, not its job id: the id it carries stops naming a row
+   *  the moment the render starts, so looking a row up by it meant the stage
+   *  went blank — no progress, no Cancel — for exactly the span in which
+   *  cancelling is the thing the user wants. `matchRenderRow` is the same rule
+   *  the reporting direction uses, inverted. */
   const liveJob = useCallback(
-    (jobId: string) => jobs.find((j) => j.id === jobId) ?? null,
+    (artifact: AgentArtifact) => matchRenderRow(artifact, jobs) ?? null,
     [jobs],
   );
 

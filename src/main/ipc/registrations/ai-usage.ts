@@ -4,6 +4,7 @@ import {
   handleAiUsageGetSummary,
   handleAiUsageGetChart,
   handleAiUsageGetLog,
+  handleAiUsageGetAgents,
   handleAiUsageClear,
 } from '../ai-usage-handlers';
 
@@ -11,5 +12,6 @@ export function registerAiUsageIpc(): void {
   ipcMain.handle(IPC.AI_USAGE_GET_SUMMARY, handleAiUsageGetSummary);
   ipcMain.handle(IPC.AI_USAGE_GET_CHART, handleAiUsageGetChart);
   ipcMain.handle(IPC.AI_USAGE_GET_LOG, handleAiUsageGetLog);
+  ipcMain.handle(IPC.AI_USAGE_GET_AGENTS, handleAiUsageGetAgents);
   ipcMain.handle(IPC.AI_USAGE_CLEAR, handleAiUsageClear);
 }

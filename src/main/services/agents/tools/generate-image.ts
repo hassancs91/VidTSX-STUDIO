@@ -37,6 +37,11 @@ export const generateImageTool: AgentToolDef<GenerateImageArgs> = {
     try {
       const asset = await generateImageAsset({
         prompt: args.prompt,
+        // §9: an agent's image must log as the AGENT's, not as Studio's shot
+        // asset — which is what it did until this stage, because
+        // `generateImageAsset` hard-coded its first caller's source.
+        featureSource: 'agent',
+        agentId: ctx.agentId,
         ...(args.aspect ? { aspect: args.aspect } : {}),
         ...(ctx.libraryFolder ? { folder: ctx.libraryFolder } : {}),
         ...(ctx.brandId ? { brandId: ctx.brandId } : {}),

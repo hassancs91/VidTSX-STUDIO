@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { AiUsageSummary, AiUsageChartData, AiUsageEntry, AiUsagePeriod, AiUsageMetric } from '../../shared/types/ai-usage';
+import type { AiUsageAgentTotal, AiUsageSummary, AiUsageChartData, AiUsageEntry, AiUsagePeriod, AiUsageMetric } from '../../shared/types/ai-usage';
 
 export function useAiUsage() {
   const [summary, setSummary] = useState<AiUsageSummary | null>(null);
@@ -10,6 +10,9 @@ export function useAiUsage() {
   const [metric, setMetric] = useState<AiUsageMetric>('tokens');
   const [loading, setLoading] = useState(true);
   const [providerFilter, setProviderFilter] = useState<string | undefined>(undefined);
+  /** Usage grouped by agent, and the agent the log is narrowed to (§9). */
+  const [agentTotals, setAgentTotals] = useState<AiUsageAgentTotal[]>([]);
+  const [agentFilter, setAgentFilter] = useState<string | undefined>(undefined);
 
   const loadSummary = useCallback(async () => {
     const res = await window.api.aiUsageGetSummary({ provider: providerFilter });
@@ -25,8 +28,18 @@ export function useAiUsage() {
     }
   }, [period, metric, providerFilter]);
 
+  const loadAgents = useCallback(async () => {
+    const res = await window.api.aiUsageGetAgents({ provider: providerFilter });
+    if (res.success && res.agents) setAgentTotals(res.agents);
+  }, [providerFilter]);
+
   const loadLog = useCallback(async (offset = 0) => {
-    const res = await window.api.aiUsageGetLog({ limit: 50, offset, provider: providerFilter });
+    const res = await window.api.aiUsageGetLog({
+      limit: 50,
+      offset,
+      provider: providerFilter,
+      ...(agentFilter ? { agentId: agentFilter } : {}),
+    });
     if (res.success && res.entries) {
       if (offset === 0) {
         setLogEntries(res.entries);
@@ -35,13 +48,13 @@ export function useAiUsage() {
       }
       setLogTotal(res.total ?? 0);
     }
-  }, [providerFilter]);
+  }, [providerFilter, agentFilter]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    await Promise.all([loadSummary(), loadChart(), loadLog(0)]);
+    await Promise.all([loadSummary(), loadChart(), loadAgents(), loadLog(0)]);
     setLoading(false);
-  }, [loadSummary, loadChart, loadLog]);
+  }, [loadSummary, loadChart, loadAgents, loadLog]);
 
   const loadMore = useCallback(() => {
     loadLog(logEntries.length);
@@ -53,6 +66,8 @@ export function useAiUsage() {
     setChartData(null);
     setLogEntries([]);
     setLogTotal(0);
+    setAgentTotals([]);
+    setAgentFilter(undefined);
   }, []);
 
   // Initial load
@@ -65,6 +80,12 @@ export function useAiUsage() {
     loadChart();
   }, [loadChart]);
 
+  // Narrowing the log to one agent re-reads only the log; the totals above it
+  // are what the user is choosing FROM, so they must not move underneath them.
+  useEffect(() => {
+    void loadLog(0);
+  }, [loadLog]);
+
   return {
     summary,
     chartData,
@@ -76,6 +97,9 @@ export function useAiUsage() {
     setMetric,
     providerFilter,
     setProviderFilter,
+    agentTotals,
+    agentFilter,
+    setAgentFilter,
     loading,
     refresh,
     loadMore,

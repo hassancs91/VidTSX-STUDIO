@@ -27,6 +27,8 @@ import {
   readAgentChat,
   readAgentSession,
   setPendingInteraction,
+  writeAgentChat,
+  CHAT_FILE_NAME,
   SESSION_FILE_NAME,
 } from './agent-sessions';
 import type { InteractionRequest } from '../../../shared/types/agents';
@@ -112,6 +114,55 @@ describe('listAgentSessions', () => {
     // Rotated, never deleted (the store rule).
     const left = await fs.readdir(agentSessionDir(AGENT_ID, bad.id));
     expect(left.some((f) => f.includes('.corrupt.'))).toBe(true);
+  });
+
+  it('rotates a record that parses but is not a session', async () => {
+    // Bad JSON was already safe; GOOD json of the wrong shape used to fall
+    // through to the caller's default with nothing set aside to show for it.
+    const bad = await make('Bad');
+    const badFile = path.join(agentSessionDir(AGENT_ID, bad.id), SESSION_FILE_NAME);
+    await fs.writeFile(badFile, JSON.stringify({ id: 42, title: null }), 'utf-8');
+
+    expect(await readAgentSession(AGENT_ID, bad.id)).toBeNull();
+    const left = await fs.readdir(agentSessionDir(AGENT_ID, bad.id));
+    expect(left.some((f) => f.includes('.corrupt.'))).toBe(true);
+    expect(left).not.toContain(SESSION_FILE_NAME);
+  });
+});
+
+describe('corrupt chat.json', () => {
+  // The transcript is the one file where "read as empty" is actively
+  // destructive: the very next append writes the empty list back over the
+  // history. So a chat file that will not parse, and one that parses into the
+  // wrong shape, are both rotated aside rather than read as nothing.
+  it.each([
+    ['unparseable', '{ "messages": ['],
+    ['parsed but not a chat', JSON.stringify({ version: 1, messages: 'lost' })],
+    ['parsed but not an object', JSON.stringify(['a', 'b'])],
+  ])('rotates a %s transcript instead of silently emptying it', async (_name, body) => {
+    const session = await make();
+    await writeAgentChat(AGENT_ID, session.id, [
+      { id: 'm1', role: 'user', text: 'the history that must not vanish' },
+    ]);
+    const chatFile = path.join(agentSessionDir(AGENT_ID, session.id), CHAT_FILE_NAME);
+    await fs.writeFile(chatFile, body, 'utf-8');
+
+    expect(await readAgentChat(AGENT_ID, session.id)).toEqual([]);
+    const left = await fs.readdir(agentSessionDir(AGENT_ID, session.id));
+    expect(left.some((f) => f.startsWith('chat.corrupt.'))).toBe(true);
+    expect(left).not.toContain(CHAT_FILE_NAME);
+  });
+
+  it('leaves a good transcript alone and appends to it', async () => {
+    const session = await make();
+    await writeAgentChat(AGENT_ID, session.id, [{ id: 'm1', role: 'user', text: 'one' }]);
+    await appendAgentChat(AGENT_ID, session.id, [{ id: 'm2', role: 'assistant', text: 'two' }]);
+    expect((await readAgentChat(AGENT_ID, session.id)).map((m) => m.text)).toEqual([
+      'one',
+      'two',
+    ]);
+    const left = await fs.readdir(agentSessionDir(AGENT_ID, session.id));
+    expect(left.some((f) => f.includes('.corrupt.'))).toBe(false);
   });
 });
 

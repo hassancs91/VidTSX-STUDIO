@@ -100,6 +100,7 @@ export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
         ...(args.resolution ? { resolution: args.resolution } : {}),
         ...(args.generateAudio !== undefined ? { generateAudio: args.generateAudio } : {}),
         featureSource: 'agent',
+        agentId: ctx.agentId,
         // Load-bearing: cancelling the run cancels the provider job, so a
         // cancelled run stops paying for a video.
         signal: ctx.signal,

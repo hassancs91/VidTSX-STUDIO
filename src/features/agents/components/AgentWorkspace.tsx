@@ -95,8 +95,7 @@ export function AgentWorkspace({ agent, onBack }: Props) {
     [actions, run.selected, showToast],
   );
 
-  const liveJob =
-    run.selected?.kind === 'job' ? render.liveJob(run.selected.payload.jobId) : null;
+  const liveJob = run.selected?.kind === 'job' ? render.liveJob(run.selected) : null;
 
   // A pending question renders through the SHARED registry (§1.3), so a wave-2
   // kind is one registry entry and no change here. `answer` sends it as the

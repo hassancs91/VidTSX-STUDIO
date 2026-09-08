@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import type {
+  AiUsageAgentTotal,
   AiUsageEntry,
   AiUsageSummary,
   AiUsageChartData,
@@ -55,6 +56,11 @@ class AiUsageService {
 
   getSummary(filter: AiUsageFilter = {}): AiUsageSummary {
     return db.getSummary(filter);
+  }
+
+  /** Usage grouped by agent (agents plan §9) — biggest spender first. */
+  getAgentTotals(filter: AiUsageFilter = {}): AiUsageAgentTotal[] {
+    return db.getAgentTotals(filter);
   }
 
   getChartData(

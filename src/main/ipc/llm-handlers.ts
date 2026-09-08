@@ -204,6 +204,13 @@ export async function runLlmGenerate(
     /** Agent SDK cwd + permission hook — the agents feature's file-tool guard. */
     cwd?: string;
     canUseTool?: LlmToolPermission;
+    /**
+     * Which installed agent this request is for, stamped on the usage row
+     * (agents plan §9). It lives in `extras` rather than on the request
+     * because it must never come from the renderer: a usage row that can be
+     * attributed by whoever asks is not accounting.
+     */
+    agentId?: string;
   }
 ): Promise<LlmGenerateResponse> {
   try {
@@ -268,6 +275,7 @@ export async function runLlmGenerate(
       costUsd: result.usage?.costUsd ?? 0,
       durationMs,
       requestType: 'llm',
+      ...(extras?.agentId ? { agentId: extras.agentId } : {}),
     }).catch(() => {});
 
     return {

@@ -3,6 +3,7 @@ import { useAiUsage } from '@renderer/hooks/useAiUsage';
 import { AiUsageSummaryCards } from '@renderer/components/AiUsageSummaryCards';
 import { AiUsageChart } from '@renderer/components/AiUsageChart';
 import { AiUsageLogTable } from '@renderer/components/AiUsageLogTable';
+import { AiUsageByAgent } from '@renderer/components/AiUsageByAgent';
 
 export function AiUsageDashboard() {
   const {
@@ -14,6 +15,9 @@ export function AiUsageDashboard() {
     setPeriod,
     metric,
     setMetric,
+    agentTotals,
+    agentFilter,
+    setAgentFilter,
     loading,
     refresh,
     loadMore,
@@ -51,6 +55,9 @@ export function AiUsageDashboard() {
         metric={metric}
         onMetricChange={setMetric}
       />
+
+      {/* By agent — renders nothing until an agent has actually run (§9) */}
+      <AiUsageByAgent agents={agentTotals} selected={agentFilter} onSelect={setAgentFilter} />
 
       {/* Log table */}
       <AiUsageLogTable
