@@ -377,3 +377,61 @@ promptly for a while and then simply never returns, which reads exactly like a
 dead renderer — meanwhile `Runtime.evaluate` still answers in milliseconds. Ping
 with an evaluate before concluding anything, and pass `fromSurface: false`,
 which captures without the compositor and does not hang.
+## Agents: a smoke recipe, and two escaping traps (2026-09-08, agents Stage 6)
+
+The Agents feature is drivable end to end without touching a file dialog. The
+working harness is `.vidtsx-temp/stage6/` (gitignored): `lib.mjs` is the CDP
+driver, `drive.mjs` the card helpers, `enter.mjs` re-enters the workspace after
+an HMR reload, `run.mjs` a whole Motion Post run.
+
+**The smoke test, in order.** Each line is one thing that has broken at least
+once, and the order matters — a step that fails leaves the next one meaningless.
+
+1. **Install without a dialog.** `AGENTS_INSPECT` and `AGENTS_INSTALL` both
+   take a `filePath`, so a driver can go straight through the IPC:
+   `window.api.agentsInspect({ filePath })` then `agentsInstall({ filePath })`.
+   Use forward slashes. `VIDTSX_AGENT_PICK` stands in for the OS picker when
+   you want the *dialog* path instead.
+2. **Leave the workspace before looking for a card.** The gallery is not
+   mounted while an agent workspace is open, so `AgentCard` is simply not in
+   the DOM — click `button[title="All agents"]` first. This is the same shape
+   as the file-association bug Stage 5 found.
+3. **Drive the starter through the ordinary cards.** A select node renders as
+   `[data-interaction-card="pick"]`, a text node as `"form"`. Match candidates
+   on `[data-interaction-option]` and read `aria-pressed`; the card's primary
+   button starts with "Send".
+4. **The opening arrives PREFILLED and is never auto-sent.** Read the composer
+   textarea's `value`, then click `button[title="Send (Enter)"]` yourself.
+5. **A live render shows on the stage.** Select the `job` artifact from the
+   filmstrip (`button[title]` ending in `(job-N)`), and the viewer reads
+   "Render queue · Running" with a **Cancel** button. Both only appear when
+   `matchRenderRow` finds the row, so this is the check that the queue's
+   mid-flight id rewrite is still handled.
+6. **Cancel settles as Cancelled** within a few seconds, with no `video`
+   artifact and no error text. Confirm on disk:
+   `%APPDATA%/VidTSX Studio/agent-sessions/<agent>/<session>/artifacts.json`.
+7. **`ask_user` clears.** With a card up, `session.json` holds
+   `pendingInteraction`; "Skip and chat" empties it within two seconds and the
+   next message goes through normally.
+8. **Usage is attributed.** `window.api.aiUsageGetAgents({})` returns one row
+   per agent, and AI → Providers → Usage shows the same table above the log.
+
+**Pin every reading to ONE artifact.** Reading "whichever Render-queue box is
+on the stage" is fine with one job and meaningless with two — and an agent
+asked to render twice produces two job artifacts on ONE output path. Half a
+session was spent chasing a state I had made ambiguous myself. Select the
+artifact by id first, then read.
+
+**A regex literal inside a `q()` template literal silently loses its
+backslashes.** `/\(job-\d+\)$/` written in the driver arrives at the page as
+`/(job-d+)$/` and matches nothing at all — no error, just an empty result that
+reads exactly like "the feature is broken". The same applies to escaped-bracket
+Tailwind selectors: `'div.rounded-[8px]'` reaches `querySelector` unescaped and
+throws `not a valid selector`. Match with string methods instead —
+`t.indexOf('(job-') > 0`, `t.endsWith(')')` — or find the element by its own
+words. Nothing in a driver needs a regex.
+
+**The action bar's Render navigates to the Queue screen**, which unmounts the
+workspace and with it the render bridge. A live row on the stage can therefore
+only be observed on a render the AGENT started, never on one started from the
+action bar.

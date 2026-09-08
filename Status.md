@@ -7,6 +7,74 @@
 
 ---
 
+## 2026-09-08 — AGENTS Stage 6 DONE: hardening, the author docs, and usage per agent
+
+Stage 6 of `docs/agents-plan.md` (§9) — the last code stage. Everything §9 asks
+for is done or explicitly recorded as not done, and what remains before agents
+can ship is three RELEASE decisions that are Hasan's, not code. Full log with the
+contract deltas and the orphan the real app found: the plan's §9 "Stage 6
+outcome"; the six new acceptance rows are §10 rows 20–25. `check:types` at
+baseline (web 26, node 10); 1753 tests passing, up from 1732.
+
+Scope was agreed first. §9 estimates ~1 session and Stage 5 handed over four
+more things, so four questions were put to Hasan: usage accounting **done
+properly** rather than cut; the render queue's mid-flight id rewrite **not**
+fixed at source; Tools › AI Chat **left in place** (closing open question 2 with
+a decision rather than a deletion); and the content-safety row driven for real.
+
+- **The stage went blank the moment a render started.** Stage 5 fixed the
+  reporting direction of the queue's id rewrite and left the reading direction
+  alone, so `liveJob` still looked a row up by the artifact's own job id — which
+  stops naming a row as soon as the render begins. No progress bar, and no
+  Cancel button, for exactly the span in which cancelling is what you want.
+  `matchRenderRow` is the same rule inverted, beside `matchRenderJob` in the same
+  pure tested module.
+- **An orphan, found only by driving.** Cancelling a render left the NEXT one
+  stuck at "Running" for ever: an agent asked to render one composition twice
+  gets two `job` artifacts sharing ONE output path, and with the first still
+  counted as pending, every update meant for the second matched the first.
+  `pendingRenderJobs` now excludes settled jobs — the rule the session-open
+  reconciler already applied.
+- **A user's cancel is not overwritten by its own error.** Cancelling reports
+  twice, and the cancellation's own "renderMedia() got cancelled" used to win, so
+  a render the user deliberately stopped read as Failed. The first terminal
+  report now stands; only `failed` is refused, so a queue Retry still works.
+- **A transcript that parsed into the wrong shape was silently destroyed.** Bad
+  JSON already rotated aside; good JSON of the wrong shape was read as an empty
+  list, which the next append wrote back over the history. `readJsonFile` now
+  takes a shape check, so `chat.json` and `session.json` join `artifacts.json`
+  under the store rule.
+- **Usage accounting by agent, done rather than cut — a schema change.**
+  `featureSource: 'agent'` cannot say WHICH agent, so `AiUsageEntry` gained
+  `agentId`, the SQLite table gained `agent_id` with an additive migration for
+  databases that predate it, and the AI page grew a by-agent table that filters
+  the log below it. Two producer bugs surfaced on the way: agent images logged as
+  `studio-shot-asset`, and attributing only the chat turns would have credited
+  each agent with a fraction of its real spend — most of a run is the composition
+  pipeline. Both paths are stamped. `ai-usage-db.test.ts` is the first test this
+  repo has had against the real usage store, on node's own SQLite, because
+  `better-sqlite3` is built for Electron's ABI.
+- **§9's content-safety line was wrong.** `generate_composition` does NOT pass
+  through `checkGenerationPrompt` and must not: `CONTENT_SAFETY_DESIGN.md` D0.2
+  gives LLM surfaces zero hooks so that text false positives are structurally
+  impossible. The gate lives on the image and video engines, and it was verified
+  from a real agent tool call — the refusal reached the model verbatim and the
+  run carried on.
+- **Author docs that actually ship a package.** `docs/AGENT_PACKAGE_SPEC.md` is
+  the contract; `docs/examples/agent-starter/` is a working agent that was
+  packed, installed and RUN in the app, not merely validated.
+- **The CDP smoke recipe** is in `docs/ui-automation-cdp.md`, with two escaping
+  traps that cost real time: a regex literal inside a `q()` template literal
+  silently loses its backslashes, and escaped-bracket Tailwind selectors throw.
+
+**Before agents can go out — Hasan's calls, and the first two are coupled:**
+flip `feature-flags.ts` `agents: true`; bump `package.json` **together with**
+both built-ins' `minAppVersion` (raise one alone and either the flag does
+nothing or both built-ins silently vanish from the gallery), re-stamping their
+`files[]` hashes and re-running `agent-pack.mjs --check`; then rebuild the
+installer, which is the only way to prove Windows registers `.vidtsxagent` and
+hands the path over on a real double-click.
+
 ## 2026-09-08 — AGENTS Stage 5 DONE: the built-in agents, the starter, the file association
 
 Stage 5 of `docs/agents-plan.md` (§8). The app now SHIPS agents: two built-ins

@@ -157,6 +157,44 @@ describe('reconcileSessionRenderJobs', () => {
   });
 });
 
+describe('a cancel the user asked for', () => {
+  // Cancelling from the stage reports twice: the queue marks the row cancelled,
+  // and main then reports the render's own completion, which failed because it
+  // was cancelled. Proved in the real app 2026-09-08 — the card read
+  // "Failed | renderMedia() got cancelled" one beat after the user pressed
+  // Cancel.
+  it("is not overwritten by the cancellation's own error", async () => {
+    const job = await seedJob(OUT_REL);
+    await applyRenderJobUpdate(deps, { artifactId: job.id, status: 'running', progress: 30 });
+    await applyRenderJobUpdate(deps, { artifactId: job.id, status: 'cancelled' });
+    await applyRenderJobUpdate(deps, {
+      artifactId: job.id,
+      status: 'failed',
+      error: 'renderMedia() got cancelled',
+    });
+
+    const after = store.get(job.id)!;
+    expect(after.kind).toBe('job');
+    if (after.kind !== 'job') return;
+    expect(after.payload.status).toBe('cancelled');
+    expect(after.payload.error).toBeUndefined();
+    // One settle note, not two.
+    expect(notes.filter((n) => n.includes('cancelled'))).toHaveLength(1);
+    expect(notes.filter((n) => n.includes('failed'))).toHaveLength(0);
+  });
+
+  it('still lets a retried job come back to life', async () => {
+    // `retryJob` reuses the row, so failed → running → completed must keep
+    // working; only `cancelled` refuses a later `failed`.
+    const job = await seedJob(OUT_REL);
+    await applyRenderJobUpdate(deps, { artifactId: job.id, status: 'failed', error: 'boom' });
+    await applyRenderJobUpdate(deps, { artifactId: job.id, status: 'running', progress: 10 });
+    const after = store.get(job.id)!;
+    if (after.kind !== 'job') throw new Error('not a job');
+    expect(after.payload.status).toBe('running');
+  });
+});
+
 describe('buildQueueRequest', () => {
   it('completes the tool half-request with both paths and stamps the artifact', async () => {
     const composition = await store.add(

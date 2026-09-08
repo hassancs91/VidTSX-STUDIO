@@ -41,11 +41,31 @@ function normalize(filePath: string): string {
   return filePath.replace(/\\/g, '/').toLowerCase();
 }
 
-/** Render jobs this session is still waiting to hear about. */
+/**
+ * Render jobs this session is still waiting to hear about.
+ *
+ * A job that has ALREADY SETTLED is not one of them, and leaving it in was an
+ * orphan bug found by driving the app: an agent asked to render the same
+ * composition twice gets two job artifacts sharing one output path (the path is
+ * built from the composition, and `buildQueueRequest` reuses it), so with the
+ * first one still counted as pending, every update meant for the second matched
+ * the FIRST by path. The second sat at "Running" forever with nothing left to
+ * report to it — exactly the orphan §9 asks about, reached by cancelling.
+ *
+ * This is the rule `reconcileSessionRenderJobs` already applies on session open
+ * ("failed or cancelled — leave it alone"), which is where the inconsistency
+ * showed. The one thing it gives up is the queue's Retry on an agent render;
+ * retry already writes to a fresh output path, so that never matched anyway.
+ */
 export function pendingRenderJobs(artifacts: readonly AgentArtifact[]): RenderJobArtifact[] {
   return artifacts.filter(
     (a): a is RenderJobArtifact =>
-      a.kind === 'job' && a.payload.job === 'render' && !a.payload.resultArtifactId,
+      a.kind === 'job' &&
+      a.payload.job === 'render' &&
+      !a.payload.resultArtifactId &&
+      a.payload.status !== 'completed' &&
+      a.payload.status !== 'cancelled' &&
+      a.payload.status !== 'failed',
   );
 }
 
@@ -93,6 +113,12 @@ export function matchRenderRow<TRow extends QueueRowIdentity & { status?: string
   rows: readonly TRow[],
 ): TRow | undefined {
   if (artifact.kind !== 'job' || artifact.payload.job !== 'render') return undefined;
+  // A settled job has no live row to show, and showing one would offer Cancel
+  // for a render that is already over. The viewer gates the button on the
+  // artifact's own status too; this makes the two agree.
+  if (artifact.payload.resultArtifactId) return undefined;
+  const settled = ['completed', 'cancelled', 'failed'];
+  if (settled.includes(artifact.payload.status)) return undefined;
   const byId = rows.find((row) => row.id === artifact.payload.jobId);
   if (byId) return byId;
   const relPath = artifact.payload.outputRelPath;

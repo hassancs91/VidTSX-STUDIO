@@ -1,0 +1,59 @@
+{
+  "formatVersion": 1,
+  "id": "example/hook-writer",
+  "name": "Hook Writer",
+  "version": "1.0.0",
+  "description": "A rough idea, turned into three opening lines and one clean document.",
+  "author": {
+    "name": "Your Name",
+    "url": "https://example.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.0.0",
+  "prompt": "AGENT.md",
+  "tools": ["write_document", "ask_user", "list_artifacts"],
+  "artifacts": ["document"],
+  "interactions": ["pick"],
+  "defaults": {
+    "maxTurns": 12,
+    "effort": "medium"
+  },
+  "starter": {
+    "entry": "topic",
+    "nodes": {
+      "topic": {
+        "question": "What is the video about?",
+        "hint": "One sentence is plenty.",
+        "text": true,
+        "multiline": true,
+        "next": "audience"
+      },
+      "audience": {
+        "question": "Who is it for?",
+        "select": "one",
+        "options": [
+          { "id": "beginners", "label": "People new to this", "next": "tone" },
+          { "id": "practitioners", "label": "People who already do it", "next": "tone" },
+          { "id": "buyers", "label": "People deciding whether to buy", "next": "tone" }
+        ],
+        "allowOther": true,
+        "otherNext": "tone"
+      },
+      "tone": {
+        "question": "How should it sound?",
+        "select": "one",
+        "options": [
+          { "id": "plain", "label": "Plain and direct", "next": "$end" },
+          { "id": "dry", "label": "Dry, a little funny", "next": "$end" },
+          { "id": "warm", "label": "Warm and encouraging", "next": "$end" }
+        ]
+      }
+    },
+    "opening": "Write hooks for a video about: {{topic}}\n\nAudience: {{audience}}\nTone: {{tone}}",
+    "quickStarts": [
+      "Three hooks for a video about naming files before you shoot",
+      "Hooks for a tutorial on colour grading, for people who already edit"
+    ]
+  },
+  "files": []
+}

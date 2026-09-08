@@ -1699,8 +1699,11 @@ moved into the hook, so the component is back under the house limit),
 
 - Cancel mid-render leaves no orphan job; cancel mid-`ask_user` resolves.
 - Corrupt `artifacts.json` / `chat.json` rotate, never delete (store rule).
-- Content safety: `generate_image` and `generate_composition` already pass
-  through `checkGenerationPrompt`; verify from a tool call.
+- Content safety: `generate_image` passes through `checkGenerationPrompt`
+  (on `imageEngine`), as `generate_video` does on `videoEngine`; verify from a
+  tool call. **`generate_composition` does NOT and must not** — see the Stage 6
+  outcome: `CONTENT_SAFETY_DESIGN.md` D0.2 gives the LLM surfaces zero hooks by
+  design.
 - Usage: every agent LLM and image call logs `featureSource: 'agent'`; the
   AI usage screen groups by agent id.
 - `docs/AGENT_PACKAGE_SPEC.md` for authors (manifest, folder layout,
@@ -1708,6 +1711,168 @@ moved into the hook, so the component is back under the house limit),
   `docs/examples/agent-starter/`.
 - STATUS.md entry, flag flip `agents: true`, installer rebuild, CDP smoke
   recipe added to `docs/ui-automation-cdp.md`.
+
+### Stage 6 outcome (2026-09-08) — what was built, and what is left
+
+**Scope, agreed with Hasan before starting.** §9 estimates ~1 session, and Stage
+5 handed over four more things, so the cut was put as four questions and
+answered: usage accounting **done properly** rather than cut; the queue's id
+rewrite **NOT** fixed at source (the inverted match instead); Tools › AI Chat
+**left in place**, closing open question 2 with a decision rather than a
+deletion; and the content-safety row driven for real, because an image provider
+is configured on this machine.
+
+**§9's content-safety line is wrong, and the correction matters.** It says
+`generate_image` and `generate_composition` "already pass through
+`checkGenerationPrompt`". Only `generate_image` does — through `imageEngine`,
+as `generate_video` does through `videoEngine`. TSX generation has no
+moderation hook and **must not get one**: `CONTENT_SAFETY_DESIGN.md` D0.2 gives
+the LLM surfaces zero hooks by design, so that text false positives are
+structurally impossible rather than threshold-tuned away. Same class of error as
+§7's "expired" line.
+
+**Four bullets of §9 were already done.** `artifacts.json` and `session.json`
+rotated aside on a parse failure from Stage 1 and Stage 3, with tests. Only
+`chat.json` had a real gap, and it was the worst-placed one: a transcript that
+PARSED but held the wrong shape was read as an empty list, which the next
+`appendAgentChat` then wrote back over the history. Bad JSON was safe and good
+JSON of the wrong shape destroyed the session silently. `readJsonFile` now takes
+a shape check and rotates on either failure.
+
+**Contract deltas:**
+
+1. **`matchRenderRow`** in `render-job-match.ts` — the artifact → row direction,
+   beside Stage 5's row → artifact `matchRenderJob`. Both are needed and neither
+   is derivable from the other in a component: the reporting effect walks the
+   ROWS and asks which artifact each belongs to, while the stage holds ONE
+   artifact and asks which row shows its progress. Stage 5 fixed only the first,
+   so from the moment a render actually started the stage showed no progress and
+   no Cancel button — §9's first bullet had no button to press.
+2. **A settled job is not a pending one.** `pendingRenderJobs` excluded only
+   jobs with a `resultArtifactId`; it now also excludes `completed`, `cancelled`
+   and `failed` — the rule `reconcileSessionRenderJobs` already applied on
+   session open. See the orphan below.
+3. **A user's cancel is not overwritten by its own error.**
+   `applyRenderJobUpdate` refuses a `failed` update on an artifact that is
+   already `cancelled`. Cancelling reports TWICE — the queue marks the row
+   cancelled, then main reports the render's own completion, which failed with
+   "renderMedia() got cancelled" — and without this the second one won, so a
+   render the user deliberately stopped read as Failed with what looked like an
+   error. Only `failed` is refused, so a queue Retry (failed → running → done)
+   still works.
+4. **`AiUsageEntry.agentId`**, `AiUsageFilter.agentId`, `AiUsageAgentTotal`, an
+   `agent_id` column with an additive migration, `AI_USAGE_GET_AGENTS`, and
+   `AiUsageByAgent` on the AI page. See below.
+5. **`generateImageAsset` takes `featureSource` and `agentId`.** It hard-coded
+   `'studio-shot-asset'`, so every agent image was logged as Studio's. The
+   default is unchanged, so Studio's own calls are untouched.
+6. `VideoGenerationRequest`, `VideoJobRecord` and `VideoUsageEntry` gained
+   `agentId?` — three additive lines beside the `featureSource` they already
+   carried, so the moment an agent declares `generate_video` its clips are
+   attributed. No shipped agent declares it yet.
+
+**Usage accounting, done rather than cut — and it was a schema change.**
+`featureSource: 'agent'` cannot say WHICH agent, and never will, because every
+agent shares the one source. So: `agent_id TEXT` on `ai_usage_entries`, added by
+`addMissingColumns` at open (`CREATE TABLE IF NOT EXISTS` does nothing to a
+table that already exists, so an upgrading user would otherwise have every
+insert throw and lose the whole usage log over a column only agents fill), the
+index created afterwards because it names that column, and the by-agent table on
+the AI page rendering only once an agent has actually run. Rows with no
+`agent_id` are excluded rather than bucketed as "unknown" — everything the app
+does outside an agent is one of those.
+
+Two producer-side bugs turned up on the way. The first is delta 5. The second is
+that attributing only the runner's chat turns would have credited each agent
+with a fraction of what it spends: of Motion Post's **41 logged requests** only
+about six per run are chat turns, and the rest are the composition pipeline's
+own calls — which is where Stage 5 measured two thirds of a run's wall clock.
+`buildAgentTsxDeps` therefore takes the agent id too.
+
+`ai-usage-db.test.ts` is **the first test this repo has had against the real
+usage store**. `better-sqlite3` is built against Electron's ABI and cannot load
+under vitest, which is why there was none; node ships its own SQLite, and the
+slice of the better-sqlite3 surface this module uses adapts in a dozen lines. A
+migration test has to be a real database — the whole question is what happens to
+a table that already exists without the column. The migration then ran for real
+on this machine's own database (`[ai-usage-db] Added agent_id to the AI usage
+table` in the app log).
+
+**An orphan, found by driving, that no unit test would have reached.**
+Cancelling a render left the NEXT one stuck at "Running" for ever. An agent
+asked to render the same composition twice gets two `job` artifacts sharing ONE
+output path — `buildQueueRequest` derives the path from the composition — and
+with the first still counted as pending, `matchRenderJob` matched every update
+meant for the second against the FIRST by path. The cancelled job absorbed the
+second job's reports, and the second was left with nothing to tell it anything.
+This is the Stage 3/4/5 pattern again, and it took making the mess to see it:
+the fix is delta 2, and the tests now cover exactly that pair.
+
+**A known gap, deliberately left, and the comment that claimed otherwise is
+corrected.** `reconcileSessionRenderJobs` said a missing output file is
+"reported as a failed update by the renderer once it has looked at its own
+queue". The renderer does no such thing: `useAgentRenderBridge` walks the
+queue's ROWS, so a job artifact whose row has DISAPPEARED — Clear completed, or
+a queue emptied between sessions — is told nothing by anyone. Closing it needs
+the bridge to know the queue has finished loading, so it can tell "no row yet"
+from "no row ever", and `RenderQueueContext` exposes no such flag; adding one is
+the shared-file change Hasan chose not to make. Cancelling no longer reaches
+this state. The remaining path is a user clearing the queue out from under a
+live agent render.
+
+**Docs.** `docs/AGENT_PACKAGE_SPEC.md` is the author's contract — every manifest
+field, every tool id, the limits, the trust tags, the signing flow, and a
+pre-publish checklist. `docs/examples/agent-starter/` is a working package
+(`example/hook-writer`: three hooks, a `pick`, one developed document) with a
+README naming the five fields to change. It is not merely valid: it was packed,
+installed and RUN in the app — starter tree, prefilled opening,
+`write_document`, `ask_user` pick, a second document on the stage — which is
+what §9's "an author could ship a package from them alone" has to mean.
+
+**The CDP smoke recipe** is in `docs/ui-automation-cdp.md`, with two escaping
+traps worth more than the recipe itself: a regex literal inside a `q()` template
+literal silently loses its backslashes (`/\(job-\d+\)$/` arrives at the page as
+`/(job-d+)$/` and matches nothing, with no error at all), and escaped-bracket
+Tailwind selectors reach `querySelector` unescaped and throw. Both cost real
+time here. A third: reading "whichever job card is on the stage" is meaningless
+once a session holds two of them — pin every reading to one artifact id.
+
+**Files as built.** New: `docs/AGENT_PACKAGE_SPEC.md`,
+`docs/examples/agent-starter/{README.md, agent.json, AGENT.md,
+skills/writing-hooks/SKILL.md}`, `src/renderer/components/AiUsageByAgent.tsx`,
+`src/main/services/ai-usage-db.test.ts`. Touched: `render-job-match.ts` (+
+tests), `useAgentRenderBridge.ts`, `AgentWorkspace.tsx`, `agent-sessions.ts` (+
+tests), `render-jobs.ts` (+ tests), `agent-runner.ts`, `tsx-deps.ts`,
+`tools/{generate-image, generate-video}.ts`, `ai-usage-db.ts`, `ai-usage.ts`,
+`ai-usage-handlers.ts`, `registrations/ai-usage.ts`, `llm-handlers.ts`,
+`library/{generate-image-asset, generate-video-asset}.ts`, `video-init.ts`,
+`video-engine/{types, video-engine}.ts`, `preload/api/ai-usage.ts`,
+`useAiUsage.ts`, `AiUsageDashboard.tsx`, `electron.d.ts`, `channels.ts`,
+`ipc/types/ai-usage.ts`, `types/ai-usage.ts`, `docs/ui-automation-cdp.md`.
+21 new tests; 1753 passing overall, `check:types` at baseline (web 26, node 10).
+
+**Not done, and waiting on Hasan — release decisions, not code:**
+
+- **The flag flip** `agents: true` in `feature-flags.ts`.
+- **The version bump.** `package.json` is 1.0.0 and both built-ins declare
+  `minAppVersion: 1.0.0`. They are COUPLED: raise the app alone and the
+  built-ins still load; raise the built-ins alone and both silently vanish from
+  the gallery, because a manifest is validated against the running app version.
+  Raising a built-in also means re-stamping `files[]` (sha256 per entry) and
+  re-running `node scripts/agent-pack.mjs resources/agents/vidtsx/<name>
+  --check`.
+- **The installer rebuild**, which is the only way to finish the file
+  association: everything up to the OS is proven in dev, and what is NOT proven
+  is that Windows registers `.vidtsxagent` from `electron-builder.yml` and hands
+  the path over on a real double-click.
+
+**Also still open, and not this stage's:** the `agents` manifest field (SDK
+subagents) is parsed and ignored; there is no `run_flow`; `reorder` and `edit`
+are wave 2 (§13); and `assets/agents/stage-3-fixture/` plus the
+`assets/agents/motion-post/*` folders from Stages 5 and 6 are still in the asset
+library, wanting the Assets screen's own delete flow (deleting folders from disk
+leaves stale rows in `assets/.vidtsx/index.json`, and there is no
+library-delete IPC).
 
 ## 10. Test plan and acceptance
 
@@ -1837,6 +2002,60 @@ section 8's "Stage 5 outcome"):
     simply reopening each one filed the video and appended the artifact
     (`reconcileSessionRenderJobs`, §1.5).
 
+Added during Stage 6, and passing in the real app (`vidtsx/motion-post` on
+`claude-subscription`, plus two throwaway packages — the tables in section 9's
+"Stage 6 outcome"):
+
+20. **A live render shows on the stage, with progress and a Cancel button.**
+    **PASS 2026-09-08** — the job viewer read `Render queue · Running` with a
+    Cancel button throughout. This is the fix: before `matchRenderRow` the stage
+    was blank from the moment the render started, because it looked the queue
+    row up by the artifact's own job id and the queue had just rewritten it.
+21. **Cancel mid-render leaves no orphan job.** **PASS 2026-09-08** — one
+    session, one render, one cancel: the card went to `Render queue · Cancelled`
+    within three seconds, and `artifacts.json` on disk holds
+    `job-3 → cancelled`, no `error`, no `resultArtifactId`, no `video` artifact,
+    and the composer not busy. The label is the second fix: a cancel reports
+    twice, and the cancellation's own "renderMedia() got cancelled" used to
+    overwrite it as Failed.
+22. **Cancel mid-`ask_user` resolves.** **PASS 2026-09-08** — with a `pick` card
+    up, `session.json` held `pendingInteraction: { id: "q-fb18e8a6", kind:
+    "pick" }`; "Skip and chat" cleared the card and the file within two seconds;
+    the model was told and replied in prose; the next message went through
+    normally. (Under the non-blocking form the turn has already ended by the
+    time the card is up, so "Skip and chat" IS the cancel — there is no Stop
+    button to press.)
+23. **Content Safety refuses a real agent tool call, and the refusal reaches the
+    model.** **PASS 2026-09-08** — a throwaway `dev/image-gate` agent
+    (`generate_image` only, told to pass the user's words through unchanged)
+    was asked for "a plate of grilled chicken breasts with lemon and herbs". The
+    tool returned, verbatim to the model: *"Image generation failed: Blocked by
+    Content Safety — nudity. Rephrase your prompt — VidTSX does not generate
+    sexual or explicit content. See AI → Content Safety."* The run did not
+    crash, no provider call was made, and the agent reported the refusal and
+    stopped. A deliberately benign prompt was used precisely so the GATE did the
+    refusing rather than the model's own judgement — an explicit prompt is
+    refused by the model before the tool is ever called, which proves nothing
+    about our code. It also shows the accepted trade-off in
+    `CONTENT_SAFETY_DESIGN.md` D0.1: the prompt list is a cheap first layer with
+    false positives, and the authoritative gate is on pixels.
+24. **Usage is attributed per agent, in the app.** **PASS 2026-09-08** — AI →
+    Providers → Usage shows a by-agent table above the log:
+    `vidtsx/motion-post · 41 requests · 33.6K in · 52.5K out · 417.5K cache read
+    · $2.64` and `dev/image-gate · 1 · 362 · 444 · 3.2K · $0.03`. Clicking a row
+    narrows the log below it (228 rows total → 41). The 41 is the point: a chat
+    turn count would have been about six per run, so the composition pipeline's
+    own calls are attributed too. The `agent_id` migration ran for real against
+    this machine's existing database.
+25. **The shipped author example installs and runs from the folder alone.**
+    **PASS 2026-09-08** — `docs/examples/agent-starter/` packed with
+    `agent-pack.mjs`, installed, and ran end to end: its three-step starter
+    tree, the opening prefilled and not auto-sent, `write_document`, an
+    `ask_user` pick between three hooks, and a second document on the stage with
+    its action bar. That is what "an author could ship a package from them
+    alone" has to mean.
+
+
 ## 11. Risks
 
 - **Registry drift.** A renamed tool id silently breaks installed agents.
@@ -1872,11 +2091,13 @@ section 8's "Stage 5 outcome"):
 
 1. Should a session be exportable as a `.vidtsx`-style package (transcript +
    artifacts) for sharing results? Cheap once the zip writer is generic.
-2. (Resolved 2026-09-08, Stage 5.) A built-in `vidtsx/assistant` with no tools
-   ships, as the proposal suggested. Whether Tools › AI Chat is then RETIRED is
-   deliberately still open — the agent exists, the old screen is still flagged
-   off, and removing it is a later stage's call. (The Studio agent was never a
-   candidate: it stays Studio-only, decision 6.)
+2. (Resolved 2026-09-08, Stage 6.) A built-in `vidtsx/assistant` with no tools
+   ships, and **Tools › AI Chat STAYS** — decided with Hasan: the `tools` flag is
+   env-gated, so the old screen is already invisible in production unless
+   `VITE_FF_TOOLS` is set, and deleting a screen on the release path buys
+   nothing. Revisit once agents have shipped and the assistant agent has been
+   used in anger. (The Studio agent was never a candidate: it stays
+   Studio-only, decision 6.)
 3. (Resolved 2026-09-06, see 1.10.) Memory is per agent plus app-wide.
 4. (Half resolved.) The first publisher key is `vidtsx-1` and it ships in
    `publishers.ts` (Stage 4, §10 row 14). WHERE THE PRIVATE HALF LIVES is still

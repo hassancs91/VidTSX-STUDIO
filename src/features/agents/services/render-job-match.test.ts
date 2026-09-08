@@ -94,6 +94,22 @@ describe('matchRenderJob', () => {
     expect(matchRenderJob([jobArtifact('job-2', 'uuid-a')], { id: 'other' })).toBeUndefined();
   });
 
+  it('never matches a job that already settled, so a second render to the same path finds ITSELF', () => {
+    // The orphan §9 asks about, and the way it was actually reached: an agent
+    // asked to render the same composition twice gets two job artifacts on one
+    // output path. With the cancelled one still counted as pending, every
+    // update for the second matched the FIRST, and the second sat at "Running"
+    // forever. Found by driving the app on 2026-09-08.
+    const artifacts = [
+      jobArtifact('job-3', 'uuid-a', { outputRelPath: 'agents/x/card.mp4', status: 'cancelled' }),
+      jobArtifact('job-4', 'uuid-b', { outputRelPath: 'agents/x/card.mp4', status: 'running' }),
+    ];
+    expect(matchRenderJob(artifacts, { id: 'renamed', outputPath: '/lib/agents/x/card.mp4' })?.id).toBe(
+      'job-4',
+    );
+    expect(pendingRenderJobs(artifacts).map((a) => a.id)).toEqual(['job-4']);
+  });
+
   it('lists only the render jobs still waiting to be filed', () => {
     const artifacts = [
       composition,
@@ -131,6 +147,18 @@ describe('matchRenderRow', () => {
   it('falls back to a settled row when no live one shares the path', () => {
     const artifact = jobArtifact('job-2', 'uuid-a', { outputRelPath: 'agents/x/card.mp4' });
     expect(matchRenderRow(artifact, [done])?.id).toBe('main-1');
+  });
+
+  it('offers no live row for a job that already settled', () => {
+    for (const status of ['cancelled', 'failed', 'completed']) {
+      const settled = jobArtifact('job-3', 'uuid-a', {
+        outputRelPath: 'agents/x/card.mp4',
+        status: status as 'cancelled',
+      });
+      expect(matchRenderRow(settled, [rendering])).toBeUndefined();
+      // Not even by an exact id match — the render is over either way.
+      expect(matchRenderRow(settled, [{ id: 'uuid-a', status: 'rendering' }])).toBeUndefined();
+    }
   });
 
   it('matches nothing for a video job, a non-job artifact, or an unnamed one', () => {

@@ -125,6 +125,16 @@ export async function applyRenderJobUpdate(
   if (!artifact || artifact.kind !== 'job' || artifact.payload.job !== 'render') return;
   if (artifact.payload.resultArtifactId) return;
 
+  // A cancel reports TWICE. `RenderQueueContext.cancelJob` marks the row
+  // cancelled and asks main to stop the render; main then reports the render's
+  // own completion, which failed — with "renderMedia() got cancelled" as its
+  // reason. Both reach here, and without this the second one wins, so a render
+  // the user deliberately stopped ends up labelled Failed with what reads like
+  // an error. The user's act is the true cause, so it stands. `failed` is the
+  // only status refused, which leaves a queue RETRY (failed → running → done)
+  // working exactly as before.
+  if (artifact.payload.status === 'cancelled' && update.status === 'failed') return;
+
   if (update.status !== 'completed') {
     const changed =
       update.status !== artifact.payload.status || update.progress !== artifact.payload.progress;
@@ -170,8 +180,17 @@ export async function applyRenderJobUpdate(
  *
  * A MISSING file is deliberately not treated as a failure here. The render
  * queue persists across restarts, so the job may still be waiting its turn, and
- * only the renderer can tell "still queued" from "gone". It reports the second
- * case as a failed update once it has looked at its own queue.
+ * only the renderer can tell "still queued" from "gone".
+ *
+ * KNOWN GAP (measured 2026-09-08, Stage 6): the renderer does not report the
+ * "gone" case either. `useAgentRenderBridge` walks the queue's ROWS, so a job
+ * artifact whose row has disappeared — Clear completed, or a queue emptied
+ * between sessions — is told nothing by anyone and sits at `running` for good.
+ * Closing it needs the bridge to know the queue has finished loading before it
+ * can tell "no row yet" from "no row ever", and `RenderQueueContext` exposes no
+ * such flag. Cancelling no longer causes this (that was a matching bug, fixed
+ * in `render-job-match.ts`); the remaining path is the user clearing the queue
+ * out from under a live agent render.
  */
 export async function reconcileSessionRenderJobs(deps: RenderJobDeps): Promise<void> {
   const root = await ensureLibraryRoot();
