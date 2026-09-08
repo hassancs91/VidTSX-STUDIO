@@ -8,20 +8,27 @@ import { useMemo, useState } from 'react';
 import type { InteractionFormField } from '../../../shared/types/agents';
 import { InteractionShell } from './InteractionShell';
 import { formValues, missingRequiredFields } from './values';
-import type { InteractionCardProps } from './types';
+import type { InteractionCardProps, InteractionValues } from './types';
 
 /** Empty means "not answered", which is what `required` is checked against. */
 type Draft = Record<string, string>;
 
-function initialDraft(fields: InteractionFormField[]): Draft {
+function initialDraft(fields: InteractionFormField[], initial?: InteractionValues): Draft {
   const draft: Draft = {};
-  for (const field of fields) draft[field.id] = '';
+  for (const field of fields) draft[field.id] = initial?.[field.id]?.[0] ?? '';
   return draft;
 }
 
-export function FormCard({ request, busy, restored, onAnswer, onCancel }: InteractionCardProps) {
+export function FormCard({
+  request,
+  initialValues,
+  busy,
+  restored,
+  onAnswer,
+  onCancel,
+}: InteractionCardProps) {
   const fields = request.payload.kind === 'form' ? request.payload.fields : [];
-  const [draft, setDraft] = useState<Draft>(() => initialDraft(fields));
+  const [draft, setDraft] = useState<Draft>(() => initialDraft(fields, initialValues));
 
   const missing = useMemo(() => missingRequiredFields(fields, draft), [fields, draft]);
 

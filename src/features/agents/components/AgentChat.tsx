@@ -12,6 +12,7 @@ import { AgentMessageRow } from '@renderer/components/agent-chat/AgentMessageRow
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import type { AgentChatRow } from '../types';
 import { AGENT_TOOL_LABELS } from '../services/event-folding';
+import { QuickStarts } from './QuickStarts';
 
 interface Props {
   agentName: string;
@@ -28,6 +29,20 @@ interface Props {
   onNewSession: () => void;
   /** §1.10 — opens the shared MemoryDialog scoped to this agent. */
   onOpenMemory: () => void;
+  /**
+   * Text to drop into the box, NEVER sent (§1.9): the starter's rendered
+   * `opening`, or a quick start. The token is what lets the same text be
+   * prefilled twice — clicking one quick start, editing, clicking it again.
+   */
+  prefill?: { text: string; token: number };
+  /** §1.9's one-click sample prompts, shown on the empty state. */
+  quickStarts?: string[];
+  onQuickStart?: (prompt: string) => void;
+  /**
+   * Set while the starter owns the screen: the box is disabled and says why,
+   * because there is no session to send to until the starter is done with.
+   */
+  composerHint?: string;
   /** A pending `propose_memory` card, rendered under the conversation. */
   memoryProposal?: ReactNode;
 }
@@ -47,14 +62,31 @@ export function AgentChat({
   onNewSession,
   onOpenMemory,
   memoryProposal,
+  prefill,
+  quickStarts,
+  onQuickStart,
+  composerHint,
 }: Props) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  // Prefill, never auto-send. The cursor lands at the end so the user can keep
+  // typing where the starter left off.
+  useEffect(() => {
+    if (!prefill) return;
+    setDraft(prefill.text);
+    const box = boxRef.current;
+    if (box) {
+      box.focus();
+      box.setSelectionRange(prefill.text.length, prefill.text.length);
+    }
+  }, [prefill]);
 
   const submit = (): void => {
     const text = draft.trim();
@@ -111,7 +143,11 @@ export function AgentChat({
 
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-2.5 py-2 space-y-2.5">
         {messages.length === 0 ? (
-          <EmptyState name={agentName} description={agentDescription} />
+          <EmptyState name={agentName} description={agentDescription}>
+            {quickStarts?.length && onQuickStart ? (
+              <QuickStarts prompts={quickStarts} disabled={busy} onPick={onQuickStart} />
+            ) : null}
+          </EmptyState>
         ) : (
           messages.map((m) => (
             <AgentMessageRow key={m.id} message={m} toolLabels={AGENT_TOOL_LABELS} />
@@ -131,7 +167,9 @@ export function AgentChat({
           style={{ border: '0.5px solid var(--color-border)' }}
         >
           <textarea
+            ref={boxRef}
             value={draft}
+            disabled={composerHint !== undefined}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
@@ -140,7 +178,7 @@ export function AgentChat({
               }
             }}
             rows={3}
-            placeholder={`Tell ${agentName} what you want…`}
+            placeholder={composerHint ?? `Tell ${agentName} what you want…`}
             className="w-full resize-none bg-transparent text-[11px] text-text-primary placeholder:text-text-ghost outline-none leading-snug"
           />
           <div className="flex items-center justify-end pt-1">
@@ -169,11 +207,20 @@ export function AgentChat({
   );
 }
 
-function EmptyState({ name, description }: { name: string; description: string }) {
+function EmptyState({
+  name,
+  description,
+  children,
+}: {
+  name: string;
+  description: string;
+  children?: ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-2 text-center px-3">
       <div className="text-[12px] font-medium text-text-secondary">{name}</div>
       <div className="text-[11px] text-text-dim leading-snug max-w-[240px]">{description}</div>
+      {children}
     </div>
   );
 }

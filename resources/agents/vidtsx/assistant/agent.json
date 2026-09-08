@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/assistant",
+  "name": "Assistant",
+  "version": "1.0.0",
+  "description": "A plain chat companion — plan, draft and ask. No tools.",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.0.0",
+  "icon": "icon.png",
+  "prompt": "AGENT.md",
+  "tools": [],
+  "defaults": {
+    "maxTurns": 12,
+    "effort": "medium"
+  },
+  "workspace": {
+    "sdkFileTools": false
+  },
+  "files": [
+    {
+      "path": "AGENT.md",
+      "size": 1408,
+      "sha256": "5ca1a7dffce8338a719995ddcc55256c2ba72001319321e2a0a910cc55ced382"
+    },
+    {
+      "path": "icon.png",
+      "size": 2505,
+      "sha256": "5a731343349428cedfb8a529298085861e2901d4c5aa17d70984a238f1ee82d0"
+    }
+  ]
+}

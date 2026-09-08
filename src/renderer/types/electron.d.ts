@@ -538,6 +538,8 @@ export interface ElectronAPI {
   agentsInstall: (data: import('../../shared/ipc/types').AgentsInstallRequest) => Promise<import('../../shared/ipc/types').AgentsInstallResponse>;
   agentsRemove: (data: import('../../shared/ipc/types').AgentsRemoveRequest) => Promise<import('../../shared/ipc/types').AgentsRemoveResponse>;
   agentsCheckUpdate: (data: import('../../shared/ipc/types').AgentsCheckUpdateRequest) => Promise<import('../../shared/ipc/types').AgentsCheckUpdateResponse>;
+  agentsPendingPackage: () => Promise<import('../../shared/ipc/types').AgentsPendingPackageResponse>;
+  onAgentsPackageOpenFile: (callback: (event: import('../../shared/ipc/types').AgentsPackageOpenFileEvent) => void) => () => void;
   agentSessionsList: (data: import('../../shared/ipc/types').AgentSessionsListRequest) => Promise<import('../../shared/ipc/types').AgentSessionsListResponse>;
   agentSessionCreate: (data: import('../../shared/ipc/types').AgentSessionCreateRequest) => Promise<import('../../shared/ipc/types').AgentSessionCreateResponse>;
   agentSessionLoad: (data: import('../../shared/ipc/types').AgentSessionLoadRequest) => Promise<import('../../shared/ipc/types').AgentSessionLoadResponse>;

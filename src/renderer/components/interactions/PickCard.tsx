@@ -23,6 +23,7 @@ function hasEveryPicture(
 
 export function PickCard({
   request,
+  initialValues,
   previews,
   busy,
   restored,
@@ -32,7 +33,11 @@ export function PickCard({
   const payload = request.payload.kind === 'pick' ? request.payload : null;
   const candidates = payload?.candidates ?? [];
   const many = payload?.select === 'many';
-  const [chosen, setChosen] = useState<string[]>([]);
+  // Seeded from `initialValues` so the starter's Back restores what was picked;
+  // an id the payload no longer carries is dropped rather than sent back.
+  const [chosen, setChosen] = useState<string[]>(() =>
+    Object.keys(initialValues ?? {}).filter((id) => candidates.some((c) => c.id === id)),
+  );
 
   const compare = hasEveryPicture(candidates, previews);
 

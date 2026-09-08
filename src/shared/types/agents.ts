@@ -93,6 +93,12 @@ export interface InstalledAgent {
   keyId?: string;
   /** Filled by "Check for update" only; the app never fetches on its own. */
   update?: AgentUpdateInfo;
+  /**
+   * A servable url for the manifest's `icon`, filled in by the IPC layer — the
+   * renderer never gets the path, only something an <img> can load. Absent when
+   * the package ships no icon, or when the preview server could not start.
+   */
+  iconUrl?: string;
 }
 
 // ---------------------------------------------------------------------------

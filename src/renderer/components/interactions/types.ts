@@ -36,6 +36,13 @@ export type InteractionValues = Record<string, string[]>;
 
 export interface InteractionCardProps {
   request: InteractionRequest;
+  /**
+   * What the card starts out showing. Mid-run questions never pass it — a fresh
+   * question starts blank. The STARTER passes it, because §1.9 requires Back to
+   * restore the answer the user gave that step, and a card that keeps its own
+   * state cannot do that on its own.
+   */
+  initialValues?: InteractionValues;
   /** Keyed by artifact id; absent for candidates that name no artifact. */
   previews?: Record<string, InteractionPreview>;
   /** True while the answer is in flight, so the card locks rather than double-sends. */

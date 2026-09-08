@@ -69,6 +69,13 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
     let disposed = false;
     setLoading(true);
     followLatest.current = true;
+    // A run belongs to the session that started it. Without this, switching
+    // sessions — or starting a new one — while a turn is in flight carries the
+    // old session's `busy` across, and the new session's composer is locked
+    // behind a Stop button for a run it has nothing to do with. Found by
+    // driving the app in Stage 5.
+    setBusy(false);
+    setToolsAvailable(undefined);
     void window.api.agentSessionLoad({ agentId, sessionId }).then((result) => {
       if (disposed) return;
       if (result.success && result.session) {

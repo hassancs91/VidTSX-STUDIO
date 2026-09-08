@@ -10,17 +10,19 @@ be frozen into flows).
 
 ## Start here (for the session that begins the work)
 
-0. **Stages 0, 1, 2, 3 and 4 are DONE (Stages 3 and 4 on 2026-09-08).** Read each
+0. **Stages 0 through 5 are DONE (3, 4 and 5 on 2026-09-08).** Read each
    stage's "outcome" subsection before its successor: section 4 (Stage 1's
    four contract deltas, and the step 0 record — its last open row was
    measured during Stage 3 at **0 of 10**, so no runner-enforced stop was
-   added), section 5 (Stage 2's five deltas, the signing key that does not
-   exist yet), and section 6 (Stage 3's six deltas, the placeholder that
-   stands in for interactions, and the file association still owed), and
-   section 7 (Stage 4's six deltas, the §7 line about "expired" that was wrong,
-   and the starter UI deferred to Stage 5). Then start at Stage 5 (section 8).
-   Agents are reachable from the UI behind `feature-flags.ts` `agents: false`
-   — force-enabled in dev, hidden in production.
+   added), section 5 (Stage 2's five deltas, and the rule that a built-in needs
+   no signature), section 6 (Stage 3's six deltas and its two house-rule
+   judgements), section 7 (Stage 4's six deltas, the §7 line about "expired"
+   that was wrong, and the starter UI it deferred), and section 8 (Stage 5's
+   deltas, the two bugs that only a real run could find, and what the file
+   association still needs from a packaged build). Then start at Stage 6
+   (section 9). Agents are reachable from the UI behind `feature-flags.ts`
+   `agents: false` — force-enabled in dev, hidden in production — and TWO
+   built-in agents ship in `resources/agents/vidtsx/`.
 1. Preconditions: the V1 flip has shipped as 1.0.0, and `check:types` plus
    `npx vitest run` are green on `main`. Confirm both before touching code.
 2. Read sections 0, 1, and 2 in full, then only the stage you are on.
@@ -1505,6 +1507,188 @@ per run in section 10.
 Done when: a fresh install shows two built-in agents, Motion Post completes
 brief to video in one session, and the video opens from the action bar.
 
+### Stage 5 outcome (2026-09-08) — what was built, and what it changes downstream
+
+**Scope, agreed with Hasan before starting.** §8 estimates ~1 session, but
+Stages 2, 3 and 4 had each deferred something into it, so the agreed cut was all
+three: the built-in agents, the starter UI (`StarterFlow.tsx` + `QuickStarts.tsx`
+— Stage 4 deliberately left these so they could be driven against Motion Post's
+REAL tree rather than one invented for a fixture), and the `.vidtsxagent` file
+association. Three of the four open decisions were put to Hasan and answered:
+
+1. **§8's "TWO built-in agents" stands**, and the second one resolves open
+   question 2: a built-in `vidtsx/assistant` with `tools: []` — a plain chat
+   companion that points at the screen which actually makes each thing. Tools ›
+   AI Chat is NOT retired here; that is a later stage's call.
+2. **Motion Post ships UNSIGNED**, as the Stage 2 outcome says a built-in should:
+   it is inside the signed installer, `readAgentFolder` reports
+   `signature: 'unsigned'`, and `origin: 'builtin'` outranks the trust tag. Both
+   cards read "Built-in" in the real app; neither reads "Unverified".
+3. **`package-open.ts` MOVED** rather than being widened where it sat — see the
+   deltas below.
+
+The fourth decision was the session's to make (see "The starter runs before the
+session exists").
+
+**The starter runs BEFORE the session exists.** `AGENT_SESSION_CREATE` already
+accepts `starter`, but Stage 3's workspace created a session the moment a
+provider resolved, which would have left the tree with nowhere to put its
+answers but a patch channel. Deferring creation instead needs no new IPC, and it
+is better behaviour on its own terms: a user who backs out of the questions
+leaves no empty session folder behind (the same class of bug Stage 3 found), and
+the answers can NAME the session — which matters more than a label, because
+§1.11 fixes the library folder from the title at creation and never moves it.
+Without a title every starter session would file its media into
+`agents/motion-post/new-session` together. `starterTitle` takes the longest
+thing the user actually typed; the first real run filed into
+`agents/motion-post/batching-your-camera-roll-once-a-week-so-editing/`.
+
+**Contract deltas — what Stage 6 onward codes against:**
+
+1. **`InteractionCardProps` gained `initialValues`.** §1.9 requires Back to
+   restore the answer the user gave a step, and a card that owns its own state
+   cannot do that on its own. Mid-run `ask_user` never passes it — a fresh
+   question starts blank — so the only caller is the starter.
+2. **The starter renders through the SAME cards, as two synthetic requests per
+   node.** A select node becomes a `pick` payload; a text node becomes a `form`
+   with one field; `allowOther` appends a `$other` candidate whose choice routes
+   to a second card that collects the typed words. That second step is what lets
+   §1.9's "Other…" work with no change to any card. The mapping lives in
+   `features/agents/services/starter-cards.ts` as pure functions, for the same
+   reason `interactions/values.ts` is pure: the renderer has no component test
+   rig, so the half that decides what the user is asked and what their click
+   MEANS is the half that must be testable.
+3. **`package-open.ts` became `services/packages/pending-open.ts`** (asked and
+   approved, rule 4). The pending slot now carries a KIND, and a claim names the
+   kind it can handle: `takePendingPackage('project')` returns nothing when the
+   waiting file is an agent package. Without that, Studio's project browser —
+   which mounts on almost every launch, and before Agents does — would swallow a
+   double-clicked `.vidtsxagent` and drop it. Two new channels,
+   `AGENTS_PACKAGE_OPEN_FILE` (push, navigates) and `AGENTS_PENDING_PACKAGE`
+   (the claim), mirror the Studio pair exactly; `electron-builder.yml` gained the
+   `vidtsxagent` association.
+4. **`InstalledAgent` gained `iconUrl`, filled in by the IPC layer.** §8 asks for
+   an `icon.png` and the manifest has always had `icon`, but nothing read it —
+   `AgentCard` drew the same lucide glyph for every agent, so two built-ins would
+   have shipped as two identical tiles. The url is built with `assetUrlFor`
+   (the `/asset` route the image viewers already use), so no path reaches the
+   renderer, and a preview server that will not start costs the picture and
+   nothing else.
+5. **`useAgentRenderBridge` takes the session's artifacts and derives its job
+   mapping from them.** See the bug below.
+6. **`busy` resets when the open session changes** (`useAgentRun`). A run belongs
+   to the session that started it.
+
+**Two real bugs the app found that no unit test could have.** Both are in the
+class Stage 3 and Stage 4 each found one of, and both were found by running
+Motion Post for real rather than by reading the code.
+
+*The render that finished and was never filed.* Every run produced its MP4 —
+in the right library folder, with the queue row reading Done — and the session
+still believed it was rendering, because the `completed` update never reached
+main. Calling `AGENT_JOB_UPDATE` by hand filed it correctly, which proved main's
+half right and put the fault in the renderer.
+
+The cause is one line in `RenderQueueContext.startNextJob`, and it is not a bug
+there:
+
+    if (result.success && result.jobId) {
+      setJobs((prev) => prev.map((j) => (j.id === nextJob.id ? { ...j, id: result.jobId! } : j)));
+    }
+
+`renderStart` mints main's own job id — the id `RENDER_PROGRESS` and
+`RENDER_COMPLETE` carry — and the queue adopts it. So the optional `id` Stage 3
+added to `addJob` (so the row and the artifact would be the same job) holds only
+until the render STARTS. The agent hears `pending` and `running`, the row is
+then renamed underneath it, and the completion is reported for an id no artifact
+carries. Three runs finished their video and none of them knew it.
+
+The fix is `features/agents/services/render-job-match.ts`: match the row to the
+artifact by job id first, and fall back to the OUTPUT PATH, which the bridge
+supplies at submit time, the queue keeps verbatim, and the artifact stores as
+`outputRelPath`. It is a pure module with its own tests, because this is the
+half that decides whether a finished render is ever filed. Nothing outside the
+agents feature changes — in particular the queue's id swap is left exactly as it
+is, since main's id is what its own events are keyed by.
+
+An earlier attempt at this blamed the in-memory `useRef` map the bridge used to
+hold the mapping. That map IS fragile — it is lost whenever the workspace
+unmounts, which includes reopening a session whose render is still queued — so
+deriving the mapping from the session's artifacts is kept. But it was not the
+bug, and replacing the ref alone did not fix a thing: the second run failed
+identically. Worth recording, because the plausible explanation looked right for
+two runs.
+
+*The composer locked behind a Stop button for a run it had nothing to do with.*
+`busy` lived in `useAgentRun` and was never reset when `sessionId` changed, so
+starting a new session while a turn was in flight carried the old session's
+`busy` across and `send` refused every message. One line in the session-open
+effect.
+
+**`reconcileSessionRenderJobs` proved itself, unprompted.** Before the bridge fix
+was written, run 2's session was left with a `running` job and its MP4 on disk.
+Simply opening that session later filed the video and appended the artifact —
+§1.5's "a render that finished while the session was closed is reconciled on
+open", working in the real app, and the reason the live path is correctly
+described in `render-jobs.ts` as an optimisation rather than the only route.
+
+**Motion Post as written.** `agent.json` declares `write_document`,
+`generate_composition`, `edit_composition`, `render_composition`, `ask_user`,
+`list_artifacts` and `propose_memory` (with `memory: { propose: true }`, so §7's
+own memory criterion is true for the shipped agent and not only for the
+throwaway one Stage 4 used), the four wave-1 artifact kinds, the three wave-1
+interactions, and §1.1's starter tree with a fourth `goal` option and three
+quick starts. It declares no `updateUrl`: a built-in updates with the app, so a
+"Check for update" item would be a lie. `minAppVersion` is **1.0.0**, not the
+1.1.0 the §1.1 example shows — the manifest is validated against the RUNNING
+app version, so 1.1.0 would make the built-in unloadable in the very build that
+ships it. Stage 6 raises both together at the release bump.
+
+`AGENT.md` is a seven-step workflow, and the steps that matter are the ones that
+say END YOUR TURN — after `ask_user` and after `render_composition` — because
+the non-blocking form (§1.5) depends on the model actually stopping. It does:
+every run ended its turn on the pick, on the approve, and on the render.
+
+`skills/social-motion/SKILL.md` is craft, not TSX rules — the generation
+pipeline has its own system prompt for those and repeating them would only
+create a second source of truth. It carries timing (4–8 s, 2–4 beats, land 10–15
+frames before the end), text hierarchy (one hook of eight words or fewer, sizes
+per platform), safe zones (12 % top and bottom on vertical), and an easing
+vocabulary. It visibly lands: the first composition came back at 1080×1920 with
+`hookSize: 112`, `supportSize: 52`, line heights 1.1 and 1.35, and
+`Easing.bezier(0.16, 1, 0.3, 1)` / `Easing.out(Easing.cubic)` /
+`Easing.inOut(Easing.cubic)` named exactly as the skill names them.
+
+**Files as built.** New: `resources/agents/vidtsx/motion-post/{agent.json,
+AGENT.md, skills/social-motion/SKILL.md, icon.png}`,
+`resources/agents/vidtsx/assistant/{agent.json, AGENT.md, icon.png}`;
+`features/agents/components/{StarterFlow, QuickStarts}.tsx`,
+`features/agents/hooks/useAgentStarter.ts`,
+`features/agents/services/starter-cards.ts` (+ test);
+`main/services/packages/pending-open.ts` (+ test, both `git mv`d out of
+`services/studio/`). Touched: `AgentWorkspace.tsx` (the starter orchestration
+moved into the hook, so the component is back under the house limit),
+`AgentChat.tsx` (prefill, quick starts, the disabled-composer hint),
+`AgentCard.tsx` (the icon), `AgentGallery.tsx` (the pending claim),
+`useAgentRun.ts`, `useAgentRenderBridge.ts`, `useAgentSessions.ts`,
+`interactions/{types, FormCard, PickCard}`, `main/index.ts`,
+`agent-handlers.ts`, `registrations/agents.ts`, `studio-package-handlers.ts`,
+`preload/api/agents.ts`, `App.tsx`, `electron.d.ts`, `channels.ts`,
+`ipc/types/agents.ts`, `types/agents.ts`, `electron-builder.yml`.
+
+**Not done, and Stage 6 owns them:**
+
+- **The file association cannot be fully verified from a dev tree.** Everything
+  up to the OS is proven: a second Electron instance launched with a
+  `.vidtsxagent` on its argv forwards through `second-instance`, main parks it
+  as `kind: 'agent'`, the window navigates to Agents, and the gallery claims the
+  path and opens the import dialog on it. What is NOT proven is the part
+  `electron-builder.yml` owns — that Windows actually registers the extension
+  and hands the path to the app on double-click. That needs a packaged installer
+  build, which is Stage 6's own checklist item.
+- The `agents` manifest field (SDK subagents) is still parsed and ignored, and
+  there is still no `run_flow`.
+
 ## 9. Stage 6 — Hardening, docs, release — ~1 session
 
 - Cancel mid-render leaves no orphan job; cancel mid-`ask_user` resolves.
@@ -1538,12 +1722,42 @@ Manual, in-app (record results here when run):
    shows the refusal in place of the manifest — the same path as row 1's read
    failure, not separately exercised.
 4. Motion Post: brief, pick, composition, approve, render, video, on
-   `claude-subscription`. Token totals: (fill in). — **Stage 5**, no agent yet.
+   `claude-subscription`. **PASS 2026-09-08 (Stage 5) — three consecutive runs,
+   each brief → rendered MP4 with no intervention**, after the two bugs in §8's
+   outcome were fixed. Every run took the same shape: starter (3 steps) →
+   `write_document` with two variants → `ask_user` pick → `generate_composition`
+   at 1080×1920 → `ask_user` approve → `render_composition` → the queue → a
+   `video` artifact on the stage. Token totals per run, from the AI usage log
+   filtered to `featureSource: 'agent'` (which covers the chat turns AND the
+   composition pipeline's own calls — nothing else logged in the windows):
+
+   | run | brief | calls | input | output | cache read | notional cost | brief→video |
+   |---|---|---|---|---|---|---|---|
+   | A | "Why a 30 second edit beats a 3 minute one" | 6 | 6,695 | 17,495 | 62,498 | $0.70 | 6m 45s |
+   | B | "Three shortcuts that cut an edit in half" | 7 | 7,307 | 17,661 | 67,276 | $0.72 | 7m 00s |
+   | C | "Stop colour grading before you lock the cut" | 7 | 6,765 | 18,395 | 59,000 | $0.73 | 6m 25s |
+
+   The cost is what the log computes at API prices; these ran on
+   `claude-subscription`, where they are not billed per token. Roughly two
+   thirds of the wall clock is the composition pipeline and the render, not the
+   chat.
+
+   **And once on a baseURL preset**, as §8 asks: the same brief on **MiniMax
+   M2.7** produced its rendered MP4 too — the same seven steps, 13 calls,
+   12,486 in / 11,253 out / 21,325 cache read. It took more calls and leaned far
+   less on the cache than Claude does, and it needed no prompt changes. One
+   caveat on that run: the DRIVER's websocket dropped mid-run, so the approve
+   card was answered a few minutes later than it was asked. The app was
+   untouched by that — the question was still waiting on the stage when a driver
+   reconnected, which is §10 row 10 over again.
 5. Provider without tools: degraded notice, chat still answers. NOT RUN — the
    notice renders off `toolsAvailable`, which no run has returned false for.
-6. Remove the user copy of a built-in: the built-in returns. NOT RUN — nothing
-   ships built-in until Stage 5. Removing a plain user copy works (both Stage 3
-   fixtures were removed through the IPC at the end of the session).
+6. Remove the user copy of a built-in: the built-in returns. **PASS 2026-09-08
+   (Stage 5)** — the row that could not be run until something shipped built-in.
+   `vidtsx/motion-post` was packed at 1.0.1, installed through the import dialog,
+   and the list went from `1.0.0 builtin` to `1.0.1 user` (the card showing the
+   user copy's description); Remove took it back to `1.0.0 builtin`, and the IPC
+   even names the `restoredBuiltin` it fell back to.
 7. "Check for update" with a newer version in the JSON: dialog shows it,
    the button opens the browser, importing the downloaded file replaces the
    old version. NOT RUN — needs a feed to point at; the fixture agents declare
@@ -1586,6 +1800,37 @@ agent, on `claude-subscription` — the tables in section 7's "Stage 4 outcome")
     publisher" with no error anywhere, which is why it was checked before the
     key was committed.
 
+Added during Stage 5, and passing in the real app (the tables and the run log in
+section 8's "Stage 5 outcome"):
+
+15. **A fresh install shows both built-in agents**, each with its own icon and a
+    "Built-in" chip rather than a trust tag. **PASS 2026-09-08** — the gallery
+    lists `vidtsx/assistant 1.0.0` and `vidtsx/motion-post 1.0.0`, both
+    `origin: builtin`, `signature: unsigned`, and neither reads "Unverified".
+16. **The starter runs, and its rules hold.** **PASS 2026-09-08** — three steps
+    rendered through the ordinary `pick` and `form` cards; Back returned to the
+    previous step with the answer still selected; "Skip and chat" and the
+    disabled composer are both offered throughout; the rendered `opening`
+    arrived PREFILLED in the chat box and was never auto-sent; no session
+    existed on disk until the tree finished, and the one then created carried
+    the answers and was named from them.
+17. **A returning user goes straight to chat** — opening an agent that already
+    has sessions never shows the tree, and "New session" is what re-runs it.
+    **PASS 2026-09-08.**
+18. **A double-clicked `.vidtsxagent` reaches the import dialog.** **PASS
+    2026-09-08, in dev** — a second Electron instance launched with the file on
+    argv forwards through `second-instance`; main parks it as `kind: 'agent'`
+    (Studio's browser cannot claim it); the window switches to Agents, the
+    workspace steps aside if one was open, and the gallery claims the path and
+    opens the dialog on it. The remaining half — Windows registering the
+    extension so a real double-click does this — needs a packaged installer and
+    is Stage 6's.
+19. **A render that finished while the session was closed is filed on open.**
+    **PASS 2026-09-08**, found by accident: before the bridge was fixed, two
+    sessions were left holding a `running` job with the MP4 already on disk, and
+    simply reopening each one filed the video and appended the artifact
+    (`reconcileSessionRenderJobs`, §1.5).
+
 ## 11. Risks
 
 - **Registry drift.** A renamed tool id silently breaks installed agents.
@@ -1621,13 +1866,18 @@ agent, on `claude-subscription` — the tables in section 7's "Stage 4 outcome")
 
 1. Should a session be exportable as a `.vidtsx`-style package (transcript +
    artifacts) for sharing results? Cheap once the zip writer is generic.
-2. Does the Agents page replace the flagged-off Tools › AI Chat, which is the
-   same thing without a manifest? Proposal: yes, as a built-in
-   `vidtsx/assistant` agent with no tools. (The Studio agent is not a
+2. (Resolved 2026-09-08, Stage 5.) A built-in `vidtsx/assistant` with no tools
+   ships, as the proposal suggested. Whether Tools › AI Chat is then RETIRED is
+   deliberately still open — the agent exists, the old screen is still flagged
+   off, and removing it is a later stage's call. (The Studio agent was never a
    candidate: it stays Studio-only, decision 6.)
 3. (Resolved 2026-09-06, see 1.10.) Memory is per agent plus app-wide.
-4. Which publisher key ships first, and where the private key lives (a
-   password manager, never the repo or a machine folder).
+4. (Half resolved.) The first publisher key is `vidtsx-1` and it ships in
+   `publishers.ts` (Stage 4, §10 row 14). WHERE THE PRIVATE HALF LIVES is still
+   open: as of 2026-09-08 it is a plain file on `C:`, which this section says it
+   should not be. Moving it to a password manager is Hasan's call, and nothing
+   in the app depends on where it sits — `agent-pack.mjs` reads whatever path
+   `--key` or `VIDTSX_AGENT_SIGNING_KEY` names.
 5. (Resolved 2026-09-06.) Agent outputs file into the Asset Library, same
    pattern as the Studio agent. Image Studio stays a separate gallery.
 

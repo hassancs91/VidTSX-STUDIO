@@ -6,9 +6,9 @@
 // session the user cannot run would leave an empty folder behind for every
 // visit to this screen.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Bot } from 'lucide-react';
-import type { InstalledAgent } from '@shared/types/agents';
+import type { AgentJobRequest, InstalledAgent } from '@shared/types/agents';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { getInteractionCard } from '@renderer/components/interactions/registry';
 import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
@@ -16,6 +16,7 @@ import { useAgentProviders } from '../hooks/useAgentProviders';
 import { useAgentRenderBridge } from '../hooks/useAgentRenderBridge';
 import { useAgentRun } from '../hooks/useAgentRun';
 import { useAgentSessions } from '../hooks/useAgentSessions';
+import { useAgentStarter } from '../hooks/useAgentStarter';
 import { useArtifactActions } from '../hooks/useArtifactActions';
 import { useArtifactViewerData } from '../hooks/useArtifactViewerData';
 import { useAgentMemoryProposals } from '../hooks/useAgentMemoryProposals';
@@ -23,6 +24,7 @@ import { useInteractionPreviews } from '../hooks/useInteractionPreviews';
 import { AgentChat } from './AgentChat';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { SessionList } from './SessionList';
+import { StarterFlow } from './StarterFlow';
 import { ArtifactStage } from './stage/ArtifactStage';
 
 interface Props {
@@ -32,47 +34,43 @@ interface Props {
 
 export function AgentWorkspace({ agent, onBack }: Props) {
   const agentId = agent.manifest.id;
+  const enqueueRef = useRef<((request: AgentJobRequest) => Promise<void>) | null>(null);
   const { showToast } = useToast();
-  const { sessions, loaded: sessionsLoaded, create, remove, rename, refresh } = useAgentSessions(agentId);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionStore = useAgentSessions(agentId);
+  const { sessions, remove, rename, refresh } = sessionStore;
 
   const lastProvider = sessions[0]?.providerId;
   const providers = useAgentProviders(lastProvider);
 
-  const render = useAgentRenderBridge(agentId, sessionId);
+  // Which session is open, and how a new one begins (§1.8, §1.9) — including
+  // the rule that the starter runs BEFORE the session is created.
+  const starterTree = agent.manifest.starter;
+  const {
+    sessionId,
+    setSessionId,
+    starterOpen,
+    creating,
+    prefill,
+    newSession,
+    finishStarter,
+    useQuickStart,
+  } = useAgentStarter({ starterTree, sessions: sessionStore, providers });
+
   const run = useAgentRun({
     agentId,
     sessionId,
     ...(providers.providerId ? { providerId: providers.providerId } : {}),
-    onJobRequest: (request) => void render.enqueue(request),
+    onJobRequest: (request) => void enqueueRef.current?.(request),
   });
+  // The bridge reads the run's artifacts and the run hands the bridge its job
+  // requests, so one of the two directions has to be late-bound.
+  const render = useAgentRenderBridge(agentId, sessionId, run.artifacts);
+  enqueueRef.current = render.enqueue;
   const viewer = useArtifactViewerData(agentId, sessionId, run.selected);
   const actions = useArtifactActions(agentId, sessionId);
   const previews = useInteractionPreviews(agentId, sessionId, run.pendingInteraction, run.artifacts);
   const memory = useAgentMemoryProposals(agentId, sessionId);
   const [memoryOpen, setMemoryOpen] = useState(false);
-
-  // Open the most recent session, or start one — but only once a provider
-  // exists (§1.8), so a machine with none never accumulates empty sessions.
-  useEffect(() => {
-    if (!providers.loaded || !providers.usable || !sessionsLoaded || sessionId) return;
-    if (sessions.length > 0) {
-      setSessionId(sessions[0].id);
-      return;
-    }
-    void create({ ...(providers.providerId ? { providerId: providers.providerId } : {}) }).then(
-      (session) => {
-        if (session) setSessionId(session.id);
-      },
-    );
-  }, [providers.loaded, providers.usable, providers.providerId, sessionsLoaded, sessions, sessionId, create]);
-
-  const newSession = useCallback(async () => {
-    const session = await create({
-      ...(providers.providerId ? { providerId: providers.providerId } : {}),
-    });
-    if (session) setSessionId(session.id);
-  }, [create, providers.providerId]);
 
   const deleteSession = useCallback(
     async (id: string) => {
@@ -119,6 +117,15 @@ export function AgentWorkspace({ agent, onBack }: Props) {
         onCancel={() => void run.answer({ requestId: request.id, status: 'cancelled' })}
       />
     ) : null;
+
+  // The starter renders in the SAME place a mid-run question does — over the
+  // stage — so the two layers look like one conversation (§1.9's "no seam").
+  const stageCard =
+    starterOpen && starterTree ? (
+      <StarterFlow tree={starterTree} busy={creating} onFinish={(a) => void finishStarter(a)} />
+    ) : (
+      pending
+    );
 
   return (
     <div className="flex flex-col h-full">
@@ -175,6 +182,13 @@ export function AgentWorkspace({ agent, onBack }: Props) {
               providerId={providers.providerId}
               onProviderChange={providers.setProviderId}
               onSend={(text) => void run.send(text)}
+              {...(prefill ? { prefill } : {})}
+              {...(starterTree?.quickStarts?.length
+                ? { quickStarts: starterTree.quickStarts, onQuickStart: (p) => void useQuickStart(p) }
+                : {})}
+              {...(starterOpen
+                ? { composerHint: 'Answer the questions, or Skip and chat' }
+                : {})}
               onCancel={run.cancel}
               onNewSession={() => void newSession()}
               onOpenMemory={() => setMemoryOpen(true)}
@@ -212,7 +226,7 @@ export function AgentWorkspace({ agent, onBack }: Props) {
               studioProjectOpen={actions.studioProjectOpen}
               onSelect={run.select}
               onAction={(action) => void runAction(action)}
-              {...(pending ? { interactionCard: pending } : {})}
+              {...(stageCard ? { interactionCard: stageCard } : {})}
             />
           </div>
         </div>

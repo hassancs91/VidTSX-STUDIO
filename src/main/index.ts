@@ -29,9 +29,11 @@ import { initUpdater } from './services/updater/updater-service';
 import { gracefulShutdown } from './services/shutdown';
 import {
   hasPendingPackage,
-  packagePathFromArgv,
+  packageFromArgv,
+  packageKindFor,
   setPendingPackage,
-} from './services/studio/package-open';
+  type PendingPackage,
+} from './services/packages/pending-open';
 import { IPC } from '../shared/ipc/channels';
 import { logEngine } from '../logging/log-engine';
 
@@ -63,19 +65,21 @@ initCrashReporting();
 
 let mainWindow: BrowserWindow | null = null;
 
-/** Park a double-clicked .vidtsx and tell the window to go to Studio. The path
- *  waits in main until the project browser claims it, so a cold start into
+/** Park a double-clicked package and tell the window which screen to go to.
+ *  The path waits in main until that screen claims it, so a cold start into
  *  another screen cannot drop it. */
-function queuePackageOpen(filePath: string): void {
-  setPendingPackage(filePath);
+function queuePackageOpen(pkg: PendingPackage): void {
+  setPendingPackage(pkg);
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send(IPC.STUDIO_PACKAGE_OPEN_FILE, { filePath });
+    const channel =
+      pkg.kind === 'agent' ? IPC.AGENTS_PACKAGE_OPEN_FILE : IPC.STUDIO_PACKAGE_OPEN_FILE;
+    mainWindow.webContents.send(channel, { filePath: pkg.filePath });
   }
 }
 
 app.on('second-instance', (_event, argv) => {
-  const packagePath = packagePathFromArgv(argv);
-  if (packagePath) queuePackageOpen(packagePath);
+  const pkg = packageFromArgv(argv);
+  if (pkg) queuePackageOpen(pkg);
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
@@ -85,7 +89,8 @@ app.on('second-instance', (_event, argv) => {
 // macOS hands file-association opens here rather than on argv.
 app.on('open-file', (event, filePath) => {
   event.preventDefault();
-  queuePackageOpen(filePath);
+  const kind = packageKindFor(filePath);
+  if (kind) queuePackageOpen({ kind, filePath });
 });
 
 function createWindow(): BrowserWindow {
@@ -123,10 +128,13 @@ function createWindow(): BrowserWindow {
 
   win.once('ready-to-show', () => {
     win.show();
-    // A cold-start double-click: the browser also claims on mount, so this is
-    // purely the nudge that gets the user to the Studio screen.
-    if (hasPendingPackage()) {
+    // A cold-start double-click: the target screen also claims on mount, so
+    // this is purely the nudge that gets the user there.
+    if (hasPendingPackage('project')) {
       win.webContents.send(IPC.STUDIO_PACKAGE_OPEN_FILE, {});
+    }
+    if (hasPendingPackage('agent')) {
+      win.webContents.send(IPC.AGENTS_PACKAGE_OPEN_FILE, {});
     }
   });
 
@@ -143,9 +151,10 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-// A .vidtsx passed on the command line (Windows/Linux file association).
-const launchPackagePath = packagePathFromArgv(process.argv);
-if (launchPackagePath) setPendingPackage(launchPackagePath);
+// A .vidtsx or .vidtsxagent passed on the command line (Windows/Linux file
+// association).
+const launchPackage = packageFromArgv(process.argv);
+if (launchPackage) setPendingPackage(launchPackage);
 
 app.whenReady().then(async () => {
   const startupBegan = Date.now();

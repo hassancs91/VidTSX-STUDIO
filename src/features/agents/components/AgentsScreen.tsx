@@ -34,6 +34,15 @@ export function AgentsScreen() {
 
   const back = useCallback(() => setOpenAgentId(null), []);
 
+  // A double-clicked `.vidtsxagent` (§1.6) has to reach the GALLERY, which is
+  // what claims the parked path and opens the import dialog — and the gallery
+  // is not mounted while an agent workspace is. Getting the user to the Agents
+  // screen is therefore not enough on its own; this closes the workspace so the
+  // page they land on is the one that can act on the file.
+  useEffect(() => {
+    return window.api.onAgentsPackageOpenFile(() => setOpenAgentId(null));
+  }, []);
+
   return (
     <div className="h-full">
       {openAgentId && agent ? (

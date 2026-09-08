@@ -5,6 +5,7 @@
 // file's job is error shaping and nothing else. Run and artifact channels live
 // in `agent-run-handlers.ts`.
 
+import path from 'path';
 import { app, dialog, type IpcMainInvokeEvent } from 'electron';
 import type {
   AgentSessionCreateRequest,
@@ -24,11 +25,14 @@ import type {
   AgentsInstallRequest,
   AgentsInstallResponse,
   AgentsListResponse,
+  AgentsPendingPackageResponse,
   AgentsRemoveRequest,
   AgentsRemoveResponse,
 } from '@shared/ipc/types';
 import type { InstalledAgent } from '@shared/types/agents';
+import { assetUrlFor } from '../services/agents/artifact-paths';
 import { AGENT_PACKAGE_EXT } from '@shared/agents/manifest';
+import { takePendingPackage } from '../services/packages/pending-open';
 import { buildAgentPackageDeps } from '../services/agents/agent-package-context';
 import { openAgentPackage } from '../services/agents/agent-package';
 import { installAgentPackage, removeAgent } from '../services/agents/agent-store';
@@ -50,9 +54,35 @@ function fail(err: unknown, fallback: string): { success: false; error: string }
   return { success: false, error: message || fallback };
 }
 
+/**
+ * Claim the `.vidtsxagent` the OS handed us (file association, §1.6). One-shot
+ * and kind-scoped by design: the path parks in main because the Agents screen
+ * may not be mounted yet, two claimants must not both install, and Studio's
+ * project browser — which mounts on almost every launch — must never take it.
+ */
+export async function handleAgentsPendingPackage(): Promise<AgentsPendingPackageResponse> {
+  const filePath = takePendingPackage('agent');
+  return filePath ? { filePath } : {};
+}
+
+/**
+ * The card shows the package's own icon, so the renderer needs a URL rather
+ * than the path on disk. One failure — the preview server not being up — costs
+ * the picture and nothing else, so it is swallowed per agent.
+ */
+async function withIconUrl(agent: InstalledAgent): Promise<InstalledAgent> {
+  if (!agent.manifest.icon) return agent;
+  try {
+    return { ...agent, iconUrl: await assetUrlFor(path.join(agent.dir, agent.manifest.icon)) };
+  } catch {
+    return agent;
+  }
+}
+
 export async function handleAgentsList(): Promise<AgentsListResponse> {
   try {
-    return { success: true, agents: await agentService.listAgents() };
+    const agents = await agentService.listAgents();
+    return { success: true, agents: await Promise.all(agents.map(withIconUrl)) };
   } catch (err) {
     return fail(err, 'Failed to list agents');
   }
@@ -72,7 +102,7 @@ export async function handleAgentsInspect(
     if (data.agentId) {
       const agent = await agentService.findAgent(data.agentId);
       return agent
-        ? { success: true, agent }
+        ? { success: true, agent: await withIconUrl(agent) }
         : { success: false, error: 'That agent is not installed.' };
     }
 

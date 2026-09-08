@@ -64,6 +64,14 @@ function AppContent({ activeScreen, setActiveScreen }: {
     });
   }, [setActiveScreen]);
 
+  // The same hand-off for a double-clicked .vidtsxagent — the gallery claims
+  // the path once it is mounted (agents plan §1.6).
+  useEffect(() => {
+    return window.api.onAgentsPackageOpenFile(() => {
+      if (isFeatureEnabled('agents')) setActiveScreen('agents');
+    });
+  }, [setActiveScreen]);
+
   const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : "creator");
 
   useEffect(() => {

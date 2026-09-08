@@ -1,12 +1,12 @@
 // The Agents page (agents plan §1.7): a grid of installed agents, an Import
 // button, and drag-and-drop of a `.vidtsxagent` anywhere on the page.
 //
-// Double-click via the OS file association is deliberately NOT here — Stage 2
-// left the single pending slot in `package-open.ts` to Studio and Stage 3 was
-// asked not to widen it, so importing is the button and the drop target. Both
-// reach the same install path.
+// A double-clicked `.vidtsxagent` lands here too (Stage 5): main parks the path
+// in the kind-scoped pending slot and pushes an event; this claims it on mount
+// AND on the event, because the app can be launched straight into any screen.
+// All three routes — button, drop, double-click — end at the same dialog.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Bot, Plus, Upload } from 'lucide-react';
 import type { AgentUpdateInfo, InstalledAgent } from '@shared/types/agents';
 import { AGENT_PACKAGE_EXT } from '@shared/agents/manifest';
@@ -40,6 +40,17 @@ export function AgentGallery({ onOpenAgent }: Props) {
       showToast(result.error ?? 'That file is not an agent package.', 'error');
     }
   }, [showToast]);
+
+  // The path parks in main until this page is on screen; the push event only
+  // navigates here, so the claim runs on mount as well.
+  useEffect(() => {
+    const claim = async (): Promise<void> => {
+      const result = await window.api.agentsPendingPackage();
+      if (result.filePath) setImportPath(result.filePath);
+    };
+    void claim();
+    return window.api.onAgentsPackageOpenFile(() => void claim());
+  }, []);
 
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

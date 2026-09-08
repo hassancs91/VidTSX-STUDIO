@@ -7,6 +7,63 @@
 
 ---
 
+## 2026-09-08 — AGENTS Stage 5 DONE: the built-in agents, the starter, the file association
+
+Stage 5 of `docs/agents-plan.md` (§8). The app now SHIPS agents: two built-ins
+in the installer, a guided start that asks the package's own questions before a
+session exists, and a double-clicked `.vidtsxagent` that lands on the Agents
+page. Motion Post takes a one-line brief to a rendered MP4 in one session. Full
+log with the contract deltas and the two bugs the real app found: the plan's §8
+"Stage 5 outcome". `check:types` at baseline (web 26, node 10); the suite green.
+
+Scope was agreed first. §8 estimates ~1 session but Stages 2, 3 and 4 had each
+deferred something into it, so the cut was all three: the agents, the starter UI
+(`StarterFlow.tsx` + `QuickStarts.tsx`, which Stage 4 left precisely so they
+could be driven against Motion Post's real tree), and the file association.
+Hasan answered three decisions: §8's "two built-in agents" stands and the second
+one is `vidtsx/assistant` (resolving open question 2); Motion Post ships
+UNSIGNED, because a built-in is inside the signed installer and
+`origin: 'builtin'` outranks the trust tag; and `package-open.ts` moves out of
+`services/studio/` rather than being widened where it sat.
+
+- **`resources/agents/vidtsx/motion-post/`** — `agent.json` (seven tools, the
+  §1.1 starter tree, `memory: { propose: true }`, no `updateUrl` because a
+  built-in updates with the app), `AGENT.md` (a seven-step workflow whose
+  load-bearing lines are the two that say END YOUR TURN, since the non-blocking
+  `ask_user` depends on the model actually stopping), a `social-motion` skill
+  that is craft rather than TSX rules (timing, text hierarchy, safe zones,
+  easing vocabulary), and an icon. **`resources/agents/vidtsx/assistant/`** is
+  the no-tools chat companion. `minAppVersion` is 1.0.0 on both, not the 1.1.0
+  §1.1 shows: the manifest is checked against the RUNNING app version, so 1.1.0
+  would make the built-in unloadable in the build that ships it. Stage 6 raises
+  both at the release bump.
+- **The starter runs BEFORE the session is created**, which is the decision the
+  session had to make. `AGENT_SESSION_CREATE` already takes `starter`, so no
+  patch channel is needed; backing out of the questions leaves no empty session
+  folder; and the answers NAME the session, which matters because §1.11 fixes
+  the library folder from the title at creation and never moves it.
+- **It renders through the same interaction cards** `ask_user` uses (§1.9's "no
+  seam"): a select node is a `pick`, a text node a one-field `form`, and
+  "Something else…" routes to a second card that collects the typed words.
+  `initialValues` on the cards is what lets Back restore an answer.
+- **The `.vidtsxagent` association**, owed since Stage 2. The pending slot in
+  `package-open.ts` now carries a KIND and moved to
+  `services/packages/pending-open.ts`; a claim names the kind it can handle, so
+  Studio's project browser can never swallow an agent package. Proven end to end
+  in dev by launching a second Electron instance with the file on argv. The part
+  that needs a packaged installer — Windows actually registering the extension —
+  is Stage 6's.
+
+**Two bugs the real app found that no unit test could have.** A finished render
+was never filed: `RenderQueueContext.startNextJob` replaces a row's id with the
+one main mints for the render, so the id an agent render is queued under
+survives only until it STARTS, and the completion is then reported for an id no
+artifact carries. Every early run produced its video and none of them knew it.
+The fix is a pure, tested matcher (`services/render-job-match.ts`) that falls
+back to the output path. And the chat composer could be locked behind a Stop
+button for a run it had nothing to do with, because `busy` was not reset when
+the open session changed.
+
 ## 2026-09-08 — AGENTS Stage 4 DONE: interactions, the mid-run round trip, memory per agent
 
 Stage 4 of `docs/agents-plan.md` (§7). The `ask_user` round trip that has worked

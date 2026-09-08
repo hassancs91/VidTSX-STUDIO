@@ -522,6 +522,11 @@ export const IPC = {
   // carries the SCOPE they chose — this agent, or every agent.
   AGENT_MEMORY_PROPOSALS_GET: 'agents:memory:proposals:get',
   AGENT_MEMORY_PROPOSAL_RESOLVE: 'agents:memory:proposal:resolve',
+  // A double-clicked `.vidtsxagent` (§1.6). Main parks the path — kind-scoped,
+  // so Studio's browser cannot claim it — pushes OPEN_FILE to get the user to
+  // the Agents screen, and the gallery claims the path with PENDING_PACKAGE.
+  AGENTS_PACKAGE_OPEN_FILE: 'agents:package:open-file',
+  AGENTS_PENDING_PACKAGE: 'agents:package:pending',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

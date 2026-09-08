@@ -19,6 +19,10 @@ fileAssociations:
     name: VidTSX project package
     description: VidTSX Studio project package
     role: Editor
+  - ext: vidtsxagent
+    name: VidTSX agent package
+    description: VidTSX Studio agent package
+    role: Editor
 directories:
   output: dist
   buildResources: resources

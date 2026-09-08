@@ -31,7 +31,15 @@ export function AgentCard({ agent, onOpen, onDetails, onCheckUpdate, onRemove }:
     >
       <button onClick={onOpen} className="w-full text-left" title={`Open ${manifest.name}`}>
         <div className="flex items-center justify-center h-[80px] bg-accent-purple-bg" style={{ backgroundColor: '#1e1030' }}>
-          <Bot size={26} strokeWidth={1.25} className="text-accent-light" />
+          {agent.iconUrl ? (
+            <img
+              src={agent.iconUrl}
+              alt=""
+              className="w-[40px] h-[40px] rounded-[8px] object-contain"
+            />
+          ) : (
+            <Bot size={26} strokeWidth={1.25} className="text-accent-light" />
+          )}
         </div>
         <div className="px-2 py-1.5">
           <div className="flex items-baseline gap-1.5">

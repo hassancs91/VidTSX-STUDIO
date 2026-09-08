@@ -46,6 +46,19 @@ export interface AgentsInspectResponse {
   error?: string;
 }
 
+/** A double-clicked `.vidtsxagent` (§1.6). The PATH parks in main until the
+ *  Agents screen claims it, so this event's only job is to get the user there;
+ *  the path rides along when it is known and is absent on a cold start, where
+ *  the gallery claims it on mount anyway. */
+export interface AgentsPackageOpenFileEvent {
+  filePath?: string;
+}
+
+export interface AgentsPendingPackageResponse {
+  /** The parked path, cleared by this read. Absent when there is none. */
+  filePath?: string;
+}
+
 export interface AgentsInstallRequest {
   filePath: string;
   /** Set after the user confirmed a downgrade. */

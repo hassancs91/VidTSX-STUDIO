@@ -1,0 +1,130 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/motion-post",
+  "name": "Motion Post",
+  "version": "1.0.0",
+  "description": "Brief → animated social post, rendered.",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.0.0",
+  "icon": "icon.png",
+  "prompt": "AGENT.md",
+  "tools": [
+    "write_document",
+    "generate_composition",
+    "edit_composition",
+    "render_composition",
+    "ask_user",
+    "list_artifacts",
+    "propose_memory"
+  ],
+  "artifacts": [
+    "document",
+    "composition",
+    "job",
+    "video"
+  ],
+  "interactions": [
+    "form",
+    "pick",
+    "approve"
+  ],
+  "starter": {
+    "entry": "goal",
+    "nodes": {
+      "goal": {
+        "question": "What kind of post?",
+        "select": "one",
+        "options": [
+          {
+            "id": "promo",
+            "label": "Promote a product or offer",
+            "next": "platform"
+          },
+          {
+            "id": "tip",
+            "label": "Share a tip or insight",
+            "next": "platform"
+          },
+          {
+            "id": "quote",
+            "label": "A quote card",
+            "next": "platform"
+          },
+          {
+            "id": "announcement",
+            "label": "Announce something",
+            "next": "platform"
+          }
+        ],
+        "allowOther": true,
+        "otherNext": "platform"
+      },
+      "platform": {
+        "question": "Where will it be posted?",
+        "hint": "This sets the frame size.",
+        "select": "one",
+        "options": [
+          {
+            "id": "9:16",
+            "label": "Reels / Shorts / TikTok",
+            "next": "brief"
+          },
+          {
+            "id": "1:1",
+            "label": "Instagram feed",
+            "next": "brief"
+          },
+          {
+            "id": "16:9",
+            "label": "YouTube / X",
+            "next": "brief"
+          }
+        ]
+      },
+      "brief": {
+        "question": "What is it about?",
+        "hint": "A sentence is enough — the product, the tip, the words you want on screen.",
+        "text": true,
+        "multiline": true,
+        "next": "$end"
+      }
+    },
+    "opening": "Make an animated post.\n\nPlatform: {{platform}}\nKind: {{goal}}\nAbout: {{brief}}",
+    "quickStarts": [
+      "A 6s hook for a newsletter launch",
+      "Three-tip loop on staying focused",
+      "Quote card: \"Done is better than perfect\""
+    ]
+  },
+  "defaults": {
+    "maxTurns": 24,
+    "effort": "medium"
+  },
+  "memory": {
+    "propose": true
+  },
+  "workspace": {
+    "sdkFileTools": false
+  },
+  "files": [
+    {
+      "path": "AGENT.md",
+      "size": 3810,
+      "sha256": "9614e46c1312ffb6b7faab7a37fbe34facc1a14ed6ab7109b913bc52db7a6375"
+    },
+    {
+      "path": "icon.png",
+      "size": 2195,
+      "sha256": "71c3a075146bcf1caa3f327919f5d1a945eeea2557ec0bb47a46d7848d53bdf2"
+    },
+    {
+      "path": "skills/social-motion/SKILL.md",
+      "size": 4024,
+      "sha256": "bd93d94bf174fbcea8be973b51ee43c42598805c804754bf795725ebff67995f"
+    }
+  ]
+}

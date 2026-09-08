@@ -32,7 +32,7 @@ import {
   VIDTSX_PACKAGE_EXTENSION,
 } from '../../shared/studio/project-package';
 import { normalizeBrand } from '../../shared/studio/brand';
-import { takePendingPackage } from '../services/studio/package-open';
+import { takePendingPackage } from '../services/packages/pending-open';
 import { importPackage, inspectPackage } from '../services/studio/project-package-import';
 import { conformShot } from '../services/studio/shot-conform';
 import {
@@ -253,6 +253,6 @@ export async function handleStudioShotConform(
  * mounted yet, and two claimants must not both start an import.
  */
 export async function handleStudioPackagePending(): Promise<StudioPackagePendingResponse> {
-  const filePath = takePendingPackage();
+  const filePath = takePendingPackage('project');
   return filePath ? { filePath } : {};
 }

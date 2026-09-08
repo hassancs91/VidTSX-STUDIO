@@ -35,6 +35,8 @@ import type {
   AgentsInstallRequest,
   AgentsInstallResponse,
   AgentsListResponse,
+  AgentsPackageOpenFileEvent,
+  AgentsPendingPackageResponse,
   AgentsRemoveRequest,
   AgentsRemoveResponse,
 } from '../../shared/ipc/types';
@@ -50,6 +52,14 @@ export const agentsApi = {
     ipcRenderer.invoke(IPC.AGENTS_REMOVE, data),
   agentsCheckUpdate: (data: AgentsCheckUpdateRequest): Promise<AgentsCheckUpdateResponse> =>
     ipcRenderer.invoke(IPC.AGENTS_CHECK_UPDATE, data),
+  /** A double-clicked `.vidtsxagent`: claim the parked path (§1.6). */
+  agentsPendingPackage: (): Promise<AgentsPendingPackageResponse> =>
+    ipcRenderer.invoke(IPC.AGENTS_PENDING_PACKAGE),
+  onAgentsPackageOpenFile: (callback: (event: AgentsPackageOpenFileEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: AgentsPackageOpenFileEvent) => callback(data);
+    ipcRenderer.on(IPC.AGENTS_PACKAGE_OPEN_FILE, listener);
+    return () => ipcRenderer.removeListener(IPC.AGENTS_PACKAGE_OPEN_FILE, listener);
+  },
 
   // ─── Saved sessions (§1.5) ───
   agentSessionsList: (data: AgentSessionsListRequest): Promise<AgentSessionsListResponse> =>
