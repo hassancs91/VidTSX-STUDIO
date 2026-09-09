@@ -27,6 +27,10 @@
    without shipping a release. *(Added 2026-08-16. See Phase I.)*
 10. **License + repo prep before going public** — FSL-1.1-MIT, CLA, Remotion note,
     "source-available" language. *(Decided 2026-08-16. See "Licensing & repo prep".)*
+11. **Cloud video providers in V1** — fal Seedance 2.x + BytePlus ModelArk direct, a
+    provider registry so new providers are one entry, and the Videos screen becomes the
+    video-generation tool (unhidden). *(Planned + locked 2026-09-04. Five stages before the
+    flip. See `docs/video-providers-plan.md`.)*
 
 ## Post-V1 backlog (recorded, not scheduled)
 
@@ -1037,6 +1041,51 @@ over: BUSL (heavier, corporate), n8n's Sustainable Use License (more restrictive
 Elastic 2.0 (aimed at SaaS protection, wrong fit for a desktop app), PolyForm Noncommercial
 (would technically forbid freelancers editing client videos — avoid). Full rationale in
 `PLAN.md` § "Source license".
+
+> **REOPENED 2026-08-23 (license discussion with Hasan, alongside the slice-5
+> Content Safety plan) — recommendation on the table: switch to PolyForm
+> Shield at flip time.** Hasan's stated #1 licensing concern is not revenue
+> but **someone stripping the safety gate and selling an NSFW fork of the
+> code**. Against exactly that scenario: FSL forbids it only for 2 years per
+> release (the MIT conversion then legalizes it — the fuse lands on precisely
+> the scenario he cares about) and FSL's Competing Use is explicitly
+> *commercial*-only, so a **free** stripped fork slips through even inside
+> the window. **PolyForm Shield** forbids providing *any* competing product
+> (no commercial qualifier, no conversion date, still a recognized standard
+> license) — stronger on both axes for this concern. What either license
+> actually buys is enforcement leverage, not technical prevention: a
+> violating fork is copyright infringement → DMCA takedowns to GitHub /
+> hosts / app stores / payment processors (cheap and effective), plus clean
+> hands + the trademark keeping the VidTSX name off any such fork. This
+> matches CONTENT_SAFETY_DESIGN.md D5's claim discipline ("always on, cannot
+> be disabled in the app" — never "impossible").
+> - [x] **DECIDED (Hasan, 2026-08-23): switch to PolyForm Shield + the
+>       safety condition below at flip time.** Trade-off accepted: gives up
+>       FSL's "truly free in 2 years" goodwill story. Execution (LICENSE.md
+>       swap, package.json SPDX, README/site wording, lawyer pass on the
+>       condition sentence) happens at the flip, not before.
+> - [ ] **UPGRADED 2026-08-23 (Hasan): not just a NOTICE sentence — an
+>       explicit license CONDITION.** Add to the chosen base license a
+>       clearly labeled additional-terms section: *"This license is granted
+>       on the condition that you do not remove, disable, or circumvent the
+>       content-safety functionality in any version you distribute."*
+>       Mechanics: breaking a license CONDITION terminates the grant →
+>       the fork becomes copyright infringement → valid DMCA takedown via
+>       GitHub's form (which GitHub enforces; notices are public in
+>       github/dmca — file only against genuinely violating forks, never
+>       compliant ones). MUST be worded as a *condition of the grant*, not
+>       a covenant (condition = infringement + DMCA; covenant = contract
+>       breach only, no DMCA) — **this exact sentence gets lawyer review at
+>       flip time**. Note the combined license is then "X + additional
+>       terms" (custom — can't be called plain PolyForm Shield/FSL).
+>       README/NOTICE restates it; wording stays consistent with the in-app
+>       Content Safety page (slice 5, NF11) and D5's default-stance claim.
+> - [ ] Caveat recorded: the July 2026 public v1.0.0's license grant is
+>       irrevocable for that snapshot — a switch protects the cutover
+>       forward only (one more reason to decide at flip, not after).
+> - [ ] Related spun-off item (separate design doc, not slice 5): opt-in
+>       diagnostics upload to Hasan's server (Sentry-consent pattern;
+>       blocked *images* are never uploaded — metadata only).
 
 - [x] Add `LICENSE.md` — DONE 2026-08-16: verbatim FSL-1.1-MIT template fetched from
       the canonical getsentry/fsl.software repo, copyright 2026 Hasan Aboul Hasan.

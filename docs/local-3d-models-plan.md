@@ -9,6 +9,12 @@
 > see `docs/local-3d-models-research.md` (§1 runtime, §2 models, §3 PyTorch audit).
 > **Status:** plan only — no phase starts without sign-off. Template for category
 > delivery: the video category (progress log in `local-image-models-implementation.md`).
+>
+> **Update 2026-09-03:** §2 "Envs" and **Phase 4** (per-pipeline `pip install --target` on the
+> user machine) are **superseded** by `docs/local-python-runtime-plan.md` — a pre-built,
+> relocatable Python+PyTorch stack downloaded once per app version (no pip on user machines).
+> That plan also moves TripoSR (Phase 5) ahead of trellis.cpp (Phase 2) because the 4 GB dev
+> box cannot validate trellis.cpp. Tiers, license policy, §3 UI and Phases 1/3 still apply.
 
 ## 1. The coverage problem (why two runtimes)
 
