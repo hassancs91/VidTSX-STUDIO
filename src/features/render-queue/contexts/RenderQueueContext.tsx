@@ -339,12 +339,18 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
     });
   }, [startNextJob]);
 
-  // Clear completed jobs
+  // Clear completed jobs. Persist immediately instead of via the debounced
+  // save — a pending debounce is dropped on unmount/quit, which would bring
+  // the cleared jobs back on next launch.
   const clearCompleted = useCallback(() => {
-    setJobs((prev) =>
-      prev.filter((j) => j.status === 'queued' || j.status === 'rendering')
-    );
-  }, []);
+    const updated = jobs.filter((j) => j.status === 'queued' || j.status === 'rendering');
+    setJobs(updated);
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    void window.api.renderQueueSave({ jobs: updated });
+  }, [jobs]);
 
   // Open rendered file
   const openFile = useCallback(async (outputPath: string) => {
