@@ -3,6 +3,7 @@ import type {
   StudioMemoryKind,
   StudioMemoryProposal,
   StudioStylePromotionProposal,
+  StudioVocabularyProposal,
 } from '../../types/studio-memory';
 
 // Studio — agent memory (G5): manual entry + MemoryDialog.
@@ -120,5 +121,39 @@ export interface MemoryPromotionResolveRequest {
 
 export interface MemoryPromotionResolveResponse {
   success: boolean;
+  error?: string;
+}
+
+/** memory:vocabulary:proposals:get — pending vocabulary cards for one
+ *  project (W4), the same navigation-survival contract as the others. */
+export interface MemoryVocabularyProposalsGetRequest {
+  projectId: string;
+}
+
+export interface MemoryVocabularyProposalsGetResponse {
+  success: boolean;
+  proposals?: StudioVocabularyProposal[];
+  error?: string;
+}
+
+/** memory:vocabulary:proposal:resolve — accept merges the ticked terms into
+ *  the brand's vocabulary and retires matching vocabulary memories; reject
+ *  discards. A brand write failure leaves the proposal pending. */
+export interface MemoryVocabularyProposalResolveRequest {
+  proposalId: string;
+  projectId: string;
+  action: 'accept' | 'reject';
+  /** The terms the user ticked (by `term` text); absent = every term. */
+  terms?: string[];
+}
+
+export interface MemoryVocabularyProposalResolveResponse {
+  success: boolean;
+  /** Terms newly added to the brand. */
+  added?: string[];
+  /** Terms already on the brand whose aliases were folded in. */
+  merged?: string[];
+  /** Vocabulary memories retired because the brand carries them now. */
+  retiredMemories?: number;
   error?: string;
 }

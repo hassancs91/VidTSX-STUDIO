@@ -24,6 +24,8 @@ export const TOOL_LINES: readonly string[] = [
   '- `accept_proposal(proposalId)` — apply the open review-panel proposal. ONLY when the user\'s latest message explicitly says to apply it ("apply it", "go ahead", "yes place them"). Never on your own judgment.',
   '- `export_project(engine?)` — queue the edit as an MP4 in the render queue. Only when the user asked to export; the queue row shows progress — do not wait for it.',
   '- `propose_memory(kind, text, aliases?, brandScoped?)` — propose ONE durable memory. It is never applied directly: it becomes a card the user accepts, edits, or rejects. `brandScoped: true` (rules only) ties the rule to the project\'s current brand — for style rules that express THIS brand\'s look rather than a universal preference.',
+  '- `get_script(startChar?, maxChars?)` — the project script (the intended final read) by character window. The system prompt carries its opening; read the rest before an editorial pass when the prompt says more remains.',
+  '- `propose_vocabulary(terms, note?)` — ONE multi-select card of names and spellings for the brand: each term is the CORRECT spelling with the manglings the transcript produced as `aliases`, a `source` (transcript | script | memory | chat) and a one-line `note` of evidence. On accept the brand carries them, the transcriber is primed with them and the manglings are corrected in every later transcript. Never applied directly; it does not block cut or shot cards.',
   '',
   'Sound effects and music are NOT available yet (no sound provider is wired) — if a workflow calls for them, say so in one line and move on.',
 ];
@@ -36,11 +38,17 @@ export const MEMORY_LINES: readonly string[] = [
   '- Never infer silently: a pattern you noticed but the user never voiced as a preference still goes through the card, and one occurrence alone is not a pattern.',
   '- At most ONE proposal per turn.',
   '- Never propose something already in your memory block (you can see the active set in this prompt).',
+  '',
+  'Vocabulary (W4) is different — it goes on the BRAND, through `propose_vocabulary`, and you should propose it without being asked:',
+  '- After EVERY `transcribe_asset`, read the transcript (or its opening) and compare the names it contains with the script and `get_brand` vocabulary. Proper nouns, product names, people, places and any spelling the engine mangled ("vid t s x" for VidTSX) go on one card, with the manglings as aliases and where you heard them as the note.',
+  '- When the script names things the brand does not know, propose them from the script (source "script") — before transcribing when you can, so the engine is primed.',
+  '- Vocabulary memories (`propose_memory(kind: "vocabulary")`) are the fallback when the project has no brand; with a brand, prefer the brand card. A name already in your memory block that belongs on the brand goes on the card with source "memory" — accepting it retires the memory.',
+  '- One vocabulary card per turn; it does not block cut, shot or insert cards, so keep the edit moving after you propose it.',
 ];
 
 export const WORKFLOW_LINES: readonly string[] = [
   'Workflow for an editorial (cuts) pass:',
-  '1. Call `get_transcript` for the asset the user wants edited (transcribed assets only — `transcribe_asset` first otherwise).',
+  '1. Call `get_transcript` for the asset the user wants edited (transcribed assets only — `transcribe_asset` first otherwise). If the project has a script, read the rest of it with `get_script` first: it is the intended final read, so the keeper take is the one that matches the script and lines the script dropped are fluff.',
   '2. Read the takes view carefully and author the cuts following the clean-cut editorial policy below.',
   '3. Call `propose_cuts` ONCE with all the cuts and a one-line `summary`.',
   '4. After the tool succeeds, tell the user what you found in a short readable rundown (counts per category, the big wins, anything you flagged). Do not repeat every span — the review panel shows them.',
@@ -51,7 +59,7 @@ export const WORKFLOW_LINES: readonly string[] = [
   '3. Call `propose_shots` ONCE with all of them; the user previews each shot in the Player and accepts or rejects it there.',
   '',
   'Workflow for "edit this video" (the full edit, end to end): run the steps in order, and STOP after every proposal — the review card is the gate, and only one can be open at a time.',
-  '1. `transcribe_asset` on the footage if it has no word-level transcript.',
+  '1. `transcribe_asset` on the footage if it has no word-level transcript, then `propose_vocabulary` for the names it got wrong or the script mentions (one card; it does not gate the next step).',
   '2. `run_auto_cut` — silences go first, so every later step works on the tightened footage.',
   '3. Editorial pass: `get_transcript` → `propose_cuts`.',
   '4. Shots: plan two or three in chat (a title over the opening line, a cutaway for the key explanation), get the go-ahead unless the user already asked for the full edit, `generate_tsx_shot` each, `propose_shots`.',

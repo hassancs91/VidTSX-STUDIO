@@ -3,12 +3,14 @@ import { AlertTriangle, Brain, RotateCcw, Scissors, Send, Sparkles, Square, Wren
 import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioAgent';
 import { useMemoryProposals } from '../hooks/useMemoryProposals';
 import { useStylePromotions } from '../hooks/useStylePromotions';
+import { useVocabularyProposals } from '../hooks/useVocabularyProposals';
 import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
 import { ModelPickerChip } from '@renderer/components/ModelPickerChip';
 import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
 import type { StudioAgentSettings } from '../types';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { StylePromotionCard } from './StylePromotionCard';
+import { VocabularyProposalCard } from './VocabularyProposalCard';
 
 /** Warn when the next turn is estimated at ≥40% of the context budget. */
 const CONTEXT_WARN_RATIO = 0.4;
@@ -36,6 +38,9 @@ const TOOL_LABELS: Record<string, string> = {
   set_captions: 'Setting captions',
   accept_proposal: 'Applying the proposal',
   export_project: 'Queuing the export',
+  // W4: script and vocabulary.
+  get_script: 'Reading the script',
+  propose_vocabulary: 'Proposing vocabulary',
 };
 
 interface Props {
@@ -55,6 +60,7 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
   const scrollRef = useRef<HTMLDivElement>(null);
   const memoryProposals = useMemoryProposals(projectId);
   const stylePromotions = useStylePromotions(projectId);
+  const vocabulary = useVocabularyProposals(projectId);
   const { providers } = useProviderPicker();
 
   const { messages, busy, send, cancel, clear, contextUsage, toolsAvailable } = agent;
@@ -62,7 +68,12 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [messages, memoryProposals.proposals.length, stylePromotions.proposals.length]);
+  }, [
+    messages,
+    memoryProposals.proposals.length,
+    stylePromotions.proposals.length,
+    vocabulary.proposals.length,
+  ]);
 
   const submit = () => {
     const text = draft.trim();
@@ -76,7 +87,8 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
       <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto px-2.5 py-2 space-y-2.5">
         {messages.length === 0 &&
         memoryProposals.proposals.length === 0 &&
-        stylePromotions.proposals.length === 0 ? (
+        stylePromotions.proposals.length === 0 &&
+        vocabulary.proposals.length === 0 ? (
           <EmptyState />
         ) : (
           messages.map((m) => <MessageRow key={m.id} message={m} />)
@@ -102,6 +114,26 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
             onReject={() => void stylePromotions.reject(p)}
           />
         ))}
+        {vocabulary.proposals.map((p) => (
+          <VocabularyProposalCard
+            key={p.id}
+            proposal={p}
+            error={vocabulary.error}
+            resolving={vocabulary.resolving}
+            onAccept={(terms) => void vocabulary.accept(p, terms)}
+            onReject={() => void vocabulary.reject(p)}
+          />
+        ))}
+        {vocabulary.lastOutcome && vocabulary.proposals.length === 0 && (
+          <div className="text-[10px] text-text-dim px-1" data-vocabulary-outcome>
+            Brand vocabulary updated
+            {vocabulary.lastOutcome.added.length > 0 ? ` · added ${vocabulary.lastOutcome.added.join(', ')}` : ''}
+            {vocabulary.lastOutcome.merged.length > 0 ? ` · aliases added to ${vocabulary.lastOutcome.merged.join(', ')}` : ''}
+            {vocabulary.lastOutcome.retiredMemories > 0
+              ? ` · ${vocabulary.lastOutcome.retiredMemories} memor${vocabulary.lastOutcome.retiredMemories === 1 ? 'y' : 'ies'} retired`
+              : ''}
+          </div>
+        )}
       </div>
 
       <div className="p-2.5 shrink-0" style={{ borderTop: '0.5px solid var(--color-border)' }}>

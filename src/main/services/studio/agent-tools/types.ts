@@ -31,6 +31,9 @@ export interface StudioTurnState {
   importedAssets: Map<string, StudioMediaAsset>;
   memoryProposalCreated: boolean;
   stylePromotionCreated: boolean;
+  /** W4: one vocabulary card per turn (its own gate — it does not block
+   *  the review proposals or the memory cards). */
+  vocabularyProposalCreated: boolean;
 }
 
 export function createTurnState(): StudioTurnState {
@@ -40,6 +43,7 @@ export function createTurnState(): StudioTurnState {
     importedAssets: new Map(),
     memoryProposalCreated: false,
     stylePromotionCreated: false,
+    vocabularyProposalCreated: false,
   };
 }
 

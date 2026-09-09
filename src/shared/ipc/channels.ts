@@ -460,6 +460,9 @@ export const IPC = {
   // Q6c: pending style promotions (brand styleNotes + memory retire on accept).
   MEMORY_PROMOTIONS_GET: 'memory:promotions:get',
   MEMORY_PROMOTION_RESOLVE: 'memory:promotion:resolve',
+  // W4: vocabulary cards (accept writes the brand).
+  MEMORY_VOCABULARY_PROPOSALS_GET: 'memory:vocabulary:proposals:get',
+  MEMORY_VOCABULARY_PROPOSAL_RESOLVE: 'memory:vocabulary:proposal:resolve',
 
   // Asset library — index overlay (descriptions), sizes, root override
   LIBRARY_INDEX_GET: 'library:index:get',

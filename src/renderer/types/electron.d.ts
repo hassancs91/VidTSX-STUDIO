@@ -492,6 +492,8 @@ export interface ElectronAPI {
   memoryProposalResolve: (data: import('../../shared/ipc/types').MemoryProposalResolveRequest) => Promise<import('../../shared/ipc/types').MemoryProposalResolveResponse>;
   memoryPromotionsGet: (data: import('../../shared/ipc/types').MemoryPromotionsGetRequest) => Promise<import('../../shared/ipc/types').MemoryPromotionsGetResponse>;
   memoryPromotionResolve: (data: import('../../shared/ipc/types').MemoryPromotionResolveRequest) => Promise<import('../../shared/ipc/types').MemoryPromotionResolveResponse>;
+  memoryVocabularyProposalsGet: (data: import('../../shared/ipc/types').MemoryVocabularyProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryVocabularyProposalsGetResponse>;
+  memoryVocabularyProposalResolve: (data: import('../../shared/ipc/types').MemoryVocabularyProposalResolveRequest) => Promise<import('../../shared/ipc/types').MemoryVocabularyProposalResolveResponse>;
 
   // Announcements feed (Phase I)
   newsGet: () => Promise<import('../../shared/ipc/types').NewsGetResponse>;

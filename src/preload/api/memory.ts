@@ -16,6 +16,10 @@ import type {
   MemorySaveResponse,
   MemorySetActiveRequest,
   MemorySetActiveResponse,
+  MemoryVocabularyProposalResolveRequest,
+  MemoryVocabularyProposalResolveResponse,
+  MemoryVocabularyProposalsGetRequest,
+  MemoryVocabularyProposalsGetResponse,
 } from '../../shared/ipc/types';
 
 export const memoryApi = {
@@ -39,4 +43,13 @@ export const memoryApi = {
     data: MemoryPromotionResolveRequest
   ): Promise<MemoryPromotionResolveResponse> =>
     ipcRenderer.invoke(IPC.MEMORY_PROMOTION_RESOLVE, data),
+  // W4: vocabulary cards.
+  memoryVocabularyProposalsGet: (
+    data: MemoryVocabularyProposalsGetRequest
+  ): Promise<MemoryVocabularyProposalsGetResponse> =>
+    ipcRenderer.invoke(IPC.MEMORY_VOCABULARY_PROPOSALS_GET, data),
+  memoryVocabularyProposalResolve: (
+    data: MemoryVocabularyProposalResolveRequest
+  ): Promise<MemoryVocabularyProposalResolveResponse> =>
+    ipcRenderer.invoke(IPC.MEMORY_VOCABULARY_PROPOSAL_RESOLVE, data),
 };

@@ -15,6 +15,8 @@ import { buildVideoTools } from './video-tools';
 import { buildInsertTools } from './insert-tools';
 import { buildProjectTools } from './project-tools';
 import { buildDeliveryTools } from './delivery-tools';
+import { buildScriptTools } from './script-tools';
+import { buildVocabularyTools } from './vocabulary-tools';
 import type { StudioToolContext } from './types';
 
 export { createTurnState } from './types';
@@ -43,6 +45,9 @@ export const STUDIO_TOOL_IDS = [
   'set_captions',
   'accept_proposal',
   'export_project',
+  // W4 (2026-09-09): script and vocabulary.
+  'get_script',
+  'propose_vocabulary',
 ] as const;
 
 export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
@@ -68,6 +73,8 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildInsertTools(ctx),
       ...buildProjectTools(ctx),
       ...buildDeliveryTools(ctx),
+      ...buildScriptTools(ctx),
+      ...buildVocabularyTools(ctx),
     ],
   });
 }

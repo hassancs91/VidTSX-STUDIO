@@ -83,6 +83,38 @@ export interface StudioStylePromotionProposal {
   createdAt: string;
 }
 
+/** Where a proposed vocabulary term came from (shown on the card). */
+export type StudioVocabularySource = 'transcript' | 'script' | 'memory' | 'chat';
+
+export interface StudioVocabularyTerm {
+  /** The CORRECT spelling. */
+  term: string;
+  /** Manglings seen (or expected) in transcripts. */
+  aliases?: string[];
+  source: StudioVocabularySource;
+  /** One line of evidence, e.g. `heard "vid t s x" at 0:12`. */
+  note?: string;
+}
+
+/** W4: a pending "add these to the brand vocabulary" card. Multi-select
+ *  accept: the user ticks the terms that go in. Accept writes the LIBRARY
+ *  brand (main stamps the brandId from project settings at proposal time,
+ *  the style-promotion pattern) and retires vocabulary memories that match
+ *  the accepted terms; reject discards the card. */
+export interface StudioVocabularyProposal {
+  id: string;
+  projectId: string;
+  brandId: string;
+  brandName: string;
+  terms: StudioVocabularyTerm[];
+  /** The agent's one-line summary of the pass. */
+  note?: string;
+  createdAt: string;
+}
+
+/** Terms per vocabulary card — a card is a review, not a dump. */
+export const VOCABULARY_PROPOSAL_MAX_TERMS = 30;
+
 /** Hard cap on ACTIVE rules — at the cap, accepting one requires
  *  deactivating another (unbounded memory is worse than none). 50 was
  *  decided against the skills already shipping 10,508 chars per turn
