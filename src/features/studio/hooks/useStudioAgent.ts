@@ -55,6 +55,8 @@ export interface UseStudioAgentOptions {
   sttModelId?: string | undefined;
   captions?: { templateId: string; enabled: boolean } | undefined;
   timelineDurationSeconds?: number | undefined;
+  /** W4: the project script as the editor holds it. */
+  script?: string | undefined;
   providerId?: string | undefined;
   model?: string | undefined;
   shotModel?: string | undefined;
@@ -220,6 +222,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           ...(opts.timelineDurationSeconds !== undefined
             ? { timelineDurationSeconds: opts.timelineDurationSeconds }
             : {}),
+          ...(opts.script ? { script: opts.script } : {}),
           ...(opts.providerId ? { providerId: opts.providerId } : {}),
           ...(opts.model ? { model: opts.model } : {}),
           ...(opts.shotModel ? { shotModel: opts.shotModel } : {}),

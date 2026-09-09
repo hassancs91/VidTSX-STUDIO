@@ -107,6 +107,24 @@ describe('buildAgentSystemPrompt — W3 state block and workflows', () => {
     expect(prompt).toContain('call `accept_proposal` with the open proposal\'s id');
   });
 
+  it('injects the script opening and points at get_script for the rest (W4)', () => {
+    const short = buildAgentSystemPrompt({ ...base, script: 'Welcome to VidTSX. Three takes follow.' });
+    expect(short).toContain('## Script');
+    expect(short).toContain('INTENDED FINAL READ (38 chars)');
+    expect(short).toContain('It follows in full.');
+    expect(short).toContain('Welcome to VidTSX. Three takes follow.');
+
+    const long = buildAgentSystemPrompt({
+      ...base,
+      script: Array.from({ length: 500 }, (_, i) => `line${i}`).join(' '),
+    });
+    expect(long).toMatch(/call `get_script\(startChar: \d+\)` for the remaining \d+ chars/);
+    expect(long).not.toContain('line499');
+    expect(long).toContain('`get_script(');
+
+    expect(buildAgentSystemPrompt(base)).toContain('(none — the Script tab is empty');
+  });
+
   it('keeps the tool section out for chat-only providers', () => {
     const prompt = buildAgentSystemPrompt({ ...base, toolsAvailable: false });
     expect(prompt).toContain('## Tool availability');

@@ -10,7 +10,11 @@ import type {
   StudioShotKind,
 } from '../../types/studio';
 import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
-import type { StudioMemoryProposal, StudioStylePromotionProposal } from '../../types/studio-memory';
+import type {
+  StudioMemoryProposal,
+  StudioStylePromotionProposal,
+  StudioVocabularyProposal,
+} from '../../types/studio-memory';
 import type { CaptionAspect, CaptionTemplateDefaults } from '../../studio/caption-pack';
 import type { ExportEngineId } from '../../studio/export-engines';
 import type { ChatMessage } from './llm';
@@ -373,6 +377,10 @@ export interface StudioAgentSendRequest {
   captions?: { templateId: string; enabled: boolean };
   /** Length of the current edit, timeline seconds (0 = empty). */
   timelineDurationSeconds?: number;
+  /** W4: the project script as the renderer holds it (the live copy — the
+   *  save debounce may lag). The opening rides the system prompt;
+   *  `get_script` reads the rest. */
+  script?: string;
   providerId?: string;
   /** Planning model for this turn. */
   model?: string;
@@ -485,6 +493,8 @@ export type StudioAgentEvent =
   | { projectId: string; kind: 'proposal'; proposal: StudioProposal }
   | { projectId: string; kind: 'memory-proposal'; proposal: StudioMemoryProposal }
   | { projectId: string; kind: 'style-promotion-proposal'; proposal: StudioStylePromotionProposal }
+  /** W4: a "add these to the brand vocabulary" card (multi-select accept). */
+  | { projectId: string; kind: 'vocabulary-proposal'; proposal: StudioVocabularyProposal }
   /** W3: a long tool (transcribe, video) streaming progress — updates the
    *  latest tool chip in place instead of adding one. */
   | { projectId: string; kind: 'progress'; tool: string; percent?: number; message: string }

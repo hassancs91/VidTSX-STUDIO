@@ -497,6 +497,7 @@ export async function handleStudioAgentSend(
         ...(data.timelineDurationSeconds !== undefined
           ? { timelineDurationSeconds: data.timelineDurationSeconds }
           : {}),
+        ...(data.script ? { script: data.script } : {}),
       }),
     );
   } catch (err) {

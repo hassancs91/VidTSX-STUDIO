@@ -59,13 +59,14 @@ import { PreviewPanel } from './PreviewPanel';
 import { TimelinePanel } from './TimelinePanel';
 import { InspectorPanel } from './InspectorPanel';
 import { AgentPanel } from './AgentPanel';
+import { ScriptPanel } from './ScriptPanel';
 
 interface Props {
   projectId: string;
   onBack: () => void;
 }
 
-type RightTab = 'inspector' | 'assistant' | 'captions';
+type RightTab = 'inspector' | 'assistant' | 'captions' | 'script';
 
 /** Preview monitoring speeds — a watch-speed aid, never part of the document. */
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
@@ -364,6 +365,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
     captions: tl.captions ? { templateId: tl.captions.templateId, enabled: tl.captions.enabled } : undefined,
     timelineDurationSeconds: timelineDuration(tl.timeline),
+    script: project?.script,
     providerId: project?.settings.agent.providerId,
     model: project?.settings.agent.model,
     shotModel: project?.settings.agent.shotModel,
@@ -1101,13 +1103,30 @@ export function EditorShell({ projectId, onBack }: Props) {
               onClick={() => setRightTab('captions')}
             />
             <RightTabButton
+              label="Script"
+              isActive={rightTab === 'script'}
+              onClick={() => setRightTab('script')}
+            />
+            <RightTabButton
               label="Assistant"
               isActive={rightTab === 'assistant'}
               onClick={() => setRightTab('assistant')}
             />
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            {rightTab === 'captions' ? (
+            {rightTab === 'script' ? (
+              <ScriptPanel
+                script={project.script}
+                onChange={(script) =>
+                  updateProject((prev) => {
+                    const next = { ...prev };
+                    if (script === undefined) delete next.script;
+                    else next.script = script;
+                    return next;
+                  })
+                }
+              />
+            ) : rightTab === 'captions' ? (
               <CaptionsPanel
                 project={project}
                 layer={captionLayer}

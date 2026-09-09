@@ -9,6 +9,7 @@ import type {
   StudioAgentOpenProposal,
 } from '../../../shared/ipc/types/studio';
 import type { StudioShot } from '../../../shared/types/studio';
+import { scriptHead } from './project-script';
 import { MEMORY_LINES, TOOL_LINES, WORKFLOW_LINES } from './studio-agent-prompt-tools';
 
 /** One pool line per shot — shared by the system prompt and `list_shots`. */
@@ -57,6 +58,27 @@ export interface BuildAgentPromptInput {
   openProposal?: StudioAgentOpenProposal;
   captions?: { templateId: string; enabled: boolean };
   timelineDurationSeconds?: number;
+  /** W4: the project script; its opening is injected, the rest is on demand. */
+  script?: string;
+}
+
+/** The "Script" block: the opening verbatim, the rest via `get_script`. */
+function scriptLines(script: string | undefined): string[] {
+  if (!script || script.trim() === '') {
+    return ['## Script', '', '(none — the Script tab is empty; judge takes from the transcript alone)'];
+  }
+  const { head, remaining, total } = scriptHead(script);
+  const lines = [
+    '## Script',
+    '',
+    `The user wrote a script — the INTENDED FINAL READ (${total} chars). When takes differ, the keeper is the take that matches it; wording the script dropped is fluff; spell its names exactly.`,
+    remaining > 0
+      ? `The opening follows; call \`get_script(startChar: ${head.length})\` for the remaining ${remaining} chars before an editorial pass.`
+      : 'It follows in full.',
+    '',
+    head,
+  ];
+  return lines;
 }
 
 /** The "state of the edit" block: timeline length, captions, open review. */
@@ -104,6 +126,8 @@ export function buildAgentSystemPrompt(input: BuildAgentPromptInput): string {
           'These shots persist across sessions — including ones generated in earlier conversations. Any READY shot can be placed with propose_shots by its id; never regenerate a shot that already exists unless the user wants it changed.',
         ]
       : ['(empty — no shots generated or imported yet)']),
+    '',
+    ...scriptLines(input.script),
     '',
     ...stateLines(input),
     '',
