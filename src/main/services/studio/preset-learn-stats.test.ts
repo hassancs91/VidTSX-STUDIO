@@ -1,14 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioProject } from '../../../shared/types/studio';
 import { STUDIO_SCHEMA_VERSION } from '../../../shared/types/studio';
-import {
-  applyKnobChanges,
-  buildLearnedSection,
-  computeLearnStats,
-  diffPresetKnobs,
-  formatStatsSummary,
-  inferPacing,
-} from './preset-learn-stats';
+import { buildLearnedSection, formatStatsSummary } from './preset-learn-format';
+import { applyKnobChanges, computeLearnStats, diffPresetKnobs, inferPacing } from './preset-learn-stats';
 
 function clip(overrides: Partial<StudioClip> & { id: string; timelineStart: number; duration: number }): StudioClip {
   return { kind: 'video', assetId: 'footage', sourceIn: 0, ...overrides };
@@ -145,6 +139,23 @@ describe('inferPacing + diffPresetKnobs', () => {
     const matching = { pacing: 'tight' as const, shotsPerMinute: 3.6, sfxPerMinute: 1.8, musicBed: 'quiet' as const, captions: 'karaoke' as const, transitions: ['crossfade'], introSeconds: 2, outroSeconds: 3 };
     expect(diffPresetKnobs(matching, stats)).toEqual([]);
     expect(diffPresetKnobs({}, { ...stats, totalSeconds: 8 })).toEqual([]);
+  });
+
+  it('withholds the per-minute rate knobs under 30 s (a 12 s short is not "96.6 cuts/min") and says so, keeping the other knobs', () => {
+    // The same tight edit, pretend it finished at 12 s: the rates explode.
+    const short = { ...computeLearnStats(tightProject()), totalSeconds: 12, cutsPerMinute: 75, shotsPerMinute: 10, sfxPerMinute: 5 };
+    const keys = diffPresetKnobs(
+      { pacing: 'normal', shotsPerMinute: 1.5, sfxPerMinute: 1, musicBed: 'present', captions: 'block', transitions: [], introSeconds: 8, outroSeconds: 10 },
+      short,
+    ).map((c) => c.key).sort();
+    expect(keys).toEqual(['captions', 'introSeconds', 'musicBed', 'outroSeconds', 'transitions']);
+    expect(formatStatsSummary(short)).toContain('Edit under 0:30 (0:12) — pacing, shots/min and SFX/min are not proposed from so little.');
+    const section = buildLearnedSection({ projectName: 'Short', date: '2026-09-10', summary: 'S.', stats: short, changes: [] });
+    expect(section).toContain('- Edit under 0:30 (0:12) — pacing, shots/min and SFX/min are not proposed from so little.');
+    // At 30 s and beyond the rates are back.
+    const ok = { ...short, totalSeconds: 30 };
+    expect(diffPresetKnobs({ pacing: 'normal' }, ok).map((c) => c.key)).toContain('pacing');
+    expect(formatStatsSummary(ok)).not.toContain('Edit under');
   });
 
   it('a knob the preset never set is proposed only when the measurement is non-trivial', () => {

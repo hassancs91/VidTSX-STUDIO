@@ -16,15 +16,8 @@ import { getLibraryRoot } from '../library/library-paths';
 import { readPreset } from '../library/preset-store';
 import { describePresetStyle } from './agent-preset-prompt';
 import { addPresetProposal } from './agent-preset-proposals';
-import {
-  applyKnobChanges,
-  buildLearnedSection,
-  computeLearnStats,
-  diffPresetKnobs,
-  formatKnobChange,
-  formatStatsLines,
-  formatStatsSummary,
-} from './preset-learn-stats';
+import { buildLearnedSection, formatKnobChange, formatStatsLines, formatStatsSummary } from './preset-learn-format';
+import { applyKnobChanges, computeLearnStats, diffPresetKnobs } from './preset-learn-stats';
 import { loadProject } from './project-store';
 
 const log = logEngine.createLogger('LearnFromProject');

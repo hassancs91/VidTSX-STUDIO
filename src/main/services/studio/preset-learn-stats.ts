@@ -1,7 +1,8 @@
 // PURE measurement for "learn from this video" (V1 completion plan §2.5):
-// the timeline stats, the style knobs they imply, the diff against the
-// preset, and the "Learned from" section. No fs, no provider, no clock —
-// the date is passed in. The ONE LLM call lives in learn-from-project.ts.
+// the timeline stats, the style knobs they imply and the diff against the
+// preset. No fs, no provider, no clock. The text (stat lines, summary, the
+// "Learned from" section) and the short-edit rule live in
+// preset-learn-format.ts; the ONE LLM call lives in learn-from-project.ts.
 
 import type { StudioClip, StudioProject } from '../../../shared/types/studio';
 import type {
@@ -13,6 +14,7 @@ import type {
   StudioPresetStyle,
 } from '../../../shared/types/studio-preset';
 import { timelineDuration } from '../../../shared/studio/time-math';
+import { formatClock, rateKnobsWithheld } from './preset-learn-format';
 
 /** Word-emphasis templates read as "karaoke"; the rest as "block". */
 const KARAOKE_TEMPLATES = new Set([
@@ -179,37 +181,15 @@ function sameList(a: readonly string[] | undefined, b: readonly string[]): boole
 
 /**
  * The knob changes the measurement justifies, each with its numbers. Short
- * edits (< 10 s) propose nothing; a knob the preset never set is proposed
- * only when the measurement is non-trivial.
+ * edits (< 10 s) propose nothing; under 30 s the per-minute rate knobs
+ * (pacing, shots/min, SFX/min) are withheld — `rateKnobsWithheldNote` says
+ * so on the card; a knob the preset never set is proposed only when the
+ * measurement is non-trivial.
  */
 export function diffPresetKnobs(style: StudioPresetStyle, stats: StudioPresetLearnStats): StudioPresetKnobChange[] {
   if (stats.totalSeconds < MIN_SECONDS_FOR_KNOBS) return [];
   const changes: StudioPresetKnobChange[] = [];
-  const pacing = inferPacing(stats);
-  if (pacing && pacing !== style.pacing) {
-    changes.push({
-      key: 'pacing',
-      ...(style.pacing ? { from: style.pacing } : {}),
-      to: pacing,
-      reason: `${stats.cutsPerMinute} cuts/min on the master lane, mean clip ${stats.meanClipSeconds} s${stats.removedSeconds > 0 ? `, ${stats.removedSeconds} s removed by accepted cuts` : ''}`,
-    });
-  }
-  if (numberDiffers(style.shotsPerMinute, stats.shotsPerMinute, 0.5)) {
-    changes.push({
-      key: 'shotsPerMinute',
-      ...(style.shotsPerMinute !== undefined ? { from: style.shotsPerMinute } : {}),
-      to: stats.shotsPerMinute,
-      reason: `${stats.shotCount} shot${stats.shotCount === 1 ? '' : 's'} in ${formatClock(stats.totalSeconds)}`,
-    });
-  }
-  if (numberDiffers(style.sfxPerMinute, stats.sfxPerMinute, 0.5)) {
-    changes.push({
-      key: 'sfxPerMinute',
-      ...(style.sfxPerMinute !== undefined ? { from: style.sfxPerMinute } : {}),
-      to: stats.sfxPerMinute,
-      reason: `${stats.sfxCount} sound effect${stats.sfxCount === 1 ? '' : 's'} in ${formatClock(stats.totalSeconds)}`,
-    });
-  }
+  if (!rateKnobsWithheld(stats)) changes.push(...diffRateKnobs(style, stats));
   if (style.musicBed !== undefined ? stats.musicBed !== style.musicBed : stats.musicBed !== 'none') {
     changes.push({
       key: 'musicBed',
@@ -256,58 +236,39 @@ export function diffPresetKnobs(style: StudioPresetStyle, stats: StudioPresetLea
   return changes;
 }
 
+/** Pacing, shots/min and SFX/min — the knobs that are rates over the length. */
+function diffRateKnobs(style: StudioPresetStyle, stats: StudioPresetLearnStats): StudioPresetKnobChange[] {
+  const changes: StudioPresetKnobChange[] = [];
+  const pacing = inferPacing(stats);
+  if (pacing && pacing !== style.pacing) {
+    changes.push({
+      key: 'pacing',
+      ...(style.pacing ? { from: style.pacing } : {}),
+      to: pacing,
+      reason: `${stats.cutsPerMinute} cuts/min on the master lane, mean clip ${stats.meanClipSeconds} s${stats.removedSeconds > 0 ? `, ${stats.removedSeconds} s removed by accepted cuts` : ''}`,
+    });
+  }
+  if (numberDiffers(style.shotsPerMinute, stats.shotsPerMinute, 0.5)) {
+    changes.push({
+      key: 'shotsPerMinute',
+      ...(style.shotsPerMinute !== undefined ? { from: style.shotsPerMinute } : {}),
+      to: stats.shotsPerMinute,
+      reason: `${stats.shotCount} shot${stats.shotCount === 1 ? '' : 's'} in ${formatClock(stats.totalSeconds)}`,
+    });
+  }
+  if (numberDiffers(style.sfxPerMinute, stats.sfxPerMinute, 0.5)) {
+    changes.push({
+      key: 'sfxPerMinute',
+      ...(style.sfxPerMinute !== undefined ? { from: style.sfxPerMinute } : {}),
+      to: stats.sfxPerMinute,
+      reason: `${stats.sfxCount} sound effect${stats.sfxCount === 1 ? '' : 's'} in ${formatClock(stats.totalSeconds)}`,
+    });
+  }
+  return changes;
+}
+
 export function applyKnobChanges(style: StudioPresetStyle, changes: readonly StudioPresetKnobChange[]): StudioPresetStyle {
   const next: Record<string, unknown> = { ...style };
   for (const change of changes) next[change.key] = change.to;
   return next as StudioPresetStyle;
-}
-
-export function formatClock(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.round(seconds - m * 60);
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
-
-function knobValue(v: string | number | string[] | undefined): string {
-  if (v === undefined) return 'unset';
-  if (Array.isArray(v)) return v.length > 0 ? v.join(', ') : 'none';
-  return String(v);
-}
-
-/** The measurement as bullet lines — the card, the LLM prompt and the
- *  learned section all read the same lines. */
-export function formatStatsLines(stats: StudioPresetLearnStats): string[] {
-  return [
-    `Length ${formatClock(stats.totalSeconds)} · ${stats.masterClipCount} clip${stats.masterClipCount === 1 ? '' : 's'} on the master lane · ${stats.cutsPerMinute} cuts/min · mean clip ${stats.meanClipSeconds} s${stats.removedSeconds > 0 ? ` · ${stats.removedSeconds} s removed by accepted cuts` : ''}`,
-    `Shots ${stats.shotCount} (${stats.shotsPerMinute}/min) · b-roll ${stats.brollCount} · SFX ${stats.sfxCount} (${stats.sfxPerMinute}/min) · music bed ${stats.musicBed}`,
-    `Captions ${stats.captions}${stats.captionTemplateId ? ` (${stats.captionTemplateId})` : ''} · transitions ${stats.transitions.length > 0 ? stats.transitions.map((t) => `${t.count}× ${t.kind}`).join(', ') : 'none'} · intro ${stats.introSeconds} s · outro ${stats.outroSeconds} s`,
-    `Review: ${stats.proposalsApplied} proposal${stats.proposalsApplied === 1 ? '' : 's'} applied, ${stats.proposalsRejected} rejected · ${stats.cutItemsRejected} of ${stats.cutItemsProposed} proposed cut items rejected by hand, ${stats.cutItemsAdjusted} adjusted · clips placed by the user ${stats.userClipCount}, by the assistant ${stats.agentClipCount}`,
-  ];
-}
-
-/** One sentence with the headline numbers. */
-export function formatStatsSummary(stats: StudioPresetLearnStats): string {
-  return `${formatClock(stats.totalSeconds)} long, ${stats.cutsPerMinute} cuts/min (mean clip ${stats.meanClipSeconds} s), ${stats.shotCount} shot${stats.shotCount === 1 ? '' : 's'}, ${stats.sfxCount} SFX, music bed ${stats.musicBed}, captions ${stats.captions}.`;
-}
-
-export function formatKnobChange(change: StudioPresetKnobChange): string {
-  return `${change.key} ${knobValue(change.from)} → ${knobValue(change.to)} (${change.reason})`;
-}
-
-/** The markdown section accept appends to PRESET.md. */
-export function buildLearnedSection(input: {
-  projectName: string;
-  date: string; // YYYY-MM-DD
-  summary: string;
-  stats: StudioPresetLearnStats;
-  changes: readonly StudioPresetKnobChange[];
-}): string {
-  const lines = [`## Learned from ${input.projectName} on ${input.date}`, '', input.summary.trim(), ''];
-  for (const line of formatStatsLines(input.stats)) lines.push(`- ${line}`);
-  lines.push(
-    input.changes.length > 0
-      ? `- Knobs: ${input.changes.map(formatKnobChange).join('; ')}`
-      : '- Knobs: unchanged — the edit matched the preset',
-  );
-  return lines.join('\n');
 }

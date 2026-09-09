@@ -28,8 +28,8 @@ vi.mock('../../ipc/llm-handlers', () => ({
 import { learnFromProject } from './learn-from-project';
 import { clearAllPresetProposals, getPendingPresetProposals } from './agent-preset-proposals';
 
-function project(): StudioProject {
-  const clips = Array.from({ length: 12 }, (_, i) => ({ id: `c${i}`, kind: 'video' as const, assetId: 'f', timelineStart: i * 2, duration: 2, sourceIn: i * 4 }));
+function project(clipCount = 16): StudioProject {
+  const clips = Array.from({ length: clipCount }, (_, i) => ({ id: `c${i}`, kind: 'video' as const, assetId: 'f', timelineStart: i * 2, duration: 2, sourceIn: i * 4 }));
   return {
     schemaVersion: STUDIO_SCHEMA_VERSION,
     id: 'demo',
@@ -72,7 +72,7 @@ describe('learnFromProject', () => {
     const { proposal } = result;
     expect(llm.calls).toHaveLength(1);
     expect(llm.calls[0]).toContain('Project "Demo" was edited on the preset "YouTube long-form" (long).');
-    expect(llm.calls[0]).toContain('- Length 0:24 · 12 clips on the master lane · 27.5 cuts/min');
+    expect(llm.calls[0]).toContain('- Length 0:32 · 16 clips on the master lane · 28.1 cuts/min');
     expect(llm.calls[0]).toContain('Preset knobs before: pacing normal · about 1.5 shots per minute · intro 8 s.');
     expect(proposal.presetId).toBe('long');
     expect(proposal.presetName).toBe('YouTube long-form');
@@ -84,8 +84,20 @@ describe('learnFromProject', () => {
     expect(proposal.knobChanges.find((c) => c.key === 'pacing')).toMatchObject({ from: 'normal', to: 'tight' });
     expect(proposal.proposedStyle.pacing).toBe('tight');
     expect(proposal.proposedStyle.introSeconds).toBe(0);
-    expect(proposal.learnedSection.startsWith('## Learned from Demo on 2026-09-09\n\nLLM summary.\n\n- Length 0:24')).toBe(true);
+    expect(proposal.learnedSection.startsWith('## Learned from Demo on 2026-09-09\n\nLLM summary.\n\n- Length 0:32')).toBe(true);
     expect(getPendingPresetProposals('demo')).toEqual([proposal]);
+  });
+
+  it('a 24 s edit proposes no pacing (the rate knobs are withheld under 30 s) and the card says why', async () => {
+    const result = await learnFromProject({ projectId: 'demo', project: project(12), summary: 'Short one.' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const keys = result.proposal.knobChanges.map((c) => c.key);
+    expect(keys).not.toContain('pacing');
+    expect(keys).not.toContain('shotsPerMinute');
+    expect(keys).toContain('introSeconds');
+    expect(result.proposal.statsSummary).toContain('Edit under 0:30 (0:24)');
+    expect(result.proposal.learnedSection).toContain('- Edit under 0:30 (0:24)');
   });
 
   it('uses the agent-supplied summary without calling the LLM', async () => {
