@@ -51,3 +51,14 @@ src/**/*.d.ts
 # Personal scratch notes (kept local only)
 notes
 proto-notes
+
+# Raw source footage used for the E2E pipeline tests — 15 GB of camera files,
+# local-only. Reports built from it are committed; the footage never is.
+raw/
+
+# Python bytecode from the bundled pipelines (TripoSR, rembg, …)
+__pycache__/
+*.pyc
+
+# Claude Code session lock — per-machine, recreated on each run.
+.claude/scheduled_tasks.lock
