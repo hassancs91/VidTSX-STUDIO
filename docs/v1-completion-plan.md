@@ -251,6 +251,130 @@ is a W7/W8 question); the SDK bump that unblocks Fable.
 
 **Acceptance.** Change steps on one local model, generate, the sd-cli argv shows the override; reset restores family defaults; a cloud model's dialog shows only the fields its dialect declares.
 
+#### W2c outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+All three acceptance rows hold, driven in the real app on the second dev
+instance (W3 profile, own out dir, CDP 9223) through the gear buttons and
+`window.api` — the local half against a real sd-cli run, the cloud half
+against one real fal request whose wire body was captured. `check:types` at
+baseline (web 26, node 10); 1937 tests passing, up from 1908. Commits
+`7f6008d` (engine, main, shared, tests) and `d562325` (the dialog, the gear
+rows, Image Studio's advanced panel).
+
+**One shape for both halves.** `ImageModelParams` (width, height, steps,
+cfgScale, sampler, scheduler, negativePrompt, seed, strength) and
+`ImageParamSchema` (`fields`, `sizeMode`, `maxReferences`) live in
+`src/shared/presets/image-model-params.ts`; `cfgScale` is what the cloud
+dialects label "Guidance". Overrides sit in the settings key
+`imageModelParamOverrides`, keyed `provider/model` (`local/<id>` for sd-cli
+models; the key splits on the FIRST slash because OpenRouter ids carry
+slashes). The resolution is one place: the cloud image engine's
+`runGuarded` asks an injected `ImageParamResolver` for `provider/model`
+(request.model, else the provider's `defaultModel`) and merges `request ⊕
+override` before Gate A — so Image Studio, `generate_image` in both agent
+registries, flows and bulk all inherit an override with no call-site
+change; top-level width/height fall back to the override too. The family
+defaults are then the runner's `?? defaults` in `buildArgs`, which is the
+"⊕ family default" the design asked for. The direct sd-cli IPC (Tools →
+Image AI tester) applies the same override in its handler.
+
+**Local.** `FAMILY_PARAM_SCHEMAS` in `family-presets.ts` is the one sd-cli
+surface for every family (sampler and scheduler option lists live beside
+it; FLUX rows carry a "keep guidance 1.0" hint); the dialog's placeholders
+are the MODEL's `defaults`, not the family's, so the tiny profile shows
+4 steps / lcm while a generic SD 1.5 import shows 20 / euler_a.
+`toSdRequest` in `local-sd-provider.ts` maps the params (a fixed seed
+advances per image of a multi-image request; no seed → random per image as
+before). The engine gained `onSpawn`, and sdimage-init logs the exact argv
+as `"sd-cli argv"` — the acceptance proof and a support line.
+
+**Cloud.** `ImageDialectId` = `fal-flux | fal-nano-banana | fal-generic |
+cloudflare | byteplus-seedream | openrouter | gemini-cli` in
+`src/shared/presets/image-dialects.ts`, one more than the design listed:
+Nano Banana is fal's default image model and takes an `aspect_ratio` and no
+numeric parameters, so folding it into `fal-generic` (image_size + seed)
+would have shown a Seed field the API does not have. `IMAGE_DIALECT_DEFAULTS`
+gives each a `paramSchema` and `supportedOperations` (the capability slot
+W2a's `supportedOperations` idea becomes). `hydrateImageEntry` in
+`src/image-engine/dialect-capabilities.ts` mirrors the video one: a stored
+row keeps id + name + dialect; a pre-W2c row without a dialect resolves to
+the shipped entry's dialect, else the provider default. The providers send
+only what their dialect declares: fal `num_inference_steps` /
+`guidance_scale` / `seed` (`negative_prompt` where a schema declares it —
+none does today); Cloudflare maps steps to `steps` (FLUX apps) or
+`num_steps` (SDXL Lightning, Lucid Origin) with the API caps (8 / 20 / 40),
+plus `guidance`, `seed`, and `negative_prompt` on SDXL only; OpenRouter and
+the Antigravity CLI declare nothing (aspect ratio only) and their dialog is
+the one-line "takes no generation parameters" notice. One collision found
+and fixed on the way: `fal-generic` exists in BOTH dialect namespaces, so
+`isVideoCatalogEntry` is now structural (`textToVideoEndpoint`) and the
+video sanitiser reads the named dialect directly — otherwise the shipped
+SeedREAM image entry was filed as video and `image-init` failed to type.
+
+**The UI.** `ImageParamFields` (shared) renders exactly a schema's fields;
+`ModelParamsDialog` wraps it with Save and Reset-to-defaults (removes the
+row). AI → Models → Image: a gear on every installed row, a dot on it while
+an override is stored. AI → Providers → Model Catalogs: the same gear on
+image rows, the dialect line on every image row, and a dialect select
+when adding a fal image id (FLUX / Nano Banana / Generic; the other
+providers have one dialect and show no select). Image Studio: an
+"Advanced" disclosure under the Images count renders the selected model's
+schema for this request only, placeholders = the model's defaults overlaid
+with its saved override, cleared on model change; Nano Banana shows no
+disclosure at all.
+
+**Acceptance evidence.** (1) The 654 MB BK-SDM-Tiny profile (sd15, sha256
+verified) was placed in the W3 profile and sd-cli.exe copied from the
+primary profile; the gear on its row showed placeholders 512 / 512 / 4 / 7 /
+`default (lcm)`; Steps 12 + Scheduler karras + Negative prompt "blurry,
+text" saved as `local/bk-sdm-tiny-q4_0`, the gear's title read
+"(customized)", and `imageGenerate` on the local provider logged
+`sd-cli argv … "-W","512","-H","512","--steps","12","--cfg-scale","7",
+"--sampling-method","lcm",… "-n","blurry, text","-s","1164524519",
+"--scheduler","karras"` — the three overridden fields, the model's own
+size/CFG/sampler for the rest. (That run's pixels were then discarded by
+Content Safety's classifier — a 4-step tiny model's red apple read as
+explicit; unrelated to W2c and the argv is the proof.) Reset through the
+dialog emptied the map and the next run logged `"--steps","4"` with no
+`-n` and no `--scheduler`, generating in 7.5 s. (2) The Nano Banana Pro
+dialog shows the no-parameters notice and a disabled Save; FLUX.1 Schnell
+(cloudflare) shows Steps (with the "at most 8" hint) / Guidance / Seed /
+Negative prompt; a `fal-ai/flux/dev` row added with dialect `fal-flux`
+shows Steps / Guidance / Seed. (3) One real cloud run: Seed 12345 saved on
+`fal/seedream-v4.5` through the gear, then `imageGenerate` with the main
+process's `fetch` wrapped over the inspector — the captured body was
+`{prompt, num_images: 1, seed: 12345, image_size: {1024×1024}}`. Two
+earlier seeded runs returned different JPEGs (1.41 MB vs 1.27 MB), so
+SeedREAM v4.5 on fal is not seed-deterministic; the wire capture is the
+proof. Three fal images, $0.12. Everything seeded was removed afterwards
+(override, catalog row, model file, sd-cli copy; the active provider put
+back to gemini-cli).
+
+**What W2a must know.** Add `byteplus` image entries with `dialect:
+'byteplus-seedream'` (already in `DEFAULT_IMAGE_DIALECT` and
+`IMAGE_DIALECTS_BY_PROVIDER`); its schema today is Guidance (0–10, "defaults
+to 2.5") + Seed, `sizeMode: 'image_size'`, `maxReferences: 10` — adjust the
+cap to what the 4.5 / 5.0 docs say. The provider reads `request.params`
+(`cfgScale` → `guidance_scale`, `seed` → `seed`) and must expose
+`readonly defaultModel` and put `paramSchema:
+IMAGE_DIALECT_DEFAULTS['byteplus-seedream'].paramSchema` on each
+`ImageModelInfo` so the gear and Image Studio's panel light up;
+`supportedOperations` on the dialect is the multimodal capability the W2a
+bullet mentions (`text-to-image`, `image-to-image`, `multi-reference` are
+already declared). The gear reads overrides through `useImageModelParams`
+(`window.api.imageModelParamsGet/Save`), keyed `byteplus/<model id>`; no
+engine re-registration happens on save — the override is read per request.
+
+**Not done / left for later.** The fal generic def still derives edit
+routes as `<app>/edit` (FLUX dev's real img2img route is
+`/image-to-image`) — pre-existing, untouched. `strength` is in the value
+shape and reaches sd-cli, but no schema declares it yet (img2img strength
+stays request-time). The sd-cli `-n` negative prompt is not passed through
+Content Safety Gate A (same as the existing tester path: naming unsafe
+content there EXCLUDES it). Bulk mode has no advanced panel; it inherits
+the saved override only. No `fal-flux` entry ships by default — users add
+one with the dialect select.
+
 ### 2.3 W3 — Studio agent goes end-to-end — ~2 sessions
 
 **Goal.** "Edit this video" in chat runs transcribe → auto cut → editorial → shots → b-roll → SFX/music → captions → export with the user only answering cards.

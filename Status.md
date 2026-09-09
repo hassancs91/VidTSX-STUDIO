@@ -7,6 +7,52 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W2c DONE: per-model image parameters
+
+Workstream W2c of `docs/v1-completion-plan.md` §2.2 — the third of the W2
+provider subsections (W2a Seedream on ModelArk and W2b ElevenLabs audio
+stay open). Full outcome under the W2c acceptance paragraph in the plan.
+`check:types` at baseline (web 26, node 10); 1937 tests, up from 1908.
+Commits `7f6008d`, `d562325` and the docs commit.
+
+- **One shape for local and cloud.** `ImageModelParams` + `ImageParamSchema`
+  in `src/shared/presets/image-model-params.ts`; overrides in the settings
+  key `imageModelParamOverrides`, keyed `provider/model`. The cloud image
+  engine merges `request ⊕ override` at its chokepoint through an injected
+  resolver, so Image Studio, both agent registries, flows and bulk inherit
+  an override with no call-site change; the family defaults fill the rest
+  in sd-cli's `buildArgs`. The direct sd-cli IPC applies it too.
+- **Local.** `FAMILY_PARAM_SCHEMAS` in `family-presets.ts` (the dialog never
+  hardcodes fields), `toSdRequest` in `local-sd-provider.ts`, and the engine
+  now logs the exact argv per spawn (`"sd-cli argv"`).
+- **Cloud.** `ImageDialectId` (`fal-flux | fal-nano-banana | fal-generic |
+  cloudflare | byteplus-seedream | openrouter | gemini-cli`) with
+  `IMAGE_DIALECT_DEFAULTS` (paramSchema + supportedOperations),
+  `hydrateImageEntry`, the catalog sanitiser keeping `dialect` on image
+  rows, shipped entries naming theirs. fal / Cloudflare send exactly the
+  fields their dialect declares (Cloudflare maps steps per model with the
+  API caps); OpenRouter and the Antigravity CLI declare none. Fixed on the
+  way: `fal-generic` exists in both dialect namespaces, so the video
+  type guard is now structural (`textToVideoEndpoint`).
+- **UI.** Gear on every installed local row and every cloud image catalog
+  row → `ModelParamsDialog` (schema-driven, Save / Reset to defaults);
+  dialect select when adding a fal image id; Image Studio's "Advanced"
+  disclosure renders the selected model's schema for this request.
+- **Verified in the real app** (second instance, W3 profile, CDP 9223): the
+  tiny SD 1.5 profile with Steps 12 / karras / a negative prompt saved
+  through the gear logged `--steps 12 … -n "blurry, text" … --scheduler
+  karras` with the model's own size/CFG/sampler; reset logged `--steps 4`
+  and no `-n`/`--scheduler`. Nano Banana's dialog shows the "no
+  parameters" notice, Cloudflare's shows four fields, a `fal-flux` row
+  three. One real fal run with Seed 12345 saved on SeedREAM v4.5: the
+  captured wire body carried `seed: 12345` ($0.12 across three images;
+  SeedREAM is not seed-deterministic, the capture is the proof).
+- **For W2a.** Entries with `dialect: 'byteplus-seedream'`; the provider
+  reads `request.params.cfgScale/seed`, exposes `defaultModel` and puts the
+  dialect's `paramSchema` on each model info. Details in the outcome.
+
+---
+
 ## 2026-09-10 — STUDIO FLIP DONE: studio-editor on, testing pass on raw footage
 
 Step 5 of `docs/v1-completion-plan.md` §3 — the first cut line with Studio
