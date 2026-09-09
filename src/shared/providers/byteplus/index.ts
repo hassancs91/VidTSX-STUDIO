@@ -4,8 +4,11 @@ export type {
   BytePlusClientOptions,
   BytePlusContentItem,
   BytePlusContentRole,
+  BytePlusCreateImageBody,
+  BytePlusCreateImageResult,
   BytePlusCreateTaskBody,
   BytePlusCreateTaskResult,
+  BytePlusImageData,
   BytePlusTask,
   BytePlusTaskStatus,
 } from './types';

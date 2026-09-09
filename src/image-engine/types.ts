@@ -70,7 +70,7 @@ export interface ImageProviderConfig {
    * (Google subscription) bridge; 'minimax-cli' reserved for the deferred mmx
    * provider. All three are registered directly, never stored in settings.
    */
-  type: 'fal' | 'openrouter' | 'cloudflare' | 'local' | 'gemini-cli' | 'minimax-cli';
+  type: 'fal' | 'byteplus' | 'openrouter' | 'cloudflare' | 'local' | 'gemini-cli' | 'minimax-cli';
   apiKey: string;
   /**
    * Cloudflare only: the account id half of the credential pair. Not a secret

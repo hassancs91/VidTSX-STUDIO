@@ -2,6 +2,8 @@ import { logEngine } from '../../../logging/log-engine';
 import { BytePlusHttpError } from './errors';
 import type {
   BytePlusClientOptions,
+  BytePlusCreateImageBody,
+  BytePlusCreateImageResult,
   BytePlusCreateTaskBody,
   BytePlusCreateTaskResult,
   BytePlusTask,
@@ -18,7 +20,8 @@ interface ArkErrorBody {
 }
 
 /**
- * Client for BytePlus ModelArk's async video generation tasks API. Auth is a
+ * Client for BytePlus ModelArk's async video generation tasks API and its
+ * synchronous Seedream image endpoint. Auth is a
  * plain bearer API key, so it fits the shared BYOK credential store — the
  * Volcengine (China) sibling needs AK/SK request signing and is deferred
  * (docs/video-providers-plan.md D2); swapping to it is a base-URL plus
@@ -79,6 +82,31 @@ export class BytePlusArkClient {
       { method: 'GET' },
       signal,
     );
+  }
+
+  /**
+   * POST /images/generations — Seedream image generation. Synchronous: the
+   * images come back in the response (base64 when `response_format` is
+   * `b64_json`). A top-level `error` with no `data` is a failed request even
+   * on HTTP 200, so it is raised here like an HTTP error.
+   */
+  async createImage(
+    body: BytePlusCreateImageBody,
+    signal?: AbortSignal,
+  ): Promise<BytePlusCreateImageResult> {
+    const data = await this.request<BytePlusCreateImageResult>(
+      '/images/generations',
+      { method: 'POST', body },
+      signal,
+    );
+    if (!data.data?.length && data.error) {
+      throw new BytePlusHttpError(
+        data.error.message ?? 'ModelArk returned no image',
+        undefined,
+        data.error.code,
+      );
+    }
+    return data;
   }
 
   private async request<TResponse>(

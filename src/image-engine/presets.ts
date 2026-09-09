@@ -1,4 +1,5 @@
 import type { ImageProviderPreset } from './types';
+import { DEFAULT_BYTEPLUS_IMAGE_MODEL } from '../shared/presets/image-model-entries';
 
 export const IMAGE_PROVIDER_PRESETS: ImageProviderPreset[] = [
   {
@@ -9,6 +10,15 @@ export const IMAGE_PROVIDER_PRESETS: ImageProviderPreset[] = [
     defaultModel: 'nano-banana-pro',
     enabled: false,
     credentialId: 'fal',
+  },
+  {
+    id: 'byteplus',
+    name: 'BytePlus ModelArk',
+    type: 'byteplus',
+    apiKey: '',
+    defaultModel: DEFAULT_BYTEPLUS_IMAGE_MODEL,
+    enabled: false,
+    credentialId: 'byteplus',
   },
   {
     id: 'openrouter',

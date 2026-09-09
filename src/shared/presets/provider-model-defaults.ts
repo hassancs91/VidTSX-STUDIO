@@ -11,6 +11,7 @@
  * a dialect takes the provider's default (`DEFAULT_IMAGE_DIALECT`).
  */
 import type { ImageModelCatalogEntry } from './image-models';
+import { BYTEPLUS_IMAGE_MODELS } from './image-model-entries';
 import type { LlmModelCatalogEntry } from './llm-models';
 import { LLM_MODEL_CATALOG } from './llm-models';
 import type { VideoModelCatalogEntry } from './video-models';
@@ -68,6 +69,7 @@ const MEDIA_MODEL_DEFAULTS: ProviderDefaults = {
     video: FAL_VIDEO_MODELS,
   },
   byteplus: {
+    image: BYTEPLUS_IMAGE_MODELS,
     video: BYTEPLUS_VIDEO_MODELS,
   },
   openrouter: {

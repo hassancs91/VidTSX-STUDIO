@@ -82,3 +82,62 @@ export interface BytePlusTask {
 export interface BytePlusCreateTaskResult {
   id: string;
 }
+
+// ─── Image generation (Seedream) ───
+// Schema pinned from the live docs on 2026-09-10:
+// https://docs.byteplus.com/en/docs/ModelArk/1541523 (image generation API)
+// https://docs.byteplus.com/en/docs/ModelArk/1824121 (Seedream 4.0–5.0 tutorial)
+// https://docs.byteplus.com/en/docs/ModelArk/1330310 (model list)
+// The 4.x / 5.x reference lists NO `guidance_scale` and NO `seed` (those were
+// Seedream 3.0's text-to-image API). Live on 5.0 pro (2026-09-10): `seed`
+// is accepted, `guidance_scale` is rejected as "not supported by the current
+// model" — so only `seed` is modelled, sent when a caller sets it.
+
+export interface BytePlusCreateImageBody {
+  /** ModelArk model id, e.g. `seedream-4-5-251128`. */
+  model: string;
+  prompt: string;
+  /**
+   * Reference image(s): a public URL or a `data:image/<fmt>;base64,…` URI
+   * (the format tag must be lowercase). One string for image-to-image, an
+   * array for multi-reference (2–14 on 5.0 lite / 4.5 / 4.0, 2–10 on 5.0 pro).
+   */
+  image?: string | string[];
+  /** A resolution tier (`1K` | `1.5K` | `2K` | `3K` | `4K`, per model) or `<width>x<height>`. */
+  size?: string;
+  seed?: number;
+  /** Default true — the app always sends false. */
+  watermark?: boolean;
+  /** Default `url` (24 h link); the app asks for `b64_json`. */
+  response_format?: 'url' | 'b64_json';
+  /** `auto` lets the model return a related set; not accepted by 5.0 pro. */
+  sequential_image_generation?: 'auto' | 'disabled';
+  sequential_image_generation_options?: { max_images: number };
+  /** 5.0 lite / 5.0 pro only; 4.x always emit jpeg. */
+  output_format?: 'png' | 'jpeg';
+  stream?: false;
+}
+
+export interface BytePlusImageData {
+  url?: string;
+  b64_json?: string;
+  /** `<width>x<height>` of the output. */
+  size?: string;
+  output_format?: 'png' | 'jpeg';
+  /** Per-image failure inside a sequential set; the other images still arrive. */
+  error?: { code?: string; message?: string };
+}
+
+export interface BytePlusCreateImageResult {
+  model?: string;
+  created?: number;
+  data?: BytePlusImageData[];
+  usage?: {
+    generated_images?: number;
+    /** round(sum(width × height) / 256). */
+    output_tokens?: number;
+    total_tokens?: number;
+  };
+  /** Top-level failure: no image was generated. */
+  error?: { code?: string; message?: string };
+}

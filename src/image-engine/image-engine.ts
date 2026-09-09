@@ -10,6 +10,7 @@ import type {
 } from './types';
 import { hasAnyImageParams, mergeImageParams } from '../shared/presets/image-model-params';
 import { FalImageProvider } from './providers/fal-provider';
+import { BytePlusImageProvider } from './providers/byteplus-image-provider';
 import { OpenRouterProvider } from './providers/openrouter-provider';
 import { CloudflareImageProvider } from './providers/cloudflare-provider';
 import { checkGenerationPrompt } from '../moderation-engine/generation-gate';
@@ -49,6 +50,8 @@ class ImageEngine {
 
     if (config.type === 'fal') {
       provider = new FalImageProvider(config.id, config.apiKey, config.defaultModel, config.models);
+    } else if (config.type === 'byteplus') {
+      provider = new BytePlusImageProvider(config.id, config.apiKey, config.defaultModel, config.models);
     } else if (config.type === 'openrouter') {
       provider = new OpenRouterProvider(config.id, config.apiKey, config.defaultModel, config.models);
     } else if (config.type === 'cloudflare') {

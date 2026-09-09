@@ -21,7 +21,7 @@ describe('image dialects', () => {
     expect(keys('fal-nano-banana')).toEqual([]);
     expect(keys('fal-generic')).toEqual(['seed']);
     expect(keys('cloudflare')).toEqual(['steps', 'cfgScale', 'seed', 'negativePrompt']);
-    expect(keys('byteplus-seedream')).toEqual(['cfgScale', 'seed']);
+    expect(keys('byteplus-seedream')).toEqual(['seed']);
     expect(keys('openrouter')).toEqual([]);
     expect(keys('gemini-cli')).toEqual([]);
   });

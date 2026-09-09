@@ -124,8 +124,12 @@ const ALL_OPS: readonly ImageDialectOperation[] = [
  * - Cloudflare Workers AI: `steps` / `num_steps` (the provider maps the key
  *   per model), `guidance`, `seed`, `negative_prompt` (SDXL only);
  *   flux-1-schnell caps steps at 8, flux-2 edit takes 4 input images.
- * - BytePlus ModelArk Seedream: `guidance_scale`, `seed`, `size` (WxH or
- *   "2K"), up to 10 reference images. W2a wires the provider.
+ * - BytePlus ModelArk Seedream (W2a, re-read 2026-09-10): `size` (a tier
+ *   or WxH), `image` (one, or 2–14 on 4.x / 5.0 lite, 2–10 on 5.0 pro),
+ *   `sequential_image_generation`; the 4.x / 5.x reference lists NO
+ *   `guidance_scale` and NO `seed` (Seedream 3.0's API had them). Live on
+ *   5.0 pro: `seed` is accepted, `guidance_scale` is REJECTED ("not
+ *   supported by the current model") — so Seed is the one field.
  * - OpenRouter chat images and the Antigravity CLI expose only an aspect
  *   ratio: no numeric parameters.
  */
@@ -161,9 +165,9 @@ export const IMAGE_DIALECT_DEFAULTS: Record<ImageDialectId, ImageDialectDefaults
   },
   'byteplus-seedream': {
     paramSchema: {
-      fields: [GUIDANCE(10, 'Seedream defaults to 2.5.'), SEED],
+      fields: [SEED],
       sizeMode: 'image_size',
-      maxReferences: 10,
+      maxReferences: 14,
     },
     supportedOperations: ALL_OPS,
   },

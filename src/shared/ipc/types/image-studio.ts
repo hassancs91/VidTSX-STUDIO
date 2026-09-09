@@ -7,6 +7,7 @@ export type ImageOperationType = 'text-to-image' | 'image-to-image' | 'multi-ref
 /** CLI-bridge types are registered directly and never stored in provider settings. */
 export type ImageProviderType =
   | 'fal'
+  | 'byteplus'
   | 'openrouter'
   | 'cloudflare'
   | 'local'

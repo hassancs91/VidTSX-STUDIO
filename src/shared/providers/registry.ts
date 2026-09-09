@@ -51,9 +51,9 @@ const REGISTRY = [
   {
     id: 'byteplus',
     name: 'BytePlus ModelArk',
-    keyHint: 'console.byteplus.com/ark → API keys — Seedance video, direct',
+    keyHint: 'console.byteplus.com/ark → API keys — Seedance video + Seedream images, direct',
     keyPlaceholder: 'ARK API key',
-    capabilities: ['video'],
+    capabilities: ['video', 'image'],
     test: 'video',
   },
   {
