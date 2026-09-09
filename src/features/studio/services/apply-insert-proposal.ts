@@ -7,7 +7,7 @@
 
 import type { StudioClip, StudioProposal, StudioProposalItem, StudioTimeline } from '../types';
 import { shotItemPlacement } from './apply-shot-proposal';
-import { addClip, makeClipId } from './timeline-ops';
+import { addClip, findFreeSlot, makeClipId } from './timeline-ops';
 import { addTrack } from './track-ops';
 
 /** Where an insert item lands, timeline seconds (null = unplaceable). */
@@ -18,11 +18,24 @@ export function insertItemPlacement(
   return shotItemPlacement(timeline, item);
 }
 
+/**
+ * The lane an insert lands on. Overlays take the first overlay lane (the
+ * shot rule). Audio takes the first audio lane that is FREE at the placement
+ * (W2b): a bed under the whole edit and a whoosh at a word must both sit
+ * where they were asked for, so when every audio lane already has a clip
+ * there, a new lane is added rather than the clip being pushed past its
+ * neighbour — which is what `addClip`'s free-slot search would do.
+ */
 function ensureLane(
   timeline: StudioTimeline,
   kind: 'overlay' | 'audio',
+  at: number,
+  duration: number,
 ): { timeline: StudioTimeline; trackId: string } {
-  const existing = timeline.tracks.find((t) => t.kind === kind && !t.locked);
+  const existing = timeline.tracks.find(
+    (t) =>
+      t.kind === kind && !t.locked && (kind !== 'audio' || findFreeSlot(t, duration, at) === at),
+  );
   if (existing) return { timeline, trackId: existing.id };
   const next = addTrack(timeline, kind);
   // addTrack prepends visual lanes and appends audio lanes.
@@ -62,7 +75,7 @@ export function applyInsertProposal(
     if (!clip) continue;
     const at = insertItemPlacement(next, item);
     if (at === null) continue;
-    const lane = ensureLane(next, item.insert.lane === 'audio' ? 'audio' : 'overlay');
+    const lane = ensureLane(next, item.insert.lane === 'audio' ? 'audio' : 'overlay', at, clip.duration);
     next = addClip(lane.timeline, lane.trackId, clip, at);
   }
   return next;

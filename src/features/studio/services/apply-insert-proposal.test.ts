@@ -70,6 +70,36 @@ describe('applyInsertProposal', () => {
     expect(audio.clips[0]).toMatchObject({ kind: 'audio', assetId: 'music', timelineStart: 12, gain: 0.4 });
   });
 
+  it('a second audio clip that overlaps takes a NEW audio lane at the asked-for time (W2b)', () => {
+    // A whoosh already sits on A1 at 24.5–27.5; a 30 s bed at 0 must not be
+    // pushed to 27.5 — it gets its own lane at 0.
+    const withWhoosh = applyInsertProposal(
+      timeline(),
+      proposal([
+        { id: 'w', status: 'accepted', timelineStart: 24.5, duration: 3, insert: { assetId: 'whoosh', kind: 'audio', lane: 'audio' } },
+      ]),
+    );
+    const next = applyInsertProposal(
+      withWhoosh,
+      proposal([
+        { id: 'b', status: 'accepted', timelineStart: 0, duration: 30, insert: { assetId: 'bed', kind: 'audio', lane: 'audio', gain: 0.25 } },
+      ]),
+    );
+    const audioLanes = next.tracks.filter((t) => t.kind === 'audio');
+    expect(audioLanes).toHaveLength(2);
+    expect(audioLanes[0].clips).toEqual([expect.objectContaining({ assetId: 'whoosh', timelineStart: 24.5 })]);
+    expect(audioLanes[1].clips).toEqual([expect.objectContaining({ assetId: 'bed', timelineStart: 0, gain: 0.25 })]);
+    // A clip that does NOT overlap still shares the lane.
+    const later = applyInsertProposal(
+      withWhoosh,
+      proposal([
+        { id: 'c', status: 'accepted', timelineStart: 40, duration: 2, insert: { assetId: 'click', kind: 'audio', lane: 'audio' } },
+      ]),
+    );
+    expect(later.tracks.filter((t) => t.kind === 'audio')).toHaveLength(1);
+    expect(later.tracks[later.tracks.length - 1].clips).toHaveLength(2);
+  });
+
   it('returns the same timeline when nothing is accepted or placeable', () => {
     const tl = timeline();
     expect(
