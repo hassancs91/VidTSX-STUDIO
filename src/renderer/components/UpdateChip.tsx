@@ -58,10 +58,10 @@ export function UpdateChip() {
     return (
       <span
         className="text-text-dim flex items-center gap-1"
-        style={{ fontSize: '10px' }}
+        style={{ fontSize: '12px' }}
         title={`Downloading update${version ? ` ${version}` : ''}`}
       >
-        <ArrowUpCircle size={11} strokeWidth={1.5} className="animate-pulse" />
+        <ArrowUpCircle size={14} strokeWidth={1.5} className="animate-pulse" />
         Updating… {percent}%
       </span>
     );
@@ -77,16 +77,16 @@ export function UpdateChip() {
         onClick={() => { void handleInstall(); }}
         title={`Restart to install version ${version}`}
         className="text-accent-light hover:text-accent transition-colors flex items-center gap-1"
-        style={{ fontSize: '10px' }}
+        style={{ fontSize: '12px' }}
       >
-        <ArrowUpCircle size={11} strokeWidth={1.5} />
+        <ArrowUpCircle size={14} strokeWidth={1.5} />
         Update ready · Restart
       </button>
       <button
         onClick={handleLater}
         title={`Skip ${version} for now — it installs when you next quit; Settings → Updates still offers it`}
         className="text-text-dim hover:text-text-secondary transition-colors"
-        style={{ fontSize: '10px' }}
+        style={{ fontSize: '12px' }}
       >
         Later
       </button>

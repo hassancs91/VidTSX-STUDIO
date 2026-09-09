@@ -13,8 +13,8 @@ function TinySparkline({
   data,
   max = 100,
   color,
-  width = 48,
-  height = 14,
+  width = 72,
+  height = 24,
 }: {
   data: number[];
   max?: number;
@@ -97,20 +97,20 @@ export function StatusBar() {
 
   return (
     <div
-      className="h-6 bg-app-deep flex items-center px-2 gap-3"
+      className="h-12 bg-app-deep flex items-center px-3 gap-4"
       style={{ borderTop: '0.5px solid var(--color-border)' }}
     >
-      <span className="text-text-dim" style={{ fontSize: '10px' }}>
+      <span className="text-text-dim" style={{ fontSize: '12px' }}>
         v{version}
       </span>
       <span
         className="text-accent-light"
         style={{
-          fontSize: '9px',
+          fontSize: '11px',
           fontWeight: 600,
           letterSpacing: '0.5px',
-          padding: '1px 5px',
-          borderRadius: '3px',
+          padding: '2px 7px',
+          borderRadius: '4px',
           border: '0.5px solid var(--color-accent-light)',
           lineHeight: 1,
         }}
@@ -121,9 +121,9 @@ export function StatusBar() {
       {/* CPU metric */}
       {current && (
         <div className="flex items-center gap-1.5">
-          <span className="text-text-dim" style={{ fontSize: '9px' }}>CPU</span>
+          <span className="text-text-dim" style={{ fontSize: '11px' }}>CPU</span>
           <TinySparkline data={cpuHistory} color="#7F77DD" />
-          <span className="text-text-secondary font-mono" style={{ fontSize: '10px', minWidth: '28px', textAlign: 'right' }}>
+          <span className="text-text-secondary font-mono" style={{ fontSize: '12px', minWidth: '34px', textAlign: 'right' }}>
             {current.cpuPercent}%
           </span>
         </div>
@@ -132,9 +132,9 @@ export function StatusBar() {
       {/* System RAM metric */}
       {current && (
         <div className="flex items-center gap-1.5">
-          <span className="text-text-dim" style={{ fontSize: '9px' }}>RAM</span>
+          <span className="text-text-dim" style={{ fontSize: '11px' }}>RAM</span>
           <TinySparkline data={ramHistory} color="#5DCAA5" />
-          <span className="text-text-secondary font-mono" style={{ fontSize: '10px', minWidth: '28px', textAlign: 'right' }}>
+          <span className="text-text-secondary font-mono" style={{ fontSize: '12px', minWidth: '34px', textAlign: 'right' }}>
             {ramPercent}%
           </span>
         </div>
@@ -143,9 +143,9 @@ export function StatusBar() {
       {/* App Memory metric */}
       {current && (
         <div className="flex items-center gap-1.5">
-          <span className="text-text-dim" style={{ fontSize: '9px' }}>MEM</span>
+          <span className="text-text-dim" style={{ fontSize: '11px' }}>MEM</span>
           <TinySparkline data={appRamHistory} max={Math.max(512, ...appRamHistory)} color="#E0A458" />
-          <span className="text-text-secondary font-mono" style={{ fontSize: '10px', minWidth: '42px', textAlign: 'right' }}>
+          <span className="text-text-secondary font-mono" style={{ fontSize: '12px', minWidth: '52px', textAlign: 'right' }}>
             {appRamMB} MB
           </span>
         </div>
@@ -154,9 +154,9 @@ export function StatusBar() {
       {/* GPU metric */}
       {gpuAvailable && (
         <div className="flex items-center gap-1.5">
-          <span className="text-text-dim" style={{ fontSize: '9px' }}>GPU</span>
+          <span className="text-text-dim" style={{ fontSize: '11px' }}>GPU</span>
           <TinySparkline data={gpuHistory} color="#F09595" />
-          <span className="text-text-secondary font-mono" style={{ fontSize: '10px', minWidth: '28px', textAlign: 'right' }}>
+          <span className="text-text-secondary font-mono" style={{ fontSize: '12px', minWidth: '34px', textAlign: 'right' }}>
             {current!.gpu.usagePercent}%
           </span>
         </div>
@@ -171,12 +171,12 @@ export function StatusBar() {
         title="Settings"
         className="text-text-dim hover:text-text-secondary transition-colors flex items-center"
       >
-        <Settings size={13} strokeWidth={1.5} />
+        <Settings size={17} strokeWidth={1.5} />
       </button>
 
       <span
         className="text-text-muted"
-        style={{ fontSize: '10px' }}
+        style={{ fontSize: '12px' }}
       >
         VidTSX
       </span>
