@@ -7,6 +7,7 @@
 import fs from 'fs/promises';
 import { imageEngine } from '../../../image-engine';
 import { aiUsageService } from '../ai-usage';
+import { getDefaultImageModelPriceUsd } from '../../../shared/presets/provider-model-defaults';
 import { ensureLibraryRoot } from './library-paths';
 import { upsertEntry } from './library-store';
 import { readBrand } from './brand-store';
@@ -66,16 +67,20 @@ export async function generateImageAsset(
   const image = result.images[0];
   if (!image?.base64) throw new Error('The image provider returned no image');
 
+  // Cost = the shipped catalog's per-image estimate (the same lookup the
+  // Image Studio IPC uses); unknown models and the local bridge stay $0.
+  const usageProvider = imageEngine.getActiveProvider() ?? 'unknown';
+  const usageModel = result.model || 'unknown';
   aiUsageService
     .appendEntry({
       timestamp: new Date().toISOString(),
-      provider: imageEngine.getActiveProvider() ?? 'unknown',
-      model: result.model || 'unknown',
+      provider: usageProvider,
+      model: usageModel,
       featureSource: req.featureSource ?? 'studio-shot-asset',
       inputTokens: 0,
       outputTokens: 0,
       cacheReadInputTokens: 0,
-      costUsd: 0,
+      costUsd: getDefaultImageModelPriceUsd(usageProvider, usageModel) * result.images.length,
       durationMs: result.durationMs ?? 0,
       requestType: 'image',
       ...(req.agentId ? { agentId: req.agentId } : {}),

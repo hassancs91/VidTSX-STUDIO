@@ -54,6 +54,11 @@ const VIDEO_ID_PLACEHOLDER: Record<string, string> = {
   byteplus: 'ModelArk model id (e.g. dreamina-seedance-2-5-260628)',
 };
 
+const IMAGE_ID_PLACEHOLDER: Record<string, string> = {
+  fal: 'Model id or endpoint (e.g. fal-ai/flux/dev)',
+  byteplus: 'ModelArk model id (e.g. seedream-4-5-251128)',
+};
+
 /** Row line naming the dialect, for image and video entries alike. */
 function dialectLabel(model: ProviderModelCatalogEntry): string | null {
   if (!('dialect' in model) || typeof model.dialect !== 'string') return null;
@@ -212,9 +217,7 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset, onParams, has
                 ? (VIDEO_ID_PLACEHOLDER[catalog.providerId] ?? 'Model id')
                 : catalog.category === 'llm'
                   ? (LLM_ID_PLACEHOLDER[catalog.providerId] ?? 'Model id, as the provider names it')
-                  : catalog.providerId === 'fal'
-                    ? 'Model id or endpoint (e.g. fal-ai/flux/dev)'
-                    : 'Model id (e.g. google/gemini-3-pro-image)'
+                  : (IMAGE_ID_PLACEHOLDER[catalog.providerId] ?? 'Model id (e.g. google/gemini-3-pro-image)')
             }
             className="flex-1"
           />
