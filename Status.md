@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-09-09 — V1 COMPLETION W4 DONE: script, vocabulary, brands everywhere
+
+W4 of `docs/v1-completion-plan.md`. Names the brand cares about now reach
+the transcription engine before it hears them, the Script tab gives the
+editorial pass the intended final read, and every agent session knows its
+brand. Full log — the feed, the AssemblyAI answer, the card, the Agents
+picker and the run's evidence — in the plan's §2.4 "W4 outcome".
+`check:types` at baseline (web 26, node 10); 1843 tests, up from 1807.
+Commits `448a086`, `03d2a65`, `531496e`, `548eab7`, `20e705c`.
+
+- **Vocabulary lives on the brand** (`StudioBrand.vocabulary[]`, cap 200,
+  edited in the Brand form as `Term = mangling, mangling`). The memory tier
+  stays the proposal path: `propose_vocabulary` is a multi-select card the
+  agent raises after every transcription and from the script; accept writes
+  the library brand and retires the memories it now carries.
+- **The STT feed.** Brand terms + script proper nouns + vocabulary memories
+  compose into `keyterms` on the transcription request; AssemblyAI gets
+  `keyterms_prompt` (`word_boost` is deprecated and rejected by the
+  Universal-3 models — §5 question 3 closed), ElevenLabs Scribe `keyterms`,
+  whisper.cpp `--prompt`. A deterministic post-pass then replaces every
+  alias in the words and text, logged per replacement.
+- **Proof.** The same 15 s clip transcribed with the feed reads "VidTSX" ×3,
+  "Remotion", "LearnWithHasan"; without it, "VIDTSX", "ReMotion", "Learn with
+  Hassan". The log shows `keyterms_prompt` with four terms.
+- **Script.** `project.script`, a Script tab, the opening in the system
+  prompt, `get_script` for the rest; the editorial workflow reads it to pick
+  the keeper take.
+- **Brands in Agents.** `get_brand` in the shared registry (Motion Post
+  1.1.0 uses it), a brand picker in the starter and a chip on open sessions
+  (`AGENT_SESSION_BRAND_SET`). Flows' brand input waits for W8, per the plan.
+- **Next:** W5 (editing presets + learn from this video), then the Studio
+  flip.
+
+---
+
 ## 2026-09-09 — V1 COMPLETION W3 DONE: the Studio agent goes end-to-end
 
 W3 of `docs/v1-completion-plan.md`. "Edit this video" in the Assistant now

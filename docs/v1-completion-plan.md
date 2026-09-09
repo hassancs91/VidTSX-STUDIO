@@ -367,6 +367,110 @@ chips, not find one.
 
 **Acceptance.** A transcript of a clip that says "VidTSX" three times comes back spelled right with the term on the brand; the agent proposes the two names the script mentions; the provider debug log shows the keyterms field was sent.
 
+#### W4 outcome (2026-09-09) — what was built, what the run showed, and what it leaves
+
+Five commits (`448a086` brand vocabulary, `03d2a65` the STT feed, `531496e`
+the script, `548eab7` `propose_vocabulary`, `20e705c` brands in Agents), each
+by pathspec beside the export-engines session's dirty tree. `check:types` at
+baseline (web 26, node 10); 1843 tests, up from 1807. All three acceptance
+rows hold, driven in the real app on a second dev instance (the W3 profile
+and its keys, own out dir, CDP 9223 — the recipe now has the `w4/` scripts
+beside the `w3/` ones).
+
+**Vocabulary on the brand (decision §0.5), as built.** `StudioBrand.vocabulary?:
+{ term, aliases? }[]` — validated and normalised in `shared/studio/brand.ts`
+through the new `brand-vocabulary.ts` (cap 200 terms, 60 chars, 10 aliases;
+dedupe case-insensitively; an alias equal to the term is dropped because a
+casing-only fix is implicit). `updateBrand` treats the input as the whole
+list, which meant the style-promotion accept and the package-import brand
+creation had to pass the current vocabulary through — the one place a
+"one-field" edit could have silently wiped it. The Brand form edits it as
+`Term = mangling, mangling` lines; `get_brand` (both agents) renders it
+through the shared `brand-summary.ts` formatter.
+
+**The STT feed.** `ProviderTranscribeRequest.keyterms[]` rides
+asset-transcriber → run-transcription → the provider (and the Transcribe
+screen's request type carries it too). `stt/keyterms.ts` composes the list
+deterministically — brand terms, in-scope vocabulary memories, then the
+script's proper nouns (capitalised-token extraction: distinctive shapes
+anywhere — inner capitals, digits, all-caps — plain capitals mid-sentence or
+when the same word is capitalised mid-sentence elsewhere, phrases of up to
+four tokens, ranked by frequency, capped at 60) under an overall cap of 200.
+Aliases are never sent: they are the wrong spellings. Provider mapping:
+AssemblyAI `keyterms_prompt` for the universal family (§5 question 3, closed
+above), `word_boost` only for best/nano; ElevenLabs Scribe repeated
+`keyterms` multipart fields (≤ 1 000, < 50 chars, ≤ 5 words); whisper.cpp
+`--prompt` with a comma list cut at 600 chars. Then `stt/alias-postpass.ts`
+replaces every alias in the words (a multi-word run merges into one word
+spanning the run, lowest confidence, first speaker), the segments and the
+flat text, and asset-transcriber logs each replacement; the transcript file
+and the Inspector readout carry `keytermCount` / `aliasReplacements`.
+`studio/transcription-context.ts` loads project, brand and memories for one
+run and never throws — a brand problem must not block a transcription.
+
+**Script.** `project.script?: string` (cap 60 000, normalised in
+project-store, no schema bump — the captions precedent). A Script tab beside
+Inspector / Captions / Assistant; the renderer sends the live copy each turn,
+the prompt injects the opening (~1 500 chars at a word boundary) as "the
+INTENDED FINAL READ — the keeper take is the one that matches it, wording it
+dropped is fluff, spell its names exactly", and `get_script` reads the rest by
+character window through the same `project-script.ts` service.
+
+**`propose_vocabulary`.** One multi-select card per turn, its own gate (it
+blocks neither review proposals nor memory cards, so the end-to-end run keeps
+moving). Main stamps the brand from project settings (the style-promotion
+rule), drops terms the brand already carries with those aliases, and needs a
+LIBRARY brand — with only a project-local snapshot the tool points the agent
+at `propose_memory(kind: "vocabulary")`, which is what "memory entries with no
+brand stay app-wide" means in practice. Accept merges the ticked terms into
+the brand against a fresh read (an existing term keeps its casing and gains
+aliases; a full brand keeps the card pending), writes it, then retires the
+active vocabulary memories the brand now carries. The prompt asks for the
+card after EVERY `transcribe_asset` and from the script before transcribing.
+
+**Brands in Agents.** `get_brand` joined the shared registry
+(`AGENT_TOOL_IDS`, append-only); Motion Post asks for it (manifest 1.1.0,
+file hashes regenerated) and reads the brand before the composition — the
+Assistant stays tool-less by design, so "the built-ins reference it" is one
+of two. Sessions: `AgentSessionCreateRequest.brandId` (absent = the library
+default as before, null = none) and a new `AGENT_SESSION_BRAND_SET` channel
+that patches an open session (applies from the next turn; media already filed
+keeps its tag). The starter shows a brand picker above its questions,
+defaulting to the library default; an open session has a compact chip beside
+the model chip. **Brands in Flows:** nothing built, per the section — W8
+reads this outcome for the run-level input and the per-node `brandId`.
+
+**Acceptance evidence.** A 15.5 s SAPI clip ("Welcome to VidTSX … how VidTSX
+renders TSX compositions with Remotion, and how LearnWithHasan uses it …
+Try VidTSX today"), the Acme Test brand carrying `VidTSX = Vid TSX, vid t s
+x, Vid TS X`, the script in the tab, AssemblyAI `universal`. (1) The
+transcript file: `VidTSX` exactly three times, `keytermCount: 4`; the log
+read `Vocabulary composed … keyterms 4 (brand 1, memory 0, script 3)` then
+`AssemblyAI: Keyterms sent {field: "keyterms_prompt", count: 4, sample:
+[VidTSX, TSX, Remotion, LearnWithHasan]}`. A control transcription of the
+same clip with no brand and no script came back "VIDTSX", "ReMotion" and
+"Learn with Hassan" — the feed is what fixed all three, and the post-pass had
+nothing left to correct (`aliasReplacements` absent). (2) One chat line
+("propose vocabulary for the brand: the names the brand does not know yet"):
+`get_brand → get_script → get_transcript → propose_vocabulary (3 terms)` —
+Remotion and LearnWithHasan (the script's two names) plus TSX, VidTSX left
+off "because it is already on the brand", each with pre-emptive aliases and
+a one-line note. Clicking "Add 3 to brand" wrote the four-term brand.json
+with the style notes intact and the panel reported "Brand vocabulary updated
+· added Remotion, LearnWithHasan, TSX". (3) The keyterms log line above. On
+the Agents page the Motion Post starter opened with the brand picker set to
+the library default; `agentSessionCreate({ brandId: null })` produced a
+brand-less session and `agentSessionBrandSet` put `acme-test` on it, read
+back by `agentSessionLoad`.
+
+**Not done / left for later.** No alias replacement was observed on real
+provider output (AssemblyAI got every primed name right); the post-pass is
+covered by its unit tests only. The Transcribe screen carries `keyterms` on
+its request but has no UI to fill it (it has no brand or script context).
+Vocabulary memories with no brand still reach the STT feed app-wide, as
+decided, but nothing promotes them automatically — the agent must put them on
+a card with source "memory". Flows' brand input is W8's.
+
 ### 2.5 W5 — Editing presets + learn from this video — ~2 sessions
 
 **The entity.** `StudioPreset`, folder-as-truth like brands: `<assetsRoot>/presets/<id>/preset.json` + `PRESET.md` (+ optional `skills/` in the SKILLS.md folder format).
@@ -485,8 +589,16 @@ discussion is done, since it touches `src/features/flows/`,
 2. W2b: ElevenLabs music pricing per request is not in the docs read so far;
    usage rows log duration and leave price blank until known.
 3. W4: which of AssemblyAI's `keyterms_prompt` and `word_boost` applies to the
-   `universal` model the catalog defaults to. Checked against their docs
-   when landing; the code path supports both.
+   `universal` model the catalog defaults to. **Answered 2026-09-09 (W4
+   outcome):** `keyterms_prompt` — Universal-2 takes up to 200 terms,
+   Universal-3.5 Pro up to 1 000, six words per phrase; `word_boost` is the
+   deprecated custom-vocabulary field, still accepted by best/nano/Universal-2
+   but REJECTED by universal-3-pro, universal-3-5-pro and slam-1. The
+   `universal` auto pair therefore sends `keyterms_prompt` capped at 200 (the
+   Universal-2 fallback's limit); `word_boost` remains only for a legacy id
+   typed into the catalog. Verified live: the log line
+   `Keyterms sent {field: "keyterms_prompt", count: 4}` and a transcript that
+   spells "VidTSX" three times.
 4. W5: 4 000-char preset budget plus the 2 000-char memory block plus skills
    — measure adherence with the dilution-spike method before raising either.
 5. W8: Hasan's pending flows discussion.
