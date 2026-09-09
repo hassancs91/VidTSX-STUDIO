@@ -84,6 +84,11 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
   busyRef.current = busy;
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  /** A review outcome that arrived while a turn was still streaming (the
+   *  Apply button is live before the agent's last sentence lands) — sent
+   *  the moment that turn ends, if it ended with the marker. */
+  const queuedOutcomeRef = useRef<string | null>(null);
+  const sendRef = useRef<(prompt: string) => Promise<void>>(async () => {});
 
   // ----- Persistence (Q1d): load on open, write-behind after each turn -----
   // The renderer owns the live list; agent-chat.json beside project.json is
@@ -199,6 +204,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
       ]);
       setBusy(true);
       busyRef.current = true;
+      let finalText: string | null = null;
       try {
         const response = await window.api.studioAgentSend({
           projectId: opts.projectId,
@@ -220,6 +226,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           ...(opts.thinking ? { thinking: opts.thinking } : {}),
         });
         if (response.toolsAvailable !== undefined) setToolsAvailable(response.toolsAvailable);
+        if (response.success) finalText = response.text ?? null;
         patchPending((msg) => ({
           ...msg,
           pending: false,
@@ -238,9 +245,17 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
         setBusy(false);
         busyRef.current = false;
       }
+      // A card answered mid-turn: continue now that the turn is over, if the
+      // reply that just landed still asks for it.
+      const queued = queuedOutcomeRef.current;
+      queuedOutcomeRef.current = null;
+      if (queued && finalText !== null && hasNextStepMarker(finalText)) {
+        void sendRef.current(queued);
+      }
     },
     [patchPending],
   );
+  sendRef.current = send;
 
   /**
    * W3: a review card was answered. When the assistant's last message ended
@@ -250,9 +265,14 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
    */
   const notifyReviewResolved = useCallback(
     (proposal: StudioProposal) => {
-      if (busyRef.current) return;
       const outcome = reviewOutcomeMessage(proposal);
       if (!outcome) return;
+      if (busyRef.current) {
+        // The agent is still finishing the message that made this card —
+        // hold the outcome until the turn ends (send() drains it).
+        queuedOutcomeRef.current = outcome;
+        return;
+      }
       const last = [...messagesRef.current].reverse().find((m) => m.role === 'assistant' && !m.pending);
       if (!last || !hasNextStepMarker(last.text)) return;
       void send(outcome);

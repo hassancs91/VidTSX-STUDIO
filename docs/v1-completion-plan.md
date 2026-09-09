@@ -270,6 +270,93 @@ is a W7/W8 question); the SDK bump that unblocks Fable.
 
 **Acceptance.** One chat line on a raw talking-head clip produces an exported MP4 with cuts, two shots, one b-roll, one SFX and captions, the user only accepting cards. Cancel mid-run leaves the timeline consistent. Every generated asset is brand-tagged and in the usage log.
 
+#### W3 outcome (2026-09-09) — what was built, what the run showed, and what it leaves
+
+Three commits: the pure split (`2384f09`), the capabilities (`df40d92`) and
+the one fix the live run forced (below). `check:types` at baseline (web 26,
+node 10); 1807 tests, up from 1786. The acceptance ran in the real app on a
+second dev instance (own profile, CDP 9223 — the export-engines session kept
+9222) against a 60 s 1080p30 excerpt of the DJI 0271 talking-head clip.
+
+**The split, then the tools.** `studio-agent.ts` is 175 lines (send, cancel,
+the memory block, tool-support resolution); the eleven existing tools moved
+unchanged into `agent-tools/{transcript,cut,shot,image,capture,memory}-tools.ts`
+with `agent-tools/index.ts` owning the append-only `STUDIO_TOOL_IDS`. Per-turn
+state (one proposal per turn, this pass's shots, the one-card rule) is a
+`StudioTurnState` object every group reads instead of closure booleans. The
+nine new tools, each a thin call to the service the matching button already
+calls: `transcribe_asset` (the same `studioMediaJobs` transcript job the
+Inspector button runs, awaited, progress into the tool chip), `run_auto_cut`
+(`cut-plan-runner` + `buildCutProposal`, which moved to
+`src/shared/studio/cut-proposal.ts` so the button and the chat emit the SAME
+proposal), `generate_video` (`submitVideoAsset`/`fileVideoAsset`, awaited,
+then imported into the project on use), `insert_asset` (a one-clip
+`'insert-plan'` proposal — new proposal kind, `StudioProposalItem.insert` —
+anchored to a word/take on the footage or a timeline time; `apply: true` only
+on an explicit ask, still one undo step), `list_assets`, `get_brand`,
+`set_captions`, `accept_proposal` and `export_project`.
+
+**The bridge the renderer-owned document forced.** The timeline, proposals,
+captions and the render queue live in the renderer, so applying, exporting and
+captions ride a main→renderer request: an `'action'` agent event answered on
+`STUDIO_AGENT_ACTION_RESULT` (`agent-actions.ts`; timeout and the turn's abort
+both settle it). `export_project` mints the job id the queue row is created
+with. Two more events: `'progress'` (long tools update their chip in place)
+and `'assets-imported'` (import-on-use, the shot-assetRefs pattern).
+
+**"Only answering cards" is a marker, not a click.** The prompt has the agent
+end any message that leaves a card open during a multi-step run with a final
+`[next: …]` line. When that card is applied or rejected — Inspector, timeline
+or `accept_proposal` — the editor sends a "Review outcome: …" turn on the
+user's behalf (`notifyReviewResolved`); no marker, no spent turn. The run
+proved the gap this hides: the Apply button is live while the agent's last
+sentence still streams, and an outcome that arrives mid-turn was dropped. The
+fix queues it and sends it the moment the turn ends if the reply carried the
+marker (`queuedOutcomeRef`). The rest of the run used exactly that path.
+
+**The run.** One line — "Edit this video end to end: transcribe it, cut the
+silences and the retakes and fillers, add two shots, one b-roll clip,
+captions, and export it as an MP4" — on Opus 5 planning, Sonnet 5 shots:
+`transcribe_asset` (AssemblyAI, 99 words, verbatim) → `run_auto_cut` (19
+cuts, −28.3 s) → card → `get_transcript` ×2 → `propose_cuts` (8: four
+retakes, four false starts; −33.3 s) → card → `get_brand`, two
+`generate_tsx_shot` (a word-synced title over the kept intro take, a
+five-tiles cutaway on the ending line) → `propose_shots` → card →
+`list_assets` (library, project) → `generate_video` (fal Kling 2.5 turbo pro,
+5 s, $0.40, brand-tagged `acme-test`, imported) → `insert_asset` (b-roll at
+the word "factory", anchored) → card → `set_captions` (core/karaoke, 3 words)
+→ `export_project`. Four cards clicked, nothing else typed. Final document:
+four applied proposals, master lane 14 clips, an overlay lane with two shots
+and the b-roll, captions on; the export is 13.6 s / 408 frames, 1080p30
+H.264 + AAC. Usage log: five `auto-cut` rows on `claude-opus-5`, four
+`studio-tsx-shot` rows on `claude-sonnet-5`, one `studio-shot-asset` row on
+fal, one AssemblyAI row (about $2.4 in all). Cancel: Stop 8 s into a
+`generate_tsx_shot` left an error row in the chat, no proposal, the timeline
+untouched and only an `error` entry in the shot pool; Stop during the
+planning step likewise.
+
+**Three things the run surfaced that are not W3's.** (1) The first export
+failed at 47 % with a Remotion compositor "No frame found at position …" on
+the master clip at source 43.7 s — a libx264 encode with 8 s GOPs and
+B-frames that ffmpeg decodes cleanly; re-encoding it with 1 s keyframes and
+no B-frames rendered fine on the next `export_project`. Real footage should
+be checked for this on the flip's testing pass. (2) One shot generation was
+cancelled with the provider's "Request cancelled" and no Stop click; the only
+other route to that error is `llmEngine.abortActive()` (the `LLM_CANCEL`
+channel, which the Tools chat calls) — a global cancel from another feature
+would kill a Studio turn. Unconfirmed; worth a look before the flip. (3) No
+SFX: `generate_sfx`/`generate_music` wait for the W2b engine (the prompt
+says so in one line), so the acceptance row's "one SFX" is open until W2b;
+`get_preset` (W5) and `get_script` (W4) land with their workstreams.
+
+**Driving lessons (docs/ui-automation-cdp.md material).** The review Apply
+button only renders on the Inspector tab, so a driver must switch tabs like a
+user; a fresh profile decrypts nothing until its `Local State` (Chromium's
+os_crypt key) is copied with `settings.db`; never run two drivers at once —
+a lingering watcher applied a card in the wrong project; and a tool chip
+from an earlier row is still in the DOM, so "wait for the chip" must count
+chips, not find one.
+
 ### 2.4 W4 — Script, vocabulary, brands everywhere — ~1.5 sessions
 
 - **Script.** `project.script?: string` (timeline document, versioned with the schema). A Script tab beside Transcript in the editor (`TranscriptPanel` sibling). `get_script` tool; the first ~1 500 chars are injected as context, the rest on demand. Editorial cuts get the script as "the intended final read" (which take is the keeper).

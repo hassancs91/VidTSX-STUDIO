@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-09-09 — V1 COMPLETION W3 DONE: the Studio agent goes end-to-end
+
+W3 of `docs/v1-completion-plan.md`. "Edit this video" in the Assistant now
+runs transcribe → auto cut → editorial pass → shots → b-roll → captions →
+export with the user only answering review cards, and every step is a tool
+that calls the service the matching button already calls. Full log — the
+split, the nine tools, the renderer action bridge, the run's evidence and the
+three findings it leaves — in the plan's §2.3 "W3 outcome". `check:types` at
+baseline (web 26, node 10); 1807 tests, up from 1786. Commits `2384f09`,
+`df40d92` and the marker fix.
+
+- **Split first, then add.** `studio-agent.ts` went from ~890 lines to 175;
+  the tools live in `src/main/services/studio/agent-tools/*.ts` with an
+  append-only id list. New tools never go back in the service file.
+- **Nine new tools, no new mechanism.** transcribe_asset, run_auto_cut (the
+  SAME proposal as the toolbar button — `buildCutProposal` is shared now),
+  generate_video (awaited, brand-tagged, imported into the project),
+  insert_asset (a one-clip `insert-plan` proposal with its own review card,
+  word-anchored to the footage), list_assets, get_brand, set_captions,
+  accept_proposal (only on the user's explicit "apply it") and export_project.
+- **The document and the queue are renderer-owned**, so apply / export /
+  captions go through a main→renderer action bridge (`agent-actions.ts`,
+  `STUDIO_AGENT_ACTION_RESULT`). A multi-step run continues by itself: the
+  agent ends a card-awaiting message with `[next: …]`, and answering the card
+  sends the review outcome back as a turn — queued if the card is answered
+  while the last sentence is still streaming (the live run found that gap).
+- **Driven for real** on a second dev instance: one chat line on a 60 s
+  talking-head excerpt, four cards clicked, an exported 13.6 s MP4 with 27
+  cuts, two shots, one Kling b-roll and karaoke captions; cancel mid-shot
+  left the timeline untouched. About $2.4 of provider spend.
+- **Left open.** SFX/music wait for W2b (the prompt says so); a Remotion
+  compositor "No frame found" on a long-GOP libx264 encode (re-encoded, then
+  fine) and one unexplained provider-level cancel are noted in the outcome
+  for the flip's testing pass. Fable 5.1 still waits for the SDK bump (W1).
+
+---
+
 ## 2026-09-09 — V1 COMPLETION W1 DONE: the model foundation (pick a model, not only a provider)
 
 W1 of `docs/v1-completion-plan.md` — the first of the nine workstreams, and
