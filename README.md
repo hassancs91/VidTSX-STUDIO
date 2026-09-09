@@ -40,8 +40,16 @@ One screen to manage everything local: system/GPU capability detection, provider
 ### 🎬 Render queue
 Render TSX compositions to MP4 locally through Remotion with a persistent job queue, progress tracking, and desktop notifications.
 
+### 🎞️ Studio
+An AI-assisted video editor for talking-head footage, long or short, horizontal or vertical.
+
+- Import your clips (4K HEVC included — edits run on proxies), transcribe them (AssemblyAI, ElevenLabs or local whisper), and **Auto Cut** silences, retakes and fillers into a normal, hand-editable timeline (split, trim, ripple, undo).
+- An editing **assistant** in the project: "Edit this video end to end" transcribes, cuts, proposes TSX shots and b-roll, turns captions on and queues the export — every change arrives as a card you accept or reject.
+- **Brands** (colours, fonts, vocabulary the transcriber is primed with), **editing presets** (a playbook per kind of video that learns from how you cut), word-synced **captions**, and a `.vidtsx` project package for moving an edit between machines.
+- Export with the Standard engine (every frame rendered through Remotion, exactly as previewed) or the Fast engine, which copies untouched footage straight from the source files and renders only the edited parts.
+
 ### Coming soon
-**Flows** (node-based AI workflow automation), **Video Studio**, and local **video / 3D / LLM / embedding** model support are in development and land in future releases.
+**Flows** (node-based AI workflow automation) and local **video / LLM / embedding** model support are in development and land in future releases.
 
 ## Requirements
 

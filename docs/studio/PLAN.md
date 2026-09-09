@@ -31,7 +31,7 @@ project that is simultaneously the UI's data model and the agent's work surface*
 | Milestone path | **Solid core, then auto-cut**: S2 ships scrub/split/trim/ripple/undo — enough to review and adjust AI cuts by hand — then S3 is auto-cut. Advanced manual tools come later alongside AI phases. |
 | Storage | **User-chosen projects root** (settings-configurable; default `~/Videos/VidTSX Studio`). Source media referenced in place; each project folder holds `project.json` + caches. Folder-as-truth for project listing (no DB unless listing gets slow). |
 | Transcription default | **Local whisper by default, AssemblyAI opt-in** (BYOK) recommended in the UI for best word-timestamp accuracy — the original cut pipeline was calibrated on AssemblyAI with verbatim disfluencies + keyterms. |
-| Naming | Screen id `studio`, label "Studio". Coming Soon in production (Flows-style: nav visible, teaser screen), fully enabled in dev. |
+| Naming | Screen id `studio`, label "Studio". Was Coming Soon in production (Flows-style: nav visible, teaser screen) until the flip on 2026-09-10 (`docs/v1-completion-plan.md` §3.1) — `studio-editor: true` now, the teaser remains as the flag's off branch. |
 
 ## 3. What we reuse
 
@@ -195,8 +195,9 @@ context + reducer (no global store per CLAUDE.md; revisit only if it demonstrabl
 
 ## 8. Phases
 
-Each phase ends with something testable in dev builds. Production keeps the Coming Soon
-screen until we consciously flip `studio-editor`.
+Each phase ends with something testable in dev builds. Production kept the Coming Soon
+screen until `studio-editor` was consciously flipped on 2026-09-10 (V1 completion plan §3
+step 5, outcome in §3.1 there).
 
 - **S0 — Gate & scaffold** ✅ *(this commit)*: flags (`studio: true` nav / `studio-editor:
   false` body), sidebar item + screens entry, feature module skeleton with Coming Soon screen,

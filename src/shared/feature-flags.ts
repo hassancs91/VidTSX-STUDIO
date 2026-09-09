@@ -47,11 +47,13 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   'ai-system-runtimes': true,
   'ai-3d-models': true,
   'threed-studio': true,
-  // Studio (AI video editor) nav entry is visible as a teaser; the editor
-  // itself is in development — production renders a Coming Soon screen.
-  // Plan: docs/studio/PLAN.md.
+  // Studio (AI video editor): the nav entry and the editor behind it. The
+  // editor flipped on 2026-09-10 (V1 completion plan §3 step 5, "Studio
+  // flip") after its testing pass on the raw-footage clips; `false` here
+  // would put the Coming Soon screen back in production builds only (dev
+  // builds force every plain flag on). Plan: docs/studio/PLAN.md.
   studio: true,
-  'studio-editor': false,
+  'studio-editor': true,
   // Agents (docs/agents-plan.md) — installable declarative agents on their own
   // page. Unhidden for 1.1.0 once all seven stages landed (§9 "Stage 6
   // outcome"): two built-in agents ship in the installer, and this flag is

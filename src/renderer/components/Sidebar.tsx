@@ -32,7 +32,7 @@ const ICON_SIZE = 22;
 const ICON_STROKE = 1.5;
 
 const navItems: NavItem[] = [
-  // AI video editor — Coming Soon teaser in production (docs/studio/PLAN.md)
+  // AI video editor (docs/studio/PLAN.md) — shipped with the 2026-09-10 flip
   { id: "studio", label: "Studio", icon: <Clapperboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   // Primary workflow — TSX → Image → Video
   { id: "creator", label: "TSX", icon: <Wand2 size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },

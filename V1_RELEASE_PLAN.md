@@ -191,7 +191,7 @@ Embeddings are hidden in ALL builds (including dev) unless explicitly enabled vi
       | `ai-3d-models` (new flag) | off | `VITE_FF_AI_3D` |
       | `ai-embedding-models` | off | `VITE_FF_AI_EMBEDDINGS` |
       | `audio-engine` | off | `VITE_FF_AI_AUDIO_ENGINE` |
-      | `studio-editor`, `license-ui`, others | keep current behavior — decide per flag while editing; do not silently change what v1 ships |
+      | `studio-editor`, `license-ui`, others | keep current behavior — decide per flag while editing; do not silently change what v1 ships | *(`studio-editor` flipped **on** 2026-09-10 — the Studio flip, `docs/v1-completion-plan.md` §3.1; `license-ui` stays off)* |
 - [ ] This file is imported by renderer code only today; keep it renderer-safe
       (`import.meta.env` guarded) so nothing in `src/main/` breaks if it ever gets imported there.
 

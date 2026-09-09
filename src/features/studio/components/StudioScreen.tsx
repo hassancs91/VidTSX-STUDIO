@@ -30,6 +30,8 @@ function StudioComingSoon() {
 }
 
 export function StudioScreen() {
+  // `studio-editor` is on since the 2026-09-10 flip; the Coming Soon screen
+  // stays as the flag's off branch (a kill switch, never dead code to delete).
   if (!isFeatureEnabled('studio-editor')) {
     return <StudioComingSoon />;
   }
