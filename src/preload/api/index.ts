@@ -13,6 +13,7 @@ export { thumbnailApi } from './thumbnail';
 export { frameExtractorApi } from './frame-extractor';
 export { logApi } from './log';
 export { audioApi } from './audio';
+export { audioGenerationApi } from './audio-generation';
 export { sdImageApi } from './sd-image';
 export { sdVideoApi } from './sd-video';
 export { tsxJobsApi } from './tsx-jobs';

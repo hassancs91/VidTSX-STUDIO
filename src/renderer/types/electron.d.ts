@@ -316,6 +316,9 @@ export interface ElectronAPI {
   audioTtsGenerate: (data: import('../../shared/ipc/types').AudioTtsGenerateRequest) => Promise<import('../../shared/ipc/types').AudioTtsGenerateResponse>;
   audioSettingsGet: () => Promise<import('../../shared/ipc/types').AudioSettingsGetResponse>;
   audioSettingsSave: (data: import('../../shared/ipc/types').AudioSettingsSaveRequest) => Promise<import('../../shared/ipc/types').AudioSettingsSaveResponse>;
+
+  // Cloud audio generation — sound effects + music (W2b)
+  audioGenerate: (data: import('../../shared/ipc/types').AudioGenerateRequest) => Promise<import('../../shared/ipc/types').AudioGenerateResponse>;
   onAudioSttTranscribeProgress: (callback: (data: { percent: number; message: string }) => void) => () => void;
 
   // Transcription project operations

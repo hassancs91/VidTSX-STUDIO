@@ -5,6 +5,7 @@ export { registerBundleIpc } from './bundle';
 export { registerRenderIpc } from './render';
 export { registerSettingsIpc } from './settings';
 export { registerWhisperIpc } from './whisper';
+export { registerAudioGenerationIpc } from './audio-generation';
 export { registerLlmIpc } from './llm';
 export { registerFlowsIpc } from './flows';
 export { registerImageStudioIpc } from './image-studio';

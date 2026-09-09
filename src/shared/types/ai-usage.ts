@@ -17,7 +17,7 @@ export type AiFeatureSource =
   | 'other';
 
 /** Type of AI request */
-export type AiRequestType = 'llm' | 'image' | 'local-llm' | 'stt' | 'video';
+export type AiRequestType = 'llm' | 'image' | 'local-llm' | 'stt' | 'video' | 'audio';
 
 /** A single logged AI API request */
 export interface AiUsageEntry {

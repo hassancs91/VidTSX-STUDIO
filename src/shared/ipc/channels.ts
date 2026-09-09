@@ -238,6 +238,9 @@ export const IPC = {
   AUDIO_SETTINGS_GET: 'audio:settings:get',
   AUDIO_SETTINGS_SAVE: 'audio:settings:save',
 
+  // Cloud audio generation — sound effects + music (W2b)
+  AUDIO_GENERATE: 'audio:generate',
+
   // Local SD image engine operations
   SDIMAGE_STATUS: 'sdimage:status',
   SDIMAGE_MODELS_LIST: 'sdimage:models:list',

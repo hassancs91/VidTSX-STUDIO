@@ -13,6 +13,7 @@ import { thumbnailApi } from './api/thumbnail';
 import { frameExtractorApi } from './api/frame-extractor';
 import { logApi } from './api/log';
 import { audioApi } from './api/audio';
+import { audioGenerationApi } from './api/audio-generation';
 import { sdImageApi } from './api/sd-image';
 import { sdVideoApi } from './api/sd-video';
 import { tsxJobsApi } from './api/tsx-jobs';
@@ -57,6 +58,7 @@ const api = {
   ...frameExtractorApi,
   ...logApi,
   ...audioApi,
+  ...audioGenerationApi,
   ...sdImageApi,
   ...sdVideoApi,
   ...tsxJobsApi,

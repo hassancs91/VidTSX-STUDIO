@@ -12,6 +12,7 @@ import { registerThumbnailIpc } from './registrations/thumbnail';
 import { registerLogIpc } from './registrations/log';
 import { registerFrameExtractorIpc } from './registrations/frame-extractor';
 import { registerAudioIpc } from './registrations/audio';
+import { registerAudioGenerationIpc } from './registrations/audio-generation';
 import { registerEmbeddingIpc } from './registrations/embedding';
 import { registerSdImageIpc } from './registrations/sd-image';
 import { registerSdVideoIpc } from './registrations/sd-video';
@@ -60,6 +61,7 @@ export function registerAllIPC(): void {
   registerLogIpc();
   registerFrameExtractorIpc();
   registerAudioIpc();
+  registerAudioGenerationIpc();
   registerEmbeddingIpc();
   registerSdImageIpc();
   registerSdVideoIpc();

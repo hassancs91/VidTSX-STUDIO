@@ -3,6 +3,7 @@ export * from './agents';
 export * from './ai-usage';
 export * from './app-shell';
 export * from './audio';
+export * from './audio-generation';
 export * from './bundle';
 export * from './download';
 export * from './embedding';

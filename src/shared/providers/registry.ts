@@ -12,7 +12,7 @@
  * entry's `capabilities` array is the badge order.
  */
 
-export type ProviderCapability = 'llm' | 'image' | 'video' | 'stt';
+export type ProviderCapability = 'llm' | 'image' | 'video' | 'stt' | 'audio';
 
 /** Engine whose test button a key row offers. Only 'image' has a handler today. */
 export type ProviderTestKind = 'image' | 'video' | 'llm';
@@ -91,7 +91,8 @@ const REGISTRY = [
     name: 'ElevenLabs',
     keyHint: 'elevenlabs.io — Scribe transcription',
     keyPlaceholder: 'API key',
-    capabilities: ['stt'],
+    // W2b: the same key unlocks sound effects + music (src/audio-engine/generation).
+    capabilities: ['stt', 'audio'],
   },
   {
     id: 'zai',
@@ -126,6 +127,7 @@ export const PROVIDER_CAPABILITY_LABELS: Record<ProviderCapability, string> = {
   video: 'Video',
   llm: 'LLMs',
   stt: 'Transcription',
+  audio: 'Sound & music',
 };
 
 export function isProviderKeyId(value: string): value is ProviderKeyId {

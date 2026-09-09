@@ -14,6 +14,7 @@ import {
 } from '../services/settings';
 import { initImageEngine } from '../services/image-init';
 import { initVideoEngine } from '../services/video-init';
+import { initAudioGenerationEngine } from '../services/audio-generation-init';
 import { initLLMEngine } from '../services/llm-init';
 import { initSttEngine } from '../services/stt/stt-init';
 import { logEngine } from '../../logging/log-engine';
@@ -62,6 +63,7 @@ export async function handleProviderKeysSave(
     // Re-register engine providers so new keys take effect immediately.
     await initImageEngine();
     await initVideoEngine();
+    await initAudioGenerationEngine();
     await initLLMEngine();
     await initSttEngine();
 

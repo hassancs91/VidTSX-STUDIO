@@ -17,6 +17,7 @@ import { PROVIDER_PRESETS } from '../../engine/presets';
 import { IMAGE_PROVIDER_PRESETS } from '../../image-engine/presets';
 import { STT_PROVIDER_PRESETS } from '../../transcription-engine/presets';
 import { VIDEO_PROVIDER_PRESETS } from '../../video-engine/presets';
+import { AUDIO_GENERATION_PRESETS } from '../../audio-engine/generation/presets';
 
 const registryIds = new Set<string>(PROVIDER_KEY_IDS);
 
@@ -67,6 +68,9 @@ describe('provider registry', () => {
     for (const preset of VIDEO_PROVIDER_PRESETS) {
       expect(registryIds.has(preset.credentialId)).toBe(true);
     }
+    for (const preset of AUDIO_GENERATION_PRESETS) {
+      expect(registryIds.has(preset.credentialId)).toBe(true);
+    }
   });
 
   it('capability badges match the engine presets that consume each key', () => {
@@ -77,9 +81,10 @@ describe('provider registry', () => {
       image: new Set(IMAGE_PROVIDER_PRESETS.map((p) => p.credentialId)),
       stt: new Set(STT_PROVIDER_PRESETS.flatMap((p) => (p.credentialId ? [p.credentialId] : []))),
       video: new Set(VIDEO_PROVIDER_PRESETS.map((p) => p.credentialId)),
+      audio: new Set(AUDIO_GENERATION_PRESETS.map((p) => p.credentialId)),
     };
     for (const entry of PROVIDER_REGISTRY) {
-      for (const cap of ['llm', 'image', 'stt', 'video'] as const) {
+      for (const cap of ['llm', 'image', 'stt', 'video', 'audio'] as const) {
         const declared = entry.capabilities.includes(cap);
         const consumed = consumers[cap].has(entry.id);
         expect({ id: entry.id, cap, declared }).toEqual({ id: entry.id, cap, declared: consumed });
