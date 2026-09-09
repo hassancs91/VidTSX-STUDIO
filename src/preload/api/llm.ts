@@ -1,6 +1,7 @@
 import { ipcRenderer } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
+  LlmCancelRequest,
   LlmCancelResponse,
   LlmChatGenerateRequest,
   LlmChatGenerateResponse,
@@ -26,6 +27,6 @@ export const llmApi = {
     ipcRenderer.invoke(IPC.LLM_GENERATE, data),
   llmChatGenerate: (data: LlmChatGenerateRequest): Promise<LlmChatGenerateResponse> =>
     ipcRenderer.invoke(IPC.LLM_CHAT_GENERATE, data),
-  llmCancel: (): Promise<LlmCancelResponse> =>
-    ipcRenderer.invoke(IPC.LLM_CANCEL),
+  llmCancel: (data?: LlmCancelRequest): Promise<LlmCancelResponse> =>
+    ipcRenderer.invoke(IPC.LLM_CANCEL, data),
 };

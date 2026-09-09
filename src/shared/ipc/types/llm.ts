@@ -119,8 +119,18 @@ export interface ChatMessage {
   content: string;
 }
 
+/** Scoped cancel: only the calling window's requests, narrowed further by
+ *  the fields given. Main-process turns (Studio, agents, TSX jobs) own their
+ *  own signals and are never reached from here. */
+export interface LlmCancelRequest {
+  featureSource?: AiFeatureSource;
+  sessionScope?: string;
+}
+
 export interface LlmCancelResponse {
   success: boolean;
+  /** How many in-flight requests the cancel reached. */
+  cancelled?: number;
 }
 
 export interface LlmChatGenerateRequest {

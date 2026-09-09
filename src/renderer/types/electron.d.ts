@@ -63,6 +63,7 @@ import type {
   LlmGenerateResponse,
   LlmChatGenerateRequest,
   LlmChatGenerateResponse,
+  LlmCancelRequest,
   LlmCancelResponse,
   SkillsListResponse,
   ImageStudioFolderCreateRequest,
@@ -273,7 +274,7 @@ export interface ElectronAPI {
   llmProviderTest: (data: LlmProviderTestRequest) => Promise<LlmProviderTestResponse>;
   llmGenerate: (data: LlmGenerateRequest) => Promise<LlmGenerateResponse>;
   llmChatGenerate: (data: LlmChatGenerateRequest) => Promise<LlmChatGenerateResponse>;
-  llmCancel: () => Promise<LlmCancelResponse>;
+  llmCancel: (data?: LlmCancelRequest) => Promise<LlmCancelResponse>;
 
   skillsList: () => Promise<SkillsListResponse>;
 

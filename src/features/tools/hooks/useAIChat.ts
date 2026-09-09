@@ -132,6 +132,7 @@ export function useAIChat() {
         systemPrompt: effectiveSystemPrompt,
         providerId: selectedProvider,
         sessionScope: `ai-chat:${crypto.randomUUID()}`,
+        featureSource: 'ai-chat',
         ...(config.thinking ? { thinking: config.thinking } : {}),
         ...(config.effort ? { effort: config.effort } : {}),
         ...(loopCount > 1 ? { reflectionLoops: loopCount } : {}),
@@ -174,7 +175,9 @@ export function useAIChat() {
 
   const cancel = useCallback(async () => {
     try {
-      await window.api.llmCancel();
+      // Scoped to this window's chat requests — a Studio turn or an agents
+      // session running on the same provider is untouched.
+      await window.api.llmCancel({ featureSource: 'ai-chat' });
     } catch {
       // Ignore
     }

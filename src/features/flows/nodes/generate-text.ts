@@ -44,9 +44,11 @@ export const generateTextNode: NodeTypeDefinition<Config> = {
       throw new Error('No model set. Type a model id in the inspector.');
     }
 
-    // Note: ctx.runId could pair this call with a per-call cancel IPC later.
-    // Today llmCancel aborts the global active call, so we don't pass it as
-    // sessionScope (that would conflate cancellation with conversation reuse).
+    // Note: llmCancel is scoped to the calling window's requests and can be
+    // narrowed by featureSource / sessionScope (llm-request-scope.ts). A
+    // per-run cancel would pass `sessionScope: ctx.runId` here and to
+    // llmCancel; not wired yet, so no sessionScope (that would also conflate
+    // cancellation with conversation reuse).
     const res = await window.api.llmGenerate({
       providerId: config.providerId,
       model: config.model,

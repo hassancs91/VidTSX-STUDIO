@@ -19,9 +19,11 @@ import type {
   LlmGenerateResponse,
   LlmChatGenerateRequest,
   LlmChatGenerateResponse,
+  LlmCancelRequest,
   LlmCancelResponse,
 } from '../../shared/ipc/types';
 import { composeSystemPrompt } from '../services/skills-registry';
+import { llmRequestScope } from './llm-request-scope';
 
 // V1 ships only `agent-sdk` presets (V1_RELEASE_PLAN Phase H1) — every visible
 // provider gets tools AND prompt caching; nothing ships degraded. `openai` and
@@ -298,19 +300,37 @@ export async function runLlmGenerate(
   }
 }
 
+/** The registry tag for a renderer request: its window + what it said it was. */
+function requestTag(event: IpcMainInvokeEvent, data: { featureSource?: string; sessionScope?: string }) {
+  return {
+    ...(event.sender ? { senderId: event.sender.id } : {}),
+    ...(data.featureSource ? { featureSource: data.featureSource } : {}),
+    ...(data.sessionScope ? { sessionScope: data.sessionScope } : {}),
+  };
+}
+
 export async function handleLlmGenerate(
-  _event: IpcMainInvokeEvent,
+  event: IpcMainInvokeEvent,
   data: LlmGenerateRequest
 ): Promise<LlmGenerateResponse> {
-  return runLlmGenerate(data);
+  // Scoped cancellation (llm-request-scope.ts): the request gets its own
+  // signal so LLM_CANCEL from this window reaches it and nothing else.
+  const scope = llmRequestScope.begin(requestTag(event, data));
+  try {
+    return await runLlmGenerate(data, scope.signal);
+  } finally {
+    scope.end();
+  }
 }
 
 export async function handleLlmChatGenerate(
-  _event: IpcMainInvokeEvent,
+  event: IpcMainInvokeEvent,
   data: LlmChatGenerateRequest
 ): Promise<LlmChatGenerateResponse> {
+  const scope = llmRequestScope.begin(requestTag(event, data));
   try {
     const request = {
+      signal: scope.signal,
       prompt: data.messages[data.messages.length - 1]?.content || '',
       messages: data.messages,
       systemPrompt: data.systemPrompt,
@@ -354,13 +374,27 @@ export async function handleLlmChatGenerate(
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Chat generation failed';
     return { success: false, error };
+  } finally {
+    scope.end();
   }
 }
 
-export async function handleLlmCancel(): Promise<LlmCancelResponse> {
+/**
+ * Cancel the calling window's in-flight renderer requests — optionally only
+ * those with the given feature source / session scope. This used to be
+ * `llmEngine.abortActive()`, which the Claude provider answers by closing
+ * EVERY session it holds: a Stop in the Tools chat killed a running Studio
+ * turn on the same provider (V1 completion plan, W3 finding 2). Main-process
+ * callers own their signals and are out of reach here by construction.
+ */
+export async function handleLlmCancel(
+  event: IpcMainInvokeEvent,
+  data?: LlmCancelRequest
+): Promise<LlmCancelResponse> {
   try {
-    llmEngine.abortActive();
-    return { success: true };
+    const cancelled = llmRequestScope.cancel(requestTag(event, data ?? {}));
+    log.debug('LLM cancel', { cancelled, featureSource: data?.featureSource, sessionScope: data?.sessionScope });
+    return { success: true, cancelled };
   } catch {
     return { success: false };
   }
