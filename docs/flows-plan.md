@@ -6,6 +6,135 @@
 > Companion designs: `docs/agents-plan.md`, `docs/NEXT_FEATURES_DESIGN.md`
 > (Q7 packages, Q8 packs), `docs/SKILLS.md`.
 
+## Discussion for Hasan (parked 2026-09-10)
+
+W8 is parked until this discussion has happened (`docs/v1-completion-plan.md`
+§0 decision 2). Nothing below has been built. A: what only you can decide.
+B: what the other workstreams already need from flows. C: what is settled.
+D: cost, and what can run in a parallel session. E: lines of this plan that
+the last week made stale.
+
+### A. Decisions only you can make
+
+1. **How much of W8 ships in V1?**
+   (a) All seven stages, ~8.5 sessions, as the completion plan says today.
+   (b) Cut line after Stage 3 plus the Studio `run_flow` slice of Stage 4
+   (~5.5 sessions): flows run in main, the run form and pauses work, the
+   product nodes exist, the Studio agent can apply a flow to a shot range.
+   Flow Builder, freeze, `.vidtsxflow` and the Tools-hub migration follow in
+   a point release. (c) Keep Flows env-gated and ship V1 without it.
+   **Recommendation: (b)** — nothing else in V1 depends on Stages 4b–6, and
+   each of them is a self-contained feature that can ship on its own.
+2. **Which built-in flows ship first?** (a) All five of §1.7. (b) `thumbnail`,
+   `frame-strip` and `explainer-30s` now; `product-ad` and `add-effect` later
+   (both spend on `generate_video`, and `add-effect` needs a first-frame
+   video model). **Recommendation: (b)** — three flows the "run three times
+   before it ships" rule can actually be paid for.
+3. **Does the Tools hub lose screens in V1?** (decision 9) (a) Thumbnail
+   Generator and Frame Extractor open their flow's run form and the screens
+   go. (b) The flows ship beside the screens; nothing is removed in V1.
+   **Recommendation: (b)** — the plan already says one release with both
+   paths; removing screens is a testing-pass item, not a build item.
+4. **Packaging in V1: `.vidtsxflow` or plain JSON?** (a) The full container
+   (zip, hash, cap, zip-slip, signing, file association, website metadata),
+   the agents' Stage 2 code parameterised. (b) `flow.json` export/import
+   through the structural validator; the container after V1, together with
+   agent packages carrying `flows/*.json`. **Recommendation: (b)** — the
+   code is mostly reuse, but signing keys and a second file association are
+   installer and website surface.
+5. **How does a Studio flow result land on the timeline?** (decision 13)
+   (a) Reuse W3's `insert_asset` (`'insert-plan'` proposal): the flow's
+   `video` output is imported like a generated clip and proposed as B-roll
+   at an anchor; "replace shot" and "overlay" wait. (b) A new `flow-result`
+   proposal kind carrying all three handoffs. **Recommendation: (a)** — one
+   card the reviewer already knows; the other two are ordinary follow-ups.
+6. **Do agent-launched (unattended) runs get a spend guard?** A flow can
+   chain priced nodes with no card between them (`generate_video` is $0.40
+   a call, three of them in `product-ad`). (a) None — the same as the Studio
+   agent calling `generate_video` today. (b) The run form and the `run_flow`
+   tool description list the priced nodes, and the agent must name the flow
+   and the expected cost before running it. (c) A `maxUsd` argument on
+   `run_flow`; the runner stops before the node that would cross it.
+   **Recommendation: (b)** — consistent with W3, and (c) needs per-call
+   prices the catalog does not always have (completion plan §5 question 2).
+
+### B. What the other workstreams need folded in (completion plan §2.8)
+
+- **Composition trio ports in Stage 1**, not Stage 3: `generate_composition`,
+  `edit_composition`, `render_composition` already exist in the shared
+  registry (`src/main/services/agents/tools/`), so giving them `ports` is
+  free and the "TSX node" exists from the first runnable build.
+- **`generate_audio` node in Stage 3**, on the W2b `AudioGenerationEngine`
+  (`kind: 'sfx' | 'music'` → `audio` artifact). Stage 3 therefore lands
+  after W2b; audio prompts are not content-gated (W2b's ledger note).
+- **Brand.** Run-level `brandId` on `run.json` with the session semantics W4
+  built (absent = library default, `null` = none), a brand picker on the run
+  form beside the mode switch, and `run_flow` inheriting the calling
+  session's brand. Per-node `brandId` config only on nodes whose service
+  takes a brand (`generate_image`, `generate_video`, `generate_composition`,
+  `generate_audio`); `get_brand`'s summary is what a `generate_text` node
+  gets when it opts in. Freeze writes the session's brand as run-level.
+- **Model binding reads the W1 catalog.** `LlmModelPickerField` becomes
+  `ModelSelect` + `useModelPicker(providerId)` (`LLM_MODEL_CATALOG`, user
+  overrides); `modelMode` stays as decision 12 says; free-text "Custom…"
+  stays as the escape hatch. Fable 5.1 is not in the Claude catalogs until
+  the Agent SDK bump (completion plan §5 question 1).
+- **Studio `run_flow` lives in the Studio agent's OWN server**
+  (`src/main/services/studio/agent-tools/`, a new group file, id appended to
+  `STUDIO_TOOL_IDS`) and calls the main runner directly. It is a second
+  tool from the shared registry's `run_flow`; both call `flow-runner.ts`.
+- **Presets may reference a flow later.** `StudioPreset.workflow` carries a
+  reserve comment for `{ flowId }` (W5); nothing reads it and nothing in
+  W8 builds it.
+
+### C. Already decided — not reopened here
+
+- Decisions 1–13 of §0 below: flow vs agent, one registry (nodes are tools
+  with ports), the runner in main, per-node pause, no branching, three
+  consumers of one document, freeze, the Flow Builder, packaging on the
+  agent container, the provider rule, the three model-binding modes, Studio
+  through the agent with no manual panel.
+- Completion plan §0 decisions 3 (Studio keeps its own tool server) and 4
+  (no Audio Studio screen), and its §4 rules: append-only tool ids in both
+  registries, generators behind the engine seam, proposals gated, Flows
+  flips from env-gated to on in its own Stage 6.
+- The `FlowDoc` shape (§1.1), the v1 alias table, and `invokeTool` as the
+  single handler path (§11).
+
+### D. Cost, and what can run in a parallel session
+
+| Stage | Sessions | Touches | Parallel-safe? |
+|---|---|---|---|
+| 0 contracts + migration | ½ | `src/shared/types/flows.ts`, `src/shared/flows/`, `src/shared/ipc/{channels,types}`, `flows-projects-db.ts` | yes (the two IPC files are append-only) |
+| 1 ports + main runner | 1½ | `registry.ts` ports, six new tool files, `src/main/services/flows/`, `flows-handlers.ts`, `preload/api/flows.ts`, `src/features/flows/` | yes |
+| 2 pause, run form, page | 1½ | `src/features/flows/`, the broker's reply channel, inspector fields moved to `src/renderer/components/fields/` | yes |
+| 3 product nodes | 1½ | the composition trio + seven new files under `agents/tools/`, `src/main/services/media/` | yes, after W2b |
+| 4 `run_flow`, `run_agent`, Builder | 1 | `agents/tools/`, `studio/agent-tools/` (new file + index), `resources/agents/vidtsx/flow-builder/` | no — shares Studio's tool index with W7/W9 |
+| 5 freeze | 1 | `src/main/services/flows/freeze-session.ts`, `features/agents/components/stage/ActionBar.tsx` | mostly (one agents file) |
+| 6 packaging, built-ins, release | 1½ | `agent-package.ts`, `resources/flows/`, Tools hub, Library, Video Studio, `Sidebar.tsx`, `feature-flags.ts` | no |
+
+Total ~8.5 sessions (the completion plan rounds to 8). The plan's claim that
+W8 touches only `src/features/flows/`, `src/main/services/flows*` and the
+registry's `ports` block holds for Stages 0–2 (plus the shared IPC files and
+the preload, both append-only) and for Stage 3's new tool files; it does not
+hold for Stages 4–6, which reach into the Studio tool index, the agents
+stage, the Tools hub, Library and Video Studio. Stages 0–3 can run in a
+second session at any time; 4–6 should wait for a quiet tree.
+
+### E. Lines below that are already stale (fix when work starts)
+
+- The status header: agents plan Stages 0–6 are done, so the "after agents
+  Stage 1" wait is over; W8 sits last in the completion plan's §3 order.
+- §1.2 "`generate_video` (today's node body, moved to main)": the main tool
+  already exists and is registered (video providers plan Stage 5); only the
+  renderer node's retirement remains.
+- §1.8 "viewers and interaction cards move from `src/features/agents/`":
+  already at `src/renderer/components/{artifact-viewers,interactions}/`.
+  The inspector-fields move is the only one still pending.
+- §1.2 wave-1 catalogue lacks `generate_audio` and `get_brand`; §1.1 config
+  has no `brandId`; decision 13 predates the own-server rule (B above).
+- §1.2 "same content-safety check": audio prompts are not gated (W2b).
+
 ## 0. Decisions recorded on 2026-09-04
 
 1. **A flow is a frozen plan; an agent decides.** If the steps are known
