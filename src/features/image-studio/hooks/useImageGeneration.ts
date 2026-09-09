@@ -57,6 +57,7 @@ export function useImageGeneration({ onImageSaved, activeFolderId }: UseImageGen
         numImages: settings.numImages,
         sourceImage: settings.mode === 'edit' ? settings.sourceImage : undefined,
         referenceImages: settings.mode === 'reference' ? settings.referenceImages : undefined,
+        params: settings.params,
       });
 
       if (!result.success || !result.images) {

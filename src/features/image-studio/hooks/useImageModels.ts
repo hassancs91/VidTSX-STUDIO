@@ -30,13 +30,18 @@ export function useImageModels() {
     reload();
   }, [reload]);
 
-  // Refresh when provider config changes elsewhere (e.g. Settings screen).
+  // Refresh when provider config changes elsewhere (e.g. Settings screen), or
+  // when a model's saved parameters change (the advanced panel's placeholders).
   useEffect(() => {
     const handler = () => {
       reload();
     };
     window.addEventListener('vidtsx:image-providers-changed', handler);
-    return () => window.removeEventListener('vidtsx:image-providers-changed', handler);
+    window.addEventListener('vidtsx:image-model-params-changed', handler);
+    return () => {
+      window.removeEventListener('vidtsx:image-providers-changed', handler);
+      window.removeEventListener('vidtsx:image-model-params-changed', handler);
+    };
   }, [reload]);
 
   return { models, loading, error, reload };

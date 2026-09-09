@@ -7,6 +7,8 @@ import { STYLE_PRESETS as DEFAULT_STYLE_PRESETS, CONTENT_PRESETS as DEFAULT_CONT
 import { ImageInput } from './ImageInput';
 import { ReferenceImageLibrary } from '@shared/components/ReferenceImageLibrary';
 import { BulkControlPanel } from './BulkControlPanel';
+import { AdvancedParamsSection } from './AdvancedParamsSection';
+import type { ImageModelParams } from '../../../shared/presets/image-model-params';
 import type { ImageModelInfoIpc, ContentPresetSetting, StylePresetSetting } from '../../../shared/ipc/types';
 import type { ImageStudioEntry } from '../../../shared/ipc/types';
 
@@ -89,6 +91,13 @@ export function ControlPanel({
   const [prompt, setPrompt] = useState('');
   const [model, setModel] = useState(models[0]?.id || '');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioPreset>('1:1');
+  // Advanced (per-request) parameters; cleared whenever the model changes,
+  // since the fields belong to that model's schema.
+  const [params, setParams] = useState<ImageModelParams>({});
+  const selectModel = (id: string) => {
+    setModel(id);
+    setParams({});
+  };
 
   // Reset model when models list changes (e.g., after provider switch)
   useEffect(() => {
@@ -140,6 +149,7 @@ export function ControlPanel({
       numImages,
       sourceImage: mode === 'edit' ? inputImages[0] : undefined,
       referenceImages: mode === 'reference' ? inputImages : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
   };
 
@@ -338,7 +348,7 @@ export function ControlPanel({
               <select
                 className="w-full bg-app-base border border-border rounded px-2 py-1.5 text-[12px] text-text-secondary outline-none focus:border-accent cursor-pointer"
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
+                onChange={(e) => selectModel(e.target.value)}
                 disabled={modelsLoading}
               >
                 {models.length > 0 ? models.map((m) => (
@@ -388,6 +398,14 @@ export function ControlPanel({
                 ))}
               </div>
             </div>
+
+            {/* Advanced (schema-driven per-model parameters) */}
+            <AdvancedParamsSection
+              model={models.find((m) => m.id === model)}
+              values={params}
+              onChange={setParams}
+              disabled={isGenerating}
+            />
 
             {/* Error */}
             {error && (

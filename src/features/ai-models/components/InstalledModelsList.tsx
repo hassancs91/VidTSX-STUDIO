@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Settings2 } from 'lucide-react';
 import { Panel, StatusBadge } from '@shared/components';
 import type { InstalledModelIpc, UnrecognizedFileIpc } from '@shared/ipc/types';
 import type { ModelIssue } from '@shared/model-library/types';
@@ -34,6 +35,10 @@ interface InstalledModelsListProps {
   onReveal: () => void;
   /** Omit to hide the "Set up" action (categories without custom imports). */
   onSetup?: (filePath: string, fileName: string) => void;
+  /** Opens the per-model parameters dialog (image models carry a `paramSchema`). Omit to hide the gear. */
+  onParams?: (model: InstalledModelIpc) => void;
+  /** Which models have a saved parameter override (highlights the gear). */
+  hasParams?: (modelId: string) => boolean;
   onOpenExternal: (url: string) => void;
   /** Active companion downloads, keyed by model id. Omit to disable one-click companion download. */
   downloads?: Record<string, ModelDownloadStatus>;
@@ -51,6 +56,8 @@ function InstalledRow({
   onUse,
   onDelete,
   onReveal,
+  onParams,
+  tuned,
   onOpenExternal,
   onDownloadCompanions,
   onPauseDownload,
@@ -63,6 +70,8 @@ function InstalledRow({
   onUse?: (id: string) => void;
   onDelete: (id: string) => void;
   onReveal: () => void;
+  onParams?: (model: InstalledModelIpc) => void;
+  tuned?: boolean;
   onOpenExternal: (url: string) => void;
   onDownloadCompanions?: (id: string) => void;
   onPauseDownload?: (id: string) => void;
@@ -110,6 +119,18 @@ function InstalledRow({
               {model.ready && !active && onUse && (
                 <button onClick={() => onUse(model.id)} className="px-1.5 h-[22px] rounded text-[9px] font-medium text-accent-light hover:bg-app-hover" title="Set as active model">Use</button>
               )}
+              {onParams && model.paramSchema && (
+                <button
+                  onClick={() => onParams(model)}
+                  className={`relative flex items-center justify-center w-[22px] h-[22px] rounded hover:bg-app-hover ${tuned ? 'text-accent-light' : 'text-text-dim hover:text-text-secondary'}`}
+                  title={tuned ? 'Generation parameters (customized)' : 'Generation parameters'}
+                  aria-label={`Parameters for ${model.name}`}
+                  type="button"
+                >
+                  <Settings2 size={12} strokeWidth={2} />
+                  {tuned && <span className="absolute top-[3px] right-[3px] w-[5px] h-[5px] rounded-full bg-accent" />}
+                </button>
+              )}
               <button onClick={onReveal} className="px-1.5 h-[22px] rounded text-[9px] text-text-dim hover:text-text-secondary hover:bg-app-hover" title="Open models folder">Reveal</button>
               {confirming ? (
                 <button onClick={() => onDelete(model.id)} className="px-1.5 h-[22px] rounded text-[9px] font-medium text-accent-red hover:bg-accent-red/10" title="Deletes the file from disk">Confirm delete</button>
@@ -147,6 +168,8 @@ export function InstalledModelsList({
   onDelete,
   onReveal,
   onSetup,
+  onParams,
+  hasParams,
   onOpenExternal,
   downloads,
   onDownloadCompanions,
@@ -181,6 +204,8 @@ export function InstalledModelsList({
               onUse={onUse}
               onDelete={onDelete}
               onReveal={onReveal}
+              onParams={onParams}
+              tuned={hasParams?.(m.id)}
               onOpenExternal={onOpenExternal}
               onDownloadCompanions={onDownloadCompanions}
               onPauseDownload={onPauseDownload}
