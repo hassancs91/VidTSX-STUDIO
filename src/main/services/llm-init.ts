@@ -17,10 +17,11 @@ export async function initLLMEngine(): Promise<void> {
       for (const saved of settings.llmProviders) {
         const preset = PROVIDER_PRESETS.find((p) => p.id === saved.id);
         if (preset) {
-          if (saved.type !== preset.type || saved.baseURL !== preset.baseURL) {
+          if (saved.type !== preset.type || saved.baseURL !== preset.baseURL || saved.name !== preset.name) {
             log.info(`Migrating provider "${saved.id}"`, { fromType: saved.type, toType: preset.type });
             saved.type = preset.type;
             saved.baseURL = preset.baseURL;
+            saved.name = preset.name;
             migrated = true;
           }
         }

@@ -2,7 +2,7 @@ export { generateTsx, editTsx, generateTsxPipeline, editTsxPipeline, generatePro
 export type { TsxEngineDeps } from './tsx-generation-service';
 export { buildTsxSystemPrompt, buildVerifyPrompt } from './prompt-builder';
 export { parsePipelineMode, parseLibraries } from './mode-parser';
-export { THINKING_CONFIGS } from './thinking-config';
+export { THINKING_CONFIGS, THINKING_UI_OPTIONS } from './thinking-config';
 export {
   PLAN_SYSTEM_PROMPT,
   CLASSIFIER_SYSTEM_PROMPT,

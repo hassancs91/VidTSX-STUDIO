@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
+import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 
 interface Props {
   label: string;
@@ -24,15 +25,7 @@ export function LlmModelPickerField({ label, providerId, model, onChange }: Prop
     let cancelled = false;
     void window.api.llmProvidersGet().then((res) => {
       if (cancelled) return;
-      // For Flow nodes we want providers the user has actually set up — same
-      // filter shape as the image-side picker (enabled + reachable). LLM
-      // providers don't have a `hasApiKey` flag, so use authMode + apiKey.
-      const usable = res.providers.filter((p) => {
-        if (!p.enabled) return false;
-        if (p.authMode === 'subscription') return true;
-        return Boolean(p.apiKey);
-      });
-      setProviders(usable);
+      setProviders(filterUsableLlmProviders(res.providers));
     });
     return () => {
       cancelled = true;

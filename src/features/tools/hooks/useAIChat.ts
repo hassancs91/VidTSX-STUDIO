@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { LlmProviderConfig, LlmUsageIpc, LlmImageIpc, SkillSummary } from '@shared/ipc/types';
 import type { ThinkingLevel } from '@shared/tsx-engine';
 import { THINKING_CONFIGS } from '@shared/tsx-engine';
+import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 
 export interface ChatImage {
   data: string;              // base64
@@ -78,10 +79,10 @@ export function useAIChat() {
     (async () => {
       try {
         const result = await window.api.llmProvidersGet();
-        const enabled = result.providers.filter((p) => p.enabled);
-        setProviders(enabled);
+        const usable = filterUsableLlmProviders(result.providers);
+        setProviders(usable);
         const defaultId = result.activeProvider
-          || (enabled.length > 0 ? enabled[0].id : '');
+          || (usable.length > 0 ? usable[0].id : '');
         setSelectedProvider(defaultId);
       } catch {
         // Silently fail

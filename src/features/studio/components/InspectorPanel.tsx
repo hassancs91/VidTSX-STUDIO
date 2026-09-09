@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
+import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioMediaAsset, StudioProject, StudioShot, StudioTimeline } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
@@ -79,7 +80,7 @@ export function InspectorPanel({
 
   useEffect(() => {
     void window.api.llmProvidersGet().then((res) => {
-      setProviders(res.providers.filter((p) => p.enabled));
+      setProviders(filterUsableLlmProviders(res.providers));
     });
   }, []);
 

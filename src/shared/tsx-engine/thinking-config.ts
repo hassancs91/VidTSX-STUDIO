@@ -18,3 +18,14 @@ export const THINKING_CONFIGS: Record<ThinkingLevel, ThinkingConfig> = {
   xhigh: { thinking: { type: 'adaptive' }, effort: 'xhigh' },
   max: { thinking: { type: 'adaptive' }, effort: 'max' },
 };
+
+/**
+ * The user-facing thinking dial. Production surfaces (the Creator) show these
+ * three provider-neutral options; the six raw ThinkingLevels stay as the
+ * internal/engine vocabulary (and in the dev-flagged AI chat tester).
+ */
+export const THINKING_UI_OPTIONS: { value: ThinkingLevel; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'medium', label: 'Normal' },
+  { value: 'max', label: 'Deep' },
+];

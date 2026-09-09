@@ -1,20 +1,14 @@
 import { Button } from '@shared/components';
+import { ProviderSelect } from '@renderer/components/ProviderSelect';
+import { THINKING_UI_OPTIONS } from '@shared/tsx-engine';
 import type { ThinkingLevel } from '../hooks/useMotionGenerator';
 import type { LlmProviderConfig, LlmImageIpc } from '../../../shared/ipc/types';
+import type { StudioBrand } from '@shared/types/asset-library';
 import type { PipelineProgress } from '@shared/tsx-engine';
-import type { ColorPalette, AspectRatio } from '../types';
-import { COLOR_PALETTES, FPS_OPTIONS, ASPECT_RATIO_OPTIONS, DURATION_RANGE } from '../types';
+import type { AspectRatio } from '../types';
+import { FPS_OPTIONS, ASPECT_RATIO_OPTIONS, DURATION_RANGE } from '../types';
 import { useSmoothProgress } from '../hooks/useSmoothProgress';
 import { MotionReferenceImagePicker } from './MotionReferenceImagePicker';
-
-const THINKING_LEVELS: { value: ThinkingLevel; label: string }[] = [
-  { value: 'off', label: 'Off' },
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Med' },
-  { value: 'high', label: 'High' },
-  { value: 'xhigh', label: 'X-Hi' },
-  { value: 'max', label: 'Max' },
-];
 
 const LOOP_OPTIONS = [1, 2, 3, 4, 5];
 
@@ -36,8 +30,9 @@ interface MotionInputPanelProps {
   onDurationChange: (value: number) => void;
   autoDuration: boolean;
   onAutoDurationChange: (value: boolean) => void;
-  colorPalette: ColorPalette;
-  onColorPaletteChange: (value: ColorPalette) => void;
+  brands: StudioBrand[];
+  selectedBrandId: string;
+  onBrandChange: (brandId: string) => void;
   optimize: boolean;
   onOptimizeChange: (value: boolean) => void;
   referenceImages: LlmImageIpc[];
@@ -68,8 +63,9 @@ export function MotionInputPanel({
   onDurationChange,
   autoDuration,
   onAutoDurationChange,
-  colorPalette,
-  onColorPaletteChange,
+  brands,
+  selectedBrandId,
+  onBrandChange,
   optimize,
   onOptimizeChange,
   referenceImages,
@@ -96,7 +92,7 @@ export function MotionInputPanel({
       {/* Prompt */}
       <div className="p-3 flex flex-col gap-2">
         <div className="flex items-center">
-          <label className="text-[11px] text-text-muted font-medium flex-1">Create New Video</label>
+          <label className="text-[11px] text-text-muted font-medium flex-1">What do you want to create?</label>
           {onCollapse && (
             <button
               onClick={onCollapse}
@@ -130,20 +126,12 @@ export function MotionInputPanel({
       {/* Provider */}
       <div className="px-3 pb-2 flex flex-col gap-1">
         <label className="text-[10px] text-text-dim">Provider</label>
-        <select
-          className="bg-app-base border border-border rounded-[6px] px-2 py-1.5 text-[11px] text-text-secondary outline-none focus:border-accent cursor-pointer w-full"
+        <ProviderSelect
+          providers={providers}
           value={selectedProvider}
-          onChange={(e) => onProviderChange(e.target.value)}
+          onChange={onProviderChange}
           disabled={loading}
-        >
-          {providers.length === 0 ? (
-            <option value="">No providers configured</option>
-          ) : (
-            providers.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))
-          )}
-        </select>
+        />
       </div>
 
       {/* FPS */}
@@ -233,31 +221,47 @@ export function MotionInputPanel({
         </div>
       </div>
 
-      {/* Color Palette */}
+      {/* Brand (optional styling) */}
       <div className="px-3 pb-3 flex flex-col gap-1">
-        <label className="text-[10px] text-text-dim">Color Palette</label>
+        <label className="text-[10px] text-text-dim">Brand <span className="text-text-dim">(optional)</span></label>
         <select
           className="bg-app-base border border-border rounded-[6px] px-2 py-1.5 text-[11px] text-text-secondary outline-none focus:border-accent cursor-pointer w-full"
-          value={colorPalette}
-          onChange={(e) => onColorPaletteChange(e.target.value as ColorPalette)}
+          value={selectedBrandId}
+          onChange={(e) => onBrandChange(e.target.value)}
           disabled={loading}
         >
-          {COLOR_PALETTES.map((p) => (
-            <option key={p.value} value={p.value}>{p.label}</option>
+          <option value="">None</option>
+          {brands.map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
           ))}
         </select>
-        {colorPalette !== 'custom' && (
-          <div className="flex gap-1 mt-1">
-            {COLOR_PALETTES.find((p) => p.value === colorPalette)?.colors.map((color, i) => (
-              <div
-                key={i}
-                className="flex-1 h-[14px] rounded-[3px]"
-                style={{ backgroundColor: color }}
-                title={color}
-              />
-            ))}
-          </div>
-        )}
+        {(() => {
+          const brand = brands.find((b) => b.id === selectedBrandId);
+          if (!brand) {
+            return brands.length === 0 ? (
+              <span className="text-[9px] text-text-dim">Create brands in Assets to reuse your colors and fonts.</span>
+            ) : null;
+          }
+          const swatches = [
+            brand.palette.primary,
+            brand.palette.secondary,
+            brand.palette.background,
+            brand.palette.text,
+            brand.palette.accent,
+          ];
+          return (
+            <div className="flex gap-1 mt-1">
+              {swatches.map((color, i) => (
+                <div
+                  key={i}
+                  className="flex-1 h-[14px] rounded-[3px]"
+                  style={{ backgroundColor: color, border: '0.5px solid var(--color-border)' }}
+                  title={color}
+                />
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Thinking */}
@@ -267,7 +271,7 @@ export function MotionInputPanel({
           className="flex rounded-[6px] overflow-hidden"
           style={{ border: '0.5px solid var(--color-border)' }}
         >
-          {THINKING_LEVELS.map((level, idx) => (
+          {THINKING_UI_OPTIONS.map((level, idx) => (
             <button
               key={level.value}
               onClick={() => onThinkingLevelChange(level.value)}
@@ -278,7 +282,7 @@ export function MotionInputPanel({
                   : 'bg-app-base text-text-muted hover:bg-app-hover'
               }`}
               style={{
-                borderRight: idx < THINKING_LEVELS.length - 1 ? '0.5px solid var(--color-border)' : 'none',
+                borderRight: idx < THINKING_UI_OPTIONS.length - 1 ? '0.5px solid var(--color-border)' : 'none',
               }}
             >
               {level.label}

@@ -3,7 +3,7 @@ import type { LlmProviderPreset } from "./types";
 export const PROVIDER_PRESETS: LlmProviderPreset[] = [
   {
     id: "claude-subscription",
-    name: "Claude (My Subscription)",
+    name: "Claude (Subscription)",
     type: "agent-sdk",
     authMode: "subscription",
     defaultModel: "claude-sonnet-4-6",

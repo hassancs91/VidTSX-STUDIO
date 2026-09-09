@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { LlmProviderConfig } from '@shared/ipc/types';
+import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 import { THUMBNAIL_SYSTEM_PROMPT } from './thumbnail-system-prompt';
 
 type Orientation = 'horizontal' | 'vertical';
@@ -42,9 +43,9 @@ export function useThumbnailGenerator() {
     (async () => {
       try {
         const result = await window.api.llmProvidersGet();
-        const enabled = result.providers.filter((p) => p.enabled);
-        setProviders(enabled);
-        const defaultId = result.activeProvider || (enabled.length > 0 ? enabled[0].id : '');
+        const usable = filterUsableLlmProviders(result.providers);
+        setProviders(usable);
+        const defaultId = result.activeProvider || (usable.length > 0 ? usable[0].id : '');
         setSelectedProvider(defaultId);
       } catch {
         // Silently fail

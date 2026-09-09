@@ -276,7 +276,7 @@ function MotionScreenContent() {
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
       >
         <span className="text-[13px] font-medium text-text-secondary">
-          Creator
+          TSX Creator
         </span>
         {projectManager.project && (
           <span className="text-[10px] text-text-dim">
@@ -323,8 +323,9 @@ function MotionScreenContent() {
                   onDurationChange={generator.setDuration}
                   autoDuration={generator.autoDuration}
                   onAutoDurationChange={generator.setAutoDuration}
-                  colorPalette={generator.colorPalette}
-                  onColorPaletteChange={generator.setColorPalette}
+                  brands={generator.brands}
+                  selectedBrandId={generator.selectedBrandId}
+                  onBrandChange={generator.setSelectedBrandId}
                   optimize={generator.optimize}
                   onOptimizeChange={generator.setOptimize}
                   referenceImages={generator.referenceImages}

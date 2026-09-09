@@ -1,8 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { LlmProviderConfig, LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
+import type { LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
+import type { StudioBrand } from '@shared/types/asset-library';
 import type { ThinkingLevel } from '@shared/tsx-engine';
-import type { ColorPalette, AspectRatio } from '../types';
-import { COLOR_PALETTES, ASPECT_RATIO_OPTIONS } from '../types';
+import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
+import type { AspectRatio } from '../types';
+import { ASPECT_RATIO_OPTIONS } from '../types';
+
+/** Compact brand contract for the generation prompt (same contract the
+ *  Studio shot prompt injects, minus shot-kind specifics). */
+function buildBrandInstructions(brand: StudioBrand): string {
+  const p = brand.palette;
+  const lines = [
+    `Brand "${brand.name}" (MANDATORY styling): every color and font comes from the brand — do not invent your own palette.`,
+    `Colors — primary ${p.primary}, secondary ${p.secondary}, background ${p.background}, text ${p.text}, accent ${p.accent} (use the accent sparingly for emphasis).`,
+    `Fonts — display (headings/numbers): "${brand.fonts.display}"; body (labels/paragraphs): "${brand.fonts.body ?? brand.fonts.display}". Do NOT import any font package — set fontFamily strings directly, with a sans-serif fallback.`,
+  ];
+  if (brand.styleNotes) {
+    lines.push(`Brand style notes (follow them): ${brand.styleNotes}`);
+  }
+  return lines.join('\n');
+}
 
 export type { ThinkingLevel } from '@shared/tsx-engine';
 
@@ -14,55 +31,35 @@ export type { ThinkingLevel } from '@shared/tsx-engine';
 export function useMotionGenerator() {
   const [prompt, setPrompt] = useState('');
   const [editPrompt, setEditPrompt] = useState('');
-  const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const { providers, selectedProvider, setSelectedProvider } = useProviderPicker();
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>('off');
   const [loopCount, setLoopCount] = useState(1);
   const [fps, setFps] = useState(30);
-  const [colorPalette, setColorPalette] = useState<ColorPalette>('custom');
+  const [brands, setBrands] = useState<StudioBrand[]>([]);
+  const [selectedBrandId, setSelectedBrandId] = useState<string>('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [duration, setDuration] = useState(5);
   const [autoDuration, setAutoDuration] = useState(true);
   const [optimize, setOptimize] = useState(true);
   const [referenceImages, setReferenceImages] = useState<LlmImageIpc[]>([]);
 
-  const loadProviders = useCallback(async () => {
-    try {
-      const result = await window.api.llmProvidersGet();
-      const enabled = result.providers.filter((p) => p.enabled);
-      setProviders(enabled);
-      // Preserve user's current selection if still enabled; otherwise fall back
-      // to the backend-active provider, then the first enabled one.
-      setSelectedProvider((current) => {
-        if (current && enabled.some((p) => p.id === current)) return current;
-        return result.activeProvider || (enabled.length > 0 ? enabled[0].id : '');
-      });
-    } catch {
-      // Silently fail
-    }
+  // Brands are optional styling — load once; an empty list just hides nothing
+  // (the dropdown shows None plus a hint on where to create them).
+  useEffect(() => {
+    let disposed = false;
+    window.api.libraryBrandsGet()
+      .then((res) => {
+        if (!disposed && res.success && res.brands) setBrands(res.brands);
+      })
+      .catch(() => {});
+    return () => { disposed = true; };
   }, []);
-
-  // Load enabled providers on mount
-  useEffect(() => {
-    loadProviders();
-  }, [loadProviders]);
-
-  // Refresh when provider config changes elsewhere (e.g. Settings screen).
-  useEffect(() => {
-    const handler = () => {
-      loadProviders();
-    };
-    window.addEventListener('vidtsx:llm-providers-changed', handler);
-    return () => window.removeEventListener('vidtsx:llm-providers-changed', handler);
-  }, [loadProviders]);
 
   const buildGenerateJob = useCallback((): TsxJobStartRequest | null => {
     if (!prompt.trim() || !selectedProvider) return null;
 
-    const paletteEntry = COLOR_PALETTES.find((p) => p.value === colorPalette);
-    const extraInstructions = paletteEntry && paletteEntry.colors.length > 0
-      ? `Use this color palette: ${paletteEntry.colors.join(', ')}. Base the visual design around these colors.`
-      : undefined;
+    const brand = brands.find((b) => b.id === selectedBrandId);
+    const extraInstructions = brand ? buildBrandInstructions(brand) : undefined;
 
     const ratioOption = ASPECT_RATIO_OPTIONS.find((o) => o.value === aspectRatio);
 
@@ -84,7 +81,7 @@ export function useMotionGenerator() {
         ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
       },
     };
-  }, [prompt, selectedProvider, thinkingLevel, loopCount, optimize, fps, colorPalette, aspectRatio, duration, autoDuration, referenceImages]);
+  }, [prompt, selectedProvider, thinkingLevel, loopCount, optimize, fps, brands, selectedBrandId, aspectRatio, duration, autoDuration, referenceImages]);
 
   const buildEditJob = useCallback((currentCode: string, folderPath: string): TsxJobStartRequest | null => {
     if (!editPrompt.trim() || !selectedProvider || !currentCode) return null;
@@ -142,8 +139,9 @@ export function useMotionGenerator() {
     setLoopCount,
     fps,
     setFps,
-    colorPalette,
-    setColorPalette,
+    brands,
+    selectedBrandId,
+    setSelectedBrandId,
     aspectRatio,
     setAspectRatio,
     duration,

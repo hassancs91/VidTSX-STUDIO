@@ -57,7 +57,12 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
       }
       setJobs((prev) => {
         const index = prev.findIndex((j) => j.id === job.id);
-        if (index === -1) return [...prev, job];
+        if (index === -1) {
+          // An unknown finished job is one the user already cleared whose
+          // completion event was still in flight — don't resurrect it.
+          if (isJobFinished(job)) return prev;
+          return [...prev, job];
+        }
         const next = prev.slice();
         next[index] = job;
         return next;
