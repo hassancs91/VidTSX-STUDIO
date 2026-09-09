@@ -60,3 +60,56 @@ describe('buildAgentSystemPrompt — shot pool section', () => {
     expect(prompt).toContain('(empty — no shots generated or imported yet)');
   });
 });
+
+describe('buildAgentSystemPrompt — W3 state block and workflows', () => {
+  const base = {
+    projectName: 'Test',
+    assets: [],
+    shots: [],
+    toolsAvailable: true,
+    reviewOpen: false,
+  };
+
+  it('describes an empty edit and names the end-to-end tools', () => {
+    const prompt = buildAgentSystemPrompt(base);
+    expect(prompt).toContain('## State of the edit');
+    expect(prompt).toContain('- Timeline: empty.');
+    expect(prompt).toContain('- Captions: none set.');
+    expect(prompt).toContain('- Open proposal: none.');
+    for (const id of [
+      'transcribe_asset',
+      'run_auto_cut',
+      'generate_video',
+      'insert_asset',
+      'list_assets',
+      'get_brand',
+      'set_captions',
+      'accept_proposal',
+      'export_project',
+    ]) {
+      expect(prompt).toContain(`\`${id}(`);
+    }
+    expect(prompt).toContain('Workflow for "edit this video"');
+    expect(prompt).toContain('[next:');
+  });
+
+  it('names the open proposal so accept_proposal can apply it', () => {
+    const prompt = buildAgentSystemPrompt({
+      ...base,
+      reviewOpen: true,
+      openProposal: { id: 'prop_1', kind: 'cut-plan', itemCount: 12, note: 'Auto Cut (tight)' },
+      captions: { templateId: 'core/word-pop', enabled: true },
+      timelineDurationSeconds: 125.4,
+    });
+    expect(prompt).toContain('- Timeline: 2:05 long.');
+    expect(prompt).toContain('- Captions: on (template core/word-pop).');
+    expect(prompt).toContain('Open proposal: id "prop_1" — 12 cut items ("Auto Cut (tight)")');
+    expect(prompt).toContain('call `accept_proposal` with the open proposal\'s id');
+  });
+
+  it('keeps the tool section out for chat-only providers', () => {
+    const prompt = buildAgentSystemPrompt({ ...base, toolsAvailable: false });
+    expect(prompt).toContain('## Tool availability');
+    expect(prompt).not.toContain('transcribe_asset');
+  });
+});

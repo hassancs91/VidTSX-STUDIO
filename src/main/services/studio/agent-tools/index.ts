@@ -10,6 +10,11 @@ import { buildShotTools } from './shot-tools';
 import { buildImageTools } from './image-tools';
 import { buildCaptureTools } from './capture-tools';
 import { buildMemoryTools } from './memory-tools';
+import { buildWorkflowTools } from './workflow-tools';
+import { buildVideoTools } from './video-tools';
+import { buildInsertTools } from './insert-tools';
+import { buildProjectTools } from './project-tools';
+import { buildDeliveryTools } from './delivery-tools';
 import type { StudioToolContext } from './types';
 
 export { createTurnState } from './types';
@@ -28,6 +33,16 @@ export const STUDIO_TOOL_IDS = [
   'capture_scripted',
   'propose_memory',
   'propose_style_promotion',
+  // W3 (2026-09-09): the end-to-end steps.
+  'transcribe_asset',
+  'run_auto_cut',
+  'generate_video',
+  'insert_asset',
+  'list_assets',
+  'get_brand',
+  'set_captions',
+  'accept_proposal',
+  'export_project',
 ] as const;
 
 export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
@@ -48,6 +63,11 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildImageTools(ctx),
       ...buildCaptureTools(ctx),
       ...buildMemoryTools(ctx),
+      ...buildWorkflowTools(ctx),
+      ...buildVideoTools(ctx),
+      ...buildInsertTools(ctx),
+      ...buildProjectTools(ctx),
+      ...buildDeliveryTools(ctx),
     ],
   });
 }

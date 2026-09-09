@@ -2,8 +2,10 @@ import type {
   StudioAssetProbe,
   StudioAssetTranscriptMeta,
   StudioMediaAsset,
+  StudioCaptionStyle,
   StudioProject,
   StudioProposal,
+  StudioProposalKind,
   StudioShot,
   StudioShotKind,
 } from '../../types/studio';
@@ -361,6 +363,16 @@ export interface StudioAgentSendRequest {
   shots: StudioShot[];
   /** A cut proposal is open in the review panel — propose_cuts must refuse. */
   reviewOpen: boolean;
+  /** The open review-panel proposal, when there is one (W3): what
+   *  `accept_proposal` may apply on the user's say-so. */
+  openProposal?: StudioAgentOpenProposal;
+  /** The project's transcription model (Inspector picker) — the default for
+   *  `transcribe_asset`. Absent = the app default. */
+  sttModelId?: string;
+  /** The caption layer as it stands (W3 `set_captions` reads it back). */
+  captions?: { templateId: string; enabled: boolean };
+  /** Length of the current edit, timeline seconds (0 = empty). */
+  timelineDurationSeconds?: number;
   providerId?: string;
   /** Planning model for this turn. */
   model?: string;
@@ -368,6 +380,52 @@ export interface StudioAgentSendRequest {
   shotModel?: string;
   /** Thinking dial for the planning turn (THINKING_CONFIGS key). */
   thinking?: ThinkingLevel;
+}
+
+export interface StudioAgentOpenProposal {
+  id: string;
+  kind: StudioProposalKind;
+  itemCount: number;
+  /** First line of the proposal's agentNote — the review header. */
+  note?: string;
+}
+
+/**
+ * W3: what main asks the RENDERER to do on the user's behalf. The document
+ * (timeline, proposals, captions) and the render queue are renderer-owned,
+ * so these ride the agent event stream as requests and come back through
+ * STUDIO_AGENT_ACTION_RESULT. Every action is either something the user
+ * explicitly asked for in chat (apply, export) or a reversible setting
+ * (captions) — never a silent bulk edit.
+ */
+export type StudioAgentAction =
+  | { type: 'apply-proposal'; proposalId: string }
+  | {
+      type: 'export';
+      /** Main mints the id so the tool can name the queue row it created. */
+      jobId: string;
+      engineId?: ExportEngineId;
+    }
+  | {
+      type: 'set-captions';
+      templateId: string;
+      enabled: boolean;
+      /** First-apply style seed for the project's aspect (the panel's rule). */
+      seed?: CaptionTemplateDefaults;
+      style?: Partial<StudioCaptionStyle>;
+    };
+
+export interface StudioAgentActionResultRequest {
+  projectId: string;
+  requestId: string;
+  success: boolean;
+  /** What happened, in the renderer's words — relayed to the model. */
+  message?: string;
+  error?: string;
+}
+
+export interface StudioAgentActionResultResponse {
+  success: boolean;
 }
 
 export interface StudioAgentSendResponse {
@@ -426,7 +484,16 @@ export type StudioAgentEvent =
   | { projectId: string; kind: 'tool'; tool: string; detail?: string }
   | { projectId: string; kind: 'proposal'; proposal: StudioProposal }
   | { projectId: string; kind: 'memory-proposal'; proposal: StudioMemoryProposal }
-  | { projectId: string; kind: 'style-promotion-proposal'; proposal: StudioStylePromotionProposal };
+  | { projectId: string; kind: 'style-promotion-proposal'; proposal: StudioStylePromotionProposal }
+  /** W3: a long tool (transcribe, video) streaming progress — updates the
+   *  latest tool chip in place instead of adding one. */
+  | { projectId: string; kind: 'progress'; tool: string; percent?: number; message: string }
+  /** W3: a request for the renderer (see StudioAgentAction); answered over
+   *  STUDIO_AGENT_ACTION_RESULT with the same requestId. */
+  | { projectId: string; kind: 'action'; requestId: string; action: StudioAgentAction }
+  /** W3: library assets imported on use by a tool (generate_video,
+   *  insert_asset) — the document owner merges them, id-keyed. */
+  | { projectId: string; kind: 'assets-imported'; assets: StudioMediaAsset[] };
 
 export interface StudioAgentCancelRequest {
   projectId: string;

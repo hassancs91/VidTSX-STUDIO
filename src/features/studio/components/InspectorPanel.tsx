@@ -11,11 +11,13 @@ import { AgentSettingsSection } from './AgentSettingsSection';
 import { TranscriptSection } from './TranscriptSection';
 import { ReviewCutsSection } from './ReviewCutsSection';
 import { ReviewShotsSection } from './ReviewShotsSection';
+import { ReviewInsertSection } from './ReviewInsertSection';
 import { ClipSection } from './ClipSection';
 import { ShotClipSection } from './ShotClipSection';
 
 type ReviewProps = Omit<React.ComponentProps<typeof ReviewCutsSection>, never>;
 type ReviewShotsProps = Omit<React.ComponentProps<typeof ReviewShotsSection>, never>;
+type ReviewInsertProps = Omit<React.ComponentProps<typeof ReviewInsertSection>, never>;
 
 interface Props {
   project: StudioProject;
@@ -38,6 +40,8 @@ interface Props {
   review: ReviewProps | null;
   /** Present while a shot-plan proposal is open (kind-agnostic single slot). */
   reviewShots: ReviewShotsProps | null;
+  /** Present while an insert-plan proposal is open (W3). */
+  reviewInsert: ReviewInsertProps | null;
   /** The LIVE shot registry (reducer state), for the tsx-clip section. */
   shots: StudioShot[];
   getShotProgress: (shotId: string) => ShotJobProgress | null;
@@ -61,6 +65,7 @@ export function InspectorPanel({
   autoCutPhase,
   review,
   reviewShots,
+  reviewInsert,
   shots,
   getShotProgress,
   onShotError,
@@ -112,6 +117,13 @@ export function InspectorPanel({
         <section className="flex flex-col gap-2">
           <SectionLabel>Review shots</SectionLabel>
           <ReviewShotsSection {...reviewShots} />
+        </section>
+      )}
+
+      {reviewInsert && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Review insert</SectionLabel>
+          <ReviewInsertSection {...reviewInsert} />
         </section>
       )}
 

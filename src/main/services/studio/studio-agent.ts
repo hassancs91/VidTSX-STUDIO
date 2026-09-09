@@ -25,8 +25,10 @@ const log = logEngine.createLogger('StudioAgent');
 // Editorial policy + shot craft/entry policy — composed into the system
 // prompt by runLlmGenerate (policy in skills, contracts in tool schemas).
 const AGENT_SKILL_IDS = ['studio-clean-cut', 'studio-make-tsx'];
-// A bulk shots pass is up to 10 generate calls + a proposal + conversation.
-const AGENT_MAX_TURNS = 32;
+// A bulk shots pass is up to 10 generate calls + a proposal + conversation;
+// the W3 end-to-end run adds transcribe, auto cut, b-roll, captions and
+// export on top, each with a card — 32 was too few for eight steps.
+const AGENT_MAX_TURNS = 64;
 
 type Listener = (event: StudioAgentEvent) => void;
 

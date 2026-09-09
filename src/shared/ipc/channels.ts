@@ -405,6 +405,8 @@ export const IPC = {
   STUDIO_AGENT_SEND: 'studio:agent:send',
   STUDIO_AGENT_CANCEL: 'studio:agent:cancel',
   STUDIO_AGENT_EVENT: 'studio:agent:event',
+  // Studio — W3: the renderer answers an agent 'action' event (apply, export, captions)
+  STUDIO_AGENT_ACTION_RESULT: 'studio:agent:action-result',
   // Studio — persisted Assistant transcript (SHOT_QUALITY Q1d)
   STUDIO_AGENT_CHAT_LOAD: 'studio:agent:chat:load',
   STUDIO_AGENT_CHAT_SAVE: 'studio:agent:chat:save',

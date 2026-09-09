@@ -53,6 +53,7 @@ import {
 } from '../services/transition-ops';
 import type { StudioTransitionKind } from '../types';
 import { applyCutProposal } from '../services/apply-cut-proposal';
+import { applyInsertProposal } from '../services/apply-insert-proposal';
 import { applyShotProposal, insertShotClip } from '../services/apply-shot-proposal';
 import {
   addProposal,
@@ -367,7 +368,9 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       const applyByKind =
         proposal.kind === 'shot-plan'
           ? applyShotProposal(doc.timeline, proposal, doc.shots)
-          : applyCutProposal(doc.timeline, proposal);
+          : proposal.kind === 'insert-plan'
+            ? applyInsertProposal(doc.timeline, proposal)
+            : applyCutProposal(doc.timeline, proposal);
       const timeline = pruneTransitions(applyByKind);
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);

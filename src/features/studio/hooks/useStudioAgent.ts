@@ -2,55 +2,42 @@
 // agent over IPC, folds the push stream (text deltas, tool activity, the cut
 // proposal) into the message list, and hands proposals up to the caller — the
 // caller dispatches `proposal-add`, so agent cuts land in the exact same
-// review flow as Auto Cut.
+// review flow as Auto Cut. W3 adds the other direction: main may ASK the
+// renderer to apply a proposal, queue an export or set captions (the action
+// bridge), and a multi-step run continues by itself when the user answers a
+// review card (see `notifyReviewResolved`).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ChatMessage, StudioAgentAssetInfo, StudioAgentChatMessage } from '@shared/ipc/types';
+import type {
+  ChatMessage,
+  StudioAgentAction,
+  StudioAgentChatMessage,
+  StudioAgentOpenProposal,
+} from '@shared/ipc/types';
 import type { ThinkingLevel } from '@shared/tsx-engine/types';
 import type { StudioMediaAsset, StudioProposal, StudioShot } from '../types';
+import {
+  estimateContextUsage,
+  hasNextStepMarker,
+  proposalNoteFor,
+  replayWindow,
+  reviewOutcomeMessage,
+  toAgentAsset,
+  type AgentChatMessage,
+  type AgentContextUsage,
+} from '../services/agent-chat-format';
 
-/**
- * Context budget for the estimate meter. The engine doesn't report real token
- * usage across providers, so this is a deliberate conservative floor (cloud
- * models are 128k+; local models vary). The estimate exists to warn, not bill.
- */
-const CONTEXT_BUDGET_TOKENS = 128_000;
-/** System prompt + skill + tool definitions, roughly. */
-const BASE_OVERHEAD_TOKENS = 2_000;
-/** Takes-view tokens per transcript word (word + timing markup). */
-const TOKENS_PER_TRANSCRIPT_WORD = 2;
-
-/**
- * Replay cap (SHOT_QUALITY_DESIGN.md Q1d, N=30): the UI keeps the whole
- * persisted transcript, but a turn replays only the most recent 30 exchanges
- * (user + assistant pairs). Append-only history keeps the prompt cache warm;
- * a rolling summary would invalidate the prefix every turn.
- */
-const REPLAY_TURN_CAP = 30;
-const REPLAY_MESSAGE_CAP = REPLAY_TURN_CAP * 2;
-
-/** The replayed window: newest messages, capped, errors and blanks dropped. */
-function replayWindow(messages: AgentChatMessage[]): AgentChatMessage[] {
-  return messages
-    .filter((m) => !m.error && m.text.trim().length > 0)
-    .slice(-REPLAY_MESSAGE_CAP);
-}
-
-export interface AgentContextUsage {
-  /** Estimated tokens the NEXT turn will carry (transcripts + chat + base). */
-  estTokens: number;
-  /** estTokens over the assumed budget, uncapped (can exceed 1). */
-  ratio: number;
-}
+export type { AgentChatMessage, AgentContextUsage } from '../services/agent-chat-format';
 
 export interface AgentToolCall {
   tool: string;
   detail?: string;
 }
 
-/** Display row = the persisted shape (Q1d) plus the live-stream flag. */
-export interface AgentChatMessage extends StudioAgentChatMessage {
-  pending?: boolean;
+export interface AgentActionOutcome {
+  success: boolean;
+  message?: string;
+  error?: string;
 }
 
 export interface UseStudioAgentOptions {
@@ -62,40 +49,21 @@ export interface UseStudioAgentOptions {
   shots: StudioShot[];
   /** A cut proposal is open in the review panel. */
   reviewOpen: boolean;
+  /** The open proposal's identity (W3 `accept_proposal`). */
+  openProposal?: StudioAgentOpenProposal | undefined;
+  /** The project's transcription model — `transcribe_asset`'s default. */
+  sttModelId?: string | undefined;
+  captions?: { templateId: string; enabled: boolean } | undefined;
+  timelineDurationSeconds?: number | undefined;
   providerId?: string | undefined;
   model?: string | undefined;
   shotModel?: string | undefined;
   thinking?: ThinkingLevel | undefined;
   onProposal: (proposal: StudioProposal) => void;
-}
-
-function assetName(asset: StudioMediaAsset): string {
-  return asset.path.split(/[\\/]/).pop() ?? asset.id;
-}
-
-function toAgentAsset(asset: StudioMediaAsset): StudioAgentAssetInfo {
-  const ready = asset.transcript?.status === 'ready';
-  return {
-    id: asset.id,
-    name: assetName(asset),
-    kind: asset.kind,
-    path: asset.path,
-    ...(asset.description ? { description: asset.description } : {}),
-    durationSeconds: asset.probe.duration,
-    ...(ready && asset.transcript
-      ? {
-          transcript: {
-            engine: asset.transcript.engine,
-            ...(asset.transcript.wordCount !== undefined
-              ? { wordCount: asset.transcript.wordCount }
-              : {}),
-            ...(asset.transcript.features?.verbatimDisfluencies !== undefined
-              ? { verbatim: asset.transcript.features.verbatimDisfluencies }
-              : {}),
-          },
-        }
-      : {}),
-  };
+  /** W3: main asks the renderer to act (apply / export / captions). */
+  onAction: (action: StudioAgentAction) => Promise<AgentActionOutcome>;
+  /** W3: library assets a tool imported into the project on use. */
+  onImportedAssets: (assets: StudioMediaAsset[]) => void;
 }
 
 let nextId = 0;
@@ -112,6 +80,10 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
   // The event stream and send() need the latest options without resubscribing.
   const optionsRef = useRef(options);
   optionsRef.current = options;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
 
   // ----- Persistence (Q1d): load on open, write-behind after each turn -----
   // The renderer owns the live list; agent-chat.json beside project.json is
@@ -171,13 +143,38 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
             { tool: event.tool, ...(event.detail ? { detail: event.detail } : {}) },
           ],
         }));
+      } else if (event.kind === 'progress') {
+        // Long tools update their chip in place: "Transcribing — 42% Uploading…".
+        patchPending((msg) => {
+          const calls = msg.toolCalls ?? [];
+          const index = calls.map((c) => c.tool).lastIndexOf(event.tool);
+          if (index < 0) return msg;
+          const detail = `${event.percent !== undefined ? `${Math.round(event.percent)}% ` : ''}${event.message}`;
+          return { ...msg, toolCalls: calls.map((c, i) => (i === index ? { ...c, detail } : c)) };
+        });
       } else if (event.kind === 'proposal') {
         optionsRef.current.onProposal(event.proposal);
-        const n = event.proposal.items.length;
-        patchPending((msg) => ({
-          ...msg,
-          proposalNote: `Proposed ${n} cut${n === 1 ? '' : 's'} — review on the timeline or in the Inspector`,
-        }));
+        const proposalNote = proposalNoteFor(event.proposal);
+        patchPending((msg) => ({ ...msg, proposalNote }));
+      } else if (event.kind === 'assets-imported') {
+        optionsRef.current.onImportedAssets(event.assets);
+      } else if (event.kind === 'action') {
+        const { requestId, action } = event;
+        void optionsRef.current
+          .onAction(action)
+          .catch((err: unknown): AgentActionOutcome => ({
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          }))
+          .then((outcome) =>
+            window.api.studioAgentActionResult({
+              projectId: optionsRef.current.projectId,
+              requestId,
+              success: outcome.success,
+              ...(outcome.message ? { message: outcome.message } : {}),
+              ...(outcome.error ? { error: outcome.error } : {}),
+            }),
+          );
       }
     });
   }, [patchPending]);
@@ -185,12 +182,12 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
   const send = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
-      if (!trimmed || busy) return;
+      if (!trimmed || busyRef.current) return;
       const opts = optionsRef.current;
 
       // Only the replay window rides the request (Q1d cap) — the full
       // transcript stays visible in the panel and on disk.
-      const history: ChatMessage[] = replayWindow(messages).map((m) => ({
+      const history: ChatMessage[] = replayWindow(messagesRef.current).map((m) => ({
         role: m.role,
         content: m.text,
       }));
@@ -201,6 +198,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
         { id: msgId(), role: 'assistant', text: '', pending: true },
       ]);
       setBusy(true);
+      busyRef.current = true;
       try {
         const response = await window.api.studioAgentSend({
           projectId: opts.projectId,
@@ -210,6 +208,12 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           assets: opts.assets.map(toAgentAsset),
           shots: opts.shots,
           reviewOpen: opts.reviewOpen,
+          ...(opts.openProposal ? { openProposal: opts.openProposal } : {}),
+          ...(opts.sttModelId ? { sttModelId: opts.sttModelId } : {}),
+          ...(opts.captions ? { captions: opts.captions } : {}),
+          ...(opts.timelineDurationSeconds !== undefined
+            ? { timelineDurationSeconds: opts.timelineDurationSeconds }
+            : {}),
           ...(opts.providerId ? { providerId: opts.providerId } : {}),
           ...(opts.model ? { model: opts.model } : {}),
           ...(opts.shotModel ? { shotModel: opts.shotModel } : {}),
@@ -232,9 +236,28 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
         }));
       } finally {
         setBusy(false);
+        busyRef.current = false;
       }
     },
-    [busy, messages, patchPending],
+    [patchPending],
+  );
+
+  /**
+   * W3: a review card was answered. When the assistant's last message ended
+   * with the `[next: …]` marker (a multi-step run waiting on the card), the
+   * outcome re-enters the chat as a turn so the run continues without the
+   * user typing. Any other resolution is silent — no spent turn.
+   */
+  const notifyReviewResolved = useCallback(
+    (proposal: StudioProposal) => {
+      if (busyRef.current) return;
+      const outcome = reviewOutcomeMessage(proposal);
+      if (!outcome) return;
+      const last = [...messagesRef.current].reverse().find((m) => m.role === 'assistant' && !m.pending);
+      if (!last || !hasNextStepMarker(last.text)) return;
+      void send(outcome);
+    },
+    [send],
   );
 
   const cancel = useCallback(() => {
@@ -245,31 +268,18 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
    *  rotations kept), then clear the panel. Restart is no longer a reset, so
    *  reset must be a choice. */
   const clear = useCallback(() => {
-    if (busy) return;
+    if (busyRef.current) return;
     void window.api
       .studioAgentChatReset({ projectId: optionsRef.current.projectId })
       .then(() => setMessages([]));
-  }, [busy]);
+  }, []);
 
-  // Every turn is a fresh run: the agent re-reads ready transcripts via tools
-  // and carries the chat text as history — so those two are what grow the
-  // context. chars/4 is the usual rough token heuristic. Only the REPLAYED
-  // window counts (Q1d): a long persisted transcript beyond the cap is never
-  // sent, so it must not inflate the warning.
-  const contextUsage: AgentContextUsage = useMemo(() => {
-    const historyChars = replayWindow(messages).reduce((n, m) => n + m.text.length, 0);
-    const transcriptWords = options.assets.reduce(
-      (n, a) => n + (a.transcript?.status === 'ready' ? (a.transcript.wordCount ?? 0) : 0),
-      0,
-    );
-    const estTokens =
-      BASE_OVERHEAD_TOKENS +
-      Math.ceil(historyChars / 4) +
-      transcriptWords * TOKENS_PER_TRANSCRIPT_WORD;
-    return { estTokens, ratio: estTokens / CONTEXT_BUDGET_TOKENS };
-  }, [messages, options.assets]);
+  const contextUsage: AgentContextUsage = useMemo(
+    () => estimateContextUsage(messages, options.assets),
+    [messages, options.assets],
+  );
 
-  return { messages, busy, send, cancel, clear, contextUsage, toolsAvailable };
+  return { messages, busy, send, cancel, clear, contextUsage, toolsAvailable, notifyReviewResolved };
 }
 
 export type UseStudioAgentResult = ReturnType<typeof useStudioAgent>;

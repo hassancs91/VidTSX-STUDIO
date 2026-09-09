@@ -8,11 +8,13 @@ import {
   deriveCaptionSegments,
   masterLane,
   serializeTimeline,
+  timelineDuration,
   timeToFrame,
   untranscribedMasterClips,
   type CaptionSerializeContext,
 } from '@shared/studio';
-import type { StudioShotGenerateOp } from '@shared/ipc/types';
+import { DEFAULT_EXPORT_ENGINE_ID } from '@shared/studio/export-engines';
+import type { StudioAgentAction, StudioShotGenerateOp } from '@shared/ipc/types';
 import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
@@ -31,6 +33,7 @@ import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-proposal';
+import { applyInsertProposal, insertItemPlacement } from '../services/apply-insert-proposal';
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
@@ -336,18 +339,52 @@ export function EditorShell({ projectId, onBack }: Props) {
     [tl],
   );
 
+  // W3: main's action requests (apply / export / captions) and import-on-use
+  // land on handlers defined further down (they need the export path and the
+  // document updater); refs let the hook reach the latest ones.
+  const agentActionRef = useRef<(action: StudioAgentAction) => Promise<{ success: boolean; message?: string; error?: string }>>(
+    async () => ({ success: false, error: 'The editor is not ready.' }),
+  );
+  const importedAssetsRef = useRef<(imported: StudioMediaAsset[]) => void>(() => {});
+
   const agentChat = useStudioAgent({
     projectId,
     projectName: project?.name ?? '',
     assets,
     shots: project?.shots ?? [],
     reviewOpen: activeProposal !== null,
+    openProposal: activeProposal
+      ? {
+          id: activeProposal.id,
+          kind: activeProposal.kind,
+          itemCount: activeProposal.items.length,
+          ...(activeProposal.agentNote ? { note: activeProposal.agentNote.split('\n')[0] } : {}),
+        }
+      : undefined,
+    sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
+    captions: tl.captions ? { templateId: tl.captions.templateId, enabled: tl.captions.enabled } : undefined,
+    timelineDurationSeconds: timelineDuration(tl.timeline),
     providerId: project?.settings.agent.providerId,
     model: project?.settings.agent.model,
     shotModel: project?.settings.agent.shotModel,
     thinking: project?.settings.agent.thinking,
     onProposal: handleAgentProposal,
+    onAction: (action) => agentActionRef.current(action),
+    onImportedAssets: (imported) => importedAssetsRef.current(imported),
   });
+
+  // W3: when a review card closes (applied or rejected — from the Inspector,
+  // the timeline, or the agent's own accept_proposal), tell the chat; a
+  // multi-step run waiting on the card continues by itself, anything else
+  // stays silent (see useStudioAgent.notifyReviewResolved).
+  const lastOpenProposalIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const previous = lastOpenProposalIdRef.current;
+    lastOpenProposalIdRef.current = activeProposal?.id ?? null;
+    if (!previous || activeProposal?.id === previous) return;
+    const resolved = tl.proposals.find((p) => p.id === previous);
+    if (resolved) agentChat.notifyReviewResolved(resolved);
+  }, [activeProposal, tl.proposals, agentChat]);
 
   /** The model user-started shots run on: the shot slot, then the planning
    *  model, then the provider default (W1). */
@@ -382,17 +419,20 @@ export function EditorShell({ projectId, onBack }: Props) {
     if (activeProposal && previewResult) {
       return activeProposal.kind === 'shot-plan'
         ? applyShotProposal(tl.timeline, activeProposal, tl.shots)
-        : applyCutProposal(tl.timeline, activeProposal);
+        : activeProposal.kind === 'insert-plan'
+          ? applyInsertProposal(tl.timeline, activeProposal)
+          : applyCutProposal(tl.timeline, activeProposal);
     }
     return tl.timeline;
   }, [tl.timeline, tl.shots, activeProposal, previewResult]);
 
   // While previewing the result, the Player's clock is the CUT timeline but
   // the panel displays the original — this map keeps the playhead jumping
-  // over cut regions instead of crawling through them. Shot previews only ADD
-  // clips (nothing moves), so the clocks already agree — no map.
+  // over cut regions instead of crawling through them. Shot and insert
+  // previews only ADD clips (nothing moves), so the clocks already agree —
+  // no map.
   const previewTimeMap = useMemo(() => {
-    if (playerTimeline === tl.timeline || activeProposal?.kind === 'shot-plan') return null;
+    if (playerTimeline === tl.timeline || activeProposal?.kind !== 'cut-plan') return null;
     return buildPreviewTimeMap(tl.timeline, playerTimeline);
   }, [tl.timeline, playerTimeline, activeProposal?.kind]);
 
@@ -535,6 +575,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     },
     [updateProject],
   );
+  importedAssetsRef.current = handleImportedAssets;
 
   const shotJobs = useShotJobs({
     projectId,
@@ -625,6 +666,31 @@ export function EditorShell({ projectId, onBack }: Props) {
       playSpan(Math.max(0, start - 0.5), start + duration + 0.5, needsRestore);
     },
     [activeProposal, tl.shots, tl.timeline, previewResult, playSpan],
+  );
+
+  // ----- Insert-plan review handlers (W3, the shots pattern) --------------
+  const handleSelectInsertItem = useCallback(
+    (item: StudioProposalItem) => {
+      tl.selectCut(item.id);
+      const at = insertItemPlacement(tl.timeline, item);
+      if (at !== null) playback.seek(at);
+    },
+    [tl, playback],
+  );
+
+  const handlePlayInsertItem = useCallback(
+    (item: StudioProposalItem) => {
+      if (!activeProposal) return;
+      const start = insertItemPlacement(tl.timeline, item);
+      if (start === null) {
+        showToast('This clip has nowhere to land — its anchor is no longer on the timeline', 'error');
+        return;
+      }
+      const needsRestore = !previewResult;
+      if (needsRestore) setPreviewResult(true);
+      playSpan(Math.max(0, start - 0.5), start + (item.duration ?? 5) + 0.5, needsRestore);
+    },
+    [activeProposal, tl.timeline, previewResult, playSpan, showToast],
   );
 
   // ----- Resizable panes (ergonomics, 2026-08-14) ------------------------
@@ -751,7 +817,11 @@ export function EditorShell({ projectId, onBack }: Props) {
   // The Export button opens the dialog (engine picker, docs/export-engines-
   // plan.md D2); the dialog's confirm prepares the entry and queues the job.
   const handleExport = useCallback(
-    async (choice: ExportChoice, range?: { rangeIn: number; rangeOut: number }): Promise<boolean> => {
+    async (
+      choice: ExportChoice,
+      range?: { rangeIn: number; rangeOut: number },
+      jobId?: string,
+    ): Promise<boolean> => {
       if (!project) return false;
       setExporting(true);
       try {
@@ -764,6 +834,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           return false;
         }
         await addJob({
+          ...(jobId ? { id: jobId } : {}),
           filePath: prepared.entryPath,
           fileName: `${project.name}${range ? ' (range)' : ''}.mp4`,
           compositionId: prepared.compositionId,
@@ -785,6 +856,56 @@ export function EditorShell({ projectId, onBack }: Props) {
     },
     [project, tl.timeline, addJob, showToast],
   );
+
+  // W3: the agent's action requests. Each is either something the user said
+  // in chat (apply, export) or a reversible setting (captions); every one is
+  // a normal reducer/queue path — one undo step, the usual toasts.
+  const handleAgentAction = useCallback(
+    async (action: StudioAgentAction): Promise<{ success: boolean; message?: string; error?: string }> => {
+      if (action.type === 'apply-proposal') {
+        const open = tl.activeProposal;
+        if (!open || open.id !== action.proposalId) {
+          return { success: false, error: 'That proposal is not open in the review panel.' };
+        }
+        const accepted = open.items.filter((i) => i.status === 'accepted').length;
+        if (accepted === 0) return { success: false, error: 'Every item is unticked — nothing to apply.' };
+        tl.dispatch({ type: 'proposal-apply', proposalId: open.id });
+        const noun = open.kind === 'cut-plan' ? 'cut' : open.kind === 'shot-plan' ? 'shot' : 'clip';
+        const summary = `Applied ${accepted} ${noun}${accepted === 1 ? '' : 's'} of ${open.items.length} from chat`;
+        showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success');
+        return { success: true, message: summary };
+      }
+      if (action.type === 'export') {
+        let engineId = action.engineId;
+        if (!engineId) {
+          try {
+            engineId = (await window.api.studioExportEnginesList()).defaultId;
+          } catch {
+            engineId = DEFAULT_EXPORT_ENGINE_ID;
+          }
+        }
+        const queued = await handleExport({ engineId }, undefined, action.jobId);
+        return queued
+          ? { success: true, message: `Export queued in the render queue (${engineId} engine).` }
+          : { success: false, error: 'The export could not be prepared — see the editor toast.' };
+      }
+      if (action.type === 'set-captions') {
+        tl.dispatch({ type: 'caption-apply', templateId: action.templateId, ...(action.seed ? { seed: action.seed } : {}) });
+        if (action.style && Object.keys(action.style).length > 0) {
+          tl.dispatch({ type: 'caption-style', patch: action.style });
+        }
+        if (!action.enabled) tl.dispatch({ type: 'caption-enabled', enabled: false });
+        const summary = action.enabled
+          ? `Captions on (${action.templateId})`
+          : 'Captions off (style kept)';
+        showToast(`${summary} — Ctrl+Z undoes it`, 'success');
+        return { success: true, message: summary };
+      }
+      return { success: false, error: 'Unknown action.' };
+    },
+    [tl, handleExport, showToast],
+  );
+  agentActionRef.current = handleAgentAction;
 
   if (status === 'loading') {
     return (
@@ -1017,7 +1138,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 onAutoCut={autoCut.runAutoCut}
                 autoCutPhase={autoCut.phase}
                 review={
-                  activeProposal && activeProposal.kind !== 'shot-plan'
+                  activeProposal && activeProposal.kind === 'cut-plan'
                     ? {
                         proposal: activeProposal,
                         timeline: tl.timeline,
@@ -1042,6 +1163,23 @@ export function EditorShell({ projectId, onBack }: Props) {
                         dispatch: tl.dispatch,
                         onSelectItem: handleSelectShotItem,
                         onPlayShot: handlePlayShot,
+                        previewResult,
+                        onTogglePreviewResult: () => setPreviewResult((v) => !v),
+                        onApplied: (summary) =>
+                          showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success'),
+                      }
+                    : null
+                }
+                reviewInsert={
+                  activeProposal?.kind === 'insert-plan'
+                    ? {
+                        proposal: activeProposal,
+                        assets,
+                        timeline: tl.timeline,
+                        selectedCutId: tl.selectedCutId,
+                        dispatch: tl.dispatch,
+                        onSelectItem: handleSelectInsertItem,
+                        onPlayItem: handlePlayInsertItem,
                         previewResult,
                         onTogglePreviewResult: () => setPreviewResult((v) => !v),
                         onApplied: (summary) =>

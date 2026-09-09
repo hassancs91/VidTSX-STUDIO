@@ -221,7 +221,25 @@ export interface ShotRuntimeProps {
 // only mutate the timeline when the user accepts them (per item or wholesale).
 // ---------------------------------------------------------------------------
 
-export type StudioProposalKind = 'cut-plan' | 'sfx-plan' | 'shot-plan';
+export type StudioProposalKind = 'cut-plan' | 'sfx-plan' | 'shot-plan' | 'insert-plan';
+
+/** Which lane an inserted media clip lands on (W3 `insert_asset`): b-roll
+ *  and overlays both ride the overlay lane (covering, never displacing — the
+ *  shot rule D2); audio goes to an audio lane. */
+export type StudioInsertLane = 'broll' | 'overlay' | 'audio';
+
+/** Insert plans (W3): ONE media clip to place. Placement reuses the item's
+ *  anchor fields (`assetId`/`sourceStart`/`sourceEnd` name a span on the
+ *  FOOTAGE, renderer-mapped at apply) or the `timelineStart` fallback, and
+ *  `duration` is always explicit — the reducer never sees the asset. */
+export interface StudioInsertSpec {
+  /** The project asset to insert (not the anchor asset). */
+  assetId: string;
+  kind: 'video' | 'audio' | 'image';
+  lane: StudioInsertLane;
+  /** Audio gain multiplier for the new clip (1 = unity). */
+  gain?: number;
+}
 
 export type StudioProposalStatus = 'proposed' | 'applied' | 'rejected' | 'partial';
 
@@ -257,6 +275,8 @@ export interface StudioProposalItem {
   /** Clip length in timeline seconds (defaults to the shot's config length). */
   duration?: number;
   mode?: 'cutaway' | 'overlay';
+  /** Insert plans (W3): the media clip this item places. */
+  insert?: StudioInsertSpec;
 }
 
 export interface StudioProposal {

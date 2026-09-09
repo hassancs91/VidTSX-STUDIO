@@ -42,6 +42,8 @@ import type {
   StudioTranscribeCancelResponse,
   StudioTranscribeStartRequest,
   StudioTranscribeStartResponse,
+  StudioAgentActionResultRequest,
+  StudioAgentActionResultResponse,
   StudioAgentCancelRequest,
   StudioAgentCancelResponse,
   StudioAgentChatLoadRequest,
@@ -85,6 +87,7 @@ import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
 import { runCutPlan } from '../services/studio/cut-plan-runner';
 import { studioAgent } from '../services/studio/studio-agent';
+import { agentActions } from '../services/studio/agent-actions';
 import { buildAgentSystemPrompt } from '../services/studio/studio-agent-prompt';
 import { loadAgentChat, resetAgentChat, saveAgentChat } from '../services/studio/agent-chat-store';
 import { findSttEntry } from '../../shared/presets/stt-models';
@@ -489,6 +492,11 @@ export async function handleStudioAgentSend(
         shots: data.shots,
         toolsAvailable,
         reviewOpen: data.reviewOpen,
+        ...(data.openProposal ? { openProposal: data.openProposal } : {}),
+        ...(data.captions ? { captions: data.captions } : {}),
+        ...(data.timelineDurationSeconds !== undefined
+          ? { timelineDurationSeconds: data.timelineDurationSeconds }
+          : {}),
       }),
     );
   } catch (err) {
@@ -501,6 +509,14 @@ export async function handleStudioAgentCancel(
   data: StudioAgentCancelRequest,
 ): Promise<StudioAgentCancelResponse> {
   return { success: studioAgent.cancel(data.projectId) };
+}
+
+/** W3: the renderer's answer to an agent 'action' event (apply / export / captions). */
+export async function handleStudioAgentActionResult(
+  _event: IpcMainInvokeEvent,
+  data: StudioAgentActionResultRequest,
+): Promise<StudioAgentActionResultResponse> {
+  return { success: agentActions.resolve(data) };
 }
 
 // Persisted Assistant transcript (Q1d) — renderer owns the list, main does the

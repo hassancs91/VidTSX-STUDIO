@@ -21,9 +21,21 @@ const TOOL_LABELS: Record<string, string> = {
   generate_tsx_shot: 'Generating shot',
   propose_shots: 'Proposing shots',
   generate_image: 'Generating image',
+  remove_background: 'Removing background',
   capture_webpage: 'Capturing webpage',
+  capture_scripted: 'Capturing webpage states',
   propose_memory: 'Proposing a memory',
   propose_style_promotion: 'Proposing a brand promotion',
+  // W3: the end-to-end steps.
+  transcribe_asset: 'Transcribing',
+  run_auto_cut: 'Running Auto Cut',
+  generate_video: 'Generating video',
+  insert_asset: 'Proposing an insert',
+  list_assets: 'Listing assets',
+  get_brand: 'Reading the brand',
+  set_captions: 'Setting captions',
+  accept_proposal: 'Applying the proposal',
+  export_project: 'Queuing the export',
 };
 
 interface Props {
