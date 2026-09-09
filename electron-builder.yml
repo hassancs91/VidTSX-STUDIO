@@ -46,6 +46,13 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Built-in editing presets (V1 completion plan §2.5) — copied into the
+  # assets root on first use, never edited in place.
+  - from: resources/presets
+    to: presets
+    filter:
+      - "**/*"
+      - "!**/.*"
   # Python worker scripts for the optional AI runtime (docs/ai-runtime-implementation-plan.md).
   # Source only (KB): the runtime itself (Python + torch, 334 MB / 2.6 GB) is downloaded on first
   # use from R2 through the download engine and never bundled. Replaces resources/python.

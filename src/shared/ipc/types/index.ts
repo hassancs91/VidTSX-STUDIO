@@ -30,6 +30,7 @@ export * from './stt';
 export * from './studio';
 export * from './studio-memory';
 export * from './studio-package';
+export * from './studio-preset';
 export * from './system';
 export * from './ai-runtime';
 export * from './python-models';

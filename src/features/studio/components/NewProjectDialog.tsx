@@ -4,6 +4,7 @@ import { TextInput } from '@shared/components/TextInput';
 import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
 import type { StudioProjectCreateRequest } from '@shared/ipc/types';
+import { usePresetList } from '../hooks/usePresetList';
 
 interface FormatPreset {
   id: string;
@@ -21,6 +22,9 @@ const FORMAT_PRESETS: FormatPreset[] = [
 
 const FPS_OPTIONS = ['24', '25', '30', '50', '60'].map((v) => ({ value: v, label: `${v} fps` }));
 
+/** A preset's orientation → the format tile it implies (W5). */
+const ORIENTATION_FORMAT: Record<string, string> = { '16:9': 'landscape', '9:16': 'portrait', '1:1': 'square' };
+
 interface Props {
   isOpen: boolean;
   onClose: () => void;
@@ -31,13 +35,25 @@ export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
   const [name, setName] = useState('');
   const [formatId, setFormatId] = useState('landscape');
   const [fps, setFps] = useState('30');
+  const [presetId, setPresetId] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const presets = usePresetList();
 
   const reset = () => {
     setName('');
     setFormatId('landscape');
     setFps('30');
+    setPresetId('');
     setSubmitting(false);
+  };
+
+  // Picking a preset that knows its orientation also picks the matching
+  // format tile — the user can still change it afterwards.
+  const choosePreset = (id: string) => {
+    setPresetId(id);
+    const orientation = presets.find((p) => p.id === id)?.orientation;
+    const format = orientation ? ORIENTATION_FORMAT[orientation] : undefined;
+    if (format) setFormatId(format);
   };
 
   const handleClose = () => {
@@ -58,6 +74,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
         width: format.width,
         height: format.height,
         fps: Number(fps),
+        ...(presetId ? { presetId } : {}),
       });
       reset();
       onClose();
@@ -94,10 +111,29 @@ export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
           </div>
         </div>
 
-        <label className="flex flex-col gap-1 w-[140px]">
-          <span className="text-[10px] uppercase tracking-wider text-text-muted">Frame rate</span>
-          <Select value={fps} onChange={setFps} options={FPS_OPTIONS} />
-        </label>
+        <div className="flex gap-3">
+          <label className="flex flex-col gap-1 w-[140px]">
+            <span className="text-[10px] uppercase tracking-wider text-text-muted">Frame rate</span>
+            <Select value={fps} onChange={setFps} options={FPS_OPTIONS} />
+          </label>
+          {presets.length > 0 && (
+            <label className="flex flex-col gap-1 flex-1 min-w-0" data-new-project-preset>
+              <span className="text-[10px] uppercase tracking-wider text-text-muted">Editing preset</span>
+              <Select
+                value={presetId}
+                onChange={choosePreset}
+                options={[
+                  { value: '', label: 'No preset' },
+                  ...presets.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+              />
+              <span className="text-[10px] text-text-dim leading-snug">
+                {presets.find((p) => p.id === presetId)?.description ??
+                  'The playbook the assistant follows for a full edit. Manage presets on the Assets screen.'}
+              </span>
+            </label>
+          )}
+        </div>
 
         <div className="flex justify-end gap-2 mt-1">
           <Button type="button" variant="secondary" onClick={handleClose} disabled={submitting}>

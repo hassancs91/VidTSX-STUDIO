@@ -4,6 +4,7 @@ import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioA
 import { useMemoryProposals } from '../hooks/useMemoryProposals';
 import { useStylePromotions } from '../hooks/useStylePromotions';
 import { useVocabularyProposals } from '../hooks/useVocabularyProposals';
+import { usePresetProposals } from '../hooks/usePresetProposals';
 import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
 import { ModelPickerChip } from '@renderer/components/ModelPickerChip';
 import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
@@ -11,6 +12,7 @@ import type { StudioAgentSettings } from '../types';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { StylePromotionCard } from './StylePromotionCard';
 import { VocabularyProposalCard } from './VocabularyProposalCard';
+import { PresetUpdateCard } from './PresetUpdateCard';
 
 /** Warn when the next turn is estimated at ≥40% of the context budget. */
 const CONTEXT_WARN_RATIO = 0.4;
@@ -41,6 +43,9 @@ const TOOL_LABELS: Record<string, string> = {
   // W4: script and vocabulary.
   get_script: 'Reading the script',
   propose_vocabulary: 'Proposing vocabulary',
+  // W5: editing presets.
+  get_preset: 'Reading the preset',
+  propose_preset_update: 'Learning from this video',
 };
 
 interface Props {
@@ -61,6 +66,7 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
   const memoryProposals = useMemoryProposals(projectId);
   const stylePromotions = useStylePromotions(projectId);
   const vocabulary = useVocabularyProposals(projectId);
+  const presetUpdates = usePresetProposals(projectId);
   const { providers } = useProviderPicker();
 
   const { messages, busy, send, cancel, clear, contextUsage, toolsAvailable } = agent;
@@ -73,6 +79,7 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
     memoryProposals.proposals.length,
     stylePromotions.proposals.length,
     vocabulary.proposals.length,
+    presetUpdates.proposals.length,
   ]);
 
   const submit = () => {
@@ -88,7 +95,8 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
         {messages.length === 0 &&
         memoryProposals.proposals.length === 0 &&
         stylePromotions.proposals.length === 0 &&
-        vocabulary.proposals.length === 0 ? (
+        vocabulary.proposals.length === 0 &&
+        presetUpdates.proposals.length === 0 ? (
           <EmptyState />
         ) : (
           messages.map((m) => <MessageRow key={m.id} message={m} />)
@@ -124,6 +132,25 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
             onReject={() => void vocabulary.reject(p)}
           />
         ))}
+        {presetUpdates.proposals.map((p) => (
+          <PresetUpdateCard
+            key={p.id}
+            proposal={p}
+            error={presetUpdates.error}
+            resolving={presetUpdates.resolving}
+            onAccept={() => void presetUpdates.accept(p)}
+            onReject={() => void presetUpdates.reject(p)}
+          />
+        ))}
+        {presetUpdates.lastOutcome && presetUpdates.proposals.length === 0 && (
+          <div className="text-[10px] text-text-dim px-1" data-preset-update-outcome>
+            Preset &ldquo;{presetUpdates.lastOutcome.presetName}&rdquo; updated
+            {presetUpdates.lastOutcome.knobsChanged > 0
+              ? ` · ${presetUpdates.lastOutcome.knobsChanged} knob${presetUpdates.lastOutcome.knobsChanged === 1 ? '' : 's'} changed`
+              : ' · knobs unchanged'}
+            {' · a "Learned from" section was added to its PRESET.md'}
+          </div>
+        )}
         {vocabulary.lastOutcome && vocabulary.proposals.length === 0 && (
           <div className="text-[10px] text-text-dim px-1" data-vocabulary-outcome>
             Brand vocabulary updated

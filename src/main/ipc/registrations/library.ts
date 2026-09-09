@@ -20,6 +20,11 @@ import {
   handleLibraryOrganizeSuggest,
   handleLibraryPrefsSet,
 } from '../library-ai-handlers';
+import {
+  handleLibraryPresetDelete,
+  handleLibraryPresetSave,
+  handleLibraryPresetsGet,
+} from '../preset-handlers';
 import { onCaptureEvent } from '../../services/library/capture';
 import { libraryDescribeJobs } from '../../services/library/describe-job';
 
@@ -33,6 +38,9 @@ export function registerLibraryIpc(): void {
   ipcMain.handle(IPC.LIBRARY_BRAND_SAVE, handleLibraryBrandSave);
   ipcMain.handle(IPC.LIBRARY_BRAND_DELETE, handleLibraryBrandDelete);
   ipcMain.handle(IPC.LIBRARY_BRAND_DEFAULT_SET, handleLibraryBrandDefaultSet);
+  ipcMain.handle(IPC.LIBRARY_PRESETS_GET, handleLibraryPresetsGet);
+  ipcMain.handle(IPC.LIBRARY_PRESET_SAVE, handleLibraryPresetSave);
+  ipcMain.handle(IPC.LIBRARY_PRESET_DELETE, handleLibraryPresetDelete);
   ipcMain.handle(IPC.LIBRARY_CAPTURE_TRIGGER, handleLibraryCaptureTrigger);
 
   // AI curation — descriptions (L2) and organize (L7).

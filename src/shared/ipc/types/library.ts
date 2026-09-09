@@ -6,6 +6,8 @@ import type {
   StudioBrand,
 } from '../../types/asset-library';
 import type { StudioBrandInput } from '../../studio/brand';
+import type { StudioPresetInput } from '../../studio/preset';
+import type { StudioPresetEntry } from '../../types/studio-preset';
 
 // ─── Asset library — index overlay, sizes, root override ───
 
@@ -228,6 +230,38 @@ export interface LibraryBrandDefaultSetRequest {
 }
 
 export interface LibraryBrandDefaultSetResponse {
+  success: boolean;
+  error?: string;
+}
+
+// ─── Editing presets (V1 completion plan §2.5) ───
+
+/** library:presets:get — every preset (with its PRESET.md body); the
+ *  built-ins are seeded into the library on the first call. */
+export interface LibraryPresetsGetResponse {
+  success: boolean;
+  presets?: StudioPresetEntry[];
+  error?: string;
+}
+
+/** library:preset:save — create (no presetId) or update (presetId) one preset. */
+export interface LibraryPresetSaveRequest {
+  presetId?: string;
+  input: StudioPresetInput;
+}
+
+export interface LibraryPresetSaveResponse {
+  success: boolean;
+  preset?: StudioPresetEntry;
+  error?: string;
+}
+
+/** library:preset:delete — remove presets/<id>/ (body and skills included). */
+export interface LibraryPresetDeleteRequest {
+  presetId: string;
+}
+
+export interface LibraryPresetDeleteResponse {
   success: boolean;
   error?: string;
 }

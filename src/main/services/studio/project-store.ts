@@ -94,6 +94,8 @@ export async function createProject(
   /** Brand snapshot copied from the Studio default at creation (D11) —
    *  resolved and validated by the caller; never re-read after this. */
   brandId?: string,
+  /** Editing preset (W5) — validated by the caller like the brand. */
+  presetId?: string,
 ): Promise<StudioProject> {
   const projectsDir = await getStudioProjectsDir();
   const { folderPath, name: folderId } = await reserveProjectFolder(name, projectsDir);
@@ -106,7 +108,14 @@ export async function createProject(
     name: name.trim() || folderId,
     createdAt: now,
     updatedAt: now,
-    settings: { width, height, fps, agent: {}, ...(brandId ? { brandId } : {}) },
+    settings: {
+      width,
+      height,
+      fps,
+      agent: {},
+      ...(brandId ? { brandId } : {}),
+      ...(presetId ? { presetId } : {}),
+    },
     assets: [],
     timeline: {
       tracks: [

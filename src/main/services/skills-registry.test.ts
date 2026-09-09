@@ -42,6 +42,14 @@ describe('composeSystemPrompt trailing block (agent memory position)', () => {
     expect(composed.indexOf('## Skill:')).toBeLessThan(composed.indexOf('MEMORY BLOCK'));
   });
 
+  it('places the middle block (the editing preset) after the skills and before the trailing block', async () => {
+    const composed = await composeSystemPrompt('BASE', ['test-skill'], 'MEMORY BLOCK', 'PRESET BLOCK');
+    expect(composed).toBe(
+      'BASE\n\n---\n\n## Skill: Test Skill\n\nSKILL BODY TEXT\n\nPRESET BLOCK\n\nMEMORY BLOCK',
+    );
+    expect(await composeSystemPrompt('BASE', [], undefined, 'PRESET BLOCK')).toBe('BASE\n\n---\n\nPRESET BLOCK');
+  });
+
   it('trailing block works with no skills at all', async () => {
     expect(await composeSystemPrompt('BASE', [], 'MEMORY BLOCK')).toBe(
       'BASE\n\n---\n\nMEMORY BLOCK',

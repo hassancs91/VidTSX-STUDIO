@@ -79,6 +79,16 @@ export function getContentSafetyDir(): string {
   return path.join(app.getAppPath(), 'resources', 'content-safety');
 }
 
+/** Built-in editing presets (V1 completion plan §2.5): resources/presets/<id>/,
+ *  copied into the assets root on first use (preset-builtins.ts). Dev: the
+ *  repo folder. Packaged: resources/presets via extraResources. */
+export function getBuiltinPresetsDir(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'presets');
+  }
+  return path.join(app.getAppPath(), 'resources', 'presets');
+}
+
 export function getSkillsDir(): string {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'skills');

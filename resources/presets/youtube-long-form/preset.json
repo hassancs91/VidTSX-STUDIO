@@ -1,0 +1,27 @@
+{
+  "name": "YouTube long-form",
+  "description": "A landscape 8–20 minute talking-head video: cold open, natural pacing, chaptered, b-roll where the words call for it, readable captions.",
+  "videoKind": "long",
+  "orientation": "16:9",
+  "workflow": [
+    { "id": "transcribe" },
+    { "id": "auto_cut", "aggressiveness": "normal" },
+    { "id": "editorial" },
+    { "id": "shots", "cadence": 1.5 },
+    { "id": "broll", "source": "library" },
+    { "id": "music" },
+    { "id": "captions", "template": "core/minimal-line" }
+  ],
+  "style": {
+    "pacing": "normal",
+    "shotsPerMinute": 1.5,
+    "sfxPerMinute": 1,
+    "musicBed": "quiet",
+    "captions": "block",
+    "transitions": ["crossfade"],
+    "introSeconds": 8,
+    "outroSeconds": 10
+  },
+  "createdAt": "2026-09-09T00:00:00.000Z",
+  "updatedAt": "2026-09-09T00:00:00.000Z"
+}

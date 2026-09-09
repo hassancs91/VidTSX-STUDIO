@@ -1,0 +1,25 @@
+{
+  "name": "Course lesson",
+  "description": "A landscape teaching lesson: chapter title, relaxed pacing that keeps every explanation, diagrams over the hard parts, block captions, no music.",
+  "videoKind": "course",
+  "orientation": "16:9",
+  "workflow": [
+    { "id": "transcribe" },
+    { "id": "auto_cut", "aggressiveness": "light" },
+    { "id": "editorial" },
+    { "id": "shots", "cadence": 2 },
+    { "id": "captions", "template": "core/two-line-rolling" }
+  ],
+  "style": {
+    "pacing": "relaxed",
+    "shotsPerMinute": 2,
+    "sfxPerMinute": 0,
+    "musicBed": "none",
+    "captions": "block",
+    "transitions": ["dip-to-black"],
+    "introSeconds": 10,
+    "outroSeconds": 6
+  },
+  "createdAt": "2026-09-09T00:00:00.000Z",
+  "updatedAt": "2026-09-09T00:00:00.000Z"
+}

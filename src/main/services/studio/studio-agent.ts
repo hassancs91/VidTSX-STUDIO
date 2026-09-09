@@ -18,6 +18,9 @@ import { logEngine } from '../../../logging/log-engine';
 import { loadProject } from './project-store';
 import { listMemories } from './agent-memory';
 import { composeMemoryBlock } from './agent-memory-prompt';
+import { composePresetBlock } from './agent-preset-prompt';
+import { getLibraryRoot } from '../library/library-paths';
+import { readPreset, readPresetSkills } from '../library/preset-store';
 import { STUDIO_ALLOWED_TOOLS, buildStudioToolServer, createTurnState } from './agent-tools';
 
 const log = logEngine.createLogger('StudioAgent');
@@ -45,6 +48,12 @@ class StudioAgentService {
 
   private emit(event: StudioAgentEvent): void {
     for (const listener of this.listeners) listener(event);
+  }
+
+  /** Push an event on the same stream from outside a turn (W5: the Inspector's
+   *  "learn from this video" card, so the Assistant tab shows it). */
+  push(event: StudioAgentEvent): void {
+    this.emit(event);
   }
 
   cancel(projectId: string): boolean {
@@ -85,6 +94,7 @@ class StudioAgentService {
           })
         : null;
       const memoryBlock = await this.buildMemoryBlock(req.projectId);
+      const presetBlock = await this.buildPresetBlock(req.projectId);
       // The thinking dial maps to the engine's thinking + effort pair exactly
       // as the Creator's does; the provider drops both on models without them.
       const thinking = THINKING_CONFIGS[req.thinking ?? 'off'] ?? {};
@@ -92,6 +102,7 @@ class StudioAgentService {
       const extras = {
         ...(mcpServer ? { mcpServers: { studio: mcpServer } } : {}),
         ...(memoryBlock ? { trailingSystemPrompt: memoryBlock } : {}),
+        ...(presetBlock ? { middleSystemPrompt: presetBlock } : {}),
       };
       const result = await runLlmGenerate(
         {
@@ -152,6 +163,38 @@ class StudioAgentService {
       return composed.block || undefined;
     } catch (err) {
       log.warn('Agent memory unavailable for this turn', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return undefined;
+    }
+  }
+
+  /** The project's editing preset (W5), composed as the MIDDLE block —
+   *  after the skills, before memory. A preset problem must never break a
+   *  turn: any failure logs and the turn runs without it; a stale presetId
+   *  (preset deleted) is simply no preset. */
+  private async buildPresetBlock(projectId: string): Promise<string | undefined> {
+    try {
+      const presetId = (await loadProject(projectId)).settings.presetId;
+      if (!presetId) return undefined;
+      const root = getLibraryRoot();
+      const preset = await readPreset(root, presetId);
+      if (!preset) {
+        log.warn('Project preset not found — turn runs without one', { presetId });
+        return undefined;
+      }
+      const skills = await readPresetSkills(root, presetId);
+      const composed = composePresetBlock(preset, { skills });
+      // No silent caps: truncation must be visible somewhere.
+      if (composed.truncatedBy > 0) {
+        log.warn('Preset block cut to fit the prompt budget', {
+          presetId,
+          truncatedBy: composed.truncatedBy,
+        });
+      }
+      return composed.block;
+    } catch (err) {
+      log.warn('Editing preset unavailable for this turn', {
         error: err instanceof Error ? err.message : String(err),
       });
       return undefined;

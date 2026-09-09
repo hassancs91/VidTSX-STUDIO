@@ -14,6 +14,7 @@ import { ReviewShotsSection } from './ReviewShotsSection';
 import { ReviewInsertSection } from './ReviewInsertSection';
 import { ClipSection } from './ClipSection';
 import { ShotClipSection } from './ShotClipSection';
+import { PresetLearnSection } from './PresetLearnSection';
 
 type ReviewProps = Omit<React.ComponentProps<typeof ReviewCutsSection>, never>;
 type ReviewShotsProps = Omit<React.ComponentProps<typeof ReviewShotsSection>, never>;
@@ -46,6 +47,10 @@ interface Props {
   shots: StudioShot[];
   getShotProgress: (shotId: string) => ShotJobProgress | null;
   onShotError: (message: string) => void;
+  /** W5: the project's editing preset, by name (undefined = none / missing). */
+  presetName?: string;
+  /** W5: "learn from this video" — resolves to an error line, or null. */
+  onLearnPreset: () => Promise<string | null>;
 }
 
 export function InspectorPanel({
@@ -69,6 +74,8 @@ export function InspectorPanel({
   shots,
   getShotProgress,
   onShotError,
+  presetName,
+  onLearnPreset,
 }: Props) {
   // The shot behind the selected tsx clip, when exactly one clip is selected.
   const singleClip =
@@ -148,6 +155,12 @@ export function InspectorPanel({
             <ReadOnlyValue>{project.settings.fps} fps</ReadOnlyValue>
           </Field>
         </div>
+        <PresetLearnSection
+          presetId={project.settings.presetId}
+          {...(presetName ? { presetName } : {})}
+          agentBusy={agentBusy}
+          onLearn={onLearnPreset}
+        />
       </section>
 
       {selectedAsset && (

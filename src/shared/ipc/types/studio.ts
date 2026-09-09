@@ -1,3 +1,4 @@
+import type { StudioPresetUpdateProposal } from '../../types/studio-preset';
 import type {
   StudioAssetProbe,
   StudioAssetTranscriptMeta,
@@ -59,6 +60,9 @@ export interface StudioProjectCreateRequest {
   width: number;
   height: number;
   fps: number;
+  /** W5: the editing preset the new project starts on (validated in main;
+   *  a preset's defaultBrandId wins over the library default brand). */
+  presetId?: string;
 }
 
 export interface StudioProjectCreateResponse {
@@ -495,6 +499,8 @@ export type StudioAgentEvent =
   | { projectId: string; kind: 'style-promotion-proposal'; proposal: StudioStylePromotionProposal }
   /** W4: a "add these to the brand vocabulary" card (multi-select accept). */
   | { projectId: string; kind: 'vocabulary-proposal'; proposal: StudioVocabularyProposal }
+  /** W5: a "learn from this video" card — knob diff + a learned section. */
+  | { projectId: string; kind: 'preset-update-proposal'; proposal: StudioPresetUpdateProposal }
   /** W3: a long tool (transcribe, video) streaming progress — updates the
    *  latest tool chip in place instead of adding one. */
   | { projectId: string; kind: 'progress'; tool: string; percent?: number; message: string }

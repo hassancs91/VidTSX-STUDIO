@@ -6,6 +6,8 @@ interface AssetToolbarProps {
   onCreateFolder: (name: string) => void;
   onRefresh: () => void;
   onBrands: () => void;
+  /** Editing presets (V1 completion plan §2.5). */
+  onPresets: () => void;
   /** AI curation (L2/L7) — both disabled together when no provider exists. */
   onDescribe: () => void;
   onOrganize: () => void;
@@ -22,6 +24,7 @@ export function AssetToolbar({
   onCreateFolder,
   onRefresh,
   onBrands,
+  onPresets,
   onDescribe,
   onOrganize,
   aiDisabledReason,
@@ -96,6 +99,20 @@ export function AssetToolbar({
         title="Brand palettes, fonts, and style notes injected into generated shots"
       >
         Brands
+      </button>
+
+      <button
+        type="button"
+        onClick={onPresets}
+        data-presets-button
+        className="
+          flex items-center gap-1.5 px-3 py-1.5 rounded
+          bg-app-surface text-text-secondary text-[12px]
+          hover:bg-app-hover transition-colors
+        "
+        title="Editing presets: the workflow, style knobs and instructions the Studio assistant follows per kind of video"
+      >
+        Presets
       </button>
 
       {/* AI curation. Unavailable is a state, not an error (L2 Rev 3) — the

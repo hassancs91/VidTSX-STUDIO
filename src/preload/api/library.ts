@@ -25,6 +25,11 @@ import type {
   LibraryOrganizeSuggestResponse,
   LibraryPrefsSetRequest,
   LibraryPrefsSetResponse,
+  LibraryPresetDeleteRequest,
+  LibraryPresetDeleteResponse,
+  LibraryPresetSaveRequest,
+  LibraryPresetSaveResponse,
+  LibraryPresetsGetResponse,
   LibraryRootGetResponse,
   LibraryRootSetRequest,
   LibraryRootSetResponse,
@@ -84,6 +89,14 @@ export const libraryApi = {
     data: LibraryBrandDefaultSetRequest
   ): Promise<LibraryBrandDefaultSetResponse> =>
     ipcRenderer.invoke(IPC.LIBRARY_BRAND_DEFAULT_SET, data),
+
+  // ─── Editing presets (V1 completion plan §2.5) ───
+  libraryPresetsGet: (): Promise<LibraryPresetsGetResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_PRESETS_GET),
+  libraryPresetSave: (data: LibraryPresetSaveRequest): Promise<LibraryPresetSaveResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_PRESET_SAVE, data),
+  libraryPresetDelete: (data: LibraryPresetDeleteRequest): Promise<LibraryPresetDeleteResponse> =>
+    ipcRenderer.invoke(IPC.LIBRARY_PRESET_DELETE, data),
 
   // ─── Visible web capture handshake (L6/D12) ───
   libraryCaptureTrigger: (

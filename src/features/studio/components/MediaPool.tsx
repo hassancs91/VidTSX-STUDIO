@@ -61,6 +61,10 @@ interface Props {
   brands: Array<{ id: string; name: string }>;
   brandId: string | undefined;
   onSetBrand: (brandId: string | null) => void;
+  // Editing preset (W5): the playbook the assistant follows for this project
+  presets: Array<{ id: string; name: string }>;
+  presetId: string | undefined;
+  onSetPreset: (presetId: string | null) => void;
   /** Q1c reconcile found a convertible drop-in — shown via the import banner. */
   reconcileFailure: ShotImportFailure | null;
   onReconcileFailureShown: () => void;
@@ -92,6 +96,9 @@ export function MediaPool({
   brands,
   brandId,
   onSetBrand,
+  presets,
+  presetId,
+  onSetPreset,
   reconcileFailure,
   onReconcileFailureShown,
 }: Props) {
@@ -162,6 +169,9 @@ export function MediaPool({
           brands={brands}
           brandId={brandId}
           onSetBrand={onSetBrand}
+          presets={presets}
+          presetId={presetId}
+          onSetPreset={onSetPreset}
           reconcileFailure={reconcileFailure}
           onReconcileFailureShown={onReconcileFailureShown}
         />
@@ -189,6 +199,9 @@ function ShotsSection({
   brands,
   brandId,
   onSetBrand,
+  presets,
+  presetId,
+  onSetPreset,
   reconcileFailure,
   onReconcileFailureShown,
 }: {
@@ -203,6 +216,9 @@ function ShotsSection({
   brands: Array<{ id: string; name: string }>;
   brandId: string | undefined;
   onSetBrand: (brandId: string | null) => void;
+  presets: Array<{ id: string; name: string }>;
+  presetId: string | undefined;
+  onSetPreset: (presetId: string | null) => void;
   reconcileFailure: ShotImportFailure | null;
   onReconcileFailureShown: () => void;
 }) {
@@ -293,6 +309,31 @@ function ShotsSection({
                 // A stale id (brand deleted) shows as itself so the fallback is visible
                 ...(brandId && !brands.some((b) => b.id === brandId)
                   ? [{ value: brandId, label: `${brandId} (missing)` }]
+                  : []),
+              ]}
+            />
+          </div>
+        </div>
+      )}
+
+      {(presets.length > 0 || presetId) && (
+        <div className="flex items-center gap-1.5" data-preset-picker>
+          <span
+            className="text-[10px] text-text-dim shrink-0"
+            title="The editing preset: the workflow, style knobs and instructions the assistant follows for a full edit of this project. Manage presets on the Assets screen."
+          >
+            Preset
+          </span>
+          <div className="flex-1 min-w-0">
+            <Select
+              value={presetId ?? ''}
+              onChange={(v) => onSetPreset(v === '' ? null : v)}
+              options={[
+                { value: '', label: 'No preset' },
+                ...presets.map((p) => ({ value: p.id, label: p.name })),
+                // A stale id (preset deleted) shows as itself so the fallback is visible
+                ...(presetId && !presets.some((p) => p.id === presetId)
+                  ? [{ value: presetId, label: `${presetId} (missing)` }]
                   : []),
               ]}
             />

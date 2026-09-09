@@ -432,6 +432,11 @@ export const IPC = {
   STUDIO_PACKAGE_EXPORT: 'studio:package:export',
   STUDIO_PACKAGE_INSPECT: 'studio:package:inspect',
   STUDIO_PACKAGE_IMPORT: 'studio:package:import',
+
+  // W5: editing presets — learn from this video (the card the user accepts).
+  STUDIO_PRESET_LEARN: 'studio:preset:learn',
+  STUDIO_PRESET_PROPOSALS_GET: 'studio:preset:proposals:get',
+  STUDIO_PRESET_PROPOSAL_RESOLVE: 'studio:preset:proposal:resolve',
   STUDIO_PACKAGE_EVENT: 'studio:package:event',
   STUDIO_PACKAGE_PENDING: 'studio:package:pending',
   STUDIO_PACKAGE_OPEN_FILE: 'studio:package:open-file',
@@ -476,6 +481,11 @@ export const IPC = {
   LIBRARY_BRAND_SAVE: 'library:brand:save',
   LIBRARY_BRAND_DELETE: 'library:brand:delete',
   LIBRARY_BRAND_DEFAULT_SET: 'library:brand:default:set',
+
+  // Asset library — editing presets (V1 completion plan §2.5)
+  LIBRARY_PRESETS_GET: 'library:presets:get',
+  LIBRARY_PRESET_SAVE: 'library:preset:save',
+  LIBRARY_PRESET_DELETE: 'library:preset:delete',
 
   // Asset library — AI descriptions (L2): availability + one-time consent,
   // and a batch describe job whose per-item results arrive on the event

@@ -4,10 +4,12 @@ import { useAssetActions } from '../hooks/useAssetActions';
 import { useAssetClipboard } from '../hooks/useAssetClipboard';
 import { useLibraryIndex, toLibraryRelPath } from '../hooks/useLibraryIndex';
 import { useBrands } from '../hooks/useBrands';
+import { usePresets } from '../hooks/usePresets';
 import { useLibraryDescribe } from '../hooks/useLibraryDescribe';
 import { useLibraryOrganize } from '../hooks/useLibraryOrganize';
 import { AssetToolbar } from './AssetToolbar';
 import { BrandsDialog } from './BrandsDialog';
+import { PresetsDialog } from './PresetsDialog';
 import { AssetBreadcrumb } from './AssetBreadcrumb';
 import { AssetGrid } from './AssetGrid';
 import { AssetSearchBar } from './AssetSearchBar';
@@ -56,6 +58,8 @@ export function AssetLibraryScreen() {
   const [renameValue, setRenameValue] = useState('');
   const [brandsOpen, setBrandsOpen] = useState(false);
   const brandsApi = useBrands();
+  const [presetsOpen, setPresetsOpen] = useState(false);
+  const presetsApi = usePresets();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
 
@@ -239,6 +243,7 @@ export function AssetLibraryScreen() {
           onCreateFolder={createFolder}
           onRefresh={() => void handleRefresh()}
           onBrands={() => setBrandsOpen(true)}
+          onPresets={() => setPresetsOpen(true)}
           onDescribe={() => void runDescribe(describeTargetPaths)}
           onOrganize={() => void organize.suggest()}
           aiDisabledReason={aiDisabledReason}
@@ -323,6 +328,17 @@ export function AssetLibraryScreen() {
           onSetDefault={brandsApi.setDefault}
           onMutated={() => void onChanged()}
           onClose={() => setBrandsOpen(false)}
+        />
+      )}
+
+      {presetsOpen && (
+        <PresetsDialog
+          presets={presetsApi.presets}
+          brands={brandsApi.brands.map((b) => ({ id: b.id, name: b.name }))}
+          onSave={presetsApi.savePreset}
+          onDelete={presetsApi.deletePreset}
+          onMutated={() => void onChanged()}
+          onClose={() => setPresetsOpen(false)}
         />
       )}
 

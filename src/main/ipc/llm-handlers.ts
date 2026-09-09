@@ -201,6 +201,8 @@ export async function runLlmGenerate(
   extras?: {
     mcpServers?: Record<string, unknown>;
     trailingSystemPrompt?: string;
+    /** Between the skills and the trailing block (the Studio editing preset). */
+    middleSystemPrompt?: string;
     /** Agent SDK cwd + permission hook — the agents feature's file-tool guard. */
     cwd?: string;
     canUseTool?: LlmToolPermission;
@@ -217,11 +219,14 @@ export async function runLlmGenerate(
     const start = Date.now();
 
     const composedSystemPrompt =
-      (data.skillIds && data.skillIds.length > 0) || extras?.trailingSystemPrompt
+      (data.skillIds && data.skillIds.length > 0) ||
+      extras?.trailingSystemPrompt ||
+      extras?.middleSystemPrompt
         ? await composeSystemPrompt(
             data.systemPrompt ?? '',
             data.skillIds ?? [],
             extras?.trailingSystemPrompt,
+            extras?.middleSystemPrompt,
           )
         : data.systemPrompt;
 

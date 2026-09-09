@@ -17,6 +17,7 @@ import { buildProjectTools } from './project-tools';
 import { buildDeliveryTools } from './delivery-tools';
 import { buildScriptTools } from './script-tools';
 import { buildVocabularyTools } from './vocabulary-tools';
+import { buildPresetTools } from './preset-tools';
 import type { StudioToolContext } from './types';
 
 export { createTurnState } from './types';
@@ -48,6 +49,9 @@ export const STUDIO_TOOL_IDS = [
   // W4 (2026-09-09): script and vocabulary.
   'get_script',
   'propose_vocabulary',
+  // W5 (2026-09-09): editing presets and learn from this video.
+  'get_preset',
+  'propose_preset_update',
 ] as const;
 
 export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
@@ -75,6 +79,7 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildDeliveryTools(ctx),
       ...buildScriptTools(ctx),
       ...buildVocabularyTools(ctx),
+      ...buildPresetTools(ctx),
     ],
   });
 }

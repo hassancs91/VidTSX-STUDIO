@@ -1,0 +1,27 @@
+{
+  "name": "Talking-head short",
+  "description": "A vertical short cut from one talking-head take: hook first, tight pacing, punchy captions, a shot every 15 seconds.",
+  "videoKind": "short",
+  "orientation": "9:16",
+  "workflow": [
+    { "id": "transcribe" },
+    { "id": "auto_cut", "aggressiveness": "aggressive" },
+    { "id": "editorial" },
+    { "id": "shots", "cadence": 4 },
+    { "id": "sfx" },
+    { "id": "music" },
+    { "id": "captions", "template": "core/word-pop" }
+  ],
+  "style": {
+    "pacing": "tight",
+    "shotsPerMinute": 4,
+    "sfxPerMinute": 3,
+    "musicBed": "present",
+    "captions": "karaoke",
+    "transitions": [],
+    "introSeconds": 0,
+    "outroSeconds": 2
+  },
+  "createdAt": "2026-09-09T00:00:00.000Z",
+  "updatedAt": "2026-09-09T00:00:00.000Z"
+}

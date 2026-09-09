@@ -144,6 +144,10 @@ export async function composeSystemPrompt(
    *  editing it (e.g. agent memory) never re-writes the skill text out of
    *  the cached prompt prefix (AGENT_MEMORY_DESIGN.md §Rev 2.5). */
   trailing?: string,
+  /** Placed AFTER the skill sections and BEFORE the trailing block — the
+   *  Studio editing preset (V1 completion plan §2.5): it changes less often
+   *  than memory but more often than the skills, so it sits between them. */
+  middle?: string,
 ): Promise<string> {
   const sections: string[] = [];
   if (skillIds.length > 0) {
@@ -157,6 +161,7 @@ export async function composeSystemPrompt(
       sections.push(`## Skill: ${skill.name}\n\n${skill.body}`);
     }
   }
+  if (middle) sections.push(middle);
   if (trailing) sections.push(trailing);
   if (sections.length === 0) return basePrompt;
   return `${basePrompt}\n\n---\n\n${sections.join('\n\n')}`;

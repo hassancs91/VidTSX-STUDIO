@@ -58,6 +58,11 @@ import {
 import { registerFlushAck } from '../flush-guard';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
+import {
+  handleStudioPresetLearn,
+  handleStudioPresetProposalResolve,
+  handleStudioPresetProposalsGet,
+} from '../preset-learn-handlers';
 import { shotJobEvents } from '../../services/studio/shot-job-events';
 
 export function registerStudioIpc(): void {
@@ -103,6 +108,10 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PACKAGE_EXPORT, handleStudioPackageExport);
   ipcMain.handle(IPC.STUDIO_PACKAGE_INSPECT, handleStudioPackageInspect);
   ipcMain.handle(IPC.STUDIO_PACKAGE_IMPORT, handleStudioPackageImport);
+  // W5: learn from this video.
+  ipcMain.handle(IPC.STUDIO_PRESET_LEARN, handleStudioPresetLearn);
+  ipcMain.handle(IPC.STUDIO_PRESET_PROPOSALS_GET, handleStudioPresetProposalsGet);
+  ipcMain.handle(IPC.STUDIO_PRESET_PROPOSAL_RESOLVE, handleStudioPresetProposalResolve);
   ipcMain.handle(IPC.STUDIO_SHOT_CONFORM, handleStudioShotConform);
   ipcMain.handle(IPC.STUDIO_PACKAGE_PENDING, handleStudioPackagePending);
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATES, handleStudioCaptionTemplates);

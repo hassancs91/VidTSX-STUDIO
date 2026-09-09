@@ -72,6 +72,12 @@ import type {
   StudioPackageEvent,
   StudioPackageImportRequest,
   StudioPackageImportResponse,
+  StudioPresetLearnRequest,
+  StudioPresetLearnResponse,
+  StudioPresetProposalResolveRequest,
+  StudioPresetProposalResolveResponse,
+  StudioPresetProposalsGetRequest,
+  StudioPresetProposalsGetResponse,
   StudioPackageInspectRequest,
   StudioPackageInspectResponse,
   StudioPackageOpenFileEvent,
@@ -196,6 +202,13 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_INSPECT, data),
   studioPackageImport: (data: StudioPackageImportRequest): Promise<StudioPackageImportResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PACKAGE_IMPORT, data),
+  // W5: learn from this video.
+  studioPresetLearn: (data: StudioPresetLearnRequest): Promise<StudioPresetLearnResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PRESET_LEARN, data),
+  studioPresetProposalsGet: (data: StudioPresetProposalsGetRequest): Promise<StudioPresetProposalsGetResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PRESET_PROPOSALS_GET, data),
+  studioPresetProposalResolve: (data: StudioPresetProposalResolveRequest): Promise<StudioPresetProposalResolveResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PRESET_PROPOSAL_RESOLVE, data),
   studioShotConform: (data: StudioShotConformRequest): Promise<StudioShotConformResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_CONFORM, data),
   onStudioPackageEvent: (callback: (event: StudioPackageEvent) => void): (() => void) => {

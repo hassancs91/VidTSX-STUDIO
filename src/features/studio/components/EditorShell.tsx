@@ -23,6 +23,7 @@ import { useShotModules } from '../hooks/useShotModules';
 import { useShotJobs } from '../hooks/useShotJobs';
 import { usePaneSize } from '../hooks/usePaneSize';
 import { useBrandList } from '../hooks/useBrandList';
+import { usePresetList } from '../hooks/usePresetList';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { usePlayback } from '../hooks/usePlayback';
@@ -226,6 +227,46 @@ export function EditorShell({ projectId, onBack }: Props) {
     },
     [updateProject],
   );
+
+  // ----- Editing preset (W5): same non-undoable settings edit as the brand --
+
+  const presetList = usePresetList();
+  const handleSetPreset = useCallback(
+    (presetId: string | null) => {
+      updateProject((prev) => {
+        const settings = { ...prev.settings };
+        if (presetId) settings.presetId = presetId;
+        else delete settings.presetId;
+        return { ...prev, settings };
+      });
+    },
+    [updateProject],
+  );
+
+  const activePresetName = useMemo(
+    () => presetList.find((p) => p.id === project?.settings.presetId)?.name,
+    [presetList, project?.settings.presetId],
+  );
+
+  // "Learn from this video" (W5): hand main the LIVE document (the save
+  // debounce may lag) — it measures, writes one summary, and pushes the card
+  // on the agent stream, so the Assistant tab shows it.
+  const handleLearnPreset = useCallback(async (): Promise<string | null> => {
+    if (!project) return 'No project is open.';
+    const { captions: _c, ...rest } = project;
+    const res = await window.api.studioPresetLearn({
+      projectId: project.id,
+      // The undoable slice lives in the reducer — project.* lags it.
+      project: {
+        ...rest,
+        timeline: tl.timeline,
+        shots: tl.shots,
+        proposals: tl.proposals,
+        ...(tl.captions ? { captions: tl.captions } : {}),
+      },
+    });
+    return res.success ? null : (res.error ?? 'Could not learn from this project.');
+  }, [project, tl.timeline, tl.shots, tl.proposals, tl.captions]);
 
   // ----- Restore version (Q10) -------------------------------------------
   // Swap the whole document for a snapshot: the hook flushes + persists, the
@@ -1039,6 +1080,9 @@ export function EditorShell({ projectId, onBack }: Props) {
             brands={brandList}
             brandId={project.settings.brandId}
             onSetBrand={handleSetBrand}
+            presets={presetList}
+            presetId={project.settings.presetId}
+            onSetPreset={handleSetPreset}
             reconcileFailure={reconcileFailure}
             onReconcileFailureShown={() => setReconcileFailure(null)}
           />
@@ -1156,6 +1200,8 @@ export function EditorShell({ projectId, onBack }: Props) {
                 getTranscribeProgress={getTranscribeProgress}
                 onAutoCut={autoCut.runAutoCut}
                 autoCutPhase={autoCut.phase}
+                {...(activePresetName ? { presetName: activePresetName } : {})}
+                onLearnPreset={handleLearnPreset}
                 review={
                   activeProposal && activeProposal.kind === 'cut-plan'
                     ? {

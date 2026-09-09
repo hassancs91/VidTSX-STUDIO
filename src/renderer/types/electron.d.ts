@@ -477,6 +477,10 @@ export interface ElectronAPI {
   onStudioPackageOpenFile: (callback: (event: import('../../shared/ipc/types').StudioPackageOpenFileEvent) => void) => () => void;
   studioPackageInspect: (data: import('../../shared/ipc/types').StudioPackageInspectRequest) => Promise<import('../../shared/ipc/types').StudioPackageInspectResponse>;
   studioPackageImport: (data: import('../../shared/ipc/types').StudioPackageImportRequest) => Promise<import('../../shared/ipc/types').StudioPackageImportResponse>;
+  // W5: learn from this video.
+  studioPresetLearn: (data: import('../../shared/ipc/types').StudioPresetLearnRequest) => Promise<import('../../shared/ipc/types').StudioPresetLearnResponse>;
+  studioPresetProposalsGet: (data: import('../../shared/ipc/types').StudioPresetProposalsGetRequest) => Promise<import('../../shared/ipc/types').StudioPresetProposalsGetResponse>;
+  studioPresetProposalResolve: (data: import('../../shared/ipc/types').StudioPresetProposalResolveRequest) => Promise<import('../../shared/ipc/types').StudioPresetProposalResolveResponse>;
   studioShotConform: (data: import('../../shared/ipc/types').StudioShotConformRequest) => Promise<import('../../shared/ipc/types').StudioShotConformResponse>;
   onStudioPackageEvent: (callback: (event: import('../../shared/ipc/types').StudioPackageEvent) => void) => () => void;
   onStudioMediaJobEvent: (callback: (event: import('../../shared/ipc/types').StudioMediaJobEvent) => void) => () => void;
@@ -521,6 +525,10 @@ export interface ElectronAPI {
   libraryBrandSave: (data: import('../../shared/ipc/types').LibraryBrandSaveRequest) => Promise<import('../../shared/ipc/types').LibraryBrandSaveResponse>;
   libraryBrandDelete: (data: import('../../shared/ipc/types').LibraryBrandDeleteRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDeleteResponse>;
   libraryBrandDefaultSet: (data: import('../../shared/ipc/types').LibraryBrandDefaultSetRequest) => Promise<import('../../shared/ipc/types').LibraryBrandDefaultSetResponse>;
+  // Asset library — editing presets (V1 completion plan §2.5)
+  libraryPresetsGet: () => Promise<import('../../shared/ipc/types').LibraryPresetsGetResponse>;
+  libraryPresetSave: (data: import('../../shared/ipc/types').LibraryPresetSaveRequest) => Promise<import('../../shared/ipc/types').LibraryPresetSaveResponse>;
+  libraryPresetDelete: (data: import('../../shared/ipc/types').LibraryPresetDeleteRequest) => Promise<import('../../shared/ipc/types').LibraryPresetDeleteResponse>;
 
   // Asset library — AI descriptions (L2)
   libraryDescribeAvailability: () => Promise<import('../../shared/ipc/types').LibraryDescribeAvailabilityResponse>;

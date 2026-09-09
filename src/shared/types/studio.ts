@@ -329,6 +329,13 @@ export interface StudioProjectSettings {
    * switchable per project any time. Absent = no brand injection.
    */
   brandId?: string;
+  /**
+   * Editing preset (V1 completion plan §2.5) — a preset id in the app-level
+   * library. Its PRESET.md rides the assistant's system prompt and its
+   * workflow is the order the agent follows for a full edit. Absent = no
+   * preset; a stale id (preset deleted) degrades to none.
+   */
+  presetId?: string;
 }
 
 export interface StudioProject {
