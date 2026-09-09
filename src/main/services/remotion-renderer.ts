@@ -5,6 +5,7 @@ import { getRemotionBinariesDir } from '../utils/paths';
 import { snapRenderScale } from '../../shared/render-scale';
 import { renderAnimatedWebp } from './webp/webp-render';
 import { withBt709FilterTags } from './remotion-color-args';
+import { describeRenderError, offthreadRenderOptions, shouldRetryAfterStarvation } from './remotion-offthread-retry';
 import type {
   RenderCodec,
   RenderGpuBackend,
@@ -277,7 +278,9 @@ export async function renderComposition(
       return;
     }
 
-    await renderMedia({
+    // One render per attempt: the second attempt only ever runs after the
+    // compositor's "No frame found at position" (remotion-offthread-retry.ts).
+    const renderOnce = (attempt: number) => renderMedia({
       serveUrl: options.bundleUrl,
       composition: {
         id: options.compositionId,
@@ -301,6 +304,7 @@ export async function renderComposition(
       ...(isProRes ? { proResProfile: '4444' as const } : {}),
       ...(wantsAlpha ? { pixelFormat: alphaPixelFormat, imageFormat: 'png' as const } : {}),
       ...(options.cpuUsage ? { concurrency: options.cpuUsage } : {}),
+      ...offthreadRenderOptions(attempt),
       chromiumOptions: {
         disableWebSecurity: true,
         // Only inject `gl` when the user picked a backend, so omitting it
@@ -334,6 +338,20 @@ export async function renderComposition(
         });
       },
     });
+
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await renderOnce(attempt);
+        return;
+      } catch (err) {
+        if (!shouldRetryAfterStarvation(err, attempt, activeRender.status === 'cancelled')) throw err;
+        console.warn(
+          `[RemotionRenderer] OffthreadVideo cache starvation on job ${jobId} — retrying once with one tab: ` +
+            (err instanceof Error ? err.message : String(err)),
+        );
+        activeRender.progress = 0;
+      }
+    }
   };
 
   resolveAndRender()
@@ -362,7 +380,7 @@ export async function renderComposition(
       }, 5000);
     })
     .catch((err: unknown) => {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown render error';
+      const errorMessage = describeRenderError(err);
       const isCancelled = errorMessage.includes('cancel');
 
       activeRender.status = isCancelled ? 'cancelled' : 'failed';
