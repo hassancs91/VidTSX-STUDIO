@@ -11,6 +11,7 @@ import {
   handleAgentSessionLoad,
   handleAgentSessionDelete,
   handleAgentSessionRename,
+  handleAgentSessionBrandSet,
   handleAgentsPendingPackage,
 } from '../agent-handlers';
 import {
@@ -40,6 +41,7 @@ export function registerAgentsIpc(): void {
   ipcMain.handle(IPC.AGENT_SESSION_LOAD, handleAgentSessionLoad);
   ipcMain.handle(IPC.AGENT_SESSION_DELETE, handleAgentSessionDelete);
   ipcMain.handle(IPC.AGENT_SESSION_RENAME, handleAgentSessionRename);
+  ipcMain.handle(IPC.AGENT_SESSION_BRAND_SET, handleAgentSessionBrandSet);
 
   ipcMain.handle(IPC.AGENT_RUN_SEND, handleAgentRunSend);
   ipcMain.handle(IPC.AGENT_RUN_CANCEL, handleAgentRunCancel);

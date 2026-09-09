@@ -20,6 +20,8 @@ export const AGENT_TOOL_IDS = [
   'ask_user',
   'list_artifacts',
   'propose_memory',
+  // W4 (2026-09-09): the session's brand, on demand.
+  'get_brand',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

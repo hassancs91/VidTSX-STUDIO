@@ -510,6 +510,7 @@ export const IPC = {
   AGENT_SESSION_LOAD: 'agents:session:load',
   AGENT_SESSION_DELETE: 'agents:session:delete',
   AGENT_SESSION_RENAME: 'agents:session:rename',
+  AGENT_SESSION_BRAND_SET: 'agents:session:brand:set',
   AGENT_RUN_SEND: 'agents:run:send',
   AGENT_RUN_CANCEL: 'agents:run:cancel',
   AGENT_RUN_EVENT: 'agents:run:event',

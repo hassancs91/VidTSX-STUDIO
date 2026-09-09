@@ -148,14 +148,19 @@ export class AgentService {
 
   // ─── Sessions ───
 
+  /** `brandId` absent = the library default (pre-W4 behaviour); null = no
+   *  brand; a string = that brand (the picker's choice). */
   async createSession(
-    input: Omit<CreateAgentSessionInput, 'agentName' | 'agentVersion' | 'brandId'>,
+    input: Omit<CreateAgentSessionInput, 'agentName' | 'agentVersion' | 'brandId'> & {
+      brandId?: string | null;
+    },
   ): Promise<AgentSession> {
     const agent = await this.findAgent(input.agentId);
     if (!agent) throw new Error(`Agent "${input.agentId}" is not installed.`);
-    const brandId = getDefaultBrandId();
+    const { brandId: chosen, ...rest } = input;
+    const brandId = chosen === undefined ? getDefaultBrandId() : (chosen ?? undefined);
     return createAgentSession({
-      ...input,
+      ...rest,
       agentName: agent.manifest.name,
       agentVersion: agent.manifest.version,
       ...(brandId ? { brandId } : {}),

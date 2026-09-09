@@ -551,6 +551,7 @@ export interface ElectronAPI {
   agentSessionLoad: (data: import('../../shared/ipc/types').AgentSessionLoadRequest) => Promise<import('../../shared/ipc/types').AgentSessionLoadResponse>;
   agentSessionDelete: (data: import('../../shared/ipc/types').AgentSessionDeleteRequest) => Promise<import('../../shared/ipc/types').AgentSessionDeleteResponse>;
   agentSessionRename: (data: import('../../shared/ipc/types').AgentSessionRenameRequest) => Promise<import('../../shared/ipc/types').AgentSessionRenameResponse>;
+  agentSessionBrandSet: (data: import('../../shared/ipc/types').AgentSessionBrandSetRequest) => Promise<import('../../shared/ipc/types').AgentSessionBrandSetResponse>;
   agentRunSend: (data: import('../../shared/ipc/types').AgentRunSendRequest) => Promise<import('../../shared/ipc/types').AgentRunSendResponse>;
   agentRunCancel: (data: import('../../shared/ipc/types').AgentRunCancelRequest) => Promise<import('../../shared/ipc/types').AgentRunCancelResponse>;
   agentInteractionReply: (data: import('../../shared/ipc/types').AgentInteractionReplyRequest) => Promise<import('../../shared/ipc/types').AgentInteractionReplyResponse>;

@@ -64,6 +64,9 @@ export function capabilitiesFor(manifest: AgentManifest): AgentCapability[] {
   if (tools.has('ask_user')) {
     capabilities.push({ id: 'ask', label: 'Asks you questions while it works' });
   }
+  if (tools.has('get_brand')) {
+    capabilities.push({ id: 'brand', label: 'Reads your brand (palette, fonts, vocabulary)' });
+  }
   if (manifest.workspace?.sdkFileTools) {
     capabilities.push({ id: 'files', label: 'Writes files in its own session folder' });
   }

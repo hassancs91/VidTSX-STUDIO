@@ -16,6 +16,8 @@ import type {
   AgentSessionLoadResponse,
   AgentSessionRenameRequest,
   AgentSessionRenameResponse,
+  AgentSessionBrandSetRequest,
+  AgentSessionBrandSetResponse,
   AgentSessionsListRequest,
   AgentSessionsListResponse,
   AgentsCheckUpdateRequest,
@@ -215,6 +217,7 @@ export async function handleAgentSessionCreate(
       ...(data.providerId ? { providerId: data.providerId } : {}),
       ...(data.model ? { model: data.model } : {}),
       ...(data.starter ? { starter: data.starter } : {}),
+      ...(data.brandId !== undefined ? { brandId: data.brandId } : {}),
     });
     return { success: true, session };
   } catch (err) {
@@ -244,6 +247,25 @@ export async function handleAgentSessionDelete(
     return { success: true };
   } catch (err) {
     return fail(err, 'Failed to delete the agent session');
+  }
+}
+
+/** W4: the brand an open session generates under. Applies from the next
+ *  turn (the run context re-reads the session record); media already filed
+ *  keeps its tag. */
+export async function handleAgentSessionBrandSet(
+  _event: IpcMainInvokeEvent,
+  data: AgentSessionBrandSetRequest,
+): Promise<AgentSessionBrandSetResponse> {
+  try {
+    const session = await patchAgentSession(data.agentId, data.sessionId, {
+      brandId: data.brandId ?? undefined,
+    });
+    return session
+      ? { success: true, session }
+      : { success: false, error: 'That session no longer exists.' };
+  } catch (err) {
+    return fail(err, 'Failed to set the session brand');
   }
 }
 

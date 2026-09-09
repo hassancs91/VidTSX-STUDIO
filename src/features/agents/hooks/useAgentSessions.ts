@@ -35,7 +35,14 @@ export function useAgentSessions(agentId: string | null) {
 
   const create = useCallback(
     async (
-      options: { providerId?: string; model?: string; starter?: StarterAnswers; title?: string } = {},
+      options: {
+        providerId?: string;
+        model?: string;
+        starter?: StarterAnswers;
+        title?: string;
+        /** W4: undefined = the library default, null = none. */
+        brandId?: string | null;
+      } = {},
     ): Promise<AgentSession | undefined> => {
       if (!agentId) return undefined;
       const result = await window.api.agentSessionCreate({
@@ -44,6 +51,7 @@ export function useAgentSessions(agentId: string | null) {
         ...(options.model ? { model: options.model } : {}),
         ...(options.starter ? { starter: options.starter } : {}),
         ...(options.title ? { title: options.title } : {}),
+        ...(options.brandId !== undefined ? { brandId: options.brandId } : {}),
       });
       await refresh();
       return result.success ? result.session : undefined;

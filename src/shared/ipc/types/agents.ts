@@ -114,6 +114,9 @@ export interface AgentSessionCreateRequest {
   providerId?: string;
   model?: string;
   starter?: StarterAnswers;
+  /** W4: the brand the session generates under. Absent = the library
+   *  default (the pre-W4 behaviour); null = no brand; a string = that one. */
+  brandId?: string | null;
 }
 
 export interface AgentSessionCreateResponse {
@@ -152,6 +155,21 @@ export interface AgentSessionRenameRequest {
 }
 
 export interface AgentSessionRenameResponse {
+  success: boolean;
+  session?: AgentSession;
+  error?: string;
+}
+
+/** agents:session:brand:set — change the brand an open session generates
+ *  under (W4). Applies from the next turn; media already filed keeps the
+ *  tag it was filed with. null clears it. */
+export interface AgentSessionBrandSetRequest {
+  agentId: string;
+  sessionId: string;
+  brandId: string | null;
+}
+
+export interface AgentSessionBrandSetResponse {
   success: boolean;
   session?: AgentSession;
   error?: string;

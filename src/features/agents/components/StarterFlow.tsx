@@ -15,7 +15,7 @@
 //   - a returning user goes straight to chat → the workspace never mounts this
 //     for a session that already exists
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import type { StarterAnswers } from '@shared/types/agents';
 import {
@@ -42,9 +42,12 @@ interface Props {
   busy?: boolean;
   /** Finished or skipped — the answers so far, which may be partial or empty. */
   onFinish: (answers: StarterAnswers) => void;
+  /** W4: the brand picker rendered above the questions — the session is
+   *  created with this choice. */
+  brandPicker?: ReactNode;
 }
 
-export function StarterFlow({ tree, busy, onFinish }: Props) {
+export function StarterFlow({ tree, busy, onFinish, brandPicker }: Props) {
   const [step, setStep] = useState<StarterStep>({ nodeId: tree.entry, phase: 'node' });
   const [trail, setTrail] = useState<StarterStep[]>([]);
   const [answers, setAnswers] = useState<StarterAnswers>({});
@@ -117,6 +120,13 @@ export function StarterFlow({ tree, busy, onFinish }: Props) {
           Step {index} of {Math.max(total, index)}
         </span>
       </div>
+
+      {brandPicker ? (
+        <div className="flex items-center gap-2 w-full px-0.5" data-starter-brand>
+          <span className="text-[10px] text-text-muted shrink-0">Brand</span>
+          <div className="flex-1 min-w-0">{brandPicker}</div>
+        </div>
+      ) : null}
 
       <Card
         key={`${step.nodeId}:${step.phase}`}

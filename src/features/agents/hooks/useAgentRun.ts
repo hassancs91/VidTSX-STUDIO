@@ -222,8 +222,15 @@ export function useAgentRun({ agentId, sessionId, providerId, model, onJobReques
 
   const selected = artifacts.find((a) => a.id === selectedId) ?? null;
 
+  /** W4: fold a main-side session patch (the brand chip) into the open
+   *  record without a reload. */
+  const patchSession = useCallback((patch: Partial<AgentSession>) => {
+    setSession((prev) => (prev ? { ...prev, ...patch } : prev));
+  }, []);
+
   return {
     session,
+    patchSession,
     messages,
     artifacts,
     selected,

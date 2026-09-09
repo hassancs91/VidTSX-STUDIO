@@ -27,14 +27,20 @@ interface Input {
   starterTree: StarterTree | undefined;
   sessions: ReturnType<typeof useAgentSessions>;
   providers: ReturnType<typeof useAgentProviders>;
+  /** W4: the library default brand, once known — the picker's initial value. */
+  defaultBrandId?: string | undefined;
 }
 
-export function useAgentStarter({ starterTree, sessions, providers }: Input) {
+export function useAgentStarter({ starterTree, sessions, providers, defaultBrandId }: Input) {
   const { sessions: rows, loaded: sessionsLoaded, create } = sessions;
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [starterOpen, setStarterOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [prefill, setPrefill] = useState<ChatPrefill | null>(null);
+  /** The brand the NEXT session is created with (W4). `undefined` = the
+   *  user has not touched the picker, so main applies the library default. */
+  const [pickedBrandId, setPickedBrandId] = useState<string | null | undefined>(undefined);
+  const starterBrandId = pickedBrandId === undefined ? (defaultBrandId ?? null) : pickedBrandId;
 
   // Open the most recent session, or begin one — but only once a provider
   // exists (§1.8), so a machine with none never accumulates empty sessions.
@@ -83,6 +89,7 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
           ...(providers.model ? { model: providers.model } : {}),
           ...(starter && !isEmptyStarterAnswers(starter) ? { starter } : {}),
           ...(title ? { title } : {}),
+          ...(pickedBrandId !== undefined ? { brandId: pickedBrandId } : {}),
         });
         setStarterOpen(false);
         if (!session) return null;
@@ -92,7 +99,7 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
         setCreating(false);
       }
     },
-    [create, providers.providerId, providers.model],
+    [create, providers.providerId, providers.model, pickedBrandId],
   );
 
   /** New session / Start over (§1.7): with a starter, that means the tree again. */
@@ -140,5 +147,8 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
     newSession,
     finishStarter,
     useQuickStart,
+    /** W4: the starter's brand picker value and setter. */
+    starterBrandId,
+    setStarterBrandId: setPickedBrandId,
   };
 }

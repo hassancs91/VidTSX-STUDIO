@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "vidtsx/motion-post",
   "name": "Motion Post",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Brief → animated social post, rendered.",
   "author": {
     "name": "VidTSX",
@@ -19,7 +19,8 @@
     "render_composition",
     "ask_user",
     "list_artifacts",
-    "propose_memory"
+    "propose_memory",
+    "get_brand"
   ],
   "artifacts": [
     "document",
@@ -113,8 +114,8 @@
   "files": [
     {
       "path": "AGENT.md",
-      "size": 3810,
-      "sha256": "9614e46c1312ffb6b7faab7a37fbe34facc1a14ed6ab7109b913bc52db7a6375"
+      "size": 4195,
+      "sha256": "9425efe293630312e136d8df71c686663d464494e415cb321fa5efcfe4a399cb"
     },
     {
       "path": "icon.png",

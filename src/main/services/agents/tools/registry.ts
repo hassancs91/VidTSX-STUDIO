@@ -17,6 +17,7 @@ import { renderCompositionTool } from './render-composition';
 import { generateImageTool } from './generate-image';
 import { generateVideoTool } from './generate-video';
 import { proposeMemoryTool } from './propose-memory';
+import { getBrandTool } from './get-brand';
 
 /** The registry stores definitions with their arg types erased; the zod schema
  *  validates before a handler ever sees the object. */
@@ -102,3 +103,5 @@ registerTool(generateVideoTool);
 registerTool(askUserTool);
 registerTool(listArtifactsTool);
 registerTool(proposeMemoryTool);
+// W4: the session's brand on demand.
+registerTool(getBrandTool);

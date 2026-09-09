@@ -20,8 +20,10 @@ import { useAgentStarter } from '../hooks/useAgentStarter';
 import { useArtifactActions } from '../hooks/useArtifactActions';
 import { useArtifactViewerData } from '../hooks/useArtifactViewerData';
 import { useAgentMemoryProposals } from '../hooks/useAgentMemoryProposals';
+import { useAgentBrandList } from '../hooks/useAgentBrandList';
 import { useInteractionPreviews } from '../hooks/useInteractionPreviews';
 import { AgentChat } from './AgentChat';
+import { BrandSelect } from './BrandSelect';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { SessionList } from './SessionList';
 import { StarterFlow } from './StarterFlow';
@@ -45,6 +47,9 @@ export function AgentWorkspace({ agent, onBack }: Props) {
   // Which session is open, and how a new one begins (§1.8, §1.9) — including
   // the rule that the starter runs BEFORE the session is created.
   const starterTree = agent.manifest.starter;
+  // W4: the brand a session generates under — picked in the starter for a
+  // new session, changed on the chat chip for an open one.
+  const brandList = useAgentBrandList();
   const {
     sessionId,
     setSessionId,
@@ -54,7 +59,14 @@ export function AgentWorkspace({ agent, onBack }: Props) {
     newSession,
     finishStarter,
     useQuickStart,
-  } = useAgentStarter({ starterTree, sessions: sessionStore, providers });
+    starterBrandId,
+    setStarterBrandId,
+  } = useAgentStarter({
+    starterTree,
+    sessions: sessionStore,
+    providers,
+    defaultBrandId: brandList.defaultBrandId,
+  });
 
   const run = useAgentRun({
     agentId,
@@ -90,6 +102,16 @@ export function AgentWorkspace({ agent, onBack }: Props) {
       if (id === sessionId) setSessionId(null);
     },
     [remove, sessionId],
+  );
+
+  const setSessionBrand = useCallback(
+    async (brandId: string | null) => {
+      if (!sessionId) return;
+      const res = await window.api.agentSessionBrandSet({ agentId, sessionId, brandId });
+      if (res.success) run.patchSession({ brandId: brandId ?? undefined });
+      else showToast(res.error ?? 'Failed to set the session brand', 'error');
+    },
+    [agentId, sessionId, run, showToast],
   );
 
   // A finished turn can rename the session (first prompt becomes the title),
@@ -133,7 +155,19 @@ export function AgentWorkspace({ agent, onBack }: Props) {
   // stage — so the two layers look like one conversation (§1.9's "no seam").
   const stageCard =
     starterOpen && starterTree ? (
-      <StarterFlow tree={starterTree} busy={creating} onFinish={(a) => void finishStarter(a)} />
+      <StarterFlow
+        tree={starterTree}
+        busy={creating}
+        onFinish={(a) => void finishStarter(a)}
+        brandPicker={
+          <BrandSelect
+            brands={brandList.brands}
+            brandId={starterBrandId}
+            onChange={setStarterBrandId}
+            disabled={creating || !brandList.loaded}
+          />
+        }
+      />
     ) : (
       pending
     );
@@ -197,6 +231,19 @@ export function AgentWorkspace({ agent, onBack }: Props) {
               }}
               model={providers.model}
               onModelChange={providers.setModel}
+              {...(sessionId && run.session
+                ? {
+                    brandPicker: (
+                      <BrandSelect
+                        compact
+                        brands={brandList.brands}
+                        brandId={run.session.brandId ?? null}
+                        onChange={(id) => void setSessionBrand(id)}
+                        disabled={run.busy || !brandList.loaded}
+                      />
+                    ),
+                  }
+                : {})}
               onSend={(text) => void run.send(text)}
               {...(prefill ? { prefill } : {})}
               {...(starterTree?.quickStarts?.length

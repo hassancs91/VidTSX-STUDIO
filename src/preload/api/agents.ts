@@ -26,6 +26,8 @@ import type {
   AgentSessionLoadResponse,
   AgentSessionRenameRequest,
   AgentSessionRenameResponse,
+  AgentSessionBrandSetRequest,
+  AgentSessionBrandSetResponse,
   AgentSessionsListRequest,
   AgentSessionsListResponse,
   AgentsCheckUpdateRequest,
@@ -72,6 +74,8 @@ export const agentsApi = {
     ipcRenderer.invoke(IPC.AGENT_SESSION_DELETE, data),
   agentSessionRename: (data: AgentSessionRenameRequest): Promise<AgentSessionRenameResponse> =>
     ipcRenderer.invoke(IPC.AGENT_SESSION_RENAME, data),
+  agentSessionBrandSet: (data: AgentSessionBrandSetRequest): Promise<AgentSessionBrandSetResponse> =>
+    ipcRenderer.invoke(IPC.AGENT_SESSION_BRAND_SET, data),
 
   // ─── Runs (§1.2) ───
   agentRunSend: (data: AgentRunSendRequest): Promise<AgentRunSendResponse> =>

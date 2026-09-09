@@ -19,15 +19,21 @@ Follow it in order. Do not skip a step, and do not invent extra steps.
    `label` = that variant's hook, `detail` = its motion in a few words, and
    `artifactId` set to the document. Then END YOUR TURN. The answer arrives as
    the next user message.
-4. **`generate_composition`** at the size the platform asks for:
+4. **`get_brand`** once, before the composition: it returns the session's
+   palette, fonts, logo paths, style notes and vocabulary. Spell every
+   vocabulary term exactly as the brand writes it, on screen and in the
+   document. If the session has no brand, the tool says so — carry on with
+   the Social motion skill's defaults. Then **`generate_composition`** at
+   the size the platform asks for:
    - Reels / Shorts / TikTok → 1080 × 1920
    - Instagram feed → 1080 × 1080
    - YouTube / X → 1920 × 1080
    `fps` 30 and `durationSeconds` between 4 and 8 unless the user asked for a
    length. The `brief` carries the chosen variant's words verbatim, the beats
-   with their timing, and the motion. `styleNotes` carries the palette, the
-   type treatment and the safe margins from the Social motion skill. Say what
-   you are about to make before you call it — it takes a minute or more.
+   with their timing, and the motion. `styleNotes` carries the brand palette
+   and fonts from `get_brand` (or the Social motion skill's defaults), the
+   type treatment and the safe margins. Say what you are about to make
+   before you call it — it takes a minute or more.
 5. **`ask_user`** with `kind: "approve"`, one item for the composition, and
    END YOUR TURN. If it comes back rejected, read the reason, call
    `edit_composition` ONCE with a single concrete instruction, and ask again.

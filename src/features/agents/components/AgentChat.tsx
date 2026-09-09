@@ -28,6 +28,8 @@ interface Props {
   /** Model on the provider; '' = its default (W1). */
   model: string;
   onModelChange: (model: string) => void;
+  /** W4: the session brand chip, rendered beside the model chip. */
+  brandPicker?: ReactNode;
   onSend: (text: string) => void;
   onCancel: () => void;
   onNewSession: () => void;
@@ -63,6 +65,7 @@ export function AgentChat({
   onProviderChange,
   model,
   onModelChange,
+  brandPicker,
   onSend,
   onCancel,
   onNewSession,
@@ -107,7 +110,7 @@ export function AgentChat({
         className="flex items-center gap-2 px-2.5 h-[32px] shrink-0"
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
       >
-        <div className="flex-1 min-w-0 flex items-center">
+        <div className="flex-1 min-w-0 flex items-center gap-2">
           <ModelPickerChip
             providers={providers}
             providerId={providerId}
@@ -116,6 +119,7 @@ export function AgentChat({
             onModelChange={onModelChange}
             disabled={busy}
           />
+          {brandPicker}
         </div>
         <button
           onClick={onOpenMemory}
