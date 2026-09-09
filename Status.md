@@ -7,6 +7,52 @@
 
 ---
 
+## 2026-09-10 — STUDIO FLIP DONE: studio-editor on, testing pass on raw footage
+
+Step 5 of `docs/v1-completion-plan.md` §3 — the first cut line with Studio
+in the release. `studio-editor` is a plain `true`; `npm run build` passes
+with the flip and the bundle reads `"studio-editor": true`. Full log — the
+three parked findings, the run on the 4K DJI clip, the hand tests, the
+three long-GOP exports and the driving lessons — in the plan's §3.1 "Studio
+flip outcome". `check:types` at baseline (web 26, node 10); 1908 tests, up
+from 1898. Commits `c8ebecc`, `f081745`, `3771ce2`, `d226d9b` and the docs
+commit.
+
+- **The flip.** The Coming Soon screen stays as the flag's off branch (a kill
+  switch); README gains a Studio section and drops Video Studio from "Coming
+  soon"; docs/studio/PLAN.md and V1_RELEASE_PLAN.md note the date.
+- **W3 finding 2 — confirmed and fixed.** `LLM_CANCEL` called
+  `llmEngine.abortActive()`, and the Claude provider's abort closes EVERY
+  session — a Stop in the Tools chat killed a running Studio turn. Now each
+  renderer request has its own AbortController tagged with window, feature
+  source and session scope (`llm-request-scope.ts`); cancel reaches only the
+  matching ones; main-process turns are untouchable by construction.
+- **W5 finding — fixed.** Under 30 s the learn card withholds pacing,
+  shots/min and SFX/min and says so ("Edit under 0:30 (0:12) — …"); the
+  count-and-flag knobs still hold. Formatting moved to
+  `preset-learn-format.ts`.
+- **W3 finding 1 — not reproduced; safety net shipped.** The same kind of
+  clip (8 s GOPs, B-frames, 17-piece cut) exported 960/960 frames three times
+  — 1.75 GB free, a 50 MB cache cap (dev knob
+  `VIDTSX_OFFTHREAD_VIDEO_CACHE_BYTES`), and 310–430 MB free — byte-identical
+  each time. `renderComposition` now retries once with one tab on that exact
+  error and the queue row's text says what to do.
+- **The run.** One line on the raw 4K HEVC 0271 clip (73 s, 664 MB) with the
+  YouTube long-form preset: transcribe (125 words, 4 keyterms) → Auto Cut
+  natural 24 → editorial 8 → two shots → one library b-roll → captions →
+  export; four cards clicked, 8 min to the queue, 6 min to render, MP4 478
+  frames / 15.933 s H.264 + AAC, complete. No crash, free RAM bottomed at
+  510 MB, zero error/warn lines in the main log. $2.31 API-equivalent, all
+  LLM turns on the subscription route.
+- **By hand.** Cold open (proxy ~2 min), Inspector Transcribe, Auto Cut by
+  button, split, undo/redo (buttons and keys), a 1.5 s trim and its undo,
+  captions, a 30.6 MB proxies-only `.vidtsx` package read back by inspect.
+- **Next:** W2 providers (a, c, then b), then W7, W6, W9, W8 per §3. Finding 1
+  stays open as a reproduction; `remotion-renderer.ts` (424 lines) wants its
+  split.
+
+---
+
 ## 2026-09-09 — V1 COMPLETION W5 DONE: editing presets + learn from this video
 
 W5 of `docs/v1-completion-plan.md`. A preset is the playbook for one kind of

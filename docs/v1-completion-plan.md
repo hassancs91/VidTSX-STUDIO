@@ -26,6 +26,7 @@
 4. The Studio editor is still `studio-editor: false` in
    `src/shared/feature-flags.ts` — production renders Coming Soon. The flip
    is part of this plan (§3) and happens after W5, with its own testing pass.
+   **Done 2026-09-10** — `studio-editor: true`, outcome in §3.1.
 5. House rules hold for every file: feature isolation, IPC-only bridge,
    services own logic, ~300 lines per file, named exports, exact-pinned
    Remotion. `studio-agent.ts` is already ~880 lines; W3 splits it before
@@ -710,7 +711,7 @@ Owned by the flows plan; the pending discussion goes there. What THIS plan needs
 | 2 | W3 Studio end-to-end | 2 | yes (Studio still dev-only) |
 | 3 | W4 script + vocabulary + brands | 1.5 | yes |
 | 4 | W5 presets + learn | 2 | yes |
-| 5 | **Studio flip** — `studio-editor: true`, a Studio testing pass on the raw-footage clips, docs | 1 | yes — first cut line with Studio |
+| 5 | **Studio flip** — `studio-editor: true`, a Studio testing pass on the raw-footage clips, docs — **DONE 2026-09-10 (§3.1)** | 1 | yes — first cut line with Studio |
 | 6 | W2 providers (a, c, then b) | 3.5 | yes |
 | 7 | W7 TSX agent mode | 1 | yes |
 | 8 | W6 posters + Home | 1.5 | yes — second cut line |
@@ -721,6 +722,172 @@ Flows last because it is the largest, still under discussion, and nothing
 above depends on it; it can also run in a parallel session once its
 discussion is done, since it touches `src/features/flows/`,
 `src/main/services/flows*` and the agents registry's `ports` block only.
+
+### 3.1 Studio flip outcome (2026-09-10)
+
+Step 5 of the table above, run overnight and unattended. Five commits by
+pathspec beside the export-engines session's dirty tree: `c8ebecc` (the flip
+and the docs that said Studio was coming), `f081745` (`LLM_CANCEL` scoped to
+the requester — W3 finding 2), `3771ce2` (the learn floor — the W5 finding),
+`d226d9b` (the one-shot retry on Remotion's "No frame found at position" —
+W3 finding 1) and the docs commit that carries this section. `check:types`
+at baseline (web 26, node 10); 1908 tests, up from 1898. `npm run build` —
+electron-vite, the release path — succeeds with the flip and the built
+renderer bundle reads `"studio-editor": true`; the Coming Soon screen is
+still in the bundle as the flag's off branch (a kill switch, one line to flip
+back), which is deliberate.
+
+**The flip.** `studio-editor` was a dev-preview (`false`: forced on in dev,
+Coming Soon in production). It is a plain `true` now, so the editor ships in
+the first release. Nothing else gated on it — `StudioScreen.tsx` is the one
+reader (the Sidebar gates on `studio`, already on). The README gains a Studio
+section written from what the app does today and drops Video Studio from
+"Coming soon" (it shipped 2026-09-07); `docs/studio/PLAN.md` and
+`V1_RELEASE_PLAN.md` note the date. No other user-facing text said Studio
+was coming.
+
+**W3 finding 2 — the provider-level "Request cancelled" with no Stop click:
+CONFIRMED and fixed.** `handleLlmCancel` called `llmEngine.abortActive()`,
+and `ClaudeProvider.abort()` is a global cancel — `for (const session of
+this.sessions) session.abort()` then `sessions.clear()` — so a Stop in the
+Tools chat (the only renderer caller of `LLM_CANCEL`) rejected EVERY
+in-flight request on the provider with `LLMEngineError("Request cancelled")`,
+a running Studio turn included; an agents session or a Flows node on
+`claude-subscription` would have died the same way. The fix is
+`src/main/ipc/llm-request-scope.ts`: every renderer-initiated generate
+(`LLM_GENERATE`, `LLM_CHAT_GENERATE`) gets its own AbortController tagged
+with the sender window, the feature source and the session scope;
+`LLM_CANCEL` takes an optional `{ featureSource?, sessionScope? }` and aborts
+only the matching requests of the calling window (the response says how many
+it reached). Main-process callers — the Studio agent, the TSX job engine, the
+agents runner — pass their own signal and are never in the registry, so they
+are out of reach by construction. The Tools chat tags its requests `ai-chat`
+(its usage rows read `other` before) and cancels with that tag; the Flows
+node's comment says how a per-run cancel would use `sessionScope`. Three unit
+tests on the registry. `abortActive()` itself stays for app shutdown.
+
+**The W5 finding — naive learn numbers on tiny edits: fixed.**
+`diffPresetKnobs` withholds the three RATE knobs (pacing, shots/min, SFX/min)
+when the edit is under 30 s (`MIN_SECONDS_FOR_RATE_KNOBS`); the count-and-flag
+knobs (music bed, captions, transitions, intro, outro) still hold. The card's
+stats summary and the "Learned from" section carry the reason line — "Edit
+under 0:30 (0:12) — pacing, shots/min and SFX/min are not proposed from so
+little." — so the omission is never silent. The formatting moved to
+`preset-learn-format.ts` (both files under the ~300-line rule); tests cover
+12 s (withheld), 30 s (back) and a 24 s learn-from-project run that expects no
+pacing and the reason line.
+
+**W3 finding 1 — "No frame found at position" on long-GOP B-frame sources:
+NOT reproduced; a safety net shipped.** Remotion's troubleshooting page names
+two causes: the `<OffthreadVideo>` cache too small (it is sized at HALF THE
+FREE MEMORY when the render starts) and frame-timestamp gaps; the T5 memory
+note saw the same error only below ~0.5 GB free. The pass re-encoded the W3
+60 s 1080p excerpt with `-g 240 -bf 3` (keyframes at 0/8/16 s, B-frames
+on), Auto Cut it by button (18 cuts → 17 pieces, 32.0 s) and exported it
+through the real dialog three times: with 1.75 GB free, with the cache capped
+at 50 MB through the new dev knob `VIDTSX_OFFTHREAD_VIDEO_CACHE_BYTES` (the
+main process confirmed the value), and with free memory held at 310–430 MB by
+a hog. All three: 960/960 frames in ~3.9 min, and the three files are
+BYTE-IDENTICAL (`md5 dec172771acd…`) — the render is deterministic and none
+of the three levers moves it. What W3 had that this pass did not: the
+export-engines session's 3 h project on 9222 at the same moment, and a
+second source (the b-roll clip) in the timeline. So `d226d9b` is a safety
+net, not a verified cure: `remotion-offthread-retry.ts` classifies that one
+error; `renderComposition` runs the render again exactly once, only for that
+error and never after a cancel, with `concurrency: 1` (one stream on the
+cache, and the failed attempt's browser and compositor are gone so "half of
+free" is larger the second time); the queue row's error text then says what a
+user can do — free RAM, or re-encode the clip with short keyframe intervals —
+in front of Remotion's own message, which stays verbatim. Six unit tests on
+the policy. Trade-off stated: a starved export that fails late spends a
+second pass at one tab; multi-hour exports are the Fast engine's domain, where
+browser spans are short. The raw DJI clips themselves are 0.5 s GOPs with no
+B-frames (`has_b_frames=0`, keyframes every 30 frames), so real camera
+footage never sits in this case at all.
+
+**The run on real footage.** `raw/DJI_20260813142610_0271_D.MP4` — 4K HEVC
+Main 10, 59.94 fps, 73.09 s, 664 MB — seeded as the one asset of a
+1920×1080/30 project on the "YouTube long-form" preset, the Acme Test brand,
+AssemblyAI, Opus 5 planning / Sonnet 5 shots, on a second dev instance (own
+out dir, the W3 profile, CDP 9223; the machine had 1.5 GB free at launch).
+Opening cold: the 720p proxy built in ~2 min on the NVIDIA decoder (RAM at
+83–86 %), the waveform with it, and the editor was usable before the proxy
+was done. One line — "Edit this video end to end and export it." — then the
+watch driver clicked the cards: `get_brand` → `transcribe_asset` (AssemblyAI
+universal, 125 words, `keyterms_prompt` with the brand's 4 terms, verbatim
+with the "Repeat, repeat" slates) → three `get_transcript` windows → a
+`propose_vocabulary` card ("Content Factory", left open) → `run_auto_cut`
+natural (24 silence cuts, −28.5 s of 73.1 s, "so the thinking pauses between
+sentences survive") → card → `propose_cuts` 8 (6 retakes, 2 false starts,
+−38.3 s: "he slates three times, so the last complete delivery of each line
+wins") → card → `get_brand` + two `generate_tsx_shot` (a word-synced "5
+Building Blocks" title in the lower third, a "Let's get started" CTA pill on
+the closing line — "two shots on a 16-second cut, above the preset's 1.5/min,
+but the preset mandates a cold-open title and an outro overlay") →
+`propose_shots` → card → `list_assets` (library) → `insert_asset` (the
+library's overhead-workstation clip from W3 as 3 s of b-roll at 0:07.6 — no
+cloud video generated, the preset's b-roll source is the library) → card →
+`set_captions` core/minimal-line, four words, sentence case → `export_project`
+(default engine), the music step skipped in one line ("no sound provider is
+wired"). Four cards clicked, nothing else typed, 8 min 5 s from send to
+export queued. Final document: 15.94 s, master lane 19 clips, an overlay lane
+with the two shots and the b-roll, captions on, four applied proposals
+(24/24, 8/8, 2/2, 1/1). The export: 6 min 09 s on the Standard engine
+straight from the 4K HEVC source (free RAM bottomed at 510 MB, no crash, no
+OOM); ffprobe on the MP4: 478 frames at 30 fps, 15.933 s, H.264 High yuv420p
+tv/bt709/bt709/bt709 + AAC LC 48 kHz stereo, last pts 15.900 — complete, not
+truncated. Usage log: five `auto-cut` rows on `claude-opus-5`, four
+`studio-tsx-shot` rows on `claude-sonnet-5`, two AssemblyAI rows (about
+$0.004 each); $2.31 API-equivalent in all, every LLM row on the subscription
+route.
+
+**By hand, on the same project.** Seek by clicking the ruler (clock read
+00:03.08); Split at playhead (S) through the toolbar button split the clip
+under the playhead — the overlay title, since the split takes the FIRST track
+with a clip there — 3 → 4 overlay clips on disk; Undo (button) 4 → 3, Redo
+(button) 3 → 4, Undo (Ctrl+Z) 3, Redo enabled/disabled tracking the history
+correctly. Trim: dragging the end handle of the 4.5 s master clip 30 px left
+at 20 px/s took it to 2.995 s (exactly 1.5 s), Undo restored 4.495. Captions
+were already on from the run (core/minimal-line). Package export
+(`strategy: proxies-only`, chat included, `destPath` so no dialog): a 30.6 MB
+`.vidtsx` with 2 media, 2 shots, 1 transcript, the brand snapshot, and
+`studioPackageInspect` read it back. On the long-GOP project: the Inspector's
+Transcribe button (AssemblyAI, ~15 s for 60 s of audio), then Auto Cut by
+button (tight, 18 cuts, applied). Cold open, transcribe, Auto Cut, undo/redo,
+split, trim, captions, package export, three exports: all held.
+
+**Main-process log.** `<profile>/logs/vidtsx-2026-09-09.log` (UTC date):
+165 lines since launch, ZERO `error` or `warn` entries across the run, the
+hand tests, three exports and two restarts. The app never crashed; the
+2026-08-19 OOM did not recur at 1.5 GB free with one 4K source (that run had
+three).
+
+**Driving lessons (docs/ui-automation-cdp.md material).** `byText('Transcribe')`
+matched the SIDEBAR nav entry (same text, earlier in the DOM) and navigated
+away — filter Inspector buttons by `getBoundingClientRect().left > 600`. The
+Transcript/Auto Cut section keys off the MEDIA POOL selection
+(`selectedAssetId`), not the timeline clip — click the pool card. A clip's
+right edge carries three hit targets at the same x: the fade dot (top 1–10
+px), the transition-join square (12 px, vertically centred) and the trim
+handle (full height, 7 px) — drag in the lower quarter. `div.group` matches
+the pool card too — restrict to elements below the ruler. A poll loop must
+gate on the click having landed or it spends its whole cap on nothing.
+
+**Left for later / for the next workstreams.** Finding 1 stays open as a
+reproduction: the next time it appears, `VIDTSX_OFFTHREAD_VIDEO_CACHE_BYTES`
+and the retry warning line in the main log say which path ran; if it still
+never reproduces, the retry is dead weight to remove. `remotion-renderer.ts`
+is 424 lines and wants its split. The `propose_vocabulary` card raised
+mid-run was left open — the watch clicks only review cards, and a user would
+have to tick it; the agent moved on regardless, as designed. The end-to-end
+run named the preset by its second step, not its first sentence (the W5
+note). For W2b: the music step is still the one-line skip. For W6 (thumbnails
++ Home): the raw project's card showed the grey box the whole run. For W7/W9:
+`LLM_CANCEL` now takes `{ featureSource, sessionScope }` — a TSX agent mode
+or a web-designer session that wants a Stop should tag its requests and
+cancel by tag rather than reach for anything global. The exported MP4s are in
+`Videos\VidTSX` (four files, 76 MB) for Hasan to look at; both test projects
+were deleted through `studioProjectDelete`.
 
 ## 4. Rules that hold across workstreams
 
