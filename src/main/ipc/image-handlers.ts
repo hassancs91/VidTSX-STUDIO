@@ -5,7 +5,8 @@ import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 const log = logEngine.createLogger('ImageHandlers');
 import type { ImageProviderConfig } from '../../image-engine';
 import { getImageProviders, saveImageProviders, getProviderCredentials, getCloudflareAccountId } from '../services/settings';
-import { getProviderModels } from '../services/provider-models';
+import { getProviderImageModels } from '../services/provider-models';
+import { resolveImageModelParams } from '../services/image-model-params';
 import { getDefaultImageModelPriceUsd } from '../../shared/presets/provider-model-defaults';
 import {
   initImageEngine,
@@ -156,7 +157,7 @@ export async function handleImageProviderTest(
     // Create a temporary provider for testing using draft values when present.
     // The catalog drives the model list; a draft model id not (yet) in the
     // catalog is appended so it can be exercised by the test.
-    const catalog = await getProviderModels(data.providerId, 'image');
+    const catalog = await getProviderImageModels(data.providerId);
     if (defaultModel && !catalog.some((m) => m.id === defaultModel)) {
       catalog.push({ id: defaultModel, name: defaultModel });
     }
@@ -223,6 +224,7 @@ export async function handleImageModelsGet(
     if (target === GEMINI_CLI_IMAGE_PROVIDER_ID) {
       await agyCliService.ensureProbed().catch(() => {});
     }
+    const providerId = data?.providerId ?? imageEngine.getActiveProvider();
     const models = imageEngine.getModels(data?.providerId);
     return {
       success: true,
@@ -231,6 +233,9 @@ export async function handleImageModelsGet(
         name: m.name,
         supportedOperations: m.supportedOperations,
         credits: m.credits,
+        paramSchema: m.paramSchema,
+        paramDefaults: m.paramDefaults,
+        params: providerId ? resolveImageModelParams(providerId, m.id) : undefined,
       })),
     };
   } catch (err) {
@@ -262,6 +267,7 @@ export async function handleImageGenerate(
       sourceImage: data.sourceImage,
       referenceImages: data.referenceImages,
       outputFormat: data.outputFormat,
+      params: data.params,
       signal: ctrl?.signal,
     };
     const result = data.providerId

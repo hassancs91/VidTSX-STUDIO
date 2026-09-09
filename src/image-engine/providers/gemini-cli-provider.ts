@@ -10,6 +10,7 @@ import type {
   GeneratedImage,
 } from '../types';
 import { ImageEngineError } from '../types';
+import { IMAGE_DIALECT_DEFAULTS } from '@shared/presets/image-dialects';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('GeminiCliProvider');
@@ -134,6 +135,8 @@ function refExtension(base64: string): string {
  */
 export class GeminiCliImageProvider implements ImageProvider {
   readonly id: string;
+  /** The single subscription model; keys the per-model params override. */
+  readonly defaultModel = 'nano-banana-2';
 
   private readonly cli: AgyCliBridge;
 
@@ -151,6 +154,7 @@ export class GeminiCliImageProvider implements ImageProvider {
         name: 'Nano Banana 2 (subscription)',
         supportedOperations: ['text-to-image', 'multi-reference'],
         endpoints: {},
+        paramSchema: IMAGE_DIALECT_DEFAULTS['gemini-cli'].paramSchema,
       },
     ];
   }

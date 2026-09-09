@@ -32,6 +32,7 @@ import { aiUsageApi } from './api/ai-usage';
 import { videoStudioApi } from './api/video-studio';
 import { providerKeysApi } from './api/provider-keys';
 import { providerModelsApi } from './api/provider-models';
+import { imageModelParamsApi } from './api/image-model-params';
 import { videoApi } from './api/video';
 import { sttApi } from './api/stt';
 import { studioApi } from './api/studio';
@@ -75,6 +76,7 @@ const api = {
   ...videoStudioApi,
   ...providerKeysApi,
   ...providerModelsApi,
+  ...imageModelParamsApi,
   ...videoApi,
   ...sttApi,
   ...studioApi,

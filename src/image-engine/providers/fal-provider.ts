@@ -9,6 +9,13 @@ import type {
 import { ImageEngineError } from '../types';
 import { FalClient, FalHttpError } from '@shared/providers/fal';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
+import {
+  DEFAULT_IMAGE_DIALECT,
+  IMAGE_DIALECT_DEFAULTS,
+  isImageDialectId,
+  type ImageDialectId,
+} from '@shared/presets/image-dialects';
+import { schemaHasField, type ImageParamSchema } from '@shared/presets/image-model-params';
 
 interface FalModelDef {
   id: string;
@@ -16,6 +23,8 @@ interface FalModelDef {
   supportedOperations: ImageOperation[];
   endpoints: Partial<Record<ImageOperation, string>>;
   sizeParam: 'aspect_ratio' | 'image_size';
+  /** Which generation parameters the app accepts (image-dialects.ts). */
+  dialect: ImageDialectId;
 }
 
 /**
@@ -34,6 +43,7 @@ const KNOWN_FAL_MODELS: FalModelDef[] = [
       'multi-reference': 'fal-ai/nano-banana-pro/edit',
     },
     sizeParam: 'aspect_ratio',
+    dialect: 'fal-nano-banana',
   },
   {
     id: 'nano-banana-2',
@@ -45,6 +55,7 @@ const KNOWN_FAL_MODELS: FalModelDef[] = [
       'multi-reference': 'fal-ai/nano-banana-2/edit',
     },
     sizeParam: 'aspect_ratio',
+    dialect: 'fal-nano-banana',
   },
   {
     id: 'seedream-v4.5',
@@ -56,6 +67,7 @@ const KNOWN_FAL_MODELS: FalModelDef[] = [
       'multi-reference': 'fal-ai/bytedance/seedream/v4.5/edit',
     },
     sizeParam: 'image_size',
+    dialect: 'fal-generic',
   },
 ];
 
@@ -73,21 +85,30 @@ interface FalResponse {
 /**
  * Def for a catalog entry with no rich definition: endpoint from fal
  * conventions (`fal-ai/<id>` unless the id already looks like a path, `/edit`
- * for image-input operations) and the classic `image_size` parameter.
+ * for image-input operations); size parameter and accepted generation
+ * parameters from the entry's dialect (default `fal-generic`: image_size + seed).
  */
 function genericFalDef(entry: ImageModelCatalogEntry): FalModelDef {
   const base = entry.id.includes('/') ? entry.id : `fal-ai/${entry.id}`;
+  const dialect =
+    entry.dialect && isImageDialectId(entry.dialect) ? entry.dialect : DEFAULT_IMAGE_DIALECT.fal;
+  const family = IMAGE_DIALECT_DEFAULTS[dialect];
   return {
     id: entry.id,
     name: entry.name || entry.id,
-    supportedOperations: ['text-to-image', 'image-to-image', 'multi-reference'],
+    supportedOperations: [...family.supportedOperations],
     endpoints: {
       'text-to-image': base,
       'image-to-image': `${base}/edit`,
       'multi-reference': `${base}/edit`,
     },
-    sizeParam: 'image_size',
+    sizeParam: family.paramSchema.sizeMode === 'aspect_ratio' ? 'aspect_ratio' : 'image_size',
+    dialect,
   };
+}
+
+function schemaOf(def: FalModelDef): ImageParamSchema {
+  return IMAGE_DIALECT_DEFAULTS[def.dialect].paramSchema;
 }
 
 export class FalImageProvider implements ImageProvider {
@@ -97,7 +118,7 @@ export class FalImageProvider implements ImageProvider {
   constructor(
     readonly id: string,
     apiKey: string,
-    private defaultModel: string,
+    readonly defaultModel: string,
     catalog?: ImageModelCatalogEntry[],
   ) {
     this.client = new FalClient({ apiKey });
@@ -112,6 +133,7 @@ export class FalImageProvider implements ImageProvider {
       name: m.name,
       supportedOperations: m.supportedOperations,
       endpoints: m.endpoints,
+      paramSchema: schemaOf(m),
     }));
   }
 
@@ -160,7 +182,12 @@ export class FalImageProvider implements ImageProvider {
     }
   }
 
-  private buildRequestBody(
+  /**
+   * Body per the model's dialect: only the parameters its schema declares are
+   * sent (a FLUX app takes steps/guidance/seed; Nano Banana takes none).
+   * Exposed for unit tests.
+   */
+  buildRequestBody(
     modelDef: FalModelDef,
     request: ImageGenerationRequest
   ): Record<string, unknown> {
@@ -171,6 +198,21 @@ export class FalImageProvider implements ImageProvider {
 
     if (request.outputFormat) {
       base.output_format = request.outputFormat;
+    }
+
+    const schema = schemaOf(modelDef);
+    const p = request.params ?? {};
+    if (p.steps !== undefined && schemaHasField(schema, 'steps')) {
+      base.num_inference_steps = Math.round(p.steps);
+    }
+    if (p.cfgScale !== undefined && schemaHasField(schema, 'cfgScale')) {
+      base.guidance_scale = p.cfgScale;
+    }
+    if (p.seed !== undefined && schemaHasField(schema, 'seed')) {
+      base.seed = Math.round(p.seed);
+    }
+    if (p.negativePrompt && schemaHasField(schema, 'negativePrompt')) {
+      base.negative_prompt = p.negativePrompt;
     }
 
     if (modelDef.sizeParam === 'aspect_ratio') {

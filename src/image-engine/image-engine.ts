@@ -6,7 +6,9 @@ import type {
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageModelInfo,
+  ImageParamResolver,
 } from './types';
+import { hasAnyImageParams, mergeImageParams } from '../shared/presets/image-model-params';
 import { FalImageProvider } from './providers/fal-provider';
 import { OpenRouterProvider } from './providers/openrouter-provider';
 import { CloudflareImageProvider } from './providers/cloudflare-provider';
@@ -20,6 +22,7 @@ class ImageEngine {
   private providers = new Map<ImageProviderId, ImageProvider>();
   private activeId: ImageProviderId | null = null;
   private safetyGuard: ImageSafetyGuard | null = null;
+  private paramResolver: ImageParamResolver | null = null;
 
   /**
    * Install the Content Safety pixel classifier (Gate B). Called by main at
@@ -28,6 +31,11 @@ class ImageEngine {
    */
   setSafetyGuard(guard: ImageSafetyGuard): void {
     this.safetyGuard = guard;
+  }
+
+  /** Install the per-model parameter override store (W2c). Optional: without it, requests pass through as-is. */
+  setParamResolver(resolver: ImageParamResolver | null): void {
+    this.paramResolver = resolver;
   }
 
   register(config: ImageProviderConfig): void {
@@ -125,8 +133,9 @@ class ImageEngine {
    */
   private async runGuarded(
     provider: ImageProvider,
-    request: ImageGenerationRequest,
+    incoming: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
+    const request = this.applyParamOverride(provider, incoming);
     this.guardPrompt(request);
 
     const guard = this.safetyGuard;
@@ -163,6 +172,27 @@ class ImageEngine {
       this.safetyGuard?.onPromptBlocked?.(result.category ?? 'sexual');
       throw new ModerationBlockedError('prompt', result.category ?? 'sexual');
     }
+  }
+
+  /**
+   * `request ⊕ override`: the user's saved params for this provider/model fill
+   * whatever the request left unset (top-level width/height included), so
+   * every caller — Image Studio, the agents, flows, bulk — gets them.
+   */
+  private applyParamOverride(
+    provider: ImageProvider,
+    request: ImageGenerationRequest,
+  ): ImageGenerationRequest {
+    const modelId = request.model || provider.defaultModel;
+    const override = modelId ? this.paramResolver?.(provider.id, modelId) : undefined;
+    if (!hasAnyImageParams(override)) return request;
+    const params = mergeImageParams(request.params, override);
+    return {
+      ...request,
+      width: request.width ?? params.width,
+      height: request.height ?? params.height,
+      params,
+    };
   }
 
   private getActive(): ImageProvider {

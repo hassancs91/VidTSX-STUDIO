@@ -173,6 +173,10 @@ export interface ElectronAPI {
   providerModelsSave: (data: import('../../shared/ipc/types').ProviderModelsSaveRequest) => Promise<import('../../shared/ipc/types').ProviderModelsSaveResponse>;
   providerModelsReset: (data: import('../../shared/ipc/types').ProviderModelsResetRequest) => Promise<import('../../shared/ipc/types').ProviderModelsResetResponse>;
 
+  // Per-model image parameter overrides (W2c)
+  imageModelParamsGet: () => Promise<import('../../shared/ipc/types').ImageModelParamsGetResponse>;
+  imageModelParamsSave: (data: import('../../shared/ipc/types').ImageModelParamsSaveRequest) => Promise<import('../../shared/ipc/types').ImageModelParamsSaveResponse>;
+
   // Video generation (fal queue API)
   videoGenerate: (data: import('../../shared/ipc/types').VideoGenerateRequest) => Promise<import('../../shared/ipc/types').VideoGenerateResponse>;
   videoGetJob: (jobId: string) => Promise<import('../../shared/ipc/types').VideoJobResponse>;

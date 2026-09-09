@@ -30,6 +30,7 @@ import { registerContentSafetyIpc } from './registrations/content-safety';
 import { registerAiUsageIpc } from './registrations/ai-usage';
 import { registerProviderKeysIpc } from './registrations/provider-keys';
 import { registerProviderModelsIpc } from './registrations/provider-models';
+import { registerImageModelParamsIpc } from './registrations/image-model-params';
 import { registerVideoIpc } from './registrations/video';
 import { registerSttIpc } from './registrations/stt';
 import { registerVideoStudioIpc } from './registrations/video-studio';
@@ -77,6 +78,7 @@ export function registerAllIPC(): void {
   registerAiUsageIpc();
   registerProviderKeysIpc();
   registerProviderModelsIpc();
+  registerImageModelParamsIpc();
   registerVideoIpc();
   registerSttIpc();
   registerVideoStudioIpc();

@@ -78,6 +78,10 @@ export const IPC = {
   PROVIDER_MODELS_SAVE: 'provider-models:save',
   PROVIDER_MODELS_RESET: 'provider-models:reset',
 
+  // Per-model image parameter overrides (steps, guidance, seed… — W2c)
+  IMAGE_MODEL_PARAMS_GET: 'image-model-params:get',
+  IMAGE_MODEL_PARAMS_SAVE: 'image-model-params:save',
+
   // Video generation (src/video-engine — cloud providers, BYOK)
   VIDEO_GENERATE: 'video:generate',
   VIDEO_GET_JOB: 'video:get-job',

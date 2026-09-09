@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
-import { CloudflareImageProvider } from './cloudflare-provider';
+import { CloudflareImageProvider, cloudflareParamFields } from './cloudflare-provider';
 import { ImageEngineError } from '../types';
 
 const RED_PIXEL_PNG_BASE64 =
@@ -126,5 +126,37 @@ describe('CloudflareImageProvider.generate', () => {
     });
     expect(impl).toHaveBeenCalledTimes(3);
     expect(result.images).toHaveLength(3);
+  });
+});
+
+describe('cloudflareParamFields — per-model key mapping and caps', () => {
+  const p = { steps: 30, cfgScale: 5, seed: 9, negativePrompt: 'blurry' };
+
+  it('flux-1-schnell: steps capped at 8, seed, no guidance, no negative prompt', () => {
+    expect(cloudflareParamFields({ steps: 'steps', maxSteps: 8, seed: true }, p)).toEqual({ steps: 8, seed: 9 });
+  });
+
+  it('sdxl-lightning: num_steps (cap 20), guidance, seed, negative_prompt', () => {
+    expect(
+      cloudflareParamFields({ steps: 'num_steps', maxSteps: 20, guidance: true, seed: true, negativePrompt: true }, p),
+    ).toEqual({ num_steps: 20, guidance: 5, seed: 9, negative_prompt: 'blurry' });
+  });
+
+  it('nothing set → nothing sent', () => {
+    expect(cloudflareParamFields({ steps: 'steps', seed: true }, undefined)).toEqual({});
+    expect(cloudflareParamFields({ steps: 'steps', seed: true }, {})).toEqual({});
+  });
+
+  it('the JSON body carries the mapped fields', async () => {
+    const impl = stubJsonFetch({ result: { image: RED_PIXEL_PNG_BASE64 }, success: true });
+    await makeProvider().generate({
+      operation: 'text-to-image',
+      prompt: 'a red circle',
+      width: 256,
+      height: 256,
+      params: { steps: 4, seed: 11 },
+    });
+    const [, init] = impl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({ prompt: 'a red circle', steps: 4, seed: 11 });
   });
 });

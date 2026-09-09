@@ -41,6 +41,8 @@ export class ImageLocalEngine {
     | null = null;
   /** Fired after a successful generation so the adapter can record usage. */
   onModelUsed: ((modelId: string) => void) | null = null;
+  /** Fired with the exact sd-cli argv as each generation spawns (logged by main). */
+  onSpawn: ((requestId: string, modelId: string, args: string[]) => void) | null = null;
 
   initialize(resolver: SdModelResolver, sdCliBinaryPath: string): void {
     this.resolver = resolver;
@@ -158,6 +160,7 @@ export class ImageLocalEngine {
     this.onComplete = null;
     this.onError = null;
     this.onModelUsed = null;
+    this.onSpawn = null;
   }
 
   private async processNext(): Promise<void> {
@@ -237,6 +240,9 @@ export class ImageLocalEngine {
       requestId,
       onProgress: (progress) => {
         this.onProgress?.(progress);
+      },
+      onArgs: (args) => {
+        this.onSpawn?.(requestId, modelId, args);
       },
     });
 

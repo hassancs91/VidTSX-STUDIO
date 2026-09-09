@@ -22,7 +22,7 @@ import type {
 import type { InstalledModel } from '../../shared/model-library/types';
 import type { SdModelFamily, SdModelMeta } from '../../local-image-engine/types';
 import { SD_MODEL_CATALOG } from '../../local-image-engine/model-registry';
-import { SD_FAMILIES } from '../../local-image-engine/family-presets';
+import { FAMILY_PARAM_SCHEMAS, SD_FAMILIES } from '../../local-image-engine/family-presets';
 import {
   configureImageModel,
   getImageModelsDir,
@@ -130,6 +130,8 @@ function toInstalledIpc(
     lastUsedAt: record?.lastUsedAt ?? null,
     useCount: record?.useCount ?? 0,
     fit: fitFor(requirementForInstalled(model), hardware),
+    paramSchema: FAMILY_PARAM_SCHEMAS[model.meta.family],
+    paramDefaults: { ...model.meta.defaults },
   };
 }
 

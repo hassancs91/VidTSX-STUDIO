@@ -162,3 +162,52 @@ describe('imageEngine Content Safety chokepoint', () => {
     });
   });
 });
+
+describe('imageEngine per-model parameter overrides (W2c)', () => {
+  beforeEach(() => {
+    imageEngine.setSafetyGuard(passingGuard());
+  });
+
+  it('fills request gaps from the resolver (request ⊕ override), keyed by provider/model', async () => {
+    const { provider, generate } = stubProvider('__p_test_a');
+    (provider as { defaultModel?: string }).defaultModel = 'stub-model';
+    imageEngine.registerInstance(provider);
+    imageEngine.setParamResolver((providerId, modelId) =>
+      providerId === '__p_test_a' && modelId === 'stub-model'
+        ? { steps: 12, seed: 7, width: 768, height: 512 }
+        : undefined,
+    );
+    try {
+      await imageEngine.generateWith('__p_test_a', {
+        operation: 'text-to-image',
+        prompt: 'a red circle',
+        params: { steps: 30 },
+      });
+      const seen = generate.mock.calls[0][0] as { params?: unknown; width?: number; height?: number };
+      expect(seen.params).toEqual({ steps: 30, seed: 7, width: 768, height: 512 });
+      // Top-level size falls back to the override when the request names none.
+      expect(seen.width).toBe(768);
+      expect(seen.height).toBe(512);
+    } finally {
+      imageEngine.setParamResolver(null);
+      imageEngine.unregister('__p_test_a');
+    }
+  });
+
+  it('a request naming another model looks that model up, and no override passes the request through', async () => {
+    const { provider, generate } = stubProvider('__p_test_b');
+    imageEngine.registerInstance(provider);
+    imageEngine.setParamResolver((_p, modelId) => (modelId === 'other' ? { steps: 3 } : undefined));
+    try {
+      await imageEngine.generateWith('__p_test_b', { operation: 'text-to-image', prompt: 'a red circle', model: 'other' });
+      expect((generate.mock.calls[0][0] as { params?: unknown }).params).toEqual({ steps: 3 });
+      await imageEngine.generateWith('__p_test_b', { operation: 'text-to-image', prompt: 'a red circle', model: 'none', width: 256 });
+      const second = generate.mock.calls[1][0] as { params?: unknown; width?: number };
+      expect(second.params).toBeUndefined();
+      expect(second.width).toBe(256);
+    } finally {
+      imageEngine.setParamResolver(null);
+      imageEngine.unregister('__p_test_b');
+    }
+  });
+});

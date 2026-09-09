@@ -15,6 +15,8 @@ import {
 import { isVideoDialectId } from '../../shared/presets/video-models';
 import type { VideoDialectId, VideoModelCatalogEntry } from '../../shared/presets/video-models';
 import { hydrateVideoEntry } from '../../video-engine';
+import { hydrateImageEntry } from '../../image-engine/dialect-capabilities';
+import type { ImageModelCatalogEntry } from '../../shared/presets/image-models';
 import { getProviderModelOverrides, saveProviderModelOverrides } from './settings';
 
 /** Family a video entry falls back to when none is named or it is unknown. */
@@ -33,9 +35,11 @@ export interface ProviderModelCatalog {
 
 /**
  * Stored rows keep only what a user can meaningfully edit — id, name, and for
- * video the dialect. Everything else (routes, durations, aspect ratios,
- * reference limits) is re-derived from the dialect on load, so a saved
- * catalog can never carry stale or hand-written capabilities.
+ * image and video the dialect. Everything else (routes, durations, aspect
+ * ratios, reference limits, accepted parameters) is re-derived from the
+ * dialect on load, so a saved catalog can never carry stale or hand-written
+ * capabilities. An image row without a dialect (pre-W2c) resolves to the
+ * shipped entry's dialect or the provider default.
  */
 function sanitizeEntries(
   models: ProviderModelCatalogEntry[],
@@ -49,12 +53,16 @@ function sanitizeEntries(
     if (!id || seen.has(id)) continue;
     seen.add(id);
     if (category === 'video') {
-      const named = isVideoCatalogEntry(entry) ? entry.dialect : undefined;
+      // A row fresh from the catalog card is {id, name, dialect} — not yet hydrated.
+      const named = 'dialect' in entry && typeof entry.dialect === 'string' ? entry.dialect : undefined;
       const dialect =
         named && isVideoDialectId(named)
           ? named
           : (DEFAULT_VIDEO_DIALECT[providerId] ?? 'fal-generic');
       clean.push(hydrateVideoEntry({ id, dialect, ...(entry.name ? { name: entry.name } : {}) }));
+    } else if (category === 'image') {
+      const named = 'dialect' in entry && typeof entry.dialect === 'string' ? entry.dialect : undefined;
+      clean.push(hydrateImageEntry(providerId, { id, name: entry.name, dialect: named }));
     } else {
       clean.push({ id, name: entry.name?.trim() || id });
     }
@@ -88,6 +96,14 @@ export async function getProviderModels(
   return stored
     ? sanitizeEntries(stored, category, providerId)
     : getDefaultProviderModels(providerId, category);
+}
+
+/** The image view of a catalog, for registering an image provider. */
+export async function getProviderImageModels(
+  providerId: string,
+): Promise<ImageModelCatalogEntry[]> {
+  const models = await getProviderModels(providerId, 'image');
+  return models.filter((m): m is ImageModelCatalogEntry => !isVideoCatalogEntry(m));
 }
 
 /** The video view of a catalog, for registering a video provider. */

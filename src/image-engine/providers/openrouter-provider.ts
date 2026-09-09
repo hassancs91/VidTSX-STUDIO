@@ -10,6 +10,12 @@ import { ImageEngineError } from '../types';
 import { OpenRouterClient, OpenRouterHttpError } from '@shared/providers/openrouter';
 import type { OpenRouterChatMessage, OpenRouterContentPart } from '@shared/providers/openrouter';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
+import { IMAGE_DIALECT_DEFAULTS } from '@shared/presets/image-dialects';
+
+// OpenRouter's chat-completions image route takes only an aspect ratio —
+// no steps, guidance or seed — so the dialect declares no parameters and this
+// provider sends none (the params dialog shows an empty form for these models).
+const OPENROUTER_PARAM_SCHEMA = IMAGE_DIALECT_DEFAULTS.openrouter.paramSchema;
 
 interface OpenRouterModelDef {
   id: string;
@@ -76,7 +82,7 @@ export class OpenRouterProvider implements ImageProvider {
   constructor(
     readonly id: string,
     apiKey: string,
-    private defaultModel: string,
+    readonly defaultModel: string,
     catalog?: ImageModelCatalogEntry[],
   ) {
     this.client = new OpenRouterClient({ apiKey });
@@ -93,6 +99,7 @@ export class OpenRouterProvider implements ImageProvider {
       name: m.name,
       supportedOperations: m.supportedOperations,
       endpoints: m.endpoints,
+      paramSchema: OPENROUTER_PARAM_SCHEMA,
     }));
 
     // Include the user's custom default model if not already in the list
@@ -106,6 +113,7 @@ export class OpenRouterProvider implements ImageProvider {
           'image-to-image': 'chat/completions',
           'multi-reference': 'chat/completions',
         },
+        paramSchema: OPENROUTER_PARAM_SCHEMA,
       });
     }
 

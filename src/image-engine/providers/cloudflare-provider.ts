@@ -9,6 +9,23 @@ import type {
 import { ImageEngineError } from '../types';
 import { CloudflareClient, CloudflareHttpError } from '@shared/providers/cloudflare';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
+import { IMAGE_DIALECT_DEFAULTS } from '@shared/presets/image-dialects';
+import type { ImageModelParams } from '@shared/presets/image-model-params';
+
+/**
+ * Which of the dialect's parameters a model takes, and under which key.
+ * Workers AI is one dialect with per-model field names: `steps` on the FLUX
+ * apps, `num_steps` on SDXL Lightning and Lucid Origin; `negative_prompt`
+ * only on SDXL. A user-added id gets the generic (steps + seed) set.
+ */
+export interface CloudflareParamKeys {
+  steps?: 'steps' | 'num_steps';
+  /** Hard cap the API enforces (flux-1-schnell: 8; sdxl-lightning: 20; lucid: 40). */
+  maxSteps?: number;
+  guidance?: boolean;
+  seed?: boolean;
+  negativePrompt?: boolean;
+}
 
 interface CloudflareModelDef {
   id: string;
@@ -18,6 +35,7 @@ interface CloudflareModelDef {
   input: 'json' | 'multipart';
   /** flux-1-schnell has no width/height parameters at all. */
   size: 'none' | 'dimensions';
+  params: CloudflareParamKeys;
 }
 
 /**
@@ -32,6 +50,7 @@ const KNOWN_CLOUDFLARE_MODELS: CloudflareModelDef[] = [
     supportedOperations: ['text-to-image'],
     input: 'json',
     size: 'none',
+    params: { steps: 'steps', maxSteps: 8, seed: true },
   },
   {
     id: '@cf/black-forest-labs/flux-2-klein-9b',
@@ -39,6 +58,7 @@ const KNOWN_CLOUDFLARE_MODELS: CloudflareModelDef[] = [
     supportedOperations: ['text-to-image', 'image-to-image', 'multi-reference'],
     input: 'multipart',
     size: 'dimensions',
+    params: { steps: 'steps', guidance: true, seed: true },
   },
   {
     id: '@cf/black-forest-labs/flux-2-dev',
@@ -46,6 +66,7 @@ const KNOWN_CLOUDFLARE_MODELS: CloudflareModelDef[] = [
     supportedOperations: ['text-to-image', 'image-to-image', 'multi-reference'],
     input: 'multipart',
     size: 'dimensions',
+    params: { steps: 'steps', guidance: true, seed: true },
   },
   {
     id: '@cf/leonardo/lucid-origin',
@@ -53,6 +74,7 @@ const KNOWN_CLOUDFLARE_MODELS: CloudflareModelDef[] = [
     supportedOperations: ['text-to-image'],
     input: 'json',
     size: 'dimensions',
+    params: { steps: 'num_steps', maxSteps: 40, guidance: true, seed: true },
   },
   {
     id: '@cf/bytedance/stable-diffusion-xl-lightning',
@@ -60,8 +82,29 @@ const KNOWN_CLOUDFLARE_MODELS: CloudflareModelDef[] = [
     supportedOperations: ['text-to-image'],
     input: 'json',
     size: 'dimensions',
+    params: { steps: 'num_steps', maxSteps: 20, guidance: true, seed: true, negativePrompt: true },
   },
 ];
+
+/**
+ * The dialect's parameters this model takes, keyed as the API spells them.
+ * Exposed for unit tests.
+ */
+export function cloudflareParamFields(
+  keys: CloudflareParamKeys,
+  p: ImageModelParams | undefined,
+): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  if (!p) return out;
+  if (p.steps !== undefined && keys.steps) {
+    const steps = Math.max(1, Math.round(p.steps));
+    out[keys.steps] = keys.maxSteps ? Math.min(keys.maxSteps, steps) : steps;
+  }
+  if (p.cfgScale !== undefined && keys.guidance) out.guidance = p.cfgScale;
+  if (p.seed !== undefined && keys.seed) out.seed = Math.round(p.seed);
+  if (p.negativePrompt && keys.negativePrompt) out.negative_prompt = p.negativePrompt;
+  return out;
+}
 
 // flux-2 models accept at most 4 input images per request.
 const MAX_INPUT_IMAGES = 4;
@@ -78,6 +121,7 @@ function genericCloudflareDef(entry: ImageModelCatalogEntry): CloudflareModelDef
     supportedOperations: ['text-to-image'],
     input: 'json',
     size: 'dimensions',
+    params: { steps: 'steps', seed: true },
   };
 }
 
@@ -89,7 +133,7 @@ export class CloudflareImageProvider implements ImageProvider {
     readonly id: string,
     apiToken: string,
     accountId: string,
-    private defaultModel: string,
+    readonly defaultModel: string,
     catalog?: ImageModelCatalogEntry[],
   ) {
     this.client = new CloudflareClient({ apiToken, accountId });
@@ -104,6 +148,7 @@ export class CloudflareImageProvider implements ImageProvider {
       name: m.name,
       supportedOperations: m.supportedOperations,
       endpoints: Object.fromEntries(m.supportedOperations.map((op) => [op, m.id])),
+      paramSchema: IMAGE_DIALECT_DEFAULTS.cloudflare.paramSchema,
     }));
   }
 
@@ -171,6 +216,7 @@ export class CloudflareImageProvider implements ImageProvider {
       body.width = width;
       body.height = height;
     }
+    Object.assign(body, cloudflareParamFields(modelDef.params, request.params));
     return body;
   }
 
@@ -185,6 +231,9 @@ export class CloudflareImageProvider implements ImageProvider {
     if (modelDef.size === 'dimensions') {
       form.append('width', String(width));
       form.append('height', String(height));
+    }
+    for (const [key, value] of Object.entries(cloudflareParamFields(modelDef.params, request.params))) {
+      form.append(key, String(value));
     }
 
     const inputImages =

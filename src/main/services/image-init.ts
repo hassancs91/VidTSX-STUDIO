@@ -4,8 +4,9 @@ import { GeminiCliImageProvider } from '../../image-engine/providers/gemini-cli-
 import { agyCliService } from './agy-cli';
 import { installContentSafetyGuard } from './content-safety/install';
 import { loadSettings, getProviderCredentials, getCloudflareAccountId } from './settings';
-import { getProviderModels } from './provider-models';
+import { getProviderImageModels } from './provider-models';
 import { applySdGenerationPreflight } from './sdimage-preflight';
+import { resolveImageModelParams } from './image-model-params';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('ImageInit');
@@ -36,6 +37,7 @@ export function registerLocalImageProvider(): void {
   // Guard first: any caller that can register a provider can trigger a
   // generation, and the engine refuses to run without Gate B installed.
   installContentSafetyGuard();
+  imageEngine.setParamResolver(resolveImageModelParams);
   if (imageEngine.getProviders().includes(LOCAL_IMAGE_PROVIDER_ID)) return;
   imageEngine.registerInstance(
     new LocalSdImageProvider(LOCAL_IMAGE_PROVIDER_ID, {
@@ -62,6 +64,8 @@ export function registerGeminiCliImageProvider(): void {
 
 export async function initImageEngine(): Promise<void> {
   installContentSafetyGuard();
+  // Per-model parameter overrides (W2c): read per request, never cached.
+  imageEngine.setParamResolver(resolveImageModelParams);
   try {
     const settings = await loadSettings();
     const credentials = await getProviderCredentials();
@@ -85,7 +89,7 @@ export async function initImageEngine(): Promise<void> {
           apiKey,
           accountId,
           enabled: true,
-          models: await getProviderModels(preset.id, 'image'),
+          models: await getProviderImageModels(preset.id),
         });
       } catch (err) {
         log.warn(`Failed to register provider "${config.id}"`, { error: err instanceof Error ? err.message : String(err) });

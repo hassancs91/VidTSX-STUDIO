@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { ImageEngineError } from '../types';
 import type { SdGenerationRequest } from '../../local-image-engine';
-import { imageLocalEngine } from '../../local-image-engine';
+import { FAMILY_PARAM_SCHEMAS, imageLocalEngine } from '../../local-image-engine';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('LocalSdProvider');
@@ -36,6 +36,39 @@ function rawBase64(data: string): string {
 }
 
 /**
+ * The cloud-shaped request → one sd-cli request (`request ⊕ override` arrives
+ * merged in `request.params`; the family defaults apply in the runner's
+ * `buildArgs` for whatever is still unset). Pure — exported for unit tests.
+ * `index` is the image's position in a multi-image request: a fixed seed
+ * advances per image so the images differ, and without one every image gets
+ * its own random seed (sd-cli's fixed default would make them identical).
+ */
+export function toSdRequest(
+  request: ImageGenerationRequest,
+  modelId: string,
+  index: number,
+  sourceImagePath?: string,
+): SdGenerationRequest {
+  const p = request.params ?? {};
+  return {
+    operation: request.operation === 'image-to-image' ? 'img2img' : 'txt2img',
+    prompt: request.prompt,
+    negativePrompt: p.negativePrompt,
+    modelId,
+    width: request.width !== undefined ? snap64(request.width) : undefined,
+    height: request.height !== undefined ? snap64(request.height) : undefined,
+    steps: p.steps,
+    cfgScale: p.cfgScale,
+    sampler: p.sampler,
+    schedule: p.scheduler,
+    strength: p.strength,
+    seed: p.seed !== undefined ? p.seed + index : Math.floor(Math.random() * 2147483647),
+    sourceImagePath,
+    outputFormat: request.outputFormat === 'jpeg' ? 'jpeg' : 'png',
+  };
+}
+
+/**
  * Bridges the local sd-cli engine into the cloud ImageEngine provider
  * interface, so the Image Studio (and anything else on the `image:generate`
  * IPC) can target on-device open-source models exactly like a cloud provider.
@@ -52,6 +85,11 @@ export class LocalSdImageProvider implements ImageProvider {
     this.prepare = options?.prepare;
   }
 
+  /** The active local model, else the first ready one — what a model-less request runs on. */
+  get defaultModel(): string | undefined {
+    return imageLocalEngine.getActiveModelId() || this.getSupportedModels()[0]?.id;
+  }
+
   getSupportedModels(): ImageModelInfo[] {
     if (!imageLocalEngine.isSdCliAvailable()) return [];
     return imageLocalEngine
@@ -66,6 +104,8 @@ export class LocalSdImageProvider implements ImageProvider {
           name: m.name,
           supportedOperations,
           endpoints: {},
+          paramSchema: FAMILY_PARAM_SCHEMAS[m.meta.family],
+          paramDefaults: { ...m.meta.defaults },
         };
       });
   }
@@ -79,8 +119,7 @@ export class LocalSdImageProvider implements ImageProvider {
     }
 
     const models = this.getSupportedModels();
-    const modelId =
-      request.model || imageLocalEngine.getActiveModelId() || models[0]?.id;
+    const modelId = request.model || this.defaultModel;
     if (!modelId) {
       throw new ImageEngineError(
         'No local image model is ready. Download one in AI Models → Image first.',
@@ -124,18 +163,7 @@ export class LocalSdImageProvider implements ImageProvider {
           throw new ImageEngineError('Image generation cancelled', this.id);
         }
 
-        let sdRequest: SdGenerationRequest = {
-          operation: request.operation === 'image-to-image' ? 'img2img' : 'txt2img',
-          prompt: request.prompt,
-          modelId,
-          width: request.width !== undefined ? snap64(request.width) : undefined,
-          height: request.height !== undefined ? snap64(request.height) : undefined,
-          // Explicit random seed per image — sd-cli's fixed default would make
-          // every image of a multi-image request identical.
-          seed: Math.floor(Math.random() * 2147483647),
-          sourceImagePath,
-          outputFormat: request.outputFormat === 'jpeg' ? 'jpeg' : 'png',
-        };
+        let sdRequest = toSdRequest(request, modelId, i, sourceImagePath);
         if (this.prepare) {
           sdRequest = await this.prepare(sdRequest);
         }

@@ -4,11 +4,11 @@
  * User edits are stored as overrides in settings (`providerModels`); resetting
  * a catalog falls back to these entries.
  *
- * Image APIs are uniform per provider, so a user-added image id works
- * generically. Video entries additionally name their request-body *dialect*
- * (video-models.ts + src/video-engine/dialects.ts), which is what makes video
- * catalogs editable too: a new slug in a family already implemented needs no
- * code, only an entry naming that family.
+ * Image and video entries name their request-body *dialect* (image-dialects.ts
+ * / video-models.ts + the engines' dialect-capabilities.ts), which is what
+ * makes the catalogs editable: a new slug in a family already implemented
+ * needs no code, only an entry naming that family. An image id added without
+ * a dialect takes the provider's default (`DEFAULT_IMAGE_DIALECT`).
  */
 import type { ImageModelCatalogEntry } from './image-models';
 import type { LlmModelCatalogEntry } from './llm-models';
@@ -33,11 +33,15 @@ export type ProviderModelCatalogEntry =
   | VideoModelCatalogEntry
   | LlmModelCatalogEntry;
 
-/** A video entry is the one that names a dialect. */
+/**
+ * A video entry is a hydrated one: it carries its text-to-video route. Image
+ * entries name a dialect too (and `fal-generic` exists in both namespaces),
+ * so the dialect field alone cannot tell the categories apart.
+ */
 export function isVideoCatalogEntry(
   entry: ProviderModelCatalogEntry,
 ): entry is VideoModelCatalogEntry {
-  return 'dialect' in entry;
+  return 'textToVideoEndpoint' in entry && typeof entry.textToVideoEndpoint === 'string';
 }
 
 export interface ProviderModelCatalogKey {
@@ -57,9 +61,9 @@ const MEDIA_MODEL_DEFAULTS: ProviderDefaults = {
   // omit it and log $0).
   fal: {
     image: [
-      { id: 'nano-banana-pro', name: 'Nano Banana Pro', priceUsd: 0.15 },
-      { id: 'nano-banana-2', name: 'Nano Banana 2', priceUsd: 0.04 },
-      { id: 'seedream-v4.5', name: 'SeedREAM v4.5', priceUsd: 0.04 },
+      { id: 'nano-banana-pro', name: 'Nano Banana Pro', dialect: 'fal-nano-banana', priceUsd: 0.15 },
+      { id: 'nano-banana-2', name: 'Nano Banana 2', dialect: 'fal-nano-banana', priceUsd: 0.04 },
+      { id: 'seedream-v4.5', name: 'SeedREAM v4.5', dialect: 'fal-generic', priceUsd: 0.04 },
     ],
     video: FAL_VIDEO_MODELS,
   },
@@ -68,18 +72,18 @@ const MEDIA_MODEL_DEFAULTS: ProviderDefaults = {
   },
   openrouter: {
     image: [
-      { id: 'black-forest-labs/flux.2-pro', name: 'FLUX.2 Pro', priceUsd: 0.03 },
-      { id: 'black-forest-labs/flux.2-max', name: 'FLUX.2 Max' },
-      { id: 'black-forest-labs/flux.2-flex', name: 'FLUX.2 Flex' },
+      { id: 'black-forest-labs/flux.2-pro', name: 'FLUX.2 Pro', dialect: 'openrouter', priceUsd: 0.03 },
+      { id: 'black-forest-labs/flux.2-max', name: 'FLUX.2 Max', dialect: 'openrouter' },
+      { id: 'black-forest-labs/flux.2-flex', name: 'FLUX.2 Flex', dialect: 'openrouter' },
     ],
   },
   cloudflare: {
     image: [
-      { id: '@cf/black-forest-labs/flux-1-schnell', name: 'FLUX.1 Schnell', priceUsd: 0.0006 },
-      { id: '@cf/black-forest-labs/flux-2-klein-9b', name: 'FLUX.2 Klein 9B', priceUsd: 0.015 },
-      { id: '@cf/black-forest-labs/flux-2-dev', name: 'FLUX.2 Dev', priceUsd: 0.05 },
-      { id: '@cf/leonardo/lucid-origin', name: 'Lucid Origin' },
-      { id: '@cf/bytedance/stable-diffusion-xl-lightning', name: 'SDXL Lightning' },
+      { id: '@cf/black-forest-labs/flux-1-schnell', name: 'FLUX.1 Schnell', dialect: 'cloudflare', priceUsd: 0.0006 },
+      { id: '@cf/black-forest-labs/flux-2-klein-9b', name: 'FLUX.2 Klein 9B', dialect: 'cloudflare', priceUsd: 0.015 },
+      { id: '@cf/black-forest-labs/flux-2-dev', name: 'FLUX.2 Dev', dialect: 'cloudflare', priceUsd: 0.05 },
+      { id: '@cf/leonardo/lucid-origin', name: 'Lucid Origin', dialect: 'cloudflare' },
+      { id: '@cf/bytedance/stable-diffusion-xl-lightning', name: 'SDXL Lightning', dialect: 'cloudflare' },
     ],
   },
 };

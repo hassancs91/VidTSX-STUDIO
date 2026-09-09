@@ -136,3 +136,34 @@ describe('buildArgs', () => {
     expect(args.filter((a) => a === '--vae')).toHaveLength(1);
   });
 });
+
+describe('buildArgs — per-model parameter overrides (W2c)', () => {
+  it('a request carrying the merged override drives the argv; family defaults fill the rest', () => {
+    // What local-sd-provider's toSdRequest produces after the engine merged
+    // `request ⊕ override` — steps/scheduler/negative prompt overridden,
+    // width/height/cfg/sampler left to the model's defaults.
+    const args = buildArgs(
+      resolved({ defaults: { width: 512, height: 512, steps: 4, cfgScale: 7, sampler: 'lcm' } }),
+      req({ steps: 12, schedule: 'karras', negativePrompt: 'blurry, text', seed: 42 }),
+      '/o.png',
+    );
+    expect(valAfter(args, '--steps')).toBe('12');
+    expect(valAfter(args, '--scheduler')).toBe('karras');
+    expect(valAfter(args, '-n')).toBe('blurry, text');
+    expect(valAfter(args, '-s')).toBe('42');
+    expect(valAfter(args, '-W')).toBe('512');
+    expect(valAfter(args, '--cfg-scale')).toBe('7');
+    expect(valAfter(args, '--sampling-method')).toBe('lcm');
+  });
+
+  it('reset (no override) restores the family defaults', () => {
+    const args = buildArgs(
+      resolved({ defaults: { width: 512, height: 512, steps: 4, cfgScale: 7, sampler: 'lcm' } }),
+      req(),
+      '/o.png',
+    );
+    expect(valAfter(args, '--steps')).toBe('4');
+    expect(args).not.toContain('--scheduler');
+    expect(args).not.toContain('-n');
+  });
+});

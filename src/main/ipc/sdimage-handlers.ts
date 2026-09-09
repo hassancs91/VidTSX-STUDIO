@@ -36,6 +36,8 @@ import { installSdCli, isSdCliInstalling } from '../services/sdcli-install';
 import { resetSdImageEngine } from '../services/sdimage-init';
 import { scanImageLibrary, removeImageModel } from '../services/sdimage-library';
 import { applySdGenerationPreflight } from '../services/sdimage-preflight';
+import { applySdParamOverride } from '../services/image-model-params';
+import { LOCAL_IMAGE_PROVIDER_ID } from '../services/image-init';
 import { downloadProfileModel, downloadModelCompanions } from '../services/sdimage-download';
 import { getSdImageSettings, saveSdImageSettings } from '../services/settings';
 
@@ -211,7 +213,12 @@ export async function handleSdImageGenerate(
       event.sender.send(IPC.SDIMAGE_GENERATE_ERROR, { requestId, error, code, details });
     };
 
-    const { request, autoOffloadEnabled } = await applySdGenerationPreflight(data);
+    const withOverride = applySdParamOverride(
+      data,
+      LOCAL_IMAGE_PROVIDER_ID,
+      data.modelId ?? imageLocalEngine.getActiveModelId(),
+    );
+    const { request, autoOffloadEnabled } = await applySdGenerationPreflight(withOverride);
 
     const requestId = imageLocalEngine.enqueue(request);
     return { success: true, requestId, autoOffloadEnabled: autoOffloadEnabled || undefined };

@@ -1,6 +1,7 @@
 // ─── Generic model-library IPC types (category-agnostic) ───
 import type { ModelCategory, ModelIssue, ModelUsageRecord } from '../../model-library/types';
 import type { FitResult } from '../../model-library/fit';
+import type { ImageModelParams, ImageParamSchema } from '../../presets/image-model-params';
 
 /** Config a user picks in the Set-up dialog for a custom/unrecognized model. */
 export interface ModelSetupConfig {
@@ -26,6 +27,10 @@ export interface InstalledModelIpc {
   useCount: number;
   /** VRAM/RAM fit verdict vs the detected hardware. Absent when hardware is undetectable. */
   fit?: FitResult;
+  /** Image models: the family's generation-parameter schema (the per-model params dialog). */
+  paramSchema?: ImageParamSchema;
+  /** Image models: this model's own generation defaults (placeholders in the dialog). */
+  paramDefaults?: ImageModelParams;
 }
 
 /** A catalog profile (whether or not it is installed). */

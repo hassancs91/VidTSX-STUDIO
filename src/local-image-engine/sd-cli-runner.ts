@@ -13,6 +13,8 @@ export interface SdCliRunOptions {
   outputPath: string;
   requestId: string;
   onProgress: (progress: SdGenerationProgress) => void;
+  /** Observes the exact argv handed to sd-cli (the main process logs it). */
+  onArgs?: (args: string[]) => void;
 }
 
 export interface SdCliRunResult {
@@ -169,6 +171,7 @@ function parseSeed(output: string): number {
 export function runSdCli(options: SdCliRunOptions): Promise<SdCliRunResult> {
   return new Promise((resolve, reject) => {
     const args = buildArgs(options.resolved, options.request, options.outputPath);
+    options.onArgs?.(args);
     let fullOutput = '';
 
     const proc = spawn(options.sdCliBinaryPath, args, {

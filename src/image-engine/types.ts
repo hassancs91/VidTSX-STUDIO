@@ -1,4 +1,5 @@
 import type { ProviderKeyId } from '../shared/providers/registry';
+import type { ImageModelParams, ImageParamSchema } from '../shared/presets/image-model-params';
 
 /** Provider identifier for image generation services */
 export type ImageProviderId = string;
@@ -17,6 +18,13 @@ export interface ImageGenerationRequest {
   sourceImage?: string;        // base64, required for image-to-image
   referenceImages?: string[];  // base64[], required for multi-reference
   outputFormat?: 'png' | 'jpeg' | 'webp';
+  /**
+   * Generation parameters (steps, guidance, seed, sampler, negative prompt…).
+   * The engine fills the gaps from the model's stored override before the
+   * provider sees the request; each provider sends the subset its dialect
+   * declares (shared/presets/image-dialects.ts, FAMILY_PARAM_SCHEMAS).
+   */
+  params?: ImageModelParams;
   // Optional abort signal threaded through into the provider's fetch calls.
   // The IPC handler creates a controller per callId; renderer-side AbortSignal
   // can't cross the IPC boundary so this field is main-only.
@@ -47,6 +55,10 @@ export interface ImageModelInfo {
   endpoints: Partial<Record<ImageOperation, string>>;
   /** Credit cost per generation, when the provider charges credits (VidTSX). */
   credits?: number;
+  /** The parameters this model's API accepts (drives the params dialog and advanced panel). */
+  paramSchema?: ImageParamSchema;
+  /** The model's own defaults for those parameters (placeholders in the forms). */
+  paramDefaults?: ImageModelParams;
 }
 
 /** Provider configuration stored in user settings */
@@ -87,9 +99,18 @@ export interface ImageProviderPreset extends ImageProviderConfig {
 /** The interface every image provider must implement */
 export interface ImageProvider {
   readonly id: ImageProviderId;
+  /** The model a request without `model` runs on — keys the per-model override lookup. */
+  readonly defaultModel?: string;
   generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
   getSupportedModels(): ImageModelInfo[];
 }
+
+/**
+ * Per-model parameter overrides, injected by main at init (the store is a
+ * settings key). Returns the user's saved params for `provider/model`, or
+ * undefined. Synchronous: the settings db is.
+ */
+export type ImageParamResolver = (providerId: string, modelId: string) => ImageModelParams | undefined;
 
 /**
  * Content Safety Gate B hook, injected by main at init (the classifier needs

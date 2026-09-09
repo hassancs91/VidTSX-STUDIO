@@ -31,6 +31,9 @@ async function initSdImageEngine(): Promise<void> {
   const cliPath = getSdCliBinaryPath();
   imageLocalEngine.initialize(createSdModelResolver(), cliPath);
   imageLocalEngine.onModelUsed = (modelId) => usageStore.recordUse('image', modelId);
+  // The exact argv per generation — the proof that a per-model override reached sd-cli.
+  imageLocalEngine.onSpawn = (requestId, modelId, args) =>
+    logEngine.info('SdImage', 'sd-cli argv', { requestId, modelId, args });
 
   if (!isSdCliInstalled()) {
     logEngine.warn('SdImage', 'sd-cli binary not installed — local image generation disabled');

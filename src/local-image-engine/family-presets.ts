@@ -1,3 +1,4 @@
+import type { ImageParamField, ImageParamSchema } from '@shared/presets/image-model-params';
 import type {
   CompanionRequirement,
   SdModelFamily,
@@ -146,6 +147,63 @@ export const FAMILY_PRESETS: Record<SdModelFamily, SdModelMeta> = {
 
 /** The families a user may pick for a custom import (all of them). */
 export const SD_FAMILIES: SdModelFamily[] = ['sd15', 'sdxl', 'sd3', 'flux1', 'flux2'];
+
+// ─── Per-family generation parameter schema (W2c) ──────────────────────
+
+/** sd-cli `--sampling-method` values (stable-diffusion.cpp, 2026-09). */
+export const SD_SAMPLERS: readonly string[] = [
+  'euler',
+  'euler_a',
+  'heun',
+  'dpm2',
+  'dpm++2s_a',
+  'dpm++2m',
+  'dpm++2mv2',
+  'ipndm',
+  'ipndm_v',
+  'lcm',
+  'ddim_trailing',
+  'tcd',
+];
+
+/** sd-cli `--scheduler` values. */
+export const SD_SCHEDULERS: readonly string[] = ['discrete', 'karras', 'exponential', 'ays', 'gits'];
+
+const SD_FIELDS: readonly ImageParamField[] = [
+  { key: 'width', label: 'Width', kind: 'number', min: 64, max: 2048, step: 64 },
+  { key: 'height', label: 'Height', kind: 'number', min: 64, max: 2048, step: 64 },
+  { key: 'steps', label: 'Steps', kind: 'number', min: 1, max: 150, step: 1 },
+  { key: 'cfgScale', label: 'CFG scale', kind: 'number', min: 0, max: 30, step: 0.5 },
+  { key: 'sampler', label: 'Sampler', kind: 'select', options: SD_SAMPLERS },
+  { key: 'scheduler', label: 'Scheduler', kind: 'select', options: SD_SCHEDULERS },
+  { key: 'negativePrompt', label: 'Negative prompt', kind: 'text' },
+  { key: 'seed', label: 'Seed', kind: 'number', min: 0, step: 1, hint: 'Fixed seed; empty = random per image.' },
+];
+
+const SD_SCHEMA: ImageParamSchema = { fields: SD_FIELDS, sizeMode: 'image_size', maxReferences: 0 };
+
+/**
+ * What the per-model params dialog renders for a local model — the same
+ * sd-cli surface for every family (FLUX ignores CFG > 1 and negative prompts
+ * but accepts the flags). Placeholders come from the model's own `defaults`.
+ */
+export const FAMILY_PARAM_SCHEMAS: Record<SdModelFamily, ImageParamSchema> = {
+  sd15: SD_SCHEMA,
+  sdxl: SD_SCHEMA,
+  sd3: SD_SCHEMA,
+  flux1: {
+    ...SD_SCHEMA,
+    fields: SD_FIELDS.map((f) =>
+      f.key === 'cfgScale' ? { ...f, hint: 'FLUX runs guidance-distilled; keep 1.0.' } : f,
+    ),
+  },
+  flux2: {
+    ...SD_SCHEMA,
+    fields: SD_FIELDS.map((f) =>
+      f.key === 'cfgScale' ? { ...f, hint: 'FLUX runs guidance-distilled; keep 1.0.' } : f,
+    ),
+  },
+};
 
 // ─── Per-family hardware floors (VRAM/RAM preflight) ───────────────────
 

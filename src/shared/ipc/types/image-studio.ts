@@ -1,5 +1,6 @@
 // ─── Image generation types ───
 import type { ContentSafetyBlockInfo } from '../../content-safety/types';
+import type { ImageModelParams, ImageParamSchema } from '../../presets/image-model-params';
 
 export type ImageOperationType = 'text-to-image' | 'image-to-image' | 'multi-reference';
 
@@ -27,6 +28,12 @@ export interface ImageModelInfoIpc {
   supportedOperations: ImageOperationType[];
   /** Credit cost per generation, when the provider charges credits (VidTSX). */
   credits?: number;
+  /** The parameters this model's API / family accepts (Image Studio's advanced panel renders it). */
+  paramSchema?: ImageParamSchema;
+  /** The model's own defaults, shown as placeholders. */
+  paramDefaults?: ImageModelParams;
+  /** The user's saved override for this provider/model, if any. */
+  params?: ImageModelParams;
 }
 
 export interface ImageProvidersGetResponse {
@@ -96,6 +103,8 @@ export interface ImageGenerateRequest {
   sourceImage?: string;
   referenceImages?: string[];
   outputFormat?: 'png' | 'jpeg' | 'webp';
+  /** Per-request parameters; fields left unset take the model's saved override, then its defaults. */
+  params?: ImageModelParams;
 }
 
 export interface ImageGenerateResponse {
