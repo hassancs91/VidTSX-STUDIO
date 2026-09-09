@@ -232,6 +232,111 @@ is a W7/W8 question); the SDK bump that unblocks Fable.
 
 **Acceptance.** Text→image, image→image and a two-reference call on a real key; the Studio agent's `generate_image` picks it when it is the active image provider; usage row logged with price.
 
+#### W2a outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+All four acceptance rows hold on a real ModelArk key, driven in the real
+app on the second dev instance (W3 profile, own out dir, CDP 9223) through
+`window.api` and the Studio agent chat, with every wire body captured by
+wrapping the main process's `fetch` over the inspector. `check:types` at
+baseline (web 26, node 10); 1955 tests passing, up from 1937. Commits
+`55c9bc1` (client, provider, catalog, registry, engine, tests) and
+`192d5f0` (the catalog card placeholder, the agent path's usage price).
+Total spend: five Seedream 5.0 Pro images, about $0.23 (the failed and the Content-Safety-blocked attempts were not billed).
+
+**The wire.** `BytePlusArkClient.createImage(body)` → `POST
+/images/generations`, synchronous, `response_format: 'b64_json'` so nothing
+is downloaded; a 200 carrying a top-level `error` with no `data` raises like
+an HTTP error. The body is `model`, `prompt`, `size`, `response_format`,
+`watermark: false`, then `image` (one data URI for image-to-image, an array
+for multi-reference), `seed` when set, `output_format` on the 5.0 models,
+and `sequential_image_generation` (`'disabled'` on a single image, `'auto'`
++ `sequential_image_generation_options.max_images` for a set) on the
+models that take it. The reference pinned on 2026-09-10 lists NO
+`guidance_scale` and NO `seed` for the 4.x / 5.x endpoint (both were
+Seedream 3.0's API), so both were put on the wire once to find out: `seed:
+12345` returned 200, `guidance_scale: 3` returned "the parameter
+`guidance_scale` is not supported by the current model". The
+`byteplus-seedream` dialect W2c declared as Guidance + Seed is therefore
+**Seed only** now (`maxReferences` 14, per the 4.5 / 5.0 lite docs; 5.0 pro
+takes 10 and the provider enforces its cap per model).
+
+**Model ids and sizes.** The plan's `seedream-4-5` / `seedream-5-0-lite` /
+`seedream-5-0-pro` were approximations; the ModelArk model list gives
+`seedream-4-5-251128`, `seedream-5-0-lite-260128` (alias
+`seedream-5-0-260128`) and `dola-seedream-5-0-pro-260628`, which is what
+`BYTEPLUS_IMAGE_MODELS` in `src/shared/presets/image-model-entries.ts`
+ships (the file the plan named; the fal / OpenRouter / Cloudflare lists stay
+inline in `provider-model-defaults.ts`). Prices from the pricing page:
+$0.04, $0.035, and $0.045 for pro up to 2.61 MP ($0.09 above — the provider
+never asks pro for more than its 2K ceiling, so the lower tier is the
+estimate; pro also bills $0.003 per reference from the second one, not
+modelled). The part no other provider needed: ModelArk's explicit
+`<width>x<height>` form has a total-pixel FLOOR per model — 2560×1440 worth
+(3.69 MP) on 4.5 and 5.0 lite, 1280×720 worth on 4.0 and 5.0 pro (whose
+ceiling is 4.62 MP) — so the app's usual 1024² and 1280×720 asks would be
+400s. `fitBytePlusImageSize` scales the caller's aspect onto the model's
+envelope on multiples of 16 (Image Studio's 1024² became `1920x1920` on
+4.5; the agent's 1280×720 became `2560x1440` on 4.5 and stayed `1280x720`
+on pro — all three seen on the wire); a size already inside goes through
+untouched, no size at all sends the `2K` tier every model accepts. A
+user-added id gets the envelope every listed model accepts (the 4.5 floor
+under the pro ceiling), the pro's reference cap, and no version-specific
+field, so an unknown Seedream id never gets a body the API rejects.
+
+**What came free.** The provider sits behind `runGuarded`, so Gate A, Gate B
+on inputs and outputs, the W2c param resolver, usage logging and library
+filing all applied with no call-site change — and Gate B on INPUTS showed
+itself on the way: the first image-to-image and two-reference attempts used
+two solid-colour 256² PNGs as references and both were stopped at 0.1 s as
+"borderline" before any request left the machine (the spy still held the
+previous body). Real pictures went through. `generate-image-asset.ts` (the
+Studio agent's and the agents' `generate_image`) had always logged `costUsd:
+0`; it now uses the same `getDefaultImageModelPriceUsd` lookup as the Image
+Studio IPC, which is what the last acceptance row needed.
+
+**Acceptance evidence.** (1) Text→image on `dola-seedream-5-0-pro-260628`,
+1280×720: 24.9 s, a 103 KB JPEG of a red apple; body `{model, prompt, size:
+"1280x720", response_format: "b64_json", watermark: false}` and, on pro, no
+sequential field. (2) Image→image with that apple as the source ("a glossy
+red billiard ball on green felt"): 98 s, 1024×1024, body carried `image:
+"data:image/jpeg;base64,…"` (113 871 chars) as one string; the output is a
+red "1" ball on felt. (3) Two references (the apple + a library screenshot):
+89 s, body carried `image: [data:image/jpeg…, data:image/png…]`; the output
+a striped beach ball on sand. (4) The Studio agent: byteplus made the
+active image provider, a seeded project, one chat line asking for an image —
+`generate_image` went to ModelArk on the provider's default model (the body
+shows `seedream-4-5-251128`, `size: "2560x1440"`) and came back with
+"account … has not activated the model seedream-4-5-251128", which the
+agent relayed verbatim with the console step; with the provider's default
+model set to 5.0 pro (a Providers-page setting) the retry returned
+`library:generated/a-single-red-apple-on-a-plain-white-tabl.png` (1280×720,
+brand-tagged) with `output_format: "png"` on the wire. Usage rows: four
+`byteplus / dola-seedream-5-0-pro-260628 / image-generation / $0.045` and
+one `studio-shot-asset / $0.045` for the agent's image. Image Studio with
+byteplus active lists Seedream 4.5 / 5.0 Lite / 5.0 Pro, and Reference mode
+shows the Reference Images library plus the Advanced disclosure (Seed).
+Everything seeded was removed afterwards (project, the agent's library
+image and its index entry; active provider back to gemini-cli, the byteplus
+default back to Seedream 4.5).
+
+**Not done / left for later.** Seedream 4.5 and 5.0 lite are NOT activated
+on Hasan's ModelArk account (`3004239178`) — only 5.0 pro is — so rows 1–3
+were run on pro and the 4.5 / lite bodies were verified on the wire up to
+the activation error. To run them: console.byteplus.com/ark → Model
+activation → activate `seedream-4-5-251128` and `seedream-5-0-lite-260128`,
+then Image Studio → provider BytePlus ModelArk → model Seedream 4.5 →
+Generate (1024² lands as 1920×1920, $0.04). Until then a fresh install's
+default (Seedream 4.5) fails with the activation message on that account;
+the shipped default stays 4.5 because activation is per account, and the
+Providers page's default-model select is the switch. Sets on 4.5 / lite use
+`sequential_image_generation: 'auto'`, where the COUNT is the model's call
+(≤ `max_images`), not the exact number Image Studio asked for — untested
+live (not activated); pro loops one call per image and is exact.
+`maxReferences` in the dialect schema is still informational — no UI reads
+it (pre-existing). The 5.0 pro `layer_decomposition`, `background:
+transparent` and marker-based interactive editing are not surfaced. Seed
+determinism on pro was not measured (one seeded run, no repeat).
+
 #### W2b ElevenLabs sound effects + music — ~1.5 sessions
 
 - New `ProviderCapability` `'audio'`; ElevenLabs → `['stt', 'audio']`. Key hint unchanged.

@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W2a DONE: Seedream images on ModelArk
+
+Workstream W2a of `docs/v1-completion-plan.md` §2.2 — the first of the W2
+provider subsections (W2b ElevenLabs audio stays open; W2c landed earlier
+today). Full outcome under the W2a acceptance paragraph in the plan.
+`check:types` at baseline (web 26, node 10); 1955 tests, up from 1937.
+Commits `55c9bc1`, `192d5f0` and the docs commit.
+
+- **The wire.** `BytePlusArkClient.createImage` → `POST /images/generations`
+  (synchronous, `b64_json`); `BytePlusImageProvider` behind the image
+  engine's chokepoint, so Gate A/B, the W2c param resolver, usage logging
+  and library filing came free. Per-model size envelope: ModelArk's
+  `<width>x<height>` form has a total-pixel FLOOR (2560×1440 worth on 4.5
+  / 5.0 lite, 1280×720 on 5.0 pro), so the app's 1024² / 1280×720 asks are
+  scaled onto it on multiples of 16 — seen on the wire as `1920x1920` and
+  `2560x1440`.
+- **Docs over plan.** Real ids `seedream-4-5-251128`,
+  `seedream-5-0-lite-260128`, `dola-seedream-5-0-pro-260628` in
+  `src/shared/presets/image-model-entries.ts` with the published prices
+  ($0.04 / $0.035 / $0.045). The 4.x / 5.x reference lists no
+  `guidance_scale` and no `seed`; live, seed is accepted and guidance is
+  rejected, so the `byteplus-seedream` dialect is Seed only now.
+- **Registry.** `byteplus` → `['video', 'image']`, image preset `byteplus`
+  (default Seedream 4.5), `ImageProviderConfig.type` / `ImageProviderType`
+  gain `'byteplus'`; the key test stays the video call.
+- **Live rows** on a real key: text→image, image→image and a two-reference
+  call on 5.0 Pro (25 / 98 / 89 s, bodies captured); the Studio agent's
+  `generate_image` picked byteplus as the active provider and filed the
+  image; usage rows at $0.045 — including the agent path, which had logged
+  $0 for every provider until now (`generate-image-asset.ts` fixed).
+- **Left.** Seedream 4.5 and 5.0 lite are not activated on the account
+  (only pro is): activate them in the Ark Console, then rerun on 4.5. Sets
+  on 4.5 / lite use `sequential_image_generation: 'auto'` (count is the
+  model's, untested live); pro loops one call per image.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W2c DONE: per-model image parameters
 
 Workstream W2c of `docs/v1-completion-plan.md` §2.2 — the third of the W2
