@@ -3,6 +3,7 @@
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { formatBrandSummary } from '../../library/brand-summary';
 import { getLibraryRoot } from '../../library/library-paths';
 import { loadIndex } from '../../library/library-store';
 import { classifyMediaKind } from '../media-import';
@@ -74,7 +75,7 @@ export function buildProjectTools(ctx: StudioToolContext): StudioTool[] {
 
   const getBrand = tool(
     'get_brand',
-    "Read the project's active brand: name, palette, fonts, logo refs (usable in assetRefs / insert_asset) and the style notes every shot and generated image already follows. Read it before designing shots or picking colours; never restate its rules in briefs.",
+    "Read the project's active brand: name, palette, fonts, logo refs (usable in assetRefs / insert_asset), the style notes every shot and generated image already follows, and the vocabulary (names spelled the brand's way — use them verbatim in titles and captions). Read it before designing shots or picking colours; never restate its rules in briefs.",
     {},
     async () => {
       emitTool(ctx, 'get_brand');
@@ -82,19 +83,7 @@ export function buildProjectTools(ctx: StudioToolContext): StudioTool[] {
         const brandId = await readProjectBrandId(req.projectId);
         const brand = await resolveProjectBrand(req.projectId, brandId);
         if (!brand) return text('This project has no active brand — shots use their own defaults. The user can pick one in the Inspector.');
-        const palette = Object.entries(brand.palette)
-          .map(([role, value]) => `${role} ${String(value)}`)
-          .join(', ');
-        const lines = [
-          `Brand "${brand.name}" (id ${brand.id})`,
-          `Palette: ${palette}`,
-          `Fonts: display ${brand.fonts.display}${brand.fonts.body ? `, body ${brand.fonts.body}` : ''}`,
-          brand.logoRefs.length > 0
-            ? `Logos: ${brand.logoRefs.map((r) => `${LIBRARY_REF_PREFIX}${r}`).join(', ')}`
-            : 'Logos: none',
-          brand.styleNotes ? `Style notes:\n${brand.styleNotes}` : 'Style notes: none',
-        ];
-        return text(lines.join('\n'));
+        return text(formatBrandSummary(brand, { logoRefPrefix: LIBRARY_REF_PREFIX }));
       } catch (err) {
         return text(`Could not read the brand: ${errorText(err)}`, true);
       }

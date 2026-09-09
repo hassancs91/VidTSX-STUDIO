@@ -79,6 +79,16 @@ describe('normalizeBrand', () => {
     expect(normalizeBrand({ ...raw, logoRefs: undefined }, 'b')?.logoRefs).toEqual([]);
   });
 
+  it('carries a normalized vocabulary and drops an empty one (W4)', () => {
+    const brand = normalizeBrand(
+      { ...raw, vocabulary: [{ term: ' VidTSX ', aliases: ['Vid TSX', 'vidtsx'] }, { term: '' }, 'junk'] },
+      'b',
+    );
+    expect(brand?.vocabulary).toEqual([{ term: 'VidTSX', aliases: ['Vid TSX'] }]);
+    expect(normalizeBrand({ ...raw, vocabulary: [] }, 'b')?.vocabulary).toBeUndefined();
+    expect(validateBrandInput({ ...GOOD, vocabulary: [{ term: 'x'.repeat(61) }] })[0]).toContain('too long');
+  });
+
   it('returns null for unusable documents', () => {
     expect(normalizeBrand(null, 'b')).toBeNull();
     expect(normalizeBrand({}, 'b')).toBeNull();

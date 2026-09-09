@@ -115,6 +115,18 @@ export interface StudioBrandPalette {
  * creation (explicit snapshot — changing the default never restyles
  * existing projects).
  */
+/**
+ * One brand vocabulary entry (V1 completion plan §2.4, decision §0.5): the
+ * CORRECT spelling of a name the brand uses, plus the manglings speech
+ * engines produce for it. Every term is sent to the transcription provider
+ * as a keyterm, and the aliases are replaced in every transcript the
+ * project makes (the deterministic post-pass in asset-transcriber).
+ */
+export interface StudioBrandTerm {
+  term: string;
+  aliases?: string[];
+}
+
 export interface StudioBrand {
   id: string;
   name: string;
@@ -125,6 +137,10 @@ export interface StudioBrand {
   logoRefs: string[];
   /** Free text, injected verbatim into generation prompts (logo placement, tone). */
   styleNotes?: string;
+  /** Names and spellings (W4). Absent = none; capped at BRAND_VOCABULARY_MAX.
+   *  The memory tier `vocabulary` is the PROPOSAL path and promotes in here,
+   *  the way rules promote into `styleNotes`. */
+  vocabulary?: StudioBrandTerm[];
   createdAt: string;
   updatedAt: string;
 }

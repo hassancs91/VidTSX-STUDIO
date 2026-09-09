@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { StudioBrand, StudioBrandPalette } from '@shared/types/asset-library';
 import { validateBrandInput, type StudioBrandInput } from '@shared/studio/brand';
+import { BrandVocabularyField } from './BrandVocabularyField';
 
 const PALETTE_FIELDS: Array<{ key: keyof StudioBrandPalette; label: string }> = [
   { key: 'primary', label: 'Primary' },
@@ -41,6 +42,7 @@ export function BrandForm({
           fonts: { ...brand.fonts },
           logoRefs: [...brand.logoRefs],
           styleNotes: brand.styleNotes ?? '',
+          vocabulary: brand.vocabulary ? brand.vocabulary.map((t) => ({ ...t })) : [],
         }
       : EMPTY,
   );
@@ -153,6 +155,11 @@ export function BrandForm({
           style={inputStyle}
         />
       </label>
+
+      <BrandVocabularyField
+        value={input.vocabulary}
+        onChange={(vocabulary) => setInput({ ...input, vocabulary })}
+      />
 
       {errors.length > 0 && (
         <div className="text-[10px] text-accent-red leading-snug" data-brand-errors>

@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import { logEngine } from '../../../logging/log-engine';
 import type { StudioBrand } from '../../../shared/types/asset-library';
 import { normalizeBrand, validateBrandInput, type StudioBrandInput } from '../../../shared/studio/brand';
+import { normalizeBrandVocabulary } from '../../../shared/studio/brand-vocabulary';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
 import { resolveLibraryPath } from './library-paths';
 
@@ -77,6 +78,8 @@ export async function createBrand(root: string, input: StudioBrandInput): Promis
     createdAt: now,
     updatedAt: now,
   };
+  const vocabulary = normalizeBrandVocabulary(input.vocabulary);
+  if (vocabulary.length > 0) brand.vocabulary = vocabulary;
   await writeBrandFile(path.join(folderPath, 'brand.json'), brand);
   return brand;
 }
@@ -102,6 +105,11 @@ export async function updateBrand(
   };
   if (input.styleNotes?.trim()) brand.styleNotes = input.styleNotes.trim();
   else delete brand.styleNotes;
+  // W4: the input is the whole list — an absent/empty vocabulary clears it,
+  // so every caller that edits ONE field must pass the brand's current list.
+  const vocabulary = normalizeBrandVocabulary(input.vocabulary);
+  if (vocabulary.length > 0) brand.vocabulary = vocabulary;
+  else delete brand.vocabulary;
   await writeBrandFile(getBrandFilePath(root, brandId), brand);
   return brand;
 }

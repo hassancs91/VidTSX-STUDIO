@@ -179,6 +179,9 @@ export async function handleMemoryPromotionResolve(
         fonts: brand.fonts,
         logoRefs: brand.logoRefs,
         styleNotes: composed.next,
+        // W4: updateBrand takes the whole list — dropping it here would
+        // wipe the vocabulary on every promotion.
+        ...(brand.vocabulary ? { vocabulary: brand.vocabulary } : {}),
       });
     } else if (composed.reason !== 'already-present') {
       // Notes changed underneath the card (edited in the Brand form) and the

@@ -2,7 +2,8 @@
 // L3, TSX_SHOTS_DESIGN.md D11). Pure — used by the main brand-store on load/
 // save and by the renderer form for inline feedback.
 
-import type { StudioBrand, StudioBrandPalette } from '../types/asset-library';
+import type { StudioBrand, StudioBrandPalette, StudioBrandTerm } from '../types/asset-library';
+import { normalizeBrandVocabulary, validateBrandVocabulary } from './brand-vocabulary';
 
 /** What the user authors — id/timestamps are the store's business. */
 export interface StudioBrandInput {
@@ -11,6 +12,8 @@ export interface StudioBrandInput {
   fonts: { display: string; body?: string };
   logoRefs?: string[];
   styleNotes?: string;
+  /** W4: names and spellings; absent or [] clears the list. */
+  vocabulary?: StudioBrandTerm[];
 }
 
 const PALETTE_KEYS: ReadonlyArray<keyof StudioBrandPalette> = [
@@ -66,6 +69,7 @@ export function validateBrandInput(input: StudioBrandInput): string[] {
   if ((input.styleNotes ?? '').length > STYLE_NOTES_MAX) {
     errors.push(`Style notes are limited to ${STYLE_NOTES_MAX} characters.`);
   }
+  errors.push(...validateBrandVocabulary(input.vocabulary));
   return errors;
 }
 
@@ -128,6 +132,7 @@ export function normalizeBrand(raw: unknown, folderId: string): StudioBrand | nu
   }
   if (!doc.fonts || typeof doc.fonts.display !== 'string') return null;
   const now = new Date().toISOString();
+  const vocabulary = normalizeBrandVocabulary(doc.vocabulary);
   return {
     id: folderId,
     name: doc.name.trim(),
@@ -150,6 +155,7 @@ export function normalizeBrand(raw: unknown, folderId: string): StudioBrand | nu
     ...(typeof doc.styleNotes === 'string' && doc.styleNotes.trim() !== ''
       ? { styleNotes: doc.styleNotes.slice(0, STYLE_NOTES_MAX) }
       : {}),
+    ...(vocabulary.length > 0 ? { vocabulary } : {}),
     createdAt: typeof doc.createdAt === 'string' ? doc.createdAt : now,
     updatedAt: typeof doc.updatedAt === 'string' ? doc.updatedAt : now,
   };

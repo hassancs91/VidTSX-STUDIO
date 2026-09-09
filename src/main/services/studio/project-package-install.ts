@@ -278,6 +278,7 @@ export async function applyBrandChoice(
       palette: brand.palette,
       fonts: brand.fonts,
       ...(brand.styleNotes ? { styleNotes: brand.styleNotes } : {}),
+      ...(brand.vocabulary ? { vocabulary: brand.vocabulary } : {}),
     });
     return { applied: 'create', brandId: created.id };
   } catch (err) {
