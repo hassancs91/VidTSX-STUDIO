@@ -37,6 +37,7 @@ import { makeClipId } from '../services/timeline-ops';
 import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
 import type {
+  StudioAgentSettings,
   StudioClipTransform,
   StudioMediaAsset,
   StudioProposal,
@@ -343,8 +344,24 @@ export function EditorShell({ projectId, onBack }: Props) {
     reviewOpen: activeProposal !== null,
     providerId: project?.settings.agent.providerId,
     model: project?.settings.agent.model,
+    shotModel: project?.settings.agent.shotModel,
+    thinking: project?.settings.agent.thinking,
     onProposal: handleAgentProposal,
   });
+
+  /** The model user-started shots run on: the shot slot, then the planning
+   *  model, then the provider default (W1). */
+  const shotModel = project?.settings.agent.shotModel || project?.settings.agent.model;
+
+  const updateAgentSettings = useCallback(
+    (patch: Partial<StudioAgentSettings>) => {
+      updateProject((prev) => ({
+        ...prev,
+        settings: { ...prev.settings, agent: { ...prev.settings.agent, ...patch } },
+      }));
+    },
+    [updateProject],
+  );
 
   // One-click entry into the agent's editorial pass: switch to the Assistant
   // tab and submit the canonical request there, so the run keeps its full
@@ -541,6 +558,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           ...(project?.settings.agent.providerId
             ? { providerId: project.settings.agent.providerId }
             : {}),
+          ...(shotModel ? { model: shotModel } : {}),
         })
         .then((res) => {
           if (res.success && res.shotId) {
@@ -550,7 +568,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           }
         });
     },
-    [projectId, project?.settings.agent.providerId, playback, showToast],
+    [projectId, project?.settings.agent.providerId, shotModel, playback, showToast],
   );
 
   const handleAddShot = useCallback(
@@ -894,6 +912,7 @@ export function EditorShell({ projectId, onBack }: Props) {
             {...(project.settings.agent.providerId
               ? { providerId: project.settings.agent.providerId }
               : {})}
+            {...(shotModel ? { model: shotModel } : {})}
             brands={brandList}
             brandId={project.settings.brandId}
             onSetBrand={handleSetBrand}
@@ -1035,7 +1054,12 @@ export function EditorShell({ projectId, onBack }: Props) {
                 onShotError={(message) => showToast(message, 'error')}
               />
             ) : (
-              <AgentPanel projectId={project.id} agent={agentChat} />
+              <AgentPanel
+                projectId={project.id}
+                agent={agentChat}
+                settings={project.settings.agent}
+                onSettingsChange={updateAgentSettings}
+              />
             )}
           </div>
         </div>

@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage, StudioAgentAssetInfo, StudioAgentChatMessage } from '@shared/ipc/types';
+import type { ThinkingLevel } from '@shared/tsx-engine/types';
 import type { StudioMediaAsset, StudioProposal, StudioShot } from '../types';
 
 /**
@@ -63,6 +64,8 @@ export interface UseStudioAgentOptions {
   reviewOpen: boolean;
   providerId?: string | undefined;
   model?: string | undefined;
+  shotModel?: string | undefined;
+  thinking?: ThinkingLevel | undefined;
   onProposal: (proposal: StudioProposal) => void;
 }
 
@@ -209,6 +212,8 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           reviewOpen: opts.reviewOpen,
           ...(opts.providerId ? { providerId: opts.providerId } : {}),
           ...(opts.model ? { model: opts.model } : {}),
+          ...(opts.shotModel ? { shotModel: opts.shotModel } : {}),
+          ...(opts.thinking ? { thinking: opts.thinking } : {}),
         });
         if (response.toolsAvailable !== undefined) setToolsAvailable(response.toolsAvailable);
         patchPending((msg) => ({

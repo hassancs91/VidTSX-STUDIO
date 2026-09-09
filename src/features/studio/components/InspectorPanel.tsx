@@ -1,8 +1,5 @@
-import { useEffect, useState } from 'react';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
-import type { LlmProviderConfig } from '@shared/ipc/types';
-import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioMediaAsset, StudioProject, StudioShot, StudioTimeline } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
@@ -10,7 +7,7 @@ import type { AutoCutPhase } from '../hooks/useAutoCut';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { findClip } from '../services/timeline-ops';
-import { buildAgentProviderOptions } from '../services/provider-options';
+import { AgentSettingsSection } from './AgentSettingsSection';
 import { TranscriptSection } from './TranscriptSection';
 import { ReviewCutsSection } from './ReviewCutsSection';
 import { ReviewShotsSection } from './ReviewShotsSection';
@@ -68,8 +65,6 @@ export function InspectorPanel({
   getShotProgress,
   onShotError,
 }: Props) {
-  const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
-
   // The shot behind the selected tsx clip, when exactly one clip is selected.
   const singleClip =
     selectedClipIds.length === 1 ? (findClip(timeline, selectedClipIds[0])?.clip ?? null) : null;
@@ -77,14 +72,6 @@ export function InspectorPanel({
     singleClip?.kind === 'tsx' && singleClip.tsx
       ? (shots.find((s) => s.id === singleClip.tsx?.shotId) ?? null)
       : null;
-
-  useEffect(() => {
-    void window.api.llmProvidersGet().then((res) => {
-      setProviders(filterUsableLlmProviders(res.providers));
-    });
-  }, []);
-
-  const providerOptions = buildAgentProviderOptions(providers, project.settings.agent.providerId);
 
   return (
     <div className="h-full flex flex-col gap-4 p-3 overflow-y-auto">
@@ -179,28 +166,15 @@ export function InspectorPanel({
         </section>
       )}
 
-      <section className="flex flex-col gap-2">
-        <SectionLabel>AI Assistant</SectionLabel>
-        <Field label="Provider">
-          <Select
-            value={project.settings.agent.providerId ?? ''}
-            onChange={(providerId) => {
-              onUpdate((prev) => ({
-                ...prev,
-                settings: {
-                  ...prev.settings,
-                  agent: { ...prev.settings.agent, providerId: providerId || undefined },
-                },
-              }));
-            }}
-            options={providerOptions}
-          />
-        </Field>
-        <p className="text-[10px] text-text-dim leading-snug">
-          The editing agent (auto-cut, TSX shots, SFX) uses this provider.
-          Configure providers in the AI tab.
-        </p>
-      </section>
+      <AgentSettingsSection
+        settings={project.settings.agent}
+        onChange={(patch) => {
+          onUpdate((prev) => ({
+            ...prev,
+            settings: { ...prev.settings, agent: { ...prev.settings.agent, ...patch } },
+          }));
+        }}
+      />
     </div>
   );
 }

@@ -8,6 +8,7 @@
 // Shared between main (project-store, media-import) and renderer (editor UI).
 
 import type { SttModelFeatures } from '../presets/stt-models';
+import type { ThinkingLevel } from '../tsx-engine/types';
 import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
 
 // Caption types are a sibling file (they are a published contract for pack
@@ -272,8 +273,16 @@ export interface StudioProposal {
 // ---------------------------------------------------------------------------
 
 export interface StudioAgentSettings {
+  /** Absent = the app's active provider. */
   providerId?: string;
+  /** Planning model — the chat turn itself. Absent = the provider's default. */
   model?: string;
+  /** Model for TSX shot generation (`generate_tsx_shot`, Media Pool shots).
+   *  Absent = `model`, then the provider's default. */
+  shotModel?: string;
+  /** Thinking dial for the planning turn ('off' | 'medium' | 'max' in the UI;
+   *  any ThinkingLevel is accepted). Absent = off. */
+  thinking?: ThinkingLevel;
 }
 
 export interface StudioProjectSettings {

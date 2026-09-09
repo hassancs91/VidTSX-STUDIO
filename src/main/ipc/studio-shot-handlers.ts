@@ -112,6 +112,7 @@ export async function handleStudioShotGenerate(
         activeVersion: data.activeVersion,
         instruction: data.instruction,
         ...(data.providerId ? { providerId: data.providerId } : {}),
+        ...(data.model ? { model: data.model } : {}),
       });
       edit.catch((err) => log.warn('Shot edit failed', { error: String(err) }));
       return { success: true, shotId: data.shotId };
@@ -126,6 +127,7 @@ export async function handleStudioShotGenerate(
         shotId: data.shotId,
         activeVersion: data.activeVersion,
         ...(data.providerId ? { providerId: data.providerId } : {}),
+        ...(data.model ? { model: data.model } : {}),
       });
       refine.catch((err) => log.warn('Shot refine failed', { error: String(err) }));
       return { success: true, shotId: data.shotId };
@@ -154,6 +156,7 @@ export async function handleStudioShotGenerate(
             ...(data.assetRefs ? { assetRefs: data.assetRefs } : {}),
             ...(data.durationSeconds !== undefined ? { durationSeconds: data.durationSeconds } : {}),
             ...(data.providerId ? { providerId: data.providerId } : {}),
+            ...(data.model ? { model: data.model } : {}),
             origin: { by: 'user' },
             onReserved: (id) => {
               reserved = true;
@@ -229,6 +232,7 @@ export async function handleStudioShotImport(
         ...(data.name ? { name: data.name } : {}),
         ...(data.conform ? { conform: true } : {}),
         ...(data.providerId ? { providerId: data.providerId } : {}),
+        ...(data.model ? { model: data.model } : {}),
         onReserved: (shotId) => {
           reserved = true;
           resolve({ shotId });

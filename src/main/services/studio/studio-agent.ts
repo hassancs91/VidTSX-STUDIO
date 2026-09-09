@@ -13,6 +13,7 @@ import type {
 } from '../../../shared/ipc/types/studio';
 import type { StudioShot } from '../../../shared/types/studio';
 import { buildShotPlanProposal, SHOTS_PER_PASS_CAP } from '../../../shared/studio/shot-proposal';
+import { THINKING_CONFIGS } from '../../../shared/tsx-engine/thinking-config';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { llmEngine } from '../../../engine';
 import { getLlmProviders } from '../settings';
@@ -120,6 +121,9 @@ class StudioAgentService {
       const toolsAvailable = await this.resolveToolSupport(providerId);
       const mcpServer = toolsAvailable ? this.buildTools(req, abort.signal, providerId) : null;
       const memoryBlock = await this.buildMemoryBlock(req.projectId);
+      // The thinking dial maps to the engine's thinking + effort pair exactly
+      // as the Creator's does; the provider drops both on models without them.
+      const thinking = THINKING_CONFIGS[req.thinking ?? 'off'] ?? {};
 
       const extras = {
         ...(mcpServer ? { mcpServers: { studio: mcpServer } } : {}),
@@ -135,6 +139,8 @@ class StudioAgentService {
           featureSource: 'auto-cut',
           ...(providerId ? { providerId } : {}),
           ...(req.model ? { model: req.model } : {}),
+          ...(thinking.thinking ? { thinking: thinking.thinking } : {}),
+          ...(thinking.effort ? { effort: thinking.effort } : {}),
           ...(toolsAvailable ? { allowedTools: ALLOWED_TOOLS } : {}),
         },
         abort.signal,
@@ -326,6 +332,8 @@ class StudioAgentService {
               ? { assetRefs: args.assetRefs }
               : {}),
             ...(providerId ? { providerId } : {}),
+            // W1: the shot slot, falling back to the planning model.
+            ...(req.shotModel || req.model ? { model: req.shotModel || req.model } : {}),
             origin: { by: 'agent' },
             signal,
           });

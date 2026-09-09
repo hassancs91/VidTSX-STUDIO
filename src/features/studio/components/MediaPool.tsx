@@ -55,6 +55,8 @@ interface Props {
    *  only needed for the "Convert for Studio" conform pass. */
   projectId: string;
   providerId?: string;
+  /** The project shot model (W1), for generate and the conform pass. */
+  model?: string;
   // Brand (D11): the project's active brand, injected into every generate/regenerate
   brands: Array<{ id: string; name: string }>;
   brandId: string | undefined;
@@ -86,6 +88,7 @@ export function MediaPool({
   onGenerateShot,
   projectId,
   providerId,
+  model,
   brands,
   brandId,
   onSetBrand,
@@ -155,6 +158,7 @@ export function MediaPool({
           onGenerateShot={onGenerateShot}
           projectId={projectId}
           {...(providerId ? { providerId } : {})}
+          {...(model ? { model } : {})}
           brands={brands}
           brandId={brandId}
           onSetBrand={onSetBrand}
@@ -181,6 +185,7 @@ function ShotsSection({
   onGenerateShot,
   projectId,
   providerId,
+  model,
   brands,
   brandId,
   onSetBrand,
@@ -194,6 +199,7 @@ function ShotsSection({
   onGenerateShot: (spec: GenerateShotSpec) => void;
   projectId: string;
   providerId?: string;
+  model?: string;
   brands: Array<{ id: string; name: string }>;
   brandId: string | undefined;
   onSetBrand: (brandId: string | null) => void;
@@ -205,7 +211,11 @@ function ShotsSection({
   const [kind, setKind] = useState<'cutaway' | 'overlay'>('cutaway');
   const [brief, setBrief] = useState('');
   const [duration, setDuration] = useState('5');
-  const shotImport = useShotImport({ projectId, ...(providerId ? { providerId } : {}) });
+  const shotImport = useShotImport({
+    projectId,
+    ...(providerId ? { providerId } : {}),
+    ...(model ? { model } : {}),
+  });
 
   // A convertible drop-in found by the Q1c reconcile lands in the same banner
   // a failed picker import uses — Convert then runs the normal conform path.

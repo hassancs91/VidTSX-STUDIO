@@ -32,6 +32,8 @@ export function useMotionGenerator() {
   const [prompt, setPrompt] = useState('');
   const [editPrompt, setEditPrompt] = useState('');
   const { providers, selectedProvider, setSelectedProvider } = useProviderPicker();
+  /** Model on the selected provider; '' = its default (W1). */
+  const [model, setModel] = useState('');
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>('off');
   const [loopCount, setLoopCount] = useState(1);
   const [fps, setFps] = useState(30);
@@ -68,6 +70,7 @@ export function useMotionGenerator() {
       prompt: prompt.trim(),
       providerId: selectedProvider,
       options: {
+        ...(model ? { model } : {}),
         thinkingLevel,
         maxTurns: loopCount,
         optimize,
@@ -81,7 +84,7 @@ export function useMotionGenerator() {
         ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
       },
     };
-  }, [prompt, selectedProvider, thinkingLevel, loopCount, optimize, fps, brands, selectedBrandId, aspectRatio, duration, autoDuration, referenceImages]);
+  }, [prompt, selectedProvider, model, thinkingLevel, loopCount, optimize, fps, brands, selectedBrandId, aspectRatio, duration, autoDuration, referenceImages]);
 
   const buildEditJob = useCallback((currentCode: string, folderPath: string): TsxJobStartRequest | null => {
     if (!editPrompt.trim() || !selectedProvider || !currentCode) return null;
@@ -91,13 +94,14 @@ export function useMotionGenerator() {
       prompt: editPrompt.trim(),
       providerId: selectedProvider,
       options: {
+        ...(model ? { model } : {}),
         thinkingLevel,
         maxTurns: loopCount,
         ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
       },
       target: { folderPath, currentCode },
     };
-  }, [editPrompt, selectedProvider, thinkingLevel, loopCount, referenceImages]);
+  }, [editPrompt, selectedProvider, model, thinkingLevel, loopCount, referenceImages]);
 
   const buildFixJob = useCallback((
     currentCode: string,
@@ -120,10 +124,10 @@ export function useMotionGenerator() {
       kind: 'fix',
       prompt: fixInstruction,
       providerId: selectedProvider,
-      options: { thinkingLevel, maxTurns: loopCount },
+      options: { ...(model ? { model } : {}), thinkingLevel, maxTurns: loopCount },
       target: { folderPath, currentCode },
     };
-  }, [selectedProvider, thinkingLevel, loopCount]);
+  }, [selectedProvider, model, thinkingLevel, loopCount]);
 
   return {
     prompt,
@@ -133,6 +137,8 @@ export function useMotionGenerator() {
     providers,
     selectedProvider,
     setSelectedProvider,
+    model,
+    setModel,
     thinkingLevel,
     setThinkingLevel,
     loopCount,

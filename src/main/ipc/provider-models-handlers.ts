@@ -19,7 +19,9 @@ const log = logEngine.createLogger('ProviderModels');
 
 async function reregister(category: ProviderModelsSaveRequest['category']): Promise<void> {
   if (category === 'video') await initVideoEngine();
-  else await initImageEngine();
+  else if (category === 'image') await initImageEngine();
+  // 'llm': nothing registers per model — the LLM engine takes the model id per
+  // request, and pickers re-read the catalog on the renderer's change event.
 }
 
 export async function handleProviderModelsGet(): Promise<ProviderModelsGetResponse> {

@@ -12,6 +12,7 @@ import type { StudioMemoryProposal, StudioStylePromotionProposal } from '../../t
 import type { CaptionAspect, CaptionTemplateDefaults } from '../../studio/caption-pack';
 import type { ExportEngineId } from '../../studio/export-engines';
 import type { ChatMessage } from './llm';
+import type { ThinkingLevel } from '../../tsx-engine/types';
 
 // Studio (AI video editor) — projects & media IPC contracts.
 
@@ -361,7 +362,12 @@ export interface StudioAgentSendRequest {
   /** A cut proposal is open in the review panel — propose_cuts must refuse. */
   reviewOpen: boolean;
   providerId?: string;
+  /** Planning model for this turn. */
   model?: string;
+  /** Model `generate_tsx_shot` runs on; falls back to `model`. */
+  shotModel?: string;
+  /** Thinking dial for the planning turn (THINKING_CONFIGS key). */
+  thinking?: ThinkingLevel;
 }
 
 export interface StudioAgentSendResponse {
@@ -485,6 +491,8 @@ export interface StudioShotGenerateRequest {
   /** edit: the change instruction (inspector edit box). */
   instruction?: string;
   providerId?: string;
+  /** The project's shot model (settings.agent.shotModel ?? model). */
+  model?: string;
 }
 
 export interface StudioShotGenerateResponse {
@@ -572,6 +580,8 @@ export interface StudioShotImportRequest {
   /** "Convert for Studio": one conform pass before the gate (allowlist gap). */
   conform?: boolean;
   providerId?: string;
+  /** The project's shot model, for the conform pass. */
+  model?: string;
 }
 
 export interface StudioShotImportResponse {

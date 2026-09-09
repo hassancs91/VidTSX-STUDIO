@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-09-09 — V1 COMPLETION W1 DONE: the model foundation (pick a model, not only a provider)
+
+W1 of `docs/v1-completion-plan.md` — the first of the nine workstreams, and
+the one the others build on. A user now picks a MODEL wherever an LLM runs:
+the Studio agent (a planning slot and a shot slot, plus a thinking dial, in
+the Inspector and as a chip in the Assistant composer), Agents sessions (the
+same chip; the choice sticks to the session), and the TSX panel (a Model
+select under Provider). Full log with the verified catalog, the contract
+deltas and the acceptance evidence: the plan's §2.1 "W1 outcome".
+`check:types` at baseline (web 26, node 10); 1786 tests passing, up from 1764.
+
+- **The catalog is what a real call accepted, not what the plan guessed.**
+  Every seeded id was called before it stayed, headless under Electron with
+  the app's own stored keys. Claude: Opus 5, Sonnet 5, Opus 4.8, Sonnet 4.6,
+  Haiku 4.5. MiniMax M3/M2.7/M2.5, Kimi K3/K2.7-code/K2.6, seventeen OpenRouter
+  ids. OpenAI, Gemini and Z.AI (hidden in V1, no key on hand) keep only the
+  default they already run on.
+- **Claude Fable 5.1 is OUT of the Claude catalogs** — the subscription route
+  answers "Claude Code 2.1.119 does not support this model; version 2.1.251 or
+  newer is required": the pinned Agent SDK 0.2.119 bundles that Claude Code.
+  The SDK bump is the one follow-up W1 leaves; Fable is reachable through
+  OpenRouter meanwhile (`anthropic/claude-fable-5.1`, verified).
+- **One catalog mechanism, not a new one.** `category: 'llm'` joins image and
+  video in `PROVIDER_MODEL_DEFAULTS`; the Model Catalogs card, the `{id,name}`
+  sanitiser and the settings override key all applied unchanged. Custom ids
+  are free text everywhere; a typed `claude-haiku-4-5` round-tripped through
+  settings and was served by the provider under that id.
+- **Two Studio slots.** The planning model runs the chat turn (the editorial
+  pass is that turn — `propose_cuts` is a tool it calls, there is no second
+  LLM call); the shot model runs `generate_tsx_shot`, Media Pool shots and the
+  import conform pass, injected once at the `buildShotEngineDeps` seam. Driven
+  live: one turn planned on Opus 5 and generated a shot on Sonnet 5, and the
+  usage log shows both on the same project.
+- **Agents remember.** A turn that names a provider/model patches the session
+  before running, so the chip restores it on reopen; mid-session switch from
+  Sonnet 5 to Haiku 4.5 put the new model on the next usage row.
+- **The Claude 5 surface reached the engine** (`claude-capabilities.ts`:
+  adaptive thinking, effort to max incl. xhigh, explicit display for Fable /
+  Opus 5 / Sonnet 5 / Opus 4.8), and OpenRouter's dotted ids now hit the same
+  rows as the hyphenated ones.
+- **Second dev instance, exercised for the first time** (own profile, CDP
+  9223) — the three launch lessons are in the outcome: `--entry` beside
+  `--outDir`, `app.setAppPath` for the built-in agents, no key seeding needed.
+
+Files: `src/shared/presets/llm-models.ts` (+test), `llm-model-options.ts`
+(+test), `ModelSelect.tsx`, `ModelPickerChip.tsx`, `useModelPicker.ts`,
+`AgentSettingsSection.tsx`, `claude-capabilities.test.ts`,
+`prompt-builder.test.ts`; the wiring across Studio, Agents, Creator and the
+TSX pipeline (`model` on every `buildLlmRequest`).
+
+Next: W3 (Studio agent end-to-end) per the plan's §3 order.
+
+---
+
 ## 2026-09-08 — AGENTS Stage 6 DONE: hardening, the author docs, and usage per agent
 
 Stage 6 of `docs/agents-plan.md` (§9) — the last code stage. Everything §9 asks

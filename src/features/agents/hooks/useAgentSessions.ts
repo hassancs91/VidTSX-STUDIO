@@ -35,12 +35,13 @@ export function useAgentSessions(agentId: string | null) {
 
   const create = useCallback(
     async (
-      options: { providerId?: string; starter?: StarterAnswers; title?: string } = {},
+      options: { providerId?: string; model?: string; starter?: StarterAnswers; title?: string } = {},
     ): Promise<AgentSession | undefined> => {
       if (!agentId) return undefined;
       const result = await window.api.agentSessionCreate({
         agentId,
         ...(options.providerId ? { providerId: options.providerId } : {}),
+        ...(options.model ? { model: options.model } : {}),
         ...(options.starter ? { starter: options.starter } : {}),
         ...(options.title ? { title: options.title } : {}),
       });

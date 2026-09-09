@@ -112,6 +112,7 @@ export interface AgentSessionCreateRequest {
   agentId: string;
   title?: string;
   providerId?: string;
+  model?: string;
   starter?: StarterAnswers;
 }
 

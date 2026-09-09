@@ -132,6 +132,7 @@ export interface CreateAgentSessionInput {
   agentVersion: string;
   title?: string;
   providerId?: string;
+  model?: string;
   starter?: StarterAnswers;
   /** Library default brand, so generated media is tagged like every other asset. */
   brandId?: string;
@@ -152,6 +153,7 @@ export async function createAgentSession(
     lastOpenedAt: now,
     libraryFolder: getAgentOutputFolder(input.agentName, title),
     ...(input.providerId ? { providerId: input.providerId } : {}),
+    ...(input.model ? { model: input.model } : {}),
     ...(input.starter ? { starter: input.starter } : {}),
     ...(input.brandId ? { brandId: input.brandId } : {}),
   };

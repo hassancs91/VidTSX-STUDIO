@@ -11,6 +11,8 @@
  * code, only an entry naming that family.
  */
 import type { ImageModelCatalogEntry } from './image-models';
+import type { LlmModelCatalogEntry } from './llm-models';
+import { LLM_MODEL_CATALOG } from './llm-models';
 import type { VideoModelCatalogEntry } from './video-models';
 import {
   BYTEPLUS_VIDEO_MODELS,
@@ -19,9 +21,17 @@ import {
   FAL_VIDEO_MODELS,
 } from './video-models';
 
-export type ProviderModelCategory = 'image' | 'video';
+/**
+ * 'llm' catalogs are keyed by LLM PRESET id (`src/engine/presets.ts`), which
+ * is also what `LlmProviderConfig.id` carries — so 'openrouter' holds both an
+ * image list (BYOK image API) and an llm list (the Anthropic-compatible route).
+ */
+export type ProviderModelCategory = 'image' | 'video' | 'llm';
 
-export type ProviderModelCatalogEntry = ImageModelCatalogEntry | VideoModelCatalogEntry;
+export type ProviderModelCatalogEntry =
+  | ImageModelCatalogEntry
+  | VideoModelCatalogEntry
+  | LlmModelCatalogEntry;
 
 /** A video entry is the one that names a dialect. */
 export function isVideoCatalogEntry(
@@ -35,11 +45,13 @@ export interface ProviderModelCatalogKey {
   category: ProviderModelCategory;
 }
 
-/** providerId → category → default entries. */
-export const PROVIDER_MODEL_DEFAULTS: Record<
+type ProviderDefaults = Record<
   string,
   Partial<Record<ProviderModelCategory, readonly ProviderModelCatalogEntry[]>>
-> = {
+>;
+
+/** The image/video half, keyed by BYOK provider id. */
+const MEDIA_MODEL_DEFAULTS: ProviderDefaults = {
   // priceUsd = estimated cost per ~1MP image, for the usage dashboard only
   // (the provider is the billing authority; models without a verified rate
   // omit it and log $0).
@@ -72,6 +84,15 @@ export const PROVIDER_MODEL_DEFAULTS: Record<
   },
 };
 
+/** providerId → category → default entries (media lists + the llm lists). */
+export const PROVIDER_MODEL_DEFAULTS: ProviderDefaults = Object.entries(LLM_MODEL_CATALOG).reduce(
+  (acc, [presetId, llm]) => {
+    acc[presetId] = { ...acc[presetId], llm };
+    return acc;
+  },
+  { ...MEDIA_MODEL_DEFAULTS } as ProviderDefaults,
+);
+
 /** The model a provider's video catalog offers first. */
 export const DEFAULT_VIDEO_MODEL_BY_PROVIDER: Record<string, string> = {
   fal: DEFAULT_VIDEO_MODEL,
@@ -103,5 +124,5 @@ export function getDefaultProviderModels(
  */
 export function getDefaultImageModelPriceUsd(providerId: string, modelId: string): number {
   const entry = PROVIDER_MODEL_DEFAULTS[providerId]?.image?.find((m) => m.id === modelId);
-  return entry && !isVideoCatalogEntry(entry) ? (entry.priceUsd ?? 0) : 0;
+  return entry && 'priceUsd' in entry ? (entry.priceUsd ?? 0) : 0;
 }

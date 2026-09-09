@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, Brain, RotateCcw, Send, Square } from 'lucide-react';
 import { AgentMessageRow } from '@renderer/components/agent-chat/AgentMessageRow';
+import { ModelPickerChip } from '@renderer/components/ModelPickerChip';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import type { AgentChatRow } from '../types';
 import { AGENT_TOOL_LABELS } from '../services/event-folding';
@@ -24,6 +25,9 @@ interface Props {
   providers: LlmProviderConfig[];
   providerId: string;
   onProviderChange: (id: string) => void;
+  /** Model on the provider; '' = its default (W1). */
+  model: string;
+  onModelChange: (model: string) => void;
   onSend: (text: string) => void;
   onCancel: () => void;
   onNewSession: () => void;
@@ -57,6 +61,8 @@ export function AgentChat({
   providers,
   providerId,
   onProviderChange,
+  model,
+  onModelChange,
   onSend,
   onCancel,
   onNewSession,
@@ -101,19 +107,16 @@ export function AgentChat({
         className="flex items-center gap-2 px-2.5 h-[32px] shrink-0"
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
       >
-        <select
-          value={providerId}
-          onChange={(e) => onProviderChange(e.target.value)}
-          disabled={busy}
-          className="flex-1 min-w-0 h-[22px] rounded-[6px] bg-app-base px-1.5 text-[11px] text-text-secondary outline-none focus:border-accent cursor-pointer"
-          style={{ border: '0.5px solid var(--color-border-input)' }}
-        >
-          {providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex-1 min-w-0 flex items-center">
+          <ModelPickerChip
+            providers={providers}
+            providerId={providerId}
+            onProviderChange={onProviderChange}
+            model={model}
+            onModelChange={onModelChange}
+            disabled={busy}
+          />
+        </div>
         <button
           onClick={onOpenMemory}
           title="What this agent remembers"

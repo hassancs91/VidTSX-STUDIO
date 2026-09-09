@@ -12,9 +12,12 @@ import { useCallback, useEffect, useState } from 'react';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 
-export function useAgentProviders(lastUsedProviderId?: string) {
+export function useAgentProviders(lastUsedProviderId?: string, lastUsedModel?: string) {
   const [providers, setProviders] = useState<LlmProviderConfig[]>([]);
   const [providerId, setProviderId] = useState<string>('');
+  /** Model on the provider; '' = its default (W1). Preselected from the
+   *  session the workspace opens with, then whatever the chip picks. */
+  const [model, setModel] = useState<string>(lastUsedModel ?? '');
   const [loaded, setLoaded] = useState(false);
 
   const load = useCallback(async () => {
@@ -44,5 +47,5 @@ export function useAgentProviders(lastUsedProviderId?: string) {
     return () => window.removeEventListener('vidtsx:llm-providers-changed', load);
   }, [load]);
 
-  return { providers, providerId, setProviderId, usable: providers.length > 0, loaded };
+  return { providers, providerId, setProviderId, model, setModel, usable: providers.length > 0, loaded };
 }

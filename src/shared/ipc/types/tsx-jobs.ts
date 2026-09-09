@@ -51,6 +51,8 @@ export interface TsxJobIpc {
 }
 
 export interface TsxJobOptionsIpc {
+  /** Model on the job's provider; absent = its default (W1). */
+  model?: string;
   thinkingLevel?: ThinkingLevel;
   maxTurns?: number;
   optimize?: boolean;

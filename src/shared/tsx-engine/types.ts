@@ -34,6 +34,8 @@ export interface TsxPromptContext {
 export interface TsxGenerateOptions {
   prompt: string;
   providerId?: string;
+  /** Model id on that provider; absent = the provider default (W1). */
+  model?: string;
   thinkingLevel?: ThinkingLevel;
   maxTurns?: number;
   promptContext?: TsxPromptContext;
@@ -45,6 +47,7 @@ export interface TsxEditOptions {
   currentCode: string;
   editInstruction: string;
   providerId?: string;
+  model?: string;
   thinkingLevel?: ThinkingLevel;
   maxTurns?: number;
   images?: LlmImageIpc[];
@@ -54,6 +57,7 @@ export interface TsxEditPipelineOptions {
   currentCode: string;
   editInstruction: string;
   providerId?: string;
+  model?: string;
   thinkingLevel?: ThinkingLevel;
   maxTurns?: number;
   maxFixRetries?: number;
@@ -76,6 +80,8 @@ export interface PipelineProgress {
 export interface TsxPipelineOptions {
   prompt: string;
   providerId?: string;
+  /** Model id on that provider; absent = the provider default (W1). */
+  model?: string;
   thinkingLevel?: ThinkingLevel;
   maxTurns?: number;
   optimize?: boolean;

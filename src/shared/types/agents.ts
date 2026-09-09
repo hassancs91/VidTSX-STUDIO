@@ -328,6 +328,9 @@ export interface AgentSession {
   createdAt: string;
   lastOpenedAt: string;
   providerId?: string;
+  /** Model on that provider; absent = its default. Set at creation and
+   *  updated by every turn that names one (W1: the choice sticks). */
+  model?: string;
   starter?: StarterAnswers;
   /**
    * Library-relative folder this session's media files into (§1.11), fixed at

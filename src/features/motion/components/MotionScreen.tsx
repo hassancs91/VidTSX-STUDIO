@@ -311,6 +311,8 @@ function MotionScreenContent() {
                   providers={generator.providers}
                   selectedProvider={generator.selectedProvider}
                   onProviderChange={generator.setSelectedProvider}
+                  model={generator.model}
+                  onModelChange={generator.setModel}
                   thinkingLevel={generator.thinkingLevel}
                   onThinkingLevelChange={generator.setThinkingLevel}
                   loopCount={generator.loopCount}

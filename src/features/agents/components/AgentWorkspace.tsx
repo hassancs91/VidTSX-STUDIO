@@ -40,7 +40,7 @@ export function AgentWorkspace({ agent, onBack }: Props) {
   const { sessions, remove, rename, refresh } = sessionStore;
 
   const lastProvider = sessions[0]?.providerId;
-  const providers = useAgentProviders(lastProvider);
+  const providers = useAgentProviders(lastProvider, sessions[0]?.model);
 
   // Which session is open, and how a new one begins (§1.8, §1.9) — including
   // the rule that the starter runs BEFORE the session is created.
@@ -60,8 +60,20 @@ export function AgentWorkspace({ agent, onBack }: Props) {
     agentId,
     sessionId,
     ...(providers.providerId ? { providerId: providers.providerId } : {}),
+    model: providers.model,
     onJobRequest: (request) => void enqueueRef.current?.(request),
   });
+
+  // W1: the choice sticks with the session — opening one restores the
+  // provider and model it last ran on (a provider no longer usable is left
+  // to the hook's own fallback).
+  const openedSession = run.session;
+  const { setProviderId, setModel } = providers;
+  useEffect(() => {
+    if (!openedSession) return;
+    if (openedSession.providerId) setProviderId(openedSession.providerId);
+    setModel(openedSession.model ?? '');
+  }, [openedSession?.id, openedSession?.providerId, openedSession?.model, setProviderId, setModel]);
   // The bridge reads the run's artifacts and the run hands the bridge its job
   // requests, so one of the two directions has to be late-bound.
   const render = useAgentRenderBridge(agentId, sessionId, run.artifacts);
@@ -179,7 +191,12 @@ export function AgentWorkspace({ agent, onBack }: Props) {
               {...(run.toolsAvailable !== undefined ? { toolsAvailable: run.toolsAvailable } : {})}
               providers={providers.providers}
               providerId={providers.providerId}
-              onProviderChange={providers.setProviderId}
+              onProviderChange={(id) => {
+                providers.setProviderId(id);
+                providers.setModel('');
+              }}
+              model={providers.model}
+              onModelChange={providers.setModel}
               onSend={(text) => void run.send(text)}
               {...(prefill ? { prefill } : {})}
               {...(starterTree?.quickStarts?.length

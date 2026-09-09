@@ -52,7 +52,10 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
       setStarterOpen(true);
       return;
     }
-    void create({ ...(providers.providerId ? { providerId: providers.providerId } : {}) }).then(
+    void create({
+      ...(providers.providerId ? { providerId: providers.providerId } : {}),
+      ...(providers.model ? { model: providers.model } : {}),
+    }).then(
       (session) => {
         if (session) setSessionId(session.id);
       },
@@ -61,6 +64,7 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
     providers.loaded,
     providers.usable,
     providers.providerId,
+    providers.model,
     sessionsLoaded,
     rows,
     sessionId,
@@ -76,6 +80,7 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
         const title = starter ? starterTitle(starter) : undefined;
         const session = await create({
           ...(providers.providerId ? { providerId: providers.providerId } : {}),
+          ...(providers.model ? { model: providers.model } : {}),
           ...(starter && !isEmptyStarterAnswers(starter) ? { starter } : {}),
           ...(title ? { title } : {}),
         });
@@ -87,7 +92,7 @@ export function useAgentStarter({ starterTree, sessions, providers }: Input) {
         setCreating(false);
       }
     },
-    [create, providers.providerId],
+    [create, providers.providerId, providers.model],
   );
 
   /** New session / Start over (§1.7): with a starter, that means the tree again. */

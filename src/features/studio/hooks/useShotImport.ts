@@ -22,9 +22,10 @@ export interface ShotImportFailure {
 interface Options {
   projectId: string;
   providerId?: string;
+  model?: string;
 }
 
-export function useShotImport({ projectId, providerId }: Options) {
+export function useShotImport({ projectId, providerId, model }: Options) {
   const [creatorProjects, setCreatorProjects] = useState<StudioCreatorProject[] | null>(null);
   const [listing, setListing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -55,6 +56,7 @@ export function useShotImport({ projectId, providerId }: Options) {
           ...(source.name ? { name: source.name } : {}),
           ...(source.conform ? { conform: true } : {}),
           ...(providerId ? { providerId } : {}),
+          ...(model ? { model } : {}),
         });
         if (res.success || res.canceled) return res.success;
         setFailure({
@@ -68,7 +70,7 @@ export function useShotImport({ projectId, providerId }: Options) {
         setBusy(false);
       }
     },
-    [projectId, providerId],
+    [projectId, providerId, model],
   );
 
   const importFromCreator = useCallback(

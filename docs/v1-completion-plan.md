@@ -109,6 +109,117 @@ node binding (already free-text). Per-turn switching in both chats.
 
 **Acceptance.** (1) Studio: plan with Fable, generate a shot with Sonnet, usage log shows both models on the same project. (2) Agents: switch model mid-session, next turn's usage row carries the new model. (3) A custom typed id round-trips through settings and reaches the provider. (4) Brand instructions reach the 3D pipeline (decision 7 check).
 
+#### W1 outcome (2026-09-09) — what was built, what the verification changed, and what it leaves
+
+All four acceptance rows hold, three of them driven in the real app on a
+second dev instance (own profile, CDP 9223 — the export-engines session kept
+9222) through `window.api` alone, the fourth as a unit test. `check:types`
+at baseline (web 26, node 10); 1786 tests passing, up from 1764.
+
+**The catalog as verified, not as planned.** Every seeded id was called for
+real before it stayed (the plan's rule: a stale id is worse than a short
+list). The calls ran headless under Electron with the keys the app already
+holds (safeStorage, decrypted in-process, never written), which is why the
+list differs from the design bullet:
+
+- **`claude-fable-5-1` is NOT in the Claude catalogs.** On the subscription
+  route the Agent SDK answers `400 … Claude Code 2.1.119 does not support this
+  model; version 2.1.251 or newer is required` — the SDK pinned in
+  `package.json` (`@anthropic-ai/claude-agent-sdk` 0.2.119) bundles that
+  Claude Code. This closes §5 open question 1 for Fable with a NO until the
+  SDK is bumped to one that bundles ≥ 2.1.251; that bump is its own change
+  (the engine's thinking/effort surface rides on it) and is the one follow-up
+  W1 leaves. Fable IS reachable today through OpenRouter
+  (`anthropic/claude-fable-5.1`, verified). Acceptance row 1 therefore ran
+  with Opus 5 as the planning model.
+- **Claude (subscription and API key):** `claude-opus-5`, `claude-sonnet-5`,
+  `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001` — all
+  five answered on the subscription route (`claude-haiku-4-5` also works as
+  an alias and is what row 3 typed). No API key was stored on the verifying
+  machine, so `claude-api` carries the same list on the strength of the same
+  SDK path.
+- **MiniMax** `MiniMax-M3`, `M2.7`, `M2.5`; **Kimi** `kimi-k3`,
+  `kimi-k2.7-code`, `kimi-k2.6` (the k2.x ids the design guessed at are
+  "not found" on Moonshot's Anthropic route); **OpenRouter** 17 ids across
+  Anthropic (dotted ids — `anthropic/claude-opus-4.8`, not `-4-8`), OpenAI
+  5.5/5.4/5.4-mini, Gemini 3.1 Pro / 3.5 Flash, DeepSeek V4 Pro/Flash, Grok
+  4.6, Kimi K3, GLM 5.3, MiniMax M3. All answered.
+- **OpenAI, Gemini, Z.AI:** no key available, and all three are hidden in V1
+  (`V1_HIDDEN_PRESET_IDS`). Each carries only its preset `defaultModel`,
+  flagged in the file as unverified.
+
+**Where the list lives.** `src/shared/presets/llm-models.ts` keys the catalog
+by PRESET id (`claude-subscription`, `openrouter`, …), which is what
+`LlmProviderConfig.id` carries — not the `ProviderType` the design wrote,
+since one type (`agent-sdk`) spans five presets with disjoint lists. The
+lists compose into `PROVIDER_MODEL_DEFAULTS` under `category: 'llm'`, so the
+existing Model Catalogs card, the `{id,name}` sanitiser and the
+`providerModels` override key all applied unchanged; the only handler change
+is that saving an llm catalog re-registers no engine (the model id travels
+per request). `tier`, `supportsThinking` and `note` survive a user edit by
+being read back from the shipped entry by id, the image-price rule.
+
+**The cluster.** `useModelPicker(providerId)` resolves '' (Studio's "app
+default") to the active provider, merges overrides over defaults, and
+re-reads on `vidtsx:llm-models-changed`. `ModelSelect` = provider default →
+catalog → Custom… (free text, any id). `ModelPickerChip` is the composer chip
+both chats share: provider → model → thinking, thinking hidden when the
+catalog marks the model `supportsThinking: false`; a custom id keeps the dial
+because the engine already drops thinking/effort on models without them.
+`claude-capabilities.ts` gained the Claude 5 surface (Fable, Opus 5, Sonnet
+5, Opus 4.8: adaptive, effort to `max` incl. `xhigh`, display must be asked
+for) and normalises OpenRouter's dotted ids, so `anthropic/claude-opus-4.8`
+hits the same rows as `claude-opus-4-8`.
+
+**Contract deltas as built.** `StudioAgentSettings` +`shotModel`,
++`thinking` (a `ThinkingLevel`); `StudioAgentSendRequest` +`shotModel`,
++`thinking`; `StudioShotGenerateRequest` / `StudioShotImportRequest` +`model`
+(the conform pass runs on the shot model too); `TsxJobOptionsIpc`,
+`TsxGenerateOptions`, `TsxPipelineOptions`, `TsxEditOptions`,
+`TsxEditPipelineOptions` +`model`, threaded through every `buildLlmRequest`
+site including the fix loop; `AgentSession` +`model`;
+`AgentSessionCreateRequest` +`model`. Two things the design did not spell
+out: (a) `generate_tsx_shot` runs on `shotModel ?? model`, injected at the
+`buildShotEngineDeps` seam so every pipeline step of a shot inherits it; the
+"editorial-cut call" the design named is the planning turn itself
+(`propose_cuts` is a tool the planning model calls — there is no second LLM
+call), so it runs on `model`; (b) an Agents turn that names a provider/model
+PATCHES the session record before running (`rememberModelChoice`), which is
+what makes the choice stick and lets the workspace restore it on reopen —
+`model: ''` on a turn means back to the provider default.
+
+**Acceptance evidence.** (1) A Studio turn with `model: claude-opus-5`,
+`shotModel: claude-sonnet-5`, `thinking: medium` generated a title-card shot
+and proposed it; the usage log read, newest first, `auto-cut:claude-opus-5 |
+studio-tsx-shot:claude-sonnet-5 | studio-tsx-shot:claude-sonnet-5` — the two
+shot rows are the generate and verify steps. (2) A `vidtsx/assistant` session
+created on Sonnet 5, turn 1 on Sonnet 5, turn 2 with `claude-haiku-4-5-
+20251001`: `session.json` then carried the Haiku id and the agent usage rows
+read `claude-haiku-4-5-20251001 (vidtsx/assistant) | claude-sonnet-5
+(vidtsx/assistant)`. (3) `claude-haiku-4-5` typed into the subscription llm
+catalog: saved as `Customized`, re-read from settings with the id present,
+`llmGenerate` on it returned `model: "claude-haiku-4-5"`, the usage row
+`other:claude-subscription:claude-haiku-4-5`; reset restored `Defaults`. (4)
+`prompt-builder.test.ts`: the brand block given as `extraInstructions`
+appears verbatim in the 2D and the 3D generate prompts, and the 3D prompt is
+the 3D one.
+
+**Second-instance recipe, exercised.** `electron-vite dev --outDir
+.vidtsx-temp/w1-out --entry .vidtsx-temp/w1-out/main/index.js
+--remoteDebuggingPort 9223 --inspect 9229 -- --user-data-dir=<profile>`.
+Three things the memory note did not know: `--outDir` alone still launches
+`package.json`'s `main` (the OTHER session's stale `out/`), hence `--entry`;
+under `--entry` Electron's `app.getAppPath()` is the out dir and
+`app.getVersion()` is Electron's, so `resources/agents` is not found and the
+Agents page is empty — `app.setAppPath(<repo>)` through the main inspector
+fixes it live; and the fresh profile registers the subscription preset by
+default, so no key seeding was needed for a Claude-only run.
+
+**Not done / left for later.** The Flows `LlmModelPickerField` keeps its
+free-text box (W8 rebuilds the node inspector); no thinking dial for Agents
+sessions (the manifest's `defaults.effort` still governs — a per-session dial
+is a W7/W8 question); the SDK bump that unblocks Fable.
+
 ### 2.2 W2 — Providers — ~3.5 sessions
 
 #### W2a Seedream images on BytePlus ModelArk — ~1 session
@@ -280,8 +391,10 @@ discussion is done, since it touches `src/features/flows/`,
 ## 5. Open questions
 
 1. W1: does the Claude Agent SDK subscription route accept `claude-fable-5-1`
-   and `claude-opus-5` by id? Verified during W1 acceptance, and the catalog
-   is trimmed to what works.
+   and `claude-opus-5` by id? **Answered 2026-09-09 (W1 outcome):** Opus 5,
+   Sonnet 5, Opus 4.8, Sonnet 4.6 and Haiku 4.5 yes; Fable 5.1 NO on SDK
+   0.2.119 (bundled Claude Code 2.1.119; the API requires ≥ 2.1.251) — it
+   returns with the SDK bump, and is reachable via OpenRouter meanwhile.
 2. W2b: ElevenLabs music pricing per request is not in the docs read so far;
    usage rows log duration and leave price blank until known.
 3. W4: which of AssemblyAI's `keyterms_prompt` and `word_boost` applies to the

@@ -205,6 +205,7 @@ export class AgentService {
     const ctx = await this.context(input.agentId, input.sessionId);
     const runContext = await buildRunContext(ctx);
     this.runningAgents.set(input.sessionId, input.agentId);
+    await this.rememberModelChoice(ctx.session, input);
 
     const history = await readAgentChat(input.agentId, input.sessionId);
     const result = await this.runner.send(runContext, {
@@ -230,6 +231,22 @@ export class AgentService {
 
     await this.notes.flush(input.agentId, input.sessionId);
     return result;
+  }
+
+  /**
+   * W1: a provider/model named on a turn STICKS to the session — the chip
+   * shows it on reopen and the next turn sends it again. An empty model
+   * means back to the provider default. A turn that names nothing (a job note)
+   * leaves the record alone.
+   */
+  private async rememberModelChoice(session: AgentSession, input: AgentSendInput): Promise<void> {
+    const patch: Partial<AgentSession> = {};
+    if (input.providerId && input.providerId !== session.providerId) patch.providerId = input.providerId;
+    if (input.model !== undefined && (input.model || undefined) !== session.model) {
+      patch.model = input.model || undefined;
+    }
+    if (Object.keys(patch).length === 0) return;
+    await patchAgentSession(session.agentId, session.id, patch);
   }
 
   async cancel(agentId: string, sessionId: string): Promise<boolean> {

@@ -56,6 +56,8 @@ export interface ImportShotRequest {
   /** Second pass: rewrite out-of-allowlist imports with one LLM run. */
   conform?: boolean;
   providerId?: string;
+  /** Shot model for the conform pass (W1). */
+  model?: string;
   /** Fires once the shot folder exists — the IPC handshake returns then and a
    *  conform run continues detached (the generator's handshake pattern). */
   onReserved?: (shotId: string) => void;
@@ -228,9 +230,10 @@ async function conformImport(
         currentCode: source,
         editInstruction: buildConformInstruction(modules),
         ...(req.providerId ? { providerId: req.providerId } : {}),
+        ...(req.model ? { model: req.model } : {}),
         onProgress: (p) => progress(p.percent, p.stepLabel),
       },
-      buildShotEngineDeps(req.providerId),
+      buildShotEngineDeps(req.providerId, undefined, req.model),
     );
     if (!result.transpileValid) {
       throw new Error(

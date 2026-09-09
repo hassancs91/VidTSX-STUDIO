@@ -15,11 +15,25 @@ const PROVIDER_LABELS: Record<string, string> = {
   byteplus: 'BytePlus',
   openrouter: 'OpenRouter',
   cloudflare: 'Cloudflare',
+  'claude-subscription': 'Claude (Subscription)',
+  'claude-api': 'Claude (API Key)',
+  minimax: 'MiniMax',
+  openai: 'OpenAI',
+  gemini: 'Google Gemini',
+  zai: 'Z.AI',
+  kimi: 'Kimi (Moonshot)',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
   image: 'Image models',
   video: 'Video models',
+  llm: 'Text models',
+};
+
+const LLM_ID_PLACEHOLDER: Record<string, string> = {
+  openrouter: 'Model id (e.g. anthropic/claude-opus-5)',
+  'claude-subscription': 'Model id (e.g. claude-opus-5)',
+  'claude-api': 'Model id (e.g. claude-opus-5)',
 };
 
 /** The dialect a provider's new video entries default to. */
@@ -150,9 +164,11 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset }: ModelCatalo
             placeholder={
               isVideo
                 ? (VIDEO_ID_PLACEHOLDER[catalog.providerId] ?? 'Model id')
-                : catalog.providerId === 'fal'
-                  ? 'Model id or endpoint (e.g. fal-ai/flux/dev)'
-                  : 'Model id (e.g. google/gemini-3-pro-image)'
+                : catalog.category === 'llm'
+                  ? (LLM_ID_PLACEHOLDER[catalog.providerId] ?? 'Model id, as the provider names it')
+                  : catalog.providerId === 'fal'
+                    ? 'Model id or endpoint (e.g. fal-ai/flux/dev)'
+                    : 'Model id (e.g. google/gemini-3-pro-image)'
             }
             className="flex-1"
           />

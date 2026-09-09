@@ -22,6 +22,7 @@ export function useProviderModels() {
       setError(null);
       window.dispatchEvent(new CustomEvent('vidtsx:image-providers-changed'));
       window.dispatchEvent(new CustomEvent('vidtsx:video-providers-changed'));
+      window.dispatchEvent(new CustomEvent('vidtsx:llm-models-changed'));
     } else {
       setError(res.error ?? 'Failed to update model catalog');
     }

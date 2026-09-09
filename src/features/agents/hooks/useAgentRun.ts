@@ -30,11 +30,14 @@ export interface UseAgentRunOptions {
   agentId: string;
   sessionId: string | null;
   providerId?: string;
+  /** Model on that provider; '' or absent = its default (W1). Sent every
+   *  turn; main remembers it on the session. */
+  model?: string;
   /** Told about a submitted render so the queue can pick it up (§1.5 step 2). */
   onJobRequest?: (request: AgentJobRequest) => void;
 }
 
-export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: UseAgentRunOptions) {
+export function useAgentRun({ agentId, sessionId, providerId, model, onJobRequest }: UseAgentRunOptions) {
   const [session, setSession] = useState<AgentSession | null>(null);
   const [messages, setMessages] = useState<AgentChatRow[]>([]);
   const [artifacts, setArtifacts] = useState<AgentArtifact[]>([]);
@@ -151,6 +154,8 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
           sessionId: id,
           prompt: trimmed,
           ...(providerId ? { providerId } : {}),
+          // '' is sent on purpose: it tells main "back to the provider default".
+          ...(model !== undefined ? { model } : {}),
         });
         if (response.toolsAvailable !== undefined) setToolsAvailable(response.toolsAvailable);
         setMessages((rows) =>
@@ -171,7 +176,7 @@ export function useAgentRun({ agentId, sessionId, providerId, onJobRequest }: Us
         setBusy(false);
       }
     },
-    [agentId, providerId, busy],
+    [agentId, providerId, model, busy],
   );
 
   const cancel = useCallback(() => {

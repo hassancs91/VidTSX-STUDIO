@@ -1,5 +1,8 @@
 import { Button } from '@shared/components';
 import { ProviderSelect } from '@renderer/components/ProviderSelect';
+import { ModelSelect } from '@renderer/components/ModelSelect';
+import { useModelPicker } from '@renderer/hooks/useModelPicker';
+import { llmModelSupportsThinking } from '@shared/presets/llm-models';
 import { THINKING_UI_OPTIONS } from '@shared/tsx-engine';
 import type { ThinkingLevel } from '../hooks/useMotionGenerator';
 import type { LlmProviderConfig, LlmImageIpc } from '../../../shared/ipc/types';
@@ -18,6 +21,9 @@ interface MotionInputPanelProps {
   providers: LlmProviderConfig[];
   selectedProvider: string;
   onProviderChange: (value: string) => void;
+  /** Model on the provider; '' = its default. */
+  model: string;
+  onModelChange: (value: string) => void;
   thinkingLevel: ThinkingLevel;
   onThinkingLevelChange: (value: ThinkingLevel) => void;
   loopCount: number;
@@ -51,6 +57,8 @@ export function MotionInputPanel({
   providers,
   selectedProvider,
   onProviderChange,
+  model,
+  onModelChange,
   thinkingLevel,
   onThinkingLevelChange,
   loopCount,
@@ -78,6 +86,8 @@ export function MotionInputPanel({
   onCollapse,
 }: MotionInputPanelProps) {
   const smoothPercent = useSmoothProgress(progress);
+  const picker = useModelPicker(selectedProvider);
+  const showThinking = llmModelSupportsThinking(picker.providerId, model || undefined);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !loading && prompt.trim()) {
@@ -129,7 +139,22 @@ export function MotionInputPanel({
         <ProviderSelect
           providers={providers}
           value={selectedProvider}
-          onChange={onProviderChange}
+          onChange={(next) => {
+            onProviderChange(next);
+            onModelChange('');
+          }}
+          disabled={loading}
+        />
+      </div>
+
+      {/* Model (W1) */}
+      <div className="px-3 pb-2 flex flex-col gap-1">
+        <label className="text-[10px] text-text-dim">Model</label>
+        <ModelSelect
+          models={picker.models}
+          defaultModel={picker.defaultModel}
+          value={model}
+          onChange={onModelChange}
           disabled={loading}
         />
       </div>
@@ -264,8 +289,8 @@ export function MotionInputPanel({
         })()}
       </div>
 
-      {/* Thinking */}
-      <div className="px-3 pb-3 flex flex-col gap-1">
+      {/* Thinking — hidden on a model the catalog marks as non-thinking (W1) */}
+      <div className={`px-3 pb-3 flex flex-col gap-1 ${showThinking ? '' : 'hidden'}`}>
         <label className="text-[10px] text-text-dim">Thinking</label>
         <div
           className="flex rounded-[6px] overflow-hidden"

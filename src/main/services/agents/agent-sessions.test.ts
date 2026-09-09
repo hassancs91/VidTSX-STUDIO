@@ -65,6 +65,26 @@ describe('createAgentSession', () => {
     await expect(fs.stat(agentWorkspaceDir(AGENT_ID, session.id))).resolves.toBeDefined();
   });
 
+  it('stores the model it was created with, and a patch can clear it (W1)', async () => {
+    const session = await createAgentSession({
+      agentId: AGENT_ID,
+      agentName: 'Motion Post',
+      agentVersion: '1.0.0',
+      providerId: 'claude-subscription',
+      model: 'claude-sonnet-5',
+    });
+    expect(session.model).toBe('claude-sonnet-5');
+    expect((await readAgentSession(AGENT_ID, session.id))?.model).toBe('claude-sonnet-5');
+
+    // The turn that names a different model sticks it; '' → provider default.
+    await patchAgentSession(AGENT_ID, session.id, { model: 'claude-haiku-4-5-20251001' });
+    expect((await readAgentSession(AGENT_ID, session.id))?.model).toBe('claude-haiku-4-5-20251001');
+    await patchAgentSession(AGENT_ID, session.id, { model: undefined });
+    const cleared = await readAgentSession(AGENT_ID, session.id);
+    expect(cleared?.model).toBeUndefined();
+    expect(cleared?.providerId).toBe('claude-subscription');
+  });
+
   it('keeps the library folder when the session is renamed', async () => {
     const session = await make('Launch teaser');
     const renamed = await patchAgentSession(AGENT_ID, session.id, { title: 'Something else' });

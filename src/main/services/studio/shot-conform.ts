@@ -32,6 +32,7 @@ export interface ConformShotRequest {
   projectId: string;
   shotId: string;
   providerId?: string;
+  model?: string;
 }
 
 export interface ConformShotOutcome {
@@ -132,9 +133,10 @@ export async function conformShot(request: ConformShotRequest): Promise<ConformS
         currentCode: source,
         editInstruction: buildConformInstruction(classification.conformable),
         ...(request.providerId ? { providerId: request.providerId } : {}),
+        ...(request.model ? { model: request.model } : {}),
         onProgress: (p) => progress(p.percent, p.stepLabel),
       },
-      buildShotEngineDeps(request.providerId),
+      buildShotEngineDeps(request.providerId, undefined, request.model),
     );
     if (!result.transpileValid) {
       throw new Error(

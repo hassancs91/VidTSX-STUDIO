@@ -4,6 +4,9 @@ import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioA
 import { useMemoryProposals } from '../hooks/useMemoryProposals';
 import { useStylePromotions } from '../hooks/useStylePromotions';
 import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
+import { ModelPickerChip } from '@renderer/components/ModelPickerChip';
+import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
+import type { StudioAgentSettings } from '../types';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { StylePromotionCard } from './StylePromotionCard';
 
@@ -26,16 +29,21 @@ const TOOL_LABELS: Record<string, string> = {
 interface Props {
   projectId: string;
   agent: UseStudioAgentResult;
+  /** The project's agent settings — the chip edits them (W1), so the choice
+   *  applies to the next turn and sticks with the project. */
+  settings: StudioAgentSettings;
+  onSettingsChange: (patch: Partial<StudioAgentSettings>) => void;
 }
 
 /** The Assistant tab: chat with the editing agent. Cut proposals it creates
  *  land on the timeline + Inspector review flow — never applied directly. */
-export function AgentPanel({ projectId, agent }: Props) {
+export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Props) {
   const [draft, setDraft] = useState('');
   const [memoryOpen, setMemoryOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const memoryProposals = useMemoryProposals(projectId);
   const stylePromotions = useStylePromotions(projectId);
+  const { providers } = useProviderPicker();
 
   const { messages, busy, send, cancel, clear, contextUsage, toolsAvailable } = agent;
 
@@ -112,7 +120,23 @@ export function AgentPanel({ projectId, agent }: Props) {
             placeholder="Describe an edit… e.g. “do an editorial pass — cut retakes and fillers”"
             className="w-full resize-none bg-transparent text-[11px] text-text-primary placeholder:text-text-ghost outline-none leading-snug"
           />
-          <div className="flex items-center justify-end gap-1 pt-1">
+          <div className="flex items-center gap-1 pt-1">
+            <ModelPickerChip
+              providers={providers}
+              providerId={settings.providerId ?? ''}
+              onProviderChange={(providerId) =>
+                onSettingsChange({ providerId: providerId || undefined, shotModel: undefined })
+              }
+              model={settings.model ?? ''}
+              onModelChange={(model) => onSettingsChange({ model: model || undefined })}
+              thinking={settings.thinking ?? 'off'}
+              onThinkingChange={(level) =>
+                onSettingsChange({ thinking: level === 'off' ? undefined : level })
+              }
+              appDefaultLabel="App default"
+              disabled={busy}
+            />
+            <div className="flex-1" />
             <IconAction title="Memory — rules, names, and profile the assistant follows" onClick={() => setMemoryOpen(true)}>
               <Brain size={12} strokeWidth={1.75} />
             </IconAction>

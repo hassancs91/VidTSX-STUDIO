@@ -213,6 +213,7 @@ export async function handleAgentSessionCreate(
       agentId: data.agentId,
       ...(data.title ? { title: data.title } : {}),
       ...(data.providerId ? { providerId: data.providerId } : {}),
+      ...(data.model ? { model: data.model } : {}),
       ...(data.starter ? { starter: data.starter } : {}),
     });
     return { success: true, session };

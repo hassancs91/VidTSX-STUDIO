@@ -89,7 +89,7 @@ async function llmGenerateWithRetry(
 function buildLlmRequest(
   prompt: string,
   systemPrompt: string,
-  options: { providerId?: string; thinkingLevel?: string; maxTurns?: number; images?: LlmImageIpc[] },
+  options: { providerId?: string; model?: string; thinkingLevel?: string; maxTurns?: number; images?: LlmImageIpc[] },
   sessionScope?: string
 ): LlmGenerateRequest {
   const thinkingLevel = (options.thinkingLevel ?? 'off') as keyof typeof THINKING_CONFIGS;
@@ -98,6 +98,7 @@ function buildLlmRequest(
     prompt,
     systemPrompt,
     ...(options.providerId ? { providerId: options.providerId } : {}),
+    ...(options.model ? { model: options.model } : {}),
     ...(config.thinking ? { thinking: config.thinking } : {}),
     ...(config.effort ? { effort: config.effort } : {}),
     ...(options.maxTurns && options.maxTurns > 1 ? { reflectionLoops: options.maxTurns } : {}),
@@ -184,6 +185,7 @@ interface TranspileFixLoopArgs {
   weight: number;
   maxFixRetries: number;
   providerId?: string;
+  model?: string;
   thinkingLevel?: ThinkingLevel;
   sessionScope: string;
   report: (p: PipelineProgress) => void;
@@ -197,7 +199,7 @@ async function runTranspileFixLoop(args: TranspileFixLoopArgs): Promise<{
   transpileValid: boolean;
   fixAttempts: number;
 }> {
-  const { deps, basePercent, weight, maxFixRetries, providerId, thinkingLevel, sessionScope, report, debugLog, steps, accumulateUsage } = args;
+  const { deps, basePercent, weight, maxFixRetries, providerId, model, thinkingLevel, sessionScope, report, debugLog, steps, accumulateUsage } = args;
   let tsxCode = args.tsxCode;
   let transpileValid = false;
   let fixAttempts = 0;
@@ -230,6 +232,7 @@ async function runTranspileFixLoop(args: TranspileFixLoopArgs): Promise<{
       const fixPrompt = `## Transpile Error\n\n${errorMsg}${locationInfo}\n\n## Code\n\n\`\`\`tsx\n${tsxCode}\n\`\`\``;
       const fixRequest = buildLlmRequest(fixPrompt, FIX_SYSTEM_PROMPT, {
         providerId,
+        model,
         thinkingLevel,
       }, sessionScope);
 
@@ -292,6 +295,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions, deps: Tsx
     const stepStart = Date.now();
     const planRequest = buildLlmRequest(options.prompt, PLAN_SYSTEM_PROMPT, {
       providerId: options.providerId,
+      model: options.model,
       thinkingLevel: options.thinkingLevel,
       images: options.images,
     }, sessionScope);
@@ -322,6 +326,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions, deps: Tsx
     const stepStart = Date.now();
     const classifyRequest = buildLlmRequest(options.prompt, CLASSIFIER_SYSTEM_PROMPT, {
       providerId: options.providerId,
+      model: options.model,
       thinkingLevel: 'off',
       maxTurns: 1,
     }, sessionScope);
@@ -354,6 +359,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions, deps: Tsx
   const systemPrompt = buildTsxSystemPrompt(options.promptContext, mode);
   const generateRequest = buildLlmRequest(generatePrompt, systemPrompt, {
     providerId: options.providerId,
+    model: options.model,
     thinkingLevel: options.thinkingLevel,
     maxTurns,
     images: options.images,
@@ -390,6 +396,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions, deps: Tsx
   const verifyPrompt = `Review and fix this Remotion TSX composition:\n\n\`\`\`tsx\n${tsxCode}\n\`\`\``;
   const verifyRequest = buildLlmRequest(verifyPrompt, buildVerifyPrompt(mode, options.promptContext), {
     providerId: options.providerId,
+    model: options.model,
     thinkingLevel: options.thinkingLevel,
   }, sessionScope);
 
@@ -418,6 +425,7 @@ export async function generateTsxPipeline(options: TsxPipelineOptions, deps: Tsx
     weight: transpileFixWeight,
     maxFixRetries,
     providerId: options.providerId,
+    model: options.model,
     thinkingLevel: options.thinkingLevel,
     sessionScope,
     report,
@@ -477,6 +485,7 @@ export async function editTsxPipeline(options: TsxEditPipelineOptions, deps: Tsx
   const fullPrompt = `Current code:\n\`\`\`tsx\n${options.currentCode}\n\`\`\`\n\nEdit instruction: ${options.editInstruction}`;
   const editRequest = buildLlmRequest(fullPrompt, EDIT_SYSTEM_PROMPT, {
     providerId: options.providerId,
+    model: options.model,
     thinkingLevel: options.thinkingLevel,
     maxTurns,
     images: options.images,
@@ -521,6 +530,7 @@ export async function editTsxPipeline(options: TsxEditPipelineOptions, deps: Tsx
     weight: transpileFixWeight,
     maxFixRetries,
     providerId: options.providerId,
+    model: options.model,
     thinkingLevel: options.thinkingLevel,
     sessionScope,
     report,

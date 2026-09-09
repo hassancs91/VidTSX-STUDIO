@@ -78,6 +78,8 @@ export interface GenerateShotRequest {
   assetRefs?: Record<string, string>;
   durationSeconds?: number;
   providerId?: string;
+  /** Shot model (W1); absent = the provider's default. */
+  model?: string;
   origin: StudioClipOrigin;
   signal?: AbortSignal;
   /** Fires as soon as the shot folder is reserved (the id exists) — the IPC
@@ -92,6 +94,7 @@ export interface EditShotRequest {
   activeVersion: number;
   instruction: string;
   providerId?: string;
+  model?: string;
   signal?: AbortSignal;
 }
 
@@ -101,6 +104,7 @@ export interface RefineShotRequest {
   /** The document's activeVersion — the version being critiqued. */
   activeVersion: number;
   providerId?: string;
+  model?: string;
   signal?: AbortSignal;
 }
 
@@ -135,6 +139,7 @@ export async function validateShotCode(code: string): Promise<TsxValidateRespons
 export function buildShotEngineDeps(
   providerId: string | undefined,
   signal?: AbortSignal,
+  model?: string,
 ): TsxEngineDeps {
   return {
     llmGenerate: (req) =>
@@ -142,6 +147,9 @@ export function buildShotEngineDeps(
         {
           ...req,
           ...(providerId && !req.providerId ? { providerId } : {}),
+          // The project's shot model (W1) — every pipeline step of a shot
+          // runs on it unless the step named one itself.
+          ...(model && !req.model ? { model } : {}),
           featureSource: 'studio-tsx-shot',
         },
         signal,
@@ -177,8 +185,12 @@ class ShotGeneratorService {
     if (next) next();
   }
 
-  private buildDeps(providerId: string | undefined, signal?: AbortSignal): TsxEngineDeps {
-    return buildShotEngineDeps(providerId, signal);
+  private buildDeps(
+    providerId: string | undefined,
+    signal?: AbortSignal,
+    model?: string,
+  ): TsxEngineDeps {
+    return buildShotEngineDeps(providerId, signal, model);
   }
 
   /** Anchor words re-based to shot-local seconds (D7). Throws when the anchor
@@ -354,7 +366,7 @@ class ShotGeneratorService {
               shot: provisional,
             }),
         },
-        this.buildDeps(req.providerId, req.signal),
+        this.buildDeps(req.providerId, req.signal, req.model),
       );
 
       if (req.signal?.aborted) throw new Error('Cancelled');
@@ -414,7 +426,7 @@ class ShotGeneratorService {
               message: p.stepLabel,
             }),
         },
-        this.buildDeps(req.providerId, req.signal),
+        this.buildDeps(req.providerId, req.signal, req.model),
       );
 
       if (req.signal?.aborted) throw new Error('Cancelled');
@@ -525,7 +537,7 @@ class ShotGeneratorService {
             ...(chatHistory.length > 0 ? { chatHistory } : {}),
             onProgress: (p) => progress(30 + Math.round(p.percent * 0.7), p.stepLabel),
           },
-          this.buildDeps(req.providerId, req.signal),
+          this.buildDeps(req.providerId, req.signal, req.model),
         );
 
         if (req.signal?.aborted) throw new Error('Cancelled');
