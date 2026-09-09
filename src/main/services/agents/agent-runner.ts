@@ -154,7 +154,7 @@ export class AgentRunner {
       const requestedTools = ctx.manifest.memory?.propose
         ? ctx.manifest.tools
         : ctx.manifest.tools.filter((id) => id !== 'propose_memory');
-      const selection = selectTools(requestedTools, resolveToolCapabilities());
+      const selection = selectTools(requestedTools, await resolveToolCapabilities());
       if (selection.missing.length > 0) {
         log.warn('Manifest names tools this app does not have', {
           agentId: ctx.manifest.id,

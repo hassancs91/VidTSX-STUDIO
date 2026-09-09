@@ -107,7 +107,7 @@ export interface InstalledAgent {
 
 /** Every artifact kind, as a value: the manifest validator checks a package's
  *  declared kinds against this list at install time (plan §1.1). */
-export const ARTIFACT_KINDS = ['document', 'composition', 'video', 'image-set', 'job'] as const;
+export const ARTIFACT_KINDS = ['document', 'composition', 'video', 'image-set', 'job', 'audio'] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
@@ -148,6 +148,14 @@ export interface ImageSetPayload {
   items: Array<{ relPath: string; width: number; height: number }>;
 }
 
+/** A generated sound effect or music track in the asset library (W2b). */
+export interface AudioPayload {
+  /** Path inside the asset library, relative to its root. */
+  relPath: string;
+  durationSeconds: number;
+  sound: 'sfx' | 'music';
+}
+
 export type AgentJobKind = 'render' | 'video';
 export type AgentJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -178,7 +186,8 @@ export type ArtifactPayload =
   | ({ kind: 'composition' } & CompositionPayload)
   | ({ kind: 'video' } & VideoPayload)
   | ({ kind: 'image-set' } & ImageSetPayload)
-  | ({ kind: 'job' } & JobPayload);
+  | ({ kind: 'job' } & JobPayload)
+  | ({ kind: 'audio' } & AudioPayload);
 
 type PayloadFor<K extends ArtifactKind> = Omit<Extract<ArtifactPayload, { kind: K }>, 'kind'>;
 
@@ -198,7 +207,8 @@ export type AgentArtifact =
   | ArtifactBase<'composition'>
   | ArtifactBase<'video'>
   | ArtifactBase<'image-set'>
-  | ArtifactBase<'job'>;
+  | ArtifactBase<'job'>
+  | ArtifactBase<'audio'>;
 
 export type ArtifactOfKind<K extends ArtifactKind> = Extract<AgentArtifact, { kind: K }>;
 

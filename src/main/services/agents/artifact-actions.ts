@@ -123,7 +123,7 @@ export async function runArtifactAction(
       if (artifactRoot(input.artifact) === 'library') {
         // Already born-managed — report where it is rather than duplicating it.
         const relPath =
-          input.artifact.kind === 'video'
+          input.artifact.kind === 'video' || input.artifact.kind === 'audio'
             ? input.artifact.payload.relPath
             : input.artifact.kind === 'image-set'
               ? input.artifact.payload.items[0]?.relPath

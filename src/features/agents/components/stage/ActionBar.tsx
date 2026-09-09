@@ -23,6 +23,7 @@ const BY_KIND: Record<ArtifactKind, AgentArtifactActionKind[]> = {
   video: ['open-folder', 'copy-path'],
   'image-set': ['open-folder', 'copy-path'],
   job: [],
+  audio: ['open-folder', 'copy-path'],
 };
 
 interface Props {

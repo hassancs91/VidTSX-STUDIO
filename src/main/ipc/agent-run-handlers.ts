@@ -123,7 +123,8 @@ export async function handleAgentArtifactResolve(
           return { success: true, moduleUrl };
         }
         case 'video':
-        case 'image-set': {
+        case 'image-set':
+        case 'audio': {
           const files = await artifactFiles(data.agentId, data.sessionId, artifact);
           const assetUrls: string[] = [];
           for (const file of files) {

@@ -53,6 +53,7 @@ function assertDraftPaths(draft: AgentArtifactDraft): void {
     case 'document':
     case 'composition':
     case 'video':
+    case 'audio':
       assertContainedRelPath(draft.payload.relPath, `${draft.kind} relPath`);
       return;
     case 'image-set':

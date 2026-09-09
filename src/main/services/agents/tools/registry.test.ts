@@ -3,8 +3,8 @@ import { AGENT_TOOL_IDS } from '../../../../shared/agents/tool-ids';
 import { getTool, listToolIds, selectTools } from './registry';
 import { sdkToolName } from './tool-server';
 
-const ALL = { imageProvider: true, videoProvider: true };
-const NONE = { imageProvider: false, videoProvider: false };
+const ALL = { imageProvider: true, videoProvider: true, audioProvider: true };
+const NONE = { imageProvider: false, videoProvider: false, audioProvider: false };
 
 describe('tool registry', () => {
   // AGENT_TOOL_IDS is the bundleable copy of this list — `agent-pack --check`
@@ -32,17 +32,24 @@ describe('tool registry', () => {
   });
 
   it('keeps capability-gated tools but marks them unavailable (§1.8)', () => {
-    const selection = selectTools(['generate_image', 'generate_video', 'write_document'], NONE);
+    const selection = selectTools(
+      ['generate_image', 'generate_video', 'generate_audio', 'write_document'],
+      NONE,
+    );
     expect(selection.tools.map((t) => t.id)).toEqual([
       'generate_image',
       'generate_video',
+      'generate_audio',
       'write_document',
     ]);
     expect(selection.unavailable).toEqual([
       { id: 'generate_image', needs: 'image-provider' },
       { id: 'generate_video', needs: 'video-provider' },
+      { id: 'generate_audio', needs: 'audio-provider' },
     ]);
-    expect(selectTools(['generate_image', 'generate_video'], ALL).unavailable).toEqual([]);
+    expect(
+      selectTools(['generate_image', 'generate_video', 'generate_audio'], ALL).unavailable,
+    ).toEqual([]);
   });
 
   it('every registered tool has an id, a description and a schema', () => {

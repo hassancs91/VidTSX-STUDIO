@@ -8,6 +8,8 @@
 import { getLlmProviders } from '../settings';
 import { imageEngine } from '../../../image-engine';
 import { videoEngine } from '../../../video-engine';
+import { audioGenerationEngine } from '../../../audio-engine/generation';
+import { ensureAudioGenerationEngine } from '../audio-generation-init';
 import type { ToolCapabilities } from './tools/registry';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -34,10 +36,13 @@ export async function resolveToolSupport(providerId?: string): Promise<boolean> 
   }
 }
 
-/** Which `needs:` gates are satisfied right now (§1.8). */
-export function resolveToolCapabilities(): ToolCapabilities {
+/** Which `needs:` gates are satisfied right now (§1.8). Async because the
+ *  audio engine registers on first use (W2b) rather than at app start. */
+export async function resolveToolCapabilities(): Promise<ToolCapabilities> {
+  await ensureAudioGenerationEngine();
   return {
     imageProvider: Boolean(imageEngine.getActiveProvider()),
     videoProvider: Boolean(videoEngine.getActiveProvider()),
+    audioProvider: Boolean(audioGenerationEngine.getActiveProvider()),
   };
 }

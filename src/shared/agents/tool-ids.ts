@@ -22,6 +22,8 @@ export const AGENT_TOOL_IDS = [
   'propose_memory',
   // W4 (2026-09-09): the session's brand, on demand.
   'get_brand',
+  // W2b (2026-09-10): sound effects + music through the audio engine.
+  'generate_audio',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

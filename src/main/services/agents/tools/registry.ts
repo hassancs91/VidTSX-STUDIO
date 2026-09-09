@@ -18,6 +18,7 @@ import { generateImageTool } from './generate-image';
 import { generateVideoTool } from './generate-video';
 import { proposeMemoryTool } from './propose-memory';
 import { getBrandTool } from './get-brand';
+import { generateAudioTool } from './generate-audio';
 
 /** The registry stores definitions with their arg types erased; the zod schema
  *  validates before a handler ever sees the object. */
@@ -63,6 +64,7 @@ export interface ToolSelection {
 export interface ToolCapabilities {
   imageProvider: boolean;
   videoProvider: boolean;
+  audioProvider: boolean;
 }
 
 /** Filter the registry by a manifest's allowlist. */
@@ -85,7 +87,8 @@ export function selectTools(toolIds: string[], capabilities: ToolCapabilities): 
     if (
       needs &&
       ((needs === 'image-provider' && !capabilities.imageProvider) ||
-        (needs === 'video-provider' && !capabilities.videoProvider))
+        (needs === 'video-provider' && !capabilities.videoProvider) ||
+        (needs === 'audio-provider' && !capabilities.audioProvider))
     ) {
       unavailable.push({ id: def.id, needs });
     }
@@ -105,3 +108,5 @@ registerTool(listArtifactsTool);
 registerTool(proposeMemoryTool);
 // W4: the session's brand on demand.
 registerTool(getBrandTool);
+// W2b: sound effects + music.
+registerTool(generateAudioTool);

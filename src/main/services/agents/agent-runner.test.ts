@@ -23,7 +23,7 @@ vi.mock('../../../engine', () => ({
 }));
 vi.mock('./tool-support', () => ({
   resolveToolSupport: (id?: string) => resolveToolSupport(id),
-  resolveToolCapabilities: () => ({ imageProvider: false, videoProvider: false }),
+  resolveToolCapabilities: async () => ({ imageProvider: false, videoProvider: false, audioProvider: false }),
 }));
 
 const { AgentArtifactStore } = await import('./artifact-store');
@@ -256,6 +256,9 @@ describe('AgentRunner.send', () => {
     const second = await runner.send(ctx(store), { prompt: 'b', history: [] });
     expect(second).toMatchObject({ success: false });
     expect(second.error).toContain('already running');
+    // `release` exists only once the first run reaches the model call, which
+    // sits behind the (async) tool-support and capability checks.
+    await vi.waitFor(() => expect(runLlmGenerate).toHaveBeenCalled());
     release();
     await first;
     expect(runner.isRunning('session-1')).toBe(false);

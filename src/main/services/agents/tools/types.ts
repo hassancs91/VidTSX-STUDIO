@@ -19,7 +19,7 @@ import type {
 } from '../../../../shared/types/agents';
 
 /** Capability gate, surfaced in the agent UI and named in the system prompt. */
-export type AgentToolNeed = 'image-provider' | 'video-provider';
+export type AgentToolNeed = 'image-provider' | 'video-provider' | 'audio-provider';
 
 /** What a tool hands back, in the Agent SDK's content shape. */
 export interface AgentToolResult {

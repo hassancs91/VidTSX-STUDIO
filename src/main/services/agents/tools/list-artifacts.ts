@@ -12,7 +12,7 @@ import type { AgentArtifact, ArtifactKind } from '../../../../shared/types/agent
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 
-const KINDS = ['document', 'composition', 'video', 'image-set', 'job'] as const;
+const KINDS = ['document', 'composition', 'video', 'image-set', 'job', 'audio'] as const;
 
 const schema = {
   kind: z
@@ -47,13 +47,15 @@ function describe(artifact: AgentArtifact): string {
       const result = resultArtifactId ? `, result ${resultArtifactId}` : '';
       return `${head} (${job} job, ${status}${result})`;
     }
+    case 'audio':
+      return `${head} (${artifact.payload.relPath}, ${artifact.payload.sound}, ${artifact.payload.durationSeconds.toFixed(1)}s)`;
   }
 }
 
 export const listArtifactsTool: AgentToolDef<ListArtifactsArgs> = {
   id: 'list_artifacts',
   description:
-    'List everything made in this session so far — documents, compositions, images, videos and jobs — with the ids you pass to other tools. Call it when you need an artifact id you no longer have in view, or to check whether a job has finished.',
+    'List everything made in this session so far — documents, compositions, images, videos, audio and jobs — with the ids you pass to other tools. Call it when you need an artifact id you no longer have in view, or to check whether a job has finished.',
   schema,
   async handler(args, ctx): Promise<AgentToolResult> {
     const all = ctx.readArtifacts();

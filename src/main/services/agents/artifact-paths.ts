@@ -4,7 +4,7 @@
 // Artifact `relPath`s are relative to one of TWO roots, decided by kind:
 //
 //   document, composition  → the session workspace (work files, never media)
-//   video, image-set       → the ASSET LIBRARY (born-managed, §1.11)
+//   video, image-set, audio → the ASSET LIBRARY (born-managed, §1.11)
 //
 // That split is not stated in one place in the plan — it falls out of §1.4
 // ("relative to the session workspace") and §1.11 ("generated media never lands
@@ -22,7 +22,9 @@ import { agentWorkspaceDir } from './agent-sessions';
 export type ArtifactRoot = 'workspace' | 'library';
 
 export function artifactRoot(artifact: AgentArtifact): ArtifactRoot {
-  return artifact.kind === 'video' || artifact.kind === 'image-set' ? 'library' : 'workspace';
+  return artifact.kind === 'video' || artifact.kind === 'image-set' || artifact.kind === 'audio'
+    ? 'library'
+    : 'workspace';
 }
 
 /** Every file an artifact owns, as absolute paths. Empty for `job`. */
@@ -44,6 +46,7 @@ export async function artifactFiles(
     case 'document':
     case 'composition':
     case 'video':
+    case 'audio':
       return [resolve(artifact.payload.relPath)];
     case 'image-set':
       return artifact.payload.items.map((item) => resolve(item.relPath));

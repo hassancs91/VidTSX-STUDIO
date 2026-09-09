@@ -18,6 +18,7 @@ export const AGENT_TOOL_LABELS: Record<string, string> = {
   ask_user: 'Asking you something',
   list_artifacts: 'Reviewing what it has made',
   get_brand: 'Reading the brand',
+  generate_audio: 'Generating audio',
 };
 
 let seq = 0;

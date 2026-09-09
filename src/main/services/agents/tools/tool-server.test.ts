@@ -13,7 +13,7 @@ import { InteractionBroker } from '../interaction-broker';
 import { selectTools } from './registry';
 import { buildAgentToolServer } from './tool-server';
 
-const CAPS = { imageProvider: false, videoProvider: false };
+const CAPS = { imageProvider: false, videoProvider: false, audioProvider: false };
 
 let dir: string;
 let store: AgentArtifactStore;

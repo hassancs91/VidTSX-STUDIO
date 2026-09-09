@@ -58,6 +58,9 @@ export function capabilitiesFor(manifest: AgentManifest): AgentCapability[] {
   if (tools.has('generate_video')) {
     capabilities.push({ id: 'videos', label: 'Generates video with your video provider' });
   }
+  if (tools.has('generate_audio')) {
+    capabilities.push({ id: 'audio', label: 'Generates sound effects and music with your audio provider' });
+  }
   if (tools.has('render_composition')) {
     capabilities.push({ id: 'render', label: 'Renders videos through the render queue' });
   }

@@ -46,6 +46,9 @@ const TOOL_LABELS: Record<string, string> = {
   // W5: editing presets.
   get_preset: 'Reading the preset',
   propose_preset_update: 'Learning from this video',
+  // W2b: sound effects and music.
+  generate_sfx: 'Generating a sound effect',
+  generate_music: 'Generating music',
 };
 
 interface Props {

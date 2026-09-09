@@ -1,7 +1,7 @@
 // Everything the session has made so far, along the bottom of the stage
 // (agents plan §1.7). Oldest first, so the strip reads as the run's history.
 
-import { FileText, Film, Image as ImageIcon, ListVideo, Play } from 'lucide-react';
+import { FileText, Film, Image as ImageIcon, ListVideo, Music, Play } from 'lucide-react';
 import type { AgentArtifact, ArtifactKind } from '@shared/types/agents';
 
 const KIND_ICON: Record<ArtifactKind, typeof FileText> = {
@@ -10,6 +10,7 @@ const KIND_ICON: Record<ArtifactKind, typeof FileText> = {
   video: Film,
   'image-set': ImageIcon,
   job: ListVideo,
+  audio: Music,
 };
 
 interface Props {
