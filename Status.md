@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-09-09 — V1 COMPLETION W5 DONE: editing presets + learn from this video
+
+W5 of `docs/v1-completion-plan.md`. A preset is the playbook for one kind of
+video — the workflow the assistant follows, the style knobs, and a PRESET.md
+it reads — picked per project, and "learn from this video" writes back into
+it only through a card. Full log — the entity, the prompt slot, the two runs,
+the learn card, the round trip and the driving lessons — in the plan's §2.5
+"W5 outcome". `check:types` at baseline (web 26, node 10); 1898 tests,
+up from 1843. Commits `aaa6aa2`, `cc136a7` and the fix + docs commits.
+
+- **The entity.** `StudioPreset` at `<assetsRoot>/presets/<id>/` (preset.json
+  + PRESET.md, optional skills/), a store like the brand store, three
+  brand-scrubbed built-ins (Talking-head short, YouTube long-form, Course
+  lesson) seeded into the library on first use, a Presets dialog on the
+  Assets screen with the markdown editor and a one-line-per-step workflow.
+- **In the prompt.** `composeSystemPrompt` has a middle slot now: the
+  preset block sits after the skills and before the memory block, under a
+  4 000-char budget with a visible truncation marker; `get_preset` reads the
+  rest. The preset's workflow replaces the generic order; there is no
+  `run_preset` — the agent is the runner.
+- **Proof.** The same 60 s clip and the same chat line on two presets: the
+  short ran a tight Auto Cut, opened on the hook line, put a word-synced title
+  in the upper third and word-pop uppercase captions; the lesson ran a light
+  Auto Cut that kept pauses under two seconds, suggested no fluff, made a
+  chapter title card and rolling sentence-case captions.
+- **Learn from this video.** Deterministic timeline stats + one LLM summary →
+  a card with the knob diff and the numbers behind each row. On a
+  hand-tightened project it proposed pacing relaxed → tight (28.5 cuts/min,
+  mean clip 2 s); accept wrote the knobs, a "Learned from" section and the
+  learned log. The chat path (`propose_preset_update`) uses the agent's own
+  summary; reject writes nothing.
+- **Round trip.** preset.json travels in a `.vidtsx` (knobs, workflow, body);
+  the import dialog offers match / create / none, like the brand.
+- **Next:** the Studio flip (`studio-editor: true`) with its own testing pass
+  on the raw-footage clips — the three parked findings (long-GOP "No frame
+  found", the global `LLM_CANCEL`, the naive learn numbers on tiny edits) go
+  on its list.
+
+---
+
 ## 2026-09-09 — V1 COMPLETION W4 DONE: script, vocabulary, brands everywhere
 
 W4 of `docs/v1-completion-plan.md`. Names the brand cares about now reach

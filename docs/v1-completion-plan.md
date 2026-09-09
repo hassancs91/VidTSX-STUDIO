@@ -510,6 +510,163 @@ type PresetStep =
 
 **Acceptance.** Two projects with two presets produce visibly different edits from the same clip and the same chat line; "learn from this video" on a hand-tightened project proposes a pacing change with the numbers that justify it; a preset survives export/import as a `.vidtsx` reference (Q7f pattern, brand-style).
 
+#### W5 outcome (2026-09-09) — what was built, what the runs showed, and what it leaves
+
+Three commits by pathspec beside the export-engines session's dirty tree:
+`aaa6aa2` (the entity, the prompt block, `get_preset`, learn from this
+video), `cc136a7` (the `.vidtsx` round trip) and the transitions-knob fix
+that landed with this doc. `check:types` at baseline (web 26, node 10); the
+suite is up from 1843 (the count is in the Status entry). All three
+acceptance rows hold, driven in the real app on a second dev instance (the
+W3 profile and its keys, own out dir, CDP 9223) against the same 60 s
+talking-head excerpt W3 and W4 used, with the built-ins seeded into that
+profile's library on the first preset listing.
+
+**The entity, as built.** `StudioPreset` lives in `shared/types/studio-preset.ts`
+with the `PresetStep` union verbatim from the section; the folder is the
+truth (`<assetsRoot>/presets/<id>/preset.json` + `PRESET.md`, optional
+`skills/<id>/SKILL.md` read by the same loader agent packages use).
+`preset-store.ts` is `brand-store.ts` with two files per entry and one extra
+write, `applyPresetLearning` (knobs patched, section appended, learned-log
+entry — nothing else moves). Two things the section did not spell out: (a)
+`PRESET.md` is capped at 12 000 chars in the editor while the PROMPT budget
+stays 4 000 — the block composer cuts the body at a paragraph boundary and
+ends with a visible "(… cut for length — call `get_preset`)" line, so
+truncation is never silent; (b) the workflow is authored one step per line
+(`auto_cut:aggressive`, `captions:core/word-pop`) through
+`shared/studio/preset-workflow-lines.ts`, which round-trips and reports a bad
+value instead of dropping it. The three built-ins ship in `resources/presets/`
+(2 040–2 423 chars of body each, every block well under the budget) and are
+copied into the library once; a seed ledger (`presets/.seeded.json`) keeps a
+deleted built-in deleted. The `workflow: { flowId }` reserve for W8 Stage 4 is
+a comment on the type — nothing reads it.
+
+**Where the preset enters the prompt.** `composeSystemPrompt` gained a MIDDLE
+parameter — after the skills, before the trailing memory block — and
+`studio-agent.ts` fills it from the project's `presetId` on every turn
+(`## Editing preset: <name>`, then the kind, the numbered workflow, one
+"Style knobs:" line, then the body and any preset skills). The block is
+deterministic (no dates) so it rides the cached prefix. The workflow lines in
+`studio-agent-prompt-tools.ts` say the preset's workflow REPLACES the generic
+"edit this video" order, give the step → tool mapping (light/normal
+`auto_cut` → `run_auto_cut(style: "natural")`, aggressive → `"tight"`; a
+captions template → `set_captions`; `shots` cadence is per minute of FINISHED
+video; `sfx`/`music` get the one-line "not available"), and that there is no
+`run_preset` tool. `get_preset` returns the whole thing; `propose_preset_update`
+is the chat path of learn (below). The ids are appended in
+`agent-tools/index.ts`; the fourth per-turn gate is
+`StudioTurnState.presetProposalCreated`.
+
+**Selection.** `project.settings.presetId`, a picker under the brand in the
+media pool's Shots section (a stale id shows as "(missing)", the brand
+pattern), the Inspector's Project section shows the name beside the learn
+button, and the new-project dialog offers the list — picking a preset with an
+orientation flips the format tile to match. At creation a preset's
+`defaultBrandId` wins over the library default brand when that brand exists;
+it only sets the project's `brandId` and never touches the brand (vocabulary
+included).
+
+**Learn from this video, as built.** `preset-learn-stats.ts` is pure:
+`computeLearnStats(project)` measures the master (first video) lane — clips,
+cuts/min, mean clip, seconds removed by ACCEPTED items of applied cut plans —
+plus shots, overlay-lane b-roll, SFX clips, a music-bed heuristic (an
+untranscribed audio asset covering ≥ 40 % of the edit; gain < 0.5 = quiet),
+the caption template mapped to karaoke/block, transition kinds, intro (time
+before the first footage clip) and outro (after the last), clips by
+`origin.by`, and the review history (proposals applied/rejected, cut items
+rejected or dragged by hand). `diffPresetKnobs` turns that into knob changes
+each carrying its numbers (pacing: ≥ 8 cuts/min or mean clip ≤ 5 s = tight,
+≤ 2 cuts/min and ≥ 15 s = relaxed; numeric knobs move only past 25 % or an
+absolute floor; edits under 10 s propose nothing). `learn-from-project.ts`
+adds the ONE LLM summary — `runLlmGenerate` on the project's planning model,
+or the agent's own `summary` argument on the chat path, or the deterministic
+numbers sentence with a visible "(numbers only)" flag when no model answers —
+and queues the card. Accept (`preset-learn-handlers.ts`) re-applies the knob
+changes over a FRESH preset read (a form edit since the card was minted
+survives on every knob the card does not touch) and appends
+`## Learned from <project> on <date>` with the summary, the stat lines and the
+knob line. The Inspector button hands main the LIVE reducer slice (timeline,
+proposals, shots, captions — the 600 ms save debounce may lag) and the card is
+pushed on the agent event stream, so it appears in the Assistant tab like the
+chat one.
+
+**The runs — same clip, same line, two presets.** One line, "Edit this video
+end to end.", on Opus 5 planning / Sonnet 5 shots, the Acme Test brand,
+AssemblyAI. *Talking-head short* (9:16 project): `transcribe_asset` (99
+words, verbatim) → `run_auto_cut` **tight** (19 cuts, −28.3 s) → card →
+`propose_cuts` 11 (7 retakes, 4 false starts, −25.5 s) with the hook trim
+proposed "because the preset's hook rule wants the claim first, not a
+preamble" → card → one word-synced **hook title in the upper third** (1080 ×
+1920) → card → `set_captions` **core/word-pop, three words, uppercase, lower
+third** → the sound steps skipped in one line. Final: 11.8 s, 20 clips on the
+master lane, the title 1.5–5.9 s on the overlay lane; two cards clicked.
+*Course lesson* (16:9 project): the same transcription → `run_auto_cut`
+**natural** (18 cuts, −25.1 s: "pauses under about two seconds are left
+alone, per the lesson preset") plus a W4 vocabulary card → `propose_cuts` 8
+(−31.8 s, "no fluff suggested — lesson preset keeps re-explanations") → one
+**chapter title card** with the three outcomes stacked lower-left ("two per
+minute allows one, and the preset treats that as a ceiling") → `set_captions`
+**core/two-line-rolling, six words, sentence case**. Final: 12.3 s, 14 master
+clips; three cards clicked. Neither preset lists b-roll or export, so no
+video generation and no render ran; the visible differences — cut style,
+fluff policy, shot kind and placement, caption template — all trace to
+preset lines.
+
+**Learn, both paths.** A seeded hand-tightened project (twenty 2 s clips from
+the clip, no proposals, on the course-lesson preset): the Inspector button
+answered "Card ready in the Assistant tab" in ~20 s and the card read
+**pacing relaxed → tight (28.5 cuts/min on the master lane, mean clip 2 s)**,
+shots 2 → 0, captions block → none, transitions dip-to-black → none, intro
+10 → 0, outro 6 → 0, under a two-sentence summary ("You cut all 20 clips by
+hand with no assistant proposals in play … a tight, bare hard-cut assembly
+that opens and closes straight on the footage"). Accept: the panel read
+"Preset "Course lesson" updated · 6 knobs changed", `preset.json` carried the
+new style, `updatedAt` and the learned entry, and `PRESET.md` grew from 2 040
+to 3 150 chars with the "## Learned from W5 hand-tight w5a on 2026-09-09"
+section. The chat path, on the finished short ("Learn from this video: I am
+done with this short, update the preset from how it was cut"):
+`propose_preset_update` with the agent's own summary (no second model call),
+four rows (shots 4 → 5.1, SFX 3 → 0, music present → none, outro 2 → 0), and
+the agent itself warned that "96.6 cuts/min" was an artefact of a 60 s take of
+slated retakes finishing at 12 s, "worth reading with suspicion". Reject left
+the preset untouched (`updatedAt` unchanged, no learned entry).
+
+**The round trip.** Exporting the hand-tight project (`strategy: none`) wrote
+`preset.json` beside `brand.json` (manifest `preset: true`, 10 415 bytes in
+all); inspect returned the snapshot summary (Course lesson, course, 16:9, 5
+steps, 2 040 chars); import with `preset: { mode: 'create' }` created
+`course-lesson-2` in the library with the same workflow, knobs and body, and
+the new project's `settings.presetId` pointed at it (the exporter's id never
+passes through; brand matched to `acme-test` in the same import). The dialog
+offers match / create / none with a same-name twin preselected, the brand
+shape.
+
+**§5 question 4 — not measured.** Every built-in composes to ~2.5–2.9 k
+chars (no truncation logged in either run), and adherence was observed
+qualitatively — the agent cited a preset line at every step — but the
+dilution-spike measurement was NOT run. The budgets stay at 4 000 (preset) and
+2 000 (memory rules) until it is.
+
+**Driving lessons.** The W4 watch loop's busy test (Stop visible OR Send
+missing) must run on the Assistant tab — after its own click on Inspector the
+Send button is hidden and it read "busy" for nine minutes on "Apply 11 cuts";
+the W5 copy flips to Assistant first. "Back to projects" is an icon button
+with a title only, so a text lookup misses it. And the Bash tool's heredoc is
+not literal for backslashes: two "fixes" of an unescaped apostrophe were
+silent no-ops until the patch went through a script file.
+
+**Not done / left for later.** No built-in ships a `skills/` folder and there
+is no UI for one (the loader and the block composer handle it). The learn
+numbers are naive on tiny edits — a 12 s short reads as 96.6 cuts/min — and a
+floor for edits under ~30 s (or per-minute rates normalised to the source
+length) is worth adding before the flip's testing pass; the agent's caveat
+covered it this time. The agent did not name the preset in its FIRST sentence
+as the prompt asks (it named it by the second step in both runs) and once
+told the user they could "edit the text on the card", which the card does not
+offer. `sfx`/`music` steps degrade to the one-line notice until W2b. Memory
+rules stay the place for one-line imperatives; the learned section is prose
+plus numbers, never a rule.
+
 ### 2.6 W6 — Project thumbnails + Home — ~1.5 sessions
 
 - **Posters.** `StudioProjectSummary.posterPath?`. `<project>/cache/poster.jpg` written by `project-poster.ts` on save (debounced) and on close: the first video clip on the top-most video track at 10 % of the timeline → `ffmpeg -ss <sourceTime> -frames:v 1 -vf scale=480:-2` from the source (proxy if present). No video → no file; the card renders a brand-palette gradient with the project initials in CSS. `ProjectCard` shows it with the orientation preserved.
@@ -601,4 +758,8 @@ discussion is done, since it touches `src/features/flows/`,
    spells "VidTSX" three times.
 4. W5: 4 000-char preset budget plus the 2 000-char memory block plus skills
    — measure adherence with the dilution-spike method before raising either.
+   **Open after W5 (2026-09-09):** not measured. The three built-ins compose
+   to ~2.5–2.9 k chars with no truncation, and both acceptance runs showed the
+   agent citing a preset line at every step, but that is observation, not the
+   spike. Both budgets stay where they are.
 5. W8: Hasan's pending flows discussion.
