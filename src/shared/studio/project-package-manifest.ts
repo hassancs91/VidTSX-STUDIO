@@ -224,6 +224,7 @@ export function parsePackageManifest(raw: unknown): ManifestParseResult {
       ...(packs.length > 0 ? { packs } : {}),
       ...(raw.agentChat === true ? { agentChat: true } : {}),
       ...(raw.brand === true ? { brand: true } : {}),
+      ...(raw.preset === true ? { preset: true } : {}),
     },
   };
 }

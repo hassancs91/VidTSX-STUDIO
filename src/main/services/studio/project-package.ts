@@ -33,6 +33,7 @@ import {
   PACKAGE_AGENT_CHAT_NAME,
   PACKAGE_BRAND_NAME,
   PACKAGE_MANIFEST_NAME,
+  PACKAGE_PRESET_NAME,
   PACKAGE_PROJECT_NAME,
   PACKAGE_THUMBNAIL_NAME,
   VIDTSX_PACKAGE_FORMAT_VERSION,
@@ -43,6 +44,8 @@ import {
 } from '../../../shared/studio/project-package';
 import { STUDIO_SCHEMA_VERSION } from '../../../shared/types/studio';
 import { readBrand } from '../library/brand-store';
+import { readPreset } from '../library/preset-store';
+import { buildPresetSnapshot } from './project-package-preset';
 import { getLibraryRoot } from '../library/library-paths';
 import { planPackage, type PackagePlan, type PlannedAsset } from './project-package-plan';
 import { PackageZipWriter } from './project-package-zip';
@@ -139,6 +142,21 @@ async function readBrandSnapshot(project: StudioProject): Promise<unknown | null
   }
 }
 
+/** The editing preset (W5), the same way: knobs, workflow and PRESET.md
+ *  travel; the machine-local id, the default brand and the learned log
+ *  (project ids) do not. */
+async function readPresetSnapshot(project: StudioProject): Promise<unknown | null> {
+  const presetId = project.settings.presetId;
+  if (!presetId) return null;
+  try {
+    const preset = await readPreset(getLibraryRoot(), presetId);
+    return preset ? buildPresetSnapshot(preset) : null;
+  } catch (err) {
+    log.warn('Preset snapshot skipped', { presetId, error: String(err) });
+    return null;
+  }
+}
+
 /**
  * Write the package. Throws on any failure AFTER unlinking the partial file —
  * a half-written .vidtsx must never be left looking like a package.
@@ -151,6 +169,7 @@ export async function writePackage(options: WritePackageOptions): Promise<WriteP
   });
 
   const brandSnapshot = await readBrandSnapshot(project);
+  const presetSnapshot = await readPresetSnapshot(project);
   const thumbnailSource = pickThumbnail(plan);
   const writer = new PackageZipWriter(destPath);
   const report = (percent: number, message: string): void =>
@@ -160,6 +179,7 @@ export async function writePackage(options: WritePackageOptions): Promise<WriteP
     report(0, 'Writing project…');
     await writer.addJson(PACKAGE_PROJECT_NAME, buildPackageProject(project, plan));
     if (brandSnapshot) await writer.addJson(PACKAGE_BRAND_NAME, brandSnapshot);
+    if (presetSnapshot) await writer.addJson(PACKAGE_PRESET_NAME, presetSnapshot);
     if (thumbnailSource) await writer.addFile(PACKAGE_THUMBNAIL_NAME, thumbnailSource);
 
     let done = 0;
@@ -196,6 +216,7 @@ export async function writePackage(options: WritePackageOptions): Promise<WriteP
       ...(plan.captionPacks.length > 0 ? { captionPacks: plan.captionPacks } : {}),
       ...(plan.includeChat ? { agentChat: true } : {}),
       ...(brandSnapshot ? { brand: true } : {}),
+      ...(presetSnapshot ? { preset: true } : {}),
     };
     report(99, 'Sealing package…');
     await writer.addJson(PACKAGE_MANIFEST_NAME, manifest);

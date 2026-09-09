@@ -41,6 +41,8 @@ export const PACKAGE_DIRS = {
 } as const;
 
 export const PACKAGE_BRAND_NAME = 'brand.json';
+/** W5: the editing-preset snapshot (knobs, workflow, PRESET.md body). */
+export const PACKAGE_PRESET_NAME = 'preset.json';
 export const PACKAGE_AGENT_CHAT_NAME = 'agent-chat.json';
 export const PACKAGE_THUMBNAIL_NAME = 'thumbnail.jpg';
 
@@ -124,6 +126,8 @@ export interface VidtsxManifest {
   agentChat?: boolean;
   /** A brand token snapshot travelled as brand.json. */
   brand?: boolean;
+  /** W5: an editing-preset snapshot travelled as preset.json. */
+  preset?: boolean;
 }
 
 /**

@@ -102,6 +102,16 @@ export interface StudioPackageBrandSnapshot {
   styleNotes?: string;
 }
 
+/** W5: the editing preset a package carries, as the import dialog shows it. */
+export interface StudioPackagePresetSnapshot {
+  name: string;
+  description?: string;
+  videoKind: 'short' | 'long' | 'course' | 'custom';
+  orientation?: '16:9' | '9:16' | '1:1';
+  stepCount: number;
+  bodyChars: number;
+}
+
 /** What a package says about itself, read without writing anything. */
 export interface StudioPackageInfo {
   filePath: string;
@@ -118,6 +128,7 @@ export interface StudioPackageInfo {
   captionPacks?: string[];
   hasAgentChat: boolean;
   brandSnapshot?: StudioPackageBrandSnapshot;
+  presetSnapshot?: StudioPackagePresetSnapshot;
   /** Set when this build cannot open the package — the reason, in one line. */
   incompatible?: string;
 }
@@ -140,6 +151,12 @@ export type StudioPackageBrandChoice =
   | { mode: 'match'; brandId: string }
   | { mode: 'create' }
   | { mode: 'snapshot' }
+  | { mode: 'none' };
+
+/** W5 preset offer, resolved in the dialog before the import runs. */
+export type StudioPackagePresetChoice =
+  | { mode: 'match'; presetId: string }
+  | { mode: 'create' }
   | { mode: 'none' };
 
 export interface StudioPackageShotReport {
@@ -165,6 +182,7 @@ export interface StudioPackageImportReport {
   captionPacks: Array<{ packId: string; installed: boolean; reason?: string }>;
   kit?: { version: string; installed: boolean };
   brand: { applied: StudioPackageBrandChoice['mode']; brandId?: string; error?: string };
+  preset: { applied: StudioPackagePresetChoice['mode']; presetId?: string; error?: string };
   warnings: string[];
 }
 
@@ -173,6 +191,7 @@ export interface StudioPackageImportRequest {
   /** Rename on import; defaults to the package's project name. */
   name?: string;
   brand?: StudioPackageBrandChoice;
+  preset?: StudioPackagePresetChoice;
 }
 
 export interface StudioPackageImportResponse {

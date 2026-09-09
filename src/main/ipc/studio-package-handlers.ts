@@ -32,6 +32,7 @@ import {
   VIDTSX_PACKAGE_EXTENSION,
 } from '../../shared/studio/project-package';
 import { normalizeBrand } from '../../shared/studio/brand';
+import { readPresetSnapshot } from '../services/studio/project-package-preset';
 import { takePendingPackage } from '../services/packages/pending-open';
 import { importPackage, inspectPackage } from '../services/studio/project-package-import';
 import { conformShot } from '../services/studio/shot-conform';
@@ -166,7 +167,8 @@ export async function handleStudioPackageInspect(
       filePath = picked.filePaths[0];
     }
 
-    const { manifest, brandSnapshot, incompatible } = await inspectPackage(filePath);
+    const { manifest, brandSnapshot, presetSnapshot, incompatible } = await inspectPackage(filePath);
+    const presetInfo = presetSnapshot !== undefined ? describePresetSnapshot(presetSnapshot) : null;
     return {
       success: true,
       info: {
@@ -184,6 +186,7 @@ export async function handleStudioPackageInspect(
         ...(manifest.captionPacks ? { captionPacks: manifest.captionPacks } : {}),
         hasAgentChat: manifest.agentChat === true,
         ...(isBrandSnapshot(brandSnapshot) ? { brandSnapshot } : {}),
+        ...(presetInfo ? { presetSnapshot: presetInfo } : {}),
         ...(incompatible ? { incompatible } : {}),
       },
     };
@@ -200,6 +203,20 @@ function isBrandSnapshot(raw: unknown): raw is StudioPackageInfo['brandSnapshot'
   return brand !== null;
 }
 
+/** The preset as the dialog shows it — a summary, never the body. */
+function describePresetSnapshot(raw: unknown): StudioPackageInfo['presetSnapshot'] | null {
+  const preset = readPresetSnapshot(raw);
+  if (!preset) return null;
+  return {
+    name: preset.name,
+    ...(preset.description ? { description: preset.description } : {}),
+    videoKind: preset.videoKind,
+    ...(preset.orientation ? { orientation: preset.orientation } : {}),
+    stepCount: preset.workflow.length,
+    bodyChars: preset.body.length,
+  };
+}
+
 export async function handleStudioPackageImport(
   event: IpcMainInvokeEvent,
   data: StudioPackageImportRequest,
@@ -214,6 +231,7 @@ export async function handleStudioPackageImport(
       filePath: data.filePath,
       ...(data.name ? { name: data.name } : {}),
       ...(data.brand ? { brand: data.brand } : {}),
+      ...(data.preset ? { preset: data.preset } : {}),
       onProgress: ({ percent, message }) => send({ op: 'import', percent, message }),
     });
     send({ op: 'import', percent: 100, message: 'Project imported' });

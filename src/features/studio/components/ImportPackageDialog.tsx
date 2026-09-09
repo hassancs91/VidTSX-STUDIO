@@ -16,9 +16,16 @@ import { TextInput } from '@shared/components/TextInput';
 import { ProgressBar } from '@shared/components/ProgressBar';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import { Select } from '@shared/components/Select';
-import type { StudioPackageBrandChoice, StudioPackageImportReport, StudioPackageInfo } from '@shared/ipc/types';
+import type {
+  StudioPackageBrandChoice,
+  StudioPackageImportReport,
+  StudioPackageInfo,
+  StudioPackagePresetChoice,
+} from '@shared/ipc/types';
 import { formatPackageBytes } from '@shared/studio/project-package';
 import { useBrandList } from '../hooks/useBrandList';
+import { usePresetList } from '../hooks/usePresetList';
+import { ImportPresetOffer } from './ImportPresetOffer';
 import { usePackageProgress } from '../hooks/usePackageProgress';
 import { ImportReportCards } from './ImportReportCards';
 
@@ -38,10 +45,13 @@ interface Props {
 
 export function ImportPackageDialog({ isOpen, filePath, onClose, onOpenProject }: Props) {
   const brands = useBrandList();
+  const presets = usePresetList();
   const [info, setInfo] = useState<StudioPackageInfo | null>(null);
   const [name, setName] = useState('');
   const [brandMode, setBrandMode] = useState<StudioPackageBrandChoice['mode']>('snapshot');
   const [matchBrandId, setMatchBrandId] = useState('');
+  const [presetMode, setPresetMode] = useState<StudioPackagePresetChoice['mode']>('create');
+  const [matchPresetId, setMatchPresetId] = useState('');
   const [inspecting, setInspecting] = useState(false);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +64,8 @@ export function ImportPackageDialog({ isOpen, filePath, onClose, onOpenProject }
       setName('');
       setBrandMode('snapshot');
       setMatchBrandId('');
+      setPresetMode('create');
+      setMatchPresetId('');
       setError(null);
       setReport(null);
       setImporting(false);
@@ -84,6 +96,14 @@ export function ImportPackageDialog({ isOpen, filePath, onClose, onOpenProject }
         setBrandMode('match');
         setMatchBrandId(twin.id);
       }
+      // Same for the preset: a same-named preset here is the one coming home.
+      const presetTwin = presets.find(
+        (preset) => preset.name.toLowerCase() === res.info?.presetSnapshot?.name.toLowerCase(),
+      );
+      if (presetTwin) {
+        setPresetMode('match');
+        setMatchPresetId(presetTwin.id);
+      }
     })();
     return () => {
       cancelled = true;
@@ -104,10 +124,17 @@ export function ImportPackageDialog({ isOpen, filePath, onClose, onOpenProject }
           : brandMode === 'match'
             ? { mode: 'none' }
             : { mode: brandMode };
+      const preset: StudioPackagePresetChoice =
+        presetMode === 'match' && matchPresetId
+          ? { mode: 'match', presetId: matchPresetId }
+          : presetMode === 'match'
+            ? { mode: 'none' }
+            : { mode: presetMode };
       const res = await window.api.studioPackageImport({
         filePath: info.filePath,
         ...(name.trim() ? { name: name.trim() } : {}),
         ...(info.brandSnapshot ? { brand } : {}),
+        ...(info.presetSnapshot ? { preset } : {}),
       });
       if (!res.success || !res.report) {
         setError(res.error ?? 'The package could not be imported.');
@@ -117,7 +144,7 @@ export function ImportPackageDialog({ isOpen, filePath, onClose, onOpenProject }
     } finally {
       setImporting(false);
     }
-  }, [info, name, brandMode, matchBrandId, importing]);
+  }, [info, name, brandMode, matchBrandId, presetMode, matchPresetId, importing]);
 
   return (
     <Modal
@@ -176,6 +203,17 @@ export function ImportPackageDialog({ isOpen, filePath, onClose, onOpenProject }
                       matchBrandId={matchBrandId}
                       onMode={setBrandMode}
                       onMatch={setMatchBrandId}
+                    />
+                  )}
+
+                  {info.presetSnapshot && (
+                    <ImportPresetOffer
+                      presetName={info.presetSnapshot.name}
+                      presets={presets}
+                      mode={presetMode}
+                      matchPresetId={matchPresetId}
+                      onMode={setPresetMode}
+                      onMatch={setMatchPresetId}
                     />
                   )}
 

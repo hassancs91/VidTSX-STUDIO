@@ -17,6 +17,7 @@ const gate = vi.hoisted(() => ({
   buildShotEngineDeps: vi.fn(),
 }));
 const brands = vi.hoisted(() => ({ created: [] as string[] }));
+const presets = vi.hoisted(() => ({ created: [] as Record<string, unknown>[] }));
 
 vi.mock('electron', () => ({
   app: {
@@ -48,6 +49,27 @@ vi.mock('../library/brand-store', () => ({
   createBrand: async (_root: string, input: { name: string }) => {
     const id = `brand-${brands.created.length + 1}`;
     brands.created.push(input.name);
+    return { id, name: input.name };
+  },
+}));
+vi.mock('../library/preset-store', () => ({
+  readPreset: async (_root: string, id: string) =>
+    id === 'shorts'
+      ? {
+          id: 'shorts',
+          name: 'My shorts',
+          videoKind: 'short',
+          orientation: '9:16',
+          workflow: [{ id: 'transcribe' }, { id: 'captions', template: 'core/word-pop' }],
+          style: { pacing: 'tight', captions: 'karaoke' },
+          body: '# Shorts',
+          createdAt: '2026-09-09T00:00:00.000Z',
+          updatedAt: '2026-09-09T00:00:00.000Z',
+        }
+      : null,
+  createPreset: async (_root: string, input: Record<string, unknown>) => {
+    const id = `preset-${presets.created.length + 1}`;
+    presets.created.push(input);
     return { id, name: input.name };
   },
 }));
@@ -92,7 +114,7 @@ function makeProject(): StudioProject {
     name: 'Demo Project',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-26T00:00:00.000Z',
-    settings: { width: 1920, height: 1080, fps: 30, agent: {}, brandId: 'acme' },
+    settings: { width: 1920, height: 1080, fps: 30, agent: {}, brandId: 'acme', presetId: 'shorts' },
     assets: [
       {
         id: 'a1',
@@ -169,6 +191,7 @@ afterAll(async () => {
 beforeEach(() => {
   gate.validateShotCode.mockReset().mockResolvedValue({ success: true });
   brands.created.length = 0;
+  presets.created.length = 0;
 });
 
 describe('importPackage — the round trip', () => {
@@ -273,6 +296,32 @@ describe('importPackage — the round trip', () => {
 
     const matched = await importPackage({ filePath: dest, brand: { mode: 'match', brandId: 'acme' } });
     expect((await loadImported(matched.projectId)).settings.brandId).toBe('acme');
+  });
+
+  it('applies the preset offer (W5): create makes a library preset from the snapshot, match points at mine, none drops the exporter id', async () => {
+    const dest = path.join(tmpDir, 'preset.vidtsx');
+    await writePackage({ project: makeProject(), destPath: dest, strategy: 'none' });
+
+    const created = await importPackage({ filePath: dest, preset: { mode: 'create' } });
+    expect(created.preset).toEqual({ applied: 'create', presetId: 'preset-1' });
+    expect(presets.created).toHaveLength(1);
+    expect(presets.created[0]).toMatchObject({
+      name: 'My shorts',
+      videoKind: 'short',
+      orientation: '9:16',
+      workflow: [{ id: 'transcribe' }, { id: 'captions', template: 'core/word-pop' }],
+      style: { pacing: 'tight', captions: 'karaoke' },
+      body: '# Shorts',
+    });
+    expect((await loadImported(created.projectId)).settings.presetId).toBe('preset-1');
+
+    const matched = await importPackage({ filePath: dest, preset: { mode: 'match', presetId: 'shorts' } });
+    expect(matched.preset).toEqual({ applied: 'match', presetId: 'shorts' });
+    expect((await loadImported(matched.projectId)).settings.presetId).toBe('shorts');
+
+    const none = await importPackage({ filePath: dest });
+    expect(none.preset.applied).toBe('none');
+    expect((await loadImported(none.projectId)).settings.presetId).toBeUndefined();
   });
 
   it('drops the exporter brand id when no offer is made', async () => {

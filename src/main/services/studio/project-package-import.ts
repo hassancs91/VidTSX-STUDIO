@@ -26,6 +26,7 @@ import type { StudioMediaAsset, StudioProject, StudioShot } from '../../../share
 import { STUDIO_SCHEMA_VERSION } from '../../../shared/types/studio';
 import {
   PACKAGE_BRAND_NAME,
+  PACKAGE_PRESET_NAME,
   PACKAGE_PROJECT_NAME,
   VIDTSX_PACKAGE_FORMAT_VERSION,
   type VidtsxManifest,
@@ -47,6 +48,7 @@ import {
   type InstalledMedia,
   type InstalledPack,
 } from './project-package-install';
+import { applyPresetChoice, type PresetChoice } from './project-package-preset';
 import { openPackage, PackageReadError } from './project-package-unzip';
 import {
   ensureProjectScaffold,
@@ -80,6 +82,8 @@ export interface ImportPackageReport {
   captionPacks: InstalledPack[];
   kit?: { version: string; installed: boolean };
   brand: { applied: BrandChoice['mode']; brandId?: string; error?: string };
+  /** W5: the preset offer's outcome. */
+  preset: { applied: PresetChoice['mode']; presetId?: string; error?: string };
   warnings: string[];
 }
 
@@ -89,6 +93,8 @@ export interface ImportPackageRequest {
   name?: string;
   /** Q7f brand offer, resolved by the dialog before the import runs. */
   brand?: BrandChoice;
+  /** W5 preset offer, same shape. */
+  preset?: PresetChoice;
   onProgress?: (progress: { percent: number; message: string }) => void;
 }
 
@@ -97,6 +103,7 @@ export interface ImportPackageRequest {
 export async function inspectPackage(filePath: string): Promise<{
   manifest: VidtsxManifest;
   brandSnapshot?: unknown;
+  presetSnapshot?: unknown;
   incompatible?: string;
 }> {
   const pkg = await openPackage(filePath);
@@ -109,9 +116,18 @@ export async function inspectPackage(filePath: string): Promise<{
       brandSnapshot = undefined; // A broken snapshot simply offers no brand.
     }
   }
+  let presetSnapshot: unknown;
+  if (pkg.manifest.preset) {
+    try {
+      presetSnapshot = JSON.parse((await pkg.read(PACKAGE_PRESET_NAME)).toString('utf-8'));
+    } catch {
+      presetSnapshot = undefined; // A broken snapshot simply offers no preset.
+    }
+  }
   return {
     manifest: pkg.manifest,
     ...(brandSnapshot !== undefined ? { brandSnapshot } : {}),
+    ...(presetSnapshot !== undefined ? { presetSnapshot } : {}),
     ...(incompatible ? { incompatible } : {}),
   };
 }
@@ -289,6 +305,16 @@ export async function importPackage(request: ImportPackageRequest): Promise<Impo
     }
     const brand = await applyBrandChoice(request.brand ?? { mode: 'none' }, brandSnapshot, projectDir);
     if (brand.error) warnings.push(brand.error);
+    let presetSnapshot: unknown;
+    if (pkg.manifest.preset) {
+      try {
+        presetSnapshot = JSON.parse(await fs.readFile(path.join(tempRoot, PACKAGE_PRESET_NAME), 'utf-8'));
+      } catch {
+        presetSnapshot = undefined;
+      }
+    }
+    const preset = await applyPresetChoice(request.preset ?? { mode: 'none' }, presetSnapshot);
+    if (preset.error) warnings.push(preset.error);
 
     report(85, 'Checking shots…');
     const { shots, reports } = await gateShots(projectDir, document.shots);
@@ -296,13 +322,18 @@ export async function importPackage(request: ImportPackageRequest): Promise<Impo
 
     const settings = { ...document.settings };
     delete settings.brandId;
+    delete settings.presetId; // machine-local too — only the offer's outcome applies
     const finished: StudioProject = {
       ...document,
       id: reserved.name,
       name: wanted,
       assets,
       shots,
-      settings: { ...settings, ...(brand.brandId ? { brandId: brand.brandId } : {}) },
+      settings: {
+        ...settings,
+        ...(brand.brandId ? { brandId: brand.brandId } : {}),
+        ...(preset.presetId ? { presetId: preset.presetId } : {}),
+      },
     };
     await saveProject(finished);
 
@@ -327,6 +358,11 @@ export async function importPackage(request: ImportPackageRequest): Promise<Impo
         applied: brand.applied,
         ...(brand.brandId ? { brandId: brand.brandId } : {}),
         ...(brand.error ? { error: brand.error } : {}),
+      },
+      preset: {
+        applied: preset.applied,
+        ...(preset.presetId ? { presetId: preset.presetId } : {}),
+        ...(preset.error ? { error: preset.error } : {}),
       },
       warnings,
     };

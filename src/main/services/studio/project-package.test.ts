@@ -36,6 +36,24 @@ vi.mock('../library/brand-store', () => ({
         }
       : null,
 }));
+vi.mock('../library/preset-store', () => ({
+  readPreset: async (_root: string, id: string) =>
+    id === 'shorts'
+      ? {
+          id: 'shorts',
+          name: 'My shorts',
+          videoKind: 'short',
+          orientation: '9:16',
+          defaultBrandId: 'acme',
+          workflow: [{ id: 'transcribe' }, { id: 'auto_cut', aggressiveness: 'aggressive' }],
+          style: { pacing: 'tight' },
+          learned: [{ projectId: 'old', at: '2026-09-01T00:00:00.000Z', summary: 'x' }],
+          body: '# Shorts\n\nHook first.',
+          createdAt: '2026-09-09T00:00:00.000Z',
+          updatedAt: '2026-09-09T00:00:00.000Z',
+        }
+      : null,
+}));
 // Heavy engine modules the plan only needs two constants from.
 vi.mock('./asset-transcriber', () => ({ TRANSCRIPT_DIR: 'transcripts' }));
 vi.mock('./proxy-generator', () => ({
@@ -64,7 +82,7 @@ function makeProject(): StudioProject {
     name: 'Demo Project',
     createdAt: '2026-08-01T00:00:00.000Z',
     updatedAt: '2026-08-26T00:00:00.000Z',
-    settings: { width: 1920, height: 1080, fps: 30, agent: {}, brandId: 'acme' },
+    settings: { width: 1920, height: 1080, fps: 30, agent: {}, brandId: 'acme', presetId: 'shorts' },
     assets: [
       {
         id: 'a1',
@@ -215,6 +233,7 @@ describe('writePackage (Q7a layout)', () => {
     expect(parsed.manifest.mediaStrategy).toBe('full');
     expect(parsed.manifest.kitVersion).toBe('1.2.3');
     expect(parsed.manifest.brand).toBe(true);
+    expect(parsed.manifest.preset).toBe(true);
     expect(parsed.manifest.agentChat).toBeUndefined();
     expect(result.bytes).toBe(parsed.manifest.totalBytes);
 
@@ -258,6 +277,22 @@ describe('writePackage (Q7a layout)', () => {
     expect(brand.fonts).toEqual({ display: 'Inter' });
     expect(brand.styleNotes).toBe('- bold');
     expect('logoRefs' in brand).toBe(false);
+  });
+
+  it('the preset snapshot carries knobs, workflow and the body — never the id, the default brand or the learned log (W5)', async () => {
+    const dest = path.join(tmpDir, 'preset.vidtsx');
+    await writePackage({ project: makeProject(), destPath: dest, strategy: 'none' });
+    const entries = await readPackage(dest);
+    const preset = JSON.parse(entries.get('preset.json')!.toString('utf-8')) as Record<string, unknown>;
+    expect(preset.name).toBe('My shorts');
+    expect(preset.videoKind).toBe('short');
+    expect(preset.orientation).toBe('9:16');
+    expect(preset.workflow).toEqual([{ id: 'transcribe' }, { id: 'auto_cut', aggressiveness: 'aggressive' }]);
+    expect(preset.style).toEqual({ pacing: 'tight' });
+    expect(preset.body).toBe('# Shorts\n\nHook first.');
+    expect('id' in preset).toBe(false);
+    expect('defaultBrandId' in preset).toBe(false);
+    expect('learned' in preset).toBe(false);
   });
 
   it('the chat opt-in is what puts a conversation in the package', async () => {

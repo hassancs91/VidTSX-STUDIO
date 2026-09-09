@@ -117,6 +117,13 @@ export function ImportReportCards({ report }: Props) {
           }
         />
       )}
+      {report.preset.applied !== 'none' && (
+        <div className="text-[10.5px] text-text-muted" data-import-report-preset>
+          {report.preset.applied === 'create'
+            ? 'Preset created in your library — the assistant follows it in this project.'
+            : 'Matched to one of your presets — the assistant follows it in this project.'}
+        </div>
+      )}
 
       {report.warnings.map((warning) => (
         <Card
