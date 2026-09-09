@@ -103,6 +103,11 @@ describe('normalizePreset', () => {
     );
     expect(preset?.style).toEqual({ pacing: 'tight', transitions: ['crossfade'], introSeconds: 5 });
   });
+
+  it('keeps an explicit empty transitions list — "hard cuts only" is a knob, not an absence', () => {
+    expect(normalizePreset({ name: 'A', style: { transitions: [] } }, 'a')?.style).toEqual({ transitions: [] });
+    expect(normalizePreset({ name: 'A', style: {} }, 'a')?.style).toEqual({});
+  });
 });
 
 describe('normalizePresetBody', () => {

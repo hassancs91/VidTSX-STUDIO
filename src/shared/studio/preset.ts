@@ -126,12 +126,13 @@ export function normalizePresetStyle(raw: unknown): StudioPresetStyle {
   if (oneOf(MUSIC_BEDS, s.musicBed)) style.musicBed = s.musicBed;
   if (oneOf(CAPTIONS, s.captions)) style.captions = s.captions;
   if (Array.isArray(s.transitions)) {
-    const transitions = s.transitions
+    // An explicit [] is a knob ("hard cuts only"), not an absent one — the
+    // learned diff writes it and the prompt says "no transitions" for it.
+    style.transitions = s.transitions
       .filter((t): t is string => typeof t === 'string')
       .map((t) => t.trim())
       .filter((t) => t !== '' && t.length <= TRANSITION_CHARS_MAX)
       .slice(0, TRANSITIONS_MAX);
-    if (transitions.length > 0) style.transitions = transitions;
   }
   const intro = boundedNumber(s.introSeconds, 0, 120);
   if (intro !== undefined) style.introSeconds = intro;
