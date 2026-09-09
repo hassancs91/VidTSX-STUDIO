@@ -225,6 +225,10 @@ function TranscriptReadout({ asset }: { asset: StudioMediaAsset }) {
         {timing}
         {t.language ? ` · ${t.language}` : ''}
         {t.features && !t.features.verbatimDisfluencies ? ' · fillers tidied by the engine' : ''}
+        {t.keytermCount ? ` · ${t.keytermCount} keyterm${t.keytermCount === 1 ? '' : 's'} primed` : ''}
+        {t.aliasReplacements
+          ? ` · ${t.aliasReplacements} spelling${t.aliasReplacements === 1 ? '' : 's'} fixed`
+          : ''}
       </div>
     </div>
   );

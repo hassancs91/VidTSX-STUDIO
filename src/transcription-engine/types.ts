@@ -72,6 +72,14 @@ export interface ProviderTranscribeRequest {
    * it. Auto-cut wants them (fillers are cut material); captions usually don't.
    */
   verbatim?: boolean;
+  /**
+   * Names and phrases to bias recognition toward (W4): brand vocabulary,
+   * the script's proper nouns, active vocabulary memories. Each provider
+   * maps the list to its own field (AssemblyAI `keyterms_prompt` /
+   * `word_boost`, ElevenLabs `keyterms`, whisper.cpp `--prompt`) and
+   * applies its own caps; a provider without one ignores it.
+   */
+  keyterms?: string[];
   signal: AbortSignal;
   /** Progress within the provider's own work, 0..100. */
   onProgress: (percent: number, message: string) => void;

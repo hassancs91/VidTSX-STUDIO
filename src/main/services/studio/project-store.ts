@@ -4,6 +4,7 @@ import { shell } from 'electron';
 import { logEngine } from '../../../logging/log-engine';
 import {
   STUDIO_SCHEMA_VERSION,
+  STUDIO_SCRIPT_MAX_CHARS,
   type StudioProject,
 } from '../../../shared/types/studio';
 import type { StudioProjectSummary } from '../../../shared/ipc/types/studio';
@@ -56,6 +57,10 @@ export function migrateProject(raw: unknown, folderId: string): StudioProject {
     // (reconcile-on-open, TSX_SHOTS_DESIGN.md D9).
     shots: normalizeShots(doc.shots),
     ...(captions ? { captions } : {}),
+    // Script (W4): a string or nothing; an empty/whitespace script is absent.
+    ...(typeof doc.script === 'string' && doc.script.trim() !== ''
+      ? { script: doc.script.slice(0, STUDIO_SCRIPT_MAX_CHARS) }
+      : {}),
   };
 }
 

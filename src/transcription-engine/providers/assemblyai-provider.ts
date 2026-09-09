@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { TranscriptionEngineError } from '../types';
 import { mapToTranscriptResult, round3 } from './map-stt-segments';
+import { buildAssemblyAiKeyterms } from './assemblyai-keyterms';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('AssemblyAI');
@@ -119,6 +120,18 @@ export class AssemblyAiProvider implements TranscriptionProvider {
     }
     if (englishKnown && req.enableHighlights) body.auto_highlights = true;
     if (englishKnown && req.enableSentiment) body.sentiment_analysis = true;
+    // W4 vocabulary feed: keyterms_prompt for the universal family, word_boost
+    // only for the legacy ids (see assemblyai-keyterms.ts).
+    const keyterms = buildAssemblyAiKeyterms(req.model, req.keyterms);
+    if (keyterms) {
+      body[keyterms.field] = keyterms.terms;
+      log.info('Keyterms sent', {
+        field: keyterms.field,
+        count: keyterms.terms.length,
+        dropped: keyterms.dropped,
+        sample: keyterms.terms.slice(0, 5),
+      });
+    }
 
     req.onProgress(25, 'Starting transcription…');
     const created = await this.request<AaiTranscript>('POST', '/transcript', body, req.signal);

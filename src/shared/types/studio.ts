@@ -17,6 +17,9 @@ export * from './studio-captions';
 
 export const STUDIO_SCHEMA_VERSION = 1;
 
+/** Cap on `StudioProject.script` (W4) — a long-form script, never a book. */
+export const STUDIO_SCRIPT_MAX_CHARS = 60_000;
+
 export type StudioAssetKind = 'video' | 'audio' | 'image';
 
 export interface StudioAssetProbe {
@@ -52,6 +55,11 @@ export interface StudioAssetTranscript extends StudioAssetCacheFile {
    * branch on these flags, never on `engine`.
    */
   features?: SttModelFeatures;
+  /** W4: keyterms the engine was primed with (brand vocabulary, script
+   *  names, vocabulary memories); absent = none were available. */
+  keytermCount?: number;
+  /** W4: alias → term replacements the post-pass made in the word list. */
+  aliasReplacements?: number;
 }
 
 /** The transcript fields a job event carries (path/status ride separately). */
@@ -340,4 +348,10 @@ export interface StudioProject {
    *  captions; no schema bump (the shots-field precedent). The words are NOT
    *  stored: they are derived from the timeline on every serialize. */
   captions?: StudioCaptionLayer;
+  /** The script (W4): the INTENDED FINAL READ, edited in the Script tab.
+   *  The editorial pass reads it to pick the keeper take, its proper nouns
+   *  prime every transcription, and the agent proposes vocabulary from it.
+   *  Absent = none; capped at STUDIO_SCRIPT_MAX_CHARS; no schema bump (the
+   *  captions precedent — optional field, older readers ignore it). */
+  script?: string;
 }

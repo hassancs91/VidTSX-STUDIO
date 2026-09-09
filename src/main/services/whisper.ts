@@ -209,6 +209,9 @@ export interface TranscribeOptions {
   inputPath: string;
   modelId: string;
   language?: string;
+  /** whisper.cpp `--prompt`: an initial prompt that primes spellings (W4
+   *  vocabulary feed). Keep it short — it shares the first decoding window. */
+  prompt?: string;
 }
 
 // Progress callback types
@@ -306,7 +309,7 @@ export async function transcribe(
   options: TranscribeOptions,
   onProgress: TranscribeProgressCallback
 ): Promise<TranscriptResult> {
-  const { inputPath, modelId, language } = options;
+  const { inputPath, modelId, language, prompt } = options;
 
   // Validate inputs
   if (!existsSync(inputPath)) {
@@ -371,6 +374,9 @@ export async function transcribe(
 
   if (language && language !== 'auto') {
     args.push('-l', language);
+  }
+  if (prompt) {
+    args.push('--prompt', prompt);
   }
 
   await new Promise<void>((resolve, reject) => {

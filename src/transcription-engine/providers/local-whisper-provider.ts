@@ -36,8 +36,14 @@ export class LocalWhisperProvider implements TranscriptionProvider {
     try {
       if (req.signal.aborted) throw new Error('aborted');
 
+      const prompt = whisperPromptFromKeyterms(req.keyterms);
       const result = await whisperService.transcribe(
-        { inputPath: req.audioPath, modelId: req.model, language: req.language },
+        {
+          inputPath: req.audioPath,
+          modelId: req.model,
+          language: req.language,
+          ...(prompt ? { prompt } : {}),
+        },
         (_phase, percent, message) => {
           req.onProgress(percent, message ?? 'Transcribing…');
         },
@@ -91,6 +97,25 @@ export class LocalWhisperProvider implements TranscriptionProvider {
   cancel(): void {
     whisperService.cancelTranscription();
   }
+}
+
+/** whisper.cpp's initial prompt shares the first ~224-token decoding window,
+ *  so the vocabulary rides as a short comma list, cut at a term boundary. */
+export const WHISPER_PROMPT_MAX_CHARS = 600;
+
+export function whisperPromptFromKeyterms(keyterms: readonly string[] | undefined): string | undefined {
+  if (!keyterms || keyterms.length === 0) return undefined;
+  const parts: string[] = [];
+  let length = 0;
+  for (const raw of keyterms) {
+    const term = raw.replace(/\s+/g, ' ').trim();
+    if (!term) continue;
+    const next = length + term.length + (parts.length > 0 ? 2 : 0);
+    if (next > WHISPER_PROMPT_MAX_CHARS) break;
+    parts.push(term);
+    length = next;
+  }
+  return parts.length > 0 ? `${parts.join(', ')}.` : undefined;
 }
 
 /**

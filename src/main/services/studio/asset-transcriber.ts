@@ -10,9 +10,14 @@ import { findSttEntry } from '../../../shared/presets/stt-models';
 import type { SttModelFeatures } from '../../../shared/presets/stt-models';
 import type { StudioAssetTranscriptMeta } from '../../../shared/types/studio';
 import type { SttUtterance, SttWord } from '../../../transcription-engine/types';
+import { logEngine } from '../../../logging/log-engine';
 import { transcribeAudioFile } from '../stt/run-transcription';
 import { extractAudioToWav, isAudioFile } from '../stt/extract-audio';
+import { applyAliasPostpass, replaceAliasesInText } from '../stt/alias-postpass';
 import { getProjectCacheDir } from './studio-paths';
+import { loadTranscriptionContext } from './transcription-context';
+
+const log = logEngine.createLogger('AssetTranscriber');
 
 export const TRANSCRIPT_DIR = 'transcripts';
 
@@ -39,6 +44,10 @@ export interface StudioTranscriptFile {
   segments: Array<{ start: number; end: number; text: string }>;
   words?: SttWord[];
   utterances?: SttUtterance[];
+  /** W4: how many keyterms primed the engine (brand + script + memory). */
+  keytermCount?: number;
+  /** W4: alias replacements the post-pass made in the word list. */
+  aliasReplacements?: number;
 }
 
 export interface TranscribeAssetResult {
@@ -54,6 +63,8 @@ function metaFromFile(file: StudioTranscriptFile): StudioAssetTranscriptMeta {
     hasWords: (file.words?.length ?? 0) > 0,
     wordCount: file.words?.length,
     features: file.features,
+    ...(file.keytermCount !== undefined ? { keytermCount: file.keytermCount } : {}),
+    ...(file.aliasReplacements !== undefined ? { aliasReplacements: file.aliasReplacements } : {}),
   };
 }
 
@@ -118,17 +129,38 @@ export async function transcribeAsset(
   try {
     if (signal.aborted) throw new Error('aborted');
 
-    // ── 2. Transcribe via the provider-agnostic pipeline ──
+    // ── 2. Prime the engine (W4): brand vocabulary + script names + memories ──
+    const context = await loadTranscriptionContext(projectId);
+    if (context.keyterms.length > 0) {
+      log.info('Vocabulary composed for transcription', {
+        projectId,
+        assetId,
+        keyterms: context.keyterms.length,
+        ...context.counts,
+        aliasRules: context.aliasRules.length,
+      });
+    }
+
+    // ── 3. Transcribe via the provider-agnostic pipeline ──
     const rich = await transcribeAudioFile({
       audioPath,
       sttModelId,
       verbatim: true,
+      ...(context.keyterms.length > 0 ? { keyterms: context.keyterms } : {}),
       signal,
       onProgress: (percent, message) => onProgress(10 + Math.round(percent * 0.88), message),
     });
     if (signal.aborted) throw new Error('aborted');
 
-    // ── 3. Cache the rich result ──
+    // ── 4. Deterministic alias post-pass, logged per replacement ──
+    const post = applyAliasPostpass(rich.words ?? [], context.aliasRules);
+    for (const replacement of post.replacements) {
+      log.info('Alias replaced in transcript', { assetId, ...replacement });
+    }
+    const fixText = (text: string): string =>
+      post.total > 0 ? replaceAliasesInText(text, context.aliasRules) : text;
+
+    // ── 5. Cache the rich result ──
     onProgress(99, 'Saving transcript…');
     const file: StudioTranscriptFile = {
       version: 1,
@@ -143,10 +175,14 @@ export async function transcribeAsset(
       language: rich.result.language,
       features: rich.features ?? entry.features,
       duration: rich.result.duration,
-      text: rich.result.text,
-      segments: rich.result.segments.map((s) => ({ start: s.start, end: s.end, text: s.text })),
-      ...(rich.words && rich.words.length > 0 ? { words: rich.words } : {}),
-      ...(rich.utterances && rich.utterances.length > 0 ? { utterances: rich.utterances } : {}),
+      text: fixText(rich.result.text),
+      segments: rich.result.segments.map((s) => ({ start: s.start, end: s.end, text: fixText(s.text) })),
+      ...(post.words.length > 0 ? { words: post.words } : {}),
+      ...(rich.utterances && rich.utterances.length > 0
+        ? { utterances: rich.utterances.map((u) => ({ ...u, text: fixText(u.text) })) }
+        : {}),
+      ...(context.keyterms.length > 0 ? { keytermCount: context.keyterms.length } : {}),
+      ...(post.total > 0 ? { aliasReplacements: post.total } : {}),
     };
 
     const cacheDir = await getProjectCacheDir(projectId);

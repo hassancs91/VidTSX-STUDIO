@@ -31,6 +31,8 @@ export interface SttTranscribeRunRequest {
   detectSpeakers?: boolean;
   enableHighlights?: boolean;
   enableSentiment?: boolean;
+  /** Names to bias recognition toward (W4); the provider maps the field. */
+  keyterms?: string[];
 }
 
 export type SttTranscribePhase = 'extracting' | 'uploading' | 'transcribing' | 'parsing';

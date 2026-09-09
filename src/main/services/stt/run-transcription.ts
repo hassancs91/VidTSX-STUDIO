@@ -36,6 +36,8 @@ export interface TranscribeAudioFileParams {
   enableSentiment?: boolean;
   /** Keep disfluencies ("um"/"uh") verbatim when the model supports it. */
   verbatim?: boolean;
+  /** W4: names to bias recognition toward — brand vocabulary, script names. */
+  keyterms?: string[];
   signal: AbortSignal;
   onProgress: (percent: number, message: string) => void;
 }
@@ -69,6 +71,7 @@ export async function transcribeAudioFile(params: TranscribeAudioFileParams): Pr
     enableHighlights: params.enableHighlights && entry.features.highlights,
     enableSentiment: params.enableSentiment && entry.features.sentiment,
     verbatim: params.verbatim && entry.features.verbatimDisfluencies,
+    ...(params.keyterms && params.keyterms.length > 0 ? { keyterms: params.keyterms } : {}),
     signal: params.signal,
     onProgress: params.onProgress,
   });
@@ -129,6 +132,7 @@ export async function runSttTranscription(
       detectSpeakers: req.detectSpeakers,
       enableHighlights: req.enableHighlights,
       enableSentiment: req.enableSentiment,
+      ...(req.keyterms ? { keyterms: req.keyterms } : {}),
       signal,
       onProgress: (percent, message) => onProgress('transcribing', percent, message),
     });

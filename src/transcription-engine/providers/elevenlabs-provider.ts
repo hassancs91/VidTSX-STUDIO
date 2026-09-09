@@ -28,6 +28,28 @@ const PROGRESS_TICK_MS = 2000;
 // Past this long, say the provider is slow rather than implying it's nearly done.
 const SLOW_MS = 3 * 60 * 1000;
 
+// Scribe's `keyterms` (API reference, 2026-09-09): at most 1 000 entries,
+// each under 50 characters and at most 5 words.
+const KEYTERMS_MAX = 1000;
+const KEYTERM_MAX_CHARS = 49;
+const KEYTERM_MAX_WORDS = 5;
+
+/** The keyterms Scribe accepts, deduped and within its limits. */
+export function elevenLabsKeyterms(keyterms: readonly string[] | undefined): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of keyterms ?? []) {
+    const term = raw.replace(/\s+/g, ' ').trim();
+    const key = term.toLowerCase();
+    if (!term || seen.has(key)) continue;
+    seen.add(key);
+    if (term.length > KEYTERM_MAX_CHARS || term.split(' ').length > KEYTERM_MAX_WORDS) continue;
+    out.push(term);
+    if (out.length >= KEYTERMS_MAX) break;
+  }
+  return out;
+}
+
 const FALLBACK_FEATURES: SttModelFeatures = {
   wordTimestamps: true,
   approximateWordTimestamps: false,
@@ -83,6 +105,12 @@ export class ElevenLabsProvider implements TranscriptionProvider {
     form.append('diarize', String(req.detectSpeakers ?? false));
     form.append('timestamps_granularity', 'word');
     form.append('tag_audio_events', 'true');
+    // W4 vocabulary feed: one repeated multipart field per keyterm.
+    const keyterms = elevenLabsKeyterms(req.keyterms);
+    for (const term of keyterms) form.append('keyterms', term);
+    if (keyterms.length > 0) {
+      log.info('Keyterms sent', { field: 'keyterms', count: keyterms.length, sample: keyterms.slice(0, 5) });
+    }
 
     // The sync call covers upload AND processing in one await — tick elapsed
     // time so long files don't look hung.

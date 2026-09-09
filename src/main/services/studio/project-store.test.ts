@@ -51,4 +51,12 @@ describe('project settings brandId (D11 snapshot-at-creation)', () => {
     expect(migrated.settings.sttModelId).toBe('also-kept');
     expect(migrated.settings.agent).toEqual({});
   });
+
+  it('carries the script (W4) as a string, drops a blank one, caps a huge one', () => {
+    const base = { schemaVersion: 1, name: 'S', settings: { width: 1, height: 1, fps: 1 } };
+    expect(migrateProject({ ...base, script: 'Welcome to VidTSX.' }, 's').script).toBe('Welcome to VidTSX.');
+    expect('script' in migrateProject({ ...base, script: '   ' }, 's')).toBe(false);
+    expect('script' in migrateProject({ ...base, script: 42 }, 's')).toBe(false);
+    expect(migrateProject({ ...base, script: 'x'.repeat(70_000) }, 's').script).toHaveLength(60_000);
+  });
 });

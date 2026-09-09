@@ -76,6 +76,24 @@ describe('ElevenLabsProvider.transcribe', () => {
     expect(form.get('timestamps_granularity')).toBe('word');
   });
 
+  it('sends keyterms as repeated multipart fields within Scribe\'s limits (W4)', async () => {
+    const impl = stubFetch(SCRIBE_RESPONSE);
+    const provider = new ElevenLabsProvider('elevenlabs', 'key');
+    await provider.transcribe(
+      makeRequest({ keyterms: ['VidTSX', 'vidtsx', 'Learn With Hasan', 'one two three four five six', 'x'.repeat(60)] }),
+    );
+    const form = (impl.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect(form.getAll('keyterms')).toEqual(['VidTSX', 'Learn With Hasan']);
+  });
+
+  it('sends no keyterms field when there are none', async () => {
+    const impl = stubFetch(SCRIBE_RESPONSE);
+    const provider = new ElevenLabsProvider('elevenlabs', 'key');
+    await provider.transcribe(makeRequest());
+    const form = (impl.mock.calls[0] as unknown as [string, RequestInit])[1].body as FormData;
+    expect(form.getAll('keyterms')).toEqual([]);
+  });
+
   it('omits language_code for auto-detect', async () => {
     const impl = stubFetch(SCRIBE_RESPONSE);
     const provider = new ElevenLabsProvider('elevenlabs', 'key');
