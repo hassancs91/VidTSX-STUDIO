@@ -442,6 +442,22 @@ is live-proven, the provider leg rides Hasan's testing pass).
    subscription path, D6 categories) approved by Hasan and kicked off
    2026-08-26; the full-set re-run happens when it lands.
 
+## Rev 3 amendment — audio generation is not gated (2026-09-10, W2b)
+
+The ledger line the V1 completion plan (§2.2 W2b) asks for. ElevenLabs sound
+effects (`POST /v1/sound-generation`) and music (`POST /v1/music`) joined the
+app behind `src/audio-engine/generation/` — the Studio agent's `generate_sfx`
+/ `generate_music`, the Agents `generate_audio` tool, and the `AUDIO_GENERATE`
+IPC all go through that one engine. **Neither gate applies to them, by
+design:** Gate A is defined on VISUAL fields only (D3), Gate B classifies
+pixels (D2), and D0.2 gives text surfaces zero hooks. An audio prompt is
+text and its output is sound, so it takes the same position reference audio
+(D2c item 5) and STT input already take — no classifier exists for it, the
+provider carries its own policy, and a word-list on a sound prompt would be
+exactly the false-positive machine D0.2 rules out. The engine has no
+`setSafetyGuard`; if a sound classifier ever becomes worth shipping it lands
+as a D2c call site, not as a prompt filter.
+
 ## Key sources
 
 Marqo model card · OwenElliott/image-safety-classifier-xs · Falconsai ·

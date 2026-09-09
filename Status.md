@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W2b BUILT, live rows pending: ElevenLabs sound effects + music
+
+Workstream W2b of `docs/v1-completion-plan.md` §2.2 — the last W2 provider
+subsection (W2a and W2c landed earlier today). Full outcome under the W2b
+acceptance paragraph in the plan. `check:types` at baseline (web 26, node
+10); 1990 tests, up from 1955. Commits `170edef`, `5e6ac90`, `0a2dde2` and
+the docs commit.
+
+- **No ElevenLabs key on this machine** — neither profile has one (checked
+  inside main over the inspector, the legacy STT rows too), so the rows that
+  need ElevenLabs' own answer are PENDING with steps in the outcome; nothing
+  fabricated. The no-key row ran on the real wire; the end-to-end Studio run
+  ran with ONLY the ElevenLabs HTTP response stubbed inside main (request
+  bodies recorded) — engine, filing, import, word anchor, audio lane, cards
+  and export are the production code.
+- **The engine.** `src/audio-engine/generation/`: `AudioGenerationEngine`,
+  `elevenlabs-audio-provider.ts`, the one request shape, the API's bounds
+  enforced before the call, usage rows priced at $0.12/min SFX and $0.15/min
+  music (pricing page; §5 q2 answered). Wire verified against the reference:
+  music takes `music_length_ms` (the plan's `duration_ms` was stale), `seed`
+  only with a composition plan, `output_format` on the query string. Audio
+  prompts are NOT gated — ledger line in `CONTENT_SAFETY_DESIGN.md` (Rev 3).
+- **Tools.** Studio `generate_sfx` / `generate_music` (awaited, imported on
+  use, then `insert_asset(lane: "audio")`; the prompt's "not available" line
+  replaced; preset sfx/music steps map to them). Agents `generate_audio`
+  (needs `audio-provider`) + the `audio` artifact kind and `AudioViewer`.
+  IPC `AUDIO_GENERATE`; registry capability `audio` on ElevenLabs.
+- **Evidence.** Bodies `{ text, model_id: eleven_text_to_sound_v2,
+  duration_seconds: 1.5 }` and `{ model_id: music_v2, force_instrumental,
+  prompt, music_length_ms: 30000 }`; usage rows $0.003 / $0.075; the whoosh
+  anchored to the second "building blocks" at 24.466 s; export 60 s
+  1080×1920 H.264 + AAC, and in the source's quiet stretch at 28–30 s the
+  export's 220 Hz band reads −44.5 dB against the source's −64.8 dB.
+- **Found and fixed.** A bed "at 0" landed at 27.5 s — the one audio lane
+  pushed it past the whoosh; an audio insert now takes a FREE lane at its
+  placement, adding one when needed (`0a2dde2`, verified live: lane A2 at 0 s).
+- **For W7:** `ARTIFACT_KINDS` has six kinds now (`audio` last), every
+  kind switch site is listed in `5e6ac90`; `AGENT_TOOL_IDS` is eleven ids;
+  `resolveToolCapabilities()` is async (`audioProvider`).
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W2a DONE: Seedream images on ModelArk
 
 Workstream W2a of `docs/v1-completion-plan.md` §2.2 — the first of the W2

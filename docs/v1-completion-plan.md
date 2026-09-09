@@ -348,6 +348,151 @@ determinism on pro was not measured (one seeded run, no repeat).
 
 **Acceptance.** A 3 s whoosh and a 30 s bed generated from the Studio agent, placed on the audio track at a word timestamp, exported. Usage rows present. Provider key missing → the tool returns the same "needs a provider" message the video tool uses.
 
+#### W2b outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything the spec lists is built, unit-tested and committed, and the whole
+app-side path ran in the real app on the second dev instance (W3 profile,
+own out dir, CDP 9223) — but **no ElevenLabs key exists on this machine**:
+the W3 profile and the primary profile both hold `assemblyai`, `openrouter`,
+`fal` and `byteplus` only (checked inside the main process over the
+inspector, `providerCredentials` and the legacy `sttProviders` rows alike;
+the W3 transcriptions were AssemblyAI's). The brief's premise that the STT
+key was there was wrong, so the two live rows that need ElevenLabs' own
+answer are **PENDING** below with the exact steps, and nothing about them is
+fabricated. What DID run live: the no-key row on the real wire, and the
+end-to-end Studio run with ONLY the ElevenLabs HTTP response stubbed inside
+main (a fetch wrapper over the 9229 inspector that recorded every request
+body and answered with two local MP3s) — engine, filing, import, the word
+anchor, the audio lane, the review cards and the export are all the
+production code. `check:types` at baseline (web 26, node 10); 1990 tests
+passing, up from 1955. Commits `170edef` (engine, provider, registry
+capability, `AUDIO_GENERATE`, filing, usage), `5e6ac90` (the Studio tools,
+the Agents tool, the `audio` artifact kind + viewer), `0a2dde2` (the audio
+lane fix the run found), and the docs commit. Spend: one AssemblyAI
+transcription ($0.004); the LLM turns on the subscription; ElevenLabs $0.
+
+**The engine.** `src/audio-engine/generation/` is its own module — no
+native addon, unlike the sherpa `audio-engine.ts` beside it — with
+`AudioGenerationEngine` (register from presets, `registerInstance` as the
+test seam, a usage sink, `getPricePerSecondUsd`) and the one request shape
+`{ kind: 'sfx' | 'music', prompt, durationSec?, loop?, promptInfluence?,
+compositionPlan?, seed?, instrumental?, outputFormat }`.
+`validateAudioRequest` enforces the API's bounds before any call: SFX
+0.5–30 s or auto, music 3–600 s, prompt XOR composition plan, seed only with
+a plan. There is no `setSafetyGuard` — audio prompts are not gated (D0.2;
+recorded as "Rev 3 amendment" in `CONTENT_SAFETY_DESIGN.md`). The engine
+registers lazily on first use (`ensureAudioGenerationEngine`) and again on
+every key save, because `src/main/index.ts` belongs to another session's
+uncommitted work; the one-line `await initAudioGenerationEngine()` after
+`initVideoEngine()` there is optional (it only moves the "Engine
+initialized" log line to startup).
+
+**The wire, verified against the API reference on 2026-09-10.** SFX: `POST
+/v1/sound-generation?output_format=mp3_44100_128` with `{ text, model_id:
+"eleven_text_to_sound_v2", duration_seconds?, prompt_influence?, loop? }` —
+as the plan said. Music: `POST /v1/music?output_format=…` with `{ model_id:
+"music_v2", prompt | composition_plan, music_length_ms?, force_instrumental?,
+seed? }` — the plan's `duration_ms` was a stale name (the field is
+`music_length_ms`, prompt form only), `seed` is accepted only beside a
+composition plan, and `output_format` is a query parameter on both. The
+composition plan maps to the API's `snake_case` (`section_name`,
+`duration_ms`, `positive_local_styles`…). A 401/403 keeps the API's
+`detail` — on this API a key can be scoped per service, so a key without
+the sound-generation permission names it in the message the user sees.
+Prices from elevenlabs.io/pricing/api: **sound effects $0.12 per minute,
+Eleven Music $0.15 per minute** — §5 question 2 is answered, and every usage
+row is priced at the rate × the audio length (an auto-length SFX is measured
+from the CBR MP3's byte count, `mp3-duration.ts`).
+
+**Filing and the tools.** `generate-audio-asset.ts` is the audio mirror of
+`generate-video-asset.ts` in the ONE-call form of `generate-image-asset.ts`
+(the provider answers synchronously, so there is no submit/file split):
+bytes into `generated/<kind>-<slug>.mp3`, origin `generated`, the prompt (or
+a plan's styles → sections) as description, brand-tagged, and
+`NO_AUDIO_PROVIDER_MESSAGE` as the one "needs a provider" line every caller
+shows. Studio: `generate_sfx` / `generate_music` in
+`agent-tools/audio-tools.ts`, awaited like `generate_video`, imported on use,
+each answering with the project asset id and the `insert_asset(lane:
+"audio")` hint; ids appended to `STUDIO_TOOL_IDS`; the prompt's "NOT
+available yet" line is gone, the full-edit workflow gained a sound step, and
+a preset's `sfx` / `music` steps now map to the tools (one-line skip only
+when no provider is configured). Agents: `generate_audio` (needs
+`'audio-provider'`, blocking like `generate_image`) returning an `audio`
+artifact — `ARTIFACT_KINDS` gained `'audio'` (`AudioPayload { relPath,
+durationSeconds, sound }`, library root), with `AudioViewer` (the video
+viewer's transport over an `<audio>` element), the filmstrip icon, the
+action bar, the resolver, `list_artifacts`, the manifest capability line
+and the chat label. `ToolCapabilities.audioProvider` made
+`resolveToolCapabilities` async. IPC `AUDIO_GENERATE` → `window.api.
+audioGenerate`.
+
+**Acceptance evidence.** (1) *Provider key missing* — REAL: with no key the
+chat line "Add a whoosh sound effect where I say 'building blocks'" ran
+`transcribe_asset` (AssemblyAI) → `get_transcript` → `generate_sfx` →
+`list_assets(library, "whoosh")`, and the agent relayed "no audio provider
+is configured … Add an ElevenLabs key in AI → Providers", then volunteered
+that the phrase occurs at 0:11 and 0:25 and the 0:25 take is the keeper.
+(2) *The 3 s whoosh at a word, the 30 s bed, the export* — STUBBED WIRE: a
+placeholder ElevenLabs key saved through `providerKeysSave` (so the engine
+registered through the production path) and the fetch stub armed; the chat
+line "Add a whoosh where I say 'building blocks' and a 30-second music bed
+under the whole thing, then export it." ran `generate_sfx` → `generate_music`
+→ `insert_asset(audio at "blocks")` → card → `insert_asset(audio at 0 s,
+gain 0.25)` → card → `export_project`. The recorded bodies: `{ text: "a fast
+airy whoosh with a short tail, clean transition sweep", model_id:
+"eleven_text_to_sound_v2", duration_seconds: 1.5 }` (the agent chose 1.5 s;
+the stub answered a 3.03 s file) and `{ model_id: "music_v2",
+force_instrumental: true, prompt: "warm minimal instrumental bed for a
+talking-head short, soft pulse and light percussion, 90 bpm, unobtrusive,
+no vocals", music_length_ms: 30000 }`, both with the `xi-api-key` header.
+Library: `generated/sfx-a-fast-airy-whoosh-with-a-short-tail-cle.mp3` and
+`generated/music-warm-minimal-instrumental-bed-for-a-talk.mp3`, both indexed
+with the prompt as description; both imported as project audio assets. The
+whoosh clip landed at 24.466 s — the SECOND "building blocks", anchored to
+the footage. Usage rows: `elevenlabs / eleven_text_to_sound_v2 /
+studio-shot-asset / audio / $0.003` and `elevenlabs / music_v2 /
+studio-shot-asset / audio / $0.075`. Export: `Videos\VidTSX\
+studio-w2b-short-a1_2026-09-09T23-38-47.mp4`, 60.0 s, 1080×1920 H.264 30 fps
++ AAC 48 kHz stereo, 1800 frames on the Remotion engine (374 s). ffmpeg
+`astats` on the export against the source: 0–20 s identical (−20.89 vs
+−20.89 dB; nothing placed there); the whoosh window 24.4–27.6 s +0.9 dB;
+and in the source's quiet stretch at 28–30 s the export reads −41.0 dB
+against −51.7 dB, with the 220 Hz band (the stub bed is 220 + 330 Hz sines)
+at −44.5 dB against −64.8 dB — +20 dB where the bed plays. (3) *Agents
+`generate_audio`* — unit-tested only (no built-in lists it; a manifest that
+names it gets the `audio` artifact and viewer); not run live.
+
+**The bug the run found.** The bed was asked for at 0 s and landed at
+27.5 s: `applyInsertProposal` took the one audio lane and `addClip`'s
+free-slot search pushed the clip past the whoosh. `ensureLane` now takes the
+placement and, for audio, chooses the first lane FREE there (`findFreeSlot(at)
+=== at`), else adds a lane (`0a2dde2`, unit test + verified live: the next
+"place the bed at 0:00" card put it on a new lane A2 at 0 s, gain 0.25, the
+whoosh untouched on A1). The verified export above was rendered BEFORE the
+fix, so its bed runs 27.5–57.5 s. Overlays keep the shot rule unchanged.
+
+**PENDING — the real-key rows (Hasan).** elevenlabs.io → Developers → API
+keys → create a key whose permissions include *Sound Generation* and *Music*
+(keys are scoped per service; Speech to Text alone gives a 401 whose
+`detail` names the missing permission — the app shows it verbatim) → AI →
+Providers → ElevenLabs. Then either (a) in the dev console
+`window.api.audioGenerate({ kind: 'sfx', prompt: 'a short soft click',
+durationSec: 1 })` for a $0.002 smoke test (the file appears under
+`generated/`, one `audio` usage row), or (b) in a Studio project on the
+talking-head clip type the acceptance line with "a 3-second whoosh" spelled
+out, apply the two cards, and read the export with ffprobe. Budget: under
+$0.10 for both clips. Nothing in the app changes for this — only the key.
+
+**Not done / left for later.** ElevenLabs TTS is one more endpoint on the
+same client (`POST /v1/text-to-speech/{voice_id}`, same header, bytes back)
+— a cheap follow-on, not built. The Flows `generate_audio` node is W8. No
+Audio Studio screen (decision 4). `AudioViewer` was not exercised live. The
+agent picks the SFX length itself (1.5 s here) unless the user names one.
+The two stub usage rows sit in the W3 profile's usage DB (not the primary
+profile). The seeded project, the placeholder key, the fetch stub and the
+two stub MP3s (files + index entries) were removed afterwards; the export
+stays in `Videos\VidTSX` as evidence.
+
 #### W2c Per-model image parameters — ~1 session
 
 - **Local first** (Hasan's ask). Settings key `imageModelParamOverrides: Record<modelKey, ImageModelParams>` where `ImageModelParams = Partial<SdGenerationDefaults> & { negativePrompt?, scheduler?, seed?, strength? }`. `local-sd-provider` resolves `request ⊕ override ⊕ family default` (`sd-cli-runner.ts` already accepts all of these).
@@ -1140,7 +1285,12 @@ were deleted through `studioProjectDelete`.
    0.2.119 (bundled Claude Code 2.1.119; the API requires ≥ 2.1.251) — it
    returns with the SDK bump, and is reachable via OpenRouter meanwhile.
 2. W2b: ElevenLabs music pricing per request is not in the docs read so far;
-   usage rows log duration and leave price blank until known.
+   usage rows log duration and leave price blank until known. **Answered
+   2026-09-10 (W2b outcome):** elevenlabs.io/pricing/api lists sound effects
+   at $0.12 per minute and Eleven Music at $0.15 per minute of generated
+   audio (pay-as-you-go API rates; plans bundle allowances). The engine
+   prices every row at the rate × the audio length ($0.002 / $0.0025 per
+   second) — an auto-length SFX is measured from the CBR MP3's byte count.
 3. W4: which of AssemblyAI's `keyterms_prompt` and `word_boost` applies to the
    `universal` model the catalog defaults to. **Answered 2026-09-09 (W4
    outcome):** `keyterms_prompt` — Universal-2 takes up to 200 terms,
