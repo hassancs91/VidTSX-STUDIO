@@ -5,6 +5,8 @@ import type {
   FlowRunEvent,
   FlowRunMode,
   FlowSource,
+  FlowPackageInfo,
+  FlowHandoffParam,
   NodeSpec,
   FlowProposal,
 } from '../../types/flows';
@@ -28,6 +30,10 @@ export interface FlowProjectSummary {
   docVersion: number;
   origin: FlowOrigin | null;
   source: FlowSource;
+  /** W8 Stage 6: the package behind a `builtin` / `installed` row. */
+  package?: FlowPackageInfo;
+  /** W8 Stage 6: the `image` / `video` params other screens can prefill. */
+  handoffParams?: FlowHandoffParam[];
 }
 
 export interface FlowProject extends FlowProjectSummary {
@@ -256,13 +262,26 @@ export interface FlowsExportResponse {
 export interface FlowsImportRequest {
   path?: string;
   json?: string;
+  /** The user answered yes to the downgrade prompt. */
+  confirmDowngrade?: boolean;
 }
 
 export interface FlowsImportResponse {
   success: boolean;
   project?: FlowProject;
+  /** The unsigned / unverified-publisher notice, and anything else worth a toast. */
   warnings?: string[];
+  /** The install stopped and wants an explicit yes (an older version than the installed one). */
+  needsConfirm?: 'downgrade';
+  installedVersion?: string;
+  /** True when the user closed the file dialog. */
+  canceled?: boolean;
   error?: string;
+}
+
+/** Stage 6: the `.vidtsxflow` the OS handed the app, claimed once by the Flows screen. */
+export interface FlowsPendingPackageResponse {
+  filePath?: string;
 }
 
 // ─── Flows — W8 Stage 2: a run's artifacts through the shared viewers and

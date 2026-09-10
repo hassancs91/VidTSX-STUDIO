@@ -12,6 +12,7 @@ import type { Server } from 'http';
 import { app, utilityProcess } from 'electron';
 import type { BundleWorkerReply, BundleWorkerRequest } from './bundle-worker';
 import { generateWrapper, cleanupWrapper } from './composition-wrapper';
+import { materializeAbsoluteStaticFiles } from './remotion-static-files';
 import { registerFontProxy } from './font-proxy';
 import { getRemotionBinariesDir } from '../utils/paths';
 import { getAppRoot } from '../utils/paths';
@@ -235,9 +236,14 @@ export async function bundleComposition(
     // Ensure server is ready early (needed for tone audio URL construction)
     const port = await ensureServer();
 
+    // `staticFile('<absolute path>')` plays in the preview (virtual module)
+    // but the real Remotion refuses it at render — rewrite those literals to
+    // this server's `/asset?path=` urls in a sibling entry (W8 Stage 6).
+    const renderEntry = await materializeAbsoluteStaticFiles(entryFilePath, `http://127.0.0.1:${port}`);
+
     // For files that already have registerRoot() (like caption entries), skip wrapper
     // For user TSX files that are just components, generate a wrapper
-    let entryPoint = entryFilePath;
+    let entryPoint = renderEntry;
     let wrapperPath: string | null = null;
 
     if (!options?.skipWrapper) {
@@ -250,7 +256,7 @@ export async function bundleComposition(
       // Generate wrapper that calls registerRoot()
       // User TSX files are React components that don't have registerRoot
       // The wrapper imports their component and registers it properly
-      const wrapper = await generateWrapper(entryFilePath, {
+      const wrapper = await generateWrapper(renderEntry, {
         toneAudioUrl,
         fontProxyBaseUrl: `http://127.0.0.1:${port}`,
       });

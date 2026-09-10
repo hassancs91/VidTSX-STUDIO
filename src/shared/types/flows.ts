@@ -196,9 +196,30 @@ export interface FlowOrigin {
   brandId?: string;
 }
 
-/** Where a SQLite row came from (the `source` column, §2). Built-in and
- *  installed flows live on disk, not in SQLite. */
-export type FlowSource = 'user' | 'template' | 'frozen' | 'imported';
+/** Where a SQLite row came from (the `source` column, §2). W8 Stage 6:
+ *  `builtin` and `installed` rows are a CACHE of a packaged flow's folder
+ *  (`resources/flows`, `<userData>/flows`, or an agent package's `flows/`),
+ *  rewritten from disk by `flow-catalog.ts` — the folder stays the truth. */
+export type FlowSource = 'user' | 'template' | 'frozen' | 'imported' | 'builtin' | 'installed';
+
+/** What a packaged flow's row carries beside the document (Stage 6). */
+export interface FlowPackageInfo {
+  version: string;
+  author: string;
+  /** The agents' three states; a built-in reads `unsigned` and the UI lets `origin` outrank it. */
+  signature: 'verified' | 'signed-unknown' | 'unsigned';
+  keyId?: string;
+  publisher?: string;
+  /** Present when the flow ships inside an agent package (decision 10). */
+  viaAgent?: { id: string; name: string };
+}
+
+/** A run-form param another screen can prefill (§1.8 handoffs). */
+export interface FlowHandoffParam {
+  id: string;
+  kind: 'image' | 'video';
+  label: string;
+}
 
 export interface FlowDoc {
   formatVersion: typeof FLOW_DOC_FORMAT_VERSION;

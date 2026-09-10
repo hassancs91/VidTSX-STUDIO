@@ -212,3 +212,26 @@ export function getAgentSessionsDir(): string {
 export function getAgentOutputFolder(agentName: string, sessionTitle: string): string {
   return `agents/${slugifyName(agentName, 'agent')}/${slugifyName(sessionTitle, 'session')}`;
 }
+
+// ─── Flows (docs/flows-plan.md §1.7, W8 Stage 6) ───────────────────────────
+
+/** `{userData}/flows/<namespace>/<name>` — user-installed `.vidtsxflow` packages, folder-as-truth. */
+export function getFlowsDir(): string {
+  return path.join(app.getPath('userData'), 'flows');
+}
+
+/** Built-in flows shipped with the app (`resources/flows`), read-only and
+ *  shadowed by a newer user copy of the same id, as agents are. */
+export function getBuiltinFlowsDir(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'flows');
+  }
+  return path.join(app.getAppPath(), 'resources', 'flows');
+}
+
+/** `{userData}/flows-runs/<flowId>/<runId>` — run folders, OUT of the asset
+ *  library so the Assets screen shows only a flow's media (Stage 6 decision;
+ *  Stage 1 kept them under `<assets>/flows/<flowId>/runs`). */
+export function getFlowRunsDir(): string {
+  return path.join(app.getPath('userData'), 'flows-runs');
+}

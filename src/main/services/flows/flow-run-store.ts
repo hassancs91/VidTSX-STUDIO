@@ -1,9 +1,14 @@
 // The run folder (flows plan §1.3) and the SQLite summary row beside it.
 //
-//   <assets>/flows/<flowId>/runs/<runId>/
+//   <userData>/flows-runs/<flowId>/<runId>/
 //       run.json        FlowRunDoc — rewritten after every node (atomic)
 //       artifacts.json  the agents' artifact store, same file shape
 //       files/          the run workspace: everything a tool writes
+//
+// W8 Stage 6 moved the root out of the asset library (Stage 1 had
+// `<assets>/flows/<flowId>/runs/`): `flow-run-migrate.ts` moves old folders
+// once, at startup. A run's MEDIA still files into the library under
+// `flows/<flow-slug>/`; only the work folder lives here.
 //
 // Retention: the last 20 runs per flow. The summary table already prunes
 // its rows to that cap; folders whose row is gone are removed here, so the
@@ -14,7 +19,7 @@ import path from 'path';
 import type { FlowRunDoc, FlowRunDocStatus } from '../../../shared/types/flows';
 import type { FlowRunStatus } from '../../../shared/ipc/types';
 import { AgentArtifactStore } from '../agents/artifact-store';
-import { getAssetsDir } from '../../utils/paths';
+import { getFlowRunsDir } from '../../utils/paths';
 import { listRuns, persistRun } from '../flows-runs-db';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -34,11 +39,35 @@ export interface FlowRunStore {
 }
 
 export function flowRunsRoot(flowId: string): string {
-  return path.join(getAssetsDir(), 'flows', flowId, 'runs');
+  return path.join(getFlowRunsDir(), flowId);
 }
 
 export function flowRunDir(flowId: string, runId: string): string {
   return path.join(flowRunsRoot(flowId), runId);
+}
+
+/**
+ * Rename with a short retry. On Windows a rename over a file another process
+ * is reading (a poller on `run.json`, a sync client, an antivirus scan) fails
+ * with EPERM for the length of that read; Stage 6's acceptance run crashed
+ * two flows on exactly that. A few 50 ms retries outlast any plain read.
+ */
+export async function renameWithRetry(
+  from: string,
+  to: string,
+  attempts = 8,
+  renameImpl: (a: string, b: string) => Promise<void> = fs.rename,
+): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await renameImpl(from, to);
+      return;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if ((code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') || attempt >= attempts) throw err;
+      await new Promise((resolve) => setTimeout(resolve, 50 * attempt));
+    }
+  }
 }
 
 /** Atomic: temp file, then rename. */
@@ -47,7 +76,7 @@ export async function writeRunDoc(dir: string, doc: FlowRunDoc): Promise<void> {
   const file = path.join(dir, RUN_DOC_FILE);
   const tmp = `${file}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(doc, null, 2), 'utf-8');
-  await fs.rename(tmp, file);
+  await renameWithRetry(tmp, file);
 }
 
 export async function readRunDoc(dir: string): Promise<FlowRunDoc | null> {

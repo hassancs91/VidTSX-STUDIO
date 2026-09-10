@@ -23,6 +23,10 @@ fileAssociations:
     name: VidTSX agent package
     description: VidTSX Studio agent package
     role: Editor
+  - ext: vidtsxflow
+    name: VidTSX flow package
+    description: VidTSX Studio flow package
+    role: Editor
 directories:
   output: dist
   buildResources: resources
@@ -96,6 +100,14 @@ extraResources:
   # update that ships a newer built-in takes over again on its own.
   - from: resources/agents
     to: agents
+    filter:
+      - "**/*"
+      - "!**/.*"
+  # Built-in flows (docs/flows-plan.md §1.7, W8 Stage 6): one folder per
+  # flow, `<namespace>/<name>/flow.json`, read-only; a newer user copy of the
+  # same id under userData shadows it, exactly as agents do.
+  - from: resources/flows
+    to: flows
     filter:
       - "**/*"
       - "!**/.*"

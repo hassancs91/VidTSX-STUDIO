@@ -5,6 +5,7 @@
 // shape the agents use.
 
 import fs from 'fs/promises';
+import path from 'path';
 import { parseFlowDoc } from '../../../shared/flows/migrate-v1';
 import type { AgentArtifact, InteractionReply } from '../../../shared/types/agents';
 import type { FlowDoc, FlowRunDoc, FlowRunEvent, FlowRunMode, NodeSpec } from '../../../shared/types/flows';
@@ -17,9 +18,13 @@ import { ensureLibraryRoot, resolveLibraryPath } from '../library/library-paths'
 import { getDefaultBrandId } from '../library/brand-default';
 import { listFlows, loadFlow } from '../flows-projects-db';
 import { loadRun } from '../flows-runs-db';
+import { getAssetsDir, getFlowRunsDir } from '../../utils/paths';
 import { FlowRunner } from './flow-runner';
 import { flowRunStore } from './flow-run-store';
 import { settleJob } from './flow-jobs';
+import { migrateLegacyRunFolders } from './flow-run-migrate';
+import { ensureFlowCatalog, packageInfoFor } from './flow-catalog';
+import { buildFlowPackageDeps } from './flow-package-context';
 
 const INTERRUPTED = 'The app closed while this run was in progress — Resume continues from the first unfinished step.';
 const PAUSE_EXPIRED = 'The app closed while this run waited at a checkpoint — Resume asks again from that step.';
@@ -76,7 +81,8 @@ export function loadFlowDoc(flowId: string): { doc: FlowDoc; version: string } {
     name: project.name,
     description: project.description,
   });
-  return { doc, version: String(project.updatedAt) };
+  // A packaged flow's version is the manifest's (Stage 6); a user flow's is its save time.
+  return { doc, version: packageInfoFor(project.id)?.version ?? String(project.updatedAt) };
 }
 
 /** `flows/<flow-slug>` in the asset library — where a run's media files land. */
@@ -90,6 +96,8 @@ function hasUnfinished(run: FlowRunDoc): boolean {
 
 class FlowService {
   private readonly listeners = new Set<(event: FlowRunEvent) => void>();
+  /** W8 Stage 6: Stage 1's run folders move out of the asset library, once. */
+  private migrated: Promise<void> | null = null;
   private readonly runner = new FlowRunner({
     registry: { getNode },
     capabilities: resolveToolCapabilities,
@@ -112,6 +120,15 @@ class FlowService {
     return listNodeSpecs(await resolveToolCapabilities());
   }
 
+  /** Before any run touches the store: legacy folders moved, packaged rows present. */
+  private async ready(): Promise<void> {
+    if (!this.migrated) {
+      this.migrated = migrateLegacyRunFolders(path.join(getAssetsDir(), 'flows'), getFlowRunsDir()).then(() => undefined);
+    }
+    await this.migrated;
+    await ensureFlowCatalog(buildFlowPackageDeps());
+  }
+
   /** Run-level brand (§0.1 item 9): absent = library default, null = none. */
   private brandFor(requested: string | null | undefined): string | undefined {
     if (requested === null) return undefined;
@@ -120,6 +137,7 @@ class FlowService {
   }
 
   async start(req: StartFlowRunRequest): Promise<{ runId: string }> {
+    await this.ready();
     const { doc, version } = loadFlowDoc(req.flowId);
     const resolvedBrandId = this.brandFor(req.brandId);
     return this.runner.start({
@@ -154,6 +172,7 @@ class FlowService {
   }
 
   async resume(runId: string): Promise<void> {
+    await this.ready();
     const row = loadRun(runId);
     if (!row) throw new Error('That run no longer exists.');
     const { doc } = loadFlowDoc(row.flowId);
@@ -176,6 +195,7 @@ class FlowService {
    * so here, once, and offered for Resume.
    */
   async get(runId: string): Promise<FlowRunView> {
+    await this.ready();
     const row = loadRun(runId);
     if (!row) throw new Error('That run no longer exists.');
     const dir = flowRunStore.runDir(row.flowId, runId);

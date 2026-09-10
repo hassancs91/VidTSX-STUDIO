@@ -18,15 +18,13 @@ import {
   handleFlowsRunGet,
   handleFlowsRunReply,
 } from '../flows-run-handlers';
-import {
-  handleFlowsExport,
-  handleFlowsImport,
-  handleFlowsRunArtifactAction,
-  handleFlowsRunArtifactResolve,
-} from '../flows-artifact-handlers';
+import { handleFlowsRunArtifactAction, handleFlowsRunArtifactResolve } from '../flows-artifact-handlers';
+import { handleFlowsExport, handleFlowsImport, handleFlowsPendingPackage } from '../flows-package-handlers';
 import { handleFlowsProposalGet, handleFlowsProposalResolve } from '../flows-proposal-handlers';
 import { handleFlowsFreeze } from '../flows-freeze-handlers';
 import { flowService } from '../../services/flows/flow-service';
+import { ensureFlowCatalog } from '../../services/flows/flow-catalog';
+import { buildFlowPackageDeps } from '../../services/flows/flow-package-context';
 
 export function registerFlowsIpc(): void {
   ipcMain.handle(IPC.FLOWS_PROJECT_LIST, handleFlowsProjectList);
@@ -49,9 +47,11 @@ export function registerFlowsIpc(): void {
   ipcMain.handle(IPC.FLOWS_RUN_REPLY, handleFlowsRunReply);
   ipcMain.handle(IPC.FLOWS_RUN_ARTIFACT_RESOLVE, handleFlowsRunArtifactResolve);
   ipcMain.handle(IPC.FLOWS_RUN_ARTIFACT_ACTION, handleFlowsRunArtifactAction);
-  // Stage 6 packaging — typed "not yet" until then.
+  // W8 Stage 6: `.vidtsxflow` / bare flow.json import, unsigned export, the
+  // double-clicked package the Flows screen claims.
   ipcMain.handle(IPC.FLOWS_IMPORT, handleFlowsImport);
   ipcMain.handle(IPC.FLOWS_EXPORT, handleFlowsExport);
+  ipcMain.handle(IPC.FLOWS_PENDING_PACKAGE, handleFlowsPendingPackage);
   // W8 Stage 4: the Flow Builder's proposal card.
   ipcMain.handle(IPC.FLOWS_PROPOSAL_GET, handleFlowsProposalGet);
   ipcMain.handle(IPC.FLOWS_PROPOSAL_RESOLVE, handleFlowsProposalResolve);
@@ -65,4 +65,8 @@ export function registerFlowsIpc(): void {
       if (!contents.isDestroyed()) contents.send(IPC.FLOWS_RUN_EVENT, event);
     }
   });
+
+  // W8 Stage 6: the built-in and installed flows' rows exist before anything
+  // lists them — `run_flow`'s listing reads the table without a Flows visit.
+  void ensureFlowCatalog(buildFlowPackageDeps(), undefined, true);
 }

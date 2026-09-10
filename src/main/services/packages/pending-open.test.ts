@@ -30,6 +30,20 @@ describe('packageFromArgv', () => {
     });
   });
 
+  it('recognises a flow package as its own kind (W8 Stage 6)', () => {
+    expect(packageFromArgv(['app.exe', 'C:\dl\vidtsx.thumbnail.vidtsxflow'])).toEqual({
+      kind: 'flow',
+      filePath: 'C:\dl\vidtsx.thumbnail.vidtsxflow',
+    });
+    expect(packageKindFor('/tmp/a.VIDTSXFLOW')).toBe('flow');
+    setPendingPackage({ kind: 'flow', filePath: 'C:\dl\a.vidtsxflow' });
+    expect(takePendingPackage('agent')).toBeNull();
+    expect(takePendingPackage('project')).toBeNull();
+    expect(hasPendingPackage('flow')).toBe(true);
+    expect(takePendingPackage('flow')).toBe('C:\dl\a.vidtsxflow');
+    expect(hasPendingPackage()).toBe(false);
+  });
+
   it('recognises an agent package as its own kind', () => {
     expect(packageFromArgv(['app.exe', 'C:\\dl\\vidtsx.motion-post.vidtsxagent'])).toEqual({
       kind: 'agent',

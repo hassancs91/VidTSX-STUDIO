@@ -25,6 +25,11 @@ import {
   setGalleryFolderId,
 } from '../services/flows-projects-db';
 import { persistRun, listRuns, loadRun } from '../services/flows-runs-db';
+import { flowSourceOf, listFlowGraphJson } from '../services/flows-packaged-db';
+import { ensureFlowCatalog } from '../services/flows/flow-catalog';
+import { buildFlowPackageDeps } from '../services/flows/flow-package-context';
+import { decorateProject, decorateSummary } from '../services/flows/flow-project-view';
+import { removeFlow } from '../services/flows/flow-store';
 import {
   createFolder as createGalleryFolder,
   renameFolder as renameGalleryFolder,
@@ -81,7 +86,10 @@ export async function handleFlowsProjectList(
   _event: IpcMainInvokeEvent
 ): Promise<FlowProjectListResponse> {
   try {
-    return { success: true, projects: listFlows() };
+    // W8 Stage 6: the built-in / installed rows mirror their folders.
+    await ensureFlowCatalog(buildFlowPackageDeps());
+    const graphs = listFlowGraphJson();
+    return { success: true, projects: listFlows().map((row) => decorateSummary(row, graphs[row.id])) };
   } catch (err) {
     return { success: false, error: errMessage(err, 'Failed to list flow projects') };
   }
@@ -121,7 +129,7 @@ export async function handleFlowsProjectLoad(
       project.name,
       project.galleryFolderId,
     );
-    return { success: true, project: { ...project, galleryFolderId: folderId } };
+    return { success: true, project: decorateProject({ ...project, galleryFolderId: folderId }) };
   } catch (err) {
     return { success: false, error: errMessage(err, 'Failed to load flow project') };
   }
@@ -133,6 +141,19 @@ export async function handleFlowsProjectUpdate(
 ): Promise<FlowProjectUpdateResponse> {
   try {
     const before = loadFlow(data.id);
+    // W8 Stage 6: a packaged row is a cache of its folder — only the
+    // thumbnail (a row-side backfill) may change; the document is read-only.
+    if (before && (before.source === 'builtin' || before.source === 'installed')) {
+      const docChange = data.graphJson !== undefined || data.name !== undefined || data.description !== undefined;
+      if (docChange) {
+        return {
+          success: false,
+          error: before.source === 'builtin'
+            ? 'This flow ships with the app and is read-only — Duplicate it to make an editable copy.'
+            : 'This flow was installed from a package and is read-only — Duplicate it to make an editable copy.',
+        };
+      }
+    }
     const project = updateFlow(data);
     if (!project) return { success: false, error: 'Flow not found' };
 
@@ -168,6 +189,17 @@ export async function handleFlowsProjectDelete(
   data: FlowProjectDeleteRequest
 ): Promise<FlowProjectDeleteResponse> {
   try {
+    // W8 Stage 6: Remove on an installed flow uninstalls its folder (the row
+    // and its runs go with the next catalog sync); a built-in is read-only.
+    const source = flowSourceOf(data.id);
+    if (source === 'builtin') {
+      return { success: false, error: 'This flow ships with the app and cannot be removed.' };
+    }
+    if (source === 'installed') {
+      await removeFlow(data.id, buildFlowPackageDeps());
+      await ensureFlowCatalog(buildFlowPackageDeps(), undefined, true);
+      return { success: true };
+    }
     // Intentionally does NOT delete the gallery folder — user may want to keep
     // the generated images. Per plan Risk #9.
     deleteFlow(data.id);

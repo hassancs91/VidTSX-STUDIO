@@ -143,7 +143,7 @@ function parseOrigin(raw: string | null): FlowOrigin | null {
   return null;
 }
 
-const SOURCES: ReadonlySet<string> = new Set<FlowSource>(['user', 'template', 'frozen', 'imported']);
+const SOURCES: ReadonlySet<string> = new Set<FlowSource>(['user', 'template', 'frozen', 'imported', 'builtin', 'installed']);
 
 function rowToSummary(row: FlowRow): FlowProjectSummary {
   return {

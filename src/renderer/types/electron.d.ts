@@ -409,6 +409,7 @@ export interface ElectronAPI {
   flowsRunArtifactAction: (data: import('../../shared/ipc/types').FlowsRunArtifactActionRequest) => Promise<import('../../shared/ipc/types').FlowsRunArtifactActionResponse>;
   flowsImport: (data: import('../../shared/ipc/types').FlowsImportRequest) => Promise<import('../../shared/ipc/types').FlowsImportResponse>;
   flowsExport: (data: import('../../shared/ipc/types').FlowsExportRequest) => Promise<import('../../shared/ipc/types').FlowsExportResponse>;
+  flowsPendingPackage: () => Promise<import('../../shared/ipc/types').FlowsPendingPackageResponse>;
   flowsProposalGet: (data: import('../../shared/ipc/types').FlowsProposalGetRequest) => Promise<import('../../shared/ipc/types').FlowsProposalGetResponse>;
   flowsProposalResolve: (data: import('../../shared/ipc/types').FlowsProposalResolveRequest) => Promise<import('../../shared/ipc/types').FlowsProposalResolveResponse>;
   flowsFreeze: (data: import('../../shared/ipc/types').FlowsFreezeRequest) => Promise<import('../../shared/ipc/types').FlowsFreezeResponse>;

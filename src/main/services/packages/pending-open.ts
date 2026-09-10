@@ -1,5 +1,5 @@
-// Double-clicking a package file — `.vidtsx` (Q7a) or `.vidtsxagent` (agents
-// plan §1.6).
+// Double-clicking a package file — `.vidtsx` (Q7a), `.vidtsxagent` (agents
+// plan §1.6) or `.vidtsxflow` (flows plan §1.7, W8 Stage 6).
 //
 // The OS hands the path to the app three different ways — an argv on cold
 // start, an argv on the `second-instance` event (this app holds a
@@ -22,8 +22,9 @@
 import path from 'path';
 import { VIDTSX_PACKAGE_EXTENSION } from '../../../shared/studio/project-package';
 import { AGENT_PACKAGE_EXT } from '../../../shared/agents/manifest';
+import { FLOW_PACKAGE_EXT } from '../../../shared/flows/flow-package';
 
-export type PendingPackageKind = 'project' | 'agent';
+export type PendingPackageKind = 'project' | 'agent' | 'flow';
 
 export interface PendingPackage {
   kind: PendingPackageKind;
@@ -33,6 +34,10 @@ export interface PendingPackage {
 const BY_EXTENSION: Record<string, PendingPackageKind> = {
   [VIDTSX_PACKAGE_EXTENSION]: 'project',
   [AGENT_PACKAGE_EXT]: 'agent',
+  // The Flows screen claims this kind on mount (`FLOWS_PENDING_PACKAGE`);
+  // `src/main/index.ts` still nudges only the two older kinds — a cold-start
+  // double-click on a flow lands when the user opens Flows.
+  [FLOW_PACKAGE_EXT]: 'flow',
 };
 
 let pending: PendingPackage | null = null;

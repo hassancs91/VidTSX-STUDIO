@@ -184,6 +184,8 @@ export const IPC = {
   // navigation and clear it once the user accepted or discarded.
   FLOWS_PROPOSAL_GET: 'flows:proposal:get',
   FLOWS_PROPOSAL_RESOLVE: 'flows:proposal:resolve',
+  // W8 Stage 6: a double-clicked `.vidtsxflow`, claimed by the Flows screen (pending-open.ts).
+  FLOWS_PENDING_PACKAGE: 'flows:package:pending',
 
   // Image generation operations
   IMAGE_PROVIDERS_GET: 'image:providers:get',
