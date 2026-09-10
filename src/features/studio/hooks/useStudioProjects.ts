@@ -33,6 +33,11 @@ export function useStudioProjects() {
 
   useEffect(() => {
     void refresh();
+    // W6: the editor's close writes the poster after this list may already
+    // have been read — re-list when main says it is done.
+    const handler = () => void refresh();
+    window.addEventListener('vidtsx:studio-projects-changed', handler);
+    return () => window.removeEventListener('vidtsx:studio-projects-changed', handler);
   }, [refresh]);
 
   const create = useCallback(

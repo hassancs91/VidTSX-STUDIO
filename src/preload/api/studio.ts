@@ -39,6 +39,8 @@ import type {
   StudioMediaRelinkResponse,
   StudioProjectCreateRequest,
   StudioProjectCreateResponse,
+  StudioProjectCloseRequest,
+  StudioProjectCloseResponse,
   StudioProjectDeleteRequest,
   StudioProjectDeleteResponse,
   StudioProjectListResponse,
@@ -112,6 +114,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_SAVE, data),
   studioProjectDelete: (data: StudioProjectDeleteRequest): Promise<StudioProjectDeleteResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_DELETE, data),
+  studioProjectClose: (data: StudioProjectCloseRequest): Promise<StudioProjectCloseResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROJECT_CLOSE, data),
   studioProjectSnapshotList: (data: StudioSnapshotListRequest): Promise<StudioSnapshotListResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, data),
   studioProjectSnapshotRestore: (

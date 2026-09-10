@@ -20,6 +20,8 @@ import type {
   StudioMediaPrepareResponse,
   StudioMediaRelinkRequest,
   StudioMediaRelinkResponse,
+  StudioProjectCloseRequest,
+  StudioProjectCloseResponse,
   StudioProjectCreateRequest,
   StudioProjectCreateResponse,
   StudioProjectDeleteRequest,
@@ -81,6 +83,7 @@ import {
   probeMedia,
 } from '../services/studio/media-import';
 import { getProjectCacheDir, getProjectDir, safeResolveCachePath } from '../services/studio/studio-paths';
+import { flushProjectPoster, scheduleProjectPoster } from '../services/studio/project-poster';
 import { getLibraryRoot } from '../services/library/library-paths';
 import { findLibraryFileByHash } from '../services/library/library-store';
 import { clearCache, getCacheInfo } from '../services/studio/cache-manager';
@@ -185,9 +188,25 @@ export async function handleStudioProjectSave(
     // Q10: every ~10 minutes of active editing becomes a snapshot. Saves only
     // happen while editing, so hooking the save handler needs no idle timer.
     await snapshotIfDue({ ...data.project, updatedAt });
+    // W6: the poster follows the document, once the edits settle.
+    scheduleProjectPoster({ ...data.project, updatedAt });
     return { success: true, updatedAt };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to save project') };
+  }
+}
+
+/** W6: the editor closed the project — write the poster now (the close may
+ *  carry no dirty save at all, so the debounce alone would miss it). */
+export async function handleStudioProjectClose(
+  _event: IpcMainInvokeEvent,
+  data: StudioProjectCloseRequest,
+): Promise<StudioProjectCloseResponse> {
+  try {
+    await flushProjectPoster(data.id);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to close project') };
   }
 }
 

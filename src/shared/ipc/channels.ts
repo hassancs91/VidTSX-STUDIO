@@ -384,6 +384,8 @@ export const IPC = {
   STUDIO_PROJECT_LOAD: 'studio:project:load',
   STUDIO_PROJECT_SAVE: 'studio:project:save',
   STUDIO_PROJECT_DELETE: 'studio:project:delete',
+  // W6: the editor closed a project — write its poster now.
+  STUDIO_PROJECT_CLOSE: 'studio:project:close',
   // Studio — rotating project snapshots + quit-flush handshake (Q10)
   STUDIO_PROJECT_SNAPSHOT_LIST: 'studio:project:snapshot:list',
   STUDIO_PROJECT_SNAPSHOT_RESTORE: 'studio:project:snapshot:restore',
@@ -551,6 +553,11 @@ export const IPC = {
   // the Agents screen, and the gallery claims the path with PENDING_PACKAGE.
   AGENTS_PACKAGE_OPEN_FILE: 'agents:package:open-file',
   AGENTS_PENDING_PACKAGE: 'agents:package:pending',
+
+  // Home (V1 completion plan §2.6): ONE aggregate read over the existing
+  // stores — recent Studio / Motion projects, agent sessions, the status
+  // strip. Reads only; nothing here spawns a process or calls a provider.
+  HOME_SUMMARY: 'home:summary',
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

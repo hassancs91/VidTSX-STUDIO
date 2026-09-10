@@ -33,6 +33,12 @@ export interface StudioProjectSummary {
   updatedAt: string;
   assetCount: number;
   folderPath: string;
+  /** W6: `cache/poster.jpg` relative to the project cache (read through
+   *  STUDIO_CACHE_READ like asset thumbnails); absent when the project has no
+   *  video clip — the card draws the brand-palette placeholder instead. */
+  posterPath?: string;
+  /** W6: the project's library brand, so a placeholder can use its palette. */
+  brandId?: string;
 }
 
 export interface StudioRootGetResponse {
@@ -90,6 +96,17 @@ export interface StudioProjectSaveRequest {
 export interface StudioProjectSaveResponse {
   success: boolean;
   updatedAt?: string;
+  error?: string;
+}
+
+/** W6: the editor closed this project — main writes its poster now rather
+ *  than waiting out the save debounce (there may be no dirty save at all). */
+export interface StudioProjectCloseRequest {
+  id: string;
+}
+
+export interface StudioProjectCloseResponse {
+  success: boolean;
   error?: string;
 }
 

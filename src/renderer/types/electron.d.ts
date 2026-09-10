@@ -445,6 +445,7 @@ export interface ElectronAPI {
   studioProjectLoad: (data: import('../../shared/ipc/types').StudioProjectLoadRequest) => Promise<import('../../shared/ipc/types').StudioProjectLoadResponse>;
   studioProjectSave: (data: import('../../shared/ipc/types').StudioProjectSaveRequest) => Promise<import('../../shared/ipc/types').StudioProjectSaveResponse>;
   studioProjectDelete: (data: import('../../shared/ipc/types').StudioProjectDeleteRequest) => Promise<import('../../shared/ipc/types').StudioProjectDeleteResponse>;
+  studioProjectClose: (data: import('../../shared/ipc/types').StudioProjectCloseRequest) => Promise<import('../../shared/ipc/types').StudioProjectCloseResponse>;
   studioProjectSnapshotList: (data: import('../../shared/ipc/types').StudioSnapshotListRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotListResponse>;
   studioProjectSnapshotRestore: (data: import('../../shared/ipc/types').StudioSnapshotRestoreRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotRestoreResponse>;
   studioFlushAck: () => Promise<import('../../shared/ipc/types').StudioFlushAckResponse>;
@@ -506,6 +507,9 @@ export interface ElectronAPI {
   memoryPromotionResolve: (data: import('../../shared/ipc/types').MemoryPromotionResolveRequest) => Promise<import('../../shared/ipc/types').MemoryPromotionResolveResponse>;
   memoryVocabularyProposalsGet: (data: import('../../shared/ipc/types').MemoryVocabularyProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryVocabularyProposalsGetResponse>;
   memoryVocabularyProposalResolve: (data: import('../../shared/ipc/types').MemoryVocabularyProposalResolveRequest) => Promise<import('../../shared/ipc/types').MemoryVocabularyProposalResolveResponse>;
+
+  // Home (V1 completion plan §2.6) — one aggregate read
+  homeSummary: () => Promise<import('../../shared/ipc/types').HomeSummaryResponse>;
 
   // Announcements feed (Phase I)
   newsGet: () => Promise<import('../../shared/ipc/types').NewsGetResponse>;

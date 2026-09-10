@@ -8,6 +8,7 @@ import {
   handleStudioProjectLoad,
   handleStudioProjectSave,
   handleStudioProjectDelete,
+  handleStudioProjectClose,
   handleStudioProjectSnapshotList,
   handleStudioProjectSnapshotRestore,
   handleStudioMediaImport,
@@ -73,6 +74,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROJECT_LOAD, handleStudioProjectLoad);
   ipcMain.handle(IPC.STUDIO_PROJECT_SAVE, handleStudioProjectSave);
   ipcMain.handle(IPC.STUDIO_PROJECT_DELETE, handleStudioProjectDelete);
+  ipcMain.handle(IPC.STUDIO_PROJECT_CLOSE, handleStudioProjectClose);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, handleStudioProjectSnapshotList);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, handleStudioProjectSnapshotRestore);
   registerFlushAck();

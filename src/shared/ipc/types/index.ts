@@ -10,6 +10,7 @@ export * from './embedding';
 export * from './file';
 export * from './flows';
 export * from './frame-extractor';
+export * from './home';
 export * from './image-studio';
 export * from './library';
 export * from './llm';

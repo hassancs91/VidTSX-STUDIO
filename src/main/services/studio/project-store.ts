@@ -10,6 +10,7 @@ import {
 import type { StudioProjectSummary } from '../../../shared/ipc/types/studio';
 import { normalizeShots } from '../../../shared/studio/shots';
 import { normalizeCaptionLayer } from '../../../shared/studio/caption-layer';
+import { POSTER_REL_PATH } from './project-poster-paths';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
 import {
   ensureProjectScaffold,
@@ -72,7 +73,7 @@ async function writeProjectFile(projectDir: string, project: StudioProject): Pro
   await fs.rename(tmpPath, finalPath);
 }
 
-function toSummary(project: StudioProject, folderPath: string): StudioProjectSummary {
+function toSummary(project: StudioProject, folderPath: string, hasPoster: boolean): StudioProjectSummary {
   return {
     id: project.id,
     name: project.name,
@@ -83,7 +84,19 @@ function toSummary(project: StudioProject, folderPath: string): StudioProjectSum
     updatedAt: project.updatedAt,
     assetCount: project.assets.length,
     folderPath,
+    // W6: the poster is folder-as-truth too — present means the file exists.
+    ...(hasPoster ? { posterPath: POSTER_REL_PATH } : {}),
+    ...(project.settings.brandId ? { brandId: project.settings.brandId } : {}),
   };
+}
+
+async function fileExists(file: string): Promise<boolean> {
+  try {
+    await fs.access(file);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function createProject(
@@ -147,7 +160,8 @@ export async function listProjects(): Promise<StudioProjectSummary[]> {
     try {
       const raw = await fs.readFile(getProjectFilePath(folderPath), 'utf-8');
       const project = migrateProject(JSON.parse(raw), entry.name);
-      summaries.push(toSummary(project, folderPath));
+      const hasPoster = await fileExists(path.join(folderPath, 'cache', POSTER_REL_PATH));
+      summaries.push(toSummary(project, folderPath, hasPoster));
     } catch (err) {
       log.warn('Skipping unreadable project folder', {
         folder: entry.name,

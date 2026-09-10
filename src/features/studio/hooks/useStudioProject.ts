@@ -73,12 +73,19 @@ export function useStudioProject(projectId: string) {
     await persist();
   }, [persist]);
 
-  // Flush pending edits when the editor closes.
+  // Flush pending edits when the editor closes, then tell main the project
+  // is closed so its poster is written now (W6) — a close with nothing dirty
+  // would otherwise leave the save-debounced poster waiting on a save that
+  // never comes.
   useEffect(() => {
     return () => {
-      void flush();
+      void flush().finally(() =>
+        window.api
+          .studioProjectClose({ id: projectId })
+          .then(() => window.dispatchEvent(new CustomEvent('vidtsx:studio-projects-changed'))),
+      );
     };
-  }, [flush]);
+  }, [flush, projectId]);
 
   // Q10 quit-flush hardening: React cleanup does not run on window close or
   // app quit, so the debounce alone could lose the last ~600 ms of edits.
