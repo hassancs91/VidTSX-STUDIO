@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { CaptureChip } from "./components/CaptureChip";
-import { NewsCard } from "./components/NewsCard";
+import { HomeScreen } from "@features/home";
 import { WorkspaceScreen, SelectedFileProvider } from "@features/workspace";
 import { TranscriptionScreen } from "@features/transcription";
 import { RenderScreen, RenderQueueProvider, useRenderQueue } from "@features/render-queue";
@@ -20,7 +20,11 @@ import { ToastProvider } from "./contexts/ToastContext";
 import { OpenProjectProvider } from "./contexts/OpenProjectContext";
 import { isFeatureEnabled } from "@shared/feature-flags";
 
+/** The screen the app opens on (V1 completion plan §2.6: Home). */
+const DEFAULT_SCREEN = 'home';
+
 const screens: Record<string, React.ComponentType> = {
+  home: HomeScreen,
   files: WorkspaceScreen,
   transcribe: TranscriptionScreen,
   render: RenderScreen,
@@ -41,7 +45,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
   setActiveScreen: (screen: string) => void;
 }) {
   const { activeCount } = useRenderQueue();
-  const [visitedScreens, setVisitedScreens] = useState<Set<string>>(new Set(["creator"]));
+  const [visitedScreens, setVisitedScreens] = useState<Set<string>>(new Set([DEFAULT_SCREEN]));
 
   // Listen for cross-screen navigation events
   useEffect(() => {
@@ -72,13 +76,17 @@ function AppContent({ activeScreen, setActiveScreen }: {
     });
   }, [setActiveScreen]);
 
-  const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : "creator");
+  const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : DEFAULT_SCREEN);
 
   useEffect(() => {
     setVisitedScreens(prev => {
       if (prev.has(resolvedActive)) return prev;
       return new Set(prev).add(resolvedActive);
     });
+    // Every visited screen stays mounted, so a screen cannot tell from its own
+    // lifecycle that the user came back to it. Home re-reads its summary on
+    // this (W6); any screen may listen.
+    window.dispatchEvent(new CustomEvent('vidtsx:screen-active', { detail: { screen: resolvedActive } }));
   }, [resolvedActive]);
 
   return (
@@ -107,13 +115,12 @@ function AppContent({ activeScreen, setActiveScreen }: {
       </div>
       <StatusBar />
       <CaptureChip />
-      <NewsCard />
     </div>
   );
 }
 
 export function App() {
-  const [activeScreen, setActiveScreen] = useState("creator");
+  const [activeScreen, setActiveScreen] = useState(DEFAULT_SCREEN);
 
   return (
     <ToastProvider>

@@ -9,9 +9,35 @@ import type { InstalledAgent } from '@shared/types/agents';
 import { AgentGallery } from './AgentGallery';
 import { AgentWorkspace } from './AgentWorkspace';
 
+/** W6: which session a Home card asked for. The token makes the same
+ *  session openable twice in a row. */
+interface SessionLink {
+  agentId: string;
+  sessionId: string;
+  token: number;
+}
+
 export function AgentsScreen() {
   const [openAgentId, setOpenAgentId] = useState<string | null>(null);
   const [agent, setAgent] = useState<InstalledAgent | null>(null);
+  const [link, setLink] = useState<SessionLink | null>(null);
+
+  // W6: a Home "Continue" card lands in ITS session — `vidtsx:agents-open`
+  // follows the `vidtsx:creator-open` precedent (navigate first, dispatch once
+  // the screen is mounted). The agent id opens the workspace; the session id
+  // travels down as a prop the workspace applies once the list has loaded.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ agentId?: string; sessionId?: string }>).detail;
+      if (!detail?.agentId) return;
+      setOpenAgentId(detail.agentId);
+      if (detail.sessionId) {
+        setLink({ agentId: detail.agentId, sessionId: detail.sessionId, token: Date.now() });
+      }
+    };
+    window.addEventListener('vidtsx:agents-open', handler);
+    return () => window.removeEventListener('vidtsx:agents-open', handler);
+  }, []);
 
   // The workspace needs the whole record, and the gallery's list is its own
   // state — so the id is what travels, and this re-reads it. That also means a
@@ -46,7 +72,14 @@ export function AgentsScreen() {
   return (
     <div className="h-full">
       {openAgentId && agent ? (
-        <AgentWorkspace agent={agent} onBack={back} />
+        // Keyed by agent so a deep link to ANOTHER agent's session remounts the
+        // workspace — its open-session state must not leak across agents.
+        <AgentWorkspace
+          key={agent.manifest.id}
+          agent={agent}
+          onBack={back}
+          {...(link && link.agentId === agent.manifest.id ? { openSession: link } : {})}
+        />
       ) : (
         <AgentGallery onOpenAgent={setOpenAgentId} />
       )}

@@ -25,6 +25,8 @@ const ENV_GATED: Record<string, string | boolean | undefined> = {
 };
 
 const FEATURE_FLAGS: Record<string, boolean> = {
+  // Home (V1 completion plan §2.6) — the default screen; ships on (§4).
+  home: true,
   // Primary workflow — TSX → Image → Video
   creator: true,
   'image-studio': true,

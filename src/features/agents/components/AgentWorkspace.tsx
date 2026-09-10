@@ -32,9 +32,11 @@ import { ArtifactStage } from './stage/ArtifactStage';
 interface Props {
   agent: InstalledAgent;
   onBack: () => void;
+  /** W6: a session to open once the list has loaded (a Home card). */
+  openSession?: { sessionId: string; token: number };
 }
 
-export function AgentWorkspace({ agent, onBack }: Props) {
+export function AgentWorkspace({ agent, onBack, openSession }: Props) {
   const agentId = agent.manifest.id;
   const enqueueRef = useRef<((request: AgentJobRequest) => Promise<void>) | null>(null);
   const { showToast } = useToast();
@@ -67,6 +69,16 @@ export function AgentWorkspace({ agent, onBack }: Props) {
     providers,
     defaultBrandId: brandList.defaultBrandId,
   });
+
+  // W6: the deep-linked session wins over "open the most recent" — this
+  // effect is declared after the starter's, so its setState lands last in the
+  // same commit; a session that no longer exists is ignored (the starter's
+  // own rule then applies).
+  const { loaded: sessionsLoaded } = sessionStore;
+  useEffect(() => {
+    if (!openSession || !sessionsLoaded) return;
+    if (sessions.some((s) => s.id === openSession.sessionId)) setSessionId(openSession.sessionId);
+  }, [openSession, sessionsLoaded, sessions, setSessionId]);
 
   const run = useAgentRun({
     agentId,

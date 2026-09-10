@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Clapperboard } from 'lucide-react';
 import { isFeatureEnabled } from '@shared/feature-flags';
 import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
@@ -44,9 +45,36 @@ function StudioScreenInner() {
   // (ASSET_LIBRARY_DESIGN.md L7 Rev 2). Screens stay mounted when the user
   // navigates away, so a project stays genuinely open while they curate.
   const { openProjectId, setOpenProjectId } = useOpenProject();
+  const [newProjectToken, setNewProjectToken] = useState(0);
+
+  // W6: Home opens a project card straight into its editor, or asks for the
+  // New Project dialog. `vidtsx:studio-open` follows the `vidtsx:creator-open`
+  // precedent — the caller navigates first, then dispatches this once the
+  // screen is mounted; the detail carries a project id OR `newProject`.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ projectId?: string; newProject?: boolean }>).detail;
+      if (detail?.projectId) {
+        setOpenProjectId(detail.projectId);
+      } else if (detail?.newProject) {
+        setOpenProjectId(null);
+        setNewProjectToken((n) => n + 1);
+      }
+    };
+    window.addEventListener('vidtsx:studio-open', handler);
+    return () => window.removeEventListener('vidtsx:studio-open', handler);
+  }, [setOpenProjectId]);
+
+  const clearNewProject = useCallback(() => setNewProjectToken(0), []);
 
   if (openProjectId) {
     return <EditorShell projectId={openProjectId} onBack={() => setOpenProjectId(null)} />;
   }
-  return <ProjectBrowser onOpen={setOpenProjectId} />;
+  return (
+    <ProjectBrowser
+      onOpen={setOpenProjectId}
+      newProjectToken={newProjectToken}
+      onNewProjectShown={clearNewProject}
+    />
+  );
 }

@@ -320,6 +320,16 @@ export function listQueueJobs(): RenderQueueJob[] {
   return rows.map(rowToQueueJob);
 }
 
+/** The saved queue as-is — no interrupted-render rewrite, no age cleanup.
+ *  For read-only views (Home's status strip); the renderer's own load path
+ *  keeps using `listQueueJobs`. */
+export function peekQueueJobs(): RenderQueueJob[] {
+  const rows = getDb()
+    .prepare('SELECT * FROM render_queue ORDER BY created_at ASC')
+    .all() as QueueRow[];
+  return rows.map(rowToQueueJob);
+}
+
 // --- History operations ---
 
 export function listHistoryEntries(): RenderHistoryEntry[] {

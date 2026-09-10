@@ -40,3 +40,4 @@ export { libraryApi } from './library';
 export { memoryApi } from './memory';
 export { newsApi } from './news';
 export { agentsApi } from './agents';
+export { homeApi } from './home';

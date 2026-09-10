@@ -42,6 +42,7 @@ import { libraryApi } from './api/library';
 import { memoryApi } from './api/memory';
 import { newsApi } from './api/news';
 import { agentsApi } from './api/agents';
+import { homeApi } from './api/home';
 
 const api = {
   ...appShellApi,
@@ -87,6 +88,7 @@ const api = {
   ...memoryApi,
   ...newsApi,
   ...agentsApi,
+  ...homeApi,
 };
 
 contextBridge.exposeInMainWorld('api', api);

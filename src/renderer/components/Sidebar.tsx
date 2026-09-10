@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  House,
   Wand2,
   Images,
   Film,
@@ -32,6 +33,8 @@ const ICON_SIZE = 22;
 const ICON_STROKE = 1.5;
 
 const navItems: NavItem[] = [
+  // Home (V1 completion plan §2.6) — the default screen: recent work, start tiles, status.
+  { id: "home", label: "Home", icon: <House size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   // AI video editor (docs/studio/PLAN.md) — shipped with the 2026-09-10 flip
   { id: "studio", label: "Studio", icon: <Clapperboard size={ICON_SIZE} strokeWidth={ICON_STROKE} /> },
   // Primary workflow — TSX → Image → Video
