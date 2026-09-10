@@ -6,10 +6,13 @@
 // TOOL IDS ARE APPEND-ONLY (plan §11). A renamed id silently breaks every
 // installed agent that asked for it, so deprecate by keeping the id and
 // returning a guidance error.
+//
+// W8 Stage 4: the map and its readers moved to `registry-core.ts` so a tool
+// that needs the registry at load (`run_flow`, `run_agent`) does not form an
+// import cycle with this file; this file registers and re-exports.
 
-import type { NodeSpec } from '../../../../shared/types/flows';
-import type { AgentToolDef, AgentToolNeed } from './types';
-import { needMet } from './invoke-tool';
+export * from './registry-core';
+import { registerTool } from './registry-core';
 import { writeDocumentTool } from './write-document';
 import { listArtifactsTool } from './list-artifacts';
 import { askUserTool } from './ask-user';
@@ -37,123 +40,14 @@ import { extractFrameTool } from './extract-frame';
 import { trimVideoTool } from './trim-video';
 import { concatVideosTool } from './concat-videos';
 import { saveToLibraryTool } from './save-to-library';
+import { runFlowTool } from './run-flow';
+import { runAgentTool } from './run-agent';
+import { listNodesTool } from './list-nodes';
+import { readFlowTool } from './read-flow';
+import { proposeFlowTool } from './propose-flow';
+import { readRunTool } from './read-run';
 
-/** The registry stores definitions with their arg types erased; the zod schema
- *  validates before a handler ever sees the object. */
-export type RegisteredTool = AgentToolDef<Record<string, unknown>>;
-
-const registry = new Map<string, RegisteredTool>();
-
-export function registerTool<TArgs>(def: AgentToolDef<TArgs>): void {
-  if (registry.has(def.id)) {
-    throw new Error(`Agent tool "${def.id}" is already registered`);
-  }
-  registry.set(def.id, def as unknown as RegisteredTool);
-}
-
-export function getTool(id: string): RegisteredTool | undefined {
-  return registry.get(id);
-}
-
-export function listTools(): RegisteredTool[] {
-  return [...registry.values()];
-}
-
-export function listToolIds(): string[] {
-  return [...registry.keys()];
-}
-
-/** Test seam only — the built-ins re-register on the next import. */
-export function clearRegistryForTests(): void {
-  registry.clear();
-}
-
-export interface ToolSelection {
-  /** Registered definitions the manifest asked for, in manifest order. */
-  tools: RegisteredTool[];
-  /** Ids the manifest asked for that no longer exist — install refuses these,
-   *  so at runtime they mean the app was downgraded under an installed agent. */
-  missing: string[];
-  /** Selected tools whose capability is not configured. They stay in the
-   *  server (§1.8) and the system prompt says they are unavailable. */
-  unavailable: Array<{ id: string; needs: AgentToolNeed }>;
-}
-
-export interface ToolCapabilities {
-  imageProvider: boolean;
-  videoProvider: boolean;
-  audioProvider: boolean;
-}
-
-/** Filter the registry by a manifest's allowlist. */
-export function selectTools(toolIds: string[], capabilities: ToolCapabilities): ToolSelection {
-  const tools: RegisteredTool[] = [];
-  const missing: string[] = [];
-  const unavailable: Array<{ id: string; needs: AgentToolNeed }> = [];
-  const seen = new Set<string>();
-
-  for (const id of toolIds) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    const def = registry.get(id);
-    if (!def) {
-      missing.push(id);
-      continue;
-    }
-    tools.push(def);
-    const needs = def.needs;
-    if (
-      needs &&
-      ((needs === 'image-provider' && !capabilities.imageProvider) ||
-        (needs === 'video-provider' && !capabilities.videoProvider) ||
-        (needs === 'audio-provider' && !capabilities.audioProvider))
-    ) {
-      unavailable.push({ id: def.id, needs });
-    }
-  }
-  return { tools, missing, unavailable };
-}
-
-// ---------------------------------------------------------------------------
-// Nodes (flows plan §1.2, decision 2): a tool with `ports` is also a node.
-// ---------------------------------------------------------------------------
-
-/** The tool behind a node id — only tools that carry `ports`. */
-export function getNode(toolId: string): RegisteredTool | undefined {
-  const def = registry.get(toolId);
-  return def?.ports ? def : undefined;
-}
-
-/**
- * Serialisable node descriptions for the canvas (`FLOWS_NODES_LIST`). No
- * handler travels; `available` is false when the tool's gate is unmet right
- * now, and `priceHint` is read at list time so the catalog can change.
- */
-export function listNodeSpecs(capabilities: ToolCapabilities): NodeSpec[] {
-  const specs: NodeSpec[] = [];
-  for (const def of registry.values()) {
-    const ports = def.ports;
-    if (!ports) continue;
-    const priceHint = ports.priceHint?.();
-    specs.push({
-      id: def.id,
-      label: ports.label,
-      description: def.description,
-      category: ports.category,
-      inputs: ports.inputs,
-      outputs: ports.outputs,
-      configSchema: ports.configSchema,
-      defaultConfig: ports.defaultConfig,
-      ...(def.needs ? { needs: [def.needs], available: needMet(def.needs, capabilities) } : {}),
-      ...(ports.priced ? { priced: true } : {}),
-      ...(priceHint ? { priceHint } : {}),
-      ...(ports.nondeterministic ? { nondeterministic: true } : {}),
-    });
-  }
-  return specs;
-}
-
-// Wave 1 (plan §1.3). `run_flow` joins when Flows lands.
+// Wave 1 (plan §1.3).
 registerTool(writeDocumentTool);
 registerTool(generateCompositionTool);
 registerTool(editCompositionTool);
@@ -187,3 +81,12 @@ registerTool(extractFrameTool);
 registerTool(trimVideoTool);
 registerTool(concatVideosTool);
 registerTool(saveToLibraryTool);
+// W8 Stage 4: flows from agents (`run_flow`, agent-only), agents inside
+// flows (`run_agent`, the one non-deterministic node) and the Flow Builder's
+// tools (flows plan §7).
+registerTool(runFlowTool);
+registerTool(runAgentTool);
+registerTool(listNodesTool);
+registerTool(readFlowTool);
+registerTool(proposeFlowTool);
+registerTool(readRunTool);

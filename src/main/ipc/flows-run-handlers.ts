@@ -17,6 +17,9 @@ import type {
   FlowsRunStartResponse,
 } from '../../shared/ipc/types';
 import { flowService } from '../services/flows/flow-service';
+// W8 Stage 4: the flow service reads the registry STORE (`registry-core`);
+// this import is what registers every tool before a run can be started.
+import '../services/agents/tools/registry';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('flows-handlers');

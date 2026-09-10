@@ -8,14 +8,14 @@ import fs from 'fs/promises';
 import { parseFlowDoc } from '../../../shared/flows/migrate-v1';
 import type { AgentArtifact, InteractionReply } from '../../../shared/types/agents';
 import type { FlowDoc, FlowRunDoc, FlowRunEvent, FlowRunMode, NodeSpec } from '../../../shared/types/flows';
-import { getNode, listNodeSpecs } from '../agents/tools/registry';
+import { getNode, listNodeSpecs } from '../agents/tools/registry-core';
 import { invokeTool } from '../agents/tools/invoke-tool';
 import { resolveToolCapabilities } from '../agents/tool-support';
 import { artifactRoot, assetUrlFor } from '../agents/artifact-paths';
 import { slugifyName } from '../agents/tools/workspace-files';
 import { ensureLibraryRoot, resolveLibraryPath } from '../library/library-paths';
 import { getDefaultBrandId } from '../library/brand-default';
-import { loadFlow } from '../flows-projects-db';
+import { listFlows, loadFlow } from '../flows-projects-db';
 import { loadRun } from '../flows-runs-db';
 import { FlowRunner } from './flow-runner';
 import { flowRunStore } from './flow-run-store';
@@ -38,7 +38,37 @@ export interface StartFlowRunRequest {
   brandId?: string | null;
 }
 
-function loadDoc(flowId: string): { doc: FlowDoc; version: string } {
+/** A flow by row id, or by its exact name (case-insensitive) when unique — what an agent types. */
+export function resolveFlowRef(ref: string): { id: string; name: string } | { error: string } {
+  const wanted = ref.trim();
+  if (!wanted) return { error: 'Name the flow to run (its id or its name).' };
+  const rows = listFlows();
+  const byId = rows.find((r) => r.id === wanted);
+  if (byId) return { id: byId.id, name: byId.name };
+  const byName = rows.filter((r) => r.name.trim().toLowerCase() === wanted.toLowerCase());
+  if (byName.length === 1) return { id: byName[0].id, name: byName[0].name };
+  if (byName.length > 1) {
+    return { error: `Several flows are named "${wanted}" — use the id: ${byName.map((r) => r.id).join(', ')}.` };
+  }
+  return { error: `No flow "${wanted}". Installed flows: ${rows.map((r) => `${r.name} (${r.id})`).join(', ') || 'none'}.` };
+}
+
+/** Every stored flow with its parsed document, newest first. */
+export function listFlowDocs(): Array<{ doc: FlowDoc; updatedAt: number }> {
+  const out: Array<{ doc: FlowDoc; updatedAt: number }> = [];
+  for (const row of listFlows()) {
+    const project = loadFlow(row.id);
+    if (!project) continue;
+    out.push({
+      doc: parseFlowDoc(project.graphJson, { id: project.id, name: project.name, description: project.description }),
+      updatedAt: project.updatedAt,
+    });
+  }
+  return out;
+}
+
+/** The stored document of one flow (W8 Stage 4: exported for `run_flow` / `read_flow`). */
+export function loadFlowDoc(flowId: string): { doc: FlowDoc; version: string } {
   const project = loadFlow(flowId);
   if (!project) throw new Error('That flow no longer exists.');
   const doc = parseFlowDoc(project.graphJson, {
@@ -90,7 +120,7 @@ class FlowService {
   }
 
   async start(req: StartFlowRunRequest): Promise<{ runId: string }> {
-    const { doc, version } = loadDoc(req.flowId);
+    const { doc, version } = loadFlowDoc(req.flowId);
     const resolvedBrandId = this.brandFor(req.brandId);
     return this.runner.start({
       doc,
@@ -107,6 +137,11 @@ class FlowService {
     return this.runner.cancel(runId);
   }
 
+  /** Settles when the run finishes (W8 Stage 4: `run_flow` waits on it). */
+  wait(runId: string): Promise<void> {
+    return this.runner.wait(runId);
+  }
+
   /** Whether the run executes in this process right now (Stage 3: the run-artifact render refuses then). */
   isRunning(runId: string): boolean {
     return this.runner.isRunning(runId);
@@ -121,7 +156,7 @@ class FlowService {
   async resume(runId: string): Promise<void> {
     const row = loadRun(runId);
     if (!row) throw new Error('That run no longer exists.');
-    const { doc } = loadDoc(row.flowId);
+    const { doc } = loadFlowDoc(row.flowId);
     const existing = await flowRunStore.readDoc(flowRunStore.runDir(row.flowId, runId));
     const resolvedBrandId = this.brandFor(existing?.brandId);
     await this.runner.resume({

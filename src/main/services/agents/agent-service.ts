@@ -72,6 +72,10 @@ export interface AgentSendInput {
   prompt: string;
   providerId?: string;
   model?: string;
+  /** W8 Stage 4 (`run_agent`): a subset of the manifest's tools for this turn. */
+  tools?: string[];
+  /** W8 Stage 4 (`run_agent`): a turn cap for this send. */
+  maxTurns?: number;
 }
 
 let nextChatSeq = 0;
@@ -223,7 +227,19 @@ export class AgentService {
     error?: string;
   }> {
     const ctx = await this.context(input.agentId, input.sessionId);
-    const runContext = await buildRunContext(ctx);
+    const built = await buildRunContext(ctx);
+    // `run_agent` narrows the manifest for ONE send — never persisted.
+    const runContext =
+      input.tools || input.maxTurns
+        ? {
+            ...built,
+            manifest: {
+              ...built.manifest,
+              ...(input.tools ? { tools: built.manifest.tools.filter((id) => input.tools?.includes(id)) } : {}),
+              ...(input.maxTurns ? { defaults: { ...built.manifest.defaults, maxTurns: input.maxTurns } } : {}),
+            },
+          }
+        : built;
     this.runningAgents.set(input.sessionId, input.agentId);
     await this.rememberModelChoice(ctx.session, input);
 

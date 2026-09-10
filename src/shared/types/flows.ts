@@ -285,3 +285,23 @@ export type FlowRunEvent =
   | { runId: string; kind: 'pause-request'; nodeId: string; request: InteractionRequest }
   /** Stage 2: the reply landed (or the run stopped) — the card goes away. */
   | { runId: string; kind: 'pause-cleared'; requestId: string };
+
+// ---------------------------------------------------------------------------
+// Flow proposals (§1.6, W8 Stage 4) — what `propose_flow` emits and the canvas
+// shows as a diff. Never written by the tool: Accept saves through the
+// ordinary save path, one proposal per session at a time.
+// ---------------------------------------------------------------------------
+
+export interface FlowProposal {
+  id: string;
+  agentId: string;
+  /** The session whose canvas panel shows the card. */
+  sessionId: string;
+  /** The flow the proposal edits; null = a new flow (the open empty one). */
+  flowId: string | null;
+  /** The whole document as it would be after Accept. */
+  doc: FlowDoc;
+  /** One line from the agent on what changed and why. */
+  summary: string;
+  createdAt: string;
+}

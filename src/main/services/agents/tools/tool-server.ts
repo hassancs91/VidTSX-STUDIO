@@ -111,6 +111,13 @@ export function buildAgentToolServer(
           if (result.jobRequest) {
             deps.requestJob({ ...result.jobRequest, artifactId: filed.id });
           }
+          // W8 Stage 4: `run_flow` hands back every flow output; the extras
+          // are filed in order, after the primary, and named the same way.
+          for (const extra of result.extraArtifacts ?? []) {
+            const more = await deps.fileArtifact(extra, { tool: def.id, callId }, {});
+            deps.emit({ sessionId: deps.sessionId, kind: 'artifact', artifact: more });
+            content.push({ type: 'text' as const, text: `Artifact id: ${more.id}` });
+          }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           log.warn('Filing an artifact failed', { tool: def.id, error: message });

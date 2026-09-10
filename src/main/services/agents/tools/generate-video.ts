@@ -32,6 +32,7 @@ import {
   FAL_VIDEO_MODELS,
   type VideoResolution,
 } from '../../../../shared/presets/video-models';
+import { formatVideoModelChoices } from '../../../../shared/presets/video-model-prices';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 import { resolveImageSet } from './port-media';
@@ -46,7 +47,7 @@ const schema = {
     .string()
     .optional()
     .describe(
-      'Catalog model id (e.g. "seedance-2.5" on fal, "dreamina-seedance-2-5-260628" on BytePlus). Defaults to the active provider\'s first model. Call with an unknown id and the tool lists what is available.',
+      'Catalog model id (e.g. "kling-2.5-turbo-pro" or "hailuo-02" on fal, "dreamina-seedance-2-5-260628" on BytePlus). Defaults to the active provider\'s first model. Call with an unknown id and the tool lists every model WITH its per-second price — pick the cheapest that fits.',
     ),
   providerId: z
     .string()
@@ -104,7 +105,7 @@ export function videoPriceHint(): string | undefined {
 export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
   id: 'generate_video',
   description:
-    'Submit a video clip to the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo). Returns immediately with a job id; the clip takes MINUTES and is billed per second, so say what you are about to spend before calling. END YOUR TURN after submitting — you will be told when the job finishes and given a "video" artifact backed by a local file.',
+    'Submit a video clip to the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo). Returns immediately with a job id; the clip takes MINUTES and is billed per second (the model list names each rate — an unknown model id returns it), so say what you are about to spend before calling. END YOUR TURN after submitting — you will be told when the job finishes and given a "video" artifact backed by a local file.',
   needs: 'video-provider',
   schema,
   ports: {
@@ -142,7 +143,7 @@ export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
     }
     if (args.model && !models.some((m) => m.id === args.model)) {
       return toolText(
-        `"${args.model}" is not in the catalog. Available: ${models.map((m) => m.id).join(', ')}.`,
+        `"${args.model}" is not in the catalog. Available (per second of output): ${formatVideoModelChoices(models)}.`,
         true,
       );
     }

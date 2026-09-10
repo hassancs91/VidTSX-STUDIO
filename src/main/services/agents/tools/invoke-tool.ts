@@ -41,6 +41,8 @@ export function needMet(need: AgentToolNeed, capabilities: ToolCapabilities): bo
       return capabilities.videoProvider;
     case 'audio-provider':
       return capabilities.audioProvider;
+    case 'agent-provider':
+      return capabilities.agentProvider === true;
   }
 }
 
@@ -48,6 +50,7 @@ const NEED_LABEL: Record<AgentToolNeed, string> = {
   'image-provider': 'an image provider',
   'video-provider': 'a video provider',
   'audio-provider': 'an audio provider',
+  'agent-provider': 'an AI provider that can run tools (a Claude, MiniMax, OpenRouter, Z.AI or Kimi provider)',
 };
 
 /** The user-facing line for an unmet gate, shared with the runner's validation. */

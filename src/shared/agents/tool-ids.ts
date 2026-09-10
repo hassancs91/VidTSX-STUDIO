@@ -47,6 +47,15 @@ export const AGENT_TOOL_IDS = [
   'trim_video',
   'concat_videos',
   'save_to_library',
+  // W8 Stage 4 (2026-09-10): flows from agents and agents inside flows
+  // (docs/flows-plan.md §7) — `run_flow` (agent-only), the `run_agent` node,
+  // and the Flow Builder's four tools.
+  'run_flow',
+  'run_agent',
+  'list_nodes',
+  'read_flow',
+  'propose_flow',
+  'read_run',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

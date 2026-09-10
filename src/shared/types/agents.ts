@@ -4,6 +4,7 @@
 
 import type { StarterTree } from '../agents/starter';
 import type { StudioMemoryKind } from './studio-memory';
+import type { FlowProposal } from './flows';
 
 // ---------------------------------------------------------------------------
 // Package manifest (§1.1)
@@ -373,6 +374,8 @@ export type AgentRunEvent =
   | { sessionId: string; kind: 'interaction'; request: InteractionRequest }
   | { sessionId: string; kind: 'interaction-cleared'; requestId: string }
   | { sessionId: string; kind: 'memory-proposal'; proposal: AgentMemoryProposal }
+  /** W8 Stage 4: a `propose_flow` card for the canvas (flows plan §1.6). */
+  | { sessionId: string; kind: 'flow-proposal'; proposal: FlowProposal }
   | { sessionId: string; kind: 'job-request'; request: AgentJobRequest }
   | { sessionId: string; kind: 'done'; text?: string; error?: string; cancelled?: boolean };
 

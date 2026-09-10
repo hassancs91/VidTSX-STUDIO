@@ -90,6 +90,8 @@ describe('registry ports and node specs', () => {
     'trim_video',
     'concat_videos',
     'save_to_library',
+    // W8 Stage 4: the agent node.
+    'run_agent',
   ];
 
   it('the wave-1 node catalogue carries ports; agent-only tools do not', () => {

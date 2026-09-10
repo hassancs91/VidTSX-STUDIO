@@ -21,7 +21,9 @@ import type { AiFeatureSource } from '../../../../shared/types/ai-usage';
 import type { ToolPorts } from '../../../../shared/types/flows';
 
 /** Capability gate, surfaced in the agent UI and named in the system prompt. */
-export type AgentToolNeed = 'image-provider' | 'video-provider' | 'audio-provider';
+export type AgentToolNeed = 'image-provider' | 'video-provider' | 'audio-provider'
+  /** W8 Stage 4: `run_agent` needs a provider that can run a tool loop (agents plan §1.8). */
+  | 'agent-provider';
 
 /** What a tool hands back, in the Agent SDK's content shape. */
 export interface AgentToolResult {
@@ -34,6 +36,12 @@ export interface AgentToolResult {
   images?: Array<{ data: string; mimeType: string }>;
   /** Filed by the runner when the tool made something the user can open. */
   artifact?: AgentArtifactDraft;
+  /**
+   * W8 Stage 4: further drafts filed AFTER `artifact`, in order — `run_flow`
+   * returns every flow output. The tool server files them and appends their
+   * ids; the flow runner ignores them (no tool with ports returns them).
+   */
+  extraArtifacts?: AgentArtifactDraft[];
   /**
    * Named primitives a flow output port can read (`from: 'field:<name>'`,
    * flows plan §1.2) — `generate_text` returns `{ text }`. The agent path

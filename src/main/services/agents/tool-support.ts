@@ -44,5 +44,7 @@ export async function resolveToolCapabilities(): Promise<ToolCapabilities> {
     imageProvider: Boolean(imageEngine.getActiveProvider()),
     videoProvider: Boolean(videoEngine.getActiveProvider()),
     audioProvider: Boolean(audioGenerationEngine.getActiveProvider()),
+    // W8 Stage 4: `run_agent` needs a tool-capable LLM provider (the active one).
+    agentProvider: await resolveToolSupport(),
   };
 }
