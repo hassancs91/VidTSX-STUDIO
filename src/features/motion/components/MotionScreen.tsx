@@ -5,6 +5,9 @@ import { TsxJobsProvider, useTsxJobs, isJobActive } from '../contexts/TsxJobsCon
 import type { TsxJobIpc } from '../../../shared/ipc/types';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { MotionInputPanel } from './MotionInputPanel';
+import { MotionAgentPanel } from './MotionAgentPanel';
+import type { MotionInputMode } from './MotionModeToggle';
+import type { MotionAgentRestore } from '../hooks/useMotionAgent';
 import { MotionPreviewPanel } from './MotionPreviewPanel';
 import { MotionLibraryPanel } from './MotionLibraryPanel';
 import { MotionJobsStrip } from './MotionJobsStrip';
@@ -27,6 +30,14 @@ function MotionScreenContent() {
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [inputWidth, setInputWidth] = useState(280);
   const [inputCollapsed, setInputCollapsed] = useState(false);
+  // W7: Prompt | Agent. The agent panel stays mounted once opened (hidden in
+  // prompt mode) so a run in flight keeps its view.
+  const [inputMode, setInputMode] = useState<MotionInputMode>('prompt');
+  const [agentOpened, setAgentOpened] = useState(false);
+  const handleModeChange = useCallback((mode: MotionInputMode) => {
+    setInputMode(mode);
+    if (mode === 'agent') setAgentOpened(true);
+  }, []);
   const resizingRef = useRef(false);
   const projectManagerRef = useRef(projectManager);
   projectManagerRef.current = projectManager;
@@ -184,6 +195,22 @@ function MotionScreenContent() {
     await projectManager.loadVersion(filePath, folderPath);
   }, [projectManager]);
 
+  // W7: a composition the agent's Motion sink wrote — the library gains a
+  // project (or a version) and the preview loads it, as a prompt-mode job would.
+  const handleAgentVersion = useCallback((versionPath: string, folderPath: string) => {
+    clearSaveMessage();
+    scheduleLibraryRefresh();
+    void projectManagerRef.current.loadVersion(versionPath, folderPath);
+  }, [scheduleLibraryRefresh]);
+
+  // W7: an opened agent session shows what it runs under in the panel's pickers.
+  const { setSelectedProvider, setModel, setSelectedBrandId } = generator;
+  const handleAgentRestore = useCallback((values: MotionAgentRestore) => {
+    if (values.providerId) setSelectedProvider(values.providerId);
+    setModel(values.model ?? '');
+    setSelectedBrandId(values.brandId);
+  }, [setSelectedProvider, setModel, setSelectedBrandId]);
+
   const handleCreateFolder = useCallback(async (name: string) => {
     await projectManager.createFolder(name);
   }, [projectManager]);
@@ -306,6 +333,19 @@ function MotionScreenContent() {
             <>
               <div className="flex-1 min-w-0 flex flex-col">
                 <MotionInputPanel
+                  mode={inputMode}
+                  onModeChange={handleModeChange}
+                  agentPanel={
+                    <MotionAgentPanel
+                      enabled={agentOpened}
+                      providers={generator.providers}
+                      providerId={generator.selectedProvider}
+                      model={generator.model}
+                      brandId={generator.selectedBrandId}
+                      onRestore={handleAgentRestore}
+                      onVersion={handleAgentVersion}
+                    />
+                  }
                   prompt={generator.prompt}
                   onPromptChange={generator.setPrompt}
                   providers={generator.providers}

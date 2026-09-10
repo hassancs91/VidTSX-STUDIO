@@ -51,6 +51,15 @@ interface Props {
   composerHint?: string;
   /** A pending `propose_memory` card, rendered under the conversation. */
   memoryProposal?: ReactNode;
+  /**
+   * W7 (embedded form): a pending `ask_user` card rendered under the
+   * conversation, for hosts with no stage to put it on — the TSX Creator's
+   * Agent mode. The Agents workspace leaves this unset and uses the stage.
+   */
+  interactionCard?: ReactNode;
+  /** W7: the host owns the provider / model / brand pickers (the Creator
+   *  panel's own), so the header shows none. */
+  hidePickers?: boolean;
 }
 
 export function AgentChat({
@@ -71,6 +80,8 @@ export function AgentChat({
   onNewSession,
   onOpenMemory,
   memoryProposal,
+  interactionCard,
+  hidePickers,
   prefill,
   quickStarts,
   onQuickStart,
@@ -111,15 +122,17 @@ export function AgentChat({
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
       >
         <div className="flex-1 min-w-0 flex items-center gap-2">
-          <ModelPickerChip
-            providers={providers}
-            providerId={providerId}
-            onProviderChange={onProviderChange}
-            model={model}
-            onModelChange={onModelChange}
-            disabled={busy}
-          />
-          {brandPicker}
+          {hidePickers ? null : (
+            <ModelPickerChip
+              providers={providers}
+              providerId={providerId}
+              onProviderChange={onProviderChange}
+              model={model}
+              onModelChange={onModelChange}
+              disabled={busy}
+            />
+          )}
+          {hidePickers ? null : brandPicker}
         </div>
         <button
           onClick={onOpenMemory}
@@ -161,7 +174,8 @@ export function AgentChat({
           ))
         )}
         {memoryProposal}
-        {waitingForAnswer ? (
+        {interactionCard}
+        {waitingForAnswer && !interactionCard ? (
           <div className="rounded-[6px] bg-accent-blue/10 px-2 py-1.5 text-[10px] text-accent-blue leading-snug">
             Waiting for your choice — answer it on the right.
           </div>
