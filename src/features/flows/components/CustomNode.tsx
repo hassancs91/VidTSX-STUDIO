@@ -107,6 +107,10 @@ const DATA_TYPE_LABEL: Record<DataType, string> = {
   image: 'Image',
   images: 'Images (multiple)',
   video: 'Video',
+  audio: 'Audio',
+  composition: 'Composition',
+  transcript: 'Transcript',
+  number: 'Number',
 };
 
 function PortHandle({

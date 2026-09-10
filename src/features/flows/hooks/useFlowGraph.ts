@@ -11,6 +11,13 @@ import {
 } from 'reactflow';
 import { ulid } from 'ulid';
 import type { FlowProject } from '@shared/ipc/types';
+import type { FlowDoc } from '@shared/types/flows';
+import {
+  legacyTypeIdForToolId,
+  parseFlowDoc,
+  toolIdForLegacyTypeId,
+} from '@shared/flows/migrate-v1';
+import { withGraph } from '@shared/flows/doc-graph';
 import { EMPTY_GRAPH, type GraphJson } from '../types';
 import { NODE_REGISTRY } from '../nodes';
 import { renderGraphThumbnail } from '../services/render-graph-thumbnail';
@@ -34,22 +41,46 @@ interface State {
   viewport: Viewport;
 }
 
-function parseGraph(raw: string): GraphJson {
-  try {
-    const parsed = JSON.parse(raw) as Partial<GraphJson>;
-    if (!parsed || typeof parsed !== 'object') return { ...EMPTY_GRAPH };
-    return {
-      nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
-      edges: Array.isArray(parsed.edges) ? parsed.edges : [],
-      viewport: parsed.viewport ?? { ...EMPTY_GRAPH.viewport },
-    };
-  } catch {
-    return { ...EMPTY_GRAPH };
-  }
+// The store holds a v2 FlowDoc (W8 Stage 0). The canvas still keys its node
+// definitions by the legacy typeId, so the graph is mapped both ways here:
+// toolId → typeId on load, typeId → toolId on save. Params, outputs, origin
+// and each node's `pause` ride along untouched on `docRef`.
+function docToCanvas(doc: FlowDoc): GraphJson {
+  return {
+    nodes: doc.graph.nodes.map((n) => ({
+      id: n.id,
+      type: 'flowNode' as const,
+      position: { ...n.position },
+      data: { typeId: legacyTypeIdForToolId(n.toolId) ?? n.toolId, config: { ...n.config } },
+    })),
+    edges: doc.graph.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
+    })),
+    viewport: { ...doc.graph.viewport },
+  };
 }
 
-function serialize(nodes: FlowNode[], edges: FlowEdge[], viewport: Viewport): string {
-  return JSON.stringify({ nodes, edges, viewport });
+function canvasToDoc(doc: FlowDoc, nodes: FlowNode[], edges: FlowEdge[], viewport: Viewport): FlowDoc {
+  return withGraph(doc, {
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      toolId: toolIdForLegacyTypeId(n.data.typeId),
+      position: { x: n.position.x, y: n.position.y },
+      config: n.data.config,
+    })),
+    edges: edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      sourceHandle: e.sourceHandle ?? '',
+      target: e.target,
+      targetHandle: e.targetHandle ?? '',
+    })),
+    viewport: { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
+  });
 }
 
 const SAVE_DEBOUNCE_MS = 500;
@@ -65,6 +96,7 @@ export function useFlowGraph(flowId: string) {
   });
   const lastSavedRef = useRef<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const docRef = useRef<FlowDoc | null>(null);
 
   // Load
   useEffect(() => {
@@ -88,11 +120,15 @@ export function useFlowGraph(flowId: string) {
         }));
         return;
       }
-      const graph = parseGraph(res.project.graphJson);
-      lastSavedRef.current = serialize(
-        graph.nodes as FlowNode[],
-        graph.edges as FlowEdge[],
-        graph.viewport,
+      const doc = parseFlowDoc(res.project.graphJson, {
+        id: res.project.id,
+        name: res.project.name,
+        description: res.project.description,
+      });
+      docRef.current = doc;
+      const graph = docToCanvas(doc);
+      lastSavedRef.current = JSON.stringify(
+        canvasToDoc(doc, graph.nodes as FlowNode[], graph.edges as FlowEdge[], graph.viewport),
       );
       setState({
         status: 'ready',
@@ -129,7 +165,10 @@ export function useFlowGraph(flowId: string) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
     saveTimerRef.current = setTimeout(() => {
-      const json = serialize(state.nodes, state.edges, state.viewport);
+      const base = docRef.current;
+      if (!base) return;
+      const nextDoc = canvasToDoc(base, state.nodes, state.edges, state.viewport);
+      const json = JSON.stringify(nextDoc);
       if (json === lastSavedRef.current) return;
       // Schematic thumbnail regenerated on every save — pure SVG, ~tiny, doesn't
       // depend on the canvas being mounted or a successful run having happened.
@@ -144,6 +183,7 @@ export function useFlowGraph(flowId: string) {
         .then((res) => {
           if (res.success && res.project) {
             lastSavedRef.current = json;
+            docRef.current = nextDoc;
             setState((prev) => ({ ...prev, project: res.project ?? prev.project }));
           } else {
             setState((prev) => ({ ...prev, error: res.error ?? 'Failed to save flow' }));
@@ -221,6 +261,7 @@ export function useFlowGraph(flowId: string) {
       if (!trimmed) return;
       const res = await window.api.flowsProjectUpdate({ id: flowId, name: trimmed });
       if (res.success && res.project) {
+        if (docRef.current) docRef.current = { ...docRef.current, name: trimmed };
         setState((prev) => ({ ...prev, project: res.project ?? prev.project }));
       }
     },

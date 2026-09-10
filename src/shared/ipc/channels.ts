@@ -164,6 +164,19 @@ export const IPC = {
   FLOWS_RUN_LIST: 'flows:run:list',
   FLOWS_RUN_LOAD: 'flows:run:load',
 
+  // Flows — W8 (docs/flows-plan.md §3): node specs, the main runner, freeze,
+  // packaging. Stage 0 names them; handlers arrive with Stages 1, 2, 5, 6.
+  FLOWS_NODES_LIST: 'flows:nodes:list',
+  FLOWS_RUN_START: 'flows:run:start',
+  FLOWS_RUN_CANCEL: 'flows:run:cancel',
+  FLOWS_RUN_RESUME: 'flows:run:resume',
+  FLOWS_RUN_EVENT: 'flows:run:event',
+  FLOWS_RUN_REPLY: 'flows:run:reply',
+  FLOWS_RUN_GET: 'flows:run:get',
+  FLOWS_FREEZE: 'flows:freeze',
+  FLOWS_EXPORT: 'flows:export',
+  FLOWS_IMPORT: 'flows:import',
+
   // Image generation operations
   IMAGE_PROVIDERS_GET: 'image:providers:get',
   IMAGE_PROVIDERS_SAVE: 'image:providers:save',

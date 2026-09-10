@@ -23,10 +23,8 @@ import {
   updateFlow,
   deleteFlow,
   setGalleryFolderId,
-  persistRun,
-  listRuns,
-  loadRun,
 } from '../services/flows-projects-db';
+import { persistRun, listRuns, loadRun } from '../services/flows-runs-db';
 import {
   createFolder as createGalleryFolder,
   renameFolder as renameGalleryFolder,
@@ -101,6 +99,8 @@ export async function handleFlowsProjectCreate(
       name: data.name.trim(),
       description: data.description,
       graphJson: data.graphJson,
+      source: data.source,
+      origin: data.origin,
     });
     const folderId = await ensureFlowGalleryFolder(project.id, project.name, null);
     return { success: true, project: { ...project, galleryFolderId: folderId } };

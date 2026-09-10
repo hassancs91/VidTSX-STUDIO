@@ -1,43 +1,12 @@
+// The ordering itself lives in `@shared/flows/topo-sort` (W8 Stage 0) so the
+// main runner and the structural validator share it; this file keeps the
+// registry-aware `validateGraph` the legacy renderer runner still uses.
+
 import { NODE_REGISTRY } from '../nodes';
-import type { GraphEdge, GraphJson, GraphNode } from '../types';
+import type { GraphJson } from '../types';
 
-export type TopoResult =
-  | { ok: true; order: string[] }
-  | { ok: false; error: string };
-
-export function topoSort(nodes: GraphNode[], edges: GraphEdge[]): TopoResult {
-  const inDegree: Record<string, number> = {};
-  const adj: Record<string, string[]> = {};
-
-  for (const node of nodes) {
-    inDegree[node.id] = 0;
-    adj[node.id] = [];
-  }
-
-  for (const edge of edges) {
-    if (!(edge.source in inDegree) || !(edge.target in inDegree)) continue;
-    adj[edge.source].push(edge.target);
-    inDegree[edge.target] += 1;
-  }
-
-  const queue: string[] = nodes.filter((n) => inDegree[n.id] === 0).map((n) => n.id);
-  const order: string[] = [];
-
-  while (queue.length > 0) {
-    const id = queue.shift() as string;
-    order.push(id);
-    for (const next of adj[id]) {
-      inDegree[next] -= 1;
-      if (inDegree[next] === 0) queue.push(next);
-    }
-  }
-
-  if (order.length !== nodes.length) {
-    return { ok: false, error: 'Cycle detected — flows must be a directed acyclic graph.' };
-  }
-
-  return { ok: true, order };
-}
+export { topoSort } from '@shared/flows/topo-sort';
+export type { TopoResult } from '@shared/flows/topo-sort';
 
 export type ValidationResult =
   | { ok: true }

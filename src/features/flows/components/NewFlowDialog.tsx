@@ -47,6 +47,7 @@ export function NewFlowDialog({ isOpen, onClose, onCreate }: Props) {
         name: trimmed,
         description: description.trim() || undefined,
         graphJson: template ? JSON.stringify(template.graph) : undefined,
+        source: template ? 'template' : 'user',
       });
       reset();
       onClose();
