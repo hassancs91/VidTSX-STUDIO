@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Workflow } from 'lucide-react';
+import { openFlowRunForm, useFlowHandoffs } from '@renderer/hooks/flows/useFlowHandoffs';
+import { builtinFlowTools } from '../services/flow-tools';
 import { FrameExtractorScreen } from './FrameExtractorScreen';
 import { AIChatScreen } from './AIChatScreen';
 import { ThumbnailGeneratorScreen } from './ThumbnailGeneratorScreen';
@@ -171,6 +174,9 @@ const tools: ToolCard[] = [
 
 export function ToolsHubScreen() {
   const [activeTool, setActiveTool] = useState<string | null>(null);
+  // W8 Stage 6 (flows plan §0.1 item 3): the built-in flows beside the screens.
+  const { flows, loaded: flowsLoaded } = useFlowHandoffs(null);
+  const flowTools = builtinFlowTools(flows);
 
   if (activeTool === 'ai-chat') {
     return <AIChatScreen onBack={() => setActiveTool(null)} />;
@@ -222,6 +228,7 @@ export function ToolsHubScreen() {
 
       {/* Tool Grid */}
       <div className="flex-1 overflow-auto p-4">
+        <h2 className="text-[11px] font-medium text-text-muted mb-2">Screens</h2>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           {tools.map((tool) => (
             <button
@@ -244,6 +251,43 @@ export function ToolsHubScreen() {
             </button>
           ))}
         </div>
+
+        {/* Flows — the built-ins, each opening its run form on the Flows screen (§1.8). */}
+        <h2 className="text-[11px] font-medium text-text-muted mt-6 mb-2" data-tools-flows-group>
+          Flows
+          <span className="text-text-dim"> · {flowTools.length}</span>
+        </h2>
+        {flowTools.length === 0 ? (
+          <p className="text-[11px] text-text-dim">{flowsLoaded ? 'No built-in flows were found.' : 'Loading flows…'}</p>
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+            {flowTools.map((flow) => (
+              <button
+                key={flow.flowId}
+                onClick={() => openFlowRunForm({ flowId: flow.flowId })}
+                className="flex flex-col items-start gap-3 p-4 rounded-[8px] bg-app-surface hover:bg-app-hover transition-colors text-left group"
+                style={{ border: '0.5px solid var(--color-border)' }}
+                data-tools-flow={flow.flowId}
+              >
+                <div className="flex items-center justify-center w-10 h-10 rounded-[8px] bg-app-base text-text-muted group-hover:text-accent transition-colors">
+                  <Workflow size={24} strokeWidth={1.5} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-[12px] text-text-primary font-medium">
+                    {flow.name}
+                    <span className="ml-1.5 text-[9px] px-1.5 py-[1px] rounded align-middle" style={{ background: '#085041', color: '#5DCAA5' }}>flow</span>
+                  </p>
+                  <p className="text-[10px] text-text-dim leading-relaxed">{flow.description}</p>
+                  {flow.besides ? (
+                    <p className="text-[10px] text-text-dim">
+                      Beside the {flow.besides === 'thumbnail-generator' ? 'Thumbnail Generator' : 'Frame Extractor'} screen
+                    </p>
+                  ) : null}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

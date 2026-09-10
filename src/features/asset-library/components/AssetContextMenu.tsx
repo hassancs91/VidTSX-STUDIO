@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { CopyIcon, PencilIcon, TrashIcon } from '@shared/components/library-icons';
+import { RunFlowMenu } from '@renderer/components/flows/RunFlowMenu';
 import type { AssetEntry } from '../types';
 
 interface AssetContextMenuProps {
@@ -23,6 +24,9 @@ export function AssetContextMenu({
 }: AssetContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
   const isFolder = entry.node.type === 'folder';
+  // W8 Stage 6 (flows plan §1.8): a video or an image can be handed to a flow
+  // that takes one — the run form opens with the file on that param.
+  const flowKind = !isFolder && (entry.category === 'video' || entry.category === 'image') ? entry.category : null;
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -57,6 +61,12 @@ export function AssetContextMenu({
         <>
           <MenuItem icon={<CopyIcon />} label="Copy URL (for src)" onClick={onCopyUrl} />
           <MenuItem icon={<CopyIcon />} label="Copy file path" onClick={onCopyRawPath} />
+          <MenuDivider />
+        </>
+      )}
+      {flowKind && (
+        <>
+          <RunFlowMenu kind={flowKind} value={entry.node.path} onDone={onClose} />
           <MenuDivider />
         </>
       )}

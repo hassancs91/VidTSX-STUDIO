@@ -3,6 +3,26 @@
   "id": "vidtsx/add-effect",
   "name": "Add an effect",
   "description": "A video → its first frame → the frame restyled by an image model → a 5 s clip animated from that frame (Kling 2.5 Turbo Pro, ~$0.40).",
+  "version": "1.0.0",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_video_file",
+      "input_text",
+      "extract_frame",
+      "generate_image",
+      "generate_video"
+    ],
+    "capabilities": [
+      "image-provider",
+      "video-provider"
+    ]
+  },
   "params": [
     {
       "id": "video",
@@ -156,5 +176,6 @@
       "label": "Video"
     }
   ],
-  "origin": null
+  "origin": null,
+  "files": []
 }

@@ -3,6 +3,22 @@
   "id": "vidtsx/explainer-30s",
   "name": "30-second explainer",
   "description": "Topic → script → animated Remotion composition (checkpoint) → rendered MP4. LLM turns only; no priced media steps.",
+  "version": "1.0.0",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_text",
+      "generate_text",
+      "generate_composition",
+      "render_composition"
+    ],
+    "capabilities": []
+  },
   "params": [
     {
       "id": "topic",
@@ -146,5 +162,6 @@
       "label": "Video"
     }
   ],
-  "origin": null
+  "origin": null,
+  "files": []
 }

@@ -4,8 +4,10 @@ import { FlowCardMenu, type FlowCardAction } from './FlowCardMenu';
 
 interface Props {
   project: FlowProjectSummary;
-  /** Built-ins (Stage 6) are read-only. */
+  /** Packaged flows (built-in, installed) are read-only. */
   readOnly: boolean;
+  /** Built-ins cannot be removed. */
+  removable?: boolean;
   onOpen: (id: string) => void;
   onAction: (id: string, action: FlowCardAction) => void;
 }
@@ -14,7 +16,7 @@ function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function FlowProjectCard({ project, readOnly, onOpen, onAction }: Props) {
+export function FlowProjectCard({ project, readOnly, removable, onOpen, onAction }: Props) {
   return (
     <div
       className="group relative bg-app-surface rounded-md overflow-visible hover:bg-app-hover transition-colors cursor-pointer"
@@ -33,11 +35,11 @@ export function FlowProjectCard({ project, readOnly, onOpen, onAction }: Props) 
         <p className="text-[12px] text-text-primary font-medium line-clamp-1">{project.name}</p>
         <p className="text-[10px] text-text-dim mt-0.5">
           {formatDate(project.updatedAt)}
-          {project.source !== 'user' ? ` · ${project.source}` : ''}
+          {project.package ? ` · v${project.package.version}` : project.source !== 'user' ? ` · ${project.source}` : ''}
         </p>
       </div>
       <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-        <FlowCardMenu readOnly={readOnly} onAction={(action) => onAction(project.id, action)} />
+        <FlowCardMenu readOnly={readOnly} {...(removable !== undefined ? { removable } : {})} onAction={(action) => onAction(project.id, action)} />
       </div>
     </div>
   );

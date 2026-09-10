@@ -4,22 +4,24 @@ import { MoreHorizontal, Play, PenSquare, Info, Copy, Download, Trash2 } from 'l
 export type FlowCardAction = 'run' | 'edit' | 'details' | 'duplicate' | 'export' | 'remove';
 
 interface Props {
-  /** Built-ins are read-only: Edit and Remove are hidden, Duplicate makes an editable copy. */
+  /** Packaged flows (built-in, installed) are read-only: Edit is hidden, Duplicate makes an editable copy. */
   readOnly: boolean;
+  /** Built-ins cannot be removed; an installed flow's Remove uninstalls it (W8 Stage 6). */
+  removable?: boolean;
   onAction: (action: FlowCardAction) => void;
 }
 
-const ITEMS: { id: FlowCardAction; label: string; icon: typeof Play; editable?: boolean; danger?: boolean }[] = [
+const ITEMS: { id: FlowCardAction; label: string; icon: typeof Play; editable?: boolean; removes?: boolean; danger?: boolean }[] = [
   { id: 'run', label: 'Run', icon: Play },
   { id: 'edit', label: 'Edit', icon: PenSquare, editable: true },
   { id: 'details', label: 'Details', icon: Info },
   { id: 'duplicate', label: 'Duplicate', icon: Copy },
   { id: 'export', label: 'Export…', icon: Download },
-  { id: 'remove', label: 'Remove', icon: Trash2, editable: true, danger: true },
+  { id: 'remove', label: 'Remove', icon: Trash2, removes: true, danger: true },
 ];
 
 /** The same card menu the agents gallery has (flows plan §1.8). */
-export function FlowCardMenu({ readOnly, onAction }: Props) {
+export function FlowCardMenu({ readOnly, removable = !readOnly, onAction }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -49,7 +51,7 @@ export function FlowCardMenu({ readOnly, onAction }: Props) {
           style={{ border: '0.5px solid var(--color-border)' }}
           role="menu"
         >
-          {ITEMS.filter((item) => !(readOnly && item.editable)).map(({ id, label, icon: Icon, danger }) => (
+          {ITEMS.filter((item) => !(readOnly && item.editable) && !(item.removes && !removable)).map(({ id, label, icon: Icon, danger }) => (
             <button
               key={id}
               role="menuitem"

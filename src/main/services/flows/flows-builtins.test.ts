@@ -5,23 +5,35 @@
 // every param binds to a config key, and the outputs name real ports. The
 // thumbnail flow carries the hub's locked system prompt verbatim; product-ad
 // is ONE `generate_image` with three variations and a pause (Stage 2's note).
+// W8 Stage 6: each fixture is also a package manifest — it loads through the
+// store as a read-only built-in, `requires` matches the graph and the
+// registry's gates, and the folder is what the installer ships.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import { z } from 'zod';
+
+vi.mock('electron', () => ({
+  app: { getPath: () => 'C:/tmp', isPackaged: false, getAppPath: () => 'C:/tmp', getVersion: () => '1.1.0' },
+}));
+
 import type { FlowDoc } from '../../../shared/types/flows';
 import { validateFlowDoc } from '../../../shared/flows/validate';
+import { flowDocOf, parseFlowPackageManifest } from '../../../shared/flows/flow-package';
 import { THUMBNAIL_SYSTEM_PROMPT } from '../../../shared/prompts/thumbnail-system-prompt';
-import { getNode } from '../agents/tools/registry';
+import { getNode, listToolIds } from '../agents/tools/registry';
 import { validateFlowForRun } from './flow-validate';
+import { readFlowFolder, scanFlows } from './flow-store';
 
 const ALL = { imageProvider: true, videoProvider: true, audioProvider: true };
 const NAMES = ['thumbnail', 'frame-strip', 'explainer-30s', 'product-ad', 'add-effect'] as const;
 const ROOT = path.resolve(__dirname, '../../../../resources/flows/vidtsx');
 
 async function load(name: string): Promise<FlowDoc> {
-  return JSON.parse(await fs.readFile(path.join(ROOT, name, 'flow.json'), 'utf-8')) as FlowDoc;
+  // The document half of the package manifest (Stage 6) — what the runner sees.
+  const raw = JSON.parse(await fs.readFile(path.join(ROOT, name, 'flow.json'), 'utf-8')) as unknown;
+  return flowDocOf(parseFlowPackageManifest(raw));
 }
 
 describe('built-in flow fixtures', () => {
@@ -80,6 +92,34 @@ describe('built-in flow fixtures', () => {
     expect(doc.params.find((p) => p.id === 'product')?.kind).toBe('image');
     // The clip feeds the composition's video port — the Stage 3 media convention.
     expect(doc.graph.edges).toContainEqual(expect.objectContaining({ source: 'n-clip', sourceHandle: 'video', target: 'n-compose', targetHandle: 'video' }));
+  });
+
+  it.each(NAMES)('%s is a package manifest the store reads as a read-only built-in (Stage 6)', async (name) => {
+    const flow = await readFlowFolder(path.join(ROOT, name), 'builtin', { manifestContext: { appVersion: '1.1.0', toolIds: listToolIds() } });
+    expect(flow, name).not.toBeNull();
+    expect(flow!.origin).toBe('builtin');
+    expect(flow!.manifest.version).toBe('1.0.0');
+    expect(flow!.manifest.author.name).toBe('VidTSX');
+    expect(flow!.manifest.minAppVersion).toBe('1.1.0');
+    expect(flow!.manifest.files).toEqual([]);
+    // Unsigned unless VIDTSX_AGENT_SIGNING_KEY was present at build time; the
+    // UI lets `builtin` outrank the tag either way.
+    expect(['unsigned', 'verified']).toContain(flow!.signature);
+    // `requires` is what the packer writes: the graph's tools, and the gates those tools carry.
+    const doc = flowDocOf(flow!.manifest);
+    const tools = [...new Set(doc.graph.nodes.map((n) => n.toolId))];
+    expect(flow!.manifest.requires.tools).toEqual(tools);
+    const gates = [...new Set(tools.map((t) => getNode(t)?.needs).filter((n): n is NonNullable<typeof n> => Boolean(n)))];
+    expect(flow!.manifest.requires.capabilities).toEqual(gates);
+  });
+
+  it('the built-in root scans to exactly the five, sorted by name', async () => {
+    const flows = await scanFlows(
+      { manifestContext: { appVersion: '1.1.0', toolIds: listToolIds() } },
+      { userDir: path.join(ROOT, '..', '..', 'no-such-user-root'), builtinDir: path.resolve(ROOT, '..') },
+    );
+    expect(flows.map((f) => f.manifest.id).sort()).toEqual(['vidtsx/add-effect', 'vidtsx/explainer-30s', 'vidtsx/frame-strip', 'vidtsx/product-ad', 'vidtsx/thumbnail']);
+    expect(flows.every((f) => f.origin === 'builtin')).toBe(true);
   });
 
   it('frame-strip and add-effect take a video param bound to the file input, explainer pauses on the composition', async () => {

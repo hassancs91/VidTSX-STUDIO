@@ -4,6 +4,7 @@ import { isFeatureEnabled } from '@shared/feature-flags';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { useFlowProjects } from '../hooks/useFlowProjects';
 import { FREEZE_EVENT, pendingFreezeFromEvent, takePendingFreeze, type PendingFreeze } from '../services/pending-freeze';
+import { FLOWS_OPEN_EVENT, handoffFromEvent, takePendingHandoff, type FlowHandoff } from '../services/pending-handoff';
 import { FlowProjectList } from './FlowProjectList';
 import { NewFlowDialog } from './NewFlowDialog';
 import { FlowDetailsDialog } from './FlowDetailsDialog';
@@ -40,6 +41,8 @@ interface OpenFlow {
   view: FlowView;
   /** W8 Stage 5: the agent session whose frozen proposal the canvas shows. */
   proposalSessionId?: string;
+  /** W8 Stage 6: params another screen prefilled ("Run a flow on this"). */
+  prefill?: Record<string, unknown>;
 }
 
 function FlowsScreenInner() {
@@ -84,6 +87,22 @@ function FlowsScreenInner() {
     return () => window.removeEventListener(FREEZE_EVENT, handler);
   }, [openFrozen]);
 
+  // W8 Stage 6: "Run a flow on this" from the Library / Video Studio, and
+  // the Tools hub's Flows group — open the run form, params prefilled.
+  useEffect(() => {
+    const open = (handoff: FlowHandoff) =>
+      setActive({ id: handoff.flowId, view: 'run', ...(handoff.prefill ? { prefill: handoff.prefill } : {}) });
+    const stashed = takePendingHandoff();
+    if (stashed) open(stashed);
+    const handler = (event: Event) => {
+      const handoff = handoffFromEvent(event);
+      takePendingHandoff();
+      if (handoff) open(handoff);
+    };
+    window.addEventListener(FLOWS_OPEN_EVENT, handler);
+    return () => window.removeEventListener(FLOWS_OPEN_EVENT, handler);
+  }, []);
+
   const discardFrozen = useCallback(async () => {
     if (!active?.proposalSessionId) return;
     await remove(active.id);
@@ -109,15 +128,43 @@ function FlowsScreenInner() {
     [create, showToast],
   );
 
-  const importFlow = useCallback(async () => {
-    const res = await window.api.flowsImport({});
-    if (res.success) {
-      showToast(`Imported "${res.project?.name ?? 'flow'}"`, 'success');
-      void refresh();
-      return;
-    }
-    if (res.error !== 'Import cancelled.') showToast(res.error ?? 'Import failed', 'error');
-  }, [refresh, showToast]);
+  // W8 Stage 6: a `.vidtsxflow` installs under Installed (the unsigned /
+  // unverified notice is the toast); a bare flow.json becomes one of My flows;
+  // an older version than the installed one asks first.
+  const importFlow = useCallback(
+    async (path?: string, confirmDowngrade?: boolean) => {
+      const res = await window.api.flowsImport({ ...(path ? { path } : {}), ...(confirmDowngrade ? { confirmDowngrade: true } : {}) });
+      if (res.success) {
+        for (const warning of res.warnings ?? []) showToast(warning, 'info');
+        showToast(`Imported "${res.project?.name ?? 'flow'}"`, 'success');
+        void refresh();
+        return;
+      }
+      if (res.needsConfirm === 'downgrade') {
+        if (window.confirm(`Version ${res.installedVersion ?? '?'} of this flow is installed. Replace it with the older one in this file?`)) {
+          await importFlow(path, true);
+        }
+        return;
+      }
+      if (!res.canceled) showToast(res.error ?? 'Import failed', 'error');
+    },
+    [refresh, showToast],
+  );
+
+  // A double-clicked `.vidtsxflow` parks in main until this screen claims it
+  // — on mount, and again whenever the screen becomes active.
+  useEffect(() => {
+    const claim = async (): Promise<void> => {
+      const res = await window.api.flowsPendingPackage();
+      if (res.filePath) await importFlow(res.filePath);
+    };
+    void claim();
+    const onActive = (event: Event) => {
+      if ((event as CustomEvent<{ screen?: string }>).detail?.screen === 'flows') void claim();
+    };
+    window.addEventListener('vidtsx:screen-active', onActive);
+    return () => window.removeEventListener('vidtsx:screen-active', onActive);
+  }, [importFlow]);
 
   const onAction = useCallback(
     async (id: string, action: FlowCardAction) => {
@@ -141,7 +188,13 @@ function FlowsScreenInner() {
         }
         case 'remove': {
           const project = projects.find((p) => p.id === id);
-          if (window.confirm(`Delete "${project?.name ?? 'this flow'}"? This cannot be undone.`)) await remove(id);
+          const question =
+            project?.source === 'installed'
+              ? `Uninstall "${project.name}"? Its run history goes with it; the package file is not touched.`
+              : `Delete "${project?.name ?? 'this flow'}"? This cannot be undone.`;
+          if (window.confirm(question)) {
+            if (await remove(id)) void refresh();
+          }
           return;
         }
       }
@@ -155,6 +208,7 @@ function FlowsScreenInner() {
         key={active.id}
         flowId={active.id}
         initialView={active.view}
+        {...(active.prefill ? { prefill: active.prefill } : {})}
         {...(active.proposalSessionId
           ? { proposalSessionId: active.proposalSessionId, onProposalDiscarded: () => void discardFrozen() }
           : {})}

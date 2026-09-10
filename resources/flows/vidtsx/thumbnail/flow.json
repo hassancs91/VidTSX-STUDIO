@@ -3,6 +3,23 @@
   "id": "vidtsx/thumbnail",
   "name": "Thumbnail",
   "description": "Topic → one thumbnail image prompt (the Thumbnail Generator prompt) → the image. Free on a local image provider.",
+  "version": "1.0.0",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_text",
+      "generate_text",
+      "generate_image"
+    ],
+    "capabilities": [
+      "image-provider"
+    ]
+  },
   "params": [
     {
       "id": "topic",
@@ -112,5 +129,6 @@
       "label": "Thumbnail"
     }
   ],
-  "origin": null
+  "origin": null,
+  "files": []
 }

@@ -2,7 +2,28 @@
   "formatVersion": 2,
   "id": "vidtsx/product-ad",
   "name": "Product ad",
-  "description": "Product photo + description → three hero images (pick one) → a 6 s clip (Hailuo 02, ~$0.27) → a composition around it → MP4.",
+  "description": "Product photo + description → three hero images (pick one) → a 5 s clip (Kling 2.5 Turbo Pro, ~$0.40) → a composition around it → MP4.",
+  "version": "1.0.0",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_image_file",
+      "input_text",
+      "generate_image",
+      "generate_video",
+      "generate_composition",
+      "render_composition"
+    ],
+    "capabilities": [
+      "image-provider",
+      "video-provider"
+    ]
+  },
   "params": [
     {
       "id": "product",
@@ -82,9 +103,9 @@
         },
         "config": {
           "providerId": "",
-          "model": "hailuo-02",
+          "model": "kling-2.5-turbo-pro",
           "aspectRatio": "16:9",
-          "durationSeconds": "6",
+          "durationSeconds": "5",
           "resolution": "",
           "generateAudio": "off"
         },
@@ -187,5 +208,6 @@
       "label": "Video"
     }
   ],
-  "origin": null
+  "origin": null,
+  "files": []
 }

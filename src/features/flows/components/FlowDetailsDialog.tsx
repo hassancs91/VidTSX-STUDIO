@@ -3,6 +3,7 @@ import { Modal } from '@shared/components/Modal';
 import type { FlowProject } from '@shared/ipc/types';
 import type { FlowDoc } from '@shared/types/flows';
 import { parseFlowDoc } from '@shared/flows/migrate-v1';
+import { trustTagForFlow } from '../services/flow-trust';
 
 interface Props {
   flowId: string | null;
@@ -54,6 +55,22 @@ export function FlowDetailsDialog({ flowId, onClose }: Props) {
           <>
             {doc.description ? <p className="text-[11px] text-text-secondary leading-snug">{doc.description}</p> : null}
             <Row label="Source">{project.source}</Row>
+            {project.package ? (
+              <>
+                <Row label="Trust">
+                  <span
+                    className={trustTagForFlow(project).tone === 'accent' ? 'text-accent-light' : 'text-accent-amber'}
+                    data-flow-trust={trustTagForFlow(project).id}
+                  >
+                    {trustTagForFlow(project).label}
+                  </span>
+                  {trustTagForFlow(project).notice ? <span className="block text-[10px] text-text-dim mt-0.5">{trustTagForFlow(project).notice}</span> : null}
+                </Row>
+                <Row label="Version">{project.package.version}</Row>
+                <Row label="Author">{project.package.author}</Row>
+                {project.package.viaAgent ? <Row label="Ships with">{`${project.package.viaAgent.name} (agent)`}</Row> : null}
+              </>
+            ) : null}
             <Row label="Updated">{new Date(project.updatedAt).toLocaleString()}</Row>
             <Row label="Steps">
               {doc.graph.nodes.length} node{doc.graph.nodes.length === 1 ? '' : 's'}, {doc.graph.edges.length} edge{doc.graph.edges.length === 1 ? '' : 's'}

@@ -15,16 +15,15 @@ type Group = 'mine' | 'builtin' | 'installed';
 
 const GROUPS: { id: Group; label: string; empty: string }[] = [
   { id: 'mine', label: 'My flows', empty: 'Flows you create, duplicate, freeze or import appear here.' },
-  { id: 'builtin', label: 'Built-in', empty: 'The flows that ship with the app arrive with Stage 6 of the flows plan.' },
+  { id: 'builtin', label: 'Built-in', empty: 'The flows that ship with the app could not be found — the app resources are missing.' },
   { id: 'installed', label: 'Installed', empty: 'Flows installed from a .vidtsxflow file or an agent package appear here.' },
 ];
 
-/** Reads the `source` column (Stage 0). Built-in and installed rows are Stage 6's; until
- *  then every row is the user's, and a forward-compatible string keeps them grouped when they land. */
-function groupFor(project: FlowProjectSummary): Group {
-  const source: string = project.source;
-  if (source === 'builtin' || project.id.startsWith('vidtsx/')) return 'builtin';
-  if (source === 'installed') return 'installed';
+/** Reads the `source` column: `builtin` / `installed` rows mirror a packaged
+ *  flow's folder (W8 Stage 6); everything else is the user's. */
+export function groupFor(project: Pick<FlowProjectSummary, 'source'>): Group {
+  if (project.source === 'builtin') return 'builtin';
+  if (project.source === 'installed') return 'installed';
   return 'mine';
 }
 
@@ -80,7 +79,14 @@ export function FlowProjectList({ projects, onCreate, onImport, onOpen, onAction
             ) : (
               <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
                 {rows.map((project) => (
-                  <FlowProjectCard key={project.id} project={project} readOnly={group.id === 'builtin'} onOpen={onOpen} onAction={onAction} />
+                  <FlowProjectCard
+                    key={project.id}
+                    project={project}
+                    readOnly={group.id !== 'mine'}
+                    removable={group.id !== 'builtin'}
+                    onOpen={onOpen}
+                    onAction={onAction}
+                  />
                 ))}
               </div>
             )}

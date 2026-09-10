@@ -3,6 +3,20 @@
   "id": "vidtsx/frame-strip",
   "name": "Frame strip",
   "description": "A video → N frames sampled evenly across it, as PNGs in the library. Free.",
+  "version": "1.0.0",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_video_file",
+      "extract_frame"
+    ],
+    "capabilities": []
+  },
   "params": [
     {
       "id": "video",
@@ -84,5 +98,6 @@
       "label": "Frames"
     }
   ],
-  "origin": null
+  "origin": null,
+  "files": []
 }

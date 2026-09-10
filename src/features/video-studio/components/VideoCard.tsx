@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react';
+import { Workflow } from 'lucide-react';
+import { RunFlowMenu } from '@renderer/components/flows/RunFlowMenu';
+import { fileUrlToPath } from '@shared/flows/flow-handoff';
 import type { GalleryVideo } from '../types';
 
 const DownloadIcon = () => (
@@ -85,6 +88,8 @@ export function VideoCard({
   onToggleSelect,
 }: VideoCardProps) {
   const [hovered, setHovered] = useState(false);
+  // W8 Stage 6 (flows plan §1.8): "Run a flow on this" — the flows that take a video.
+  const [flowMenu, setFlowMenu] = useState(false);
   const videoEl = useRef<HTMLVideoElement | null>(null);
 
   const handleDragStart = (e: React.DragEvent) => {
@@ -209,7 +214,21 @@ export function VideoCard({
           selectionMode ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'
         }`}
       >
-        <div className="flex justify-end gap-1 flex-wrap pointer-events-auto">
+        <div className="flex justify-end gap-1 flex-wrap pointer-events-auto relative">
+          <ActionButton title="Run a flow on this" onClick={(e) => { e.stopPropagation(); setFlowMenu((v) => !v); }}>
+            <Workflow size={14} strokeWidth={2} />
+          </ActionButton>
+          {flowMenu && (
+            <div
+              className="absolute right-0 bottom-full mb-1 min-w-[200px] py-1 rounded-md bg-app-surface shadow-lg z-30 text-left"
+              style={{ border: '0.5px solid var(--color-border)' }}
+              onClick={(e) => e.stopPropagation()}
+              data-video-run-flow
+            >
+              <div className="px-3 py-1 text-[10px] text-text-dim">Run a flow on this</div>
+              <RunFlowMenu kind="video" value={fileUrlToPath(video.videoUrl)} variant="list" onDone={() => setFlowMenu(false)} />
+            </div>
+          )}
           <ActionButton title="Save As" onClick={(e) => { e.stopPropagation(); onSaveAs(video.id); }}>
             <DownloadIcon />
           </ActionButton>
