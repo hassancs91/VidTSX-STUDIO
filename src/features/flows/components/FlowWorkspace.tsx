@@ -18,9 +18,13 @@ interface Props {
   initialView?: FlowView;
   /** Prefilled run params (§12 open question 1). */
   prefill?: Record<string, unknown>;
+  /** W8 Stage 5: the agent session whose frozen proposal the canvas shows. */
+  proposalSessionId?: string;
+  /** W8 Stage 5: the frozen proposal was discarded. */
+  onProposalDiscarded?: () => void;
 }
 
-function FlowWorkspaceInner({ flowId, onBack, initialView = 'run', prefill }: Props) {
+function FlowWorkspaceInner({ flowId, onBack, initialView = 'run', prefill, proposalSessionId, onProposalDiscarded }: Props) {
   const { byId: specs } = useNodeSpecs();
   const graph = useFlowGraph(flowId, specs);
   const { status, project, error, doc, renameFlow, exposeNodeParam, unexposeNodeParam, setPause } = graph;
@@ -144,6 +148,8 @@ function FlowWorkspaceInner({ flowId, onBack, initialView = 'run', prefill }: Pr
               onExpose={exposeNodeParam}
               onUnexpose={unexposeNodeParam}
               onSetPause={setPause}
+              {...(proposalSessionId ? { proposalSessionId } : {})}
+              {...(onProposalDiscarded ? { onProposalDiscarded } : {})}
             />
           )}
         </div>

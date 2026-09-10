@@ -215,15 +215,28 @@ export interface FlowsRunGetResponse {
   error?: string;
 }
 
-/** Freeze an agent session's winning path into a draft doc (§1.5). */
+/** Freeze an agent session's winning path into a draft doc (§1.5, Stage 5). */
 export interface FlowsFreezeRequest {
+  /** Sessions are per agent (agents plan §1.5); both name the folder. */
+  agentId: string;
   sessionId: string;
   artifactId: string;
+  /**
+   * True: the session's agent gets one turn with the draft and `save_flow`
+   * to name it, describe it and pick the params; the proposal then arrives
+   * on the run stream. False / absent: the draft is queued as a proposal at
+   * once ("Frozen from session …", Accept / Discard on the canvas).
+   */
+  viaAgent?: boolean;
 }
 
 export interface FlowsFreezeResponse {
   success: boolean;
   doc?: FlowDoc;
+  /** The queued proposal (the direct path). */
+  proposalId?: string;
+  /** The agent is naming it; the card follows as a `flow-proposal` event. */
+  viaAgent?: boolean;
   error?: string;
 }
 

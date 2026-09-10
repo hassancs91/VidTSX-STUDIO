@@ -46,6 +46,8 @@ import { listNodesTool } from './list-nodes';
 import { readFlowTool } from './read-flow';
 import { proposeFlowTool } from './propose-flow';
 import { readRunTool } from './read-run';
+import { freezeSessionToFlowTool } from './freeze-session-to-flow';
+import { saveFlowTool } from './save-flow';
 
 // Wave 1 (plan §1.3).
 registerTool(writeDocumentTool);
@@ -90,3 +92,7 @@ registerTool(listNodesTool);
 registerTool(readFlowTool);
 registerTool(proposeFlowTool);
 registerTool(readRunTool);
+// W8 Stage 5: freeze a session into a flow (flows plan §1.5) — the draft
+// from the lineage walk, and the one tool that names it.
+registerTool(freezeSessionToFlowTool);
+registerTool(saveFlowTool);

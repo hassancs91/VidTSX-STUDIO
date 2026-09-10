@@ -56,6 +56,10 @@ export const AGENT_TOOL_IDS = [
   'read_flow',
   'propose_flow',
   'read_run',
+  // W8 Stage 5 (2026-09-10): freeze a session into a flow (docs/flows-plan.md
+  // §1.5) — the draft from the lineage walk, and the one tool that names it.
+  'freeze_session_to_flow',
+  'save_flow',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

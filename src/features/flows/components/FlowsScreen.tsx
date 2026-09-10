@@ -1,8 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Workflow } from 'lucide-react';
 import { isFeatureEnabled } from '@shared/feature-flags';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { useFlowProjects } from '../hooks/useFlowProjects';
+import { FREEZE_EVENT, pendingFreezeFromEvent, takePendingFreeze, type PendingFreeze } from '../services/pending-freeze';
 import { FlowProjectList } from './FlowProjectList';
 import { NewFlowDialog } from './NewFlowDialog';
 import { FlowDetailsDialog } from './FlowDetailsDialog';
@@ -37,6 +38,8 @@ export function FlowsScreen() {
 interface OpenFlow {
   id: string;
   view: FlowView;
+  /** W8 Stage 5: the agent session whose frozen proposal the canvas shows. */
+  proposalSessionId?: string;
 }
 
 function FlowsScreenInner() {
@@ -45,6 +48,48 @@ function FlowsScreenInner() {
   const [showNew, setShowNew] = useState(false);
   const [details, setDetails] = useState<string | null>(null);
   const [active, setActive] = useState<OpenFlow | null>(null);
+
+  // W8 Stage 5: a session frozen from the agent stage. Main holds the
+  // proposal; an EMPTY row is created for it (source `frozen`, the session
+  // as origin) so the canvas can show the draft as "all added" over the
+  // ordinary overlay — Accept saves through the same path every proposal
+  // takes, Discard deletes the row again.
+  const openFrozen = useCallback(
+    async (pending: PendingFreeze) => {
+      const res = await window.api.flowsProposalGet({ sessionId: pending.sessionId });
+      if (!res.success || !res.proposal) {
+        showToast(res.error ?? 'The frozen flow is no longer pending', 'error');
+        return;
+      }
+      const { doc } = res.proposal;
+      const row = await create({
+        name: doc.name,
+        ...(doc.description ? { description: doc.description } : {}),
+        source: 'frozen',
+        origin: doc.origin,
+      });
+      if (row) setActive({ id: row.id, view: 'edit', proposalSessionId: pending.sessionId });
+    },
+    [create, showToast],
+  );
+  useEffect(() => {
+    const stashed = takePendingFreeze();
+    if (stashed) void openFrozen(stashed);
+    const handler = (event: Event) => {
+      const pending = pendingFreezeFromEvent(event);
+      takePendingFreeze();
+      if (pending) void openFrozen(pending);
+    };
+    window.addEventListener(FREEZE_EVENT, handler);
+    return () => window.removeEventListener(FREEZE_EVENT, handler);
+  }, [openFrozen]);
+
+  const discardFrozen = useCallback(async () => {
+    if (!active?.proposalSessionId) return;
+    await remove(active.id);
+    setActive(null);
+    void refresh();
+  }, [active, remove, refresh]);
 
   const duplicate = useCallback(
     async (id: string) => {
@@ -110,6 +155,9 @@ function FlowsScreenInner() {
         key={active.id}
         flowId={active.id}
         initialView={active.view}
+        {...(active.proposalSessionId
+          ? { proposalSessionId: active.proposalSessionId, onProposalDiscarded: () => void discardFrozen() }
+          : {})}
         onBack={() => {
           setActive(null);
           void refresh();

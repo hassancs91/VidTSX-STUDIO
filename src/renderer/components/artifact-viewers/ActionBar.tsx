@@ -7,7 +7,7 @@
 // has to be the same everywhere: a video cannot be opened in the Creator, and a
 // job has no file to open a folder on until it is terminal.
 
-import { Copy, Download, FolderOpen, Globe, ListVideo, Save, Scissors, Wand2 } from 'lucide-react';
+import { Copy, Download, FolderOpen, Globe, ListVideo, Save, Scissors, Snowflake, Wand2 } from 'lucide-react';
 import type { AgentArtifactActionKind } from '@shared/ipc/types';
 import type { AgentArtifact, ArtifactKind } from '@shared/types/agents';
 
@@ -20,6 +20,9 @@ const ACTIONS: Record<AgentArtifactActionKind, { label: string; icon: typeof Sav
   'copy-path': { label: 'Copy path', icon: Copy },
   'open-in-browser': { label: 'Open in browser', icon: Globe },
   'export-site': { label: 'Export site', icon: Download },
+  // W8 Stage 5: offered by the AGENT stage only (`extra`) — a flow run's
+  // output has no session lineage to freeze.
+  'freeze-to-flow': { label: 'Freeze into a flow', icon: Snowflake },
 };
 
 const BY_KIND: Record<ArtifactKind, AgentArtifactActionKind[]> = {
@@ -41,14 +44,18 @@ interface Props {
   /** False disables "Add to Studio" — a shot needs an open Studio project. */
   studioProjectOpen: boolean;
   onRun: (action: AgentArtifactActionKind) => void;
+  /** Actions the HOST adds after the kind's own, on every kind that has any
+   *  (W8 Stage 5: the agent stage's "Freeze into a flow"). */
+  extra?: AgentArtifactActionKind[];
 }
 
-export function ActionBar({ artifact, running, studioProjectOpen, onRun }: Props) {
+export function ActionBar({ artifact, running, studioProjectOpen, onRun, extra = [] }: Props) {
   // A job's own actions belong to its RESULT, which arrives as a separate
   // artifact — so a job row offers nothing here rather than offering something
   // that would read a payload field it does not have yet (§1.4).
-  const actions = BY_KIND[artifact.kind];
-  if (actions.length === 0) return null;
+  const own = BY_KIND[artifact.kind];
+  if (own.length === 0) return null;
+  const actions = [...own, ...extra.filter((a) => !own.includes(a))];
 
   return (
     <div

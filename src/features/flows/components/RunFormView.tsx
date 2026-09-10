@@ -46,7 +46,8 @@ export function RunFormView({ doc, specs, runState, prefill, onRun, onCancel, on
   const [values, setValues] = useState<Record<string, unknown>>(() => initialParamValues(doc.params, prefill));
   const [mode, setMode] = useState<FlowRunMode>(pausable ? 'attended' : 'unattended');
   // Run-level brand (§0.1 item 9): undefined = library default, null = none.
-  const [brandId, setBrandId] = useState<string | null | undefined>(undefined);
+  // A frozen flow starts on the session's brand (W8 Stage 5, `origin.brandId`).
+  const [brandId, setBrandId] = useState<string | null | undefined>(doc.origin?.brandId);
   const brandList = useAgentBrandList();
 
   // A param added or removed on the canvas shows up here without a reload.

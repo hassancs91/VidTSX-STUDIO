@@ -166,6 +166,10 @@ export async function runArtifactAction(
       // flow. Reaching here means the caller did not intercept it.
       log.warn('send-to-queue reached the generic action path', { artifact: input.artifact.id });
       return { success: false, error: 'Only a composition can be sent to the render queue.' };
+    case 'freeze-to-flow':
+      // W8 Stage 5: the renderer freezes over FLOWS_FREEZE (it needs the
+      // session, not a file) and navigates to the canvas itself.
+      return { success: false, error: 'Freezing is done from the agent stage, over the flows channel.' };
   }
 }
 

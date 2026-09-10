@@ -25,6 +25,7 @@ import {
   handleFlowsRunArtifactResolve,
 } from '../flows-artifact-handlers';
 import { handleFlowsProposalGet, handleFlowsProposalResolve } from '../flows-proposal-handlers';
+import { handleFlowsFreeze } from '../flows-freeze-handlers';
 import { flowService } from '../../services/flows/flow-service';
 
 export function registerFlowsIpc(): void {
@@ -54,6 +55,8 @@ export function registerFlowsIpc(): void {
   // W8 Stage 4: the Flow Builder's proposal card.
   ipcMain.handle(IPC.FLOWS_PROPOSAL_GET, handleFlowsProposalGet);
   ipcMain.handle(IPC.FLOWS_PROPOSAL_RESOLVE, handleFlowsProposalResolve);
+  // W8 Stage 5: freeze a session's winning path into a flow proposal.
+  ipcMain.handle(IPC.FLOWS_FREEZE, handleFlowsFreeze);
 
   // The run stream, broadcast to every webContents the way the agents' is,
   // so a reload cannot leave the canvas listening to nothing.

@@ -17,6 +17,8 @@ import type {
   FlowsImportResponse,
   FlowsExportRequest,
   FlowsExportResponse,
+  FlowsFreezeRequest,
+  FlowsFreezeResponse,
   FlowsRunResumeRequest,
   FlowsRunResumeResponse,
   FlowsProposalGetRequest,
@@ -88,6 +90,8 @@ export const flowsApi = {
     ipcRenderer.invoke(IPC.FLOWS_PROPOSAL_GET, data),
   flowsProposalResolve: (data: FlowsProposalResolveRequest): Promise<FlowsProposalResolveResponse> =>
     ipcRenderer.invoke(IPC.FLOWS_PROPOSAL_RESOLVE, data),
+  // W8 Stage 5: freeze a session's winning path into a flow proposal.
+  flowsFreeze: (data: FlowsFreezeRequest): Promise<FlowsFreezeResponse> => ipcRenderer.invoke(IPC.FLOWS_FREEZE, data),
   onFlowsRunEvent: (callback: (event: FlowRunEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: FlowRunEvent) => callback(data);
     ipcRenderer.on(IPC.FLOWS_RUN_EVENT, listener);

@@ -12,6 +12,9 @@ import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
 
 /** Long enough for a first-visit mount; the same delay the Tools handoff uses. */
 const MOUNT_DELAY_MS = 150;
+/** W8 Stage 5: the Flows screen listens for this (and reads the stash on mount). */
+const FREEZE_EVENT = 'vidtsx:flows-open-proposal';
+const FREEZE_STASH_KEY = 'vidtsx:flows-pending-freeze';
 
 export interface ArtifactActionResult {
   ok: boolean;
@@ -30,6 +33,24 @@ export function useArtifactActions(agentId: string, sessionId: string | null) {
       if (!sessionId) return { ok: false, message: 'No session is open.' };
       setRunning(action);
       try {
+        // W8 Stage 5: freezing is a flows channel, not a file action. Main
+        // queues the proposal under this session; the Flows screen picks it
+        // up from the event (or the stash, when it mounts after the event).
+        if (action === 'freeze-to-flow') {
+          const frozen = await window.api.flowsFreeze({ agentId, sessionId, artifactId });
+          if (!frozen.success) return { ok: false, message: frozen.error ?? 'This session could not be frozen.' };
+          const detail = { agentId, sessionId };
+          try {
+            sessionStorage.setItem(FREEZE_STASH_KEY, JSON.stringify(detail));
+          } catch {
+            // A blocked sessionStorage only loses the fallback; the event still fires.
+          }
+          window.dispatchEvent(new CustomEvent('vidtsx:navigate', { detail: { screen: 'flows' } }));
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent(FREEZE_EVENT, { detail }));
+          }, MOUNT_DELAY_MS);
+          return { ok: true, message: successMessage(action) };
+        }
         const result = await window.api.agentArtifactAction({
           agentId,
           sessionId,
@@ -81,5 +102,7 @@ function successMessage(action: AgentArtifactActionKind, relPath?: string, path?
       return 'Opened in your browser';
     case 'export-site':
       return path ? `Site exported to ${path}` : 'Site exported';
+    case 'freeze-to-flow':
+      return 'Frozen — review the flow on the canvas';
   }
 }

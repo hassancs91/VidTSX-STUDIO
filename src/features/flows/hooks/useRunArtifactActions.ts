@@ -69,5 +69,7 @@ function successMessage(action: AgentArtifactActionKind, relPath?: string): stri
       return 'Opened in your browser';
     case 'export-site':
       return 'Site exported';
+    case 'freeze-to-flow':
+      return 'Frozen';
   }
 }

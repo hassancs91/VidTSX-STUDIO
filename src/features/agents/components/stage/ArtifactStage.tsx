@@ -73,6 +73,7 @@ export function ArtifactStage({
           running={actionRunning}
           studioProjectOpen={studioProjectOpen}
           onRun={onAction}
+          extra={['freeze-to-flow']}
         />
       ) : null}
 

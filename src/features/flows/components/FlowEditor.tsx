@@ -22,6 +22,10 @@ interface Props {
   onExpose: (nodeId: string, field: ConfigField) => void;
   onUnexpose: (nodeId: string, key: string) => void;
   onSetPause: (nodeId: string, pause: boolean) => void;
+  /** W8 Stage 5: the agent session whose frozen proposal this canvas shows. */
+  proposalSessionId?: string;
+  /** W8 Stage 5: a frozen proposal was discarded — the host drops the empty row. */
+  onProposalDiscarded?: () => void;
 }
 
 const ADDED = '#34d399';
@@ -35,7 +39,7 @@ const REMOVED = 'var(--color-accent-red)';
  * graph hook's ordinary save path; Discard drops it. The workspace host owns
  * the graph hook and the header; this is the body only.
  */
-export function FlowEditor({ graph, doc, flowId, flowName, onExpose, onUnexpose, onSetPause }: Props) {
+export function FlowEditor({ graph, doc, flowId, flowName, onExpose, onUnexpose, onSetPause, proposalSessionId, onProposalDiscarded }: Props) {
   const { status, error, nodes, edges, viewport, onNodesChange, onEdgesChange, onConnect, onViewportChange, addNode, updateNodeConfig, replaceDoc } = graph;
   const { byId: specs } = useNodeSpecs();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -43,7 +47,9 @@ export function FlowEditor({ graph, doc, flowId, flowName, onExpose, onUnexpose,
   const [builderSession, setBuilderSession] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [fitToken, setFitToken] = useState(0);
-  const { proposal, error: proposalError, resolve } = useFlowProposal(builderSession);
+  // The builder's session once the panel has one; a frozen session's card
+  // until then (W8 Stage 5).
+  const { proposal, error: proposalError, resolve } = useFlowProposal(builderSession ?? proposalSessionId ?? null);
   const proposalId = proposal?.id ?? null;
   useEffect(() => {
     if (proposalId) setFitToken((t) => t + 1);
@@ -142,7 +148,12 @@ export function FlowEditor({ graph, doc, flowId, flowName, onExpose, onUnexpose,
             busy={applying}
             error={proposalError}
             onAccept={() => void accept()}
-            onDiscard={() => void resolve(false)}
+            onDiscard={() => {
+              const frozen = proposal.source === 'frozen';
+              void resolve(false).then((done) => {
+                if (done && frozen) onProposalDiscarded?.();
+              });
+            }}
           />
         )}
       </div>

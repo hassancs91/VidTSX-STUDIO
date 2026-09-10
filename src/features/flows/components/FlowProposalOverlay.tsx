@@ -1,4 +1,4 @@
-import { Check, Sparkles, X } from 'lucide-react';
+import { Check, Snowflake, Sparkles, X } from 'lucide-react';
 import { diffFlowDocs, type FlowDiff } from '@shared/flows/flow-diff';
 import { emptyFlowDoc } from '@shared/flows/doc-graph';
 import type { FlowDoc, FlowProposal, NodeSpec } from '@shared/types/flows';
@@ -53,10 +53,17 @@ export function FlowProposalOverlay({ proposal, current, specs, busy, error, onA
       className="absolute top-3 left-1/2 -translate-x-1/2 z-20 w-[420px] max-h-[70%] flex flex-col rounded-[8px] bg-app-surface shadow-lg"
       style={{ border: '0.5px solid var(--color-border)' }}
       data-flow-proposal={proposal.id}
+      data-flow-proposal-source={proposal.source ?? 'builder'}
     >
       <div className="flex items-center gap-2 px-3 h-[34px] shrink-0" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
-        <Sparkles size={13} strokeWidth={1.75} className="text-accent" />
-        <span className="text-[12px] font-medium text-text-primary">Flow Builder proposes</span>
+        {proposal.source === 'frozen' ? (
+          <Snowflake size={13} strokeWidth={1.75} className="text-accent" />
+        ) : (
+          <Sparkles size={13} strokeWidth={1.75} className="text-accent" />
+        )}
+        <span className="text-[12px] font-medium text-text-primary">
+          {proposal.source === 'frozen' ? 'Frozen from session' : 'Flow Builder proposes'}
+        </span>
         <span className="ml-auto text-[10px] text-text-dim">
           {proposal.flowId ? 'edit' : 'new flow'} · {proposal.doc.graph.nodes.length} nodes
         </span>

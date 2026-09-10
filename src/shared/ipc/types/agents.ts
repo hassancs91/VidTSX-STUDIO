@@ -227,7 +227,11 @@ export type AgentArtifactActionKind =
   | 'copy-path'
   // W9: web pages — the exported site folder + zip, and the browser preview.
   | 'export-site'
-  | 'open-in-browser';
+  | 'open-in-browser'
+  // W8 Stage 5: freeze the session's winning path (up to this artifact) into
+  // a flow proposal on the Flows canvas. Handled in the renderer over
+  // FLOWS_FREEZE; the generic action path refuses it.
+  | 'freeze-to-flow';
 
 export interface AgentArtifactActionRequest {
   agentId: string;
