@@ -156,8 +156,15 @@ export function CustomNode({ id, data, selected }: NodeProps<FlowCanvasNodeData>
   }
 
   const minHeight = Math.max(spec.inputs.length, spec.outputs.length, 1) * 22 + 32;
-  const borderColor = selected ? 'var(--color-accent)' : STATUS_BORDER[runState.status];
-  const borderWidth = selected || runState.status !== 'idle' ? '1px' : '0.5px';
+  // W8 Stage 4: a Flow Builder proposal paints the node by its change.
+  const proposal = data.proposal;
+  const borderColor =
+    proposal === 'added' ? '#34d399'
+    : proposal === 'removed' ? 'var(--color-accent-red)'
+    : proposal === 'changed' ? '#f59e0b'
+    : selected ? 'var(--color-accent)'
+    : STATUS_BORDER[runState.status];
+  const borderWidth = proposal || selected || runState.status !== 'idle' ? '1px' : '0.5px';
   const unmet = spec.available === false ? (spec.needs ?? []) : [];
 
   return (
@@ -167,11 +174,15 @@ export function CustomNode({ id, data, selected }: NodeProps<FlowCanvasNodeData>
         width: 220,
         minHeight,
         border: `${borderWidth} solid ${borderColor}`,
+        ...(proposal === 'removed' ? { opacity: 0.55 } : {}),
         boxShadow:
-          selected ? '0 0 0 2px rgba(127, 119, 221, 0.25)'
+          proposal === 'added' ? '0 0 0 2px rgba(52, 211, 153, 0.25)'
+          : proposal === 'changed' ? '0 0 0 2px rgba(245, 158, 11, 0.25)'
+          : selected ? '0 0 0 2px rgba(127, 119, 221, 0.25)'
           : runState.status === 'running' ? '0 0 0 2px rgba(127, 119, 221, 0.18)'
           : 'none',
       }}
+      data-node-proposal={proposal ?? undefined}
     >
       <div className="relative px-3 py-2">
         <div className="text-[12px] font-semibold truncate pr-5">{spec.label}</div>
@@ -187,6 +198,16 @@ export function CustomNode({ id, data, selected }: NodeProps<FlowCanvasNodeData>
         >
           <AlertTriangle size={10} strokeWidth={2} />
           Needs {unmet.map(needLabel).join(', ')}
+        </div>
+      )}
+
+      {spec.nondeterministic && (
+        <div
+          className="mx-2 mb-2 px-2 py-1 rounded text-[10px] text-pink-300"
+          style={{ background: 'rgba(232, 127, 184, 0.08)', border: '0.5px solid rgba(232, 127, 184, 0.3)' }}
+          data-nondeterministic-chip
+        >
+          Agent step — the result varies run to run
         </div>
       )}
 

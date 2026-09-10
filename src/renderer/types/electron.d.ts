@@ -409,6 +409,8 @@ export interface ElectronAPI {
   flowsRunArtifactAction: (data: import('../../shared/ipc/types').FlowsRunArtifactActionRequest) => Promise<import('../../shared/ipc/types').FlowsRunArtifactActionResponse>;
   flowsImport: (data: import('../../shared/ipc/types').FlowsImportRequest) => Promise<import('../../shared/ipc/types').FlowsImportResponse>;
   flowsExport: (data: import('../../shared/ipc/types').FlowsExportRequest) => Promise<import('../../shared/ipc/types').FlowsExportResponse>;
+  flowsProposalGet: (data: import('../../shared/ipc/types').FlowsProposalGetRequest) => Promise<import('../../shared/ipc/types').FlowsProposalGetResponse>;
+  flowsProposalResolve: (data: import('../../shared/ipc/types').FlowsProposalResolveRequest) => Promise<import('../../shared/ipc/types').FlowsProposalResolveResponse>;
   onFlowsRunEvent: (callback: (event: import('../../shared/types/flows').FlowRunEvent) => void) => () => void;
 
   // Tools: Frame Extractor

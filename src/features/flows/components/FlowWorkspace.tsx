@@ -136,7 +136,15 @@ function FlowWorkspaceInner({ flowId, onBack, initialView = 'run', prefill }: Pr
               <div className="flex items-center justify-center h-full text-text-muted text-sm">{status === 'error' ? (error ?? 'Failed to load flow') : 'Loading…'}</div>
             )
           ) : (
-            <FlowEditor graph={graph} doc={doc} onExpose={exposeNodeParam} onUnexpose={unexposeNodeParam} onSetPause={setPause} />
+            <FlowEditor
+              graph={graph}
+              doc={doc}
+              flowId={flowId}
+              flowName={project?.name ?? ''}
+              onExpose={exposeNodeParam}
+              onUnexpose={unexposeNodeParam}
+              onSetPause={setPause}
+            />
           )}
         </div>
       </RunStateProvider>

@@ -24,6 +24,7 @@ import {
   handleFlowsRunArtifactAction,
   handleFlowsRunArtifactResolve,
 } from '../flows-artifact-handlers';
+import { handleFlowsProposalGet, handleFlowsProposalResolve } from '../flows-proposal-handlers';
 import { flowService } from '../../services/flows/flow-service';
 
 export function registerFlowsIpc(): void {
@@ -50,6 +51,9 @@ export function registerFlowsIpc(): void {
   // Stage 6 packaging — typed "not yet" until then.
   ipcMain.handle(IPC.FLOWS_IMPORT, handleFlowsImport);
   ipcMain.handle(IPC.FLOWS_EXPORT, handleFlowsExport);
+  // W8 Stage 4: the Flow Builder's proposal card.
+  ipcMain.handle(IPC.FLOWS_PROPOSAL_GET, handleFlowsProposalGet);
+  ipcMain.handle(IPC.FLOWS_PROPOSAL_RESOLVE, handleFlowsProposalResolve);
 
   // The run stream, broadcast to every webContents the way the agents' is,
   // so a reload cannot leave the canvas listening to nothing.

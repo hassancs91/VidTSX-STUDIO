@@ -6,6 +6,7 @@ import type {
   FlowRunMode,
   FlowSource,
   NodeSpec,
+  FlowProposal,
 } from '../../types/flows';
 import type { AgentArtifact, InteractionReply } from '../../types/agents';
 import type {
@@ -272,3 +273,29 @@ export interface FlowsRunArtifactActionRequest {
 }
 
 export type FlowsRunArtifactActionResponse = AgentArtifactActionResponse;
+
+// ─── Flows — W8 Stage 4: the Flow Builder's proposal card (flows plan §1.6).
+// `propose_flow` never writes; Accept saves through FLOWS_PROJECT_UPDATE /
+// FLOWS_PROJECT_CREATE in the renderer, then resolves the card here. ───
+
+export interface FlowsProposalGetRequest {
+  /** The builder session whose card to read. */
+  sessionId: string;
+}
+
+export interface FlowsProposalGetResponse {
+  success: boolean;
+  proposal?: FlowProposal | null;
+  error?: string;
+}
+
+export interface FlowsProposalResolveRequest {
+  sessionId: string;
+  proposalId: string;
+  accepted: boolean;
+}
+
+export interface FlowsProposalResolveResponse {
+  success: boolean;
+  error?: string;
+}

@@ -1,0 +1,72 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/flow-builder",
+  "name": "Flow Builder",
+  "version": "1.0.0",
+  "description": "Describe a recipe → a flow proposed on the canvas, accepted, then run.",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "prompt": "AGENT.md",
+  "tools": [
+    "list_nodes",
+    "read_flow",
+    "propose_flow",
+    "run_flow",
+    "read_run",
+    "ask_user",
+    "list_artifacts"
+  ],
+  "artifacts": [
+    "image-set",
+    "video",
+    "audio",
+    "document",
+    "composition",
+    "job"
+  ],
+  "interactions": [
+    "form",
+    "pick",
+    "approve"
+  ],
+  "starter": {
+    "entry": "flow",
+    "nodes": {
+      "flow": {
+        "question": "Which flow are you working on?",
+        "hint": "The open flow's name or id — or \"new\" to build one from scratch.",
+        "text": true,
+        "next": "$end"
+      }
+    },
+    "opening": "Flow: {{flow}}",
+    "quickStarts": [
+      "Make me a flow that captions a video",
+      "A flow that turns a topic into a thumbnail",
+      "Explain what this flow does and where it could fail"
+    ]
+  },
+  "defaults": {
+    "maxTurns": 24,
+    "effort": "medium"
+  },
+  "workspace": {
+    "sdkFileTools": false
+  },
+  "files": [
+    {
+      "path": "AGENT.md",
+      "size": 3435,
+      "sha256": "b82039b9be02d9d6b05cc6e137894430c819eaed04fb713e64e9a9602c8f8e55"
+    },
+    {
+      "path": "skills/flow-design/SKILL.md",
+      "size": 5185,
+      "sha256": "85061948052083ae165ce059af7e3fbd75d046714b1b7744ac3efecf0315bd46"
+    }
+  ]
+}

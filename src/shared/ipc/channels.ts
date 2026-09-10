@@ -179,6 +179,11 @@ export const IPC = {
   // W8 Stage 2: a run's artifacts for the run form's viewer and action bar.
   FLOWS_RUN_ARTIFACT_RESOLVE: 'flows:run:artifact:resolve',
   FLOWS_RUN_ARTIFACT_ACTION: 'flows:run:artifact:action',
+  // W8 Stage 4: the Flow Builder's pending `propose_flow` card (flows plan §1.6).
+  // The proposal itself rides AGENT_RUN_EVENT; these re-read it after a
+  // navigation and clear it once the user accepted or discarded.
+  FLOWS_PROPOSAL_GET: 'flows:proposal:get',
+  FLOWS_PROPOSAL_RESOLVE: 'flows:proposal:resolve',
 
   // Image generation operations
   IMAGE_PROVIDERS_GET: 'image:providers:get',

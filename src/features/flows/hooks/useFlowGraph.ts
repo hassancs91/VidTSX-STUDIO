@@ -298,6 +298,23 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
     [editDoc],
   );
 
+  // W8 Stage 4: a Flow Builder proposal, accepted — the whole document is
+  // swapped under the open flow's id and origin, the canvas re-read from it,
+  // and the debounced save persists it through the ordinary path. A new name
+  // goes through the same rename the header uses.
+  const replaceDoc = useCallback(
+    (next: FlowDoc) => {
+      const base = docRef.current;
+      if (!base) return;
+      const doc: FlowDoc = { ...next, id: base.id, origin: base.origin };
+      if (doc.name && doc.name !== base.name) void renameFlow(doc.name);
+      docRef.current = doc;
+      const graph = docToCanvas(doc);
+      setState((prev) => ({ ...prev, ...graph, doc, rev: prev.rev + 1 }));
+    },
+    [renameFlow],
+  );
+
   return {
     status: state.status,
     project: state.project,
@@ -316,5 +333,6 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
     exposeNodeParam,
     unexposeNodeParam,
     setPause,
+    replaceDoc,
   };
 }

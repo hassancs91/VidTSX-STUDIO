@@ -26,7 +26,11 @@ function PaletteItem({ spec }: { spec: NodeSpec }) {
       <GripVertical size={12} strokeWidth={1.4} className="text-text-dim shrink-0" />
       <div className="min-w-0 flex-1">
         <div className="text-[12px] font-medium text-text-secondary truncate">{spec.label}</div>
-        {spec.priced && <div className="text-[9px] uppercase tracking-wider text-text-dim">priced</div>}
+        {(spec.priced || spec.nondeterministic) && (
+          <div className="text-[9px] uppercase tracking-wider text-text-dim">
+            {[spec.priced ? 'priced' : null, spec.nondeterministic ? 'varies' : null].filter(Boolean).join(' · ')}
+          </div>
+        )}
       </div>
       {unmet.length > 0 && <AlertTriangle size={11} strokeWidth={2} className="text-amber-400 shrink-0" />}
     </div>

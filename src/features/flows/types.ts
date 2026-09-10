@@ -10,6 +10,8 @@ export type {
 export interface FlowCanvasNodeData extends Record<string, unknown> {
   toolId: string;
   config: Record<string, unknown>;
+  /** W8 Stage 4: how a Flow Builder proposal changes this node (canvas colour). */
+  proposal?: 'added' | 'removed' | 'changed';
 }
 
 /** The v1 canvas graph — still the shape the bundled templates are written

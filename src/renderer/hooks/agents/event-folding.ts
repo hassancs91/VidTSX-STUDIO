@@ -26,6 +26,13 @@ export const AGENT_TOOL_LABELS: Record<string, string> = {
   edit_page: 'Editing the page',
   capture_page: 'Looking at the page',
   export_site: 'Exporting the site',
+  // W8 Stage 4
+  run_flow: 'Running a flow',
+  run_agent: 'Running an agent',
+  list_nodes: 'Reading the node catalogue',
+  read_flow: 'Reading the flow',
+  propose_flow: 'Proposing a flow',
+  read_run: 'Reading a run',
 };
 
 let seq = 0;
