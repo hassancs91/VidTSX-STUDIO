@@ -7,6 +7,53 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W6 DONE: project posters + Home
+
+Workstream W6 of `docs/v1-completion-plan.md` §2.6 — the plan's second cut
+line. Full outcome under the W6 acceptance paragraph in the plan.
+`check:types` at baseline (web 26, node 10); 2013 tests, up from 2002;
+`npm run build` passes with Home as the default screen. Commits by
+pathspec: the posters, the Home feature, and the docs commit.
+
+- **Posters.** `project-poster.ts` + the pure `project-poster-pick.ts`:
+  `<project>/cache/poster.jpg` from the first video clip on the top-most
+  video track at 10 % of the timeline (proxy if ready, else the original),
+  written on save (4 s trailing debounce in main) and on close (new
+  `STUDIO_PROJECT_CLOSE`, one line in `useStudioProject`'s cleanup). No
+  video → no file. `StudioProjectSummary.posterPath` + `brandId`; the
+  renderer reads it through `studioCacheRead` like asset thumbnails;
+  `ProjectPoster` (shared) keeps the orientation or draws the brand-palette
+  gradient with the initials. The Studio browser's grey box is gone
+  (`ProjectCard.tsx` split out).
+- **Home.** `src/features/home/`, default screen, first in the sidebar,
+  `home: true`. One `HOME_SUMMARY` IPC (`home-summary.ts`) over the
+  existing stores: eight Studio projects, Motion projects (folder scan,
+  newest `vN.tsx` mtime), agent sessions across installed agents, provider
+  has-key count, AI runtime scan, whisper binary + models, the queue via a
+  new side-effect-free `peekQueueJobs()`, updater state, version. Sections:
+  header (greeting, version, update chip), Continue (eight cards + See all),
+  Start tiles (flag-filtered; Flows hidden while env-gated), Status strip,
+  Announcements (the feed MOVED here on `useNews`; `NewsCard.tsx` deleted).
+- **Navigation.** Home imports no feature: `vidtsx:navigate` + the target's
+  open event after the 150 ms mount delay — new `vidtsx:studio-open`
+  (`projectId` or `newProject`) and `vidtsx:agents-open` (`agentId`,
+  `sessionId`; `AgentWorkspace.openSession`), the existing
+  `vidtsx:creator-open` for TSX. New `vidtsx:screen-active` from App's
+  routing effect and `vidtsx:studio-projects-changed` after a close.
+- **Evidence.** Every card kind and every tile driven over CDP 9223 and the
+  screen changed each time; poster written on close (`sourceTime 3`) and on
+  save (`sourceTime 42`, 7 s after the IPC save); audio-only project stays
+  the placeholder with no ffmpeg; a 9:16 project shows a 53×94 portrait
+  poster. Cold start to the screen's DOM: Creator before 5.3–5.6 s, Home
+  after 5.4–5.9 s on settled runs (6.7–7.0 s right after a build), data
+  +125–240 ms; main init unchanged (~200 ms). Screenshots in
+  `.vidtsx-temp/w6/`.
+- **Left:** no thumbnail for Motion/session cards (kind icon); no Images /
+  Videos / 3D recents; the poster signature is in-memory (one frame after
+  each launch); `EditorShell.tsx` still ~1 300 lines.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W7 DONE: TSX agent mode
 
 Workstream W7 of `docs/v1-completion-plan.md` §2.7. Full outcome under the

@@ -1050,6 +1050,164 @@ plus numbers, never a rule.
 
 **Acceptance.** Cold start lands on Home under the measured budget (the lazy-engine rule holds: Home reads stores, spawns nothing); every card navigates; a project with no video shows the placeholder.
 
+#### W6 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything the section lists is built, unit-tested, committed and driven
+through the real app on the second dev instance (W3 profile, own out dir,
+CDP 9223 — `.vidtsx-temp/w6/` beside the earlier folders). `check:types` at
+baseline (web 26, node 10); 2013 tests passing, up from 2002 (the pure
+poster picker, the Home merge/format helpers). `npm run build` passes with
+Home as the default screen (`--outDir .vidtsx-temp/w6-build`, so the other
+session's `out/` was never touched). Three commits by pathspec beside the
+export-engines session's dirty tree: the posters, the Home feature, and the
+docs commit that carries this section. No provider call, no LLM row, no
+cloud spend — the run needed none.
+
+**Posters, as built.** `src/main/services/studio/project-poster.ts` writes
+`<project>/cache/poster.jpg` (480 px wide, `-q:v 4`) from the frame
+`project-poster-pick.ts` chooses: the first video clip on the top-most
+`video` track at 10 % of the timeline — the clip under that point when one
+is there, else the track's earliest clip at 10 % of its own length; source
+time = `sourceIn + offset × speed`; the ready proxy when it exists on disk,
+else the original. The picker is pure and has six tests (covering point,
+speed, the gap fallback, audio-only, empty, a clip whose asset is gone).
+No video → the file is REMOVED (a project that lost its footage goes back to
+the placeholder) and nothing is spawned. Two triggers, both in main: the
+save handler schedules a 4 s trailing debounce per project, and a new
+`STUDIO_PROJECT_CLOSE` IPC — one line in `useStudioProject`'s unmount
+cleanup, after the flush — writes it immediately, because a close with
+nothing dirty carries no save at all. One run in flight per project, a
+request that lands mid-run queues exactly one re-read of the document. A
+per-project signature (source file + time) makes a save that moved nothing
+the poster depends on cost nothing. `listProjects` stats the file and sets
+`StudioProjectSummary.posterPath` (cache-relative, `poster.jpg`) and now
+also carries `brandId`; the renderer reads it through `studioCacheRead`
+into a data URL (`src/renderer/hooks/useProjectPosters.ts`) exactly the way
+the media pool reads asset thumbnails — no file path ever reaches an
+`<img>`. `src/shared/components/ProjectPoster.tsx` draws the image with
+`object-fit: cover` in a box that keeps the project's aspect (a 9:16
+project is a 53×94 portrait inside the 110 px card area; a 16:9 one
+167×94), or the placeholder: a 135° gradient from the brand palette's
+`primary` to `secondary` with the project initials in `accent` — the
+UI_SPEC purple tones when the project has no brand. The Studio browser's
+card moved to `ProjectCard.tsx` (the browser is 162 lines from 330) and
+uses it; the grey box from the flip run is gone.
+
+**Home, as built.** `src/features/home/` — `HomeScreen` (toolbar "Home",
+then in order: `HomeHeader` greeting by hour + `VidTSX Studio v<version>` +
+the update chip when an update is staged; `ContinueSection`; `StartTiles`;
+`StatusStrip`; `AnnouncementsSection`). Data is ONE `HOME_SUMMARY` IPC
+(`src/main/services/home-summary.ts`): the eight newest Studio projects
+(`listProjects`), the Motion projects scanned folder-as-truth from
+`<userData>/projects` (root and one grouping level, newest `vN.tsx` mtime as
+recency — the W7 signal), every installed agent's sessions flattened by
+`lastOpenedAt` (`motionProjectId` rides along), the provider has-key count
+over `PROVIDER_KEY_IDS`, the AI runtime folder scan (`scanInstalledRuntime`,
+no GPU probe), whisper binary + downloaded model count, the render queue
+from a new side-effect-free `peekQueueJobs()` (the existing `listQueueJobs`
+flips live `rendering` rows to `error` on read, which a Home refresh must
+never do) plus main's in-memory `getActiveJobs()` for the running count,
+`getUpdaterState()`, `app.getVersion()`. Every part is guarded on its own,
+so one broken store cannot blank the screen; nothing in the path spawns a
+process or calls a provider. The announcements feed is the one thing NOT
+in the summary, on purpose: `getNewsMessages` is a network fetch, and the
+summary must not wait on the network — `AnnouncementsSection` uses the
+existing `useNews` hook (same IPC, same dismiss persistence, same
+external-only links), showing up to three, and the section is simply
+absent when the feed is off or empty. `NewsCard.tsx` and its `<NewsCard />`
+in `App.tsx` are gone. Start tiles: Edit a video (Studio browser with the
+New Project dialog open), Create a motion graphic, Run an agent, Generate
+an image, Generate a video, Build a flow — each filtered by its screen's
+flag, so the env-gated Flows tile is hidden in this build (five tiles).
+Status cells navigate (providers/runtime/whisper → AI, queue → Queue).
+`home: true` in `feature-flags.ts`; `DEFAULT_SCREEN = 'home'` in `App.tsx`
+(also the fallback for a disabled screen); Home is first in the sidebar
+(`House` icon). The screen re-reads its summary when it becomes active
+again (a new `vidtsx:screen-active` event from `App.tsx`'s routing effect,
+since every visited screen stays mounted), when the Studio editor finishes
+a close (`vidtsx:studio-projects-changed`, which the Studio browser also
+listens to, so the poster written on close reaches the card that was listed
+before it existed), and on window focus (throttled to 5 s).
+
+**Navigation, as built.** Home imports no other feature. Every hop is
+`vidtsx:navigate` (App routes it and applies the flags), and a card that
+opens a specific thing follows with the target screen's own open event
+after the 150 ms mount delay `useArtifactActions` already uses: a Studio
+card → `vidtsx:studio-open { projectId }` (new; `StudioScreenInner` sets the
+open project — also `{ newProject: true }` for the Edit tile, acknowledged
+through `onNewProjectShown` because the browser remounts around every
+editor visit and a token alone reopened the dialog after each close — found
+and fixed during the run); a TSX card → `vidtsx:creator-open` (the existing
+W7 hand-off, with the newest version path); an agent-session card →
+`vidtsx:agents-open { agentId, sessionId }` (new; `AgentsScreen` opens the
+workspace, keyed by agent id so another agent's session remounts it, and
+`AgentWorkspace` takes an `openSession` prop applied once the session list
+has loaded — its effect is declared after the starter's, so the deep link
+wins over "open the most recent"). Motion-sink sessions open in the Agents
+workspace like any other; the Creator's Agent mode reopens them on its own.
+
+**Verification (screenshots under `.vidtsx-temp/w6/`).** `home-initial.png`
+— Home with a session card, a Motion card and six Studio cards (placeholders
+with initials), five tiles, the strip reading `Providers 4 of 7 configured ·
+AI runtime Not installed · Render queue 1 failed · Whisper Not installed`,
+no announcements (the profile's feed is empty). Cards driven through CDP:
+the session card → Agents with `W6 home card session` active in the list
+(`card-session-agents.png`); the TSX card → the Creator with
+`w6-home-card / v1.tsx` loaded (`card-motion-creator.png`); the Studio card
+`t5-1080p-cut-xfade` → its editor (`card-studio-editor.png`); Back to
+projects → main logged `Poster written … sourceTime 3` and the browser card
+read `data-poster="image"` (`studio-browser-poster.png`: the frame where the
+grey box was; the `RF` card at the bottom is `raw-footage-test`'s
+brand-palette placeholder, Acme Test blue with amber initials); Home then
+showed the same poster (`home-with-poster.png`). Every Start tile: motion →
+TSX, agent → Agents, image → Images, video → Videos, edit → Studio with the
+`New Studio Project` dialog open (`start-edit-new-project.png`); the three
+See-all buttons and the four status cells landed on their screens. Audio-only
+project (`editorial-test`, one WAV on A1, brand `acme-test`): opened and
+closed, NO poster file, no ffmpeg, the card stays the placeholder; the empty
+project is the same code path (unit-tested). A seeded 1080×1920 project
+(`w6-portrait-test`, the 4K DJI 0270 clip on V1 at `sourceIn 5`, no proxy):
+close → `poster.jpg` 480×270 from the ORIGINAL (no proxy yet) in a 53×94
+portrait box; then a `studioProjectSave` with `sourceIn 40` through the IPC
+→ `Poster written … sourceTime 42` seven seconds later (the 4 s debounce +
+the extraction) and a different file — the save path. Deleted afterwards
+with the seeded session and Motion project; `t5-1080p-cut-xfade/cache/
+poster.jpg` stays (it is the feature working on Hasan's project).
+
+**Cold start, measured.** `w6-coldstart.mjs` connects the moment a page
+target answers and polls the page every 50 ms for a DOM marker, reading the
+page's own `performance.now()` (ms since navigation start) when it first
+exists; `w6-measure.sh` wraps one launch, the read of main's "init
+complete" line, and the kill. Same machine, same dev server, same profile.
+BEFORE (HEAD, marker `[data-motion-mode]` — the Creator's panel): 5 302 /
+5 479 / 5 595 ms. AFTER (marker `[data-home-screen]`): 5 442 / 5 923 / 5 503
+/ 5 475 ms on settled runs, and 6 833 / 7 018 / 6 718 ms on the three runs
+taken right after a renderer change or the four-minute production build
+(Vite's transform cache cold, RAM at 92 %). Home's data (`[data-home-ready]`,
+the summary landed and the cards drawn) followed the DOM by 125–240 ms.
+Main-process init: 188–351 ms before, 181–304 ms after — unchanged, as
+the lazy-engine rule requires. Wall time from the launcher to a page target
+(includes electron-vite's main/preload build) 8–13 s either way. These are
+dev-mode numbers, dominated by Vite serving the module graph unbundled;
+the production bundle carries no such per-module cost.
+
+**Not done / left for later.** No thumbnail for Motion projects or agent
+sessions on Home (a kind icon in the same box; a session's
+`thumbnailRelPath` and a Motion version's first frame are both reachable
+later). The Continue row shows a session's title but not its provider or
+its artifacts' kinds. No "recent" for Images / Videos / 3D (their galleries
+are one tile away). `app.getVersion()` under `--entry` reads Electron's
+version in the second dev instance (v41.0.2 on the header AND the status
+bar — the same call), which is a dev-launch artefact, not a Home bug. The
+poster signature is in-memory, so the first save after a launch extracts
+one frame even when nothing moved. `EditorShell.tsx` is still ~1 300 lines
+and `MotionScreen` 457 — not touched here. For W9 (web designer): the
+agents viewers were not touched; a Home session card opens the workspace on
+that session through `vidtsx:agents-open`, so a web-designer session lands
+in its `WebPageViewer` like any other kind; if a `web-page` artifact should
+show a picture on Home, the summary's `HomeAgentSession` is where a
+thumbnail field would go, and `ContinueCard` already branches per kind.
+
 ### 2.7 W7 — TSX agent mode — ~1 session
 
 - Toggle `Prompt | Agent` at the top of `MotionInputPanel`. Agent mode embeds the shared `AgentChat` bound to a built-in `vidtsx/tsx-composer` (`resources/agents/vidtsx/tsx-composer/`): tools `generate_composition`, `edit_composition`, `render_composition`, `generate_image`, `ask_user`, `propose_memory`; skill = the TSX craft rules already in the prompts, factored into a skill.
