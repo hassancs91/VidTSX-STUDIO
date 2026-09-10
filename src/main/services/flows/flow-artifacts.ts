@@ -6,6 +6,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import type {
   FlowsRunArtifactActionRequest,
   FlowsRunArtifactActionResponse,
@@ -18,6 +19,8 @@ import { slugifyName } from '../agents/tools/workspace-files';
 import { loadFlow } from '../flows-projects-db';
 import { loadRun } from '../flows-runs-db';
 import { flowRunStore, RUN_FILES_DIR } from './flow-run-store';
+import { flowService } from './flow-service';
+import { settleRenderJob } from './flow-render';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('FlowArtifacts');
@@ -65,10 +68,55 @@ export async function resolveRunArtifact(runId: string, artifactId: string): Pro
   }
 }
 
-export async function runRunArtifactAction(req: FlowsRunArtifactActionRequest): Promise<FlowsRunArtifactActionResponse> {
-  if (req.action === 'send-to-queue') {
-    return { success: false, error: 'Rendering from a flow run arrives with Stage 3 — open the composition in the TSX Creator to render it.' };
+/**
+ * "Render" on a run's composition (W8 Stage 3): the same main-side render a
+ * `render_composition` node settles through, started here in the background
+ * with a `job` artifact in the run's store so the MP4 lands beside the run's
+ * other outputs and in the flow's library folder. Refused while the run is
+ * still executing — two writers on one `artifacts.json` is one too many.
+ */
+async function renderRunComposition(req: FlowsRunArtifactActionRequest): Promise<FlowsRunArtifactActionResponse> {
+  if (flowService.isRunning(req.runId)) {
+    return { success: false, error: 'This run is still going — wait for it to finish, then render.' };
   }
+  const { row, run, store, workspaceDir } = await openRun(req.runId);
+  const composition = store.get(req.artifactId);
+  if (!composition || composition.kind !== 'composition') {
+    return { success: false, error: 'Only a composition can be rendered.' };
+  }
+  const flow = loadFlow(row.flowId);
+  const libraryFolder = `flows/${slugifyName(flow?.name ?? 'flow', 'flow')}`;
+  const brandId = run.brandId === null ? undefined : run.brandId || getDefaultBrandId();
+  const jobId = randomUUID();
+  const job = await store.add(
+    { kind: 'job', title: `Render — ${composition.title}`, payload: { jobId, job: 'render', status: 'pending' } },
+    { tool: 'render_composition', callId: `action:${jobId}` },
+  );
+  if (job.kind !== 'job') return { success: false, error: 'Could not create the render job.' };
+  void settleRenderJob(job, {
+    runId: req.runId,
+    store,
+    signal: new AbortController().signal,
+    workspaceDir,
+    libraryFolder,
+    ...(brandId ? { brandId } : {}),
+    request: {
+      jobId,
+      job: 'render',
+      compositionArtifactId: composition.id,
+      config: composition.payload.config,
+      outputFolder: libraryFolder,
+      outputName: slugifyName(composition.title, 'render'),
+    },
+    note: (line) => log.info('Run render', { runId: req.runId, jobId, line }),
+  }).catch((err: unknown) => {
+    log.warn('Run render failed', { runId: req.runId, jobId, error: err instanceof Error ? err.message : String(err) });
+  });
+  return { success: true };
+}
+
+export async function runRunArtifactAction(req: FlowsRunArtifactActionRequest): Promise<FlowsRunArtifactActionResponse> {
+  if (req.action === 'send-to-queue') return renderRunComposition(req);
   const { row, run, store, workspaceDir } = await openRun(req.runId);
   const artifact = store.get(req.artifactId);
   if (!artifact) return { success: false, error: 'That artifact is no longer in this run.' };

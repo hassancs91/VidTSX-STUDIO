@@ -20,7 +20,8 @@ vi.mock('../../../../shared/tsx-engine', () => ({
 vi.mock('../tsx-deps', () => ({ buildAgentTsxDeps: () => ({}) }));
 // W7: the session brand block; the test decides what the library holds.
 const readSessionBrandInstructions = vi.fn();
-vi.mock('./session-brand', () => ({
+vi.mock('./session-brand', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./session-brand')>()),
   readSessionBrandInstructions: (id?: string) => readSessionBrandInstructions(id),
 }));
 vi.mock('../../module-server', () => ({
@@ -31,6 +32,23 @@ vi.mock('../../module-server', () => ({
 vi.mock('../../tsx-transpiler', () => ({
   transpileTsxSource: (code: string, name: string, base: string) =>
     transpileTsxSource(code, name, base),
+}));
+// W8 Stage 3: the media convention resolves port artifacts in the library,
+// and the node's model binding asks which providers are usable.
+let libraryRoot = '/lib';
+vi.mock('../../library/library-paths', () => ({
+  ensureLibraryRoot: async () => libraryRoot,
+  getLibraryRoot: () => libraryRoot,
+  resolveLibraryPath: (r: string, rel: string) => path.join(r, rel),
+}));
+vi.mock('../../settings', () => ({
+  getLlmProviders: async () => ({
+    providers: [
+      { id: 'openrouter', name: 'OpenRouter', type: 'openai-compat', authMode: 'api-key', apiKey: 'k', defaultModel: 'x', enabled: true },
+      { id: 'claude-subscription', name: 'Claude', type: 'agent-sdk', authMode: 'subscription', defaultModel: 'c', enabled: true },
+    ],
+    activeProvider: 'claude-subscription',
+  }),
 }));
 
 const { generateCompositionTool } = await import('./generate-composition');
@@ -180,5 +198,69 @@ describe('edit_composition', () => {
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toContain('is a document, not a composition');
     expect(editTsxPipeline).not.toHaveBeenCalled();
+  });
+});
+
+describe('generate_composition as a node (W8 Stage 3)', () => {
+  const image = {
+    id: 'image-set-1',
+    kind: 'image-set' as const,
+    title: 'Hero',
+    createdAt: new Date().toISOString(),
+    producer: { tool: 'generate_image', callId: 'c0' },
+    payload: { items: [{ relPath: 'flows/ad/hero.png', width: 1280, height: 720 }] },
+  };
+  const clip = {
+    id: 'video-1',
+    kind: 'video' as const,
+    title: 'Hero clip',
+    createdAt: new Date().toISOString(),
+    producer: { tool: 'generate_video', callId: 'c1' },
+    payload: { relPath: 'flows/ad/clip.mp4', durationSeconds: 6 },
+  };
+
+  it('tells the model to load port media with staticFile(<absolute path>), forward slashes', async () => {
+    libraryRoot = 'C:\\lib';
+    await generateCompositionTool.handler(
+      { title: 'Ad', brief: 'sell it', referenceImage: 'image-set-1', referenceVideo: 'video-1' },
+      makeToolContext({ workspaceDir: dir, artifacts: [image, clip], featureSource: 'flows' }),
+    );
+    const options = generateTsxPipeline.mock.calls[0][0] as { promptContext: { extraInstructions?: string } };
+    const notes = options.promptContext.extraInstructions ?? '';
+    expect(notes).toContain('<Img src={staticFile("C:/lib/flows/ad/hero.png")} />');
+    expect(notes).toContain('<OffthreadVideo src={staticFile("C:/lib/flows/ad/clip.mp4")} />');
+    expect(notes).toContain('6.0 s');
+  });
+
+  it('refuses a port artifact of the wrong kind before spending a pipeline call', async () => {
+    const res = await generateCompositionTool.handler(
+      { title: 'Ad', brief: 'sell it', referenceImage: 'video-1' },
+      makeToolContext({ workspaceDir: dir, artifacts: [image, clip] }),
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('is a video, not an image');
+    expect(generateTsxPipeline).not.toHaveBeenCalled();
+  });
+
+  it("binds the pipeline to the node's provider and model (required), and refuses an unusable one", async () => {
+    await generateCompositionTool.handler(
+      { title: 'X', brief: 'b', providerId: 'openrouter', model: 'anthropic/claude-sonnet-4.5', modelMode: 'required' },
+      makeToolContext({ workspaceDir: dir, providerId: 'claude-subscription' }),
+    );
+    expect(generateTsxPipeline.mock.calls[0][0]).toMatchObject({ providerId: 'openrouter', model: 'anthropic/claude-sonnet-4.5' });
+    const res = await generateCompositionTool.handler(
+      { title: 'X', brief: 'b', providerId: 'gemini', modelMode: 'required' },
+      makeToolContext({ workspaceDir: dir }),
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toContain('requires gemini');
+  });
+
+  it('a per-node brand overrides the run brand, an empty field inherits it, null opts out', async () => {
+    const ctx = makeToolContext({ workspaceDir: dir, brandId: 'run-brand' });
+    await generateCompositionTool.handler({ title: 'X', brief: 'b', brandId: 'node-brand' }, ctx);
+    await generateCompositionTool.handler({ title: 'X', brief: 'b', brandId: '' }, ctx);
+    await generateCompositionTool.handler({ title: 'X', brief: 'b', brandId: null }, ctx);
+    expect(readSessionBrandInstructions.mock.calls.map((c) => c[0])).toEqual(['node-brand', 'run-brand', undefined]);
   });
 });

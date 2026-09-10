@@ -8,21 +8,27 @@
 // gated, filed in the library and written back onto the job artifact by one
 // piece of code. Cancel aborts the provider job through the run's signal.
 //
-// Render jobs cannot settle in main: the render queue lives in the renderer
-// (agents plan §1.5). Stage 3 adds the bridge; until then a render node fails
-// with a message that says so, never hangs.
+// Render jobs settle in main too (W8 Stage 3, `flow-render.ts`): the queue's
+// rows live in the renderer, so a flow renders through the same main services
+// the queue's handler calls and files the MP4 through the agents' reconciler.
 
-import type { AgentArtifact } from '../../../shared/types/agents';
+import type { AgentArtifact, AgentJobRequest } from '../../../shared/types/agents';
 import { videoEngine } from '../../../video-engine';
 import type { AgentArtifactStore } from '../agents/artifact-store';
 import { reconcileVideoJob, type VideoJobDeps } from '../agents/video-jobs';
+import { settleRenderJob } from './flow-render';
 
 export interface SettleJobOptions {
   runId: string;
   store: AgentArtifactStore;
   signal: AbortSignal;
   libraryFolder?: string;
+  /** The brand the filed output is tagged with — the node's, resolved (§0.1 item 9). */
   brandId?: string;
+  /** Stage 3: what the tool asked for beside the job (the composition to render). */
+  request?: Omit<AgentJobRequest, 'artifactId'>;
+  /** Stage 3: the run's `files/` — where a composition's TSX lives. */
+  workspaceDir?: string;
   /** Progress lines for the node's run log. */
   note(detail: string): void;
 }
@@ -42,16 +48,10 @@ function terminalResult(store: AgentArtifactStore, jobId: string): AgentArtifact
   return null;
 }
 
-/** The real thing: video through the engine, render refused until Stage 3. */
+/** The real thing: video through the engine, render through main's Remotion path. */
 export const settleJob: SettleJob = (job, opts) => {
   if (job.kind !== 'job') return Promise.resolve(job);
-  if (job.payload.job === 'render') {
-    return Promise.reject(
-      new Error(
-        'Rendering inside a flow arrives in Stage 3 (the render queue bridge). Render the composition from the Agents stage or the Creator for now.',
-      ),
-    );
-  }
+  if (job.payload.job === 'render') return settleRenderJob(job, opts);
 
   const jobId = job.payload.jobId;
   const deps: VideoJobDeps = {

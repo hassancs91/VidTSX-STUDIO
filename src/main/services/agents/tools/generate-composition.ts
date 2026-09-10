@@ -7,17 +7,27 @@
 //
 // W8 Stage 1 (flows plan §0.1 item 7): also a node — the "TSX node". The
 // `brief` port is the text in; size, fps, duration, style notes and a per-node
-// brand are inspector config. The optional `image` / `video` ports are
-// declared for Stage 3, which decides how a composition references library
-// media; today a value on them is named in the brief as context only.
+// brand are inspector config.
+//
+// W8 Stage 3 — the media-load convention for the `image` / `video` ports: the
+// artifact is resolved to its library file and the model is told to show it
+// with `staticFile('<absolute path>')`, the one way the generation prompt
+// already teaches for local files (`generate-2d-prompt.ts`), so the same TSX
+// previews and renders. The node also binds a provider and model (decision
+// 12's modes, `llm-model-binding.ts`) so a flow can pin the composition LLM.
 
+import path from 'path';
 import { z } from 'zod';
 import { generateTsxPipeline } from '../../../../shared/tsx-engine';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 import { buildAgentTsxDeps } from '../tsx-deps';
 import { storeComposition } from './composition-file';
-import { readSessionBrandInstructions } from './session-brand';
+import { resolveLlmModelBinding } from './llm-model-binding';
+import { resolveImageSet, resolveVideoFile, staticFileExpression } from './port-media';
+import { readSessionBrandInstructions, resolveNodeBrand } from './session-brand';
+
+const MODEL_MODES = ['required', 'preferred', 'default'] as const;
 
 const schema = {
   title: z.string().min(1).describe('Short name for this composition — names the file.'),
@@ -33,13 +43,19 @@ const schema = {
     .string()
     .optional()
     .describe('Extra art-direction the brief does not cover (palette, type, brand rules).'),
-  referenceImage: z.string().optional().describe('Flows: an "image-set" artifact id given as context.'),
-  referenceVideo: z.string().optional().describe('Flows: a "video" artifact id given as context.'),
+  referenceImage: z.string().optional().describe('An "image-set" artifact id the composition should show (its first image).'),
+  referenceVideo: z.string().optional().describe('A "video" artifact id the composition should play.'),
   brandId: z
     .string()
     .nullable()
     .optional()
     .describe('Flows only: a brand for this step; null = no brand; absent = the run\'s brand.'),
+  providerId: z.string().optional().describe('LLM provider for the pipeline; absent = the session\'s or the app default.'),
+  model: z.string().optional().describe('Model id on that provider; absent = its default.'),
+  modelMode: z
+    .enum(MODEL_MODES)
+    .optional()
+    .describe('required = refuse when the model is unavailable; preferred = fall back; default = app default.'),
 };
 
 interface GenerateCompositionArgs {
@@ -53,6 +69,33 @@ interface GenerateCompositionArgs {
   referenceImage?: string;
   referenceVideo?: string;
   brandId?: string | null;
+  providerId?: string;
+  model?: string;
+  modelMode?: (typeof MODEL_MODES)[number];
+}
+
+/** What the model is told about a port's media — the `staticFile` convention. */
+export async function mediaContextNotes(
+  ctx: Parameters<AgentToolDef<GenerateCompositionArgs>['handler']>[1],
+  args: Pick<GenerateCompositionArgs, 'referenceImage' | 'referenceVideo'>,
+): Promise<string[]> {
+  const notes: string[] = [];
+  if (args.referenceImage) {
+    const { artifact, items } = await resolveImageSet(ctx, args.referenceImage);
+    const first = items[0];
+    if (!first) throw new Error(`Artifact "${args.referenceImage}" holds no image.`);
+    notes.push(
+      `An image "${artifact.title}" (${first.width}x${first.height}, ${path.basename(first.absPath)}) is part of this composition. Show it with <Img src={${staticFileExpression(first.absPath)}} /> — the src must be exactly that expression.`,
+    );
+  }
+  if (args.referenceVideo) {
+    const { artifact, absPath } = await resolveVideoFile(ctx, args.referenceVideo);
+    const seconds = artifact.kind === 'video' ? artifact.payload.durationSeconds : 0;
+    notes.push(
+      `A video "${artifact.title}" (${seconds.toFixed(1)} s, ${path.basename(absPath)}) is part of this composition. Play it with <OffthreadVideo src={${staticFileExpression(absPath)}} /> from remotion — the src must be exactly that expression — and keep it on screen for its full length unless the brief says otherwise.`,
+    );
+  }
+  return notes;
 }
 
 export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
@@ -76,15 +119,40 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
       { kind: 'number', key: 'fps', label: 'FPS', min: 1, max: 120, step: 1 },
       { kind: 'number', key: 'durationSeconds', label: 'Seconds', min: 1, max: 600, step: 1 },
       { kind: 'prompt', key: 'styleNotes', label: 'Style notes (optional)', rows: 3 },
+      { kind: 'llm-model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
+      {
+        kind: 'select',
+        key: 'modelMode',
+        label: 'Model mode',
+        options: [
+          { value: 'default', label: 'Default — the app default model' },
+          { value: 'preferred', label: 'Preferred — fall back when unavailable' },
+          { value: 'required', label: 'Required — refuse when unavailable' },
+        ],
+      },
       { kind: 'text', key: 'brandId', label: 'Brand id (optional)', placeholder: 'run brand' },
     ],
-    defaultConfig: { title: 'Composition', width: 1920, height: 1080, fps: 30, durationSeconds: 6, styleNotes: '' },
+    defaultConfig: {
+      title: 'Composition', width: 1920, height: 1080, fps: 30, durationSeconds: 6, styleNotes: '',
+      providerId: '', model: '', modelMode: 'default',
+    },
   },
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.title);
     const featureSource = ctx.featureSource ?? 'agent';
+    // Decision 12: a node may pin the pipeline's provider and model; an agent
+    // session's own provider stays the default.
+    const binding = await resolveLlmModelBinding({
+      ...(args.providerId ? { providerId: args.providerId } : {}),
+      ...(args.model ? { model: args.model } : {}),
+      ...(args.modelMode ? { modelMode: args.modelMode } : {}),
+    });
+    if (!binding.ok) return toolText(binding.error, true);
+    if (binding.note) ctx.emitProgress(binding.note);
+    const providerId = binding.providerId ?? (binding.note ? undefined : ctx.providerId);
+    const model = binding.providerId ? binding.model : ctx.model;
     const deps = buildAgentTsxDeps(
-      ctx.providerId,
+      providerId,
       ctx.signal,
       featureSource === 'agent' ? ctx.agentId : undefined,
       featureSource,
@@ -93,19 +161,21 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     // Creator's prompt mode sends it — the same block, before any style
     // notes the agent adds — so both modes build under one contract. A flow
     // node may override or opt out (§0.1 item 9).
-    const brandId = args.brandId === undefined ? ctx.brandId : args.brandId ?? undefined;
+    const brandId = resolveNodeBrand(args.brandId, ctx.brandId);
     const brandBlock = await readSessionBrandInstructions(brandId);
-    const contextNotes = [
-      args.referenceImage ? `A reference image (artifact ${args.referenceImage}) accompanies this brief.` : '',
-      args.referenceVideo ? `A reference video (artifact ${args.referenceVideo}) accompanies this brief.` : '',
-    ].filter(Boolean);
+    let contextNotes: string[];
+    try {
+      contextNotes = await mediaContextNotes(ctx, args);
+    } catch (err) {
+      return toolText(err instanceof Error ? err.message : String(err), true);
+    }
     const extraInstructions = [brandBlock, args.styleNotes, ...contextNotes].filter(Boolean).join('\n\n');
     try {
       const result = await generateTsxPipeline(
         {
           prompt: args.brief,
-          ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
-          ...(ctx.model ? { model: ctx.model } : {}),
+          ...(providerId ? { providerId } : {}),
+          ...(model ? { model } : {}),
           promptContext: {
             videoWidth: args.width ?? 1920,
             videoHeight: args.height ?? 1080,

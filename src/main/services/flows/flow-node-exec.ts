@@ -10,6 +10,7 @@ import type { AgentArtifactStore } from '../agents/artifact-store';
 import type { RegisteredTool, ToolCapabilities } from '../agents/tools/registry';
 import type { AgentToolContext, AgentToolResult, InteractionAskResult } from '../agents/tools/types';
 import type { InvokeToolOptions } from '../agents/tools/invoke-tool';
+import { resolveNodeBrand } from '../agents/tools/session-brand';
 import { mapOutputs, type NodeOutputs } from './flow-args';
 import type { SettleJob } from './flow-jobs';
 import { RUN_FILES_DIR } from './flow-run-store';
@@ -83,12 +84,17 @@ export async function executeNode(deps: NodeExecDeps, input: NodeExecInput): Pro
         result.supersedes ? { supersedes: result.supersedes } : {},
       );
       if (filed.kind === 'job') {
+        // The filed output carries the NODE's brand (§0.1 item 9): a per-node
+        // `brandId` overrides the run's, `null` opts out, absent inherits.
+        const brandId = resolveNodeBrand(input.args.brandId, input.resolvedBrandId);
         filed = await deps.settleJob(filed, {
           runId: input.runDoc.id,
           store: input.artifacts,
           signal: input.signal,
+          workspaceDir: ctx.workspaceDir,
           ...(input.libraryFolder ? { libraryFolder: input.libraryFolder } : {}),
-          ...(input.resolvedBrandId ? { brandId: input.resolvedBrandId } : {}),
+          ...(brandId ? { brandId } : {}),
+          ...(result.jobRequest ? { request: result.jobRequest } : {}),
           note: input.note,
         });
       }

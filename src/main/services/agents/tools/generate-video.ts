@@ -72,6 +72,13 @@ const schema = {
     .describe('Ask the model for audio, where it makes any (Seedance / Veo).'),
   firstFrame: z.string().optional().describe('An "image-set" artifact id the clip starts on.'),
   lastFrame: z.string().optional().describe('An "image-set" artifact id the clip ends on.'),
+  // W8 Stage 3 (§0.1 item 9): the brand the filed clip is tagged with. Read
+  // by the flow runner when it settles the job, not here.
+  brandId: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Flows only: a brand for this step; null = no brand; absent = the run\'s brand.'),
 };
 
 type GenerateVideoArgs = {
@@ -84,6 +91,7 @@ type GenerateVideoArgs = {
   generateAudio?: boolean | 'on' | 'off';
   firstFrame?: string;
   lastFrame?: string;
+  brandId?: string | null;
 };
 
 /** §0.1 item 6: the per-second rate of every fal model the catalog prices. */
@@ -113,6 +121,7 @@ export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
     configSchema: [
       { kind: 'video-model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
       { kind: 'video-model-options', key: 'modelOptions', providerKeyKey: 'providerId' },
+      { kind: 'text', key: 'brandId', label: 'Brand id (optional)', placeholder: 'run brand' },
     ],
     defaultConfig: {
       providerId: '',

@@ -107,6 +107,11 @@ class FlowService {
     return this.runner.cancel(runId);
   }
 
+  /** Whether the run executes in this process right now (Stage 3: the run-artifact render refuses then). */
+  isRunning(runId: string): boolean {
+    return this.runner.isRunning(runId);
+  }
+
   /** A checkpoint reply (Stage 2); throws for a run that is not waiting on that card. */
   async reply(runId: string, reply: InteractionReply): Promise<void> {
     const accepted = await this.runner.reply(runId, reply);
