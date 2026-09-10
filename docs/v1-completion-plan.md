@@ -1057,6 +1057,160 @@ plus numbers, never a rule.
 
 **Acceptance.** "Make me a 10-second logo sting for my brand, then make the text bigger" produces two versions in the Motion project, both playable, the second an edit of the first.
 
+#### W7 outcome (2026-09-10) — what was built, what the run showed, and what it leaves
+
+Everything the section lists is built, unit-tested, committed and driven
+end to end in the real app on the second dev instance (W3 profile and its
+keys, own out dir, CDP 9223 — `.vidtsx-temp/w7/` beside the earlier
+folders). `check:types` at baseline (web 26, node 10); 2002 tests passing,
+up from 1990. Four commits by pathspec beside the export-engines session's
+dirty tree: `8aabd36` (the pure move of the reusable chat half of the
+Agents feature to the renderer level), `58e4a98` (the `vidtsx/tsx-composer`
+built-in, the Motion project sink, the craft rules as one text), `8a6b58c`
+(`Prompt | Agent` in the Creator's input panel) and the docs commit that
+carries this section. Spend: seven LLM rows on the subscription route
+($0.59 API-equivalent), no cloud image, no other provider call.
+
+**The move first (rule 1).** `src/features/motion` may not import
+`src/features/agents`, so the parts the Creator needs left the feature
+before anything was built on them: `AgentChat`, `QuickStarts`,
+`MemoryProposalCard` and `BrandSelect` to `src/renderer/components/agents/`;
+`useAgentRun`, `useAgentSessions`, `useAgentRenderBridge`,
+`useAgentMemoryProposals`, `useAgentBrandList`, `useAgentProviders` and the
+two pure folds they use (`event-folding`, `render-job-match`, with tests) to
+`src/renderer/hooks/agents/`. `AgentChatRow` now lives with the fold that
+produces it and the feature re-exports it. The Agents page (gallery,
+workspace, starter, session list, stage, viewers) stays where it was.
+
+**The built-in.** `resources/agents/vidtsx/tsx-composer/` — AGENT.md is the
+Creator's motion designer (brief → `generate_composition`, then
+`edit_composition` one instruction at a time, `render_composition` only on
+request, `generate_image` only for a picture code cannot draw, one
+`ask_user` question at most and only when the words for the screen are
+missing); tools `get_brand`, `generate_composition`, `edit_composition`,
+`render_composition`, `generate_image`, `ask_user`, `list_artifacts`,
+`propose_memory` — the section's six plus `get_brand` (the W4 way a brand
+reaches an agent) and `list_artifacts` (so it never guesses an id); no
+starter, no icon (the card shows the Bot fallback). Its `tsx-craft` skill
+is GENERATED, not written: the Style presets / Layout / Typography sections
+of the 2D generate prompt moved into
+`src/shared/tsx-engine/prompts/tsx-craft.ts` as `TSX_CRAFT_RULES`, the
+prompt splices them back (byte-identical output for three contexts, hashed
+before and after), `renderTsxCraftSkill()` wraps them with a short
+briefing preamble, `scripts/gen-tsx-craft-skill.mjs` writes the SKILL.md,
+and `tsx-craft-skill.test.ts` fails when the file and the prompt drift.
+`scripts/agent-pack.mjs --hash` rewrites a built-in folder's `files[]` —
+that is how this manifest's hashes were made (LF on disk, the motion-post
+convention) and how the next built-in's will be.
+
+**The sink, as built.** One adapter, `motion-project-sink.ts`. A session
+created with `motionSink: true` (the new `AgentSessionCreateRequest` field;
+`AgentSession.motionSink` + `motionProjectId`) has every `composition`
+draft ALSO written as the next `vN.tsx` of a Motion project. The FIRST
+composition creates the project — `reserveProjectFolder(draft.title)`, the
+prompt mode's own naming, so "Acme Test logo sting" became
+`projects/acme-test-logo-sting/` — and the folder name is patched onto the
+session as `motionProjectId`; later ones append. The draft comes back with
+`payload.motion = { folderPath, versionPath }`, so the renderer learns the
+version off the `artifact` event it already receives, and the workspace
+copy under `work/compositions/` is untouched (the sink mirrors, never
+moves). The seam is one runner hook, `prepareArtifact(sessionId, draft,
+workspaceDir)`, called before the store's single write; the service
+re-reads the session record per draft so the second composition of one
+turn sees the id the first one set. A project the user deletes mid-session
+is recreated by the next version rather than failing the tool. An agent
+`render_composition` on a sunk composition renders the Motion version file
+(`buildQueueRequest` prefers `payload.motion.versionPath`), so the
+Creator's Rendered tab lists it under that version.
+
+**Brand and model (decision 7, W1).** `AgentToolContext.model` carries the
+turn's model (`req.model ?? session.model`) into `generate_composition` and
+`edit_composition` — the usage rows below show the composition pipeline on
+the panel's Opus 5, not the provider default. `generate_composition` also
+injects the session brand's `buildBrandInstructions` block ahead of the
+agent's own `styleNotes`; that block moved from `useMotionGenerator` to
+`src/shared/studio/brand-instructions.ts`, so prompt mode and agent mode
+build under the same words, and the agent is told in AGENT.md not to
+restate the palette. Verified: v1.tsx carries the Acme Test palette
+(`#0F4C81 / #7FB3D5 / #0B1D2A / #F4F6F7 / #F5B041`) and its Georgia display
+font verbatim.
+
+**The panel.** `Prompt | Agent` at the top of `MotionInputPanel`. Agent mode
+keeps the panel's own Provider, Model and Brand pickers and fills the rest
+with the shared `AgentChat` in a new embedded form (`hidePickers`, and an
+`interactionCard` slot so an `ask_user` card renders under the conversation
+— there is no stage here); FPS, aspect, duration, thinking, optimise and
+reference images stay in prompt mode, because the agent takes frame and
+length from the conversation. `useMotionAgent`: entering Agent mode reopens
+the newest session that HAS the sink (sessions started from the Agents page
+for the same agent are left alone) or creates one with the panel's provider,
+model and brand; opening a session hands its provider/model/brand back to
+the pickers once; after that a brand change patches the open session (W4's
+`AGENT_SESSION_BRAND_SET`) and provider + model travel per turn as the run
+hook already sends them. The newest mirrored composition is loaded into the
+preview on reopen, and every new one live. The panel stays mounted (hidden)
+once opened, so a run in flight keeps its view. The panel was split to
+stay near the line budget (`MotionModeToggle`, `MotionBrandField`,
+`MotionSegmented`); it is 319 lines from 386, and `MotionScreen` grew to 457
+from 417 — both still over, noted.
+
+**Acceptance evidence.** Session `s-afece65c` on the W3 profile:
+`claude-subscription` / `claude-opus-5` / brand `acme-test`, all three set on
+the panel (the brand set patched the open session's record before the first
+turn). "Make me a 10-second logo sting for my brand" → `get_brand`, then the
+one allowed `ask_user` form ("What words should the sting show?" —
+wordmark, optional tagline), answered "Acme Test" on the card inside the
+panel → `get_brand` again, `generate_composition` ("Acme Test logo sting",
+1920×1080, 30 fps, 10 s) → **`projects/acme-test-logo-sting/v1.tsx`**
+(5 569 bytes) and the preview toolbar read `acme-test-logo-sting / v1.tsx`
+with the Render button enabled (the loader's success state). "make the text
+bigger" → `edit_composition` on composition-1 → **`v2.tsx`** (5 934 bytes)
+as `composition-2`, version 2, producer `edit_composition`; the diff is the
+edit and nothing else: wordmark `fontSize: 112` → `160`, subhead `32` → `48`
+(both at the top of the skill's type scale), the amber rule widened
+`760` → `1040` "still far inside the horizontal safe area", line-heights
+added; the preview switched to `v2.tsx`. `session.json` afterwards:
+`motionSink: true`, `motionProjectId: "acme-test-logo-sting"`, `brandId:
+"acme-test"`, `model: "claude-opus-5"`, title set from the first prompt.
+Render: the Creator's own Render button on v2 → the settings dialog → Render;
+the queue row went `rendering 6 … 62 → completed`; render history's newest
+row has `filePath = …\projects\acme-test-logo-sting\v2.tsx`; **ffprobe on
+`Videos\VidTSX\AcmeTestLogoSting_2026-09-10T00-17-55.mp4`: h264 1920×1080
+yuvj420p 30/1, 300 frames, AAC, duration 10.048 s, 1 616 905 bytes**; the
+Rendered tab showed it as `<video>`. Usage log, newest first: seven rows,
+every one `claude-subscription | claude-opus-5 | agent | vidtsx/tsx-composer`
+— the composition pipeline's classify/generate/verify rows (the $0.12–0.14
+ones) on the panel's model, not the default. Main log for the profile: 72
+lines, zero `warn` / `error`. Afterwards: "New session" on the panel made a
+second sink session with the same brand and model and no project (it would
+have been created by its first composition); the Agents gallery lists
+`vidtsx/tsx-composer 1.0.0 builtin` beside the other two. Both sessions were
+deleted through `agentSessionDelete`, the project folder removed, the app
+stopped; the MP4 stays in `Videos\VidTSX` for Hasan.
+
+**Not done / left for later.** Binding Agent mode to an ALREADY-OPEN Motion
+project (edit the project on screen) is not built — a new session's first
+composition always makes a new project; doing it needs the current version
+seeded as a composition artifact, one `AgentSessionCreateRequest` field and
+a sink that skips the reserve step. The sink writes no `chat.json` turns into
+the Motion project, so prompt mode's edit box has no conversational context
+for an agent-made project (the edit pipeline still has the code). No
+thinking dial in Agent mode (the W1 note stands: the manifest's
+`defaults.effort` governs). Switching to prompt mode mid-run and back keeps
+the view because the panel stays mounted, but a full screen remount during a
+run reopens the session with `busy` false until the turn's messages are
+appended (main keeps running; a second send in that window gets "already
+running"). The interaction card in a 280-px panel is cramped for `pick`
+with previews (none are resolved there — compositions carry no picture). No
+icon for the built-in. `MotionScreen` (457 lines) and `agent-service.ts`
+(371) want their splits. For W6: `AgentSession` gained `motionSink` and
+`motionProjectId` (folder name relative to the Creator's projects dir,
+`getProjectsDir()`), `AgentSessionSummary` carries them through
+`listAgentSessions`, and the Motion project store is folder-as-truth
+(`<projectsDir>/<name>/vN.tsx`, `scanLibrary` in the renderer) — a Home
+card for a tsx-composer session can point at its project by that id, and a
+Motion project's newest `vN.tsx` mtime is its "recent" signal.
+
 ### 2.8 W8 — Flows — per `docs/flows-plan.md`, all stages, ~8 sessions
 
 Owned by the flows plan; the pending discussion goes there. What THIS plan needs from it, to fold into the flows discussion:

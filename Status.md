@@ -7,6 +7,51 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W7 DONE: TSX agent mode
+
+Workstream W7 of `docs/v1-completion-plan.md` §2.7. Full outcome under the
+W7 acceptance paragraph in the plan. `check:types` at baseline (web 26, node
+10); 2002 tests, up from 1990. Commits `8aabd36` (move), `58e4a98` (main +
+built-in), `8a6b58c` (panel) and the docs commit.
+
+- **`Prompt | Agent`** at the top of the Creator's input panel. Agent mode
+  keeps the panel's Provider / Model / Brand pickers and embeds the shared
+  `AgentChat` (embedded form: no chip, `ask_user` cards under the chat)
+  bound to the new built-in `vidtsx/tsx-composer`. The reusable chat half
+  of the Agents feature moved first to `src/renderer/components/agents/` and
+  `src/renderer/hooks/agents/` (rule 1: motion never imports agents).
+- **The sink.** `motion-project-sink.ts`, one adapter on a new runner hook
+  (`prepareArtifact`): a session with `motionSink` writes every composition
+  as the next `vN.tsx` of a Motion project — the first composition creates
+  it (named after the composition's title, the prompt mode's own naming)
+  and `motionProjectId` is remembered on the session; the draft carries
+  `payload.motion = { folderPath, versionPath }` so the preview loads it
+  and the Render button renders it exactly as in prompt mode.
+- **Brand + model** (decision 7 / W1): the turn's model reaches
+  `generate_composition` / `edit_composition` via `AgentToolContext.model`;
+  the session brand's `buildBrandInstructions` block (now shared in
+  `src/shared/studio/brand-instructions.ts`) is injected ahead of the
+  agent's style notes, so both modes build under one contract.
+- **Skill = the prompt.** The 2D generate prompt's Style presets / Layout /
+  Typography sections are `TSX_CRAFT_RULES` (byte-identical prompt output);
+  the agent's `tsx-craft` SKILL.md is generated from them
+  (`scripts/gen-tsx-craft-skill.mjs`) with a drift-guard test;
+  `scripts/agent-pack.mjs --hash` rewrote the manifest's `files[]`.
+- **Evidence.** Session `s-afece65c`, Opus 5, brand `acme-test`: "Make me a
+  10-second logo sting for my brand" (one form question answered on the
+  card) → `projects/acme-test-logo-sting/v1.tsx`; "make the text bigger" →
+  `v2.tsx` as an `edit_composition` of v1 (112→160 / 32→48 px), preview on
+  v2; the Render button → `Videos\VidTSX\AcmeTestLogoSting_2026-09-10T00-17-55.mp4`
+  — ffprobe h264 1920×1080 30 fps, 300 frames, AAC, 10.048 s. Seven usage
+  rows, all `claude-opus-5 / agent / vidtsx/tsx-composer`; main log 0
+  warn/error. Sessions and project deleted afterwards.
+- **Left:** binding Agent mode to an already-open project; no chat turns
+  written into the Motion project; no thinking dial in Agent mode; no icon;
+  `MotionScreen` / `agent-service.ts` over the line budget. For W6:
+  `AgentSession.motionSink` / `motionProjectId` ride `listAgentSessions`.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W2b BUILT, live rows pending: ElevenLabs sound effects + music
 
 Workstream W2b of `docs/v1-completion-plan.md` §2.2 — the last W2 provider
