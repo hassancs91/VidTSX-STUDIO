@@ -77,23 +77,51 @@ export async function generateImageAsset(
     height: req.height && req.height > 0 ? req.height : preset.height,
   };
   const references = req.referenceImages?.filter((r) => r.length > 0) ?? [];
-  const operation: ImageOperation =
+  let operation: ImageOperation =
     references.length > 0 ? 'multi-reference' : req.sourceImage ? 'image-to-image' : 'text-to-image';
-  const request = {
-    operation,
-    prompt: req.prompt,
-    width: size.width,
-    height: size.height,
-    numImages: 1,
-    outputFormat: 'png' as const,
-    ...(req.model ? { model: req.model } : {}),
-    ...(operation === 'image-to-image' && req.sourceImage ? { sourceImage: req.sourceImage } : {}),
-    ...(operation === 'multi-reference' ? { referenceImages: references } : {}),
-    ...(req.signal ? { signal: req.signal } : {}),
+
+  // A source on a model with no image-to-image route (Nano Banana 2 on the
+  // Antigravity bridge, measured in the W8 Stage 1 run) goes in as the one
+  // reference instead — what the provider's own error asks for. Checked
+  // before the call when the model list is warm, and again after a failed
+  // image-to-image call: some providers list no models until their first
+  // status check, which the call itself performs.
+  const sourceAsReference = (): boolean => {
+    if (!req.sourceImage) return false;
+    const models = imageEngine.getModels(req.providerId);
+    const pool = req.model ? models.filter((m) => m.id === req.model) : models;
+    const supports = (op: ImageOperation) => pool.some((m) => m.supportedOperations.includes(op));
+    return pool.length > 0 && !supports('image-to-image') && supports('multi-reference');
   };
-  const result = req.providerId
-    ? await imageEngine.generateWith(req.providerId, request)
-    : await imageEngine.generate(request);
+  if (operation === 'image-to-image' && sourceAsReference()) operation = 'multi-reference';
+
+  const run = (op: ImageOperation) => {
+    const request = {
+      operation: op,
+      prompt: req.prompt,
+      width: size.width,
+      height: size.height,
+      numImages: 1,
+      outputFormat: 'png' as const,
+      ...(req.model ? { model: req.model } : {}),
+      ...(op === 'image-to-image' && req.sourceImage ? { sourceImage: req.sourceImage } : {}),
+      ...(op === 'multi-reference'
+        ? { referenceImages: references.length > 0 ? references : req.sourceImage ? [req.sourceImage] : [] }
+        : {}),
+      ...(req.signal ? { signal: req.signal } : {}),
+    };
+    return req.providerId
+      ? imageEngine.generateWith(req.providerId, request)
+      : imageEngine.generate(request);
+  };
+  let result;
+  try {
+    result = await run(operation);
+  } catch (err) {
+    if (operation !== 'image-to-image' || !sourceAsReference()) throw err;
+    operation = 'multi-reference';
+    result = await run(operation);
+  }
   const image = result.images[0];
   if (!image?.base64) throw new Error('The image provider returned no image');
 

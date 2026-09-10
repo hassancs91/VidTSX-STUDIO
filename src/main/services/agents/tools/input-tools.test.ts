@@ -57,10 +57,10 @@ const ctx = () => makeToolContext({ libraryFolder: 'flows/test-flow', featureSou
 
 describe('input_text', () => {
   it('emits its text on the field the port reads, and refuses empty text', async () => {
-    const res = await inputTextTool.handler({ text: 'a red fox' }, ctx());
+    const res = await inputTextTool.handler({ prompt: 'a red fox' }, ctx());
     expect(res.isError).toBeUndefined();
     expect(res.fields).toEqual({ text: 'a red fox' });
-    expect((await inputTextTool.handler({ text: '   ' }, ctx())).isError).toBe(true);
+    expect((await inputTextTool.handler({ prompt: '   ' }, ctx())).isError).toBe(true);
   });
 });
 

@@ -7,12 +7,14 @@ import { z } from 'zod';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 
+// The config key is `prompt` — what the v1 canvas's `input-prompt` node
+// stored, so migrated rows and the bundled templates run unchanged.
 const schema = {
-  text: z.string().describe('The text to emit.'),
+  prompt: z.string().describe('The text to emit.'),
 };
 
 interface InputTextArgs {
-  text: string;
+  prompt: string;
 }
 
 export const inputTextTool: AgentToolDef<InputTextArgs> = {
@@ -26,12 +28,12 @@ export const inputTextTool: AgentToolDef<InputTextArgs> = {
     inputs: [],
     outputs: [{ id: 'text', label: 'Text', dataType: 'text', from: 'field:text' }],
     configSchema: [
-      { kind: 'prompt', key: 'text', label: 'Text', placeholder: 'Describe what you want…', rows: 6 },
+      { kind: 'prompt', key: 'prompt', label: 'Text', placeholder: 'Describe what you want…', rows: 6 },
     ],
-    defaultConfig: { text: '' },
+    defaultConfig: { prompt: '' },
   },
   async handler(args): Promise<AgentToolResult> {
-    const text = args.text ?? '';
+    const text = args.prompt ?? '';
     if (text.trim().length === 0) {
       return toolText('The text is empty — type it in the inspector or bind a run parameter.', true);
     }
