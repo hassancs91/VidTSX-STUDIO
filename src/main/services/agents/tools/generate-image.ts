@@ -5,11 +5,17 @@
 // same call Studio's agent makes today. The image is born-managed library
 // content — origin `generated`, the prompt as its description, brand-tagged —
 // so Describe and Organize work on it unchanged.
+//
+// W8 Stage 1 (flows plan §1.2): also a node. The `image` and `images` ports
+// carry `image-set` artifact ids — a source for image-to-image, references
+// for multi-reference — and the inspector picks the provider, model, size and
+// a per-node brand (§0.1 item 9: absent = the run's brand, null = none).
 
 import { z } from 'zod';
 import { generateImageAsset } from '../../library/generate-image-asset';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
+import { readImageBase64 } from './port-media';
 
 const ASPECTS = ['square', 'landscape', 'portrait'] as const;
 
@@ -19,32 +25,85 @@ const schema = {
     .min(1)
     .describe('What the image shows — concrete and visual. Saved as its description.'),
   aspect: z.enum(ASPECTS).optional().describe('Default landscape.'),
+  sourceImage: z
+    .string()
+    .optional()
+    .describe('An "image-set" artifact id to transform (image-to-image).'),
+  referenceImages: z
+    .array(z.string())
+    .optional()
+    .describe('"image-set" artifact ids to draw style or subject from (multi-reference).'),
+  providerId: z.string().optional().describe('Image provider id; absent = the active one.'),
+  model: z.string().optional().describe('Model id on that provider; absent = its default.'),
+  width: z.number().int().positive().optional().describe('Pixels; with height it overrides aspect.'),
+  height: z.number().int().positive().optional(),
+  brandId: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('Flows only: a brand for this step; null = no brand; absent = the run\'s brand.'),
 };
 
 interface GenerateImageArgs {
   prompt: string;
   aspect?: (typeof ASPECTS)[number];
+  sourceImage?: string;
+  referenceImages?: string[];
+  providerId?: string;
+  model?: string;
+  width?: number;
+  height?: number;
+  brandId?: string | null;
 }
 
 export const generateImageTool: AgentToolDef<GenerateImageArgs> = {
   id: 'generate_image',
   description:
-    'Generate one image with the configured image provider and file it in the asset library under this session\'s folder. Takes 10–30 seconds. Returns an "image-set" artifact.',
+    'Generate one image with the configured image provider and file it in the asset library under this session\'s folder. Takes 10–30 seconds. Optionally transform a source image or draw on reference images (artifact ids). Returns an "image-set" artifact.',
   needs: 'image-provider',
   schema,
+  ports: {
+    label: 'Generate Image',
+    category: 'image',
+    inputs: [
+      { id: 'prompt', label: 'Prompt', dataType: 'text', required: true, argKey: 'prompt' },
+      { id: 'sourceImage', label: 'Source', dataType: 'image', argKey: 'sourceImage' },
+      { id: 'referenceImages', label: 'References', dataType: 'images', argKey: 'referenceImages' },
+    ],
+    outputs: [{ id: 'image', label: 'Image', dataType: 'image', from: 'artifact' }],
+    configSchema: [
+      { kind: 'model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
+      { kind: 'number', key: 'width', label: 'Width', min: 256, max: 4096, step: 64 },
+      { kind: 'number', key: 'height', label: 'Height', min: 256, max: 4096, step: 64 },
+      { kind: 'text', key: 'brandId', label: 'Brand id (optional)', placeholder: 'run brand' },
+    ],
+    defaultConfig: { providerId: '', model: '', width: 1024, height: 1024 },
+  },
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.prompt.slice(0, 60));
+    // Per-node brand (§0.1 item 9): a string overrides, null opts out, absent
+    // inherits the run's or session's brand.
+    const brandId = args.brandId === undefined ? ctx.brandId : args.brandId ?? undefined;
+    const featureSource = ctx.featureSource ?? 'agent';
     try {
+      const sourceImage = args.sourceImage ? await readImageBase64(ctx, args.sourceImage) : undefined;
+      const referenceImages = args.referenceImages?.length
+        ? await Promise.all(args.referenceImages.map((id) => readImageBase64(ctx, id)))
+        : undefined;
       const asset = await generateImageAsset({
         prompt: args.prompt,
-        // §9: an agent's image must log as the AGENT's, not as Studio's shot
-        // asset — which is what it did until this stage, because
-        // `generateImageAsset` hard-coded its first caller's source.
-        featureSource: 'agent',
-        agentId: ctx.agentId,
+        // §9: an agent's image logs as the AGENT's, a flow's as the flow's —
+        // `invokeTool` stamps the source, never the tool.
+        featureSource,
+        ...(featureSource === 'agent' ? { agentId: ctx.agentId } : {}),
         ...(args.aspect ? { aspect: args.aspect } : {}),
+        ...(args.width && args.height ? { width: args.width, height: args.height } : {}),
+        ...(args.providerId ? { providerId: args.providerId } : {}),
+        ...(args.model ? { model: args.model } : {}),
+        ...(sourceImage ? { sourceImage } : {}),
+        ...(referenceImages ? { referenceImages } : {}),
         ...(ctx.libraryFolder ? { folder: ctx.libraryFolder } : {}),
-        ...(ctx.brandId ? { brandId: ctx.brandId } : {}),
+        ...(brandId ? { brandId } : {}),
         signal: ctx.signal,
       });
       return {

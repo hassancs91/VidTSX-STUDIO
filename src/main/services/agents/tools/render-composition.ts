@@ -29,6 +29,19 @@ export const renderCompositionTool: AgentToolDef<RenderCompositionArgs> = {
   description:
     'Queue a composition for rendering to MP4. Returns immediately with a job id — the render runs in the app\'s render queue and can take minutes. END YOUR TURN after calling this; you will be told when the job finishes and given the video artifact.',
   schema,
+  // W8 Stage 1 (flows plan §0.1 item 7): composition in, video out. The tool
+  // returns a `job`; the flow runner waits for the queue to settle it and puts
+  // the filed `video` artifact on the port (the queue bridge is Stage 3).
+  ports: {
+    label: 'Render Composition',
+    category: 'composition',
+    inputs: [
+      { id: 'composition', label: 'Composition', dataType: 'composition', required: true, argKey: 'artifactId' },
+    ],
+    outputs: [{ id: 'video', label: 'Video', dataType: 'video', from: 'artifact' }],
+    configSchema: [{ kind: 'text', key: 'name', label: 'Output name (optional)', placeholder: 'render' }],
+    defaultConfig: { name: '' },
+  },
   async handler(args, ctx): Promise<AgentToolResult> {
     const composition = ctx.readArtifacts().find((a) => a.id === args.artifactId);
     if (!composition) {

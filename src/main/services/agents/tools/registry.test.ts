@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import { AGENT_TOOL_IDS } from '../../../../shared/agents/tool-ids';
-import { getTool, listToolIds, selectTools } from './registry';
+import { getNode, getTool, listNodeSpecs, listToolIds, selectTools } from './registry';
 import { sdkToolName } from './tool-server';
 
 const ALL = { imageProvider: true, videoProvider: true, audioProvider: true };
@@ -64,5 +65,86 @@ describe('tool registry', () => {
 
   it('names tools the way the SDK allowlist expects', () => {
     expect(sdkToolName('write_document')).toBe('mcp__vidtsx__write_document');
+  });
+});
+
+// W8 Stage 1 (flows plan §1.2): a tool with `ports` is also a node.
+describe('registry ports and node specs', () => {
+  const NODE_TOOLS = [
+    'input_text',
+    'input_image_library',
+    'input_image_file',
+    'input_video_file',
+    'generate_text',
+    'generate_image',
+    'generate_video',
+    'generate_composition',
+    'edit_composition',
+    'render_composition',
+  ];
+
+  it('the wave-1 node catalogue carries ports; agent-only tools do not', () => {
+    for (const id of NODE_TOOLS) {
+      expect(getNode(id)?.id, id).toBe(id);
+    }
+    for (const id of ['write_document', 'ask_user', 'list_artifacts', 'get_brand', 'write_page']) {
+      expect(getNode(id), id).toBeUndefined();
+    }
+  });
+
+  it('every input port names a key of the tool schema, and every output a source', () => {
+    for (const id of NODE_TOOLS) {
+      const def = getNode(id);
+      if (!def?.ports) throw new Error(`${id} has no ports`);
+      const keys = Object.keys(def.schema);
+      for (const port of def.ports.inputs) {
+        expect(keys, `${id}.${port.id}`).toContain(port.argKey ?? port.id);
+      }
+      expect(def.ports.outputs.length).toBeGreaterThan(0);
+      for (const port of def.ports.outputs) {
+        expect(port.from ?? 'artifact').toMatch(/^(artifact|field:.+)$/);
+      }
+      expect(def.ports.label.length).toBeGreaterThan(0);
+      // Config defaults must survive the schema (unknown keys are stripped, so
+      // a default that is not a schema key would silently do nothing).
+      const parsed = z.object(def.schema).partial().safeParse(def.ports.defaultConfig);
+      expect(parsed.success, `${id} defaultConfig`).toBe(true);
+    }
+  });
+
+  it('listNodeSpecs is serialisable and marks unmet gates', () => {
+    const specs = listNodeSpecs(NONE);
+    expect(specs.map((s) => s.id).sort()).toEqual([...NODE_TOOLS].sort());
+    expect(JSON.parse(JSON.stringify(specs))).toEqual(specs);
+    const image = specs.find((s) => s.id === 'generate_image');
+    expect(image).toMatchObject({ needs: ['image-provider'], available: false, category: 'image' });
+    const text = specs.find((s) => s.id === 'input_text');
+    expect(text?.needs).toBeUndefined();
+    expect(text?.available).toBeUndefined();
+    expect(listNodeSpecs(ALL).find((s) => s.id === 'generate_video')?.available).toBe(true);
+  });
+
+  it('generate_video is priced with a per-second hint from the fal catalog', () => {
+    const video = listNodeSpecs(ALL).find((s) => s.id === 'generate_video');
+    expect(video?.priced).toBe(true);
+    expect(video?.priceHint).toMatch(/\$\d/);
+    expect(video?.priceHint).toContain('/s');
+    expect(listNodeSpecs(ALL).find((s) => s.id === 'generate_image')?.priced).toBeUndefined();
+  });
+
+  it('each node has exactly one primary output the canvas can derive sinks from', () => {
+    const first = Object.fromEntries(listNodeSpecs(ALL).map((s) => [s.id, s.outputs[0]?.id]));
+    expect(first).toMatchObject({
+      input_text: 'text',
+      input_image_library: 'image',
+      input_image_file: 'image',
+      input_video_file: 'video',
+      generate_text: 'text',
+      generate_image: 'image',
+      generate_video: 'video',
+      generate_composition: 'composition',
+      edit_composition: 'composition',
+      render_composition: 'video',
+    });
   });
 });

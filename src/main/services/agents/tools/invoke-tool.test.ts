@@ -45,17 +45,17 @@ describe('invokeTool', () => {
   });
 
   it('stamps the usage featureSource on the context the handler sees', async () => {
-    let ctxSeen: AgentToolContext | null = null;
+    const seen: AgentToolContext[] = [];
     const def = tool({
       handler: async (_args, ctx) => {
-        ctxSeen = ctx;
+        seen.push(ctx);
         return toolText('ok');
       },
     });
     await invokeTool(def, { text: 'hi' }, makeToolContext(), { featureSource: 'flows' });
-    expect(ctxSeen?.featureSource).toBe('flows');
+    expect(seen[0].featureSource).toBe('flows');
     await invokeTool(def, { text: 'hi' }, makeToolContext(), { featureSource: 'agent' });
-    expect(ctxSeen?.featureSource).toBe('agent');
+    expect(seen[1].featureSource).toBe('agent');
   });
 
   it('turns a throwing handler into an error result instead of propagating', async () => {

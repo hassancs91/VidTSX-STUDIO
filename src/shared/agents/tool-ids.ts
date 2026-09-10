@@ -29,6 +29,14 @@ export const AGENT_TOOL_IDS = [
   'edit_page',
   'capture_page',
   'export_site',
+  // W8 Stage 1 (2026-09-10): the flow input resolvers and the LLM text node
+  // (docs/flows-plan.md §1.2). Node-capable; `generate_text` is also a fine
+  // agent tool.
+  'input_text',
+  'input_image_library',
+  'input_image_file',
+  'input_video_file',
+  'generate_text',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

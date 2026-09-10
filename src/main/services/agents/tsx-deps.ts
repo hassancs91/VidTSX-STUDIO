@@ -14,6 +14,7 @@
 
 import type { TsxEngineDeps } from '../../../shared/tsx-engine';
 import type { TsxValidateResponse } from '../../../shared/ipc/types';
+import type { AiFeatureSource } from '../../../shared/types/ai-usage';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
@@ -47,6 +48,9 @@ export function buildAgentTsxDeps(
   providerId: string | undefined,
   signal?: AbortSignal,
   agentId?: string,
+  /** `'flows'` when a flow node runs the pipeline (W8 Stage 1); the agent
+   *  attribution otherwise. */
+  featureSource: AiFeatureSource = 'agent',
 ): TsxEngineDeps {
   return {
     llmGenerate: (req) =>
@@ -54,7 +58,7 @@ export function buildAgentTsxDeps(
         {
           ...req,
           ...(providerId && !req.providerId ? { providerId } : {}),
-          featureSource: 'agent',
+          featureSource,
         },
         signal,
         undefined,

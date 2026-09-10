@@ -93,6 +93,9 @@ export interface NodeSpec {
   defaultConfig: Record<string, unknown>;
   /** Capability gate (provider ids, binaries); unmet = a warning chip. */
   needs?: string[];
+  /** Stage 1: false when a gate in `needs` was unmet at list time — the
+   *  canvas shows the chip and the runner refuses to start. */
+  available?: boolean;
   /** §0.1 item 6: the run form lists priced steps; the price hint is free text. */
   priced?: boolean;
   priceHint?: string;

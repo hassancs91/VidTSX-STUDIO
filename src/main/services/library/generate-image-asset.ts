@@ -6,6 +6,7 @@
 
 import fs from 'fs/promises';
 import { imageEngine } from '../../../image-engine';
+import type { ImageOperation } from '../../../image-engine/types';
 import { aiUsageService } from '../ai-usage';
 import { getDefaultImageModelPriceUsd } from '../../../shared/presets/provider-model-defaults';
 import { ensureLibraryRoot } from './library-paths';
@@ -36,6 +37,17 @@ export interface GenerateImageAssetRequest {
   featureSource?: AiFeatureSource;
   /** `<namespace>/<name>` when an agent asked for it (agents plan §9). */
   agentId?: string;
+  /** Flows (W8 Stage 1): a provider other than the active one, and a model
+   *  on it. Absent = the active provider and its default model. */
+  providerId?: string;
+  model?: string;
+  /** An explicit size wins over `aspect`. */
+  width?: number;
+  height?: number;
+  /** Base64 inputs. One source = image-to-image; references = multi-
+   *  reference. The engine's Gate B checks them before any provider call. */
+  sourceImage?: string;
+  referenceImages?: string[];
 }
 
 export interface GeneratedImageAsset {
@@ -54,22 +66,40 @@ export async function generateImageAsset(
       'No image provider is configured — ask the user to set one up in Settings → AI Providers → Image.',
     );
   }
-  const size = ASPECT_SIZES[req.aspect ?? 'landscape'];
-  const result = await imageEngine.generate({
-    operation: 'text-to-image',
+  if (req.providerId && !imageEngine.getProviders().includes(req.providerId)) {
+    throw new Error(
+      `Image provider "${req.providerId}" is not configured — add its key in AI → Providers or pick another.`,
+    );
+  }
+  const preset = ASPECT_SIZES[req.aspect ?? 'landscape'];
+  const size = {
+    width: req.width && req.width > 0 ? req.width : preset.width,
+    height: req.height && req.height > 0 ? req.height : preset.height,
+  };
+  const references = req.referenceImages?.filter((r) => r.length > 0) ?? [];
+  const operation: ImageOperation =
+    references.length > 0 ? 'multi-reference' : req.sourceImage ? 'image-to-image' : 'text-to-image';
+  const request = {
+    operation,
     prompt: req.prompt,
     width: size.width,
     height: size.height,
     numImages: 1,
-    outputFormat: 'png',
+    outputFormat: 'png' as const,
+    ...(req.model ? { model: req.model } : {}),
+    ...(operation === 'image-to-image' && req.sourceImage ? { sourceImage: req.sourceImage } : {}),
+    ...(operation === 'multi-reference' ? { referenceImages: references } : {}),
     ...(req.signal ? { signal: req.signal } : {}),
-  });
+  };
+  const result = req.providerId
+    ? await imageEngine.generateWith(req.providerId, request)
+    : await imageEngine.generate(request);
   const image = result.images[0];
   if (!image?.base64) throw new Error('The image provider returned no image');
 
   // Cost = the shipped catalog's per-image estimate (the same lookup the
   // Image Studio IPC uses); unknown models and the local bridge stay $0.
-  const usageProvider = imageEngine.getActiveProvider() ?? 'unknown';
+  const usageProvider = req.providerId ?? imageEngine.getActiveProvider() ?? 'unknown';
   const usageModel = result.model || 'unknown';
   aiUsageService
     .appendEntry({

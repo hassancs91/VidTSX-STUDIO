@@ -31,6 +31,19 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
   description:
     'Apply one change to an existing composition and show the result. Takes a minute or more. Returns a new version of the composition artifact; the previous version stays available.',
   schema,
+  // W8 Stage 1 (flows plan §0.1 item 7): composition in, instruction in,
+  // composition out — the new version, on the same port type.
+  ports: {
+    label: 'Edit Composition',
+    category: 'composition',
+    inputs: [
+      { id: 'composition', label: 'Composition', dataType: 'composition', required: true, argKey: 'artifactId' },
+      { id: 'instruction', label: 'Instruction', dataType: 'text', required: true, argKey: 'instruction' },
+    ],
+    outputs: [{ id: 'composition', label: 'Composition', dataType: 'composition', from: 'artifact' }],
+    configSchema: [],
+    defaultConfig: {},
+  },
   async handler(args, ctx): Promise<AgentToolResult> {
     const prior = ctx.readArtifacts().find((a) => a.id === args.artifactId);
     if (!prior) {

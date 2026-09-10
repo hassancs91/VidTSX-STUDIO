@@ -7,7 +7,9 @@
 // installed agent that asked for it, so deprecate by keeping the id and
 // returning a guidance error.
 
+import type { NodeSpec } from '../../../../shared/types/flows';
 import type { AgentToolDef, AgentToolNeed } from './types';
+import { needMet } from './invoke-tool';
 import { writeDocumentTool } from './write-document';
 import { listArtifactsTool } from './list-artifacts';
 import { askUserTool } from './ask-user';
@@ -23,6 +25,11 @@ import { writePageTool } from './write-page';
 import { editPageTool } from './edit-page';
 import { capturePageTool } from './capture-page';
 import { exportSiteTool } from './export-site';
+import { inputTextTool } from './input-text';
+import { inputImageLibraryTool } from './input-image-library';
+import { inputImageFileTool } from './input-image-file';
+import { inputVideoFileTool } from './input-video-file';
+import { generateTextTool } from './generate-text';
 
 /** The registry stores definitions with their arg types erased; the zod schema
  *  validates before a handler ever sees the object. */
@@ -100,6 +107,45 @@ export function selectTools(toolIds: string[], capabilities: ToolCapabilities): 
   return { tools, missing, unavailable };
 }
 
+// ---------------------------------------------------------------------------
+// Nodes (flows plan §1.2, decision 2): a tool with `ports` is also a node.
+// ---------------------------------------------------------------------------
+
+/** The tool behind a node id — only tools that carry `ports`. */
+export function getNode(toolId: string): RegisteredTool | undefined {
+  const def = registry.get(toolId);
+  return def?.ports ? def : undefined;
+}
+
+/**
+ * Serialisable node descriptions for the canvas (`FLOWS_NODES_LIST`). No
+ * handler travels; `available` is false when the tool's gate is unmet right
+ * now, and `priceHint` is read at list time so the catalog can change.
+ */
+export function listNodeSpecs(capabilities: ToolCapabilities): NodeSpec[] {
+  const specs: NodeSpec[] = [];
+  for (const def of registry.values()) {
+    const ports = def.ports;
+    if (!ports) continue;
+    const priceHint = ports.priceHint?.();
+    specs.push({
+      id: def.id,
+      label: ports.label,
+      description: def.description,
+      category: ports.category,
+      inputs: ports.inputs,
+      outputs: ports.outputs,
+      configSchema: ports.configSchema,
+      defaultConfig: ports.defaultConfig,
+      ...(def.needs ? { needs: [def.needs], available: needMet(def.needs, capabilities) } : {}),
+      ...(ports.priced ? { priced: true } : {}),
+      ...(priceHint ? { priceHint } : {}),
+      ...(ports.nondeterministic ? { nondeterministic: true } : {}),
+    });
+  }
+  return specs;
+}
+
 // Wave 1 (plan §1.3). `run_flow` joins when Flows lands.
 registerTool(writeDocumentTool);
 registerTool(generateCompositionTool);
@@ -119,3 +165,9 @@ registerTool(writePageTool);
 registerTool(editPageTool);
 registerTool(capturePageTool);
 registerTool(exportSiteTool);
+// W8 Stage 1: the flow input resolvers and the LLM text node (flows plan §1.2).
+registerTool(inputTextTool);
+registerTool(inputImageLibraryTool);
+registerTool(inputImageFileTool);
+registerTool(inputVideoFileTool);
+registerTool(generateTextTool);
