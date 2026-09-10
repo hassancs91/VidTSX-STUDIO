@@ -24,6 +24,7 @@ import { sanitizeFolder, slugify, GENERATED_FOLDER } from '../library/library-fi
 import { importShot } from '../studio/shot-import';
 import { getProjectsDir } from '../../utils/paths';
 import { artifactFiles, artifactRoot } from './artifact-paths';
+import { runWebPageAction } from './web-page-actions';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('AgentArtifactActions');
@@ -38,10 +39,15 @@ export interface ArtifactActionInput {
   brandId?: string;
   /** `open-in-studio`: the project the shot lands in. */
   projectId?: string;
+  /** `export-site` / `open-in-browser`: the session's artifacts, for the
+   *  page's media references. */
+  artifacts?: AgentArtifact[];
 }
 
 function extensionFor(artifact: AgentArtifact): string {
-  return artifact.kind === 'composition' ? '.tsx' : '.md';
+  if (artifact.kind === 'composition') return '.tsx';
+  if (artifact.kind === 'web-page') return '.html';
+  return '.md';
 }
 
 /** Copy a work file into the library and register it as ordinary content. */
@@ -146,6 +152,9 @@ export async function runArtifactAction(
     case 'copy-path':
       clipboard.writeText(primary);
       return { success: true };
+    case 'export-site':
+    case 'open-in-browser':
+      return runWebPageAction(input);
     case 'send-to-queue':
       // Enqueueing is the caller's job: it mints the `job` artifact and emits
       // the same `job-request` the render tool does, so both routes are one

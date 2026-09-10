@@ -22,6 +22,10 @@ export const AGENT_TOOL_LABELS: Record<string, string> = {
   list_artifacts: 'Reviewing what it has made',
   get_brand: 'Reading the brand',
   generate_audio: 'Generating audio',
+  write_page: 'Writing the page',
+  edit_page: 'Editing the page',
+  capture_page: 'Looking at the page',
+  export_site: 'Exporting the site',
 };
 
 let seq = 0;

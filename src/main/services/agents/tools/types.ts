@@ -25,6 +25,11 @@ export type AgentToolNeed = 'image-provider' | 'video-provider' | 'audio-provide
 export interface AgentToolResult {
   content: Array<{ type: 'text'; text: string }>;
   isError?: boolean;
+  /**
+   * Pictures the MODEL should see (W9 `capture_page`): appended to the result
+   * as MCP image blocks after the text. Base64, no data: prefix.
+   */
+  images?: Array<{ data: string; mimeType: string }>;
   /** Filed by the runner when the tool made something the user can open. */
   artifact?: AgentArtifactDraft;
   /**

@@ -224,7 +224,10 @@ export type AgentArtifactActionKind =
   | 'open-in-studio'
   | 'send-to-queue'
   | 'open-folder'
-  | 'copy-path';
+  | 'copy-path'
+  // W9: web pages — the exported site folder + zip, and the browser preview.
+  | 'export-site'
+  | 'open-in-browser';
 
 export interface AgentArtifactActionRequest {
   agentId: string;
@@ -244,6 +247,8 @@ export interface AgentArtifactActionResponse {
   navigateTo?: 'creator' | 'studio' | 'render' | 'assets';
   /** `open-in-creator`: the project written for the target screen to open. */
   open?: { folderPath: string; versionPath: string };
+  /** `export-site`: the absolute folder the site was written to. */
+  path?: string;
   error?: string;
 }
 

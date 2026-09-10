@@ -4,7 +4,7 @@
 // has to be the same everywhere: a video cannot be opened in the Creator, and a
 // job has no file to open a folder on until it is terminal.
 
-import { Copy, FolderOpen, ListVideo, Save, Scissors, Wand2 } from 'lucide-react';
+import { Copy, Download, FolderOpen, Globe, ListVideo, Save, Scissors, Wand2 } from 'lucide-react';
 import type { AgentArtifactActionKind } from '@shared/ipc/types';
 import type { AgentArtifact, ArtifactKind } from '@shared/types/agents';
 
@@ -15,6 +15,8 @@ const ACTIONS: Record<AgentArtifactActionKind, { label: string; icon: typeof Sav
   'send-to-queue': { label: 'Render', icon: ListVideo },
   'open-folder': { label: 'Open folder', icon: FolderOpen },
   'copy-path': { label: 'Copy path', icon: Copy },
+  'open-in-browser': { label: 'Open in browser', icon: Globe },
+  'export-site': { label: 'Export site', icon: Download },
 };
 
 const BY_KIND: Record<ArtifactKind, AgentArtifactActionKind[]> = {
@@ -24,6 +26,7 @@ const BY_KIND: Record<ArtifactKind, AgentArtifactActionKind[]> = {
   'image-set': ['open-folder', 'copy-path'],
   job: [],
   audio: ['open-folder', 'copy-path'],
+  'web-page': ['open-in-browser', 'export-site', 'open-folder', 'copy-path'],
 };
 
 interface Props {

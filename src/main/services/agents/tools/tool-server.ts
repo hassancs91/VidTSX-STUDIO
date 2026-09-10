@@ -99,7 +99,10 @@ export function buildAgentToolServer(
         return { content: [{ type: 'text' as const, text: `${def.id} failed: ${message}` }], isError: true };
       }
 
-      const content = [...result.content];
+      const content: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image'; data: string; mimeType: string }
+      > = [...result.content];
       if (result.artifact) {
         try {
           const filed = await deps.fileArtifact(
@@ -123,6 +126,9 @@ export function buildAgentToolServer(
             isError: true,
           };
         }
+      }
+      for (const image of result.images ?? []) {
+        content.push({ type: 'image' as const, data: image.data, mimeType: image.mimeType });
       }
       return { content, ...(result.isError ? { isError: true } : {}) };
     }),

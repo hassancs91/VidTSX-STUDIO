@@ -19,6 +19,10 @@ import { generateVideoTool } from './generate-video';
 import { proposeMemoryTool } from './propose-memory';
 import { getBrandTool } from './get-brand';
 import { generateAudioTool } from './generate-audio';
+import { writePageTool } from './write-page';
+import { editPageTool } from './edit-page';
+import { capturePageTool } from './capture-page';
+import { exportSiteTool } from './export-site';
 
 /** The registry stores definitions with their arg types erased; the zod schema
  *  validates before a handler ever sees the object. */
@@ -110,3 +114,8 @@ registerTool(proposeMemoryTool);
 registerTool(getBrandTool);
 // W2b: sound effects + music.
 registerTool(generateAudioTool);
+// W9: the web designer's pages.
+registerTool(writePageTool);
+registerTool(editPageTool);
+registerTool(capturePageTool);
+registerTool(exportSiteTool);

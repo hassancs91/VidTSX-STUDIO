@@ -24,6 +24,7 @@ import type {
 } from '@shared/ipc/types';
 import { agentService } from '../services/agents/agent-service';
 import { runArtifactAction } from '../services/agents/artifact-actions';
+import { inlineWebPage, loadWebPage } from '../services/agents/web-page-refs';
 import {
   artifactFiles,
   assetUrlFor,
@@ -139,6 +140,12 @@ export async function handleAgentArtifactResolve(
           }
           return { success: true, assetUrls };
         }
+        case 'web-page': {
+          // W9: the page with its media inlined as data URIs — the viewer
+          // wraps it in the no-network CSP and a sandboxed iframe.
+          const page = await loadWebPage(data.agentId, data.sessionId, ctx.store.list(), artifact);
+          return { success: true, text: await inlineWebPage(page.html, page.resolved) };
+        }
         case 'job':
           return { success: true };
       }
@@ -171,6 +178,7 @@ export async function handleAgentArtifactAction(
         ...(ctx.session.libraryFolder ? { libraryFolder: ctx.session.libraryFolder } : {}),
         ...(ctx.session.brandId ? { brandId: ctx.session.brandId } : {}),
         ...(data.projectId ? { projectId: data.projectId } : {}),
+        artifacts: ctx.store.list(),
       });
     });
   } catch (err) {

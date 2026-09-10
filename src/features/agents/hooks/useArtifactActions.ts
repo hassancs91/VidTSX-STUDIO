@@ -52,7 +52,7 @@ export function useArtifactActions(agentId: string, sessionId: string | null) {
             }, MOUNT_DELAY_MS);
           }
         }
-        return { ok: true, message: successMessage(action, result.relPath) };
+        return { ok: true, message: successMessage(action, result.relPath, result.path) };
       } finally {
         setRunning(null);
       }
@@ -63,7 +63,7 @@ export function useArtifactActions(agentId: string, sessionId: string | null) {
   return { run, running, studioProjectOpen: Boolean(openProjectId) };
 }
 
-function successMessage(action: AgentArtifactActionKind, relPath?: string): string {
+function successMessage(action: AgentArtifactActionKind, relPath?: string, path?: string): string {
   switch (action) {
     case 'save-to-library':
       return relPath ? `Saved to the library: ${relPath}` : 'Saved to the library';
@@ -77,5 +77,9 @@ function successMessage(action: AgentArtifactActionKind, relPath?: string): stri
       return 'Opened the containing folder';
     case 'copy-path':
       return 'Path copied';
+    case 'open-in-browser':
+      return 'Opened in your browser';
+    case 'export-site':
+      return path ? `Site exported to ${path}` : 'Site exported';
   }
 }

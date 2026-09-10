@@ -24,6 +24,11 @@ export const AGENT_TOOL_IDS = [
   'get_brand',
   // W2b (2026-09-10): sound effects + music through the audio engine.
   'generate_audio',
+  // W9 (2026-09-10): the web designer's page tools.
+  'write_page',
+  'edit_page',
+  'capture_page',
+  'export_site',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

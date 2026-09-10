@@ -3,8 +3,8 @@
 //
 // Artifact `relPath`s are relative to one of TWO roots, decided by kind:
 //
-//   document, composition  → the session workspace (work files, never media)
-//   video, image-set, audio → the ASSET LIBRARY (born-managed, §1.11)
+//   document, composition, web-page → the session workspace (work files, never media)
+//   video, image-set, audio         → the ASSET LIBRARY (born-managed, §1.11)
 //
 // That split is not stated in one place in the plan — it falls out of §1.4
 // ("relative to the session workspace") and §1.11 ("generated media never lands
@@ -47,6 +47,7 @@ export async function artifactFiles(
     case 'composition':
     case 'video':
     case 'audio':
+    case 'web-page':
       return [resolve(artifact.payload.relPath)];
     case 'image-set':
       return artifact.payload.items.map((item) => resolve(item.relPath));

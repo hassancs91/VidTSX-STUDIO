@@ -107,7 +107,16 @@ export interface InstalledAgent {
 
 /** Every artifact kind, as a value: the manifest validator checks a package's
  *  declared kinds against this list at install time (plan §1.1). */
-export const ARTIFACT_KINDS = ['document', 'composition', 'video', 'image-set', 'job', 'audio'] as const;
+export const ARTIFACT_KINDS = [
+  'document',
+  'composition',
+  'video',
+  'image-set',
+  'job',
+  'audio',
+  // W9 (2026-09-10): a self-contained HTML page plus the media it references.
+  'web-page',
+] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
@@ -162,6 +171,25 @@ export interface AudioPayload {
   sound: 'sfx' | 'music';
 }
 
+/** One `artifact:<id>[/<n>]` reference inside a web page (W9). */
+export interface WebPageRef {
+  artifactId: string;
+  /** Item index for an `image-set`; 0 for single-file kinds. */
+  item: number;
+}
+
+/**
+ * A self-contained HTML document in the session workspace (W9). Media is
+ * never inlined in the file: the page carries `artifact:` references, the
+ * viewer serves them as data URIs and an export copies them to `assets/`.
+ */
+export interface WebPagePayload {
+  relPath: string;
+  refs: WebPageRef[];
+  /** Bytes the page weighs with every reference inlined — capped by `write_page`. */
+  inlineBytes: number;
+}
+
 export type AgentJobKind = 'render' | 'video';
 export type AgentJobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -193,7 +221,8 @@ export type ArtifactPayload =
   | ({ kind: 'video' } & VideoPayload)
   | ({ kind: 'image-set' } & ImageSetPayload)
   | ({ kind: 'job' } & JobPayload)
-  | ({ kind: 'audio' } & AudioPayload);
+  | ({ kind: 'audio' } & AudioPayload)
+  | ({ kind: 'web-page' } & WebPagePayload);
 
 type PayloadFor<K extends ArtifactKind> = Omit<Extract<ArtifactPayload, { kind: K }>, 'kind'>;
 
@@ -214,7 +243,8 @@ export type AgentArtifact =
   | ArtifactBase<'video'>
   | ArtifactBase<'image-set'>
   | ArtifactBase<'job'>
-  | ArtifactBase<'audio'>;
+  | ArtifactBase<'audio'>
+  | ArtifactBase<'web-page'>;
 
 export type ArtifactOfKind<K extends ArtifactKind> = Extract<AgentArtifact, { kind: K }>;
 

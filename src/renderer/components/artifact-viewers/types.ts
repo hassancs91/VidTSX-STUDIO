@@ -11,7 +11,8 @@ import type { AgentArtifact, ArtifactKind } from '../../../shared/types/agents';
 
 /** What main gave back for this artifact (`AGENT_ARTIFACT_RESOLVE`). */
 export interface ResolvedArtifact {
-  /** `document`: the markdown body. */
+  /** `document`: the markdown body. `web-page`: the HTML with its media
+   *  inlined as data URIs (W9). */
   text?: string;
   /** `composition`: a live module url, re-served if the store went cold. */
   moduleUrl?: string;
