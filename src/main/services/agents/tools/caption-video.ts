@@ -138,6 +138,7 @@ export const captionVideoTool: AgentToolDef<CaptionVideoArgs> = {
       const baseName = args.name?.trim() || `${path.basename(videoPath, path.extname(videoPath))}-captioned`;
       const { relPath, absPath } = await reserveLibraryOutput({ libraryFolder: ctx.libraryFolder, baseName, ext: '.mp4' });
       let lastStep = -1;
+      let lastBundleStep = -1;
       await deps.render({
         entryPath: entry.entryPath,
         skipWrapper: true,
@@ -149,9 +150,10 @@ export const captionVideoTool: AgentToolDef<CaptionVideoArgs> = {
         durationInFrames,
         signal: ctx.signal,
         onProgress: (phase, percent) => {
-          const step = Math.floor(percent / 10);
-          if (phase === 'rendering' && step === lastStep) return;
-          lastStep = phase === 'rendering' ? step : -1;
+          const step = Math.floor(percent / (phase === 'bundling' ? 25 : 10));
+          if (phase === 'bundling' ? step === lastBundleStep : step === lastStep) return;
+          if (phase === 'bundling') lastBundleStep = step;
+          else lastStep = step;
           ctx.emitProgress(`${phase === 'bundling' ? 'Bundling' : 'Rendering'}… ${percent}%`);
         },
       });

@@ -22,8 +22,9 @@ import type { SettleJobOptions } from './flow-jobs';
 
 type JobArtifact = Extract<AgentArtifact, { kind: 'job' }>;
 
-/** Progress lines every 10 % — a node keeps at most 50 notes. */
+/** Progress lines every 10 % of the render and 25 % of the bundle — a node keeps at most 50 notes. */
 const PROGRESS_STEP = 10;
+const BUNDLE_STEP = 25;
 
 export async function settleRenderJob(job: JobArtifact, opts: SettleJobOptions): Promise<AgentArtifact> {
   const request = opts.request;
@@ -45,6 +46,7 @@ export async function settleRenderJob(job: JobArtifact, opts: SettleJobOptions):
   opts.note(`Rendering ${composition.title} → ${relPath}`);
 
   let lastStep = -1;
+  let lastBundleStep = -1;
   const config = request?.config ?? composition.payload.config;
   try {
     await renderTsxToMp4({
@@ -58,10 +60,17 @@ export async function settleRenderJob(job: JobArtifact, opts: SettleJobOptions):
       signal: opts.signal,
       jobId: job.payload.jobId,
       onProgress: (phase, percent) => {
+        if (phase === 'bundling') {
+          const step = Math.floor(percent / BUNDLE_STEP);
+          if (step === lastBundleStep) return;
+          lastBundleStep = step;
+          opts.note(`Bundling… ${percent}%`);
+          return;
+        }
         const step = Math.floor(percent / PROGRESS_STEP);
-        if (phase === 'rendering' && step === lastStep) return;
-        lastStep = phase === 'rendering' ? step : -1;
-        opts.note(phase === 'bundling' ? `Bundling… ${percent}%` : `Rendering… ${percent}%`);
+        if (step === lastStep) return;
+        lastStep = step;
+        opts.note(`Rendering… ${percent}%`);
       },
     });
   } catch (err) {

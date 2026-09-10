@@ -52,7 +52,8 @@ async function renderReal(opts: RenderTsxOptions): Promise<RenderTsxResult> {
   if (opts.signal?.aborted) throw new Error('Cancelled.');
   const bundle = await bundleComposition(opts.entryPath, {
     ...(opts.skipWrapper ? { skipWrapper: true } : {}),
-    onProgress: (fraction) => opts.onProgress?.('bundling', Math.round(fraction * 100)),
+    // The bundler reports 0–100 already (the first live run printed 600 %).
+    onProgress: (percent) => opts.onProgress?.('bundling', Math.round(percent)),
   });
   if (!bundle.success || !bundle.serveUrl) throw new Error(bundle.error || 'Bundling failed.');
   if (opts.signal?.aborted) throw new Error('Cancelled.');
