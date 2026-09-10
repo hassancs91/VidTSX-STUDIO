@@ -19,6 +19,7 @@ import { buildScriptTools } from './script-tools';
 import { buildVocabularyTools } from './vocabulary-tools';
 import { buildPresetTools } from './preset-tools';
 import { buildAudioTools } from './audio-tools';
+import { buildFlowTools } from './flow-tools';
 import type { StudioToolContext } from './types';
 
 export { createTurnState } from './types';
@@ -56,6 +57,8 @@ export const STUDIO_TOOL_IDS = [
   // W2b (2026-09-10): sound effects and music through the audio engine.
   'generate_sfx',
   'generate_music',
+  // W8 Stage 4 (2026-09-10): an installed flow on a shot range (flows plan §0.1 item 11).
+  'run_flow',
 ] as const;
 
 export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
@@ -85,6 +88,7 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildVocabularyTools(ctx),
       ...buildPresetTools(ctx),
       ...buildAudioTools(ctx),
+      ...buildFlowTools(ctx),
     ],
   });
 }

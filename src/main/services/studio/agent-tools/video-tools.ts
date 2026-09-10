@@ -12,6 +12,7 @@ import type { MediaInput, VideoJobRecord } from '../../../../video-engine';
 import type { VideoResolution } from '../../../../shared/presets/video-models';
 import { fileVideoAsset, submitVideoAsset } from '../../library/generate-video-asset';
 import { getLibraryRoot, resolveLibraryPath } from '../../library/library-paths';
+import { formatVideoModelChoices } from '../../../../shared/presets/video-model-prices';
 import { LIBRARY_REF_PREFIX, parseLibraryRef } from '../shot-asset-refs';
 import { importLibraryFile } from './library-import';
 import {
@@ -64,7 +65,7 @@ export function buildVideoTools(ctx: StudioToolContext): StudioTool[] {
     'Generate a b-roll clip with the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo). WAITS for the clip: minutes, billed per second, so state the spend before calling and keep drafts at 480p. The clip is filed into the asset library (brand-tagged, prompt as description) AND imported into this project; the result names the project asset id to pass to insert_asset.',
     {
       prompt: z.string().describe('What the clip shows — concrete and visual. Saved as the asset description.'),
-      model: z.string().optional().describe('Catalog model id; defaults to the active provider\'s first model. An unknown id lists what is available.'),
+      model: z.string().optional().describe('Catalog model id; defaults to the active provider\'s first model. An unknown id lists every model WITH its per-second price — pick the cheapest that fits.'),
       providerId: z.string().optional().describe('Video provider id ("fal" or "byteplus"); defaults to the active one'),
       durationSeconds: z.number().optional().describe('Clip length; clamped to the model (default 5)'),
       aspectRatio: z.string().optional().describe('e.g. "16:9", "9:16"; clamped to the model'),
@@ -80,7 +81,7 @@ export function buildVideoTools(ctx: StudioToolContext): StudioTool[] {
         return text('No video provider is configured. Ask the user to add a Fal or BytePlus ModelArk key in AI → Providers.', true);
       }
       if (args.model && !models.some((m) => m.id === args.model)) {
-        return text(`"${args.model}" is not in the catalog. Available: ${models.map((m) => m.id).join(', ')}.`, true);
+        return text(`"${args.model}" is not in the catalog. Available (per second of output): ${formatVideoModelChoices(models)}.`, true);
       }
       try {
         const firstFrame = frameInput(args.firstFrame);
