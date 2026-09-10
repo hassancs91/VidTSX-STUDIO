@@ -2,16 +2,16 @@ import { AlertTriangle } from 'lucide-react';
 import type { ConfigField } from '@shared/types/flows';
 import { useNodeSpec } from '../hooks/useNodeSpecs';
 import { needLabel } from '../services/node-style';
-import { TextField } from './inspector-fields/TextField';
-import { PromptField } from './inspector-fields/PromptField';
-import { NumberField } from './inspector-fields/NumberField';
-import { SelectField } from './inspector-fields/SelectField';
-import { ModelPickerField } from './inspector-fields/ModelPickerField';
-import { LlmModelPickerField } from './inspector-fields/LlmModelPickerField';
-import { VideoModelPickerField } from './inspector-fields/VideoModelPickerField';
-import { VideoModelOptionsField } from './inspector-fields/VideoModelOptionsField';
-import { GalleryImagePickerField } from './inspector-fields/GalleryImagePickerField';
-import { ImageUploadField } from './inspector-fields/ImageUploadField';
+import { TextField } from '@renderer/components/fields/TextField';
+import { PromptField } from '@renderer/components/fields/PromptField';
+import { NumberField } from '@renderer/components/fields/NumberField';
+import { SelectField } from '@renderer/components/fields/SelectField';
+import { ModelPickerField } from '@renderer/components/fields/ModelPickerField';
+import { LlmModelPickerField } from '@renderer/components/fields/LlmModelPickerField';
+import { VideoModelPickerField } from '@renderer/components/fields/VideoModelPickerField';
+import { VideoModelOptionsField } from '@renderer/components/fields/VideoModelOptionsField';
+import { GalleryImagePickerField } from '@renderer/components/fields/GalleryImagePickerField';
+import { ImageUploadField } from '@renderer/components/fields/ImageUploadField';
 
 interface Props {
   toolId: string;

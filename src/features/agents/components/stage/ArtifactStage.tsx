@@ -13,7 +13,7 @@ import {
   type ArtifactLiveState,
   type ResolvedArtifact,
 } from '@renderer/components/artifact-viewers/registry';
-import { ActionBar } from './ActionBar';
+import { ActionBar } from '@renderer/components/artifact-viewers/ActionBar';
 import { Filmstrip } from './Filmstrip';
 
 interface Props {

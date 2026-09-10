@@ -1,4 +1,7 @@
 // The handoffs available for the artifact on the stage (agents plan §1.4).
+// Shared (W8 Stage 2): the Flows run form shows the same bar on a run's
+// outputs, so it lives beside the viewer registry rather than in the agents
+// feature.
 //
 // Which actions appear is a function of KIND, in one table, because the answer
 // has to be the same everywhere: a video cannot be opened in the Creator, and a

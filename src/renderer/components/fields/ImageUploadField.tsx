@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Upload, X } from 'lucide-react';
-import { downscaleImage } from '../../services/downscale-image';
+import { downscaleImage } from './downscale-image';
 
 interface UploadValue {
   base64: string;
