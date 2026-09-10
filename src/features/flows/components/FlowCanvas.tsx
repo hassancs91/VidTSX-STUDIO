@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import ReactFlow, {
   Background,
   BackgroundVariant,
@@ -33,6 +33,8 @@ interface Props {
   onViewportChange: (vp: Viewport) => void;
   onSelectionChange: (nodeId: string | null) => void;
   onDropNode: (typeId: string, position: { x: number; y: number }) => void;
+  /** W8 Stage 4: bump to fit the view (a proposal landed on an empty canvas). */
+  fitToken?: number;
 }
 
 const NODE_TYPES = { flowNode: CustomNode };
@@ -47,8 +49,12 @@ function FlowCanvasInner({
   onViewportChange,
   onSelectionChange,
   onDropNode,
+  fitToken,
 }: Props) {
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+  useEffect(() => {
+    if (fitToken) window.setTimeout(() => fitView({ padding: 0.25, duration: 300 }), 50);
+  }, [fitToken, fitView]);
   const { byId: specs } = useNodeSpecs();
 
   const isValidConnection = useCallback(

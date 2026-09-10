@@ -65,7 +65,7 @@ export function FlowProposalOverlay({ proposal, current, specs, busy, error, onA
         {proposal.summary}
       </div>
       <ul className="px-3 pb-2 space-y-1 overflow-y-auto min-h-0">
-        {diff.renamed && <Row change="changed">Name: “{proposal.doc.name}”</Row>}
+        {diff.renamed && <Row change="changed">Name or description: “{proposal.doc.name}”</Row>}
         {diff.nodes.map((n) => (
           <Row key={`n-${n.id}`} change={n.change}>
             {labelOf(n.toolId)} <span className="text-text-dim">({n.id})</span>

@@ -56,6 +56,13 @@ describe('buildProposedDoc', () => {
     expect(validateProposal(doc)).toBeNull();
   });
 
+  it('a param without bind is refused before the gate (the live run first threw here)', () => {
+    const noBind = buildProposedDoc(null, { doc: { ...captionDoc, params: [{ id: 'video', label: 'Video', kind: 'video' }] } });
+    expect(noBind).toBe('Param "video" needs bind: [{ nodeId, key }] — the node config key it fills.');
+    const noId = buildProposedDoc(null, { doc: { ...captionDoc, params: [{ label: 'Video' }] } });
+    expect(noId).toBe('Param 1 has no id.');
+  });
+
   it('refuses a malformed edge, both forms at once, and a patch without a base', () => {
     expect(buildProposedDoc(null, { doc: { ...captionDoc, edges: ['n-video -> n-stt'] } })).toContain('is not "node.port -> node.port"');
     expect(buildProposedDoc(null, { doc: captionDoc, patch: [] })).toBe('Pass either doc or patch, not both.');

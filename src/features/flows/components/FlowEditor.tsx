@@ -42,7 +42,12 @@ export function FlowEditor({ graph, doc, flowId, flowName, onExpose, onUnexpose,
   const [builderOpen, setBuilderOpen] = useState(false);
   const [builderSession, setBuilderSession] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
+  const [fitToken, setFitToken] = useState(0);
   const { proposal, error: proposalError, resolve } = useFlowProposal(builderSession);
+  const proposalId = proposal?.id ?? null;
+  useEffect(() => {
+    if (proposalId) setFitToken((t) => t + 1);
+  }, [proposalId]);
 
   // Clear selection if the selected node was deleted
   useEffect(() => {
@@ -111,6 +116,7 @@ export function FlowEditor({ graph, doc, flowId, flowName, onExpose, onUnexpose,
             onViewportChange={onViewportChange}
             onSelectionChange={setSelectedNodeId}
             onDropNode={addNode}
+            fitToken={fitToken}
           />
         ) : status === 'error' ? (
           <div className="flex items-center justify-center h-full text-accent-red text-sm">{error ?? 'Failed to load flow'}</div>

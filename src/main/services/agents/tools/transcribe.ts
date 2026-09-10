@@ -82,6 +82,9 @@ export const transcribeTool: AgentToolDef<TranscribeArgs> = {
   ports: {
     label: 'Transcribe',
     category: 'audio',
+    // §0.1 item 6: the run form and the run_flow listing name it as a cost.
+    priced: true,
+    priceHint: () => 'AssemblyAI, about $0.003 per minute of audio',
     inputs: [
       { id: 'video', label: 'Video', dataType: 'video', argKey: 'video' },
       { id: 'audio', label: 'Audio', dataType: 'audio', argKey: 'audio' },

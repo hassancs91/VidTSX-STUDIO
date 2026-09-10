@@ -121,14 +121,30 @@ export function buildProposedDoc(base: FlowDoc | null, args: Pick<ProposeFlowArg
   const outputs: FlowOutput[] = args.doc.outputs?.length
     ? args.doc.outputs.map((o) => ({ nodeId: o.nodeId, handle: o.handle, label: o.label ?? o.handle }))
     : deriveSinkOutputs(graph, (toolId) => getNode(toolId)?.ports?.outputs[0]?.id);
+  const params = normaliseParams(args.doc.params ?? []);
+  if (typeof params === 'string') return params;
   return {
     ...start,
     name: args.doc.name ?? start.name,
     description: args.doc.description ?? start.description,
-    params: (args.doc.params ?? []) as unknown as FlowParam[],
+    params,
     graph,
     outputs,
   };
+}
+
+/** The model's params as FlowParams: id, label and bind[] are required; the rest passes through. */
+export function normaliseParams(raw: Record<string, unknown>[]): FlowParam[] | string {
+  const params: FlowParam[] = [];
+  for (const [i, p] of raw.entries()) {
+    const id = typeof p.id === 'string' ? p.id : '';
+    if (!id) return `Param ${i + 1} has no id.`;
+    const bind = Array.isArray(p.bind) ? p.bind.filter((b): b is { nodeId: string; key: string } => typeof b === 'object' && b !== null && typeof (b as { nodeId?: unknown }).nodeId === 'string' && typeof (b as { key?: unknown }).key === 'string') : [];
+    if (bind.length === 0) return `Param "${id}" needs bind: [{ nodeId, key }] — the node config key it fills.`;
+    const kind = typeof p.kind === 'string' ? p.kind : 'text';
+    params.push({ ...(p as Partial<FlowParam>), id, label: typeof p.label === 'string' && p.label ? p.label : id, kind: kind as FlowParam['kind'], bind: bind.map((b) => ({ nodeId: b.nodeId, key: b.key })) });
+  }
+  return params;
 }
 
 /** Both gates; the first problem is the answer. */
