@@ -9,9 +9,6 @@
 
 const ENV_GATED: Record<string, string | boolean | undefined> = {
   tools: import.meta.env.VITE_FF_TOOLS,
-  // One switch covers the Flows nav entry and the editor behind it.
-  flows: import.meta.env.VITE_FF_FLOWS,
-  'flows-editor': import.meta.env.VITE_FF_FLOWS,
   // AI page — local model sub-tabs
   'ai-video-models': import.meta.env.VITE_FF_AI_VIDEO,
   'ai-llm-models': import.meta.env.VITE_FF_AI_LLM,
@@ -34,8 +31,18 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // Videos — the cloud video generation tool (panel + gallery). Unhidden for
   // V1 by D1 of docs/video-providers-plan.md, once the five stages landed:
   // the engine, both providers, the panel, and this node's narrowed fields.
-  // Flows stays env-gated. Nothing generates without the user's own key.
+  // Nothing generates without the user's own key.
   'video-studio': true,
+  // Flows (docs/flows-plan.md) — frozen recipes people run and agents call.
+  // Moved from ENV_GATED (VITE_FF_FLOWS) to on with W8 Stage 6 (2026-09-10),
+  // once all seven stages landed: the five built-ins ship in the installer
+  // through `resources/flows` and declare `minAppVersion: 1.1.0`, so — like
+  // `agents` below — this flag is COUPLED to an app version of at least
+  // 1.1.0, or the Built-in group lists nothing. One switch covers the nav
+  // entry and the editor behind it. Nothing runs without the user's own
+  // providers; a flow with no LLM or agent node needs none.
+  flows: true,
+  'flows-editor': true,
   // Secondary (visible in production)
   assets: true,
   render: true,

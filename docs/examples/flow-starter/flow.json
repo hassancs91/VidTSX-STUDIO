@@ -1,0 +1,102 @@
+{
+  "formatVersion": 2,
+  "id": "example/frame-contact-sheet",
+  "name": "Frame contact sheet",
+  "description": "A video, sampled into six evenly spaced frames — the smallest flow that does something real. Free: no provider needed.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Your Name",
+    "url": "https://example.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "requires": {
+    "tools": [
+      "input_video_file",
+      "extract_frame"
+    ],
+    "capabilities": []
+  },
+  "params": [
+    {
+      "id": "video",
+      "label": "Video",
+      "kind": "video",
+      "required": true,
+      "bind": [
+        {
+          "nodeId": "n-video",
+          "key": "filePath"
+        }
+      ]
+    },
+    {
+      "id": "count",
+      "label": "Frames",
+      "kind": "number",
+      "min": 2,
+      "max": 24,
+      "step": 1,
+      "default": 6,
+      "bind": [
+        {
+          "nodeId": "n-frames",
+          "key": "count"
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "n-video",
+        "toolId": "input_video_file",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "config": {
+          "filePath": "",
+          "entryId": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-frames",
+        "toolId": "extract_frame",
+        "position": {
+          "x": 480,
+          "y": 80
+        },
+        "config": {
+          "atSeconds": 0,
+          "count": 6
+        },
+        "pause": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n-video",
+        "sourceHandle": "video",
+        "target": "n-frames",
+        "targetHandle": "video"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "outputs": [
+    {
+      "nodeId": "n-frames",
+      "handle": "images",
+      "label": "Frames"
+    }
+  ],
+  "origin": null,
+  "files": []
+}
