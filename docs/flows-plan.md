@@ -770,6 +770,190 @@ Done when: the three current templates run end to end from the canvas
 through main, run history shows the same statuses as before, and closing
 and reopening the app mid-run offers Resume.
 
+#### Stage 1 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §4 lists is built, unit-tested, committed by pathspec in four
+commits (`7d4924b` invokeTool + the tool-server reroute, `92d710c` ports +
+NodeSpecs + the five new tools, `5b0f3a6` runner + run store + IPC + the
+canvas, `578b946` two fixes the live run found) beside the export-engines
+session's dirty tree, and exercised on the second dev instance. `check:types`
+at baseline (web 26, node 10); 2104 tests passing, up from 2064 (40 new:
+6 invokeTool, 5 registry ports, 8 inputs, 8 generate_text + binding, 2
+port-media, 6 flow-args, 6 runner, minus one migrate assertion replaced);
+`electron-vite build --outDir .vidtsx-temp/w8-build` passes (2 m 40 s,
+alone). Spend: $0 — the W3 profile's default image provider is the
+Antigravity bridge (`gemini-cli` / `nano-banana-2`), and every one of the
+four image calls logged as `featureSource: 'flows'` at $0 (19–21 s each).
+No video call was made; `generate_video` has ports, a price hint and unit
+tests only.
+
+**invokeTool** (`src/main/services/agents/tools/invoke-tool.ts`, §0.1 item
+14, §11). One function: `z.object(def.schema).safeParse` (unknown keys are
+stripped, which is what lets node config carry keys a tool does not name),
+the `needs` gate when the caller passes capabilities (the runner does; the
+tool server does not — the system prompt already told the model, §1.8),
+`featureSource` stamped on the context, a throwing handler turned into an
+`isError` result. The tool server calls it and nothing else changed there —
+`tool-server.test.ts` is untouched and green. `AgentToolContext` gained
+`featureSource`, `AgentToolResult` gained `fields` (what a `field:<name>`
+output port reads), `AgentToolDef` gained `ports?: AgentToolPorts` (the
+shared `ToolPorts` plus `label`, `priced`, `priceHint()`,
+`nondeterministic`). `generate_image`, `generate_video`,
+`generate_composition` and `generate_text` read `ctx.featureSource` and pass
+`agentId` only on the agent path; `buildAgentTsxDeps` takes the source as a
+fourth argument.
+
+**Ports and specs** (`registry.ts`). `getNode(toolId)` returns a tool only
+when it carries ports; `listNodeSpecs(capabilities)` serialises id, label,
+description, category, ports, configSchema, defaultConfig, `needs` plus a
+new `available: boolean` on `NodeSpec` (false when the gate is unmet at
+list time — the chip's signal, since a spec has no capability vocabulary of
+its own), `priced` and `priceHint` (read at list time: `generate_video`'s
+is every fal model with a `pricePerSecondUsd`). Ten nodes: the composition
+trio (§0.1 item 7: `brief` → composition, with `image` / `video` ports
+declared as context only — a value on them is named in the brief, because
+no convention exists yet for a composition to load library media; that is
+Stage 3's), `generate_image` (prompt, source, references → image; the
+schema gained `sourceImage` / `referenceImages` as image-set artifact ids,
+`providerId`, `model`, `width` / `height`, and a per-node `brandId` where
+`null` opts out and absent inherits, §0.1 item 9), `generate_video`
+(prompt, first frame, last frame → video; the schema now also takes the
+inspector's string shapes — `"5"`, `"on"` / `"off"`, `""` — so a migrated
+node validates as stored), and the five new tools. `generateImageAsset`
+grew additively: provider / model selection, explicit size, base64 source
+and references, the operation derived from what is present.
+
+**The five tools.** `input_text` emits a `text` field; its config key is
+`prompt` — the v1 `input-prompt` key — so migrated rows and the templates
+run without a config rename (decided after the live run refused the first
+template: the tool had said `text`, invokeTool stripped the config, and the
+node reported "invalid arguments"). `input_image_library` (Image Studio
+entry id), `input_image_file` (the inspector's downscaled base64, or an
+absolute path from a future `image` param) and `input_video_file` (absolute
+path or Video Studio entry id, probed with ffprobe) COPY the file into the
+run's library folder under `inputs/`, index it as `imported`, and return a
+one-item `image-set` or a `video` artifact — never a link, so a run stands
+after the gallery entry or the picked file is gone; `port-media.ts` holds
+the copy, the artifact-id → library-file resolution and a PNG/JPEG header
+reader. `generate_text` runs `runLlmGenerate` with decision 12's modes
+(`llm-model-binding.ts`: `required` refuses with a message naming the
+model and provider when the provider is not usable per
+`filterUsableLlmProviders`, `preferred` falls back to the app default and
+writes a note into the node's run log, `default` ignores the binding; a
+model id the catalog does not know passes through — the "Custom…" hatch)
+and `useBrand`, which prepends `formatBrandSummary` — the same text
+`get_brand` returns — to the system prompt. Their tests use fake services
+through `vi.mock` and two small seams (`setImageLibraryLookupForTests`,
+`setVideoInputDepsForTests`).
+
+**The runner** (`src/main/services/flows/`). `flow-validate.ts` runs the
+structural gate, then unknown tool, unmet `needs` (the invokeTool message),
+an edge on a handle the tool lacks or between incompatible types, and a
+required input fed by no edge, no bound param and no non-empty config
+value; then the topo order. `flow-args.ts`: config, then bound params, then
+edge values (an `images` port collects every incoming edge; a port value
+is the artifact id or the primitive, base64 never, §11), and `mapOutputs`
+puts the filed artifact on `artifact` ports and `result.fields` on
+`field:` ports. `flow-runner.ts` validates, writes the first `run.json`,
+executes in the background and per node: `running` (attempts + 1), args,
+`invokeTool` with a run-scoped context (`sessionId` = run id, `agentId`
+`flow:<flowId>`, `callId` `<run>:<node>:<attempt>`, `workspaceDir` =
+`<run>/files`, the run's brand and library folder, `featureSource:
+'flows'`, progress lines into the node's new `notes` — `FlowNodeRunState`
+gained the field), the draft filed through `AgentArtifactStore.add`, a
+`job` settled, outputs mapped, `done`; `run.json` and the summary row are
+written after every one of those transitions; `node-status` / `run-status`
+events go out on every change. An error result marks the node `error`,
+the rest `skipped`, the run `error` with the tool's text; cancel aborts
+through the signal (the in-flight node ends `skipped`, so Resume reruns
+it); Resume resets every non-done node to `idle`, keeps done nodes'
+outputs in the map, and walks the order again — the test shows only the
+failed node rerunning with its prompt read from the persisted outputs. One
+run per flow at a time. `flow-jobs.ts` settles video jobs in main by
+subscribing to the engine and re-driving the agents' idempotent
+`reconcileVideoJob`, cancelling the provider job on abort; a render job
+refuses with a message naming Stage 3 (the queue lives in the renderer).
+`flow-run-store.ts`: `<assets>/flows/<flowId>/runs/<runId>/{run.json,
+artifacts.json, files/}`, atomic writes, the summary row (`persistRun` is
+now `INSERT OR REPLACE`), and folders pruned to the 20 rows the table
+keeps. `flow-service.ts` wires the one runner to the real registry,
+capabilities, invokeTool and store, resolves the run-level brand (absent =
+`getDefaultBrandId()`, `null` = none — the W4 semantics), files a run's
+media under `flows/<flow-slug>` in the library, and in `get` marks a run
+the app closed on as `error` with an "interrupted" message and
+`resumable: true`. IPC: `flows-run-handlers.ts` (nodes list, run start /
+cancel / resume / get, every body in try/catch), `registrations/flows.ts`
+relays `FLOWS_RUN_EVENT` to every webContents; preload + `electron.d.ts`;
+`FlowsRunGetResponse` gained `artifacts`, `assetUrls` (artifact id →
+servable urls) and `resumable`.
+
+**The canvas.** `useNodeSpecs` fetches once and provides; `useFlowGraph`
+keeps `{ toolId, config }` on the reactflow nodes and derives sink outputs
+from the registry's first output port (`withGraph` / `deriveSinkOutputs`
+take a resolver now; the Stage 0 tool-id map is gone, and `migrate-v1`
+keeps the six legacy handles as `legacyPrimaryHandle` for the pure
+migration; `legacyTypeIdForToolId` is deleted); `useFlowRun` starts,
+cancels, resumes and hydrates over IPC and folds the event stream in;
+`CustomNode`, `NodeInspector`, `NodePalette` (grouped by category, gated
+nodes listed with a chip, never filtered — §11) and `FlowCanvas` read
+specs; previews come from the run's asset urls; `RunControls` shows
+Resume; `FlowEditor` hydrates the latest run on open. Deleted: `nodes/*`,
+`services/run-flow.ts`, `services/topo-sort.ts`. The thumbnail takes a
+category resolver and guesses from the id for a template tile.
+
+**Verification in the app** (second instance, `VITE_FF_FLOWS=1`, W3
+profile, `.vidtsx-temp/w8/w8-flows.mjs` extended with `seed-image`,
+`set-config`, `doc`, `run`, `run-nowait`, `resume`, `cancel`, `runs`,
+`run-get`, `nodes`). `FLOWS_NODES_LIST` returned the ten specs with
+`available: true` on the two gated ones. Two gallery entries were seeded
+from a canvas (no provider call). "Prompt to image" → 2 nodes / 1 edge,
+Run → `success` in 27.4 s, the fox visible in the node preview
+(`stage1-prompt-image.png`), `run.json` with both nodes `done` and the
+image-set at `flows/s1-prompt/…png`. "Reference style transfer" → 4 / 3,
+the two seeded gradients on the reference ports, `success` in 21.5 s, three
+previews, the lighthouse in the gradients' palette
+(`stage1-style-transfer.png`). "Gallery image variation" → 3 / 2, first
+run `error` in 0.2 s: the provider itself refused image-to-image ("Nano
+Banana 2 does not support image-to-image here — attach the source as a
+reference image instead"), the node showed the error, Resume was offered
+(`stage1-gallery-variation.png`); after the fix in `578b946` (a source on
+a model whose list has no image-to-image route goes in as the one
+reference — checked before the call and again after a failed one, because
+the gemini-cli provider lists no models until its first status check,
+which the call performs) Resume finished the same run in 18 s with two
+previews. Kill mid-run: "Prompt to image" was started, killed 6 s in while
+`generate_image` ran, relaunched; opening the flow hydrated the latest run
+as `error` "The app closed while this run was in progress — Resume
+continues from the first unfinished step", Text `done`, Generate Image
+`SKIPPED`, Resume offered (`stage1-interrupted.png`); Resume finished it in
+31 s (`stage1-resumed.png`), and the history dropdown lists both runs with
+their statuses. Usage rows produced: four × `gemini-cli` /
+`nano-banana-2` / `image` / `flows` / $0.
+
+**Deviations, and what it leaves.** (1) The composition trio's `image` /
+`video` ports are declared but only named in the brief (above). (2)
+Render jobs inside a flow fail with a clear message until Stage 3 builds
+the renderer-queue bridge; video jobs settle. (3) Pause is a marked seam
+in `flow-runner.ts`, not honoured — a `pause` flag runs through (Stage 2).
+(4) Per-node `brandId` is a plain text field in the inspector; the shared
+`BrandSelect` and `ModelSelect` (§0.1 item 10) are Stage 2's. (5) The run's
+library folder is `flows/<flow-slug>` for every run of a flow, files
+suffixed `-2`, `-3` — a per-run folder was rejected as twenty folders per
+flow in Assets. (6) The run store and the library share `<userData>/assets`
+on this profile, so `flows/<ulid>/runs/…/files` sits beside
+`flows/<slug>`; the library scan mints entries only for media, and `files/`
+holds work files, but Stage 6 should decide whether runs move under
+`<userData>/flow-runs`. (7) `input_video_file` has text fields for a path
+or an entry id; the `VideoPickField` is Stage 2's. (8) `AiFeatureSource`
+already had `'flows'`; no `agentId` is stamped on flow rows. Driver
+lessons: `Page.captureScreenshot` hung twice on the Flows editor after a
+run (the 15 s timeout wrapper returned, the driver exited 1 — the capture
+before a run and after a relaunch worked); the `vidtsx:navigate` event
+again left Home up, the sidebar click works; the app path must be reset
+after every relaunch (`w8-apppath.mjs`), or `resources/` resolves nowhere;
+`set-config` patches the stored doc from the LIST screen because the open
+editor's debounced save would win otherwise.
+
 ## 5. Stage 2 — Pause, run form, Flows page — ~1.5 sessions
 
 Depends on agents Stage 4 (interactions) for the cards (done 2026-09-08; updated 2026-09-10).

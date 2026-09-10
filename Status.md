@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 1 DONE: registry ports and the main runner
+
+Stage 1 of `docs/flows-plan.md` §4 (W8 Flows, adjusted by §0.1 items 7,
+9, 10, 14). Full outcome under "Stage 1 outcome" in the plan. `check:types`
+at baseline (web 26, node 10); 2104 tests, up from 2064; `electron-vite
+build --outDir .vidtsx-temp/w8-build` passes (2 m 40 s). Commits by
+pathspec: `7d4924b` (invokeTool + tool-server reroute), `92d710c` (ports,
+NodeSpecs, five new tools), `5b0f3a6` (runner, run store, IPC, canvas),
+`578b946` (two acceptance fixes), this one (docs). Spend $0 — every image
+went through the Antigravity bridge (`gemini-cli` / `nano-banana-2`).
+
+- **invokeTool** (`agents/tools/invoke-tool.ts`, §11): the one handler
+  path — zod validation, the `needs` gate when capabilities are passed,
+  the usage `featureSource` stamped on the context, throw → error result.
+  The agents' tool server calls it; `tool-server.test.ts` unchanged.
+- **Ports.** `ports` on ten tools; `listNodeSpecs(capabilities)` (`needs`
+  + `available`, `priced`, `priceHint` from the fal catalog) and
+  `getNode`. New: `input_text`, `input_image_library`, `input_image_file`,
+  `input_video_file` (inputs COPY into `<libraryFolder>/inputs`), and
+  `generate_text` (decision-12 model modes, `useBrand`). `generate_image`
+  takes a source and references as image-set ids.
+- **Runner** (`src/main/services/flows/`): validate against the registry,
+  topo-sort, args from ports + params + config, `invokeTool` with a
+  run-scoped context, artifacts filed, video jobs settled in main, run.json
+  persisted after every node, `FLOWS_RUN_EVENT` relayed, cancel through
+  the signal, Resume from the first non-done node; 20 runs per flow with
+  their folders under `<assets>/flows/<flowId>/runs/<runId>/`.
+- **Canvas** on `NodeSpec`s from `FLOWS_NODES_LIST`: palette by category,
+  the `needs` chip, previews from run asset urls, Run / Cancel / Resume;
+  `nodes/*` and the renderer runner deleted.
+- **Verified live** (second instance, W3 profile): the three templates ran
+  from the canvas through main (27 s, 22 s, and — after the image-to-image
+  → reference fallback — 18 s on Resume); killing the app mid-node left an
+  interrupted run that offered Resume, and Resume finished it (31 s).
+- **Next (Stage 2).** Pause through the broker (the seam is marked in
+  `flow-runner.ts`), the run form, the Flows page groups; render jobs
+  inside a flow wait for Stage 3's queue bridge.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 0 DONE: contracts and migration
 
 Stage 0 of `docs/flows-plan.md` §3 (W8 Flows, unparked by §0.1). Full
