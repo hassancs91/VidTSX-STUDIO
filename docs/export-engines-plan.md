@@ -5,7 +5,7 @@
 > engine seam) and Stage 2 (the passthrough engine at its narrowest predicate)
 > are built and gated — see the §Stage 1 and §Stage 2 logs at the end; Stage 3
 > widened the predicate one gated slice at a time and is complete for what the
-> predicate names (§Stage 3 log, slices 1–4); Stage 4 (polish) has slices 1–3 built and gated and slice 4 measured (§Stage 4 log). Companion: `docs/studio/PLAN.md` §5 ("smart render"),
+> predicate names (§Stage 3 log, slices 1–4); Stage 4 (polish) has slices 1–3 and 5 built and gated and slice 4 measured (§Stage 4 log). Companion: `docs/studio/PLAN.md` §5 ("smart render"),
 > `docs/PREVIEW_ARCHITECTURE.md` §C2 (why only the identity transform is a
 > safe fast path).
 
@@ -870,7 +870,7 @@ from T5, the CPU-usage setting reaching Studio exports, the 24-minute
 finishing mux of a 10 GB file, merging nearby browser spans (a 30-frame
 transition window pays a full bundle + Chrome start), QSV/AMF unmeasured.
 
-## Stage 4 log — polish · slices 1–3 DONE 2026-09-09, slice 4 measured
+## Stage 4 log — polish · slices 1–3 DONE 2026-09-09, slice 4 measured, slice 5 (no intermediate copy) DONE 2026-09-10
 
 **Slice 1 = the finishing mux, profiled and cut.** The 3 h project's 24-minute
 mux was rebuilt offline from the 2026-09-06 product (its H.264 stream copied
@@ -974,8 +974,67 @@ contention (a verify-mode reference render in the same run), not the start.
 
 Not done, by design: QSV/AMF copy paths (this machine has no Intel/AMD
 encoder to measure — the seed projects need one); the long-return question;
-slow motion (rate < 1); the "no intermediate copy" idea (the join writes
-video.mp4 and the mux copies it again — 43 s of the 3 h project's finishing;
-D7 keeps the probe → mux → probe seam). Gates: check:types 26/10 (baseline),
+slow motion (rate < 1). Gates: check:types 26/10 (baseline),
 vitest 2312 (261 files, 19 skipped) green, live ffmpeg 8. Bench: `.vidtsx-temp/bench/stage4/`
 (profile-mux.sh, the driver chains, measure-stage4.sh).
+
+**Slice 5 = no intermediate copy (2026-09-10).** The join wrote `video.mp4`
+(the MPEG-TS pieces concatenated by stream copy, the full ffmpeg) and the
+finishing mux copied that file once more into the output. Profiled offline on
+the 3 h product first (its video cut into 276 ~40 s TS pieces by stream copy,
+its AAC copied to an m4a — what the spans and the audio pass hand the
+finishing stage), the mux with the finishing stage's binary (Remotion's
+ffmpeg 7.1):
+
+| step | wall |
+|---|---|
+| two-step · the join (full ffmpeg 8.1, `-f concat` → video.mp4) | 241 s |
+| two-step · probe + the mux (video copy + AAC copy, moov reserved) | 190 s |
+| **one-step · the mux reads the concat list itself** | **162 s** |
+
+Whole-file md5 identical (528f…), 330,749 frames. Finding: **the 43 s the
+plan attributed to the intermediate was the mux's read of a joined mp4; the
+join itself costs ~4 min on 3 h** — the concat demuxer parses 56 million
+188-byte TS packets at ~1,200 frames/s on one core, so the TS read, not the
+disk, is the floor of both paths, and paying it once instead of twice is the
+saving. The engine now hands the finishing stage its concat list
+(`ExportEngineProduct.videoDemuxer: 'concat'` + `frames`, the count its
+pieces summed to); `finishExport` probes the list like a file (Remotion's
+ffprobe reads the first piece's five colour tags and the summed duration —
+D7's probe → mux → probe seam stands), muxes with `-f concat -safe 0` on the
+video input, and checks the finished file's frame count against the engine's
+(the joined-file check, moved to the output). The pieces stay in the scratch
+folder until the export ends; `joinArgs` is gone (the live test builds the
+same read through `finishMuxArgs`).
+
+Gate, the references re-exported through the passthrough engine on the
+restarted app: **eight of nine byte-identical on video AND audio** (t5-1080p,
+cut, gain, music, stack, fade, speed, speed2 — every stream hash equal to its
+2026-09-06/07 file; `muxMs` 374–442 ms against 271–312, the TS read now
+inside the mux; `framesMs` 7.5–10.4 s). **The xfade seed no longer matches
+its reference — the project changed, not the code**: its span plan on 09-09
+was `copy 435 · browser 30 · copy 435` (the 1 s crossfade) and from the
+09-10 cancel runs on (17:00 UTC, before this slice) it is `copy 443 ·
+browser 15 · copy 442`, a 15-frame window; neither `seed-cut-projects.mjs`
+nor the planner changed since, so the document on disk was edited. Re-gated
+by D5 instead: max 0.03 % of pixels over 24 at frames 1/300/449/450/451/600/899 (max mean 2.51/255), audio 0 ms vs the Remotion reference and vs the camera at every window (`studio-t5-1080p-cut-xfade_2026-09-10T20-38-07.verify.json`). Cancel regression (the pieces now stay until the
+end): the xfade seed cancelled inside its browser span at 49 % — scratch
+folder gone, output gone, no new Remotion folder, browsers 4 / 5 / 4, the row
+`cancelled` at 443/900.
+
+The 3 h project through run-export (`t6-stress-3h`, 275 spans, 100 % copied):
+
+| stage | before (2026-09-09) | after (2026-09-10) |
+|---|---|---|
+| copied spans + audio (`framesMs`; the join no longer inside it) | 3,775 s | **3,543 s** |
+| finishing mux (`muxMs`: the concat read + the AAC copy + the reserved moov) | 152 s | **142 s** |
+| plan → file | 65.4 min | **61.4 min** |
+
+The file: `Videos\VidTSX\studio-t6-stress-3h_2026-09-10T19-30-06.mp4`,
+10,626,498,208 B (the same byte size as the 09-09 product), whole-file md5 identical to it (5b9de1ff…) — the one-step and the two-step exports of the 3 h project are the same bytes. Gates:
+check:types 26/10 (baseline), vitest 2312 (261 files, 19 skipped; two
+5 s timeouts under the concurrent 21 GB hash pass alone), live ffmpeg 8.
+`export-engine-run.mjs` now reaches the cards Studio-first with a retried
+Back (a big project's editor outlived one Back click). Bench:
+`.vidtsx-temp/bench/stage4/profile-join.sh`, `run-pt-join.sh`,
+`run-verify-xfade.sh`.

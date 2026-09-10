@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-09-10 — EXPORT ENGINES Stage 4 slice 5: no intermediate copy — the join is the mux
+
+The item Stage 4's log left open (`docs/export-engines-plan.md` §Stage 4 log, slice 5). The
+passthrough engine no longer joins its MPEG-TS pieces into a `video.mp4` that the finishing
+mux then copies again: it hands the finishing stage its concat list
+(`ExportEngineProduct.videoDemuxer: 'concat'` + the frame count its pieces summed to), the mux
+reads the list as its video input (`-f concat -safe 0`, one stream copy into the output), the
+list is probed like a file (D7's probe → mux → probe seam stands) and the finished file's
+frame count is checked against the engine's. The fast engine stays opt-in (D2).
+
+- **Offline first, on the 3 h product cut back into 276 TS pieces:** the join 241 s + the mux
+  190 s against the one-step mux 162 s, whole-file md5 identical. The 43 s the plan attributed
+  to the intermediate was the mux's read of a joined mp4; the join itself is ~4 min on 3 h —
+  the concat demuxer parses 56 million TS packets on one core, so that read is the floor of
+  both paths and is now paid once.
+- **Then run-export, the 3 h project: `framesMs` 3,543 s against 3,775, `muxMs` 142 s against
+  152, plan → file 61.4 min against 65.4** (`studio-t6-stress-3h_2026-09-10T19-30-06.mp4`,
+  10,626,498,208 B, the 09-09 product's byte size; whole-file md5 identical to it (5b9de1ff…) — the one-step and the two-step exports of the 3 h project are the same bytes).
+- **Gate: eight of nine references byte-identical on video AND audio** (t5-1080p, cut, gain,
+  music, stack, fade, speed, speed2; `muxMs` 374–442 ms). The xfade seed differs because the
+  project on disk changed before this slice (its crossfade window is 15 frames since the
+  09-10 cancel runs, 30 on 09-09; neither the seed script nor the planner changed) — re-gated
+  by D5 against a plain Remotion export: max 0.03 % of pixels over 24 at frames 1/300/449/450/451/600/899 (max mean 2.51/255), audio 0 ms vs the Remotion reference and vs the camera at every window (`studio-t5-1080p-cut-xfade_2026-09-10T20-38-07.verify.json`). The cancel regression (the pieces now
+  stay in scratch until the end) is clean: scratch, output and the browser gone, the row
+  `cancelled` at 443/900.
+- Gates: check:types 26/10 (baseline), vitest 2312 (261 files, 19 skipped), live ffmpeg 8.
+  `export-engine-run.mjs` reaches the cards Studio-first with a retried Back. Still owed:
+  QSV/AMF (no Intel/AMD encoder here), the long-return question, slow motion.
+
 ## 2026-09-09 — EXPORT ENGINES Stage 4: the finishing mux cut 25×, copied-vs-rendered progress, cancel cleanup
 
 Stage 4 of `docs/export-engines-plan.md` (Stage 3 closed at 36d7ace), slices 1–3 built and

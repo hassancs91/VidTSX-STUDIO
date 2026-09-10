@@ -10,7 +10,6 @@ import {
   copySpanArgs,
   holdLastFrameArgs,
   isConstantFrameRate,
-  joinArgs,
   nearestSelectFilter,
   parseFrameRate,
   parseStatsFrame,
@@ -120,10 +119,6 @@ describe('span argument builders', () => {
     );
   });
 
-  it('the join is a stream copy of the video only, tagged', () => {
-    const s = joinArgs('l.txt', 'v.mp4', EXPORT_COLOR).join(' ');
-    expect(s).toContain('-f concat -safe 0 -i l.txt -map 0:v:0 -c:v copy -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an v.mp4');
-  });
 });
 
 describe('audioPassArgs (the one pass)', () => {

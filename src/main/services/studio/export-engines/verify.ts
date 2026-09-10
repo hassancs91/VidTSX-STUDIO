@@ -129,7 +129,7 @@ export async function verifyExport(options: VerifyExportOptions): Promise<{ repo
     onProgress: (p) => options.onProgress((p.totalFrames ? p.framesDone / p.totalFrames : 0) * 0.7, 'Rendering the reference export…'),
   });
   options.onProgress(0.7, 'Finishing the reference export…');
-  await finishExport({ videoPath: product.videoPath, audioPath: options.audioPath, outputPath: referencePath, color: options.color, signal });
+  await finishExport({ videoPath: product.videoPath, videoDemuxer: product.videoDemuxer, expectedFrames: product.frames, audioPath: options.audioPath, outputPath: referencePath, color: options.color, signal });
 
   // 2. Pixel diff at the sampled frames.
   const ffmpeg = await getFfmpegBinary('ffmpeg');

@@ -112,6 +112,8 @@ export async function runStudioExport(options: StudioExportRunOptions): Promise<
     options.onProgress('finishing', 80, allFrames, 'Writing the file…');
     await finishExport({
       videoPath: product.videoPath,
+      videoDemuxer: product.videoDemuxer,
+      expectedFrames: product.frames,
       audioPath,
       outputPath: options.outputPath,
       color: EXPORT_COLOR,

@@ -5,7 +5,7 @@ vi.mock('../ffmpeg-bin', () => ({
   runFfmpeg: async () => undefined,
 }));
 
-import { AAC_ENCODE_ARGS, MOOV_TOO_SMALL, aacEncodeArgs, aacFrameCount, colorMismatch, colorTagArgs, finishMuxArgs, reservedMoovBytes } from './finishing';
+import { AAC_ENCODE_ARGS, MOOV_TOO_SMALL, aacEncodeArgs, aacFrameCount, colorMismatch, colorTagArgs, finishMuxArgs, reservedMoovBytes, videoInputArgs } from './finishing';
 import { EXPORT_COLOR } from './types';
 
 const good = { codec: 'h264', pixFmt: 'yuv420p', range: 'tv', matrix: 'bt709', primaries: 'bt709', transfer: 'bt709' };
@@ -49,6 +49,17 @@ describe('finishing mux (D7, Stage 4)', () => {
     const args = finishMuxArgs({ videoPath: 'v.mp4', audioPath: 'a.m4a', audio: 'copy', outputPath: 'out.mp4', color: EXPORT_COLOR });
     expect(args.slice(args.indexOf('-c:a'), args.indexOf('-c:a') + 2)).toEqual(['-c:a', 'copy']);
     expect(args).not.toContain('aac');
+  });
+
+  it('joins the passthrough\'s pieces from their concat list in the same write as the mux (Stage 4)', () => {
+    expect(videoInputArgs('v.mp4')).toEqual(['-i', 'v.mp4']);
+    expect(videoInputArgs('spans.txt', 'concat')).toEqual(['-f', 'concat', '-safe', '0', '-i', 'spans.txt']);
+    const args = finishMuxArgs({ videoPath: 'spans.txt', videoDemuxer: 'concat', audioPath: 'a.m4a', audio: 'copy', outputPath: 'out.mp4', color: EXPORT_COLOR, moovBytes: 139424 });
+    expect(args.join(' ')).toContain('-f concat -safe 0 -i spans.txt -i a.m4a -map 0:v:0 -map 1:a:0 -c:v copy ' + tags.join(' ') + ' -c:a copy -map_metadata -1 -moov_size 139424 out.mp4');
+    // A silent timeline's list is its own audio source: one input, no audio track.
+    const silent = finishMuxArgs({ videoPath: 'spans.txt', videoDemuxer: 'concat', audioPath: 'spans.txt', audio: 'none', outputPath: 'out.mp4', color: EXPORT_COLOR });
+    expect(silent.filter((a) => a === '-i')).toHaveLength(1);
+    expect(silent).toContain('-an');
   });
 
   it('writes no audio track for a silent timeline', () => {

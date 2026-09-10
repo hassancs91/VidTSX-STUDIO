@@ -7,19 +7,22 @@
  * the browser exactly as the standard engine renders it, one frame early, and
  * re-encoded by our ffmpeg with the copied spans' settings (conditions 2, 4).
  * Gaps are black. The pieces are MPEG-TS video-only intermediates joined by
- * stream copy (condition 3); the audio is one ffmpeg pass over the whole
- * timeline (slice 4: every document the planner reads — gains, fades,
- * transitions, tracks and speed — is planned; the standard path is only the
- * fallback for an empty plan), mixed and AAC-encoded beside the pieces
+ * stream copy (condition 3) — by the finishing mux itself, which reads the
+ * concat list as its video input (Stage 4: no joined intermediate, one write
+ * of the output); the audio is one ffmpeg pass over the whole timeline
+ * (slice 4: every document the planner reads — gains, fades, transitions,
+ * tracks and speed — is planned; the standard path is only the fallback for
+ * an empty plan), mixed and AAC-encoded beside the pieces
  * (`passthrough-audio.ts`, Stage 4) and handed to the finishing stage as
  * `audioPath`.
  *
  * It never steps aside (D4): a timeline with nothing to copy still runs here,
  * with every frame through the browser and a note saying so.
  *
- * Every count is checked, never assumed: each piece's frame count, the joined
- * file's frame count and start time. A mismatch fails the export loudly —
- * a silently wrong frame is the one outcome T1 forbids.
+ * Every count is checked, never assumed: each piece's frame count here, the
+ * finished file's frame count in the finishing stage (`frames` on the
+ * product). A mismatch fails the export loudly — a silently wrong frame is
+ * the one outcome T1 forbids.
  */
 import fs from 'fs/promises';
 import path from 'path';
@@ -28,7 +31,6 @@ import { copiedPercent, planExportSpans, type ExportSpan, type ExportSpanPlan } 
 import { runFfmpeg } from '../ffmpeg-bin';
 import { getFfmpegFullBinary, probeProxyEncoders } from '../ffmpeg-full';
 import { chooseProxyEncoder, type ProxyGpuEncoder } from '../proxy-encoders';
-import { probeStreams } from './finishing';
 import { producePassthroughAudio } from './passthrough-audio';
 import { renderBrowserSpan } from './passthrough-browser';
 import {
@@ -39,7 +41,6 @@ import {
   copySpanArgs,
   holdLastFrameArgs,
   isConstantFrameRate,
-  joinArgs,
   parseStatsFrame,
 } from './passthrough-ffmpeg';
 import { ffprobeBeside, probeSource, type SourceProbe } from './passthrough-probe';
@@ -97,11 +98,13 @@ export const passthroughExportEngine: ExportEngine = {
     log.info('Span plan', { jobId: input.jobId, percent: copiedPercent(plan), spans: plan.spans.map((s) => `${s.kind}:${s.from}+${s.frames}`) });
 
     // The audio starts now and runs beside the pieces (Stage 4); a failure
-    // there stops the next piece rather than waiting for the join. The
+    // there stops the next piece rather than waiting for the last one. The
     // rejection is observed here so nothing is unhandled while the loop runs.
-    const videoPath = path.join(workDir, 'video.mp4');
+    // The product is the concat list of the pieces: the finishing mux reads
+    // it as its video input (no joined intermediate, one write of the output).
+    const listPath = path.join(workDir, 'spans.txt');
     let audioError: Error | null = null;
-    const audioWork = producePassthroughAudio(input, tools.ffmpeg, videoPath);
+    const audioWork = producePassthroughAudio(input, tools.ffmpeg, listPath);
     audioWork.catch((err: unknown) => { audioError = err instanceof Error ? err : new Error(String(err)); });
 
     // 1. Pieces, in order. The progress line names the copied share, the span
@@ -172,20 +175,19 @@ export const passthroughExportEngine: ExportEngine = {
         : `Copied ${percent} % of this timeline (${plan.spans.filter((s) => s.kind === 'copy').length} of ${plan.spans.length} spans).`,
     ];
 
-    // 2. Join (condition 3), then drop the pieces — the joined file is the product.
-    const listPath = path.join(workDir, 'spans.txt');
-    await fs.writeFile(listPath, concatListText(pieces, entry.fps), 'utf-8');
-    await runFfmpeg(tools.ffmpeg, joinArgs(listPath, videoPath, color), { signal });
-    const joined = await probeStreams(videoPath);
-    if (joined.video?.frames !== plan.totalFrames) {
-      throw new Error(`The joined video has ${joined.video?.frames ?? 'no'} frames instead of ${plan.totalFrames}.`);
+    // 2. The list the finishing mux joins from (condition 3); the pieces stay
+    // in the scratch folder until the export ends. Their counted frames sum
+    // to the plan; the finishing stage checks the finished file against it.
+    const framesCounted = pieces.reduce((n, p) => n + p.frames, 0);
+    if (framesCounted !== plan.totalFrames) {
+      throw new Error(`The pieces hold ${framesCounted} frames instead of ${plan.totalFrames}.`);
     }
-    await Promise.all(pieces.map((p) => fs.rm(p.path, { force: true }).catch(() => {})));
+    await fs.writeFile(listPath, concatListText(pieces, entry.fps), 'utf-8');
 
     // 3. The audio (D6/D7) has been mixing and AAC-encoding beside the spans since the plan.
     const audio = await audioWork;
     notes.push(...audio.notes);
-    return { videoPath, audioPath: audio.audioPath, notes };
+    return { videoPath: listPath, videoDemuxer: 'concat', frames: plan.totalFrames, audioPath: audio.audioPath, notes };
   },
 };
 

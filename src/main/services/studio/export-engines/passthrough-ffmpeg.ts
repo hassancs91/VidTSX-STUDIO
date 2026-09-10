@@ -16,8 +16,9 @@
  *    2026-09-06: every third 59.94 fps frame at 1.5×).
  * 2. One encoder for both span kinds — browser spans are decoded from
  *    Remotion's intermediate and encoded HERE with the copied spans' settings.
- * 3. Join through MPEG-TS video-only intermediates; the audio is one pass over
- *    the whole timeline, muxed last by the finishing stage.
+ * 3. Join through MPEG-TS video-only intermediates — the finishing mux reads
+ *    their concat list as its video input, so the join IS the mux (Stage 4);
+ *    the audio is one pass over the whole timeline, muxed there too.
  * 4. A browser span is rendered one frame early and the lead-in is dropped.
  *
  * Colour: NVENC writes primaries/transfer into the VUI only when the FRAMES
@@ -225,20 +226,15 @@ export function holdLastFrameArgs(a: HoldLastFrameArgs): string[] {
   ];
 }
 
-/** concat-demuxer list with explicit durations, so each piece's offset is exactly frames/fps. */
+/**
+ * Condition 3: the concat-demuxer list with explicit durations, so each
+ * piece's offset is exactly frames/fps. The finishing mux reads it as its
+ * video input (`finishMuxArgs` with `videoDemuxer: 'concat'`) — the join and
+ * the mux are one stream copy into the output (Stage 4).
+ */
 export function concatListText(pieces: ReadonlyArray<{ path: string; frames: number }>, fps: number): string {
   const quote = (p: string) => p.replace(/\\/g, '/').replace(/'/g, "'\\''");
   return pieces.map((p) => `file '${quote(p.path)}'\nduration ${(p.frames / fps).toFixed(6)}`).join('\n') + '\n';
-}
-
-/** Condition 3: concat the TS pieces into one video-only mp4 by stream copy. */
-export function joinArgs(listPath: string, outputPath: string, color: ExportColorPolicy): string[] {
-  return [
-    ...COMMON,
-    '-f', 'concat', '-safe', '0', '-i', listPath,
-    '-map', '0:v:0', '-c:v', 'copy', ...colorFlagArgs(color), '-an',
-    outputPath,
-  ];
 }
 
 export interface AudioPass {

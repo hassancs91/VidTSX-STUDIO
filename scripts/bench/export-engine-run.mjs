@@ -83,12 +83,14 @@ if (args.verify) await evaluate(`localStorage.setItem('vidtsx:export-verify', '1
 else await evaluate(`localStorage.removeItem('vidtsx:export-verify'); return true;`);
 
 // 1. Studio project browser
+// Studio screen FIRST (its Back button is hidden from the Queue screen, where a
+// cancel run leaves the app), then Back to the cards — retried, because a big
+// project's editor can take longer than one Back click to leave (2026-09-10).
 const nav = await evaluate(`
-  const back = visible('button[title="Back to projects"]')[0]; if (back) { back.click(); await sleep(800); }
-  const el = visible('*').filter((e) => e.children.length === 0 && e.textContent.trim() === 'Studio')[0];
-  let t = el; for (let i = 0; i < 5 && t && t.tagName !== 'BUTTON'; i++) t = t.parentElement;
+  const studioNav = () => { const el = visible('*').filter((e) => e.children.length === 0 && e.textContent.trim() === 'Studio')[0]; let t = el; for (let i = 0; i < 5 && t && t.tagName !== 'BUTTON'; i++) t = t.parentElement; return t ?? el; };
   for (let attempt = 0; attempt < 3; attempt++) {
-    (t ?? el)?.click();
+    studioNav()?.click(); await sleep(400);
+    const back = visible('button[title="Back to projects"]')[0]; if (back) { back.click(); await sleep(800); }
     for (let i = 0; i < 100; i++) { await sleep(100); const n = visible('.cursor-pointer').filter((x) => x.querySelector('.truncate')).length; if (n > 0) return n; }
   }
   return 0;`);

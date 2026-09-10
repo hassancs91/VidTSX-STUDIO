@@ -11,7 +11,12 @@ import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { EXPORT_COLOR } from './types';
-import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, joinArgs, remotionTrimMicros, remotionVolumeExpression } from './passthrough-ffmpeg';
+import { finishMuxArgs } from './finishing';
+import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, remotionTrimMicros, remotionVolumeExpression } from './passthrough-ffmpeg';
+
+/** The join as the finishing mux does it: the concat list read as the video input, no audio (Stage 4). */
+const joinArgs = (listPath: string, outputPath: string, color: typeof EXPORT_COLOR) =>
+  finishMuxArgs({ videoPath: listPath, videoDemuxer: 'concat', audioPath: listPath, audio: 'none', outputPath, color, moovBytes: 4 << 20 });
 
 const LIVE = process.env.VIDTSX_LIVE_FFMPEG === '1';
 const REPO = path.resolve(__dirname, '../../../../..');

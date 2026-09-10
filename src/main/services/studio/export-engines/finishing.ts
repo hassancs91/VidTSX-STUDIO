@@ -15,13 +15,26 @@
  * stream. ffmpeg's encoder declares its delay and the mp4 muxer writes the
  * matching edit list, so decoders start at the first real sample — the D6
  * reference (the camera file, 0 ms) instead of +42.7 ms.
+ *
+ * Video in: a media file, or an engine's concat LIST of pieces (`videoDemuxer`
+ * `concat`, the passthrough's MPEG-TS spans): the mux then reads the pieces
+ * itself, so the join and the mux are one write instead of a joined
+ * intermediate copied once more. The seam stays probe → mux → probe: the
+ * list probes like a file (the first piece's tags, the summed duration), and
+ * the finished file's frame count is checked against what the engine counted.
  */
 import { spawn } from 'child_process';
 import { getFfmpegBinary, runFfmpeg } from '../ffmpeg-bin';
-import type { ExportColorPolicy } from './types';
+import type { ExportColorPolicy, ExportEngineProduct } from './types';
+
+export type VideoDemuxer = NonNullable<ExportEngineProduct['videoDemuxer']>;
 
 export interface FinishExportOptions {
   videoPath: string;
+  /** Set when `videoPath` is a concat list rather than a media file. */
+  videoDemuxer?: VideoDemuxer;
+  /** The frame count the engine verified; the finished file must hold exactly this many. */
+  expectedFrames?: number;
   /** The whole-timeline audio (PCM preferred); may be `videoPath` itself. */
   audioPath: string;
   outputPath: string;
@@ -30,6 +43,16 @@ export interface FinishExportOptions {
   fps?: number;
   signal: AbortSignal;
   onProgress?: (fraction: number) => void;
+}
+
+/** A concat list needs its demuxer named before the input (and `-safe 0` for absolute paths); a media file needs nothing. */
+export function demuxerArgs(demuxer?: VideoDemuxer): string[] {
+  return demuxer === 'concat' ? ['-f', 'concat', '-safe', '0'] : [];
+}
+
+/** The input flags for a video product. */
+export function videoInputArgs(videoPath: string, demuxer?: VideoDemuxer): string[] {
+  return [...demuxerArgs(demuxer), '-i', videoPath];
 }
 
 export interface ProbedStreams {
@@ -54,10 +77,10 @@ interface FfprobeStream {
   start_time?: string;
 }
 
-export async function probeStreams(filePath: string): Promise<ProbedStreams> {
+export async function probeStreams(filePath: string, demuxer?: VideoDemuxer): Promise<ProbedStreams> {
   const ffprobe = await getFfmpegBinary('ffprobe');
   const output = await new Promise<string>((resolve, reject) => {
-    const proc = spawn(ffprobe, ['-v', 'error', '-print_format', 'json', '-show_format', '-show_streams', filePath], {
+    const proc = spawn(ffprobe, ['-v', 'error', ...demuxerArgs(demuxer), '-print_format', 'json', '-show_format', '-show_streams', filePath], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -140,6 +163,7 @@ export type FinishAudioMode = 'none' | 'encode' | 'copy';
 
 export interface FinishMuxArgs {
   videoPath: string;
+  videoDemuxer?: VideoDemuxer;
   audioPath: string;
   audio: FinishAudioMode;
   outputPath: string;
@@ -153,11 +177,11 @@ export interface FinishMuxArgs {
   moovBytes?: number;
 }
 
-/** The mux: video by stream copy under the colour tags; audio encoded here or copied when already AAC. */
+/** The mux: video by stream copy under the colour tags (from a file or a concat list); audio encoded here or copied when already AAC. */
 export function finishMuxArgs(a: FinishMuxArgs): string[] {
   return [
     '-y', '-hide_banner', '-nostdin',
-    '-i', a.videoPath,
+    ...videoInputArgs(a.videoPath, a.videoDemuxer),
     ...(a.audio !== 'none' ? ['-i', a.audioPath, '-map', '0:v:0', '-map', '1:a:0'] : ['-map', '0:v:0', '-an']),
     '-c:v', 'copy',
     ...colorTagArgs(a.color),
@@ -187,7 +211,7 @@ export function aacFrameCount(seconds: number, sampleRate: number): number {
 }
 
 export async function finishExport(options: FinishExportOptions): Promise<ProbedStreams> {
-  const before = await probeStreams(options.videoPath);
+  const before = await probeStreams(options.videoPath, options.videoDemuxer);
   const mismatch = colorMismatch(before.video, options.color);
   if (mismatch) {
     throw new Error(`The export engine returned video with the wrong colour tags (${mismatch}).`);
@@ -200,11 +224,11 @@ export async function finishExport(options: FinishExportOptions): Promise<Probed
 
   const ffmpeg = await getFfmpegBinary('ffmpeg');
   const totalSeconds = before.duration ?? 0;
-  const videoFrames = before.video?.frames ?? Math.ceil(totalSeconds * (options.fps ?? 60));
+  const videoFrames = options.expectedFrames ?? before.video?.frames ?? Math.ceil(totalSeconds * (options.fps ?? 60));
   const audioFrames = hasAudio ? aacFrameCount(totalSeconds, audioSource.audio?.sampleRate ?? 48000) : 0;
   const mux = (moovBytes: number | undefined) => runFfmpeg(
     ffmpeg,
-    finishMuxArgs({ videoPath: options.videoPath, audioPath: options.audioPath, audio, outputPath: options.outputPath, color: options.color, moovBytes }),
+    finishMuxArgs({ videoPath: options.videoPath, videoDemuxer: options.videoDemuxer, audioPath: options.audioPath, audio, outputPath: options.outputPath, color: options.color, moovBytes }),
     {
       signal: options.signal,
       onStderr: (text) => {
@@ -231,6 +255,9 @@ export async function finishExport(options: FinishExportOptions): Promise<Probed
   }
   if (hasAudio && !after.audio) {
     throw new Error('The finished file lost its audio track in the mux.');
+  }
+  if (options.expectedFrames !== undefined && after.video?.frames !== options.expectedFrames) {
+    throw new Error(`The finished file has ${after.video?.frames ?? 'no'} frames instead of ${options.expectedFrames}.`);
   }
   return after;
 }

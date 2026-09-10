@@ -68,6 +68,19 @@ export interface ExportEngineProduct {
   /** Video file (any container ffmpeg reads) tagged per `input.color`. */
   videoPath: string;
   /**
+   * How ffmpeg reads `videoPath` when it is not a plain media file: the
+   * passthrough engine hands over its concat LIST of pieces (Stage 4), so
+   * the join and the mux are one write of the output instead of a joined
+   * intermediate copied once more — 43 s of the 3 h project's finishing.
+   */
+  videoDemuxer?: 'concat';
+  /**
+   * The frame count the engine verified its product to hold (every piece
+   * counted, the pieces summed); the finishing stage checks the finished
+   * file against it — a silently wrong frame is the one outcome T1 forbids.
+   */
+  frames?: number;
+  /**
    * The whole-timeline audio, when the engine's one pass produced it (the
    * Remotion engine mixes it in the same browser walk — a second walk would
    * re-download every source: measured 7 min against 8.6 min of frames on
