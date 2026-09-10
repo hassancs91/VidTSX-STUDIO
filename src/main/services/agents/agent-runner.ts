@@ -22,6 +22,7 @@ import type {
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { llmEngine } from '../../../engine';
 import type { AgentArtifactStore } from './artifact-store';
+import type { ToolCallRecord } from './tool-call-log';
 import { InteractionBroker } from './interaction-broker';
 import { composeAgentSystemPrompt } from './prompt-compose';
 import { createFileToolGuard } from './file-tool-guard';
@@ -92,6 +93,8 @@ export interface AgentRunnerHooks {
     draft: AgentArtifactDraft,
     workspaceDir: string,
   ): Promise<AgentArtifactDraft>;
+  /** W8 Stage 5: one completed tool call for the session's lineage record. */
+  recordToolCall?(sessionId: string, record: ToolCallRecord): void;
 }
 
 export class AgentRunner {
@@ -275,6 +278,9 @@ export class AgentRunner {
       // that already carries those paths, not one it has to complete.
       requestJob: (request: AgentJobRequest) => {
         this.hooks.requestJob?.(sessionId, request);
+      },
+      recordCall: (record: ToolCallRecord) => {
+        this.hooks.recordToolCall?.(sessionId, record);
       },
     };
   }

@@ -20,6 +20,8 @@ export interface AddFlowProposalInput {
   flowId: string | null;
   doc: FlowDoc;
   summary: string;
+  /** W8 Stage 5: `frozen` for a session's winning path. */
+  source?: FlowProposal['source'];
 }
 
 export function getFlowProposal(sessionId: string): FlowProposal | null {
@@ -43,9 +45,15 @@ export function addFlowProposal(input: AddFlowProposalInput): FlowProposal {
     doc: structuredClone(input.doc),
     summary: input.summary,
     createdAt: new Date().toISOString(),
+    ...(input.source ? { source: input.source } : {}),
   };
   pending.set(input.sessionId, proposal);
   return proposal;
+}
+
+/** W8 Stage 5: a new freeze replaces whatever card the session still had. */
+export function dropFlowProposal(sessionId: string): boolean {
+  return pending.delete(sessionId);
 }
 
 /** Drop a resolved card. Idempotent — resolving twice is a no-op. */

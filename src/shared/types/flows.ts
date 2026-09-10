@@ -192,6 +192,8 @@ export interface FlowOrigin {
   agentId: string;
   sessionId: string;
   artifactId: string;
+  /** W8 Stage 5 (§0.1 item 9): the session's brand — the run form's default. */
+  brandId?: string;
 }
 
 /** Where a SQLite row came from (the `source` column, §2). Built-in and
@@ -304,4 +306,8 @@ export interface FlowProposal {
   /** One line from the agent on what changed and why. */
   summary: string;
   createdAt: string;
+  /** W8 Stage 5: absent = the Flow Builder; `frozen` = a session's winning
+   *  path (§1.5), shown as "Frozen from session …" and saved with
+   *  `source: 'frozen'`. */
+  source?: 'builder' | 'frozen';
 }

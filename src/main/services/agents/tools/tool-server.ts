@@ -18,6 +18,7 @@ import type {
 } from '../../../../shared/types/agents';
 import type { AgentToolContext, AgentToolResult, InteractionAskResult } from './types';
 import type { RegisteredTool } from './registry';
+import type { ToolCallRecord } from '../tool-call-log';
 import { invokeTool } from './invoke-tool';
 import { logEngine } from '../../../../logging/log-engine';
 
@@ -50,9 +51,20 @@ export interface ToolServerDeps {
   ): Promise<AgentArtifact>;
   /** Emitted after filing, when a tool submitted queue work (§1.5). */
   requestJob(request: AgentJobRequest): void;
+  /**
+   * W8 Stage 5: every completed call with its arguments, the artifacts it
+   * filed and the questions it posted — the session's lineage record
+   * (`tool-call-log.ts`), which is what a freeze walks.
+   */
+  recordCall?(record: ToolCallRecord): void;
 }
 
-function buildContext(deps: ToolServerDeps, toolId: string, callId: string): AgentToolContext {
+function buildContext(
+  deps: ToolServerDeps,
+  toolId: string,
+  callId: string,
+  requestIds: string[],
+): AgentToolContext {
   return {
     sessionId: deps.sessionId,
     agentId: deps.agentId,
@@ -67,7 +79,11 @@ function buildContext(deps: ToolServerDeps, toolId: string, callId: string): Age
     emitProgress: (detail) =>
       deps.emit({ sessionId: deps.sessionId, kind: 'progress', tool: toolId, callId, detail }),
     readArtifacts: deps.readArtifacts,
-    ask: (payload) => deps.ask(payload, callId),
+    ask: async (payload) => {
+      const posted = await deps.ask(payload, callId);
+      if (posted.status !== 'rejected') requestIds.push(posted.requestId);
+      return posted;
+    },
   };
 }
 
@@ -87,7 +103,9 @@ export function buildAgentToolServer(
     tool(def.id, def.description, def.schema, async (args) => {
       const callId = randomUUID();
       deps.emit({ sessionId: deps.sessionId, kind: 'tool', tool: def.id, callId });
-      const ctx = buildContext(deps, def.id, callId);
+      const requestIds: string[] = [];
+      const artifactIds: string[] = [];
+      const ctx = buildContext(deps, def.id, callId, requestIds);
 
       // The ONE handler path (flows plan §11): argument validation, the usage
       // attribution and the throw-to-result rule live in `invokeTool`, shared
@@ -99,6 +117,7 @@ export function buildAgentToolServer(
         | { type: 'text'; text: string }
         | { type: 'image'; data: string; mimeType: string }
       > = [...result.content];
+      let isError = result.isError === true;
       if (result.artifact) {
         try {
           const filed = await deps.fileArtifact(
@@ -106,6 +125,7 @@ export function buildAgentToolServer(
             { tool: def.id, callId },
             result.supersedes ? { supersedes: result.supersedes } : {},
           );
+          artifactIds.push(filed.id);
           deps.emit({ sessionId: deps.sessionId, kind: 'artifact', artifact: filed });
           content.push({ type: 'text' as const, text: `Artifact id: ${filed.id}` });
           if (result.jobRequest) {
@@ -115,25 +135,32 @@ export function buildAgentToolServer(
           // are filed in order, after the primary, and named the same way.
           for (const extra of result.extraArtifacts ?? []) {
             const more = await deps.fileArtifact(extra, { tool: def.id, callId }, {});
+            artifactIds.push(more.id);
             deps.emit({ sessionId: deps.sessionId, kind: 'artifact', artifact: more });
             content.push({ type: 'text' as const, text: `Artifact id: ${more.id}` });
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           log.warn('Filing an artifact failed', { tool: def.id, error: message });
-          return {
-            content: [
-              ...content,
-              { type: 'text' as const, text: `The result could not be filed: ${message}` },
-            ],
-            isError: true,
-          };
+          content.push({ type: 'text' as const, text: `The result could not be filed: ${message}` });
+          isError = true;
         }
       }
+      // W8 Stage 5: the call goes on the session's lineage record whatever
+      // happened — a failed call is a retry the freeze must be able to skip.
+      deps.recordCall?.({
+        callId,
+        tool: def.id,
+        at: new Date().toISOString(),
+        args: (args ?? {}) as Record<string, unknown>,
+        ...(isError ? { isError: true } : {}),
+        artifactIds,
+        ...(requestIds.length > 0 ? { requestIds } : {}),
+      });
       for (const image of result.images ?? []) {
         content.push({ type: 'image' as const, data: image.data, mimeType: image.mimeType });
       }
-      return { content, ...(result.isError ? { isError: true } : {}) };
+      return { content, ...(isError ? { isError: true } : {}) };
     }),
   );
 

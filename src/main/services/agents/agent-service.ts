@@ -42,6 +42,7 @@ import {
   type RenderJobUpdate,
 } from './render-jobs';
 import { reconcileSessionVideoJobs, watchVideoJobs } from './video-jobs';
+import { appendInteractionReply, appendToolCall } from './tool-call-log';
 import { sinkCompositionIntoMotionProject } from './motion-project-sink';
 import {
   buildRunContext,
@@ -76,6 +77,12 @@ export interface AgentSendInput {
   tools?: string[];
   /** W8 Stage 4 (`run_agent`): a turn cap for this send. */
   maxTurns?: number;
+  /**
+   * W8 Stage 5 (freeze via the agent): registry tools ADDED to the manifest's
+   * list for this send only — `save_flow` for the one turn that names a
+   * frozen draft. Never persisted.
+   */
+  extraTools?: string[];
 }
 
 let nextChatSeq = 0;
@@ -121,6 +128,12 @@ export class AgentService {
         await patchAgentSession(agentId, sessionId, { motionProjectId: result.motionProjectId });
       }
       return result.draft;
+    },
+    // W8 Stage 5: the lineage record a freeze walks (`tool-call-log.ts`).
+    recordToolCall: (sessionId, record) => {
+      const agentId = this.runningAgents.get(sessionId);
+      if (!agentId) return;
+      void appendToolCall(agentId, sessionId, record);
     },
   });
 
@@ -228,14 +241,18 @@ export class AgentService {
   }> {
     const ctx = await this.context(input.agentId, input.sessionId);
     const built = await buildRunContext(ctx);
-    // `run_agent` narrows the manifest for ONE send — never persisted.
+    // `run_agent` narrows the manifest for ONE send, a freeze widens it by
+    // `save_flow` for one — neither is persisted.
+    const widened = input.extraTools
+      ? [...new Set([...built.manifest.tools, ...input.extraTools])]
+      : built.manifest.tools;
     const runContext =
-      input.tools || input.maxTurns
+      input.tools || input.maxTurns || input.extraTools
         ? {
             ...built,
             manifest: {
               ...built.manifest,
-              ...(input.tools ? { tools: built.manifest.tools.filter((id) => input.tools?.includes(id)) } : {}),
+              tools: input.tools ? widened.filter((id) => input.tools?.includes(id)) : widened,
               ...(input.maxTurns ? { defaults: { ...built.manifest.defaults, maxTurns: input.maxTurns } } : {}),
             },
           }
@@ -304,6 +321,14 @@ export class AgentService {
     this.runningAgents.set(sessionId, agentId);
     const message = await this.runner.answer(session, reply);
     if (!message) return;
+    // W8 Stage 5: the reply joins the lineage record, so a freeze can tell
+    // which argument values came from a pick or a form answer.
+    await appendInteractionReply(agentId, sessionId, {
+      requestId: reply.requestId,
+      at: new Date().toISOString(),
+      status: reply.status,
+      ...(reply.status === 'answered' ? { values: reply.values } : {}),
+    });
     await this.send({ agentId, sessionId, prompt: message });
   }
 
