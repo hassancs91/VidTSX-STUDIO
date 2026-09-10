@@ -8,7 +8,7 @@ import {
   V1_TOOL_ALIASES,
   isFlowDocV2,
   isValidFlowNodeId,
-  legacyTypeIdForToolId,
+  legacyPrimaryHandle,
   migrateGraphV1,
   normalizeFlowNodeId,
   parseFlowDoc,
@@ -61,7 +61,7 @@ describe('the three current templates', () => {
       expect(n.position).toEqual(src.position);
       expect(n.config).toEqual(src.data.config);
       expect(n.toolId).toBe(V1_TOOL_ALIASES[src.data.typeId]);
-      expect(legacyTypeIdForToolId(n.toolId)).toBe(src.data.typeId);
+      expect(legacyPrimaryHandle(n.toolId)).toBeDefined();
     }
     // A v2 doc passes through parseFlowDoc unchanged.
     const again = parseFlowDoc(JSON.stringify(doc));
@@ -192,6 +192,6 @@ describe('parseFlowDoc', () => {
 
   it('maps unknown legacy type ids through unchanged', () => {
     expect(toolIdForLegacyTypeId('mystery-node')).toBe('mystery-node');
-    expect(legacyTypeIdForToolId('transcribe')).toBeNull();
+    expect(legacyPrimaryHandle('transcribe')).toBeUndefined();
   });
 });

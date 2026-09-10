@@ -7,7 +7,7 @@ import type {
   FlowSource,
   NodeSpec,
 } from '../../types/flows';
-import type { InteractionReply } from '../../types/agents';
+import type { AgentArtifact, InteractionReply } from '../../types/agents';
 
 // ─── Flows (node-graph builder) — projects ───
 export interface FlowProjectSummary {
@@ -200,6 +200,12 @@ export interface FlowsRunGetRequest {
 export interface FlowsRunGetResponse {
   success: boolean;
   run?: FlowRunDoc;
+  /** Stage 1: the run folder's artifacts, so the canvas can preview ports. */
+  artifacts?: AgentArtifact[];
+  /** Artifact id → one servable url per file (image-set, video, audio). */
+  assetUrls?: Record<string, string[]>;
+  /** Not running now and at least one node is not done — Resume is offered. */
+  resumable?: boolean;
   error?: string;
 }
 

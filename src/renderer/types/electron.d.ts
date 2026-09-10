@@ -398,6 +398,14 @@ export interface ElectronAPI {
   flowsRunList: (data: import('../../shared/ipc/types').FlowRunListRequest) => Promise<import('../../shared/ipc/types').FlowRunListResponse>;
   flowsRunLoad: (data: import('../../shared/ipc/types').FlowRunLoadRequest) => Promise<import('../../shared/ipc/types').FlowRunLoadResponse>;
 
+  // Flows — W8 Stage 1: nodes from the registry, runs in main
+  flowsNodesList: () => Promise<import('../../shared/ipc/types').FlowsNodesListResponse>;
+  flowsRunStart: (data: import('../../shared/ipc/types').FlowsRunStartRequest) => Promise<import('../../shared/ipc/types').FlowsRunStartResponse>;
+  flowsRunCancel: (data: import('../../shared/ipc/types').FlowsRunCancelRequest) => Promise<import('../../shared/ipc/types').FlowsRunCancelResponse>;
+  flowsRunResume: (data: import('../../shared/ipc/types').FlowsRunResumeRequest) => Promise<import('../../shared/ipc/types').FlowsRunResumeResponse>;
+  flowsRunGet: (data: import('../../shared/ipc/types').FlowsRunGetRequest) => Promise<import('../../shared/ipc/types').FlowsRunGetResponse>;
+  onFlowsRunEvent: (callback: (event: import('../../shared/types/flows').FlowRunEvent) => void) => () => void;
+
   // Tools: Frame Extractor
   toolsVideoProbe: (data: import('../../shared/ipc/types').VideoProbeRequest) => Promise<import('../../shared/ipc/types').VideoProbeResponse>;
   toolsFrameExtract: (data: import('../../shared/ipc/types').FrameExtractRequest) => Promise<import('../../shared/ipc/types').FrameExtractResponse>;

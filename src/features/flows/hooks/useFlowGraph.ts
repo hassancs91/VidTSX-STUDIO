@@ -11,23 +11,13 @@ import {
 } from 'reactflow';
 import { ulid } from 'ulid';
 import type { FlowProject } from '@shared/ipc/types';
-import type { FlowDoc } from '@shared/types/flows';
-import {
-  legacyTypeIdForToolId,
-  parseFlowDoc,
-  toolIdForLegacyTypeId,
-} from '@shared/flows/migrate-v1';
+import type { FlowDoc, NodeSpec } from '@shared/types/flows';
+import { legacyPrimaryHandle, parseFlowDoc } from '@shared/flows/migrate-v1';
 import { withGraph } from '@shared/flows/doc-graph';
-import { EMPTY_GRAPH, type GraphJson } from '../types';
-import { NODE_REGISTRY } from '../nodes';
+import { EMPTY_GRAPH, type FlowCanvasNodeData } from '../types';
 import { renderGraphThumbnail } from '../services/render-graph-thumbnail';
 
-interface NodeData extends Record<string, unknown> {
-  typeId: string;
-  config: Record<string, unknown>;
-}
-
-type FlowNode = Node<NodeData>;
+type FlowNode = Node<FlowCanvasNodeData>;
 type FlowEdge = Edge;
 
 type Status = 'loading' | 'ready' | 'error';
@@ -41,17 +31,22 @@ interface State {
   viewport: Viewport;
 }
 
-// The store holds a v2 FlowDoc (W8 Stage 0). The canvas still keys its node
-// definitions by the legacy typeId, so the graph is mapped both ways here:
-// toolId → typeId on load, typeId → toolId on save. Params, outputs, origin
-// and each node's `pause` ride along untouched on `docRef`.
-function docToCanvas(doc: FlowDoc): GraphJson {
+interface CanvasGraph {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  viewport: Viewport;
+}
+
+// The store holds a v2 FlowDoc (W8 Stage 0); the canvas nodes carry the
+// registry tool id directly (Stage 1). Params, outputs, origin and each node's
+// `pause` ride along untouched on `docRef` across canvas edits.
+function docToCanvas(doc: FlowDoc): CanvasGraph {
   return {
     nodes: doc.graph.nodes.map((n) => ({
       id: n.id,
       type: 'flowNode' as const,
       position: { ...n.position },
-      data: { typeId: legacyTypeIdForToolId(n.toolId) ?? n.toolId, config: { ...n.config } },
+      data: { toolId: n.toolId, config: { ...n.config } },
     })),
     edges: doc.graph.edges.map((e) => ({
       id: e.id,
@@ -64,28 +59,39 @@ function docToCanvas(doc: FlowDoc): GraphJson {
   };
 }
 
-function canvasToDoc(doc: FlowDoc, nodes: FlowNode[], edges: FlowEdge[], viewport: Viewport): FlowDoc {
-  return withGraph(doc, {
-    nodes: nodes.map((n) => ({
-      id: n.id,
-      toolId: toolIdForLegacyTypeId(n.data.typeId),
-      position: { x: n.position.x, y: n.position.y },
-      config: n.data.config,
-    })),
-    edges: edges.map((e) => ({
-      id: e.id,
-      source: e.source,
-      sourceHandle: e.sourceHandle ?? '',
-      target: e.target,
-      targetHandle: e.targetHandle ?? '',
-    })),
-    viewport: { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
-  });
+function canvasToDoc(
+  doc: FlowDoc,
+  graph: CanvasGraph,
+  primaryHandle: (toolId: string) => string | undefined,
+): FlowDoc {
+  return withGraph(
+    doc,
+    {
+      nodes: graph.nodes.map((n) => ({
+        id: n.id,
+        toolId: n.data.toolId,
+        position: { x: n.position.x, y: n.position.y },
+        config: n.data.config,
+      })),
+      edges: graph.edges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        sourceHandle: e.sourceHandle ?? '',
+        target: e.target,
+        targetHandle: e.targetHandle ?? '',
+      })),
+      viewport: { x: graph.viewport.x, y: graph.viewport.y, zoom: graph.viewport.zoom },
+    },
+    primaryHandle,
+  );
 }
 
 const SAVE_DEBOUNCE_MS = 500;
 
-export function useFlowGraph(flowId: string) {
+/** `specs` is the registry catalogue (`useNodeSpecs`): defaults for a
+ *  dropped node, the first output port for the sink outputs, categories for
+ *  the thumbnail. */
+export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
   const [state, setState] = useState<State>({
     status: 'loading',
     project: null,
@@ -97,6 +103,16 @@ export function useFlowGraph(flowId: string) {
   const lastSavedRef = useRef<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const docRef = useRef<FlowDoc | null>(null);
+  const specsRef = useRef(specs);
+  useEffect(() => {
+    specsRef.current = specs;
+  }, [specs]);
+
+  const primaryHandle = useCallback(
+    (toolId: string) => specsRef.current[toolId]?.outputs[0]?.id ?? legacyPrimaryHandle(toolId),
+    [],
+  );
+  const categoryOf = useCallback((toolId: string) => specsRef.current[toolId]?.category, []);
 
   // Load
   useEffect(() => {
@@ -113,11 +129,7 @@ export function useFlowGraph(flowId: string) {
     void window.api.flowsProjectLoad({ id: flowId }).then((res) => {
       if (cancelled) return;
       if (!res.success || !res.project) {
-        setState((prev) => ({
-          ...prev,
-          status: 'error',
-          error: res.error ?? 'Failed to load flow',
-        }));
+        setState((prev) => ({ ...prev, status: 'error', error: res.error ?? 'Failed to load flow' }));
         return;
       }
       const doc = parseFlowDoc(res.project.graphJson, {
@@ -127,29 +139,16 @@ export function useFlowGraph(flowId: string) {
       });
       docRef.current = doc;
       const graph = docToCanvas(doc);
-      lastSavedRef.current = JSON.stringify(
-        canvasToDoc(doc, graph.nodes as FlowNode[], graph.edges as FlowEdge[], graph.viewport),
-      );
-      setState({
-        status: 'ready',
-        project: res.project,
-        error: null,
-        nodes: graph.nodes as FlowNode[],
-        edges: graph.edges as FlowEdge[],
-        viewport: graph.viewport,
-      });
+      lastSavedRef.current = JSON.stringify(canvasToDoc(doc, graph, primaryHandle));
+      setState({ status: 'ready', project: res.project, error: null, ...graph });
 
-      // Backfill: if the project was created from a template (or any prior
-      // path that wrote nodes without a thumbnail), generate one now so the
-      // card has a preview before the user makes any edits.
+      // Backfill a thumbnail for a project created without one (a template).
       if (!res.project.thumbnail && graph.nodes.length > 0) {
-        const thumbnail = renderGraphThumbnail(graph);
-        void window.api
-          .flowsProjectUpdate({ id: flowId, thumbnail })
-          .then((updRes) => {
-            if (cancelled || !updRes.success || !updRes.project) return;
-            setState((prev) => ({ ...prev, project: updRes.project ?? prev.project }));
-          });
+        const thumbnail = renderGraphThumbnail(graph, { categoryOf });
+        void window.api.flowsProjectUpdate({ id: flowId, thumbnail }).then((updRes) => {
+          if (cancelled || !updRes.success || !updRes.project) return;
+          setState((prev) => ({ ...prev, project: updRes.project ?? prev.project }));
+        });
       }
     });
 
@@ -157,7 +156,7 @@ export function useFlowGraph(flowId: string) {
       cancelled = true;
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [flowId]);
+  }, [flowId, primaryHandle, categoryOf]);
 
   // Debounced auto-save
   useEffect(() => {
@@ -167,47 +166,33 @@ export function useFlowGraph(flowId: string) {
     saveTimerRef.current = setTimeout(() => {
       const base = docRef.current;
       if (!base) return;
-      const nextDoc = canvasToDoc(base, state.nodes, state.edges, state.viewport);
+      const graph = { nodes: state.nodes, edges: state.edges, viewport: state.viewport };
+      const nextDoc = canvasToDoc(base, graph, primaryHandle);
       const json = JSON.stringify(nextDoc);
       if (json === lastSavedRef.current) return;
-      // Schematic thumbnail regenerated on every save — pure SVG, ~tiny, doesn't
-      // depend on the canvas being mounted or a successful run having happened.
-      const graphForThumb: GraphJson = {
-        nodes: state.nodes as unknown as GraphJson['nodes'],
-        edges: state.edges as unknown as GraphJson['edges'],
-        viewport: state.viewport,
-      };
-      const thumbnail = renderGraphThumbnail(graphForThumb);
-      void window.api
-        .flowsProjectUpdate({ id: flowId, graphJson: json, thumbnail })
-        .then((res) => {
-          if (res.success && res.project) {
-            lastSavedRef.current = json;
-            docRef.current = nextDoc;
-            setState((prev) => ({ ...prev, project: res.project ?? prev.project }));
-          } else {
-            setState((prev) => ({ ...prev, error: res.error ?? 'Failed to save flow' }));
-          }
-        });
+      const thumbnail = renderGraphThumbnail(graph, { categoryOf });
+      void window.api.flowsProjectUpdate({ id: flowId, graphJson: json, thumbnail }).then((res) => {
+        if (res.success && res.project) {
+          lastSavedRef.current = json;
+          docRef.current = nextDoc;
+          setState((prev) => ({ ...prev, project: res.project ?? prev.project }));
+        } else {
+          setState((prev) => ({ ...prev, error: res.error ?? 'Failed to save flow' }));
+        }
+      });
     }, SAVE_DEBOUNCE_MS);
 
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [flowId, state.status, state.nodes, state.edges, state.viewport]);
+  }, [flowId, state.status, state.nodes, state.edges, state.viewport, primaryHandle, categoryOf]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
-    setState((prev) => ({
-      ...prev,
-      nodes: applyNodeChanges(changes, prev.nodes) as FlowNode[],
-    }));
+    setState((prev) => ({ ...prev, nodes: applyNodeChanges(changes, prev.nodes) as FlowNode[] }));
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    setState((prev) => ({
-      ...prev,
-      edges: applyEdgeChanges(changes, prev.edges),
-    }));
+    setState((prev) => ({ ...prev, edges: applyEdgeChanges(changes, prev.edges) }));
   }, []);
 
   const onConnect = useCallback((connection: Connection) => {
@@ -226,34 +211,26 @@ export function useFlowGraph(flowId: string) {
     setState((prev) => ({ ...prev, viewport }));
   }, []);
 
-  const addNode = useCallback((typeId: string, position: { x: number; y: number }) => {
-    const def = NODE_REGISTRY[typeId];
-    if (!def) return;
+  const addNode = useCallback((toolId: string, position: { x: number; y: number }) => {
+    const spec = specsRef.current[toolId];
+    if (!spec) return;
     const newNode: FlowNode = {
       id: `n-${ulid()}`,
       type: 'flowNode',
       position,
-      data: {
-        typeId,
-        config: { ...def.defaultConfig },
-      },
+      data: { toolId, config: { ...spec.defaultConfig } },
     };
     setState((prev) => ({ ...prev, nodes: [...prev.nodes, newNode] }));
   }, []);
 
-  const updateNodeConfig = useCallback(
-    (nodeId: string, patch: Record<string, unknown>) => {
-      setState((prev) => ({
-        ...prev,
-        nodes: prev.nodes.map((n) =>
-          n.id === nodeId
-            ? { ...n, data: { ...n.data, config: { ...n.data.config, ...patch } } }
-            : n,
-        ),
-      }));
-    },
-    [],
-  );
+  const updateNodeConfig = useCallback((nodeId: string, patch: Record<string, unknown>) => {
+    setState((prev) => ({
+      ...prev,
+      nodes: prev.nodes.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, config: { ...n.data.config, ...patch } } } : n,
+      ),
+    }));
+  }, []);
 
   const renameFlow = useCallback(
     async (name: string): Promise<void> => {

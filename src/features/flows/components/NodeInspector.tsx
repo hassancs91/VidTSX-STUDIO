@@ -1,5 +1,7 @@
-import { getNodeDef } from '../nodes';
-import type { ConfigField } from '../nodes/types';
+import { AlertTriangle } from 'lucide-react';
+import type { ConfigField } from '@shared/types/flows';
+import { useNodeSpec } from '../hooks/useNodeSpecs';
+import { needLabel } from '../services/node-style';
 import { TextField } from './inspector-fields/TextField';
 import { PromptField } from './inspector-fields/PromptField';
 import { NumberField } from './inspector-fields/NumberField';
@@ -12,7 +14,7 @@ import { GalleryImagePickerField } from './inspector-fields/GalleryImagePickerFi
 import { ImageUploadField } from './inspector-fields/ImageUploadField';
 
 interface Props {
-  typeId: string;
+  toolId: string;
   config: Record<string, unknown>;
   onPatchConfig: (patch: Record<string, unknown>) => void;
 }
@@ -171,28 +173,38 @@ function renderField(
   }
 }
 
-export function NodeInspector({ typeId, config, onPatchConfig }: Props) {
-  const def = getNodeDef(typeId);
+export function NodeInspector({ toolId, config, onPatchConfig }: Props) {
+  const spec = useNodeSpec(toolId);
 
-  if (!def) {
+  if (!spec) {
     return (
       <div className="p-3 text-[11px] text-accent-red">
-        Unknown node type: {typeId}
+        Unknown node: {toolId}
       </div>
     );
   }
+  const unmet = spec.available === false ? (spec.needs ?? []) : [];
 
   return (
     <div className="flex flex-col gap-3 p-3 overflow-y-auto h-full">
       <div>
-        <h3 className="text-[13px] font-semibold text-text-primary">{def.label}</h3>
-        <p className="text-[11px] text-text-dim mt-0.5">{def.description}</p>
+        <h3 className="text-[13px] font-semibold text-text-primary">{spec.label}</h3>
+        <p className="text-[11px] text-text-dim mt-0.5">{spec.description}</p>
+        {unmet.length > 0 && (
+          <p className="text-[11px] text-amber-400 mt-1 flex items-center gap-1">
+            <AlertTriangle size={11} strokeWidth={2} />
+            Needs {unmet.map(needLabel).join(', ')} — add one in AI → Providers.
+          </p>
+        )}
+        {spec.priced && (
+          <p className="text-[11px] text-text-dim mt-1">Priced step{spec.priceHint ? `: ${spec.priceHint}` : ''}.</p>
+        )}
       </div>
 
-      {def.configSchema.length === 0 ? (
+      {spec.configSchema.length === 0 ? (
         <p className="text-[11px] text-text-dim">This node has no settings.</p>
       ) : (
-        def.configSchema.map((field) => (
+        spec.configSchema.map((field) => (
           <div key={field.key + '-' + field.kind}>
             {renderField(field, config, onPatchConfig)}
           </div>

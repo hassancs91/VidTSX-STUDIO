@@ -14,17 +14,13 @@ import ReactFlow, {
   type Viewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { getNodeDef } from '../nodes';
-import { isPortCompatible } from '../nodes/types';
+import { isPortCompatible } from '@shared/types/flows';
+import { useNodeSpecs } from '../hooks/useNodeSpecs';
+import type { FlowCanvasNodeData } from '../types';
 import { CustomNode } from './CustomNode';
 import { PALETTE_DRAG_TYPE } from './NodePalette';
 
-interface NodeData extends Record<string, unknown> {
-  typeId: string;
-  config: Record<string, unknown>;
-}
-
-type FlowNode = Node<NodeData>;
+type FlowNode = Node<FlowCanvasNodeData>;
 type FlowEdge = Edge;
 
 interface Props {
@@ -53,6 +49,7 @@ function FlowCanvasInner({
   onDropNode,
 }: Props) {
   const { screenToFlowPosition } = useReactFlow();
+  const { byId: specs } = useNodeSpecs();
 
   const isValidConnection = useCallback(
     (connection: Connection): boolean => {
@@ -61,15 +58,15 @@ function FlowCanvasInner({
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const targetNode = nodes.find((n) => n.id === connection.target);
       if (!sourceNode || !targetNode) return false;
-      const sourceDef = getNodeDef(sourceNode.data.typeId);
-      const targetDef = getNodeDef(targetNode.data.typeId);
-      if (!sourceDef || !targetDef) return false;
-      const sourcePort = sourceDef.outputs.find((p) => p.id === connection.sourceHandle);
-      const targetPort = targetDef.inputs.find((p) => p.id === connection.targetHandle);
+      const sourceSpec = specs[sourceNode.data.toolId];
+      const targetSpec = specs[targetNode.data.toolId];
+      if (!sourceSpec || !targetSpec) return false;
+      const sourcePort = sourceSpec.outputs.find((p) => p.id === connection.sourceHandle);
+      const targetPort = targetSpec.inputs.find((p) => p.id === connection.targetHandle);
       if (!sourcePort || !targetPort) return false;
       return isPortCompatible(sourcePort.dataType, targetPort.dataType);
     },
-    [nodes],
+    [nodes, specs],
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {

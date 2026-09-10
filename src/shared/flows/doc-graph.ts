@@ -1,6 +1,10 @@
 // FlowDoc helpers shared by the migration, the store and the canvas: the
-// empty doc, the v2 type guard, `parseFlowDoc`, sink outputs, and the
-// reconcile step the canvas runs when it saves a new graph into a doc.
+// empty doc, the v2 type guard, sink outputs, and the reconcile step the
+// canvas runs when it saves a new graph into a doc.
+//
+// Stage 1: the primary output handle of a sink comes from the caller — the
+// canvas passes the registry's first output port (`NodeSpec.outputs[0]`),
+// the v1 migration its fixed legacy table — so no tool-id map lives here.
 
 import {
   FLOW_DOC_FORMAT_VERSION,
@@ -11,39 +15,25 @@ import {
   type FlowParam,
 } from '../types/flows';
 
-/** Which output handle a sink node exposes when the registry is not at hand
- *  (the migration and the canvas run without it). Unknown tools get `output`. */
-const PRIMARY_OUTPUT_HANDLE: Readonly<Record<string, string>> = {
-  input_text: 'text',
-  input_image_library: 'image',
-  input_image_file: 'image',
-  input_video_file: 'video',
-  generate_text: 'text',
-  generate_image: 'image',
-  generate_video: 'video',
-  generate_composition: 'composition',
-  edit_composition: 'composition',
-  render_composition: 'video',
-  transcribe: 'transcript',
-  caption_video: 'video',
-  text_to_speech: 'audio',
-  generate_audio: 'audio',
-  extract_frame: 'image',
-  trim_video: 'video',
-  concat_videos: 'video',
-};
+/** The handle a sink node exposes; `undefined` → `output`. */
+export type PrimaryHandleResolver = (toolId: string) => string | undefined;
+
+const NO_RESOLVER: PrimaryHandleResolver = () => undefined;
 
 function labelForHandle(handle: string): string {
   return handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : 'Output';
 }
 
 /** Every node with no outgoing edge, in node order. */
-export function deriveSinkOutputs(graph: Pick<FlowGraph, 'nodes' | 'edges'>): FlowOutput[] {
+export function deriveSinkOutputs(
+  graph: Pick<FlowGraph, 'nodes' | 'edges'>,
+  primaryHandle: PrimaryHandleResolver = NO_RESOLVER,
+): FlowOutput[] {
   const sources = new Set(graph.edges.map((e) => e.source));
   return graph.nodes
     .filter((n) => !sources.has(n.id))
     .map((n) => {
-      const handle = PRIMARY_OUTPUT_HANDLE[n.toolId] ?? 'output';
+      const handle = primaryHandle(n.toolId) ?? 'output';
       return { nodeId: n.id, handle, label: labelForHandle(handle) };
     });
 }
@@ -84,7 +74,11 @@ export interface FlowGraphInput {
 /** Drop bindings and outputs that name nodes (or config keys) the new graph
  *  no longer has; when no output survives, fall back to the sinks. Node
  *  `pause` flags carry over by id. */
-export function withGraph(doc: FlowDoc, graph: FlowGraphInput): FlowDoc {
+export function withGraph(
+  doc: FlowDoc,
+  graph: FlowGraphInput,
+  primaryHandle: PrimaryHandleResolver = NO_RESOLVER,
+): FlowDoc {
   const previous = new Map(doc.graph.nodes.map((n) => [n.id, n]));
   const nodes: FlowNode[] = graph.nodes.map((n) => ({
     ...n,
@@ -106,6 +100,6 @@ export function withGraph(doc: FlowDoc, graph: FlowGraphInput): FlowDoc {
     ...doc,
     params,
     graph: nextGraph,
-    outputs: kept.length > 0 ? kept : deriveSinkOutputs(nextGraph),
+    outputs: kept.length > 0 ? kept : deriveSinkOutputs(nextGraph, primaryHandle),
   };
 }

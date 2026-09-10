@@ -1,6 +1,12 @@
-import type { GraphJson } from '../types';
-import { getNodeDef } from '../nodes';
-import type { NodeCategory } from '../nodes/types';
+import type { NodeCategory } from '@shared/types/flows';
+import { CATEGORY_FILL } from './node-style';
+
+/** The least a graph needs to be drawn: the canvas nodes (`data.toolId`) or
+ *  a bundled template (`data.typeId`) both fit. */
+export interface ThumbGraph {
+  nodes: Array<{ id: string; position: { x: number; y: number }; data: { toolId?: string; typeId?: string } }>;
+  edges: Array<{ source: string; target: string }>;
+}
 
 const DEFAULT_WIDTH = 320;
 const DEFAULT_HEIGHT = 180;
@@ -8,11 +14,13 @@ const NODE_W = 56;
 const NODE_H = 22;
 const PADDING = 12;
 
-const CATEGORY_FILL: Record<NodeCategory, string> = {
-  input: '#5b8def',
-  generate: '#a575e8',
-};
 const FALLBACK_FILL = '#6b6b78';
+
+/** Without the registry (a template tile), an input node is one whose id
+ *  starts with `input`; everything else is a generator. */
+function guessCategory(toolId: string): NodeCategory {
+  return /^input[-_]/.test(toolId) ? 'input' : 'image';
+}
 const BG = '#15151a';
 const GRID = '#2a2a30';
 const EDGE = '#7a7a86';
@@ -24,7 +32,7 @@ interface Bounds {
   maxY: number;
 }
 
-function computeBounds(graph: GraphJson): Bounds | null {
+function computeBounds(graph: ThumbGraph): Bounds | null {
   if (graph.nodes.length === 0) return null;
   let minX = Infinity;
   let minY = Infinity;
@@ -58,6 +66,8 @@ function toDataUrl(svg: string): string {
 interface RenderOpts {
   width?: number;
   height?: number;
+  /** The registry's category for a tool id; absent = guessed from the id. */
+  categoryOf?: (toolId: string) => NodeCategory | undefined;
 }
 
 /**
@@ -65,7 +75,7 @@ interface RenderOpts {
  * Flow project cards (regenerated on graph save) and template tile previews
  * in NewFlowDialog. Pure function — no DOM dependency.
  */
-export function renderGraphThumbnail(graph: GraphJson, opts: RenderOpts = {}): string {
+export function renderGraphThumbnail(graph: ThumbGraph, opts: RenderOpts = {}): string {
   const w = opts.width ?? DEFAULT_WIDTH;
   const h = opts.height ?? DEFAULT_HEIGHT;
   const bounds = computeBounds(graph);
@@ -125,17 +135,18 @@ export function renderGraphThumbnail(graph: GraphJson, opts: RenderOpts = {}): s
 
   const nodeRects: string[] = [];
   for (const node of graph.nodes) {
-    const def = getNodeDef(node.data.typeId);
-    const fill = def ? CATEGORY_FILL[def.category] ?? FALLBACK_FILL : FALLBACK_FILL;
+    const toolId = node.data.toolId ?? node.data.typeId ?? '';
+    const category = opts.categoryOf?.(toolId) ?? guessCategory(toolId);
+    const fill = toolId ? CATEGORY_FILL[category] ?? FALLBACK_FILL : FALLBACK_FILL;
     const x = tx(node.position.x);
     const y = ty(node.position.y);
     const radius = Math.max(2, 3 * scale);
     nodeRects.push(
       `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${tw.toFixed(2)}" height="${th.toFixed(2)}" rx="${radius}" ry="${radius}" fill="${fill}" opacity="0.92"/>`,
     );
-    // Tiny label tint inside the node — first letter of the def label, fades out for very small scales.
-    if (def && scale > 0.45) {
-      const text = svgEscape(def.label.slice(0, 1).toUpperCase());
+    // Tiny label tint inside the node — the tool id's first letter, fades out for very small scales.
+    if (toolId && scale > 0.45) {
+      const text = svgEscape(toolId.replace(/^input[-_]/, '').slice(0, 1).toUpperCase());
       nodeRects.push(
         `<text x="${(x + tw / 2).toFixed(2)}" y="${(y + th / 2 + 3).toFixed(2)}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="${Math.max(7, 9 * scale).toFixed(1)}" fill="white" opacity="0.85">${text}</text>`,
       );

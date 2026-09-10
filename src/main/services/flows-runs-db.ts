@@ -46,12 +46,14 @@ export interface PersistRunInput {
   nodeResults: string;
 }
 
+/** Insert or replace: the main runner (W8 Stage 1) writes the row when a run
+ *  starts and again on every status change, so the same id upserts. */
 export function persistRun(input: PersistRunInput): FlowRunRecord {
   const database = getDb();
   const insertAndPrune = database.transaction((row: PersistRunInput) => {
     database
       .prepare(`
-        INSERT INTO flow_runs (id, flow_id, status, started_at, finished_at, error, node_results)
+        INSERT OR REPLACE INTO flow_runs (id, flow_id, status, started_at, finished_at, error, node_results)
         VALUES (@id, @flowId, @status, @startedAt, @finishedAt, @error, @nodeResults)
       `)
       .run(row);

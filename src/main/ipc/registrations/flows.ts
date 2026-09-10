@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, webContents } from 'electron';
 import { IPC } from '@shared/ipc/channels';
 import {
   handleFlowsProjectList,
@@ -10,6 +10,14 @@ import {
   handleFlowsRunList,
   handleFlowsRunLoad,
 } from '../flows-handlers';
+import {
+  handleFlowsNodesList,
+  handleFlowsRunStart,
+  handleFlowsRunCancel,
+  handleFlowsRunResume,
+  handleFlowsRunGet,
+} from '../flows-run-handlers';
+import { flowService } from '../../services/flows/flow-service';
 
 export function registerFlowsIpc(): void {
   ipcMain.handle(IPC.FLOWS_PROJECT_LIST, handleFlowsProjectList);
@@ -21,4 +29,19 @@ export function registerFlowsIpc(): void {
   ipcMain.handle(IPC.FLOWS_RUN_PERSIST, handleFlowsRunPersist);
   ipcMain.handle(IPC.FLOWS_RUN_LIST, handleFlowsRunList);
   ipcMain.handle(IPC.FLOWS_RUN_LOAD, handleFlowsRunLoad);
+
+  // W8 Stage 1 (docs/flows-plan.md §1.3): nodes from the registry, runs in main.
+  ipcMain.handle(IPC.FLOWS_NODES_LIST, handleFlowsNodesList);
+  ipcMain.handle(IPC.FLOWS_RUN_START, handleFlowsRunStart);
+  ipcMain.handle(IPC.FLOWS_RUN_CANCEL, handleFlowsRunCancel);
+  ipcMain.handle(IPC.FLOWS_RUN_RESUME, handleFlowsRunResume);
+  ipcMain.handle(IPC.FLOWS_RUN_GET, handleFlowsRunGet);
+
+  // The run stream, broadcast to every webContents the way the agents' is,
+  // so a reload cannot leave the canvas listening to nothing.
+  flowService.onEvent((event) => {
+    for (const contents of webContents.getAllWebContents()) {
+      if (!contents.isDestroyed()) contents.send(IPC.FLOWS_RUN_EVENT, event);
+    }
+  });
 }

@@ -46,19 +46,28 @@ export const V1_TOOL_ALIASES: Readonly<Record<string, string>> = {
   'input-image-upload': 'input_image_file',
 };
 
-const V1_TOOL_ALIASES_REVERSE: Readonly<Record<string, string>> = Object.fromEntries(
-  Object.entries(V1_TOOL_ALIASES).map(([typeId, toolId]) => [toolId, typeId]),
-);
-
 /** Unknown type ids pass through unchanged so the runner can name them. */
 export function toolIdForLegacyTypeId(typeId: string): string {
   return V1_TOOL_ALIASES[typeId] ?? typeId;
 }
 
-/** The canvas still keys its node definitions by the legacy id (Stage 1
- *  retires that); `null` for tools that never had a renderer node. */
-export function legacyTypeIdForToolId(toolId: string): string | null {
-  return V1_TOOL_ALIASES_REVERSE[toolId] ?? null;
+/**
+ * The primary output handle of the six tools the v1 canvas had — fixed
+ * history, so a v1 row migrates to the same `outputs` whether or not the
+ * registry is at hand (the migration is pure). The canvas prefers the
+ * registry's first output port and falls back to this.
+ */
+const LEGACY_PRIMARY_HANDLE: Readonly<Record<string, string>> = {
+  input_text: 'text',
+  input_image_library: 'image',
+  input_image_file: 'image',
+  generate_text: 'text',
+  generate_image: 'image',
+  generate_video: 'video',
+};
+
+export function legacyPrimaryHandle(toolId: string): string | undefined {
+  return LEGACY_PRIMARY_HANDLE[toolId];
 }
 
 const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/i;
@@ -179,7 +188,7 @@ export function migrateGraphV1(graphJson: unknown, meta: FlowDocMeta = {}): Flow
     description: meta.description ?? '',
     params: [],
     graph,
-    outputs: deriveSinkOutputs(graph),
+    outputs: deriveSinkOutputs(graph, legacyPrimaryHandle),
     origin: null,
   };
 }

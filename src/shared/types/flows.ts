@@ -238,6 +238,9 @@ export interface FlowNodeRunState {
   error?: string;
   durationMs?: number;
   attempts: number;
+  /** Stage 1: the tool's progress lines (a preferred-model fallback, a
+   *  pipeline step) — the run log for this node, newest last. */
+  notes?: string[];
 }
 
 /** `run.json` — the run folder's record; the SQLite summary row is

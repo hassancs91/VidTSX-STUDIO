@@ -1,16 +1,27 @@
+// A run as the canvas sees it (flows plan §1.3, W8 Stage 1): started,
+// cancelled and resumed over IPC, its node statuses streamed on
+// FLOWS_RUN_EVENT, its artifacts and preview urls fetched when it settles
+// or when a past run is picked from the history. The runner lives in main;
+// nothing here executes a node.
+
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ulid } from 'ulid';
-import { runFlow, type NodeRunState, type RunStatus } from '../services/run-flow';
-import type { GraphJson } from '../types';
-import type { FlowRunStatus } from '@shared/ipc/types';
+import type { AgentArtifact } from '@shared/types/agents';
+import type { FlowNodeRunState, FlowRunDocStatus, FlowRunEvent } from '@shared/types/flows';
+
+export type RunStatus = FlowRunDocStatus | 'idle';
 
 export interface RunState {
   runId: string | null;
   status: RunStatus;
-  nodes: Record<string, NodeRunState>;
+  nodes: Record<string, FlowNodeRunState>;
   startedAt: number | null;
   finishedAt: number | null;
   error: string | null;
+  /** Not running and at least one node is not done — Resume is offered. */
+  resumable: boolean;
+  artifacts: AgentArtifact[];
+  /** Artifact id → servable urls, for the node previews. */
+  assetUrls: Record<string, string[]>;
 }
 
 const INITIAL_RUN_STATE: RunState = {
@@ -20,194 +31,111 @@ const INITIAL_RUN_STATE: RunState = {
   startedAt: null,
   finishedAt: null,
   error: null,
+  resumable: false,
+  artifacts: [],
+  assetUrls: {},
 };
+
+const TERMINAL: ReadonlySet<RunStatus> = new Set(['success', 'error', 'cancelled']);
+
+export function isRunActive(status: RunStatus): boolean {
+  return status === 'queued' || status === 'running' || status === 'paused';
+}
 
 interface UseFlowRunOpts {
   flowId: string;
-  graph: GraphJson;
-  flowName: string;
-  flowFolderId: string | null;
-  onRunPersisted?: (status: FlowRunStatus) => void;
+  /** Called when a run settles, so the history dropdown can refresh. */
+  onRunSettled?: () => void;
 }
 
-// Maps the runner's RunStatus to the persisted FlowRunStatus.
-// 'idle' is unreachable at completion time (run() always sets 'running' first).
-function toPersistStatus(status: RunStatus): FlowRunStatus | null {
-  if (status === 'success' || status === 'error' || status === 'cancelled' || status === 'running') {
-    return status;
-  }
-  return null;
-}
-
-// Strip large fields from node outputs before persistence. Image base64 strings
-// can be multiple MBs per node — at cap=20 runs/flow that's enough to bloat
-// the SQLite row past 100 MB. We persist the gallery `imageRef` instead and
-// lazy-fetch via imageStudioRead when a past run is hydrated for display.
-function stripLargeFields(nodes: Record<string, NodeRunState>): Record<string, NodeRunState> {
-  const out: Record<string, NodeRunState> = {};
-  for (const [id, state] of Object.entries(nodes)) {
-    if (state.output && typeof state.output === 'object') {
-      const { image: _image, ...rest } = state.output as Record<string, unknown>;
-      out[id] = { ...state, output: rest };
-    } else {
-      out[id] = state;
-    }
-  }
-  return out;
-}
-
-export function useFlowRun({ flowId, graph, flowName, flowFolderId, onRunPersisted }: UseFlowRunOpts) {
+export function useFlowRun({ flowId, onRunSettled }: UseFlowRunOpts) {
   const [runState, setRunState] = useState<RunState>(INITIAL_RUN_STATE);
-  const abortRef = useRef<AbortController | null>(null);
-  // Active runId — used to send imageGenerateCancel to main when the user
-  // cancels mid-fetch. Null between runs.
-  const activeRunIdRef = useRef<string | null>(null);
-  const graphRef = useRef(graph);
-  const flowIdRef = useRef(flowId);
-  const flowNameRef = useRef(flowName);
-  const flowFolderIdRef = useRef(flowFolderId);
-  const onRunPersistedRef = useRef(onRunPersisted);
+  const runIdRef = useRef<string | null>(null);
+  const onRunSettledRef = useRef(onRunSettled);
+  useEffect(() => {
+    onRunSettledRef.current = onRunSettled;
+  }, [onRunSettled]);
 
-  // Keep refs current so the run() closure always sees latest values
-  useEffect(() => {
-    graphRef.current = graph;
-  }, [graph]);
-  useEffect(() => {
-    flowIdRef.current = flowId;
-  }, [flowId]);
-  useEffect(() => {
-    flowNameRef.current = flowName;
-  }, [flowName]);
-  useEffect(() => {
-    flowFolderIdRef.current = flowFolderId;
-  }, [flowFolderId]);
-  useEffect(() => {
-    onRunPersistedRef.current = onRunPersisted;
-  }, [onRunPersisted]);
-
-  // Abort any in-flight run on unmount (also kills the active API fetch).
-  useEffect(() => {
-    return () => {
-      abortRef.current?.abort();
-      const runId = activeRunIdRef.current;
-      if (runId) {
-        void window.api.imageGenerateCancel({ callId: runId }).catch(() => {});
-      }
-    };
-  }, []);
-
-  const run = useCallback(async () => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    const runId = ulid();
-    const startedAt = Date.now();
-    const flowIdSnapshot = flowIdRef.current;
-    activeRunIdRef.current = runId;
-
+  /** The full record from main: statuses, artifacts, urls, resumability. */
+  const hydrate = useCallback(async (runId: string) => {
+    const res = await window.api.flowsRunGet({ runId });
+    if (!res.success || !res.run) {
+      setRunState((prev) => ({ ...prev, error: res.error ?? 'Failed to load the run' }));
+      return;
+    }
+    runIdRef.current = runId;
     setRunState({
       runId,
-      status: 'running',
-      nodes: {},
-      startedAt,
-      finishedAt: null,
-      error: null,
+      status: res.run.status,
+      nodes: res.run.nodes,
+      startedAt: res.run.startedAt,
+      finishedAt: res.run.finishedAt,
+      error: res.run.error,
+      resumable: res.resumable ?? false,
+      artifacts: res.artifacts ?? [],
+      assetUrls: res.assetUrls ?? {},
     });
-
-    // Track the latest state locally so we can persist it after the run resolves
-    // without racing setState. setRunState batches asynchronously.
-    let latestStatus: RunStatus = 'running';
-    let latestError: string | null = null;
-    const latestNodes: Record<string, NodeRunState> = {};
-
-    await runFlow({
-      graph: graphRef.current,
-      ctx: {
-        signal: controller.signal,
-        runId,
-        flowName: flowNameRef.current,
-        flowFolderId: flowFolderIdRef.current,
-      },
-      onUpdate: (update) => {
-        if (update.type === 'node-status') {
-          latestNodes[update.nodeId] = update.state;
-        } else {
-          latestStatus = update.status;
-          if (update.error) latestError = update.error;
-        }
-
-        setRunState((prev) => {
-          if (update.type === 'node-status') {
-            return {
-              ...prev,
-              nodes: { ...prev.nodes, [update.nodeId]: update.state },
-            };
-          }
-          // run-status
-          const finishedAt =
-            update.status === 'running' ? null : Date.now();
-          return {
-            ...prev,
-            status: update.status,
-            finishedAt,
-            error: update.error ?? prev.error,
-          };
-        });
-      },
-    });
-
-    const persistStatus = toPersistStatus(latestStatus);
-    if (persistStatus && persistStatus !== 'running') {
-      try {
-        const res = await window.api.flowsRunPersist({
-          id: runId,
-          flowId: flowIdSnapshot,
-          status: persistStatus,
-          startedAt,
-          finishedAt: Date.now(),
-          error: latestError,
-          nodeResults: JSON.stringify(stripLargeFields(latestNodes)),
-        });
-        if (res.success) {
-          onRunPersistedRef.current?.(persistStatus);
-        }
-      } catch {
-        // Best-effort — surface in console; don't disturb run UI.
-      }
-    }
-    if (activeRunIdRef.current === runId) {
-      activeRunIdRef.current = null;
-    }
   }, []);
 
+  // The event stream: only this run's events are folded in.
+  useEffect(() => {
+    const off = window.api.onFlowsRunEvent((event: FlowRunEvent) => {
+      if (event.runId !== runIdRef.current) return;
+      if (event.kind === 'node-status') {
+        setRunState((prev) => ({ ...prev, nodes: { ...prev.nodes, [event.nodeId]: event.state } }));
+        return;
+      }
+      if (event.kind === 'run-status') {
+        setRunState((prev) => ({
+          ...prev,
+          status: event.status,
+          error: event.error ?? (event.status === 'error' ? prev.error : null),
+          finishedAt: TERMINAL.has(event.status) ? Date.now() : prev.finishedAt,
+        }));
+        if (TERMINAL.has(event.status)) {
+          void hydrate(event.runId).finally(() => onRunSettledRef.current?.());
+        }
+      }
+    });
+    return off;
+  }, [hydrate]);
+
+  const run = useCallback(async () => {
+    setRunState({ ...INITIAL_RUN_STATE, status: 'queued', startedAt: Date.now() });
+    const res = await window.api.flowsRunStart({ flowId, mode: 'unattended', params: {} });
+    if (!res.success || !res.runId) {
+      runIdRef.current = null;
+      setRunState({ ...INITIAL_RUN_STATE, status: 'error', error: res.error ?? 'The run could not start' });
+      onRunSettledRef.current?.();
+      return;
+    }
+    runIdRef.current = res.runId;
+    setRunState((prev) => ({ ...prev, runId: res.runId ?? null }));
+    onRunSettledRef.current?.();
+  }, [flowId]);
+
   const cancel = useCallback(() => {
-    abortRef.current?.abort();
-    // Tell main to abort the in-flight imageGenerate fetch (paired by runId).
-    // Without this, the current node's API call would finish before the runner
-    // notices the abort signal at the top of its next iteration.
-    const runId = activeRunIdRef.current;
-    if (runId) {
-      void window.api.imageGenerateCancel({ callId: runId }).catch(() => {});
+    const runId = runIdRef.current;
+    if (!runId) return;
+    void window.api.flowsRunCancel({ runId }).catch(() => {});
+  }, []);
+
+  const resume = useCallback(async () => {
+    const runId = runIdRef.current;
+    if (!runId) return;
+    setRunState((prev) => ({ ...prev, status: 'queued', error: null, resumable: false }));
+    const res = await window.api.flowsRunResume({ runId });
+    if (!res.success) {
+      setRunState((prev) => ({ ...prev, status: 'error', error: res.error ?? 'Resume failed', resumable: true }));
     }
   }, []);
 
   const reset = useCallback(() => {
-    abortRef.current?.abort();
-    const runId = activeRunIdRef.current;
-    if (runId) {
-      void window.api.imageGenerateCancel({ callId: runId }).catch(() => {});
-    }
+    runIdRef.current = null;
     setRunState(INITIAL_RUN_STATE);
   }, []);
 
-  // Hydrate state from a persisted past run (selected from history).
-  const hydrate = useCallback((state: RunState) => {
-    abortRef.current?.abort();
-    setRunState(state);
-  }, []);
-
-  return { runState, run, cancel, reset, hydrate };
+  return { runState, run, cancel, resume, reset, hydrate };
 }
 
 // ---------------------------------------------------------------------------
@@ -218,7 +146,13 @@ const RunStateContext = createContext<RunState>(INITIAL_RUN_STATE);
 
 export const RunStateProvider = RunStateContext.Provider;
 
-export function useNodeRunState(nodeId: string): NodeRunState {
-  const runState = useContext(RunStateContext);
-  return runState.nodes[nodeId] ?? { status: 'idle' };
+const IDLE_NODE: FlowNodeRunState = { status: 'idle', attempts: 0 };
+
+export function useNodeRunState(nodeId: string): FlowNodeRunState {
+  return useContext(RunStateContext).nodes[nodeId] ?? IDLE_NODE;
+}
+
+export function useRunArtifacts(): Pick<RunState, 'artifacts' | 'assetUrls'> {
+  const { artifacts, assetUrls } = useContext(RunStateContext);
+  return { artifacts, assetUrls };
 }

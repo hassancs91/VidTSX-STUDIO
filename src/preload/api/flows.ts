@@ -1,6 +1,16 @@
-import { ipcRenderer } from 'electron';
+import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
+import type { FlowRunEvent } from '../../shared/types/flows';
 import type {
+  FlowsNodesListResponse,
+  FlowsRunCancelRequest,
+  FlowsRunCancelResponse,
+  FlowsRunGetRequest,
+  FlowsRunGetResponse,
+  FlowsRunResumeRequest,
+  FlowsRunResumeResponse,
+  FlowsRunStartRequest,
+  FlowsRunStartResponse,
   FlowProjectCreateRequest,
   FlowProjectCreateResponse,
   FlowProjectDeleteRequest,
@@ -39,4 +49,20 @@ export const flowsApi = {
     ipcRenderer.invoke(IPC.FLOWS_RUN_LIST, data),
   flowsRunLoad: (data: FlowRunLoadRequest): Promise<FlowRunLoadResponse> =>
     ipcRenderer.invoke(IPC.FLOWS_RUN_LOAD, data),
+
+  // Flows — W8 Stage 1 (docs/flows-plan.md §1.2–§1.3): nodes and main runs
+  flowsNodesList: (): Promise<FlowsNodesListResponse> => ipcRenderer.invoke(IPC.FLOWS_NODES_LIST),
+  flowsRunStart: (data: FlowsRunStartRequest): Promise<FlowsRunStartResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_START, data),
+  flowsRunCancel: (data: FlowsRunCancelRequest): Promise<FlowsRunCancelResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_CANCEL, data),
+  flowsRunResume: (data: FlowsRunResumeRequest): Promise<FlowsRunResumeResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_RESUME, data),
+  flowsRunGet: (data: FlowsRunGetRequest): Promise<FlowsRunGetResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_GET, data),
+  onFlowsRunEvent: (callback: (event: FlowRunEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: FlowRunEvent) => callback(data);
+    ipcRenderer.on(IPC.FLOWS_RUN_EVENT, listener);
+    return () => ipcRenderer.removeListener(IPC.FLOWS_RUN_EVENT, listener);
+  },
 };
