@@ -1,5 +1,7 @@
 # Driving the app for UI verification (Chrome DevTools Protocol)
 
+> Flows screens (W8, 2026-09-10): the Flows-specific recipe, markers and lessons are in `docs/flows-ui-automation.md`.
+
 How to launch the dev app and click through it programmatically, so a change can
 be verified in the real app instead of only in unit tests. No Playwright or
 Puppeteer — Node ≥ 22 has global `fetch` and `WebSocket`, which is all CDP needs.

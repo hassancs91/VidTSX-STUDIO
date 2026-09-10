@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 6 DONE: packaging, built-in flows, Tools hub, flag on
+
+Stage 6 of `docs/flows-plan.md` (§9, §1.7, §1.8, §0.1 items 2–4) landed in
+three commits by pathspec: `a774ddc` (the `.vidtsxflow` package layer on the
+shared zip reader — manifest parser, reader, signing through the agents'
+module, store, catalog rows, export / import, the run folders moved to
+`<userData>/flows-runs`, `scripts/flow-pack.mjs`, the file association),
+`784cb84` (the five built-ins as package manifests, the Tools hub "Flows"
+group, "Run a flow on this" on Library and Video Studio, the Flows page's
+Installed group / trust tags / uninstall), `2bbcc55` (`flows` flag on,
+`docs/FLOW_PACKAGE_SPEC.md`, `docs/examples/flow-starter/`,
+`docs/flows-ui-automation.md`) and the docs commit.
+
+Gates: `check:types` at baseline (web 26 / node 10); `npx vitest run`
+2312 passing (+64); `electron-vite build --outDir
+.vidtsx-temp/w8-build` 2 m 14 s.
+
+Exists now: Flows ships on (no `VITE_FF_FLOWS`), with five built-in flows
+under Built-in (read-only, Duplicate copies), `.vidtsxflow` import / export /
+install / uninstall with the agents' three trust states, a bare `flow.json`
+import, the Tools hub listing the built-ins, and "Run a flow on this" from a
+Library image / video and a Video Studio card. Every built-in ran three
+times unattended on the second instance (all `success`; explainer run 2 was
+the kill-mid-render + Resume row; product-ad run 1 the attended pick). Two
+fixes the runs forced: `run.json`'s rename retries a Windows EPERM, and
+absolute-path `staticFile()` in a composition is rewritten to the asset
+server before a render (compositions with media on a port never rendered).
+Spend $2.40 real (six Kling clips) + $0.001 AssemblyAI; LLM on the
+subscription at $0. Screenshots `.vidtsx-temp/w8/stage6-*.png`.
+
+Pending for Hasan: sign the five built-ins with the `vidtsx-1` key
+(`flow-pack.mjs --sign`, or ship them as "Built-in" unsigned); one line in
+`src/main/index.ts` (`queuePackageOpen`) to nudge the window to Flows on a
+double-clicked `.vidtsxflow` once that file is free; the version bump (the
+built-ins declare `minAppVersion 1.1.0`) and the installer rebuild with
+`resources/flows`; §10 row 5 (Motion Post → `run_flow` → freeze → run) was
+cited from Stages 4 and 5 rather than re-run end to end.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 5 DONE: freeze a session into a flow
 
 Stage 5 of `docs/flows-plan.md` (§8, §1.5 "Freeze") landed in four commits by

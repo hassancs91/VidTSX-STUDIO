@@ -1814,6 +1814,225 @@ quotes the driver prints.
 - Flag: `flows` moves from `ENV_GATED` to `FEATURE_FLAGS` as a dev-preview,
   then `true` with the installer rebuild.
 
+#### Stage 6 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §9 lists (as §0.1 items 2, 3 and 4 fix it) is built, unit-tested,
+committed by pathspec in three commits (a774ddc the package layer, 784cb84 the
+built-ins, the Tools hub group and the hand-offs, 2bbcc55 the flag and the
+docs) plus the docs commit, beside the export-engines session's dirty tree,
+and exercised on the second dev instance launched WITHOUT `VITE_FF_FLOWS`.
+`check:types` at baseline (web 26, node 10); 2312 tests passing, up from
+2248 (64 new); `electron-vite build --outDir .vidtsx-temp/w8-build`
+passes (2 m 14 s, alone). Spend: $2.40 real (six fal `kling-2.5-turbo-pro`
+5 s clips at $0.40 — three `add-effect` runs, three `product-ad` runs) +
+$0.001 AssemblyAI; every LLM turn on `claude-subscription` at $0 ($4.94
+API-equivalent over 26 `flows` rows); 18 `gemini-cli` images at
+$0. Under the $6 cap.
+
+**The package layer** (`a774ddc`). `flow.json` IS the `FlowDoc` plus
+`version`, `author`, `minAppVersion`, `license` / `icon` / `updateUrl`,
+`requires: { tools[], capabilities[] }` and `files[]`. One pure parser
+(`src/shared/flows/flow-package.ts`, `parseFlowPackageManifest`) serves the
+installer, `scripts/flow-pack.mjs --check` and the tests: a namespaced id
+(a ulid is refused — export rewrites it), semver, `minAppVersion` against the
+app, the agents' container rules verbatim (entry-path safety, `signature.json`
+/ `licensee.json` / `flow.json` never listed, duplicates, 16 MB per file /
+32 MB total / 200 entries / 512 KB manifest), the structural flow gate on the
+document half, and `requires.tools` — which must list every tool the graph
+uses (the packer's `--hash` writes it) and every one of which must be
+registered. `flow-package.ts` (main) is the zip reader parameterised by
+manifest name; the signature is verified by the SAME `agent-signing.ts`
+module and publisher list (decision 10: one signing module, two manifest
+names — `agent-signing.ts` itself did not change). No D14 gate: a flow
+carries no TSX. `flow-store.ts` is `agent-store.ts` on the flow manifest:
+`<userData>/flows/<ns>/<name>` and `<resources>/flows/<ns>/<name>` (new
+`getFlowsDir` / `getBuiltinFlowsDir` in `paths.ts`), folder-as-truth,
+highest version wins with equal preferring the built-in, rename-swap installs
+with `.bak`, the downgrade question, remove restoring a shadowed built-in.
+
+Decision of this stage — **rows as a cache of the folders.** Stage 0 said
+packaged flows live on disk, never in the table; but every reader of a flow
+(the Flows page, `loadFlowDoc` for a run, `run_flow`'s listing,
+`resolveFlowRef`, the `flow_runs` foreign key with `ON DELETE CASCADE`) reads
+the `flows` table, and teaching each a second source is the drift §11 warns
+of. So `flow-catalog.ts` scans the three sources — `resources/flows`,
+`<userData>/flows`, and `flows/<name>/flow.json` inside an agent package
+(decision 10; listed under the agent's name, removed with it) — and
+rewrites `builtin` / `installed` rows (`FlowSource` grew both values;
+`flows-packaged-db.ts` upserts without touching `created_at`, thumbnail or
+runs) with the manifest file's mtime as `updatedAt`, pruning a row whose
+folder is gone (its runs cascade) but keeping built-in rows while the
+built-in root is unreadable (the `--entry` dev launch before `app.setAppPath`).
+It syncs at IPC registration, before every Flows list, before a run starts /
+resumes / is read, and after an install or a remove, throttled to one scan
+per 2 s. The row carries `package` (version, author, the signature state,
+key id, publisher, `viaAgent`) and `handoffParams` (`FlowProjectSummary`,
+additive). Packaged rows are read-only in `handleFlowsProjectUpdate` — the
+thumbnail backfill excepted, the document refused with a "Duplicate it"
+message; `FLOWS_PROJECT_DELETE` on an installed row uninstalls the folder,
+on a built-in refuses. A packaged run's `flowVersion` is the manifest's.
+
+`flow-export-import.ts`: export builds an unsigned manifest — `user/<slug>`
+for a ulid id, version 1.0.0, `minAppVersion` = the app, `requires` from the
+graph and the tools' `needs`, `files []` — and zips `flow.json` alone;
+import routes on the extension: `.vidtsxflow` installs (the signature
+outcome becomes the toast: unsigned → "VidTSX has not reviewed this flow…",
+unknown key → "signed by an unverified publisher…", a bad signature or a bad
+file hash → refused), `.json` goes through the SAME validator as a manifest
+when it carries the package fields (refused if it lists files) or as a bare
+`FlowDoc` (structural gate + unknown tools) and becomes an `imported` row
+with a fresh ulid. `FLOWS_IMPORT` / `FLOWS_EXPORT` replaced Stage 2's stubs
+(`flows-package-handlers.ts`; `VIDTSX_FLOW_PICK` / `VIDTSX_FLOW_SAVE` stand
+in for the dialogs); `FLOWS_PENDING_PACKAGE` is the claim; `.vidtsxflow` →
+`'flow'` in `pending-open.ts` and `fileAssociations` + `resources/flows →
+flows` in `electron-builder.yml`. `src/main/index.ts` was not touched, so a
+double-clicked `.vidtsxflow` has no navigation nudge yet — the path parks in
+main and the Flows screen claims it on mount and whenever it becomes active
+(`vidtsx:screen-active`); one line in `queuePackageOpen` when that file is
+free again. `scripts/flow-pack.mjs`: `--check`, `--hash` (files[] AND
+`requires.tools` from the graph), `--out [--key]`, `--sign` (signature.json
+beside a folder that ships as-is, over the exact bytes on disk); bundles the
+parser and the signer out of `src/` as `agent-pack.mjs` does.
+
+**Run store** (§9 item 5 of the brief): the W3 profile's `<assets>/flows/`
+held eleven opaque ulid folders beside the media folders, so runs moved to
+`<userData>/flows-runs/<flowId>/<runId>/` (`getFlowRunsDir`);
+`flow-run-migrate.ts` moved the 19 existing run folders at the first
+`flowService.ready()` (renames, empty shells removed, an occupied target
+skipped). Every consumer already went through `flowRunStore.runDir`.
+
+**Two findings the live runs forced into code.** (1) Windows `EPERM` on the
+atomic `run.json` rename while another process had the file open — the disk
+poller this acceptance used, but equally a sync client or a scan — crashed
+two runs ("Flow run crashed"); `writeRunDoc` now retries the rename
+(`renameWithRetry`, up to 8 × 50 ms·n on EPERM / EBUSY / EACCES) and both
+runs resumed cleanly. (2) The Stage 3 media convention
+(`staticFile("C:/…")` for a port's image or video) previews — the virtual
+`staticFile` routes through the module server — but every RENDER failed:
+Remotion's own `staticFile` refuses an absolute path, and `product-ad` was
+the first flow to render a composition with media on a port. `src/main/
+services/remotion-static-files.ts` rewrites absolute-path `staticFile(...)`
+literals to the bundler's `/asset?path=` urls (the shape Studio's export
+already embeds) in a sibling entry before bundling; the one call sits in
+`remotion-bundler.ts`'s `bundleComposition`, so the render queue's agent
+compositions get it too. Both outside `src/features/flows/` — listed below.
+
+**The five built-ins** (`784cb84`, `resources/flows/vidtsx/*/flow.json`): the
+Stage 3 fixtures wrapped as manifests (`version 1.0.0`, VidTSX,
+`minAppVersion 1.1.0`, `requires.tools` from the graph, `requires.capabilities`
+= the tools' gates — `image-provider` on thumbnail, both on product-ad and
+add-effect, none on frame-strip and explainer — `files []`), hashed with
+`flow-pack.mjs --hash`, unsigned: `VIDTSX_AGENT_SIGNING_KEY` was not in the
+environment (checked), so they read `signature: unsigned` on disk and the UI
+lets `builtin` outrank the tag ("Built-in"), as agents do. Deviation:
+`product-ad` moved from `hailuo-02` (6 s, ~$0.27 — the model exists in the
+engine's entries but is NOT in the fal provider's model list on this
+profile: the run refused with "not in the catalog") to `kling-2.5-turbo-pro`
+5 s (~$0.40). `flows-builtins.test.ts` now also loads each through
+`readFlowFolder` as a read-only built-in, asserts `requires` against the
+graph and the registry's gates, and scans the root to exactly the five.
+
+Every built-in ran three times unattended (§9), all `success`; a run whose
+output was wrong is reported here, not hidden:
+- `thumbnail` ($0): run 1 from the RUN FORM (topic typed, mode unattended)
+  `success` in 34 s (text 5.7 s, image 27.8 s), the image large with Save to
+  Library / Open folder / Copy path, Save to Library → Assets
+  (`stage6-thumbnail-run1.png`); runs 2 and 3 over IPC `success` in 39 s and
+  60 s (count 2 → a two-image set).
+- `frame-strip` ($0): 4 / 8 / 12 frames from the 10 s AcmeTestLogoSting clip,
+  `success` in 8 / 14 / 19 s, 24 PNGs under `flows/frame-strip/frames/`;
+  a fourth run of 3 frames ran on the `local` LLM provider (row 7) in 15 s.
+- `explainer-30s` (subscription $0): run 1 `success` in 539 s (script 9 s,
+  composition 264 s, render 266 s); run 2 is the §10 row-4 run — killed
+  15:54:30 while its render node was `running`, relaunched, `flowsRunGet`
+  reported the typed "app closed" error with `resumable: true`, Resume at
+  15:55:02 reran only the render (attempt 2), `success` 934 s wall,
+  `explainer-30s-2.mp4` 30.06 s 1920×1080; run 3 (Playful style) `success` in 1749 s — script 11 s, composition 541 s, render the rest, slowed by two product-ad renders running beside it.
+- `product-ad` (Kling $0.40 each): run 1 ATTENDED — the first hero image
+  attempt was refused by Content Safety ("classified as unsafe", a false
+  positive on a course badge, reported as seen), Resume reran it, the pick
+  card came up with three variations (`stage6-product-ad-pick.png`), option 2
+  chosen, then the run hit the two findings above (the EPERM crash and the
+  hailuo refusal, then the render failure) and was resumed after each fix:
+  clip 68 s, composition 90 s, render 341 s, `success` — `product-ad.mp4`
+  10.05 s h264 + aac 1920×1080, the badge clip with the light sweep for the
+  first seven seconds then the "ACME TEST — COURSE / Build Real Products with
+  AI" brand card (`stage6-product-ad-frames.png`; Kling garbled the badge's
+  lettering, as image-to-video does). Run 2 UNATTENDED: the first start was
+  refused in 0.7 s by Content Safety on the Claude Code logo reference (a
+  second false positive, reported); restarted with a VS Code capture as the
+  product: no pause, `items[0]` of the three-image set fed the clip
+  (`generate-video.ts`), `success` in 1021 s (hero 190 s, clip 79 s,
+  composition 229 s, render 509 s). Run 3 UNATTENDED (a creator portrait as the product) `success` in 687 s — hero 105 s, clip 95 s, composition 126 s, render 361 s, one attempt per node.
+- `add-effect` (Kling $0.40 each): run 1 (watercolor) crashed on the EPERM
+  before the clip, resumed, `success` 505 s wall (image 38 s, clip 86 s),
+  the 5 s clip filed under `flows/add-an-effect/` AND as a Video Studio entry;
+  run 2 (cyberpunk) `success` in 95 s; run 3 (claymation) hit a stale
+  Antigravity probe after the relaunch ("installed but not signed in" while
+  `agy models` answered from the shell — the provider caches a failed probe
+  for its TTL), a forced `imageCliStatus({ force: true })` re-probe fixed it,
+  Resume → `success` 681 s wall (image attempt 3, clip 85 s).
+
+**Tools hub and hand-offs** (`784cb84`). `ToolsHubScreen` gains a "Flows"
+group under the screens: `builtinFlowTools()` (`features/tools/services/
+flow-tools.ts`, unit-tested) orders the two that stand beside a screen
+first, and a card opens the flow's run form through the shared hand-off
+(`stage6-tools-hub.png`, `stage6-hub-open-frame-strip.png` — the hub needs
+`VITE_FF_TOOLS=1`, still env-gated). §1.8: `src/shared/flows/flow-handoff.ts`
+is the contract (`vidtsx:flows-open` + a sessionStorage stash, the Stage 5
+shape; `handoffParamsOf`, `handoffTargets`, `fileUrlToPath`), `src/renderer/
+hooks/flows/useFlowHandoffs.ts` + `src/renderer/components/flows/RunFlowMenu.tsx`
+the shared pieces, `features/flows/services/pending-handoff.ts` the Flows
+screen's reader — no feature imports another. The Library context menu on an
+image or video file offers "Run a flow on this ▸" with one row per (flow,
+param); the Video Studio card a hover button with the same list (the card's
+`file:///` url decoded to a path). Live: Videos → the Kling clip → Add an
+effect opened the run form with the clip on its Video param; Assets →
+`claudecode-color-2.png` → Product ad opened with it on Product image
+(`stage6-handoff-library.png`). The flag: `flows` / `flows-editor` are
+`FEATURE_FLAGS: true` (coupled to app ≥ 1.1.0, the comment says why); the
+sidebar showed Flows with no `VITE_FF_FLOWS` in the launch environment, and
+Home's "Build a flow" tile with it (`stage6-home-start.png`).
+
+**Flows page** (`784cb84`): three groups populated (`mine:14, builtin:5,
+installed:2`, `stage6-flows-page.png`); a packaged card's menu is Run /
+Details / Duplicate / Export (+ Remove for installed); Details shows Trust
+(Built-in / Verified by … / Signed, unverified publisher / Unsigned, with
+the notice), Version, Author, "Ships with" for an agent's flow
+(`flow-trust.ts`, tested); Import shows the warning toast and asks on a
+downgrade; Remove on an installed flow says it uninstalls.
+
+**Docs** (`2bbcc55`): `docs/FLOW_PACKAGE_SPEC.md`, `docs/examples/flow-starter/`
+(video → six frames, `--check` clean, packs to 778 bytes) and
+`docs/flows-ui-automation.md`; `docs/ui-automation-cdp.md` gained one pointer line through the hash-object recipe (the file is dirty in another session).
+
+**Deviations, and what it leaves.** (1) Rows as a cache (above). (2)
+`product-ad` on Kling, not Hailuo. (3) Built-ins unsigned — Hasan runs
+`flow-pack.mjs --sign` on each folder with the `vidtsx-1` key (or accepts
+"Built-in" outranking the tag, which is what ships). (4) The `.vidtsxflow`
+double-click nudge waits on one `index.ts` line. (5) The run form's
+"Priced steps" line comes from the spec's price hint (every fal model), not
+the node's model and duration the way `run_flow`'s listing prices it — a
+`pricedSteps()` follow-up. (6) Two Content Safety false positives on
+product images (a course badge, the Claude Code logo) — the output/reference
+classifier, not a flows bug; the run form shows the message and Resume
+retries. (7) The Antigravity provider caches a failed probe; a flow that
+fails on "not signed in" needs the AI page's re-probe or a wait. (8) §10 row
+5 was not re-run end to end: Stage 4 (Motion Post → `run_flow` on
+`vidtsx/thumbnail`, `stage4-motion-post-thumbnail.png`) and Stage 5 (that
+session shape frozen and run unattended, `stage5-*.png`) hold the two halves;
+the remaining budget went to the fifteen built-in runs. (9) The
+`agents/tools/flow-listing.ts` fingerprint now changes when a built-in's
+`flow.json` is re-hashed (mtime) — intended. (10) The `.vidtsx-temp/w8/`
+drivers (`w8-stage6.mjs`, `w8-shot-main.mjs`, `poll-run.mjs`, `tamper-pkg.mjs`,
+`seed-v1-row.mjs`) are not committed; the recipe is in the new doc. Driver
+lessons: poll `run.json` on disk, never hold a CDP driver open; the Flows
+screen keeps its workspace across navigations, so "back" before "open";
+names collide (a seeded "Thumbnail" beside the built-in) — resolve by id;
+`Page.captureScreenshot` hangs on the run form, `capturePage()` over 9229
+after `show()` + `focus()` does not; image / video params render their value
+as text, not an input.
+
 ## 10. Test plan and acceptance
 
 Unit: migration; validation; registry ports and specs; arg building;
@@ -1822,16 +2041,23 @@ package validator; `run_flow` result mapping.
 
 Manual, in-app (record results here when run):
 1. Open a v1 flow saved before the migration: canvas identical, runs.
+   **Stage 6 (2026-09-10): PASS.** The profile had no v1 row, so one was written in the OLD shape (`doc_version 1`, bare GraphJson, legacy `typeId`s) with the app stopped (`seed-v1-row.mjs`); on open the list showed it, the canvas 3 nodes / 2 edges with ids `n-tpl-*` and tool ids `input_image_library` / `input_text` / `generate_image` (`stage6-v1-row-canvas.png`); pointed at a gallery entry it ran `success` in 34 s on `gemini-cli`.
 2. `vidtsx/thumbnail` from the run form: image in the output pane, save to
    Library works.
+   **Stage 6: PASS.** Topic typed on the form, unattended, `success` in 34 s, the image large with Save to Library / Open folder / Copy path (`stage6-thumbnail-run1.png`); Save to Library navigated to Assets.
 3. `vidtsx/product-ad` attended: pick card, chosen image feeds the clips,
    MP4 at the end. Unattended: no pause, first variation used.
+   **Stage 6: PASS, with findings.** Attended: the pick card with three variations (`stage6-product-ad-pick.png`), option 2 chosen, the Kling clip made from it, `product-ad.mp4` 10.05 s 1920×1080 with the badge clip then the brand card (`stage6-product-ad-frames.png`) — after three resumes (the EPERM crash, the hailuo-02 refusal, the `staticFile` render failure; all three fixed or changed in this stage). Unattended: no pause, `items[0]` of the set on the clip, `success` in 1021 s; a third unattended run in 687 s. Two Content Safety false positives on product images along the way (reported in the outcome).
 4. Kill the app mid-render on `explainer-30s`; reopen; Resume finishes.
+   **Stage 6: PASS.** Killed 15:54:30 with the render node `running`; after the relaunch `flowsRunGet` reported the typed "app closed" error, `resumable: true`; Resume at 15:55:02 reran only the render (attempt 2) → `success`, `explainer-30s-2.mp4` 30.06 s. (Stage 3 had done the same over IPC.)
 5. Motion Post calls `run_flow`; freeze that session; run the frozen flow.
+   **Stage 6: cited, not re-run.** Stage 4 ran Motion Post → `run_flow` on `vidtsx/thumbnail` (`stage4-motion-post-thumbnail.png`); Stage 5 froze a Motion Post session and ran the frozen flow unattended with a new brief (`stage5-*.png`). The remaining Stage 6 budget went to the fifteen built-in runs.
 6. Import an unsigned `.vidtsxflow`: warning, installs, appears under
    Installed, runs. Tampered: refused.
+   **Stage 6: PASS.** "S4 captions" exported to `user.s4-captions.vidtsxflow` (unsigned, id `user/s4-captions`); import answered the unsigned notice, the row appeared under Installed (`installed:2`, `stage6-flows-page.png`), Details "Unsigned" with the notice, the menu Run / Details / Duplicate / Export / Remove; it ran on `speech-test.mp4` `success` in 157 s (AssemblyAI $0.001). Tampered: a package signed with a throwaway key whose `flow.json` was edited by one byte after signing → refused "The package signature does not match its manifest — it is corrupt or was tampered with"; a package whose listed asset was edited → refused "assets/notes.txt does not match its manifest hash — the package is corrupt or was tampered with". (An UNSIGNED manifest edited after packing is simply a different valid manifest — signing is what makes the manifest tamper-evident; the file hashes cover everything else.) The signed-unknown package installed with "signed by an unverified publisher" and Details "Signed, unverified publisher".
 7. Provider with no tool support: flows without agent nodes still run;
    the agent node reports the degraded message.
+   **Stage 6: PASS.** Active LLM provider set to `local` (type `local`, no tool loop): `frame-strip` ran `success` in 15 s; a flow with a `run_agent` node refused at start with "Run Agent needs an AI provider that can run tools (a Claude, MiniMax, OpenRouter, Z.AI or Kimi provider) — add one in AI → Providers." and its run form showed the "Needs agent provider" chip with Run blocked (`stage6-row7-agent-node.png`); provider restored.
 
 ## 11. Risks
 
