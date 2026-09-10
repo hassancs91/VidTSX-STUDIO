@@ -81,6 +81,17 @@ export interface AgentRunnerHooks {
   ): Promise<void>;
   /** Hand a submitted render to the renderer's queue. */
   requestJob?(sessionId: string, request: AgentJobRequest): void;
+  /**
+   * W7: a look at every draft BEFORE it is filed — the one seam a session
+   * sink hangs on (the Motion project sink mirrors compositions into the
+   * Creator). Returns the draft to file, possibly enriched; a hook that
+   * throws fails the tool call the way a filing error does.
+   */
+  prepareArtifact?(
+    sessionId: string,
+    draft: AgentArtifactDraft,
+    workspaceDir: string,
+  ): Promise<AgentArtifactDraft>;
 }
 
 export class AgentRunner {
@@ -163,7 +174,10 @@ export class AgentRunner {
       }
 
       const built = toolsAvailable
-        ? buildAgentToolServer(selection.tools, this.buildToolDeps(ctx, abort.signal))
+        ? buildAgentToolServer(
+            selection.tools,
+            this.buildToolDeps(ctx, abort.signal, req.model ?? ctx.session.model),
+          )
         : null;
 
       const systemPrompt = composeAgentSystemPrompt({
@@ -230,7 +244,7 @@ export class AgentRunner {
     }
   }
 
-  private buildToolDeps(ctx: AgentRunContext, signal: AbortSignal) {
+  private buildToolDeps(ctx: AgentRunContext, signal: AbortSignal, model?: string) {
     const sessionId = ctx.session.id;
     const broker = this.broker(ctx.session);
     return {
@@ -239,16 +253,22 @@ export class AgentRunner {
       workspaceDir: ctx.workspaceDir,
       signal,
       ...(ctx.session.providerId ? { providerId: ctx.session.providerId } : {}),
+      ...(model ? { model } : {}),
       ...(ctx.libraryFolder ? { libraryFolder: ctx.libraryFolder } : {}),
       ...(ctx.brandId ? { brandId: ctx.brandId } : {}),
       emit: (event: AgentRunEvent) => this.hooks.emit(event),
       readArtifacts: (): AgentArtifact[] => ctx.store.list(),
       ask: (payload: InteractionPayload, callId: string) => broker.post(payload, callId),
-      fileArtifact: (
+      fileArtifact: async (
         draft: AgentArtifactDraft,
         producer: { tool: string; callId: string },
         options: { supersedes?: string },
-      ) => ctx.store.add(draft, producer, options),
+      ) => {
+        const prepared = this.hooks.prepareArtifact
+          ? await this.hooks.prepareArtifact(sessionId, draft, ctx.workspaceDir)
+          : draft;
+        return ctx.store.add(prepared, producer, options);
+      },
       // The hook emits `job-request` itself rather than this file doing it
       // (Stage 3): only the session service knows where the output belongs in
       // the library (§1.11), and the renderer's queue must be handed a request

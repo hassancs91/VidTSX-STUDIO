@@ -240,7 +240,12 @@ export async function buildQueueRequest(
 
   return {
     ...request,
-    tsxPath: path.join(ctx.workspaceDir, composition.payload.relPath),
+    // W7: a composition the Motion sink mirrored renders from its version file
+    // in the Creator project, so the Creator's Rendered tab shows the result
+    // under that version — the same code either way.
+    tsxPath:
+      composition.payload.motion?.versionPath ??
+      path.join(ctx.workspaceDir, composition.payload.relPath),
     outputPath,
     outputFolder: folder,
   };

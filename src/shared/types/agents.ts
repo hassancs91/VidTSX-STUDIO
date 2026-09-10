@@ -130,6 +130,12 @@ export interface CompositionPayload {
   /** In-memory module URL; gone after a restart, re-served on demand. */
   moduleUrl?: string;
   config: AgentCompositionConfig;
+  /**
+   * W7 (TSX agent mode): where the Motion project sink ALSO wrote this
+   * composition — the Creator's folder-of-versions, absolute paths the
+   * Creator already works in. Absent on sessions without the sink.
+   */
+  motion?: { folderPath: string; versionPath: string };
 }
 
 export interface VideoPayload {
@@ -354,6 +360,14 @@ export interface AgentSession {
   thumbnailRelPath?: string;
   /** Non-blocking `ask_user`: the question the user still owes an answer to. */
   pendingInteraction?: InteractionRequest;
+  /**
+   * W7 (TSX agent mode): opened from the Creator's Agent mode — every
+   * composition is ALSO written as the next version of a Motion project.
+   * `motionProjectId` is that project's folder relative to the projects dir,
+   * filled in by the sink when the first composition lands.
+   */
+  motionSink?: boolean;
+  motionProjectId?: string;
 }
 
 /** Sessions list row — read without loading chat or artifacts. */

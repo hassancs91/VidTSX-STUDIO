@@ -117,6 +117,9 @@ export interface AgentSessionCreateRequest {
   /** W4: the brand the session generates under. Absent = the library
    *  default (the pre-W4 behaviour); null = no brand; a string = that one. */
   brandId?: string | null;
+  /** W7: the Creator's Agent mode — compositions also land in a Motion
+   *  project (created by the first one). */
+  motionSink?: boolean;
 }
 
 export interface AgentSessionCreateResponse {

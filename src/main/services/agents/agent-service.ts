@@ -42,6 +42,7 @@ import {
   type RenderJobUpdate,
 } from './render-jobs';
 import { reconcileSessionVideoJobs, watchVideoJobs } from './video-jobs';
+import { sinkCompositionIntoMotionProject } from './motion-project-sink';
 import {
   buildRunContext,
   openSessionContext,
@@ -102,6 +103,20 @@ export class AgentService {
     },
     requestJob: (sessionId, request) => {
       void this.completeJobRequest(sessionId, request);
+    },
+    // W7: a session opened from the Creator's Agent mode mirrors every
+    // composition into its Motion project. The record is re-read per draft
+    // so the second composition of one turn sees the id the first one set.
+    prepareArtifact: async (sessionId, draft, workspaceDir) => {
+      const agentId = this.runningAgents.get(sessionId);
+      if (!agentId || draft.kind !== 'composition') return draft;
+      const session = await readAgentSession(agentId, sessionId);
+      if (!session?.motionSink) return draft;
+      const result = await sinkCompositionIntoMotionProject(session, draft, workspaceDir);
+      if (result.motionProjectId) {
+        await patchAgentSession(agentId, sessionId, { motionProjectId: result.motionProjectId });
+      }
+      return result.draft;
     },
   });
 

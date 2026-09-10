@@ -3,23 +3,11 @@ import type { LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types'
 import type { StudioBrand } from '@shared/types/asset-library';
 import type { ThinkingLevel } from '@shared/tsx-engine';
 import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
+// The brand contract is shared with the agent mode's `generate_composition`
+// (W7, decision 7): one block, both modes.
+import { buildBrandInstructions } from '@shared/studio/brand-instructions';
 import type { AspectRatio } from '../types';
 import { ASPECT_RATIO_OPTIONS } from '../types';
-
-/** Compact brand contract for the generation prompt (same contract the
- *  Studio shot prompt injects, minus shot-kind specifics). */
-function buildBrandInstructions(brand: StudioBrand): string {
-  const p = brand.palette;
-  const lines = [
-    `Brand "${brand.name}" (MANDATORY styling): every color and font comes from the brand — do not invent your own palette.`,
-    `Colors — primary ${p.primary}, secondary ${p.secondary}, background ${p.background}, text ${p.text}, accent ${p.accent} (use the accent sparingly for emphasis).`,
-    `Fonts — display (headings/numbers): "${brand.fonts.display}"; body (labels/paragraphs): "${brand.fonts.body ?? brand.fonts.display}". Do NOT import any font package — set fontFamily strings directly, with a sans-serif fallback.`,
-  ];
-  if (brand.styleNotes) {
-    lines.push(`Brand style notes (follow them): ${brand.styleNotes}`);
-  }
-  return lines.join('\n');
-}
 
 export type { ThinkingLevel } from '@shared/tsx-engine';
 

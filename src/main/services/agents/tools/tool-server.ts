@@ -35,6 +35,7 @@ export interface ToolServerDeps {
   workspaceDir: string;
   signal: AbortSignal;
   providerId?: string;
+  model?: string;
   libraryFolder?: string;
   brandId?: string;
   emit(event: AgentRunEvent): void;
@@ -58,6 +59,7 @@ function buildContext(deps: ToolServerDeps, toolId: string, callId: string): Age
     workspaceDir: deps.workspaceDir,
     signal: deps.signal,
     ...(deps.providerId ? { providerId: deps.providerId } : {}),
+    ...(deps.model ? { model: deps.model } : {}),
     ...(deps.libraryFolder ? { libraryFolder: deps.libraryFolder } : {}),
     ...(deps.brandId ? { brandId: deps.brandId } : {}),
     emit: deps.emit,

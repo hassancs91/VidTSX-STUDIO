@@ -71,6 +71,9 @@ export interface AgentToolContext {
   signal: AbortSignal;
   /** The session's LLM provider, for tools that call the model themselves. */
   providerId?: string;
+  /** Model on that provider for this turn (W1 per-turn field, W7: the
+   *  Creator panel's picker); absent = the provider default. */
+  model?: string;
   /** Library folder this session files into, RELATIVE to the library root. */
   libraryFolder?: string;
   /** Brand to auto-tag output with, when the session has one. */

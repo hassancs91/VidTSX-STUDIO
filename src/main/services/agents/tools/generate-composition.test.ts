@@ -18,6 +18,11 @@ vi.mock('../../../../shared/tsx-engine', () => ({
   editTsxPipeline: (o: unknown, d: unknown) => editTsxPipeline(o, d),
 }));
 vi.mock('../tsx-deps', () => ({ buildAgentTsxDeps: () => ({}) }));
+// W7: the session brand block; the test decides what the library holds.
+const readSessionBrandInstructions = vi.fn();
+vi.mock('./session-brand', () => ({
+  readSessionBrandInstructions: (id?: string) => readSessionBrandInstructions(id),
+}));
 vi.mock('../../module-server', () => ({
   ensureModuleServer: async () => 4001,
   getModuleServerBaseUrl: () => 'http://localhost:4001',
@@ -42,6 +47,8 @@ beforeEach(async () => {
   editTsxPipeline.mockReset();
   transpileTsxSource.mockReset();
   storeTranspileResult.mockReset();
+  readSessionBrandInstructions.mockReset();
+  readSessionBrandInstructions.mockResolvedValue(undefined);
   generateTsxPipeline.mockResolvedValue({ text: CODE, transpileValid: true, fixAttempts: 0 });
   editTsxPipeline.mockResolvedValue({ text: CODE, transpileValid: true, fixAttempts: 0 });
   transpileTsxSource.mockResolvedValue({ success: true, code: 'js', hash: 'h1', config: CONFIG, componentName: 'Main' });
@@ -53,6 +60,32 @@ afterEach(async () => {
 });
 
 describe('generate_composition', () => {
+  it('puts the session brand block before the style notes, and the model on the request (W7)', async () => {
+    readSessionBrandInstructions.mockResolvedValue('Brand "Acme" (MANDATORY styling): use the brand.');
+    await generateCompositionTool.handler(
+      { title: 'Sting', brief: 'a logo sting', styleNotes: 'big type' },
+      makeToolContext({ workspaceDir: dir, brandId: 'acme', model: 'claude-opus-5' }),
+    );
+    expect(readSessionBrandInstructions).toHaveBeenCalledWith('acme');
+    const options = generateTsxPipeline.mock.calls[0][0] as {
+      model?: string;
+      promptContext: { extraInstructions?: string };
+    };
+    expect(options.model).toBe('claude-opus-5');
+    expect(options.promptContext.extraInstructions).toBe(
+      'Brand "Acme" (MANDATORY styling): use the brand.\n\nbig type',
+    );
+  });
+
+  it('sends no extraInstructions without a brand or style notes', async () => {
+    await generateCompositionTool.handler(
+      { title: 'Sting', brief: 'a logo sting' },
+      makeToolContext({ workspaceDir: dir }),
+    );
+    const options = generateTsxPipeline.mock.calls[0][0] as { promptContext: { extraInstructions?: string } };
+    expect(options.promptContext.extraInstructions).toBeUndefined();
+  });
+
   it('writes the TSX, serves it, and returns a composition artifact', async () => {
     const res = await generateCompositionTool.handler(
       { title: 'Promo loop', brief: 'a 6s promo', width: 1080, height: 1920 },

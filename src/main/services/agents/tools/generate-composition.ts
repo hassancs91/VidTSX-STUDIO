@@ -11,6 +11,7 @@ import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 import { buildAgentTsxDeps } from '../tsx-deps';
 import { storeComposition } from './composition-file';
+import { readSessionBrandInstructions } from './session-brand';
 
 const schema = {
   title: z.string().min(1).describe('Short name for this composition — names the file.'),
@@ -46,17 +47,23 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.title);
     const deps = buildAgentTsxDeps(ctx.providerId, ctx.signal, ctx.agentId);
+    // W7 / decision 7: the session's brand reaches the pipeline the way the
+    // Creator's prompt mode sends it — the same block, before any style
+    // notes the agent adds — so both modes build under one contract.
+    const brandBlock = await readSessionBrandInstructions(ctx.brandId);
+    const extraInstructions = [brandBlock, args.styleNotes].filter(Boolean).join('\n\n');
     try {
       const result = await generateTsxPipeline(
         {
           prompt: args.brief,
           ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
+          ...(ctx.model ? { model: ctx.model } : {}),
           promptContext: {
             videoWidth: args.width ?? 1920,
             videoHeight: args.height ?? 1080,
             fps: args.fps ?? 30,
             durationSeconds: args.durationSeconds ?? 6,
-            ...(args.styleNotes ? { extraInstructions: args.styleNotes } : {}),
+            ...(extraInstructions ? { extraInstructions } : {}),
           },
           onProgress: (progress) => ctx.emitProgress(`${args.title}: ${progress.stepLabel}`),
         },

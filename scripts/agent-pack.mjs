@@ -1,6 +1,7 @@
 // Build, check and sign a `.vidtsxagent` package (agents plan §1.6).
 //
 //   node scripts/agent-pack.mjs <folder> --check
+//   node scripts/agent-pack.mjs <folder> --hash      (rewrite files[] in agent.json)
 //   node scripts/agent-pack.mjs <folder> --out dist/vidtsx.motion-post.vidtsxagent [--key <path>]
 //   node scripts/agent-pack.mjs --genkey [--key-id vidtsx-1]
 //
@@ -222,6 +223,16 @@ async function main() {
 
   if (args.flags.check) {
     console.log('  (--check: nothing written)\n');
+    return;
+  }
+
+  // A built-in ships as a folder, not a package, so its manifest's `files[]`
+  // is maintained by hand — this is the hand. The authored keys stay in their
+  // order; only `files[]` is replaced.
+  if (args.flags.hash) {
+    const manifestPath = path.join(path.resolve(folder), MANIFEST_NAME);
+    await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf-8');
+    console.log(`  (--hash: files[] rewritten in ${manifestPath})\n`);
     return;
   }
 

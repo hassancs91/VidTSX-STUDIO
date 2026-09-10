@@ -60,6 +60,7 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
           currentCode,
           editInstruction: args.instruction,
           ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
+          ...(ctx.model ? { model: ctx.model } : {}),
           onProgress: (progress) => ctx.emitProgress(`${prior.title}: ${progress.stepLabel}`),
         },
         buildAgentTsxDeps(ctx.providerId, ctx.signal, ctx.agentId),
