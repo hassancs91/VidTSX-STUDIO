@@ -93,3 +93,29 @@ describe('generate_audio tool', () => {
     expect(res.content[0].text).toContain('rejected the API key');
   });
 });
+
+describe('generate_audio as a node (W8 Stage 3, §0.1 item 8)', () => {
+  it('declares prompt → audio ports, is priced with a per-second hint per kind', () => {
+    expect(generateAudioTool.ports?.inputs).toEqual([{ id: 'prompt', label: 'Prompt', dataType: 'text', required: true, argKey: 'prompt' }]);
+    expect(generateAudioTool.ports?.outputs[0]).toMatchObject({ id: 'audio', dataType: 'audio' });
+    expect(generateAudioTool.ports?.priced).toBe(true);
+    expect(generateAudioTool.ports?.priceHint?.()).toBe('sfx $0.002/s, music $0.0025/s');
+    expect(generateAudioTool.ports?.configSchema.map((f) => f.key)).toEqual(['kind', 'durationSeconds', 'loop', 'instrumental', 'brandId']);
+  });
+
+  it('runs as a flow: the inspector strings, the run source, a per-node brand override and a null opt-out', async () => {
+    const flow = makeToolContext({ agentId: 'flow:01J', libraryFolder: 'flows/ad', brandId: 'run-brand', featureSource: 'flows' });
+    await generateAudioTool.handler({ kind: 'sfx', prompt: 'rain', durationSeconds: 0, loop: 'on', brandId: 'node-brand' }, flow);
+    expect(generateAudioAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'sfx', prompt: 'rain', loop: true, featureSource: 'flows', folder: 'flows/ad', brandId: 'node-brand' }),
+    );
+    const first = generateAudioAsset.mock.calls[0][0] as Record<string, unknown>;
+    expect(first).not.toHaveProperty('durationSec');
+    expect(first).not.toHaveProperty('agentId');
+
+    await generateAudioTool.handler({ kind: 'music', prompt: 'lofi', instrumental: 'off', brandId: null }, flow);
+    const second = generateAudioAsset.mock.calls[1][0] as Record<string, unknown>;
+    expect(second).toMatchObject({ kind: 'music', instrumental: false });
+    expect(second).not.toHaveProperty('brandId');
+  });
+});

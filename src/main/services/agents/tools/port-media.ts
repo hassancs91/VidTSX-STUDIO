@@ -15,14 +15,83 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { AgentArtifact } from '../../../../shared/types/agents';
+import type { AgentArtifact, TranscriptMeta } from '../../../../shared/types/agents';
 import { ensureLibraryRoot, resolveLibraryPath } from '../../library/library-paths';
 import { upsertEntry } from '../../library/library-store';
+import { readBrand } from '../../library/brand-store';
 import { reserveLibraryFile, sanitizeFolder, slugify } from '../../library/library-filing';
 import type { AgentToolContext } from './types';
 
 const INPUTS_FOLDER = 'inputs';
 const FLOWS_FOLDER = 'flows';
+
+/** The file behind an `audio` port value (W8 Stage 3). */
+export async function resolveAudioFile(
+  ctx: AgentToolContext,
+  artifactId: string,
+): Promise<{ artifact: AgentArtifact; absPath: string }> {
+  const artifact = ctx.readArtifacts().find((a) => a.id === artifactId);
+  if (!artifact) throw new Error(`No artifact "${artifactId}" in this run.`);
+  if (artifact.kind !== 'audio') {
+    throw new Error(`Artifact "${artifactId}" is a ${artifact.kind}, not audio.`);
+  }
+  const root = await ensureLibraryRoot();
+  return { artifact, absPath: resolveLibraryPath(root, artifact.payload.relPath) };
+}
+
+/**
+ * The `document` behind a `transcript` port value (W8 Stage 3): its payload
+ * carries the `transcript` variant naming the JSON with the timings.
+ */
+export function resolveTranscript(
+  ctx: AgentToolContext,
+  artifactId: string,
+): { artifact: AgentArtifact; meta: TranscriptMeta } {
+  const artifact = ctx.readArtifacts().find((a) => a.id === artifactId);
+  if (!artifact) throw new Error(`No artifact "${artifactId}" in this run.`);
+  if (artifact.kind !== 'document' || !artifact.payload.transcript) {
+    throw new Error(`Artifact "${artifactId}" is not a transcript.`);
+  }
+  return { artifact, meta: artifact.payload.transcript };
+}
+
+/**
+ * How a composition references library media (the trio's `image` / `video`
+ * ports, flows plan §1.2 — the convention Stage 1 left open): the generation
+ * prompt already teaches `staticFile('<absolute path>')` for local files, so
+ * a port value becomes that expression, forward slashes, quoted for TSX.
+ */
+export function staticFileExpression(absPath: string): string {
+  return `staticFile(${JSON.stringify(absPath.replace(/\\/g, '/'))})`;
+}
+
+export interface LibraryOutputOptions {
+  /** The run's library folder; `subfolder` nests under it. */
+  libraryFolder: string | undefined;
+  subfolder?: string;
+  baseName: string;
+  /** With the dot. */
+  ext: string;
+}
+
+/** Reserve `<libraryFolder>[/<subfolder>]/<base><ext>` for a tool's output; the caller writes it, then indexes it. */
+export async function reserveLibraryOutput(opts: LibraryOutputOptions): Promise<{ relPath: string; absPath: string }> {
+  const root = await ensureLibraryRoot();
+  const base = sanitizeFolder(opts.libraryFolder, FLOWS_FOLDER);
+  const folder = opts.subfolder ? `${base}/${sanitizeFolder(opts.subfolder, 'out')}` : base;
+  return reserveLibraryFile(root, folder, slugify(opts.baseName), opts.ext);
+}
+
+/** Index a written output as born-managed content, brand-tagged when the brand still exists. */
+export async function indexLibraryOutput(relPath: string, description: string, brandId: string | undefined): Promise<void> {
+  const root = await ensureLibraryRoot();
+  const brand = brandId ? await readBrand(root, brandId).catch(() => null) : null;
+  await upsertEntry(root, relPath, {
+    origin: 'generated',
+    description,
+    ...(brand ? { brandId: brand.id } : {}),
+  });
+}
 
 export interface ResolvedImage {
   absPath: string;

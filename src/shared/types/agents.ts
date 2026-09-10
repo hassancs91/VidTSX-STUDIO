@@ -120,9 +120,27 @@ export const ARTIFACT_KINDS = [
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
+/**
+ * W8 Stage 3: a transcript is a `document` (the readable Markdown) whose
+ * payload also names the machine-readable JSON beside it — segments, words
+ * and timings — so `caption_video` reads exact timings while the viewer shows
+ * text. No new artifact kind: the `transcript` PORT type maps to this.
+ */
+export interface TranscriptMeta {
+  /** Workspace-relative JSON with `text`, `segments[]`, `words?[]`. */
+  jsonRelPath: string;
+  sttModelId: string;
+  language?: string;
+  durationSeconds: number;
+  segmentCount: number;
+  hasWords: boolean;
+}
+
 /** Markdown inside the session workspace. */
 export interface DocumentPayload {
   relPath: string;
+  /** Present when the document is a transcript (W8 Stage 3). */
+  transcript?: TranscriptMeta;
 }
 
 export interface AgentCompositionConfig {
@@ -168,7 +186,8 @@ export interface AudioPayload {
   /** Path inside the asset library, relative to its root. */
   relPath: string;
   durationSeconds: number;
-  sound: 'sfx' | 'music';
+  /** `speech` (W8 Stage 3): a `text_to_speech` node's local TTS output. */
+  sound: 'sfx' | 'music' | 'speech';
 }
 
 /** One `artifact:<id>[/<n>]` reference inside a web page (W9). */

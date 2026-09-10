@@ -16,6 +16,7 @@ import { generateImageAsset } from '../../library/generate-image-asset';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 import { readImageBase64 } from './port-media';
+import { resolveNodeBrand } from './session-brand';
 
 const ASPECTS = ['square', 'landscape', 'portrait'] as const;
 /** W8 Stage 2: variations per call, so a `pause` on this node raises a pick card. */
@@ -94,7 +95,7 @@ export const generateImageTool: AgentToolDef<GenerateImageArgs> = {
     ctx.emitProgress(args.prompt.slice(0, 60));
     // Per-node brand (§0.1 item 9): a string overrides, null opts out, absent
     // inherits the run's or session's brand.
-    const brandId = args.brandId === undefined ? ctx.brandId : args.brandId ?? undefined;
+    const brandId = resolveNodeBrand(args.brandId, ctx.brandId);
     const featureSource = ctx.featureSource ?? 'agent';
     try {
       const sourceImage = args.sourceImage ? await readImageBase64(ctx, args.sourceImage) : undefined;

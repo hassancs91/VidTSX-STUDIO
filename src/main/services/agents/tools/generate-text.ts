@@ -17,10 +17,20 @@ import { toolText } from './types';
 import { resolveLlmModelBinding } from './llm-model-binding';
 
 const MODEL_MODES = ['required', 'preferred', 'default'] as const;
+/** W8 Stage 3: what leaves on the `text` port when the reply is structured. */
+const EXTRACTS = ['none', 'first-json-item', 'strip-fences'] as const;
 
 const schema = {
   prompt: z.string().min(1).describe('The user message.'),
+  promptPrefix: z
+    .string()
+    .optional()
+    .describe('Flows: fixed text put before the incoming prompt (a task line the port text completes).'),
   systemPrompt: z.string().optional().describe('Role, tone and constraints for the model.'),
+  extract: z
+    .enum(EXTRACTS)
+    .optional()
+    .describe('none = the whole reply; first-json-item = the first string of a JSON array in the reply; strip-fences = drop ``` fences.'),
   providerId: z.string().optional().describe('LLM provider id; absent = the app default.'),
   model: z.string().optional().describe('Model id on that provider; absent = its default.'),
   modelMode: z
@@ -35,11 +45,43 @@ const schema = {
 
 interface GenerateTextArgs {
   prompt: string;
+  promptPrefix?: string;
   systemPrompt?: string;
+  extract?: (typeof EXTRACTS)[number];
   providerId?: string;
   model?: string;
   modelMode?: (typeof MODEL_MODES)[number];
   useBrand?: boolean | 'on' | 'off';
+}
+
+/** A ```fenced``` reply without the fences. */
+export function stripCodeFences(text: string): string {
+  const m = /^\s*```[a-zA-Z0-9-]*\s*\n([\s\S]*?)\n\s*```\s*$/.exec(text);
+  return m ? m[1] : text.trim();
+}
+
+/** The first string of the first JSON array in the reply; the whole reply when none parses. */
+export function firstJsonItem(text: string): string {
+  const body = stripCodeFences(text);
+  const start = body.indexOf('[');
+  const end = body.lastIndexOf(']');
+  if (start === -1 || end <= start) return body;
+  try {
+    const parsed: unknown = JSON.parse(body.slice(start, end + 1));
+    if (Array.isArray(parsed)) {
+      const first = parsed.find((item) => typeof item === 'string' && item.trim().length > 0);
+      if (typeof first === 'string') return first.trim();
+    }
+  } catch {
+    // Not an array after all — the reply stands as it is.
+  }
+  return body;
+}
+
+export function extractText(text: string, mode: (typeof EXTRACTS)[number] | undefined): string {
+  if (mode === 'first-json-item') return firstJsonItem(text);
+  if (mode === 'strip-fences') return stripCodeFences(text);
+  return text;
 }
 
 async function brandBlock(brandId: string | undefined): Promise<string | undefined> {
@@ -72,10 +114,27 @@ export const generateTextTool: AgentToolDef<GenerateTextArgs> = {
       },
       {
         kind: 'prompt',
+        key: 'promptPrefix',
+        label: 'Prompt prefix (optional)',
+        placeholder: 'Put before the incoming text, e.g. "Write a 30-second script about:"',
+        rows: 2,
+      },
+      {
+        kind: 'prompt',
         key: 'systemPrompt',
         label: 'System prompt (optional)',
         placeholder: 'Set the assistant’s role, tone, constraints…',
         rows: 4,
+      },
+      {
+        kind: 'select',
+        key: 'extract',
+        label: 'Output',
+        options: [
+          { value: 'none', label: 'The whole reply' },
+          { value: 'first-json-item', label: 'First item of a JSON array' },
+          { value: 'strip-fences', label: 'Reply without code fences' },
+        ],
       },
       {
         kind: 'select',
@@ -87,7 +146,7 @@ export const generateTextTool: AgentToolDef<GenerateTextArgs> = {
         ],
       },
     ],
-    defaultConfig: { providerId: '', model: '', modelMode: 'default', systemPrompt: '', useBrand: 'off' },
+    defaultConfig: { providerId: '', model: '', modelMode: 'default', promptPrefix: '', systemPrompt: '', extract: 'none', useBrand: 'off' },
   },
   async handler(args, ctx): Promise<AgentToolResult> {
     const resolved = await resolveLlmModelBinding({
@@ -109,13 +168,14 @@ export const generateTextTool: AgentToolDef<GenerateTextArgs> = {
     }
     const systemPrompt = [brand, args.systemPrompt?.trim()].filter(Boolean).join('\n\n') || undefined;
 
-    ctx.emitProgress(args.prompt.slice(0, 60));
+    const prompt = [args.promptPrefix?.trim(), args.prompt].filter(Boolean).join('\n\n');
+    ctx.emitProgress(prompt.slice(0, 60));
     const featureSource = ctx.featureSource ?? 'agent';
     // Absent providerId/model = the app default provider and its model.
     const providerId = resolved.providerId ?? (resolved.note ? undefined : ctx.providerId);
     const res = await runLlmGenerate(
       {
-        prompt: args.prompt,
+        prompt,
         ...(systemPrompt ? { systemPrompt } : {}),
         ...(providerId ? { providerId } : {}),
         ...(resolved.model ? { model: resolved.model } : {}),
@@ -128,6 +188,7 @@ export const generateTextTool: AgentToolDef<GenerateTextArgs> = {
     if (!res.success || !res.text) {
       return toolText(`Text generation failed: ${res.error ?? 'the model returned nothing'}`, true);
     }
-    return { ...toolText(res.text), fields: { text: res.text } };
+    const text = extractText(res.text, args.extract);
+    return { ...toolText(text), fields: { text } };
   },
 };

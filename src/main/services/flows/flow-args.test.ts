@@ -1,6 +1,7 @@
 // Ports → args and result → ports (flows plan §1.2), pure.
 
 import { describe, it, expect } from 'vitest';
+import type { AgentArtifact } from '../../../shared/types/agents';
 import type { FlowNode, FlowParam, ToolPorts } from '../../../shared/types/flows';
 import { buildNodeArgs, mapOutputs, portValueToArg, type NodeOutputs } from './flow-args';
 
@@ -135,5 +136,45 @@ describe('mapOutputs', () => {
   it('leaves a port out when its source is absent', () => {
     expect(mapOutputs(ports, { content: [] }, null)).toEqual({});
     expect(mapOutputs({ outputs: [{ id: 't', label: 'T', dataType: 'text', from: 'field:t' }] }, { content: [] }, artifact)).toEqual({});
+  });
+});
+
+describe('W8 Stage 3: videos ports and artifact kinds on output ports', () => {
+  it('a videos port collects every incoming edge like images does', () => {
+    const node: FlowNode = { id: 'n-join', toolId: 'concat_videos', position: { x: 0, y: 0 }, config: {}, pause: false };
+    const outputs = new Map<string, NodeOutputs>([
+      ['n-a', { video: { kind: 'artifact', artifactId: 'video-1', artifactKind: 'video' } }],
+      ['n-b', { video: { kind: 'artifact', artifactId: 'video-2', artifactKind: 'video' } }],
+    ]);
+    const args = buildNodeArgs({
+      node,
+      ports: { inputs: [{ id: 'videos', label: 'V', dataType: 'videos', argKey: 'videos' }] },
+      edges: [
+        { id: 'e1', source: 'n-a', sourceHandle: 'video', target: 'n-join', targetHandle: 'videos' },
+        { id: 'e2', source: 'n-b', sourceHandle: 'video', target: 'n-join', targetHandle: 'videos' },
+      ],
+      outputs,
+      params: [],
+      paramValues: {},
+    });
+    expect(args).toEqual({ videos: ['video-1', 'video-2'] });
+  });
+
+  it('a filed artifact lands only on the output ports of its kind', () => {
+    const ports = {
+      outputs: [
+        { id: 'video', label: 'V', dataType: 'video' as const, from: 'artifact' as const },
+        { id: 'image', label: 'I', dataType: 'image' as const, from: 'artifact' as const },
+        { id: 'transcript', label: 'T', dataType: 'transcript' as const, from: 'artifact' as const },
+      ],
+    };
+    const video: AgentArtifact = {
+      id: 'video-3', kind: 'video', title: 'v', createdAt: '', producer: { tool: 't', callId: 'c' }, payload: { relPath: 'a.mp4', durationSeconds: 1 },
+    };
+    expect(mapOutputs(ports, { content: [] }, video)).toEqual({ video: { kind: 'artifact', artifactId: 'video-3', artifactKind: 'video' } });
+    const doc: AgentArtifact = {
+      id: 'document-1', kind: 'document', title: 'd', createdAt: '', producer: { tool: 't', callId: 'c' }, payload: { relPath: 't.md' },
+    };
+    expect(mapOutputs(ports, { content: [] }, doc)).toEqual({ transcript: { kind: 'artifact', artifactId: 'document-1', artifactKind: 'document' } });
   });
 });

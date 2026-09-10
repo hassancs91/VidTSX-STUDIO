@@ -37,6 +37,16 @@ export const AGENT_TOOL_IDS = [
   'input_image_file',
   'input_video_file',
   'generate_text',
+  // W8 Stage 3 (2026-09-10): the product nodes (docs/flows-plan.md §6) —
+  // thin wrappers over the STT, caption, TTS, frame and ffmpeg services and
+  // the library import. Node-capable; usable by agents too.
+  'transcribe',
+  'caption_video',
+  'text_to_speech',
+  'extract_frame',
+  'trim_video',
+  'concat_videos',
+  'save_to_library',
 ] as const;
 
 export type AgentToolId = (typeof AGENT_TOOL_IDS)[number];

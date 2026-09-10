@@ -30,6 +30,13 @@ import { inputImageLibraryTool } from './input-image-library';
 import { inputImageFileTool } from './input-image-file';
 import { inputVideoFileTool } from './input-video-file';
 import { generateTextTool } from './generate-text';
+import { transcribeTool } from './transcribe';
+import { captionVideoTool } from './caption-video';
+import { textToSpeechTool } from './text-to-speech';
+import { extractFrameTool } from './extract-frame';
+import { trimVideoTool } from './trim-video';
+import { concatVideosTool } from './concat-videos';
+import { saveToLibraryTool } from './save-to-library';
 
 /** The registry stores definitions with their arg types erased; the zod schema
  *  validates before a handler ever sees the object. */
@@ -171,3 +178,12 @@ registerTool(inputImageLibraryTool);
 registerTool(inputImageFileTool);
 registerTool(inputVideoFileTool);
 registerTool(generateTextTool);
+// W8 Stage 3: the product nodes (flows plan §6) — STT, captions, TTS, frames,
+// the two ffmpeg edits and the library import, each a thin wrapper.
+registerTool(transcribeTool);
+registerTool(captionVideoTool);
+registerTool(textToSpeechTool);
+registerTool(extractFrameTool);
+registerTool(trimVideoTool);
+registerTool(concatVideosTool);
+registerTool(saveToLibraryTool);

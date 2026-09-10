@@ -81,6 +81,15 @@ describe('registry ports and node specs', () => {
     'generate_composition',
     'edit_composition',
     'render_composition',
+    // W8 Stage 3: generate_audio gained ports; seven product nodes joined.
+    'generate_audio',
+    'transcribe',
+    'caption_video',
+    'text_to_speech',
+    'extract_frame',
+    'trim_video',
+    'concat_videos',
+    'save_to_library',
   ];
 
   it('the wave-1 node catalogue carries ports; agent-only tools do not', () => {

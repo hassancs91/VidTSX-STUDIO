@@ -17,6 +17,8 @@ export type DataType =
   | 'image'
   | 'images'
   | 'video'
+  /** W8 Stage 3: several `video` artifacts on one port (`concat_videos`). */
+  | 'videos'
   | 'audio'
   | 'composition'
   | 'transcript'
@@ -51,10 +53,11 @@ export type ConfigField =
 
 export type ConfigFieldKind = ConfigField['kind'];
 
-/** `image` → `images` is the one widening the canvas allows. */
+/** `image` → `images` and `video` → `videos` are the widenings the canvas allows. */
 export function isPortCompatible(source: DataType, target: DataType): boolean {
   if (source === target) return true;
   if (source === 'image' && target === 'images') return true;
+  if (source === 'video' && target === 'videos') return true;
   return false;
 }
 

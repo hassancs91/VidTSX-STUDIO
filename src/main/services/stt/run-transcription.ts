@@ -10,6 +10,7 @@ import type {
   SttTranscribePhase,
   SttTranscribeRunRequest,
 } from '../../../shared/ipc/types/stt';
+import type { AiFeatureSource } from '../../../shared/types/ai-usage';
 import { extractAudioToWav, isAudioFile } from './extract-audio';
 import { aiUsageService } from '../ai-usage';
 import { logEngine } from '../../../logging/log-engine';
@@ -38,6 +39,8 @@ export interface TranscribeAudioFileParams {
   verbatim?: boolean;
   /** W4: names to bias recognition toward — brand vocabulary, script names. */
   keyterms?: string[];
+  /** Usage attribution; `'transcription'` unless a flow node runs this (W8 Stage 3). */
+  featureSource?: AiFeatureSource;
   signal: AbortSignal;
   onProgress: (percent: number, message: string) => void;
 }
@@ -84,7 +87,7 @@ export async function transcribeAudioFile(params: TranscribeAudioFileParams): Pr
     timestamp: new Date().toISOString(),
     provider: entry.provider,
     model: entry.model,
-    featureSource: 'transcription',
+    featureSource: params.featureSource ?? 'transcription',
     inputTokens: 0,
     outputTokens: 0,
     cacheReadInputTokens: 0,

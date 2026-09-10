@@ -28,3 +28,14 @@ export async function readSessionBrandInstructions(
     return undefined;
   }
 }
+
+/**
+ * Per-node brand (flows plan §0.1 item 9): a string overrides the run's or
+ * session's brand, `null` opts out, and absent — or the inspector's cleared
+ * text field, `''` — inherits `fallback`.
+ */
+export function resolveNodeBrand(nodeBrandId: unknown, fallback: string | undefined): string | undefined {
+  if (nodeBrandId === null) return undefined;
+  if (typeof nodeBrandId === 'string' && nodeBrandId.trim().length > 0) return nodeBrandId.trim();
+  return fallback;
+}

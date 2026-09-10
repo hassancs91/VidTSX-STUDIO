@@ -17,6 +17,7 @@ import type {
   PortDef,
   ToolPorts,
 } from '../../../shared/types/flows';
+import { portCarriesKind } from '../../../shared/flows/port-kinds';
 import type { AgentToolResult } from '../agents/tools/types';
 
 export type NodeOutputs = Record<string, FlowPortValue>;
@@ -68,7 +69,7 @@ export function buildNodeArgs(input: BuildNodeArgsInput): Record<string, unknown
     const values = incomingValues(input.node, port, input.edges, input.outputs);
     if (values.length === 0) continue;
     args[argKey] =
-      port.dataType === 'images'
+      port.dataType === 'images' || port.dataType === 'videos'
         ? values.map(portValueToArg)
         : portValueToArg(values[0]);
   }
@@ -80,6 +81,9 @@ export function buildNodeArgs(input: BuildNodeArgsInput): Record<string, unknown
  * `from: 'artifact'` (the default), or a named field of the result for
  * `from: 'field:<name>'`. A port whose source is absent is left out, so a
  * downstream required input reports "missing" rather than receiving junk.
+ * An artifact lands only on ports of ITS kind (W8 Stage 3, `port-kinds.ts`):
+ * a tool with a `video` and an `image` output port — `save_to_library` — fills
+ * the one that matches what it filed.
  */
 export function mapOutputs(
   ports: Pick<ToolPorts, 'outputs'>,
@@ -90,7 +94,7 @@ export function mapOutputs(
   for (const port of ports.outputs) {
     const from = port.from ?? 'artifact';
     if (from === 'artifact') {
-      if (artifact) {
+      if (artifact && portCarriesKind(port.dataType, artifact.kind)) {
         outputs[port.id] = { kind: 'artifact', artifactId: artifact.id, artifactKind: artifact.kind };
       }
       continue;

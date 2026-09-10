@@ -19,7 +19,7 @@ vi.mock('../../library/brand-summary', () => ({
 }));
 vi.mock('../../library/library-paths', () => ({ getLibraryRoot: () => '/lib' }));
 
-const { generateTextTool } = await import('./generate-text');
+const { generateTextTool, extractText } = await import('./generate-text');
 const { resolveLlmModelBinding } = await import('./llm-model-binding');
 
 const PROVIDERS = [
@@ -128,5 +128,25 @@ describe('resolveLlmModelBinding', () => {
     });
     const fallback = await resolveLlmModelBinding({ providerId: 'gemini', modelMode: 'preferred' }, deps);
     expect(fallback).toMatchObject({ ok: true, note: expect.stringContaining('gemini') });
+  });
+});
+
+describe('generate_text as a node (W8 Stage 3): prefix and extract', () => {
+  it('puts the prefix before the port text and returns the first item of a JSON-array reply', async () => {
+    runLlmGenerate.mockResolvedValue({ success: true, text: '```json\n["a bold fox", "a quiet fox"]\n```' });
+    const res = await generateTextTool.handler(
+      { prompt: 'foxes', promptPrefix: 'Generate 1 prompt for:', extract: 'first-json-item' },
+      makeToolContext({ featureSource: 'flows' }),
+    );
+    expect((runLlmGenerate.mock.calls[0][0] as { prompt: string }).prompt).toBe('Generate 1 prompt for:\n\nfoxes');
+    expect(res.fields).toEqual({ text: 'a bold fox' });
+    expect(res.content[0].text).toBe('a bold fox');
+  });
+
+  it('strip-fences drops the fences, none keeps the reply, a non-array reply passes through first-json-item', () => {
+    expect(extractText('```\nline one\nline two\n```', 'strip-fences')).toBe('line one\nline two');
+    expect(extractText('plain', 'none')).toBe('plain');
+    expect(extractText('not json [', 'first-json-item')).toBe('not json [');
+    expect(extractText('Here: ["", "  second  "] done', 'first-json-item')).toBe('second');
   });
 });
