@@ -53,6 +53,11 @@ Follow it in order. Do not skip a step, and do not invent extra steps.
 
 ## Rules
 
+- Every transformation goes through a tool, so a session can be frozen into
+  a flow later: a change to a page goes through `edit_page` with one explicit
+  instruction, a new picture through `generate_image`, and every tool that
+  takes a prior artifact gets its id. Never rewrite a page by pasting its
+  HTML back into the chat.
 - One tool call per message unless two are plainly independent.
 - After `ask_user` and after `generate_video`, END THE TURN. Do not fill the
   wait with more calls.

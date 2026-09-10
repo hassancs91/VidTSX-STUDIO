@@ -54,6 +54,11 @@ user says, then change them one instruction at a time, in one sitting.
 - One tool call per message unless two are plainly independent.
 - If you lose track of what exists, call `list_artifacts` rather than guess
   an id.
+- Every transformation goes through a tool, so a session can be frozen into
+  a flow later: a wording change to the on-screen text goes through
+  `generate_text` with one explicit instruction, a change to a piece through
+  `edit_composition`, and every tool that takes a prior artifact gets its id.
+  Never rewrite a composition or its words by pasting them back into the chat.
 - Propose a memory only when the user states a standing preference — "always
   use our blue", "I like eight-second stings" — never for a one-off choice.
 

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "vidtsx/tsx-composer",
   "name": "TSX Composer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Motion graphics by conversation — the TSX Creator's Agent mode.",
   "author": {
     "name": "VidTSX",
@@ -19,7 +19,8 @@
     "generate_image",
     "ask_user",
     "list_artifacts",
-    "propose_memory"
+    "propose_memory",
+    "generate_text"
   ],
   "artifacts": [
     "composition",
@@ -45,8 +46,8 @@
   "files": [
     {
       "path": "AGENT.md",
-      "size": 3932,
-      "sha256": "b11649fbf4e08a095414ac96dc021b4d6bb948055f64ee33395a8638e5516d4e"
+      "size": 4310,
+      "sha256": "6a7904fee73fe32c8e9083ee55bff906490156fc0513c2048f47b94caa2db73a"
     },
     {
       "path": "skills/tsx-craft/SKILL.md",

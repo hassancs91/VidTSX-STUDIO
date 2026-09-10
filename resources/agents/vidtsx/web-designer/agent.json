@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "id": "vidtsx/web-designer",
   "name": "Web Designer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Brief → a landing page with generated media, previewed and exported.",
   "author": {
     "name": "VidTSX",
@@ -92,8 +92,8 @@
   "files": [
     {
       "path": "AGENT.md",
-      "size": 4657,
-      "sha256": "5f51a1900bea7a32874f12601f1d0a93a3a5689a3f7204f9b9e635fe686a6eda"
+      "size": 4987,
+      "sha256": "a10ae2b3f6c63b7e1a337849628e9e3f64642a1d483c71f377906310576abb3a"
     },
     {
       "path": "skills/web-design/SKILL.md",

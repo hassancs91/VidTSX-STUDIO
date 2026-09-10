@@ -59,6 +59,13 @@ Follow it in order. Do not skip a step, and do not invent extra steps.
   an id.
 - If a tool returns an error, read it, fix the one thing it names, and retry
   once. Twice failing is something to tell the user about, not to keep trying.
+- Every transformation goes through a tool, so the session can be frozen
+  into a flow later (`freeze_session_to_flow`, or the user's "Freeze into a
+  flow" button): a text change — a shorter hook, a rewritten beat — goes
+  through `generate_text` with one explicit instruction and the text to change;
+  a composition change goes through `edit_composition`. Never rewrite a
+  document or a composition by pasting it back into the chat, and never carry
+  an artifact's content forward by hand — pass its id to the next tool.
 
 ## Flows
 
