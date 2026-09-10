@@ -1625,6 +1625,176 @@ an `ask_user` pick yields a `pause` on the node before it.
 Done when: a Motion Post session is frozen, the resulting flow runs
 unattended with a new brief, and the video matches the session's style.
 
+#### Stage 5 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §8 lists (as §0.1 item 9 adjusts it) is built, unit-tested,
+committed by pathspec in three commits (`675b02b` the session call log and
+the freeze service; `26b7629` `save_flow`, `freeze_session_to_flow`, the
+"Freeze into a flow" action and the frozen proposal on the canvas;
+`38db337` the tool-only convention in the built-in agents) plus the docs
+commit, beside the export-engines session's dirty tree, and exercised on
+the second dev instance. `check:types` at baseline (web 26, node 10); 2248
+tests passing, up from 2228 (20 new: 8 lineage + freeze, 4 args inverse, 5
+`save_flow`, 3 call log); `electron-vite build --outDir
+.vidtsx-temp/w8-build` passes (1 m 59 s, alone). Spend: $0 real — every
+LLM turn on `claude-subscription`; the Motion Post session logged seven
+`agent` rows ($0.61 API-equivalent) and the frozen run three `flows` rows
+($0.42); no image, video or audio call.
+
+**The lineage record** (`agents/tool-call-log.ts`, the one thing §8 did
+not list). An artifact carries `producer.callId` but nothing kept the CALL:
+the tool server emitted `{ tool, callId }` and dropped the arguments. Every
+completed call now lands in `<session>/calls.json` — tool, arguments (long
+strings cut at 200 k), the artifacts it filed, the questions it posted,
+`isError` — through a new `recordCall` dep on the tool server and a
+`recordToolCall` hook on the runner; every interaction reply joins it from
+`agentService.reply`. Appends serialise per session and a read waits for
+the pending write, so `freeze_session_to_flow` sees the turn it is in.
+Decision: a session recorded before this stage freezes with the typed
+"no recorded tool calls" error rather than a guess from the artifacts.
+
+**The freeze** (`flows/freeze-{lineage,args,params,session}.ts`, pure;
+`freeze-service.ts` the wiring). §1.5 step by step: the walk goes
+backwards from the chosen artifact through `producer.callId` → the call's
+arguments → every artifact id in them (strings or arrays) → their
+producers; a render's `video` is bridged through the `job` artifact that
+names it (`resultArtifactId`, or a `generate_video` clip filed under the job
+id), and the path is the calls reached, in time order. Each call with
+`ports` is a node: literal arguments merged over the tool's default config,
+artifact arguments turned into edges through the ports' `argKey` inverse
+(`classifyCallArgs`) onto the producing node's output port that carries
+that kind and is type-compatible — a primitive target takes the field port
+of the same type, which is how an `input_text` (a `write_document` on the
+path, its markdown as `prompt`) feeds a `brief`. Tools without ports are
+elided; media an elided tool or nothing at all produced becomes
+`input_image_file` / `input_video_file` with the library file's absolute
+path; a document or composition from outside is a typed error. Params:
+intake answers (the starter tree's questions as labels, select options as
+`{ value, label }`, text nodes as `text` / `prompt`) and answered `pick` /
+`form` replies are matched by normalised value against every string or
+number config key (never `brandId` / `providerId` / `model` / `modelMode`);
+one field matched on several nodes is one param with several binds; the
+option values take the form the argument used (an exact id, else the
+label). A node whose output a `pick` or `approve` card reviewed gets
+`pause: true`. Rule of this stage's own: the FIRST step's required text
+inputs that hold a literal (not an edge) are exposed as `prompt` params —
+an agent's rewrite of the user's brief never equals it by value, and a
+frozen flow with a locked brief cannot be re-run with a new one (§1.1's own
+example exposes the first node's prompt). `origin` carries `brandId` (a
+new optional field) so the run form starts on the session's brand.
+Positions by dependency depth; then the structural gate and
+`validateFlowForRun` with every capability assumed; a path with no flow
+step ("only wrote documents or brought files in") is the typed error §8
+asks for.
+
+**`save_flow`** (`tools/save-flow.ts`, id appended): a strict shape with
+`name`, `description`, `params[{ id, label?, newId? }]`, `expose[{ nodeId,
+key, label?, id? }]` (promote a config key — a port key with no inspector
+field exposes as a prompt or a number) and `pause[{ nodeId, pause }]`;
+nothing that could add, remove or rewire a node, and the test proves
+`nodes` / `edges` / `graph` / `outputs` / a `bind` are refused and the
+queued graph equals the draft's. It reads the session's stashed draft
+(`freeze-drafts.ts`), validates through `propose_flow`'s two gates, queues
+a `source: 'frozen'` proposal (replacing whatever card the session had)
+and emits it. `freeze_session_to_flow` (id appended, needs nothing) builds
+the draft for an artifact, stashes it and hands the model the listing to
+name. `FLOWS_FREEZE { agentId, sessionId, artifactId, viaAgent? }`:
+without `viaAgent` the draft is queued at once; with it the agent gets
+one `send` widened by `extraTools: ['save_flow']` (a new additive
+`AgentSendInput` field, never persisted) and the card arrives as a
+`flow-proposal` event.
+
+**The canvas and the action bar.** `ActionBar` gained an `extra` prop; the
+agent stage passes `['freeze-to-flow']` (a new `AgentArtifactActionKind`,
+append-only; the run form's bar does not show it — a run has no lineage),
+and `useArtifactActions` handles it in the renderer over `flowsFreeze`,
+then navigates with `vidtsx:navigate` and a `vidtsx:flows-open-proposal`
+event 150 ms later plus a `sessionStorage` stash for a first visit
+(`features/flows/services/pending-freeze.ts` reads both; the agents
+feature imports nothing from flows). `FlowsScreen` creates an EMPTY row
+(`source: 'frozen'`, the session as `origin`, the draft's name) and opens
+it on the canvas with the session id, so Stage 4's overlay shows the whole
+draft as added; Accept is `replaceDoc` + the debounced save, Discard
+resolves the card and deletes the row. The overlay reads
+`proposal.source` for its title ("Frozen from session", a snowflake) and
+publishes `data-flow-proposal-source`. Decision: the row exists from open
+rather than from Accept because the overlay lives in the editor, which
+needs a flow id — a discarded freeze leaves nothing behind.
+
+**The convention** (`38db337`): one paragraph in Motion Post 1.3.0, TSX
+Composer 1.1.0 and Web Designer 1.0.1 — every transformation through a
+tool, text edits through `generate_text` with one explicit instruction,
+composition edits through `edit_composition`, page edits through
+`edit_page`, never a rewrite pasted into the chat, always the prior
+artifact's id. Motion Post and TSX Composer list `generate_text`; Motion
+Post also `freeze_session_to_flow` and `save_flow`; `files[]` re-hashed,
+`--check` clean. The Flow Builder makes flows, not artifact lineages, and
+was left alone.
+
+**Verification in the app** (second instance, `VITE_FF_FLOWS=1`, W3
+profile; `.vidtsx-temp/w8/w8-stage5.mjs` — `agent-open`, `starter-pick`,
+`starter-answer`, `session-id`, `card-pick`, `card-approve`, `watch`,
+`click-action`, `wait-proposal`, `accept`; `w8-flows.mjs` for the form).
+Motion Post, New session, starter "Share a tip or insight" → "Reels /
+Shorts / TikTok" → the brief "Three quick tips for staying focused while
+working from home: …" → Send: `document-1` (two variants) and the pick card
+in 3 s; option a ("Three rules for focus at home"); `get_brand`,
+`list_artifacts`, `generate_composition` 106 s → `composition-2`
+(1080 × 1920, 8 s) and the approve card; Accept + "Send decisions" →
+`render_composition` → `job-3` in the renderer's queue → `video-4`
+(`agents/motion-post/…/three-rules-for-focus-at-home.mp4`, ffprobe h264 +
+aac 1080 × 1920 8.04 s 545 KB) and the closing line "Done — video-4 is the
+rendered post". `calls.json` held 8 calls (write_document, ask_user,
+get_brand, list_artifacts, generate_composition, ask_user, list_artifacts,
+render_composition) and 2 replies. "Freeze into a flow" on `video-4` → the
+Flows canvas in about 4 s with the card "Frozen from session … — 2 steps,
+2 params": Generate Composition (paused — the approve card) → Render
+Composition, one edge, Param "Which one should I animate?" (a select over
+the two hooks, bound to the composition's `title` — the picked label was
+the title the agent chose, which the value match found), Param "Brief"
+(the entry rule, the composed brief as its default), Output Render
+Composition.video, origin `{ motion-post, s-a48e647a, video-4, brandId:
+acme-test }` (`stage5-frozen-proposal.png`). Accept: row
+`01M25VXHXWR5S0TAXT179P92FZ`, `source: frozen`, 2 nodes / 1 edge / 2 params
+on disk. Run view: title select, brand "Acme Test" preselected from the
+origin, the brief editable; a NEW brief ("Three rules for" / "better sleep",
+the same four-beat shape with new words), Unattended, Run → `success` in
+172 s (composition 129 s, render 43 s), run-level `brandId: acme-test`,
+`video-3` `flows/three-quick-tips-…/three-rules-for-focus-at-home.mp4`
+(ffprobe h264 + aac 1080 × 1920 8.04 s 563 KB). Frames at 3.2 s from both
+(`stage5-session-frame.png`, `stage5-flow-frame.png`): the same deep
+ocean-blue ground with the soft radial gradient behind the centre, the
+same amber serif numeral "1", the same white serif tip line ("Silence
+notifications" / "No screens after ten"), the same thin amber rule under
+it at the same position — same brand block, same layout family. Main log:
+3 warnings today, all before this stage's launch. Usage rows produced:
+`claude-subscription / claude-opus-5 / llm / agent` × 7 ($0.108 + $0.024 +
+$0.167 + $0.150 + $0.092 + $0.045 + $0.027 API-equivalent, $0 on the
+subscription); `claude-subscription / claude-opus-5 / llm / flows` × 3
+($0.024 + $0.256 + $0.142). The session and the frozen flow stay on the W3
+profile.
+
+**Deviations, and what it leaves.** (1) The entry-text rule above is not
+in §1.5; without it the acceptance flow would have had no brief param. (2)
+The value match is literal: it bound the picked hook to `title` because
+the agent used the hook as the title — faithful, if a little odd as a run
+form field; the agent path (`save_flow`) can relabel or leave it. (3) The
+`viaAgent` path and the two tools are verified by unit tests, not live —
+the acceptance used the action bar, and a second `claude-subscription`
+turn to name the flow was not worth the wait. (4) The `flows` table's
+`origin` column parse keeps its three fields, so `FlowProjectSummary.origin`
+has no `brandId`; the document's does, which is what the run form reads.
+(5) `get_brand` on the path produces no node — the session's brand is the
+run-level default (§0.1 item 9). (6) A pre-stage session has no
+`calls.json`. Driver lessons: the starter finishes into a PREFILLED chat
+box — nothing runs until Send is clicked; the approve card's send button
+says "Send decisions", the pick and form cards' "Send answer";
+`Page.captureScreenshot` hung every time on the Flows canvas this stage,
+and main's `webContents.capturePage()` over the 9229 inspector works —
+but returns a stale frame unless the window is `show()`n and `focus()`ed
+first; a poll that greps JSON for `"video"` must account for the escaped
+quotes the driver prints.
+
 ## 9. Stage 6 — Packaging, built-in flows, Tools migration, release — ~1.5 sessions
 
 - `.vidtsxflow` reader and install on the shared zip layer; file

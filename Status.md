@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 5 DONE: freeze a session into a flow
+
+Stage 5 of `docs/flows-plan.md` (§8, §1.5 "Freeze") landed in four commits by
+pathspec: `675b02b` (the session call log `calls.json` + the freeze service —
+lineage walk, args inverse, param detection, draft assembly), `26b7629`
+(`save_flow`, `freeze_session_to_flow`, `FLOWS_FREEZE`, "Freeze into a flow"
+on the agent stage's action bar, the frozen proposal on the Flows canvas),
+`38db337` (the tool-only convention paragraph in Motion Post 1.3.0, TSX
+Composer 1.1.0, Web Designer 1.0.1; manifests re-hashed) and the docs commit.
+
+Gates: `check:types` at baseline (web 26 / node 10); `npx vitest run` 2248
+passing (+20); `electron-vite build --outDir .vidtsx-temp/w8-build` 1 m 59 s.
+
+Exists now: every agent session records its tool calls with arguments and its
+interaction replies; any artifact on the agent stage can be frozen — the
+winning path only (dead ends, rejected picks, failed retries dropped) becomes
+nodes, edges, params (intake / pick values by value match, the first step's
+text input as the run's prompt) and pauses (nodes a card reviewed), with the
+session's brand as the run-level default; the draft shows on the canvas as
+"Frozen from session …", Accept saves a `frozen`-sourced flow, Discard leaves
+nothing; an agent can do the same through `freeze_session_to_flow` +
+`save_flow` (name, description, param labels, exposed keys, pauses — never the
+graph).
+
+Verified on the second instance: a Motion Post session (brief → variants →
+pick → composition → approve → render, `video-4` 1080×1920 8 s) frozen from
+the action bar into Generate Composition (paused) → Render Composition with a
+Brief param and a title select; accepted; run unattended with a new brief →
+`success` in 172 s, an MP4 whose frame matches the session's (same brand
+ground, amber numeral, serif line, rule). Spend $0 real ($1.03 API-equivalent
+on the subscription). Screenshots `.vidtsx-temp/w8/stage5-*.png`.
+
+Pending: the `viaAgent` naming turn was verified by unit tests only; sessions
+recorded before this stage carry no lineage (typed error); Stage 6 (packaging,
+built-ins, Tools hub, flag flip) is next.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 4 DONE: run_flow, run_agent, the Flow Builder
 
 Flows plan §7 built and verified on the second dev instance (outcome
