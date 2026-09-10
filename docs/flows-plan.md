@@ -1,12 +1,13 @@
 # Flows — frozen, reusable recipes that people run and agents call
 
-> Status: PLAN (written 2026-09-04, after the V1 code freeze). Nothing here
-> changes V1. Work starts after the V1 flip and after `docs/agents-plan.md`
-> Stage 1 (the tool registry) exists, because flows v2 is built on it.
-> Companion designs: `docs/agents-plan.md`, `docs/NEXT_FEATURES_DESIGN.md`
+> Status: IN PROGRESS (plan written 2026-09-04; discussion answered
+> 2026-09-10, see §0.1; all seven stages ship in V1 as W8 of
+> `docs/v1-completion-plan.md`). The agents plan's Stages 0–6 are done, so
+> the tool registry, runner, artifact store, interaction broker and package
+> code this plan builds on all exist. Companion designs: `docs/agents-plan.md`, `docs/NEXT_FEATURES_DESIGN.md`
 > (Q7 packages, Q8 packs), `docs/SKILLS.md`.
 
-## Discussion for Hasan (parked 2026-09-10)
+## Discussion for Hasan (parked 2026-09-10 — ANSWERED the same day, §0.1)
 
 W8 is parked until this discussion has happened (`docs/v1-completion-plan.md`
 §0 decision 2). Nothing below has been built. A: what only you can decide.
@@ -121,19 +122,14 @@ hold for Stages 4–6, which reach into the Studio tool index, the agents
 stage, the Tools hub, Library and Video Studio. Stages 0–3 can run in a
 second session at any time; 4–6 should wait for a quiet tree.
 
-### E. Lines below that are already stale (fix when work starts)
+### E. Lines below that were stale — applied in place on 2026-09-10
 
-- The status header: agents plan Stages 0–6 are done, so the "after agents
-  Stage 1" wait is over; W8 sits last in the completion plan's §3 order.
-- §1.2 "`generate_video` (today's node body, moved to main)": the main tool
-  already exists and is registered (video providers plan Stage 5); only the
-  renderer node's retirement remains.
-- §1.8 "viewers and interaction cards move from `src/features/agents/`":
-  already at `src/renderer/components/{artifact-viewers,interactions}/`.
-  The inspector-fields move is the only one still pending.
-- §1.2 wave-1 catalogue lacks `generate_audio` and `get_brand`; §1.1 config
-  has no `brandId`; decision 13 predates the own-server rule (B above).
-- §1.2 "same content-safety check": audio prompts are not gated (W2b).
+The five items this section listed (status header, `generate_video` already
+in main, viewers and cards already shared, `generate_audio` / `get_brand` /
+`brandId` missing, audio prompts not gated) plus three the build-start read
+found (`invokeTool` does not exist yet, Stage 2's agents dependency is done,
+the W9 web-page tools are not in the catalogue) were corrected where they
+stand, each marked "(updated 2026-09-10)".
 
 ## 0. Decisions recorded on 2026-09-04
 
@@ -192,7 +188,105 @@ second session at any time; 4–6 should wait for a quiet tree.
     it directly: "apply Flow X on this section". A manual run-form panel in
     Studio is not planned; the agent is the entry point. This is the
     intended shape of the Studio agent: it may call any tool in the app to
-    edit the video, and flows are tools.
+    edit the video, and flows are tools. (Updated 2026-09-10: the Studio
+    `run_flow` is a tool in the Studio agent's OWN server, §0.1 item 11, and
+    the handoff is W3's `insert_asset` card, §0.1 item 5.)
+
+## 0.1 Decisions recorded on 2026-09-10
+
+Answers to the six questions of the discussion above (Hasan, 2026-09-10),
+plus the completion-plan folds now fixed as scope. These override any older
+line of this plan where the two disagree.
+
+1. **All seven stages ship in V1** (Q1 = a). Stage 0 → 6 in order, ~8.5
+   sessions, one fresh-context session per stage, each verified before the
+   next. The cut-line variant (Stage 3 + Studio `run_flow`) is not taken.
+2. **All five built-in flows ship** (Q2 = a): `vidtsx/thumbnail`,
+   `vidtsx/frame-strip`, `vidtsx/explainer-30s`, `vidtsx/product-ad`,
+   `vidtsx/add-effect`. Each runs three times unattended before it ships
+   (§9); the two paid flows draw on the acceptance cap (about $3–4 in fal
+   clips), and a run whose output is wrong is reported, never hidden.
+3. **The Tools hub keeps its screens** (Q3 = b). Thumbnail Generator and
+   Frame Extractor stay; the two flows ship beside them (a "Flows" group in
+   the hub, or a second entry per tool). Removing the screens is a follow-up
+   after real use, not a V1 build item. The tester screens stay as screens.
+4. **Packaging is the full `.vidtsxflow` container, and a bare `flow.json`
+   also imports** (Q4 = a+). The agents' package code (reader, validator,
+   hash, cap, zip-slip, ed25519 signing with the EXISTING `vidtsx-1` key,
+   install, update) is parameterised by manifest name; `.vidtsxflow` is
+   added to the extension map in `src/main/services/packages/pending-open.ts`
+   (so `src/main/index.ts`, which another session owns, is not touched) and
+   to `electron-builder.yml`'s `fileAssociations`; `scripts/agent-pack.mjs
+   --kind flow` (or `flow-pack.mjs`) packs and signs. Import accepts either
+   a `.vidtsxflow` or a plain `flow.json` through the same structural
+   validator.
+5. **A Studio flow result lands through W3's `insert_asset`** (Q5 = a). The
+   flow's `video` output is imported like a generated clip and proposed as
+   B-roll at an anchor with the existing `'insert-plan'` card; "replace
+   shot" and "overlay" are ordinary follow-up cards (a cut proposal plus an
+   insert; an insert on the overlay lane). No new proposal kind.
+6. **Spend guard = the priced-node listing plus "name the cost first"**
+   (Q6 = b). Every `NodeSpec` carries `priced: boolean` and, where the
+   catalog knows it, a price hint; the run form shows a "Priced steps: …"
+   line before Run; the `run_flow` tool description lists each flow's priced
+   nodes; the Studio and shared agent prompts require the agent to name the
+   flow and the expected cost in its message before calling `run_flow`.
+   Follow-on from W9: `generate_video`'s catalog listing (the tool result
+   and the node's model picker) carries the per-second price per model so
+   the cost can actually be named. No `maxUsd` enforcement in V1.
+
+Folds from the completion plan (§2.8, its outcomes), now scope:
+
+7. **Composition trio ports in Stage 1.** `generate_composition`,
+   `edit_composition`, `render_composition` gain `ports` with the first
+   registry change, so the TSX node exists from the first runnable build.
+8. **`generate_audio` node in Stage 3** on the W2b `AudioGenerationEngine`
+   (`kind: 'sfx' | 'music'` → `audio` artifact). Audio prompts are not
+   content-gated (W2b); the runner applies each tool's own gate, never a
+   blanket one.
+9. **Brand.** `run.json` carries run-level `brandId` with the W4 session
+   semantics (absent = library default, `null` = none); the run form shows
+   the shared `BrandSelect` beside the mode switch; `run_flow` inherits the
+   calling session's brand (Studio: the project's brand). Per-node
+   `brandId` config exists only on nodes whose service takes a brand
+   (`generate_image`, `generate_video`, `generate_composition`,
+   `generate_audio`); a `generate_text` node has a `useBrand` config that
+   prepends `get_brand`'s summary (the shared `brand-summary.ts` formatter).
+   Freeze writes the session's brand as the run-level default.
+10. **Model binding reads the W1 catalog.** `LlmModelPickerField` is
+    replaced by the shared `ModelSelect` + `useModelPicker(providerId)`
+    (`LLM_MODEL_CATALOG` and user overrides); `modelMode` stays as decision
+    12 says; free-text "Custom…" stays as the escape hatch.
+11. **Studio `run_flow` lives in the Studio agent's OWN server**:
+    `src/main/services/studio/agent-tools/flow-tools.ts`, id appended to
+    `STUDIO_TOOL_IDS`, calling `flow-runner.ts` directly with the project's
+    brand and the shot range rendered to a clip as the `video` param. It is
+    a second tool beside the shared registry's `run_flow`; both call the
+    same runner.
+12. **Presets may reference a flow later.** `StudioPreset.workflow` keeps
+    its `{ flowId }` reserve comment (W5); W8 builds nothing on it.
+13. **The W9 web-page tools stay agent-only in V1** (no `ports`); the
+    `web-page` artifact kind is not a port type. A flow that wants a page
+    can use a `run_agent` node with the web designer.
+14. **`invokeTool` is created in Stage 1** (§11 rule): one function in
+    `src/main/services/agents/tools/invoke-tool.ts` that validates args,
+    runs the handler with the context, and owns the usage `featureSource`;
+    the agents' `tool-server.ts` is rerouted through it in the same stage so
+    the two runners cannot drift.
+
+Build rules for the unattended run (from the W8 brief): one fresh-context
+subagent per stage; commits by explicit pathspec only (never stash, never
+`add -A`, never `commit --only`; messages via a file + `git commit -F`);
+`check:types` at baseline (web 26 / node 10); `npx vitest run` green (2035 at
+the start); `electron-vite build --outDir .vidtsx-temp/w8-build`; an outcome
+subsection per stage below; a byte-safe Status.md entry per stage; the app
+driven on the second instance (CDP 9223 / inspector 9229, the W3 profile).
+Files another session has dirty (`src/main/services/studio/export-engines/`,
+`src/main/ipc/render-handlers.ts`, the render-queue context,
+`src/main/index.ts`, `resources/vendor`, `scripts/bench`,
+`docs/ui-automation-cdp.md`) are never touched. Spend cap for the acceptance
+runs: $30. No ElevenLabs key exists on this machine, so audio nodes are
+verified through the engine's `registerInstance` seam only.
 
 ## 1. Target design
 
@@ -225,7 +319,8 @@ in `graph_json` today. Existing rows migrate on first load (Stage 0).
         "pause": false },
       { "id": "n-compose", "toolId": "generate_composition",
         "position": { "x": 480, "y": 80 },
-        "config": { "seconds": 30, "aspect": "16:9", "stylePreset": "Clean" },
+        "config": { "seconds": 30, "aspect": "16:9", "stylePreset": "Clean",
+                    "brandId": null },           // per-node brand (updated 2026-09-10): absent = run-level
         "pause": true },
       { "id": "n-render", "toolId": "render_composition",
         "position": { "x": 880, "y": 80 }, "config": {}, "pause": false }
@@ -241,6 +336,7 @@ in `graph_json` today. Existing rows migrate on first load (Stage 0).
   "outputs": [{ "nodeId": "n-render", "handle": "video", "label": "Video" }],
   "origin": null                         // or { agentId, sessionId, artifactId } when frozen
 }
+// run.json (not the doc) carries the run-level brandId (updated 2026-09-10, §0.1 item 9).
 ```
 
 Rules: a `params[].bind` target must be a config key of that node; a config
@@ -278,9 +374,10 @@ Port values are agent artifacts or primitives. `image` carries an
 `video`, `audio`, `composition`, `transcript` carry the artifact of that
 kind; `text` and `number` are primitives. The runner builds the tool's
 argument object from `argKey` bindings plus node config, calls the tool
-handler exactly as the agent runner would (same `AgentToolContext`, same
-content-safety check, same usage logging with `featureSource: 'flows'`),
-and maps the returned artifact or field to the output ports.
+handler exactly as the agent runner would (same `AgentToolContext`, each
+tool's own content-safety check — audio prompts are not gated, W2b (updated
+2026-09-10) — same usage logging with `featureSource: 'flows'`), and maps
+the returned artifact or field to the output ports.
 
 The renderer never holds handlers. It fetches serialisable `NodeSpec`s
 (`FLOWS_NODES_LIST`): id, label, description, category, ports,
@@ -302,18 +399,25 @@ Wave-1 node catalogue:
 | `input_video_file` | — → video | new, imports a file (or Library video) |
 | `generate_text` | text → text | LLM via `runLlmGenerate` |
 | `generate_image` | text, image?, images? → image | agents `generate_image` |
-| `generate_video` | text, image?, image? → video | fal video job (today's node body, moved to main) |
+| `generate_video` | text, image?, image? → video | the registered main tool (video providers plan Stage 5); only the renderer node retires (updated 2026-09-10) |
 | `generate_composition` | text (brief), image?, video? → composition | agents plan wave-1 tool |
 | `edit_composition` | composition, text → composition | agents plan wave-1 tool |
 | `render_composition` | composition → video | agents plan wave-1 tool |
 | `transcribe` | video or audio → transcript | `AUDIO_STT_TRANSCRIBE` service, AssemblyAI or whisper |
 | `caption_video` | video, transcript → video | captions burn-in (Studio caption builder + ffmpeg) |
 | `text_to_speech` | text → audio | `AUDIO_TTS_GENERATE` |
+| `generate_audio` | text → audio | W2b `AudioGenerationEngine`, `kind: 'sfx' \| 'music'` (added 2026-09-10) |
 | `extract_frame` | video, number → image | `TOOLS_FRAME_EXTRACT` service |
 | `trim_video` / `concat_videos` | video, number, number → video / videos → video | ffmpeg wrappers |
 | `save_to_library` | any artifact → same | Library import |
 | `run_agent` | text (goal), any? → typed output | agent runner, bounded (1.6) |
 | `run_flow` | agent-only tool, no ports | flow runner (1.5); in Studio sessions accepts a shot range as the `video` param |
+
+Not nodes (updated 2026-09-10): `get_brand` stays agent-only — a
+`generate_text` node opts into the brand summary through its `useBrand`
+config (§0.1 item 9); `ask_user`, `list_artifacts`, `write_document`,
+`propose_memory` and the four W9 web-page tools (`write_page`, `edit_page`,
+`capture_page`, `export_site`) carry no `ports` in V1.
 
 ### 1.3 The runner (main)
 
@@ -472,12 +576,13 @@ control switches to **Edit** (the existing canvas, `FlowCanvas` and
 history dropdown stays. Node palette groups by the registry `category`.
 
 Shared pieces live outside both features so the isolation rule holds:
-interaction cards and artifact viewers move from `src/features/agents/` to
+interaction cards and artifact viewers ALREADY live at
 `src/renderer/components/interactions/` and
-`src/renderer/components/artifact-viewers/` (this is a change to the agents
-plan's 1.3 file placement, recorded here so Stage 3 there puts them in the
-shared location from the start). Inspector field components move to
-`src/renderer/components/fields/` for the same reason.
+`src/renderer/components/artifact-viewers/` (done by the agents plan and W7;
+updated 2026-09-10), and the shared chat, `BrandSelect` and the agent hooks
+at `src/renderer/components/agents/` and `src/renderer/hooks/agents/` (W7).
+The one move still pending is the inspector field components to
+`src/renderer/components/fields/`, in Stage 2.
 
 **Handoffs from other screens:** "Run a flow on this" appears on Library
 videos and images, and on a Video Studio entry, opening the run form with
@@ -526,7 +631,7 @@ cycle, unknown output; `check:types` at baseline.
 
 ## 4. Stage 1 — Registry ports and the main runner — ~1.5 sessions
 
-Depends on agents Stage 1.
+Depends on agents Stage 1 (done 2026-09-07; updated 2026-09-10).
 
 Files:
 - `registry.ts`: `ports` field, `listNodeSpecs()`, `getNode(toolId)`.
@@ -551,7 +656,7 @@ and reopening the app mid-run offers Resume.
 
 ## 5. Stage 2 — Pause, run form, Flows page — ~1.5 sessions
 
-Depends on agents Stage 4 (interactions) for the cards.
+Depends on agents Stage 4 (interactions) for the cards (done 2026-09-08; updated 2026-09-10).
 
 Files: `RunFormView.tsx`, `RunOutputs.tsx`, `StepsStrip.tsx`,
 `ModeSwitch.tsx`, `VideoPickField.tsx`; inspector additions
@@ -569,8 +674,9 @@ Files: `tools/{generate-composition, edit-composition, render-composition}`
 gain ports (the handlers already exist from the agents plan);
 new `tools/{transcribe, caption-video, text-to-speech, extract-frame,
 trim-video, concat-videos, save-to-library}.ts` wrapping the existing
-services; ffmpeg helpers in `src/main/services/media/` if not already
-present.
+services; `generate_audio` gains ports on the existing W2b tool (updated
+2026-09-10, §0.1 item 8); ffmpeg helpers in `src/main/services/media/` if
+not already present.
 
 Tests: each tool with a fake service; the runner over a five-node
 composition flow with a fake render queue.
@@ -609,12 +715,16 @@ unattended with a new brief, and the video matches the session's style.
 ## 9. Stage 6 — Packaging, built-in flows, Tools migration, release — ~1.5 sessions
 
 - `.vidtsxflow` reader and install on the shared zip layer; file
-  association; `scripts/flow-pack.mjs` (or `agent-pack.mjs --kind flow`).
+  association (`pending-open.ts` extension map + `electron-builder.yml`,
+  never `src/main/index.ts`); `scripts/flow-pack.mjs` (or `agent-pack.mjs
+  --kind flow`); a bare `flow.json` imports through the same validator
+  (§0.1 item 4, updated 2026-09-10).
 - The five built-in flows in `resources/flows/vidtsx/`, each run three
   times without manual intervention before it ships.
-- Tools hub: Thumbnail Generator and Frame Extractor entries open their
-  flow's run form; the old screens are removed after one release with both
-  paths available.
+- Tools hub: the built-in flows appear beside the Thumbnail Generator and
+  Frame Extractor screens (a "Flows" group or a second entry per tool); the
+  screens stay in V1 (§0.1 item 3, updated 2026-09-10) and their removal is
+  a follow-up after real use.
 - "Run a flow on this" handoffs from Library and Video Studio.
 - Docs: `docs/FLOW_PACKAGE_SPEC.md`, a starter folder under
   `docs/examples/flow-starter/`, `docs/ui-automation-cdp.md` recipe.
@@ -645,7 +755,10 @@ Manual, in-app (record results here when run):
 - **Two runners diverging.** The flow runner and the agent runner must
   call handlers through one code path (`invokeTool(def, args, ctx)`), or
   content safety and usage logging drift. Rule: no handler is called
-  outside `invokeTool`.
+  outside `invokeTool`. (Updated 2026-09-10: `invokeTool` does not exist
+  yet — the agents' `tool-server.ts` calls handlers directly. Stage 1
+  creates `tools/invoke-tool.ts` and reroutes the tool server through it,
+  §0.1 item 14.)
 - **Artifact size on ports.** Base64 never travels on a port; ports carry
   artifact references and files stay in the run folder. Today's runner
   already had to strip images before persisting.
