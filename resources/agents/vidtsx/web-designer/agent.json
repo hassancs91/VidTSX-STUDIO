@@ -1,0 +1,104 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/web-designer",
+  "name": "Web Designer",
+  "version": "1.0.0",
+  "description": "Brief → a landing page with generated media, previewed and exported.",
+  "author": {
+    "name": "VidTSX",
+    "url": "https://vidtsx.com"
+  },
+  "license": "MIT",
+  "minAppVersion": "1.1.0",
+  "prompt": "AGENT.md",
+  "tools": [
+    "get_brand",
+    "write_page",
+    "edit_page",
+    "capture_page",
+    "generate_image",
+    "generate_video",
+    "generate_audio",
+    "export_site",
+    "ask_user",
+    "list_artifacts",
+    "propose_memory"
+  ],
+  "artifacts": [
+    "web-page",
+    "image-set",
+    "video",
+    "audio",
+    "job"
+  ],
+  "interactions": [
+    "form",
+    "pick",
+    "approve"
+  ],
+  "starter": {
+    "entry": "purpose",
+    "nodes": {
+      "purpose": {
+        "question": "What is the page for?",
+        "hint": "The product, offer or announcement, in a sentence — and what a visitor should do.",
+        "text": true,
+        "multiline": true,
+        "next": "audience"
+      },
+      "audience": {
+        "question": "Who is it for?",
+        "hint": "Who lands on it, and what they already know.",
+        "text": true,
+        "next": "brand"
+      },
+      "brand": {
+        "question": "Which brand?",
+        "hint": "Pick the brand above; the page takes its palette, fonts and wording.",
+        "select": "one",
+        "options": [
+          {
+            "id": "session-brand",
+            "label": "The brand picked above",
+            "next": "$end"
+          },
+          {
+            "id": "no-brand",
+            "label": "No brand — a clean default look",
+            "next": "$end"
+          }
+        ],
+        "allowOther": true,
+        "otherNext": "$end"
+      }
+    },
+    "opening": "Design a landing page.\n\nFor: {{purpose}}\nAudience: {{audience}}\nBrand: {{brand}}",
+    "quickStarts": [
+      "A landing page for VidTSX with a hero video and three feature cards",
+      "A one-page launch site for a newsletter with a sign-up call to action",
+      "A course landing page: hero, what you learn, three testimonials, enrol"
+    ]
+  },
+  "defaults": {
+    "maxTurns": 32,
+    "effort": "medium"
+  },
+  "memory": {
+    "propose": true
+  },
+  "workspace": {
+    "sdkFileTools": false
+  },
+  "files": [
+    {
+      "path": "AGENT.md",
+      "size": 4657,
+      "sha256": "5f51a1900bea7a32874f12601f1d0a93a3a5689a3f7204f9b9e635fe686a6eda"
+    },
+    {
+      "path": "skills/web-design/SKILL.md",
+      "size": 5073,
+      "sha256": "cdee8b62d5bc42eb13524694748ed7fef87ef89364f18dc8707f5da96985a15e"
+    }
+  ]
+}
