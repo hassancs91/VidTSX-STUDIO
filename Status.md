@@ -7,6 +7,45 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 DONE: Flows, all seven stages — the plan is complete
+
+W8 of `docs/v1-completion-plan.md` §2.8, per `docs/flows-plan.md`. The
+parked discussion was answered in the morning (six decisions in §0.1 of the
+flows plan, `2f3d791`), then Stages 0–6 ran unattended, one fresh-context
+session per stage, each verified before the next. Full outcome under the
+W8 section of the completion plan; a per-stage outcome under §3–§9 of the
+flows plan; the seven §10 acceptance rows filled in there.
+
+- 31 commits by pathspec beside the export-engines session's dirty tree
+  (`c2edda9` … `f7dd591`); `check:types` at baseline (web 26 / node 10)
+  after every stage; 2312 tests, up from 2035; `electron-vite build
+  --outDir .vidtsx-temp/w8-build` passes; the `flows` flag is ON.
+- What exists: `FlowDoc` v2 + v1 migration; `ports` on the shared registry
+  (twenty tool ids appended) and `invokeTool` as the one handler path; the
+  main-process runner with persistence, cancel, Resume and checkpoints
+  through the interaction broker; the run form, the Flows page groups, the
+  inspector's expose/pause toggles; the product nodes (transcribe, captions,
+  TTS, audio, frames, trim, concat, save); `run_flow` in the shared
+  registry AND in the Studio agent's own server (a shot range → clip →
+  flow → `insert_asset` card); the `run_agent` node; the Flow Builder
+  built-in with the proposal overlay; freeze a session into a flow; the
+  `.vidtsxflow` container on the shared zip layer; the five built-in
+  flows; "Run a flow on this" from Library and Video Studio; a Flows group
+  in the Tools hub beside the screens.
+- Runs: every built-in three times unattended, all success (thumbnail,
+  frame-strip, explainer-30s, product-ad, add-effect); Motion Post → `run_flow`;
+  the Builder's captions flow; Studio `add-effect` on shots 7–9; a frozen
+  Motion Post session re-run with a new brief. Spend $3.25 real (seven
+  Kling clips, one minimax run, AssemblyAI cents) of the $30 cap.
+- Pending for Hasan: sign the built-in flows (or ship unsigned), the one
+  `src/main/index.ts` line for the `.vidtsxflow` double-click nudge, the
+  coupled version bump + installer rebuild (`resources/flows` now ships),
+  the Tools hub's own `VITE_FF_TOOLS` gate, the ElevenLabs key for the
+  audio node's live row, two Content Safety false positives on product
+  images, the `docs/ui-automation-cdp.md` pointer line living in HEAD only.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 6 DONE: packaging, built-in flows, Tools hub, flag on
 
 Stage 6 of `docs/flows-plan.md` (§9, §1.7, §1.8, §0.1 items 2–4) landed in

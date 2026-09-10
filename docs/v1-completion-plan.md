@@ -2,7 +2,7 @@
 
 > Status: PLAN (written 2026-09-09 with Hasan). Nine workstreams, all of them
 > IN the first release. Companion plans: `docs/flows-plan.md` (W8 — all seven
-> stages ship in V1; its own discussion is still owed, see §0.2),
+> stages ship in V1; discussion answered and every stage landed 2026-09-10),
 > `docs/agents-plan.md` (the runner, registry, package format and built-ins
 > that W1, W7 and W9 extend), `docs/studio/AGENT_MEMORY_DESIGN.md` (W4 and W5
 > build on its memory tiers), `docs/video-providers-plan.md` (the provider
@@ -1380,6 +1380,114 @@ Owned by the flows plan; the pending discussion goes there. What THIS plan needs
 - Studio `run_flow` in Stage 4 goes into the Studio agent's OWN server (decision 3), calling the main runner.
 - Editing presets may reference a flow later (W5); nothing to build now.
 
+#### W8 outcome (2026-09-10) — what was built, what the runs showed, and what it leaves
+
+All seven stages of `docs/flows-plan.md` landed in one unattended run on
+2026-09-10, after the parked discussion was answered the same morning (six
+questions, recorded as §0.1 of the flows plan: all stages in V1, all five
+built-in flows, the Tools hub keeps its screens, the full `.vidtsxflow`
+container plus bare `flow.json` import, Studio results through W3's
+`insert_asset` card, the priced-node listing as the spend guard). One
+fresh-context session per stage, each verified before the next: 31 commits
+by pathspec beside the export-engines session's dirty tree (`2f3d791` the
+decisions; Stage 0 `c2edda9`, `1545c97`; Stage 1 `7d4924b`, `92d710c`,
+`5b0f3a6`, `578b946`, `2992348`; Stage 2 `b9d3aa6`, `a7b87db`, `99a57eb`,
+`03d09ec`, `110572e`; Stage 3 `efe1ed8`, `4062256`, `b16ef0b`, `49e3303`,
+`d109254`; Stage 4 `a68bc9e`, `db11706`, `136478f`, `73f0a0d`, `763b198`;
+Stage 5 `675b02b`, `26b7629`, `38db337`, `c09d8aa`; Stage 6 `a774ddc`,
+`784cb84`, `2bbcc55`, `f7dd591`). `check:types` at baseline (web 26, node
+10) after every stage; 2312 tests passing, up from 2035 (277 new);
+`electron-vite build --outDir .vidtsx-temp/w8-build` passes. Every stage has
+its own outcome subsection in the flows plan (§3–§9) and the seven §10
+acceptance rows are filled in there; this section is the summary.
+
+**What exists now.** A flow is a `FlowDoc` v2 (params, graph, outputs,
+origin; v1 rows migrate on read). Nodes are agent tools with `ports`: the
+shared registry gained twenty ids, append-only — `input_text`,
+`input_image_library`, `input_image_file`, `input_video_file`,
+`generate_text`, `transcribe`, `caption_video`, `text_to_speech`,
+`extract_frame`, `trim_video`, `concat_videos`, `save_to_library`,
+`run_flow`, `run_agent`, `list_nodes`, `read_flow`, `propose_flow`,
+`read_run`, `save_flow`, `freeze_session_to_flow` — and ports on
+`generate_image`, `generate_video`, `generate_audio` and the composition
+trio. `invokeTool` is the one handler path for the agents' tool server and
+the flow runner (§11's rule, created in Stage 1). The runner lives in main
+(`src/main/services/flows/`): a persistent job with `run.json` after every
+node, cancel through the signal, Resume from the first non-done node,
+checkpoints through the agents' interaction broker (pick / approve /
+editable approve, retry-with-note once, expired-on-restart then resume),
+run-level and per-node brand with the W4 semantics, model binding on the W1
+catalog with decision 12's three modes. The run form, the Flows page (My
+flows / Built-in / Installed, Run | Edit), the inspector's expose-as-param
+and pause toggles, the Flow Builder built-in with the proposal overlay and
+"Ask the builder", freeze from any artifact on the agent stage (the session
+call log is new — sessions recorded before Stage 5 cannot be frozen), the
+`.vidtsxflow` container on the shared zip layer with the existing signing
+module and key list, "Run a flow on this" from the Library and Video
+Studio, a "Flows" group in the Tools hub beside the screens, and the
+`flows` flag on. The Studio agent's own server gained `run_flow`
+(`agent-tools/flow-tools.ts`, `STUDIO_TOOL_IDS` appended): a shot range is
+trimmed to a clip, the flow runs unattended on the project's brand, the
+result is imported on use and proposed through the `insert_asset` card.
+Motion Post (1.3.0), tsx-composer (1.1.0) and the web designer (1.0.1)
+carry the tool-only convention paragraph; Motion Post lists `run_flow`,
+`generate_text`, `freeze_session_to_flow` and `save_flow`.
+
+**What the runs showed.** Every built-in ran three times unattended in Stage
+6, all `success`: `thumbnail` 34 / 39 / 60 s ($0 on gemini-cli),
+`frame-strip` 8 / 14 / 19 s ($0), `explainer-30s` 539 s / 934 s (the
+kill-mid-render + Resume row) / 1749 s ($0 on the subscription),
+`product-ad` 1902 s wall (attended, three resumes) / 1021 s / 687 s and
+`add-effect` 505 s wall / 95 s / 681 s (one Kling 2.5 Turbo Pro clip each,
+$0.40). Stage 3 proved the composition path on two providers
+(`claude-subscription` 525 s, `minimax` 272 s — `openrouter` has no LLM key
+on the W3 profile). Stage 4: Motion Post called `run_flow` on the thumbnail
+flow from one line; the Flow Builder turned "make me a flow that captions a
+video" into an accepted three-node flow that then captioned a clip; the
+Studio agent applied `add-effect` to shots 7–9 and the B-roll card placed
+the clip at 18 s. Stage 5: a Motion Post session frozen from its rendered
+video re-ran unattended with a new brief and produced the same brand block
+and layout. Spend across the run: **$3.25 real** ($2.80 fal over seven
+Kling clips, $0.44 minimax, three AssemblyAI rows at $0.001) against the
+$30 cap; the subscription LLM rows total roughly $8 API-equivalent at $0;
+every image on gemini-cli at $0; no ElevenLabs call (no key — the
+`generate_audio` node is verified at the engine's unit seam only).
+
+**Deviations worth knowing.** Runs live under `<userData>/flows-runs/`
+(moved in Stage 6 with a one-time migration; Stage 1 had put them under the
+library root). Packaged flows get `builtin` / `installed` rows in the
+`flows` table as a cache of their folders (folder-as-truth, resynced on
+every list). The transcript is a `document` artifact with a `transcript`
+payload variant, not a new artifact kind. Remotion's bundled ffmpeg has no
+`pad` / `subtitles` / `drawtext`, so `concat_videos` crops rather than
+letterboxes and captions burn in through the caption composition rendered
+in main. `staticFile("C:/…")` previews but never renders — a bundler-side
+rewrite to `/asset?path=` urls (`remotion-static-files.ts`) fixed every
+render with media on a port, agents' compositions included. `product-ad`
+uses Kling, not Hailuo (not in this profile's fal list). Windows `EPERM`
+on the `run.json` rename is retried.
+
+**Pending for Hasan.** (1) Sign the five built-in flows (`scripts/
+flow-pack.mjs --sign` with `VIDTSX_AGENT_SIGNING_KEY`) or ship them
+unsigned — the UI already shows "Built-in". (2) One line in
+`src/main/index.ts` `queuePackageOpen` so a double-clicked `.vidtsxflow`
+navigates to Flows (the file belongs to the export-engines session; the
+path already parks in main and the Flows screen claims it). (3) The coupled
+version bump + installer rebuild — `electron-builder.yml` now ships
+`resources/flows` and the `.vidtsxflow` association. (4) The Tools hub is
+still behind `VITE_FF_TOOLS`, so its Flows group is invisible in production
+until that flag flips. (5) An ElevenLabs key for the audio node's live
+row (W2b's pending row, unchanged). (6) Content Safety false-positived
+twice on product images (a course badge, the Claude Code logo). (7) The
+`docs/ui-automation-cdp.md` pointer line is in HEAD only; the other
+session's working copy must not revert it (additive-only rule). (8) A
+Stage 2 `SendKeys` loop may have sent one Enter to a VS Code or Notion
+window — worth a glance. (9) `run_agent` is unit-tested only; the run
+form's "Priced steps" line prices from the spec hint, not the node's model
+and duration. (10) The W3 profile keeps the seeded flows, sessions and test
+packages; the `.vidtsx-temp/w8/` drivers are uncommitted (recipe in
+`docs/flows-ui-automation.md`).
+
 ### 2.9 W9 — Web designer agent — ~1.5 sessions
 
 - Built-in `resources/agents/vidtsx/web-designer/`: AGENT.md workflow (brief → structure → sections → assets → polish → export), skill `web-design` (typography scale, spacing, responsive rules, accessibility basics, section patterns for landing pages), tools `write_page`, `edit_page`, `generate_image`, `generate_video`, `generate_audio`, `capture_page`, `export_site`, `ask_user`, `propose_memory`. Brand injected (palette, fonts, logo refs) through `get_brand`.
@@ -1810,4 +1918,8 @@ were deleted through `studioProjectDelete`.
    to ~2.5–2.9 k chars with no truncation, and both acceptance runs showed the
    agent citing a preset line at every step, but that is observation, not the
    spike. Both budgets stay where they are.
-5. W8: Hasan's pending flows discussion.
+5. W8: Hasan's pending flows discussion. **Answered 2026-09-10:** the six
+   questions are recorded as §0.1 of `docs/flows-plan.md` (all seven
+   stages in V1, all five built-ins, hub screens kept, the full container +
+   bare JSON import, `insert_asset` for Studio results, the priced-node
+   listing as the spend guard); every stage landed the same day (W8 outcome).
