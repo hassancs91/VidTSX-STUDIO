@@ -27,6 +27,7 @@ interface Props {
   blockedReason?: string;
   onSend: () => void;
   onCancel: () => void;
+  cancelLabel?: string;
   /** Wider for a side-by-side pick; the default suits text. */
   wide?: boolean;
   children: ReactNode;
@@ -43,6 +44,7 @@ export function InteractionShell({
   blockedReason,
   onSend,
   onCancel,
+  cancelLabel = 'Skip and chat',
   wide,
   children,
 }: Props) {
@@ -83,7 +85,7 @@ export function InteractionShell({
             className="rounded-[6px] px-2.5 py-1 text-[11px] text-text-secondary hover:bg-app-hover disabled:opacity-40"
             style={{ border: '0.5px solid var(--color-border-hover)' }}
           >
-            Skip and chat
+            {cancelLabel}
           </button>
           <button
             onClick={onSend}

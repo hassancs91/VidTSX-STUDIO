@@ -9,6 +9,14 @@ import type {
   FlowsRunGetResponse,
   FlowsRunReplyRequest,
   FlowsRunReplyResponse,
+  FlowsRunArtifactResolveRequest,
+  FlowsRunArtifactResolveResponse,
+  FlowsRunArtifactActionRequest,
+  FlowsRunArtifactActionResponse,
+  FlowsImportRequest,
+  FlowsImportResponse,
+  FlowsExportRequest,
+  FlowsExportResponse,
   FlowsRunResumeRequest,
   FlowsRunResumeResponse,
   FlowsRunStartRequest,
@@ -64,6 +72,13 @@ export const flowsApi = {
     ipcRenderer.invoke(IPC.FLOWS_RUN_GET, data),
   flowsRunReply: (data: FlowsRunReplyRequest): Promise<FlowsRunReplyResponse> =>
     ipcRenderer.invoke(IPC.FLOWS_RUN_REPLY, data),
+  // Flows — W8 Stage 2: a run's artifacts through the shared viewers / action bar; packaging stubs
+  flowsRunArtifactResolve: (data: FlowsRunArtifactResolveRequest): Promise<FlowsRunArtifactResolveResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_ARTIFACT_RESOLVE, data),
+  flowsRunArtifactAction: (data: FlowsRunArtifactActionRequest): Promise<FlowsRunArtifactActionResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_ARTIFACT_ACTION, data),
+  flowsImport: (data: FlowsImportRequest): Promise<FlowsImportResponse> => ipcRenderer.invoke(IPC.FLOWS_IMPORT, data),
+  flowsExport: (data: FlowsExportRequest): Promise<FlowsExportResponse> => ipcRenderer.invoke(IPC.FLOWS_EXPORT, data),
   onFlowsRunEvent: (callback: (event: FlowRunEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: FlowRunEvent) => callback(data);
     ipcRenderer.on(IPC.FLOWS_RUN_EVENT, listener);

@@ -405,6 +405,10 @@ export interface ElectronAPI {
   flowsRunResume: (data: import('../../shared/ipc/types').FlowsRunResumeRequest) => Promise<import('../../shared/ipc/types').FlowsRunResumeResponse>;
   flowsRunGet: (data: import('../../shared/ipc/types').FlowsRunGetRequest) => Promise<import('../../shared/ipc/types').FlowsRunGetResponse>;
   flowsRunReply: (data: import('../../shared/ipc/types').FlowsRunReplyRequest) => Promise<import('../../shared/ipc/types').FlowsRunReplyResponse>;
+  flowsRunArtifactResolve: (data: import('../../shared/ipc/types').FlowsRunArtifactResolveRequest) => Promise<import('../../shared/ipc/types').FlowsRunArtifactResolveResponse>;
+  flowsRunArtifactAction: (data: import('../../shared/ipc/types').FlowsRunArtifactActionRequest) => Promise<import('../../shared/ipc/types').FlowsRunArtifactActionResponse>;
+  flowsImport: (data: import('../../shared/ipc/types').FlowsImportRequest) => Promise<import('../../shared/ipc/types').FlowsImportResponse>;
+  flowsExport: (data: import('../../shared/ipc/types').FlowsExportRequest) => Promise<import('../../shared/ipc/types').FlowsExportResponse>;
   onFlowsRunEvent: (callback: (event: import('../../shared/types/flows').FlowRunEvent) => void) => () => void;
 
   // Tools: Frame Extractor

@@ -26,6 +26,7 @@ export function FormCard({
   restored,
   onAnswer,
   onCancel,
+  cancelLabel,
 }: InteractionCardProps) {
   const fields = request.payload.kind === 'form' ? request.payload.fields : [];
   const [draft, setDraft] = useState<Draft>(() => initialDraft(fields, initialValues));
@@ -51,6 +52,7 @@ export function FormCard({
           : {})}
       onSend={send}
       onCancel={onCancel}
+      {...(cancelLabel !== undefined ? { cancelLabel } : {})}
     >
       <div className="space-y-2.5 pb-1">
         {fields.map((field) => (

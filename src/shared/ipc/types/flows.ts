@@ -8,6 +8,11 @@ import type {
   NodeSpec,
 } from '../../types/flows';
 import type { AgentArtifact, InteractionReply } from '../../types/agents';
+import type {
+  AgentArtifactActionKind,
+  AgentArtifactActionResponse,
+  AgentArtifactResolveResponse,
+} from './agents';
 
 // ─── Flows (node-graph builder) — projects ───
 export interface FlowProjectSummary {
@@ -245,3 +250,25 @@ export interface FlowsImportResponse {
   warnings?: string[];
   error?: string;
 }
+
+// ─── Flows — W8 Stage 2: a run's artifacts through the shared viewers and
+// the shared action bar. Same response shapes as the agents' resolve/action;
+// the request is run-scoped because a run's `artifacts.json` is not a
+// session's. ───
+
+export interface FlowsRunArtifactResolveRequest {
+  runId: string;
+  artifactId: string;
+}
+
+export type FlowsRunArtifactResolveResponse = AgentArtifactResolveResponse;
+
+export interface FlowsRunArtifactActionRequest {
+  runId: string;
+  artifactId: string;
+  action: AgentArtifactActionKind;
+  /** `open-in-studio` only: the open Studio project. */
+  projectId?: string;
+}
+
+export type FlowsRunArtifactActionResponse = AgentArtifactActionResponse;

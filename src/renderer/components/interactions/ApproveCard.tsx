@@ -21,6 +21,7 @@ export function ApproveCard({
   restored,
   onAnswer,
   onCancel,
+  cancelLabel,
 }: InteractionCardProps) {
   const items = request.payload.kind === 'approve' ? request.payload.items : [];
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
@@ -48,6 +49,7 @@ export function ApproveCard({
       sendLabel="Send decisions"
       onSend={send}
       onCancel={onCancel}
+      {...(cancelLabel !== undefined ? { cancelLabel } : {})}
     >
       {items.length > 1 ? (
         <div className="flex items-center gap-1.5 mb-2">

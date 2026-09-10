@@ -1,25 +1,37 @@
 import { useEffect, useState } from 'react';
 import { Select } from '@shared/components/Select';
-import { TextInput } from '@shared/components/TextInput';
 import type { LlmProviderConfig } from '@shared/ipc/types';
+import type { FlowModelMode } from '@shared/types/flows';
 import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
+import { ModelSelect } from '../ModelSelect';
+import { useModelPicker } from '../../hooks/useModelPicker';
 
 interface Props {
   label: string;
   providerId: string;
   model: string;
   onChange: (providerId: string, model: string) => void;
+  /** Decision 12 (flows plan): how the binding is honoured at run time. */
+  modelMode?: FlowModelMode;
+  onModeChange?: (mode: FlowModelMode) => void;
+  disabled?: boolean;
 }
 
+const MODE_OPTIONS: { value: FlowModelMode; label: string }[] = [
+  { value: 'default', label: 'App default (ignore the binding)' },
+  { value: 'preferred', label: 'Preferred (fall back to the default)' },
+  { value: 'required', label: 'Required (refuse to run without it)' },
+];
+
 /**
- * LLM provider + model picker for Flow nodes. Mirrors the structure of
- * ModelPickerField (image) but:
- *  - sources providers from llmProvidersGet()
- *  - has no model catalog IPC, so the model is a free-text input that
- *    autofills from the provider's defaultModel when picked
+ * LLM provider + model for a flow node (W1 catalog, flows plan §0.1 item
+ * 10): the provider list, the shared `ModelSelect` over `useModelPicker`
+ * (the editable catalog with "Custom…" as the free-text escape hatch), and
+ * the binding mode beside it.
  */
-export function LlmModelPickerField({ label, providerId, model, onChange }: Props) {
+export function LlmModelPickerField({ label, providerId, model, onChange, modelMode, onModeChange, disabled }: Props) {
   const [providers, setProviders] = useState<LlmProviderConfig[] | null>(null);
+  const picker = useModelPicker(providerId);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,40 +57,43 @@ export function LlmModelPickerField({ label, providerId, model, onChange }: Prop
     return (
       <div className="flex flex-col gap-1">
         <span className="text-[10px] uppercase tracking-wider text-text-muted">{label}</span>
-        <div className="text-[11px] text-text-dim">
-          No LLM providers configured. Add one in Settings → LLM Providers.
-        </div>
+        <div className="text-[11px] text-text-dim">No LLM providers configured. Add one in AI → Providers.</div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-llm-model-picker>
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-text-muted">
-          {label} — Provider
-        </span>
+        <span className="text-[10px] uppercase tracking-wider text-text-muted">{label} — Provider</span>
         <Select
           value={providerId}
           placeholder="Select a provider"
-          onChange={(nextProviderId) => {
-            const provider = providers.find((p) => p.id === nextProviderId);
-            // Auto-fill model with the provider's defaultModel on first pick so
-            // the inspector isn't blank — user can still edit it.
-            onChange(nextProviderId, provider?.defaultModel ?? '');
-          }}
+          disabled={disabled}
+          onChange={(nextProviderId) => onChange(nextProviderId, '')}
           options={providers.map((p) => ({ value: p.id, label: p.name }))}
         />
       </label>
       {providerId && (
-        <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-text-muted">
-            {label} — Model
-          </span>
-          <TextInput
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-text-muted">{label} — Model</span>
+          <ModelSelect
+            models={picker.models}
+            defaultModel={picker.defaultModel}
             value={model}
-            onChange={(e) => onChange(providerId, e.target.value)}
-            placeholder="e.g. claude-sonnet-4-6"
+            disabled={disabled}
+            onChange={(next) => onChange(providerId, next)}
+          />
+        </div>
+      )}
+      {onModeChange && (
+        <label className="flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-text-muted">Binding</span>
+          <Select
+            value={modelMode ?? 'default'}
+            disabled={disabled}
+            onChange={(next) => onModeChange(next as FlowModelMode)}
+            options={MODE_OPTIONS}
           />
         </label>
       )}

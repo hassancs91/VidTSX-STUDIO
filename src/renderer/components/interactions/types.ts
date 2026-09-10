@@ -56,6 +56,8 @@ export interface InteractionCardProps {
   restored?: boolean;
   onAnswer: (values: InteractionValues) => void;
   onCancel: () => void;
+  /** The footer's second button. Agents say "Skip and chat"; a flow checkpoint says "Stop run" (W8 Stage 2). */
+  cancelLabel?: string;
 }
 
 export type InteractionCard = ComponentType<InteractionCardProps>;

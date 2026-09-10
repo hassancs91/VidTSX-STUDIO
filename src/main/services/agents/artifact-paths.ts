@@ -33,10 +33,16 @@ export async function artifactFiles(
   sessionId: string,
   artifact: AgentArtifact,
 ): Promise<string[]> {
-  const root =
-    artifactRoot(artifact) === 'library'
-      ? await ensureLibraryRoot()
-      : agentWorkspaceDir(agentId, sessionId);
+  return artifactFilesIn(agentWorkspaceDir(agentId, sessionId), artifact);
+}
+
+/**
+ * The same, for any workspace folder (W8 Stage 2): a flow run's `files/`
+ * holds its work files the way a session workspace does, and its media is
+ * in the library like everyone's — so only the workspace root differs.
+ */
+export async function artifactFilesIn(workspaceDir: string, artifact: AgentArtifact): Promise<string[]> {
+  const root = artifactRoot(artifact) === 'library' ? await ensureLibraryRoot() : workspaceDir;
   const resolve = (relPath: string): string =>
     artifactRoot(artifact) === 'library'
       ? resolveLibraryPath(root, relPath)
@@ -78,7 +84,15 @@ export async function ensureCompositionModule(
   sessionId: string,
   artifact: Extract<AgentArtifact, { kind: 'composition' }>,
 ): Promise<string> {
-  const absPath = path.join(agentWorkspaceDir(agentId, sessionId), artifact.payload.relPath);
+  return ensureCompositionModuleIn(agentWorkspaceDir(agentId, sessionId), artifact);
+}
+
+/** The same for any workspace folder (W8 Stage 2: a flow run's `files/`). */
+export async function ensureCompositionModuleIn(
+  workspaceDir: string,
+  artifact: Extract<AgentArtifact, { kind: 'composition' }>,
+): Promise<string> {
+  const absPath = path.join(workspaceDir, artifact.payload.relPath);
   const code = await fs.readFile(absPath, 'utf-8');
   await ensureModuleServer();
   const base = getModuleServerBaseUrl();

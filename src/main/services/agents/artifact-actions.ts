@@ -23,7 +23,7 @@ import { upsertEntry } from '../library/library-store';
 import { sanitizeFolder, slugify, GENERATED_FOLDER } from '../library/library-filing';
 import { importShot } from '../studio/shot-import';
 import { getProjectsDir } from '../../utils/paths';
-import { artifactFiles, artifactRoot } from './artifact-paths';
+import { artifactFiles, artifactFilesIn, artifactRoot } from './artifact-paths';
 import { runWebPageAction } from './web-page-actions';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -42,6 +42,9 @@ export interface ArtifactActionInput {
   /** `export-site` / `open-in-browser`: the session's artifacts, for the
    *  page's media references. */
   artifacts?: AgentArtifact[];
+  /** W8 Stage 2: a flow run's `files/` instead of the session workspace —
+   *  the caller's `agentId` / `sessionId` are then labels only. */
+  workspaceDir?: string;
 }
 
 function extensionFor(artifact: AgentArtifact): string {
@@ -118,7 +121,9 @@ async function openInStudio(
 export async function runArtifactAction(
   input: ArtifactActionInput,
 ): Promise<AgentArtifactActionResponse> {
-  const files = await artifactFiles(input.agentId, input.sessionId, input.artifact);
+  const files = input.workspaceDir
+    ? await artifactFilesIn(input.workspaceDir, input.artifact)
+    : await artifactFiles(input.agentId, input.sessionId, input.artifact);
   const primary = files[0];
   if (!primary) {
     return { success: false, error: 'This artifact has no file yet.' };

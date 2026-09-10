@@ -176,6 +176,9 @@ export const IPC = {
   FLOWS_FREEZE: 'flows:freeze',
   FLOWS_EXPORT: 'flows:export',
   FLOWS_IMPORT: 'flows:import',
+  // W8 Stage 2: a run's artifacts for the run form's viewer and action bar.
+  FLOWS_RUN_ARTIFACT_RESOLVE: 'flows:run:artifact:resolve',
+  FLOWS_RUN_ARTIFACT_ACTION: 'flows:run:artifact:action',
 
   // Image generation operations
   IMAGE_PROVIDERS_GET: 'image:providers:get',

@@ -11,9 +11,10 @@ import {
 } from 'reactflow';
 import { ulid } from 'ulid';
 import type { FlowProject } from '@shared/ipc/types';
-import type { FlowDoc, NodeSpec } from '@shared/types/flows';
+import type { ConfigField, FlowDoc, NodeSpec } from '@shared/types/flows';
 import { legacyPrimaryHandle, parseFlowDoc } from '@shared/flows/migrate-v1';
 import { withGraph } from '@shared/flows/doc-graph';
+import { exposeParam, setNodePause, unexposeParam } from '@shared/flows/params';
 import { EMPTY_GRAPH, type FlowCanvasNodeData } from '../types';
 import { renderGraphThumbnail } from '../services/render-graph-thumbnail';
 
@@ -29,6 +30,11 @@ interface State {
   nodes: FlowNode[];
   edges: FlowEdge[];
   viewport: Viewport;
+  /** The doc as the canvas cannot see it (Stage 2): params and pause
+   *  flags, re-read from `docRef` after every doc-level edit. `rev` bumps
+   *  so the save effect runs for edits the reactflow state never sees. */
+  doc: FlowDoc | null;
+  rev: number;
 }
 
 interface CanvasGraph {
@@ -99,6 +105,8 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
     nodes: [],
     edges: [],
     viewport: { ...EMPTY_GRAPH.viewport },
+    doc: null,
+    rev: 0,
   });
   const lastSavedRef = useRef<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -124,6 +132,8 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
       nodes: [],
       edges: [],
       viewport: { ...EMPTY_GRAPH.viewport },
+      doc: null,
+      rev: 0,
     });
 
     void window.api.flowsProjectLoad({ id: flowId }).then((res) => {
@@ -140,7 +150,7 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
       docRef.current = doc;
       const graph = docToCanvas(doc);
       lastSavedRef.current = JSON.stringify(canvasToDoc(doc, graph, primaryHandle));
-      setState({ status: 'ready', project: res.project, error: null, ...graph });
+      setState({ status: 'ready', project: res.project, error: null, ...graph, doc, rev: 0 });
 
       // Backfill a thumbnail for a project created without one (a template).
       if (!res.project.thumbnail && graph.nodes.length > 0) {
@@ -175,7 +185,7 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
         if (res.success && res.project) {
           lastSavedRef.current = json;
           docRef.current = nextDoc;
-          setState((prev) => ({ ...prev, project: res.project ?? prev.project }));
+          setState((prev) => ({ ...prev, doc: nextDoc, project: res.project ?? prev.project }));
         } else {
           setState((prev) => ({ ...prev, error: res.error ?? 'Failed to save flow' }));
         }
@@ -185,7 +195,7 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [flowId, state.status, state.nodes, state.edges, state.viewport, primaryHandle, categoryOf]);
+  }, [flowId, state.status, state.nodes, state.edges, state.viewport, state.rev, primaryHandle, categoryOf]);
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setState((prev) => ({ ...prev, nodes: applyNodeChanges(changes, prev.nodes) as FlowNode[] }));
@@ -239,10 +249,53 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
       const res = await window.api.flowsProjectUpdate({ id: flowId, name: trimmed });
       if (res.success && res.project) {
         if (docRef.current) docRef.current = { ...docRef.current, name: trimmed };
-        setState((prev) => ({ ...prev, project: res.project ?? prev.project }));
+        setState((prev) => ({ ...prev, doc: docRef.current, project: res.project ?? prev.project }));
       }
     },
     [flowId],
+  );
+
+  // Doc-level edits (Stage 2): params and pause flags live on the doc, not on
+  // the reactflow nodes, so they go through `docRef` and bump `rev` for the
+  // save. The graph in `docRef` is synced from the canvas first, so a bind
+  // can name a config key the canvas set a moment ago.
+  const editDoc = useCallback(
+    (edit: (doc: FlowDoc) => FlowDoc) => {
+      setState((prev) => {
+        const base = docRef.current;
+        if (!base) return prev;
+        const synced = canvasToDoc(base, { nodes: prev.nodes, edges: prev.edges, viewport: prev.viewport }, primaryHandle);
+        const next = edit(synced);
+        if (next === synced) return prev;
+        docRef.current = next;
+        // A bind may have added a config key (`filePath`) the canvas must carry.
+        const nodes = prev.nodes.map((n) => {
+          const docNode = next.graph.nodes.find((d) => d.id === n.id);
+          return docNode && docNode.config !== n.data.config ? { ...n, data: { ...n.data, config: docNode.config } } : n;
+        });
+        return { ...prev, nodes, doc: next, rev: prev.rev + 1 };
+      });
+    },
+    [primaryHandle],
+  );
+
+  const exposeNodeParam = useCallback(
+    (nodeId: string, field: ConfigField) => {
+      const toolId = state.nodes.find((n) => n.id === nodeId)?.data.toolId;
+      const primaryOutput = toolId ? specsRef.current[toolId]?.outputs[0]?.dataType : undefined;
+      editDoc((doc) => exposeParam(doc, { nodeId, field, ...(primaryOutput ? { primaryOutput } : {}) }));
+    },
+    [editDoc, state.nodes],
+  );
+
+  const unexposeNodeParam = useCallback(
+    (nodeId: string, key: string) => editDoc((doc) => unexposeParam(doc, nodeId, key)),
+    [editDoc],
+  );
+
+  const setPause = useCallback(
+    (nodeId: string, pause: boolean) => editDoc((doc) => setNodePause(doc, nodeId, pause)),
+    [editDoc],
   );
 
   return {
@@ -252,6 +305,7 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
     nodes: state.nodes,
     edges: state.edges,
     viewport: state.viewport,
+    doc: state.doc,
     onNodesChange,
     onEdgesChange,
     onConnect,
@@ -259,5 +313,8 @@ export function useFlowGraph(flowId: string, specs: Record<string, NodeSpec>) {
     addNode,
     updateNodeConfig,
     renameFlow,
+    exposeNodeParam,
+    unexposeNodeParam,
+    setPause,
   };
 }

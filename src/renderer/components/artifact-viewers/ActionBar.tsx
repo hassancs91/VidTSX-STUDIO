@@ -25,10 +25,13 @@ const ACTIONS: Record<AgentArtifactActionKind, { label: string; icon: typeof Sav
 const BY_KIND: Record<ArtifactKind, AgentArtifactActionKind[]> = {
   document: ['save-to-library', 'open-folder', 'copy-path'],
   composition: ['send-to-queue', 'open-in-creator', 'open-in-studio', 'save-to-library', 'copy-path'],
-  video: ['open-folder', 'copy-path'],
-  'image-set': ['open-folder', 'copy-path'],
+  // W8 Stage 2: media is already in the library — the action REPORTS where
+  // (and opens Assets there) rather than copying; offered so a flow's output
+  // has the same first button a document does.
+  video: ['save-to-library', 'open-folder', 'copy-path'],
+  'image-set': ['save-to-library', 'open-folder', 'copy-path'],
   job: [],
-  audio: ['open-folder', 'copy-path'],
+  audio: ['save-to-library', 'open-folder', 'copy-path'],
   'web-page': ['open-in-browser', 'export-site', 'open-folder', 'copy-path'],
 };
 

@@ -29,6 +29,7 @@ export function PickCard({
   restored,
   onAnswer,
   onCancel,
+  cancelLabel,
 }: InteractionCardProps) {
   const payload = request.payload.kind === 'pick' ? request.payload : null;
   const candidates = payload?.candidates ?? [];
@@ -64,6 +65,7 @@ export function PickCard({
       {...(chosen.length === 0 ? { blockedReason: 'Nothing chosen yet' } : {})}
       onSend={send}
       onCancel={onCancel}
+      {...(cancelLabel !== undefined ? { cancelLabel } : {})}
     >
       <div className={compare ? 'grid grid-cols-2 gap-2 pb-1' : 'space-y-1.5 pb-1'}>
         {candidates.map((candidate) => {
