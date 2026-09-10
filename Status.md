@@ -13,7 +13,7 @@ Workstream W6 of `docs/v1-completion-plan.md` §2.6 — the plan's second cut
 line. Full outcome under the W6 acceptance paragraph in the plan.
 `check:types` at baseline (web 26, node 10); 2013 tests, up from 2002;
 `npm run build` passes with Home as the default screen. Commits by
-pathspec: the posters, the Home feature, and the docs commit.
+pathspec: `a80dbcf` (posters), `fcc6524` (Home), `a92a8ef` + this one (docs).
 
 - **Posters.** `project-poster.ts` + the pure `project-poster-pick.ts`:
   `<project>/cache/poster.jpg` from the first video clip on the top-most

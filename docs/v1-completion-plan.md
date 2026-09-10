@@ -1058,9 +1058,9 @@ CDP 9223 — `.vidtsx-temp/w6/` beside the earlier folders). `check:types` at
 baseline (web 26, node 10); 2013 tests passing, up from 2002 (the pure
 poster picker, the Home merge/format helpers). `npm run build` passes with
 Home as the default screen (`--outDir .vidtsx-temp/w6-build`, so the other
-session's `out/` was never touched). Three commits by pathspec beside the
-export-engines session's dirty tree: the posters, the Home feature, and the
-docs commit that carries this section. No provider call, no LLM row, no
+session's `out/` was never touched). Commits by pathspec beside the
+export-engines session's dirty tree: `a80dbcf` (the posters), `fcc6524` (the
+Home feature), `a92a8ef` and the hash-note commit after it (the docs that carry this section). No provider call, no LLM row, no
 cloud spend — the run needed none.
 
 **Posters, as built.** `src/main/services/studio/project-poster.ts` writes
