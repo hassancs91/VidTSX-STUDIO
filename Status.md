@@ -7,6 +7,60 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W9 DONE: web designer agent
+
+Workstream W9 of `docs/v1-completion-plan.md` §2.9 — the last workstream of
+the night; W8 Flows stays parked by decision. Full outcome under the W9
+acceptance paragraph in the plan. `check:types` at baseline (web 26, node
+10); 2035 tests, up from 2013; `electron-vite build --outDir
+.vidtsx-temp/w9-build` passes. Commits by pathspec: `1a57a15` (the `web-page`
+kind, write_page / edit_page / capture_page / export_site, the sandboxed
+WebPageViewer), `c58e39e` (the `vidtsx/web-designer` built-in), this one
+(docs).
+
+- **The kind.** `ARTIFACT_KINDS` gains `'web-page'` (`{ relPath, refs,
+  inlineBytes }`, workspace root); `AGENT_TOOL_IDS` gains `write_page`,
+  `edit_page`, `capture_page`, `export_site` — both append-only. Every
+  kind-switch site W2b listed follows. `src/shared/agents/web-page.ts` holds
+  the one grammar: `artifact:<id>[/<n>]` references, the validator (one
+  document, nothing external, no network API, `<a href>` links allowed), the
+  viewer CSP verbatim from the plan, the export CSP, the three widths, the
+  16 MB inlined cap.
+- **The tools.** `write_page` validates, resolves references against the
+  session's own media artifacts, weighs the inlined page and stores it;
+  `edit_page` = one instruction through the session's model, same gate, new
+  version; `capture_page` renders the inlined page in a sandboxed offscreen
+  window whose `webRequest` cancels everything but its own file, files the
+  PNG as an image-set and hands the model a JPEG (new
+  `AgentToolResult.images`); `export_site` writes `site-<slug>/` (index.html +
+  assets/) and the zip into the session's library folder.
+- **The viewer.** `WebPageViewer` — `sandbox="allow-scripts"`, no
+  `allow-same-origin`, srcdoc under the CSP, Desktop / Tablet / Phone; the
+  stage action bar gains `open-in-browser` and `export-site` for this kind.
+- **The built-in.** `vidtsx/web-designer` 1.0.0 with the `web-design` skill,
+  a three-question starter (the brand question is the session brand picker),
+  three quick starts, `files[]` hashed by `agent-pack.mjs --hash`.
+- **Acceptance, live (session `s-e156225f`, Opus 5, brand `acme-test`).**
+  Poster image → cheapest-available fal clip (`seedance-2.0-fast`, 5 s,
+  $1.20 — the requested `seedance-1-lite` is a legacy catalog entry the tool
+  does not offer; $0.20 over the brief's cap) → the job note woke the agent →
+  `write_page` → two `capture_page`s → `edit_page` → `web-page-7` v2. Viewer
+  screenshotted at all three widths; "Export site" → folder + zip; Edge
+  (remote-debugged) plays the hero `<video>` (`currentTime 1.6 → 3.1 s`, no
+  failed requests); the export is copied to
+  `C:\Users\Malak\Videos\VidTSX\vidtsx-landing-site-w9\`. Network block:
+  `write_page` refused the `<img src="https://example.com/x.png">` +
+  `fetch('https://example.com')` page with three named findings; the same
+  page written straight into the viewer iframe rendered "fetch rejected |
+  img onerror fired | parent blocked: SecurityError" with zero requests to
+  example.com on the wire.
+- **Left.** Per-model prices in `generate_video`'s catalog answer (so
+  "cheapest" is decidable); a first-screen capture default (full pages reach
+  the model small); a Home thumbnail for web-page sessions; `edit_page` has
+  no fix loop; main-started turns still read `busy: false` in the renderer.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W6 DONE: project posters + Home
 
 Workstream W6 of `docs/v1-completion-plan.md` §2.6 — the plan's second cut

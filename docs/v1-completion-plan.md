@@ -1389,6 +1389,196 @@ Owned by the flows plan; the pending discussion goes there. What THIS plan needs
 
 **Acceptance.** One session takes "a landing page for VidTSX with a hero video and three feature cards" to an exported folder that opens in Edge with the generated hero video playing; the viewer shows it at all three widths; nothing in the page can reach the network.
 
+#### W9 outcome (2026-09-10) — what was built, what the run showed, and what it leaves
+
+Everything the section lists is built, unit-tested, committed and driven end
+to end in the real app on the second dev instance (W3 profile and its keys,
+own out dir, CDP 9223 — `.vidtsx-temp/w9/` beside the earlier folders).
+`check:types` at baseline (web 26, node 10); 2035 tests passing, up from
+2013. `electron-vite build --outDir .vidtsx-temp/w9-build` passes (called
+directly, because `npm run build` runs `build:vendor` first and that rewrites
+`resources/vendor/*.js`, which another session has dirty). Commits by
+pathspec beside the export-engines session's tree: `1a57a15` (the kind, the
+four tools, the viewer, every kind-switch site), `c58e39e` (the built-in) and
+the docs commit that carries this section. Spend: five Opus 5 turns on the
+subscription route ($0.71 API-equivalent), one Antigravity image ($0) and
+ONE fal clip — **$1.20, over the brief's $1 cap by $0.20**, see below.
+
+**The grammar, in one shared file.** `src/shared/agents/web-page.ts` is what
+the tools, the resolve handler, the exporter and the viewer all import, so
+they cannot disagree. A page refers to media as `artifact:<id>` (a video or
+audio artifact) or `artifact:<id>/<n>` (the n-th image of an image-set), in
+`src`, `poster`, `srcset` or CSS `url()`; `rewriteArtifactRefs` turns those
+into data URIs for the viewer and the capture window, and into
+`assets/<id>[-<n>].<ext>` for the export. `validateWebPageDocument` is the
+gate: one complete document (`<!doctype html>` … `</html>`, exactly one
+`<html>`); no `<script src>`, `<link href>` (fonts and stylesheets go inline),
+`@import`, `<meta refresh>`, `<iframe>`/`<frame>`/`<embed>`/`<object>`/
+`<base>`; no http(s)/ws/file/protocol-relative URL in any attribute the
+browser LOADS (`src`, `poster`, `srcset`, `action`, `formaction`, `data`,
+`ping`, `background`, `manifest`, `xlink:href`), in CSS `url()`, in an `on*`
+handler or inside a `<script>`; no `fetch(`, `XMLHttpRequest`, `WebSocket(`,
+`EventSource(`, `sendBeacon(`, workers or dynamic `import(`; a relative path
+that is not an artifact is refused too (it would dangle after export). An
+`<a href="https://…">` stays allowed — a link navigates on a click, it loads
+nothing. The viewer CSP is the plan's string verbatim (`default-src 'none';
+img-src data: blob:; media-src data: blob:; style-src 'unsafe-inline';
+script-src 'unsafe-inline'; font-src data:`), injected as the FIRST child of
+`<head>`; the export gets the same policy plus `'self' file:` on img/media/
+font so `assets/` loads from disk and from a host. The 16 MB cap is measured
+as the page would weigh inlined (base64 = 4/3 of the bytes, per reference).
+
+**The tools.** `write_page` (title + the whole HTML) stores through
+`web-page-store.ts` — validate, resolve every reference against the session's
+OWN media artifacts (`artifactFiles`, so the model never names a path), weigh
+it, refuse over the cap naming the heaviest references — into
+`work/pages/<slug>.html`, and returns a `web-page` artifact (`{ relPath,
+refs, inlineBytes }`, workspace root). `edit_page` hands the page and one
+instruction to the session's model (the turn's provider + model, `agentId`
+stamped on the usage row) and stores the answer through the same gate as a
+new version (`supersedes`), so an edit can no more reach the network than a
+write can. `capture_page` renders the inlined page in its own sandboxed,
+isolated in-memory BrowserWindow (`web-page-capture.ts` — a sibling of the
+library's capture window, which only takes http(s)): the temp file lives in
+the session workspace, the session's `webRequest.onBeforeRequest` cancels
+every request that is not the main-frame load of that one file, permissions
+and `window.open` are denied, audio muted, destroyed in `finally`. The PNG
+goes through Content Safety Gate B, into the session's library folder as an
+`image-set` artifact (so the user sees what the agent looked at), and a
+reduced JPEG rides back to the MODEL as an MCP image block — the new
+`AgentToolResult.images`, appended by the tool server — which is how the
+agent reviews its own layout. `export_site` writes a fresh `site-<slug>`
+folder (`index.html` + `assets/`) and `site-<slug>.zip` (through
+`PackageZipWriter`, media stored not deflated) into the session's §1.11
+library folder and returns the paths. The four ids are appended to
+`AGENT_TOOL_IDS`; `'web-page'` is appended to `ARTIFACT_KINDS` and every
+site W2b listed follows (store containment, paths, actions, `list_artifacts`,
+the resolve handler, the action bar, the filmstrip icon, the manifest
+capability line, the chat labels, the viewer registry).
+
+**The viewer.** `WebPageViewer.tsx` in `src/renderer/components/
+artifact-viewers/` (the registry's home, where the plan's §2.9 path pointed
+before W7 moved the shared half): an `<iframe sandbox="allow-scripts">` —
+no `allow-same-origin`, so the page has an opaque origin and cannot reach
+this window, its storage or the preload bridge — with `srcDoc` built by
+`buildWebPageSrcdoc` over the HTML the resolve handler answers with every
+reference already inlined; keyed per artifact version; Desktop (full pane) /
+Tablet (820 px) / Phone (390 px) toggles, the same three widths
+`capture_page` shoots at; a "Sandboxed · no network · N KB inlined" line.
+"Open in browser" and "Export site" are on the stage ACTION BAR under the
+pane rather than inside the viewer — viewers are plain components with no
+IPC (the registry contract Flows shares), and every handoff lives in that
+bar. Two new `AgentArtifactActionKind`s: `open-in-browser` writes
+`work/preview/<id>-v<n>/` (overwritten per version) and `shell.openPath`es
+its `index.html`; `export-site` runs the same export the tool does and
+reveals the folder; the response's new `path` carries the folder into the
+toast. Nothing new crosses the preload: the existing artifact resolve/action
+channels carry it all.
+
+**The built-in.** `resources/agents/vidtsx/web-designer/` — AGENT.md (brief
+→ `get_brand` → structure and copy → assets, saying the cost first →
+`write_page` → `capture_page` at desktop and phone, then `edit_page` one
+instruction at a time → show, wait → `export_site` on request), the
+`web-design` skill (type scale in rem, the 8 px grid, mobile-first rules,
+accessibility basics, ten section patterns, the reference grammar, a done
+checklist), agent.json with the §2.9 tools plus `get_brand` and
+`list_artifacts`, a three-question starter (what the page is for, who it is
+for, which brand — the brand answer is the session brand picker the starter
+already renders above its questions, with "no brand" and "Other…" as the
+alternatives), three quick starts, `maxTurns` 32, `files[]` hashed by
+`scripts/agent-pack.mjs --hash` and checked with `--check`. No icon.
+
+**Acceptance evidence.** Session **`s-e156225f`** on the W3 profile,
+`claude-subscription` / `claude-opus-5` (set on the chip), brand `acme-test`,
+the starter answered on its cards (purpose, audience, "The brand picked
+above"), the opening prefilled and sent with one line appended asking for the
+cheapest fal clip. Turn 1: `get_brand` → `generate_image` (the poster: "dark
+deep-ocean-blue desktop app screen", 1376×768, Antigravity) → `generate_video`
+→ "Submitted — I'll build the page once it lands", turn ended as AGENT.md
+says. The clip landed 3½ minutes later (`video-3`, 1280×720 H.264, 5.04 s,
+1.74 MB, `hasAudio: false`) and the job note woke the agent on its own:
+`write_page` → **`web-page-4`** (`pages/vidtsx-studio-landing.html`, refs
+`video-3` + `image-set-1`, 3.18 MB inlined) → `capture_page` desktop
+(`image-set-5`, 2880×8352 — the machine's 2.25× DPR, full page) →
+`capture_page` phone (`image-set-6`, 878×9255) → `edit_page` →
+**`web-page-7` v2** (`producer: edit_page`, 6 bytes different) → "The page is
+up: hero with the looping clip, a small proof strip, three feature cards,
+three steps with the app screenshot, and the download call to action top and
+bottom." The page: Acme Test palette verbatim (`#0F4C81 / #7FB3D5 / #0B1D2A /
+#F4F6F7 / #F5B041`), Georgia display, "Write TSX. Ship the video.", the hero
+`<video autoplay muted loop playsinline poster=…>`, three cards, one
+external `<a href="https://learnwithhasan.com">`. Viewer: the three widths
+screenshotted through CDP — `.vidtsx-temp/w9/viewer-desktop.png`,
+`viewer-tablet.png`, `viewer-phone.png` (the iframe reads
+`sandbox="allow-scripts"`, srcdoc 3 932 KB, 390 px wide at Phone). Export:
+"Export site" on the action bar → `…\assets\agents\web-designer\
+a-landing-page-for-vidtsx-with-a-hero-video-and\site-vidtsx-studio-landing\`
+(`index.html` 9 132 bytes with the export CSP first in `<head>`, ZERO
+`artifact:` tokens left, `src="assets/video-3.mp4"`,
+`poster="assets/image-set-1.png"`; `assets/video-3.mp4` ffprobe h264
+1280×720 5.04 s; `assets/image-set-1.png`) plus `site-vidtsx-studio-landing.zip`
+(2.38 MB, two entries). **Edge**: started with `--remote-debugging-port=9333`
+on that `index.html` and read over CDP — the hero `<video>` at `readyState 4,
+paused false, currentTime 1.62 → 3.13 s` a second and a half apart, 1280×720,
+no media error; the poster `<img>` complete; the CSP meta on the document;
+zero failed requests; `.vidtsx-temp/w9/edge-export.png` shows it. The whole
+export is copied for Hasan to
+**`C:\Users\Malak\Videos\VidTSX\vidtsx-landing-site-w9\`** (folder, zip and
+the two agent captures). "Open in browser" wrote `work/preview/web-page-7-v2/`
+and the default browser (Chrome on this machine) opened it.
+
+**The network block, proven twice.** (a) A real turn: "write a small test
+page with an external `<img src="https://example.com/x.png">` and a script
+calling `fetch('https://example.com')`" → `write_page` answered, and the agent
+relayed verbatim: "The page was not stored. Fix these and write it again: -
+`<img src="https://example.com/x.png">` reaches the network — the page may
+only reference artifacts (artifact:<id>) or data: URIs - A `<script>` uses a
+network API (fetch, XMLHttpRequest, WebSocket, EventSource, sendBeacon,
+workers or dynamic import) — the page must not reach the network. - A
+`<script>` contains an http(s)/ws URL — the page must not reach the network."
+No artifact was created. (b) The validator bypassed: `w9-csp-probe.mjs` wrote
+a probe page (the same external image, the same fetch, a `new WebSocket`, a
+`parent.document.title` read, one data-URI image) straight into the viewer's
+iframe `srcdoc` under the viewer CSP, then read the app over CDP with
+Network + Log enabled: the page itself rendered "parent blocked:
+SecurityError | fetch rejected: Failed to fetch | img onerror fired", the
+data-URI image drew, the external image is a broken icon, and **zero**
+`Network.requestWillBeSent` events named example.com — the CSP refuses the
+loads before a request exists (`.vidtsx-temp/w9/csp-probe.png`). The unit
+side: `web-page.test.ts` asserts the CSP string verbatim and the two probes'
+rejections; `write-page.test.ts` runs both probes through the tool. Main log
+for the profile after the run: 499 lines, one `warn` (sd-cli not installed,
+from startup, not this feature), zero `error`, zero "Blocked a request" — the
+agent's own captures never tried to load anything.
+
+**The $0.20 over the cap.** The brief asked for `seedance-1-lite` ($0.03/s);
+it is in `FAL_LEGACY_VIDEO_MODELS`, which the offered catalog does not
+include, so `generate_video` listed what exists and the agent chose
+`seedance-2.0-fast` (720p, $0.24/s → **$1.20**) without saying so. The usage
+row is `fal | seedance-2.0-fast | agent | vidtsx/web-designer | $1.20`. The
+cheap ids in the offered catalog are `hailuo-02` ($0.045/s) and
+`kling-2.5-turbo-pro` ($0.08/s); AGENT.md says "cheapest model and
+resolution", the tool's description says cost scales with resolution, and
+neither names a price per model — a follow-up is to have `generate_video`'s
+catalog listing carry the per-second price so the model can actually pick the
+cheapest one.
+
+**Not done / left for later.** `capture_page` files the PNG at the machine's
+DPR (2880 px wide here) and hands the model a 1024-px-wide JPEG of the WHOLE
+page; a 9 000-px-tall page reaches the model small — a per-section or
+first-screen default would read better. No thumbnail on the Home card for a
+`web-page` session (W6 left `HomeAgentSession` for it; the desktop capture
+would do). The exported page is `file://`-tested only; the CSP carries
+`'self'` for a host, untested. `edit_page` makes one model call with the whole
+page and no fix loop — a result that fails the gate is reported, not
+retried. The renderer's `busy` flag stays false for a turn main starts on its
+own (the job note) — the W7 caveat, seen again; the stage still updates live.
+The model chip's popover renders upward and can clip at the window top. The
+"Open in browser" preview folder lives in the session workspace and goes
+with the session. The session and its workspace were deleted afterwards; the
+library files (poster, clip, two captures, the export and its zip) stay in
+the W3 profile's assets, and the copy in `Videos\VidTSX` is Hasan's.
+
 ## 3. Order, cut lines and the Studio flip
 
 | Step | Workstream | Sessions | Releasable after? |
