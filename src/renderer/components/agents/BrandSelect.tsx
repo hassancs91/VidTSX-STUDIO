@@ -1,6 +1,6 @@
 import { Palette } from 'lucide-react';
 import { Select } from '@shared/components/Select';
-import type { AgentBrandOption } from '../hooks/useAgentBrandList';
+import type { AgentBrandOption } from '../../hooks/agents/useAgentBrandList';
 
 interface Props {
   brands: AgentBrandOption[];

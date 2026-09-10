@@ -1,10 +1,10 @@
 // View types for the Agents feature. Anything main also needs lives in
 // `src/shared/types/agents.ts`; these exist only inside the renderer.
 
-import type { ChatRowMessage } from '@renderer/components/agent-chat/AgentMessageRow';
+import type { AgentChatRow } from '@renderer/hooks/agents/event-folding';
 
-/** A chat row plus the live-stream flag; the persisted shape has neither. */
-export type AgentChatRow = ChatRowMessage;
+/** The chat row the shared run hook folds events into (W7: lives with the hook). */
+export type { AgentChatRow };
 
 /** Which half of the Agents screen is on: the grid, or one agent's workspace. */
 export type AgentsView =

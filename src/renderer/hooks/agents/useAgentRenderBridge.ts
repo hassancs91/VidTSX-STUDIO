@@ -23,7 +23,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useRenderQueue } from '@features/render-queue';
 import type { RenderQueueJobStatus } from '@shared/ipc/types';
 import type { AgentArtifact, AgentJobRequest, AgentJobStatus } from '@shared/types/agents';
-import { matchRenderJob, matchRenderRow } from '../services/render-job-match';
+import { matchRenderJob, matchRenderRow } from './render-job-match';
 
 /** Queue vocabulary → artifact vocabulary. */
 const STATUS: Record<RenderQueueJobStatus, AgentJobStatus> = {

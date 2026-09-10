@@ -11,8 +11,8 @@ import { AlertTriangle, Brain, RotateCcw, Send, Square } from 'lucide-react';
 import { AgentMessageRow } from '@renderer/components/agent-chat/AgentMessageRow';
 import { ModelPickerChip } from '@renderer/components/ModelPickerChip';
 import type { LlmProviderConfig } from '@shared/ipc/types';
-import type { AgentChatRow } from '../types';
-import { AGENT_TOOL_LABELS } from '../services/event-folding';
+import type { AgentChatRow } from '../../hooks/agents/event-folding';
+import { AGENT_TOOL_LABELS } from '../../hooks/agents/event-folding';
 import { QuickStarts } from './QuickStarts';
 
 interface Props {

@@ -14,7 +14,7 @@ import type {
   InteractionReply,
   InteractionRequest,
 } from '@shared/types/agents';
-import type { AgentChatRow } from '../types';
+import type { AgentChatRow } from './event-folding';
 import {
   appendDelta,
   appendToolCall,
@@ -24,7 +24,7 @@ import {
   noteOnPending,
   preferredArtifactId,
   startTurn,
-} from '../services/event-folding';
+} from './event-folding';
 
 export interface UseAgentRunOptions {
   agentId: string;

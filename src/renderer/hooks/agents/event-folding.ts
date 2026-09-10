@@ -5,7 +5,10 @@
 // event and returns a new list. The hook only decides WHEN to call them.
 
 import type { AgentArtifact } from '@shared/types/agents';
-import type { AgentChatRow } from '../types';
+import type { ChatRowMessage } from '../../components/agent-chat/AgentMessageRow';
+
+/** A chat row plus the live-stream flag; the persisted shape has neither. */
+export type AgentChatRow = ChatRowMessage;
 
 /** Friendly labels for the wave-1 tools; unknown ids show their raw name. */
 export const AGENT_TOOL_LABELS: Record<string, string> = {

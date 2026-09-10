@@ -13,8 +13,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { StarterAnswers } from '@shared/types/agents';
 import { renderOpening, type StarterTree } from '@shared/agents/starter';
 import { isEmptyStarterAnswers, starterTitle } from '../services/starter-cards';
-import type { useAgentSessions } from './useAgentSessions';
-import type { useAgentProviders } from './useAgentProviders';
+import type { useAgentSessions } from '@renderer/hooks/agents/useAgentSessions';
+import type { useAgentProviders } from '@renderer/hooks/agents/useAgentProviders';
 
 /** Text dropped into the chat box, never sent. The token lets the same text be
  *  prefilled twice — one quick start, edited, clicked again. */

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { AgentArtifact } from '@shared/types/agents';
-import type { AgentChatRow } from '../types';
+import type { AgentChatRow } from './event-folding';
 import {
   appendDelta,
   appendToolCall,
