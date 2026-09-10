@@ -1,0 +1,191 @@
+{
+  "formatVersion": 2,
+  "id": "vidtsx/product-ad",
+  "name": "Product ad",
+  "description": "Product photo + description → three hero images (pick one) → a 6 s clip (Hailuo 02, ~$0.27) → a composition around it → MP4.",
+  "params": [
+    {
+      "id": "product",
+      "label": "Product image",
+      "kind": "image",
+      "required": true,
+      "bind": [
+        {
+          "nodeId": "n-product",
+          "key": "filePath"
+        }
+      ]
+    },
+    {
+      "id": "description",
+      "label": "Product and the shot you want",
+      "kind": "prompt",
+      "required": true,
+      "rows": 4,
+      "placeholder": "e.g. A matte-black insulated bottle on a wet rock at dawn, mist, soft rim light",
+      "bind": [
+        {
+          "nodeId": "n-text",
+          "key": "prompt"
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "n-product",
+        "toolId": "input_image_file",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "config": {
+          "filePath": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-text",
+        "toolId": "input_text",
+        "position": {
+          "x": 80,
+          "y": 300
+        },
+        "config": {
+          "prompt": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-hero",
+        "toolId": "generate_image",
+        "position": {
+          "x": 480,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "",
+          "width": 1280,
+          "height": 720,
+          "count": 3
+        },
+        "pause": true
+      },
+      {
+        "id": "n-clip",
+        "toolId": "generate_video",
+        "position": {
+          "x": 880,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "hailuo-02",
+          "aspectRatio": "16:9",
+          "durationSeconds": "6",
+          "resolution": "",
+          "generateAudio": "off"
+        },
+        "pause": false
+      },
+      {
+        "id": "n-compose",
+        "toolId": "generate_composition",
+        "position": {
+          "x": 1280,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "",
+          "modelMode": "default",
+          "title": "Product ad",
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "durationSeconds": 10,
+          "styleNotes": "The provided video is the hero shot: play it full-frame for its whole length, then end on a clean product title card with one line of copy taken from the brief."
+        },
+        "pause": false
+      },
+      {
+        "id": "n-render",
+        "toolId": "render_composition",
+        "position": {
+          "x": 1680,
+          "y": 80
+        },
+        "config": {
+          "name": "product-ad"
+        },
+        "pause": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n-text",
+        "sourceHandle": "text",
+        "target": "n-hero",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e2",
+        "source": "n-product",
+        "sourceHandle": "image",
+        "target": "n-hero",
+        "targetHandle": "referenceImages"
+      },
+      {
+        "id": "e3",
+        "source": "n-text",
+        "sourceHandle": "text",
+        "target": "n-clip",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e4",
+        "source": "n-hero",
+        "sourceHandle": "image",
+        "target": "n-clip",
+        "targetHandle": "firstFrame"
+      },
+      {
+        "id": "e5",
+        "source": "n-text",
+        "sourceHandle": "text",
+        "target": "n-compose",
+        "targetHandle": "brief"
+      },
+      {
+        "id": "e6",
+        "source": "n-clip",
+        "sourceHandle": "video",
+        "target": "n-compose",
+        "targetHandle": "video"
+      },
+      {
+        "id": "e7",
+        "source": "n-compose",
+        "sourceHandle": "composition",
+        "target": "n-render",
+        "targetHandle": "composition"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "outputs": [
+    {
+      "nodeId": "n-render",
+      "handle": "video",
+      "label": "Video"
+    }
+  ],
+  "origin": null
+}

@@ -1,0 +1,150 @@
+{
+  "formatVersion": 2,
+  "id": "vidtsx/explainer-30s",
+  "name": "30-second explainer",
+  "description": "Topic → script → animated Remotion composition (checkpoint) → rendered MP4. LLM turns only; no priced media steps.",
+  "params": [
+    {
+      "id": "topic",
+      "label": "Topic",
+      "kind": "prompt",
+      "required": true,
+      "rows": 4,
+      "placeholder": "What should the explainer teach, and to whom?",
+      "bind": [
+        {
+          "nodeId": "n-topic",
+          "key": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "style",
+      "label": "Style",
+      "kind": "select",
+      "options": [
+        {
+          "value": "Style: Clean — generous whitespace, one accent colour on a light background, calm easing, a clear sans-serif.",
+          "label": "Clean"
+        },
+        {
+          "value": "Style: Bold — big type, high contrast, dark background, punchy spring animations, one loud accent colour.",
+          "label": "Bold"
+        },
+        {
+          "value": "Style: Playful — rounded shapes, bright palette, bouncy easing, friendly illustration-like elements.",
+          "label": "Playful"
+        }
+      ],
+      "default": "Style: Clean — generous whitespace, one accent colour on a light background, calm easing, a clear sans-serif.",
+      "bind": [
+        {
+          "nodeId": "n-compose",
+          "key": "styleNotes"
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "n-topic",
+        "toolId": "input_text",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "config": {
+          "prompt": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-script",
+        "toolId": "generate_text",
+        "position": {
+          "x": 480,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "",
+          "modelMode": "default",
+          "promptPrefix": "Write the script for a 30-second explainer video about the topic below. Return ONLY the script: 5 to 7 short on-screen beats, one per line, each a headline (max 8 words) followed by a dash and one supporting sentence. No preamble, no notes.",
+          "systemPrompt": "You write tight, concrete explainer scripts for animated videos. Plain words, active voice, one idea per beat, a memorable closing line.",
+          "extract": "strip-fences",
+          "useBrand": "on"
+        },
+        "pause": false
+      },
+      {
+        "id": "n-compose",
+        "toolId": "generate_composition",
+        "position": {
+          "x": 880,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "",
+          "modelMode": "default",
+          "title": "Explainer",
+          "width": 1920,
+          "height": 1080,
+          "fps": 30,
+          "durationSeconds": 30,
+          "styleNotes": "Style: Clean — generous whitespace, one accent colour on a light background, calm easing, a clear sans-serif."
+        },
+        "pause": true
+      },
+      {
+        "id": "n-render",
+        "toolId": "render_composition",
+        "position": {
+          "x": 1280,
+          "y": 80
+        },
+        "config": {
+          "name": "explainer-30s"
+        },
+        "pause": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n-topic",
+        "sourceHandle": "text",
+        "target": "n-script",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e2",
+        "source": "n-script",
+        "sourceHandle": "text",
+        "target": "n-compose",
+        "targetHandle": "brief"
+      },
+      {
+        "id": "e3",
+        "source": "n-compose",
+        "sourceHandle": "composition",
+        "target": "n-render",
+        "targetHandle": "composition"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "outputs": [
+    {
+      "nodeId": "n-render",
+      "handle": "video",
+      "label": "Video"
+    }
+  ],
+  "origin": null
+}

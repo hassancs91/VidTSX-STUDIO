@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
-import { THUMBNAIL_SYSTEM_PROMPT } from './thumbnail-system-prompt';
+import { THUMBNAIL_SYSTEM_PROMPT } from '@shared/prompts/thumbnail-system-prompt';
 
 type Orientation = 'horizontal' | 'vertical';
 

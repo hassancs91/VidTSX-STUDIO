@@ -1,0 +1,88 @@
+{
+  "formatVersion": 2,
+  "id": "vidtsx/frame-strip",
+  "name": "Frame strip",
+  "description": "A video → N frames sampled evenly across it, as PNGs in the library. Free.",
+  "params": [
+    {
+      "id": "video",
+      "label": "Video",
+      "kind": "video",
+      "required": true,
+      "bind": [
+        {
+          "nodeId": "n-video",
+          "key": "filePath"
+        }
+      ]
+    },
+    {
+      "id": "count",
+      "label": "Frames",
+      "kind": "number",
+      "min": 1,
+      "max": 24,
+      "step": 1,
+      "default": 8,
+      "bind": [
+        {
+          "nodeId": "n-frames",
+          "key": "count"
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "n-video",
+        "toolId": "input_video_file",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "config": {
+          "filePath": "",
+          "entryId": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-frames",
+        "toolId": "extract_frame",
+        "position": {
+          "x": 480,
+          "y": 80
+        },
+        "config": {
+          "atSeconds": 0,
+          "count": 8,
+          "format": "png"
+        },
+        "pause": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n-video",
+        "sourceHandle": "video",
+        "target": "n-frames",
+        "targetHandle": "video"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "outputs": [
+    {
+      "nodeId": "n-frames",
+      "handle": "images",
+      "label": "Frames"
+    }
+  ],
+  "origin": null
+}

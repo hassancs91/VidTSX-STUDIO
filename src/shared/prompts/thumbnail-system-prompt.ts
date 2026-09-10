@@ -1,3 +1,8 @@
+// The Thumbnail Generator system prompt (Tools hub), shared with the
+// `vidtsx/thumbnail` built-in flow (docs/flows-plan.md §1.7, W8 Stage 3): the
+// hook imports it, and `flows-builtins.test.ts` asserts the fixture carries
+// this exact text as its locked `generate_text` system prompt. Pure data.
+
 export const THUMBNAIL_SYSTEM_PROMPT = `You are a YouTube Thumbnail Prompt Generator. Your job is to generate creative, attention-grabbing image prompts that can be used to create YouTube thumbnails with AI image generation tools.
 
 ## Input

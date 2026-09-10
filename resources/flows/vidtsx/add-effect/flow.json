@@ -1,0 +1,160 @@
+{
+  "formatVersion": 2,
+  "id": "vidtsx/add-effect",
+  "name": "Add an effect",
+  "description": "A video → its first frame → the frame restyled by an image model → a 5 s clip animated from that frame (Kling 2.5 Turbo Pro, ~$0.40).",
+  "params": [
+    {
+      "id": "video",
+      "label": "Video",
+      "kind": "video",
+      "required": true,
+      "bind": [
+        {
+          "nodeId": "n-video",
+          "key": "filePath"
+        }
+      ]
+    },
+    {
+      "id": "effect",
+      "label": "Effect",
+      "kind": "prompt",
+      "required": true,
+      "rows": 3,
+      "placeholder": "e.g. Turn it into a hand-painted watercolour, soft edges, paper texture",
+      "bind": [
+        {
+          "nodeId": "n-text",
+          "key": "prompt"
+        }
+      ]
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "n-video",
+        "toolId": "input_video_file",
+        "position": {
+          "x": 80,
+          "y": 80
+        },
+        "config": {
+          "filePath": "",
+          "entryId": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-text",
+        "toolId": "input_text",
+        "position": {
+          "x": 80,
+          "y": 300
+        },
+        "config": {
+          "prompt": ""
+        },
+        "pause": false
+      },
+      {
+        "id": "n-frame",
+        "toolId": "extract_frame",
+        "position": {
+          "x": 480,
+          "y": 80
+        },
+        "config": {
+          "atSeconds": 0,
+          "count": 1,
+          "format": "png"
+        },
+        "pause": false
+      },
+      {
+        "id": "n-image",
+        "toolId": "generate_image",
+        "position": {
+          "x": 880,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "",
+          "width": 1280,
+          "height": 720,
+          "count": 1
+        },
+        "pause": false
+      },
+      {
+        "id": "n-clip",
+        "toolId": "generate_video",
+        "position": {
+          "x": 1280,
+          "y": 80
+        },
+        "config": {
+          "providerId": "",
+          "model": "kling-2.5-turbo-pro",
+          "aspectRatio": "16:9",
+          "durationSeconds": "5",
+          "resolution": "",
+          "generateAudio": "off"
+        },
+        "pause": false
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "n-video",
+        "sourceHandle": "video",
+        "target": "n-frame",
+        "targetHandle": "video"
+      },
+      {
+        "id": "e2",
+        "source": "n-frame",
+        "sourceHandle": "image",
+        "target": "n-image",
+        "targetHandle": "sourceImage"
+      },
+      {
+        "id": "e3",
+        "source": "n-text",
+        "sourceHandle": "text",
+        "target": "n-image",
+        "targetHandle": "prompt"
+      },
+      {
+        "id": "e4",
+        "source": "n-image",
+        "sourceHandle": "image",
+        "target": "n-clip",
+        "targetHandle": "firstFrame"
+      },
+      {
+        "id": "e5",
+        "source": "n-text",
+        "sourceHandle": "text",
+        "target": "n-clip",
+        "targetHandle": "prompt"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "outputs": [
+    {
+      "nodeId": "n-clip",
+      "handle": "video",
+      "label": "Video"
+    }
+  ],
+  "origin": null
+}
