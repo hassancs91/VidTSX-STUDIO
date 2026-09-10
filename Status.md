@@ -25,11 +25,13 @@ frame count is checked against the engine's. The fast engine stays opt-in (D2).
 - **Then run-export, the 3 h project: `framesMs` 3,543 s against 3,775, `muxMs` 142 s against
   152, plan → file 61.4 min against 65.4** (`studio-t6-stress-3h_2026-09-10T19-30-06.mp4`,
   10,626,498,208 B, the 09-09 product's byte size; whole-file md5 identical to it (5b9de1ff…) — the one-step and the two-step exports of the 3 h project are the same bytes).
-- **Gate: eight of nine references byte-identical on video AND audio** (t5-1080p, cut, gain,
-  music, stack, fade, speed, speed2; `muxMs` 374–442 ms). The xfade seed differs because the
-  project on disk changed before this slice (its crossfade window is 15 frames since the
-  09-10 cancel runs, 30 on 09-09; neither the seed script nor the planner changed) — re-gated
-  by D5 against a plain Remotion export: max 0.03 % of pixels over 24 at frames 1/300/449/450/451/600/899 (max mean 2.51/255), audio 0 ms vs the Remotion reference and vs the camera at every window (`studio-t5-1080p-cut-xfade_2026-09-10T20-38-07.verify.json`). The cancel regression (the pieces now
+- **Gate: nine of nine references byte-identical on video AND audio** (t5-1080p, cut, gain,
+  music, stack, fade, xfade, speed, speed2; `muxMs` 374–442 ms). The xfade seed differed at
+  first: its document on disk had been edited in the app on 09-10 before this slice (the first
+  clip's transition became dip-to-black 0.5 s, per the project's snapshots — a seed is
+  app-editable, so a byte reference holds only while the span plan matches the seed script);
+  re-seeded with `seed-cut-projects.mjs xfade --force` it re-exports byte-identical (43c6…/1f2d…).
+  The edited version had been re-gated by D5 against a plain Remotion export first: max 0.03 % of pixels over 24 at frames 1/300/449/450/451/600/899 (max mean 2.51/255), audio 0 ms vs the Remotion reference and vs the camera at every window (`studio-t5-1080p-cut-xfade_2026-09-10T20-38-07.verify.json`). The cancel regression (the pieces now
   stay in scratch until the end) is clean: scratch, output and the browser gone, the row
   `cancelled` at 443/900.
 - Gates: check:types 26/10 (baseline), vitest 2312 (261 files, 19 skipped), live ffmpeg 8.

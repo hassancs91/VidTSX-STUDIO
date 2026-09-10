@@ -1011,13 +1011,21 @@ Gate, the references re-exported through the passthrough engine on the
 restarted app: **eight of nine byte-identical on video AND audio** (t5-1080p,
 cut, gain, music, stack, fade, speed, speed2 — every stream hash equal to its
 2026-09-06/07 file; `muxMs` 374–442 ms against 271–312, the TS read now
-inside the mux; `framesMs` 7.5–10.4 s). **The xfade seed no longer matches
-its reference — the project changed, not the code**: its span plan on 09-09
-was `copy 435 · browser 30 · copy 435` (the 1 s crossfade) and from the
-09-10 cancel runs on (17:00 UTC, before this slice) it is `copy 443 ·
-browser 15 · copy 442`, a 15-frame window; neither `seed-cut-projects.mjs`
-nor the planner changed since, so the document on disk was edited. Re-gated
-by D5 instead: max 0.03 % of pixels over 24 at frames 1/300/449/450/451/600/899 (max mean 2.51/255), audio 0 ms vs the Remotion reference and vs the camera at every window (`studio-t5-1080p-cut-xfade_2026-09-10T20-38-07.verify.json`). Cancel regression (the pieces now stay until the
+inside the mux; `framesMs` 7.5–10.4 s). **The xfade seed at first did not match
+its reference — the project had changed, not the code**: its span plan on
+09-09 was `copy 435 · browser 30 · copy 435` (the 1 s crossfade) and from the
+09-10 cancel runs on (17:00 UTC, before this slice) it was `copy 443 ·
+browser 15 · copy 442`. The project's snapshots pin it: the first clip's
+`transitionOut` became `{ kind: 'dip-to-black', duration: 0.5 }` (15 frames)
+between the 08:39Z and 16:59Z snapshots of 09-10 — an interactive edit in the
+app (the project also gained agent-chat.json), where `seed-cut-projects.mjs`
+writes `{ kind: 'crossfade', duration: 1 }`. Rule: **a seed's document is
+app-editable, so a byte reference is valid only while the export's span plan
+matches the seed script's** (xfade: 435 · 30 · 435); the fix is
+`seed-cut-projects.mjs xfade --force` (project.json only). Re-seeded and
+re-exported: **video 43c6…, audio 1f2d… — byte-identical to the 09-06
+reference, so nine of nine.** The 15-frame version had first been re-gated by
+D5: max 0.03 % of pixels over 24 at frames 1/300/449/450/451/600/899 (max mean 2.51/255), audio 0 ms vs the Remotion reference and vs the camera at every window (`studio-t5-1080p-cut-xfade_2026-09-10T20-38-07.verify.json`). Cancel regression (the pieces now stay until the
 end): the xfade seed cancelled inside its browser span at 49 % — scratch
 folder gone, output gone, no new Remotion folder, browsers 4 / 5 / 4, the row
 `cancelled` at 443/900.
