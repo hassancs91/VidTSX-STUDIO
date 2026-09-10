@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 3 DONE: product nodes
+
+Flows plan §6 (`docs/flows-plan.md`, outcome subsection under §6). Four
+commits by pathspec beside the export-engines session's dirty tree:
+`efe1ed8` media helpers + the seven product nodes + `generate_audio` ports,
+`4062256` the composition trio inside a flow (media convention, main-side
+render settle, brand on nodes), `b16ef0b` the five built-in flow fixtures, `49e3303` the bundling-percent /
+note-throttle / frame-name fixes the live runs found, plus the docs commit.
+
+- Gates: `check:types` at baseline (web 26 / node 10); `npx vitest run`
+  2180 passing (up from 2132, 48 new); `electron-vite build --outDir
+  .vidtsx-temp/w8-build` 1 m 53 s alone.
+- What exists now: `src/main/services/media/` (ffmpeg spawn + probe, trim /
+  concat / frame grab on the filters Remotion's ffmpeg build has, a Remotion
+  render driven from main); `transcribe`, `caption_video`, `text_to_speech`,
+  `extract_frame`, `trim_video`, `concat_videos`, `save_to_library` in the
+  registry (`AGENT_TOOL_IDS` appended); `generate_audio` is a priced node;
+  `generate_composition` loads port media through `staticFile()` and binds a
+  provider/model; `render_composition` renders inside a flow (job settled in
+  main, MP4 filed through the agents' reconciler, cancel + Resume); per-node
+  `brandId` on the four brand-taking nodes; `resources/flows/vidtsx/*/flow.json`
+  validated against the registry; the Thumbnail prompt in
+  `src/shared/prompts/`.
+- Verified on the second instance (W3 profile, `VITE_FF_FLOWS=1`):
+  `explainer-30s` brief → script → composition → 30.06 s 1920×1080 MP4
+  unattended on `claude-subscription` (525 s, $0; on-brand) and on the
+  `minimax` baseURL preset (272 s, $0.44); `frame-strip` 6 frames in 2 s;
+  `transcribe` + `caption_video` through AssemblyAI in 41 s ($0.001, brand
+  vocabulary spelled right, karaoke burn-in); kill mid-render → Resume
+  reruns the render and finishes. Spend $0.44 real.
+- Pending: `product-ad` / `add-effect` live runs (fal spend, Stage 6's
+  three-runs rule); an `input_audio_file` node; `openrouter` has no LLM key
+  on the W3 profile (minimax stood in); ElevenLabs audio node verified at the
+  unit seam only; the caption templates size text for 1080p.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 2 DONE: pause, run form, Flows page
 
 Stage 2 of `docs/flows-plan.md` §5 (W8 Flows, adjusted by §0.1 items 6, 9,

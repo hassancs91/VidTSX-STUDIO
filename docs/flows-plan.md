@@ -1160,6 +1160,236 @@ composition flow with a fake render queue.
 Done when: `vidtsx/explainer-30s` runs brief to MP4 unattended on
 `claude-subscription` and on one baseURL preset.
 
+#### Stage 3 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §6 lists (as §0.1 items 7, 8 and 9 adjust it) is built,
+unit-tested, committed by pathspec in four commits (`efe1ed8` the media
+helpers, the seven product nodes and `generate_audio`'s ports; `4062256`
+the composition trio inside a flow — the media convention, the main-side
+render settle, brand on nodes; `b16ef0b` the five built-in fixtures;
+`49e3303` two things the live runs found) plus the docs commit, beside the
+export-engines session's dirty tree, and exercised on the second dev
+instance. `check:types` at baseline (web 26, node 10); 2180 tests passing,
+up from 2132 (48 new: 21 across the seven node tests, 3 `flow-render`
+runner paths, 13 fixtures, 4 composition-node, 2 audio-node, 2 text-node,
+2 args, plus one registry list); `electron-vite build --outDir
+.vidtsx-temp/w8-build` passes (1 m 53 s, alone). Spend: $0.44 real (the
+`minimax` explainer run) + $0.001 AssemblyAI; the two `claude-subscription`
+explainer runs logged $0.80 and about $0.70 API-equivalent at $0; no fal
+call, no ElevenLabs.
+
+**Media helpers** (`src/main/services/media/`). `ffmpeg-run.ts` resolves
+Remotion's ffmpeg/ffprobe through `getRemotionBinariesDir()` in
+`utils/paths.ts`, spawns with `-hide_banner -nostdin -y`, kills on abort and
+reads `time=` off stderr for progress; `probeMedia` returns duration, size,
+fps and whether the file has video and audio streams. `video-edit.ts` holds
+the three edits as pure argument builders plus runners. A finding that
+shaped them: Remotion's ffmpeg n7.1 build is trimmed — no `pad`, `fps`,
+`setsar`, `color`, `subtitles` or `drawtext` (it has `scale`, `crop`,
+`format`, `concat`, `aresample`, `aformat`, `anullsrc`, `libx264`, `aac`).
+So `concat_videos` scales-and-crops every clip to the first clip's size,
+sets the output rate with `-r`, and gives a silent clip an `anullsrc`
+track; letterboxing is not available and a clip of another aspect loses
+its edges (recorded in the file). `remotion-render.ts` is a Remotion render
+driven from MAIN — `bundleComposition` then `renderComposition` to H.264,
+the settings' timeout / GPU backend / hardware acceleration as the queue
+handler applies them, the render registered in `getActiveJobs()` under a
+caller-chosen job id so `cancelRender` covers it, a test seam for the pair.
+
+**The seven nodes** (`src/main/services/agents/tools/`, ids appended to the
+registry and `AGENT_TOOL_IDS`; every one has a fake-service test). Decisions:
+- `transcribe` (video or audio → transcript + text) is the same
+  `transcribeAudioFile` the Transcribe screen, the Studio and auto-cut use;
+  `TranscribeAudioFileParams` gained an optional `featureSource` so the row
+  logs as `flows`. The W4 keyterms are the run brand's vocabulary plus the
+  active vocabulary memories (`composeKeyterms`), and `applyAliasPostpass`
+  / `replaceAliasesInText` correct the words and the text as the Studio's
+  transcriber does. The transcript is a `document` artifact — the readable
+  Markdown with `[mm:ss]` lines — whose payload carries a NEW `transcript`
+  variant (`TranscriptMeta`: the JSON beside it with segments, words,
+  utterances, the model, language, duration) rather than an eighth
+  `ARTIFACT_KINDS` entry: the document viewer already shows it, and the
+  `transcript` PORT type maps to `document` through the new
+  `src/shared/flows/port-kinds.ts`. The default model is
+  `assemblyai/universal`; the openrouter whisper entries are refused (no
+  timestamps).
+- `caption_video` (video + transcript → video): the bundled ffmpeg has no
+  subtitle filter, so burn-in is what the Captions tool does — the
+  self-registering caption composition (`caption-composition.ts`, mode
+  `burnin`, the clip served over the bundler's asset route) rendered in
+  main through `remotion-render.ts`. Word timings, when present, become
+  lines through the Studio's `groupCaptionWords` (punctuation and 0.6 s
+  pauses break them); otherwise the STT segments are shown. Styles are the
+  three the composition offers (`minimal`, `bold-pop`, `karaoke`).
+- `text_to_speech` (text → audio): `audioEngine.generateSpeech` after
+  `ensureAudioEngine`, the voice from config or the active TTS model in
+  Settings → Audio, loaded on demand from `getModelDir`; no installed voice
+  answers `NO_TTS_VOICE_MESSAGE`. The engine, `audio-models.ts` and the
+  settings are imported LAZILY: `audio-models.ts` calls
+  `app.getPath('userData')` at load, and the registry is imported by tests
+  (and the pack checker) without Electron — the first registry test run
+  failed on exactly that. `AudioPayload.sound` gained `'speech'`.
+- `extract_frame` (video + number → image / images): one `-ss <t>
+  -frames:v 1` per frame into `<run folder>/frames/`; `count: 1` samples at
+  `atSeconds`, more samples the centre of `count` equal slices (`stripTimes`).
+  Both output ports carry the one `image-set`. The time leads the file name
+  because the library slug caps at 40 chars and the first live run lost it
+  behind a long source name.
+- `trim_video` (video, start, end → video): a frame-accurate re-encode by
+  default (`-ss` before `-i`, `-t`), a keyframe stream copy as `fast`.
+- `concat_videos` (videos → video): `videos` was added to `DataType`
+  (additive; `video → videos` widens like `image → images`; `flow-args`
+  collects every incoming edge on it, as for `images`).
+- `save_to_library` (any of video / image / audio / composition /
+  transcript → the same): media already in the library is re-described and
+  brand-tagged in place, or COPIED into a given folder; a composition or
+  transcript document is copied into the library as content while the
+  artifact keeps its workspace path so a downstream node still renders or
+  reads it. Its five output ports work because `mapOutputs` now puts a filed
+  artifact only on ports OF ITS KIND (`portCarriesKind`) — the general rule,
+  not a special case.
+- `generate_audio` gained ports (`prompt` → `audio`; `kind`, seconds, loop,
+  vocals and a per-node `brandId` in the inspector), `priced: true` with a
+  per-kind hint from the engine's registered rate or ElevenLabs' published
+  $0.002 / $0.0025 per second when none is registered, the run's
+  `featureSource`, and the inspector's `'on'` / `'off'` strings. Verified
+  through the tool test only — no ElevenLabs key exists on this machine
+  (§0.1 item 8's rule); no live audio row was produced.
+- `generate_text` gained `promptPrefix` (fixed text before the port text)
+  and `extract` (`first-json-item` for the thumbnail prompt's JSON-array
+  reply, `strip-fences`), the smallest additions that let the thumbnail flow
+  hand one prompt to `generate_image`.
+
+**The composition trio inside a flow.** (1) The media-load convention the
+Stage 1 outcome left open: the `image` / `video` ports of
+`generate_composition` resolve the artifact to its library file
+(`port-media.ts`) and the model is told to show it with
+`<Img src={staticFile("C:/…/hero.png")} />` /
+`<OffthreadVideo src={staticFile("…")} />` — forward slashes, the exact
+expression — which is the one way the generation prompt already teaches for
+local files (`generate-2d-prompt.ts`), so the same TSX previews and
+renders. A port artifact of the wrong kind is refused before a pipeline
+call. The node also binds a provider and model with decision 12's modes
+(`llm-model-binding.ts`, an `llm-model-picker` + mode select in the
+inspector), so a flow can pin the composition LLM; an agent session's own
+provider stays the default. (2) `render_composition` inside a flow: the
+queue's rows live in the renderer and a run lives in main, so the flow does
+not enqueue — `flow-render.ts` settles the `job` by rendering through
+`remotion-render.ts` (the same two services the queue handler calls; the
+tool's job id is what `getActiveJobs()` shows), reserves the output in the
+flow's library folder, files the MP4 through the agents'
+`applyRenderJobUpdate` (one filing path: the library entry, the probe and
+the `video` artifact are an agent session's), and the video lands on the
+port. `executeNode` hands the settle the tool's `jobRequest`, the run's
+`files/` and the NODE's resolved brand. Cancel reaches the render through
+the signal (`cancelRender`); a failed or interrupted render is RERUN on
+Resume with a fresh job and, since the failed job left no file, the same
+output name — a partial file from a killed render is never trusted, because
+Remotion writes in place. (3) Stage 2's `send-to-queue` action on a run
+composition now renders in main with a `job` artifact in the run's store,
+in the background, refused while the run executes (two writers on one
+`artifacts.json`); it answers `success` without navigation and the MP4
+shows in Assets and in the run's artifacts on reopen. (4) Brand on nodes
+(§0.1 item 9): `resolveNodeBrand` in `session-brand.ts` is the one rule —
+a string overrides, `null` opts out, absent OR the inspector's cleared
+`''` inherits the run's resolved brand (itself absent = library default,
+`null` = none) — used by `generate_image`, `generate_composition`,
+`generate_audio`, and for `generate_video` by the settle that files the
+clip. `generate_composition` gets `buildBrandInstructions` the way W7's
+agent path does (the test asserts node → run → none), and the live run
+proved it: the explainer rendered with the "ACME TEST" header of the W3
+profile's default brand.
+
+**The five fixtures** (`resources/flows/vidtsx/*/flow.json`, written by
+`.vidtsx-temp/w8/gen-fixtures.mjs`, validated by `flows-builtins.test.ts`
+structurally and against the REAL registry — tool ids, ports and types,
+config keys under each schema, param binds, outputs — and Stage 6 wires
+them into the Built-in group). The Thumbnail Generator's system prompt
+moved to `src/shared/prompts/thumbnail-system-prompt.ts` (the hook imports
+it; the test asserts the fixture equals it — with LF endings, because
+esbuild normalises a template literal's CRLF and the first comparison
+failed on that alone). `thumbnail`: topic → `generate_text` (locked prompt,
+a `promptPrefix` asking for one horizontal prompt, `extract:
+first-json-item`) → `generate_image` 1280×720 with a `count` param (1–4)
+and a pause; horizontal only — the hub keeps the vertical option.
+`frame-strip`: a `video` param bound to `input_video_file.filePath` → a
+strip of `count` (default 8) frames. `explainer-30s`: topic → script (a
+fixed prefix and system prompt, `strip-fences`, `useBrand: on`) →
+`generate_composition` 30 s 1920×1080 with a `style` select whose values are
+the style notes (pause) → `render_composition`. `product-ad`: ONE
+`generate_image` with `count: 3` + pause (Stage 2's note) fed by the product
+image on `referenceImages`, then Hailuo 02 (6 s, ~$0.27) from the picked
+frame, the clip on the composition's `video` port, then the render.
+`add-effect`: first frame → `generate_image` with the frame as `sourceImage`
+→ Kling 2.5 Turbo Pro (5 s, ~$0.40) from that image.
+
+**Verification in the app** (second instance, `VITE_FF_FLOWS=1`, W3 profile,
+`.vidtsx-temp/w8/w8-flows.mjs` extended with `seed-fixture`, `run-ipc`,
+`wait-ipc`, `usage`, `shot-run`). The fixtures were seeded as
+template-sourced rows through `flowsProjectCreate`; runs were started over
+the same `FLOWS_RUN_START` IPC the form uses and polled from `run.json` on
+disk. `frame-strip` on `Videos\VidTSX\AcmeTestLogoSting…mp4` (10.0 s):
+`success` in 2 s, 6 frames 1920×1080 filed under `flows/s3-frame-strip/frames/`,
+both ports carrying the set. `S3 transcribe` (a 16.8 s speech MP4 made from
+`.vidtsx-temp/w4/vidtsx-3x.wav`; `input_video_file` → `transcribe` →
+`caption_video` karaoke): `success` in 41 s — extraction + AssemblyAI
+Universal in 5.8 s with 4 keyterms from the `acme-test` brand's vocabulary,
+the transcript reading "Welcome to VidTSX. … how LearnWithHasan uses it every
+week. Try VidTSX today." (27 words, 4 segments, the brand spellings), the
+burn-in render 34.6 s for the 16.8 s clip at 640×360, ffprobe h264 + aac
+16.84 s 730 KB, the karaoke highlight visible in a grabbed frame
+(`stage3-caption-frame.png`; the caption template's fixed 48 px type is
+sized for 1080p and overflows a 360p frame — the Captions tool's template,
+not this stage's). The run form showed the captioned video with the shared
+action bar and three done steps (`stage3-transcribe-run.png`). `explainer-30s`
+unattended on `claude-subscription` (the pipeline's default): `success` in
+525 s — script 9.7 s, composition 244 s (classify → generate → verify →
+validate, one pass), render 271 s — the MP4 `flows/s3-explainer/explainer-30s.mp4`
+30.06 s 1920×1080 h264 + aac 2.82 MB, a mid-clip frame showing the
+brand-styled six-beat layout (`stage3-explainer-frame.png`), the form with
+the video large and 4/4 steps (`stage3-explainer-run.png`). The second run
+on a baseURL preset: with both LLM nodes pinned to `openrouter` in
+`required` mode the run refused in 1 ms with decision 12's message ("requires
+anthropic/claude-sonnet-4.6 on openrouter, which is not configured or is
+disabled") — the W3 profile's `openrouter` LLM entry has no key (its shared
+credential serves STT only); pinned to `minimax` / `MiniMax-M2.7` instead
+(`required`, brand `null`): `success` in 272 s — script 21 s, composition
+153 s, render 97 s — `explainer-30s-2.mp4` 30.06 s 1.87 MB, a plainer card
+layout whose cards clip at the frame edge mid-animation
+(`stage3-explainer-minimax-frame.png`; a model-quality difference, reported
+as seen). Usage rows produced, all `featureSource: 'flows'`:
+`assemblyai / universal / stt / $0.0009`; `claude-subscription /
+claude-opus-5 / llm` × 4 for the first explainer ($0.028 + $0.023 script and
+prefix, $0.428 + $0.320 pipeline — API-equivalent, $0 on the subscription);
+`minimax / MiniMax-M2.7 / llm` × 4 ($0.043 + $0.020 + $0.119 + $0.260 =
+$0.44). Kill mid-render (§10 item 4): a fifth `claude-subscription` run was killed the second its render node went `running` (still bundling — the job artifact `running`, no output file yet); after the relaunch `flowsRunGet` reported `error` "The app closed while this run was in progress — Resume continues from the first unfinished step", `resumable: true`, the render node `skipped`; `flowsRunResume` over IPC reran ONLY the render (a fresh job, attempt 2, 186 s) and the run finished `success` — 370 s wall including the kill — with `explainer-30s-5.mp4` (3.75 MB) large on the form and 4/4 done steps (`stage3-explainer-resumed.png`). The abandoned first job stays `running` in `artifacts.json` (cosmetic; a reconcile for Stage 6). Two earlier attempts missed: run 4's render (222 s) finished before a poll keyed on the render NOTES fired — the trigger has to key on the node status.
+
+**Deviations, and what it leaves.** (1) The transcript is a `document` +
+`transcript` payload variant, not a new artifact kind (above); a
+`transcript` port never carries a plain document (`resolveTranscript`
+refuses one). (2) The baseURL-preset run used `minimax`, not `openrouter`
+(no LLM key on the profile); the refusal itself is decision 12 working.
+(3) There is no `input_audio_file` node: `transcribe`'s `audio` port takes
+an `audio` artifact from `text_to_speech` or `generate_audio`, and a file
+comes in as video (the acceptance made an MP4 from the WAV). (4) Resume
+reruns a render rather than picking a finished file up by id. (5)
+`send-to-queue` on a run composition is a main-side render with no queue
+row and no navigation. (6) `text_to_speech`, `trim_video` and
+`concat_videos` were not exercised live (no voice model on the profile;
+the two edits are argument builders unit-tested against the filter set
+this ffmpeg has); `product-ad` and `add-effect` were not run (fal spend —
+Stage 6's three-runs rule and cap). (7) `concat_videos` crops rather than
+letterboxes (no `pad`). (8) The bundler reports percent already — the
+first live run printed "Bundling… 600%"; fixed, with bundling notes
+throttled to 25 % steps. (9) The caption templates size text for 1080p.
+Driver lessons: the Bash tool expands `${…}` inside a quoted heredoc and
+mangles `\'`, so every patch went through a `.py` file run by path;
+`Input.insertText` is not needed when a run starts over `window.api` — the
+form was screenshotted after the fact (`shot-run` opens the card, which
+hydrates the latest run); polling `run.json` on disk avoids holding a CDP
+driver open for ten minutes; the composition render outran a 5 s poll once,
+so the kill trigger must fire on the first `Rendering…` note.
+
 ## 7. Stage 4 — `run_flow`, `run_agent`, Flow Builder — ~1 session
 
 Files: `tools/run-flow.ts` (agent tool), `tools/run-agent.ts` (node),
