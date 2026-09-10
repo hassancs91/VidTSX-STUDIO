@@ -968,6 +968,182 @@ Done when: a flow with two params and one paused node runs from the form,
 pauses with a pick card, continues with the chosen image, and shows the
 video output with the action bar; unattended mode skips the pause.
 
+#### Stage 2 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §5 lists is built, unit-tested, committed by pathspec in four
+commits (`b9d3aa6` the pure moves, `a7b87db` checkpoints through the
+broker, `99a57eb` the run form, the Flows page and the inspector
+additions, plus the docs commit) beside the export-engines session's dirty
+tree, and exercised on the second dev instance. `check:types` at baseline
+(web 26, node 10); 2132 tests passing, up from 2104 (28 new: 8 runner
+checkpoint paths, 5 planner / accept / retry-note, 6 reply interpreter, 7
+params ↔ bind, 2 priced steps); `electron-vite build --outDir
+.vidtsx-temp/w8-build` passes
+(1 m 52 s, alone). Spend: $0 — every image call went to the W3 profile's
+Antigravity bridge (`gemini-cli` / `nano-banana-2`); 12 usage rows logged
+as `featureSource: 'flows'`, `requestType: 'image'`, `costUsd: 0` (16 with
+Stage 1's four). No video, LLM or audio call was made.
+
+**Shared moves** (`b9d3aa6`). The ten inspector field components moved to
+`src/renderer/components/fields/` with `downscale-image.ts` beside the
+upload field; `NodeInspector` imports them from there and the Flows feature
+re-exports nothing. The agents stage's `ActionBar` moved to
+`src/renderer/components/artifact-viewers/ActionBar.tsx`, beside the viewer
+registry it belongs with, so the run form shows the same bar without
+importing from the agents feature (`ArtifactStage.tsx` changed one import).
+`LlmModelPickerField` was then rewritten (§0.1 item 10) on the shared
+`ModelSelect` + `useModelPicker(providerId)` — the W1 catalog with user
+overrides and "Custom…" as the free-text hatch — with a `modelMode` select
+(default / preferred / required, decision 12) beside it that writes the
+node's `modelMode` key; `VideoModelPickerField` / `VideoModelOptionsField`
+already read the engine's catalog the way the Video Studio does and were
+kept. Two new shared fields for the run form: `ImagePickField` (the native
+file dialog → an absolute path, or the gallery picker when the param binds
+to an `entryId`) and `VideoPickField` (file dialog, or a Video Studio entry
+select); the renderer never sees bytes.
+
+**Checkpoints** (`a7b87db`; `flow-pause.ts`, `flow-checkpoint.ts`,
+`flow-node-exec.ts`, `flow-run-types.ts`, the runner rewritten at exactly
+300 lines). After a node marked `pause` completes in an `attended` run the
+runner posts an `InteractionRequest` through the agents' `InteractionBroker`
+— one per run, `sessionId` = the run id, the request persisted into
+`run.json.pending` — and waits for `FLOWS_RUN_REPLY` (`flowService.reply` →
+`runner.reply`, which only accepts the request the broker holds; a stale
+card gets a typed refusal). The card follows the OUTPUT rather than the
+port type: an `image-set` with several items → `pick` (each item is filed
+as its own one-item `image-set` in the run store, so the card previews by
+artifact id and the chosen one is already a port value), one artifact →
+`approve`, text or a number → an editable `form` (prefilled from the node's
+output by the renderer). Accept substitutes the value on the primary port;
+the first reject reruns the node once with the note appended to the BUILT
+args' prompt-shaped key (the first `prompt` field, else `prompt`) — applied
+to the args, not the config, because a prompt that arrives on an edge would
+otherwise overwrite it; a second reject, the card's "Stop run" or a cancel
+while paused ends the run `cancelled`. `run-status` goes `running → paused →
+running`, `pause-request` / `pause-cleared` events bracket the card. A run
+the app closes on at a checkpoint keeps the node `paused` WITH its outputs;
+`flowService.get` marks it `error` with a typed "waited at a checkpoint"
+message and `pending.expired`, and Resume asks again from that node without
+rerunning it (the alternative — rerun — pays for the step twice). `ctx.ask`
+is real inside an attended run (a tool's question takes the same path and
+gets `answered` back) and refuses with a reason in an unattended one. The
+reply conventions live in `src/shared/flows/pause-reply.ts` (the `$reject`
+note key, the form's `text` field), read by main and written by the form.
+To give a paused image node something to pick from, `generate_image` gained
+`count` (1–4 variations, sequential calls so a cancel stops the next, one
+image-set) with a "Variations" number field in its inspector.
+
+**The run form** (`99a57eb`). `FlowWorkspace` hosts one loaded flow and one
+run state under a Run | Edit segmented control; opening a card lands on
+Run, the card menu's Edit (and a freshly created flow) on the canvas; the
+history dropdown works from both, the Edit header keeps Stage 1's
+`RunControls`. `RunFormView`: `params` in order through `ParamField` (kind →
+the shared field; `image` / `video` pick file or library by the bind key;
+model-picker kinds fall back to a text value), the shared `BrandSelect`
+beside `ModeSwitch` (hidden when no node pauses; attended is the default
+when one does), `PricedStepsLine` from `pricedSteps()` over the specs'
+`priced` / `priceHint` (§0.1 item 6; `generate_image` is not marked priced,
+so the acceptance flow shows no line — `generate_video` does), a needs chip
+that blocks Run, Run / Cancel / Resume, and a `prefill` prop (§12 question
+1). `RunOutputs`: the flow's `outputs` large through the shared viewer
+registry via `useRunArtifactViewer` (run-scoped resolve), the shared
+`ActionBar` via `useRunArtifactActions` (navigate + creator-open, as the
+agents do), text outputs as panels, the `PauseCard` over the viewer with the
+shared card (`cancelLabel="Stop run"` — an additive prop threaded through
+`InteractionShell` and the three cards) plus the one control an agent card
+lacks, a note and "Retry with note", and `StepsStrip` (collapsible, one tile
+per node with status, thumbnail and pause tag; click shows that artifact).
+Run-scoped IPC: `FLOWS_RUN_ARTIFACT_RESOLVE` / `FLOWS_RUN_ARTIFACT_ACTION`
+(`flow-artifacts.ts`, `flows-artifact-handlers.ts`) reuse the agents'
+resolve and `runArtifactAction` with the run's `files/` as the workspace —
+`artifactFilesIn` / `ensureCompositionModuleIn` were added to
+`artifact-paths.ts` and `workspaceDir` to `ArtifactActionInput`, both
+additive. `ActionBar` now offers "Save to Library" on `video`, `image-set`
+and `audio` too: the handler already answered for library-rooted media
+("report where it is, open Assets"), so the button is the same first button
+a document has. `FLOWS_IMPORT` / `FLOWS_EXPORT` are typed stubs (the import
+opens the file dialog, then answers "arrives with Stage 6"). Inspector:
+`PauseToggle` per node and `ExposeParamToggle` per exposable field
+(`params.ts`: `bindTargetFor` maps `image-upload` → the tool's `filePath`
+key and `gallery-image-picker` → `entryId`, both kind `image`; a text
+`filePath` / `entryId` on a node whose primary output is `video` → kind
+`video`); a bound field shows locked with the param id; `useFlowGraph`
+gained `doc`, `exposeNodeParam`, `unexposeNodeParam`, `setPause` (doc-level
+edits bump a `rev` the debounced save watches). Flows page: My flows /
+Built-in / Installed groups (`groupFor` reads `source` forward-compatibly —
+`builtin` / `installed` strings, or a `vidtsx/` id — and everything else is
+the user's; the two groups say what fills them), New, Import, and the card
+menu (Run, Edit, Details, Duplicate, Export, Remove; built-ins hide Edit and
+Remove); `FlowDetailsDialog` shows source, steps, params, outputs, origin.
+
+**Verification in the app** (second instance, `VITE_FF_FLOWS=1`, W3
+profile, `.vidtsx-temp/w8/w8-flows.mjs` extended with `view`, `param`,
+`param-select`, `mode`, `brand`, `run-form`, `wait-pause`, `wait-run`,
+`reply pick|approve|text|reject|stop`, `action`, `step`, `menu`,
+`select-node`, `expose`, `pause-node`, `set-doc`). "S2 pick" was created
+from "Prompt to image", its doc patched from the list screen (the generate
+node `count 3`, `pause`, a second `generate_image` fed by the first's
+`image` on its `referenceImages` port with a fixed watercolor prompt, the
+output = the second node). The two params were made through the inspector:
+Edit → node 0 → Expose `prompt` → `prompt:bound`; node 1 (`pauseToggle:
+on`) → Expose `count` → `count:bound`; the stored doc read `params:
+[prompt, count]` with the field hints and `default: 3`
+(`stage2-inspector-bound.png`). Run view listed both params, mode
+`attended`, brand "Acme Test" (the library default). Attended run: the pick
+card came up in 64 s with three fox variations side by side
+(`stage2-pick-card.png`), steps `done / paused / idle`; Option 2 →
+`image-set-3` substituted on the port, the watercolor node ran 23 s on it,
+`success` in 131 s, the watercolor large with Save to Library / Open folder
+/ Copy path (`stage2-output.png`); Save to Library navigated to Assets.
+Unattended run (count 2, brand "No brand"): `success` in 89 s, no card, the
+final node received the whole two-item set, `run.json` `mode: unattended`,
+`brandId: null`. Reject path: attended run, "Retry with note" ("the fox
+should face left and be smaller in frame") → the node reran (`running`) and
+a second card came up with two new options that follow the note
+(`stage2-retry-card.png`; `attempts 2, rejections 1` on disk). Restart
+path: the app was killed on that card; `run.json` held `status: paused`,
+the pending request and the node `paused` with its outputs; after relaunch
+the form showed the typed error "The app closed while this run waited at a
+checkpoint — Resume asks again from that step", `pending.expired: true`,
+Resume offered; Resume raised a fresh card (`q-245330c1`, options
+`image-set-7/8`) with `attempts` still 2 — no rerun — and Option 1 finished
+the run `success` (`stage2-resumed-card.png`). Flows page: three groups
+(`mine:5, builtin:0, installed:0`, `stage2-flows-page.png`); Details showed
+"3 nodes, 2 edges · 1 checkpoint(s) / Text (prompt), Variations (1–4)
+(number) / Watercolor"; Duplicate made "S2 pick (copy)" with both params
+and the pause, `source: user`; Export and Import answered the Stage 6
+message; Remove (through `window.confirm`) deleted the copy. The first
+pick-card screenshot showed the card's footer below the fold; fixed in the
+same commit (a definite-height column so the shared card's `max-h-full`
+resolves) and confirmed on the retry card.
+
+**Deviations, and what it leaves.** (1) The card kind follows the output
+artifact, not the port type: no wave-1 node has an `images` OUTPUT port,
+so "pick for `images`" was read as "pick when the output holds several
+images" — which `generate_image`'s new `count` provides and Stage 3's
+`product-ad` (three variations, pick) will use. (2) Resume after an expired
+checkpoint re-asks rather than reruns (above). (3) `save-to-library` on
+media kinds is a report-and-navigate, not a copy — labelled as the handler
+behaves. (4) Sizes on the acceptance cards read 1024×1024 despite `width /
+height 768` in config: the Antigravity image provider ignores the size;
+not a flows bug. (5) The `send-to-queue` action on a run's composition
+answers "arrives with Stage 3" (the queue lives in the renderer). (6) The
+web-page artifact kind resolves to a typed refusal in a run (§0.1 item
+13). (7) The Library / Video Studio "Run a flow on this" handoffs are
+Stage 6's; `FlowWorkspace.prefill` and `RunFormView.prefill` are ready for
+them. (8) `input_video_file` and `input_image_file` keep their inspector
+fields; the run form reaches them only through an exposed param. Driver
+lessons: the run form has no `[data-run-status]` badge (that is the Edit
+header's), so the driver reads `[data-run-form-status]`; a renderer edit
+hot-reloads to Home while a main-side run keeps going; `window.confirm`
+blocks `Runtime.evaluate` and `Page.enable` — answer it with
+`Page.handleJavaScriptDialog` WITHOUT `Page.enable` (`w8-dialog.mjs`), and
+never send OS keystrokes to unblock it (a broad `SendKeys` loop reached
+other windows once this session); a syntax error inside `eval` leaves the
+driver hanging on the next command, so kill drivers by command line before
+reconnecting; `Page.captureScreenshot` hung twice after the relaunch, the
+15 s wrapper returned and the run continued.
+
 ## 6. Stage 3 — Product nodes — ~1.5 sessions
 
 Files: `tools/{generate-composition, edit-composition, render-composition}`

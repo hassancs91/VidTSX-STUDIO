@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 2 DONE: pause, run form, Flows page
+
+Stage 2 of `docs/flows-plan.md` §5 (W8 Flows, adjusted by §0.1 items 6, 9,
+10). Full outcome under "Stage 2 outcome" in the plan. `check:types` at
+baseline (web 26, node 10); 2132 tests, up from 2104; `electron-vite build
+--outDir .vidtsx-temp/w8-build` passes (1 m 52 s, alone). Commits by
+pathspec: `b9d3aa6` (the inspector fields and the ActionBar moved to shared
+homes), `a7b87db` (checkpoints through the interaction broker), `99a57eb`
+(run form, Flows page, inspector toggles, run-scoped artifact IPC), this one
+(docs). Spend $0 — 12 image calls, all on the Antigravity bridge
+(`gemini-cli` / `nano-banana-2`), logged as `featureSource: 'flows'`.
+
+- **Checkpoints** (decision 4): a `pause` node in an attended run raises a
+  card through the agents' `InteractionBroker` (pick for several images,
+  approve for one artifact, editable form for text), persisted in
+  `run.json.pending`; accept substitutes the chosen value on the port, the
+  first reject reruns the node once with the note on its prompt, a second
+  reject or Stop cancels; an app close at a checkpoint survives as expired
+  and Resume asks again without rerunning. `ctx.ask` works for tools in
+  attended runs. `generate_image` gained `count` (1–4 variations).
+- **Run form** (`FlowWorkspace` Run | Edit): params in order through the
+  shared fields (`image` / `video` pick file or library), `BrandSelect`
+  beside the mode switch, the priced-steps line, Run / Cancel / Resume;
+  outputs large through the shared viewer registry with the shared
+  `ActionBar` over run-scoped `FLOWS_RUN_ARTIFACT_RESOLVE` / `_ACTION`; the
+  pause card over the viewer; a collapsible steps strip.
+- **Inspector**: `PauseToggle` per node, `ExposeParamToggle` per field
+  (bound fields lock), `LlmModelPickerField` on the shared `ModelSelect` +
+  `useModelPicker` with `modelMode`. **Flows page**: My flows / Built-in /
+  Installed groups, New, Import, card menu (Run, Edit, Details, Duplicate,
+  Export, Remove); Import / Export are typed Stage 6 stubs.
+- **Verified live** on the second instance: two params exposed from the
+  inspector, an attended run paused with a three-image pick card, the
+  chosen image fed the next node, the output showed with the action bar
+  (Save to Library → Assets), unattended skipped the pause, reject + retry
+  honoured the note, kill-at-checkpoint → Resume re-asked without a rerun.
+- **Pending**: Stage 3 (product nodes, the render-queue bridge), Stage 6
+  (packaging, built-ins, the Library / Video Studio handoffs — `prefill` is
+  ready), no `images` output port exists yet (pick follows the artifact).
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 1 DONE: registry ports and the main runner
 
 Stage 1 of `docs/flows-plan.md` §4 (W8 Flows, adjusted by §0.1 items 7,
