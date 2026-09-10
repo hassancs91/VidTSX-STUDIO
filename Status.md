@@ -7,6 +7,42 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 0 DONE: contracts and migration
+
+Stage 0 of `docs/flows-plan.md` §3 (W8 Flows, unparked by §0.1). Full
+outcome under "Stage 0 outcome" in the plan. `check:types` at baseline
+(web 26, node 10); 2064 tests, up from 2035; `electron-vite build --outDir
+.vidtsx-temp/w8-build` passes. Commits by pathspec: `c2edda9` (code), this
+one (docs). Spend $0.
+
+- **Contracts.** `src/shared/types/flows.ts`: `FlowDoc` v2 (§1.1 verbatim —
+  `params` with the inspector kinds + `image`/`video`, `graph` with
+  per-node `pause`, `outputs`, `origin`), `DataType` ×8, `PortDef`
+  (`argKey`, `from`), `ToolPorts`, `NodeSpec` (`needs`, `priced`,
+  `priceHint`), `FlowRunMode`, `FlowRunDoc` (run.json with run-level
+  `brandId`), `FlowPortValue`, `FlowRunEvent`, `isPortCompatible`.
+- **Migration.** `src/shared/flows/migrate-v1.ts`: the alias table both
+  ways, ids validated (ulid or `n-…`, case-insensitive) and rewritten
+  deterministically with edges following, outputs = sinks, `pause` false,
+  removed model ids kept; `parseFlowDoc` migrates / passes through /
+  empties. `doc-graph.ts` (`withGraph` reconcile), `topo-sort.ts` (shared
+  Kahn), `validate.ts` (17 structural codes, no registry).
+- **IPC.** Ten `FLOWS_*` channels and their types appended; `docVersion`,
+  `origin`, `source` on the project summary. No handlers or preload yet.
+- **Store.** `flows-projects-db.ts`: three columns by idempotent ALTER,
+  every v1 row rewritten as a FlowDoc at open, reads always v2, writes
+  accept v1 or v2; `flow_runs` split into `flows-runs-db.ts`.
+- **Canvas.** `useFlowGraph` maps the doc to and from reactflow and keeps
+  params/outputs/origin/pause on a ref across saves; verified live on the
+  second instance — template → 3 nodes / 2 edges, drag → v2 row with the
+  moved position, back, reopen → same canvas
+  (`.vidtsx-temp/w8/stage0-canvas.png`).
+- **Next (Stage 1).** Registry `ports` + `NodeSpec`s, `invokeTool`, the
+  main runner and run store, the `FLOWS_*` handlers + preload +
+  `electron.d.ts`, the six migrated nodes, the canvas on the new specs.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W9 DONE: web designer agent
 
 Workstream W9 of `docs/v1-completion-plan.md` §2.9 — the last workstream of

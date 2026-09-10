@@ -629,6 +629,122 @@ Done when: `migrate-v1.test.ts` round-trips the three current templates and
 a saved v1 flow with removed model ids; `validate.test.ts` covers bad bind,
 cycle, unknown output; `check:types` at baseline.
 
+#### Stage 0 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §3 lists is built, unit-tested, committed by pathspec
+(`c2edda9`, 18 files, beside the export-engines session's dirty tree) and
+exercised on the second dev instance. `check:types` at baseline (web 26,
+node 10); 2064 tests passing, up from 2035 (29 new: 14 migration, 8
+validation, 6 db, plus the template count); `electron-vite build --outDir
+.vidtsx-temp/w8-build` passes (12 m 6 s — it ran beside the suite and
+`tsc`; the same three things run one at a time are 41 s / ~2 min / and a
+normal build). Spend: $0, no provider call.
+
+**The contracts** (`src/shared/types/flows.ts`, 263 lines). `FlowDoc` is
+the §1.1 shape verbatim: `formatVersion: 2`, `id`, `name`, `description`,
+`params[]` (`FlowParam` with `kind` = the inspector `ConfigField` kinds plus
+`image` and `video`, `bind[]`, `options`, `default`, the field hints),
+`graph` (`FlowNode` with `toolId`, `position`, `config`, `pause`; `FlowEdge`
+with required string handles; `viewport`), `outputs[]`, `origin`. `DataType`
+grew from four to the eight of §1.2; `PortDef` carries `argKey` (inputs) and
+`from: 'artifact' | 'field:<name>'` (outputs); `ToolPorts` and `NodeSpec`
+are flat (`inputs`, `outputs`, `configSchema`, `defaultConfig`, `category`,
+`needs`, `priced`, `priceHint`, `nondeterministic`). The run side:
+`FlowRunMode`, `FlowRunDoc` (the §1.3 `run.json` with run-level `brandId`,
+`nodes[id] = { status, outputs?, error?, durationMs?, attempts }`,
+`pending`), `FlowPortValue` (an artifact reference or a primitive — base64
+never travels on a port, §11) and `FlowRunEvent` (`node-status`,
+`run-status`, `pause-request` carrying the agents' `InteractionRequest`).
+Decisions: the SQLite summary row keeps its existing IPC name
+`FlowRunRecord`, so the run.json shape is `FlowRunDoc`; `FlowNodeConfig` is
+a plain `Record<string, unknown>` with `brandId` and `modelMode` documented
+rather than typed (a typed interface with optional keys is not assignable
+from the canvas's record under strict mode); `needs` is `string[]` because
+the agents side has no capability vocabulary to import; `FlowSource` is
+`'user' | 'template' | 'frozen' | 'imported'` (built-ins and installed
+flows live on disk, §1.7, never in the table).
+
+**The migration** (`src/shared/flows/migrate-v1.ts`, pure). The alias
+table of §1.1 both ways — `legacyTypeIdForToolId` exists because the canvas
+still keys `NODE_REGISTRY` by the old ids until Stage 1. Ids: a ulid or
+`n-[a-z0-9-]+`, matched case-INSENSITIVELY — the canvas mints `n-<ULID>` in
+upper case and those must stay valid; an invalid id becomes `n-` + its
+slug, `-2`, `-3`… when taken (the templates' `tpl-prompt` → `n-tpl-prompt`),
+edges follow the first holder of a duplicated id, a dangling edge is
+dropped, a null handle becomes `''` for the validator to name. `outputs` =
+every sink with its primary handle from a small map keyed by tool id
+(`generate_image` → `image`, …, unknown → `output`). A removed model id is
+kept verbatim in `config` (§11). `parseFlowDoc(json, meta)` migrates a v1
+graph, passes a v2 doc through (normalising `pause`, letting the row's
+id/name/description win), and yields the empty doc for garbage.
+`doc-graph.ts` holds `emptyFlowDoc`, `isFlowDocV2`, `deriveSinkOutputs`
+and `withGraph` — the reconcile the canvas runs on every save (binds whose
+node or config key is gone are dropped, outputs pruned then re-derived when
+empty, `pause` carried by id).
+
+**Validation** (`validate.ts`, no registry): 17 typed codes over doc id
+(ulid or `<ns>/<name>`), node ids and duplicates, empty tool ids, edge
+duplicates / missing ends / self loops / empty handles, param ids, kinds
+and binds (`PARAM_BIND_KEY_MISSING` when the key is not in that node's
+config), outputs, and `GRAPH_CYCLE` through the shared `topo-sort.ts`
+(Kahn's, stable in node order, the cycle result names the nodes left;
+the feature file re-exports it and keeps only the registry-aware
+`validateGraph`). `requireNodes` is an option, so a new empty flow is a
+valid document to save but not to run.
+
+**IPC and store.** Ten channels appended (`flows:nodes:list`,
+`flows:run:{start,cancel,resume,event,reply,get}`, `flows:freeze`,
+`flows:export`, `flows:import`) with request/response types in
+`src/shared/ipc/types/flows.ts`; `FlowsRunReplyRequest` wraps the agents'
+`InteractionReply` with a `runId`, so Stage 2 can route through the broker
+without a second reply shape. `FlowProjectSummary` gains `docVersion`,
+`origin`, `source`; `FlowProjectCreateRequest` accepts `source` and
+`origin`. `flows-projects-db.ts` adds the three columns by idempotent
+`ALTER` (a pre-W8 table gets `doc_version 1`), rewrites every v1 row as a
+FlowDoc inside one transaction at open, and every read parses again on the
+way out; `graph_json` stays the column and now holds the v2 JSON — nothing
+is dropped. Writes accept v1 or v2 and store v2 with the row's name folded
+into the doc. The `flow_runs` half moved to `flows-runs-db.ts` (same
+connection) to keep the file under 300 lines.
+
+**The canvas.** `useFlowGraph` maps the doc to reactflow nodes
+(`toolId` → legacy `typeId`) on load and back on save, keeping the doc on
+a ref so `params`, `outputs`, `origin` and each node's `pause` survive a
+canvas edit that never sees them. `nodes/types.ts` re-exports the shared
+port types and adds colours for the four new data types; `CustomNode` the
+labels. `NewFlowDialog` stamps `source: 'template'`. `FlowEditor`, the
+thumbnail renderer and the legacy renderer runner are untouched — they
+still work on the canvas shape, which is what Stage 1 replaces.
+
+**Verification in the app** (second instance, `VITE_FF_FLOWS=1` in the
+launch environment, W3 profile). The profile's `flows-projects.db` was the
+pre-W8 table (created Sep 9, zero rows); after open it carries
+`doc_version`, `origin`, `source`. Create from "Gallery image variation"
+→ 3 nodes / 2 edges on the canvas; drag node 0 by (60, 40) → the stored
+row reads `doc_version 2`, `formatVersion 2`, tool ids
+`input_image_library` / `input_text` / `generate_image`, ids
+`n-tpl-gallery` / `n-tpl-prompt` / `n-tpl-generate`, the moved node at
+(140, 120) — the template's (80, 80) plus the drag, so the save wrote v2 —
+`outputs` = the generate node's `image`, `params` empty; back → the card
+lists it; reopen → 3 / 2 again; `.vidtsx-temp/w8/stage0-canvas.png`. The
+row was created through the migration path because the dialog sends v1
+template JSON; a saved-before-W8 row was migrated in the unit test
+(`flows-projects-db.test.ts`, real SQL through node:sqlite), not live —
+the profile had none.
+
+**Left for Stage 1.** `FLOWS_*` handlers, preload methods and
+`electron.d.ts` entries (none added — Stage 0 is names and types);
+`NodeSpec`s from the registry; the doc's `id` for packaged flows is
+validated but nothing reads `<ns>/<name>` yet; `withGraph` re-derives
+outputs from a tool-id map that Stage 1 should replace with the registry's
+first output port; `FlowRunDoc.flowVersion` is a string (the flow's
+`updatedAt` or package version) — the runner decides which. Driver
+lessons: `vidtsx:navigate` to `flows` left Home on screen this time —
+clicking the sidebar entry works; `.group.relative` matches the sidebar
+buttons too, so a card query must add `.cursor-pointer` and a header
+button query must exclude `aside`; running the full suite, `tsc` and the
+build at once produced 9 contention timeouts that vanished alone (41 s).
+
 ## 4. Stage 1 — Registry ports and the main runner — ~1.5 sessions
 
 Depends on agents Stage 1 (done 2026-09-07; updated 2026-09-10).
