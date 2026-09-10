@@ -18,6 +18,7 @@ import type {
 } from '../../../../shared/types/agents';
 import type { AgentToolContext, AgentToolResult, InteractionAskResult } from './types';
 import type { RegisteredTool } from './registry';
+import { invokeTool } from './invoke-tool';
 import { logEngine } from '../../../../logging/log-engine';
 
 const log = logEngine.createLogger('AgentTools');
@@ -88,16 +89,11 @@ export function buildAgentToolServer(
       deps.emit({ sessionId: deps.sessionId, kind: 'tool', tool: def.id, callId });
       const ctx = buildContext(deps, def.id, callId);
 
-      let result: AgentToolResult;
-      try {
-        result = await def.handler(args as Record<string, unknown>, ctx);
-      } catch (err) {
-        // A handler that throws is a bug, not a model mistake: report it to the
-        // model so the turn can continue, and log it so it is not swallowed.
-        const message = err instanceof Error ? err.message : String(err);
-        log.warn('Agent tool threw', { tool: def.id, error: message });
-        return { content: [{ type: 'text' as const, text: `${def.id} failed: ${message}` }], isError: true };
-      }
+      // The ONE handler path (flows plan §11): argument validation, the usage
+      // attribution and the throw-to-result rule live in `invokeTool`, shared
+      // with the flow runner. No capabilities are passed — the system prompt
+      // already told the model which gated tools are unavailable (§1.8).
+      const result: AgentToolResult = await invokeTool(def, args, ctx, { featureSource: 'agent' });
 
       const content: Array<
         | { type: 'text'; text: string }

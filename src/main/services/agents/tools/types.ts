@@ -17,6 +17,8 @@ import type {
   AgentRunEvent,
   InteractionPayload,
 } from '../../../../shared/types/agents';
+import type { AiFeatureSource } from '../../../../shared/types/ai-usage';
+import type { ToolPorts } from '../../../../shared/types/flows';
 
 /** Capability gate, surfaced in the agent UI and named in the system prompt. */
 export type AgentToolNeed = 'image-provider' | 'video-provider' | 'audio-provider';
@@ -32,6 +34,12 @@ export interface AgentToolResult {
   images?: Array<{ data: string; mimeType: string }>;
   /** Filed by the runner when the tool made something the user can open. */
   artifact?: AgentArtifactDraft;
+  /**
+   * Named primitives a flow output port can read (`from: 'field:<name>'`,
+   * flows plan §1.2) — `generate_text` returns `{ text }`. The agent path
+   * ignores this; the model reads `content`.
+   */
+  fields?: Record<string, string | number>;
   /**
    * Id of the artifact this draft is a new version of (`edit_composition`).
    * The runner carries that artifact's version + 1 onto the new one; without
@@ -83,6 +91,13 @@ export interface AgentToolContext {
   libraryFolder?: string;
   /** Brand to auto-tag output with, when the session has one. */
   brandId?: string;
+  /**
+   * Who pays for this call in the usage log (flows plan §0.1 item 14).
+   * `invokeTool` sets it — `'agent'` from the tool server, `'flows'` from the
+   * flow runner — and tools that spend read it instead of hard-coding a
+   * source. Absent means `'agent'` (contexts built by hand in older tests).
+   */
+  featureSource?: AiFeatureSource;
   emit(event: AgentRunEvent): void;
   /** One progress line for the run transcript. */
   emitProgress(detail: string): void;
@@ -91,12 +106,30 @@ export interface AgentToolContext {
   ask(payload: InteractionPayload): Promise<InteractionAskResult>;
 }
 
+/**
+ * A tool that is ALSO a flow node (flows plan §1.2, decision 2): the ports the
+ * canvas draws, the inspector fields, and what the run form says about cost.
+ * `priceHint` is a function because the fal catalog is read at list time, not
+ * at import time. A tool without `ports` is agent-only.
+ */
+export interface AgentToolPorts extends ToolPorts {
+  /** Palette and node title. */
+  label: string;
+  /** §0.1 item 6: the run form lists priced steps before Run. */
+  priced?: boolean;
+  priceHint?: () => string | undefined;
+  /** Only `run_agent` — the canvas marks the non-deterministic step. */
+  nondeterministic?: boolean;
+}
+
 export interface AgentToolDef<TArgs = Record<string, unknown>> {
   id: string;
   /** Sent to the model. */
   description: string;
   schema: ZodRawShape;
   needs?: AgentToolNeed;
+  /** Present on tools that are also flow nodes (flows plan Stage 1). */
+  ports?: AgentToolPorts;
   handler: (args: TArgs, ctx: AgentToolContext) => Promise<AgentToolResult>;
 }
 
