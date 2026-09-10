@@ -153,11 +153,14 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
   useEffect(() => {
     // Progress goes to ref only — no setJobs, no React re-renders
     const unsubscribeProgress = window.api.onRenderProgress((event) => {
+      // A finishing/verifying tick without frame counts keeps the last ones:
+      // the row persists whatever the final tick held.
+      const prev = progressMapRef.current.get(event.jobId);
       progressMapRef.current.set(event.jobId, {
         percent: event.percent,
         phase: event.phase,
-        framesRendered: event.framesRendered,
-        totalFrames: event.totalFrames,
+        framesRendered: event.framesRendered ?? prev?.framesRendered,
+        totalFrames: event.totalFrames ?? prev?.totalFrames,
         message: event.message,
       });
       notifyProgressListeners();
@@ -181,24 +184,32 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
 
     // Completion updates jobs state (status change)
     const unsubscribeComplete = window.api.onRenderComplete((event) => {
-      // Clean up progress data for completed job
+      // The last progress tick is what the row persists: the frame count and
+      // percent were only ever in this ref, so rows used to save framesRendered 0.
+      const last = progressMapRef.current.get(event.jobId);
       progressMapRef.current.delete(event.jobId);
 
       setJobs((prev) => {
-        const updated = prev.map((job) =>
-          job.id === event.jobId
-            ? {
-                ...job,
-                status: event.success ? ('done' as const) : ('error' as const),
-                progress: event.success ? 100 : job.progress,
-                fileSize: event.fileSize,
-                error: event.error,
-                message: event.message,
-                reportPath: event.reportPath,
-                completedAt: Date.now(),
-              }
-            : job
-        );
+        const updated = prev.map((job) => {
+          if (job.id !== event.jobId) return job;
+          const totalFrames = last?.totalFrames ?? job.totalFrames;
+          const framesRendered = event.success ? totalFrames : (last?.framesRendered ?? job.framesRendered);
+          // A job the user cancelled stays cancelled: the export's own
+          // "Cancelled" completion must not turn it into an error.
+          const status = job.status === 'cancelled' ? job.status : event.success ? ('done' as const) : ('error' as const);
+          return {
+            ...job,
+            status,
+            progress: event.success ? 100 : (last?.percent ?? job.progress),
+            framesRendered,
+            totalFrames,
+            fileSize: event.fileSize,
+            error: status === 'cancelled' ? job.error : event.error,
+            message: event.message,
+            reportPath: event.reportPath,
+            completedAt: job.completedAt ?? Date.now(),
+          };
+        });
 
         // Append successful render to the persistent history file
         if (event.success) {
@@ -293,11 +304,21 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       await window.api.renderCancel({ jobId: id });
     }
 
+    const last = progressMapRef.current.get(id);
     progressMapRef.current.delete(id);
 
     setJobs((prev) => {
       const updated = prev.map((j) =>
-        j.id === id ? { ...j, status: 'cancelled' as const } : j
+        j.id === id
+          ? {
+              ...j,
+              status: 'cancelled' as const,
+              progress: last?.percent ?? j.progress,
+              framesRendered: last?.framesRendered ?? j.framesRendered,
+              totalFrames: last?.totalFrames ?? j.totalFrames,
+              completedAt: Date.now(),
+            }
+          : j
       );
       // Start next job after cancellation
       setTimeout(() => startNextJob(updated), 100);

@@ -140,12 +140,14 @@ log({ step: 'dialog', ...dialog });
 if (dialog.error) process.exit(1);
 if (args.out) await screenshot(args.out.replace(/\.json$/, '-dialog.png'));
 await evaluate(`if (!window.__exportComplete) { window.__exportComplete = []; window.api.onRenderComplete((d) => window.__exportComplete.push({ ...d, at: Date.now() })); } return true;`);
+// The progress events themselves (Stage 4: the engine's copied/rendering line + the frame counts the row persists).
+await evaluate(`if (!window.__exportProgressHook) { window.__exportProgressHook = true; window.__exportProgress = null; window.api.onRenderProgress((p) => { if (!String(p.jobId).includes(':')) window.__exportProgress = { ...p, at: Date.now() }; }); } return true;`);
 const confirmed = await evaluate(`const b = visible('[data-export-confirm]')[0]; if (!b) return 'no confirm'; b.click(); await sleep(1500); return visible('[data-export-dialog]').length ? 'dialog still open' : 'queued';`);
 log({ step: 'confirm', confirmed });
 // 5. wait for the completion event (the finishing/verifying phases run outside
 // Remotion's active list, so render:complete is the only reliable end signal),
 // then read the persisted row — renderQueueLoad only once nothing is active.
-let final = null, seen = null, lastProgress = -1, lastPhaseMsg = '', startedAt = null;
+let final = null, seen = null, lastProgress = -1, lastPhaseMsg = '', lastTick = '', startedAt = null;
 while (Date.now() - clickT < 6 * 3600 * 1000) {
   await sleep(5000);
   const done = await evaluate(`return (window.__exportComplete ?? []).filter((d) => !String(d.jobId).includes(':') && d.at > ${clickT});`);
@@ -158,6 +160,11 @@ while (Date.now() - clickT < 6 * 3600 * 1000) {
     final = { jobId: event.jobId, event, clickedAt: new Date(clickT).toISOString(), renderStartedAt: startedAt ? new Date(startedAt).toISOString() : null, finishedAt: new Date(finishedAt).toISOString(), wallMsFromClick: finishedAt - clickT, wallMsFromStart: startedAt ? finishedAt - startedAt : null, persisted };
     break;
   }
+  const tick = await evaluate(`return window.__exportProgress;`);
+  if (tick && tick.at > clickT) {
+    const line = `${tick.phase} ${tick.percent}% ${tick.framesRendered ?? '-'}/${tick.totalFrames ?? '-'} ${tick.message ?? ''}`;
+    if (line !== lastTick) { log({ step: 'progress', line, elapsedS: Math.round((Date.now() - clickT) / 1000) }); lastTick = line; }
+  }
   const active = await evaluate(`const g = await window.api.renderQueueGet(); return g.jobs ?? [];`);
   const mine = active.find((j) => !String(j.jobId).includes(':'));
   if (mine) {
@@ -165,7 +172,8 @@ while (Date.now() - clickT < 6 * 3600 * 1000) {
     if (mine.progress !== lastProgress) { log({ step: 'poll', status: mine.status, progress: mine.progress, elapsedS: Math.round((Date.now() - startedAt) / 1000) }); lastProgress = mine.progress; }
     continue;
   }
-  const msg = await evaluate(`return [...document.querySelectorAll('*')].filter((e) => e.offsetParent !== null && e.children.length === 0 && /Mixing audio|Writing the file|Verifying|Rendering the reference|Comparing frame|Measuring audio|Finishing/.test(e.textContent)).map((e) => e.textContent.trim())[0] ?? null;`);
+  // Also the passthrough engine's Stage 4 progress line ("Copied 41 % · rendering 1 of 1 spans · about 4 min left").
+  const msg = await evaluate(`return [...document.querySelectorAll('*')].filter((e) => e.offsetParent !== null && e.children.length === 0 && /Mixing audio|Writing the file|Verifying|Rendering the reference|Comparing frame|Measuring audio|Finishing|Copied \\d+ %|Nothing on this timeline/.test(e.textContent)).map((e) => e.textContent.trim())[0] ?? null;`);
   if (msg && msg !== lastPhaseMsg) { log({ step: 'phase', msg, elapsedS: Math.round((Date.now() - clickT) / 1000) }); lastPhaseMsg = msg; }
 }
 log({ step: 'final', ...final });

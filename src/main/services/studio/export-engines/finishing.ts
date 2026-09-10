@@ -9,10 +9,12 @@
  * an engine bug and must fail loudly, never quietly re-encode (T1 leg 3: mixed
  * tags cannot share a file).
  *
- * Audio: PCM in, one AAC encode here with Remotion's settings (320 kb/s,
- * 18 kHz cutoff). ffmpeg's encoder declares its delay and the mp4 muxer
- * writes the matching edit list, so decoders start at the first real sample
- * — the D6 reference (the camera file, 0 ms) instead of +42.7 ms.
+ * Audio: PCM in, one AAC encode with Remotion's settings (320 kb/s, 18 kHz
+ * cutoff) — in the mux, or earlier through `encodeExportAudio` when an engine
+ * can overlap it with its frames (Stage 4), in which case the mux copies the
+ * stream. ffmpeg's encoder declares its delay and the mp4 muxer writes the
+ * matching edit list, so decoders start at the first real sample — the D6
+ * reference (the camera file, 0 ms) instead of +42.7 ms.
  */
 import { spawn } from 'child_process';
 import { getFfmpegBinary, runFfmpeg } from '../ffmpeg-bin';
@@ -24,6 +26,8 @@ export interface FinishExportOptions {
   audioPath: string;
   outputPath: string;
   color: ExportColorPolicy;
+  /** The composition's frame rate, for the index reservation when the container reports no frame count. */
+  fps?: number;
   signal: AbortSignal;
   onProgress?: (fraction: number) => void;
 }
@@ -104,6 +108,84 @@ export function colorTagArgs(color: ExportColorPolicy): string[] {
   ];
 }
 
+/** Remotion's AAC settings — the one encode every export's audio goes through. */
+export const AAC_ENCODE_ARGS = ['-c:a', 'aac', '-b:a', '320k', '-cutoff', '18000'];
+
+/**
+ * The AAC encode alone, PCM in, to an mp4 container that keeps the encoder
+ * delay (the m4a's edit list). Engines may run it EARLY, beside their frames
+ * (Stage 4): the native encoder is single-threaded at ~8× realtime — 22 of
+ * the 3 h project's 24 mux minutes — while a copying engine leaves the CPU
+ * idle. The mux then stream-copies it; the settings never change.
+ */
+export function aacEncodeArgs(inputPath: string, outputPath: string): string[] {
+  // `-f mp4` spelled out: Remotion's ffmpeg build maps no `.m4a` extension.
+  return ['-y', '-hide_banner', '-nostdin', '-i', inputPath, '-vn', '-map', '0:a:0', ...AAC_ENCODE_ARGS, '-map_metadata', '-1', '-f', 'mp4', outputPath];
+}
+
+export interface EncodeExportAudioOptions {
+  /** PCM (any container ffmpeg reads). */
+  audioPath: string;
+  /** Must end in .m4a. */
+  outputPath: string;
+  signal: AbortSignal;
+}
+
+export async function encodeExportAudio(options: EncodeExportAudioOptions): Promise<void> {
+  const ffmpeg = await getFfmpegBinary('ffmpeg');
+  await runFfmpeg(ffmpeg, aacEncodeArgs(options.audioPath, options.outputPath), { signal: options.signal });
+}
+
+export type FinishAudioMode = 'none' | 'encode' | 'copy';
+
+export interface FinishMuxArgs {
+  videoPath: string;
+  audioPath: string;
+  audio: FinishAudioMode;
+  outputPath: string;
+  color: ExportColorPolicy;
+  /**
+   * Bytes reserved for the moov atom at the front of the file, so the
+   * index lands there in the one write. Absent → ffmpeg's faststart second
+   * pass, which shifts the whole mdat: 165 s of a 10 GB file (measured
+   * 2026-09-09, 224 s against 59 s with the reservation).
+   */
+  moovBytes?: number;
+}
+
+/** The mux: video by stream copy under the colour tags; audio encoded here or copied when already AAC. */
+export function finishMuxArgs(a: FinishMuxArgs): string[] {
+  return [
+    '-y', '-hide_banner', '-nostdin',
+    '-i', a.videoPath,
+    ...(a.audio !== 'none' ? ['-i', a.audioPath, '-map', '0:v:0', '-map', '1:a:0'] : ['-map', '0:v:0', '-an']),
+    '-c:v', 'copy',
+    ...colorTagArgs(a.color),
+    ...(a.audio === 'encode' ? AAC_ENCODE_ARGS : a.audio === 'copy' ? ['-c:a', 'copy'] : []),
+    '-map_metadata', '-1',
+    ...(a.moovBytes !== undefined ? ['-moov_size', String(a.moovBytes)] : ['-movflags', '+faststart']),
+    a.outputPath,
+  ];
+}
+
+/** ffmpeg's own words when the reservation is too small; the mux then falls back to faststart. */
+export const MOOV_TOO_SMALL = /reserved_moov_size is too small/;
+
+/**
+ * Room for the index: the 3 h product's moov measured 12.6 bytes per video
+ * frame and 20.6 per AAC frame (stts/stsz/stco/ctts), so 32 per sample plus
+ * 64 KiB is 1.5× headroom; the unused part is a `free` atom (140 KB on a
+ * 30 s file, 12 MB on 3 h).
+ */
+export function reservedMoovBytes(videoFrames: number, audioFrames: number): number {
+  return 32 * (Math.max(0, videoFrames) + Math.max(0, audioFrames)) + 65536;
+}
+
+/** AAC frames a mux will write for `seconds` of audio at `sampleRate` (1024 samples each, plus the priming frame). */
+export function aacFrameCount(seconds: number, sampleRate: number): number {
+  return Math.ceil((seconds * sampleRate) / 1024) + 2;
+}
+
 export async function finishExport(options: FinishExportOptions): Promise<ProbedStreams> {
   const before = await probeStreams(options.videoPath);
   const mismatch = colorMismatch(before.video, options.color);
@@ -113,23 +195,16 @@ export async function finishExport(options: FinishExportOptions): Promise<Probed
 
   // A timeline with no sound keeps what every export had: no audio track.
   const audioSource = options.audioPath === options.videoPath ? before : await probeStreams(options.audioPath);
-  const hasAudio = audioSource.audio !== undefined;
+  const audio: FinishAudioMode = audioSource.audio === undefined ? 'none' : audioSource.audio.codec === 'aac' ? 'copy' : 'encode';
+  const hasAudio = audio !== 'none';
 
   const ffmpeg = await getFfmpegBinary('ffmpeg');
   const totalSeconds = before.duration ?? 0;
-  await runFfmpeg(
+  const videoFrames = before.video?.frames ?? Math.ceil(totalSeconds * (options.fps ?? 60));
+  const audioFrames = hasAudio ? aacFrameCount(totalSeconds, audioSource.audio?.sampleRate ?? 48000) : 0;
+  const mux = (moovBytes: number | undefined) => runFfmpeg(
     ffmpeg,
-    [
-      '-y', '-hide_banner', '-nostdin',
-      '-i', options.videoPath,
-      ...(hasAudio ? ['-i', options.audioPath, '-map', '0:v:0', '-map', '1:a:0'] : ['-map', '0:v:0', '-an']),
-      '-c:v', 'copy',
-      ...colorTagArgs(options.color),
-      ...(hasAudio ? ['-c:a', 'aac', '-b:a', '320k', '-cutoff', '18000'] : []),
-      '-map_metadata', '-1',
-      '-movflags', '+faststart',
-      options.outputPath,
-    ],
+    finishMuxArgs({ videoPath: options.videoPath, audioPath: options.audioPath, audio, outputPath: options.outputPath, color: options.color, moovBytes }),
     {
       signal: options.signal,
       onStderr: (text) => {
@@ -141,6 +216,13 @@ export async function finishExport(options: FinishExportOptions): Promise<Probed
       },
     },
   );
+  try {
+    await mux(reservedMoovBytes(videoFrames, audioFrames));
+  } catch (err) {
+    if (options.signal.aborted || !(err instanceof Error) || !MOOV_TOO_SMALL.test(err.message)) throw err;
+    // The index outgrew its room (a stream shape the estimate did not foresee): the faststart pass instead.
+    await mux(undefined);
+  }
 
   const after = await probeStreams(options.outputPath);
   const afterMismatch = colorMismatch(after.video, options.color);

@@ -8,9 +8,11 @@
  * re-encoded by our ffmpeg with the copied spans' settings (conditions 2, 4).
  * Gaps are black. The pieces are MPEG-TS video-only intermediates joined by
  * stream copy (condition 3); the audio is one ffmpeg pass over the whole
- * timeline handed to the finishing stage as `audioPath` (slice 4: every
- * document the planner reads — gains, fades, transitions, tracks and speed —
- * is planned; the standard path is only the fallback for an empty plan).
+ * timeline (slice 4: every document the planner reads — gains, fades,
+ * transitions, tracks and speed — is planned; the standard path is only the
+ * fallback for an empty plan), mixed and AAC-encoded beside the pieces
+ * (`passthrough-audio.ts`, Stage 4) and handed to the finishing stage as
+ * `audioPath`.
  *
  * It never steps aside (D4): a timeline with nothing to copy still runs here,
  * with every frame through the browser and a note saying so.
@@ -22,15 +24,15 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { logEngine } from '../../../../logging/log-engine';
-import { copiedPercent, planExportAudio, planExportSpans, type ExportSpan, type ExportSpanPlan } from '../../../../shared/studio/export-spans';
+import { copiedPercent, planExportSpans, type ExportSpan, type ExportSpanPlan } from '../../../../shared/studio/export-spans';
 import { runFfmpeg } from '../ffmpeg-bin';
 import { getFfmpegFullBinary, probeProxyEncoders } from '../ffmpeg-full';
 import { chooseProxyEncoder, type ProxyGpuEncoder } from '../proxy-encoders';
 import { probeStreams } from './finishing';
+import { producePassthroughAudio } from './passthrough-audio';
 import { renderBrowserSpan } from './passthrough-browser';
 import {
   ENCODER_NAMES,
-  audioPassArgs,
   blackSpanArgs,
   browserSpanArgs,
   concatListText,
@@ -41,6 +43,7 @@ import {
   parseStatsFrame,
 } from './passthrough-ffmpeg';
 import { ffprobeBeside, probeSource, type SourceProbe } from './passthrough-probe';
+import { progressMessage, type SpanTiming } from './passthrough-progress';
 import type { ExportEngine, ExportEngineInput, ExportEngineProduct } from './types';
 
 const log = logEngine.createLogger('PassthroughEngine');
@@ -93,12 +96,30 @@ export const passthroughExportEngine: ExportEngine = {
     const message = plan.copiedFrames === 0 ? NOTHING_TO_COPY_MESSAGE : undefined;
     log.info('Span plan', { jobId: input.jobId, percent: copiedPercent(plan), spans: plan.spans.map((s) => `${s.kind}:${s.from}+${s.frames}`) });
 
-    // 1. Pieces, in order.
+    // The audio starts now and runs beside the pieces (Stage 4); a failure
+    // there stops the next piece rather than waiting for the join. The
+    // rejection is observed here so nothing is unhandled while the loop runs.
+    const videoPath = path.join(workDir, 'video.mp4');
+    let audioError: Error | null = null;
+    const audioWork = producePassthroughAudio(input, tools.ffmpeg, videoPath);
+    audioWork.catch((err: unknown) => { audioError = err instanceof Error ? err : new Error(String(err)); });
+
+    // 1. Pieces, in order. The progress line names the copied share, the span
+    // in flight and an estimate from this export's own measured rates (Stage 4);
+    // the D4 notice stands in for it when nothing can be copied.
     const pieces: Array<{ path: string; frames: number }> = [];
+    const timings: SpanTiming[] = [];
     let framesDone = 0;
-    const progress = (extra: number) => input.onProgress({ framesDone: framesDone + extra, totalFrames: plan.totalFrames, message });
+    let spanIndex = 0;
+    const progress = (extra: number) => input.onProgress({
+      framesDone: framesDone + extra,
+      totalFrames: plan.totalFrames,
+      message: message ?? progressMessage({ spans: plan.spans, index: spanIndex, framesInSpan: extra, done: timings, fps: entry.fps }),
+    });
     progress(0);
     for (const [i, span] of plan.spans.entries()) {
+      if (audioError) throw audioError;
+      spanIndex = i;
       let piecePath = path.join(workDir, `span-${String(i).padStart(4, '0')}.ts`);
       const startedAt = Date.now();
       await producePiece(input, tools, sources, span, i, piecePath, progress);
@@ -137,8 +158,10 @@ export const passthroughExportEngine: ExportEngine = {
       }
       const ms = Date.now() - startedAt;
       log.info('Span done', { jobId: input.jobId, index: i, kind: plan.spans[i].kind, frames: span.frames, ms, realtime: Math.round(((span.frames / entry.fps) / (ms / 1000)) * 100) / 100 });
+      timings.push({ kind: plan.spans[i].kind, frames: span.frames, ms });
       pieces.push({ path: piecePath, frames: expected });
       framesDone += span.frames;
+      spanIndex = i + 1; // the finished span counts as copied on this tick, not as in flight
       progress(0);
     }
 
@@ -152,7 +175,6 @@ export const passthroughExportEngine: ExportEngine = {
     // 2. Join (condition 3), then drop the pieces — the joined file is the product.
     const listPath = path.join(workDir, 'spans.txt');
     await fs.writeFile(listPath, concatListText(pieces, entry.fps), 'utf-8');
-    const videoPath = path.join(workDir, 'video.mp4');
     await runFfmpeg(tools.ffmpeg, joinArgs(listPath, videoPath, color), { signal });
     const joined = await probeStreams(videoPath);
     if (joined.video?.frames !== plan.totalFrames) {
@@ -160,22 +182,10 @@ export const passthroughExportEngine: ExportEngine = {
     }
     await Promise.all(pieces.map((p) => fs.rm(p.path, { force: true }).catch(() => {})));
 
-    // 3. The one audio pass (D6/D7), when the timeline's mix is plain cuts.
-    const audioPlan = planExportAudio(project, entry.durationInFrames);
-    let audioPath: string | undefined;
-    if (!audioPlan) {
-      notes.push('Audio mixed by the standard path (the one pass could not plan this timeline).');
-    } else if (!audioPlan.segments.some((s) => s.kind === 'source')) {
-      audioPath = videoPath; // no sound at all → the finishing stage writes no audio track
-    } else {
-      audioPath = path.join(workDir, 'audio.wav');
-      const graphPath = path.join(workDir, 'audio-graph.txt');
-      const pass = audioPassArgs(audioPlan, audioPath, graphPath);
-      await fs.writeFile(graphPath, pass.graph, 'utf-8');
-      await runFfmpeg(tools.ffmpeg, pass.args, { signal });
-      if (audioPlan.chains) notes.push(`Mixed ${audioPlan.chains.length + 1} audio chains in the one pass.`);
-    }
-    return { videoPath, audioPath, notes };
+    // 3. The audio (D6/D7) has been mixing and AAC-encoding beside the spans since the plan.
+    const audio = await audioWork;
+    notes.push(...audio.notes);
+    return { videoPath, audioPath: audio.audioPath, notes };
   },
 };
 

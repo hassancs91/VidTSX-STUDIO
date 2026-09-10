@@ -7,7 +7,7 @@ import { initLLMEngine } from './services/llm-init';
 import { initImageEngine } from './services/image-init';
 import { initVideoEngine } from './services/video-init';
 import { initSttEngine } from './services/stt/stt-init';
-import { initExportEngines } from './services/studio/export-engines';
+import { initExportEngines, sweepExportScratch } from './services/studio/export-engines';
 import { initSdImageCategory } from './services/sdimage-init';
 import { initSdVideoCategory } from './services/sdvideo-init';
 import { initAiRuntime } from './services/ai-runtime';
@@ -209,6 +209,9 @@ app.whenReady().then(async () => {
   // Studio export engines (docs/export-engines-plan.md) — the Remotion path
   // is always registered; nothing here touches disk or spawns a process.
   initExportEngines();
+  // Scratch folders and Remotion asset copies a crash or a kill left behind
+  // (Stage 4) — disk only, off the startup path.
+  void sweepExportScratch().catch(() => {});
 
   // Local AI engines (sherpa-onnx audio, sd-cli image/video, node-llama-cpp)
   // are NOT initialized here — no native addons, GPU probes, or model-folder

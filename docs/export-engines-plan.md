@@ -5,7 +5,7 @@
 > engine seam) and Stage 2 (the passthrough engine at its narrowest predicate)
 > are built and gated — see the §Stage 1 and §Stage 2 logs at the end; Stage 3
 > widened the predicate one gated slice at a time and is complete for what the
-> predicate names (§Stage 3 log, slices 1–4); Stage 4 is not started. Companion: `docs/studio/PLAN.md` §5 ("smart render"),
+> predicate names (§Stage 3 log, slices 1–4); Stage 4 (polish) has slices 1–3 built and gated and slice 4 measured (§Stage 4 log). Companion: `docs/studio/PLAN.md` §5 ("smart render"),
 > `docs/PREVIEW_ARCHITECTURE.md` §C2 (why only the identity transform is a
 > safe fast path).
 
@@ -65,7 +65,7 @@ frame**, 900 frames, audio lag 0 ms at every window.
 | **1 — engine seam** · **DONE 2026-09-05** | `ExportEngine` interface + registry in main (`src/main/services/studio/export-engines/`), the Remotion path moved behind it untouched, the shared finishing stage (D7) with the audio correction (D6), Settings default + Export dialog picker (D2/D3), verification mode behind a dev flag (D5) | the default engine exports byte-for-byte what it did before, minus the 42.7 ms; the picker exists but lists one engine — **met**: `t1-diff` vs the 2026-09-04 control 0 % over 24 at 1/300/449/450/451/600/899 on both reference projects, 900 frames, `yuv420p tv bt709`, audio 0 ms at every window vs the camera file (log below) |
 | **2 — passthrough, narrowest predicate** · **DONE 2026-09-06** | single video track, pure cuts, no effects/captions/shots; the span planner decides from the document alone; touched spans still go to the browser and are encoded per condition 2; join per condition 3; "copies N %" in the dialog; the D4 message | T1 gate passes on both reference projects; the 3 h T6 project exports in about an hour instead of days — **met**: 0 % over 24 vs the 2026-09-04 control at 1/300/449/450/451/600/899 on both projects, ≤ 0.01 % vs the Stage 1 Remotion engine in verify mode, audio 0 ms vs the camera file at every window, copied spans at 3.7–4.2× realtime, a re-export byte-identical; the 3 h project (275 clips, 100 % copied) exports in 1 h 32 min — 61 min of copied spans, 24 min in the finishing mux — against T6's ≈ 3.5 days, audio in sync end to end |
 | **3 — widen the predicate** · **DONE 2026-09-06/07** (slices 1–4) | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled — **slice 1 met**: the different-file cut measured (the export shows the ceil frame on the first frame after it opens a source file, the nearest on a same-file cut or a return; the planner carries it, the A-B-A seed reads 0 % over 24 at both cuts) and gain-only clips copied (video byte-identical to the Stage 2 cut export, audio 0 ms vs the camera file and vs an independent Remotion export at eight windows, level 0.4995–0.4997 on the gained clip and 1.000 vs Remotion); the Stage 2 gates re-run byte-identical. **Slice 2 met**: audio tracks mixed in the one pass (a music clip under the T1 cut: video byte-identical to the Stage 2 cut export, audio 0 ms and level 1.000 vs a plain Remotion export at eight windows, the mixed music at lag 0 and 0.98 of its gained level in the export-minus-camera residual on both exports alike) and several video tracks (the T1 cut as two stacked tracks: video AND audio byte-identical to the Stage 2 cut export, 0 % over 24 vs the control, audio 0 ms vs the camera); the three earlier gates re-run byte-identical on video AND audio. **Slice 3 met**: speed measured (Remotion = the nearest source frame on the scaled time line + a pitch-preserving `atempo` that our ffmpeg reproduces bit for bit — the recipe for the next slice, not widened yet); audio fades in the one pass (a faded clip's picture copied byte-identical to the Stage 2 cut export; its audio Remotion's own per-frame `volume=` expression on the same decoder buffers: 0 ms vs the camera file at eight windows, level 1.000 vs a plain Remotion export in 1 s windows outside the ramps and in 100 ms windows inside them); crossfade transitions (only the 30-frame window rendered, 97 % copied; 0 % over 24 vs both references at every sampled frame; the equal-power sum of the two lanes matches a model of the composition within 0.02, where the Remotion export is comb-filtered by its own whole-millisecond asset placement); the five earlier gates re-run byte-identical on video AND audio. **Slice 4 met**: speed (a clip at rate ≥ 1 is copied on the scaled time line — the nearest select with `S + rate·n/fps`, the ceil rule on a first frame unchanged and re-measured on a sped clip that opens a file — and its audio is Remotion's own `aformat s16 48k, atempo, atrim` chain in the one pass, a curve on it on the post-tempo time line; the pass's sped segment byte-identical PCM to that chain with and without a fade; the speed seed reads the SAME source frames as the plain Remotion export at every mapped frame, max 0.01 % over 24 at the seven frames, audio 0 ms and level 1.000 at eight windows, the sped music at lag 0; a second seed with a sped, faded clip of a second file at 2× and a 3× music clip reads the same K and the same levels inside the ramps, +0.3 ms on the faded-in clip = Remotion's whole-ms placement); the seven earlier gates re-run byte-identical on video AND audio. Slow motion (rate < 1) stays a browser span. Next: Stage 4; the long-return question |
-| **4 — polish** | progress that shows copied vs rendered time, cancel that cleans intermediates, the temp-copy leak from T5, the CPU-usage setting reaching Studio exports | tickets closed, `STATUS.md` row |
+| **4 — polish** · **slices 1–3 DONE 2026-09-09**, slice 4 measured | the finishing mux profiled and cut; progress that shows copied vs rendered time; cancel that cleans intermediates + the temp-copy leak from T5 + the CPU-usage setting reaching Studio exports; merging nearby browser spans measured | tickets closed, `STATUS.md` row — **met**: the 3 h project's finishing mux was the single-threaded AAC encode (8× realtime), now run beside the copied spans with the mux copying both streams and the moov reserved up front: `muxMs` **152 s** against 1,457 s, plan → file **65.4 min** against 92.1, the nine references byte-identical on video AND audio; the queue row reads "Copied 41 % · rendering 1 of 1 spans · about 4 min left" from measured rates and persists real frame counts; cancel retries the scratch removal, drops the half-written file, and a startup sweep removes scratch and hour-old Remotion asset folders; the CPU stop applies. Merging: a browser span ≈ 16 s start + 0.92 s/frame, break-even gap ≈ 19 frames — not built. Open: QSV/AMF (no Intel/AMD here), the long-return question, slow motion |
 
 Open, not blocking: the clap test (D6) on the first Stage 1 build; whether
 the fast engine should also become the default once Stage 3 has held for a
@@ -869,3 +869,113 @@ copied vs rendered time, cancel that cleans intermediates, the temp-copy leak
 from T5, the CPU-usage setting reaching Studio exports, the 24-minute
 finishing mux of a 10 GB file, merging nearby browser spans (a 30-frame
 transition window pays a full bundle + Chrome start), QSV/AMF unmeasured.
+
+## Stage 4 log — polish · slices 1–3 DONE 2026-09-09, slice 4 measured
+
+**Slice 1 = the finishing mux, profiled and cut.** The 3 h project's 24-minute
+mux was rebuilt offline from the 2026-09-06 product (its H.264 stream copied
+to a 10.27 GB video-only mp4, its AAC decoded to a 2.12 GB WAV — what the join
+and the one pass hand the finishing stage) and every variant timed with the
+binary the finishing stage uses (Remotion's ffmpeg 7.1):
+
+| variant | wall | what it says |
+|---|---|---|
+| A · the finishing command as it was (`-c:v copy`, `-c:a aac 320k cutoff 18000` from the WAV, `-movflags +faststart`) | **1,502 s** | the app's 1,457 s reproduced; its stderr clock put the faststart shift at the last ~140 s |
+| D · video copy alone, no faststart | 43 s | the disk floor |
+| F · video copy + AAC copy, the moov reserved at the front (`-moov_size`) | **59 s** | one write; ftyp · moov 14.8 MB · free 9.2 MB · mdat |
+| H · video copy + AAC copy + `+faststart` | 224 s | the faststart pass alone is ~165 s on 10 GB: it shifts the whole mdat in place |
+| G · a plain 10 GB file copy | 62 s | Defender is not the story |
+
+Finding 1: **the AAC encode is the wall, not the faststart rewrite.** ffmpeg's
+native `aac` encoder is single-threaded (one core at 100 %, 20 threads idle)
+and runs at 8.1–8.3× realtime with these settings on this machine — 1,360 s
+of the 1,502 for 3 h 4 min of stereo; the 30 s references' 3–6 s muxes were
+the same 8× (their 24–28 s outliers on 2026-09-06 were contention). The copies
+leave the CPU idle, so the encode now runs BESIDE them: `passthrough-audio.ts`
+starts the one pass the moment the span plan is known and follows it with the
+finishing stage's own `encodeExportAudio` (the same binary, the same
+`-c:a aac -b:a 320k -cutoff 18000`, PCM in, `-f mp4` spelled out because
+Remotion's build maps no `.m4a` extension), and `finishExport` copies an
+audio stream that is already AAC (`finishMuxArgs` audio mode `copy`; `encode`
+for a PCM product, the Remotion engine's mkv). Finding 2: **a copied AAC keeps
+its encoder delay** — measured on the T1 reference's video + the camera's
+first 30 s as WAV, encode-in-mux vs encode-early-then-copy: audio stream
+hashes identical, the first packet at pts −1024 in both, 0 ms vs the camera at
+0.5/7/13.5/22/29 s in both. Finding 3: **the moov reservation** —
+`-moov_size` = 32 bytes × (video frames + AAC frames) + 64 KiB (the 3 h index
+measured 12.6 B per video frame and 20.6 B per AAC frame, so 1.5× headroom;
+27.2 MB reserved for 14.8 MB used on 3 h, 139 KB for 34.5 KB on 30 s; the rest
+is a `free` atom) replaces the faststart pass; ffmpeg's "reserved_moov_size is
+too small" falls back to the faststart pass. Remotion's ffmpeg has no `md5`
+muxer either (hash streams with `passthrough-video-hash.mjs`).
+
+Gate, the nine references re-exported through the passthrough engine (the
+2026-09-06/07 files in `Videos\VidTSX`): **video AND audio streams
+byte-identical on all nine** — t5-1080p 5b32…/d343…, cut 5c39…/d343…, gain
+5c39…/dfa5…, music 5c39…/e18e…, stack 5c39…/d343…, fade 5c39…/5726…, xfade
+43c6…/1f2d…, speed 4a4c…/d63b…, speed2 1a2d…/aef0… (video/audio hashes, old =
+new). Their `muxMs` 271–312 ms against 3,269–28,682 ms before; `framesMs`
+6.7–10.3 s with the audio pass and the AAC inside it. The 3 h project
+(`t6-stress-3h`, 275 spans, 100 % copied):
+
+| stage | before (2026-09-06, the file that stood) | after (2026-09-09) |
+|---|---|---|
+| copied spans + join + audio | `framesMs` 4,068 s (61 min spans + ~7 min join/audio) | `framesMs` 3,775 s |
+| finishing mux | `muxMs` **1,457 s** | `muxMs` **152 s** |
+| plan → file | 92.1 min | **65.4 min** |
+
+The file that stands now: `Videos\VidTSX\studio-t6-stress-3h_2026-09-09T14-30-14.mp4`, 10,626,498,208 B, 330,749 frames, yuv420p tv bt709, atoms ftyp · moov 14.8 MB · free 12.4 MB · mdat (the reserved index, 27.2 MB, with its unused part as `free`); `framesMs` 3,774,685 and `muxMs` 152,069 against 4,068 s and 1,457 s before — the 275 copied spans took 53 min of the 63, the join, the one pass and the AAC encode the rest, and the mux is now the video copy (~43 s) plus the AAC copy and the reserved-moov write.
+
+**Slice 2 = progress that shows copied vs rendered.** `passthrough-progress.ts`
+(pure, tested) turns the span plan, the span in flight and the wall time of
+every finished span into the queue row's line — `Copied 41 % · rendering 1 of
+1 spans · about 4 min left` — with the estimate from THIS export's measured
+rates (copied frames/s and browser frames/s including the start; defaults 3×
+realtime and 1 frame/s before anything has finished). The copied share is of
+the whole timeline, so it grows as spans land; the count is within the kind
+in flight. Seen live: `Copied 4 % · copying 12 of 275 spans · about 41 min
+left` two minutes into the 3 h project (the copies took 53 min), `Copied 48 % ·
+rendering 1 of 1 spans` inside the crossfade window. **`framesRendered 0` in
+the rows**: the counts lived only in the renderer's progress ref and the
+finishing-phase ticks carried none, so completion persisted zero. The
+finishing/verifying ticks now carry the frame counts, the renderer keeps the
+last counts a tick omits, and completion and cancel write the last tick's
+counts and percent into the row (a cancelled row also stays `cancelled`
+instead of turning into the export's own "Cancelled" error). The 3 h project's queue row persisted `framesRendered 330749 / 330749`, status `done`, progress 100, the file size — the first long export whose row carries real counts.
+
+**Slice 3 = cancel that cleans up, and the CPU setting.** The scratch folder
+removal after a cancel now retries for six seconds (a killed ffmpeg or
+Remotion's own cleanup can still hold a file on Windows) and reports a
+leftover; a cancelled export's half-written output file is removed; and a
+startup sweep (`sweepExportScratch`) removes scratch folders and
+`%TEMP%\remotion-v*-assets*` folders older than an hour — the T5 leak — which
+on its first run removed one scratch folder and 14 Remotion asset folders
+(4 GB, two of them the 09-06/09-07 kills). Cancel measured with
+`scripts/bench/export-cancel-run.mjs` (starts an export through the real
+dialog, cancels it from the queue row at a chosen moment, then reads the
+scratch folder, the Remotion asset folders, headless browsers, the output
+file and the persisted row): (2026-09-10, the dev app restarted on the final code) **the xfade seed cancelled inside its browser span** — at 49 %, 443 of 900 frames, `Copied 49 % · rendering 1 of 1 spans`, 11 headless browsers up from 4: scratch folder gone, the half-written output gone, browsers back to 4, the row `cancelled` at 443/900. The first run left ONE thing behind: Remotion's asset folder for the cancelled span as an EMPTY tree (`remotion-v4.0.435-assets…/remotion-assets-dir`, `remotion-audio-mixing`, `remotion-audio-preprocessing`, `remotion-stitch-temp-dir`, 0 bytes — Remotion's own cancel removes the files, not the directories), which the startup sweep would have taken an hour later; the abort path now also removes empty `remotion-v*-assets*` trees created since the export started (a tree holding any file belongs to a live render and is left alone) — rerun: no new Remotion folder. **The 3 h project cancelled 150 s into its copied spans** — at 5 %, 17,597 of 330,749 frames, `copying 14 of 275 spans · about 44 min left`, the one pass and the AAC encode in flight, no browser: scratch folder gone (the TS pieces, the WAV, the AAC), output gone, no Remotion folder, browsers 4 / 4 / 4, the row `cancelled` at 17597/330749 within a second of the click. The Settings › Rendering
+CPU-usage default now reaches Studio exports (`renderCpuUsageConcurrency`
+maps the stop to the dialog's `25% / 50% / 75% / all` and the render handler
+applies it when the request carries none) — the browser spans and the
+Remotion engine ran at Remotion's default before.
+
+**Slice 4 = merging nearby browser spans, measured, not built.** Two new
+seeds (`seed-cut-projects.mjs xfade3`, `xfade2x`): a 90-frame crossfade
+window, and two 30-frame windows 60 copied frames apart. Browser spans today,
+quiet machine: 30 frames = 42.1 / 43.9 / 44.3 / 45.0 s (four spans), 90
+frames = 99.2 s — **≈ 16 s of start (bundle + Chrome) + 0.92 s per frame**.
+Merging two windows means rendering the copied gap at 0.92 s/frame to save
+one 16 s start, against copying it at ~0.01 s/frame: the break-even gap is
+**≈ 19 frames** (0.6 s at 30 fps). The two-window seed as planned (two spans,
+88 s + a 1.5 s copy) beats the merged span (16 + 120 × 0.92 = 126 s) by 37 s.
+Not worth an engine change; the 3.2 min per window Stage 3 recorded was
+contention (a verify-mode reference render in the same run), not the start.
+
+Not done, by design: QSV/AMF copy paths (this machine has no Intel/AMD
+encoder to measure — the seed projects need one); the long-return question;
+slow motion (rate < 1); the "no intermediate copy" idea (the join writes
+video.mp4 and the mux copies it again — 43 s of the 3 h project's finishing;
+D7 keeps the probe → mux → probe seam). Gates: check:types 26/10 (baseline),
+vitest 2312 (261 files, 19 skipped) green, live ffmpeg 8. Bench: `.vidtsx-temp/bench/stage4/`
+(profile-mux.sh, the driver chains, measure-stage4.sh).

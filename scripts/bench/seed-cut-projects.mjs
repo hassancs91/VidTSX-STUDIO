@@ -10,6 +10,8 @@
 //   node scripts/bench/seed-cut-projects.mjs stack      → t5-1080p-cut-stack  (the T1 cut as two tracks: V1 15–30 s from 15 s, muted, over V2 0–30 s)
 //   node scripts/bench/seed-cut-projects.mjs fade       → t5-1080p-cut-fade   (the T1 cut: fade out 0.5 s on clip A; gain 0.5, fade in 1 s + fade out 2 s on clip B — slice 3)
 //   node scripts/bench/seed-cut-projects.mjs xfade      → t5-1080p-cut-xfade  (the T1 cut with a 1 s crossfade at 15 s — slice 3)
+//   node scripts/bench/seed-cut-projects.mjs xfade3     → t5-1080p-cut-xfade3  (the T1 cut with a 3 s crossfade — Stage 4: a 90-frame browser span)
+//   node scripts/bench/seed-cut-projects.mjs xfade2x    → t5-1080p-cut-xfade2x (0–12 s | 12–15 s | 15–30 s with 1 s crossfades at 12 s and 15 s — Stage 4: two 30-frame browser spans 60 copied frames apart)
 //   node scripts/bench/seed-cut-projects.mjs speed      → t5-1080p-cut-speed  (the T1 cut with clip B at speed 1.5; the music clip on A1 2–12 s from 2 s at speed 1.5, gain 0.5 — slice 3's measurement)
 //   node scripts/bench/seed-cut-projects.mjs speed2     → t5-1080p-cut-speed2 (0270 0–15 s, then 0272 at speed 2 from 127.9745 s to its end with gain 0.5 + fade in 1 s + fade out 1 s;
 //                                                          the music clip on A1 2–12 s from 2 s at speed 3, gain 0.5 — slice 4: a sped clip that OPENS a file, runs to the source end, fades, and a rate outside atempo's range)
@@ -90,6 +92,16 @@ const seeds = {
     clip('clip_t1_cut_a', A0270.id, 0, 15, 0, { transitionOut: { kind: 'crossfade', duration: 1 } }),
     clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
   ]),
+  // Stage 4's browser-span cost curve: one 90-frame window, and two 30-frame windows 60 copied frames apart.
+  'xfade3': base('t5-1080p-cut-xfade3', 'T1 cut xfade 3 s (0-15 s | 15-30 s, 3 s crossfade at 15 s)', [A0270], [
+    clip('clip_t1_cut_a', A0270.id, 0, 15, 0, { transitionOut: { kind: 'crossfade', duration: 3 } }),
+    clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
+  ]),
+  'xfade2x': base('t5-1080p-cut-xfade2x', 'T1 cut xfade x2 (0-12 s | 12-15 s | 15-30 s, 1 s crossfades at 12 s and 15 s)', [A0270], [
+    clip('clip_t1_cut_a', A0270.id, 0, 12, 0, { transitionOut: { kind: 'crossfade', duration: 1 } }),
+    clip('clip_t1_cut_m', A0270.id, 12, 3, 12, { transitionOut: { kind: 'crossfade', duration: 1 } }),
+    clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
+  ]),
   'speed': base('t5-1080p-cut-speed', 'T1 cut speed (0-15 s | 15-30 s at speed 1.5 on B, music on A1 2-12 s from 2 s at speed 1.5)', [A0270, MUSIC], [
     clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
     clip('clip_t1_cut_b', A0270.id, 15, 15, 15, { speed: 1.5 }),
@@ -105,7 +117,7 @@ const seeds = {
 };
 const project = seeds[which];
 if (!project) {
-  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | speed | speed2 [--force]');
+  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | xfade3 | xfade2x | speed | speed2 [--force]');
   process.exit(1);
 }
 if (which === 'music') {

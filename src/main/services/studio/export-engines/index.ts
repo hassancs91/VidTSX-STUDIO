@@ -20,7 +20,7 @@ export function initExportEngines(): void {
 
 export { readExportContext, writeExportContext } from './export-context';
 export { hasExportEngine, listExportEngineIds, listExportEngineStatus, resolveExportEngine } from './registry';
-export { cancelStudioExport, isExportVerifyAvailable, isStudioExportActive, runStudioExport } from './run-export';
+export { cancelStudioExport, isExportVerifyAvailable, isStudioExportActive, runStudioExport, sweepExportScratch } from './run-export';
 export type { StudioExportResult, StudioExportRunOptions } from './run-export';
 export { EXPORT_COLOR } from './types';
 export type { ExportEngine, ExportEngineInput, ExportEngineProduct, ExportRenderSettings } from './types';

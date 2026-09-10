@@ -437,3 +437,23 @@ words. Nothing in a driver needs a regex.
 workspace and with it the render bridge. A live row on the stage can therefore
 only be observed on a render the AGENT started, never on one started from the
 action bar.
+
+## Studio exports from the queue: three small traps (2026-09-09, export-engines Stage 4)
+
+- **The sidebar's Queue button reads "2Queue".** Its badge count renders
+  BEFORE the label, so an exact-text match on `Queue` finds nothing and the
+  driver stays on the Studio screen — where no queue row, and no Cancel
+  button, exists. Match `/^\d*Queue$/` on the trimmed text. (`scripts/bench/
+  export-cancel-run.mjs` cancels a Studio export from its real queue row this
+  way, and prints the matched rows before it clicks, since a queued row and a
+  rendering row both carry a Cancel.)
+- **A regex in a template literal loses its backslash.** `/^\d*Queue$/` typed
+  inside a plain template string reaches `Runtime.evaluate` as `/^d*Queue$/`,
+  which cannot match — and the failure reads as "no such button". Write `\\d`
+  in the source, or build the body with `String.raw`.
+- **A passthrough export is not in `renderQueueGet`'s active list** (only
+  Remotion renders are; its browser spans appear there under `<jobId>:spanN`),
+  and the Studio screen hides the render chip once frames flow, so neither the
+  active list nor the DOM shows its progress line. Subscribe to
+  `window.api.onRenderProgress` from the driver and read the event's
+  `message` — that is what the queue row shows.

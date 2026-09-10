@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-09-09 — EXPORT ENGINES Stage 4: the finishing mux cut 25×, copied-vs-rendered progress, cancel cleanup
+
+Stage 4 of `docs/export-engines-plan.md` (Stage 3 closed at 36d7ace), slices 1–3 built and
+gated, slice 4 measured. Full log with the numbers: the plan's §Stage 4 log. The fast engine
+stays opt-in (D2); flipping the default is Hasan's call.
+
+- **The 24-minute mux was the AAC encode, not the faststart rewrite.** Profiled offline on the
+  3 h project's own 10.27 GB video + 2.12 GB WAV with the finishing stage's binary: the
+  current command 1,502 s (the app's 1,457 reproduced), video copy alone 43 s, copy + copy with
+  the moov reserved 59 s, copy + copy + faststart 224 s. ffmpeg's native `aac` encoder is
+  single-threaded at 8× realtime — 1,360 s of the 1,502 — and the copies leave the CPU idle, so
+  `passthrough-audio.ts` now runs the one pass AND the finishing stage's own AAC encode (same
+  binary, same `320k / cutoff 18000`, PCM in) beside the spans; the mux copies both streams and
+  reserves the index up front (`-moov_size` = 32 B × samples + 64 KiB, faststart as the
+  fallback). A copied AAC keeps its encoder delay: first packet at pts −1024, 0 ms vs the camera.
+- **Gate: the nine references byte-identical on video AND audio** (t5-1080p, cut, gain, music,
+  stack, fade, xfade, speed, speed2 re-exported; every stream hash equal to its 2026-09-06/07
+  file); their `muxMs` 271–312 ms against 3.3–28.7 s. **The 3 h project: `muxMs` 152 s against
+  1,457 s; plan → file 65.4 min against 92.1** (`studio-t6-stress-3h_2026-09-09T14-30-14.mp4`, 10,626,498,208 B, 330,749 frames, yuv420p tv bt709, ftyp · moov 14.8 MB · free 12.4 MB · mdat).
+- **Progress that shows copied vs rendered.** The queue row reads `Copied 4 % · copying 12 of
+  275 spans · about 41 min left` / `Copied 48 % · rendering 1 of 1 spans · under a minute left`
+  (`passthrough-progress.ts`, pure, tested: the estimate from this export's measured copy and
+  browser rates). Rows persisted `framesRendered 0` because the counts lived only in the
+  renderer's progress ref and the finishing ticks carried none — fixed on both sides; a
+  cancelled row now stays cancelled with its last counts. The 3 h row persisted 330749/330749.
+- **Cancel cleans up.** Scratch removal retries through Windows' file locks and drops the
+  half-written output; a startup sweep removes scratch folders and hour-old
+  `%TEMP%\remotion-v*-assets*` copies (the T5 leak — 14 folders, 4 GB, on its first run).
+  Measured with `scripts/bench/export-cancel-run.mjs`: the xfade seed cancelled inside its browser span (49 %, 11 headless browsers up from 4) → scratch, output and the seven browsers gone, the row `cancelled` at 443/900 — the first run left Remotion's asset folder as an EMPTY tree (its cancel removes the files, not the directories), so the abort path now removes empty `remotion-v*-assets*` trees created since the export started too; the 3 h project cancelled 150 s in (5 %, 14 of 275 spans, the audio pass and the AAC encode in flight) → scratch and output gone, no Remotion folder, no browser, the row `cancelled` at 17597/330749. The Settings › Rendering
+  CPU-usage stop now reaches Studio exports (`renderCpuUsageConcurrency`).
+- **Merging nearby browser spans: measured, not built.** A browser span costs ≈ 16 s of start +
+  0.92 s per frame (four 30-frame windows 42–45 s, a 90-frame window 99 s, new seeds `xfade3`
+  and `xfade2x`); merging pays only for gaps under ~19 frames. The 3.2 min per window Stage 3
+  saw was contention.
+- Gates: check:types 26/10 (baseline), vitest 2312 (261 files, 19 skipped) green, live ffmpeg 8. Still owed:
+  QSV/AMF (no Intel/AMD encoder here), the long-return question, slow motion.
+
 ## 2026-09-10 — V1 COMPLETION W8 DONE: Flows, all seven stages — the plan is complete
 
 W8 of `docs/v1-completion-plan.md` §2.8, per `docs/flows-plan.md`. The

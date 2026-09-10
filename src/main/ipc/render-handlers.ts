@@ -21,9 +21,10 @@ import {
   createCaptionEntry,
 } from '../services/caption-composition';
 import { generateThumbnail } from '../services/thumbnail-generator';
-import { getOutputFolder, getRenderTimeoutSeconds, getRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration } from '../services/settings';
+import { getOutputFolder, getRenderTimeoutSeconds, getRenderDefaultCpuUsage, getRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration } from '../services/settings';
 import { cancelStudioExport, readExportContext, runStudioExport } from '../services/studio/export-engines';
 import { IPC } from '../../shared/ipc/channels';
+import { renderCpuUsageConcurrency } from '../../shared/render-cpu-usage';
 import type {
   RenderStartRequest,
   RenderStartResponse,
@@ -228,6 +229,9 @@ export async function handleRenderStart(
           sendComplete(false, undefined, undefined, 'This export was prepared by an older version. Open the project and export again.');
           return;
         }
+        // A Studio export never opens the render dialog, so the Settings ›
+        // Rendering CPU-usage default applies here (Stage 4) as it does there.
+        const cpuUsage = data.cpuUsage !== undefined ? data.cpuUsage : renderCpuUsageConcurrency(await getRenderDefaultCpuUsage());
         try {
           const result = await runStudioExport({
             jobId,
@@ -239,7 +243,7 @@ export async function handleRenderStart(
             outputPath: data.outputPath,
             render: {
               crf: data.crf,
-              cpuUsage: data.cpuUsage,
+              cpuUsage,
               gpuBackend,
               hardwareAcceleration,
               timeoutInMilliseconds: renderTimeoutSeconds * 1000,
