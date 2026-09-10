@@ -16,6 +16,7 @@ import {
   handleFlowsRunCancel,
   handleFlowsRunResume,
   handleFlowsRunGet,
+  handleFlowsRunReply,
 } from '../flows-run-handlers';
 import { flowService } from '../../services/flows/flow-service';
 
@@ -36,6 +37,8 @@ export function registerFlowsIpc(): void {
   ipcMain.handle(IPC.FLOWS_RUN_CANCEL, handleFlowsRunCancel);
   ipcMain.handle(IPC.FLOWS_RUN_RESUME, handleFlowsRunResume);
   ipcMain.handle(IPC.FLOWS_RUN_GET, handleFlowsRunGet);
+  // W8 Stage 2: checkpoint replies.
+  ipcMain.handle(IPC.FLOWS_RUN_REPLY, handleFlowsRunReply);
 
   // The run stream, broadcast to every webContents the way the agents' is,
   // so a reload cannot leave the canvas listening to nothing.

@@ -9,6 +9,8 @@ import type {
   FlowsRunCancelResponse,
   FlowsRunGetRequest,
   FlowsRunGetResponse,
+  FlowsRunReplyRequest,
+  FlowsRunReplyResponse,
   FlowsRunResumeRequest,
   FlowsRunResumeResponse,
   FlowsRunStartRequest,
@@ -90,5 +92,19 @@ export async function handleFlowsRunGet(
     };
   } catch (err) {
     return fail(err, 'Failed to load the run');
+  }
+}
+
+/** A checkpoint reply (Stage 2): the agents' `InteractionReply`, scoped by run. */
+export async function handleFlowsRunReply(
+  _event: IpcMainInvokeEvent,
+  data: FlowsRunReplyRequest,
+): Promise<FlowsRunReplyResponse> {
+  try {
+    if (!data.runId || !data.reply?.requestId) return { success: false, error: 'Missing run or request id' };
+    await flowService.reply(data.runId, data.reply);
+    return { success: true };
+  } catch (err) {
+    return fail(err, 'Failed to answer the checkpoint');
   }
 }

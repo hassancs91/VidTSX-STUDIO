@@ -1,33 +1,37 @@
 // The flow runner (flows plan §1.3, decision 3): one run is a main-process
 // job. Validate the doc against the registry, topo-sort, then per node build
 // the arguments from ports and config, call the handler through `invokeTool`
-// with a run-scoped `AgentToolContext`, file what it returned, settle a job,
-// map the outputs onto the ports, persist `run.json`, emit an event. Node
-// outputs persist after EVERY node, so a crash or an app close leaves a
-// resumable run: Resume reruns from the first node that is not `done`.
+// (`flow-node-exec.ts`), persist `run.json`, emit an event. Node outputs
+// persist after EVERY node, so a crash or an app close leaves a resumable
+// run: Resume reruns from the first node that is not `done`.
+//
+// Stage 2 — checkpoints (decision 4, `flow-checkpoint.ts`): after a node
+// marked `pause` completes in an attended run, a card is raised through the
+// agents' interaction broker and the loop waits for `reply()`. A node left
+// `paused` by an app close keeps its outputs, so Resume asks again rather
+// than paying for the step twice. Unattended runs never pause.
 //
 // Every dependency is injected so the runner's tests use a fake registry, a
 // temp folder and a fake invoke — the real wiring is `flow-service.ts`.
 
-import path from 'path';
 import { randomUUID } from 'crypto';
-import type { AgentArtifact } from '../../../shared/types/agents';
-import type {
-  FlowDoc,
-  FlowNodeRunState,
-  FlowRunDoc,
-  FlowRunEvent,
-  FlowRunMode,
-} from '../../../shared/types/flows';
-import type { AgentArtifactStore } from '../agents/artifact-store';
+import type { InteractionReply } from '../../../shared/types/agents';
+import type { FlowNodeRunState, FlowRunDoc, FlowRunEvent } from '../../../shared/types/flows';
+import { InteractionBroker } from '../agents/interaction-broker';
 import type { RegisteredTool, ToolCapabilities } from '../agents/tools/registry';
 import type { AgentToolContext, AgentToolResult } from '../agents/tools/types';
 import type { InvokeToolOptions } from '../agents/tools/invoke-tool';
-import { buildNodeArgs, mapOutputs, type NodeOutputs } from './flow-args';
+import { buildNodeArgs, type NodeOutputs } from './flow-args';
+import { askFromTool, runCheckpoint } from './flow-checkpoint';
 import type { SettleJob } from './flow-jobs';
-import { RUN_FILES_DIR, type FlowRunStore } from './flow-run-store';
+import { executeNode } from './flow-node-exec';
+import { withRetryNote } from './flow-pause';
+import type { FlowRunStore } from './flow-run-store';
+import type { ActiveRun, NodeDef, RunCtx, RunHost, StartRunInput, StepOutcome } from './flow-run-types';
 import { validateFlowForRun, type FlowRegistryView } from './flow-validate';
 import { logEngine } from '../../../logging/log-engine';
+
+export type { StartRunInput } from './flow-run-types';
 
 const log = logEngine.createLogger('FlowRunner');
 const MAX_NOTES = 50;
@@ -35,41 +39,17 @@ const MAX_NOTES = 50;
 export interface FlowRunnerDeps {
   registry: FlowRegistryView;
   capabilities(): Promise<ToolCapabilities>;
-  invoke(
-    def: RegisteredTool,
-    args: unknown,
-    ctx: AgentToolContext,
-    options: InvokeToolOptions,
-  ): Promise<AgentToolResult>;
+  invoke(def: RegisteredTool, args: unknown, ctx: AgentToolContext, options: InvokeToolOptions): Promise<AgentToolResult>;
   store: FlowRunStore;
   settleJob: SettleJob;
   emit(event: FlowRunEvent): void;
   now?(): number;
 }
 
-export interface StartRunInput {
-  doc: FlowDoc;
-  mode: FlowRunMode;
-  params: Record<string, unknown>;
-  /** As requested: absent = library default, null = none (§0.1 item 9). */
-  brandId?: string | null;
-  /** The brand the tools actually see, after the default was applied. */
-  resolvedBrandId?: string;
-  flowVersion: string;
-  /** Library folder this run files media into, relative to the library root. */
-  libraryFolder: string;
-  runId?: string;
-}
+/** Statuses Resume resets to `idle`; a `paused` node with outputs is kept and asked again. */
+const NOT_DONE_RESET: ReadonlySet<FlowNodeRunState['status']> = new Set(['running', 'error', 'skipped']);
 
-interface ActiveRun {
-  flowId: string;
-  abort: AbortController;
-  done: Promise<void>;
-}
-
-const NOT_DONE_RESET: ReadonlySet<FlowNodeRunState['status']> = new Set(['running', 'error', 'skipped', 'paused']);
-
-export class FlowRunner {
+export class FlowRunner implements RunHost {
   private readonly active = new Map<string, ActiveRun>();
 
   constructor(private readonly deps: FlowRunnerDeps) {}
@@ -93,6 +73,17 @@ export class FlowRunner {
     const run = this.active.get(runId);
     if (!run) return false;
     run.abort.abort();
+    return true;
+  }
+
+  /** A checkpoint reply. False when no run waits on that request (a stale card). */
+  async reply(runId: string, reply: InteractionReply): Promise<boolean> {
+    const run = this.active.get(runId);
+    if (!run) return false;
+    if ((await run.broker.resolve(reply)) === null) return false;
+    const waiter = run.waiter;
+    run.waiter = null;
+    waiter?.(reply);
     return true;
   }
 
@@ -126,7 +117,7 @@ export class FlowRunner {
     return { runId };
   }
 
-  /** Rerun from the first node that is not `done` (§1.3). */
+  /** Rerun from the first node that is not `done` (§1.3); a `paused` node is asked again. */
   async resume(input: Omit<StartRunInput, 'runId' | 'flowVersion'> & { runId: string }): Promise<void> {
     if (this.active.has(input.runId)) throw new Error('That run is still running.');
     const busy = this.runningRunForFlow(input.doc.id);
@@ -140,7 +131,7 @@ export class FlowRunner {
     for (const node of input.doc.graph.nodes) {
       const state = runDoc.nodes[node.id];
       if (!state) runDoc.nodes[node.id] = { status: 'idle', attempts: 0 };
-      else if (NOT_DONE_RESET.has(state.status)) {
+      else if (NOT_DONE_RESET.has(state.status) || (state.status === 'paused' && !state.outputs)) {
         const { error: _error, outputs: _outputs, ...rest } = state;
         runDoc.nodes[node.id] = { ...rest, status: 'idle' };
       }
@@ -154,13 +145,29 @@ export class FlowRunner {
   }
 
   private launch(input: StartRunInput, runDoc: FlowRunDoc, dir: string, order: string[]): void {
-    const abort = new AbortController();
-    const done = this.execute(input, runDoc, dir, order, abort.signal)
+    const active: ActiveRun = {
+      flowId: input.doc.id,
+      abort: new AbortController(),
+      done: Promise.resolve(),
+      waiter: null,
+      pausedNodeId: null,
+      broker: new InteractionBroker({
+        sessionId: runDoc.id,
+        emit: (request) =>
+          this.deps.emit({ runId: runDoc.id, kind: 'pause-request', nodeId: active.pausedNodeId ?? '', request }),
+        persist: async (request) => {
+          runDoc.pending = request ? { nodeId: active.pausedNodeId ?? '', requestId: request.id, request } : null;
+          await this.persist(dir, runDoc);
+        },
+        onCleared: (requestId) => this.deps.emit({ runId: runDoc.id, kind: 'pause-cleared', requestId }),
+      }),
+    };
+    active.done = this.execute(input, runDoc, dir, order, active)
       .catch((err: unknown) => {
         log.warn('Flow run crashed', { runId: runDoc.id, error: err instanceof Error ? err.message : String(err) });
       })
       .finally(() => this.active.delete(runDoc.id));
-    this.active.set(runDoc.id, { flowId: input.doc.id, abort, done });
+    this.active.set(runDoc.id, active);
   }
 
   private now(): number {
@@ -176,156 +183,118 @@ export class FlowRunner {
     }
   }
 
-  private async setNode(dir: string, runDoc: FlowRunDoc, nodeId: string, state: FlowNodeRunState): Promise<void> {
-    runDoc.nodes[nodeId] = state;
-    this.deps.emit({ runId: runDoc.id, kind: 'node-status', nodeId, state: structuredClone(state) });
-    await this.persist(dir, runDoc);
+  async setNode(ctx: RunCtx, nodeId: string, state: FlowNodeRunState): Promise<void> {
+    ctx.runDoc.nodes[nodeId] = state;
+    this.deps.emit({ runId: ctx.runDoc.id, kind: 'node-status', nodeId, state: structuredClone(state) });
+    await this.persist(ctx.dir, ctx.runDoc);
   }
 
-  private async finish(dir: string, runDoc: FlowRunDoc, status: FlowRunDoc['status'], error?: string): Promise<void> {
-    runDoc.status = status;
-    runDoc.error = error ?? null;
-    runDoc.finishedAt = this.now();
-    await this.persist(dir, runDoc);
-    this.deps.emit({ runId: runDoc.id, kind: 'run-status', status, ...(error ? { error } : {}) });
+  async setRunStatus(ctx: RunCtx, status: FlowRunDoc['status']): Promise<void> {
+    ctx.runDoc.status = status;
+    await this.persist(ctx.dir, ctx.runDoc);
+    this.deps.emit({ runId: ctx.runDoc.id, kind: 'run-status', status });
   }
 
-  private async skipRest(dir: string, runDoc: FlowRunDoc, order: string[], from: number): Promise<void> {
-    for (let j = from; j < order.length; j += 1) {
-      const prior = runDoc.nodes[order[j]];
+  /** End the run: the rest skipped, the pending card dropped, the status final. */
+  private async stop(ctx: RunCtx, from: number, status: FlowRunDoc['status'], error?: string): Promise<void> {
+    for (let j = from; j < ctx.order.length; j += 1) {
+      const prior = ctx.runDoc.nodes[ctx.order[j]];
       if (prior?.status === 'done') continue;
-      await this.setNode(dir, runDoc, order[j], { ...prior, status: 'skipped', attempts: prior?.attempts ?? 0 });
+      await this.setNode(ctx, ctx.order[j], { ...prior, status: 'skipped', attempts: prior?.attempts ?? 0 });
     }
+    await ctx.active.broker.clear();
+    ctx.runDoc.status = status;
+    ctx.runDoc.error = error ?? null;
+    ctx.runDoc.finishedAt = this.now();
+    ctx.runDoc.pending = null;
+    await this.persist(ctx.dir, ctx.runDoc);
+    this.deps.emit({ runId: ctx.runDoc.id, kind: 'run-status', status, ...(error ? { error } : {}) });
   }
 
-  private async execute(
-    input: StartRunInput,
-    runDoc: FlowRunDoc,
-    dir: string,
-    order: string[],
-    signal: AbortSignal,
-  ): Promise<void> {
-    const { doc } = input;
+  private async execute(input: StartRunInput, runDoc: FlowRunDoc, dir: string, order: string[], active: ActiveRun): Promise<void> {
     const artifacts = await this.deps.store.openArtifacts(dir);
     const outputs = new Map<string, NodeOutputs>();
     for (const [nodeId, state] of Object.entries(runDoc.nodes)) {
-      if (state.status === 'done' && state.outputs) outputs.set(nodeId, state.outputs);
+      if ((state.status === 'done' || state.status === 'paused') && state.outputs) outputs.set(nodeId, state.outputs);
     }
-    runDoc.status = 'running';
-    await this.persist(dir, runDoc);
-    this.deps.emit({ runId: runDoc.id, kind: 'run-status', status: 'running' });
-    const capabilities = await this.deps.capabilities();
+    const ctx: RunCtx = {
+      input, runDoc, dir, order, signal: active.abort.signal, artifacts, outputs, active,
+      capabilities: await this.deps.capabilities(),
+    };
+    await this.setRunStatus(ctx, 'running');
 
     for (let i = 0; i < order.length; i += 1) {
       const nodeId = order[i];
-      const node = doc.graph.nodes.find((n) => n.id === nodeId);
       const prior = runDoc.nodes[nodeId] ?? { status: 'idle', attempts: 0 };
-      if (!node || prior.status === 'done') continue;
-      if (signal.aborted) {
-        await this.skipRest(dir, runDoc, order, i);
-        await this.finish(dir, runDoc, 'cancelled');
-        return;
+      if (prior.status === 'done') continue;
+      if (ctx.signal.aborted) return this.stop(ctx, i, 'cancelled');
+      const node = input.doc.graph.nodes.find((n) => n.id === nodeId);
+      const def = node ? this.deps.registry.getNode(node.toolId) : undefined;
+      if (!node || !def?.ports) {
+        const error = `Unknown node "${node?.toolId ?? nodeId}".`;
+        await this.setNode(ctx, nodeId, { ...prior, status: 'error', error });
+        return this.stop(ctx, i + 1, 'error', error);
       }
-      const def = this.deps.registry.getNode(node.toolId);
-      if (!def?.ports) {
-        await this.setNode(dir, runDoc, nodeId, { ...prior, status: 'error', error: `Unknown node "${node.toolId}".` });
-        await this.skipRest(dir, runDoc, order, i + 1);
-        await this.finish(dir, runDoc, 'error', `Unknown node "${node.toolId}".`);
-        return;
-      }
+      const nodeDef = def as NodeDef;
 
-      const attempts = prior.attempts + 1;
-      const notes: string[] = [];
-      const state: FlowNodeRunState = { status: 'running', attempts, notes };
-      await this.setNode(dir, runDoc, nodeId, state);
-      const startedAt = this.now();
-      const note = (detail: string) => {
-        if (notes.length < MAX_NOTES) notes.push(detail);
-      };
-      const ctx = this.buildContext(input, runDoc, nodeId, attempts, dir, signal, artifacts, note);
-      const args = buildNodeArgs({
-        node,
-        ports: def.ports,
-        edges: doc.graph.edges,
-        outputs,
-        params: doc.params,
-        paramValues: runDoc.params,
-      });
-
-      let filed: AgentArtifact | null = null;
-      let result: AgentToolResult;
-      try {
-        result = await this.deps.invoke(def, args, ctx, { featureSource: 'flows', capabilities });
-        if (!result.isError && result.artifact) {
-          filed = await artifacts.add(
-            result.artifact,
-            { tool: def.id, callId: ctx.callId },
-            result.supersedes ? { supersedes: result.supersedes } : {},
-          );
-          if (filed.kind === 'job') {
-            filed = await this.deps.settleJob(filed, {
-              runId: runDoc.id,
-              store: artifacts,
-              signal,
-              ...(input.libraryFolder ? { libraryFolder: input.libraryFolder } : {}),
-              ...(input.resolvedBrandId ? { brandId: input.resolvedBrandId } : {}),
-              note,
-            });
-          }
-        }
-      } catch (err) {
-        result = { content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }], isError: true };
+      // A node the app closed on mid-checkpoint keeps its outputs: ask again.
+      let state: FlowNodeRunState = prior;
+      if (!(prior.status === 'paused' && prior.outputs)) {
+        const ran = await this.runOnce(ctx, node.id, nodeDef, prior);
+        if (ran.kind === 'stop') return this.stop(ctx, i + 1, ran.status, ran.error);
+        state = ran.state;
       }
-      const durationMs = this.now() - startedAt;
-
-      if (signal.aborted) {
-        await this.setNode(dir, runDoc, nodeId, { ...state, status: 'skipped', durationMs });
-        await this.skipRest(dir, runDoc, order, i + 1);
-        await this.finish(dir, runDoc, 'cancelled');
-        return;
+      if (node.pause && input.mode === 'attended') {
+        const checked = await runCheckpoint(this, ctx, node.id, nodeDef, state);
+        if (checked.kind === 'stop') return this.stop(ctx, i + 1, checked.status, checked.error);
+      } else if (state.status !== 'done') {
+        await this.setNode(ctx, nodeId, { ...state, status: 'done' });
       }
-      if (result.isError) {
-        const error = result.content.map((c) => c.text).join('\n') || 'The step failed.';
-        await this.setNode(dir, runDoc, nodeId, { ...state, status: 'error', error, durationMs });
-        await this.skipRest(dir, runDoc, order, i + 1);
-        await this.finish(dir, runDoc, 'error', error);
-        return;
-      }
-      const nodeOutputs = mapOutputs(def.ports, result, filed);
-      outputs.set(nodeId, nodeOutputs);
-      await this.setNode(dir, runDoc, nodeId, { ...state, status: 'done', outputs: nodeOutputs, durationMs });
-      // Pause seam (decision 4, Stage 2): a node marked `pause` in attended
-      // mode raises a checkpoint here. Stage 1 runs through it.
     }
-    await this.finish(dir, runDoc, 'success');
+    await this.stop(ctx, order.length, 'success');
   }
 
-  private buildContext(
-    input: StartRunInput,
-    runDoc: FlowRunDoc,
-    nodeId: string,
-    attempts: number,
-    dir: string,
-    signal: AbortSignal,
-    artifacts: AgentArtifactStore,
-    note: (detail: string) => void,
-  ): AgentToolContext {
-    return {
-      sessionId: runDoc.id,
-      agentId: `flow:${input.doc.id}`,
-      callId: `${runDoc.id}:${nodeId}:${attempts}`,
-      workspaceDir: path.join(dir, RUN_FILES_DIR),
-      signal,
-      ...(input.libraryFolder ? { libraryFolder: input.libraryFolder } : {}),
-      ...(input.resolvedBrandId ? { brandId: input.resolvedBrandId } : {}),
-      featureSource: 'flows',
-      emit: (event) => {
-        if (event.kind === 'progress') note(event.detail);
-      },
-      emitProgress: note,
-      readArtifacts: () => artifacts.list(),
-      // Pauses and questions are Stage 2; a tool that asks today is told no.
-      ask: async () => ({ status: 'rejected', reason: 'Flows cannot ask questions yet.' }),
+  /** One attempt of a node: `running` → `done` with outputs, or a reason to stop. */
+  async runOnce(ctx: RunCtx, nodeId: string, def: NodeDef, prior: FlowNodeRunState, retryNote?: string): Promise<StepOutcome> {
+    const node = ctx.input.doc.graph.nodes.find((n) => n.id === nodeId);
+    if (!node) return { kind: 'stop', status: 'error', error: `Unknown node "${nodeId}".` };
+    const attempts = prior.attempts + 1;
+    const notes: string[] = [];
+    const running: FlowNodeRunState = {
+      status: 'running', attempts, notes, ...(prior.rejections ? { rejections: prior.rejections } : {}),
     };
+    await this.setNode(ctx, nodeId, running);
+    const startedAt = this.now();
+    const note = (detail: string) => {
+      if (notes.length < MAX_NOTES) notes.push(detail);
+    };
+    let args = buildNodeArgs({
+      node, ports: def.ports, edges: ctx.input.doc.graph.edges, outputs: ctx.outputs,
+      params: ctx.input.doc.params, paramValues: ctx.runDoc.params,
+    });
+    if (retryNote) args = withRetryNote(args, def.ports.configSchema, retryNote);
+
+    const outcome = await executeNode(this.deps, {
+      doc: ctx.input.doc, runDoc: ctx.runDoc, mode: ctx.input.mode, nodeId, def, args, attempts,
+      dir: ctx.dir, signal: ctx.signal, artifacts: ctx.artifacts, capabilities: ctx.capabilities,
+      libraryFolder: ctx.input.libraryFolder,
+      ...(ctx.input.resolvedBrandId ? { resolvedBrandId: ctx.input.resolvedBrandId } : {}),
+      note,
+      ask: (payload, callId) => askFromTool(this, ctx, nodeId, payload, callId),
+    });
+    const durationMs = this.now() - startedAt;
+    if (ctx.signal.aborted) {
+      await this.setNode(ctx, nodeId, { ...running, status: 'skipped', durationMs });
+      return { kind: 'stop', status: 'cancelled' };
+    }
+    if (outcome.result.isError) {
+      const error = outcome.result.content.map((c) => c.text).join('\n') || 'The step failed.';
+      await this.setNode(ctx, nodeId, { ...running, status: 'error', error, durationMs });
+      return { kind: 'stop', status: 'error', error };
+    }
+    ctx.outputs.set(nodeId, outcome.outputs);
+    const state: FlowNodeRunState = { ...running, status: 'done', outputs: outcome.outputs, durationMs };
+    await this.setNode(ctx, nodeId, state);
+    return { kind: 'done', state };
   }
 }

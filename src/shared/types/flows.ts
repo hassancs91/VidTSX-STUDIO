@@ -241,6 +241,19 @@ export interface FlowNodeRunState {
   /** Stage 1: the tool's progress lines (a preferred-model fallback, a
    *  pipeline step) — the run log for this node, newest last. */
   notes?: string[];
+  /** Stage 2: checkpoints the user rejected on this node. The first reject
+   *  reruns the node once with the note; the second stops the run (§1.3). */
+  rejections?: number;
+}
+
+/** The checkpoint a run is waiting on (Stage 2). `request` is the card the
+ *  renderer re-shows after a reload; `expired` marks one the app closed on —
+ *  Resume asks again from that node rather than rerunning it. */
+export interface FlowRunPending {
+  nodeId: string;
+  requestId: string;
+  request?: InteractionRequest;
+  expired?: boolean;
 }
 
 /** `run.json` — the run folder's record; the SQLite summary row is
@@ -260,10 +273,12 @@ export interface FlowRunDoc {
   error: string | null;
   nodes: Record<string, FlowNodeRunState>;
   /** The checkpoint awaiting a reply, if any. */
-  pending?: { nodeId: string; requestId: string } | null;
+  pending?: FlowRunPending | null;
 }
 
 export type FlowRunEvent =
   | { runId: string; kind: 'node-status'; nodeId: string; state: FlowNodeRunState }
   | { runId: string; kind: 'run-status'; status: FlowRunDocStatus; error?: string }
-  | { runId: string; kind: 'pause-request'; nodeId: string; request: InteractionRequest };
+  | { runId: string; kind: 'pause-request'; nodeId: string; request: InteractionRequest }
+  /** Stage 2: the reply landed (or the run stopped) — the card goes away. */
+  | { runId: string; kind: 'pause-cleared'; requestId: string };

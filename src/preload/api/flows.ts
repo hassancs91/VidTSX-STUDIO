@@ -7,6 +7,8 @@ import type {
   FlowsRunCancelResponse,
   FlowsRunGetRequest,
   FlowsRunGetResponse,
+  FlowsRunReplyRequest,
+  FlowsRunReplyResponse,
   FlowsRunResumeRequest,
   FlowsRunResumeResponse,
   FlowsRunStartRequest,
@@ -60,6 +62,8 @@ export const flowsApi = {
     ipcRenderer.invoke(IPC.FLOWS_RUN_RESUME, data),
   flowsRunGet: (data: FlowsRunGetRequest): Promise<FlowsRunGetResponse> =>
     ipcRenderer.invoke(IPC.FLOWS_RUN_GET, data),
+  flowsRunReply: (data: FlowsRunReplyRequest): Promise<FlowsRunReplyResponse> =>
+    ipcRenderer.invoke(IPC.FLOWS_RUN_REPLY, data),
   onFlowsRunEvent: (callback: (event: FlowRunEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: FlowRunEvent) => callback(data);
     ipcRenderer.on(IPC.FLOWS_RUN_EVENT, listener);

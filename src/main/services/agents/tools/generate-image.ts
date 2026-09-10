@@ -18,6 +18,8 @@ import { toolText } from './types';
 import { readImageBase64 } from './port-media';
 
 const ASPECTS = ['square', 'landscape', 'portrait'] as const;
+/** W8 Stage 2: variations per call, so a `pause` on this node raises a pick card. */
+const MAX_COUNT = 4;
 
 const schema = {
   prompt: z
@@ -42,6 +44,13 @@ const schema = {
     .nullable()
     .optional()
     .describe('Flows only: a brand for this step; null = no brand; absent = the run\'s brand.'),
+  count: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_COUNT)
+    .optional()
+    .describe('Variations to generate (1–4, default 1) — one call each; the artifact holds them all.'),
 };
 
 interface GenerateImageArgs {
@@ -54,6 +63,7 @@ interface GenerateImageArgs {
   width?: number;
   height?: number;
   brandId?: string | null;
+  count?: number;
 }
 
 export const generateImageTool: AgentToolDef<GenerateImageArgs> = {
@@ -75,9 +85,10 @@ export const generateImageTool: AgentToolDef<GenerateImageArgs> = {
       { kind: 'model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
       { kind: 'number', key: 'width', label: 'Width', min: 256, max: 4096, step: 64 },
       { kind: 'number', key: 'height', label: 'Height', min: 256, max: 4096, step: 64 },
+      { kind: 'number', key: 'count', label: 'Variations (1–4)', min: 1, max: MAX_COUNT, step: 1 },
       { kind: 'text', key: 'brandId', label: 'Brand id (optional)', placeholder: 'run brand' },
     ],
-    defaultConfig: { providerId: '', model: '', width: 1024, height: 1024 },
+    defaultConfig: { providerId: '', model: '', width: 1024, height: 1024, count: 1 },
   },
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.prompt.slice(0, 60));
@@ -90,32 +101,45 @@ export const generateImageTool: AgentToolDef<GenerateImageArgs> = {
       const referenceImages = args.referenceImages?.length
         ? await Promise.all(args.referenceImages.map((id) => readImageBase64(ctx, id)))
         : undefined;
-      const asset = await generateImageAsset({
-        prompt: args.prompt,
-        // §9: an agent's image logs as the AGENT's, a flow's as the flow's —
-        // `invokeTool` stamps the source, never the tool.
-        featureSource,
-        ...(featureSource === 'agent' ? { agentId: ctx.agentId } : {}),
-        ...(args.aspect ? { aspect: args.aspect } : {}),
-        ...(args.width && args.height ? { width: args.width, height: args.height } : {}),
-        ...(args.providerId ? { providerId: args.providerId } : {}),
-        ...(args.model ? { model: args.model } : {}),
-        ...(sourceImage ? { sourceImage } : {}),
-        ...(referenceImages ? { referenceImages } : {}),
-        ...(ctx.libraryFolder ? { folder: ctx.libraryFolder } : {}),
-        ...(brandId ? { brandId } : {}),
-        signal: ctx.signal,
-      });
+      // Variations (W8 Stage 2): one call each, sequential so a cancel stops
+      // the next one, all filed into ONE image-set — what a pick card reviews.
+      const count = Math.min(MAX_COUNT, Math.max(1, Math.round(args.count ?? 1)));
+      const items: Array<{ relPath: string; width: number; height: number }> = [];
+      let title = '';
+      let brandNote = '';
+      for (let i = 0; i < count; i += 1) {
+        if (i > 0) ctx.emitProgress(`variation ${i + 1} of ${count}`);
+        const asset = await generateImageAsset({
+          prompt: args.prompt,
+          // §9: an agent's image logs as the AGENT's, a flow's as the flow's —
+          // `invokeTool` stamps the source, never the tool.
+          featureSource,
+          ...(featureSource === 'agent' ? { agentId: ctx.agentId } : {}),
+          ...(args.aspect ? { aspect: args.aspect } : {}),
+          ...(args.width && args.height ? { width: args.width, height: args.height } : {}),
+          ...(args.providerId ? { providerId: args.providerId } : {}),
+          ...(args.model ? { model: args.model } : {}),
+          ...(sourceImage ? { sourceImage } : {}),
+          ...(referenceImages ? { referenceImages } : {}),
+          ...(ctx.libraryFolder ? { folder: ctx.libraryFolder } : {}),
+          ...(brandId ? { brandId } : {}),
+          signal: ctx.signal,
+        });
+        items.push({ relPath: asset.relPath, width: asset.width, height: asset.height });
+        title = title || asset.description.slice(0, 80);
+        brandNote = asset.brandId ? `, brand: ${asset.brandId}` : '';
+      }
+      const first = items[0];
+      const summary =
+        items.length === 1
+          ? `Image generated: ${first.relPath} (${first.width}x${first.height}${brandNote}).`
+          : `${items.length} variations generated: ${items.map((i) => i.relPath).join(', ')} (${first.width}x${first.height}${brandNote}).`;
       return {
-        ...toolText(
-          `Image generated: ${asset.relPath} (${asset.width}x${asset.height}${asset.brandId ? `, brand: ${asset.brandId}` : ''}).`,
-        ),
+        ...toolText(summary),
         artifact: {
           kind: 'image-set',
-          title: asset.description.slice(0, 80) || 'Generated image',
-          payload: {
-            items: [{ relPath: asset.relPath, width: asset.width, height: asset.height }],
-          },
+          title: title || 'Generated image',
+          payload: { items },
         },
       };
     } catch (err) {

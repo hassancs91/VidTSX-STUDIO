@@ -6,7 +6,7 @@
 
 import fs from 'fs/promises';
 import { parseFlowDoc } from '../../../shared/flows/migrate-v1';
-import type { AgentArtifact } from '../../../shared/types/agents';
+import type { AgentArtifact, InteractionReply } from '../../../shared/types/agents';
 import type { FlowDoc, FlowRunDoc, FlowRunEvent, FlowRunMode, NodeSpec } from '../../../shared/types/flows';
 import { getNode, listNodeSpecs } from '../agents/tools/registry';
 import { invokeTool } from '../agents/tools/invoke-tool';
@@ -22,6 +22,7 @@ import { flowRunStore } from './flow-run-store';
 import { settleJob } from './flow-jobs';
 
 const INTERRUPTED = 'The app closed while this run was in progress — Resume continues from the first unfinished step.';
+const PAUSE_EXPIRED = 'The app closed while this run waited at a checkpoint — Resume asks again from that step.';
 
 export interface FlowRunView {
   run: FlowRunDoc;
@@ -106,6 +107,12 @@ class FlowService {
     return this.runner.cancel(runId);
   }
 
+  /** A checkpoint reply (Stage 2); throws for a run that is not waiting on that card. */
+  async reply(runId: string, reply: InteractionReply): Promise<void> {
+    const accepted = await this.runner.reply(runId, reply);
+    if (!accepted) throw new Error('That checkpoint is no longer waiting for an answer.');
+  }
+
   async resume(runId: string): Promise<void> {
     const row = loadRun(runId);
     if (!row) throw new Error('That run no longer exists.');
@@ -136,10 +143,14 @@ class FlowService {
     if (!run) throw new Error('That run\'s folder is gone.');
 
     const running = this.runner.isRunning(runId);
-    if (!running && (run.status === 'running' || run.status === 'queued')) {
+    if (!running && (run.status === 'running' || run.status === 'queued' || run.status === 'paused')) {
+      // A checkpoint the app closed on survives as EXPIRED (§1.3): the card is
+      // not re-shown, the node keeps its outputs, Resume asks again.
+      const atCheckpoint = run.status === 'paused';
       run.status = 'error';
-      run.error = INTERRUPTED;
+      run.error = atCheckpoint ? PAUSE_EXPIRED : INTERRUPTED;
       run.finishedAt = run.finishedAt ?? Date.now();
+      if (run.pending) run.pending = { ...run.pending, expired: true };
       for (const state of Object.values(run.nodes)) {
         if (state.status === 'running') state.status = 'skipped';
       }
