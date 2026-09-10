@@ -7,6 +7,37 @@
 
 ---
 
+## 2026-09-10 — V1 COMPLETION W8 STAGE 4 DONE: run_flow, run_agent, the Flow Builder
+
+Flows plan §7 built and verified on the second dev instance (outcome
+subsection under §7 of `docs/flows-plan.md`). Commits by pathspec, beside
+the export-engines session's dirty tree: `a68bc9e` the shared `run_flow`
+(unattended, the session's brand, outputs copied into the session, the
+priced listing in the description), the `run_agent` node (non-deterministic,
+`agent-provider` gate) and the Builder's `list_nodes` / `read_flow` /
+`propose_flow` / `read_run`; `db11706` the Studio `run_flow` on a shot range
+(`flow-tools.ts`, `flow-range.ts`: shots = master-track clips, ffmpeg trim →
+the `video` param, the result imported and handed to `insert_asset`);
+`136478f` the `vidtsx/flow-builder` built-in, `FlowProposalOverlay` (added
+green / removed red / changed amber, Accept through the ordinary save),
+"Ask the builder" on the shared `AgentChat`, Motion Post 1.2.0 with
+`run_flow`; `73f0a0d` the four fixes the live runs found.
+
+Gates: `check:types` web 26 / node 10 (baseline); `npx vitest run` 2228
+passing (+48); `electron-vite build --outDir .vidtsx-temp/w8-build` 2 m 8 s.
+Live: the Builder turned "make me a flow that captions a video" into a
+three-node proposal, Accept saved it, its `run_flow` captioned the speech
+MP4 in 42 s (AssemblyAI $0.0009); Motion Post ran the Thumbnail flow from
+one line and showed the image on its stage in 42 s ($0); Studio ran
+add-effect on shots 7–9 (a 9 s trim → one Kling 2.5 Turbo Pro clip, $0.40)
+and the B-roll insert card was applied at 0:18. Spend $0.40 + $0.001.
+
+Pending: `run_agent` live (unit-tested only); the Builder's card only on the
+Flows canvas; Stage 5 (freeze) reuses the overlay; Stage 6 packaging,
+built-ins in the Built-in group, the flag flip.
+
+---
+
 ## 2026-09-10 — V1 COMPLETION W8 STAGE 3 DONE: product nodes
 
 Flows plan §6 (`docs/flows-plan.md`, outcome subsection under §6). Four

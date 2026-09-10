@@ -1405,6 +1405,213 @@ video" into an accepted three-node flow that then runs. In Studio, "apply
 add-effect on shots 7 to 9" makes the Studio agent run the flow with that
 range as input and propose the result as a B-roll insert the user approves.
 
+#### Stage 4 outcome (2026-09-10) — what was built, what the verification showed, and what it leaves
+
+Everything §7 lists (as §0.1 items 5, 6, 11 and 13 adjust it) is built,
+unit-tested, committed by pathspec in four commits (`a68bc9e` the shared
+tools — `run_flow`, `run_agent`, the Builder's four; `db11706` the Studio
+`run_flow` on a shot range; `136478f` the Flow Builder built-in, the
+proposal overlay and "Ask the builder"; `73f0a0d` four things the live runs
+found) plus the docs commit, beside the export-engines session's dirty tree,
+and exercised on the second dev instance. `check:types` at baseline (web 26,
+node 10); 2228 tests passing, up from 2180 (48 new: 6 run_flow, 5
+run_agent, 8 propose_flow, 5 listing, 4 patch + diff, 5 flow-range, 4
+Studio flow-tools, plus the registry list, minus none); `electron-vite
+build --outDir .vidtsx-temp/w8-build` passes (2 m 8 s, alone). Spend:
+$0.40 real (ONE fal `kling-2.5-turbo-pro` 5 s clip) + $0.0009 AssemblyAI;
+two `gemini-cli` images at $0; every LLM turn on `claude-subscription` at $0
+(the one `flows` LLM row, the thumbnail's `generate_text`, logged $0.038
+API-equivalent).
+
+**The shared `run_flow`** (`agents/tools/run-flow.ts`, §1.5). Starts an
+unattended run through `flowService.start` with the calling session's brand
+(`ctx.brandId ?? null` — a session without a brand runs with none, never the
+library default), streams `node-status` events as tool-progress lines
+("Generate Image: running / done" — the chips in the Motion Post screenshot),
+waits on a new `flowService.wait`, and hands the flow's `outputs` back as
+drafts: media records (video, image-set, audio) as they are — the library
+file is the shared durable root — and work files (document, composition,
+web-page) COPIED into the session workspace under `flows/<runId>/`
+(`run-flow-outputs.ts`). A tool result can now carry `extraArtifacts`, filed
+in order by the tool server after the primary, so a flow with several outputs
+lands them all. A flow whose node needs an unconfigured provider is refused
+by the runner's own validation before any step, and the tool relays that
+message. The description is a getter carrying the installed-flows listing
+(`flow-listing.ts`): every stored flow with id, steps, outputs, its `params`
+schema and its priced steps — `generate_video` priced from the node's model
+and duration through the new `shared/presets/video-model-prices.ts` ("kling-
+2.5-turbo-pro, 5 s ≈ $0.40"), other priced nodes by their hint — plus the
+rule to name the flow and the cost before calling. Decision: the listing is
+cached by a fingerprint of the flows' ids and `updatedAt`s rather than per
+session, so every session sees one identical string until a flow changes —
+which is what the prompt cache wants. `flowId` accepts the row id or the
+exact name (`resolveFlowRef`), because the seeded fixtures carry ulids and an
+agent types names. Both `generate_video` tools (shared and Studio) now list
+every model with its per-second rate when asked for an unknown id, and their
+descriptions say so (§0.1 item 6 follow-on).
+
+**`run_agent`** (`agents/tools/run-agent.ts`, §1.6): `goal` + context ports
+(text, image, video, audio, composition) → the last artifact of the
+configured kind; config = agent id, a comma-separated tool allowlist cut to
+the manifest's tools, max turns, output kind, provider/model. It creates a
+session titled "Flow: <goal>", seeds the context artifacts into the
+session's store (media records; documents and compositions copied into the
+session workspace), runs ONE `agentService.send` with additive `tools` /
+`maxTurns` overrides that narrow the manifest for that send only, and copies
+a work-file output back into the run's `files/`. A session that ends on an
+`ask_user` question fails the node with the question's title — the agent
+completes before any pause is raised (§11) and nobody can answer. Gated on a
+new `agent-provider` capability (the active LLM provider can run a tool
+loop, `resolveToolSupport`), marked `nondeterministic` — the canvas shows an
+"Agent step — the result varies run to run" chip, the palette a "varies"
+tag. Verified through the unit test with a fake runner only: no acceptance
+flow uses it, and the seam it needs (an agent-sdk provider) is the W3
+profile's default, so a live run is a Stage 6 item.
+
+**The Flow Builder** (`resources/agents/vidtsx/flow-builder/`, hashed with
+`agent-pack.mjs --hash`, `--check` clean): `list_nodes` (the catalogue as
+the palette sees it — ports with types, config keys with kinds and defaults,
+needs and whether met, price), `read_flow` (a compact doc with edges as
+"node.port -> node.port", the recent runs, the priced summary; no id lists
+every flow), `read_run` (statuses, attempts, durations, errors, log lines,
+output ports, artifacts), `run_flow`, `ask_user`, `list_artifacts`, and
+`propose_flow`, which NEVER writes: a whole doc (nodes, `"a.port -> b.port"`
+edges, params, outputs; positions laid out by dependency depth, config
+merged over the registry defaults, outputs derived from the sinks when
+absent) or a `patch` of ten named ops (`shared/flows/flow-patch.ts`:
+add/remove node, set config, pause, add/remove edge, expose/unexpose,
+set-outputs, rename — chosen over JSON Patch because a model writes named
+ops reliably and paths into a document it must reproduce verbatim badly),
+validated by the structural gate and `validateFlowForRun` with every
+capability assumed present (an unmet gate is a chip, not a refusal), queued
+one per session in `flows/flow-proposals.ts` (main memory, the
+memory-proposal pattern) and emitted as a new `flow-proposal` run event. The
+canvas (`FlowProposalOverlay`, `shared/flows/flow-diff.ts`) lists the diff
+and paints the union of both graphs — added nodes green, removed red,
+changed amber with the changed keys, proposed edges animated green, dropped
+edges dashed red; Accept swaps the document under the open flow's id and
+origin through `useFlowGraph.replaceDoc` and the ordinary debounced save
+(a new name goes through the header's rename), Discard drops it, and main
+is told either way over two additive channels (`FLOWS_PROPOSAL_GET` re-reads
+the card after a navigation). "Ask the builder" (`BuilderPanel`) embeds the
+shared `AgentChat` (W7's `hidePickers` + `interactionCard` slot) on one
+session per flow, created with the manifest's one-node starter prefilled
+("Which flow are you working on? <name> (id …)") so the agent knows what it
+edits without being told; the Flows feature imports only
+`src/renderer/components/*` and `src/renderer/hooks/agents/*`. Motion Post
+1.2.0 lists `run_flow` (and the `image-set` kind) with a Flows paragraph.
+
+**The Studio `run_flow`** (`studio/agent-tools/flow-tools.ts`, id appended
+to `STUDIO_TOOL_IDS`, §0.1 item 11): the same runner, the PROJECT's brand,
+and `range` — `{ fromShot, toShot }` counting the media clips on the master
+video track from 1 in timeline order (what "shot 7" is after an auto-cut),
+or `{ fromSec, toSec }` in timeline seconds. `flow-range.ts` maps the range
+to SOURCE spans of the footage assets (contiguous spans of one asset merge
+into one trim; a still or a speed-changed clip is refused with the shot
+number) and makes the clip with Stage 3's ffmpeg `trimVideo`, or trims plus
+`concatVideos` when an auto-cut range is several spans — the smallest
+existing path. The renderer's export bridge was not used: the shot lanes and
+captions are not part of a B-roll source, and a trim is seconds where a
+Remotion render of the range is minutes. The clip lands in
+`<temp>/vidtsx-studio/flow-range/` and is bound to the flow's `video` param
+(absolute path → `input_video_file.filePath`, Stage 3's convention). The
+`video` output is imported into the project on use (`importLibraryFile`, the
+`generate_video` pattern) and the answer names the asset id and the exact
+`insert_asset(assetId, lane: "broll", at: <range start>, note: …)` call —
+W3's 'insert-plan' card, no new proposal kind (§0.1 item 5). Prompt rules in
+`studio-agent-prompt-tools.ts`: the tool line and a FLOWS workflow line
+(name the flow AND the cost before calling; propose the clip as one card
+after; never run a priced flow the user did not ask for; never guess the
+shot count from the asset list).
+
+**Load order** (found by the first tool test): a tool that reads the
+registry at load — `run_flow` for node labels, `run_agent` through the agent
+service whose runner selects tools — formed an import cycle with
+`registry.ts` whose outcome depended on the entry file
+(`registerTool(undefined)` when a test imported the tool first). The map and
+its readers moved to `registry-core.ts`; `registry.ts` registers and
+re-exports; the flow service and the tools read the core; `run_agent`
+reaches the agent service lazily; and the flows IPC handler imports the
+registry for its side effect so a run can never start against an empty
+store. `ToolCapabilities.agentProvider` is optional so older test literals
+still type.
+
+**Verification in the app** (second instance, `VITE_FF_FLOWS=1`, W3
+profile; drivers `.vidtsx-temp/w8/w8-stage4.mjs` — `flows-open`, `ask`,
+`wait-proposal`, `accept`, `builder-watch`, `agent-open`, `skip`, `say`,
+`watch` — plus `w8-flows.mjs seed-fixture` and W3's `w3-drive.mjs` for
+Studio; `seed-w8-studio.mjs` writes a 20 × 3 s tight cut of the W3 60 s
+clip). (b) An empty "S4 captions" flow, Edit view, "Ask the builder", one
+line "Make me a flow that captions a video": the builder read the flow and
+the catalogue, its FIRST `propose_flow` threw (a param it wrote without
+`bind` reached the gate — fixed in `73f0a0d`, refused with a message now),
+it retried in the same turn, and 90 s in the overlay showed a NEW-flow
+proposal: Video File → Transcribe → Caption Video, three edges (the video
+on both consumers), three params (Video required, Caption style select,
+Words per caption 1–6), one output, with the assistant's own message naming
+the only priced step ("AssemblyAI Universal, a few cents per minute")
+(`stage4-builder-proposal.png`). Accept: the stored doc read those three
+nodes with the registry defaults merged (`sttModelId assemblyai/universal`,
+`style minimal`, `wordsPerGroup 4`), the canvas 3 nodes / 3 edges
+(`stage4-builder-accepted.png`). "Run it on …/speech-test.mp4 with the
+karaoke style" → the builder's `run_flow` finished in 42 s and `video-1`
+"S4 captions — Captioned video" landed in ITS session (`artifacts.json`,
+`flows/s4-captions/captioned-video.mp4`, h264 + aac, 16.84 s, 640×360); it
+said "no priced steps" because `transcribe` was not marked priced — fixed.
+Usage: `assemblyai / universal / stt / flows / $0.0009`. (a) Agents page →
+Motion Post 1.2.0 → Skip and chat → one line "Run the Thumbnail flow for a
+video titled '…' — one variation": chips "Running a flow — Starting
+'Thumbnail' / Text: running … Generate Image: done", `image-set-1`
+"Thumbnail — Thumbnail" (1376×768) on the stage with Save to Library / Open
+folder / Copy path in 42 s (`stage4-motion-post-thumbnail.png`). Usage:
+`gemini-cli / nano-banana-2 / image / flows / $0` and `claude-subscription /
+claude-opus-5 / llm / flows / $0.038` (the flow's text node). The model wrote
+no sentence before the call — the flow is free, and the persisted transcript
+holds only the final reply, so the rule's "say free" was not observed. (c)
+Studio project "W8 Stage 4 s4-a" (20 clips), line "apply the add-effect flow
+on shots 7 to 9": the agent REFUSED — it read the one 60 s asset as one clip
+("there is no shot 7–9 yet"), asked for a time range and an effect, and
+named the cost correctly ("one Kling 2.5 Turbo Pro clip, 5 s ≈ $0.40"). The
+prompt line now tells it the tool checks the range; the second line stated
+the 20 clips and a watercolour effect, and the turn ran `run_flow` with
+`{ fromShot: 7, toShot: 9 }`: the range trimmed to a 9.0 s h264 + aac clip
+(source 18–27 s, one span), the flow ran (`extract_frame` → `generate_image`
+on `gemini-cli` $0 → `kling-2.5-turbo-pro` 5 s on fal $0.40), the clip was
+imported (asset `b6a6676e…`, 1924×1076, 5.04 s) and proposed with
+`insert_asset(lane "broll", at 18)`; the watcher clicked "Place 1 clip";
+`project.json` holds the clip on overlay lane O1 at 18 s for 5 s with
+`origin { by: 'agent', proposalId }` and the insert-plan `applied`
+(`stage4-studio-insert.png`). Usage: `fal / kling-2.5-turbo-pro / video /
+flows / $0.40`, `gemini-cli / nano-banana-2 / image / flows / $0`. Main log:
+3 warnings — two pre-existing sd-cli lines and the `propose_flow` throw
+above. The seeded project was deleted through `studioProjectDelete`; the
+seeded flows and the builder session stay on the W3 profile.
+
+**Deviations, and what it leaves.** (1) `run_agent` was not run live
+(above). (2) Its `document` output port is typed `transcript` (the only
+document-carrying port type), so a plain document lands there and a
+downstream `caption_video` would refuse it — a `document` port type is a
+one-line addition when a flow needs it. (3) The Builder's card shows only
+on the Flows canvas; a `propose_flow` from the Agents page emits the event
+into a workspace with no overlay (the tool still answers "shown on the
+canvas") — the Agents workspace could mount the overlay later. (4) Accept
+applies a NEW-flow proposal to the OPEN flow (its id and origin kept), which
+is what the empty-canvas path wants; there is no "create a second flow from
+the panel". (5) The interim assistant text before a tool call is not
+persisted in `chat.json`, so whether an agent named the cost before calling
+is visible only live. (6) The trimmed range clip stays in the temp folder
+(the run's `input_video_file` copies it into the library `inputs/`). (7)
+Stage 5's freeze can reuse `FlowProposalOverlay` + `replaceDoc` as the
+"Frozen from session X" card — `FlowProposal.flowId: null` is already the
+new-flow case. Driver lessons: the Bash tool mangles `\'` inside a heredoc
+even in a `'EOF'` block on this machine — every patch and every test title
+with an apostrophe went through a `.py` file or the Write/Edit tools; two
+`w3-drive.mjs watch` loops overlapped once (the first outlived its 600 s
+tool timeout in the background) and both logged, one clicked — check
+`ps -W` for `w3-drive` before starting a second; `[data-agent-session]` is
+not rendered with a single session, `agentSessionsList` finds the id; the
+`Page.captureScreenshot` wrapper did not hang this stage.
+
 ## 8. Stage 5 — Freeze — ~1 session
 
 Files: `src/main/services/flows/freeze-session.ts` (lineage walk, param
