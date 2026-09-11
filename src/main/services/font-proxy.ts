@@ -21,13 +21,17 @@ import { createHash } from 'crypto';
 import type { Request, Response } from 'express';
 import { logEngine } from '../../logging/log-engine';
 import { getFontCacheDir, ensureFontCacheDir } from '../utils/paths';
+import {
+  FONT_PROXY_HOSTS,
+  fontCacheExtensionFor,
+  rewriteCssFontUrls,
+} from './font-proxy-rewrite';
+
+export { rewriteFontUrls, rewriteCssFontUrls } from './font-proxy-rewrite';
 
 const log = logEngine.createLogger('FontProxy');
 
-const ALLOWED_HOSTS = new Set([
-  'fonts.gstatic.com',
-  'fonts.googleapis.com',
-]);
+const ALLOWED_HOSTS = new Set<string>(FONT_PROXY_HOSTS);
 
 // In-flight fetches keyed by cache filename — stops parallel requests from
 // each downloading the same font and racing to write the same file.
@@ -35,10 +39,9 @@ const inflight = new Map<string, Promise<void>>();
 
 function cacheFilenameFor(url: string): string {
   const hash = createHash('sha256').update(url).digest('hex').slice(0, 16);
-  const ext = path.extname(new URL(url).pathname).toLowerCase() || '.bin';
-  // Defensive: only allow a small set of font/css extensions in the filename.
-  const safeExt = /^\.(woff2?|ttf|otf|css)$/.test(ext) ? ext : '.bin';
-  return `${hash}${safeExt}`;
+  // Only a small set of font/css extensions ever reaches the filename; a
+  // googleapis path with no extension is a stylesheet.
+  return `${hash}${fontCacheExtensionFor(new URL(url))}`;
 }
 
 function contentTypeFor(filename: string): string {
@@ -119,6 +122,15 @@ export async function handleFontProxy(req: Request, res: Response): Promise<void
     // Long-lived cache — file content is immutable per URL hash.
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     res.setHeader('Content-Type', contentTypeFor(filename));
+    if (filename.endsWith('.css')) {
+      // A stylesheet's own `url(...)` references are unquoted, so the code-level
+      // rewrite never saw them. Rewrite them on the way out, against the origin
+      // this request arrived on, so the .woff2 files come back through here too
+      // and an offline render is served entirely from the cache.
+      const css = await fs.readFile(cachePath, 'utf-8');
+      res.send(rewriteCssFontUrls(css, requestOrigin(req)));
+      return;
+    }
     res.sendFile(cachePath);
   } catch (err) {
     log.warn('Font proxy fetch failed', {
@@ -130,20 +142,14 @@ export async function handleFontProxy(req: Request, res: Response): Promise<void
 }
 
 /**
- * Rewrite Google Fonts URLs in source code (TSX or transpiled JS) to point at
- * our local proxy. Operates on string literals only — anything matching the
- * allowed host list and wrapped in single or double quotes.
- *
- * Safe to run on raw TSX *and* on esbuild output: we preserve quote style and
- * only touch the URL inside the quotes.
+ * The origin this request arrived on (`http://127.0.0.1:5173`), used as the base
+ * for rewritten stylesheet references so they stay same-origin with the
+ * stylesheet itself. Falls back to `''` — a root-relative `/fonts?u=...`, which
+ * resolves the same way — if the request carried no Host header.
  */
-export function rewriteFontUrls(code: string, baseUrl: string): string {
-  return code.replace(
-    /(["'])(https:\/\/fonts\.(?:gstatic|googleapis)\.com\/[^"'\s]+)\1/g,
-    (_match, quote: string, url: string) => {
-      return `${quote}${baseUrl}/fonts?u=${encodeURIComponent(url)}${quote}`;
-    },
-  );
+function requestOrigin(req: Request): string {
+  const host = req.get('host');
+  return host ? `${req.protocol}://${host}` : '';
 }
 
 /**
