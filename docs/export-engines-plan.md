@@ -1381,3 +1381,20 @@ its `.out`/`.json`, the pieces, run-chain.sh, the driver JSONs/logs,
 measure-qsv.sh). Left open, by design: **AMF has never encoded a frame** — the
 runbook says what to run on an AMD machine and what to record; and whether
 QSV should decode on the GPU.
+
+**The night's closing gate (2026-09-11 06:21–06:47, the tree at `ab97d57`, the
+dev app restarted clean on it):** the nine references re-exported through the
+passthrough engine — **nine of nine byte-identical on video AND audio**
+(t5-1080p, cut, gain, music, stack, fade, speed, speed2 on the first pass;
+`muxMs` 401–539 ms, `framesMs` 7.6–10.7 s). The xfade seed's FIRST export of
+the chain differed from its reference in exactly its 30 browser-span packets
+(436–465; the two copied spans and the AAC byte-identical; plan `435 · 30 ·
+435`, so not the seed): all 30 rendered frames off uniformly at 42–50 dB PSNR
+(mean squared error 0.6–3.9 — encoder-level, not the ~30 dB of a neighbour
+frame), while the browser span took 68 s against 44–54 s. The SAME seed
+re-exported on the same app two minutes later is byte-identical to the
+reference (0 packets differ) — a one-off in the Remotion x264 intermediate
+under load, recorded here, not explained: the NVENC builder strings are
+pinned unchanged, no render setting changed (`renderDefaultGpuBackend` unset,
+CPU stop `low` throughout). A browser-span reference is therefore worth a
+second run before it is called a regression.
