@@ -65,7 +65,7 @@ frame**, 900 frames, audio lag 0 ms at every window.
 | **1 — engine seam** · **DONE 2026-09-05** | `ExportEngine` interface + registry in main (`src/main/services/studio/export-engines/`), the Remotion path moved behind it untouched, the shared finishing stage (D7) with the audio correction (D6), Settings default + Export dialog picker (D2/D3), verification mode behind a dev flag (D5) | the default engine exports byte-for-byte what it did before, minus the 42.7 ms; the picker exists but lists one engine — **met**: `t1-diff` vs the 2026-09-04 control 0 % over 24 at 1/300/449/450/451/600/899 on both reference projects, 900 frames, `yuv420p tv bt709`, audio 0 ms at every window vs the camera file (log below) |
 | **2 — passthrough, narrowest predicate** · **DONE 2026-09-06** | single video track, pure cuts, no effects/captions/shots; the span planner decides from the document alone; touched spans still go to the browser and are encoded per condition 2; join per condition 3; "copies N %" in the dialog; the D4 message | T1 gate passes on both reference projects; the 3 h T6 project exports in about an hour instead of days — **met**: 0 % over 24 vs the 2026-09-04 control at 1/300/449/450/451/600/899 on both projects, ≤ 0.01 % vs the Stage 1 Remotion engine in verify mode, audio 0 ms vs the camera file at every window, copied spans at 3.7–4.2× realtime, a re-export byte-identical; the 3 h project (275 clips, 100 % copied) exports in 1 h 32 min — 61 min of copied spans, 24 min in the finishing mux — against T6's ≈ 3.5 days, audio in sync end to end |
 | **3 — widen the predicate** · **DONE 2026-09-06/07** (slices 1–4) | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled — **slice 1 met**: the different-file cut measured (the export shows the ceil frame on the first frame after it opens a source file, the nearest on a same-file cut or a return; the planner carries it, the A-B-A seed reads 0 % over 24 at both cuts) and gain-only clips copied (video byte-identical to the Stage 2 cut export, audio 0 ms vs the camera file and vs an independent Remotion export at eight windows, level 0.4995–0.4997 on the gained clip and 1.000 vs Remotion); the Stage 2 gates re-run byte-identical. **Slice 2 met**: audio tracks mixed in the one pass (a music clip under the T1 cut: video byte-identical to the Stage 2 cut export, audio 0 ms and level 1.000 vs a plain Remotion export at eight windows, the mixed music at lag 0 and 0.98 of its gained level in the export-minus-camera residual on both exports alike) and several video tracks (the T1 cut as two stacked tracks: video AND audio byte-identical to the Stage 2 cut export, 0 % over 24 vs the control, audio 0 ms vs the camera); the three earlier gates re-run byte-identical on video AND audio. **Slice 3 met**: speed measured (Remotion = the nearest source frame on the scaled time line + a pitch-preserving `atempo` that our ffmpeg reproduces bit for bit — the recipe for the next slice, not widened yet); audio fades in the one pass (a faded clip's picture copied byte-identical to the Stage 2 cut export; its audio Remotion's own per-frame `volume=` expression on the same decoder buffers: 0 ms vs the camera file at eight windows, level 1.000 vs a plain Remotion export in 1 s windows outside the ramps and in 100 ms windows inside them); crossfade transitions (only the 30-frame window rendered, 97 % copied; 0 % over 24 vs both references at every sampled frame; the equal-power sum of the two lanes matches a model of the composition within 0.02, where the Remotion export is comb-filtered by its own whole-millisecond asset placement); the five earlier gates re-run byte-identical on video AND audio. **Slice 4 met**: speed (a clip at rate ≥ 1 is copied on the scaled time line — the nearest select with `S + rate·n/fps`, the ceil rule on a first frame unchanged and re-measured on a sped clip that opens a file — and its audio is Remotion's own `aformat s16 48k, atempo, atrim` chain in the one pass, a curve on it on the post-tempo time line; the pass's sped segment byte-identical PCM to that chain with and without a fade; the speed seed reads the SAME source frames as the plain Remotion export at every mapped frame, max 0.01 % over 24 at the seven frames, audio 0 ms and level 1.000 at eight windows, the sped music at lag 0; a second seed with a sped, faded clip of a second file at 2× and a 3× music clip reads the same K and the same levels inside the ramps, +0.3 ms on the faded-in clip = Remotion's whole-ms placement); the seven earlier gates re-run byte-identical on video AND audio. Slow motion (rate < 1) stays a browser span. Next: Stage 4; the long-return question |
-| **4 — polish** · **slices 1–3 DONE 2026-09-09**, slice 4 measured | the finishing mux profiled and cut; progress that shows copied vs rendered time; cancel that cleans intermediates + the temp-copy leak from T5 + the CPU-usage setting reaching Studio exports; merging nearby browser spans measured | tickets closed, `STATUS.md` row — **met**: the 3 h project's finishing mux was the single-threaded AAC encode (8× realtime), now run beside the copied spans with the mux copying both streams and the moov reserved up front: `muxMs` **152 s** against 1,457 s, plan → file **65.4 min** against 92.1, the nine references byte-identical on video AND audio; the queue row reads "Copied 41 % · rendering 1 of 1 spans · about 4 min left" from measured rates and persists real frame counts; cancel retries the scratch removal, drops the half-written file, and a startup sweep removes scratch and hour-old Remotion asset folders; the CPU stop applies. Merging: a browser span ≈ 16 s start + 0.92 s/frame, break-even gap ≈ 19 frames — not built. Open: QSV/AMF (no Intel/AMD here), the long-return question, slow motion |
+| **4 — polish** · **slices 1–3 DONE 2026-09-09**, slice 4 measured | the finishing mux profiled and cut; progress that shows copied vs rendered time; cancel that cleans intermediates + the temp-copy leak from T5 + the CPU-usage setting reaching Studio exports; merging nearby browser spans measured | tickets closed, `STATUS.md` row — **met**: the 3 h project's finishing mux was the single-threaded AAC encode (8× realtime), now run beside the copied spans with the mux copying both streams and the moov reserved up front: `muxMs` **152 s** against 1,457 s, plan → file **65.4 min** against 92.1, the nine references byte-identical on video AND audio; the queue row reads "Copied 41 % · rendering 1 of 1 spans · about 4 min left" from measured rates and persists real frame counts; cancel retries the scratch removal, drops the half-written file, and a startup sweep removes scratch and hour-old Remotion asset folders; the CPU stop applies. Merging: a browser span ≈ 16 s start + 0.92 s/frame, break-even gap ≈ 19 frames — not built. Open: QSV/AMF (no Intel/AMD here), slow motion; the long-return question answered 2026-09-11 (a return is a return, whatever the gap — log below) |
 
 Open, not blocking: the clap test (D6) on the first Stage 1 build; whether
 the fast engine should also become the default once Stage 3 has held for a
@@ -973,8 +973,8 @@ Not worth an engine change; the 3.2 min per window Stage 3 recorded was
 contention (a verify-mode reference render in the same run), not the start.
 
 Not done, by design: QSV/AMF copy paths (this machine has no Intel/AMD
-encoder to measure — the seed projects need one); the long-return question;
-slow motion (rate < 1). Gates: check:types 26/10 (baseline),
+encoder to measure — the seed projects need one); slow motion (rate < 1).
+The long-return question is answered below (2026-09-11). Gates: check:types 26/10 (baseline),
 vitest 2312 (261 files, 19 skipped) green, live ffmpeg 8. Bench: `.vidtsx-temp/bench/stage4/`
 (profile-mux.sh, the driver chains, measure-stage4.sh).
 
@@ -1046,3 +1046,83 @@ check:types 26/10 (baseline), vitest 2312 (261 files, 19 skipped; two
 Back (a big project's editor outlived one Back click). Bench:
 `.vidtsx-temp/bench/stage4/profile-join.sh`, `run-pt-join.sh`,
 `run-verify-xfade.sh`.
+
+**The long-return question (2026-09-11).** Slice 1 left one thing unmeasured:
+`planExportSpans` sets `firstFrameCeil` only on a copy span whose file is new
+to the timeline, on the reading that a return to an opened file shows the
+nearest frame — and that reading came from one return after 3 s of another
+file, on a near-static shot (K 1798 at 0.016 % over 24 against 1799 at
+0.047 %). Does the compositor close an idle file on a long timeline, so that
+a return after minutes behaves like an open (ceil)? Three seeds in
+`seed-cut-projects.mjs` (`return`, `return-short`, `return-1m`), each
+returning to 0270 at source 1376/30 = 45.8667 s — a 30 fps grid time that
+sits at K 2749.25, so the nearest (2749) and the ceil (2750) differ, on a
+moving shot (adjacent source frames read mean 2.1, ~2 % over 24 apart):
+
+| seed | timeline | what it asks |
+|---|---|---|
+| `t5-1080p-cut-return` | 0270 0–10 s · 0271 60 s · 0273 100 s · 0274 60 s · 0275 100 s · 0270 from 45.8667 s (frame 9900) | the return after 320 s of four other files |
+| `t5-1080p-cut-return-short` | 0270 0–10 s · 0271 5 s · 0270 from 45.8667 s (450) · 0270 from 60.2 s (750, K 3608.39) · 0270 from 29.2 s (900, K 1750.25) | the 5 s return (slice 1's case on a moving shot); a same-file forward seek of 4.4 s inside the open stream; a same-file jump back of 36 s |
+| `t5-1080p-cut-return-1m` | 0270 0–10 s · 0271 30 s · 0273 30 s · 0270 from 45.8667 s (2100) | a 1 min return through two other files |
+
+Instrument: `t1-frame-map.mjs` (the export frame against the six source
+frames around the mapped time, both at 1080p, mean abs diff; the best
+candidate read against the nearest and the ceil index). Plain Remotion
+exports first (the reference — it decides ceil vs nearest):
+
+| seed · engine | frame (source t) | shows K | nearest / ceil | means at K−1 / K / K+1 |
+|---|---|---|---|---|
+| return-short · Remotion (`…return-short_2026-09-10T21-45-58.mp4`, 9.5 min from click) | 450 · 45.8667 s (the 5 s return) | **2749 = nearest** | 2749 / 2750 | 3.34 / **1.99** / 3.14 |
+| | 451, 452 | 2751, 2753 = nearest | | 2.09, 2.08 against 2.7–3.0 |
+| | 750 · 60.2 s (a 4.4 s seek inside the open stream) | **3608 = nearest** | 3608 / 3609 | 3.17 / **2.11** / 3.07 |
+| | 751, 752 | 3610, 3612 = nearest | | |
+| | 900 · 29.2 s (a 36 s jump back — a new stream) | **1750 = nearest** | 1750 / 1751 | 3.24 / **2.01** / 3.06 |
+| | 901, 902 | 1752, 1754 = nearest | | |
+| return · Remotion (`…return_2026-09-10T22-01-52.mp4`, 10,200 frames, 355,604,690 B, **1 h 29 min from click** at 1.3–1.4 frames/s; free memory 0.7–2.8 GB throughout, the compositor at its 1.06 GB cap) | 9900 · 45.8667 s (**the return after 320 s of four other files**) | **2749 = nearest** | 2749 / 2750 | 3.34 / **1.99** / 3.14 — the control's rows to the hundredth |
+| | 9901, 9902 | 2751, 2753 = nearest | | 2.09, 2.08 |
+| return-1m · Remotion (`…return-1m_2026-09-10T23-35-32.mp4`, 2,400 frames, 21 min from click) | 2100 · 45.8667 s (the return after 1 min through two other files — the compositor's two default threads shared, the first file's frames pruned) | **2749 = nearest** | 2749 / 2750 | 3.34 / **1.99** / 3.14 |
+| | 2101, 2102 | 2751, 2753 = nearest | | |
+| return-short · passthrough (`…return-short_2026-09-10T23-58-55.mp4`, 5 copy spans, 100 % copied, 21 s from click) | 450, 451, 452 · 750, 751, 752 · 900, 901, 902 | **the same K as the Remotion export at every frame** (2749/2751/2753 · 3608/3610/3612 · 1750/1752/1754 — nearest; the planner's `firstFrameCeil` false on every return span) | | 1.39–1.48 against 1.9–2.8 (the copy's smaller colour round trip, as in every slice) |
+| return · passthrough (`…return_2026-09-11T00-01-17.mp4`, 6 copy spans `0+300 · 300+1800 · 2100+3000 · 5100+1800 · 6900+3000 · 9900+300`, 100 % copied, **80 s from click**: `framesMs` 70 s, mux 1.2 s) | 9900, 9901, 9902 | **2749, 2751, 2753 — the same K as the Remotion export** | | 1.41 / 1.48 / 1.47 |
+| return-1m · passthrough (`…return-1m_2026-09-11T00-04-39.mp4`, 4 copy spans, 100 % copied, 25 s from click) | 2100, 2101, 2102 | **2749, 2751, 2753 — the same K** | | 1.41 / 1.48 / 1.47 |
+
+`t1-diff` of each passthrough export against its plain Remotion export
+(`.vidtsx-temp/bench/open/long-return/t1-diff-pairs.out`): return at
+1/300/9899/9900/9901/9902/10199, return-short at 1/449/450/451/749/750/751/
+899/900/901/1049, return-1m at 1/2099/2100/2101/2102/2399 — **max 0.01 % of
+pixels over 24 at every sampled frame** (0 at every return's first frame),
+mean 2.16–2.59 / 1.23–1.40 / 1.69–1.86 per channel, max delta 33–48: the
+Stage 2 rows, where a wrong source frame reads ~2 % over 24 on these shots.
+
+
+
+**Answer: a return is a return, whatever the gap — the planner is right and
+nothing changes.** After 5 s, after 320 s of four other files, inside the open
+stream (a 4.4 s seek) and across a 36 s jump back, the plain Remotion export
+shows the NEAREST source frame on the first frame of the returning clip; the
+ceil is confined to the first frame a render ever extracts from a file (T1
+leg 3, slice 1's first clip of a new file). Read against the compositor's own
+source (`remotion/packages/compositor/rust` at v4.0.435: `opened_video_manager.rs`
+`get_video_index`, `opened_stream.rs` `get_frame`, `frame_cache.rs`
+`get_item_id`, `thread.rs`): a request more than 5 s from every open stream's
+position opens a NEW stream and seeks (a backward `avformat_seek_file` to the
+keyframe before the target — the DJI files carry one every 30 frames), so a
+3 s return, a 320 s return and a same-file jump are the same operation; a
+video is closed only when its per-thread frame cache has been pruned empty
+(LRU, `close_videos_if_cache_empty` after every extract), and reopening it is
+that same operation again. The cache lookup returns the nearest cached pts
+(ties to the later frame). Why the very first extraction from a file lands on
+the ceil is not visible in that code (the seek lands before the target and
+the floor frame is decoded on the way) — it stays a measured rule, now
+measured on both sides with a moving shot: `firstFrameCeil` = "the timeline
+has not shown this file before" is the whole of it. Not measured: the
+threshold question is moot (there is no threshold to measure); a return by a
+LOWER track that was covered (slice 2's modelled case) is still modelled,
+not measured.
+
+Gates on the tree as committed: check:types 26/10 (baseline), vitest **2312 green**
+(261 files, 19 skipped; run alone, beside the reference render), live ffmpeg
+tests 8. Bench: `.vidtsx-temp/bench/open/long-return/` (run-chain.sh, the
+driver JSONs/logs, measure-return.sh + its `.out` files, the frame maps under
+`.vidtsx-temp/bench/t1/frame-map/item1-*`); seeds `t5-1080p-cut-return`,
+`t5-1080p-cut-return-short`, `t5-1080p-cut-return-1m` on disk.

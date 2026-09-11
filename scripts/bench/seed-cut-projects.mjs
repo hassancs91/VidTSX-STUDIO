@@ -15,6 +15,11 @@
 //   node scripts/bench/seed-cut-projects.mjs speed      → t5-1080p-cut-speed  (the T1 cut with clip B at speed 1.5; the music clip on A1 2–12 s from 2 s at speed 1.5, gain 0.5 — slice 3's measurement)
 //   node scripts/bench/seed-cut-projects.mjs speed2     → t5-1080p-cut-speed2 (0270 0–15 s, then 0272 at speed 2 from 127.9745 s to its end with gain 0.5 + fade in 1 s + fade out 1 s;
 //                                                          the music clip on A1 2–12 s from 2 s at speed 3, gain 0.5 — slice 4: a sped clip that OPENS a file, runs to the source end, fades, and a rate outside atempo's range)
+//   node scripts/bench/seed-cut-projects.mjs return     → t5-1080p-cut-return  (0270 0-10 s | 0271 60 s, 0273 100 s, 0274 60 s, 0275 100 s | 0270 from 45.867 s —
+//                                                          the long-return question, 2026-09-11: a return after 320 s of four other files, at a non-grid source time)
+//   node scripts/bench/seed-cut-projects.mjs return-short → t5-1080p-cut-return-short (0270 0-10 s | 0271 5 s | 0270 from 45.867 s | jump to 60.2 s | jump back to 29.2 s — the control:
+//                                                          a 5 s return, a same-file forward seek inside the open stream, a same-file jump back)
+//   node scripts/bench/seed-cut-projects.mjs return-1m  → t5-1080p-cut-return-1m (0270 0-10 s | 0271 30 s | 0273 30 s | 0270 from 45.867 s — a 1 min return through two other files)
 //   … [--force] to overwrite project.json (cache/ is left alone)
 //
 // Writes ~/Videos/VidTSX Studio/projects/<id>/project.json straight to disk, in
@@ -31,6 +36,17 @@ const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace
 const RAW = path.join(REPO, 'raw');
 const A0270 = { id: 'c9ed8f79-f1c6-4c8f-92ce-7c92a4a1b106', kind: 'video', path: path.join(RAW, 'DJI_20260813142309_0270_D.MP4'), probe: { duration: 139.022233, width: 3840, height: 2160, fps: 59.94, hasAudio: true, codec: 'hevc' } };
 const MUSIC = { id: 'a1b2c3d4-music-40s0-8000-000000000001', kind: 'audio', path: path.join(RAW, 'music-40s.wav'), probe: { duration: 40, hasAudio: true, codec: 'pcm_s16le' } };
+// Item 1 (2026-09-11, the long-return question): the other DJI files, each a plain cut, so a return to 0270
+// after minutes of other material can be measured (probe values from ffprobe: 59.94 fps 4K HEVC, sound on).
+const dji = (n, file, duration) => ({ id: `5a1b2c3d-${n}-4b7a-9c6e-${n}aaaa${n}`, kind: 'video', path: path.join(RAW, file), probe: { duration, width: 3840, height: 2160, fps: 59.94, hasAudio: true, codec: 'hevc' } });
+const A0271 = dji('0271', 'DJI_20260813142610_0271_D.MP4', 73.0897);
+const A0273 = dji('0273', 'DJI_20260813143053_0273_D.MP4', 281.030767);
+const A0274 = dji('0274', 'DJI_20260813143540_0274_D.MP4', 175.8924);
+const A0275 = dji('0275', 'DJI_20260813143841_0275_D.MP4', 278.027767);
+// The return's source time sits on the 30 fps grid (trimBefore = round(sourceIn × 30)) at a NON-grid 59.94 fps
+// position, so the ceil and the nearest source frame differ: 1376/30 = 45.8667 s → K 2749.25 (nearest 2749,
+// ceil 2750); 1806/30 = 60.2 s → K 3608.39 (3608 / 3609); 876/30 = 29.2 s → K 1750.25 (1750 / 1751).
+const RETURN_IN = 1376 / 30;
 const A0272 = { id: '4f0c2c8e-1d3b-4b7a-9c6e-0272aaaa0272', kind: 'video', path: path.join(RAW, 'DJI_20260813142800_0272_D.MP4'), probe: { duration: 157.9745, width: 3840, height: 2160, fps: 59.94, hasAudio: true, codec: 'hevc' } };
 
 const which = process.argv[2];
@@ -110,6 +126,30 @@ const seeds = {
     clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
     clip('clip_t1_speed2_b', A0272.id, 15, 15, 127.9745, { speed: 2, gain: 0.5, fadeInSec: 1, fadeOutSec: 1 }),
   ]),
+  // Item 1 (2026-09-11): the long-return question — does a return to 0270 after minutes of other files show
+  // the ceil frame (an open) or the nearest (a return)? The plain Remotion export decides; the control seed
+  // re-measures the short return with a moving shot and adds two same-file jumps.
+  'return': base('t5-1080p-cut-return', 'T1 cut return (0270 0-10 s | 320 s of other files | 0270 from 45.867 s)', [A0270, A0271, A0273, A0274, A0275], [
+    clip('clip_t1_return_a', A0270.id, 0, 10, 0),
+    clip('clip_t1_return_b1', A0271.id, 10, 60, 0),
+    clip('clip_t1_return_b2', A0273.id, 70, 100, 0),
+    clip('clip_t1_return_b3', A0274.id, 170, 60, 0),
+    clip('clip_t1_return_b4', A0275.id, 230, 100, 0),
+    clip('clip_t1_return_c', A0270.id, 330, 10, RETURN_IN),
+  ]),
+  'return-short': base('t5-1080p-cut-return-short', 'T1 cut return short (0270 0-10 s | 0271 5 s | 0270 from 45.867 s, jumps to 60.2 s and 29.2 s)', [A0270, A0271], [
+    clip('clip_t1_return_a', A0270.id, 0, 10, 0),
+    clip('clip_t1_return_b', A0271.id, 10, 5, 0),
+    clip('clip_t1_return_c', A0270.id, 15, 10, RETURN_IN),
+    clip('clip_t1_return_d', A0270.id, 25, 5, 1806 / 30),
+    clip('clip_t1_return_e', A0270.id, 30, 5, 876 / 30),
+  ]),
+  'return-1m': base('t5-1080p-cut-return-1m', 'T1 cut return 1 min (0270 0-10 s | 0271 30 s | 0273 30 s | 0270 from 45.867 s)', [A0270, A0271, A0273], [
+    clip('clip_t1_return_a', A0270.id, 0, 10, 0),
+    clip('clip_t1_return_b1', A0271.id, 10, 30, 0),
+    clip('clip_t1_return_b2', A0273.id, 40, 30, 0),
+    clip('clip_t1_return_c', A0270.id, 70, 10, RETURN_IN),
+  ]),
   'music': base('t5-1080p-cut-music', 'T1 cut music (0-15 s | 15-30 s, music on A1 5-25 s from 2 s at gain 0.5)', [A0270, MUSIC], [
     clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
     clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
@@ -117,7 +157,7 @@ const seeds = {
 };
 const project = seeds[which];
 if (!project) {
-  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | xfade3 | xfade2x | speed | speed2 [--force]');
+  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | xfade3 | xfade2x | speed | speed2 | return | return-short | return-1m [--force]');
   process.exit(1);
 }
 if (which === 'music') {

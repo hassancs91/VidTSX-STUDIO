@@ -7,6 +7,49 @@
 
 ---
 
+## 2026-09-11 — EXPORT ENGINES: the long-return question
+
+The item Stage 3 slice 1 left open (`docs/export-engines-plan.md` §Stage 4 log, "The long-return
+question"). `planExportSpans` sets `firstFrameCeil` only on a copy span whose file is new to the
+timeline: the browser shows the CEIL source frame on the first frame after OPENING a file and the
+NEAREST on a same-file cut or a return — measured in slice 1 on one 3 s return, on a near-static
+shot. Unmeasured until now: whether the compositor closes an idle file on a long timeline, so that a
+return after minutes of other material behaves like an open (ceil). The fast engine stays opt-in (D2).
+
+- **Three seeds** (`scripts/bench/seed-cut-projects.mjs return | return-short | return-1m`), every
+  return to 0270 at source 1376/30 = 45.8667 s — a 30 fps grid time at K 2749.25, so the nearest
+  (2749) and the ceil (2750) differ, on a moving shot (adjacent source frames ~2 % over 24 apart):
+  a return after 320 s of four other DJI files (frame 9900 of 10,200); the control with a 5 s
+  return plus a same-file forward seek of 4.4 s inside the open stream (60.2 s) and a 36 s jump
+  back (29.2 s); a 1 min return through two other files.
+- **Instrument:** `t1-frame-map.mjs` on the first three frames of every return — the export frame
+  against the six source frames around the mapped time, both at 1080p, mean abs diff; best K read
+  against the nearest and the ceil index (`.vidtsx-temp/bench/open/long-return/measure-return.sh`).
+- **Control (plain Remotion, `…return-short_2026-09-10T21-45-58.mp4`, 9.5 min from click):** the
+  5 s return shows **K 2749 = nearest** (mean 1.99 against 3.34 / 3.14 for 2748 / 2750), the seek
+  inside the open stream **3608 = nearest** (2.11 vs 3.17 / 3.07), the jump back **1750 = nearest**
+  (2.01 vs 3.24 / 3.06); frames +1 and +2 nearest everywhere. Slice 1's return rule holds with a
+  strong signal, and a same-file seek — forward inside the stream or back to a new stream — is a
+  return, not an open.
+- **The long return (plain Remotion, `…return_2026-09-10T22-01-52.mp4`, 10,200 frames, 1 h 29 min
+  from click, never memory-starved):** frame 9900 shows **K 2749 = nearest** (1.99 against 3.34 /
+  3.14), 9901/9902 nearest — the control's rows to the hundredth. The 1 min return through two other files (`…return-1m_2026-09-10T23-35-32.mp4`): K 2749 = nearest, the same rows.
+- **Answer: a return is a return, whatever the gap — the planner is right, no code change.** The
+  ceil is confined to the first frame a render ever extracts from a file; `firstFrameCeil` = "the
+  timeline has not shown this file before" is the whole rule. The compositor's source (v4.0.435)
+  agrees on the shape: a request > 5 s from every open stream opens a new stream and seeks, so a 3 s
+  return, a 320 s return and a same-file jump are one operation; a video closed for an empty cache
+  reopens the same way. Why the first-ever open lands on the ceil is not visible in that code — it
+  stays a measured rule. 
+- **The passthrough engine on the same three seeds** (100 % copied; the 340 s project in **80 s from
+  click** against the reference's 1 h 29 min): the same source frame as the Remotion export at every
+  measured frame of every return and jump (K 2749 / 2751 / 2753 at the 45.8667 s return in all
+  three; 3608… and 1750… at the short seed's jumps) — the planner's `firstFrameCeil: false` on a
+  return span is what the browser does. `t1-diff` of each pair at the returns and around them: max 0.01 % of pixels
+  over 24 at every sampled frame, 0 at every return's first frame.
+- Gates: check:types 26/10 (baseline), vitest 2312 (261 files, 19 skipped), live ffmpeg 8.
+  Bench under `.vidtsx-temp/bench/open/long-return/`; the three seeds on disk.
+
 ## 2026-09-10 — EXPORT ENGINES Stage 4 slice 5: no intermediate copy — the join is the mux
 
 The item Stage 4's log left open (`docs/export-engines-plan.md` §Stage 4 log, slice 5). The
