@@ -1469,7 +1469,10 @@ on the `run.json` rename is retried.
 
 **Pending for Hasan.** (1) Sign the five built-in flows (`scripts/
 flow-pack.mjs --sign` with `VIDTSX_AGENT_SIGNING_KEY`) or ship them
-unsigned — the UI already shows "Built-in". (2) One line in
+unsigned — the UI already shows "Built-in". **Done 2026-09-11:** all five
+signed in place as `vidtsx-1` with the key at its off-repo path; each
+`signature.json` verifies `verified / VidTSX` through `verifyAgentSignature`
+with the shipped publisher list; flows tests 136 green. (2) One line in
 `src/main/index.ts` `queuePackageOpen` so a double-clicked `.vidtsxflow`
 navigates to Flows (the file belongs to the export-engines session; the
 path already parks in main and the Flows screen claims it). (3) The coupled
