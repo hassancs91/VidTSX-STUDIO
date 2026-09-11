@@ -91,6 +91,15 @@ describe('studio proxy encoder handlers', () => {
     expect(status.listed).toEqual(['nvenc', 'qsv', 'amf']);
   });
 
+  it('an AMD-only machine: detected amf, labelled AMD AMF (Item 3, 2026-09-11)', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['nvenc', 'qsv', 'amf'];
+    full.working = ['amf'];
+    const status = await handleStudioProxyEncoderStatus();
+    expect(status.detected).toBe('amf');
+    expect(status.detectedLabel).toBe('AMD AMF');
+  });
+
   it('installed with no working encoder reports detected: null (the row disables the checkbox)', async () => {
     full.binary = 'C:/x/ffmpeg.exe';
     full.listed = ['nvenc'];

@@ -29,6 +29,21 @@
  * 2026-09-06 on the 8.1 build), so every graph ends in `setparams` tagging the
  * policy; the output flags stay as belt and braces, and the finishing stage
  * verifies all five tags anyway.
+ *
+ * The three vendors (checked against `ffmpeg -h encoder=…` of the 8.1 build,
+ * 2026-09-11; `docs/export-engines-qsv-amf-runbook.md`): the frame mapping,
+ * the timing flags, the GOP (60, two B-frames) and the colour tagging are the
+ * same arguments for all three; only the encoder line, the pixel format it
+ * accepts and the decode side differ. `h264_qsv` takes nv12 (or qsv) frames
+ * only — without `format=nv12` ffmpeg auto-inserted a conversion after
+ * `setparams` (seen in its verbose log; not even the same bytes as the
+ * explicit one — swscale's direct 10-bit → nv12 rounds chroma differently
+ * from 10-bit → yuv420p + the lossless repack, both inside the T1 gate), so
+ * the graph now says what it does, once.
+ * `h264_amf` takes yuv420p directly. NVENC is the measured path (NVDEC →
+ * scale_cuda → NVENC); QSV was measured offline on an Intel UHD 630 (the
+ * runbook has the numbers); AMF has never run — the same arguments, checked
+ * by name and meaning, no hardware.
  */
 import type { ProxyGpuEncoder } from '../proxy-encoders';
 import type { AudioSegment, ExportAudioPlan } from '../../../../shared/studio/export-spans';
@@ -46,6 +61,15 @@ export const COPY_QUALITY: Record<ProxyGpuEncoder, number> = { nvenc: 23, qsv: 2
 
 export const ENCODER_NAMES: Record<ProxyGpuEncoder, string> = { nvenc: 'h264_nvenc', qsv: 'h264_qsv', amf: 'h264_amf' };
 
+/**
+ * The pixel format each encoder is handed from system memory (`ffmpeg -h
+ * encoder=…`, 8.1: h264_nvenc yuv420p/nv12/…, h264_qsv nv12/qsv ONLY,
+ * h264_amf nv12/yuv420p/…). The H.264 stream is 4:2:0 either way — nv12 and
+ * yuv420p differ only in the memory layout ffprobe never sees, so the
+ * finishing stage's `yuv420p` check reads the same on all three.
+ */
+export const ENCODER_PIXEL_FORMATS: Record<ProxyGpuEncoder, 'yuv420p' | 'nv12'> = { nvenc: 'yuv420p', qsv: 'nv12', amf: 'yuv420p' };
+
 const COMMON = ['-y', '-hide_banner', '-nostdin', '-v', 'error', '-stats'];
 
 /** The frame-level tag filter (see the header) for the colour policy. */
@@ -58,7 +82,21 @@ export function colorFlagArgs(color: ExportColorPolicy): string[] {
   return ['-color_range', color.range, '-colorspace', color.matrix, '-color_primaries', color.primaries, '-color_trc', color.transfer];
 }
 
-/** Output-side encoder arguments, one GOP shape for every span. */
+/**
+ * Output-side encoder arguments, one GOP shape for every span (`-g 60`, two
+ * B-frames, constant quality 23 on each vendor's own scale). NVENC: the
+ * measured line (p5, VBR with a CQ target, no bitrate cap). QSV: `-preset
+ * medium` = TargetUsage 4; `-global_quality` with no bitrate selects ICQ
+ * (intelligent constant quality) — the 8.1 encoder reports `RateControlMethod:
+ * ICQ, ICQQuality: 23, GopPicSize: 60, GopRefDist: 3, IdrInterval: 0` for
+ * this line (measured 2026-09-11). AMF: `-quality balanced`, CQP with the QP
+ * named for all three picture types (`-qp_b` too — unset, a B-frame's QP is
+ * the driver's default, not 23); `-bf` is AMF's own "B Picture Pattern"
+ * option on the 8.1 build (a GPU without B-frame support logs a warning and
+ * encodes without them — the piece is still valid). Neither QSV nor AMF needs
+ * a `-hwaccel`/`-init_hw_device` for frames from system memory: each opens
+ * its own device.
+ */
 export function spanEncoderArgs(encoder: ProxyGpuEncoder): string[] {
   const q = String(COPY_QUALITY[encoder]);
   switch (encoder) {
@@ -67,7 +105,7 @@ export function spanEncoderArgs(encoder: ProxyGpuEncoder): string[] {
     case 'qsv':
       return ['-c:v', 'h264_qsv', '-preset', 'medium', '-global_quality', q, '-bf', '2', '-g', '60'];
     case 'amf':
-      return ['-c:v', 'h264_amf', '-quality', 'balanced', '-rc', 'cqp', '-qp_i', q, '-qp_p', q, '-bf', '2', '-g', '60'];
+      return ['-c:v', 'h264_amf', '-quality', 'balanced', '-rc', 'cqp', '-qp_i', q, '-qp_p', q, '-qp_b', q, '-bf', '2', '-g', '60'];
   }
 }
 
@@ -133,13 +171,14 @@ export interface CopySpanArgs extends SelectOptions {
 /**
  * One copied span → MPEG-TS video-only piece. NVENC keeps the whole pipeline
  * on the card (NVDEC → select → scale_cuda → NVENC, the measured 3.9× path);
- * the other vendors decode in software and scale on the CPU (unmeasured;
- * correct by construction).
+ * the other vendors decode in software and scale on the CPU, handing the
+ * encoder the format it takes (correct by construction; QSV measured offline
+ * 2026-09-11 — the runbook records what a GPU-side decode would buy).
  */
 export function copySpanArgs(a: CopySpanArgs): string[] {
   const scale = a.encoder === 'nvenc'
     ? `scale_cuda=w=${a.width}:h=${a.height}:format=yuv420p`
-    : `scale=w=${a.width}:h=${a.height},format=yuv420p`;
+    : `scale=w=${a.width}:h=${a.height},format=${ENCODER_PIXEL_FORMATS[a.encoder]}`;
   let graph: string;
   if (a.rate !== undefined && a.rate < 1) {
     if (a.trimBefore === undefined || a.clipOffset === undefined || !a.timeBase) throw new Error('a slow span needs trimBefore, clipOffset and the source time base');
@@ -176,7 +215,7 @@ export function blackSpanArgs(a: BlackSpanArgs): string[] {
   return [
     ...COMMON,
     '-f', 'lavfi', '-i', `color=black:size=${a.width}x${a.height}:rate=${a.fps}`,
-    '-vf', `format=yuv420p,${colorParamsFilter(a.color)}`,
+    '-vf', `format=${ENCODER_PIXEL_FORMATS[a.encoder]},${colorParamsFilter(a.color)}`,
     ...outputTimingArgs(a.fps, a.frames),
     ...spanEncoderArgs(a.encoder),
     ...colorFlagArgs(a.color),
@@ -200,7 +239,7 @@ export function browserSpanArgs(a: BrowserSpanArgs): string[] {
   return [
     ...COMMON,
     '-i', a.inputPath,
-    '-vf', `trim=start_frame=${a.leadIn},setpts=N/(${a.fps}*TB),format=yuv420p,${colorParamsFilter(a.color)}`,
+    '-vf', `trim=start_frame=${a.leadIn},setpts=N/(${a.fps}*TB),format=${ENCODER_PIXEL_FORMATS[a.encoder]},${colorParamsFilter(a.color)}`,
     ...outputTimingArgs(a.fps, a.frames),
     ...spanEncoderArgs(a.encoder),
     ...colorFlagArgs(a.color),
@@ -233,7 +272,7 @@ export function holdLastFrameArgs(a: HoldLastFrameArgs): string[] {
   return [
     ...COMMON,
     '-i', a.inputPath,
-    '-vf', `trim=start_frame=${a.lastFrame},tpad=stop=${a.frames - 1}:stop_mode=clone,setpts=N/(${a.fps}*TB),format=yuv420p,${colorParamsFilter(a.color)}`,
+    '-vf', `trim=start_frame=${a.lastFrame},tpad=stop=${a.frames - 1}:stop_mode=clone,setpts=N/(${a.fps}*TB),format=${ENCODER_PIXEL_FORMATS[a.encoder]},${colorParamsFilter(a.color)}`,
     ...outputTimingArgs(a.fps, a.frames),
     ...spanEncoderArgs(a.encoder),
     ...colorFlagArgs(a.color),

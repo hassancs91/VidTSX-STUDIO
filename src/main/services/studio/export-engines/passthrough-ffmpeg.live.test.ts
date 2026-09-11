@@ -12,6 +12,7 @@ import path from 'path';
 import { describe, expect, it } from 'vitest';
 import { EXPORT_COLOR } from './types';
 import { finishMuxArgs } from './finishing';
+import { encoderProbeArgs, type ProxyGpuEncoder } from '../proxy-encoders';
 import { audioPassArgs, blackSpanArgs, concatListText, copySpanArgs, holdLastFrameArgs, remotionTrimMicros, remotionVolumeExpression } from './passthrough-ffmpeg';
 
 /** The join as the finishing mux does it: the concat list read as the video input, no audio (Stage 4). */
@@ -435,4 +436,53 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(s.streams[0].channels).toBe(2);
     expect(Math.abs(Number(s.format.duration) - 11)).toBeLessThan(0.001);
   }, 120_000);
+});
+
+// Item 3 (2026-09-11): the other vendors' copy paths, on whichever of them
+// opens on THIS machine (the two-frame probe decides; a vendor that does not
+// open here is skipped, not faked). The dev laptop: an Intel UHD 630 beside
+// the GTX 1650 Ti — qsv runs, amf skips ("DLL amfrt64.dll failed to open").
+// What it pins per vendor: every builder opens with the builder's own
+// arguments; exact counts; pts on the grid; the joined file carries the five
+// tags the finishing stage demands; two encodes are byte-identical (the
+// runbook's determinism gate — measured true for QSV here; an AMD machine
+// tells us about AMF).
+describe.skipIf(!LIVE)("the other vendors' copy paths on this machine", () => {
+  for (const encoder of ['qsv', 'amf'] as const satisfies readonly ProxyGpuEncoder[]) {
+    it(`${encoder}: every builder opens, exact counts, pts on the grid, the five tags after the join, two encodes byte-identical`, async (ctx) => {
+      const { ffmpeg, ffprobe } = bins();
+      const opens = await run(ffmpeg, encoderProbeArgs(encoder)).then(() => true, () => false);
+      if (!opens) ctx.skip();
+      await fs.mkdir(OUT, { recursive: true });
+      const v = { ...base, encoder };
+      const copy = path.join(OUT, `${encoder}-copy.ts`);
+      const copy2 = path.join(OUT, `${encoder}-copy-2.ts`);
+      const black = path.join(OUT, `${encoder}-black.ts`);
+      const slow = path.join(OUT, `${encoder}-slow.ts`);
+      const tail = path.join(OUT, `${encoder}-tail.ts`);
+      await run(ffmpeg, copySpanArgs({ ...v, sourceFrame: 450, frames: 150, firstFrameCeil: false, outputPath: copy }));
+      await run(ffmpeg, blackSpanArgs({ ...v, frames: 30, outputPath: black }));
+      await run(ffmpeg, copySpanArgs({ ...v, sourceFrame: 450, frames: 60, firstFrameCeil: false, rate: 0.25, trimBefore: 450, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: slow }));
+      await run(ffmpeg, holdLastFrameArgs({ ...v, inputPath: copy, lastFrame: 149, frames: 2, outputPath: tail }));
+      expect((await probeFrames(ffprobe, copy)).count).toBe(150);
+      expect((await probeFrames(ffprobe, black)).count).toBe(30);
+      const ps = await probeFrames(ffprobe, slow);
+      expect(ps.count).toBe(60);
+      expect(ps.pts.map((t, i) => Math.abs(t - ps.pts[0] - i / 30)).filter((d) => d > 1e-4)).toEqual([]);
+      expect((await probeFrames(ffprobe, tail)).count).toBe(2);
+
+      const list = path.join(OUT, `${encoder}-list.txt`);
+      await fs.writeFile(list, concatListText([{ path: copy, frames: 150 }, { path: black, frames: 30 }, { path: tail, frames: 2 }], 30));
+      const joined = path.join(OUT, `${encoder}-joined.mp4`);
+      await run(ffmpeg, joinArgs(list, joined, EXPORT_COLOR));
+      const j = await probeFrames(ffprobe, joined);
+      expect(j.count).toBe(182);
+      expect(j.startTime).toBe(0);
+      expect(j.pts.map((t, i) => Math.abs(t - i / 30)).filter((d) => d > 1e-4)).toEqual([]);
+      expect(j.tags).toEqual({ pix_fmt: 'yuv420p', color_range: 'tv', color_space: 'bt709', color_primaries: 'bt709', color_transfer: 'bt709' });
+
+      await run(ffmpeg, copySpanArgs({ ...v, sourceFrame: 450, frames: 150, firstFrameCeil: false, outputPath: copy2 }));
+      expect(Buffer.compare(await fs.readFile(copy), await fs.readFile(copy2))).toBe(0);
+    }, 600_000);
+  }
 });

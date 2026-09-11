@@ -30,7 +30,7 @@ import { logEngine } from '../../../../logging/log-engine';
 import { copiedPercent, planExportSpans, type ExportSpan, type ExportSpanPlan } from '../../../../shared/studio/export-spans';
 import { runFfmpeg } from '../ffmpeg-bin';
 import { getFfmpegFullBinary, probeProxyEncoders } from '../ffmpeg-full';
-import { chooseProxyEncoder, type ProxyGpuEncoder } from '../proxy-encoders';
+import { PROXY_GPU_ENCODERS, chooseProxyEncoder, type ProxyGpuEncoder } from '../proxy-encoders';
 import { producePassthroughAudio } from './passthrough-audio';
 import { renderBrowserSpan } from './passthrough-browser';
 import {
@@ -61,18 +61,36 @@ export const NOTHING_TO_COPY_MESSAGE = 'Nothing on this timeline can be copied â
 /** A copy piece short by this many frames at most holds its last frame (the stream ended before its container). */
 const HOLD_LAST_FRAME_MAX = 3;
 
+/**
+ * Development override (docs/export-engines-qsv-amf-runbook.md): the name of
+ * one encoder to use INSTEAD of the preferred one â€” only if the probe found
+ * it working on this machine; anything else is ignored. The way to exercise
+ * the QSV or AMF copy path on a machine that also has NVENC.
+ */
+export const EXPORT_GPU_ENCODER_ENV = 'VIDTSX_EXPORT_GPU_ENCODER';
+
 interface Tools {
   ffmpeg: string;
   ffprobe: string;
   encoder: ProxyGpuEncoder;
 }
 
+/** The preferred working encoder, or the override when it names a working one. */
+export function pickExportEncoder(working: readonly ProxyGpuEncoder[], forced: string | undefined): ProxyGpuEncoder | null {
+  if (forced && (PROXY_GPU_ENCODERS as readonly string[]).includes(forced) && working.includes(forced as ProxyGpuEncoder)) {
+    return forced as ProxyGpuEncoder;
+  }
+  return chooseProxyEncoder(working);
+}
+
 async function resolveTools(): Promise<Tools | { reason: string }> {
   const ffmpeg = await getFfmpegFullBinary();
   if (!ffmpeg) return { reason: NEEDS_DOWNLOAD };
   const probe = await probeProxyEncoders(ffmpeg);
-  const encoder = chooseProxyEncoder(probe.working);
+  const forced = process.env[EXPORT_GPU_ENCODER_ENV];
+  const encoder = pickExportEncoder(probe.working, forced);
   if (!encoder) return { reason: NO_WORKING_ENCODER };
+  if (forced) log.info('Export encoder override', { requested: forced, working: probe.working, using: encoder });
   return { ffmpeg, ffprobe: ffprobeBeside(ffmpeg), encoder };
 }
 

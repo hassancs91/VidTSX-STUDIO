@@ -3,6 +3,8 @@
 import { describe, expect, it } from 'vitest';
 import { EXPORT_COLOR } from './types';
 import {
+  ENCODER_NAMES,
+  ENCODER_PIXEL_FORMATS,
   audioPassArgs,
   blackSpanArgs,
   browserSpanArgs,
@@ -91,8 +93,9 @@ describe('span argument builders', () => {
     expect(s).toMatch(/-filter_complex \[0:v\]select='eq\(floor\(\(trunc\(\(\(0\+max\(ceil\(.*\)',setpts='\(if\(eq\(.*\)\)\/30\/TB',fps=fps=30,scale_cuda=w=1920:h=1080:format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709\[v\] -map \[v\]/);
     expect(s).not.toContain('setpts=N/(30*TB)');
     expect(s).toContain('-r 30 -fps_mode cfr -frames:v 450 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60');
-    // The software path keeps the same three filters before the CPU scale.
-    expect(copySpanArgs({ ...base, encoder: 'qsv', sourceFrame: 450, frames: 10, firstFrameCeil: false, rate: 0.5, trimBefore: 450, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'o.ts' }).join(' ')).toContain(",fps=fps=30,scale=w=1920:h=1080,format=yuv420p,setparams");
+    // The software path keeps the same three filters before the CPU scale (into the format that vendor's encoder takes).
+    expect(copySpanArgs({ ...base, encoder: 'qsv', sourceFrame: 450, frames: 10, firstFrameCeil: false, rate: 0.5, trimBefore: 450, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'o.ts' }).join(' ')).toContain(",fps=fps=30,scale=w=1920:h=1080,format=nv12,setparams");
+    expect(copySpanArgs({ ...base, encoder: 'amf', sourceFrame: 450, frames: 10, firstFrameCeil: false, rate: 0.5, trimBefore: 450, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'o.ts' }).join(' ')).toContain(",fps=fps=30,scale=w=1920:h=1080,format=yuv420p,setparams");
     // A slow span never takes the ceil rule (its first slot shows the nearest, measured 2026-09-11).
     expect(() => copySpanArgs({ ...base, sourceFrame: 1410, frames: 10, firstFrameCeil: true, rate: 0.25, trimBefore: 1410, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'o.ts' })).toThrow(/nearest/);
     // Without the operands the builder refuses rather than guessing.
@@ -105,8 +108,9 @@ describe('span argument builders', () => {
   it('copy spans on QSV/AMF decode in software and scale on the CPU', () => {
     const s = copySpanArgs({ ...base, encoder: 'qsv', sourceFrame: 0, frames: 10, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
     expect(s).not.toContain('cuda');
-    expect(s).toContain('scale=w=1920:h=1080,format=yuv420p,setpts');
+    expect(s).toContain('scale=w=1920:h=1080,format=nv12,setpts');
     expect(s).toContain('-c:v h264_qsv');
+    expect(copySpanArgs({ ...base, encoder: 'amf', sourceFrame: 0, frames: 10, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ')).toContain('scale=w=1920:h=1080,format=yuv420p,setpts');
     expect(spanEncoderArgs('amf')).toContain('h264_amf');
   });
 
@@ -314,5 +318,99 @@ describe('small parsers', () => {
     expect(parseFrameRate('29.97')).toEqual({ num: 29970, den: 1000 });
     expect(isConstantFrameRate({ num: 60000, den: 1001 }, { num: 60000, den: 1001 })).toBe(true);
     expect(isConstantFrameRate({ num: 60000, den: 1001 }, { num: 2997, den: 100 })).toBe(false);
+  });
+});
+
+// Item 3 (2026-09-11): the QSV and AMF lines checked against `ffmpeg -h
+// encoder=h264_qsv` / `h264_amf` of the 8.1 build, every builder on every
+// encoder, and the NVENC strings pinned byte for byte — the nine byte-identity
+// references depend on them not moving.
+describe('every builder on every encoder', () => {
+  const ENCODERS = ['nvenc', 'qsv', 'amf'] as const;
+  const TB = { num: 1, den: 60000 };
+  const builds = (encoder: (typeof ENCODERS)[number]) => ({
+    copy: copySpanArgs({ ...base, encoder, sourceFrame: 450, frames: 450, firstFrameCeil: false, outputPath: 'o.ts' }),
+    ceil: copySpanArgs({ ...base, encoder, sourceFrame: 3839, frames: 10, firstFrameCeil: true, rate: 2, outputPath: 'o.ts' }),
+    slow: copySpanArgs({ ...base, encoder, sourceFrame: 450, frames: 60, firstFrameCeil: false, rate: 0.25, trimBefore: 450, clipOffset: 0, timeBase: TB, outputPath: 'o.ts' }),
+    black: blackSpanArgs({ ...base, encoder, frames: 30, outputPath: 'o.ts' }),
+    browser: browserSpanArgs({ ...base, encoder, inputPath: 'r.mp4', leadIn: 1, frames: 30, outputPath: 'o.ts' }),
+    hold: holdLastFrameArgs({ ...base, encoder, inputPath: 's.ts', lastFrame: 449, frames: 2, outputPath: 'o.ts' }),
+  });
+  const quoted = (re: RegExp, args: string[]) => re.exec(args.join(' '))?.[0];
+
+  it('names the encoders as ffmpeg lists them and hands each the pixel format it accepts', () => {
+    expect(ENCODER_NAMES).toEqual({ nvenc: 'h264_nvenc', qsv: 'h264_qsv', amf: 'h264_amf' });
+    // `ffmpeg -h encoder=…` (8.1): h264_qsv "Supported pixel formats: nv12 qsv"; h264_amf "nv12 yuv420p …"; h264_nvenc "yuv420p nv12 …".
+    expect(ENCODER_PIXEL_FORMATS).toEqual({ nvenc: 'yuv420p', qsv: 'nv12', amf: 'yuv420p' });
+  });
+
+  it("spanEncoderArgs: GOP 60, two B-frames, constant quality 23 on each vendor's scale, every option an 8.1 option", () => {
+    expect(spanEncoderArgs('nvenc')).toEqual(['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', '23', '-b:v', '0', '-bf', '2', '-g', '60']);
+    // -preset medium = TargetUsage 4; -global_quality without a bitrate = ICQ (the encoder reports "RateControlMethod: ICQ, ICQQuality: 23, GopPicSize: 60, GopRefDist: 3").
+    expect(spanEncoderArgs('qsv')).toEqual(['-c:v', 'h264_qsv', '-preset', 'medium', '-global_quality', '23', '-bf', '2', '-g', '60']);
+    // -quality balanced, -rc cqp with the QP for I, P AND B (an unset -qp_b leaves B-frames at the driver's default).
+    expect(spanEncoderArgs('amf')).toEqual(['-c:v', 'h264_amf', '-quality', 'balanced', '-rc', 'cqp', '-qp_i', '23', '-qp_p', '23', '-qp_b', '23', '-bf', '2', '-g', '60']);
+    // A bitrate here would turn QSV's ICQ into VBR and AMF's CQP into a rate-controlled mode.
+    expect(spanEncoderArgs('qsv')).not.toContain('-b:v');
+    expect(spanEncoderArgs('amf')).not.toContain('-b:v');
+  });
+
+  for (const encoder of ENCODERS) {
+    it(`${encoder}: the shared arguments on every builder, the vendor's own line, the frame mapping identical to NVENC's`, () => {
+      const b = builds(encoder);
+      const n = builds('nvenc');
+      const enc = spanEncoderArgs(encoder).join(' ');
+      for (const [name, args] of Object.entries(b)) {
+        const s = args.join(' ');
+        expect(s, name).toContain(enc);
+        expect(s, name).toContain('-color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an -f mpegts o.ts');
+        expect(s, name).toContain('setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709');
+        // `-r fps -fps_mode cfr -frames:v N` rides together, right before the encoder line; the format is a filter, never `-pix_fmt`.
+        expect(s, name).toMatch(/-r 30 -fps_mode cfr -frames:v \d+ -c:v h264_/);
+        expect(args.indexOf('-fps_mode'), name).toBe(args.indexOf('-r') + 2);
+        expect(s, name).not.toContain('-pix_fmt');
+        expect(s, name).toContain(`format=${ENCODER_PIXEL_FORMATS[encoder]},`);
+        if (encoder !== 'nvenc') {
+          // Frames from system memory: no device flags — each encoder opens its own (8.1: neither needs -init_hw_device).
+          expect(s, name).not.toContain('cuda');
+          expect(s, name).not.toContain('-hwaccel');
+        }
+      }
+      // Condition 1 does not depend on the encoder: the same select (and the slow graph's setpts) on every vendor.
+      expect(quoted(/select='[^']*'/, b.copy)).toBe(quoted(/select='[^']*'/, n.copy));
+      expect(quoted(/select='[^']*'/, b.ceil)).toBe(quoted(/select='[^']*'/, n.ceil));
+      expect(quoted(/select='[^']*'/, b.slow)).toBe(quoted(/select='[^']*'/, n.slow));
+      expect(quoted(/setpts='[^']*'/, b.slow)).toBe(quoted(/setpts='[^']*'/, n.slow));
+      expect(b.slow.join(' ')).toContain(',fps=fps=30,');
+      expect(b.copy.slice(b.copy.indexOf('-ss'), b.copy.indexOf('-ss') + 5)).toEqual(['-ss', '14.983317', '-copyts', '-i', 'C:\\raw\\a.MP4']);
+    });
+  }
+
+  it('nvenc: the measured strings, byte for byte', () => {
+    const b = builds('nvenc');
+    expect(b.copy.join(' ')).toBe(
+      "-y -hide_banner -nostdin -v error -stats -hwaccel cuda -hwaccel_output_format cuda -ss 14.983317 -copyts -i C:\\raw\\a.MP4 -filter_complex [0:v]select='eq(floor(((450/30)+max(round((t-(450/30))*30)\\,0)/30)/(1001/60000)+0.5)\\,round(t/(1001/60000)))',scale_cuda=w=1920:h=1080:format=yuv420p,setpts=N/(30*TB),setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[v] -map [v] -r 30 -fps_mode cfr -frames:v 450 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an -f mpegts o.ts",
+    );
+    expect(b.slow.join(' ')).toContain(",fps=fps=30,scale_cuda=w=1920:h=1080:format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[v] -map [v] -r 30 -fps_mode cfr -frames:v 60 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an -f mpegts o.ts");
+    expect(b.black.join(' ')).toBe('-y -hide_banner -nostdin -v error -stats -f lavfi -i color=black:size=1920x1080:rate=30 -vf format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709 -r 30 -fps_mode cfr -frames:v 30 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an -f mpegts o.ts');
+    expect(b.browser.join(' ')).toBe('-y -hide_banner -nostdin -v error -stats -i r.mp4 -vf trim=start_frame=1,setpts=N/(30*TB),format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709 -r 30 -fps_mode cfr -frames:v 30 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an -f mpegts o.ts');
+    expect(b.hold.join(' ')).toBe('-y -hide_banner -nostdin -v error -stats -i s.ts -vf trim=start_frame=449,tpad=stop=1:stop_mode=clone,setpts=N/(30*TB),format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709 -r 30 -fps_mode cfr -frames:v 2 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60 -color_range tv -colorspace bt709 -color_primaries bt709 -color_trc bt709 -an -f mpegts o.ts');
+  });
+
+  it('qsv: software decode, the CPU scale into nv12 (the format h264_qsv takes) on every piece kind', () => {
+    const b = builds('qsv');
+    expect(b.copy.join(' ')).toContain("',scale=w=1920:h=1080,format=nv12,setpts=N/(30*TB),setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[v] -map [v] -r 30 -fps_mode cfr -frames:v 450 -c:v h264_qsv -preset medium -global_quality 23 -bf 2 -g 60 -color_range tv");
+    expect(b.slow.join(' ')).toContain(',fps=fps=30,scale=w=1920:h=1080,format=nv12,setparams=');
+    expect(b.black.join(' ')).toContain('-vf format=nv12,setparams=');
+    expect(b.browser.join(' ')).toContain(',setpts=N/(30*TB),format=nv12,setparams=');
+    expect(b.hold.join(' ')).toContain('stop_mode=clone,setpts=N/(30*TB),format=nv12,setparams=');
+    for (const args of Object.values(b)) expect(args.join(' ')).not.toContain('yuv420p');
+  });
+
+  it('amf: software decode, the CPU scale into yuv420p (h264_amf takes it), CQP 23 on I, P and B', () => {
+    const b = builds('amf');
+    expect(b.copy.join(' ')).toContain("',scale=w=1920:h=1080,format=yuv420p,setpts=N/(30*TB),setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[v] -map [v] -r 30 -fps_mode cfr -frames:v 450 -c:v h264_amf -quality balanced -rc cqp -qp_i 23 -qp_p 23 -qp_b 23 -bf 2 -g 60 -color_range tv");
+    expect(b.black.join(' ')).toContain('-vf format=yuv420p,setparams=');
+    for (const args of Object.values(b)) expect(args.join(' ')).not.toContain('nv12');
   });
 });

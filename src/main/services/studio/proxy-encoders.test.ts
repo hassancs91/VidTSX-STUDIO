@@ -80,6 +80,41 @@ describe('encoderProbeArgs', () => {
     expect(args).toEqual(expect.arrayContaining(['lavfi', '-frames:v', '2', 'h264_nvenc', 'null']));
     expect(args.at(-1)).toBe('-');
   });
+
+  it('hands QSV and AMF nv12 frames (what `ffmpeg -h encoder=` says they accept); NVENC takes the source format', () => {
+    expect(encoderProbeArgs('qsv').slice(-5)).toEqual(['-pix_fmt', 'nv12', '-f', 'null', '-']);
+    expect(encoderProbeArgs('amf').slice(-5)).toEqual(['-pix_fmt', 'nv12', '-f', 'null', '-']);
+    expect(encoderProbeArgs('nvenc')).not.toContain('-pix_fmt');
+  });
+});
+
+// Item 3 (export-engines, 2026-09-11): the probe on the binary the app ships
+// with — the LIST is the build's (all three vendors, whatever the machine),
+// the WORKING set is the machine's (the two-frame encode decides it; on the
+// dev laptop 2026-09-11: nvenc and qsv opened, amf failed with "DLL
+// amfrt64.dll failed to open").
+describe("the 8.1 build's -encoders lines", () => {
+  const REAL_81 = [
+    ' V....D h264_amf             AMD AMF H.264 Encoder (codec h264)',
+    ' V....D h264_nvenc           NVIDIA NVENC H.264 encoder (codec h264)',
+    ' V..... h264_qsv             H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (Intel Quick Sync Video acceleration) (codec h264)',
+    ' V....D hevc_amf             AMD AMF HEVC encoder (codec hevc)',
+    ' V....D hevc_nvenc           NVIDIA NVENC hevc encoder (codec hevc)',
+    ' V..... hevc_qsv             HEVC (Intel Quick Sync Video acceleration) (codec hevc)',
+  ].join('\r\n');
+
+  it('lists all three vendors in preference order, HEVC variants ignored', () => {
+    expect(parseHardwareEncoders(REAL_81)).toEqual(['nvenc', 'qsv', 'amf']);
+  });
+
+  it('the machine decides the working subset; the choice is the first working one in preference order', () => {
+    const listed = parseHardwareEncoders(REAL_81);
+    const on = (working: readonly string[]) => chooseProxyEncoder(listed.filter((e) => working.includes(e)));
+    expect(on(['nvenc', 'qsv'])).toBe('nvenc'); // the dev laptop
+    expect(on(['qsv'])).toBe('qsv'); // an Intel-only laptop
+    expect(on(['amf'])).toBe('amf'); // an AMD machine
+    expect(on([])).toBeNull(); // listed, none opened
+  });
 });
 
 describe('gpuSegmentPlan', () => {
