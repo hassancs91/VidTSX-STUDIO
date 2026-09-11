@@ -163,7 +163,13 @@ function FlowsScreenInner() {
       if ((event as CustomEvent<{ screen?: string }>).detail?.screen === 'flows') void claim();
     };
     window.addEventListener('vidtsx:screen-active', onActive);
-    return () => window.removeEventListener('vidtsx:screen-active', onActive);
+    // The push from main, for when Flows is already the active screen and no
+    // screen-active event will follow (a second double-click while here).
+    const offOpenFile = window.api.onFlowsPackageOpenFile(() => void claim());
+    return () => {
+      window.removeEventListener('vidtsx:screen-active', onActive);
+      offOpenFile();
+    };
   }, [importFlow]);
 
   const onAction = useCallback(

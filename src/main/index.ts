@@ -72,7 +72,9 @@ function queuePackageOpen(pkg: PendingPackage): void {
   setPendingPackage(pkg);
   if (mainWindow && !mainWindow.isDestroyed()) {
     const channel =
-      pkg.kind === 'agent' ? IPC.AGENTS_PACKAGE_OPEN_FILE : IPC.STUDIO_PACKAGE_OPEN_FILE;
+      pkg.kind === 'agent' ? IPC.AGENTS_PACKAGE_OPEN_FILE
+      : pkg.kind === 'flow' ? IPC.FLOWS_PACKAGE_OPEN_FILE
+      : IPC.STUDIO_PACKAGE_OPEN_FILE;
     mainWindow.webContents.send(channel, { filePath: pkg.filePath });
   }
 }
@@ -136,6 +138,9 @@ function createWindow(): BrowserWindow {
     if (hasPendingPackage('agent')) {
       win.webContents.send(IPC.AGENTS_PACKAGE_OPEN_FILE, {});
     }
+    if (hasPendingPackage('flow')) {
+      win.webContents.send(IPC.FLOWS_PACKAGE_OPEN_FILE, {});
+    }
   });
 
   // Q10 quit-flush: defer the first close while the Studio editor flushes its
@@ -151,7 +156,7 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-// A .vidtsx or .vidtsxagent passed on the command line (Windows/Linux file
+// A .vidtsx, .vidtsxagent or .vidtsxflow passed on the command line (Windows/Linux file
 // association).
 const launchPackage = packageFromArgv(process.argv);
 if (launchPackage) setPendingPackage(launchPackage);

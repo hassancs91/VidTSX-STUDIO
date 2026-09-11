@@ -34,9 +34,9 @@ export interface PendingPackage {
 const BY_EXTENSION: Record<string, PendingPackageKind> = {
   [VIDTSX_PACKAGE_EXTENSION]: 'project',
   [AGENT_PACKAGE_EXT]: 'agent',
-  // The Flows screen claims this kind on mount (`FLOWS_PENDING_PACKAGE`);
-  // `src/main/index.ts` still nudges only the two older kinds — a cold-start
-  // double-click on a flow lands when the user opens Flows.
+  // The Flows screen claims this kind on mount and on screen-active
+  // (`FLOWS_PENDING_PACKAGE`); `src/main/index.ts` nudges it with
+  // `FLOWS_PACKAGE_OPEN_FILE` like the other two.
   [FLOW_PACKAGE_EXT]: 'flow',
 };
 

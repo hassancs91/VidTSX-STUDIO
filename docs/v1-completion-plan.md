@@ -1475,7 +1475,12 @@ signed in place as `vidtsx-1` with the key at its off-repo path; each
 with the shipped publisher list; flows tests 136 green. (2) One line in
 `src/main/index.ts` `queuePackageOpen` so a double-clicked `.vidtsxflow`
 navigates to Flows (the file belongs to the export-engines session; the
-path already parks in main and the Flows screen claims it). (3) The coupled
+path already parks in main and the Flows screen claims it). **Done
+2026-09-11:** `FLOWS_PACKAGE_OPEN_FILE` pushed from `queuePackageOpen` and the
+cold-start `ready-to-show` nudge, `onFlowsPackageOpenFile` in preload + the
+`ElectronAPI` mirror, App.tsx navigates to Flows, and the Flows screen also
+claims on the push itself (the already-active case), as the agents gallery
+does. (3) The coupled
 version bump + installer rebuild — `electron-builder.yml` now ships
 `resources/flows` and the `.vidtsxflow` association. (4) The Tools hub is
 still behind `VITE_FF_TOOLS`, so its Flows group is invisible in production

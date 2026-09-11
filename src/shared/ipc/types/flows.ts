@@ -284,6 +284,13 @@ export interface FlowsPendingPackageResponse {
   filePath?: string;
 }
 
+/** Pushed main → renderer when a `.vidtsxflow` is double-clicked: navigation only;
+ *  the path rides along when it is known and is absent on a cold start, where
+ *  the Flows screen claims it on mount anyway. */
+export interface FlowsPackageOpenFileEvent {
+  filePath?: string;
+}
+
 // ─── Flows — W8 Stage 2: a run's artifacts through the shared viewers and
 // the shared action bar. Same response shapes as the agents' resolve/action;
 // the request is run-scoped because a run's `artifacts.json` is not a

@@ -18,6 +18,7 @@ import type {
   FlowsExportRequest,
   FlowsExportResponse,
   FlowsPendingPackageResponse,
+  FlowsPackageOpenFileEvent,
   FlowsFreezeRequest,
   FlowsFreezeResponse,
   FlowsRunResumeRequest,
@@ -88,6 +89,11 @@ export const flowsApi = {
   flowsExport: (data: FlowsExportRequest): Promise<FlowsExportResponse> => ipcRenderer.invoke(IPC.FLOWS_EXPORT, data),
   // W8 Stage 6: the double-clicked `.vidtsxflow`, claimed once by the Flows screen.
   flowsPendingPackage: (): Promise<FlowsPendingPackageResponse> => ipcRenderer.invoke(IPC.FLOWS_PENDING_PACKAGE),
+  onFlowsPackageOpenFile: (callback: (event: FlowsPackageOpenFileEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: FlowsPackageOpenFileEvent) => callback(data);
+    ipcRenderer.on(IPC.FLOWS_PACKAGE_OPEN_FILE, listener);
+    return () => ipcRenderer.removeListener(IPC.FLOWS_PACKAGE_OPEN_FILE, listener);
+  },
   // W8 Stage 4: the Flow Builder's proposal card (re-read after navigation; cleared on Accept / Discard).
   flowsProposalGet: (data: FlowsProposalGetRequest): Promise<FlowsProposalGetResponse> =>
     ipcRenderer.invoke(IPC.FLOWS_PROPOSAL_GET, data),

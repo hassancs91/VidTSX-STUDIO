@@ -76,6 +76,14 @@ function AppContent({ activeScreen, setActiveScreen }: {
     });
   }, [setActiveScreen]);
 
+  // And for a double-clicked .vidtsxflow — the Flows screen claims the path on
+  // mount and again on every 'vidtsx:screen-active' (flows plan §1.7).
+  useEffect(() => {
+    return window.api.onFlowsPackageOpenFile(() => {
+      if (isFeatureEnabled('flows')) setActiveScreen('flows');
+    });
+  }, [setActiveScreen]);
+
   const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : DEFAULT_SCREEN);
 
   useEffect(() => {

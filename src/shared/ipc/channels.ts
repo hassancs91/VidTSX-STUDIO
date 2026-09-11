@@ -185,6 +185,9 @@ export const IPC = {
   FLOWS_PROPOSAL_GET: 'flows:proposal:get',
   FLOWS_PROPOSAL_RESOLVE: 'flows:proposal:resolve',
   // W8 Stage 6: a double-clicked `.vidtsxflow`, claimed by the Flows screen (pending-open.ts).
+  // Main pushes OPEN_FILE to put the Flows screen on (the path stays parked
+  // until the screen claims it, exactly as agents do).
+  FLOWS_PACKAGE_OPEN_FILE: 'flows:package:open-file',
   FLOWS_PENDING_PACKAGE: 'flows:package:pending',
 
   // Image generation operations
