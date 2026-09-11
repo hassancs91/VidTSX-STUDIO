@@ -7,6 +7,61 @@
 
 ---
 
+## 2026-09-11 — EXPORT ENGINES: QSV/AMF copy paths — checked, prepared, QSV measured here; AMF stays the open measurement
+
+The third open item of the Stage 4 log (`docs/export-engines-plan.md`, "QSV/AMF copy paths";
+runbook `docs/export-engines-qsv-amf-runbook.md`). The brief's premise was half wrong: the dev laptop
+has an **Intel UHD 630 beside the GTX 1650 Ti** and `h264_qsv` opens (the 2026-09-02 probe cache
+already said so), so QSV was measured for real; `h264_amf` fails for the genuine reason (`DLL
+amfrt64.dll failed to open`) and is the one encoder that has never encoded a frame. The fast engine
+stays opt-in (D2).
+
+- **Builders vs `ffmpeg -h encoder=h264_qsv` / `h264_amf` (8.1):** the encoder lines were right (QSV
+  `-preset medium -global_quality 23` = TargetUsage 4 + ICQ — the encoder reports `RateControlMethod:
+  ICQ, ICQQuality: 23, GopPicSize: 60, GopRefDist: 3, IdrInterval: 0`; AMF CQP with `-bf` as AMF's own
+  B-pattern option). Two fixes: **`h264_qsv` takes nv12 only** — every graph ended in `format=yuv420p`
+  and ffmpeg auto-inserted the conversion (`auto-inserting filter 'auto_scale_0'`); `ENCODER_PIXEL_FORMATS`
+  now names each encoder's format and every software-frame graph ends in it (measured: not the same
+  bytes as the auto-inserted run — swscale's direct 10-bit→nv12 rounds chroma differently from
+  10-bit→yuv420p + the lossless repack — and the same against the plain Remotion export, means within
+  0.03). **AMF's CQP named no B-frame QP** — `-qp_b 23` added. No `-hwaccel`/`-init_hw_device` is
+  needed on either for system-memory frames. NVENC's strings pinned byte for byte.
+- **Tests:** every builder × three encoders (the shared arguments, the frame-mapping select identical
+  across vendors, the slow graph on qsv/amf, no CUDA off NVENC); `passthrough-engine.test.ts` (new,
+  the probe mocked): QSV or AMF as the only working encoder → available, `h264_qsv`/`h264_amf` named to
+  the queue row, every run on the vendor's line, "Copied 100 % (2 of 2 spans)"; NVENC preferred when all
+  work; the probe's parsing on the real 8.1 `-encoders` lines; the Settings row's "AMD AMF". New dev
+  override **`VIDTSX_EXPORT_GPU_ENCODER=qsv|amf`** (`pickExportEncoder`: only a probed-working
+  encoder, else ignored and logged) — how QSV/AMF is exercised on a dual-GPU machine; the live test's
+  new block runs every builder on whichever of qsv/amf opens (here: qsv ran, amf skipped).
+- **QSV offline** (`.vidtsx-temp/bench/open/qsv-amf/proto-qsv.mjs`, the builders' exact arguments on
+  the T1 cut's spans): 450/450 frames, the same GOP shape as NVENC (I 8 · P 150 · B 292), High L4.0,
+  the five tags on the pieces and after the join, **two encodes byte-identical**, `t1-diff` vs control
+  2 **max 0.01 % over 24** (0 at 449; NVENC 0 % at all seven), **0.56× realtime** against NVENC's 3.6×
+  — the 4K HEVC Main10 software decode is the floor (37 source frames/s); decoding on the Intel GPU
+  with the frames downloaded gives the SAME bytes (the decode is bit-exact) and no speed;
+  `vpp_qsv`/`scale_qsv` fail on this 2021 driver (p010 → nv12 unsupported). Whether QSV should decode
+  on the GPU is a later slice's call (it needs a software fallback for iGPUs that cannot decode the
+  source).
+- **QSV through the app** (the dev app restarted with the override; the log's `Export encoder override
+  … using: qsv` on every export; the runbook's gate exercised once): **slow4** `copy 450 · copy 450`,
+  max 0.01 % over 24 at all 18 sampled frames vs its plain Remotion export, **Remotion's source frame at
+  all 15 mapped slots** (899, 900, 900, 901 · 998, 999, 999, 1000 ×3, 1001, 1001, 1002 …), audio 0 ms
+  at eight windows, 62.9 s from click; **xfade** `copy 435 · browser 30 · copy 435` (the browser span
+  re-encoded by h264_qsv), max 0.01 % over 24 at all 13 frames, audio 0 ms vs the camera at eight
+  windows; **t5-1080p-cut in D5 verify mode**: max 0.02 % over 24 vs its Remotion reference (frame 451;
+  0.01 at the other six — the NVENC rows read ≤ 0.01, a wrong frame ~2 %), max 0.01 % vs control 2,
+  audio 0 ms vs the reference and vs the camera at every window, 13 min 23 s from click. The copies
+  ran at 0.4–0.5× realtime (the software HEVC 10-bit decode; beside other work). The queue row's
+  persisted record carries no `encoderName` (the live event does) — the log's override line is the
+  evidence.
+- Gates: check:types 26/10 (baseline), vitest 2342 (267 files, 22 skipped; +18), live ffmpeg 10 passed + 1 skipped of 11
+  (amf skipped here). The nine NVENC
+  references not re-exported (the NVENC arguments are pinned unchanged). Open: **AMF — never run**;
+  the runbook says exactly what to run on an AMD machine (the download, the seeds, the driver chain,
+  the gate = D5 verify + two exports byte-identical, not byte identity with the NVENC files) and what
+  to record.
+
 ## 2026-09-11 — EXPORT ENGINES: slow motion (rate < 1) measured and copied
 
 The last widening the Stage 3 predicate owed (`docs/export-engines-plan.md` §Stage 4 log, "Slow

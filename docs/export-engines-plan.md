@@ -972,10 +972,11 @@ one 16 s start, against copying it at ~0.01 s/frame: the break-even gap is
 Not worth an engine change; the 3.2 min per window Stage 3 recorded was
 contention (a verify-mode reference render in the same run), not the start.
 
-Not done, by design: QSV/AMF copy paths (this machine has no Intel/AMD
-encoder to measure — the seed projects need one). The long-return question
-is answered below (2026-09-11); slow motion (rate < 1) is measured and built
-below (2026-09-11). Gates: check:types 26/10 (baseline),
+Not done, by design: the AMF copy path has never encoded a frame (no AMD
+runtime on this machine; the QSV path was measured below, 2026-09-11, and
+`docs/export-engines-qsv-amf-runbook.md` says what to run on an AMD machine).
+The long-return question is answered below (2026-09-11); slow motion
+(rate < 1) is measured and built below (2026-09-11). Gates: check:types 26/10 (baseline),
 vitest 2312 (261 files, 19 skipped) green, live ffmpeg 8. Bench: `.vidtsx-temp/bench/stage4/`
 (profile-mux.sh, the driver chains, measure-stage4.sh).
 
@@ -1274,3 +1275,109 @@ proto.sh + the two pieces, measure-slow.sh + its `.out` files, the compositor
 sources under compositor-src/); frame maps under
 `.vidtsx-temp/bench/t1/frame-map/item2-*`; seeds `t5-1080p-cut-slow`,
 `-slow4`, `-slow-open`, `-slow-open4` on disk.
+
+**QSV/AMF copy paths (2026-09-11) — checked, prepared, QSV measured on this
+laptop; AMF unmeasured.** The brief's premise was half wrong: the dev laptop has
+an **Intel UHD 630 beside the GTX 1650 Ti** (i7-10750H; driver 27.20.100.9749),
+the 2026-09-02 probe cache already said `working: [nvenc, qsv]`, and the
+two-frame `h264_qsv` probe exits 0 today — so QSV is measurable here and was
+measured; `h264_amf` fails for the genuine reason (`DLL amfrt64.dll failed to
+open`: no AMD runtime) and stays the one unmeasured encoder. The hardware-free
+part first, then what the Intel GPU allowed.
+
+*The builders against `ffmpeg -h encoder=h264_qsv` / `h264_amf` of the 8.1
+build* (every option checked by name and meaning; the table is in
+`docs/export-engines-qsv-amf-runbook.md`): the encoder lines were right —
+QSV `-preset medium -global_quality 23 -bf 2 -g 60` is TargetUsage 4 + ICQ
+(a `global_quality` with no bitrate) and the encoder reports exactly
+`profile: avc high; level: 40 · GopPicSize: 60; GopRefDist: 3; IdrInterval: 0 ·
+TargetUsage: 4; RateControlMethod: ICQ · ICQQuality: 23` for it; AMF
+`-quality balanced -rc cqp -qp_i 23 -qp_p 23 -bf 2 -g 60` is CQP with `-bf`
+being AMF's own "B Picture Pattern" option on 8.1. Two things were wrong or
+missing. (1) **`h264_qsv` takes nv12 (or qsv) frames only**; every graph ended
+in `format=yuv420p`, and ffmpeg auto-inserted the conversion after `setparams`
+(its verbose log: `auto-inserting filter 'auto_scale_0'`). `ENCODER_PIXEL_FORMATS`
+now names the format each encoder is handed (nvenc yuv420p, qsv nv12, amf
+yuv420p) and every software-frame graph — the copy path's CPU scale, the black,
+the browser and the held-tail pieces — ends in it. Measured: the explicit
+single conversion is NOT the same bytes as the auto-inserted one (swscale's
+direct 10-bit → nv12 rounds chroma differently from 10-bit → yuv420p + the
+lossless nv12 repack; joined files 17,373,923 vs 17,391,953 B) and reads the
+same against the plain Remotion export (means within 0.03, both max 0.01 %
+over 24), so the explicit form stands. (2) **AMF's CQP named the QP for I and P
+only**; a B-frame's QP was the driver's default — `-qp_b 23` added. Neither
+encoder needs a `-hwaccel`/`-init_hw_device` for frames from system memory
+(QSV: `Initialized an internal MFX session using hardware accelerated
+implementation`; AMF creates its own D3D11 context). The colour tags: qsvenc
+writes the VUI from the context's primaries/transfer/matrix/range (measured:
+all five tags on the TS piece and after the join); amfenc has the same code
+path on 8.1 — unverified on hardware, and the finishing stage refuses a
+wrongly tagged piece loudly. NVENC's strings did not move: pinned byte for
+byte in `passthrough-ffmpeg.test.ts` ("every builder on every encoder": the
+shared arguments on all six builders × three encoders, the frame-mapping
+select identical across vendors, the slow graph on qsv/amf, no CUDA flag off
+NVENC). The seams with the probe mocked (`passthrough-engine.test.ts`, new):
+QSV or AMF as the only working encoder → `availability()` available,
+`produce()` reports `h264_qsv` / `h264_amf` through `onEncoderResolved` (the
+queue row's "Encoder used"), every ffmpeg run carries the vendor's line and no
+CUDA, the notes read "Copied 100 % of this timeline (2 of 2 spans)."; with all
+three working NVENC is preferred; the Settings row labels "AMD AMF"
+(`studio-proxy-encoder-handlers.test.ts`). The probe's parsing on the real 8.1
+`-encoders` lines (`proxy-encoders.test.ts`): the LIST is the build's, the
+WORKING set the machine's. New: **`VIDTSX_EXPORT_GPU_ENCODER=qsv|amf`** — a
+development override in `passthrough-engine.ts` (`pickExportEncoder`) that
+forces an encoder ONLY if the probe found it working, otherwise ignored and
+logged — the runbook's way to exercise QSV or AMF on a dual-GPU machine; the
+live test's new block runs every builder on whichever of qsv/amf opens on the
+running machine and skips the other.
+
+*QSV offline, the builders' exact arguments on the T1 cut's two spans*
+(`.vidtsx-temp/bench/open/qsv-amf/proto-qsv.mjs`; the join as the finishing
+mux does it; `t1-diff` vs control 2 at 1/300/449/450/451/600/899):
+
+| path | span (450 frames) | GOP / tags | two encodes | joined 900 frames | `t1-diff` vs control 2 |
+|---|---|---|---|---|---|
+| NVENC as built (NVDEC → scale_cuda → NVENC) | 4.1–4.2 s = **3.6× realtime** | I 8 · P 150 · B 292, first frame key; yuv420p tv bt709 ×3, High L4.0 | byte-identical | pts on the grid from 0, five tags, 33.5 MB | **0 % over 24 at all seven**, mean 1.24–1.71, max 33–44 |
+| **QSV as built** (software HEVC 10-bit decode → `scale`,`format=nv12` → h264_qsv ICQ 23) | 25.7–26.6 s = **0.56× realtime** (the software decode is the floor: 37 source frames/s for 4K HEVC Main10 on this CPU, ~2 decoded per output frame) | the same GOP shape I 8 · P 150 · B 292, first frame key; the same five tags, High L4.0 | **byte-identical** (QSV is deterministic here) | pts on the grid from 0, five tags, 17.4 MB | **max 0.01 % over 24** (0 at 449), mean 1.46–1.99, max 33–55 — the D5 rows' magnitude, a hair above NVENC's |
+| QSV, decode AND scale on the Intel GPU (`-hwaccel qsv -hwaccel_output_format qsv`, `vpp_qsv=…:format=nv12`) — a prototype | failed: `Unsupported pixel format … Error creating frames_ctx for output pad` — this 2021 driver's VPP does not turn p010 into nv12 | | | | |
+| QSV, decode on the Intel GPU, frames downloaded, the CPU scale as built (`-hwaccel qsv`, `hwdownload,format=p010le,` before the select) — a prototype | 24.6–26.2 s = 0.57–0.61× (beside other work) | the same | byte-identical | **the same bytes as the software decode** (17,373,923 B — the HEVC decode is bit-exact, hardware or software) | the same rows to the hundredth |
+| QSV, `scale_qsv` in place of `vpp_qsv` — a prototype | failed the same way (`Error initializing a child frames context … Error creating frames_ctx for output pad`) | | | | |
+| NVENC fed by the SOFTWARE decode + `scale`,`format=yuv420p` (the scaler question) | 36.1–36.5 s (beside other work) | I 8 · P 150 · B 292; Main L4.0 | byte-identical | 35.0 MB | **0 % over 24 at six of seven** (0.01 at 300), mean 1.34–1.73, max 35–45 |
+
+The slow graph, a black piece, a browser-style piece and a held tail all open
+on h264_qsv and count exactly (60/30/30/2). So the hair QSV reads above NVENC
+is the ENCODER, not the scaler: the software scale into NVENC sits between
+scale_cuda's rows and QSV's, and `-global_quality 23` wrote 17.4 MB where
+NVENC's `-cq 23` wrote 33.5 MB — "quality 23" is each vendor's own scale
+(`proxy-encoders.ts` says as much for the proxies), and the T1 gate, not the
+number, is the judge; a lower ICQ would buy bytes, not a measured need. A
+GPU-side scale for QSV is a later slice's decision, not an argument: the
+decode alone buys nothing with the frames downloaded, the VPP path needs a
+newer driver than this laptop's, and either needs the fallback to the software
+graph on an iGPU that cannot handle the source (Skylake has no HEVC Main10
+decode) — engine logic.
+
+*QSV through the app — the runbook's own gate, exercised once.* The dev app
+restarted with `VIDTSX_EXPORT_GPU_ENCODER=qsv` (the log: `Export encoder
+override {requested: qsv, working: [nvenc, qsv], using: qsv}` on every
+export), the seeds exported through the real dialog by the Stage 4 driver
+(`.vidtsx-temp/bench/open/qsv-amf/run-chain.sh`), each read against a plain
+Remotion export of the same project (`measure-qsv.sh`):
+
+| seed · QSV export | plan · spans | picture vs the plain Remotion export (`t1-diff`) | source frame per slot | audio |
+|---|---|---|---|---|
+| slow4 (`…slow4_2026-09-11T02-50-56.mp4`, 12.2 MB; the dialog "Copies 100 % of this timeline"; 62.9 s from click, `framesMs` 53.5 s, mux 0.7 s; the rate-1 span 0.40× realtime and the slow span 0.98× — beside a prototype encode) | `copy 0+450 · copy 450+450` | **max 0.01 % over 24 at all 18 frames** (1/300/449…453/600/648…656/899; 0 at 600 and 656), mean 2.0–2.1 / 1.4–1.5 / 2.4–2.8, max 36–58 | **Remotion's table at all 15 slots** — 899, 900, 900, 901 · 974 · 998, 999, 999, 1000, 1000, 1000, 1001, 1001, 1002 · 1123 (the copy's frame reads 1.56–1.84 against ≥ 2.5 for its neighbours) | **0 ms, corr 1.000 vs the plain Remotion export at all eight windows** (0.5…29 s; vs the camera 0 ms on clip A — clip B is the 0.25× `atempo` chain, so the camera is not its reference) |
+| xfade (`…xfade_2026-09-11T02-53-58.mp4`; 3 min 42 s from click; the copy spans 0.53× realtime, the 30-frame browser span 51.4 s = the Stage 4 start + per-frame cost under load) | `copy 0+435 · browser 435+30 · copy 465+435` — the browser span re-encoded by h264_qsv | **max 0.01 % over 24 at all 13 frames** (1/300/434/435/440/449/450/451/460/464/465/600/899; 0 at 435, 440, 464), the browser window reading mean 1.1–1.3 / 0.8–1.0 / 1.2–1.6 and the copies 2.0–2.1 / 1.4–1.5 / 2.4–2.8 | — | **0 ms, corr 0.991–1.000 vs the camera file at all eight windows** (0.5…29 s) |
+| **t5-1080p-cut in D5 verify mode** (`…cut_2026-09-11T02-58-22.mp4` + `.verify-remotion.mp4` + `.verify.json`; 13 min 23 s from click — the QSV copies 0.40× / 0.51× realtime, `framesMs` 67.8 s, mux 0.5 s, the reference render the rest) | `copy 0+450 · copy 450+450` | **vs its Remotion reference: max 0.02 % over 24** (frame 451: mean 2.08/1.45/2.53, max 46; 0.01 at the other six; max mean 2.82 at frame 1) — the NVENC verify rows read ≤ 0.01 on this seed and the xfade slice-5 row 0.03; a wrong source frame reads ~2 %. **vs control 2 max 0.01 %** (0 at 449 and 899), mean 1.47–1.63 / 1.47–1.55 / 1.75–2.07 — the offline rows to the hundredth | — | **0 ms, corr 1.000** vs the reference at 0.5/14.3/28.5 s, vs the camera at 0.5/6.8/13.5 s (the verify) and at all eight windows 0.5…29 s (`t1-audio-offset`) |
+
+Gates on the tree as committed: check:types 26/10 (baseline), vitest
+**2342 green** (267 files, 22 skipped; run alone — 18 tests more than the
+slow-motion item's 2324), live ffmpeg **10 passed + 1 skipped of 11** (the new per-vendor
+block: qsv ran, amf skipped — the probe does not open it here). The nine NVENC byte-identity
+references were not re-exported: the NVENC arguments are proven unchanged by
+the pinned strings (every builder), and the QSV exports above ran on the same
+restarted app. Bench: `.vidtsx-temp/bench/open/qsv-amf/` (proto-qsv.mjs +
+its `.out`/`.json`, the pieces, run-chain.sh, the driver JSONs/logs,
+measure-qsv.sh). Left open, by design: **AMF has never encoded a frame** — the
+runbook says what to run on an AMD machine and what to record; and whether
+QSV should decode on the GPU.
