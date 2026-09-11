@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-09-11 — EXPORT ENGINES: slow motion (rate < 1) measured and copied
+
+The last widening the Stage 3 predicate owed (`docs/export-engines-plan.md` §Stage 4 log, "Slow
+motion"). A clip at a rate under 1 was a browser span because `select` cannot repeat a source frame
+and how Remotion repeats frames was unmeasured. The fast engine stays opt-in (D2).
+
+- **Four seeds** (`scripts/bench/seed-cut-projects.mjs slow | slow4 | slow-open | slow-open4`): the
+  T1 cut with clip B at 0.5× for 25 s (at 0.5× on a 59.94 fps source the first repeated frame is at
+  slot 602, so a 15 s clip has none), at 0.25× for 15 s (every second slot repeats; a one-tick tie at
+  frames 651–653), and a clip at 0.1× / 0.25× that OPENS 0270 at 47 s as the first clip of the file.
+  Plain Remotion exports first, every frame identified against the source frames around its mapped
+  time (`t1-frame-map`, `.vidtsx-temp/bench/open/slow/measure-slow.sh`).
+- **Finding: Remotion shows the source frame nearest, in the stream's integer ticks, to its own
+  media time `(trimBefore + m·rate)/fps`, and repeats it plainly on every slot it is nearest to** —
+  0.25×: K 899, 900, 900, 901, 901 …, three slots on K 1000 where the slot times pass the half-frame
+  by one tick (the later frame wins); 0.5×: one frame per slot, the one repeat at frames 1051/1052;
+  0.1×: slot 412 shows K 2899 where the real-valued nearest is 2900 — the compositor truncates the
+  time to ticks (`ffmpeg.rs` calc_position) before the frame cache picks the nearest (ties later).
+  **A slow clip that opens its file shows the nearest on slot 0, not the ceil** (K 2817 at 0.1× and
+  0.25×; the ceil 2818 reads 2.98 against 2.05): the ceil rule is a rate ≥ 1 rule.
+- **Recipe** (prototyped with the full ffmpeg, then built as `passthrough-slow.ts`): `select` keeps
+  the frames some slot asks for by the tick-exact rule (Remotion's arithmetic mirrored op for op,
+  the interpolate multiplier `(S + rate) − S` included), `setpts` places each on its FIRST slot, the
+  `fps` filter repeats it over the following slots. `-fps_mode cfr` alone fills a one-slot gap with
+  the frame AFTER it (prototype B: K 901 on slot 2 where Remotion shows 900) — so the `fps` filter,
+  not cfr. Prototype A on the 0.25× clip: 450 frames in 4.1 s, the same source frame as the Remotion
+  export at all 24 sampled slots, max 0.01 % of pixels over 24 at 20 frames.
+- **Code:** `copyBlocker` no longer returns `slow motion`; a slow span carries `trimBefore` +
+  `clipOffset` (whole numbers — a fractional `sourceFrame` cannot reproduce the renderer's doubles);
+  `probeSource` reads the stream's `time_base`; `copySpanArgs` takes the slow graph for rate < 1 and
+  keeps slice 4's graph byte for byte otherwise; the engine demotes a slow span whose source frame is
+  not a whole number of ticks; `firstFrameCeil` only at rate ≥ 1. The audio of a slow clip was
+  already Remotion's `atempo` chain (slice 4).
+- **Gate:** the four seeds through the passthrough engine on the restarted app (the dialog says "Copies
+  100 %" for each): **the same source frame as the plain Remotion export at all 58 mapped slots** (the
+  repeat triple, the 0.5× repeat at 1051/1052, slot 412's tick frame, slot 0 of both opening clips),
+  `t1-diff` **max 0.01 % of pixels over 24 at all 55 sampled frames**, audio 0 ms and level 1.000 at
+  every window; the D5 verify on slow4 max 0.01 % over 24 at the seven frames, audio 0 ms vs its
+  reference and vs the camera (a first run's reference — 800 MB free, vitest beside it — showed a
+  neighbour frame at 451/452/651, the T1 leg 0 memory-starved pattern; the copy matched the plain
+  export there; the clean rerun matched everywhere); **the nine references byte-identical on video
+  AND audio**; a slow span copies at ~6× realtime (the 1,200-frame seed 22.7 s from click against the
+  Remotion export's 13.6 min; the opening seeds 12 s against 4–5 min).
+- Gates: check:types 26/10 (baseline), vitest 2324 (266 files, 20 skipped; a first run beside the
+  reference render had 7 load failures that did not reproduce), live ffmpeg 9 (+1: the slow recipe's
+  exact counts at 0.25×/0.5×/from a clip offset, pts on the grid, two runs byte-identical).
+  Bench under `.vidtsx-temp/bench/open/slow/`; the four seeds on disk. Open: a slow clip that runs
+  to its source's container end (the `fps` flush at EOF is left to the held-tail path — modelled,
+  not exported); the T1 leg 0 table gained the slow-motion row.
+
 ## 2026-09-11 — EXPORT ENGINES: the long-return question
 
 The item Stage 3 slice 1 left open (`docs/export-engines-plan.md` §Stage 4 log, "The long-return

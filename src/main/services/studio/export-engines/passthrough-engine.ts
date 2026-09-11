@@ -44,6 +44,7 @@ import {
   parseStatsFrame,
 } from './passthrough-ffmpeg';
 import { ffprobeBeside, probeSource, type SourceProbe } from './passthrough-probe';
+import { ticksPerFrame } from './passthrough-slow';
 import { progressMessage, type SpanTiming } from './passthrough-progress';
 import type { ExportEngine, ExportEngineInput, ExportEngineProduct } from './types';
 
@@ -206,7 +207,9 @@ async function probeCopiedSources(tools: Tools, plan: ExportSpanPlan, signal: Ab
       ? 'variable frame rate'
       : probe.startTime > 0.001
         ? 'source timestamps do not start at 0'
-        : null;
+        : span.rate !== undefined && span.rate < 1 && ticksPerFrame(probe.timeBase, probe.frameRate) === null
+          ? 'source frame is not a whole number of time-base ticks'
+          : null;
     if (reason) {
       log.warn('Copied span demoted to the browser', { assetPath: span.assetPath, reason });
       plan.spans[i] = { kind: 'browser', from: span.from, frames: span.frames, reason };
@@ -244,6 +247,7 @@ async function producePiece(
           sourcePath: span.assetPath,
           sourceFrame: span.sourceFrame,
           ...(span.rate !== undefined ? { rate: span.rate } : {}),
+          ...(span.rate !== undefined && span.rate < 1 ? { trimBefore: span.trimBefore, clipOffset: span.clipOffset, timeBase: source.timeBase } : {}),
           sourceFrameRate: source.frameRate,
           firstFrameCeil: span.firstFrameCeil,
           frames: span.frames,

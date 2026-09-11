@@ -84,6 +84,24 @@ describe('span argument builders', () => {
     expect(args.indexOf('-fps_mode')).toBe(args.indexOf('-r') + 2);
   });
 
+  it('a slow span (rate < 1, 2026-09-11) writes the tick-exact select, the first-slot setpts and the fps fill in place of the frame-number setpts', () => {
+    const args = copySpanArgs({ ...base, sourceFrame: 450, frames: 450, firstFrameCeil: false, rate: 0.25, trimBefore: 450, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'C:\\w\\s2.ts' });
+    const s = args.join(' ');
+    expect(s).toContain('-hwaccel cuda -hwaccel_output_format cuda -ss ' + (15 - 1001 / 60000).toFixed(6) + ' -copyts -i C:\\raw\\a.MP4');
+    expect(s).toMatch(/-filter_complex \[0:v\]select='eq\(floor\(\(trunc\(\(\(0\+max\(ceil\(.*\)',setpts='\(if\(eq\(.*\)\)\/30\/TB',fps=fps=30,scale_cuda=w=1920:h=1080:format=yuv420p,setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709\[v\] -map \[v\]/);
+    expect(s).not.toContain('setpts=N/(30*TB)');
+    expect(s).toContain('-r 30 -fps_mode cfr -frames:v 450 -c:v h264_nvenc -preset p5 -rc vbr -cq 23 -b:v 0 -bf 2 -g 60');
+    // The software path keeps the same three filters before the CPU scale.
+    expect(copySpanArgs({ ...base, encoder: 'qsv', sourceFrame: 450, frames: 10, firstFrameCeil: false, rate: 0.5, trimBefore: 450, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'o.ts' }).join(' ')).toContain(",fps=fps=30,scale=w=1920:h=1080,format=yuv420p,setparams");
+    // A slow span never takes the ceil rule (its first slot shows the nearest, measured 2026-09-11).
+    expect(() => copySpanArgs({ ...base, sourceFrame: 1410, frames: 10, firstFrameCeil: true, rate: 0.25, trimBefore: 1410, clipOffset: 0, timeBase: { num: 1, den: 60000 }, outputPath: 'o.ts' })).toThrow(/nearest/);
+    // Without the operands the builder refuses rather than guessing.
+    expect(() => copySpanArgs({ ...base, sourceFrame: 450, frames: 10, firstFrameCeil: false, rate: 0.5, outputPath: 'o.ts' })).toThrow(/slow span/);
+    // A rate of 1 or more is the slice 4 graph, untouched.
+    expect(copySpanArgs({ ...base, sourceFrame: 450, frames: 450, firstFrameCeil: false, rate: 1.5, outputPath: 'o.ts' }).join(' ')).toContain(",setpts=N/(30*TB),setparams");
+    expect(copySpanArgs({ ...base, sourceFrame: 450, frames: 450, firstFrameCeil: false, rate: 1.5, outputPath: 'o.ts' }).join(' ')).not.toContain('fps=');
+  });
+
   it('copy spans on QSV/AMF decode in software and scale on the CPU', () => {
     const s = copySpanArgs({ ...base, encoder: 'qsv', sourceFrame: 0, frames: 10, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
     expect(s).not.toContain('cuda');

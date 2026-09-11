@@ -390,6 +390,30 @@ describe.skipIf(!LIVE)('passthrough recipes on the real full ffmpeg', () => {
     expect(rms(ours2, lead2, 4_800 * 4) / rms(ours, lead + 1_600 * 4, 4_800 * 4)).toBeLessThan(0.06);
   }, 180_000);
 
+  it('a slow span (rate < 1, 2026-09-11) fills every slot: exact counts at 0.25x and 0.5x, from a clip offset, pts on the grid, two runs byte-identical', async () => {
+    const { ffmpeg, ffprobe } = bins();
+    await fs.mkdir(OUT, { recursive: true });
+    const tb = { num: 1, den: 60000 };
+    // The slow4 seed's clip B, its first 60 slots: K 899, 900, 900, 901, 901 ... (30 distinct frames, each on two slots).
+    const q = path.join(OUT, 'slow-quarter.ts');
+    await run(ffmpeg, copySpanArgs({ ...base, sourceFrame: 450, frames: 60, firstFrameCeil: false, rate: 0.25, trimBefore: 450, clipOffset: 0, timeBase: tb, outputPath: q }));
+    const pq = await probeFrames(ffprobe, q);
+    expect(pq.count).toBe(60);
+    expect(pq.pts.map((t, i) => Math.abs(t - pq.pts[0] - i / 30)).filter((d) => d > 1e-4)).toEqual([]);
+    // The slow seed's clip B at 0.5x: one source frame per slot here (the first repeat is at slot 602).
+    const h = path.join(OUT, 'slow-half.ts');
+    await run(ffmpeg, copySpanArgs({ ...base, sourceFrame: 450, frames: 60, firstFrameCeil: false, rate: 0.5, trimBefore: 450, clipOffset: 0, timeBase: tb, outputPath: h }));
+    expect((await probeFrames(ffprobe, h)).count).toBe(60);
+    // A span that starts 180 slots into the clip (after an overlay): its slots count from the clip start.
+    const o = path.join(OUT, 'slow-offset.ts');
+    await run(ffmpeg, copySpanArgs({ ...base, sourceFrame: 450 + 180 * 0.25, frames: 30, firstFrameCeil: false, rate: 0.25, trimBefore: 450, clipOffset: 180, timeBase: tb, outputPath: o }));
+    expect((await probeFrames(ffprobe, o)).count).toBe(30);
+    // Determinism, as for every copied span.
+    const q2 = path.join(OUT, 'slow-quarter-2.ts');
+    await run(ffmpeg, copySpanArgs({ ...base, sourceFrame: 450, frames: 60, firstFrameCeil: false, rate: 0.25, trimBefore: 450, clipOffset: 0, timeBase: tb, outputPath: q2 }));
+    expect(Buffer.compare(await fs.readFile(q), await fs.readFile(q2))).toBe(0);
+  }, 180_000);
+
   it('renders the one-pass audio as 48 kHz stereo PCM of the exact length', async () => {
     const { ffmpeg, ffprobe } = bins();
     await fs.mkdir(OUT, { recursive: true });

@@ -52,8 +52,15 @@
  * `t5-1080p-cut-speed`: K 899, 902, 905 … every third 59.94 fps frame at
  * 1.5×). The span carries `rate`; `sourceFrame` may then be fractional
  * (trimBefore + r × the offset into the clip, as the composition computes
- * it). Slow motion (r < 1) stays a browser span: a source frame would have to
- * serve several output slots and the select cannot repeat one.
+ * it).
+ *
+ * Slow motion (r < 1, 2026-09-11): copied too. Measured on the `slow*` seeds
+ * (0.5×, 0.25×, 0.1×): slot m shows the source frame nearest, in the stream's
+ * integer ticks, to Remotion's own media time `(trimBefore + m·r)/fps`, and a
+ * frame that is the nearest for several slots is repeated on each — so the
+ * span carries the two whole numbers that arithmetic starts from
+ * (`trimBefore`, `clipOffset`) and the engine's recipe places each kept frame
+ * on its first slot and fills the rest (`passthrough-slow.ts`).
  */
 import type { StudioClip, StudioMediaAsset, StudioProject } from '../types/studio';
 import { serializeTimeline } from './serialize';
@@ -72,13 +79,21 @@ export interface CopySpan {
   /** Slice 4: the clip's playback rate, only when it is not 1 — the copied
    *  span's time line is S + rate·n/fps. */
   rate?: number;
+  /** Slow motion (rate < 1): the clip's trimBefore (Remotion's startFrom) and
+   *  the slots into the clip at `from` — whole numbers, the exact operands of
+   *  the media time the composition asks for. Absent at rate ≥ 1. */
+  trimBefore?: number;
+  clipOffset?: number;
   /** True when the browser would show the CEIL source frame on this span's
    *  first frame instead of the nearest: the first frame Remotion extracts
    *  after OPENING a source file — the composition opening mid-source (T1
    *  leg 3) or the first clip of a file that the timeline has not shown
    *  before (measured 2026-09-06 on the `t5-1080p-cut-files*` seeds: a cut to
    *  a new file shows K 900 where nearest is 899; a return to a file already
-   *  opened shows the nearest, like a same-file cut). */
+   *  opened shows the nearest, like a same-file cut). A rate ≥ 1 rule: a SLOW
+   *  clip that opens its file shows the nearest on its first slot (measured
+   *  2026-09-11 at 0.1× and 0.25× on the `slow-open*` seeds: K 2817 where the
+   *  ceil is 2818), so it is never set on a span whose rate is under 1. */
   firstFrameCeil: boolean;
 }
 
@@ -131,7 +146,6 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   if (asset.kind !== 'video') return `${asset.kind} asset`;
   const rate = clip.speed !== undefined && clip.speed !== 1 ? clip.speed : 1;
   if (!(rate > 0)) return 'speed';
-  if (rate < 1) return 'slow motion';
   if (!isIdentityTransform(clip)) return 'transform';
   if (!asset.probe.width || !asset.probe.height) return 'unknown source size';
   const sourceAspect = asset.probe.width / asset.probe.height;
@@ -276,7 +290,8 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       assetPath: asset.path,
       sourceFrame,
       ...(covering.rate !== 1 ? { rate: covering.rate } : {}),
-      firstFrameCeil: opensFile && sourceFrame > 0,
+      ...(covering.rate < 1 ? { trimBefore: covering.trimBefore, clipOffset: from - covering.from } : {}),
+      firstFrameCeil: opensFile && sourceFrame > 0 && covering.rate >= 1,
     });
     copiedFrames += frames;
   }

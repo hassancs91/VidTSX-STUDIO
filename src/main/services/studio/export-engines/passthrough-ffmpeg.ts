@@ -13,7 +13,10 @@
  *    then `-r fps -fps_mode cfr -frames:v N`. Never `-r` alone, never `fps=`
  *    (both pick other frames — measured in §T1 leg 0). A sped span (slice 4)
  *    is the same rule on the scaled time line, S + rate·n/fps (measured
- *    2026-09-06: every third 59.94 fps frame at 1.5×).
+ *    2026-09-06: every third 59.94 fps frame at 1.5×). A SLOW span (rate < 1,
+ *    2026-09-11) is `passthrough-slow.ts`: the select in the stream's integer
+ *    ticks as the compositor computes them, each kept frame placed on its
+ *    first slot, the `fps` filter repeating it over the slots it serves.
  * 2. One encoder for both span kinds — browser spans are decoded from
  *    Remotion's intermediate and encoded HERE with the copied spans' settings.
  * 3. Join through MPEG-TS video-only intermediates — the finishing mux reads
@@ -29,6 +32,7 @@
  */
 import type { ProxyGpuEncoder } from '../proxy-encoders';
 import type { AudioSegment, ExportAudioPlan } from '../../../../shared/studio/export-spans';
+import { slowMotionFilters } from './passthrough-slow';
 import type { ExportColorPolicy } from './types';
 
 /** A source's frame rate as ffprobe reports it (`r_frame_rate`), exact. */
@@ -120,6 +124,10 @@ export interface CopySpanArgs extends SelectOptions {
   height: number;
   color: ExportColorPolicy;
   outputPath: string;
+  /** Slow motion (rate < 1): the whole numbers the recipe mirrors Remotion with, and the source's time base. */
+  trimBefore?: number;
+  clipOffset?: number;
+  timeBase?: FrameRate;
 }
 
 /**
@@ -129,11 +137,18 @@ export interface CopySpanArgs extends SelectOptions {
  * correct by construction).
  */
 export function copySpanArgs(a: CopySpanArgs): string[] {
-  const select = nearestSelectFilter(a);
   const scale = a.encoder === 'nvenc'
     ? `scale_cuda=w=${a.width}:h=${a.height}:format=yuv420p`
     : `scale=w=${a.width}:h=${a.height},format=yuv420p`;
-  const graph = `[0:v]${select},${scale},setpts=N/(${a.fps}*TB),${colorParamsFilter(a.color)}[v]`;
+  let graph: string;
+  if (a.rate !== undefined && a.rate < 1) {
+    if (a.trimBefore === undefined || a.clipOffset === undefined || !a.timeBase) throw new Error('a slow span needs trimBefore, clipOffset and the source time base');
+    if (a.firstFrameCeil) throw new Error('a slow span shows the nearest frame on its first slot (measured 2026-09-11); the ceil rule is for rate >= 1');
+    const slow = slowMotionFilters({ trimBefore: a.trimBefore, clipOffset: a.clipOffset, rate: a.rate, fps: a.fps, sourceFrameRate: a.sourceFrameRate, timeBase: a.timeBase });
+    graph = `[0:v]${slow.select},${slow.setpts},${slow.fps},${scale},${colorParamsFilter(a.color)}[v]`;
+  } else {
+    graph = `[0:v]${nearestSelectFilter(a)},${scale},setpts=N/(${a.fps}*TB),${colorParamsFilter(a.color)}[v]`;
+  }
   return [
     ...COMMON,
     ...(a.encoder === 'nvenc' ? ['-hwaccel', 'cuda', '-hwaccel_output_format', 'cuda'] : []),

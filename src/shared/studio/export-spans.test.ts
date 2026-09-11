@@ -153,10 +153,10 @@ describe('planExportSpans edges', () => {
   });
 
   it('merges adjacent browser pieces into one span', () => {
-    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 0.5 }), clip('b', 5, 5, 20, { transform: { opacity: 0.5 } })])]));
-    expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'slow motion' }]);
+    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, { transform: { rotation: 5 } }), clip('b', 5, 5, 20, { transform: { opacity: 0.5 } })])]));
+    expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'transform' }]);
     expect(plan.copiedFrames).toBe(0);
-    expect(plan.reason).toBe('slow motion');
+    expect(plan.reason).toBe('transform');
   });
 
   it('a gain-only clip is still a pure cut of the picture (Stage 3): copied, its gain carried to the audio pass', () => {
@@ -173,11 +173,10 @@ describe('planExportSpans edges', () => {
     expect(planExportSpans(project([video([clip('a', 0, 5, 0, { gain: 0 })])])).copiedFrames).toBe(150);
   });
 
-  it('a fade blocks neither the picture nor the one-pass audio (slice 3: the picture never fades); slow motion still blocks the picture (slice 4)', () => {
+  it('a fade blocks neither the picture nor the one-pass audio (slice 3: the picture never fades); a rate of 0 still blocks', () => {
     expect(copyBlocker(clip('a', 0, 5, 0, { fadeOutSec: 1 }), T5.assets[0], T5.settings)).toBeNull();
-    expect(copyBlocker(clip('a', 0, 5, 0, { speed: 0.5 }), T5.assets[0], T5.settings)).toBe('slow motion');
     expect(copyBlocker(clip('a', 0, 5, 0, { speed: 0 }), T5.assets[0], T5.settings)).toBe('speed');
-    expect(planExportSpans(project([video([clip('a', 0, 5, 0, { speed: 0.5 })])])).copiedFrames).toBe(0);
+    expect(copyBlocker(clip('a', 0, 5, 0, { speed: -1 }), T5.assets[0], T5.settings)).toBe('speed');
     const faded = project([video([clip('clip_t1_cut_a', 0, 15, 0, { fadeOutSec: 0.5 }), clip('clip_t1_cut_b', 15, 15, 15, { gain: 0.5, fadeInSec: 1, fadeOutSec: 2 })]), audioTrack]);
     expect(planExportSpans(faded).spans).toEqual(planExportSpans(T5_CUT).spans);
   });
@@ -208,6 +207,39 @@ describe('planExportSpans edges', () => {
     expect(copyBlocker(clip('a', 0, 10, 130, { speed: 2 }), asset, T5.settings)).toBe('runs past the source end');
     // A rate of exactly 1 is no rate.
     expect(planExportSpans(project([video([clip('a', 0, 10, 20, { speed: 1 })])])).spans[0]).not.toHaveProperty('rate');
+  });
+
+  it('slow motion is copied (2026-09-11): the span carries the rate and the whole numbers Remotion\'s media time starts from', () => {
+    // The slow4 seed: clip B at 0.25× from source 15 s — the T1 cut's two spans, the second slow.
+    const slow = project([video([clip('clip_t1_cut_a', 0, 15, 0), clip('clip_t1_slow4_b', 15, 15, 15, { speed: 0.25 })]), audioTrack]);
+    expect(copyBlocker(slow.timeline.tracks[0].clips[1], slow.assets[0], slow.settings)).toBeNull();
+    expect(planExportSpans(slow).spans).toEqual([
+      { kind: 'copy', from: 0, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 0, firstFrameCeil: false },
+      { kind: 'copy', from: 450, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 450, rate: 0.25, trimBefore: 450, clipOffset: 0, firstFrameCeil: false },
+    ]);
+    expect(copiedPercent(planExportSpans(slow))).toBe(100);
+    // Split by an overlay: the piece after it counts its slots from the clip start (clipOffset), sourceFrame = trimBefore + offset × rate.
+    const overlay: StudioTrack = { id: 'o1', kind: 'overlay', name: 'O1', clips: [{ ...clip('t', 4, 2, 0), transform: { scale: 0.5 } }] };
+    const split = planExportSpans(project([overlay, video([clip('a', 0, 10, 20, { speed: 0.25 })])]));
+    expect(split.spans).toEqual([
+      // A slow clip that opens its file shows the NEAREST on its first slot (measured at 0.1x and 0.25x), so no ceil here.
+      { kind: 'copy', from: 0, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 600, rate: 0.25, trimBefore: 600, clipOffset: 0, firstFrameCeil: false },
+      { kind: 'browser', from: 120, frames: 60, reason: 'overlay' },
+      { kind: 'copy', from: 180, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 600 + 180 * 0.25, rate: 0.25, trimBefore: 600, clipOffset: 180, firstFrameCeil: false },
+    ]);
+    // A slow clip's audio rides into the one pass with its rate (Remotion's atempo chain).
+    expect(planExportAudio(slow)?.segments[1]).toEqual({ kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 15, duration: 15, rate: 0.25 });
+    // The source-end bound scales with the rate: 10 s at 0.25× consumes 2.5 s of source.
+    const asset = T5.assets[0];
+    expect(copyBlocker(clip('a', 0, 10, 136.52, { speed: 0.25 }), asset, T5.settings)).toBeNull();
+    expect(copyBlocker(clip('a', 0, 10, 136.6, { speed: 0.25 }), asset, T5.settings)).toBe('runs past the source end');
+    // The slow-open seeds: a slow clip as the first clip of its file, mid-source — nearest, not ceil.
+    expect(planExportSpans(project([video([clip('clip_t1_slow_open', 0, 15, 47, { speed: 0.1 })])])).spans).toEqual([
+      { kind: 'copy', from: 0, frames: 450, assetId: ASSET, assetPath: DJI, sourceFrame: 1410, rate: 0.1, trimBefore: 1410, clipOffset: 0, firstFrameCeil: false },
+    ]);
+    expect(planExportSpans(project([video([clip('a', 0, 15, 47, { speed: 1.5 })])])).spans[0]).toMatchObject({ firstFrameCeil: true });
+    // A sped span (rate ≥ 1) carries no trimBefore / clipOffset — its plan objects are what slice 4 wrote.
+    expect(planExportSpans(project([video([clip('a', 0, 10, 20, { speed: 1.5 })])])).spans[0]).not.toHaveProperty('clipOffset');
   });
 
   it('a transition sends only its window to the browser; the rest of both clips is copied from the serializer\'s geometry (slice 3)', () => {

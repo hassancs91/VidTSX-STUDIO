@@ -20,6 +20,14 @@
 //   node scripts/bench/seed-cut-projects.mjs return-short → t5-1080p-cut-return-short (0270 0-10 s | 0271 5 s | 0270 from 45.867 s | jump to 60.2 s | jump back to 29.2 s — the control:
 //                                                          a 5 s return, a same-file forward seek inside the open stream, a same-file jump back)
 //   node scripts/bench/seed-cut-projects.mjs return-1m  → t5-1080p-cut-return-1m (0270 0-10 s | 0271 30 s | 0273 30 s | 0270 from 45.867 s — a 1 min return through two other files)
+//   node scripts/bench/seed-cut-projects.mjs slow       → t5-1080p-cut-slow   (0270 0-15 s | 0270 from 15 s at speed 0.5 for 25 s — Item 2, 2026-09-11: slow motion; at 0.5× on a 59.94 fps
+//                                                          source the nearest source frame repeats only every ~1000 slots (first at slot 602 = frame 1052), so the clip runs 25 s to hold one)
+//   node scripts/bench/seed-cut-projects.mjs slow4      → t5-1080p-cut-slow4  (0270 0-15 s | 0270 from 15 s at speed 0.25 for 15 s — Item 2: the 0.25 preset, every second slot repeats a source frame,
+//                                                          and the slot times drift through a half-frame tie near slot 201 = frame 651)
+//   node scripts/bench/seed-cut-projects.mjs slow-open  → t5-1080p-cut-slow-open (0270 from 47 s at speed 0.1 for 15 s as the FIRST clip of the file — Item 2: the ceil rule at a
+//                                                          rate < 1 (47 s = K 2817.18: slot 0 ceil 2818, slot 1 nearest 2817), and a slot (412) where Remotion's integer-tick
+//                                                          nearest differs from the real-valued nearest by one tick)
+//   node scripts/bench/seed-cut-projects.mjs slow-open4 → t5-1080p-cut-slow-open4 (the same opening clip at the 0.25 preset — does the ceil rule hold at that rate?)
 //   … [--force] to overwrite project.json (cache/ is left alone)
 //
 // Writes ~/Videos/VidTSX Studio/projects/<id>/project.json straight to disk, in
@@ -150,6 +158,23 @@ const seeds = {
     clip('clip_t1_return_b2', A0273.id, 40, 30, 0),
     clip('clip_t1_return_c', A0270.id, 70, 10, RETURN_IN),
   ]),
+  // Item 2 (2026-09-11): slow motion. Which source frame does Remotion show per output slot at a rate < 1, and where
+  // two slots round to one source frame, which is repeated? The plain Remotion export decides; the passthrough
+  // engine renders a slow clip in the browser until a copy recipe reproduces it.
+  'slow': base('t5-1080p-cut-slow', 'T1 cut slow (0-15 s | 0270 from 15 s at speed 0.5 for 25 s)', [A0270], [
+    clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
+    clip('clip_t1_slow_b', A0270.id, 15, 25, 15, { speed: 0.5 }),
+  ]),
+  'slow4': base('t5-1080p-cut-slow4', 'T1 cut slow 4 (0-15 s | 0270 from 15 s at speed 0.25 for 15 s)', [A0270], [
+    clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
+    clip('clip_t1_slow4_b', A0270.id, 15, 15, 15, { speed: 0.25 }),
+  ]),
+  'slow-open': base('t5-1080p-cut-slow-open', 'T1 cut slow open (0270 from 47 s at speed 0.1 for 15 s, the first clip of the file)', [A0270], [
+    clip('clip_t1_slow_open', A0270.id, 0, 15, 47, { speed: 0.1 }),
+  ]),
+  'slow-open4': base('t5-1080p-cut-slow-open4', 'T1 cut slow open 4 (0270 from 47 s at speed 0.25 for 15 s, the first clip of the file)', [A0270], [
+    clip('clip_t1_slow_open4', A0270.id, 0, 15, 47, { speed: 0.25 }),
+  ]),
   'music': base('t5-1080p-cut-music', 'T1 cut music (0-15 s | 15-30 s, music on A1 5-25 s from 2 s at gain 0.5)', [A0270, MUSIC], [
     clip('clip_t1_cut_a', A0270.id, 0, 15, 0),
     clip('clip_t1_cut_b', A0270.id, 15, 15, 15),
@@ -157,7 +182,7 @@ const seeds = {
 };
 const project = seeds[which];
 if (!project) {
-  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | xfade3 | xfade2x | speed | speed2 | return | return-short | return-1m [--force]');
+  console.error('usage: seed-cut-projects.mjs diff-cut | diff-cut2 | gain | music | stack | fade | xfade | xfade3 | xfade2x | speed | speed2 | return | return-short | return-1m | slow | slow4 | slow-open | slow-open4 [--force]');
   process.exit(1);
 }
 if (which === 'music') {
