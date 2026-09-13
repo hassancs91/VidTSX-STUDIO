@@ -52,6 +52,10 @@ import type {
   StudioSnapshotListResponse,
   StudioSnapshotRestoreRequest,
   StudioSnapshotRestoreResponse,
+  StudioProjectBrandGetRequest,
+  StudioProjectBrandGetResponse,
+  StudioProjectBrandPromoteRequest,
+  StudioProjectBrandPromoteResponse,
   StudioFlushAckResponse,
   StudioRootGetResponse,
   StudioRootSetRequest,
@@ -122,6 +126,12 @@ export const studioApi = {
     data: StudioSnapshotRestoreRequest,
   ): Promise<StudioSnapshotRestoreResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, data),
+  studioProjectBrandGet: (data: StudioProjectBrandGetRequest): Promise<StudioProjectBrandGetResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROJECT_BRAND_GET, data),
+  studioProjectBrandPromote: (
+    data: StudioProjectBrandPromoteRequest,
+  ): Promise<StudioProjectBrandPromoteResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROJECT_BRAND_PROMOTE, data),
   studioFlushAck: (): Promise<StudioFlushAckResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_FLUSH_ACK),
   studioMediaImport: (data: StudioMediaImportRequest): Promise<StudioMediaImportResponse> =>

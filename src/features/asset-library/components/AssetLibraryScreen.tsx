@@ -60,6 +60,21 @@ export function AssetLibraryScreen() {
   const brandsApi = useBrands();
   const [presetsOpen, setPresetsOpen] = useState(false);
   const presetsApi = usePresets();
+  // Studio's Project settings "Create brand…" / "Create preset…" (video-10
+  // feedback item 7) land here on the dialog's new-item form. The token
+  // remounts the dialog so a request while it is already open still works.
+  const [openRequest, setOpenRequest] = useState<{ form: 'brand' | 'preset'; token: number } | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const form = (e as CustomEvent<{ form?: string }>).detail?.form;
+      if (form !== 'brand' && form !== 'preset') return;
+      setOpenRequest({ form, token: Date.now() });
+      if (form === 'brand') setBrandsOpen(true);
+      else setPresetsOpen(true);
+    };
+    window.addEventListener('vidtsx:assets-open', handler);
+    return () => window.removeEventListener('vidtsx:assets-open', handler);
+  }, []);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<CategoryFilter>('all');
 
@@ -321,24 +336,34 @@ export function AssetLibraryScreen() {
 
       {brandsOpen && (
         <BrandsDialog
+          key={openRequest?.form === 'brand' ? openRequest.token : 'brands'}
+          startNew={openRequest?.form === 'brand'}
           brands={brandsApi.brands}
           defaultBrandId={brandsApi.defaultBrandId}
           onSave={brandsApi.saveBrand}
           onDelete={brandsApi.deleteBrand}
           onSetDefault={brandsApi.setDefault}
           onMutated={() => void onChanged()}
-          onClose={() => setBrandsOpen(false)}
+          onClose={() => {
+            setBrandsOpen(false);
+            setOpenRequest(null);
+          }}
         />
       )}
 
       {presetsOpen && (
         <PresetsDialog
+          key={openRequest?.form === 'preset' ? openRequest.token : 'presets'}
+          startNew={openRequest?.form === 'preset'}
           presets={presetsApi.presets}
           brands={brandsApi.brands.map((b) => ({ id: b.id, name: b.name }))}
           onSave={presetsApi.savePreset}
           onDelete={presetsApi.deletePreset}
           onMutated={() => void onChanged()}
-          onClose={() => setPresetsOpen(false)}
+          onClose={() => {
+            setPresetsOpen(false);
+            setOpenRequest(null);
+          }}
         />
       )}
 

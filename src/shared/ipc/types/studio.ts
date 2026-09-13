@@ -154,6 +154,32 @@ export interface StudioSnapshotRestoreResponse {
   error?: string;
 }
 
+// ── Project brand snapshot (video-10 feedback item 7) ──
+
+/** studio:project:brand:get — the project's own `brand.json`, if it has one. */
+export interface StudioProjectBrandGetRequest {
+  projectId: string;
+}
+
+export interface StudioProjectBrandGetResponse {
+  success: boolean;
+  /** null = the project carries no (readable) snapshot. */
+  brand?: import('../../types/asset-library').StudioBrand | null;
+  error?: string;
+}
+
+/** studio:project:brand:promote — copy the snapshot into the library
+ *  (`assets/brands/<slug>/`). The caller sets `settings.brandId` to the result. */
+export interface StudioProjectBrandPromoteRequest {
+  projectId: string;
+}
+
+export interface StudioProjectBrandPromoteResponse {
+  success: boolean;
+  brand?: import('../../types/asset-library').StudioBrand;
+  error?: string;
+}
+
 export interface StudioFlushAckResponse {
   success: boolean;
 }

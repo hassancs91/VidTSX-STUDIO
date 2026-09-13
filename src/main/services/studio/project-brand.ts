@@ -16,7 +16,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { StudioBrand } from '../../../shared/types/asset-library';
 import { normalizeBrand } from '../../../shared/studio/brand';
-import { readBrand } from '../library/brand-store';
+import { createBrand, readBrand } from '../library/brand-store';
 import { getLibraryRoot } from '../library/library-paths';
 import { getProjectDir } from './studio-paths';
 
@@ -47,4 +47,24 @@ export async function resolveProjectBrand(
     if (brand) return brand;
   }
   return readProjectBrand(projectId);
+}
+
+/**
+ * "Save to library" (video-10 feedback item 7): copy the project's snapshot
+ * into the app library as a new brand (`brands/<slug>/`, slug from the name,
+ * suffixed when taken). The snapshot file stays — the library brand wins once
+ * the caller points `settings.brandId` at it, and the snapshot is the fallback
+ * again if that brand is ever deleted. Throws when there is no snapshot.
+ */
+export async function promoteProjectBrand(projectId: string): Promise<StudioBrand> {
+  const snapshot = await readProjectBrand(projectId);
+  if (!snapshot) throw new Error('This project has no brand snapshot (brand.json) to save.');
+  return createBrand(getLibraryRoot(), {
+    name: snapshot.name,
+    palette: snapshot.palette,
+    fonts: snapshot.fonts,
+    logoRefs: snapshot.logoRefs,
+    ...(snapshot.styleNotes ? { styleNotes: snapshot.styleNotes } : {}),
+    ...(snapshot.vocabulary ? { vocabulary: snapshot.vocabulary } : {}),
+  });
 }

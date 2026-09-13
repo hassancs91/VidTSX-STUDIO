@@ -416,6 +416,9 @@ export const IPC = {
   // Studio — rotating project snapshots + quit-flush handshake (Q10)
   STUDIO_PROJECT_SNAPSHOT_LIST: 'studio:project:snapshot:list',
   STUDIO_PROJECT_SNAPSHOT_RESTORE: 'studio:project:snapshot:restore',
+  // Project settings panel (video-10 feedback item 7): the project-local brand snapshot.
+  STUDIO_PROJECT_BRAND_GET: 'studio:project:brand:get',
+  STUDIO_PROJECT_BRAND_PROMOTE: 'studio:project:brand:promote',
   STUDIO_FLUSH_REQUEST: 'studio:flush:request',
   STUDIO_FLUSH_ACK: 'studio:flush:ack',
   STUDIO_MEDIA_IMPORT: 'studio:media:import',

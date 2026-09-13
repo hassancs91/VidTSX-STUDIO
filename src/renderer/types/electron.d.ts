@@ -467,6 +467,8 @@ export interface ElectronAPI {
   studioProjectClose: (data: import('../../shared/ipc/types').StudioProjectCloseRequest) => Promise<import('../../shared/ipc/types').StudioProjectCloseResponse>;
   studioProjectSnapshotList: (data: import('../../shared/ipc/types').StudioSnapshotListRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotListResponse>;
   studioProjectSnapshotRestore: (data: import('../../shared/ipc/types').StudioSnapshotRestoreRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotRestoreResponse>;
+  studioProjectBrandGet: (data: import('../../shared/ipc/types').StudioProjectBrandGetRequest) => Promise<import('../../shared/ipc/types').StudioProjectBrandGetResponse>;
+  studioProjectBrandPromote: (data: import('../../shared/ipc/types').StudioProjectBrandPromoteRequest) => Promise<import('../../shared/ipc/types').StudioProjectBrandPromoteResponse>;
   studioFlushAck: () => Promise<import('../../shared/ipc/types').StudioFlushAckResponse>;
   onStudioFlushRequest: (callback: () => void) => () => void;
   studioMediaImport: (data: import('../../shared/ipc/types').StudioMediaImportRequest) => Promise<import('../../shared/ipc/types').StudioMediaImportResponse>;

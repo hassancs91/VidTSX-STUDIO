@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Captions, ChevronLeft, Upload } from 'lucide-react';
+import { Captions, ChevronLeft, Settings2, Upload } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import { useToast } from '@renderer/contexts/ToastContext';
@@ -26,6 +26,8 @@ import { usePaneSize } from '../hooks/usePaneSize';
 import { useRippleMode } from '../hooks/useRippleMode';
 import { useBrandList } from '../hooks/useBrandList';
 import { usePresetList } from '../hooks/usePresetList';
+import { useProjectBrand } from '../hooks/useProjectBrand';
+import { useStoredChoice } from '../hooks/useStoredChoice';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { usePlayback } from '../hooks/usePlayback';
@@ -43,6 +45,7 @@ import { makeClipId } from '../services/timeline-ops';
 import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
 import { NO_USAGE, usageByAsset, usageByShot } from '../services/asset-usage';
+import { effectiveBrand } from '../services/project-brand-options';
 import type {
   StudioAgentSettings,
   StudioClipTransform,
@@ -56,7 +59,12 @@ import { CaptionsPanel } from './CaptionsPanel';
 import { FloatingMenu } from './timeline/FloatingMenu';
 import { RestoreVersionDialog, formatSavedAt } from './RestoreVersionDialog';
 import { ExportDialog, type ExportChoice } from './ExportDialog';
-import { MediaPool, type GenerateShotSpec } from './MediaPool';
+import { MediaPool } from './MediaPool';
+import { ShotsPanel } from './ShotsPanel';
+import type { GenerateShotSpec } from './GenerateShotForm';
+import { LeftPane, LEFT_TABS, type LeftTab } from './LeftPane';
+import { PaneTabButton } from './PaneTabButton';
+import { ProjectSettingsDialog } from './ProjectSettingsDialog';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
 import { PreviewPanel } from './PreviewPanel';
@@ -70,7 +78,7 @@ interface Props {
   onBack: () => void;
 }
 
-type RightTab = 'inspector' | 'assistant' | 'captions' | 'script';
+type RightTab = 'inspector' | 'assistant' | 'script';
 
 /** Preview monitoring speeds — a watch-speed aid, never part of the document. */
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
@@ -89,6 +97,9 @@ export function EditorShell({ projectId, onBack }: Props) {
   const { showToast } = useToast();
   const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
+  // Left pane: Media | Shots | Captions (video-10 feedback item 5), remembered per project.
+  const [leftTab, setLeftTab] = useStoredChoice<LeftTab>(`studio.leftTab.${projectId}`, LEFT_TABS, 'media');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   /** Open Export dialog; carries the I→O range for "Export range". */
@@ -159,6 +170,10 @@ export function EditorShell({ projectId, onBack }: Props) {
   // rides a ref so adoption-driven document changes don't retrigger the scan
   // (main coalesces concurrent calls anyway).
   const [reconcileFailure, setReconcileFailure] = useState<ShotImportFailure | null>(null);
+  // The banner lives in the Shots tab: bring it into view when one arrives.
+  useEffect(() => {
+    if (reconcileFailure) setLeftTab('shots');
+  }, [reconcileFailure, setLeftTab]);
   const knownShotIdsRef = useRef<string[]>([]);
   knownShotIdsRef.current = (project?.shots ?? []).map((s) => s.id);
   useEffect(() => {
@@ -744,7 +759,8 @@ export function EditorShell({ projectId, onBack }: Props) {
   // ----- Resizable panes (ergonomics, 2026-08-14) ------------------------
   // Per-machine window state, remembered in localStorage. Defaults match the
   // previous fixed layout so an untouched install looks identical.
-  const poolPane = usePaneSize('pool', 230, 160, 420);
+  // 300 px fits three 88 px media tiles per row and the three left tabs with counts.
+  const poolPane = usePaneSize('pool', 300, 220, 480);
   const rightPane = usePaneSize('right', 270, 220, 460);
   const timelinePane = usePaneSize('timeline', 240, 140, 520);
 
@@ -753,9 +769,12 @@ export function EditorShell({ projectId, onBack }: Props) {
   // — they are derived from the timeline on every serialize, so an edit to
   // the master lane moves the captions with it and nothing can desync.
   const captionLayer = tl.captions;
+  // The brand main renders with (library brand, else the project's own
+  // brand.json snapshot) — so caption previews match the export (item 7).
+  const projectBrand = useProjectBrand(projectId);
   const activeBrand = useMemo(
-    () => brandList.find((b) => b.id === project?.settings.brandId) ?? null,
-    [brandList, project?.settings.brandId],
+    () => effectiveBrand(brandList, project?.settings.brandId, projectBrand.snapshot).brand,
+    [brandList, project?.settings.brandId, projectBrand.snapshot],
   );
   // Only the master lane's assets need transcripts loaded, and only while a
   // caption layer exists — no captions, no IPC.
@@ -1031,18 +1050,20 @@ export function EditorShell({ projectId, onBack }: Props) {
         >
           {project.name}
         </button>
-        <span
-          className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-app-active text-text-muted"
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="Project settings"
+          className="text-[9px] px-[5px] py-[1px] rounded-[4px] bg-app-active text-text-muted hover:text-text-secondary transition-colors"
           style={{ border: '0.5px solid var(--color-border)' }}
         >
           {project.settings.width}×{project.settings.height} · {project.settings.fps} fps
-        </span>
+        </button>
         <span className="text-[10px] text-text-ghost">
           {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
         </span>
         <div className="flex-1" />
         <button
-          onClick={() => setRightTab('captions')}
+          onClick={() => setLeftTab('captions')}
           title="Captions — pick a style for the master lane (C4)"
           aria-label="Captions"
           data-captions-entry
@@ -1056,6 +1077,16 @@ export function EditorShell({ projectId, onBack }: Props) {
           Captions
         </button>
         <RenderPrepChip projectId={project.id} />
+        <button
+          onClick={() => setSettingsOpen(true)}
+          title="Project settings: name, frame size, fps, speech-to-text model, brand and preset"
+          aria-label="Project settings"
+          data-project-settings-toggle
+          className="flex items-center gap-1 h-[24px] px-1.5 rounded-[6px] text-[11px] text-text-muted hover:bg-app-hover hover:text-text-secondary transition-colors"
+        >
+          <Settings2 size={13} strokeWidth={1.5} />
+          Settings
+        </button>
         {exportRange && (
           <Button
             variant="secondary"
@@ -1086,41 +1117,62 @@ export function EditorShell({ projectId, onBack }: Props) {
           className="shrink-0"
           style={{ width: poolPane.size, borderRight: '0.5px solid var(--color-border)' }}
         >
-          <MediaPool
-            assets={project.assets}
-            onImport={() => void handleImport()}
-            onRemove={handleRemoveAsset}
-            getAssetUsage={getAssetUsage}
-            getShotUsage={getShotUsage}
-            onAddToTimeline={handleAddToTimeline}
-            onTranscribe={handleTranscribe}
-            onSelect={setSelectedAssetId}
-            selectedAssetId={selectedAssetId}
-            importing={importing}
-            loadThumbnail={loadThumbnail}
-            getThumbnail={getThumbnail}
-            getTranscribeProgress={getTranscribeProgress}
-            getProxyPercent={getProxyPercent}
-            missingAssetIds={missingAssetIds}
-            onLocate={(asset) => void handleLocate(asset)}
-            shots={tl.shots}
-            getShotProgress={shotJobs.getShotProgress}
-            onAddShot={handleAddShot}
-            onRemoveShot={handleRemoveShot}
-            onGenerateShot={handleGenerateShot}
-            projectId={projectId}
-            {...(project.settings.agent.providerId
-              ? { providerId: project.settings.agent.providerId }
-              : {})}
-            {...(shotModel ? { model: shotModel } : {})}
-            brands={brandList}
-            brandId={project.settings.brandId}
-            onSetBrand={handleSetBrand}
-            presets={presetList}
-            presetId={project.settings.presetId}
-            onSetPreset={handleSetPreset}
-            reconcileFailure={reconcileFailure}
-            onReconcileFailureShown={() => setReconcileFailure(null)}
+          <LeftPane
+            tab={leftTab}
+            onTab={setLeftTab}
+            mediaCount={project.assets.length}
+            shotCount={tl.shots.length}
+            media={
+              <MediaPool
+                assets={project.assets}
+                onImport={() => void handleImport()}
+                onRemove={handleRemoveAsset}
+                getAssetUsage={getAssetUsage}
+                onAddToTimeline={handleAddToTimeline}
+                onTranscribe={handleTranscribe}
+                onSelect={setSelectedAssetId}
+                selectedAssetId={selectedAssetId}
+                importing={importing}
+                loadThumbnail={loadThumbnail}
+                getThumbnail={getThumbnail}
+                getTranscribeProgress={getTranscribeProgress}
+                getProxyPercent={getProxyPercent}
+                missingAssetIds={missingAssetIds}
+                onLocate={(asset) => void handleLocate(asset)}
+              />
+            }
+            shots={
+              <ShotsPanel
+                shots={tl.shots}
+                getShotProgress={shotJobs.getShotProgress}
+                getShotUsage={getShotUsage}
+                onAddShot={handleAddShot}
+                onRemoveShot={handleRemoveShot}
+                onGenerateShot={handleGenerateShot}
+                projectId={projectId}
+                {...(project.settings.agent.providerId
+                  ? { providerId: project.settings.agent.providerId }
+                  : {})}
+                {...(shotModel ? { model: shotModel } : {})}
+                reconcileFailure={reconcileFailure}
+                onReconcileFailureShown={() => setReconcileFailure(null)}
+              />
+            }
+            renderCaptions={() => (
+              <CaptionsPanel
+                project={project}
+                layer={captionLayer}
+                brand={activeBrand}
+                wordCount={captionWordCount}
+                untranscribedCount={untranscribedCaptionClips}
+                onApply={(templateId, seed) =>
+                  tl.dispatch({ type: 'caption-apply', templateId, ...(seed ? { seed } : {}) })
+                }
+                onStyle={(patch) => tl.dispatch({ type: 'caption-style', patch })}
+                onSetEnabled={(enabled) => tl.dispatch({ type: 'caption-enabled', enabled })}
+                onRemove={() => tl.dispatch({ type: 'caption-remove' })}
+              />
+            )}
           />
         </div>
 
@@ -1172,22 +1224,20 @@ export function EditorShell({ projectId, onBack }: Props) {
           style={{ width: rightPane.size, borderLeft: '0.5px solid var(--color-border)' }}
         >
           <div className="flex h-[32px] shrink-0" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
-            <RightTabButton
+            <PaneTabButton
+              tabId="inspector"
               label="Inspector"
               isActive={rightTab === 'inspector'}
               onClick={() => setRightTab('inspector')}
             />
-            <RightTabButton
-              label="Captions"
-              isActive={rightTab === 'captions'}
-              onClick={() => setRightTab('captions')}
-            />
-            <RightTabButton
+            <PaneTabButton
+              tabId="script"
               label="Script"
               isActive={rightTab === 'script'}
               onClick={() => setRightTab('script')}
             />
-            <RightTabButton
+            <PaneTabButton
+              tabId="assistant"
               label="Assistant"
               isActive={rightTab === 'assistant'}
               onClick={() => setRightTab('assistant')}
@@ -1205,20 +1255,6 @@ export function EditorShell({ projectId, onBack }: Props) {
                     return next;
                   })
                 }
-              />
-            ) : rightTab === 'captions' ? (
-              <CaptionsPanel
-                project={project}
-                layer={captionLayer}
-                brand={activeBrand}
-                wordCount={captionWordCount}
-                untranscribedCount={untranscribedCaptionClips}
-                onApply={(templateId, seed) =>
-                  tl.dispatch({ type: 'caption-apply', templateId, ...(seed ? { seed } : {}) })
-                }
-                onStyle={(patch) => tl.dispatch({ type: 'caption-style', patch })}
-                onSetEnabled={(enabled) => tl.dispatch({ type: 'caption-enabled', enabled })}
-                onRemove={() => tl.dispatch({ type: 'caption-remove' })}
               />
             ) : rightTab === 'inspector' ? (
               <InspectorPanel
@@ -1376,6 +1412,17 @@ export function EditorShell({ projectId, onBack }: Props) {
         onClose={() => setRestoreOpen(false)}
         onRestore={handleRestoreVersion}
       />
+      <ProjectSettingsDialog
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        project={project}
+        onUpdate={updateProject}
+        brands={brandList}
+        onSetBrand={handleSetBrand}
+        presets={presetList}
+        onSetPreset={handleSetPreset}
+        projectBrand={projectBrand}
+      />
       <ExportDialog
         isOpen={exportDialog !== null}
         onClose={() => setExportDialog(null)}
@@ -1390,28 +1437,5 @@ export function EditorShell({ projectId, onBack }: Props) {
         onExport={(choice) => handleExport(choice, exportDialog?.range)}
       />
     </div>
-  );
-}
-
-function RightTabButton({
-  label,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex-1 text-[11px] transition-colors ${
-        isActive
-          ? 'text-text-primary bg-app-surface'
-          : 'text-text-muted hover:text-text-secondary hover:bg-app-hover'
-      }`}
-    >
-      {label}
-    </button>
   );
 }

@@ -65,6 +65,7 @@ import {
   handleStudioPresetProposalsGet,
 } from '../preset-learn-handlers';
 import { shotJobEvents } from '../../services/studio/shot-job-events';
+import { handleStudioProjectBrandGet, handleStudioProjectBrandPromote } from '../studio-brand-handlers';
 
 export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_ROOT_GET, handleStudioRootGet);
@@ -77,6 +78,8 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROJECT_CLOSE, handleStudioProjectClose);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, handleStudioProjectSnapshotList);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, handleStudioProjectSnapshotRestore);
+  ipcMain.handle(IPC.STUDIO_PROJECT_BRAND_GET, handleStudioProjectBrandGet);
+  ipcMain.handle(IPC.STUDIO_PROJECT_BRAND_PROMOTE, handleStudioProjectBrandPromote);
   registerFlushAck();
   ipcMain.handle(IPC.STUDIO_MEDIA_IMPORT, handleStudioMediaImport);
   ipcMain.handle(IPC.STUDIO_MEDIA_PREPARE, handleStudioMediaPrepare);

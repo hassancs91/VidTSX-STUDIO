@@ -23,6 +23,7 @@ export function PresetsDialog({
   onDelete,
   onMutated,
   onClose,
+  startNew = false,
 }: {
   presets: StudioPresetEntry[];
   brands: Array<{ id: string; name: string }>;
@@ -30,8 +31,10 @@ export function PresetsDialog({
   onDelete: (presetId: string) => Promise<string | null>;
   onMutated: () => void;
   onClose: () => void;
+  /** Open on the new-preset form (Studio's "Create preset…"). */
+  startNew?: boolean;
 }) {
-  const [editing, setEditing] = useState<StudioPresetEntry | 'new' | null>(null);
+  const [editing, setEditing] = useState<StudioPresetEntry | 'new' | null>(startNew ? 'new' : null);
   const [error, setError] = useState<string | null>(null);
 
   const save = async (input: StudioPresetInput, presetId?: string) => {

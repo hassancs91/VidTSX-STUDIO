@@ -16,6 +16,7 @@ export function BrandsDialog({
   onSetDefault,
   onMutated,
   onClose,
+  startNew = false,
 }: {
   brands: StudioBrand[];
   defaultBrandId?: string;
@@ -24,8 +25,10 @@ export function BrandsDialog({
   onSetDefault: (brandId: string | null) => Promise<string | null>;
   onMutated: () => void;
   onClose: () => void;
+  /** Open on the new-brand form (Studio's "Create brand…"). */
+  startNew?: boolean;
 }) {
-  const [editing, setEditing] = useState<StudioBrand | 'new' | null>(null);
+  const [editing, setEditing] = useState<StudioBrand | 'new' | null>(startNew ? 'new' : null);
   const [error, setError] = useState<string | null>(null);
 
   const save = async (input: StudioBrandInput, brandId?: string) => {
