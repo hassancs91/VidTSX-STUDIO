@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { RenderCpuUsage, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
 import { DEFAULT_EXPORT_ENGINE_ID, type ExportEngineId } from '@shared/studio/export-engines';
+import { DEFAULT_RENDER_QUALITY, isRenderQualityLevel, isResolutionPresetId, type RenderQualityLevel, type ResolutionPresetId } from '@shared/render-presets';
 
 interface SettingsState {
   outputFolder: string;
@@ -11,6 +12,8 @@ interface SettingsState {
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
   renderDefaultExportEngine: ExportEngineId;
+  renderDefaultExportResolution: ResolutionPresetId;
+  renderDefaultExportQuality: RenderQualityLevel;
   crashReportingEnabled: boolean;
   crashReportingAvailable: boolean;
   loading: boolean;
@@ -27,6 +30,8 @@ export function useSettings() {
     renderDefaultGpuBackend: 'swangle',
     renderDefaultHardwareAcceleration: 'if-possible',
     renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID,
+    renderDefaultExportResolution: 'original',
+    renderDefaultExportQuality: DEFAULT_RENDER_QUALITY,
     crashReportingEnabled: false,
     crashReportingAvailable: false,
     loading: true,
@@ -46,6 +51,8 @@ export function useSettings() {
         renderDefaultGpuBackend: result.renderDefaultGpuBackend,
         renderDefaultHardwareAcceleration: result.renderDefaultHardwareAcceleration,
         renderDefaultExportEngine: result.renderDefaultExportEngine ?? DEFAULT_EXPORT_ENGINE_ID,
+        renderDefaultExportResolution: isResolutionPresetId(result.renderDefaultExportResolution) ? result.renderDefaultExportResolution : 'original',
+        renderDefaultExportQuality: isRenderQualityLevel(result.renderDefaultExportQuality) ? result.renderDefaultExportQuality : DEFAULT_RENDER_QUALITY,
         crashReportingEnabled: result.crashReportingEnabled,
         crashReportingAvailable: result.crashReportingAvailable,
         loading: false,
@@ -173,6 +180,21 @@ export function useSettings() {
     }
   }, []);
 
+  const setRenderDefaultExportOutput = useCallback(async (value: { resolution: ResolutionPresetId; quality: RenderQualityLevel }) => {
+    try {
+      const result = await window.api.settingsSetRenderDefaultExportOutput(value);
+      if (result.success) {
+        setState((prev) => ({ ...prev, renderDefaultExportResolution: value.resolution, renderDefaultExportQuality: value.quality }));
+        return true;
+      }
+      setState((prev) => ({ ...prev, error: result.error || 'Failed to save' }));
+      return false;
+    } catch (err) {
+      setState((prev) => ({ ...prev, error: err instanceof Error ? err.message : 'Failed to save settings' }));
+      return false;
+    }
+  }, []);
+
   const setRenderDefaultExportEngine = useCallback(async (exportEngine: ExportEngineId) => {
     try {
       const result = await window.api.settingsSetRenderDefaultExportEngine({ exportEngine });
@@ -272,6 +294,8 @@ export function useSettings() {
     renderDefaultGpuBackend: state.renderDefaultGpuBackend,
     renderDefaultHardwareAcceleration: state.renderDefaultHardwareAcceleration,
     renderDefaultExportEngine: state.renderDefaultExportEngine,
+    renderDefaultExportResolution: state.renderDefaultExportResolution,
+    renderDefaultExportQuality: state.renderDefaultExportQuality,
     crashReportingEnabled: state.crashReportingEnabled,
     crashReportingAvailable: state.crashReportingAvailable,
     loading: state.loading,
@@ -284,6 +308,7 @@ export function useSettings() {
     setRenderDefaultGpuBackend,
     setRenderDefaultHardwareAcceleration,
     setRenderDefaultExportEngine,
+    setRenderDefaultExportOutput,
     setCrashReportingEnabled,
     browseOutputFolder,
     browseAiModelsFolder,

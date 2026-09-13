@@ -10,6 +10,8 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     renderDefaultGpuBackend,
     renderDefaultHardwareAcceleration,
     renderDefaultExportEngine,
+    renderDefaultExportResolution,
+    renderDefaultExportQuality,
     crashReportingEnabled,
     crashReportingAvailable,
     browseOutputFolder,
@@ -18,6 +20,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     setRenderDefaultGpuBackend,
     setRenderDefaultHardwareAcceleration,
     setRenderDefaultExportEngine,
+    setRenderDefaultExportOutput,
     setCrashReportingEnabled,
     loading: settingsLoading,
   } = useSettings();
@@ -42,6 +45,9 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           setRenderDefaultHardwareAcceleration={setRenderDefaultHardwareAcceleration}
           renderDefaultExportEngine={renderDefaultExportEngine}
           setRenderDefaultExportEngine={setRenderDefaultExportEngine}
+          renderDefaultExportResolution={renderDefaultExportResolution}
+          renderDefaultExportQuality={renderDefaultExportQuality}
+          setRenderDefaultExportOutput={setRenderDefaultExportOutput}
           setCrashReportingEnabled={setCrashReportingEnabled}
         />
       </div>

@@ -140,6 +140,8 @@ export interface RenderQueueJob {
   hardwareAcceleration?: RenderHardwareAcceleration;
   exportEngine?: ExportEngineId;
   verifyAgainstEngine?: ExportEngineId;
+  /** Studio exports: 'proxy' = a draft read from the preview proxies (queue-row badge). */
+  exportSource?: import('../../studio/export-source').ExportSource;
   /** Free text the engine attached on completion (verification summary, D4 notice). */
   message?: string;
   reportPath?: string;

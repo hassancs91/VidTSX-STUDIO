@@ -15,6 +15,7 @@ import type { ExportEngineId } from '../../../../shared/studio/export-engines';
 import { audioOffsetRows, decodePcm, type AudioOffsetRow } from './audio-offset';
 import { diffRgb24, extractFrameRgb24, sampleFrames, writeSideBySide, type FrameDiffRow } from './frame-diff';
 import { finishExport } from './finishing';
+import { exportOutputSize } from './output-size';
 import { resolveExportEngine } from './registry';
 import type { ExportColorPolicy, ExportRenderSettings } from './types';
 import type { StudioExportEntry } from '../export-entry';
@@ -134,7 +135,9 @@ export async function verifyExport(options: VerifyExportOptions): Promise<{ repo
   // 2. Pixel diff at the sampled frames.
   const ffmpeg = await getFfmpegBinary('ffmpeg');
   const frames = sampleFrames(entry.durationInFrames, cutFramesOf(options.project, entry.fps));
-  const pixels = entry.width * entry.height;
+  // Both files are at the export's output size (a scaled export is diffed at that size).
+  const size = exportOutputSize(entry, options.render);
+  const pixels = size.width * size.height;
   const rows: FrameDiffRow[] = [];
   for (let i = 0; i < frames.length; i++) {
     const n = frames[i];
@@ -145,7 +148,7 @@ export async function verifyExport(options: VerifyExportOptions): Promise<{ repo
     ]);
     const diff = Buffer.alloc(pixels * 3);
     rows.push({ frame: n, ...diffRgb24(a, b, pixels, diff) });
-    await writeSideBySide(ffmpeg, { a, b, diff, width: entry.width, height: entry.height }, path.join(stillsDir, `f${n}.png`), signal);
+    await writeSideBySide(ffmpeg, { a, b, diff, width: size.width, height: size.height }, path.join(stillsDir, `f${n}.png`), signal);
   }
 
   // 3. Audio: the two files against each other, and the candidate against the camera file.

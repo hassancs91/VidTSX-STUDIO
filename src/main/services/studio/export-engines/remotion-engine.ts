@@ -57,6 +57,9 @@ function renderWithRemotion(input: ExportEngineInput, outputPath: string): Promi
         fps: entry.fps,
         durationInFrames: entry.durationInFrames,
         crf: render.crf,
+        // The composition keeps its size; only the output is scaled (the
+        // renderer snaps to even dims — `resolveRenderScale`).
+        scale: render.scale,
         muted: false,
         audioCodec: 'pcm-16',
         cpuUsage: render.cpuUsage,

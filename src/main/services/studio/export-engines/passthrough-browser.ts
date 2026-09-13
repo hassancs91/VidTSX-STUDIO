@@ -47,6 +47,9 @@ export function renderBrowserSpan(input: ExportEngineInput, span: BrowserSpanRen
         fps: entry.fps,
         durationInFrames: entry.durationInFrames,
         frameRange: [span.from - span.leadIn, span.from + span.frames - 1],
+        // Same output size as the copied spans (`exportOutputSize`): the
+        // renderer resolves this scale through the same shared rule.
+        scale: render.scale,
         crf: INTERMEDIATE_CRF,
         muted: true,
         cpuUsage: render.cpuUsage,

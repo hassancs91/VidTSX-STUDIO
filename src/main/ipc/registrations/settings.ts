@@ -10,6 +10,7 @@ import {
   handleSettingsSetRenderDefaultGpuBackend,
   handleSettingsSetRenderDefaultHardwareAcceleration,
   handleSettingsSetRenderDefaultExportEngine,
+  handleSettingsSetRenderDefaultExportOutput,
   handleSettingsSetCrashReporting,
   handleDialogOpenFolder,
   handlePromptPresetsGet,
@@ -27,6 +28,7 @@ export function registerSettingsIpc(): void {
   ipcMain.handle(IPC.SETTINGS_SET_RENDER_DEFAULT_GPU_BACKEND, handleSettingsSetRenderDefaultGpuBackend);
   ipcMain.handle(IPC.SETTINGS_SET_RENDER_DEFAULT_HARDWARE_ACCELERATION, handleSettingsSetRenderDefaultHardwareAcceleration);
   ipcMain.handle(IPC.SETTINGS_SET_RENDER_DEFAULT_EXPORT_ENGINE, handleSettingsSetRenderDefaultExportEngine);
+  ipcMain.handle(IPC.SETTINGS_SET_RENDER_DEFAULT_EXPORT_OUTPUT, handleSettingsSetRenderDefaultExportOutput);
   ipcMain.handle(IPC.SETTINGS_SET_CRASH_REPORTING, handleSettingsSetCrashReporting);
   ipcMain.handle(IPC.DIALOG_OPEN_FOLDER, handleDialogOpenFolder);
   ipcMain.handle(IPC.PROMPT_PRESETS_GET, handlePromptPresetsGet);

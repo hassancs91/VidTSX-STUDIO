@@ -1,17 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal } from '@shared/components/Modal';
 import { Button } from '@shared/components/Button';
-import type { StudioExportEngineStatus } from '@shared/ipc/types';
+import type { RenderQueueJob, StudioExportEngineStatus } from '@shared/ipc/types';
 import type { StudioProject } from '@shared/types/studio';
 import { DEFAULT_EXPORT_ENGINE_ID, EXPORT_ENGINES, type ExportEngineId } from '@shared/studio/export-engines';
-import { copiedPercent, planExportSpans } from '@shared/studio/export-spans';
+import { compositedPercent, copiedPercent, planExportSpans } from '@shared/studio/export-spans';
+import { defaultExportSource, isExportSource, proxySourceAvailability, type ExportSource } from '@shared/studio/export-source';
 import { rangeDurationInFrames, trimTimelineToRange } from '@shared/studio/trim-range';
+import {
+  DEFAULT_RENDER_QUALITY,
+  EXPORT_RESOLUTION_PRESETS,
+  isRenderQualityLevel,
+  isResolutionPresetId,
+  pickResolutionOption,
+  renderCrf,
+  resolutionOptions,
+  type RenderQualityLevel,
+  type ResolutionPresetId,
+} from '@shared/render-presets';
+import { estimateExport, formatEstimate, heavyFootageOf, measuredExportRate } from '../services/export-estimate';
+import { ExportOutputSection } from './ExportOutputSection';
 
 /** localStorage key that reveals the dev verification controls (D5). */
 export const EXPORT_VERIFY_FLAG = 'vidtsx:export-verify';
 
 export interface ExportChoice {
   engineId: ExportEngineId;
+  /**
+   * Output options (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md). Absent (the
+   * agent's export action) = the project size at the default quality from
+   * the originals — what an export produced before the options existed.
+   */
+  resolution?: ResolutionPresetId;
+  quality?: RenderQualityLevel;
+  /** The exact scale the option carries (1 at the project size). */
+  scale?: number;
+  crf?: number;
+  /** 'proxy' = a draft read from the 540p preview proxies (Phase 2). */
+  source?: ExportSource;
   verifyAgainstEngine?: ExportEngineId;
 }
 
@@ -23,6 +49,8 @@ interface Props {
   /** The document as it will be exported (live timeline), for "copies N %" (D4). */
   project: StudioProject | null;
   range?: { rangeIn: number; rangeOut: number };
+  /** The render queue's jobs (in memory) — the measured estimate reads this project's last export. */
+  jobs?: readonly RenderQueueJob[];
   /** Resolves when the job is queued (or failed with a toast); the dialog closes on true. */
   onExport: (choice: ExportChoice) => Promise<boolean>;
 }
@@ -30,13 +58,21 @@ interface Props {
 /**
  * Studio Export dialog (docs/export-engines-plan.md D2/D3): an engine picker
  * that starts on the Settings › Rendering default and shows each engine's
- * trade-off, never its name. With one engine registered the picker still
- * exists. The verification controls (D5) only appear in dev builds when the
- * `vidtsx:export-verify` localStorage flag is set.
+ * trade-off, never its name, then the Output section (resolution + quality
+ * + the proxy-source draft toggle, remembered per project in
+ * `settings.export`, else the Settings › Rendering defaults). With one
+ * engine registered the picker still exists. The verification controls (D5)
+ * only appear in dev builds when the `vidtsx:export-verify` localStorage
+ * flag is set.
  */
-export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onExport }: Props) {
+export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, jobs, onExport }: Props) {
   const [engines, setEngines] = useState<StudioExportEngineStatus[]>([]);
   const [selected, setSelected] = useState<ExportEngineId>(DEFAULT_EXPORT_ENGINE_ID);
+  const [resolution, setResolution] = useState<ResolutionPresetId>('original');
+  const [quality, setQuality] = useState<RenderQualityLevel>(DEFAULT_RENDER_QUALITY);
+  const [source, setSource] = useState<ExportSource>('original');
+  // Once the user touches the toggle, a resolution change no longer re-derives its default.
+  const [sourceTouched, setSourceTouched] = useState(false);
   const [verifyAvailable, setVerifyAvailable] = useState(false);
   const [verify, setVerify] = useState(false);
   const [verifyAgainst, setVerifyAgainst] = useState<ExportEngineId>(DEFAULT_EXPORT_ENGINE_ID);
@@ -44,14 +80,35 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onEx
   const [busy, setBusy] = useState(false);
 
   // What the copying engine would copy of THIS timeline (D4), decided from
-  // the document alone by the shared planner — the same one the engine runs.
-  const copied = useMemo(() => {
+  // the document alone by the shared planner — the same one the engine runs;
+  // the heavy-footage notice and the source rule read the same document.
+  const analysis = useMemo(() => {
     if (!isOpen || !project) return null;
     const fps = project.settings.fps;
     const doc = range ? { ...project, timeline: trimTimelineToRange(project.timeline, range.rangeIn, range.rangeOut, fps) } : project;
     const frames = range ? rangeDurationInFrames(range.rangeIn, range.rangeOut, fps) : undefined;
-    return copiedPercent(planExportSpans(doc, frames));
+    const plan = planExportSpans(doc, frames);
+    // Engine 3 plans graphics over copied footage as composite spans; its row
+    // states both shares (the same planner, asked for them).
+    const compositePlan = planExportSpans(doc, frames, { compositeShots: true });
+    const heavy = heavyFootageOf(doc);
+    return {
+      plan,
+      fps,
+      copied: copiedPercent(plan),
+      composite: { copied: copiedPercent(compositePlan), composited: compositedPercent(compositePlan) },
+      heavy,
+      staticEstimate: heavy.length > 0 ? estimateExport(plan, fps) : null,
+      proxies: proxySourceAvailability(doc),
+    };
   }, [isOpen, project, range]);
+
+  const sizeOptions = useMemo(
+    () => (project ? resolutionOptions(project.settings.width, project.settings.height, EXPORT_RESOLUTION_PRESETS, 'Full') : []),
+    [project],
+  );
+  const size = pickResolutionOption(sizeOptions, resolution);
+  const sourceAvailable = analysis?.proxies.available ?? false;
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -59,6 +116,33 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onEx
     setLoading(true);
     setBusy(false);
     setVerify(false);
+    setSourceTouched(false);
+    // The last choice made for this project wins; else the Settings › Rendering
+    // defaults; else the project size at the default quality.
+    const remembered = project?.settings.export;
+    const proxies = project ? proxySourceAvailability(range ? { ...project, timeline: trimTimelineToRange(project.timeline, range.rangeIn, range.rangeOut, project.settings.fps) } : project) : null;
+    const options = project ? resolutionOptions(project.settings.width, project.settings.height, EXPORT_RESOLUTION_PRESETS, 'Full') : [];
+    const apply = (res: ResolutionPresetId, qua: RenderQualityLevel) => {
+      setResolution(res);
+      setQuality(qua);
+      const picked = pickResolutionOption(options, res);
+      const rememberedSource = isExportSource(remembered?.source) ? remembered.source : null;
+      setSource(rememberedSource && (rememberedSource === 'original' || proxies?.available)
+        ? rememberedSource
+        : defaultExportSource(picked.width, picked.height, proxies?.available ?? false));
+    };
+    if (remembered && isResolutionPresetId(remembered.resolution) && isRenderQualityLevel(remembered.quality)) {
+      apply(remembered.resolution, remembered.quality);
+    } else {
+      apply('original', DEFAULT_RENDER_QUALITY);
+      void window.api.settingsGet().then((s) => {
+        if (disposed) return;
+        apply(
+          isResolutionPresetId(s.renderDefaultExportResolution) ? s.renderDefaultExportResolution : 'original',
+          isRenderQualityLevel(s.renderDefaultExportQuality) ? s.renderDefaultExportQuality : DEFAULT_RENDER_QUALITY,
+        );
+      }).catch(() => undefined);
+    }
     void window.api.studioExportEnginesList().then((res) => {
       if (disposed) return;
       setLoading(false);
@@ -71,12 +155,47 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onEx
     return () => {
       disposed = true;
     };
+    // The remembered choice is read once per opening, not on every autosave.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const handleResolution = (value: ResolutionPresetId) => {
+    setResolution(value);
+    if (!sourceTouched) {
+      const picked = pickResolutionOption(sizeOptions, value);
+      setSource(defaultExportSource(picked.width, picked.height, sourceAvailable));
+    }
+  };
+  const handleSource = (value: ExportSource) => {
+    setSourceTouched(true);
+    setSource(value);
+  };
+
+  // The estimate: measured from this project's last export at the same engine
+  // + source when the queue has one, else the static table for heavy footage.
+  const estimateText = useMemo(() => {
+    if (!analysis || !project) return null;
+    const effectiveSource: ExportSource = sourceAvailable ? source : 'original';
+    const measured = measuredExportRate(jobs ?? [], `studio-${project.id}`, selected, effectiveSource);
+    if (measured) {
+      const seconds = measured.secondsPerFrame * analysis.plan.totalFrames;
+      const fps = 1 / measured.secondsPerFrame;
+      return `Last export of this project at these settings ran at ${fps >= 10 ? Math.round(fps) : fps.toFixed(1)} frames per second — ${formatEstimate(seconds)} for this one.`;
+    }
+    if (effectiveSource === 'proxy') return 'No draft of this project has been measured yet — the first one records its rate for the next estimate.';
+    if (!analysis.staticEstimate) return null;
+    return `Standard: ${formatEstimate(analysis.staticEstimate.standardSeconds)} · Fast: ${formatEstimate(analysis.staticEstimate.fastSeconds)}.`;
+  }, [analysis, project, jobs, selected, source, sourceAvailable]);
 
   const handleExport = async () => {
     setBusy(true);
     const ok = await onExport({
       engineId: selected,
+      resolution: size.value,
+      quality,
+      scale: size.scale,
+      crf: renderCrf(quality, 'h264'),
+      source: sourceAvailable ? source : 'original',
       verifyAgainstEngine: verifyAvailable && verify ? verifyAgainst : undefined,
     });
     setBusy(false);
@@ -95,6 +214,7 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onEx
           const def = EXPORT_ENGINES.find((e) => e.id === status.id);
           if (!def) return null;
           const active = selected === status.id;
+          const copied = analysis?.copied ?? null;
           return (
             <label
               key={status.id}
@@ -115,11 +235,18 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onEx
               <div className="flex-1 min-w-0">
                 <div className="text-[11px] text-text-primary">{def.label}</div>
                 <div className="text-[10px] text-text-dim">{def.description}</div>
-                {def.reportsCopiedShare && copied !== null && (
+                {def.reportsCopiedShare && !def.compositesShots && copied !== null && (
                   <div className="text-[10px] text-text-muted mt-0.5" data-export-copied={copied}>
                     {copied > 0
                       ? `Copies ${copied} % of this timeline.`
                       : 'Copies nothing on this timeline — every frame renders, as with Standard.'}
+                  </div>
+                )}
+                {def.compositesShots && analysis && (
+                  <div className="text-[10px] text-text-muted mt-0.5" data-export-copied={analysis.composite.copied} data-export-composited={analysis.composite.composited}>
+                    {analysis.composite.copied + analysis.composite.composited > 0
+                      ? `Copies ${analysis.composite.copied} % of this timeline and composites shots over another ${analysis.composite.composited} %.`
+                      : 'Copies and composites nothing on this timeline — every frame renders, as with Standard.'}
                   </div>
                 )}
                 {!status.available && status.unavailableReason && (
@@ -129,6 +256,23 @@ export function ExportDialog({ isOpen, onClose, rangeLabel, project, range, onEx
             </label>
           );
         })}
+
+        {project && (
+          <ExportOutputSection
+            options={sizeOptions}
+            resolution={resolution}
+            quality={quality}
+            onResolution={handleResolution}
+            onQuality={setQuality}
+            source={sourceAvailable ? source : 'original'}
+            sourceAvailable={sourceAvailable}
+            sourceMissing={analysis?.proxies.missing ?? []}
+            onSource={handleSource}
+            disabled={busy}
+            heavy={analysis?.heavy ?? []}
+            estimateText={estimateText}
+          />
+        )}
 
         {verifyAvailable && (
           <div className="flex flex-col gap-1 p-2 rounded-[6px] bg-app-base" style={{ border: '0.5px dashed var(--color-border)' }} data-export-verify>

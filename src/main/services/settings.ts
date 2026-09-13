@@ -7,6 +7,7 @@ import type { ProviderCredentials, ProviderKeyId } from '../../shared/ipc/types/
 import type { SttProviderConfig } from '../../shared/ipc/types/stt';
 import type { ModelUsageMap } from '../../shared/model-library/types';
 import { normalizeExportEngineId, type ExportEngineId } from '../../shared/studio/export-engines';
+import { DEFAULT_RENDER_QUALITY, isRenderQualityLevel, isResolutionPresetId, type RenderQualityLevel, type ResolutionPresetId } from '../../shared/render-presets';
 import { getAllValues, getValue, setValue, setValues } from './settings-db';
 
 export type RenderCpuUsage = 'low' | 'medium' | 'high' | 'max';
@@ -36,6 +37,9 @@ export interface AppSettings {
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
   renderDefaultExportEngine: ExportEngineId;
+  /** Studio Export dialog defaults (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md Phase 2). */
+  renderDefaultExportResolution: ResolutionPresetId;
+  renderDefaultExportQuality: RenderQualityLevel;
   llmProviders?: ProviderConfig[];
   llmActiveProvider?: string;
   imageProviders?: ImageProviderConfig[];
@@ -144,6 +148,8 @@ export async function loadSettings(): Promise<AppSettings> {
     renderDefaultGpuBackend: normalizeGpuBackend(raw.renderDefaultGpuBackend),
     renderDefaultHardwareAcceleration: normalizeHardwareAcceleration(raw.renderDefaultHardwareAcceleration),
     renderDefaultExportEngine: normalizeExportEngineId(raw.renderDefaultExportEngine),
+    renderDefaultExportResolution: isResolutionPresetId(raw.renderDefaultExportResolution) ? raw.renderDefaultExportResolution : 'original',
+    renderDefaultExportQuality: isRenderQualityLevel(raw.renderDefaultExportQuality) ? raw.renderDefaultExportQuality : DEFAULT_RENDER_QUALITY,
     llmProviders: raw.llmProviders as ProviderConfig[] | undefined,
     llmActiveProvider: raw.llmActiveProvider as string | undefined,
     imageProviders: raw.imageProviders as ImageProviderConfig[] | undefined,
@@ -231,6 +237,21 @@ export async function getRenderDefaultExportEngine(): Promise<ExportEngineId> {
 
 export async function setRenderDefaultExportEngine(value: ExportEngineId): Promise<void> {
   setValue('renderDefaultExportEngine', normalizeExportEngineId(value));
+}
+
+/** Studio Export dialog defaults (Phase 2); a project's own last choice wins over them. */
+export async function getRenderDefaultExportOutput(): Promise<{ resolution: ResolutionPresetId; quality: RenderQualityLevel }> {
+  const resolution = getValue<string>('renderDefaultExportResolution');
+  const quality = getValue<string>('renderDefaultExportQuality');
+  return {
+    resolution: isResolutionPresetId(resolution) ? resolution : 'original',
+    quality: isRenderQualityLevel(quality) ? quality : DEFAULT_RENDER_QUALITY,
+  };
+}
+
+export async function setRenderDefaultExportOutput(value: { resolution: ResolutionPresetId; quality: RenderQualityLevel }): Promise<void> {
+  setValue('renderDefaultExportResolution', isResolutionPresetId(value.resolution) ? value.resolution : 'original');
+  setValue('renderDefaultExportQuality', isRenderQualityLevel(value.quality) ? value.quality : DEFAULT_RENDER_QUALITY);
 }
 
 // Opt-in crash reporting (Settings > Privacy). Off unless the user explicitly

@@ -27,8 +27,9 @@ import { rewriteFontUrls } from '../font-proxy';
 import { resolveProjectBrand } from './project-brand';
 import { readTranscriptFile } from './asset-transcriber';
 import { resolveCaptionTemplate } from './caption-packs';
-import { getShotVersionPath } from './studio-paths';
+import { getProjectCacheDir, getShotVersionPath } from './studio-paths';
 import { writeExportContext } from './export-engines/export-context';
+import type { ExportSource } from '../../../shared/studio/export-source';
 
 const log = logEngine.createLogger('StudioExport');
 
@@ -46,6 +47,14 @@ export interface StudioExportEntry {
   height: number;
   fps: number;
   durationInFrames: number;
+  /** Which file each video asset is read from (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md Phase 2). Absent = originals. */
+  source?: ExportSource;
+  /**
+   * Per asset id, the VIDEO file the entry's URLs point at when it is not the
+   * original (a ready proxy under `cache/proxies/`). The passthrough engine
+   * copies from the same file; the audio pass reads the originals regardless.
+   */
+  sourcePaths?: Record<string, string>;
 }
 
 /**
@@ -180,6 +189,8 @@ export async function createExportEntry(
   /** Range exports render exactly this many frames (the window can run past
    *  the last clip — trailing black/silence, like every NLE's in/out export). */
   durationInFramesOverride?: number,
+  /** 'proxy' = a draft: every video asset with a ready proxy is read from it (else its original). */
+  videoSource: ExportSource = 'original',
 ): Promise<StudioExportEntry> {
   const { width, height, fps } = project.settings;
   const durationInFrames =
@@ -187,13 +198,24 @@ export async function createExportEntry(
 
   const byId = new Map(project.assets.map((a) => [a.id, a]));
   const captionContext = await loadCaptionContext(project);
-  // Export renders the ORIGINAL media — proxies exist only for the preview.
+  // A full export renders the ORIGINAL media; a draft (Phase 2) reads the
+  // 540p preview proxies — per asset, the proxy when it is ready, else the
+  // original. The composition keeps the project size either way.
+  const sourcePaths: Record<string, string> = {};
+  if (videoSource === 'proxy') {
+    const cacheDir = await getProjectCacheDir(project.id);
+    for (const asset of project.assets) {
+      if (asset.kind === 'video' && asset.proxy?.status === 'ready') {
+        sourcePaths[asset.id] = path.join(cacheDir, ...asset.proxy.path.split('/'));
+      }
+    }
+  }
   const serialized = serializeTimeline(
     project,
     (assetId) => {
       const asset = byId.get(assetId);
       if (!asset) return null;
-      return `${assetUrlBase}/asset?path=${encodeURIComponent(asset.path)}`;
+      return `${assetUrlBase}/asset?path=${encodeURIComponent(sourcePaths[assetId] ?? asset.path)}`;
     },
     captionContext,
   );
@@ -261,8 +283,11 @@ export const compositionConfig = {
 
 const TIMELINE = ${JSON.stringify(serialized)};
 ${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}
-export default function StudioTimelineExport() {
-  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''} />;
+// \`layer\` arrives as a render input prop: the shot-composite export engine
+// renders the shot layer alone with alpha (docs/export-engines-plan.md
+// "Engine 3"); every other render passes nothing and gets the whole timeline.
+export default function StudioTimelineExport(props: { layer?: 'shots' }) {
+  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''} layer={props.layer} />;
 }
 `;
 
@@ -271,7 +296,10 @@ export default function StudioTimelineExport() {
   await fs.writeFile(entryPath, source, 'utf-8');
   log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length });
 
-  const entry: StudioExportEntry = { entryPath, compositionId, width, height, fps, durationInFrames };
+  const entry: StudioExportEntry = {
+    entryPath, compositionId, width, height, fps, durationInFrames,
+    ...(videoSource === 'proxy' ? { source: videoSource, sourcePaths } : {}),
+  };
   // The export engines read the document back when the render starts
   // (docs/export-engines-plan.md) — a sidecar beside the entry, same sweep.
   await writeExportContext({ project, entry });

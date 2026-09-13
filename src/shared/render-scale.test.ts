@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { snapRenderScale } from './render-scale';
+import { resolveRenderScale, snapRenderScale } from './render-scale';
 
 // The stitcher validates `width * scale % 1 === 0` in plain float arithmetic,
 // so every accepted result must reproduce exact integers with the exact same
@@ -97,5 +97,25 @@ describe('snapRenderScale', () => {
         expectExactEvenDims(w, h, result!);
       }
     }
+  });
+});
+
+describe('resolveRenderScale (the one output-size rule both Studio export engines share)', () => {
+  it('is the identity at scale 1 or none — the byte-identity path', () => {
+    expect(resolveRenderScale(1920, 1080, undefined)).toEqual({ scale: 1, width: 1920, height: 1080, materialized: false });
+    expect(resolveRenderScale(1920, 1080, 1)).toEqual({ scale: 1, width: 1920, height: 1080, materialized: false });
+  });
+
+  it('snaps a fractional preset the way snapRenderScale does', () => {
+    expect(resolveRenderScale(1920, 1080, 720 / 1080)).toEqual({ scale: 720 / 1080, width: 1280, height: 720, materialized: false });
+    expect(resolveRenderScale(1920, 1080, 480 / 1080)).toMatchObject({ width: 864, height: 486, materialized: false });
+  });
+
+  it('materializes rounded-even dims at scale 1 when no nearby scale yields even integers', () => {
+    const r = resolveRenderScale(1921, 1080, 0.5);
+    expect(r.materialized).toBe(true);
+    expect(r.scale).toBe(1);
+    expect(r.width % 2).toBe(0);
+    expect(r.height % 2).toBe(0);
   });
 });

@@ -7,6 +7,8 @@ import { CpuUsageDefaultRow } from './rows/CpuUsageDefaultRow';
 import { GpuBackendDefaultRow } from './rows/GpuBackendDefaultRow';
 import { HardwareAccelerationDefaultRow } from './rows/HardwareAccelerationDefaultRow';
 import { ExportEngineDefaultRow } from './rows/ExportEngineDefaultRow';
+import { ExportOutputDefaultRow } from './rows/ExportOutputDefaultRow';
+import type { RenderQualityLevel, ResolutionPresetId } from '@shared/render-presets';
 import { CrashReportingRow } from './rows/CrashReportingRow';
 import { ProxyGpuEncoderRow } from './rows/ProxyGpuEncoderRow';
 import { NewsRow } from './rows/NewsRow';
@@ -19,6 +21,8 @@ export function GeneralSettingsContent({
   renderDefaultGpuBackend,
   renderDefaultHardwareAcceleration,
   renderDefaultExportEngine,
+  renderDefaultExportResolution,
+  renderDefaultExportQuality,
   crashReportingEnabled,
   crashReportingAvailable,
   settingsLoading,
@@ -28,6 +32,7 @@ export function GeneralSettingsContent({
   setRenderDefaultGpuBackend,
   setRenderDefaultHardwareAcceleration,
   setRenderDefaultExportEngine,
+  setRenderDefaultExportOutput,
   setCrashReportingEnabled,
 }: {
   outputFolder: string;
@@ -36,6 +41,8 @@ export function GeneralSettingsContent({
   renderDefaultGpuBackend: RenderGpuBackend;
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
   renderDefaultExportEngine: ExportEngineId;
+  renderDefaultExportResolution: ResolutionPresetId;
+  renderDefaultExportQuality: RenderQualityLevel;
   crashReportingEnabled: boolean;
   crashReportingAvailable: boolean;
   settingsLoading: boolean;
@@ -45,6 +52,7 @@ export function GeneralSettingsContent({
   setRenderDefaultGpuBackend: (value: RenderGpuBackend) => Promise<boolean>;
   setRenderDefaultHardwareAcceleration: (value: RenderHardwareAcceleration) => Promise<boolean>;
   setRenderDefaultExportEngine: (value: ExportEngineId) => Promise<boolean>;
+  setRenderDefaultExportOutput: (value: { resolution: ResolutionPresetId; quality: RenderQualityLevel }) => Promise<boolean>;
   setCrashReportingEnabled: (enabled: boolean) => Promise<boolean>;
 }) {
   const truncatePath = (p: string, maxLen = 40) => {
@@ -100,6 +108,12 @@ export function GeneralSettingsContent({
         <ExportEngineDefaultRow
           renderDefaultExportEngine={renderDefaultExportEngine}
           setRenderDefaultExportEngine={setRenderDefaultExportEngine}
+          settingsLoading={settingsLoading}
+        />
+        <ExportOutputDefaultRow
+          renderDefaultExportResolution={renderDefaultExportResolution}
+          renderDefaultExportQuality={renderDefaultExportQuality}
+          setRenderDefaultExportOutput={setRenderDefaultExportOutput}
           settingsLoading={settingsLoading}
         />
         <RenderTimeoutRow

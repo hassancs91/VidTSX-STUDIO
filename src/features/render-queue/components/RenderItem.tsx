@@ -131,6 +131,14 @@ export function RenderItem({ job, onCancel, onRetry, onOpenFile, onOpenFolder }:
             <span>{formatLabel}</span>
             <span className="text-text-ghost">/</span>
             <span>{resolutionLabel}</span>
+            {job.exportSource === 'proxy' && (
+              <>
+                <span className="text-text-ghost">/</span>
+                <span title="Read from the preview proxies, not the originals" data-export-draft>
+                  draft
+                </span>
+              </>
+            )}
             {job.status === 'done' && job.fileSize && (
               <>
                 <span className="text-text-ghost">/</span>

@@ -1,5 +1,7 @@
 import { dialog, IpcMainInvokeEvent } from 'electron';
-import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getRenderDefaultExportEngine, setRenderDefaultExportEngine, getCrashReportingEnabled, setCrashReportingEnabled, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getRenderDefaultExportEngine, setRenderDefaultExportEngine, getRenderDefaultExportOutput, setRenderDefaultExportOutput, getCrashReportingEnabled, setCrashReportingEnabled, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { DEFAULT_RENDER_QUALITY, isRenderQualityLevel, isResolutionPresetId } from '../../shared/render-presets';
+import type { SettingsSetRenderDefaultExportOutputRequest, SettingsSetRenderDefaultExportOutputResponse } from '../../shared/ipc/types';
 import { DEFAULT_EXPORT_ENGINE_ID, isExportEngineId } from '../../shared/studio/export-engines';
 import { isCrashReportingAvailable, setCrashReportingConsent } from '../services/crash-reporting';
 import { setAiModelsFolderPath } from '../services/audio-models';
@@ -37,11 +39,28 @@ export async function handleSettingsGet(): Promise<SettingsGetResponse> {
     const renderDefaultGpuBackend = await getRenderDefaultGpuBackend();
     const renderDefaultHardwareAcceleration = await getRenderDefaultHardwareAcceleration();
     const renderDefaultExportEngine = await getRenderDefaultExportEngine();
+    const exportOutput = await getRenderDefaultExportOutput();
     const crashReportingEnabled = await getCrashReportingEnabled();
-    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, renderDefaultExportEngine, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable() };
+    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, renderDefaultExportEngine, renderDefaultExportResolution: exportOutput.resolution, renderDefaultExportQuality: exportOutput.quality, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable() };
   } catch (err) {
     // Return defaults on error, let UI handle default
-    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, crashReportingEnabled: false, crashReportingAvailable: false };
+    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, renderDefaultExportResolution: 'original', renderDefaultExportQuality: DEFAULT_RENDER_QUALITY, crashReportingEnabled: false, crashReportingAvailable: false };
+  }
+}
+
+/** Studio Export dialog defaults — resolution preset + quality level (Phase 2). */
+export async function handleSettingsSetRenderDefaultExportOutput(
+  _event: IpcMainInvokeEvent,
+  data: SettingsSetRenderDefaultExportOutputRequest
+): Promise<SettingsSetRenderDefaultExportOutputResponse> {
+  try {
+    if (!isResolutionPresetId(data.resolution) || !isRenderQualityLevel(data.quality)) {
+      return { success: false, error: `Unknown export output: ${String(data.resolution)} / ${String(data.quality)}` };
+    }
+    await setRenderDefaultExportOutput({ resolution: data.resolution, quality: data.quality });
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to save settings' };
   }
 }
 
@@ -250,6 +269,7 @@ export const settingsHandlers = {
   handleSettingsSetRenderDefaultGpuBackend,
   handleSettingsSetRenderDefaultHardwareAcceleration,
   handleSettingsSetRenderDefaultExportEngine,
+  handleSettingsSetRenderDefaultExportOutput,
   handleSettingsSetCrashReporting,
   handleDialogOpenFolder,
   handlePromptPresetsGet,

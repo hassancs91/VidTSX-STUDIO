@@ -214,6 +214,7 @@ export interface ElectronAPI {
   settingsSetRenderDefaultGpuBackend: (data: SettingsSetRenderDefaultGpuBackendRequest) => Promise<SettingsSetRenderDefaultGpuBackendResponse>;
   settingsSetRenderDefaultHardwareAcceleration: (data: SettingsSetRenderDefaultHardwareAccelerationRequest) => Promise<SettingsSetRenderDefaultHardwareAccelerationResponse>;
   settingsSetRenderDefaultExportEngine: (data: import('../../shared/ipc/types').SettingsSetRenderDefaultExportEngineRequest) => Promise<import('../../shared/ipc/types').SettingsSetRenderDefaultExportEngineResponse>;
+  settingsSetRenderDefaultExportOutput: (data: import('../../shared/ipc/types').SettingsSetRenderDefaultExportOutputRequest) => Promise<import('../../shared/ipc/types').SettingsSetRenderDefaultExportOutputResponse>;
   settingsSetCrashReporting: (data: SettingsSetCrashReportingRequest) => Promise<SettingsSetCrashReportingResponse>;
   dialogOpenFolder: () => Promise<DialogOpenFolderResponse>;
 

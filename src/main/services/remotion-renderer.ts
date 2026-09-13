@@ -2,7 +2,7 @@ import { renderMedia, makeCancelSignal, selectComposition } from '@remotion/rend
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import { getRemotionBinariesDir } from '../utils/paths';
-import { snapRenderScale } from '../../shared/render-scale';
+import { resolveRenderScale } from '../../shared/render-scale';
 import { renderAnimatedWebp } from './webp/webp-render';
 import { withBt709FilterTags } from './remotion-color-args';
 import { describeRenderError, offthreadRenderOptions, shouldRetryAfterStarvation } from './remotion-offthread-retry';
@@ -215,24 +215,23 @@ export async function renderComposition(
     // composition dims) fall back to materializing dims — a distorted render
     // for pixel-sized content beats a crashed one. scale=1 stays untouched
     // so those renders are a perfect 1:1.
+    // One shared rule (`resolveRenderScale`) so the Studio export engines'
+    // ffmpeg pieces land on exactly the size the browser renders.
+    // The composition keeps its own width/height and the snapped scale does
+    // the resizing (Chromium's deviceScaleFactor); only the materialized
+    // fallback overrides the composition dims, at scale 1. Handing the
+    // output dims to the composition AND a scale doubled the downscale
+    // (852×480 for a 720p request — caught by the Phase 1 gate, 2026-09-12).
     const requestedScale = options.scale ?? 1;
-    let renderWidth = width;
-    let renderHeight = height;
-    let effectiveScale = requestedScale;
-    if (requestedScale !== 1) {
-      const snapped = snapRenderScale(width, height, requestedScale);
-      if (snapped) {
-        effectiveScale = snapped.scale;
-      } else {
-        const roundEven = (n: number) => Math.max(2, Math.round(n / 2) * 2);
-        renderWidth = roundEven(width * requestedScale);
-        renderHeight = roundEven(height * requestedScale);
-        effectiveScale = 1;
-        console.warn(
-          `[RemotionRenderer] No even-integer scale near ${requestedScale} for ${width}x${height} — ` +
-          `rendering at materialized ${renderWidth}x${renderHeight}; pixel-sized content will not scale`
-        );
-      }
+    const resolved = resolveRenderScale(width, height, requestedScale);
+    const renderWidth = resolved.materialized ? resolved.width : width;
+    const renderHeight = resolved.materialized ? resolved.height : height;
+    const effectiveScale = resolved.scale;
+    if (resolved.materialized) {
+      console.warn(
+        `[RemotionRenderer] No even-integer scale near ${requestedScale} for ${width}x${height} — ` +
+        `rendering at materialized ${renderWidth}x${renderHeight}; pixel-sized content will not scale`
+      );
     }
 
     // Animated WebP has no Remotion codec — render a PNG sequence and
@@ -289,6 +288,14 @@ export async function renderComposition(
         fps,
         durationInFrames: totalFrames,
         defaultProps: {},
+        // What the component RECEIVES: renderMedia serialises `composition.props`
+        // as the resolved props and `inputProps` only feeds getInputProps() /
+        // calculateMetadata — a hand-built composition without `props` rendered
+        // every component with `{}` (found 2026-09-12: the shot-composite
+        // engine's `layer: 'shots'` never arrived and its layer renders were
+        // full renders of the footage). Same value as before for every caller
+        // that passes no inputProps.
+        props: options.inputProps ?? {},
         defaultCodec: null,
       },
       inputProps: options.inputProps ?? {},

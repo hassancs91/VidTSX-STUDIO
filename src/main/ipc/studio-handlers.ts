@@ -487,7 +487,7 @@ export async function handleStudioExportPrepare(
       project = { ...project, timeline: trimmed };
     }
     const assetBaseUrl = await ensureAssetServerUrl();
-    const entry = await createExportEntry(project, assetBaseUrl, durationOverride);
+    const entry = await createExportEntry(project, assetBaseUrl, durationOverride, data.source === 'proxy' ? 'proxy' : 'original');
     return { success: true, ...entry };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to prepare export') };

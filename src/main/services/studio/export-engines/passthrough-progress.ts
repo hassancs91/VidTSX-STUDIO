@@ -20,11 +20,13 @@ export interface ProgressRates {
   copyFps: number;
   /** Browser frames per second of wall time, the bundle + Chrome start included. */
   browserFps: number;
+  /** Composite frames (Engine 3: the shot layer rendered + the ffmpeg join) per second of wall time. */
+  compositeFps: number;
 }
 
-/** Before anything is measured: the Stage 2/3 numbers (3× realtime, 1 frame/s). */
+/** Before anything is measured: the Stage 2/3 numbers (3× realtime, 1 frame/s; a shot layer at a few frames/s). */
 export function defaultRates(fps: number): ProgressRates {
-  return { copyFps: 3 * fps, browserFps: 1 };
+  return { copyFps: 3 * fps, browserFps: 1, compositeFps: 4 };
 }
 
 /** Rates from the spans finished so far; a kind with nothing finished keeps its default. */
@@ -42,9 +44,17 @@ export function measuredRates(done: ReadonlyArray<SpanTiming>, fps: number): Pro
   };
   const copy = sum(['copy', 'black']);
   const browser = sum(['browser']);
+  const composite = sum(['composite']);
   if (copy !== null) rates.copyFps = copy;
   if (browser !== null) rates.browserFps = browser;
+  if (composite !== null) rates.compositeFps = composite;
   return rates;
+}
+
+function rateFor(kind: ExportSpan['kind'], rates: ProgressRates): number {
+  if (kind === 'browser') return rates.browserFps;
+  if (kind === 'composite') return rates.compositeFps;
+  return rates.copyFps;
 }
 
 export interface ProgressPoint {
@@ -64,7 +74,7 @@ export function estimateRemainingSeconds(p: ProgressPoint): number {
   for (let i = p.index; i < p.spans.length; i++) {
     const span = p.spans[i];
     const left = i === p.index ? Math.max(0, span.frames - p.framesInSpan) : span.frames;
-    seconds += left / (span.kind === 'browser' ? rates.browserFps : rates.copyFps);
+    seconds += left / rateFor(span.kind, rates);
   }
   return seconds;
 }
@@ -85,19 +95,22 @@ export function formatRemaining(seconds: number): string {
  */
 export function progressMessage(p: ProgressPoint): string {
   const total = p.spans.reduce((n, s) => n + s.frames, 0);
-  let copiedDone = 0;
-  for (let i = 0; i < p.index && i < p.spans.length; i++) {
-    if (p.spans[i].kind !== 'browser') copiedDone += p.spans[i].frames;
-  }
+  // Three families: copied (copy + black), composited (Engine 3), rendered.
+  const family = (s: ExportSpan): 'copied' | 'composited' | 'rendered' =>
+    s.kind === 'browser' ? 'rendered' : s.kind === 'composite' ? 'composited' : 'copied';
+  const done = { copied: 0, composited: 0, rendered: 0 };
+  for (let i = 0; i < p.index && i < p.spans.length; i++) done[family(p.spans[i])] += p.spans[i].frames;
   const current = p.spans[p.index];
-  if (current && current.kind !== 'browser') copiedDone += Math.min(p.framesInSpan, current.frames);
-  const copiedPct = total > 0 ? Math.floor((copiedDone / total) * 100) : 0;
-  const parts = [`Copied ${copiedPct} %`];
+  if (current) done[family(current)] += Math.min(p.framesInSpan, current.frames);
+  const pct = (frames: number) => (total > 0 ? Math.floor((frames / total) * 100) : 0);
+  const parts = [`Copied ${pct(done.copied)} %`];
+  if (p.spans.some((s) => s.kind === 'composite')) parts.push(`composited ${pct(done.composited)} %`);
   if (current) {
-    const same = (s: ExportSpan) => (s.kind === 'browser') === (current.kind === 'browser');
+    const same = (s: ExportSpan) => family(s) === family(current);
     const ofKind = p.spans.filter(same).length;
     const nth = p.spans.slice(0, p.index + 1).filter(same).length;
-    parts.push(current.kind === 'browser' ? `rendering ${nth} of ${ofKind} spans` : `copying ${nth} of ${ofKind} spans`);
+    const verb = { copied: 'copying', composited: 'compositing', rendered: 'rendering' }[family(current)];
+    parts.push(`${verb} ${nth} of ${ofKind} spans`);
   }
   parts.push(formatRemaining(estimateRemainingSeconds(p)));
   return parts.join(' · ');

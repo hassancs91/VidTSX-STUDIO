@@ -38,11 +38,13 @@ import {
   blackSpanArgs,
   browserSpanArgs,
   concatListText,
+  copyQualityForCrf,
   copySpanArgs,
   holdLastFrameArgs,
   isConstantFrameRate,
   parseStatsFrame,
 } from './passthrough-ffmpeg';
+import { exportOutputSize } from './output-size';
 import { ffprobeBeside, probeSource, type SourceProbe } from './passthrough-probe';
 import { ticksPerFrame } from './passthrough-slow';
 import { progressMessage, type SpanTiming } from './passthrough-progress';
@@ -69,7 +71,8 @@ const HOLD_LAST_FRAME_MAX = 3;
  */
 export const EXPORT_GPU_ENCODER_ENV = 'VIDTSX_EXPORT_GPU_ENCODER';
 
-interface Tools {
+/** The full build's binaries and the working encoder — shared with the shot-composite engine (Engine 3). */
+export interface Tools {
   ffmpeg: string;
   ffprobe: string;
   encoder: ProxyGpuEncoder;
@@ -83,7 +86,7 @@ export function pickExportEncoder(working: readonly ProxyGpuEncoder[], forced: s
   return chooseProxyEncoder(working);
 }
 
-async function resolveTools(): Promise<Tools | { reason: string }> {
+export async function resolveTools(): Promise<Tools | { reason: string }> {
   const ffmpeg = await getFfmpegFullBinary();
   if (!ffmpeg) return { reason: NEEDS_DOWNLOAD };
   const probe = await probeProxyEncoders(ffmpeg);
@@ -112,7 +115,8 @@ export const passthroughExportEngine: ExportEngine = {
     if (plan.totalFrames !== entry.durationInFrames) {
       throw new Error(`The span plan covers ${plan.totalFrames} frames but the export has ${entry.durationInFrames}.`);
     }
-    const sources = await probeCopiedSources(tools, plan, signal);
+    const sources = await probeCopiedSources(tools, plan, entry, signal);
+    const quality = copyQualityForCrf(input.render.crf, tools.encoder);
     const message = plan.copiedFrames === 0 ? NOTHING_TO_COPY_MESSAGE : undefined;
     log.info('Span plan', { jobId: input.jobId, percent: copiedPercent(plan), spans: plan.spans.map((s) => `${s.kind}:${s.from}+${s.frames}`) });
 
@@ -152,9 +156,9 @@ export const passthroughExportEngine: ExportEngine = {
         // out of frames by a frame or two): hold the last frame, as the browser
         // does past a video's end.
         const missing = expected - count;
-        if (missing > 0 && missing <= HOLD_LAST_FRAME_MAX) {
+        if (count > 0 && missing > 0 && missing <= HOLD_LAST_FRAME_MAX) {
           const tailPath = piecePath.replace(/\.ts$/, '-tail.ts');
-          await runFfmpeg(tools.ffmpeg, holdLastFrameArgs({ encoder: tools.encoder, inputPath: piecePath, lastFrame: count - 1, frames: missing, fps: entry.fps, color, outputPath: tailPath }), { signal });
+          await runFfmpeg(tools.ffmpeg, holdLastFrameArgs({ encoder: tools.encoder, quality, inputPath: piecePath, lastFrame: count - 1, frames: missing, fps: entry.fps, color, outputPath: tailPath }), { signal });
           if ((await countPackets(tools.ffprobe, tailPath, signal)) === missing) {
             log.info('Held the last source frame at a clip tail', { jobId: input.jobId, index: i, frames: span.frames, copied: count, held: missing });
             pieces.push({ path: piecePath, frames: count });
@@ -210,24 +214,36 @@ export const passthroughExportEngine: ExportEngine = {
   },
 };
 
+/**
+ * The file a copied span is read from: the entry's per-asset source (a
+ * ready proxy on a draft export — docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md
+ * Phase 2) else the original. The same file the browser spans decode.
+ */
+function copySourcePath(entry: ExportEngineInput['entry'], span: Extract<ExportSpan, { kind: 'copy' }>): string {
+  return entry.sourcePaths?.[span.assetId] ?? span.assetPath;
+}
+
+/** Pure: why a probed source cannot be copied by the select, or null. Shared with Engine 3's bases. */
+export function copyDemotionReason(probe: SourceProbe, span: Pick<Extract<ExportSpan, { kind: 'copy' }>, 'rate'>): string | null {
+  if (!isConstantFrameRate(probe.frameRate, probe.averageFrameRate)) return 'variable frame rate';
+  if (probe.startTime > 0.001) return 'source timestamps do not start at 0';
+  if (span.rate !== undefined && span.rate < 1 && ticksPerFrame(probe.timeBase, probe.frameRate) === null) return 'source frame is not a whole number of time-base ticks';
+  return null;
+}
+
 /** Probe every distinct copied source once; demote spans the select cannot index. */
-async function probeCopiedSources(tools: Tools, plan: ExportSpanPlan, signal: AbortSignal): Promise<Map<string, SourceProbe>> {
+async function probeCopiedSources(tools: Tools, plan: ExportSpanPlan, entry: ExportEngineInput['entry'], signal: AbortSignal): Promise<Map<string, SourceProbe>> {
   const sources = new Map<string, SourceProbe>();
   for (let i = 0; i < plan.spans.length; i++) {
     const span = plan.spans[i];
     if (span.kind !== 'copy') continue;
-    let probe = sources.get(span.assetPath);
+    const sourcePath = copySourcePath(entry, span);
+    let probe = sources.get(sourcePath);
     if (!probe) {
-      probe = await probeSource(tools.ffprobe, span.assetPath, signal);
-      sources.set(span.assetPath, probe);
+      probe = await probeSource(tools.ffprobe, sourcePath, signal);
+      sources.set(sourcePath, probe);
     }
-    const reason = !isConstantFrameRate(probe.frameRate, probe.averageFrameRate)
-      ? 'variable frame rate'
-      : probe.startTime > 0.001
-        ? 'source timestamps do not start at 0'
-        : span.rate !== undefined && span.rate < 1 && ticksPerFrame(probe.timeBase, probe.frameRate) === null
-          ? 'source frame is not a whole number of time-base ticks'
-          : null;
+    const reason = copyDemotionReason(probe, span);
     if (reason) {
       log.warn('Copied span demoted to the browser', { assetPath: span.assetPath, reason });
       plan.spans[i] = { kind: 'browser', from: span.from, frames: span.frames, reason };
@@ -240,7 +256,7 @@ async function probeCopiedSources(tools: Tools, plan: ExportSpanPlan, signal: Ab
   return sources;
 }
 
-async function producePiece(
+export async function producePiece(
   input: ExportEngineInput,
   tools: Tools,
   sources: Map<string, SourceProbe>,
@@ -250,19 +266,26 @@ async function producePiece(
   progress: (extra: number) => void,
 ): Promise<void> {
   const { entry, color, signal, workDir } = input;
+  // The output size every piece lands on (browser spans reach it through the
+  // renderer's own resolution of the same scale).
+  const size = exportOutputSize(entry, input.render);
+  const quality = copyQualityForCrf(input.render.crf, tools.encoder);
   const onStderr = (text: string) => {
     const f = parseStatsFrame(text);
     if (f !== null) progress(Math.min(f, span.frames));
   };
   switch (span.kind) {
     case 'copy': {
-      const source = sources.get(span.assetPath);
-      if (!source) throw new Error(`Unprobed source ${span.assetPath}`);
+      const sourcePath = copySourcePath(entry, span);
+      const source = sources.get(sourcePath);
+      if (!source) throw new Error(`Unprobed source ${sourcePath}`);
       await runFfmpeg(
         tools.ffmpeg,
         copySpanArgs({
           encoder: tools.encoder,
-          sourcePath: span.assetPath,
+          quality,
+          sourcePath,
+          sourcePixelFormat: source.pixelFormat,
           sourceFrame: span.sourceFrame,
           ...(span.rate !== undefined ? { rate: span.rate } : {}),
           ...(span.rate !== undefined && span.rate < 1 ? { trimBefore: span.trimBefore, clipOffset: span.clipOffset, timeBase: source.timeBase } : {}),
@@ -270,8 +293,8 @@ async function producePiece(
           firstFrameCeil: span.firstFrameCeil,
           frames: span.frames,
           fps: entry.fps,
-          width: entry.width,
-          height: entry.height,
+          width: size.width,
+          height: size.height,
           color,
           outputPath,
         }),
@@ -282,7 +305,7 @@ async function producePiece(
     case 'black':
       await runFfmpeg(
         tools.ffmpeg,
-        blackSpanArgs({ encoder: tools.encoder, frames: span.frames, fps: entry.fps, width: entry.width, height: entry.height, color, outputPath }),
+        blackSpanArgs({ encoder: tools.encoder, quality, frames: span.frames, fps: entry.fps, width: size.width, height: size.height, color, outputPath }),
         { signal, onStderr },
       );
       return;
@@ -299,7 +322,7 @@ async function producePiece(
       });
       await runFfmpeg(
         tools.ffmpeg,
-        browserSpanArgs({ encoder: tools.encoder, inputPath: intermediate, leadIn, frames: span.frames, fps: entry.fps, color, outputPath }),
+        browserSpanArgs({ encoder: tools.encoder, quality, inputPath: intermediate, leadIn, frames: span.frames, fps: entry.fps, color, outputPath }),
         { signal, onStderr },
       );
       await fs.rm(intermediate, { force: true }).catch(() => {});
@@ -308,8 +331,14 @@ async function producePiece(
   }
 }
 
-/** Video packets in a piece — one per frame in an MPEG-TS elementary stream. */
-async function countPackets(ffprobe: string, file: string, signal: AbortSignal): Promise<number> {
+/**
+ * Video packets in a piece — one per frame in an MPEG-TS elementary stream.
+ * A piece ffmpeg wrote no packet into (headers only: an encoder that emitted
+ * nothing — measured 2026-09-12 on a same-size nv12 → yuv420p copy) reads as
+ * 0, so the span is sent to the browser like any short one instead of the
+ * export dying on ffprobe's "End of file".
+ */
+export async function countPackets(ffprobe: string, file: string, signal: AbortSignal): Promise<number> {
   const { spawn } = await import('child_process');
   const output = await new Promise<string>((resolve, reject) => {
     const proc = spawn(ffprobe, ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', file], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -323,6 +352,9 @@ async function countPackets(ffprobe: string, file: string, signal: AbortSignal):
     proc.on('close', (code) => {
       signal.removeEventListener('abort', onAbort);
       if (code === 0) resolve(stdout);
+      // Headers and no packet: ffprobe reads it as an unexpected end — a piece
+      // holding zero frames, not a probe failure.
+      else if (/End of file|Invalid data found/i.test(stderr)) resolve('0');
       else reject(new Error(`ffprobe exited with code ${code}: ${stderr.trim()}`));
     });
   });

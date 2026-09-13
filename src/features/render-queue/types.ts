@@ -37,4 +37,6 @@ export interface AddJobOptions {
   /** Studio exports: the engine + the shared finishing stage (docs/export-engines-plan.md). */
   exportEngine?: import('@shared/studio/export-engines').ExportEngineId;
   verifyAgainstEngine?: import('@shared/studio/export-engines').ExportEngineId;
+  /** 'proxy' = a draft read from the preview proxies (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md). */
+  exportSource?: import('@shared/studio/export-source').ExportSource;
 }

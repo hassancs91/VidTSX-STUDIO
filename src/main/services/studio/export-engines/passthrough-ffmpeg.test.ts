@@ -9,9 +9,11 @@ import {
   blackSpanArgs,
   browserSpanArgs,
   concatListText,
+  copyQualityForCrf,
   copySpanArgs,
   holdLastFrameArgs,
   isConstantFrameRate,
+  isEightBit420,
   nearestSelectFilter,
   parseFrameRate,
   parseStatsFrame,
@@ -412,5 +414,65 @@ describe('every builder on every encoder', () => {
     expect(b.copy.join(' ')).toContain("',scale=w=1920:h=1080,format=yuv420p,setpts=N/(30*TB),setparams=range=tv:color_primaries=bt709:color_trc=bt709:colorspace=bt709[v] -map [v] -r 30 -fps_mode cfr -frames:v 450 -c:v h264_amf -quality balanced -rc cqp -qp_i 23 -qp_p 23 -qp_b 23 -bf 2 -g 60 -color_range tv");
     expect(b.black.join(' ')).toContain('-vf format=yuv420p,setparams=');
     for (const args of Object.values(b)) expect(args.join(' ')).not.toContain('nv12');
+  });
+});
+
+describe('a scaled output (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md Phase 1)', () => {
+  it('copied spans scale to the output size inside the same graph — no extra filter, the select and the tags untouched', () => {
+    const full = copySpanArgs({ ...base, sourceFrame: 450, frames: 450, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
+    const small = copySpanArgs({ ...base, width: 1280, height: 720, sourceFrame: 450, frames: 450, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
+    expect(small).toContain(',scale_cuda=w=1280:h=720:format=yuv420p,setpts=N/(30*TB),setparams=');
+    expect(small.replace('scale_cuda=w=1280:h=720', 'scale_cuda=w=1920:h=1080')).toBe(full);
+    expect(copySpanArgs({ ...base, encoder: 'qsv', width: 960, height: 540, sourceFrame: 0, frames: 10, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ')).toContain('scale=w=960:h=540,format=nv12,setpts');
+  });
+
+  it('black spans take the same output size', () => {
+    expect(blackSpanArgs({ ...base, width: 640, height: 360, frames: 30, outputPath: 'b.ts' }).join(' ')).toContain('-f lavfi -i color=black:size=640x360:rate=30');
+  });
+
+  it('browser and hold-last-frame spans carry no size: their input is already at the output size', () => {
+    expect(browserSpanArgs({ ...base, inputPath: 'r.mkv', leadIn: 1, frames: 450, outputPath: 'r.ts' }).join(' ')).not.toMatch(/scale|1920|1080/);
+    expect(holdLastFrameArgs({ ...base, inputPath: 's.ts', lastFrame: 688, frames: 2, outputPath: 't.ts' }).join(' ')).not.toMatch(/scale|1920|1080/);
+  });
+});
+
+describe('an 8-bit 4:2:0 source on NVENC (Phase 2, the proxy draft)', () => {
+  it('asks scale_cuda for no format conversion — the 10-bit camera path keeps format=yuv420p to the byte', () => {
+    const tenBit = copySpanArgs({ ...base, sourcePixelFormat: 'yuv420p10le', sourceFrame: 450, frames: 3, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
+    const unknown = copySpanArgs({ ...base, sourceFrame: 450, frames: 3, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
+    const proxy = copySpanArgs({ ...base, sourcePixelFormat: 'yuv420p', width: 960, height: 540, sourceFrame: 450, frames: 3, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
+    expect(tenBit).toBe(unknown);
+    expect(tenBit).toContain(',scale_cuda=w=1920:h=1080:format=yuv420p,setpts');
+    expect(proxy).toContain(',scale_cuda=w=960:h=540,setpts');
+    expect(proxy).not.toContain('format=yuv420p');
+    // The software path is unchanged: its encoder needs the explicit format either way.
+    expect(copySpanArgs({ ...base, encoder: 'qsv', sourcePixelFormat: 'yuv420p', sourceFrame: 0, frames: 3, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ')).toContain('scale=w=1920:h=1080,format=nv12,setpts');
+    expect(isEightBit420('nv12')).toBe(true);
+    expect(isEightBit420('yuvj420p')).toBe(true);
+    expect(isEightBit420('p010le')).toBe(false);
+    expect(isEightBit420(undefined)).toBe(false);
+  });
+});
+
+describe('quality on the copied spans (Phase 2)', () => {
+  it('maps the dialog CRF onto the constant-quality value as CRF + 5, High (18) landing on the measured 23', () => {
+    expect(copyQualityForCrf(undefined, 'nvenc')).toBe(23);
+    expect(copyQualityForCrf(18, 'nvenc')).toBe(23);
+    expect(copyQualityForCrf(15, 'qsv')).toBe(20);
+    expect(copyQualityForCrf(23, 'amf')).toBe(28);
+    expect(copyQualityForCrf(28, 'nvenc')).toBe(33);
+    expect(copyQualityForCrf(Number.NaN, 'nvenc')).toBe(23);
+    expect(copyQualityForCrf(100, 'nvenc')).toBe(51);
+  });
+
+  it('an absent quality or the default level is the byte-identical argument string; every piece kind takes the same value', () => {
+    const plain = copySpanArgs({ ...base, sourceFrame: 450, frames: 450, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ');
+    expect(copySpanArgs({ ...base, quality: 23, sourceFrame: 450, frames: 450, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ')).toBe(plain);
+    expect(copySpanArgs({ ...base, quality: 20, sourceFrame: 450, frames: 450, firstFrameCeil: false, outputPath: 'o.ts' }).join(' ')).toContain('-rc vbr -cq 20 -b:v 0');
+    expect(blackSpanArgs({ ...base, quality: 33, frames: 30, outputPath: 'b.ts' }).join(' ')).toContain('-cq 33');
+    expect(browserSpanArgs({ ...base, quality: 33, inputPath: 'r.mkv', leadIn: 1, frames: 450, outputPath: 'r.ts' }).join(' ')).toContain('-cq 33');
+    expect(holdLastFrameArgs({ ...base, quality: 33, inputPath: 's.ts', lastFrame: 688, frames: 2, outputPath: 't.ts' }).join(' ')).toContain('-cq 33');
+    expect(spanEncoderArgs('qsv', 28)).toContain('28');
+    expect(spanEncoderArgs('amf', 28).join(' ')).toContain('-qp_i 28 -qp_p 28 -qp_b 28');
   });
 });

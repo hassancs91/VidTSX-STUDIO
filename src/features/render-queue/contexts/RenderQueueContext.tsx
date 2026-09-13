@@ -280,6 +280,7 @@ export function RenderQueueProvider({ children }: RenderQueueProviderProps) {
       hardwareAcceleration: options.hardwareAcceleration,
       exportEngine: options.exportEngine,
       verifyAgainstEngine: options.verifyAgainstEngine,
+      exportSource: options.exportSource,
       status: 'queued',
       progress: 0,
       framesRendered: 0,

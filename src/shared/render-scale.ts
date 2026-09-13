@@ -29,6 +29,33 @@ export interface SnappedRenderScale {
  * e.g. near-coprime width/height) — callers must fall back to another
  * strategy.
  */
+export interface ResolvedRenderScale extends SnappedRenderScale {
+  /**
+   * True when no even-integer scale exists near the request and the output
+   * dims were materialized instead (the renderer then overrides the
+   * composition's width/height at scale 1 — pixel-sized content does not
+   * scale). False at scale 1 and for every snapped scale.
+   */
+  materialized: boolean;
+}
+
+/**
+ * The output size a render at `requestedScale` produces — THE rule every
+ * consumer shares (`renderComposition`, both Studio export engines, the dev
+ * verification's pixel diff), so a copied span and a browser span of one
+ * export are the same W×H. Scale 1 is the identity, untouched; otherwise the
+ * snapped scale (`snapRenderScale`), else the rounded-even materialized dims
+ * at scale 1.
+ */
+export function resolveRenderScale(compWidth: number, compHeight: number, requestedScale: number | undefined): ResolvedRenderScale {
+  const scale = requestedScale ?? 1;
+  if (scale === 1) return { scale: 1, width: compWidth, height: compHeight, materialized: false };
+  const snapped = snapRenderScale(compWidth, compHeight, scale);
+  if (snapped) return { ...snapped, materialized: false };
+  const roundEven = (n: number) => Math.max(2, Math.round(n / 2) * 2);
+  return { scale: 1, width: roundEven(compWidth * scale), height: roundEven(compHeight * scale), materialized: true };
+}
+
 export function snapRenderScale(
   compWidth: number,
   compHeight: number,

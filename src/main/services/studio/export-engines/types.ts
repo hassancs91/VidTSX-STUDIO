@@ -36,6 +36,13 @@ export const EXPORT_COLOR: ExportColorPolicy = {
 /** Encoder knobs the queue already carries; engines honour what applies. */
 export interface ExportRenderSettings {
   crf?: number;
+  /**
+   * Output scale relative to the entry's composition size (docs/studio/
+   * EXPORT_OUTPUT_OPTIONS_PLAN.md): the composition keeps its dimensions,
+   * only the output is scaled. Absent = 1. Both engines resolve the output
+   * W×H through `resolveRenderScale` (`src/shared/render-scale.ts`).
+   */
+  scale?: number;
   cpuUsage?: string | null;
   gpuBackend?: RenderGpuBackend;
   hardwareAcceleration?: RenderHardwareAcceleration;

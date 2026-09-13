@@ -62,6 +62,18 @@ export const COPY_QUALITY: Record<ProxyGpuEncoder, number> = { nvenc: 23, qsv: 2
 export const ENCODER_NAMES: Record<ProxyGpuEncoder, string> = { nvenc: 'h264_nvenc', qsv: 'h264_qsv', amf: 'h264_amf' };
 
 /**
+ * The dialog's quality level, carried as an x264 CRF (15/18/23/28 — docs/studio/
+ * EXPORT_OUTPUT_OPTIONS_PLAN.md), mapped onto the copied spans' constant-quality
+ * value: CRF + 5, so High (18) lands on the measured 23 (T1 leg 2) and an
+ * export at the default level is the same argument string as before the
+ * option existed. Absent CRF → the encoder's measured value.
+ */
+export function copyQualityForCrf(crf: number | undefined, encoder: ProxyGpuEncoder): number {
+  if (crf === undefined || !Number.isFinite(crf)) return COPY_QUALITY[encoder];
+  return Math.min(51, Math.max(1, Math.round(crf + 5)));
+}
+
+/**
  * The pixel format each encoder is handed from system memory (`ffmpeg -h
  * encoder=…`, 8.1: h264_nvenc yuv420p/nv12/…, h264_qsv nv12/qsv ONLY,
  * h264_amf nv12/yuv420p/…). The H.264 stream is 4:2:0 either way — nv12 and
@@ -97,8 +109,8 @@ export function colorFlagArgs(color: ExportColorPolicy): string[] {
  * a `-hwaccel`/`-init_hw_device` for frames from system memory: each opens
  * its own device.
  */
-export function spanEncoderArgs(encoder: ProxyGpuEncoder): string[] {
-  const q = String(COPY_QUALITY[encoder]);
+export function spanEncoderArgs(encoder: ProxyGpuEncoder, quality: number = COPY_QUALITY[encoder]): string[] {
+  const q = String(quality);
   switch (encoder) {
     case 'nvenc':
       return ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', q, '-b:v', '0', '-bf', '2', '-g', '60'];
@@ -156,7 +168,11 @@ export function seekSeconds(o: Pick<SelectOptions, 'sourceFrame' | 'fps' | 'sour
 
 export interface CopySpanArgs extends SelectOptions {
   encoder: ProxyGpuEncoder;
+  /** Constant-quality value for the encoder (`copyQualityForCrf`); absent = the measured default. */
+  quality?: number;
   sourcePath: string;
+  /** The source's pixel format as probed (`SourceProbe.pixelFormat`); decides the NVENC path's format conversion. */
+  sourcePixelFormat?: string;
   frames: number;
   width: number;
   height: number;
@@ -175,9 +191,24 @@ export interface CopySpanArgs extends SelectOptions {
  * encoder the format it takes (correct by construction; QSV measured offline
  * 2026-09-11 — the runbook records what a GPU-side decode would buy).
  */
+/** 8-bit 4:2:0 sources (a proxy, a phone file): NVDEC hands them over as nv12 already. */
+export function isEightBit420(pixelFormat: string | undefined): boolean {
+  return pixelFormat === 'yuv420p' || pixelFormat === 'yuvj420p' || pixelFormat === 'nv12';
+}
+
 export function copySpanArgs(a: CopySpanArgs): string[] {
+  // NVENC: the 10-bit camera files go through scale_cuda's `format=yuv420p`
+  // (the measured path — the finishing stage's `yuv420p` check and the
+  // byte-identity references both stand on it). An 8-bit 4:2:0 source is
+  // already nv12 out of NVDEC and NVENC takes nv12 directly; asking
+  // scale_cuda for nv12 → yuv420p at the SAME size starved the encoder on
+  // the 8.1 build (a 540p proxy copied at 540p: three frames in, no packets
+  // out — measured 2026-09-12, docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md
+  // Phase 2 log), so no conversion is asked for there. The H.264 stream is
+  // 4:2:0 either way and ffprobe reads `yuv420p` on both.
+  const nvencFormat = isEightBit420(a.sourcePixelFormat) ? '' : ':format=yuv420p';
   const scale = a.encoder === 'nvenc'
-    ? `scale_cuda=w=${a.width}:h=${a.height}:format=yuv420p`
+    ? `scale_cuda=w=${a.width}:h=${a.height}${nvencFormat}`
     : `scale=w=${a.width}:h=${a.height},format=${ENCODER_PIXEL_FORMATS[a.encoder]}`;
   let graph: string;
   if (a.rate !== undefined && a.rate < 1) {
@@ -194,7 +225,7 @@ export function copySpanArgs(a: CopySpanArgs): string[] {
     '-ss', seekSeconds(a), '-copyts', '-i', a.sourcePath,
     '-filter_complex', graph, '-map', '[v]',
     ...outputTimingArgs(a.fps, a.frames),
-    ...spanEncoderArgs(a.encoder),
+    ...spanEncoderArgs(a.encoder, a.quality),
     ...colorFlagArgs(a.color),
     '-an', '-f', 'mpegts', a.outputPath,
   ];
@@ -202,6 +233,7 @@ export function copySpanArgs(a: CopySpanArgs): string[] {
 
 export interface BlackSpanArgs {
   encoder: ProxyGpuEncoder;
+  quality?: number;
   frames: number;
   fps: number;
   width: number;
@@ -217,7 +249,7 @@ export function blackSpanArgs(a: BlackSpanArgs): string[] {
     '-f', 'lavfi', '-i', `color=black:size=${a.width}x${a.height}:rate=${a.fps}`,
     '-vf', `format=${ENCODER_PIXEL_FORMATS[a.encoder]},${colorParamsFilter(a.color)}`,
     ...outputTimingArgs(a.fps, a.frames),
-    ...spanEncoderArgs(a.encoder),
+    ...spanEncoderArgs(a.encoder, a.quality),
     ...colorFlagArgs(a.color),
     '-an', '-f', 'mpegts', a.outputPath,
   ];
@@ -225,6 +257,7 @@ export function blackSpanArgs(a: BlackSpanArgs): string[] {
 
 export interface BrowserSpanArgs {
   encoder: ProxyGpuEncoder;
+  quality?: number;
   /** Remotion's intermediate (yuv420p tv bt709, CFR), rendered `leadIn` frames early. */
   inputPath: string;
   leadIn: number;
@@ -241,7 +274,7 @@ export function browserSpanArgs(a: BrowserSpanArgs): string[] {
     '-i', a.inputPath,
     '-vf', `trim=start_frame=${a.leadIn},setpts=N/(${a.fps}*TB),format=${ENCODER_PIXEL_FORMATS[a.encoder]},${colorParamsFilter(a.color)}`,
     ...outputTimingArgs(a.fps, a.frames),
-    ...spanEncoderArgs(a.encoder),
+    ...spanEncoderArgs(a.encoder, a.quality),
     ...colorFlagArgs(a.color),
     '-an', '-f', 'mpegts', a.outputPath,
   ];
@@ -249,6 +282,7 @@ export function browserSpanArgs(a: BrowserSpanArgs): string[] {
 
 export interface HoldLastFrameArgs {
   encoder: ProxyGpuEncoder;
+  quality?: number;
   /** The short copy piece. */
   inputPath: string;
   /** Index of its last frame. */
@@ -274,7 +308,7 @@ export function holdLastFrameArgs(a: HoldLastFrameArgs): string[] {
     '-i', a.inputPath,
     '-vf', `trim=start_frame=${a.lastFrame},tpad=stop=${a.frames - 1}:stop_mode=clone,setpts=N/(${a.fps}*TB),format=${ENCODER_PIXEL_FORMATS[a.encoder]},${colorParamsFilter(a.color)}`,
     ...outputTimingArgs(a.fps, a.frames),
-    ...spanEncoderArgs(a.encoder),
+    ...spanEncoderArgs(a.encoder, a.quality),
     ...colorFlagArgs(a.color),
     '-an', '-f', 'mpegts', a.outputPath,
   ];

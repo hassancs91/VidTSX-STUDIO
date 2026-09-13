@@ -10,6 +10,7 @@ import type {
 } from '../../shared/ipc/types';
 import { logEngine } from '../../logging/log-engine';
 import { isExportEngineId } from '../../shared/studio/export-engines';
+import { isExportSource } from '../../shared/studio/export-source';
 
 const log = logEngine.createLogger('render-queue-db');
 
@@ -88,6 +89,11 @@ export function getDb(): Database.Database {
   // Studio export engine (docs/export-engines-plan.md): a queued export must
   // keep its engine across a restart, or it would silently render the old way.
   ensureColumn(db, 'render_queue', 'export_engine', 'TEXT');
+  // Phase 2 of docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md: the draft badge and
+  // the measured estimate (same project + engine + source, started → completed)
+  // must survive a restart.
+  ensureColumn(db, 'render_queue', 'export_source', 'TEXT');
+  ensureColumn(db, 'render_queue', 'started_at', 'INTEGER');
 
   return db;
 }
@@ -133,6 +139,8 @@ interface QueueRow {
   transparent: number | null;
   cpu_usage: string | null;
   export_engine: string | null;
+  export_source: string | null;
+  started_at: number | null;
   status: string;
   progress: number;
   frames_rendered: number;
@@ -181,6 +189,8 @@ function rowToQueueJob(row: QueueRow): RenderQueueJob {
     transparent: row.transparent === null ? undefined : row.transparent === 1,
     cpuUsage: row.cpu_usage,
     exportEngine: isExportEngineId(row.export_engine) ? row.export_engine : undefined,
+    exportSource: isExportSource(row.export_source) ? row.export_source : undefined,
+    startedAt: nullToUndef(row.started_at),
     status: row.status as RenderQueueJobStatus,
     progress: row.progress,
     framesRendered: row.frames_rendered,
@@ -242,12 +252,14 @@ export function saveQueueJobs(jobs: RenderQueueJob[]): void {
        (id, file_name, file_path, bundle_url, composition_id, output_path,
         codec, width, height, fps, crf, muted, scale, every_nth_frame,
         number_of_gif_loops, input_props, transparent, cpu_usage, export_engine,
+        export_source, started_at,
         status, progress, frames_rendered, total_frames, file_size, error,
         created_at, completed_at)
      VALUES
        (@id, @fileName, @filePath, @bundleUrl, @compositionId, @outputPath,
         @codec, @width, @height, @fps, @crf, @muted, @scale, @everyNthFrame,
         @numberOfGifLoops, @inputProps, @transparent, @cpuUsage, @exportEngine,
+        @exportSource, @startedAt,
         @status, @progress, @framesRendered, @totalFrames, @fileSize, @error,
         @createdAt, @completedAt)`
   );
@@ -275,6 +287,8 @@ export function saveQueueJobs(jobs: RenderQueueJob[]): void {
         transparent: boolToInt(j.transparent),
         cpuUsage: j.cpuUsage ?? null,
         exportEngine: j.exportEngine ?? null,
+        exportSource: j.exportSource ?? null,
+        startedAt: undefToNull(j.startedAt),
         status: j.status,
         progress: j.progress,
         framesRendered: j.framesRendered,

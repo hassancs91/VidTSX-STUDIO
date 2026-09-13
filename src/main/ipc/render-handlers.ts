@@ -243,6 +243,7 @@ export async function handleRenderStart(
             outputPath: data.outputPath,
             render: {
               crf: data.crf,
+              scale: data.scale,
               cpuUsage,
               gpuBackend,
               hardwareAcceleration,

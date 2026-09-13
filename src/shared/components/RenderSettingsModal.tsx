@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Modal, Button } from '@shared/components';
 import type { RenderCodec, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
-import { snapRenderScale } from '@shared/render-scale';
+import {
+  RENDER_QUALITY_OPTIONS,
+  TSX_RESOLUTION_PRESETS,
+  renderCrf,
+  resolutionOptions,
+  type RenderQualityLevel,
+  type ResolutionPresetId,
+} from '@shared/render-presets';
 
 export interface RenderSettings {
   codec: RenderCodec;
@@ -35,13 +42,6 @@ const FORMAT_OPTIONS = [
   { value: 'prores' as RenderCodec, label: 'MOV (ProRes 4444)' },
   { value: 'gif' as RenderCodec, label: 'GIF' },
   { value: 'webp' as RenderCodec, label: 'WebP (animated)' },
-];
-
-const QUALITY_OPTIONS = [
-  { value: 'best', label: 'Best', hint: 'Largest file' },
-  { value: 'high', label: 'High', hint: 'Recommended' },
-  { value: 'medium', label: 'Medium', hint: 'Balanced' },
-  { value: 'low', label: 'Low', hint: 'Smallest file' },
 ];
 
 const SMOOTHNESS_OPTIONS = [
@@ -80,122 +80,6 @@ export const HARDWARE_ACCELERATION_OPTIONS: { value: RenderHardwareAcceleration;
 
 const FPS_PRESETS = [60, 30, 25, 24, 15];
 
-type ResolutionPreset = 'original' | '4k' | '1080p' | '720p' | '480p';
-
-interface ResolutionOption {
-  value: ResolutionPreset;
-  label: string;
-  width: number;
-  height: number;
-  // Exact scale factor the renderer will apply — snapped so output dims are
-  // even integers (see snapRenderScale). Label dims match this scale.
-  scale: number;
-}
-
-function makeEven(n: number): number {
-  const rounded = Math.round(n);
-  return rounded % 2 === 0 ? rounded : rounded + 1;
-}
-
-function getResolutionPresets(
-  compWidth: number,
-  compHeight: number
-): ResolutionOption[] {
-  const aspectRatio = compWidth / compHeight;
-  const isLandscape = compWidth >= compHeight;
-
-  const presets: { value: ResolutionPreset; label: string; targetHeight: number }[] = [
-    { value: '4k', label: '4K', targetHeight: 2160 },
-    { value: '1080p', label: '1080p', targetHeight: 1080 },
-    { value: '720p', label: '720p', targetHeight: 720 },
-    { value: '480p', label: '480p', targetHeight: 480 },
-  ];
-
-  const options: ResolutionOption[] = [
-    {
-      value: 'original',
-      label: `Original (${compWidth}\u00d7${compHeight})`,
-      width: compWidth,
-      height: compHeight,
-      scale: 1,
-    },
-  ];
-
-  for (const p of presets) {
-    const requestedScale = isLandscape
-      ? p.targetHeight / compHeight
-      : p.targetHeight / compWidth;
-
-    // Snap to a scale with exact even-integer output dims so the label shows
-    // what actually renders (e.g. 480p from 1080p lands on 864\u00d7486). When no
-    // nearby scale exists, keep the approximate dims \u2014 the renderer falls
-    // back to materializing them.
-    const snapped = snapRenderScale(compWidth, compHeight, requestedScale);
-    let width: number;
-    let height: number;
-    if (snapped) {
-      width = snapped.width;
-      height = snapped.height;
-    } else if (isLandscape) {
-      height = p.targetHeight;
-      width = makeEven(p.targetHeight * aspectRatio);
-    } else {
-      width = p.targetHeight;
-      height = makeEven(p.targetHeight / aspectRatio);
-    }
-
-    // Skip presets larger than or equal to original
-    if (isLandscape && height >= compHeight) continue;
-    if (!isLandscape && width >= compWidth) continue;
-
-    options.push({
-      value: p.value,
-      label: `${p.label} (${width}\u00d7${height})`,
-      width,
-      height,
-      scale: snapped ? snapped.scale : requestedScale,
-    });
-  }
-
-  return options;
-}
-
-function getCrf(quality: string, codec: RenderCodec): number {
-  if (codec === 'gif') return 0;
-
-  // WebP reuses the crf field as canvas encoder quality, 1–100 with higher =
-  // better; 100 selects Chromium's lossless mode (see RenderCodec docs).
-  if (codec === 'webp') {
-    switch (quality) {
-      case 'best':
-        return 100;
-      case 'high':
-        return 90;
-      case 'medium':
-        return 80;
-      case 'low':
-        return 65;
-      default:
-        return 90;
-    }
-  }
-
-  const isVp = codec === 'vp8' || codec === 'vp9';
-
-  switch (quality) {
-    case 'best':
-      return isVp ? 15 : 15;
-    case 'high':
-      return isVp ? 25 : 18;
-    case 'medium':
-      return isVp ? 33 : 23;
-    case 'low':
-      return isVp ? 40 : 28;
-    default:
-      return isVp ? 25 : 18;
-  }
-}
-
 const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '6px 8px',
@@ -215,9 +99,9 @@ export function RenderSettingsModal({
   compositionConfig,
 }: RenderSettingsModalProps) {
   const [codec, setCodec] = useState<RenderCodec>('h264');
-  const [resolution, setResolution] = useState<ResolutionPreset>('original');
+  const [resolution, setResolution] = useState<ResolutionPresetId>('original');
   const [fpsPreset, setFpsPreset] = useState<string>('original');
-  const [quality, setQuality] = useState('high');
+  const [quality, setQuality] = useState<RenderQualityLevel>('high');
   const [includeAudio, setIncludeAudio] = useState(true);
   const [smoothness, setSmoothness] = useState('1');
   const [loopPreset, setLoopPreset] = useState('forever');
@@ -252,14 +136,11 @@ export function RenderSettingsModal({
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  const resolutionOptions = getResolutionPresets(
-    compositionConfig.width,
-    compositionConfig.height
-  );
+  const sizeOptions = resolutionOptions(compositionConfig.width, compositionConfig.height, TSX_RESOLUTION_PRESETS);
 
-  const selectedResolution = resolutionOptions.find((r) => r.value === resolution) ?? resolutionOptions[0];
+  const selectedResolution = sizeOptions.find((r) => r.value === resolution) ?? sizeOptions[0];
   const selectedFps = fpsPreset === 'original' ? compositionConfig.fps : Number(fpsPreset);
-  const qualityHint = QUALITY_OPTIONS.find((q) => q.value === quality)?.hint ?? '';
+  const qualityHint = RENDER_QUALITY_OPTIONS.find((q) => q.value === quality)?.hint ?? '';
   const isGif = codec === 'gif';
   const isWebp = codec === 'webp';
   // GIF and animated WebP share the frame-sequence options: no audio track,
@@ -282,7 +163,7 @@ export function RenderSettingsModal({
   useEffect(() => {
     if (isAnimatedImage && resolution === 'original') {
       const minDim = Math.min(compositionConfig.width, compositionConfig.height);
-      const has480p = resolutionOptions.some((r) => r.value === '480p');
+      const has480p = sizeOptions.some((r) => r.value === '480p');
       if (minDim > 480 && has480p) {
         setResolution('480p');
         setAutoDownscaled(true);
@@ -291,10 +172,10 @@ export function RenderSettingsModal({
     if (!isAnimatedImage && autoDownscaled) {
       setAutoDownscaled(false);
     }
-  }, [isAnimatedImage, resolution, compositionConfig.width, compositionConfig.height, resolutionOptions, autoDownscaled]);
+  }, [isAnimatedImage, resolution, compositionConfig.width, compositionConfig.height, sizeOptions, autoDownscaled]);
 
   const handleRender = useCallback(() => {
-    const crf = getCrf(quality, codec);
+    const crf = renderCrf(quality, codec);
     const everyNthFrame = isAnimatedImage ? Number(smoothness) : 1;
     const numberOfGifLoops = isAnimatedImage
       ? (loopPreset === 'forever' ? null : Number(loopPreset))
@@ -353,12 +234,12 @@ export function RenderSettingsModal({
           <select
             value={resolution}
             onChange={(e) => {
-              setResolution(e.target.value as ResolutionPreset);
+              setResolution(e.target.value as ResolutionPresetId);
               setAutoDownscaled(false);
             }}
             style={selectStyle}
           >
-            {resolutionOptions.map((opt) => (
+            {sizeOptions.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -394,10 +275,10 @@ export function RenderSettingsModal({
             <label className="text-[11px] text-text-muted">Quality</label>
             <select
               value={quality}
-              onChange={(e) => setQuality(e.target.value)}
+              onChange={(e) => setQuality(e.target.value as RenderQualityLevel)}
               style={selectStyle}
             >
-              {QUALITY_OPTIONS.map((opt) => (
+              {RENDER_QUALITY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>

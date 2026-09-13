@@ -13,6 +13,11 @@ export interface SettingsGetResponse {
   renderDefaultHardwareAcceleration: RenderHardwareAcceleration;
   /** Studio export engine the Export dialog starts on (docs/export-engines-plan.md D2). */
   renderDefaultExportEngine: ExportEngineId;
+  /** Studio Export dialog defaults (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md Phase 2):
+   *  a resolution preset id and a quality level from `src/shared/render-presets.ts`.
+   *  A project's own last choice wins over these. */
+  renderDefaultExportResolution: string;
+  renderDefaultExportQuality: string;
   /** Opt-in crash reporting consent (off by default). */
   crashReportingEnabled: boolean;
   /** False when the build has no crash-reporting DSN baked in — the toggle is inert. */
@@ -87,6 +92,16 @@ export interface SettingsSetRenderDefaultExportEngineRequest {
 }
 
 export interface SettingsSetRenderDefaultExportEngineResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface SettingsSetRenderDefaultExportOutputRequest {
+  resolution: string;
+  quality: string;
+}
+
+export interface SettingsSetRenderDefaultExportOutputResponse {
   success: boolean;
   error?: string;
 }

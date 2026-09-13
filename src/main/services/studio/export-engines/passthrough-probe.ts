@@ -19,6 +19,8 @@ export interface SourceProbe {
   /** The video stream's time base as num/den (1/60000 on the DJI files). */
   timeBase: FrameRate;
   hasAudio: boolean;
+  /** The video stream's pixel format as ffprobe names it (`yuv420p10le` on the DJI files, `yuv420p` on a proxy). */
+  pixelFormat?: string;
 }
 
 /** ffprobe.exe sits beside the full build's ffmpeg.exe. */
@@ -32,11 +34,12 @@ interface Stream {
   avg_frame_rate?: string;
   start_time?: string;
   time_base?: string;
+  pix_fmt?: string;
 }
 
 export async function probeSource(ffprobe: string, file: string, signal?: AbortSignal): Promise<SourceProbe> {
   const output = await new Promise<string>((resolve, reject) => {
-    const proc = spawn(ffprobe, ['-v', 'error', '-print_format', 'json', '-show_entries', 'stream=codec_type,r_frame_rate,avg_frame_rate,start_time,time_base', file], {
+    const proc = spawn(ffprobe, ['-v', 'error', '-print_format', 'json', '-show_entries', 'stream=codec_type,r_frame_rate,avg_frame_rate,start_time,time_base,pix_fmt', file], {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -67,5 +70,6 @@ export async function probeSource(ffprobe: string, file: string, signal?: AbortS
     startTime: Number.isFinite(startTime) ? startTime : 0,
     timeBase,
     hasAudio: data.streams?.some((s) => s.codec_type === 'audio') ?? false,
+    ...(video.pix_fmt ? { pixelFormat: video.pix_fmt } : {}),
   };
 }

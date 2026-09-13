@@ -336,6 +336,18 @@ export interface StudioProjectSettings {
    * preset; a stale id (preset deleted) degrades to none.
    */
   presetId?: string;
+  /**
+   * The Export dialog's last output choice for this project (docs/studio/
+   * EXPORT_OUTPUT_OPTIONS_PLAN.md): a resolution preset id and a quality
+   * level from `src/shared/render-presets.ts`. Absent = the project size at
+   * the default quality. Unknown values fall back the same way.
+   */
+  export?: {
+    resolution: string;
+    quality: string;
+    /** 'original' | 'proxy' (`src/shared/studio/export-source.ts`); absent = the automatic default. */
+    source?: string;
+  };
 }
 
 export interface StudioProject {
