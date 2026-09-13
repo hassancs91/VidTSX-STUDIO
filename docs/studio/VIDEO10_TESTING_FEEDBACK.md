@@ -45,7 +45,16 @@ op, so a span cut is split × 2 + select + Delete.
    model: a 50 ms cut is 1.5 frames at 30 fps — exact in the document,
    frame-snapped in preview.
 
-## 2. Opening a project freezes the UI for a moment — needs a real loading state
+## 2. Opening a project freezes the UI for a moment — needs a real loading state — SHIPPED 2026-09-13
+
+**Shipped** (`Status.md`, 2026-09-13 entry): measured first — the stall was React re-rendering the whole
+editor 12–14× per open (mount twice, the Player ref setState, no-op media patches + an autosave, 62 module
+arrivals in EditorShell state), plus ~0.9 s of transpile wait on a cold app; reconcile was a readdir on
+video-10. Built: a staged loading panel + mount gate, a per-editor shot-module loader (concurrency 6,
+playhead-nearest first, batched, subscribed by the Player only), a disk cache of transpiled modules under
+`cache/shot-modules/` (size/mtime + transpiler fingerprint), identity-preserving media patches, the
+Player handle in a ref, and a reconcile fingerprint. video-10 open-to-interactive: cold 2619 → 1971 ms,
+warm 1592/1474 → 1193/947 ms (dev build). The original notes follow.
 
 **Asked 2026-09-11.** Clicking the video-10 card: the app stalls briefly
 before the editor appears. A "Loading project…" text exists

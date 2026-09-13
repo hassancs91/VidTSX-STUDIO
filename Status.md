@@ -7,6 +7,114 @@
 
 ---
 
+## 2026-09-13 — STUDIO: opening a project is staged and faster — shot modules off the editor, a disk cache of transpiled modules, no-op media patches, reconcile fingerprint (feedback 2)
+
+`docs/studio/VIDEO10_TESTING_FEEDBACK.md` item 2. Clicking the video-10 card stalled before the editor was
+usable; "Loading project…" only covered the `studio:project:load` IPC.
+
+**Open-to-interactive, as measured.** t0 = `pointerdown` on the project card. Interactive = the latest of
+(a) the editor shell visible (`[data-project-menu]`), (b) every ready shot module settled (62
+`studio-open:shot:import-end` marks; a failed module is a placeholder by design and counts), (c) the first
+Player frame painted (no "Loading…" tile in the Player, every visible `<video>` at `readyState ≥ 2`, then
+rAF + timeout), and (d) the end of the last long task (> 50 ms) followed by 1 s with no long task and no
+rAF gap. Read from the renderer's own timeline (PerformanceObserver `longtask`, an rAF gap probe, User
+Timing marks); a run whose rAF stalled > 2 s (a covered or minimized window) is thrown away. Every stage
+drops a `studio-open:*` mark (`services/open-timing.ts`: `load:start/end`, `media-prepare:start/end`,
+`reconcile:start/end`, `shot:ipc-start|ipc-end|import-end:<id>`, `waveform:read:<id>`, `interactive`),
+cleared at the start of each open. Dev build (`electron-vite dev`) on this laptop, video-10 read-only
+(open, wait, back): project.json identical apart from `updatedAt` — which no longer moves on an open.
+
+**What the profile said (before).** Cold open: project:load IPC 22 ms, shell visible 272 ms, shot IPCs
+921→1822 ms (median 717 ms of main-process transpile wait, renderer idle meanwhile), imports done 2331 ms,
+9 long tasks = 1504 ms blocking (longest 601 ms), interactive 2619 ms. Warm: IPCs cached in main (median
+107 ms), interactive 1474–1592 ms, still 607–658 ms blocking. A trace (devtools.timeline + CPU profile,
+aligned on a click mark) put style + layout + paint at ~110 ms in total; the rest was **React re-rendering
+the whole editor** — EditorShell rendered 14× (cold) / 12× (warm) per open, and each render re-ran 113 media
+tiles, 62 mounted shot cards, the timeline and the Player. The renders came from: mounting on the reducer's
+empty state, then again after `reset`; the Player's ref callback `setPlayer` re-rendering synchronously
+inside the mount commit; media-prepare re-announcing 9 proxies + 9 waveforms already on disk, which rebuilt
+the asset objects (2–4 renders, a pointless autosave, its "Saved" render, and `updatedAt` moving on every
+open); 62 module arrivals held in EditorShell state (3–4 renders); one waveform setState per asset.
+Reconcile on video-10 is a readdir (no unknown folders) — no renderer cost. Shot fonts: 5 requests, done
+before first frame.
+
+**Built**, in the order the numbers justified:
+
+- **Staged loading + mount gate.** `EditorShell` shows `OpenProgressView` (Reading project → Preparing
+  timeline → Loading shots N of 62 → Drawing the first frame, with a bar; stage rules in the pure
+  `services/open-stages.ts`) and mounts the editor only once the reducer has adopted the document
+  (`useTimeline` now returns `projectId`). `OpenProgressOverlay` covers the mounted editor until the loader
+  has settled every shot and two frames have painted, then retires for good (a later regenerate loads
+  behind its tile, not behind a curtain); "Open without waiting" appears after 8 s.
+- **Shot modules off the editor.** `services/shot-module-loader.ts` — a per-editor store (not global):
+  concurrency 6, order from `services/shot-load-order.ts` (under the playhead first, then outward, a tie to
+  what plays next, pool-only shots last; a seek of ≥ 1 s re-orders what is still queued), batched snapshots
+  (the first arrival and the last one publish at once, the rest coalesce per 120 ms), stable placeholders
+  per `shotId@version`. `hooks/useShotModuleLoader.ts` (replaces `useShotModules`) syncs the wanted set —
+  from the document's shots while the editor is still mounting, so main starts before the mount — and sends
+  each IPC before `setupVirtualModuleGlobals` resolves. `PreviewPanel` and the overlay subscribe with
+  `useShotModuleSnapshot` (`useSyncExternalStore`): a module arriving re-renders the Player only.
+- **Disk cache of transpiled modules** (`src/main/services/studio/shot-module-cache.ts` +
+  `shot-module-resolver.ts`): memo → `<project>/cache/shot-modules/<shotId>/v<N>.json` → transpile (written
+  back in the background, tmp + rename). An entry is served only when its source size + mtime match the
+  current `v<N>.tsx` (an external in-place edit misses) and its transpiler fingerprint matches
+  (`src/main/services/transpiler-fingerprint.ts`: sha256 of esbuild's version + every `.js` under
+  `out/main`, so any main build change — transpiler, import rewriter, vendor maps — invalidates every entry
+  once). The module-server base URL is stored as a token. It lives under `cache/`, so Clear cache removes
+  it (video-10: 62 files, 27 MB). `handleStudioShotModule` goes through the resolver; export is untouched
+  (`transpileTsxCached` unchanged).
+- **No-op media events stay no-ops.** `services/asset-patch.ts`: `withCacheFile` returns the same asset when
+  the document already records that path + status, `patchProjectAsset` the same project when nothing
+  changed; `updateProject` skips the save for an identity update; `missingAssetIds` is replaced only when
+  its contents differ; the open's waveform reads land in one `setWaveforms`.
+- **Player handle out of React state.** `usePlayback` keeps the Player in a ref and attaches its listeners
+  in the ref callback; `play()` / `pause()` replace the exposed `player`; the returned object is memoised.
+- **Reconcile fingerprint** (`shot-reconcile.ts`): the known ids + each unknown folder's newest `v<N>.tsx`
+  size/mtime; unchanged since the project's last complete scan → return at once, nothing read or validated.
+  It also removes a quiet cost: an unadoptable folder used to be re-validated on every window focus (the
+  "already reported" memo was checked after the gate).
+
+**Before / after** (video-10, same driver; cold = first open after an app restart, then two warm opens):
+
+| run | open-to-interactive | blocking (Σ long task − 50 ms) | longest task | EditorShell renders |
+|---|---|---|---|---|
+| cold, before | 2619 ms (2748 traced) | 1504 ms (1628) | 601 ms (757) | 14 (traced) |
+| warm 1, before | 1592 ms | 607 ms | 316 ms | 12 (traced warm) |
+| warm 2, before | 1474 ms | 658 ms | 310 ms | |
+| cold, after | **1971 ms** (other cold runs of the final code: 1880, 1904, 2004, 2266) | 651 ms | 498 ms | |
+| warm 1, after | **1193 ms** | 674 ms | 450 ms | 8 (traced; 3 are loading views) |
+| warm 2, after | **947 ms** (862 in an earlier run) | 440 ms | 408 ms | |
+| first open after an app update (cache miss) | 3577 ms | 1086 ms | 706 ms | |
+
+After, cold: shot IPCs leave at 30 ms (before the mount), median 29 ms from the disk cache; shell 561 ms;
+first frame 845 ms. Honest notes: warm blocking is about flat — the mount is now ONE render of 400–500 ms
+instead of two shorter ones, so the longest task grew; React's dev-only performance-track logging
+(`measure` / `addValueToProperties`) is 100–180 ms of every open in these numbers and absent in
+production. The first open after an update is ~1 s slower than the old all-at-once transpile (6 at a time
+on the transpile path); concurrency 16 measured 1.66–2.55 s cold with main-process IPC latency up to
+735 ms, so 6 stayed. Cold numbers swing ±0.5 s run to run on the dev build.
+
+- **Gates:** check:types at baseline (26/10); vitest studio + shared **696 passed** (76 files; new
+  `shot-module-loader.test.ts` 11 incl. the ordering, `open-stages.test.ts` 4, `asset-patch.test.ts` 5);
+  main services + IPC 527 passed (new `shot-module-resolver.test.ts` 10 — memo/disk/transpile tiers, a new
+  version, in-place rewrite by size and by mtime, fingerprint change, cleared cache, base-URL round trip;
+  `transpiler-fingerprint.test.ts` 3; `shot-reconcile.test.ts` +3 fingerprint tests).
+- **CDP** (drivers in the session scratchpad: `profile-open.mjs` with `--trace` / `--profile`,
+  `analyze-trace.js`, `analyze-tasks.js`, `frames.mjs`, `invalidate.mjs`, `smoke.mjs`): video-10 preview
+  frames before (the stashed tree) vs after at f1957, f5709 (B3IntoCode's code window), f6313, f9864 and
+  f19019 are pixel-identical; f13 has 0.20 % of pixels over 24 (footage decode); zero placeholder tiles in
+  both. On `video-10-test`: a `v2.tsx` for b2-mechanism selected in the inspector → the preview shows the
+  v2 text and `cache/shot-modules/b2-mechanism/v2.json` appears → back to v1 → original; `v1.tsx` rewritten
+  in place with the project closed → reopen shows the new text and the v1 entry is rewritten (new mtime +
+  hash) → restored → original (7/7). Transport after the `usePlayback` change: seek, Play (playhead
+  10 → 12.6 s), Pause holds. Reconcile with a 120 KB unadoptable drop-in: first scan 39 ms and one failure,
+  five more scans 1–7 ms and nothing, folder removed → clean. project.json after every run: only
+  `updatedAt` (plus a captions/script key-order swap after the version switch) — values identical.
+- **Left for later:** the mount itself (400–500 ms warm in dev: the full editor, 113 tiles, 62 hidden shot
+  cards, Remotion's AudioContext) — memoising the left-pane lists or mounting the Shots tab on demand is
+  the next lever; served shot modules carry inline source maps (25 MB for 62 shots, 3× the source).
+- **Next** in the round: 8 (proxy speed).
+
 ## 2026-09-13 — STUDIO: Project settings panel (feedback 7) + left pane Media | Shots | Captions with a media grid (feedback 5)
 
 `docs/studio/VIDEO10_TESTING_FEEDBACK.md` items 5 and 7, built together (7.4 moved the brand/preset pickers

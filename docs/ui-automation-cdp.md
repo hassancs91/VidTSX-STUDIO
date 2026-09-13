@@ -520,3 +520,54 @@ Keyboard: `Input.dispatchKeyEvent` with `modifiers: 2` is Ctrl (`key: 'z'`,
 first so the timeline shortcuts receive it. React `<select>` values are set
 with the native `HTMLSelectElement` value setter plus a bubbling `change`
 event; inputs and textareas with their own setter plus `input`.
+
+## Profiling a project open: marks, long tasks, traces (2026-09-13, video-10 feedback item 2)
+
+**What to read.** Every stage of a Studio open drops a User Timing mark named
+`studio-open:<stage>` (`src/features/studio/services/open-timing.ts`; cleared
+when the next open starts): `load:start/end`, `media-prepare:start/end`,
+`reconcile:start/end`, `shot:ipc-start|ipc-end|import-end:<shotId>`,
+`waveform:read:<assetId>`, `interactive` (the loading overlay retired). A
+driver reads them with `performance.getEntriesByType('mark')`. Before the
+click, install a `PerformanceObserver({ type: 'longtask' })`, an rAF loop that
+records gaps over 50 ms, and a capture-phase `pointerdown` listener that stamps
+t0 (and `performance.mark('studio-open-t0')` so a trace can be aligned).
+Clear and enlarge the resource-timing buffer first
+(`performance.clearResourceTimings(); performance.setResourceTimingBufferSize(10000)`)
+— it was already full at 250 entries after a few minutes of use, so every
+later fetch was invisible.
+
+**Attribution.** A CPU profile alone (`Profiler.start`) says "React
+reconciler" for most of the busy time with no app frame on the stack. Record a
+trace too — `Tracing.start` with `devtools.timeline`,
+`disabled-by-default-devtools.timeline`, `blink.user_timing`, `v8.execute`,
+`toplevel` — and split each `RunTask` over 50 ms on the renderer main thread
+(the pid/tid of the t0 mark) into exclusive time per child event: that is what
+separated script from style, layout and paint. The profile's `startTime` and
+the trace's `ts` share a clock, so profile samples can be bucketed per long
+task. A temporary mark in a component body counts its renders. In dev builds
+React 19 spends 100–180 ms per open in performance-track logging (`measure`,
+`addValueToProperties`, `logComponentRender`) — real in these numbers, absent
+in production; don't chase it.
+
+**Traps:**
+
+- **A minimized or covered window produces no frames**, and `Page.bringToFront`
+  did not fix it here. Measure rAF for half a second before the click; under
+  30/s, restore the window WITHOUT activating it — `ShowWindow(h, 4)` when
+  `IsIconic`, then `SetWindowPos(h, HWND_TOPMOST)` and
+  `SetWindowPos(h, HWND_NOTOPMOST)` with `SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE`
+  — so the user's typing is not stolen. Discard any run whose rAF gap passed
+  2 s: its first-frame time and its deferred paint work are fiction (one such
+  run reported a 36 s "first frame").
+- **Cold opens need a real restart** (kill the electron + electron-vite
+  processes, relaunch, wait for the page, then ~40 s). A hot reload clears the
+  renderer's module map but keeps main's caches, which is neither cold nor
+  warm. Dev-build cold numbers swing ±0.5 s run to run: take several.
+- **Seeking the preview exactly**: the Player has no seek control, but
+  `TimelinePanel` receives `playback` as a prop. From any visible `.sticky`
+  timeline element, walk `node[__reactFiber$…].return` until
+  `memoizedProps.playback.seek` exists and call it with seconds (the same walk
+  finds `memoizedProps.tl` for `select(clipId)`). Wait for the Player's visible
+  `<video>` elements to reach `readyState ≥ 2` plus ~2.5 s for fonts before a
+  clipped `Page.captureScreenshot` of `.bg-app-player .bg-black`.
