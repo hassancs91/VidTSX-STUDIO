@@ -3,6 +3,7 @@ import type { StudioClip, StudioTimeline, StudioTrack } from '../types';
 import { clipEndTime, moveClip, trimClip } from '../services/timeline-ops';
 import { updateClip } from '../services/clip-update-ops';
 import { moveClips } from '../services/timeline-group-ops';
+import { trimClipRippleAll } from '../services/ripple-ops';
 import { collectSnapTargets, snapSeconds } from '../services/snapping';
 import type { TimelineAction } from './useTimeline';
 import type { ClipDragKind } from '../components/timeline/TimelineClip';
@@ -30,6 +31,8 @@ interface Options {
   timeline: StudioTimeline;
   pxPerSecond: number;
   snapEnabled: boolean;
+  /** Ripple mode 'all': trimming a master-lane edge moves every unlocked track with it. */
+  rippleAllTracks: boolean;
   selectedClipIds: string[];
   getPlayheadSeconds: () => number;
   sourceDurationOf: (clip: StudioClip) => number | undefined;
@@ -58,6 +61,7 @@ export function useClipDrag({
   timeline,
   pxPerSecond,
   snapEnabled,
+  rippleAllTracks,
   selectedClipIds,
   getPlayheadSeconds,
   sourceDurationOf,
@@ -71,8 +75,8 @@ export function useClipDrag({
   const [preview, setPreview] = useState<{ timeline: StudioTimeline; guide: number | null } | null>(
     null,
   );
-  const latestRef = useRef({ timeline, pxPerSecond, snapEnabled, selectedClipIds });
-  latestRef.current = { timeline, pxPerSecond, snapEnabled, selectedClipIds };
+  const latestRef = useRef({ timeline, pxPerSecond, snapEnabled, rippleAllTracks, selectedClipIds });
+  latestRef.current = { timeline, pxPerSecond, snapEnabled, rippleAllTracks, selectedClipIds };
 
   const resolveTargetTrack = useCallback(
     (clientY: number, clip: StudioClip, fallbackId: string): string => {
@@ -89,7 +93,12 @@ export function useClipDrag({
 
   const computePreview = useCallback(
     (drag: DragState, clientX: number, clientY: number) => {
-      const { timeline: current, pxPerSecond: pps, snapEnabled: snap } = latestRef.current;
+      const {
+        timeline: current,
+        pxPerSecond: pps,
+        snapEnabled: snap,
+        rippleAllTracks: rippleAll,
+      } = latestRef.current;
       const deltaSeconds = (clientX - drag.pointerX) / pps;
       const origin = drag.origin;
       const originEnd = clipEndTime(origin);
@@ -133,7 +142,7 @@ export function useClipDrag({
         ? snapSeconds(rawEdge, drag.snapTargets, pps)
         : { seconds: rawEdge, snappedTo: null };
       return {
-        timeline: trimClip(
+        timeline: (rippleAll ? trimClipRippleAll : trimClip)(
           current,
           drag.clipId,
           drag.kind === 'trim-start' ? 'start' : 'end',
@@ -267,6 +276,7 @@ export function useClipDrag({
         edge: drag.kind === 'trim-start' ? 'start' : 'end',
         seconds,
         ...(drag.sourceDuration !== undefined ? { sourceDuration: drag.sourceDuration } : {}),
+        ...(latestRef.current.rippleAllTracks ? { rippleAllTracks: true } : {}),
       });
     };
 

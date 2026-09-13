@@ -21,6 +21,7 @@ import { buildPresetTools } from './preset-tools';
 import { buildAudioTools } from './audio-tools';
 import { buildFlowTools } from './flow-tools';
 import type { StudioToolContext } from './types';
+import { withToolResultEvents } from './tool-result-events';
 
 export { createTurnState } from './types';
 export type { StudioToolContext, StudioTurnState } from './types';
@@ -72,7 +73,7 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
   return createSdkMcpServer({
     name: 'studio',
     version: '1.0.0',
-    tools: [
+    tools: withToolResultEvents(ctx, [
       ...buildTranscriptTools(ctx),
       ...buildCutTools(ctx),
       ...buildShotTools(ctx),
@@ -89,6 +90,6 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildPresetTools(ctx),
       ...buildAudioTools(ctx),
       ...buildFlowTools(ctx),
-    ],
+    ]),
   });
 }

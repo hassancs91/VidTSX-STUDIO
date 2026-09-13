@@ -5,8 +5,9 @@ import path from 'path';
 import { createHash } from 'crypto';
 
 const log = logEngine.createLogger('Transpiler');
-import { CDN_CONFIG, KNOWN_PACKAGE_VERSIONS, VIRTUAL_PACKAGES } from '@shared/constants';
+import { CDN_CONFIG, KNOWN_PACKAGE_VERSIONS } from '@shared/constants';
 import { rewriteFontUrls } from './font-proxy';
+import { rewriteModuleSpecifiers } from './import-rewriter';
 import {
   DEFAULT_CONFIG,
   parseCompositionConfig,
@@ -220,75 +221,55 @@ function buildCdnUrl(packageName: string, baseUrl: string): string {
  * - react, react-dom, remotion -> virtual modules (shared instances)
  * - other packages -> esm.sh CDN
  */
-function rewriteImports(code: string, baseUrl: string): string {
-  // Step 1: Rewrite virtual packages to local module server
-  // Remotion imports
-  code = code.replace(
-    /from\s*['"]remotion['"]/g,
-    `from '${baseUrl}/virtual/remotion.js'`
-  );
-
-  // React imports
-  code = code.replace(
-    /from\s*['"]react['"]/g,
-    `from '${baseUrl}/virtual/react.js'`
-  );
-
-  // React DOM imports
-  code = code.replace(
-    /from\s*['"]react-dom['"]/g,
-    `from '${baseUrl}/virtual/react-dom.js'`
-  );
-
-  // React JSX runtime (handled later in transpileTsx, but also here for completeness)
-  code = code.replace(
-    /from\s*['"]react\/jsx-runtime['"]/g,
-    `from '${baseUrl}/virtual/react-jsx-runtime.js'`
-  );
-
-  code = code.replace(
-    /from\s*['"]react\/jsx-dev-runtime['"]/g,
-    `from '${baseUrl}/virtual/react-jsx-runtime.js'`
-  );
-
-  // Step 1b: Fix default imports of packages that have no default export on esm.sh.
-  // `tone` is pure ESM — esm.sh serves it with `export *` and no default export.
-  // The AI sometimes generates `import Tone from 'tone'` which fails at runtime.
-  // Rewrite to `import * as Tone from 'tone'` (namespace import) so it works.
-  code = code.replace(
-    /import\s+(\w+)\s+from\s*(['"])tone\2/g,
-    `import * as $1 from $2tone$2`
-  );
-
-  // Step 2: Rewrite remaining bare imports to CDN
-  // Match: from 'package-name' or from '@scope/package-name'
-  // Skip: relative paths (./foo, ../bar, /absolute) and already-rewritten URLs
-  const bareImportRegex = /from\s*['"]([^'"./][^'"]*)['"]/g;
-
-  code = code.replace(bareImportRegex, (match, packageName: string) => {
-    // Skip packages already handled by virtual modules
-    if (VIRTUAL_PACKAGES.has(packageName)) {
-      return match;
-    }
-
-    // Skip if already rewritten to a URL
-    if (packageName.startsWith('http://') || packageName.startsWith('https://')) {
-      return match;
-    }
-
-    // Rewrite to CDN URL
-    const cdnUrl = buildCdnUrl(packageName, baseUrl);
-    log.debug(`Rewriting external import: ${packageName} -> ${cdnUrl}`);
-    return `from '${cdnUrl}'`;
+async function rewriteImports(code: string, baseUrl: string): Promise<string> {
+  // Steps 1–2 walk the module's REAL import statements (parsed, not grepped —
+  // see import-rewriter.ts) and map each specifier:
+  //   - react / react-dom / remotion / jsx runtimes → the module server's
+  //     virtual modules, so shots share the Player's instances;
+  //   - `tone` → namespace import (esm.sh serves it without a default export);
+  //   - any other bare package → CDN / vendor URL;
+  //   - relative paths and URLs → untouched.
+  const rewritten = await rewriteModuleSpecifiers(code, (specifier) => {
+    const virtualFile = VIRTUAL_MODULE_FILES[specifier];
+    if (virtualFile) return { specifier: `${baseUrl}/virtual/${virtualFile}` };
+    if (!isBareSpecifier(specifier)) return null;
+    const cdnUrl = buildCdnUrl(specifier, baseUrl);
+    log.debug(`Rewriting external import: ${specifier} -> ${cdnUrl}`);
+    return {
+      specifier: cdnUrl,
+      namespaceDefaultImport: NAMESPACE_ONLY_PACKAGES.has(splitPackage(specifier).root),
+    };
   });
 
   // Step 3: Route Google Fonts URLs in string literals (e.g. drei <Text font="...">)
   // through the local proxy so the webview's CSP can't block them and offline
-  // loads hit the on-disk cache instead of the network.
-  code = rewriteFontUrls(code, baseUrl);
-
-  return code;
+  // loads hit the on-disk cache instead of the network. This one is a text
+  // rewrite ON PURPOSE: the targets are string literals, not imports.
+  return rewriteFontUrls(rewritten, baseUrl);
 }
+
+/** Bare package specifier: not relative, not absolute, not a URL. */
+function isBareSpecifier(specifier: string): boolean {
+  if (specifier.startsWith('.') || specifier.startsWith('/')) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(specifier)) return false; // http:, data:, node:, …
+  return true;
+}
+
+/** Packages served by the module server as shared instances (VIRTUAL_PACKAGES). */
+const VIRTUAL_MODULE_FILES: Record<string, string> = {
+  react: 'react.js',
+  'react-dom': 'react-dom.js',
+  'react/jsx-runtime': 'react-jsx-runtime.js',
+  'react/jsx-dev-runtime': 'react-jsx-runtime.js',
+  remotion: 'remotion.js',
+};
+
+/**
+ * Pure-ESM packages esm.sh serves with `export *` and NO default export. The AI
+ * sometimes writes `import Tone from 'tone'`, which fails at runtime; the
+ * rewriter turns it into a namespace import instead.
+ */
+const NAMESPACE_ONLY_PACKAGES = new Set(['tone']);
 
 /**
  * Transpile TSX source (already in memory) to ESM JavaScript.
@@ -320,7 +301,7 @@ export async function transpileTsxSource(
     });
 
     // Rewrite imports to use virtual modules and CDN for external packages
-    let transpiledCode = rewriteImports(result.code, moduleServerBaseUrl);
+    let transpiledCode = await rewriteImports(result.code, moduleServerBaseUrl);
 
     // Ensure the component is exported as default for lazyComponent
     if (!isDefaultExport) {

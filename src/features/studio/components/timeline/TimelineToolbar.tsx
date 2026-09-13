@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Expand,
   FoldHorizontal,
+  Layers,
   Magnet,
   Redo2,
   Scissors,
@@ -20,8 +21,11 @@ interface Props {
   canUndo: boolean;
   canRedo: boolean;
   hasSelection: boolean;
+  /** In/out points span at least a moment: Delete removes that range. */
+  hasRange: boolean;
   snapEnabled: boolean;
   rippleEnabled: boolean;
+  rippleAllTracks: boolean;
   canZoomIn: boolean;
   canZoomOut: boolean;
   onUndo: () => void;
@@ -29,6 +33,7 @@ interface Props {
   onSplit: () => void;
   onDelete: () => void;
   onToggleRipple: () => void;
+  onToggleRippleAll: () => void;
   onToggleSnap: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -42,8 +47,10 @@ export function TimelineToolbar({
   canUndo,
   canRedo,
   hasSelection,
+  hasRange,
   snapEnabled,
   rippleEnabled,
+  rippleAllTracks,
   canZoomIn,
   canZoomOut,
   onUndo,
@@ -51,6 +58,7 @@ export function TimelineToolbar({
   onSplit,
   onDelete,
   onToggleRipple,
+  onToggleRippleAll,
   onToggleSnap,
   onZoomIn,
   onZoomOut,
@@ -82,12 +90,16 @@ export function TimelineToolbar({
       </ToolButton>
       <ToolButton
         label={
-          rippleEnabled
-            ? 'Delete and close the gap (Delete)'
-            : 'Delete, leaving the gap (Delete)'
+          hasRange
+            ? rippleAllTracks
+              ? 'Delete the in/out range from every track (Delete)'
+              : 'Delete the in/out range from the master lane (Delete)'
+            : rippleEnabled
+              ? 'Delete and close the gap (Delete)'
+              : 'Delete, leaving the gap (Delete)'
         }
         onClick={onDelete}
-        disabled={!hasSelection}
+        disabled={!hasSelection && !hasRange}
       >
         <Trash2 size={13} strokeWidth={1.5} />
       </ToolButton>
@@ -97,6 +109,18 @@ export function TimelineToolbar({
         active={rippleEnabled}
       >
         <FoldHorizontal size={13} strokeWidth={1.5} />
+      </ToolButton>
+      <ToolButton
+        label={
+          rippleAllTracks
+            ? 'Ripple all tracks — cutting or trimming the master lane slides every unlocked track with it (click: this track only)'
+            : 'Ripple this track only — other tracks hold their timing (click: ripple all tracks)'
+        }
+        onClick={onToggleRippleAll}
+        active={rippleAllTracks}
+        disabled={!rippleEnabled}
+      >
+        <Layers size={13} strokeWidth={1.5} />
       </ToolButton>
 
       <div className="flex-1" />

@@ -9,6 +9,7 @@ import type { StudioCutCategory, StudioProposal, StudioProposalItem, StudioTimel
 import type { TimelineAction } from '../hooks/useTimeline';
 import { acceptedRemovedSeconds, timelineEndSeconds } from '../services/cut-proposal';
 import { applyCutProposal } from '../services/apply-cut-proposal';
+import { useRippleMode } from '../hooks/useRippleMode';
 
 interface Props {
   proposal: StudioProposal;
@@ -56,11 +57,12 @@ export function ReviewCutsSection({
   const acceptedCount = proposal.items.filter((i) => i.status === 'accepted').length;
   const rejectedCount = proposal.items.filter((i) => i.status === 'rejected').length;
   const removed = acceptedRemovedSeconds(proposal);
+  const { rippleAllTracks } = useRippleMode();
 
   // Honest before → after readout: run the real apply on a scratch copy.
   const resultSeconds = useMemo(
-    () => timelineEndSeconds(applyCutProposal(timeline, proposal)),
-    [timeline, proposal],
+    () => timelineEndSeconds(applyCutProposal(timeline, proposal, { rippleAllTracks })),
+    [timeline, proposal, rippleAllTracks],
   );
   const beforeSeconds = useMemo(() => timelineEndSeconds(timeline), [timeline]);
 
@@ -116,7 +118,7 @@ export function ReviewCutsSection({
           size="sm"
           disabled={acceptedCount === 0}
           onClick={() => {
-            dispatch({ type: 'proposal-apply', proposalId: proposal.id });
+            dispatch({ type: 'proposal-apply', proposalId: proposal.id, rippleAllTracks });
             onApplied(
               `Removed ${removed.toFixed(1)} s across ${acceptedCount} cut${
                 acceptedCount === 1 ? '' : 's'

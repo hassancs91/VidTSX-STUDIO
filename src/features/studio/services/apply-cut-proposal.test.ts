@@ -153,3 +153,69 @@ describe('applyCutProposal', () => {
     );
   });
 });
+
+describe('applyCutProposal with rippleAllTracks', () => {
+  /** A shot lane above the fixture: one shot over the first cut, one after both. */
+  function withShots(): StudioTimeline {
+    const base = makeTimeline();
+    return {
+      ...base,
+      tracks: [
+        {
+          id: 's1',
+          kind: 'overlay',
+          name: 'Shots',
+          clips: [
+            { id: 'sh1', kind: 'tsx', timelineStart: 4, duration: 3, sourceIn: 0, tsx: { shotId: 'a', mode: 'overlay' } },
+            { id: 'sh2', kind: 'tsx', timelineStart: 16, duration: 2, sourceIn: 0, tsx: { shotId: 'b', mode: 'overlay' } },
+          ],
+        },
+        ...base.tracks,
+      ],
+      markers: [{ id: 'mk1', time: 6 }, { id: 'mk2', time: 18 }],
+    };
+  }
+  const proposal = () =>
+    makeProposal([
+      { sourceStart: 5, sourceEnd: 8 },
+      { sourceStart: 12, sourceEnd: 14.5 },
+    ]);
+
+  it('pulls the shot lane and the music along with the master cuts', () => {
+    const next = applyCutProposal(withShots(), proposal(), { rippleAllTracks: true });
+    // Master reshaped exactly as in per-track mode.
+    expect(next.tracks[1].clips.map((c) => [c.timelineStart, c.duration, c.sourceIn])).toEqual([
+      [0, 5, 0],
+      [5, 4, 8],
+      [9, 5.5, 14.5],
+    ]);
+    // sh1 (4–7) straddled the first cut (5–8): keeps its first second.
+    // sh2 (16–18) sits after both cuts: slides by 3 + 2.5.
+    expect(next.tracks[0].clips.map((c) => [c.id, c.timelineStart, c.duration])).toEqual([
+      ['sh1', 4, 1],
+      ['sh2', 10.5, 2],
+    ]);
+    // The music bed loses both spans out of its middle.
+    expect(next.tracks[2].clips.map((c) => [c.timelineStart, c.duration, c.sourceIn ?? 0])).toEqual([
+      [0, 5, 0],
+      [5, 4, 8],
+      [9, 15.5, 14.5],
+    ]);
+    // Marker inside the first cut is gone; the later one slides.
+    expect(next.markers).toEqual([{ id: 'mk2', time: 12.5 }]);
+  });
+
+  it('leaves a locked lane alone even in all-tracks mode', () => {
+    const timeline = withShots();
+    timeline.tracks[0].locked = true;
+    const next = applyCutProposal(timeline, proposal(), { rippleAllTracks: true });
+    expect(next.tracks[0]).toBe(timeline.tracks[0]);
+  });
+
+  it('is the per-track apply when the option is off', () => {
+    const timeline = withShots();
+    const next = applyCutProposal(timeline, proposal());
+    expect(next.tracks[0]).toBe(timeline.tracks[0]);
+    expect(next.tracks[2]).toBe(timeline.tracks[2]);
+  });
+});

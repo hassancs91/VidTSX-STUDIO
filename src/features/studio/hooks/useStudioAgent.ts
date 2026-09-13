@@ -150,6 +150,20 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
             { tool: event.tool, ...(event.detail ? { detail: event.detail } : {}) },
           ],
         }));
+      } else if (event.kind === 'tool-result') {
+        // Attach the raw exchange to the chip this tool emitted (the latest
+        // one of that name); a tool that emitted no chip gets one now.
+        patchPending((msg) => {
+          const calls = msg.toolCalls ?? [];
+          const index = calls.map((c) => c.tool).lastIndexOf(event.tool);
+          const record = {
+            args: event.args,
+            result: event.result,
+            ...(event.isError ? { isError: true } : {}),
+          };
+          if (index < 0) return { ...msg, toolCalls: [...calls, { tool: event.tool, ...record }] };
+          return { ...msg, toolCalls: calls.map((c, i) => (i === index ? { ...c, ...record } : c)) };
+        });
       } else if (event.kind === 'progress') {
         // Long tools update their chip in place: "Transcribing — 42% Uploading…".
         patchPending((msg) => {
@@ -199,10 +213,19 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
         content: m.text,
       }));
 
+      const at = new Date().toISOString();
       setMessages((prev) => [
         ...prev,
-        { id: msgId(), role: 'user', text: trimmed },
-        { id: msgId(), role: 'assistant', text: '', pending: true },
+        { id: msgId(), role: 'user', text: trimmed, at },
+        {
+          id: msgId(),
+          role: 'assistant',
+          text: '',
+          pending: true,
+          at,
+          ...(opts.providerId ? { providerId: opts.providerId } : {}),
+          ...(opts.model ? { model: opts.model } : {}),
+        },
       ]);
       setBusy(true);
       busyRef.current = true;

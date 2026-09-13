@@ -90,6 +90,7 @@
     "bufferutil": "^4.0.8",
     "core-util-is": "^1.0.3",
     "electron-updater": "6.8.9",
+    "es-module-lexer": "2.3.1",
     "esbuild": "0.25.0",
     "express": "4.21.0",
     "gifuct-js": "2.1.2",

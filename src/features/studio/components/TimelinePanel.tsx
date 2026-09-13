@@ -10,6 +10,7 @@ import { useMarqueeSelect } from '../hooks/useMarqueeSelect';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { usePlayheadFollow } from '../hooks/usePlayheadFollow';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
+import { useRippleMode } from '../hooks/useRippleMode';
 import { clipAt, clipEndTime, findClip, makeClipId } from '../services/timeline-ops';
 import { makeMarkerId } from '../services/marker-ops';
 import { trackMenuItems } from '../services/track-menu';
@@ -73,10 +74,11 @@ export function TimelinePanel({
 
   const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX);
   const [snapEnabled, setSnapEnabled] = useState(true);
-  // "Auto ripple": whether deleting closes the gap. Governs the Delete key and
-  // the toolbar delete button (single or multi-selection alike); Backspace is
-  // the explicit leave-the-gap delete regardless of the mode.
-  const [rippleEnabled, setRippleEnabled] = useState(true);
+  // Ripple mode (useRippleMode, remembered across sessions): whether deleting
+  // closes the gap, and whether a master-lane cut pulls every track along.
+  // Governs the Delete key, the toolbar delete button and edge trims;
+  // Backspace is the explicit leave-the-gap delete regardless of the mode.
+  const { rippleEnabled, rippleAllTracks, toggleRipple, toggleAllTracks } = useRippleMode();
   const [viewport, setViewport] = useState({ left: 0, top: 0, width: 1200 });
   const pxPerSecond = ZOOM_LEVELS[zoomIndex];
 
@@ -136,6 +138,7 @@ export function TimelinePanel({
     timeline: tl.timeline,
     pxPerSecond,
     snapEnabled,
+    rippleAllTracks,
     selectedClipIds: tl.selectedClipIds,
     getPlayheadSeconds,
     sourceDurationOf,
@@ -377,6 +380,22 @@ export function TimelinePanel({
     [onRangeChange, playback.secondsRef],
   );
 
+  // Delete with an in/out range set removes that span of time — from every
+  // unlocked track in all-tracks mode, from the master lane otherwise. The
+  // points clear and the playhead parks on the join. One undo step.
+  const hasRange =
+    rangeIn !== null && rangeOut !== null && rangeOut - Math.max(0, rangeIn) > 1e-6;
+  const deleteRange = useCallback((): boolean => {
+    if (rangeIn === null || rangeOut === null) return false;
+    const from = Math.max(0, rangeIn);
+    if (rangeOut - from <= 1e-6) return false;
+    tl.dispatch({ type: 'remove-span', from, to: rangeOut, allTracks: rippleAllTracks });
+    onRangeChange('in', null);
+    onRangeChange('out', null);
+    playback.seek(from);
+    return true;
+  }, [rangeIn, rangeOut, rippleAllTracks, tl, onRangeChange, playback]);
+
   useTimelineShortcuts({
     containerRef,
     tl,
@@ -384,6 +403,8 @@ export function TimelinePanel({
     fps: project.settings.fps,
     durationSeconds,
     rippleDelete: rippleEnabled,
+    rippleAllTracks,
+    onDeleteRange: deleteRange,
     onSplit: splitAtPlayhead,
     onCopy: clipboard.copy,
     onPaste: pasteAtPlayhead,
@@ -436,15 +457,20 @@ export function TimelinePanel({
         canUndo={tl.canUndo}
         canRedo={tl.canRedo}
         hasSelection={tl.selectedClipIds.length > 0}
+        hasRange={hasRange}
         snapEnabled={snapEnabled}
         rippleEnabled={rippleEnabled}
+        rippleAllTracks={rippleAllTracks}
         canZoomIn={zoomIndex < ZOOM_LEVELS.length - 1}
         canZoomOut={zoomIndex > 0}
         onUndo={tl.undo}
         onRedo={tl.redo}
         onSplit={splitAtPlayhead}
-        onDelete={() => tl.removeSelected(rippleEnabled)}
-        onToggleRipple={() => setRippleEnabled((v) => !v)}
+        onDelete={() => {
+          if (!deleteRange()) tl.removeSelected(rippleEnabled, rippleAllTracks);
+        }}
+        onToggleRipple={toggleRipple}
+        onToggleRippleAll={toggleAllTracks}
         onToggleSnap={() => setSnapEnabled((v) => !v)}
         onZoomIn={() => zoomBy(1)}
         onZoomOut={() => zoomBy(-1)}

@@ -11,6 +11,11 @@ interface Options {
   durationSeconds: number;
   /** The toolbar's "auto ripple" mode: Delete closes the gap when true. */
   rippleDelete: boolean;
+  /** Ripple mode 'all': a master-lane delete pulls every unlocked track along. */
+  rippleAllTracks: boolean;
+  /** Delete with an in/out range set removes that span instead of the selection;
+   *  returns true when it did (the range wins over a lingering selection). */
+  onDeleteRange: () => boolean;
   onSplit: () => void;
   onCopy: () => void;
   /** Ctrl+V — pastes at the playhead (the handler reads it at call time). */
@@ -44,6 +49,8 @@ export function useTimelineShortcuts({
   fps,
   durationSeconds,
   rippleDelete,
+  rippleAllTracks,
+  onDeleteRange,
   onSplit,
   onCopy,
   onPaste,
@@ -122,9 +129,13 @@ export function useTimelineShortcuts({
           onSetRangePoint('out', event.shiftKey);
           break;
         case 'Delete':
+          if (onDeleteRange()) {
+            event.preventDefault();
+            break;
+          }
           if (tl.selectedClipIds.length === 0) break;
           event.preventDefault();
-          tl.removeSelected(rippleDelete);
+          tl.removeSelected(rippleDelete, rippleAllTracks);
           break;
         case 'Backspace':
           if (tl.selectedClipIds.length === 0) break;
@@ -166,6 +177,8 @@ export function useTimelineShortcuts({
     fps,
     durationSeconds,
     rippleDelete,
+    rippleAllTracks,
+    onDeleteRange,
     onSplit,
     onCopy,
     onPaste,

@@ -471,8 +471,15 @@ export interface StudioAgentChatMessage {
   id: string;
   role: 'user' | 'assistant';
   text: string;
-  /** Tool activity chips shown above the reply. */
-  toolCalls?: Array<{ tool: string; detail?: string }>;
+  /** When the message was created (ISO). Absent on transcripts older than 2026-09-12. */
+  at?: string;
+  /** The provider/model that answered (assistant rows) — for the exported chat. */
+  providerId?: string;
+  model?: string;
+  /** Tool activity chips shown above the reply. `args`/`result` are the raw
+   *  exchange (capped in main, see tool-result-events.ts) — the exported chat
+   *  can include them; the panel shows only tool + detail. */
+  toolCalls?: Array<{ tool: string; detail?: string; args?: string; result?: string; isError?: boolean }>;
   /** Set when the turn produced a proposal. */
   proposalNote?: string;
   error?: boolean;
@@ -521,6 +528,9 @@ export type StudioAgentEvent =
   /** W3: a long tool (transcribe, video) streaming progress — updates the
    *  latest tool chip in place instead of adding one. */
   | { projectId: string; kind: 'progress'; tool: string; percent?: number; message: string }
+  /** A tool finished: its arguments and result text (capped) — recorded on
+   *  the latest chip of that tool so "Save chat with tool details" has them. */
+  | { projectId: string; kind: 'tool-result'; tool: string; args: string; result: string; isError?: boolean }
   /** W3: a request for the renderer (see StudioAgentAction); answered over
    *  STUDIO_AGENT_ACTION_RESULT with the same requestId. */
   | { projectId: string; kind: 'action'; requestId: string; action: StudioAgentAction }
@@ -751,6 +761,9 @@ export interface StudioExportPrepareRequest {
    *  grid — and renders exactly that many frames. */
   rangeIn?: number;
   rangeOut?: number;
+  /** Which video file each asset is read from (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md
+   *  Phase 2): the original, or the 540p preview proxy for a draft. Absent = original. */
+  source?: import('../../studio/export-source').ExportSource;
 }
 
 export interface StudioExportPrepareResponse {

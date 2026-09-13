@@ -3,10 +3,16 @@
 // semantics as removeClip(ripple) — other tracks hold their timing), and tag
 // the reshaped clips with agent provenance. Pure; one call = one undo step.
 //
+// With `rippleAllTracks` (the toolbar's ripple mode) every span the MASTER
+// lane loses is also taken out of the tracks that don't play a cut asset —
+// shots placed against the footage stay aligned with it (ripple-ops.ts).
+//
 // Cut spans are SOURCE seconds; clips map them through sourceIn/duration.
 
+import { masterLane } from '@shared/studio';
 import type { StudioClip, StudioProposal, StudioTimeline } from '../types';
 import { MIN_CLIP_DURATION, makeClipId } from './timeline-ops';
+import { cutSpanFromClips, cutSpanFromMarkers } from './ripple-ops';
 
 interface Span {
   start: number;
@@ -54,6 +60,65 @@ function keptPieces(sourceIn: number, sourceEnd: number, cuts: Span[]): Span[] {
   return pieces;
 }
 
+/** The clip's timeline spans that are NOT in `pieces` — what a cut removes. */
+function removedTimelineSpans(clip: StudioClip, pieces: Span[]): Span[] {
+  const sourceIn = clip.sourceIn ?? 0;
+  const spans: Span[] = [];
+  let cursor = sourceIn;
+  for (const piece of pieces) {
+    if (piece.start - cursor > 1e-9) {
+      spans.push({
+        start: clip.timelineStart + (cursor - sourceIn),
+        end: clip.timelineStart + (piece.start - sourceIn),
+      });
+    }
+    cursor = piece.end;
+  }
+  if (sourceIn + clip.duration - cursor > 1e-9) {
+    spans.push({
+      start: clip.timelineStart + (cursor - sourceIn),
+      end: clip.timelineStart + clip.duration,
+    });
+  }
+  return spans;
+}
+
+/** Take the master lane's removed spans out of every other unlocked track (and the markers). */
+function followMasterSpans(
+  result: StudioTimeline,
+  spans: Span[],
+  skipTrackIds: ReadonlySet<string>,
+): StudioTimeline {
+  // Latest first: the earlier spans still sit at their original seconds.
+  const ordered = [...spans].sort((a, b) => b.start - a.start);
+  const tracks = result.tracks.map((track) => {
+    if (track.locked || skipTrackIds.has(track.id)) return track;
+    let clips = track.clips;
+    let touched = false;
+    for (const span of ordered) {
+      const cut = cutSpanFromClips(clips, span.start, span.end);
+      if (cut.changed) {
+        clips = cut.clips;
+        touched = true;
+      }
+    }
+    return touched ? { ...track, clips } : track;
+  });
+  let markers = result.markers;
+  if (markers && markers.length > 0) {
+    for (const span of ordered) {
+      const cut = cutSpanFromMarkers(markers, span.start, span.end);
+      if (cut.changed) markers = cut.markers;
+    }
+  }
+  return { ...result, tracks, ...(markers !== result.markers ? { markers } : {}) };
+}
+
+export interface ApplyCutOptions {
+  /** Ripple every unlocked track along with the master lane (useRippleMode 'all'). */
+  rippleAllTracks?: boolean;
+}
+
 /**
  * Apply the proposal's accepted cuts. Returns the SAME timeline object when
  * nothing changes (no accepted items, or no clips play the cut assets) — the
@@ -62,15 +127,20 @@ function keptPieces(sourceIn: number, sourceEnd: number, cuts: Span[]): Span[] {
 export function applyCutProposal(
   timeline: StudioTimeline,
   proposal: StudioProposal,
+  options: ApplyCutOptions = {},
 ): StudioTimeline {
   const byAsset = acceptedSpansByAsset(proposal);
   if (byAsset.size === 0) return timeline;
 
+  const master = masterLane(timeline);
+  const masterSpans: Span[] = [];
+  const affectedIds = new Set<string>();
   let changed = false;
   const tracks = timeline.tracks.map((track) => {
     if (track.locked) return track;
     const affected = track.clips.some((c) => c.assetId && byAsset.has(c.assetId));
     if (!affected) return track;
+    affectedIds.add(track.id);
 
     const next: StudioClip[] = [];
     let shift = 0;
@@ -90,6 +160,9 @@ export function applyCutProposal(
         continue;
       }
       changed = true;
+      if (master && track.id === master.id) {
+        masterSpans.push(...removedTimelineSpans(clip, pieces));
+      }
       let cursor = newStart;
       pieces.forEach((piece, index) => {
         next.push({
@@ -108,5 +181,8 @@ export function applyCutProposal(
     return { ...track, clips: next };
   });
 
-  return changed ? { ...timeline, tracks } : timeline;
+  if (!changed) return timeline;
+  const result = { ...timeline, tracks };
+  if (!options.rippleAllTracks || masterSpans.length === 0) return result;
+  return followMasterSpans(result, masterSpans, affectedIds);
 }
