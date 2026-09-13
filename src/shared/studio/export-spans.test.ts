@@ -4,7 +4,7 @@
 // into the one audio pass).
 import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioProject, StudioTrack } from '../types/studio';
-import { copiedPercent, copyBlocker, planExportAudio, planExportSpans, type AudioSegment } from './export-spans';
+import { compositedPercent, copiedPercent, copyBlocker, planExportAudio, planExportSpans, type AudioSegment } from './export-spans';
 
 const DJI = 'C:\\Users\\Malak\\Documents\\GitHub\\VidTSX-STUDIO\\raw\\DJI_20260813142309_0270_D.MP4';
 const ASSET = 'c9ed8f79-f1c6-4c8f-92ce-7c92a4a1b106';
@@ -476,5 +476,77 @@ describe('planExportAudio', () => {
     expect(planExportAudio(project([video([clip('a', 0, 10, 5)])]), 90)?.segments).toEqual([
       { kind: 'source', assetId: ASSET, assetPath: DJI, sourceIn: 5, duration: 3 },
     ]);
+  });
+});
+
+// Engine 3 (docs/export-engines-plan.md "Engine 3 — shot composite"): the
+// same planner asked for composite spans — graphics over a copyable base.
+describe('planExportSpans — compositeShots', () => {
+  const shot = { id: 's', name: 'S', kind: 'overlay' as const, createdAt: '', activeVersion: 1, status: 'ready' as const };
+  const tsx = (id: string, timelineStart: number, duration: number, extra: Partial<StudioClip> = {}): StudioClip =>
+    ({ id, kind: 'tsx', timelineStart, duration, tsx: { shotId: 's', mode: 'overlay' }, origin: { by: 'user' }, ...extra });
+  const overlayTrack = (clips: StudioClip[], extra: Partial<StudioTrack> = {}): StudioTrack => ({ id: 'o1', kind: 'overlay', name: 'O1', clips, ...extra });
+
+  it('is byte-identical to the copying plan when not asked (the passthrough engine never sees a composite span)', () => {
+    const p = project([overlayTrack([tsx('t', 4, 2)]), video([clip('a', 0, 10, 20)])], { shots: [shot] });
+    const plain = planExportSpans(p);
+    expect(plain).toEqual(planExportSpans(p, undefined, {}));
+    expect(plain.spans.map((s) => s.kind)).toEqual(['copy', 'browser', 'copy']);
+    expect(plain.compositedFrames).toBeUndefined();
+  });
+
+  it('plans a shot over a pure cut as a composite span whose base is the copied span the cut would have been', () => {
+    const p = project([overlayTrack([tsx('t', 4, 2)]), video([clip('a', 0, 10, 20)])], { shots: [shot] });
+    const plan = planExportSpans(p, undefined, { compositeShots: true });
+    expect(plan.spans).toEqual([
+      { kind: 'copy', from: 0, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 600, firstFrameCeil: true },
+      { kind: 'composite', from: 120, frames: 60, base: { kind: 'copy', from: 120, frames: 60, assetId: ASSET, assetPath: DJI, sourceFrame: 720, firstFrameCeil: false } },
+      { kind: 'copy', from: 180, frames: 120, assetId: ASSET, assetPath: DJI, sourceFrame: 780, firstFrameCeil: false },
+    ]);
+    expect(plan.copiedFrames).toBe(240);
+    expect(plan.compositedFrames).toBe(60);
+    expect(copiedPercent(plan)).toBe(80);
+    expect(compositedPercent(plan)).toBe(20);
+  });
+
+  it('composites over black where no footage lies under the shot, and keeps the browser for footage it cannot copy', () => {
+    // A shot from 8 s to 12 s over a 10 s clip: 8-10 over footage, 10-12 over the gap.
+    const gap = planExportSpans(project([overlayTrack([tsx('t', 8, 4)]), video([clip('a', 0, 10, 0)])], { shots: [shot] }), 360, { compositeShots: true });
+    expect(gap.spans.map((s) => `${s.kind}:${s.from}+${s.frames}` + (s.kind === 'composite' ? `/${s.base.kind}` : ''))).toEqual([
+      'copy:0+240', 'composite:240+60/copy', 'composite:300+60/black',
+    ]);
+    // Footage under a shot with a transform (a split) stays a browser span, reason from the base.
+    const pip = planExportSpans(project([overlayTrack([tsx('t', 4, 2)]), video([clip('a', 0, 10, 0, { transform: { scale: 0.5 } })])], { shots: [shot] }), undefined, { compositeShots: true });
+    expect(pip.spans.map((s) => s.kind)).toEqual(['browser']);
+    expect(pip.spans[0]).toMatchObject({ reason: 'transform' });
+    // A transition window under a shot: the browser paints both clips there.
+    const xfade = planExportSpans(
+      project([overlayTrack([tsx('t', 4, 2)]), video([clip('a', 0, 5, 0, { transitionOut: { kind: 'crossfade', duration: 1 } }), clip('b', 5, 5, 20)])], { shots: [shot] }),
+      undefined, { compositeShots: true },
+    );
+    expect(xfade.spans.find((s) => s.kind === 'browser')).toMatchObject({ reason: 'transition' });
+  });
+
+  it('sends footage on an overlay lane, and a layer painted under the covering footage, to the browser', () => {
+    // B-roll (a video clip) on the overlay lane is footage, not a layer.
+    const broll = planExportSpans(project([overlayTrack([clip('t', 4, 2, 0)]), video([clip('a', 0, 10, 20)])], { shots: [shot] }), undefined, { compositeShots: true });
+    expect(broll.spans.map((s) => s.kind)).toEqual(['copy', 'browser', 'copy']);
+    // The overlay lane BELOW the video lane in the stack: the footage hides the shot; the browser decides.
+    const under = planExportSpans(project([video([clip('a', 0, 10, 20)]), overlayTrack([tsx('t', 4, 2)])], { shots: [shot] }), undefined, { compositeShots: true });
+    expect(under.spans.map((s) => s.kind)).toEqual(['copy', 'browser', 'copy']);
+    // A shot with its own transform or opacity is still a layer (the layer render applies it).
+    const moved = planExportSpans(project([overlayTrack([tsx('t', 4, 2, { transform: { x: 10, opacity: 0.5 } })]), video([clip('a', 0, 10, 20)])], { shots: [shot] }), undefined, { compositeShots: true });
+    expect(moved.spans.map((s) => s.kind)).toEqual(['copy', 'composite', 'copy']);
+  });
+
+  it('paints the caption layer over every piece instead of stepping aside', () => {
+    const captions = { enabled: true, templateId: 'pack/tpl', style: { wordsPerGroup: 3 } } as unknown as StudioProject['captions'];
+    const p = project([video([clip('a', 0, 10, 20)])], { captions });
+    expect(planExportSpans(p).reason).toBe('captions');
+    const plan = planExportSpans(p, undefined, { compositeShots: true });
+    expect(plan.spans).toEqual([
+      { kind: 'composite', from: 0, frames: 300, base: { kind: 'copy', from: 0, frames: 300, assetId: ASSET, assetPath: DJI, sourceFrame: 600, firstFrameCeil: true } },
+    ]);
+    expect(plan.compositedFrames).toBe(300);
   });
 });

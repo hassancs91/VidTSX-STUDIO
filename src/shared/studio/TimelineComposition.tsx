@@ -34,6 +34,14 @@ export interface TimelineCompositionProps {
    * `tsx.props` (resolved asset URLs, D12).
    */
   components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
+  /**
+   * Engine 3 (docs/export-engines-plan.md "shot composite"): render only the
+   * SHOT LAYER — the overlay and caption lanes' graphics (tsx, caption, image
+   * clips) over a transparent background — so ffmpeg can composite it onto
+   * footage copied straight from the source files. Footage and sound never
+   * mount here. Absent = the whole timeline, exactly as before.
+   */
+  layer?: 'shots';
 }
 
 /**
@@ -63,15 +71,17 @@ export function TimelineComposition({
   timeline,
   components,
   captionComponent,
+  layer,
 }: TimelineCompositionProps) {
   const frame = useCurrentFrame();
-  const painted = [...timeline.tracks].reverse();
+  const tracks = layer === 'shots' ? shotLayerTracks(timeline.tracks) : timeline.tracks;
+  const painted = [...tracks].reverse();
   const margin = timeline.fps * MOUNT_WINDOW_SECONDS;
   const isNearby = (clip: SerializedClip) =>
     clip.from - margin <= frame && frame < clip.from + clip.durationInFrames + margin;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: 'black' }}>
+    <AbsoluteFill style={{ backgroundColor: layer === 'shots' ? 'transparent' : 'black' }}>
       {painted.map((track) => (
         <Fragment key={track.id}>
           {track.clips.filter(isNearby).map((clip) => (
@@ -94,6 +104,18 @@ export function TimelineComposition({
       ))}
     </AbsoluteFill>
   );
+}
+
+/**
+ * The shot layer's tracks: the overlay and caption lanes with only their
+ * graphics (the same kinds `isLayerClipKind` in export-spans.ts names), in
+ * the same order, so stacking and every clip's own transform, trim offset
+ * and props render exactly as in the whole composition.
+ */
+function shotLayerTracks(tracks: SerializedTimeline['tracks']): SerializedTimeline['tracks'] {
+  return tracks
+    .filter((t) => t.kind === 'overlay' || t.kind === 'caption')
+    .map((t) => ({ ...t, clips: t.clips.filter((c) => c.kind === 'tsx' || c.kind === 'caption' || c.kind === 'image') }));
 }
 
 function transformStyle(clip: SerializedClip): React.CSSProperties {

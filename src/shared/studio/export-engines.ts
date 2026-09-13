@@ -12,7 +12,7 @@
  * here + one implementation file + one `registerExportEngine` call.
  */
 
-export type ExportEngineId = 'remotion' | 'passthrough';
+export type ExportEngineId = 'remotion' | 'passthrough' | 'shot-composite';
 
 export interface ExportEngineDefinition {
   id: ExportEngineId;
@@ -25,6 +25,9 @@ export interface ExportEngineDefinition {
   /** The dialog states "copies N % of this timeline" for this engine (D4),
    *  from the shared span planner (`export-spans.ts`). */
   reportsCopiedShare: boolean;
+  /** Engine 3: the planner is asked for composite spans (graphics over copied
+   *  footage) and the dialog states the composited share too. */
+  compositesShots?: boolean;
 }
 
 /** Picker order. The first entry is what ships as the default. */
@@ -43,6 +46,15 @@ export const EXPORT_ENGINES: readonly ExportEngineDefinition[] = [
       'Copies untouched footage straight from the source files and renders only the edited parts. Needs the GPU encoder download.',
     needsFullFfmpeg: true,
     reportsCopiedShare: true,
+  },
+  {
+    id: 'shot-composite',
+    label: 'Fastest',
+    description:
+      'Copies untouched footage from the source files and lays the shots over it with the video tools — footage under a shot is never re-rendered, only the shots themselves are. Needs the GPU encoder download.',
+    needsFullFfmpeg: true,
+    reportsCopiedShare: true,
+    compositesShots: true,
   },
 ] as const;
 

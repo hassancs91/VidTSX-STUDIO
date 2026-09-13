@@ -1,6 +1,6 @@
 // Export-engines Stage 1 — drive one Studio export through the REAL UI (the
 // Export button → the engine dialog → confirm) and record the queue's outcome.
-//   node scripts/bench/export-engine-run.mjs --project="t5-1080p" [--engine=remotion] [--verify=remotion] [--range] --out=<file.json>
+//   node scripts/bench/export-engine-run.mjs --project="t5-1080p" [--engine=remotion] [--verify=remotion] [--range] [--resolution=original|720p|540p|360p] [--source=original|proxy] --out=<file.json>
 // Needs the dev app running with --remote-debugging-port=9222 (docs/ui-automation-cdp.md).
 // --verify sets the hidden localStorage flag (vidtsx:export-verify) before
 // opening the dialog, ticks the dev checkbox and picks the reference engine.
@@ -128,6 +128,20 @@ const dialog = await evaluate(`
   const engines = visible('[data-export-engine]').map((el) => ({ id: el.dataset.exportEngine, checked: el.querySelector('input').checked, disabled: el.querySelector('input').disabled, text: el.textContent.trim() }));
   const engine = ${JSON.stringify(args.engine ?? '')};
   if (engine) { const row = visible('[data-export-engine="' + engine + '"]')[0]; if (!row) return { error: 'engine row missing: ' + engine, engines }; row.querySelector('input').click(); await sleep(100); }
+  // --resolution=<preset id> / --source=original|proxy: the Output section's controls (Engine 3 gates, 2026-09-12).
+  const resolution = ${JSON.stringify(args.resolution ?? '')};
+  if (resolution) {
+    const sel = visible('[data-export-resolution]')[0]; if (!sel) return { error: 'resolution select missing', engines };
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(sel, resolution); sel.dispatchEvent(new Event('change', { bubbles: true })); await sleep(150);
+    if (sel.value !== resolution) return { error: 'resolution not applied: ' + sel.value, engines };
+  }
+  const source = ${JSON.stringify(args.source ?? '')};
+  if (source) {
+    const box = visible('[data-export-source] input[type=checkbox]')[0];
+    if (box && box.checked !== (source === 'proxy')) { box.click(); await sleep(150); }
+    if (box && box.checked !== (source === 'proxy')) return { error: 'source not applied', engines };
+  }
+  const output = { resolution: visible('[data-export-resolution]')[0]?.value ?? null, quality: visible('[data-export-quality]')[0]?.value ?? null, proxy: visible('[data-export-source] input[type=checkbox]')[0]?.checked ?? null };
   const verify = ${JSON.stringify(args.verify ?? '')};
   let verifyBox = visible('[data-export-verify]').length;
   if (verify) {
@@ -137,7 +151,7 @@ const dialog = await evaluate(`
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set; setter.call(sel, verify); sel.dispatchEvent(new Event('change', { bubbles: true })); await sleep(100);
   }
   const title = visible('h2, h3, [class*="title"]').map((e) => e.textContent.trim()).find((t) => t === 'Export' || t === 'Export range');
-  return { engines, verifyBox, title, confirm: visible('[data-export-confirm]')[0]?.textContent.trim() };`);
+  return { engines, output, verifyBox, title, confirm: visible('[data-export-confirm]')[0]?.textContent.trim() };`);
 log({ step: 'dialog', ...dialog });
 if (dialog.error) process.exit(1);
 if (args.out) await screenshot(args.out.replace(/\.json$/, '-dialog.png'));

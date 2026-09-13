@@ -62,7 +62,7 @@
  * (`trimBefore`, `clipOffset`) and the engine's recipe places each kept frame
  * on its first slot and fills the rest (`passthrough-slow.ts`).
  */
-import type { StudioClip, StudioMediaAsset, StudioProject } from '../types/studio';
+import type { StudioClip, StudioClipKind, StudioMediaAsset, StudioProject } from '../types/studio';
 import { serializeTimeline } from './serialize';
 import { timelineDurationInFrames } from './time-math';
 
@@ -111,20 +111,55 @@ export interface BlackSpan {
   frames: number;
 }
 
-export type ExportSpan = CopySpan | BrowserSpan | BlackSpan;
+/**
+ * Engine 3 (docs/export-engines-plan.md "Engine 3 — shot composite"): a
+ * piece that graphics paint over — TSX shots, the caption layer, images on
+ * an overlay lane — whose footage underneath is itself a pure cut (or a
+ * gap). The shot layer alone is rendered by the browser with alpha and
+ * composited onto the copied base by ffmpeg, so the footage never goes
+ * through Chromium. Planned only when `compositeShots` is asked for; the
+ * passthrough engine's plan never contains one.
+ */
+export interface CompositeSpan {
+  kind: 'composite';
+  from: number;
+  frames: number;
+  /** What the shot layer lands on: the copied source span, or the composition's black. */
+  base: CopySpan | BlackSpan;
+}
+
+export type ExportSpan = CopySpan | BrowserSpan | BlackSpan | CompositeSpan;
 
 export interface ExportSpanPlan {
   spans: ExportSpan[];
   totalFrames: number;
   copiedFrames: number;
+  /** Frames of composite spans (Engine 3); absent or 0 for every other plan. */
+  compositedFrames?: number;
   /** When nothing is copied: the reason that applies to the whole timeline. */
   reason?: string;
+}
+
+export interface PlanExportSpansOptions {
+  /** Engine 3: plan graphics over a copyable base as composite spans instead of browser spans. */
+  compositeShots?: boolean;
 }
 
 /** Percent of the timeline's frames the plan copies, whole number. */
 export function copiedPercent(plan: ExportSpanPlan): number {
   if (plan.totalFrames <= 0) return 0;
   return Math.round((plan.copiedFrames / plan.totalFrames) * 100);
+}
+
+/** Percent of the timeline's frames the plan composites (Engine 3), whole number. */
+export function compositedPercent(plan: ExportSpanPlan): number {
+  if (plan.totalFrames <= 0) return 0;
+  return Math.round(((plan.compositedFrames ?? 0) / plan.totalFrames) * 100);
+}
+
+/** Clip kinds the shot layer paints: graphics with alpha, never footage or sound. */
+export function isLayerClipKind(kind: StudioClipKind): boolean {
+  return kind === 'tsx' || kind === 'caption' || kind === 'image';
 }
 
 const EPS = 1e-6;
@@ -169,7 +204,16 @@ interface Piece {
   to: number;
 }
 
-export function planExportSpans(project: StudioProject, durationInFrames?: number): ExportSpanPlan {
+/** A piece an overlay-lane clip paints over, with what the composite engine needs to know about it. */
+interface Touch extends Piece {
+  /** Index in the serialized track list (lower paints on top); −1 = the caption layer, above everything. */
+  trackIndex: number;
+  /** Graphics only (`isLayerClipKind`) — a b-roll video on an overlay lane is footage, not a layer. */
+  layerOnly: boolean;
+}
+
+export function planExportSpans(project: StudioProject, durationInFrames?: number, options: PlanExportSpansOptions = {}): ExportSpanPlan {
+  const composite = options.compositeShots === true;
   const { fps } = project.settings;
   const totalFrames = durationInFrames ?? timelineDurationInFrames(project.timeline, fps);
   const whole = (reason: string): ExportSpanPlan => ({
@@ -182,7 +226,10 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
 
   const hasVideoTrack = project.timeline.tracks.some((t) => !t.hidden && t.kind === 'video' && t.clips.length > 0);
   if (!hasVideoTrack) return whole('no video track');
-  if (project.captions?.enabled) return whole('captions');
+  // The caption layer spans the composition: the copying engine steps aside;
+  // the composite engine paints it in the shot layer over every piece (the
+  // stub serialization below carries no words, so the layer is declared here).
+  if (project.captions?.enabled && !composite) return whole('captions');
 
   const byId = new Map(project.assets.map((a) => [a.id, a]));
   const docClips = new Map(project.timeline.tracks.flatMap((t) => t.clips).map((c) => [c.id, c]));
@@ -192,15 +239,20 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
   const timeline = serializeTimeline(project, (id) => (byId.has(id) ? id : null));
   const settings = project.settings;
 
-  // Anything painted over the video tracks: overlay-track clips.
-  const touched: Piece[] = timeline.tracks
-    .filter((t) => t.kind === 'overlay' || t.kind === 'caption')
-    .flatMap((t) => t.clips.map((c) => ({ from: c.from, to: c.from + c.durationInFrames })));
+  // Anything painted over the video tracks: overlay-track clips (and, for the
+  // composite engine, the caption layer over the whole timeline).
+  const touched: Touch[] = timeline.tracks.flatMap((t, trackIndex) =>
+    t.kind === 'overlay' || t.kind === 'caption'
+      ? t.clips.map((c) => ({ from: c.from, to: c.from + c.durationInFrames, trackIndex, layerOnly: isLayerClipKind(c.kind) }))
+      : [],
+  );
+  if (composite && project.captions?.enabled) touched.push({ from: 0, to: totalFrames, trackIndex: -1, layerOnly: true });
 
   // Every video track's clips, document order = top of the stack first.
   const layers = timeline.tracks
-    .filter((t) => t.kind === 'video')
-    .map((track) =>
+    .map((track, trackIndex) => ({ track, trackIndex }))
+    .filter(({ track }) => track.kind === 'video')
+    .map(({ track, trackIndex }) =>
       track.clips
         .map((sc) => {
           const doc = docClips.get(sc.id);
@@ -213,7 +265,7 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
           if (sc.transitionIn && sc.transitionIn.frames > 0) windows.push({ from, to: Math.min(to, from + sc.transitionIn.frames) });
           if (sc.transitionOut && sc.transitionOut.frames > 0) windows.push({ from: Math.max(from, to - sc.transitionOut.frames), to });
           const rate = sc.playbackRate !== undefined && sc.playbackRate !== 1 ? sc.playbackRate : 1;
-          return { sc, from, to, asset, blocker, windows, trimBefore: sc.trimBefore ?? 0, rate };
+          return { sc, from, to, asset, blocker, windows, trimBefore: sc.trimBefore ?? 0, rate, trackIndex };
         })
         .filter((c) => c.to > c.from)
         .sort((a, b) => a.from - b.from),
@@ -239,6 +291,7 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
 
   const spans: ExportSpan[] = [];
   let copiedFrames = 0;
+  let compositedFrames = 0;
   // Source files the browser has opened before a given piece, for the ceil rule
   // above: every clip mounted so far (copied, rendered or covered) has opened its file.
   const opened = new Set<string>();
@@ -255,7 +308,12 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
     const to = edges[i + 1];
     const frames = to - from;
     if (frames <= 0) continue;
-    if (touched.some((t) => t.from < to && from < t.to)) {
+    const touching = touched.filter((t) => t.from < to && from < t.to);
+    // A painted-over piece: the browser, unless the composite engine asked and
+    // every painter is a graphic (the shot layer) — the base is then planned
+    // below exactly as an unpainted piece would be, and the two are joined.
+    const layered = touching.length > 0;
+    if (layered && !(composite && touching.every((t) => t.layerOnly))) {
       push({ kind: 'browser', from, frames, reason: 'overlay' });
       continue;
     }
@@ -266,8 +324,23 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       return c ? [c] : [];
     });
     const covering = stack[0];
+    const finish = (base: CopySpan | BlackSpan) => {
+      if (!layered) {
+        push(base);
+        if (base.kind === 'copy') copiedFrames += frames;
+        return;
+      }
+      push({ kind: 'composite', from, frames, base });
+      compositedFrames += frames;
+    };
     if (!covering) {
-      push({ kind: 'black', from, frames });
+      finish({ kind: 'black', from, frames });
+      continue;
+    }
+    // Painting order: a layer below the covering footage is hidden by it, and
+    // the shot layer is rendered on top of everything — the browser keeps it.
+    if (layered && touching.some((t) => t.trackIndex > covering.trackIndex)) {
+      push({ kind: 'browser', from, frames, reason: 'overlay' });
       continue;
     }
     const opensFile = covering.asset ? !opened.has(covering.asset.path) : false;
@@ -282,7 +355,7 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
     }
     const asset = covering.asset as StudioMediaAsset;
     const sourceFrame = covering.trimBefore + (from - covering.from) * covering.rate;
-    push({
+    finish({
       kind: 'copy',
       from,
       frames,
@@ -293,11 +366,10 @@ export function planExportSpans(project: StudioProject, durationInFrames?: numbe
       ...(covering.rate < 1 ? { trimBefore: covering.trimBefore, clipOffset: from - covering.from } : {}),
       firstFrameCeil: opensFile && sourceFrame > 0 && covering.rate >= 1,
     });
-    copiedFrames += frames;
   }
 
-  const plan: ExportSpanPlan = { spans, totalFrames, copiedFrames };
-  if (copiedFrames === 0) {
+  const plan: ExportSpanPlan = { spans, totalFrames, copiedFrames, ...(composite ? { compositedFrames } : {}) };
+  if (copiedFrames === 0 && compositedFrames === 0) {
     const first = spans.find((s): s is BrowserSpan => s.kind === 'browser');
     plan.reason = first?.reason ?? 'nothing to copy';
   }

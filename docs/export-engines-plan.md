@@ -66,6 +66,7 @@ frame**, 900 frames, audio lag 0 ms at every window.
 | **2 — passthrough, narrowest predicate** · **DONE 2026-09-06** | single video track, pure cuts, no effects/captions/shots; the span planner decides from the document alone; touched spans still go to the browser and are encoded per condition 2; join per condition 3; "copies N %" in the dialog; the D4 message | T1 gate passes on both reference projects; the 3 h T6 project exports in about an hour instead of days — **met**: 0 % over 24 vs the 2026-09-04 control at 1/300/449/450/451/600/899 on both projects, ≤ 0.01 % vs the Stage 1 Remotion engine in verify mode, audio 0 ms vs the camera file at every window, copied spans at 3.7–4.2× realtime, a re-export byte-identical; the 3 h project (275 clips, 100 % copied) exports in 1 h 32 min — 61 min of copied spans, 24 min in the finishing mux — against T6's ≈ 3.5 days, audio in sync end to end |
 | **3 — widen the predicate** · **DONE 2026-09-06/07** (slices 1–4) | audio tracks, multiple video tracks where lower tracks are fully covered, clips whose only change is a trim; every widening re-runs the gate | each new span type passes the gate before it is enabled — **slice 1 met**: the different-file cut measured (the export shows the ceil frame on the first frame after it opens a source file, the nearest on a same-file cut or a return; the planner carries it, the A-B-A seed reads 0 % over 24 at both cuts) and gain-only clips copied (video byte-identical to the Stage 2 cut export, audio 0 ms vs the camera file and vs an independent Remotion export at eight windows, level 0.4995–0.4997 on the gained clip and 1.000 vs Remotion); the Stage 2 gates re-run byte-identical. **Slice 2 met**: audio tracks mixed in the one pass (a music clip under the T1 cut: video byte-identical to the Stage 2 cut export, audio 0 ms and level 1.000 vs a plain Remotion export at eight windows, the mixed music at lag 0 and 0.98 of its gained level in the export-minus-camera residual on both exports alike) and several video tracks (the T1 cut as two stacked tracks: video AND audio byte-identical to the Stage 2 cut export, 0 % over 24 vs the control, audio 0 ms vs the camera); the three earlier gates re-run byte-identical on video AND audio. **Slice 3 met**: speed measured (Remotion = the nearest source frame on the scaled time line + a pitch-preserving `atempo` that our ffmpeg reproduces bit for bit — the recipe for the next slice, not widened yet); audio fades in the one pass (a faded clip's picture copied byte-identical to the Stage 2 cut export; its audio Remotion's own per-frame `volume=` expression on the same decoder buffers: 0 ms vs the camera file at eight windows, level 1.000 vs a plain Remotion export in 1 s windows outside the ramps and in 100 ms windows inside them); crossfade transitions (only the 30-frame window rendered, 97 % copied; 0 % over 24 vs both references at every sampled frame; the equal-power sum of the two lanes matches a model of the composition within 0.02, where the Remotion export is comb-filtered by its own whole-millisecond asset placement); the five earlier gates re-run byte-identical on video AND audio. **Slice 4 met**: speed (a clip at rate ≥ 1 is copied on the scaled time line — the nearest select with `S + rate·n/fps`, the ceil rule on a first frame unchanged and re-measured on a sped clip that opens a file — and its audio is Remotion's own `aformat s16 48k, atempo, atrim` chain in the one pass, a curve on it on the post-tempo time line; the pass's sped segment byte-identical PCM to that chain with and without a fade; the speed seed reads the SAME source frames as the plain Remotion export at every mapped frame, max 0.01 % over 24 at the seven frames, audio 0 ms and level 1.000 at eight windows, the sped music at lag 0; a second seed with a sped, faded clip of a second file at 2× and a 3× music clip reads the same K and the same levels inside the ramps, +0.3 ms on the faded-in clip = Remotion's whole-ms placement); the seven earlier gates re-run byte-identical on video AND audio. Slow motion (rate < 1) stayed a browser span until 2026-09-11 (copied since — Stage 4 log). Next: Stage 4; the long-return question |
 | **4 — polish** · **slices 1–3 DONE 2026-09-09**, slice 4 measured | the finishing mux profiled and cut; progress that shows copied vs rendered time; cancel that cleans intermediates + the temp-copy leak from T5 + the CPU-usage setting reaching Studio exports; merging nearby browser spans measured | tickets closed, `STATUS.md` row — **met**: the 3 h project's finishing mux was the single-threaded AAC encode (8× realtime), now run beside the copied spans with the mux copying both streams and the moov reserved up front: `muxMs` **152 s** against 1,457 s, plan → file **65.4 min** against 92.1, the nine references byte-identical on video AND audio; the queue row reads "Copied 41 % · rendering 1 of 1 spans · about 4 min left" from measured rates and persists real frame counts; cancel retries the scratch removal, drops the half-written file, and a startup sweep removes scratch and hour-old Remotion asset folders; the CPU stop applies. Merging: a browser span ≈ 16 s start + 0.92 s/frame, break-even gap ≈ 19 frames — not built. Open: QSV/AMF (no Intel/AMD here); the long-return question answered 2026-09-11 (a return is a return, whatever the gap — log below); slow motion copied 2026-09-11 (the source frame nearest in the compositor's integer ticks, repeated over its slots by the `fps` filter — log below) |
+| **5 — output options** · **Phases 1 + 2 DONE 2026-09-12** (resolution + quality; proxy-source drafts, quality on the Fast engine, measured estimate, Settings defaults) | resolution, quality and source (originals / proxies as a draft) in the Export dialog, honoured by both engines — see `docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md` | Full/High/Originals is byte-identical to today (High = CRF 18 = what an export with no CRF produced; Best is a new, larger option); a 720p Fast-vs-Standard gate passes on `video-10-test` — **Phase 1 met**: a 165-frame range at Full·High byte-identical through both engines against baselines exported on the old main process; at 720p both engines produce 1280×720, max 0.01 % over 24 at 10 sampled frames, audio 0 ms vs the reference (the plan's Phase 1 log has the rows). **Phase 2 met**: byte identity held; the 540p draft of `video-10-test` from the proxies through Fast (the real dialog, the toggle on by itself) took 12 min of frames against ~100 min from the originals, 960×540 both files, max 0.04 % over 24 at 22 frames vs its Standard reference, audio 0 ms — and its first run found that `scale_cuda … format=yuv420p` on an nv12 source at the same size starves NVENC (fixed: 8-bit 4:2:0 sources skip the conversion; the 10-bit path is byte-unchanged) |
 
 Open, not blocking: the clap test (D6) on the first Stage 1 build; whether
 the fast engine should also become the default once Stage 3 has held for a
@@ -1398,3 +1399,131 @@ under load, recorded here, not explained: the NVENC builder strings are
 pinned unchanged, no render setting changed (`renderDefaultGpuBackend` unset,
 CPU stop `low` throughout). A browser-span reference is therefore worth a
 second run before it is called a regression.
+
+## Engine 3 — shot composite · built 2026-09-12 (gate rows below)
+
+**Why.** Hasan, 2026-09-12: the editor project (`claude-youtube-editor`)
+renders video-10 in a fraction of the time Studio's export takes on the same
+edit. Its bake never sends footage through Chromium — Remotion renders each
+shot alone, with alpha, once; ffmpeg cuts the master, lays the shot over it
+with `overlay`, concats and muxes once. Studio's Standard engine walks every
+frame through the browser (0.8 fps on the 4K HEVC 60 fps originals), and the
+Fast engine helps little on video-10 because 62 shots cover most of the
+master (10 % copied on the three-block test project; everything under a
+shot is a browser span). Asked: "can we achieve the same logic and speed as
+the editor?" — "we don't have to edit the current rendering ways, we can add
+a third option". So: a third engine, the current two untouched (D1).
+
+**What it is.** `src/main/services/studio/export-engines/shot-composite-engine.ts`
+(id `shot-composite`, picker label "Fastest", D3 wording — copies footage
+and lays the shots over it with the video tools). Same download and the
+same greyed-out row as the Fast engine. Per span:
+
+| span kind | what happens | from |
+|---|---|---|
+| `copy`, `black`, `browser` | exactly the passthrough engine's producers (`producePiece`, now exported), its short-tail rule (hold ≤ 3 frames, else the browser), its concat list, its one audio pass beside the pieces | Engine 2, unchanged |
+| **`composite`** (new) | the SHOT LAYER — the overlay + caption lanes' graphics (tsx, caption, image clips) over a transparent background — rendered by the browser as ProRes 4444 with alpha (`shot-layer-render.ts`: the same entry and bundle, asked through the `layer: 'shots'` input prop the generated entry forwards to `TimelineComposition`), for the span's frames only, one frame early (condition 4); then ONE ffmpeg command per span (`shot-composite-ffmpeg.ts`): the copied span's own select on the source (condition 1, the slow-motion recipe included) → `scale_cuda` → `hwdownload` → RGB by the policy's matrix/range → `overlay=format=rgb:alpha=straight` with the layer as RGBA (the blend Chromium does) → Remotion's own `zscale=matrix=709:matrixin=709:range=limited` + the five tags → `yuv420p` → the copied spans' NVENC line, GOP and colour flags → MPEG-TS piece. A black base is a lavfi source in RGB. | new |
+
+The planner is the shared one with an option (`planExportSpans(project,
+frames, { compositeShots: true })`, `export-spans.ts`): a piece painted by
+graphics only, whose covering footage is itself a pure cut (or a gap), and
+whose painting lanes sit ABOVE the covering footage in the stack, is a
+`composite` span carrying its base (`CopySpan | BlackSpan`). Anything else
+under a shot — a transformed clip (video-10's splits), a letterboxed one, a
+transition window, b-roll on an overlay lane — stays a browser span with the
+base's reason. The caption layer, which makes the Fast engine step aside,
+is a composite over every piece here. Without the option the planner is
+byte-identical to before (pinned by a test), so the Fast engine never sees
+a composite span. The Export dialog states both shares for the row ("Copies
+10 % of this timeline and composites shots over another 58 %" on
+`video-10-test`); the progress line reads "Copied 5 % · composited 15 % ·
+compositing 18 of 51 spans · about 12 min left".
+
+**Measured by hand before wiring (2026-09-12).** The composite graph on
+`DJI_20260902161804_0323_D.MP4` (4K 10-bit HEVC 59.94) with a synthetic
+alpha layer (a half-transparent red block with an opaque white square,
+ProRes 4444 from `geq`): 30 frames in 1.2 s, output `1920×1080 yuv420p tv
+bt709 bt709 bt709`, 30 packets, the blend correct at both alphas; the black
+base the same. First try composited nothing — `drawbox` on an RGBA lavfi
+source leaves alpha at 0 — which is why the seed writes its alpha with `geq`.
+
+**One layer render per run of composite spans.** The first real run
+showed every composite span paying a fixed Remotion start, and the plan has
+48 composite spans, many of them 2–60 frames between the cuts of the master
+under one shot. The layer is continuous across a run of composite spans —
+only the footage underneath changes — so `ShotLayerRuns`
+(`shot-layer-render.ts`) renders it once per run, one frame early, and each
+span reads its own window of the file (`trim=start_frame` = the lead-in +
+the span's offset into the run); gaps of other spans under
+`LAYER_MERGE_GAP_FRAMES` (30) are rendered through rather than paying a
+start; the file goes when the plan moves past the run.
+
+**The bug the second run found (2026-09-12, the one that mattered).** Run 2
+(Full from the originals) composited at 0.9 fps — SLOWER than the Standard
+reference (1.46 fps) — and a probe over an empty stretch of the timeline cost
+exactly the same per frame as a stretch full of shots. Remotion's verbose log
+then showed the "layer" render opening the 4K DJI file through the compositor
+("Seeking to frame 1811 took 80114ms"): the layer prop never arrived.
+`renderMedia` hands the component `composition.props` (the RESOLVED props)
+and uses `inputProps` only for `getInputProps()` / `calculateMetadata`; our
+`renderComposition` builds the composition object by hand without `props`,
+so every component it ever rendered received `{}`. One line in
+`remotion-renderer.ts` (`props: options.inputProps ?? {}` on the composition
+object — the same value as before for every caller that passes none) fixes
+it. Measured on the bench right after, 120 frames of a composite run at
+1080p: **13.5 s (8.9 fps), 1.4 s to the first frame**, against 129 s
+(0.93 fps, 73 s to the first frame) before — the 73 s was Remotion
+downloading the 2 GB source over loopback, the per-frame cost was the 4K
+decode. Things ruled out on the way, each by a run of the same 120 frames:
+PNG vs JPEG capture (same), `swangle` / `angle` / `swiftshader` / `vulkan`
+(same), 1 / 8 / 16 tabs (8 = 16, 1 is half), Windows Defender (0.07 s CPU
+per frame, no exclusions on this machine either way).
+
+**Not built (next slices, in order of what video-10 needs):**
+
+1. *Splits — a transformed master under a shot.* 32 % of `video-10-test`
+   (the cold-open split at 0–40 s and one more) is a browser span because
+   the V1 clips under the 11 splits carry `transform {x, y, scale}`. The
+   bake does this in ffmpeg (`crop` + `scale` + `overlay` on black); the
+   planner would carry the transform on the base and the graph would scale
+   and place the frame before the layer. Chromium's bilinear vs ffmpeg's
+   bicubic on a zoomed frame is the thing to measure first.
+2. *A shot-layer cache* keyed on the layer's clips (shot id + version + props
+   + offsets within the span) so a re-export after a master trim renders no
+   shots — the bake's `bake-cache/`. Not built: a wrong key is a silently
+   wrong frame, so it gets its own gate.
+3. Merging a copy span of a few frames between two composite spans into the
+   run (the same break-even question as Stage 4's browser-span merging).
+
+**Gate rows — `video-10-test` (blocks 0–2 of video-10, 4909 frames, 1920×1080 @ 30; 4K 10-bit HEVC 59.94 DJI originals; 12 shots on 27 tsx clips over 76 master clips, 24 of them under splits with a transform), driven through the real dialog over CDP (`export-engine-run.mjs --engine=shot-composite --verify=remotion --resolution=original --source=original`). The plan on this project: copied 10 % (14 spans), composited 58 % (51 spans), the browser 32 % (2 spans — the cold-open split at 0–40 s and one more, transformed master under shots).**
+
+| run | settings | frames (click → file) | of which browser / composite / copy | verify vs Standard | Standard reference |
+|---|---|---|---|---|---|
+| 1 · 2026-09-12 15:49 | the project's remembered 540p draft from the proxies, `swangle` | 18 min 37 s (`framesMs` 1,116,716) | 1553 f / 292 s · 2858 f / 817 s · 498 f / 7 s | vs this morning's Standard 540p draft (`t1-diff`, 16 frames): copied + browser frames 0–0.02 % over 24, composite frames 0.01–0.56 %, max mean 2.8/255 — every over-24 pixel on a glyph or box edge (Standard screenshots JPEG; the layer is PNG), no tint, no misalignment | — (this morning's file) |
+| 2 · 16:14 | Full · High · originals, `swangle`, one layer render per span | **75.7 min** (4,540,031 ms) | 1553 f / 1346 s · 2858 f / 3178 s (0.9 fps) · 498 f / 16 s | 22 frames, **max 0.33 % over 24**, max mean 2.6/255, audio 0 ms | 56 min (1.46 fps) |
+| 3 · 18:59 | as run 2 + `props` fix (the layer really renders graphics only) + one render per run of composite spans (gap 30) | **40.7 min** (2,444,938 ms) | 1553 f / 1334 s (1.16 fps) · 2858 f / 1097 s (2.6 fps: five layer renders ≈ 920 s, the ffmpeg joins ≈ 170 s) · 498 f / 13 s | 22 frames, **max 0.33 % over 24**, max mean 3.58/255, audio 0 ms | 55 min |
+
+Why run 3's layer still ran at 3 fps when the bench said 9–10: the bench had
+left the GL backend at Remotion's default (null → Chrome's own, the GPU
+here); the app passes Settings › Rendering › GPU backend, whose default is
+`swangle` (software ANGLE). Measured back to back on the idle machine, the
+same 120 layer frames: **default 10.6 fps · `angle` 10.1 fps · `swangle`
+1.9 fps**. The full composition (footage + shots, JPEG, the Standard
+engine's shape) reads 1.15 fps on the default and 0.71 fps on `swangle` —
+there the 4K decode dominates either way. So the software backend costs the
+Standard engine ~40 % and the shot layer 5×. Run 4 (below) is run 3 on
+`angle`.
+| 4 · 2026-09-12 20:44 | as run 3, Settings › Rendering › GPU backend = `angle` (restored to `swangle` after the run) | **23.0 min** (1,382,280 ms) | 1553 f / 761 s (2.04 fps) · 2858 f / 607 s (4.7 fps: four layer renders ≈ 285 s at ~10 fps, the joins ≈ 170 s, the rest starts) · 498 f / 14 s | 22 frames, **max 0.33 % over 24**, max mean 3.58/255, audio 0 ms | **31.5 min** (2.6 fps — the Standard engine gains 43 % from the backend too) |
+
+**Where it stands (2026-09-12, end of day).** On `video-10-test` at Full from
+the originals: Standard 55 min on the shipped `swangle` default, 31.5 min on
+`angle`; Fastest 40.7 min on `swangle`, **23.0 min on `angle`**. Of the 23
+minutes, 12.7 are the two browser spans — the 32 % of the timeline where the
+master carries a transform under a shot (the splits). That is the next slice:
+with the splits composited by ffmpeg like the bake does, this project would
+land near the copied + layer cost alone (≈ 10 min), i.e. the bake's own
+shape. Two decisions for Hasan: (1) whether the app's default GPU backend
+should stay `swangle` — on this laptop it costs every Studio render 40–80 %
+and the shot layer 5× — or move to Remotion's default (Chrome picks; the
+setting stays for machines where the GPU backend crashes); (2) whether the
+Fastest row should become the default once the splits slice has held.

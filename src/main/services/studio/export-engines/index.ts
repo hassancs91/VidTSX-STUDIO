@@ -7,6 +7,7 @@ import { logEngine } from '../../../../logging/log-engine';
 import { registerExportEngine, hasExportEngine, listExportEngineIds } from './registry';
 import { remotionExportEngine } from './remotion-engine';
 import { passthroughExportEngine } from './passthrough-engine';
+import { shotCompositeExportEngine } from './shot-composite-engine';
 
 const log = logEngine.createLogger('ExportEngines');
 
@@ -15,6 +16,8 @@ export function initExportEngines(): void {
   // Stage 2: the passthrough hybrid. Registered always; its availability()
   // greys the picker row out until the full ffmpeg download is installed.
   if (!hasExportEngine(passthroughExportEngine.id)) registerExportEngine(passthroughExportEngine);
+  // Engine 3: the shot composite — same download, same greying.
+  if (!hasExportEngine(shotCompositeExportEngine.id)) registerExportEngine(shotCompositeExportEngine);
   log.info('Export engines registered', { engines: listExportEngineIds() });
 }
 
