@@ -7,6 +7,199 @@
 
 ---
 
+## 2026-09-13 — STUDIO: removing media or a shot that is on the timeline asks first, and asset removal is one undo step (feedback 6)
+
+`docs/studio/VIDEO10_TESTING_FEEDBACK.md` item 6. Before: the X on a media tile silently deleted every clip
+playing the asset (297 master clips for one raw file on video-10) and dropped the asset; Ctrl+Z brought the
+clips back pointing at an asset that no longer existed (assets were outside the undoable slice).
+
+- **Usage counts** `src/features/studio/services/asset-usage.ts` (pure): `usageByAsset` (clips per track in
+  track order + shots referencing the asset through `assetRefs`), `usageByShot`, and the sentences —
+  "Used by 297 clips on V1 and 2 shots." / "Used by 9 clips on the timeline." `EditorShell` memoises both
+  maps off the timeline and passes getters to the pool.
+- **Confirm in place** `components/RemoveConfirmCard.tsx`: the X on an in-use tile (or shot row) swaps it for
+  a card — name, the usage line, "Remove anyway? The clips are deleted; the file stays on disk. Undo restores
+  both.", Cancel / Remove. Unused → removed at once, as before. Tiles and shot rows carry an "N clips" /
+  "N shots" badge (`data-usage-badge`) so the state is visible before anyone reaches for the X.
+- **Undoable asset removal, the reducer way.** Assets stay owned by `useStudioProject` (proxy / transcript
+  status lands there from background jobs and must never be undone), so the undoable slice records only
+  WHICH assets are gone: `EditDoc.removedAssets` = `{ asset, index }` snapshots, action `remove-asset`
+  (replaces `remove-asset-clips`) drops the clips and appends the snapshot in one commit; the project sync
+  effect filters those ids out of `project.assets` and, when an undo takes one off the list, splices the
+  snapshot back at its original index — so project.json after remove + undo is identical (checked, only
+  `updatedAt` moves). Never persisted; reset on open; a repeat removal is a no-op.
+- **Gates:** check:types at baseline (26/10); vitest `asset-usage.test.ts` (3) + `remove-asset.test.ts` (3)
+  + 6 existing fixtures gained the field; studio + shared 665 green. **CDP on `video-10-test`:** the first
+  master (75 clips on V1) → X → the card with "Used by 75 clips on V1." → Cancel → tile back, 59 on-screen
+  clips unchanged → X → Remove → 19 clips, tile gone → Ctrl+Z → 59 clips, tile back first in the pool
+  with its badge; shot row B0Terminal → "Used by 9 clips on the timeline." → Cancel. Saved file vs the
+  pre-run backup: only `updatedAt`.
+- **Next** in the round: 5 + 7 together (left-pane tabs / media grid + Project settings), then 2 and 8.
+
+## 2026-09-13 — STUDIO: copy the clip name / shot id (feedback 3) + the assistant draft survives tab switches (feedback 4)
+
+Two small items from the video-10 round (`docs/studio/VIDEO10_TESTING_FEEDBACK.md`).
+
+- **Copy name.** `src/shared/components/CopyButton.tsx` — a one-click copy icon with an in-place "Copied"
+  flash (tooltip + `data-copied`, no toast) over `src/shared/hooks/useCopyToClipboard.ts`, which is now
+  the app's single clipboard path (`copyTextToClipboard` never throws; the lightboxes, the thumbnail
+  generator, the transcription screen and the chat export all go through it — same behaviour, one
+  helper). `ClipSection` puts it at the right of the Name field (the clip's label / file name / kind);
+  `ShotClipSection` puts it beside the shot's name and copies the **shot id**, since that is what the
+  assistant's tools take.
+- **Assistant draft.** The right panel renders one tab, so `AgentPanel` unmounted on every tab switch
+  (and on a clip click, which flips to Inspector) and dropped its `useState` draft. Now
+  `hooks/useAgentDraft.ts` over the pure `services/agent-draft-store.ts`: the text is written through to
+  sessionStorage under `studio:agent-draft:<projectId>` on every edit, read back on mount, removed on
+  send / when emptied — survives tab switches and a renderer reload, gone with the window. The Script
+  tab holds no local state, so nothing to do there.
+- **Gates:** check:types at baseline (26/10); vitest — `agent-draft-store.test.ts` (3) + the touched
+  features green (69 files / 661). **CDP on `video-10-test`:** Copy name on a master clip → its file
+  name on the (stubbed) clipboard, tooltip "Copied" → back to "Copy name" after 1.5 s; the tsx clip
+  `b0-terminal` → `b0-terminal`; a draft typed in the composer, Inspector, back → restored verbatim
+  (the textarea was unmounted in between); Inspector → clip click → Assistant → still there; emptying
+  the box removes the key.
+- **Next** in the round: 6 — shipped the same morning (entry above).
+
+## 2026-09-12 — EXPORT ENGINES: Engine 3 "Fastest" (shot composite) — the editor's bake inside the engine seam; a renderer bug found on the way
+
+`docs/export-engines-plan.md` "Engine 3 — shot composite" (design, the diagnosis, four gate rows).
+Why: Hasan asked why the editor project renders video-10 far faster than Studio — its bake never sends
+footage through Chromium (Remotion renders shots alone with alpha, ffmpeg overlays them on cut footage) —
+and asked for it as a third engine, the two existing ones untouched.
+
+- **Engine** `src/main/services/studio/export-engines/shot-composite-engine.ts` (id `shot-composite`,
+  picker "Fastest", same GPU-encoder download as Fast): copy / black / browser spans by the passthrough
+  engine's exported producers; **composite spans** = the shot layer (overlay + caption lanes' tsx /
+  caption / image clips over a transparent background — `TimelineComposition layer='shots'`, reached
+  through the `layer` input prop the generated entry forwards) rendered once per run of composite spans
+  as ProRes 4444 with alpha (`shot-layer-render.ts`, `ShotLayerRuns`, gaps under 30 frames rendered
+  through), then one ffmpeg command per span (`shot-composite-ffmpeg.ts`: the copied span's own select →
+  `scale_cuda` → `hwdownload` → RGB by the policy → `overlay=format=rgb:alpha=straight` → Remotion's
+  zscale + the five tags → NVENC → MPEG-TS piece). Planner: `planExportSpans(…, { compositeShots: true })`
+  — byte-identical without the option (pinned). Dialog row states both shares ("Copies 10 % … and
+  composites shots over another 58 %"); progress line "Copied 5 % · composited 15 % · compositing 18 of
+  51 spans · about 12 min left". `export-engine-run.mjs` gained `--resolution` / `--source`.
+- **The renderer bug (fixed):** `renderComposition` built Remotion's composition object without `props`,
+  and `renderMedia` hands the component `composition.props`, not `inputProps` — so no input prop ever
+  reached a component through this path. One line in `remotion-renderer.ts` (`props: options.inputProps
+  ?? {}`); the shot layer had been rendering the 4K footage (0.9 fps, 73 s per start = Remotion
+  downloading the 2 GB source), now 10 fps graphics-only.
+- **Gates** (`video-10-test`, 4909 frames, Full from the 4K originals, the real dialog, D5 verify vs
+  Standard at 22 frames: **max 0.33 % over 24, audio 0 ms** on every run — the over-24 pixels sit on glyph
+  edges, Standard's JPEG screenshots vs the layer's PNG): run 2 75.7 min → run 3 (props fix + runs)
+  **40.7 min** → run 4 on the `angle` backend **23.0 min**, against Standard **55 min** (`swangle`) /
+  **31.5 min** (`angle`). check:types at baseline (26/10); vitest 2421 + the new files green.
+- **Found on the way:** Settings › Rendering › GPU backend defaults to `swangle` (software ANGLE); on
+  this laptop it costs the shot layer 5× (1.9 vs 10 fps) and the Standard engine 43 % (55 vs 31.5 min).
+  Restored to `swangle` after the measurement — changing the default is Hasan's call.
+- **Next:** the splits (a transformed master under a shot = 32 % of this project, 12.7 of the 23 min) as
+  an ffmpeg crop/scale/overlay base; a shot-layer cache keyed on the layer's clips; whether Fastest
+  becomes the default.
+
+## 2026-09-12 — STUDIO EXPORT: output options Phase 1 — resolution + quality in the Export dialog, honoured by both engines
+
+`docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md` Phase 1 (its log has the file-by-file account and the gates).
+Why: video-10's 4K HEVC 60 fps originals export at 0.8 fps; a draft-size export is the first half of the
+fix (Phase 2, proxies as the source, is the half that makes it fast).
+
+- **Shared presets** `src/shared/render-presets.ts`: the resolution ladder (aspect-aware, `snapRenderScale`-
+  snapped even dims, never at/above the composition) and the quality → CRF table (15/18/23/28) moved out of
+  `RenderSettingsModal.tsx`, which now reads them (behaviour pinned: 480p from 1080p = 864×486). Export
+  ladder = Full · 720p · 540p · 360p.
+- **One output-size rule**: `resolveRenderScale` (`render-scale.ts`) → `renderComposition`,
+  `export-engines/output-size.ts` → the passthrough engine's copied + black spans and the D5 verify, so
+  browser spans, copied spans and the reference export share one W×H.
+- **Dialog**: `ExportDialog.tsx` + `ExportOutputSection.tsx` — Resolution · Quality, a heavy-footage
+  notice (`services/export-estimate.ts`: ≥ 2160 lines / HEVC / ≥ 50 fps on the timeline, static estimate
+  from the measured 0.8 browser fps + 3.9× copy) and the choice remembered per project
+  (`settings.export`). `scale`/`crf` ride the queue job → `ExportRenderSettings.scale` → both engines;
+  a scaled file is `<project>_720p.mp4`; the agent's export action stays at project size.
+- **Gates**: check:types at baseline (26/10); vitest **2400 passed** (23 new); **Full · High byte-identical
+  to the pre-change export through BOTH engines** (a 165-frame range of `video-10-test`, baselines exported
+  on the old main process, `cmp` clean — "today's export" is CRF 18 = High, not Best); **720p Fast vs
+  Standard on the same range: both 1280×720, max 0.01 % over 24 at 10 frames, audio 0 ms** — after the
+  gate's first run caught a double downscale in my `renderComposition` refactor (852×480 reference; fixed
+  to the pre-refactor rule). Full-project 720p run through the real dialog: see the plan's log row.
+- **Also**: the Fast engine's GPU-encoder ffmpeg had never been installed on this laptop (the engine work
+  was on the other machine) — installed via the app (NVENC on the RTX A3000), Fast row enabled here since.
+  Session drivers (IPC range export, real-dialog export, dialog screenshot) described in the plan's log.
+- **Phase 2, same day** (the plan's Phase 2 log): **Source** — `src/shared/studio/export-source.ts`
+  (availability = every timeline video asset has a ready proxy; auto default = proxies at ≤ 540p;
+  `_540p-draft` suffix); `studioExportPrepare({ source })` → `createExportEntry` points the entry's asset
+  URLs at `cache/proxies/<assetId>.mp4` and records `entry.sourcePaths`, which the Fast engine's copied
+  spans read too (the audio pass keeps the originals). **Quality on Fast** — `copyQualityForCrf` (CRF + 5:
+  High → the measured 23, so the default path is unchanged) on every piece kind. **Dialog** — "Draft from
+  the preview proxies" checkbox (or a note naming the clips without a proxy), a `draft` badge on the queue
+  row, `settings.export.source` remembered. **Estimate** — `measuredExportRate` from the render queue's
+  in-memory jobs (same project + engine + source) replaces the static table once a matching export
+  exists. **Settings › Rendering** — "Default Studio export output" (resolution + quality) via
+  `SETTINGS_SET_RENDER_DEFAULT_EXPORT_OUTPUT`; a project's remembered choice wins. **Gates**: types at
+  baseline; vitest **2409 passed**; Full·High·Originals **byte-identical again through both engines**
+  vs the pre-Phase-1 baselines; **the 540p draft of `video-10-test` through the real dialog (toggle on by
+  itself at 540p, verify → Standard): 12 min 0 s of frames (6.8 fps) against ~100 min from the originals,
+  both files 960×540, 22 sampled frames max 0.04 % over 24, audio 0 ms.** Its first run caught a real
+  bug: `scale_cuda … format=yuv420p` on an nv12 source at the SAME size starves NVENC (a 3-frame span,
+  headers and no packet) — 8-bit 4:2:0 sources now skip the conversion (`SourceProbe.pixelFormat`), the
+  10-bit camera path keeps its pinned string, and a packet-less piece goes to the browser instead of
+  killing the export. `export_source` + `started_at` are persisted in the queue DB.
+- **Next**: nothing planned in this track.
+
+## 2026-09-12 — STUDIO: ripple across all tracks + range delete; preview transpiler parses imports (B3IntoCode placeholder)
+
+Two items from Hasan's video-10 testing round (`docs/studio/VIDEO10_TESTING_FEEDBACK.md` item 1, and
+"why is B3IntoCode a placeholder?").
+
+- **Ripple all tracks** (`src/features/studio/services/ripple-ops.ts`, pure; `hooks/useRippleMode.ts`).
+  A third ripple mode beside off / this-track: removing a span of time from the MASTER lane (delete a
+  master clip, I/O + Delete, an edge trim, an applied cut proposal) pulls every unlocked track along —
+  later clips slide by the removed length, a clip straddling the span keeps the parts outside it (a
+  middle cut becomes two pieces with the right piece's `sourceIn` advanced, splitClip's fade/transition
+  convention), locked tracks and markers-before-the-span never move, markers inside vanish and later ones
+  slide. Deleting a clip on a non-master lane is still a per-track ripple (a shot's removal must never
+  cut the footage under it). Lengthening a master trim opens a gap instead of clamping on the neighbour
+  (`insertGapAllTracks`). Mode lives in localStorage (`studio.ripple.mode`, default **all**) as a tiny
+  external store so the toolbar (new layers button), `useTimelineShortcuts`, `useClipDrag` (live preview
+  runs the ripple op too), `EditorShell`'s proposal preview/apply and `ReviewCutsSection` all read one
+  value. Reducer: `trim.rippleAllTracks`, `remove-clips.allTracks`, new `remove-span`,
+  `proposal-apply.rippleAllTracks`; each one undo step. `applyCutProposal(…, { rippleAllTracks })`
+  derives the master lane's removed timeline spans from its kept pieces and takes them out of the
+  tracks that play no cut asset. Captions need nothing (derived on serialize); `buildPreviewTimeMap`
+  still picks the first reshaped track carrying assets (tsx lanes have none) — unchanged.
+  **Tests:** `ripple-ops.test.ts` (19: straddle, exact edges, sub-frame span, locked, zero-length,
+  markers, gap insert, mixed selections, all four trim directions) + 3 in `apply-cut-proposal.test.ts`.
+  **CDP on video-10** (dev app launched with `--remote-debugging-port`, driver in the session
+  scratchpad): I at f4200, O at f4202, Delete → 360 → 362 clips, both straddlers (B2NameCard shot,
+  the master clip) cut into two pieces, every later clip on all lanes shifted by exactly 0.0667 s,
+  autosave landed, Ctrl+Z gave a byte-identical timeline. Range delete is one keypress now: I, O,
+  Delete — the 2:21.17 → 2:21.22 case from the feedback.
+- **B3IntoCode placeholder = a preview-transpiler bug, fixed at the root.** `tsx-transpiler.ts` rewrote
+  bare imports to CDN/virtual URLs with a text regex (`from\s*['"]…['"]`) over the whole esbuild
+  output; the shot's VS Code highlighter contains `prev === "from" || …`, the regex read `from"` as an
+  import and swallowed code up to the next quote → invalid JS → dynamic import threw → placeholder tile
+  (61/62 shots fine; B7ClaudeMd shares the lib but tree-shook the highlighter). Replaced with
+  `es-module-lexer` 2.3.1 (pinned; the parser Vite uses) in `src/main/services/import-rewriter.ts`:
+  only real static imports, re-exports and literal dynamic imports are rewritten (edited back to front),
+  strings/comments/templates untouched, `tone` default-import → namespace on the real statement. Export
+  (webpack) was never affected. Tests: `import-rewriter.test.ts` (6, incl. the end-to-end transpile of a
+  `from"`-bearing shot parsing under esbuild); all three code-window shots of video-10 re-transpiled and
+  pass `node --check`; CDP: the preview at f5709 shows the full scene, zero placeholder tiles.
+  The composition-config / default-export finders in the transpiler are still text regexes — top-level
+  `export` only, far less exposed; noted in the file.
+- **Export the assistant chat** (feedback item 9, asked and built the same day). A download button in
+  the Assistant composer → FloatingMenu, right-anchored: Copy chat · Copy chat + tool details · Save chat as
+  Markdown… · Save chat + tool details… (`services/agent-chat-export.ts`, pure formatter +
+  file name; the save goes through the existing `dialogSave` IPC). To make the transcript worth
+  reading, the persisted `StudioAgentChatMessage` gained `at`, `providerId`/`model` (assistant rows)
+  and `toolCalls[].args/result/isError`: every Studio tool is wrapped by
+  `agent-tools/tool-result-events.ts`, which emits a new `'tool-result'` agent event after the handler
+  (arguments JSON capped at 4 k chars, result text at 12 k, errors flagged and rethrown); the hook attaches
+  it to the latest chip of that tool. Older transcripts simply lack the fields. Tests: 12 across the
+  formatter, the wrapper and the store. Not driven by CDP — Hasan was using the dev app at the time.
+- Suite: 2348 + 40 new passing; `check:types` at baseline (web 26 / node 10).
+
+---
+
 ## 2026-09-11 — EXPORT ENGINES: QSV/AMF copy paths — checked, prepared, QSV measured here; AMF stays the open measurement
 
 The third open item of the Stage 4 log (`docs/export-engines-plan.md`, "QSV/AMF copy paths";
@@ -2174,7 +2367,8 @@ from the app's own queue).
   < 0.5 GB was free). Frame rate 0.5–1.4/s at every size.
 - **Findings for tickets (not fixed, building paused):** Studio Export passes
   no `cpuUsage`, so Settings › Rendering › CPU usage never reaches it;
-  failed or cancelled exports leave `%TEMP%emotion-*-assets` source copies
+  failed or cancelled exports leave `%TEMP%
+emotion-*-assets` source copies
   (1.2–1.9 GB each here, ~33 GB for the 3 h project) and a cancel leaves the
   headless browser running; `renderQueueLoad` rewrites active jobs to
   "interrupted" if called mid-render (it is the startup path — scripts must

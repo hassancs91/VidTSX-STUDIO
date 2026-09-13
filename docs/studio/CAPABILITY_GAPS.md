@@ -197,3 +197,33 @@ Stated so the list is bounded and honest:
 because that is what the shots declare, while the reference delivers 4K60. What
 Studio should do when shot resolution and delivery resolution disagree is
 undecided and is not a gap on this list — it is a design question.
+
+## Third project: video-10, imported whole (2026-09-11)
+
+`claude-youtube-editor/videos/video-10` (10.7 min, 9 raw 4K60 clips, a 277-segment cut,
+62 shots: 38 cutaways, 13 overlays, 11 splits) was rebuilt as a Studio project **as if it had been
+made here** — raw footage as assets, the cut as 297 master-lane clips placed by the render's frame
+counts, AssemblyAI transcripts in the cache, every shot bundled to one file with `assetRefs` for its
+104 images, the script, a brand snapshot. Project: `~/Videos/VidTSX Studio/projects/video-10`; the
+build script and stills are in its `notes/import/`; the full mapping and gap list in
+`notes/IMPORT-REPORT.md`. Studio's own gate passes 62/62 shots; the serializer keeps every clip;
+stills rendered with Studio's Remotion match the editor.
+
+What it changes in the list above:
+
+- **G1 is narrower than stated.** A split is expressible today: cut the master clip at the span and
+  give it `transform {x, y, scale}` derived from `master_box` + crop centre + zoom; the shot's opaque
+  paper hides the overflow and the hole shows the face (verified by render for `B0Terminal` and
+  `B4NextUrl`). What is missing is the *authoring* control, not the model. Only shots that are
+  transparent outside the hole (a circular face PiP) still need clipping.
+- **G3 confirmed, and it renders once written.** `assetRefs` hand-written into `project.json` (SVG
+  logos included) resolve through the `assets` prop in preview and export. The UI needs "attach an
+  asset to this shot".
+- **New: module-scope media.** Shots that call `staticFile()` in top-level constants never see the
+  `assets` prop, which only exists at render. The bundle must run its body lazily on first render.
+  Any externally-written shot has this shape; a Studio import path must handle it.
+- **New: no way in.** No "open folder as project", no raw-folder + cut-list import, no SVG in the
+  media import allowlist (the asset server serves it), no home for plans/edit plans/QA reports/takes.
+- **New: kit coverage.** The editor's `lib/` (tiles row, chips/bands, Claude-line terminal, PiP hole,
+  3D book, screencast) is what real shots reach for; `@vidtsx/kit` covers terminal/browser/VS Code/
+  window/stat block/typed text. Bundling inlines the rest, but a shot written *in* Studio cannot.
