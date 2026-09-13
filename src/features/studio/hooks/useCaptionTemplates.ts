@@ -1,7 +1,7 @@
 // Caption templates in the renderer (D13): the installed list, and the
 // live-imported template components the Player renders.
 //
-// Same shape as useShotModules — main keeps path authority, the renderer asks
+// Same shape as useShotModuleLoader — main keeps path authority, the renderer asks
 // by namespaced templateId and dynamic-imports the served ESM. Templates are
 // loaded ON DEMAND (the active one, plus whichever gallery cards are visible),
 // so opening the panel doesn't transpile ten files at once.

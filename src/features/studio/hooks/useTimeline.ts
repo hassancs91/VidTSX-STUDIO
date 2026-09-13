@@ -681,6 +681,8 @@ export function useTimeline(
 
   return useMemo(
     () => ({
+      /** The project the reducer has adopted — null until the open's `reset` lands. */
+      projectId: state.projectId,
       timeline: state.projectId ? state.present.timeline : EMPTY_DOC.timeline,
       proposals: state.projectId ? state.present.proposals : EMPTY_DOC.proposals,
       shots: state.projectId ? state.present.shots : EMPTY_DOC.shots,

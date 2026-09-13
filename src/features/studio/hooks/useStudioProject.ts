@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StudioSnapshotRestoreResponse } from '@shared/ipc/types';
 import type { StudioProject } from '../types';
+import { markOpen, resetOpenMarks } from '../services/open-timing';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -26,9 +27,12 @@ export function useStudioProject(projectId: string) {
     setProject(null);
     latestRef.current = null;
     dirtyRef.current = false;
+    resetOpenMarks();
+    markOpen('load:start');
 
     void window.api.studioProjectLoad({ id: projectId }).then((res) => {
       if (cancelled) return;
+      markOpen('load:end');
       if (res.success && res.project) {
         latestRef.current = res.project;
         setProject(res.project);
@@ -129,6 +133,9 @@ export function useStudioProject(projectId: string) {
       setProject((prev) => {
         if (!prev) return prev;
         const next = updater(prev);
+        // An updater that changed nothing (a re-announced cache file, an
+        // already-merged import) must not dirty the document into a save.
+        if (next === prev) return prev;
         latestRef.current = next;
         scheduleSave();
         return next;

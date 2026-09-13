@@ -3,11 +3,15 @@ import { Player, type PlayerRef } from '@remotion/player';
 import { Pause, Play, SkipBack } from 'lucide-react';
 import { TimelineComposition, type SerializedTimeline } from '@shared/studio';
 import type { CaptionRuntimeProps } from '@shared/types/studio';
+import { useShotModuleSnapshot } from '../hooks/useShotModuleSnapshot';
+import type { ShotModuleLoader } from '../services/shot-module-loader';
+import type { ShotComponent } from '../hooks/useShotModuleLoader';
 
 interface Props {
   timeline: SerializedTimeline;
-  /** Live TSX shot components keyed by shotId (S4) — see useShotModules. */
-  components: Record<string, ComponentType>;
+  /** Live TSX shot components (S4) — subscribed here, so module arrivals
+   *  re-render the preview only. See useShotModuleLoader. */
+  shotLoader: ShotModuleLoader<ShotComponent>;
   /** The live-imported caption template (D13), when a layer is enabled. */
   captionComponent?: ComponentType<CaptionRuntimeProps>;
   playerRef: (ref: PlayerRef | null) => void;
@@ -34,7 +38,7 @@ interface Props {
  */
 export function PreviewPanel({
   timeline,
-  components,
+  shotLoader,
   captionComponent,
   playerRef,
   isPlaying,
@@ -46,6 +50,7 @@ export function PreviewPanel({
   onCycleRate,
   overlay,
 }: Props) {
+  const { components } = useShotModuleSnapshot(shotLoader);
   const inputProps = useMemo(
     () => ({ timeline, components, captionComponent }),
     [timeline, components, captionComponent],

@@ -3,6 +3,8 @@ import type { StudioMediaJobEvent } from '@shared/ipc/types';
 import { findSttEntry } from '@shared/presets/stt-models';
 import type { StudioAssetTranscript, StudioMediaAsset, StudioProject } from '../types';
 import type { ClipWaveformData } from '../components/timeline/TimelineClip';
+import { markOpen } from '../services/open-timing';
+import { patchProjectAsset, sameIdSet, withCacheFile } from '../services/asset-patch';
 
 interface WaveformFile {
   peaksPerSecond: number;
@@ -53,10 +55,8 @@ export function useStudioMedia(
 
   const patchAsset = useCallback(
     (assetId: string, patch: (asset: StudioMediaAsset) => StudioMediaAsset) => {
-      updateProject((prev) => ({
-        ...prev,
-        assets: prev.assets.map((asset) => (asset.id === assetId ? patch(asset) : asset)),
-      }));
+      // Identity-preserving: a no-op patch leaves the document untouched.
+      updateProject((prev) => patchProjectAsset(prev, assetId, patch));
     },
     [updateProject],
   );
@@ -130,13 +130,15 @@ export function useStudioMedia(
         if (event.status === 'generating' && event.percent !== undefined) return;
       }
 
-      patchAsset(event.assetId, (asset) => {
-        const entry = {
-          path: event.relPath ?? asset[event.kind]?.path ?? '',
-          status: event.status === 'ready' ? ('ready' as const) : event.status === 'error' ? ('error' as const) : ('generating' as const),
-        };
-        return event.kind === 'proxy' ? { ...asset, proxy: entry } : { ...asset, waveform: entry };
-      });
+      // Opening a project re-announces every cache file already on disk —
+      // those must not touch the document (see services/asset-patch.ts).
+      const kind = event.kind === 'proxy' ? 'proxy' : 'waveform';
+      patchAsset(event.assetId, (asset) =>
+        withCacheFile(asset, kind, {
+          path: event.relPath ?? asset[kind]?.path ?? '',
+          status: event.status === 'ready' ? 'ready' : event.status === 'error' ? 'error' : 'generating',
+        }),
+      );
     },
     [projectId, patchAsset, clearProgress],
   );
@@ -148,6 +150,7 @@ export function useStudioMedia(
   useEffect(() => {
     if (!projectId || assets.length === 0) return;
     let cancelled = false;
+    markOpen('media-prepare:start');
     void window.api
       .studioMediaPrepare({
         projectId,
@@ -160,9 +163,11 @@ export function useStudioMedia(
         })),
       })
       .then((res) => {
+        markOpen('media-prepare:end');
         if (cancelled || !res.success) return;
         if (res.assetBaseUrl) setAssetBaseUrl(res.assetBaseUrl);
-        setMissingAssetIds(new Set(res.missing ?? []));
+        const missing = res.missing ?? [];
+        setMissingAssetIds((prev) => (sameIdSet(prev, missing) ? prev : new Set(missing)));
         // Silent library heal (L7): main found the moved file by content
         // hash — merge the new path. The prepare effect re-runs off the
         // path change and comes back clean; caches are keyed by asset id.
@@ -183,30 +188,36 @@ export function useStudioMedia(
     return window.api.onStudioMediaJobEvent(applyEvent);
   }, [applyEvent]);
 
-  // Pull peak data for every waveform that has landed.
+  // Pull peak data for every waveform that has landed. The reads that start
+  // together (a project open starts them all) land in ONE state update — one
+  // editor render instead of one per asset.
   useEffect(() => {
-    for (const asset of assets) {
+    const pending = assets.flatMap((asset) => {
       const relPath = asset.waveform?.status === 'ready' ? asset.waveform.path : null;
-      if (!relPath || waveforms.has(asset.id) || loadingWaveforms.current.has(asset.id)) continue;
+      if (!relPath || waveforms.has(asset.id) || loadingWaveforms.current.has(asset.id)) return [];
       loadingWaveforms.current.add(asset.id);
-      void window.api
-        .studioCacheRead({ projectId, relPath })
-        .then((res) => {
-          if (!res.success || !res.data) return;
-          const parsed = JSON.parse(atob(res.data)) as WaveformFile;
-          if (!Array.isArray(parsed.peaks) || !parsed.peaksPerSecond) return;
-          setWaveforms((prev) =>
-            new Map(prev).set(asset.id, {
-              peaks: parsed.peaks,
-              peaksPerSecond: parsed.peaksPerSecond,
-            }),
-          );
-        })
-        .catch(() => {
-          // A missing waveform just means no wave drawn on the clip.
-        })
-        .finally(() => loadingWaveforms.current.delete(asset.id));
-    }
+      return [{ assetId: asset.id, relPath }];
+    });
+    if (pending.length === 0) return;
+    void (async () => {
+      const loaded = await Promise.all(
+        pending.map(async ({ assetId, relPath }): Promise<[string, ClipWaveformData] | null> => {
+          try {
+            const res = await window.api.studioCacheRead({ projectId, relPath });
+            markOpen(`waveform:read:${assetId}`);
+            if (!res.success || !res.data) return null;
+            const parsed = JSON.parse(atob(res.data)) as WaveformFile;
+            if (!Array.isArray(parsed.peaks) || !parsed.peaksPerSecond) return null;
+            return [assetId, { peaks: parsed.peaks, peaksPerSecond: parsed.peaksPerSecond }];
+          } catch {
+            return null; // A missing waveform just means no wave drawn on the clip.
+          }
+        }),
+      );
+      const found = loaded.filter((entry): entry is [string, ClipWaveformData] => entry !== null);
+      if (found.length > 0) setWaveforms((prev) => new Map([...prev, ...found]));
+      for (const { assetId } of pending) loadingWaveforms.current.delete(assetId);
+    })();
   }, [assets, projectId, waveforms]);
 
   /** Start (or restart) transcription for one asset. Explicit action only. */

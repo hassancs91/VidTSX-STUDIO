@@ -20,7 +20,7 @@ import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
-import { useShotModules } from '../hooks/useShotModules';
+import { useShotModuleLoader } from '../hooks/useShotModuleLoader';
 import { useShotJobs } from '../hooks/useShotJobs';
 import { usePaneSize } from '../hooks/usePaneSize';
 import { useRippleMode } from '../hooks/useRippleMode';
@@ -46,6 +46,8 @@ import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
 import { NO_USAGE, usageByAsset, usageByShot } from '../services/asset-usage';
 import { effectiveBrand } from '../services/project-brand-options';
+import { markOpen } from '../services/open-timing';
+import { openProgress } from '../services/open-stages';
 import type {
   StudioAgentSettings,
   StudioClipTransform,
@@ -68,6 +70,8 @@ import { ProjectSettingsDialog } from './ProjectSettingsDialog';
 import { PaneDivider } from './PaneDivider';
 import { RenderPrepChip } from './RenderPrepChip';
 import { PreviewPanel } from './PreviewPanel';
+import { OpenProgressOverlay } from './OpenProgressOverlay';
+import { OpenProgressView } from './OpenProgressView';
 import { TimelinePanel } from './TimelinePanel';
 import { InspectorPanel } from './InspectorPanel';
 import { AgentPanel } from './AgentPanel';
@@ -180,10 +184,12 @@ export function EditorShell({ projectId, onBack }: Props) {
     if (status !== 'ready') return undefined;
     let disposed = false;
     const run = async () => {
+      markOpen('reconcile:start');
       const res = await window.api.studioShotsReconcile({
         projectId,
         knownShotIds: knownShotIdsRef.current,
       });
+      markOpen('reconcile:end');
       if (disposed || !res.success) return;
       const adopted = res.adopted ?? [];
       if (adopted.length > 0) {
@@ -508,7 +514,7 @@ export function EditorShell({ projectId, onBack }: Props) {
       if (!audition || seconds < audition.stopAt) return;
       auditionRef.current = null;
       setAuditioning(false);
-      playback.player?.pause();
+      playback.pause();
       if (audition.restorePreview) setPreviewResult(false);
     });
   }, [playback]);
@@ -531,7 +537,7 @@ export function EditorShell({ projectId, onBack }: Props) {
       window.setTimeout(() => {
         auditionRef.current = { stopAt, restorePreview };
         playback.seek(Math.max(0, start));
-        playback.player?.play();
+        playback.play();
       }, 80);
     },
     [playback],
@@ -595,8 +601,19 @@ export function EditorShell({ projectId, onBack }: Props) {
   );
 
   // Live shot components for the preview Player (S4). The serializer reads
-  // the REDUCER's shots — the document copy lags one write-back effect.
-  const shotComponents = useShotModules(projectId, tl.shots);
+  // the REDUCER's shots — the document copy lags one write-back effect. The
+  // loader is a per-editor store: modules arriving re-render the Player and
+  // the open overlay (its subscribers), never this component. Until the reducer
+  // adopts the document (the editor is not mounted yet) the document's own
+  // shots are the same list, so main starts preparing modules while the
+  // editor mounts instead of after.
+  const reducerReady = !!project && tl.projectId === project.id;
+  const shotLoader = useShotModuleLoader(
+    projectId,
+    reducerReady || !project ? tl.shots : project.shots ?? tl.shots,
+    reducerReady || !project ? tl.timeline : project.timeline,
+    playback,
+  );
 
   // ----- Shot generation (S4 D8/D10) -------------------------------------
   // Pool-button inserts: the playhead is recorded at click time and the clip
@@ -1003,11 +1020,19 @@ export function EditorShell({ projectId, onBack }: Props) {
   );
   agentActionRef.current = handleAgentAction;
 
-  if (status === 'loading') {
+  // Staged open (video-10 feedback item 2). The editor mounts only once the
+  // timeline reducer has adopted the document: mounting on the empty reducer
+  // state rendered the whole editor twice per open.
+  if (status === 'loading' || (status === 'ready' && project && !reducerReady)) {
     return (
-      <div className="flex items-center justify-center h-full text-[12px] text-text-dim">
-        Loading project…
-      </div>
+      <OpenProgressView
+        progress={openProgress({
+          documentLoaded: status === 'ready',
+          timelineReady: false,
+          shots: { synced: false, total: 0, settled: 0, failed: 0 },
+          framePainted: false,
+        })}
+      />
     );
   }
 
@@ -1025,7 +1050,8 @@ export function EditorShell({ projectId, onBack }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
+      <OpenProgressOverlay key={project.id} loader={shotLoader} />
       {/* Toolbar */}
       <div
         className="flex items-center gap-2 h-[40px] px-2 bg-app-surface shrink-0"
@@ -1186,7 +1212,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         <div className="flex-1 min-w-0 flex flex-col">
           <PreviewPanel
             timeline={previewTimeline}
-            components={shotComponents}
+            shotLoader={shotLoader}
             captionComponent={captionComponent}
             playerRef={playback.playerRef}
             isPlaying={playback.isPlaying}
