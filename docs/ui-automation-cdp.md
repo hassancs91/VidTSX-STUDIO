@@ -457,3 +457,66 @@ action bar.
   active list nor the DOM shows its progress line. Subscribe to
   `window.api.onRenderProgress` from the driver and read the event's
   `message` — that is what the queue row shows.
+
+## Studio editor drivers: launch, the test project, and six traps (2026-09-13, video-10 feedback round)
+
+**Launch.** Put the launch in a script FILE and run that file in the
+background (the rule in "Launch" above). The one used all day:
+
+```bash
+#!/bin/bash
+cd /d/repos/VidTSX-STUDIO || exit 1
+unset ELECTRON_RUN_AS_NODE
+exec npx electron-vite dev -- --remote-debugging-port=9222 \
+  --disable-features=CalculateNativeWinOcclusion \
+  --disable-backgrounding-occluded-windows --disable-renderer-backgrounding \
+  > "$SCRATCHPAD/dev-app.log" 2>&1
+```
+
+Poll `/json/list`, then wait about 40 s more before the first driver run. A
+dev app may still be running from an earlier session: check port 9222 first.
+Renderer changes hot-reload (and may drop the page back to Home, so a driver
+must reopen the project rather than assume the editor is up); main-process
+changes (a new IPC channel, a handler) need a restart. Before killing a dev
+app, check no `ffmpeg` is running under it — an export dies with it.
+
+**The test project.** Drive `video-10-test` (card text "video-10 test", 20
+assets, 12 shots, 59 on-screen clips), never `video-10`. Copy its
+`project.json` to your scratchpad before any run and compare afterwards:
+everything a run changes must be undone by the run, so only `updatedAt` may
+differ. Compare parsed JSON with `updatedAt` blanked, and list the differing
+top-level and `settings` keys when it is not identical — key order survives
+`{ ...prev.settings, width }` edits, so a reverted setting compares equal.
+Undo library side effects too: a "Save to library" brand is deleted through
+`window.api.libraryBrandDelete`, and the empty `assets/brands/` it leaves
+behind by hand.
+
+**Traps:**
+
+- **The first mouse click after `Page.bringToFront` can only focus the
+  window.** Click, check the effect (a selection ring, a count), and click
+  again if it did not take.
+- **The V1 lane sits at the bottom of the timeline pane and is partly
+  clipped.** Hit-test with `document.elementFromPoint` near a clip's TOP edge
+  (top + 6 px), not its centre, before clicking it.
+- **Tailwind bracket classes are not valid CSS selectors.**
+  `querySelectorAll('.rounded-[6px]')` throws. Select by `data-*` attributes
+  (`data-media-tile`, `data-shot-card`, `data-pane-tab`, `data-project-settings`…)
+  or by title prefix (`button[title^="Remove from project — asks first"]`).
+- **A hidden window never produces a frame.** Even with the occlusion flags,
+  a window covered by the user's other work reports `visibilityState:
+  "hidden"` and `Page.captureScreenshot` waits forever while `Runtime.evaluate`
+  and mouse input keep working. Race every screenshot against a 6 s timeout
+  and log it as skipped instead of letting it hang the run.
+- **A scripted `el.blur()` does nothing when the window has no focus**, so
+  an input that commits on blur never commits. Drive the other commit path
+  (dispatch a bubbling `keydown` Enter on the input) and assert on the result.
+- **`node driver.mjs | tail -30` shows nothing until the driver exits**, and
+  a hung driver shows nothing at all. Redirect to a log file
+  (`node driver.mjs > run.log 2>&1`) and read it.
+
+Keyboard: `Input.dispatchKeyEvent` with `modifiers: 2` is Ctrl (`key: 'z'`,
+`code: 'KeyZ'`, `windowsVirtualKeyCode: 90` for undo); blur the active element
+first so the timeline shortcuts receive it. React `<select>` values are set
+with the native `HTMLSelectElement` value setter plus a bubbling `change`
+event; inputs and textareas with their own setter plus `input`.

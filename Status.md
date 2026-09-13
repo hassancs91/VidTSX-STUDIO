@@ -7,6 +7,62 @@
 
 ---
 
+## 2026-09-13 — STUDIO: Project settings panel (feedback 7) + left pane Media | Shots | Captions with a media grid (feedback 5)
+
+`docs/studio/VIDEO10_TESTING_FEEDBACK.md` items 5 and 7, built together (7.4 moved the brand/preset pickers
+out of the Shots section, so the panel came first). Before: the brand picker rendered only with library
+brands (none on this machine), video-10's `brand.json` snapshot was used by generation silently, project
+format/STT had no surface, captions sat in the right panel, and 113 assets were a single column of
+full-width cards.
+
+- **Project settings** (`components/ProjectSettingsDialog.tsx` over `ProjectFormatFields` +
+  `ProjectBrandFields` + `BrandReadout`), opened from a Settings button beside Export or the size chip:
+  name; frame size (typed values commit on Enter/blur through `services/project-format.ts` — even, 16–7680 —
+  plus 1080p / 4K / 9:16 / 1:1 buttons); fps; STT model; Brand; Preset; a read-out of the brand's five colours
+  and fonts. Settings edits stay non-undoable (the brand / STT precedent).
+- **Brand as the renderer sees it = as main renders it.** `services/project-brand-options.ts` (pure): the
+  options (snapshot option when `brand.json` exists — then no "No brand", since `resolveProjectBrand` always
+  falls back to it; stale ids "(missing)"; "Create brand…"), and `effectiveBrand` mirroring main's order.
+  EditorShell's caption `activeBrand` now uses it, so caption previews paint the snapshot like the export
+  already did. **Save to library**: new IPC `studio:project:brand:get` / `studio:project:brand:promote`
+  (`ipc/studio-brand-handlers.ts`, `promoteProjectBrand` in `services/studio/project-brand.ts` → `createBrand`),
+  the renderer then sets `brandId`; `hooks/useProjectBrand.ts`. **Create brand… / Create preset…**
+  (`services/open-library-form.ts`) navigate to Assets and fire `vidtsx:assets-open`; `AssetLibraryScreen`
+  opens `BrandsDialog` / `PresetsDialog` on their New form (`startNew`). `useBrandList` / `usePresetList`
+  re-read on `vidtsx:screen-active` (studio) and after a promote, and now use async/await.
+- **Left pane** (`components/LeftPane.tsx`): Media N | Shots N | Captions via the shared `PaneTabButton`
+  (the right panel is Inspector | Script | Assistant); the top bar's Captions button targets the left tab.
+  Tab per project in localStorage (`studio.leftTab.<id>`, `hooks/useStoredChoice.ts` over the pure
+  `services/stored-choice.ts`). Media and Shots stay mounted and hidden, so an open import panel or a typed
+  brief survives a tab switch; Captions mounts on demand. A reconcile drop-in failure switches to Shots.
+  Pool pane default 230 → 300 px (min 220, max 480): three 88 px tiles per row.
+- **MediaPool.tsx 804 → 188 lines**, split: `MediaTile` (grid) / `AssetCard` (list) over `MediaThumbnail`
+  (duration + kind, proxy / transcribing / transcript-ready pill, Missing + Locate…) and
+  `AssetHoverActions` (same titles as before); a right-click `FloatingMenu` (Add · Transcribe/Re-transcribe ·
+  Locate… · Remove); `DensityToggle` (grid/list, `studio.media.density`); the item-6 confirm spans the grid
+  row. `ShotsPanel` (keeps `data-shots-section`, header = Import + Generate + density) over `ShotCard`
+  (row or tile), `ImportShotPanel`, `GenerateShotForm` (`GenerateShotSpec` moved there). Item 5's
+  "verify drag-to-timeline from a tile" had a wrong premise: the pool never had a drag.
+- **Gates:** check:types at baseline (26/10); vitest studio + shared **679 passed** (74 files; new:
+  `project-brand-options.test.ts` 6, `project-format.test.ts` 3, `stored-choice.test.ts` 2) +
+  `project-brand.test.ts` 3 (promote copies the snapshot incl. vocabulary, a second promote gets its own
+  slug, no snapshot → readable error); asset-library + main IPC suites 86 green.
+- **CDP on `video-10-test`** (dev app restarted for the new IPC; drivers `drive-panes.mjs`,
+  `drive-settings.mjs`, `drive-size.mjs` over a shared `cdp-lib.mjs` in the session scratchpad):
+  tabs "Media 20" / "Shots 12"; 20 tiles, 3 per row at 92 px in the 312 px pane; click → accent ring;
+  right-click → Add to timeline → 62 on-screen clips → Ctrl+Z → 59; X on the 75-clip master → full-row
+  confirm → Cancel; list → 20 cards; Shots: 12 tiles with badges, no brand/preset picker in the DOM, a typed
+  brief survives Media → Shots, B0Terminal confirm → Cancel; Captions via the top bar → the left tab with
+  10 templates; renderer reload → Captions still active. Settings: snapshot "Learn With Hasan (project
+  snapshot)" selected, 5 swatches, "Space Grotesk / Inter"; 1281 + Enter → 1282×1080 in the chip; "abc" →
+  the hint and revert; 9:16 → 1080×1920 → 1080p; fps 25 → 30; Save to library → `learn-with-hasan`
+  selected, read-out "library", button gone → snapshot re-selected, library copy deleted; Create brand… →
+  Assets with "New brand" open. **Each of the three runs: project.json vs the pre-run backup differs only in
+  `updatedAt`.** The run caught one bug, fixed before the last run: a size preset equal to the current
+  size left half-typed text in the fields. Most screenshots of the second and third runs were skipped —
+  the window was covered (hidden) — see the new section in `docs/ui-automation-cdp.md`.
+- **Next** in the round: 2 (open-time loading state) and 8 (proxy speed).
+
 ## 2026-09-13 — STUDIO: removing media or a shot that is on the timeline asks first, and asset removal is one undo step (feedback 6)
 
 `docs/studio/VIDEO10_TESTING_FEEDBACK.md` item 6. Before: the X on a media tile silently deleted every clip

@@ -132,7 +132,15 @@ hold local state (check `ScriptPanel`). Alternative — keep all four tabs
 mounted and toggle `hidden` — is heavier (the timeline/inspector already
 re-render per selection) and unnecessary for one text field.
 
-## 5. Left pane gets Media | Captions tabs; media items become a compact grid
+## 5. Left pane gets Media | Captions tabs; media items become a compact grid — SHIPPED 2026-09-13
+
+> Built with item 7: `LeftPane` (Media | Shots | Captions, per-project tab in
+> localStorage), `MediaPool` split into `MediaTile` / `AssetCard` /
+> `MediaThumbnail` / `AssetHoverActions`, `ShotsPanel` + `ShotCard` /
+> `ImportShotPanel` / `GenerateShotForm`, a grid/list `DensityToggle` on both
+> tabs, a right-click menu on media. Default pane width 300 px (3 tiles per
+> row). Point 5 (drag-to-timeline) had a wrong premise: the pool never had a
+> drag, adding is double-click / + / the menu. See `Status.md` 2026-09-13.
 
 **Asked 2026-09-11.** (a) Captions should live on the LEFT pane as a tab next
 to Media, not in the right panel. (b) In Media, each file is too big — one
@@ -211,7 +219,16 @@ undo slice.
    (clip count) so the state is visible before anyone reaches for the X.
 4. Same confirm for shots in use (count of tsx clips).
 
-## 7. Brand selector is invisible when there are no library brands
+## 7. Brand selector is invisible when there are no library brands — SHIPPED 2026-09-13
+
+> Built as the Project settings panel (top bar, next to Export): name, frame
+> size, fps, STT model, Brand, Preset, brand read-out. The snapshot is a real
+> option with Save to library (new IPC `studio:project:brand:get` / `:promote`,
+> `promoteProjectBrand` in `project-brand.ts`); "Create brand…" / "Create
+> preset…" open the Assets screen's New form (`vidtsx:assets-open`), not an
+> inline mini-form. "No brand" is offered only without a snapshot, because main
+> always falls back to `brand.json`. Caption previews now use the snapshot too,
+> matching export. See `Status.md` 2026-09-13.
 
 **Asked 2026-09-11** ("why I don't see brand selector?").
 
