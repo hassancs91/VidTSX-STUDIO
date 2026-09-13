@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Brain, RotateCcw, Scissors, Send, Sparkles, Square, Wrench } from 'lucide-react';
+import {
+  AlertTriangle,
+  Brain,
+  Check,
+  Download,
+  RotateCcw,
+  Scissors,
+  Send,
+  Sparkles,
+  Square,
+  Wrench,
+} from 'lucide-react';
 import type { AgentChatMessage, UseStudioAgentResult } from '../hooks/useStudioAgent';
 import { useMemoryProposals } from '../hooks/useMemoryProposals';
 import { useStylePromotions } from '../hooks/useStylePromotions';
@@ -13,9 +24,16 @@ import { MemoryProposalCard } from './MemoryProposalCard';
 import { StylePromotionCard } from './StylePromotionCard';
 import { VocabularyProposalCard } from './VocabularyProposalCard';
 import { PresetUpdateCard } from './PresetUpdateCard';
+import { FloatingMenu } from './timeline/FloatingMenu';
+import { agentChatExportFileName, formatAgentChatMarkdown } from '../services/agent-chat-export';
+import { useAgentDraft } from '../hooks/useAgentDraft';
+import { useCopyToClipboard } from '@shared/hooks/useCopyToClipboard';
 
 /** Warn when the next turn is estimated at ≥40% of the context budget. */
 const CONTEXT_WARN_RATIO = 0.4;
+
+/** Width the export menu lays out at with its four labels (right-anchored). */
+const EXPORT_MENU_WIDTH = 210;
 
 /** Friendly labels for agent tool events; unknown tools show their raw name. */
 const TOOL_LABELS: Record<string, string> = {
@@ -53,6 +71,8 @@ const TOOL_LABELS: Record<string, string> = {
 
 interface Props {
   projectId: string;
+  /** For the exported transcript's header and file name. */
+  projectName: string;
   agent: UseStudioAgentResult;
   /** The project's agent settings — the chip edits them (W1), so the choice
    *  applies to the next turn and sticks with the project. */
@@ -62,9 +82,16 @@ interface Props {
 
 /** The Assistant tab: chat with the editing agent. Cut proposals it creates
  *  land on the timeline + Inspector review flow — never applied directly. */
-export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Props) {
-  const [draft, setDraft] = useState('');
+export function AgentPanel({ projectId, projectName, agent, settings, onSettingsChange }: Props) {
+  // The draft outlives this panel (item 4): the right panel unmounts it on
+  // every tab switch, so the text is kept per project in sessionStorage.
+  const { draft, setDraft, clear: clearDraft } = useAgentDraft(projectId);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  // Export chat (item 9): a small menu — copy or save, with or without the
+  // tools' raw arguments/results. "Copied" flashes on the button for a moment.
+  const [exportMenu, setExportMenu] = useState<{ x: number; y: number } | null>(null);
+  const { copied, copy } = useCopyToClipboard();
+  const [exportError, setExportError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const memoryProposals = useMemoryProposals(projectId);
   const stylePromotions = useStylePromotions(projectId);
@@ -88,8 +115,34 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
   const submit = () => {
     const text = draft.trim();
     if (!text || busy) return;
-    setDraft('');
+    clearDraft();
     void send(text);
+  };
+
+  const exportChat = async (action: string) => {
+    setExportMenu(null);
+    setExportError(null);
+    const includeToolDetails = action.endsWith('-full');
+    const now = new Date();
+    const markdown = formatAgentChatMarkdown(
+      messages,
+      { projectName, exportedAt: now, providerId: settings.providerId, model: settings.model },
+      { includeToolDetails },
+    );
+    try {
+      if (action.startsWith('copy')) {
+        if (!(await copy(markdown))) setExportError('Could not copy to the clipboard');
+        return;
+      }
+      const res = await window.api.dialogSave({
+        defaultName: agentChatExportFileName(projectName, now),
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+        content: markdown,
+      });
+      if (!res.success && !res.canceled) setExportError(res.error ?? 'Could not save the chat.');
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Could not export the chat.');
+    }
   };
 
   return (
@@ -214,6 +267,25 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
             <IconAction title="Memory — rules, names, and profile the assistant follows" onClick={() => setMemoryOpen(true)}>
               <Brain size={12} strokeWidth={1.75} />
             </IconAction>
+            {messages.length > 0 && (
+              <span data-agent-export>
+                <IconAction
+                  title={copied ? 'Copied' : 'Export chat — copy or save the conversation as Markdown'}
+                  onClick={(event) => {
+                    // Anchor the menu's right edge to the button — the composer sits
+                    // at the window's right edge, so a left-anchored menu is clipped.
+                    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                    setExportMenu({ x: Math.max(8, rect.right - EXPORT_MENU_WIDTH), y: rect.top });
+                  }}
+                >
+                  {copied ? (
+                    <Check size={12} strokeWidth={2} className="text-accent-blue" />
+                  ) : (
+                    <Download size={12} strokeWidth={1.75} />
+                  )}
+                </IconAction>
+              </span>
+            )}
             {messages.length > 0 && !busy && (
               <IconAction title="New conversation — the current one is kept on disk" onClick={clear}>
                 <RotateCcw size={12} strokeWidth={1.75} />
@@ -230,7 +302,27 @@ export function AgentPanel({ projectId, agent, settings, onSettingsChange }: Pro
             )}
           </div>
         </div>
+        {exportError && (
+          <div className="pt-1 text-[10px] text-red-400" data-agent-export-error>
+            {exportError}
+          </div>
+        )}
       </div>
+
+      {exportMenu && (
+        <FloatingMenu
+          x={exportMenu.x}
+          y={exportMenu.y - 8 - 4 * 26}
+          items={[
+            { id: 'copy-messages', label: 'Copy chat' },
+            { id: 'copy-full', label: 'Copy chat + tool details' },
+            { id: 'save-messages', label: 'Save chat as Markdown…' },
+            { id: 'save-full', label: 'Save chat + tool details…' },
+          ]}
+          onPick={(id) => void exportChat(id)}
+          onClose={() => setExportMenu(null)}
+        />
+      )}
 
       <MemoryDialog
         isOpen={memoryOpen}
@@ -306,7 +398,7 @@ function IconAction({
   disabled,
 }: {
   title: string;
-  onClick: () => void;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   children: React.ReactNode;
   accent?: boolean;
   disabled?: boolean;

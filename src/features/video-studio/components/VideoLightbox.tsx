@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { Button } from '@shared/components';
 import { useToast } from '@renderer/contexts/ToastContext';
+import { copyTextToClipboard } from '@shared/hooks/useCopyToClipboard';
 import type { GalleryVideo } from '../types';
 
 const CopyIcon = () => (
@@ -45,12 +46,8 @@ export function VideoLightbox({
 
   const handleCopyPrompt = useCallback(async () => {
     if (!video) return;
-    try {
-      await navigator.clipboard.writeText(video.prompt);
-      showToast('Prompt copied to clipboard', 'success');
-    } catch {
-      showToast('Failed to copy prompt', 'error');
-    }
+    if (await copyTextToClipboard(video.prompt)) showToast('Prompt copied to clipboard', 'success');
+    else showToast('Failed to copy prompt', 'error');
   }, [video, showToast]);
 
   const goNext = useCallback(() => {

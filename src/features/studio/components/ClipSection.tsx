@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type { Dispatch } from 'react';
 import { TextInput } from '@shared/components/TextInput';
+import { CopyButton } from '@shared/components/CopyButton';
 import type { StudioClip, StudioMediaAsset, StudioTimeline } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
 import { findClip } from '../services/timeline-ops';
@@ -96,8 +97,13 @@ export function ClipSection({ timeline, assets, selectedClipIds, dispatch }: Pro
 
   return (
     <div className="flex flex-col gap-2" key={clip.id}>
-      <Field label="Name">
-        <ReadOnlyValue>{name}</ReadOnlyValue>
+      <Field label="Name" asDiv>
+        <div className="flex items-center gap-1">
+          <div className="flex-1 min-w-0">
+            <ReadOnlyValue>{name}</ReadOnlyValue>
+          </div>
+          <CopyButton value={name} title="Copy name" />
+        </div>
       </Field>
       <div className="grid grid-cols-3 gap-2">
         <Field label="Track">

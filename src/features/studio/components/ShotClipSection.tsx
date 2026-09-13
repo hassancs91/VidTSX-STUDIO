@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@shared/components/Button';
+import { CopyButton } from '@shared/components/CopyButton';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { StudioClip, StudioShot } from '../types';
@@ -117,6 +118,7 @@ export function ShotClipSection({ projectId, clip, shot, dispatch, progress, onE
     <div className="flex flex-col gap-2" data-shot-section={shot.id}>
       <div className="flex items-center gap-[6px]">
         <span className="text-[11px] text-text-primary truncate">{shot.name}</span>
+        <CopyButton value={shot.id} title="Copy shot id (what the assistant's tools take)" size={20} />
         <span className="text-[8px] font-bold uppercase tracking-wide px-[5px] py-[1px] rounded-full bg-accent/20 text-accent-light">
           {shot.kind}
         </span>

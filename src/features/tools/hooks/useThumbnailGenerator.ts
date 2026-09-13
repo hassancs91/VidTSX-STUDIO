@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import { filterUsableLlmProviders } from '@shared/services/llm-provider-filter';
 import { THUMBNAIL_SYSTEM_PROMPT } from '@shared/prompts/thumbnail-system-prompt';
+import { copyTextToClipboard } from '@shared/hooks/useCopyToClipboard';
 
 type Orientation = 'horizontal' | 'vertical';
 
@@ -107,7 +108,7 @@ export function useThumbnailGenerator() {
 
   const copyPrompt = useCallback((index: number) => {
     const text = prompts[index];
-    if (text) navigator.clipboard.writeText(text);
+    if (text) void copyTextToClipboard(text);
   }, [prompts]);
 
   const clearPrompts = useCallback(() => {

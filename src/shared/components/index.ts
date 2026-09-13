@@ -16,3 +16,4 @@ export { ErrorBanner } from "./ErrorBanner";
 export { ReferenceImageLibrary } from "./ReferenceImageLibrary";
 export { ReferenceImageDropZone } from "./ReferenceImageDropZone";
 export { VideoModelFields } from "./VideoModelFields";
+export { CopyButton } from "./CopyButton";

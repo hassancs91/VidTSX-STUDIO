@@ -23,6 +23,7 @@ import {
   coerceSttEntry,
 } from '../types';
 import { exportTranscript } from '../services/export-transcript';
+import { copyTextToClipboard } from '@shared/hooks/useCopyToClipboard';
 
 const initialState: TranscriptionState = {
   phase: 'idle',
@@ -456,12 +457,7 @@ export function useTranscription() {
   // Copy to clipboard
   const copyToClipboard = useCallback(async (): Promise<boolean> => {
     if (!state.result) return false;
-    try {
-      await navigator.clipboard.writeText(state.result.text);
-      return true;
-    } catch {
-      return false;
-    }
+    return copyTextToClipboard(state.result.text);
   }, [state.result]);
 
   // Reset to idle (keep file selected for re-transcribe)
