@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import type { CaptionTemplateDefaults } from '@shared/studio';
+import { masterLane, type CaptionTemplateDefaults } from '@shared/studio';
 import type {
   StudioCaptionLayer,
   StudioCaptionStyle,
   StudioClip,
+  StudioMediaAsset,
   StudioProject,
   StudioProposal,
   StudioShot,
@@ -47,6 +48,12 @@ import {
 } from '../services/track-ops';
 import { addMarker, moveMarker, removeMarker, renameMarker } from '../services/marker-ops';
 import {
+  removeClipsRippleAll,
+  removeSpanAllTracks,
+  removeSpanFromTrack,
+  trimClipRippleAll,
+} from '../services/ripple-ops';
+import {
   pruneTransitions,
   removeTransition,
   setTransition,
@@ -80,6 +87,22 @@ interface EditDoc {
   shots: StudioShot[];
   /** null = the project has no caption layer (the document field is absent). */
   captions: StudioCaptionLayer | null;
+  /**
+   * Media removed from the pool through `remove-asset`, as snapshots. Assets
+   * stay owned by `useStudioProject` (proxy/transcript status lands there from
+   * background jobs and must never be undone), so the undoable slice records
+   * only WHICH assets are gone: the sync effect drops those from the project
+   * and puts a snapshot back when an undo takes it off this list. Never
+   * persisted — it is reducer state, reset on open.
+   */
+  removedAssets: RemovedAsset[];
+}
+
+/** A pool entry taken out by `remove-asset`: the snapshot and where it sat,
+ *  so an undo puts it back in the same place (project.json stays identical). */
+export interface RemovedAsset {
+  asset: StudioMediaAsset;
+  index: number;
 }
 
 export type TimelineAction =
@@ -99,11 +122,18 @@ export type TimelineAction =
       edge: 'start' | 'end';
       seconds: number;
       sourceDuration?: number;
+      /** Ripple mode 'all': a master-lane trim moves every unlocked track (ripple-ops). */
+      rippleAllTracks?: boolean;
     }
   | { type: 'split'; clipId: string; seconds: number }
   | { type: 'remove'; clipId: string; ripple: boolean }
   | { type: 'move-clips'; clipIds: string[]; deltaSeconds: number }
-  | { type: 'remove-clips'; clipIds: string[]; ripple: boolean }
+  // `allTracks` (with ripple): a deleted master-lane clip takes its time out
+  // of every unlocked track; other lanes still ripple per track.
+  | { type: 'remove-clips'; clipIds: string[]; ripple: boolean; allTracks?: boolean }
+  // Range delete (I/O points + Delete): remove [from, to) from every unlocked
+  // track, or from the master lane only when `allTracks` is false.
+  | { type: 'remove-span'; from: number; to: number; allTracks: boolean }
   // Ids are minted by the CALLER so it can select the new clips after
   // dispatch — the op itself is deterministic given them.
   | { type: 'paste'; entries: ClipboardEntry[]; atSeconds: number; newIds: string[] }
@@ -114,7 +144,9 @@ export type TimelineAction =
   | { type: 'clip-speed'; clipId: string; speed: number }
   // Id minted by the caller so it can select the new audio clip after dispatch.
   | { type: 'detach-audio'; clipId: string; newClipId: string }
-  | { type: 'remove-asset-clips'; assetId: string }
+  // Remove media from the pool WITH every clip playing it, one undo step (item
+  // 6). The snapshot is what an undo restores; the file is never touched.
+  | { type: 'remove-asset'; asset: StudioMediaAsset; index: number }
   // Markers (Slice D1). Add ids are minted by the caller, like paste.
   | { type: 'marker-add'; id: string; time: number; label?: string }
   | { type: 'marker-move'; markerId: string; time: number }
@@ -142,7 +174,7 @@ export type TimelineAction =
       sourceStart: number;
       sourceEnd: number;
     }
-  | { type: 'proposal-apply'; proposalId: string }
+  | { type: 'proposal-apply'; proposalId: string; rippleAllTracks?: boolean }
   | { type: 'proposal-reject'; proposalId: string }
   // Shots (S4, D9). Undoable ops are exactly the user-meaningful ones; a
   // background generation finishing enters via 'shots-adopt' instead.
@@ -178,6 +210,7 @@ const EMPTY_DOC: EditDoc = {
   proposals: [],
   shots: [],
   captions: null,
+  removedAssets: [],
 };
 
 function commit(state: HistoryState, next: EditDoc): HistoryState {
@@ -187,7 +220,8 @@ function commit(state: HistoryState, next: EditDoc): HistoryState {
     next.timeline === state.present.timeline &&
     next.proposals === state.present.proposals &&
     next.shots === state.present.shots &&
-    next.captions === state.present.captions
+    next.captions === state.present.captions &&
+    next.removedAssets === state.present.removedAssets
   ) {
     return state;
   }
@@ -227,6 +261,7 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
           proposals: action.proposals,
           shots: action.shots,
           captions: action.captions,
+          removedAssets: [],
         },
         future: [],
       };
@@ -248,7 +283,13 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         state,
         withTimeline(
           doc,
-          trimClip(doc.timeline, action.clipId, action.edge, action.seconds, action.sourceDuration),
+          (action.rippleAllTracks ? trimClipRippleAll : trimClip)(
+            doc.timeline,
+            action.clipId,
+            action.edge,
+            action.seconds,
+            action.sourceDuration,
+          ),
         ),
       );
     case 'split':
@@ -263,8 +304,27 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
     case 'remove-clips':
       return commit(
         state,
-        withTimeline(doc, removeClips(doc.timeline, action.clipIds, action.ripple)),
+        withTimeline(
+          doc,
+          action.ripple && action.allTracks
+            ? removeClipsRippleAll(doc.timeline, action.clipIds)
+            : removeClips(doc.timeline, action.clipIds, action.ripple),
+        ),
       );
+    case 'remove-span': {
+      if (action.allTracks) {
+        return commit(
+          state,
+          withTimeline(doc, removeSpanAllTracks(doc.timeline, action.from, action.to)),
+        );
+      }
+      const master = masterLane(doc.timeline);
+      if (!master) return state;
+      return commit(
+        state,
+        withTimeline(doc, removeSpanFromTrack(doc.timeline, master.id, action.from, action.to)),
+      );
+    }
     case 'paste':
       return commit(
         state,
@@ -290,8 +350,14 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         state,
         withTimeline(doc, detachAudio(doc.timeline, action.clipId, action.newClipId)),
       );
-    case 'remove-asset-clips':
-      return commit(state, withTimeline(doc, removeClipsForAsset(doc.timeline, action.assetId)));
+    case 'remove-asset': {
+      if (doc.removedAssets.some((r) => r.asset.id === action.asset.id)) return state;
+      const next = withTimeline(doc, removeClipsForAsset(doc.timeline, action.asset.id));
+      return commit(state, {
+        ...next,
+        removedAssets: [...doc.removedAssets, { asset: action.asset, index: action.index }],
+      });
+    }
     case 'marker-add':
       return commit(
         state,
@@ -370,7 +436,9 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
           ? applyShotProposal(doc.timeline, proposal, doc.shots)
           : proposal.kind === 'insert-plan'
             ? applyInsertProposal(doc.timeline, proposal)
-            : applyCutProposal(doc.timeline, proposal);
+            : applyCutProposal(doc.timeline, proposal, {
+                rippleAllTracks: action.rippleAllTracks,
+              });
       const timeline = pruneTransitions(applyByKind);
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);
@@ -517,19 +585,35 @@ export function useTimeline(
     // Right after `reset` the present IS the document — nothing to write
     // back, and writing would mark a freshly opened project dirty.
     const doc = state.present;
+    if (doc === writtenRef.current) return;
+    // Assets that left `removedAssets` since the last write (an undo) come
+    // back from their snapshot; the ones on it stay out of the project.
+    const removedIds = new Set(doc.removedAssets.map((r) => r.asset.id));
+    const restore = (writtenRef.current?.removedAssets ?? []).filter((r) => !removedIds.has(r.asset.id));
     if (
-      (doc.timeline === project.timeline &&
-        doc.proposals === project.proposals &&
-        doc.shots === project.shots &&
-        doc.captions === (project.captions ?? null)) ||
-      doc === writtenRef.current
+      doc.timeline === project.timeline &&
+      doc.proposals === project.proposals &&
+      doc.shots === project.shots &&
+      doc.captions === (project.captions ?? null) &&
+      removedIds.size === 0 &&
+      restore.length === 0
     ) {
       return;
     }
     writtenRef.current = doc;
     updateProject((prev) => {
+      let assets = prev.assets;
+      if (removedIds.size > 0 || restore.length > 0) {
+        assets = prev.assets.filter((a) => !removedIds.has(a.id));
+        // Earliest index first, so a multi-step undo re-seats each one where it was.
+        for (const { asset, index } of [...restore].sort((a, b) => a.index - b.index)) {
+          if (assets.some((a) => a.id === asset.id)) continue;
+          assets = [...assets.slice(0, index), asset, ...assets.slice(index)];
+        }
+      }
       const next = {
         ...prev,
+        assets,
         timeline: doc.timeline,
         proposals: doc.proposals,
         shots: doc.shots,
@@ -582,9 +666,9 @@ export function useTimeline(
   /** Batch delete of everything selected — one undo step. */
   const removeSelectedRef = useRef(selectedClipIds);
   removeSelectedRef.current = selectedClipIds;
-  const removeSelected = useCallback((ripple: boolean) => {
+  const removeSelected = useCallback((ripple: boolean, allTracks = false) => {
     if (removeSelectedRef.current.length === 0) return;
-    dispatch({ type: 'remove-clips', clipIds: removeSelectedRef.current, ripple });
+    dispatch({ type: 'remove-clips', clipIds: removeSelectedRef.current, ripple, allTracks });
   }, []);
 
   // The open proposal under review, if any. KIND-AGNOSTIC (D8 Rev 3): one

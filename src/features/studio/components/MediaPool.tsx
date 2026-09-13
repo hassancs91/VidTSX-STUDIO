@@ -21,6 +21,14 @@ import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { useShotImport, type ShotImportFailure } from '../hooks/useShotImport';
 import { formatDuration } from '../services/format-time';
+import {
+  assetFileName,
+  describeAssetUsage,
+  describeShotUsage,
+  isAssetUsed,
+  type AssetUsage,
+} from '../services/asset-usage';
+import { RemoveConfirmCard } from './RemoveConfirmCard';
 
 export interface GenerateShotSpec {
   kind: 'cutaway' | 'overlay';
@@ -32,6 +40,10 @@ interface Props {
   assets: StudioMediaAsset[];
   onImport: () => void;
   onRemove: (assetId: string) => void;
+  /** Where the asset is used (item 6): the badge, and the confirm before a remove. */
+  getAssetUsage: (assetId: string) => AssetUsage;
+  /** Clips playing a shot, for the same badge + confirm on the shot rows. */
+  getShotUsage: (shotId: string) => number;
   onAddToTimeline: (asset: StudioMediaAsset) => void;
   onTranscribe: (asset: StudioMediaAsset) => void;
   onSelect: (assetId: string) => void;
@@ -74,6 +86,8 @@ export function MediaPool({
   assets,
   onImport,
   onRemove,
+  getAssetUsage,
+  getShotUsage,
   onAddToTimeline,
   onTranscribe,
   onSelect,
@@ -109,6 +123,13 @@ export function MediaPool({
       }
     }
   }, [assets, loadThumbnail]);
+  // The tile whose X was clicked while its asset is still on the timeline —
+  // the confirm card takes the tile's place until Remove or Cancel.
+  const [confirmAssetId, setConfirmAssetId] = useState<string | null>(null);
+  const requestRemove = (asset: StudioMediaAsset) => {
+    if (isAssetUsed(getAssetUsage(asset.id))) setConfirmAssetId(asset.id);
+    else onRemove(asset.id);
+  };
 
   return (
     <div className="flex flex-col h-full bg-app-deep">
@@ -138,28 +159,44 @@ export function MediaPool({
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {assets.map((asset) => (
-              <AssetCard
-                key={asset.id}
-                asset={asset}
-                thumbnail={getThumbnail(asset.id)}
-                selected={asset.id === selectedAssetId}
-                transcribeProgress={getTranscribeProgress(asset.id)}
-                proxyPercent={getProxyPercent(asset.id)}
-                missing={missingAssetIds.has(asset.id)}
-                onRemove={() => onRemove(asset.id)}
-                onAdd={() => onAddToTimeline(asset)}
-                onTranscribe={() => onTranscribe(asset)}
-                onSelect={() => onSelect(asset.id)}
-                onLocate={() => onLocate(asset)}
-              />
-            ))}
+            {assets.map((asset) =>
+              confirmAssetId === asset.id ? (
+                <RemoveConfirmCard
+                  key={asset.id}
+                  testId={asset.id}
+                  name={assetFileName(asset)}
+                  usage={describeAssetUsage(getAssetUsage(asset.id))}
+                  onConfirm={() => {
+                    setConfirmAssetId(null);
+                    onRemove(asset.id);
+                  }}
+                  onCancel={() => setConfirmAssetId(null)}
+                />
+              ) : (
+                <AssetCard
+                  key={asset.id}
+                  asset={asset}
+                  thumbnail={getThumbnail(asset.id)}
+                  selected={asset.id === selectedAssetId}
+                  transcribeProgress={getTranscribeProgress(asset.id)}
+                  proxyPercent={getProxyPercent(asset.id)}
+                  missing={missingAssetIds.has(asset.id)}
+                  usage={getAssetUsage(asset.id)}
+                  onRemove={() => requestRemove(asset)}
+                  onAdd={() => onAddToTimeline(asset)}
+                  onTranscribe={() => onTranscribe(asset)}
+                  onSelect={() => onSelect(asset.id)}
+                  onLocate={() => onLocate(asset)}
+                />
+              ),
+            )}
           </div>
         )}
 
         <ShotsSection
           shots={shots}
           getShotProgress={getShotProgress}
+          getShotUsage={getShotUsage}
           onAddShot={onAddShot}
           onRemoveShot={onRemoveShot}
           onGenerateShot={onGenerateShot}
@@ -190,6 +227,7 @@ const SHOT_KIND_STYLE: Record<string, string> = {
 function ShotsSection({
   shots,
   getShotProgress,
+  getShotUsage,
   onAddShot,
   onRemoveShot,
   onGenerateShot,
@@ -207,6 +245,7 @@ function ShotsSection({
 }: {
   shots: StudioShot[];
   getShotProgress: (shotId: string) => ShotJobProgress | null;
+  getShotUsage: (shotId: string) => number;
   onAddShot: (shot: StudioShot) => void;
   onRemoveShot: (shotId: string) => void;
   onGenerateShot: (spec: GenerateShotSpec) => void;
@@ -223,6 +262,8 @@ function ShotsSection({
   onReconcileFailureShown: () => void;
 }) {
   const [formOpen, setFormOpen] = useState(false);
+  // The shot row whose X was clicked while its clips are on the timeline.
+  const [confirmShotId, setConfirmShotId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [kind, setKind] = useState<'cutaway' | 'overlay'>('cutaway');
   const [brief, setBrief] = useState('');
@@ -393,6 +434,22 @@ function ShotsSection({
         shots.map((shot) => {
           const progress = getShotProgress(shot.id);
           const generating = shot.status === 'generating' || progress?.status === 'generating';
+          const used = getShotUsage(shot.id);
+          if (confirmShotId === shot.id) {
+            return (
+              <RemoveConfirmCard
+                key={shot.id}
+                testId={shot.id}
+                name={shot.name}
+                usage={describeShotUsage(used)}
+                onConfirm={() => {
+                  setConfirmShotId(null);
+                  onRemoveShot(shot.id);
+                }}
+                onCancel={() => setConfirmShotId(null)}
+              />
+            );
+          }
           return (
             <div
               key={shot.id}
@@ -415,7 +472,18 @@ function ShotsSection({
             >
               <Clapperboard size={14} strokeWidth={1.5} className="text-text-ghost shrink-0" />
               <div className="flex flex-col min-w-0 flex-1">
-                <span className="text-[10px] text-text-primary truncate">{shot.name}</span>
+                <span className="flex items-center gap-1 min-w-0">
+                  <span className="text-[10px] text-text-primary truncate">{shot.name}</span>
+                  {used > 0 && (
+                    <span
+                      data-usage-badge={shot.id}
+                      title={describeShotUsage(used)}
+                      className="shrink-0 px-1 py-px rounded-[3px] bg-accent/15 text-[8px] font-medium text-accent-light"
+                    >
+                      {used} clip{used === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[9px] text-text-muted truncate">
                   {generating
                     ? `${progress?.message ?? 'Generating…'}${progress?.percent !== undefined ? ` ${progress.percent}%` : ''}`
@@ -441,8 +509,12 @@ function ShotsSection({
               )}
               {!generating && (
                 <button
-                  onClick={() => onRemoveShot(shot.id)}
-                  title="Remove the shot and its clips (files stay on disk)"
+                  onClick={() => (used > 0 ? setConfirmShotId(shot.id) : onRemoveShot(shot.id))}
+                  title={
+                    used > 0
+                      ? 'Remove the shot and its clips — asks first, the shot is on the timeline (files stay on disk)'
+                      : 'Remove the shot and its clips (files stay on disk)'
+                  }
                   className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] text-text-muted hover:text-accent-red opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                 >
                   <X size={11} strokeWidth={1.75} />
@@ -557,6 +629,7 @@ function AssetCard({
   transcribeProgress,
   proxyPercent,
   missing,
+  usage,
   onRemove,
   onAdd,
   onTranscribe,
@@ -569,6 +642,7 @@ function AssetCard({
   transcribeProgress: TranscribeProgress | null;
   proxyPercent: number | null;
   missing: boolean;
+  usage: AssetUsage;
   onRemove: () => void;
   onAdd: () => void;
   onTranscribe: () => void;
@@ -657,7 +731,18 @@ function AssetCard({
         )}
       </div>
       <div className="px-1.5 py-1">
-        <div className="text-[10px] text-text-primary truncate">{fileName}</div>
+        <div className="flex items-center gap-1">
+          <div className="text-[10px] text-text-primary truncate flex-1 min-w-0">{fileName}</div>
+          {isAssetUsed(usage) && (
+            <span
+              data-usage-badge={asset.id}
+              title={describeAssetUsage(usage)}
+              className="shrink-0 px-1 py-px rounded-[3px] bg-accent/15 text-[8px] font-medium text-accent-light"
+            >
+              {usage.clips > 0 ? `${usage.clips} clip${usage.clips === 1 ? '' : 's'}` : `${usage.shots} shot${usage.shots === 1 ? '' : 's'}`}
+            </span>
+          )}
+        </div>
         <div className="text-[9px] text-text-muted">
           {asset.kind}
           {asset.probe.width && asset.probe.height ? ` · ${asset.probe.width}×${asset.probe.height}` : ''}
@@ -705,7 +790,11 @@ function AssetCard({
           e.stopPropagation();
           onRemove();
         }}
-        title="Remove from project (file is not deleted)"
+        title={
+          isAssetUsed(usage)
+            ? 'Remove from project — asks first, the asset is on the timeline (file is not deleted)'
+            : 'Remove from project (file is not deleted)'
+        }
         className="absolute top-1 right-1 flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/60 text-text-muted hover:text-accent-red opacity-0 group-hover:opacity-100 transition-opacity"
       >
         <X size={11} strokeWidth={1.75} />

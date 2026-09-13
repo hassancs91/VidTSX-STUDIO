@@ -63,7 +63,7 @@ function reduce(...actions: TimelineAction[]) {
       {
         projectId: null,
         past: [],
-        present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null },
+        present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [] },
         future: [],
       },
       {

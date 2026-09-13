@@ -14,6 +14,7 @@ import {
   type CaptionSerializeContext,
 } from '@shared/studio';
 import { DEFAULT_EXPORT_ENGINE_ID } from '@shared/studio/export-engines';
+import { exportFileSuffix, type ExportSource } from '@shared/studio/export-source';
 import type { StudioAgentAction, StudioShotGenerateOp } from '@shared/ipc/types';
 import { useStudioProject } from '../hooks/useStudioProject';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
@@ -22,6 +23,7 @@ import { useTimeline } from '../hooks/useTimeline';
 import { useShotModules } from '../hooks/useShotModules';
 import { useShotJobs } from '../hooks/useShotJobs';
 import { usePaneSize } from '../hooks/usePaneSize';
+import { useRippleMode } from '../hooks/useRippleMode';
 import { useBrandList } from '../hooks/useBrandList';
 import { usePresetList } from '../hooks/usePresetList';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
@@ -40,6 +42,7 @@ import { mapCutItemToTimeline } from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
 import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
+import { NO_USAGE, usageByAsset, usageByShot } from '../services/asset-usage';
 import type {
   StudioAgentSettings,
   StudioClipTransform,
@@ -81,11 +84,10 @@ export function EditorShell({ projectId, onBack }: Props) {
     saveState,
     updateProject,
     importMedia,
-    removeAsset,
     restoreVersion,
   } = useStudioProject(projectId);
   const { showToast } = useToast();
-  const { addJob } = useRenderQueue();
+  const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -319,6 +321,9 @@ export function EditorShell({ projectId, onBack }: Props) {
 
   const [previewResult, setPreviewResult] = useState(false);
   const activeProposal = tl.activeProposal;
+  // The timeline toolbar's ripple mode — cut proposals follow it too, so an
+  // agent auto-cut keeps the shots aligned exactly like a manual one.
+  const { rippleAllTracks } = useRippleMode();
 
   // ----- Export range (D2) -----------------------------------------------
   // I/O points are a monitoring/export aid — component state, NEVER in the
@@ -464,10 +469,10 @@ export function EditorShell({ projectId, onBack }: Props) {
         ? applyShotProposal(tl.timeline, activeProposal, tl.shots)
         : activeProposal.kind === 'insert-plan'
           ? applyInsertProposal(tl.timeline, activeProposal)
-          : applyCutProposal(tl.timeline, activeProposal);
+          : applyCutProposal(tl.timeline, activeProposal, { rippleAllTracks });
     }
     return tl.timeline;
-  }, [tl.timeline, tl.shots, activeProposal, previewResult]);
+  }, [tl.timeline, tl.shots, activeProposal, previewResult, rippleAllTracks]);
 
   // While previewing the result, the Player's clock is the CUT timeline but
   // the panel displays the original — this map keeps the playhead jumping
@@ -541,7 +546,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         handlePlayRemoved(item);
         return;
       }
-      const result = applyCutProposal(tl.timeline, activeProposal);
+      const result = applyCutProposal(tl.timeline, activeProposal, { rippleAllTracks });
       // The piece right after the join starts where the cut span ended.
       const joins = result.tracks
         .flatMap((t) => t.clips)
@@ -561,7 +566,7 @@ export function EditorShell({ projectId, onBack }: Props) {
       if (needsRestore) setPreviewResult(true);
       playSpan(join - 1.5, join + 1.5, needsRestore);
     },
-    [activeProposal, tl.timeline, previewResult, playSpan, handlePlayRemoved, showToast],
+    [activeProposal, tl.timeline, previewResult, playSpan, handlePlayRemoved, showToast, rippleAllTracks],
   );
 
   /** Row click / region click: select the cut and park the playhead on it. */
@@ -847,15 +852,23 @@ export function EditorShell({ projectId, onBack }: Props) {
   );
 
   // Dropping media from the pool also drops its clips, so the timeline can
-  // never reference an asset the document no longer knows about.
+  // never reference an asset the document no longer knows about. One undo
+  // step restores asset + clips together (item 6); the pool asks first when
+  // the asset is in use.
   const handleRemoveAsset = useCallback(
     (assetId: string) => {
-      tl.dispatch({ type: 'remove-asset-clips', assetId });
-      removeAsset(assetId);
+      const index = project?.assets.findIndex((a) => a.id === assetId) ?? -1;
+      const asset = index >= 0 ? project?.assets[index] : undefined;
+      if (!asset) return;
+      tl.dispatch({ type: 'remove-asset', asset, index });
       setSelectedAssetId((prev) => (prev === assetId ? null : prev));
     },
-    [tl, removeAsset],
+    [tl, project],
   );
+  const assetUsage = useMemo(() => usageByAsset(tl.timeline, tl.shots), [tl.timeline, tl.shots]);
+  const shotUsage = useMemo(() => usageByShot(tl.timeline), [tl.timeline]);
+  const getAssetUsage = useCallback((assetId: string) => assetUsage.get(assetId) ?? NO_USAGE, [assetUsage]);
+  const getShotUsage = useCallback((shotId: string) => shotUsage.get(shotId) ?? 0, [shotUsage]);
 
   // The Export button opens the dialog (engine picker, docs/export-engines-
   // plan.md D2); the dialog's confirm prepares the entry and queues the job.
@@ -868,26 +881,47 @@ export function EditorShell({ projectId, onBack }: Props) {
       if (!project) return false;
       setExporting(true);
       try {
+        // Output options (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md): the
+        // composition keeps the project size; the entry reads the proxies
+        // for a draft (`source`), and the job carries the scale and CRF the
+        // dialog chose (absent for the agent's export action = the project
+        // size at the default quality from the originals). The file is named
+        // for its preset and draft (`_720p`, `_540p-draft`); the queue row
+        // reads the size from the scale and the draft from `exportSource`.
+        const source: ExportSource = choice.source === 'proxy' ? 'proxy' : 'original';
         const prepared = await window.api.studioExportPrepare({
           project: { ...project, timeline: tl.timeline },
           ...(range ?? {}),
+          ...(source === 'proxy' ? { source } : {}),
         });
         if (!prepared.success || !prepared.entryPath || !prepared.compositionId) {
           showToast(prepared.error ?? 'Failed to prepare export', 'error');
           return false;
         }
+        const scaled = choice.scale !== undefined && choice.scale !== 1 ? choice.resolution : undefined;
         await addJob({
           ...(jobId ? { id: jobId } : {}),
           filePath: prepared.entryPath,
-          fileName: `${project.name}${range ? ' (range)' : ''}.mp4`,
+          fileName: `${project.name}${range ? ' (range)' : ''}${exportFileSuffix(scaled, source)}.mp4`,
           compositionId: prepared.compositionId,
           codec: 'h264',
           width: prepared.width ?? project.settings.width,
           height: prepared.height ?? project.settings.height,
           fps: prepared.fps ?? project.settings.fps,
+          ...(choice.crf !== undefined ? { crf: choice.crf } : {}),
+          ...(choice.scale !== undefined ? { scale: choice.scale } : {}),
+          ...(source === 'proxy' ? { exportSource: source } : {}),
           exportEngine: choice.engineId,
           verifyAgainstEngine: choice.verifyAgainstEngine,
         });
+        // The dialog's choice is remembered per project: its next opening starts on it.
+        if (choice.resolution && choice.quality) {
+          const current = project.settings.export;
+          if (current?.resolution !== choice.resolution || current?.quality !== choice.quality || current?.source !== source) {
+            const next = { resolution: choice.resolution, quality: choice.quality, source };
+            updateProject((prev) => ({ ...prev, settings: { ...prev.settings, export: next } }));
+          }
+        }
         showToast('Export added to the render queue', 'success');
         return true;
       } catch (err) {
@@ -897,7 +931,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         setExporting(false);
       }
     },
-    [project, tl.timeline, addJob, showToast],
+    [project, tl.timeline, addJob, showToast, updateProject],
   );
 
   // W3: the agent's action requests. Each is either something the user said
@@ -912,7 +946,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         }
         const accepted = open.items.filter((i) => i.status === 'accepted').length;
         if (accepted === 0) return { success: false, error: 'Every item is unticked — nothing to apply.' };
-        tl.dispatch({ type: 'proposal-apply', proposalId: open.id });
+        tl.dispatch({ type: 'proposal-apply', proposalId: open.id, rippleAllTracks });
         const noun = open.kind === 'cut-plan' ? 'cut' : open.kind === 'shot-plan' ? 'shot' : 'clip';
         const summary = `Applied ${accepted} ${noun}${accepted === 1 ? '' : 's'} of ${open.items.length} from chat`;
         showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success');
@@ -946,7 +980,7 @@ export function EditorShell({ projectId, onBack }: Props) {
       }
       return { success: false, error: 'Unknown action.' };
     },
-    [tl, handleExport, showToast],
+    [tl, handleExport, showToast, rippleAllTracks],
   );
   agentActionRef.current = handleAgentAction;
 
@@ -1056,6 +1090,8 @@ export function EditorShell({ projectId, onBack }: Props) {
             assets={project.assets}
             onImport={() => void handleImport()}
             onRemove={handleRemoveAsset}
+            getAssetUsage={getAssetUsage}
+            getShotUsage={getShotUsage}
             onAddToTimeline={handleAddToTimeline}
             onTranscribe={handleTranscribe}
             onSelect={setSelectedAssetId}
@@ -1259,6 +1295,7 @@ export function EditorShell({ projectId, onBack }: Props) {
             ) : (
               <AgentPanel
                 projectId={project.id}
+                projectName={project.name}
                 agent={agentChat}
                 settings={project.settings.agent}
                 onSettingsChange={updateAgentSettings}
@@ -1349,6 +1386,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         }
         project={project ? { ...project, timeline: tl.timeline } : null}
         range={exportDialog?.range}
+        jobs={queueJobs}
         onExport={(choice) => handleExport(choice, exportDialog?.range)}
       />
     </div>

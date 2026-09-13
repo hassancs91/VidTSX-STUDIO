@@ -101,7 +101,7 @@ function freshState(shots: StudioShot[], clips: StudioClip[] = [], proposals: St
     {
       projectId: null,
       past: [],
-      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null },
+      present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [] },
       future: [],
     },
     { type: 'reset', projectId: 'p', timeline: timeline(clips), proposals, shots, captions: null },
