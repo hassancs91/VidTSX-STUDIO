@@ -11,6 +11,12 @@ export function getAppRoot(): string {
   return app.getAppPath();
 }
 
+/** The built main-process bundle (out/main — inside app.asar when packaged).
+ *  Hashed by the transpiler fingerprint: any main build change shows up here. */
+export function getMainBundleDir(): string {
+  return path.join(app.getAppPath(), 'out', 'main');
+}
+
 export function getProjectsDir(): string {
   return path.join(app.getPath('userData'), 'projects');
 }

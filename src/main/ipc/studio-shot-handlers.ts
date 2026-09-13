@@ -24,7 +24,8 @@ import type {
   StudioShotsReconcileResponse,
   StudioShotLibraryResponse,
 } from '../../shared/ipc/types';
-import { getProjectDir, getShotVersionPath } from '../services/studio/studio-paths';
+import { getProjectDir } from '../services/studio/studio-paths';
+import { resolveShotModule } from '../services/studio/shot-module-resolver';
 import { isValidShotId } from '../../shared/studio/shots';
 import { shotGenerator } from '../services/studio/shot-generator';
 import { listCreatorProjects } from '../services/studio/creator-projects';
@@ -32,7 +33,6 @@ import { importShot } from '../services/studio/shot-import';
 import { reconcileShots } from '../services/studio/shot-reconcile';
 import { listStudioShotLibrary } from '../services/studio/studio-shot-library';
 import { getProjectsDir } from '../utils/paths';
-import { transpileTsxCached } from '../services/tsx-transpiler';
 import {
   ensureModuleServer,
   getModuleServerBaseUrl,
@@ -47,26 +47,16 @@ export async function handleStudioShotModule(
   data: StudioShotModuleRequest,
 ): Promise<StudioShotModuleResponse> {
   try {
-    const filePath = await getShotVersionPath(data.projectId, data.shotId, data.version);
-    try {
-      await fs.access(filePath);
-    } catch {
-      return {
-        success: false,
-        error: `Shot source missing: ${data.shotId} v${data.version}`,
-      };
-    }
-
     await ensureModuleServer();
     const baseUrl = getModuleServerBaseUrl();
     if (!baseUrl) {
       return { success: false, error: 'Module server failed to start' };
     }
 
-    // Content-hash cached: an unchanged version transpiles once; a new
-    // version (new content) yields a new hash and therefore a new URL, which
-    // is what triggers the renderer's re-import.
-    const result = await transpileTsxCached(filePath, baseUrl);
+    // Memo → project disk cache → transpile (shot-module-resolver). The URL
+    // is the content hash, so a new version (new content) gets a new URL,
+    // which is what triggers the renderer's re-import.
+    const result = await resolveShotModule(data.projectId, data.shotId, data.version, baseUrl);
     if (!result.success) {
       return { success: false, error: result.error };
     }

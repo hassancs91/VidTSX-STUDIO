@@ -19,6 +19,14 @@
 //
 // Folders with no v*.tsx are skipped silently: that is the reserved-but-not-
 // yet-written window of an in-flight generation or conform run.
+//
+// Focus fires often and the gate transpiles, so a scan is fingerprinted
+// (video-10 feedback item 2): the known ids plus, for every folder the
+// registry doesn't know, its newest version file's size and mtime. When that
+// is unchanged since this project's last complete scan, nothing on disk or in
+// the registry could produce a different answer — the scan returns empty
+// without reading or validating anything (adoptions were already published,
+// failures already reported).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -52,6 +60,9 @@ export interface ReconcileShotsResult {
 /** Failed folders already reported this session, per project. */
 const reportedFailures = new Map<string, Set<string>>();
 
+/** Fingerprint of each project's last complete scan. */
+const lastScanFingerprint = new Map<string, string>();
+
 /** Focus events burst; coalesce concurrent scans per project. */
 const inFlight = new Map<string, Promise<ReconcileShotsResult>>();
 
@@ -72,6 +83,25 @@ async function newestVersion(
   const version = versions[versions.length - 1];
   if (version === undefined) return null;
   return { version, filePath: path.join(folderPath, `v${version}.tsx`) };
+}
+
+export interface ReconcileCandidate {
+  shotId: string;
+  version: number;
+  size: number;
+  mtimeMs: number;
+}
+
+/** Order-insensitive identity of a scan's inputs. */
+export function reconcileFingerprint(
+  knownShotIds: readonly string[],
+  candidates: readonly ReconcileCandidate[],
+): string {
+  const known = [...knownShotIds].sort();
+  const folders = [...candidates]
+    .sort((a, b) => a.shotId.localeCompare(b.shotId))
+    .map((c) => `${c.shotId}@${c.version}:${c.size}:${c.mtimeMs}`);
+  return JSON.stringify({ known, folders });
 }
 
 export function reconcileShots(
@@ -101,30 +131,44 @@ async function runScan(
     return { adopted, failures }; // No shots/ folder yet — nothing to do.
   }
 
+  const candidates: Array<ReconcileCandidate & { filePath: string }> = [];
   for (const entry of entries) {
     const shotId = entry.name;
     // Folder names outside the id pattern can't become registry ids (they'd
     // fail the path-safety checks everywhere else) — leave them alone.
     if (!entry.isDirectory() || !isValidShotId(shotId) || known.has(shotId)) continue;
 
-    const folderPath = path.join(shotsDir, shotId);
-    const newest = await newestVersion(folderPath);
+    const newest = await newestVersion(path.join(shotsDir, shotId));
     if (!newest) continue; // Reserved-but-empty: an in-flight producer owns it.
+    try {
+      const stat = await fs.stat(newest.filePath);
+      candidates.push({ shotId, version: newest.version, size: stat.size, mtimeMs: stat.mtimeMs, filePath: newest.filePath });
+    } catch {
+      // Vanished between readdir and stat — the next scan sees the new state.
+    }
+  }
 
+  const fingerprint = reconcileFingerprint(knownShotIds, candidates);
+  if (lastScanFingerprint.get(projectId) === fingerprint) return { adopted, failures };
+  let complete = true;
+
+  for (const candidate of candidates) {
+    const { shotId } = candidate;
     let code: string;
     try {
-      code = await fs.readFile(newest.filePath, 'utf-8');
+      code = await fs.readFile(candidate.filePath, 'utf-8');
     } catch {
+      complete = false; // A locked file must be retried on the next focus.
       continue;
     }
 
     const gate = await validateShotCode(code);
     if (gate.success) {
-      const shot = buildImportedShot(shotId, deriveDisplayName(shotId), code, newest.version);
+      const shot = buildImportedShot(shotId, deriveDisplayName(shotId), code, candidate.version);
       shotJobEvents.emit({ projectId, shotId, op: 'import', status: 'ready', shot });
       adopted.push(shot);
       reportedFailures.get(projectId)?.delete(shotId);
-      log.info('Adopted shot from disk', { projectId, shotId, version: newest.version });
+      log.info('Adopted shot from disk', { projectId, shotId, version: candidate.version });
       continue;
     }
 
@@ -135,13 +179,15 @@ async function runScan(
     const classification = classifyShotImport(code);
     failures.push({
       shotId,
-      sourcePath: newest.filePath,
+      sourcePath: candidate.filePath,
       error: describeImportFailure(classification, gate.error ?? 'Failed the shot gate'),
       conformable: classification.canConform,
     });
     log.warn('Unadoptable shot folder', { projectId, shotId, conformable: classification.canConform });
   }
 
+  if (complete) lastScanFingerprint.set(projectId, fingerprint);
+  else lastScanFingerprint.delete(projectId);
   return { adopted, failures };
 }
 
