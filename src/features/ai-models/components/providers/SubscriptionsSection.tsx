@@ -34,6 +34,32 @@ const GEMINI_CLI_COPY: CliSubscriptionCopy = {
   installCommand: 'irm https://antigravity.google/cli/install.ps1 | iex',
 };
 
+/** OpenAI subscription images (GPT Image 2 through the Codex CLI, docs/ai-models-redesign.md §3.7). */
+const CODEX_CLI_COPY: CliSubscriptionCopy = {
+  ready: (
+    <>
+      GPT Image 2 runs on your ChatGPT plan (Plus / Pro / Business) — no key. Each image is a full Codex turn on the
+      plan’s limits (~40 s). Pick “OpenAI Codex (subscription)” as the provider in Image Studio.
+    </>
+  ),
+  signIn: (
+    <>
+      The Codex CLI is installed but not signed in. Run <code className="text-text-primary">codex login</code> in a
+      terminal and sign in with the account that holds your ChatGPT plan.
+    </>
+  ),
+  install: <>Generate with GPT Image 2 on a ChatGPT Plus / Pro / Business plan — no API key. Install the Codex CLI to start.</>,
+  steps: [
+    'Open PowerShell and run the install command below (needs Node.js).',
+    <>
+      Run <code className="text-text-primary">codex login</code> and sign in with the account that holds your ChatGPT
+      plan.
+    </>,
+    'Come back here and click Check again.',
+  ],
+  installCommand: 'npm i -g @openai/codex',
+};
+
 interface SubscriptionsSectionProps {
   llm: LlmProvidersApi;
   onLlmChange: (id: string, updates: Partial<LlmProviderConfig>) => void;
@@ -42,11 +68,12 @@ interface SubscriptionsSectionProps {
 /**
  * Providers that need no API key because an account the user already pays
  * for does the work: Claude through the Claude Code sign-in, Google images
- * through the Antigravity CLI (moved here from the Image tab, redesign §3.2).
- * The OpenAI Codex row joins in the plan's P5.
+ * through the Antigravity CLI (moved here from the Image tab, redesign §3.2),
+ * OpenAI images through the Codex CLI (§3.7).
  */
 export function SubscriptionsSection({ llm, onLlmChange }: SubscriptionsSectionProps) {
   const gemini = useImageCliStatus('gemini-cli');
+  const codex = useImageCliStatus('codex-cli');
   const subscriptionLlms = llm.providers.filter(
     (p) => p.authMode === 'subscription' && p.id !== 'local' && !isCustomProvider(p.id),
   );
@@ -71,6 +98,15 @@ export function SubscriptionsSection({ llm, onLlmChange }: SubscriptionsSectionP
         loading={gemini.loading}
         onRefresh={() => void gemini.refresh()}
         copy={GEMINI_CLI_COPY}
+      />
+      <CliSubscriptionRow
+        rowId="codex-cli"
+        name="OpenAI Codex"
+        capabilities={['Images']}
+        status={codex.status}
+        loading={codex.loading}
+        onRefresh={() => void codex.refresh()}
+        copy={CODEX_CLI_COPY}
       />
     </Panel>
   );

@@ -67,10 +67,11 @@ export interface ImageProviderConfig {
   name: string;
   /**
    * 'local' is the on-device sd-cli bridge; 'gemini-cli' the Antigravity
-   * (Google subscription) bridge; 'minimax-cli' reserved for the deferred mmx
-   * provider. All three are registered directly, never stored in settings.
+   * (Google subscription) bridge; 'codex-cli' the OpenAI Codex (ChatGPT
+   * subscription) bridge; 'minimax-cli' reserved for the deferred mmx
+   * provider. All four are registered directly, never stored in settings.
    */
-  type: 'fal' | 'byteplus' | 'openrouter' | 'cloudflare' | 'local' | 'gemini-cli' | 'minimax-cli';
+  type: 'fal' | 'byteplus' | 'openrouter' | 'cloudflare' | 'local' | 'gemini-cli' | 'codex-cli' | 'minimax-cli';
   apiKey: string;
   /**
    * Cloudflare only: the account id half of the credential pair. Not a secret

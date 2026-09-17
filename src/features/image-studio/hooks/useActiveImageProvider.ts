@@ -14,13 +14,14 @@ export function useActiveImageProvider() {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [result, localModels, geminiModels] = await Promise.all([
+      const [result, localModels, geminiModels, codexModels] = await Promise.all([
         window.api.imageProvidersGet(),
         // The CLI bridges aren't stored in provider settings — each is offered
         // whenever it reports at least one ready model (local: an on-device
-        // model exists; gemini-cli: agy is installed and signed in).
+        // model exists; gemini-cli / codex-cli: the CLI is installed and signed in).
         window.api.imageModelsGet({ providerId: 'local' }),
         window.api.imageModelsGet({ providerId: 'gemini-cli' }),
+        window.api.imageModelsGet({ providerId: 'codex-cli' }),
       ]);
       if (result.success) {
         const enabled = result.providers
@@ -31,6 +32,9 @@ export function useActiveImageProvider() {
         }
         if (geminiModels.success && geminiModels.models.length > 0) {
           enabled.push({ id: 'gemini-cli', name: 'Google (subscription)' });
+        }
+        if (codexModels.success && codexModels.models.length > 0) {
+          enabled.push({ id: 'codex-cli', name: 'OpenAI Codex (subscription)' });
         }
         setProviders(enabled);
         // A stale active provider (e.g. 'local' after its models were removed,

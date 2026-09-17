@@ -12,6 +12,7 @@ export type ImageProviderType =
   | 'cloudflare'
   | 'local'
   | 'gemini-cli'
+  | 'codex-cli'
   | 'minimax-cli';
 
 export interface ImageProviderInfo {
@@ -140,13 +141,15 @@ export interface ImageCliStatusRequest {
 }
 
 export interface ImageCliProviderStatus {
-  /** Provider id: 'gemini-cli' today; 'minimax-cli' when the mmx provider lands. */
+  /** Provider id: 'gemini-cli' or 'codex-cli' today; 'minimax-cli' when the mmx provider lands. */
   id: string;
   installed: boolean;
   authenticated: boolean;
   binaryPath: string;
   /** Short failure detail when the auth probe did not succeed. */
   detail?: string;
+  /** The CLI's reported version, where the probe reads one (codex --version). */
+  version?: string;
 }
 
 export interface ImageCliStatusResponse {

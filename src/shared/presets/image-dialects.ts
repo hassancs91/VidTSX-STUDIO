@@ -20,7 +20,8 @@ export type ImageDialectId =
   | 'cloudflare'
   | 'byteplus-seedream'
   | 'openrouter'
-  | 'gemini-cli';
+  | 'gemini-cli'
+  | 'codex-cli';
 
 export const IMAGE_DIALECT_IDS: readonly ImageDialectId[] = [
   'fal-flux',
@@ -30,6 +31,7 @@ export const IMAGE_DIALECT_IDS: readonly ImageDialectId[] = [
   'byteplus-seedream',
   'openrouter',
   'gemini-cli',
+  'codex-cli',
 ];
 
 /** Short labels for the catalog card's dialect select and row line. */
@@ -41,6 +43,7 @@ export const IMAGE_DIALECT_LABELS: Record<ImageDialectId, string> = {
   'byteplus-seedream': 'Seedream (BytePlus ModelArk)',
   openrouter: 'Chat images (OpenRouter)',
   'gemini-cli': 'Antigravity CLI (Google)',
+  'codex-cli': 'Codex CLI (OpenAI)',
 };
 
 export function isImageDialectId(value: string): value is ImageDialectId {
@@ -54,6 +57,7 @@ export const DEFAULT_IMAGE_DIALECT: Record<string, ImageDialectId> = {
   byteplus: 'byteplus-seedream',
   openrouter: 'openrouter',
   'gemini-cli': 'gemini-cli',
+  'codex-cli': 'codex-cli',
 };
 
 /** The dialects a provider's catalog card offers (its own family only). */
@@ -176,6 +180,11 @@ export const IMAGE_DIALECT_DEFAULTS: Record<ImageDialectId, ImageDialectDefaults
     supportedOperations: ALL_OPS,
   },
   'gemini-cli': {
+    paramSchema: { fields: [], sizeMode: 'aspect_ratio', maxReferences: 3 },
+    supportedOperations: ['text-to-image', 'multi-reference'],
+  },
+  // GPT Image 2 through `codex exec`: three fixed sizes picked by aspect, references via -i.
+  'codex-cli': {
     paramSchema: { fields: [], sizeMode: 'aspect_ratio', maxReferences: 3 },
     supportedOperations: ['text-to-image', 'multi-reference'],
   },

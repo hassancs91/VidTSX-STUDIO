@@ -10,10 +10,12 @@ import { resolveImageModelParams } from '../services/image-model-params';
 import { getDefaultImageModelPriceUsd } from '../../shared/presets/provider-model-defaults';
 import {
   initImageEngine,
+  CODEX_CLI_IMAGE_PROVIDER_ID,
   GEMINI_CLI_IMAGE_PROVIDER_ID,
   INSTANCE_IMAGE_PROVIDER_IDS,
 } from '../services/image-init';
 import { agyCliService } from '../services/agy-cli';
+import { codexCliService } from '../services/codex-cli';
 import { aiUsageService } from '../services/ai-usage';
 import { ModerationBlockedError } from '../../shared/content-safety';
 import type {
@@ -223,6 +225,8 @@ export async function handleImageModelsGet(
     const target = data?.providerId ?? imageEngine.getActiveProvider();
     if (target === GEMINI_CLI_IMAGE_PROVIDER_ID) {
       await agyCliService.ensureProbed().catch(() => {});
+    } else if (target === CODEX_CLI_IMAGE_PROVIDER_ID) {
+      await codexCliService.ensureProbed().catch(() => {});
     }
     const providerId = data?.providerId ?? imageEngine.getActiveProvider();
     const models = imageEngine.getModels(data?.providerId);
@@ -337,16 +341,27 @@ export async function handleImageCliStatus(
   data?: ImageCliStatusRequest,
 ): Promise<ImageCliStatusResponse> {
   try {
-    const status = await agyCliService.probeStatus(data?.force ?? false);
+    const [agy, codex] = await Promise.all([
+      agyCliService.probeStatus(data?.force ?? false),
+      codexCliService.probeStatus(data?.force ?? false),
+    ]);
     return {
       success: true,
       statuses: [
         {
           id: GEMINI_CLI_IMAGE_PROVIDER_ID,
-          installed: status.installed,
-          authenticated: status.authenticated,
-          binaryPath: status.binaryPath,
-          detail: status.detail,
+          installed: agy.installed,
+          authenticated: agy.authenticated,
+          binaryPath: agy.binaryPath,
+          detail: agy.detail,
+        },
+        {
+          id: CODEX_CLI_IMAGE_PROVIDER_ID,
+          installed: codex.installed,
+          authenticated: codex.authenticated,
+          binaryPath: codex.binaryPath,
+          detail: codex.detail,
+          version: codex.version,
         },
       ],
     };

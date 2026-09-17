@@ -309,7 +309,7 @@ What the spike settles for the build:
 | P3 local-model template | shared template; Image (short list + All), Video (short list, Tested badge), Audio (whisper as a family), 3D adopts it | 1 session — **BUILT 2026-09-17** (Status.md entry; live pass in P6) |
 | P3b local video provider | `LocalSdVideoProvider` over the sd-cli runner, `registerInstance` from `video-init.ts`, rescan re-registration, progress mapping, the Videos screen / Studio / agents / flows verified against it, `VideoGeneratePanel` removed from AI Models | 1 session — **BUILT 2026-09-17** (Status.md entry; the click test is P6's) |
 | P4 Overview | Hardware · Runtimes table · Storage | ½ session — **BUILT 2026-09-17** (Status.md entry; live pass in P6) |
-| P5 Codex provider | provider + service + protocol tests → Providers row → picker (the spike is done, §3.7) | 1 session |
+| P5 Codex provider | provider + service + protocol tests → Providers row → picker (the spike is done, §3.7) | 1 session — **BUILT 2026-09-17** (Status.md entry: `--ephemeral` verified, image still harvested; live pass in P6) |
 | P6 verification | CDP screenshots at 1280×800 and 1920×1080 maximized per section; vitest for the pure bits; `check:types` at baseline; TESTING rows; video click test on the laptop tiers, the rest on the GPU-VM leg | ½ session |
 
 Order: P1 → P2 → P3 → P3b → P4 → P5 → P6. P5 is independent of P2–P4 and can

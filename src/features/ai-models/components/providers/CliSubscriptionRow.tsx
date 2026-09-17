@@ -67,7 +67,12 @@ export function CliSubscriptionRow({ rowId, name, capabilities, status, loading,
   return (
     <ProviderGridRow
       rowId={rowId}
-      name={<span className="truncate text-[12px] font-medium text-text-secondary">{name}</span>}
+      name={
+        <>
+          <span className="truncate text-[12px] font-medium text-text-secondary">{name}</span>
+          {status?.version && <span className="shrink-0 font-mono text-[10px] text-text-dim">{status.version}</span>}
+        </>
+      }
       powers={capabilities.map((cap) => (
         <CapabilityBadge key={cap} label={cap} />
       ))}

@@ -7,6 +7,46 @@
 
 ---
 
+## 2026-09-17 — AI MODELS REDESIGN P5: OpenAI Codex as a subscription image provider
+
+`docs/ai-models-redesign.md` §3.7 (D4; the spike of 2026-09-16), phase P5. The Antigravity pattern, one more time.
+
+- **Provider** `src/image-engine/providers/codex-cli-provider.ts` — `CodexCliImageProvider` (type `'codex-cli'`, the
+  reserved second CLI slot in `ImageProviderConfig.type` and `ImageProviderType`): one model, "GPT Image 2
+  (subscription)", listed only when the probe says installed + signed in; text-to-image and multi-reference (≤ 3
+  references staged to files for `-i`); the requested width × height buckets onto the nearest of 1024², 1536×1024,
+  1024×1536 (`nearestCodexSize` — the request is an aspect, not a pixel size); PNG dimensions read from IHDR.
+  Registered from `image-init.ts` (`registerCodexCliImageProvider`, `CODEX_CLI_IMAGE_PROVIDER_ID`, in
+  `INSTANCE_IMAGE_PROVIDER_IDS`); the `'codex-cli'` image dialect carries its param schema.
+- **Service** `src/main/services/codex-cli.ts` — detects the native binary inside the npm global package
+  (`%APPDATA%
+pm
+ode_modules\@openai\codex
+ode_modules\@openai\codex-win32-x64endor\…\codex.exe`; the
+  `codex.cmd` shim would need a shell and a shell means quoting a multi-line prompt; `VIDTSX_CODEX_BINARY` overrides),
+  probes `codex --version` + `codex login status` (cached 60 s, re-probed on window focus by `useImageCliStatus`),
+  generates with `codex exec --skip-git-repo-check -s read-only -C <tmp> -c model_reasoning_effort=low --json -o
+  last.txt --ephemeral "<instruction>" [-i <refs>]` — stdin closed, prompt before `-i`, `OPENAI_API_KEY` stripped
+  from the child so the run bills the plan — and harvests the newest `exec-*.png` written after the start stamp under
+  `$CODEX_HOME/generated_images/<thread_id>/` (the thread id is the first JSONL event; the tool call itself is
+  invisible in `--json`). Concurrency 1 with a queue; 10-minute timeout.
+- **Pure, tested** `src/main/services/codex-cli-protocol.ts` (`codex-cli-protocol.test.ts` 13): JSONL parsing that
+  skips the stdin notice, thread id, last agent message, usage, the DONE check, the instruction (size pinned, prompt
+  verbatim, no commands / files, "reply with exactly: DONE"), the argument order, the harvest rule, version and
+  login-status parsing, the size bucketing and the PNG header.
+- **`--ephemeral` — tried and recorded.** Text probe: 11.7 s, `thread.started` still carries a thread id, `-o` still
+  writes. Image trial (codex-cli 0.154.0, one 1536×1024 clapperboard, low effort): **38 s, DONE, and
+  `generated_images/<thread_id>/exec-….png` (1.7 MB) was still written** — so the service runs ephemeral by default
+  and app runs stay out of `codex resume`. Usage on the plan for that turn: 36 k input tokens (17 k cached), 116 out.
+- **Providers page:** a second `CliSubscriptionRow` ("OpenAI Codex", Images) in `SubscriptionsSection` through
+  `useImageCliStatus('codex-cli')` — `image:cli:status` now probes both CLIs and carries `version`, shown beside the
+  name; install copy `npm i -g @openai/codex`, then `codex login`. `useActiveImageProvider` offers "OpenAI Codex
+  (subscription)" whenever the provider lists a model. Usage rows log provider `codex-cli` at `costUsd: 0` (no
+  catalogue price).
+- **Gates:** `check:types` at baseline (26 / 10) after adding `'codex-cli'` to the shared `ImageProviderType`; vitest
+  main IPC + image-engine + features 491 passed, protocol tests 28 (agy 15 + codex 13). **Not verified live:** the
+  Providers row detecting this machine's Codex through the app, and one image from Image Studio — P6.
+
 ## 2026-09-17 — AI MODELS REDESIGN P4: Overview — Hardware, a Runtimes table, Storage
 
 `docs/ai-models-redesign.md` §3.1 (D8), phase P4. `components/overview/` replaces `MainContent.tsx`.

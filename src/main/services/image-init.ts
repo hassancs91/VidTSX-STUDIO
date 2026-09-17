@@ -1,7 +1,9 @@
 import { imageEngine, IMAGE_PROVIDER_PRESETS } from '../../image-engine';
 import { LocalSdImageProvider } from '../../image-engine/providers/local-sd-provider';
 import { GeminiCliImageProvider } from '../../image-engine/providers/gemini-cli-provider';
+import { CodexCliImageProvider } from '../../image-engine/providers/codex-cli-provider';
 import { agyCliService } from './agy-cli';
+import { codexCliService } from './codex-cli';
 import { installContentSafetyGuard } from './content-safety/install';
 import { loadSettings, getProviderCredentials, getCloudflareAccountId } from './settings';
 import { getProviderImageModels } from './provider-models';
@@ -17,14 +19,18 @@ export const LOCAL_IMAGE_PROVIDER_ID = 'local';
 /** Stable id of the Antigravity (Google subscription) CLI provider. */
 export const GEMINI_CLI_IMAGE_PROVIDER_ID = 'gemini-cli';
 
+/** Stable id of the OpenAI Codex (ChatGPT subscription) CLI provider. */
+export const CODEX_CLI_IMAGE_PROVIDER_ID = 'codex-cli';
+
 /**
  * Providers registered as instances (no API key, never stored in provider
- * settings). Settings-save filters these ids out. Two-wide by design: the
- * deferred MiniMax/mmx provider joins this list when it lands.
+ * settings). Settings-save filters these ids out. The deferred MiniMax/mmx
+ * provider joins this list when it lands.
  */
 export const INSTANCE_IMAGE_PROVIDER_IDS: readonly string[] = [
   LOCAL_IMAGE_PROVIDER_ID,
   GEMINI_CLI_IMAGE_PROVIDER_ID,
+  CODEX_CLI_IMAGE_PROVIDER_ID,
 ];
 
 /**
@@ -59,6 +65,20 @@ export function registerGeminiCliImageProvider(): void {
   if (imageEngine.getProviders().includes(GEMINI_CLI_IMAGE_PROVIDER_ID)) return;
   imageEngine.registerInstance(
     new GeminiCliImageProvider(GEMINI_CLI_IMAGE_PROVIDER_ID, agyCliService),
+  );
+}
+
+/**
+ * (Re-)register the OpenAI Codex CLI bridge (GPT Image 2 on the ChatGPT
+ * subscription — docs/ai-models-redesign.md §3.7). Same rules as the
+ * Antigravity one: always registered, zero models until the CLI is detected
+ * and signed in, probed lazily on the first model listing.
+ */
+export function registerCodexCliImageProvider(): void {
+  installContentSafetyGuard();
+  if (imageEngine.getProviders().includes(CODEX_CLI_IMAGE_PROVIDER_ID)) return;
+  imageEngine.registerInstance(
+    new CodexCliImageProvider(CODEX_CLI_IMAGE_PROVIDER_ID, codexCliService),
   );
 }
 
@@ -100,6 +120,7 @@ export async function initImageEngine(): Promise<void> {
     // from a configured cloud provider).
     registerLocalImageProvider();
     registerGeminiCliImageProvider();
+    registerCodexCliImageProvider();
 
     // Restore last active provider
     if (settings.imageActiveProvider) {
