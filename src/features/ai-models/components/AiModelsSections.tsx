@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { isFeatureEnabled } from '@shared/feature-flags';
 import { AI_SECTIONS, DEFAULT_AI_SECTION, isAiSectionId, type AiSectionId } from '../types';
 import { AiSectionRail } from './AiSectionRail';
-import { MainContent } from './MainContent';
+import { OverviewContent } from './overview/OverviewContent';
 import { ProvidersContent } from './providers/ProvidersContent';
 import { AiUsageDashboard } from './providers/AiUsageDashboard';
 import { AudioTabContent } from './AudioTabContent';
@@ -48,7 +48,7 @@ export function AiModelsSections() {
     <div className="flex h-full min-h-0">
       <AiSectionRail sections={sections} active={active} onSelect={setActive} />
       <div className="min-w-0 flex-1 overflow-auto p-4" data-ai-section-content={active}>
-        {active === 'overview' && <MainContent />}
+        {active === 'overview' && <OverviewContent />}
         {active === 'providers' && <ProvidersContent />}
         {active === 'usage' && <AiUsageDashboard />}
         {active === 'image' && <ImageModelsContent />}

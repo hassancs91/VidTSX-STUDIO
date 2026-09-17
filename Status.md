@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-09-17 — AI MODELS REDESIGN P4: Overview — Hardware, a Runtimes table, Storage
+
+`docs/ai-models-redesign.md` §3.1 (D8), phase P4. `components/overview/` replaces `MainContent.tsx`.
+
+- **Hardware** (`HardwarePanel`): GPU · VRAM (total / free) · CUDA · RAM · Disk with a refresh, on the template's
+  `LocalSectionPanel` header. The decorative scan animation is gone; loading is one line.
+- **Runtimes** (`RuntimesTable` + `RuntimeRow`): one table — whisper.cpp (transcription · captions · Studio scripts),
+  sd-cli (local image and video), GPU encoder (full ffmpeg for Studio proxies), AI runtime (Python + PyTorch) — with
+  Runtime · Status (badge + the pinned release) · On disk · Install / Remove. New IPC `system:runtimes:get`
+  (`main/services/system-runtimes.ts`: installed, in-flight, release tag, bytes under each runtime's folder — whisper's
+  `models/` excluded) and `system:runtime:remove` (deletes the folder; whisper keeps its models; refused mid-install).
+  Install reuses each runtime's own IPC (`whisperBinaryInstall`, `sdImageCliInstall`, `studioProxyEncoderInstall`);
+  progress comes from the download broadcast (`sdcli-binary`, `ffmpeg-full`) or whisper's progress channel
+  (`hooks/useSystemRuntimes.ts`). The AI runtime keeps its own row (`AiRuntimeRow`: variants, Repair, Remove with
+  models) as the table's last row. `SDCLI_RELEASE_TAG` and `WHISPER_RELEASE_TAG` are exported for the release column.
+- **Storage** (`StoragePanel`): the AI models folder with Change (`useSettings.browseAiModelsFolder`) and Open (new
+  `system:models-folder:open`), then installed count · size per category — image and video from the library scan,
+  audio from the whisper list, 3D from the Python catalogue (`hooks/useLibraryStorage.ts`) — and a total.
+- **Dropped:** the Audio Engine / LLM Engine / Embedding Engine / Image Engine cards — the hidden engines leave no row;
+  sd-cli and the AI runtime moved into the table.
+- **Gates:** `check:types` at baseline (26 / 10); vitest main IPC + features + shared 865 passed. Not driven live (P6).
+
 ## 2026-09-17 — AI MODELS REDESIGN P3b: local video is a provider of the video engine
 
 `docs/ai-models-redesign.md` §3.5 (D3: "this is the intended use — in Videos, in agents, in Studio, in flows, like

@@ -21,7 +21,7 @@ const log = logEngine.createLogger('SdCliInstall');
 
 // Pinned upstream release. Upstream is rolling-release; the pin + checksum is
 // the v1 supply-chain story (optional later: mirror the zip as a fallback URL).
-const SDCLI_RELEASE_TAG = 'master-778-c00a9e9';
+export const SDCLI_RELEASE_TAG = 'master-778-c00a9e9';
 const SDCLI_ZIP_NAME = `sd-master-c00a9e9-bin-win-vulkan-x64.zip`;
 export const SDCLI_DOWNLOAD_URL = `https://github.com/leejet/stable-diffusion.cpp/releases/download/${SDCLI_RELEASE_TAG}/${SDCLI_ZIP_NAME}`;
 /** SHA-256 of the 37,696,851-byte zip, computed from the upstream asset. */

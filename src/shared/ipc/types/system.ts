@@ -37,3 +37,47 @@ export interface SystemInfoGetResponse {
     image: { available: boolean };
   };
 }
+
+// ─── Runtimes table (AI Models → Overview, docs/ai-models-redesign.md §3.1) ───
+// The AI runtime (Python + PyTorch) has its own richer IPC (ai-runtime.ts);
+// these three are the single-binary downloads.
+export type SystemRuntimeId = 'whisper-cpp' | 'sd-cli' | 'ffmpeg-full';
+
+export interface SystemRuntimeIpc {
+  id: SystemRuntimeId;
+  /** "whisper.cpp", "sd-cli", "GPU encoder (ffmpeg)". */
+  name: string;
+  /** What it powers, one line. */
+  powers: string;
+  installed: boolean;
+  /** A download / extract is in flight in main (survives a remount). */
+  installing: boolean;
+  /** The pinned release this app installs. */
+  release: string;
+  /** Download size for the Install button ("~36 MB"); empty when unknown. */
+  downloadLabel: string;
+  /** Bytes under the runtime's folder (models are never inside it). */
+  sizeOnDiskBytes: number;
+  /** The folder Remove deletes. */
+  dir: string;
+}
+
+export interface SystemRuntimesGetResponse {
+  success: boolean;
+  runtimes: SystemRuntimeIpc[];
+  error?: string;
+}
+
+export interface SystemRuntimeRemoveRequest {
+  id: SystemRuntimeId;
+}
+
+export interface SystemRuntimeRemoveResponse {
+  success: boolean;
+  error?: string;
+}
+
+export interface SystemModelsFolderOpenResponse {
+  success: boolean;
+  error?: string;
+}

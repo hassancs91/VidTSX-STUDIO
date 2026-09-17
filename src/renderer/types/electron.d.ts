@@ -330,6 +330,9 @@ export interface ElectronAPI {
 
   // System info
   systemInfoGet: () => Promise<SystemInfoGetResponse>;
+  systemRuntimesGet: () => Promise<import('../../shared/ipc/types').SystemRuntimesGetResponse>;
+  systemRuntimeRemove: (data: import('../../shared/ipc/types').SystemRuntimeRemoveRequest) => Promise<import('../../shared/ipc/types').SystemRuntimeRemoveResponse>;
+  systemModelsFolderOpen: () => Promise<import('../../shared/ipc/types').SystemModelsFolderOpenResponse>;
 
   // AI runtime (downloadable Python + PyTorch)
   aiRuntimeStatus: () => Promise<import('../../shared/ipc/types').AiRuntimeStatusResponse>;

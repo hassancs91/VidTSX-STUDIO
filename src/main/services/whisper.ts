@@ -47,7 +47,7 @@ export const WHISPER_MODEL_SHA256: Record<string, string> = {
 };
 
 // whisper.cpp release info - using latest stable release from ggml-org
-const WHISPER_RELEASE_TAG = 'v1.8.3';
+export const WHISPER_RELEASE_TAG = 'v1.8.3';
 const WHISPER_BINARY_URL_WINDOWS = `https://github.com/ggml-org/whisper.cpp/releases/download/${WHISPER_RELEASE_TAG}/whisper-bin-x64.zip`;
 /** sha256 of whisper-bin-x64.zip for v1.8.3 (computed 2026-09-05, 3,968,674 bytes). */
 const WHISPER_BINARY_SHA256_WINDOWS = 'd824b1e37599f882b396e73f1ee0bfd5d0529f700314c48311dcbd00b803321d';

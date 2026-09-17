@@ -330,6 +330,10 @@ export const IPC = {
 
   // System info (one-shot dashboard snapshot)
   SYSTEM_INFO_GET: 'system:info:get',
+  // AI Models → Overview: the Runtimes table and the Storage folder
+  SYSTEM_RUNTIMES_GET: 'system:runtimes:get',
+  SYSTEM_RUNTIME_REMOVE: 'system:runtime:remove',
+  SYSTEM_MODELS_FOLDER_OPEN: 'system:models-folder:open',
 
   // AI runtime (downloadable Python + PyTorch stack — docs/ai-runtime-implementation-plan.md §3)
   AI_RUNTIME_STATUS: 'ai-runtime:status',

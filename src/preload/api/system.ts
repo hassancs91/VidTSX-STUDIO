@@ -2,7 +2,11 @@ import { ipcRenderer } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
   SystemInfoGetResponse,
+  SystemModelsFolderOpenResponse,
   SystemMonitorDataEvent,
+  SystemRuntimeRemoveRequest,
+  SystemRuntimeRemoveResponse,
+  SystemRuntimesGetResponse,
 } from '../../shared/ipc/types';
 
 export const systemApi = {
@@ -18,4 +22,12 @@ export const systemApi = {
   // System info
   systemInfoGet: (): Promise<SystemInfoGetResponse> =>
     ipcRenderer.invoke(IPC.SYSTEM_INFO_GET),
+
+  // ─── AI Models → Overview: runtimes table + storage folder ───
+  systemRuntimesGet: (): Promise<SystemRuntimesGetResponse> =>
+    ipcRenderer.invoke(IPC.SYSTEM_RUNTIMES_GET),
+  systemRuntimeRemove: (data: SystemRuntimeRemoveRequest): Promise<SystemRuntimeRemoveResponse> =>
+    ipcRenderer.invoke(IPC.SYSTEM_RUNTIME_REMOVE, data),
+  systemModelsFolderOpen: (): Promise<SystemModelsFolderOpenResponse> =>
+    ipcRenderer.invoke(IPC.SYSTEM_MODELS_FOLDER_OPEN),
 };
