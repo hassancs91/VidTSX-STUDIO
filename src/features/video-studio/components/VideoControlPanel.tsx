@@ -138,7 +138,7 @@ export function VideoControlPanel({
       >
         <div className="text-[11px] text-text-dim">
           No video providers configured. Add a Fal.ai or BytePlus ModelArk key in AI &rarr;
-          Providers, then come back here.
+          Providers, or download a local video model in AI &rarr; Video, then come back here.
         </div>
       </div>
     );

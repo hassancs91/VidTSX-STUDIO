@@ -1,3 +1,4 @@
+import { ProgressBar } from '@shared/components';
 import { contentSafetyBlockMessage } from '@shared/content-safety';
 import type { VideoJobView } from '../types';
 
@@ -36,7 +37,8 @@ function formatElapsed(ms: number): string {
  * An in-flight job in the gallery grid. Everything it shows comes off the
  * `video:job-progress` push except the prompt, which the panel kept when it
  * submitted. Generation runs for minutes, so elapsed time is the honest
- * progress signal — neither provider reports a percentage.
+ * progress signal for the cloud providers (they report no percentage); the
+ * local sd-cli provider reports its sampling steps, and the bar fills.
  */
 export function VideoJobCard({ job, now, onCancel, onDismiss }: VideoJobCardProps) {
   const active = job.status === 'pending' || job.status === 'running';
@@ -55,6 +57,16 @@ export function VideoJobCard({ job, now, onCancel, onDismiss }: VideoJobCardProp
             <span className="text-[11px] text-text-muted">
               {formatElapsed(now - job.submittedAt)}
             </span>
+            {job.progress && (
+              <div className="flex w-[70%] flex-col items-center gap-1" data-job-progress={job.progress.percent}>
+                <ProgressBar value={job.progress.percent} />
+                <span className="text-[10px] text-text-dim">
+                  {job.progress.totalSteps > 0
+                    ? `Step ${job.progress.step}/${job.progress.totalSteps}`
+                    : `${job.progress.percent}%`}
+                </span>
+              </div>
+            )}
           </>
         ) : (
           <svg

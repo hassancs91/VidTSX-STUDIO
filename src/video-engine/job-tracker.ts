@@ -137,7 +137,11 @@ export class VideoJobTracker {
         // Completed at the provider — the clip is not done until it is gated
         // and filed locally; the record reads `running` until then.
         const status = poll.status === 'completed' ? 'running' : poll.status;
-        if (this.jobs.get(jobId)?.status !== status) this.update(jobId, { status });
+        const progress = poll.status === 'pending' || poll.status === 'running' ? poll.progress : undefined;
+        const current = this.jobs.get(jobId);
+        if (current?.status !== status || (progress && current?.progress?.percent !== progress.percent)) {
+          this.update(jobId, { status, ...(progress ? { progress } : {}) });
+        }
         if (poll.status !== 'completed') continue;
 
         const record = this.jobs.get(jobId)!;

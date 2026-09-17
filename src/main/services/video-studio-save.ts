@@ -1,3 +1,4 @@
+import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { VideoStudioEntry } from '../../shared/ipc/types';
@@ -23,10 +24,29 @@ export interface SaveVideoFromUrlInput {
   signal?: AbortSignal;
 }
 
+const CONTENT_TYPE_BY_EXT: Record<string, string> = {
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+};
+
+/**
+ * The bytes of a finished clip: fetched for a cloud URL, read from disk for
+ * the `file://` URL the local sd-cli provider reports (fetch has no file
+ * scheme). Both go through the same Gate B and cap afterwards.
+ */
 export async function downloadVideo(
   url: string,
   signal?: AbortSignal,
 ): Promise<{ bytes: Buffer; contentType: string }> {
+  if (url.startsWith('file:')) {
+    const filePath = fileURLToPath(url);
+    const bytes = await fs.readFile(filePath);
+    if (bytes.length > MAX_VIDEO_BYTES) {
+      throw new Error(`Video too large (${bytes.length} bytes > ${MAX_VIDEO_BYTES} cap)`);
+    }
+    const contentType = CONTENT_TYPE_BY_EXT[path.extname(filePath).toLowerCase()] ?? 'video/mp4';
+    return { bytes, contentType };
+  }
   let res: Response;
   try {
     res = await fetch(url, { signal });

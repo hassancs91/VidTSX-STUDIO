@@ -119,6 +119,8 @@ export interface VideoJobData {
   jobId: string;
   status: VideoJobStatus;
   providerId?: string;
+  /** Step progress while running, where the provider reports one (local sd-cli models). */
+  progress?: { step: number; totalSteps: number; percent: number };
   /**
    * `file://` URL of the finished clip in Video Studio — the engine downloads
    * and gates every clip before it completes, so callers never hold a remote

@@ -7,7 +7,7 @@
 
 import { getLlmProviders } from '../settings';
 import { imageEngine } from '../../../image-engine';
-import { videoEngine } from '../../../video-engine';
+import { hasUsableVideoProvider } from '../video-init';
 import { audioGenerationEngine } from '../../../audio-engine/generation';
 import { ensureAudioGenerationEngine } from '../audio-generation-init';
 import type { ToolCapabilities } from './tools/registry';
@@ -42,7 +42,9 @@ export async function resolveToolCapabilities(): Promise<ToolCapabilities> {
   await ensureAudioGenerationEngine();
   return {
     imageProvider: Boolean(imageEngine.getActiveProvider()),
-    videoProvider: Boolean(videoEngine.getActiveProvider()),
+    // Cloud keys or a ready local model — a registered provider with no models
+    // (local before a download) does not count.
+    videoProvider: await hasUsableVideoProvider(),
     audioProvider: Boolean(audioGenerationEngine.getActiveProvider()),
     // W8 Stage 4: `run_agent` needs a tool-capable LLM provider (the active one).
     agentProvider: await resolveToolSupport(),

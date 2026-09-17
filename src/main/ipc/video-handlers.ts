@@ -19,7 +19,12 @@ import type {
 import { videoEngine, mediaInputFromString, VIDEO_PROVIDER_PRESETS } from '../../video-engine';
 import type { MediaInput, VideoJobRecord } from '../../video-engine';
 import type { VideoResolution } from '../../shared/presets/video-models';
-import { initVideoEngine } from '../services/video-init';
+import {
+  ensureVideoProvidersReady,
+  LOCAL_VIDEO_PROVIDER_ID,
+  LOCAL_VIDEO_PROVIDER_NAME,
+  usableVideoProviderIds,
+} from '../services/video-init';
 import { getProviderCredentials } from '../services/settings';
 import { BytePlusArkClient } from '../../shared/providers/byteplus';
 import { isProviderKeyId } from '../../shared/providers/registry';
@@ -42,6 +47,7 @@ export function toVideoJobData(record: VideoJobRecord): VideoJobData {
     jobId: record.jobId,
     status: record.status,
     providerId: record.providerId,
+    ...(record.progress ? { progress: record.progress } : {}),
     modelUsed: record.request.model,
     durationSeconds: record.request.durationSeconds,
     aspectRatio: record.request.aspectRatio,
@@ -60,8 +66,8 @@ export async function handleVideoGenerate(
 ): Promise<VideoGenerateResponse> {
   try {
     // A key entered since startup registers on save; this covers a first
-    // call that races that re-init.
-    if (videoEngine.getProviders().length === 0) await initVideoEngine();
+    // call that races that re-init, and the local models' lazy scan.
+    await ensureVideoProvidersReady();
     const record = await videoEngine.submit({
       ...(req.providerId ? { providerId: req.providerId } : {}),
       model: req.model,
@@ -125,14 +131,25 @@ export async function handleVideoCancel(
   }
 }
 
-/** Registered video providers, for the model pickers. */
+/**
+ * Video providers that can take a job right now, for the model pickers: the
+ * cloud ones with a key, and "Local (open source)" once an installed model is
+ * ready (the LocalSdImageProvider rule — a provider with no models is not
+ * offered). The active id is narrowed the same way so a picker never lands
+ * on a provider it cannot show.
+ */
 export async function handleVideoProvidersGet(): Promise<VideoProvidersGetResponse> {
   try {
-    if (videoEngine.getProviders().length === 0) await initVideoEngine();
-    const active = videoEngine.getActiveProvider();
-    const providers = videoEngine.getProviders().map((id) => ({
+    await ensureVideoProvidersReady();
+    const usable = usableVideoProviderIds();
+    const engineActive = videoEngine.getActiveProvider();
+    const active = engineActive && usable.includes(engineActive) ? engineActive : (usable[0] ?? null);
+    const providers = usable.map((id) => ({
       id,
-      name: VIDEO_PROVIDER_PRESETS.find((p) => p.id === id)?.name ?? id,
+      name:
+        id === LOCAL_VIDEO_PROVIDER_ID
+          ? LOCAL_VIDEO_PROVIDER_NAME
+          : (VIDEO_PROVIDER_PRESETS.find((p) => p.id === id)?.name ?? id),
       isActive: id === active,
     }));
     return { success: true, providers, activeProvider: active };
@@ -152,7 +169,7 @@ export async function handleVideoModelsGet(
   req: VideoModelsGetRequest = {},
 ): Promise<VideoModelsGetResponse> {
   try {
-    if (videoEngine.getProviders().length === 0) await initVideoEngine();
+    await ensureVideoProvidersReady();
     return { success: true, models: videoEngine.getModels(req.providerId) };
   } catch (err) {
     return { success: false, models: [], error: err instanceof Error ? err.message : String(err) };

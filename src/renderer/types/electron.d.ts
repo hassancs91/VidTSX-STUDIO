@@ -442,11 +442,6 @@ export interface ElectronAPI {
   sdImageDownloadCompanions: (data: import('../../shared/ipc/types').SdImageDownloadCompanionsRequest) => Promise<import('../../shared/ipc/types').SdImageDownloadCompanionsResponse>;
   sdImageCliInstall: () => Promise<import('../../shared/ipc/types').SdImageCliInstallResponse>;
   sdVideoModelDownload: (data: import('../../shared/ipc/types').SdVideoModelDownloadRequest) => Promise<import('../../shared/ipc/types').SdVideoModelDownloadResponse>;
-  sdVideoGenerate: (data: import('../../shared/ipc/types').SdVideoGenerateRequest) => Promise<import('../../shared/ipc/types').SdVideoGenerateResponse>;
-  sdVideoCancel: (data: import('../../shared/ipc/types').SdVideoCancelRequest) => Promise<import('../../shared/ipc/types').SdVideoCancelResponse>;
-  onSdVideoGenerateProgress: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateProgressEvent) => void) => () => void;
-  onSdVideoGenerateComplete: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateCompleteEvent) => void) => () => void;
-  onSdVideoGenerateError: (callback: (data: import('../../shared/ipc/types').SdVideoGenerateErrorEvent) => void) => () => void;
   appOpenExternal: (data: import('../../shared/ipc/types').AppOpenExternalRequest) => Promise<import('../../shared/ipc/types').AppOpenExternalResponse>;
   tsxJobStart: (data: import('../../shared/ipc/types').TsxJobStartRequest) => Promise<import('../../shared/ipc/types').TsxJobStartResponse>;
   tsxJobCancel: (data: import('../../shared/ipc/types').TsxJobCancelRequest) => Promise<import('../../shared/ipc/types').TsxJobCancelResponse>;

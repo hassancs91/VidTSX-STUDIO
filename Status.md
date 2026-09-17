@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-09-17 — AI MODELS REDESIGN P3b: local video is a provider of the video engine
+
+`docs/ai-models-redesign.md` §3.5 (D3: "this is the intended use — in Videos, in agents, in Studio, in flows, like
+everything else"), phase P3b.
+
+- **Provider.** `src/video-engine/providers/local-sd-video-provider.ts` — `LocalSdVideoProvider` implements
+  `VideoProvider` over the local sd-cli engine (`videoLocalEngine`, injected as a small interface so the tests need no
+  Electron): `getSupportedModels()` = the installed models with every companion present, `[]` without sd-cli (the
+  LocalSdImageProvider rule — offered only when it can generate); `submit` maps the engine's normalized request onto
+  sd-cli (`local-video-request.ts`: 2–5 s → 4n+1 / 8n+1 frames per family, 16:9 · 9:16 · 1:1 from the model's native
+  size, a first frame staged to a file for i2v), runs the injected preflight, enqueues; `poll` reads the job map the
+  engine callbacks fill (the provider is their one owner) and reports the sd-cli step progress; `cancel` kills the run.
+  A finished clip is a `file://` URL — `downloadVideo` in `video-studio-save.ts` reads that scheme from disk, so the
+  clip goes through the same Gate B frame sampling and Video Studio filing as a cloud clip.
+- **Progress on the job card.** `VideoPollResult` / `VideoJobRecord` / `VideoJobData` carry
+  `progress { step, totalSteps, percent }`; the tracker updates on a percent change; `VideoJobCard` shows a bar and
+  "Step n/N" beside the elapsed time (cloud providers still report none).
+- **Registration** (`video-init.ts`): `registerLocalVideoProvider()` after the cloud presets, id `local`, named
+  "Local (open source)" like Image Studio's; `ensureVideoProvidersReady()` (the cloud re-init + the lazy video-library
+  scan) runs before every listing and submit; `usableVideoProviderIds()` hides a provider with no models, so the
+  Videos screen, the Flows node and the agents never see an empty Local. The models-folder scan stays off the startup
+  path — the first listing pays it. `useVideoLibrary.rescan` broadcasts `vidtsx:video-providers-changed`, so a model
+  that just finished downloading appears in the pickers without a remount.
+- **Reach.** The Videos screen, the Studio agent's `generate_video`, the Agents `generate_video` tool / Flows node all
+  submit through `videoEngine.submit`, so they reach it unchanged; tool copy now names "local"; `resolveToolCapabilities`
+  gates on `hasUsableVideoProvider()` (cloud key or a ready local model). The usage row logs provider `local`,
+  `costUsd: 0` (the model publishes a 0 rate). Content Safety: Gate A in `submit`, the input-image gate before the
+  provider, Gate B on the output in the clip store — the same three chokepoints as every provider.
+- **Preflight** moved to `src/main/services/sdvideo-preflight.ts` (`applySdVideoPreflight`: won't-fit → typed refusal,
+  over-VRAM → CPU offload), injected as the provider's `prepare` hook.
+- **Removed:** `VideoGeneratePanel`, `useVideoGenerate`, the `sdvideo:generate` / `:progress` / `:complete` / `:error` /
+  `:cancel` channels, their types, preload and d.ts entries, and the generate / cancel handlers — the AI Models Video
+  section manages models only (its strip says how many are ready and where they generate).
+- **Gates:** `check:types` at baseline (26 / 10); vitest video-engine 59 passed (new `local-video-request.test.ts` 6,
+  `local-sd-video-provider.test.ts` 8); agents + studio tools + flows + main IPC 478 passed (`generate-video.test.ts`
+  mocks the readiness helper). **Not verified live:** the Videos screen listing "Local (open source)", a clip from it,
+  and the Studio / Agents / Flows paths — the P6 CDP pass (Wan 2.1 1.3B Q4 download + the never-run click test).
+
 ## 2026-09-17 — AI MODELS REDESIGN P3: one template for the local-model sections (Image · Video · Audio · 3D)
 
 `docs/ai-models-redesign.md` §3.3–§3.6, phase P3.

@@ -83,7 +83,8 @@ export interface VideoModelInfo {
   id: string;
   name: string;
   tagline?: string;
-  dialect: VideoDialectId;
+  /** Request-body dialect for the cloud families; `'local-sd'` for the on-device sd-cli models (no body — no dialect). */
+  dialect: VideoDialectId | 'local-sd';
   durations: VideoDurationSpec;
   aspectRatios: string[];
   resolutions?: VideoResolution[];
@@ -105,8 +106,15 @@ export interface VideoProviderUsage {
   completionTokens?: number;
 }
 
+/** Step progress a provider reports while a job runs (the local sd-cli one; cloud providers report none). */
+export interface VideoJobProgress {
+  step: number;
+  totalSteps: number;
+  percent: number;
+}
+
 export type VideoPollResult =
-  | { status: 'pending' | 'running' }
+  | { status: 'pending' | 'running'; progress?: VideoJobProgress }
   | { status: 'completed'; url: string; contentType?: string; usage?: VideoProviderUsage }
   | { status: 'failed'; error: string };
 
@@ -184,6 +192,8 @@ export interface VideoJobRecord {
   submittedAt: number;
   updatedAt: number;
   status: VideoJobStatus;
+  /** Latest step progress, where the provider reports one. */
+  progress?: VideoJobProgress;
   result?: VideoJobResult;
   error?: string;
   /** Set when Content Safety blocked the clip (error carries the copy). */

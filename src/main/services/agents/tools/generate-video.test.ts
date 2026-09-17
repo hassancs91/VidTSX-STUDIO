@@ -5,6 +5,8 @@ const getModels = vi.fn();
 const submitVideoAsset = vi.fn();
 
 vi.mock('../../../../video-engine', () => ({ videoEngine: { getModels: () => getModels() } }));
+// The readiness helper would pull the local sd-cli engine (Electron) and scan a models folder.
+vi.mock('../../video-init', () => ({ ensureVideoProvidersReady: async () => undefined }));
 vi.mock('../../library/generate-video-asset', () => ({
   submitVideoAsset: (req: unknown) => submitVideoAsset(req),
 }));

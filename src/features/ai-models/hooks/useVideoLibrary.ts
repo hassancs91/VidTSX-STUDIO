@@ -47,6 +47,10 @@ export function useVideoLibrary() {
     const result = await window.api.modelsScan({ category: 'video' });
     setScan(result);
     if (result.error && result.error !== 'unsupported-category') setError(result.error);
+    // The local video provider reads this library live: a model that just
+    // became ready (or was deleted) changes what the Videos screen, the Flows
+    // node and the agents can pick, so tell the pickers to reload.
+    window.dispatchEvent(new CustomEvent('vidtsx:video-providers-changed'));
   }, []);
 
   const load = useCallback(async () => {

@@ -64,6 +64,7 @@ export function useVideoJobs({ onCompleted }: UseVideoJobsOptions = {}) {
         next[index] = {
           ...next[index],
           status: event.status,
+          ...(event.progress ? { progress: event.progress } : {}),
           ...(event.error ? { error: event.error } : {}),
           ...(event.blocked ? { blocked: event.blocked } : {}),
           ...(TERMINAL.has(event.status) ? { cancelling: false } : {}),

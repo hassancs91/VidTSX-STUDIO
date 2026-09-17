@@ -9,6 +9,7 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { videoEngine } from '../../../../video-engine';
 import type { MediaInput, VideoJobRecord } from '../../../../video-engine';
+import { ensureVideoProvidersReady } from '../../video-init';
 import type { VideoResolution } from '../../../../shared/presets/video-models';
 import { fileVideoAsset, submitVideoAsset } from '../../library/generate-video-asset';
 import { getLibraryRoot, resolveLibraryPath } from '../../library/library-paths';
@@ -62,11 +63,11 @@ export function buildVideoTools(ctx: StudioToolContext): StudioTool[] {
 
   const generateVideo = tool(
     'generate_video',
-    'Generate a b-roll clip with the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo). WAITS for the clip: minutes, billed per second, so state the spend before calling and keep drafts at 480p. The clip is filed into the asset library (brand-tagged, prompt as description) AND imported into this project; the result names the project asset id to pass to insert_asset.',
+    'Generate a b-roll clip with a configured video provider: fal or BytePlus ModelArk in the cloud (Seedance, Kling, Veo — billed per second) or "local" (open-source Wan / LTX models on this GPU — free, slower). WAITS for the clip: minutes, so state any cloud spend before calling and keep drafts at 480p. The clip is filed into the asset library (brand-tagged, prompt as description) AND imported into this project; the result names the project asset id to pass to insert_asset.',
     {
       prompt: z.string().describe('What the clip shows — concrete and visual. Saved as the asset description.'),
       model: z.string().optional().describe('Catalog model id; defaults to the active provider\'s first model. An unknown id lists every model WITH its per-second price — pick the cheapest that fits.'),
-      providerId: z.string().optional().describe('Video provider id ("fal" or "byteplus"); defaults to the active one'),
+      providerId: z.string().optional().describe('Video provider id ("fal", "byteplus" or "local"); defaults to the active one'),
       durationSeconds: z.number().optional().describe('Clip length; clamped to the model (default 5)'),
       aspectRatio: z.string().optional().describe('e.g. "16:9", "9:16"; clamped to the model'),
       resolution: z.enum(RESOLUTIONS).optional().describe('Cost scales steeply — 480p is roughly a fifth of 1080p'),
@@ -76,9 +77,10 @@ export function buildVideoTools(ctx: StudioToolContext): StudioTool[] {
     },
     async (args) => {
       emitTool(ctx, 'generate_video', args.prompt.slice(0, 60));
+      await ensureVideoProvidersReady();
       const models = videoEngine.getModels(args.providerId);
       if (models.length === 0) {
-        return text('No video provider is configured. Ask the user to add a Fal or BytePlus ModelArk key in AI → Providers.', true);
+        return text('No video provider is configured. Ask the user to add a Fal or BytePlus ModelArk key in AI → Providers, or to download a local video model in AI → Video.', true);
       }
       if (args.model && !models.some((m) => m.id === args.model)) {
         return text(`"${args.model}" is not in the catalog. Available (per second of output): ${formatVideoModelChoices(models)}.`, true);

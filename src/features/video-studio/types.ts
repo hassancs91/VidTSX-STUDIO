@@ -50,6 +50,8 @@ export interface VideoJobView extends VideoJobSeed {
   jobId: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
   submittedAt: number;
+  /** Step progress while running — the local sd-cli provider reports it; cloud providers do not. */
+  progress?: { step: number; totalSteps: number; percent: number };
   error?: string;
   blocked?: import('../../shared/content-safety').ContentSafetyBlockInfo;
   /** A cancel is in flight; the push settles it. */

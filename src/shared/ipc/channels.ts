@@ -288,13 +288,9 @@ export const IPC = {
   SDIMAGE_SETTINGS_GET: 'sdimage:settings:get',
   SDIMAGE_SETTINGS_SAVE: 'sdimage:settings:save',
 
-  // Local video models (Wan/LTX/LingBot via sd-cli) — library uses the generic MODELS_* channels
+  // Local video models (Wan/LTX/LingBot via sd-cli) — the library uses the generic MODELS_* channels;
+  // generation goes through the video engine's local provider (VIDEO_GENERATE), not a channel of its own.
   SDVIDEO_MODEL_DOWNLOAD: 'sdvideo:model:download',
-  SDVIDEO_GENERATE: 'sdvideo:generate',
-  SDVIDEO_GENERATE_PROGRESS: 'sdvideo:generate:progress',
-  SDVIDEO_GENERATE_COMPLETE: 'sdvideo:generate:complete',
-  SDVIDEO_GENERATE_ERROR: 'sdvideo:generate:error',
-  SDVIDEO_CANCEL: 'sdvideo:cancel',
 
   // Generic model-library operations (category-agnostic; image implemented in v1)
   MODELS_SCAN: 'models:scan',

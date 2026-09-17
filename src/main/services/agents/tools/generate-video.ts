@@ -24,6 +24,7 @@
 
 import { z } from 'zod';
 import { videoEngine } from '../../../../video-engine';
+import { ensureVideoProvidersReady } from '../../video-init';
 import { submitVideoAsset } from '../../library/generate-video-asset';
 import {
   DEFAULT_VIDEO_ASPECT_RATIO,
@@ -47,12 +48,12 @@ const schema = {
     .string()
     .optional()
     .describe(
-      'Catalog model id (e.g. "kling-2.5-turbo-pro" or "hailuo-02" on fal, "dreamina-seedance-2-5-260628" on BytePlus). Defaults to the active provider\'s first model. Call with an unknown id and the tool lists every model WITH its per-second price — pick the cheapest that fits.',
+      'Catalog model id (e.g. "kling-2.5-turbo-pro" or "hailuo-02" on fal, "dreamina-seedance-2-5-260628" on BytePlus, an installed Wan / LTX id on "local"). Defaults to the active provider\'s first model. Call with an unknown id and the tool lists every model WITH its per-second price — pick the cheapest that fits.',
     ),
   providerId: z
     .string()
     .optional()
-    .describe('Video provider id ("fal" or "byteplus"). Defaults to the active one.'),
+    .describe('Video provider id ("fal", "byteplus", or "local" for the open-source models on this GPU — free, slower). Defaults to the active one.'),
   // The inspector's `video-model-options` field stores strings ("5", "on");
   // the schema takes both shapes so node config validates as-is.
   durationSeconds: z.coerce
@@ -105,7 +106,7 @@ export function videoPriceHint(): string | undefined {
 export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
   id: 'generate_video',
   description:
-    'Submit a video clip to the configured cloud video provider (fal or BytePlus ModelArk — Seedance, Kling, Veo). Returns immediately with a job id; the clip takes MINUTES and is billed per second (the model list names each rate — an unknown model id returns it), so say what you are about to spend before calling. END YOUR TURN after submitting — you will be told when the job finishes and given a "video" artifact backed by a local file.',
+    'Submit a video clip to a configured video provider: fal or BytePlus ModelArk in the cloud (Seedance, Kling, Veo — billed per second) or "local" (open-source Wan / LTX models on this GPU — free, slower). Returns immediately with a job id; the clip takes MINUTES, so name the model list rate before spending on a cloud one. END YOUR TURN after submitting — you will be told when the job finishes and given a "video" artifact backed by a local file.',
   needs: 'video-provider',
   schema,
   ports: {
@@ -134,10 +135,11 @@ export const generateVideoTool: AgentToolDef<GenerateVideoArgs> = {
     },
   },
   async handler(args, ctx): Promise<AgentToolResult> {
+    await ensureVideoProvidersReady();
     const models = videoEngine.getModels(args.providerId);
     if (models.length === 0) {
       return toolText(
-        'No video provider is configured. Ask the user to add a Fal or BytePlus ModelArk key in AI → Providers.',
+        'No video provider is configured. Ask the user to add a Fal or BytePlus ModelArk key in AI → Providers, or to download a local video model in AI → Video.',
         true,
       );
     }

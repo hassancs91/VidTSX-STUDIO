@@ -12,7 +12,8 @@ interface Props {
 /**
  * Provider + model for video generation, read from the engine rather than a
  * hard-coded list — so a model added in AI → Providers → Model Catalogs shows
- * up here, and only providers with a key do.
+ * up here, only providers with a key do, and "Local (open source)" appears
+ * once a local video model is ready.
  */
 export function VideoModelPickerField({ label, providerId, model, onChange }: Props) {
   const [providers, setProviders] = useState<VideoProviderInfo[] | null>(null);
@@ -80,7 +81,8 @@ export function VideoModelPickerField({ label, providerId, model, onChange }: Pr
       <div className="flex flex-col gap-1">
         <span className="text-[10px] uppercase tracking-wider text-text-muted">{label}</span>
         <div className="text-[11px] text-text-dim">
-          No video providers configured. Add a Fal or BytePlus key in AI → Providers.
+          No video providers configured. Add a Fal or BytePlus key in AI → Providers, or download a local
+          video model in AI → Video.
         </div>
       </div>
     );

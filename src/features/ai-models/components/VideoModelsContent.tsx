@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
+import { StatusBadge } from '@shared/components';
 import { useVideoLibrary } from '../hooks/useVideoLibrary';
 import { profileToCatalogRow, splitCatalogSections } from '../services/catalog-sections';
 import { InstalledModelsList } from './InstalledModelsList';
-import { VideoGeneratePanel } from './VideoGeneratePanel';
 import { AllModelsList } from './local/AllModelsList';
 import { LocalModelPage } from './local/LocalModelPage';
 import { LocalModelStatusStrip } from './local/LocalModelStatusStrip';
@@ -13,8 +13,9 @@ import { SdCliRuntimeChip } from './local/SdCliRuntimeChip';
  * The Video section on the local-model template (docs/ai-models-redesign.md
  * §3.3 / §3.5): sd-cli chip + models folder, Installed, the five recommended
  * picks with a "Tested" chip where a release pass generated a clip, and the
- * full catalog behind "All models". The generate panel leaves this page once
- * local video is a provider of the video engine (P3b).
+ * full catalog behind "All models". This page manages models only — a ready
+ * model generates from the Videos screen, Studio, the agents and Flows through
+ * the video engine's "Local (open source)" provider (D3).
  */
 export function VideoModelsContent() {
   const lib = useVideoLibrary();
@@ -23,8 +24,8 @@ export function VideoModelsContent() {
     const split = splitCatalogSections(lib.scan.profiles);
     return { recommended: split.recommended.map(profileToCatalogRow), all: split.all.map(profileToCatalogRow) };
   }, [lib.scan.profiles]);
-  const readyModels = lib.scan.installed.filter((m) => m.ready);
 
+  const readyCount = lib.scan.installed.filter((m) => m.ready).length;
   const catalogActions = {
     onDownload: lib.downloadProfile,
     onPause: lib.pauseDownload,
@@ -41,9 +42,18 @@ export function VideoModelsContent() {
           folder={lib.scan.folder}
           onOpenFolder={lib.openFolder}
           onRescan={lib.rescan}
+          note={
+            <span className="flex flex-wrap items-center gap-1.5">
+              {readyCount > 0 ? (
+                <StatusBadge tone="success">{`${readyCount} ready`}</StatusBadge>
+              ) : (
+                <StatusBadge tone="neutral">No model ready</StatusBadge>
+              )}
+              Ready models generate as “Local (open source)” in Videos, Studio, the agents and Flows.
+            </span>
+          }
         />
       }
-      lead={readyModels.length > 0 ? <VideoGeneratePanel readyModels={readyModels} /> : undefined}
       loading={lib.loading}
       error={lib.error ? { message: lib.error } : null}
       onClearError={lib.clearError}
