@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Panel, SectionHeader } from '@shared/components';
+import { useMemo, useState } from 'react';
+import { Panel } from '@shared/components';
 import { useProviderModels } from '@renderer/hooks/useProviderModels';
 import { useImageModelParams } from '@renderer/hooks/useImageModelParams';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
@@ -11,8 +11,9 @@ import {
   type ImageDialectId,
 } from '@shared/presets/image-dialects';
 import { hasAnyImageParams } from '@shared/presets/image-model-params';
-import { ModelCatalogCard } from './ModelCatalogCard';
+import { groupCatalogsByProvider } from '../../services/catalog-groups';
 import { ModelParamsDialog } from '../ModelParamsDialog';
+import { ProviderCatalogRow } from './ProviderCatalogRow';
 
 interface ParamsTarget {
   providerId: string;
@@ -20,33 +21,54 @@ interface ParamsTarget {
   dialect: ImageDialectId;
 }
 
+interface ModelCatalogSectionProps {
+  /** Providers with a key / sign-in — listed first; the rest sit under a caption. */
+  configuredIds: Set<string>;
+}
+
 /**
- * Editable model lists per provider. Seeded with shipped defaults; add/remove
- * models freely, reset any list back to defaults. Every model picker in the
- * app (Image Studio, testers) reads these lists through the image engine.
- * Image rows carry a gear that opens the per-model parameters dialog; the
- * fields it shows come from the row's dialect (image-dialects.ts).
+ * Editable model lists per provider, as an accordion of providers (redesign
+ * §3.2): each row is collapsed to "Fal — 12 image · 4 video models —
+ * Defaults" and opens to the same add / remove / dialect / gear controls as
+ * before. Every model picker in the app reads these lists through the
+ * engines; every save re-registers the category's providers immediately.
  */
-export function ModelCatalogSection() {
+export function ModelCatalogSection({ configuredIds }: ModelCatalogSectionProps) {
   const { catalogs, loading, busy, error, save, reset } = useProviderModels();
   const params = useImageModelParams();
   const [target, setTarget] = useState<ParamsTarget | null>(null);
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
+
+  const grouped = useMemo(() => groupCatalogsByProvider(catalogs, configuredIds), [catalogs, configuredIds]);
+
+  const toggle = (providerId: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(providerId)) next.delete(providerId);
+      else next.add(providerId);
+      return next;
+    });
 
   const openParams = (providerId: string, model: ImageModelCatalogEntry) => {
     const named = typeof model.dialect === 'string' ? model.dialect : '';
-    const dialect: ImageDialectId = isImageDialectId(named)
-      ? named
-      : (DEFAULT_IMAGE_DIALECT[providerId] ?? 'fal-generic');
+    const dialect: ImageDialectId = isImageDialectId(named) ? named : (DEFAULT_IMAGE_DIALECT[providerId] ?? 'fal-generic');
     setTarget({ providerId, model, dialect });
   };
 
+  const rowProps = {
+    busy,
+    onSave: save,
+    onReset: reset,
+    onParams: openParams,
+    hasParams: (providerId: string, modelId: string) => hasAnyImageParams(params.get(providerId, modelId)),
+  };
+
   return (
-    <div className="mt-6">
-      <SectionHeader>Model Catalogs</SectionHeader>
-      <div className="text-[10px] text-text-dim -mt-1 mb-3">
-        The models each provider offers in pickers across the app. Add ids straight from the
-        provider's site, remove ones you don't use, or reset to the shipped defaults. The gear on an
-        image model sets its default parameters (steps, guidance, seed…).
+    <div>
+      <div className="mb-3 text-[10px] text-text-dim">
+        The models each provider offers in pickers across the app. Open a provider to add ids straight from its site,
+        remove ones you don’t use, or reset to the shipped defaults. The gear on an image model sets its default
+        parameters (steps, guidance, seed…).
       </div>
 
       {loading ? (
@@ -54,23 +76,31 @@ export function ModelCatalogSection() {
           <div className="text-[12px] text-text-muted">Loading model catalogs…</div>
         </Panel>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {catalogs.map((catalog) => (
-            <ModelCatalogCard
-              key={`${catalog.providerId}:${catalog.category}`}
-              catalog={catalog}
-              busy={busy}
-              onSave={(models) => save(catalog.providerId, catalog.category, models)}
-              onReset={() => reset(catalog.providerId, catalog.category)}
-              onParams={catalog.category === 'image' ? (model) => openParams(catalog.providerId, model) : undefined}
-              hasParams={(modelId) => hasAnyImageParams(params.get(catalog.providerId, modelId))}
-            />
-          ))}
-        </div>
+        <>
+          {grouped.configured.length > 0 && (
+            <Panel>
+              {grouped.configured.map((group) => (
+                <ProviderCatalogRow key={group.providerId} group={group} open={open.has(group.providerId)} onToggle={() => toggle(group.providerId)} {...rowProps} />
+              ))}
+            </Panel>
+          )}
+          {grouped.unconfigured.length > 0 && (
+            <>
+              <div className={`${grouped.configured.length > 0 ? 'mt-4' : ''} mb-2 text-[9px] font-medium uppercase tracking-[0.06em] text-text-dim`}>
+                Providers without a key
+              </div>
+              <Panel>
+                {grouped.unconfigured.map((group) => (
+                  <ProviderCatalogRow key={group.providerId} group={group} open={open.has(group.providerId)} onToggle={() => toggle(group.providerId)} {...rowProps} />
+                ))}
+              </Panel>
+            </>
+          )}
+        </>
       )}
 
-      {error && <div className="text-[11px] text-accent-red mt-2">{error}</div>}
-      {params.error && <div className="text-[11px] text-accent-red mt-2">{params.error}</div>}
+      {error && <div className="mt-2 text-[11px] text-accent-red">{error}</div>}
+      {params.error && <div className="mt-2 text-[11px] text-accent-red">{params.error}</div>}
 
       {target && (
         <ModelParamsDialog

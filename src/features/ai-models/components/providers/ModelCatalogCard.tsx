@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Plus, RotateCcw, Settings2 } from 'lucide-react';
 import { Button, Panel, StatusBadge, TextInput } from '@shared/components';
 import { Select } from '@shared/components/Select';
+import { providerLabel } from '../../services/catalog-groups';
 import type { ProviderModelCatalogIpc } from '@shared/ipc/types';
 import type { ProviderModelCatalogEntry } from '@shared/presets/provider-model-defaults';
 import type { ImageModelCatalogEntry } from '@shared/presets/image-models';
@@ -16,20 +17,6 @@ import {
   IMAGE_DIALECT_LABELS,
   isImageDialectId,
 } from '@shared/presets/image-dialects';
-
-const PROVIDER_LABELS: Record<string, string> = {
-  fal: 'Fal',
-  byteplus: 'BytePlus',
-  openrouter: 'OpenRouter',
-  cloudflare: 'Cloudflare',
-  'claude-subscription': 'Claude (Subscription)',
-  'claude-api': 'Claude (API Key)',
-  minimax: 'MiniMax',
-  openai: 'OpenAI',
-  gemini: 'Google Gemini',
-  zai: 'Z.AI',
-  kimi: 'Kimi (Moonshot)',
-};
 
 const CATEGORY_LABELS: Record<string, string> = {
   image: 'Image models',
@@ -102,7 +89,7 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset, onParams, has
   const [confirmReset, setConfirmReset] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
 
-  const providerLabel = PROVIDER_LABELS[catalog.providerId] ?? catalog.providerId;
+  const providerName = providerLabel(catalog.providerId);
   const categoryLabel = CATEGORY_LABELS[catalog.category] ?? catalog.category;
 
   const handleAdd = async () => {
@@ -148,7 +135,7 @@ export function ModelCatalogCard({ catalog, busy, onSave, onReset, onParams, has
       {/* Header */}
       <div className="p-3 flex items-center justify-between" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
         <div>
-          <span className="text-[12px] text-text-secondary font-medium">{providerLabel}</span>
+          <span className="text-[12px] text-text-secondary font-medium">{providerName}</span>
           <span className="text-[11px] text-text-dim ml-1.5">· {categoryLabel}</span>
         </div>
         <StatusBadge tone={catalog.isDefault ? 'neutral' : 'accent'}>

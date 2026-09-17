@@ -1,10 +1,9 @@
-export { AiModelsTab } from './components/AiModelsTab';
 export { AiModelsScreen } from './components/AiModelsScreen';
+export { AiModelsSections } from './components/AiModelsSections';
 export { AudioModelsContent } from './components/AudioModelsContent';
 export { ImageModelsContent } from './components/ImageModelsContent';
 export { LlmModelsContent } from './components/LlmModelsContent';
-export { ComingSoonPlaceholder } from './components/ComingSoonPlaceholder';
 export { useAudioModels } from './hooks/use-audio-models';
 export type { ModelDownloadStatus } from './hooks/use-audio-models';
-export type { ModelSubTab } from './types';
-export { SUB_TABS } from './types';
+export type { AiSectionId, AiSection } from './types';
+export { AI_SECTIONS, isAiSectionId } from './types';

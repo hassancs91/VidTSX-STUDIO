@@ -1,22 +1,22 @@
-import { AiModelsTab } from './AiModelsTab';
+import { AiModelsSections } from './AiModelsSections';
 
 /**
- * Top-level "AI Models" screen (design D4) — wraps the existing tabbed
- * `AiModelsTab` with the standard screen toolbar/layout (same pattern as
- * ToolsHubScreen). Gated behind the `ai-models` feature flag.
+ * Top-level "AI Models" screen: the standard 40 px toolbar, then a section
+ * rail + content that fill the rest of the window at any width
+ * (docs/ai-models-redesign.md §2). Gated behind the `ai-models` feature flag.
  */
 export function AiModelsScreen() {
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       <div
-        className="flex items-center h-[40px] px-3 bg-app-surface shrink-0"
+        className="flex h-[40px] shrink-0 items-center bg-app-surface px-3"
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
       >
         <span className="text-[13px] font-medium text-text-secondary">AI Models</span>
       </div>
 
-      <div className="flex-1 overflow-auto bg-app-base p-4">
-        <AiModelsTab />
+      <div className="min-h-0 flex-1 bg-app-base">
+        <AiModelsSections />
       </div>
     </div>
   );

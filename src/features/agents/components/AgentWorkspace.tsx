@@ -329,7 +329,7 @@ function NoProviderState() {
       <button
         onClick={() =>
           window.dispatchEvent(
-            new CustomEvent('vidtsx:navigate', { detail: { screen: 'ai-models' } }),
+            new CustomEvent('vidtsx:navigate', { detail: { screen: 'ai-models', section: 'providers' } }),
           )
         }
         className="mt-1 rounded-[6px] bg-accent px-2.5 py-1 text-[11px] text-white"

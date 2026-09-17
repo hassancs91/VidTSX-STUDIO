@@ -7,6 +7,35 @@
 
 ---
 
+## 2026-09-16 — AI MODELS REDESIGN P2: the section rail and the Providers page
+
+`docs/ai-models-redesign.md` §2 + §3.2, phase P2 (Hasan: "go for it" on the rail).
+
+- **Rail.** `AiModelsSections.tsx` (replaces `AiModelsTab.tsx`) = `AiSectionRail` + the active section, full
+  height and width under the toolbar. Sections come from `types.ts` `AI_SECTIONS` in three groups — Overview ·
+  Providers · Usage / **Local models:** Image · Video · Audio · 3D (LLMs, Embeddings behind their flags) /
+  Content Safety. Usage is its own entry (D9). Deep links: `vidtsx:navigate` now carries an optional
+  `section`; Home's status strip (providers / runtime / whisper), the Transcribe screen's "install whisper"
+  and the Agents "add a provider" button land on Providers, Overview or Audio instead of the first section.
+- **Providers** (`providers/ProvidersContent.tsx`, one Save in the header): **API keys** as a table
+  (`ProviderKeysTable` → `ProviderKeyRow` per registry provider on the shared `ProviderGridRow` columns
+  Provider · Powers · Status · Key · actions; own-key LLM rows via `LlmKeyRow` — Claude (API key) plus any
+  grandfathered saved MiniMax / Kimi config, badged "Legacy"); **Subscriptions** (`SubscriptionsSection`:
+  Claude through `LlmSubscriptionRow`, Google Antigravity through the generic `CliSubscriptionRow` — the
+  Image tab's `GeminiCliSetupCard` folded into a status row + "How to set up" expander; `useGeminiCliStatus`
+  generalised to `useImageCliStatus(providerId)` so the Codex row of P5 is one more call); **Custom
+  endpoints** only when one is saved or the H5 flag is on; **Defaults** (`ProviderDefaultsBar`); **Model
+  catalogs** as an accordion (`ModelCatalogSection` → `ProviderCatalogRow` per provider, collapsed to
+  "Fal — 12 image · 4 video models — Defaults", configured providers first, the rest under "Providers
+  without a key"; the existing `ModelCatalogCard` renders inside the open row). The page's unsaved state
+  lives in `hooks/useProviderKeyDrafts.ts`; the grouping and "configured" rules are pure in
+  `services/catalog-groups.ts` (tested). `EnabledToggle` extracted from `LlmProviderRow`.
+- **Removed:** `AiModelsTab.tsx`, `ApiKeysSection.tsx`, `GeminiCliSetupCard.tsx`, `useGeminiCliStatus.ts`,
+  `ComingSoonPlaceholder.tsx` (every section renders).
+- **Gates:** `check:types` at baseline (26 / 10); vitest ai-models + preset tests 19 passed (new
+  `catalog-groups.test.ts` 5). **Not yet driven live** — Hasan's own dev instance holds the single-instance
+  lock without a debugging port; the P6 CDP pass covers every section at 1280×800 and maximized.
+
 ## 2026-09-16 — AI MODELS REDESIGN P1: the quick wins (hidden presets, full width, Video on, recommended lists)
 
 `docs/ai-models-redesign.md` (Hasan's feedback of the day; decisions D1–D9 answered) — phase P1 of six.

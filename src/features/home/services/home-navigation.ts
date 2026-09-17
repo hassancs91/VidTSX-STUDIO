@@ -11,8 +11,8 @@ function dispatch(name: string, detail: Record<string, unknown>): void {
 }
 
 /** Plain screen change — the Start tiles and every "See all". */
-export function goToScreen(screen: string): void {
-  dispatch('vidtsx:navigate', { screen });
+export function goToScreen(screen: string, section?: string): void {
+  dispatch('vidtsx:navigate', section ? { screen, section } : { screen });
 }
 
 /** A Studio card: the editor of that project (`vidtsx:studio-open`). */

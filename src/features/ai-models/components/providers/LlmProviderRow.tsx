@@ -3,6 +3,7 @@ import { Eye, EyeOff, Check, X, Loader2 } from 'lucide-react';
 import { Button, StatusBadge, TextInput } from '@shared/components';
 import type { LlmProviderConfig } from '@shared/ipc/types';
 import { CapabilityBadge } from './CapabilityBadge';
+import { EnabledToggle } from './EnabledToggle';
 
 export interface LlmProviderTestState {
   testing: boolean;
@@ -63,18 +64,7 @@ export function LlmProviderRow({ provider, isCustom, testState, onUpdate, onTest
               <X size={12} strokeWidth={2} />
             </button>
           )}
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <span className="text-[10px] text-text-dim">{provider.enabled ? 'On' : 'Off'}</span>
-            <div
-              className={`relative w-[32px] h-[16px] rounded-full transition-colors duration-150 ${provider.enabled ? 'bg-accent' : 'bg-app-hover'}`}
-              style={{ border: '0.5px solid var(--color-border)' }}
-              onClick={() => onUpdate(provider.id, { enabled: !provider.enabled })}
-            >
-              <div
-                className={`absolute top-[2px] w-[10px] h-[10px] rounded-full bg-white transition-all duration-150 ${provider.enabled ? 'left-[18px]' : 'left-[3px]'}`}
-              />
-            </div>
-          </label>
+          <EnabledToggle on={provider.enabled} onToggle={() => onUpdate(provider.id, { enabled: !provider.enabled })} />
         </div>
       </div>
 

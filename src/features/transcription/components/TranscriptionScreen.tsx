@@ -7,7 +7,7 @@ import { useToast } from '@renderer/contexts/ToastContext';
 
 // Jump to the AI Models screen (cross-screen nav handled in App.tsx).
 function goToAiModels() {
-  window.dispatchEvent(new CustomEvent('vidtsx:navigate', { detail: { screen: 'ai-models' } }));
+  window.dispatchEvent(new CustomEvent('vidtsx:navigate', { detail: { screen: 'ai-models', section: 'audio' } }));
 }
 
 const selectClass = 'w-full rounded-md px-2 py-1.5 text-[12px] text-text-secondary cursor-pointer';

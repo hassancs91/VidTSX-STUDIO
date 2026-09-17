@@ -18,6 +18,8 @@ interface Cell {
   value: string;
   tone: Tone;
   screen: string;
+  /** Section of the target screen (the AI Models rail), when it has one. */
+  section?: string;
   title: string;
 }
 
@@ -35,6 +37,7 @@ export function statusCells(status: HomeStatus): Cell[] {
       value: `${providers} of ${status.providersTotal} configured`,
       tone: providers > 0 ? 'ok' : 'off',
       screen: 'ai-models',
+      section: 'providers',
       title: 'Provider keys — open the AI page',
     },
     {
@@ -43,6 +46,7 @@ export function statusCells(status: HomeStatus): Cell[] {
       value: runtime === 'installed' ? 'Installed' : runtime === 'broken' ? 'Needs repair' : 'Not installed',
       tone: runtime === 'installed' ? 'ok' : runtime === 'broken' ? 'warn' : 'off',
       screen: 'ai-models',
+      section: 'overview',
       title: 'The optional local runtime (background removal, 3D)',
     },
     {
@@ -72,6 +76,7 @@ export function statusCells(status: HomeStatus): Cell[] {
           : `${status.whisperModels} model${status.whisperModels === 1 ? '' : 's'}`,
       tone: status.whisperInstalled && status.whisperModels > 0 ? 'ok' : 'off',
       screen: 'ai-models',
+      section: 'audio',
       title: 'Local speech-to-text — models download on the AI page',
     },
   ];
@@ -93,7 +98,7 @@ export function StatusStrip({ status }: Props) {
         {cells.map((cell) => (
           <button
             key={cell.id}
-            onClick={() => goToScreen(isFeatureEnabled(cell.screen) ? cell.screen : 'ai-models')}
+            onClick={() => goToScreen(isFeatureEnabled(cell.screen) ? cell.screen : 'ai-models', cell.section)}
             title={cell.title}
             data-home-status={cell.id}
             className="flex-1 min-w-[160px] flex items-center gap-2 px-3 h-[36px] text-left hover:bg-app-hover transition-colors"
