@@ -18,6 +18,7 @@ import { hydrateVideoEntry } from '../../video-engine';
 import { hydrateImageEntry } from '../../image-engine/dialect-capabilities';
 import type { ImageModelCatalogEntry } from '../../shared/presets/image-models';
 import { getProviderModelOverrides, saveProviderModelOverrides } from './settings';
+import { isPresetHidden } from './llm-preset-visibility';
 
 /** Family a video entry falls back to when none is named or it is unknown. */
 const DEFAULT_VIDEO_DIALECT: Record<string, VideoDialectId> = {
@@ -70,10 +71,18 @@ function sanitizeEntries(
   return clean;
 }
 
-/** Merged catalog list (defaults overlaid with user overrides), for the UI. */
+/**
+ * Merged catalog list (defaults overlaid with user overrides), for the UI.
+ * Providers this version hides as presets (llm-preset-visibility.ts) get no
+ * catalog card either — the same rule the add-provider menu applies. Engine
+ * registration reads `getProviderModels()` per provider and is unaffected, so
+ * a grandfathered saved config keeps its (default) model list.
+ */
 export async function getProviderModelCatalogs(): Promise<ProviderModelCatalog[]> {
   const overrides = await getProviderModelOverrides();
-  return listDefaultCatalogKeys().map(({ providerId, category }) => {
+  return listDefaultCatalogKeys()
+    .filter(({ providerId }) => !isPresetHidden(providerId))
+    .map(({ providerId, category }) => {
     const stored = overrides[providerId]?.[category];
     return {
       providerId,

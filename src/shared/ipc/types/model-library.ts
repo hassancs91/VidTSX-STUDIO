@@ -1,6 +1,6 @@
 // ─── Generic model-library IPC types (category-agnostic) ───
 import type { ModelCategory, ModelIssue, ModelUsageRecord } from '../../model-library/types';
-import type { FitResult } from '../../model-library/fit';
+import type { FitResult, HardwareTier } from '../../model-library/fit';
 import type { ImageModelParams, ImageParamSchema } from '../../presets/image-model-params';
 
 /** Config a user picks in the Set-up dialog for a custom/unrecognized model. */
@@ -45,6 +45,10 @@ export interface ProfileModelIpc {
   installed: boolean;
   /** VRAM/RAM fit verdict vs the detected hardware. Absent when hardware is undetectable. */
   fit?: FitResult;
+  /** Curated pick shown by default in the catalog (docs/ai-models-redesign.md §3.3). */
+  recommended?: boolean;
+  /** Coarse hardware class from the same estimate the fit badge uses. */
+  tier?: HardwareTier;
 }
 
 export interface CompanionFileIpc {

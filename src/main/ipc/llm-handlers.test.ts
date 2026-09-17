@@ -68,18 +68,36 @@ afterEach(() => {
 });
 
 describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
-  it('hides openai, gemini, and zai from presets; the five V1 agent-sdk presets remain', async () => {
-    // zai joined the hidden set 2026-08-17 (Hasan: skip Z.AI for V1).
+  it('hides openai, gemini, zai, minimax and kimi from presets; the three V1 agent-sdk presets remain', async () => {
+    // zai joined the hidden set 2026-08-17 (Hasan: skip Z.AI for V1);
+    // minimax + kimi joined 2026-09-16 (AI Models redesign, §3.2).
     const res = await handleLlmProvidersGet();
     const ids = res.presets.map((p) => p.id);
-    expect(ids).toEqual([
-      'claude-subscription',
-      'claude-api',
-      'minimax',
-      'openrouter',
-      'kimi',
-    ]);
+    expect(ids).toEqual(['claude-subscription', 'claude-api', 'openrouter']);
     expect(res.presets.every((p) => p.type === 'agent-sdk')).toBe(true);
+  });
+
+  it('NEVER filters a saved minimax or kimi config — the key keeps working after the hide', async () => {
+    state.providers = [
+      { ...savedOpenai, id: 'kimi', name: 'Kimi (Moonshot)', type: 'agent-sdk', baseURL: 'https://api.moonshot.ai/anthropic', defaultModel: 'kimi-k3' },
+    ];
+    state.activeProvider = 'kimi';
+    const res = await handleLlmProvidersGet();
+    expect(res.providers.some((p) => p.id === 'kimi')).toBe(true);
+    expect(res.activeProvider).toBe('kimi');
+    expect(res.presets.some((p) => p.id === 'kimi')).toBe(false);
+  });
+
+  it('the local preset is hidden without VITE_FF_AI_LLM even when the runtime loads, and offered with it', async () => {
+    state.localAvailable = true;
+    let res = await handleLlmProvidersGet();
+    expect(res.presets.some((p) => p.id === 'local')).toBe(false);
+    expect(res.providers.some((p) => p.id === 'local')).toBe(false);
+
+    vi.stubEnv('VITE_FF_AI_LLM', '1');
+    res = await handleLlmProvidersGet();
+    expect(res.presets.some((p) => p.id === 'local')).toBe(true);
+    expect(res.providers.find((p) => p.id === 'local')?.enabled).toBe(true);
   });
 
   it('NEVER filters saved provider configs — a saved openai keeps working', async () => {
@@ -98,7 +116,9 @@ describe('handleLlmProvidersGet — V1 preset narrowing (H1/H2/H4)', () => {
     expect(ids).toContain('openai');
     expect(ids).toContain('gemini');
     expect(ids).toContain('zai');
-    expect(ids).not.toContain('local'); // local stays availability-gated
+    expect(ids).toContain('minimax');
+    expect(ids).toContain('kimi');
+    expect(ids).not.toContain('local'); // local stays availability- and flag-gated
   });
 
   it('a shared OpenRouter credential surfaces the provider with no saved config (H6 in-app fix)', async () => {

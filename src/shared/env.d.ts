@@ -10,7 +10,7 @@ interface ImportMetaEnv {
   DEV: boolean
   readonly VITE_FF_TOOLS?: string
   readonly VITE_FF_FLOWS?: string
-  readonly VITE_FF_AI_VIDEO?: string
+  /** LLMs tab (renderer) AND the `local` LLM preset (main — llm-preset-visibility). */
   readonly VITE_FF_AI_LLM?: string
   readonly VITE_FF_AI_EMBEDDINGS?: string
   readonly VITE_FF_AI_AUDIO_ENGINE?: string

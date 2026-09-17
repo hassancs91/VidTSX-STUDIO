@@ -7,6 +7,30 @@
 
 ---
 
+## 2026-09-16 — AI MODELS REDESIGN P1: the quick wins (hidden presets, full width, Video on, recommended lists)
+
+`docs/ai-models-redesign.md` (Hasan's feedback of the day; decisions D1–D9 answered) — phase P1 of six.
+Feedback list: `docs/UI_POLISH_PLAN.md` item 1.
+
+- **One preset rule, two readers.** `src/main/services/llm-preset-visibility.ts` holds the V1 hidden set —
+  now `openai`, `gemini`, `zai`, **`minimax`, `kimi`** — plus the H4 override (`VITE_FF_ALL_PROVIDERS`) and a
+  new gate for the `local` preset (`VITE_FF_AI_LLM`: it follows the LLMs tab, and the runtime probe is
+  skipped when the flag is off). `handleLlmProvidersGet` reads it as before (presets only, saved configs
+  grandfathered), and `getProviderModelCatalogs()` now applies the same rule — the Model catalogs grid had
+  been rendering a card for every hidden provider (OpenAI, Gemini, Z.AI) because nothing filtered it.
+- **Full width.** `AiModelsScreen` drops `max-w-6xl mx-auto`; the section rail comes with P2.
+- **Video tab on.** `ai-video-models` moved from `ENV_GATED` to `FEATURE_FLAGS: true`; `VITE_FF_AI_VIDEO`
+  removed from `.env.example` and `env.d.ts`.
+- **Recommended + tier.** `ModelProfileEnvelope.recommended` (8 image entries, 5 video entries marked per the
+  plan's §3.4/§3.5) and `ProfileModelIpc.recommended` / `.tier`, the tier derived by `hardwareTierFor(
+  estimateNeededVramGB(requirement))` in `fit.ts` — the same number the Fits badge grades, so the label and
+  the badge can never disagree. UI consumption is P3.
+- **Gates:** vitest main + shared + renderer **1797 passed** (219 files; new `llm-preset-visibility.test.ts`
+  5, `fit-tier.test.ts` 3, llm-handlers +2: a saved kimi config survives the hide; local hidden without the
+  flag, offered with it); `check:types` at baseline (26 / 10). Live CDP pass of the screen is P6's.
+- **Codex spike (D4) ran the same day** — three headless `codex exec` generations, ~40 s each, sizes
+  honoured, an edit from a reference kept the composition; details and the harvest rule in the plan's §3.7.
+
 ## 2026-09-13 — STUDIO: opening a project is staged and faster — shot modules off the editor, a disk cache of transpiled modules, no-op media patches, reconcile fingerprint (feedback 2)
 
 `docs/studio/VIDEO10_TESTING_FEEDBACK.md` item 2. Clicking the video-10 card stalled before the editor was

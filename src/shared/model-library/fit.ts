@@ -57,6 +57,38 @@ function round1(n: number): number {
 }
 
 /**
+ * Estimated VRAM (GB, 1 dp) a model needs — the number `evaluateFit` grades:
+ * never below the size-based estimate, never below a declared floor.
+ * Hardware-independent, so catalogs can label entries before any GPU is known.
+ */
+export function estimateNeededVramGB(requirement: FitRequirement): number {
+  const estimateGB = gbFromBytes(requirement.sizeBytes) + ACTIVATION_OVERHEAD_GB;
+  return round1(Math.max(estimateGB, requirement.minVramGB ?? 0));
+}
+
+/**
+ * Coarse hardware class a catalog entry belongs to, derived from the same
+ * estimate the fit badge uses so the two never disagree. The badge stays the
+ * per-machine truth; the tier is the catalog's "who is this for" label
+ * (docs/ai-models-redesign.md §3.3).
+ */
+export type HardwareTier = 'laptop' | 'mid' | 'high' | 'top';
+
+export const HARDWARE_TIER_LABELS: Record<HardwareTier, string> = {
+  laptop: 'Laptop · up to 4 GB',
+  mid: '6–8 GB GPU',
+  high: '12 GB GPU',
+  top: '16 GB+ GPU',
+};
+
+export function hardwareTierFor(neededVramGB: number): HardwareTier {
+  if (neededVramGB <= 4) return 'laptop';
+  if (neededVramGB <= 8) return 'mid';
+  if (neededVramGB <= 12) return 'high';
+  return 'top';
+}
+
+/**
  * Estimate the VRAM (GB) a model needs and grade it against the hardware.
  *
  * @param requirement `minVramGB` (optional floor) + `sizeBytes` (drives the estimate).
@@ -65,7 +97,7 @@ function round1(n: number): number {
 export function evaluateFit(requirement: FitRequirement, hardware: FitHardware): FitResult {
   const estimateGB = gbFromBytes(requirement.sizeBytes) + ACTIVATION_OVERHEAD_GB;
   // Effective need: never below the size estimate, never below a declared floor.
-  const neededVramGB = round1(Math.max(estimateGB, requirement.minVramGB ?? 0));
+  const neededVramGB = estimateNeededVramGB(requirement);
 
   const vramGB = hardware.vramGB ?? null;
   const ramGB = hardware.ramGB ?? null;

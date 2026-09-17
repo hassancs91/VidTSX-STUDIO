@@ -37,6 +37,7 @@ import {
   requirementForProfile,
 } from '../services/sdimage-preflight';
 import { getPreflightHardware, type PreflightHardware } from '../services/system-info';
+import { estimateNeededVramGB, hardwareTierFor } from '../../shared/model-library/fit';
 import { usageStore } from '../services/model-usage';
 import { setImageModelsFolder } from '../services/settings';
 import type { VideoModelMeta } from '../../local-video-engine/types';
@@ -172,16 +173,21 @@ async function scanVideoCategory(): Promise<ModelsScanResponse> {
   const hardware = await getPreflightHardware();
   const installedIds = new Set(scan.installed.map((m) => m.id));
 
-  const profiles: ProfileModelIpc[] = VIDEO_MODEL_CATALOG.map((p) => ({
-    id: p.id,
-    name: p.name,
-    family: p.meta.family,
-    sizeLabel: p.sizeLabel,
-    sourceUrl: p.sourceUrl,
-    hasDownload: Boolean(p.downloadUrl),
-    installed: installedIds.has(p.id),
-    fit: fitFor({ minVramGB: p.requirements?.minVramGB, sizeBytes: p.sizeBytes }, hardware),
-  }));
+  const profiles: ProfileModelIpc[] = VIDEO_MODEL_CATALOG.map((p) => {
+    const requirement = { minVramGB: p.requirements?.minVramGB, sizeBytes: p.sizeBytes };
+    return {
+      id: p.id,
+      name: p.name,
+      family: p.meta.family,
+      sizeLabel: p.sizeLabel,
+      sourceUrl: p.sourceUrl,
+      hasDownload: Boolean(p.downloadUrl),
+      installed: installedIds.has(p.id),
+      fit: fitFor(requirement, hardware),
+      recommended: Boolean(p.recommended),
+      tier: hardwareTierFor(estimateNeededVramGB(requirement)),
+    };
+  });
 
   return {
     category: 'video',
@@ -232,16 +238,21 @@ export async function handleModelsScan(
     const hardware = await getPreflightHardware();
     const installedIds = new Set(scan.installed.map((m) => m.id));
 
-    const profiles: ProfileModelIpc[] = SD_MODEL_CATALOG.map((p) => ({
-      id: p.id,
-      name: p.name,
-      family: p.meta.family,
-      sizeLabel: p.sizeLabel,
-      sourceUrl: p.sourceUrl,
-      hasDownload: Boolean(p.downloadUrl),
-      installed: installedIds.has(p.id),
-      fit: fitFor(requirementForProfile(p), hardware),
-    }));
+    const profiles: ProfileModelIpc[] = SD_MODEL_CATALOG.map((p) => {
+      const requirement = requirementForProfile(p);
+      return {
+        id: p.id,
+        name: p.name,
+        family: p.meta.family,
+        sizeLabel: p.sizeLabel,
+        sourceUrl: p.sourceUrl,
+        hasDownload: Boolean(p.downloadUrl),
+        installed: installedIds.has(p.id),
+        fit: fitFor(requirement, hardware),
+        recommended: Boolean(p.recommended),
+        tier: hardwareTierFor(estimateNeededVramGB(requirement)),
+      };
+    });
 
     return {
       category: 'image',

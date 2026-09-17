@@ -26,22 +26,12 @@ import { composeSystemPrompt } from '../services/skills-registry';
 import { llmRequestScope } from './llm-request-scope';
 
 // V1 ships only `agent-sdk` presets (V1_RELEASE_PLAN Phase H1) — every visible
-// provider gets tools AND prompt caching; nothing ships degraded. `openai` and
-// `gemini` return in V2 with real tool-translation layers. The one-line H2
-// rule: filter PRESETS only, NEVER saved providers — a saved config for a
-// hidden preset keeps working (grandfathered).
-// `zai` joined the hidden set 2026-08-17 (Hasan: V1 ships Claude ×2 +
-// OpenRouter + MiniMax + Kimi; Z.AI returns later) — same grandfathering
-// rule applies: a saved zai config keeps working, only the preset row hides.
-const V1_HIDDEN_PRESET_IDS = new Set(['openai', 'gemini', 'zai']);
-
-/** H4 dev override: VITE_FF_ALL_PROVIDERS=1 restores the hidden presets.
- *  The shared VITE_ prefix reaches main-process import.meta.env under
- *  electron-vite (same mechanism as crash-reporting's VITE_SENTRY_DSN). */
-function allPresetsEnabled(): boolean {
-  const v = import.meta.env?.VITE_FF_ALL_PROVIDERS;
-  return v === '1' || v === 'true';
-}
+// provider gets tools AND prompt caching; nothing ships degraded. The one-line
+// H2 rule: filter PRESETS only, NEVER saved providers — a saved config for a
+// hidden preset keeps working (grandfathered). The hidden set, the H4 override
+// and the local-preset gate live in llm-preset-visibility.ts so the Model
+// catalogs (provider-models.ts) apply the very same rule.
+import { V1_HIDDEN_PRESET_IDS, allPresetsEnabled, localPresetAllowed } from '../services/llm-preset-visibility';
 
 export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> {
   try {
@@ -51,8 +41,10 @@ export async function handleLlmProvidersGet(): Promise<LlmProvidersGetResponse> 
     // loadable — production builds don't bundle it yet, so hide the preset
     // (and any stale saved config) there instead of offering a dead option.
     // This local case is the ONE exception to the filter-presets-only rule,
-    // because a local config genuinely cannot run.
-    const localAvailable = await llmLocalEngine.isAvailable();
+    // because a local config genuinely cannot run. It is also tied to the
+    // LLMs tab flag (VITE_FF_AI_LLM): with the tab hidden nothing can manage
+    // local models, so the preset — and the runtime probe — stay off.
+    const localAvailable = localPresetAllowed() && (await llmLocalEngine.isAvailable());
     const credentials = await getProviderCredentials();
     const visibleProviders = (localAvailable ? providers : providers.filter((p) => p.type !== 'local'))
       // Shared-credential providers (presets with a `credentialId`) have no

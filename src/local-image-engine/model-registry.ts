@@ -27,6 +27,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'bk-sdm-tiny-q4_0',
+    recommended: true,
     category: 'image',
     name: 'BK-SDM-Tiny Q4 (fastest)',
     sizeBytes: 686_000_000,
@@ -65,6 +66,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'sd15-base-q8',
+    recommended: true,
     category: 'image',
     name: 'SD 1.5 Base Q8 (GGUF)',
     sizeBytes: 1_881_241_504,
@@ -197,6 +199,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'sdxl-lightning',
+    recommended: true,
     category: 'image',
     name: 'SDXL Lightning Q8 (GGUF, 4-step)',
     sizeBytes: 4_098_988_672,
@@ -346,6 +349,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'sd35-large-turbo-q4',
+    recommended: true,
     category: 'image',
     name: 'SD 3.5 Large Turbo Q4 (GGUF, 4-step)',
     sizeBytes: 11_942_648_448,
@@ -367,6 +371,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'flux2-klein-4b-q4',
+    recommended: true,
     category: 'image',
     name: 'Flux.2 Klein 4B Q4 (GGUF, 4-step)',
     sizeBytes: 2_460_378_560,
@@ -405,6 +410,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'flux2-klein-9b-q4',
+    recommended: true,
     category: 'image',
     name: 'Flux.2 Klein 9B Q4 (GGUF, 4-step)',
     sizeBytes: 5_616_208_032,
@@ -523,6 +529,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'flux-schnell-q4',
+    recommended: true,
     category: 'image',
     name: 'Flux.1 Schnell Q4 (GGUF, 4-step)',
     sizeBytes: 6_884_606_880,
@@ -600,6 +607,7 @@ export const SD_MODEL_CATALOG: SdModelProfile[] = [
 
   {
     id: 'flux-dev-q8',
+    recommended: true,
     category: 'image',
     name: 'Flux.1 Dev Q8 (GGUF)',
     sizeBytes: 12_842_640_544,

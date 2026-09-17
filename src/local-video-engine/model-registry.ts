@@ -192,6 +192,7 @@ const WAN21_1_3B_DEFAULTS = {
 export const VIDEO_MODEL_CATALOG: VideoModelProfile[] = [
   {
     id: 'wan21-t2v-1.3b-q4',
+    recommended: true,
     category: 'video',
     name: 'Wan 2.1 T2V 1.3B Q4 (smallest)',
     sizeBytes: 865_581_280,
@@ -259,6 +260,7 @@ export const VIDEO_MODEL_CATALOG: VideoModelProfile[] = [
 
   {
     id: 'wan22-ti2v-5b-q4',
+    recommended: true,
     category: 'video',
     name: 'Wan 2.2 TI2V 5B Q4 (text + image to video)',
     sizeBytes: 3_029_086_560,
@@ -300,6 +302,7 @@ export const VIDEO_MODEL_CATALOG: VideoModelProfile[] = [
 
   {
     id: 'wan21-i2v-14b-480p-q4',
+    recommended: true,
     category: 'video',
     name: 'Wan 2.1 I2V 14B 480p Q4 (image to video)',
     sizeBytes: 10_247_552_384,
@@ -324,6 +327,7 @@ export const VIDEO_MODEL_CATALOG: VideoModelProfile[] = [
 
   {
     id: 'ltx23-dev-22b-q4',
+    recommended: true,
     category: 'video',
     name: 'LTX-2.3 Dev 22B Q4 (720p, audio+video)',
     sizeBytes: 12_716_211_232,
@@ -344,6 +348,7 @@ export const VIDEO_MODEL_CATALOG: VideoModelProfile[] = [
 
   {
     id: 'ltx23-distilled-22b-q3ks',
+    recommended: true,
     category: 'video',
     name: 'LTX-2.3 Distilled 22B Q3 (smallest LTX, faster)',
     sizeBytes: 9_946_936_352,

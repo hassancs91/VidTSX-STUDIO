@@ -9,8 +9,7 @@
 
 const ENV_GATED: Record<string, string | boolean | undefined> = {
   tools: import.meta.env.VITE_FF_TOOLS,
-  // AI page — local model sub-tabs
-  'ai-video-models': import.meta.env.VITE_FF_AI_VIDEO,
+  // AI page — local model sub-tabs (Video moved to FEATURE_FLAGS 2026-09-16)
   'ai-llm-models': import.meta.env.VITE_FF_AI_LLM,
   'ai-embedding-models': import.meta.env.VITE_FF_AI_EMBEDDINGS,
   // Sherpa voice-engine section inside the Audio tab
@@ -56,6 +55,10 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   'ai-system-runtimes': true,
   'ai-3d-models': true,
   'threed-studio': true,
+  // Local video models (docs/ai-models-redesign.md §3.5, Hasan 2026-09-16): the
+  // AI page Video section with a short recommended list, on the same sd-cli
+  // runtime as images. Nothing downloads or runs until the user clicks.
+  'ai-video-models': true,
   // Studio (AI video editor): the nav entry and the editor behind it. The
   // editor flipped on 2026-09-10 (V1 completion plan §3 step 5, "Studio
   // flip") after its testing pass on the raw-footage clips; `false` here

@@ -79,6 +79,12 @@ export interface ModelProfileEnvelope<TMeta> {
   directoryUnit?: DirectoryInstallUnit;
   /** Optional hardware hints, display/preflight only. */
   requirements?: { minRamGB?: number; minVramGB?: number };
+  /**
+   * Curated "Recommended" pick for the AI Models catalog
+   * (docs/ai-models-redesign.md §3.3): shown by default, one or two per
+   * hardware tier; every other entry sits under "All models".
+   */
+  recommended?: boolean;
   /** Category-specific payload (e.g. SdModelMeta, SherpaModelMeta, LlmModelMeta). */
   meta: TMeta;
 }
