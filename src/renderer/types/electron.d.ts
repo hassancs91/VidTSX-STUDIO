@@ -454,6 +454,12 @@ export interface ElectronAPI {
   onTsxJobEvent: (callback: (data: import('../../shared/ipc/types').TsxJobEvent) => void) => () => void;
   onTsxJobStream: (callback: (data: import('../../shared/ipc/types').TsxJobStreamEvent) => void) => () => void;
 
+  // Templates (Creator — ready-made compositions edited through a form)
+  templatesList: () => Promise<import('../../shared/ipc/types').TemplatesListResponse>;
+  templatesStage: (data: import('../../shared/ipc/types').TemplatesStageRequest) => Promise<import('../../shared/ipc/types').TemplatesStageResponse>;
+  templatesStateLoad: (data: import('../../shared/ipc/types').TemplatesStateLoadRequest) => Promise<import('../../shared/ipc/types').TemplatesStateLoadResponse>;
+  templatesStateSave: (data: import('../../shared/ipc/types').TemplatesStateSaveRequest) => Promise<import('../../shared/ipc/types').TemplatesStateSaveResponse>;
+
   // Studio (AI video editor) — projects & media
   studioRootGet: () => Promise<import('../../shared/ipc/types').StudioRootGetResponse>;
   studioRootSet: (data: import('../../shared/ipc/types').StudioRootSetRequest) => Promise<import('../../shared/ipc/types').StudioRootSetResponse>;

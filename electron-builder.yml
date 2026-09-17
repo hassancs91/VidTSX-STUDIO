@@ -111,6 +111,15 @@ extraResources:
     filter:
       - "**/*"
       - "!**/.*"
+  # Built-in templates (docs/templates-plan.md §3): one folder per template,
+  # `<namespace>/<name>/template.json` beside its composition and artwork,
+  # read-only; shadowed by a newer user copy, as agents and flows are. They
+  # preview and render from a working copy under userData, never from here.
+  - from: resources/templates
+    to: templates
+    filter:
+      - "**/*"
+      - "!**/.*"
   - from: resources/icon.ico
     to: icon.ico
   - from: resources/icon.png

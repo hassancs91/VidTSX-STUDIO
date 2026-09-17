@@ -7,6 +7,40 @@
 
 ---
 
+## 2026-09-17 — TEMPLATES P0–P3: a third Creator mode — ready-made compositions you fill in
+
+`docs/templates-plan.md` holds the decisions (§1), the manifest (§2), the working copy (§4) and what is next (§7).
+
+- **What:** TSX Creator gains `Prompt | Agent | Templates`. Templates mode turns the left column into a gallery;
+  opening a template swaps it for that template's **form** (groups, looks, a format picker), the centre previews it
+  live and renders it with the form's values. No provider, no prompt. Values autosave per template. One built-in:
+  `vidtsx/youtube-subs` (from `vidtsx-addons`), under the new `resources/templates/` (extraResources).
+- **An extension kind, like agents and flows:** `template.json` per folder, the shared `<namespace>/<name>` id, a
+  two-root folder-as-truth scan where the higher version wins. The form is **declared in the manifest, never parsed
+  from the TSX** (NEXT_FEATURES_DESIGN Q8's rule); controls are Q8c's `ParamSpec` plus `text` / `textarea` / `image`,
+  rendered by the shared `ParamField` so transitions and effects can reuse it. The importer and `.vidtsxpack` are P4.
+- **The working copy** (`{userData}/template-work/<ns>/<name>/`): main stages the entry per format and BOTH preview
+  and render load that file. Three facts forced it, each checked in code: a built-in cannot render in place (the
+  wrapper is written beside the entry; `resources/` is read-only when installed); a job's `width`/`height` do NOT size
+  a render (the bundle's `<Composition>`, built from the file's `compositionConfig`, wins — so a format rewrites that
+  literal); and `staticFile(prop)` breaks at render (only string literals are rewritten today — so staging routes
+  every call through `window.location.origin + '/asset?path='`, which the preview server and the render bundle server
+  both serve).
+- **Also:** the Rendered tab came out of `MotionPreviewPanel` (734 → 594 lines) into `useRenderedOutputs` +
+  `RenderedOutputView`, shared by both panels. The Creator's own props panel is untouched — it is preview-only by
+  design (its footer says so); only the template path passes `inputProps` to the render.
+- **Gates:** `check:types` at baseline (26 / 10), no error in a touched file; vitest 299 files / 2586 passed; 38 new
+  tests in `src/shared/templates` + `src/main/services/templates`, several of which run against EVERY folder under
+  `resources/templates` (manifest parses, files exist, keys appear in the source, stages and transpiles in every
+  format) — adding a built-in is dropping a folder in and running them.
+- **Verified for real, headless** (`.vidtsx-temp/templates-verify/run.mjs`: scan → stage → the app's
+  `generateWrapper` → `@remotion/bundler` → the `/asset` route → `getCompositions` → `renderStill`): portrait reported
+  1080×1920; non-default text, number and accent arrived; a relative avatar and an absolute background both fetched
+  200 and are in the frame.
+- **Not verified: the UI.** No click-through yet (mode toggle, gallery, form, autosave round trip, format switch,
+  Render). Hasan's own dev app was running without a debug port and holds the single-instance lock, and a second dev
+  instance would have rewritten `out/main/chunks` under it. Needs a dev-app restart (new IPC) and a CDP pass.
+
 ## 2026-09-17 — AI MODELS REDESIGN P6: the live pass (CDP), and what it fixed
 
 `docs/ai-models-redesign.md` §6 → the new **§8 verification log** holds every row (this laptop, RTX A3000 6 GB).

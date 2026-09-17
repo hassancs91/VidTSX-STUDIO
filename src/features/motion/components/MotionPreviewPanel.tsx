@@ -1,26 +1,15 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Button, Modal, RenderSettingsModal, SkeletonLoader, type RenderSettings } from '@shared/components';
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
 import { CodeEditor, useCodeEditor, usePropsExtractor, PropsPanel } from '@features/editor';
 import { JobStreamView } from './JobStreamView';
-import { useRenderQueue, useRenderHistory, getFormatLabel, formatResolution, formatFileSize } from '@features/render-queue';
+import { useRenderQueue } from '@features/render-queue';
 import { useToast } from '@renderer/contexts/ToastContext';
 import type { MotionProject } from '../types';
 import type { PipelineStepLog, PipelineProgress, PipelineMode } from '@shared/tsx-engine';
-import type { RenderHistoryEntry } from '@shared/ipc/types';
 import { useSmoothProgress } from '../hooks/useSmoothProgress';
-import { GifPlayer } from './GifPlayer';
-
-function describeRenderedEntry(entry: RenderHistoryEntry): string {
-  const scale = entry.scale ?? 1;
-  const codec = (entry.codec ?? 'h264') as 'h264';
-  const parts = [getFormatLabel(codec)];
-  if (typeof entry.width === 'number' && typeof entry.height === 'number') {
-    parts.push(formatResolution(Math.round(entry.width * scale), Math.round(entry.height * scale)));
-  }
-  if (entry.fileSize) parts.push(formatFileSize(entry.fileSize));
-  return parts.join(' · ');
-}
+import { useRenderedOutputs } from '../hooks/useRenderedOutputs';
+import { RenderedOutputView } from './RenderedOutputView';
 
 function RenderIcon() {
   return (
@@ -117,8 +106,8 @@ export function MotionPreviewPanel({
     onAfterSave: handleAfterSave,
   });
   const propsExtractor = usePropsExtractor(codeEditor.content, project?.currentVersion ?? null);
-  const { addJob, openFolder, openFile } = useRenderQueue();
-  const { entries: historyEntries } = useRenderHistory();
+  const { addJob } = useRenderQueue();
+  const rendered = useRenderedOutputs(project?.currentVersion ?? null);
   const { showToast } = useToast();
 
   const [savedDebug, setSavedDebug] = useState<SavedDebug | null>(null);
@@ -149,29 +138,6 @@ export function MotionPreviewPanel({
   const debugModel = output?.model ?? savedDebug?.model;
   const debugDuration = output?.durationMs ?? savedDebug?.durationMs;
   const hasStructuredDebug = debugSteps.length > 0;
-
-  const renderedJobs = useMemo(() => {
-    if (!project?.currentVersion) return [];
-    const normalized = project.currentVersion.replace(/\\/g, '/').toLowerCase();
-    return historyEntries
-      .filter((e) => e.filePath.replace(/\\/g, '/').toLowerCase() === normalized)
-      .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
-  }, [historyEntries, project?.currentVersion]);
-
-  const [selectedRenderedIndex, setSelectedRenderedIndex] = useState(0);
-
-  // Reset selection when version changes or new renders complete
-  useEffect(() => {
-    setSelectedRenderedIndex(0);
-  }, [project?.currentVersion, renderedJobs.length]);
-
-  const selectedRenderedJob = renderedJobs[selectedRenderedIndex] ?? null;
-
-  const renderedVideoSrc = useMemo(() => {
-    if (!selectedRenderedJob) return null;
-    const normalized = selectedRenderedJob.outputPath.replace(/\\/g, '/');
-    return normalized.startsWith('/') ? `file://${normalized}` : `file:///${normalized}`;
-  }, [selectedRenderedJob]);
 
   const canRender = loaderState.status === 'success' && loaderState.config !== null && project !== null;
 
@@ -246,7 +212,7 @@ export function MotionPreviewPanel({
       >
         {tabs.map((tab) => {
           const isRenderedTab = tab.id === 'rendered';
-          const hasVideo = isRenderedTab && renderedVideoSrc !== null;
+          const hasVideo = isRenderedTab && rendered.src !== null;
           return (
             <button
               key={tab.id}
@@ -518,116 +484,10 @@ export function MotionPreviewPanel({
 
           {/* Rendered tab */}
           {activeTab === 'rendered' && (
-            <div className="flex-1 min-h-0 flex flex-col m-2">
-              {renderedVideoSrc && selectedRenderedJob ? (
-                <>
-                  {/* Info bar with dropdown + open folder */}
-                  <div
-                    className="shrink-0 flex items-center gap-2 px-2 py-1.5 rounded-t-lg bg-app-surface"
-                    style={{ borderBottom: '0.5px solid var(--color-border)' }}
-                  >
-                    {renderedJobs.length > 1 ? (
-                      <select
-                        value={selectedRenderedIndex}
-                        onChange={(e) => setSelectedRenderedIndex(Number(e.target.value))}
-                        className="bg-app-base text-text-secondary text-[10px] rounded px-2 py-1 border-none outline-none cursor-pointer"
-                        style={{ border: '0.5px solid var(--color-border)' }}
-                      >
-                        {renderedJobs.map((job, i) => (
-                          <option key={i} value={i}>{describeRenderedEntry(job)}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-[10px] text-text-muted">
-                        {describeRenderedEntry(selectedRenderedJob)}
-                      </span>
-                    )}
-                    <button
-                      onClick={() => openFolder(selectedRenderedJob.outputPath)}
-                      className="ml-auto text-text-dim hover:text-text-primary transition-colors cursor-pointer p-1 rounded hover:bg-app-hover"
-                      title="Open file location"
-                    >
-                      <svg width={12} height={12} viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h3.879a1.5 1.5 0 0 1 1.06.44l1.122 1.12A1.5 1.5 0 0 0 9.62 4H13.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9Z" />
-                      </svg>
-                    </button>
-                  </div>
-                  {/* Player area */}
-                  <div className="flex-1 min-h-0 flex items-center justify-center bg-app-player rounded-b-lg overflow-hidden">
-                    {selectedRenderedJob.codec === 'gif' ? (
-                      <GifPlayer
-                        key={renderedVideoSrc}
-                        src={renderedVideoSrc}
-                        className="w-full h-full"
-                      />
-                    ) : selectedRenderedJob.codec === 'webp' ? (
-                      // Chromium plays animated WebP natively in an <img>.
-                      <img
-                        key={renderedVideoSrc}
-                        src={renderedVideoSrc}
-                        className="max-w-full max-h-full object-contain"
-                        alt="Rendered animated WebP"
-                      />
-                    ) : selectedRenderedJob.codec === 'prores' ? (
-                      <div className="flex flex-col items-center justify-center text-center px-6 py-8 max-w-[420px]">
-                        <svg
-                          width={48}
-                          height={48}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={1.5}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-text-dim mb-3"
-                        >
-                          <rect x="2" y="6" width="20" height="12" rx="2" />
-                          <path d="M10 10l4 2-4 2v-4z" fill="currentColor" />
-                        </svg>
-                        <div className="text-[13px] font-medium text-text-primary mb-2">
-                          ProRes preview not available in-app
-                        </div>
-                        <div className="text-[11px] text-text-dim mb-4 leading-relaxed">
-                          ProRes 4444 is a pro editor codec — your render is good and ready
-                          to use, but the in-app player can't decode it (only its audio
-                          track). Open it in your video editor (CapCut, Premiere, etc.)
-                          where transparency and quality will look correct.
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="primary"
-                            onClick={() => openFile(selectedRenderedJob.outputPath)}
-                          >
-                            Open in editor
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => openFolder(selectedRenderedJob.outputPath)}
-                          >
-                            Show in folder
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <video
-                        key={renderedVideoSrc}
-                        src={renderedVideoSrc}
-                        controls
-                        autoPlay={false}
-                        className="max-w-full max-h-full"
-                        style={{ objectFit: 'contain' }}
-                      />
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 flex items-center justify-center bg-app-player rounded-lg">
-                  <span className="text-[12px] text-text-dim">
-                    No rendered video available. Use the Render button to render this version.
-                  </span>
-                </div>
-              )}
-            </div>
+            <RenderedOutputView
+              outputs={rendered}
+              emptyText="No rendered video available. Use the Render button to render this version."
+            />
           )}
         </div>
 

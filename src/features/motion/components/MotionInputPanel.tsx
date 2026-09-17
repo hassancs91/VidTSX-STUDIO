@@ -27,6 +27,9 @@ interface MotionInputPanelProps {
   /** The Agent mode chat, mounted by the screen; hidden in prompt mode so a
    *  run in flight keeps its view. */
   agentPanel?: ReactNode;
+  /** Templates mode: the gallery or the open template's form. It needs no
+   *  provider, model or prompt, so it takes the whole column. */
+  templatesPanel?: ReactNode;
   prompt: string;
   onPromptChange: (value: string) => void;
   providers: LlmProviderConfig[];
@@ -66,6 +69,7 @@ export function MotionInputPanel({
   mode,
   onModeChange,
   agentPanel,
+  templatesPanel,
   prompt,
   onPromptChange,
   providers,
@@ -100,6 +104,7 @@ export function MotionInputPanel({
   const picker = useModelPicker(selectedProvider);
   const showThinking = llmModelSupportsThinking(picker.providerId, model || undefined);
   const agentMode = mode === 'agent';
+  const templatesMode = mode === 'templates';
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !loading && prompt.trim()) {
@@ -118,7 +123,7 @@ export function MotionInputPanel({
 
   return (
     <div
-      className={`flex flex-col shrink-0 bg-app-surface h-full ${agentMode ? 'overflow-hidden' : 'overflow-y-auto'}`}
+      className={`flex flex-col shrink-0 bg-app-surface h-full ${agentMode || templatesMode ? 'overflow-hidden' : 'overflow-y-auto'}`}
     >
       {/* Mode (W7) + collapse */}
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
@@ -138,7 +143,7 @@ export function MotionInputPanel({
       </div>
 
       {/* Prompt */}
-      {!agentMode && (
+      {!agentMode && !templatesMode && (
         <div className="px-3 pb-3 flex flex-col gap-2">
           <label className="text-[11px] text-text-muted font-medium">What do you want to create?</label>
           <textarea
@@ -160,33 +165,36 @@ export function MotionInputPanel({
         </div>
       )}
 
-      {/* Provider */}
-      <div className="px-3 pb-2 flex flex-col gap-1">
-        <label className="text-[10px] text-text-dim">Provider</label>
-        <ProviderSelect
-          providers={providers}
-          value={selectedProvider}
-          onChange={(next) => {
-            onProviderChange(next);
-            onModelChange('');
-          }}
-          disabled={loading}
-        />
-      </div>
+      {/* Provider + Model (W1) — a template is filled in, not generated */}
+      {!templatesMode && (
+        <>
+          <div className="px-3 pb-2 flex flex-col gap-1">
+            <label className="text-[10px] text-text-dim">Provider</label>
+            <ProviderSelect
+              providers={providers}
+              value={selectedProvider}
+              onChange={(next) => {
+                onProviderChange(next);
+                onModelChange('');
+              }}
+              disabled={loading}
+            />
+          </div>
 
-      {/* Model (W1) */}
-      <div className="px-3 pb-2 flex flex-col gap-1">
-        <label className="text-[10px] text-text-dim">Model</label>
-        <ModelSelect
-          models={picker.models}
-          defaultModel={picker.defaultModel}
-          value={model}
-          onChange={onModelChange}
-          disabled={loading}
-        />
-      </div>
+          <div className="px-3 pb-2 flex flex-col gap-1">
+            <label className="text-[10px] text-text-dim">Model</label>
+            <ModelSelect
+              models={picker.models}
+              defaultModel={picker.defaultModel}
+              value={model}
+              onChange={onModelChange}
+              disabled={loading}
+            />
+          </div>
+        </>
+      )}
 
-      {agentMode ? (
+      {templatesMode ? null : agentMode ? (
         brandField
       ) : (
         <>
@@ -314,6 +322,8 @@ export function MotionInputPanel({
       >
         {agentPanel}
       </div>
+
+      {templatesMode && <div className="flex-1 min-h-0 flex flex-col">{templatesPanel}</div>}
     </div>
   );
 }

@@ -1,0 +1,101 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/youtube-subs",
+  "name": "YouTube Subs",
+  "version": "1.0.0",
+  "description": "A subscriber milestone celebration. A play mark assembles from four shards, the counter rolls up to your number, the bell rings and the milestone plate unrolls, then it holds as a poster.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "milestones",
+  "tags": ["youtube", "subscribers", "counter", "celebration"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "channel",
+      "label": "Channel name",
+      "type": "text",
+      "default": "Learn With Hasan",
+      "group": "Channel",
+      "maxLength": 40
+    },
+    {
+      "key": "handle",
+      "label": "Handle",
+      "type": "text",
+      "default": "@learnwithhasan",
+      "group": "Channel",
+      "maxLength": 40,
+      "help": "Leave empty to hide the line under the name."
+    },
+    {
+      "key": "avatar",
+      "label": "Avatar",
+      "type": "image",
+      "default": "",
+      "group": "Channel",
+      "help": "A square image works best. Empty draws your initials."
+    },
+    {
+      "key": "subscribers",
+      "label": "Subscribers",
+      "type": "number",
+      "default": 100000,
+      "group": "Milestone",
+      "min": 0,
+      "max": 999999999,
+      "step": 1,
+      "help": "The number the counter rolls up to."
+    },
+    {
+      "key": "milestoneLabel",
+      "label": "Milestone label",
+      "type": "text",
+      "default": "100K subscribers",
+      "group": "Milestone",
+      "maxLength": 30,
+      "help": "The plate beside the bell."
+    },
+    {
+      "key": "showBell",
+      "label": "Show the bell",
+      "type": "boolean",
+      "default": true,
+      "group": "Milestone"
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#FF3B30",
+      "group": "Style",
+      "help": "The play mark, glow, rule, plate and embers."
+    },
+    {
+      "key": "backgroundImage",
+      "label": "Background image",
+      "type": "image",
+      "default": "",
+      "group": "Style",
+      "help": "Empty draws a gradient in your accent colour."
+    }
+  ],
+  "presets": [
+    { "id": "crimson", "name": "Crimson", "values": { "accent": "#FF3B30", "backgroundImage": "" } },
+    { "id": "crimson-glow", "name": "Crimson Glow", "values": { "accent": "#FF3B30", "backgroundImage": "assets/bg-glow.jpg" } },
+    { "id": "ocean", "name": "Ocean", "values": { "accent": "#2D8CFF", "backgroundImage": "" } },
+    { "id": "emerald", "name": "Emerald", "values": { "accent": "#22C55E", "backgroundImage": "" } },
+    { "id": "gold", "name": "Gold", "values": { "accent": "#F5B02E", "backgroundImage": "" } },
+    { "id": "violet", "name": "Violet", "values": { "accent": "#8B5CF6", "backgroundImage": "" } }
+  ]
+}

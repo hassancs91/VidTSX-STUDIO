@@ -241,3 +241,27 @@ export function getBuiltinFlowsDir(): string {
 export function getFlowRunsDir(): string {
   return path.join(app.getPath('userData'), 'flows-runs');
 }
+
+// ─── Templates (docs/templates-plan.md §3) ─────────────────────────────────
+
+/** `{userData}/templates/<namespace>/<name>` — user-installed templates, folder-as-truth. */
+export function getTemplatesDir(): string {
+  return path.join(app.getPath('userData'), 'templates');
+}
+
+/** Built-in templates shipped with the app (`resources/templates`), read-only
+ *  and shadowed by a newer user copy of the same id, as agents and flows are. */
+export function getBuiltinTemplatesDir(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'templates');
+  }
+  return path.join(app.getAppPath(), 'resources', 'templates');
+}
+
+/** `{userData}/template-work/<namespace>/<name>` — the writable working copy a
+ *  template previews and renders from, with the user's autosaved values beside
+ *  it. A built-in cannot render in place: the render writes its wrapper next
+ *  to the entry, and `resources/` is read-only in an installed app. */
+export function getTemplateWorkDir(): string {
+  return path.join(app.getPath('userData'), 'template-work');
+}

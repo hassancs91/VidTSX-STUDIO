@@ -17,6 +17,7 @@ import { registerEmbeddingIpc } from './registrations/embedding';
 import { registerSdImageIpc } from './registrations/sd-image';
 import { registerSdVideoIpc } from './registrations/sd-video';
 import { registerTsxJobsIpc } from './registrations/tsx-jobs';
+import { registerTemplatesIpc } from './registrations/templates';
 import { registerModelLibraryIpc } from './registrations/model-library';
 import { registerLocalLlmIpc } from './registrations/local-llm';
 import { registerSystemIpc } from './registrations/system';
@@ -67,6 +68,7 @@ export function registerAllIPC(): void {
   registerSdImageIpc();
   registerSdVideoIpc();
   registerTsxJobsIpc();
+  registerTemplatesIpc();
   registerModelLibraryIpc();
   registerLocalLlmIpc();
   registerSystemIpc();

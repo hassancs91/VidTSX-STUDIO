@@ -396,6 +396,14 @@ export const IPC = {
   TSXJOB_EVENT: 'tsxjob:event',
   TSXJOB_STREAM: 'tsxjob:stream',
 
+  // Templates (Creator — ready-made compositions edited through a form,
+  // docs/templates-plan.md). Stage writes the working copy the preview and the
+  // render both load; state is the user's autosaved values.
+  TEMPLATES_LIST: 'templates:list',
+  TEMPLATES_STAGE: 'templates:stage',
+  TEMPLATES_STATE_LOAD: 'templates:state:load',
+  TEMPLATES_STATE_SAVE: 'templates:state:save',
+
   // AI Usage tracking
   AI_USAGE_GET_SUMMARY: 'ai-usage:get-summary',
   AI_USAGE_GET_CHART: 'ai-usage:get-chart',

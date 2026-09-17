@@ -17,6 +17,7 @@ import { audioGenerationApi } from './api/audio-generation';
 import { sdImageApi } from './api/sd-image';
 import { sdVideoApi } from './api/sd-video';
 import { tsxJobsApi } from './api/tsx-jobs';
+import { templatesApi } from './api/templates';
 import { modelLibraryApi } from './api/model-library';
 import { systemApi } from './api/system';
 import { aiRuntimeApi } from './api/ai-runtime';
@@ -63,6 +64,7 @@ const api = {
   ...sdImageApi,
   ...sdVideoApi,
   ...tsxJobsApi,
+  ...templatesApi,
   ...modelLibraryApi,
   ...systemApi,
   ...aiRuntimeApi,

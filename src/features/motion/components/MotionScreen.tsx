@@ -11,6 +11,9 @@ import type { MotionAgentRestore } from '../hooks/useMotionAgent';
 import { MotionPreviewPanel } from './MotionPreviewPanel';
 import { MotionLibraryPanel } from './MotionLibraryPanel';
 import { MotionJobsStrip } from './MotionJobsStrip';
+import { useTemplateSession } from '../hooks/useTemplateSession';
+import { TemplatesPanel } from './templates/TemplatesPanel';
+import { TemplatePreviewPanel } from './templates/TemplatePreviewPanel';
 
 export function MotionScreen() {
   return (
@@ -34,9 +37,21 @@ function MotionScreenContent() {
   // prompt mode) so a run in flight keeps its view.
   const [inputMode, setInputMode] = useState<MotionInputMode>('prompt');
   const [agentOpened, setAgentOpened] = useState(false);
+  // Templates (docs/templates-plan.md): the session lives here so the open
+  // template and its form survive a trip to Prompt or Agent and back.
+  const [templatesOpened, setTemplatesOpened] = useState(false);
+  const templateSession = useTemplateSession();
+  const templatesMode = inputMode === 'templates';
   const handleModeChange = useCallback((mode: MotionInputMode) => {
     setInputMode(mode);
     if (mode === 'agent') setAgentOpened(true);
+    if (mode === 'templates') setTemplatesOpened(true);
+  }, []);
+  // Templates mode swaps the centre panel, so opening a PROJECT from anywhere —
+  // the library, a finished job, an agent's hand-off — has to leave it, or the
+  // project opens out of sight.
+  const leaveTemplatesMode = useCallback(() => {
+    setInputMode((mode) => (mode === 'templates' ? 'prompt' : mode));
   }, []);
   const resizingRef = useRef(false);
   const projectManagerRef = useRef(projectManager);
@@ -54,6 +69,15 @@ function MotionScreenContent() {
   useEffect(() => () => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
   }, []);
+
+  // Any path that changes the open version leaves Templates mode (see above).
+  const openVersion = projectManager.project?.currentVersion ?? null;
+  const lastOpenVersionRef = useRef(openVersion);
+  useEffect(() => {
+    if (openVersion === lastOpenVersionRef.current) return;
+    lastOpenVersionRef.current = openVersion;
+    if (openVersion) leaveTemplatesMode();
+  }, [openVersion, leaveTemplatesMode]);
 
   // Generate jobs still running — shown as placeholder rows in the library.
   const pendingGenerateJobs = jobs.filter((j) => j.kind === 'generate' && isJobActive(j));
@@ -192,8 +216,11 @@ function MotionScreenContent() {
 
   const handleLoadVersion = useCallback(async (filePath: string, folderPath: string) => {
     clearSaveMessage();
+    // Re-clicking the version that is already open changes nothing the effect
+    // above can see, so the library click leaves Templates mode itself.
+    leaveTemplatesMode();
     await projectManager.loadVersion(filePath, folderPath);
-  }, [projectManager]);
+  }, [projectManager, leaveTemplatesMode]);
 
   // W7: a composition the agent's Motion sink wrote — the library gains a
   // project (or a version) and the preview loads it, as a prompt-mode job would.
@@ -305,7 +332,13 @@ function MotionScreenContent() {
         <span className="text-[13px] font-medium text-text-secondary">
           TSX Creator
         </span>
-        {projectManager.project && (
+        {templatesMode ? (
+          templateSession.template && (
+            <span className="text-[10px] text-text-dim">
+              Template / {templateSession.template.manifest.name}
+            </span>
+          )
+        ) : projectManager.project && (
           <span className="text-[10px] text-text-dim">
             {projectManager.project.name} / {projectManager.project.currentVersion.split(/[/\\]/).pop()}
           </span>
@@ -346,6 +379,7 @@ function MotionScreenContent() {
                       onVersion={handleAgentVersion}
                     />
                   }
+                  templatesPanel={<TemplatesPanel enabled={templatesOpened} session={templateSession} />}
                   prompt={generator.prompt}
                   onPromptChange={generator.setPrompt}
                   providers={generator.providers}
@@ -388,26 +422,30 @@ function MotionScreenContent() {
             </>
           )}
         </div>
-        <MotionPreviewPanel
-          project={projectManager.project}
-          output={null}
-          error={projectManager.error}
-          loading={openProjectJob !== null}
-          progress={openProjectJob
-            ? { step: 'generate', stepLabel: openProjectJob.progress.label, percent: openProjectJob.progress.percent }
-            : null}
-          editPrompt={generator.editPrompt}
-          onEditPromptChange={generator.setEditPrompt}
-          onRegenerate={handleRegenerate}
-          onFix={handleFix}
-          onCancel={handleCancelOpenProjectJob}
-          onOverwrite={handleOverwrite}
-          onSaveNewVersion={handleSaveNewVersion}
-          appendOnly={!!(projectManager.project && projectManager.studioProjectIdOf(projectManager.project.folderPath))}
-          streamJobId={streamJob?.id ?? null}
-          saving={projectManager.loading}
-          saveMessage={saveMessage}
-        />
+        {templatesMode ? (
+          <TemplatePreviewPanel session={templateSession} />
+        ) : (
+          <MotionPreviewPanel
+            project={projectManager.project}
+            output={null}
+            error={projectManager.error}
+            loading={openProjectJob !== null}
+            progress={openProjectJob
+              ? { step: 'generate', stepLabel: openProjectJob.progress.label, percent: openProjectJob.progress.percent }
+              : null}
+            editPrompt={generator.editPrompt}
+            onEditPromptChange={generator.setEditPrompt}
+            onRegenerate={handleRegenerate}
+            onFix={handleFix}
+            onCancel={handleCancelOpenProjectJob}
+            onOverwrite={handleOverwrite}
+            onSaveNewVersion={handleSaveNewVersion}
+            appendOnly={!!(projectManager.project && projectManager.studioProjectIdOf(projectManager.project.folderPath))}
+            streamJobId={streamJob?.id ?? null}
+            saving={projectManager.loading}
+            saveMessage={saveMessage}
+          />
+        )}
         {/* Library panel with resize handle + collapse */}
         <div className="flex shrink-0" style={{ width: libraryCollapsed ? 24 : libraryWidth, borderLeft: '0.5px solid var(--color-border)' }}>
           {/* Resize handle */}

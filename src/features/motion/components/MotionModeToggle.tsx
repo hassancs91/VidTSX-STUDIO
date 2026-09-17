@@ -1,6 +1,7 @@
-// `Prompt | Agent` at the top of the Creator's input panel (W7).
+// `Prompt | Agent | Templates` at the top of the Creator's input panel (W7;
+// Templates: docs/templates-plan.md).
 
-export type MotionInputMode = 'prompt' | 'agent';
+export type MotionInputMode = 'prompt' | 'agent' | 'templates';
 
 interface Props {
   mode: MotionInputMode;
@@ -11,6 +12,7 @@ interface Props {
 const MODES: Array<{ value: MotionInputMode; label: string; title: string }> = [
   { value: 'prompt', label: 'Prompt', title: 'One prompt, one generation' },
   { value: 'agent', label: 'Agent', title: 'Talk to TSX Composer; every version lands here' },
+  { value: 'templates', label: 'Templates', title: 'Ready-made compositions you fill in — no prompt' },
 ];
 
 export function MotionModeToggle({ mode, onChange, disabled }: Props) {

@@ -17,6 +17,7 @@ export { registerEmbeddingIpc } from './embedding';
 export { registerSdImageIpc } from './sd-image';
 export { registerSdVideoIpc } from './sd-video';
 export { registerTsxJobsIpc } from './tsx-jobs';
+export { registerTemplatesIpc } from './templates';
 export { registerModelLibraryIpc } from './model-library';
 export { registerLocalLlmIpc } from './local-llm';
 export { registerSystemIpc } from './system';

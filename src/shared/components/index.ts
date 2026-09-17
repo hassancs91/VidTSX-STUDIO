@@ -17,3 +17,5 @@ export { ReferenceImageLibrary } from "./ReferenceImageLibrary";
 export { ReferenceImageDropZone } from "./ReferenceImageDropZone";
 export { VideoModelFields } from "./VideoModelFields";
 export { CopyButton } from "./CopyButton";
+export { ParamField } from "./ParamField";
+export type { ParamFieldProps } from "./ParamField";
