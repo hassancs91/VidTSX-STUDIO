@@ -1,8 +1,9 @@
 # Templates batch 2 — nine more built-ins
 
-> Status: **PLANNED 2026-09-17, nothing built.** Read `docs/templates-plan.md`
-> first (the manifest is §2, the working copy §4, authoring §6). This doc is the
-> work order for the session that adds them. Source of every template:
+> Status: **BUILT 2026-09-17** — all nine, plus T1, H1, C1 and C2; the build
+> log, the deviations from this spec and what is still unverified are in §9.
+> Read `docs/templates-plan.md` first (the manifest is §2, the working copy §4,
+> authoring §6). Source of every template:
 > `D:\repos\vidtsx-addons\templates\<slug>\`.
 
 Batch 1 was one template (`vidtsx/youtube-subs`) to prove the pipeline. Batch 2
@@ -376,3 +377,96 @@ Looks (accent · plateStyle): **Cyan** (defaults) · **Amber** (`#F5B02E` · sol
   apply a preset, switch format, render one.
 - `docs/templates-plan.md` §8 gains the log entry; this file's status line
   changes to BUILT; `Status.md` gets its entry.
+
+## 9. Build log — 2026-09-17
+
+**Step 0.** Batch 1 committed by pathspec as `560ea19` (47 files, every hunk
+checked as templates-only; the unreferenced `avatar.jpg` left out). UI
+click-through over CDP on a restarted dev app (`.vidtsx-temp/templates-cdp/`,
+steps 1–5): mode toggle, gallery + thumbnail, open, text / number (typed and
+out-of-range clamp) / boolean / colour / image Remove, a colour that lights its
+matching preset, a preset that sets an image (the field thumbnail loads), 16:9 →
+9:16 (canvas and layout flip together), a Prompt ↔ Templates round trip keeps
+the open template, Reset, Render → queue → the Rendered tab (frame pulled from
+the MP4: the form's values are in it), and opening a library project from
+Templates mode leaves the mode. Autosave across a real app restart: text, a
+slider number and the format all came back. Nothing needed fixing.
+
+**T1 — `scripts/template-verify.mjs`** (+ `scripts/template-verify/`: `harness.ts`,
+`server.ts`, `backdrop-wrapper.ts`, `electron-stub.cjs`). As §5 specified, with
+three additions: the **font proxy is mounted** (the stub's userData holds its
+cache, so webfont templates go through the app's real proxy); a failed image
+load no longer aborts the run — the look is reported FAIL with the 404 and the
+rest carry on (checked by hiding `bg-glow.jpg`); every still lands in
+`.vidtsx-temp/template-verify/out/<ns>-<name>/<format>-<look>.jpg`. Overlays get
+the `soft` backdrop unless `--backdrop` says otherwise. One template, three
+formats, all looks: about a minute.
+
+**H1.** The built-ins test now fails on any file under `assets/` that no default
+or preset names; `youtube-subs/assets/avatar.jpg` is deleted.
+
+**C2 — overlays.** `RenderSettingsModal` takes `initial` (applied on every
+open); an overlay opens on WebM with transparency on. The preview page has a
+`#backdrop` layer sized to the Player's letterboxed frame and a `setBackdrop`
+command; `IsolatedPreview` takes `backdrop`; `TemplatePreviewPanel` shows a
+Backdrop select for overlays (None / Checker / Daylight / Night / Warm, default
+Daylight = `soft`, remembered in localStorage) and the form says "Renders with a
+transparent background — WebM or ProRes". The stand-ins live in
+`shared/templates/backdrops.ts` as ONE CSS background each — an SVG data URI in
+the frame's units, so blur and grain scale with the frame — and the verify
+script paints the very same value under the component, so a thumbnail and the
+preview show the identical backdrop. The addons harness's drift is dropped.
+
+**C1 — slider.** A range input beside the text field when a number has `min`
+and `max` **and at most 1000 stops** (`(max − min) / step`). The step cap is not
+in §5: without it `youtube-subs`' subscribers (0–999 999 999) and
+`github-stars`' stars would get a slider nobody can land a value with.
+
+**Deviations from §6, each decided from a render:**
+- `before-after` defaults to the bundled pair, as recommended: the procedural
+  stand-in (a flat landscape) undersells a restyle. This is the one manifest
+  default that differs from the TSX default — deliberate, do not "fix" it.
+- `subscribe-bumper`'s thumbnail is **f64**, not f110: f110 is the grey
+  "Subscribed" state; f64 is the red button with the pointer on it.
+- `key-point-callout` keeps its default target for the thumbnail: over the soft
+  backdrop, 63 % / 41 % lands on the stand-in's head, which reads as intended.
+- The built-in staging test only expects the asset helper when the source calls
+  `staticFile(` (`subscribe-bumper` has no images), and its timeout is 60 s — it
+  transpiles every built-in in every format and passed 5 s under full-suite load.
+
+**Verified.**
+- `template-verify` passes for all ten, three formats each, defaults plus every
+  preset; every look was looked at as a contact sheet
+  (`.vidtsx-temp/template-verify/sheet.py`). `quote-card`'s Light paper looks
+  render ink, not cream on cream (the sentinel holds). Archivo is in the proxy's
+  cache and on the frames.
+- CDP pass over all ten in the app (`step6-all.mjs`): 73/73 — preview loads,
+  one control of each type the template has is changed and autosaved
+  (sliders driven as sliders), a preset applies (the image-setting preset where
+  one exists, with the field thumbnail loading), 9:16 shows its canvas without
+  an error, overlays have the Backdrop select and a painted `#backdrop` layer in
+  the webview, and **Archivo reports `loaded` (700 and 900) inside the app
+  preview** for both webfont templates. Inside the guest, the lower third is
+  hit-tested above `#backdrop`.
+- An overlay render from the UI (`name-title-third`): the dialog opened on WebM
+  with transparency on; the file is VP9 with `alpha_mode=1`; decoded with
+  libvpx-vp9 its frame at 2 s is 90 % fully transparent with a translucent
+  plate, and composited over a photo it sits correctly on the footage.
+- Gates: `check:types` at baseline (web 26, node 10), no error in a touched
+  file; vitest 307 files / 2714 tests — the full run had 9 timeouts in
+  disk-heavy suites (the known load flake), all 5 files green on a rerun.
+
+**Not verified / left open.**
+- The WebM was checked over a photo with ffmpeg + PIL, **not over footage in a
+  Studio project** as §8 asks.
+- Window screenshots of the live preview over a backdrop timed out once the
+  window was covered; the backdrop was proven through the webview's DOM and the
+  harness stills, which paint the same CSS.
+- The addons repo is still untouched: its `templates/AUTHORING.md` needs the
+  `template.json` section.
+- Seen on the way, not templates code: the Rendered tab labels a 486×864 render
+  "720p" (`formatResolution` labels portrait by height while the Render dialog
+  called that size "480p"); the dev-only preview-quality HUD overlaps the
+  player's controls.
+- Next per §2: batch 3 (`social-post-card` first), then C3 (length) for the four
+  starred templates; the `audio` control is still the larger unlock (§1).

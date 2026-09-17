@@ -1,11 +1,12 @@
 # Templates — ready-made compositions you fill in
 
-> Status: **P0–P3 built 2026-09-17** (one built-in, `vidtsx/youtube-subs`).
-> P4 (importer, packs, list controls, save-as-project) is planned in §7.
-> Decisions in §1 were taken with Hasan on 2026-09-17.
-> **Batch 2 — nine more built-ins — is planned in `docs/templates-batch-2.md`**
-> (the work order, per-template form specs, and a survey of all 90 addons
-> templates by what blocks each).
+> Status: **P0–P3 built 2026-09-17; batch 2 built the same day — ten built-ins**
+> across Milestones, Social, Product, Openers and Overlays, plus overlay support
+> (backdrops, transparent render defaults), a slider for bounded numbers and
+> `scripts/template-verify.mjs`. P4 (importer, packs, list controls,
+> save-as-project) is planned in §7. Decisions in §1 were taken with Hasan on
+> 2026-09-17. Batch 2's work order, per-template specs, survey of all 90 addons
+> templates and build log: `docs/templates-batch-2.md`.
 
 TSX Creator has three modes: **Prompt** (one generation), **Agent** (TSX
 Composer) and **Templates**. A template is a finished TSX composition with a
@@ -190,9 +191,27 @@ The addons contract (`vidtsx-addons/templates/AUTHORING.md`) is unchanged for
 `manifest.test.ts` and `template-stage.test.ts` run against **every folder under
 `resources/templates`**: the manifest parses and matches its folder, the entry
 and thumbnail exist, every bundled image a default or preset names really
-ships, every control key appears in the source, and the template stages and
-transpiles in every format it declares. Adding a built-in is: drop the folder
-in, run `npx vitest run src/shared/templates src/main/services/templates`.
+ships — and nothing under `assets/` ships that none names — every control key
+appears in the source, and the template stages and transpiles in every format
+it declares.
+
+Adding a built-in (batch-2 doc §7 has the long form):
+
+1. Copy `composition.tsx` and only the assets a default or preset names.
+2. Write `template.json`; defaults come from the default export's destructuring.
+3. `node scripts/template-verify.mjs --id <ns/name> --thumb --frame N` writes
+   `thumb.jpg` (640×360) from the real render path — overlays over the `soft`
+   backdrop.
+4. `npx vitest run src/shared/templates src/main/services/templates`.
+5. `node scripts/template-verify.mjs --id <ns/name>`: every format, the defaults
+   and every preset, through wrapper → bundler → `/asset` → `renderStill`; it
+   fails on a wrong canvas or an image that is not fetched with 200. Look at the
+   stills it leaves in `.vidtsx-temp/template-verify/out/`.
+
+An **overlay** (`"overlay": true`) must paint no full-frame fill. In the app its
+preview gets a Backdrop picker — stand-in footage painted behind the Player by
+the preview page, never by the composition (`shared/templates/backdrops.ts`) —
+and its Render dialog opens on WebM with transparency on.
 
 ## 7. What comes next (P4)
 
@@ -256,3 +275,15 @@ Two assumptions were wrong on the way and are recorded so they are not made
 again: that the props panel not reaching the render was a bug (it is documented
 preview-only behaviour), and that a job's `width`/`height` size the render (§4
 fact 2).
+
+**2026-09-17 — batch 2: ten built-ins.** Full log, deviations and open items in
+`docs/templates-batch-2.md` §9. In short: batch 1 committed (`560ea19`) and its
+UI click-through done over CDP with nothing to fix, autosave checked across a
+real restart; nine templates added (three of them overlays); C2 overlay support
+(`RenderSettingsModal` `initial`, the preview page's `setBackdrop`,
+`IsolatedPreview` `backdrop`, a Backdrop picker); C1 slider (bounded, ≤ 1000
+stops); H1 asset hygiene; T1 `scripts/template-verify.mjs`. Verified: the
+script for all ten × three formats × every look, a 73-check CDP pass over all
+ten, Archivo loaded in the app preview, and a transparent WebM render from the
+UI whose alpha was measured and composited over a photo. Not done: checking
+that WebM over footage in a Studio project.

@@ -1,0 +1,118 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/name-title-third",
+  "name": "Name & Title",
+  "version": "1.0.0",
+  "description": "A lower third that introduces a speaker. A bar, a plate or a single rule builds from the edge, then the name, the role and an optional handle arrive a beat apart, with an avatar or initials beside them.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "overlays",
+  "tags": ["lower-third", "name", "title", "speaker", "overlay"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "overlay": true,
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "name",
+      "label": "Name",
+      "type": "text",
+      "default": "Hasan Aboul Hasan",
+      "group": "Person",
+      "maxLength": 40
+    },
+    {
+      "key": "role",
+      "label": "Role",
+      "type": "text",
+      "default": "Founder, VidTSX Studio",
+      "group": "Person",
+      "maxLength": 48
+    },
+    {
+      "key": "handle",
+      "label": "Handle",
+      "type": "text",
+      "default": "",
+      "group": "Person",
+      "maxLength": 40,
+      "help": "Optional third line. Empty hides it."
+    },
+    {
+      "key": "avatar",
+      "label": "Avatar",
+      "type": "image",
+      "default": "",
+      "group": "Person",
+      "help": "Empty draws initials."
+    },
+    {
+      "key": "showAvatar",
+      "label": "Show the avatar",
+      "type": "boolean",
+      "default": true,
+      "group": "Person"
+    },
+    {
+      "key": "variant",
+      "label": "Design",
+      "type": "select",
+      "default": "bar",
+      "group": "Design",
+      "options": [
+        { "value": "bar", "label": "Bar" },
+        { "value": "plate", "label": "Plate" },
+        { "value": "minimal", "label": "Minimal" }
+      ]
+    },
+    {
+      "key": "side",
+      "label": "Side",
+      "type": "select",
+      "default": "left",
+      "group": "Design",
+      "options": [
+        { "value": "left", "label": "Left" },
+        { "value": "right", "label": "Right" }
+      ]
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#FFD166",
+      "group": "Style",
+      "help": "The bar, stripe or rule, and the avatar ring."
+    },
+    {
+      "key": "plateColor",
+      "label": "Plate colour",
+      "type": "color",
+      "default": "#0E1116",
+      "group": "Style",
+      "help": "Drawn translucent over your footage."
+    },
+    {
+      "key": "textColor",
+      "label": "Text colour",
+      "type": "color",
+      "default": "#FFFFFF",
+      "group": "Style"
+    }
+  ],
+  "presets": [
+    { "id": "gold", "name": "Gold", "values": { "accent": "#FFD166", "plateColor": "#0E1116", "textColor": "#FFFFFF" } },
+    { "id": "violet", "name": "Violet", "values": { "accent": "#7C5CFF", "plateColor": "#0E1116", "textColor": "#FFFFFF" } },
+    { "id": "cyan", "name": "Cyan", "values": { "accent": "#22D3EE", "plateColor": "#0E1116", "textColor": "#FFFFFF" } },
+    { "id": "light-plate", "name": "Light plate", "values": { "accent": "#E11D48", "plateColor": "#F5F5F2", "textColor": "#0E1116" } }
+  ]
+}

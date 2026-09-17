@@ -1,0 +1,131 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/key-point-callout",
+  "name": "Key Point Callout",
+  "version": "1.0.0",
+  "description": "An annotation that points at something in your footage. A target mark lands where you aim it, a leader line draws out of it, and a label plate wipes open with a headline and an optional detail line.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "overlays",
+  "tags": ["callout", "annotation", "tutorial", "pointer", "overlay"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "overlay": true,
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "label",
+      "label": "Label",
+      "type": "text",
+      "default": "Tap here",
+      "group": "Text",
+      "maxLength": 28,
+      "help": "1–4 words reads best."
+    },
+    {
+      "key": "detail",
+      "label": "Detail",
+      "type": "text",
+      "default": "The one setting nobody changes",
+      "group": "Text",
+      "maxLength": 60,
+      "help": "Empty for a bare label."
+    },
+    {
+      "key": "targetX",
+      "label": "Target across (%)",
+      "type": "number",
+      "default": 63,
+      "group": "Target",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "help": "% of the frame width."
+    },
+    {
+      "key": "targetY",
+      "label": "Target down (%)",
+      "type": "number",
+      "default": 41,
+      "group": "Target",
+      "min": 0,
+      "max": 100,
+      "step": 1,
+      "help": "% of the frame height."
+    },
+    {
+      "key": "direction",
+      "label": "Line direction",
+      "type": "select",
+      "default": "right",
+      "group": "Target",
+      "help": "Which way the line leaves the mark.",
+      "options": [
+        { "value": "right", "label": "Right" },
+        { "value": "left", "label": "Left" },
+        { "value": "up", "label": "Up" },
+        { "value": "down", "label": "Down" }
+      ]
+    },
+    {
+      "key": "targetStyle",
+      "label": "Mark",
+      "type": "select",
+      "default": "ring",
+      "group": "Target",
+      "options": [
+        { "value": "ring", "label": "Ring" },
+        { "value": "dot", "label": "Dot" },
+        { "value": "crosshair", "label": "Crosshair" }
+      ]
+    },
+    {
+      "key": "plateStyle",
+      "label": "Plate",
+      "type": "select",
+      "default": "solid",
+      "group": "Style",
+      "options": [
+        { "value": "solid", "label": "Solid" },
+        { "value": "outline", "label": "Outline" }
+      ]
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#22D3EE",
+      "group": "Style",
+      "help": "The mark, the leader line and the outline border."
+    },
+    {
+      "key": "plateColor",
+      "label": "Plate colour",
+      "type": "color",
+      "default": "#0B0E14",
+      "group": "Style"
+    },
+    {
+      "key": "textColor",
+      "label": "Text colour",
+      "type": "color",
+      "default": "#FFFFFF",
+      "group": "Style"
+    }
+  ],
+  "presets": [
+    { "id": "cyan", "name": "Cyan", "values": { "accent": "#22D3EE", "plateStyle": "solid" } },
+    { "id": "amber", "name": "Amber", "values": { "accent": "#F5B02E", "plateStyle": "solid" } },
+    { "id": "rose", "name": "Rose", "values": { "accent": "#FB7185", "plateStyle": "solid" } },
+    { "id": "outline", "name": "Outline", "values": { "accent": "#FFFFFF", "plateStyle": "outline" } }
+  ]
+}

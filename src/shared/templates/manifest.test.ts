@@ -144,6 +144,16 @@ describe('built-in templates', () => {
       ...manifest.presets.flatMap((p) => Object.entries(p.values).filter(([k]) => images.has(k)).map(([, v]) => v)),
     ].filter((v): v is string => typeof v === 'string' && v !== '');
     for (const rel of referenced) expect(fs.existsSync(path.join(dir, rel)), rel).toBe(true);
+    // …and the reverse: nothing ships that no default or preset names. A built-in
+    // is in every installer, so an unreferenced file is dead weight for everyone.
+    const assetsDir = path.join(dir, 'assets');
+    const shipped = fs.existsSync(assetsDir)
+      ? (fs.readdirSync(assetsDir, { recursive: true, withFileTypes: true }) as fs.Dirent[])
+          .filter((e) => e.isFile())
+          .map((e) => path.relative(dir, path.join(e.parentPath, e.name)).split(path.sep).join('/'))
+      : [];
+    const named = new Set(referenced.map((rel) => rel.replace(/^\.\//, '')));
+    expect(shipped.filter((rel) => !named.has(rel)), 'assets no default or preset names').toEqual([]);
     // Every control key must be a prop the composition actually destructures.
     const source = fs.readFileSync(path.join(dir, manifest.entry), 'utf-8');
     for (const c of manifest.controls) expect(source, `prop ${c.key}`).toMatch(new RegExp(`\\b${c.key}\\b`));

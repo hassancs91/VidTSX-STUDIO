@@ -1,0 +1,104 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/before-after",
+  "name": "Before / After",
+  "version": "1.0.0",
+  "description": "A split-screen comparison. A divider sweeps across the frame and wipes your after image in over the before, overshoots and settles where you set it, while the labels cross-fade and the headline arrives. Both images share one framing, so the comparison stays honest.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "product",
+  "tags": ["before-after", "comparison", "split", "reveal", "product"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "beforeImage",
+      "label": "Before image",
+      "type": "image",
+      "default": "assets/before.jpg",
+      "group": "Images",
+      "help": "Use a matched pair — same camera, same framing. Empty draws a stand-in scene."
+    },
+    {
+      "key": "afterImage",
+      "label": "After image",
+      "type": "image",
+      "default": "assets/after.jpg",
+      "group": "Images"
+    },
+    {
+      "key": "beforeLabel",
+      "label": "Before label",
+      "type": "text",
+      "default": "Before",
+      "group": "Labels",
+      "maxLength": 16
+    },
+    {
+      "key": "afterLabel",
+      "label": "After label",
+      "type": "text",
+      "default": "After",
+      "group": "Labels",
+      "maxLength": 16
+    },
+    {
+      "key": "title",
+      "label": "Headline",
+      "type": "text",
+      "default": "One prompt. Ten seconds.",
+      "group": "Labels",
+      "maxLength": 48
+    },
+    {
+      "key": "caption",
+      "label": "Caption",
+      "type": "text",
+      "default": "Same footage, restyled in VidTSX Studio.",
+      "group": "Labels",
+      "maxLength": 80
+    },
+    {
+      "key": "finalSplit",
+      "label": "Final split",
+      "type": "number",
+      "default": 0.55,
+      "group": "Style",
+      "min": 0.2,
+      "max": 0.8,
+      "step": 0.01,
+      "help": "Where the divider comes to rest, as a share of the width."
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#22D3EE",
+      "group": "Style",
+      "help": "The divider glow, the After chip and the rule over the headline."
+    },
+    {
+      "key": "showHandle",
+      "label": "Show the handle",
+      "type": "boolean",
+      "default": true,
+      "group": "Style"
+    }
+  ],
+  "presets": [
+    { "id": "cyan", "name": "Cyan", "values": { "accent": "#22D3EE" } },
+    { "id": "amber", "name": "Amber", "values": { "accent": "#F5B02E" } },
+    { "id": "rose", "name": "Rose", "values": { "accent": "#FB7185" } },
+    { "id": "lime", "name": "Lime", "values": { "accent": "#A3E635" } }
+  ]
+}

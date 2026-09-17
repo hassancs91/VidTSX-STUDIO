@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Modal, Button } from '@shared/components';
 import type { RenderCodec, RenderGpuBackend, RenderHardwareAcceleration } from '@shared/ipc/types';
 import {
@@ -33,6 +33,9 @@ interface RenderSettingsModalProps {
   onClose: () => void;
   onRender: (settings: RenderSettings) => void;
   compositionConfig: { width: number; height: number; fps: number };
+  /** Where the dialog starts, applied each time it opens — e.g. an overlay
+   *  template opens on a transparent WebM. Fields left out keep their state. */
+  initial?: { codec?: RenderCodec; transparent?: boolean };
 }
 
 const FORMAT_OPTIONS = [
@@ -97,6 +100,7 @@ export function RenderSettingsModal({
   onClose,
   onRender,
   compositionConfig,
+  initial,
 }: RenderSettingsModalProps) {
   const [codec, setCodec] = useState<RenderCodec>('h264');
   const [resolution, setResolution] = useState<ResolutionPresetId>('original');
@@ -134,6 +138,17 @@ export function RenderSettingsModal({
         // Falls back to the initial defaults — nothing to do.
       });
     return () => { cancelled = true; };
+  }, [isOpen]);
+
+  // The caller's starting point, once per open (a new object each render must
+  // not keep resetting a choice the user just made).
+  const initialRef = useRef(initial);
+  initialRef.current = initial;
+  useEffect(() => {
+    if (!isOpen) return;
+    const start = initialRef.current;
+    if (start?.codec) setCodec(start.codec);
+    if (start?.transparent !== undefined) setTransparent(start.transparent);
   }, [isOpen]);
 
   const sizeOptions = resolutionOptions(compositionConfig.width, compositionConfig.height, TSX_RESOLUTION_PRESETS);

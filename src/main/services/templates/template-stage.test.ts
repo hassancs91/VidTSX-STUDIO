@@ -153,6 +153,9 @@ describe('the built-in templates through the PREVIEW transpiler', () => {
 
     for (const template of templates) {
       const formats = template.manifest.formats?.options ?? [null];
+      const source = await fs.readFile(path.join(template.dir, template.manifest.entry), 'utf-8');
+      // A template with no image props never calls staticFile, so gets no helper.
+      const usesStaticFile = /(?<![.\w$])staticFile\s*\(/.test(source);
       for (const format of formats) {
         const staged = await stageTemplate(template, format?.value, workRoot);
         const result = await transpileTsx(staged.entryPath, 'http://127.0.0.1:3200');
@@ -161,13 +164,15 @@ describe('the built-in templates through the PREVIEW transpiler', () => {
         if (!result.success) continue;
         if (format) expect(result.config, label).toMatchObject({ width: format.width, height: format.height });
         // The helper made it through, and no call still reaches remotion's own staticFile.
-        expect(result.code, label).toContain('function __vidtsxAsset(');
+        if (usesStaticFile) expect(result.code, label).toContain('function __vidtsxAsset(');
         expect(result.code, label).not.toMatch(/(?<![.\w$])staticFile\s*\(/);
         // Imports were rewritten onto the module server's virtual modules.
         expect(result.code, label).toContain('http://127.0.0.1:3200/');
       }
     }
-  });
+    // Every built-in × every format goes through the real transpiler, so the run
+    // grows with the gallery (~3 s for ten on a quiet machine).
+  }, 60_000);
 });
 
 describe('template state', () => {

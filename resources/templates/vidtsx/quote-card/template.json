@@ -1,0 +1,99 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/quote-card",
+  "name": "Quote Card",
+  "version": "1.0.0",
+  "description": "A cinematic quote or testimonial. The quote reveals word by word in reading rhythm, an accent rule draws under the last word, then the author slides in with a portrait or an initials disc. The type sizes itself to the quote.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "social",
+  "tags": ["quote", "testimonial", "typography", "social"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "quote",
+      "label": "Quote",
+      "type": "textarea",
+      "default": "The best way to predict the future is to build it.",
+      "group": "Quote",
+      "maxLength": 320,
+      "help": "12–40 words fits best; the type resizes to suit."
+    },
+    {
+      "key": "author",
+      "label": "Author",
+      "type": "text",
+      "default": "Hasan Aboul Hasan",
+      "group": "Author",
+      "maxLength": 40
+    },
+    {
+      "key": "role",
+      "label": "Role",
+      "type": "text",
+      "default": "Founder, VidTSX",
+      "group": "Author",
+      "maxLength": 48
+    },
+    {
+      "key": "portrait",
+      "label": "Portrait",
+      "type": "image",
+      "default": "",
+      "group": "Author",
+      "help": "Square. Empty draws initials."
+    },
+    {
+      "key": "theme",
+      "label": "Theme",
+      "type": "select",
+      "default": "dark",
+      "group": "Style",
+      "options": [
+        { "value": "dark", "label": "Dark studio" },
+        { "value": "light", "label": "Light paper" }
+      ]
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#FFD166",
+      "group": "Style",
+      "help": "The quote mark, the rule, the portrait ring."
+    },
+    {
+      "key": "textColor",
+      "label": "Text colour",
+      "type": "color",
+      "default": "#F5F1E8",
+      "group": "Style",
+      "help": "Leave as is and the theme picks cream or ink."
+    },
+    {
+      "key": "backgroundImage",
+      "label": "Background image",
+      "type": "image",
+      "default": "",
+      "group": "Style",
+      "help": "Empty draws a studio (dark) or paper (light) texture."
+    }
+  ],
+  "presets": [
+    { "id": "studio", "name": "Studio", "values": { "theme": "dark", "accent": "#FFD166", "backgroundImage": "" } },
+    { "id": "studio-backdrop", "name": "Studio Backdrop", "values": { "theme": "dark", "accent": "#FFD166", "backgroundImage": "assets/bg-studio.jpg" } },
+    { "id": "paper", "name": "Paper", "values": { "theme": "light", "accent": "#C2410C", "backgroundImage": "" } },
+    { "id": "paper-blue", "name": "Paper Blue", "values": { "theme": "light", "accent": "#2563EB", "backgroundImage": "" } }
+  ]
+}

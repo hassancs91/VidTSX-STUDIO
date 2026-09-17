@@ -3,6 +3,13 @@ import { Button, RenderSettingsModal, SkeletonLoader, type RenderSettings } from
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
 import { useRenderQueue } from '@features/render-queue';
 import { useToast } from '@renderer/contexts/ToastContext';
+import {
+  DEFAULT_OVERLAY_BACKDROP,
+  TEMPLATE_BACKDROPS,
+  TEMPLATE_BACKDROP_LABELS,
+  isTemplateBackdrop,
+  type TemplateBackdrop,
+} from '@shared/templates/backdrops';
 import type { TemplateSession } from '../../hooks/useTemplateSession';
 import { useRenderedOutputs } from '../../hooks/useRenderedOutputs';
 import { RenderedOutputView } from '../RenderedOutputView';
@@ -13,6 +20,20 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'preview', label: 'Preview' },
   { id: 'rendered', label: 'Rendered' },
 ];
+
+/** An overlay renders with alpha: its dialog starts where that is possible. */
+const OVERLAY_RENDER_START = { codec: 'vp9', transparent: true } as const;
+const BACKDROP_STORAGE_KEY = 'vidtsx.templateBackdrop';
+
+function loadBackdrop(): TemplateBackdrop {
+  try {
+    const stored = localStorage.getItem(BACKDROP_STORAGE_KEY);
+    if (isTemplateBackdrop(stored)) return stored;
+  } catch {
+    // Storage unavailable — the default is fine.
+  }
+  return DEFAULT_OVERLAY_BACKDROP;
+}
 
 interface TemplatePreviewPanelProps {
   session: TemplateSession;
@@ -33,6 +54,17 @@ export function TemplatePreviewPanel({ session }: TemplatePreviewPanelProps) {
   const { showToast } = useToast();
   const { template, entryPath, inputProps, format } = session;
   const rendered = useRenderedOutputs(entryPath);
+  const overlay = template?.manifest.overlay === true;
+  // Preview-only stand-in footage under an overlay; remembered across templates.
+  const [backdrop, setBackdrop] = useState<TemplateBackdrop>(loadBackdrop);
+  const changeBackdrop = useCallback((next: TemplateBackdrop) => {
+    setBackdrop(next);
+    try {
+      localStorage.setItem(BACKDROP_STORAGE_KEY, next);
+    } catch {
+      // Not remembered — harmless.
+    }
+  }, []);
 
   // Idempotent — the Creator's own preview panel may already have run it.
   useEffect(() => {
@@ -116,6 +148,22 @@ export function TemplatePreviewPanel({ session }: TemplatePreviewPanelProps) {
         })}
 
         <div className="ml-auto flex items-center gap-2">
+          {overlay && activeTab === 'preview' && (
+            <label className="flex items-center gap-1.5 text-[10px] text-text-dim" title="Stand-in footage behind the overlay — preview only, never rendered">
+              Backdrop
+              <select
+                value={backdrop}
+                onChange={(e) => { if (isTemplateBackdrop(e.target.value)) changeBackdrop(e.target.value); }}
+                data-template-backdrop
+                className="h-[22px] bg-app-base text-text-secondary rounded-[5px] px-1.5 outline-none text-[10px] cursor-pointer"
+                style={{ border: '0.5px solid var(--color-border-input)' }}
+              >
+                {TEMPLATE_BACKDROPS.map((b) => (
+                  <option key={b} value={b}>{TEMPLATE_BACKDROP_LABELS[b]}</option>
+                ))}
+              </select>
+            </label>
+          )}
           {loaderState.config && template && (
             <span className="text-[10px] text-text-dim">
               {loaderState.config.width}×{loaderState.config.height} · {(loaderState.config.durationInFrames / loaderState.config.fps).toFixed(1)}s
@@ -145,6 +193,7 @@ export function TemplatePreviewPanel({ session }: TemplatePreviewPanelProps) {
                 moduleUrl={loaderState.moduleUrl}
                 config={loaderState.config}
                 inputProps={inputProps}
+                backdrop={overlay ? backdrop : 'none'}
                 className="h-full"
               />
             ) : (
@@ -177,6 +226,7 @@ export function TemplatePreviewPanel({ session }: TemplatePreviewPanelProps) {
             height: loaderState.config.height,
             fps: loaderState.config.fps,
           }}
+          initial={overlay ? OVERLAY_RENDER_START : undefined}
         />
       )}
     </div>

@@ -1,0 +1,113 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/subscribe-bumper",
+  "name": "Subscribe Bumper",
+  "version": "1.0.0",
+  "description": "A four-second subscribe bumper. The platform mark opens into a button, a pointer glides in and presses it, the button turns to Subscribed with a bloom, and your channel name, handle and note settle underneath.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "openers",
+  "tags": ["subscribe", "follow", "youtube", "call-to-action", "bumper"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "channelName",
+      "label": "Channel name",
+      "type": "text",
+      "default": "Learn With Hasan",
+      "group": "Channel",
+      "maxLength": 32,
+      "help": "Empty hides the row."
+    },
+    {
+      "key": "handle",
+      "label": "Handle",
+      "type": "text",
+      "default": "@learnwithhasan",
+      "group": "Channel",
+      "maxLength": 32
+    },
+    {
+      "key": "note",
+      "label": "Note",
+      "type": "text",
+      "default": "New video every Tuesday",
+      "group": "Channel",
+      "maxLength": 40,
+      "help": "Empty hides it."
+    },
+    {
+      "key": "action",
+      "label": "Button word",
+      "type": "select",
+      "default": "Subscribe",
+      "group": "Button",
+      "options": [
+        { "value": "Subscribe", "label": "Subscribe" },
+        { "value": "Follow", "label": "Follow" },
+        { "value": "Join", "label": "Join" }
+      ]
+    },
+    {
+      "key": "platform",
+      "label": "Platform",
+      "type": "select",
+      "default": "youtube",
+      "group": "Button",
+      "options": [
+        { "value": "youtube", "label": "YouTube" },
+        { "value": "x", "label": "X" },
+        { "value": "instagram", "label": "Instagram" },
+        { "value": "tiktok", "label": "TikTok" },
+        { "value": "linkedin", "label": "LinkedIn" },
+        { "value": "generic", "label": "Generic" }
+      ]
+    },
+    {
+      "key": "showCursor",
+      "label": "Show the pointer",
+      "type": "boolean",
+      "default": true,
+      "group": "Button"
+    },
+    {
+      "key": "accentColor",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#E11D48",
+      "group": "Style",
+      "help": "The button, its bloom and the note's rules."
+    },
+    {
+      "key": "bgColor",
+      "label": "Background",
+      "type": "color",
+      "default": "#0B0B12",
+      "group": "Style"
+    },
+    {
+      "key": "textColor",
+      "label": "Text colour",
+      "type": "color",
+      "default": "#FFFFFF",
+      "group": "Style"
+    }
+  ],
+  "presets": [
+    { "id": "crimson", "name": "Crimson", "values": { "accentColor": "#E11D48", "bgColor": "#0B0B12", "textColor": "#FFFFFF" } },
+    { "id": "violet", "name": "Violet", "values": { "accentColor": "#7C5CFF", "bgColor": "#0B0B12", "textColor": "#FFFFFF" } },
+    { "id": "ocean", "name": "Ocean", "values": { "accentColor": "#0EA5E9", "bgColor": "#0B0B12", "textColor": "#FFFFFF" } },
+    { "id": "daylight", "name": "Daylight", "values": { "accentColor": "#E11D48", "bgColor": "#F7F7FA", "textColor": "#0B0B12" } }
+  ]
+}

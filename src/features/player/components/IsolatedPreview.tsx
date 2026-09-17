@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { WebviewTag, IpcMessageEvent } from 'electron';
+import { backdropCss, type TemplateBackdrop } from '@shared/templates/backdrops';
 import type { CompositionConfig } from '../hooks/useComponentLoader';
 import { createRendererLogger } from '../../../renderer/utils/logger';
 
@@ -12,6 +13,9 @@ export interface IsolatedPreviewProps {
   config: CompositionConfig;
   /** Live prop overrides forwarded to the Remotion Player's inputProps. */
   inputProps?: Record<string, unknown>;
+  /** Stand-in footage painted BEHIND the Player (page CSS, never the
+   *  composition) so a transparent overlay can be judged. */
+  backdrop?: TemplateBackdrop;
   className?: string;
 }
 
@@ -159,7 +163,7 @@ function ChevronIcon() {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function IsolatedPreview({ moduleUrl, config, inputProps, className = '' }: IsolatedPreviewProps) {
+export function IsolatedPreview({ moduleUrl, config, inputProps, backdrop = 'none', className = '' }: IsolatedPreviewProps) {
   // State
   const [serverUrl, setServerUrl] = useState<string | null>(null);
   const [preloadPath, setPreloadPath] = useState<string | null>(null);
@@ -204,6 +208,12 @@ export function IsolatedPreview({ moduleUrl, config, inputProps, className = '' 
   const pendingLoadRef = useRef<{ moduleUrl: string; config: CompositionConfig } | null>(null);
   const inputPropsRef = useRef(inputProps);
   inputPropsRef.current = inputProps;
+  const backdropValue = useMemo(
+    () => backdropCss(backdrop, { width: config.width, height: config.height }),
+    [backdrop, config.width, config.height],
+  );
+  const backdropRef = useRef(backdropValue);
+  backdropRef.current = backdropValue;
 
   const { durationInFrames, fps } = config;
   const progress = durationInFrames > 0 ? currentFrame / durationInFrames : 0;
@@ -243,6 +253,7 @@ export function IsolatedPreview({ moduleUrl, config, inputProps, className = '' 
         log.debug('Preview webview ready');
         webviewReadyRef.current = true;
         lastPongRef.current = Date.now();
+        sendToWebview({ type: 'setBackdrop', css: backdropRef.current });
         if (pendingLoadRef.current) {
           const pending = pendingLoadRef.current;
           pendingLoadRef.current = null;
@@ -383,6 +394,11 @@ export function IsolatedPreview({ moduleUrl, config, inputProps, className = '' 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inputProps, sendToWebview]);
+
+  // ── Forward backdrop changes (a fresh webview gets it on 'ready') ───────
+  useEffect(() => {
+    if (webviewReadyRef.current) sendToWebview({ type: 'setBackdrop', css: backdropValue });
+  }, [backdropValue, sendToWebview]);
 
   // ── Persist + forward quality changes to webview ────────────────────────
   useEffect(() => {

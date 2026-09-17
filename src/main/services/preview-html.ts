@@ -24,7 +24,11 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
   <meta name="viewport" content="width=1920" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body, #root { width: 100%; height: 100%; overflow: hidden; background: #0a0a0e; }
+    html, body, #root { width: 100%; height: 100%; overflow: hidden; }
+    html, body { background: #0a0a0e; }
+    /* The Player sits over #backdrop, so a transparent composition shows it. */
+    #root { position: relative; z-index: 1; }
+    #backdrop { position: absolute; z-index: 0; display: none; pointer-events: none; }
     #status {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       color: #888; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -39,6 +43,7 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
   </style>
 </head>
 <body>
+  <div id="backdrop"></div>
   <div id="root"></div>
   <div id="status">
     <div style="text-align:center">
@@ -241,7 +246,34 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
         reactRoot = createRoot(rootEl);
       }
       doRender();
+      layoutBackdrop();
     }
+
+    // ── Backdrop: stand-in footage UNDER an overlay (setBackdrop) ─────────
+    // Page CSS only — the composition, and so the render, never sees it. The
+    // box is the Player's letterboxed frame, so the stand-in ends where the
+    // canvas does. The value is a CSS background built by the parent
+    // (shared/templates/backdrops.ts).
+    const backdropEl = document.getElementById('backdrop');
+    let currentBackdrop = null;
+    function layoutBackdrop() {
+      if (!currentBackdrop || !currentConfig) {
+        backdropEl.style.display = 'none';
+        return;
+      }
+      const W = rootEl.clientWidth;
+      const H = rootEl.clientHeight;
+      const s = Math.min(W / currentConfig.width, H / currentConfig.height);
+      const w = currentConfig.width * s;
+      const h = currentConfig.height * s;
+      backdropEl.style.left = ((W - w) / 2) + 'px';
+      backdropEl.style.top = ((H - h) / 2) + 'px';
+      backdropEl.style.width = w + 'px';
+      backdropEl.style.height = h + 'px';
+      backdropEl.style.background = currentBackdrop;
+      backdropEl.style.display = 'block';
+    }
+    window.addEventListener('resize', layoutBackdrop);
 
     function doRender() {
       if (!currentComponent || !currentConfig) return;
@@ -406,6 +438,10 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
             playerKey += 1;
             doRender();
           }
+          break;
+        case 'setBackdrop':
+          currentBackdrop = typeof msg.css === 'string' && msg.css ? msg.css : null;
+          layoutBackdrop();
           break;
         case 'ping':
           send({ type: 'pong' });

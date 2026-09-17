@@ -1,0 +1,105 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/github-stars",
+  "name": "GitHub Stars",
+  "version": "1.0.0",
+  "description": "A star milestone for your repository. A GitHub-style repo card springs in, the counter rolls to your number while the big star fills, contributor avatars orbit behind the card, and the headline holds as a poster.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "milestones",
+  "tags": ["github", "stars", "open-source", "counter", "celebration"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "repo",
+      "label": "Repository",
+      "type": "text",
+      "default": "vidtsx/studio",
+      "group": "Repository",
+      "maxLength": 60,
+      "help": "owner/repo — the owner is muted, the repo bold."
+    },
+    {
+      "key": "description",
+      "label": "Description",
+      "type": "text",
+      "default": "Desktop studio for TSX video compositions.",
+      "group": "Repository",
+      "maxLength": 90
+    },
+    {
+      "key": "language",
+      "label": "Language",
+      "type": "text",
+      "default": "TypeScript",
+      "group": "Repository",
+      "maxLength": 24,
+      "help": "Sets the dot colour for common languages."
+    },
+    {
+      "key": "stars",
+      "label": "Stars",
+      "type": "number",
+      "default": 10000,
+      "group": "Milestone",
+      "min": 0,
+      "max": 9999999,
+      "step": 1,
+      "help": "The number the counter rolls up to."
+    },
+    {
+      "key": "since",
+      "label": "Since",
+      "type": "text",
+      "default": "in 6 months",
+      "group": "Milestone",
+      "maxLength": 40,
+      "help": "The small line under the headline."
+    },
+    {
+      "key": "contributorCount",
+      "label": "Contributors",
+      "type": "number",
+      "default": 12,
+      "group": "Milestone",
+      "min": 0,
+      "max": 24,
+      "step": 1,
+      "help": "Avatars in the orbit ring."
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#FFD166",
+      "group": "Style",
+      "help": "The star, the Starred pill, the burst and the since line."
+    },
+    {
+      "key": "backgroundImage",
+      "label": "Background image",
+      "type": "image",
+      "default": "",
+      "group": "Style",
+      "help": "Empty draws a starfield."
+    }
+  ],
+  "presets": [
+    { "id": "gold", "name": "Gold", "values": { "accent": "#FFD166", "backgroundImage": "" } },
+    { "id": "deep-space", "name": "Deep Space", "values": { "accent": "#FFD166", "backgroundImage": "assets/bg-space.jpg" } },
+    { "id": "violet", "name": "Violet", "values": { "accent": "#7C5CFF", "backgroundImage": "" } },
+    { "id": "cyan", "name": "Cyan", "values": { "accent": "#22D3EE", "backgroundImage": "" } },
+    { "id": "mint", "name": "Mint", "values": { "accent": "#3DD68C", "backgroundImage": "" } }
+  ]
+}

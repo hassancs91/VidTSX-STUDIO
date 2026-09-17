@@ -1,0 +1,140 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/social-handle-bug",
+  "name": "Social Handle Bug",
+  "version": "1.0.0",
+  "description": "A corner bug with your handle. The mark pops in at the corner, a pill or a bar opens out of it with the platform icon and handle, and it settles at a quiet opacity — or folds back to the bare mark after the seconds you choose.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "overlays",
+  "tags": ["handle", "watermark", "corner-bug", "social", "overlay"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "overlay": true,
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "handle",
+      "label": "Handle",
+      "type": "text",
+      "default": "@learnwithhasan",
+      "group": "Handle",
+      "maxLength": 32
+    },
+    {
+      "key": "tagline",
+      "label": "Tagline",
+      "type": "text",
+      "default": "",
+      "group": "Handle",
+      "maxLength": 32,
+      "help": "Empty hides it."
+    },
+    {
+      "key": "platform",
+      "label": "Platform",
+      "type": "select",
+      "default": "none",
+      "group": "Handle",
+      "options": [
+        { "value": "none", "label": "None" },
+        { "value": "x", "label": "X" },
+        { "value": "youtube", "label": "YouTube" },
+        { "value": "instagram", "label": "Instagram" },
+        { "value": "tiktok", "label": "TikTok" },
+        { "value": "linkedin", "label": "LinkedIn" },
+        { "value": "github", "label": "GitHub" }
+      ]
+    },
+    {
+      "key": "logo",
+      "label": "Logo",
+      "type": "image",
+      "default": "",
+      "group": "Handle",
+      "help": "Empty draws a mark from the handle's first letter."
+    },
+    {
+      "key": "variant",
+      "label": "Shape",
+      "type": "select",
+      "default": "pill",
+      "group": "Placement",
+      "options": [
+        { "value": "pill", "label": "Pill" },
+        { "value": "bar", "label": "Bar" }
+      ]
+    },
+    {
+      "key": "position",
+      "label": "Corner",
+      "type": "select",
+      "default": "top-right",
+      "group": "Placement",
+      "options": [
+        { "value": "top-left", "label": "Top left" },
+        { "value": "top-right", "label": "Top right" },
+        { "value": "bottom-left", "label": "Bottom left" },
+        { "value": "bottom-right", "label": "Bottom right" }
+      ]
+    },
+    {
+      "key": "collapseAfter",
+      "label": "Fold after (s)",
+      "type": "number",
+      "default": 0,
+      "group": "Placement",
+      "min": 0,
+      "max": 7,
+      "step": 0.5,
+      "help": "Seconds until it folds to the mark. 0 stays open."
+    },
+    {
+      "key": "restOpacity",
+      "label": "Resting opacity",
+      "type": "number",
+      "default": 0.92,
+      "group": "Placement",
+      "min": 0.3,
+      "max": 1,
+      "step": 0.01
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#7C5CFF",
+      "group": "Style",
+      "help": "The mark, the bar stripe and the logo ring."
+    },
+    {
+      "key": "plateColor",
+      "label": "Plate colour",
+      "type": "color",
+      "default": "#0B0E14",
+      "group": "Style"
+    },
+    {
+      "key": "textColor",
+      "label": "Text colour",
+      "type": "color",
+      "default": "#FFFFFF",
+      "group": "Style"
+    }
+  ],
+  "presets": [
+    { "id": "violet", "name": "Violet", "values": { "accent": "#7C5CFF", "plateColor": "#0B0E14", "textColor": "#FFFFFF" } },
+    { "id": "crimson", "name": "Crimson", "values": { "accent": "#E11D48", "plateColor": "#0B0E14", "textColor": "#FFFFFF" } },
+    { "id": "cyan", "name": "Cyan", "values": { "accent": "#22D3EE", "plateColor": "#0B0E14", "textColor": "#FFFFFF" } },
+    { "id": "light-plate", "name": "Light plate", "values": { "accent": "#7C5CFF", "plateColor": "#F5F5F2", "textColor": "#0B0E14" } }
+  ]
+}

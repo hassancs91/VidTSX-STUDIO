@@ -1,0 +1,124 @@
+{
+  "formatVersion": 1,
+  "id": "vidtsx/app-launch-teaser",
+  "name": "App Launch Teaser",
+  "version": "1.0.0",
+  "description": "A launch teaser for your app. A laptop, phone or browser rises with your screenshot sliding into the screen, the name and tagline land, three feature chips pop in one by one, and the call-to-action pill holds as a poster.",
+  "author": { "name": "VidTSX", "url": "https://vidtsx.com" },
+  "license": "Free to use in your own videos, commercial or not. Do not resell or redistribute the template itself.",
+  "minAppVersion": "1.1.0",
+  "category": "product",
+  "tags": ["launch", "app", "saas", "teaser", "product"],
+  "entry": "composition.tsx",
+  "thumbnail": "thumb.jpg",
+  "formats": {
+    "prop": "format",
+    "default": "landscape",
+    "options": [
+      { "value": "landscape", "label": "16:9", "width": 1920, "height": 1080 },
+      { "value": "portrait", "label": "9:16", "width": 1080, "height": 1920 },
+      { "value": "square", "label": "1:1", "width": 1080, "height": 1080 }
+    ]
+  },
+  "controls": [
+    {
+      "key": "appName",
+      "label": "App name",
+      "type": "text",
+      "default": "VidTSX Studio",
+      "group": "App",
+      "maxLength": 28
+    },
+    {
+      "key": "tagline",
+      "label": "Tagline",
+      "type": "text",
+      "default": "AI video, rendered on your machine",
+      "group": "App",
+      "maxLength": 60
+    },
+    {
+      "key": "device",
+      "label": "Device",
+      "type": "select",
+      "default": "laptop",
+      "group": "App",
+      "options": [
+        { "value": "laptop", "label": "Laptop" },
+        { "value": "phone", "label": "Phone" },
+        { "value": "browser", "label": "Browser" }
+      ]
+    },
+    {
+      "key": "screenshot",
+      "label": "Screenshot",
+      "type": "image",
+      "default": "",
+      "group": "App",
+      "help": "Shown inside the screen. Empty draws a stand-in UI."
+    },
+    {
+      "key": "feature1",
+      "label": "Feature 1",
+      "type": "text",
+      "default": "TSX compositions from a prompt",
+      "group": "Features",
+      "maxLength": 40,
+      "help": "Leave one empty to show fewer."
+    },
+    {
+      "key": "feature2",
+      "label": "Feature 2",
+      "type": "text",
+      "default": "Auto Cut talking-head footage",
+      "group": "Features",
+      "maxLength": 40
+    },
+    {
+      "key": "feature3",
+      "label": "Feature 3",
+      "type": "text",
+      "default": "Local image & speech models",
+      "group": "Features",
+      "maxLength": 40
+    },
+    {
+      "key": "cta",
+      "label": "Button text",
+      "type": "text",
+      "default": "Free download",
+      "group": "Call to action",
+      "maxLength": 24
+    },
+    {
+      "key": "ctaColor",
+      "label": "Button colour",
+      "type": "color",
+      "default": "#FFFFFF",
+      "group": "Call to action",
+      "help": "The text flips dark or light to suit."
+    },
+    {
+      "key": "accent",
+      "label": "Accent colour",
+      "type": "color",
+      "default": "#7C5CFF",
+      "group": "Style",
+      "help": "The glow, the chip icons and the stand-in UI."
+    },
+    {
+      "key": "backgroundImage",
+      "label": "Background image",
+      "type": "image",
+      "default": "",
+      "group": "Style",
+      "help": "Empty draws a gradient."
+    }
+  ],
+  "presets": [
+    { "id": "violet", "name": "Violet", "values": { "accent": "#7C5CFF", "ctaColor": "#FFFFFF", "backgroundImage": "" } },
+    { "id": "violet-glow", "name": "Violet Glow", "values": { "accent": "#7C5CFF", "ctaColor": "#FFFFFF", "backgroundImage": "assets/bg-glow.jpg" } },
+    { "id": "ocean", "name": "Ocean", "values": { "accent": "#22D3EE", "ctaColor": "#FFFFFF", "backgroundImage": "" } },
+    { "id": "sunset", "name": "Sunset", "values": { "accent": "#FB7185", "ctaColor": "#FFD166", "backgroundImage": "" } }
+  ]
+}

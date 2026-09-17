@@ -7,6 +7,29 @@
 
 ---
 
+## 2026-09-17 — TEMPLATES BATCH 2: ten built-ins, overlay support, a verify script
+
+`docs/templates-batch-2.md` §9 holds the full log, every deviation and what is still open.
+
+- **Batch 1 first:** committed by pathspec (`560ea19`), then the UI click-through it never had, over CDP — every control
+  type, a look, format switch, Reset, Render → Rendered tab, library open leaving the mode, autosave across a real
+  restart. Nothing needed fixing.
+- **Nine templates** from `vidtsx-addons`: `github-stars` (Milestones), `quote-card` (Social), `before-after` and
+  `app-launch-teaser` (Product), `subscribe-bumper` and `logo-reveal-mask` (Openers, Archivo webfont), and three
+  overlays — `name-title-third`, `social-handle-bug`, `key-point-callout`. Each with a form, 4–5 looks, a thumbnail.
+- **Overlays (C2):** stand-in footage behind the Player (`shared/templates/backdrops.ts`, a Backdrop picker — preview
+  only, the composition never sees it) and a Render dialog that opens on transparent WebM (`RenderSettingsModal`
+  `initial`). **Slider (C1)** for bounded numbers of at most 1000 stops.
+- **`scripts/template-verify.mjs` (T1):** the app's real render path headless — stage, wrapper with the font proxy,
+  bundler, `/asset`, `renderStill` — for every format, the defaults and every look; `--thumb` writes `thumb.jpg`, over
+  a backdrop for overlays. The built-ins test now also fails on shipped assets nothing names (H1).
+- **Verified:** the script over all ten × 3 formats × every look (each looked at); a 73/73 CDP pass over all ten in
+  the app, including Archivo `loaded` inside the preview and the backdrop layer; a transparent WebM rendered from the
+  UI with measured alpha, composited over a photo. `check:types` at baseline (26 / 10); vitest 2714 tests — 9 load
+  timeouts in the full run, all green on rerun.
+- **Not verified:** that WebM over footage inside a Studio project. The addons repo's `AUTHORING.md` still lacks a
+  `template.json` section.
+
 ## 2026-09-17 — TEMPLATES P0–P3: a third Creator mode — ready-made compositions you fill in
 
 `docs/templates-plan.md` holds the decisions (§1), the manifest (§2), the working copy (§4) and what is next (§7).

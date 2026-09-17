@@ -12,6 +12,9 @@ export interface ParamFieldProps {
   disabled?: boolean;
 }
 
+/** Past this many stops a slider cannot land on a value — the field is typed. */
+const SLIDER_MAX_STEPS = 1000;
+
 const inputClass =
   'w-full h-[26px] bg-app-base text-text-primary rounded-[6px] px-2 outline-none text-[11px] disabled:opacity-50';
 const inputStyle = { border: '0.5px solid var(--color-border-input)' } as const;
@@ -162,8 +165,8 @@ export function ParamField({ control, value, onChange, onPickImage, imageUrl, di
       );
       break;
     }
-    case 'number':
-      field = (
+    case 'number': {
+      const text = (
         <input
           type="text"
           inputMode="decimal"
@@ -177,7 +180,33 @@ export function ParamField({ control, value, onChange, onPickImage, imageUrl, di
           {...focusHandlers(settleNumber)}
         />
       );
+      const { min, max, step } = control;
+      // A slider only where dragging is a real way to choose: a bounded range of
+      // at most SLIDER_MAX_STEPS stops (a subscriber count is typed, a split is felt).
+      const slider = min !== undefined && max !== undefined && (step === undefined || (max - min) / step <= SLIDER_MAX_STEPS);
+      field = slider ? (
+        <div className="flex items-center gap-2">
+          <input
+            type="range"
+            min={min}
+            max={max}
+            step={step ?? 'any'}
+            value={typeof value === 'number' ? value : min}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              setDraft(String(n));
+              onChange(n);
+            }}
+            disabled={disabled}
+            className="flex-1 min-w-0 h-[26px] cursor-pointer disabled:opacity-50"
+            style={{ accentColor: 'var(--color-accent)' }}
+            aria-label={`${control.label} slider`}
+          />
+          <div className="w-[64px] shrink-0">{text}</div>
+        </div>
+      ) : text;
       break;
+    }
     case 'textarea':
       field = (
         <textarea

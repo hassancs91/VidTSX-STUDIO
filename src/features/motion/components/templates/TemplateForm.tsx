@@ -62,6 +62,11 @@ export function TemplateForm({ session }: TemplateFormProps) {
             {manifest.description}
           </div>
         )}
+        {manifest.overlay && (
+          <div className="text-[10px] text-text-muted leading-snug" data-template-overlay-note>
+            Renders with a transparent background — WebM or ProRes.
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto" style={{ borderTop: '0.5px solid var(--color-border)' }}>
