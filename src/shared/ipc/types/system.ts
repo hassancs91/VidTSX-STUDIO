@@ -60,6 +60,11 @@ export interface SystemRuntimeIpc {
   sizeOnDiskBytes: number;
   /** The folder Remove deletes. */
   dir: string;
+  /**
+   * False when the binary in use is the bundled dev drop-in (resources/binaries)
+   * rather than a user-data install — nothing here to remove.
+   */
+  removable: boolean;
 }
 
 export interface SystemRuntimesGetResponse {

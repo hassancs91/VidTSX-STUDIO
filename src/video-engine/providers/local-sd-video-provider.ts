@@ -41,8 +41,33 @@ export interface LocalSdVideoProviderOptions {
   ensure?: () => Promise<void>;
 }
 
+/** sd-cli's classified failure that a CPU-placement retry can answer. */
+const OUT_OF_MEMORY = 'out-of-memory';
+
+/**
+ * CPU placement escalation on out-of-memory, one rung per retry: first the
+ * weights offloaded and the text encoder on the CPU (Wan's umt5 encoder
+ * expands to 5.9 GB), then the VAE too (its decode of 33 frames at 832×480
+ * overflowed a 6 GB card after all 20 sampling steps). Each rung keeps the
+ * GPU for as much as still fits; a rung the request already satisfies is
+ * skipped.
+ */
+const RETRY_LADDER: ReadonlyArray<Partial<LocalVideoRequest>> = [
+  { offloadToCpu: true, clipOnCpu: true },
+  { offloadToCpu: true, clipOnCpu: true, vaeOnCpu: true },
+];
+
+function satisfies(request: LocalVideoRequest, rung: Partial<LocalVideoRequest>): boolean {
+  return (Object.keys(rung) as Array<keyof LocalVideoRequest>).every((key) => request[key] === rung[key]);
+}
+
 interface LocalJob {
   status: 'pending' | 'running' | 'completed' | 'failed';
+  /** The engine request currently carrying this job (changes on a retry). */
+  engineId: string;
+  request: LocalVideoRequest;
+  /** Rungs of RETRY_LADDER used so far. */
+  retries: number;
   progress?: VideoJobProgress;
   result?: LocalVideoResult;
   error?: string;
@@ -96,19 +121,31 @@ export function toLocalVideoModelInfo(model: InstalledModel<VideoModelMeta>): Vi
  * an instance, never in provider settings, zero models until sd-cli and one
  * ready model exist. Submit enqueues on the engine's serial queue and poll
  * reads the job map the engine callbacks fill — the sd-cli step progress rides
- * along so the job card fills like a cloud job. Content Safety needs nothing
- * here: Gate A and the input gate run in the engine before submit, Gate B on
- * the output runs in the clip store that files the `file://` result.
+ * along so the job card fills like a cloud job. A run that sd-cli reports as
+ * out of GPU memory is retried under the same job, one rung of the CPU
+ * placement ladder at a time (RETRY_LADDER). Content Safety needs nothing here: Gate A and the input gate run in the
+ * engine before submit, Gate B on the output runs in the clip store that files
+ * the `file://` result.
  */
 export class LocalSdVideoProvider implements VideoProvider {
   readonly id: string;
+
+  /**
+   * A local run is bounded by the machine, not an API: on the 6 GB laptop a
+   * 2 s 480p Wan 1.3B clip sampled for ~11 minutes (2026-09-17), so the
+   * engine's cloud default of 30 minutes would give up on longer clips.
+   */
+  readonly jobTimeoutMs = 3 * 60 * 60 * 1000;
 
   private readonly engine: LocalVideoEngineLike;
   private readonly prepare?: LocalVideoPreparer;
   private readonly ensure?: () => Promise<void>;
   private ensured: Promise<void> | null = null;
   private hooked = false;
+  /** Jobs by provider job id — the first engine request id. */
   private readonly jobs = new Map<string, LocalJob>();
+  /** Engine request id → provider job id (the retry enqueues a second request for the same job). */
+  private readonly byEngineId = new Map<string, string>();
 
   constructor(id: string, engine: LocalVideoEngineLike, options: LocalSdVideoProviderOptions = {}) {
     this.id = id;
@@ -164,7 +201,14 @@ export class LocalSdVideoProvider implements VideoProvider {
     }
 
     const requestId = this.engine.enqueue(local);
-    this.jobs.set(requestId, { status: 'pending', ...(initImagePath ? { initImagePath } : {}) });
+    this.jobs.set(requestId, {
+      status: 'pending',
+      engineId: requestId,
+      request: local,
+      retries: 0,
+      ...(initImagePath ? { initImagePath } : {}),
+    });
+    this.byEngineId.set(requestId, requestId);
     return { providerJobId: requestId };
   }
 
@@ -179,21 +223,36 @@ export class LocalSdVideoProvider implements VideoProvider {
       case 'running':
         return { status: 'running', ...(job.progress ? { progress: job.progress } : {}) };
       case 'completed': {
-        this.jobs.delete(providerJobId);
+        this.forget(providerJobId, job);
         const outputPath = job.result?.outputPath ?? '';
         return { status: 'completed', url: pathToFileURL(outputPath).href, contentType: 'video/webm' };
       }
       default:
-        this.jobs.delete(providerJobId);
+        this.forget(providerJobId, job);
         return { status: 'failed', error: job.error ?? 'Local video generation failed.' };
     }
   }
 
   async cancel(providerJobId: string): Promise<void> {
     const job = this.jobs.get(providerJobId);
+    if (!job) {
+      this.engine.cancel(providerJobId);
+      return;
+    }
+    this.forget(providerJobId, job);
+    this.engine.cancel(job.engineId);
+    this.releaseInput(job);
+  }
+
+  private forget(providerJobId: string, job: LocalJob): void {
     this.jobs.delete(providerJobId);
-    this.engine.cancel(providerJobId);
-    if (job) this.releaseInput(job);
+    this.byEngineId.delete(job.engineId);
+    this.byEngineId.delete(providerJobId);
+  }
+
+  private jobFor(engineRequestId: string): LocalJob | undefined {
+    const providerJobId = this.byEngineId.get(engineRequestId);
+    return providerJobId ? this.jobs.get(providerJobId) : undefined;
   }
 
   private ensureReady(): Promise<void> {
@@ -210,21 +269,45 @@ export class LocalSdVideoProvider implements VideoProvider {
     if (this.hooked) return;
     this.hooked = true;
     this.engine.onProgress = (p) => {
-      const job = this.jobs.get(p.requestId);
+      const job = this.jobFor(p.requestId);
       if (!job) return;
       job.status = 'running';
       job.progress = { step: p.step, totalSteps: p.totalSteps, percent: p.percent };
     };
     this.engine.onComplete = (requestId, result) => {
-      const job = this.jobs.get(requestId);
+      const job = this.jobFor(requestId);
       if (!job) return;
       job.status = 'completed';
       job.result = result;
       this.releaseInput(job);
     };
-    this.engine.onError = (requestId, error) => {
-      const job = this.jobs.get(requestId);
+    this.engine.onError = (requestId, error, code) => {
+      const job = this.jobFor(requestId);
       if (!job) return;
+      // Out of memory after the last sampling step is the VAE decode: go
+      // straight to the rung that moves the VAE, rather than sampling again
+      // only to fail at the same place.
+      const decodeFailed =
+        job.progress !== undefined && job.progress.totalSteps > 0 && job.progress.step >= job.progress.totalSteps;
+      if (code === OUT_OF_MEMORY && decodeFailed) {
+        const vaeRung = RETRY_LADDER.findIndex((r) => r.vaeOnCpu);
+        if (vaeRung > job.retries) job.retries = vaeRung;
+      }
+      while (job.retries < RETRY_LADDER.length && satisfies(job.request, RETRY_LADDER[job.retries])) job.retries++;
+      const rung = code === OUT_OF_MEMORY ? RETRY_LADDER[job.retries] : undefined;
+      if (rung) {
+        // Same job, next rung of the ladder; the fit estimate counts the model
+        // file, not what sd-cli actually keeps on the card.
+        const retryRequest: LocalVideoRequest = { ...job.request, ...rung };
+        const retryId = this.engine.enqueue(retryRequest);
+        job.retries += 1;
+        job.request = retryRequest;
+        job.engineId = retryId;
+        job.status = 'pending';
+        job.progress = undefined;
+        this.byEngineId.set(retryId, this.byEngineId.get(requestId) ?? requestId);
+        return;
+      }
       job.status = 'failed';
       job.error = error;
       this.releaseInput(job);

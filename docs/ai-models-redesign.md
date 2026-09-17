@@ -310,7 +310,7 @@ What the spike settles for the build:
 | P3b local video provider | `LocalSdVideoProvider` over the sd-cli runner, `registerInstance` from `video-init.ts`, rescan re-registration, progress mapping, the Videos screen / Studio / agents / flows verified against it, `VideoGeneratePanel` removed from AI Models | 1 session — **BUILT 2026-09-17** (Status.md entry; the click test is P6's) |
 | P4 Overview | Hardware · Runtimes table · Storage | ½ session — **BUILT 2026-09-17** (Status.md entry; live pass in P6) |
 | P5 Codex provider | provider + service + protocol tests → Providers row → picker (the spike is done, §3.7) | 1 session — **BUILT 2026-09-17** (Status.md entry: `--ephemeral` verified, image still harvested; live pass in P6) |
-| P6 verification | CDP screenshots at 1280×800 and 1920×1080 maximized per section; vitest for the pure bits; `check:types` at baseline; TESTING rows; video click test on the laptop tiers, the rest on the GPU-VM leg | ½ session |
+| P6 verification | CDP screenshots at 1280×800 and 1920×1080 maximized per section; vitest for the pure bits; `check:types` at baseline; TESTING rows; video click test on the laptop tiers, the rest on the GPU-VM leg | ½ session — **RUN 2026-09-17** (§8 log; Status.md entry) |
 
 Order: P1 → P2 → P3 → P3b → P4 → P5 → P6. P5 is independent of P2–P4 and can
 run in parallel once P1 lands; P3b needs P3's `recommended` list only for its
@@ -337,3 +337,46 @@ picker order, nothing else.
   profiles) — research doc §3.2, once the five above are verified.
 - Migrating audio / LLM / embeddings onto the shared model-library core (the
   Overview Storage row can only count what the core scans).
+
+## 8. Verification log — P6, 2026-09-17 (this laptop: RTX A3000 6 GB, 64 GB RAM)
+
+Driven over CDP (harness in the session scratchpad `p6/`; lessons appended to
+`docs/ui-automation-cdp.md`). Every row is a TESTING row; "verified" means seen
+in the running dev app, not inferred from code.
+
+| Check (plan §6) | Result |
+|---|---|
+| Every section at 1280×800 (viewport emulation) and maximized 1920×991 inner | Overview · Providers · Usage · Image · Video · Audio · 3D · Content Safety all render; screenshots `1280-*.png` / `max-*.png` |
+| No horizontal scroll | `document.documentElement.scrollWidth ≤ clientWidth` on every section at both sizes; the only elements wider than their box are Usage-table cells styled `truncate` (ellipsis, by design) |
+| Hidden presets absent from the Providers table and the catalogs accordion | rows: fal · byteplus · openrouter · cloudflare · assemblyai · elevenlabs · claude-api · claude-subscription · gemini-cli · codex-cli; catalogs: claude-subscription · fal · byteplus · openrouter · cloudflare · claude-api — no openai / gemini / zai / minimax / kimi / local |
+| Hidden presets absent from the Studio agent picker and the Agents picker | both read `llmProvidersGet`; `presets` = claude-subscription · claude-api · openrouter (no configs saved on this machine) |
+| Google Antigravity row detects the installed `agy` | Ready — `%LOCALAPPDATA%\agy\bin\agy.exe`, signed in |
+| OpenAI Codex row detects the installed `codex` | Ready · 0.154.0 — the native exe inside the npm global package, `codex login status` = Logged in using ChatGPT |
+| One Codex image end to end with a `costUsd: 0` usage row | `imageGenerate({ providerId: 'codex-cli', 1536×1024 })` from the app: success in 28.7 s; usage row provider `codex-cli`, model `gpt-image-2`, `requestType: image`, `costUsd: 0`. (Submitted through the same IPC Image Studio uses, not by clicking the Studio.) `--ephemeral` trial outside the app: 38 s, image still written to `generated_images/<thread_id>/` |
+| Overview: Hardware · Runtimes · Storage | Hardware rows GPU / VRAM 6 GB · 4.5 GB free / CUDA 13.0 / RAM 64 GB / Disk; Runtimes whisper.cpp Not installed (v1.8.3, Install), sd-cli, GPU encoder (ffmpeg) Installed 178 MB (Remove), AI Runtime Not installed (Install GPU runtime · 2.8 GB); Storage 0 models everywhere, folder `%APPDATA%\VidTSX Studio\ai-models` |
+| Image · Video · Audio · 3D on the template | Image: sd-cli chip, Installed (empty state), Recommended 8, All models 34 collapsed, Image tools; Video: Recommended 5 with tier chips (Wan 1.3B Q4 "6–8 GB GPU · Fits"), All 8; Audio: whisper.cpp chip Not installed + Install, Defaults row (base, not downloaded), Installed 0, Recommended 3 (Base · Small · Large-v3), All 5; 3D: AI runtime chip, Installed 0, Recommended 1 (TripoSR) |
+| Local video absent from the Videos picker until a model is ready | `videoProvidersGet` → `[]` before the download (no cloud key on this machine) |
+| Wan 2.1 1.3B Q4 downloaded through the app | `sdVideoModelDownload`: model 866 MB + umt5 Q3_K_S 2.9 GB + VAE 254 MB at ~3.4 MB/s, all three finalized; rescan → installed, ready, fit `ok` |
+| "Local (open source)" appears everywhere once a model is ready | `videoProvidersGet` → `local` "Local (open source)", active; `videoModelsGet('local')` → the Wan entry (2–5 s, 16:9 · 9:16 · 1:1, $0); Videos screen model select lists it (provider select hidden with one provider, as before); Flows `flowsNodesList` → `generate_video` available; Studio / Agents tools gate on the same engine |
+| Wan 2.1 1.3B Q4 clip through "Local (open source)" — the never-run click test | **Completed and filed**: 2 s · 1:1 480×480 · 16 fps · VP8 webm 204 KB (`vid-1789627368632-9b620574.webm` in Video Studio), usage row provider `local`, `costUsd: 0`, `durationMs 1739231`. The path on this 6 GB card: attempt 1 out of memory at load (16 s) → rung 0 (weights offloaded, encoder on CPU) sampled 20/20 in ~4½ min at ~13 s/step (832×480 sampled at ~30 s/step in the earlier runs) then overflowed in the VAE decode → rung 1 (VAE on CPU too) re-sampled and decoded on the CPU (~16 min) → Gate B → filed. 29 min wall. A 16:9 832×480 clip takes the same ladder with a longer CPU decode (it ran past 25 min without finishing before the ladder existed and was not re-run to the end). `verifiedOn: 2026-09-17` now sits on the registry entry, so its row reads "Tested". |
+| Job-card progress | Push events carried `step n/20` for every sampling step after the parser fix; the card itself was not screenshotted — the panel only draws cards for jobs it submitted, and the driver submitted through the IPC |
+
+Findings fixed during the pass (all committed with P6): the video engine kept
+the sd-cli path it initialized with, so an in-app sd-cli install after a first
+Videos listing left "Local" empty until a restart (`refreshSdVideoBinary`); the
+in-app sd-cli install is skipped when *any* sd-cli exists, and this laptop's
+dev drop-in under `resources/binaries` was a lone exe without DLLs
+(`0xC0000135` on start — moved aside, the app then installed the pinned
+release in 13 s); Wan's umt5-xxl encoder expands to 5.9 GB in memory, so on a
+6 GB card the first attempt is out of memory — the provider now climbs a retry
+ladder under the same job (weights offloaded + encoder on CPU, then the VAE on
+CPU too; an overflow in the decode jumps straight to that rung) and asks the
+engine for a 3-hour ceiling, and the tracker cancels a provider's work when it
+gives up; sd-cli's tensor-loader
+progress bar (`76/242 - 2.36GB/s`) was parsed as sampling steps — the parser
+now keys on the `s/it` rate.
+
+Not verified: a clip on the 12 GB+ tiers (the rented-GPU leg), the Studio agent
+and Agents `generate_video` calls themselves (their gating and model listing
+were read through the engine they call), and Image Studio's own click path for
+Codex (the IPC it submits on was).

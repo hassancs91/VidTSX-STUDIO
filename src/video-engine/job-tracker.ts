@@ -118,12 +118,16 @@ export class VideoJobTracker {
   private async run(provider: VideoProvider, jobId: string, signal: AbortSignal): Promise<void> {
     const startedAt = Date.now();
     const providerJobId = this.jobs.get(jobId)?.providerJobId ?? '';
+    const maxWaitMs = provider.jobTimeoutMs ?? this.options.maxWaitMs;
     try {
       while (!signal.aborted) {
         await sleep(this.options.pollIntervalMs, signal);
         if (signal.aborted) return;
-        if (Date.now() - startedAt > this.options.maxWaitMs) {
+        if (Date.now() - startedAt > maxWaitMs) {
           this.update(jobId, { status: 'failed', error: 'Video generation timed out.' });
+          // A provider may still be working on it (a local sd-cli run): stop
+          // that work, best effort, so a given-up job does not keep the GPU.
+          await this.stopProvider(provider, providerJobId, jobId);
           return;
         }
 
@@ -161,6 +165,18 @@ export class VideoJobTracker {
       });
     } finally {
       this.release(jobId);
+    }
+  }
+
+  private async stopProvider(provider: VideoProvider, providerJobId: string, jobId: string): Promise<void> {
+    if (!provider.cancel) return;
+    try {
+      await provider.cancel(providerJobId);
+    } catch (err) {
+      log.warn('Provider cancel failed after the job timed out', {
+        jobId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

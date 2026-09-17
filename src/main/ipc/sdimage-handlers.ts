@@ -34,6 +34,7 @@ import { recordBlocked } from '../services/content-safety/blocked-counters';
 import { isSdCliInstalled, getSdCliBinaryPath } from '../services/sdimage-models';
 import { installSdCli, isSdCliInstalling } from '../services/sdcli-install';
 import { resetSdImageEngine } from '../services/sdimage-init';
+import { refreshSdVideoBinary } from '../services/sdvideo-init';
 import { scanImageLibrary, removeImageModel } from '../services/sdimage-library';
 import { applySdGenerationPreflight } from '../services/sdimage-preflight';
 import { applySdParamOverride } from '../services/image-model-params';
@@ -144,8 +145,10 @@ export async function handleSdImageCliInstall(
     if (!isSdCliInstalled() || isSdCliInstalling()) {
       await installSdCli();
       // Forget the memoized engine init so the next engine use resolves the
-      // freshly installed binary instead of the missing bundled path.
+      // freshly installed binary instead of the missing bundled path — and
+      // re-point the video engine, which shares the binary.
       resetSdImageEngine();
+      refreshSdVideoBinary();
     }
     return { success: true };
   } catch (err) {

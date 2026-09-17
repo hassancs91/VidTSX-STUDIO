@@ -32,8 +32,9 @@ async function initVideoEngine(): Promise<void> {
 
 /**
  * Lazy engine init (Wan / LTX / LingBot via sd-cli vid_gen; shares the sd-cli
- * binary with the image engine). Runs on the first video-generation IPC call
- * instead of at app startup (V1_RELEASE_PLAN.md Phase B).
+ * binary with the image engine). Runs on the first listing or generation
+ * through the video engine's local provider instead of at app startup
+ * (V1_RELEASE_PLAN.md Phase B).
  */
 export function ensureSdVideoEngine(): Promise<void> {
   enginePromise ??= initVideoEngine().catch((err: unknown) => {
@@ -41,4 +42,16 @@ export function ensureSdVideoEngine(): Promise<void> {
     throw err;
   });
   return enginePromise;
+}
+
+/**
+ * After an in-app sd-cli install: the engine captured the binary path when it
+ * initialized (possibly a missing or broken one — the Videos screen lists the
+ * local provider before the engine is installed), so re-point it at the
+ * current binary or "Local (open source)" stays empty until a restart.
+ */
+export function refreshSdVideoBinary(): void {
+  if (!enginePromise) return; // never initialized — the first init resolves the new path
+  videoLocalEngine.initialize(createVideoModelResolver(), getSdCliBinaryPath());
+  logEngine.info('SdVideo', 'sd-cli binary re-resolved after install', { installed: isSdCliInstalled() });
 }

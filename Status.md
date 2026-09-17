@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-09-17 — AI MODELS REDESIGN P6: the live pass (CDP), and what it fixed
+
+`docs/ai-models-redesign.md` §6 → the new **§8 verification log** holds every row (this laptop, RTX A3000 6 GB).
+Harness: `docs/ui-automation-cdp.md` (new last section — viewport emulation, `var` helpers, no source edits during a run).
+
+- **Screen:** every section at 1280×800 and maximized, no horizontal scroll; hidden presets absent from the Providers
+  table, the catalogs accordion and the `llmProvidersGet` presets the Studio agent and Agents pickers read; Antigravity
+  and Codex rows both Ready (Codex 0.154.0). Overview, Image, Video, Audio, 3D read as designed.
+- **Codex:** one 1536×1024 image through the app's `imageGenerate` on `codex-cli` in 28.7 s, usage row `codex-cli` /
+  `gpt-image-2` / `costUsd: 0`.
+- **The never-run click test:** Wan 2.1 1.3B Q4 + companions downloaded through the app (~4 GB at ~3.4 MB/s); after
+  the rescan the Videos screen offers "Local (open source)" with the model, the Flows `generate_video` node reports
+  available, and 2 s clips were submitted through `videoGenerate` on the local provider (16:9 first, which kept
+  overflowing the VAE decode while the ladder was being built, then 1:1 for the run that went to the end). It **completed and was filed** — 2 s, 480×480 (1:1), 16 fps VP8 webm, 204 KB, usage row `local` / `costUsd: 0` — 29 minutes wall on this 6 GB laptop: out of memory at load → rung 0 (offload + encoder on CPU) sampled 20/20 then overflowed in the VAE decode → rung 1 (VAE on CPU) re-sampled and decoded on the CPU (~16 min). `verifiedOn: 2026-09-17` is now on the Wan 2.1 1.3B Q4 registry entry, so its Recommended row reads "Tested".
+- **Fixed on the way (in this commit):** `refreshSdVideoBinary()` after an in-app sd-cli install (the video engine had
+  captured the binary path at init — an install after a first Videos listing left Local empty until restart);
+  `clipOnCpu` / `vaeOnCpu` on the local video request and runner (`--clip-on-cpu` / `--vae-on-cpu`) and an
+  out-of-memory **retry ladder** in `LocalSdVideoProvider` under the same job — rung 0 offloads the weights and puts
+  the text encoder on the CPU (Wan's umt5 expands to 5.9 GB, more than a 6 GB card holds beside the model), rung 1
+  moves the VAE too, and an overflow after the last sampling step jumps straight to that rung (the fit estimate counts
+  the model file only); a per-provider `jobTimeoutMs` on `VideoProvider` (local: 3 h; the engine's 30-minute cloud
+  default cut the first successful run's CPU decode) and the tracker now cancels the provider's work when it gives up
+  (an abandoned sd-cli used to keep the GPU); the runner's
+  progress parser keys on sd.cpp's `s/it` rate so the tensor-loader bar is no longer reported as sampling steps
+  (`video-cli-progress.test.ts`); Overview's runtimes row marks a bundled dev drop-in as not removable and shortens the
+  ffmpeg release label.
+- **Machine notes:** this laptop's `resources/binaries/sd-cli.exe` was a lone 618 KB exe without DLLs (exit
+  `0xC0000135`) that also made the in-app install skip itself — moved aside as `sd-cli.exe.broken-drop-in.bak`, the
+  app then installed the pinned release into `%APPDATA%\VidTSX Studio\sd-cli` (104 MB). C: read 0.17 GB free during
+  the unit suites (the ai-runtime / python-models tests pre-allocate catalogue-sized files under %TEMP%) and 44 GB
+  afterwards — those 16 failures are disk, not code.
+- **Gates:** `check:types` at baseline (26 / 10); vitest local-video-engine + video-engine 90 passed (new
+  `video-cli-progress.test.ts` 3, provider OOM-retry tests 2).
+- **Not verified:** the 12 GB+ video tiers (GPU-VM leg), the Studio / Agents `generate_video` calls themselves, Image
+  Studio's own click path for Codex, and a screenshot of the running job card (the panel draws cards only for jobs it
+  submitted; the driver used the IPC).
+
 ## 2026-09-17 — AI MODELS REDESIGN P5: OpenAI Codex as a subscription image provider
 
 `docs/ai-models-redesign.md` §3.7 (D4; the spike of 2026-09-16), phase P5. The Antigravity pattern, one more time.
@@ -19,10 +56,7 @@
   Registered from `image-init.ts` (`registerCodexCliImageProvider`, `CODEX_CLI_IMAGE_PROVIDER_ID`, in
   `INSTANCE_IMAGE_PROVIDER_IDS`); the `'codex-cli'` image dialect carries its param schema.
 - **Service** `src/main/services/codex-cli.ts` — detects the native binary inside the npm global package
-  (`%APPDATA%
-pm
-ode_modules\@openai\codex
-ode_modules\@openai\codex-win32-x64endor\…\codex.exe`; the
+  (`%APPDATA%\npm\node_modules\@openai\codex\node_modules\@openai\codex-win32-x64\vendor\…\codex.exe`; the
   `codex.cmd` shim would need a shell and a shell means quoting a multi-line prompt; `VIDTSX_CODEX_BINARY` overrides),
   probes `codex --version` + `codex login status` (cached 60 s, re-probed on window focus by `useImageCliStatus`),
   generates with `codex exec --skip-git-repo-check -s read-only -C <tmp> -c model_reasoning_effort=low --json -o

@@ -571,3 +571,31 @@ in production; don't chase it.
   finds `memoizedProps.tl` for `select(clipId)`). Wait for the Player's visible
   `<video>` elements to reach `readyState ≥ 2` plus ~2.5 s for fonts before a
   clipped `Page.captureScreenshot` of `.bg-app-player .bg-black`.
+
+## AI Models sweep: viewport emulation, and edits that drop the socket (2026-09-17, redesign P6)
+
+The harness for the AI Models screen lives in the session scratchpad
+(`p6/lib.mjs`, `sections.mjs`, `wan-download.mjs`, `wan-clip.mjs`, `codex.mjs`);
+every section has `data-ai-section` / `data-ai-section-content` hooks, the
+rail `data-ai-rail`, the local-model panels `data-local-section`, the provider
+rows `data-provider-row`, the catalog accordion rows `data-catalog-provider`,
+the Overview rows `data-runtime-row` / `data-storage-row` / `data-hardware-row`.
+Three things learned:
+
+- **Electron's page session has no `Browser.*` domain**, so
+  `Browser.getWindowForTarget` / `setWindowBounds` fail, and a user32
+  `MoveWindow` from PowerShell sized the window to a 32767-px height on this
+  machine. Maximize the OS window once (`ShowWindow(SW_MAXIMIZE)` works) and
+  emulate the small size with `Emulation.setDeviceMetricsOverride({ width:
+  1280, height: 800, deviceScaleFactor: 1, mobile: false })`; clear the
+  override for the maximized pass (1920×991 inner here).
+- **A top-level `const` in `Runtime.evaluate` persists in the page's global
+  lexical scope**, so the next evaluate that declares the same name throws
+  "Identifier … has already been declared". Declare injected helpers with
+  `var` under unique names, or wrap each expression in an IIFE.
+- **Do not edit source while a live run is in flight.** A renderer HMR reload
+  (any `src/renderer` / `src/features` edit, even a comment) closes the CDP
+  socket with "Inspected target navigated or closed" and kills the driver
+  mid-await; the main process — and a download it is running — carries on,
+  so re-attach and read state through IPC (`downloadGetAll`) rather than
+  restarting the work. A main-process edit would restart main and lose it.

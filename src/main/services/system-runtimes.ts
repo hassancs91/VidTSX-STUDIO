@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { shell } from 'electron';
 import type { SystemRuntimeId, SystemRuntimeIpc } from '../../shared/ipc/types';
-import { getSdCliUserDir, isSdCliInstalled } from './sdimage-models';
+import { getSdCliBinaryPath, getSdCliUserDir, isSdCliInstalled } from './sdimage-models';
 import { isSdCliInstalling, SDCLI_RELEASE_TAG } from './sdcli-install';
 import { getWhisperDir, isWhisperInstalled, WHISPER_RELEASE_TAG } from './whisper';
 import {
@@ -51,6 +51,8 @@ export async function listSystemRuntimes(): Promise<SystemRuntimeIpc[]> {
   const whisperDir = getWhisperDir();
   const sdCliDir = getSdCliUserDir();
   const ffmpegDir = getFfmpegFullDir();
+  // Dev builds may run the drop-in under resources/binaries; only a user-data install is ours to remove.
+  const sdCliInUserDir = path.resolve(path.dirname(getSdCliBinaryPath())) === path.resolve(sdCliDir);
   const [whisperBytes, sdCliBytes, ffmpegBytes, ffmpegBinary] = await Promise.all([
     dirSizeBytes(whisperDir, [WHISPER_MODELS_DIR_NAME]),
     dirSizeBytes(sdCliDir),
@@ -68,6 +70,7 @@ export async function listSystemRuntimes(): Promise<SystemRuntimeIpc[]> {
       downloadLabel: '',
       sizeOnDiskBytes: whisperBytes,
       dir: whisperDir,
+      removable: true,
     },
     {
       id: 'sd-cli',
@@ -78,7 +81,8 @@ export async function listSystemRuntimes(): Promise<SystemRuntimeIpc[]> {
       release: SDCLI_RELEASE_TAG,
       downloadLabel: '~36 MB',
       sizeOnDiskBytes: sdCliBytes,
-      dir: sdCliDir,
+      dir: sdCliInUserDir ? sdCliDir : path.dirname(getSdCliBinaryPath()),
+      removable: sdCliInUserDir,
     },
     {
       id: 'ffmpeg-full',
@@ -86,10 +90,12 @@ export async function listSystemRuntimes(): Promise<SystemRuntimeIpc[]> {
       powers: 'Studio preview proxies on the graphics card',
       installed: ffmpegBinary !== null,
       installing: isFfmpegFullInstalling() || isFfmpegFullDownloading(),
-      release: FFMPEG_FULL_CATALOGUE.version,
+      // The catalogue string carries the autobuild date too; the row shows the build tag.
+      release: FFMPEG_FULL_CATALOGUE.version.split(' ')[0],
       downloadLabel: `~${Math.round(FFMPEG_FULL_CATALOGUE.bytes / 1_048_576)} MB`,
       sizeOnDiskBytes: ffmpegBytes,
       dir: ffmpegDir,
+      removable: true,
     },
   ];
 }

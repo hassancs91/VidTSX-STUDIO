@@ -121,6 +121,12 @@ export type VideoPollResult =
 /** The interface every video provider implements — async, so submit + poll. */
 export interface VideoProvider {
   readonly id: VideoProviderId;
+  /**
+   * How long a job may stay pending / running before the engine gives up,
+   * where the provider knows better than the engine default (a local run on
+   * a laptop can legitimately take an hour). Absent → the tracker's maxWaitMs.
+   */
+  readonly jobTimeoutMs?: number;
   submit(request: VideoProviderRequest): Promise<{ providerJobId: string }>;
   poll(providerJobId: string, signal?: AbortSignal): Promise<VideoPollResult>;
   cancel?(providerJobId: string): Promise<void>;

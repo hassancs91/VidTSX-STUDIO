@@ -177,8 +177,8 @@ describe('LocalSdVideoProvider.poll', () => {
     const engine = fakeEngine([installed('wan')]);
     const provider = new LocalSdVideoProvider('local', engine);
     const { providerJobId } = await provider.submit(request());
-    engine.onError?.(providerJobId, 'sd-cli ran out of GPU memory', 'out-of-memory');
-    expect(await provider.poll(providerJobId)).toEqual({ status: 'failed', error: 'sd-cli ran out of GPU memory' });
+    engine.onError?.(providerJobId, 'sd-cli exited with code 1: corrupt model', 'corrupt-model');
+    expect(await provider.poll(providerJobId)).toEqual({ status: 'failed', error: 'sd-cli exited with code 1: corrupt model' });
   });
 
   it('cancel forwards to the engine and forgets the job', async () => {
@@ -188,5 +188,70 @@ describe('LocalSdVideoProvider.poll', () => {
     await provider.cancel(providerJobId);
     expect(engine.cancelled).toEqual([providerJobId]);
     expect((await provider.poll(providerJobId)).status).toBe('failed');
+  });
+});
+
+describe('LocalSdVideoProvider job timeout', () => {
+  it('asks the engine for hours, not the cloud default', () => {
+    expect(new LocalSdVideoProvider('local', fakeEngine([])).jobTimeoutMs).toBe(3 * 60 * 60 * 1000);
+  });
+});
+
+describe('LocalSdVideoProvider out-of-memory retry ladder', () => {
+  it('climbs the ladder under the same job: encoder + weights on the CPU, then the VAE too, then fails for good', async () => {
+    const engine = fakeEngine([installed('wan')]);
+    const provider = new LocalSdVideoProvider('local', engine);
+    const { providerJobId } = await provider.submit(request());
+    expect(engine.enqueued[0].offloadToCpu).toBeUndefined();
+
+    engine.onError?.(providerJobId, 'Ran out of GPU memory.', 'out-of-memory');
+    expect(engine.enqueued).toHaveLength(2);
+    expect(engine.enqueued[1]).toEqual({ ...engine.enqueued[0], offloadToCpu: true, clipOnCpu: true });
+    expect(await provider.poll(providerJobId)).toEqual({ status: 'pending' });
+
+    // Progress on the retry's engine id reaches the original job.
+    engine.onProgress?.({ requestId: 'req-2', step: 2, totalSteps: 20, percent: 10 });
+    expect(await provider.poll(providerJobId)).toEqual({ status: 'running', progress: { step: 2, totalSteps: 20, percent: 10 } });
+
+    engine.onError?.('req-2', 'Ran out of GPU memory.', 'out-of-memory');
+    expect(engine.enqueued).toHaveLength(3);
+    expect(engine.enqueued[2]).toEqual({ ...engine.enqueued[0], offloadToCpu: true, clipOnCpu: true, vaeOnCpu: true });
+    expect(await provider.poll(providerJobId)).toEqual({ status: 'pending' });
+
+    engine.onError?.('req-3', 'Ran out of GPU memory.', 'out-of-memory');
+    expect(await provider.poll(providerJobId)).toEqual({ status: 'failed', error: 'Ran out of GPU memory.' });
+    expect(engine.enqueued).toHaveLength(3);
+  });
+
+  it('jumps to the VAE rung when the out-of-memory comes after the last sampling step (the decode)', async () => {
+    const engine = fakeEngine([installed('wan')]);
+    const provider = new LocalSdVideoProvider('local', engine);
+    const { providerJobId } = await provider.submit(request());
+    engine.onProgress?.({ requestId: providerJobId, step: 20, totalSteps: 20, percent: 100 });
+    engine.onError?.(providerJobId, 'Ran out of GPU memory.', 'out-of-memory');
+    expect(engine.enqueued).toHaveLength(2);
+    expect(engine.enqueued[1]).toEqual({ ...engine.enqueued[0], offloadToCpu: true, clipOnCpu: true, vaeOnCpu: true });
+    expect(await provider.poll(providerJobId)).toEqual({ status: 'pending' });
+  });
+
+  it('skips rungs the request already satisfies, and never retries another failure', async () => {
+    const engine = fakeEngine([installed('wan')]);
+    const provider = new LocalSdVideoProvider('local', engine, {
+      prepare: async (r) => ({ ...r, offloadToCpu: true, clipOnCpu: true }),
+    });
+    const { providerJobId } = await provider.submit(request());
+    engine.onError?.(providerJobId, 'Ran out of GPU memory.', 'out-of-memory');
+    expect(engine.enqueued).toHaveLength(2);
+    expect(engine.enqueued[1].vaeOnCpu).toBe(true);
+    engine.onError?.('req-2', 'Ran out of GPU memory.', 'out-of-memory');
+    expect((await provider.poll(providerJobId)).status).toBe('failed');
+    expect(engine.enqueued).toHaveLength(2);
+
+    const other = fakeEngine([installed('wan')]);
+    const p2 = new LocalSdVideoProvider('local', other);
+    const second = await p2.submit(request());
+    other.onError?.(second.providerJobId, 'corrupt model', 'corrupt-model');
+    expect(other.enqueued).toHaveLength(1);
+    expect((await p2.poll(second.providerJobId)).status).toBe('failed');
   });
 });

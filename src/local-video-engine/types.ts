@@ -114,6 +114,14 @@ export interface VideoGenerationRequest {
   initImagePath?: string;
   /** Offload model weights to CPU/RAM to save VRAM (slower). */
   offloadToCpu?: boolean;
+  /**
+   * Run the text encoder on the CPU (`--clip-on-cpu`). Wan's umt5-xxl expands
+   * to ~5.9 GB in memory — more than a 6 GB card holds beside the model —
+   * so the out-of-memory retry turns this on with the two flags around it.
+   */
+  clipOnCpu?: boolean;
+  /** Run the VAE on the CPU (`--vae-on-cpu`). */
+  vaeOnCpu?: boolean;
 }
 
 export interface VideoGenerationResult {

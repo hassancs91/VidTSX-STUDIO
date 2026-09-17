@@ -56,6 +56,10 @@ export function RuntimeRow({ runtime, progress, onInstall, onRemove }: RuntimeRo
               <ProgressBar value={Math.max(progress?.percent ?? 0, 0)} />
               <div className="mt-1 text-right text-[10px] text-text-dim">{progress?.label ?? 'Installing…'}</div>
             </div>
+          ) : runtime.installed && !runtime.removable ? (
+            <span className="text-[10px] text-text-dim" title={runtime.dir}>
+              bundled build
+            </span>
           ) : runtime.installed ? (
             confirming ? (
               <>

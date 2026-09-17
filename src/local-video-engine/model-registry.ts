@@ -193,6 +193,9 @@ export const VIDEO_MODEL_CATALOG: VideoModelProfile[] = [
   {
     id: 'wan21-t2v-1.3b-q4',
     recommended: true,
+    // Earned 2026-09-17: a 2 s 480×480 clip generated and filed through the
+    // app on an RTX A3000 6 GB (Status.md, AI MODELS REDESIGN P6).
+    verifiedOn: '2026-09-17',
     category: 'video',
     name: 'Wan 2.1 T2V 1.3B Q4 (smallest)',
     sizeBytes: 865_581_280,

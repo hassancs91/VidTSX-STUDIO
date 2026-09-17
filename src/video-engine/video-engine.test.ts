@@ -423,3 +423,32 @@ describe('reference media', () => {
     expect(usage).toHaveBeenCalledWith(expect.objectContaining({ outputTokens: 12345 }));
   });
 });
+
+describe('videoEngine job timeout', () => {
+  it('cancels the provider job when the engine gives up', async () => {
+    const harness = stubProvider([{ status: 'running' }]);
+    const engine = createVideoEngine({ pollIntervalMs: 1, maxWaitMs: 30, retainMs: 60000 });
+    engine.setSafetyGuard(passingGuard());
+    engine.setClipStore(passingStore());
+    engine.registerInstance(harness.provider);
+    const submitted = await engine.submit({ model: 'm1', prompt: 'a slow clip' });
+    const record = await untilTerminal(() => engine.getJob(submitted.jobId));
+    expect(record.status).toBe('failed');
+    expect(record.error).toBe('Video generation timed out.');
+    expect(harness.cancel).toHaveBeenCalledWith('fal-req-1');
+  });
+
+  it("honours a provider's own jobTimeoutMs over the engine default", async () => {
+    const polls: VideoPollResult[] = [...Array.from({ length: 60 }, () => ({ status: 'running' as const })), { status: 'completed', url: 'https://cdn/clip.mp4' }];
+    const harness = stubProvider(polls);
+    (harness.provider as { jobTimeoutMs?: number }).jobTimeoutMs = 10_000;
+    const engine = createVideoEngine({ pollIntervalMs: 1, maxWaitMs: 30, retainMs: 60000 });
+    engine.setSafetyGuard(passingGuard());
+    engine.setClipStore(passingStore());
+    engine.registerInstance(harness.provider);
+    const submitted = await engine.submit({ model: 'm1', prompt: 'a patient clip' });
+    const record = await untilTerminal(() => engine.getJob(submitted.jobId));
+    expect(record.status).toBe('completed');
+    expect(harness.cancel).not.toHaveBeenCalled();
+  });
+});

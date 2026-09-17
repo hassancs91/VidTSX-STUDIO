@@ -68,6 +68,12 @@ export function buildVideoArgs(
   if (request.offloadToCpu) {
     args.push('--offload-to-cpu');
   }
+  if (request.clipOnCpu) {
+    args.push('--clip-on-cpu');
+  }
+  if (request.vaeOnCpu) {
+    args.push('--vae-on-cpu');
+  }
 
   // Wan is a flow model — the sd.cpp examples pin flow-shift to 3.0.
   if (family === 'wan21' || family === 'wan22') {
@@ -85,21 +91,20 @@ export function buildVideoArgs(
   return args;
 }
 
-/** Parse progress from sd-cli output — step lines ("5/20") or percentages. */
-function parseProgress(line: string, requestId: string): VideoGenerationProgress | null {
-  const stepMatch = line.match(/(?:step\s+)?(\d+)\s*[/]\s*(\d+)/i);
-  if (stepMatch) {
-    const step = parseInt(stepMatch[1], 10);
-    const totalSteps = parseInt(stepMatch[2], 10);
-    return { requestId, step, totalSteps, percent: Math.round((step / totalSteps) * 100) };
-  }
-
-  const percentMatch = line.match(/(\d+(?:\.\d+)?)\s*%/);
-  if (percentMatch) {
-    return { requestId, step: 0, totalSteps: 0, percent: Math.round(parseFloat(percentMatch[1])) };
-  }
-
-  return null;
+/**
+ * Parse sampling progress from sd-cli output. sd.cpp draws the same bar for
+ * tensor loading (`|####| 76/242 - 2.36GB/s`) and for sampling
+ * (`|====| 5/20 - 3.20s/it`), and only the latter is progress a job card should
+ * fill with — the rate unit decides. Pure; exported for unit tests.
+ */
+export function parseProgress(line: string, requestId: string): VideoGenerationProgress | null {
+  const stepMatch =
+    line.match(/(\d+)\s*\/\s*(\d+)\s*-\s*[\d.]+\s*(?:s\/it|it\/s)/i) ?? line.match(/\bstep\s+(\d+)\s*\/\s*(\d+)/i);
+  if (!stepMatch) return null;
+  const step = parseInt(stepMatch[1], 10);
+  const totalSteps = parseInt(stepMatch[2], 10);
+  if (totalSteps <= 0) return null;
+  return { requestId, step, totalSteps, percent: Math.round((step / totalSteps) * 100) };
 }
 
 function parseSeed(output: string): number {
