@@ -85,6 +85,13 @@ export interface ModelProfileEnvelope<TMeta> {
    * hardware tier; every other entry sits under "All models".
    */
   recommended?: boolean;
+  /**
+   * ISO date of the release pass in which a real output was generated from
+   * this entry on a supported machine (docs/ai-models-redesign.md §3.5:
+   * "Verified is earned, not declared"). The catalog shows a "Tested" chip
+   * only when set.
+   */
+  verifiedOn?: string;
   /** Category-specific payload (e.g. SdModelMeta, SherpaModelMeta, LlmModelMeta). */
   meta: TMeta;
 }

@@ -1,3 +1,5 @@
+import type { FitResult, HardwareTier } from '@shared/model-library/fit';
+
 /**
  * The AI Models screen's sections — one rail entry each, grouped
  * (docs/ai-models-redesign.md §2). A section with a `flag` exists only when
@@ -53,4 +55,29 @@ export const DEFAULT_AI_SECTION: AiSectionId = 'overview';
 
 export function isAiSectionId(value: unknown): value is AiSectionId {
   return typeof value === 'string' && AI_SECTIONS.some((s) => s.id === value);
+}
+
+/**
+ * One row of the local-model template's catalog lists (Recommended · All),
+ * whatever the category's own model shape (docs/ai-models-redesign.md §3.3).
+ * Pages map their scan / catalogue into this; the row component knows nothing
+ * about categories.
+ */
+export interface CatalogRowData {
+  id: string;
+  name: string;
+  /** Family key for the FamilyBadge (sd15 / flux1 / wan21 / whisper / …). */
+  family: string;
+  sizeLabel: string;
+  /** Hardware class chip, derived from the same estimate as the Fits badge. */
+  tier?: HardwareTier;
+  fit?: FitResult;
+  /** The "Tested" chip: an ISO date a release pass generated real output from this entry. */
+  verifiedOn?: string;
+  /** Second-line copy after the size (who this size is for). */
+  hint?: string;
+  /** Model page ("Get ↗"); link-only entries have this and no download. */
+  sourceUrl?: string;
+  /** True when a one-click download exists. */
+  hasDownload: boolean;
 }

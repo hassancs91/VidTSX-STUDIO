@@ -7,6 +7,43 @@
 
 ---
 
+## 2026-09-17 — AI MODELS REDESIGN P3: one template for the local-model sections (Image · Video · Audio · 3D)
+
+`docs/ai-models-redesign.md` §3.3–§3.6, phase P3.
+
+- **Template** (`components/local/`): `LocalModelPage` fixes the order status strip → Defaults → Installed →
+  Recommended → All models, full width. `LocalModelStatusStrip` = the runtime chip (`LocalRuntimeChip`: state badge +
+  an inline Install with the download bar — the sd-cli and whisper setup cards folded into one line) + models folder +
+  Change / Open / Rescan / Import…. `LocalSectionPanel` is the UI_SPEC panel header with a count, a caption line, an
+  empty state and a disclosure variant; `CatalogModelRow` = name · family · `TierChip` · Fits · Tested, the size under
+  it, Download / Get ↗ / the shared DownloadCell; `RecommendedModelsList`; `AllModelsList` (collapsed, the count in
+  the header, search when open); `LocalDefaultsRow`; `InstalledSimpleRow`. Rows are `types.ts` `CatalogRowData`, so a
+  page maps its own model shape and the row knows no category.
+- **Pure, tested:** `services/catalog-sections.ts` (`splitCatalogSections` — uninstalled entries only, Recommended
+  laptop tier first; `filterCatalog`; `profileToCatalogRow`) and `services/whisper-catalog.ts` (Whisper as one family:
+  downloaded = Installed, `base · small · large-v3` = Recommended, all five sizes under All, a one-line hint per size).
+  `services/download-labels.ts` holds the speed / phase copy the strips share.
+- **Runtimes:** `hooks/useSdCliRuntime.ts` (installed + one-click install + `sdcli-binary` progress) is one hook for
+  the Image and Video strips (`SdCliRuntimeChip`) and took that state out of `useImageLibrary` (406 → 344 lines);
+  `AiRuntimeChip` puts the AI runtime on the 3D strip (recommended-variant Install / Update / Repair with the phase
+  copy) — variants and Remove stay on Overview (P4).
+- **Pages.** Image: strip (sd-cli, folder, Change / Open / Rescan / Import…) → Installed → Recommended (the 8 marked
+  entries) → All models (the other 26, Civitai link-only rows included) → Image tools (flag). Video: strip (sd-cli,
+  Open / Rescan) → the generate panel (until P3b) → Installed → Recommended (the 5) → All; a "Tested" chip renders only
+  where the registry carries `verifiedOn` (new on `ModelProfileEnvelope` and `ProfileModelIpc`, mapped by the scan
+  handler; no entry has it yet — P6 earns the first). Audio: strip (whisper.cpp chip + one pointer "Cloud transcription
+  and sound generation use your provider keys → Providers", a deep link to that section) → Defaults (default
+  transcription model) → Installed (a Default chip on the active size) → Recommended → All; the sherpa voice engine
+  stays env-gated below as a second family. 3D: strip (AI runtime chip, Open folder / Rescan — `modelsOpenFolder` now
+  accepts `3d`) → Installed → Recommended (a handful of entries, so no All disclosure).
+- **Removed:** `ImageLibraryHeader`, `SdCliSetupCard`, `ProfileCatalogList`, `WhisperModelsSection`. `FamilyBadge`
+  learned `whisper` and `triposr`.
+- **Gates:** `check:types` at baseline (26 / 10); vitest ai-models + model-library 17 passed (new
+  `catalog-sections.test.ts` 6, `whisper-catalog.test.ts` 3). Not driven live — the P6 CDP pass. Seen while running
+  the full suite before committing P1 / P2: two `python-models/service.test.ts` cases fail with ENOSPC (C: had 1.6 GB
+  free — the test pre-allocates catalogue-sized files under %TEMP%), and nine studio tests that timed out beside a
+  concurrent tsc run passed alone.
+
 ## 2026-09-16 — AI MODELS REDESIGN P2: the section rail and the Providers page
 
 `docs/ai-models-redesign.md` §2 + §3.2, phase P2 (Hasan: "go for it" on the rail).

@@ -154,5 +154,10 @@ export function usePythonModels(category?: PythonModelCategoryIpc) {
 
   const openExternal = useCallback((url: string) => window.api.appOpenExternal({ url }), []);
 
-  return { models, loading, downloads, error, refresh, download, installAll, remove, pauseDownload, resumeDownload, cancelDownload, openExternal, clearError: () => setError(null) };
+  /** Reveal the models root — only the 3D catalogue has a folder of its own on the model-library core. */
+  const openFolder = useCallback(async () => {
+    if (category === '3d') await window.api.modelsOpenFolder({ category: '3d' });
+  }, [category]);
+
+  return { models, loading, downloads, error, refresh, download, installAll, remove, pauseDownload, resumeDownload, cancelDownload, openExternal, openFolder, clearError: () => setError(null) };
 }

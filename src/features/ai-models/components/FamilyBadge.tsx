@@ -10,6 +10,8 @@ const FAMILY_LABELS: Record<string, string> = {
   wan22: 'Wan 2.2',
   ltx: 'LTX-2.3',
   lingbot: 'LingBot',
+  whisper: 'Whisper',
+  triposr: 'TripoSR',
 };
 
 /** Model-family tag (SD 1.5 / SDXL / FLUX…) shown on library rows. */

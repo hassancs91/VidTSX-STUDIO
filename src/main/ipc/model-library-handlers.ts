@@ -186,6 +186,7 @@ async function scanVideoCategory(): Promise<ModelsScanResponse> {
       fit: fitFor(requirement, hardware),
       recommended: Boolean(p.recommended),
       tier: hardwareTierFor(estimateNeededVramGB(requirement)),
+      ...(p.verifiedOn ? { verifiedOn: p.verifiedOn } : {}),
     };
   });
 
@@ -251,6 +252,7 @@ export async function handleModelsScan(
         fit: fitFor(requirement, hardware),
         recommended: Boolean(p.recommended),
         tier: hardwareTierFor(estimateNeededVramGB(requirement)),
+        ...(p.verifiedOn ? { verifiedOn: p.verifiedOn } : {}),
       };
     });
 
@@ -330,11 +332,15 @@ export async function handleModelsOpenFolder(
   _event: IpcMainInvokeEvent,
   req: ModelsOpenFolderRequest,
 ): Promise<ModelsOpenFolderResponse> {
-  if (!isImage(req.category) && !isVideo(req.category)) {
+  if (!isImage(req.category) && !isVideo(req.category) && !isThreed(req.category)) {
     return { success: false, error: 'unsupported-category' };
   }
   try {
-    const dir = isVideo(req.category) ? await getVideoModelsDir() : await getImageModelsDir();
+    const dir = isThreed(req.category)
+      ? getPythonModelsRoot()
+      : isVideo(req.category)
+        ? await getVideoModelsDir()
+        : await getImageModelsDir();
     await shell.openPath(dir);
     return { success: true };
   } catch (err) {

@@ -53,13 +53,12 @@ function isLastFile(metadata: Record<string, string> | undefined): boolean {
 /**
  * State for the Image models library view (design §6.2). Consumes the generic
  * `MODELS_SCAN` channel; active-model + D1 download reuse the existing sd-image
- * / download-manager plumbing.
+ * / download-manager plumbing. The sd-cli runtime itself (installed? install
+ * progress) lives in `useSdCliRuntime`, shared with the Video page.
  */
 export function useImageLibrary() {
   const [scan, setScan] = useState<ModelsScanResponse>(EMPTY_SCAN);
   const [loading, setLoading] = useState(true);
-  const [cliInstalled, setCliInstalled] = useState(false);
-  const [cliInstall, setCliInstall] = useState<ModelDownloadStatus | null>(null);
   const [activeModelId, setActiveModelId] = useState<string | null>(null);
   const [downloads, setDownloads] = useState<Record<string, ModelDownloadStatus>>({});
   const [error, setError] = useState<LibraryError | null>(null);
@@ -80,7 +79,6 @@ export function useImageLibrary() {
         window.api.modelsScan({ category: 'image' }),
         window.api.downloadGetAll(),
       ]);
-      setCliInstalled(status.sdCliInstalled);
       setActiveModelId(status.activeModelId);
       setScan(scanResult);
       if (scanResult.error && scanResult.error !== 'unsupported-category') setError({ message: scanResult.error });
@@ -88,18 +86,6 @@ export function useImageLibrary() {
       const restored: Record<string, ModelDownloadStatus> = {};
       for (const d of downloadsResult.downloads) {
         if (d.status === 'completed' || d.status === 'failed' || d.status === 'cancelled') continue;
-        // In-flight engine install survives a remount → restore its progress card.
-        if (d.metadata?.type === 'sdcli-binary') {
-          setCliInstall({
-            progress: d.percent,
-            speedBps: d.speedBps,
-            etaSeconds: d.etaSeconds,
-            status: mapDownloadStatus(d.status),
-            error: null,
-            taskId: d.id,
-          });
-          continue;
-        }
         if (d.metadata?.type !== 'sdimage-model') continue;
         const modelId = d.metadata.modelId;
         if (!modelId) continue;
@@ -128,29 +114,6 @@ export function useImageLibrary() {
   // Download-manager progress → drives the per-profile download UI.
   useEffect(() => {
     unsubRef.current = window.api.onDownloadProgress((event: DownloadProgressEvent) => {
-      // Engine (sd-cli) install progress — one card, no model id.
-      if (event.metadata?.type === 'sdcli-binary') {
-        if (event.status === 'completed') {
-          setCliInstall(null);
-          setCliInstalled(true);
-          return;
-        }
-        if (event.status === 'failed' || event.status === 'cancelled') {
-          if (event.status === 'failed') setError({ message: event.error || 'Engine download failed' });
-          setCliInstall(null);
-          return;
-        }
-        setCliInstall((prev) => ({
-          progress: event.percent >= 0 ? event.percent : prev?.progress ?? 0,
-          speedBps: event.speedBps,
-          etaSeconds: event.etaSeconds,
-          status: mapDownloadStatus(event.status),
-          error: null,
-          taskId: event.id,
-        }));
-        return;
-      }
-
       if (event.metadata?.type !== 'sdimage-model') return;
       const modelId = event.metadata.modelId;
       if (!modelId) return;
@@ -194,28 +157,6 @@ export function useImageLibrary() {
     });
     return () => unsubRef.current?.();
   }, [rescan]);
-
-  /** One-click sd-cli engine install; progress arrives via the download broadcast. */
-  const installCli = useCallback(async () => {
-    if (cliInstall) return;
-    setCliInstall({ progress: 0, speedBps: 0, etaSeconds: -1, status: 'queued', error: null });
-    setError(null);
-    try {
-      const result = await window.api.sdImageCliInstall();
-      if (!result.success) {
-        setCliInstall(null);
-        setError({ message: result.error || 'Engine install failed' });
-        return;
-      }
-      // The invoke resolves after download + extract, so this also covers a
-      // missed 'completed' broadcast (e.g. remount mid-install).
-      setCliInstall(null);
-      setCliInstalled(true);
-    } catch (err) {
-      setCliInstall(null);
-      setError({ message: err instanceof Error ? err.message : 'Engine install failed' });
-    }
-  }, [cliInstall]);
 
   const setActiveModel = useCallback(async (modelId: string) => {
     const result = await window.api.sdImageSetActiveModel({ modelId });
@@ -381,9 +322,6 @@ export function useImageLibrary() {
   return {
     scan,
     loading,
-    cliInstalled,
-    cliInstall,
-    installCli,
     activeModelId,
     downloads,
     error,

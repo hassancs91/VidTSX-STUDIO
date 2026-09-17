@@ -1,17 +1,19 @@
-import { useState } from 'react';
-import { ErrorBanner } from '@shared/components';
+import { useMemo, useState } from 'react';
 import { isFeatureEnabled } from '@shared/feature-flags';
 import type { InstalledModelIpc, ModelSetupConfig } from '@shared/ipc/types';
 import { useImageModelParams } from '@renderer/hooks/useImageModelParams';
 import { hasAnyImageParams } from '@shared/presets/image-model-params';
 import { useImageLibrary } from '../hooks/useImageLibrary';
-import { ImageLibraryHeader } from './ImageLibraryHeader';
-import { SdCliSetupCard } from './SdCliSetupCard';
+import { profileToCatalogRow, splitCatalogSections } from '../services/catalog-sections';
 import { InstalledModelsList } from './InstalledModelsList';
-import { ProfileCatalogList } from './ProfileCatalogList';
 import { ModelSetupDialog, type ModelSetupResult } from './ModelSetupDialog';
 import { ModelParamsDialog } from './ModelParamsDialog';
 import { ImageToolsSection } from './ImageToolsSection';
+import { AllModelsList } from './local/AllModelsList';
+import { LocalModelPage } from './local/LocalModelPage';
+import { LocalModelStatusStrip } from './local/LocalModelStatusStrip';
+import { RecommendedModelsList } from './local/RecommendedModelsList';
+import { SdCliRuntimeChip } from './local/SdCliRuntimeChip';
 
 /** The local sd-cli provider's id in the image engine (keys its param overrides). */
 const LOCAL_PROVIDER_ID = 'local';
@@ -29,13 +31,29 @@ type SetupTarget =
   | { kind: 'import'; sourcePath: string; fileName: string }
   | { kind: 'configure'; filePath: string; fileName: string };
 
+/**
+ * The Image section on the local-model template (docs/ai-models-redesign.md
+ * §3.3 / §3.4): sd-cli chip + models folder, Installed, the eight recommended
+ * picks, and the full catalog behind "All models".
+ */
 export function ImageModelsContent() {
   const lib = useImageLibrary();
   const params = useImageModelParams();
   const [setupTarget, setSetupTarget] = useState<SetupTarget | null>(null);
   const [paramsTarget, setParamsTarget] = useState<InstalledModelIpc | null>(null);
 
-  const uninstalledProfiles = lib.scan.profiles.filter((p) => !p.installed);
+  const sections = useMemo(() => {
+    const split = splitCatalogSections(lib.scan.profiles);
+    return { recommended: split.recommended.map(profileToCatalogRow), all: split.all.map(profileToCatalogRow) };
+  }, [lib.scan.profiles]);
+
+  const catalogActions = {
+    onDownload: lib.downloadProfile,
+    onPause: lib.pauseDownload,
+    onResume: lib.resumeDownload,
+    onCancel: lib.cancelDownload,
+    onOpenExternal: lib.openExternal,
+  };
 
   const handleImport = async () => {
     const sourcePath = await lib.pickModelFile();
@@ -56,62 +74,50 @@ export function ImageModelsContent() {
   };
 
   return (
-    <>
-      <ImageLibraryHeader
-        folder={lib.scan.folder}
-        cliInstalled={lib.cliInstalled}
-        onChangeFolder={lib.changeFolder}
-        onOpenFolder={lib.openFolder}
-        onRescan={lib.rescan}
-        onImport={handleImport}
-      />
-
-      {!lib.loading && !lib.cliInstalled && (
-        <SdCliSetupCard install={lib.cliInstall} onInstall={lib.installCli} />
-      )}
-
-      {lib.loading ? (
-        <div className="p-4 text-[12px] text-text-muted text-center">Scanning models folder…</div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <InstalledModelsList
-            installed={lib.scan.installed}
-            unrecognized={lib.scan.unrecognized}
-            activeModelId={lib.activeModelId}
-            onUse={lib.setActiveModel}
-            onDelete={lib.removeModel}
-            onReveal={lib.openFolder}
-            onSetup={(filePath, fileName) => setSetupTarget({ kind: 'configure', filePath, fileName })}
-            onParams={setParamsTarget}
-            hasParams={(id) => hasAnyImageParams(params.get(LOCAL_PROVIDER_ID, id))}
-            onOpenExternal={lib.openExternal}
-            downloads={lib.downloads}
-            onDownloadCompanions={lib.downloadCompanions}
-            onPauseDownload={lib.pauseDownload}
-            onResumeDownload={lib.resumeDownload}
-            onCancelDownload={lib.cancelDownload}
-          />
-
-          <ProfileCatalogList
-            profiles={uninstalledProfiles}
-            downloads={lib.downloads}
-            onDownload={lib.downloadProfile}
-            onPause={lib.pauseDownload}
-            onResume={lib.resumeDownload}
-            onCancel={lib.cancelDownload}
-            onOpenExternal={lib.openExternal}
-          />
-
-          {SHOW_IMAGE_TOOLS && <ImageToolsSection />}
-        </div>
-      )}
-
-      {lib.error && (
-        <div className="mt-3">
-          <ErrorBanner message={lib.error.message} details={lib.error.details} onDismiss={lib.clearError} />
-        </div>
-      )}
-
+    <LocalModelPage
+      strip={
+        <LocalModelStatusStrip
+          runtime={<SdCliRuntimeChip />}
+          folder={lib.scan.folder}
+          onChangeFolder={lib.changeFolder}
+          onOpenFolder={lib.openFolder}
+          onRescan={lib.rescan}
+          onImport={handleImport}
+        />
+      }
+      loading={lib.loading}
+      error={lib.error}
+      onClearError={lib.clearError}
+      installed={
+        <InstalledModelsList
+          installed={lib.scan.installed}
+          unrecognized={lib.scan.unrecognized}
+          activeModelId={lib.activeModelId}
+          onUse={lib.setActiveModel}
+          onDelete={lib.removeModel}
+          onReveal={lib.openFolder}
+          onSetup={(filePath, fileName) => setSetupTarget({ kind: 'configure', filePath, fileName })}
+          onParams={setParamsTarget}
+          hasParams={(id) => hasAnyImageParams(params.get(LOCAL_PROVIDER_ID, id))}
+          onOpenExternal={lib.openExternal}
+          downloads={lib.downloads}
+          onDownloadCompanions={lib.downloadCompanions}
+          onPauseDownload={lib.pauseDownload}
+          onResumeDownload={lib.resumeDownload}
+          onCancelDownload={lib.cancelDownload}
+        />
+      }
+      recommended={
+        <RecommendedModelsList
+          rows={sections.recommended}
+          downloads={lib.downloads}
+          caption="One or two picks per hardware tier, smallest first — the Fits badge is the verdict for this machine."
+          {...catalogActions}
+        />
+      }
+      all={<AllModelsList rows={sections.all} downloads={lib.downloads} {...catalogActions} />}
+      extras={SHOW_IMAGE_TOOLS ? <ImageToolsSection /> : undefined}
+    >
       {paramsTarget?.paramSchema && (
         <ModelParamsDialog
           title={paramsTarget.name}
@@ -137,6 +143,6 @@ export function ImageModelsContent() {
           onCancel={() => setSetupTarget(null)}
         />
       )}
-    </>
+    </LocalModelPage>
   );
 }

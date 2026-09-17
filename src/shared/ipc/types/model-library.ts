@@ -49,6 +49,8 @@ export interface ProfileModelIpc {
   recommended?: boolean;
   /** Coarse hardware class from the same estimate the fit badge uses. */
   tier?: HardwareTier;
+  /** ISO date a release pass generated real output from this entry (the "Tested" chip). */
+  verifiedOn?: string;
 }
 
 export interface CompanionFileIpc {
