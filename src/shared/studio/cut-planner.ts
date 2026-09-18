@@ -6,16 +6,20 @@
 // Unit discipline: seconds everywhere (cutlib mixed ms words with s spans; we
 // do not). Levels are dBFS from the waveform cache's RMS buckets — computed in
 // TypeScript because Remotion's stripped ffmpeg has no volumedetect filter.
+//
+// Lives in shared because both processes snap edges: main for Auto Cut and the
+// agent's editorial pass, the renderer for a text delete in the Transcript
+// panel — which reads the same waveform cache through studioCacheRead.
 
-import type { SttModelFeatures } from '../../../shared/presets/stt-models';
+import type { SttModelFeatures } from '../presets/stt-models';
 import type {
   CutPlanPause,
   CutPlanSegment,
   CutPlanStyle,
   StudioCutPlan,
   CutPlanStyleName,
-} from '../../../shared/types/studio-cut-plan';
-import { RMS_SILENCE_DB } from '../../../shared/types/studio-waveform';
+} from '../types/studio-cut-plan';
+import { RMS_SILENCE_DB } from '../types/studio-waveform';
 
 export interface PlanWord {
   text: string;

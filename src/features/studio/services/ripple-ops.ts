@@ -13,6 +13,7 @@ import {
   MIN_CLIP_DURATION,
   clampFades,
   clipEndTime,
+  clipRate,
   findClip,
   makeClipId,
   trimClip,
@@ -70,7 +71,8 @@ export function cutSpanFromClips(
         id: hasLeft ? newId() : clip.id,
         timelineStart: from,
         duration: rightDuration,
-        sourceIn: (clip.sourceIn ?? 0) + offset,
+        // `offset` is timeline seconds; a sped clip has consumed offset × speed of source.
+        sourceIn: (clip.sourceIn ?? 0) + offset * clipRate(clip),
       };
       if (hasLeft) delete right.fadeInSec;
       out.push(clampFades(right));
@@ -181,6 +183,22 @@ export function insertGapAllTracks(
   }
   if (!changed) return timeline;
   return { ...timeline, tracks, ...(markers !== timeline.markers ? { markers } : {}) };
+}
+
+/** Open a gap on ONE track — the per-track flavour; other lanes and the markers hold. */
+export function insertGapOnTrack(
+  timeline: StudioTimeline,
+  trackId: string,
+  at: number,
+  length: number,
+): StudioTimeline {
+  if (length <= EPS) return timeline;
+  const track = timeline.tracks.find((t) => t.id === trackId);
+  if (!track || track.locked || !track.clips.some((c) => c.timelineStart >= at - EPS)) return timeline;
+  const clips = track.clips.map((clip) =>
+    clip.timelineStart < at - EPS ? clip : { ...clip, timelineStart: clip.timelineStart + length },
+  );
+  return { ...timeline, tracks: timeline.tracks.map((t) => (t.id === trackId ? { ...t, clips } : t)) };
 }
 
 /**

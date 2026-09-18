@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-09-17 — TEXT-BASED EDITING slice 1 (row 8): edit the video by editing its transcript
+
+`docs/NEXT_FEATURES_DESIGN.md` §Q5, "Slice 1 outcome", holds the four deviations from the design, what the live pass
+found and what is not verified. Behind the dev-preview flag `studio-text-edit` (on in dev, hidden in production).
+Committed 2026-09-18.
+
+- **What:** a Transcript tab in the Studio editor's left pane — click a word to seek, karaoke highlight, select words
+  and delete them (edges snapped to the waveform's RMS), deletion pills that restore, filler tint + remove, read-only
+  while an Auto Cut review is open. A delete is N timeline spans in ONE undo step.
+- **How:** no new IPC — the snapper moved to shared (`cut-planner.ts` + `cut-snap.ts` out of `src/main/`) and the
+  renderer already reads the transcript and `rmsDb` through `studioCacheRead`. Deletes go through the range-delete span
+  ops scoped to the clips under the selection, not the asset-wide `apply-cut-proposal`. Restore is a new op
+  (`restoreDeletion` + `insertGapOnTrack`).
+- **Fixed on the way:** `splitClip` and `cutSpanFromClips` ignored clip speed (`clipRate`); words whisper.cpp stamps
+  with ~0 duration no longer vanish from the panel.
+- **Verified:** 37 new unit tests; `check:types` at baseline (26 / 10); a 23/23 CDP pass with real mouse and keyboard
+  input on an isolated instance.
+- **Open:** `trimClip`, `trimClipRippleAll` and `applyCutProposal` still ignore clip speed; captions still drop the
+  durationless words (`clipWords`); not verified on a long project, on AssemblyAI / ElevenLabs transcripts, or by ear on
+  real speech — Hasan's pass before the flag flips.
+
 ## 2026-09-17 — TEMPLATES BATCH 2: ten built-ins, overlay support, a verify script
 
 `docs/templates-batch-2.md` §9 holds the full log, every deviation and what is still open.

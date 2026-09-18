@@ -36,7 +36,7 @@
 | 5 | **Content Safety enforcement** | **`CONTENT_SAFETY_DESIGN.md`** (grilled): Gate B pixel classifier (Marqo 384 ONNX bundled, banded thresholds, 5 call sites incl. input refs + video frames + captures, fail-closed, utilityProcess-hosted) + Gate A curated prompt blocklist (visual fields only; profanity never blocks) + ZERO LLM hooks + Content Safety page + eval harness | M | **SHIPPED 2026-08-26** (NF8–NF12; ensemble rejected on eval, bands frozen 0.8/0.2; Hasan's blocklist review + full-set eval re-run open — see doc Rev 2) |
 | 6 | **Gemini/agy subscription image provider** | Q1: `type 'gemini-cli'`, TS port of gen-image.ps1 logic into `agy-cli.ts` service, `registerInstance` pattern, setup card (detect + auth probe + install instructions), concurrency-1 queue, aspect bucketing, 3-ref cap. Plumbing built two-wide for the deferred mmx provider | M | **SHIPPED 2026-08-26** (NF13–NF14; live agy generation CDP-verified; stdin-pipe hang found + fixed) |
 | 7 | **Project packages** | Q7: `.vidtsx` zip (manifest w/ `packs/`, `kind`, `replaceable` reserved), export dialog (3 media strategies, agent-chat opt-in), import (validate → migrate → new id → media into `<project>/media/` → D14 gate per shot → brand offer), zip-slip + caps, kitVersion pinning against the SHIPPED `shot-kit-pin.ts` scheme, file association | M | **SHIPPED 2026-08-26** (NF16–NF18; export→import round trip CDP-verified, file association proven via a real second-instance argv) |
-| 8 | **Text-based editing slice 1** | Q5a: Transcript panel beside preview; click-to-seek; karaoke highlight; select-to-delete (inverse `clipWords` → editorial-snapper edges → `apply-cut-proposal` as `user_cut`, direct apply, one undo step); show-deletions pills + restore; filler highlight + remove-in-selection; read-only while a cut review is open. Flag `studio-text-edit` | L | pending |
+| 8 | **Text-based editing slice 1** | Q5a: Transcript panel beside preview; click-to-seek; karaoke highlight; select-to-delete (inverse `clipWords` → editorial-snapper edges → `apply-cut-proposal` as `user_cut`, direct apply, one undo step); show-deletions pills + restore; filler highlight + remove-in-selection; read-only while a cut review is open. Flag `studio-text-edit` | L | **BUILT + live-verified 2026-09-17** — dev-preview flag (`false`: on in dev, hidden in production); outcome under Q5 ("Slice 1 outcome"). Committed 2026-09-18; needs Hasan's pass on real footage before the flag flips |
 | 9 | **Pack system E1 — transitions** | Q8a/b: pack registry service (scan/validate/degrade), `StudioClipTransition.kind` → namespaced string (schema v2 migration), TransitionRenderer, core pack (crossfade, dip, wipe, slide, zoom, flip via @remotion/transitions), luma-wipe support, picker UI. **Reserve `keyframes` + `effects[]` schema shapes here** (Q9 binding) | M | pending |
 | 10 | *(optional V1 closer)* **Pack system E2 — effects tiers 1–3** | Q8c: `effects[]`, EffectProps contract, param-schema-driven Inspector, core pack incl. chroma key + Adjust (single-pass + dither rules, Q9b), ephemeral preview. Flag/dev-preview | L | V1-or-V2, Hasan's call |
 | P0 | **Preview: proxy hygiene** | **`PREVIEW_ARCHITECTURE.md`** W0+W2: delete the dead NVENC branch (bundled ffmpeg has no hardware encoders), `-hwaccel d3d11va` on the transcode input with guarded fallback. One file (`proxy-generator.ts`), gated on nothing | XS | **proposed — pending Hasan** |
@@ -342,6 +342,92 @@ edit transcript word-by-word from `deriveCaptionSegments`:
 beside the timeline. Recommendation: a **left/main-area tab that can sit
 side-by-side with the preview** — Descript's core loop is watching while
 reading; burying it in the Inspector kills that.)*
+
+### Slice 1 outcome (2026-09-17)
+
+Built as designed, with four deviations the design could not have known about
+— each one a place where "already exists" above turned out to be half true.
+
+- **The snapper moved to shared, no IPC added.** `cut-planner.ts` and the
+  snapping half of `editorial-cuts.ts` were pure but lived under `src/main/`.
+  They are `src/shared/studio/cut-planner.ts` and `cut-snap.ts` now
+  (`snapCutSpans`, generic over the caller's categories; main's
+  `snapEditorialCuts` is a typed wrapper, its tests unchanged). The renderer
+  already reads both cache files it needs — transcript words and the waveform
+  JSON with `rmsDb` — through `studioCacheRead`, so the feature adds **no
+  channel, no handler, no preload entry**. `FILLERS` / `TAKE_GAP_SECONDS`
+  moved to `shared/studio/transcript-tokens.ts` so the panel tints exactly
+  what the agent's takes view marks.
+- **Not through `apply-cut-proposal`.** That op is asset-wide by design (it
+  cuts EVERY clip that plays the asset) and stamps agent provenance. A text
+  delete is `planTextDelete` → TIMELINE spans scoped to the clips under the
+  selection → `applyTextDelete` over the range-delete machinery
+  (`removeSpanAllTracks` / `removeSpanFromTrack`, which did not exist on
+  2026-08-20). Same ripple-mode rule as range delete: the master lane always
+  closes, `rippleAllTracks` decides whether the other lanes and the markers
+  follow. Reducer actions `text-delete` (N spans, ONE undo step) and
+  `text-restore`. Pinned by a test: a second clip playing the same source is
+  untouched.
+- **Speed was NOT handled** (§Q5c said it was). `splitClip` and
+  `cutSpanFromClips` advanced the right piece's `sourceIn` by the timeline
+  offset, not offset × speed — wrong source after any split or range delete
+  on a sped clip. Fixed in both (`clipRate` in `timeline-ops.ts`), with tests.
+  **Still open, same defect:** `trimClip` (start edge + both clamps),
+  `trimClipRippleAll`, and `applyCutProposal`'s `keptPieces` /
+  `removedTimelineSpans`. Not touched here — they are not on this feature's
+  path and their clamps need more than a one-line fix.
+- **Restore needed a new op.** `restoreDeletion` re-reads the join from the
+  timeline as it is NOW (never from the pill that was clicked, so a stale pill
+  is a no-op), opens it with `insertGapAllTracks` or the new
+  `insertGapOnTrack`, and inserts a plain user clip — the look of the piece it
+  continues, none of its edge state. Round-trip test: delete → restore gives
+  the same words at the same seconds.
+
+**Found by the live pass, fixed:** whisper.cpp stamps some real words with no
+duration to speak of (0–20 ms) at the instant the next word begins — 7 of 73
+words in the test clip ("is", "tells", "we", "noise", "the" ×2, "works").
+The membership rule mirrored from `clipWords` dropped the zero-length ones, so
+the panel read "The idea simple." `withSpokenSpans` gives such a word the gap
+before its stamp (capped at 1 s) — applied once, to the words BOTH the document
+and the delete planner read. **`clipWords` still drops them, so captions are
+missing those words today** — a captions bug, reported, not fixed here (it
+changes caption output and has its own tests). Also: the karaoke lookup looks
+25 ms ahead, because a seek rounds to the frame grid and could land half a
+frame before the clicked word and light its neighbour.
+
+**Decisions taken while building** (cheap to change): the panel is a fourth
+tab of the left pane — beside the preview, mounted only while active; deletion
+pills show only where WORDS were removed (Auto Cut's hundreds of tightened
+pauses are not text anyone looks for); paragraphs follow the takes of the
+ORIGINAL transcript so a delete never reflows the text around it; a delete of
+the last words leaves the source's trailing silence (tightening is Auto Cut's
+job); without an RMS envelope (a version-1 waveform) edges fall back to the
+style's fixed pads and the toast says so.
+
+**Verified:** 37 new unit tests (document, delete planner, restore, reducer
+round trips, the two speed fixes). The Studio + shared-studio + main-studio
+run: 989 passed, 9 failed, 11 skipped — the nine are 5000 ms timeouts in four
+untouched disk-heavy files (snapshot store, agent memory, package export and
+import), 64/64 green when those files run alone (the known load flake with a
+dev app running);
+`check:types` at baseline (26 / 10), none of them in a touched file. Live, by
+CDP with real mouse and keyboard input on an isolated second instance (own
+`--user-data-dir`, a scratch copy of `s3-autocut`, removed afterwards): 23/23 —
+click-to-seek + karaoke, drag-select → exactly four words, Delete key, the pill with the
+deleted text, Ctrl+Z / Ctrl+Y from inside the panel as one step each, Restore,
+double-click + the Delete button, Remove fillers, autosaved timeline contiguous;
+then read-only under a real Auto Cut review (banner, Delete disabled, Delete key
+inert, editing back after Reject all), click-each-of-70-words lights that
+word, and the shortcut guard against a control — with every clip selected the
+editor's Delete removes the master clip, the same Delete on a text selection
+in the panel removes the word and leaves the clips.
+
+**Not verified:** a long project (the 3 h case — rendering is per-take with
+`content-visibility`, never measured past 73 words); AssemblyAI / ElevenLabs
+transcripts and real verbatim fillers (the test clip's two "um"s were planted);
+speaker colours (in the design, not in the tracker row, not built); the join's
+SOUND on real speech — the edges are the editorial pass's edges, but nobody has
+listened to a text delete yet. That last one is Hasan's pass.
 
 ---
 

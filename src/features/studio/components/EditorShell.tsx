@@ -3,6 +3,7 @@ import { Captions, ChevronLeft, Settings2, Upload } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import { useToast } from '@renderer/contexts/ToastContext';
+import { isFeatureEnabled } from '@shared/feature-flags';
 import { useRenderQueue } from '@features/render-queue';
 import {
   deriveCaptionSegments,
@@ -29,6 +30,7 @@ import { usePresetList } from '../hooks/usePresetList';
 import { useProjectBrand } from '../hooks/useProjectBrand';
 import { useStoredChoice } from '../hooks/useStoredChoice';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
+import { useTextEdit } from '../hooks/useTextEdit';
 import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
@@ -65,6 +67,7 @@ import { MediaPool } from './MediaPool';
 import { ShotsPanel } from './ShotsPanel';
 import type { GenerateShotSpec } from './GenerateShotForm';
 import { LeftPane, LEFT_TABS, type LeftTab } from './LeftPane';
+import { TranscriptPanel } from './transcript/TranscriptPanel';
 import { PaneTabButton } from './PaneTabButton';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
 import { PaneDivider } from './PaneDivider';
@@ -86,6 +89,8 @@ type RightTab = 'inspector' | 'assistant' | 'script';
 
 /** Preview monitoring speeds — a watch-speed aid, never part of the document. */
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
+/** Text-based editing — a dev-preview flag: on in dev builds, off in production until proven. */
+const TEXT_EDIT_ENABLED = isFeatureEnabled('studio-text-edit');
 
 export function EditorShell({ projectId, onBack }: Props) {
   const {
@@ -794,14 +799,30 @@ export function EditorShell({ projectId, onBack }: Props) {
     [brandList, project?.settings.brandId, projectBrand.snapshot],
   );
   // Only the master lane's assets need transcripts loaded, and only while a
-  // caption layer exists — no captions, no IPC.
+  // caption layer exists or the Transcript tab is showing — otherwise no IPC.
+  const transcriptActive = TEXT_EDIT_ENABLED && leftTab === 'transcript';
   const captionAssets = useMemo(() => {
-    if (!captionLayer) return [];
+    if (!captionLayer && !transcriptActive) return [];
     const lane = masterLane(playerTimeline);
     const ids = new Set((lane?.clips ?? []).map((c) => c.assetId).filter(Boolean));
     return assets.filter((a) => ids.has(a.id));
-  }, [captionLayer, playerTimeline, assets]);
+  }, [captionLayer, transcriptActive, playerTimeline, assets]);
   const captionWords = useAssetTranscripts(projectId, captionAssets);
+  // Text-based editing (NEXT_FEATURES_DESIGN.md Q5a): the same words, as a
+  // document you can delete from. Reads while a proposal is under review.
+  const textEdit = useTextEdit({
+    projectId,
+    active: transcriptActive,
+    timeline: tl.timeline,
+    playerTimeline,
+    words: captionWords,
+    assets,
+    dispatch: tl.dispatch,
+    rippleAllTracks,
+    reviewOpen: activeProposal !== null,
+    seek: playback.seek,
+    showToast,
+  });
   const captionContext = useMemo<CaptionSerializeContext | undefined>(
     () => (captionLayer ? { words: captionWords, brand: activeBrand } : undefined),
     [captionLayer, captionWords, activeBrand],
@@ -1199,6 +1220,17 @@ export function EditorShell({ projectId, onBack }: Props) {
                 onRemove={() => tl.dispatch({ type: 'caption-remove' })}
               />
             )}
+            {...(TEXT_EDIT_ENABLED
+              ? {
+                  renderTranscript: () => (
+                    <TranscriptPanel
+                      edit={textEdit}
+                      playback={playback}
+                      onPlaySpan={(start, end) => playSpan(start, end, false)}
+                    />
+                  ),
+                }
+              : {})}
           />
         </div>
 

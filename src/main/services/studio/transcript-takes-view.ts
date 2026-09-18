@@ -7,24 +7,16 @@
 //
 // Unit discipline: seconds everywhere (the reference read ms words; we don't).
 
+// Shared with the Transcript panel, which must tint and break exactly what
+// this view marks and segments.
+import { TAKE_GAP_SECONDS, isFillerWord } from '../../../shared/studio/transcript-tokens';
+
+export { TAKE_GAP_SECONDS };
+
 export interface TakesWord {
   text: string;
   start: number;
   end: number;
-}
-
-/** Speech gap that starts a new take segment, seconds. */
-export const TAKE_GAP_SECONDS = 0.8;
-
-/**
- * The only hard-coded filler vocabulary (reference FILLERS set). Matched
- * case-insensitively after stripping trailing punctuation — the marker keeps
- * the original token so "<<uh, 256.28-256.31>>" reads naturally in context.
- */
-const FILLERS = new Set(['um', 'uh', 'erm', 'hmm', 'mm', 'mhm', 'uhm']);
-
-function isFiller(token: string): boolean {
-  return FILLERS.has(token.toLowerCase().replace(/[.,?!]+$/, ''));
 }
 
 function fmtTime(seconds: number): string {
@@ -64,7 +56,7 @@ export function splitTakes(words: TakesWord[]): TakeSegment[] {
 
 function buildSegment(words: TakesWord[], index: number): TakeSegment {
   const text = words
-    .map((w) => (isFiller(w.text) ? `<<${w.text} ${fmtTime(w.start)}-${fmtTime(w.end)}>>` : w.text))
+    .map((w) => (isFillerWord(w.text) ? `<<${w.text} ${fmtTime(w.start)}-${fmtTime(w.end)}>>` : w.text))
     .join(' ');
   return { index, start: words[0].start, end: words[words.length - 1].end, text };
 }

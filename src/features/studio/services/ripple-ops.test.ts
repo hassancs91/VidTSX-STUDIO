@@ -92,6 +92,20 @@ describe('cutSpanFromClips', () => {
     expect(clips[1].fadeOutSec).toBe(1);
   });
 
+  it('advances the right piece by offset × speed on a sped clip', () => {
+    // 10 timeline seconds at 2× play source 5 → 25; the piece after [4, 6) starts at 5 + 6 × 2.
+    const { clips } = cutSpanFromClips(
+      [{ id: 'x', kind: 'video', timelineStart: 0, duration: 10, sourceIn: 5, speed: 2 }],
+      4,
+      6,
+      () => 'new',
+    );
+    expect(clips.map((c) => [c.id, c.timelineStart, c.duration, c.sourceIn])).toEqual([
+      ['x', 0, 4, 5],
+      ['new', 4, 4, 17],
+    ]);
+  });
+
   it('keeps the id on the surviving piece and drops a clip inside the span', () => {
     const { clips } = cutSpanFromClips(
       [

@@ -53,6 +53,16 @@ describe('splitClip', () => {
     expect(created?.clip.sourceIn).toBe(22.5);
   });
 
+  it('advances the right half by offset × speed on a sped clip', () => {
+    // 5 timeline seconds at 2× play 10 s of source; 2 s in, the source is at 24.
+    const timeline = makeTimeline();
+    timeline.tracks[0].clips[1].speed = 2;
+    const next = splitClip(timeline, 'c2', 7, 'new');
+    const created = findClip(next, 'new');
+    expect(created?.clip.sourceIn).toBe(24);
+    expect(created?.clip.speed).toBe(2);
+  });
+
   it('refuses a split at the very edge (no zero-length clips)', () => {
     const timeline = makeTimeline();
     expect(splitClip(timeline, 'c1', 0)).toBe(timeline);

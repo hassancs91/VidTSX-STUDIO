@@ -9,7 +9,7 @@ import type { WaveformFile } from '../../../shared/types/studio-waveform';
 import { getProjectCacheDir } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
 import { generateWaveform, waveformRelPath } from './waveform-generator';
-import { RmsEnvelope, planCuts } from './cut-planner';
+import { RmsEnvelope, planCuts } from '../../../shared/studio/cut-planner';
 
 export const CUT_PLAN_DIR = 'cut-plans';
 

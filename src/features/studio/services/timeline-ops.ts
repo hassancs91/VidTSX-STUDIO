@@ -17,6 +17,12 @@ export function clipEndTime(clip: StudioClip): number {
   return clip.timelineStart + clip.duration;
 }
 
+/** Source seconds consumed per timeline second. `duration` is timeline time,
+ *  `sourceIn` is source time — every conversion between them goes through this. */
+export function clipRate(clip: StudioClip): number {
+  return clip.speed !== undefined && clip.speed > 0 ? clip.speed : 1;
+}
+
 export interface ClipLocation {
   track: StudioTrack;
   clip: StudioClip;
@@ -183,7 +189,8 @@ export function splitClip(
     id: newId,
     timelineStart: atSeconds,
     duration: clip.duration - offset,
-    ...(clip.sourceIn !== undefined ? { sourceIn: clip.sourceIn + offset } : {}),
+    // `offset` is timeline seconds; a sped clip has consumed offset × speed of source.
+    ...(clip.sourceIn !== undefined ? { sourceIn: clip.sourceIn + offset * clipRate(clip) } : {}),
   };
   delete rightRaw.fadeInSec;
   const right = clampFades(rightRaw);

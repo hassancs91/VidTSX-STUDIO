@@ -60,6 +60,8 @@ import {
 } from '../services/transition-ops';
 import type { StudioTransitionKind } from '../types';
 import { applyCutProposal } from '../services/apply-cut-proposal';
+import { applyTextDelete, type TimelineSpan } from '../services/text-delete';
+import { restoreDeletion } from '../services/text-restore';
 import { applyInsertProposal } from '../services/apply-insert-proposal';
 import { applyShotProposal, insertShotClip } from '../services/apply-shot-proposal';
 import {
@@ -134,6 +136,10 @@ export type TimelineAction =
   // Range delete (I/O points + Delete): remove [from, to) from every unlocked
   // track, or from the master lane only when `allTracks` is false.
   | { type: 'remove-span'; from: number; to: number; allTracks: boolean }
+  // Transcript panel (text-based editing): a text delete is N snapped spans in
+  // ONE undo step; a restore re-opens the join between two master pieces.
+  | { type: 'text-delete'; spans: TimelineSpan[]; allTracks: boolean }
+  | { type: 'text-restore'; beforeClipId: string; afterClipId: string; newClipId: string; allTracks: boolean }
   // Ids are minted by the CALLER so it can select the new clips after
   // dispatch — the op itself is deterministic given them.
   | { type: 'paste'; entries: ClipboardEntry[]; atSeconds: number; newIds: string[] }
@@ -325,6 +331,25 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         withTimeline(doc, removeSpanFromTrack(doc.timeline, master.id, action.from, action.to)),
       );
     }
+    case 'text-delete':
+      return commit(
+        state,
+        withTimeline(
+          doc,
+          applyTextDelete(doc.timeline, action.spans, { rippleAllTracks: action.allTracks }),
+        ),
+      );
+    case 'text-restore':
+      return commit(
+        state,
+        withTimeline(
+          doc,
+          restoreDeletion(doc.timeline, action.beforeClipId, action.afterClipId, {
+            rippleAllTracks: action.allTracks,
+            newClipId: action.newClipId,
+          }),
+        ),
+      );
     case 'paste':
       return commit(
         state,

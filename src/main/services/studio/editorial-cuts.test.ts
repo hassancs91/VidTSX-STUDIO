@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RmsEnvelope, type PlanWord } from './cut-planner';
+import { RmsEnvelope, type PlanWord } from '../../../shared/studio/cut-planner';
 import {
   buildEditorialProposal,
   snapEditorialCuts,
