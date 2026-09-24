@@ -576,6 +576,27 @@ and is Hasan's call.
    "Experimental". A train-bump re-test (route (b)) would say whether any of the
    above is already fixed upstream — at the cost of re-vendoring
    `resources/vendor/`, per §D3.1.
+4. **The proxy the numbers above were measured on no longer ships** *(added
+   2026-09-17)*. Every proxy-tier figure in this section is a 720p **GOP-15**
+   proxy; T3 replaced that profile with **all-intra 540p** on 2026-09-02 and
+   the `webcodecs` arm was never re-run against it. It plausibly matters in
+   WebCodecs' favour — on all-intra media a fresh decoder per seek (the churn in
+   point 2) costs one frame decode instead of up to fifteen — but that is
+   reasoning, not a measurement. The 4K-original figures are unaffected
+   (Electron 41.0.2 and `@remotion/media` 4.0.435 are both unchanged since T2).
+   **Attempted 2026-09-17 and NOT measured:** another session rendered Remotion
+   stills on this laptop at ~97% CPU for 5 h+ and no 90-second quiet window
+   opened; the one run taken before that was noticed is discarded (README trap
+   5). To run it on a quiet machine, control and treatment back to back, at 3 /
+   6 / 9 concurrent elements (`raw-footage-test` is gone; `video-10` has nine
+   ready all-intra proxies):
+
+   ```bash
+   for L in 1 2 3; do for E in offthread webcodecs; do
+     node scripts/bench/run-bench.mjs --from-project=video-10 --media=proxy \
+       --engine=$E --layers=$L --runs=2 --label=s0r-intra-L$L-$E
+   done; done
+   ```
 
 ## T3 — proxy codec A/B · DONE 2026-09-02
 

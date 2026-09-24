@@ -139,6 +139,24 @@ because the control run disagreed:
    steps and flatter the engine). Before this, 8 and 24 "misses" sat exactly
    where the control reported 8 and 23 **cached** steps.
 
+5. **Someone else's render is not your decoder.** Found 2026-09-17: two
+   identical `--engine=offthread` fling runs, back to back, read **41.8 ms** and
+   **400 ms (112 misses)**. Nothing in the bench had changed — another Claude
+   session on the same laptop was rendering Remotion stills in bursts (28
+   `chrome-headless-shell` processes, the machine at 97% CPU), and each burst
+   landed on a different run. The same-session rule above does **not** protect
+   against this: it cancels cache warmth, which is steady, not contention,
+   which is bursty and hits the two arms unequally. Before trusting a number,
+   check the process list for `remotion.exe` / `chrome-headless-shell.exe` /
+   `ffmpeg.exe` that the bench did not start, and throw the run away if any were
+   alive during it. (The bench itself runs in `electron.exe`, so those three
+   names are always foreign.)
+
+Also: **"harness never became ready" on the first run after a fresh checkout is
+usually Vite pre-bundling**, not a broken harness — the driver waits 30 s and a
+cold dependency cache (React, Remotion, Mediabunny) can take longer. Run it
+again before debugging.
+
 **Playback fps is not measured on multi-layer runs, on either engine.** With N
 layers, N surfaces present concurrently and the gaps between them are not frame
 intervals: the canvas path reported "10000 fps" and the video path "Infinity

@@ -62,3 +62,8 @@ __pycache__/
 
 # Claude Code session lock — per-machine, recreated on each run.
 .claude/scheduled_tasks.lock
+
+# External binaries (ffmpeg, whisper.cpp, sd-cli, …) are downloaded on first
+# use and never committed (CLAUDE.md). Only the placeholder is tracked.
+resources/binaries/*
+!resources/binaries/.gitkeep

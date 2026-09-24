@@ -227,3 +227,61 @@ What it changes in the list above:
 - **New: kit coverage.** The editor's `lib/` (tiles row, chips/bands, Claude-line terminal, PiP hole,
   3D book, screencast) is what real shots reach for; `@vidtsx/kit` covers terminal/browser/VS Code/
   window/stat block/typed text. Bundling inlines the rest, but a shot written *in* Studio cannot.
+
+## Fourth project: short-02-honeypot-3s, imported whole (2026-09-17)
+
+`ai-video-lab/experiments/short-02-honeypot-3s` is a different shape from the three above: a 61 s
+**vertical Short with no camera footage at all** — a locked voice-over, and 19 beats of ~3 s each (5
+generated b-roll, 4 "clone" talking-head renders, 10 *produced* beats: a generated still animated by
+image-to-video with TSX type moving on it). It was rebuilt as a Studio project **as if made here**: VO on
+the audio lane with its word transcript, the 19 beats as single-file shots over it with `assetRefs` to
+their video, all 37 generated files copied into `media/`, the lab's captions as an overlay shot, a brand
+snapshot, script, markers. Project: `~/Videos/VidTSX Studio/projects/short-02-honeypot-3s`; build and
+verify scripts in its `notes/import/`; full mapping in `notes/IMPORT-REPORT.md`. Studio's gate passes
+20/20 shots; rendered through `serializeTimeline` → `TimelineComposition` → Remotion 4.0.435, the 24
+frames the lab QA'd match the lab's own stills within 2/255 (two stale lab stills excepted).
+
+What it changes in the list above:
+
+- **The master + shots model holds for a project with no master picture.** `masterLane()` falls back to
+  the first audio lane when no video lane has clips, so captions derive from a VO. That only works while
+  *every* visual rides an overlay lane — one b-roll clip dropped on V1 silently moves the caption source.
+- **G6 and G7 are no longer Tier 2.** This Short's grammar is "the screen never holds still": every
+  footage shot carries a 1.00 → 1.06 push and a `contrast(1.04) saturate(0.94)` grade so two generation
+  engines read as one camera. With a static `transform` and no clip filter, all 9 footage beats had to
+  live *inside* shots — the footage is then invisible as media (no thumbnail, trim handle or waveform)
+  and its in-point and speed live in code. The project keeps a hidden lane with the same 9 clips as
+  native video (`sourceIn` + `speed` from the alignment) to show what is lost. First real demand.
+- **G3 extends to video.** `assetRefs` → `<OffthreadVideo src={assets.key}>` renders in 19 shots; the
+  generation prompt already allows it. Still no "attach asset" for an imported shot.
+- **G5 / "real shots vs the contract" confirmed on a second codebase.** Every beat imports a shared
+  `brand` / `shorts` / `fx/*` / `util` / `words`; `classifyShotImport` reports blocking relative imports
+  for all of them. The shared layer (depth-entrance, rise-words, glass chip, stamp, grain, vignette,
+  sweep, plate, footage) is a *project-level kit* — bundling copies it into each of 19 shots (~80 KB
+  each, more than half of it font tables and the word list).
+- **New: a shot cannot see the words.** Every beat lands its type on a VO word (`wordTime(['blocked'])`).
+  A shot receives `assets` only, so the word list and the beat's own timeline position are baked into
+  each bundle — re-cut the VO or move a beat and nothing re-times. `ShotRuntimeProps` is the channel
+  (captions already ride it): the master lane's words, re-based to the clip, as a second member.
+- **New: captions need exceptions.** Three spans where the beat *is* the sentence as full-screen type are
+  muted in the lab. Studio's layer spans the master lane with no exceptions — enabled, it prints 6 groups
+  the edit hides. Also missing for Shorts: a vertical offset (the chip sits 470 px up, clear of the
+  Shorts UI; `bottom` is 13 %), and a project-local caption template (today: install a pack).
+- **New: the generation side.** The video engine already covers most of the lab's pipeline — BytePlus
+  Seedance 2.5, 9:16, 480p/720p, first frame with adaptive ratio, reference images / videos / audios.
+  What stops the Short being *made* here:
+  - the clone recipe needs ModelArk **registered-likeness ids** (`asset://…`) for the face and office
+    stills (the lab found a plain upload of a real face is refused); Studio references are files or
+    https URLs resolved to bytes, so there is no way to pass one;
+  - the Studio agent's `generate_video` exposes `firstFrame` / `lastFrame` only — no `references` — so
+    the agent cannot make the clone or the plate-referenced b-roll call the engine supports;
+  - no N-takes, and nothing marks a keeper among takes in the pool;
+  - **tying generated footage to the VO has no tooling**: cutting VO spans to driving audio (trim, −20.9
+    LUFS, pad to 5 s), the alignment solver (`rate` = render word span / VO word span, snapped within
+    ±6 %; `offset` = render first word − rate × VO first word), and retiming a generated event onto a
+    cue by frame-diff peak. Transcription, clip `speed` / `sourceIn` and a frame-diff module all exist;
+    nothing connects them, and the agent has no tool to set `speed`, `sourceIn`, `transform` or markers;
+  - the `codex-cli` image provider buckets portrait to 1024×1536 (2:3); the lab's stills are true 9:16,
+    and with an adaptive ratio the image-to-video inherits the still's shape.
+- **Small: package media names.** The UI labels an asset by its file name; a `.vidtsx` import writes
+  `media/<uuid>.<ext>`, so an imported pool reads as UUIDs. This import used readable names.

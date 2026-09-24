@@ -18,6 +18,28 @@
 > Scope note: this doc decides the *engine* question only. It does not re-open
 > Q8 (packs), Q9b (the colour ceiling) or the export codec matrix — it takes
 > those as constraints and says what each option does to them.
+>
+> **Status pointer (added 2026-09-17 — the text below is kept as written on
+> 2026-08-26, so it still *reads* as if S0 were the next action; it is not).**
+> The spike and most of what it gated have been run. Results live in
+> `docs/PREVIEW_TESTS_PLAN.md`, not here:
+>
+> - **S0 (§D4) — DONE 2026-08-28 as T2** (`792b1b5`, follow-up `3fdc24b`).
+>   Conditional: the swap loses at 3 concurrent video elements and wins ~3× at
+>   6–9; colour holds on D-Log (0.15/255); DJI 4K 10-bit HEVC decodes natively
+>   in preview. `@remotion/media@4.0.435` stays behind
+>   `src/shared/studio/media-engine.ts`, default `offthread`.
+> - **S0's export half — DONE 2026-09-04 as T8a** (`db3f4c6`): in headless
+>   Chrome `<Video>` cannot decode HEVC and falls back; on the GPU backend it
+>   returns 0 frames; on H.264 it engages and is a wash.
+> - **P0 shipped** (`9a3559b`, dead NVENC branch dropped; `-hwaccel` input in
+>   `d0ee749`). **P1 shipped** (T3 all-intra 540p proxies, `d0ee749`; opt-in GPU
+>   proxy encoder, `60c9c42`). **P2 parked** on T8a + the unexplained 4K
+>   playback drop. **P3 not built.**
+> - **§D3.6 answered 2026-09-17:** at 4.0.435 both tags take the same
+>   `onVideoFrame: (frame: CanvasImageSource) => void` (the WebCodecs path hands
+>   it an `ImageBitmap`); there is **no `effects` prop** at this pin. An E2b
+>   texture hook written against `onVideoFrame` is therefore authored once.
 
 ---
 
@@ -497,6 +519,10 @@ matters, and it is not the one the installed-but-unused packages suggest.**
    the new API** — worth confirming during the spike so E2b isn't authored twice.
 
 ### D4. The spike that decides it (cheap, and it is the recommended next action)
+
+> **Outcome: run 2026-08-28 as T2** — see the status pointer at the top of this
+> doc and `docs/PREVIEW_TESTS_PLAN.md` §T2 / §T8a. Do not re-run it from this
+> description; the bench commands are in `scripts/bench/README.md`.
 
 **S0 — measurement spike, hours not days.** Add `@remotion/media@4.0.435`
 (pin-hold route (a)), swap `case 'video'` in `TimelineComposition.tsx` behind a

@@ -3,8 +3,9 @@
 > Status: **BUILT 2026-09-17** — all nine, plus T1, H1, C1 and C2; the build
 > log, the deviations from this spec and what is still unverified are in §9.
 > Read `docs/templates-plan.md` first (the manifest is §2, the working copy §4,
-> authoring §6). Source of every template:
-> `D:\repos\vidtsx-addons\templates\<slug>\`.
+> authoring §6). Source of every template: `D:\repos\vidtsx-addons\templates\`,
+> filed by tier since 2026-09-18 — the ten built-ins under `builtin\<slug>\`,
+> everything else (batch 3's candidates included) under `free\<slug>\`.
 
 Batch 1 was one template (`vidtsx/youtube-subs`) to prove the pipeline. Batch 2
 takes the gallery to ten, across five categories, and deliberately picks
