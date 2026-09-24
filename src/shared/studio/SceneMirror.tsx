@@ -35,8 +35,18 @@ export function useSceneSources(): SceneSources {
         if (element) slots.current.set(clipId, element);
         else slots.current.delete(clipId);
       },
-      source: (clipId) =>
-        slots.current.get(clipId)?.querySelector<HTMLVideoElement | HTMLCanvasElement>('video, canvas') ?? null,
+      // A filtered clip's picture is its filter canvas (`FilteredPicture`
+      // marks it `data-scene-picture`), which sits AFTER the media element in
+      // DOM order — so it is asked for first, or a window would mirror the
+      // unfiltered element underneath.
+      source: (clipId) => {
+        const slot = slots.current.get(clipId);
+        if (!slot) return null;
+        return (
+          slot.querySelector<HTMLCanvasElement>('canvas[data-scene-picture]') ??
+          slot.querySelector<HTMLVideoElement | HTMLCanvasElement>('video, canvas')
+        );
+      },
     }),
     [],
   );

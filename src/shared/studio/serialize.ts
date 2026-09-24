@@ -7,6 +7,7 @@
 import type {
   ShotRuntimeProps,
   StudioClip,
+  StudioClipEffect,
   StudioClipKind,
   StudioClipTransform,
   StudioProject,
@@ -49,6 +50,11 @@ export interface SerializedClip {
   transitionIn?: SerializedTransition;
   transitionOut?: SerializedTransition;
   transform?: StudioClipTransform;
+  /** Per-clip filter chain (docs/studio/FILTER_PACKS_DESIGN.md), video and
+   *  image clips only, live entries only (`disabled` ones are dropped here).
+   *  Params are resolved at render time against the loaded definition, not
+   *  here — the serializer stays free of pack knowledge, as for transitions. */
+  effects?: StudioClipEffect[];
   /** TSX shot reference (S4) — the composition looks the component up in its
    *  parallel `components` map by shotId. `props` is the D12 runtime-props
    *  channel: asset refs resolved to per-environment URLs (and, later,
@@ -339,6 +345,13 @@ export function serializeTimeline(
         durationInFrames - fadeInFrames,
       );
 
+      // Filters ride only on the kinds with a raster source; a disabled entry
+      // renders nothing, so the composition never sees it.
+      const effects =
+        (clip.kind === 'video' || clip.kind === 'image') && clip.effects
+          ? clip.effects.filter((e) => !e.disabled)
+          : [];
+
       clips.push({
         id: clip.id,
         kind: clip.kind,
@@ -354,6 +367,7 @@ export function serializeTimeline(
         ...(out ? { transitionOut: { kind: out.kind, frames: out.outFrames } } : {}),
         ...(into ? { transitionIn: { kind: into.kind, frames: into.inFrames } } : {}),
         ...(clip.transform ? { transform: clip.transform } : {}),
+        ...(effects.length > 0 ? { effects } : {}),
         ...(clip.kind === 'tsx' && clip.tsx
           ? {
               tsx: {

@@ -5,6 +5,7 @@ import type { UseTimelineResult } from '../hooks/useTimeline';
 import type { UsePlaybackResult } from '../hooks/usePlayback';
 import type { PreviewTimeMap } from '../services/preview-mapping';
 import type { JoinStatus } from '../services/join-status';
+import type { EffectStatus } from '../services/filter-status';
 import { useClipDrag } from '../hooks/useClipDrag';
 import { useClipboard } from '../hooks/useClipboard';
 import { useMarqueeSelect } from '../hooks/useMarqueeSelect';
@@ -53,6 +54,8 @@ interface Props {
   heightPx: number;
   /** Per join (leading clip id): transition name, real length, warning. */
   joinStatuses: ReadonlyMap<string, JoinStatus>;
+  /** Per clip id: what its filters show (the `fx` chip, FILTER_PACKS_DESIGN.md). */
+  effectStatuses: ReadonlyMap<string, EffectStatus>;
   /** The Transitions tab is showing — a join click then only selects (the
    *  tab is the picker); the menu stays on right-click. */
   transitionsOpen: boolean;
@@ -76,6 +79,7 @@ export function TimelinePanel({
   missingAssetIds,
   heightPx,
   joinStatuses,
+  effectStatuses,
   transitionsOpen,
   onOpenTransitions,
 }: Props) {
@@ -569,6 +573,7 @@ export function TimelinePanel({
                 onJoinClick={onJoinClick}
                 targetJoinId={tl.joinTargetId}
                 joinStatuses={joinStatuses}
+                effectStatuses={effectStatuses}
                 missingAssetIds={missingAssetIds}
               />
               {marqueeRect && (

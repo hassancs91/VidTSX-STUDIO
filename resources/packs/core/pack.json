@@ -1,10 +1,10 @@
 {
   "formatVersion": 1,
   "id": "core",
-  "name": "Core Transitions",
-  "version": "1.1.0",
+  "name": "Core",
+  "version": "1.2.0",
   "author": "VidTSX",
-  "description": "The built-in transitions: the everyday ones. More ship as VidTSX Transitions — Volume 01, an importable pack.",
+  "description": "The built-in transitions and filters: the everyday ones. More ship as importable packs — VidTSX Transitions — Volume 01 among them.",
   "transitions": [
     {
       "id": "push-left",
@@ -44,6 +44,68 @@
       "usage": "Subject reveals and playful scene changes.",
       "durationSeconds": 0.9,
       "sceneCopies": "single",
+      "version": "1.0.0"
+    }
+  ],
+  "filters": [
+    {
+      "id": "noir",
+      "name": "Noir",
+      "category": "filter",
+      "tier": "common",
+      "tagline": "Main character energy.",
+      "description": "A punchy monochrome grade with soft cinematic edge shading.",
+      "accent": "#bbc0ca",
+      "symbol": "◐",
+      "animated": false,
+      "defaultIntensity": 1,
+      "parameters": [],
+      "presets": [],
+      "requires": [],
+      "heavy": false,
+      "version": "1.0.0"
+    },
+    {
+      "id": "vhs",
+      "name": "VHS Club",
+      "category": "effect",
+      "tier": "intermediate",
+      "tagline": "Be kind. Rewind.",
+      "description": "Moving scan lines, tape interference, color ghosting, and a retro timestamp.",
+      "accent": "#cfb3df",
+      "symbol": "▤",
+      "animated": true,
+      "defaultIntensity": 0.85,
+      "parameters": [],
+      "presets": [],
+      "requires": [],
+      "heavy": false,
+      "version": "1.0.0"
+    },
+    {
+      "id": "cinematic-bloom",
+      "name": "Cinematic Bloom",
+      "category": "effect",
+      "tier": "intermediate",
+      "tagline": "Let the highlights linger.",
+      "description": "Soft light spills from bright lamps and reflections, with warm diffusion and clear, contrasting shadows.",
+      "accent": "#e8bc83",
+      "symbol": "☼",
+      "animated": false,
+      "defaultIntensity": 1,
+      "parameters": [
+        { "key": "threshold", "label": "Highlight threshold", "type": "range", "min": 0, "max": 1, "step": 0.01, "default": 0.65 },
+        { "key": "radius", "label": "Bloom radius", "type": "range", "min": 0.25, "max": 8, "step": 0.05, "default": 2.5, "unit": "%" },
+        { "key": "warmth", "label": "Warmth", "type": "range", "min": -1, "max": 1, "step": 0.05, "default": 0.2 },
+        { "key": "strength", "label": "Bloom strength", "type": "range", "min": 0, "max": 1, "step": 0.05, "default": 0.75 }
+      ],
+      "presets": [
+        { "id": "neutral-glass", "name": "Neutral Glass", "parameters": { "threshold": 0.65, "radius": 2.5, "warmth": 0.2, "strength": 0.75 } },
+        { "id": "golden-diffusion", "name": "Golden Diffusion", "parameters": { "threshold": 0.55, "radius": 4, "warmth": 0.8, "strength": 0.85 } },
+        { "id": "dreamlight", "name": "Dreamlight", "parameters": { "threshold": 0.4, "radius": 6, "warmth": -0.15, "strength": 1 } }
+      ],
+      "requires": [],
+      "heavy": true,
       "version": "1.0.0"
     }
   ]

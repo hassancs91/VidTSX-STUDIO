@@ -11,10 +11,14 @@ import type { ReactNode } from 'react';
 import type { SttModelFeatures } from '../presets/stt-models';
 import type { ThinkingLevel } from '../tsx-engine/types';
 import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
+import type { StudioClipEffect } from './studio-effects';
 
 // Caption types are a sibling file (they are a published contract for pack
 // authors), re-exported here so every consumer keeps one import site.
 export * from './studio-captions';
+// So are the per-clip filter types (docs/studio/FILTER_PACKS_DESIGN.md): the
+// document entry and the add-ons' filter SDK contract.
+export * from './studio-effects';
 
 export const STUDIO_SCHEMA_VERSION = 1;
 
@@ -148,6 +152,13 @@ export interface StudioClip {
   fadeInSec?: number;
   fadeOutSec?: number;
   transitionOut?: StudioClipTransition;
+  /** Per-clip filters and effects (docs/studio/FILTER_PACKS_DESIGN.md), video
+   *  and image clips only. Ordered = render order (the filter slot first, then
+   *  the effect). No schema bump: an older build ignores the field and shows
+   *  the plain picture, and `migrateProject` passes the timeline through
+   *  untouched, so the field survives a save there. An empty array is never
+   *  stored — the ops delete the key. */
+  effects?: StudioClipEffect[];
   transform?: StudioClipTransform;
   tsx?: StudioClipTsx;
   origin?: StudioClipOrigin;

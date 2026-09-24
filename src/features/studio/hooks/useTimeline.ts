@@ -60,7 +60,14 @@ import {
   removeTransition,
   setTransition,
 } from '../services/transition-ops';
-import type { StudioTransitionKind } from '../types';
+import type { FilterCategory, StudioTransitionKind } from '../types';
+import {
+  removeClipEffect,
+  setClipEffect,
+  updateClipEffect,
+  type EffectDefaults,
+  type EffectParams,
+} from '../services/effect-ops';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { applyTextDelete, type TimelineSpan } from '../services/text-delete';
 import { restoreDeletion } from '../services/text-restore';
@@ -163,6 +170,14 @@ export type TimelineAction =
   // Transitions (Slice E) — on the LEADING clip of a contiguous boundary.
   | { type: 'transition-set'; clipId: string; kind: StudioTransitionKind; duration: number }
   | { type: 'transition-remove'; clipId: string }
+  // Per-clip filters (FILTER_PACKS_DESIGN.md). `categories` is the installed
+  // list's kind → category map, so the slot rule can tell which entry a card
+  // replaces; `defaults` is the manifest entry's, for the neutral rule. Each
+  // is one undo step for the whole selection; the Inspector's sliders
+  // live-preview through an ephemeral override and commit once on release.
+  | { type: 'clip-effect-set'; clipIds: string[]; kind: string; category: FilterCategory; categories: Readonly<Record<string, FilterCategory>> }
+  | { type: 'clip-effect-update'; clipId: string; kind: string; params?: EffectParams; disabled?: boolean; defaults?: EffectDefaults }
+  | { type: 'clip-effect-remove'; clipIds: string[]; kind: string }
   | { type: 'track-add'; kind: StudioTrackKind }
   | { type: 'track-rename'; trackId: string; name: string }
   | { type: 'track-move'; trackId: string; direction: -1 | 1 }
@@ -412,6 +427,30 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
       );
     case 'transition-remove':
       return commit(state, withTimeline(doc, removeTransition(doc.timeline, action.clipId)));
+    case 'clip-effect-set':
+      return commit(
+        state,
+        withTimeline(
+          doc,
+          setClipEffect(doc.timeline, action.clipIds, action.kind, action.category, (kind) => action.categories[kind]),
+        ),
+      );
+    case 'clip-effect-update':
+      return commit(
+        state,
+        withTimeline(
+          doc,
+          updateClipEffect(
+            doc.timeline,
+            action.clipId,
+            action.kind,
+            { ...(action.params ? { params: action.params } : {}), ...(action.disabled !== undefined ? { disabled: action.disabled } : {}) },
+            action.defaults,
+          ),
+        ),
+      );
+    case 'clip-effect-remove':
+      return commit(state, withTimeline(doc, removeClipEffect(doc.timeline, action.clipIds, action.kind)));
     case 'track-add':
       return commit(state, withTimeline(doc, addTrack(doc.timeline, action.kind)));
     case 'track-rename':

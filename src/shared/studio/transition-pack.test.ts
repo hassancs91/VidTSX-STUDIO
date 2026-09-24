@@ -29,7 +29,7 @@ describe('parseTransitionPack', () => {
     const parsed = parseTransitionPack(raw, 'core', APP);
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.manifest.name).toBe('Core Transitions');
+    expect(parsed.manifest.name).toBe('Core');
     // The everyday four (P6). Every core item is single-copy: the heavy ones
     // ship in the importable Volume 01 pack.
     expect(parsed.entries.map((e) => [e.id, e.durationSeconds, e.sceneCopies])).toEqual([

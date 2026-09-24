@@ -83,6 +83,9 @@ import type {
   StudioTransitionPackageInstallRequest,
   StudioTransitionPackageInstallResponse,
   StudioTransitionPackagePendingResponse,
+  StudioFilterListResponse,
+  StudioFilterModuleRequest,
+  StudioFilterModuleResponse,
   StudioPackageEvent,
   StudioPackageImportRequest,
   StudioPackageImportResponse,
@@ -208,6 +211,10 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_TRANSITION_LIST),
   studioTransitionModule: (data: StudioTransitionModuleRequest): Promise<StudioTransitionModuleResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_TRANSITION_MODULE, data),
+  studioFilterList: (): Promise<StudioFilterListResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_FILTER_LIST),
+  studioFilterModule: (data: StudioFilterModuleRequest): Promise<StudioFilterModuleResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_FILTER_MODULE, data),
   studioTransitionPackageInspect: (
     data: StudioTransitionPackageInspectRequest,
   ): Promise<StudioTransitionPackageInspectResponse> =>

@@ -179,6 +179,11 @@ export function copyBlocker(clip: StudioClip, asset: StudioMediaAsset | undefine
   if (clip.kind !== 'video') return `${clip.kind} clip`;
   if (!asset) return 'missing asset';
   if (asset.kind !== 'video') return `${asset.kind} asset`;
+  // A live filter repaints every frame in the browser (FILTER_PACKS_DESIGN.md
+  // "Export spans"): never copied, never a shot-composite base. Decided from
+  // the document alone — whether its pack is installed is the render's
+  // business, and the dialog's "copies N %" must not depend on it.
+  if (clip.effects?.some((e) => !e.disabled)) return 'filter';
   const rate = clip.speed !== undefined && clip.speed !== 1 ? clip.speed : 1;
   if (!(rate > 0)) return 'speed';
   if (!isIdentityTransform(clip)) return 'transform';

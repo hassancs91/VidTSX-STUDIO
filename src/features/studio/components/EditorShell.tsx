@@ -33,6 +33,7 @@ import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { useTextEdit } from '../hooks/useTextEdit';
 import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { useJoinStatus, useTransitionList } from '../hooks/useTransitions';
+import { useEffectStatuses, useFilterList } from '../hooks/useFilters';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -47,6 +48,7 @@ import { mapCutItemToTimeline } from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
 import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
+import { overrideClipEffect, type EffectParams } from '../services/effect-ops';
 import { NO_USAGE, usageByAsset, usageByShot } from '../services/asset-usage';
 import { effectiveBrand } from '../services/project-brand-options';
 import { markOpen } from '../services/open-timing';
@@ -70,6 +72,7 @@ import type { GenerateShotSpec } from './GenerateShotForm';
 import { LeftPane, LEFT_TABS, type LeftTab } from './LeftPane';
 import { TranscriptPanel } from './transcript/TranscriptPanel';
 import { TransitionsPanel } from './TransitionsPanel';
+import { FiltersPanel } from './FiltersPanel';
 import { PaneTabButton } from './PaneTabButton';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
 import { PaneDivider } from './PaneDivider';
@@ -93,6 +96,9 @@ type RightTab = 'inspector' | 'assistant' | 'script';
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
 /** Text-based editing — a dev-preview flag: on in dev builds, off in production until proven. */
 const TEXT_EDIT_ENABLED = isFeatureEnabled('studio-text-edit');
+// Per-clip filters (FILTER_PACKS_DESIGN.md): the tabs, the Inspector section and
+// the preview toggle. The engine renders a document's effects regardless.
+const FILTERS_ENABLED = isFeatureEnabled('studio-filters');
 
 export function EditorShell({ projectId, onBack }: Props) {
   const {
@@ -801,6 +807,21 @@ export function EditorShell({ projectId, onBack }: Props) {
   });
   const joinTarget = joins.target;
 
+  // ----- Filters (row 10) -------------------------------------------------
+  // One installed list feeds the clip chips (names, warnings), the Inspector's
+  // knobs and both tabs; the preview loads only the kinds the timeline uses.
+  const filterList = useFilterList();
+  const effectStatuses = useEffectStatuses(tl.timeline, filterList.installed);
+  const [filtersInPreview, setFiltersInPreview] = useState(true);
+  // An Inspector slider mid-drag: an ephemeral params override over the
+  // serialization (the canvas-transform pattern) — one dispatch on release.
+  const [effectOverride, setEffectOverride] = useState<{ clipId: string; kind: string; params: EffectParams } | null>(null);
+  const handleLiveEffect = useCallback(
+    (clipId: string, kind: string, params: EffectParams | null) =>
+      setEffectOverride(params ? { clipId, kind, params } : null),
+    [],
+  );
+
   // ----- Captions (D13) ---------------------------------------------------
   // The layer is document state (reducer-owned, undoable); the WORDS are not
   // — they are derived from the timeline on every serialize, so an edit to
@@ -881,13 +902,12 @@ export function EditorShell({ projectId, onBack }: Props) {
     transform: StudioClipTransform;
   } | null>(null);
   const previewTimeline = useMemo(() => {
-    if (!serializedTimeline || !canvasOverride) return serializedTimeline;
-    return overrideClipTransform(
-      serializedTimeline,
-      canvasOverride.clipId,
-      canvasOverride.transform,
-    );
-  }, [serializedTimeline, canvasOverride]);
+    if (!serializedTimeline) return serializedTimeline;
+    let next = serializedTimeline;
+    if (canvasOverride) next = overrideClipTransform(next, canvasOverride.clipId, canvasOverride.transform);
+    if (effectOverride) next = overrideClipEffect(next, effectOverride.clipId, effectOverride.kind, effectOverride.params);
+    return next;
+  }, [serializedTimeline, canvasOverride, effectOverride]);
   const handleCanvasCommit = useCallback(
     (clipId: string, transform: StudioClipTransform) => {
       tl.dispatch({ type: 'update-clip', clipId, patch: { transform } });
@@ -1264,6 +1284,16 @@ export function EditorShell({ projectId, onBack }: Props) {
                 }}
               />
             )}
+            {...(FILTERS_ENABLED
+              ? {
+                  renderFilters: () => (
+                    <FiltersPanel category="filter" list={filterList} timeline={tl.timeline} selectedClipIds={tl.selectedClipIds} dispatch={tl.dispatch} />
+                  ),
+                  renderEffects: () => (
+                    <FiltersPanel category="effect" list={filterList} timeline={tl.timeline} selectedClipIds={tl.selectedClipIds} dispatch={tl.dispatch} />
+                  ),
+                }
+              : {})}
           />
         </div>
 
@@ -1280,6 +1310,9 @@ export function EditorShell({ projectId, onBack }: Props) {
             shotLoader={shotLoader}
             captionComponent={captionComponent}
             transitionRetryKey={transitionList.installed}
+            filterRetryKey={filterList.installed}
+            filtersInPreview={filtersInPreview}
+            {...(FILTERS_ENABLED ? { onToggleFiltersInPreview: () => setFiltersInPreview((v) => !v) } : {})}
             playerRef={playback.playerRef}
             isPlaying={playback.isPlaying}
             onTogglePlay={playback.togglePlay}
@@ -1366,6 +1399,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 autoCutPhase={autoCut.phase}
                 {...(activePresetName ? { presetName: activePresetName } : {})}
                 onLearnPreset={handleLearnPreset}
+                {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect } } : {})}
                 review={
                   activeProposal && activeProposal.kind === 'cut-plan'
                     ? {
@@ -1453,6 +1487,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         missingAssetIds={missingAssetIds}
         heightPx={timelinePane.size}
         joinStatuses={joins.statuses}
+        effectStatuses={effectStatuses}
         transitionsOpen={leftTab === 'transitions'}
         onOpenTransitions={() => setLeftTab('transitions')}
       />

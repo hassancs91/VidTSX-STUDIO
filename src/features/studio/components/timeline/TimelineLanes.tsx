@@ -3,6 +3,7 @@ import { clipEndTime } from '../../services/timeline-ops';
 import { TRACK_HEIGHT } from '../../services/timeline-view';
 import { TimelineClip, type ClipDragKind, type ClipWaveformData } from './TimelineClip';
 import { TransitionJoins } from './TransitionJoins';
+import type { EffectStatus } from '../../services/filter-status';
 import type { JoinStatus } from '../../services/join-status';
 
 interface Props {
@@ -27,6 +28,8 @@ interface Props {
   /** The Transitions tab's target join (leading clip id). */
   targetJoinId: string | null;
   joinStatuses: ReadonlyMap<string, JoinStatus>;
+  /** Per clip id: what its filters show (`effectStatuses`) — the `fx` chip. */
+  effectStatuses: ReadonlyMap<string, EffectStatus>;
   /** Assets whose source file is missing — their clips get a warning tint. */
   missingAssetIds: ReadonlySet<string>;
 }
@@ -48,6 +51,7 @@ export function TimelineLanes({
   onJoinClick,
   targetJoinId,
   joinStatuses,
+  effectStatuses,
   missingAssetIds,
 }: Props) {
   const selected = new Set(selectedClipIds);
@@ -82,6 +86,7 @@ export function TimelineLanes({
                 thumbnail={clip.assetId ? getThumbnail(clip.assetId) : null}
                 waveform={clip.assetId ? getWaveform(clip.assetId) : null}
                 missing={clip.assetId !== undefined && missingAssetIds.has(clip.assetId)}
+                effect={effectStatuses.get(clip.id)}
                 onPointerDown={onClipPointerDown}
                 onContextMenu={onClipContextMenu}
               />

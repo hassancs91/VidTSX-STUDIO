@@ -145,3 +145,35 @@ describe('readFilterSource', () => {
     expect(await readFilterSource({ ...item, filePath: path.join(tmpDir, 'gone.js') })).toMatchObject({ ok: false });
   });
 });
+
+// The shipped core pack itself (resources/packs/core): the three first
+// filters list, each bundle passes the gate, and the manifest carries what the
+// Inspector reads without a module.
+describe('the built-in core pack', () => {
+  const CORE_PACK = path.join(__dirname, '../../../../resources/packs/core');
+  let realBuiltIn = '';
+
+  beforeAll(async () => {
+    realBuiltIn = path.join(tmpDir, 'real', 'packs');
+    await fs.cp(CORE_PACK, path.join(realBuiltIn, 'core'), { recursive: true });
+  });
+
+  it('lists noir (a filter), vhs (an animated effect) and cinematic-bloom (knobs, presets, heavy)', async () => {
+    const items = await scanFilterRoots(realBuiltIn, path.join(tmpDir, 'none'), '1.2.0');
+    expect(items.map((i) => i.kind)).toEqual(['core/noir', 'core/vhs', 'core/cinematic-bloom']);
+    expect(items[0]).toMatchObject({ packName: 'Core', category: 'filter', animated: false, heavy: false, defaultIntensity: 1 });
+    expect(items[1]).toMatchObject({ category: 'effect', animated: true, defaultIntensity: 0.85 });
+    expect(items[2]).toMatchObject({ category: 'effect', heavy: true });
+    expect(items[2].parameters.map((p) => p.key)).toEqual(['threshold', 'radius', 'warmth', 'strength']);
+    expect(items[2].presets.map((p) => p.id)).toEqual(['neutral-glass', 'golden-diffusion', 'dreamlight']);
+  });
+
+  it('passes every shipped bundle through the gate', async () => {
+    const items = await scanFilterRoots(realBuiltIn, path.join(tmpDir, 'none'), '1.2.0');
+    for (const item of items) {
+      const read = await readFilterSource(item);
+      expect(read.ok, item.kind).toBe(true);
+      if (read.ok) expect(read.source).not.toMatch(/^\s*import\s/m);
+    }
+  });
+});

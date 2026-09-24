@@ -90,7 +90,7 @@ describe('scanTransitionRoots', () => {
       'wipes/wipe-down',
     ]);
     const push = items[0];
-    expect(push).toMatchObject({ packId: 'core', packName: 'Core Transitions', durationSeconds: 0.7, sceneCopies: 'single' });
+    expect(push).toMatchObject({ packId: 'core', packName: 'Core', durationSeconds: 0.7, sceneCopies: 'single' });
     expect(push.filePath).toBe(path.join(builtIn, 'core', 'transitions', 'push-left.tsx'));
   });
 

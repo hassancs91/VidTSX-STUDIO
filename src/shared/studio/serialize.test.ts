@@ -120,3 +120,34 @@ describe('serializeTimeline dip-to-black', () => {
     });
   });
 });
+
+describe('serializeTimeline effects (per-clip filters)', () => {
+  it('copies live entries through on video and image clips and drops disabled ones', () => {
+    const clips = serialized([
+      {
+        id: 'a', kind: 'video', assetId: 'x', timelineStart: 0, duration: 4, sourceIn: 0,
+        effects: [
+          { kind: 'core/noir' },
+          { kind: 'core/vhs', params: { intensity: 0.5 }, disabled: true },
+          { kind: 'core/cinematic-bloom', params: { warmth: 0.8 } },
+        ],
+      },
+      { id: 'b', kind: 'video', assetId: 'x', timelineStart: 4, duration: 4, sourceIn: 10, effects: [{ kind: 'core/noir', disabled: true }] },
+      { id: 'c', kind: 'video', assetId: 'x', timelineStart: 8, duration: 4, sourceIn: 20 },
+      { id: 'i', kind: 'image', assetId: 'x', timelineStart: 12, duration: 2, effects: [{ kind: 'core/noir' }] },
+    ]);
+    expect(clips[0].effects).toEqual([{ kind: 'core/noir' }, { kind: 'core/cinematic-bloom', params: { warmth: 0.8 } }]);
+    // Every entry disabled = no key at all, like a clip that never had one.
+    expect(clips[1].effects).toBeUndefined();
+    expect(clips[2].effects).toBeUndefined();
+    expect(clips[3].effects).toEqual([{ kind: 'core/noir' }]);
+  });
+
+  it('never carries effects on a clip without a raster source', () => {
+    const clips = serialized([
+      { id: 's', kind: 'audio', assetId: 'x', timelineStart: 0, duration: 4, sourceIn: 0, effects: [{ kind: 'core/noir' }] },
+    ]);
+    expect(clips[0].kind).toBe('audio');
+    expect(clips[0].effects).toBeUndefined();
+  });
+});

@@ -1,5 +1,5 @@
 import { Sequence, useCurrentFrame } from 'remotion';
-import type { CaptionRuntimeProps, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
+import type { CaptionRuntimeProps, FilterDefinition, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
 import { ClipRenderer } from './ClipRenderer';
 import type { SerializedClip } from './serialize';
 import type { TransitionWindowPlan } from './transition-windows';
@@ -15,9 +15,11 @@ interface TransitionWindowProps {
   premountFor: number;
   components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
   captionComponent?: React.ComponentType<CaptionRuntimeProps>;
+  /** A scene copy carries its clip's filter too (in a render, one pass per copy). */
+  filterDefinitions?: Readonly<Record<string, FilterDefinition>>;
 }
 
-type SceneProps = Pick<TransitionWindowProps, 'components' | 'captionComponent'> & {
+type SceneProps = Pick<TransitionWindowProps, 'components' | 'captionComponent' | 'filterDefinitions'> & {
   clip: SerializedClip;
   /** The clip's start relative to the window's — ≤ 0, the clip began earlier. */
   offset: number;
@@ -29,19 +31,35 @@ type SceneProps = Pick<TransitionWindowProps, 'components' | 'captionComponent'>
  * so `trimBefore` and every frame-relative prop mean what they mean on the
  * clip's own Sequence and the two pictures show the same source frame.
  */
-function Scene({ clip, offset, components, captionComponent }: SceneProps) {
+function Scene({ clip, offset, components, captionComponent, filterDefinitions }: SceneProps) {
   return (
     <Sequence from={offset} layout="absolute-fill">
-      <ClipRenderer clip={clip} components={components} captionComponent={captionComponent} pictureOnly />
+      <ClipRenderer
+        clip={clip}
+        components={components}
+        captionComponent={captionComponent}
+        filterDefinitions={filterDefinitions}
+        pictureOnly
+      />
     </Sequence>
   );
 }
 
-function WindowBody({ plan, lead, trail, component: Transition, width, height, components, captionComponent }: TransitionWindowProps) {
+function WindowBody({
+  plan,
+  lead,
+  trail,
+  component: Transition,
+  width,
+  height,
+  components,
+  captionComponent,
+  filterDefinitions,
+}: TransitionWindowProps) {
   // Frame relative to the window. frame / frames is the sampling the native
   // crossfade ramp uses, so both kinds of transition line up frame for frame.
   const frame = useCurrentFrame();
-  const shared = { components, captionComponent };
+  const shared = { components, captionComponent, filterDefinitions };
   return (
     <Transition
       progress={frame / plan.frames}

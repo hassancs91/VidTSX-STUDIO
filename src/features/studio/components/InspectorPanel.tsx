@@ -1,6 +1,7 @@
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
+import type { StudioFilterInfo } from '@shared/ipc/types';
 import type { StudioMediaAsset, StudioProject, StudioShot, StudioTimeline } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { AutoCutPhase } from '../hooks/useAutoCut';
@@ -13,6 +14,8 @@ import { ReviewCutsSection } from './ReviewCutsSection';
 import { ReviewShotsSection } from './ReviewShotsSection';
 import { ReviewInsertSection } from './ReviewInsertSection';
 import { ClipSection } from './ClipSection';
+import { FilterSection, type LiveEffectHandler } from './FilterSection';
+import { isEffectClipKind } from '../services/effect-ops';
 import { ShotClipSection } from './ShotClipSection';
 import { PresetLearnSection } from './PresetLearnSection';
 
@@ -51,6 +54,9 @@ interface Props {
   presetName?: string;
   /** W5: "learn from this video" — resolves to an error line, or null. */
   onLearnPreset: () => Promise<string | null>;
+  /** Per-clip filters (flag `studio-filters`): the installed list for names
+   *  and knobs, and the ephemeral live-preview hook. Absent = no section. */
+  filters?: { installed: ReadonlyMap<string, StudioFilterInfo> | null; onLive: LiveEffectHandler };
 }
 
 export function InspectorPanel({
@@ -76,6 +82,7 @@ export function InspectorPanel({
   onShotError,
   presetName,
   onLearnPreset,
+  filters,
 }: Props) {
   // The shot behind the selected tsx clip, when exactly one clip is selected.
   const singleClip =
@@ -96,6 +103,12 @@ export function InspectorPanel({
             selectedClipIds={selectedClipIds}
             dispatch={timelineDispatch}
           />
+        </section>
+      )}
+      {filters && singleClip && isEffectClipKind(singleClip.kind) && (
+        <section className="flex flex-col gap-2">
+          <SectionLabel>Filters</SectionLabel>
+          <FilterSection clip={singleClip} installed={filters.installed} dispatch={timelineDispatch} onLive={filters.onLive} />
         </section>
       )}
 

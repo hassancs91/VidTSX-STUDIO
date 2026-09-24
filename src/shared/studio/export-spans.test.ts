@@ -550,3 +550,31 @@ describe('planExportSpans — compositeShots', () => {
     expect(plan.compositedFrames).toBe(300);
   });
 });
+
+// Per-clip filters (docs/studio/FILTER_PACKS_DESIGN.md "Export spans"): a clip
+// with a live effect repaints every frame in the browser — never copied, never
+// a shot-composite base. One predicate, decided from the document alone.
+describe('planExportSpans — filters', () => {
+  const noir = { effects: [{ kind: 'core/noir' }] };
+
+  it('sends a filtered clip to the browser with reason filter; a disabled entry does not count', () => {
+    const plan = planExportSpans(project([video([clip('a', 0, 5, 0, noir), clip('b', 5, 5, 20, { effects: [{ kind: 'core/noir', disabled: true }] })])]));
+    expect(plan.spans).toEqual([
+      { kind: 'browser', from: 0, frames: 150, reason: 'filter' },
+      { kind: 'copy', from: 150, frames: 150, assetId: ASSET, assetPath: DJI, sourceFrame: 600, firstFrameCeil: false },
+    ]);
+    expect(copyBlocker(clip('a', 0, 5, 0, noir), T5.assets[0], T5.settings)).toBe('filter');
+    expect(copyBlocker(clip('a', 0, 5, 0, { effects: [] }), T5.assets[0], T5.settings)).toBeNull();
+  });
+
+  it('is never a composite base: a shot over a filtered clip goes to the browser whole', () => {
+    const shot = { id: 's', name: 'S', kind: 'overlay' as const, createdAt: '', activeVersion: 1, status: 'ready' as const };
+    const overlay: StudioTrack = {
+      id: 'o1', kind: 'overlay', name: 'O1',
+      clips: [{ id: 't', kind: 'tsx', timelineStart: 4, duration: 2, tsx: { shotId: 's', mode: 'overlay' }, origin: { by: 'user' } }],
+    };
+    const plan = planExportSpans(project([overlay, video([clip('a', 0, 10, 0, noir)])], { shots: [shot] }), undefined, { compositeShots: true });
+    expect(plan.spans).toEqual([{ kind: 'browser', from: 0, frames: 300, reason: 'filter' }]);
+    expect(plan.reason).toBe('filter');
+  });
+});

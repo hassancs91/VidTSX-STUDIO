@@ -71,6 +71,12 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   // and delete them, restore deleted text. A dev-preview: on in dev builds, hidden
   // in production until it has had its testing pass on real footage.
   'studio-text-edit': false,
+  // Per-clip filters and effects (docs/studio/FILTER_PACKS_DESIGN.md, row 10):
+  // the Filters and Effects tabs, the Inspector's filter section and the
+  // preview toggle. The ENGINE is not behind this flag — a document that
+  // carries effects renders them regardless — only the editing UI is. A
+  // dev-preview like text editing: on in dev builds, hidden in production.
+  'studio-filters': false,
   // Agents (docs/agents-plan.md) — installable declarative agents on their own
   // page. Unhidden for 1.1.0 once all seven stages landed (§9 "Stage 6
   // outcome"): two built-in agents ship in the installer, and this flag is

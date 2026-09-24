@@ -49,6 +49,16 @@ export function storeTranspileResult(result: TranspileResult): string {
 }
 
 /**
+ * Store a module that needs no transpile — a pack filter's bundled ESM
+ * (FILTER_PACKS_DESIGN.md "Delivery") — under a caller-chosen key, and return
+ * the URL it is served at. The key must be URL-safe (`[A-Za-z0-9_-]`).
+ */
+export function storeRawModule(key: string, code: string): string {
+  storeModule(key, code);
+  return `${getModuleServerBaseUrl()}/modules/${key}.js`;
+}
+
+/**
  * Initialize the module server
  */
 export async function ensureModuleServer(): Promise<number> {

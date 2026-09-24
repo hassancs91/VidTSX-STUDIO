@@ -1,7 +1,9 @@
-import { useContext } from 'react';
-import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, interpolate, useCurrentFrame } from 'remotion';
+import { useContext, useMemo } from 'react';
+import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Video as WebCodecsVideo } from '@remotion/media';
-import type { CaptionRuntimeProps, ShotRuntimeProps } from '../types/studio';
+import type { CaptionRuntimeProps, FilterDefinition, ShotRuntimeProps } from '../types/studio';
+import { resolveFilterChain } from './filter-chain';
+import { FilteredPicture, type FilteredMediaProps } from './FilteredPicture';
 import { getStudioMediaEngine, getStudioMediaLogLevel } from './media-engine';
 import { SceneMirror, SceneSourceContext, SceneSourceSlot } from './SceneMirror';
 import type { SerializedClip } from './serialize';
@@ -11,6 +13,14 @@ interface ClipRendererProps {
   clip: SerializedClip;
   components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
   captionComponent?: React.ComponentType<CaptionRuntimeProps>;
+  /**
+   * Loaded pack filters keyed by their namespaced id (`core/noir`), supplied
+   * like `components` (docs/studio/FILTER_PACKS_DESIGN.md). A video or image
+   * clip whose `effects` resolve to at least one of them renders through
+   * `FilteredPicture`; an entry with no definition here — pack not installed,
+   * module failed, the preview's filter toggle off — shows the plain picture.
+   */
+  filterDefinitions?: Readonly<Record<string, FilterDefinition>>;
   /**
    * Edges of this clip a pack transition's window paints instead
    * (docs/studio/TRANSITION_PACKS_DESIGN.md "Structure A"). Only the PICTURE
@@ -104,11 +114,36 @@ function transitionOpacity(clip: SerializedClip, frame: number): number {
   return o;
 }
 
-export function ClipRenderer({ clip, components, captionComponent, cover, pictureOnly }: ClipRendererProps) {
+/** The video tag for the engine in force, with every prop the clip carries. */
+function videoTag(
+  props: { src: string; trimBefore?: number; volume?: number | ((frame: number) => number); muted?: boolean; playbackRate?: number },
+  media: FilteredMediaProps | { style: React.CSSProperties },
+) {
+  // Identical props to both tags: the swap under test is the DECODER, so
+  // anything else differing between the two arms would confound the
+  // measurement. `@remotion/media`'s <Video> accepts the same trimBefore /
+  // volume / muted / playbackRate / onVideoFrame contract.
+  // T2 (experimental, off by default — see media-engine.ts). <Audio> stays
+  // on the `remotion` tag deliberately: the WebCodecs audio path does not
+  // preserve pitch under playbackRate, and we expose clip playbackRate, so
+  // that is a separate decision (PREVIEW_ARCHITECTURE.md §D3.5).
+  return getStudioMediaEngine() === 'webcodecs' ? (
+    <WebCodecsVideo {...props} {...media} logLevel={getStudioMediaLogLevel()} />
+  ) : (
+    <OffthreadVideo {...props} {...media} />
+  );
+}
+
+export function ClipRenderer({ clip, components, captionComponent, filterDefinitions, cover, pictureOnly }: ClipRendererProps) {
   // Frame relative to this clip's Sequence — drives the transition opacity.
   const frame = useCurrentFrame();
+  const { width: compWidth, height: compHeight } = useVideoConfig();
   // Present only in the Player while a track has transition windows (SceneMirror.tsx).
   const sceneSources = useContext(SceneSourceContext);
+  // Stable across frames on purpose: FilteredPicture derives its frame
+  // callback from the chain, and the video tag re-subscribes (and paints) on
+  // every new callback identity.
+  const chain = useMemo(() => resolveFilterChain(clip.effects, filterDefinitions), [clip.effects, filterDefinitions]);
   const style = transformStyle(clip);
   const opacityFactor = pictureOnly ? 1 : transitionOpacity(clip, frame);
   if (opacityFactor < 1) style.opacity = (style.opacity as number | undefined ?? 1) * opacityFactor;
@@ -125,29 +160,32 @@ export function ClipRenderer({ clip, components, captionComponent, cover, pictur
     case 'video': {
       if (!clip.src) return null;
       // Player: a window's scene copy mirrors the clip's own element rather
-      // than mounting another decoder (SceneMirror.tsx has the why).
+      // than mounting another decoder (SceneMirror.tsx has the why). A
+      // filtered clip's mirror shows its filter canvas — `source()` prefers it.
       if (sceneSources && pictureOnly) return <SceneMirror clipId={clip.id} style={fill} />;
-      // Identical props to both tags: the swap under test is the DECODER, so
-      // anything else differing between the two arms would confound the
-      // measurement. `@remotion/media`'s <Video> accepts the same trimBefore /
-      // volume / muted / playbackRate contract.
       const videoProps = {
         src: clip.src,
-        style: fill,
         ...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {}),
         ...(volume !== undefined ? { volume } : {}),
         ...(clip.muted || pictureOnly ? { muted: true } : {}),
         ...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {}),
       };
-      // T2 (experimental, off by default — see media-engine.ts). <Audio> stays
-      // on the `remotion` tag deliberately: the WebCodecs audio path does not
-      // preserve pitch under playbackRate, and we expose clip playbackRate, so
-      // that is a separate decision (PREVIEW_ARCHITECTURE.md §D3.5).
+      // Filtered: the same tag, with `onVideoFrame` feeding the chain, under
+      // the canvas that shows the result. A render's scene copies carry the
+      // filter too — N copies, N passes (FILTER_PACKS_DESIGN.md "Composition").
       const element =
-        getStudioMediaEngine() === 'webcodecs' ? (
-          <WebCodecsVideo {...videoProps} logLevel={getStudioMediaLogLevel()} />
+        chain.length > 0 ? (
+          <FilteredPicture
+            kind="video"
+            style={fill}
+            sourceOffset={clip.trimBefore}
+            chain={chain}
+            maxWidth={compWidth}
+            maxHeight={compHeight}
+            renderMedia={(media) => videoTag(videoProps, media)}
+          />
         ) : (
-          <OffthreadVideo {...videoProps} />
+          videoTag(videoProps, { style: fill })
         );
       return sceneSources && cover ? <SceneSourceSlot clipId={clip.id}>{element}</SceneSourceSlot> : element;
     }
@@ -164,9 +202,25 @@ export function ClipRenderer({ clip, components, captionComponent, cover, pictur
         />
       );
 
-    case 'image':
-      if (!clip.src) return null;
-      return <Img src={clip.src} style={fill} />;
+    case 'image': {
+      const src = clip.src;
+      if (!src) return null;
+      // Img's frame hook is `onImageFrame`: it fires once the picture loads
+      // (an animated filter then repaints on every frame change from it).
+      if (chain.length > 0) {
+        return (
+          <FilteredPicture
+            kind="image"
+            style={fill}
+            chain={chain}
+            maxWidth={compWidth}
+            maxHeight={compHeight}
+            renderMedia={({ onVideoFrame, style: fit }) => <Img src={src} style={fit} onImageFrame={onVideoFrame} />}
+          />
+        );
+      }
+      return <Img src={src} style={fill} />;
+    }
 
     // TSX shots (S4): the component arrives via the parallel `components`
     // map. The nested Sequence applies `trimBefore` as a frame offset —

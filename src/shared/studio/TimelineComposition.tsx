@@ -1,6 +1,6 @@
 import { Fragment, useMemo } from 'react';
 import { AbsoluteFill, Sequence, useCurrentFrame, useRemotionEnvironment } from 'remotion';
-import type { CaptionRuntimeProps, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
+import type { CaptionRuntimeProps, FilterDefinition, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
 import { ClipRenderer } from './ClipRenderer';
 import { SceneSourceContext, useSceneSources } from './SceneMirror';
 import type { SerializedClip, SerializedTimeline } from './serialize';
@@ -36,6 +36,14 @@ export interface TimelineCompositionProps {
    * (docs/studio/TRANSITION_PACKS_DESIGN.md).
    */
   transitionComponents?: Record<string, React.ComponentType<TransitionRuntimeProps>>;
+  /**
+   * Pack filters keyed by their namespaced id (`core/noir`), supplied like
+   * `transitionComponents` (docs/studio/FILTER_PACKS_DESIGN.md): the preview
+   * loads the kinds its timeline references, the export entry passes static
+   * imports. A clip whose entry has no definition here shows its plain
+   * picture. Undefined = today's path, untouched.
+   */
+  filterDefinitions?: Readonly<Record<string, FilterDefinition>>;
   /**
    * Engine 3 (docs/export-engines-plan.md "shot composite"): render only the
    * SHOT LAYER — the overlay and caption lanes' graphics (tsx, caption, image
@@ -82,6 +90,7 @@ export function TimelineComposition({
   components,
   captionComponent,
   transitionComponents,
+  filterDefinitions,
   layer,
 }: TimelineCompositionProps) {
   const frame = useCurrentFrame();
@@ -140,6 +149,7 @@ export function TimelineComposition({
                       clip={clip}
                       components={components}
                       captionComponent={captionComponent}
+                      filterDefinitions={filterDefinitions}
                       cover={trackTransitions?.covers.get(clip.id)}
                     />
                   </Sequence>
@@ -163,6 +173,7 @@ export function TimelineComposition({
                       premountFor={margin}
                       components={components}
                       captionComponent={captionComponent}
+                      filterDefinitions={filterDefinitions}
                     />
                   );
                 })}

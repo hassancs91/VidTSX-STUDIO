@@ -1,12 +1,14 @@
 import { useMemo, type ComponentType } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
-import { Pause, Play, SkipBack } from 'lucide-react';
+import { Palette, Pause, Play, SkipBack } from 'lucide-react';
 import { TimelineComposition, type SerializedTimeline } from '@shared/studio';
+import { referencedFilterKinds } from '@shared/studio/filter-pack';
 import { referencedTransitionKinds } from '@shared/studio/transition-pack';
 import type { CaptionRuntimeProps } from '@shared/types/studio';
 import { useShotModuleSnapshot } from '../hooks/useShotModuleSnapshot';
 import type { ShotModuleLoader } from '../services/shot-module-loader';
 import type { ShotComponent } from '../hooks/useShotModuleLoader';
+import { useFilterDefinitions } from '../hooks/useFilters';
 import { useTransitionComponents } from '../hooks/useTransitions';
 
 interface Props {
@@ -33,6 +35,13 @@ interface Props {
   /** Changes when the installed transitions change — the preview then retries
    *  kinds that didn't load, so a reinstalled pack comes back without a reopen. */
   transitionRetryKey?: unknown;
+  /** The same for pack filters (docs/studio/FILTER_PACKS_DESIGN.md). */
+  filterRetryKey?: unknown;
+  /** "Filters in preview" off: the Player paints every clip plain; the
+   *  document and the export are untouched. */
+  filtersInPreview?: boolean;
+  /** Present = show the toggle beside the transport (flag `studio-filters`). */
+  onToggleFiltersInPreview?: () => void;
 }
 
 /**
@@ -55,15 +64,22 @@ export function PreviewPanel({
   onCycleRate,
   overlay,
   transitionRetryKey,
+  filterRetryKey,
+  filtersInPreview = true,
+  onToggleFiltersInPreview,
 }: Props) {
   const { components } = useShotModuleSnapshot(shotLoader);
   // Pack transitions the timeline uses — loaded here, like shot modules, so an
   // arrival re-renders the preview only. Unloaded kinds render as crossfades.
   const transitionKinds = useMemo(() => referencedTransitionKinds(timeline), [timeline]);
   const transitionComponents = useTransitionComponents(transitionKinds, transitionRetryKey);
+  // Pack filters the same way; an unloaded kind shows the plain picture.
+  const filterKinds = useMemo(() => referencedFilterKinds(timeline), [timeline]);
+  const loadedFilters = useFilterDefinitions(filterKinds, filterRetryKey);
+  const filterDefinitions = filtersInPreview ? loadedFilters : undefined;
   const inputProps = useMemo(
-    () => ({ timeline, components, captionComponent, transitionComponents }),
-    [timeline, components, captionComponent, transitionComponents],
+    () => ({ timeline, components, captionComponent, transitionComponents, filterDefinitions }),
+    [timeline, components, captionComponent, transitionComponents, filterDefinitions],
   );
   const isEmpty = timeline.tracks.every((t) => t.clips.length === 0);
   const proxiesPending = proxyProgress.total - proxyProgress.ready;
@@ -138,6 +154,24 @@ export function PreviewPanel({
         >
           {playbackRate}×
         </button>
+        {onToggleFiltersInPreview && (
+          <button
+            onClick={onToggleFiltersInPreview}
+            aria-pressed={filtersInPreview}
+            title={
+              filtersInPreview
+                ? 'Filters in preview: on — click to preview every clip plain (the export is unaffected)'
+                : 'Filters in preview: off — click to paint filters in the preview again'
+            }
+            aria-label="Toggle filters in preview"
+            data-filters-preview={filtersInPreview ? 'on' : 'off'}
+            className={`flex items-center justify-center w-[26px] h-[22px] rounded-[5px] transition-colors ${
+              filtersInPreview ? 'text-text-secondary bg-app-active' : 'text-text-muted hover:bg-app-hover hover:text-text-secondary'
+            }`}
+          >
+            <Palette size={13} strokeWidth={1.5} />
+          </button>
+        )}
         <div className="flex-1" />
         {proxiesPending > 0 && (
           <span className="text-[10px] text-text-ghost">

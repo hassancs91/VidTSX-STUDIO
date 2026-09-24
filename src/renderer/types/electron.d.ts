@@ -507,6 +507,8 @@ export interface ElectronAPI {
   studioCaptionTemplateModule: (data: import('../../shared/ipc/types').StudioCaptionTemplateModuleRequest) => Promise<import('../../shared/ipc/types').StudioCaptionTemplateModuleResponse>;
   studioTransitionList: () => Promise<import('../../shared/ipc/types').StudioTransitionListResponse>;
   studioTransitionModule: (data: import('../../shared/ipc/types').StudioTransitionModuleRequest) => Promise<import('../../shared/ipc/types').StudioTransitionModuleResponse>;
+  studioFilterList: () => Promise<import('../../shared/ipc/types').StudioFilterListResponse>;
+  studioFilterModule: (data: import('../../shared/ipc/types').StudioFilterModuleRequest) => Promise<import('../../shared/ipc/types').StudioFilterModuleResponse>;
   studioTransitionPackageInspect: (data: import('../../shared/ipc/types').StudioTransitionPackageInspectRequest) => Promise<import('../../shared/ipc/types').StudioTransitionPackageInspectResponse>;
   studioTransitionPackageInstall: (data: import('../../shared/ipc/types').StudioTransitionPackageInstallRequest) => Promise<import('../../shared/ipc/types').StudioTransitionPackageInstallResponse>;
   studioTransitionPackagePending: () => Promise<import('../../shared/ipc/types').StudioTransitionPackagePendingResponse>;

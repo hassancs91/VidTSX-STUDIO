@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { StudioClip, StudioClipKind } from '../../types';
+import { EFFECT_WARNING_TEXT, type EffectStatus } from '../../services/filter-status';
 import { secondsToPx } from '../../services/timeline-view';
 import { ClipWaveform } from './ClipWaveform';
 
@@ -20,6 +21,9 @@ interface Props {
   waveform: ClipWaveformData | null;
   /** The clip's source file is gone from disk (Slice F) — warning tint. */
   missing?: boolean;
+  /** The clip carries filters (FILTER_PACKS_DESIGN.md) — the `fx` chip: accent
+   *  when set, amber when a pack is missing (the clip plays plain). */
+  effect?: EffectStatus;
   onPointerDown: (event: React.PointerEvent, clip: StudioClip, kind: ClipDragKind) => void;
   onContextMenu?: (event: React.MouseEvent, clip: StudioClip) => void;
 }
@@ -46,6 +50,7 @@ function TimelineClipInner({
   thumbnail,
   waveform,
   missing,
+  effect,
   onPointerDown,
   onContextMenu,
 }: Props) {
@@ -96,10 +101,24 @@ function TimelineClipInner({
 
       <span
         className="absolute top-[2px] left-0 right-0 px-[5px] text-[9px] leading-[12px] text-text-primary truncate pointer-events-none"
-        style={{ paddingLeft: thumbnail ? 42 : 5, textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}
+        style={{ paddingLeft: thumbnail ? 42 : 5, paddingRight: effect ? 24 : 5, textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}
       >
         {label}
       </span>
+
+      {effect && width > 40 && (
+        <span
+          data-clip-fx={effect.warning ?? (effect.label === 'off' ? 'off' : 'set')}
+          title={effect.warning ? `${effect.label}\n${EFFECT_WARNING_TEXT[effect.warning]}` : effect.label}
+          className="absolute top-[2px] right-[3px] text-[8px] leading-[12px] px-[4px] rounded-[3px] pointer-events-none font-medium"
+          style={{
+            background: effect.warning ? 'var(--color-accent-amber)' : effect.label === 'off' ? 'rgba(0,0,0,0.55)' : 'var(--color-accent)',
+            color: effect.label === 'off' && !effect.warning ? 'var(--color-text-muted)' : '#fff',
+          }}
+        >
+          fx
+        </span>
+      )}
 
       {(fadeInPx > 0 || fadeOutPx > 0) && (
         <FadeRamps widthPx={width} heightPx={heightPx - 6} fadeInPx={fadeInPx} fadeOutPx={fadeOutPx} />

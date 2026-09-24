@@ -1,9 +1,11 @@
 # Filter packs — pluggable per-clip filters + the Filters tab (Pack system E2, slice 1)
 
 > Status: **all decisions answered (Hasan, 2026-09-18) — two tabs, Filters
-> and Effects. P0 passed on every axis, fps included (2026-09-22); the
-> new-file halves of P1/P2 are built — see "P0 results" and "Built so far". The
-> tracked nine have their own section, "Analysis tracks".** This is
+> and Effects. P0 passed on every axis, fps included (2026-09-22). P1, P2 and
+> P3 are BUILT and verified live (2026-09-24, uncommitted) — the three
+> filters work end to end in the editor: see "As built (P1–P3)". P4 (export
+> copy step) and P5 (import formats) are next. The tracked nine have their
+> own section, "Analysis tracks".** This is
 > NEXT_FEATURES_DESIGN.md row 10 (Q8c "effects") started from the other end:
 > 22 authored, machine-verified filters already exist in the sibling repo
 > (`../vidtsx-addons/filters/`, contract in its `AUTHORING.md` and
@@ -19,40 +21,37 @@
 > **Continue from here (for the next session).** Everything below is the
 > record; this is the order of work:
 >
-> 1. **Commit the transitions slice first** (Hasan's call; by pathspec, never
->    `stash`). Every remaining filter edit lands in files that slice still
->    holds uncommitted: `ClipRenderer.tsx`, `TimelineComposition.tsx`,
->    `SceneMirror.tsx`, `serialize.ts`, `types/studio.ts`, `channels.ts`, the
->    preload api, `electron.d.ts`, `resources/packs/core/`. The filter files
->    built so far are all NEW (see "Built so far") and conflict with nothing.
-> 2. **Engine wiring (rest of P1):** `types/studio.ts` re-exports
->    `studio-effects.ts` and `StudioClip.effects?`; `SerializedClip.effects`
->    copied through (disabled dropped); the `ClipRenderer` branch for
->    video/image clips with a resolved chain → `FilteredPicture` with
->    `renderMedia` wrapping today's element; `export-spans.ts` treats a clip
->    with a live effect as a browser span (`reason: 'filter'`);
->    `useSceneSources().source()` prefers `[data-scene-picture]`.
-> 3. **Rest of P2:** IPC `studio:filter:list` / `studio:filter:module` (the
->    transition handlers' shape; no transpile, gate only), `useFilters.ts`
->    (`useFilterList`, `useFilterDefinitions` — the transitions hooks' shape,
->    `default` taken when `isFilterDefinition`), `PreviewPanel` supplies
->    `filterDefinitions`, the core pack gains `filters/` with the three
->    bundles (`.vidtsx-temp/p0-filters/bundle-filters.mjs` makes them; the
->    add-ons repo gets the real builder) and `filters[]` entries in
->    `resources/packs/core/pack.json` with `category`, `parameters`,
->    `presets`.
-> 4. **P3** two tabs + cards + effect ops + Inspector section + chip + preview
->    toggle behind flag `studio-filters`; **P4** `export-filters.ts`; **P5**
->    `.vidtsxfilter` + `filters/` in `.vidtsxpack` (generalize
->    `transition-package.ts` / `transition-install.ts`).
-> 5. **Verification rules:** re-run the P0 harness (`node run.mjs 30,100,200,300
->    --runs=1` then compare with `out/proto-run1/`) after any edit to
->    `FilteredPicture.tsx`, `filter-runtime.ts`, `ClipRenderer.tsx` or
->    `SceneMirror.tsx`; the fps gate (`player/fps-when-quiet.ps1`, Task
->    Scheduler job `vidtsx-p0-filters-fps`) after any change to the Player
->    paint path; `npm run check:types` must stay at its baseline (26 / 10 on
->    2026-09-22 — read it from the command, not from here).
-> 6. **Slice 2 (the tracked nine):** the ONNX spike in "Analysis tracks",
+> 1. **Commit P1–P3** when Hasan asks (by pathspec, never `stash`): the
+>    working tree holds 29 edited + 15 new files, listed under "As built".
+>    Tests for every touched file are green; `check:types` at baseline.
+> 2. **P4 — export copy step:** `export-filters.ts` wired from
+>    `export-entry.ts` like `export-transitions.ts` — collect
+>    `referencedFilterKinds(serialized)`, `readFilterSource` each (gate),
+>    copy beside the entry as `studio-entry-<projectId>-filter-<pack>.<item>.js`
+>    (a `.js` copy, NOT a `.tsx` — nothing transpiles it; the entry imports it
+>    with a relative `./` path), emit `FILTER_DEFINITIONS` and pass it as
+>    `filterDefinitions` to `TimelineComposition`. A missing pack logs and
+>    degrades (the preview's behaviour); a gate failure fails the export.
+>    Also the Engine 3 shot layer: an image clip with a filter renders there
+>    only if the entry passes `filterDefinitions` to the `layer='shots'`
+>    render too. Verify with a real export against the P0 checks (noir R=G=B,
+>    frames outside filtered clips byte-identical to a no-filter export, audio
+>    MD5 identical).
+> 3. **P5 — import:** `filters/*.js` in `.vidtsxpack` and `.vidtsxfilter`
+>    singles into `imported/`, generalizing `transition-package.ts` /
+>    `transition-install.ts` with a per-kind spec; the Filters/Effects tabs
+>    then get the Import… button the Transitions tab has (deliberately absent
+>    now) and dispatch `FILTERS_CHANGED_EVENT` (`useFilters.ts`) after an
+>    install.
+> 4. **Verification rules:** re-run the P0 harness (`node run.mjs 30,100,200,300
+>    --runs=1` then md5-compare `out/filtered-run1/` with `out/proto-run1/`)
+>    after any edit to `FilteredPicture.tsx`, `filter-runtime.ts`,
+>    `ClipRenderer.tsx` or `SceneMirror.tsx`; the fps gate
+>    (`player/fps-when-quiet.ps1`, Task Scheduler job `vidtsx-p0-filters-fps`)
+>    after any change to the Player paint path; `npm run check:types` must
+>    stay at its baseline (26 / 10 on 2026-09-24 — read it from the command,
+>    not from here). Live checks: `.vidtsx-temp/p0-filters/live/` (README).
+> 5. **Slice 2 (the tracked nine):** the ONNX spike in "Analysis tracks",
 >    after P5.
 
 ## What ships
@@ -425,9 +424,9 @@ filter, `export default`, `parameters`/`presets` copied into the entry,
 | | Scope | Done when |
 |---|---|---|
 | **P0** | Spike: the three definitions supplied statically through `FilteredPicture`; measure. Harness `.vidtsx-temp/p0-filters/` (the transitions kit, re-pointed) | **DONE 2026-09-22 — every check below passed; see "P0 results" for the numbers and the two decisions (cap 640, heavy badge informational).** Original bars: **Render host:** through `@remotion/renderer` over the synthetic counter clips — noir stills have R=G=B on every clip pixel; vhs at two frames differ from each other and are byte-identical across two runs; bloom's PSNR against the plain frame is in the lab's range; frames of an unfiltered clip are byte-identical to a no-filter render. **Player:** on the isolated instance at 540p proxy, fps across a filtered clip for each of the three, and for noir under a transition window (mirror shows the filtered picture); rVFC cadence with the canvas over the element; the working-resolution cap chosen. Bars: noir and vhs ≥ 24 fps; bloom recorded and sets the heavy policy |
-| **P1** | Engine: `StudioClipEffect`, `filter-runtime.ts` (vendored), `FilteredPicture.tsx`, `ClipRenderer` branch, serializer field, export-spans predicate, `SceneMirror` source preference, `referencedFilterKinds` | Unit tests for the serializer, spans, id helpers, param resolution; the P0 harness re-run byte-identical for unfiltered clips; `check:types` at baseline |
-| **P2** | Pack loader (shared + main), IPC, `useFilters.ts`, `core` pack gains `filters/` with the three, degrade; the add-ons builder | Loader tests; live: the three list, a folder pack shows up without restart, an uninstalled kind previews plain while an installed one renders |
-| **P3** | Filters tab + cards, effect ops, Inspector section + generic controls + presets + ephemeral preview, timeline chip, preview toggle, flag | CDP pass on the isolated instance: apply from a card, drag intensity (one undo step), preset switch, Remove, undo/redo through all of it, degrade round trip (uninstall → chip warns, project opens → reinstall restores) |
+| **P1** | Engine: `StudioClipEffect`, `filter-runtime.ts` (vendored), `FilteredPicture.tsx`, `ClipRenderer` branch, serializer field, export-spans predicate, `SceneMirror` source preference, `referencedFilterKinds` | **DONE 2026-09-24** — serializer, spans (`filter` reason, never a composite base) and chain tests added (70 green in the touched files); the P0 harness re-run **byte-identical** to `out/proto-run1/` twice (after the FilteredPicture stage-rebuild fix and after the ClipRenderer branch); `check:types` 26 / 10. See "As built" |
+| **P2** | Pack loader (shared + main), IPC, `useFilters.ts`, `core` pack gains `filters/` with the three, degrade; the add-ons builder | **DONE 2026-09-24** — loader tests read the shipped core pack (three kinds, bloom's knobs/presets/heavy, every bundle through the gate); live on the isolated instance: the three list, a folder pack dropped into `<assets>/packs/` appears on the next tab open and the preview loads it without a reopen, an uninstalled kind plays plain while an installed one renders. The add-ons builder is still the harness's `bundle-filters.mjs` (the add-ons repo's is not built) |
+| **P3** | Filters tab + cards, effect ops, Inspector section + generic controls + presets + ephemeral preview, timeline chip, preview toggle, flag | **DONE 2026-09-24** — CDP pass on the isolated instance, every row: card blocked with nothing selected; apply noir (disk, chip, canvas 640 px, every sampled pixel R=G=B); VHS from the Effects tab fills the second slot; an intensity drag live-previews and commits ONCE (one undo step, redo restores); bloom replaces VHS (slot rule) with noir kept; preset lands its four values and the select tracks it, a knob drag turns it to Custom; Enable off drops the entry from the Player but not the document; Inspector Remove; nine undos to a clean clip and nine redos back; panel Remove; "Apply to all clips on this track"; the image clip is filtered too (640² canvas, gray); the preview toggle empties `filterDefinitions` and restores it; degrade round trip (amber chip + "Not installed" block + plain picture → folder pack drop → chip set, preview painted → pack pulled → amber again, id kept). See "P3 results" |
 | **P4** | Export copy step | A real 1080p export: entry imports the copies (byte-identical to the pack files); filtered frames match the P0 checks; frames outside filtered clips byte-identical to a no-filter export; audio MD5 identical |
 | **P5** | `filters/` in `.vidtsxpack`, `.vidtsxfilter`, association, generalized package code | Zip specs for the new kind; double-click installs; a single lands in `imported/` |
 | **P6** | The other 10 eligible items (built-in vs pack — Hasan's call); the analysis-track design for the tracked nine | — |
@@ -532,7 +531,7 @@ Worst presented-frame gaps of 45–86 ms remain in the filtered arms against
 covered: real camera footage, 1080p originals with no proxy, a slower
 machine, more than two stages.
 
-### Built so far (2026-09-18 → 22, uncommitted) — the new-file halves of P1 and P2
+### Built first (2026-09-18 → 22, committed 2026-09-24 as bd4892f) — the new-file halves of P1 and P2
 
 While the transitions slice stays uncommitted in the files the engine edits
 (`ClipRenderer.tsx`, `TimelineComposition.tsx`, `SceneMirror.tsx`,
@@ -549,11 +548,152 @@ While the transitions slice stays uncommitted in the files the engine edits
 | `src/shared/studio/FilteredPicture.tsx` | The host component, final shape: `renderMedia({ onVideoFrame, style })` render-prop so `ClipRenderer` keeps its engine switch and every media prop; `sourceOffset` (= `trimBefore`) for the clock; the chain of stages; `data-scene-picture` on the canvas; one paint per presented frame and `previewMaxSide` (640, Player only) after the fps re-measure. The harness re-pointed at this file renders stills **byte-identical** to the prototype's, before and after the rewrite |
 | tests | `filter-pack.test.ts` (15), `filter-lint.test.ts` (5), `filter-packs.test.ts` (10): 26 passing; `check:types` at baseline 26 / 10 |
 
-Still to build, in order, once the tree is clear: the engine wiring (the
-`ClipRenderer` branch, `SerializedClip.effects`, the export-spans predicate,
-`SceneMirror`'s source preference, `types/studio.ts` re-export), the IPC
-(`studio:filter:list` / `module`), `useFilters.ts`, the core pack's
-`filters/` with the three bundles, then P3 UI, P4 export copy, P5 import.
+(The rest — the engine wiring, the IPC, `useFilters.ts`, the core pack's
+`filters/`, the P3 UI — landed 2026-09-24; next section.)
+
+### As built (P1–P3, 2026-09-24, uncommitted)
+
+The transitions slice had been committed (f9bb79e), so the old-file halves
+went in. Where the build differs from the text above, this list wins.
+
+**P1 — engine.**
+- `types/studio.ts` re-exports `studio-effects.ts`; `StudioClip.effects?`.
+  Checked: `migrateProject` passes `doc.timeline` through untouched, so an
+  older build that opens and saves a filtered project keeps the field.
+- `serialize.ts`: `SerializedClip.effects` on video and image clips, live
+  entries only; every entry disabled = no key at all.
+- `filter-chain.ts` (new, pure): `resolveFilterChain(effects, definitions)`
+  — document order, disabled and definition-less entries skipped, so the
+  rest of the chain still renders (the degrade rule per entry).
+- `ClipRenderer.tsx`: `filterDefinitions` prop; the chain is `useMemo`'d on
+  `clip.effects` + the map ON PURPOSE — `FilteredPicture` derives its frame
+  callback from the chain, and Remotion's `useEmitVideoFrame` cancels and
+  re-requests `requestVideoFrameCallback` (painting immediately) on every
+  new callback identity, so an unstable chain would double-paint every
+  frame. Video: the same tag (either engine) with `onVideoFrame`; image:
+  `Img` with `onImageFrame`. Both engines' tags take `onVideoFrame` at
+  4.0.435. A render's scene copies carry the filter (N copies, N passes);
+  the Player's mirrors copy the filter canvas.
+- `FilteredPicture.tsx`: one fix — a chain whose LENGTH changes (an effect
+  added or removed live) disposes and rebuilds its stages, or the visible
+  canvas stopped being the last stage. Static chains take the same path as
+  before; the harness stills stayed byte-identical.
+- `SceneMirror.tsx`: `source()` asks for `canvas[data-scene-picture]` FIRST,
+  then `video, canvas` — a selector list returns DOM order, and the canvas
+  sits after the media element.
+- `export-spans.ts`: `copyBlocker` returns `'filter'` for a clip with a live
+  entry, decided from the document alone (installed or not is the render's
+  business; the dialog's "copies N %" must not depend on it). A shot over a
+  filtered clip goes to the browser whole, never a composite base.
+- `TimelineComposition` and `TransitionWindow` pass `filterDefinitions`
+  through.
+
+**P2 — delivery.**
+- Channels `studio:filter:list` / `studio:filter:module`; types in
+  `shared/ipc/types/studio-filters.ts` (`StudioFilterInfo` = the manifest
+  entry minus the path, so the Inspector never waits for a module);
+  `studio-filter-handlers.ts` (list; module = resolve → `readFilterSource`
+  gate → `storeRawModule` on the module server, keyed `filter-<md5>` of the
+  content so an updated pack file is a new URL — no transpile anywhere);
+  preload `studioFilterList` / `studioFilterModule`; `electron.d.ts`.
+- `useFilters.ts`: `useFilterList` (installed map is kind → the whole
+  `StudioFilterInfo`, since the Inspector needs the knobs),
+  `useFilterDefinitions(kinds, retryKey)` (`default` taken when
+  `isFilterDefinition`; no `setupVirtualModuleGlobals` — a filter is plain
+  Canvas code), `useEffectStatuses`, `FILTERS_CHANGED_EVENT` for P5.
+- `PreviewPanel`: `referencedFilterKinds(timeline)` →
+  `useFilterDefinitions(kinds, filterRetryKey)`; `filtersInPreview` off
+  hands the composition `undefined`.
+- `resources/packs/core/`: `filters/{noir,vhs,cinematic-bloom}.js` — the
+  harness's bundles, byte-for-byte (the SDK dist is older than they are);
+  `pack.json` gains `filters[]` (noir `category: filter`; vhs effect,
+  animated, 0.85; cinematic-bloom effect, 4 knobs, 3 presets, `heavy:
+  true`). The pack is now called **"Core"** (was "Core Transitions" — it
+  holds both; version 1.2.0); two transition tests updated for the name.
+- `filter-packs.test.ts` gained a describe over the REAL core pack.
+
+**P3 — UI** (flag `studio-filters`, a dev-preview: on in dev, off in
+production; the engine is NOT behind it).
+- `effect-ops.ts` (new, pure, + 10 tests): `setClipEffect(clipIds, kind,
+  category, categoryOf)` — the slot rule; a filter lands first, an effect
+  last; re-applying a kind the clip has keeps its params and re-enables it;
+  an entry of unknown category (pack gone) is left alone.
+  `updateClipEffect` with `normalizeEffectParams` — the neutral rule against
+  the manifest defaults (intensity clamped 0–1 and dropped at the default;
+  a knob clamped to its range, a colour lower-cased, dropped at its default;
+  unknown keys dropped; without defaults values pass through).
+  `removeClipEffect(clipIds, kind)`; `overrideClipEffect` (the
+  `overrideClipTransform` twin over the serialization).
+- Reducer actions `clip-effect-set` (carries `categories`, the installed
+  kind → category map), `clip-effect-update` (carries `defaults`),
+  `clip-effect-remove` — each one undo step; a drag commits once on release.
+- `filter-status.ts` (+ tests): `effectStatuses(timeline, installed)` → per
+  clip the entries, a label ("Noir + VHS Club", "off"), and the one warning
+  `not-installed` (suppressed while the list loads).
+- `FiltersPanel.tsx` (one component, `category` prop, mounted once per
+  tab): selected-clips header (current kind / mixed / none, Remove, "Apply
+  to all clips on this track" when one clip is selected), cards grouped by
+  pack, no Import… button until P5. `FilterCard.tsx`: a 256×144 canvas
+  painted by the real filter over ONE demo still; static = once, animated =
+  a rAF loop while hovered or focused; modules load as cards scroll into
+  view. **The demo still is a renderer-bundled asset**
+  (`src/features/studio/assets/filter-demo.jpg`, 17 KB, the add-ons'
+  portrait at 384²) rather than `resources/packs/core/demo/` — no path
+  hand-off, no asset route, one decode shared by every card.
+- `FilterSection.tsx` (Inspector, single video/image clip): one block per
+  entry — slot label (Filter / Effect / Not installed), name, heavy badge,
+  On checkbox, Remove, intensity (%), presets select (shows the matching
+  preset, else Custom), the knobs through `EffectControls.tsx` (range with
+  the spec's step and unit, colour well). Sliders live-preview through
+  `EditorShell`'s `effectOverride` and commit on release.
+- `LeftPane`: `filters` / `effects` tabs (`Palette` / `Sparkles`), present
+  only with the flag (a remembered choice falls back to Media, like
+  Transcript). `TimelineClip`: the `fx` chip — accent when set, muted when
+  every entry is off, amber when a pack is missing; tooltip = the names (+
+  the warning). `PreviewPanel`: the Filters-in-preview toggle beside the
+  rate button. `EditorShell`, `InspectorPanel`, `TimelinePanel`,
+  `TimelineLanes`: wiring only.
+
+**Not in this build (still open):** P4 export copy, P5 import + the tab's
+Import… button, the add-ons repo's builder (`bundle-filters.mjs` in the
+harness is the only one), a multi-selection Inspector (the panel applies to
+a multi-selection; the Inspector edits one clip), `speed` in the filter
+clock (v1 keeps `time = (frame + trimBefore) / fps`).
+
+### P3 results (2026-09-24)
+
+Isolated dev instance (`.vidtsx-temp/p0-filters/live/`: `launch.sh`, own
+`--user-data-dir` so its assets root and packs never touch the real
+library; `seed.py`; `drive.mjs`), project `p3-filters`: a.mp4 0–4 s, b.mp4
+4–8 s (the P0 counters), the add-ons portrait 8–10 s as an image clip.
+Disk (`project.json`, autosave) is the assertion; the Player's props were
+read through React fibers; canvas pixels sampled from the visible
+`canvas[data-scene-picture]`.
+
+| Step | Result |
+|---|---|
+| Filters tab, nothing selected | panel says select a clip; the noir card is `aria-disabled`; a click writes nothing |
+| select clip a → noir card | disk `[{kind:'core/noir'}]`; chip `fx` "Noir"; `filterDefinitions` = `['core/noir']`; canvas 640×360; **mean channel spread 0** over 2 376 samples |
+| Effects tab → VHS Club | disk `[noir, vhs]`; chip "Noir + VHS Club"; Inspector FILTER + EFFECT blocks (85 %); spread 1.28 over the gray (stage 2 saw stage 1) |
+| intensity drag 80 → 60 → 40 on VHS | the override reached the Player mid-drag (0.6 seen); disk `intensity: 0.4` once; **one Ctrl+Z** removed it; Redo restored it |
+| Cinematic Bloom card | replaced VHS, noir kept (slot rule); preset select read `neutral-glass` (= the defaults) |
+| preset Golden Diffusion | disk `{threshold 0.55, radius 4, warmth 0.8, strength 0.85}`; select tracked it |
+| warmth drag → 0.5 | disk warmth 0.5, the rest kept; select read Custom |
+| On off / on | disk `disabled: true`; Player timeline carried noir only; chip "Noir"; on → key gone |
+| Inspector Remove (bloom) | disk `[noir]` |
+| 9 × Ctrl+Z, 9 × Redo | disk `{}` and Undo disabled; then `[noir]` again |
+| panel Remove | disk `{}`; chip gone; Inspector "No filter or effect" |
+| noir + "Apply to all clips on this track" | clip-a, clip-b, clip-img all `[noir]` |
+| frame 270 (the image clip) | its canvas 640×640, spread 0 |
+| Filters-in-preview off / on | `filterDefinitions` `[]` and no canvas; then back |
+| `p3-degrade` (clip-a `gone/whoosh` live + `core/noir` disabled) | chip amber `not-installed` "gone/whoosh"; Inspector "NOT INSTALLED" block + a disabled FILTER block; `filterDefinitions` `[]`; no canvas (plain picture); Effects tab warns |
+| drop `gone/` (whoosh = a noir copy) into `<assets>/packs/` → open the tab | card `gone/whoosh` listed under "Gone Pack"; the preview loaded it (`['gone/whoosh']`), chip "Whoosh", canvas painted (spread 0) — no reopen |
+| pull the pack → open the tab | card gone, chip amber again, disk still `[gone/whoosh, noir(off)]`; the loaded definition stays until the project is reopened (the transitions' rule) |
+
+Two driver notes: the Studio project list does not rescan while mounted
+(reload the page after seeding a second project), and a fiber walk that
+starts from a `<video>` finds no Player at an image clip — `drive.mjs`
+starts from the filter canvas or the `<img>` too.
 
 ## Analysis tracks — how the tracked nine get in (slice 2, designed 2026-09-18, ONNX-first 2026-09-22)
 

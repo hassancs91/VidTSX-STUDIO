@@ -118,12 +118,17 @@ export function FilteredPicture({
       const scale = Math.min(1, maxWidth / dims.width, maxHeight / dims.height, cap);
       const w = Math.max(1, Math.round(dims.width * scale));
       const h = Math.max(1, Math.round(dims.height * scale));
-      // One renderer per stage; the last stage paints the visible canvas.
-      while (stages.current.length < chain.length) {
-        const own = stages.current.length === chain.length - 1 ? visible : document.createElement('canvas');
-        own.width = w;
-        own.height = h;
-        stages.current.push({ canvas: own, renderer: createFilterRenderer(own) });
+      // One renderer per stage; the last stage paints the visible canvas. A
+      // chain whose length changed (an effect added or removed in the editor)
+      // rebuilds them, or the visible canvas would stop being the last stage.
+      if (stages.current.length !== chain.length) {
+        for (const stage of stages.current) stage.renderer.dispose();
+        stages.current = chain.map((_, i) => {
+          const own = i === chain.length - 1 ? visible : document.createElement('canvas');
+          own.width = w;
+          own.height = h;
+          return { canvas: own, renderer: createFilterRenderer(own) };
+        });
       }
       const time = (frameRef.current + (sourceOffset ?? 0)) / fps;
       let input: CanvasImageSource = source;
