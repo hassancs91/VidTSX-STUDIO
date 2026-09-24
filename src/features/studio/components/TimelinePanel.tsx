@@ -4,6 +4,7 @@ import type { StudioClip, StudioProject, StudioTrack } from '../types';
 import type { UseTimelineResult } from '../hooks/useTimeline';
 import type { UsePlaybackResult } from '../hooks/usePlayback';
 import type { PreviewTimeMap } from '../services/preview-mapping';
+import type { JoinStatus } from '../services/join-status';
 import { useClipDrag } from '../hooks/useClipDrag';
 import { useClipboard } from '../hooks/useClipboard';
 import { useMarqueeSelect } from '../hooks/useMarqueeSelect';
@@ -50,6 +51,13 @@ interface Props {
   missingAssetIds: ReadonlySet<string>;
   /** Panel height in px — user-resizable via the divider above (EditorShell). */
   heightPx: number;
+  /** Per join (leading clip id): transition name, real length, warning. */
+  joinStatuses: ReadonlyMap<string, JoinStatus>;
+  /** The Transitions tab is showing — a join click then only selects (the
+   *  tab is the picker); the menu stays on right-click. */
+  transitionsOpen: boolean;
+  /** "More transitions…" in the join menu. */
+  onOpenTransitions: () => void;
 }
 
 /** Extra runway past the last clip so there's always somewhere to drag to. */
@@ -67,6 +75,9 @@ export function TimelinePanel({
   onRangeChange,
   missingAssetIds,
   heightPx,
+  joinStatuses,
+  transitionsOpen,
+  onOpenTransitions,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -173,20 +184,29 @@ export function TimelinePanel({
     [tl],
   );
 
-  // Transition picker (Slice E): the join square at a contiguous boundary
-  // opens a preset menu acting on the LEADING clip's transitionOut.
+  // Transition picker (Slice E): a click on the join square at a contiguous
+  // boundary selects that join (the Transitions tab's target) and opens a
+  // preset menu acting on the LEADING clip's transitionOut — unless the tab
+  // is already showing, where a click only selects. Right-click always menus.
   const [joinMenu, setJoinMenu] = useState<{ x: number; y: number; clip: StudioClip } | null>(
     null,
   );
-  const onJoinClick = useCallback((event: React.MouseEvent, clip: StudioClip) => {
-    setJoinMenu({ x: event.clientX, y: event.clientY, clip });
-  }, []);
+  const onJoinClick = useCallback(
+    (event: React.MouseEvent, clip: StudioClip) => {
+      tl.selectJoin(clip.id);
+      if (!transitionsOpen || event.type === 'contextmenu') {
+        setJoinMenu({ x: event.clientX, y: event.clientY, clip });
+      }
+    },
+    [tl, transitionsOpen],
+  );
   const joinMenuItems: FloatingMenuItem[] = useMemo(
     () => [
       { id: 'crossfade-0.5', label: 'Crossfade · 0.5 s' },
       { id: 'crossfade-1', label: 'Crossfade · 1 s' },
       { id: 'dip-to-black-0.5', label: 'Dip to black · 0.5 s' },
       { id: 'dip-to-black-1', label: 'Dip to black · 1 s' },
+      { id: 'more', label: 'More transitions…' },
       ...(joinMenu?.clip.transitionOut
         ? [{ id: 'remove', label: 'Remove transition', danger: true }]
         : []),
@@ -196,6 +216,10 @@ export function TimelinePanel({
   const onJoinPick = useCallback(
     (id: string) => {
       if (!joinMenu) return;
+      if (id === 'more') {
+        onOpenTransitions(); // the click already selected this join
+        return;
+      }
       if (id === 'remove') {
         tl.dispatch({ type: 'transition-remove', clipId: joinMenu.clip.id });
         return;
@@ -210,7 +234,7 @@ export function TimelinePanel({
               : (['dip-to-black', 1] as const);
       tl.dispatch({ type: 'transition-set', clipId: joinMenu.clip.id, kind, duration });
     },
-    [joinMenu, tl],
+    [joinMenu, tl, onOpenTransitions],
   );
 
   const clearSelection = useCallback(() => tl.select(null), [tl]);
@@ -543,6 +567,8 @@ export function TimelinePanel({
                 onLanePointerDown={onLanePointerDown}
                 onLaneContextMenu={onLaneContextMenu}
                 onJoinClick={onJoinClick}
+                targetJoinId={tl.joinTargetId}
+                joinStatuses={joinStatuses}
                 missingAssetIds={missingAssetIds}
               />
               {marqueeRect && (

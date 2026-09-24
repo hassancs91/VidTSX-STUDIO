@@ -44,6 +44,18 @@ describe('packageFromArgv', () => {
     expect(hasPendingPackage()).toBe(false);
   });
 
+  it('recognises both transition formats as one kind (TRANSITION_PACKS_DESIGN.md P5)', () => {
+    expect(packageFromArgv(['app.exe', 'C:\dl\Motion Pack.vidtsxpack'])).toEqual({
+      kind: 'transition',
+      filePath: 'C:\dl\Motion Pack.vidtsxpack',
+    });
+    expect(packageKindFor('/tmp/swirl.VIDTSXTRANSITION')).toBe('transition');
+    setPendingPackage({ kind: 'transition', filePath: 'C:\dl\a.vidtsxpack' });
+    expect(takePendingPackage('project')).toBeNull();
+    expect(takePendingPackage('transition')).toBe('C:\dl\a.vidtsxpack');
+    expect(hasPendingPackage()).toBe(false);
+  });
+
   it('recognises an agent package as its own kind', () => {
     expect(packageFromArgv(['app.exe', 'C:\\dl\\vidtsx.motion-post.vidtsxagent'])).toEqual({
       kind: 'agent',

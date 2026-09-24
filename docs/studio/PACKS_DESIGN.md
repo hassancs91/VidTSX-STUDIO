@@ -66,7 +66,10 @@ A pack is a folder with a `pack.json` manifest at its root:
 - **transition / video-effect packs: NOT a pack type yet.** Transitions are
   hardcoded serializer geometry; effects don't exist. Both need a pluggable
   surface first (V2 ledger) — packs follow that architecture, not the
-  reverse.
+  reverse. *(2026-09-17: the pluggable surface for transitions is designed in
+  `TRANSITION_PACKS_DESIGN.md`, which also introduces the multi-kind
+  container layout — `pack.json` + `transitions/<id>.tsx` — from
+  `NEXT_FEATURES_DESIGN.md` §Q8a. Effects are still not a pack type.)*
 
 ## Explicitly out of scope (until the business needs them)
 

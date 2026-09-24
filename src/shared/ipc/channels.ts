@@ -491,6 +491,16 @@ export const IPC = {
   STUDIO_CAPTION_TEMPLATES: 'studio:caption:templates',
   STUDIO_CAPTION_TEMPLATE_MODULE: 'studio:caption:template-module',
 
+  // Transition packs (docs/studio/TRANSITION_PACKS_DESIGN.md).
+  STUDIO_TRANSITION_LIST: 'studio:transition:list',
+  STUDIO_TRANSITION_MODULE: 'studio:transition:module',
+  // Importing `.vidtsxpack` / `.vidtsxtransition` (P5): inspect-then-install,
+  // plus the double-click hand-off (a pending claim + a push nudge).
+  STUDIO_TRANSITION_PACKAGE_INSPECT: 'studio:transition-package:inspect',
+  STUDIO_TRANSITION_PACKAGE_INSTALL: 'studio:transition-package:install',
+  STUDIO_TRANSITION_PACKAGE_PENDING: 'studio:transition-package:pending',
+  STUDIO_TRANSITION_PACKAGE_OPEN_FILE: 'studio:transition-package:open-file',
+
   // Announcements feed (Phase I) — static vidtsx.com/app/feed.json, validated
   // in main; the renderer only ever sees clamped plain-text messages.
   NEWS_GET: 'news:get',

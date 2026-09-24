@@ -27,6 +27,7 @@ import { rewriteFontUrls } from '../font-proxy';
 import { resolveProjectBrand } from './project-brand';
 import { readTranscriptFile } from './asset-transcriber';
 import { resolveCaptionTemplate } from './caption-packs';
+import { prepareTransitionSources } from './export-transitions';
 import { getProjectCacheDir, getShotVersionPath } from './studio-paths';
 import { writeExportContext } from './export-engines/export-context';
 import type { ExportSource } from '../../../shared/studio/export-source';
@@ -245,9 +246,14 @@ export async function createExportEntry(
     preparedShots.push(await prepareShotSource(project, shot, assetUrlBase));
   }
   const caption = await prepareCaptionTemplate(project, serialized, assetUrlBase);
+  const transitions = await prepareTransitionSources(serialized, project.id, assetUrlBase);
 
   let kitDirName = '';
-  if (preparedShots.some(shotUsesKit) || (caption !== null && shotUsesKit(caption.source))) {
+  if (
+    preparedShots.some(shotUsesKit) ||
+    (caption !== null && shotUsesKit(caption.source)) ||
+    transitions.some((t) => shotUsesKit(t.source))
+  ) {
     const pin = await resolveKitPinForExport(project.id);
     kitDirName = kitEntryDirName(project.id, pin.version);
     await copyKitPinTo(pin, path.join(dir, kitDirName));
@@ -263,8 +269,13 @@ export async function createExportEntry(
   if (caption) {
     await fs.writeFile(path.join(dir, caption.fileName), pinKit(caption.source), 'utf-8');
   }
+  // So do the pack transitions' (TRANSITION_PACKS_DESIGN.md "Delivery").
+  for (const t of transitions) {
+    await fs.writeFile(path.join(dir, t.ref.fileName), pinKit(t.source), 'utf-8');
+  }
 
   const { imports, componentsLiteral } = buildShotEntryParts(shotRefs);
+  const transitionParts = buildShotEntryParts(transitions.map((t) => t.ref));
   const captionImport = caption
     ? `import ${caption.identifier} from './${caption.fileName}';`
     : '';
@@ -272,7 +283,7 @@ export async function createExportEntry(
   const source = `// Auto-generated VidTSX Studio export entry — safe to delete.
 import React from 'react';
 import { TimelineComposition } from '@shared/studio';
-${imports ? `${imports}\n` : ''}${captionImport ? `${captionImport}\n` : ''}
+${imports ? `${imports}\n` : ''}${captionImport ? `${captionImport}\n` : ''}${transitionParts.imports ? `${transitionParts.imports}\n` : ''}
 export const compositionConfig = {
   id: "${compositionId}",
   width: ${width},
@@ -282,19 +293,19 @@ export const compositionConfig = {
 };
 
 const TIMELINE = ${JSON.stringify(serialized)};
-${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}
+${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}${transitionParts.componentsLiteral ? `\nconst TRANSITION_COMPONENTS = ${transitionParts.componentsLiteral};\n` : ''}
 // \`layer\` arrives as a render input prop: the shot-composite export engine
 // renders the shot layer alone with alpha (docs/export-engines-plan.md
 // "Engine 3"); every other render passes nothing and gets the whole timeline.
 export default function StudioTimelineExport(props: { layer?: 'shots' }) {
-  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''} layer={props.layer} />;
+  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''}${transitionParts.componentsLiteral ? ' transitionComponents={TRANSITION_COMPONENTS}' : ''} layer={props.layer} />;
 }
 `;
 
   const hash = createHash('md5').update(source).digest('hex').slice(0, 8);
   const entryPath = path.join(dir, `studio-entry-${project.id}-${hash}.tsx`);
   await fs.writeFile(entryPath, source, 'utf-8');
-  log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length });
+  log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length, transitions: transitions.length });
 
   const entry: StudioExportEntry = {
     entryPath, compositionId, width, height, fps, durationInFrames,

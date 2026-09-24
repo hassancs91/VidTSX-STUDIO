@@ -23,8 +23,7 @@ import {
   type PackageMediaStrategy,
 } from '../../../shared/studio/project-package';
 import { parseTemplateId } from '../../../shared/studio/caption-pack';
-import { getLibraryRoot } from '../library/library-paths';
-import { INSTALLED_PACKS_DIR } from './caption-packs';
+import { getInstalledPacksDir } from '../library/library-paths';
 import { CUT_PLAN_DIR } from './cut-plan-runner';
 import { TRANSCRIPT_DIR } from './asset-transcriber';
 import { proxyRelPath } from './proxy-generator';
@@ -192,7 +191,7 @@ async function planCaptionPack(project: StudioProject): Promise<{ packId: string
   if (!parsed) return null;
   // Core packs always resolve on the far side — only user-installed packs
   // (library packs/ folder drops) need to travel.
-  const dir = path.join(getLibraryRoot(), INSTALLED_PACKS_DIR, parsed.packId);
+  const dir = path.join(getInstalledPacksDir(), parsed.packId);
   try {
     await fs.access(path.join(dir, 'pack.json'));
     return { packId: parsed.packId, dir };

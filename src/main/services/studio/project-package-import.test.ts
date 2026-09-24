@@ -27,7 +27,10 @@ vi.mock('electron', () => ({
   },
 }));
 vi.mock('../settings', () => ({ getStudioProjectsRoot: async () => projectsRoot() }));
-vi.mock('../library/library-paths', () => ({ getLibraryRoot: () => libraryRoot() }));
+vi.mock('../library/library-paths', () => ({
+  getLibraryRoot: () => libraryRoot(),
+  getInstalledPacksDir: () => path.join(libraryRoot(), 'packs'),
+}));
 vi.mock('../library/brand-store', () => ({
   readBrand: async (_root: string, id: string) =>
     id === 'acme'

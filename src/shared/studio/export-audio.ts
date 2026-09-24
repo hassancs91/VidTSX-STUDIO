@@ -29,6 +29,7 @@
 import type { StudioMediaAsset, StudioProject } from '../types/studio';
 import { serializeTimeline, type SerializedClip } from './serialize';
 import { timelineDurationInFrames } from './time-math';
+import { usesEqualPowerAudio } from './transition-windows';
 
 export type AudioSegment =
   | {
@@ -77,8 +78,9 @@ function ramp(frame: number, from: number, to: number): number {
 
 /**
  * The composition's volume at `frame` of a serialized clip —
- * `TimelineComposition.tsx` volumeProp with the same arithmetic (gain × linear
- * fade ramps × equal-power crossfade / linear dip curves), clamped at 0 as
+ * `ClipRenderer.tsx` volumeProp with the same arithmetic (gain × linear fade
+ * ramps × equal-power crossfade-and-pack-transition / linear dip curves — the
+ * two share `usesEqualPowerAudio` so they cannot disagree), clamped at 0 as
  * Remotion's `evaluateVolume` does. Frames are the clip's own (the callback's
  * argument), never source frames.
  */
@@ -95,11 +97,11 @@ export function clipVolumeAt(clip: SerializedClip, frame: number): number {
   if (fadeOut > 0) v *= 1 - ramp(frame, total - fadeOut, total);
   if (tIn && tIn.frames > 0) {
     const p = ramp(frame, 0, tIn.frames);
-    v *= tIn.kind === 'crossfade' ? Math.sin((p * Math.PI) / 2) : p;
+    v *= usesEqualPowerAudio(tIn.kind) ? Math.sin((p * Math.PI) / 2) : p;
   }
   if (tOut && tOut.frames > 0) {
     const p = ramp(frame, total - tOut.frames, total);
-    v *= tOut.kind === 'crossfade' ? Math.cos((p * Math.PI) / 2) : 1 - p;
+    v *= usesEqualPowerAudio(tOut.kind) ? Math.cos((p * Math.PI) / 2) : 1 - p;
   }
   return Math.max(0, v);
 }

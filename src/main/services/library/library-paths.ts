@@ -29,6 +29,13 @@ export function getLibraryRoot(): string {
   return override && override.trim() !== '' ? override : getDefaultLibraryRoot();
 }
 
+/** Where installed packs live inside the assets root — beside brands/, so they
+ *  travel with the library and follow the root override. Caption packs and
+ *  transition packs share it (PACKS_DESIGN.md, TRANSITION_PACKS_DESIGN.md). */
+export function getInstalledPacksDir(): string {
+  return path.join(getLibraryRoot(), 'packs');
+}
+
 export function getLibraryRootOverride(): string | undefined {
   return getValue<string>(ASSETS_ROOT_OVERRIDE_KEY);
 }

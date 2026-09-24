@@ -2,10 +2,12 @@ import { useMemo, type ComponentType } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
 import { Pause, Play, SkipBack } from 'lucide-react';
 import { TimelineComposition, type SerializedTimeline } from '@shared/studio';
+import { referencedTransitionKinds } from '@shared/studio/transition-pack';
 import type { CaptionRuntimeProps } from '@shared/types/studio';
 import { useShotModuleSnapshot } from '../hooks/useShotModuleSnapshot';
 import type { ShotModuleLoader } from '../services/shot-module-loader';
 import type { ShotComponent } from '../hooks/useShotModuleLoader';
+import { useTransitionComponents } from '../hooks/useTransitions';
 
 interface Props {
   timeline: SerializedTimeline;
@@ -28,6 +30,9 @@ interface Props {
   /** Canvas-manipulation overlay (absolute inset-0) — rendered over the
    *  Player inside the aspect box, so its rect IS the composition's rect. */
   overlay?: React.ReactNode;
+  /** Changes when the installed transitions change — the preview then retries
+   *  kinds that didn't load, so a reinstalled pack comes back without a reopen. */
+  transitionRetryKey?: unknown;
 }
 
 /**
@@ -49,11 +54,16 @@ export function PreviewPanel({
   ratePinned,
   onCycleRate,
   overlay,
+  transitionRetryKey,
 }: Props) {
   const { components } = useShotModuleSnapshot(shotLoader);
+  // Pack transitions the timeline uses — loaded here, like shot modules, so an
+  // arrival re-renders the preview only. Unloaded kinds render as crossfades.
+  const transitionKinds = useMemo(() => referencedTransitionKinds(timeline), [timeline]);
+  const transitionComponents = useTransitionComponents(transitionKinds, transitionRetryKey);
   const inputProps = useMemo(
-    () => ({ timeline, components, captionComponent }),
-    [timeline, components, captionComponent],
+    () => ({ timeline, components, captionComponent, transitionComponents }),
+    [timeline, components, captionComponent, transitionComponents],
   );
   const isEmpty = timeline.tracks.every((t) => t.clips.length === 0);
   const proxiesPending = proxyProgress.total - proxyProgress.ready;

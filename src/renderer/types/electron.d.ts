@@ -505,6 +505,12 @@ export interface ElectronAPI {
   studioCreatorProjects: () => Promise<import('../../shared/ipc/types').StudioCreatorProjectsResponse>;
   studioCaptionTemplates: () => Promise<import('../../shared/ipc/types').StudioCaptionTemplatesResponse>;
   studioCaptionTemplateModule: (data: import('../../shared/ipc/types').StudioCaptionTemplateModuleRequest) => Promise<import('../../shared/ipc/types').StudioCaptionTemplateModuleResponse>;
+  studioTransitionList: () => Promise<import('../../shared/ipc/types').StudioTransitionListResponse>;
+  studioTransitionModule: (data: import('../../shared/ipc/types').StudioTransitionModuleRequest) => Promise<import('../../shared/ipc/types').StudioTransitionModuleResponse>;
+  studioTransitionPackageInspect: (data: import('../../shared/ipc/types').StudioTransitionPackageInspectRequest) => Promise<import('../../shared/ipc/types').StudioTransitionPackageInspectResponse>;
+  studioTransitionPackageInstall: (data: import('../../shared/ipc/types').StudioTransitionPackageInstallRequest) => Promise<import('../../shared/ipc/types').StudioTransitionPackageInstallResponse>;
+  studioTransitionPackagePending: () => Promise<import('../../shared/ipc/types').StudioTransitionPackagePendingResponse>;
+  onStudioTransitionPackageOpenFile: (callback: () => void) => () => void;
   studioPackagePlan: (data: import('../../shared/ipc/types').StudioPackagePlanRequest) => Promise<import('../../shared/ipc/types').StudioPackagePlanResponse>;
   studioPackageExport: (data: import('../../shared/ipc/types').StudioPackageExportRequest) => Promise<import('../../shared/ipc/types').StudioPackageExportResponse>;
   studioPackagePending: () => Promise<import('../../shared/ipc/types').StudioPackagePendingResponse>;

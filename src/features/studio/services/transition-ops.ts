@@ -24,6 +24,31 @@ export function contiguousNext(clips: StudioClip[], clip: StudioClip): StudioCli
 }
 
 /**
+ * A join the user can act on: a clip on an UNLOCKED track with a clip starting
+ * exactly where it ends — the boundaries the timeline draws a join square for,
+ * and the only ones `setTransition` accepts.
+ */
+export function isJoin(timeline: StudioTimeline, clipId: string): boolean {
+  const found = findClip(timeline, clipId);
+  return !!found && !found.track.locked && contiguousNext(found.track.clips, found.clip) !== null;
+}
+
+/**
+ * The join the Transitions tab acts on, as its LEADING clip's id: the join
+ * the user clicked, else — when exactly one clip is selected — that clip's
+ * out-join. Null means no target; the tab says so instead of guessing.
+ */
+export function joinTarget(
+  timeline: StudioTimeline,
+  selectedJoinId: string | null,
+  selectedClipIds: readonly string[],
+): string | null {
+  if (selectedJoinId && isJoin(timeline, selectedJoinId)) return selectedJoinId;
+  if (selectedClipIds.length === 1 && isJoin(timeline, selectedClipIds[0])) return selectedClipIds[0];
+  return null;
+}
+
+/**
  * Set (or replace) the transition at a clip's end boundary. Rejects when the
  * clip is unknown, its track is locked, or no clip starts exactly at its end.
  * Duration clamps to both clips' lengths; source-handle clamping for

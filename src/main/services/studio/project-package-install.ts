@@ -18,8 +18,7 @@ import {
 } from '../../../shared/studio/project-package';
 import { normalizeBrand } from '../../../shared/studio/brand';
 import { createBrand } from '../library/brand-store';
-import { getLibraryRoot } from '../library/library-paths';
-import { INSTALLED_PACKS_DIR } from './caption-packs';
+import { getInstalledPacksDir, getLibraryRoot } from '../library/library-paths';
 
 const log = logEngine.createLogger('ProjectPackageInstall');
 
@@ -198,7 +197,7 @@ export async function installCaptionPacks(
 ): Promise<InstalledPack[]> {
   const out: InstalledPack[] = [];
   for (const packId of manifest.captionPacks ?? []) {
-    const dest = path.join(getLibraryRoot(), INSTALLED_PACKS_DIR, packId);
+    const dest = path.join(getInstalledPacksDir(), packId);
     try {
       await fs.access(dest);
       out.push({ packId, installed: false, reason: 'A pack with this id is already installed.' });

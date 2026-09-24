@@ -56,6 +56,16 @@ export function getCaptionTemplatesDir(): string {
   return path.join(app.getAppPath(), 'resources', 'caption-templates');
 }
 
+export function getBuiltinPacksDir(): string {
+  // Built-in packs in the pack container (TRANSITION_PACKS_DESIGN.md):
+  // resources/packs/<packId>/. Installed packs are getInstalledPacksDir()
+  // (library-paths.ts) — they follow the assets root.
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'packs');
+  }
+  return path.join(app.getAppPath(), 'resources', 'packs');
+}
+
 export function getShotExemplarsDir(): string {
   // Built-in shot exemplar packs (SHOT_QUALITY_DESIGN.md Q3a):
   // resources/shot-exemplars/<packId>/. Same shipping shape as caption packs.

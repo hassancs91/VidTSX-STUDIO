@@ -27,6 +27,15 @@ fileAssociations:
     name: VidTSX flow package
     description: VidTSX Studio flow package
     role: Editor
+  # Transitions (TRANSITION_PACKS_DESIGN.md P5): a pack, and a single transition.
+  - ext: vidtsxpack
+    name: VidTSX transition pack
+    description: VidTSX Studio transition pack
+    role: Editor
+  - ext: vidtsxtransition
+    name: VidTSX transition
+    description: VidTSX Studio transition
+    role: Editor
 directories:
   output: dist
   buildResources: resources
@@ -69,6 +78,13 @@ extraResources:
   # app transpiles a template on use, exactly like a project's TSX shots.
   - from: resources/caption-templates
     to: caption-templates
+    filter:
+      - "**/*"
+      - "!**/.*"
+  # Built-in packs in the pack container (TRANSITION_PACKS_DESIGN.md) — the
+  # core transitions today. Plain source, transpiled on use like caption templates.
+  - from: resources/packs
+    to: packs
     filter:
       - "**/*"
       - "!**/.*"

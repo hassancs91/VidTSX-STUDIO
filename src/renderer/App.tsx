@@ -68,6 +68,14 @@ function AppContent({ activeScreen, setActiveScreen }: {
     });
   }, [setActiveScreen]);
 
+  // A double-clicked .vidtsxpack / .vidtsxtransition — the Studio screen
+  // claims it and opens the import dialog (TRANSITION_PACKS_DESIGN.md P5).
+  useEffect(() => {
+    return window.api.onStudioTransitionPackageOpenFile(() => {
+      if (isFeatureEnabled('studio')) setActiveScreen('studio');
+    });
+  }, [setActiveScreen]);
+
   // The same hand-off for a double-clicked .vidtsxagent — the gallery claims
   // the path once it is mounted (agents plan §1.6).
   useEffect(() => {

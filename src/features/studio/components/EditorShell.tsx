@@ -32,6 +32,7 @@ import { useStoredChoice } from '../hooks/useStoredChoice';
 import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { useTextEdit } from '../hooks/useTextEdit';
 import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
+import { useJoinStatus, useTransitionList } from '../hooks/useTransitions';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -68,6 +69,7 @@ import { ShotsPanel } from './ShotsPanel';
 import type { GenerateShotSpec } from './GenerateShotForm';
 import { LeftPane, LEFT_TABS, type LeftTab } from './LeftPane';
 import { TranscriptPanel } from './transcript/TranscriptPanel';
+import { TransitionsPanel } from './TransitionsPanel';
 import { PaneTabButton } from './PaneTabButton';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
 import { PaneDivider } from './PaneDivider';
@@ -786,6 +788,19 @@ export function EditorShell({ projectId, onBack }: Props) {
   const rightPane = usePaneSize('right', 270, 220, 460);
   const timelinePane = usePaneSize('timeline', 240, 140, 520);
 
+  // ----- Transitions (row 9) ----------------------------------------------
+  // One installed list feeds both the join squares (names, warnings) and the
+  // Transitions tab; the tab re-scans it on open.
+  const transitionList = useTransitionList();
+  const joins = useJoinStatus({
+    timeline: tl.timeline,
+    fps: project?.settings.fps ?? 30,
+    assets,
+    installed: transitionList.installed,
+    targetId: tl.joinTargetId,
+  });
+  const joinTarget = joins.target;
+
   // ----- Captions (D13) ---------------------------------------------------
   // The layer is document state (reducer-owned, undoable); the WORDS are not
   // — they are derived from the timeline on every serialize, so an edit to
@@ -1231,6 +1246,24 @@ export function EditorShell({ projectId, onBack }: Props) {
                   ),
                 }
               : {})}
+            renderTransitions={() => (
+              <TransitionsPanel
+                list={transitionList}
+                target={joinTarget}
+                width={project.settings.width}
+                height={project.settings.height}
+                onApply={(kind, duration) => {
+                  if (joinTarget) tl.dispatch({ type: 'transition-set', clipId: joinTarget.leadId, kind, duration });
+                }}
+                onDuration={(duration) => {
+                  const kind = joinTarget?.status?.kind;
+                  if (joinTarget && kind) tl.dispatch({ type: 'transition-set', clipId: joinTarget.leadId, kind, duration });
+                }}
+                onRemove={() => {
+                  if (joinTarget) tl.dispatch({ type: 'transition-remove', clipId: joinTarget.leadId });
+                }}
+              />
+            )}
           />
         </div>
 
@@ -1246,6 +1279,7 @@ export function EditorShell({ projectId, onBack }: Props) {
             timeline={previewTimeline}
             shotLoader={shotLoader}
             captionComponent={captionComponent}
+            transitionRetryKey={transitionList.installed}
             playerRef={playback.playerRef}
             isPlaying={playback.isPlaying}
             onTogglePlay={playback.togglePlay}
@@ -1418,6 +1452,9 @@ export function EditorShell({ projectId, onBack }: Props) {
         onRangeChange={handleRangeChange}
         missingAssetIds={missingAssetIds}
         heightPx={timelinePane.size}
+        joinStatuses={joins.statuses}
+        transitionsOpen={leftTab === 'transitions'}
+        onOpenTransitions={() => setLeftTab('transitions')}
       />
 
       {relinkPrompt && (

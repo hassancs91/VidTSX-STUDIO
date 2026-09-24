@@ -33,6 +33,22 @@ export function captionEntryRef(templateId: string, projectId: string): ShotEntr
   };
 }
 
+/**
+ * The pack transitions' normalized copies in the entry dir
+ * (TRANSITION_PACKS_DESIGN.md "Delivery"). Identifiers are positional — kinds
+ * are `<pack>/<item>` slugs, and no character mapping of two dash-bearing
+ * slugs into one identifier is collision-free. The file name keeps the halves
+ * apart with a '.', which a slug can't contain, so two transitions never
+ * share a copy.
+ */
+export function transitionEntryRefs(kinds: readonly string[], projectId: string): ShotEntryRef[] {
+  return kinds.map((kind, index) => ({
+    shotId: kind,
+    identifier: `Transition_${index}`,
+    fileName: `studio-entry-${projectId}-transition-${kind.replace('/', '.')}.tsx`,
+  }));
+}
+
 /** The pinned kit copy's folder inside the entry dir (SHOT_QUALITY_DESIGN Q4).
  *  The `studio-entry-` prefix keeps it inside the entry sweeper's TTL. */
 export function kitEntryDirName(projectId: string, kitVersion: string): string {

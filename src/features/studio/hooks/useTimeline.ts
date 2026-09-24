@@ -54,6 +54,8 @@ import {
   trimClipRippleAll,
 } from '../services/ripple-ops';
 import {
+  isJoin,
+  joinTarget,
   pruneTransitions,
   removeTransition,
   setTransition,
@@ -582,6 +584,10 @@ export function useTimeline(
   // The "chosen" track: pool-adds land here when compatible, and the track
   // menu (rename/move/delete) acts on it. Null = let clip-factory pick.
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
+  // The join the user clicked (its LEADING clip's id) — the Transitions tab's
+  // target. Selection, not document: never undoable, and it prunes itself
+  // when the boundary stops being a join.
+  const [selectedJoinId, setSelectedJoinId] = useState<string | null>(null);
 
   const projectId = project?.id ?? null;
   const projectRef = useRef(project);
@@ -653,15 +659,18 @@ export function useTimeline(
   /** Replace the selection with one clip (or clear it with null). */
   const select = useCallback((clipId: string | null) => {
     setSelectedClipIds(clipId ? [clipId] : []);
+    setSelectedJoinId(null);
   }, []);
   /** Ctrl/⌘-click: add or remove one clip from the selection. */
   const toggleSelect = useCallback((clipId: string) => {
+    setSelectedJoinId(null);
     setSelectedClipIds((current) =>
       current.includes(clipId) ? current.filter((id) => id !== clipId) : [...current, clipId],
     );
   }, []);
   /** Marquee / select-all: a whole set at once, optionally added to the current. */
   const selectMany = useCallback((clipIds: string[], additive: boolean) => {
+    setSelectedJoinId(null);
     setSelectedClipIds((current) => {
       const base = additive ? current : [];
       const seen = new Set(base);
@@ -670,6 +679,12 @@ export function useTimeline(
   }, []);
   const selectCut = useCallback((itemId: string | null) => setSelectedCutId(itemId), []);
   const selectTrack = useCallback((trackId: string | null) => setSelectedTrackId(trackId), []);
+  /** Clicking a join makes it THE selection — a clip left selected would
+   *  still take the Delete key. */
+  const selectJoin = useCallback((clipId: string | null) => {
+    setSelectedJoinId(clipId);
+    if (clipId) setSelectedClipIds([]);
+  }, []);
 
   // Prune ids whose clips left the document (delete, undo, apply-proposal…).
   useEffect(() => {
@@ -681,6 +696,9 @@ export function useTimeline(
     );
     setSelectedTrackId((current) =>
       current && !state.present.timeline.tracks.some((t) => t.id === current) ? null : current,
+    );
+    setSelectedJoinId((current) =>
+      current && !isJoin(state.present.timeline, current) ? null : current,
     );
   }, [state.present.timeline]);
 
@@ -699,6 +717,12 @@ export function useTimeline(
   // The open proposal under review, if any. KIND-AGNOSTIC (D8 Rev 3): one
   // open proposal at a time across cut plans AND shot plans — two live
   // reviews, one scratch-applied to the preview, is a state nothing defines.
+  const presentTimeline = state.present.timeline;
+  const joinTargetId = useMemo(
+    () => joinTarget(presentTimeline, selectedJoinId, selectedClipIds),
+    [presentTimeline, selectedJoinId, selectedClipIds],
+  );
+
   const activeProposal = useMemo(() => {
     const open = state.present.proposals.filter((p) => p.status === 'proposed');
     return open.length > 0 ? open[open.length - 1] : null;
@@ -726,6 +750,12 @@ export function useTimeline(
       selectCut,
       selectedTrackId,
       selectTrack,
+      /** The clicked join (leading clip id), null when none. */
+      selectedJoinId,
+      selectJoin,
+      /** What the Transitions tab acts on: the clicked join, else a single
+       *  selected clip's out-join (`joinTarget`). */
+      joinTargetId,
       canUndo: state.past.length > 0,
       canRedo: state.future.length > 0,
       undo: () => dispatch({ type: 'undo' }),
@@ -741,6 +771,9 @@ export function useTimeline(
       selectCut,
       selectedTrackId,
       selectTrack,
+      selectedJoinId,
+      selectJoin,
+      joinTargetId,
       remove,
       removeSelected,
       activeProposal,

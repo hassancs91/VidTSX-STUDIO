@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "id": "core",
+  "name": "Core Transitions",
+  "version": "1.1.0",
+  "author": "VidTSX",
+  "description": "The built-in transitions: the everyday ones. More ship as VidTSX Transitions — Volume 01, an importable pack.",
+  "transitions": [
+    {
+      "id": "push-left",
+      "name": "Push left",
+      "tier": "common",
+      "description": "The next scene pushes the current scene off screen.",
+      "usage": "Walkthroughs, lists, and sequential stories.",
+      "durationSeconds": 0.7,
+      "sceneCopies": "single",
+      "version": "1.0.0"
+    },
+    {
+      "id": "wipe-right",
+      "name": "Wipe right",
+      "tier": "common",
+      "description": "A crisp edge reveals the next scene from left to right.",
+      "usage": "Before-and-after comparisons and explainers.",
+      "durationSeconds": 0.7,
+      "sceneCopies": "single",
+      "version": "1.0.0"
+    },
+    {
+      "id": "zoom-through",
+      "name": "Zoom through",
+      "tier": "common",
+      "description": "Accelerate into the next scene with a soft scale dissolve.",
+      "usage": "Travel, product details, and energetic cuts.",
+      "durationSeconds": 0.8,
+      "sceneCopies": "single",
+      "version": "1.0.0"
+    },
+    {
+      "id": "iris-open",
+      "name": "Iris open",
+      "tier": "intermediate",
+      "description": "A circular aperture opens from the center of the frame.",
+      "usage": "Subject reveals and playful scene changes.",
+      "durationSeconds": 0.9,
+      "sceneCopies": "single",
+      "version": "1.0.0"
+    }
+  ]
+}

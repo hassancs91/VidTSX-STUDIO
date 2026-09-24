@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Clapperboard } from 'lucide-react';
 import { isFeatureEnabled } from '@shared/feature-flags';
 import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
+import { usePendingTransitionPackage } from '../hooks/useTransitionImport';
 import { ProjectBrowser } from './ProjectBrowser';
 import { EditorShell } from './EditorShell';
+import { ImportTransitionsDialog } from './ImportTransitionsDialog';
 
 function StudioComingSoon() {
   return (
@@ -46,6 +48,9 @@ function StudioScreenInner() {
   // navigates away, so a project stays genuinely open while they curate.
   const { openProjectId, setOpenProjectId } = useOpenProject();
   const [newProjectToken, setNewProjectToken] = useState(0);
+  // A double-clicked transition package lands here, over the browser or the
+  // editor alike — installing one is library-wide, not per project.
+  const [transitionPackage, setTransitionPackage] = usePendingTransitionPackage();
 
   // W6: Home opens a project card straight into its editor, or asks for the
   // New Project dialog. `vidtsx:studio-open` follows the `vidtsx:creator-open`
@@ -67,14 +72,20 @@ function StudioScreenInner() {
 
   const clearNewProject = useCallback(() => setNewProjectToken(0), []);
 
-  if (openProjectId) {
-    return <EditorShell projectId={openProjectId} onBack={() => setOpenProjectId(null)} />;
-  }
   return (
-    <ProjectBrowser
-      onOpen={setOpenProjectId}
-      newProjectToken={newProjectToken}
-      onNewProjectShown={clearNewProject}
-    />
+    <>
+      {openProjectId ? (
+        <EditorShell projectId={openProjectId} onBack={() => setOpenProjectId(null)} />
+      ) : (
+        <ProjectBrowser
+          onOpen={setOpenProjectId}
+          newProjectToken={newProjectToken}
+          onNewProjectShown={clearNewProject}
+        />
+      )}
+      {transitionPackage && (
+        <ImportTransitionsDialog filePath={transitionPackage} onClose={() => setTransitionPackage(null)} />
+      )}
+    </>
   );
 }

@@ -108,7 +108,10 @@ interface BoundaryAdjustment {
 const MEDIA_KINDS: ReadonlySet<StudioClipKind> = new Set(['video', 'audio', 'sfx']);
 
 /**
- * Crossfades borrow source material beyond the cut ("handles"), so each side
+ * Every kind but dip-to-black needs both clips live across the window — the
+ * crossfade, and every pack transition (`<pack>/<item>`, whose component is
+ * handed both pictures; docs/studio/TRANSITION_PACKS_DESIGN.md). They borrow
+ * source material beyond the cut ("handles"), so each side
  * clamps to what the media can actually supply — exactly like every NLE. The
  * leading clip needs source after its out point; the trailing clip needs
  * source before its in point (its `trimBefore`). `playbackRate` scales how
@@ -169,6 +172,24 @@ function computeAdjustment(
     outFrames: overlap,
     inFrames: overlap,
   };
+}
+
+/**
+ * Frames the transition on `lead`'s out-boundary actually spans once handles
+ * are clamped — the overlap for a crossfade or pack transition, both ramps for
+ * a dip. 0 = it serializes to a hard cut (neither clip has media past the
+ * cut). The editor's join warnings ask here, so they can never disagree with
+ * what renders.
+ */
+export function transitionSpanFrames(
+  lead: StudioClip,
+  trail: StudioClip,
+  fps: number,
+  sourceDurationOf: (assetId: string) => number | undefined,
+): number {
+  const adj = computeAdjustment(lead, trail, fps, sourceDurationOf);
+  if (!adj) return 0;
+  return adj.kind === 'dip-to-black' ? adj.outFrames + adj.inFrames : adj.outFrames;
 }
 
 /**

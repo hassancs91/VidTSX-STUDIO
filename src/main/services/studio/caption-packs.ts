@@ -21,13 +21,10 @@ import {
   parseTemplateId,
   type CaptionTemplate,
 } from '../../../shared/studio/caption-pack';
-import { getLibraryRoot } from '../library/library-paths';
+import { getInstalledPacksDir } from '../library/library-paths';
 import { getCaptionTemplatesDir } from '../../utils/paths';
 
 const log = logEngine.createLogger('CaptionPacks');
-
-/** Where installed packs live inside the assets root. */
-export const INSTALLED_PACKS_DIR = 'packs';
 
 async function readJson(filePath: string): Promise<unknown | null> {
   try {
@@ -109,10 +106,7 @@ export async function scanCaptionRoots(
  * the panel asks once per open, so staleness never outlives a folder drop.
  */
 export async function listCaptionTemplates(): Promise<CaptionTemplate[]> {
-  return scanCaptionRoots(
-    getCaptionTemplatesDir(),
-    path.join(getLibraryRoot(), INSTALLED_PACKS_DIR),
-  );
+  return scanCaptionRoots(getCaptionTemplatesDir(), getInstalledPacksDir());
 }
 
 /**

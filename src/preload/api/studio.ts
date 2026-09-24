@@ -75,6 +75,14 @@ import type {
   StudioCaptionTemplatesResponse,
   StudioCaptionTemplateModuleRequest,
   StudioCaptionTemplateModuleResponse,
+  StudioTransitionListResponse,
+  StudioTransitionModuleRequest,
+  StudioTransitionModuleResponse,
+  StudioTransitionPackageInspectRequest,
+  StudioTransitionPackageInspectResponse,
+  StudioTransitionPackageInstallRequest,
+  StudioTransitionPackageInstallResponse,
+  StudioTransitionPackagePendingResponse,
   StudioPackageEvent,
   StudioPackageImportRequest,
   StudioPackageImportResponse,
@@ -196,6 +204,25 @@ export const studioApi = {
     data: StudioCaptionTemplateModuleRequest,
   ): Promise<StudioCaptionTemplateModuleResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, data),
+  studioTransitionList: (): Promise<StudioTransitionListResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_LIST),
+  studioTransitionModule: (data: StudioTransitionModuleRequest): Promise<StudioTransitionModuleResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_MODULE, data),
+  studioTransitionPackageInspect: (
+    data: StudioTransitionPackageInspectRequest,
+  ): Promise<StudioTransitionPackageInspectResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_PACKAGE_INSPECT, data),
+  studioTransitionPackageInstall: (
+    data: StudioTransitionPackageInstallRequest,
+  ): Promise<StudioTransitionPackageInstallResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_PACKAGE_INSTALL, data),
+  studioTransitionPackagePending: (): Promise<StudioTransitionPackagePendingResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_PACKAGE_PENDING),
+  onStudioTransitionPackageOpenFile: (callback: () => void): (() => void) => {
+    const listener = () => callback();
+    ipcRenderer.on(IPC.STUDIO_TRANSITION_PACKAGE_OPEN_FILE, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_TRANSITION_PACKAGE_OPEN_FILE, listener);
+  },
   onStudioShotJobEvent: (callback: (event: StudioShotJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioShotJobEvent) => callback(data);
     ipcRenderer.on(IPC.STUDIO_SHOT_JOB_EVENT, listener);

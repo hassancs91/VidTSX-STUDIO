@@ -1,17 +1,11 @@
-import { Fragment } from 'react';
-import {
-  AbsoluteFill,
-  Audio,
-  Img,
-  OffthreadVideo,
-  Sequence,
-  interpolate,
-  useCurrentFrame,
-} from 'remotion';
-import { Video as WebCodecsVideo } from '@remotion/media';
-import type { CaptionRuntimeProps, ShotRuntimeProps } from '../types/studio';
-import { getStudioMediaEngine, getStudioMediaLogLevel } from './media-engine';
+import { Fragment, useMemo } from 'react';
+import { AbsoluteFill, Sequence, useCurrentFrame, useRemotionEnvironment } from 'remotion';
+import type { CaptionRuntimeProps, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
+import { ClipRenderer } from './ClipRenderer';
+import { SceneSourceContext, useSceneSources } from './SceneMirror';
 import type { SerializedClip, SerializedTimeline } from './serialize';
+import { TransitionWindow } from './TransitionWindow';
+import { coverByClip, planTransitionWindows, type ClipCover, type TransitionWindowPlan } from './transition-windows';
 
 export interface TimelineCompositionProps {
   timeline: SerializedTimeline;
@@ -34,6 +28,14 @@ export interface TimelineCompositionProps {
    * `tsx.props` (resolved asset URLs, D12).
    */
   components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
+  /**
+   * Pack transition components keyed by their namespaced id (`core/push-left`),
+   * supplied exactly like `components`. A boundary whose id has no entry here —
+   * pack not installed, module failed to load — renders as a crossfade: the
+   * overlap and its ramps are already on the clips
+   * (docs/studio/TRANSITION_PACKS_DESIGN.md).
+   */
+  transitionComponents?: Record<string, React.ComponentType<TransitionRuntimeProps>>;
   /**
    * Engine 3 (docs/export-engines-plan.md "shot composite"): render only the
    * SHOT LAYER — the overlay and caption lanes' graphics (tsx, caption, image
@@ -58,6 +60,13 @@ export interface TimelineCompositionProps {
  */
 const MOUNT_WINDOW_SECONDS = 2;
 
+/** What one track adds to the picture beyond its clips: pack-transition windows. */
+interface TrackTransitions {
+  windows: TransitionWindowPlan[];
+  covers: Map<string, ClipCover>;
+  clipsById: Map<string, SerializedClip>;
+}
+
 /**
  * The data-driven composition behind both the editor preview (@remotion/player
  * over 720p proxies) and the final render (renderMedia over originals) — the
@@ -65,44 +74,103 @@ const MOUNT_WINDOW_SECONDS = 2;
  *
  * Layering: `tracks` is in UI order (top lane first), so painting runs in
  * reverse — the last array entry goes down first and the top lane lands on
- * top, matching how the timeline panel reads.
+ * top, matching how the timeline panel reads. A track's transition windows
+ * paint after its clips: over their (hidden) pictures, under every lane above.
  */
 export function TimelineComposition({
   timeline,
   components,
   captionComponent,
+  transitionComponents,
   layer,
 }: TimelineCompositionProps) {
   const frame = useCurrentFrame();
-  const tracks = layer === 'shots' ? shotLayerTracks(timeline.tracks) : timeline.tracks;
+  const tracks = useMemo(
+    () => (layer === 'shots' ? shotLayerTracks(timeline.tracks) : timeline.tracks),
+    [timeline.tracks, layer],
+  );
   const painted = [...tracks].reverse();
   const margin = timeline.fps * MOUNT_WINDOW_SECONDS;
-  const isNearby = (clip: SerializedClip) =>
-    clip.from - margin <= frame && frame < clip.from + clip.durationInFrames + margin;
+  const isNearby = (from: number, durationInFrames: number) =>
+    from - margin <= frame && frame < from + durationInFrames + margin;
+
+  // Planned over the tracks as painted: in the shot layer a window needs both
+  // of its clips to have survived the filter, and the planner's own geometry
+  // check refuses a pair the filter merely made adjacent.
+  const transitions = useMemo(() => {
+    const byTrack = new Map<string, TrackTransitions>();
+    if (!transitionComponents) return byTrack;
+    for (const track of tracks) {
+      const windows = planTransitionWindows(track.clips, (kind) => kind in transitionComponents);
+      if (windows.length === 0) continue;
+      byTrack.set(track.id, {
+        windows,
+        covers: coverByClip(windows),
+        clipsById: new Map(track.clips.map((c) => [c.id, c])),
+      });
+    }
+    return byTrack;
+  }, [tracks, transitionComponents]);
+
+  // Player only: window scene copies mirror their clip's element instead of
+  // mounting more decoders (SceneMirror.tsx). A render keeps Structure A.
+  const { isPlayer, isRendering } = useRemotionEnvironment();
+  const sceneSources = useSceneSources();
+  const mirrorScenes = isPlayer && !isRendering && transitions.size > 0;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: layer === 'shots' ? 'transparent' : 'black' }}>
-      {painted.map((track) => (
-        <Fragment key={track.id}>
-          {track.clips.filter(isNearby).map((clip) => (
-            <Sequence
-              key={clip.id}
-              from={clip.from}
-              durationInFrames={clip.durationInFrames}
-              premountFor={margin}
-              layout={clip.kind === 'audio' || clip.kind === 'sfx' ? 'none' : 'absolute-fill'}
-              name={clip.id}
-            >
-              <ClipRenderer
-                clip={clip}
-                components={components}
-                captionComponent={captionComponent}
-              />
-            </Sequence>
-          ))}
-        </Fragment>
-      ))}
-    </AbsoluteFill>
+    <SceneSourceContext.Provider value={mirrorScenes ? sceneSources : null}>
+      <AbsoluteFill style={{ backgroundColor: layer === 'shots' ? 'transparent' : 'black' }}>
+        {painted.map((track) => {
+          const trackTransitions = transitions.get(track.id);
+          return (
+            <Fragment key={track.id}>
+              {track.clips
+                .filter((clip) => isNearby(clip.from, clip.durationInFrames))
+                .map((clip) => (
+                  <Sequence
+                    key={clip.id}
+                    from={clip.from}
+                    durationInFrames={clip.durationInFrames}
+                    premountFor={margin}
+                    layout={clip.kind === 'audio' || clip.kind === 'sfx' ? 'none' : 'absolute-fill'}
+                    name={clip.id}
+                  >
+                    <ClipRenderer
+                      clip={clip}
+                      components={components}
+                      captionComponent={captionComponent}
+                      cover={trackTransitions?.covers.get(clip.id)}
+                    />
+                  </Sequence>
+                ))}
+              {trackTransitions?.windows
+                .filter((win) => isNearby(win.from, win.frames))
+                .map((win) => {
+                  const lead = trackTransitions.clipsById.get(win.leadId);
+                  const trail = trackTransitions.clipsById.get(win.trailId);
+                  const component = transitionComponents?.[win.kind];
+                  if (!lead || !trail || !component) return null;
+                  return (
+                    <TransitionWindow
+                      key={`transition:${win.id}`}
+                      plan={win}
+                      lead={lead}
+                      trail={trail}
+                      component={component}
+                      width={timeline.width}
+                      height={timeline.height}
+                      premountFor={margin}
+                      components={components}
+                      captionComponent={captionComponent}
+                    />
+                  );
+                })}
+            </Fragment>
+          );
+        })}
+      </AbsoluteFill>
+    </SceneSourceContext.Provider>
   );
 }
 
@@ -116,185 +184,4 @@ function shotLayerTracks(tracks: SerializedTimeline['tracks']): SerializedTimeli
   return tracks
     .filter((t) => t.kind === 'overlay' || t.kind === 'caption')
     .map((t) => ({ ...t, clips: t.clips.filter((c) => c.kind === 'tsx' || c.kind === 'caption' || c.kind === 'image') }));
-}
-
-function transformStyle(clip: SerializedClip): React.CSSProperties {
-  const t = clip.transform;
-  if (!t) return {};
-  const parts: string[] = [];
-  if (t.x || t.y) parts.push(`translate(${t.x ?? 0}px, ${t.y ?? 0}px)`);
-  if (t.scale !== undefined && t.scale !== 1) parts.push(`scale(${t.scale})`);
-  if (t.rotation) parts.push(`rotate(${t.rotation}deg)`);
-  return {
-    ...(parts.length > 0 ? { transform: parts.join(' ') } : {}),
-    ...(t.opacity !== undefined ? { opacity: t.opacity } : {}),
-  };
-}
-
-/** 0→1 progress across a window, clamped. */
-function ramp(frame: number, from: number, to: number): number {
-  return interpolate(frame, [from, to], [0, 1], {
-    extrapolateLeft: 'clamp',
-    extrapolateRight: 'clamp',
-  });
-}
-
-/**
- * The volume prop for a clip: a static gain when there are no fades or
- * transitions, or a per-frame callback multiplying gain × fade ramps ×
- * transition ramps. The callback receives the frame relative to the clip's
- * start (Remotion cancels `trimBefore` out via useFrameForVolumeProp), so
- * every ramp is an interpolation over composition frames.
- *
- * Transition audio (Slice E): crossfades use equal-power curves — the leading
- * clip rides cos(θ), the trailing sin(θ), θ = progress × π/2 — so the summed
- * energy through the overlap stays flat. Dip-to-black is a linear ramp to
- * silence and back (a dip is SUPPOSED to reach zero).
- */
-function volumeProp(clip: SerializedClip): number | ((frame: number) => number) | undefined {
-  const fadeIn = clip.fadeInFrames ?? 0;
-  const fadeOut = clip.fadeOutFrames ?? 0;
-  const tIn = clip.transitionIn;
-  const tOut = clip.transitionOut;
-  if (fadeIn <= 0 && fadeOut <= 0 && !tIn && !tOut) return clip.volume;
-  const gain = clip.volume ?? 1;
-  const total = clip.durationInFrames;
-  return (frame: number) => {
-    let v = gain;
-    if (fadeIn > 0) v *= ramp(frame, 0, fadeIn);
-    if (fadeOut > 0) v *= 1 - ramp(frame, total - fadeOut, total);
-    if (tIn && tIn.frames > 0) {
-      const p = ramp(frame, 0, tIn.frames);
-      v *= tIn.kind === 'crossfade' ? Math.sin((p * Math.PI) / 2) : p;
-    }
-    if (tOut && tOut.frames > 0) {
-      const p = ramp(frame, total - tOut.frames, total);
-      v *= tOut.kind === 'crossfade' ? Math.cos((p * Math.PI) / 2) : 1 - p;
-    }
-    return v;
-  };
-}
-
-/**
- * Video opacity factor for transitions, composed with the clip's own
- * transform opacity. Both kinds ramp IN from 0 (the crossfade's trailing clip
- * paints on top of the still-playing leading clip; the dip rises from the
- * composition's black). Only dip-to-black ramps OUT — a crossfade's leading
- * clip keeps full opacity underneath the incoming one.
- */
-function transitionOpacity(clip: SerializedClip, frame: number): number {
-  let o = 1;
-  const tIn = clip.transitionIn;
-  if (tIn && tIn.frames > 0) o *= ramp(frame, 0, tIn.frames);
-  const tOut = clip.transitionOut;
-  if (tOut && tOut.kind === 'dip-to-black' && tOut.frames > 0) {
-    o *= 1 - ramp(frame, clip.durationInFrames - tOut.frames, clip.durationInFrames);
-  }
-  return o;
-}
-
-function ClipRenderer({
-  clip,
-  components,
-  captionComponent,
-}: {
-  clip: SerializedClip;
-  components?: Record<string, React.ComponentType<ShotRuntimeProps>>;
-  captionComponent?: React.ComponentType<CaptionRuntimeProps>;
-}) {
-  // Frame relative to this clip's Sequence — drives the transition opacity.
-  const frame = useCurrentFrame();
-  const style = transformStyle(clip);
-  const opacityFactor = transitionOpacity(clip, frame);
-  if (opacityFactor < 1) style.opacity = (style.opacity as number | undefined ?? 1) * opacityFactor;
-  const fill: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
-    ...style,
-  };
-  const volume = volumeProp(clip);
-
-  switch (clip.kind) {
-    case 'video': {
-      if (!clip.src) return null;
-      // Identical props to both tags: the swap under test is the DECODER, so
-      // anything else differing between the two arms would confound the
-      // measurement. `@remotion/media`'s <Video> accepts the same trimBefore /
-      // volume / muted / playbackRate contract.
-      const videoProps = {
-        src: clip.src,
-        style: fill,
-        ...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {}),
-        ...(volume !== undefined ? { volume } : {}),
-        ...(clip.muted ? { muted: true } : {}),
-        ...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {}),
-      };
-      // T2 (experimental, off by default — see media-engine.ts). <Audio> stays
-      // on the `remotion` tag deliberately: the WebCodecs audio path does not
-      // preserve pitch under playbackRate, and we expose clip playbackRate, so
-      // that is a separate decision (PREVIEW_ARCHITECTURE.md §D3.5).
-      if (getStudioMediaEngine() === 'webcodecs') {
-        return <WebCodecsVideo {...videoProps} logLevel={getStudioMediaLogLevel()} />;
-      }
-      return <OffthreadVideo {...videoProps} />;
-    }
-
-    case 'audio':
-    case 'sfx':
-      if (!clip.src || clip.muted) return null;
-      return (
-        <Audio
-          src={clip.src}
-          {...(clip.trimBefore !== undefined ? { trimBefore: clip.trimBefore } : {})}
-          {...(volume !== undefined ? { volume } : {})}
-          {...(clip.playbackRate !== undefined ? { playbackRate: clip.playbackRate } : {})}
-        />
-      );
-
-    case 'image':
-      if (!clip.src) return null;
-      return <Img src={clip.src} style={fill} />;
-
-    // TSX shots (S4): the component arrives via the parallel `components`
-    // map. The nested Sequence applies `trimBefore` as a frame offset —
-    // `from={-trimBefore}` starts the shot's internal clock earlier, so a
-    // split's right half CONTINUES the animation instead of restarting it,
-    // and a crossfade-in (negative trimBefore) delays frame 0 to the
-    // original boundary so baked timings stay put. Shots are visual-only;
-    // the master clip's audio keeps playing underneath (cover, not
-    // displace — D2).
-    case 'tsx': {
-      const ShotComponent = clip.tsx ? components?.[clip.tsx.shotId] : undefined;
-      if (!ShotComponent) return null;
-      const offset = clip.trimBefore ?? 0;
-      return (
-        <AbsoluteFill style={style}>
-          <Sequence from={-offset} layout="absolute-fill">
-            <ShotComponent {...clip.tsx?.props} />
-          </Sequence>
-        </AbsoluteFill>
-      );
-    }
-
-    // The caption layer (D13): ONE serializer-emitted clip spanning the
-    // composition, whose props carry the word stream derived from the master
-    // lane. Word timings are TIMELINE seconds, so the overlay deliberately
-    // gets no `trimBefore` offset — its clock is the composition's.
-    // Document-authored caption clips (S5 leftovers) carry no props and
-    // render nothing, exactly as before.
-    case 'caption': {
-      const captionProps = clip.tsx?.props?.captions;
-      if (!captionComponent || !captionProps) return null;
-      const CaptionTemplate = captionComponent;
-      return (
-        <AbsoluteFill style={style}>
-          <CaptionTemplate {...captionProps} />
-        </AbsoluteFill>
-      );
-    }
-
-    default:
-      return null;
-  }
 }

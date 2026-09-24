@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { StudioShot } from '../types/studio';
 import { referencedShotIds } from './shots';
-import { buildShotEntryParts, kitEntryDirName, rewriteKitImport, shotEntryRef } from './shot-export';
+import {
+  buildShotEntryParts,
+  kitEntryDirName,
+  rewriteKitImport,
+  shotEntryRef,
+  transitionEntryRefs,
+} from './shot-export';
 
 function shot(overrides: Partial<StudioShot> = {}): StudioShot {
   return {
@@ -75,5 +81,36 @@ describe('kit export pinning (Q4)', () => {
     expect(out).toContain(`from './studio-entry-p-kit-1.0.0/index.tsx';`);
     expect(out).not.toMatch(/from\s*['"]@vidtsx\/kit['"]/);
     expect(out).toContain('stays untouched in strings');
+  });
+});
+
+describe('transitionEntryRefs (TRANSITION_PACKS_DESIGN.md)', () => {
+  it('names each copy under the entry sweep and keys the map by document kind', () => {
+    const refs = transitionEntryRefs(['core/push-left', 'core/staggered-tiles'], 'p1');
+    expect(refs).toEqual([
+      { shotId: 'core/push-left', identifier: 'Transition_0', fileName: 'studio-entry-p1-transition-core.push-left.tsx' },
+      {
+        shotId: 'core/staggered-tiles',
+        identifier: 'Transition_1',
+        fileName: 'studio-entry-p1-transition-core.staggered-tiles.tsx',
+      },
+    ]);
+    const { imports, componentsLiteral } = buildShotEntryParts(refs);
+    expect(imports.split('\n')).toEqual([
+      "import Transition_0 from './studio-entry-p1-transition-core.push-left.tsx';",
+      "import Transition_1 from './studio-entry-p1-transition-core.staggered-tiles.tsx';",
+    ]);
+    expect(componentsLiteral.split('\n')).toEqual([
+      '{',
+      '  "core/push-left": Transition_0,',
+      '  "core/staggered-tiles": Transition_1',
+      '}',
+    ]);
+  });
+
+  it('keeps kinds that only differ in where the dash falls apart', () => {
+    const [a, b] = transitionEntryRefs(['a-b/c', 'a/b-c'], 'p1');
+    expect(a.fileName).not.toBe(b.fileName);
+    expect(a.identifier).not.toBe(b.identifier);
   });
 });

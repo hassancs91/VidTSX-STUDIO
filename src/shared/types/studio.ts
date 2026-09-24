@@ -7,6 +7,7 @@
 //
 // Shared between main (project-store, media-import) and renderer (editor UI).
 
+import type { ReactNode } from 'react';
 import type { SttModelFeatures } from '../presets/stt-models';
 import type { ThinkingLevel } from '../tsx-engine/types';
 import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
@@ -110,7 +111,14 @@ export interface StudioClipOrigin {
   proposalId?: string;
 }
 
-export type StudioTransitionKind = 'crossfade' | 'dip-to-black';
+/** `'crossfade'` / `'dip-to-black'` — the two the engine draws itself — or a
+ *  pack transition's namespaced id, `<packId>/<itemId>` (e.g. `core/push-left`).
+ *  The bare ids stay valid forever and the schema version does not move: an
+ *  older build opening a newer project renders an id it doesn't know as a
+ *  crossfade instead of refusing the document. An id whose pack isn't installed
+ *  degrades the same way and STAYS in the document, so reinstalling restores it.
+ *  See docs/studio/TRANSITION_PACKS_DESIGN.md. */
+export type StudioTransitionKind = string;
 
 /** A transition at the clip's END boundary (additive, Slice E). Stored on the
  *  leading clip; meaningful only while the next clip on the same track starts
@@ -222,6 +230,25 @@ export interface ShotRuntimeProps {
    *  caption overlay entry — a shot never sees it. Captions ride this channel
    *  ON PURPOSE: one props transport, so preview and export can't diverge. */
   captions?: CaptionRuntimeProps;
+}
+
+/** Props a pack transition's component receives across its overlap. The
+ *  contract is the add-ons repo's (`vidtsx-addons/transitions/AUTHORING.md`);
+ *  the component eases `progress` itself and must render only `outgoing` at 0
+ *  and only `incoming` at 1. Both scene nodes are PICTURE-ONLY — a transition
+ *  may mount a scene many times, so sound is never inside them. */
+export interface TransitionRuntimeProps {
+  outgoing: ReactNode;
+  incoming: ReactNode;
+  /** Linear 0→1 across the overlap. */
+  progress: number;
+  /** Composition pixels. */
+  width?: number;
+  height?: number;
+  accent?: string;
+  /** Backing colour behind 3D motion and dips. The engine passes
+   *  'transparent' so lower tracks (or the composition's black) show through. */
+  background?: string;
 }
 
 // ---------------------------------------------------------------------------

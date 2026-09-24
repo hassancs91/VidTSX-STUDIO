@@ -3,6 +3,7 @@ import { clipEndTime } from '../../services/timeline-ops';
 import { TRACK_HEIGHT } from '../../services/timeline-view';
 import { TimelineClip, type ClipDragKind, type ClipWaveformData } from './TimelineClip';
 import { TransitionJoins } from './TransitionJoins';
+import type { JoinStatus } from '../../services/join-status';
 
 interface Props {
   timeline: StudioTimeline;
@@ -21,8 +22,11 @@ interface Props {
   /** Right-click on empty lane space — opens the track options menu (the
    *  header cell is narrow; the lane is where the mouse actually is). */
   onLaneContextMenu: (event: React.MouseEvent, track: StudioTrack) => void;
-  /** Join square at a contiguous boundary — opens the transition picker. */
+  /** Join square at a contiguous boundary — selects it / opens the picker. */
   onJoinClick: (event: React.MouseEvent, leadingClip: StudioClip) => void;
+  /** The Transitions tab's target join (leading clip id). */
+  targetJoinId: string | null;
+  joinStatuses: ReadonlyMap<string, JoinStatus>;
   /** Assets whose source file is missing — their clips get a warning tint. */
   missingAssetIds: ReadonlySet<string>;
 }
@@ -42,6 +46,8 @@ export function TimelineLanes({
   onLanePointerDown,
   onLaneContextMenu,
   onJoinClick,
+  targetJoinId,
+  joinStatuses,
   missingAssetIds,
 }: Props) {
   const selected = new Set(selectedClipIds);
@@ -85,6 +91,8 @@ export function TimelineLanes({
             pxPerSecond={pxPerSecond}
             visibleFrom={visibleFrom}
             visibleTo={visibleTo}
+            targetJoinId={targetJoinId}
+            statuses={joinStatuses}
             onJoinClick={onJoinClick}
           />
         </div>
