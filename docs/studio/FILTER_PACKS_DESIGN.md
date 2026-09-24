@@ -2,11 +2,12 @@
 
 > Status: **all decisions answered (Hasan, 2026-09-18) — two tabs, Filters
 > and Effects. P0 passed on every axis, fps included (2026-09-22). P1–P3
-> COMMITTED 2026-09-24 (2f0ee49); P4 (export copy step) and P5 (import: the
-> pack code generalized over both kinds, `.vidtsxfilter`, the tabs' Import…)
-> are BUILT and verified live (2026-09-24, uncommitted) — see "As built
-> (P4–P5)", "P4 results", "P5 results". Slice 1 is complete; the tracked
-> nine have their own section, "Analysis tracks".** This is
+> COMMITTED 2026-09-24 (2f0ee49); P4–P5 COMMITTED 2026-09-24 (8b65aac) — see
+> "As built (P4–P5)", "P4 results", "P5 results". P6 (content: the
+> `vidtsx-filters` Volume 01 pack) BUILT and verified live 2026-09-24 — see
+> "P6 results". Slice 1 is complete, content included; the tracked nine have
+> their own section, "Analysis tracks"; its ONNX spike ran 2026-09-24 —
+> GO, see "Spike results".** This is
 > NEXT_FEATURES_DESIGN.md row 10 (Q8c "effects") started from the other end:
 > 22 authored, machine-verified filters already exist in the sibling repo
 > (`../vidtsx-addons/filters/`, contract in its `AUTHORING.md` and
@@ -22,37 +23,52 @@
 > **Continue from here (for the next session).** Everything below is the
 > record; this is the order of work:
 >
-> 1. **Commit P4–P5** when Hasan asks (by pathspec, never `stash`): the
->    working tree holds the files listed under "As built (P4–P5)" — new
->    modules, nine deletions (the transition-only package code they replace),
->    and wiring. Tests for every touched file are green; `check:types` at
->    baseline. Suggested message: `feat(studio): filter packs — export copy
->    step, pack import generalized over transitions and filters (E2, P4–P5)`.
-> 2. **P6 — content (DECIDED, Hasan 2026-09-24: the transitions split):** the
->    core pack stays at its three; the other ten eligible items ship as ONE
->    pack, `vidtsx-filters` ("VidTSX Filters — Volume 01" 1.0.0) —
->    filters `vivid`, `sepia`, `golden-hour`, `arctic`; effects `comic`,
->    `pixel-party`, `disco`, `kaleidoscope`, `film-halation`,
->    `anamorphic-streaks`. Build it the way P5 verified: esbuild each from
->    the add-ons SDK (`.vidtsx-temp/p0-filters/bundle-filters.mjs` is the
->    bundler; the entry = the add-on's meta + `category` + `parameters` /
->    `presets` copied out of the module + `requires` + `heavy`), zip it with
->    the kit's `live/p5/mkpkg.mjs` shape, gate every bundle, MEASURE `comic`
->    and `pixel-party` at 1080p for `heavy` (the lab said `pixels()`-heavy),
->    import it on the isolated instance, apply each item once, export one
->    project through the P4 checker. Ship the file into
->    `../vidtsx-addons/dist/` (gitignored there) with a copy in the kit, as
->    Volume 01 of transitions was. The add-ons repo carries another session's
->    uncommitted reorganisation — build from `dist/sdk/`, touch nothing there.
-> 3. **Slice 2 (the tracked nine):** the ONNX spike in "Analysis tracks" —
->    the `requires` gate is wired end to end (loader, import dialog: a tracked
->    filter is held back with a message naming the missing track), so the
->    spike can start on the analysis side.
+> 1. **Commit P6** when Hasan asks (by pathspec, never `stash`): the repo
+>    diff is THIS DOC only — the pack lives outside git
+>    (`../vidtsx-addons/dist/vidtsx-filters-1.0.0.vidtsxpack`, gitignored
+>    there; the kit copy in `.vidtsx-temp/p0-filters/live/p6/`, gitignored
+>    here). Nothing in `src/` changed; `check:types` at baseline. Suggested
+>    message: `docs(studio): filter packs — P6 content, the vidtsx-filters
+>    Volume 01 pack (E2)`.
+> 2. **P6 — DONE 2026-09-24** (the decision stands: core at its three; the
+>    other ten as ONE pack, `vidtsx-filters` "VidTSX Filters — Volume 01"
+>    1.0.0 — filters `vivid`, `sepia`, `golden-hour`, `arctic`; effects
+>    `comic`, `pixel-party`, `disco`, `kaleidoscope`, `film-halation`,
+>    `anamorphic-streaks`). Built by the kit's `live/p6/mkpack.mjs` from the
+>    add-ons `dist/sdk/` (untouched), `heavy` MEASURED by `paint-bench.mjs`
+>    (comic is the one heavy item), gated, imported, every card and every
+>    item exercised, one 1080p export through the checker — "P6 results". To
+>    rebuild: `node paint-bench.mjs` then `node mkpack.mjs` (heavy is read
+>    from the bench, never typed).
+> 3. **Slice 2 (the tracked nine) — the spike is DONE 2026-09-24, verdict GO
+>    for ONNX in main** ("Spike results" under "Analysis tracks": MODNet
+>    29 ms a frame on DirectML at the production shape vs 263 ms on CPU;
+>    faces 25 ms end to end; the selfie segmenter reproduces the add-ons'
+>    shoulder-ghost failure on every sampled frame, MODNet on none; the
+>    heart-eyes / puppy glue proven through the vendored runtime). Harness
+>    + evidence: `.vidtsx-temp/s2-analysis/` (README; models pinned in
+>    `models/source.json`, never in `resources/`). The `requires` gate is
+>    wired end to end, so the build starts on the analysis side, in this
+>    order — **not before Hasan says so**:
+>    - **Faces track, M (~3 days):** `faceTrack` job + the analysis
+>      utilityProcess (content-safety pattern, pinned model manifest, DML →
+>      CPU) + ffmpeg feed (`-r`, PNG over pipe — the stripped build has no
+>      `fps` filter) + YuNet / mesh / `faceFromLandmarks` glue (the harness's
+>      `faces.mjs`) + JSON track by source seconds + `FilteredPicture`
+>      `tracks` + gate + chip / export-refusal UX. The five face filters ship.
+>    - **Masks track, M (~3 days):** `subjectMask` job on the same process;
+>      MODNet short side 512 (DML) / 352 (CPU fallback — not MediaPipe);
+>      deflated 256-px blobs + index (~9.5 MB/min measured); the renderer
+>      mask loader; gate opens for the four.
+>    - **Content, S:** the tracked nine through the P6 builder.
 > 4. **Open debt (small):** package drag-and-drop (shared with transitions);
 >    removing a single from `imported/`; `speed` in the filter clock; the
->    add-ons repo's real builder (`bundle-filters.mjs` in the harness is the
->    only one, and its `.vidtsxfilter` / pack packaging is the kit's
->    `live/p5/mkpkg.mjs`).
+>    add-ons repo's real builder (the kit's `live/p6/mkpack.mjs` +
+>    `paint-bench.mjs` are the only pack builder, `live/p5/mkpkg.mjs` the
+>    only `.vidtsxfilter` packager); **core's `cinematic-bloom` badge** — it
+>    ships `heavy: true` on the lab's ~100 ms figure, but the P6 bench paints
+>    it in ~25 ms at 1080p on this machine (comic, the badged one, ~100 ms):
+>    Hasan's call whether to drop it (one `pack.json` flag + one test line).
 > 5. **Verification rules:** re-run the P0 harness (`node run.mjs 30,100,200,300
 >    --runs=1` then md5-compare `out/filtered-run1/` with `out/proto-run1/`)
 >    after any edit to `FilteredPicture.tsx`, `filter-runtime.ts`,
@@ -428,9 +444,9 @@ filter, `export default`, `parameters`/`presets` copied into the entry,
   that caches data tracks per asset span (the matte precedent), auto-queued
   when such a filter is applied, arriving as `faces` / `subjectMask` per
   frame. Its own design; the `requires` field is the hook.
-- **13 are eligible now**: the 5 filters and 8 effects of the category
-  table (`comic` and `pixel-party` are `pixels()`-heavy at 1080p and get
-  measured for the badge).
+- **13 are eligible now — and shipped**: the 5 filters and 8 effects of the
+  category table, three in core and ten in Volume 01 (`comic` measured heavy,
+  `pixel-party` measured cheap — "P6 results").
 - Not in this slice: stacking beyond the two slots, TSX-shot filters,
   keyframed params, an effect on its own layer spanning clips (CapCut's
   adjustment-layer placement — it would filter the composite, which per-clip
@@ -449,9 +465,9 @@ filter, `export default`, `parameters`/`presets` copied into the entry,
 | **P3** | Filters tab + cards, effect ops, Inspector section + generic controls + presets + ephemeral preview, timeline chip, preview toggle, flag | **DONE 2026-09-24** — CDP pass on the isolated instance, every row: card blocked with nothing selected; apply noir (disk, chip, canvas 640 px, every sampled pixel R=G=B); VHS from the Effects tab fills the second slot; an intensity drag live-previews and commits ONCE (one undo step, redo restores); bloom replaces VHS (slot rule) with noir kept; preset lands its four values and the select tracks it, a knob drag turns it to Custom; Enable off drops the entry from the Player but not the document; Inspector Remove; nine undos to a clean clip and nine redos back; panel Remove; "Apply to all clips on this track"; the image clip is filtered too (640² canvas, gray); the preview toggle empties `filterDefinitions` and restores it; degrade round trip (amber chip + "Not installed" block + plain picture → folder pack drop → chip set, preview painted → pack pulled → amber again, id kept). See "P3 results" |
 | **P4** | Export copy step | **DONE 2026-09-24** — `export-filters.ts` (+ 5 tests) wired from `export-entry.ts`; real 1080p Standard exports of the live kit's `p4-filters` / `p4-plain` projects: entry copies byte-identical to `resources/packs/core/filters/*.js`, the entry imports them and passes `filterDefinitions` on the same element as `layer`; clip a frames 30/60/90 byte-identical to the no-filter export; noir frames 150/200 max channel spread 0; the noir + vhs chain over the image clip carries colour and animates (the burned-in clock reads 00:00:01 at frame 280); audio PCM md5 identical across every export. One engine fix came out of it — see "P4 results" |
 | **P5** | `filters/` in `.vidtsxpack`, `.vidtsxfilter`, association, generalized package code | **DONE 2026-09-24** — `transition-package.ts` / `transition-install.ts` replaced by `pack-package.ts` / `pack-install.ts` over a per-kind spec (24 tests: the old cases + both-kinds packs, filters-only, wrong-folder files, `requires` hold-back, singles of each kind into one `imported/pack.json`); one dialog, one IPC set (`studio:pack-package:*`), one pending kind; `.vidtsxfilter` association; Import… on the Filters and Effects tabs; live: double-click installs a both-kinds pack, a single lands in `imported/`, the open tab lists it without a reopen and the Player renders the imported kind — see "P5 results" |
-| **P6** | The other 10 eligible items as the `vidtsx-filters` Volume 01 pack (DECIDED 2026-09-24 — core stays at three; the transitions split); the analysis-track design for the tracked nine is "Analysis tracks" | The pack imports on the isolated instance, every card paints, `heavy` measured for `comic` / `pixel-party`, one export through the P4 checker; the file in `../vidtsx-addons/dist/` + the kit |
+| **P6** | The other 10 eligible items as the `vidtsx-filters` Volume 01 pack (DECIDED 2026-09-24 — core stays at three; the transitions split); the analysis-track design for the tracked nine is "Analysis tracks" | **DONE 2026-09-24** — `vidtsx-filters-1.0.0.vidtsxpack` (13.5 KB: 4 filters, 6 effects, README) built by the kit's `live/p6/mkpack.mjs` from the add-ons SDK dist, every bundle through the app's real gate; `heavy` MEASURED at 1080p (comic ~100 ms is the one heavy item; pixel-party 3–4 ms — it downsamples before its pixel loop); the ten render byte-identical across two render-host runs; on the isolated instance: double-click → the dialog lists all ten with their facts → installed byte-identical; every card paints on both tabs; each of the ten applied through its card (canvas + disk); a 1080p Standard export through the P6 checker passed every bar (entry copies byte-identical, clip a byte-identical to the plain twin, audio md5 identical). Shipped to `../vidtsx-addons/dist/` + the kit. See "P6 results" |
 
-P0–P5 are done: slice 1 is "fully working with three", import included.
+P0–P6 are done: slice 1 is complete — three built in, ten in Volume 01, import included.
 
 ### P0 results (2026-09-18)
 
@@ -837,6 +853,92 @@ dialog; disk = `<profile>/assets/packs/`.
 | the transitions Volume 01 pack | still opens in the one dialog: "19 transitions" (cancelled) |
 | Import… (Filters and Effects tabs) | present; with `VIDTSX_PACK_PICK` the click opens the dialog for the picked `.vidtsxfilter` |
 
+### P6 results (2026-09-24)
+
+Kit: `.vidtsx-temp/p0-filters/live/p6/` (README "P6 additions"). Source: the
+add-ons' `dist/sdk/` (read, never touched). The pack:
+`vidtsx-filters-1.0.0.vidtsxpack` — `pack.json` (`formatVersion` 1,
+`minAppVersion` 1.1.0, `license` See README, `filters[10]`, `files[11]` with
+size + sha256), `README.md`, `filters/<id>.js` (0.8–5.5 KB each; the ten
+together ~21 KB). An entry = the add-on's `meta.json` + `category`
+(vivid / sepia / golden-hour / arctic are filters, the six others effects) +
+`parameters` / `presets` copied out of the module (film-halation 5 knobs / 3
+presets; anamorphic-streaks 4 / 3, one a colour; the rest none) + `requires:
+[]` (asserted: no tracking flag on any of the ten) + `heavy` measured. The
+builder asserts `meta.json` equals the module on every displayed field.
+
+**Gate.** All ten (and the core three, re-bundled beside them as calibration)
+pass `lintFilterSource` + the esbuild compile (`gate.mjs`); the app's own
+`studioPackPackageInspect` over the zip: 10 items, `problems: []`, "Installs
+as a new pack".
+
+**`heavy` — measured** (`paint-bench.mjs`: one `renderer.render()` at
+1920×1080 through the vendored runtime in headless Chromium — the filters
+repo's Playwright install, software raster — 12 timed paints after 2
+warm-ups, the worst case over the add-ons' portrait AND the lab's lamp-lit
+still, because a highlight filter's cost follows the highlight count; the
+machine carried another repo's render job at the time, so the numbers are
+relative):
+
+| item | worst-case median paint | item | worst-case median paint |
+|---|---|---|---|
+| **comic** | **100 ms** | film-halation | 38 ms |
+| golden-hour | 45 ms | vhs (core) | 33 ms |
+| arctic | 43 ms | vivid | 31 ms |
+| disco | 39 ms | anamorphic-streaks | 29 ms |
+| noir (core) | 29 ms | sepia | 26 ms |
+| cinematic-bloom (core) | 23 ms | kaleidoscope | 21 ms |
+| | | pixel-party | 3 ms |
+
+Rule: `heavy` = a worst-case paint of at least two 30 fps frame budgets
+(66.7 ms) at 1080p → **comic only** (posterize + ink outlines + halftone:
+three `pixels()` passes). **pixel-party is 3–4 ms** — the lab's
+"`pixels()`-heavy" was half right: it downsamples to its chunky grid before
+the loop. **Finding:** `cinematic-bloom`, shipped `heavy: true` on the lab's
+~100 ms figure, paints in 23–25 ms here on both stills — consistent with
+P0's own data (bloom held 30 fps at 720p uncapped) — so bloom could not be
+the yardstick and the absolute bar replaced it; whether core's bloom keeps
+its badge is open debt. `anamorphic-streaks` leaves the portrait untouched
+(nothing above its 0.84 threshold) and paints on the lamps — content, not a
+bug; the bench flags any item unchanged on every source.
+
+**Render host** (`live/p6/harness/run.mjs`: ten 30-frame 1080p clips over
+the P0 counters through the src `FilteredPicture`, one still each, twice +
+plain): every still **byte-identical across the two runs**; PSNR vs plain
+from 6.1 dB (kaleidoscope) to 25.6 dB (vivid), all finite.
+
+**Live** (isolated instance via `launch.sh` — nothing else ran Electron —
+the P3–P5 profile with `fx-demo` / `fx-only` / `imported` still installed):
+
+| Step | Result |
+|---|---|
+| double-click `vidtsx-filters-1.0.0.vidtsxpack` | "Import pack" · "VidTSX Filters — Volume 01 1.0.0 by VidTSX · See README" · "10 filters": Vivid / Sepia / Golden Hour / Arctic "filter", Comic Book "effect · heavy", Pixel Party "effect", Disco Fever / Kaleidoscope / Film Halation "effect · animated", Anamorphic Streaks "effect" · "Installs as a new pack" → Install: `vidtsx-filters/{pack.json, filters/×10}`, every `.js` md5-identical to the build; the installed pack.json has no `transitions` key |
+| Filters tab (`cards.mjs`) | packs core, fx-demo, fx-only, imported, vidtsx-filters; the four cards `ready`, 256×144, painted (every sample non-zero) |
+| Effects tab | the six cards `ready`, painted; comic carries the heavy badge; the three animated ones say so |
+| clip a → each filter card | disk `[vivid]` → `[sepia]` → `[golden-hour]` → `[arctic]` (the filter slot replaced), the 640×360 canvas painted after each (sepia the least saturated) |
+| → each effect card | disk `[arctic, comic]` → `[arctic, pixel-party]` → … → `[arctic, anamorphic-streaks]` (the effect slot replaced, the filter kept), canvas painted after each |
+| export state | clip a cleared (Inspector Remove ×2); clip b sepia + comic and the still arctic + disco through the cards; `filterDefinitions` = the four; Inspector arctic 85 % / disco 75 % (their defaults) |
+
+**Export** (`p6-filters` vs its plain twin `p6-plain`, 1920×1080@30
+Standard, ~40 s each for 300 frames; `check.py`):
+
+| Check | Result |
+|---|---|
+| Entry copies | `studio-entry-p6-filters-filter-vidtsx-filters.{sepia,comic,arctic,disco}.js` md5-identical to the INSTALLED pack files and to the kit build; the entry imports the four and passes `filterDefinitions={FILTER_DEFINITIONS} layer={props.layer}` |
+| Clip a (plain in both) | decoded frames 30, 60, 90 byte-identical between the exports |
+| Clip b (sepia + comic) | frames 150, 200: PSNR vs plain 12.7 dB; mean R−B 33.7 / 33.8 where plain's is −3.5 / −2.2 — sepia's warmth survives comic |
+| Still (arctic + disco) | frames 250, 280: PSNR vs plain 20.6 / 16.4 dB; 250 vs 280 mean |Δ| 12.1 where the plain export's is 0.000 — disco animates on time over a still |
+| Audio | decoded PCM md5 identical (`c9e16722…` — the same PCM as the P4 exports: same media, same trims) |
+
+Driver notes: `window.api.renderQueueLoad()` called mid-render runs the
+queue DB's startup recovery and stamps the in-flight row "Render was
+interrupted when the app closed" until the renderer's next save — a
+transient lie; poll `renderQueueGet()` for activity and read the persisted
+queue once idle (`wait-export.mjs`). `RenderJob.progress` is already a
+percentage. Shipped: `../vidtsx-addons/dist/vidtsx-filters-1.0.0.vidtsxpack`
+(gitignored there) + the kit copy; `pkgs/` holds the double-clicked copy.
+Nothing in `src/` changed; `check:types` 26 / 10.
+
 ## Analysis tracks — how the tracked nine get in (slice 2, designed 2026-09-18, ONNX-first 2026-09-22)
 
 Hasan asked how the face and subject filters can be applied at all. The
@@ -918,7 +1020,139 @@ takes minutes, disk is small; no live effect while analyzing; up to 4 faces
 stored per frame where the add-ons' studio tracked one.
 
 **Order and size:** after P1–P5. Faces first (5 filters, the tiny track), M;
-masks second (4 filters, the binary track and its loader), M.
+masks second (4 filters, the binary track and its loader), M. — Refined by
+the spike below: "Build order with sizes".
+
+### Spike results (2026-09-24)
+
+The "Spike first (1 day)" protocol, run as written in the gitignored harness
+`.vidtsx-temp/s2-analysis/` (README inside: the scripts, the order, the
+lessons). Nothing in `src/` changed, no package added; `check:types` 26 / 10
+before and after. **Verdict: GO for ONNX in main — both wins are clear.**
+
+**Models, sourced and pinned** (`models/source.json`, the add-ons'
+convention: url + sha256 + licence; downloaded into the harness only):
+
+| File | Origin | Licence | SHA-256 | Size |
+|---|---|---|---|---|
+| `modnet.onnx` | Xenova/modnet `onnx/model.onnx` — the official ZHKKKe/MODNet checkpoint converted to ONNX (dynamic `[n,3,h,w]` in, `[n,1,h,w]` matte out) | Apache-2.0 (the repo's LICENSE fetched and kept) | `07c308cf…84df9` | 25.9 MB |
+| `yunet-2023mar.onnx` | opencv/opencv_zoo `face_detection_yunet_2023mar.onnx` (fixed `[1,3,640,640]`, 5 keypoints) | **MIT** — the table above said Apache-2.0; the zoo is, the model folder's own LICENSE is MIT (© 2020 Shiqi Yu). Equally clean. | `8f2383e4…52fa4` | 233 KB |
+| `face-mesh.onnx` | senty-au/face_landmarks_detector-ONNX — Google's `face_landmarks_detector.tflite` (478 pts) converted with tf2onnx 1.17.0, weights unchanged | Apache-2.0 | `7d6e82de…8beeb` | 4.9 MB |
+
+The mesh's provenance chain is verified, not trusted: the card names the
+source bundle `face_landmarker.task` sha `64184e22…` — the very file the
+add-ons pin in `public/models/source.json`; unzipping a scratch copy, the
+TFLite inside hashes to `c7d54204…`, exactly what the card states; the ONNX
+hash matches the card. All three are third-party format conversions of
+Apache/MIT originals; the production download manifest pins these hashes
+(or re-exports from the official checkpoints — the build's call).
+
+**Speed** — i7-11800H (16 threads), 64 GB, NVIDIA RTX A3000 Laptop GPU
+(+ Intel UHD); Node 22.14, onnxruntime-node 1.24.3 with its bundled
+DirectML. Machine load: 9 % CPU before the runs, no electron / ffmpeg /
+whisper processes (`Win32_Process` checked; the only stranger was another
+repo's Django dev server). Medians over 69 timed frames after 3 warm-ups,
+frames extracted by the bundled Remotion ffmpeg (PNG over pipe, 640×360,
+2.8 ms a frame):
+
+| Model (input) | CPU median | DirectML median | Harness wall / frame |
+|---|---|---|---|
+| MODNet 896×512 — the production shape (a 540p proxy's short side → 512, /32) | 263 ms (p90 287) | **29.0 ms** (p90 29.5) | 291 / 63 ms |
+| MODNet 640×352 (the fixture native, /32) | 116 ms (p90 126) | 16.4 ms (p90 17.0) | 137 / 41 ms |
+| selfie segmenter 256×144 — the fallback, MediaPipe CPU delegate in headless Chromium | 14.8 ms (p90 15.6) | — | 32 ms |
+| YuNet 640×640 | 5.3 ms | 3.5 ms | |
+| face-mesh 256² × 2 passes (detection crop + one refine from its own points) | 24.1 ms | 13.5 ms | |
+| faces end to end (decode + detect + mesh ×2 + `faceFromLandmarks`) | 40.0 ms (p90 54) | **24.6 ms** (p90 26) | |
+
+Harness wall includes the PNG decode + resize (~10 ms) and, for masks, a
+PNG matte write; the job writes a binary track. DirectML initialised for
+all three models on the first try (`{ name: 'dml', deviceId: 0 }`; session
+load 0.3–1.7 s vs 0.02–0.2 s on CPU) and ran on the RTX A3000 — nvidia-smi
+listed the node process on it at 47 % utilisation — so `deviceId: 0` is the
+high-performance adapter, not the iGPU. The two providers agree: mattes max
+|Δ| 1/255 (mean 0.00), landmarks max Δ 0.06 px, `mouthOpen` identical to
+four decimals. The machine-wide CPU busy figure during the CPU arms reads
+60–98 % (ORT's intra-op threads spin between runs) and 14–17 % during the
+DML arms — the GPU path leaves the editor its cores.
+
+**Masks, quality** — `out/sheets/masks-contact-sheet.png` (six frames ×
+original | MODNet matte | selfie mask | both cut out over flat green),
+`edges.png` (the head at 3×), `shoulders.png` (the torso at 2×),
+`mask-stats.json`:
+
+- The selfie mask joins the pink plush at the right shoulder in **every**
+  sampled frame — the add-ons' VALIDATION.md failure, reproduced. MODNet
+  excludes it on all 72.
+- Hair: MODNet's edge is a real soft gradient (true alpha — a faint light
+  fringe where the matte blends background, no staircase); the selfie's is
+  staircased at 256 px and chops the curls.
+- MODNet vs selfie mean |Δ| 2.6/255; transition band (16 < α < 240) 1.9 % of
+  pixels vs 1.4 % (MODNet's is a gradient, the selfie's is upscaling blur);
+  coverage 28.3 % vs 28.7 %.
+- Cache: 5.3 KB per frame deflated at 256×144 → **~9.5 MB per minute** at
+  30 fps (the table above guessed 2–5; soft mattes deflate worse than binary
+  masks). Still small.
+
+**Faces, the glue** — `out/sheets/faces-contact-sheet.png` (six frames ×
+Face-record overlay | heart-eyes | puppy, painted through the vendored
+`filter-runtime.ts` from bundles built like P6's) and `mouth-open.png`:
+
+- 72 / 72 frames detected, presence 1.00 throughout. The Face record lands:
+  eyes on the eyes, nose, mouth, forehead where they belong, the box follows
+  the roll (−11° → 0° across the clip); heart-eyes sit on the eyes, puppy's
+  nose / tongue / ears on nose / mouth / forehead.
+- `mouthOpen` runs 0.01–0.57 with the lips (the series is in
+  `out/paint-dml/paint.json`); the puppy tongue is visibly longer at the
+  widest frame (57, 0.57) than the quietest (53, 0.01). Paints are
+  deterministic (the same frame twice → identical PNG).
+- Jitter without any smoothing: centre motion median 1.1 px per frame, p90
+  2.7, max 3.7 at 640×360 — no smoothing pass in v1.
+- Track: 293 B per frame with 4-decimal rounding → ~530 KB per minute for
+  one face (the table's ~300 KB assumed a numeric layout; arrays instead of
+  named points get there).
+
+**Facts the build must carry:**
+
+1. Remotion's stripped ffmpeg has **no `fps` filter** (its V→V filters:
+   colorspace copy crop fieldorder format hflip null palettegen rotate scale
+   tinterlace tonemap transpose trim vflip zscale). `-r 24` on the output
+   works without it; `scale=-2:min(ih\,512)` needs the escaped comma.
+2. MediaPipe's crop is what makes the mesh land: the detection box centre,
+   side 1.5 × max(w, h), rolled by the eye line (YuNet keypoints 0 / 1 =
+   right / left eye in image space), then one refine pass from the mesh's
+   own points (33 → 263 for the roll). The 478 points come back in crop
+   pixels and map back through the same transform; `faceFromLandmarks`
+   needs nothing else.
+3. YuNet 2023mar is a fixed 640×640 input (letterbox top-left, BGR 0..255,
+   no normalisation); `cls` / `obj` are already probabilities.
+4. MODNet's production input is the short side at 512, rounded down to /32
+   (896×512 for 16:9); the official script keeps sub-512 sources native.
+
+**Decision.** GO for ONNX in main, faces first, then masks, as ordered above.
+DirectML is the primary provider. The CPU fallback is **MODNet at short side
+352** (116 ms → ~3.5 min of analysis per minute of 30 fps video), not
+MediaPipe: the segmenter's 15 ms buys the shoulder ghost, and the mask edge
+IS the effect. Faces are fine on either provider (25 / 40 ms). MediaPipe
+WASM in a hidden window is not needed; the fallback column stays as history.
+
+**Build order with sizes** (replaces "Order and size"; "Continue from here"
+step 3 points here):
+
+1. **Faces track — M (~3 days).** `faceTrack` media job; the analysis
+   utilityProcess on the content-safety pattern (a pinned download manifest
+   for the three files, fetched on first use; DML → CPU fallback recorded on
+   the job); the ffmpeg frame feed (`-r`, PNG over pipe, short side 512);
+   the YuNet + mesh + `faceFromLandmarks` glue as in the harness's
+   `faces.mjs`; a JSON track keyed by source seconds (4-decimal, ≤ 4 faces);
+   `FilteredPicture` gains `tracks` → `faces` per frame; the loader's
+   `requires` gate opens for the five; the chip + export-refusal UX.
+2. **Masks track — M (~3 days).** `subjectMask` job on the same process and
+   feed; MODNet at short side 512 (DML) / 352 (CPU); deflated 8-bit 256-px
+   blobs + a frame index; the renderer-side mask loader (blob → canvas per
+   frame, `time` within 1 ms, `sourceWidth/Height` relabelled); the gate
+   opens for the four.
+3. **Content — S.** The tracked nine as a Volume 02 (or into Volume 01 with
+   `requires`) through the P6 builder.
 
 ## Test plan
 
@@ -958,4 +1192,4 @@ masks second (4 filters, the binary track and its loader), M.
 9. P6 content, built-in vs pack for the other ten eligible items:
    **ANSWERED — the transitions split** (Hasan, 2026-09-24): core keeps
    `noir` / `vhs` / `cinematic-bloom`; the ten ship as the `vidtsx-filters`
-   Volume 01 pack (see "Continue from here" step 2).
+   Volume 01 pack. Built and verified 2026-09-24 ("P6 results").
