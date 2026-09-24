@@ -166,10 +166,22 @@ export function FilteredPicture({
   // A new frame while paused or scrubbing (or an animated filter on a still):
   // repaint before the browser shows it, then settle in case the seek landed
   // late. Stands down while frame callbacks are arriving — the video is
-  // playing and each callback already paints. Renders never take this path.
+  // playing and each callback already paints.
+  //
+  // Render host: a video never takes this path (OffthreadVideo hands Img a
+  // new src per frame, so `onVideoFrame` paints every frame), but an IMAGE
+  // must — Img fires `onImageFrame` once per src, and Remotion's frame pool
+  // gives a browser tab arbitrary frames of the clip, so without this repaint
+  // a tab shows an animated filter frozen at whatever frame it mounted the
+  // still on (P4 finding, 2026-09-24: vhs on a still differed run to run).
+  // The layout effect runs inside React's commit, before the screenshot.
+  // The "playing" window is a Player heuristic; a render ignores it.
   useLayoutEffect(() => {
-    if (isRendering) return;
-    if (performance.now() - lastCallbackAt.current < PLAYING_WINDOW_MS) return;
+    if (isRendering) {
+      if (kind !== 'image') return;
+    } else if (performance.now() - lastCallbackAt.current < PLAYING_WINDOW_MS) {
+      return;
+    }
     const source = lastSource.current;
     if (!isDrawable(source)) return;
     paint(source);

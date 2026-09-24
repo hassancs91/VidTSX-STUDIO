@@ -27,14 +27,19 @@ fileAssociations:
     name: VidTSX flow package
     description: VidTSX Studio flow package
     role: Editor
-  # Transitions (TRANSITION_PACKS_DESIGN.md P5): a pack, and a single transition.
+  # Studio packs (TRANSITION_PACKS_DESIGN.md P5, FILTER_PACKS_DESIGN.md P5): a
+  # pack of transitions and filters, a single transition, a single filter.
   - ext: vidtsxpack
-    name: VidTSX transition pack
-    description: VidTSX Studio transition pack
+    name: VidTSX pack
+    description: VidTSX Studio pack (transitions and filters)
     role: Editor
   - ext: vidtsxtransition
     name: VidTSX transition
     description: VidTSX Studio transition
+    role: Editor
+  - ext: vidtsxfilter
+    name: VidTSX filter
+    description: VidTSX Studio filter
     role: Editor
 directories:
   output: dist

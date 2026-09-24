@@ -496,10 +496,10 @@ export const IPC = {
   STUDIO_TRANSITION_MODULE: 'studio:transition:module',
   // Importing `.vidtsxpack` / `.vidtsxtransition` (P5): inspect-then-install,
   // plus the double-click hand-off (a pending claim + a push nudge).
-  STUDIO_TRANSITION_PACKAGE_INSPECT: 'studio:transition-package:inspect',
-  STUDIO_TRANSITION_PACKAGE_INSTALL: 'studio:transition-package:install',
-  STUDIO_TRANSITION_PACKAGE_PENDING: 'studio:transition-package:pending',
-  STUDIO_TRANSITION_PACKAGE_OPEN_FILE: 'studio:transition-package:open-file',
+  STUDIO_PACK_PACKAGE_INSPECT: 'studio:pack-package:inspect',
+  STUDIO_PACK_PACKAGE_INSTALL: 'studio:pack-package:install',
+  STUDIO_PACK_PACKAGE_PENDING: 'studio:pack-package:pending',
+  STUDIO_PACK_PACKAGE_OPEN_FILE: 'studio:pack-package:open-file',
 
   // Filter packs (docs/studio/FILTER_PACKS_DESIGN.md): the list the Filters
   // and Effects tabs show, and module delivery for the preview — a gated

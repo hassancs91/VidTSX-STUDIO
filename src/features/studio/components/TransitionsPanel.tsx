@@ -15,7 +15,7 @@ import { MIN_TRANSITION_DURATION } from '../services/transition-ops';
 import { formatDuration } from '../services/format-time';
 import { Field, NumberField } from './inspector-controls';
 import { TransitionCard } from './TransitionCard';
-import { ImportTransitionsDialog } from './ImportTransitionsDialog';
+import { ImportPackDialog } from './ImportPackDialog';
 import { NATIVE_CARDS, cardCompositionSize } from './transition-demo-scenes';
 
 interface Props {
@@ -58,7 +58,7 @@ export function TransitionsPanel({ list, target, width, height, onApply, onDurat
   const { showToast } = useToast();
   const [importPath, setImportPath] = useState<string | null>(null);
   const pickPackage = useCallback(async () => {
-    const result = await window.api.studioTransitionPackageInspect({});
+    const result = await window.api.studioPackPackageInspect({ pick: ['transition'] });
     if (result.filePath) setImportPath(result.filePath);
     else if (!result.canceled) showToast(result.error ?? 'That file is not a transition package.', 'error');
   }, [showToast]);
@@ -218,7 +218,7 @@ export function TransitionsPanel({ list, target, width, height, onApply, onDurat
         </div>
       </Section>
 
-      {importPath && <ImportTransitionsDialog filePath={importPath} onClose={() => setImportPath(null)} />}
+      {importPath && <ImportPackDialog filePath={importPath} onClose={() => setImportPath(null)} />}
     </div>
   );
 }

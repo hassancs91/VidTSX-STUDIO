@@ -36,6 +36,7 @@ export * from './studio-package';
 export * from './studio-preset';
 export * from './studio-transitions';
 export * from './studio-filters';
+export * from './studio-packages';
 export * from './system';
 export * from './ai-runtime';
 export * from './python-models';

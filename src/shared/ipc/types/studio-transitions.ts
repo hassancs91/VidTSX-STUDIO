@@ -3,7 +3,6 @@
 // in main: the renderer asks by document kind and gets a module-server URL.
 
 import type { SceneCopies } from '../../studio/transition-pack';
-import type { VersionAction } from '../../studio/transition-package';
 
 /** A transition as the tab lists it. */
 export interface StudioTransitionInfo {
@@ -42,71 +41,5 @@ export interface StudioTransitionModuleResponse {
   error?: string;
 }
 
-// ---- Import: `.vidtsxpack` / `.vidtsxtransition` (P5) ----------------------
-
-/** One transition in a package, as the inspect-then-install dialog lists it. */
-export interface InspectedTransitionItem {
-  /** The document id it installs as — `<packId>/<id>`, or `imported/<id>`. */
-  kind: string;
-  name: string;
-  version: string;
-  durationSeconds: number;
-  sceneCopies: SceneCopies;
-  description?: string;
-  /** Why the import gate refused this one; the rest of the pack still installs. */
-  refused?: string;
-}
-
-export interface InspectedTransitionPackage {
-  format: 'pack' | 'single';
-  /** Target pack folder — the pack's own id, or `imported` for a single. */
-  packId: string;
-  /** The pack's name, or the single transition's name. */
-  name: string;
-  version: string;
-  author?: string;
-  license?: string;
-  description?: string;
-  /** Against what is installed: per pack for a pack, per item for a single. */
-  action: VersionAction;
-  installedVersion?: string;
-  items: InspectedTransitionItem[];
-  /** Entries the manifest parser skipped — informational. */
-  problems: string[];
-}
-
-export interface StudioTransitionPackageInspectRequest {
-  /** Omitted = main shows the open dialog first. */
-  filePath?: string;
-}
-
-export interface StudioTransitionPackageInspectResponse {
-  success: boolean;
-  canceled?: boolean;
-  filePath?: string;
-  package?: InspectedTransitionPackage;
-  error?: string;
-}
-
-export interface StudioTransitionPackageInstallRequest {
-  filePath: string;
-  /** The user saw "this replaces a newer version" and said yes. */
-  confirmDowngrade?: boolean;
-}
-
-export interface StudioTransitionPackageInstallResponse {
-  success: boolean;
-  /** Nothing written: an older version needs an explicit yes first. */
-  needsConfirm?: 'downgrade';
-  installedVersion?: string;
-  /** Nothing written: this exact version is already installed. */
-  unchanged?: boolean;
-  installed?: { packId: string; kinds: string[] };
-  /** Items the gate refused (a pack installs the rest). */
-  skipped?: Array<{ name: string; reason: string }>;
-  error?: string;
-}
-
-export interface StudioTransitionPackagePendingResponse {
-  filePath?: string;
-}
+// Importing packages (`.vidtsxpack` / `.vidtsxtransition`, P5) lives in
+// `studio-packages.ts` — one dialog serves transitions and filters.

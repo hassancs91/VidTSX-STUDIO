@@ -2,10 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { Clapperboard } from 'lucide-react';
 import { isFeatureEnabled } from '@shared/feature-flags';
 import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
-import { usePendingTransitionPackage } from '../hooks/useTransitionImport';
+import { usePendingPackPackage } from '../hooks/usePackImport';
 import { ProjectBrowser } from './ProjectBrowser';
 import { EditorShell } from './EditorShell';
-import { ImportTransitionsDialog } from './ImportTransitionsDialog';
+import { ImportPackDialog } from './ImportPackDialog';
 
 function StudioComingSoon() {
   return (
@@ -48,9 +48,9 @@ function StudioScreenInner() {
   // navigates away, so a project stays genuinely open while they curate.
   const { openProjectId, setOpenProjectId } = useOpenProject();
   const [newProjectToken, setNewProjectToken] = useState(0);
-  // A double-clicked transition package lands here, over the browser or the
-  // editor alike — installing one is library-wide, not per project.
-  const [transitionPackage, setTransitionPackage] = usePendingTransitionPackage();
+  // A double-clicked pack package (transitions, filters) lands here, over the
+  // browser or the editor alike — installing one is library-wide, not per project.
+  const [packPackage, setPackPackage] = usePendingPackPackage();
 
   // W6: Home opens a project card straight into its editor, or asks for the
   // New Project dialog. `vidtsx:studio-open` follows the `vidtsx:creator-open`
@@ -83,9 +83,7 @@ function StudioScreenInner() {
           onNewProjectShown={clearNewProject}
         />
       )}
-      {transitionPackage && (
-        <ImportTransitionsDialog filePath={transitionPackage} onClose={() => setTransitionPackage(null)} />
-      )}
+      {packPackage && <ImportPackDialog filePath={packPackage} onClose={() => setPackPackage(null)} />}
     </>
   );
 }

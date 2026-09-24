@@ -46,10 +46,10 @@ import {
 import { handleStudioTransitionList, handleStudioTransitionModule } from '../studio-transition-handlers';
 import { handleStudioFilterList, handleStudioFilterModule } from '../studio-filter-handlers';
 import {
-  handleStudioTransitionPackageInspect,
-  handleStudioTransitionPackageInstall,
-  handleStudioTransitionPackagePending,
-} from '../studio-transition-package-handlers';
+  handleStudioPackPackageInspect,
+  handleStudioPackPackageInstall,
+  handleStudioPackPackagePending,
+} from '../studio-pack-package-handlers';
 import {
   handleStudioPackageExport,
   handleStudioPackageImport,
@@ -130,9 +130,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_CAPTION_TEMPLATE_MODULE, handleStudioCaptionTemplateModule);
   ipcMain.handle(IPC.STUDIO_TRANSITION_LIST, handleStudioTransitionList);
   ipcMain.handle(IPC.STUDIO_TRANSITION_MODULE, handleStudioTransitionModule);
-  ipcMain.handle(IPC.STUDIO_TRANSITION_PACKAGE_INSPECT, handleStudioTransitionPackageInspect);
-  ipcMain.handle(IPC.STUDIO_TRANSITION_PACKAGE_INSTALL, handleStudioTransitionPackageInstall);
-  ipcMain.handle(IPC.STUDIO_TRANSITION_PACKAGE_PENDING, handleStudioTransitionPackagePending);
+  ipcMain.handle(IPC.STUDIO_PACK_PACKAGE_INSPECT, handleStudioPackPackageInspect);
+  ipcMain.handle(IPC.STUDIO_PACK_PACKAGE_INSTALL, handleStudioPackPackageInstall);
+  ipcMain.handle(IPC.STUDIO_PACK_PACKAGE_PENDING, handleStudioPackPackagePending);
   ipcMain.handle(IPC.STUDIO_FILTER_LIST, handleStudioFilterList);
   ipcMain.handle(IPC.STUDIO_FILTER_MODULE, handleStudioFilterModule);
 

@@ -431,6 +431,12 @@ shape with a hashed `files[]` for `.vidtsxpack`, and a per-transition
   that pass the gate are written; thumbnails and README are never unpacked
   (cards render live). A stowaway entry the manifest doesn't list is never
   read.
+- **Code (superseded 2026-09-24 by the filters slice, FILTER_PACKS_DESIGN.md P5):**
+  the modules named below were generalized over transitions AND filters —
+  `shared/studio/pack-package.ts`, `main/services/studio/pack-package.ts` +
+  `pack-install.ts`, `studio-pack-package-handlers.ts`, IPC
+  `studio:pack-package:*`, `usePackImport.ts`, `ImportPackDialog.tsx`; the
+  rules below are unchanged. As first built:
 - **Code.** Pure parsing is `shared/studio/transition-package.ts`. Open, gate
   and plan are `main/services/studio/transition-package.ts`. Writing is
   `transition-install.ts`: a pack is unpacked into a dot-folder staging dir

@@ -68,10 +68,11 @@ function AppContent({ activeScreen, setActiveScreen }: {
     });
   }, [setActiveScreen]);
 
-  // A double-clicked .vidtsxpack / .vidtsxtransition — the Studio screen
-  // claims it and opens the import dialog (TRANSITION_PACKS_DESIGN.md P5).
+  // A double-clicked .vidtsxpack / .vidtsxtransition / .vidtsxfilter — the
+  // Studio screen claims it and opens the import dialog (TRANSITION_PACKS_DESIGN.md
+  // P5, FILTER_PACKS_DESIGN.md P5).
   useEffect(() => {
-    return window.api.onStudioTransitionPackageOpenFile(() => {
+    return window.api.onStudioPackPackageOpenFile(() => {
       if (isFeatureEnabled('studio')) setActiveScreen('studio');
     });
   }, [setActiveScreen]);

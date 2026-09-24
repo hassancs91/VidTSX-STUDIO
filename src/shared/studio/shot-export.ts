@@ -49,6 +49,21 @@ export function transitionEntryRefs(kinds: readonly string[], projectId: string)
   }));
 }
 
+/**
+ * The pack filters' copies in the entry dir (FILTER_PACKS_DESIGN.md
+ * "Delivery to the renderer and to export"). Same naming rules as the
+ * transitions' — positional identifiers, a '.' between the kind's halves —
+ * but the copy keeps its `.js` extension: a filter is a bundled module the
+ * app never transpiles, and the entry imports it exactly as the pack ships it.
+ */
+export function filterEntryRefs(kinds: readonly string[], projectId: string): ShotEntryRef[] {
+  return kinds.map((kind, index) => ({
+    shotId: kind,
+    identifier: `Filter_${index}`,
+    fileName: `studio-entry-${projectId}-filter-${kind.replace('/', '.')}.js`,
+  }));
+}
+
 /** The pinned kit copy's folder inside the entry dir (SHOT_QUALITY_DESIGN Q4).
  *  The `studio-entry-` prefix keeps it inside the entry sweeper's TTL. */
 export function kitEntryDirName(projectId: string, kitVersion: string): string {

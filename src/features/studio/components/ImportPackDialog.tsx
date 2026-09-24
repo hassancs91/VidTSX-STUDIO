@@ -1,16 +1,19 @@
-// Importing a `.vidtsxpack` or `.vidtsxtransition` (TRANSITION_PACKS_DESIGN.md
-// "Import — two extensions"). The package is READ first (inspect: container,
-// manifest, the import gate on every component), so the user decides on what
-// it holds. A tampered package never reaches this screen — it is refused while
-// being read. Installing is the act of trust, so the dialog says what that
-// means. The same version is left alone; an older one says so before it
-// replaces a newer one.
+// Importing a `.vidtsxpack`, `.vidtsxtransition` or `.vidtsxfilter`
+// (TRANSITION_PACKS_DESIGN.md "Import — two extensions", FILTER_PACKS_DESIGN.md
+// P5). The package is READ first (inspect: container, manifest, each item
+// through its kind's gate), so the user decides on what it holds. A tampered
+// package never reaches this screen — it is refused while being read.
+// Installing is the act of trust, so the dialog says what that means. The
+// same version is left alone; an older one says so before it replaces a
+// newer one.
 
 import { useEffect, useState } from 'react';
 import { AlertTriangle, X } from 'lucide-react';
 import { useToast } from '@renderer/contexts/ToastContext';
-import type { InspectedTransitionPackage } from '@shared/ipc/types';
-import { announceTransitionsChanged } from '../hooks/useTransitionImport';
+import type { InspectedPackage, InspectedPackageItem } from '@shared/ipc/types';
+import type { PackItemType } from '@shared/studio/pack-package';
+import { packPackageFormat } from '@shared/studio/pack-package';
+import { announcePacksChanged } from '../hooks/usePackImport';
 
 interface Props {
   filePath: string;
@@ -18,8 +21,12 @@ interface Props {
 }
 
 const AMBER_BOX = { backgroundColor: 'rgba(239,159,39,0.12)' };
+const TYPES: readonly PackItemType[] = ['transition', 'filter'];
+const NOUN: Record<PackItemType, [string, string]> = { transition: ['transition', 'transitions'], filter: ['filter', 'filters'] };
 
-function actionLine(pkg: InspectedTransitionPackage): string | null {
+const count = (n: number, type: PackItemType): string => `${n} ${NOUN[type][n === 1 ? 0 : 1]}`;
+
+function actionLine(pkg: InspectedPackage): string | null {
   const where = pkg.format === 'pack' ? `the "${pkg.packId}" pack` : 'Imported';
   switch (pkg.action) {
     case 'new':
@@ -33,19 +40,33 @@ function actionLine(pkg: InspectedTransitionPackage): string | null {
   }
 }
 
-export function ImportTransitionsDialog({ filePath, onClose }: Props) {
+/** The kind's own facts beside the name: a transition's length, a filter's category. */
+function facts(item: InspectedPackageItem): string {
+  if (item.type === 'transition') return `${item.durationSeconds} s${item.sceneCopies === 'multi' ? ' · heavy' : ''}`;
+  return [item.category === 'filter' ? 'filter' : 'effect', item.animated ? 'animated' : null, item.heavy ? 'heavy' : null]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+/** By the file's extension, so a package that fails to read is still named for what it is. */
+function title(filePath: string): string {
+  const format = packPackageFormat(filePath);
+  return format?.format === 'single' ? `Import ${format.spec.noun}` : 'Import pack';
+}
+
+export function ImportPackDialog({ filePath, onClose }: Props) {
   const { showToast } = useToast();
-  const [pkg, setPkg] = useState<InspectedTransitionPackage | null>(null);
+  const [pkg, setPkg] = useState<InspectedPackage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     let disposed = false;
     const inspect = async (): Promise<void> => {
-      const result = await window.api.studioTransitionPackageInspect({ filePath });
+      const result = await window.api.studioPackPackageInspect({ filePath });
       if (disposed) return;
       if (result.success && result.package) setPkg(result.package);
-      else setError(result.error ?? 'That file is not a transition package this app can read.');
+      else setError(result.error ?? 'That file is not a pack package this app can read.');
     };
     void inspect();
     return () => {
@@ -56,10 +77,7 @@ export function ImportTransitionsDialog({ filePath, onClose }: Props) {
   const install = async (): Promise<void> => {
     if (!pkg) return;
     setInstalling(true);
-    const result = await window.api.studioTransitionPackageInstall({
-      filePath,
-      confirmDowngrade: pkg.action === 'downgrade',
-    });
+    const result = await window.api.studioPackPackageInstall({ filePath, confirmDowngrade: pkg.action === 'downgrade' });
     setInstalling(false);
     if (!result.success) {
       setError(result.error ?? 'The install failed.');
@@ -68,15 +86,20 @@ export function ImportTransitionsDialog({ filePath, onClose }: Props) {
     if (result.unchanged) {
       showToast(`${pkg.name} ${pkg.version} is already installed`, 'info');
     } else if (result.installed) {
-      const count = result.installed.kinds.length;
-      showToast(`Installed ${count} transition${count === 1 ? '' : 's'} from ${pkg.name}`, 'success');
-      announceTransitionsChanged();
+      const { kinds, types } = result.installed;
+      const parts = TYPES.map((type) => {
+        const n = pkg.items.filter((i) => i.type === type && kinds.includes(i.kind)).length;
+        return n > 0 ? count(n, type) : null;
+      }).filter((p): p is string => p !== null);
+      showToast(`Installed ${parts.join(' and ')} from ${pkg.name}`, 'success');
+      announcePacksChanged(types);
     }
     onClose();
   };
 
   const installable = pkg ? pkg.items.filter((item) => !item.refused).length : 0;
   const line = pkg ? actionLine(pkg) : null;
+  const sections = pkg ? TYPES.map((type) => ({ type, items: pkg.items.filter((i) => i.type === type) })).filter((s) => s.items.length > 0) : [];
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
@@ -84,10 +107,10 @@ export function ImportTransitionsDialog({ filePath, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-[440px] rounded-[8px] bg-app-surface"
         style={{ border: '0.5px solid var(--color-border)' }}
-        data-import-transitions-dialog
+        data-import-pack-dialog
       >
         <div className="flex items-center justify-between px-3 h-[40px]" style={{ borderBottom: '0.5px solid var(--color-border)' }}>
-          <span className="text-[13px] font-medium text-text-secondary">Import transitions</span>
+          <span className="text-[13px] font-medium text-text-secondary">{title(filePath)}</span>
           <button onClick={onClose} title="Close" className="text-text-muted hover:text-text-primary">
             <X size={14} strokeWidth={1.75} />
           </button>
@@ -115,34 +138,34 @@ export function ImportTransitionsDialog({ filePath, onClose }: Props) {
               {pkg.description ? <div className="text-[11px] text-text-secondary leading-snug">{pkg.description}</div> : null}
 
               <div className="rounded-[6px] px-2 py-1.5 text-[10px] leading-snug text-accent-amber" style={AMBER_BOX}>
-                Transitions are code that runs inside the editor. Install only files from people you trust.
+                Transitions and filters are code that runs inside the editor. Install only files from people you trust.
               </div>
 
-              <div>
-                <div className="text-[11px] font-medium text-text-muted mb-1">
-                  {pkg.format === 'pack' ? `${pkg.items.length} transition${pkg.items.length === 1 ? '' : 's'}` : 'Transition'}
-                </div>
-                {pkg.items.map((item) => (
-                  <div key={item.kind} className="py-0.5" data-import-item={item.kind}>
-                    <div className="flex items-baseline gap-1.5 text-[11px]">
-                      <span className={item.refused ? 'text-text-dim line-through' : 'text-text-secondary'}>{item.name}</span>
-                      <span className="text-[10px] text-text-dim">
-                        {item.durationSeconds} s{item.sceneCopies === 'multi' ? ' · heavy' : ''}
-                      </span>
-                    </div>
-                    {item.refused ? (
-                      <div className="text-[10px] text-accent-red leading-snug" data-import-refused>
-                        Not installed: {item.refused}
+              {sections.map(({ type, items }) => (
+                <div key={type} data-import-section={type}>
+                  <div className="text-[11px] font-medium text-text-muted mb-1">
+                    {pkg.format === 'pack' ? count(items.length, type) : NOUN[type][0].charAt(0).toUpperCase() + NOUN[type][0].slice(1)}
+                  </div>
+                  {items.map((item) => (
+                    <div key={item.kind} className="py-0.5" data-import-item={item.kind}>
+                      <div className="flex items-baseline gap-1.5 text-[11px]">
+                        <span className={item.refused ? 'text-text-dim line-through' : 'text-text-secondary'}>{item.name}</span>
+                        <span className="text-[10px] text-text-dim">{facts(item)}</span>
                       </div>
-                    ) : null}
-                  </div>
-                ))}
-                {pkg.problems.map((problem) => (
-                  <div key={problem} className="text-[10px] text-text-dim leading-snug">
-                    {problem}
-                  </div>
-                ))}
-              </div>
+                      {item.refused ? (
+                        <div className="text-[10px] text-accent-red leading-snug" data-import-refused>
+                          Not installed: {item.refused}
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {pkg.problems.map((problem) => (
+                <div key={problem} className="text-[10px] text-text-dim leading-snug">
+                  {problem}
+                </div>
+              ))}
 
               {line ? <div className="text-[10px] text-text-dim">{line}</div> : null}
               {pkg.action === 'downgrade' ? (

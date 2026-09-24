@@ -7,6 +7,7 @@ import {
   rewriteKitImport,
   shotEntryRef,
   transitionEntryRefs,
+  filterEntryRefs,
 } from './shot-export';
 
 function shot(overrides: Partial<StudioShot> = {}): StudioShot {
@@ -112,5 +113,28 @@ describe('transitionEntryRefs (TRANSITION_PACKS_DESIGN.md)', () => {
     const [a, b] = transitionEntryRefs(['a-b/c', 'a/b-c'], 'p1');
     expect(a.fileName).not.toBe(b.fileName);
     expect(a.identifier).not.toBe(b.identifier);
+  });
+});
+
+describe('filterEntryRefs (FILTER_PACKS_DESIGN.md)', () => {
+  it('names each .js copy under the entry sweep and keys the map by document kind', () => {
+    const refs = filterEntryRefs(['core/cinematic-bloom', 'core/noir'], 'p1');
+    expect(refs).toEqual([
+      { shotId: 'core/cinematic-bloom', identifier: 'Filter_0', fileName: 'studio-entry-p1-filter-core.cinematic-bloom.js' },
+      { shotId: 'core/noir', identifier: 'Filter_1', fileName: 'studio-entry-p1-filter-core.noir.js' },
+    ]);
+    const { imports, componentsLiteral } = buildShotEntryParts(refs);
+    expect(imports.split('\n')).toEqual([
+      "import Filter_0 from './studio-entry-p1-filter-core.cinematic-bloom.js';",
+      "import Filter_1 from './studio-entry-p1-filter-core.noir.js';",
+    ]);
+    expect(componentsLiteral.split('\n')).toEqual(['{', '  "core/cinematic-bloom": Filter_0,', '  "core/noir": Filter_1', '}']);
+  });
+
+  it('keeps kinds that only differ in where the dash falls apart, and apart from a transition of the same kind', () => {
+    const [a, b] = filterEntryRefs(['a-b/c', 'a/b-c'], 'p1');
+    expect(a.fileName).not.toBe(b.fileName);
+    expect(a.identifier).not.toBe(b.identifier);
+    expect(filterEntryRefs(['core/noir'], 'p1')[0].fileName).not.toBe(transitionEntryRefs(['core/noir'], 'p1')[0].fileName);
   });
 });

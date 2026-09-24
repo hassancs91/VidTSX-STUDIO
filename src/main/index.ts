@@ -74,7 +74,7 @@ function queuePackageOpen(pkg: PendingPackage): void {
     const channel =
       pkg.kind === 'agent' ? IPC.AGENTS_PACKAGE_OPEN_FILE
       : pkg.kind === 'flow' ? IPC.FLOWS_PACKAGE_OPEN_FILE
-      : pkg.kind === 'transition' ? IPC.STUDIO_TRANSITION_PACKAGE_OPEN_FILE
+      : pkg.kind === 'pack' ? IPC.STUDIO_PACK_PACKAGE_OPEN_FILE
       : IPC.STUDIO_PACKAGE_OPEN_FILE;
     mainWindow.webContents.send(channel, { filePath: pkg.filePath });
   }
@@ -142,8 +142,8 @@ function createWindow(): BrowserWindow {
     if (hasPendingPackage('flow')) {
       win.webContents.send(IPC.FLOWS_PACKAGE_OPEN_FILE, {});
     }
-    if (hasPendingPackage('transition')) {
-      win.webContents.send(IPC.STUDIO_TRANSITION_PACKAGE_OPEN_FILE, {});
+    if (hasPendingPackage('pack')) {
+      win.webContents.send(IPC.STUDIO_PACK_PACKAGE_OPEN_FILE, {});
     }
   });
 
@@ -160,7 +160,7 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
-// A .vidtsx, .vidtsxagent, .vidtsxflow, .vidtsxpack or .vidtsxtransition passed
+// A .vidtsx, .vidtsxagent, .vidtsxflow, .vidtsxpack, .vidtsxtransition or .vidtsxfilter passed
 // on the command line (Windows/Linux file association).
 const launchPackage = packageFromArgv(process.argv);
 if (launchPackage) setPendingPackage(launchPackage);

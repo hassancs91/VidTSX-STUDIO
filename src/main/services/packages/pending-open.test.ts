@@ -44,15 +44,16 @@ describe('packageFromArgv', () => {
     expect(hasPendingPackage()).toBe(false);
   });
 
-  it('recognises both transition formats as one kind (TRANSITION_PACKS_DESIGN.md P5)', () => {
+  it('recognises a pack and every kind of single as one kind (TRANSITION_PACKS_DESIGN.md P5, FILTER_PACKS_DESIGN.md P5)', () => {
     expect(packageFromArgv(['app.exe', 'C:\dl\Motion Pack.vidtsxpack'])).toEqual({
-      kind: 'transition',
+      kind: 'pack',
       filePath: 'C:\dl\Motion Pack.vidtsxpack',
     });
-    expect(packageKindFor('/tmp/swirl.VIDTSXTRANSITION')).toBe('transition');
-    setPendingPackage({ kind: 'transition', filePath: 'C:\dl\a.vidtsxpack' });
+    expect(packageKindFor('/tmp/swirl.VIDTSXTRANSITION')).toBe('pack');
+    expect(packageKindFor('/tmp/noir.vidtsxfilter')).toBe('pack');
+    setPendingPackage({ kind: 'pack', filePath: 'C:\dl\a.vidtsxpack' });
     expect(takePendingPackage('project')).toBeNull();
-    expect(takePendingPackage('transition')).toBe('C:\dl\a.vidtsxpack');
+    expect(takePendingPackage('pack')).toBe('C:\dl\a.vidtsxpack');
     expect(hasPendingPackage()).toBe(false);
   });
 

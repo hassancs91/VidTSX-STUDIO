@@ -509,10 +509,10 @@ export interface ElectronAPI {
   studioTransitionModule: (data: import('../../shared/ipc/types').StudioTransitionModuleRequest) => Promise<import('../../shared/ipc/types').StudioTransitionModuleResponse>;
   studioFilterList: () => Promise<import('../../shared/ipc/types').StudioFilterListResponse>;
   studioFilterModule: (data: import('../../shared/ipc/types').StudioFilterModuleRequest) => Promise<import('../../shared/ipc/types').StudioFilterModuleResponse>;
-  studioTransitionPackageInspect: (data: import('../../shared/ipc/types').StudioTransitionPackageInspectRequest) => Promise<import('../../shared/ipc/types').StudioTransitionPackageInspectResponse>;
-  studioTransitionPackageInstall: (data: import('../../shared/ipc/types').StudioTransitionPackageInstallRequest) => Promise<import('../../shared/ipc/types').StudioTransitionPackageInstallResponse>;
-  studioTransitionPackagePending: () => Promise<import('../../shared/ipc/types').StudioTransitionPackagePendingResponse>;
-  onStudioTransitionPackageOpenFile: (callback: () => void) => () => void;
+  studioPackPackageInspect: (data: import('../../shared/ipc/types').StudioPackPackageInspectRequest) => Promise<import('../../shared/ipc/types').StudioPackPackageInspectResponse>;
+  studioPackPackageInstall: (data: import('../../shared/ipc/types').StudioPackPackageInstallRequest) => Promise<import('../../shared/ipc/types').StudioPackPackageInstallResponse>;
+  studioPackPackagePending: () => Promise<import('../../shared/ipc/types').StudioPackPackagePendingResponse>;
+  onStudioPackPackageOpenFile: (callback: () => void) => () => void;
   studioPackagePlan: (data: import('../../shared/ipc/types').StudioPackagePlanRequest) => Promise<import('../../shared/ipc/types').StudioPackagePlanResponse>;
   studioPackageExport: (data: import('../../shared/ipc/types').StudioPackageExportRequest) => Promise<import('../../shared/ipc/types').StudioPackageExportResponse>;
   studioPackagePending: () => Promise<import('../../shared/ipc/types').StudioPackagePendingResponse>;

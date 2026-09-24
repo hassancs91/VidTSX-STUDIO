@@ -10,7 +10,7 @@ import { setupVirtualModuleGlobals } from '@features/player';
 import type { StudioMediaAsset, StudioTimeline, TransitionRuntimeProps } from '@shared/types/studio';
 import type { StudioTransitionInfo } from '@shared/ipc/types';
 import { describeJoin, joinStatuses, type JoinStatus, type JoinTargetInfo } from '../services/join-status';
-import { TRANSITIONS_CHANGED_EVENT } from './useTransitionImport';
+import { TRANSITIONS_CHANGED_EVENT } from './usePackImport';
 
 export type TransitionComponent = ComponentType<TransitionRuntimeProps>;
 

@@ -28,6 +28,7 @@ import { resolveProjectBrand } from './project-brand';
 import { readTranscriptFile } from './asset-transcriber';
 import { resolveCaptionTemplate } from './caption-packs';
 import { prepareTransitionSources } from './export-transitions';
+import { prepareFilterSources } from './export-filters';
 import { getProjectCacheDir, getShotVersionPath } from './studio-paths';
 import { writeExportContext } from './export-engines/export-context';
 import type { ExportSource } from '../../../shared/studio/export-source';
@@ -247,6 +248,7 @@ export async function createExportEntry(
   }
   const caption = await prepareCaptionTemplate(project, serialized, assetUrlBase);
   const transitions = await prepareTransitionSources(serialized, project.id, assetUrlBase);
+  const filters = await prepareFilterSources(serialized, project.id);
 
   let kitDirName = '';
   if (
@@ -273,9 +275,16 @@ export async function createExportEntry(
   for (const t of transitions) {
     await fs.writeFile(path.join(dir, t.ref.fileName), pinKit(t.source), 'utf-8');
   }
+  // Pack filters are bundled `.js` modules copied VERBATIM — no font rewrite,
+  // no kit pin, no transpile (FILTER_PACKS_DESIGN.md "Delivery"): the entry
+  // imports exactly the file the pack ships, so export = preview = pack.
+  for (const f of filters) {
+    await fs.writeFile(path.join(dir, f.ref.fileName), f.source, 'utf-8');
+  }
 
   const { imports, componentsLiteral } = buildShotEntryParts(shotRefs);
   const transitionParts = buildShotEntryParts(transitions.map((t) => t.ref));
+  const filterParts = buildShotEntryParts(filters.map((f) => f.ref));
   const captionImport = caption
     ? `import ${caption.identifier} from './${caption.fileName}';`
     : '';
@@ -283,7 +292,7 @@ export async function createExportEntry(
   const source = `// Auto-generated VidTSX Studio export entry — safe to delete.
 import React from 'react';
 import { TimelineComposition } from '@shared/studio';
-${imports ? `${imports}\n` : ''}${captionImport ? `${captionImport}\n` : ''}${transitionParts.imports ? `${transitionParts.imports}\n` : ''}
+${imports ? `${imports}\n` : ''}${captionImport ? `${captionImport}\n` : ''}${transitionParts.imports ? `${transitionParts.imports}\n` : ''}${filterParts.imports ? `${filterParts.imports}\n` : ''}
 export const compositionConfig = {
   id: "${compositionId}",
   width: ${width},
@@ -293,19 +302,19 @@ export const compositionConfig = {
 };
 
 const TIMELINE = ${JSON.stringify(serialized)};
-${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}${transitionParts.componentsLiteral ? `\nconst TRANSITION_COMPONENTS = ${transitionParts.componentsLiteral};\n` : ''}
+${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}${transitionParts.componentsLiteral ? `\nconst TRANSITION_COMPONENTS = ${transitionParts.componentsLiteral};\n` : ''}${filterParts.componentsLiteral ? `\nconst FILTER_DEFINITIONS = ${filterParts.componentsLiteral};\n` : ''}
 // \`layer\` arrives as a render input prop: the shot-composite export engine
 // renders the shot layer alone with alpha (docs/export-engines-plan.md
 // "Engine 3"); every other render passes nothing and gets the whole timeline.
 export default function StudioTimelineExport(props: { layer?: 'shots' }) {
-  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''}${transitionParts.componentsLiteral ? ' transitionComponents={TRANSITION_COMPONENTS}' : ''} layer={props.layer} />;
+  return <TimelineComposition timeline={TIMELINE}${componentsLiteral ? ' components={SHOT_COMPONENTS}' : ''}${caption ? ` captionComponent={${caption.identifier}}` : ''}${transitionParts.componentsLiteral ? ' transitionComponents={TRANSITION_COMPONENTS}' : ''}${filterParts.componentsLiteral ? ' filterDefinitions={FILTER_DEFINITIONS}' : ''} layer={props.layer} />;
 }
 `;
 
   const hash = createHash('md5').update(source).digest('hex').slice(0, 8);
   const entryPath = path.join(dir, `studio-entry-${project.id}-${hash}.tsx`);
   await fs.writeFile(entryPath, source, 'utf-8');
-  log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length, transitions: transitions.length });
+  log.debug('Generated export entry', { entryPath, durationInFrames, shots: shotRefs.length, transitions: transitions.length, filters: filters.length });
 
   const entry: StudioExportEntry = {
     entryPath, compositionId, width, height, fps, durationInFrames,
@@ -323,9 +332,10 @@ async function pruneOldEntries(dir: string): Promise<void> {
     const entries = await fs.readdir(dir, { withFileTypes: true });
     await Promise.all(
       entries
-        // Entry files AND pinned-kit copy folders — everything the entry step
-        // writes carries the studio-entry- prefix precisely so this sweep owns it.
-        .filter((e) => e.name.startsWith('studio-entry-') && (e.isDirectory() || e.name.endsWith('.tsx') || e.name.endsWith('.tsx.json')))
+        // Entry files, pinned-kit copy folders AND the filters' .js copies —
+        // everything the entry step writes carries the studio-entry- prefix
+        // precisely so this sweep owns it.
+        .filter((e) => e.name.startsWith('studio-entry-') && (e.isDirectory() || e.name.endsWith('.tsx') || e.name.endsWith('.tsx.json') || e.name.endsWith('.js')))
         .map(async (entry) => {
           const full = path.join(dir, entry.name);
           const stat = await fs.stat(full).catch(() => null);

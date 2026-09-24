@@ -1,6 +1,7 @@
 // Double-clicking a package file — `.vidtsx` (Q7a), `.vidtsxagent` (agents
-// plan §1.6), `.vidtsxflow` (flows plan §1.7, W8 Stage 6), or a transition
-// `.vidtsxpack` / `.vidtsxtransition` (TRANSITION_PACKS_DESIGN.md P5).
+// plan §1.6), `.vidtsxflow` (flows plan §1.7, W8 Stage 6), or a Studio pack package —
+// `.vidtsxpack`, `.vidtsxtransition`, `.vidtsxfilter` (TRANSITION_PACKS_DESIGN.md
+// P5, FILTER_PACKS_DESIGN.md P5).
 //
 // The OS hands the path to the app three different ways — an argv on cold
 // start, an argv on the `second-instance` event (this app holds a
@@ -24,9 +25,9 @@ import path from 'path';
 import { VIDTSX_PACKAGE_EXTENSION } from '../../../shared/studio/project-package';
 import { AGENT_PACKAGE_EXT } from '../../../shared/agents/manifest';
 import { FLOW_PACKAGE_EXT } from '../../../shared/flows/flow-package';
-import { TRANSITION_PACK_EXT, TRANSITION_SINGLE_EXT } from '../../../shared/studio/transition-package';
+import { PACK_KINDS, PACK_PACKAGE_EXT } from '../../../shared/studio/pack-package';
 
-export type PendingPackageKind = 'project' | 'agent' | 'flow' | 'transition';
+export type PendingPackageKind = 'project' | 'agent' | 'flow' | 'pack';
 
 export interface PendingPackage {
   kind: PendingPackageKind;
@@ -40,10 +41,10 @@ const BY_EXTENSION: Record<string, PendingPackageKind> = {
   // (`FLOWS_PENDING_PACKAGE`); `src/main/index.ts` nudges it with
   // `FLOWS_PACKAGE_OPEN_FILE` like the other two.
   [FLOW_PACKAGE_EXT]: 'flow',
-  // Both transition formats are ONE kind: the Studio screen claims either and
-  // the inspect dialog tells a pack from a single.
-  [TRANSITION_PACK_EXT]: 'transition',
-  [TRANSITION_SINGLE_EXT]: 'transition',
+  // A pack and every kind's single are ONE kind: the Studio screen claims any
+  // of them and the inspect dialog tells a pack from a single.
+  [PACK_PACKAGE_EXT]: 'pack',
+  ...Object.fromEntries(PACK_KINDS.map((k) => [k.singleExt, 'pack' as const])),
 };
 
 let pending: PendingPackage | null = null;

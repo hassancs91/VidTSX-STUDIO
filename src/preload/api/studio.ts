@@ -78,11 +78,11 @@ import type {
   StudioTransitionListResponse,
   StudioTransitionModuleRequest,
   StudioTransitionModuleResponse,
-  StudioTransitionPackageInspectRequest,
-  StudioTransitionPackageInspectResponse,
-  StudioTransitionPackageInstallRequest,
-  StudioTransitionPackageInstallResponse,
-  StudioTransitionPackagePendingResponse,
+  StudioPackPackageInspectRequest,
+  StudioPackPackageInspectResponse,
+  StudioPackPackageInstallRequest,
+  StudioPackPackageInstallResponse,
+  StudioPackPackagePendingResponse,
   StudioFilterListResponse,
   StudioFilterModuleRequest,
   StudioFilterModuleResponse,
@@ -215,20 +215,20 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_FILTER_LIST),
   studioFilterModule: (data: StudioFilterModuleRequest): Promise<StudioFilterModuleResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_FILTER_MODULE, data),
-  studioTransitionPackageInspect: (
-    data: StudioTransitionPackageInspectRequest,
-  ): Promise<StudioTransitionPackageInspectResponse> =>
-    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_PACKAGE_INSPECT, data),
-  studioTransitionPackageInstall: (
-    data: StudioTransitionPackageInstallRequest,
-  ): Promise<StudioTransitionPackageInstallResponse> =>
-    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_PACKAGE_INSTALL, data),
-  studioTransitionPackagePending: (): Promise<StudioTransitionPackagePendingResponse> =>
-    ipcRenderer.invoke(IPC.STUDIO_TRANSITION_PACKAGE_PENDING),
-  onStudioTransitionPackageOpenFile: (callback: () => void): (() => void) => {
+  studioPackPackageInspect: (
+    data: StudioPackPackageInspectRequest,
+  ): Promise<StudioPackPackageInspectResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACK_PACKAGE_INSPECT, data),
+  studioPackPackageInstall: (
+    data: StudioPackPackageInstallRequest,
+  ): Promise<StudioPackPackageInstallResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACK_PACKAGE_INSTALL, data),
+  studioPackPackagePending: (): Promise<StudioPackPackagePendingResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PACK_PACKAGE_PENDING),
+  onStudioPackPackageOpenFile: (callback: () => void): (() => void) => {
     const listener = () => callback();
-    ipcRenderer.on(IPC.STUDIO_TRANSITION_PACKAGE_OPEN_FILE, listener);
-    return () => ipcRenderer.removeListener(IPC.STUDIO_TRANSITION_PACKAGE_OPEN_FILE, listener);
+    ipcRenderer.on(IPC.STUDIO_PACK_PACKAGE_OPEN_FILE, listener);
+    return () => ipcRenderer.removeListener(IPC.STUDIO_PACK_PACKAGE_OPEN_FILE, listener);
   },
   onStudioShotJobEvent: (callback: (event: StudioShotJobEvent) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, data: StudioShotJobEvent) => callback(data);

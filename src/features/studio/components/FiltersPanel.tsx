@@ -6,8 +6,9 @@
 // clips (one undo step, the slot rule); with none selected the panel says so.
 
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode } from 'react';
-import { Trash2, TriangleAlert } from 'lucide-react';
+import { Download, Trash2, TriangleAlert } from 'lucide-react';
 import { Button } from '@shared/components/Button';
+import { useToast } from '@renderer/contexts/ToastContext';
 import type { StudioFilterInfo } from '@shared/ipc/types';
 import type { FilterCategory, StudioClip, StudioTimeline } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
@@ -16,6 +17,7 @@ import { isEffectClipKind } from '../services/effect-ops';
 import { EFFECT_WARNING_TEXT } from '../services/filter-status';
 import { findClip } from '../services/timeline-ops';
 import { FilterCard } from './FilterCard';
+import { ImportPackDialog } from './ImportPackDialog';
 
 interface Props {
   category: FilterCategory;
@@ -78,6 +80,17 @@ export function FiltersPanel({ category, list, timeline, selectedClipIds, dispat
   const [visible, setVisible] = useState<string[]>([]);
   const onVisible = useCallback((kind: string) => setVisible((prev) => (prev.includes(kind) ? prev : [...prev, kind])), []);
   const definitions = useFilterDefinitions(visible, installed);
+
+  // Import (P5): main owns the OS picker — this tab asks for packs and
+  // `.vidtsxfilter` singles — so the first inspect only picks; the dialog then
+  // reads the file itself (and shows why when it can't).
+  const { showToast } = useToast();
+  const [importPath, setImportPath] = useState<string | null>(null);
+  const pickPackage = useCallback(async () => {
+    const result = await window.api.studioPackPackageInspect({ pick: ['filter'] });
+    if (result.filePath) setImportPath(result.filePath);
+    else if (!result.canceled) showToast(result.error ?? 'That file is not a filter package.', 'error');
+  }, [showToast]);
 
   const apply = (kind: string) => dispatch({ type: 'clip-effect-set', clipIds: eligibleIds, kind, category, categories });
   const remove = () => {
@@ -160,8 +173,8 @@ export function FiltersPanel({ category, list, timeline, selectedClipIds, dispat
       ) : groups.length === 0 ? (
         <Section title={words.title}>
           <div className="text-[10px] text-text-dim leading-relaxed">
-            No {words.many.toLowerCase()} installed. Drop a pack folder into the assets root’s <code>packs/</code> folder to add
-            some.
+            No {words.many.toLowerCase()} installed. Import a pack below, or drop a pack folder into the assets root’s{' '}
+            <code>packs/</code> folder.
           </div>
         </Section>
       ) : (
@@ -188,6 +201,20 @@ export function FiltersPanel({ category, list, timeline, selectedClipIds, dispat
           </Section>
         ))
       )}
+
+      <Section title={`More ${words.many.toLowerCase()}`}>
+        <div className="text-[10px] text-text-dim leading-relaxed">
+          Import a pack (.vidtsxpack) or a single {words.one} (.vidtsxfilter). Double-clicking one does the same.
+        </div>
+        <div>
+          <Button variant="secondary" size="sm" className="flex items-center gap-1" onClick={() => void pickPackage()} data-filter-import>
+            <Download size={12} strokeWidth={1.75} />
+            Import…
+          </Button>
+        </div>
+      </Section>
+
+      {importPath && <ImportPackDialog filePath={importPath} onClose={() => setImportPath(null)} />}
     </div>
   );
 }
