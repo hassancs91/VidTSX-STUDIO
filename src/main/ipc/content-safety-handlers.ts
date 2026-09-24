@@ -3,6 +3,7 @@ import path from 'path';
 import type { ContentSafetyStatusResponse } from '../../shared/ipc/types';
 import { getBlockedCounts } from '../services/content-safety/blocked-counters';
 import { safetyEngine } from '../../content-safety-engine/safety-engine';
+import { isContentSafetyBypassed } from '../../content-safety-engine/dev-bypass';
 import type { SafetyModelConfig } from '../../content-safety-engine/types';
 import { GENERATION_BLOCKLIST } from '../../moderation-engine/generation-blocklist';
 import { getContentSafetyDir } from '../utils/paths';
@@ -34,5 +35,6 @@ export async function handleContentSafetyStatus(): Promise<ContentSafetyStatusRe
       file,
       sha256,
     },
+    devBypass: isContentSafetyBypassed(),
   };
 }

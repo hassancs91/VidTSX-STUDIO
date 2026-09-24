@@ -1,6 +1,11 @@
 import type { ModerationMatch } from './types';
-import { GENERATION_BLOCKLIST, type GenerationBlockCategory } from './generation-blocklist';
+import {
+  GENERATION_BLOCKLIST,
+  MINORS_ADDITIONS,
+  type GenerationBlockCategory,
+} from './generation-blocklist';
 import { findTermMatches } from './term-matcher';
+import { isContentSafetyBypassed } from '../content-safety-engine/dev-bypass';
 
 /** Result of checking a visual-generation prompt against the curated blocklist. */
 export interface GenerationPromptCheck {
@@ -21,9 +26,13 @@ const CATEGORY_PRIORITY: GenerationBlockCategory[] = ['sexual', 'pornography', '
  * exclusively to visual-generation prompt fields; never to chat,
  * transcripts, TSX briefs, or captions (D3/D4 in
  * docs/CONTENT_SAFETY_DESIGN.md).
+ *
+ * Under the dev bypass (dev builds only — see dev-bypass.ts) the curated list
+ * is skipped, but the sexualized-minor terms still block.
  */
 export function checkGenerationPrompt(text: string): GenerationPromptCheck {
-  const matches = findTermMatches(GENERATION_BLOCKLIST, text);
+  const terms = isContentSafetyBypassed() ? MINORS_ADDITIONS : GENERATION_BLOCKLIST;
+  const matches = findTermMatches(terms, text);
   if (matches.length === 0) {
     return { blocked: false, matches };
   }

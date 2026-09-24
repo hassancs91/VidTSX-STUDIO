@@ -458,6 +458,50 @@ exactly the false-positive machine D0.2 rules out. The engine has no
 `setSafetyGuard`; if a sound classifier ever becomes worth shipping it lands
 as a D2c call site, not as a prompt filter.
 
+## Rev 4 amendment — the dev-only bypass D2d allowed for (2026-09-17)
+
+D2d left one door open: *"A dev-only bypass for test fixtures, if ever needed,
+must be compiled out of release builds — not flag-gated."* Hasan asked for it
+on 2026-09-17, for his own dev testing only. It is built to that sentence
+exactly; D2d's production stance is unchanged.
+
+- **One helper:** `src/content-safety-engine/dev-bypass.ts` —
+  `import.meta.env.DEV && process.env.VIDTSX_DEV_DISABLE_CONTENT_SAFETY === '1'`.
+  Vite replaces `import.meta.env.DEV` with a literal, so in a production
+  bundle the function body is `return false;` and the env read does not
+  exist. Verified on the real output, not assumed.
+- **Opt-in is per shell, never committed** (no `.env` entry, no npm script,
+  no setting, no UI toggle):
+  `$env:VIDTSX_DEV_DISABLE_CONTENT_SAFETY = '1'; npm run dev`. Only the exact
+  value `1` counts.
+- **What it turns off:** Gate A's curated list (`checkGenerationPrompt`) and
+  every Gate B pixel check through its two chokepoints (`checkImageBuffer`;
+  `checkVideoFile`/`checkVideoBuffer`, so sampling is skipped too and a probe
+  failure cannot still fail closed). All six D2c call sites route through
+  those, so nothing needed per-caller changes.
+- **What stays on even then:** the 22 sexualized-minor terms
+  (`MINORS_ADDITIONS`). No test needs them; "untouchable" (Rev 2 amendment 1)
+  holds in dev too.
+- **Never silent:** one `DEV BYPASS ACTIVE` warning in the main log at init,
+  `devBypass` on `CONTENT_SAFETY_STATUS`, and a red banner on the Content
+  Safety page (the page's "always on" copy must not be shown as true while it
+  is false). Both the log line and the banner sit behind their own literal
+  `import.meta.env.DEV` guard, so they are dropped from release bundles too.
+- **Enforced, not trusted:** `scripts/check-release-bundle.mjs` fails the
+  build if the variable's name survives anywhere in `out/**/*.js`. `build`
+  now ends with it and `build:win` / `build:mac` / `publish:win` all go
+  through `build`, so no release script can skip it. A guard Vite cannot fold
+  (`import.meta.env?.DEV`, a destructured env, a runtime-only check) is
+  exactly what it catches. Failure path verified with a planted leak.
+- **Tests stay hermetic:** `vitest.config.ts` forces the variable empty, so a
+  shell with the bypass on cannot flip the golden policy tests; the bypass's
+  own tests stub it back (`dev-bypass.test.ts`, plus three in
+  `generation-gate.test.ts`: curated list skipped, every minors term still
+  blocks, no effect when `DEV` is false).
+- **D5 claim unaffected:** "cannot be disabled in the app" is about the
+  shipped app, where the switch does not exist. Running from source was
+  always outside that claim ("a fork can strip code").
+
 ## Key sources
 
 Marqo model card · OwenElliott/image-safety-classifier-xs · Falconsai ·

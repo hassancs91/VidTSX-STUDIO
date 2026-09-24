@@ -18,4 +18,6 @@ export interface ContentSafetyStatusResponse {
     file: string | null;
     sha256: string | null;
   };
+  /** Dev bypass is active (dev builds only — always false in a release build). */
+  devBypass: boolean;
 }

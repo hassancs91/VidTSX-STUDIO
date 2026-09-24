@@ -46,8 +46,10 @@ function t(
 /**
  * Sexualized-minor terms absent from the source list, added directly.
  * Highest priority of the whole gate; never remove without replacement.
+ * Exported because this block stays enforced under the dev bypass too
+ * (generation-gate.ts).
  */
-const MINORS_ADDITIONS: ModerationTerm[] = [
+export const MINORS_ADDITIONS: ModerationTerm[] = [
   t('child porn', 'sexual', 'en', 'high'),
   t('child pornography', 'sexual', 'en', 'high'),
   t('childporn', 'sexual', 'en', 'high'),

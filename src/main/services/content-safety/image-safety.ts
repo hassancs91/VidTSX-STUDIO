@@ -5,6 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { safetyEngine } from '../../../content-safety-engine/safety-engine';
 import { classifyBand } from '../../../content-safety-engine/bands';
+import { isContentSafetyBypassed } from '../../../content-safety-engine/dev-bypass';
 import type { SafetyModelConfig } from '../../../content-safety-engine/types';
 import { ModerationBlockedError } from '../../../shared/content-safety';
 import { recordBlocked } from './blocked-counters';
@@ -135,6 +136,9 @@ async function decodeToModelInput(buffer: Buffer, size: number): Promise<Uint8Ar
  * @throws Error when the gate itself is unavailable (fail-closed)
  */
 export async function checkImageBuffer(buffer: Buffer): Promise<void> {
+  // Dev bypass — folds to `false` in release builds (dev-bypass.ts, D2d).
+  if (isContentSafetyBypassed()) return;
+
   let config: SafetyModelConfig;
   try {
     config = await ensureModelLoaded();

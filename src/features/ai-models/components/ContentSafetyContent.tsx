@@ -25,7 +25,9 @@ export function ContentSafetyContent() {
 
   const classifierState = !status
     ? '…'
-    : !status.classifier.present
+    : status.devBypass
+      ? 'Bypassed (dev)'
+      : !status.classifier.present
       ? 'Missing — generation blocked'
       : status.classifier.loaded
         ? 'Active'
@@ -37,6 +39,19 @@ export function ContentSafetyContent() {
         <ShieldIcon />
         <h2 className="text-[14px] font-semibold text-text-primary">Content Safety</h2>
       </div>
+
+      {/* Dev builds only: the literal DEV guard drops this from release bundles. */}
+      {import.meta.env.DEV && status?.devBypass && (
+        <div
+          className="text-[11px] text-accent-red bg-accent-red/10 rounded px-2 py-1.5 mt-2 mb-3"
+          data-testid="cs-dev-bypass-banner"
+        >
+          Dev bypass active — the prompt blocklist and the pixel classifier are OFF for this
+          session (VIDTSX_DEV_DISABLE_CONTENT_SAFETY=1). Sexualized-minor terms still block.
+          This switch does not exist in release builds.
+        </div>
+      )}
+
       <p className="text-[12px] text-text-secondary leading-relaxed mb-4">
         VidTSX Studio ships with built-in content safeguards for everything it generates —
         always on, and they cannot be disabled in the app. Sexual and explicit content is

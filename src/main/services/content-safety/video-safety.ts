@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { checkImageBuffer } from './image-safety';
+import { isContentSafetyBypassed } from '../../../content-safety-engine/dev-bypass';
 import { getTempDir } from '../../utils/paths';
 import { getFfmpegBinary, runFfmpeg } from '../studio/ffmpeg-bin';
 import { logEngine } from '../../../logging/log-engine';
@@ -90,6 +91,10 @@ async function extractFrames(
  * @throws ModerationBlockedError | Error (fail-closed)
  */
 export async function checkVideoFile(filePath: string): Promise<void> {
+  // Dev bypass (dev-bypass.ts, D2d): skip the sampling too, not just the
+  // per-frame checks — otherwise a probe failure would still fail closed.
+  if (isContentSafetyBypassed()) return;
+
   const outDir = path.join(getTempDir(), `safety-frames-${randomUUID()}`);
   await fs.mkdir(outDir, { recursive: true });
   try {
@@ -144,6 +149,8 @@ export async function checkVideoFile(filePath: string): Promise<void> {
 
 /** Buffer variant for the fal download path: stage to a temp file, sample, clean up. */
 export async function checkVideoBuffer(bytes: Buffer, extension = '.mp4'): Promise<void> {
+  if (isContentSafetyBypassed()) return; // dev bypass — no point staging the temp file
+
   const tempPath = path.join(getTempDir(), `safety-check-${randomUUID()}${extension}`);
   await fs.mkdir(path.dirname(tempPath), { recursive: true });
   await fs.writeFile(tempPath, bytes);

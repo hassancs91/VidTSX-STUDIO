@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { checkGenerationPrompt } from './generation-gate';
-import { GENERATION_BLOCKLIST } from './generation-blocklist';
+import { GENERATION_BLOCKLIST, MINORS_ADDITIONS } from './generation-blocklist';
 
 describe('checkGenerationPrompt — golden policy tests (CONTENT_SAFETY_DESIGN.md D3/D6)', () => {
   describe('profanity alone never blocks', () => {
@@ -179,6 +179,29 @@ describe('checkGenerationPrompt — golden policy tests (CONTENT_SAFETY_DESIGN.m
     it('empty and whitespace prompts pass', () => {
       expect(checkGenerationPrompt('').blocked).toBe(false);
       expect(checkGenerationPrompt('   ').blocked).toBe(false);
+    });
+  });
+
+  describe('dev bypass (D2d, Rev 4 — dev builds only)', () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it('skips the curated list when the opt-in is set', () => {
+      expect(checkGenerationPrompt('nude portrait of a woman').blocked).toBe(true);
+      vi.stubEnv('VIDTSX_DEV_DISABLE_CONTENT_SAFETY', '1');
+      expect(checkGenerationPrompt('nude portrait of a woman').blocked).toBe(false);
+    });
+
+    it('still blocks every sexualized-minor term', () => {
+      vi.stubEnv('VIDTSX_DEV_DISABLE_CONTENT_SAFETY', '1');
+      for (const { term } of MINORS_ADDITIONS) {
+        expect(checkGenerationPrompt(`a picture of ${term}`).blocked, term).toBe(true);
+      }
+    });
+
+    it('has no effect outside a dev build', () => {
+      vi.stubEnv('VIDTSX_DEV_DISABLE_CONTENT_SAFETY', '1');
+      vi.stubEnv('DEV', false);
+      expect(checkGenerationPrompt('nude portrait of a woman').blocked).toBe(true);
     });
   });
 });

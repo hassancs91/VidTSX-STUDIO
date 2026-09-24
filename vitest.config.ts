@@ -18,5 +18,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // The Content Safety dev bypass is opt-in per shell (dev-bypass.ts). Force
+    // it off here so a developer's shell can never flip the golden policy
+    // tests; the bypass's own tests stub it back on.
+    env: { VIDTSX_DEV_DISABLE_CONTENT_SAFETY: '' },
   },
 })
