@@ -12,6 +12,7 @@ export default defineConfig({
           index: resolve('src/main/index.ts'),
           'embedding-worker': resolve('src/embedding-engine/worker.ts'),
           'content-safety-worker': resolve('src/content-safety-engine/worker.ts'),
+          'analysis-worker': resolve('src/analysis-engine/worker.ts'),
           'bundle-worker': resolve('src/main/services/bundle-worker.ts'),
         },
         output: {

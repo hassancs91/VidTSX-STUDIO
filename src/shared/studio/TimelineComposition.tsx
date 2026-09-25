@@ -2,6 +2,7 @@ import { Fragment, useMemo } from 'react';
 import { AbsoluteFill, Sequence, useCurrentFrame, useRemotionEnvironment } from 'remotion';
 import type { CaptionRuntimeProps, FilterDefinition, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
 import { ClipRenderer } from './ClipRenderer';
+import type { AnalysisTracks } from './face-track';
 import { SceneSourceContext, useSceneSources } from './SceneMirror';
 import type { SerializedClip, SerializedTimeline } from './serialize';
 import { TransitionWindow } from './TransitionWindow';
@@ -44,6 +45,15 @@ export interface TimelineCompositionProps {
    * picture. Undefined = today's path, untouched.
    */
   filterDefinitions?: Readonly<Record<string, FilterDefinition>>;
+  /**
+   * Analysis tracks keyed by ASSET id (docs/studio/FILTER_PACKS_DESIGN.md
+   * "Analysis tracks"): the faces a tracked filter consumes per frame, by
+   * source seconds. The preview passes the tracks it read from the cache,
+   * the export entry a static import of the same files. A filtered clip
+   * whose asset has no track here plays the plain picture (the SDK's rule
+   * for `faces: []`).
+   */
+  tracks?: Readonly<Record<string, AnalysisTracks>>;
   /**
    * Engine 3 (docs/export-engines-plan.md "shot composite"): render only the
    * SHOT LAYER — the overlay and caption lanes' graphics (tsx, caption, image
@@ -91,6 +101,7 @@ export function TimelineComposition({
   captionComponent,
   transitionComponents,
   filterDefinitions,
+  tracks: analysisTracks,
   layer,
 }: TimelineCompositionProps) {
   const frame = useCurrentFrame();
@@ -150,6 +161,7 @@ export function TimelineComposition({
                       components={components}
                       captionComponent={captionComponent}
                       filterDefinitions={filterDefinitions}
+                      tracks={analysisTracks}
                       cover={trackTransitions?.covers.get(clip.id)}
                     />
                   </Sequence>
@@ -174,6 +186,7 @@ export function TimelineComposition({
                       components={components}
                       captionComponent={captionComponent}
                       filterDefinitions={filterDefinitions}
+                      tracks={analysisTracks}
                     />
                   );
                 })}

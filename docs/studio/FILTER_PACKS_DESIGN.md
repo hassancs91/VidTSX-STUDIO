@@ -7,7 +7,9 @@
 > `vidtsx-filters` Volume 01 pack) BUILT and verified live 2026-09-24 — see
 > "P6 results". Slice 1 is complete, content included; the tracked nine have
 > their own section, "Analysis tracks"; its ONNX spike ran 2026-09-24 —
-> GO, see "Spike results".** This is
+> GO, see "Spike results". Slice 2, the FACES TRACK, is BUILT and verified
+> live 2026-09-24 (uncommitted) — see "As built (faces track)" and "Faces
+> track results"; the five face filters ship as Volume 02.** This is
 > NEXT_FEATURES_DESIGN.md row 10 (Q8c "effects") started from the other end:
 > 22 authored, machine-verified filters already exist in the sibling repo
 > (`../vidtsx-addons/filters/`, contract in its `AUTHORING.md` and
@@ -50,13 +52,19 @@
 >    `models/source.json`, never in `resources/`). The `requires` gate is
 >    wired end to end, so the build starts on the analysis side, in this
 >    order — **not before Hasan says so**:
->    - **Faces track, M (~3 days):** `faceTrack` job + the analysis
->      utilityProcess (content-safety pattern, pinned model manifest, DML →
->      CPU) + ffmpeg feed (`-r`, PNG over pipe — the stripped build has no
->      `fps` filter) + YuNet / mesh / `faceFromLandmarks` glue (the harness's
->      `faces.mjs`) + JSON track by source seconds + `FilteredPicture`
->      `tracks` + gate + chip / export-refusal UX. The five face filters ship.
->    - **Masks track, M (~3 days):** `subjectMask` job on the same process;
+>    - **Faces track — DONE 2026-09-24 (uncommitted; the repo diff is the
+>      F1–F5 code + this doc; the pack lives outside git).** `faceTrack`
+>      job + the analysis utilityProcess + the raw-RGB ffmpeg feed + the
+>      YuNet / mesh / `faceFromLandmarks` glue + the JSON track + the
+>      `tracks` prop + the opened gate + chip / export refusal; Volume 02
+>      (`vidtsx-filters-vol02`, the five face effects) built by the kit's
+>      `live/faces/mkpack.mjs` and imported live. See "As built (faces
+>      track)" / "Faces track results". **Commit when Hasan asks**, by
+>      pathspec; suggested message: `feat(studio): faces analysis track —
+>      the analysis utilityProcess, the faceTrack job, tracks in the
+>      composition and export, chip + export refusal (E2 slice 2, F1–F6)`.
+>    - **Masks track, M (~3 days) — NEXT, only when Hasan says:**
+>      `subjectMask` job on the same process;
 >      MODNet short side 512 (DML) / 352 (CPU fallback — not MediaPipe);
 >      deflated 256-px blobs + index (~9.5 MB/min measured); the renderer
 >      mask loader; gate opens for the four.
@@ -76,7 +84,13 @@
 >    (`player/fps-when-quiet.ps1`, Task Scheduler job `vidtsx-p0-filters-fps`)
 >    after any change to the Player paint path; `npm run check:types` must
 >    stay at its baseline (26 / 10 on 2026-09-24 — read it from the command,
->    not from here). Live checks: `.vidtsx-temp/p0-filters/live/` (README,
+>    not from here). The analysis worker is NOT in the node tsconfig (a
+>    separate entry, like the safety worker) — type-check it by hand after an
+>    edit: `npx tsc --noEmit --strict --module commonjs --moduleResolution
+>    node --target es2022 --esModuleInterop --skipLibCheck --types node
+>    src/analysis-engine/worker.ts`. The faces kit (`.vidtsx-temp/p0-filters/
+>    live/faces/`, README "Faces additions") re-runs the port check, the
+>    bench, the pack build and the live pass. Live checks: `.vidtsx-temp/p0-filters/live/` (README,
 >    "P4 / P5 additions"). Two dev traps met in P4: the app's bundle cache is
 >    keyed on the entry file's hash alone, so after an edit to shared render
 >    code export a project under a NEW id; and `electron-vite dev` never
@@ -1138,7 +1152,8 @@ WASM in a hidden window is not needed; the fallback column stays as history.
 **Build order with sizes** (replaces "Order and size"; "Continue from here"
 step 3 points here):
 
-1. **Faces track — M (~3 days).** `faceTrack` media job; the analysis
+1. **Faces track — M (~3 days). DONE 2026-09-24, see "As built (faces
+   track)".** `faceTrack` media job; the analysis
    utilityProcess on the content-safety pattern (a pinned download manifest
    for the three files, fetched on first use; DML → CPU fallback recorded on
    the job); the ffmpeg frame feed (`-r`, PNG over pipe, short side 512);
@@ -1154,6 +1169,174 @@ step 3 points here):
 3. **Content — S.** The tracked nine as a Volume 02 (or into Volume 01 with
    `requires`) through the P6 builder.
 
+### As built (faces track, 2026-09-24, uncommitted)
+
+Where the build differs from the text above, this list wins. Everything in
+`src/` here is new or additive; nothing in the add-ons repo changed; no
+package was added.
+
+**F1 — models.** `src/analysis-engine/model-manifest.ts` pins the three
+files (url + sha256 + bytes + licence + origin — the harness's
+`source.json`, verbatim, with ONE correction: `face-mesh.onnx` is
+**4 920 995** bytes, not the 4 924 169 the harness recorded; the hash was
+always right, the size was a typo — it cost the first live run, below).
+`main/services/studio/analysis-models.ts` fetches a missing file through
+the app's download engine (`.part` → sha256 → finalize; the job forwards
+the percent as its own ticks, "Downloading face models (face-mesh.onnx)…
+69 %"), verifies size + sha256 before EVERY load (cached per path / size /
+mtime for the process, the `image-safety.ts` rule), deletes and re-fetches
+a mismatch, and shares one in-flight download per model. They live in
+`<ai-models>/analysis/` (`paths.ts getAnalysisModelsDir()` — the user's AI
+models folder, never `resources/`). `audio-models.ts` resolves that folder
+on first use instead of at import, so a module that merely imports
+`paths.ts` touches no `app` at load — the pack tests mock `electron`
+without one. No Settings surface: the app has no generic local-model
+screen for ONNX files.
+
+**F2 — the analysis utilityProcess.** `src/analysis-engine/`: `worker.ts`
+(the safety worker's DLL probe; sets itself below-normal like the proxy
+transcodes; `loadFaces` tries `{ name: 'dml', deviceId: 0 }` for both
+sessions, falls back to `['cpu']` and reports `ep` + the DML failure line;
+`faces` = YuNet → crop/align → mesh + one refine pass →
+`faceFromLandmarks`, the harness's `faces.mjs` ported — `yunet.ts`,
+`face-mesh.ts`, `image-ops.ts` are the pure halves; a face whose final
+mesh presence is < 0.5 is dropped rather than recorded, the one deliberate
+deviation), `analysis-engine.ts` (the host: lazy spawn, requestId map,
+death rejects + respawn, `scheduleRelease(60 s)` after the last job so
+the GPU and the process are not held by an idle editor), `types.ts`.
+`shared/studio/face-landmarks.ts` is the SDK's `faceFromLandmarks`
+vendored beside the runtime (★1's rule). Entry `analysis-worker` in
+`electron.vite.config.mjs`. **Port check:** the app's pipeline in plain
+Node over the spike's 72 frames reproduces the spike's Face records with
+**Δ 0 px, mouthOpen Δ 0** on every frame (the kit's `port-check`);
+18.6 ms a frame median on DML. **DirectML inside the utilityProcess
+initialised first try** (`ep: 'dml'`, session load 1 403 ms) on every job
+of the live pass — no fallback was ever taken; the fallback path is
+exercised only by the code (`preferGpu: false` → CPU). Packaging:
+`electron-builder.yml` now SHIPS the DirectML DLLs on Windows (they were
+excluded for the CPU-only safety gate; the gate still opens CPU-only).
+
+**F3 — the `faceTrack` job.** `analysis-frames.ts`: the bundled ffmpeg
+over `image2pipe` with the **rawvideo ENCODER** — the stripped build has
+no rawvideo muxer but its encoder rides image2pipe, so frames arrive as
+raw RGB24 with nothing to decode (10 frames of 640×360 = exactly
+6 912 000 bytes; the PNG route was only a way around the muxer); `-r fps`
+(no `fps` filter), `scale=W:H` at short side ≤ 512 with even sides
+computed up front so the byte count per frame is known; `-ss` before `-i`
+per span (every proxy frame is a keyframe); one frame in flight
+(stdout paused while a frame is analysed); ffmpeg below-normal.
+`face-track-job.ts`: models → existing cache → `missingSpans` → per span
+a grid-snapped run (start floored to the frame grid, one frame past the
+end) → Face records rounded to 4 decimals keyed by `t = start + k / fps`
+(5 decimals) → `mergeFaceTrack` (frames unioned by time, the new run
+wins, spans merged, the header from the latest run) → `.part` + rename.
+A still is one frame with `static: true`. `media-jobs.ts`: kind
+`faceTrack` beside proxy / waveform / transcript — the "already there"
+check is span-aware (`faceTrackSatisfying`), one analysis job runs at a
+time, the ready event carries `analysis: { ep, spans, frames, fps,
+fallback? }` (the job record carries the provider, as asked). IPC
+`studio:analysis:request` / `:cancel` (`studio-analysis-handlers.ts`,
+validated spans, the proxy's cache path resolved through
+`safeResolveCachePath`), preload `studioAnalysisRequest` /
+`studioAnalysisCancel`. The format, `shared/studio/face-track.ts`:
+header `{ version 1, kind 'faces', source, fps, spans, ep, models
+(sha256s), static?, generatedAt }` + `frames[{ t, faces }]`, one frame per
+line; `parseFaceTrack` (strict), `facesAt` (binary search, nearest within
+half a frame + 1e-6, a frame with no face is "no face", a gap plays
+plain), `mergeSpans` / `missingSpans` / `spansCovered` (one-frame
+tolerance), `settledSpanEnd`.
+
+**F4 — the renderer and the export.** `SerializedClip.assetId` (media
+clips); `TimelineComposition.tracks` (asset id → `{ faces }`) →
+`TransitionWindow` scenes → `ClipRenderer` (its own asset's) →
+`FilteredPicture` gains `tracks` + `playbackRate`: `sourceTime =
+(trimBefore + frame × rate) / fps`, `faces = facesAt(track, sourceTime)`
+into the chain (the filter clock `time` is unchanged, rate 1 in v1). The
+P0 harness re-ran **byte-identical** after the edit. Export:
+`export-tracks.ts` (+ `trackEntryRefs`) copies each needed asset's track
+file VERBATIM beside the entry as `studio-entry-<pid>-track-<asset>.json`,
+imported statically (`Track_<n>`), passed as `tracks={ANALYSIS_TRACKS}`,
+with a `// analysis tracks: <asset>:<sha16>` line in the entry so the
+bundle cache (keyed on the entry's hash) follows the track; a missing or
+incomplete track THROWS (the backstop behind the editor's refusal). The
+gate: `SUPPORTED_FILTER_REQUIREMENTS = { faceTrack }` (`subjectMask` is
+still held back with the same message; the three gate tests now pin that
+one); `StudioFilterInfo.requires` reaches the renderer.
+
+**F5 — UX.** `hooks/useAnalysisTracks.ts`: the timeline's live tracked
+entries → per asset the padded (±0.5 s), clamped, merged source spans
+(`services/analysis-status.ts faceTrackNeeds`); a video waits for its
+proxy to settle (ready or failed → the original), an image goes at once;
+one request per need signature, the guard kept after an error (a retry
+loop met live, below); `generating` ticks → `{ analyzing, percent,
+message }`, `ready` → the track read through `studioCacheRead` into the
+Player's `tracks`; `useStudioMedia` ignores the kind. `filter-status.ts`:
+`EffectStatus.analysis` while the track is missing or incomplete for THAT
+clip's span, warning `analysis-failed` on an error. `TimelineClip`: the
+chip reads "Analyzing faces… 43 %" (the text on clips ≥ 200 px, "43 %"
+below; `data-clip-fx="analyzing"`, `data-clip-fx-percent`), the tooltip
+says the clip plays plain until the track lands; `FilterSection`: the same
+line under the entry (`data-effect-analysis`). `EditorShell.handleExport`:
+`exportAnalysisBlockers` before anything is prepared → a toast "Export
+waits for face analysis: “<clip>” — Analyzing faces… 12 % — export when
+it reaches 100 %", nothing queued.
+
+**F6 — content.** `vidtsx-filters-vol02` "VidTSX Filters — Volume 02"
+1.0.0: `puppy`, `kitty`, `big-mouth`, `alien`, `heart-eyes`, all
+`category: effect`, `requires: ['faceTrack']`, built by the kit's
+`live/faces/mkpack.mjs` (the P6 builder with `faceTrack` allowed,
+`subjectMask` refused) from the add-ons `dist/sdk/` (untouched), every
+bundle through the app's real gate. `heavy` MEASURED by
+`live/faces/paint-bench.mjs` — the P6 bench fed the portrait's Face record
+(`face-of.mjs`, through the app's own pipeline), because a face filter
+paints nothing without one: **none is heavy** (1080p worst cases:
+big-mouth 28 ms, alien 23 ms, puppy 12 ms, kitty 9 ms, heart-eyes 10 ms;
+calibration noir 35, vhs 38, bloom 29). The pack is outside git:
+`.vidtsx-temp/p0-filters/live/faces/vidtsx-filters-vol02-1.0.0.vidtsxpack`.
+
+**Not in this build (open):** a Settings row for the models (none exists
+for local ONNX files); cancelling an analysis from the UI (the IPC exists,
+no button); a smoothing pass (the spike's jitter stayed acceptable);
+`speed` in the filter clock (the track lookup honours it, the clock does
+not — v1); the masks track.
+
+### Faces track results (2026-09-24)
+
+Unit: `face-track.test.ts` (11: format round trip, strict parse, spans,
+merge, lookup, `settledSpanEnd`), `model-manifest.test.ts` (2: the pins,
+verify size/hash/missing), `analysis-status.test.ts` (6: needs, coverage,
+labels, export blockers per clip span), the gate tests re-pinned on
+`subjectMask`; 134 green across the touched files; `check:types` 26 / 10
+before and after. Port check: Δ 0 against the spike (above).
+
+Isolated dev instance (`live/launch.sh`, the P3 profile; `live/faces/`:
+`seed.py` → `f6-faces` 1920×1080 @ 24: `clip-talk` = the spike fixture as
+h264 0–3 s, `clip-talk2` the same asset trimmed (sourceIn 1.0, 1.5 s),
+`clip-img` the portrait; `seed-refuse.py` → `f6-refuse` = the 39 s
+synthetic s3 clip, no face, puppy pre-applied; `drive.mjs`, `check.py` +
+`paint-ref.mjs`). Disk and the Player's props (React fibers) are the
+assertions.
+
+| Step | Result |
+|---|---|
+| Volume 02 double-clicked (`dbl.sh`) | the import dialog lists the five, none refused (the gate opened), Install → `<assets>/packs/vidtsx-filters-vol02/` |
+| Effects tab → puppy on `clip-talk` | disk `[{kind:'vidtsx-filters-vol02/puppy'}]`; chip `analyzing` "0 %" (title "Puppy Love \| Analyzing faces… 0 % — the clip plays plain until the track lands"); Inspector line the same; the Player has the definition, `tracks: null` |
+| First run — models | the chip carried the download: "Downloading face models (face-mesh.onnx)… 69 %", "Verifying face-mesh.onnx…". **Bug 1, fixed:** the manifest's byte count for face-mesh was the harness's typo → my size check refused every correct download → deleted → re-fetched, and the hook cleared its request guard on `error`, so the job re-queued for ever (the log shows the loop). Fix: the pin (4 920 995) + the guard stays after an error |
+| The job (after the fix) | `Face models loaded { ep: 'dml', loadMs: 1403 }`; `Face track written { frames: 75, msPerFrame: 29, faces: 75 }` — 3.083 s @ 24 in ~2.2 s wall; the file 22 318 B = **298 B/frame** (the spike's 293), `mouthOpen` 0.046–0.658, ep `dml`, both model hashes in the header |
+| Player, frames 53 / 57 (mouthOpen 0.046 / 0.658) | the tongue is a stub at 53 and long at 57; ears on the forehead, nose on the nose (`out/player-053.png`, `-057.png`); vs a reference paint of the same PROXY frame with the same record: 31.6 / 31.7 dB, vs the plain proxy frame 26.2 / 25.8 (the rest is Chromium's vs ffmpeg's YUV→RGB) |
+| Reopen the project | `ready` from the cache, no job; the chip `set` |
+| "Apply to all clips on this track" | `clip-talk2` covered by the union — no job; `clip-img` a static track (1 frame, 121 ms incl. warm-up, `static: true`); the Player paints puppy on the still (`out/player-120.png`) |
+| Export 1 (one clip) / Export 2 (three), 1080p Standard | `check.py`: the entry imports `Track_0` / `Track_1`, carries the hash line, passes `tracks=`; each track copy byte-identical to `cache/analysis/<asset>/faces-v1.json`; `puppy.js` byte-identical to the installed pack; reference paints deterministic; 7 sampled frames (3 / 36 / 68 / 75 / 90 / 104 / 126): export vs reference **29.8–37.2 dB** against **26.5–27.5 dB** vs the plain frame, **92–100 %** of the export-vs-plain difference inside the face box. (First run showed a spurious "+1 frame" at 4 of 11 samples: `-ss` at an exact frame boundary lands on the NEXT frame when the stored pts rounds a hair below it — seek to the frame's centre, `(N + 0.5) / fps`; the memory note is amended.) Bar: ≥ 28 dB and > plain + 3 dB |
+| Refusal (`f6-refuse`, opened with puppy on a 39 s clip) | the job auto-queued on open; Export clicked at 12 %: toast "Export waits for face analysis: “vidtsx-s3-talk.mp4” — Analyzing faces… 12 % — export when it reaches 100 %", `renderQueueGet` empty; the chip read "Analyzing faces… 28 %" (text, the clip is wide); 1181 frames at **9 ms/frame** (no face → detector only), ep `dml`; Export after 100 % → "Export added to the render queue" |
+| **Bug 2, fixed** | that clip's probed duration (39.385 s) sits a frame past its last frame (39.333 s): the need was clamped to the probe, the track's span ended at its last frame, `spansCovered` said no, and the renderer re-asked for the tail every second — 984 one-frame jobs in the log. `settledSpanEnd`: a run never settles short of what it was asked for. After the restart: opening the project ran ONE tail job (`spans [[0, 39.39]]`), the next two opens none; `f6-faces` opens with both tracks and no job |
+
+Findings the build carries: (1) DirectML works inside the utilityProcess
+(first try, every job) — the ship now bundles its DLLs; (2) the rawvideo
+encoder over image2pipe replaces the PNG feed; (3) the harness's
+face-mesh byte count was wrong; (4) a probed duration can exceed the last
+frame's time — never let coverage depend on it; (5) frame-exact seeks in
+an h264 file want the frame's centre.
+
 ## Test plan
 
 - **Unit:** pack parsing (bad entries, `requires`, `heavy`, params spec
@@ -1161,6 +1344,10 @@ step 3 points here):
   params dropped / undo shape), serializer pass-through with `disabled`,
   export-spans `filter` reason, `filterEntryRefs` + entry emission, gate
   refusals (an import, `Date.now`, oversize), zip specs.
+- **Faces track (unit):** the format (round trip, strict parse, merge,
+  lookup within half a frame, `settledSpanEnd`), the manifest pins and the
+  integrity check, needs / coverage / export blockers, the gate opened for
+  `faceTrack` and closed for `subjectMask`.
 - **Composition:** nothing renders `TimelineComposition` in vitest, so the
   P0 harness is the structural test — re-run it after any edit to
   `FilteredPicture.tsx`, `ClipRenderer.tsx` or `SceneMirror.tsx`.

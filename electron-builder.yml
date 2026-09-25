@@ -157,8 +157,9 @@ asarUnpack:
   - "node_modules/esbuild/**"
   - "node_modules/@esbuild/**"
   # onnxruntime-node native binding — required by the Content Safety worker
-  # (src/content-safety-engine/worker.ts). CPU-only per-platform binaries; the
-  # non-shipped platforms and DirectML extras are excluded in `files` below.
+  # (src/content-safety-engine/worker.ts) and the analysis worker
+  # (src/analysis-engine/worker.ts, DirectML first). Per-platform binaries;
+  # the non-shipped platforms are excluded in `files` below.
   - "node_modules/onnxruntime-node/**"
   # ── sherpa-onnx (local STT/TTS) disabled in v0.1 — transcription/audio features
   # not shipping yet. When re-enabling, uncomment the lines for the platforms you ship:
@@ -205,14 +206,15 @@ win:
       arch: [x64]
   icon: resources/icon.ico
   files:
-    # CPU-only ORT for win-x64: drop mac/arm binaries and the DirectML
-    # execution-provider DLLs (+36 MB, and a GPU EP adds driver failure modes
-    # to a fail-closed gate — Rev 1 decision 1).
+    # ORT for win-x64: drop mac/arm binaries. The DirectML execution-provider
+    # DLLs (+36 MB) SHIP since the analysis tracks (docs/studio/
+    # FILTER_PACKS_DESIGN.md "Analysis tracks", 2026-09-24): DirectML is the
+    # primary provider for face / matte analysis (MODNet 29 ms a frame vs
+    # 263 ms on the CPU) with a CPU fallback recorded on the job. The Content
+    # Safety gate still opens its session CPU-only (Rev 1 decision 1) — the
+    # DLLs being present changes nothing for it.
     - "!node_modules/onnxruntime-node/bin/napi-v6/darwin/**/*"
     - "!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**/*"
-    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/DirectML.dll"
-    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxcompiler.dll"
-    - "!node_modules/onnxruntime-node/bin/napi-v6/win32/x64/dxil.dll"
 nsis:
   oneClick: false
   perMachine: false

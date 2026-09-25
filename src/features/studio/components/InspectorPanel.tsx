@@ -15,6 +15,7 @@ import { ReviewShotsSection } from './ReviewShotsSection';
 import { ReviewInsertSection } from './ReviewInsertSection';
 import { ClipSection } from './ClipSection';
 import { FilterSection, type LiveEffectHandler } from './FilterSection';
+import type { AnalysisState } from '../services/analysis-status';
 import { isEffectClipKind } from '../services/effect-ops';
 import { ShotClipSection } from './ShotClipSection';
 import { PresetLearnSection } from './PresetLearnSection';
@@ -56,7 +57,7 @@ interface Props {
   onLearnPreset: () => Promise<string | null>;
   /** Per-clip filters (flag `studio-filters`): the installed list for names
    *  and knobs, and the ephemeral live-preview hook. Absent = no section. */
-  filters?: { installed: ReadonlyMap<string, StudioFilterInfo> | null; onLive: LiveEffectHandler };
+  filters?: { installed: ReadonlyMap<string, StudioFilterInfo> | null; onLive: LiveEffectHandler; analysisOf?: (assetId: string) => AnalysisState | undefined };
 }
 
 export function InspectorPanel({
@@ -108,7 +109,7 @@ export function InspectorPanel({
       {filters && singleClip && isEffectClipKind(singleClip.kind) && (
         <section className="flex flex-col gap-2">
           <SectionLabel>Filters</SectionLabel>
-          <FilterSection clip={singleClip} installed={filters.installed} dispatch={timelineDispatch} onLive={filters.onLive} />
+          <FilterSection clip={singleClip} installed={filters.installed} dispatch={timelineDispatch} onLive={filters.onLive} analysis={singleClip.assetId ? filters.analysisOf?.(singleClip.assetId) : undefined} />
         </section>
       )}
 

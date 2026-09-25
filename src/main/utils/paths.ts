@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { getAiRuntimeDevOverrides } from '../services/ai-runtime/dev-overrides';
 import { slugifyName } from '../services/agents/tools/workspace-files';
+import { getAudioModelsDir } from '../services/audio-models';
 
 export function getAppRoot(): string {
   if (app.isPackaged) {
@@ -126,6 +127,17 @@ export function getRemotionBinariesDir(): string | null {
     '@remotion',
     'compositor-win32-x64-msvc',
   );
+}
+
+/**
+ * `{ai-models}/analysis` — the face / matte analysis models
+ * (docs/studio/FILTER_PACKS_DESIGN.md "Analysis tracks"), downloaded on first
+ * use with pinned SHA-256s (src/analysis-engine/model-manifest.ts). Follows
+ * the user's AI models folder like every other downloaded model; never
+ * `resources/`.
+ */
+export function getAnalysisModelsDir(): string {
+  return path.join(getAudioModelsDir(), 'analysis');
 }
 
 export function getFontCacheDir(): string {

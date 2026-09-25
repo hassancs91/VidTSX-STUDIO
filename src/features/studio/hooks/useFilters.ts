@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StudioFilterInfo } from '@shared/ipc/types';
 import { isFilterDefinition } from '@shared/studio/filter-runtime';
 import type { FilterDefinition, StudioTimeline } from '@shared/types/studio';
+import type { AnalysisState } from '../services/analysis-status';
 import { effectStatuses, type EffectStatus } from '../services/filter-status';
 
 /** Dispatched on `window` after an install; every open list re-scans. */
@@ -137,6 +138,7 @@ export function useFilterDefinitions(
 export function useEffectStatuses(
   timeline: StudioTimeline,
   installed: ReadonlyMap<string, StudioFilterInfo> | null,
+  analysisOf?: (assetId: string) => AnalysisState | undefined,
 ): ReadonlyMap<string, EffectStatus> {
-  return useMemo(() => effectStatuses(timeline, installed), [timeline, installed]);
+  return useMemo(() => effectStatuses(timeline, installed, analysisOf), [timeline, installed, analysisOf]);
 }

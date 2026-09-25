@@ -164,12 +164,12 @@ describe('.vidtsxpack — the per-kind gates and install', () => {
     await writeTestPackage(at('tracked.vidtsxpack'), {
       manifest: {
         ...packManifest('tracked', '1.0.0', { filters: ['noir'] }),
-        filters: [{ id: 'noir', name: 'Noir', category: 'filter', version: '1.0.0' }, { id: 'puppy', name: 'Puppy', category: 'effect', version: '1.0.0', requires: ['faceTrack'] }],
+        filters: [{ id: 'noir', name: 'Noir', category: 'filter', version: '1.0.0' }, { id: 'aura', name: 'Neon Aura', category: 'effect', version: '1.0.0', requires: ['subjectMask'] }],
       },
-      files: packFilterFiles(['noir', 'puppy']),
+      files: packFilterFiles(['noir', 'aura']),
     });
     const pkg = await inspectPackPackage(at('tracked.vidtsxpack'), deps);
-    expect(pkg.items.find((i) => i.kind === 'tracked/puppy')?.refused).toMatch(/faceTrack/);
+    expect(pkg.items.find((i) => i.kind === 'tracked/aura')?.refused).toMatch(/subjectMask/);
     expect((await installPackPackage(at('tracked.vidtsxpack'), deps)).installed?.kinds).toEqual(['tracked/noir']);
   });
 

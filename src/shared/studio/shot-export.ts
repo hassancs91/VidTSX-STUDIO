@@ -66,6 +66,19 @@ export function filterEntryRefs(kinds: readonly string[], projectId: string): Sh
 
 /** The pinned kit copy's folder inside the entry dir (SHOT_QUALITY_DESIGN Q4).
  *  The `studio-entry-` prefix keeps it inside the entry sweeper's TTL. */
+/**
+ * Analysis tracks copied beside the entry as JSON and statically imported
+ * (FILTER_PACKS_DESIGN.md "Analysis tracks"): `Track_<n>` identifiers, one
+ * file per asset. The `.json` extension is what webpack keys the loader on.
+ */
+export function trackEntryRefs(assetIds: readonly string[], projectId: string): ShotEntryRef[] {
+  return assetIds.map((assetId, index) => ({
+    shotId: assetId,
+    identifier: `Track_${index}`,
+    fileName: `studio-entry-${projectId}-track-${assetId.replace(/[^A-Za-z0-9_-]/g, '_')}.json`,
+  }));
+}
+
 export function kitEntryDirName(projectId: string, kitVersion: string): string {
   return `studio-entry-${projectId}-kit-${kitVersion}`;
 }

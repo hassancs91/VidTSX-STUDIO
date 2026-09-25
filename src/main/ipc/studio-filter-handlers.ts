@@ -31,6 +31,7 @@ function toInfo(item: FilterItem): StudioFilterInfo {
     parameters: item.parameters,
     presets: item.presets,
     heavy: item.heavy,
+    requires: item.requires,
     version: item.version,
     ...(item.tier ? { tier: item.tier } : {}),
     ...(item.tagline ? { tagline: item.tagline } : {}),

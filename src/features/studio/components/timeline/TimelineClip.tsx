@@ -101,22 +101,24 @@ function TimelineClipInner({
 
       <span
         className="absolute top-[2px] left-0 right-0 px-[5px] text-[9px] leading-[12px] text-text-primary truncate pointer-events-none"
-        style={{ paddingLeft: thumbnail ? 42 : 5, paddingRight: effect ? 24 : 5, textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}
+        style={{ paddingLeft: thumbnail ? 42 : 5, paddingRight: effect?.analysis ? (width > 200 ? 140 : 44) : effect ? 24 : 5, textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}
       >
         {label}
       </span>
 
       {effect && width > 40 && (
         <span
-          data-clip-fx={effect.warning ?? (effect.label === 'off' ? 'off' : 'set')}
-          title={effect.warning ? `${effect.label}\n${EFFECT_WARNING_TEXT[effect.warning]}` : effect.label}
-          className="absolute top-[2px] right-[3px] text-[8px] leading-[12px] px-[4px] rounded-[3px] pointer-events-none font-medium"
+          data-clip-fx={effect.warning ?? (effect.analysis ? 'analyzing' : effect.label === 'off' ? 'off' : 'set')}
+          data-clip-fx-percent={effect.analysis ? effect.analysis.percent : undefined}
+          title={effect.warning ? `${effect.label}\n${EFFECT_WARNING_TEXT[effect.warning]}` : effect.analysis ? `${effect.label}\n${effect.analysis.message} — the clip plays plain until the track lands` : effect.label}
+          className="absolute top-[2px] right-[3px] text-[8px] leading-[12px] px-[4px] rounded-[3px] pointer-events-none font-medium whitespace-nowrap"
           style={{
-            background: effect.warning ? 'var(--color-accent-amber)' : effect.label === 'off' ? 'rgba(0,0,0,0.55)' : 'var(--color-accent)',
-            color: effect.label === 'off' && !effect.warning ? 'var(--color-text-muted)' : '#fff',
+            background: effect.warning ? 'var(--color-accent-amber)' : effect.analysis ? 'rgba(0,0,0,0.6)' : effect.label === 'off' ? 'rgba(0,0,0,0.55)' : 'var(--color-accent)',
+            color: effect.analysis ? 'var(--color-accent)' : effect.label === 'off' && !effect.warning ? 'var(--color-text-muted)' : '#fff',
+            ...(effect.analysis ? { border: '0.5px solid var(--color-accent)' } : {}),
           }}
         >
-          fx
+          {effect.analysis ? (width > 200 ? effect.analysis.message : `${effect.analysis.percent}%`) : 'fx'}
         </span>
       )}
 

@@ -34,6 +34,8 @@ import { useTextEdit } from '../hooks/useTextEdit';
 import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { useJoinStatus, useTransitionList } from '../hooks/useTransitions';
 import { useEffectStatuses, useFilterList } from '../hooks/useFilters';
+import { useAnalysisTracks } from '../hooks/useAnalysisTracks';
+import { exportAnalysisBlockers } from '../services/analysis-status';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -811,7 +813,11 @@ export function EditorShell({ projectId, onBack }: Props) {
   // One installed list feeds the clip chips (names, warnings), the Inspector's
   // knobs and both tabs; the preview loads only the kinds the timeline uses.
   const filterList = useFilterList();
-  const effectStatuses = useEffectStatuses(tl.timeline, filterList.installed);
+  // Analysis tracks (FILTER_PACKS_DESIGN.md "Analysis tracks"): applying a
+  // tracked filter queues its asset's faces job; the chips read the states,
+  // the Player reads the tracks, and an export waits for them.
+  const analysis = useAnalysisTracks(projectId, tl.timeline, assets, filterList.installed, project?.settings.fps ?? 30);
+  const effectStatuses = useEffectStatuses(tl.timeline, filterList.installed, analysis.stateOf);
   const [filtersInPreview, setFiltersInPreview] = useState(true);
   // An Inspector slider mid-drag: an ephemeral params override over the
   // serialization (the canvas-transform pattern) — one dispatch on release.
@@ -971,6 +977,19 @@ export function EditorShell({ projectId, onBack }: Props) {
       jobId?: string,
     ): Promise<boolean> => {
       if (!project) return false;
+      // A tracked filter whose faces track is still being computed would
+      // export the plain picture silently — refuse until the chip hits 100 %.
+      const blockers = exportAnalysisBlockers(tl.timeline, assets, filterList.installed, analysis.stateOf, (clip) => {
+        if (clip.label) return clip.label;
+        const asset = clip.assetId ? assets.find((a) => a.id === clip.assetId) : undefined;
+        return asset ? (asset.path.split(/[\\/]/).pop() ?? asset.path) : clip.kind;
+      });
+      if (blockers.length > 0) {
+        const [first] = blockers;
+        const more = blockers.length > 1 ? ` (+${blockers.length - 1} more)` : '';
+        showToast(`Export waits for face analysis: “${first.label}” — ${first.reason}${more}`, 'error');
+        return false;
+      }
       setExporting(true);
       try {
         // Output options (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md): the
@@ -1023,7 +1042,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         setExporting(false);
       }
     },
-    [project, tl.timeline, addJob, showToast, updateProject],
+    [project, tl.timeline, assets, filterList.installed, analysis.stateOf, addJob, showToast, updateProject],
   );
 
   // W3: the agent's action requests. Each is either something the user said
@@ -1312,6 +1331,7 @@ export function EditorShell({ projectId, onBack }: Props) {
             transitionRetryKey={transitionList.installed}
             filterRetryKey={filterList.installed}
             filtersInPreview={filtersInPreview}
+            tracks={analysis.tracks}
             {...(FILTERS_ENABLED ? { onToggleFiltersInPreview: () => setFiltersInPreview((v) => !v) } : {})}
             playerRef={playback.playerRef}
             isPlaying={playback.isPlaying}
@@ -1399,7 +1419,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 autoCutPhase={autoCut.phase}
                 {...(activePresetName ? { presetName: activePresetName } : {})}
                 onLearnPreset={handleLearnPreset}
-                {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect } } : {})}
+                {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect, analysisOf: analysis.stateOf } } : {})}
                 review={
                   activeProposal && activeProposal.kind === 'cut-plan'
                     ? {

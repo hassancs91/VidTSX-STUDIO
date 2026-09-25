@@ -73,6 +73,10 @@ export function useStudioMedia(
   const applyEvent = useCallback(
     (event: StudioMediaJobEvent) => {
       if (event.projectId !== projectId) return;
+      // Analysis tracks are environmental, not document state — the analysis
+      // hook (useAnalysisTracks) folds them; nothing here must mistake one
+      // for a waveform.
+      if (event.kind === 'faceTrack') return;
 
       if (event.kind === 'transcript') {
         if (event.status === 'generating') {

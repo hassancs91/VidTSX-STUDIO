@@ -39,6 +39,9 @@ export interface SerializedClip {
   trimBefore?: number;
   /** Resolved http URL of the media, or null when the asset is missing. */
   src?: string;
+  /** The media asset behind `src` — what an analysis track is keyed by
+   *  (docs/studio/FILTER_PACKS_DESIGN.md "Analysis tracks"). */
+  assetId?: string;
   volume?: number;
   muted?: boolean;
   playbackRate?: number;
@@ -359,6 +362,7 @@ export function serializeTimeline(
         durationInFrames,
         ...(trimBefore ? { trimBefore } : {}),
         ...(src ? { src } : {}),
+        ...(src && clip.assetId ? { assetId: clip.assetId } : {}),
         ...(clip.gain !== undefined ? { volume: clip.gain } : {}),
         ...(track.muted ? { muted: true } : {}),
         ...(clip.speed !== undefined && clip.speed !== 1 ? { playbackRate: clip.speed } : {}),

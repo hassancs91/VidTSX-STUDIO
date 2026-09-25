@@ -25,6 +25,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useCurrentFrame, useRemotionEnvironment, useVideoConfig } from 'remotion';
 import type { FilterDefinition } from '../types/studio-effects';
+import { facesAt, type AnalysisTracks } from './face-track';
 import { createFilterRenderer, filterSourceSize, type FilterRenderer } from './filter-runtime';
 
 /** One slot of the chain: a definition and the document's params for it. */
@@ -46,8 +47,17 @@ export interface FilteredPictureProps {
   style: CSSProperties;
   /** Composition frames of source before the clip's first frame (`trimBefore`). */
   sourceOffset?: number;
+  /** The clip's speed: source seconds advance this many times faster than the clock. */
+  playbackRate?: number;
   /** Filter first, then effect — render order. */
   chain: readonly FilterStage[];
+  /**
+   * The clip's asset's analysis tracks (docs/studio/FILTER_PACKS_DESIGN.md
+   * "Analysis tracks"): the faces at each frame's SOURCE time, looked up
+   * within half a frame. Absent or without a frame at that time, the chain
+   * gets `faces: []` and a face filter paints the unchanged picture.
+   */
+  tracks?: AnalysisTracks;
   /** The composition size: the working canvas never exceeds it. */
   maxWidth: number;
   maxHeight: number;
@@ -90,7 +100,9 @@ export function FilteredPicture({
   kind,
   style,
   sourceOffset,
+  playbackRate,
   chain,
+  tracks,
   maxWidth,
   maxHeight,
   previewMaxSide = DEFAULT_PREVIEW_MAX_SIDE,
@@ -131,6 +143,10 @@ export function FilteredPicture({
         });
       }
       const time = (frameRef.current + (sourceOffset ?? 0)) / fps;
+      // Source seconds: the trim plus the clip's frames at its speed — what
+      // the track is keyed by. The filter clock above stays at rate 1 (v1).
+      const sourceTime = ((sourceOffset ?? 0) + frameRef.current * (playbackRate ?? 1)) / fps;
+      const faces = tracks?.faces ? facesAt(tracks.faces, sourceTime) : undefined;
       let input: CanvasImageSource = source;
       chain.forEach((stage, i) => {
         const { canvas, renderer } = stages.current[i];
@@ -142,12 +158,14 @@ export function FilteredPicture({
         renderer.render(stage.definition, {
           source: input,
           time,
+          sourceTime,
+          ...(faces ? { faces } : {}),
           options: { ...(typeof intensity === 'number' ? { intensity } : {}), parameters },
         });
         input = canvas;
       });
     },
-    [chain, fps, isRendering, maxWidth, maxHeight, previewMaxSide, sourceOffset],
+    [chain, fps, isRendering, maxWidth, maxHeight, previewMaxSide, sourceOffset, playbackRate, tracks],
   );
 
   // The media tag hands over a frame: the render host's <img> for THIS frame,

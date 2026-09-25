@@ -24,9 +24,13 @@ export const FILTER_FILE_EXTENSION = '.js';
 /** The host's own slider on every item; a manifest spec may not claim the key. */
 export const INTENSITY_PARAM = 'intensity';
 
-/** Per-frame analysis this build can hand a filter. None yet: the tracked
- *  filters wait on analysis tracks (design "What waits"). */
-export const SUPPORTED_FILTER_REQUIREMENTS: ReadonlySet<string> = new Set();
+/** The `requires` id of the faces track — what a face filter's manifest entry names. */
+export const FACE_TRACK_REQUIREMENT = 'faceTrack';
+
+/** Per-frame analysis this build can hand a filter (design "Analysis
+ *  tracks"): the faces track. `subjectMask` waits on the masks track, so a
+ *  subject filter is still held back with a message. */
+export const SUPPORTED_FILTER_REQUIREMENTS: ReadonlySet<string> = new Set([FACE_TRACK_REQUIREMENT]);
 
 const PARAM_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;

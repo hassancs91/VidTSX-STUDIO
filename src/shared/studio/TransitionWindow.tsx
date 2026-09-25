@@ -1,6 +1,7 @@
 import { Sequence, useCurrentFrame } from 'remotion';
 import type { CaptionRuntimeProps, FilterDefinition, ShotRuntimeProps, TransitionRuntimeProps } from '../types/studio';
 import { ClipRenderer } from './ClipRenderer';
+import type { AnalysisTracks } from './face-track';
 import type { SerializedClip } from './serialize';
 import type { TransitionWindowPlan } from './transition-windows';
 
@@ -17,9 +18,11 @@ interface TransitionWindowProps {
   captionComponent?: React.ComponentType<CaptionRuntimeProps>;
   /** A scene copy carries its clip's filter too (in a render, one pass per copy). */
   filterDefinitions?: Readonly<Record<string, FilterDefinition>>;
+  /** ... and the analysis tracks its filter reads, keyed by asset id. */
+  tracks?: Readonly<Record<string, AnalysisTracks>>;
 }
 
-type SceneProps = Pick<TransitionWindowProps, 'components' | 'captionComponent' | 'filterDefinitions'> & {
+type SceneProps = Pick<TransitionWindowProps, 'components' | 'captionComponent' | 'filterDefinitions' | 'tracks'> & {
   clip: SerializedClip;
   /** The clip's start relative to the window's — ≤ 0, the clip began earlier. */
   offset: number;
@@ -31,7 +34,7 @@ type SceneProps = Pick<TransitionWindowProps, 'components' | 'captionComponent' 
  * so `trimBefore` and every frame-relative prop mean what they mean on the
  * clip's own Sequence and the two pictures show the same source frame.
  */
-function Scene({ clip, offset, components, captionComponent, filterDefinitions }: SceneProps) {
+function Scene({ clip, offset, components, captionComponent, filterDefinitions, tracks }: SceneProps) {
   return (
     <Sequence from={offset} layout="absolute-fill">
       <ClipRenderer
@@ -39,6 +42,7 @@ function Scene({ clip, offset, components, captionComponent, filterDefinitions }
         components={components}
         captionComponent={captionComponent}
         filterDefinitions={filterDefinitions}
+        tracks={tracks}
         pictureOnly
       />
     </Sequence>
@@ -55,11 +59,12 @@ function WindowBody({
   components,
   captionComponent,
   filterDefinitions,
+  tracks,
 }: TransitionWindowProps) {
   // Frame relative to the window. frame / frames is the sampling the native
   // crossfade ramp uses, so both kinds of transition line up frame for frame.
   const frame = useCurrentFrame();
-  const shared = { components, captionComponent, filterDefinitions };
+  const shared = { components, captionComponent, filterDefinitions, tracks };
   return (
     <Transition
       progress={frame / plan.frames}

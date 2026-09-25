@@ -52,7 +52,7 @@ async function writePack(
           id,
           name: id,
           category: 'filter',
-          ...(options.tracked?.includes(id) ? { requires: ['faceTrack'] } : {}),
+          ...(options.tracked?.includes(id) ? { requires: ['subjectMask'] } : {}),
           ...options.entry,
         })),
         ...options.extra,

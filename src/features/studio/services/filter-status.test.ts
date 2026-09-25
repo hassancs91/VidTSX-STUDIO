@@ -5,7 +5,7 @@ import { effectName, effectStatuses } from './filter-status';
 
 const info = (kind: string, name: string, category: 'filter' | 'effect'): StudioFilterInfo => ({
   kind, name, packId: 'core', packName: 'Core', category, animated: false, defaultIntensity: 1,
-  parameters: [], presets: [], heavy: false, version: '1.0.0',
+  parameters: [], presets: [], heavy: false, requires: [], version: '1.0.0',
 });
 const INSTALLED = new Map([['core/noir', info('core/noir', 'Noir', 'filter')], ['core/vhs', info('core/vhs', 'VHS Club', 'effect')]]);
 

@@ -2,6 +2,7 @@ import { useMemo, type ComponentType } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
 import { Palette, Pause, Play, SkipBack } from 'lucide-react';
 import { TimelineComposition, type SerializedTimeline } from '@shared/studio';
+import type { AnalysisTracks } from '@shared/studio/face-track';
 import { referencedFilterKinds } from '@shared/studio/filter-pack';
 import { referencedTransitionKinds } from '@shared/studio/transition-pack';
 import type { CaptionRuntimeProps } from '@shared/types/studio';
@@ -42,6 +43,8 @@ interface Props {
   filtersInPreview?: boolean;
   /** Present = show the toggle beside the transport (flag `studio-filters`). */
   onToggleFiltersInPreview?: () => void;
+  /** Analysis tracks by asset id (FILTER_PACKS_DESIGN.md "Analysis tracks") — what a face filter reads per frame. */
+  tracks?: Readonly<Record<string, AnalysisTracks>>;
 }
 
 /**
@@ -67,6 +70,7 @@ export function PreviewPanel({
   filterRetryKey,
   filtersInPreview = true,
   onToggleFiltersInPreview,
+  tracks,
 }: Props) {
   const { components } = useShotModuleSnapshot(shotLoader);
   // Pack transitions the timeline uses — loaded here, like shot modules, so an
@@ -78,8 +82,8 @@ export function PreviewPanel({
   const loadedFilters = useFilterDefinitions(filterKinds, filterRetryKey);
   const filterDefinitions = filtersInPreview ? loadedFilters : undefined;
   const inputProps = useMemo(
-    () => ({ timeline, components, captionComponent, transitionComponents, filterDefinitions }),
-    [timeline, components, captionComponent, transitionComponents, filterDefinitions],
+    () => ({ timeline, components, captionComponent, transitionComponents, filterDefinitions, tracks }),
+    [timeline, components, captionComponent, transitionComponents, filterDefinitions, tracks],
   );
   const isEmpty = timeline.tracks.every((t) => t.clips.length === 0);
   const proxiesPending = proxyProgress.total - proxyProgress.ready;

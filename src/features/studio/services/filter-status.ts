@@ -1,16 +1,21 @@
 // What a filtered clip shows (docs/studio/FILTER_PACKS_DESIGN.md "UI" →
-// Timeline): the `fx` chip's tooltip and its one warning state — an entry
-// whose pack isn't installed (the clip plays plain until it comes back). The
-// join-status pattern, pure.
+// Timeline): the `fx` chip's tooltip and its warning states — an entry whose
+// pack isn't installed (the clip plays plain until it comes back), a tracked
+// filter whose analysis failed — and its progress state while the faces
+// track is being computed ("Analyzing faces… 43%"). The join-status
+// pattern, pure.
 
 import type { StudioFilterInfo } from '@shared/ipc/types';
 import type { FilterCategory, StudioTimeline } from '../types';
+import { analysisLabel, clipNeedsFaceTrack, clipSourceSpan, stateCovers, type AnalysisState } from './analysis-status';
 
-export type EffectWarning = 'not-installed';
+export type EffectWarning = 'not-installed' | 'analysis-failed';
 
 export const EFFECT_WARNING_TEXT: Record<EffectWarning, string> = {
   'not-installed':
     'Its pack isn’t installed, so this plays as the plain picture. It comes back when the pack is reinstalled.',
+  'analysis-failed':
+    'Face analysis failed for this clip’s source, so it plays as the plain picture. Re-apply the filter to try again.',
 };
 
 export interface EffectEntryStatus {
@@ -27,6 +32,8 @@ export interface EffectStatus {
   /** The enabled entries' names, for the chip: "Noir + VHS Club". */
   label: string;
   warning?: EffectWarning;
+  /** A tracked filter whose faces track is still being computed — the chip reads the message. */
+  analysis?: { percent: number; message: string };
 }
 
 /** Display name for a kind — the installed entry's, else the id, so the user can tell which pack to get. */
@@ -42,6 +49,8 @@ export function effectName(kind: string, installed: ReadonlyMap<string, StudioFi
 export function effectStatuses(
   timeline: StudioTimeline,
   installed: ReadonlyMap<string, StudioFilterInfo> | null,
+  /** Per asset id, the faces track's state (useAnalysisTracks); absent = no tracked filters in play. */
+  analysisOf?: (assetId: string) => AnalysisState | undefined,
 ): Map<string, EffectStatus> {
   const out = new Map<string, EffectStatus>();
   for (const track of timeline.tracks) {
@@ -63,6 +72,14 @@ export function effectStatuses(
         label: live.length > 0 ? live.map((e) => e.name).join(' + ') : 'off',
       };
       if (live.some((e) => !e.installed)) status.warning = 'not-installed';
+      else if (analysisOf && clip.assetId && clipNeedsFaceTrack(clip, installed)) {
+        const state = analysisOf(clip.assetId);
+        const need = { assetId: clip.assetId, assetKind: clip.kind === 'image' ? ('image' as const) : ('video' as const), spans: [clipSourceSpan(clip)] };
+        if (state?.status === 'error') status.warning = 'analysis-failed';
+        else if (!stateCovers(state, need)) {
+          status.analysis = { percent: state?.status === 'analyzing' ? Math.round(state.percent) : 0, message: analysisLabel(state?.status === 'analyzing' ? state : undefined) };
+        }
+      }
       out.set(clip.id, status);
     }
   }

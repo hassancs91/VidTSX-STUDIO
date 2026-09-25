@@ -42,6 +42,10 @@ async function runShutdown(): Promise<void> {
   // Kill any ffmpeg children generating Studio proxies/waveforms
   const { studioMediaJobs } = await import('./studio/media-jobs');
   studioMediaJobs.shutdown();
+  // The analysis utilityProcess (faces / masks) holds ONNX sessions and, on
+  // DirectML, the GPU; it is spawned lazily by the jobs above.
+  const { analysisEngine } = await import('../../analysis-engine/analysis-engine');
+  await analysisEngine.terminate();
   const { llmEngine } = await import('../../engine');
   llmEngine.abortAll();
 

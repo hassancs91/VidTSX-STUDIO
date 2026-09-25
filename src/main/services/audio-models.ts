@@ -4,14 +4,18 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { AUDIO_MODEL_CATALOG } from '../../audio-engine/model-registry';
 
-/** Cached folder path — set during init from settings */
-let aiModelsFolder = path.join(app.getPath('userData'), 'ai-models');
+/** Cached folder path — set during init from settings. Resolved on first
+ *  use rather than at import, so a module that merely imports this one (via
+ *  utils/paths.ts) never touches `app` at load time — unit tests mock
+ *  `electron` without it. */
+let aiModelsFolder: string | null = null;
 
 export function setAiModelsFolderPath(folder: string): void {
   aiModelsFolder = folder;
 }
 
 export function getAudioModelsDir(): string {
+  if (aiModelsFolder === null) aiModelsFolder = path.join(app.getPath('userData'), 'ai-models');
   return aiModelsFolder;
 }
 

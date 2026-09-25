@@ -1,3 +1,4 @@
+import type { StudioAnalysisMeta } from './studio-analysis';
 import type { StudioPresetUpdateProposal } from '../../types/studio-preset';
 import type {
   StudioAssetProbe,
@@ -252,9 +253,11 @@ export interface StudioCacheClearResponse {
 
 /**
  * Derived caches an asset can have. Proxies/waveforms are requested
- * automatically on open; transcripts ONLY by an explicit user action.
+ * automatically on open; transcripts ONLY by an explicit user action;
+ * analysis tracks (`faceTrack`) when a tracked filter is applied
+ * (docs/studio/FILTER_PACKS_DESIGN.md "Analysis tracks").
  */
-export type StudioMediaJobKind = 'proxy' | 'waveform' | 'transcript';
+export type StudioMediaJobKind = 'proxy' | 'waveform' | 'transcript' | 'faceTrack';
 
 export interface StudioMediaJobEvent {
   projectId: string;
@@ -270,6 +273,8 @@ export interface StudioMediaJobEvent {
   message?: string;
   /** Transcript jobs: document-ready metadata, present when 'ready'. */
   transcript?: StudioAssetTranscriptMeta;
+  /** Analysis jobs: what the track on disk covers and which provider ran, present when 'ready'. */
+  analysis?: StudioAnalysisMeta;
   error?: string;
 }
 

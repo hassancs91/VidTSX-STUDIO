@@ -2,6 +2,7 @@ import { useContext, useMemo } from 'react';
 import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Video as WebCodecsVideo } from '@remotion/media';
 import type { CaptionRuntimeProps, FilterDefinition, ShotRuntimeProps } from '../types/studio';
+import type { AnalysisTracks } from './face-track';
 import { resolveFilterChain } from './filter-chain';
 import { FilteredPicture, type FilteredMediaProps } from './FilteredPicture';
 import { getStudioMediaEngine, getStudioMediaLogLevel } from './media-engine';
@@ -21,6 +22,11 @@ interface ClipRendererProps {
    * module failed, the preview's filter toggle off — shows the plain picture.
    */
   filterDefinitions?: Readonly<Record<string, FilterDefinition>>;
+  /**
+   * Analysis tracks keyed by asset id (FILTER_PACKS_DESIGN.md "Analysis
+   * tracks"); a filtered clip hands `FilteredPicture` its own asset's.
+   */
+  tracks?: Readonly<Record<string, AnalysisTracks>>;
   /**
    * Edges of this clip a pack transition's window paints instead
    * (docs/studio/TRANSITION_PACKS_DESIGN.md "Structure A"). Only the PICTURE
@@ -134,7 +140,7 @@ function videoTag(
   );
 }
 
-export function ClipRenderer({ clip, components, captionComponent, filterDefinitions, cover, pictureOnly }: ClipRendererProps) {
+export function ClipRenderer({ clip, components, captionComponent, filterDefinitions, tracks, cover, pictureOnly }: ClipRendererProps) {
   // Frame relative to this clip's Sequence — drives the transition opacity.
   const frame = useCurrentFrame();
   const { width: compWidth, height: compHeight } = useVideoConfig();
@@ -144,6 +150,7 @@ export function ClipRenderer({ clip, components, captionComponent, filterDefinit
   // callback from the chain, and the video tag re-subscribes (and paints) on
   // every new callback identity.
   const chain = useMemo(() => resolveFilterChain(clip.effects, filterDefinitions), [clip.effects, filterDefinitions]);
+  const clipTracks = clip.assetId ? tracks?.[clip.assetId] : undefined;
   const style = transformStyle(clip);
   const opacityFactor = pictureOnly ? 1 : transitionOpacity(clip, frame);
   if (opacityFactor < 1) style.opacity = (style.opacity as number | undefined ?? 1) * opacityFactor;
@@ -179,7 +186,9 @@ export function ClipRenderer({ clip, components, captionComponent, filterDefinit
             kind="video"
             style={fill}
             sourceOffset={clip.trimBefore}
+            playbackRate={clip.playbackRate}
             chain={chain}
+            tracks={clipTracks}
             maxWidth={compWidth}
             maxHeight={compHeight}
             renderMedia={(media) => videoTag(videoProps, media)}
@@ -213,6 +222,7 @@ export function ClipRenderer({ clip, components, captionComponent, filterDefinit
             kind="image"
             style={fill}
             chain={chain}
+            tracks={clipTracks}
             maxWidth={compWidth}
             maxHeight={compHeight}
             renderMedia={({ onVideoFrame, style: fit }) => <Img src={src} style={fit} onImageFrame={onVideoFrame} />}

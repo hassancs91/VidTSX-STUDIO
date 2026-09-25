@@ -447,6 +447,9 @@ export const IPC = {
   // Studio — per-asset transcription (button-triggered) + auto-cut planning
   STUDIO_TRANSCRIBE_START: 'studio:transcribe:start',
   STUDIO_TRANSCRIBE_CANCEL: 'studio:transcribe:cancel',
+  // Analysis tracks for tracked filters (FILTER_PACKS_DESIGN.md "Analysis tracks").
+  STUDIO_ANALYSIS_REQUEST: 'studio:analysis:request',
+  STUDIO_ANALYSIS_CANCEL: 'studio:analysis:cancel',
   STUDIO_CUTPLAN_RUN: 'studio:cutplan:run',
   // Studio — editing agent (Assistant tab chat)
   STUDIO_AGENT_SEND: 'studio:agent:send',

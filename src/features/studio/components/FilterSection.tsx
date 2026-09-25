@@ -12,7 +12,9 @@ import type { StudioFilterInfo } from '@shared/ipc/types';
 import { resolveFilterParameters } from '@shared/studio/filter-runtime';
 import type { StudioClip, StudioClipEffect } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
+import { FACE_TRACK_REQUIREMENT } from '@shared/studio/filter-pack';
 import type { EffectParams } from '../services/effect-ops';
+import { analysisLabel, type AnalysisState } from '../services/analysis-status';
 import { EFFECT_WARNING_TEXT } from '../services/filter-status';
 import { EffectControls, RangeControl } from './EffectControls';
 
@@ -24,11 +26,13 @@ interface Props {
   dispatch: Dispatch<TimelineAction>;
   /** Ephemeral preview of a slider mid-drag; null clears it. */
   onLive: LiveEffectHandler;
+  /** The faces track's state for the clip's asset (FILTER_PACKS_DESIGN.md "Analysis tracks"). */
+  analysis?: AnalysisState;
 }
 
 const SLOT_LABEL = { filter: 'Filter', effect: 'Effect' } as const;
 
-export function FilterSection({ clip, installed, dispatch, onLive }: Props) {
+export function FilterSection({ clip, installed, dispatch, onLive, analysis }: Props) {
   const effects = clip.effects ?? [];
   if (effects.length === 0) {
     return (
@@ -40,7 +44,7 @@ export function FilterSection({ clip, installed, dispatch, onLive }: Props) {
   return (
     <div className="flex flex-col gap-3" data-filter-section={clip.id}>
       {effects.map((entry) => (
-        <EntryBlock key={entry.kind} clip={clip} entry={entry} info={installed?.get(entry.kind) ?? null} installed={installed} dispatch={dispatch} onLive={onLive} />
+        <EntryBlock key={entry.kind} clip={clip} entry={entry} info={installed?.get(entry.kind) ?? null} installed={installed} dispatch={dispatch} onLive={onLive} analysis={analysis} />
       ))}
     </div>
   );
@@ -53,6 +57,7 @@ function EntryBlock({
   installed,
   dispatch,
   onLive,
+  analysis,
 }: {
   clip: StudioClip;
   entry: StudioClipEffect;
@@ -60,7 +65,9 @@ function EntryBlock({
   installed: ReadonlyMap<string, StudioFilterInfo> | null;
   dispatch: Dispatch<TimelineAction>;
   onLive: LiveEffectHandler;
+  analysis?: AnalysisState;
 }) {
+  const tracked = info?.requires.includes(FACE_TRACK_REQUIREMENT) ?? false;
   const defaults = info ? { intensity: info.defaultIntensity, parameters: info.parameters } : undefined;
   const intensity = typeof entry.params?.intensity === 'number' ? entry.params.intensity : info?.defaultIntensity ?? 1;
   const values = useMemo(() => (info ? resolveFilterParameters({ parameters: info.parameters }, entry.params) : {}), [info, entry.params]);
@@ -107,6 +114,15 @@ function EntryBlock({
 
       {!info && installed && (
         <div className="text-[10px] text-accent-amber leading-relaxed">{EFFECT_WARNING_TEXT['not-installed']}</div>
+      )}
+      {tracked && !entry.disabled && analysis?.status !== 'ready' && (
+        <div
+          className={`text-[10px] leading-relaxed ${analysis?.status === 'error' ? 'text-accent-amber' : 'text-text-dim'}`}
+          data-effect-analysis={analysis?.status ?? 'pending'}
+        >
+          {analysisLabel(analysis)}
+          {analysis?.status !== 'error' && ' — the clip plays plain until the track lands.'}
+        </div>
       )}
 
       {info && (

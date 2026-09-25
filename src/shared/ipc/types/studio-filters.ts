@@ -21,6 +21,9 @@ export interface StudioFilterInfo {
   presets: FilterPreset[];
   /** Slow enough for the card to say so — informational, not a warning. */
   heavy: boolean;
+  /** Per-frame analysis the item needs ('faceTrack', …) — the editor queues
+   *  the matching job when it is applied (FILTER_PACKS_DESIGN.md "Analysis tracks"). */
+  requires: string[];
   version: string;
   tier?: string;
   tagline?: string;
