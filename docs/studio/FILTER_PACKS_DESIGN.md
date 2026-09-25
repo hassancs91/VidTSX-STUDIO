@@ -77,6 +77,27 @@
 >    ships `heavy: true` on the lab's ~100 ms figure, but the P6 bench paints
 >    it in ~25 ms at 1080p on this machine (comic, the badged one, ~100 ms):
 >    Hasan's call whether to drop it (one `pack.json` flag + one test line).
+>    Added by the faces track (2026-09-25): **a Cancel for a running analysis**
+>    (the IPC `studio:analysis:cancel` exists, no button on the chip or in
+>    the Inspector — a long clip can only be waited out or the filter
+>    removed); **a Settings row for the analysis models** (they download
+>    silently into `<ai-models>/analysis/`; nothing lists, sizes, deletes or
+>    re-fetches them — every other downloaded model has a row); a
+>    multi-selection Inspector (the panel applies to many clips, the
+>    Inspector edits one); a smoothing pass over the track (jitter was
+>    acceptable on the spike clip; a fast head turn on a long clip has not
+>    been looked at); the chip shows the analysis text only on clips ≥ 200 px.
+>    **Ship gate (decided with Hasan 2026-09-25): filters ship after the
+>    masks track + the Cancel button.** Everything else in this list stays
+>    debt. Shipping also means: flip `studio-filters` in
+>    `src/shared/feature-flags.ts` (a dev-preview: on in dev, OFF in
+>    production today — the engine is not behind it, the tabs and Inspector
+>    are); one packaged-build smoke (`npm run build:win`) for the analysis
+>    worker's DLL probe under `app.asar.unpacked` and the DirectML DLLs the
+>    installer now carries — the live pass ran in dev only; and deciding
+>    where Volume 01 / 02 are published (they live outside git in
+>    `../vidtsx-addons/dist/` and the kit — the installer ships core's three,
+>    the volumes reach users as `.vidtsxpack` files).
 > 5. **Verification rules:** re-run the P0 harness (`node run.mjs 30,100,200,300
 >    --runs=1` then md5-compare `out/filtered-run1/` with `out/proto-run1/`)
 >    after any edit to `FilteredPicture.tsx`, `filter-runtime.ts`,
