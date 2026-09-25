@@ -8,7 +8,7 @@
 > "P6 results". Slice 1 is complete, content included; the tracked nine have
 > their own section, "Analysis tracks"; its ONNX spike ran 2026-09-24 —
 > GO, see "Spike results". Slice 2, the FACES TRACK, is BUILT and verified
-> live 2026-09-24 (uncommitted) — see "As built (faces track)" and "Faces
+> live 2026-09-24, COMMITTED 2026-09-25 (f531b98) — see "As built (faces track)" and "Faces
 > track results"; the five face filters ship as Volume 02.** This is
 > NEXT_FEATURES_DESIGN.md row 10 (Q8c "effects") started from the other end:
 > 22 authored, machine-verified filters already exist in the sibling repo
@@ -52,8 +52,8 @@
 >    `models/source.json`, never in `resources/`). The `requires` gate is
 >    wired end to end, so the build starts on the analysis side, in this
 >    order — **not before Hasan says so**:
->    - **Faces track — DONE 2026-09-24 (uncommitted; the repo diff is the
->      F1–F5 code + this doc; the pack lives outside git).** `faceTrack`
+>    - **Faces track — DONE 2026-09-24, COMMITTED 2026-09-25 as f531b98
+>      (the pack lives outside git).** `faceTrack`
 >      job + the analysis utilityProcess + the raw-RGB ffmpeg feed + the
 >      YuNet / mesh / `faceFromLandmarks` glue + the JSON track + the
 >      `tracks` prop + the opened gate + chip / export refusal; Volume 02
@@ -1169,7 +1169,7 @@ step 3 points here):
 3. **Content — S.** The tracked nine as a Volume 02 (or into Volume 01 with
    `requires`) through the P6 builder.
 
-### As built (faces track, 2026-09-24, uncommitted)
+### As built (faces track, 2026-09-24, committed 2026-09-25 as f531b98)
 
 Where the build differs from the text above, this list wins. Everything in
 `src/` here is new or additive; nothing in the add-ons repo changed; no
