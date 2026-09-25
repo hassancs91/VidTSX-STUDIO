@@ -491,6 +491,7 @@ export interface ElectronAPI {
   studioTranscribeCancel: (data: import('../../shared/ipc/types').StudioTranscribeCancelRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeCancelResponse>;
   studioAnalysisRequest: (data: import('../../shared/ipc/types').StudioAnalysisRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisResponse>;
   studioAnalysisCancel: (data: import('../../shared/ipc/types').StudioAnalysisCancelRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisCancelResponse>;
+  studioAnalysisReadMask: (data: import('../../shared/ipc/types').StudioAnalysisReadMaskRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisReadMaskResponse>;
   studioCutPlanRun: (data: import('../../shared/ipc/types').StudioCutPlanRunRequest) => Promise<import('../../shared/ipc/types').StudioCutPlanRunResponse>;
   studioAgentSend: (data: import('../../shared/ipc/types').StudioAgentSendRequest) => Promise<import('../../shared/ipc/types').StudioAgentSendResponse>;
   studioShotsReconcile: (data: import('../../shared/ipc/types').StudioShotsReconcileRequest) => Promise<import('../../shared/ipc/types').StudioShotsReconcileResponse>;

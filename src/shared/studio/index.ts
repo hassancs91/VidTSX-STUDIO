@@ -1,4 +1,6 @@
 export { TimelineComposition } from './TimelineComposition';
+// The export entry builds the render host's mask readers (export-tracks.ts).
+export { createMaskReader, httpRangeFetcher } from './mask-reader';
 export type { TimelineCompositionProps } from './TimelineComposition';
 export { CAPTION_TRACK_ID, serializeTimeline } from './serialize';
 export type {

@@ -126,11 +126,13 @@ describe('parseFilterEntries', () => {
   it('keeps foreign requirements so the loader can hold the item back', () => {
     const [entry] = parseFilterEntries([{ id: 'puppy', requires: ['faceTrack', 7, ''] }]);
     expect(entry.requires).toEqual(['faceTrack']);
-    // The faces track ships (FILTER_PACKS_DESIGN.md "Analysis tracks"); the
-    // masks track does not yet, so a subject filter is still held back.
+    // Both tracks ship (FILTER_PACKS_DESIGN.md "Analysis tracks"): faces and
+    // subject masks. Anything else — here a made-up 'depthMap' — is held back.
     expect(isFilterSupported(entry)).toBe(true);
-    expect(isFilterSupported({ requires: ['subjectMask'] })).toBe(false);
-    expect(isFilterSupported({ requires: ['faceTrack', 'subjectMask'] })).toBe(false);
+    expect(isFilterSupported({ requires: ['subjectMask'] })).toBe(true);
+    expect(isFilterSupported({ requires: ['faceTrack', 'subjectMask'] })).toBe(true);
+    expect(isFilterSupported({ requires: ['depthMap'] })).toBe(false);
+    expect(isFilterSupported({ requires: ['subjectMask', 'depthMap'] })).toBe(false);
     expect(isFilterSupported({ requires: [] })).toBe(true);
   });
 });

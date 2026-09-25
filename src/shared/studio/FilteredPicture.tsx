@@ -21,9 +21,16 @@
 // P0 (2026-09-18) measured the first prototype at 12–14 fps in the Player:
 // it painted every frame up to three times (callback + layout effect +
 // settle) at full source size. This shape is what the re-measure tests.
+//
+// Subject masks (FILTER_PACKS_DESIGN.md "As built (masks track)"): a chain
+// with a subject-tracking stage reads `tracks.masks` at the frame's SOURCE
+// time. The reader decodes windows of frames asynchronously, so the Player
+// paints plain until a window lands and repaints then; the render host holds
+// the frame (`delayRender`) until its mask is decoded — the export never
+// captures a frame whose mask was still on its way.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties, type ReactNode } from 'react';
-import { useCurrentFrame, useRemotionEnvironment, useVideoConfig } from 'remotion';
+import { useCurrentFrame, useDelayRender, useRemotionEnvironment, useVideoConfig } from 'remotion';
 import type { FilterDefinition } from '../types/studio-effects';
 import { facesAt, type AnalysisTracks } from './face-track';
 import { createFilterRenderer, filterSourceSize, type FilterRenderer } from './filter-runtime';
@@ -55,7 +62,9 @@ export interface FilteredPictureProps {
    * The clip's asset's analysis tracks (docs/studio/FILTER_PACKS_DESIGN.md
    * "Analysis tracks"): the faces at each frame's SOURCE time, looked up
    * within half a frame. Absent or without a frame at that time, the chain
-   * gets `faces: []` and a face filter paints the unchanged picture.
+   * gets `faces: []` and a face filter paints the unchanged picture. The
+   * subject mask the same way, through `tracks.masks` (a reader): a frame
+   * without one gets no `subjectMask` and a subject filter paints plain.
    */
   tracks?: AnalysisTracks;
   /** The composition size: the working canvas never exceeds it. */
@@ -120,6 +129,10 @@ export function FilteredPicture({
   const frameRef = useRef(frame);
   frameRef.current = frame;
   const { box, fit } = useMemo(() => splitStyle(style), [style]);
+  const { delayRender, continueRender } = useDelayRender();
+  // The mask reader, only when a stage consumes it (a face-only chain never
+  // waits on a mask the asset may also carry).
+  const masks = useMemo(() => (chain.some((stage) => stage.definition.subjectTracking) ? tracks?.masks : undefined), [chain, tracks]);
 
   const paint = useCallback(
     (source: CanvasImageSource) => {
@@ -147,7 +160,13 @@ export function FilteredPicture({
       // the track is keyed by. The filter clock above stays at rate 1 (v1).
       const sourceTime = ((sourceOffset ?? 0) + frameRef.current * (playbackRate ?? 1)) / fps;
       const faces = tracks?.faces ? facesAt(tracks.faces, sourceTime) : undefined;
+      // The mask is normalised to the whole frame; each stage's source is a
+      // different size (the media, then the previous canvas — same aspect),
+      // so `sourceWidth/Height` are relabelled per stage and `time` is this
+      // frame's source time (the lookup matched it within half a frame).
+      const mask = masks?.maskAt(sourceTime) ?? null;
       let input: CanvasImageSource = source;
+      let inputDims = dims;
       chain.forEach((stage, i) => {
         const { canvas, renderer } = stages.current[i];
         if (canvas.width !== w || canvas.height !== h) {
@@ -160,12 +179,16 @@ export function FilteredPicture({
           time,
           sourceTime,
           ...(faces ? { faces } : {}),
+          ...(mask
+            ? { subjectMask: { data: mask.data, width: mask.width, height: mask.height, sourceWidth: inputDims.width, sourceHeight: inputDims.height, time: sourceTime } }
+            : {}),
           options: { ...(typeof intensity === 'number' ? { intensity } : {}), parameters },
         });
         input = canvas;
+        inputDims = { width: w, height: h };
       });
     },
-    [chain, fps, isRendering, maxWidth, maxHeight, previewMaxSide, sourceOffset, playbackRate, tracks],
+    [chain, fps, isRendering, maxWidth, maxHeight, previewMaxSide, sourceOffset, playbackRate, tracks, masks],
   );
 
   // The media tag hands over a frame: the render host's <img> for THIS frame,
@@ -205,6 +228,33 @@ export function FilteredPicture({
     paint(source);
     if (source instanceof HTMLVideoElement) settle.current = SETTLE_FRAMES;
   });
+
+  // Render host: hold this frame until its mask is decoded, then repaint
+  // from the element (if the media's own frame hook already painted, it
+  // painted without the mask; if not, it paints with it when it fires). The
+  // reader's load never rejects, so the handle is always released.
+  useLayoutEffect(() => {
+    if (!isRendering || !masks) return;
+    const sourceTime = ((sourceOffset ?? 0) + frame * (playbackRate ?? 1)) / fps;
+    if (masks.state(sourceTime) !== 'pending') return;
+    const handle = delayRender(`Subject mask at ${sourceTime.toFixed(3)} s`);
+    let current = true;
+    void masks.load(sourceTime).then(() => {
+      if (current && isDrawable(lastSource.current)) paint(lastSource.current);
+      continueRender(handle);
+    });
+    return () => {
+      current = false;
+    };
+  }, [isRendering, masks, frame, fps, sourceOffset, playbackRate, paint, delayRender, continueRender]);
+
+  // Player: a window of masks landed — repaint the frame on screen with it.
+  useEffect(() => {
+    if (isRendering || !masks) return;
+    return masks.subscribe(() => {
+      if (isDrawable(lastSource.current)) paint(lastSource.current);
+    });
+  }, [isRendering, masks, paint]);
 
   // Player only: the settle repaints, and — before the first callback — the
   // element itself as soon as it holds a frame.

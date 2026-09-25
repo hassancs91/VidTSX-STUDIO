@@ -52,7 +52,8 @@ async function writePack(
           id,
           name: id,
           category: 'filter',
-          ...(options.tracked?.includes(id) ? { requires: ['subjectMask'] } : {}),
+          // A requirement this build cannot supply (both real tracks ship).
+          ...(options.tracked?.includes(id) ? { requires: ['depthMap'] } : {}),
           ...options.entry,
         })),
         ...options.extra,

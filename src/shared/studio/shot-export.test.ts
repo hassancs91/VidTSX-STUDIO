@@ -8,6 +8,7 @@ import {
   shotEntryRef,
   transitionEntryRefs,
   filterEntryRefs,
+  maskEntryRefs,
 } from './shot-export';
 
 function shot(overrides: Partial<StudioShot> = {}): StudioShot {
@@ -136,5 +137,17 @@ describe('filterEntryRefs (FILTER_PACKS_DESIGN.md)', () => {
     expect(a.fileName).not.toBe(b.fileName);
     expect(a.identifier).not.toBe(b.identifier);
     expect(filterEntryRefs(['core/noir'], 'p1')[0].fileName).not.toBe(transitionEntryRefs(['core/noir'], 'p1')[0].fileName);
+  });
+});
+
+describe('mask entry refs (masks track)', () => {
+  it('names the index import and the blob copy under the sweeper prefix, one per asset', () => {
+    const refs = maskEntryRefs(['asset-talk', 'a/b'], 'proj');
+    expect(refs[0]).toEqual({
+      index: { shotId: 'asset-talk', identifier: 'MaskIndex_0', fileName: 'studio-entry-proj-mask-asset-talk.json' },
+      blobFileName: 'studio-entry-proj-mask-asset-talk.bin',
+    });
+    expect(refs[1].index.fileName).toBe('studio-entry-proj-mask-a_b.json');
+    expect(refs.every((r) => r.index.fileName.startsWith('studio-entry-') && r.blobFileName.startsWith('studio-entry-'))).toBe(true);
   });
 });

@@ -450,6 +450,7 @@ export const IPC = {
   // Analysis tracks for tracked filters (FILTER_PACKS_DESIGN.md "Analysis tracks").
   STUDIO_ANALYSIS_REQUEST: 'studio:analysis:request',
   STUDIO_ANALYSIS_CANCEL: 'studio:analysis:cancel',
+  STUDIO_ANALYSIS_READ_MASK: 'studio:analysis:read-mask',
   STUDIO_CUTPLAN_RUN: 'studio:cutplan:run',
   // Studio — editing agent (Assistant tab chat)
   STUDIO_AGENT_SEND: 'studio:agent:send',

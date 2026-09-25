@@ -7,11 +7,19 @@
 // RGB24 with nothing to decode — the harness's PNG route was only ever a way
 // around the missing muxer. Frames are scaled to the analysis size (short
 // side ≤ 512, even dimensions, computed here so the byte count per frame is
-// known) and handed over one at a time with backpressure: ffmpeg's stdout is
-// paused while a frame is being analysed.
+// known) and handed over one at a time with backpressure: ffmpeg decodes
+// the next frame while one is being analysed (READ_AHEAD frames buffered at
+// most), then waits on its paused stdout.
 
 import { spawn } from 'child_process';
 import os from 'os';
+
+/**
+ * Frames decoded ahead of the one being analysed. 1 = the next frame's decode
+ * overlaps this frame's analysis (measured 2026-09-25 in the app: without it
+ * the masks job waited 17–59 ms a frame on ffmpeg after every inference).
+ */
+const READ_AHEAD = 1;
 
 /** The short side the analysis runs at (MODNet's reference rule; faces are fine at it). */
 export const ANALYSIS_MAX_SHORT_SIDE = 512;
@@ -29,6 +37,12 @@ export interface FrameFeedOptions {
   fps: number;
   /** One frame from an image file. */
   still?: boolean;
+  /**
+   * The exact output size (both sides even), when the model wants one —
+   * MODNet's input is the short side at 512 / 352 rounded to /32. Default:
+   * `analysisFrameSize` (short side <= 512, the aspect kept).
+   */
+  size?: { width: number; height: number };
   signal?: AbortSignal;
 }
 
@@ -74,7 +88,7 @@ export async function streamAnalysisFrames(
   options: FrameFeedOptions,
   onFrame: (rgb: Uint8Array, index: number, size: { width: number; height: number }) => Promise<void>,
 ): Promise<number> {
-  const size = analysisFrameSize(options.inputWidth, options.inputHeight);
+  const size = options.size ?? analysisFrameSize(options.inputWidth, options.inputHeight);
   const frameBytes = size.width * size.height * 3;
   const args = frameFeedArgs(options, size);
 
@@ -110,13 +124,15 @@ export async function streamAnalysisFrames(
       if (!closed) proc.kill();
     };
 
-    // Frames are handed over strictly one at a time; ffmpeg waits on its pipe
-    // (paused stdout) while a frame is being analysed.
+    // Frames are handed over strictly one at a time; ffmpeg keeps decoding
+    // until READ_AHEAD frames wait behind the one being analysed, then waits
+    // on its pipe (paused stdout).
     const drain = async () => {
       if (busy) return;
       busy = true;
       while (queue.length > 0 && !failed) {
         const rgb = queue.shift()!;
+        if (queue.length < READ_AHEAD && !closed) proc.stdout.resume();
         try {
           await onFrame(new Uint8Array(rgb.buffer, rgb.byteOffset, rgb.length), index++, size);
         } catch (err) {
@@ -141,10 +157,9 @@ export async function streamAnalysisFrames(
           filled = 0;
         }
       }
-      if (queue.length > 0) {
-        proc.stdout.pause();
-        void drain();
-      }
+      // Waiting frames = the queue minus the one drain is about to take.
+      if (queue.length >= READ_AHEAD + (busy ? 0 : 1)) proc.stdout.pause();
+      if (queue.length > 0) void drain();
     });
 
     const onAbort = () => fail(new Error('Cancelled'));

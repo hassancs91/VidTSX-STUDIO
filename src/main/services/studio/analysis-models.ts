@@ -7,7 +7,7 @@
 //
 // No Settings surface: the app has no generic local-model screen for ONNX
 // files, so a job reports the download as its own progress ("Downloading
-// face models… 43 %") and the models folder sits beside the other
+// face models… 43 %", "Downloading subject model… 12 %") and the models folder sits beside the other
 // downloaded models (paths.ts `getAnalysisModelsDir`).
 
 import fs from 'fs/promises';
@@ -72,7 +72,7 @@ async function download(id: AnalysisModelId, filePath: string, onProgress: Model
       },
       (progress) => {
         if (progress.status === 'downloading' && progress.percent >= 0) {
-          onProgress?.(progress.percent, `Downloading face models (${spec.file})… ${Math.round(progress.percent)}%`);
+          onProgress?.(progress.percent, `Downloading ${spec.label} (${spec.file})… ${Math.round(progress.percent)}%`);
         } else if (progress.status === 'verifying') {
           onProgress?.(100, `Verifying ${spec.file}…`);
         }

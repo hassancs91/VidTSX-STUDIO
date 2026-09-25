@@ -6,8 +6,8 @@
 // `resources/`), and integrity-checked before every load the way the Content
 // Safety classifier is (`image-safety.ts`).
 //
-// One manifest for the three, though masks come later: the faces job asks
-// for its two by id.
+// One manifest for the three: the faces job asks for its two by id, the
+// masks job for MODNet.
 //
 // No `electron` import — the hash helpers are unit-tested in plain Node.
 
@@ -21,6 +21,8 @@ export interface AnalysisModelSpec {
   id: AnalysisModelId;
   /** File name inside the models folder. */
   file: string;
+  /** What a job's download progress calls it ("Downloading face models (…)"). */
+  label: string;
   url: string;
   sha256: string;
   bytes: number;
@@ -32,6 +34,7 @@ export const ANALYSIS_MODELS: readonly AnalysisModelSpec[] = [
   {
     id: 'yunet',
     file: 'yunet-2023mar.onnx',
+    label: 'face models',
     url: 'https://github.com/opencv/opencv_zoo/raw/main/models/face_detection_yunet/face_detection_yunet_2023mar.onnx',
     sha256: '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4',
     bytes: 232589,
@@ -41,6 +44,7 @@ export const ANALYSIS_MODELS: readonly AnalysisModelSpec[] = [
   {
     id: 'face-mesh',
     file: 'face-mesh.onnx',
+    label: 'face models',
     url: 'https://huggingface.co/senty-au/face_landmarks_detector-ONNX/resolve/main/onnx/model.onnx',
     sha256: '7d6e82dee82a1dca5fbddb282b3cc74571833a530de317fc22ae325c3358beeb',
     // 4 920 995 measured (sha256 verified) — the spike harness's source.json recorded 4 924 169 by mistake.
@@ -53,6 +57,7 @@ export const ANALYSIS_MODELS: readonly AnalysisModelSpec[] = [
   {
     id: 'modnet',
     file: 'modnet.onnx',
+    label: 'subject model',
     url: 'https://huggingface.co/Xenova/modnet/resolve/main/onnx/model.onnx',
     sha256: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9',
     bytes: 25888640,
@@ -63,6 +68,9 @@ export const ANALYSIS_MODELS: readonly AnalysisModelSpec[] = [
 
 /** The two the faces track needs. */
 export const FACE_MODEL_IDS: readonly AnalysisModelId[] = ['yunet', 'face-mesh'];
+
+/** The one the masks track needs. */
+export const SUBJECT_MODEL_IDS: readonly AnalysisModelId[] = ['modnet'];
 
 export function analysisModel(id: AnalysisModelId): AnalysisModelSpec {
   const spec = ANALYSIS_MODELS.find((m) => m.id === id);

@@ -79,6 +79,19 @@ export function trackEntryRefs(assetIds: readonly string[], projectId: string): 
   }));
 }
 
+/**
+ * The masks track beside the entry (FILTER_PACKS_DESIGN.md "As built (masks
+ * track)"): the index as JSON, statically imported (`MaskIndex_<n>`), and
+ * the blobs as `.bin` — read by the render host from the asset server, never
+ * bundled.
+ */
+export function maskEntryRefs(assetIds: readonly string[], projectId: string): { index: ShotEntryRef; blobFileName: string }[] {
+  return assetIds.map((assetId, index) => {
+    const base = `studio-entry-${projectId}-mask-${assetId.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+    return { index: { shotId: assetId, identifier: `MaskIndex_${index}`, fileName: `${base}.json` }, blobFileName: `${base}.bin` };
+  });
+}
+
 export function kitEntryDirName(projectId: string, kitVersion: string): string {
   return `studio-entry-${projectId}-kit-${kitVersion}`;
 }

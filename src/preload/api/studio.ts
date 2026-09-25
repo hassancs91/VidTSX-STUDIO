@@ -113,6 +113,8 @@ import type {
   StudioAnalysisResponse,
   StudioAnalysisCancelRequest,
   StudioAnalysisCancelResponse,
+  StudioAnalysisReadMaskRequest,
+  StudioAnalysisReadMaskResponse,
   StudioTranscribeStartRequest,
   StudioTranscribeStartResponse,
 } from '../../shared/ipc/types';
@@ -181,6 +183,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_ANALYSIS_REQUEST, data),
   studioAnalysisCancel: (data: StudioAnalysisCancelRequest): Promise<StudioAnalysisCancelResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_ANALYSIS_CANCEL, data),
+  studioAnalysisReadMask: (data: StudioAnalysisReadMaskRequest): Promise<StudioAnalysisReadMaskResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_ANALYSIS_READ_MASK, data),
   studioCutPlanRun: (data: StudioCutPlanRunRequest): Promise<StudioCutPlanRunResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CUTPLAN_RUN, data),
   studioAgentSend: (data: StudioAgentSendRequest): Promise<StudioAgentSendResponse> =>

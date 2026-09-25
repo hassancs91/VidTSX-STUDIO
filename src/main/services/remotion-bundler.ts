@@ -98,6 +98,9 @@ async function ensureServer(): Promise<number> {
         '.woff', '.woff2', '.ttf', '.otf',
         // data
         '.json', '.txt', '.csv', '.xml', '.md',
+        // subject-mask blobs the render host reads by range (FILTER_PACKS_DESIGN.md
+        // "As built (masks track)")
+        '.bin',
       ];
       if (!allowedExtensions.includes(ext)) {
         return res.status(400).send('Invalid file type');

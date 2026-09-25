@@ -10,20 +10,28 @@
 // tests share it. No DOM, no Node.
 
 import type { FilterFace, FilterPoint } from '../types/studio-effects';
+import {
+  mergeSpans,
+  nearestFrameIndex,
+  parseTrackSpans,
+  roundTrackTime,
+  sameTrackRecipe,
+  type AnalysisProvider,
+  type TrackSpan,
+} from './analysis-track';
+import type { MaskReader } from './mask-reader';
+
+// The span helpers moved to analysis-track.ts (shared with the masks track);
+// re-exported so the faces code keeps its imports.
+export { mergeSpans, missingSpans, roundTrackTime, settledSpanEnd, spansCovered } from './analysis-track';
+export type { AnalysisProvider, TrackSpan } from './analysis-track';
 
 export const FACE_TRACK_VERSION = 1;
 export const FACE_TRACK_FILE = 'faces-v1.json';
 /** Coordinates and sizes are stored to this many decimals (~0.1 px at 1080p). */
 export const FACE_TRACK_DECIMALS = 4;
-/** Frame times are stored to this many decimals — far below half a frame at any rate. */
-const TIME_DECIMALS = 5;
 /** Up to this many faces per frame are stored (the largest first, by detector score). */
 export const FACE_TRACK_MAX_FACES = 4;
-
-export type AnalysisProvider = 'dml' | 'cpu';
-
-/** A closed range of source seconds `[start, end]`. */
-export type TrackSpan = [start: number, end: number];
 
 /** Cache-relative path of an asset's faces track (forward slashes — it goes over IPC). */
 export function faceTrackRelPath(assetId: string): string {
@@ -59,17 +67,21 @@ export interface FaceTrack extends FaceTrackHeader {
   frames: FaceTrackFrame[];
 }
 
-/** What a clip's `FilteredPicture` gets for its asset. Masks join later. */
+/** What a clip's `FilteredPicture` gets for its asset. */
 export interface AnalysisTracks {
   faces?: FaceTrack;
+  /**
+   * The subject mask per source frame (mask-track.ts): a reader over the
+   * deflated blobs — the Player's reads its bytes over IPC, the export's
+   * from the asset server (FILTER_PACKS_DESIGN.md "As built (masks track)").
+   */
+  masks?: MaskReader;
 }
 
 const round = (value: number, decimals: number): number => {
   const f = 10 ** decimals;
   return Math.round(value * f) / f;
 };
-
-export const roundTrackTime = (t: number): number => round(t, TIME_DECIMALS);
 
 const roundPoint = (p: FilterPoint): FilterPoint => ({ x: round(p.x, FACE_TRACK_DECIMALS), y: round(p.y, FACE_TRACK_DECIMALS) });
 
@@ -90,64 +102,6 @@ export function roundFace(face: FilterFace): FilterFace {
     out.mouthOpen = round(face.mouthOpen, FACE_TRACK_DECIMALS);
   }
   return out;
-}
-
-// ---- spans ------------------------------------------------------------------
-
-/** Sorted union of spans; two spans closer than `gap` seconds join. */
-export function mergeSpans(spans: readonly TrackSpan[], gap = 0): TrackSpan[] {
-  const sorted = spans
-    .filter((s) => Number.isFinite(s[0]) && Number.isFinite(s[1]) && s[1] >= s[0])
-    .map((s): TrackSpan => [s[0], s[1]])
-    .sort((a, b) => a[0] - b[0]);
-  const out: TrackSpan[] = [];
-  for (const span of sorted) {
-    const last = out[out.length - 1];
-    if (last && span[0] <= last[1] + gap) last[1] = Math.max(last[1], span[1]);
-    else out.push(span);
-  }
-  return out;
-}
-
-/**
- * The parts of `wanted` that `covered` does not contain, each shrunk by
- * nothing and widened by nothing: the caller decides the margin. A wanted
- * span is satisfied when a covered span reaches within `tolerance` of both
- * of its ends (one frame at the track's rate, so a trim by a fraction of a
- * frame never re-queues a job).
- */
-export function missingSpans(covered: readonly TrackSpan[], wanted: readonly TrackSpan[], tolerance: number): TrackSpan[] {
-  const have = mergeSpans(covered);
-  const out: TrackSpan[] = [];
-  for (const want of mergeSpans(wanted)) {
-    let cursor = want[0];
-    for (const span of have) {
-      if (span[1] < cursor - tolerance) continue;
-      if (span[0] > want[1] + tolerance) break;
-      if (span[0] > cursor + tolerance) out.push([cursor, Math.min(span[0], want[1])]);
-      cursor = Math.max(cursor, span[1]);
-      if (cursor >= want[1] - tolerance) break;
-    }
-    if (cursor < want[1] - tolerance) out.push([cursor, want[1]]);
-  }
-  return out;
-}
-
-/**
- * The end of the span one run settles: the last frame it got, and never
- * before the end that was asked for — a feed that stops early has reached
- * the source's last frame (a probed duration can sit a frame past it), so
- * asking again would loop on a tail that does not exist (met live
- * 2026-09-24: a 39.385 s probe on a source whose last frame is at 39.333 s
- * re-ran the job every second until this rule).
- */
-export function settledSpanEnd(wantedEnd: number, start: number, frames: number, fps: number): number {
-  return Math.max(wantedEnd, start + Math.max(0, frames - 1) / fps);
-}
-
-/** True when every wanted span is inside the covered ones (within `tolerance`). */
-export function spansCovered(covered: readonly TrackSpan[], wanted: readonly TrackSpan[], tolerance: number): boolean {
-  return missingSpans(covered, wanted, tolerance).length === 0;
 }
 
 // ---- the file ---------------------------------------------------------------
@@ -173,16 +127,6 @@ function parseFace(raw: unknown): FilterFace | null {
   return face;
 }
 
-function parseSpans(raw: unknown): TrackSpan[] | null {
-  if (!Array.isArray(raw)) return null;
-  const spans: TrackSpan[] = [];
-  for (const s of raw) {
-    if (!Array.isArray(s) || s.length !== 2 || !finite(s[0]) || !finite(s[1]) || s[1] < s[0]) return null;
-    spans.push([s[0], s[1]]);
-  }
-  return spans;
-}
-
 /**
  * A track file's JSON → a `FaceTrack`, or null when it is not one this build
  * reads (wrong version, a malformed frame): the clip then plays plain and the
@@ -194,7 +138,7 @@ export function parseFaceTrack(raw: unknown): FaceTrack | null {
   if (doc.version !== FACE_TRACK_VERSION || doc.kind !== 'faces') return null;
   const source = doc.source as Record<string, unknown> | undefined;
   if (!source || !finite(source.width) || !finite(source.height) || !finite(doc.fps) || doc.fps <= 0) return null;
-  const spans = parseSpans(doc.spans);
+  const spans = parseTrackSpans(doc.spans);
   if (!spans) return null;
   if (doc.ep !== 'dml' && doc.ep !== 'cpu') return null;
   if (typeof doc.models !== 'object' || doc.models === null) return null;
@@ -230,10 +174,7 @@ export function parseFaceTrack(raw: unknown): FaceTrack | null {
 
 /** True when `existing` was made the same way `header` asks for — else it is discarded and rebuilt. */
 export function faceTrackCompatible(existing: Pick<FaceTrackHeader, 'fps' | 'models' | 'static'>, header: Pick<FaceTrackHeader, 'fps' | 'models' | 'static'>): boolean {
-  if (existing.fps !== header.fps || (existing.static ?? false) !== (header.static ?? false)) return false;
-  const keys = new Set([...Object.keys(existing.models), ...Object.keys(header.models)]);
-  for (const key of keys) if (existing.models[key] !== header.models[key]) return false;
-  return true;
+  return sameTrackRecipe(existing, header);
 }
 
 /**
@@ -275,18 +216,6 @@ const NO_FACES: readonly FilterFace[] = Object.freeze([]);
  */
 export function facesAt(track: FaceTrack, time: number): readonly FilterFace[] {
   const frames = track.frames;
-  if (frames.length === 0 || !Number.isFinite(time)) return NO_FACES;
-  if (track.static) return frames[0].faces;
-  let lo = 0;
-  let hi = frames.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (frames[mid].t < time) lo = mid + 1;
-    else hi = mid;
-  }
-  let best = frames[lo];
-  if (lo > 0 && Math.abs(frames[lo - 1].t - time) < Math.abs(best.t - time)) best = frames[lo - 1];
-  // Half a frame plus a hair, so a time that lands exactly between two frames
-  // (float rounding on either side) still resolves.
-  return Math.abs(best.t - time) <= 0.5 / track.fps + 1e-6 ? best.faces : NO_FACES;
+  const i = nearestFrameIndex(frames.length, (k) => frames[k].t, track.fps, time, track.static);
+  return i < 0 ? NO_FACES : frames[i].faces;
 }

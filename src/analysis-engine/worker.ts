@@ -4,6 +4,7 @@ import { existsSync } from 'fs';
 import { faceFromLandmarks } from '../shared/studio/face-landmarks';
 import type { FilterFace } from '../shared/types/studio-effects';
 import { meshInputFrom, meshPointsFrom, MESH_INPUT, MESH_POINTS, presenceFromLogit, roiFromDetection, roiFromPoints } from './face-mesh';
+import { matteToMask, modnetInputFrom } from './modnet';
 import type { AnalysisProvider, AnalysisWorkerRequest, AnalysisWorkerResponse, FaceModelPaths } from './types';
 import { decodeYunet, YUNET_INPUT, yunetInputFrom } from './yunet';
 
@@ -11,7 +12,9 @@ import { decodeYunet, YUNET_INPUT, yunetInputFrom } from './yunet';
  * Analysis host process (docs/studio/FILTER_PACKS_DESIGN.md "Analysis
  * tracks"): the faces pipeline of the spike harness (`faces.mjs`) — YuNet
  * detect → MediaPipe-style crop/align → face-mesh (+ one refine pass) → the
- * SDK's `faceFromLandmarks` — over frames main feeds it as raw RGB.
+ * SDK's `faceFromLandmarks` — and the masks pipeline (`masks.mjs`) — MODNet
+ * → the matte area-averaged to the stored mask size — over frames main feeds
+ * it as raw RGB. The two groups load and release independently.
  *
  * An Electron utilityProcess on the Content Safety pattern, for the same
  * reason: sherpa-onnx ships an older onnxruntime.dll, Windows resolves DLLs
@@ -73,9 +76,11 @@ interface OrtModule {
 let ort: OrtModule | null = null;
 let detector: OrtSession | null = null;
 let mesh: OrtSession | null = null;
-let provider: AnalysisProvider = 'cpu';
+let matting: OrtSession | null = null;
 const detInput = new Float32Array(3 * YUNET_INPUT * YUNET_INPUT);
 const meshInput = new Float32Array(MESH_INPUT * MESH_INPUT * 3);
+/** MODNet's input, resized when the input size changes (one size per job). */
+let mattingInput = new Float32Array(0);
 
 function send(msg: AnalysisWorkerResponse): void {
   parentPort.postMessage(msg);
@@ -85,45 +90,89 @@ function firstLine(err: unknown): string {
   return (err instanceof Error ? err.message : String(err)).split('\n')[0].slice(0, 300);
 }
 
-async function releaseSessions(): Promise<void> {
-  const open = [detector, mesh].filter((s): s is OrtSession => s !== null);
+async function releaseAll(open: (OrtSession | null)[]): Promise<void> {
+  await Promise.all(open.filter((s): s is OrtSession => s !== null).map((s) => s.release().catch(() => {})));
+}
+
+async function releaseFaceSessions(): Promise<void> {
+  const open = [detector, mesh];
   detector = null;
   mesh = null;
-  await Promise.all(open.map((s) => s.release().catch(() => {})));
+  await releaseAll(open);
 }
 
-async function createSessions(models: FaceModelPaths, ep: AnalysisProvider): Promise<void> {
+async function releaseMaskSession(): Promise<void> {
+  const open = [matting];
+  matting = null;
+  await releaseAll(open);
+}
+
+async function createSession(modelPath: string, ep: AnalysisProvider): Promise<OrtSession> {
   if (!ort) ort = (await import('onnxruntime-node')) as unknown as OrtModule;
-  const options = {
+  return ort.InferenceSession.create(modelPath, {
     executionProviders: ep === 'dml' ? [{ name: 'dml', deviceId: 0 }] : ['cpu'],
     logSeverityLevel: 3,
-  };
-  try {
-    detector = await ort.InferenceSession.create(models.yunet, options);
-    mesh = await ort.InferenceSession.create(models.mesh, options);
-  } catch (err) {
-    await releaseSessions();
-    throw err;
-  }
+  });
 }
 
-async function loadFaces(models: FaceModelPaths, preferGpu: boolean): Promise<AnalysisWorkerResponse> {
+/**
+ * DirectML first (when preferred), the CPU when it fails to initialise:
+ * `create` builds the group's sessions on one provider (and cleans up after
+ * itself on a throw). Says which ran, and why DML did not.
+ */
+async function loadOnBestProvider(
+  requestId: string,
+  preferGpu: boolean,
+  create: (ep: AnalysisProvider) => Promise<void>,
+): Promise<AnalysisWorkerResponse> {
   const t0 = performance.now();
-  await releaseSessions();
   let fallback: string | undefined;
+  let ep: AnalysisProvider = 'cpu';
+  let ready = false;
   if (preferGpu) {
     try {
-      await createSessions(models, 'dml');
-      provider = 'dml';
+      await create('dml');
+      ep = 'dml';
+      ready = true;
     } catch (err) {
       fallback = `DirectML unavailable: ${firstLine(err)}`;
     }
   }
-  if (!detector) {
-    await createSessions(models, 'cpu');
-    provider = 'cpu';
-  }
-  return { type: 'facesLoaded', ep: provider, loadMs: Math.round(performance.now() - t0), ...(fallback ? { fallback } : {}) };
+  if (!ready) await create('cpu');
+  return { type: 'loaded', requestId, ep, loadMs: Math.round(performance.now() - t0), ...(fallback ? { fallback } : {}) };
+}
+
+async function loadFaces(requestId: string, models: FaceModelPaths, preferGpu: boolean): Promise<AnalysisWorkerResponse> {
+  await releaseFaceSessions();
+  return loadOnBestProvider(requestId, preferGpu, async (ep) => {
+    try {
+      detector = await createSession(models.yunet, ep);
+      mesh = await createSession(models.mesh, ep);
+    } catch (err) {
+      await releaseFaceSessions();
+      throw err;
+    }
+  });
+}
+
+async function loadMasks(requestId: string, model: string, preferGpu: boolean): Promise<AnalysisWorkerResponse> {
+  await releaseMaskSession();
+  return loadOnBestProvider(requestId, preferGpu, async (ep) => {
+    matting = await createSession(model, ep);
+  });
+}
+
+/** One frame through MODNet at its input size → the stored mask (`maskWidth × maskHeight`, 8-bit) + the inference time alone. */
+async function runMask(rgb: Uint8Array, W: number, H: number, maskWidth: number, maskHeight: number): Promise<{ mask: Uint8Array; inferMs: number }> {
+  if (!ort || !matting) throw new Error('The subject model is not loaded');
+  if (mattingInput.length !== 3 * W * H) mattingInput = new Float32Array(3 * W * H);
+  modnetInputFrom(rgb, W, H, mattingInput);
+  const t0 = performance.now();
+  const out = await matting.run({ [matting.inputNames[0]]: new ort.Tensor('float32', mattingInput, [1, 3, H, W]) });
+  const inferMs = performance.now() - t0;
+  const matte = out[matting.outputNames[0]];
+  if (!matte || matte.data.length !== W * H) throw new Error('MODNet output has an unexpected shape');
+  return { mask: matteToMask(matte.data, W, H, maskWidth, maskHeight), inferMs };
 }
 
 /** The mesh's two outputs by SHAPE (1434 landmark values, 1 presence logit), whatever they are named. */
@@ -168,27 +217,39 @@ async function runFaces(rgb: Uint8Array, W: number, H: number, maxFaces: number,
   return faces;
 }
 
+/** The frame's bytes, checked against its size (structured clone can deliver a plain Uint8Array or a Buffer). */
+function frameBytes(raw: Uint8Array, width: number, height: number): Uint8Array {
+  const rgb = raw instanceof Uint8Array ? raw : new Uint8Array(raw as ArrayBufferLike);
+  const expected = width * height * 3;
+  if (rgb.length !== expected) throw new Error(`Bad frame size: got ${rgb.length} bytes, expected ${expected}`);
+  return rgb;
+}
+
 async function handle(msg: AnalysisWorkerRequest): Promise<void> {
   try {
     switch (msg.type) {
       case 'loadFaces':
-        send(await loadFaces(msg.models, msg.preferGpu));
+        send(await loadFaces(msg.requestId, msg.models, msg.preferGpu));
+        break;
+      case 'loadMasks':
+        send(await loadMasks(msg.requestId, msg.model, msg.preferGpu));
         break;
       case 'faces': {
-        const expected = msg.width * msg.height * 3;
-        // Structured clone can deliver the bytes as a plain Uint8Array or Buffer.
-        const rgb = msg.rgb instanceof Uint8Array ? msg.rgb : new Uint8Array(msg.rgb as ArrayBufferLike);
-        if (rgb.length !== expected) {
-          send({ type: 'error', requestId: msg.requestId, error: `Bad frame size: got ${rgb.length} bytes, expected ${expected}` });
-          return;
-        }
+        const rgb = frameBytes(msg.rgb, msg.width, msg.height);
         const t0 = performance.now();
         const faces = await runFaces(rgb, msg.width, msg.height, msg.maxFaces, msg.refinePasses);
         send({ type: 'facesResult', requestId: msg.requestId, faces, ms: Math.round((performance.now() - t0) * 10) / 10 });
         break;
       }
+      case 'mask': {
+        const rgb = frameBytes(msg.rgb, msg.width, msg.height);
+        const t0 = performance.now();
+        const { mask, inferMs } = await runMask(rgb, msg.width, msg.height, msg.maskWidth, msg.maskHeight);
+        send({ type: 'maskResult', requestId: msg.requestId, mask, ms: Math.round((performance.now() - t0) * 10) / 10, inferMs: Math.round(inferMs * 10) / 10 });
+        break;
+      }
       case 'release':
-        await releaseSessions();
+        await Promise.all([releaseFaceSessions(), releaseMaskSession()]);
         send({ type: 'released' });
         break;
     }

@@ -6,8 +6,7 @@ import { getProjectCacheDir } from './studio-paths';
 import { generateProxy, proxyRelPath } from './proxy-generator';
 import { generateWaveform, waveformRelPath } from './waveform-generator';
 import { readTranscriptMeta, transcribeAsset, transcriptRelPath } from './asset-transcriber';
-import { faceTrackSatisfying, generateFaceTrack, type FaceTrackJobOptions } from './face-track-job';
-import { faceTrackRelPath } from '../../../shared/studio/face-track';
+import { analysisRelPath, analysisSatisfying, isAnalysisKind, runAnalysisJob, type AnalysisJobOptions } from './analysis-jobs';
 import { analysisEngine } from '../../../analysis-engine/analysis-engine';
 
 const log = logEngine.createLogger('StudioMediaJobs');
@@ -20,8 +19,8 @@ interface JobRecord {
   sourcePath: string;
   /** Transcript jobs: which STT catalog model to run. */
   sttModelId?: string;
-  /** Analysis jobs (`faceTrack`): the spans, fps and frame source. */
-  analysis?: FaceTrackJobOptions;
+  /** Analysis jobs (`faceTrack`, `subjectMask`): the spans, fps and frame source. */
+  analysis?: AnalysisJobOptions;
   abort: AbortController;
   running: boolean;
 }
@@ -29,7 +28,7 @@ interface JobRecord {
 function relPathFor(kind: StudioMediaJobKind, assetId: string): string {
   if (kind === 'proxy') return proxyRelPath(assetId);
   if (kind === 'waveform') return waveformRelPath(assetId);
-  if (kind === 'faceTrack') return faceTrackRelPath(assetId);
+  if (isAnalysisKind(kind)) return analysisRelPath(kind, assetId);
   return transcriptRelPath(assetId);
 }
 
@@ -38,8 +37,8 @@ export interface MediaJobRequestOptions {
   sttModelId?: string;
   /** Re-run even when output already exists (explicit re-transcribe). */
   force?: boolean;
-  /** Analysis jobs: what to analyse. Required for `faceTrack`. */
-  analysis?: FaceTrackJobOptions;
+  /** Analysis jobs: what to analyse. Required for `faceTrack` / `subjectMask`. */
+  analysis?: AnalysisJobOptions;
 }
 
 /**
@@ -77,11 +76,11 @@ class StudioMediaJobEngine {
     if (this.jobs.has(id)) return null;
 
     const relPath = relPathFor(kind, assetId);
-    if (kind === 'faceTrack') {
+    if (isAnalysisKind(kind)) {
       // Span-aware: the cached track counts as ready only when it covers the
       // spans asked for (an extended clip queues the job for the new seconds).
       if (!options.analysis) throw new Error('Analysis job queued without its spans');
-      const satisfied = await faceTrackSatisfying(projectId, assetId, options.analysis);
+      const satisfied = await analysisSatisfying(projectId, assetId, kind, options.analysis);
       if (satisfied) {
         const event: StudioMediaJobEvent = { projectId, assetId, kind, status: 'ready', relPath, analysis: satisfied.analysis };
         this.emit(event);
@@ -170,9 +169,11 @@ class StudioMediaJobEngine {
     return count;
   }
 
-  private kindRunning(kind: StudioMediaJobKind): boolean {
+  /** Jobs that must run alone: transcripts by kind, the two analysis kinds as one group (one worker). */
+  private exclusiveRunning(kind: StudioMediaJobKind): boolean {
     for (const job of this.jobs.values()) {
-      if (job.running && job.kind === kind) return true;
+      if (!job.running) continue;
+      if (job.kind === kind || (isAnalysisKind(kind) && isAnalysisKind(job.kind))) return true;
     }
     return false;
   }
@@ -184,7 +185,7 @@ class StudioMediaJobEngine {
       // whisper service tracks a single active child process. Analysis jobs
       // too: one worker process, one frame at a time.
       const next = [...this.jobs.values()].find(
-        (j) => !j.running && ((j.kind !== 'transcript' && j.kind !== 'faceTrack') || !this.kindRunning(j.kind)),
+        (j) => !j.running && ((j.kind !== 'transcript' && !isAnalysisKind(j.kind)) || !this.exclusiveRunning(j.kind)),
       );
       if (!next) return;
       next.running = true;
@@ -214,7 +215,7 @@ class StudioMediaJobEngine {
       this.pump();
       // No analysis left to do: let the worker go after a while (the next
       // job respawns it — a couple of seconds on DirectML).
-      if (job.kind === 'faceTrack' && ![...this.jobs.values()].some((j) => j.kind === 'faceTrack')) analysisEngine.scheduleRelease();
+      if (isAnalysisKind(job.kind) && ![...this.jobs.values()].some((j) => isAnalysisKind(j.kind))) analysisEngine.scheduleRelease();
     }
   }
 
@@ -242,22 +243,12 @@ class StudioMediaJobEngine {
       return { ...base, status: 'ready', relPath, transcript: meta };
     }
 
-    if (job.kind === 'faceTrack') {
+    if (isAnalysisKind(job.kind)) {
       if (!job.analysis) throw new Error('Analysis job queued without its spans');
-      let last = '';
-      const { relPath, analysis } = await generateFaceTrack(
-        job.projectId,
-        job.assetId,
-        job.sourcePath,
-        job.analysis,
+      const { relPath, analysis } = await runAnalysisJob(
+        { projectId: job.projectId, assetId: job.assetId, kind: job.kind, sourcePath: job.sourcePath, options: job.analysis },
         job.abort.signal,
-        (percent, message) => {
-          const rounded = Math.round(percent);
-          const key = `${rounded}:${message ?? ''}`;
-          if (key === last || job.abort.signal.aborted) return;
-          last = key;
-          this.emit({ ...base, status: 'generating', percent: rounded, ...(message ? { message } : {}) });
-        },
+        (percent, message) => this.emit({ ...base, status: 'generating', percent, ...(message ? { message } : {}) }),
       );
       return { ...base, status: 'ready', relPath, analysis };
     }

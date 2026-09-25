@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ANALYSIS_MODELS, FACE_MODEL_IDS, analysisModel, sha256OfFile, verifyModelFile } from './model-manifest';
+import { ANALYSIS_MODELS, FACE_MODEL_IDS, SUBJECT_MODEL_IDS, analysisModel, sha256OfFile, verifyModelFile } from './model-manifest';
 
 let dir: string;
 
@@ -15,7 +15,7 @@ afterAll(async () => {
 });
 
 describe('the pinned manifest', () => {
-  it('pins the three models by url, sha256 and size, and names the two the faces track needs', () => {
+  it('pins the three models by url, sha256 and size, and names what each track needs', () => {
     expect(ANALYSIS_MODELS.map((m) => m.id)).toEqual(['yunet', 'face-mesh', 'modnet']);
     for (const m of ANALYSIS_MODELS) {
       expect(m.url).toMatch(/^https:\/\//);
@@ -24,6 +24,10 @@ describe('the pinned manifest', () => {
       expect(m.license).not.toBe('');
     }
     expect(FACE_MODEL_IDS).toEqual(['yunet', 'face-mesh']);
+    expect(SUBJECT_MODEL_IDS).toEqual(['modnet']);
+    // MODNet's pin, checked against the spike harness's file (25 888 640 bytes, sha256 verified 2026-09-25).
+    expect(analysisModel('modnet')).toMatchObject({ bytes: 25888640, sha256: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9', label: 'subject model' });
+    expect(analysisModel('face-mesh').label).toBe('face models');
     expect(analysisModel('yunet').file).toBe('yunet-2023mar.onnx');
     expect(() => analysisModel('nope' as 'yunet')).toThrow(/Unknown analysis model/);
   });

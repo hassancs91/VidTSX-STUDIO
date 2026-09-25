@@ -27,10 +27,13 @@ export const INTENSITY_PARAM = 'intensity';
 /** The `requires` id of the faces track — what a face filter's manifest entry names. */
 export const FACE_TRACK_REQUIREMENT = 'faceTrack';
 
+/** The `requires` id of the masks track — what a subject filter's manifest entry names. */
+export const SUBJECT_MASK_REQUIREMENT = 'subjectMask';
+
 /** Per-frame analysis this build can hand a filter (design "Analysis
- *  tracks"): the faces track. `subjectMask` waits on the masks track, so a
- *  subject filter is still held back with a message. */
-export const SUPPORTED_FILTER_REQUIREMENTS: ReadonlySet<string> = new Set([FACE_TRACK_REQUIREMENT]);
+ *  tracks"): the faces track and the masks track. Anything else is held
+ *  back with a message. */
+export const SUPPORTED_FILTER_REQUIREMENTS: ReadonlySet<string> = new Set([FACE_TRACK_REQUIREMENT, SUBJECT_MASK_REQUIREMENT]);
 
 const PARAM_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;

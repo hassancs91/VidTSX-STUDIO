@@ -9,7 +9,10 @@
 > their own section, "Analysis tracks"; its ONNX spike ran 2026-09-24 —
 > GO, see "Spike results". Slice 2, the FACES TRACK, is BUILT and verified
 > live 2026-09-24, COMMITTED 2026-09-25 (f531b98) — see "As built (faces track)" and "Faces
-> track results"; the five face filters ship as Volume 02.** This is
+> track results"; the five face filters ship as Volume 02. The MASKS TRACK and
+the analysis Cancel are BUILT and verified live 2026-09-25 (uncommitted) —
+see "As built (masks track)" / "Masks track results"; Volume 02 1.1.0 adds
+the four subject effects. The ship steps are in "Continue from here" 4.** This is
 > NEXT_FEATURES_DESIGN.md row 10 (Q8c "effects") started from the other end:
 > 22 authored, machine-verified filters already exist in the sibling repo
 > (`../vidtsx-addons/filters/`, contract in its `AUTHORING.md` and
@@ -63,12 +66,20 @@
 >      pathspec; suggested message: `feat(studio): faces analysis track —
 >      the analysis utilityProcess, the faceTrack job, tracks in the
 >      composition and export, chip + export refusal (E2 slice 2, F1–F6)`.
->    - **Masks track, M (~3 days) — NEXT, only when Hasan says:**
->      `subjectMask` job on the same process;
->      MODNet short side 512 (DML) / 352 (CPU fallback — not MediaPipe);
->      deflated 256-px blobs + index (~9.5 MB/min measured); the renderer
->      mask loader; gate opens for the four.
->    - **Content, S:** the tracked nine through the P6 builder.
+>    - **Masks track — DONE 2026-09-25 (uncommitted), with the Cancel.**
+>      `subjectMask` job on the same process and feed (MODNet 896×512 on
+>      DML, 352 on the CPU fallback, read from the ORIGINAL — the proxy
+>      brings the shoulder ghost back); deflated 256-px blobs appended to
+>      `mask-v1.bin` + `mask-v1.json` (2.7 KB/frame on the fixture); the
+>      reader (Player: IPC ranges; export: the `.bin` copied beside the
+>      entry, HTTP Range from the bundle server); the gate open for the four;
+>      Cancel in the Inspector. See "As built (masks track)" / "Masks track
+>      results". **Commit when Hasan asks**, by pathspec; suggested message:
+>      `feat(studio): masks analysis track — the subjectMask job (MODNet),
+>      the mask reader in the Player and export, gate + Cancel (E2 slice 2,
+>      M1–M5)`.
+>    - **Content — DONE:** Volume 02 1.1.0 (the nine tracked effects),
+>      `live/masks/mkpack.mjs`, imported live over 1.0.0.
 > 4. **Open debt (small):** package drag-and-drop (shared with transitions);
 >    removing a single from `imported/`; `speed` in the filter clock; the
 >    add-ons repo's real builder (the kit's `live/p6/mkpack.mjs` +
@@ -78,9 +89,8 @@
 >    it in ~25 ms at 1080p on this machine (comic, the badged one, ~100 ms):
 >    Hasan's call whether to drop it (one `pack.json` flag + one test line).
 >    Added by the faces track (2026-09-25): **a Cancel for a running analysis**
->    (the IPC `studio:analysis:cancel` exists, no button on the chip or in
->    the Inspector — a long clip can only be waited out or the filter
->    removed); **a Settings row for the analysis models** (they download
+>    (**DONE 2026-09-25** — the Inspector's analysis line carries it, see
+>    "As built (masks track)" M4); **a Settings row for the analysis models** (they download
 >    silently into `<ai-models>/analysis/`; nothing lists, sizes, deletes or
 >    re-fetches them — every other downloaded model has a row); a
 >    multi-selection Inspector (the panel applies to many clips, the
@@ -88,8 +98,10 @@
 >    acceptable on the spike clip; a fast head turn on a long clip has not
 >    been looked at); the chip shows the analysis text only on clips ≥ 200 px.
 >    **Ship gate (decided with Hasan 2026-09-25): filters ship after the
->    masks track + the Cancel button.** Everything else in this list stays
->    debt. Shipping also means: flip `studio-filters` in
+>    masks track + the Cancel button — BOTH DONE 2026-09-25; the flag is
+>    flipped and the packaged smoke passed, see "Ship steps (M6)"; the
+>    volumes go on the website later (Hasan, 2026-09-25 — handled
+>    separately); open: the commit, the release workflow's build heap.** Everything else in this list stays debt. Shipping also meant: flip `studio-filters` in
 >    `src/shared/feature-flags.ts` (a dev-preview: on in dev, OFF in
 >    production today — the engine is not behind it, the tabs and Inspector
 >    are); one packaged-build smoke (`npm run build:win`) for the analysis
@@ -1358,6 +1370,254 @@ face-mesh byte count was wrong; (4) a probed duration can exceed the last
 frame's time — never let coverage depend on it; (5) frame-exact seeks in
 an h264 file want the frame's centre.
 
+### As built (masks track, 2026-09-25, uncommitted)
+
+Where the build differs from the text above, this list wins. Nothing in the
+add-ons repo changed; no package was added (Node `zlib` in, the browser's
+`DecompressionStream('deflate')` out).
+
+**M1 — the `subjectMask` job.** Same process, same feed, same job engine as
+the faces track:
+
+- `analysis-engine/modnet.ts` (the pure half): `modnetInputSize` = the
+  short side AT 512 on DirectML / 352 on the CPU fallback, both sides
+  rounded down to /32 — **a smaller source is scaled UP** (★ below);
+  `modnetInputFrom` = `(x/255 − 0.5)/0.5` RGB NCHW; `matteToMask` = the
+  matte area-averaged to the stored size (both axes, which also undoes the
+  /32 stretch) and quantised to 8 bits.
+- `worker.ts`: `loadMasks` / `mask` beside the faces pair — the same DLL
+  probe, `loadOnBestProvider` (DML → CPU, `ep` + the DML failure line)
+  shared by both groups, which load and release independently.
+  `analysis-engine.ts`: loads go through the requestId map (two groups can
+  no longer share the old id-less load settle); the `exit` handler is bound
+  to ITS child, so a released worker's late exit cannot wipe a new one.
+- `main/services/studio/mask-track-job.ts`: models (`SUBJECT_MODEL_IDS` =
+  MODNet; the manifest gained a `label`, so the chip reads "Downloading
+  subject model (modnet.onnx)… 43%") → the cached index → `missingSpans` →
+  `loadMasks` → the feed straight at MODNet's input size (`analysis-frames`
+  gained an exact `size`; ffmpeg's scaler does the resize) → per frame the
+  mask, `zlib.deflate`, **appended** to `mask-v1.bin` → `mask-v1.json`
+  rewritten (`.part` + rename). A compatible bin is truncated to what its
+  index describes (a cancelled run's tail) and appended to; a fresh one is
+  written to a part file and renamed over. A still = one frame, `static`.
+- **★ Masks read the ORIGINAL, never the proxy** (faces keep the proxy).
+  Measured on the spike fixture: from the all-intra CRF 28 proxy the pink
+  plush at the right shoulder joins the mask on **17 of 75 frames** (up to
+  31/255 mean alpha in its box); from the original on **0 of 75** — same
+  code, same 896×512 input, and the app's masks are byte-identical to plain
+  Node on the same input, so it is the proxy's artifacts, not the pipeline.
+  The export renders the original too. A mask job therefore does not wait
+  for the proxy (`useAnalysisTracks` `canStart`).
+- **★ No "keep sub-512 sources native".** The official MODNet script keeps a
+  source whose short side is under 512 at its own size (/32); on the 640×360
+  fixture that is 640×352, and there the plush joins on 4 of 75 frames (up
+  to 80/255). At 896×512 (scaled up) and at 608×352 (the CPU size) on none.
+  The model card's rule — always the short side — ships.
+- `mask-track.ts` (shared, pure): the index = header `{ version 1, kind
+  'mask', source, mask (≤ 256 long side), input, fps, spans, ep, models
+  (sha256), static?, bytes, generatedAt }` + `frames: [t, offset, length]`
+  sorted by t (5 decimals). `parseMaskIndex` (strict: a mask over the cap or
+  a blob outside `bytes` is refused), `maskTrackCompatible` (fps, still-ness,
+  model AND mask size), `mergeMaskIndex` (the addition wins, spans merged,
+  bytes the larger), `maskEntryIndexAt` (nearest within half a frame; a
+  static track answers everywhere). The generic span / lookup helpers moved
+  from `face-track.ts` to `analysis-track.ts` (re-exported, so the faces
+  code kept its imports).
+- `media-jobs.ts` (289 → 280 lines): the analysis branch moved to
+  `analysis-jobs.ts` (`isAnalysisKind`, the rel path, the span-aware ready
+  check, the run). The two kinds share ONE slot and the worker release.
+
+**M2 — the mask loader.** Transport, decided here: **the Player reads byte
+ranges over IPC, the render host by HTTP Range from the bundle server.**
+- `shared/studio/mask-reader.ts`: `createMaskReader(index, fetchRange)` —
+  `maskAt(t)` answers synchronously from a decoded LRU (360 frames ≈ 13 MB)
+  or starts loading the 48-frame window around it; a window's blobs are read
+  in as few ranges as they are contiguous (one per analysis run) and inflated
+  one by one with `DecompressionStream('deflate')`; the second half of a
+  window prefetches the next; a blob that fails is "no mask" there; `load`
+  never rejects; `subscribe` fires after each window.
+- Player: `services/analysis-io.ts` reads the index through `studioCacheRead`
+  and the blobs through the new `studio:analysis:read-mask` (a bounded range
+  of THAT asset's `mask-v1.bin`, path built in main from the asset id,
+  ≤ 8 MB). Why not the asset server: the Player's server (the module server,
+  port 3200) answers ANY origin with `Access-Control-Allow-Origin: *`, so
+  serving `.bin` there would widen what a web page can read off the machine.
+  (Checked 2026-09-25 with a `file://` + `webSecurity: true` probe — the
+  packaged renderer's situation: the Player's video is NOT tainted and
+  `fetch` works; the earlier worry that packaged filters could hit a tainted
+  canvas does not hold for this server.)
+- Export: `export-tracks.ts` → `prepareAnalysisTracks` / `writeAnalysisTracks`
+  / `buildTrackEntryParts`: per asset the index copied beside the entry and
+  statically imported (`MaskIndex_<n>`), the blobs COPIED beside it as
+  `studio-entry-<pid>-mask-<asset>.bin` (a snapshot: an analysis extending the
+  cache during the render appends to the cache, not to this file), and
+  `masks: createMaskReader(MaskIndex_<n>, httpRangeFetcher("<bundle
+  server>/asset?path=<the .bin>"))` in the `tracks` literal; the entry
+  imports both from `@shared/studio`; the hash line gains `<asset>:mask:<sha16>`.
+  The bundle server's `/asset` allowlist gained `.bin` (that server sends no
+  CORS header — same origin as the render page only); the entry sweeper
+  owns `.bin` too. Missing / unreadable / incomplete → the backstop throws.
+- `FilteredPicture` (297 lines): the reader is used only when a stage has
+  `subjectTracking`; per stage `subjectMask = { data, width, height,
+  sourceWidth/Height = THAT stage's source (the media, then the previous
+  canvas), time = sourceTime }`; Player: a landed window repaints the frame
+  on screen; render host: a `useLayoutEffect` holds the frame with
+  `delayRender` until its mask is decoded, then repaints (Remotion's `Img`
+  pattern). The P0 harness re-ran **byte-identical** (4 / 4 stills).
+
+**M3 — gate + UX.** `SUPPORTED_FILTER_REQUIREMENTS = { faceTrack,
+subjectMask }`; the three gate tests pin a made-up `depthMap` as the held-back
+case. `services/analysis-status.ts` is keyed by (kind, asset) — `trackNeeds`,
+`clipTrackKinds`, `analysisLabel(kind, …)` ("Analyzing subject… 43%",
+"Subject analysis failed: …", "Subject analysis canceled"), and
+`exportAnalysisBlockers` per (clip, kind); the toast names the kind ("Export
+waits for subject analysis: …"). `filter-status.ts`: the first kind that is
+not ready speaks for the chip; a canceled track is a warning
+(`analysis-canceled`).
+
+**M4 — Cancel.** `services/analysis-requests.ts` is the request state
+machine, pure and tested: a guard per key (the need's signature) that stays
+after an error AND after a cancel (never re-asked until the need changes),
+drops on ready; a need that disappears (the last tracked filter of the asset
+removed) cancels a live or in-flight job and forgets its state + track;
+re-applying asks again. `FilterSection` shows "Analyzing subject… 43% — the
+clip plays plain until the track lands. · Cancel" (`data-effect-analysis-
+cancel`); after it "Subject analysis canceled — the clip plays plain.
+Re-apply the filter to analyse it." The hook also cancels a job whose reply
+arrives after its need vanished (the cancel IPC can beat the async request
+handler into main's queue).
+
+**M5 — content.** `vidtsx-filters-vol02` **1.1.0** = the five face effects +
+`neon-aura`, `subject-color-pop`, `electric-outline`, `spotlight-subject`,
+all `category: effect` (the "Filters vs effects" table), `requires:
+['subjectMask']`, built by the kit's `live/masks/mkpack.mjs` from the
+add-ons `dist/sdk/` (untouched); the face bundles are byte-identical to
+1.0.0's. `heavy` MEASURED by `live/masks/paint-bench.mjs` with a Face record
+AND a MODNet mask (the app's code, `mask-of.mjs`) fed per source: **none is
+heavy** (1080p worst: subject-color-pop 41 ms, neon-aura 29, spotlight 23,
+electric-outline 19; face items 10–42; calibration noir 43, vhs 40, bloom
+33). The pack is outside git:
+`.vidtsx-temp/p0-filters/live/masks/vidtsx-filters-vol02-1.1.0.vidtsxpack`.
+
+**Also changed:** the frame feed decodes ONE frame ahead of the one being
+analysed (`READ_AHEAD`) — before, ffmpeg sat paused through every inference
+and the job then waited 17–59 ms a frame on it.
+
+### Masks track results (2026-09-25)
+
+Unit: `mask-track.test.ts` (8: paths/sizes, round trip, strict parse, union
+over one bin, compatibility, lookup, still), `modnet.test.ts` (7: input
+sizes incl. the scale-up, normalisation, area resample, the /32 un-stretch,
+clamp), `mask-reader.test.ts` (6: inflate, one read per contiguous window,
+prefetch + notify, interleaved runs, a bad blob / a failing read, gap +
+still), `analysis-requests.test.ts` (7: the state machine),
+`analysis-status.test.ts` (7, two kinds), `filter-status.test.ts` (+3),
+`shot-export.test.ts` (+1), the manifest (MODNet pin checked against the
+harness file: 25 888 640 B, sha `07c308cf…` — right this time), the gate
+tests re-pinned; **108 green** across the 13 touched files; `check:types`
+26 / 10 before and after; the worker type-checks clean by hand.
+
+Port check (`live/masks/port-check.mjs`, the app's code in plain Node vs the
+spike): the app's MODNet run on the spike's input reproduces the spike's
+mattes **byte for byte** (72 / 72, Δ 0); the stored 256×144 mask vs a sharp
+resize of the same matte: mean |Δ| 0.16/255 (edges); the plush 0 on 72.
+Cache: **2.7 KB a frame** on the talk fixture (≈ 4.9 MB a minute at 30 fps —
+the area average deflates better than the spike's lanczos probe, 5.3 KB);
+336 B a frame on the synthetic 39 s clip.
+
+Isolated dev instance (`live/launch.sh`; `live/masks/`: `seed.py` →
+`m-masks` 1920×1080 @ 24 = talk.mp4 0–3 s + the portrait 3–4.5 s, and
+`m-cancel` = the 39 s synthetic clip with neon-aura pre-applied; `drive.mjs`,
+`select.mjs`, `check.py` + `paint-ref.mjs`, `watch-fresh.mjs`):
+
+| Step | Result |
+|---|---|
+| Volume 02 1.1.0 double-clicked over 1.0.0 | the import dialog lists nine, **none refused** (the gate is open), button **Update** → `pack.json` 1.1.0, nine bundles on disk |
+| Neon Aura on talk.mp4 via the Effects tab | the chip and the Inspector carried the first-use download ("Downloading subject model (modnet.onnx)… 38%", "Verifying modnet.onnx…"), then "Analyzing subject… 43% · Cancel"; `Subject model loaded { ep: 'dml' }` |
+| The track | 75 frames, **ep dml, input 896×512**, mask 256×144, 2 706 B/frame; the Player holds the reader; the painted frames show the aura round the man (`out/player-017.png`, `fresh-036.png`) |
+| **The plush, through the app** | first run (proxy as input): 17 / 75 frames over 8/255 → the ★ fix; after it, from the original: **0 / 75, max 0.00/255** (the Player's own reader at the old worst frame 17: 0) |
+| The portrait (a still) | one static frame, 512×512 → 256×256, coverage 0.49; the aura follows the curls (`out/player-img-090.png`) |
+| Export, 1080p Standard | `check.py` **0 fails**: the entry imports both indexes + `createMaskReader`/`httpRangeFetcher`, builds a reader per asset over its `.bin` copy; index and blob copies byte-identical to the cache; `neon-aura.js` byte-identical to the installed pack; reference paints (same mask blob, same source frame) deterministic; frames 3 / 36 / 68 / 90: export vs reference **32.6–37.2 dB** against **22.4–25.1 dB** vs the plain frame |
+| Cancel (`m-cancel`, 39 s) | at 11 % the Inspector's Cancel → chip `analysis-canceled` ("Its analysis was canceled…"), Inspector "Subject analysis canceled — …", the ffmpeg feed gone, **no re-queue**, the part file removed (the folder empty); Export → toast "Export waits for subject analysis: “vidtsx-s3-talk.mp4” — Subject analysis canceled — re-apply the filter to analyse it", queue empty |
+| Remove / re-apply / remove mid-job | removing the entry clears the chip; re-applying re-queues ("Analyzing subject… 5%"); removing it mid-job stops the feed, writes nothing, leaves no orphan; the idle worker is released within the minute |
+| Faces regression | `f6-faces`' track regenerated through the new engine: 75 frames, 25 ms/frame, **frames identical** to the pre-masks track |
+| Log | no warn / error line in the whole pass; every job in it is one the pass started |
+
+**Speed, faithfully.** Sustained, in the app, on the 39 s clip: **43 ms a
+frame** wall (inference 30.2 ms median = the spike's 29, the worker 36,
+the round trip 41) — ≈ 23 fps, a minute of 30 fps footage in ~78 s. A short
+clip is slower per frame on this laptop: the 3 s fixture ran 125–180 ms a
+frame (first frame 3.5–4.3 s of DirectML warm-up; the RTX A3000 does not
+ramp its clocks for a 10-second burst — nvidia-smi showed it bouncing
+P0–P8 at ≤ 24 % load, and plain-Node inference of the same model drifted
+30 → 49 → 99 ms across the session with Docker/WSL active). The CPU
+fallback (plain Node, 608×352): **162 ms a frame** ≈ 4.9 minutes of analysis
+per minute of 30 fps video — usable for short clips, slow for long ones; it
+never ran in the app (DirectML initialised every time).
+
+**The fps gate** (`FilteredPicture` gained the mask path; gated run 12:44, load 10): the shipping arm (cap 640) held noir 30 / 30 / 29.9 and vhs 29.8 / 29.7 / 30 with 0 skipped, but bloom 27.2 / 27.6 / 23 and noir+vhs 28.6 / 28.8 / 27.8 (3–18 skipped) — below the 2026-09-22 record’s clean 30. An interleaved A/B on the same page (`?impl=head` = the committed component from `ab/`, HEAD / now / HEAD / now, `player/fps.mjs --cap=640 --filtered-only`) shows **no difference between the two components** (bloom 23–27 HEAD vs 25–30 now; noir+vhs 26–30 vs 29–30.5; noir, vhs ≈ 30 both): the shortfall is this machine today, not the change (`.vidtsx-temp/p0-filters/ab/ab-results.txt`). The P0 harness stayed byte-identical (4 / 4).
+
+Findings the build carries: (1) the proxy's compression brings the shoulder
+ghost back — masks read the original; (2) never keep a sub-512 source
+native; (3) the Player's asset server answers any origin with ACAO * (a
+pre-existing exposure, not widened here — noted, not fixed); (4) a DOM
+node's React fiber pointer can be a stale alternate (the kit's driver read
+old props and reported "no track" while the Player painted with it — the
+kit now walks the current tree from the root, `live/masks/current-player.js`).
+
+### Ship steps (M6, 2026-09-25)
+
+**(a) The flag.** `studio-filters: true` in `src/shared/feature-flags.ts`
+(comment updated: shipped after the ship gate). The Filters / Effects tabs,
+the Inspector section and the preview toggle now show in production.
+
+**(b) The packaged build and its smoke** — `npm run build` + `electron-builder
+--win --publish never` (the `build:win` steps with an explicit no-publish;
+no token was set anyway), smoked from `dist/win-unpacked` on its own profile
+(`live/masks/launch-pkg.sh`, CDP 9334, `dbl-pkg.sh`). The smoke found three
+problems before it passed:
+
+1. **The renderer build ran out of V8 heap** at Node's default ~4 GB
+   ("Reached heap limit", Rollup, 5 925 modules). Built with
+   `NODE_OPTIONS=--max-old-space-size=8192` (local only, nothing in the repo).
+   The release workflow (`windows-latest`, Node 22, default heap) will likely
+   hit the same wall — **not changed here; Hasan's call** (the build step
+   needs the larger heap). Whether this build is the first to cross 4 GB was
+   not measured.
+2. **The packaged app exited 1 on launch, silently.** `win.files` (and
+   `mac.files`) held only `!` patterns, so electron-builder added its default
+   `**/*` and packed the WHOLE repo root into the asar: `.vidtsx-temp` (504 MB
+   of verification kits, spike models, test media), `src`, `docs`, report
+   HTML — a 1.29 GB asar (installer 814 MB) whose `package.json` Electron read
+   back as garbage, so it never found `main`. Fixed in `electron-builder.yml`:
+   both platform lists now start with `out/**/*` and `src/**/*`.
+3. **`src/` must be in the asar — the Studio export has never worked
+   packaged.** The export bundles its entry at export time and aliases
+   `@shared` / `@features` / `@renderer` to `<app.asar>/src/…`
+   (`bundle-worker.ts`); the installed May build's asar holds only `out`,
+   `node_modules`, `package.json`, and the export failed "Can't resolve
+   '@shared/studio'". `src/**/*` (9.4 MB) ships now. Every Studio export in
+   an installed build was affected, not just filters (the only packaged
+   builds in `dist/` predate the Studio flip).
+
+After the fixes: asar 747 MB (`out`, `node_modules`, `package.json`, `src`),
+installer `dist/VidTSX-Studio-Setup-1.1.0.exe` **345 MB** (1.0.0: 334 MB).
+
+| Packaged check | Result |
+|---|---|
+| Launch (file:// renderer from `app.asar/out/renderer`) | starts; isolated profile, own models folder (the three pinned files copied in, verified by size + sha before load) |
+| Volume 02 1.1.0 double-clicked | nine listed, none refused, installed |
+| **The worker's DLL probe under `app.asar.unpacked`** | the analysis process loaded `resources\app.asar.unpacked\node_modules\onnxruntime-node\bin\napi-v6\win32\x64\onnxruntime.dll` **and `DirectML.dll`** from there |
+| Subject filter (`pk-masks`, neon-aura, opened pre-applied) | `Subject model loaded { ep: 'dml' }`; talk 75 frames at 896×512 (first frame 11 s — a cold DirectML compile in a fresh profile), the still 1 frame; the Player paints the aura (`out/pkg-036.png`), the reader (over IPC) hands frame 17 with the plush at 0 |
+| Face filter (`pk-faces`, puppy) | `Face models loaded { ep: 'dml' }`; 75 / 75 frames with a face, the still 1; the Player paints ears / nose / tongue at the widest mouth (`out/pkg-puppy-057.png`) |
+| Packaged export, 1080p Standard, `pk-masks` | done; `check.py` (ENTRY_DIR = the install's `resources/.vidtsx-temp/studio`) **0 fails** — the same 32.6–37.2 dB vs 22.4–25.1 dB as the dev export; the render host read the `.bin` copy by HTTP Range |
+| Log | the updater can't find `app-update.yml` in a `--dir` output (the NSIS build writes it) and a built-in preset seeding race warns — both unrelated to filters |
+
+**(c) Where Volume 01 / 02 are published — ANSWERED (Hasan, 2026-09-25): on
+the website, later, handled separately — not part of this ship** (they live
+outside git: Volume 01 in `../vidtsx-addons/dist/`, Volume 02 1.1.0 in the
+kit `live/masks/`; the installer ships core's three).
+
 ## Test plan
 
 - **Unit:** pack parsing (bad entries, `requires`, `heavy`, params spec
@@ -1369,6 +1629,13 @@ an h264 file want the frame's centre.
   lookup within half a frame, `settledSpanEnd`), the manifest pins and the
   integrity check, needs / coverage / export blockers, the gate opened for
   `faceTrack` and closed for `subjectMask`.
+- **Masks track (unit):** the index format (paths, sizes, strict parse, the
+  union over one append-only bin, compatibility incl. the mask size, lookup,
+  still), MODNet's input size / normalisation / area resample, the reader
+  (one read per contiguous window, prefetch, a bad blob, a failing read), the
+  request state machine (guards after error and cancel, cancel on removal),
+  two-kind needs / labels / blockers / chip, the gate opened for
+  `subjectMask` with `depthMap` as the held-back case.
 - **Composition:** nothing renders `TimelineComposition` in vitest, so the
   P0 harness is the structural test — re-run it after any edit to
   `FilteredPicture.tsx`, `ClipRenderer.tsx` or `SceneMirror.tsx`.

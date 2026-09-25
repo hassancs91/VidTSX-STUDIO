@@ -5,22 +5,25 @@ import type { FilterFace } from '../shared/types/studio-effects';
 import type { AnalysisProvider, AnalysisWorkerRequest, AnalysisWorkerResponse, FaceModelPaths } from './types';
 
 interface PendingRequest {
-  resolve: (faces: FilterFace[]) => void;
+  resolve: (value: unknown) => void;
   reject: (err: Error) => void;
 }
 
-export interface FacesLoadResult {
+export interface AnalysisLoadResult {
   ep: AnalysisProvider;
   loadMs: number;
   /** Set when DirectML failed to initialise and the CPU took over — a finding the job records. */
   fallback?: string;
 }
 
+type ModelGroup = 'faces' | 'masks';
+
 /**
  * Host for the analysis process (`worker.ts`) — the Content Safety engine's
  * shape: lazy spawn, requestId-correlated pending map, process death rejects
  * everything and respawns on the next use. The warm ONNX sessions live in
- * the child; callers see Face records.
+ * the child — the face pair and MODNet load independently, each on its own
+ * best provider; callers see Face records and 8-bit masks.
  *
  * The child is released (killed) when no job has needed it for a while, so
  * the GPU and ~200 MB of process are not held by an editor that applied one
@@ -28,90 +31,103 @@ export interface FacesLoadResult {
  */
 class AnalysisEngine {
   private child: UtilityProcess | null = null;
-  private loaded: FacesLoadResult | null = null;
-  private loadPromise: Promise<FacesLoadResult> | null = null;
-  private loadSettle: { resolve: (r: FacesLoadResult) => void; reject: (err: Error) => void } | null = null;
+  private loaded: Partial<Record<ModelGroup, AnalysisLoadResult>> = {};
+  private loading: Partial<Record<ModelGroup, Promise<AnalysisLoadResult>>> = {};
   private pending = new Map<string, PendingRequest>();
   private releaseTimer: NodeJS.Timeout | null = null;
 
   private ensureProcess(): UtilityProcess {
     if (!this.child) {
-      this.child = utilityProcess.fork(path.join(__dirname, 'analysis-worker.js'), [], {
+      const child = utilityProcess.fork(path.join(__dirname, 'analysis-worker.js'), [], {
         serviceName: 'vidtsx-analysis',
       });
-      this.child.on('message', (msg: AnalysisWorkerResponse) => this.handleMessage(msg));
-      this.child.on('exit', (code: number) => this.handleProcessDeath(new Error(`Analysis process exited (code ${code})`)));
+      child.on('message', (msg: AnalysisWorkerResponse) => this.handleMessage(msg));
+      // Only the CURRENT child's death clears state: a released child exits
+      // after `terminate` has already cleaned up, maybe after a new one spawned.
+      child.on('exit', (code: number) => {
+        if (this.child === child) this.handleProcessDeath(new Error(`Analysis process exited (code ${code})`));
+      });
+      this.child = child;
     }
     return this.child;
   }
 
+  private settle(requestId: string, value: unknown, error?: Error): void {
+    const req = this.pending.get(requestId);
+    if (!req) return;
+    this.pending.delete(requestId);
+    if (error) req.reject(error);
+    else req.resolve(value);
+  }
+
   private handleMessage(msg: AnalysisWorkerResponse): void {
     switch (msg.type) {
-      case 'facesLoaded': {
-        this.loaded = { ep: msg.ep, loadMs: msg.loadMs, ...(msg.fallback ? { fallback: msg.fallback } : {}) };
-        this.loadSettle?.resolve(this.loaded);
-        this.loadSettle = null;
+      case 'loaded':
+        this.settle(msg.requestId, { ep: msg.ep, loadMs: msg.loadMs, ...(msg.fallback ? { fallback: msg.fallback } : {}) });
         break;
-      }
-      case 'facesResult': {
-        const req = this.pending.get(msg.requestId);
-        if (req) {
-          this.pending.delete(msg.requestId);
-          req.resolve(msg.faces);
-        }
+      case 'facesResult':
+        this.settle(msg.requestId, msg.faces);
         break;
-      }
+      case 'maskResult':
+        this.settle(msg.requestId, { mask: msg.mask instanceof Uint8Array ? msg.mask : new Uint8Array(msg.mask as ArrayBufferLike), ms: msg.ms, inferMs: msg.inferMs });
+        break;
       case 'released':
-        this.loaded = null;
+        this.loaded = {};
         break;
-      case 'error': {
-        const error = new Error(msg.error);
-        if (msg.requestId) {
-          const req = this.pending.get(msg.requestId);
-          if (req) {
-            this.pending.delete(msg.requestId);
-            req.reject(error);
-          }
-        } else {
-          this.loadSettle?.reject(error);
-          this.loadSettle = null;
-          this.loadPromise = null;
-        }
+      case 'error':
+        if (msg.requestId) this.settle(msg.requestId, undefined, new Error(msg.error));
         break;
-      }
     }
   }
 
   private handleProcessDeath(err: Error): void {
     for (const [, req] of this.pending) req.reject(err);
     this.pending.clear();
-    this.loadSettle?.reject(err);
-    this.loadSettle = null;
     this.child = null;
-    this.loaded = null;
-    this.loadPromise = null;
+    this.loaded = {};
+    this.loading = {};
   }
 
-  private post(msg: AnalysisWorkerRequest): void {
-    this.ensureProcess().postMessage(msg);
+  /** Post a request and wait for its correlated answer. */
+  private call<T>(build: (requestId: string) => AnalysisWorkerRequest): Promise<T> {
+    const requestId = randomUUID();
+    return new Promise<T>((resolve, reject) => {
+      this.pending.set(requestId, { resolve: resolve as (value: unknown) => void, reject });
+      this.ensureProcess().postMessage(build(requestId));
+    });
   }
 
-  /** The provider the loaded sessions run on, or null while nothing is loaded. */
-  provider(): AnalysisProvider | null {
-    return this.loaded?.ep ?? null;
-  }
-
-  /** Load (or reuse) the face sessions. Concurrent callers share one in-flight load. */
-  async loadFaces(models: FaceModelPaths, preferGpu = true): Promise<FacesLoadResult> {
+  /** Load (or reuse) one group's sessions. Concurrent callers share one in-flight load. */
+  private load(group: ModelGroup, build: (requestId: string) => AnalysisWorkerRequest): Promise<AnalysisLoadResult> {
     this.cancelRelease();
-    if (this.loaded) return this.loaded;
-    if (!this.loadPromise) {
-      this.loadPromise = new Promise<FacesLoadResult>((resolve, reject) => {
-        this.loadSettle = { resolve, reject };
-        this.post({ type: 'loadFaces', models, preferGpu });
-      });
+    const done = this.loaded[group];
+    if (done) return Promise.resolve(done);
+    let inflight = this.loading[group];
+    if (!inflight) {
+      inflight = this.call<AnalysisLoadResult>(build).then(
+        (result) => {
+          this.loaded[group] = result;
+          delete this.loading[group];
+          return result;
+        },
+        (err: unknown) => {
+          delete this.loading[group];
+          throw err;
+        },
+      );
+      this.loading[group] = inflight;
     }
-    return this.loadPromise;
+    return inflight;
+  }
+
+  /** Load (or reuse) the face sessions (YuNet + mesh). */
+  loadFaces(models: FaceModelPaths, preferGpu = true): Promise<AnalysisLoadResult> {
+    return this.load('faces', (requestId) => ({ type: 'loadFaces', requestId, models, preferGpu }));
+  }
+
+  /** Load (or reuse) the MODNet session. */
+  loadMasks(model: string, preferGpu = true): Promise<AnalysisLoadResult> {
+    return this.load('masks', (requestId) => ({ type: 'loadMasks', requestId, model, preferGpu }));
   }
 
   /**
@@ -120,12 +136,19 @@ class AnalysisEngine {
    * the frame costs). Records are normalised to the frame.
    */
   async faces(rgb: Uint8Array, width: number, height: number, maxFaces: number, refinePasses = 1): Promise<FilterFace[]> {
-    if (!this.loaded) throw new Error('Face models are not loaded');
-    const requestId = randomUUID();
-    return new Promise<FilterFace[]>((resolve, reject) => {
-      this.pending.set(requestId, { resolve, reject });
-      this.post({ type: 'faces', requestId, width, height, rgb, maxFaces, refinePasses });
-    });
+    if (!this.loaded.faces) throw new Error('Face models are not loaded');
+    return this.call<FilterFace[]>((requestId) => ({ type: 'faces', requestId, width, height, rgb, maxFaces, refinePasses }));
+  }
+
+  /**
+   * The subject mask of one frame: RGB24 at MODNet's input size in, the
+   * matte area-averaged to `maskWidth × maskHeight` 8-bit alpha out, with
+   * the worker's own time for it (inference + resample — the job logs it
+   * beside its wall time).
+   */
+  async mask(rgb: Uint8Array, width: number, height: number, maskWidth: number, maskHeight: number): Promise<{ mask: Uint8Array; ms: number; inferMs: number }> {
+    if (!this.loaded.masks) throw new Error('The subject model is not loaded');
+    return this.call<{ mask: Uint8Array; ms: number; inferMs: number }>((requestId) => ({ type: 'mask', requestId, width, height, rgb, maskWidth, maskHeight }));
   }
 
   /** Kill the child after `ms` of no further loads — a job calls this when it is done. */
@@ -134,7 +157,7 @@ class AnalysisEngine {
     if (!this.child) return;
     this.releaseTimer = setTimeout(() => {
       this.releaseTimer = null;
-      if (this.pending.size === 0 && !this.loadPromise) void this.terminate();
+      if (this.pending.size === 0 && !this.loading.faces && !this.loading.masks) void this.terminate();
     }, ms);
     this.releaseTimer.unref?.();
   }
@@ -152,9 +175,8 @@ class AnalysisEngine {
       const child = this.child;
       this.child = null;
       child.kill();
-      this.loaded = null;
-      this.loadPromise = null;
-      this.loadSettle = null;
+      this.loaded = {};
+      this.loading = {};
       for (const [, req] of this.pending) req.reject(new Error('Analysis process terminated'));
       this.pending.clear();
     }

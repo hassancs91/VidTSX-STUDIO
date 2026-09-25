@@ -45,7 +45,7 @@ import {
 } from '../studio-caption-handlers';
 import { handleStudioTransitionList, handleStudioTransitionModule } from '../studio-transition-handlers';
 import { handleStudioFilterList, handleStudioFilterModule } from '../studio-filter-handlers';
-import { handleStudioAnalysisCancel, handleStudioAnalysisRequest } from '../studio-analysis-handlers';
+import { handleStudioAnalysisCancel, handleStudioAnalysisReadMask, handleStudioAnalysisRequest } from '../studio-analysis-handlers';
 import {
   handleStudioPackPackageInspect,
   handleStudioPackPackageInstall,
@@ -138,6 +138,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_FILTER_MODULE, handleStudioFilterModule);
   ipcMain.handle(IPC.STUDIO_ANALYSIS_REQUEST, handleStudioAnalysisRequest);
   ipcMain.handle(IPC.STUDIO_ANALYSIS_CANCEL, handleStudioAnalysisCancel);
+  ipcMain.handle(IPC.STUDIO_ANALYSIS_READ_MASK, handleStudioAnalysisReadMask);
 
   // Proxy/waveform progress is a push stream — the editor folds each 'ready'
   // event back into the open project document.

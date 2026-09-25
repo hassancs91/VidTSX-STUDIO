@@ -254,16 +254,16 @@ export interface StudioCacheClearResponse {
 /**
  * Derived caches an asset can have. Proxies/waveforms are requested
  * automatically on open; transcripts ONLY by an explicit user action;
- * analysis tracks (`faceTrack`) when a tracked filter is applied
- * (docs/studio/FILTER_PACKS_DESIGN.md "Analysis tracks").
+ * analysis tracks (`faceTrack`, `subjectMask`) when a tracked filter is
+ * applied (docs/studio/FILTER_PACKS_DESIGN.md "Analysis tracks").
  */
-export type StudioMediaJobKind = 'proxy' | 'waveform' | 'transcript' | 'faceTrack';
+export type StudioMediaJobKind = 'proxy' | 'waveform' | 'transcript' | 'faceTrack' | 'subjectMask';
 
 export interface StudioMediaJobEvent {
   projectId: string;
   assetId: string;
   kind: StudioMediaJobKind;
-  /** 'canceled' is only emitted for explicit per-job cancels (transcripts). */
+  /** 'canceled' is only emitted for explicit per-job cancels (transcripts, analysis). */
   status: 'generating' | 'ready' | 'error' | 'canceled';
   /** Cache-relative path, present when status is 'ready'. */
   relPath?: string;

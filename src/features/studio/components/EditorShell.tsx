@@ -35,7 +35,7 @@ import { useCaptionTemplate } from '../hooks/useCaptionTemplates';
 import { useJoinStatus, useTransitionList } from '../hooks/useTransitions';
 import { useEffectStatuses, useFilterList } from '../hooks/useFilters';
 import { useAnalysisTracks } from '../hooks/useAnalysisTracks';
-import { exportAnalysisBlockers } from '../services/analysis-status';
+import { analysisNoun, exportAnalysisBlockers } from '../services/analysis-status';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
 import { useStudioAgent } from '../hooks/useStudioAgent';
@@ -977,8 +977,9 @@ export function EditorShell({ projectId, onBack }: Props) {
       jobId?: string,
     ): Promise<boolean> => {
       if (!project) return false;
-      // A tracked filter whose faces track is still being computed would
-      // export the plain picture silently — refuse until the chip hits 100 %.
+      // A tracked filter whose track (faces or subject mask) is still being
+      // computed would export the plain picture silently — refuse until the
+      // chip hits 100 %.
       const blockers = exportAnalysisBlockers(tl.timeline, assets, filterList.installed, analysis.stateOf, (clip) => {
         if (clip.label) return clip.label;
         const asset = clip.assetId ? assets.find((a) => a.id === clip.assetId) : undefined;
@@ -987,7 +988,7 @@ export function EditorShell({ projectId, onBack }: Props) {
       if (blockers.length > 0) {
         const [first] = blockers;
         const more = blockers.length > 1 ? ` (+${blockers.length - 1} more)` : '';
-        showToast(`Export waits for face analysis: “${first.label}” — ${first.reason}${more}`, 'error');
+        showToast(`Export waits for ${analysisNoun(first.kind)}: “${first.label}” — ${first.reason}${more}`, 'error');
         return false;
       }
       setExporting(true);
@@ -1419,7 +1420,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 autoCutPhase={autoCut.phase}
                 {...(activePresetName ? { presetName: activePresetName } : {})}
                 onLearnPreset={handleLearnPreset}
-                {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect, analysisOf: analysis.stateOf } } : {})}
+                {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect, analysisOf: analysis.stateOf, onCancelAnalysis: analysis.cancel } } : {})}
                 review={
                   activeProposal && activeProposal.kind === 'cut-plan'
                     ? {

@@ -3,7 +3,9 @@
 // item's own knobs, presets, Enable and Remove. A slider drag live-previews
 // through the editor's ephemeral override (no reducer dispatch per pixel);
 // release commits one `clip-effect-update`. An entry whose pack is gone shows
-// its id and Remove only: the plain picture plays until the pack is back.
+// its id and Remove only: the plain picture plays until the pack is back. A
+// tracked entry shows its analysis line while its track is not ready, with a
+// Cancel while it runs (FILTER_PACKS_DESIGN.md "As built (masks track)" M4).
 
 import { useMemo, type Dispatch } from 'react';
 import { Trash2 } from 'lucide-react';
@@ -12,9 +14,8 @@ import type { StudioFilterInfo } from '@shared/ipc/types';
 import { resolveFilterParameters } from '@shared/studio/filter-runtime';
 import type { StudioClip, StudioClipEffect } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
-import { FACE_TRACK_REQUIREMENT } from '@shared/studio/filter-pack';
 import type { EffectParams } from '../services/effect-ops';
-import { analysisLabel, type AnalysisState } from '../services/analysis-status';
+import { analysisKindsOf, analysisLabel, type AnalysisKind, type AnalysisState } from '../services/analysis-status';
 import { EFFECT_WARNING_TEXT } from '../services/filter-status';
 import { EffectControls, RangeControl } from './EffectControls';
 
@@ -26,13 +27,15 @@ interface Props {
   dispatch: Dispatch<TimelineAction>;
   /** Ephemeral preview of a slider mid-drag; null clears it. */
   onLive: LiveEffectHandler;
-  /** The faces track's state for the clip's asset (FILTER_PACKS_DESIGN.md "Analysis tracks"). */
-  analysis?: AnalysisState;
+  /** The clip's asset's track state per kind (FILTER_PACKS_DESIGN.md "Analysis tracks"). */
+  analysisOf?: (kind: AnalysisKind) => AnalysisState | undefined;
+  /** Stop the clip's asset's running analysis of that kind. */
+  onCancelAnalysis?: (kind: AnalysisKind) => void;
 }
 
 const SLOT_LABEL = { filter: 'Filter', effect: 'Effect' } as const;
 
-export function FilterSection({ clip, installed, dispatch, onLive, analysis }: Props) {
+export function FilterSection({ clip, installed, dispatch, onLive, analysisOf, onCancelAnalysis }: Props) {
   const effects = clip.effects ?? [];
   if (effects.length === 0) {
     return (
@@ -44,7 +47,17 @@ export function FilterSection({ clip, installed, dispatch, onLive, analysis }: P
   return (
     <div className="flex flex-col gap-3" data-filter-section={clip.id}>
       {effects.map((entry) => (
-        <EntryBlock key={entry.kind} clip={clip} entry={entry} info={installed?.get(entry.kind) ?? null} installed={installed} dispatch={dispatch} onLive={onLive} analysis={analysis} />
+        <EntryBlock
+          key={entry.kind}
+          clip={clip}
+          entry={entry}
+          info={installed?.get(entry.kind) ?? null}
+          installed={installed}
+          dispatch={dispatch}
+          onLive={onLive}
+          analysisOf={analysisOf}
+          onCancelAnalysis={onCancelAnalysis}
+        />
       ))}
     </div>
   );
@@ -57,7 +70,8 @@ function EntryBlock({
   installed,
   dispatch,
   onLive,
-  analysis,
+  analysisOf,
+  onCancelAnalysis,
 }: {
   clip: StudioClip;
   entry: StudioClipEffect;
@@ -65,9 +79,12 @@ function EntryBlock({
   installed: ReadonlyMap<string, StudioFilterInfo> | null;
   dispatch: Dispatch<TimelineAction>;
   onLive: LiveEffectHandler;
-  analysis?: AnalysisState;
+  analysisOf?: (kind: AnalysisKind) => AnalysisState | undefined;
+  onCancelAnalysis?: (kind: AnalysisKind) => void;
 }) {
-  const tracked = info?.requires.includes(FACE_TRACK_REQUIREMENT) ?? false;
+  // The first of the entry's tracks that is not ready speaks (faces, then subject).
+  const pendingKind = entry.disabled ? undefined : analysisKindsOf(info).find((kind) => analysisOf?.(kind)?.status !== 'ready');
+  const analysis = pendingKind ? analysisOf?.(pendingKind) : undefined;
   const defaults = info ? { intensity: info.defaultIntensity, parameters: info.parameters } : undefined;
   const intensity = typeof entry.params?.intensity === 'number' ? entry.params.intensity : info?.defaultIntensity ?? 1;
   const values = useMemo(() => (info ? resolveFilterParameters({ parameters: info.parameters }, entry.params) : {}), [info, entry.params]);
@@ -115,13 +132,29 @@ function EntryBlock({
       {!info && installed && (
         <div className="text-[10px] text-accent-amber leading-relaxed">{EFFECT_WARNING_TEXT['not-installed']}</div>
       )}
-      {tracked && !entry.disabled && analysis?.status !== 'ready' && (
+      {pendingKind && (
         <div
-          className={`text-[10px] leading-relaxed ${analysis?.status === 'error' ? 'text-accent-amber' : 'text-text-dim'}`}
+          className={`text-[10px] leading-relaxed ${analysis?.status === 'error' || analysis?.status === 'canceled' ? 'text-accent-amber' : 'text-text-dim'}`}
           data-effect-analysis={analysis?.status ?? 'pending'}
+          data-effect-analysis-kind={pendingKind}
         >
-          {analysisLabel(analysis)}
-          {analysis?.status !== 'error' && ' — the clip plays plain until the track lands.'}
+          {analysisLabel(pendingKind, analysis)}
+          {analysis?.status === 'canceled'
+            ? ' — the clip plays plain. Re-apply the filter to analyse it.'
+            : analysis?.status !== 'error' && ' — the clip plays plain until the track lands.'}
+          {analysis?.status === 'analyzing' && onCancelAnalysis && (
+            <>
+              {' · '}
+              <button
+                type="button"
+                className="underline text-text-secondary hover:text-text-primary"
+                onClick={() => onCancelAnalysis(pendingKind)}
+                data-effect-analysis-cancel
+              >
+                Cancel
+              </button>
+            </>
+          )}
         </div>
       )}
 

@@ -76,7 +76,7 @@ export function useStudioMedia(
       // Analysis tracks are environmental, not document state — the analysis
       // hook (useAnalysisTracks) folds them; nothing here must mistake one
       // for a waveform.
-      if (event.kind === 'faceTrack') return;
+      if (event.kind === 'faceTrack' || event.kind === 'subjectMask') return;
 
       if (event.kind === 'transcript') {
         if (event.status === 'generating') {
