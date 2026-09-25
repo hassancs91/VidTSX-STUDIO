@@ -10,7 +10,8 @@
 > GO, see "Spike results". Slice 2, the FACES TRACK, is BUILT and verified
 > live 2026-09-24, COMMITTED 2026-09-25 (f531b98) — see "As built (faces track)" and "Faces
 > track results"; the five face filters ship as Volume 02. The MASKS TRACK and
-the analysis Cancel are BUILT and verified live 2026-09-25 (uncommitted) —
+the analysis Cancel are BUILT and verified live 2026-09-25, COMMITTED
+2026-09-25 as 0d86bc1 (the packaging fix as daa7679) —
 see "As built (masks track)" / "Masks track results"; Volume 02 1.1.0 adds
 the four subject effects. The ship steps are in "Continue from here" 4.** This is
 > NEXT_FEATURES_DESIGN.md row 10 (Q8c "effects") started from the other end:
@@ -66,7 +67,7 @@ the four subject effects. The ship steps are in "Continue from here" 4.** This i
 >      pathspec; suggested message: `feat(studio): faces analysis track —
 >      the analysis utilityProcess, the faceTrack job, tracks in the
 >      composition and export, chip + export refusal (E2 slice 2, F1–F6)`.
->    - **Masks track — DONE 2026-09-25 (uncommitted), with the Cancel.**
+>    - **Masks track — DONE 2026-09-25, COMMITTED as 0d86bc1, with the Cancel.**
 >      `subjectMask` job on the same process and feed (MODNet 896×512 on
 >      DML, 352 on the CPU fallback, read from the ORIGINAL — the proxy
 >      brings the shoulder ghost back); deflated 256-px blobs appended to
@@ -74,10 +75,9 @@ the four subject effects. The ship steps are in "Continue from here" 4.** This i
 >      reader (Player: IPC ranges; export: the `.bin` copied beside the
 >      entry, HTTP Range from the bundle server); the gate open for the four;
 >      Cancel in the Inspector. See "As built (masks track)" / "Masks track
->      results". **Commit when Hasan asks**, by pathspec; suggested message:
->      `feat(studio): masks analysis track — the subjectMask job (MODNet),
->      the mask reader in the Player and export, gate + Cancel (E2 slice 2,
->      M1–M5)`.
+>      results". The electron-builder.yml fix the packaged smoke needed is
+>      its own commit, daa7679. **Filters and effects are SHIPPED** (the
+>      flag is on); the volumes go on the website later.
 >    - **Content — DONE:** Volume 02 1.1.0 (the nine tracked effects),
 >      `live/masks/mkpack.mjs`, imported live over 1.0.0.
 > 4. **Open debt (small):** package drag-and-drop (shared with transitions);
@@ -1370,7 +1370,7 @@ face-mesh byte count was wrong; (4) a probed duration can exceed the last
 frame's time — never let coverage depend on it; (5) frame-exact seeks in
 an h264 file want the frame's centre.
 
-### As built (masks track, 2026-09-25, uncommitted)
+### As built (masks track, 2026-09-25, committed as 0d86bc1)
 
 Where the build differs from the text above, this list wins. Nothing in the
 add-ons repo changed; no package was added (Node `zlib` in, the browser's
