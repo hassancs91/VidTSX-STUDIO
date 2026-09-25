@@ -206,6 +206,17 @@ win:
       arch: [x64]
   icon: resources/icon.ico
   files:
+    # What the asar carries: the built app and the shared SOURCE — the Studio
+    # export compiles its render entry at export time and resolves @shared /
+    # @features / @renderer to <app.asar>/src (bundle-worker.ts). A platform
+    # list of "!" patterns alone makes electron-builder add its default "**/*",
+    # which packed the whole repo root (.vidtsx-temp test media and models,
+    # docs, reports: a 1.29 GB asar whose package.json Electron read back as
+    # garbage — the app exited 1 on launch, 2026-09-25). These two positive
+    # patterns keep that default out; node_modules and package.json are added
+    # by electron-builder regardless.
+    - out/**/*
+    - src/**/*
     # ORT for win-x64: drop mac/arm binaries. The DirectML execution-provider
     # DLLs (+36 MB) SHIP since the analysis tracks (docs/studio/
     # FILTER_PACKS_DESIGN.md "Analysis tracks", 2026-09-24): DirectML is the
@@ -240,5 +251,16 @@ mac:
     - target: dmg
       arch: [arm64, x64]
   files:
+    # What the asar carries: the built app and the shared SOURCE — the Studio
+    # export compiles its render entry at export time and resolves @shared /
+    # @features / @renderer to <app.asar>/src (bundle-worker.ts). A platform
+    # list of "!" patterns alone makes electron-builder add its default "**/*",
+    # which packed the whole repo root (.vidtsx-temp test media and models,
+    # docs, reports: a 1.29 GB asar whose package.json Electron read back as
+    # garbage — the app exited 1 on launch, 2026-09-25). These two positive
+    # patterns keep that default out; node_modules and package.json are added
+    # by electron-builder regardless.
+    - out/**/*
+    - src/**/*
     # CPU-only ORT for mac: win32 binaries never ship in the dmg.
     - "!node_modules/onnxruntime-node/bin/napi-v6/win32/**/*"
