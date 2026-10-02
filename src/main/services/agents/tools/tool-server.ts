@@ -90,8 +90,13 @@ function buildContext(
 export interface BuiltToolServer {
   server: ReturnType<typeof createSdkMcpServer>;
   allowedTools: string[];
-  /** The wrapped definitions, so a test can drive a tool call end to end. */
-  tools: ReturnType<typeof tool>[];
+  /**
+   * The wrapped definitions, so a test can drive a tool call end to end.
+   * Typed as what `createSdkMcpServer` accepts (the Studio `StudioTool`
+   * shape): since Agent SDK 0.3 `ReturnType<typeof tool>` is parameterised on
+   * a zod v3|v4 union, and a concrete schema's handler no longer assigns to it.
+   */
+  tools: NonNullable<Parameters<typeof createSdkMcpServer>[0]['tools']>;
 }
 
 /** Build the server plus the `allowedTools` entries that unlock it. */

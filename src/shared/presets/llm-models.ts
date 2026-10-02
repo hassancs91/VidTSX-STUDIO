@@ -30,12 +30,18 @@ export interface LlmModelCatalogEntry {
   note?: string;
 }
 
-// Verified 2026-09-09 on the subscription route (Agent SDK 0.2.119). Claude
-// Fable 5.1 is deliberately ABSENT: the SDK's bundled Claude Code 2.1.119
-// answers "does not support this model; version 2.1.251 or newer is
-// required" — it returns when the SDK is bumped (W1 outcome). It is reachable
-// today through OpenRouter below.
+// Fable 5.1 / Opus 5.5 / Sonnet 5.5 need the SDK's bundled Claude Code ≥ 2.1.280
+// (older builds answer "does not support this model"); the SDK was bumped to
+// 0.3.286 (Claude Code 2.1.286) on 2026-10-01 for them. ALL EIGHT ids below
+// answered a real turn on the subscription route through that SDK the same day
+// (`.vidtsx-temp/sdk-model-check.mjs`, `apiKeySource: none`); the five older
+// ids were first verified 2026-09-09 on 0.2.119. The Agent SDK ignores a
+// system-installed `claude`, so `claude update` alone never fixes a "does not
+// support this model" error; the dependency has to move.
 const CLAUDE_MODELS: readonly LlmModelCatalogEntry[] = [
+  { id: 'claude-fable-5-1', name: 'Claude Fable 5.1', tier: 'deep', supportsThinking: true },
+  { id: 'claude-opus-5-5', name: 'Claude Opus 5.5', tier: 'deep', supportsThinking: true },
+  { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', tier: 'balanced', supportsThinking: true },
   { id: 'claude-opus-5', name: 'Claude Opus 5', tier: 'deep', supportsThinking: true },
   { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', tier: 'balanced', supportsThinking: true },
   { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', tier: 'deep', supportsThinking: true },
