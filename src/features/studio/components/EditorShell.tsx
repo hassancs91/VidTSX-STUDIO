@@ -86,13 +86,14 @@ import { TimelinePanel } from './TimelinePanel';
 import { InspectorPanel } from './InspectorPanel';
 import { AgentPanel } from './AgentPanel';
 import { ScriptPanel } from './ScriptPanel';
+import { NotesPanel } from './NotesPanel';
 
 interface Props {
   projectId: string;
   onBack: () => void;
 }
 
-type RightTab = 'inspector' | 'assistant' | 'script';
+type RightTab = 'inspector' | 'assistant' | 'script' | 'notes';
 
 /** Preview monitoring speeds — a watch-speed aid, never part of the document. */
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2];
@@ -1383,6 +1384,12 @@ export function EditorShell({ projectId, onBack }: Props) {
               onClick={() => setRightTab('script')}
             />
             <PaneTabButton
+              tabId="notes"
+              label="Notes"
+              isActive={rightTab === 'notes'}
+              onClick={() => setRightTab('notes')}
+            />
+            <PaneTabButton
               tabId="assistant"
               label="Assistant"
               isActive={rightTab === 'assistant'}
@@ -1390,7 +1397,9 @@ export function EditorShell({ projectId, onBack }: Props) {
             />
           </div>
           <div className="flex-1 min-h-0 overflow-hidden">
-            {rightTab === 'script' ? (
+            {rightTab === 'notes' ? (
+              <NotesPanel projectId={project.id} />
+            ) : rightTab === 'script' ? (
               <ScriptPanel
                 script={project.script}
                 onChange={(script) =>

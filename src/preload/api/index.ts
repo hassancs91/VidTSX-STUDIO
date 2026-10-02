@@ -39,6 +39,7 @@ export { sttApi } from './stt';
 export { updaterApi } from './updater';
 export { libraryApi } from './library';
 export { memoryApi } from './memory';
+export { studioNotesApi } from './studio-notes';
 export { newsApi } from './news';
 export { agentsApi } from './agents';
 export { homeApi } from './home';

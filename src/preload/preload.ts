@@ -41,6 +41,7 @@ import { studioApi } from './api/studio';
 import { updaterApi } from './api/updater';
 import { libraryApi } from './api/library';
 import { memoryApi } from './api/memory';
+import { studioNotesApi } from './api/studio-notes';
 import { newsApi } from './api/news';
 import { agentsApi } from './api/agents';
 import { homeApi } from './api/home';
@@ -88,6 +89,7 @@ const api = {
   ...updaterApi,
   ...libraryApi,
   ...memoryApi,
+  ...studioNotesApi,
   ...newsApi,
   ...agentsApi,
   ...homeApi,

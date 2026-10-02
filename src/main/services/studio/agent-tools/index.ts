@@ -20,6 +20,7 @@ import { buildVocabularyTools } from './vocabulary-tools';
 import { buildPresetTools } from './preset-tools';
 import { buildAudioTools } from './audio-tools';
 import { buildFlowTools } from './flow-tools';
+import { buildNotesTools } from './notes-tools';
 import type { StudioToolContext } from './types';
 import { withToolResultEvents } from './tool-result-events';
 
@@ -60,6 +61,9 @@ export const STUDIO_TOOL_IDS = [
   'generate_music',
   // W8 Stage 4 (2026-09-10): an installed flow on a shot range (flows plan §0.1 item 11).
   'run_flow',
+  // Go-live 3a (2026-10-01): project notes (video-10 import gap 7).
+  'list_notes',
+  'read_note',
 ] as const;
 
 export type StudioToolId = (typeof STUDIO_TOOL_IDS)[number];
@@ -90,6 +94,7 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
       ...buildPresetTools(ctx),
       ...buildAudioTools(ctx),
       ...buildFlowTools(ctx),
+      ...buildNotesTools(ctx),
     ]),
   });
 }

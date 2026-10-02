@@ -535,6 +535,11 @@ export interface ElectronAPI {
   // Studio — agent memory (G5)
   memoryList: () => Promise<import('../../shared/ipc/types').MemoryListResponse>;
   memorySave: (data: import('../../shared/ipc/types').MemorySaveRequest) => Promise<import('../../shared/ipc/types').MemorySaveResponse>;
+  // Studio — project notes (notes/*.md, video-10 gap 7)
+  studioNotesList: (data: import('../../shared/ipc/types').StudioNotesListRequest) => Promise<import('../../shared/ipc/types').StudioNotesListResponse>;
+  studioNoteRead: (data: import('../../shared/ipc/types').StudioNoteReadRequest) => Promise<import('../../shared/ipc/types').StudioNoteReadResponse>;
+  studioNoteWrite: (data: import('../../shared/ipc/types').StudioNoteWriteRequest) => Promise<import('../../shared/ipc/types').StudioNoteWriteResponse>;
+  studioNoteDelete: (data: import('../../shared/ipc/types').StudioNoteDeleteRequest) => Promise<import('../../shared/ipc/types').StudioNoteDeleteResponse>;
   memorySetActive: (data: import('../../shared/ipc/types').MemorySetActiveRequest) => Promise<import('../../shared/ipc/types').MemorySetActiveResponse>;
   memoryDelete: (data: import('../../shared/ipc/types').MemoryDeleteRequest) => Promise<import('../../shared/ipc/types').MemoryDeleteResponse>;
   memoryProposalsGet: (data: import('../../shared/ipc/types').MemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryProposalsGetResponse>;

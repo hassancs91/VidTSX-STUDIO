@@ -1,6 +1,12 @@
 import { ipcMain, webContents } from 'electron';
 import { IPC } from '@shared/ipc/channels';
 import {
+  handleStudioNoteDelete,
+  handleStudioNoteRead,
+  handleStudioNoteWrite,
+  handleStudioNotesList,
+} from '../studio-notes-handlers';
+import {
   handleStudioRootGet,
   handleStudioRootSet,
   handleStudioProjectList,
@@ -95,6 +101,11 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_EXPORT_PREPARE, handleStudioExportPrepare);
   ipcMain.handle(IPC.STUDIO_EXPORT_ENGINES_LIST, handleStudioExportEnginesList);
   ipcMain.handle(IPC.STUDIO_CACHE_READ, handleStudioCacheRead);
+  // Project notes (notes/*.md, video-10 import gap 7)
+  ipcMain.handle(IPC.STUDIO_NOTES_LIST, handleStudioNotesList);
+  ipcMain.handle(IPC.STUDIO_NOTE_READ, handleStudioNoteRead);
+  ipcMain.handle(IPC.STUDIO_NOTE_WRITE, handleStudioNoteWrite);
+  ipcMain.handle(IPC.STUDIO_NOTE_DELETE, handleStudioNoteDelete);
   ipcMain.handle(IPC.STUDIO_CACHE_INFO, handleStudioCacheInfo);
   ipcMain.handle(IPC.STUDIO_CACHE_OPEN, handleStudioCacheOpen);
   ipcMain.handle(IPC.STUDIO_CACHE_CLEAR, handleStudioCacheClear);

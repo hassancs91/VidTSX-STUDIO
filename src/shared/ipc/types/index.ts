@@ -32,6 +32,7 @@ export * from './skills';
 export * from './stt';
 export * from './studio';
 export * from './studio-memory';
+export * from './studio-notes';
 export * from './studio-package';
 export * from './studio-preset';
 export * from './studio-transitions';

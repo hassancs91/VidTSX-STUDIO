@@ -504,6 +504,11 @@ export const IPC = {
   STUDIO_PACK_PACKAGE_INSTALL: 'studio:pack-package:install',
   STUDIO_PACK_PACKAGE_PENDING: 'studio:pack-package:pending',
   STUDIO_PACK_PACKAGE_OPEN_FILE: 'studio:pack-package:open-file',
+  // Studio — project notes (notes/*.md, video-10 import gap 7)
+  STUDIO_NOTES_LIST: 'studio:notes:list',
+  STUDIO_NOTE_READ: 'studio:note:read',
+  STUDIO_NOTE_WRITE: 'studio:note:write',
+  STUDIO_NOTE_DELETE: 'studio:note:delete',
 
   // Filter packs (docs/studio/FILTER_PACKS_DESIGN.md): the list the Filters
   // and Effects tabs show, and module delivery for the preview — a gated
