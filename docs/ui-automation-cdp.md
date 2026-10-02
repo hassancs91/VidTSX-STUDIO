@@ -239,6 +239,23 @@ previous sibling is that button (the gallery has several file inputs), and a
 status read taken while Remove is deleting the folder used to scan as
 "broken" — fixed, but poll for `missing`, not for "not installed".
 
+More pickers with stand-ins (2026-10-01/02, go-live 3a), each read only when
+the request carries no path of its own:
+
+- `VIDTSX_MEDIA_PICK=<path;path>` — the Studio media pool's Import.
+- `VIDTSX_SHOT_PICK=<path>` — the Shots panel's "Import .tsx file…".
+- `VIDTSX_TEMPLATE_PICK=<path>` — the Templates gallery's "Import…" (a `.vidtsxtemplate`).
+- `VIDTSX_DIALOG_PICK=<path;path>` — the shared `dialogOpen` picker (template
+  image and audio fields, among others): it answers with the first path the
+  requested filters accept, so one list can serve an image field and an audio
+  field in the same run.
+
+A double-click on a package is driven by a SECOND `electron.exe .` on the same
+`--user-data-dir` with the package path on argv: it hits the single-instance
+lock, forwards argv to the running instance and exits. `window.confirm`
+prompts (a template downgrade, Remove) are answered by overriding
+`window.confirm` in the page before the click.
+
 ## Synthetic drags and performance measurement
 
 React 19 picks up synthetic pointer events through the root container:
