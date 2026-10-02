@@ -13,8 +13,11 @@ import {
 } from '@shared/templates/values';
 
 const AUTOSAVE_MS = 400;
-/** What both `/asset` routes (preview and render) will serve as an image. */
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'];
+/** What both `/asset` routes (preview and render) serve, per file control. */
+const PICK_FILTERS = {
+  image: { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif'] },
+  audio: { name: 'Audio', extensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac'] },
+} as const;
 
 interface Staged {
   entryPath: string;
@@ -45,9 +48,10 @@ export interface TemplateSession {
   setFormat: (value: string) => void;
   applyPreset: (presetId: string) => void;
   reset: () => void;
-  pickImage: (key: string) => Promise<void>;
-  /** A url the form can show for an image value; null for ''. */
-  imageUrlFor: (value: ParamValue) => string | null;
+  /** The OS picker for an `image` or `audio` control. */
+  pickFile: (key: string, kind: keyof typeof PICK_FILTERS) => Promise<void>;
+  /** A url the form can load for a file value (picture, or sound to play); null for ''. */
+  fileUrlFor: (value: ParamValue) => string | null;
 }
 
 /**
@@ -160,8 +164,9 @@ export function useTemplateSession(): TemplateSession {
     setValues(defaultValues(t.manifest));
   }, []);
 
-  const pickImage = useCallback(async (key: string) => {
-    const res = await window.api.dialogOpen({ filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }] });
+  const pickFile = useCallback(async (key: string, kind: keyof typeof PICK_FILTERS) => {
+    const { name, extensions } = PICK_FILTERS[kind];
+    const res = await window.api.dialogOpen({ filters: [{ name, extensions: [...extensions] }] });
     if (!res.canceled && res.filePaths[0]) setValue(key, res.filePaths[0]);
   }, [setValue]);
 
@@ -186,7 +191,7 @@ export function useTemplateSession(): TemplateSession {
     return buildInputProps(template.manifest, values, stagedFormat);
   }, [template, values, staged?.format, formatValue]);
 
-  const imageUrlFor = useCallback((value: ParamValue): string | null => {
+  const fileUrlFor = useCallback((value: ParamValue): string | null => {
     if (typeof value !== 'string' || value === '' || !staged?.assetBaseUrl) return null;
     const absolute = /^(?:[A-Za-z]:[\\/]|\/|\\\\)/.test(value);
     const abs = absolute ? value : `${staged.workDir.replace(/\\/g, '/')}/${value}`;
@@ -214,7 +219,7 @@ export function useTemplateSession(): TemplateSession {
     setFormat,
     applyPreset,
     reset,
-    pickImage,
-    imageUrlFor,
+    pickFile,
+    fileUrlFor,
   };
 }

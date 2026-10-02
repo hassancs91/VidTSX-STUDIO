@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ParamField } from '@shared/components';
 import type { TemplateControl } from '@shared/types/templates';
+import { isFileControl } from '@shared/templates/manifest';
 import type { TemplateSession } from '../../hooks/useTemplateSession';
 import { MotionSegmented } from '../MotionSegmented';
 
@@ -121,8 +122,12 @@ export function TemplateForm({ session }: TemplateFormProps) {
                 control={control}
                 value={values[control.key] ?? control.default}
                 onChange={(value) => session.setValue(control.key, value)}
-                onPickImage={control.type === 'image' ? () => { void session.pickImage(control.key); } : undefined}
-                imageUrl={control.type === 'image' ? session.imageUrlFor(values[control.key] ?? '') : undefined}
+                onPickFile={
+                  isFileControl(control)
+                    ? () => { void session.pickFile(control.key, control.type === 'audio' ? 'audio' : 'image'); }
+                    : undefined
+                }
+                fileUrl={isFileControl(control) ? session.fileUrlFor(values[control.key] ?? '') : undefined}
                 disabled={busy}
               />
             ))}

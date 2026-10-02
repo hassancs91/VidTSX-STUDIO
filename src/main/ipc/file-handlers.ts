@@ -215,12 +215,22 @@ export async function handleDialogOpen(
   data?: DialogOpenRequest
 ): Promise<DialogOpenResponse> {
   try {
+    const filters = data?.filters ?? [{ name: 'TSX Files', extensions: ['tsx'] }];
+    // VIDTSX_DIALOG_PICK=<path;path> stands in for this picker in automated
+    // runs: the first path(s) the requested filters accept, as if chosen.
+    const standIn = process.env.VIDTSX_DIALOG_PICK?.split(';').filter((p) => {
+      const ext = p.split('.').pop()?.toLowerCase() ?? '';
+      return filters.some((f) => f.extensions.includes('*') || f.extensions.includes(ext));
+    });
+    if (standIn?.length) {
+      return { filePaths: data?.multiSelections ? standIn : standIn.slice(0, 1), canceled: false };
+    }
     const result = await dialog.showOpenDialog({
       properties: [
         'openFile',
         ...(data?.multiSelections ? ['multiSelections' as const] : []),
       ],
-      filters: data?.filters ?? [{ name: 'TSX Files', extensions: ['tsx'] }],
+      filters,
     });
 
     return {

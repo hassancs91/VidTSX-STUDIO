@@ -4,7 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { TemplateManifestError, controlValueProblem, parseTemplateManifest } from './manifest';
+import { TemplateManifestError, controlValueProblem, isFileControl, parseTemplateManifest } from './manifest';
 import type { TemplateControl } from '../types/templates';
 
 const base = () => ({
@@ -73,6 +73,23 @@ describe('parseTemplateManifest', () => {
     expect(problemsOf(withControl({ key: 'i', label: 'I', type: 'image', default: '../up.jpg' }))).toEqual(
       expect.arrayContaining([expect.stringContaining('safe path inside the template')]),
     );
+    expect(problemsOf(withControl({ key: 'a', label: 'A', type: 'audio', default: 'C:/music.mp3' }))).toEqual(
+      expect.arrayContaining([expect.stringContaining('safe path inside the template')]),
+    );
+    expect(problemsOf(withControl({ key: 'a', label: 'A', type: 'audio', default: 3 }))[0]).toContain('must be a string');
+  });
+
+  it('takes an audio control: silent by default, or a sound inside the template', () => {
+    const withAudio = (d: string, preset?: string) => ({
+      ...base(),
+      controls: [{ key: 'tickSound', label: 'Tick sound', type: 'audio', default: d }],
+      presets: preset === undefined ? [] : [{ id: 'loud', name: 'Loud', values: { tickSound: preset } }],
+    });
+    expect(problemsOf(withAudio(''))).toEqual([]);
+    expect(problemsOf(withAudio('assets/tick.mp3', ''))).toEqual([]);
+    expect(problemsOf(withAudio('', '/etc/tick.mp3'))).toEqual([
+      "presets.loud.tickSound: must be '' or a safe path inside the template",
+    ]);
   });
 
   it('refuses duplicate and non-identifier keys', () => {
@@ -137,11 +154,11 @@ describe('built-in templates', () => {
     const dir = path.dirname(file);
     expect(fs.existsSync(path.join(dir, manifest.entry))).toBe(true);
     if (manifest.thumbnail) expect(fs.existsSync(path.join(dir, manifest.thumbnail))).toBe(true);
-    // Every bundled image a default or a preset points at must really ship.
-    const images = new Set(manifest.controls.filter((c) => c.type === 'image').map((c) => c.key));
+    // Every bundled image or sound a default or a preset points at must really ship.
+    const fileKeys = new Set(manifest.controls.filter(isFileControl).map((c) => c.key));
     const referenced = [
-      ...manifest.controls.filter((c) => images.has(c.key)).map((c) => c.default),
-      ...manifest.presets.flatMap((p) => Object.entries(p.values).filter(([k]) => images.has(k)).map(([, v]) => v)),
+      ...manifest.controls.filter((c) => fileKeys.has(c.key)).map((c) => c.default),
+      ...manifest.presets.flatMap((p) => Object.entries(p.values).filter(([k]) => fileKeys.has(k)).map(([, v]) => v)),
     ].filter((v): v is string => typeof v === 'string' && v !== '');
     for (const rel of referenced) expect(fs.existsSync(path.join(dir, rel)), rel).toBe(true);
     // …and the reverse: nothing ships that no default or preset names. A built-in

@@ -15,6 +15,7 @@ import { parseAgentId } from '../agents/ids';
 import { compareAgentVersions } from '../agents/manifest';
 import {
   TEMPLATE_CONTROL_TYPES,
+  TEMPLATE_FILE_CONTROL_TYPES,
   type ParamValue,
   type TemplateControl,
   type TemplateManifest,
@@ -120,6 +121,11 @@ const manifestFields = z.object({
     .default([]),
 });
 
+/** An `image` or `audio` control: its value names a file. */
+export function isFileControl(c: Pick<TemplateControl, 'type'>): boolean {
+  return (TEMPLATE_FILE_CONTROL_TYPES as readonly string[]).includes(c.type);
+}
+
 /** The JS type a control's value must have. */
 export function valueTypeOf(type: TemplateControl['type']): 'string' | 'number' | 'boolean' {
   if (type === 'number') return 'number';
@@ -192,8 +198,8 @@ export function parseTemplateManifest(raw: unknown, ctx: TemplateManifestContext
     if (c.min !== undefined && c.max !== undefined && c.min > c.max) {
       problems.push(`controls.${c.key}: min ${c.min} is above max ${c.max}`);
     }
-    // '' means "none": the composition draws its own stand-in.
-    if (c.type === 'image' && typeof c.default === 'string' && c.default !== '' && !isSafeEntryPath(c.default)) {
+    // '' means "none": the composition draws its own stand-in, or stays silent.
+    if (isFileControl(c) && typeof c.default === 'string' && c.default !== '' && !isSafeEntryPath(c.default)) {
       problems.push(`controls.${c.key}: default must be '' or a safe path inside the template`);
     }
     const problem = controlValueProblem(c, c.default);
@@ -221,7 +227,7 @@ export function parseTemplateManifest(raw: unknown, ctx: TemplateManifestContext
         problems.push(`presets.${preset.id}: "${key}" is not a control`);
         continue;
       }
-      if (c.type === 'image' && typeof value === 'string' && value !== '' && !isSafeEntryPath(value)) {
+      if (isFileControl(c) && typeof value === 'string' && value !== '' && !isSafeEntryPath(value)) {
         problems.push(`presets.${preset.id}.${key}: must be '' or a safe path inside the template`);
         continue;
       }

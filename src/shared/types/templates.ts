@@ -4,9 +4,9 @@
 //
 // The control schema is NEXT_FEATURES_DESIGN Q8c's `ParamSpec` ("manifests are
 // data, code is code" — the form is declared, never parsed out of the TSX) with
-// the three kinds a full composition needs on top of an effect's knobs: `text`,
-// `textarea` and `image`. Transitions and effects can adopt the same field
-// renderer (`shared/components/ParamField`) when they become pack kinds.
+// the kinds a full composition needs on top of an effect's knobs: `text`,
+// `textarea`, `image` and `audio`. Transitions and effects can adopt the same
+// field renderer (`shared/components/ParamField`) when they become pack kinds.
 
 import type { AgentAuthor, AgentFileEntry } from './agents';
 
@@ -21,8 +21,13 @@ export const TEMPLATE_CONTROL_TYPES = [
   'select',
   'boolean',
   'image',
+  'audio',
 ] as const;
 export type TemplateControlType = (typeof TEMPLATE_CONTROL_TYPES)[number];
+
+/** Controls whose value is a file: '' (none — silent, or the composition's
+ *  own stand-in), a path inside the template, or a file the user picked. */
+export const TEMPLATE_FILE_CONTROL_TYPES = ['image', 'audio'] as const;
 
 export interface TemplateControlOption {
   value: string;
@@ -35,7 +40,8 @@ export interface TemplateControl {
   label: string;
   type: TemplateControlType;
   /** Type must agree with `type`: number → number, boolean → boolean, the rest
-   *  → string. An `image` default is '' or a path relative to the template. */
+   *  → string. An `image` or `audio` default is '' or a path relative to the
+   *  template ('' audio = silent). */
   default: ParamValue;
   /** Section heading. Consecutive controls sharing a group render together. */
   group?: string;

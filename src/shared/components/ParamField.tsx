@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import type { ParamValue, TemplateControl } from '@shared/types/templates';
+import { ParamFileField } from './ParamFileField';
 
 export interface ParamFieldProps {
   control: TemplateControl;
   value: ParamValue;
   onChange: (value: ParamValue) => void;
-  /** `image` controls: open a picker. The field never touches IPC itself. */
-  onPickImage?: () => void;
-  /** `image` controls: a url the renderer can show for the current value. */
-  imageUrl?: string | null;
+  /** `image` / `audio` controls: open a picker. The field never touches IPC itself. */
+  onPickFile?: () => void;
+  /** `image` / `audio` controls: a url the renderer can load for the current value. */
+  fileUrl?: string | null;
   disabled?: boolean;
 }
 
@@ -46,17 +47,13 @@ function clamp(n: number, min?: number, max?: number): number {
   return n;
 }
 
-function fileNameOf(filePath: string): string {
-  return filePath.split(/[\\/]/).pop() ?? filePath;
-}
-
 /**
- * One declared control (NEXT_FEATURES_DESIGN Q8c `ParamSpec`, plus the text
- * and image kinds a template needs). Driven entirely by the manifest, so pack
- * authors never write UI — templates use it today, transitions and effects can
- * when they become pack kinds.
+ * One declared control (NEXT_FEATURES_DESIGN Q8c `ParamSpec`, plus the text,
+ * image and audio kinds a template needs). Driven entirely by the manifest, so
+ * pack authors never write UI — templates use it today, transitions and
+ * effects can when they become pack kinds.
  */
-export function ParamField({ control, value, onChange, onPickImage, imageUrl, disabled }: ParamFieldProps) {
+export function ParamField({ control, value, onChange, onPickFile, fileUrl, disabled }: ParamFieldProps) {
   const modified = value !== control.default;
   // Local draft so intermediate number states ('', '-', '1.') don't commit.
   const [draft, setDraft] = useState(String(value));
@@ -223,51 +220,20 @@ export function ParamField({ control, value, onChange, onPickImage, imageUrl, di
         />
       );
       break;
-    case 'image': {
-      const path = typeof value === 'string' ? value : '';
+    case 'image':
+    case 'audio':
       field = (
-        <div className="flex items-center gap-1.5">
-          <div
-            className="w-[34px] h-[34px] shrink-0 rounded-[6px] overflow-hidden bg-app-base flex items-center justify-center"
-            style={inputStyle}
-          >
-            {path && imageUrl ? (
-              <img src={imageUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <svg width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.2} className="text-text-dim">
-                <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" />
-                <circle cx="5.5" cy="6" r="1.2" />
-                <path d="M2 12l3.5-3.5 2.5 2.5 2.5-3 3.5 4" strokeLinejoin="round" />
-              </svg>
-            )}
-          </div>
-          <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-            <span className="text-[10px] text-text-secondary truncate" title={path || undefined}>
-              {path ? fileNameOf(path) : 'None'}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onPickImage}
-                disabled={disabled || !onPickImage}
-                className="text-[10px] text-accent-light hover:underline cursor-pointer disabled:opacity-50 disabled:cursor-default"
-              >
-                {path ? 'Replace…' : 'Choose…'}
-              </button>
-              {path && (
-                <button
-                  onClick={() => onChange('')}
-                  disabled={disabled}
-                  className="text-[10px] text-text-dim hover:text-text-primary cursor-pointer disabled:opacity-50"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <ParamFileField
+          kind={control.type}
+          path={typeof value === 'string' ? value : ''}
+          url={fileUrl ?? null}
+          label={control.label}
+          onPick={onPickFile}
+          onClear={() => onChange('')}
+          disabled={disabled}
+        />
       );
       break;
-    }
     default:
       field = (
         <input
