@@ -1,0 +1,15 @@
+{
+  "messages": [
+    {
+      "id": "2026-10-v1-1-0-welcome",
+      "type": "announcement",
+      "title": "VidTSX Studio 1.1.0 is out",
+      "body": "Studio, Videos, Agents, Flows and Templates all ship in this release. Tell me what breaks.",
+      "url": "https://github.com/hassancs91/VidTSX-STUDIO/releases/tag/v1.1.0",
+      "cta": "Release notes",
+      "startsAt": "2026-10-01",
+      "endsAt": "2026-11-15",
+      "minAppVersion": "1.1.0"
+    }
+  ]
+}

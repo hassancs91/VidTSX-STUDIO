@@ -39,6 +39,9 @@ jobs:
         run: npm run build
         env:
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          # The renderer bundle needs more heap than Node's default; without this the
+          # build dies out of memory (docs/v1-go-live-runbook.md, step 1).
+          NODE_OPTIONS: --max-old-space-size=8192
 
       - name: Package and publish draft release
         run: npx electron-builder --win --publish always

@@ -3,12 +3,15 @@
 > Companion to [auto-update-plan.md](auto-update-plan.md) — that one is the design, this
 > one is the runbook. Work top to bottom; each stage assumes the previous passed.
 >
-> **Current state:** the app code is complete and type-checks, but the update flow has
-> **never run against a real release**. Nothing below has been executed yet.
+> **Current state (2026-09-26):** the update flow was proven end to end on 2026-08-17
+> against a throwaway release repo (`auto-update-e2e-test-plan.md`). The live release is
+> driven by [v1-go-live-runbook.md](v1-go-live-runbook.md); the table below is the August
+> snapshot, kept for the stage detail the runbook points into. The first real release is
+> `v1.1.0`, not `v1.0.1` (the version was bumped with the agents flag on 2026-09-08).
 
 ---
 
-## Situation as of 2026-08-13
+## Situation as of 2026-08-13 (historical; see the runbook §0 for today's)
 
 | Fact | Value | Consequence |
 |---|---|---|

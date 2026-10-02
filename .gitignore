@@ -67,3 +67,10 @@ __pycache__/
 # use and never committed (CLAUDE.md). Only the placeholder is tracked.
 resources/binaries/*
 !resources/binaries/.gitkeep
+
+# Personal notes and per-machine Claude overrides: never on GitHub (go-live D5, 2026-09-30)
+my_notes.md
+.claude/settings.local.json
+
+# A/B test reports rendered from the raw footage (frames of it are embedded): local only
+/*-report.html

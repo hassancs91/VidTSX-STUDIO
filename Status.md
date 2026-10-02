@@ -7,6 +7,82 @@
 
 ---
 
+## 2026-10-01 — V1 GO-LIVE: Hasan's pass clean, Agent SDK 0.3.286 verified in the packaged app, scope widened
+
+- **Hasan's pass:** "it looks working" on the 2026-09-30 installer. He also bumped the Agent SDK to 0.3.286
+  (Claude Code 2.1.286) and added Fable 5.1, Opus 5.5 and Sonnet 5.5 to the Claude catalogs.
+- **Verified the bump:** types at baseline, lockfile in sync for CI, full suite green; all eight Claude ids
+  answered a real subscription turn headless; the SDK's native `claude.exe` is auto-unpacked by
+  electron-builder and the packaged app ran real turns on all three new models plus an adaptive-thinking
+  turn on Fable. Installer is 375 MB now (the new executable compresses worse).
+- **Scope widened (Hasan: "I want to do all tasks we agreed on before"):** the open items from the testing
+  rounds are V1 work, listed as runbook step 3a; built before the flip.
+
+## 2026-09-30 — V1 GO-LIVE: decisions taken, old release deleted, repo audit, first-launch crash-reporting prompt
+
+Runbook `docs/v1-go-live-runbook.md` §1 holds the seven decisions as Hasan made them; the log has the detail.
+
+- **Decided:** flip this repo public as-is, but only after Hasan has confirmed every planned feature works (D1);
+  unsigned (D2); crash reporting ON with a one-time first-launch prompt (D3); text-based editing stays hidden
+  (D4); personal files out of the repo (D5); the July 1.0.0 release deleted so 1.1.0 is the first stable
+  release (D6); tests stay in CI (D7).
+- **Done:** `gh release delete v1.0.0 --cleanup-tag` (no releases, no tags remain). Audit of every root file
+  and every file over 2 MB: `my_notes.md`, `.claude/settings.local.json` and the four A/B report HTMLs
+  (two embed frames of the raw footage) untracked and gitignored — all six entered the repo on 2026-09-09,
+  after the accidental public window, so none was ever exposed.
+- **Built + live-verified:** the first-launch consent prompt (`CrashReportingPrompt.tsx`, the
+  `crashReportingPrompted` setting, the pure rule in `src/shared/crash-reporting-prompt.ts` with tests).
+  On isolated dev instances with a dummy DSN: shows once on a fresh profile, "Not now" and "Enable" both
+  record the answer and retire the card, a relaunch never asks again, a build without a DSN never asks.
+- **Crash reporting, two bugs found by the live test and fixed** (`crash-reporting.ts`; Hasan's Sentry
+  project and the `VITE_SENTRY_DSN` secret are in place). (1) The SDK was started lazily on consent, but
+  `@sentry/electron` refuses `init` after app `ready`, so on a fresh install Enable saved the setting and
+  captured nothing until the next launch. Now the SDK starts at boot whenever a DSN exists and consent only
+  gates `beforeSend`; the session tracker is dropped and client reports are off so an unconsented client
+  makes no request at all. (2) Log lines written before consent rode along as breadcrumbs inside the first
+  consented event; `beforeBreadcrumb` is now gated and the trail cleared on every consent change. Both
+  verified against a local fake ingest endpoint with the captured bodies grepped: consent off → zero
+  requests (idle, a batch of errors, a graceful quit); on → three envelopes per batch; no pre-consent text
+  in any consented payload; the Windows username in zero payloads; `C:\Users\Malak` → `C:\Users\[user]`.
+  Full log in `docs/crash-reporting-release-checklist.md` (Stages 2–3) and the runbook.
+- **Updater noise kept out of Sentry** (`updater-service.ts`): a failed update CHECK (offline, GitHub
+  unreachable, 404 on a private repo) now logs at warn — a breadcrumb, not an event — and only a failed
+  DOWNLOAD stays at error; electron-updater's own logger errors are warnings too. Found because the
+  packaged real-DSN batch carried two Updater events beside the three test events.
+- **Gates:** `check:types` 26 / 10 (baseline); full vitest 325 files / 2844 tests green; updater tests 8/8.
+- **Pending Hasan:** confirm the `[packaged-real-dsn]` batch in his Sentry project (three test events plus
+  the two pre-fix Updater events); then his full pass on the rebuilt installer; then the commit, the flip
+  and the tag.
+
+## 2026-09-26 — V1 GO-LIVE: runbook written, repo prep + local gates done, waiting on Hasan's decisions and pass
+
+`docs/v1-go-live-runbook.md` is the one ordered list from "all the code is built" to "users are
+installing it" (owner per step, log at the bottom). It starts from the finding that every V1 plan
+phase and workstream has landed, so what remains is release mechanics.
+
+- **Where we stand (verified):** version 1.1.0 (the July 1.0.0 tag is burned), no `v1.1.0` tag, repo
+  PRIVATE, CI never run, every installer ever built is unsigned (the "signed" note in
+  `V1_RELEASE_PLAN.md` was wrong), no root `.env`, app keys are pre-rotation, secret scan of history
+  since 2026-08-16 clean.
+- **Step 1, repo prep (uncommitted):** `release.yml` build step gets an 8 GB heap; README rewritten
+  around the sidebar as it ships (Studio first, Agents / Flows / Videos / 3D / Templates added,
+  provider lists match `V1_HIDDEN_PRESET_IDS`, "Coming soon" replaced); `SECURITY.md`,
+  `CONTRIBUTING.md`, `docs/release-notes/1.1.0.md`, `docs/launch/feed.example.json`; the update
+  checklist header now points at the runbook.
+- **Step 2, local gates, all PASS:** `check:types` 26 / 10 (baseline); `npm run build:win` exit 0
+  (`dist/VidTSX-Studio-Setup-1.1.0.exe`, 344.6 MB, `check:bundle` ok); artifact-level hidden-surface
+  check read verbatim from the (unminified) renderer bundle: the five env-gated flags are `void 0`,
+  `flows` / `video-studio` / `studio-filters` / `agents` on, `studio-text-edit` and `license-ui` off;
+  clean-profile smoke of `win-unpacked`: window at 1.7 s, alive at 30 s, zero error/warn, only provider
+  registrations; vitest 324 files / 2840 tests passed, 0 failed.
+- **CI blocker found and fixed:** `package.json` declares `es-module-lexer@2.3.1` but the committed
+  `package-lock.json` root block did not, so the workflow's `npm ci` would have refused the lockfile on
+  the first run. `npm install --package-lock-only` added exactly that line.
+- **Next (Hasan):** decisions D1–D7 in the runbook §1 (flip this repo as-is, unsigned, crash reporting
+  compiled out, text-edit hidden, untrack `my_notes.md`, leave v1.0.0, keep tests in CI) and the pass on
+  the installed 1.1.0 build (step 3). Then: commit by pathspec, flip public, `git tag v1.1.0`, smoke the
+  CI draft, publish, `feed.json` on vidtsx.com.
+
 ## 2026-09-17 — TEXT-BASED EDITING slice 1 (row 8): edit the video by editing its transcript
 
 `docs/NEXT_FEATURES_DESIGN.md` §Q5, "Slice 1 outcome", holds the four deviations from the design, what the live pass
@@ -1635,7 +1711,11 @@ deltas and the acceptance evidence: the plan's §2.1 "W1 outcome".
   answers "Claude Code 2.1.119 does not support this model; version 2.1.251 or
   newer is required": the pinned Agent SDK 0.2.119 bundles that Claude Code.
   The SDK bump is the one follow-up W1 leaves; Fable is reachable through
-  OpenRouter meanwhile (`anthropic/claude-fable-5.1`, verified).
+  OpenRouter meanwhile (`anthropic/claude-fable-5.1`, verified). **Done
+  2026-10-01:** Agent SDK 0.2.119 → 0.3.286 (bundled Claude Code 2.1.286;
+  the 5.5 models need ≥ 2.1.280) and Fable 5.1, Opus 5.5, Sonnet 5.5 seeded
+  at the top of the Claude catalogs. Lesson: the app runs the SDK's OWN
+  `claude.exe`, so a global `claude update` never clears that error.
 - **One catalog mechanism, not a new one.** `category: 'llm'` joins image and
   video in `PROVIDER_MODEL_DEFAULTS`; the Model Catalogs card, the `{id,name}`
   sanitiser and the settings override key all applied unchanged. Custom ids
