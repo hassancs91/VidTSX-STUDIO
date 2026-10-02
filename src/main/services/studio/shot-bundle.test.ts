@@ -100,6 +100,30 @@ describe('helpers', () => {
     expect(resolveShotMedia(source, 'nope.png')).toBeNull();
   });
 
+  it('a module-scope media lookup follows a changed assets prop', () => {
+    const bundled = [
+      'import { staticFile } from "remotion";',
+      'var compositionConfig = { id: "m", durationInFrames: 30, fps: 30, width: 10, height: 10 };',
+      'var LOGO = staticFile("brand/logo.svg");',
+      'var Shot = () => LOGO;',
+      'export {',
+      '  compositionConfig,',
+      '  Shot as default',
+      '};',
+    ].join('\n');
+    // Run the finished module with a createElement that renders on the spot.
+    const runnable = finishShotBundle(bundled)
+      .code.replace(/^import .*$/gm, '')
+      .replace(/^export const /m, 'const ')
+      .replace(/^export default (\w+);\s*$/m, 'return $1;');
+    const shot = new Function('__vidtsxCreateElement', runnable)(
+      (type: (props: unknown) => unknown, props: unknown) => type(props),
+    ) as (props: { assets: Record<string, string> }) => string;
+    expect(shot({ assets: { brand_logo: '/asset?path=a.svg' } })).toBe('/asset?path=a.svg');
+    expect(shot({ assets: { brand_logo: '/asset?path=b.svg' } })).toBe('/asset?path=b.svg');
+    expect(shot({ assets: {} })).toBe('');
+  });
+
   it('finishShotBundle counts a non-literal staticFile() as dynamic', () => {
     const bundled = [
       'import { staticFile } from "remotion";',

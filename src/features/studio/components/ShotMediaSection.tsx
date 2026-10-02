@@ -97,7 +97,7 @@ export function ShotMediaSection({ shot, assets, disabled, onChange }: Props) {
             value={newAssetId}
             disabled={disabled || options.length === 0}
             onChange={setNewAssetId}
-            options={[{ value: '', label: options.length === 0 ? 'No images or video in the project' : 'Pick an asset…' }, ...options]}
+            options={[{ value: '', label: options.length === 0 ? 'No images or video' : 'Asset…' }, ...options]}
           />
         </div>
         <Button variant="secondary" size="sm" disabled={!canAdd} onClick={add} data-shot-media-attach>

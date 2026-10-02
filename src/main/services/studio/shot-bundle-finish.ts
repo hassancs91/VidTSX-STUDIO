@@ -12,7 +12,8 @@
 //      the importer can register the file as a project asset.
 //   3. Everything but the imports moves into a lazily-run body, so
 //      module-scope media lookups (top-level constants are the norm in shots
-//      written outside Studio) see the `assets` of the first render.
+//      written outside Studio) see the `assets` prop; the body runs again
+//      whenever that prop changes.
 
 import { parseCompositionConfig } from '../composition-config-parser';
 
@@ -105,13 +106,20 @@ export function finishShotBundle(bundled: string): FinishedShotBundle {
       ...imports,
       configLiteral,
       'let __vidtsxInner = null;',
+      'let __vidtsxInnerAssets = null;',
       'function __vidtsxInit() {',
       body.trim(),
       `  return ${defaultExport[1]};`,
       '}',
+      // Module-scope lookups are frozen by the run that made them, so a changed
+      // `assets` (a swap in the shot inspector's Media section) runs the body again.
       'const __vidtsxShot = (props) => {',
       '  __vidtsxAssets = (props && props.assets) || {};',
-      '  if (!__vidtsxInner) __vidtsxInner = __vidtsxInit();',
+      '  const assetsKey = JSON.stringify(__vidtsxAssets);',
+      '  if (!__vidtsxInner || assetsKey !== __vidtsxInnerAssets) {',
+      '    __vidtsxInner = __vidtsxInit();',
+      '    __vidtsxInnerAssets = assetsKey;',
+      '  }',
       '  return __vidtsxCreateElement(__vidtsxInner, props);',
       '};',
       'export default __vidtsxShot;',

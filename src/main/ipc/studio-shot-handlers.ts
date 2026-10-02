@@ -195,7 +195,8 @@ export async function handleStudioShotImport(
   data: StudioShotImportRequest,
 ): Promise<StudioShotImportResponse> {
   try {
-    let sourcePath = data.sourcePath;
+    // VIDTSX_SHOT_PICK stands in for the picker in automated runs, like VIDTSX_MEDIA_PICK.
+    let sourcePath = data.sourcePath ?? (process.env.VIDTSX_SHOT_PICK || undefined);
     if (!sourcePath) {
       const result = await dialog.showOpenDialog({
         title: 'Import a TSX composition',
