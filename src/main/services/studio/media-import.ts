@@ -10,12 +10,20 @@ import type {
   StudioMediaAsset,
 } from '../../../shared/types/studio';
 import { getProjectCacheDir, getProjectDir } from './studio-paths';
+import { parseSvgDimensions } from './svg-dimensions';
 
 const log = logEngine.createLogger('StudioMediaImport');
 
 const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.mts', '.m2ts']);
 const AUDIO_EXTS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus']);
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif']);
+// SVG (video-10 import gap 6): the asset route already serves it and Chromium
+// draws it in an <img>, so it is an image clip like any other — only the probe
+// and the thumbnail differ, because ffmpeg/ffprobe cannot read SVG (below).
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.svg']);
+
+function isSvg(filePath: string): boolean {
+  return path.extname(filePath).toLowerCase() === '.svg';
+}
 
 export const MEDIA_DIALOG_FILTERS = [
   {
@@ -65,8 +73,23 @@ function parseFps(stream: FfprobeStream | undefined): number | undefined {
   return Number.isFinite(single) && single > 0 ? single : undefined;
 }
 
+/** SVG has no stream to probe: read its intrinsic size from the root tag. */
+async function probeSvg(filePath: string): Promise<StudioAssetProbe> {
+  // The root tag sits in the first bytes; 64 KiB covers any sane prologue.
+  const handle = await fs.open(filePath, 'r');
+  try {
+    const buffer = Buffer.alloc(64 * 1024);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const { width, height } = parseSvgDimensions(buffer.subarray(0, bytesRead).toString('utf8'));
+    return { duration: 0, width, height, hasAudio: false, codec: 'svg' };
+  } finally {
+    await handle.close();
+  }
+}
+
 /** ffprobe any media file (video, audio, or image). */
 export async function probeMedia(filePath: string, kind: StudioAssetKind): Promise<StudioAssetProbe> {
+  if (kind === 'image' && isSvg(filePath)) return probeSvg(filePath);
   const ffprobePath = await getBinaryPath('ffprobe');
   const output = await new Promise<string>((resolve, reject) => {
     const args = ['-v', 'quiet', '-print_format', 'json', '-show_format', '-show_streams', filePath];
@@ -131,8 +154,18 @@ async function generateThumbnail(
 ): Promise<string | null> {
   if (kind === 'audio') return null;
   try {
-    const ffmpegExe = await getBinaryPath('ffmpeg');
     const cacheDir = await getProjectCacheDir(projectId);
+    if (kind === 'image' && isSvg(filePath)) {
+      // No rasterizer in the bundled ffmpeg: the thumbnail IS the SVG, copied
+      // into the cache so the pool reads it like any other thumb (the cache
+      // reader serves it as image/svg+xml; an <img> never runs its scripts).
+      const svgRelPath = path.join('thumbs', `${assetId}.svg`);
+      const svgOutputPath = path.join(cacheDir, svgRelPath);
+      await fs.mkdir(path.dirname(svgOutputPath), { recursive: true });
+      await fs.copyFile(filePath, svgOutputPath);
+      return svgRelPath.replace(/\\/g, '/');
+    }
+    const ffmpegExe = await getBinaryPath('ffmpeg');
     const relPath = path.join('thumbs', `${assetId}.jpg`);
     const outputPath = path.join(cacheDir, relPath);
     await fs.mkdir(path.dirname(outputPath), { recursive: true });

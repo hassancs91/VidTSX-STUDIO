@@ -187,6 +187,8 @@ export interface StudioFlushAckResponse {
 
 export interface StudioMediaImportRequest {
   projectId: string;
+  /** Explicit files to import (a drop, or automation). Absent: the native picker opens. */
+  filePaths?: string[];
 }
 
 export interface StudioMediaImportResponse {

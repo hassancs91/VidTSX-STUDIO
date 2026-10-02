@@ -264,15 +264,24 @@ export async function handleStudioMediaImport(
   data: StudioMediaImportRequest,
 ): Promise<StudioMediaImportResponse> {
   try {
-    const result = await dialog.showOpenDialog({
-      title: 'Import Media',
-      properties: ['openFile', 'multiSelections'],
-      filters: MEDIA_DIALOG_FILTERS,
-    });
-    if (result.canceled || result.filePaths.length === 0) {
-      return { success: true, canceled: true };
+    // Explicit paths (a drop, or automation) skip the picker; VIDTSX_MEDIA_PICK
+    // stands in for it in automated runs, like VIDTSX_RELINK_PICK below.
+    let filePaths = data.filePaths?.filter((p) => typeof p === 'string' && p.length > 0);
+    if (!filePaths?.length && process.env.VIDTSX_MEDIA_PICK) {
+      filePaths = process.env.VIDTSX_MEDIA_PICK.split(';').filter(Boolean);
     }
-    const { assets, errors } = await importMediaFiles(data.projectId, result.filePaths);
+    if (!filePaths?.length) {
+      const result = await dialog.showOpenDialog({
+        title: 'Import Media',
+        properties: ['openFile', 'multiSelections'],
+        filters: MEDIA_DIALOG_FILTERS,
+      });
+      if (result.canceled || result.filePaths.length === 0) {
+        return { success: true, canceled: true };
+      }
+      filePaths = result.filePaths;
+    }
+    const { assets, errors } = await importMediaFiles(data.projectId, filePaths);
     return { success: true, assets, errors: errors.length > 0 ? errors : undefined };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to import media') };
@@ -587,6 +596,8 @@ const CACHE_MIME_BY_EXT: Record<string, string> = {
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  // SVG thumbnails are the file itself (ffmpeg cannot rasterize SVG) — see media-import.ts.
+  '.svg': 'image/svg+xml',
   '.json': 'application/json',
 };
 
