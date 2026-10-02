@@ -172,6 +172,7 @@ function wireEvents(): void {
   });
 
   autoUpdater.on('error', (error) => {
+    const wasDownloading = state.status === 'downloading' || downloadToken !== null;
     downloadToken = null;
     const message = toUserMessage(error);
     // A silent background failure is not the user's problem; a manual check must answer.
@@ -181,7 +182,15 @@ function wireEvents(): void {
       progress: null,
       lastCheckedAt: Date.now(),
     });
-    logEngine.error('Updater', 'Update check/download failed', error);
+    // Error-level entries become crash-report events for users who opted in. A
+    // failed CHECK is routine (offline, GitHub unreachable, rate-limited) and would
+    // report twice per launch for every such user — a warning (breadcrumb) is the
+    // right weight. A failed DOWNLOAD is rare and worth an event.
+    if (wasDownloading) {
+      logEngine.error('Updater', 'Update download failed', error);
+    } else {
+      logEngine.warn('Updater', `Update check failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   });
 }
 
@@ -327,10 +336,13 @@ export function initUpdater(win: BrowserWindow): void {
       return;
     }
 
+    // electron-updater's own logger: its "error" lines duplicate what the 'error'
+    // event above already classifies, so they stay warnings (breadcrumbs), never
+    // crash-report events of their own.
     autoUpdater.logger = {
       info: (message?: unknown) => logEngine.info('Updater', String(message)),
       warn: (message?: unknown) => logEngine.warn('Updater', String(message)),
-      error: (message?: unknown) => logEngine.error('Updater', String(message)),
+      error: (message?: unknown) => logEngine.warn('Updater', String(message)),
     };
     autoUpdater.autoDownload = false; // driven by our own setting instead
     autoUpdater.autoInstallOnAppQuit = true;
