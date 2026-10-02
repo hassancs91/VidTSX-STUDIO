@@ -7,6 +7,15 @@
 
 ---
 
+## 2026-10-02 — V1 GO-LIVE: checkpoint committed, step 3a closed, installer rebuilt for Hasan's pass
+
+- **Hasan's decisions:** commit the tree; of the paused 3a items only the shot Media section click-through and templates audio control + importer stay in V1. Gap 4 split/PiP, gap 5 kit coverage, proxy speed, transition drag-drop + single removal and TSX agent mode on an open project move to 1.1.1.
+- **Committed (local, not pushed):** the checkpoint as ten commits by pathspec (`2b4da8b`..`6d382aa`), then `0bf124f` (bundled shots follow their `assets` prop — a Media-section swap left the preview stale), `afe8f01` (templates `audio` control), `6bb350c` (`.vidtsxtemplate` importer + `scripts/template-pack.mjs`), `33c7bf7` (docs).
+- **Verified live** on isolated dev instances: Media section swap / attach / detach / undo; template import from the gallery and by double-click, audio play / replace / remove / looks, a render whose MP4 carries both sounds, remove, downgrade confirm, a `lodash` import refused. Two bugs the live checks caught are fixed (the stale preview; a downgrade "Yes" that did nothing).
+- **Gates:** `check:types` 26 / 10; full vitest 336 files / 2904 tests green.
+- **Installer:** `dist/VidTSX-Studio-Setup-1.1.0.exe` 375.1 MB, 2026-10-02 12:22, `check:bundle` ok, DSN in the main bundle only, `studio-text-edit` off. `dist/win-unpacked` smoke on a throwaway profile: Home, the first-launch crash prompt, a template import + the D14 refusal + audio over `/asset`, a bundled shot import — zero error-level log lines.
+- **Next:** Hasan's pass on this installer; on his "go", runbook steps 5–8 (flip, tag `v1.1.0`, smoke the CI draft, publish).
+
 ## 2026-10-01 — V1 GO-LIVE: Hasan's pass clean, Agent SDK 0.3.286 verified in the packaged app, scope widened
 
 - **Hasan's pass:** "it looks working" on the 2026-09-30 installer. He also bumped the Agent SDK to 0.3.286
