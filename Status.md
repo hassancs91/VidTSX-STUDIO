@@ -7,6 +7,15 @@
 
 ---
 
+## 2026-10-02 — V1 GO-LIVE: 1.1.0 PUBLISHED
+
+- Hasan said "go". `main` pushed (49 commits), repo flipped **public** (history as-is, his choice), `v1.1.0` tagged; the release workflow passed first time (types, full tests, build, draft with `.exe` + blockmap + `latest.yml`).
+- CI installer smoked from an extracted copy on a throwaway profile (hash = `latest.yml`, unsigned as decided, DSN main-only, template preview drawn, clean exit). Release notes corrected and **published as latest** (https://github.com/hassancs91/VidTSX-STUDIO/releases/tag/v1.1.0).
+- Update path live: the feed and `latest.yml` answer anonymously; a 1.1.0 client reports "on the latest version".
+- **Next (Hasan, runbook step 9):** `feed.json` on vidtsx.com, download page, README GIF, cla-assistant. Then 1.1.1.
+
+---
+
 ## 2026-10-02 — V1 GO-LIVE: checkpoint committed, step 3a closed, installer rebuilt for Hasan's pass
 
 - **Hasan's decisions:** commit the tree; of the paused 3a items only the shot Media section click-through and templates audio control + importer stay in V1. Gap 4 split/PiP, gap 5 kit coverage, proxy speed, transition drag-drop + single removal and TSX agent mode on an open project move to 1.1.1.
