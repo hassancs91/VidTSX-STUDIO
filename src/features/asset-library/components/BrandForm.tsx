@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import type { StudioBrand, StudioBrandPalette } from '@shared/types/asset-library';
-import { validateBrandInput, type StudioBrandInput } from '@shared/studio/brand';
+import {
+  OPTIONAL_PALETTE_KEYS,
+  PALETTE_ROLE_HELP,
+  validateBrandInput,
+  type StudioBrandInput,
+} from '@shared/studio/brand';
 import { BrandVocabularyField } from './BrandVocabularyField';
 
 const PALETTE_FIELDS: Array<{ key: keyof StudioBrandPalette; label: string }> = [
@@ -10,6 +15,13 @@ const PALETTE_FIELDS: Array<{ key: keyof StudioBrandPalette; label: string }> = 
   { key: 'text', label: 'Text' },
   { key: 'accent', label: 'Accent' },
 ];
+
+/** The six optional roles (gap 9): empty = not set, derived from the core five. */
+const OPTIONAL_FIELDS = OPTIONAL_PALETTE_KEYS.map((key) => ({
+  key,
+  label: PALETTE_ROLE_HELP[key].label,
+  title: `${PALETTE_ROLE_HELP[key].use} — kit theme token \`${PALETTE_ROLE_HELP[key].kitToken}\``,
+}));
 
 const EMPTY: StudioBrandInput = {
   name: '',
@@ -48,6 +60,10 @@ export function BrandForm({
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  // Open by default when the brand already sets any extra role.
+  const [showExtras, setShowExtras] = useState(
+    OPTIONAL_PALETTE_KEYS.some((key) => (brand?.palette[key] ?? '').trim() !== ''),
+  );
 
   const submit = async () => {
     const problems = validateBrandInput(input);
@@ -99,6 +115,43 @@ export function BrandForm({
           </label>
         ))}
       </div>
+
+      <button
+        type="button"
+        onClick={() => setShowExtras((v) => !v)}
+        className="self-start text-[10px] text-text-muted hover:text-text-primary"
+        data-brand-extras-toggle
+      >
+        {showExtras ? '▾' : '▸'} Extra roles (optional): success, warning, danger, muted, surface, line
+      </button>
+      {showExtras && (
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5" data-brand-extras>
+          {OPTIONAL_FIELDS.map(({ key, label, title }) => (
+            <label key={key} title={title} className="flex flex-col gap-1 text-[10px] text-text-muted">
+              {label}
+              <div className="flex items-center gap-1.5">
+                <span
+                  className="w-[18px] h-[18px] rounded shrink-0"
+                  style={{
+                    background: input.palette[key] || 'transparent',
+                    border: '0.5px solid var(--color-border)',
+                  }}
+                />
+                <input
+                  value={input.palette[key] ?? ''}
+                  onChange={(e) =>
+                    setInput({ ...input, palette: { ...input.palette, [key]: e.target.value } })
+                  }
+                  placeholder="Not set"
+                  data-brand-color={key}
+                  className={inputClass}
+                  style={inputStyle}
+                />
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
         <label className="flex flex-col gap-1 text-[10px] text-text-muted">

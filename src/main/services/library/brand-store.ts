@@ -9,7 +9,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { logEngine } from '../../../logging/log-engine';
 import type { StudioBrand } from '../../../shared/types/asset-library';
-import { normalizeBrand, validateBrandInput, type StudioBrandInput } from '../../../shared/studio/brand';
+import { normalizeBrand, sanitizeBrandPalette, validateBrandInput, type StudioBrandInput } from '../../../shared/studio/brand';
 import { normalizeBrandVocabulary } from '../../../shared/studio/brand-vocabulary';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
 import { resolveLibraryPath } from './library-paths';
@@ -71,7 +71,7 @@ export async function createBrand(root: string, input: StudioBrandInput): Promis
   const brand: StudioBrand = {
     id: brandId,
     name: input.name.trim(),
-    palette: input.palette,
+    palette: sanitizeBrandPalette(input.palette),
     fonts: input.fonts,
     logoRefs: input.logoRefs ?? [],
     ...(input.styleNotes?.trim() ? { styleNotes: input.styleNotes.trim() } : {}),
@@ -98,7 +98,7 @@ export async function updateBrand(
   const brand: StudioBrand = {
     ...existing,
     name: input.name.trim(),
-    palette: input.palette,
+    palette: sanitizeBrandPalette(input.palette),
     fonts: input.fonts,
     logoRefs: input.logoRefs ?? [],
     updatedAt: new Date().toISOString(),

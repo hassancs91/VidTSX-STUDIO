@@ -6,6 +6,7 @@
 
 import type { StudioShotKind } from '../types/studio';
 import type { StudioBrand } from '../types/asset-library';
+import { describeOptionalPaletteRoles } from './brand';
 import { formatWordsBlock, type ShotAnchorWord } from './shot-words';
 
 /** One exemplar shot (Q3a, SHOT_QUALITY_DESIGN.md): finished brand-scrubbed
@@ -263,6 +264,17 @@ function buildBrandLines(brand: StudioBrand, kind: StudioShotKind): string[] {
     `- Body font (labels/paragraphs): fontFamily: "${fontStack(brand.fonts.body ?? brand.fonts.display)}"`,
     '- Do NOT import any font package — set fontFamily strings exactly as given above.',
   ];
+  // The optional roles (gap 9) sit right after the core five, and only when
+  // the brand sets any — older brands produce the exact prompt they always did.
+  const extras = describeOptionalPaletteRoles(p);
+  if (extras) {
+    const at = lines.findIndex((l) => l.startsWith('- Accent:')) + 1;
+    lines.splice(
+      at,
+      0,
+      `- Extra roles: ${extras}. Pass each one as the named @vidtsx/kit theme token; any role not listed is derived from the colors above.`,
+    );
+  }
   if (brand.styleNotes) {
     lines.push('', 'Brand style notes (follow them):', brand.styleNotes);
   }

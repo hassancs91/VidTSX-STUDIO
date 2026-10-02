@@ -9,14 +9,21 @@
 // contract (`shot-prompt.ts`); this is the project-less one.
 
 import type { StudioBrand } from '../types/asset-library';
+import { describeOptionalPaletteRoles } from './brand';
 
 export function buildBrandInstructions(brand: StudioBrand): string {
   const p = brand.palette;
   const lines = [
     `Brand "${brand.name}" (MANDATORY styling): every color and font comes from the brand — do not invent your own palette.`,
     `Colors — primary ${p.primary}, secondary ${p.secondary}, background ${p.background}, text ${p.text}, accent ${p.accent} (use the accent sparingly for emphasis).`,
-    `Fonts — display (headings/numbers): "${brand.fonts.display}"; body (labels/paragraphs): "${brand.fonts.body ?? brand.fonts.display}". Do NOT import any font package — set fontFamily strings directly, with a sans-serif fallback.`,
   ];
+  const extras = describeOptionalPaletteRoles(p);
+  if (extras) {
+    lines.push(`Extra roles — ${extras}. Use them for exactly those jobs; any role not listed is derived from the colors above.`);
+  }
+  lines.push(
+    `Fonts — display (headings/numbers): "${brand.fonts.display}"; body (labels/paragraphs): "${brand.fonts.body ?? brand.fonts.display}". Do NOT import any font package — set fontFamily strings directly, with a sans-serif fallback.`,
+  );
   if (brand.styleNotes) {
     lines.push(`Brand style notes (follow them): ${brand.styleNotes}`);
   }

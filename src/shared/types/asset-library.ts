@@ -98,13 +98,28 @@ export interface LibraryPrefs {
 
 // ─── Brands (ASSET_LIBRARY_DESIGN.md L3, TSX_SHOTS_DESIGN.md D11) ───
 
-/** CSS color strings — hex or any valid CSS color, injected verbatim. */
+/** CSS color strings — hex or any valid CSS color, injected verbatim. The
+ *  five core roles are required; the six extra roles (video-10 import gap 9)
+ *  are optional and map onto the `@vidtsx/kit` theme tokens — absent means
+ *  "derive from the core five", which is what every brand did before. */
 export interface StudioBrandPalette {
   primary: string;
   secondary: string;
   background: string;
   text: string;
   accent: string;
+  /** Positive status: checkmarks, ok lines (kit `ok`). */
+  success?: string;
+  /** Attention: tags, caution (kit `warn`). */
+  warning?: string;
+  /** Errors and destructive emphasis (kit `danger`). */
+  danger?: string;
+  /** Secondary text: labels, captions (kit `muted`). */
+  muted?: string;
+  /** Raised panels and cards, one step off the background (kit `paper`). */
+  surface?: string;
+  /** Hairline borders and dividers (kit `line`). */
+  line?: string;
 }
 
 /**

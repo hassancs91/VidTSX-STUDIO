@@ -16,13 +16,56 @@ export interface StudioBrandInput {
   vocabulary?: StudioBrandTerm[];
 }
 
-const PALETTE_KEYS: ReadonlyArray<keyof StudioBrandPalette> = [
-  'primary',
-  'secondary',
-  'background',
-  'text',
-  'accent',
-];
+const PALETTE_KEYS = ['primary', 'secondary', 'background', 'text', 'accent'] as const;
+
+/** The six optional roles (video-10 import gap 9), in display order. */
+export const OPTIONAL_PALETTE_KEYS = ['success', 'warning', 'danger', 'muted', 'surface', 'line'] as const;
+export type OptionalPaletteKey = (typeof OPTIONAL_PALETTE_KEYS)[number];
+
+/** What each optional role is for, and the `@vidtsx/kit` theme token it feeds —
+ *  the one table the form, the prompts and the docs read. */
+export const PALETTE_ROLE_HELP: Record<OptionalPaletteKey, { label: string; use: string; kitToken: string }> = {
+  success: { label: 'Success', use: 'positive status: checkmarks, ok lines', kitToken: 'ok' },
+  warning: { label: 'Warning', use: 'attention: tags, caution', kitToken: 'warn' },
+  danger: { label: 'Danger', use: 'errors and destructive emphasis', kitToken: 'danger' },
+  muted: { label: 'Muted text', use: 'secondary text: labels, captions', kitToken: 'muted' },
+  surface: { label: 'Surface', use: 'raised panels and cards, one step off the background', kitToken: 'paper' },
+  line: { label: 'Line', use: 'hairline borders and dividers', kitToken: 'line' },
+};
+
+/** The core five trimmed, plus every optional role that is a non-empty string
+ *  (trimmed). An empty optional field in the form means "not set". */
+export function sanitizeBrandPalette(palette: StudioBrandPalette): StudioBrandPalette {
+  const out: StudioBrandPalette = {
+    primary: palette.primary.trim(),
+    secondary: palette.secondary.trim(),
+    background: palette.background.trim(),
+    text: palette.text.trim(),
+    accent: palette.accent.trim(),
+  };
+  for (const key of OPTIONAL_PALETTE_KEYS) {
+    const value = palette[key];
+    if (typeof value === 'string' && value.trim() !== '') out[key] = value.trim();
+  }
+  return out;
+}
+
+/**
+ * The optional roles a palette sets, as one prompt sentence — e.g.
+ * "success #22a37c (positive status: checkmarks, ok lines; kit `ok`), line …".
+ * Undefined when none is set, so prompts stay exactly as before for brands
+ * that never touched the extras.
+ */
+export function describeOptionalPaletteRoles(palette: StudioBrandPalette): string | undefined {
+  const parts: string[] = [];
+  for (const key of OPTIONAL_PALETTE_KEYS) {
+    const value = palette[key];
+    if (typeof value !== 'string' || value.trim() === '') continue;
+    const help = PALETTE_ROLE_HELP[key];
+    parts.push(`${key} ${value.trim()} (${help.use}; kit \`${help.kitToken}\`)`);
+  }
+  return parts.length > 0 ? parts.join(', ') : undefined;
+}
 
 /** Bounds the verbatim prompt injection — notes are guidance, not an essay. */
 export const STYLE_NOTES_MAX = 2000;
@@ -51,6 +94,13 @@ export function validateBrandInput(input: StudioBrandInput): string[] {
     const value = input.palette?.[key];
     if (typeof value !== 'string' || !isPlausibleCssColor(value)) {
       errors.push(`Palette "${key}" must be a CSS color (hex like #1a1a2e, rgb(), or a name).`);
+    }
+  }
+  for (const key of OPTIONAL_PALETTE_KEYS) {
+    const value = input.palette?.[key];
+    if (value === undefined || value.trim() === '') continue; // optional: empty = not set
+    if (typeof value !== 'string' || !isPlausibleCssColor(value)) {
+      errors.push(`Palette "${key}" must be a CSS color, or left empty.`);
     }
   }
   if (!input.fonts?.display || input.fonts.display.trim() === '') {
@@ -133,6 +183,11 @@ export function normalizeBrand(raw: unknown, folderId: string): StudioBrand | nu
   if (!doc.fonts || typeof doc.fonts.display !== 'string') return null;
   const now = new Date().toISOString();
   const vocabulary = normalizeBrandVocabulary(doc.vocabulary);
+  const extras: Partial<StudioBrandPalette> = {};
+  for (const key of OPTIONAL_PALETTE_KEYS) {
+    const value = palette[key];
+    if (typeof value === 'string' && value.trim() !== '') extras[key] = value.trim();
+  }
   return {
     id: folderId,
     name: doc.name.trim(),
@@ -142,6 +197,7 @@ export function normalizeBrand(raw: unknown, folderId: string): StudioBrand | nu
       background: palette.background,
       text: palette.text,
       accent: palette.accent,
+      ...extras,
     },
     fonts: {
       display: doc.fonts.display,
