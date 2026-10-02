@@ -727,10 +727,15 @@ export interface StudioShotImportRequest {
   model?: string;
 }
 
+/** What the bundle step did on the way in (see `shared/studio/shot-import.ts`). */
+export type StudioShotImportReport = import('../../studio/shot-import').ShotImportReport;
+
 export interface StudioShotImportResponse {
   success: boolean;
   /** Present once the shot folder exists; the ready entry arrives as a job event. */
   shotId?: string;
+  /** Present when the source was bundled into one file to pass the gate. */
+  report?: StudioShotImportReport;
   /** The file picker was dismissed — not an error. */
   canceled?: boolean;
   error?: string;

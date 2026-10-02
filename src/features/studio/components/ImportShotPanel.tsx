@@ -1,4 +1,5 @@
-import { Clapperboard, Import, TriangleAlert, Wand2 } from 'lucide-react';
+import { Clapperboard, Import, Package, TriangleAlert, Wand2 } from 'lucide-react';
+import { describeImportReport } from '@shared/studio/shot-import';
 import type { useShotImport } from '../hooks/useShotImport';
 
 /**
@@ -9,7 +10,7 @@ import type { useShotImport } from '../hooks/useShotImport';
  * Studio", which re-imports the same source through one conform pass.
  */
 export function ImportShotPanel({ shotImport }: { shotImport: ReturnType<typeof useShotImport> }) {
-  const { creatorProjects, listing, busy, failure } = shotImport;
+  const { creatorProjects, listing, busy, failure, lastReport } = shotImport;
 
   return (
     <div
@@ -56,6 +57,17 @@ export function ImportShotPanel({ shotImport }: { shotImport: ReturnType<typeof 
       ) : (
         <div className="text-[10px] text-text-dim px-1">
           No Creator projects yet — build one on the Motion screen, or import any .tsx file.
+        </div>
+      )}
+
+      {lastReport && !failure && (
+        <div
+          className="flex items-start gap-1.5 p-1.5 rounded-[5px] bg-app-base"
+          style={{ border: '0.5px solid var(--color-border)' }}
+          data-import-shot-report
+        >
+          <Package size={11} strokeWidth={1.75} className="text-accent-light shrink-0 mt-px" />
+          <span className="text-[10px] text-text-secondary leading-snug">{describeImportReport(lastReport)}</span>
         </div>
       )}
 

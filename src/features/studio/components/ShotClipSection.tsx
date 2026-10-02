@@ -8,14 +8,17 @@ import { Button } from '@shared/components/Button';
 import { CopyButton } from '@shared/components/CopyButton';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
-import type { StudioClip, StudioShot } from '../types';
+import type { StudioClip, StudioMediaAsset, StudioShot } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
+import { ShotMediaSection } from './ShotMediaSection';
 
 interface Props {
   projectId: string;
   clip: StudioClip;
   shot: StudioShot | null;
+  /** The project's assets, for the Media section's picker. */
+  assets: StudioMediaAsset[];
   dispatch: React.Dispatch<TimelineAction>;
   progress: ShotJobProgress | null;
   onError: (message: string) => void;
@@ -25,7 +28,7 @@ function fmtSpan(start: number, end: number): string {
   return `${start.toFixed(2)}–${end.toFixed(2)} s`;
 }
 
-export function ShotClipSection({ projectId, clip, shot, dispatch, progress, onError }: Props) {
+export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progress, onError }: Props) {
   const [versions, setVersions] = useState<number[]>([]);
   const [instruction, setInstruction] = useState('');
   const busy = progress?.status === 'generating';
@@ -198,6 +201,13 @@ export function ShotClipSection({ projectId, clip, shot, dispatch, progress, onE
           Refine
         </Button>
       </div>
+
+      <ShotMediaSection
+        shot={shot}
+        assets={assets}
+        disabled={busy}
+        onChange={(assetRefs) => dispatch({ type: 'shot-set-asset-refs', shotId: shot.id, assetRefs })}
+      />
 
       {mismatch && shotSeconds !== null && (
         <Button

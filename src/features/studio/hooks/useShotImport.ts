@@ -8,7 +8,7 @@
 // nothing here touches the registry.
 
 import { useCallback, useState } from 'react';
-import type { StudioCreatorProject } from '@shared/ipc/types';
+import type { StudioCreatorProject, StudioShotImportReport } from '@shared/ipc/types';
 
 /** A failed import, with the source kept so Convert can retry it. */
 export interface ShotImportFailure {
@@ -30,6 +30,8 @@ export function useShotImport({ projectId, providerId, model }: Options) {
   const [listing, setListing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<ShotImportFailure | null>(null);
+  // What the bundle step did on the last successful import (gap 2), for the panel.
+  const [lastReport, setLastReport] = useState<StudioShotImportReport | null>(null);
 
   /** Scanned on demand — the picker asks each time it opens (folder-as-truth). */
   const loadCreatorProjects = useCallback(async () => {
@@ -49,6 +51,7 @@ export function useShotImport({ projectId, providerId, model }: Options) {
     async (source: { sourcePath?: string; name?: string; conform?: boolean }) => {
       setBusy(true);
       setFailure(null);
+      setLastReport(null);
       try {
         const res = await window.api.studioShotImport({
           projectId,
@@ -58,7 +61,10 @@ export function useShotImport({ projectId, providerId, model }: Options) {
           ...(providerId ? { providerId } : {}),
           ...(model ? { model } : {}),
         });
-        if (res.success || res.canceled) return res.success;
+        if (res.success || res.canceled) {
+          if (res.success && res.report) setLastReport(res.report);
+          return res.success;
+        }
         setFailure({
           message: res.error ?? 'Import failed',
           conformable: res.conformable === true,
@@ -95,6 +101,7 @@ export function useShotImport({ projectId, providerId, model }: Options) {
     listing,
     busy,
     failure,
+    lastReport,
     clearFailure: useCallback(() => setFailure(null), []),
     /** Surface a failure raised outside the hook (Q1c reconcile) through the
      *  same banner — Convert works because sourcePath rides along. */

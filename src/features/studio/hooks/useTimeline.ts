@@ -80,6 +80,7 @@ import {
   setProposalItemStatus,
 } from '../services/proposal-ops';
 import { removeClipsForShot, removeShot, setShotVersion } from '../services/shot-ops';
+import { setShotAssetRefs } from '../services/shot-asset-ops';
 
 /** Undo depth. Edit documents are small (a 100-cut edit is a few KB), so
  *  whole-document snapshots are cheaper than maintaining inverse operations. */
@@ -202,6 +203,8 @@ export type TimelineAction =
   // Shots (S4, D9). Undoable ops are exactly the user-meaningful ones; a
   // background generation finishing enters via 'shots-adopt' instead.
   | { type: 'shot-set-version'; shotId: string; version: number }
+  // The inspector's Media section (gap 3): which assets the shot's `assets` prop carries.
+  | { type: 'shot-set-asset-refs'; shotId: string; assetRefs: Record<string, string> }
   | { type: 'shot-remove'; shotId: string }
   // Pool-button insert (D8): the clip lands at the playhead recorded when
   // Generate was clicked, as ONE undo step. Id minted by the caller so it can
@@ -533,6 +536,10 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
     case 'shot-set-version': {
       const shots = setShotVersion(doc.shots, action.shotId, action.version);
       return commit(state, shots === doc.shots ? doc : { ...doc, shots });
+    }
+    case 'shot-set-asset-refs': {
+      const shots = setShotAssetRefs(doc.shots, action.shotId, action.assetRefs);
+      return shots === doc.shots ? state : commit(state, { ...doc, shots });
     }
     case 'shot-remove': {
       // Registry entry + every clip referencing it, one undo step. Files stay

@@ -120,6 +120,45 @@ export function buildConformInstruction(modules: readonly string[]): string {
   ].join('\n');
 }
 
+/** What the mechanical bundle step did to a source on the way in (video-10
+ *  import gaps 2 and 3). Absent on an import that needed no bundling. */
+export interface ShotImportReport {
+  /** Local files inlined into the one shot file. */
+  inlinedFiles: number;
+  /** Packages inlined (Studio's own: lucide-react, chroma-js, @remotion/*). */
+  inlinedPackages: string[];
+  /** Media files registered as project assets and attached to the shot. */
+  media: number;
+  /** `staticFile()` arguments whose file was not found beside the source. */
+  missingMedia: string[];
+  /** `staticFile()` calls with a computed argument — they resolve to nothing. */
+  dynamicMediaCalls: number;
+}
+
+/** One or two plain sentences for the import panel. */
+export function describeImportReport(report: ShotImportReport): string {
+  const inlined: string[] = [];
+  if (report.inlinedFiles > 0) {
+    inlined.push(`${report.inlinedFiles} local file${report.inlinedFiles === 1 ? '' : 's'}`);
+  }
+  if (report.inlinedPackages.length > 0) inlined.push(report.inlinedPackages.join(', '));
+  const parts = [
+    inlined.length > 0 ? `Bundled into one file (${inlined.join(' and ')} inlined).` : 'Bundled into one file.',
+  ];
+  if (report.media > 0) {
+    parts.push(`${report.media} media file${report.media === 1 ? '' : 's'} attached as project asset${report.media === 1 ? '' : 's'}.`);
+  }
+  if (report.missingMedia.length > 0) {
+    parts.push(`Not found beside the source: ${report.missingMedia.join(', ')} — attach them in the shot's Media section.`);
+  }
+  if (report.dynamicMediaCalls > 0) {
+    parts.push(
+      `${report.dynamicMediaCalls} staticFile() call${report.dynamicMediaCalls === 1 ? ' has' : 's have'} a computed path and will load nothing until the matching key is attached.`,
+    );
+  }
+  return parts.join(' ');
+}
+
 /**
  * Display name for an imported shot, from its path alone. Creator projects are
  * folders of `v*.tsx`, so a version file borrows its folder's name; any other

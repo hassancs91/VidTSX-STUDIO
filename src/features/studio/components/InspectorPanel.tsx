@@ -136,6 +136,7 @@ export function InspectorPanel({
             projectId={project.id}
             clip={singleClip}
             shot={selectedShot}
+            assets={project.assets}
             dispatch={timelineDispatch}
             progress={selectedShot ? getShotProgress(selectedShot.id) : null}
             onError={onShotError}

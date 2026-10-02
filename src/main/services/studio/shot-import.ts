@@ -32,9 +32,13 @@ import {
   deriveImportName,
   describeImportFailure,
 } from '../../../shared/studio/shot-import';
+import type { StudioShotImportReport } from '../../../shared/ipc/types';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
+import { getAppRoot } from '../../utils/paths';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { reserveProjectFolder, writeNextVersion } from '../tsx-jobs/project-store';
+import { importMediaFiles } from './media-import';
+import { bundleShotSource } from './shot-bundle';
 import { buildShotEngineDeps, validateShotCode } from './shot-generator';
 import { shotJobEvents } from './shot-job-events';
 import { getProjectDir } from './studio-paths';
@@ -68,6 +72,8 @@ export interface ImportShotOutcome {
   error?: string;
   /** The failure is only the allowlist gap — offer "Convert for Studio". */
   conformable?: boolean;
+  /** Present when the source was bundled to one file on the way in (gap 2). */
+  report?: StudioShotImportReport;
 }
 
 /**
@@ -100,6 +106,8 @@ export function buildImportedShot(
   name: string,
   code: string,
   version = 1,
+  /** key → project asset id, for a bundled import whose media was registered. */
+  assetRefs?: Record<string, string>,
 ): StudioShot {
   const config = parseCompositionConfig(code);
   return {
@@ -121,8 +129,78 @@ export function buildImportedShot(
           },
         }
       : {}),
+    ...(assetRefs && Object.keys(assetRefs).length > 0 ? { assetRefs } : {}),
     origin: { by: 'user' },
   };
+}
+
+/** Where the bundle step may find Studio's own packages when the source has
+ *  none beside it: the app's node_modules in dev, the unpacked ones when
+ *  installed (esbuild is a native process and cannot read inside the asar). */
+function bundleNodePaths(): string[] {
+  const root = getAppRoot();
+  return [path.join(root, 'node_modules'), path.join(root, 'app.asar.unpacked', 'node_modules')];
+}
+
+/**
+ * The mechanical import (video-10 gaps 2 and 3): bundle the source and its
+ * local files into one module, gate the result, register the media its
+ * `staticFile()` calls name as project assets, and land the shot with
+ * `assetRefs` pointing at them. Returns `{ outcome }` when the shot landed,
+ * `{ reason }` when bundling is not the answer for this file — the caller
+ * then falls back to the classification and the LLM conversion.
+ */
+async function importBundled(
+  req: ImportShotRequest,
+  shotsDir: string,
+  name: string,
+  source: string,
+): Promise<{ outcome?: ImportShotOutcome; reason?: string }> {
+  let bundle: Awaited<ReturnType<typeof bundleShotSource>>;
+  try {
+    bundle = await bundleShotSource(req.sourcePath, { nodePaths: bundleNodePaths() });
+  } catch (err) {
+    return { reason: err instanceof Error ? err.message : 'bundling failed' };
+  }
+  const gate = await validateShotCode(bundle.code);
+  if (!gate.success) {
+    return { reason: `the bundled file still fails the shot gate: ${gate.error ?? 'unknown error'}` };
+  }
+
+  // Register every media file the source named and that exists on disk.
+  const found = bundle.media.filter((m): m is typeof m & { path: string } => m.path !== null);
+  const uniquePaths = [...new Set(found.map((m) => m.path))];
+  const { assets } = uniquePaths.length > 0
+    ? await importMediaFiles(req.projectId, uniquePaths)
+    : { assets: [] };
+  const assetIdByPath = new Map(assets.map((asset) => [asset.path, asset.id]));
+  const assetRefs: Record<string, string> = {};
+  const missingMedia: string[] = [];
+  for (const media of bundle.media) {
+    const assetId = media.path ? assetIdByPath.get(media.path) : undefined;
+    if (assetId) assetRefs[media.key] = assetId;
+    else missingMedia.push(media.ref);
+  }
+
+  const { shotId } = await writeImportedShot(shotsDir, name, bundle.code, source);
+  const shot = buildImportedShot(shotId, name, bundle.code, 1, assetRefs);
+  shotJobEvents.emit({
+    projectId: req.projectId,
+    shotId,
+    op: 'import',
+    status: 'ready',
+    shot,
+    ...(assets.length > 0 ? { importedAssets: assets } : {}),
+  });
+  const report: StudioShotImportReport = {
+    inlinedFiles: bundle.inlinedFiles.length,
+    inlinedPackages: bundle.inlinedPackages,
+    media: Object.keys(assetRefs).length,
+    missingMedia,
+    dynamicMediaCalls: bundle.dynamicStaticFileCalls,
+  };
+  log.info('Bundled and imported shot', { projectId: req.projectId, shotId, source: req.sourcePath, ...report });
+  return { outcome: { shotId, report } };
 }
 
 async function readSource(sourcePath: string): Promise<string> {
@@ -167,13 +245,19 @@ export async function importShot(req: ImportShotRequest): Promise<ImportShotOutc
 
   const classification = classifyShotImport(source);
   if (!req.conform) {
-    // A syntax error is not an import problem — never offer a conform run for it.
+    // A syntax error is not an import problem — never bundle or offer a conform run for it.
     const transpile = await validateTsxCode(source);
     if (!transpile.success) {
       return { error: transpile.error ?? 'The file could not be compiled.' };
     }
+    // The mechanical step first (gap 2): local files and Studio's own packages
+    // inline in milliseconds, with no LLM. Only when that cannot do it does
+    // the user see the failure — with the bundler's reason beside it.
+    const bundled = await importBundled(req, shotsDir, name, source);
+    if (bundled.outcome) return bundled.outcome;
+    const failure = describeImportFailure(classification, gate.error ?? 'Import failed the shot gate');
     return {
-      error: describeImportFailure(classification, gate.error ?? 'Import failed the shot gate'),
+      error: bundled.reason ? `${failure} Bundling it into one file was tried first and did not work: ${bundled.reason}` : failure,
       ...(classification.canConform ? { conformable: true } : {}),
     };
   }

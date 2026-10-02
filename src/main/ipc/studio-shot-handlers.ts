@@ -248,7 +248,12 @@ export async function handleStudioShotImport(
         ...(data.name ? { name: data.name } : {}),
       };
     }
-    return { success: true, ...(outcome.shotId ? { shotId: outcome.shotId } : {}) };
+    return {
+      success: true,
+      ...(outcome.shotId ? { shotId: outcome.shotId } : {}),
+      // A bundled import returns whole (no handshake): the report says what was inlined.
+      ...(outcome.report ? { report: outcome.report } : {}),
+    };
   } catch (err) {
     return {
       success: false,
