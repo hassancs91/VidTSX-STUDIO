@@ -509,6 +509,8 @@ export const IPC = {
   STUDIO_NOTE_READ: 'studio:note:read',
   STUDIO_NOTE_WRITE: 'studio:note:write',
   STUDIO_NOTE_DELETE: 'studio:note:delete',
+  // Studio — brand fonts (video-10 import gap 10)
+  STUDIO_BRAND_FONTS_GET: 'studio:brand-fonts:get',
 
   // Filter packs (docs/studio/FILTER_PACKS_DESIGN.md): the list the Filters
   // and Effects tabs show, and module delivery for the preview — a gated

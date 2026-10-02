@@ -33,6 +33,7 @@ export * from './stt';
 export * from './studio';
 export * from './studio-memory';
 export * from './studio-notes';
+export * from './studio-brand-fonts';
 export * from './studio-package';
 export * from './studio-preset';
 export * from './studio-transitions';

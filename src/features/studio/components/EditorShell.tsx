@@ -87,6 +87,7 @@ import { InspectorPanel } from './InspectorPanel';
 import { AgentPanel } from './AgentPanel';
 import { ScriptPanel } from './ScriptPanel';
 import { NotesPanel } from './NotesPanel';
+import { useBrandFonts } from '../hooks/useBrandFonts';
 
 interface Props {
   projectId: string;
@@ -117,6 +118,8 @@ export function EditorShell({ projectId, onBack }: Props) {
   const { showToast } = useToast();
   const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
+  // Gap 10: the brand's fonts, linked into the document while the project is open.
+  useBrandFonts(project?.id, project?.settings.brandId);
   // Left pane: Media | Shots | Captions (video-10 feedback item 5), remembered per project.
   const [leftTab, setLeftTab] = useStoredChoice<LeftTab>(`studio.leftTab.${projectId}`, LEFT_TABS, 'media');
   const [settingsOpen, setSettingsOpen] = useState(false);

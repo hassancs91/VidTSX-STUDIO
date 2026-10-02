@@ -6,6 +6,7 @@ import {
   handleStudioNoteWrite,
   handleStudioNotesList,
 } from '../studio-notes-handlers';
+import { handleStudioBrandFontsGet } from '../studio-brand-fonts-handlers';
 import {
   handleStudioRootGet,
   handleStudioRootSet,
@@ -106,6 +107,8 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_NOTE_READ, handleStudioNoteRead);
   ipcMain.handle(IPC.STUDIO_NOTE_WRITE, handleStudioNoteWrite);
   ipcMain.handle(IPC.STUDIO_NOTE_DELETE, handleStudioNoteDelete);
+  // Brand fonts (video-10 import gap 10)
+  ipcMain.handle(IPC.STUDIO_BRAND_FONTS_GET, handleStudioBrandFontsGet);
   ipcMain.handle(IPC.STUDIO_CACHE_INFO, handleStudioCacheInfo);
   ipcMain.handle(IPC.STUDIO_CACHE_OPEN, handleStudioCacheOpen);
   ipcMain.handle(IPC.STUDIO_CACHE_CLEAR, handleStudioCacheClear);

@@ -540,6 +540,8 @@ export interface ElectronAPI {
   studioNoteRead: (data: import('../../shared/ipc/types').StudioNoteReadRequest) => Promise<import('../../shared/ipc/types').StudioNoteReadResponse>;
   studioNoteWrite: (data: import('../../shared/ipc/types').StudioNoteWriteRequest) => Promise<import('../../shared/ipc/types').StudioNoteWriteResponse>;
   studioNoteDelete: (data: import('../../shared/ipc/types').StudioNoteDeleteRequest) => Promise<import('../../shared/ipc/types').StudioNoteDeleteResponse>;
+  // Studio — brand fonts (video-10 gap 10)
+  studioBrandFontsGet: (data: import('../../shared/ipc/types').StudioBrandFontsGetRequest) => Promise<import('../../shared/ipc/types').StudioBrandFontsGetResponse>;
   memorySetActive: (data: import('../../shared/ipc/types').MemorySetActiveRequest) => Promise<import('../../shared/ipc/types').MemorySetActiveResponse>;
   memoryDelete: (data: import('../../shared/ipc/types').MemoryDeleteRequest) => Promise<import('../../shared/ipc/types').MemoryDeleteResponse>;
   memoryProposalsGet: (data: import('../../shared/ipc/types').MemoryProposalsGetRequest) => Promise<import('../../shared/ipc/types').MemoryProposalsGetResponse>;

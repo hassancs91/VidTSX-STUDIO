@@ -25,6 +25,8 @@ import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { rewriteFontUrls } from '../font-proxy';
 import { resolveProjectBrand } from './project-brand';
+import { buildBrandFontLoaderSource } from '../../../shared/studio/brand-fonts';
+import { brandFontStylesheets } from '../brand-fonts';
 import { readTranscriptFile } from './asset-transcriber';
 import { resolveCaptionTemplate } from './caption-packs';
 import { prepareTransitionSources } from './export-transitions';
@@ -298,11 +300,27 @@ export async function createExportEntry(
     ? `import ${caption.identifier} from './${caption.fileName}';`
     : '';
   const compositionId = `studio-${project.id}`;
+  // Brand fonts (gap 10): the entry links the brand's cached Google Fonts and
+  // holds the first frame until they are ready — never past the loader's own
+  // timeout, and not at all for a brand with no fetchable family. Anything
+  // going wrong here leaves the export exactly as it was before.
+  let fontLoader = '';
+  try {
+    const brand = await resolveProjectBrand(project.id, project.settings.brandId);
+    if (brand) {
+      const fontSet = await brandFontStylesheets(brand.fonts, assetUrlBase);
+      fontLoader = buildBrandFontLoaderSource(fontSet.stylesheets, fontSet.families);
+    }
+  } catch (err) {
+    log.warn('Brand fonts unavailable for this export', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
   const source = `// Auto-generated VidTSX Studio export entry — safe to delete.
 import React from 'react';
-import { TimelineComposition${trackParts.sharedImports.map((name) => `, ${name}`).join('')} } from '@shared/studio';
+${fontLoader ? "import { continueRender, delayRender } from 'remotion';\n" : ''}import { TimelineComposition${trackParts.sharedImports.map((name) => `, ${name}`).join('')} } from '@shared/studio';
 ${imports ? `${imports}\n` : ''}${captionImport ? `${captionImport}\n` : ''}${transitionParts.imports ? `${transitionParts.imports}\n` : ''}${filterParts.imports ? `${filterParts.imports}\n` : ''}${trackParts.imports ? `${trackParts.imports}\n// analysis tracks: ${trackParts.hashes}\n` : ''}
-export const compositionConfig = {
+${fontLoader}export const compositionConfig = {
   id: "${compositionId}",
   width: ${width},
   height: ${height},

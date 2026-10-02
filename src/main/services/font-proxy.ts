@@ -87,6 +87,44 @@ async function fetchAndCache(url: string, cachePath: string): Promise<void> {
 }
 
 /**
+ * Make sure a Google Fonts STYLESHEET and every font file it references are
+ * in the cache (brand fonts, video-10 gap 10): after this, the proxy serves
+ * the family with no network at all. A stylesheet already on disk is read
+ * from disk, so this also works offline for anything fetched before. Throws
+ * when the stylesheet itself cannot be had (unknown family or weight,
+ * offline and never cached); a single font file that fails is skipped — the
+ * proxy fetches it on demand later.
+ */
+export async function warmFontCache(stylesheetUrl: string): Promise<void> {
+  const parsed = new URL(stylesheetUrl);
+  if (parsed.protocol !== 'https:' || !ALLOWED_HOSTS.has(parsed.host)) {
+    throw new Error('Host not allowed');
+  }
+  await ensureFontCacheDir();
+  const cssPath = path.join(getFontCacheDir(), cacheFilenameFor(stylesheetUrl));
+  if (!fsSync.existsSync(cssPath)) {
+    await fetchAndCache(stylesheetUrl, cssPath);
+  }
+  const css = await fs.readFile(cssPath, 'utf-8');
+  const fileUrls = new Set<string>();
+  for (const match of css.matchAll(/url\(\s*["']?(https:\/\/fonts\.gstatic\.com\/[^)"'\s]+)["']?\s*\)/g)) {
+    fileUrls.add(match[1]);
+  }
+  await Promise.all(
+    [...fileUrls].map(async (fileUrl) => {
+      const filePath = path.join(getFontCacheDir(), cacheFilenameFor(fileUrl));
+      if (fsSync.existsSync(filePath)) return;
+      await fetchAndCache(fileUrl, filePath).catch((err: unknown) => {
+        log.debug('Font file not cached during warm-up', {
+          fileUrl,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }),
+  );
+}
+
+/**
  * Express handler for `/fonts?u=<encoded-google-fonts-url>`.
  *
  * Returns 400 if the URL is missing, malformed, or not in the allow-list.

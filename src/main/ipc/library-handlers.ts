@@ -18,6 +18,7 @@ import type {
   LibraryRootSetResponse,
   LibrarySizesGetResponse,
 } from '@shared/ipc/types';
+import { prefetchBrandFonts } from '../services/brand-fonts';
 import { triggerVisibleCapture } from '../services/library/capture';
 import { getDefaultBrandId, setDefaultBrandId } from '../services/library/brand-default';
 import {
@@ -117,6 +118,9 @@ export async function handleLibraryBrandSave(
     const brand = data.brandId
       ? await updateBrand(root, data.brandId, data.input)
       : await createBrand(root, data.input);
+    // Gap 10: warm the font cache now, so the first preview and an offline
+    // export already have the brand's fonts. Fire and forget.
+    prefetchBrandFonts(brand.fonts);
     return { success: true, brand };
   } catch (err) {
     return { success: false, error: errorMessage(err) };
