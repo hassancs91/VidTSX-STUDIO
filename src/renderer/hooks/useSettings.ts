@@ -16,6 +16,7 @@ interface SettingsState {
   renderDefaultExportQuality: RenderQualityLevel;
   crashReportingEnabled: boolean;
   crashReportingAvailable: boolean;
+  crashReportingPrompted: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -34,6 +35,7 @@ export function useSettings() {
     renderDefaultExportQuality: DEFAULT_RENDER_QUALITY,
     crashReportingEnabled: false,
     crashReportingAvailable: false,
+    crashReportingPrompted: true,
     loading: true,
     error: null,
   });
@@ -55,6 +57,7 @@ export function useSettings() {
         renderDefaultExportQuality: isRenderQualityLevel(result.renderDefaultExportQuality) ? result.renderDefaultExportQuality : DEFAULT_RENDER_QUALITY,
         crashReportingEnabled: result.crashReportingEnabled,
         crashReportingAvailable: result.crashReportingAvailable,
+        crashReportingPrompted: result.crashReportingPrompted,
         loading: false,
         error: null,
       });
@@ -217,7 +220,7 @@ export function useSettings() {
     try {
       const result = await window.api.settingsSetCrashReporting({ enabled });
       if (result.success) {
-        setState((prev) => ({ ...prev, crashReportingEnabled: enabled }));
+        setState((prev) => ({ ...prev, crashReportingEnabled: enabled, crashReportingPrompted: true }));
         return true;
       }
       setState((prev) => ({ ...prev, error: result.error || 'Failed to save' }));
@@ -298,6 +301,7 @@ export function useSettings() {
     renderDefaultExportQuality: state.renderDefaultExportQuality,
     crashReportingEnabled: state.crashReportingEnabled,
     crashReportingAvailable: state.crashReportingAvailable,
+    crashReportingPrompted: state.crashReportingPrompted,
     loading: state.loading,
     error: state.error,
     setOutputFolder,

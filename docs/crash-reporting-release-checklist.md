@@ -35,19 +35,20 @@ main-process uncaught exception ──→ Sentry's own handler (same gate via be
 
 ## Stage 0 — Lock the open decisions
 
-- [ ] **Create the Sentry org.** Free Developer tier covers a v1-scale app (5k errors/mo);
-      Sentry also [sponsors open-source projects](https://sentry.io/for/open-source/) with
-      a bigger free tier. Pick the **data region** (US vs EU) at org creation — it cannot
-      be changed later and it's a privacy-page detail once the repo is public.
-- [ ] **Ship the DSN in official builds?** If no, stop here and delete the Stage 0 bullet
-      from the auto-update checklist. If yes, continue. Note the DSN is not a secret in
-      the classic sense — it ships inside the installer and anyone can extract it and send
-      garbage events. It is protected by rate limits (Stage 1), not secrecy. It stays out
-      of the repo so forks don't inherit your inbox.
-- [ ] **First-run consent prompt: now or later?** Today the toggle only exists inside
-      Settings → Privacy, which realistically means near-zero opt-in. A one-time prompt on
-      first launch is the standard fix and fully compatible with the opt-in promise.
-      Decide deliberately; "later" is a fine answer for v1.
+- [x] **Create the Sentry org.** Hasan already has one (2026-09-30). Free Developer tier
+      covers a v1-scale app (5k errors/mo); Sentry also
+      [sponsors open-source projects](https://sentry.io/for/open-source/) with a bigger
+      free tier. The **data region** (US vs EU) is fixed at org creation and is a
+      privacy-page detail once the repo is public.
+- [x] **Ship the DSN in official builds?** **Yes — decided 2026-09-30 (go-live D3).** Note
+      the DSN is not a secret in the classic sense — it ships inside the installer and
+      anyone can extract it and send garbage events. It is protected by rate limits
+      (Stage 1), not secrecy. It stays out of the repo so forks don't inherit your inbox.
+- [x] **First-run consent prompt: now.** Built 2026-09-30: `CrashReportingPrompt.tsx`
+      (mounted app-wide in `App.tsx`) asks once in DSN builds until answered; either
+      answer goes through `SETTINGS_SET_CRASH_REPORTING`, which now also sets
+      `crashReportingPrompted`, so the Settings → Privacy toggle retires the prompt too.
+      Rule in `src/shared/crash-reporting-prompt.ts`: available && !prompted && !enabled.
 
 ---
 
@@ -65,6 +66,29 @@ main-process uncaught exception ──→ Sentry's own handler (same gate via be
       ([release.yml:41](../.github/workflows/release.yml#L41)); no YAML change needed.
 
 ---
+
+> **Stages 2 and 3 RUN 2026-09-30 — PASS after two fixes** (go-live runbook step 1b).
+> Method: instead of reading payloads in the Sentry UI, `.env` pointed the DSN at a local
+> fake ingest endpoint (`http://key@127.0.0.1:8877/1`, a 40-line Node server that records
+> every request and decodes the envelopes), the three Stage 2 commands were fired over CDP
+> on isolated dev instances, and the captured bodies were grepped. Findings:
+> 1. **Consent mid-session did not start the SDK** — `Sentry.init` after app `ready` throws
+>    ("Sentry SDK should be initialized before the Electron app 'ready' event"), so the old
+>    lazy `startSentry()` on the toggle failed and nothing was captured until the next launch.
+>    Fixed: init at boot whenever a DSN exists; consent only gates `beforeSend`. The session
+>    tracker (`MainProcessSession`) is dropped and `sendClientReports` is off so an
+>    unconsented client makes **no** request — proven: 40 s idle, a batch of errors, and a
+>    graceful quit with consent off produced zero requests.
+> 2. **Pre-consent breadcrumbs leaked.** Log lines written while consent was off rode along
+>    inside the first consented event (Sentry keeps the last 100 breadcrumbs on the scope
+>    regardless of `beforeSend`). Fixed: `beforeBreadcrumb` gated on consent and the trail
+>    cleared on every consent change — re-verified: none of the pre-consent text in any
+>    consented payload.
+> Pass rows: consent off → 0 requests; Enable → 3 envelopes (message, exception, uncaught
+> renderer); toggle off → 0 new; toggle on, no restart → 3 new; `environment: development`,
+> `release: vidtsx-studio@1.1.0`; the Windows username appears in **0** payloads and the
+> planted `C:\Users\Malak\...` stack reads `C:\Users\[user]\...`. Stage 4 (main-process
+> uncaught + native minidump) not run.
 
 ## Stage 2 — Dev smoke test (JS pipeline)
 

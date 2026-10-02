@@ -22,6 +22,9 @@ export interface SettingsGetResponse {
   crashReportingEnabled: boolean;
   /** False when the build has no crash-reporting DSN baked in — the toggle is inert. */
   crashReportingAvailable: boolean;
+  /** True once the user has answered the first-launch consent prompt (or touched the
+   *  Settings toggle). The prompt shows only while this is false. */
+  crashReportingPrompted: boolean;
 }
 
 export interface SettingsSetOutputFolderRequest {

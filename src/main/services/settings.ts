@@ -264,6 +264,16 @@ export async function setCrashReportingEnabled(enabled: boolean): Promise<void> 
   setValue('crashReportingEnabled', enabled === true);
 }
 
+// First-launch consent prompt (docs/v1-go-live-runbook.md D3): the app asks once, and
+// any explicit answer, from the prompt or from the Settings toggle, counts as asked.
+export async function getCrashReportingPrompted(): Promise<boolean> {
+  return getValue<boolean>('crashReportingPrompted') === true;
+}
+
+export async function setCrashReportingPrompted(): Promise<void> {
+  setValue('crashReportingPrompted', true);
+}
+
 // ─── Studio proxies: optional GPU encoder (T4b, docs/PREVIEW_TESTS_PLAN.md) ───
 // Off unless the user turned it on; it also needs the downloaded full ffmpeg
 // and a working hardware encoder before the generator uses it.

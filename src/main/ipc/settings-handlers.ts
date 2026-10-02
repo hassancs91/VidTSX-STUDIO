@@ -1,5 +1,5 @@
 import { dialog, IpcMainInvokeEvent } from 'electron';
-import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getRenderDefaultExportEngine, setRenderDefaultExportEngine, getRenderDefaultExportOutput, setRenderDefaultExportOutput, getCrashReportingEnabled, setCrashReportingEnabled, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
+import { getOutputFolder, setOutputFolder, getWhisperModel, setWhisperModel, getAiModelsFolder, setAiModelsFolder, getRenderTimeoutSeconds, setRenderTimeoutSeconds, getRenderDefaultCpuUsage, setRenderDefaultCpuUsage, getRenderDefaultGpuBackend, setRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, setRenderDefaultHardwareAcceleration, getRenderDefaultExportEngine, setRenderDefaultExportEngine, getRenderDefaultExportOutput, setRenderDefaultExportOutput, getCrashReportingEnabled, setCrashReportingEnabled, getCrashReportingPrompted, setCrashReportingPrompted, getPromptPresets, savePromptPresets, resetPromptPresets } from '../services/settings';
 import { DEFAULT_RENDER_QUALITY, isRenderQualityLevel, isResolutionPresetId } from '../../shared/render-presets';
 import type { SettingsSetRenderDefaultExportOutputRequest, SettingsSetRenderDefaultExportOutputResponse } from '../../shared/ipc/types';
 import { DEFAULT_EXPORT_ENGINE_ID, isExportEngineId } from '../../shared/studio/export-engines';
@@ -41,10 +41,12 @@ export async function handleSettingsGet(): Promise<SettingsGetResponse> {
     const renderDefaultExportEngine = await getRenderDefaultExportEngine();
     const exportOutput = await getRenderDefaultExportOutput();
     const crashReportingEnabled = await getCrashReportingEnabled();
-    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, renderDefaultExportEngine, renderDefaultExportResolution: exportOutput.resolution, renderDefaultExportQuality: exportOutput.quality, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable() };
+    const crashReportingPrompted = await getCrashReportingPrompted();
+    return { outputFolder, aiModelsFolder, whisperModel, renderTimeoutSeconds, renderDefaultCpuUsage, renderDefaultGpuBackend, renderDefaultHardwareAcceleration, renderDefaultExportEngine, renderDefaultExportResolution: exportOutput.resolution, renderDefaultExportQuality: exportOutput.quality, crashReportingEnabled, crashReportingAvailable: isCrashReportingAvailable(), crashReportingPrompted };
   } catch (err) {
-    // Return defaults on error, let UI handle default
-    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, renderDefaultExportResolution: 'original', renderDefaultExportQuality: DEFAULT_RENDER_QUALITY, crashReportingEnabled: false, crashReportingAvailable: false };
+    // Return defaults on error, let UI handle default. `crashReportingPrompted: true`
+    // so a settings failure never surfaces the consent prompt.
+    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, renderDefaultExportResolution: 'original', renderDefaultExportQuality: DEFAULT_RENDER_QUALITY, crashReportingEnabled: false, crashReportingAvailable: false, crashReportingPrompted: true };
   }
 }
 
@@ -222,6 +224,8 @@ export async function handleSettingsSetCrashReporting(
       return { success: false, error: 'enabled must be a boolean' };
     }
     await setCrashReportingEnabled(data.enabled);
+    // Any explicit answer (first-launch prompt or the Settings toggle) retires the prompt.
+    await setCrashReportingPrompted();
     // Apply immediately — no restart needed for JS error capture.
     setCrashReportingConsent(data.enabled);
     return { success: true };

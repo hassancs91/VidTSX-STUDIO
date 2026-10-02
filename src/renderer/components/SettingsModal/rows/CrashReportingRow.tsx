@@ -17,7 +17,7 @@ export function CrashReportingRow({
             Send crash reports
           </div>
           <div className="text-[10px] text-text-dim">
-            Off by default. When enabled, app crashes and errors are sent to Sentry to
+            Off by default; the app asks once on first launch. When enabled, app crashes and errors are sent to Sentry to
             help fix bugs. Reports contain stack traces, app version, and OS — file
             paths are anonymized, and your prompts, projects, and API keys are never
             included.

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { StatusBar } from "./components/StatusBar";
 import { CaptureChip } from "./components/CaptureChip";
+import { CrashReportingPrompt } from "./components/CrashReportingPrompt";
 import { HomeScreen } from "@features/home";
 import { WorkspaceScreen, SelectedFileProvider } from "@features/workspace";
 import { TranscriptionScreen } from "@features/transcription";
@@ -132,6 +133,7 @@ function AppContent({ activeScreen, setActiveScreen }: {
       </div>
       <StatusBar />
       <CaptureChip />
+      <CrashReportingPrompt />
     </div>
   );
 }
