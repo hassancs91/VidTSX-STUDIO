@@ -1,8 +1,13 @@
 import path from 'path';
-import type { IpcMainInvokeEvent } from 'electron';
+import { app, dialog, type IpcMainInvokeEvent } from 'electron';
 import type {
   TemplateIpc,
+  TemplatesImportRequest,
+  TemplatesImportResponse,
   TemplatesListResponse,
+  TemplatesPendingPackageResponse,
+  TemplatesRemoveRequest,
+  TemplatesRemoveResponse,
   TemplatesStageRequest,
   TemplatesStageResponse,
   TemplatesStateLoadRequest,
@@ -12,10 +17,17 @@ import type {
 } from '@shared/ipc/types';
 import type { InstalledTemplate } from '@shared/types/templates';
 import { parseAgentId } from '@shared/agents/ids';
+import { TEMPLATE_PACKAGE_EXT } from '@shared/templates/manifest';
+import { logEngine } from '../../logging/log-engine';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../services/module-server';
 import { assetUrlFor } from '../services/agents/artifact-paths';
 import { findTemplate, scanTemplates } from '../services/templates/template-store';
 import { loadTemplateState, saveTemplateState, stageTemplate } from '../services/templates/template-stage';
+import { installTemplatePackage, removeTemplate } from '../services/templates/template-install';
+import { validateAgentCompositionCode } from '../services/agents/tsx-deps';
+import { takePendingPackage } from '../services/packages/pending-open';
+
+const log = logEngine.createLogger('TemplateHandlers');
 
 /**
  * The card shows the template's own thumbnail, so the renderer needs a url
@@ -84,5 +96,68 @@ export async function handleTemplatesStateSave(
     return { success: true };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : 'Failed to save' };
+  }
+}
+
+/** Claim the `.vidtsxtemplate` the OS handed us — one-shot, kind-scoped (pending-open.ts). */
+export async function handleTemplatesPendingPackage(): Promise<TemplatesPendingPackageResponse> {
+  const filePath = takePendingPackage('template');
+  return filePath ? { filePath } : {};
+}
+
+/**
+ * Install a `.vidtsxtemplate` into the user root. No path opens the picker;
+ * VIDTSX_TEMPLATE_PICK stands in for it in automated runs. An older version
+ * than the installed one comes back as `needsConfirm` and installs nothing.
+ */
+export async function handleTemplatesImport(
+  _event: IpcMainInvokeEvent,
+  data: TemplatesImportRequest = {},
+): Promise<TemplatesImportResponse> {
+  try {
+    let filePath = data.path ?? process.env.VIDTSX_TEMPLATE_PICK;
+    if (!filePath) {
+      const picked = await dialog.showOpenDialog({
+        title: 'Import a template',
+        properties: ['openFile'],
+        filters: [{ name: 'VidTSX template', extensions: [TEMPLATE_PACKAGE_EXT.replace('.', '')] }],
+      });
+      if (picked.canceled || picked.filePaths.length === 0) return { success: false, canceled: true };
+      filePath = picked.filePaths[0];
+    }
+    const result = await installTemplatePackage(
+      filePath,
+      { manifestContext: { appVersion: app.getVersion() }, validateComposition: validateAgentCompositionCode },
+      data.confirmDowngrade ? { confirmDowngrade: true } : {},
+    );
+    if (result.needsConfirm) {
+      return { success: false, needsConfirm: result.needsConfirm, installedVersion: result.installedVersion, path: filePath };
+    }
+    if (!result.template) return { success: false, error: 'The template did not install.' };
+    return {
+      success: true,
+      template: await withThumbnailUrl(result.template),
+      ...(result.signature
+        ? { signature: { status: result.signature.status, ...(result.signature.publisher ? { publisher: result.signature.publisher } : {}) } }
+        : {}),
+      path: filePath,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn('Template import failed', { error: message });
+    return { success: false, error: message || 'Failed to import the template', ...(data.path ? { path: data.path } : {}) };
+  }
+}
+
+export async function handleTemplatesRemove(
+  _event: IpcMainInvokeEvent,
+  data: TemplatesRemoveRequest,
+): Promise<TemplatesRemoveResponse> {
+  try {
+    if (!parseAgentId(data.id)) return { success: false, error: 'Invalid template id.' };
+    await removeTemplate(data.id);
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Failed to remove the template' };
   }
 }

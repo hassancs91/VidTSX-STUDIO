@@ -44,6 +44,17 @@ describe('packageFromArgv', () => {
     expect(hasPendingPackage()).toBe(false);
   });
 
+  it('recognises a template package as its own kind (templates plan §7)', () => {
+    expect(packageFromArgv(['app.exe', '--flag', 'D:/dl/acme.count.vidtsxtemplate'])).toEqual({
+      kind: 'template',
+      filePath: 'D:/dl/acme.count.vidtsxtemplate',
+    });
+    expect(packageKindFor('/tmp/a.VidTSXTemplate')).toBe('template');
+    setPendingPackage({ kind: 'template', filePath: 'D:/dl/a.vidtsxtemplate' });
+    expect(takePendingPackage('pack')).toBeNull();
+    expect(takePendingPackage('template')).toBe('D:/dl/a.vidtsxtemplate');
+  });
+
   it('recognises a pack and every kind of single as one kind (TRANSITION_PACKS_DESIGN.md P5, FILTER_PACKS_DESIGN.md P5)', () => {
     expect(packageFromArgv(['app.exe', 'C:\dl\Motion Pack.vidtsxpack'])).toEqual({
       kind: 'pack',

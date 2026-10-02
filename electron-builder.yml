@@ -41,6 +41,11 @@ fileAssociations:
     name: VidTSX filter
     description: VidTSX Studio filter
     role: Editor
+  # A Creator template (docs/templates-plan.md §7): one template folder, zipped.
+  - ext: vidtsxtemplate
+    name: VidTSX template
+    description: VidTSX Studio template
+    role: Editor
 directories:
   output: dist
   buildResources: resources

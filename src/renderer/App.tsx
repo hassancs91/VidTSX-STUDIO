@@ -94,6 +94,14 @@ function AppContent({ activeScreen, setActiveScreen }: {
     });
   }, [setActiveScreen]);
 
+  // And for a double-clicked .vidtsxtemplate — the Creator claims it the same
+  // way and opens Templates mode (templates plan §7).
+  useEffect(() => {
+    return window.api.onTemplatesPackageOpenFile(() => {
+      if (isFeatureEnabled('creator')) setActiveScreen('creator');
+    });
+  }, [setActiveScreen]);
+
   const resolvedActive = (isFeatureEnabled(activeScreen) ? activeScreen : DEFAULT_SCREEN);
 
   useEffect(() => {

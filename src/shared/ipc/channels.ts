@@ -403,6 +403,12 @@ export const IPC = {
   TEMPLATES_STAGE: 'templates:stage',
   TEMPLATES_STATE_LOAD: 'templates:state:load',
   TEMPLATES_STATE_SAVE: 'templates:state:save',
+  // The importer (plan §7): install a `.vidtsxtemplate`, remove a user copy, and
+  // the double-click hand-off (pending-open.ts) the Creator claims in Templates mode.
+  TEMPLATES_IMPORT: 'templates:import',
+  TEMPLATES_REMOVE: 'templates:remove',
+  TEMPLATES_PENDING_PACKAGE: 'templates:package:pending',
+  TEMPLATES_PACKAGE_OPEN_FILE: 'templates:package:open-file',
 
   // AI Usage tracking
   AI_USAGE_GET_SUMMARY: 'ai-usage:get-summary',

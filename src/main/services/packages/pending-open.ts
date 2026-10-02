@@ -1,7 +1,7 @@
 // Double-clicking a package file — `.vidtsx` (Q7a), `.vidtsxagent` (agents
-// plan §1.6), `.vidtsxflow` (flows plan §1.7, W8 Stage 6), or a Studio pack package —
+// plan §1.6), `.vidtsxflow` (flows plan §1.7, W8 Stage 6), a Studio pack package —
 // `.vidtsxpack`, `.vidtsxtransition`, `.vidtsxfilter` (TRANSITION_PACKS_DESIGN.md
-// P5, FILTER_PACKS_DESIGN.md P5).
+// P5, FILTER_PACKS_DESIGN.md P5) — or a `.vidtsxtemplate` (templates plan §7).
 //
 // The OS hands the path to the app three different ways — an argv on cold
 // start, an argv on the `second-instance` event (this app holds a
@@ -26,8 +26,9 @@ import { VIDTSX_PACKAGE_EXTENSION } from '../../../shared/studio/project-package
 import { AGENT_PACKAGE_EXT } from '../../../shared/agents/manifest';
 import { FLOW_PACKAGE_EXT } from '../../../shared/flows/flow-package';
 import { PACK_KINDS, PACK_PACKAGE_EXT } from '../../../shared/studio/pack-package';
+import { TEMPLATE_PACKAGE_EXT } from '../../../shared/templates/manifest';
 
-export type PendingPackageKind = 'project' | 'agent' | 'flow' | 'pack';
+export type PendingPackageKind = 'project' | 'agent' | 'flow' | 'pack' | 'template';
 
 export interface PendingPackage {
   kind: PendingPackageKind;
@@ -45,6 +46,9 @@ const BY_EXTENSION: Record<string, PendingPackageKind> = {
   // of them and the inspect dialog tells a pack from a single.
   [PACK_PACKAGE_EXT]: 'pack',
   ...Object.fromEntries(PACK_KINDS.map((k) => [k.singleExt, 'pack' as const])),
+  // The Creator claims this kind (`TEMPLATES_PENDING_PACKAGE`) and opens
+  // Templates mode on `TEMPLATES_PACKAGE_OPEN_FILE`.
+  [TEMPLATE_PACKAGE_EXT]: 'template',
 };
 
 let pending: PendingPackage | null = null;

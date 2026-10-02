@@ -10,8 +10,8 @@
 // `<userData>/templates`. Same id in both → the higher version, equal prefers
 // the built-in.
 //
-// Install, remove and signature checks arrive with the importer (plan §7); the
-// scan is written so that adding them is `flow-store.ts` again, not a rewrite.
+// Install and remove live in `template-install.ts` (the importer, plan §7);
+// the signature is checked there, when a package is opened.
 
 import fs from 'fs/promises';
 import path from 'path';

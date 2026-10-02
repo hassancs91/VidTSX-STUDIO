@@ -3,8 +3,9 @@
 > Status: **P0–P3 built 2026-09-17; batch 2 built the same day — ten built-ins**
 > across Milestones, Social, Product, Openers and Overlays, plus overlay support
 > (backdrops, transparent render defaults), a slider for bounded numbers and
-> `scripts/template-verify.mjs`. P4 (importer, packs, list controls,
-> save-as-project) is planned in §7. Decisions in §1 were taken with Hasan on
+> `scripts/template-verify.mjs`. **2026-10-02 (go-live 3a): the `audio` control
+> and the `.vidtsxtemplate` importer are built** (§7, log). The rest of P4 (packs,
+> list controls, save-as-project) is planned in §7. Decisions in §1 were taken with Hasan on
 > 2026-09-17. Batch 2's work order, per-template specs, survey of all 90 addons
 > templates and build log: `docs/templates-batch-2.md`.
 
@@ -61,11 +62,11 @@ shared id grammar and entry-path gate, so it serves the scan, a future packer's
 
 **Controls** are Q8c's `ParamSpec` — `key`, `label`, `type`, `default`, `min`,
 `max`, `step`, `options` — plus what a whole composition needs beyond an
-effect's knobs: the types `text`, `textarea` and `image`, and `group`, `help`,
-`placeholder`, `maxLength`. `key` is the prop name the composition destructures.
+effect's knobs: the types `text`, `textarea`, `image` and `audio`, and `group`,
+`help`, `placeholder`, `maxLength`. `key` is the prop name the composition destructures.
 A default must agree with its type; a `select` default must be an option; a
-`color` must be `#hex`; an `image` default is `''` (the composition draws its own
-stand-in) or a safe path inside the template.
+`color` must be `#hex`; an `image` or `audio` default is `''` (the composition
+draws its own stand-in, or stays silent) or a safe path inside the template.
 
 **`formats` is not a control.** Choosing one changes the prop the composition
 reads *and* the canvas size, and those two must change together (§4). Its `prop`
@@ -215,23 +216,32 @@ and its Render dialog opens on WebM with transparency on.
 
 ## 7. What comes next (P4)
 
-- **Importer.** `.vidtsxtemplate` = one template folder zipped. It is
-  `flow-package.ts` + `flow-store.ts`'s install again: the generic
-  `zip-reader.ts` with a `ZipReaderSpec`, `files[]` hashes, rename-swap install
-  into `{userData}/templates`, `signature.json` via `agent-signing.ts`, the D14
-  TSX gate on the entry, `'template'` added to `PendingPackageKind` and
-  `fileAssociations`, a `scripts/template-pack.mjs`.
+- **Importer — BUILT 2026-10-02.** `.vidtsxtemplate` = one template folder
+  zipped, as planned: `shared/templates/template-package.ts` (pure: the manifest
+  rules plus a `files[]` that must cover the entry, the thumbnail and every file a
+  default or preset names; caps 300 entries / 64 MB per entry / 128 MB total),
+  `main/services/templates/template-package.ts` (the generic `zip-reader.ts`,
+  `signature.json` via `agent-signing.ts`, the D14 gate on the entry =
+  `validateAgentCompositionCode`), `template-install.ts` (rename-swap install
+  into `{userData}/templates` with `.bak`, an older version asks first, remove of
+  a user copy), IPCs `templates:import` / `:remove` / `:package:pending`, an
+  "Import…" button in the gallery, an "Installed" chip and a Remove action on
+  user cards, `'template'` in `PendingPackageKind` + `fileAssociations` (a
+  double-click opens the Creator in Templates mode and imports), and
+  `scripts/template-pack.mjs <folder> --check | --out <file> [--key]`, which
+  bundles the same package rules. The scan does not re-verify signatures (no
+  trust tag in the gallery yet); the install refuses a signature that fails.
 - **Packs.** `.vidtsxpack` = `pack.json` + `templates/…`, `agents/…`, `flows/…`,
   `transitions/…`. The importer dispatches each item to its kind's installer;
   no kind's manifest moves into `pack.json` (decision 5). Worth doing first:
   promote `pending-open.ts`'s kind union into a real registry
   (`{ kind, ext, manifestName, parse, roots }`) so kind #5 is one entry.
-- **An `audio` control — do this first.** The 2026-09-17 survey
-  (`templates-batch-2.md` §1) found 62 of the 90 addons templates take audio
-  props (`tickSound`, `musicFile`… + `volume`), so this unlocks more of the
-  library than anything else here, and it is small: a file picker with an audio
-  filter, a play button, `''` = silent. Both `/asset` routes already serve
-  audio, and staging already routes `staticFile(prop)`.
+- **An `audio` control — BUILT 2026-10-02.** `type: "audio"`: `''` = silent, a
+  path inside the template, or a file the user picked (`VIDTSX_DIALOG_PICK`
+  stands in for the picker). The field (`shared/components/ParamFileField.tsx`,
+  shared with `image`) shows a play / stop button, the file name, Choose /
+  Replace / Remove. Pair it with a `number` control for `volume`. The addons
+  `AUTHORING.md` still needs a `template.json` section that mentions it.
 - **List and table controls.** Most templates with real content keep it in an
   inline `const DATA` / `STEPS` / `SCENES` (8 of the 28 audio-free ones, and most
   of the 62). They need a `list`/`table` control type and a template contract
@@ -287,3 +297,22 @@ script for all ten × three formats × every look, a 73-check CDP pass over all
 ten, Archivo loaded in the app preview, and a transparent WebM render from the
 UI whose alpha was measured and composited over a photo. Not done: checking
 that WebM over footage in a Studio project.
+
+**2026-10-02 — go-live 3a: the `audio` control and the importer.** Built as §7
+now describes. Verified live on an isolated dev instance with a package made by
+`template-pack.mjs` from the addons `modern-countdown-timer` (two `audio`
+controls defaulting to its bundled `tick.mp3` / `done.mp3`, a volume slider, a
+"Silent" look): gallery Import… → toasts (imported, unsigned) → the form opens
+with the Sound group; play starts and ends on its own (both sounds served
+`audio/mpeg` by `/asset` and decode); Replace takes a picked file, Remove reads
+"None (silent)", the Silent look and Reset behave. **A real render** with the
+picked file as the tick and the bundled `done.mp3`: the MP4 has an AAC stream,
+the tick sounds every second (-29 dBFS) and the done sound decays after zero.
+Remove from the gallery; a double-click (a second instance on the same
+profile) from Home → Creator → Templates → installed and opened, saved values
+kept; an older package asks and installs only on Yes; a package whose entry
+imports `lodash` is refused by the D14 gate with a toast naming the import.
+**Bug the live check caught:** the downgrade retry sat after a `return` inside
+`try`, so Yes did nothing; fixed. Tests: `template-package.test.ts` (5),
+`template-install.test.ts` (8, real zips), audio cases in `manifest.test.ts`,
+the `template` kind in `pending-open.test.ts`.

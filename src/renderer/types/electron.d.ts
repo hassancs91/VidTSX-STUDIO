@@ -459,6 +459,10 @@ export interface ElectronAPI {
   templatesStage: (data: import('../../shared/ipc/types').TemplatesStageRequest) => Promise<import('../../shared/ipc/types').TemplatesStageResponse>;
   templatesStateLoad: (data: import('../../shared/ipc/types').TemplatesStateLoadRequest) => Promise<import('../../shared/ipc/types').TemplatesStateLoadResponse>;
   templatesStateSave: (data: import('../../shared/ipc/types').TemplatesStateSaveRequest) => Promise<import('../../shared/ipc/types').TemplatesStateSaveResponse>;
+  templatesImport: (data?: import('../../shared/ipc/types').TemplatesImportRequest) => Promise<import('../../shared/ipc/types').TemplatesImportResponse>;
+  templatesRemove: (data: import('../../shared/ipc/types').TemplatesRemoveRequest) => Promise<import('../../shared/ipc/types').TemplatesRemoveResponse>;
+  templatesPendingPackage: () => Promise<import('../../shared/ipc/types').TemplatesPendingPackageResponse>;
+  onTemplatesPackageOpenFile: (callback: (event: import('../../shared/ipc/types').TemplatesPackageOpenFileEvent) => void) => () => void;
 
   // Studio (AI video editor) — projects & media
   studioRootGet: () => Promise<import('../../shared/ipc/types').StudioRootGetResponse>;

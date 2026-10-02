@@ -75,6 +75,7 @@ function queuePackageOpen(pkg: PendingPackage): void {
       pkg.kind === 'agent' ? IPC.AGENTS_PACKAGE_OPEN_FILE
       : pkg.kind === 'flow' ? IPC.FLOWS_PACKAGE_OPEN_FILE
       : pkg.kind === 'pack' ? IPC.STUDIO_PACK_PACKAGE_OPEN_FILE
+      : pkg.kind === 'template' ? IPC.TEMPLATES_PACKAGE_OPEN_FILE
       : IPC.STUDIO_PACKAGE_OPEN_FILE;
     mainWindow.webContents.send(channel, { filePath: pkg.filePath });
   }
@@ -144,6 +145,9 @@ function createWindow(): BrowserWindow {
     }
     if (hasPendingPackage('pack')) {
       win.webContents.send(IPC.STUDIO_PACK_PACKAGE_OPEN_FILE, {});
+    }
+    if (hasPendingPackage('template')) {
+      win.webContents.send(IPC.TEMPLATES_PACKAGE_OPEN_FILE, {});
     }
   });
 

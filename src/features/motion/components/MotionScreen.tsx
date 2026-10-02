@@ -53,6 +53,29 @@ function MotionScreenContent() {
   const leaveTemplatesMode = useCallback(() => {
     setInputMode((mode) => (mode === 'templates' ? 'prompt' : mode));
   }, []);
+  // A double-clicked `.vidtsxtemplate` parks in main until this screen claims
+  // it — on mount, whenever the screen becomes active, and on main's push —
+  // then Templates mode opens and its panel runs the import.
+  const [pendingTemplatePackage, setPendingTemplatePackage] = useState<string | null>(null);
+  const takePendingTemplatePackage = useCallback(() => setPendingTemplatePackage(null), []);
+  useEffect(() => {
+    const claim = async (): Promise<void> => {
+      const res = await window.api.templatesPendingPackage();
+      if (!res.filePath) return;
+      handleModeChange('templates');
+      setPendingTemplatePackage(res.filePath);
+    };
+    void claim();
+    const onActive = (event: Event) => {
+      if ((event as CustomEvent<{ screen?: string }>).detail?.screen === 'creator') void claim();
+    };
+    window.addEventListener('vidtsx:screen-active', onActive);
+    const offOpenFile = window.api.onTemplatesPackageOpenFile(() => void claim());
+    return () => {
+      window.removeEventListener('vidtsx:screen-active', onActive);
+      offOpenFile();
+    };
+  }, [handleModeChange]);
   const resizingRef = useRef(false);
   const projectManagerRef = useRef(projectManager);
   projectManagerRef.current = projectManager;
@@ -379,7 +402,14 @@ function MotionScreenContent() {
                       onVersion={handleAgentVersion}
                     />
                   }
-                  templatesPanel={<TemplatesPanel enabled={templatesOpened} session={templateSession} />}
+                  templatesPanel={
+                    <TemplatesPanel
+                      enabled={templatesOpened}
+                      session={templateSession}
+                      pendingPackage={pendingTemplatePackage}
+                      onPendingTaken={takePendingTemplatePackage}
+                    />
+                  }
                   prompt={generator.prompt}
                   onPromptChange={generator.setPrompt}
                   providers={generator.providers}
