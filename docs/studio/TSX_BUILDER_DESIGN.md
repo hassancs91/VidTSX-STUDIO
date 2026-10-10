@@ -354,6 +354,20 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 
 ## 5. Build order
 
+> **P0 DONE 2026-10-10 — exit met on B2** (details: `ai-video-lab/experiments/studio-unlock-01/FINDINGS-P0.md`;
+> code `src/main/services/tsx-builder/`, dev-only entry `VIDTSX_TSX_BUILDER_SPIKE=<request.json>`):
+> - Machinery: multi-file → one file via Import TSX's bundle step passes every gate (T3 spike ✔);
+>   in-app stills pixel-identical to R0b; no shell; file tools guarded and NOT allow-listed.
+> - Stills on this PC: first bundle 54 s, later 16–25 s, a look round ~15–50 s. Laptop not measured.
+> - Quality: run 1 stopped at 3/6 rounds with a clean chart (column 2). Run 2, after adding the
+>   art-director questions to the prompt and refusing `finish` before round 4 on Craft, reached
+>   column 3's class: coins at true scale coloured by origin, the cause drawn, ghost slots — 7.7 min,
+>   6 rounds, 32.6k output tokens, $2.23 API-equivalent. Wall `P0-B2` on :3920.
+> - **T5 to re-decide:** a bundled `@remotion/google-fonts` import already goes through the font proxy
+>   + cache on the render path (Poppins woff2s landed in `font-cache`). Check the preview path first.
+> - **New P2 risk:** esbuild cannot read inside `app.asar`, so the bundle step's package resolution
+>   needs an Electron-fs onLoad plugin (or unpacked tier-1 packages) in the installed app.
+
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
 

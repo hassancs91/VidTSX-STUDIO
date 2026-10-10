@@ -137,7 +137,8 @@ export function buildImportedShot(
 /** Where the bundle step may find Studio's own packages when the source has
  *  none beside it: the app's node_modules in dev, the unpacked ones when
  *  installed (esbuild is a native process and cannot read inside the asar). */
-function bundleNodePaths(): string[] {
+/** Where the bundle step looks for packages (dev: the repo; packaged: beside the asar). */
+export function bundleNodePaths(): string[] {
   const root = getAppRoot();
   return [path.join(root, 'node_modules'), path.join(root, 'app.asar.unpacked', 'node_modules')];
 }

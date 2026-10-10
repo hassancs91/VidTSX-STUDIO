@@ -253,6 +253,12 @@ app.whenReady().then(async () => {
 
   registerAllIPC();
 
+  // TSX builder P0 spike (docs/studio/TSX_BUILDER_DESIGN.md §5): dev builds only,
+  // and only when VIDTSX_TSX_BUILDER_SPIKE names a request file. Runs detached.
+  if (!app.isPackaged && process.env.VIDTSX_TSX_BUILDER_SPIKE) {
+    void import('./services/tsx-builder/builder-spike').then((m) => m.runBuilderSpikeFromEnv());
+  }
+
   // Re-queue TSX generation jobs that were still queued at last quit — held,
   // not running, so no LLM work (or claude.exe spawn) happens without the user.
   // After registerAllIPC so the job-event broadcast listener is attached.
