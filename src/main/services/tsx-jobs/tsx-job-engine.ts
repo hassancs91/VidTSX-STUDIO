@@ -4,6 +4,7 @@ import path from 'path';
 import { app } from 'electron';
 import { generateTsxPipeline, editTsxPipeline, generateProjectName } from '@shared/tsx-engine';
 import type { TsxEngineDeps } from '@shared/tsx-engine';
+import { lintCreatorImports } from '@shared/tsx-engine/creator-imports';
 import type { PipelineProgress, TsxPipelineResult } from '@shared/tsx-engine';
 import type {
   TsxJobIpc,
@@ -270,7 +271,14 @@ class TsxJobEngine {
 
     return {
       llmGenerate: (req) => runLlmGenerate({ ...req, featureSource: 'tsx-generation' }, signal, onTextDelta),
-      tsxValidate: (req) => validateTsxCode(req.code),
+      tsxValidate: async (req) => {
+        const result = await validateTsxCode(req.code);
+        if (!result.success) return result;
+        // Imports that preview from esm.sh but cannot render in an installed
+        // app are a fix-loop error here, not a render failure later.
+        const importErrors = lintCreatorImports(req.code);
+        return importErrors.length > 0 ? { success: false, error: importErrors.join(' ') } : result;
+      },
     };
   }
 

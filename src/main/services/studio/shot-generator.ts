@@ -339,6 +339,7 @@ class ShotGeneratorService {
             videoHeight: height,
             fps,
             durationSeconds,
+            imports: 'strict',
             extraInstructions: buildShotExtraInstructions({
               kind: req.kind,
               width,
@@ -463,6 +464,12 @@ class ShotGeneratorService {
       this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'edit', status: 'ready', shot });
       return shot;
     } catch (err) {
+      if (req.signal?.aborted) {
+        // A user cancel is not a failure: no error toast, the version stays.
+        this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'edit', status: 'canceled' });
+        log.info('Shot edit cancelled', { projectId: req.projectId, shotId: req.shotId });
+        throw err instanceof Error ? err : new Error('Cancelled');
+      }
       const message = err instanceof Error ? err.message : 'Shot edit failed';
       this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'edit', status: 'error', error: message });
       log.error('Shot edit failed', err, { projectId: req.projectId, shotId: req.shotId });
@@ -495,7 +502,8 @@ class ShotGeneratorService {
       // them before queueing for a pipeline slot.
       const project = await loadProject(req.projectId);
       const shot = project.shots.find((s) => s.id === req.shotId);
-      const stills = await renderShotStills(req.projectId, req.shotId, 3);
+      const stills = await renderShotStills(req.projectId, req.shotId, 3, req.activeVersion);
+      if (req.signal?.aborted) throw new Error('Cancelled');
       const images: LlmImageIpc[] = [];
       for (const stillPath of stills.paths) {
         images.push({
@@ -582,6 +590,11 @@ class ShotGeneratorService {
         this.releaseSlot();
       }
     } catch (err) {
+      if (req.signal?.aborted) {
+        this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'canceled' });
+        log.info('Shot refine cancelled', { projectId: req.projectId, shotId: req.shotId });
+        throw err instanceof Error ? err : new Error('Cancelled');
+      }
       const message = err instanceof Error ? err.message : 'Shot refine failed';
       this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'error', error: message });
       log.error('Shot refine failed', err, { projectId: req.projectId, shotId: req.shotId });

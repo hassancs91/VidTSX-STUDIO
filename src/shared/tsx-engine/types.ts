@@ -25,6 +25,13 @@ export interface TsxPromptContext {
   category?: string;
   extraInstructions?: string;
   /**
+   * Which import gate the output will meet. `'open'` (default) is the Creator:
+   * the packages in `CREATOR_IMPORT_PACKAGES` render. `'strict'` is a gate that
+   * accepts react, remotion and @vidtsx/kit only (Studio shots, agent
+   * compositions) — the 2D prompt then promises nothing else.
+   */
+  imports?: 'open' | 'strict';
+  /**
    * Saved GLB meshes the 3D prompt may reference (asset library, absolute paths) —
    * plan §5 step 7 "Library meshes". Empty/undefined = no section in the prompt.
    */

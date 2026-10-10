@@ -200,6 +200,16 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
         >
           Refine
         </Button>
+        {busy && (progress?.op === 'edit' || progress?.op === 'refine') && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void window.api.studioShotCancel({ projectId, shotId: shot.id })}
+            title="Stop this run — the current version is kept"
+          >
+            Cancel
+          </Button>
+        )}
       </div>
 
       <ShotMediaSection

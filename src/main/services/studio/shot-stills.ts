@@ -84,11 +84,20 @@ export async function renderShotStills(
   projectId: string,
   shotId: string,
   count = 3,
+  /** Render this version instead of the registry's activeVersion — a caller
+   *  that is about to edit version N must see version N, not whatever the
+   *  document last saved. */
+  version?: number,
 ): Promise<ShotStillsResult> {
-  const project = await loadProject(projectId);
-  const shot = project.shots.find((s) => s.id === shotId);
-  if (!shot) throw new Error(`Shot not found: ${shotId}`);
-  if (shot.status !== 'ready') throw new Error(`Shot "${shot.name}" is not ready.`);
+  const loaded = await loadProject(projectId);
+  const found = loaded.shots.find((s) => s.id === shotId);
+  if (!found) throw new Error(`Shot not found: ${shotId}`);
+  if (found.status !== 'ready') throw new Error(`Shot "${found.name}" is not ready.`);
+  const shot: StudioShot = version !== undefined ? { ...found, activeVersion: version } : found;
+  const project: StudioProject = {
+    ...loaded,
+    shots: loaded.shots.map((s) => (s.id === shotId ? shot : s)),
+  };
 
   const synthetic: StudioProject = {
     ...project,

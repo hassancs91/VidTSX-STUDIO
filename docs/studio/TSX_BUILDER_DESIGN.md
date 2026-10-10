@@ -379,11 +379,20 @@ run`). The T9 items can land independently and early.
 > agents · 6 yes · 7 yes (in P3) · 8 yes · 9 later · 10 yes · 11 yes · 12 yes, T9 first ·
 > 13 yes, B2 at Craft. The boxes below are left as written.
 >
-> **T9 progress (uncommitted on `main`, 2026-10-10):** item 7 allowedTools hole **fixed and
-> verified** (agent-runner.ts; see §2.4: confirmed against SDK 0.3.286, the guard was skipped
-> for allow-listed tools and a Write landed outside the workspace); item 1 4:5 preset added;
-> item 2 Claude presets default to `claude-sonnet-5-5` with a one-shot migration of saved
-> configs (OpenRouter's default left alone: no verified 5.5 id). Items 3–6 open.
+> **T9 progress (2026-10-10, branch `t9-small-fixes`):** ALL SEVEN DONE.
+> 7 allowedTools hole fixed + verified against SDK 0.3.286 (committed `61eae5d`) · 1 4:5 preset ·
+> 2 Claude presets default `claude-sonnet-5-5` + one-shot migration (OpenRouter's default left:
+> no verified 5.5 id) · 3 prompt promises match the gate: `TsxPromptContext.imports`
+> (`'open'` Creator, byte-identical to before; `'strict'` for Studio shots + agent
+> compositions, which drops chroma/@remotion/tone from the prompt) · 4 Creator lint:
+> `lintCreatorImports` in `tsx-engine/creator-imports.ts`, the single list
+> `CREATOR_IMPORT_PACKAGES` (a test ties the prompts to it; `@vidtsx/kit` and relative imports
+> rejected) wired into the job engine's validate · 5 chroma-js moved to `dependencies` (the
+> shipped 1.1.0 asar did NOT contain it, so a Creator comp importing it rendered in preview and
+> failed in the installed app) · 6 Refine/Edit cancel: `studio:shot:cancel`, run registry in
+> `studio-shot-handlers.ts`, `canceled` job event, Cancel button in `ShotClipSection`; stills
+> now render the version being edited (`renderShotStills(..., version)`).
+> Not yet exercised in the live app: items 3-4 against a real model run, and 6's button.
 
 1. **T1** Builder as a new SDK-session service with a dispatcher that falls back to the
    one-shot pipeline. ☐ yes ☐ change: ___

@@ -472,6 +472,7 @@ export const IPC = {
   STUDIO_SHOT_MODULE: 'studio:shot:module',
   // Studio — TSX shot generation (S4 D8): pipeline runs + push events
   STUDIO_SHOT_GENERATE: 'studio:shot:generate',
+  STUDIO_SHOT_CANCEL: 'studio:shot:cancel',
   STUDIO_SHOT_VERSIONS: 'studio:shot:versions',
   STUDIO_SHOT_JOB_EVENT: 'studio:shot:job-event',
   // Studio — TSX import (S4 D14): source-agnostic accept path + Creator list

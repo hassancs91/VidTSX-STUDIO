@@ -61,6 +61,8 @@ import type {
   StudioRootSetRequest,
   StudioRootSetResponse,
   StudioShotGenerateRequest,
+  StudioShotCancelRequest,
+  StudioShotCancelResponse,
   StudioShotGenerateResponse,
   StudioShotImportRequest,
   StudioShotImportResponse,
@@ -203,6 +205,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_SHOT_MODULE, data),
   studioShotGenerate: (data: StudioShotGenerateRequest): Promise<StudioShotGenerateResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_GENERATE, data),
+  studioShotCancel: (data: StudioShotCancelRequest): Promise<StudioShotCancelResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_SHOT_CANCEL, data),
   studioShotVersions: (data: StudioShotVersionsRequest): Promise<StudioShotVersionsResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_SHOT_VERSIONS, data),
   studioShotImport: (data: StudioShotImportRequest): Promise<StudioShotImportResponse> =>

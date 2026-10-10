@@ -507,6 +507,7 @@ export interface ElectronAPI {
   studioAgentActionResult: (data: import('../../shared/ipc/types').StudioAgentActionResultRequest) => Promise<import('../../shared/ipc/types').StudioAgentActionResultResponse>;
   studioShotModule: (data: import('../../shared/ipc/types').StudioShotModuleRequest) => Promise<import('../../shared/ipc/types').StudioShotModuleResponse>;
   studioShotGenerate: (data: import('../../shared/ipc/types').StudioShotGenerateRequest) => Promise<import('../../shared/ipc/types').StudioShotGenerateResponse>;
+  studioShotCancel: (data: import('../../shared/ipc/types').StudioShotCancelRequest) => Promise<import('../../shared/ipc/types').StudioShotCancelResponse>;
   studioShotVersions: (data: import('../../shared/ipc/types').StudioShotVersionsRequest) => Promise<import('../../shared/ipc/types').StudioShotVersionsResponse>;
   studioShotImport: (data: import('../../shared/ipc/types').StudioShotImportRequest) => Promise<import('../../shared/ipc/types').StudioShotImportResponse>;
   studioCreatorProjects: () => Promise<import('../../shared/ipc/types').StudioCreatorProjectsResponse>;

@@ -12,6 +12,8 @@ import path from 'path';
 import { dialog, type IpcMainInvokeEvent } from 'electron';
 import type {
   StudioCreatorProjectsResponse,
+  StudioShotCancelRequest,
+  StudioShotCancelResponse,
   StudioShotGenerateRequest,
   StudioShotGenerateResponse,
   StudioShotImportRequest,
@@ -80,6 +82,37 @@ export async function handleStudioShotModule(
   }
 }
 
+/** Running edit/refine runs, so a cancel click can stop them. One run per shot. */
+const runControllers = new Map<string, AbortController>();
+
+function runKey(projectId: string, shotId: string): string {
+  return `${projectId}:${shotId}`;
+}
+
+/** Start tracking a run; the returned signal feeds the generator, `done()` untracks it. */
+function trackRun(projectId: string, shotId: string): { signal: AbortSignal; done: () => void } {
+  const key = runKey(projectId, shotId);
+  const controller = new AbortController();
+  runControllers.set(key, controller);
+  return {
+    signal: controller.signal,
+    done: () => {
+      if (runControllers.get(key) === controller) runControllers.delete(key);
+    },
+  };
+}
+
+/** Stop the edit/refine run on a shot, if one is in flight. */
+export async function handleStudioShotCancel(
+  _event: IpcMainInvokeEvent,
+  data: StudioShotCancelRequest,
+): Promise<StudioShotCancelResponse> {
+  const controller = runControllers.get(runKey(data.projectId, data.shotId));
+  if (!controller) return { success: true, cancelled: false };
+  controller.abort();
+  return { success: true, cancelled: true };
+}
+
 /**
  * Pool-button generation (D8 "direct user entry"): fast-fail handshake that
  * returns the reserved/target shot id, then the pipeline runs detached —
@@ -96,7 +129,9 @@ export async function handleStudioShotGenerate(
       if (!data.shotId || !data.activeVersion || !data.instruction?.trim()) {
         return { success: false, error: 'Edit needs a shot, its active version, and an instruction' };
       }
+      const run = trackRun(data.projectId, data.shotId);
       const edit = shotGenerator.edit({
+        signal: run.signal,
         projectId: data.projectId,
         shotId: data.shotId,
         activeVersion: data.activeVersion,
@@ -104,7 +139,9 @@ export async function handleStudioShotGenerate(
         ...(data.providerId ? { providerId: data.providerId } : {}),
         ...(data.model ? { model: data.model } : {}),
       });
-      edit.catch((err) => log.warn('Shot edit failed', { error: String(err) }));
+      edit
+        .catch((err) => log.warn('Shot edit failed', { error: String(err) }))
+        .finally(run.done);
       return { success: true, shotId: data.shotId };
     }
 
@@ -112,14 +149,18 @@ export async function handleStudioShotGenerate(
       if (!data.shotId || !data.activeVersion) {
         return { success: false, error: 'Refine needs a shot and its active version' };
       }
+      const run = trackRun(data.projectId, data.shotId);
       const refine = shotGenerator.refine({
+        signal: run.signal,
         projectId: data.projectId,
         shotId: data.shotId,
         activeVersion: data.activeVersion,
         ...(data.providerId ? { providerId: data.providerId } : {}),
         ...(data.model ? { model: data.model } : {}),
       });
-      refine.catch((err) => log.warn('Shot refine failed', { error: String(err) }));
+      refine
+        .catch((err) => log.warn('Shot refine failed', { error: String(err) }))
+        .finally(run.done);
       return { success: true, shotId: data.shotId };
     }
 

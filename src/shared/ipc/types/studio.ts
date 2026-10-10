@@ -645,12 +645,26 @@ export interface StudioShotGenerateResponse {
   error?: string;
 }
 
+/** Stop a running shot edit or refine (the run emits a 'canceled' event). */
+export interface StudioShotCancelRequest {
+  projectId: string;
+  shotId: string;
+}
+
+export interface StudioShotCancelResponse {
+  success: boolean;
+  /** False when nothing cancellable was running for that shot. */
+  cancelled: boolean;
+  error?: string;
+}
+
 /** Push events for shot pipeline runs (agent tool calls emit these too). */
 export interface StudioShotJobEvent {
   projectId: string;
   shotId: string;
   op: StudioShotGenerateOp;
-  status: 'generating' | 'ready' | 'error';
+  /** 'canceled' = the user stopped an edit/refine run; no error to surface. */
+  status: 'generating' | 'ready' | 'error' | 'canceled';
   /** 0..100 pipeline progress while 'generating'. */
   percent?: number;
   message?: string;

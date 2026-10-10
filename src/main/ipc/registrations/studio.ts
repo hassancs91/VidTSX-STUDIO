@@ -40,6 +40,7 @@ import {
 import {
   handleStudioCreatorProjects,
   handleStudioShotGenerate,
+  handleStudioShotCancel,
   handleStudioShotImport,
   handleStudioShotModule,
   handleStudioShotVersions,
@@ -126,6 +127,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_AGENT_CHAT_RESET, handleStudioAgentChatReset);
   ipcMain.handle(IPC.STUDIO_SHOT_MODULE, handleStudioShotModule);
   ipcMain.handle(IPC.STUDIO_SHOT_GENERATE, handleStudioShotGenerate);
+  ipcMain.handle(IPC.STUDIO_SHOT_CANCEL, handleStudioShotCancel);
   ipcMain.handle(IPC.STUDIO_SHOT_VERSIONS, handleStudioShotVersions);
   ipcMain.handle(IPC.STUDIO_SHOT_IMPORT, handleStudioShotImport);
   ipcMain.handle(IPC.STUDIO_SHOTS_RECONCILE, handleStudioShotsReconcile);

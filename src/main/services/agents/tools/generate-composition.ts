@@ -181,6 +181,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
             videoHeight: args.height ?? 1080,
             fps: args.fps ?? 30,
             durationSeconds: args.durationSeconds ?? 6,
+            imports: 'strict',
             ...(extraInstructions ? { extraInstructions } : {}),
           },
           onProgress: (progress) => ctx.emitProgress(`${args.title}: ${progress.stepLabel}`),
