@@ -4,7 +4,7 @@
 // bodies are appended verbatim. The whole prompt is fixed for the run so the
 // prompt cache holds across its many turns.
 
-export type BuildBudget = 'quick' | 'standard' | 'craft';
+import type { BuildBudget } from './types';
 
 /** Look rounds (render_stills calls) per budget. */
 export const BUDGET_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 3, craft: 6 };
@@ -15,6 +15,13 @@ export const BUDGET_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 
  * column-3 picture. The loop only pays if the builder keeps redesigning.
  */
 export const MIN_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 2, craft: 4 };
+
+/**
+ * An edit's floor: one look after the change. The new-build floor exists to
+ * push the DESIGN; an edit is a requested change ("make the title bigger"),
+ * and forcing four rounds on it would spend the budget on nothing asked.
+ */
+export const EDIT_MIN_ROUNDS = 1;
 
 const METHOD = `You are the builder inside VidTSX Studio. You design an animated composition and build it as TSX files in your own folder, then you LOOK at rendered frames and improve it, round after round. Whoever designs the picture must see it: every design decision after the first build comes from a frame you looked at, not from the code.
 
@@ -59,11 +66,13 @@ export interface BuilderPromptOptions {
   budget: BuildBudget;
   /** Craft-pack bodies (SKILL.md texts), appended in order. */
   packs: Array<{ name: string; body: string }>;
+  /** The round `finish` waits for. Default: MIN_ROUNDS for the budget. */
+  minRounds?: number;
 }
 
 export function buildBuilderSystemPrompt(options: BuilderPromptOptions): string {
   const rounds = BUDGET_ROUNDS[options.budget];
-  const min = MIN_ROUNDS[options.budget];
+  const min = options.minRounds ?? MIN_ROUNDS[options.budget];
   const budgetLine = `\n\n## Your budget\n${options.budget.toUpperCase()}: ${rounds} look round${rounds === 1 ? '' : 's'} (render_stills calls); finish is refused before round ${min}. check is free.`;
   const packs = options.packs.length
     ? `\n\n# Craft packs\nThe know-how below is for this kind of piece. Follow it.\n\n${options.packs

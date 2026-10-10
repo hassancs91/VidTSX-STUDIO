@@ -1,9 +1,10 @@
-// P0 spike entry for the TSX builder (TSX_BUILDER_DESIGN.md §5). Dev builds
-// only: main calls this when VIDTSX_TSX_BUILDER_SPIKE names a request JSON.
-// No UI, no IPC. Everything it learns lands in `<outDir>/spike-report.json`.
+// Dev entry for the TSX builder (TSX_BUILDER_DESIGN.md §5). Dev builds only:
+// main calls this when VIDTSX_TSX_BUILDER_SPIKE names a request JSON. No UI,
+// no IPC. Everything it learns lands in `<outDir>/spike-report.json`.
 //
-// mode "fixture" — no model: copy an existing source folder into a build
-// folder and measure the machinery (check, stills cold / warm / after an edit).
+// mode "fixture" — no model: copy an existing source folder into a run folder
+// and measure the machinery (check, stills cold / warm / after an edit), then
+// save it as a version and seed an edit from it (the build store, end to end).
 // mode "build" — a real builder run on one brief, with craft packs read from
 // a folder of skills (`<packsDir>/<name>/SKILL.md`, used verbatim).
 
@@ -13,8 +14,11 @@ import { app } from 'electron';
 import { logEngine } from '../../../logging/log-engine';
 import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
+import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
 import { buildComposition } from './tsx-builder';
-import type { BuildBudget } from './builder-prompt';
+import { formatFromConfig } from './build-format';
+import type { CompositionConfig } from '../composition-config-parser';
+import type { BuildBudget, BuildFormat, BuildPack } from './types';
 
 const log = logEngine.createLogger('TsxBuilderSpike');
 
@@ -30,11 +34,16 @@ interface FixtureRequest {
 interface BuildSpikeRequest {
   mode: 'build';
   intent: string;
-  format: string;
+  /** Required unless `editOf` is given. */
+  format?: BuildFormat;
   outDir: string;
   budget: BuildBudget;
   packsDir?: string;
   packNames?: string[];
+  editOf?: { folderPath: string; version?: number };
+  /** Default `<outDir>/projects`, so runs never land in the profile's Creator library unasked. */
+  projectsDir?: string;
+  name?: string;
   providerId?: string;
   model?: string;
   maxMinutes?: number;
@@ -43,9 +52,9 @@ interface BuildSpikeRequest {
 
 type SpikeRequest = FixtureRequest | BuildSpikeRequest;
 
-async function readPacks(dir: string, names?: string[]): Promise<Array<{ name: string; body: string }>> {
+async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
-  const packs: Array<{ name: string; body: string }> = [];
+  const packs: BuildPack[] = [];
   for (const name of entries) {
     const file = path.join(dir, name, 'SKILL.md');
     try {
@@ -61,19 +70,67 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
   const packs = req.packsDir ? await readPacks(req.packsDir, req.packNames) : [];
   const result = await buildComposition({
     intent: req.intent,
-    format: req.format,
-    outDir: req.outDir,
+    ...(req.format ? { format: req.format } : {}),
     budget: req.budget,
     packs,
+    ...(req.editOf ? { editOf: req.editOf } : {}),
+    projectsDir: req.projectsDir ?? path.join(req.outDir, 'projects'),
+    runsDir: path.join(req.outDir, 'runs'),
+    ...(req.name ? { name: req.name } : {}),
     ...(req.providerId ? { providerId: req.providerId } : {}),
     ...(req.model ? { model: req.model } : {}),
     ...(req.maxMinutes ? { maxMinutes: req.maxMinutes } : {}),
   });
-  if (result.code && !result.finished) {
-    await fs.writeFile(path.join(req.outDir, 'final.tsx'), result.code, 'utf-8');
-  }
   const { code: _code, ...rest } = result;
   return { mode: 'build', packs: packs.map((p) => p.name), model: req.model ?? 'provider default', ...rest };
+}
+
+async function listTree(dir: string, rel = ''): Promise<string[]> {
+  const entries = await fs.readdir(path.join(dir, rel), { withFileTypes: true }).catch(() => []);
+  const out: string[] = [];
+  for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+    const child = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...(await listTree(dir, child)));
+    else out.push(child);
+  }
+  return out;
+}
+
+/** Save the fixture as a new project's v1, seed an edit from it, save that as v2. */
+async function storeRoundTrip(
+  req: FixtureRequest,
+  kept: { code: string; config: CompositionConfig; stills: string[] },
+): Promise<Record<string, unknown>> {
+  const projectsDir = path.join(req.outDir, 'projects');
+  await fs.rm(projectsDir, { recursive: true, force: true });
+  const runsDir = path.join(req.outDir, 'runs');
+
+  const first = await createRunDirs(runsDir);
+  await fs.cp(req.sourceDir, first.workDir, { recursive: true });
+  const v1 = await saveBuildVersion({
+    target: { parentDir: projectsDir, name: 'fixture-store' },
+    code: kept.code,
+    dirs: first,
+    stills: kept.stills.map((p, i) => ({ round: 1, frame: i, size: 'model' as const, path: p })),
+    debug: { kind: 'tsx-builder', request: { format: formatFromConfig(kept.config, true) } },
+  });
+
+  const second = await createRunDirs(runsDir);
+  const seed = await seedWorkFromVersion({ folderPath: v1.version.folderPath }, second.workDir);
+  const v2 = await saveBuildVersion({
+    target: { folderPath: seed.folderPath },
+    code: kept.code,
+    dirs: second,
+    stills: [],
+    debug: { kind: 'tsx-builder', edit: true },
+  });
+  return {
+    v1: v1.version,
+    v1Stills: v1.stills.length,
+    seed: { version: seed.version, fromSrc: seed.fromSrc, format: seed.format, configId: seed.config?.id },
+    v2: v2.version,
+    projectFiles: await listTree(v1.version.folderPath),
+  };
 }
 
 async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>> {
@@ -82,6 +139,8 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
   await fs.cp(req.sourceDir, workDir, { recursive: true });
   const frames = req.frames ?? [0, 60, 120, 180, 239];
   const rounds: Array<Record<string, unknown>> = [];
+  type Kept = { code: string; config: CompositionConfig; stills: string[] };
+  let lastGood: Kept | null = null;
 
   const round = async (name: string): Promise<boolean> => {
     const check = await checkBuild(workDir);
@@ -109,6 +168,7 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
       paths: stills.stills.map((s) => s.path),
       modelImageBytes: stills.stills.map((s) => s.data.length),
     };
+    lastGood = { code: check.code, config: check.config, stills: stills.stills.map((s) => s.path) };
     return true;
   };
 
@@ -119,7 +179,9 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
     await fs.appendFile(entry, `\n// edited ${Date.now()}\n`, 'utf-8');
     await round('r3-edited');
   }
-  return { mode: 'fixture', sourceDir: req.sourceDir, rounds };
+  const kept = lastGood as Kept | null;
+  const store = kept ? await storeRoundTrip(req, kept) : null;
+  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, store };
 }
 
 export async function runBuilderSpikeFromEnv(): Promise<void> {

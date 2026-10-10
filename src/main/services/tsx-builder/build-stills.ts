@@ -4,7 +4,9 @@
 // the font-URL rewrite to the local proxy, webpack) then renderStill — so a
 // still shows what an export would, not a preview approximation. Each image is
 // downscaled to at most `maxSide` px and re-encoded as JPEG before it goes to
-// the model: a 1080x1350 frame is ~1.4k image tokens at 1024 px.
+// the model (a 1080x1350 frame is ~1.4k image tokens at 1024 px), and the file
+// on disk is overwritten with that copy: the saved stills are exactly what the
+// builder saw, at a tenth of the full-size bytes.
 //
 // P0 note: bundleComposition serves ONE bundle at a time (the global
 // currentBundlePath in remotion-bundler.ts). Fine for one build; P1 makes it
@@ -43,7 +45,7 @@ export function clampFrames(frames: number[], durationInFrames: number): number[
   return [...new Set(clean)].sort((a, b) => a - b);
 }
 
-function downscaleJpeg(file: string, maxSide: number): string {
+function downscaleJpeg(file: string, maxSide: number): Buffer {
   let image = nativeImage.createFromPath(file);
   const { width, height } = image.getSize();
   const longest = Math.max(width, height);
@@ -55,7 +57,7 @@ function downscaleJpeg(file: string, maxSide: number): string {
       quality: 'best',
     });
   }
-  return image.toJPEG(85).toString('base64');
+  return image.toJPEG(85);
 }
 
 /**
@@ -108,7 +110,9 @@ export async function renderBuildStills(
       timeoutInMilliseconds: STILL_TIMEOUT_MS,
       binariesDirectory,
     });
-    stills.push({ frame, path: output, data: downscaleJpeg(output, options.maxSide ?? 1024), mimeType: 'image/jpeg' });
+    const seen = downscaleJpeg(output, options.maxSide ?? 1024);
+    await fs.writeFile(output, seen);
+    stills.push({ frame, path: output, data: seen.toString('base64'), mimeType: 'image/jpeg' });
   }
 
   return {

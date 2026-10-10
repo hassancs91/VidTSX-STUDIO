@@ -22,6 +22,11 @@ export function getProjectsDir(): string {
   return path.join(app.getPath('userData'), 'projects');
 }
 
+/** Scratch run folders of the TSX builder; a saved build lives in its project folder. */
+export function getTsxBuildsDir(): string {
+  return path.join(app.getPath('userData'), 'tsx-builds');
+}
+
 export function getAssetsDir(): string {
   return path.join(app.getPath('userData'), 'assets');
 }

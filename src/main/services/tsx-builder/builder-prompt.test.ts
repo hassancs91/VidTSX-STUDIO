@@ -8,6 +8,10 @@ describe('buildBuilderSystemPrompt', () => {
     expect(buildBuilderSystemPrompt({ budget: 'craft', packs: [] })).toContain('finish is refused before round 4');
   });
 
+  it("states an edit's own finish floor", () => {
+    expect(buildBuilderSystemPrompt({ budget: 'craft', packs: [], minRounds: 1 })).toContain('finish is refused before round 1');
+  });
+
   it('appends craft packs verbatim, in order, and is stable for the prompt cache', () => {
     const packs = [
       { name: 'a', body: 'FIRST BODY' },

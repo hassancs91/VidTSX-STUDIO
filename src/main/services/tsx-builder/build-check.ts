@@ -16,8 +16,9 @@ import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
 import { lintCreatorImports } from '../../../shared/tsx-engine/creator-imports';
 import { parseCompositionConfig, type CompositionConfig } from '../composition-config-parser';
-
-export const BUILD_ENTRY = 'index.tsx';
+import { BUILD_ENTRY } from './constants';
+import { formatErrors } from './build-format';
+import type { BuildFormat } from './types';
 
 export interface BuildCheckResult {
   ok: boolean;
@@ -31,7 +32,8 @@ export interface BuildCheckResult {
   ms: number;
 }
 
-export async function checkBuild(workDir: string): Promise<BuildCheckResult> {
+/** `expect`: the requested frame — a config that departs from it fails the check. */
+export async function checkBuild(workDir: string, expect?: BuildFormat): Promise<BuildCheckResult> {
   const started = Date.now();
   const done = (partial: Omit<BuildCheckResult, 'ms'>): BuildCheckResult => ({
     ...partial,
@@ -69,6 +71,7 @@ export async function checkBuild(workDir: string): Promise<BuildCheckResult> {
   errors.push(...lintCreatorImports(bundled.code));
   const config = parseCompositionConfig(bundled.code) ?? undefined;
   if (!config) errors.push('compositionConfig could not be parsed after bundling.');
+  if (config && expect) errors.push(...formatErrors(config, expect));
   if (bundled.media.length > 0) {
     errors.push(
       `staticFile() is not available to the builder yet (${bundled.media.map((m) => m.ref).join(', ')}). Draw it in code.`,

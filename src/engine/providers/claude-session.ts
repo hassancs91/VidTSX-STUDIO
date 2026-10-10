@@ -20,6 +20,9 @@ export interface SdkResultErrorFields {
   result?: string;
 }
 
+/** The error text of a run that hit maxTurns — callers that cap turns match on it. */
+export const MAX_TURNS_ERROR = "Generation stopped: the model hit the maximum number of turns before finishing.";
+
 /**
  * The SDK reports many failures as a `result` message with `is_error`/an error
  * subtype rather than by throwing — usage limits arrive as
@@ -34,7 +37,7 @@ export function describeErrorResult(r: SdkResultErrorFields): string | null {
     return "Usage limit reached for this provider. Wait for the limit to reset or switch providers.";
   }
   if (r.subtype === "error_max_turns") {
-    return "Generation stopped: the model hit the maximum number of turns before finishing.";
+    return MAX_TURNS_ERROR;
   }
   if (r.subtype === "error_max_budget_usd") {
     return "Generation stopped: the configured cost budget was exhausted.";

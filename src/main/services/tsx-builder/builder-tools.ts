@@ -1,8 +1,8 @@
 // The builder's own tools (TSX_BUILDER_DESIGN.md T2), as an in-process MCP
 // server: `check`, `render_stills`, `finish`. File work goes through the SDK's
 // Read/Write/Edit/Glob/Grep behind the path guard; these three are the only
-// other things the builder can do. Every call is appended to events.jsonl so a
-// run can be followed live and audited after.
+// other things the builder can do. Every call is appended to the run's
+// events.jsonl so a run can be followed live and audited after.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -11,6 +11,8 @@ import { z } from 'zod';
 import { checkBuild, type BuildCheckResult } from './build-check';
 import { renderBuildStills } from './build-stills';
 import type { CompositionConfig } from '../composition-config-parser';
+import type { RunDirs } from './build-store';
+import type { BuildFormat } from './types';
 
 export const BUILDER_MCP_SERVER_NAME = 'builder';
 export const BUILDER_TOOL_IDS = ['check', 'render_stills', 'finish'] as const;
@@ -20,8 +22,9 @@ export function builderToolName(id: (typeof BUILDER_TOOL_IDS)[number]): string {
 }
 
 export interface BuilderState {
-  workDir: string;
-  outDir: string;
+  dirs: RunDirs;
+  /** The requested frame; `check` fails a config that departs from it. */
+  expect: BuildFormat;
   roundsMax: number;
   /** finish is refused before this many rounds (unless the budget is spent). */
   roundsMin: number;
@@ -30,6 +33,8 @@ export interface BuilderState {
   /** The last artifact that passed every gate — what a capped run returns. */
   lastGood: { code: string; config: CompositionConfig; check: number } | null;
   finished: { summary: string; code: string; config: CompositionConfig } | null;
+  /** Every frame shown to the builder, in order — saved with the version. */
+  stills: Array<{ round: number; frame: number; size: 'model' | 'phone'; path: string }>;
 }
 
 type ToolResult = {
@@ -44,15 +49,15 @@ const text = (t: string, isError = false): ToolResult => ({
 
 async function logEvent(state: BuilderState, event: Record<string, unknown>): Promise<void> {
   const line = JSON.stringify({ at: new Date().toISOString(), ...event });
-  await fs.appendFile(path.join(state.outDir, 'events.jsonl'), `${line}\n`, 'utf-8').catch(() => {});
+  await fs.appendFile(path.join(state.dirs.runDir, 'events.jsonl'), `${line}\n`, 'utf-8').catch(() => {});
 }
 
 async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
   state.checks += 1;
-  const result = await checkBuild(state.workDir);
+  const result = await checkBuild(state.dirs.workDir, state.expect);
   if (result.ok && result.code && result.config) {
     state.lastGood = { code: result.code, config: result.config, check: state.checks };
-    const dir = path.join(state.outDir, 'checkpoints');
+    const dir = path.join(state.dirs.runDir, 'checkpoints');
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, `c${String(state.checks).padStart(2, '0')}.tsx`), result.code, 'utf-8');
   }
@@ -79,7 +84,7 @@ export function buildBuilderToolServer(state: BuilderState) {
 
   const check = tool(
     'check',
-    'Bundle your folder (entry index.tsx) into the single file the app ships and run every gate: transpile, imports, default export, literal compositionConfig. Returns errors verbatim. Free — use it as often as you like.',
+    'Bundle your folder (entry index.tsx) into the single file the app ships and run every gate: transpile, imports, default export, literal compositionConfig matching the requested format. Returns errors verbatim. Free — use it as often as you like.',
     {},
     async () => {
       const result = await runCheck(state);
@@ -102,26 +107,30 @@ export function buildBuilderToolServer(state: BuilderState) {
       if (!result.ok || !result.code || !result.config) return text(describeCheck(result), true);
 
       state.roundsUsed += 1;
-      const round = `r${String(state.roundsUsed).padStart(2, '0')}${args.size === 'phone' ? '-phone' : ''}`;
+      const size = args.size ?? 'model';
+      const label = `r${String(state.roundsUsed).padStart(2, '0')}${size === 'phone' ? '-phone' : ''}`;
       const longest = Math.max(result.config.width, result.config.height);
-      const maxSide = args.size === 'phone' ? Math.round(longest / 2) : 1024;
+      const maxSide = size === 'phone' ? Math.round(longest / 2) : 1024;
       const started = Date.now();
       try {
-        const stills = await renderBuildStills(result.code, result.config, path.join(state.outDir, 'stills'), args.frames, {
+        const stills = await renderBuildStills(result.code, result.config, state.dirs.stillsDir, args.frames, {
           maxSide,
-          label: round,
+          label,
         });
+        for (const still of stills.stills) {
+          state.stills.push({ round: state.roundsUsed, frame: still.frame, size, path: still.path });
+        }
         await logEvent(state, {
           tool: 'render_stills',
           round: state.roundsUsed,
-          size: args.size ?? 'model',
+          size,
           frames: stills.stills.map((s) => s.frame),
           ms: stills.ms,
           bundleCached: stills.bundleCached,
           totalMs: Date.now() - started,
         });
         const content: ToolResult['content'] = [
-          { type: 'text', text: `${describeCheck(result)}\nRendered frames ${stills.stills.map((s) => s.frame).join(', ')} (${args.size ?? 'model'} size), in order below. ${roundsLine()}` },
+          { type: 'text', text: `${describeCheck(result)}\nRendered frames ${stills.stills.map((s) => s.frame).join(', ')} (${size} size), in order below. ${roundsLine()}` },
         ];
         for (const still of stills.stills) {
           content.push({ type: 'text', text: `Frame ${still.frame}:` });
@@ -143,8 +152,12 @@ export function buildBuilderToolServer(state: BuilderState) {
     'End the build. Runs a final check; on success the current build becomes the result. Give a short summary: the picture chosen, what each round changed, the numbers verified, anything in the request you corrected.',
     { summary: z.string().min(1).describe('What you built and why, round by round') },
     async (args) => {
+      if (state.finished) return text('Already finished. Reply with one short line and stop.');
       if (state.roundsUsed < state.roundsMin && state.roundsUsed < state.roundsMax) {
         await logEvent(state, { tool: 'finish', refused: true, rounds: state.roundsUsed });
+        if (state.roundsUsed === 0) {
+          return text('Not yet: look at the build first (render_stills), then finish.', true);
+        }
         return text(
           `Not yet: this budget needs at least ${state.roundsMin} look rounds before finishing (${state.roundsUsed} used). Push the DESIGN, not only the bugs: what would make the picture more alive, more specific to this idea, the payoff more felt? Change it, then look again.`,
           true,
@@ -155,12 +168,8 @@ export function buildBuilderToolServer(state: BuilderState) {
         return text(`Cannot finish: ${describeCheck(result)}`, true);
       }
       state.finished = { summary: args.summary, code: result.code, config: result.config };
-      await fs.writeFile(path.join(state.outDir, 'final.tsx'), result.code, 'utf-8');
-      await fs.rm(path.join(state.outDir, 'final.src'), { recursive: true, force: true });
-      await fs.cp(state.workDir, path.join(state.outDir, 'final.src'), { recursive: true });
-      await fs.writeFile(path.join(state.outDir, 'summary.md'), args.summary, 'utf-8');
       await logEvent(state, { tool: 'finish', rounds: state.roundsUsed, checks: state.checks });
-      return text('Finished. The build is saved. Reply with one short line and stop.');
+      return text('Finished. The build will be saved. Reply with one short line and stop.');
     },
   );
 
