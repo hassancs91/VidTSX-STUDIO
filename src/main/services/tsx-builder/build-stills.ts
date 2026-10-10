@@ -8,9 +8,9 @@
 // on disk is overwritten with that copy: the saved stills are exactly what the
 // builder saw, at a tenth of the full-size bytes.
 //
-// P0 note: bundleComposition serves ONE bundle at a time (the global
-// currentBundlePath in remotion-bundler.ts). Fine for one build; P1 makes it
-// per-build before two builds (or a build and a Refine) can run at once.
+// Each bundle is served under its own URL path (remotion-bundler.ts, P1 part
+// 3), so two builds, or a build and a Refine, can render stills at once;
+// `serveUrl` in the result says which bundle these stills came from.
 //
 // Cancel: `signal` kills a webpack bundle in flight and cancels the
 // renderStill in flight (Remotion's cancel signal); selectComposition has no
@@ -38,6 +38,7 @@ export interface BuildStillsResult {
   stills: BuildStill[];
   ms: { bundle: number; render: number };
   bundleCached: boolean;
+  serveUrl: string;
 }
 
 /** In range, integer, deduped, in order. */
@@ -135,5 +136,6 @@ export async function renderBuildStills(
     stills,
     ms: { bundle: bundleMs, render: Date.now() - renderStart },
     bundleCached: bundle.cached === true,
+    serveUrl: bundle.serveUrl,
   };
 }

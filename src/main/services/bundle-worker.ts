@@ -22,6 +22,9 @@ export interface BundleWorkerRequest {
   /** app.getAppPath() — node_modules and app-source aliases resolve from here
    *  (project root in dev; asar root packaged, readable via the asar shim). */
   appPath: string;
+  /** Remotion's publicPath: the URL path the bundle is served under
+   *  (`/bundles/<id>/`), baked into index.html and staticFile(). */
+  publicPath: string;
 }
 
 export type BundleWorkerReply =
@@ -41,6 +44,7 @@ async function run(request: BundleWorkerRequest): Promise<void> {
       entryPoint: request.entryPoint,
       outDir: request.outDir,
       rootDir: request.rootDir,
+      publicPath: request.publicPath,
       webpackOverride: (config) => {
         config.resolve = config.resolve || {};
         config.resolve.modules = [

@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import express from 'express';
-import type { Express } from 'express';
+import type { Express, RequestHandler } from 'express';
 import type { Server } from 'http';
 import { app, utilityProcess } from 'electron';
 import type { BundleWorkerReply, BundleWorkerRequest } from './bundle-worker';
@@ -16,6 +16,13 @@ import { materializeAbsoluteStaticFiles } from './remotion-static-files';
 import { registerFontProxy } from './font-proxy';
 import { getRemotionBinariesDir } from '../utils/paths';
 import { getAppRoot } from '../utils/paths';
+import {
+  BUNDLE_ROUTE,
+  bundlePublicPath,
+  bundleServeUrl,
+  isBundleId,
+  makeBundleId,
+} from './bundle-serve-paths';
 
 // Types
 export interface CompositionMetadata {
@@ -36,6 +43,7 @@ export interface BundleResult {
 
 interface CacheEntry {
   contentHash: string;
+  bundleId: string;
   bundlePath: string;
   compositions: CompositionMetadata[];
 }
@@ -45,11 +53,17 @@ const bundleCache = new Map<string, CacheEntry>();
 let expressApp: Express | null = null;
 let httpServer: Server | null = null;
 let serverPort: number | null = null;
-let currentBundlePath: string | null = null;
+// Every bundle is served under its own path (bundle-serve-paths.ts); one
+// express.static per bundle, made on its first request.
+const staticHandlers = new Map<string, RequestHandler>();
 
 // Paths
 function getBundleCacheDir(): string {
   return path.join(app.getPath('userData'), 'bundle-cache');
+}
+
+function serverOrigin(port: number): string {
+  return `http://127.0.0.1:${port}`;
 }
 
 // Hash file content for cache invalidation
@@ -114,13 +128,27 @@ async function ensureServer(): Promise<number> {
       res.sendFile(path.resolve(filePath));
     });
 
-    // Serve static files from the current bundle path
-    expressApp.use((req, res, next) => {
-      if (currentBundlePath) {
-        express.static(currentBundlePath)(req, res, next);
-      } else {
-        res.status(404).send('No bundle loaded');
+    // Each bundle at `/bundles/<bundleId>`: the folder is found by id inside
+    // the cache dir (never from a client path) and only ids of the current
+    // layout version are served, so a pre-change bundle (publicPath `/`)
+    // can never be loaded from under a sub-path.
+    expressApp.use(`${BUNDLE_ROUTE}/:bundleId`, (req, res, next) => {
+      const bundleId = req.params.bundleId;
+      if (!isBundleId(bundleId)) {
+        res.status(404).send('Unknown bundle');
+        return;
       }
+      let handler = staticHandlers.get(bundleId);
+      if (!handler) {
+        const bundleDir = path.join(getBundleCacheDir(), bundleId);
+        if (!fsSync.existsSync(path.join(bundleDir, 'index.html'))) {
+          res.status(404).send('Unknown bundle');
+          return;
+        }
+        handler = express.static(bundleDir);
+        staticHandlers.set(bundleId, handler);
+      }
+      handler(req, res, next);
     });
 
     // Find available port starting from 3100
@@ -151,13 +179,7 @@ async function ensureServer(): Promise<number> {
  * bundling has happened, so it needs the port up front rather than guessing it.
  */
 export async function ensureAssetServerUrl(): Promise<string> {
-  const port = await ensureServer();
-  return `http://127.0.0.1:${port}`;
-}
-
-// Update the bundle path being served
-function updateBundlePath(bundlePath: string): void {
-  currentBundlePath = bundlePath;
+  return serverOrigin(await ensureServer());
 }
 
 export interface BundleOptions {
@@ -228,14 +250,19 @@ export async function bundleComposition(
     // Calculate content hash for caching
     const contentHash = await getFileHash(entryFilePath);
 
-    // Check cache (skip if tone audio needs injection — wrapper must be regenerated)
+    // Check cache (skip if tone audio needs injection — wrapper must be regenerated).
+    // A cached bundle keeps its own path; one whose folder is gone is rebuilt.
     const cached = bundleCache.get(entryFilePath);
-    if (cached && cached.contentHash === contentHash && !options?.toneAudioPath) {
+    if (
+      cached &&
+      cached.contentHash === contentHash &&
+      !options?.toneAudioPath &&
+      fsSync.existsSync(path.join(cached.bundlePath, 'index.html'))
+    ) {
       const port = await ensureServer();
-      updateBundlePath(cached.bundlePath);
       return {
         success: true,
-        serveUrl: `http://127.0.0.1:${port}`,
+        serveUrl: bundleServeUrl(serverOrigin(port), cached.bundleId),
         compositions: cached.compositions,
         cached: true,
       };
@@ -245,17 +272,19 @@ export async function bundleComposition(
     const bundleCacheDir = getBundleCacheDir();
     await fs.mkdir(bundleCacheDir, { recursive: true });
 
-    // Generate unique output directory
-    const bundleId = `bundle-${contentHash.slice(0, 8)}-${Date.now()}`;
+    // Its own folder and URL path; the bundle is built FOR that path (publicPath).
+    const bundleId = makeBundleId(contentHash);
     const outDir = path.join(bundleCacheDir, bundleId);
+    const publicPath = bundlePublicPath(bundleId);
 
     // Ensure server is ready early (needed for tone audio URL construction)
     const port = await ensureServer();
+    const origin = serverOrigin(port);
 
     // `staticFile('<absolute path>')` plays in the preview (virtual module)
     // but the real Remotion refuses it at render — rewrite those literals to
     // this server's `/asset?path=` urls in a sibling entry (W8 Stage 6).
-    const renderEntry = await materializeAbsoluteStaticFiles(entryFilePath, `http://127.0.0.1:${port}`);
+    const renderEntry = await materializeAbsoluteStaticFiles(entryFilePath, origin);
 
     // For files that already have registerRoot() (like caption entries), skip wrapper
     // For user TSX files that are just components, generate a wrapper
@@ -266,7 +295,7 @@ export async function bundleComposition(
       // Construct tone audio URL if extraction was done
       let toneAudioUrl: string | undefined;
       if (options?.toneAudioPath) {
-        toneAudioUrl = `http://127.0.0.1:${port}/asset?path=${encodeURIComponent(options.toneAudioPath)}`;
+        toneAudioUrl = `${origin}/asset?path=${encodeURIComponent(options.toneAudioPath)}`;
       }
 
       // Generate wrapper that calls registerRoot()
@@ -274,7 +303,7 @@ export async function bundleComposition(
       // The wrapper imports their component and registers it properly
       const wrapper = await generateWrapper(renderEntry, {
         toneAudioUrl,
-        fontProxyBaseUrl: `http://127.0.0.1:${port}`,
+        fontProxyBaseUrl: origin,
       });
       wrapperPath = wrapper.wrapperPath;
       entryPoint = wrapperPath;
@@ -292,6 +321,7 @@ export async function bundleComposition(
           // returns <install>/resources/ in packaged, project root in dev.
           rootDir: getAppRoot(),
           appPath: app.getAppPath(),
+          publicPath,
         },
         options?.onProgress,
         options?.signal,
@@ -315,7 +345,7 @@ export async function bundleComposition(
       if (app.isPackaged) {
         throw bundleError;
       }
-      bundlePath = await bundleWithCLI(entryPoint, outDir);
+      bundlePath = await bundleWithCLI(entryPoint, outDir, publicPath);
     }
 
     // Clean up wrapper file after bundling completes (only if we created one)
@@ -323,11 +353,8 @@ export async function bundleComposition(
       await cleanupWrapper(wrapperPath);
     }
 
-    // Update bundle path (server already started above)
-    updateBundlePath(bundlePath);
-
-    // Get composition metadata
-    const serveUrl = `http://127.0.0.1:${port}`;
+    // Get composition metadata from the bundle at its own URL
+    const serveUrl = bundleServeUrl(origin, bundleId);
     let compositions: CompositionMetadata[];
 
     try {
@@ -355,6 +382,7 @@ export async function bundleComposition(
     // Update cache
     bundleCache.set(entryFilePath, {
       contentHash,
+      bundleId,
       bundlePath,
       compositions,
     });
@@ -377,11 +405,11 @@ export async function bundleComposition(
 }
 
 // CLI fallback for Windows path issues
-async function bundleWithCLI(entryFilePath: string, outDir: string): Promise<string> {
+async function bundleWithCLI(entryFilePath: string, outDir: string, publicPath: string): Promise<string> {
   const { spawn } = await import('child_process');
 
   return new Promise((resolve, reject) => {
-    const args = ['remotion', 'bundle', entryFilePath, '--out-dir', outDir];
+    const args = ['remotion', 'bundle', entryFilePath, '--out-dir', outDir, '--public-path', publicPath];
     const proc = spawn('npx', args, {
       cwd: getAppRoot(),
       shell: true,
@@ -450,7 +478,7 @@ export function cleanup(): void {
   }
   expressApp = null;
   serverPort = null;
-  currentBundlePath = null;
+  staticHandlers.clear();
 }
 
 // Get the current bundler server port (for asset serving)

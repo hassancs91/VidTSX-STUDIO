@@ -5,13 +5,15 @@
 // mode "fixture" — no model: copy an existing source folder into a run folder
 // and measure the machinery (check, stills cold / warm / after an edit), then
 // save it as a version and seed an edit from it (the build store, end to end).
-// With `cancelProbes`, it then aborts a stills call mid-flight twice (a cold
-// webpack bundle, a renderStill on a cached bundle) and renders once more.
+// Probes (builder-spike-probes.ts): `cancelProbes` aborts a stills call
+// mid-flight twice and renders once more; `concurrentProbe` renders two
+// different bundles at the same time and checks each still against its own
+// solo render; `exportProbe` runs the render-handlers path (bundle +
+// renderComposition) for one second of H.264.
 // mode "build" — a real builder run on one brief, with craft packs read from
 // a folder of skills (`<packsDir>/<name>/SKILL.md`, used verbatim). Progress
 // events stream to `<outDir>/progress.jsonl`; `cancelAfterMs` cancels the run.
 
-import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { app } from 'electron';
@@ -20,6 +22,7 @@ import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
 import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
 import { buildComposition } from './tsx-builder';
+import { cancelProbes, concurrentProbe, exportProbe } from './builder-spike-probes';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildBudget, BuildFormat, BuildPack, BuildProgressEvent } from './types';
@@ -32,6 +35,8 @@ interface FixtureRequest {
   outDir: string;
   frames?: number[];
   cancelProbes?: boolean;
+  concurrentProbe?: boolean;
+  exportProbe?: boolean;
   /** Quit the app when done (unattended runs). */
   quit?: boolean;
 }
@@ -202,51 +207,11 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
   }
   const kept = lastGood as Kept | null;
   const store = kept ? await storeRoundTrip(req, kept) : null;
-  const cancel = kept && req.cancelProbes ? await cancelProbes(req, kept, frames) : null;
-  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, store, cancel };
-}
-
-/**
- * Abort stills calls mid-flight: a cold webpack bundle (the worker must die
- * and leave no bundle folder) and a renderStill on the cached bundle. Then one
- * uncancelled render: the machinery still works after a cancel.
- */
-async function cancelProbes(
-  req: FixtureRequest,
-  kept: { code: string; config: CompositionConfig },
-  frames: number[],
-): Promise<Record<string, unknown>> {
-  const dir = path.join(req.outDir, 'stills');
-  const probe = async (label: string, code: string, abortAfterMs: number) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), abortAfterMs);
-    const started = Date.now();
-    try {
-      const stills = await renderBuildStills(code, kept.config, dir, frames, { label, signal: controller.signal });
-      return { label, abortAfterMs, completed: true, ms: Date.now() - started, rendered: stills.stills.length };
-    } catch (err) {
-      const ms = Date.now() - started;
-      const error = err instanceof Error ? err.message : String(err);
-      return { label, abortAfterMs, cancelled: controller.signal.aborted, ms, stopLagMs: ms - abortAfterMs, error };
-    } finally {
-      clearTimeout(timer);
-    }
-  };
-
-  const coldCode = `${kept.code}\n// cancel probe ${Date.now()}\n`;
-  const cold = await probe('p1-cold', coldCode, 3000);
-  const hash = createHash('md5').update(coldCode).digest('hex').slice(0, 8);
-  const cacheDir = path.join(app.getPath('userData'), 'bundle-cache');
-  const leftoverBundles = (await fs.readdir(cacheDir).catch(() => [] as string[])).filter((n) =>
-    n.startsWith(`bundle-${hash}-`),
-  );
-  const render = await probe('p2-render', kept.code, 2500);
-  const afterStarted = Date.now();
-  const after = await renderBuildStills(kept.code, kept.config, dir, [0], { label: 'p3-after' }).then(
-    (r) => ({ ok: true, ms: Date.now() - afterStarted, bundleCached: r.bundleCached }),
-    (err: unknown) => ({ ok: false, error: err instanceof Error ? err.message : String(err) }),
-  );
-  return { cold: { ...cold, leftoverBundles }, render, after };
+  const fx = kept ? { outDir: req.outDir, code: kept.code, config: kept.config, frames, soloStills: kept.stills } : null;
+  const cancel = fx && req.cancelProbes ? await cancelProbes(fx) : null;
+  const concurrent = fx && req.concurrentProbe ? await concurrentProbe(fx) : null;
+  const exported = fx && req.exportProbe ? await exportProbe(fx) : null;
+  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, store, cancel, concurrent, export: exported };
 }
 
 export async function runBuilderSpikeFromEnv(): Promise<void> {
