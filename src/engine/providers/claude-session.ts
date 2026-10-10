@@ -1,7 +1,8 @@
 import type { Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { ContentBlockParam } from "@anthropic-ai/sdk/resources/messages/messages";
-import type { LLMResponse, LLMUsage, LLMTurnTiming } from "../types";
+import type { LLMResponse, LLMUsage, LLMTurnTiming, LLMTurnUsage } from "../types";
 import { LLMEngineError } from "../types";
+import { TurnUsageTracker } from "./claude-turn-usage";
 import { getHumanReadableError, isCliNotFoundError, getStatusCode } from "../utils";
 import { logEngine } from "../../logging/log-engine";
 
@@ -102,6 +103,8 @@ export class ClaudeSession {
   private pendingStart = 0;
   private pendingModel = "";
   private pendingOnTextDelta: ((delta: string) => void) | null = null;
+  private pendingOnTurn: ((turn: LLMTurnUsage) => void) | null = null;
+  private readonly turnUsage = new TurnUsageTracker((turn) => this.pendingOnTurn?.(turn));
 
   constructor(args: ClaudeSessionArgs) {
     this.providerId = args.providerId;
@@ -133,6 +136,7 @@ export class ClaudeSession {
     model: string,
     signal?: AbortSignal,
     onTextDelta?: (delta: string) => void,
+    onTurn?: (turn: LLMTurnUsage) => void,
   ): Promise<LLMResponse> {
     if (this.disposed) {
       return Promise.reject(new LLMEngineError("Session already closed", this.providerId));
@@ -160,7 +164,9 @@ export class ClaudeSession {
       this.pendingStart = Date.now();
       this.pendingModel = model;
       this.pendingOnTextDelta = onTextDelta ?? null;
+      this.pendingOnTurn = onTurn ?? null;
     });
+    this.turnUsage.reset();
 
     const userMessage = {
       type: "user" as const,
@@ -233,6 +239,7 @@ export class ClaudeSession {
     this.pendingResolve = null;
     this.pendingReject = null;
     this.pendingOnTextDelta = null;
+    this.pendingOnTurn = null;
     reject(error);
   }
 
@@ -242,6 +249,7 @@ export class ClaudeSession {
     this.pendingResolve = null;
     this.pendingReject = null;
     this.pendingOnTextDelta = null;
+    this.pendingOnTurn = null;
     resolve(response);
   }
 
@@ -261,6 +269,7 @@ export class ClaudeSession {
           // Partial-message deltas (enabled via includePartialMessages) — purely
           // informational for live UI; the complete assistant message follows.
           const streamEvent = (message as { type: 'stream_event'; event?: { type?: string; delta?: { type?: string; text?: string } } }).event;
+          this.turnUsage.streamEvent(streamEvent);
           if (
             this.pendingOnTextDelta
             && streamEvent?.type === 'content_block_delta'
@@ -270,6 +279,7 @@ export class ClaudeSession {
             try { this.pendingOnTextDelta(streamEvent.delta.text); } catch { /* UI callback errors must not break the loop */ }
           }
         } else if (message.type === "assistant") {
+          this.turnUsage.assistant(message.message);
           let turnThinkingChars = 0;
           let hasThinking = false;
           const blockTypes = message.message.content.map((b: { type: string }) => b.type);
@@ -297,6 +307,7 @@ export class ClaudeSession {
           });
           turnStart = Date.now();
         } else if (message.type === "result") {
+          this.turnUsage.flush();
           const result = message as {
             type: 'result';
             subtype?: string;

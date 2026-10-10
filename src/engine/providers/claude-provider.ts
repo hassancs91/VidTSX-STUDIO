@@ -158,7 +158,9 @@ export class ClaudeProvider implements LLMProvider {
             tools,
             abortController: abort,
             settingSources: [],
-            ...(request.onTextDelta ? { includePartialMessages: true } : {}),
+            // Raw stream events: live text, and the exact per-response usage
+            // onTurn reports (claude-turn-usage.ts).
+            ...(request.onTextDelta || request.onTurn ? { includePartialMessages: true } : {}),
             ...(bundledClaude ? { pathToClaudeCodeExecutable: bundledClaude } : {}),
             ...(Object.keys(env).length > 0 ? {
               env,
@@ -207,7 +209,7 @@ export class ClaudeProvider implements LLMProvider {
       // Scope-less request: one-shot session, torn down after the response
       const session = this.createSession(keys, request);
       try {
-        return await session.request(content, model, request.signal, request.onTextDelta);
+        return await session.request(content, model, request.signal, request.onTextDelta, request.onTurn);
       } finally {
         session.close();
       }
@@ -225,7 +227,7 @@ export class ClaudeProvider implements LLMProvider {
       this.evictOverCap();
     }
 
-    return session.request(content, model, request.signal, request.onTextDelta);
+    return session.request(content, model, request.signal, request.onTextDelta, request.onTurn);
   }
 
   /** Abort every in-flight request and tear down all sessions (global cancel). */

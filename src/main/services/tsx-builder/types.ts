@@ -51,15 +51,67 @@ export interface BuildRequest {
   providerId?: string;
   model?: string;
   effort?: EffortLevel;
+  /** Caps override the budget's (build-run-guard.ts BUDGET_CAPS). */
   maxMinutes?: number;
+  maxOutputTokens?: number;
+  /** Cancel: stops the session and any bundle or render in flight; saves nothing. */
   signal?: AbortSignal;
+  /** Live progress. Called synchronously; a throwing listener is ignored. */
+  onProgress?: (event: BuildProgressEvent) => void;
 }
 
 /**
  * Why the run ended. Every reason but `cancelled` saves the last build that
  * passed `check` (when there is one), so a capped run never ends with nothing.
  */
-export type BuildStopReason = 'finished' | 'cap-turns' | 'cap-time' | 'cancelled' | 'error';
+export type BuildStopReason = 'finished' | 'cap-turns' | 'cap-time' | 'cap-tokens' | 'cancelled' | 'error';
+
+/** The hard limits of one run; whichever is hit first ends it. */
+export interface BuildCaps {
+  /** SDK turns (API responses). */
+  turns: number;
+  minutes: number;
+  /** Output tokens summed over the run, thinking included. */
+  outputTokens: number;
+}
+
+/** Tokens summed over the run's API responses. */
+export interface BuildTokens {
+  /** Uncached input only. */
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheCreation: number;
+}
+
+/** `working` = the model's turn (thinking, writing files); the builder's tools set the others while they run. */
+export type BuildPhase = 'preparing' | 'working' | 'checking' | 'rendering' | 'saving' | 'done';
+
+/** The run's counters at the moment of an event: enough to draw its status line. */
+export interface BuildProgressStatus {
+  phase: BuildPhase;
+  /** Look rounds used, of `roundsMax`. */
+  round: number;
+  roundsMax: number;
+  checks: number;
+  /** API responses so far. */
+  turns: number;
+  tokens: BuildTokens;
+  elapsedMs: number;
+}
+
+export type BuildProgressDetail =
+  | { type: 'start'; budget: BuildBudget; caps: BuildCaps; roundsMin: number; edit: boolean }
+  | { type: 'phase' }
+  | { type: 'turn'; turn: number; outputTokens: number }
+  | { type: 'check'; n: number; ok: boolean; errors: string[] }
+  /** `paths` live in the run folder until the run ends; the result's `stills` are the saved copies. */
+  | { type: 'stills'; size: 'model' | 'phone'; frames: number[]; paths: string[] }
+  /** A cap fired or the caller cancelled; tools in flight are winding down. */
+  | { type: 'stopping'; reason: 'cap-time' | 'cap-tokens' | 'cancelled' }
+  | { type: 'done'; stopReason: BuildStopReason; ok: boolean; version?: number };
+
+export type BuildProgressEvent = BuildProgressDetail & { status: BuildProgressStatus };
 
 /** One frame the builder looked at, as saved under `vN.stills/`. */
 export interface BuildStillRecord {
@@ -94,6 +146,11 @@ export interface BuildResult {
   checks: number;
   stills: BuildStillRecord[];
   elapsedMs: number;
+  /** Counted per API response, so a capped or cancelled run has them too. */
+  turns: number;
+  tokens: BuildTokens;
+  caps: BuildCaps;
+  /** The SDK's final account (cost, per-model); absent when the session ended early. */
   usage?: LlmUsageIpc;
   /** Kept when no version was saved (cancel, nothing passed check) — for inspection. */
   runDir?: string;

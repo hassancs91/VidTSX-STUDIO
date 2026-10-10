@@ -164,6 +164,8 @@ export interface BundleOptions {
   onProgress?: (percent: number) => void;
   skipWrapper?: boolean;
   toneAudioPath?: string;
+  /** Abort kills the webpack worker (the TSX builder's cancel and caps). */
+  signal?: AbortSignal;
 }
 
 /**
@@ -175,18 +177,26 @@ export interface BundleOptions {
 function bundleInWorker(
   request: BundleWorkerRequest,
   onProgress?: (percent: number) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   return new Promise<string>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('Bundling cancelled'));
+      return;
+    }
     const worker = utilityProcess.fork(path.join(__dirname, 'bundle-worker.js'), [], {
       serviceName: 'vidtsx-bundle-worker',
     });
     let settled = false;
+    const onAbort = (): void => settle(() => reject(new Error('Bundling cancelled')));
     const settle = (outcome: () => void): void => {
       if (settled) return;
       settled = true;
+      signal?.removeEventListener('abort', onAbort);
       outcome();
       worker.kill();
     };
+    signal?.addEventListener('abort', onAbort, { once: true });
     worker.on('message', (msg: BundleWorkerReply) => {
       if (msg.type === 'progress') onProgress?.(msg.percent);
       else if (msg.type === 'done') settle(() => resolve(msg.bundlePath));
@@ -196,10 +206,13 @@ function bundleInWorker(
       // Crash before a reply (OOM, missing module) — surface it instead of hanging.
       if (!settled) {
         settled = true;
+        signal?.removeEventListener('abort', onAbort);
         reject(new Error(`Bundle worker exited before finishing (code ${code})`));
       }
     });
-    worker.once('spawn', () => worker.postMessage(request));
+    worker.once('spawn', () => {
+      if (!settled) worker.postMessage(request);
+    });
   });
 }
 
@@ -281,8 +294,15 @@ export async function bundleComposition(
           appPath: app.getAppPath(),
         },
         options?.onProgress,
+        options?.signal,
       );
     } catch (bundleError) {
+      // Cancelled: no CLI fallback, and no half-written bundle left behind.
+      if (options?.signal?.aborted) {
+        if (wrapperPath) await cleanupWrapper(wrapperPath);
+        await fs.rm(outDir, { recursive: true, force: true }).catch(() => {});
+        throw bundleError;
+      }
       log.error('Programmatic bundling failed', {
         error: bundleError instanceof Error ? bundleError.message : String(bundleError),
         stack: bundleError instanceof Error ? bundleError.stack : undefined,
@@ -347,7 +367,8 @@ export async function bundleComposition(
     };
   } catch (err) {
     const error = err instanceof Error ? err.message : 'Unknown bundling error';
-    log.error('Bundle error', error);
+    if (options?.signal?.aborted) log.info('Bundle cancelled');
+    else log.error('Bundle error', error);
     return {
       success: false,
       error: formatBundleError(error),

@@ -4,7 +4,7 @@ import { llmEngine, PROVIDER_PRESETS } from '../../engine';
 import { llmLocalEngine } from '../../llm-engine';
 
 const log = logEngine.createLogger('LLMHandlers');
-import type { LlmToolPermission, ProviderConfig } from '../../engine/types';
+import type { LlmToolPermission, LLMTurnUsage, ProviderConfig } from '../../engine/types';
 import { getLlmProviders, saveLlmProviders, getProviderCredentials } from '../services/settings';
 import { initLLMEngine } from '../services/llm-init';
 import { extractHtmlCode } from '../../engine/utils';
@@ -200,6 +200,8 @@ export async function runLlmGenerate(
     /** Agent SDK cwd + permission hook — the agents feature's file-tool guard. */
     cwd?: string;
     canUseTool?: LlmToolPermission;
+    /** Per-API-response usage as it happens (Agent SDK providers) — the TSX builder's token cap. */
+    onTurn?: (turn: LLMTurnUsage) => void;
     /**
      * Which installed agent this request is for, stamped on the usage row
      * (agents plan §9). It lives in `extras` rather than on the request
@@ -251,6 +253,7 @@ export async function runLlmGenerate(
       ...(data.messages ? { messages: data.messages } : {}),
       ...(signal ? { signal } : {}),
       ...(onTextDelta ? { onTextDelta } : {}),
+      ...(extras?.onTurn ? { onTurn: extras.onTurn } : {}),
       ...(extras?.mcpServers ? { mcpServers: extras.mcpServers } : {}),
       ...(extras?.cwd ? { cwd: extras.cwd } : {}),
       ...(extras?.canUseTool ? { canUseTool: extras.canUseTool } : {}),

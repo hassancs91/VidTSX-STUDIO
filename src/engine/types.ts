@@ -51,6 +51,12 @@ export interface LLMRequest {
   sessionScope?: string;       // opt-in hot-session reuse key. Same value across calls that should share a session; omit or change to force a fresh session.
   onTextDelta?: (delta: string) => void; // live text chunks as they stream. In-process callers only (functions can't cross IPC).
   /**
+   * Fires once per API response, as soon as it ends, with that response's
+   * usage — the only way to see tokens before the run's final result (the TSX
+   * builder's token cap). Agent SDK providers only; in-process callers only.
+   */
+  onTurn?: (turn: LLMTurnUsage) => void;
+  /**
    * In-process MCP servers with typed tools (Agent SDK's createSdkMcpServer
    * output, keyed by server name). Main-process callers only — the instances
    * hold live handler functions, so they can't cross IPC. Providers other than
@@ -87,6 +93,17 @@ export interface LLMTurnTiming {
   durationMs: number;
   hasThinking: boolean;
   thinkingChars?: number;
+}
+
+/** One API response's usage within a request (LLMRequest.onTurn). */
+export interface LLMTurnUsage {
+  /** 1-based count of API responses in this request. */
+  turn: number;
+  /** Uncached input only; the cached share is in the two fields below. */
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
 }
 
 /** Per-model usage breakdown */

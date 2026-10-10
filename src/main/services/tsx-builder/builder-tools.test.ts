@@ -33,6 +33,7 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     lastGood: null,
     finished: null,
     stills: [],
+    inFlight: new Set(),
     ...overrides,
   };
   const server = buildBuilderToolServer(state) as unknown as { tools: Array<{ name: string; handler: Handler }> };
@@ -122,5 +123,79 @@ describe('finish', () => {
     const result = await call('finish', { summary: 'x' });
     expect(result.content[0].text).toContain('Cannot finish');
     expect(state.finished).toBeNull();
+  });
+});
+
+describe('stopping (cancel or a cap)', () => {
+  it('passes the run signal to the renderer and gives the round back when a render is cancelled', async () => {
+    const stop = new AbortController();
+    const { state, call } = await setup({ signal: stop.signal });
+    renderBuildStills.mockImplementationOnce(async (_c, _cfg, _dir, _frames, opts: { signal: AbortSignal }) => {
+      expect(opts.signal).toBe(stop.signal);
+      stop.abort();
+      throw new Error('renderStill() got cancelled');
+    });
+    const result = await call('render_stills', { frames: [0] });
+    expect(result.content[0].text).toContain('The run is stopping');
+    expect(state.roundsUsed).toBe(0);
+    expect(state.stills).toEqual([]);
+    const events = await fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8');
+    expect(events).toContain('"cancelled":true');
+  });
+
+  it('does not start a render when the stop lands during its check', async () => {
+    const stop = new AbortController();
+    const { state, call } = await setup({ signal: stop.signal });
+    checkBuild.mockImplementationOnce(async () => {
+      stop.abort();
+      return passed;
+    });
+    const result = await call('render_stills', { frames: [0] });
+    expect(result.content[0].text).toContain('The run is stopping');
+    expect(renderBuildStills).not.toHaveBeenCalled();
+    expect(state.roundsUsed).toBe(0);
+  });
+
+  it('refuses every tool once stopped', async () => {
+    const stop = new AbortController();
+    stop.abort();
+    const { state, call } = await setup({ signal: stop.signal, roundsUsed: 2 });
+    for (const name of ['check', 'render_stills', 'finish']) {
+      const result = await call(name, name === 'render_stills' ? { frames: [0] } : { summary: 's' });
+      expect(result.isError).toBe(true);
+    }
+    expect(checkBuild).not.toHaveBeenCalled();
+    expect(state.finished).toBeNull();
+  });
+
+  it('a finish whose final check outlives a cancel is not committed', async () => {
+    const stop = new AbortController();
+    const { state, call } = await setup({ signal: stop.signal, roundsUsed: 2 });
+    checkBuild.mockImplementationOnce(async () => {
+      stop.abort();
+      return passed;
+    });
+    const result = await call('finish', { summary: 'raced' });
+    expect(result.content[0].text).toContain('The run is stopping');
+    expect(state.finished).toBeNull();
+    // The check itself passed: it still counts as the last good build.
+    expect(state.lastGood?.check).toBe(1);
+  });
+
+  it('tracks calls in flight and reports phases, checks and stills', async () => {
+    const onEvent = vi.fn();
+    const phases: string[] = [];
+    const { state, call } = await setup({ onEvent, onPhase: (p) => phases.push(p) });
+    let release!: () => void;
+    checkBuild.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve(passed))));
+    const pending = call('check');
+    await vi.waitFor(() => expect(state.inFlight.size).toBe(1));
+    release();
+    await pending;
+    expect(state.inFlight.size).toBe(0);
+    await call('render_stills', { frames: [0, 120] });
+    expect(phases).toEqual(['checking', 'working', 'rendering', 'working']);
+    expect(onEvent.mock.calls.map(([e]) => e.type)).toEqual(['check', 'check', 'stills']);
+    expect(onEvent.mock.calls[2][0]).toMatchObject({ type: 'stills', size: 'model', frames: [0, 120] });
   });
 });

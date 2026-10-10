@@ -3,6 +3,10 @@
 // Read/Write/Edit/Glob/Grep behind the path guard; these three are the only
 // other things the builder can do. Every call is appended to the run's
 // events.jsonl so a run can be followed live and audited after.
+//
+// Stopping (cancel or a cap) aborts `state.signal`: a render in flight is
+// cancelled, a call that arrives after it is refused, and nothing is
+// committed after it — a `finish` racing a cancel does not count.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -12,7 +16,7 @@ import { checkBuild, type BuildCheckResult } from './build-check';
 import { renderBuildStills } from './build-stills';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { RunDirs } from './build-store';
-import type { BuildFormat } from './types';
+import type { BuildFormat, BuildPhase, BuildProgressDetail } from './types';
 
 export const BUILDER_MCP_SERVER_NAME = 'builder';
 export const BUILDER_TOOL_IDS = ['check', 'render_stills', 'finish'] as const;
@@ -35,6 +39,13 @@ export interface BuilderState {
   finished: { summary: string; code: string; config: CompositionConfig } | null;
   /** Every frame shown to the builder, in order — saved with the version. */
   stills: Array<{ round: number; frame: number; size: 'model' | 'phone'; path: string }>;
+  /** Aborted when the run stops (cancel or a cap). */
+  signal?: AbortSignal;
+  /** Tool calls in flight: the run awaits them before it saves. */
+  inFlight: Set<Promise<unknown>>;
+  /** Progress out (tsx-builder.ts wires these to BuildProgress). */
+  onEvent?: (detail: BuildProgressDetail) => void;
+  onPhase?: (phase: BuildPhase) => void;
 }
 
 type ToolResult = {
@@ -50,6 +61,24 @@ const text = (t: string, isError = false): ToolResult => ({
 async function logEvent(state: BuilderState, event: Record<string, unknown>): Promise<void> {
   const line = JSON.stringify({ at: new Date().toISOString(), ...event });
   await fs.appendFile(path.join(state.dirs.runDir, 'events.jsonl'), `${line}\n`, 'utf-8').catch(() => {});
+}
+
+const STOPPING = 'The run is stopping. Reply with one short line and stop.';
+
+/** One tool call: refused once stopped, tracked while in flight, its phase shown while it runs. */
+function tracked<A>(state: BuilderState, phase: BuildPhase, handler: (args: A) => Promise<ToolResult>) {
+  return async (args: A): Promise<ToolResult> => {
+    if (state.signal?.aborted) return text(STOPPING, true);
+    state.onPhase?.(phase);
+    const run = handler(args);
+    state.inFlight.add(run);
+    try {
+      return await run;
+    } finally {
+      state.inFlight.delete(run);
+      if (state.inFlight.size === 0 && !state.signal?.aborted) state.onPhase?.('working');
+    }
+  };
 }
 
 async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
@@ -70,6 +99,7 @@ async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
     files: result.inlinedFiles,
     packages: result.inlinedPackages,
   });
+  state.onEvent?.({ type: 'check', n: state.checks, ok: result.ok, errors: result.errors });
   return result;
 }
 
@@ -86,10 +116,10 @@ export function buildBuilderToolServer(state: BuilderState) {
     'check',
     'Bundle your folder (entry index.tsx) into the single file the app ships and run every gate: transpile, imports, default export, literal compositionConfig matching the requested format. Returns errors verbatim. Free — use it as often as you like.',
     {},
-    async () => {
+    tracked(state, 'checking', async () => {
       const result = await runCheck(state);
       return text(describeCheck(result), !result.ok);
-    },
+    }),
   );
 
   const renderStills = tool(
@@ -99,12 +129,13 @@ export function buildBuilderToolServer(state: BuilderState) {
       frames: z.array(z.number().int()).min(1).max(12).describe('Frame numbers to render (0-based), at most 12'),
       size: z.enum(['model', 'phone']).optional().describe('"phone" renders at half size for the legibility check'),
     },
-    async (args) => {
+    tracked(state, 'rendering', async (args: { frames: number[]; size?: 'model' | 'phone' }) => {
       if (state.roundsUsed >= state.roundsMax) {
         return text(`The look budget is spent (${state.roundsMax}/${state.roundsMax}). Make any last fix with check, then call finish.`, true);
       }
       const result = await runCheck(state);
       if (!result.ok || !result.code || !result.config) return text(describeCheck(result), true);
+      if (state.signal?.aborted) return text(STOPPING, true);
 
       state.roundsUsed += 1;
       const size = args.size ?? 'model';
@@ -116,6 +147,7 @@ export function buildBuilderToolServer(state: BuilderState) {
         const stills = await renderBuildStills(result.code, result.config, state.dirs.stillsDir, args.frames, {
           maxSide,
           label,
+          ...(state.signal ? { signal: state.signal } : {}),
         });
         for (const still of stills.stills) {
           state.stills.push({ round: state.roundsUsed, frame: still.frame, size, path: still.path });
@@ -129,6 +161,12 @@ export function buildBuilderToolServer(state: BuilderState) {
           bundleCached: stills.bundleCached,
           totalMs: Date.now() - started,
         });
+        state.onEvent?.({
+          type: 'stills',
+          size,
+          frames: stills.stills.map((s) => s.frame),
+          paths: stills.stills.map((s) => s.path),
+        });
         const content: ToolResult['content'] = [
           { type: 'text', text: `${describeCheck(result)}\nRendered frames ${stills.stills.map((s) => s.frame).join(', ')} (${size} size), in order below. ${roundsLine()}` },
         ];
@@ -140,18 +178,22 @@ export function buildBuilderToolServer(state: BuilderState) {
       } catch (err) {
         // A render failure is the build's fault (a runtime error), not the budget's.
         state.roundsUsed -= 1;
+        if (state.signal?.aborted) {
+          await logEvent(state, { tool: 'render_stills', cancelled: true, totalMs: Date.now() - started });
+          return text(STOPPING, true);
+        }
         const message = err instanceof Error ? err.message : String(err);
         await logEvent(state, { tool: 'render_stills', error: message });
         return text(`Rendering failed — this is a runtime error in your code:\n${message}`, true);
       }
-    },
+    }),
   );
 
   const finish = tool(
     'finish',
     'End the build. Runs a final check; on success the current build becomes the result. Give a short summary: the picture chosen, what each round changed, the numbers verified, anything in the request you corrected.',
     { summary: z.string().min(1).describe('What you built and why, round by round') },
-    async (args) => {
+    tracked(state, 'checking', async (args: { summary: string }) => {
       if (state.finished) return text('Already finished. Reply with one short line and stop.');
       if (state.roundsUsed < state.roundsMin && state.roundsUsed < state.roundsMax) {
         await logEvent(state, { tool: 'finish', refused: true, rounds: state.roundsUsed });
@@ -167,10 +209,11 @@ export function buildBuilderToolServer(state: BuilderState) {
       if (!result.ok || !result.code || !result.config) {
         return text(`Cannot finish: ${describeCheck(result)}`, true);
       }
+      if (state.signal?.aborted) return text(STOPPING, true);
       state.finished = { summary: args.summary, code: result.code, config: result.config };
       await logEvent(state, { tool: 'finish', rounds: state.roundsUsed, checks: state.checks });
       return text('Finished. The build will be saved. Reply with one short line and stop.');
-    },
+    }),
   );
 
   return createSdkMcpServer({ name: BUILDER_MCP_SERVER_NAME, tools: [check, renderStills, finish] });

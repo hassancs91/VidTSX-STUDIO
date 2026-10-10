@@ -11,11 +11,15 @@
 // P0 note: bundleComposition serves ONE bundle at a time (the global
 // currentBundlePath in remotion-bundler.ts). Fine for one build; P1 makes it
 // per-build before two builds (or a build and a Refine) can run at once.
+//
+// Cancel: `signal` kills a webpack bundle in flight and cancels the
+// renderStill in flight (Remotion's cancel signal); selectComposition has no
+// cancel, so the signal is checked on each side of it.
 
 import fs from 'fs/promises';
 import path from 'path';
 import { nativeImage } from 'electron';
-import { renderStill, selectComposition } from '@remotion/renderer';
+import { makeCancelSignal, renderStill, selectComposition } from '@remotion/renderer';
 import { bundleComposition } from '../remotion-bundler';
 import { getRemotionBinariesDir } from '../../utils/paths';
 import type { CompositionConfig } from '../composition-config-parser';
@@ -70,15 +74,18 @@ export async function renderBuildStills(
   config: CompositionConfig,
   outDir: string,
   frames: number[],
-  options: { maxSide?: number; label?: string } = {},
+  options: { maxSide?: number; label?: string; signal?: AbortSignal } = {},
 ): Promise<BuildStillsResult> {
+  const { signal } = options;
+  signal?.throwIfAborted();
   await fs.mkdir(outDir, { recursive: true });
   const entryPath = path.join(outDir, 'composition.tsx');
   await fs.writeFile(entryPath, code, 'utf-8');
 
   const bundleStart = Date.now();
-  const bundle = await bundleComposition(entryPath);
+  const bundle = await bundleComposition(entryPath, signal ? { signal } : undefined);
   const bundleMs = Date.now() - bundleStart;
+  signal?.throwIfAborted();
   if (!bundle.success || !bundle.serveUrl) {
     throw new Error(`Bundling for stills failed: ${bundle.error ?? 'unknown error'}`);
   }
@@ -93,26 +100,35 @@ export async function renderBuildStills(
     timeoutInMilliseconds: STILL_TIMEOUT_MS,
     binariesDirectory,
   });
+  signal?.throwIfAborted();
 
+  const { cancel, cancelSignal } = makeCancelSignal();
+  signal?.addEventListener('abort', cancel, { once: true });
   const stills: BuildStill[] = [];
   const label = options.label ?? 'still';
-  for (const frame of clampFrames(frames, composition.durationInFrames)) {
-    const output = path.join(outDir, `${label}-f${String(frame).padStart(3, '0')}.jpg`);
-    await renderStill({
-      composition,
-      serveUrl: bundle.serveUrl,
-      output,
-      frame,
-      imageFormat: 'jpeg',
-      jpegQuality: 90,
-      inputProps: {},
-      chromiumOptions: { disableWebSecurity: true },
-      timeoutInMilliseconds: STILL_TIMEOUT_MS,
-      binariesDirectory,
-    });
-    const seen = downscaleJpeg(output, options.maxSide ?? 1024);
-    await fs.writeFile(output, seen);
-    stills.push({ frame, path: output, data: seen.toString('base64'), mimeType: 'image/jpeg' });
+  try {
+    for (const frame of clampFrames(frames, composition.durationInFrames)) {
+      signal?.throwIfAborted();
+      const output = path.join(outDir, `${label}-f${String(frame).padStart(3, '0')}.jpg`);
+      await renderStill({
+        composition,
+        serveUrl: bundle.serveUrl,
+        output,
+        frame,
+        imageFormat: 'jpeg',
+        jpegQuality: 90,
+        inputProps: {},
+        chromiumOptions: { disableWebSecurity: true },
+        timeoutInMilliseconds: STILL_TIMEOUT_MS,
+        binariesDirectory,
+        cancelSignal,
+      });
+      const seen = downscaleJpeg(output, options.maxSide ?? 1024);
+      await fs.writeFile(output, seen);
+      stills.push({ frame, path: output, data: seen.toString('base64'), mimeType: 'image/jpeg' });
+    }
+  } finally {
+    signal?.removeEventListener('abort', cancel);
   }
 
   return {
