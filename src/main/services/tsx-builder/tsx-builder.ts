@@ -70,6 +70,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     roundsMin: seed ? EDIT_MIN_ROUNDS : MIN_ROUNDS[req.budget],
     roundsUsed: 0,
     checks: 0,
+    phoneViews: 0,
+    seamChecks: 0,
     lastGood: null,
     finished: null,
     stills: [],

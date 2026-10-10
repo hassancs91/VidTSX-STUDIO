@@ -12,6 +12,10 @@
 // 3), so two builds, or a build and a Refine, can render stills at once;
 // `serveUrl` in the result says which bundle these stills came from.
 //
+// The look tools (builder-look-tools.ts) share the lower steps: one
+// `prepareBuildRender` (bundle + selectComposition) per call, then
+// `renderPreparedFrames` for the frames that call needs.
+//
 // Cancel: `signal` kills a webpack bundle in flight and cancels the
 // renderStill in flight (Remotion's cancel signal); selectComposition has no
 // cancel, so the signal is checked on each side of it.
@@ -20,9 +24,11 @@ import fs from 'fs/promises';
 import path from 'path';
 import { nativeImage } from 'electron';
 import { makeCancelSignal, renderStill, selectComposition } from '@remotion/renderer';
+import type { VideoConfig } from 'remotion';
 import { bundleComposition } from '../remotion-bundler';
 import { getRemotionBinariesDir } from '../../utils/paths';
 import type { CompositionConfig } from '../composition-config-parser';
+import type { Bitmap } from './loop-seam';
 
 const STILL_TIMEOUT_MS = 120_000;
 
@@ -41,6 +47,14 @@ export interface BuildStillsResult {
   serveUrl: string;
 }
 
+/** A bundled build with its composition selected: ready for renderStill. */
+export interface PreparedBuild {
+  serveUrl: string;
+  composition: VideoConfig;
+  bundleCached: boolean;
+  ms: { bundle: number; select: number };
+}
+
 /** In range, integer, deduped, in order. */
 export function clampFrames(frames: number[], durationInFrames: number): number[] {
   const last = Math.max(0, durationInFrames - 1);
@@ -50,12 +64,12 @@ export function clampFrames(frames: number[], durationInFrames: number): number[
   return [...new Set(clean)].sort((a, b) => a - b);
 }
 
-function downscaleJpeg(file: string, maxSide: number): Buffer {
+/** The image as the model gets it: JPEG, no longer than `maxSide`, or exactly `width` wide. */
+export function encodeForModel(file: string, fit: { maxSide: number } | { width: number }): Buffer {
   let image = nativeImage.createFromPath(file);
   const { width, height } = image.getSize();
-  const longest = Math.max(width, height);
-  if (longest > maxSide) {
-    const scale = maxSide / longest;
+  const scale = 'width' in fit ? fit.width / width : Math.min(1, fit.maxSide / Math.max(width, height));
+  if (scale !== 1) {
     image = image.resize({
       width: Math.round(width * scale),
       height: Math.round(height * scale),
@@ -65,22 +79,29 @@ function downscaleJpeg(file: string, maxSide: number): Buffer {
   return image.toJPEG(85);
 }
 
+/** A rendered PNG as raw BGRA pixels. */
+export function readBitmap(file: string): Bitmap {
+  const image = nativeImage.createFromPath(file);
+  const { width, height } = image.getSize();
+  if (width === 0 || height === 0) throw new Error(`Could not read ${path.basename(file)}`);
+  return { width, height, data: image.toBitmap() };
+}
+
 /**
- * Render `frames` of the single-file artifact `code`. `outDir` holds the entry
- * copy and the JPEGs; the entry path is stable per build so an unchanged
- * artifact reuses its bundle.
+ * Bundle the single-file artifact `code` and select its composition. The
+ * entry (`<outDir>/<entryName>`) is stable per build and per kind of look, so
+ * an unchanged artifact reuses its bundle.
  */
-export async function renderBuildStills(
+export async function prepareBuildRender(
   code: string,
   config: CompositionConfig,
   outDir: string,
-  frames: number[],
-  options: { maxSide?: number; label?: string; signal?: AbortSignal } = {},
-): Promise<BuildStillsResult> {
+  options: { entryName?: string; signal?: AbortSignal } = {},
+): Promise<PreparedBuild> {
   const { signal } = options;
   signal?.throwIfAborted();
   await fs.mkdir(outDir, { recursive: true });
-  const entryPath = path.join(outDir, 'composition.tsx');
+  const entryPath = path.join(outDir, options.entryName ?? 'composition.tsx');
   await fs.writeFile(entryPath, code, 'utf-8');
 
   const bundleStart = Date.now();
@@ -91,51 +112,89 @@ export async function renderBuildStills(
     throw new Error(`Bundling for stills failed: ${bundle.error ?? 'unknown error'}`);
   }
 
-  const binariesDirectory = getRemotionBinariesDir() ?? undefined;
-  const renderStart = Date.now();
+  const selectStart = Date.now();
   const composition = await selectComposition({
     serveUrl: bundle.serveUrl,
     id: config.id,
     inputProps: {},
     chromiumOptions: { disableWebSecurity: true },
     timeoutInMilliseconds: STILL_TIMEOUT_MS,
-    binariesDirectory,
+    binariesDirectory: getRemotionBinariesDir() ?? undefined,
   });
   signal?.throwIfAborted();
+  return {
+    serveUrl: bundle.serveUrl,
+    composition,
+    bundleCached: bundle.cached === true,
+    ms: { bundle: bundleMs, select: Date.now() - selectStart },
+  };
+}
 
+/** Render `frames` (clamped, in order) of a prepared build to `<outDir>/<label>-fNNN.<ext>`, full size. */
+export async function renderPreparedFrames(
+  prepared: PreparedBuild,
+  outDir: string,
+  frames: number[],
+  options: { label: string; imageFormat?: 'jpeg' | 'png'; signal?: AbortSignal },
+): Promise<Array<{ frame: number; path: string }>> {
+  const { signal } = options;
+  const imageFormat = options.imageFormat ?? 'jpeg';
+  const binariesDirectory = getRemotionBinariesDir() ?? undefined;
   const { cancel, cancelSignal } = makeCancelSignal();
   signal?.addEventListener('abort', cancel, { once: true });
-  const stills: BuildStill[] = [];
-  const label = options.label ?? 'still';
+  const out: Array<{ frame: number; path: string }> = [];
   try {
-    for (const frame of clampFrames(frames, composition.durationInFrames)) {
+    for (const frame of clampFrames(frames, prepared.composition.durationInFrames)) {
       signal?.throwIfAborted();
-      const output = path.join(outDir, `${label}-f${String(frame).padStart(3, '0')}.jpg`);
+      const output = path.join(outDir, `${options.label}-f${String(frame).padStart(3, '0')}.${imageFormat === 'png' ? 'png' : 'jpg'}`);
       await renderStill({
-        composition,
-        serveUrl: bundle.serveUrl,
+        composition: prepared.composition,
+        serveUrl: prepared.serveUrl,
         output,
         frame,
-        imageFormat: 'jpeg',
-        jpegQuality: 90,
+        imageFormat,
+        ...(imageFormat === 'jpeg' ? { jpegQuality: 90 } : {}),
         inputProps: {},
         chromiumOptions: { disableWebSecurity: true },
         timeoutInMilliseconds: STILL_TIMEOUT_MS,
         binariesDirectory,
         cancelSignal,
       });
-      const seen = downscaleJpeg(output, options.maxSide ?? 1024);
-      await fs.writeFile(output, seen);
-      stills.push({ frame, path: output, data: seen.toString('base64'), mimeType: 'image/jpeg' });
+      out.push({ frame, path: output });
     }
   } finally {
     signal?.removeEventListener('abort', cancel);
   }
+  return out;
+}
 
+/**
+ * Render `frames` of the single-file artifact `code` for the model. Each file
+ * on disk is overwritten with the downscaled copy the model gets.
+ */
+export async function renderBuildStills(
+  code: string,
+  config: CompositionConfig,
+  outDir: string,
+  frames: number[],
+  options: { maxSide?: number; label?: string; signal?: AbortSignal } = {},
+): Promise<BuildStillsResult> {
+  const prepared = await prepareBuildRender(code, config, outDir, options.signal ? { signal: options.signal } : {});
+  const renderStart = Date.now();
+  const rendered = await renderPreparedFrames(prepared, outDir, frames, {
+    label: options.label ?? 'still',
+    ...(options.signal ? { signal: options.signal } : {}),
+  });
+  const stills: BuildStill[] = [];
+  for (const { frame, path: file } of rendered) {
+    const seen = encodeForModel(file, { maxSide: options.maxSide ?? 1024 });
+    await fs.writeFile(file, seen);
+    stills.push({ frame, path: file, data: seen.toString('base64'), mimeType: 'image/jpeg' });
+  }
   return {
     stills,
-    ms: { bundle: bundleMs, render: Date.now() - renderStart },
-    bundleCached: bundle.cached === true,
-    serveUrl: bundle.serveUrl,
+    ms: { bundle: prepared.ms.bundle, render: prepared.ms.select + Date.now() - renderStart },
+    bundleCached: prepared.bundleCached,
+    serveUrl: prepared.serveUrl,
   };
 }

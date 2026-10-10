@@ -13,6 +13,7 @@ const checkBuild = vi.fn();
 const renderBuildStills = vi.fn();
 vi.mock('./build-check', () => ({ checkBuild: (...args: unknown[]) => checkBuild(...args) }));
 vi.mock('./build-stills', () => ({ renderBuildStills: (...args: unknown[]) => renderBuildStills(...args) }));
+vi.mock('./build-looks', () => ({ PHONE_FEED_WIDTH: 390 }));
 
 import { buildBuilderToolServer, type BuilderState } from './builder-tools';
 
@@ -30,6 +31,8 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     roundsMin: 2,
     roundsUsed: 0,
     checks: 0,
+    phoneViews: 0,
+    seamChecks: 0,
     lastGood: null,
     finished: null,
     stills: [],
@@ -61,17 +64,18 @@ describe('check', () => {
 });
 
 describe('render_stills', () => {
-  it('counts a look round and records every frame shown, by round and size', async () => {
+  it('counts a look round and records every frame shown, by round', async () => {
     const { state, call } = await setup();
     await call('render_stills', { frames: [0, 120] });
-    await call('render_stills', { frames: [239], size: 'phone' });
+    await call('render_stills', { frames: [239] });
     expect(state.roundsUsed).toBe(2);
     expect(state.stills.map(({ round, frame, size }) => ({ round, frame, size }))).toEqual([
       { round: 1, frame: 0, size: 'model' },
       { round: 1, frame: 120, size: 'model' },
-      { round: 2, frame: 239, size: 'phone' },
+      { round: 2, frame: 239, size: 'model' },
     ]);
-    expect(path.basename(state.stills[2].path)).toBe('r02-phone-f239.jpg');
+    expect(path.basename(state.stills[2].path)).toBe('r02-f239.jpg');
+    expect(renderBuildStills.mock.calls[1][4]).toMatchObject({ maxSide: 1024, label: 'r02' });
   });
 
   it('gives the round back when the render fails', async () => {
@@ -160,8 +164,14 @@ describe('stopping (cancel or a cap)', () => {
     const stop = new AbortController();
     stop.abort();
     const { state, call } = await setup({ signal: stop.signal, roundsUsed: 2 });
-    for (const name of ['check', 'render_stills', 'finish']) {
-      const result = await call(name, name === 'render_stills' ? { frames: [0] } : { summary: 's' });
+    const args: Record<string, Record<string, unknown>> = {
+      render_stills: { frames: [0] },
+      contact_sheet: { frames: [0, 120] },
+      phone_view: { frame: 0 },
+      finish: { summary: 's' },
+    };
+    for (const name of ['check', 'render_stills', 'contact_sheet', 'phone_view', 'loop_seam', 'finish']) {
+      const result = await call(name, args[name] ?? {});
       expect(result.isError).toBe(true);
     }
     expect(checkBuild).not.toHaveBeenCalled();

@@ -105,19 +105,27 @@ export type BuildProgressDetail =
   | { type: 'phase' }
   | { type: 'turn'; turn: number; outputTokens: number }
   | { type: 'check'; n: number; ok: boolean; errors: string[] }
-  /** `paths` live in the run folder until the run ends; the result's `stills` are the saved copies. */
-  | { type: 'stills'; size: 'model' | 'phone'; frames: number[]; paths: string[] }
+  /** `paths` live in the run folder until the run ends; the result's `stills` are the saved copies. A sheet is one path for all its frames. */
+  | { type: 'stills'; size: BuildStillSize; frames: number[]; paths: string[] }
+  /** A `loop_seam` measurement: mean pixel differences, 0-255. */
+  | { type: 'seam'; jump: boolean; wrap: number; neighbours: number }
   /** A cap fired or the caller cancelled; tools in flight are winding down. */
   | { type: 'stopping'; reason: 'cap-time' | 'cap-tokens' | 'cancelled' }
   | { type: 'done'; stopReason: BuildStopReason; ok: boolean; version?: number };
 
 export type BuildProgressEvent = BuildProgressDetail & { status: BuildProgressStatus };
 
-/** One frame the builder looked at, as saved under `vN.stills/`. */
+/** How a frame was shown: a ~1024 px still, the phone feed view, or a tile of a contact sheet. */
+export type BuildStillSize = 'model' | 'phone' | 'sheet';
+
+/** One image the builder looked at, as saved under `vN.stills/`. */
 export interface BuildStillRecord {
   round: number;
+  /** A sheet's first frame. */
   frame: number;
-  size: 'model' | 'phone';
+  size: BuildStillSize;
+  /** A sheet only: every frame in it, in tile order. */
+  frames?: number[];
   /** Relative to the version folder, e.g. `v3.stills/r02-f120.jpg`. */
   file: string;
 }

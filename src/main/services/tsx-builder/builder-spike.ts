@@ -9,7 +9,9 @@
 // mid-flight twice and renders once more; `concurrentProbe` renders two
 // different bundles at the same time and checks each still against its own
 // solo render; `exportProbe` runs the render-handlers path (bundle +
-// renderComposition) for one second of H.264.
+// renderComposition) for one second of H.264; `lookProbe` saves a contact
+// sheet + phone view of the fixture and measures its seam; `seamSources` runs
+// loop_seam on loops whose verdict is known.
 // mode "build" — a real builder run on one brief, with craft packs read from
 // a folder of skills (`<packsDir>/<name>/SKILL.md`, used verbatim). Progress
 // events stream to `<outDir>/progress.jsonl`; `cancelAfterMs` cancels the run.
@@ -22,7 +24,7 @@ import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
 import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
 import { buildComposition } from './tsx-builder';
-import { cancelProbes, concurrentProbe, exportProbe } from './builder-spike-probes';
+import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type SeamSource } from './builder-spike-probes';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildBudget, BuildFormat, BuildPack, BuildProgressEvent } from './types';
@@ -37,6 +39,8 @@ interface FixtureRequest {
   cancelProbes?: boolean;
   concurrentProbe?: boolean;
   exportProbe?: boolean;
+  lookProbe?: boolean;
+  seamSources?: SeamSource[];
   /** Quit the app when done (unattended runs). */
   quit?: boolean;
 }
@@ -211,7 +215,9 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
   const cancel = fx && req.cancelProbes ? await cancelProbes(fx) : null;
   const concurrent = fx && req.concurrentProbe ? await concurrentProbe(fx) : null;
   const exported = fx && req.exportProbe ? await exportProbe(fx) : null;
-  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, store, cancel, concurrent, export: exported };
+  const looks = fx && req.lookProbe ? await lookProbe(fx) : null;
+  const seams = req.seamSources?.length ? await seamProbe(req.outDir, req.seamSources) : null;
+  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, store, cancel, concurrent, export: exported, looks, seams };
 }
 
 export async function runBuilderSpikeFromEnv(): Promise<void> {

@@ -18,7 +18,7 @@ import { reserveProjectFolder, writeNextVersion, writeDebugSidecar } from '../ts
 import { parseCompositionConfig, type CompositionConfig } from '../composition-config-parser';
 import { BUILD_ENTRY } from './constants';
 import { formatFromConfig } from './build-format';
-import type { BuildFormat, BuildStillRecord, BuildVersion } from './types';
+import type { BuildFormat, BuildStillRecord, BuildStillSize, BuildVersion } from './types';
 
 const VERSION_PATTERN = /^v(\d+)\.tsx$/;
 const RUN_PATTERN = /^b\d+-[0-9a-f]{6}$/;
@@ -132,12 +132,22 @@ export function projectNameFromId(id: string): string {
     .toLowerCase();
 }
 
+/** An image the builder was shown, still in the run folder. */
+export interface BuildStillShown {
+  round: number;
+  frame: number;
+  size: BuildStillSize;
+  /** A sheet only: every frame in it. */
+  frames?: number[];
+  path: string;
+}
+
 export interface SaveVersionInput {
   /** An edit adds to its folder; a new build reserves one. */
   target: { folderPath: string } | { parentDir: string; name: string };
   code: string;
   dirs: RunDirs;
-  stills: Array<{ round: number; frame: number; size: 'model' | 'phone'; path: string }>;
+  stills: BuildStillShown[];
   /** Written as vN.debug.json, with the saved stills added. */
   debug: Record<string, unknown>;
 }
@@ -172,7 +182,9 @@ export async function saveBuildVersion(
       () => true,
       () => false,
     );
-    if (copied) stills.push({ round: still.round, frame: still.frame, size: still.size, file: `${base}.stills/${name}` });
+    if (!copied) continue;
+    const { path: _from, ...record } = still;
+    stills.push({ ...record, file: `${base}.stills/${name}` });
   }
 
   await writeDebugSidecar(tsxPath, { ...input.debug, stills });

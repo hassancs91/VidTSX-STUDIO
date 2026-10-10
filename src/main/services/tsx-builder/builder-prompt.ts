@@ -6,7 +6,7 @@
 
 import type { BuildBudget } from './types';
 
-/** Look rounds (render_stills calls) per budget. */
+/** Look rounds (render_stills + contact_sheet calls) per budget. */
 export const BUDGET_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 3, craft: 6 };
 
 /**
@@ -28,7 +28,10 @@ const METHOD = `You are the builder inside VidTSX Studio. You design an animated
 ## Your folder and tools
 - Your working directory is your build folder. Use Read, Write, Edit, Glob and Grep on RELATIVE paths inside it. There is no shell and no network.
 - \`check\` — bundles your folder into the single file the app ships and runs every gate. Errors come back verbatim; fix them and check again.
-- \`render_stills\` — renders frames of the current build (it checks first) and shows them to you. \`size: "phone"\` renders them at phone size (540 px wide) for the legibility test. Each call is one LOOK ROUND, and your budget of rounds is fixed (it is stated below and in every result).
+- \`render_stills\` — renders frames of the current build (it checks first) and shows them to you at ~1024 px. Each call is one LOOK ROUND, and your budget of rounds is fixed (it is stated below and in every result).
+- \`contact_sheet\` — up to 12 frames as small labelled tiles in ONE image: the random-frame test. Also one look round.
+- \`phone_view\` — one frame at the size a phone feed shows it (390 px wide): the legibility test. Free, at most 2 per build.
+- \`loop_seam\` — loops only: measures whether the last frame flows into frame 0 and returns numbers and a verdict. Free.
 - \`finish\` — ends the build with a short summary. It runs a final check. It is the only way to finish.
 
 ## The file contract
@@ -54,10 +57,10 @@ const METHOD = `You are the builder inside VidTSX Studio. You design an animated
    - Is anything dull, empty or generic-looking? Could this be a stock chart or a template — if you swapped the title, would the picture still fit? Would someone stop scrolling for it?
    Then correctness and craft:
    - Dead areas, crowding, labels touching drawings or each other, text that is too small, a weak focal point, motion that means nothing.
-   - The random-frame test: is the message readable on ANY frame?
-   - For a loop: does the last frame flow into frame 0 with no jump?
+   - The random-frame test: is the message readable on ANY frame? Run it with \`contact_sheet\` on frames you have not looked at yet, mid-transition ones included.
+   - For a loop: does the last frame flow into frame 0 with no jump? \`loop_seam\` measures it; a still cannot show it.
 5. **Improve the design AND fix the bugs**, then look again. A clean, correct chart is NOT done: "no design change needed" is not an acceptable round while look rounds remain. Find what would make the picture more alive, more specific to this idea, or the payoff more felt, and do it. Each round, append to the round log in DESIGN.md: "Saw:" (what the stills showed), "DESIGN:" (what you changed in the picture and why), "BUG:" (what was wrong in the code). Most of the quality comes from these rounds.
-6. In your last round also check the phone view (\`size: "phone"\`): every label readable at that size.
+6. Before you finish: \`phone_view\` on the frame with the smallest text (every label readable at that size), and on a loop, \`loop_seam\` until it says OK. Neither costs a look round.
 7. \`finish\` with a summary: the picture you chose, what each round changed, the numbers you verified, anything in the request you corrected.
 
 Never describe something you have not seen on a still. If a round is left, spend it.`;
@@ -73,7 +76,7 @@ export interface BuilderPromptOptions {
 export function buildBuilderSystemPrompt(options: BuilderPromptOptions): string {
   const rounds = BUDGET_ROUNDS[options.budget];
   const min = options.minRounds ?? MIN_ROUNDS[options.budget];
-  const budgetLine = `\n\n## Your budget\n${options.budget.toUpperCase()}: ${rounds} look round${rounds === 1 ? '' : 's'} (render_stills calls); finish is refused before round ${min}. check is free.`;
+  const budgetLine = `\n\n## Your budget\n${options.budget.toUpperCase()}: ${rounds} look round${rounds === 1 ? '' : 's'} (render_stills or contact_sheet calls); finish is refused before round ${min}. check is free.`;
   const packs = options.packs.length
     ? `\n\n# Craft packs\nThe know-how below is for this kind of piece. Follow it.\n\n${options.packs
         .map((p) => `<pack name="${p.name}">\n${p.body.trim()}\n</pack>`)

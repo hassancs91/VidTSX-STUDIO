@@ -1,6 +1,8 @@
 // Machinery probes for builder-spike.ts's fixture mode (no model): cancel
-// mid-flight (P1 part 2), two bundles served at once (part 3) and the export
-// path. Each returns a plain record for spike-report.json.
+// mid-flight (P1 part 2), two bundles served at once (part 3), the export
+// path, and the part 4 looks (a contact sheet + phone view to eyeball, and
+// loop_seam's verdict on loops whose seams are known). Each returns a plain
+// record for spike-report.json.
 
 import { createHash } from 'crypto';
 import fs from 'fs/promises';
@@ -9,7 +11,10 @@ import { app } from 'electron';
 import { bundleIdPrefix } from '../bundle-serve-paths';
 import { bundleComposition } from '../remotion-bundler';
 import { renderComposition } from '../remotion-renderer';
+import { checkBuild } from './build-check';
+import { measureLoopSeam, renderContactSheet, renderPhoneView } from './build-looks';
 import { renderBuildStills } from './build-stills';
+import { BUILD_ENTRY } from './constants';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { RenderCompleteEvent } from '../../../shared/ipc/types';
 
@@ -208,4 +213,52 @@ export async function exportProbe(fx: ProbeFixture): Promise<Record<string, unkn
     ms: Date.now() - started,
     outputPath,
   };
+}
+
+/** The part 4 looks on the fixture: one contact sheet and one phone view to eyeball, and its own seam. */
+export async function lookProbe(fx: ProbeFixture): Promise<Record<string, unknown>> {
+  const dir = path.join(fx.outDir, 'looks');
+  await fs.rm(dir, { recursive: true, force: true });
+  const last = fx.config.durationInFrames - 1;
+  const sheetFrames = [0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => Math.round((i * last) / 8) + (i % 2 ? 7 : 0));
+  const sheet = await renderContactSheet(fx.code, fx.config, dir, sheetFrames, { label: 'sheet' });
+  const phone = await renderPhoneView(fx.code, fx.config, dir, Math.round(last / 2), { label: 'phone' });
+  const seam = await measureLoopSeam(fx.code, fx.config, dir, { label: 'seam' });
+  return {
+    sheet: { path: sheet.path, frames: sheet.frames, layout: { ...sheet.layout, cells: sheet.layout.cells.length }, ms: sheet.ms, bytes: sheet.data.length },
+    phone: { path: phone.path, frame: phone.frame, size: `${phone.width}x${phone.height}`, ms: phone.ms, bytes: phone.data.length },
+    seam,
+  };
+}
+
+export interface SeamSource {
+  name: string;
+  /** A single .tsx (becomes the entry) or a folder with its own index.tsx. */
+  path: string;
+  expectJump: boolean;
+}
+
+/** loop_seam's verdict on loops whose seams are known: each passes `check`, then is measured. */
+export async function seamProbe(outDir: string, sources: SeamSource[]): Promise<Record<string, unknown>> {
+  const results: Array<Record<string, unknown>> = [];
+  for (const source of sources) {
+    const dir = path.join(outDir, 'seam', source.name);
+    const workDir = path.join(dir, 'work');
+    await fs.rm(dir, { recursive: true, force: true });
+    await fs.mkdir(workDir, { recursive: true });
+    if ((await fs.stat(source.path)).isDirectory()) await fs.cp(source.path, workDir, { recursive: true });
+    else await fs.copyFile(source.path, path.join(workDir, BUILD_ENTRY));
+    const check = await checkBuild(workDir);
+    if (!check.ok || !check.code || !check.config) {
+      results.push({ name: source.name, pass: false, error: check.errors.join('; ') });
+      continue;
+    }
+    try {
+      const m = await measureLoopSeam(check.code, check.config, dir, { label: 'seam' });
+      results.push({ name: source.name, pass: m.jump === source.expectJump, expectJump: source.expectJump, ...m });
+    } catch (err) {
+      results.push({ name: source.name, pass: false, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return { pass: results.every((r) => r.pass === true), results };
 }
