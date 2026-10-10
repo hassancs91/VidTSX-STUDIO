@@ -1,7 +1,14 @@
 import { llmEngine, PROVIDER_PRESETS } from '../../engine';
 import type { ProviderConfig } from '../../engine/types';
 import type { ProviderCredentials } from '../../shared/providers/registry';
-import { loadSettings, saveLlmProviders, getProviderCredentials } from './settings';
+import {
+  loadSettings,
+  saveLlmProviders,
+  getProviderCredentials,
+  getLlmDefaultModelMigrated,
+  setLlmDefaultModelMigrated,
+} from './settings';
+import { migrateLegacyDefaultModels } from './llm-default-model-migration';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('LLMInit');
@@ -25,6 +32,10 @@ export async function initLLMEngine(): Promise<void> {
             migrated = true;
           }
         }
+      }
+      if (!(await getLlmDefaultModelMigrated())) {
+        if (migrateLegacyDefaultModels(settings.llmProviders, PROVIDER_PRESETS)) migrated = true;
+        await setLlmDefaultModelMigrated();
       }
       if (migrated) {
         await saveLlmProviders(settings.llmProviders, settings.llmActiveProvider ?? '');

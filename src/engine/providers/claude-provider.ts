@@ -56,7 +56,7 @@ export class ClaudeProvider implements LLMProvider {
   constructor(
     id: string,
     private authMode: AuthMode,
-    private defaultModel: string = "claude-sonnet-4-6",
+    private defaultModel: string = "claude-sonnet-5-5",
     private apiKey?: string,
     private baseURL?: string,
   ) {

@@ -213,8 +213,12 @@ export class AgentRunner {
           ...(providerId ? { providerId } : {}),
           ...(req.model ? { model: req.model } : {}),
           ...(sdkTools.length > 0 ? { agentTools: [...sdkTools] } : {}),
+          // Bare names in `allowedTools` auto-approve a tool BEFORE `canUseTool`
+          // is consulted, so with the file guard on, the SDK tools must stay out
+          // of this list — they fall through to the guard (which lets
+          // WebSearch/WebFetch pass). Verified against SDK 0.3.286, 2026-10-10.
           ...(built
-            ? { allowedTools: [...built.allowedTools, ...sdkTools] }
+            ? { allowedTools: [...built.allowedTools, ...(fileTools ? [] : sdkTools)] }
             : {}),
         },
         abort.signal,

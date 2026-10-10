@@ -6,14 +6,14 @@ export const PROVIDER_PRESETS: LlmProviderPreset[] = [
     name: "Claude (Subscription)",
     type: "agent-sdk",
     authMode: "subscription",
-    defaultModel: "claude-sonnet-4-6",
+    defaultModel: "claude-sonnet-5-5",
   },
   {
     id: "claude-api",
     name: "Claude (API Key)",
     type: "agent-sdk",
     authMode: "api-key",
-    defaultModel: "claude-sonnet-4-6",
+    defaultModel: "claude-sonnet-5-5",
   },
   {
     id: "minimax",

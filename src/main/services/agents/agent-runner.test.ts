@@ -223,7 +223,11 @@ describe('AgentRunner.send', () => {
     expect(extras().cwd).toBe(dir);
     expect(typeof extras().canUseTool).toBe('function');
     expect(request().agentTools).toEqual(['Read', 'WebSearch']);
-    expect(request().allowedTools).toContain('Read');
+    // The guard only runs for tools NOT in allowedTools; a bare 'Read' there
+    // would let the SDK skip it entirely.
+    expect(request().allowedTools).not.toContain('Read');
+    expect(request().allowedTools).not.toContain('WebSearch');
+    expect(request().allowedTools).toContain('mcp__vidtsx__write_document');
   });
 
   it('composes the starter answers into the (static) system prompt', async () => {

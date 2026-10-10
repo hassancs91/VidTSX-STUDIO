@@ -274,6 +274,16 @@ export async function setCrashReportingPrompted(): Promise<void> {
   setValue('crashReportingPrompted', true);
 }
 
+// One-shot move of saved Claude provider configs off the retired Sonnet 4.6
+// preset default (see llm-default-model-migration.ts).
+export async function getLlmDefaultModelMigrated(): Promise<boolean> {
+  return getValue<boolean>('llmDefaultModelMigratedV1') === true;
+}
+
+export async function setLlmDefaultModelMigrated(): Promise<void> {
+  setValue('llmDefaultModelMigratedV1', true);
+}
+
 // ─── Studio proxies: optional GPU encoder (T4b, docs/PREVIEW_TESTS_PLAN.md) ───
 // Off unless the user turned it on; it also needs the downloaded full ffmpeg
 // and a working hardware encoder before the generator uses it.
