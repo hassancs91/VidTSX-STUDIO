@@ -9,14 +9,6 @@ export interface ThinkingConfig {
   effort?: EffortLevel;
 }
 
-export interface GenerateResult {
-  text: string;
-  model: string;
-  durationMs: number;
-  debugLog?: string[];
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
-}
-
 export interface TsxPromptContext {
   videoWidth?: number;
   videoHeight?: number;
@@ -36,28 +28,6 @@ export interface TsxPromptContext {
    * plan §5 step 7 "Library meshes". Empty/undefined = no section in the prompt.
    */
   libraryMeshes?: Array<{ path: string; description?: string; generated?: boolean }>;
-}
-
-export interface TsxGenerateOptions {
-  prompt: string;
-  providerId?: string;
-  /** Model id on that provider; absent = the provider default (W1). */
-  model?: string;
-  thinkingLevel?: ThinkingLevel;
-  maxTurns?: number;
-  promptContext?: TsxPromptContext;
-  mode?: PipelineMode;
-  images?: LlmImageIpc[];
-}
-
-export interface TsxEditOptions {
-  currentCode: string;
-  editInstruction: string;
-  providerId?: string;
-  model?: string;
-  thinkingLevel?: ThinkingLevel;
-  maxTurns?: number;
-  images?: LlmImageIpc[];
 }
 
 export interface TsxEditPipelineOptions {

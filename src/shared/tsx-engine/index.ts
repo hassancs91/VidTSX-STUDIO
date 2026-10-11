@@ -1,4 +1,4 @@
-export { generateTsx, editTsx, generateTsxPipeline, editTsxPipeline, generateProjectName } from './tsx-generation-service';
+export { generateTsxPipeline, editTsxPipeline, generateProjectName } from './tsx-generation-service';
 export type { TsxEngineDeps } from './tsx-generation-service';
 export { buildTsxSystemPrompt, buildVerifyPrompt } from './prompt-builder';
 export { parsePipelineMode, parseLibraries } from './mode-parser';
@@ -17,10 +17,7 @@ export type {
   ThinkingLevel,
   EffortLevel,
   ThinkingConfig,
-  GenerateResult,
   TsxPromptContext,
-  TsxGenerateOptions,
-  TsxEditOptions,
   TsxEditPipelineOptions,
   TsxPipelineOptions,
   TsxPipelineResult,

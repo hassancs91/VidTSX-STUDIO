@@ -1,10 +1,7 @@
 import type {
-  TsxGenerateOptions,
-  TsxEditOptions,
   TsxEditPipelineOptions,
   TsxPipelineOptions,
   TsxPipelineResult,
-  GenerateResult,
   PipelineProgress,
   PipelineStepLog,
   PipelineMode,
@@ -104,53 +101,6 @@ function buildLlmRequest(
     ...(options.maxTurns && options.maxTurns > 1 ? { reflectionLoops: options.maxTurns } : {}),
     ...(sessionScope ? { sessionScope } : {}),
     ...(options.images && options.images.length > 0 ? { images: options.images } : {}),
-  };
-}
-
-export async function generateTsx(options: TsxGenerateOptions, deps: TsxEngineDeps = rendererDeps): Promise<GenerateResult> {
-  const mode: PipelineMode = options.mode ?? '2d';
-  const systemPrompt = buildTsxSystemPrompt(options.promptContext, mode);
-  const sessionScope = newScope('creator:gen');
-  const request = buildLlmRequest(options.prompt, systemPrompt, options, sessionScope);
-
-  const result = await deps.llmGenerate(request);
-
-  if (!result.success || !result.text) {
-    throw new Error(result.error ?? 'Generation failed');
-  }
-
-  const inputTokens = result.usage?.inputTokens ?? 0;
-  const outputTokens = result.usage?.outputTokens ?? 0;
-
-  return {
-    text: result.text,
-    model: result.model ?? 'unknown',
-    durationMs: result.durationMs ?? 0,
-    debugLog: result.debugLog,
-    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
-  };
-}
-
-export async function editTsx(options: TsxEditOptions, deps: TsxEngineDeps = rendererDeps): Promise<GenerateResult> {
-  const fullPrompt = `Current code:\n\`\`\`tsx\n${options.currentCode}\n\`\`\`\n\nEdit instruction: ${options.editInstruction}`;
-  const sessionScope = newScope('creator:edit');
-  const request = buildLlmRequest(fullPrompt, EDIT_SYSTEM_PROMPT, options, sessionScope);
-
-  const result = await deps.llmGenerate(request);
-
-  if (!result.success || !result.text) {
-    throw new Error(result.error ?? 'Edit failed');
-  }
-
-  const inputTokens = result.usage?.inputTokens ?? 0;
-  const outputTokens = result.usage?.outputTokens ?? 0;
-
-  return {
-    text: extractTsxCode(result.text),
-    model: result.model ?? 'unknown',
-    durationMs: result.durationMs ?? 0,
-    debugLog: result.debugLog,
-    usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens },
   };
 }
 

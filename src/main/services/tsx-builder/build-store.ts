@@ -89,15 +89,10 @@ async function readBuilderFormat(debugPath: string): Promise<BuildFormat | null>
   }
 }
 
-/**
- * Fill `workDir` from a saved version so an edit continues where it stopped:
- * the builder's own `vN.src/` when there is one, otherwise the version's single
- * file as `index.tsx` (any Creator version is a valid one-file source).
- */
-export async function seedWorkFromVersion(
+/** The version an edit continues: the one asked for, else the latest. Throws when there is none. */
+export async function resolveEditVersion(
   editOf: { folderPath: string; version?: number },
-  workDir: string,
-): Promise<SeededBuild> {
+): Promise<{ version: number; tsxPath: string }> {
   const versions = await listVersionNumbers(editOf.folderPath);
   const version = editOf.version ?? versions[versions.length - 1];
   if (version === undefined || !versions.includes(version)) {
@@ -107,7 +102,19 @@ export async function seedWorkFromVersion(
         : `No version to edit in ${editOf.folderPath}`,
     );
   }
-  const tsxPath = path.join(editOf.folderPath, `v${version}.tsx`);
+  return { version, tsxPath: path.join(editOf.folderPath, `v${version}.tsx`) };
+}
+
+/**
+ * Fill `workDir` from a saved version so an edit continues where it stopped:
+ * the builder's own `vN.src/` when there is one, otherwise the version's single
+ * file as `index.tsx` (any Creator version is a valid one-file source).
+ */
+export async function seedWorkFromVersion(
+  editOf: { folderPath: string; version?: number },
+  workDir: string,
+): Promise<SeededBuild> {
+  const { version, tsxPath } = await resolveEditVersion(editOf);
   const srcDir = path.join(editOf.folderPath, `v${version}.src`);
   const code = await fs.readFile(tsxPath, 'utf-8');
   const fromSrc = await isDirectory(srcDir);

@@ -12,9 +12,13 @@
 // renderComposition) for one second of H.264; `lookProbe` saves a contact
 // sheet + phone view of the fixture and measures its seam; `seamSources` runs
 // loop_seam on loops whose verdict is known.
-// mode "build" — a real builder run on one brief, with craft packs read from
-// a folder of skills (`<packsDir>/<name>/SKILL.md`, used verbatim). Progress
-// events stream to `<outDir>/progress.jsonl`; `cancelAfterMs` cancels the run.
+// mode "build" — a real run on one brief through generateTsx(), with craft
+// packs read from a folder of skills (`<packsDir>/<name>/SKILL.md`, used
+// verbatim). Progress events stream to `<outDir>/progress.jsonl`;
+// `cancelAfterMs` cancels the run. `engine` forces the builder or the one-shot
+// pipeline (agent-composition gate, strict imports), whose result lands in
+// `<outDir>/pipeline/`.
+// mode "engines" — free: which engine each provider would get, and why.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -23,11 +27,13 @@ import { logEngine } from '../../../logging/log-engine';
 import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
 import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
-import { buildComposition } from './tsx-builder';
+import { generateTsx } from './generate-tsx';
+import { buildAgentTsxDeps } from '../agents/tsx-deps';
+import { enginesProbe, savePipelineRun } from './builder-spike-dispatch';
 import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type SeamSource } from './builder-spike-probes';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
-import type { BuildBudget, BuildFormat, BuildPack, BuildProgressEvent } from './types';
+import type { BuildBudget, BuildFormat, BuildPack, BuildProgressEvent, TsxEngine } from './types';
 
 const log = logEngine.createLogger('TsxBuilderSpike');
 
@@ -63,10 +69,18 @@ interface BuildSpikeRequest {
   maxMinutes?: number;
   maxOutputTokens?: number;
   cancelAfterMs?: number;
+  /** Absent = by provider, as every caller gets it. */
+  engine?: TsxEngine;
   quit?: boolean;
 }
 
-type SpikeRequest = FixtureRequest | BuildSpikeRequest;
+interface EnginesRequest {
+  mode: 'engines';
+  outDir: string;
+  quit?: boolean;
+}
+
+type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest;
 
 async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
@@ -87,13 +101,14 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
   const progressPath = path.join(req.outDir, 'progress.jsonl');
   await fs.rm(progressPath, { force: true });
   let writes = Promise.resolve();
-  const onProgress = (event: BuildProgressEvent) => {
-    const line = `${JSON.stringify({ at: new Date().toISOString(), ...event })}\n`;
+  const writeLine = (entry: object) => {
+    const line = `${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`;
     writes = writes.then(() => fs.appendFile(progressPath, line, 'utf-8')).catch(() => {});
   };
+  const onProgress = (event: BuildProgressEvent) => writeLine(event);
   const cancel = new AbortController();
   const cancelTimer = req.cancelAfterMs ? setTimeout(() => cancel.abort(), req.cancelAfterMs) : null;
-  const result = await buildComposition({
+  const result = await generateTsx({
     intent: req.intent,
     ...(req.format ? { format: req.format } : {}),
     budget: req.budget,
@@ -108,11 +123,24 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
     ...(req.maxOutputTokens ? { maxOutputTokens: req.maxOutputTokens } : {}),
     signal: cancel.signal,
     onProgress,
+    ...(req.engine ? { engine: req.engine } : {}),
+    fallback: {
+      deps: buildAgentTsxDeps(req.providerId, cancel.signal, undefined, 'tsx-generation'),
+      promptContext: { imports: 'strict' },
+      onProgress: (p) => writeLine({ pipeline: p }),
+    },
   });
   if (cancelTimer) clearTimeout(cancelTimer);
   await writes;
-  const { code: _code, ...rest } = result;
-  return { mode: 'build', packs: packs.map((p) => p.name), model: req.model ?? 'provider default', ...rest };
+  const head = { mode: 'build', packs: packs.map((p) => p.name), model: req.model ?? 'provider default' };
+  if (result.engine === 'pipeline') {
+    const { code: _code, pipeline, ...rest } = result;
+    const { text: _text, ...pipelineInfo } = pipeline ?? { text: '' };
+    return { ...head, ...rest, pipeline: pipeline ? pipelineInfo : null, saved: await savePipelineRun(result, req.outDir) };
+  }
+  const { code: _code, build, ...rest } = result;
+  const { code: _buildCode, ...buildInfo } = build ?? { code: '' };
+  return { ...head, ...rest, build: build ? buildInfo : null };
 }
 
 async function listTree(dir: string, rel = ''): Promise<string[]> {
@@ -230,7 +258,8 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
     req = JSON.parse(await fs.readFile(requestPath, 'utf-8')) as SpikeRequest;
     await fs.mkdir(req.outDir, { recursive: true });
     log.info('Builder spike started', { mode: req.mode, outDir: req.outDir });
-    report = req.mode === 'build' ? await runBuild(req) : await runFixture(req);
+    report =
+      req.mode === 'build' ? await runBuild(req) : req.mode === 'engines' ? await enginesProbe() : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

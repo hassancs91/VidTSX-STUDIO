@@ -6,6 +6,7 @@
 // changes. If they ever need to differ, they can.
 
 import { getLlmProviders } from '../settings';
+import { llmEngine, PROVIDER_PRESETS } from '../../../engine';
 import { imageEngine } from '../../../image-engine';
 import { hasUsableVideoProvider } from '../video-init';
 import { audioGenerationEngine } from '../../../audio-engine/generation';
@@ -18,16 +19,21 @@ const log = logEngine.createLogger('AgentToolSupport');
 /**
  * Typed tools ride the Agent SDK; other provider types get chat only.
  *
- * An unknown config (a fresh subscription default, say) is treated as
- * capable: the presets are predominantly `agent-sdk`, and the worst case is
- * that the model simply never sees a tool call succeed.
+ * The type comes from the saved config, else from the preset of that id: the
+ * engine registers some presets with no saved config (`local`, and the
+ * shared-credential ones, llm-init.ts), and pickers offer them. With no id
+ * given: the saved active provider, else the engine's.
+ *
+ * An id that is neither saved nor a preset is treated as capable: the presets
+ * are predominantly `agent-sdk`, and the worst case is that the model simply
+ * never sees a tool call succeed.
  */
 export async function resolveToolSupport(providerId?: string): Promise<boolean> {
   try {
     const { providers, activeProvider } = await getLlmProviders();
-    const id = providerId || activeProvider;
-    const config = providers.find((p) => p.id === id);
-    return config ? config.type === 'agent-sdk' : true;
+    const id = providerId || activeProvider || llmEngine.getActiveProvider();
+    const type = providers.find((p) => p.id === id)?.type ?? PROVIDER_PRESETS.find((p) => p.id === id)?.type;
+    return type ? type === 'agent-sdk' : true;
   } catch (err) {
     log.warn('Could not read providers — assuming tools work', {
       error: err instanceof Error ? err.message : String(err),
