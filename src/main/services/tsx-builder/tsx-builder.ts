@@ -23,6 +23,7 @@ import { MAX_TURNS_ERROR } from '../../../engine/providers/claude-session';
 import { describeSystemPrompt } from '../tsx-jobs/project-store';
 import { buildBuilderSystemPrompt, BUDGET_ROUNDS, EDIT_MIN_ROUNDS, MIN_ROUNDS } from './builder-prompt';
 import { buildBuilderToolServer, builderToolName, BUILDER_MCP_SERVER_NAME, BUILDER_TOOL_IDS, type BuilderState } from './builder-tools';
+import { seamOkFor } from './builder-tool-common';
 import { buildFirstMessage } from './build-messages';
 import { BuildProgress } from './build-progress';
 import { capsFor, resolveStopReason, RunGuard, stopMessage } from './build-run-guard';
@@ -72,6 +73,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     checks: 0,
     phoneViews: 0,
     seamChecks: 0,
+    lastSeam: null,
+    seamJumps: new Set(),
     lastGood: null,
     finished: null,
     stills: [],
@@ -187,6 +190,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     stopReason,
     rounds: state.roundsUsed,
     checks: state.checks,
+    ...(format.loop && kept ? { seamOk: seamOkFor(state, kept.code) } : {}),
     ...counters(),
     ...(response.usage ? { usage: response.usage } : {}),
     ...(state.finished ? { summary: state.finished.summary } : {}),

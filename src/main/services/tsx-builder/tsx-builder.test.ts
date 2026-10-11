@@ -18,6 +18,22 @@ const checkBuild = vi.fn();
 const renderBuildStills = vi.fn();
 vi.mock('./build-check', () => ({ checkBuild: (...args: unknown[]) => checkBuild(...args) }));
 vi.mock('./build-stills', () => ({ renderBuildStills: (...args: unknown[]) => renderBuildStills(...args) }));
+const measureLoopSeam = vi.fn();
+vi.mock('./build-looks', () => ({
+  PHONE_FEED_WIDTH: 390,
+  renderPhoneView: async (_code: string, _config: unknown, dir: string, frame: number) => ({
+    path: path.join(dir, `phone-f${frame}.jpg`),
+    data: 'PHONE',
+    mimeType: 'image/jpeg',
+    frame,
+    width: 390,
+    height: 390,
+    ms: { bundle: 1, render: 1 },
+    bundleCached: true,
+  }),
+  renderContactSheet: vi.fn(),
+  measureLoopSeam: (...args: unknown[]) => measureLoopSeam(...args),
+}));
 
 type ToolCall = (name: string, args?: Record<string, unknown>) => Promise<{ content: Array<{ text?: string }> }>;
 interface Session {
@@ -171,20 +187,85 @@ describe('buildComposition — caps and cancel', () => {
       await s.call('check');
       s.turn(600);
       await s.call('render_stills', { frames: [0, 59] });
-      s.turn(300);
+      s.turn(200);
+      await s.call('phone_view', { frame: 30 });
+      s.turn(100);
       await s.call('finish', { summary: 'A ball, one bounce.' });
       s.turn(20);
     };
     const { req, events } = request();
     const result = await buildComposition(req);
-    expect(result).toMatchObject({ ok: true, finished: true, stopReason: 'finished', rounds: 1, turns: 4, summary: 'A ball, one bounce.' });
+    expect(result).toMatchObject({ ok: true, finished: true, stopReason: 'finished', rounds: 1, turns: 5, summary: 'A ball, one bounce.' });
+    // Not a loop: no seam verdict at all.
+    expect(result).not.toHaveProperty('seamOk');
     expect(result.tokens.output).toBe(1720);
     expect(result.usage).toMatchObject({ outputTokens: 1234 });
     expect(result.error).toBeUndefined();
     const phases = events.filter((e) => e.type === 'phase').map((e) => e.status.phase);
-    expect(phases).toEqual(['working', 'checking', 'working', 'rendering', 'working', 'checking', 'working', 'saving', 'done']);
+    expect(phases).toEqual([
+      'working',
+      'checking',
+      'working',
+      'rendering',
+      'working',
+      'rendering',
+      'working',
+      'checking',
+      'working',
+      'saving',
+      'done',
+    ]);
     const stills = events.find((e) => e.type === 'stills');
     expect(stills).toMatchObject({ frames: [0, 59], status: { round: 1, roundsMax: 1 } });
     expect(events[0]).toMatchObject({ type: 'start', budget: 'quick', roundsMin: 1, edit: false });
+  });
+});
+
+describe('buildComposition — the loop seam on the result', () => {
+  const seam = (jump: boolean) => ({
+    wrap: jump ? 1.1 : 0.05,
+    before: 0.1,
+    after: 0.1,
+    neighbours: 0.1,
+    ratio: jump ? 11 : 0.5,
+    jump,
+    region: null,
+    last: 59,
+    ms: { bundle: 1, render: 1 },
+    bundleCached: true,
+  });
+  const loop = { format: { width: 1080, height: 1080, fps: 30, durationInFrames: 60, loop: true } };
+
+  it('a loop finished on a seam measured OK is saved with seamOk true', async () => {
+    checkBuild.mockImplementation(async () => passed('// loop'));
+    measureLoopSeam.mockResolvedValue(seam(false));
+    script = async (s) => {
+      s.turn(500);
+      await s.call('render_stills', { frames: [0, 59] });
+      await s.call('phone_view', { frame: 30 });
+      await s.call('loop_seam');
+      await s.call('finish', { summary: 'A seamless bounce.' });
+    };
+    const result = await buildComposition(request(loop).req);
+    expect(result).toMatchObject({ ok: true, finished: true, seamOk: true });
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.seamOk).toBe(true);
+  });
+
+  it('a stubborn seam finishes through the escape hatch, recorded as seamOk false', async () => {
+    let n = 0;
+    checkBuild.mockImplementation(async () => passed(`// try ${Math.min(++n, 6)}`));
+    measureLoopSeam.mockResolvedValue(seam(true));
+    script = async (s) => {
+      s.turn(500);
+      await s.call('render_stills', { frames: [0, 59] }); // check 1
+      await s.call('phone_view', { frame: 30 }); // check 2
+      for (let i = 0; i < 3; i++) await s.call('loop_seam'); // checks 3-5: three builds, three JUMPs
+      await s.call('finish', { summary: 'Gave up on the seam.' }); // check 6
+    };
+    const result = await buildComposition(request(loop).req);
+    expect(result).toMatchObject({ ok: true, finished: true, seamOk: false, summary: 'Gave up on the seam.' });
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.seamOk).toBe(false);
   });
 });

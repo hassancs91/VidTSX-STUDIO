@@ -4,7 +4,8 @@
 // - `render_stills` and `contact_sheet` are LOOK ROUNDS: budgeted, counted
 //   toward the `finish` floor, given back when the render fails.
 // - `phone_view` (at most MAX_PHONE_VIEWS per run) and `loop_seam` (loops
-//   only) are free.
+//   only) are free. `finish` refuses until both have done their job
+//   (builder-tools.ts), so they record what they saw in the state.
 //
 // Every image shown is recorded in `state.stills` and saved with the version.
 
@@ -15,6 +16,7 @@ import { measureLoopSeam, PHONE_FEED_WIDTH, renderContactSheet, renderPhoneView 
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE } from './contact-sheet';
 import { describeSeam } from './loop-seam';
 import {
+  buildHash,
   checkForLook,
   logEvent,
   STOPPING,
@@ -198,7 +200,11 @@ export function buildLookTools(state: BuilderState) {
           label: `seam${state.seamChecks}`,
           ...signal(),
         });
-        await logEvent(state, { tool: 'loop_seam', n: state.seamChecks, ...seam, totalMs: Date.now() - started });
+        // What `finish` holds the loop to: this exact build, this verdict.
+        const build = buildHash(look.build.code);
+        state.lastSeam = { code: look.build.code, jump: seam.jump };
+        if (seam.jump) state.seamJumps.add(build);
+        await logEvent(state, { tool: 'loop_seam', n: state.seamChecks, build, ...seam, totalMs: Date.now() - started });
         state.onEvent?.({ type: 'seam', jump: seam.jump, wrap: seam.wrap, neighbours: seam.neighbours });
         return text(`${look.build.summary}\n${describeSeam(seam, seam.last)}`);
       } catch (err) {

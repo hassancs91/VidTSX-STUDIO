@@ -21,6 +21,8 @@ type Handler = (args: Record<string, unknown>) => Promise<{ content: Array<{ typ
 
 const config = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
 const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], ms: 5 };
+/** The finish gate met for the stubbed bundle (its own tests are in builder-look-tools.test.ts). */
+const gateMet = { phoneViews: 1, lastSeam: { code: '// bundle', jump: false } };
 
 async function setup(overrides: Partial<BuilderState> = {}) {
   const runDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-tools-'));
@@ -33,6 +35,8 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     checks: 0,
     phoneViews: 0,
     seamChecks: 0,
+    lastSeam: null,
+    seamJumps: new Set(),
     lastGood: null,
     finished: null,
     stills: [],
@@ -105,7 +109,7 @@ describe('finish', () => {
   });
 
   it('is refused before the floor while rounds remain, then accepted', async () => {
-    const { state, call } = await setup();
+    const { state, call } = await setup(gateMet);
     await call('render_stills', { frames: [0] });
     expect((await call('finish', { summary: 'early' })).content[0].text).toContain('Push the DESIGN');
     await call('render_stills', { frames: [0] });
@@ -115,10 +119,19 @@ describe('finish', () => {
   });
 
   it('keeps the first finish', async () => {
-    const { state, call } = await setup({ roundsUsed: 2 });
+    const { state, call } = await setup({ roundsUsed: 2, ...gateMet });
     await call('finish', { summary: 'first' });
     await call('finish', { summary: 'second' });
     expect(state.finished?.summary).toBe('first');
+  });
+
+  it('checks the round floor before the phone/seam gate, in its own words', async () => {
+    const { state, call } = await setup({ roundsUsed: 1 });
+    const result = await call('finish', { summary: 'early' });
+    expect(result.content[0].text).toContain('Push the DESIGN');
+    expect(result.content[0].text).not.toContain('phone_view');
+    expect(checkBuild).not.toHaveBeenCalled();
+    expect(state.finished).toBeNull();
   });
 
   it('cannot finish on a failing check', async () => {

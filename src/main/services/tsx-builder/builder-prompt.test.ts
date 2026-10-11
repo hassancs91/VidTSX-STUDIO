@@ -23,6 +23,12 @@ describe('buildBuilderSystemPrompt', () => {
     expect(buildBuilderSystemPrompt({ budget: 'standard', packs })).toBe(prompt);
   });
 
+  it('says finish enforces the phone view and the final seam', () => {
+    const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
+    expect(prompt).toContain('`finish` enforces both');
+    expect(prompt).toContain('`loop_seam` AFTER your last change');
+  });
+
   it('promises only packages the bundle step can inline', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
     expect(prompt).not.toMatch(/\btone\b/);

@@ -23,7 +23,9 @@ vi.mock('./build-looks', () => ({
   measureLoopSeam: (...args: unknown[]) => measureLoopSeam(...args),
 }));
 
-import { buildBuilderToolServer, type BuilderState } from './builder-tools';
+import { buildBuilderToolServer, SEAM_JUMP_ALLOWANCE, type BuilderState } from './builder-tools';
+import { seamOkFor } from './builder-tool-common';
+import { EDIT_MIN_ROUNDS } from './builder-prompt';
 
 type Result = { content: Array<{ type: string; text?: string; data?: string }>; isError?: boolean };
 type Tool = { name: string; description: string; handler: (args: Record<string, unknown>) => Promise<Result> };
@@ -31,6 +33,7 @@ type Tool = { name: string; description: string; handler: (args: Record<string, 
 const config = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
 const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], ms: 5 };
 const seam = { wrap: 1.12, before: 0.1, after: 0.1, neighbours: 0.1, ratio: 11.2, jump: true, region: null, last: 239 };
+const okSeam = { ...seam, wrap: 0.09, ratio: 0.9, jump: false, ms: { bundle: 1, render: 1 }, bundleCached: true };
 
 async function setup(overrides: Partial<BuilderState> = {}) {
   const runDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-looks-'));
@@ -43,6 +46,8 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     checks: 0,
     phoneViews: 0,
     seamChecks: 0,
+    lastSeam: null,
+    seamJumps: new Set(),
     lastGood: null,
     finished: null,
     stills: [],
@@ -94,7 +99,7 @@ describe('contact_sheet', () => {
   });
 
   it('counts toward the finish floor', async () => {
-    const { state, call } = await setup();
+    const { state, call } = await setup({ phoneViews: 1, lastSeam: { code: '// bundle', jump: false } });
     await call('contact_sheet', { frames: [0, 120] });
     await call('contact_sheet', { frames: [30, 90] });
     expect((await call('finish', { summary: 'two sheets' })).isError).toBeUndefined();
@@ -169,5 +174,100 @@ describe('loop_seam', () => {
     const result = await call('loop_seam');
     expect(result.content[0].text).toContain('check FAILED');
     expect(measureLoopSeam).not.toHaveBeenCalled();
+  });
+});
+
+describe('finish gate', () => {
+  const events = async (state: BuilderState) => fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8');
+  /** The builder edited its files: the next check bundles different code. */
+  const editTo = (code: string) => checkBuild.mockResolvedValue({ ...passed, code });
+
+  it('on a build that is not a loop, needs only one phone view', async () => {
+    const { state, call } = await setup({ roundsUsed: 2, expect: { width: 1080, height: 1350, fps: 30, durationInFrames: 240 } });
+    const refused = await call('finish', { summary: 's' });
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0].text).toContain('this free check first');
+    expect(refused.content[0].text).toContain('phone_view has not run yet');
+    expect(refused.content[0].text).not.toContain('loop_seam');
+    expect(state.finished).toBeNull();
+    await call('phone_view', { frame: 120 });
+    expect((await call('finish', { summary: 's' })).isError).toBeUndefined();
+    expect(state.finished?.summary).toBe('s');
+    expect(measureLoopSeam).not.toHaveBeenCalled();
+  });
+
+  it('on a loop, names every missing check in one refusal', async () => {
+    const { state, call } = await setup({ roundsUsed: 2 });
+    const refused = await call('finish', { summary: 's' });
+    expect(refused.content[0].text).toContain('these free checks first');
+    expect(refused.content[0].text).toContain('phone_view has not run yet');
+    expect(refused.content[0].text).toContain('loop_seam has not run yet');
+    expect(await events(state)).toContain('"missing":["phone_view","loop_seam"]');
+    // A phone view whose render failed does not count.
+    renderPhoneView.mockRejectedValueOnce(new Error('ReferenceError: y'));
+    await call('phone_view', { frame: 0 });
+    expect((await call('finish', { summary: 's' })).content[0].text).toContain('phone_view has not run yet');
+  });
+
+  it('refuses a seam measured on an earlier build, and accepts once this build measures OK', async () => {
+    measureLoopSeam.mockResolvedValue(okSeam);
+    const { state, call } = await setup({ roundsUsed: 2 });
+    await call('phone_view', { frame: 120 });
+    await call('loop_seam');
+    editTo('// bundle v2');
+    const stale = await call('finish', { summary: 's' });
+    expect(stale.isError).toBe(true);
+    expect(stale.content[0].text).toContain('loop_seam last measured an earlier build');
+    expect(stale.content[0].text).not.toContain('phone_view');
+    await call('loop_seam');
+    expect((await call('finish', { summary: 's' })).isError).toBeUndefined();
+    expect(state.finished?.code).toBe('// bundle v2');
+    expect(seamOkFor(state, '// bundle v2')).toBe(true);
+    expect(await events(state)).toContain('"seamOk":true');
+  });
+
+  it('refuses a JUMP on the build being finished, until a fix measures OK', async () => {
+    const { state, call } = await setup({ roundsUsed: 2 });
+    await call('phone_view', { frame: 120 });
+    await call('loop_seam');
+    const jumped = await call('finish', { summary: 's' });
+    expect(jumped.content[0].text).toContain('loop_seam says JUMP on this build');
+    expect(state.finished).toBeNull();
+    editTo('// bundle fixed');
+    measureLoopSeam.mockResolvedValue(okSeam);
+    await call('loop_seam');
+    expect((await call('finish', { summary: 'fixed' })).isError).toBeUndefined();
+    expect(state.finished?.summary).toBe('fixed');
+  });
+
+  it(`lets a stubborn seam through after ${SEAM_JUMP_ALLOWANCE} JUMPs on different builds, marked seamOk false`, async () => {
+    const { state, call } = await setup({ roundsUsed: 2 });
+    await call('phone_view', { frame: 120 });
+    for (let attempt = 1; attempt <= SEAM_JUMP_ALLOWANCE; attempt++) {
+      editTo(`// try ${attempt}`);
+      await call('loop_seam');
+      // The same build measured again is not another try.
+      await call('loop_seam');
+      expect(state.seamJumps.size).toBe(attempt);
+      if (attempt < SEAM_JUMP_ALLOWANCE) {
+        expect((await call('finish', { summary: 's' })).content[0].text).toContain('says JUMP');
+      }
+    }
+    const result = await call('finish', { summary: 'stubborn' });
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain('loop seam NOT verified');
+    expect(result.content[0].text).toContain('seamOk: false');
+    expect(state.finished?.summary).toBe('stubborn');
+    expect(await events(state)).toContain(`"seamOk":false,"seamJumps":${SEAM_JUMP_ALLOWANCE}`);
+  });
+
+  it("holds an edit to it too, after the edit's one-look floor", async () => {
+    measureLoopSeam.mockResolvedValue(okSeam);
+    const { state, call } = await setup({ roundsMin: EDIT_MIN_ROUNDS, roundsUsed: 1 });
+    expect((await call('finish', { summary: 'edit' })).content[0].text).toContain('phone_view has not run yet');
+    await call('phone_view', { frame: 0 });
+    await call('loop_seam');
+    expect((await call('finish', { summary: 'edit' })).isError).toBeUndefined();
+    expect(state.finished?.summary).toBe('edit');
   });
 });

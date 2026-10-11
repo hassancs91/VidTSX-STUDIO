@@ -152,6 +152,12 @@ export interface BuildResult {
   summary?: string;
   rounds: number;
   checks: number;
+  /**
+   * Loops with a kept build only: the last `loop_seam` measured exactly this
+   * build and said OK. False when `finish` let a stubborn seam through
+   * (SEAM_JUMP_ALLOWANCE), or a capped run kept a build not measured OK.
+   */
+  seamOk?: boolean;
   stills: BuildStillRecord[];
   elapsedMs: number;
   /** Counted per API response, so a capped or cancelled run has them too. */

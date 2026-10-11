@@ -7,6 +7,7 @@
 // cancelled, a call that arrives after it is refused, and nothing is
 // committed after it — a `finish` racing a cancel does not count.
 
+import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { checkBuild, type BuildCheckResult } from './build-check';
@@ -28,6 +29,10 @@ export interface BuilderState {
   phoneViews: number;
   /** loop_seam calls (free). */
   seamChecks: number;
+  /** The last loop_seam measurement: the build it measured and its verdict. `finish` compares it with its own final check. */
+  lastSeam: { code: string; jump: boolean } | null;
+  /** Builds (by buildHash) that loop_seam called a JUMP: the same build measured twice counts once. */
+  seamJumps: Set<string>;
   /** The last artifact that passed every gate — what a capped run returns. */
   lastGood: { code: string; config: CompositionConfig; check: number } | null;
   finished: { summary: string; code: string; config: CompositionConfig } | null;
@@ -51,6 +56,16 @@ export const text = (t: string, isError = false): ToolResult => ({
 });
 
 export const STOPPING = 'The run is stopping. Reply with one short line and stop.';
+
+/** A short id for one checked build, for the event log and the seam record. */
+export function buildHash(code: string): string {
+  return createHash('sha256').update(code).digest('hex').slice(0, 8);
+}
+
+/** True when the last loop_seam measured exactly `code` and said OK. */
+export function seamOkFor(state: BuilderState, code: string): boolean {
+  return state.lastSeam !== null && state.lastSeam.code === code && !state.lastSeam.jump;
+}
 
 export async function logEvent(state: BuilderState, event: Record<string, unknown>): Promise<void> {
   const line = JSON.stringify({ at: new Date().toISOString(), ...event });
