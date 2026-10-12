@@ -486,6 +486,15 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   output, so files are 0.1–0.6 MB for 2D/data, 2.3 MB for three + drei + postprocessing, 4.2 MB with
 >   Rapier's inlined WASM. 3D stills on SwiftShader: 13 s for 2 frames with N8AO + Bloom.
 >   Deferred to part 4: opentype.js, lottie-web, @remotion/gif (need asset files).
+> - **Part 2 DONE `9bb3452` + `916f4c6`**: GPU stills. `gl-backend-probe.ts` opens Remotion's browser on
+>   `angle` once per app run and reads WebGL's renderer (no bundle, ~3 s): a GPU → `angle`, SwiftShader /
+>   WARP / no WebGL → `swangle`. Every builder look renders on it. The prompt has a "## 3D" block (ThreeCanvas,
+>   frame-driven, fixed Canvas `camera` prop: R3F 9.5 rebuilds the camera without its lookAt when it changes,
+>   so stills and exports disagree; DoF → N8AO → Bloom → SMAA, multisampling 0; nothing that loads a file).
+>   Measured (spike mode `gl`): stills 2.1–2.8× faster on 3D; 120-frame exports 13× (heavy 3D, 31 s vs
+>   7.0 min) and 9× (SVG-filter 2D); backends match to the eye, each repeats itself exactly. **Export default
+>   = `auto`** (Hasan's option c): the probed backend unless the user picks one. 3D Quick smoke (Sonnet 5.5):
+>   finished, 3.2 min, $0.74 API-eq, seamOk, every look on `angle`, followed the camera rule.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
