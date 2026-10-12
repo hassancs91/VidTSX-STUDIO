@@ -12,12 +12,14 @@
 // renderComposition) for one second of H.264; `lookProbe` saves a contact
 // sheet + phone view of the fixture and measures its seam; `seamSources` runs
 // loop_seam on loops whose verdict is known.
-// mode "build" — a real run on one brief through generateTsx(), with craft
-// packs read from a folder of skills (`<packsDir>/<name>/SKILL.md`, used
-// verbatim). Progress events stream to `<outDir>/progress.jsonl`;
-// `cancelAfterMs` cancels the run. `engine` forces the builder or the one-shot
-// pipeline (agent-composition gate, strict imports), whose result lands in
-// `<outDir>/pipeline/`.
+// mode "build" — a real run on one brief as a `build` job on tsxJobEngine (the
+// path the app runs; builder-spike-job.ts), with craft packs read from a
+// folder of skills (`<packsDir>/<name>/SKILL.md`, sent verbatim as the job's
+// pack bodies). Every job event (the whole snapshot) and every narration chunk
+// lands in `<outDir>/progress.jsonl`; `cancelAfterMs` cancels the job. The
+// job saves into the profile's Creator library, as the app does; the project
+// is copied to `<outDir>/projects/`. A job cannot force the one-shot pipeline:
+// part 5's check of it stays in runs/P1/fallback-p5.
 // mode "engines" — free: which engine each provider would get, and why.
 
 import fs from 'fs/promises';
@@ -27,13 +29,14 @@ import { logEngine } from '../../../logging/log-engine';
 import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
 import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
-import { generateTsx } from './generate-tsx';
-import { buildAgentTsxDeps } from '../agents/tsx-deps';
-import { enginesProbe, registerProviderFromEnv, savePipelineRun } from './builder-spike-dispatch';
+import { tsxJobEngine } from '../tsx-jobs/tsx-job-engine';
+import { getTsxBuildsDir } from '../../utils/paths';
+import { enginesProbe, registerProviderFromEnv } from './builder-spike-dispatch';
+import { followJob, jobRequestFor, keepJobResult, type BuildSpikeRequest } from './builder-spike-job';
 import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type SeamSource } from './builder-spike-probes';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
-import type { BuildBudget, BuildFormat, BuildPack, BuildProgressEvent, TsxEngine } from './types';
+import type { BuildPack } from './types';
 
 const log = logEngine.createLogger('TsxBuilderSpike');
 
@@ -48,29 +51,6 @@ interface FixtureRequest {
   lookProbe?: boolean;
   seamSources?: SeamSource[];
   /** Quit the app when done (unattended runs). */
-  quit?: boolean;
-}
-
-interface BuildSpikeRequest {
-  mode: 'build';
-  intent: string;
-  /** Required unless `editOf` is given. */
-  format?: BuildFormat;
-  outDir: string;
-  budget: BuildBudget;
-  packsDir?: string;
-  packNames?: string[];
-  editOf?: { folderPath: string; version?: number };
-  /** Default `<outDir>/projects`, so runs never land in the profile's Creator library unasked. */
-  projectsDir?: string;
-  name?: string;
-  providerId?: string;
-  model?: string;
-  maxMinutes?: number;
-  maxOutputTokens?: number;
-  cancelAfterMs?: number;
-  /** Absent = by provider, as every caller gets it. */
-  engine?: TsxEngine;
   quit?: boolean;
 }
 
@@ -97,6 +77,9 @@ async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
 }
 
 async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>> {
+  if ('engine' in req || 'projectsDir' in req) {
+    return { error: 'A build job takes neither "engine" nor "projectsDir" (part 5\'s pipeline check: runs/P1/fallback-p5).' };
+  }
   const packs = req.packsDir ? await readPacks(req.packsDir, req.packNames) : [];
   const progressPath = path.join(req.outDir, 'progress.jsonl');
   await fs.rm(progressPath, { force: true });
@@ -105,52 +88,27 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
     const line = `${JSON.stringify({ at: new Date().toISOString(), ...entry })}\n`;
     writes = writes.then(() => fs.appendFile(progressPath, line, 'utf-8')).catch(() => {});
   };
-  const onProgress = (event: BuildProgressEvent) => writeLine(event);
   // A BYOK preset the throwaway profile has no key for: `<ID>_API_KEY`, this run only.
   const envProvider = req.providerId ? registerProviderFromEnv(req.providerId) : false;
-  const cancel = new AbortController();
-  const cancelTimer = req.cancelAfterMs ? setTimeout(() => cancel.abort(), req.cancelAfterMs) : null;
-  const result = await generateTsx({
-    intent: req.intent,
-    ...(req.format ? { format: req.format } : {}),
-    budget: req.budget,
-    packs,
-    ...(req.editOf ? { editOf: req.editOf } : {}),
-    projectsDir: req.projectsDir ?? path.join(req.outDir, 'projects'),
-    runsDir: path.join(req.outDir, 'runs'),
-    ...(req.name ? { name: req.name } : {}),
-    ...(req.providerId ? { providerId: req.providerId } : {}),
-    ...(req.model ? { model: req.model } : {}),
-    ...(req.maxMinutes ? { maxMinutes: req.maxMinutes } : {}),
-    ...(req.maxOutputTokens ? { maxOutputTokens: req.maxOutputTokens } : {}),
-    signal: cancel.signal,
-    onProgress,
-    ...(req.engine ? { engine: req.engine } : {}),
-    fallback: {
-      deps: buildAgentTsxDeps(req.providerId, cancel.signal, undefined, 'tsx-generation'),
-      promptContext: { imports: 'strict' },
-      onProgress: (p) => writeLine({ pipeline: p }),
-    },
+  const followed = await followJob(tsxJobEngine, jobRequestFor(req, packs), {
+    write: writeLine,
+    ...(req.cancelAfterMs ? { cancelAfterMs: req.cancelAfterMs } : {}),
   });
-  if (cancelTimer) clearTimeout(cancelTimer);
   await writes;
-  const head = {
+  const { final, ...job } = followed;
+  return {
     mode: 'build',
+    via: 'tsx-job',
     packs: packs.map((p) => p.name),
-    providerId: req.providerId ?? 'active',
+    providerId: req.providerId ?? 'engine default',
     envProvider,
-    model: req.model ?? 'provider default',
+    requestedModel: req.model ?? 'provider default',
+    ...job,
+    // A run that saved nothing keeps its folder here (transcript, events).
+    runsDir: getTsxBuildsDir(),
+    result: final ? await keepJobResult(final, req.outDir) : null,
+    final: final ?? null,
   };
-  if (result.engine === 'pipeline') {
-    const { code: _code, pipeline, ...rest } = result;
-    const { text: _text, ...pipelineInfo } = pipeline ?? { text: '' };
-    return { ...head, ...rest, pipeline: pipeline ? pipelineInfo : null, saved: await savePipelineRun(result, req.outDir) };
-  }
-  // Refused before anything ran (no tools, or an OpenRouter model without tools / image input).
-  if (result.engine === 'none') return { ...head, ...result };
-  const { code: _code, build, ...rest } = result;
-  const { code: _buildCode, ...buildInfo } = build ?? { code: '' };
-  return { ...head, ...rest, build: build ? buildInfo : null };
 }
 
 async function listTree(dir: string, rel = ''): Promise<string[]> {
