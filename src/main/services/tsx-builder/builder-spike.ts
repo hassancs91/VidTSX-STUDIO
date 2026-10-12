@@ -29,7 +29,7 @@ import { renderBuildStills } from './build-stills';
 import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
 import { generateTsx } from './generate-tsx';
 import { buildAgentTsxDeps } from '../agents/tsx-deps';
-import { enginesProbe, savePipelineRun } from './builder-spike-dispatch';
+import { enginesProbe, registerProviderFromEnv, savePipelineRun } from './builder-spike-dispatch';
 import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type SeamSource } from './builder-spike-probes';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
@@ -106,6 +106,8 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
     writes = writes.then(() => fs.appendFile(progressPath, line, 'utf-8')).catch(() => {});
   };
   const onProgress = (event: BuildProgressEvent) => writeLine(event);
+  // A BYOK preset the throwaway profile has no key for: `<ID>_API_KEY`, this run only.
+  const envProvider = req.providerId ? registerProviderFromEnv(req.providerId) : false;
   const cancel = new AbortController();
   const cancelTimer = req.cancelAfterMs ? setTimeout(() => cancel.abort(), req.cancelAfterMs) : null;
   const result = await generateTsx({
@@ -132,7 +134,13 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
   });
   if (cancelTimer) clearTimeout(cancelTimer);
   await writes;
-  const head = { mode: 'build', packs: packs.map((p) => p.name), model: req.model ?? 'provider default' };
+  const head = {
+    mode: 'build',
+    packs: packs.map((p) => p.name),
+    providerId: req.providerId ?? 'active',
+    envProvider,
+    model: req.model ?? 'provider default',
+  };
   if (result.engine === 'pipeline') {
     const { code: _code, pipeline, ...rest } = result;
     const { text: _text, ...pipelineInfo } = pipeline ?? { text: '' };

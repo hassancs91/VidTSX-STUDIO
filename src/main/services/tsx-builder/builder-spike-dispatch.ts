@@ -2,6 +2,9 @@
 // free: it reports which engine every provider this profile knows would get,
 // and why. `savePipelineRun` keeps what the one-shot fallback made — it saves
 // nothing itself — as `<outDir>/pipeline/` (code, debug, three stills).
+// `registerProviderFromEnv` lets a throwaway profile with no saved keys test a
+// BYOK preset: the key comes from `<ID>_API_KEY` in the app's environment and
+// lives in the engine for this app run only — never saved, never logged.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -34,6 +37,17 @@ export async function enginesProbe(): Promise<Record<string, unknown>> {
     mode3d: await chooseTsxEngine({ mode: '3d' }),
     providers: rows,
   };
+}
+
+/** True when it registered the preset; false when it was already there or no key is set. */
+export function registerProviderFromEnv(providerId: string): boolean {
+  if (llmEngine.getProviders().includes(providerId)) return false;
+  const preset = PROVIDER_PRESETS.find((p) => p.id === providerId);
+  const apiKey = process.env[`${providerId.toUpperCase()}_API_KEY`]?.trim();
+  if (!preset || preset.authMode !== 'api-key' || !apiKey) return false;
+  const { credentialId: _credentialId, ...config } = preset;
+  llmEngine.register({ ...config, apiKey, enabled: true });
+  return true;
 }
 
 export async function savePipelineRun(
