@@ -15,6 +15,24 @@
 > come from real runs in the `studio-unlock-01` experiment (§1). Facts marked **[spike]** are
 > expected but not yet proven in our runtime; P0 exists to prove them.
 
+> **Rev 2 — DECIDED by Hasan 2026-10-12** (after P1 part 5). Where this block and the text below
+> disagree, this block wins.
+> 1. **The builder is the only generator.** The one-shot `generateTsxPipeline` is deleted from
+>    generation in P3, once the builder does 3D (P2). Reasons: there are no users yet; V1 ships
+>    three LLM providers (Claude Subscription, Claude API key, OpenRouter) and all three are
+>    `agent-sdk` (OpenAI, Gemini, Z.AI, MiniMax, Kimi are hidden presets,
+>    `llm-preset-visibility.ts`; `local` is dev-only); and a non-Claude model passed the builder
+>    through OpenRouter (§5, P1 part 5). Until P3 the pipeline is frozen: no new work on it, and
+>    it serves only Creator 3D. Providers without tools get a clear error, not a second path.
+> 2. **No library limits (T4 Rev 2, option A): a broad curated set built into the app**, not
+>    tiers. Option B (download any npm package at build time) was rejected for now: a new
+>    outbound network class and unknown package code inside the renderer.
+> 3. **"No limits" also covers what is not a library:** GPU rendering for 3D stills and export,
+>    frame-pure physics, an assets folder for the builder, package resolution in the packaged
+>    app, and no network at render (T4 Rev 2).
+> 4. **Order unchanged:** P1 part 6 → part 7 (exit) → P2 "no limits" → P3 callers + pipeline
+>    deleted → P4 → P5. Hasan: "anyway, I will finish everything".
+
 ---
 
 ## 0. The one property that must survive
@@ -208,7 +226,8 @@ Only a builder loop reaches column 3.
   later messages edit.
 - **Agents:** pass **intent** (idea, chosen picture, audience, style, what frame 0 must
   show, the pack ids), never pixel boxes.
-- **Fallback:** providers without tool use keep today's one-shot pipeline.
+- **Fallback:** ~~providers without tool use keep today's one-shot pipeline.~~ Rev 2: none.
+  The builder is the only generator; a provider without tools gets a clear error.
 
 ---
 
@@ -265,7 +284,67 @@ the bundle.
   `export const compositionConfig =` literal rules.** Plan: the entry's literal config is
   copied verbatim into the bundle head. P0 proves it.
 
-### T4 — Import tier 1 (no new dependencies)
+### T4 Rev 2 — No library limits (DECIDED 2026-10-12, option A; replaces the tiers below)
+
+Hasan: "I want to add to the builder everything needed to build any complex 3d and 2d and
+physics and so on. I dont want limitation due to libraries."
+
+**Why it is a bundle-step question [verified 10-12].** The builder's artifact is ONE file with
+everything inlined except react, remotion and @vidtsx/kit (`shot-bundle.ts:21-25`,
+`EXTERNAL` / `INLINE_ALLOWED`). So any pure-JS package works in every consumer once it is
+(1) installed in the app and (2) allowed by the bundle step. Today `INLINE_ALLOWED` is
+lucide-react, chroma-js and `@remotion/*` only: three.js is installed but blocked ("Package
+"three" is not available").
+
+**Installed already [verified 10-12, `package.json`]:** three 0.183.2, @react-three/fiber 9.5.0,
+@react-three/drei 10.7.7, @remotion/three, @remotion/lottie, @remotion/gif,
+@remotion/animated-emoji, @remotion/noise, paths, shapes, transitions, google-fonts,
+media-utils, chroma-js, lucide-react, tone. **Missing:** every physics engine, d3,
+postprocessing, katex, a code highlighter, roughjs, opentype.js, map data, @remotion/
+layout-utils / motion-blur / light-leaks.
+
+**The set (option A; adding one later = one line + `npm install` + a release):**
+
+| Area | Packages |
+|---|---|
+| 3D | three, @react-three/fiber, @react-three/drei (minus helpers that fetch from CDNs), @react-three/postprocessing + postprocessing, @remotion/three |
+| Physics | @dimforge/rapier3d-compat + rapier2d-compat (WASM inlined, deterministic), cannon-es, matter-js, planck |
+| 2D, vector, texture | d3 modules (scale, shape, force, geo, hierarchy…), roughjs (hand-drawn / chalk, the R0 gap), simplex-noise, opentype.js (text as paths), all @remotion/* incl. layout-utils, motion-blur, light-leaks |
+| Data, maps, text | topojson-client + world-atlas (offline maps), katex (math), prism-react-renderer (code) |
+| Formats, color, icons | @remotion/lottie + lottie, @remotion/gif, chroma-js / culori, lucide-react |
+| Banned by rule | gsap, framer-motion, CSS animations, timers: time-based, not frame-pure |
+
+Exact versions pinned at install; the final list is checked against licences
+(THIRD_PARTY_NOTICES) and installer size when P2 starts.
+
+**One constant** (in `src/shared/`) is the list: the bundle step's `INLINE_ALLOWED`, the
+builder prompt's package catalogue ("use X for Y"), the packaging config and the tests all
+read it. The drifting copies of §2.5 go.
+
+**What else "no limits" needs (all P2):**
+1. **GPU rendering.** The default GL backend is `swangle` (software, `settings.ts:113`):
+   complex 3D is slow. Builder stills and export use ANGLE on the GPU (the lab's recipe:
+   `--use-angle=d3d11 --ignore-gpu-blocklist` reached RTX at 60 fps headless), with software
+   as the fallback on weak machines.
+2. **Frame-pure physics.** Remotion renders frames out of order and in parallel. A simulation
+   steps at a fixed dt from frame 0, memoised per composition; a small helper plus a prompt
+   rule, or every physics piece jitters.
+3. **Assets.** `check` refuses `staticFile()` today ("not available to the builder yet"). 3D
+   needs GLB models, textures, HDRIs; 2D needs images. The builder gets an assets folder (the
+   user's library, generated images through the gated tools, its own files) that travels with
+   the version.
+4. **Packaged app.** esbuild cannot read inside `app.asar` (P0): `asarUnpack` the set, or an
+   esbuild onLoad plugin that reads through Electron's fs.
+5. **No network at render.** Helpers that fetch at render time (drei's `Environment` presets
+   download HDRs from a CDN) are vendored or banned; fonts per T5.
+6. **Craft.** The builder prompt gets the catalogue; 3D and physics craft knowledge comes from
+   the lab: `remotion-three-asset-loading` (continueRender after R3F advance(), DoF before
+   N8AO, no MSAA) and the real3d-lab pieces as the quality bar.
+
+**P2 exit:** new briefs that need 3D and physics (plus the four 2D briefs, unchanged) reach the
+lab's real3d quality, in the dev app and in a packaged build, offline after the first run.
+
+### T4 — Import tier 1 (no new dependencies) — SUPERSEDED by T4 Rev 2
 - **Tier 1** is what is already installed at 4.0.435: `@remotion/paths`, `@remotion/shapes`,
   `@remotion/noise`, `@remotion/transitions`, `@remotion/media-utils`, plus the font route of
   §T5.
@@ -368,15 +447,24 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > - **New P2 risk:** esbuild cannot read inside `app.asar`, so the bundle step's package resolution
 >   needs an Electron-fs onLoad plugin (or unpacked tier-1 packages) in the installed app.
 
+> **P1 in progress (branch `tsx-builder-p0`, unpushed), seven parts, one at a time with Hasan's go.**
+> Detail per part + run results: `ai-video-lab/experiments/studio-unlock-01/NEXT-SESSION-PROMPT.md`.
+> 1 types + build store + edits `503fd3a` · 2 caps, cancel, progress `f4c6602` · 3 per-build bundle
+> serving `048e3e5` · 4 contact_sheet / phone_view / loop_seam `5b71a37` · 4b finish gate (phone view +
+> loop seam on the finished build) `e43b38b` · 5 `generateTsx()` dispatcher + pipeline fallback
+> `97c9e4a` (+ `34b55d9` dev entry: BYOK preset key from env; OpenRouter GPT passed) ·
+> **next: 6** tsx-job kind `build` (builder only, per Rev 2) · 7 dev entry through the job engine +
+> the exit (B1–B4 at Craft on Opus 5.5, wall `P1-B1..B4`, one Standard edit of B2).
+
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
 
 | Phase | Scope | Exit |
 |---|---|---|
 | **P0 spike** (no UI, dev-only IPC or script, behind flag `tsx-builder`) | builder session in main: guarded file tools + `check` + `render_stills` + `finish`; budget Craft; brief B2 | B2 reaches column-3 class from inside the app process, on Windows, with no shell. Also answered: the allowedTools hole; bundle passes the gates (T3); font route works in the isolated `/preview` page; stills time per round on the 1650 Ti laptop |
-| **P1 builder service** | request/result types, build folders + versions (`vN.tsx`, `vN.src/`, debug), all T2 tools except `text_overlaps`, budgets + caps, cancel, progress events, tsx-job hosting, unit tests | all four briefs through a dev entry; fallback path for non-tool providers |
-| **P2 imports + fonts** | single allowlist constant, tier 1 vendored for preview, export resolution, `compositionConfig.fonts` through the brand-font pipeline, prompts aligned; kit on the render path, chroma-js | the four briefs render with real fonts, offline after the first run |
-| **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node | each entry point produces column-3 class on its brief |
+| **P1 builder service** | request/result types, build folders + versions (`vN.tsx`, `vN.src/`, debug), all T2 tools except `text_overlaps`, budgets + caps, cancel, progress events, the `generateTsx()` dispatcher, tsx-job hosting (builder only; providers without tools → clear error; OpenRouter models must have tools + image input), unit tests | all four briefs through the job engine at Craft on the wall (`P1-B1..B4`) + one Standard edit of B2 |
+| **P2 no limits** (Rev 2) | T4 Rev 2: the curated library set behind one constant, GPU stills + export, frame-pure physics helper + rule, builder assets folder, packaged-app resolution (asar), no network at render; plus T5 fonts, kit on the render path, prompts aligned | new 3D + physics briefs reach the lab's real3d quality; the four 2D briefs still pass; dev and packaged, offline after the first run |
+| **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline |
 | **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent |
 | **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes | stability gate |
 
@@ -453,6 +541,9 @@ run`). The T9 items can land independently and early.
 - **Session continuity.** There is no SDK `resume`. Edits in a later turn start a fresh
   session with the source folder plus `vN.debug.json`, which is enough because the files are
   the memory. Revisit if quality drops on long edit chains.
+- **[Rev 2, 10-12] OpenRouter with a non-Claude model PASSED** (`openai/gpt-6.1-sol`, Quick smoke,
+  finished with seam OK, ~$0.14). Other models through OpenRouter untested; a model without
+  tools or image input must be refused before the run (P1 part 6). Original note:
 - **Non-Claude tool providers** (openrouter, minimax, zai, kimi) are untested with image
   tool results. P1 checks openrouter at least.
 - **Prompt-cache hygiene.** The builder's system prompt plus packs must be fixed for the run.
