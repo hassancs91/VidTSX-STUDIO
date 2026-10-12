@@ -470,7 +470,22 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > use or image input is refused before the run from its public model list; snapshot carries phase,
 > rounds, checks, tokens, latest stills; builds run one at a time) `2a8a166` ·
 > 7 dev entry through the job engine `275ca59` + the exit above · ink line `8ac3261`.
-> **Next: P2 "no limits"** (Rev 2), on Hasan's go.
+
+> **P2 in progress** (one part at a time with Hasan's go): 1 library set · 2 3D (GPU stills) ·
+> 3 frame-pure physics · 4 builder assets · 5 packaged app + offline · 6 exit (B1–B7).
+> D1 decided 10-12: **inline everything** (option A), so every consumer takes 3D unchanged.
+> Measured 10-12: builder stills with no `gl` render WebGL on SwiftShader (CPU); `gl: 'angle'` gets the
+> GPU (RTX A3000, D3D11).
+> - **Part 1 DONE `447e7cd`**: the set installed exact (~96 MB in node_modules; licences MIT / ISC /
+>   Zlib / Apache-2.0, light-leaks Remotion License), `shared/tsx-engine/builder-libraries.ts` = the one
+>   list (bundle allowlist + prompt catalogue + banned clock-driven packages). Two bundle fixes the probe
+>   found: CommonJS `require('react')` (use-sync-external-store under R3F, react-dom under
+>   @remotion/shapes — a latent bug, shapes was allowed before) now served from the shared react;
+>   `process.env.NODE_ENV` defined as production. Free probe (spike mode `libraries`, 10 sources): 10/10,
+>   every area renders through the builder's stills. Not minified: the finisher needs esbuild's plain
+>   output, so files are 0.1–0.6 MB for 2D/data, 2.3 MB for three + drei + postprocessing, 4.2 MB with
+>   Rapier's inlined WASM. 3D stills on SwiftShader: 13 s for 2 frames with N8AO + Bloom.
+>   Deferred to part 4: opentype.js, lottie-web, @remotion/gif (need asset files).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
