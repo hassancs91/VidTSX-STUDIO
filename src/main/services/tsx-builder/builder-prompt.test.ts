@@ -29,6 +29,13 @@ describe('buildBuilderSystemPrompt', () => {
     expect(prompt).toContain('`loop_seam` AFTER your last change');
   });
 
+  it('defines numbers as ink as countable marks, and a chart as not ink', () => {
+    const prompt = buildBuilderSystemPrompt({ budget: 'craft', packs: [] });
+    expect(prompt).toContain('Numbers as ink means COUNTABLE marks at true scale');
+    expect(prompt).toContain('a chart, not ink');
+    expect(prompt).toContain('A chart with a face added is still a chart.');
+  });
+
   it('promises only packages the bundle step can inline', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
     expect(prompt).not.toMatch(/\btone\b/);
