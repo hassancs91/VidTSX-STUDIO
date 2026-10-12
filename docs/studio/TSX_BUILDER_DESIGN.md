@@ -447,8 +447,19 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > - **New P2 risk:** esbuild cannot read inside `app.asar`, so the bundle step's package resolution
 >   needs an Electron-fs onLoad plugin (or unpacked tier-1 packages) in the installed app.
 
-> **P1 in progress (branch `tsx-builder-p0`, unpushed), seven parts, one at a time with Hasan's go.**
-> Detail per part + run results: `ai-video-lab/experiments/studio-unlock-01/NEXT-SESSION-PROMPT.md`.
+> **P1 DONE 2026-10-12 — exit met** (branch `tsx-builder-p0`, unpushed; details:
+> `ai-video-lab/experiments/studio-unlock-01/FINDINGS-P1.md`, per part: `NEXT-SESSION-PROMPT.md`).
+> - Exit through a `build` job on the app's job engine, Craft on Opus 5.5: B1 7.3 min 4/6 rounds $1.77 ·
+>   B2 8.6 min 6/6 $2.42 · B3 7.0 min 5/6 $2.12 · B4 8.6 min 5/6 $1.55 (API-eq); the Standard edit of B2
+>   through `editOf` (8% → 6%) 3.1 min 3/3 $0.79, v2 beside an untouched v1. All `finished`, all
+>   `seamOk`, 0 finish refusals, 0 failed checks in 45. Wall `P1-B1..B4` + `P1-B2-edit` on :3920.
+> - Quality: every number right in all five; column 3's class on B4 only. B1–B3 are strong charts
+>   with an actor: the design PICK, not the round count, is the gap (the "numbers as ink" metaphor
+>   was a chart in B2 and B3). A prompt line defining ink as countable marks is proposed, not made.
+> - Looks are 19–29 % of a Craft run; narration is 2–5 chunks a run, so P3's progress UI reads the
+>   snapshot. Open: leftover `work/` per saved run, bundle-cache never pruned (~54 MB a run).
+>
+> Parts:
 > 1 types + build store + edits `503fd3a` · 2 caps, cancel, progress `f4c6602` · 3 per-build bundle
 > serving `048e3e5` · 4 contact_sheet / phone_view / loop_seam `5b71a37` · 4b finish gate (phone view +
 > loop seam on the finished build) `e43b38b` · 5 `generateTsx()` dispatcher + pipeline fallback
@@ -456,8 +467,8 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > kind `build` (builder only: a provider without tools is refused, an OpenRouter model without tool
 > use or image input is refused before the run from its public model list; snapshot carries phase,
 > rounds, checks, tokens, latest stills; builds run one at a time) `2a8a166` ·
-> **next: 7** dev entry through the job engine + the exit (B1–B4 at Craft on Opus 5.5, wall
-> `P1-B1..B4`, one Standard edit of B2).
+> 7 dev entry through the job engine `275ca59` + the exit above. **Next: P2 "no limits"** (Rev 2),
+> on Hasan's go (or first the ink prompt line + a B2/B3 re-run, his call).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
