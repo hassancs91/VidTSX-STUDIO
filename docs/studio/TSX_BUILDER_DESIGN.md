@@ -495,6 +495,23 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   7.0 min) and 9× (SVG-filter 2D); backends match to the eye, each repeats itself exactly. **Export default
 >   = `auto`** (Hasan's option c): the probed backend unless the user picks one. 3D Quick smoke (Sonnet 5.5):
 >   finished, 3.2 min, $0.74 API-eq, seamOk, every look on `angle`, followed the camera rule.
+> - **Part 3 DONE**: frame-pure physics. **`@vidtsx/sim`** (`shared/tsx-engine/vidtsx-sim.ts`, a `builtIn` entry of
+>   the one list): `useSimulation({ id, setup, step, read, substeps, seed, deps, init })` builds the world once per
+>   page, steps it at a fixed dt from frame 0 and keeps a COPY of every frame's read-out, so frame N+1 is one step
+>   and any earlier frame a lookup; it never rewinds (cannon / matter / planck cannot restore a snapshot exactly);
+>   `init` (Rapier) holds the frame through delayRender; seeded `random`. The bundle step inlines its source,
+>   embedded in main through Vite `?raw`: nothing on disk, so the packaged app needs nothing for it. Prompt
+>   "## Physics" after "## 3D" + engine lines in the catalogue. New free look **`purity_check`**: sample frames
+>   rendered IN ORDER in one page (renderFrames, concurrency 1) and ALONE in fresh pages (last first), 540 px,
+>   compared (`frame-purity.ts`; a visible pixel change or mean ≥ 0.01 = IMPURE). **Gate (Hasan's pick):** on a
+>   piece whose check inlined a physics engine, `finish` is refused until purity_check measured that exact build
+>   and said PURE; 3 IMPURE builds let it through as `pureOk: false`. Free probe (spike mode `purity`): the part 1
+>   probes on the helper + a 16-body Rapier 3D pile in R3F + the rebuild-per-frame control = exactly 0; a world
+>   stepped per render and a Math.random setup caught at mean 3.7–6.1. A check costs ~0.08 s/frame up to the last
+>   sample + ~1 s per fresh still (~21 s for 150 frames, cold bundle included). Physics Quick smoke (Sonnet 5.5):
+>   finished, 2.1 min, $0.62 API-eq, `pureOk: true`; finish refused once live (purity measured an earlier build),
+>   then passed. It showed one gap, fixed in the prompt after: `step` runs per substep, so a one-off keys on
+>   `substep === 0`.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
