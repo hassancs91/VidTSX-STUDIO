@@ -48,6 +48,7 @@ export * from './threed-studio';
 export * from './thumbnail';
 export * from './transcription';
 export * from './tsx-jobs';
+export * from './tsx-build';
 export * from './templates';
 export * from './updater';
 export * from './video';

@@ -15,7 +15,7 @@ import {
 } from '../../../shared/tsx-engine';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { resolveEditVersion } from './build-store';
-import type { GenerateTsxRequest, GenerateTsxResult, TsxEngineReason } from './types';
+import type { GenerateTsxResult, PipelineBoundRequest, TsxEngineReason } from './types';
 
 /** The pipeline has no loop notion; this line is all it gets of `format.loop`. */
 export const LOOP_INSTRUCTION =
@@ -24,7 +24,7 @@ export const LOOP_INSTRUCTION =
 type PipelineResult = Extract<GenerateTsxResult, { engine: 'pipeline' }>;
 
 /** The settings both pipeline entries share, from the caller's fallback block. */
-function sharedOptions(req: GenerateTsxRequest) {
+function sharedOptions(req: PipelineBoundRequest) {
   const { fallback } = req;
   return {
     ...(req.providerId ? { providerId: req.providerId } : {}),
@@ -38,7 +38,7 @@ function sharedOptions(req: GenerateTsxRequest) {
 }
 
 /** A new piece: the request's format, brand and loop become the pipeline's prompt context. */
-export function pipelineOptionsFor(req: GenerateTsxRequest): TsxPipelineOptions {
+export function pipelineOptionsFor(req: PipelineBoundRequest): TsxPipelineOptions {
   const { format, fallback } = req;
   const extraInstructions = [
     req.brand?.trim(),
@@ -64,7 +64,7 @@ export function pipelineOptionsFor(req: GenerateTsxRequest): TsxPipelineOptions 
 }
 
 /** An edit: the change wanted, applied to the version's single file (a builder version's bundle included). */
-export function editOptionsFor(req: GenerateTsxRequest, currentCode: string): TsxEditPipelineOptions {
+export function editOptionsFor(req: PipelineBoundRequest, currentCode: string): TsxEditPipelineOptions {
   return {
     currentCode,
     editInstruction: req.intent,
@@ -74,7 +74,7 @@ export function editOptionsFor(req: GenerateTsxRequest, currentCode: string): Ts
 }
 
 export async function runPipelineFallback(
-  req: GenerateTsxRequest,
+  req: PipelineBoundRequest,
   reason: TsxEngineReason,
   started: number,
 ): Promise<PipelineResult> {

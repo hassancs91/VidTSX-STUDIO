@@ -144,6 +144,11 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   let writes = Promise.resolve();
   const onTextDelta = (delta: string) => {
     writes = writes.then(() => fs.appendFile(transcriptPath, delta, 'utf-8')).catch(() => {});
+    try {
+      req.onText?.(delta);
+    } catch {
+      /* a listener must not break the run */
+    }
   };
 
   progress.emit({ type: 'start', budget: req.budget, caps, roundsMin: state.roundsMin, edit: seed !== null });

@@ -15,6 +15,8 @@ import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { reserveProjectFolder, writeNextVersion, writeDebugSidecar, describeSystemPrompt } from './project-store';
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from './chat-store';
+import { runBuildJob, validateBuildRequest } from './tsx-build-job';
+import { initialBuildSnapshot } from './build-job-snapshot';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('TsxJobs');
@@ -52,6 +54,9 @@ function isFinished(status: TsxJobStatus): boolean {
  * records, a maxConcurrent throttle with overflow queueing, per-job abort, and
  * queued-job persistence across restarts. Runs the shared tsx-engine pipeline
  * with main-process deps (direct engine + transpiler calls, per-job signal).
+ * Kind `build` runs the TSX builder instead (tsx-build-job.ts): it counts
+ * toward maxConcurrent like any job, but builds run one at a time among
+ * themselves (each one bundles and renders stills while it works).
  */
 class TsxJobEngine {
   private jobs = new Map<string, JobRecord>();
@@ -101,8 +106,13 @@ class TsxJobEngine {
     if ((request.kind === 'edit' || request.kind === 'fix') && !request.target) {
       return { error: `A target project is required for ${request.kind} jobs` };
     }
+    if (request.kind === 'build') {
+      const invalid = validateBuildRequest(request);
+      if (invalid) return { error: invalid };
+    }
 
     const id = `tsxjob_${Date.now()}_${randomUUID().slice(0, 8)}`;
+    const targetFolderPath = request.target?.folderPath ?? request.build?.editOf?.folderPath;
     const record: JobRecord = {
       request,
       abort: new AbortController(),
@@ -113,7 +123,8 @@ class TsxJobEngine {
         ...(request.providerId ? { providerId: request.providerId } : {}),
         status: 'queued',
         progress: { step: 'queued', label: 'Queued', percent: 0 },
-        ...(request.target ? { targetFolderPath: request.target.folderPath } : {}),
+        ...(targetFolderPath ? { targetFolderPath } : {}),
+        ...(request.kind === 'build' && request.build ? { build: initialBuildSnapshot(request.build) } : {}),
         createdAt: Date.now(),
       },
     };
@@ -237,10 +248,22 @@ class TsxJobEngine {
     return count;
   }
 
+  private buildRunning(): boolean {
+    for (const record of this.jobs.values()) {
+      if (record.request.kind === 'build' && isActive(record.snapshot.status)) return true;
+    }
+    return false;
+  }
+
+  /** Builds wait for the running build; a queued pipeline job behind one still starts. */
+  private canStart(record: JobRecord): boolean {
+    return record.request.kind !== 'build' || !this.buildRunning();
+  }
+
   private pump(): void {
     if (this.shuttingDown || this.queueHeld) return;
     while (this.runningCount() < this.maxConcurrent) {
-      const next = [...this.jobs.values()].find((r) => r.snapshot.status === 'queued');
+      const next = [...this.jobs.values()].find((r) => r.snapshot.status === 'queued' && this.canStart(r));
       if (!next) return;
       void this.runJob(next);
     }
@@ -259,9 +282,7 @@ class TsxJobEngine {
       if (!buffer) return;
       const chunk = buffer;
       buffer = '';
-      for (const listener of this.streamListeners) {
-        try { listener(record.snapshot.id, chunk); } catch { /* ignore */ }
-      }
+      this.streamChunk(record.snapshot.id, chunk);
     };
     const onTextDelta = (delta: string) => {
       if (record.snapshot.status !== 'generating') return;
@@ -282,8 +303,31 @@ class TsxJobEngine {
     };
   }
 
+  private streamChunk(jobId: string, chunk: string): void {
+    for (const listener of this.streamListeners) {
+      try { listener(jobId, chunk); } catch { /* ignore */ }
+    }
+  }
+
   private throwIfAborted(record: JobRecord): void {
     if (record.abort.signal.aborted) throw new Error('Job cancelled');
+  }
+
+  /** A run that threw: cancelled when its signal fired, else an error with the message. */
+  private markFailed(record: JobRecord, err: unknown): void {
+    const snap = record.snapshot;
+    snap.completedAt = Date.now();
+    if (record.abort.signal.aborted) {
+      snap.status = 'cancelled';
+      snap.progress = { step: 'cancelled', label: 'Cancelled', percent: snap.progress.percent };
+      log.info('Job cancelled', { id: snap.id });
+    } else {
+      snap.status = 'error';
+      snap.error = err instanceof Error ? err.message : 'Generation failed';
+      snap.progress = { step: 'error', label: 'Failed', percent: snap.progress.percent };
+      log.error('Job failed', err, { id: snap.id, kind: snap.kind });
+    }
+    this.emit(record);
   }
 
   private async runJob(record: JobRecord): Promise<void> {
@@ -293,6 +337,22 @@ class TsxJobEngine {
     snap.progress = { step: 'start', label: 'Starting...', percent: 0 };
     this.emit(record);
     this.schedulePersist();
+
+    if (record.request.kind === 'build') {
+      try {
+        await runBuildJob({
+          ...record,
+          emit: () => this.emit(record),
+          stream: (chunk) => this.streamChunk(record.snapshot.id, chunk),
+        });
+      } catch (err) {
+        this.markFailed(record, err);
+      } finally {
+        this.schedulePersist();
+        this.pump();
+      }
+      return;
+    }
 
     const deps = this.buildDeps(record);
     const onProgress = (p: PipelineProgress) => {
@@ -389,18 +449,7 @@ class TsxJobEngine {
       this.emit(record);
       log.info('Job complete', { id: snap.id, kind: snap.kind, folder: snap.folderPath });
     } catch (err) {
-      snap.completedAt = Date.now();
-      if (record.abort.signal.aborted) {
-        snap.status = 'cancelled';
-        snap.progress = { step: 'cancelled', label: 'Cancelled', percent: snap.progress.percent };
-        log.info('Job cancelled', { id: snap.id });
-      } else {
-        snap.status = 'error';
-        snap.error = err instanceof Error ? err.message : 'Generation failed';
-        snap.progress = { step: 'error', label: 'Failed', percent: snap.progress.percent };
-        log.error('Job failed', err, { id: snap.id, kind: snap.kind });
-      }
-      this.emit(record);
+      this.markFailed(record, err);
     } finally {
       this.schedulePersist();
       this.pump();

@@ -146,6 +146,8 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
     const { text: _text, ...pipelineInfo } = pipeline ?? { text: '' };
     return { ...head, ...rest, pipeline: pipeline ? pipelineInfo : null, saved: await savePipelineRun(result, req.outDir) };
   }
+  // Refused before anything ran (no tools, or an OpenRouter model without tools / image input).
+  if (result.engine === 'none') return { ...head, ...result };
   const { code: _code, build, ...rest } = result;
   const { code: _buildCode, ...buildInfo } = build ?? { code: '' };
   return { ...head, ...rest, build: build ? buildInfo : null };

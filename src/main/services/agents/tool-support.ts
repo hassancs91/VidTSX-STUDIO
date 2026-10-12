@@ -7,6 +7,7 @@
 
 import { getLlmProviders } from '../settings';
 import { llmEngine, PROVIDER_PRESETS } from '../../../engine';
+import type { ProviderConfig } from '../../../engine/types';
 import { imageEngine } from '../../../image-engine';
 import { hasUsableVideoProvider } from '../video-init';
 import { audioGenerationEngine } from '../../../audio-engine/generation';
@@ -16,13 +17,37 @@ import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('AgentToolSupport');
 
+/** What the app knows about a provider id, without its key. */
+export interface ResolvedProviderInfo {
+  id: string;
+  /** Absent when the id is neither saved nor a preset. */
+  type?: ProviderConfig['type'];
+  baseURL?: string;
+  defaultModel?: string;
+}
+
+/**
+ * The provider an id names: the saved config first, else the preset of that
+ * id (the engine registers some presets with no saved config: `local`, and
+ * the shared-credential ones, llm-init.ts). With no id given: the saved
+ * active provider, else the engine's; null when there is none at all.
+ * Throws when settings cannot be read.
+ */
+export async function resolveProviderInfo(providerId?: string): Promise<ResolvedProviderInfo | null> {
+  const { providers, activeProvider } = await getLlmProviders();
+  const id = providerId || activeProvider || llmEngine.getActiveProvider();
+  if (!id) return null;
+  const known = providers.find((p) => p.id === id) ?? PROVIDER_PRESETS.find((p) => p.id === id);
+  return {
+    id,
+    ...(known?.type ? { type: known.type } : {}),
+    ...(known?.baseURL ? { baseURL: known.baseURL } : {}),
+    ...(known?.defaultModel ? { defaultModel: known.defaultModel } : {}),
+  };
+}
+
 /**
  * Typed tools ride the Agent SDK; other provider types get chat only.
- *
- * The type comes from the saved config, else from the preset of that id: the
- * engine registers some presets with no saved config (`local`, and the
- * shared-credential ones, llm-init.ts), and pickers offer them. With no id
- * given: the saved active provider, else the engine's.
  *
  * An id that is neither saved nor a preset is treated as capable: the presets
  * are predominantly `agent-sdk`, and the worst case is that the model simply
@@ -30,9 +55,7 @@ const log = logEngine.createLogger('AgentToolSupport');
  */
 export async function resolveToolSupport(providerId?: string): Promise<boolean> {
   try {
-    const { providers, activeProvider } = await getLlmProviders();
-    const id = providerId || activeProvider || llmEngine.getActiveProvider();
-    const type = providers.find((p) => p.id === id)?.type ?? PROVIDER_PRESETS.find((p) => p.id === id)?.type;
+    const type = (await resolveProviderInfo(providerId))?.type;
     return type ? type === 'agent-sdk' : true;
   } catch (err) {
     log.warn('Could not read providers — assuming tools work', {

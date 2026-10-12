@@ -1,10 +1,23 @@
 // Request and result types for the TSX builder (TSX_BUILDER_DESIGN.md T1) and
 // its dispatcher, generateTsx() (generate-tsx.ts).
-// Main-process only: the request carries a live AbortSignal. The IPC shape for
-// tsx-job hosting is derived from these in P1 part 6.
+// Main-process only: the request carries a live AbortSignal and listeners.
+// The wire-safe primitives (budget, format, phase, tokens, ...) live in
+// shared/ipc/types/tsx-build.ts, where the tsx-jobs IPC (P1 part 6) can name
+// them; they are re-exported here so main code has one import for the lot.
 
 import type { EffortLevel } from '../../../engine/types';
-import type { LlmImageIpc, LlmUsageIpc } from '@shared/ipc/types';
+import type {
+  BuildBudget,
+  BuildCaps,
+  BuildFormat,
+  BuildPack,
+  BuildPhase,
+  BuildStillSize,
+  BuildStopReason,
+  BuildTokens,
+  LlmImageIpc,
+  LlmUsageIpc,
+} from '@shared/ipc/types';
 import type { CompositionConfig } from '../composition-config-parser';
 import type {
   PipelineMode,
@@ -15,24 +28,16 @@ import type {
   TsxPromptContext,
 } from '@shared/tsx-engine';
 
-export type BuildBudget = 'quick' | 'standard' | 'craft';
-
-/** What the caller fixes about the picture's frame. The builder must match it. */
-export interface BuildFormat {
-  width: number;
-  height: number;
-  fps: number;
-  /** Absent = the builder decides the length from the idea. */
-  durationInFrames?: number;
-  /** Seamless loop: the last frame must flow into frame 0. */
-  loop?: boolean;
-}
-
-/** One craft pack body (a SKILL.md), composed into the system prompt verbatim. */
-export interface BuildPack {
-  name: string;
-  body: string;
-}
+export type {
+  BuildBudget,
+  BuildCaps,
+  BuildFormat,
+  BuildPack,
+  BuildPhase,
+  BuildStillSize,
+  BuildStopReason,
+  BuildTokens,
+} from '@shared/ipc/types';
 
 export interface BuildRequest {
   /** What and why — never pixel boxes. For an edit: the change wanted. */
@@ -67,34 +72,9 @@ export interface BuildRequest {
   signal?: AbortSignal;
   /** Live progress. Called synchronously; a throwing listener is ignored. */
   onProgress?: (event: BuildProgressEvent) => void;
+  /** The builder's narration as it streams (what the transcript records). A throwing listener is ignored. */
+  onText?: (delta: string) => void;
 }
-
-/**
- * Why the run ended. Every reason but `cancelled` saves the last build that
- * passed `check` (when there is one), so a capped run never ends with nothing.
- */
-export type BuildStopReason = 'finished' | 'cap-turns' | 'cap-time' | 'cap-tokens' | 'cancelled' | 'error';
-
-/** The hard limits of one run; whichever is hit first ends it. */
-export interface BuildCaps {
-  /** SDK turns (API responses). */
-  turns: number;
-  minutes: number;
-  /** Output tokens summed over the run, thinking included. */
-  outputTokens: number;
-}
-
-/** Tokens summed over the run's API responses. */
-export interface BuildTokens {
-  /** Uncached input only. */
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheCreation: number;
-}
-
-/** `working` = the model's turn (thinking, writing files); the builder's tools set the others while they run. */
-export type BuildPhase = 'preparing' | 'working' | 'checking' | 'rendering' | 'saving' | 'done';
 
 /** The run's counters at the moment of an event: enough to draw its status line. */
 export interface BuildProgressStatus {
@@ -123,9 +103,6 @@ export type BuildProgressDetail =
   | { type: 'done'; stopReason: BuildStopReason; ok: boolean; version?: number };
 
 export type BuildProgressEvent = BuildProgressDetail & { status: BuildProgressStatus };
-
-/** How a frame was shown: a ~1024 px still, the phone feed view, or a tile of a contact sheet. */
-export type BuildStillSize = 'model' | 'phone' | 'sheet';
 
 /** One image the builder looked at, as saved under `vN.stills/`. */
 export interface BuildStillRecord {
@@ -182,16 +159,24 @@ export interface BuildResult {
 
 // ─── The dispatcher: builder or one-shot pipeline (generate-tsx.ts) ───
 
-/** Who makes the piece: the builder's loop, or today's one-shot pipeline. */
+/**
+ * Who makes the piece: the builder's loop, or the one-shot pipeline. Rev 2:
+ * the pipeline is frozen and reachable only when forced or for 3D (Creator
+ * 3D until P2); a provider without tools gets a refusal, not the pipeline.
+ */
 export type TsxEngine = 'builder' | 'pipeline';
 
-/** Forced by the caller; 3D (the builder makes 2D only); the provider can run tools; it cannot. */
-export type TsxEngineReason = 'forced' | 'mode-3d' | 'tools' | 'no-tools';
+/**
+ * Forced by the caller; 3D (the builder makes 2D only); the provider can run
+ * tools; it cannot (refused); the model cannot run the builder (refused).
+ */
+export type TsxEngineReason = 'forced' | 'mode-3d' | 'tools' | 'no-tools' | 'unfit-model';
 
-export interface TsxEngineChoice {
-  engine: TsxEngine;
-  reason: TsxEngineReason;
-}
+export type TsxEngineChoice =
+  | { engine: 'builder'; reason: 'forced' | 'tools' }
+  | { engine: 'pipeline'; reason: 'forced' | 'mode-3d' }
+  /** Nothing runs: the provider cannot run tools. */
+  | { engine: 'none'; reason: 'no-tools'; error: string };
 
 /** What only the one-shot pipeline uses. Packs, budget and caps never reach it. */
 export interface PipelineFallback {
@@ -213,8 +198,12 @@ export interface GenerateTsxRequest extends BuildRequest {
   engine?: TsxEngine;
   /** '3d' always takes the pipeline. Absent = the builder, or the pipeline's own 2D/3D classifier. */
   mode?: PipelineMode;
-  fallback: PipelineFallback;
+  /** Required by callers that can reach the pipeline (a forced engine or mode '3d'); a pipeline chosen without it is an error. */
+  fallback?: PipelineFallback;
 }
+
+/** A request the pipeline can run: the dispatcher narrows to this before calling it. */
+export type PipelineBoundRequest = GenerateTsxRequest & { fallback: PipelineFallback };
 
 interface GenerateTsxCommon {
   reason: TsxEngineReason;
@@ -236,4 +225,6 @@ export type GenerateTsxResult =
    * Nothing saved: the caller saves `code`, as it does today. `pipeline` (with
    * the raw text even when the gate failed) is absent when the pipeline threw.
    */
-  | (GenerateTsxCommon & { engine: 'pipeline'; pipeline?: TsxPipelineResult });
+  | (GenerateTsxCommon & { engine: 'pipeline'; pipeline?: TsxPipelineResult })
+  /** Refused before anything ran (`no-tools`, `unfit-model`): `ok: false`, the reason in `error`. */
+  | (GenerateTsxCommon & { engine: 'none' });

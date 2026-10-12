@@ -18,6 +18,7 @@ const KIND_LABELS: Record<TsxJobIpc['kind'], string> = {
   generate: 'Gen',
   edit: 'Edit',
   fix: 'Fix',
+  build: 'Build',
 };
 
 function statusColor(status: TsxJobStatus): string {
