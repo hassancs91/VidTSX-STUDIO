@@ -18,6 +18,7 @@ import {
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE, contactSheetSource, type SheetLayout } from './contact-sheet';
 import { measureSeam, type SeamMeasure } from './loop-seam';
 import type { CompositionConfig } from '../composition-config-parser';
+import type { ProbedGl } from '../gl-backend-probe';
 
 /**
  * A phone feed shows a post at the screen's width, whatever its format: about
@@ -38,6 +39,7 @@ export interface LookImage {
   mimeType: 'image/jpeg';
   ms: { bundle: number; render: number };
   bundleCached: boolean;
+  gl: ProbedGl;
 }
 
 const elapsedSince = (started: number, bundleMs: number) => ({ bundle: bundleMs, render: Date.now() - started - bundleMs });
@@ -68,6 +70,7 @@ export async function renderContactSheet(
     layout: sheet.layout,
     ms: elapsedSince(started, prepared.ms.bundle),
     bundleCached: prepared.bundleCached,
+    gl: prepared.gl,
   };
 }
 
@@ -94,6 +97,7 @@ export async function renderPhoneView(
     height: Math.round((config.height * PHONE_FEED_WIDTH) / config.width),
     ms: elapsedSince(started, prepared.ms.bundle),
     bundleCached: prepared.bundleCached,
+    gl: prepared.gl,
   };
 }
 
@@ -103,7 +107,7 @@ export async function measureLoopSeam(
   config: CompositionConfig,
   outDir: string,
   options: LookOptions,
-): Promise<SeamMeasure & { last: number; ms: { bundle: number; render: number }; bundleCached: boolean }> {
+): Promise<SeamMeasure & { last: number; ms: { bundle: number; render: number }; bundleCached: boolean; gl: ProbedGl }> {
   const last = config.durationInFrames - 1;
   if (last < 3) throw new Error('A loop needs at least 4 frames to measure its seam.');
   const started = Date.now();
@@ -121,5 +125,5 @@ export async function measureLoopSeam(
     first: readBitmap(at.get(0)!),
     afterFirst: readBitmap(at.get(1)!),
   });
-  return { ...measure, last, ms: elapsedSince(started, prepared.ms.bundle), bundleCached: prepared.bundleCached };
+  return { ...measure, last, ms: elapsedSince(started, prepared.ms.bundle), bundleCached: prepared.bundleCached, gl: prepared.gl };
 }

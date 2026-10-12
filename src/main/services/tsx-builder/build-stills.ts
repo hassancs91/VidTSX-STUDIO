@@ -19,6 +19,12 @@
 // Cancel: `signal` kills a webpack bundle in flight and cancels the
 // renderStill in flight (Remotion's cancel signal); selectComposition has no
 // cancel, so the signal is checked on each side of it.
+//
+// GL (P2 part 2): every builder render uses the backend probed once per app
+// run (gl-backend-probe.ts): `angle` on a GPU, `swangle` where there is none.
+// Before, stills passed no `gl` and WebGL drew on SwiftShader. The backend is
+// fixed per prepared build, so the frames one look compares (loop_seam) come
+// from one backend.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -27,6 +33,7 @@ import { makeCancelSignal, renderStill, selectComposition } from '@remotion/rend
 import type { VideoConfig } from 'remotion';
 import { bundleComposition } from '../remotion-bundler';
 import { getRemotionBinariesDir } from '../../utils/paths';
+import { probeGlBackend, type ProbedGl } from '../gl-backend-probe';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { Bitmap } from './loop-seam';
 
@@ -45,12 +52,15 @@ export interface BuildStillsResult {
   ms: { bundle: number; render: number };
   bundleCached: boolean;
   serveUrl: string;
+  gl: ProbedGl;
 }
 
 /** A bundled build with its composition selected: ready for renderStill. */
 export interface PreparedBuild {
   serveUrl: string;
   composition: VideoConfig;
+  /** The GL backend every frame of this build renders on. */
+  gl: ProbedGl;
   bundleCached: boolean;
   ms: { bundle: number; select: number };
 }
@@ -90,16 +100,18 @@ export function readBitmap(file: string): Bitmap {
 /**
  * Bundle the single-file artifact `code` and select its composition. The
  * entry (`<outDir>/<entryName>`) is stable per build and per kind of look, so
- * an unchanged artifact reuses its bundle.
+ * an unchanged artifact reuses its bundle. `gl` overrides the probed backend
+ * (the spike's timing probe compares the two).
  */
 export async function prepareBuildRender(
   code: string,
   config: CompositionConfig,
   outDir: string,
-  options: { entryName?: string; signal?: AbortSignal } = {},
+  options: { entryName?: string; signal?: AbortSignal; gl?: ProbedGl } = {},
 ): Promise<PreparedBuild> {
   const { signal } = options;
   signal?.throwIfAborted();
+  const gl = options.gl ?? (await probeGlBackend()).gl;
   await fs.mkdir(outDir, { recursive: true });
   const entryPath = path.join(outDir, options.entryName ?? 'composition.tsx');
   await fs.writeFile(entryPath, code, 'utf-8');
@@ -117,7 +129,7 @@ export async function prepareBuildRender(
     serveUrl: bundle.serveUrl,
     id: config.id,
     inputProps: {},
-    chromiumOptions: { disableWebSecurity: true },
+    chromiumOptions: { disableWebSecurity: true, gl },
     timeoutInMilliseconds: STILL_TIMEOUT_MS,
     binariesDirectory: getRemotionBinariesDir() ?? undefined,
   });
@@ -125,6 +137,7 @@ export async function prepareBuildRender(
   return {
     serveUrl: bundle.serveUrl,
     composition,
+    gl,
     bundleCached: bundle.cached === true,
     ms: { bundle: bundleMs, select: Date.now() - selectStart },
   };
@@ -155,7 +168,7 @@ export async function renderPreparedFrames(
         imageFormat,
         ...(imageFormat === 'jpeg' ? { jpegQuality: 90 } : {}),
         inputProps: {},
-        chromiumOptions: { disableWebSecurity: true },
+        chromiumOptions: { disableWebSecurity: true, gl: prepared.gl },
         timeoutInMilliseconds: STILL_TIMEOUT_MS,
         binariesDirectory,
         cancelSignal,
@@ -177,9 +190,12 @@ export async function renderBuildStills(
   config: CompositionConfig,
   outDir: string,
   frames: number[],
-  options: { maxSide?: number; label?: string; signal?: AbortSignal } = {},
+  options: { maxSide?: number; label?: string; signal?: AbortSignal; gl?: ProbedGl } = {},
 ): Promise<BuildStillsResult> {
-  const prepared = await prepareBuildRender(code, config, outDir, options.signal ? { signal: options.signal } : {});
+  const prepared = await prepareBuildRender(code, config, outDir, {
+    ...(options.signal ? { signal: options.signal } : {}),
+    ...(options.gl ? { gl: options.gl } : {}),
+  });
   const renderStart = Date.now();
   const rendered = await renderPreparedFrames(prepared, outDir, frames, {
     label: options.label ?? 'still',
@@ -196,5 +212,6 @@ export async function renderBuildStills(
     ms: { bundle: prepared.ms.bundle, render: prepared.ms.select + Date.now() - renderStart },
     bundleCached: prepared.bundleCached,
     serveUrl: prepared.serveUrl,
+    gl: prepared.gl,
   };
 }

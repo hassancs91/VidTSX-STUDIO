@@ -23,6 +23,8 @@
 // mode "engines" — free: which engine each provider would get, and why.
 // mode "libraries" — free: one source per area of the library set through
 // `check` and the stills path (builder-spike-libraries.ts, P2 part 1).
+// mode "gl" — free: the probed GL backend, and each source's stills timed on
+// it and on `swangle`, with pixel diffs (builder-spike-gl.ts, P2 part 2).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -37,6 +39,7 @@ import { enginesProbe, registerProviderFromEnv } from './builder-spike-dispatch'
 import { followJob, jobRequestFor, keepJobResult, type BuildSpikeRequest } from './builder-spike-job';
 import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type SeamSource } from './builder-spike-probes';
 import { libraryProbe, type LibrariesRequest } from './builder-spike-libraries';
+import { glTimingProbe, type GlTimingRequest } from './builder-spike-gl';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildPack } from './types';
@@ -63,7 +66,7 @@ interface EnginesRequest {
   quit?: boolean;
 }
 
-type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest | LibrariesRequest;
+type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest | LibrariesRequest | GlTimingRequest;
 
 async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
@@ -236,7 +239,9 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
           ? await enginesProbe()
           : req.mode === 'libraries'
             ? await libraryProbe(req.outDir, req.sources)
-            : await runFixture(req);
+            : req.mode === 'gl'
+              ? await glTimingProbe(req.outDir, req.sources)
+              : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

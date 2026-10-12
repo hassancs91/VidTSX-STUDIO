@@ -78,6 +78,7 @@ export function buildLookTools(state: BuilderState) {
           frames,
           ms: stills.ms,
           bundleCached: stills.bundleCached,
+          gl: stills.gl,
           totalMs: Date.now() - started,
         });
         state.onEvent?.({ type: 'stills', size: 'model', frames, paths: stills.stills.map((s) => s.path) });
@@ -127,6 +128,7 @@ export function buildLookTools(state: BuilderState) {
           grid: `${sheet.layout.cols}x${sheet.layout.rows}`,
           ms: sheet.ms,
           bundleCached: sheet.bundleCached,
+          gl: sheet.gl,
           totalMs: Date.now() - started,
         });
         state.onEvent?.({ type: 'stills', size: 'sheet', frames: sheet.frames, paths: [sheet.path] });
@@ -167,7 +169,7 @@ export function buildLookTools(state: BuilderState) {
           ...signal(),
         });
         state.stills.push({ round: state.roundsUsed, frame: view.frame, size: 'phone', path: view.path });
-        await logEvent(state, { tool: 'phone_view', n: state.phoneViews, frame: view.frame, ms: view.ms, totalMs: Date.now() - started });
+        await logEvent(state, { tool: 'phone_view', n: state.phoneViews, frame: view.frame, ms: view.ms, gl: view.gl, totalMs: Date.now() - started });
         state.onEvent?.({ type: 'stills', size: 'phone', frames: [view.frame], paths: [view.path] });
         return {
           content: [

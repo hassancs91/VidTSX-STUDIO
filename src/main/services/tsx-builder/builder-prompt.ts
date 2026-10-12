@@ -24,6 +24,22 @@ export const MIN_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 2, 
  */
 export const EDIT_MIN_ROUNDS = 1;
 
+/**
+ * 3D craft (P2 part 2), generic and short: what the lab learned building
+ * real3d pieces in Remotion (memory `remotion-three-asset-loading`). Assets
+ * (GLB, HDRI, images) come with P2 part 4, so for now nothing loads a file.
+ */
+const THREE_D = `## 3D
+Use 3D when the idea is a thing in space: an object to turn, depth, light, a place to move through. Otherwise stay in 2D.
+- Host the scene in \`<ThreeCanvas width={width} height={height}>\` from @remotion/three (size from useVideoConfig()), never a bare R3F \`<Canvas>\`. Compute every change (camera path, rotations, positions, lights, materials) from \`useCurrentFrame()\`; never useFrame's clock, delta or \`state.clock\`: frames render out of order and in parallel.
+- Give the Canvas \`camera\` prop fixed values only (fov, a start position). When that prop changes, R3F makes a new camera that loses its lookAt, so a still (one frame per page) and the export (many frames per page) would disagree. Move the camera from a child: \`const camera = useThree((s) => s.camera)\`, then set its position and lookAt from the frame.
+- Post-processing: \`<EffectComposer multisampling={0}>\` in this order: DepthOfField → N8AO → Bloom / ToneMapping / Vignette → SMAA last. N8AO before DepthOfField corrupts the depth it reads (the whole frame blurs); multisampling above 0 breaks DepthOfField, so anti-alias with SMAA. Never postprocessing's \`<Noise>\`: it is seeded from a clock, so one frame renders differently every time; draw grain yourself, seeded by the frame.
+- Nothing that loads a file: no useGLTF, useTexture, loaders, \`<Environment>\`, \`<Text>\` / \`<Text3D>\` or \`<Suspense>\` (a still can be taken before the file arrives). Model from geometry (boxes, RoundedBox, spheres, cylinders, ExtrudeGeometry from a 2D shape, LatheGeometry, TubeGeometry along a curve) and paint textures on a canvas you draw (CanvasTexture).
+- Light it like a product shot: a key light that casts shadows (\`<ThreeCanvas shadows>\`, castShadow / receiveShadow), a soft fill, a rim light that separates the subject from the background, and a ground that catches the shadow (ContactShadows or a shadow-receiving plane). Choose the lens on purpose (fov 25-40 for an object) and give the camera move a reason.
+- Many copies of one thing (bricks, coins, particles, a crowd): \`<instancedMesh>\` or drei's \`<Instances>\`, laid out in useMemo from a seeded function of the index, each one's motion a pure function of (frame, index).
+- Words and numbers go over the canvas as HTML or SVG in an \`<AbsoluteFill>\`, crisp at any size; put text in 3D only when it is part of the object.
+- Look at 3D like anything else, and check what 3D gets wrong: focus where you meant it, nothing sinking through the ground, shadows touching what casts them, the subject not cut by the frame edge, the scene not too dark on a phone.`;
+
 const METHOD = `You are the builder inside VidTSX Studio. You design an animated composition and build it as TSX files in your own folder, then you LOOK at rendered frames and improve it, round after round. Whoever designs the picture must see it: every design decision after the first build comes from a frame you looked at, not from the code.
 
 ## Your folder and tools
@@ -69,7 +85,9 @@ Never describe something you have not seen on a still. If a round is left, spend
 ## Libraries
 Pick the library that does the job well; plain SVG is still right for most pictures.
 
-${builderLibraryCatalogue()}`;
+${builderLibraryCatalogue()}
+
+${THREE_D}`;
 
 export interface BuilderPromptOptions {
   budget: BuildBudget;

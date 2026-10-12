@@ -37,6 +37,20 @@ describe('buildBuilderSystemPrompt', () => {
     expect(prompt).toContain('A chart with a face added is still a chart.');
   });
 
+  it('teaches 3D craft after the catalogue: frame-driven, the lab post order, nothing that loads a file', () => {
+    const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
+    const block = prompt.slice(prompt.indexOf('## 3D'));
+    expect(prompt.indexOf('## 3D')).toBeGreaterThan(prompt.indexOf('## Libraries'));
+    expect(block).toContain('`<ThreeCanvas width={width} height={height}>` from @remotion/three');
+    expect(block).toContain("never useFrame's clock");
+    expect(block).toContain('`<EffectComposer multisampling={0}>` in this order: DepthOfField → N8AO → Bloom / ToneMapping / Vignette → SMAA last');
+    expect(block).toContain('Give the Canvas `camera` prop fixed values only');
+    expect(block).toContain("Never postprocessing's `<Noise>`");
+    expect(block).toContain('no useGLTF, useTexture, loaders, `<Environment>`');
+    // The 3D block comes before the budget line, so the cached prompt prefix is the same for every budget.
+    expect(buildBuilderSystemPrompt({ budget: 'craft', packs: [] }).indexOf('## 3D')).toBe(prompt.indexOf('## 3D'));
+  });
+
   it('promises only packages the bundle step can inline, from the one library list', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
     const libraries = prompt.slice(prompt.indexOf('## Libraries'));
