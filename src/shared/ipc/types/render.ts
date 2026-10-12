@@ -12,7 +12,10 @@ export type RenderCodec = 'h264' | 'h265' | 'vp8' | 'vp9' | 'gif' | 'prores' | '
 // Maps to Chromium's --use-gl flag, passed via Remotion's chromiumOptions.gl.
 // Software backends (swangle/swiftshader) work everywhere; GPU backends
 // (angle/angle-egl/egl/vulkan) need compatible drivers and may crash.
-export type RenderGpuBackend = 'swangle' | 'swiftshader' | 'angle' | 'angle-egl' | 'egl' | 'vulkan';
+// 'auto' (the default since TSX Builder P2 part 2) is resolved in main to the
+// backend probed once per app run: angle where the GPU draws WebGL, swangle
+// where it does not (main/services/gl-backend-probe.ts).
+export type RenderGpuBackend = 'auto' | 'swangle' | 'swiftshader' | 'angle' | 'angle-egl' | 'egl' | 'vulkan';
 
 // Maps to Remotion's renderMedia({ hardwareAcceleration }). 'if-possible' uses
 // GPU video encoders (NVENC/QSV/AMF/VideoToolbox) when available and falls

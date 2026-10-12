@@ -19,9 +19,10 @@ export function GpuBackendDefaultRow({
             Default GPU backend
           </div>
           <div className="text-[10px] text-text-dim">
-            Chromium GL backend used during render. Software is safe everywhere; GPU backends
-            are faster for WebGL/3D but need compatible drivers and may crash. Override per-render
-            in the render modal.
+            Chromium GL backend used during render. Auto uses the GPU when this machine draws
+            WebGL on one, software otherwise. Software is safe everywhere; GPU backends are faster
+            for WebGL/3D but need compatible drivers and may crash. Override per-render in the
+            render modal.
           </div>
           <div className="text-[10px] text-text-dim mt-1 italic">{hint}</div>
         </div>

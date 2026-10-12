@@ -6,6 +6,7 @@ import { resolveRenderScale } from '../../shared/render-scale';
 import { renderAnimatedWebp } from './webp/webp-render';
 import { withBt709FilterTags } from './remotion-color-args';
 import { describeRenderError, offthreadRenderOptions, shouldRetryAfterStarvation } from './remotion-offthread-retry';
+import { resolveGpuBackend } from './gl-backend-probe';
 import type {
   RenderCodec,
   RenderGpuBackend,
@@ -38,7 +39,8 @@ export interface RenderOptions {
   // Chromium GL backend — passed to renderMedia's chromiumOptions.gl. Software
   // backends (swangle, swiftshader) work everywhere; GPU backends (angle,
   // angle-egl, egl, vulkan) need compatible drivers and may crash on some
-  // machines. undefined = Remotion default (swangle).
+  // machines. 'auto' = the probed backend (gl-backend-probe.ts). undefined =
+  // no GL flag (Chromium's default: SwiftShader).
   gpuBackend?: RenderGpuBackend;
   // Routes video encoding to the GPU's dedicated encoder (NVENC/QSV/AMF/
   // VideoToolbox) when available. 'if-possible' silently falls back to CPU.
@@ -182,7 +184,8 @@ export async function renderComposition(
     const wantsAlpha = options.transparent === true && (isWebmAlpha || isProRes);
     const alphaPixelFormat = isProRes ? ('yuva444p10le' as const) : ('yuva420p' as const);
 
-    console.log('[RemotionRenderer] Render config', { codec: options.codec, transparent: options.transparent, wantsAlpha, isProRes });
+    const gl = await resolveGpuBackend(options.gpuBackend);
+    console.log('[RemotionRenderer] Render config', { codec: options.codec, transparent: options.transparent, wantsAlpha, isProRes, gpuBackend: options.gpuBackend, gl });
 
     // Capture the actual video encoder ffmpeg picks. Fires once — we latch
     // after the first reported encoder to avoid duplicate events across the
@@ -254,7 +257,7 @@ export async function renderComposition(
           transparent: options.transparent === true,
           inputProps: options.inputProps ?? {},
           concurrency: options.cpuUsage ?? null,
-          gpuBackend: options.gpuBackend,
+          gpuBackend: gl,
           timeoutInMilliseconds: PER_FRAME_TIMEOUT_MS,
           cancelSignal,
         },
@@ -314,11 +317,11 @@ export async function renderComposition(
       ...offthreadRenderOptions(attempt),
       chromiumOptions: {
         disableWebSecurity: true,
-        // Only inject `gl` when the user picked a backend, so omitting it
-        // preserves Remotion's default (swangle). selectComposition above
+        // Only inject `gl` when a backend was given ('auto' resolved above),
+        // so omitting it keeps Remotion's default. selectComposition above
         // intentionally does NOT pass `gl` — it only extracts metadata, so
         // software is faster and avoids unnecessary GPU init.
-        ...(options.gpuBackend ? { gl: options.gpuBackend } : {}),
+        ...(gl ? { gl } : {}),
       },
       hardwareAcceleration: options.hardwareAcceleration ?? 'disable',
       // Faster CPU encode preset than Remotion's default ('medium'): ~2× faster

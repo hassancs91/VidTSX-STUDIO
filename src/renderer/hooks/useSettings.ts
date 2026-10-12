@@ -28,7 +28,7 @@ export function useSettings() {
     whisperModel: 'base',
     renderTimeoutSeconds: 600,
     renderDefaultCpuUsage: 'medium',
-    renderDefaultGpuBackend: 'swangle',
+    renderDefaultGpuBackend: 'auto',
     renderDefaultHardwareAcceleration: 'if-possible',
     renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID,
     renderDefaultExportResolution: 'original',

@@ -14,6 +14,7 @@ export type RenderCpuUsage = 'low' | 'medium' | 'high' | 'max';
 const RENDER_CPU_USAGE_VALUES: readonly RenderCpuUsage[] = ['low', 'medium', 'high', 'max'] as const;
 
 const RENDER_GPU_BACKEND_VALUES: readonly RenderGpuBackend[] = [
+  'auto',
   'swangle',
   'swiftshader',
   'angle',
@@ -108,9 +109,12 @@ function normalizeCpuUsage(value: unknown): RenderCpuUsage {
     : DEFAULT_RENDER_CPU_USAGE;
 }
 
-// Default to software rendering (swangle) so existing installs get zero behavior
-// change. Users opt into GPU explicitly via Settings or the per-render modal.
-const DEFAULT_RENDER_GPU_BACKEND: RenderGpuBackend = 'swangle';
+// 'auto' = the GL backend probed once per app run (gl-backend-probe.ts): the
+// GPU where it draws WebGL, software (swangle) where it does not. Hasan's pick
+// 2026-10-12 (TSX Builder P2 part 2, option c): measured GPU exports 13x faster
+// on heavy 3D and 9x on an SVG-filter 2D piece, frames matching to the eye. An
+// explicit pick in Settings or the per-render modal still wins.
+const DEFAULT_RENDER_GPU_BACKEND: RenderGpuBackend = 'auto';
 
 function normalizeGpuBackend(value: unknown): RenderGpuBackend {
   return typeof value === 'string' && (RENDER_GPU_BACKEND_VALUES as readonly string[]).includes(value)

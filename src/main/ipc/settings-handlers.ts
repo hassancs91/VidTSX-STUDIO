@@ -46,7 +46,7 @@ export async function handleSettingsGet(): Promise<SettingsGetResponse> {
   } catch (err) {
     // Return defaults on error, let UI handle default. `crashReportingPrompted: true`
     // so a settings failure never surfaces the consent prompt.
-    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'swangle', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, renderDefaultExportResolution: 'original', renderDefaultExportQuality: DEFAULT_RENDER_QUALITY, crashReportingEnabled: false, crashReportingAvailable: false, crashReportingPrompted: true };
+    return { outputFolder: '', aiModelsFolder: '', whisperModel: 'base', renderTimeoutSeconds: 600, renderDefaultCpuUsage: 'medium', renderDefaultGpuBackend: 'auto', renderDefaultHardwareAcceleration: 'if-possible', renderDefaultExportEngine: DEFAULT_EXPORT_ENGINE_ID, renderDefaultExportResolution: 'original', renderDefaultExportQuality: DEFAULT_RENDER_QUALITY, crashReportingEnabled: false, crashReportingAvailable: false, crashReportingPrompted: true };
   }
 }
 

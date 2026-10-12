@@ -67,7 +67,8 @@ const CPU_USAGE_OPTIONS: { value: string; label: string; hint: string; concurren
 ];
 
 export const GPU_BACKEND_OPTIONS: { value: RenderGpuBackend; label: string; hint: string }[] = [
-  { value: 'swangle',     label: 'Software (default)',  hint: 'Safe everywhere \u2014 slowest for WebGL/3D scenes' },
+  { value: 'auto',        label: 'Auto (default)',      hint: 'GPU when this machine draws WebGL on one, software otherwise (checked once per app run)' },
+  { value: 'swangle',     label: 'Software',            hint: 'Safe everywhere \u2014 slowest for WebGL/3D scenes' },
   { value: 'angle',       label: 'ANGLE (Direct3D 11)', hint: 'GPU via D3D11 \u2014 best Windows compatibility' },
   { value: 'angle-egl',   label: 'ANGLE (EGL)',         hint: 'GPU via ANGLE/EGL \u2014 alternative ANGLE backend' },
   { value: 'egl',         label: 'EGL',                 hint: 'GPU via native EGL \u2014 Linux/embedded GPUs' },
@@ -112,7 +113,7 @@ export function RenderSettingsModal({
   const [autoDownscaled, setAutoDownscaled] = useState(false);
   const [transparent, setTransparent] = useState(false);
   const [cpuUsage, setCpuUsage] = useState<string>('medium');
-  const [gpuBackend, setGpuBackend] = useState<RenderGpuBackend>('swangle');
+  const [gpuBackend, setGpuBackend] = useState<RenderGpuBackend>('auto');
   const [hardwareAcceleration, setHardwareAcceleration] = useState<RenderHardwareAcceleration>('if-possible');
 
   // Load the user's default CPU + GPU + hwaccel presets from Settings and

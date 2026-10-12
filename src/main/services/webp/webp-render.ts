@@ -8,6 +8,7 @@ import { logEngine } from '../../../logging/log-engine';
 import { getTempDir, ensureTempDir, getRemotionBinariesDir } from '../../utils/paths';
 import { createWebpFrameEncoder } from './webp-frame-encoder';
 import { muxAnimatedWebp, type AnimatedWebpFrame } from './animated-webp-mux';
+import { resolveGpuBackend } from '../gl-backend-probe';
 import type { RenderGpuBackend } from '../../../shared/ipc/types';
 
 const log = logEngine.createLogger('WebpRender');
@@ -58,6 +59,7 @@ export async function renderAnimatedWebp(
   onProgress: (progress: WebpRenderProgress) => void
 ): Promise<void> {
   const totalFrames = Math.ceil(options.durationInFrames / options.everyNthFrame);
+  const gl = await resolveGpuBackend(options.gpuBackend);
 
   await ensureTempDir();
   const framesDir = path.join(getTempDir(), `webp-frames-${randomUUID().slice(0, 8)}`);
@@ -104,7 +106,7 @@ export async function renderAnimatedWebp(
       concurrency: options.concurrency,
       chromiumOptions: {
         disableWebSecurity: true,
-        ...(options.gpuBackend ? { gl: options.gpuBackend } : {}),
+        ...(gl ? { gl } : {}),
       },
       timeoutInMilliseconds: options.timeoutInMilliseconds,
       cancelSignal: options.cancelSignal,

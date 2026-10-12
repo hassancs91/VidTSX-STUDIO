@@ -31,7 +31,7 @@ function cpuUsageLabel(cpuUsage: string | null | undefined): string {
 }
 
 function gpuBackendLabel(value: RenderQueueJob['gpuBackend']): string {
-  if (!value) return 'Software (default)';
+  if (!value) return 'Settings default';
   return GPU_BACKEND_OPTIONS.find((o) => o.value === value)?.label ?? value;
 }
 
