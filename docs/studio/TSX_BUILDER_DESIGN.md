@@ -455,7 +455,9 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   `seamOk`, 0 finish refusals, 0 failed checks in 45. Wall `P1-B1..B4` + `P1-B2-edit` on :3920.
 > - Quality: every number right in all five; column 3's class on B4 only. B1–B3 are strong charts
 >   with an actor: the design PICK, not the round count, is the gap (the "numbers as ink" metaphor
->   was a chart in B2 and B3). A prompt line defining ink as countable marks is proposed, not made.
+>   was a chart in B2 and B3). **Ink line `8ac3261`** (ink = countable marks at true scale; a labelled
+>   line/area/bar is a chart and needs a reason): B2 and B3 re-run in column 3's class (coins at one
+>   scale with sleeping/working faces, $1.99; antibody Ys per day, $1.66). Walls `P1-B2-ink`, `P1-B3-ink`.
 > - Looks are 19–29 % of a Craft run; narration is 2–5 chunks a run, so P3's progress UI reads the
 >   snapshot. Open: leftover `work/` per saved run, bundle-cache never pruned (~54 MB a run).
 >
@@ -467,8 +469,8 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > kind `build` (builder only: a provider without tools is refused, an OpenRouter model without tool
 > use or image input is refused before the run from its public model list; snapshot carries phase,
 > rounds, checks, tokens, latest stills; builds run one at a time) `2a8a166` ·
-> 7 dev entry through the job engine `275ca59` + the exit above. **Next: P2 "no limits"** (Rev 2),
-> on Hasan's go (or first the ink prompt line + a B2/B3 re-run, his call).
+> 7 dev entry through the job engine `275ca59` + the exit above · ink line `8ac3261`.
+> **Next: P2 "no limits"** (Rev 2), on Hasan's go.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
