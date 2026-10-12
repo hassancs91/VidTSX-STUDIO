@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBuilderSystemPrompt, BUDGET_ROUNDS } from './builder-prompt';
+import { BUILDER_LIBRARIES, isBuilderLibrary } from '../../../shared/tsx-engine/builder-libraries';
 
 describe('buildBuilderSystemPrompt', () => {
   it('states the look budget for the run', () => {
@@ -36,10 +37,13 @@ describe('buildBuilderSystemPrompt', () => {
     expect(prompt).toContain('A chart with a face added is still a chart.');
   });
 
-  it('promises only packages the bundle step can inline', () => {
+  it('promises only packages the bundle step can inline, from the one library list', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
+    const libraries = prompt.slice(prompt.indexOf('## Libraries'));
+    const promised = [...libraries.matchAll(/^- `([^`]+)`: /gm)].map((m) => m[1]);
+    expect(promised.length).toBe(BUILDER_LIBRARIES.length);
+    for (const name of promised) expect(isBuilderLibrary(name), name).toBe(true);
     expect(prompt).not.toMatch(/\btone\b/);
-    expect(prompt).not.toMatch(/[`'"]three[`'"/]/);
-    expect(prompt).toContain('@remotion/google-fonts');
+    expect(prompt).toContain('are refused: every change comes from `useCurrentFrame()`');
   });
 });

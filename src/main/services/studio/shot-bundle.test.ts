@@ -77,6 +77,38 @@ describe('bundleShotSource', () => {
     await expect(bundleShotSource(file)).rejects.toThrow(/Package "lodash" is not available to shots/);
   });
 
+  it('refuses a library that animates on its own clock, naming the reason, even when not installed', async () => {
+    const file = await write('project/src/shots/Gsap.tsx', "import gsap from 'gsap';\nexport const compositionConfig = { id: 'x', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nexport default () => gsap.to({}, {});\n");
+    await expect(bundleShotSource(file)).rejects.toThrow(/Package "gsap" is refused: it animates on its own clock/);
+  });
+
+  it('inlines a package from the library set and leaves only react/remotion imports', async () => {
+    const file = await write(
+      'project/src/shots/Rough.tsx',
+      "import React from 'react';\nimport rough from 'roughjs';\nexport const compositionConfig = { id: 'Rough', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nconst d = rough.generator().toPaths(rough.generator().rectangle(10, 10, 80, 80, { seed: 7 }))[0].d;\nexport default () => <svg><path d={d} /></svg>;\n",
+    );
+    const bundled = await bundleShotSource(file, { nodePaths: [path.resolve(__dirname, '../../../../node_modules')] });
+    expect(bundled.inlinedPackages).toContain('roughjs');
+    expect(lintShotSource(bundled.code).errors).toEqual([]);
+  }, 30_000);
+
+  it('serves require("react") inside CommonJS dependencies from the shared react, never a dynamic require', async () => {
+    const file = await write(
+      'project/src/shots/CjsDeps.tsx',
+      [
+        "import React from 'react';",
+        "import { Star } from '@remotion/shapes';", // imports react-dom, which require()s react
+        "import { Canvas } from '@react-three/fiber';", // zustand → use-sync-external-store require()s react
+        "export const compositionConfig = { id: 'CjsDeps', durationInFrames: 30, fps: 30, width: 100, height: 100 };",
+        'export default () => <div><Star points={5} innerRadius={10} outerRadius={20} />{String(typeof Canvas)}</div>;',
+      ].join('\n'),
+    );
+    const bundled = await bundleShotSource(file, { nodePaths: [path.resolve(__dirname, '../../../../node_modules')] });
+    expect(bundled.code).not.toMatch(/__require\("(react|remotion)"\)/);
+    expect(bundled.code).not.toContain('process.env.NODE_ENV');
+    expect(lintShotSource(bundled.code).errors).toEqual([]);
+  }, 30_000); // bundles R3F + shapes for real: ~1 s alone, slower under the full suite
+
   it('refuses a media or stylesheet import and says what to do instead', async () => {
     const file = await write('project/src/shots/Css.tsx', "import './x.css';\nexport const compositionConfig = { id: 'x', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nexport default () => null;\n");
     await expect(bundleShotSource(file)).rejects.toThrow(/is not code — a shot cannot import media or stylesheets/);

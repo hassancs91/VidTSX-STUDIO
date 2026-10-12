@@ -21,6 +21,8 @@
 // is copied to `<outDir>/projects/`. A job cannot force the one-shot pipeline:
 // part 5's check of it stays in runs/P1/fallback-p5.
 // mode "engines" — free: which engine each provider would get, and why.
+// mode "libraries" — free: one source per area of the library set through
+// `check` and the stills path (builder-spike-libraries.ts, P2 part 1).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -34,6 +36,7 @@ import { getTsxBuildsDir } from '../../utils/paths';
 import { enginesProbe, registerProviderFromEnv } from './builder-spike-dispatch';
 import { followJob, jobRequestFor, keepJobResult, type BuildSpikeRequest } from './builder-spike-job';
 import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type SeamSource } from './builder-spike-probes';
+import { libraryProbe, type LibrariesRequest } from './builder-spike-libraries';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildPack } from './types';
@@ -60,7 +63,7 @@ interface EnginesRequest {
   quit?: boolean;
 }
 
-type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest;
+type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest | LibrariesRequest;
 
 async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
@@ -227,7 +230,13 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
     await fs.mkdir(req.outDir, { recursive: true });
     log.info('Builder spike started', { mode: req.mode, outDir: req.outDir });
     report =
-      req.mode === 'build' ? await runBuild(req) : req.mode === 'engines' ? await enginesProbe() : await runFixture(req);
+      req.mode === 'build'
+        ? await runBuild(req)
+        : req.mode === 'engines'
+          ? await enginesProbe()
+          : req.mode === 'libraries'
+            ? await libraryProbe(req.outDir, req.sources)
+            : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

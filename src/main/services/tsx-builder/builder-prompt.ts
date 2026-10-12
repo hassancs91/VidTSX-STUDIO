@@ -5,6 +5,7 @@
 // prompt cache holds across its many turns.
 
 import type { BuildBudget } from './types';
+import { builderLibraryCatalogue } from '../../../shared/tsx-engine/builder-libraries';
 
 /** Look rounds (render_stills + contact_sheet calls) per budget. */
 export const BUDGET_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 3, craft: 6 };
@@ -39,7 +40,7 @@ const METHOD = `You are the builder inside VidTSX Studio. You design an animated
   - \`export default\` the composition component, and
   - \`export const compositionConfig = { id: 'PascalCaseName', durationInFrames: N, fps: N, width: N, height: N };\` with LITERAL numbers only (no expressions, no imports in it).
 - Split the rest across files as a good engineer would (a model of the numbers, a theme, components). Import them with relative paths ('./theme'). They are bundled into one file for you.
-- Allowed packages: \`react\`, \`remotion\`, \`@remotion/paths\`, \`@remotion/shapes\`, \`@remotion/noise\`, \`@remotion/transitions\`, \`@remotion/google-fonts/<Family>\`, \`chroma-js\`. Nothing else is installed. No \`staticFile\`, no images from disk, no CSS files: draw everything in SVG and inline styles.
+- Packages: \`react\`, \`remotion\` and the library set listed under "Libraries" below. They are installed in the app and inlined into your one file; nothing else is installed. Libraries that animate on their own clock (gsap, framer-motion, react-spring, d3-transition, d3-timer) are refused: every change comes from \`useCurrentFrame()\`. No \`staticFile\`, no images from disk, no CSS files: draw everything in SVG, canvas, WebGL and inline styles.
 - Fonts: \`import { loadFont } from '@remotion/google-fonts/Poppins'; const { fontFamily } = loadFont('normal', { weights: ['600', '800'], subsets: ['latin'] });\` at module scope, then use \`fontFamily\` with system fallbacks after it. Never name a font you did not load: it silently falls back on the viewer's machine.
 
 ## Remotion rules (breaking these crashes the render)
@@ -63,7 +64,12 @@ const METHOD = `You are the builder inside VidTSX Studio. You design an animated
 6. Before you finish: \`phone_view\` on the frame with the smallest text (every label readable at that size), and on a loop, \`loop_seam\` AFTER your last change, until it says OK. Neither costs a look round. \`finish\` enforces both: it is refused until phone_view has run, and on a loop until the last loop_seam measured exactly the build you are finishing and said OK.
 7. \`finish\` with a summary: the picture you chose, what each round changed, the numbers you verified, anything in the request you corrected.
 
-Never describe something you have not seen on a still. If a round is left, spend it.`;
+Never describe something you have not seen on a still. If a round is left, spend it.
+
+## Libraries
+Pick the library that does the job well; plain SVG is still right for most pictures.
+
+${builderLibraryCatalogue()}`;
 
 export interface BuilderPromptOptions {
   budget: BuildBudget;
