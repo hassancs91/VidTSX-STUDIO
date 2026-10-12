@@ -14,7 +14,8 @@
 //
 // The look tools (builder-look-tools.ts) share the lower steps: one
 // `prepareBuildRender` (bundle + selectComposition) per call, then
-// `renderPreparedFrames` for the frames that call needs.
+// `renderPreparedFrames` for the frames that call needs (each its own fresh
+// page), or `renderPreparedInOrder` (one page, frames in order: purity_check).
 //
 // Cancel: `signal` kills a webpack bundle in flight and cancels the
 // renderStill in flight (Remotion's cancel signal); selectComposition has no
@@ -29,7 +30,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { nativeImage } from 'electron';
-import { makeCancelSignal, renderStill, selectComposition } from '@remotion/renderer';
+import { makeCancelSignal, renderFrames, renderStill, selectComposition } from '@remotion/renderer';
 import type { VideoConfig } from 'remotion';
 import { bundleComposition } from '../remotion-bundler';
 import { getRemotionBinariesDir } from '../../utils/paths';
@@ -143,12 +144,19 @@ export async function prepareBuildRender(
   };
 }
 
-/** Render `frames` (clamped, in order) of a prepared build to `<outDir>/<label>-fNNN.<ext>`, full size. */
+const framePath = (outDir: string, label: string, frame: number, ext: 'png' | 'jpg') =>
+  path.join(outDir, `${label}-f${String(frame).padStart(3, '0')}.${ext}`);
+
+/**
+ * Render `frames` (clamped, in order) of a prepared build to `<outDir>/<label>-fNNN.<ext>`,
+ * full size unless `scale`. Each frame is its own renderStill: a fresh page that renders only it.
+ * `reverse` renders the last frame first (the purity check's "alone" pass).
+ */
 export async function renderPreparedFrames(
   prepared: PreparedBuild,
   outDir: string,
   frames: number[],
-  options: { label: string; imageFormat?: 'jpeg' | 'png'; signal?: AbortSignal },
+  options: { label: string; imageFormat?: 'jpeg' | 'png'; scale?: number; reverse?: boolean; signal?: AbortSignal },
 ): Promise<Array<{ frame: number; path: string }>> {
   const { signal } = options;
   const imageFormat = options.imageFormat ?? 'jpeg';
@@ -156,10 +164,12 @@ export async function renderPreparedFrames(
   const { cancel, cancelSignal } = makeCancelSignal();
   signal?.addEventListener('abort', cancel, { once: true });
   const out: Array<{ frame: number; path: string }> = [];
+  const ordered = clampFrames(frames, prepared.composition.durationInFrames);
+  if (options.reverse) ordered.reverse();
   try {
-    for (const frame of clampFrames(frames, prepared.composition.durationInFrames)) {
+    for (const frame of ordered) {
       signal?.throwIfAborted();
-      const output = path.join(outDir, `${options.label}-f${String(frame).padStart(3, '0')}.${imageFormat === 'png' ? 'png' : 'jpg'}`);
+      const output = framePath(outDir, options.label, frame, imageFormat === 'png' ? 'png' : 'jpg');
       await renderStill({
         composition: prepared.composition,
         serveUrl: prepared.serveUrl,
@@ -167,6 +177,7 @@ export async function renderPreparedFrames(
         frame,
         imageFormat,
         ...(imageFormat === 'jpeg' ? { jpegQuality: 90 } : {}),
+        ...(options.scale ? { scale: options.scale } : {}),
         inputProps: {},
         chromiumOptions: { disableWebSecurity: true, gl: prepared.gl },
         timeoutInMilliseconds: STILL_TIMEOUT_MS,
@@ -179,6 +190,60 @@ export async function renderPreparedFrames(
     signal?.removeEventListener('abort', cancel);
   }
   return out;
+}
+
+/**
+ * Render frames 0..max(keep) IN ORDER in ONE page (renderFrames, concurrency 1:
+ * the way the preview plays them) and save only `keep` as PNGs at `scale`.
+ */
+export async function renderPreparedInOrder(
+  prepared: PreparedBuild,
+  outDir: string,
+  keep: number[],
+  options: { label: string; scale?: number; signal?: AbortSignal },
+): Promise<{ frames: Array<{ frame: number; path: string }>; rendered: number }> {
+  const { signal } = options;
+  const wanted = clampFrames(keep, prepared.composition.durationInFrames);
+  const last = wanted[wanted.length - 1] ?? 0;
+  const buffers = new Map<number, Buffer>();
+  const { cancel, cancelSignal } = makeCancelSignal();
+  signal?.addEventListener('abort', cancel, { once: true });
+  let rendered = 0;
+  try {
+    signal?.throwIfAborted();
+    await renderFrames({
+      composition: prepared.composition,
+      serveUrl: prepared.serveUrl,
+      inputProps: {},
+      outputDir: null,
+      frameRange: [0, last],
+      concurrency: 1,
+      imageFormat: 'png',
+      ...(options.scale ? { scale: options.scale } : {}),
+      onStart: () => {},
+      onFrameUpdate: (count) => {
+        rendered = count;
+      },
+      onFrameBuffer: (buffer, frame) => {
+        if (wanted.includes(frame)) buffers.set(frame, buffer);
+      },
+      chromiumOptions: { disableWebSecurity: true, gl: prepared.gl },
+      timeoutInMilliseconds: STILL_TIMEOUT_MS,
+      binariesDirectory: getRemotionBinariesDir() ?? undefined,
+      cancelSignal,
+    });
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
+  const frames: Array<{ frame: number; path: string }> = [];
+  for (const frame of wanted) {
+    const buffer = buffers.get(frame);
+    if (!buffer) throw new Error(`The in-order render did not return frame ${frame}.`);
+    const output = framePath(outDir, options.label, frame, 'png');
+    await fs.writeFile(output, buffer);
+    frames.push({ frame, path: output });
+  }
+  return { frames, rendered };
 }
 
 /**

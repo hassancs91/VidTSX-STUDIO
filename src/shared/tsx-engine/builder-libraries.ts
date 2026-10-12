@@ -5,6 +5,8 @@
 // The bundle step's allowlist, the builder prompt's catalogue and the tests all read it.
 //
 // Adding a package = one entry here + `npm install --save-exact` + a release.
+// A `builtIn` entry ships inside the app instead (`@vidtsx/sim`, the frame-pure
+// simulation helper): no npm package, the bundle step inlines its source.
 // The `use` line is what the builder reads: what the package is for and the one rule
 // that keeps it frame-pure (Remotion renders frames out of order and in parallel).
 
@@ -18,6 +20,8 @@ export interface BuilderLibrary {
   use: string;
   /** Also allow `<name>-<module>` packages (the d3 modules). */
   family?: boolean;
+  /** Ships inside the app, not from npm: the bundle step inlines its embedded source (shot-bundle.ts). */
+  builtIn?: boolean;
 }
 
 export const BUILDER_LIBRARY_AREAS: Record<BuilderLibraryArea, string> = {
@@ -40,7 +44,7 @@ export const BUILDER_LIBRARIES: readonly BuilderLibrary[] = [
   { name: 'simplex-noise', area: '2d', use: 'createNoise2D(prng): only with a seeded PRNG you write (never Math.random).' },
   { name: 'chroma-js', area: '2d', use: 'Colour scales, mixing, contrast.' },
   { name: 'lucide-react', area: '2d', use: 'Icons as React components (<Database />, <Server />…).' },
-  { name: 'd3', area: 'data', family: true, use: "scales, shapes (line, area, arc, pie, stack), hierarchy (tree, pack, treemap), geo projections, force layouts. Never d3-transition or d3-timer; a forceSimulation must be .stop()ped at once and stepped with .tick(n) inside useMemo." },
+  { name: 'd3', area: 'data', family: true, use: "scales, shapes (line, area, arc, pie, stack), hierarchy (tree, pack, treemap), geo projections, force layouts. Never d3-transition or d3-timer; a forceSimulation is .stop()ped at once, then stepped with .tick() through @vidtsx/sim (or .tick(n) once in useMemo for a still layout)." },
   { name: 'topojson-client', area: 'data', use: 'feature(topology, topology.objects.countries) → GeoJSON for a d3-geo projection.' },
   { name: 'world-atlas', area: 'data', use: "Offline world maps: import world from 'world-atlas/countries-110m.json' (50m / 10m for detail; land-*.json for coastlines)." },
   { name: 'katex', area: 'data', use: "Maths: katex.renderToString(tex, { output: 'mathml', throwOnError: false }) into a div (MathML needs no stylesheet)." },
@@ -51,11 +55,12 @@ export const BUILDER_LIBRARIES: readonly BuilderLibrary[] = [
   { name: '@react-three/drei', area: '3d', use: 'Helpers: RoundedBox, Line, OrbitControls-free cameras, ContactShadows, MeshTransmissionMaterial… Not Environment presets, Text or Text3D: they download files at render.' },
   { name: '@react-three/postprocessing', area: '3d', use: '<EffectComposer> with Bloom, DepthOfField, N8AO (ambient occlusion), Vignette, ToneMapping.' },
   { name: 'postprocessing', area: '3d', use: 'The effect passes under @react-three/postprocessing (import it only for a custom effect).' },
-  { name: '@dimforge/rapier3d-compat', area: 'physics', use: "Rigid-body 3D physics (WASM inlined). await RAPIER.init() once inside delayRender/continueRender, then step a world at a fixed dt from frame 0." },
-  { name: '@dimforge/rapier2d-compat', area: 'physics', use: 'The 2D version of Rapier: same init and stepping rules.' },
-  { name: 'cannon-es', area: 'physics', use: 'Pure-JS 3D physics: world.step(1 / fps) from frame 0, never world.fixedStep with a clock.' },
-  { name: 'matter-js', area: 'physics', use: 'Pure-JS 2D physics: Engine.update(engine, 1000 / fps) from frame 0; never Runner (it runs on a clock).' },
-  { name: 'planck', area: 'physics', use: 'Box2D for JS: world.step(1 / fps) from frame 0.' },
+  { name: '@vidtsx/sim', area: 'physics', builtIn: true, use: 'useSimulation: steps ANY engine below at a fixed dt from frame 0 and keeps each frame, so every frame is the same picture in a still, the preview and the export. Every simulation goes through it (see "## Physics").' },
+  { name: '@dimforge/rapier3d-compat', area: 'physics', use: 'Rigid-body 3D physics (WASM inlined). Through @vidtsx/sim: `init: () => RAPIER.init()`, step `world.timestep = dt; world.step()`.' },
+  { name: '@dimforge/rapier2d-compat', area: 'physics', use: 'The 2D version of Rapier: same init and step.' },
+  { name: 'cannon-es', area: 'physics', use: 'Pure-JS 3D physics. Through @vidtsx/sim: step `world.step(dt)` (one argument); never world.fixedStep or a clock.' },
+  { name: 'matter-js', area: 'physics', use: 'Pure-JS 2D physics. Through @vidtsx/sim: step `Matter.Engine.update(engine, dt * 1000)` (milliseconds, dt ≤ 1/60 s: substeps 2 at 30 fps); never Runner.' },
+  { name: 'planck', area: 'physics', use: 'Box2D for JS. Through @vidtsx/sim: step `world.step(dt)`.' },
 ];
 
 /** Refused by name with the reason, before anything else: each animates on its own clock. */
@@ -77,6 +82,11 @@ const matches = (spec: string, name: string): boolean => spec === name || spec.s
 export function packageNameOf(spec: string): string {
   const parts = spec.split('/');
   return spec.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+}
+
+/** A physics engine from the set (not the @vidtsx/sim helper): a piece that inlines one is a simulation. */
+export function isPhysicsEngine(pkg: string): boolean {
+  return BUILDER_LIBRARIES.some((lib) => lib.area === 'physics' && !lib.builtIn && lib.name === pkg);
 }
 
 /** Why a bare import is refused outright, or null. */

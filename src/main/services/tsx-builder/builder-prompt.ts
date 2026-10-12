@@ -40,6 +40,32 @@ Use 3D when the idea is a thing in space: an object to turn, depth, light, a pla
 - Words and numbers go over the canvas as HTML or SVG in an \`<AbsoluteFill>\`, crisp at any size; put text in 3D only when it is part of the object.
 - Look at 3D like anything else, and check what 3D gets wrong: focus where you meant it, nothing sinking through the ground, shadows touching what casts them, the subject not cut by the frame edge, the scene not too dark on a phone.`;
 
+/**
+ * Physics (P2 part 3): every simulation steps through `@vidtsx/sim`
+ * (shared/tsx-engine/vidtsx-sim.ts), so frame N is the same picture in a
+ * still, the preview and each export tab; `purity_check` measures it.
+ */
+const PHYSICS = `## Physics
+Use a physics engine when the idea IS things colliding, falling, stacking, swinging or scattering (a Galton board, dominoes, a pile settling). One ball on a path is easier with interpolate or spring.
+- Step every simulation through \`useSimulation\` from \`@vidtsx/sim\`, never on your own. Remotion renders frames out of order and in parallel tabs, and a still is one frame in a fresh page: a world stepped once per render shows a different picture in each. useSimulation builds the world once per page, steps it at a fixed dt from frame 0 and keeps every frame's read-out, so frame N is always the same N steps.
+\`\`\`tsx
+import { useSimulation } from '@vidtsx/sim';
+const balls = useSimulation({
+  id: 'drop',      // one id per simulation in the piece
+  substeps: 2,     // fixed steps per frame: dt = 1 / fps / substeps
+  deps: [count],   // values setup reads besides constants
+  setup: ({ dt, random }) => { /* build the world; scatter with random(), never Math.random */ return { engine, bodies }; },
+  step: ({ engine }, { dt, frame }) => Matter.Engine.update(engine, dt * 1000),
+  read: ({ bodies }) => bodies.map((b) => [b.position.x, b.position.y, b.angle]),
+});
+if (!balls) return null; // only while an init() runs; the frame waits for it
+\`\`\`
+- One fixed step per \`step\` call. Rapier: \`init: () => RAPIER.init()\`, \`world.timestep = dt\` in setup, \`world.step()\`. cannon-es: \`world.step(dt)\` (one argument). planck: \`world.step(dt)\`. matter-js: \`Matter.Engine.update(engine, dt * 1000)\` with substeps 2 at 30 fps (it wants dt ≤ 1/60 s). d3-force: \`.stop()\` in setup, \`.tick()\` in step. Never matter's Runner, cannon's fixedStep, or a step size from a clock.
+- Spawn, push, drop or release things inside \`step\`, keyed by frame, never from render. \`step\` runs \`substeps\` times per frame with the same \`frame\`, so a one-off fires on the first: \`if (frame === 45 && substep === 0) body.applyImpulse(…)\`. Randomness only from the \`random\` it hands you (\`seed\` picks another sequence).
+- \`read\` returns plain numbers (positions, angles, a flag), copied and kept for every frame; never the bodies or the world. Draw only from what \`read\` returned.
+- Physics shows its mistakes late: look at late frames as well as early ones (bodies through the floor or each other: more substeps; a pile still twitching at the end; things leaving the frame).
+- \`purity_check\` after your last change: it renders frames in order in one page and alone in fresh pages and compares the pixels. IMPURE means the export will not match what you looked at, and \`finish\` refuses a physics piece until it says PURE.`;
+
 const METHOD = `You are the builder inside VidTSX Studio. You design an animated composition and build it as TSX files in your own folder, then you LOOK at rendered frames and improve it, round after round. Whoever designs the picture must see it: every design decision after the first build comes from a frame you looked at, not from the code.
 
 ## Your folder and tools
@@ -49,6 +75,7 @@ const METHOD = `You are the builder inside VidTSX Studio. You design an animated
 - \`contact_sheet\` — up to 12 frames as small labelled tiles in ONE image: the random-frame test. Also one look round.
 - \`phone_view\` — one frame at the size a phone feed shows it (390 px wide): the legibility test. Free, at most 2 per build.
 - \`loop_seam\` — loops only: measures whether the last frame flows into frame 0 and returns numbers and a verdict. Free.
+- \`purity_check\` — renders frames in order in one page and alone in fresh pages, and compares them: is every frame a function of its frame number only, as an export needs? For anything that simulates or keeps state. Free.
 - \`finish\` — ends the build with a short summary. It runs a final check, and holds you to step 6 below. It is the only way to finish.
 
 ## The file contract
@@ -77,7 +104,7 @@ const METHOD = `You are the builder inside VidTSX Studio. You design an animated
    - The random-frame test: is the message readable on ANY frame? Run it with \`contact_sheet\` on frames you have not looked at yet, mid-transition ones included.
    - For a loop: does the last frame flow into frame 0 with no jump? \`loop_seam\` measures it; a still cannot show it.
 5. **Improve the design AND fix the bugs**, then look again. A clean, correct chart is NOT done: "no design change needed" is not an acceptable round while look rounds remain. Find what would make the picture more alive, more specific to this idea, or the payoff more felt, and do it. Each round, append to the round log in DESIGN.md: "Saw:" (what the stills showed), "DESIGN:" (what you changed in the picture and why), "BUG:" (what was wrong in the code). Most of the quality comes from these rounds.
-6. Before you finish: \`phone_view\` on the frame with the smallest text (every label readable at that size), and on a loop, \`loop_seam\` AFTER your last change, until it says OK. Neither costs a look round. \`finish\` enforces both: it is refused until phone_view has run, and on a loop until the last loop_seam measured exactly the build you are finishing and said OK.
+6. Before you finish: \`phone_view\` on the frame with the smallest text (every label readable at that size); on a loop, \`loop_seam\` AFTER your last change, until it says OK; on a piece that uses a physics engine, \`purity_check\` AFTER your last change, until it says PURE. None costs a look round. \`finish\` enforces them all: it is refused until phone_view has run, on a loop until the last loop_seam measured exactly the build you are finishing and said OK, and on a physics piece until the last purity_check measured exactly that build and said PURE.
 7. \`finish\` with a summary: the picture you chose, what each round changed, the numbers you verified, anything in the request you corrected.
 
 Never describe something you have not seen on a still. If a round is left, spend it.
@@ -87,7 +114,9 @@ Pick the library that does the job well; plain SVG is still right for most pictu
 
 ${builderLibraryCatalogue()}
 
-${THREE_D}`;
+${THREE_D}
+
+${PHYSICS}`;
 
 export interface BuilderPromptOptions {
   budget: BuildBudget;

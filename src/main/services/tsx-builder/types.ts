@@ -98,6 +98,8 @@ export type BuildProgressDetail =
   | { type: 'stills'; size: BuildStillSize; frames: number[]; paths: string[] }
   /** A `loop_seam` measurement: mean pixel differences, 0-255. */
   | { type: 'seam'; jump: boolean; wrap: number; neighbours: number }
+  /** A `purity_check`: `worst` = the largest mean pixel difference of a sample frame, 0-255. */
+  | { type: 'purity'; pure: boolean; frames: number[]; worst: number }
   /** A cap fired or the caller cancelled; tools in flight are winding down. */
   | { type: 'stopping'; reason: 'cap-time' | 'cap-tokens' | 'cancelled' }
   | { type: 'done'; stopReason: BuildStopReason; ok: boolean; version?: number };
@@ -144,6 +146,12 @@ export interface BuildResult {
    * (SEAM_JUMP_ALLOWANCE), or a capped run kept a build not measured OK.
    */
   seamOk?: boolean;
+  /**
+   * Pieces that use a physics engine, with a kept build: the last `purity_check`
+   * measured exactly this build and said PURE. False when `finish` let it through
+   * (PURITY_IMPURE_ALLOWANCE), or a capped run kept a build not measured PURE.
+   */
+  pureOk?: boolean;
   stills: BuildStillRecord[];
   elapsedMs: number;
   /** Counted per API response, so a capped or cancelled run has them too. */

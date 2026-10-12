@@ -5,6 +5,8 @@
 // - contact sheet: N frames as tiles in one ≤1024 px image (contact-sheet.ts).
 // - phone view: one frame at the width a phone feed shows the piece.
 // - loop seam: frames last-1, last, 0 and 1 as PNGs, measured (loop-seam.ts).
+// - frame purity: sample frames in order in one page and alone in fresh pages,
+//   compared (frame-purity.ts).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -14,9 +16,11 @@ import {
   prepareBuildRender,
   readBitmap,
   renderPreparedFrames,
+  renderPreparedInOrder,
 } from './build-stills';
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE, contactSheetSource, type SheetLayout } from './contact-sheet';
 import { measureSeam, type SeamMeasure } from './loop-seam';
+import { measurePurity, PURITY_MAX_FRAMES, PURITY_MAX_SIDE, purityFrames, type PurityMeasure } from './frame-purity';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { ProbedGl } from '../gl-backend-probe';
 
@@ -126,4 +130,59 @@ export async function measureLoopSeam(
     afterFirst: readBitmap(at.get(1)!),
   });
   return { ...measure, last, ms: elapsedSince(started, prepared.ms.bundle), bundleCached: prepared.bundleCached, gl: prepared.gl };
+}
+
+/**
+ * Is every frame a function of its frame number? `frames` (default: a third,
+ * two thirds, the last) rendered IN ORDER in one page and ALONE in fresh pages
+ * (last first), at PURITY_MAX_SIDE, compared pixel for pixel.
+ */
+export async function measureFramePurity(
+  code: string,
+  config: CompositionConfig,
+  outDir: string,
+  options: LookOptions & { frames?: number[] },
+): Promise<
+  PurityMeasure & {
+    scale: number;
+    /** Frames the in-order pass rendered (0..last sample). */
+    inOrderFrames: number;
+    paths: Array<{ frame: number; inOrder: string; alone: string }>;
+    ms: { bundle: number; inOrder: number; alone: number };
+    bundleCached: boolean;
+    gl: ProbedGl;
+  }
+> {
+  const picked = clampFrames(options.frames?.length ? options.frames : purityFrames(config.durationInFrames), config.durationInFrames).slice(
+    0,
+    PURITY_MAX_FRAMES,
+  );
+  const scale = Math.min(1, PURITY_MAX_SIDE / Math.max(config.width, config.height));
+  const signal = options.signal ? { signal: options.signal } : {};
+  const prepared = await prepareBuildRender(code, config, outDir, signal);
+  const orderStart = Date.now();
+  const inOrder = await renderPreparedInOrder(prepared, outDir, picked, { label: `${options.label}-order`, scale, ...signal });
+  const aloneStart = Date.now();
+  const alone = await renderPreparedFrames(prepared, outDir, picked, {
+    label: `${options.label}-alone`,
+    imageFormat: 'png',
+    scale,
+    reverse: true,
+    ...signal,
+  });
+  const done = Date.now();
+  const aloneAt = new Map(alone.map((a) => [a.frame, a.path]));
+  const pairs = inOrder.frames.map((o) => ({ frame: o.frame, inOrder: o.path, alone: aloneAt.get(o.frame)! }));
+  const measure = measurePurity(
+    pairs.map((p) => ({ frame: p.frame, inOrder: readBitmap(p.inOrder), alone: readBitmap(p.alone) })),
+  );
+  return {
+    ...measure,
+    scale,
+    inOrderFrames: inOrder.rendered,
+    paths: pairs,
+    ms: { bundle: prepared.ms.bundle, inOrder: aloneStart - orderStart, alone: done - aloneStart },
+    bundleCached: prepared.bundleCached,
+    gl: prepared.gl,
+  };
 }

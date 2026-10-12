@@ -8,7 +8,9 @@
 // set (shared/tsx-engine/builder-libraries.ts: the @remotion/* packages, d3,
 // three + R3F, physics, roughjs, katex…) wherever esbuild can find them —
 // beside the source file first, then in `nodePaths`. Libraries that animate on
-// their own clock are refused by name with the reason.
+// their own clock are refused by name with the reason. The set's built-in
+// modules (`@vidtsx/sim`) are not on disk: their source is embedded in this
+// bundle (`?raw`) and inlined from there, packaged app or not.
 // Anything else is refused with a message that names the package; the LLM
 // "Convert for Studio" pass stays available for those.
 //
@@ -24,6 +26,7 @@ import {
   isBuilderLibrary,
   packageNameOf,
 } from '../../../shared/tsx-engine/builder-libraries';
+import VIDTSX_SIM_SOURCE from '../../../shared/tsx-engine/vidtsx-sim.ts?raw';
 
 /** Resolved by the shot preview and the export — never inlined. */
 const EXTERNAL = /^(react|remotion|@vidtsx\/kit)$/;
@@ -32,6 +35,10 @@ const JSX_RUNTIME = /^react\/jsx-(dev-)?runtime$/;
 const ALLOWED_TEXT = `react, remotion, @vidtsx/kit, the @remotion/* packages, ${BUILDER_LIBRARIES.filter((l) => !l.name.startsWith('@remotion/'))
   .map((l) => (l.family ? `${l.name} (+ ${l.name}-* modules)` : l.name))
   .join(', ')}`;
+/** The library set's built-in modules (`builtIn` in builder-libraries.ts): specifier → TypeScript source. */
+const BUILT_IN_SOURCES: Record<string, string> = { '@vidtsx/sim': VIDTSX_SIM_SOURCE };
+const BUILT_IN = /^@vidtsx\/sim$/;
+const BUILT_IN_NS = 'vidtsx-builtin';
 /** A relative import of one of these is media or styling, not code. */
 const NON_CODE = /\.(css|scss|sass|less|png|jpe?g|gif|webp|avif|svg|mp4|mov|webm|mp3|wav|woff2?|ttf|otf)$/i;
 
@@ -114,6 +121,8 @@ function importGuard(): esbuild.Plugin {
     setup(build) {
       build.onResolve({ filter: JSX_RUNTIME }, () => ({ path: 'jsx-shim', namespace: 'vidtsx-shim' }));
       build.onLoad({ filter: /.*/, namespace: 'vidtsx-shim' }, () => ({ contents: JSX_SHIM, loader: 'js' }));
+      build.onResolve({ filter: BUILT_IN }, (args) => ({ path: args.path, namespace: BUILT_IN_NS }));
+      build.onLoad({ filter: /.*/, namespace: BUILT_IN_NS }, (args) => ({ contents: BUILT_IN_SOURCES[args.path], loader: 'ts' }));
       build.onResolve({ filter: EXTERNAL }, (args) =>
         args.kind === 'require-call'
           ? { path: args.path, namespace: CJS_EXTERNAL_NS }
@@ -192,6 +201,10 @@ export async function bundleShotSource(
   const packages = new Set<string>();
   const entry = path.resolve(sourcePath);
   for (const input of Object.keys(result.metafile.inputs)) {
+    if (input.startsWith(`${BUILT_IN_NS}:`)) {
+      packages.add(input.slice(BUILT_IN_NS.length + 1));
+      continue;
+    }
     if (input.includes(':') && !/^[a-zA-Z]:[\\/]/.test(input)) continue; // a plugin namespace (the jsx shim)
     const normalized = input.replace(/\\/g, '/');
     const inPackage = /(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(normalized);

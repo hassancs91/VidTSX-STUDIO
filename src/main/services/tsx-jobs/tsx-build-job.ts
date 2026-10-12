@@ -90,6 +90,7 @@ function finalBuild(prev: TsxBuildJobIpc, build: BuildResult): TsxBuildJobIpc {
     stopReason: build.stopReason,
     finished: build.finished,
     ...(build.seamOk !== undefined ? { seamOk: build.seamOk } : {}),
+    ...(build.pureOk !== undefined ? { pureOk: build.pureOk } : {}),
     ...(build.summary ? { summary: build.summary } : {}),
     ...(build.ok && build.error ? { notice: build.error } : {}),
     ...(build.version ? { stills: savedStills(build) } : {}),

@@ -14,6 +14,7 @@ const checkBuild = vi.fn();
 const renderContactSheet = vi.fn();
 const renderPhoneView = vi.fn();
 const measureLoopSeam = vi.fn();
+const measureFramePurity = vi.fn();
 vi.mock('./build-check', () => ({ checkBuild: (...args: unknown[]) => checkBuild(...args) }));
 vi.mock('./build-stills', () => ({ renderBuildStills: vi.fn() }));
 vi.mock('./build-looks', () => ({
@@ -21,10 +22,11 @@ vi.mock('./build-looks', () => ({
   renderContactSheet: (...args: unknown[]) => renderContactSheet(...args),
   renderPhoneView: (...args: unknown[]) => renderPhoneView(...args),
   measureLoopSeam: (...args: unknown[]) => measureLoopSeam(...args),
+  measureFramePurity: (...args: unknown[]) => measureFramePurity(...args),
 }));
 
-import { buildBuilderToolServer, SEAM_JUMP_ALLOWANCE, type BuilderState } from './builder-tools';
-import { seamOkFor } from './builder-tool-common';
+import { buildBuilderToolServer, PURITY_IMPURE_ALLOWANCE, SEAM_JUMP_ALLOWANCE, type BuilderState } from './builder-tools';
+import { pureOkFor, seamOkFor } from './builder-tool-common';
 import { EDIT_MIN_ROUNDS } from './builder-prompt';
 
 type Result = { content: Array<{ type: string; text?: string; data?: string }>; isError?: boolean };
@@ -34,6 +36,18 @@ const config = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationIn
 const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], ms: 5 };
 const seam = { wrap: 1.12, before: 0.1, after: 0.1, neighbours: 0.1, ratio: 11.2, jump: true, region: null, last: 239 };
 const okSeam = { ...seam, wrap: 0.09, ratio: 0.9, jump: false, ms: { bundle: 1, render: 1 }, bundleCached: true };
+const purityRun = { scale: 0.4, inOrderFrames: 240, paths: [], ms: { bundle: 1, inOrder: 1, alone: 1 }, bundleCached: true, gl: 'angle' };
+const pure = { ...purityRun, pure: true, frames: [80, 159, 239].map((frame) => ({ frame, mean: 0, region: null, differs: false })) };
+const impure = {
+  ...purityRun,
+  pure: false,
+  frames: [
+    { frame: 80, mean: 0, region: null, differs: false },
+    { frame: 239, mean: 3.77, region: { x: 95, y: 3, width: 350, height: 221, share: 0.03 }, differs: true },
+  ],
+};
+/** A physics piece: check inlined an engine (the helper alone is not one). */
+const physicsBuild = { ...passed, inlinedPackages: ['@vidtsx/sim', 'matter-js'] };
 
 async function setup(overrides: Partial<BuilderState> = {}) {
   const runDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-looks-'));
@@ -48,6 +62,9 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     seamChecks: 0,
     lastSeam: null,
     seamJumps: new Set(),
+    purityChecks: 0,
+    lastPurity: null,
+    impureBuilds: new Set(),
     lastGood: null,
     finished: null,
     stills: [],
@@ -82,6 +99,7 @@ beforeEach(() => {
     bundleCached: true,
   }));
   measureLoopSeam.mockReset().mockResolvedValue({ ...seam, ms: { bundle: 1, render: 1 }, bundleCached: true });
+  measureFramePurity.mockReset().mockResolvedValue(pure);
 });
 
 describe('contact_sheet', () => {
@@ -177,6 +195,37 @@ describe('loop_seam', () => {
   });
 });
 
+describe('purity_check', () => {
+  it('is free, answers PURE or IMPURE in numbers, and records the verdict for this build', async () => {
+    const onEvent = vi.fn();
+    const { state, call } = await setup({ onEvent });
+    const result = await call('purity_check');
+    expect(state.roundsUsed).toBe(0);
+    expect(state.purityChecks).toBe(1);
+    expect(result.content[0].text).toContain('PURE: frames 80, 159, 239 render the same');
+    expect(pureOkFor(state, '// bundle')).toBe(true);
+    expect(onEvent.mock.calls.at(-1)![0]).toEqual({ type: 'purity', pure: true, frames: [80, 159, 239], worst: 0 });
+    expect(measureFramePurity.mock.calls[0][3]).toMatchObject({ label: 'purity1' });
+    measureFramePurity.mockResolvedValueOnce(impure);
+    const bad = await call('purity_check', { frames: [80, 239] });
+    expect(measureFramePurity.mock.calls[1][3]).toMatchObject({ label: 'purity2', frames: [80, 239] });
+    expect(bad.content[0].text).toContain('IMPURE');
+    // The box comes back in build pixels (the check renders at scale 0.4).
+    expect(bad.content[0].text).toContain('Frame 239: mean difference 3.770 (0-255); differs in the box x 238-1110, y 8-558');
+    expect(state.impureBuilds.size).toBe(1);
+    expect(onEvent.mock.calls.at(-1)![0]).toMatchObject({ type: 'purity', pure: false, worst: 3.77 });
+    const events = await fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8');
+    expect(events).toContain('"tool":"purity_check"');
+  });
+
+  it('reports a failing check instead of measuring', async () => {
+    const { call } = await setup();
+    checkBuild.mockResolvedValueOnce({ ...passed, ok: false, errors: ['Unexpected token'] });
+    expect((await call('purity_check')).content[0].text).toContain('check FAILED');
+    expect(measureFramePurity).not.toHaveBeenCalled();
+  });
+});
+
 describe('finish gate', () => {
   const events = async (state: BuilderState) => fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8');
   /** The builder edited its files: the next check bundles different code. */
@@ -259,6 +308,65 @@ describe('finish gate', () => {
     expect(result.content[0].text).toContain('seamOk: false');
     expect(state.finished?.summary).toBe('stubborn');
     expect(await events(state)).toContain(`"seamOk":false,"seamJumps":${SEAM_JUMP_ALLOWANCE}`);
+  });
+
+  describe('on a piece that uses a physics engine', () => {
+    const still = { width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
+
+    it('needs a PURE purity_check of this exact build; the helper alone does not count as physics', async () => {
+      checkBuild.mockResolvedValue({ ...passed, inlinedPackages: ['@vidtsx/sim'] });
+      const helperOnly = await setup({ roundsUsed: 2, expect: still, phoneViews: 1 });
+      expect((await helperOnly.call('finish', { summary: 's' })).isError).toBeUndefined();
+
+      checkBuild.mockResolvedValue(physicsBuild);
+      const { state, call } = await setup({ roundsUsed: 2, expect: still, phoneViews: 1 });
+      const refused = await call('finish', { summary: 's' });
+      expect(refused.content[0].text).toContain('purity_check has not run yet: this piece simulates physics');
+      await call('purity_check');
+      checkBuild.mockResolvedValue({ ...physicsBuild, code: '// bundle v2' });
+      expect((await call('finish', { summary: 's' })).content[0].text).toContain('purity_check last measured an earlier build');
+      await call('purity_check');
+      expect((await call('finish', { summary: 's' })).isError).toBeUndefined();
+      expect(state.finished).toMatchObject({ code: '// bundle v2', physics: true });
+      expect(await events(state)).toContain('"pureOk":true');
+    });
+
+    it('refuses IMPURE on this build until a fix measures PURE', async () => {
+      checkBuild.mockResolvedValue(physicsBuild);
+      measureFramePurity.mockResolvedValue(impure);
+      const { state, call } = await setup({ roundsUsed: 2, expect: still, phoneViews: 1 });
+      await call('purity_check');
+      const refused = await call('finish', { summary: 's' });
+      expect(refused.content[0].text).toContain('purity_check says IMPURE on this build: step the simulation through useSimulation');
+      expect(state.finished).toBeNull();
+      checkBuild.mockResolvedValue({ ...physicsBuild, code: '// fixed' });
+      measureFramePurity.mockResolvedValue(pure);
+      await call('purity_check');
+      expect((await call('finish', { summary: 'fixed' })).isError).toBeUndefined();
+    });
+
+    it(`lets a stubborn piece through after ${PURITY_IMPURE_ALLOWANCE} IMPURE builds, marked pureOk false`, async () => {
+      measureFramePurity.mockResolvedValue(impure);
+      const { state, call } = await setup({ roundsUsed: 2, expect: still, phoneViews: 1 });
+      for (let attempt = 1; attempt <= PURITY_IMPURE_ALLOWANCE; attempt++) {
+        checkBuild.mockResolvedValue({ ...physicsBuild, code: `// try ${attempt}` });
+        await call('purity_check');
+        await call('purity_check'); // the same build again is not another try
+        expect(state.impureBuilds.size).toBe(attempt);
+      }
+      const result = await call('finish', { summary: 'stubborn' });
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain('frame purity NOT verified');
+      expect(result.content[0].text).toContain('pureOk: false');
+      expect(await events(state)).toContain(`"pureOk":false,"purityChecks":${2 * PURITY_IMPURE_ALLOWANCE},"impureBuilds":${PURITY_IMPURE_ALLOWANCE}`);
+    });
+
+    it('on a loop, names the seam and the purity check in one refusal', async () => {
+      checkBuild.mockResolvedValue(physicsBuild);
+      const { state, call } = await setup({ roundsUsed: 2 });
+      await call('finish', { summary: 's' });
+      expect(await events(state)).toContain('"missing":["phone_view","loop_seam","purity_check"]');
+    });
   });
 
   it("holds an edit to it too, after the edit's one-look floor", async () => {

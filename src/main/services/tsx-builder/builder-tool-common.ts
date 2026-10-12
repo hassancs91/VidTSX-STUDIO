@@ -11,6 +11,7 @@ import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { checkBuild, type BuildCheckResult } from './build-check';
+import { isPhysicsEngine } from '../../../shared/tsx-engine/builder-libraries';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildStillShown, RunDirs } from './build-store';
 import type { BuildFormat, BuildPhase, BuildProgressDetail } from './types';
@@ -33,9 +34,15 @@ export interface BuilderState {
   lastSeam: { code: string; jump: boolean } | null;
   /** Builds (by buildHash) that loop_seam called a JUMP: the same build measured twice counts once. */
   seamJumps: Set<string>;
-  /** The last artifact that passed every gate — what a capped run returns. */
-  lastGood: { code: string; config: CompositionConfig; check: number } | null;
-  finished: { summary: string; code: string; config: CompositionConfig } | null;
+  /** purity_check calls (free). */
+  purityChecks: number;
+  /** The last purity_check: the build it measured and its verdict. `finish` compares it with its own final check on a physics piece. */
+  lastPurity: { code: string; pure: boolean } | null;
+  /** Builds (by buildHash) that purity_check called IMPURE: the same build measured twice counts once. */
+  impureBuilds: Set<string>;
+  /** The last artifact that passed every gate — what a capped run returns. `physics`: it inlines a physics engine. */
+  lastGood: { code: string; config: CompositionConfig; check: number; physics: boolean } | null;
+  finished: { summary: string; code: string; config: CompositionConfig; physics: boolean } | null;
   /** Every image shown to the builder, in order — saved with the version. */
   stills: BuildStillShown[];
   /** Aborted when the run stops (cancel or a cap). */
@@ -60,6 +67,16 @@ export const STOPPING = 'The run is stopping. Reply with one short line and stop
 /** A short id for one checked build, for the event log and the seam record. */
 export function buildHash(code: string): string {
   return createHash('sha256').update(code).digest('hex').slice(0, 8);
+}
+
+/** A build that inlines a physics engine (not just the @vidtsx/sim helper): `finish` holds it to purity_check. */
+export function isPhysicsBuild(packages: string[]): boolean {
+  return packages.some(isPhysicsEngine);
+}
+
+/** True when the last purity_check measured exactly `code` and said PURE. */
+export function pureOkFor(state: BuilderState, code: string): boolean {
+  return state.lastPurity !== null && state.lastPurity.code === code && state.lastPurity.pure;
 }
 
 /** True when the last loop_seam measured exactly `code` and said OK. */
@@ -92,7 +109,7 @@ export async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
   state.checks += 1;
   const result = await checkBuild(state.dirs.workDir, state.expect);
   if (result.ok && result.code && result.config) {
-    state.lastGood = { code: result.code, config: result.config, check: state.checks };
+    state.lastGood = { code: result.code, config: result.config, check: state.checks, physics: isPhysicsBuild(result.inlinedPackages) };
     const dir = path.join(state.dirs.runDir, 'checkpoints');
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, `c${String(state.checks).padStart(2, '0')}.tsx`), result.code, 'utf-8');

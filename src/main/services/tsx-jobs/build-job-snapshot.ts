@@ -103,6 +103,9 @@ export function applyBuildEvent(prev: TsxBuildJobIpc, event: BuildProgressEvent)
     case 'seam':
       build.seam = { jump: event.jump, wrap: event.wrap, neighbours: event.neighbours };
       break;
+    case 'purity':
+      build.purity = { pure: event.pure, frames: [...event.frames], worst: event.worst };
+      break;
     case 'stopping':
       build.stopping = event.reason;
       break;

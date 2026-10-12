@@ -7,6 +7,7 @@ import {
   bannedLibraryReason,
   builderLibraryCatalogue,
   isBuilderLibrary,
+  isPhysicsEngine,
   packageNameOf,
 } from './builder-libraries';
 
@@ -42,7 +43,22 @@ describe('builder library set', () => {
   it('lists only packages that are installed and declared as dependencies', () => {
     const root = path.resolve(__dirname, '../../..');
     const pkg = createRequire(path.join(root, 'package.json'))('./package.json') as { dependencies: Record<string, string> };
-    for (const lib of BUILDER_LIBRARIES) expect(pkg.dependencies[lib.name], lib.name).toBeTruthy();
+    for (const lib of BUILDER_LIBRARIES.filter((l) => !l.builtIn)) expect(pkg.dependencies[lib.name], lib.name).toBeTruthy();
+  });
+
+  it('ships the frame-pure simulation helper as a built-in, and tells engines from it', () => {
+    const sim = BUILDER_LIBRARIES.find((l) => l.name === '@vidtsx/sim');
+    expect(sim?.builtIn).toBe(true);
+    expect(isBuilderLibrary('@vidtsx/sim')).toBe(true);
+    expect(isPhysicsEngine('@vidtsx/sim')).toBe(false);
+    for (const engine of ['@dimforge/rapier3d-compat', '@dimforge/rapier2d-compat', 'cannon-es', 'matter-js', 'planck']) {
+      expect(isPhysicsEngine(engine), engine).toBe(true);
+    }
+    expect(isPhysicsEngine('d3-force')).toBe(false);
+    // Every engine line sends the builder through the helper.
+    for (const lib of BUILDER_LIBRARIES.filter((l) => l.area === 'physics' && !l.builtIn && l.name !== '@dimforge/rapier2d-compat')) {
+      expect(lib.use, lib.name).toContain('@vidtsx/sim');
+    }
   });
 
   it('gives the prompt one line per package, grouped by area', () => {

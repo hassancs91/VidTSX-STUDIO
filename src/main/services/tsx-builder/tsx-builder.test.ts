@@ -19,6 +19,7 @@ const renderBuildStills = vi.fn();
 vi.mock('./build-check', () => ({ checkBuild: (...args: unknown[]) => checkBuild(...args) }));
 vi.mock('./build-stills', () => ({ renderBuildStills: (...args: unknown[]) => renderBuildStills(...args) }));
 const measureLoopSeam = vi.fn();
+const measureFramePurity = vi.fn();
 vi.mock('./build-looks', () => ({
   PHONE_FEED_WIDTH: 390,
   renderPhoneView: async (_code: string, _config: unknown, dir: string, frame: number) => ({
@@ -33,6 +34,7 @@ vi.mock('./build-looks', () => ({
   }),
   renderContactSheet: vi.fn(),
   measureLoopSeam: (...args: unknown[]) => measureLoopSeam(...args),
+  measureFramePurity: (...args: unknown[]) => measureFramePurity(...args),
 }));
 
 type ToolCall = (name: string, args?: Record<string, unknown>) => Promise<{ content: Array<{ text?: string }> }>;
@@ -267,5 +269,47 @@ describe('buildComposition — the loop seam on the result', () => {
     expect(result).toMatchObject({ ok: true, finished: true, seamOk: false, summary: 'Gave up on the seam.' });
     const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
     expect(debug.seamOk).toBe(false);
+  });
+});
+
+describe('buildComposition — frame purity on a physics result', () => {
+  const physics = (code: string) => ({ ...passed(code), inlinedPackages: ['@vidtsx/sim', 'cannon-es'] });
+  const purity = (pure: boolean) => ({
+    pure,
+    frames: [{ frame: 59, mean: pure ? 0 : 4.2, region: null, differs: !pure }],
+    scale: 0.5,
+    inOrderFrames: 60,
+    paths: [],
+    ms: { bundle: 1, inOrder: 1, alone: 1 },
+    bundleCached: true,
+    gl: 'angle',
+  });
+
+  it('a physics piece finished on a PURE check is saved with pureOk true; a 2D piece has no verdict', async () => {
+    checkBuild.mockImplementation(async () => physics('// drop'));
+    measureFramePurity.mockResolvedValue(purity(true));
+    script = async (s) => {
+      s.turn(500);
+      await s.call('render_stills', { frames: [0, 59] });
+      await s.call('phone_view', { frame: 30 });
+      await s.call('purity_check');
+      await s.call('finish', { summary: 'Balls drop and settle.' });
+    };
+    const result = await buildComposition(request().req);
+    expect(result).toMatchObject({ ok: true, finished: true, pureOk: true });
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.pureOk).toBe(true);
+    expect(result).not.toHaveProperty('seamOk');
+  });
+
+  it('a capped physics run keeps its last build, marked pureOk false when never measured', async () => {
+    checkBuild.mockImplementation(async () => physics('// drop'));
+    script = async (s) => {
+      await s.call('check');
+      s.turn(50_000);
+      await new Promise(() => {}); // the token cap stops the run
+    };
+    const result = await buildComposition(request({ maxOutputTokens: 1000 }).req);
+    expect(result).toMatchObject({ ok: true, finished: false, stopReason: 'cap-tokens', pureOk: false });
   });
 });

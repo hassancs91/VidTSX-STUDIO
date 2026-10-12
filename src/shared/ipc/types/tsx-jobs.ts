@@ -77,6 +77,8 @@ export interface TsxBuildJobIpc {
   lastCheck?: { n: number; ok: boolean; errors: string[] };
   /** The last loop_seam measurement: mean pixel differences, 0-255. */
   seam?: { jump: boolean; wrap: number; neighbours: number };
+  /** The last purity_check: same frames in order vs alone; `worst` = the largest mean pixel difference, 0-255. */
+  purity?: { pure: boolean; frames: number[]; worst: number };
   /** The latest look while running; every saved still once done. */
   stills: TsxBuildStillIpc[];
   /** A cap fired or the job was cancelled; the run is winding down. */
@@ -87,6 +89,8 @@ export interface TsxBuildJobIpc {
   finished?: boolean;
   /** Loops with a kept build only: the last seam measured exactly that build and said OK. */
   seamOk?: boolean;
+  /** Pieces that use a physics engine, with a kept build: the last purity_check measured exactly that build and said PURE. */
+  pureOk?: boolean;
   summary?: string;
   /** A run that kept a build but did not finish (a cap): why, in one line. */
   notice?: string;

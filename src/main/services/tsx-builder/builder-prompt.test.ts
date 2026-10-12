@@ -24,9 +24,10 @@ describe('buildBuilderSystemPrompt', () => {
     expect(buildBuilderSystemPrompt({ budget: 'standard', packs })).toBe(prompt);
   });
 
-  it('says finish enforces the phone view and the final seam', () => {
+  it('says finish enforces the phone view, the final seam and, on physics, purity', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
-    expect(prompt).toContain('`finish` enforces both');
+    expect(prompt).toContain('`finish` enforces them all');
+    expect(prompt).toContain('on a physics piece until the last purity_check measured exactly that build and said PURE');
     expect(prompt).toContain('`loop_seam` AFTER your last change');
   });
 
@@ -49,6 +50,23 @@ describe('buildBuilderSystemPrompt', () => {
     expect(block).toContain('no useGLTF, useTexture, loaders, `<Environment>`');
     // The 3D block comes before the budget line, so the cached prompt prefix is the same for every budget.
     expect(buildBuilderSystemPrompt({ budget: 'craft', packs: [] }).indexOf('## 3D')).toBe(prompt.indexOf('## 3D'));
+  });
+
+  it('teaches physics after the 3D block: every engine steps through @vidtsx/sim, then purity_check', () => {
+    const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
+    const block = prompt.slice(prompt.indexOf('## Physics'));
+    expect(prompt.indexOf('## Physics')).toBeGreaterThan(prompt.indexOf('## 3D'));
+    expect(block).toContain("Step every simulation through `useSimulation` from `@vidtsx/sim`, never on your own");
+    expect(block).toContain("import { useSimulation } from '@vidtsx/sim';");
+    expect(block).toContain('`init: () => RAPIER.init()`');
+    expect(block).toContain("Never matter's Runner, cannon's fixedStep, or a step size from a clock");
+    expect(block).toContain('never the bodies or the world');
+    // P2 part 3 smoke: a spawn keyed by frame alone fired once per substep.
+    expect(block).toContain('`if (frame === 45 && substep === 0) body.applyImpulse(…)`');
+    expect(block).toContain('`purity_check` after your last change');
+    expect(prompt).toContain('- `purity_check` — renders frames in order in one page and alone in fresh pages');
+    // Before the budget line, like the 3D block: one cached prefix for every budget.
+    expect(buildBuilderSystemPrompt({ budget: 'craft', packs: [] }).indexOf('## Physics')).toBe(prompt.indexOf('## Physics'));
   });
 
   it('promises only packages the bundle step can inline, from the one library list', () => {

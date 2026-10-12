@@ -1,4 +1,4 @@
-// The builder's eyes (TSX_BUILDER_DESIGN.md T2): the four tools that render.
+// The builder's eyes (TSX_BUILDER_DESIGN.md T2): the five tools that render.
 // Each checks first and renders the build that passed.
 //
 // - `render_stills` and `contact_sheet` are LOOK ROUNDS: budgeted, counted
@@ -6,15 +6,19 @@
 // - `phone_view` (at most MAX_PHONE_VIEWS per run) and `loop_seam` (loops
 //   only) are free. `finish` refuses until both have done their job
 //   (builder-tools.ts), so they record what they saw in the state.
+// - `purity_check` (P2 part 3) is free: the same frames in order in one page
+//   and alone in fresh pages must match. `finish` refuses a piece that uses a
+//   physics engine until it says PURE, so it records its verdict too.
 //
 // Every image shown is recorded in `state.stills` and saved with the version.
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { renderBuildStills } from './build-stills';
-import { measureLoopSeam, PHONE_FEED_WIDTH, renderContactSheet, renderPhoneView } from './build-looks';
+import { measureFramePurity, measureLoopSeam, PHONE_FEED_WIDTH, renderContactSheet, renderPhoneView } from './build-looks';
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE } from './contact-sheet';
 import { describeSeam } from './loop-seam';
+import { describePurity, PURITY_MAX_FRAMES, PURITY_MAX_SIDE } from './frame-purity';
 import {
   buildHash,
   checkForLook,
@@ -215,5 +219,54 @@ export function buildLookTools(state: BuilderState) {
     }),
   );
 
-  return [renderStills, contactSheet, phoneView, loopSeam];
+  const purityCheck = tool(
+    'purity_check',
+    `Check, then test that every frame is a function of its frame number alone: renders sample frames IN ORDER in one page (the way the preview plays them) and each ALONE in a fresh page, last first (the way a still and every export tab render them), at ${PURITY_MAX_SIDE} px, and compares the pixels. Returns PURE or IMPURE with each frame's difference and the box where it differs. A still cannot show this; an export would. Run it on anything that simulates (physics, a force layout) or keeps state between frames, after your last change. Free (no look round).`,
+    {
+      frames: z
+        .array(z.number().int())
+        .min(1)
+        .max(PURITY_MAX_FRAMES)
+        .optional()
+        .describe(`Up to ${PURITY_MAX_FRAMES} frames to test (default: a third, two thirds and the last frame). Pick where the most has moved.`),
+    },
+    tracked(state, 'rendering', async (args: { frames?: number[] }) => {
+      const look = await checkForLook(state);
+      if ('reply' in look) return look.reply;
+      state.purityChecks += 1;
+      const started = Date.now();
+      try {
+        const purity = await measureFramePurity(look.build.code, look.build.config, state.dirs.stillsDir, {
+          label: `purity${state.purityChecks}`,
+          ...(args.frames?.length ? { frames: args.frames } : {}),
+          ...signal(),
+        });
+        const build = buildHash(look.build.code);
+        // What `finish` holds a physics piece to: this exact build, this verdict.
+        state.lastPurity = { code: look.build.code, pure: purity.pure };
+        if (!purity.pure) state.impureBuilds.add(build);
+        const frames = purity.frames.map((f) => f.frame);
+        const worst = Math.max(0, ...purity.frames.map((f) => f.mean));
+        await logEvent(state, {
+          tool: 'purity_check',
+          n: state.purityChecks,
+          build,
+          pure: purity.pure,
+          frames: purity.frames,
+          scale: purity.scale,
+          inOrderFrames: purity.inOrderFrames,
+          ms: purity.ms,
+          bundleCached: purity.bundleCached,
+          gl: purity.gl,
+          totalMs: Date.now() - started,
+        });
+        state.onEvent?.({ type: 'purity', pure: purity.pure, frames, worst });
+        return text(`${look.build.summary}\n${describePurity(purity, purity.scale)}`);
+      } catch (err) {
+        return lookFailed(state, 'purity_check', err, started);
+      }
+    }),
+  );
+
+  return [renderStills, contactSheet, phoneView, loopSeam, purityCheck];
 }

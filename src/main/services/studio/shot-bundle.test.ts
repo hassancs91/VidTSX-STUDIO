@@ -109,6 +109,26 @@ describe('bundleShotSource', () => {
     expect(lintShotSource(bundled.code).errors).toEqual([]);
   }, 30_000); // bundles R3F + shapes for real: ~1 s alone, slower under the full suite
 
+  it('inlines the built-in @vidtsx/sim from its embedded source, with no node_modules to search', async () => {
+    const file = await write(
+      'project/src/shots/Sim.tsx',
+      [
+        "import React from 'react';",
+        "import { useSimulation } from '@vidtsx/sim';",
+        "export const compositionConfig = { id: 'Sim', durationInFrames: 30, fps: 30, width: 100, height: 100 };",
+        'export default () => {',
+        "  const y = useSimulation({ id: 'drop', setup: () => ({ y: 1 }), step: (w, { dt }) => { w.y -= dt; }, read: (w) => w.y });",
+        '  return <div>{String(y)}</div>;',
+        '};',
+      ].join('\n'),
+    );
+    const bundled = await bundleShotSource(file);
+    expect(bundled.inlinedPackages).toEqual(['@vidtsx/sim']);
+    expect(bundled.code).not.toContain('@vidtsx/sim"');
+    expect(bundled.code).toContain('function createFrameSim');
+    expect(lintShotSource(bundled.code).errors).toEqual([]);
+  });
+
   it('refuses a media or stylesheet import and says what to do instead', async () => {
     const file = await write('project/src/shots/Css.tsx', "import './x.css';\nexport const compositionConfig = { id: 'x', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nexport default () => null;\n");
     await expect(bundleShotSource(file)).rejects.toThrow(/is not code — a shot cannot import media or stylesheets/);
