@@ -452,9 +452,12 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > 1 types + build store + edits `503fd3a` · 2 caps, cancel, progress `f4c6602` · 3 per-build bundle
 > serving `048e3e5` · 4 contact_sheet / phone_view / loop_seam `5b71a37` · 4b finish gate (phone view +
 > loop seam on the finished build) `e43b38b` · 5 `generateTsx()` dispatcher + pipeline fallback
-> `97c9e4a` (+ `34b55d9` dev entry: BYOK preset key from env; OpenRouter GPT passed) ·
-> **next: 6** tsx-job kind `build` (builder only, per Rev 2) · 7 dev entry through the job engine +
-> the exit (B1–B4 at Craft on Opus 5.5, wall `P1-B1..B4`, one Standard edit of B2).
+> `97c9e4a` (+ `34b55d9` dev entry: BYOK preset key from env; OpenRouter GPT passed) · 6 tsx-job
+> kind `build` (builder only: a provider without tools is refused, an OpenRouter model without tool
+> use or image input is refused before the run from its public model list; snapshot carries phase,
+> rounds, checks, tokens, latest stills; builds run one at a time) `2a8a166` ·
+> **next: 7** dev entry through the job engine + the exit (B1–B4 at Craft on Opus 5.5, wall
+> `P1-B1..B4`, one Standard edit of B2).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
