@@ -44,9 +44,9 @@ var __toESM = (mod, isNodeMode, target2) => (target2 = mod != null ? __create(__
   mod
 ));
 
-// node_modules/@use-gesture/core/dist/maths-267f0992.cjs.dev.js
-var require_maths_267f0992_cjs_dev = __commonJS({
-  "node_modules/@use-gesture/core/dist/maths-267f0992.cjs.dev.js"(exports) {
+// node_modules/@use-gesture/core/dist/maths-83bc6f64.cjs.prod.js
+var require_maths_83bc6f64_cjs_prod = __commonJS({
+  "node_modules/@use-gesture/core/dist/maths-83bc6f64.cjs.prod.js"(exports) {
     "use strict";
     function clamp3(v6, min, max2) {
       return Math.max(min, Math.min(v6, max2));
@@ -91,11 +91,11 @@ var require_maths_267f0992_cjs_dev = __commonJS({
   }
 });
 
-// node_modules/@use-gesture/core/dist/actions-6579bdef.cjs.dev.js
-var require_actions_6579bdef_cjs_dev = __commonJS({
-  "node_modules/@use-gesture/core/dist/actions-6579bdef.cjs.dev.js"(exports) {
+// node_modules/@use-gesture/core/dist/actions-89e642c9.cjs.prod.js
+var require_actions_89e642c9_cjs_prod = __commonJS({
+  "node_modules/@use-gesture/core/dist/actions-89e642c9.cjs.prod.js"(exports) {
     "use strict";
-    var maths = require_maths_267f0992_cjs_dev();
+    var maths = require_maths_83bc6f64_cjs_prod();
     function _toPrimitive2(input, hint) {
       if (typeof input !== "object" || input === null) return input;
       var prim = input[Symbol.toPrimitive];
@@ -597,44 +597,12 @@ var require_actions_6579bdef_cjs_dev = __commonJS({
       transform(value, _k, config) {
         const transform = value || config.shared.transform;
         this.hasCustomTransform = !!transform;
-        if (true) {
-          const originalTransform = transform || identity3;
-          return (v6) => {
-            const r3 = originalTransform(v6);
-            if (!isFinite(r3[0]) || !isFinite(r3[1])) {
-              console.warn(`[@use-gesture]: config.transform() must produce a valid result, but it was: [${r3[0]},${[1]}]`);
-            }
-            return r3;
-          };
-        }
         return transform || identity3;
       },
       threshold(value) {
         return maths.V.toVector(value, 0);
       }
     };
-    if (true) {
-      Object.assign(commonConfigResolver, {
-        domTarget(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`domTarget\` option has been renamed to \`target\`.`);
-          }
-          return NaN;
-        },
-        lockDirection(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`lockDirection\` option has been merged with \`axis\`. Use it as in \`{ axis: 'lock' }\``);
-          }
-          return NaN;
-        },
-        initial(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`initial\` option has been renamed to \`from\`.`);
-          }
-          return NaN;
-        }
-      });
-    }
     var DEFAULT_AXIS_THRESHOLD = 0;
     var coordinatesConfigResolver = _objectSpread23(_objectSpread23({}, commonConfigResolver), {}, {
       axis(_v, _k, {
@@ -804,11 +772,6 @@ var require_actions_6579bdef_cjs_dev = __commonJS({
             event.target.releasePointerCapture(event.pointerId);
           }
         } catch (_unused) {
-          if (true) {
-            console.warn(`[@use-gesture]: If you see this message, it's likely that you're using an outdated version of \`@react-three/fiber\`. 
-
-Please upgrade to the latest version.`);
-          }
         }
         const state = this.state;
         const config = this.config;
@@ -846,20 +809,6 @@ Please upgrade to the latest version.`);
       setupPointer(event) {
         const config = this.config;
         const device = config.device;
-        if (true) {
-          try {
-            if (device === "pointer" && config.preventScrollDelay === void 0) {
-              const currentTarget = "uv" in event ? event.sourceEvent.currentTarget : event.currentTarget;
-              const style = window.getComputedStyle(currentTarget);
-              if (style.touchAction === "auto") {
-                console.warn(`[@use-gesture]: The drag target has its \`touch-action\` style property set to \`auto\`. It is recommended to add \`touch-action: 'none'\` so that the drag gesture behaves correctly on touch-enabled devices. For more information read this: https://use-gesture.netlify.app/docs/extras/#touch-action.
-
-This message will only show in development mode. It won't appear in production. If this is intended, you can ignore it.`, currentTarget);
-              }
-            }
-          } catch (_unused2) {
-          }
-        }
         if (config.pointerLock) {
           event.currentTarget.requestPointerLock();
         }
@@ -1051,40 +1000,6 @@ This message will only show in development mode. It won't appear in production. 
         return value;
       }
     });
-    if (true) {
-      Object.assign(dragConfigResolver, {
-        useTouch(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`useTouch\` option has been renamed to \`pointer.touch\`. Use it as in \`{ pointer: { touch: true } }\`.`);
-          }
-          return NaN;
-        },
-        experimental_preventWindowScrollY(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`experimental_preventWindowScrollY\` option has been renamed to \`preventScroll\`.`);
-          }
-          return NaN;
-        },
-        swipeVelocity(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`swipeVelocity\` option has been renamed to \`swipe.velocity\`. Use it as in \`{ swipe: { velocity: 0.5 } }\`.`);
-          }
-          return NaN;
-        },
-        swipeDistance(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`swipeDistance\` option has been renamed to \`swipe.distance\`. Use it as in \`{ swipe: { distance: 50 } }\`.`);
-          }
-          return NaN;
-        },
-        swipeDuration(value) {
-          if (value !== void 0) {
-            throw Error(`[@use-gesture]: \`swipeDuration\` option has been renamed to \`swipe.duration\`. Use it as in \`{ swipe: { duration: 250 } }\`.`);
-          }
-          return NaN;
-        }
-      });
-    }
     function clampStateInternalMovementToBounds(state) {
       const [ox, oy] = state.overflow;
       const [dx, dy] = state._delta;
@@ -1301,11 +1216,6 @@ This message will only show in development mode. It won't appear in production. 
         if (!isR3f) {
           if (event.cancelable) {
             event.preventDefault();
-          }
-          if (!event.defaultPrevented) {
-            console.warn(`[@use-gesture]: To properly support zoom on trackpads, try using the \`target\` option.
-
-This message will only appear in development mode.`);
           }
         }
         const state = this.state;
@@ -1578,13 +1488,13 @@ This message will only appear in development mode.`);
   }
 });
 
-// node_modules/@use-gesture/core/actions/dist/use-gesture-core-actions.cjs.dev.js
-var require_use_gesture_core_actions_cjs_dev = __commonJS({
-  "node_modules/@use-gesture/core/actions/dist/use-gesture-core-actions.cjs.dev.js"(exports) {
+// node_modules/@use-gesture/core/actions/dist/use-gesture-core-actions.cjs.prod.js
+var require_use_gesture_core_actions_cjs_prod = __commonJS({
+  "node_modules/@use-gesture/core/actions/dist/use-gesture-core-actions.cjs.prod.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var actions_dist_useGestureCoreActions = require_actions_6579bdef_cjs_dev();
-    require_maths_267f0992_cjs_dev();
+    var actions_dist_useGestureCoreActions = require_actions_89e642c9_cjs_prod();
+    require_maths_83bc6f64_cjs_prod();
     exports.ConfigResolverMap = actions_dist_useGestureCoreActions.ConfigResolverMap;
     exports.EngineMap = actions_dist_useGestureCoreActions.EngineMap;
     exports.dragAction = actions_dist_useGestureCoreActions.dragAction;
@@ -1601,21 +1511,21 @@ var require_use_gesture_core_actions_cjs_dev = __commonJS({
 var require_use_gesture_core_actions_cjs = __commonJS({
   "node_modules/@use-gesture/core/actions/dist/use-gesture-core-actions.cjs.js"(exports, module) {
     "use strict";
-    if (false) {
-      module.exports = null;
+    if (true) {
+      module.exports = require_use_gesture_core_actions_cjs_prod();
     } else {
-      module.exports = require_use_gesture_core_actions_cjs_dev();
+      module.exports = null;
     }
   }
 });
 
-// node_modules/@use-gesture/core/dist/use-gesture-core.cjs.dev.js
-var require_use_gesture_core_cjs_dev = __commonJS({
-  "node_modules/@use-gesture/core/dist/use-gesture-core.cjs.dev.js"(exports) {
+// node_modules/@use-gesture/core/dist/use-gesture-core.cjs.prod.js
+var require_use_gesture_core_cjs_prod = __commonJS({
+  "node_modules/@use-gesture/core/dist/use-gesture-core.cjs.prod.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var actions_dist_useGestureCoreActions = require_actions_6579bdef_cjs_dev();
-    require_maths_267f0992_cjs_dev();
+    var actions_dist_useGestureCoreActions = require_actions_89e642c9_cjs_prod();
+    require_maths_83bc6f64_cjs_prod();
     function _objectWithoutPropertiesLoose(source, excluded) {
       if (source == null) return {};
       var target2 = {};
@@ -1675,10 +1585,7 @@ var require_use_gesture_core_cjs_dev = __commonJS({
       for (const [key, resolver] of Object.entries(resolvers)) {
         switch (typeof resolver) {
           case "function":
-            if (true) {
-              const r3 = resolver.call(result, config[key], key, config);
-              if (!Number.isNaN(r3)) result[key] = r3;
-            } else {
+            {
               result[key] = resolver.call(result, config[key], key, config);
             }
             break;
@@ -1719,13 +1626,6 @@ var require_use_gesture_core_cjs_dev = __commonJS({
             _config[key] = resolveWith(actions_dist_useGestureCoreActions._objectSpread2({
               shared: _config.shared
             }, rest[key]), resolver);
-          } else if (true) {
-            if (!["drag", "pinch", "scroll", "wheel", "move", "hover"].includes(key)) {
-              if (key === "domTarget") {
-                throw Error(`[@use-gesture]: \`domTarget\` option has been renamed to \`target\`.`);
-              }
-              console.warn(`[@use-gesture]: Unknown config key \`${key}\` was used. Please read the documentation for further information.`);
-            }
           }
         }
       }
@@ -1902,11 +1802,6 @@ var require_use_gesture_core_cjs_dev = __commonJS({
     function registerGesture(actions, handlers, handlerKey, key, internalHandlers, config) {
       if (!actions.has(handlerKey)) return;
       if (!actions_dist_useGestureCoreActions.EngineMap.has(key)) {
-        if (true) {
-          console.warn(`[@use-gesture]: You've created a custom handler that that uses the \`${key}\` gesture but isn't properly configured.
-
-Please add \`${key}Action\` when creating your handler.`);
-        }
         return;
       }
       const startKey = handlerKey + "Start";
@@ -1945,20 +1840,20 @@ Please add \`${key}Action\` when creating your handler.`);
 var require_use_gesture_core_cjs = __commonJS({
   "node_modules/@use-gesture/core/dist/use-gesture-core.cjs.js"(exports, module) {
     "use strict";
-    if (false) {
-      module.exports = null;
+    if (true) {
+      module.exports = require_use_gesture_core_cjs_prod();
     } else {
-      module.exports = require_use_gesture_core_cjs_dev();
+      module.exports = null;
     }
   }
 });
 
-// node_modules/@use-gesture/core/utils/dist/use-gesture-core-utils.cjs.dev.js
-var require_use_gesture_core_utils_cjs_dev = __commonJS({
-  "node_modules/@use-gesture/core/utils/dist/use-gesture-core-utils.cjs.dev.js"(exports) {
+// node_modules/@use-gesture/core/utils/dist/use-gesture-core-utils.cjs.prod.js
+var require_use_gesture_core_utils_cjs_prod = __commonJS({
+  "node_modules/@use-gesture/core/utils/dist/use-gesture-core-utils.cjs.prod.js"(exports) {
     "use strict";
     Object.defineProperty(exports, "__esModule", { value: true });
-    var maths = require_maths_267f0992_cjs_dev();
+    var maths = require_maths_83bc6f64_cjs_prod();
     exports.rubberbandIfOutOfBounds = maths.rubberbandIfOutOfBounds;
   }
 });
@@ -1967,17 +1862,17 @@ var require_use_gesture_core_utils_cjs_dev = __commonJS({
 var require_use_gesture_core_utils_cjs = __commonJS({
   "node_modules/@use-gesture/core/utils/dist/use-gesture-core-utils.cjs.js"(exports, module) {
     "use strict";
-    if (false) {
-      module.exports = null;
+    if (true) {
+      module.exports = require_use_gesture_core_utils_cjs_prod();
     } else {
-      module.exports = require_use_gesture_core_utils_cjs_dev();
+      module.exports = null;
     }
   }
 });
 
-// node_modules/@use-gesture/core/types/dist/use-gesture-core-types.cjs.dev.js
-var require_use_gesture_core_types_cjs_dev = __commonJS({
-  "node_modules/@use-gesture/core/types/dist/use-gesture-core-types.cjs.dev.js"() {
+// node_modules/@use-gesture/core/types/dist/use-gesture-core-types.cjs.prod.js
+var require_use_gesture_core_types_cjs_prod = __commonJS({
+  "node_modules/@use-gesture/core/types/dist/use-gesture-core-types.cjs.prod.js"() {
     "use strict";
   }
 });
@@ -1986,10 +1881,10 @@ var require_use_gesture_core_types_cjs_dev = __commonJS({
 var require_use_gesture_core_types_cjs = __commonJS({
   "node_modules/@use-gesture/core/types/dist/use-gesture-core-types.cjs.js"(exports, module) {
     "use strict";
-    if (false) {
-      module.exports = null;
+    if (true) {
+      module.exports = require_use_gesture_core_types_cjs_prod();
     } else {
-      module.exports = require_use_gesture_core_types_cjs_dev();
+      module.exports = null;
     }
   }
 });
@@ -35071,67 +34966,56 @@ var require_stats_min = __commonJS({
   }
 });
 
-// node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.development.js
-var require_use_sync_external_store_shim_development = __commonJS({
-  "node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.development.js"(exports) {
+// node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js
+var require_use_sync_external_store_shim_production = __commonJS({
+  "node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js"(exports) {
     "use strict";
-    (function() {
-      function is2(x2, y2) {
-        return x2 === y2 && (0 !== x2 || 1 / x2 === 1 / y2) || x2 !== x2 && y2 !== y2;
-      }
-      function useSyncExternalStore$2(subscribe, getSnapshot) {
-        didWarnOld18Alpha || void 0 === React142.startTransition || (didWarnOld18Alpha = true, console.error(
-          "You are using an outdated, pre-release alpha of React 18 that does not support useSyncExternalStore. The use-sync-external-store shim will not work correctly. Upgrade to a newer pre-release."
-        ));
-        var value = getSnapshot();
-        if (!didWarnUncachedGetSnapshot) {
-          var cachedValue = getSnapshot();
-          objectIs(value, cachedValue) || (console.error(
-            "The result of getSnapshot should be cached to avoid an infinite loop"
-          ), didWarnUncachedGetSnapshot = true);
-        }
-        cachedValue = useState60({
-          inst: { value, getSnapshot }
-        });
-        var inst = cachedValue[0].inst, forceUpdate = cachedValue[1];
-        useLayoutEffect59(
-          function() {
-            inst.value = value;
-            inst.getSnapshot = getSnapshot;
+    var React142 = __require("react");
+    function is2(x2, y2) {
+      return x2 === y2 && (0 !== x2 || 1 / x2 === 1 / y2) || x2 !== x2 && y2 !== y2;
+    }
+    var objectIs = "function" === typeof Object.is ? Object.is : is2;
+    var useState60 = React142.useState;
+    var useEffect60 = React142.useEffect;
+    var useLayoutEffect59 = React142.useLayoutEffect;
+    var useDebugValue2 = React142.useDebugValue;
+    function useSyncExternalStore$2(subscribe, getSnapshot) {
+      var value = getSnapshot(), _useState = useState60({ inst: { value, getSnapshot } }), inst = _useState[0].inst, forceUpdate = _useState[1];
+      useLayoutEffect59(
+        function() {
+          inst.value = value;
+          inst.getSnapshot = getSnapshot;
+          checkIfSnapshotChanged(inst) && forceUpdate({ inst });
+        },
+        [subscribe, value, getSnapshot]
+      );
+      useEffect60(
+        function() {
+          checkIfSnapshotChanged(inst) && forceUpdate({ inst });
+          return subscribe(function() {
             checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-          },
-          [subscribe, value, getSnapshot]
-        );
-        useEffect60(
-          function() {
-            checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-            return subscribe(function() {
-              checkIfSnapshotChanged(inst) && forceUpdate({ inst });
-            });
-          },
-          [subscribe]
-        );
-        useDebugValue2(value);
-        return value;
+          });
+        },
+        [subscribe]
+      );
+      useDebugValue2(value);
+      return value;
+    }
+    function checkIfSnapshotChanged(inst) {
+      var latestGetSnapshot = inst.getSnapshot;
+      inst = inst.value;
+      try {
+        var nextValue = latestGetSnapshot();
+        return !objectIs(inst, nextValue);
+      } catch (error) {
+        return true;
       }
-      function checkIfSnapshotChanged(inst) {
-        var latestGetSnapshot = inst.getSnapshot;
-        inst = inst.value;
-        try {
-          var nextValue = latestGetSnapshot();
-          return !objectIs(inst, nextValue);
-        } catch (error) {
-          return true;
-        }
-      }
-      function useSyncExternalStore$1(subscribe, getSnapshot) {
-        return getSnapshot();
-      }
-      "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-      var React142 = __require("react"), objectIs = "function" === typeof Object.is ? Object.is : is2, useState60 = React142.useState, useEffect60 = React142.useEffect, useLayoutEffect59 = React142.useLayoutEffect, useDebugValue2 = React142.useDebugValue, didWarnOld18Alpha = false, didWarnUncachedGetSnapshot = false, shim = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? useSyncExternalStore$1 : useSyncExternalStore$2;
-      exports.useSyncExternalStore = void 0 !== React142.useSyncExternalStore ? React142.useSyncExternalStore : shim;
-      "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
-    })();
+    }
+    function useSyncExternalStore$1(subscribe, getSnapshot) {
+      return getSnapshot();
+    }
+    var shim = "undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement ? useSyncExternalStore$1 : useSyncExternalStore$2;
+    exports.useSyncExternalStore = void 0 !== React142.useSyncExternalStore ? React142.useSyncExternalStore : shim;
   }
 });
 
@@ -35139,78 +35023,80 @@ var require_use_sync_external_store_shim_development = __commonJS({
 var require_shim = __commonJS({
   "node_modules/use-sync-external-store/shim/index.js"(exports, module) {
     "use strict";
-    if (false) {
-      module.exports = null;
+    if (true) {
+      module.exports = require_use_sync_external_store_shim_production();
     } else {
-      module.exports = require_use_sync_external_store_shim_development();
+      module.exports = null;
     }
   }
 });
 
-// node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.development.js
-var require_with_selector_development = __commonJS({
-  "node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.development.js"(exports) {
+// node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.js
+var require_with_selector_production = __commonJS({
+  "node_modules/use-sync-external-store/cjs/use-sync-external-store-shim/with-selector.production.js"(exports) {
     "use strict";
-    (function() {
-      function is2(x2, y2) {
-        return x2 === y2 && (0 !== x2 || 1 / x2 === 1 / y2) || x2 !== x2 && y2 !== y2;
-      }
-      "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(Error());
-      var React142 = __require("react"), shim = require_shim(), objectIs = "function" === typeof Object.is ? Object.is : is2, useSyncExternalStore = shim.useSyncExternalStore, useRef82 = React142.useRef, useEffect60 = React142.useEffect, useMemo76 = React142.useMemo, useDebugValue2 = React142.useDebugValue;
-      exports.useSyncExternalStoreWithSelector = function(subscribe, getSnapshot, getServerSnapshot, selector, isEqual) {
-        var instRef = useRef82(null);
-        if (null === instRef.current) {
-          var inst = { hasValue: false, value: null };
-          instRef.current = inst;
-        } else inst = instRef.current;
-        instRef = useMemo76(
-          function() {
-            function memoizedSelector(nextSnapshot) {
-              if (!hasMemo) {
-                hasMemo = true;
-                memoizedSnapshot = nextSnapshot;
-                nextSnapshot = selector(nextSnapshot);
-                if (void 0 !== isEqual && inst.hasValue) {
-                  var currentSelection = inst.value;
-                  if (isEqual(currentSelection, nextSnapshot))
-                    return memoizedSelection = currentSelection;
-                }
-                return memoizedSelection = nextSnapshot;
-              }
-              currentSelection = memoizedSelection;
-              if (objectIs(memoizedSnapshot, nextSnapshot))
-                return currentSelection;
-              var nextSelection = selector(nextSnapshot);
-              if (void 0 !== isEqual && isEqual(currentSelection, nextSelection))
-                return memoizedSnapshot = nextSnapshot, currentSelection;
+    var React142 = __require("react");
+    var shim = require_shim();
+    function is2(x2, y2) {
+      return x2 === y2 && (0 !== x2 || 1 / x2 === 1 / y2) || x2 !== x2 && y2 !== y2;
+    }
+    var objectIs = "function" === typeof Object.is ? Object.is : is2;
+    var useSyncExternalStore = shim.useSyncExternalStore;
+    var useRef82 = React142.useRef;
+    var useEffect60 = React142.useEffect;
+    var useMemo76 = React142.useMemo;
+    var useDebugValue2 = React142.useDebugValue;
+    exports.useSyncExternalStoreWithSelector = function(subscribe, getSnapshot, getServerSnapshot, selector, isEqual) {
+      var instRef = useRef82(null);
+      if (null === instRef.current) {
+        var inst = { hasValue: false, value: null };
+        instRef.current = inst;
+      } else inst = instRef.current;
+      instRef = useMemo76(
+        function() {
+          function memoizedSelector(nextSnapshot) {
+            if (!hasMemo) {
+              hasMemo = true;
               memoizedSnapshot = nextSnapshot;
-              return memoizedSelection = nextSelection;
-            }
-            var hasMemo = false, memoizedSnapshot, memoizedSelection, maybeGetServerSnapshot = void 0 === getServerSnapshot ? null : getServerSnapshot;
-            return [
-              function() {
-                return memoizedSelector(getSnapshot());
-              },
-              null === maybeGetServerSnapshot ? void 0 : function() {
-                return memoizedSelector(maybeGetServerSnapshot());
+              nextSnapshot = selector(nextSnapshot);
+              if (void 0 !== isEqual && inst.hasValue) {
+                var currentSelection = inst.value;
+                if (isEqual(currentSelection, nextSnapshot))
+                  return memoizedSelection = currentSelection;
               }
-            ];
-          },
-          [getSnapshot, getServerSnapshot, selector, isEqual]
-        );
-        var value = useSyncExternalStore(subscribe, instRef[0], instRef[1]);
-        useEffect60(
-          function() {
-            inst.hasValue = true;
-            inst.value = value;
-          },
-          [value]
-        );
-        useDebugValue2(value);
-        return value;
-      };
-      "undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ && "function" === typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop && __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStop(Error());
-    })();
+              return memoizedSelection = nextSnapshot;
+            }
+            currentSelection = memoizedSelection;
+            if (objectIs(memoizedSnapshot, nextSnapshot)) return currentSelection;
+            var nextSelection = selector(nextSnapshot);
+            if (void 0 !== isEqual && isEqual(currentSelection, nextSelection))
+              return memoizedSnapshot = nextSnapshot, currentSelection;
+            memoizedSnapshot = nextSnapshot;
+            return memoizedSelection = nextSelection;
+          }
+          var hasMemo = false, memoizedSnapshot, memoizedSelection, maybeGetServerSnapshot = void 0 === getServerSnapshot ? null : getServerSnapshot;
+          return [
+            function() {
+              return memoizedSelector(getSnapshot());
+            },
+            null === maybeGetServerSnapshot ? void 0 : function() {
+              return memoizedSelector(maybeGetServerSnapshot());
+            }
+          ];
+        },
+        [getSnapshot, getServerSnapshot, selector, isEqual]
+      );
+      var value = useSyncExternalStore(subscribe, instRef[0], instRef[1]);
+      useEffect60(
+        function() {
+          inst.hasValue = true;
+          inst.value = value;
+        },
+        [value]
+      );
+      useDebugValue2(value);
+      return value;
+    };
   }
 });
 
@@ -35218,10 +35104,10 @@ var require_with_selector_development = __commonJS({
 var require_with_selector = __commonJS({
   "node_modules/use-sync-external-store/shim/with-selector.js"(exports, module) {
     "use strict";
-    if (false) {
-      module.exports = null;
+    if (true) {
+      module.exports = require_with_selector_production();
     } else {
-      module.exports = require_with_selector_development();
+      module.exports = null;
     }
   }
 });

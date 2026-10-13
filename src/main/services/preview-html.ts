@@ -116,8 +116,23 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
           ctx.__vidtsxPatched = true;
           const origViewport = ctx.viewport.bind(ctx);
           const origScissor = ctx.scissor.bind(ctx);
+          const origBindFramebuffer = ctx.bindFramebuffer.bind(ctx);
+          // Only the canvas (the default framebuffer) is smaller. A render
+          // target (shadow map, HDR environment, post-processing pass) keeps
+          // its full size, so its viewport must not shrink: a scaled one fills
+          // only part of the target (black environments, missing shadows at
+          // Low / Medium quality, P2 part 4b).
+          let drawFramebuffer = null;
+          const DRAW_TARGET = ctx.DRAW_FRAMEBUFFER;
+          ctx.bindFramebuffer = function(target, framebuffer) {
+            if (target === ctx.FRAMEBUFFER || (DRAW_TARGET !== undefined && target === DRAW_TARGET)) {
+              drawFramebuffer = framebuffer;
+            }
+            return origBindFramebuffer(target, framebuffer);
+          };
           ctx.viewport = function(x, y, w, h) {
             viewportCallCount += 1;
+            if (drawFramebuffer) return origViewport(x, y, w, h);
             const sx = Math.round(x * currentScale);
             const sy = Math.round(y * currentScale);
             const sw = Math.max(1, Math.round(w * currentScale));
@@ -126,6 +141,7 @@ export function getPreviewHtml(port: number, isDev: boolean): string {
             return origViewport(sx, sy, sw, sh);
           };
           ctx.scissor = function(x, y, w, h) {
+            if (drawFramebuffer) return origScissor(x, y, w, h);
             return origScissor(
               Math.round(x * currentScale),
               Math.round(y * currentScale),

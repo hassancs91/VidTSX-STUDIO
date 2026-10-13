@@ -17,6 +17,18 @@ const OUT_DIR = join(ROOT, 'resources', 'vendor');
 
 mkdirSync(OUT_DIR, { recursive: true });
 
+// React's PRODUCTION builds, in every vendor bundle. esbuild picks development
+// when it does not minify, and the preview then ran development React while a
+// TSX builder piece carries its own production React reconciler (R3F, inlined
+// by the bundle step with NODE_ENV=production): during a 3D render that
+// reconciler installs a production dispatcher into the shared React, and
+// development React calls `dispatcher.getOwner()` on it → "dispatcher.getOwner
+// is not a function" in every 3D builder piece's preview (P2 part 4b). The
+// render path (Remotion's webpack bundle) is production too, so the preview now
+// runs the same React as the export. Cost: React's own errors in the preview
+// are the short production messages (code + react.dev link).
+const DEFINE = { 'process.env.NODE_ENV': '"production"' };
+
 // Phase 1: the 3D stack — what drei needs to work. Order matters for the
 // comment only; externals make the actual build order irrelevant.
 const PACKAGES = [
@@ -159,6 +171,7 @@ async function bundlePackage(pkg) {
     legalComments: 'none',
     minify: false,
     sourcemap: false,
+    define: DEFINE,
     banner: { js: shim.banner },
   });
 
@@ -213,6 +226,7 @@ async function bundlePreviewRuntime() {
     legalComments: 'none',
     minify: false,
     sourcemap: false,
+    define: DEFINE,
     // No externals — bundle everything together for shared instances
   });
 
