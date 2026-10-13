@@ -565,6 +565,15 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   It used `useModel`, measured the model with Box3 and seated it on the pedestal (the prompt's rule), and fixed the
 >   fruit overlapping the headline after its look (confirmed on the phone view only: the one round was spent).
 >   `v1.assets/avocado.glb` saved beside `v1.src/`.
+> - **Part 4b DONE `8db5a87`** (found running the app on Hasan's ask): the Creator PREVIEW never played a 3D builder
+>   piece (parts 2-4 checked stills and exports only). (1) "dispatcher.getOwner is not a function": the preview runtime
+>   bundled React's development flavour (esbuild's default without minify) while a builder piece inlines R3F's
+>   production reconciler, which swaps a production dispatcher into the shared React during a 3D render;
+>   `build-vendor.mjs` now builds every vendor bundle in production (preview-runtime 1.48 → 0.96 MB), the same React as
+>   the render path. (2) Preview quality Low / Medium scaled EVERY `gl.viewport` / `scissor`, render targets
+>   included: no shadows, black HDR environments, broken post-processing in every 3D preview; only the canvas is scaled
+>   now. Verified in the dev app at Low on six projects. Left: the Studio editor's player runs in the main window with
+>   the app's own React (development under `npm run dev`), so a 3D builder shot there would still hit (1) in dev only.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
