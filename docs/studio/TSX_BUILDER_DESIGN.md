@@ -471,8 +471,9 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > rounds, checks, tokens, latest stills; builds run one at a time) `2a8a166` ·
 > 7 dev entry through the job engine `275ca59` + the exit above · ink line `8ac3261`.
 
-> **P2 in progress** (one part at a time with Hasan's go; parts 1-5 done, 6 = exit next): 1 library set · 2 3D (GPU stills) ·
-> 3 frame-pure physics · 4 builder assets · 5 packaged app + offline · 6 exit (B1–B7).
+> **P2 DONE 10-13** (one part at a time with Hasan's go; parts 1-6 done; next = P3 on his go; still open, his calls:
+> the network-off run of the packaged probe app, where Remotion's render Chrome downloads): 1 library set · 2 3D (GPU
+> stills) · 3 frame-pure physics · 4 builder assets · 5 packaged app + offline · 6 exit (B1–B7).
 > D1 decided 10-12: **inline everything** (option A), so every consumer takes 3D unchanged.
 > Measured 10-12: builder stills with no `gl` render WebGL on SwiftShader (CPU); `gl: 'angle'` gets the
 > GPU (RTX A3000, D3D11).
@@ -619,6 +620,24 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   (chrome-headless-shell, 256 MB on disk) on the first render into `.remotion` under the PROCESS cwd: packaged, that
 >   is wherever the app was started from (the install folder from the Start menu, so an update deletes it and the next
 >   render downloads again). An offline first run cannot render at all.
+> - **Part 6 DONE (the exit, 10-13; `ai-video-lab/experiments/studio-unlock-01/FINDINGS-P2.md`)**: B1–B4 unchanged + new
+>   B5 GPS (3D loop), B6 Galton board (2D physics), B7 domino chain (3D + physics), each through a `build` job in the dev
+>   app at Craft on Opus 5.5 with the three packs, no files attached; wall `P2-B1..B7` (Studio :3920). **7 of 7 finished,
+>   72 checks / 0 failed, 0 finish refusals, seamOk on the five loops, B6 PURE first try; $16.62 API-eq, 59 min.**
+>   Bundle-cache 0 → 0 folders on every run (part 5's release holds on 3D runs). Every look on `angle`. B1–B4 vs the P1
+>   exit: 25.1 vs 31.5 min, $8.05 vs $7.86, looks 9–15 % of a run (was 19–29 %); quality equal or better (B2 drew F2's
+>   coin piles; B4 chose roughjs). B5–B7: 8.6–13.6 min, $2.29–3.40, the time is the model writing (54–65k output tokens).
+>   **Verdict on the exit**: 2D still pass; 3D + physics reach real3d's craft (directed light, contact shadows, DoF / AO,
+>   frame-pure motion, a near-binomial Galton pile 107 vs 113) but not its materials: everything was painted in code
+>   (empty library, no working image provider); files are the lever (part 4), not measured on a Craft brief. Packaged =
+>   part 5's probes + smoke only; offline = the open network-off run. **Problems for P3** (none fixed here): (1)
+>   `contact_sheet` on a 3D piece with post-processing loses a WebGL context at 12 tiles ("reading 'alpha'" of null);
+>   (2) B6 changed its physics after its 6/6 look round and finished on phone_view + PURE only: `finish` does not ask for
+>   a look at the final build's motion; (3) `generate_image` is offered when the active image provider cannot run
+>   (sd-cli not installed: 4 calls, $0); (4) B7 animated the fall in closed form, no engine; (5) a chaotic sim runs
+>   byte-identically on Remotion's headless 144 / 149 but differently on Chrome 154, so a physics piece's Creator preview
+>   (Electron 41 = Chromium 146, untested) may differ from its export; (6) 3D pieces need production React wherever
+>   they play (the wall's Studio needed React 19 production; the app's Studio editor player under `npm run dev` still).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
