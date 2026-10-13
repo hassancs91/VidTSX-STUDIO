@@ -51,6 +51,12 @@ export interface ModuleTranspileResponse {
     height: number;
   };
   componentName?: string;
+  /**
+   * The version's files (a TSX builder version's `vN.assets/`), as the
+   * `assets` prop its code looks up: key → URL on the module server. Absent
+   * when the code names no files.
+   */
+  assets?: Record<string, string>;
   error?: string;
   errorLocation?: {
     line: number;

@@ -27,6 +27,8 @@ import {
   packageNameOf,
 } from '../../../shared/tsx-engine/builder-libraries';
 import VIDTSX_SIM_SOURCE from '../../../shared/tsx-engine/vidtsx-sim.ts?raw';
+import VIDTSX_ASSETS_SOURCE from '../../../shared/tsx-engine/vidtsx-assets.ts?raw';
+import VIDTSX_THREE_ASSETS_SOURCE from '../../../shared/tsx-engine/vidtsx-three-assets.ts?raw';
 
 /** Resolved by the shot preview and the export — never inlined. */
 const EXTERNAL = /^(react|remotion|@vidtsx\/kit)$/;
@@ -36,8 +38,14 @@ const ALLOWED_TEXT = `react, remotion, @vidtsx/kit, the @remotion/* packages, ${
   .map((l) => (l.family ? `${l.name} (+ ${l.name}-* modules)` : l.name))
   .join(', ')}`;
 /** The library set's built-in modules (`builtIn` in builder-libraries.ts): specifier → TypeScript source. */
-const BUILT_IN_SOURCES: Record<string, string> = { '@vidtsx/sim': VIDTSX_SIM_SOURCE };
-const BUILT_IN = /^@vidtsx\/sim$/;
+const BUILT_IN_SOURCES: Record<string, string> = {
+  '@vidtsx/sim': VIDTSX_SIM_SOURCE,
+  '@vidtsx/assets': VIDTSX_ASSETS_SOURCE,
+  '@vidtsx/three-assets': VIDTSX_THREE_ASSETS_SOURCE,
+};
+const BUILT_IN = /^@vidtsx\/(sim|assets|three-assets)$/;
+/** A built-in importing another by its file name (so the app's type check resolves it). */
+const BUILT_IN_FILES: Record<string, string> = { './vidtsx-assets': '@vidtsx/assets' };
 const BUILT_IN_NS = 'vidtsx-builtin';
 /** A relative import of one of these is media or styling, not code. */
 const NON_CODE = /\.(css|scss|sass|less|png|jpe?g|gif|webp|avif|svg|mp4|mov|webm|mp3|wav|woff2?|ttf|otf)$/i;
@@ -115,14 +123,24 @@ export function resolveShotMedia(sourcePath: string, ref: string): string | null
   return isFile(beside) ? beside : null;
 }
 
-function importGuard(): esbuild.Plugin {
+function importGuard(workingDir: string): esbuild.Plugin {
   return {
     name: 'vidtsx-shot-import',
     setup(build) {
       build.onResolve({ filter: JSX_RUNTIME }, () => ({ path: 'jsx-shim', namespace: 'vidtsx-shim' }));
       build.onLoad({ filter: /.*/, namespace: 'vidtsx-shim' }, () => ({ contents: JSX_SHIM, loader: 'js' }));
       build.onResolve({ filter: BUILT_IN }, (args) => ({ path: args.path, namespace: BUILT_IN_NS }));
-      build.onLoad({ filter: /.*/, namespace: BUILT_IN_NS }, (args) => ({ contents: BUILT_IN_SOURCES[args.path], loader: 'ts' }));
+      build.onResolve({ filter: /^\.\/vidtsx-/ }, (args) =>
+        args.namespace === BUILT_IN_NS && BUILT_IN_FILES[args.path]
+          ? { path: BUILT_IN_FILES[args.path], namespace: BUILT_IN_NS }
+          : null,
+      );
+      // resolveDir: a built-in's own package imports (three, R3F) resolve like the piece's.
+      build.onLoad({ filter: /.*/, namespace: BUILT_IN_NS }, (args) => ({
+        contents: BUILT_IN_SOURCES[args.path],
+        loader: 'ts',
+        resolveDir: workingDir,
+      }));
       build.onResolve({ filter: EXTERNAL }, (args) =>
         args.kind === 'require-call'
           ? { path: args.path, namespace: CJS_EXTERNAL_NS }
@@ -186,7 +204,7 @@ export async function bundleShotSource(
       define: { 'process.env.NODE_ENV': '"production"' },
       absWorkingDir: workingDir,
       nodePaths: options.nodePaths ?? [],
-      plugins: [importGuard()],
+      plugins: [importGuard(workingDir)],
     });
   } catch (err) {
     const failure = err as Partial<esbuild.BuildFailure>;

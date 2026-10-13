@@ -57,6 +57,8 @@ function requestFor(ctx: BuildJobContext, build: TsxBuildJobRequestIpc, onText: 
     ...(build.effort ? { effort: build.effort } : {}),
     ...(build.maxMinutes ? { maxMinutes: build.maxMinutes } : {}),
     ...(build.maxOutputTokens ? { maxOutputTokens: build.maxOutputTokens } : {}),
+    ...(build.assets?.length ? { assets: build.assets } : {}),
+    ...(build.maxGeneratedImages !== undefined ? { maxGeneratedImages: build.maxGeneratedImages } : {}),
     signal: abort.signal,
     onProgress: (event) => {
       const snap = ctx.snapshot;
@@ -91,6 +93,7 @@ function finalBuild(prev: TsxBuildJobIpc, build: BuildResult): TsxBuildJobIpc {
     finished: build.finished,
     ...(build.seamOk !== undefined ? { seamOk: build.seamOk } : {}),
     ...(build.pureOk !== undefined ? { pureOk: build.pureOk } : {}),
+    ...(build.images ? { images: build.images } : {}),
     ...(build.summary ? { summary: build.summary } : {}),
     ...(build.ok && build.error ? { notice: build.error } : {}),
     ...(build.version ? { stills: savedStills(build) } : {}),

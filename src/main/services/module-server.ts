@@ -11,6 +11,7 @@ import { getVirtualReactModule, getVirtualRemotionModule, getVirtualReactJsxRunt
 import { getPreviewHtml } from './preview-html';
 import { getToneExtractHtml } from './tone-extract-html';
 import { registerFontProxy } from './font-proxy';
+import { ASSET_ROOT_ROUTE, serveAssetRoot } from './asset-roots';
 import type { TranspileResult } from './tsx-transpiler';
 import { getVendorDir, getShotKitDir } from '../utils/paths';
 import { bundleKitFromDir } from './kit-bundler';
@@ -227,6 +228,9 @@ export async function ensureModuleServer(): Promise<number> {
 
       res.sendFile(path.resolve(filePath));
     });
+
+    // Builder assets (vN.assets/): only folders the app registered (asset-roots.ts).
+    moduleApp.get(`${ASSET_ROOT_ROUTE}/:token/*`, serveAssetRoot);
 
     // Isolated preview page (runs Remotion Player in a separate process via site isolation)
     moduleApp.get('/preview', (_req: Request, res: Response) => {

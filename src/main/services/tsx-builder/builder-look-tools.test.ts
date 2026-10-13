@@ -33,7 +33,7 @@ type Result = { content: Array<{ type: string; text?: string; data?: string }>; 
 type Tool = { name: string; description: string; handler: (args: Record<string, unknown>) => Promise<Result> };
 
 const config = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
-const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], ms: 5 };
+const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], assets: [], ms: 5 };
 const seam = { wrap: 1.12, before: 0.1, after: 0.1, neighbours: 0.1, ratio: 11.2, jump: true, region: null, last: 239 };
 const okSeam = { ...seam, wrap: 0.09, ratio: 0.9, jump: false, ms: { bundle: 1, render: 1 }, bundleCached: true };
 const purityRun = { scale: 0.4, inOrderFrames: 240, paths: [], ms: { bundle: 1, inOrder: 1, alone: 1 }, bundleCached: true, gl: 'angle' };
@@ -68,6 +68,9 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     lastGood: null,
     finished: null,
     stills: [],
+    imagesMax: 0,
+    imagesGenerated: 0,
+    imageCostUsd: 0,
     inFlight: new Set(),
     ...overrides,
   };

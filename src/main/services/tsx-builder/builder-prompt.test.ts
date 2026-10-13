@@ -47,7 +47,8 @@ describe('buildBuilderSystemPrompt', () => {
     expect(block).toContain('`<EffectComposer multisampling={0}>` in this order: DepthOfField → N8AO → Bloom / ToneMapping / Vignette → SMAA last');
     expect(block).toContain('Give the Canvas `camera` prop fixed values only');
     expect(block).toContain("Never postprocessing's `<Noise>`");
-    expect(block).toContain('no useGLTF, useTexture, loaders, `<Environment>`');
+    expect(block).toContain('load through `@vidtsx/three-assets`');
+    expect(block).toContain("never drei's `<Environment preset>`, `<Text>` / `<Text3D>`");
     // The 3D block comes before the budget line, so the cached prompt prefix is the same for every budget.
     expect(buildBuilderSystemPrompt({ budget: 'craft', packs: [] }).indexOf('## 3D')).toBe(prompt.indexOf('## 3D'));
   });

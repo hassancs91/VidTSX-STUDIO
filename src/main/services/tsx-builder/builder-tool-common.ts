@@ -14,6 +14,8 @@ import { checkBuild, type BuildCheckResult } from './build-check';
 import { isPhysicsEngine } from '../../../shared/tsx-engine/builder-libraries';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildStillShown, RunDirs } from './build-store';
+import type { BuildAssetSource } from './build-stills';
+import { ASSETS_DIR, assetKeyMap, formatBytes } from './build-assets';
 import type { BuildFormat, BuildPhase, BuildProgressDetail } from './types';
 
 export interface BuilderState {
@@ -45,6 +47,10 @@ export interface BuilderState {
   finished: { summary: string; code: string; config: CompositionConfig; physics: boolean } | null;
   /** Every image shown to the builder, in order — saved with the version. */
   stills: BuildStillShown[];
+  /** generate_image: allowed this run, made so far, and their estimated cost. */
+  imagesMax: number;
+  imagesGenerated: number;
+  imageCostUsd: number;
   /** Aborted when the run stops (cancel or a cap). */
   signal?: AbortSignal;
   /** Tool calls in flight: the run awaits them before it saves. */
@@ -122,6 +128,7 @@ export async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
     errors: result.errors,
     files: result.inlinedFiles,
     packages: result.inlinedPackages,
+    ...(result.assets.length > 0 ? { assets: result.assets.map((a) => a.relPath) } : {}),
   });
   state.onEvent?.({ type: 'check', n: state.checks, ok: result.ok, errors: result.errors });
   return result;
@@ -130,15 +137,25 @@ export async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
 export function describeCheck(result: BuildCheckResult): string {
   if (!result.ok) return `check FAILED:\n- ${result.errors.join('\n- ')}`;
   const c = result.config!;
-  return `check passed: ${result.inlinedFiles.length + 1} file(s) bundled (${result.code!.length} bytes), packages: ${result.inlinedPackages.join(', ') || 'none'}; ${c.width}x${c.height}, ${c.fps} fps, ${c.durationInFrames} frames (${(c.durationInFrames / c.fps).toFixed(2)} s).`;
+  const files = result.assets.length
+    ? `; assets: ${result.assets.map((a) => `${a.relPath} (${formatBytes(a.bytes)})`).join(', ')}`
+    : '';
+  return `check passed: ${result.inlinedFiles.length + 1} file(s) bundled (${result.code!.length} bytes), packages: ${result.inlinedPackages.join(', ') || 'none'}${files}; ${c.width}x${c.height}, ${c.fps} fps, ${c.durationInFrames} frames (${(c.durationInFrames / c.fps).toFixed(2)} s).`;
 }
 
-export type CheckedBuild = { code: string; config: CompositionConfig; summary: string };
+/** The build's assets folder and the keys its code looks up, when it names any. */
+export function assetSourceFor(state: BuilderState, result: BuildCheckResult): BuildAssetSource | undefined {
+  if (result.assets.length === 0) return undefined;
+  return { dir: path.join(state.dirs.workDir, ASSETS_DIR), keys: assetKeyMap(result.assets) };
+}
+
+export type CheckedBuild = { code: string; config: CompositionConfig; summary: string; assets?: BuildAssetSource };
 
 /** The check every look starts with: the build to render, or the reply that ends the call. */
 export async function checkForLook(state: BuilderState): Promise<{ build: CheckedBuild } | { reply: ToolResult }> {
   const result = await runCheck(state);
   if (!result.ok || !result.code || !result.config) return { reply: text(describeCheck(result), true) };
   if (state.signal?.aborted) return { reply: text(STOPPING, true) };
-  return { build: { code: result.code, config: result.config, summary: describeCheck(result) } };
+  const assets = assetSourceFor(state, result);
+  return { build: { code: result.code, config: result.config, summary: describeCheck(result), ...(assets ? { assets } : {}) } };
 }

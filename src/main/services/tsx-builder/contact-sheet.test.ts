@@ -49,7 +49,7 @@ describe('contactSheetSource', () => {
     const sheet = contactSheetSource(bundle, portrait, [0, 120, 239]);
     expect(sheet.code.match(/export\s+const\s+compositionConfig/g)).toHaveLength(1);
     expect(sheet.code.match(/export\s+default/g)).toHaveLength(1);
-    expect(sheet.code).toContain('export default function VidtsxContactSheet()');
+    expect(sheet.code).toContain('export default function VidtsxContactSheet(props)');
     expect(parseCompositionConfig(sheet.code)).toMatchObject({
       id: 'VidtsxContactSheet',
       width: sheet.layout.width,
@@ -65,7 +65,7 @@ describe('contactSheetSource', () => {
     expect(code).toContain('var __vidtsxPieceConfig =');
     expect(code).toContain('() => __vidtsxPieceConfig.fps');
     expect(code).toContain('const __vidtsxPiece = __vidtsxShot;');
-    expect(code).toContain('h(__vidtsxPiece, {})');
+    expect(code).toContain('h(__vidtsxPiece, props)');
   });
 
   it('mounts each tile at the build size, frozen at its frame', () => {
@@ -82,7 +82,7 @@ export default function Bounce() { return null; }
 `;
     const { code } = contactSheetSource(single, { ...portrait, height: 1080, durationInFrames: 60 }, [0, 30]);
     expect(code).toContain('\nfunction Bounce() {');
-    expect(code).toContain('h(Bounce, {})');
+    expect(code).toContain('h(Bounce, props)');
   });
 
   it('refuses an artifact without the exports the gates require', () => {

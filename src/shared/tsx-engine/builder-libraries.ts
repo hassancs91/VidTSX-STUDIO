@@ -10,7 +10,7 @@
 // The `use` line is what the builder reads: what the package is for and the one rule
 // that keeps it frame-pure (Remotion renders frames out of order and in parallel).
 
-export type BuilderLibraryArea = '2d' | 'data' | '3d' | 'physics';
+export type BuilderLibraryArea = '2d' | 'data' | '3d' | 'physics' | 'files';
 
 export interface BuilderLibrary {
   /** npm name; its subpaths are allowed too (`d3-scale` style modules: see `family`). */
@@ -29,6 +29,7 @@ export const BUILDER_LIBRARY_AREAS: Record<BuilderLibraryArea, string> = {
   data: 'Data, maps, maths and code',
   '3d': '3D',
   physics: 'Physics',
+  files: 'Files from assets/ (see "## Files")',
 };
 
 export const BUILDER_LIBRARIES: readonly BuilderLibrary[] = [
@@ -52,7 +53,7 @@ export const BUILDER_LIBRARIES: readonly BuilderLibrary[] = [
   { name: 'three', area: '3d', use: 'The 3D engine (geometries, materials, maths). Draw it through @remotion/three.' },
   { name: '@remotion/three', area: '3d', use: '<ThreeCanvas width height> hosts the scene; it ties R3F to the current frame.' },
   { name: '@react-three/fiber', area: '3d', use: 'React for three.js. Drive every change from useCurrentFrame(); never useFrame\'s clock or delta.' },
-  { name: '@react-three/drei', area: '3d', use: 'Helpers: RoundedBox, Line, OrbitControls-free cameras, ContactShadows, MeshTransmissionMaterial… Not Environment presets, Text or Text3D: they download files at render.' },
+  { name: '@react-three/drei', area: '3d', use: 'Helpers: RoundedBox, Line, OrbitControls-free cameras, ContactShadows, MeshTransmissionMaterial… useGLTF / useTexture work on a staticFile (prefer @vidtsx/three-assets); never <Environment preset> or Text / Text3D (they download at render), never useAnimations (clock-driven).' },
   { name: '@react-three/postprocessing', area: '3d', use: '<EffectComposer> with Bloom, DepthOfField, N8AO (ambient occlusion), Vignette, ToneMapping.' },
   { name: 'postprocessing', area: '3d', use: 'The effect passes under @react-three/postprocessing (import it only for a custom effect).' },
   { name: '@vidtsx/sim', area: 'physics', builtIn: true, use: 'useSimulation: steps ANY engine below at a fixed dt from frame 0 and keeps each frame, so every frame is the same picture in a still, the preview and the export. Every simulation goes through it (see "## Physics").' },
@@ -61,6 +62,12 @@ export const BUILDER_LIBRARIES: readonly BuilderLibrary[] = [
   { name: 'cannon-es', area: 'physics', use: 'Pure-JS 3D physics. Through @vidtsx/sim: step `world.step(dt)` (one argument); never world.fixedStep or a clock.' },
   { name: 'matter-js', area: 'physics', use: 'Pure-JS 2D physics. Through @vidtsx/sim: step `Matter.Engine.update(engine, dt * 1000)` (milliseconds, dt ≤ 1/60 s: substeps 2 at 30 fps); never Runner.' },
   { name: 'planck', area: 'physics', use: 'Box2D for JS. Through @vidtsx/sim: step `world.step(dt)`.' },
+  { name: '@vidtsx/assets', area: 'files', builtIn: true, use: "useJson / useText / useArrayBuffer / useImage(staticFile('x')): a file's contents, loaded once per page; the frame waits for it (null until then)." },
+  { name: '@vidtsx/three-assets', area: 'files', builtIn: true, use: "Inside <ThreeCanvas>: useModel(staticFile('x.glb')) → { scene, animations }, useModelAnimation(model, clip, frame / fps), <FileEnvironment url={staticFile('x.hdr')} />, useEnvironmentMap, useImageTexture. The frame waits until the file is drawn." },
+  { name: '@remotion/gif', area: 'files', use: "<Gif src={staticFile('x.gif')} width height fit='contain' />: an animated GIF in step with the frame." },
+  { name: '@remotion/lottie', area: 'files', use: "<Lottie animationData={useJson(staticFile('x.json'))} />: a Lottie animation in step with the frame (render it only once the data is there)." },
+  { name: '@remotion/fonts', area: 'files', use: "loadFont({ family: 'Brand', url: staticFile('brand.ttf'), weight: '700' }) at module scope: a font FILE (a Google font goes through @remotion/google-fonts)." },
+  { name: 'opentype.js', area: 'files', use: "opentype.parse(useArrayBuffer(staticFile('x.ttf'))) → font.getPath(text, x, y, size).toPathData(): text as SVG paths (draw it on, morph it, fill it with a pattern)." },
 ];
 
 /** Refused by name with the reason, before anything else: each animates on its own clock. */

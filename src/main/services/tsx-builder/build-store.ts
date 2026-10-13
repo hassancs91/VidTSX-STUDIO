@@ -5,6 +5,11 @@
 // touches the project folder:
 //   vN.tsx         the single-file bundle every consumer reads
 //   vN.src/        the builder's files — what the next edit continues from
+//   vN.assets/     the files its staticFile() calls load (work/assets/), when
+//                  there are any: whoever plays vN.tsx maps them to its
+//                  `assets` prop. A file the version before already had, byte
+//                  for byte, is a hard link to it (saved versions are never
+//                  written again), so an HDRI does not cost its size per edit.
 //   vN.stills/     the frames it looked at, at the size it saw them
 //   vN.debug.json  rounds, events, usage, the transcript (as `turns`)
 // The Creator library shows a folder with no vN.tsx as an empty group
@@ -13,10 +18,11 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
+import { createReadStream } from 'fs';
 import { reserveProjectFolder, writeNextVersion, writeDebugSidecar } from '../tsx-jobs/project-store';
 import { parseCompositionConfig, type CompositionConfig } from '../composition-config-parser';
-import { BUILD_ENTRY } from './constants';
+import { ASSETS_DIR, BUILD_ENTRY } from './constants';
 import { formatFromConfig } from './build-format';
 import type { BuildFormat, BuildStillRecord, BuildStillSize, BuildVersion } from './types';
 
@@ -123,6 +129,12 @@ export async function seedWorkFromVersion(
   } else {
     await fs.writeFile(path.join(workDir, BUILD_ENTRY), code, 'utf-8');
   }
+  // Copies, never links: the builder may rewrite a file in its folder, and a
+  // saved version must not change under it.
+  const assetsDir = path.join(editOf.folderPath, `v${version}.assets`);
+  if (await isDirectory(assetsDir)) {
+    await fs.cp(assetsDir, path.join(workDir, ASSETS_DIR), { recursive: true });
+  }
   const config = parseCompositionConfig(code);
   const format =
     (await readBuilderFormat(path.join(editOf.folderPath, `v${version}.debug.json`))) ??
@@ -159,6 +171,68 @@ export interface SaveVersionInput {
   debug: Record<string, unknown>;
 }
 
+async function sha256File(file: string): Promise<string> {
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(file)) hash.update(chunk as Buffer);
+  return hash.digest('hex');
+}
+
+/** Files under `dir`, as POSIX paths relative to it. */
+async function filesUnder(dir: string): Promise<string[]> {
+  const entries = await fs.readdir(dir, { recursive: true, withFileTypes: true }).catch(() => []);
+  return entries
+    .filter((e) => e.isFile())
+    .map((e) => path.relative(dir, path.join(e.parentPath, e.name)).split(path.sep).join('/'))
+    .sort();
+}
+
+/** The newest `vK.assets/` with K below `number`, or null. */
+async function previousAssetsDir(folderPath: string, number: number): Promise<string | null> {
+  const earlier = (await listVersionNumbers(folderPath)).filter((n) => n < number).reverse();
+  for (const n of earlier) {
+    const dir = path.join(folderPath, `v${n}.assets`);
+    if (await isDirectory(dir)) return dir;
+  }
+  return null;
+}
+
+/**
+ * Copy the run's assets/ to `target`; a file identical to the same path in
+ * `previous` (size, then SHA-256) becomes a hard link to it instead. Returns
+ * the files saved and how many were linked. A failed link (another volume, a
+ * file system without links) falls back to a copy.
+ */
+export async function saveAssetsFolder(
+  source: string,
+  target: string,
+  previous: string | null,
+): Promise<{ files: string[]; linked: number }> {
+  const files = await filesUnder(source);
+  let linked = 0;
+  await fs.rm(target, { recursive: true, force: true });
+  for (const rel of files) {
+    const from = path.join(source, ...rel.split('/'));
+    const to = path.join(target, ...rel.split('/'));
+    await fs.mkdir(path.dirname(to), { recursive: true });
+    const before = previous ? path.join(previous, ...rel.split('/')) : null;
+    if (before) {
+      const [a, b] = await Promise.all([fs.stat(from), fs.stat(before).catch(() => null)]);
+      if (b?.isFile() && a.size === b.size && (await sha256File(from)) === (await sha256File(before))) {
+        const ok = await fs.link(before, to).then(
+          () => true,
+          () => false,
+        );
+        if (ok) {
+          linked += 1;
+          continue;
+        }
+      }
+    }
+    await fs.copyFile(from, to);
+  }
+  return { files, linked };
+}
+
 /**
  * Save a build as the folder's next version. `vN.tsx` is claimed first (the
  * exclusive write in writeNextVersion), so two saves into one folder never share
@@ -177,7 +251,17 @@ export async function saveBuildVersion(
 
   const srcDir = path.join(folderPath, `${base}.src`);
   await fs.rm(srcDir, { recursive: true, force: true });
-  await fs.cp(input.dirs.workDir, srcDir, { recursive: true });
+  const workAssets = path.join(input.dirs.workDir, ASSETS_DIR);
+  await fs.cp(input.dirs.workDir, srcDir, { recursive: true, filter: (from) => path.resolve(from) !== path.resolve(workAssets) });
+
+  // Cleared first: N is reused after the top version is deleted, and its old files must not serve this one.
+  const assetsDir = path.join(folderPath, `${base}.assets`);
+  await fs.rm(assetsDir, { recursive: true, force: true });
+  let assets: { dir: string; files: string[]; linked: number } | null = null;
+  if ((await filesUnder(workAssets)).length > 0) {
+    const saved = await saveAssetsFolder(workAssets, assetsDir, await previousAssetsDir(folderPath, number));
+    assets = { dir: assetsDir, ...saved };
+  }
 
   const stillsDir = path.join(folderPath, `${base}.stills`);
   await fs.rm(stillsDir, { recursive: true, force: true });
@@ -194,9 +278,21 @@ export async function saveBuildVersion(
     stills.push({ ...record, file: `${base}.stills/${name}` });
   }
 
-  await writeDebugSidecar(tsxPath, { ...input.debug, stills });
+  await writeDebugSidecar(tsxPath, {
+    ...input.debug,
+    stills,
+    ...(assets ? { assets: { files: assets.files, linkedFromPrevious: assets.linked } } : {}),
+  });
   return {
-    version: { number, folderPath, tsxPath, srcDir, stillsDir, debugPath: tsxPath.replace(/\.tsx$/, '.debug.json') },
+    version: {
+      number,
+      folderPath,
+      tsxPath,
+      srcDir,
+      stillsDir,
+      ...(assets ? { assetsDir: assets.dir } : {}),
+      debugPath: tsxPath.replace(/\.tsx$/, '.debug.json'),
+    },
     stills,
   };
 }

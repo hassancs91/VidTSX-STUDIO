@@ -79,6 +79,10 @@ export interface TsxBuildJobIpc {
   seam?: { jump: boolean; wrap: number; neighbours: number };
   /** The last purity_check: same frames in order vs alone; `worst` = the largest mean pixel difference, 0-255. */
   purity?: { pure: boolean; frames: number[]; worst: number };
+  /** Files the builder put in its assets/ during the run (library_use, generate_image), in order. */
+  assetsAdded?: string[];
+  /** generate_image calls that made an image, and their estimated cost. */
+  images?: { count: number; costUsd: number };
   /** The latest look while running; every saved still once done. */
   stills: TsxBuildStillIpc[];
   /** A cap fired or the job was cancelled; the run is winding down. */
@@ -156,6 +160,10 @@ export interface TsxBuildJobRequestIpc {
   /** Caps override the budget's. */
   maxMinutes?: number;
   maxOutputTokens?: number;
+  /** Files for the builder's assets/: an absolute path or `library:<path>`, and its name there (default: the file name). */
+  assets?: Array<{ path: string; name?: string }>;
+  /** generate_image calls allowed (paid). Default by budget: quick 2, standard 4, craft 6; 0 turns it off. */
+  maxGeneratedImages?: number;
 }
 
 export interface TsxJobStartRequest {

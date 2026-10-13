@@ -20,7 +20,7 @@ import { buildBuilderToolServer, type BuilderState } from './builder-tools';
 type Handler = (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }>; isError?: boolean }>;
 
 const config = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
-const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], ms: 5 };
+const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], assets: [], ms: 5 };
 /** The finish gate met for the stubbed bundle (its own tests are in builder-look-tools.test.ts). */
 const gateMet = { phoneViews: 1, lastSeam: { code: '// bundle', jump: false } };
 
@@ -43,6 +43,9 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     lastGood: null,
     finished: null,
     stills: [],
+    imagesMax: 0,
+    imagesGenerated: 0,
+    imageCostUsd: 0,
     inFlight: new Set(),
     ...overrides,
   };

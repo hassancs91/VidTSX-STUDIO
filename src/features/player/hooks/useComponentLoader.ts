@@ -23,6 +23,8 @@ export interface LoaderState {
   status: LoaderStatus;
   moduleUrl: string | null;
   config: CompositionConfig | null;
+  /** The version's files as its `assets` prop (TSX builder versions); merge into the Player's inputProps. */
+  assets?: Record<string, string>;
   error: string | null;
   errorLocation?: {
     line: number;
@@ -142,6 +144,7 @@ export function useComponentLoader(): UseComponentLoaderResult {
         status: 'success',
         moduleUrl: result.moduleUrl ? `${result.moduleUrl}?v=${nonce}` : null,
         config: result.compositionConfig ?? null,
+        ...(result.assets ? { assets: result.assets } : {}),
         error: null,
       });
     } catch (err) {

@@ -26,6 +26,11 @@
 // Before, stills passed no `gl` and WebGL drew on SwiftShader. The backend is
 // fixed per prepared build, so the frames one look compares (loop_seam) come
 // from one backend.
+//
+// Assets (P2 part 4): a build whose staticFile() calls name files in its
+// assets/ folder renders with `inputProps.assets` = each key's asset-root URL
+// on the bundle server that serves this bundle (build-assets.ts), the same
+// prop a saved version is played and exported with.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -37,6 +42,13 @@ import { getRemotionBinariesDir } from '../../utils/paths';
 import { probeGlBackend, type ProbedGl } from '../gl-backend-probe';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { Bitmap } from './loop-seam';
+import { assetsProp, type AssetKeyMap } from './build-assets';
+
+/** A build's files: its assets folder and the lookup keys its code uses. */
+export interface BuildAssetSource {
+  dir: string;
+  keys: AssetKeyMap;
+}
 
 const STILL_TIMEOUT_MS = 120_000;
 
@@ -62,6 +74,8 @@ export interface PreparedBuild {
   composition: VideoConfig;
   /** The GL backend every frame of this build renders on. */
   gl: ProbedGl;
+  /** What every frame is rendered with: `{ assets }` when the build names files, else `{}`. */
+  inputProps: Record<string, unknown>;
   bundleCached: boolean;
   ms: { bundle: number; select: number };
 }
@@ -102,13 +116,14 @@ export function readBitmap(file: string): Bitmap {
  * Bundle the single-file artifact `code` and select its composition. The
  * entry (`<outDir>/<entryName>`) is stable per build and per kind of look, so
  * an unchanged artifact reuses its bundle. `gl` overrides the probed backend
- * (the spike's timing probe compares the two).
+ * (the spike's timing probe compares the two). `assets`: the build's files,
+ * served from the bundle's own server.
  */
 export async function prepareBuildRender(
   code: string,
   config: CompositionConfig,
   outDir: string,
-  options: { entryName?: string; signal?: AbortSignal; gl?: ProbedGl } = {},
+  options: { entryName?: string; signal?: AbortSignal; gl?: ProbedGl; assets?: BuildAssetSource } = {},
 ): Promise<PreparedBuild> {
   const { signal } = options;
   signal?.throwIfAborted();
@@ -125,11 +140,16 @@ export async function prepareBuildRender(
     throw new Error(`Bundling for stills failed: ${bundle.error ?? 'unknown error'}`);
   }
 
+  const keys = options.assets?.keys ?? {};
+  const inputProps: Record<string, unknown> =
+    options.assets && Object.keys(keys).length > 0
+      ? { assets: assetsProp(new URL(bundle.serveUrl).origin, options.assets.dir, keys) }
+      : {};
   const selectStart = Date.now();
   const composition = await selectComposition({
     serveUrl: bundle.serveUrl,
     id: config.id,
-    inputProps: {},
+    inputProps,
     chromiumOptions: { disableWebSecurity: true, gl },
     timeoutInMilliseconds: STILL_TIMEOUT_MS,
     binariesDirectory: getRemotionBinariesDir() ?? undefined,
@@ -139,6 +159,7 @@ export async function prepareBuildRender(
     serveUrl: bundle.serveUrl,
     composition,
     gl,
+    inputProps,
     bundleCached: bundle.cached === true,
     ms: { bundle: bundleMs, select: Date.now() - selectStart },
   };
@@ -178,7 +199,7 @@ export async function renderPreparedFrames(
         imageFormat,
         ...(imageFormat === 'jpeg' ? { jpegQuality: 90 } : {}),
         ...(options.scale ? { scale: options.scale } : {}),
-        inputProps: {},
+        inputProps: prepared.inputProps,
         chromiumOptions: { disableWebSecurity: true, gl: prepared.gl },
         timeoutInMilliseconds: STILL_TIMEOUT_MS,
         binariesDirectory,
@@ -214,7 +235,7 @@ export async function renderPreparedInOrder(
     await renderFrames({
       composition: prepared.composition,
       serveUrl: prepared.serveUrl,
-      inputProps: {},
+      inputProps: prepared.inputProps,
       outputDir: null,
       frameRange: [0, last],
       concurrency: 1,
@@ -255,11 +276,12 @@ export async function renderBuildStills(
   config: CompositionConfig,
   outDir: string,
   frames: number[],
-  options: { maxSide?: number; label?: string; signal?: AbortSignal; gl?: ProbedGl } = {},
+  options: { maxSide?: number; label?: string; signal?: AbortSignal; gl?: ProbedGl; assets?: BuildAssetSource } = {},
 ): Promise<BuildStillsResult> {
   const prepared = await prepareBuildRender(code, config, outDir, {
     ...(options.signal ? { signal: options.signal } : {}),
     ...(options.gl ? { gl: options.gl } : {}),
+    ...(options.assets ? { assets: options.assets } : {}),
   });
   const renderStart = Date.now();
   const rendered = await renderPreparedFrames(prepared, outDir, frames, {

@@ -106,6 +106,13 @@ export function applyBuildEvent(prev: TsxBuildJobIpc, event: BuildProgressEvent)
     case 'purity':
       build.purity = { pure: event.pure, frames: [...event.frames], worst: event.worst };
       break;
+    case 'asset':
+      build.assetsAdded = [...(build.assetsAdded ?? []), ...event.files];
+      if (event.source === 'generated') {
+        const images = build.images ?? { count: 0, costUsd: 0 };
+        build.images = { count: images.count + 1, costUsd: images.costUsd + (event.costUsd ?? 0) };
+      }
+      break;
     case 'stopping':
       build.stopping = event.reason;
       break;

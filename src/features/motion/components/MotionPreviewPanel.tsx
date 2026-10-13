@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Button, Modal, RenderSettingsModal, SkeletonLoader, type RenderSettings } from '@shared/components';
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
 import { CodeEditor, useCodeEditor, usePropsExtractor, PropsPanel } from '@features/editor';
@@ -106,6 +106,12 @@ export function MotionPreviewPanel({
     onAfterSave: handleAfterSave,
   });
   const propsExtractor = usePropsExtractor(codeEditor.content, project?.currentVersion ?? null);
+  // A builder version's files (vN.assets/) ride in as its `assets` prop.
+  const loadedAssets = loaderState.assets;
+  const previewProps = useMemo(
+    () => (loadedAssets ? { ...(propsExtractor.inputProps ?? {}), assets: loadedAssets } : propsExtractor.inputProps),
+    [propsExtractor.inputProps, loadedAssets],
+  );
   const { addJob } = useRenderQueue();
   const rendered = useRenderedOutputs(project?.currentVersion ?? null);
   const { showToast } = useToast();
@@ -337,7 +343,7 @@ export function MotionPreviewPanel({
                   <IsolatedPreview
                     moduleUrl={loaderState.moduleUrl}
                     config={loaderState.config}
-                    inputProps={propsExtractor.inputProps}
+                    inputProps={previewProps}
                     className="h-full"
                   />
                 )}

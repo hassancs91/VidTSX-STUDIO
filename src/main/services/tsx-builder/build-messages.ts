@@ -6,6 +6,7 @@
 import { formatLine } from './build-format';
 import type { BuildFormat } from './types';
 import type { SeededBuild } from './build-store';
+import { formatBytes, type AssetFile } from './build-assets';
 
 export interface FirstMessageInput {
   intent: string;
@@ -14,6 +15,10 @@ export interface FirstMessageInput {
   referenceImageCount?: number;
   /** Present for an edit. */
   seed?: Pick<SeededBuild, 'version' | 'fromSrc'>;
+  /** What assets/ holds at the start (the request's files, an edit's version files). */
+  assets?: AssetFile[];
+  /** generate_image this run: the provider and the cap; absent when no provider is set up or the cap is 0. */
+  imageGeneration?: { provider: string; max: number };
 }
 
 function contextLines(input: FirstMessageInput): string[] {
@@ -25,6 +30,19 @@ function contextLines(input: FirstMessageInput): string[] {
       `REFERENCE: ${input.referenceImageCount} image${input.referenceImageCount === 1 ? '' : 's'} attached. Take what the request asks from them; do not copy them.`,
     );
   }
+  if (input.assets?.length) {
+    lines.push(
+      '',
+      `FILES in assets/ (load each with staticFile('<name>'); use them where the idea calls for them):`,
+      ...input.assets.map((f) => `- ${f.relPath} (${f.kind ?? 'not a kind the renderer serves'}, ${formatBytes(f.bytes)})`),
+    );
+  }
+  lines.push(
+    '',
+    input.imageGeneration
+      ? `IMAGES: generate_image is available (${input.imageGeneration.provider}, paid per image, at most ${input.imageGeneration.max} this run). library_search finds the user's own files.`
+      : `IMAGES: generate_image is not available this run. library_search finds the user's own files.`,
+  );
   return lines;
 }
 
@@ -35,7 +53,9 @@ function newBuildMessage(input: FirstMessageInput): string {
     `IDEA: ${input.intent}`,
     ...contextLines(input),
     '',
-    'Your folder is empty. Start with DESIGN.md, then build, check, and look.',
+    input.assets?.length
+      ? 'Your folder holds only assets/. Start with DESIGN.md, then build, check, and look.'
+      : 'Your folder is empty. Start with DESIGN.md, then build, check, and look.',
   ].join('\n');
 }
 

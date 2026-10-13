@@ -14,6 +14,7 @@ import type { BundleWorkerReply, BundleWorkerRequest } from './bundle-worker';
 import { generateWrapper, cleanupWrapper } from './composition-wrapper';
 import { materializeAbsoluteStaticFiles } from './remotion-static-files';
 import { registerFontProxy } from './font-proxy';
+import { ASSET_ROOT_ROUTE, serveAssetRoot } from './asset-roots';
 import { getRemotionBinariesDir } from '../utils/paths';
 import { getAppRoot } from '../utils/paths';
 import {
@@ -85,6 +86,9 @@ async function ensureServer(): Promise<number> {
     // headless render Chromium fetches fonts from the same origin it loads
     // the bundle from — no cross-origin/CSP/offline foot-guns.
     registerFontProxy(expressApp);
+
+    // Builder assets (vN.assets/, a run's work/assets/): only registered folders.
+    expressApp.get(`${ASSET_ROOT_ROUTE}/:token/*`, serveAssetRoot);
 
     // Serve external assets (user video files) via HTTP for Remotion
     // Remotion's OffthreadVideo cannot access local files directly

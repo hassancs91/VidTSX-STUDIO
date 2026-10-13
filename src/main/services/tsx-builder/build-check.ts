@@ -18,6 +18,7 @@ import { lintCreatorImports } from '../../../shared/tsx-engine/creator-imports';
 import { parseCompositionConfig, type CompositionConfig } from '../composition-config-parser';
 import { BUILD_ENTRY } from './constants';
 import { formatErrors } from './build-format';
+import { ASSETS_DIR, resolveBuildAssets, type BuildAsset } from './build-assets';
 import type { BuildFormat } from './types';
 
 export interface BuildCheckResult {
@@ -29,6 +30,8 @@ export interface BuildCheckResult {
   config?: CompositionConfig;
   inlinedFiles: string[];
   inlinedPackages: string[];
+  /** The files its staticFile() calls name, found in assets/. */
+  assets: BuildAsset[];
   ms: number;
 }
 
@@ -49,6 +52,7 @@ export async function checkBuild(workDir: string, expect?: BuildFormat): Promise
       errors: [`${BUILD_ENTRY} is missing. It must default-export the composition and export a literal compositionConfig.`],
       inlinedFiles: [],
       inlinedPackages: [],
+      assets: [],
     });
   }
 
@@ -61,6 +65,7 @@ export async function checkBuild(workDir: string, expect?: BuildFormat): Promise
       errors: [err instanceof Error ? err.message : String(err)],
       inlinedFiles: [],
       inlinedPackages: [],
+      assets: [],
     });
   }
 
@@ -72,11 +77,12 @@ export async function checkBuild(workDir: string, expect?: BuildFormat): Promise
   const config = parseCompositionConfig(bundled.code) ?? undefined;
   if (!config) errors.push('compositionConfig could not be parsed after bundling.');
   if (config && expect) errors.push(...formatErrors(config, expect));
-  if (bundled.media.length > 0) {
-    errors.push(
-      `staticFile() is not available to the builder yet (${bundled.media.map((m) => m.ref).join(', ')}). Draw it in code.`,
-    );
-  }
+  const resolved = await resolveBuildAssets(
+    path.join(workDir, ASSETS_DIR),
+    bundled.media.map((m) => m.ref),
+    bundled.dynamicStaticFileCalls,
+  );
+  errors.push(...resolved.errors);
 
   return done({
     ok: errors.length === 0,
@@ -85,5 +91,6 @@ export async function checkBuild(workDir: string, expect?: BuildFormat): Promise
     ...(config ? { config } : {}),
     inlinedFiles: bundled.inlinedFiles,
     inlinedPackages: bundled.inlinedPackages,
+    assets: resolved.assets,
   });
 }

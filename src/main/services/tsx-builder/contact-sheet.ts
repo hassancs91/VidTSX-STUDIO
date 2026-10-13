@@ -126,7 +126,8 @@ ${piece}
 
 const __vidtsxSheet = ${JSON.stringify(sheet)};
 
-export default function VidtsxContactSheet() {
+// Props (the build's \`assets\`) go to every tile.
+export default function VidtsxContactSheet(props) {
   const h = __VidtsxReact.createElement;
   const S = __vidtsxSheet;
   return h('div', { style: { position: 'absolute', inset: 0, background: '#1f2023' } },
@@ -136,7 +137,7 @@ export default function VidtsxContactSheet() {
       h('div', { style: { position: 'absolute', left: 0, top: S.lh, width: S.tw, height: S.th, overflow: 'hidden' } },
         h('div', { style: { position: 'absolute', left: 0, top: 0, width: S.w, height: S.h, transform: 'scale(' + S.s + ')', transformOrigin: '0 0' } },
           h(__VidtsxSequence, { from: 0, durationInFrames: S.d, width: S.w, height: S.h, name: 'frame ' + c.frame },
-            h(__VidtsxFreeze, { frame: c.frame }, h(${pieceRef}, {}))))))));
+            h(__VidtsxFreeze, { frame: c.frame }, h(${pieceRef}, props))))))));
 }
 `;
   return { code: source, config: sheetConfig, layout };

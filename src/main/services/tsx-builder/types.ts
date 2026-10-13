@@ -68,6 +68,14 @@ export interface BuildRequest {
   /** Caps override the budget's (build-run-guard.ts BUDGET_CAPS). */
   maxMinutes?: number;
   maxOutputTokens?: number;
+  /**
+   * Files copied into the build's assets/ before it starts: an absolute path or
+   * `library:<path in the asset library>`, and the name inside assets/ (default:
+   * the file name). An edit also gets its version's `vN.assets/`.
+   */
+  assets?: Array<{ path: string; name?: string }>;
+  /** generate_image calls allowed (PAID). Default GENERATED_IMAGES_MAX by budget; 0 turns it off. */
+  maxGeneratedImages?: number;
   /** Cancel: stops the session and any bundle or render in flight; saves nothing. */
   signal?: AbortSignal;
   /** Live progress. Called synchronously; a throwing listener is ignored. */
@@ -100,6 +108,8 @@ export type BuildProgressDetail =
   | { type: 'seam'; jump: boolean; wrap: number; neighbours: number }
   /** A `purity_check`: `worst` = the largest mean pixel difference of a sample frame, 0-255. */
   | { type: 'purity'; pure: boolean; frames: number[]; worst: number }
+  /** Files put in assets/ during the run: from the library, or generated (with the image's estimated cost). */
+  | { type: 'asset'; source: 'library' | 'generated'; files: string[]; costUsd?: number }
   /** A cap fired or the caller cancelled; tools in flight are winding down. */
   | { type: 'stopping'; reason: 'cap-time' | 'cap-tokens' | 'cancelled' }
   | { type: 'done'; stopReason: BuildStopReason; ok: boolean; version?: number };
@@ -126,6 +136,8 @@ export interface BuildVersion {
   /** The builder's source files — what the next edit continues from. */
   srcDir: string;
   stillsDir: string;
+  /** `vN.assets/`: the files its staticFile() calls load. Absent when it uses none. */
+  assetsDir?: string;
   debugPath: string;
 }
 
@@ -152,6 +164,8 @@ export interface BuildResult {
    * (PURITY_IMPURE_ALLOWANCE), or a capped run kept a build not measured PURE.
    */
   pureOk?: boolean;
+  /** generate_image calls that made an image this run, and their estimated cost (the provider catalog's price). */
+  images?: { count: number; costUsd: number };
   stills: BuildStillRecord[];
   elapsedMs: number;
   /** Counted per API response, so a capped or cancelled run has them too. */

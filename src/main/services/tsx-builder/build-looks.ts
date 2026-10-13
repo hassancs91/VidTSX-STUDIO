@@ -17,6 +17,7 @@ import {
   readBitmap,
   renderPreparedFrames,
   renderPreparedInOrder,
+  type BuildAssetSource,
 } from './build-stills';
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE, contactSheetSource, type SheetLayout } from './contact-sheet';
 import { measureSeam, type SeamMeasure } from './loop-seam';
@@ -34,7 +35,15 @@ export const PHONE_FEED_WIDTH = 390;
 export interface LookOptions {
   label: string;
   signal?: AbortSignal;
+  /** The build's files (assets/), when its code names any. */
+  assets?: BuildAssetSource;
 }
+
+/** What prepareBuildRender takes from a look's options. */
+const prepareOptions = (options: LookOptions) => ({
+  ...(options.signal ? { signal: options.signal } : {}),
+  ...(options.assets ? { assets: options.assets } : {}),
+});
 
 export interface LookImage {
   path: string;
@@ -60,7 +69,7 @@ export async function renderContactSheet(
   const picked = clampFrames(frames, config.durationInFrames).slice(0, CONTACT_SHEET_MAX_FRAMES);
   const sheet = contactSheetSource(code, config, picked);
   const signal = options.signal ? { signal: options.signal } : {};
-  const prepared = await prepareBuildRender(sheet.code, sheet.config, outDir, { entryName: 'contact-sheet.tsx', ...signal });
+  const prepared = await prepareBuildRender(sheet.code, sheet.config, outDir, { entryName: 'contact-sheet.tsx', ...prepareOptions(options) });
   const [image] = await renderPreparedFrames(prepared, outDir, [0], { label: options.label, ...signal });
   const seen = encodeForModel(image.path, { maxSide: CONTACT_SHEET_MAX_SIDE });
   const file = path.join(outDir, `${options.label}.jpg`);
@@ -88,7 +97,7 @@ export async function renderPhoneView(
 ): Promise<LookImage & { frame: number; width: number; height: number }> {
   const started = Date.now();
   const signal = options.signal ? { signal: options.signal } : {};
-  const prepared = await prepareBuildRender(code, config, outDir, signal);
+  const prepared = await prepareBuildRender(code, config, outDir, prepareOptions(options));
   const [image] = await renderPreparedFrames(prepared, outDir, [frame], { label: options.label, ...signal });
   const seen = encodeForModel(image.path, { width: PHONE_FEED_WIDTH });
   await fs.writeFile(image.path, seen);
@@ -116,7 +125,7 @@ export async function measureLoopSeam(
   if (last < 3) throw new Error('A loop needs at least 4 frames to measure its seam.');
   const started = Date.now();
   const signal = options.signal ? { signal: options.signal } : {};
-  const prepared = await prepareBuildRender(code, config, outDir, signal);
+  const prepared = await prepareBuildRender(code, config, outDir, prepareOptions(options));
   const rendered = await renderPreparedFrames(prepared, outDir, [0, 1, last - 1, last], {
     label: options.label,
     imageFormat: 'png',
@@ -159,7 +168,7 @@ export async function measureFramePurity(
   );
   const scale = Math.min(1, PURITY_MAX_SIDE / Math.max(config.width, config.height));
   const signal = options.signal ? { signal: options.signal } : {};
-  const prepared = await prepareBuildRender(code, config, outDir, signal);
+  const prepared = await prepareBuildRender(code, config, outDir, prepareOptions(options));
   const orderStart = Date.now();
   const inOrder = await renderPreparedInOrder(prepared, outDir, picked, { label: `${options.label}-order`, scale, ...signal });
   const aloneStart = Date.now();

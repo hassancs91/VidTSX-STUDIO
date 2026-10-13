@@ -17,13 +17,39 @@ const STATIC_IMPORT_PATTERN =
 /** Dynamic `import('x')` and CommonJS `require('x')`. */
 const DYNAMIC_IMPORT_PATTERN = /\b(?:import|require)\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
+/**
+ * True when `index` sits inside a string literal or a // comment that opened
+ * earlier on the same line. A bundled library can mention `require("fs")` in a
+ * message (opentype.js does, in a deprecation warning); that is text, not an
+ * import. One line only, and a regex literal holding a quote earlier on the
+ * line can fool it (a multi-line template literal is not tracked either).
+ */
+function inStringOnLine(code: string, index: number): boolean {
+  const lineStart = code.lastIndexOf('\n', index - 1) + 1;
+  let quote: string | null = null;
+  for (let i = lineStart; i < index; i++) {
+    const c = code[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
+    } else if (c === '"' || c === "'" || c === '`') {
+      quote = c;
+    } else if (c === '/' && code[i + 1] === '/') {
+      return true;
+    }
+  }
+  return quote !== null;
+}
+
 /** Every module specifier the source references, static or dynamic. */
 export function collectImportSpecifiers(code: string): string[] {
   const specifiers: string[] = [];
-  for (const pattern of [STATIC_IMPORT_PATTERN, DYNAMIC_IMPORT_PATTERN]) {
-    pattern.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(code)) !== null) specifiers.push(match[1]);
+  STATIC_IMPORT_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = STATIC_IMPORT_PATTERN.exec(code)) !== null) specifiers.push(match[1]);
+  DYNAMIC_IMPORT_PATTERN.lastIndex = 0;
+  while ((match = DYNAMIC_IMPORT_PATTERN.exec(code)) !== null) {
+    if (!inStringOnLine(code, match.index)) specifiers.push(match[1]);
   }
   return specifiers;
 }

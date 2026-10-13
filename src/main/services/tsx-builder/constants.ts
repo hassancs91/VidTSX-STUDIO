@@ -3,3 +3,6 @@
 
 /** The entry file of a build folder; `check` bundles from here. */
 export const BUILD_ENTRY = 'index.tsx';
+
+/** The build folder's files (staticFile() names a path inside it); saved as `vN.assets/`. */
+export const ASSETS_DIR = 'assets';

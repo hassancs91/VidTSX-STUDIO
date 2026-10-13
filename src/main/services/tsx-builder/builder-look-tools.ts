@@ -14,7 +14,7 @@
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
-import { renderBuildStills } from './build-stills';
+import { renderBuildStills, type BuildAssetSource } from './build-stills';
 import { measureFramePurity, measureLoopSeam, PHONE_FEED_WIDTH, renderContactSheet, renderPhoneView } from './build-looks';
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE } from './contact-sheet';
 import { describeSeam } from './loop-seam';
@@ -54,6 +54,8 @@ function budgetSpent(state: BuilderState): ToolResult | null {
 export function buildLookTools(state: BuilderState) {
   const roundsLine = () => `Look rounds used: ${state.roundsUsed}/${state.roundsMax}.`;
   const signal = () => (state.signal ? { signal: state.signal } : {});
+  /** The signal, and the build's files when it names any. */
+  const renderOptions = (build: { assets?: BuildAssetSource }) => ({ ...signal(), ...(build.assets ? { assets: build.assets } : {}) });
 
   const renderStills = tool(
     'render_stills',
@@ -70,7 +72,7 @@ export function buildLookTools(state: BuilderState) {
         const stills = await renderBuildStills(look.build.code, look.build.config, state.dirs.stillsDir, args.frames, {
           maxSide: 1024,
           label: `r${pad(state.roundsUsed)}`,
-          ...signal(),
+          ...renderOptions(look.build),
         });
         for (const still of stills.stills) {
           state.stills.push({ round: state.roundsUsed, frame: still.frame, size: 'model', path: still.path });
@@ -122,7 +124,7 @@ export function buildLookTools(state: BuilderState) {
       try {
         const sheet = await renderContactSheet(look.build.code, look.build.config, state.dirs.stillsDir, args.frames, {
           label: `r${pad(state.roundsUsed)}-sheet`,
-          ...signal(),
+          ...renderOptions(look.build),
         });
         state.stills.push({ round: state.roundsUsed, frame: sheet.frames[0], frames: sheet.frames, size: 'sheet', path: sheet.path });
         await logEvent(state, {
@@ -170,7 +172,7 @@ export function buildLookTools(state: BuilderState) {
       try {
         const view = await renderPhoneView(look.build.code, look.build.config, state.dirs.stillsDir, args.frame, {
           label: `phone${state.phoneViews}`,
-          ...signal(),
+          ...renderOptions(look.build),
         });
         state.stills.push({ round: state.roundsUsed, frame: view.frame, size: 'phone', path: view.path });
         await logEvent(state, { tool: 'phone_view', n: state.phoneViews, frame: view.frame, ms: view.ms, gl: view.gl, totalMs: Date.now() - started });
@@ -204,7 +206,7 @@ export function buildLookTools(state: BuilderState) {
       try {
         const seam = await measureLoopSeam(look.build.code, look.build.config, state.dirs.stillsDir, {
           label: `seam${state.seamChecks}`,
-          ...signal(),
+          ...renderOptions(look.build),
         });
         // What `finish` holds the loop to: this exact build, this verdict.
         const build = buildHash(look.build.code);
@@ -239,7 +241,7 @@ export function buildLookTools(state: BuilderState) {
         const purity = await measureFramePurity(look.build.code, look.build.config, state.dirs.stillsDir, {
           label: `purity${state.purityChecks}`,
           ...(args.frames?.length ? { frames: args.frames } : {}),
-          ...signal(),
+          ...renderOptions(look.build),
         });
         const build = buildHash(look.build.code);
         // What `finish` holds a physics piece to: this exact build, this verdict.

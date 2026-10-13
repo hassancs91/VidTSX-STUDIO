@@ -78,7 +78,7 @@ import { buildComposition } from './tsx-builder';
 import type { BuildProgressEvent, BuildRequest } from './types';
 
 const config = { id: 'BounceBall', width: 1080, height: 1080, fps: 30, durationInFrames: 60 };
-const passed = (code: string) => ({ ok: true, errors: [], code, config, inlinedFiles: [], inlinedPackages: [], ms: 5 });
+const passed = (code: string) => ({ ok: true, errors: [], code, config, inlinedFiles: [], inlinedPackages: [], assets: [], ms: 5 });
 
 function request(overrides: Partial<BuildRequest> = {}): { req: BuildRequest; events: BuildProgressEvent[] } {
   const events: BuildProgressEvent[] = [];

@@ -8,6 +8,7 @@ import type {
   ModuleServerUrlResponse,
 } from '@shared/ipc/types';
 import { transpileTsxCached } from '../services/tsx-transpiler';
+import { versionAssetsProp } from '../services/tsx-builder/version-assets';
 import {
   ensureModuleServer,
   getModuleServerBaseUrl,
@@ -46,6 +47,8 @@ async function handleModuleTranspile(
 
     // Store the transpiled module and get its URL
     const moduleUrl = storeTranspileResult(result);
+    // A builder version's files (vN.assets/), served from this server.
+    const assets = await versionAssetsProp(request.filePath, baseUrl).catch(() => null);
 
     return {
       success: true,
@@ -58,6 +61,7 @@ async function handleModuleTranspile(
         height: result.config.height,
       },
       componentName: result.componentName,
+      ...(assets ? { assets } : {}),
     };
   } catch (err) {
     return {

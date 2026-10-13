@@ -367,6 +367,7 @@ export function WorkspaceScreen() {
         <IsolatedPreview
           moduleUrl={loaderState.moduleUrl}
           config={loaderState.config}
+          {...(loaderState.assets ? { inputProps: { assets: loaderState.assets } } : {})}
           className="h-full"
         />
       );

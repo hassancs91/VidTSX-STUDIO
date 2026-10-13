@@ -43,6 +43,16 @@ describe('collectImportSpecifiers', () => {
     const code = `import React from 'react';\nconst label = "we import nothing here";`;
     expect(collectImportSpecifiers(code)).toEqual(['react']);
   });
+
+  it('skips a require() or import() written inside a string or a comment (a library message), keeps a real one', () => {
+    const code = [
+      `console.error('DEPRECATED! migrate to: opentype.parse(require("fs").readFileSync(url), opt)');`,
+      'const hint = `use import("x") instead`;',
+      `// require('path') was here`,
+      `const msg = "a \\" quote"; const real = require('zlib');`,
+    ].join('\n');
+    expect(collectImportSpecifiers(code)).toEqual(['zlib']);
+  });
 });
 
 describe('lintShotSource (acceptance-gate table)', () => {

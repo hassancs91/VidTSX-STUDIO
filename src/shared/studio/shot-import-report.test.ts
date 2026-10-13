@@ -15,4 +15,12 @@ describe('describeImportReport', () => {
       "Bundled into one file. Not found beside the source: brand/x.png — attach them in the shot's Media section. 2 staticFile() calls have a computed path and will load nothing until the matching key is attached.",
     );
   });
+
+  it("names a builder version's files a shot cannot hold", () => {
+    expect(
+      describeImportReport({ inlinedFiles: 0, inlinedPackages: [], media: 1, missingMedia: [], dynamicMediaCalls: 0, unsupportedMedia: ['robot.glb', 'studio.hdr'] }),
+    ).toBe(
+      'Bundled into one file. 1 media file attached as project asset. Shots take images, video and audio only, so robot.glb, studio.hdr load nothing here (the TSX Creator plays them).',
+    );
+  });
 });

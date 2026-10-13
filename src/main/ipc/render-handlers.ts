@@ -25,6 +25,16 @@ import { getOutputFolder, getRenderTimeoutSeconds, getRenderDefaultCpuUsage, get
 import { cancelStudioExport, readExportContext, runStudioExport } from '../services/studio/export-engines';
 import { IPC } from '../../shared/ipc/channels';
 import { renderCpuUsageConcurrency } from '../../shared/render-cpu-usage';
+import { withVersionAssets } from '../services/tsx-builder/version-assets';
+
+/** The server a bundle URL is served from, or null for anything that is not a URL. */
+function originOf(url: string | undefined): string | null {
+  try {
+    return url ? new URL(url).origin : null;
+  } catch {
+    return null;
+  }
+}
 import type {
   RenderStartRequest,
   RenderStartResponse,
@@ -259,6 +269,10 @@ export async function handleRenderStart(
         return;
       }
 
+      // A TSX builder version's files (vN.assets/): computed here, per render,
+      // so a queued job never carries a URL on a port from an earlier run.
+      const inputProps = data.filePath ? await withVersionAssets(data.filePath, originOf(bundleUrl), data.inputProps) : data.inputProps;
+
       await renderComposition(
         {
           bundleUrl,
@@ -273,7 +287,7 @@ export async function handleRenderStart(
           scale: data.scale,
           everyNthFrame: data.everyNthFrame,
           numberOfGifLoops: data.numberOfGifLoops,
-          inputProps: data.inputProps,
+          inputProps,
           durationInFrames: renderDurationInFrames,
           transparent: data.transparent,
           cpuUsage: data.cpuUsage,

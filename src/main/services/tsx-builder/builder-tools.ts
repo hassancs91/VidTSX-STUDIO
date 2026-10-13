@@ -1,15 +1,18 @@
 // The builder's own tools (TSX_BUILDER_DESIGN.md T2), as an in-process MCP
 // server: `check` and `finish` here, the five that render (`render_stills`,
 // `contact_sheet`, `phone_view`, `loop_seam`, `purity_check`) in
-// builder-look-tools.ts, the shared state and helpers in builder-tool-common.ts.
+// builder-look-tools.ts, the three that bring files into assets/
+// (`library_search`, `library_use`, `generate_image`) in builder-asset-tools.ts,
+// the shared state and helpers in builder-tool-common.ts.
 // File work goes through the SDK's Read/Write/Edit/Glob/Grep behind the path
-// guard; these seven are the only other things the builder can do. Every call
+// guard; these ten are the only other things the builder can do. Every call
 // is appended to the run's events.jsonl so a run can be followed live and
 // audited after.
 
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { buildLookTools } from './builder-look-tools';
+import { buildAssetTools } from './builder-asset-tools';
 import {
   buildHash,
   describeCheck,
@@ -27,7 +30,18 @@ import {
 export type { BuilderState } from './builder-tool-common';
 
 export const BUILDER_MCP_SERVER_NAME = 'builder';
-export const BUILDER_TOOL_IDS = ['check', 'render_stills', 'contact_sheet', 'phone_view', 'loop_seam', 'purity_check', 'finish'] as const;
+export const BUILDER_TOOL_IDS = [
+  'check',
+  'render_stills',
+  'contact_sheet',
+  'phone_view',
+  'loop_seam',
+  'purity_check',
+  'library_search',
+  'library_use',
+  'generate_image',
+  'finish',
+] as const;
 
 export function builderToolName(id: (typeof BUILDER_TOOL_IDS)[number]): string {
   return `mcp__${BUILDER_MCP_SERVER_NAME}__${id}`;
@@ -154,6 +168,6 @@ export function buildBuilderToolServer(state: BuilderState) {
 
   return createSdkMcpServer({
     name: BUILDER_MCP_SERVER_NAME,
-    tools: [check, ...buildLookTools(state), finish],
+    tools: [check, ...buildLookTools(state), ...buildAssetTools(state), finish],
   });
 }

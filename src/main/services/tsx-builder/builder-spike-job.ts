@@ -27,6 +27,9 @@ export interface BuildSpikeRequest {
   model?: string;
   maxMinutes?: number;
   maxOutputTokens?: number;
+  /** Files for the build's assets/ (absolute paths or `library:` refs). */
+  assets?: Array<{ path: string; name?: string }>;
+  maxGeneratedImages?: number;
   cancelAfterMs?: number;
   quit?: boolean;
 }
@@ -69,6 +72,8 @@ export function jobRequestFor(req: BuildSpikeRequest, packs: BuildPack[]): TsxJo
       ...(req.name ? { name: req.name } : {}),
       ...(req.maxMinutes ? { maxMinutes: req.maxMinutes } : {}),
       ...(req.maxOutputTokens ? { maxOutputTokens: req.maxOutputTokens } : {}),
+      ...(req.assets?.length ? { assets: req.assets } : {}),
+      ...(req.maxGeneratedImages !== undefined ? { maxGeneratedImages: req.maxGeneratedImages } : {}),
     },
   };
 }

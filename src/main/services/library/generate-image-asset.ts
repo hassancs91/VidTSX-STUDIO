@@ -56,6 +56,10 @@ export interface GeneratedImageAsset {
   height: number;
   description: string;
   brandId?: string;
+  /** Who made it, and the catalog's per-image estimate (0 for unknown models and local bridges). */
+  provider: string;
+  model: string;
+  costUsd: number;
 }
 
 export async function generateImageAsset(
@@ -129,6 +133,7 @@ export async function generateImageAsset(
   // Image Studio IPC uses); unknown models and the local bridge stay $0.
   const usageProvider = req.providerId ?? imageEngine.getActiveProvider() ?? 'unknown';
   const usageModel = result.model || 'unknown';
+  const costUsd = getDefaultImageModelPriceUsd(usageProvider, usageModel) * result.images.length;
   aiUsageService
     .appendEntry({
       timestamp: new Date().toISOString(),
@@ -138,7 +143,7 @@ export async function generateImageAsset(
       inputTokens: 0,
       outputTokens: 0,
       cacheReadInputTokens: 0,
-      costUsd: getDefaultImageModelPriceUsd(usageProvider, usageModel) * result.images.length,
+      costUsd,
       durationMs: result.durationMs ?? 0,
       requestType: 'image',
       ...(req.agentId ? { agentId: req.agentId } : {}),
@@ -166,5 +171,8 @@ export async function generateImageAsset(
     height: image.height || size.height,
     description,
     ...(brand ? { brandId: brand.id } : {}),
+    provider: usageProvider,
+    model: usageModel,
+    costUsd,
   };
 }

@@ -129,6 +129,28 @@ describe('bundleShotSource', () => {
     expect(lintShotSource(bundled.code).errors).toEqual([]);
   });
 
+  it('inlines @vidtsx/assets, and @vidtsx/three-assets with three and its loaders, mapping the built-in import between them', async () => {
+    const file = await write(
+      'project/src/shots/Files.tsx',
+      [
+        "import React from 'react';",
+        "import { staticFile } from 'remotion';",
+        "import { useJson } from '@vidtsx/assets';",
+        "import { useModel, FileEnvironment } from '@vidtsx/three-assets';",
+        "export const compositionConfig = { id: 'Files', durationInFrames: 30, fps: 30, width: 100, height: 100 };",
+        "const Model = () => { const m = useModel(staticFile('robot.glb')); return m ? <primitive object={m.scene} /> : null; };",
+        "export default () => { const d = useJson(staticFile('data.json')); return <div>{String(d)}<FileEnvironment url={staticFile('studio.hdr')} /><Model /></div>; };",
+      ].join('\n'),
+    );
+    const bundled = await bundleShotSource(file, { nodePaths: [path.resolve(__dirname, '../../../../node_modules')] });
+    expect(bundled.inlinedPackages).toEqual(expect.arrayContaining(['@vidtsx/assets', '@vidtsx/three-assets', 'three', '@react-three/fiber']));
+    expect(bundled.code).not.toMatch(/from "(@vidtsx|\.\/vidtsx-)/);
+    expect(bundled.code).toMatch(/GLTFLoader = class/);
+    expect(bundled.code).toContain('setMeshoptDecoder');
+    expect(bundled.media.map((m) => m.ref).sort()).toEqual(['data.json', 'robot.glb', 'studio.hdr']);
+    expect(lintShotSource(bundled.code).errors).toEqual([]);
+  }, 30_000);
+
   it('refuses a media or stylesheet import and says what to do instead', async () => {
     const file = await write('project/src/shots/Css.tsx', "import './x.css';\nexport const compositionConfig = { id: 'x', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nexport default () => null;\n");
     await expect(bundleShotSource(file)).rejects.toThrow(/is not code — a shot cannot import media or stylesheets/);

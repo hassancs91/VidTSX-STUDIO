@@ -27,6 +27,9 @@
 // it and on `swangle`, with pixel diffs (builder-spike-gl.ts, P2 part 2).
 // mode "purity" — free: each source through `check` and the frame-purity look,
 // against the verdict it should get (builder-spike-purity.ts, P2 part 3).
+// mode "assets" — free: sources with an assets/ folder through `check`, every
+// look, a saved version's preview files and an export (builder-spike-assets.ts,
+// P2 part 4).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -43,6 +46,7 @@ import { cancelProbes, concurrentProbe, exportProbe, lookProbe, seamProbe, type 
 import { libraryProbe, type LibrariesRequest } from './builder-spike-libraries';
 import { glTimingProbe, type GlTimingRequest } from './builder-spike-gl';
 import { purityProbe, type PurityRequest } from './builder-spike-purity';
+import { assetsProbe, type AssetsRequest } from './builder-spike-assets';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildPack } from './types';
@@ -69,7 +73,7 @@ interface EnginesRequest {
   quit?: boolean;
 }
 
-type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest | LibrariesRequest | GlTimingRequest | PurityRequest;
+type SpikeRequest = FixtureRequest | BuildSpikeRequest | EnginesRequest | LibrariesRequest | GlTimingRequest | PurityRequest | AssetsRequest;
 
 async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
@@ -246,7 +250,9 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
               ? await glTimingProbe(req.outDir, req.sources)
               : req.mode === 'purity'
                 ? await purityProbe(req.outDir, req.sources)
-                : await runFixture(req);
+                : req.mode === 'assets'
+                  ? await assetsProbe(req.outDir, req.sources)
+                  : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

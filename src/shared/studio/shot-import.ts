@@ -133,6 +133,12 @@ export interface ShotImportReport {
   missingMedia: string[];
   /** `staticFile()` calls with a computed argument — they resolve to nothing. */
   dynamicMediaCalls: number;
+  /**
+   * Files the source loads that a shot cannot hold as project media (a TSX
+   * builder version's 3D models, environment maps, fonts, data): they load
+   * nothing in Studio.
+   */
+  unsupportedMedia?: string[];
 }
 
 /** One or two plain sentences for the import panel. */
@@ -154,6 +160,11 @@ export function describeImportReport(report: ShotImportReport): string {
   if (report.dynamicMediaCalls > 0) {
     parts.push(
       `${report.dynamicMediaCalls} staticFile() call${report.dynamicMediaCalls === 1 ? ' has' : 's have'} a computed path and will load nothing until the matching key is attached.`,
+    );
+  }
+  if (report.unsupportedMedia && report.unsupportedMedia.length > 0) {
+    parts.push(
+      `Shots take images, video and audio only, so ${report.unsupportedMedia.join(', ')} load${report.unsupportedMedia.length === 1 ? 's' : ''} nothing here (the TSX Creator plays ${report.unsupportedMedia.length === 1 ? 'it' : 'them'}).`,
     );
   }
   return parts.join(' ');

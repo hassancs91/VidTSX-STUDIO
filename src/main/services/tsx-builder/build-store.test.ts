@@ -132,6 +132,61 @@ describe('saveBuildVersion', () => {
   });
 });
 
+describe('vN.assets/', () => {
+  it('saves assets/ beside the source, never inside vN.src/, and records the files', async () => {
+    const { dirs } = await makeRun(path.join(tmpDir, 'runs'));
+    await write(path.join(dirs.workDir, 'assets', 'models', 'robot.glb'), 'glb-v1');
+    await write(path.join(dirs.workDir, 'assets', 'studio.hdr'), 'hdr');
+    const saved = await saveBuildVersion({ target: { parentDir: path.join(tmpDir, 'projects'), name: 'robot' }, code: config('Robot'), dirs, stills: [], debug: {} });
+    expect(saved.version.assetsDir).toBe(path.join(saved.version.folderPath, 'v1.assets'));
+    expect(await fs.readFile(path.join(saved.version.assetsDir!, 'models', 'robot.glb'), 'utf-8')).toBe('glb-v1');
+    await expect(fs.stat(path.join(saved.version.srcDir, 'assets'))).rejects.toThrow();
+    const debug = JSON.parse(await fs.readFile(saved.version.debugPath, 'utf-8'));
+    expect(debug.assets).toEqual({ files: ['models/robot.glb', 'studio.hdr'], linkedFromPrevious: 0 });
+  });
+
+  it('links a file the version before had byte for byte, and copies a changed one', async () => {
+    const folder = path.join(tmpDir, 'projects', 'robot');
+    await write(path.join(folder, 'v1.tsx'), config('Robot'));
+    await write(path.join(folder, 'v1.assets', 'studio.hdr'), 'same-hdr');
+    await write(path.join(folder, 'v1.assets', 'robot.glb'), 'glb-v1');
+    const { dirs } = await makeRun(path.join(tmpDir, 'runs'));
+    await write(path.join(dirs.workDir, 'assets', 'studio.hdr'), 'same-hdr');
+    await write(path.join(dirs.workDir, 'assets', 'robot.glb'), 'glb-v2');
+    const saved = await saveBuildVersion({ target: { folderPath: folder }, code: config('Robot'), dirs, stills: [], debug: {} });
+    const [hdrBefore, hdrNow, glbBefore, glbNow] = await Promise.all(
+      [path.join(folder, 'v1.assets', 'studio.hdr'), path.join(folder, 'v2.assets', 'studio.hdr'), path.join(folder, 'v1.assets', 'robot.glb'), path.join(folder, 'v2.assets', 'robot.glb')].map((p) => fs.stat(p)),
+    );
+    expect(hdrNow.ino).toBe(hdrBefore.ino);
+    expect(glbNow.ino).not.toBe(glbBefore.ino);
+    expect(await fs.readFile(path.join(saved.version.assetsDir!, 'robot.glb'), 'utf-8')).toBe('glb-v2');
+    expect(JSON.parse(await fs.readFile(saved.version.debugPath, 'utf-8')).assets.linkedFromPrevious).toBe(1);
+  });
+
+  it('clears a stale vN.assets/ left by a deleted version when the new one has none', async () => {
+    const folder = path.join(tmpDir, 'projects', 'robot');
+    await write(path.join(folder, 'v1.tsx'), config('Robot'));
+    await write(path.join(folder, 'v2.assets', 'old.png'), 'stale');
+    const { dirs } = await makeRun(path.join(tmpDir, 'runs'));
+    const saved = await saveBuildVersion({ target: { folderPath: folder }, code: config('Robot'), dirs, stills: [], debug: {} });
+    expect(saved.version.number).toBe(2);
+    expect(saved.version.assetsDir).toBeUndefined();
+    await expect(fs.stat(path.join(folder, 'v2.assets'))).rejects.toThrow();
+  });
+
+  it('seeds an edit with a COPY of the version files (a rewrite must not reach the saved version)', async () => {
+    const folder = path.join(tmpDir, 'projects', 'robot');
+    await write(path.join(folder, 'v1.tsx'), config('Robot'));
+    await write(path.join(folder, 'v1.src', 'index.tsx'), '// src\n');
+    await write(path.join(folder, 'v1.assets', 'data.json'), '{"a":1}');
+    const work = path.join(tmpDir, 'work');
+    await fs.mkdir(work);
+    await seedWorkFromVersion({ folderPath: folder }, work);
+    await fs.writeFile(path.join(work, 'assets', 'data.json'), '{"a":2}');
+    expect(await fs.readFile(path.join(folder, 'v1.assets', 'data.json'), 'utf-8')).toBe('{"a":1}');
+  });
+});
+
 describe('seedWorkFromVersion', () => {
   it("continues from the builder's own vN.src/ and its recorded format", async () => {
     const folder = path.join(tmpDir, 'projects', 'coin-piles');

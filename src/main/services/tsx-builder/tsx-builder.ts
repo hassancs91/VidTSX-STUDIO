@@ -28,6 +28,8 @@ import { buildFirstMessage } from './build-messages';
 import { BuildProgress } from './build-progress';
 import { capsFor, resolveStopReason, RunGuard, stopMessage } from './build-run-guard';
 import { createRunDirs, projectNameFromId, pruneRunDirs, saveBuildVersion, seedWorkFromVersion, type SeededBuild } from './build-store';
+import { ASSETS_DIR, listAssetFiles } from './build-assets';
+import { attachRequestAssets, GENERATED_IMAGES_MAX, imageGenerationAvailable } from './builder-asset-tools';
 import type { BuildRequest, BuildResult } from './types';
 
 const FILE_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep'];
@@ -59,6 +61,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   let seedError: string | null = null;
   try {
     if (req.editOf) seed = await seedWorkFromVersion(req.editOf, dirs.workDir);
+    // After the seed: a request file that clashes with a version file is an error, not an overwrite.
+    if (req.assets?.length) await attachRequestAssets(path.join(dirs.workDir, ASSETS_DIR), req.assets);
   } catch (err) {
     seedError = err instanceof Error ? err.message : String(err);
   }
@@ -81,6 +85,9 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     lastGood: null,
     finished: null,
     stills: [],
+    imagesMax: Math.max(0, req.maxGeneratedImages ?? GENERATED_IMAGES_MAX[req.budget]),
+    imagesGenerated: 0,
+    imageCostUsd: 0,
     inFlight: new Set(),
   };
   // `guard` is read lazily: nothing is emitted before it exists.
@@ -134,12 +141,16 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
 
   const systemPrompt = buildBuilderSystemPrompt({ budget: req.budget, packs, minRounds: state.roundsMin });
   await fs.writeFile(path.join(dirs.runDir, 'system-prompt.md'), systemPrompt, 'utf-8');
+  const startAssets = await listAssetFiles(path.join(dirs.workDir, ASSETS_DIR));
+  const imageProvider = imageGenerationAvailable();
   const firstMessage = buildFirstMessage({
     intent: req.intent,
     format,
     ...(req.brand ? { brand: req.brand } : {}),
     ...(req.referenceImages?.length ? { referenceImageCount: req.referenceImages.length } : {}),
     ...(seed ? { seed } : {}),
+    ...(startAssets.length ? { assets: startAssets } : {}),
+    ...(imageProvider.ok && state.imagesMax > 0 ? { imageGeneration: { provider: imageProvider.provider, max: state.imagesMax } } : {}),
   });
 
   // One write at a time: concurrent appends land out of order.
@@ -200,6 +211,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     checks: state.checks,
     ...(format.loop && kept ? { seamOk: seamOkFor(state, kept.code) } : {}),
     ...(kept?.physics ? { pureOk: pureOkFor(state, kept.code) } : {}),
+    ...(state.imagesGenerated > 0 ? { images: { count: state.imagesGenerated, costUsd: state.imageCostUsd } } : {}),
     ...counters(),
     ...(response.usage ? { usage: response.usage } : {}),
     ...(state.finished ? { summary: state.finished.summary } : {}),
@@ -241,6 +253,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
         packs: packs.map((p) => p.name),
         ...(req.brand ? { brand: req.brand } : {}),
         referenceImages: req.referenceImages?.length ?? 0,
+        ...(req.assets?.length ? { assets: req.assets.map((a) => a.name ?? path.basename(a.path)) } : {}),
+        maxGeneratedImages: state.imagesMax,
         ...(seed ? { editOf: { folderPath: seed.folderPath, version: seed.version, fromSrc: seed.fromSrc } } : {}),
         ...(req.providerId ? { providerId: req.providerId } : {}),
         effort: req.effort ?? 'medium',

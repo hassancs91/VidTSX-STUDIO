@@ -14,6 +14,7 @@ import { randomUUID } from 'crypto';
 import { bundleComposition } from '../remotion-bundler';
 import { cancelRender, renderComposition } from '../remotion-renderer';
 import { getRenderDefaultGpuBackend, getRenderDefaultHardwareAcceleration, getRenderTimeoutSeconds } from '../settings';
+import { withVersionAssets } from '../tsx-builder/version-assets';
 
 export type RenderPhase = 'bundling' | 'rendering';
 
@@ -74,6 +75,10 @@ async function renderReal(opts: RenderTsxOptions): Promise<RenderTsxResult> {
     getRenderDefaultHardwareAcceleration(),
   ]);
   const jobId = opts.jobId ?? randomUUID();
+  // A TSX builder version's files (vN.assets/), served from the bundle's server.
+  const inputProps = opts.skipWrapper
+    ? undefined
+    : await withVersionAssets(opts.entryPath, new URL(bundle.serveUrl).origin, undefined);
 
   const done = new Promise<void>((resolve, reject) => {
     const onAbort = () => cancelRender(jobId);
@@ -88,6 +93,7 @@ async function renderReal(opts: RenderTsxOptions): Promise<RenderTsxResult> {
         height,
         fps,
         ...(durationInFrames !== undefined ? { durationInFrames } : {}),
+        ...(inputProps ? { inputProps } : {}),
         gpuBackend,
         hardwareAcceleration,
         timeoutInMilliseconds: timeoutSeconds * 1000,

@@ -89,6 +89,16 @@ describe('applyBuildEvent', () => {
     expect(build.stills).toEqual([{ round: 2, frame: 120, size: 'phone', path: '/r/phone.jpg' }]);
   });
 
+  it('adds the files the builder brought in, and counts generated images with their cost', () => {
+    let { build } = applyBuildEvent(start, event({ type: 'asset', source: 'library', files: ['logo.svg'] }));
+    expect(build.assetsAdded).toEqual(['logo.svg']);
+    expect(build.images).toBeUndefined();
+    ({ build } = applyBuildEvent(build, event({ type: 'asset', source: 'generated', files: ['backdrop.png'], costUsd: 0.04 })));
+    ({ build } = applyBuildEvent(build, event({ type: 'asset', source: 'generated', files: ['sky.png'], costUsd: 0.04 })));
+    expect(build.assetsAdded).toEqual(['logo.svg', 'backdrop.png', 'sky.png']);
+    expect(build.images).toEqual({ count: 2, costUsd: 0.08 });
+  });
+
   it('derives the job status from the phase, and none once the run is over', () => {
     expect(applyBuildEvent(start, event({ type: 'phase' }, { phase: 'rendering' })).status).toBe('generating');
     expect(applyBuildEvent(start, event({ type: 'phase' }, { phase: 'saving' })).status).toBe('saving');
