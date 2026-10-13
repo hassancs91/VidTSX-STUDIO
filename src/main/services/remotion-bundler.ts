@@ -19,11 +19,13 @@ import { getRemotionBinariesDir } from '../utils/paths';
 import { getAppRoot } from '../utils/paths';
 import {
   BUNDLE_ROUTE,
+  bundleIdFromUrl,
   bundlePublicPath,
   bundleServeUrl,
   isBundleId,
   makeBundleId,
 } from './bundle-serve-paths';
+import { bundlesMadeInside, pruneBundleFolders, type MadeBundle } from './bundle-cache-prune';
 
 // Types
 export interface CompositionMetadata {
@@ -51,6 +53,9 @@ interface CacheEntry {
 
 // Module state
 const bundleCache = new Map<string, CacheEntry>();
+/** Every bundle this run made, by id. `bundleCache` keeps only the newest per entry path,
+ *  so a re-bundled entry's older folders are known only here (releaseBundlesUnder). */
+const madeBundles = new Map<string, MadeBundle>();
 let expressApp: Express | null = null;
 let httpServer: Server | null = null;
 let serverPort: number | null = null;
@@ -263,6 +268,9 @@ export async function bundleComposition(
       !options?.toneAudioPath &&
       fsSync.existsSync(path.join(cached.bundlePath, 'index.html'))
     ) {
+      // "Used": the start-up prune reads the folder's mtime (bundle-cache-prune.ts).
+      const now = new Date();
+      void fs.utimes(cached.bundlePath, now, now).catch(() => {});
       const port = await ensureServer();
       return {
         success: true,
@@ -384,6 +392,7 @@ export async function bundleComposition(
     }
 
     // Update cache
+    madeBundles.set(bundleId, { entryFilePath, bundlePath });
     bundleCache.set(entryFilePath, {
       contentHash,
       bundleId,
@@ -413,7 +422,7 @@ async function bundleWithCLI(entryFilePath: string, outDir: string, publicPath: 
   const { spawn } = await import('child_process');
 
   return new Promise((resolve, reject) => {
-    const args = ['remotion', 'bundle', entryFilePath, '--out-dir', outDir, '--public-path', publicPath];
+    const args = ['remotion', 'bundle', entryFilePath, '--out-dir', outDir, '--public-path', publicPath, '--bundle-cache=false'];
     const proc = spawn('npx', args, {
       cwd: getAppRoot(),
       shell: true,
@@ -472,6 +481,37 @@ export function invalidateCache(filePath: string): void {
 // Clear all cache
 export function clearAllCache(): void {
   bundleCache.clear();
+}
+
+/**
+ * Delete every bundle made from an entry inside `dir` (a builder run's folder:
+ * its looks' bundles serve nothing once the run is over). Returns how many.
+ */
+export async function releaseBundlesUnder(dir: string): Promise<number> {
+  const ids = bundlesMadeInside(madeBundles, dir);
+  for (const [entryFilePath, entry] of [...bundleCache]) {
+    if (ids.includes(entry.bundleId)) bundleCache.delete(entryFilePath);
+  }
+  for (const id of ids) {
+    const made = madeBundles.get(id)!;
+    madeBundles.delete(id);
+    staticHandlers.delete(id);
+    await fs.rm(made.bundlePath, { recursive: true, force: true }).catch(() => {});
+  }
+  return ids.length;
+}
+
+/**
+ * The start-up prune: bundle folders unused for 7 days, except those this run
+ * already made and those `keepUrls` (saved render-queue jobs) point at.
+ */
+export async function pruneStaleBundles(keepUrls: readonly string[]): Promise<string[]> {
+  const keep = new Set<string>(madeBundles.keys());
+  for (const url of keepUrls) {
+    const id = bundleIdFromUrl(url);
+    if (id) keep.add(id);
+  }
+  return pruneBundleFolders(getBundleCacheDir(), { keep });
 }
 
 // Cleanup on app quit

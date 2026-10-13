@@ -8,6 +8,8 @@
 // `types` and lose those library declarations.
 interface ImportMetaEnv {
   DEV: boolean
+  /** Vite's build mode: 'production' for a release, 'probe' for the TSX builder's packaged probe build (main/index.ts). */
+  MODE: string
   readonly VITE_FF_TOOLS?: string
   readonly VITE_FF_FLOWS?: string
   /** LLMs tab (renderer) AND the `local` LLM preset (main — llm-preset-visibility). */

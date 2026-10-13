@@ -225,6 +225,13 @@ app.whenReady().then(async () => {
   // Scratch folders and Remotion asset copies a crash or a kill left behind
   // (Stage 4) — disk only, off the startup path.
   void sweepExportScratch().catch(() => {});
+  // Webpack bundle folders unused for 7 days (bundle-cache-prune.ts), except any
+  // a saved render-queue job still points at. Disk only, off the startup path;
+  // when the queue cannot be read, nothing is pruned.
+  void import('./services/render-queue-db')
+    .then(({ peekQueueJobs }) => peekQueueJobs().flatMap((job) => (job.bundleUrl ? [job.bundleUrl] : [])))
+    .then(async (keep) => (await import('./services/remotion-bundler')).pruneStaleBundles(keep))
+    .catch(() => {});
 
   // Local AI engines (sherpa-onnx audio, sd-cli image/video, node-llama-cpp)
   // are NOT initialized here — no native addons, GPU probes, or model-folder
@@ -261,10 +268,12 @@ app.whenReady().then(async () => {
   tsxJobEngine.configure({ maxConcurrent: await getTsxJobsMaxConcurrent() });
   await tsxJobEngine.restore();
 
-  // TSX builder dev entry (docs/studio/TSX_BUILDER_DESIGN.md §5): dev builds only,
-  // and only when VIDTSX_TSX_BUILDER_SPIKE names a request file. Runs detached.
+  // TSX builder dev entry (docs/studio/TSX_BUILDER_DESIGN.md §5): dev builds, plus a
+  // packaged PROBE build (`electron-vite build --mode probe`, P2 part 5: the free
+  // probes through a packaged app; a release build's MODE is 'production'), and
+  // only when VIDTSX_TSX_BUILDER_SPIKE names a request file. Runs detached.
   // After restore(): its `build` mode starts a job on the engine.
-  if (!app.isPackaged && process.env.VIDTSX_TSX_BUILDER_SPIKE) {
+  if ((!app.isPackaged || import.meta.env.MODE === 'probe') && process.env.VIDTSX_TSX_BUILDER_SPIKE) {
     void import('./services/tsx-builder/builder-spike').then((m) => m.runBuilderSpikeFromEnv());
   }
 

@@ -7,6 +7,7 @@
 // then runs every gate an artifact may meet on the RESULT: the transpile, the
 // Studio shot lint (the strictest), the Creator import lint, and the literal
 // compositionConfig parse. An artifact that passes here passes everywhere.
+// It also refuses drei helpers that download at render (build-offline.ts).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -19,6 +20,7 @@ import { parseCompositionConfig, type CompositionConfig } from '../composition-c
 import { BUILD_ENTRY } from './constants';
 import { formatErrors } from './build-format';
 import { ASSETS_DIR, resolveBuildAssets, type BuildAsset } from './build-assets';
+import { findNetworkHelpers } from './build-offline';
 import type { BuildFormat } from './types';
 
 export interface BuildCheckResult {
@@ -33,6 +35,18 @@ export interface BuildCheckResult {
   /** The files its staticFile() calls name, found in assets/. */
   assets: BuildAsset[];
   ms: number;
+}
+
+const CODE_FILE = /\.(tsx?|jsx?|mjs)$/i;
+
+/** drei helpers that download at render (build-offline.ts), in the piece's own files only. */
+async function findOwnNetworkHelpers(workDir: string, inlinedFiles: string[]): Promise<string[]> {
+  const errors: string[] = [];
+  for (const file of [BUILD_ENTRY, ...inlinedFiles.filter((f) => CODE_FILE.test(f))]) {
+    const source = await fs.readFile(path.resolve(workDir, file), 'utf-8').catch(() => '');
+    errors.push(...findNetworkHelpers(source, file));
+  }
+  return errors;
 }
 
 /** `expect`: the requested frame — a config that departs from it fails the check. */
@@ -83,6 +97,7 @@ export async function checkBuild(workDir: string, expect?: BuildFormat): Promise
     bundled.dynamicStaticFileCalls,
   );
   errors.push(...resolved.errors);
+  errors.push(...(await findOwnNetworkHelpers(workDir, bundled.inlinedFiles)));
 
   return done({
     ok: errors.length === 0,

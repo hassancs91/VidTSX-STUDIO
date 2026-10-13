@@ -1,4 +1,5 @@
 import { createRequire } from 'module';
+import { spawnSync } from 'child_process';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -38,6 +39,13 @@ describe('builder library set', () => {
   it('names packages the way npm does', () => {
     expect(packageNameOf('@remotion/google-fonts/Inter')).toBe('@remotion/google-fonts');
     expect(packageNameOf('world-atlas/countries-110m.json')).toBe('world-atlas');
+  });
+
+  it('electron-builder.yml unpacks every package the set pulls in (node scripts/builder-unpack.mjs --write)', () => {
+    const root = path.resolve(__dirname, '../../..');
+    const run = spawnSync(process.execPath, [path.join(root, 'scripts', 'builder-unpack.mjs'), '--check'], { encoding: 'utf-8' });
+    expect(run.stderr).toBe('');
+    expect(run.status).toBe(0);
   });
 
   it('lists only packages that are installed and declared as dependencies', () => {

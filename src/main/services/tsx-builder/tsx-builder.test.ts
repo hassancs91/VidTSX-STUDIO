@@ -37,6 +37,9 @@ vi.mock('./build-looks', () => ({
   measureFramePurity: (...args: unknown[]) => measureFramePurity(...args),
 }));
 
+const releaseBundlesUnder = vi.fn(async (_dir: string) => 0);
+vi.mock('../remotion-bundler', () => ({ releaseBundlesUnder: (dir: string) => releaseBundlesUnder(dir) }));
+
 type ToolCall = (name: string, args?: Record<string, unknown>) => Promise<{ content: Array<{ text?: string }> }>;
 interface Session {
   call: ToolCall;
@@ -98,6 +101,7 @@ function request(overrides: Partial<BuildRequest> = {}): { req: BuildRequest; ev
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-'));
+  releaseBundlesUnder.mockClear();
   let checks = 0;
   checkBuild.mockReset().mockImplementation(async () => passed(`// check ${++checks}`));
   renderBuildStills.mockReset().mockImplementation(async (_code, _config, dir: string, frames: number[], opts: { label: string }) => ({
@@ -127,6 +131,8 @@ describe('buildComposition — caps and cancel', () => {
     expect(result.error).toBe('Stopped at the 10k output-token cap.');
     expect(result.tokens).toEqual({ input: 3, output: 12_000, cacheRead: 15_000, cacheCreation: 600 });
     expect(result.code).toBe('// check 2');
+    expect(releaseBundlesUnder).toHaveBeenCalledTimes(1);
+    expect(path.dirname(releaseBundlesUnder.mock.calls[0][0])).toBe(path.join(tmpDir, 'runs'));
     expect(await fs.readFile(result.version!.tsxPath, 'utf-8')).toBe('// check 2');
     const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
     expect(debug).toMatchObject({ stopReason: 'cap-tokens', apiTurns: 3, keptCheck: 2, caps: { outputTokens: 10_000 } });
@@ -165,6 +171,8 @@ describe('buildComposition — caps and cancel', () => {
     expect(renderSettled).toBe(true);
     expect(result).toMatchObject({ ok: false, finished: false, stopReason: 'cancelled', rounds: 0, error: 'Cancelled.' });
     expect(result.version).toBeUndefined();
+    // The run's look bundles go once the render in flight has settled; the folder stays.
+    expect(releaseBundlesUnder.mock.calls).toEqual([[result.runDir]]);
     expect(await fs.stat(result.runDir!).then((s) => s.isDirectory())).toBe(true);
     await expect(fs.readdir(path.join(tmpDir, 'projects'))).rejects.toThrow();
     const types = events.map((e) => e.type);

@@ -19,6 +19,7 @@ import path from 'path';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { createFileToolGuard } from '../agents/file-tool-guard';
 import { getProjectsDir, getTsxBuildsDir } from '../../utils/paths';
+import { releaseBundlesUnder } from '../remotion-bundler';
 import { MAX_TURNS_ERROR } from '../../../engine/providers/claude-session';
 import { describeSystemPrompt } from '../tsx-jobs/project-store';
 import { buildBuilderSystemPrompt, BUDGET_ROUNDS, EDIT_MIN_ROUNDS, MIN_ROUNDS } from './builder-prompt';
@@ -199,6 +200,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     guard.end();
     await Promise.allSettled([...state.inFlight]);
     await writes;
+    // The looks' bundles serve nothing after the run (bundle-cache-prune.ts).
+    await releaseBundlesUnder(dirs.runDir).catch(() => 0);
   }
 
   const maxTurnsHit = !response.success && response.error === MAX_TURNS_ERROR;

@@ -37,6 +37,7 @@ import { app } from 'electron';
 import { logEngine } from '../../../logging/log-engine';
 import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
+import { releaseBundlesUnder } from '../remotion-bundler';
 import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
 import { tsxJobEngine } from '../tsx-jobs/tsx-job-engine';
 import { getTsxBuildsDir } from '../../utils/paths';
@@ -63,6 +64,8 @@ interface FixtureRequest {
   exportProbe?: boolean;
   lookProbe?: boolean;
   seamSources?: SeamSource[];
+  /** P2 part 5: after the rounds, release the stills entry's bundles as a builder run's end does. */
+  releaseProbe?: boolean;
   /** Quit the app when done (unattended runs). */
   quit?: boolean;
 }
@@ -173,6 +176,8 @@ async function storeRoundTrip(
 }
 
 async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>> {
+  const bundleCacheDir = path.join(app.getPath('userData'), 'bundle-cache');
+  const bundlesAtStart = new Set(await fs.readdir(bundleCacheDir).catch(() => [] as string[]));
   const workDir = path.join(req.outDir, 'work');
   await fs.rm(workDir, { recursive: true, force: true });
   await fs.cp(req.sourceDir, workDir, { recursive: true });
@@ -218,6 +223,18 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
     await fs.appendFile(entry, `\n// edited ${Date.now()}\n`, 'utf-8');
     await round('r3-edited');
   }
+  // What a builder run's end does (tsx-builder.ts): every bundle made from an entry in the folder
+  // goes, r1's too, which r3's re-bundle of the same entry path replaced in the bundler's map.
+  let release: Record<string, unknown> | null = null;
+  if (req.releaseProbe) {
+    // A change that survives bundling (r3's comment does not), so the same entry path is re-bundled.
+    await fs.appendFile(path.join(workDir, 'index.tsx'), `\nexport const releaseProbeMark = ${Date.now()};\n`, 'utf-8');
+    await round('r4-rebundled');
+    const made = (await fs.readdir(bundleCacheDir).catch(() => [] as string[])).filter((n) => !bundlesAtStart.has(n));
+    const released = await releaseBundlesUnder(path.join(req.outDir, 'stills'));
+    const left = (await fs.readdir(bundleCacheDir).catch(() => [] as string[])).filter((n) => !bundlesAtStart.has(n));
+    release = { made, released, left };
+  }
   const kept = lastGood as Kept | null;
   const store = kept ? await storeRoundTrip(req, kept) : null;
   const fx = kept ? { outDir: req.outDir, code: kept.code, config: kept.config, frames, soloStills: kept.stills } : null;
@@ -226,12 +243,13 @@ async function runFixture(req: FixtureRequest): Promise<Record<string, unknown>>
   const exported = fx && req.exportProbe ? await exportProbe(fx) : null;
   const looks = fx && req.lookProbe ? await lookProbe(fx) : null;
   const seams = req.seamSources?.length ? await seamProbe(req.outDir, req.seamSources) : null;
-  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, store, cancel, concurrent, export: exported, looks, seams };
+  return { mode: 'fixture', sourceDir: req.sourceDir, rounds, release, store, cancel, concurrent, export: exported, looks, seams };
 }
 
 export async function runBuilderSpikeFromEnv(): Promise<void> {
   const requestPath = process.env.VIDTSX_TSX_BUILDER_SPIKE;
-  if (!requestPath || app.isPackaged) return;
+  // Packaged: only a probe build (`electron-vite build --mode probe`, main/index.ts).
+  if (!requestPath || (app.isPackaged && import.meta.env.MODE !== 'probe')) return;
   let req: SpikeRequest | null = null;
   const started = Date.now();
   let report: Record<string, unknown>;

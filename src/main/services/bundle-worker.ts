@@ -45,6 +45,13 @@ async function run(request: BundleWorkerRequest): Promise<void> {
       outDir: request.outDir,
       rootDir: request.rootDir,
       publicPath: request.publicPath,
+      // No persistent webpack cache (TSX_BUILDER_DESIGN.md P2 part 5): its key
+      // includes the entry path and every entry is new (the wrapper is named by
+      // its content hash), so it wrote ~164 MB per piece that nothing read back
+      // (measured: cold with the cache 5.1 s, without 3.0 s, an identical
+      // re-bundle 0.8 s), into node_modules/.cache in dev and into the install
+      // folder (`<resources>/.cache`) in a packaged app.
+      enableCaching: false,
       webpackOverride: (config) => {
         config.resolve = config.resolve || {};
         config.resolve.modules = [
