@@ -512,6 +512,59 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   finished, 2.1 min, $0.62 API-eq, `pureOk: true`; finish refused once live (purity measured an earlier build),
 >   then passed. It showed one gap, fixed in the prompt after: `step` runs per substep, so a one-off keys on
 >   `substep === 0`.
+> - **Part 4 DONE**: builder assets. **Sources (Hasan's pick 10-13: "c")**: the builder's own files, the user's asset
+>   library and generated images. The build's work folder has an **`assets/` folder**; `staticFile('robot.glb')` names a
+>   path inside it. `check` resolves every literal staticFile (the bundle step already turns them into lookups in the
+>   `assets` prop) against assets/: a missing name (with the folder listed and an "assets/" prefix hint), a kind the
+>   renderer does not serve, two names that share a lookup key (logo.png / logo.svg), a computed name, a Draco or KTX2
+>   model (decoders download at render) and a .gltf whose .bin or textures are not beside it all fail `check`.
+>   **Serving**: a new route `/asset-root/<token>/<path>` on both local servers (`asset-roots.ts`) serves only folders
+>   the app registered, by path, so a loader that picks its parser by extension works and a .gltf finds its neighbours.
+>   Not `/asset?path=`: the module server answers every origin, and widening that route's list to .json / fonts / .hdr
+>   would let any web page read those files anywhere on the disk. **Looks**: every look (stills, sheet, phone, seam,
+>   purity) renders with `inputProps.assets` = key → URL on the bundle server; the contact sheet passes props to its
+>   tiles. **Saved** as `vN.assets/` beside `vN.src/` (never inside it); a file the previous version had byte for byte
+>   is a hard link (saved versions are never written again); a stale `vN.assets/` from a deleted version is cleared;
+>   an edit is seeded with COPIES. **Played and exported** (`version-assets.ts`): a name is looked up in the version's
+>   own `vN.assets/`, then in earlier versions' folders, newest first (a Creator Save / Apply / Fix writes vN+1 with
+>   the same code and no folder). Hooked: Creator preview (the transpile IPC returns `assets`, MotionPreviewPanel and
+>   the Files screen merge it into inputProps), Creator Render (`render-handlers.ts`, computed per render so a queued
+>   job never carries a dead port), flows / agent renders (`media/remotion-render.ts`), Studio import (the fast path
+>   registers images / video / audio from vN.assets as project media and keys them; models, HDRIs, fonts and data are
+>   named in the import report as not loadable in a shot yet — Studio media kinds are video / audio / image).
+>   **Request**: `assets: [{ path | 'library:<path>', name? }]` copied in before the session (an edit's files first; a
+>   clash is an error); the first message lists assets/ and says whether generate_image is available. **Tools**:
+>   `library_search` + `library_use` (free; a .gltf brings its files), `generate_image` (PAID: the active image
+>   provider, filed into the library's generated/ like Studio's tool, copied into assets/; capped per run, default
+>   quick 2 / standard 4 / craft 6, request `maxGeneratedImages`; each image's catalog price is logged and the result,
+>   debug and job snapshot carry `images { count, costUsd }`). **Built-ins** (inlined like `@vidtsx/sim`):
+>   `@vidtsx/assets` (`useLoaded`, `useJson`, `useText`, `useArrayBuffer`, `useImage`: one load per page, the frame held
+>   until the commit that shows the file) and `@vidtsx/three-assets` (`useModel` → this component's own copy of the
+>   scene, meshopt decoded offline; `useModelAnimation(model, clip, frame / fps)` sets the mixer's time, never a delta;
+>   `<FileEnvironment>` / `useEnvironmentMap` for .hdr / .exr; `useImageTexture`; each holds the frame until R3F has
+>   DRAWN the file: commit → one task → `advance()` → continueRender, the lab recipe). Libraries deferred from part 1:
+>   `lottie-web` 5.13.0 (the peer @remotion/lottie lacked), `opentype.js` 2.0.0, `@remotion/fonts` 4.0.435 (a font
+>   FILE); catalogue area "Files". Prompt: "## Files" block; the 3D block's "nothing that loads a file" became the
+>   loading rules. The import lint no longer reads `require("fs")` inside a string as an import (opentype.js has one in
+>   a deprecation message). **Free probe** (spike mode `assets`, 6 sources, 4.1 min): a meshopt GLB (CC0 Khronos
+>   Avocado) + Poly Haven HDRI + wood texture + PNG logo on a turntable loop; a generated GLB with a clip, two copies;
+>   PNG + GIF + Lottie + font file + opentype paths + CSV in 2D; a missing name and a Draco GLB (both refused by
+>   `check` with the right message); drei's `useGLTF` on a local file (observed). **6/6**: every look renders the
+>   files, seam OK, purity exactly 0 on all four rendered pieces, each saved version's files fetched from the module
+>   server byte for byte, two 30-frame exports through the flows path. The probe's first run found two bugs in the
+>   helpers, both fixed: `useModel` returned a new object per render (a piece's `useMemo([model])` re-measured an
+>   already scaled model each frame and shrank it: IMPURE 18-24); and a file that arrived between a component's render
+>   and its effect never re-rendered it (a 4- and 5-tile contact sheet hung on its last tiles). **Observed**: drei's
+>   `useGLTF` on a local file is correct in this stack (R3F 9.5 + @remotion/three 4.0.435: stills, sheet, PURE), so the
+>   lab's "never drei loaders" rule (R3F 8) is out of date; the prompt now prefers the helpers and forbids only what
+>   downloads (`<Environment preset>`, Text / Text3D) or runs on a clock (`useAnimations`). **Disk**: the webpack
+>   cache (`node_modules/.cache`) grew ~3 GB per probe run (to 4.9 GB; D: hit 0 once mid-run). Nothing prunes it;
+>   where a packaged app's copy lives and how big it gets is a part 5 question.
+>   Assets Quick smoke (Sonnet 5.5, the Avocado GLB attached through the request, "product turntable" loop
+>   1080x1350x120): finished, 1.5 min, 1 round, 4 checks, 6 API turns, 5.1k output tokens, $0.74 API-eq, seamOk.
+>   It used `useModel`, measured the model with Box3 and seated it on the pedestal (the prompt's rule), and fixed the
+>   fruit overlapping the headline after its look (confirmed on the phone view only: the one round was spent).
+>   `v1.assets/avocado.glb` saved beside `v1.src/`.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
