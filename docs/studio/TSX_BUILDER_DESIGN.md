@@ -471,7 +471,7 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > rounds, checks, tokens, latest stills; builds run one at a time) `2a8a166` ·
 > 7 dev entry through the job engine `275ca59` + the exit above · ink line `8ac3261`.
 
-> **P2 in progress** (one part at a time with Hasan's go): 1 library set · 2 3D (GPU stills) ·
+> **P2 in progress** (one part at a time with Hasan's go; parts 1-5 done, 6 = exit next): 1 library set · 2 3D (GPU stills) ·
 > 3 frame-pure physics · 4 builder assets · 5 packaged app + offline · 6 exit (B1–B7).
 > D1 decided 10-12: **inline everything** (option A), so every consumer takes 3D unchanged.
 > Measured 10-12: builder stills with no `gl` render WebGL on SwiftShader (CPU); `gl: 'angle'` gets the
@@ -574,6 +574,51 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   included: no shadows, black HDR environments, broken post-processing in every 3D preview; only the canvas is scaled
 >   now. Verified in the dev app at Low on six projects. Left: the Studio editor's player runs in the main window with
 >   the app's own React (development under `npm run dev`), so a 3D builder shot there would still hit (1) in dev only.
+> - **Part 5 DONE `7d706c9`**: packaged app + offline. **Hasan's calls (10-13):** webpack cache off everywhere;
+>   bundle-cache = a builder run deletes its look bundles at its end + a start-up prune of folders unused for 7 days;
+>   `check` refuses drei helpers that download at render; the network-off run "later" (his Wi-Fi is on Windows'
+>   Public profile with the firewall off: a per-app block needs it turned on).
+>   **Webpack cache** (measured on a 2.1 MB piece): Remotion's persistent cache keys on the entry path and every
+>   builder entry is new (the wrapper is named by content hash), so it wrote **164 MB per piece that nothing read
+>   back**; cold 5.1 s with it, 3.0 s without, an identical re-bundle 0.8 s. Packaged it sat in
+>   `<install>/resources/.cache` (bundle() chdirs there; no package.json above), deleted by an update. Now
+>   `enableCaching: false`. **bundle-cache** (`bundle-cache-prune.ts`; ~10-25 MB per bundle with its source map; 320 MB
+>   in a real profile, never pruned): the bundler records every bundle made this run (`madeBundles`) — its map keeps
+>   only the newest per entry path and a look re-bundles one entry per build, so the older folders leaked (found by the
+>   packaged smoke: 1 left); `releaseBundlesUnder(runDir)` at the end of every builder run (free fixture
+>   `releaseProbe`: 2 bundles of one entry made, 2 released, 0 left); a cache hit touches its folder; `main/index.ts`
+>   prunes folders unused for 7 days at start-up, keeping every render-queue `bundleUrl` (queue unreadable → nothing
+>   pruned; verified live on two planted 10-day-old folders).
+>   **asar**: `check` bundles with esbuild, a native binary that reads only `app.asar.unpacked`; 1.1.0 unpacked only
+>   the compositor, so an installed app's `check` could not resolve any library (read in the code, not run on 1.1.0).
+>   `scripts/builder-unpack.mjs` walks the one list's closure (dependencies + optional + peer, minus react and
+>   @types: 138 packages, 332 MB, 19k files, `remotion` included: @remotion/three imports `remotion/no-react`, which
+>   the bundle step inlines — stateless, its state on shared `window.remotion_*` globals, so part 3's "remotion
+>   inlined" note is harmless) into a generated asarUnpack block of `electron-builder.yml`, one
+>   `**/node_modules/<name>/**` per package: electron-builder rebuilds the production tree and hoists differently
+>   from npm's dev layout (d3's own d3-geo@3 lands at the top), so dev paths missed 4 packages. A vitest test runs
+>   `--check`. **`afterPack: scripts/after-pack-check.cjs`** fails the build unless every name@version is unpacked and
+>   every folder a package's `exports` points into survived. It caught electron-builder dropping every package's
+>   top-level `examples/` — three's addons (GLTFLoader, HDRLoader, postprocessing passes), so n8ao and
+>   `@vidtsx/three-assets` could not resolve in a packaged `check` → **`onNodeModuleFile:
+>   scripts/node-module-file.cjs`** keeps `three/examples`. **Size:** installer 420.6 MB vs 1.1.0's 375.1 MB (+45 MB with
+>   all of P2's libraries); app.asar 754 → 561 MB, app.asar.unpacked 507 → 817 MB, 160 → 16,004 files.
+>   **Offline:** `build-offline.ts` (the piece's own files, not the libraries): Environment / useEnvironment `preset`,
+>   clouds without `<Clouds texture>` (a bare `<Cloud>` makes a default `<Clouds>`), matcap / normal textures, Text
+>   (troika's CDN font resolver), Text3D (suspends on its font), KTX2, face tracking → a check error with the local
+>   way; prompt + catalogue say so. Google Fonts: both paths rewrite gstatic literals to the font proxy + cache (the
+>   packaged preview filled `font-cache`), so **T5 stays as built** (fonts offline after their first use). **Not yet run
+>   with the network off.** **Probe build:** `electron-vite build --mode probe` keeps the dev spike entry in a packaged
+>   build (a release's MODE folds the gate to `!app.isPackaged`); output outside the repo (C:/vidtsx-probe), never
+>   `dist/` (the shipped installer + latest.yml); NODE_OPTIONS 8 GB as CI (the renderer build runs out of heap).
+>   **Packaged results** (throwaway profile, cwd outside any package, online): libraries 11/11 (+ a drei-network
+>   source refused), purity 5/5, assets 6/6 (exports included), GL probe → angle in 0.8 s, no webpack cache anywhere,
+>   the Creator preview played avocado-turntable (GLB, HDRI, shadow, Poppins). Quick smoke through the packaged app
+>   (Sonnet 5.5, the avocado turntable with the GLB attached): finished, 63 s, 1 round, 4 checks, 6 API turns, 3.4k
+>   output tokens, $0.48 API-eq, seamOk. **Found, not fixed (Hasan's call):** Remotion downloads its render Chrome
+>   (chrome-headless-shell, 256 MB on disk) on the first render into `.remotion` under the PROCESS cwd: packaged, that
+>   is wherever the app was started from (the install folder from the Start menu, so an update deletes it and the next
+>   render downloads again). An offline first run cannot render at all.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
