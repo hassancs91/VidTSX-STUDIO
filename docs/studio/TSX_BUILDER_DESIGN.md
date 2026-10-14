@@ -679,6 +679,25 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   the caller's signal; the dev entry's followJob runs on it. Quick smoke (`runs/P3/smoke-p1`, Sonnet 5.5): finished,
 >   50 s, 1 round, $0.64 API-eq, seamOk; it changed nothing after its look, so the D1 refusal is proven by unit tests
 >   only. Gates: types 26/10; vitest 373 files / 3192 tests (2 load-flake timeouts pass alone).
+> - **Part 2 DONE `3f6fc97`** (Creator composer A; Hasan "Ok" on the plan: the build takes the centre panel, other
+>   callers' jobs hidden, button "Build"). Prompt mode starts a `build` job: aspect (4:5 incl.), fps, Auto length = no
+>   `durationInFrames`, Loop, Budget (default Standard; hint from BUDGET_ROUNDS / BUDGET_CAPS, moved to
+>   `src/shared/tsx-engine/build-budgets.ts`), brand, reference images, provider + model. The centre panel shows the
+>   WATCHED build (started here, or its library row / strip chip clicked; else, nothing open, the newest running):
+>   round · phase, format line, elapsed (local tick), checks, tokens, seam / purity chips, the latest look's stills
+>   (file URLs), the builder's notes, Cancel; a queued build names whose build it waits for. A finished new build opens
+>   when nothing is open OR when it was watched, else a toast offers it. Library placeholders + stream learn `build`;
+>   `TsxJobsContext` drops jobs whose origin is not the Creator (keeps only `otherBuildActive`). Snapshot gains
+>   `format`. Pure services + tests (`creator-jobs`, `build-panel-view`, `build-job-request`); MotionScreen's job side
+>   moved to `useCreatorJobs` (525 → 496 lines). Optimize (now inert) + Thinking stay until part 3; edit / fix still
+>   run the pipeline until part 3. Live check in the dev app over CDP (`runs/P3/ui-p2/`): with "bounce" open, Build →
+>   panel took the centre; a second build showed "Waiting for the build in progress", cancelled while queued ($0);
+>   Close → back to "bounce"; the library row brought the build back; 6 stills at 4:5 in the panel; finished →
+>   auto-opened `bounce-2` and played. Quick on Sonnet 5.5: 76 s, 1 round, 6 checks, 7 API turns, 2.5k output tokens,
+>   **$0.47 API-eq**, seamOk; it saw the ball on the title and moved it. Found: a fresh profile's Providers page shows
+>   Claude (Subscription) On + default, yet `llmProvidersGet` returns no providers until Save, so the Creator says
+>   "No providers configured" (pre-existing, not fixed). Gates: types 26/10; vitest 375 files green + 1 load flake
+>   (shot-module-resolver, passes alone).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
