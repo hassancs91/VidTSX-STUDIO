@@ -6,17 +6,9 @@
 
 import type { LLMTurnUsage } from '../../../engine/types';
 import type { BuildBudget, BuildCaps, BuildStopReason, BuildTokens } from './types';
+import { BUDGET_CAPS } from '../../../shared/tsx-engine/build-budgets';
 
-/**
- * Generous on purpose: the look budget is the real limit, a cap only stops a
- * runaway. Measured in P0: Quick smoke 13 turns / 4.6k output tokens; Craft
- * B2 run 2 46 turns / 32.6k output tokens / 7.7 min.
- */
-export const BUDGET_CAPS: Record<BuildBudget, BuildCaps> = {
-  quick: { turns: 40, minutes: 15, outputTokens: 40_000 },
-  standard: { turns: 90, minutes: 30, outputTokens: 100_000 },
-  craft: { turns: 200, minutes: 60, outputTokens: 250_000 },
-};
+export { BUDGET_CAPS };
 
 export function capsFor(budget: BuildBudget, overrides: { maxMinutes?: number; maxOutputTokens?: number } = {}): BuildCaps {
   return {

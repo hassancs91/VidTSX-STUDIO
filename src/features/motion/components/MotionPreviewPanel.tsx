@@ -267,7 +267,7 @@ export function MotionPreviewPanel({
                 fallback={
                   <div className="flex items-center justify-center h-full">
                     <span className="text-[12px] text-text-dim">
-                      Enter a prompt and click Generate to start
+                      Enter a prompt and click Build to start
                     </span>
                   </div>
                 }
@@ -275,7 +275,7 @@ export function MotionPreviewPanel({
             ) : (
               <div className="flex items-center justify-center h-full">
                 <span className="text-[12px] text-text-dim">
-                  Enter a prompt and click Generate to start
+                  Enter a prompt and click Build to start
                 </span>
               </div>
             )

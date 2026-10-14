@@ -23,9 +23,10 @@ const event = (detail: BuildProgressDetail, over: Partial<BuildProgressStatus> =
 const CAPS = { turns: 200, minutes: 60, outputTokens: 250_000 };
 
 describe('initialBuildSnapshot', () => {
-  it('starts from the request: budget, edit, zeros', () => {
+  it('starts from the request: budget, format, edit, zeros', () => {
     expect(initialBuildSnapshot({ budget: 'craft', format: { width: 1080, height: 1350, fps: 30 } })).toEqual({
       budget: 'craft',
+      format: { width: 1080, height: 1350, fps: 30 },
       edit: false,
       phase: 'preparing',
       round: 0,

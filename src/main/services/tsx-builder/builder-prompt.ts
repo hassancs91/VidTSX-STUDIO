@@ -6,9 +6,9 @@
 
 import type { BuildBudget } from './types';
 import { builderLibraryCatalogue } from '../../../shared/tsx-engine/builder-libraries';
+import { BUDGET_ROUNDS } from '../../../shared/tsx-engine/build-budgets';
 
-/** Look rounds (render_stills + contact_sheet calls) per budget. */
-export const BUDGET_ROUNDS: Record<BuildBudget, number> = { quick: 1, standard: 3, craft: 6 };
+export { BUDGET_ROUNDS };
 
 /**
  * Rounds `finish` insists on. P0 run 1 (B2, Craft) finished after 3 of 6

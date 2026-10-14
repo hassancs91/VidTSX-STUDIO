@@ -30,6 +30,8 @@ function statusColor(status: TsxJobStatus): string {
 
 interface MotionJobsStripProps {
   onOpenJob: (job: TsxJobIpc) => void;
+  /** A running build's name was clicked: show it in the centre panel. */
+  onWatchJob?: (job: TsxJobIpc) => void;
 }
 
 /**
@@ -37,7 +39,7 @@ interface MotionJobsStripProps {
  * job shows its step + percent with a cancel button; finished jobs offer
  * click-to-open. Hidden when there are no jobs.
  */
-export function MotionJobsStrip({ onOpenJob }: MotionJobsStripProps) {
+export function MotionJobsStrip({ onOpenJob, onWatchJob }: MotionJobsStripProps) {
   const { jobs, activeJobs, maxConcurrent, setMaxConcurrent, cancelJob, clearCompleted } = useTsxJobs();
 
   if (jobs.length === 0) return null;
@@ -77,9 +79,19 @@ export function MotionJobsStrip({ onOpenJob }: MotionJobsStripProps) {
           >
             {KIND_LABELS[job.kind]}
           </span>
-          <span className="text-[10px] text-text-secondary truncate" title={job.prompt}>
-            {job.projectName ?? job.prompt}
-          </span>
+          {onWatchJob && job.kind === 'build' && isJobActive(job) ? (
+            <button
+              onClick={() => onWatchJob(job)}
+              className="text-[10px] text-text-secondary truncate hover:text-text-primary hover:underline cursor-pointer"
+              title={`${job.prompt}\n\nShow this build`}
+            >
+              {job.projectName ?? job.prompt}
+            </button>
+          ) : (
+            <span className="text-[10px] text-text-secondary truncate" title={job.prompt}>
+              {job.projectName ?? job.prompt}
+            </span>
+          )}
           <span className="text-[9px] text-text-dim shrink-0">
             {STATUS_LABELS[job.status]}
             {isJobActive(job) && job.status !== 'queued' ? ` ${job.progress.percent}%` : ''}

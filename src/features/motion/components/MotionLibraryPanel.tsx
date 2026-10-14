@@ -9,12 +9,17 @@ import { MoveToFolderMenu } from './MoveToFolderMenu';
 import { useThumbnails } from '@shared/hooks/useThumbnails';
 import { ChevronIcon, TrashIcon, FolderIcon, ImportIcon, FilePlusIcon, ProjectIcon, TsxIcon, ImageIcon } from '@shared/components/library-icons';
 import { StudioShotsSection } from './StudioShotsSection';
+import { PendingJobRow } from './PendingJobRow';
 
 interface MotionLibraryPanelProps {
   library: LibraryState;
   project: MotionProject | null;
-  /** In-flight generate jobs shown as placeholder rows until their folder exists. */
+  /** In-flight generations and builds shown as placeholder rows until their folder exists. */
   pendingJobs?: TsxJobIpc[];
+  /** A build's row was clicked: show it in the centre panel. */
+  onOpenPendingJob?: (job: TsxJobIpc) => void;
+  /** The build the centre panel shows; its row is highlighted. */
+  selectedPendingJobId?: string | null;
   onLoadVersion: (filePath: string, folderPath: string) => void;
   onRenameProject: (folderPath: string, newName: string) => void;
   onRenameVersion: (filePath: string, newName: string) => void;
@@ -36,6 +41,8 @@ export function MotionLibraryPanel({
   library,
   project,
   pendingJobs = [],
+  onOpenPendingJob,
+  selectedPendingJobId = null,
   onLoadVersion,
   onRenameProject,
   onRenameVersion,
@@ -665,28 +672,14 @@ export function MotionLibraryPanel({
               </div>
             )}
 
-            {/* In-flight generations — visible before their project folder exists */}
+            {/* In-flight generations and builds — visible before their project folder exists */}
             {pendingJobs.map((job) => (
-              <div
+              <PendingJobRow
                 key={job.id}
-                className="rounded-[6px] px-2 py-1.5 flex items-center gap-2"
-                style={{ border: '0.5px dashed var(--color-border)' }}
-              >
-                <div
-                  className="w-3 h-3 border-2 border-accent border-t-transparent rounded-full animate-spin shrink-0"
-                  role="status"
-                />
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] text-text-secondary truncate" title={job.prompt}>
-                    {job.projectName ?? job.prompt}
-                  </span>
-                  <span className="text-[9px] text-text-dim">
-                    {job.status === 'queued'
-                      ? 'Queued'
-                      : `${job.progress.label} ${job.progress.percent}%`}
-                  </span>
-                </div>
-              </div>
+                job={job}
+                selected={job.id === selectedPendingJobId}
+                onOpen={onOpenPendingJob}
+              />
             ))}
 
             {/* Root-level projects (newest first) */}

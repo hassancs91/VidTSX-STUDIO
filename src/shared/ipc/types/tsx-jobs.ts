@@ -62,6 +62,8 @@ export interface TsxBuildStillIpc {
  */
 export interface TsxBuildJobIpc {
   budget: BuildBudget;
+  /** The request's format; absent on an edit that keeps its version's. */
+  format?: BuildFormat;
   /** True when the job continues an earlier version (`editOf`). */
   edit: boolean;
   phase: BuildPhase;

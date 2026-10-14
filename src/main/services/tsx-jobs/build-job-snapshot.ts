@@ -27,6 +27,7 @@ const PHASE_LABELS: Record<BuildPhase, string> = {
 export function initialBuildSnapshot(request: TsxBuildJobRequestIpc): TsxBuildJobIpc {
   return {
     budget: request.budget,
+    ...(request.format ? { format: { ...request.format } } : {}),
     edit: Boolean(request.editOf),
     phase: 'preparing',
     round: 0,

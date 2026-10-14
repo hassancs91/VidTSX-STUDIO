@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
+import type { BuildBudget, LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
 import type { StudioBrand } from '@shared/types/asset-library';
 import type { ThinkingLevel } from '@shared/tsx-engine';
 import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
@@ -7,7 +7,7 @@ import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
 // (W7, decision 7): one block, both modes.
 import { buildBrandInstructions } from '@shared/studio/brand-instructions';
 import type { AspectRatio } from '../types';
-import { ASPECT_RATIO_OPTIONS } from '../types';
+import { buildJobRequest, DEFAULT_BUDGET } from '../services/build-job-request';
 
 export type { ThinkingLevel } from '@shared/tsx-engine';
 
@@ -15,6 +15,8 @@ export type { ThinkingLevel } from '@shared/tsx-engine';
  * Generation options state for the Creator screen. Since generations run as
  * jobs in the main process (TsxJobEngine), this hook no longer executes
  * anything — it holds the input state and builds TsxJobStartRequest payloads.
+ * The first message is a `build` job (P3 part 2); edit and fix stay on the
+ * pipeline until part 3.
  */
 export function useMotionGenerator() {
   const [prompt, setPrompt] = useState('');
@@ -30,6 +32,8 @@ export function useMotionGenerator() {
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [duration, setDuration] = useState(5);
   const [autoDuration, setAutoDuration] = useState(true);
+  const [budget, setBudget] = useState<BuildBudget>(DEFAULT_BUDGET);
+  const [seamlessLoop, setSeamlessLoop] = useState(false);
   const [optimize, setOptimize] = useState(true);
   const [referenceImages, setReferenceImages] = useState<LlmImageIpc[]>([]);
 
@@ -45,34 +49,22 @@ export function useMotionGenerator() {
     return () => { disposed = true; };
   }, []);
 
-  const buildGenerateJob = useCallback((): TsxJobStartRequest | null => {
-    if (!prompt.trim() || !selectedProvider) return null;
-
+  const buildBuildJob = useCallback((): TsxJobStartRequest | null => {
     const brand = brands.find((b) => b.id === selectedBrandId);
-    const extraInstructions = brand ? buildBrandInstructions(brand) : undefined;
-
-    const ratioOption = ASPECT_RATIO_OPTIONS.find((o) => o.value === aspectRatio);
-
-    return {
-      kind: 'generate',
-      prompt: prompt.trim(),
+    return buildJobRequest({
+      prompt,
       providerId: selectedProvider,
-      options: {
-        ...(model ? { model } : {}),
-        thinkingLevel,
-        maxTurns: loopCount,
-        optimize,
-        promptContext: {
-          fps,
-          videoWidth: ratioOption?.width ?? 1920,
-          videoHeight: ratioOption?.height ?? 1080,
-          ...(autoDuration ? {} : { durationSeconds: duration }),
-          ...(extraInstructions ? { extraInstructions } : {}),
-        },
-        ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
-      },
-    };
-  }, [prompt, selectedProvider, model, thinkingLevel, loopCount, optimize, fps, brands, selectedBrandId, aspectRatio, duration, autoDuration, referenceImages]);
+      model,
+      aspectRatio,
+      fps,
+      duration,
+      autoDuration,
+      loop: seamlessLoop,
+      budget,
+      ...(brand ? { brand: buildBrandInstructions(brand) } : {}),
+      referenceImages,
+    });
+  }, [prompt, selectedProvider, model, aspectRatio, fps, duration, autoDuration, seamlessLoop, budget, brands, selectedBrandId, referenceImages]);
 
   const buildEditJob = useCallback((currentCode: string, folderPath: string): TsxJobStartRequest | null => {
     if (!editPrompt.trim() || !selectedProvider || !currentCode) return null;
@@ -142,11 +134,15 @@ export function useMotionGenerator() {
     setDuration,
     autoDuration,
     setAutoDuration,
+    budget,
+    setBudget,
+    seamlessLoop,
+    setSeamlessLoop,
     optimize,
     setOptimize,
     referenceImages,
     setReferenceImages,
-    buildGenerateJob,
+    buildBuildJob,
     buildEditJob,
     buildFixJob,
   };

@@ -1,10 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useMotionGenerator } from '../hooks/useMotionGenerator';
 import { useMotionProject } from '../hooks/useMotionProject';
-import { TsxJobsProvider, useTsxJobs, isJobActive } from '../contexts/TsxJobsContext';
+import { useCreatorJobs } from '../hooks/useCreatorJobs';
+import { TsxJobsProvider, useTsxJobs } from '../contexts/TsxJobsContext';
 import type { TsxJobIpc } from '../../../shared/ipc/types';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { MotionInputPanel } from './MotionInputPanel';
+import { BuildProgressPanel } from './BuildProgressPanel';
 import { MotionAgentPanel } from './MotionAgentPanel';
 import type { MotionInputMode } from './MotionModeToggle';
 import type { MotionAgentRestore } from '../hooks/useMotionAgent';
@@ -26,7 +28,7 @@ export function MotionScreen() {
 function MotionScreenContent() {
   const generator = useMotionGenerator();
   const projectManager = useMotionProject();
-  const { jobs, startJob, cancelJob } = useTsxJobs();
+  const { startJob, cancelJob } = useTsxJobs();
   const { showToast } = useToast();
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [libraryWidth, setLibraryWidth] = useState(250);
@@ -102,81 +104,31 @@ function MotionScreenContent() {
     if (openVersion) leaveTemplatesMode();
   }, [openVersion, leaveTemplatesMode]);
 
-  // Generate jobs still running — shown as placeholder rows in the library.
-  const pendingGenerateJobs = jobs.filter((j) => j.kind === 'generate' && isJobActive(j));
-
   const clearSaveMessage = () => {
     setSaveMessage(null);
   };
 
-  // The busy job for the currently open project (edit/fix in flight) drives
-  // the preview panel's progress overlay and blocks conflicting actions.
+  // Which jobs show where, the watched build and what a finished job does
+  // (open, toast) live in useCreatorJobs. A completing job never steals the
+  // centre panel: it auto-opens when nothing is open, or when it is the build
+  // the centre was showing.
   const openFolderPath = projectManager.project?.folderPath ?? null;
-  const openProjectJob = openFolderPath
-    ? jobs.find((j) =>
-        (j.kind === 'edit' || j.kind === 'fix')
-        && j.targetFolderPath === openFolderPath
-        && !['done', 'error', 'cancelled'].includes(j.status)) ?? null
-    : null;
+  const creatorJobs = useCreatorJobs({ projectManagerRef, openFolderPath, openVersion, scheduleLibraryRefresh });
+  const { openProjectJob, streamJob, centreBuild, watchBuild } = creatorJobs;
 
-  // Which job streams live output into the center panel: the open project's
-  // running edit/fix job, or — when nothing is open — the newest running
-  // generation.
-  const streamJob = openProjectJob
-    ?? (!openFolderPath
-      ? [...jobs]
-          .filter((j) => j.kind === 'generate' && j.status === 'generating')
-          .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
-      : null);
-
-  // Job completion side-effects: refresh the library, open or offer the
-  // result. A completing job never steals the center panel — it only
-  // auto-opens when no project is open at all.
-  const jobStatusesRef = useRef(new Map<string, string>());
-  useEffect(() => {
-    for (const job of jobs) {
-      const prev = jobStatusesRef.current.get(job.id);
-      if (prev === job.status) continue;
-      jobStatusesRef.current.set(job.id, job.status);
-      // First sighting (initial list load / freshly queued) — no side effects
-      if (prev === undefined) continue;
-
-      const pm = projectManagerRef.current;
-      if (job.status === 'done' && job.versionPath && job.folderPath) {
-        const versionPath = job.versionPath;
-        const folderPath = job.folderPath;
-        scheduleLibraryRefresh();
-        if (job.kind === 'generate') {
-          if (!pm.project) {
-            void pm.loadVersion(versionPath, folderPath);
-          } else {
-            showToast('New generation ready', 'success', {
-              label: 'Open',
-              onClick: () => { void projectManagerRef.current.loadVersion(versionPath, folderPath); },
-            });
-          }
-        } else {
-          const label = pm.project?.folderPath === folderPath
-            ? 'New version ready'
-            : `New version saved in ${folderPath.split(/[\\/]/).pop()}`;
-          showToast(label, 'success', {
-            label: 'Open',
-            onClick: () => { void projectManagerRef.current.loadVersion(versionPath, folderPath); },
-          });
-        }
-      } else if (job.status === 'error') {
-        showToast(`Generation failed: ${job.error ?? 'Unknown error'}`, 'error');
-      }
-    }
-  }, [jobs, showToast, scheduleLibraryRefresh]);
-
-  const handleGenerate = useCallback(async () => {
+  const handleBuild = useCallback(async () => {
     clearSaveMessage();
-    const request = generator.buildGenerateJob();
+    const request = generator.buildBuildJob();
     if (!request) return;
-    const { error } = await startJob(request);
+    const { jobId, error } = await startJob(request);
     if (error) showToast(error, 'error');
-  }, [generator, startJob, showToast]);
+    else if (jobId) watchBuild(jobId);
+  }, [generator, startJob, showToast, watchBuild]);
+
+  const handleWatchJob = useCallback((job: TsxJobIpc) => {
+    leaveTemplatesMode();
+    watchBuild(job.id);
+  }, [leaveTemplatesMode, watchBuild]);
 
   const handleRegenerate = useCallback(async () => {
     clearSaveMessage();
@@ -239,11 +191,13 @@ function MotionScreenContent() {
 
   const handleLoadVersion = useCallback(async (filePath: string, folderPath: string) => {
     clearSaveMessage();
-    // Re-clicking the version that is already open changes nothing the effect
-    // above can see, so the library click leaves Templates mode itself.
+    // Re-clicking the version that is already open changes nothing the
+    // effects can see, so the library click leaves Templates mode and the
+    // build view itself.
     leaveTemplatesMode();
+    watchBuild(null);
     await projectManager.loadVersion(filePath, folderPath);
-  }, [projectManager, leaveTemplatesMode]);
+  }, [projectManager, leaveTemplatesMode, watchBuild]);
 
   // W7: a composition the agent's Motion sink wrote — the library gains a
   // project (or a version) and the preview loads it, as a prompt-mode job would.
@@ -361,6 +315,10 @@ function MotionScreenContent() {
               Template / {templateSession.template.manifest.name}
             </span>
           )
+        ) : centreBuild ? (
+          <span className="text-[10px] text-text-dim truncate max-w-[50%]" title={centreBuild.prompt}>
+            Build / {centreBuild.projectName ?? centreBuild.prompt}
+          </span>
         ) : projectManager.project && (
           <span className="text-[10px] text-text-dim">
             {projectManager.project.name} / {projectManager.project.currentVersion.split(/[/\\]/).pop()}
@@ -369,7 +327,7 @@ function MotionScreenContent() {
       </div>
 
       {/* Generation jobs strip (hidden when no jobs) */}
-      <MotionJobsStrip onOpenJob={handleOpenJob} />
+      <MotionJobsStrip onOpenJob={handleOpenJob} onWatchJob={handleWatchJob} />
 
       {/* 3-column layout: Input | Preview+Code | Library */}
       <div className="flex-1 flex min-h-0">
@@ -419,6 +377,10 @@ function MotionScreenContent() {
                   onModelChange={generator.setModel}
                   thinkingLevel={generator.thinkingLevel}
                   onThinkingLevelChange={generator.setThinkingLevel}
+                  budget={generator.budget}
+                  onBudgetChange={generator.setBudget}
+                  seamlessLoop={generator.seamlessLoop}
+                  onSeamlessLoopChange={generator.setSeamlessLoop}
                   loopCount={generator.loopCount}
                   onLoopCountChange={generator.setLoopCount}
                   fps={generator.fps}
@@ -436,7 +398,7 @@ function MotionScreenContent() {
                   onOptimizeChange={generator.setOptimize}
                   referenceImages={generator.referenceImages}
                   onReferenceImagesChange={generator.setReferenceImages}
-                  onGenerate={handleGenerate}
+                  onGenerate={handleBuild}
                   onCancel={() => {}}
                   loading={false}
                   progress={null}
@@ -454,6 +416,13 @@ function MotionScreenContent() {
         </div>
         {templatesMode ? (
           <TemplatePreviewPanel session={templateSession} />
+        ) : centreBuild ? (
+          <BuildProgressPanel
+            job={centreBuild}
+            waiting={creatorJobs.centreBuildWaiting}
+            onCancel={() => void cancelJob(centreBuild.id)}
+            onClose={() => watchBuild(null)}
+          />
         ) : (
           <MotionPreviewPanel
             project={projectManager.project}
@@ -501,7 +470,9 @@ function MotionScreenContent() {
                 studioShotsRefreshKey={projectManager.studioShotsRefreshKey}
                 library={projectManager.library}
                 project={projectManager.project}
-                pendingJobs={pendingGenerateJobs}
+                pendingJobs={creatorJobs.pendingJobs}
+                onOpenPendingJob={handleWatchJob}
+                selectedPendingJobId={centreBuild?.id ?? null}
                 onLoadVersion={handleLoadVersion}
                 onRenameProject={projectManager.renameProject}
                 onRenameVersion={projectManager.renameVersion}

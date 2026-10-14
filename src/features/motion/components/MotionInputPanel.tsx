@@ -9,19 +9,23 @@ import type { ThinkingLevel } from '../hooks/useMotionGenerator';
 import type { LlmProviderConfig, LlmImageIpc } from '../../../shared/ipc/types';
 import type { StudioBrand } from '@shared/types/asset-library';
 import type { PipelineProgress } from '@shared/tsx-engine';
+import type { BuildBudget } from '@shared/ipc/types';
 import type { AspectRatio } from '../types';
-import { FPS_OPTIONS, ASPECT_RATIO_OPTIONS, DURATION_RANGE } from '../types';
+import { FPS_OPTIONS, ASPECT_RATIO_OPTIONS } from '../types';
+import { BUDGET_CHOICES, budgetHint } from '../services/build-job-request';
 import { useSmoothProgress } from '../hooks/useSmoothProgress';
 import { MotionReferenceImagePicker } from './MotionReferenceImagePicker';
 import { MotionBrandField } from './MotionBrandField';
 import { MotionModeToggle, type MotionInputMode } from './MotionModeToggle';
 import { MotionSegmented } from './MotionSegmented';
+import { MotionDurationField } from './MotionDurationField';
+import { MotionCheckField } from './MotionCheckField';
 
 const FPS_CHOICES = FPS_OPTIONS.map((n) => ({ value: n, label: String(n) }));
 const RATIO_CHOICES = ASPECT_RATIO_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
 
 interface MotionInputPanelProps {
-  /** W7: `Prompt` is the one-shot generator; `Agent` embeds TSX Composer. */
+  /** W7: `Prompt` starts a build (P3 part 2); `Agent` embeds TSX Composer. */
   mode: MotionInputMode;
   onModeChange: (mode: MotionInputMode) => void;
   /** The Agent mode chat, mounted by the screen; hidden in prompt mode so a
@@ -40,6 +44,11 @@ interface MotionInputPanelProps {
   onModelChange: (value: string) => void;
   thinkingLevel: ThinkingLevel;
   onThinkingLevelChange: (value: ThinkingLevel) => void;
+  budget: BuildBudget;
+  onBudgetChange: (value: BuildBudget) => void;
+  /** Seamless loop: the last frame flows into frame 0. */
+  seamlessLoop: boolean;
+  onSeamlessLoopChange: (value: boolean) => void;
   loopCount: number;
   onLoopCountChange: (value: number) => void;
   fps: number;
@@ -79,6 +88,10 @@ export function MotionInputPanel({
   onModelChange,
   thinkingLevel,
   onThinkingLevelChange,
+  budget,
+  onBudgetChange,
+  seamlessLoop,
+  onSeamlessLoopChange,
   fps,
   onFpsChange,
   aspectRatio,
@@ -198,6 +211,14 @@ export function MotionInputPanel({
         brandField
       ) : (
         <>
+          <MotionSegmented
+            label="Budget"
+            options={BUDGET_CHOICES}
+            value={budget}
+            onChange={onBudgetChange}
+            disabled={loading}
+            hint={budgetHint(budget)}
+          />
           <MotionSegmented label="FPS" options={FPS_CHOICES} value={fps} onChange={onFpsChange} disabled={loading} />
           <MotionSegmented
             label="Aspect Ratio"
@@ -206,39 +227,21 @@ export function MotionInputPanel({
             onChange={onAspectRatioChange}
             disabled={loading}
           />
-
-          {/* Duration */}
-          <div className="px-3 pb-3 flex flex-col gap-1">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] text-text-dim">
-                Duration <span className="text-text-dim">{autoDuration ? '(AI decides)' : `(${duration}s)`}</span>
-              </label>
-              <label className="flex items-center gap-1 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={autoDuration}
-                  onChange={(e) => onAutoDurationChange(e.target.checked)}
-                  disabled={loading}
-                  className="accent-accent cursor-pointer"
-                />
-                <span className="text-[9px] text-text-dim">Auto</span>
-              </label>
-            </div>
-            <input
-              type="range"
-              min={DURATION_RANGE.min}
-              max={DURATION_RANGE.max}
-              value={duration}
-              onChange={(e) => onDurationChange(Number(e.target.value))}
-              disabled={loading || autoDuration}
-              className="w-full accent-accent cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ height: 18 }}
-            />
-            <div className="flex justify-between text-[9px] text-text-dim">
-              <span>{DURATION_RANGE.min}s</span>
-              <span>{DURATION_RANGE.max}s</span>
-            </div>
-          </div>
+          <MotionDurationField
+            duration={duration}
+            onDurationChange={onDurationChange}
+            autoDuration={autoDuration}
+            onAutoDurationChange={onAutoDurationChange}
+            disabled={loading}
+          />
+          <MotionCheckField
+            name="loop"
+            label="Loop"
+            hint="(the last frame flows into the first)"
+            checked={seamlessLoop}
+            onChange={onSeamlessLoopChange}
+            disabled={loading}
+          />
 
           {brandField}
 
@@ -254,20 +257,15 @@ export function MotionInputPanel({
 
           {/* MVP: Loops hidden — fixed at 1. Re-enable when multi-loop support is ready. */}
 
-          {/* Optimize */}
-          <div className="px-3 pb-3">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={optimize}
-                onChange={(e) => onOptimizeChange(e.target.checked)}
-                disabled={loading}
-                className="accent-accent cursor-pointer"
-              />
-              <span className="text-[11px] text-text-muted">Optimize</span>
-              <span className="text-[9px] text-text-dim">(plan before generating)</span>
-            </label>
-          </div>
+          {/* Optimize: no effect on a build; leaves the composer in P3 part 3 */}
+          <MotionCheckField
+            name="optimize"
+            label="Optimize"
+            hint="(plan before generating)"
+            checked={optimize}
+            onChange={onOptimizeChange}
+            disabled={loading}
+          />
 
           {/* Reference Images */}
           <div className="px-3 pb-3">
@@ -294,8 +292,9 @@ export function MotionInputPanel({
                 onClick={onGenerate}
                 disabled={!prompt.trim() || !selectedProvider}
                 className="w-full"
+                data-motion-build
               >
-                Generate
+                Build
               </Button>
             )}
             {loading && progress ? (

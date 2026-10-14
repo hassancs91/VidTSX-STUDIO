@@ -1,20 +1,16 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import type { TsxJobIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
+import { isCreatorJob, isJobActive, isJobFinished } from '../services/creator-jobs';
 
-const ACTIVE_STATUSES = new Set(['queued', 'planning', 'generating', 'verifying', 'fixing', 'naming', 'saving']);
-
-export function isJobActive(job: TsxJobIpc): boolean {
-  return ACTIVE_STATUSES.has(job.status);
-}
-
-export function isJobFinished(job: TsxJobIpc): boolean {
-  return job.status === 'done' || job.status === 'error' || job.status === 'cancelled';
-}
+export { isJobActive, isJobFinished };
 
 interface TsxJobsContextValue {
+  /** The Creator's own jobs. Builds that agents, Studio or flows started are theirs and never listed here. */
   jobs: TsxJobIpc[];
   activeJobs: TsxJobIpc[];
+  /** Another caller's build is running or queued: a Creator build waits for it (one build at a time). */
+  otherBuildActive: boolean;
   /** Engine concurrency cap (1-4). */
   maxConcurrent: number;
   setMaxConcurrent: (value: number) => Promise<void>;
@@ -39,17 +35,40 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
   // Stream chunks live in a ref-backed store so ~8 updates/sec per job don't
   // re-render the whole tree — only useJobStream subscribers.
   const streamRef = useRef<StreamStore>({ text: new Map(), listeners: new Map() });
+  // Other callers' jobs: their ids (so their stream chunks are dropped) and
+  // which of their builds are active.
+  const otherIdsRef = useRef(new Set<string>());
+  const [otherActiveBuilds, setOtherActiveBuilds] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     let disposed = false;
+    const trackOther = (job: TsxJobIpc) => {
+      otherIdsRef.current.add(job.id);
+      const active = job.kind === 'build' && isJobActive(job);
+      setOtherActiveBuilds((prev) => {
+        if (active === prev.has(job.id)) return prev;
+        const next = new Set(prev);
+        if (active) next.add(job.id);
+        else next.delete(job.id);
+        return next;
+      });
+    };
     window.api.tsxJobList()
-      .then((result) => { if (!disposed) setJobs(result.jobs); })
+      .then((result) => {
+        if (disposed) return;
+        result.jobs.filter((j) => !isCreatorJob(j)).forEach(trackOther);
+        setJobs(result.jobs.filter(isCreatorJob));
+      })
       .catch(() => {});
     window.api.tsxJobConfigure({})
       .then((result) => { if (!disposed) setMaxConcurrentState(result.maxConcurrent); })
       .catch(() => {});
 
     const unsubscribe = window.api.onTsxJobEvent(({ job }) => {
+      if (!isCreatorJob(job)) {
+        trackOther(job);
+        return;
+      }
       if (isJobFinished(job)) {
         // Free the stream buffer once the job settles
         streamRef.current.text.delete(job.id);
@@ -70,6 +89,7 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
     });
 
     const unsubscribeStream = window.api.onTsxJobStream(({ jobId, chunk }) => {
+      if (otherIdsRef.current.has(jobId)) return;
       const store = streamRef.current;
       store.text.set(jobId, (store.text.get(jobId) ?? '') + chunk);
       store.listeners.get(jobId)?.forEach((listener) => listener());
@@ -132,10 +152,11 @@ export function TsxJobsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const activeJobs = useMemo(() => jobs.filter(isJobActive), [jobs]);
+  const otherBuildActive = otherActiveBuilds.size > 0;
 
   const value = useMemo(
-    () => ({ jobs, activeJobs, maxConcurrent, setMaxConcurrent, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText }),
-    [jobs, activeJobs, maxConcurrent, setMaxConcurrent, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText],
+    () => ({ jobs, activeJobs, otherBuildActive, maxConcurrent, setMaxConcurrent, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText }),
+    [jobs, activeJobs, otherBuildActive, maxConcurrent, setMaxConcurrent, startJob, cancelJob, clearCompleted, subscribeStream, getStreamText],
   );
 
   return <TsxJobsContext.Provider value={value}>{children}</TsxJobsContext.Provider>;

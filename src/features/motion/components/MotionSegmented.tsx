@@ -1,5 +1,5 @@
-// The Creator panel's row of equal-width choice buttons (FPS, aspect ratio,
-// thinking) — one component, three uses.
+// The Creator panel's row of equal-width choice buttons (budget, FPS, aspect
+// ratio, thinking) — one component, four uses.
 
 interface Props<T extends string | number> {
   label: string;
@@ -8,6 +8,8 @@ interface Props<T extends string | number> {
   onChange: (value: T) => void;
   disabled?: boolean;
   className?: string;
+  /** A dim line under the buttons, about the picked value. */
+  hint?: string;
 }
 
 export function MotionSegmented<T extends string | number>({
@@ -17,9 +19,10 @@ export function MotionSegmented<T extends string | number>({
   onChange,
   disabled,
   className = '',
+  hint,
 }: Props<T>) {
   return (
-    <div className={`px-3 pb-3 flex flex-col gap-1 ${className}`}>
+    <div className={`px-3 pb-3 flex flex-col gap-1 ${className}`} data-motion-segment={label}>
       <label className="text-[10px] text-text-dim">{label}</label>
       <div className="flex rounded-[6px] overflow-hidden" style={{ border: '0.5px solid var(--color-border)' }}>
         {options.map((option, i) => (
@@ -36,6 +39,7 @@ export function MotionSegmented<T extends string | number>({
           </button>
         ))}
       </div>
+      {hint && <span className="text-[9px] text-text-dim">{hint}</span>}
     </div>
   );
 }

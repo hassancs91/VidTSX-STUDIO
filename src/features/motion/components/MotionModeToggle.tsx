@@ -10,7 +10,7 @@ interface Props {
 }
 
 const MODES: Array<{ value: MotionInputMode; label: string; title: string }> = [
-  { value: 'prompt', label: 'Prompt', title: 'One prompt, one generation' },
+  { value: 'prompt', label: 'Prompt', title: 'One prompt, one build: it designs, looks at its frames and improves them' },
   { value: 'agent', label: 'Agent', title: 'Talk to TSX Composer; every version lands here' },
   { value: 'templates', label: 'Templates', title: 'Ready-made compositions you fill in — no prompt' },
 ];
