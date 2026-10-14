@@ -7,7 +7,9 @@
 // `<Sequence width height durationInFrames>` (so useVideoConfig() inside still
 // reports the build's own size and length) and a `<Freeze frame>`, scaled down
 // with a CSS transform. The whole file is the bundle entry, so the font-URL
-// rewrite and the bundle cache key cover the build's code too.
+// rewrite and the bundle cache key cover the build's code too. A WebGL piece
+// is the exception (`tileSheetSource`): its frames are rendered one per page
+// first, and the sheet only lays those images out.
 
 import type { CompositionConfig } from '../composition-config-parser';
 
@@ -98,6 +100,32 @@ export function contactSheetSource(
   }
 
   const layout = contactSheetLayout(config, frames);
+  // Each tile mounts the build, scaled down; props (the build's `assets`) go to every tile.
+  const tile = `h('div', { style: { position: 'absolute', left: 0, top: 0, width: S.w, height: S.h, transform: 'scale(' + S.s + ')', transformOrigin: '0 0' } },
+          h(__VidtsxSequence, { from: 0, durationInFrames: S.d, width: S.w, height: S.h, name: 'frame ' + c.frame },
+            h(__VidtsxFreeze, { frame: c.frame }, h(${pieceRef}, props))))`;
+  return sheetSource(config, layout, `import { Freeze as __VidtsxFreeze, Sequence as __VidtsxSequence } from 'remotion';\n${piece}`, tile);
+}
+
+/**
+ * The sheet for a WebGL piece (P2 problem 1): its tiles are frames already
+ * rendered one per page, passed in as `props.tiles` (data URLs, in cell
+ * order). Mounting a 3D piece once per tile puts a dozen WebGL canvases with
+ * their post-processing buffers in one page, and Chrome drops a context.
+ */
+export function tileSheetSource(config: CompositionConfig, frames: number[]): { code: string; config: CompositionConfig; layout: SheetLayout } {
+  const layout = contactSheetLayout(config, frames);
+  const tile = `h(__VidtsxImg, { src: props.tiles[i], style: { position: 'absolute', left: 0, top: 0, width: S.tw, height: S.th } })`;
+  return sheetSource(config, layout, `import { Img as __VidtsxImg } from 'remotion';`, tile);
+}
+
+/** One sheet composition: the grid, each cell's label above its tile; `tile` is the expression for cell `c` (index `i`). */
+function sheetSource(
+  config: CompositionConfig,
+  layout: SheetLayout,
+  imports: string,
+  tile: string,
+): { code: string; config: CompositionConfig; layout: SheetLayout } {
   const sheetConfig: CompositionConfig = {
     id: 'VidtsxContactSheet',
     width: layout.width,
@@ -121,23 +149,19 @@ export function contactSheetSource(
   const c = sheetConfig;
   const source = `export const compositionConfig = { id: '${c.id}', durationInFrames: ${c.durationInFrames}, fps: ${c.fps}, width: ${c.width}, height: ${c.height} };
 import __VidtsxReact from 'react';
-import { Freeze as __VidtsxFreeze, Sequence as __VidtsxSequence } from 'remotion';
-${piece}
+${imports}
 
 const __vidtsxSheet = ${JSON.stringify(sheet)};
 
-// Props (the build's \`assets\`) go to every tile.
 export default function VidtsxContactSheet(props) {
   const h = __VidtsxReact.createElement;
   const S = __vidtsxSheet;
   return h('div', { style: { position: 'absolute', inset: 0, background: '#1f2023' } },
-    S.cells.map((c) => h('div', { key: c.frame, style: { position: 'absolute', left: c.x, top: c.y, width: S.tw, height: S.lh + S.th } },
+    S.cells.map((c, i) => h('div', { key: c.frame, style: { position: 'absolute', left: c.x, top: c.y, width: S.tw, height: S.lh + S.th } },
       h('div', { style: { height: S.lh, lineHeight: S.lh + 'px', color: '#e8eaed', fontSize: 14, fontFamily: 'Arial, sans-serif' } },
         'frame ' + c.frame + '  ·  ' + (c.frame / S.fps).toFixed(1) + ' s'),
       h('div', { style: { position: 'absolute', left: 0, top: S.lh, width: S.tw, height: S.th, overflow: 'hidden' } },
-        h('div', { style: { position: 'absolute', left: 0, top: 0, width: S.w, height: S.h, transform: 'scale(' + S.s + ')', transformOrigin: '0 0' } },
-          h(__VidtsxSequence, { from: 0, durationInFrames: S.d, width: S.w, height: S.h, name: 'frame ' + c.frame },
-            h(__VidtsxFreeze, { frame: c.frame }, h(${pieceRef}, props))))))));
+        ${tile}))));
 }
 `;
   return { code: source, config: sheetConfig, layout };

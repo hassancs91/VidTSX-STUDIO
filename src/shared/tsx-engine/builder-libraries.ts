@@ -96,6 +96,11 @@ export function isPhysicsEngine(pkg: string): boolean {
   return BUILDER_LIBRARIES.some((lib) => lib.area === 'physics' && !lib.builtIn && lib.name === pkg);
 }
 
+/** A 3D library from the set: a piece that inlines one draws on a WebGL canvas. */
+export function isWebGlLibrary(pkg: string): boolean {
+  return BUILDER_LIBRARIES.some((lib) => lib.area === '3d' && lib.name === pkg);
+}
+
 /** Why a bare import is refused outright, or null. */
 export function bannedLibraryReason(spec: string): string | null {
   // `@react-spring` is a whole scope: `matches` covers `@react-spring/web` through the slash.

@@ -11,17 +11,38 @@ import { generateTsx } from '../tsx-builder/generate-tsx';
 import { appendChatTurns } from './chat-store';
 import { applyBuildEvent, buildProgress } from './build-job-snapshot';
 import { logEngine } from '../../../logging/log-engine';
-import type { BuildResult, GenerateTsxRequest } from '../tsx-builder/types';
-import type { TsxBuildJobIpc, TsxBuildJobRequestIpc, TsxBuildStillIpc, TsxJobIpc, TsxJobStartRequest } from '@shared/ipc/types';
+import type { BuildResult, BuildUsageTag, GenerateTsxRequest } from '../tsx-builder/types';
+import type {
+  TsxBuildJobIpc,
+  TsxBuildJobRequestIpc,
+  TsxBuildStillIpc,
+  TsxJobIpc,
+  TsxJobOrigin,
+  TsxJobStartRequest,
+} from '@shared/ipc/types';
 
 const log = logEngine.createLogger('TsxBuildJob');
 
 /** Narration chunks are flushed this often, like the pipeline's stream. */
 export const STREAM_FLUSH_MS = 120;
 
+/**
+ * A build started from main by another caller (P3): agents, Studio, flows.
+ * Never from the renderer: `into` names a folder to write and `usage` an
+ * agent to bill (llm-handlers.ts keeps `agentId` main-only for that reason).
+ */
+export interface TsxJobOwner {
+  origin: Exclude<TsxJobOrigin, 'creator'>;
+  /** The empty folder the caller made for a new build (BuildRequest.into). */
+  into?: string;
+  usage?: BuildUsageTag;
+}
+
 export interface BuildJobContext {
   snapshot: TsxJobIpc;
   request: TsxJobStartRequest;
+  /** Absent = the Creator (a job started over IPC). */
+  owner?: TsxJobOwner;
   abort: AbortController;
   /** Push the snapshot to every listener. */
   emit: () => void;
@@ -42,9 +63,11 @@ export function validateBuildRequest(request: TsxJobStartRequest): string | null
 }
 
 function requestFor(ctx: BuildJobContext, build: TsxBuildJobRequestIpc, onText: (delta: string) => void): GenerateTsxRequest {
-  const { request, abort } = ctx;
+  const { request, abort, owner } = ctx;
   return {
     intent: request.prompt,
+    ...(owner?.into ? { into: owner.into } : {}),
+    ...(owner?.usage ? { usage: owner.usage } : {}),
     ...(build.format ? { format: build.format } : {}),
     budget: build.budget,
     ...(build.packs?.length ? { packs: build.packs } : {}),

@@ -28,7 +28,7 @@ import { pureOkFor, seamOkFor } from './builder-tool-common';
 import { buildFirstMessage } from './build-messages';
 import { BuildProgress } from './build-progress';
 import { capsFor, resolveStopReason, RunGuard, stopMessage } from './build-run-guard';
-import { createRunDirs, projectNameFromId, pruneRunDirs, saveBuildVersion, seedWorkFromVersion, type SeededBuild } from './build-store';
+import { checkIntoFolder, createRunDirs, projectNameFromId, pruneRunDirs, saveBuildVersion, seedWorkFromVersion, type SeededBuild } from './build-store';
 import { ASSETS_DIR, listAssetFiles } from './build-assets';
 import { attachRequestAssets, GENERATED_IMAGES_MAX, imageGenerationAvailable } from './builder-asset-tools';
 import type { BuildRequest, BuildResult } from './types';
@@ -61,6 +61,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   let seed: SeededBuild | null = null;
   let seedError: string | null = null;
   try {
+    if (req.into && req.editOf) throw new Error('A build goes either into a new folder (into) or onto a version (editOf), not both.');
+    if (req.into) await checkIntoFolder(req.into);
     if (req.editOf) seed = await seedWorkFromVersion(req.editOf, dirs.workDir);
     // After the seed: a request file that clashes with a version file is an error, not an overwrite.
     if (req.assets?.length) await attachRequestAssets(path.join(dirs.workDir, ASSETS_DIR), req.assets);
@@ -75,6 +77,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     roundsMax: BUDGET_ROUNDS[req.budget],
     roundsMin: seed ? EDIT_MIN_ROUNDS : MIN_ROUNDS[req.budget],
     roundsUsed: 0,
+    lastLook: null,
+    verifyLooks: 0,
     checks: 0,
     phoneViews: 0,
     seamChecks: 0,
@@ -143,7 +147,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   const systemPrompt = buildBuilderSystemPrompt({ budget: req.budget, packs, minRounds: state.roundsMin });
   await fs.writeFile(path.join(dirs.runDir, 'system-prompt.md'), systemPrompt, 'utf-8');
   const startAssets = await listAssetFiles(path.join(dirs.workDir, ASSETS_DIR));
-  const imageProvider = imageGenerationAvailable();
+  const imageProvider = state.imagesMax > 0 ? await imageGenerationAvailable() : null;
   const firstMessage = buildFirstMessage({
     intent: req.intent,
     format,
@@ -151,7 +155,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     ...(req.referenceImages?.length ? { referenceImageCount: req.referenceImages.length } : {}),
     ...(seed ? { seed } : {}),
     ...(startAssets.length ? { assets: startAssets } : {}),
-    ...(imageProvider.ok && state.imagesMax > 0 ? { imageGeneration: { provider: imageProvider.provider, max: state.imagesMax } } : {}),
+    ...(imageProvider?.ok ? { imageGeneration: { provider: imageProvider.provider, max: state.imagesMax } } : {}),
+    ...(imageProvider && !imageProvider.ok ? { imageGenerationOff: imageProvider.reason } : {}),
   });
 
   // One write at a time: concurrent appends land out of order.
@@ -175,7 +180,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
       {
         prompt: firstMessage,
         systemPrompt,
-        featureSource: 'tsx-generation',
+        featureSource: req.usage?.featureSource ?? 'tsx-generation',
         maxTurns: caps.turns,
         thinking: { type: 'adaptive' },
         effort: req.effort ?? 'medium',
@@ -192,6 +197,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
         cwd: dirs.workDir,
         canUseTool: createFileToolGuard(dirs.workDir),
         onTurn: (usage) => guard.addTurn(usage),
+        ...(req.usage?.agentId ? { agentId: req.usage.agentId } : {}),
       },
     );
   } finally {
@@ -240,7 +246,9 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   const saved = await saveBuildVersion({
     target: seed
       ? { folderPath: seed.folderPath }
-      : { parentDir: req.projectsDir ?? getProjectsDir(), name: req.name ?? projectNameFromId(kept.config.id) },
+      : req.into
+        ? { folderPath: req.into }
+        : { parentDir: req.projectsDir ?? getProjectsDir(), name: req.name ?? projectNameFromId(kept.config.id) },
     code: kept.code,
     dirs,
     stills: state.stills,
@@ -259,6 +267,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
         ...(req.assets?.length ? { assets: req.assets.map((a) => a.name ?? path.basename(a.path)) } : {}),
         maxGeneratedImages: state.imagesMax,
         ...(seed ? { editOf: { folderPath: seed.folderPath, version: seed.version, fromSrc: seed.fromSrc } } : {}),
+        ...(req.into ? { into: req.into } : {}),
+        ...(req.usage ? { usage: req.usage } : {}),
         ...(req.providerId ? { providerId: req.providerId } : {}),
         effort: req.effort ?? 'medium',
       },

@@ -12,9 +12,10 @@ vi.mock('../library/library-paths', () => ({
 }));
 vi.mock('../library/library-store', () => ({ scanLibrary: vi.fn() }));
 vi.mock('../library/generate-image-asset', () => ({ generateImageAsset: vi.fn() }));
-vi.mock('../../../image-engine', () => ({ imageEngine: { getActiveProvider: () => null } }));
+const checkReady = vi.fn();
+vi.mock('../../../image-engine', () => ({ imageEngine: { checkReady: (...args: unknown[]) => checkReady(...args) } }));
 
-import { attachRequestAssets, cleanAssetName, copyIntoAssets, rankLibrary } from './builder-asset-tools';
+import { attachRequestAssets, cleanAssetName, copyIntoAssets, imageGenerationAvailable, rankLibrary } from './builder-asset-tools';
 
 let tmp = '';
 let assets = '';
@@ -32,6 +33,17 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   await fs.rm(tmp, { recursive: true, force: true });
+});
+
+describe('imageGenerationAvailable', () => {
+  it('is off when the active provider is registered but cannot run, with its reason (P2 problem 3)', async () => {
+    checkReady.mockResolvedValueOnce({ ready: false, providerId: 'local-sd', reason: 'sd-cli is not installed.' });
+    expect(await imageGenerationAvailable()).toEqual({ ok: false, reason: 'sd-cli is not installed.' });
+    checkReady.mockResolvedValueOnce({ ready: true, providerId: 'fal' });
+    expect(await imageGenerationAvailable()).toEqual({ ok: true, provider: 'fal' });
+    checkReady.mockRejectedValueOnce(new Error('engine not started'));
+    expect(await imageGenerationAvailable()).toEqual({ ok: false, reason: 'engine not started' });
+  });
 });
 
 describe('cleanAssetName', () => {

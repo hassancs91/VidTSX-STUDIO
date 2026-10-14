@@ -16,6 +16,7 @@ import { ASSETS_DIR, assetKeyMap } from './build-assets';
 import { renderBuildStills } from './build-stills';
 import { measureFramePurity, measureLoopSeam, renderContactSheet, renderPhoneView } from './build-looks';
 import { describePurity } from './frame-purity';
+import { isWebGlBuild } from './builder-tool-common';
 import { createRunDirs, saveBuildVersion } from './build-store';
 import { versionAssetFiles, versionAssetsProp } from './version-assets';
 import { ensureModuleServer, getModuleServerBaseUrl } from '../module-server';
@@ -42,6 +43,8 @@ export interface AssetsSource {
   debugSheet?: boolean;
   /** Debug: only that sheet, no other look, no version. */
   sheetOnly?: boolean;
+  /** The contact sheet's tiles: default as the tool picks them (a WebGL piece: separate). P3 part 1 forces 'mounted' to show the old crash. */
+  sheetTiles?: 'mounted' | 'separate';
 }
 
 /** The contact sheet of `frames`, one still, with every browser log line kept in `<dir>/browser.log`. */
@@ -158,8 +161,11 @@ export async function assetsProbe(outDir: string, sources: AssetsSource[]): Prom
     looks.stills = stills.value
       ? { ms: stills.value.ms, gl: stills.value.gl, paths: stills.value.stills.map((s) => s.path) }
       : { error: stills.error };
-    const sheet = await timed(() => renderContactSheet(code, config, path.join(dir, 'sheet'), frames, { label: 'sheet', assets }));
-    looks.sheet = sheet.value ? { ms: sheet.value.ms, path: sheet.value.path } : { error: sheet.error };
+    const separateTiles = source.sheetTiles ? source.sheetTiles === 'separate' : isWebGlBuild(check.inlinedPackages);
+    const sheet = await timed(() => renderContactSheet(code, config, path.join(dir, 'sheet'), frames, { label: 'sheet', assets, separateTiles }));
+    looks.sheet = sheet.value
+      ? { ms: sheet.value.ms, tiles: sheet.value.tiles, grid: `${sheet.value.layout.cols}x${sheet.value.layout.rows}`, path: sheet.value.path }
+      : { error: sheet.error, tiles: separateTiles ? 'separate' : 'mounted' };
     const phone = await timed(() => renderPhoneView(code, config, path.join(dir, 'phone'), frames[1] ?? 0, { label: 'phone', assets }));
     looks.phone = phone.value ? { ms: phone.value.ms, path: phone.value.path } : { error: phone.error };
     if (source.loop) {

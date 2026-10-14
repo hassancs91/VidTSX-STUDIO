@@ -15,7 +15,7 @@ import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { reserveProjectFolder, writeNextVersion, writeDebugSidecar, describeSystemPrompt } from './project-store';
 import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from './chat-store';
-import { runBuildJob, validateBuildRequest } from './tsx-build-job';
+import { runBuildJob, validateBuildRequest, type TsxJobOwner } from './tsx-build-job';
 import { initialBuildSnapshot } from './build-job-snapshot';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -33,6 +33,8 @@ const STEP_STATUS: Record<string, TsxJobStatus> = {
 interface JobRecord {
   snapshot: TsxJobIpc;
   request: TsxJobStartRequest;
+  /** A build started from main by another caller; absent = the Creator. */
+  owner?: TsxJobOwner;
   abort: AbortController;
 }
 
@@ -97,9 +99,16 @@ class TsxJobEngine {
     return [...this.jobs.values()].map((r) => ({ ...r.snapshot }));
   }
 
-  start(request: TsxJobStartRequest): { jobId?: string; error?: string } {
+  /**
+   * `owner`: a build started from main by another caller (agents, Studio,
+   * flows; P3). It shares the queue — builds run one at a time app-wide — but
+   * it runs while restored Creator jobs are held, does not release them, and
+   * is not persisted: the caller waiting for it is gone after a restart.
+   */
+  start(request: TsxJobStartRequest, owner?: TsxJobOwner): { jobId?: string; error?: string } {
     if (this.shuttingDown) return { error: 'App is shutting down' };
-    if (!this.restoring && this.queueHeld) {
+    if (owner && request.kind !== 'build') return { error: 'Only build jobs can be started by another caller' };
+    if (!this.restoring && this.queueHeld && !owner) {
       this.queueHeld = false; // user engaged the generator — release held jobs
     }
     if (!request.prompt?.trim()) return { error: 'Prompt is required' };
@@ -112,13 +121,15 @@ class TsxJobEngine {
     }
 
     const id = `tsxjob_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const targetFolderPath = request.target?.folderPath ?? request.build?.editOf?.folderPath;
+    const targetFolderPath = request.target?.folderPath ?? request.build?.editOf?.folderPath ?? owner?.into;
     const record: JobRecord = {
       request,
+      ...(owner ? { owner } : {}),
       abort: new AbortController(),
       snapshot: {
         id,
         kind: request.kind,
+        ...(owner ? { origin: owner.origin } : {}),
         prompt: request.prompt,
         ...(request.providerId ? { providerId: request.providerId } : {}),
         status: 'queued',
@@ -220,7 +231,7 @@ class TsxJobEngine {
 
   private async persistQueued(): Promise<void> {
     const queued: PersistedJob[] = [...this.jobs.values()]
-      .filter((r) => r.snapshot.status === 'queued')
+      .filter((r) => r.snapshot.status === 'queued' && !r.owner)
       .map((r) => ({ request: r.request, createdAt: r.snapshot.createdAt }));
     try {
       await fs.writeFile(this.persistPath(), JSON.stringify(queued), 'utf-8');
@@ -255,13 +266,17 @@ class TsxJobEngine {
     return false;
   }
 
-  /** Builds wait for the running build; a queued pipeline job behind one still starts. */
+  /**
+   * Builds wait for the running build; a queued pipeline job behind one still
+   * starts. While restored jobs are held, only another caller's builds run.
+   */
   private canStart(record: JobRecord): boolean {
+    if (this.queueHeld && !record.owner) return false;
     return record.request.kind !== 'build' || !this.buildRunning();
   }
 
   private pump(): void {
-    if (this.shuttingDown || this.queueHeld) return;
+    if (this.shuttingDown) return;
     while (this.runningCount() < this.maxConcurrent) {
       const next = [...this.jobs.values()].find((r) => r.snapshot.status === 'queued' && this.canStart(r));
       if (!next) return;

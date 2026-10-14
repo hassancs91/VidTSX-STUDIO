@@ -11,7 +11,7 @@ import { createHash } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { checkBuild, type BuildCheckResult } from './build-check';
-import { isPhysicsEngine } from '../../../shared/tsx-engine/builder-libraries';
+import { isPhysicsEngine, isWebGlLibrary } from '../../../shared/tsx-engine/builder-libraries';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildStillShown, RunDirs } from './build-store';
 import type { BuildAssetSource } from './build-stills';
@@ -27,6 +27,10 @@ export interface BuilderState {
   roundsMin: number;
   /** Look rounds: render_stills and contact_sheet calls. */
   roundsUsed: number;
+  /** The build the last render_stills / contact_sheet showed. `finish` holds the final build to it (P3 D1). */
+  lastLook: { code: string } | null;
+  /** Looks taken after the budget was spent, each on a build changed since the last look (VERIFY_LOOK_ALLOWANCE). */
+  verifyLooks: number;
   checks: number;
   /** phone_view calls (free, capped per run). */
   phoneViews: number;
@@ -70,6 +74,16 @@ export const text = (t: string, isError = false): ToolResult => ({
 
 export const STOPPING = 'The run is stopping. Reply with one short line and stop.';
 
+/**
+ * Looks allowed after the budget is spent, each on a build changed since the
+ * last look (P3 D1): B6 rewrote its physics after its last round and finished
+ * unseen in motion. Two = a look at the fix, and one more if that look shows
+ * something to fix. After them `finish` lets an unseen build through, logged.
+ */
+export const VERIFY_LOOK_ALLOWANCE = 2;
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
 /** A short id for one checked build, for the event log and the seam record. */
 export function buildHash(code: string): string {
   return createHash('sha256').update(code).digest('hex').slice(0, 8);
@@ -78,6 +92,41 @@ export function buildHash(code: string): string {
 /** A build that inlines a physics engine (not just the @vidtsx/sim helper): `finish` holds it to purity_check. */
 export function isPhysicsBuild(packages: string[]): boolean {
   return packages.some(isPhysicsEngine);
+}
+
+/** A build that inlines a 3D library draws on WebGL: its contact sheet renders tile by tile. */
+export function isWebGlBuild(packages: string[]): boolean {
+  return packages.some(isWebGlLibrary);
+}
+
+/** True when the last render_stills / contact_sheet showed exactly `code`. */
+export function lookedAt(state: BuilderState, code: string): boolean {
+  return state.lastLook !== null && state.lastLook.code === code;
+}
+
+/** Where a look sits in the budget: a round, or (P3 D1) a look at a build changed after the budget was spent. */
+export type LookSlot = { verify: boolean; label: string };
+
+export function takeLook(state: BuilderState, code: string): LookSlot | ToolResult {
+  if (state.roundsUsed < state.roundsMax) {
+    state.roundsUsed += 1;
+    return { verify: false, label: `r${pad(state.roundsUsed)}` };
+  }
+  if (!lookedAt(state, code) && state.verifyLooks < VERIFY_LOOK_ALLOWANCE) {
+    state.verifyLooks += 1;
+    // Its own label: the last round's stills on disk are not overwritten.
+    return { verify: true, label: `r${pad(state.roundsUsed)}v${state.verifyLooks}` };
+  }
+  const why = lookedAt(state, code)
+    ? 'you have looked at this exact build: call finish'
+    : `the ${VERIFY_LOOK_ALLOWANCE} extra looks at a changed build are used too: call finish`;
+  return text(`The look budget is spent (${state.roundsMax}/${state.roundsMax}) and ${why}.`, true);
+}
+
+/** A render failure is the build's fault (a runtime error), not the budget's. */
+export function giveBack(state: BuilderState, slot: LookSlot): void {
+  if (slot.verify) state.verifyLooks -= 1;
+  else state.roundsUsed -= 1;
 }
 
 /** True when the last purity_check measured exactly `code` and said PURE. */
@@ -149,7 +198,14 @@ export function assetSourceFor(state: BuilderState, result: BuildCheckResult): B
   return { dir: path.join(state.dirs.workDir, ASSETS_DIR), keys: assetKeyMap(result.assets) };
 }
 
-export type CheckedBuild = { code: string; config: CompositionConfig; summary: string; assets?: BuildAssetSource };
+export type CheckedBuild = {
+  code: string;
+  config: CompositionConfig;
+  summary: string;
+  assets?: BuildAssetSource;
+  /** It inlines a 3D library (isWebGlBuild). */
+  webgl: boolean;
+};
 
 /** The check every look starts with: the build to render, or the reply that ends the call. */
 export async function checkForLook(state: BuilderState): Promise<{ build: CheckedBuild } | { reply: ToolResult }> {
@@ -157,5 +213,13 @@ export async function checkForLook(state: BuilderState): Promise<{ build: Checke
   if (!result.ok || !result.code || !result.config) return { reply: text(describeCheck(result), true) };
   if (state.signal?.aborted) return { reply: text(STOPPING, true) };
   const assets = assetSourceFor(state, result);
-  return { build: { code: result.code, config: result.config, summary: describeCheck(result), ...(assets ? { assets } : {}) } };
+  return {
+    build: {
+      code: result.code,
+      config: result.config,
+      summary: describeCheck(result),
+      webgl: isWebGlBuild(result.inlinedPackages),
+      ...(assets ? { assets } : {}),
+    },
+  };
 }

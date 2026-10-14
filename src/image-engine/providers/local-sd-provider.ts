@@ -4,6 +4,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type {
   ImageProvider,
+  ImageProviderReadiness,
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageModelInfo,
@@ -75,6 +76,9 @@ export function toSdRequest(
  * Mirrors `LocalLlmProvider` for the LLM engine. Requests serialize through
  * the local engine's queue — one sd-cli process runs at a time.
  */
+const SD_CLI_MISSING = 'sd-cli is not installed. Set it up in AI Models → Image first.';
+const NO_LOCAL_MODEL = 'No local image model is ready. Download one in AI Models → Image first.';
+
 export class LocalSdImageProvider implements ImageProvider {
   readonly id: string;
 
@@ -110,21 +114,22 @@ export class LocalSdImageProvider implements ImageProvider {
       });
   }
 
+  /** sd-cli installed and a local model ready: what a request without `model` needs. */
+  async readiness(): Promise<ImageProviderReadiness> {
+    if (!imageLocalEngine.isSdCliAvailable()) return { ready: false, reason: SD_CLI_MISSING };
+    if (!this.defaultModel) return { ready: false, reason: NO_LOCAL_MODEL };
+    return { ready: true };
+  }
+
   async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     if (!imageLocalEngine.isSdCliAvailable()) {
-      throw new ImageEngineError(
-        'sd-cli is not installed. Set it up in AI Models → Image first.',
-        this.id,
-      );
+      throw new ImageEngineError(SD_CLI_MISSING, this.id);
     }
 
     const models = this.getSupportedModels();
     const modelId = request.model || this.defaultModel;
     if (!modelId) {
-      throw new ImageEngineError(
-        'No local image model is ready. Download one in AI Models → Image first.',
-        this.id,
-      );
+      throw new ImageEngineError(NO_LOCAL_MODEL, this.id);
     }
 
     const model = models.find((m) => m.id === modelId);

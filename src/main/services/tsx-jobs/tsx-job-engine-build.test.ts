@@ -328,3 +328,47 @@ describe('tsx-job-engine: build jobs', () => {
     expect(job.error).toBe('EPERM on the run folder');
   });
 });
+
+describe("tsx-job-engine: another caller's builds (P3 part 1)", () => {
+  it('carry their origin, folder and usage; run while restored jobs are held, without releasing them; are never persisted', async () => {
+    const persistPath = path.join(tmpDir, 'tsx-jobs.json');
+    await fs.writeFile(persistPath, JSON.stringify([{ request: { kind: 'generate', prompt: 'held from the last quit' }, createdAt: 1 }]), 'utf-8');
+    await tsxJobEngine.restore();
+    const held = tsxJobEngine.list().find((j) => j.prompt === 'held from the last quit')!;
+    expect(held.status).toBe('queued');
+    await fs.writeFile(persistPath, '[]', 'utf-8');
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    generateTsxImpl = async () => {
+      await gate;
+      return { engine: 'builder', reason: 'tools', ok: false, stopReason: 'error', error: 'stopped', elapsedMs: 1 };
+    };
+    const into = path.join(tmpDir, 'session', 'compositions', 'bounce');
+    const owner = { origin: 'agent' as const, into, usage: { featureSource: 'agent' as const, agentId: 'lwh.infographic-loop' } };
+    const a = tsxJobEngine.start(buildRequest({ prompt: 'agent build one' }), owner).jobId!;
+    const b = tsxJobEngine.start(buildRequest({ prompt: 'agent build two' }), owner).jobId!;
+    expect(tsxJobEngine.start({ kind: 'generate', prompt: 'x' }, owner).error).toBe('Only build jobs can be started by another caller');
+
+    await vi.waitFor(() => expect(generateTsxCalls.map((r) => r.intent)).toEqual(['agent build one']));
+    expect(generateTsxCalls[0]).toMatchObject({ into, usage: { featureSource: 'agent', agentId: 'lwh.infographic-loop' } });
+    const jobs = Object.fromEntries(tsxJobEngine.list().map((j) => [j.id, j]));
+    expect(jobs[a]).toMatchObject({ origin: 'agent', targetFolderPath: into, status: 'generating' });
+    expect(jobs[b]).toMatchObject({ origin: 'agent', status: 'queued' });
+    expect(jobs[held.id].status).toBe('queued');
+    // The queued list on disk keeps the held Creator job and never the caller's.
+    await vi.waitFor(async () => {
+      const saved = JSON.parse(await fs.readFile(persistPath, 'utf-8')) as Array<{ request: { prompt: string } }>;
+      expect(saved.map((p) => p.request.prompt)).toEqual(['held from the last quit']);
+    }, { timeout: 2000 });
+
+    release();
+    await Promise.all([waitForJob(a), waitForJob(b)]);
+    expect(generateTsxCalls).toHaveLength(2);
+    expect(tsxJobEngine.list().find((j) => j.id === held.id)!.status).toBe('queued');
+
+    tsxJobEngine.cancel(held.id);
+    // A Creator start (here a refused one) is what releases a held queue.
+    tsxJobEngine.start({ kind: 'build', prompt: 'x' });
+  });
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCompositionConfig } from '../composition-config-parser';
-import { contactSheetLayout, contactSheetSource, CONTACT_SHEET_MAX_SIDE } from './contact-sheet';
+import { contactSheetLayout, contactSheetSource, CONTACT_SHEET_MAX_SIDE, tileSheetSource } from './contact-sheet';
 
 const portrait = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
 
@@ -88,5 +88,22 @@ export default function Bounce() { return null; }
   it('refuses an artifact without the exports the gates require', () => {
     expect(() => contactSheetSource('export default () => null;', portrait, [0])).toThrow(/compositionConfig/);
     expect(() => contactSheetSource("export const compositionConfig = { id: 'A' };", portrait, [0])).toThrow(/default export/);
+  });
+});
+
+describe('tileSheetSource', () => {
+  it('draws the same grid and labels from rendered tiles, without the build', () => {
+    const frames = [0, 30, 60, 90, 120, 150, 180, 210, 239, 20, 40, 100];
+    const tiles = tileSheetSource(portrait, frames);
+    const mounted = contactSheetSource(bundle, portrait, frames);
+    expect(tiles.layout).toEqual(mounted.layout);
+    expect(tiles.config).toEqual(mounted.config);
+    expect(parseCompositionConfig(tiles.code)).toMatchObject({ id: 'VidtsxContactSheet', width: tiles.layout.width });
+    expect(tiles.code).toContain("h(__VidtsxImg, { src: props.tiles[i]");
+    expect(tiles.code).not.toContain('__vidtsxShot');
+    expect(tiles.code).not.toContain('__VidtsxFreeze');
+    // The label line is the 2D sheet's, character for character.
+    const label = (code: string) => code.split('\n').find((l) => l.includes("'frame ' + c.frame"));
+    expect(label(tiles.code)).toBe(label(mounted.code));
   });
 });

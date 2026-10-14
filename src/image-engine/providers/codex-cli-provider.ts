@@ -4,6 +4,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type {
   ImageProvider,
+  ImageProviderReadiness,
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageModelInfo,
@@ -124,6 +125,10 @@ function measure(result: CodexGenerateResult, fallback: { width: number; height:
  * hides it). Content Safety: nothing here — every generation flows through
  * the engine's fail-closed runGuarded chokepoint like any other provider.
  */
+const CLI_MISSING = 'The Codex CLI is not installed. Set it up in AI Models → Providers → Subscriptions first.';
+const CLI_SIGNED_OUT =
+  'The Codex CLI is installed but not signed in. Run "codex login" in a terminal with the account that holds your ChatGPT plan, then try again.';
+
 export class CodexCliImageProvider implements ImageProvider {
   readonly id: string;
   /** The single subscription model; keys the per-model params override. */
@@ -150,20 +155,17 @@ export class CodexCliImageProvider implements ImageProvider {
     ];
   }
 
-  async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+  /** The CLI installed and signed in. */
+  async readiness(): Promise<ImageProviderReadiness> {
     const status = await this.cli.ensureProbed();
-    if (!status.installed) {
-      throw new ImageEngineError(
-        'The Codex CLI is not installed. Set it up in AI Models → Providers → Subscriptions first.',
-        this.id,
-      );
-    }
-    if (!status.authenticated) {
-      throw new ImageEngineError(
-        'The Codex CLI is installed but not signed in. Run "codex login" in a terminal with the account that holds your ChatGPT plan, then try again.',
-        this.id,
-      );
-    }
+    if (!status.installed) return { ready: false, reason: CLI_MISSING };
+    if (!status.authenticated) return { ready: false, reason: CLI_SIGNED_OUT };
+    return { ready: true };
+  }
+
+  async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+    const readiness = await this.readiness();
+    if (!readiness.ready) throw new ImageEngineError(readiness.reason, this.id);
     if (request.operation === 'image-to-image') {
       throw new ImageEngineError(
         'GPT Image 2 through Codex does not take a source image here — attach it as a reference image instead.',

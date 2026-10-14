@@ -59,6 +59,13 @@ export async function pruneRunDirs(runsDir: string, keep = RUNS_KEPT): Promise<n
   return stale.length;
 }
 
+/** A request's `into`: the folder exists and holds no version yet (a version to continue is `editOf`). */
+export async function checkIntoFolder(folderPath: string): Promise<void> {
+  if (!(await fs.stat(folderPath).catch(() => null))?.isDirectory()) throw new Error(`The folder to build into does not exist: ${folderPath}`);
+  const last = (await listVersionNumbers(folderPath)).pop();
+  if (last !== undefined) throw new Error(`The folder to build into already holds v${last}: continue it with editOf instead (${folderPath})`);
+}
+
 export async function listVersionNumbers(folderPath: string): Promise<number[]> {
   const entries = await fs.readdir(folderPath).catch(() => [] as string[]);
   return entries

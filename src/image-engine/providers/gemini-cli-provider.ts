@@ -4,6 +4,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type {
   ImageProvider,
+  ImageProviderReadiness,
   ImageGenerationRequest,
   ImageGenerationResponse,
   ImageModelInfo,
@@ -133,6 +134,10 @@ function refExtension(base64: string): string {
  * Content Safety: nothing here — every generation flows through the engine's
  * fail-closed runGuarded chokepoint like any other provider.
  */
+const CLI_MISSING = 'The Antigravity CLI (agy) is not installed. Set it up in AI Models → Image first.';
+const CLI_SIGNED_OUT =
+  'The Antigravity CLI is installed but not signed in. Run "agy" in a terminal, sign in with your Google account, then try again.';
+
 export class GeminiCliImageProvider implements ImageProvider {
   readonly id: string;
   /** The single subscription model; keys the per-model params override. */
@@ -159,20 +164,17 @@ export class GeminiCliImageProvider implements ImageProvider {
     ];
   }
 
-  async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+  /** The CLI installed and signed in. */
+  async readiness(): Promise<ImageProviderReadiness> {
     const status = await this.cli.ensureProbed();
-    if (!status.installed) {
-      throw new ImageEngineError(
-        'The Antigravity CLI (agy) is not installed. Set it up in AI Models → Image first.',
-        this.id,
-      );
-    }
-    if (!status.authenticated) {
-      throw new ImageEngineError(
-        'The Antigravity CLI is installed but not signed in. Run "agy" in a terminal, sign in with your Google account, then try again.',
-        this.id,
-      );
-    }
+    if (!status.installed) return { ready: false, reason: CLI_MISSING };
+    if (!status.authenticated) return { ready: false, reason: CLI_SIGNED_OUT };
+    return { ready: true };
+  }
+
+  async generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+    const readiness = await this.readiness();
+    if (!readiness.ready) throw new ImageEngineError(readiness.reason, this.id);
     if (request.operation === 'image-to-image') {
       throw new ImageEngineError(
         'Nano Banana 2 does not support image-to-image here — attach the source as a reference image instead.',

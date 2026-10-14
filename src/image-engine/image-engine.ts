@@ -103,6 +103,26 @@ class ImageEngine {
     return this.activeId;
   }
 
+  /**
+   * Can `providerId` (default: the active one) generate now? A provider that
+   * is registered can still be unable to run (the local sd-cli not installed,
+   * a CLI not signed in); asking first saves a caller from offering it.
+   */
+  async checkReady(
+    providerId?: ImageProviderId,
+  ): Promise<{ ready: true; providerId: ImageProviderId } | { ready: false; providerId: ImageProviderId | null; reason: string }> {
+    const id = providerId ?? this.activeId;
+    const provider = id ? this.providers.get(id) : undefined;
+    if (!id || !provider) return { ready: false, providerId: id ?? null, reason: 'No image provider is set up.' };
+    if (!provider.readiness) return { ready: true, providerId: id };
+    try {
+      const readiness = await provider.readiness();
+      return readiness.ready ? { ready: true, providerId: id } : { ready: false, providerId: id, reason: readiness.reason };
+    } catch (err) {
+      return { ready: false, providerId: id, reason: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   getModels(providerId?: ImageProviderId): ImageModelInfo[] {
     const provider = providerId
       ? this.providers.get(providerId)

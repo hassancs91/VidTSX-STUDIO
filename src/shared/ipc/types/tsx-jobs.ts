@@ -100,16 +100,24 @@ export interface TsxBuildJobIpc {
   notice?: string;
 }
 
+/**
+ * Who started a job. The Creator starts its own over IPC; agents, Studio and
+ * flows start builds from main (P3), and the Creator leaves those alone.
+ */
+export type TsxJobOrigin = 'creator' | 'agent' | 'studio' | 'flow';
+
 /** Snapshot of a job, pushed to the renderer over TSXJOB_EVENT. */
 export interface TsxJobIpc {
   id: string;
   kind: TsxJobKind;
+  /** Absent = the Creator. */
+  origin?: TsxJobOrigin;
   /** User prompt (generate), edit/fix instruction, or the build's intent. */
   prompt: string;
   providerId?: string;
   status: TsxJobStatus;
   progress: TsxJobProgressIpc;
-  /** For edit/fix jobs, and a build that edits: the project folder being modified. */
+  /** For edit/fix jobs, a build that edits, and a build into a caller's folder: the folder being written. */
   targetFolderPath?: string;
   /** Set on completion. */
   projectName?: string;

@@ -12,7 +12,7 @@ describe('buildFirstMessage', () => {
         'IDEA: Compound interest.',
         'FORMAT: 4:5, 1080x1350, 30 fps, 240 frames (8 s), seamless loop',
         '',
-        "IMAGES: generate_image is not available this run. library_search finds the user's own files.",
+        "IMAGES: generate_image is not available this run; draw what you need. library_search finds the user's own files.",
         '',
         'Your folder is empty. Start with DESIGN.md, then build, check, and look.',
       ].join('\n'),
@@ -34,6 +34,12 @@ describe('buildFirstMessage', () => {
     expect(message).toContain('- studio.hdr (environment, 1.5 MB)');
     expect(message).toContain('generate_image is available (fal, paid per image, at most 4 this run)');
     expect(message).toContain('Your folder holds only assets/.');
+  });
+
+  it("says why generate_image is off when the image provider cannot run (P2 problem 3)", () => {
+    const message = buildFirstMessage({ intent: 'A product shot.', format, imageGenerationOff: 'sd-cli is not installed. Set it up in AI Models → Image first.' });
+    expect(message).toContain('IMAGES: generate_image is not available this run (the image provider cannot run: sd-cli is not installed.');
+    expect(message).not.toContain('generate_image is available');
   });
 
   it('adds the brand and counts the reference images', () => {

@@ -17,8 +17,10 @@ export interface FirstMessageInput {
   seed?: Pick<SeededBuild, 'version' | 'fromSrc'>;
   /** What assets/ holds at the start (the request's files, an edit's version files). */
   assets?: AssetFile[];
-  /** generate_image this run: the provider and the cap; absent when no provider is set up or the cap is 0. */
+  /** generate_image this run: the provider and the cap; absent when no provider can run or the cap is 0. */
   imageGeneration?: { provider: string; max: number };
+  /** Why the image provider cannot run, when the run allows images. */
+  imageGenerationOff?: string;
 }
 
 function contextLines(input: FirstMessageInput): string[] {
@@ -41,7 +43,7 @@ function contextLines(input: FirstMessageInput): string[] {
     '',
     input.imageGeneration
       ? `IMAGES: generate_image is available (${input.imageGeneration.provider}, paid per image, at most ${input.imageGeneration.max} this run). library_search finds the user's own files.`
-      : `IMAGES: generate_image is not available this run. library_search finds the user's own files.`,
+      : `IMAGES: generate_image is not available this run${input.imageGenerationOff ? ` (the image provider cannot run: ${input.imageGenerationOff})` : ''}; draw what you need. library_search finds the user's own files.`,
   );
   return lines;
 }

@@ -57,6 +57,9 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     roundsMax: 3,
     roundsMin: 2,
     roundsUsed: 0,
+    // The build the stubs check ('// bundle') has been looked at.
+    lastLook: { code: '// bundle' },
+    verifyLooks: 0,
     checks: 0,
     phoneViews: 0,
     seamChecks: 0,
@@ -117,6 +120,24 @@ describe('contact_sheet', () => {
       { round: 1, frame: 0, frames: [0, 60, 120], size: 'sheet', path: path.join(state.dirs.stillsDir, 'r01-sheet.jpg') },
     ]);
     expect(onEvent.mock.calls.at(-1)![0]).toMatchObject({ type: 'stills', size: 'sheet', frames: [0, 60, 120] });
+  });
+
+  it('renders a WebGL piece tile by tile, and a 2D piece mounted in one page', async () => {
+    const { call } = await setup();
+    await call('contact_sheet', { frames: [0, 120] });
+    expect(renderContactSheet.mock.calls[0][4]).toMatchObject({ separateTiles: false });
+    checkBuild.mockResolvedValue({ ...passed, code: '// 3d', inlinedPackages: ['@react-three/fiber', '@react-three/postprocessing', 'three'] });
+    await call('contact_sheet', { frames: [0, 120] });
+    expect(renderContactSheet.mock.calls[1][4]).toMatchObject({ separateTiles: true });
+  });
+
+  it('past the budget, sheets a changed build under its own label', async () => {
+    const { state, call } = await setup({ roundsUsed: 3 });
+    checkBuild.mockResolvedValue({ ...passed, code: '// changed' });
+    const result = await call('contact_sheet', { frames: [0, 120] });
+    expect(result.isError).toBeUndefined();
+    expect(state).toMatchObject({ roundsUsed: 3, verifyLooks: 1, lastLook: { code: '// changed' } });
+    expect(path.basename(state.stills[0].path)).toBe('r03v1-sheet.jpg');
   });
 
   it('counts toward the finish floor', async () => {
@@ -272,6 +293,7 @@ describe('finish gate', () => {
     expect(stale.content[0].text).toContain('loop_seam last measured an earlier build');
     expect(stale.content[0].text).not.toContain('phone_view');
     await call('loop_seam');
+    await call('contact_sheet', { frames: [0, 120] }); // finish wants the changed build looked at (P3 D1)
     expect((await call('finish', { summary: 's' })).isError).toBeUndefined();
     expect(state.finished?.code).toBe('// bundle v2');
     expect(seamOkFor(state, '// bundle v2')).toBe(true);
@@ -288,6 +310,7 @@ describe('finish gate', () => {
     editTo('// bundle fixed');
     measureLoopSeam.mockResolvedValue(okSeam);
     await call('loop_seam');
+    await call('contact_sheet', { frames: [0, 120] }); // finish wants the changed build looked at (P3 D1)
     expect((await call('finish', { summary: 'fixed' })).isError).toBeUndefined();
     expect(state.finished?.summary).toBe('fixed');
   });
@@ -305,6 +328,7 @@ describe('finish gate', () => {
         expect((await call('finish', { summary: 's' })).content[0].text).toContain('says JUMP');
       }
     }
+    await call('contact_sheet', { frames: [0, 120] }); // finish wants the changed build looked at (P3 D1)
     const result = await call('finish', { summary: 'stubborn' });
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain('loop seam NOT verified');
@@ -329,6 +353,7 @@ describe('finish gate', () => {
       checkBuild.mockResolvedValue({ ...physicsBuild, code: '// bundle v2' });
       expect((await call('finish', { summary: 's' })).content[0].text).toContain('purity_check last measured an earlier build');
       await call('purity_check');
+      await call('contact_sheet', { frames: [0, 120] }); // finish wants the changed build looked at (P3 D1)
       expect((await call('finish', { summary: 's' })).isError).toBeUndefined();
       expect(state.finished).toMatchObject({ code: '// bundle v2', physics: true });
       expect(await events(state)).toContain('"pureOk":true');
@@ -345,6 +370,7 @@ describe('finish gate', () => {
       checkBuild.mockResolvedValue({ ...physicsBuild, code: '// fixed' });
       measureFramePurity.mockResolvedValue(pure);
       await call('purity_check');
+      await call('contact_sheet', { frames: [0, 120] }); // finish wants the changed build looked at (P3 D1)
       expect((await call('finish', { summary: 'fixed' })).isError).toBeUndefined();
     });
 
@@ -357,6 +383,7 @@ describe('finish gate', () => {
         await call('purity_check'); // the same build again is not another try
         expect(state.impureBuilds.size).toBe(attempt);
       }
+      await call('contact_sheet', { frames: [0, 120] }); // finish wants the changed build looked at (P3 D1)
       const result = await call('finish', { summary: 'stubborn' });
       expect(result.isError).toBeUndefined();
       expect(result.content[0].text).toContain('frame purity NOT verified');

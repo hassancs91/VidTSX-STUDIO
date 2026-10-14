@@ -74,7 +74,7 @@ export interface PreparedBuild {
   composition: VideoConfig;
   /** The GL backend every frame of this build renders on. */
   gl: ProbedGl;
-  /** What every frame is rendered with: `{ assets }` when the build names files, else `{}`. */
+  /** What every frame is rendered with: `{ assets }` when the build names files, plus any extra props; else `{}`. */
   inputProps: Record<string, unknown>;
   bundleCached: boolean;
   ms: { bundle: number; select: number };
@@ -123,7 +123,14 @@ export async function prepareBuildRender(
   code: string,
   config: CompositionConfig,
   outDir: string,
-  options: { entryName?: string; signal?: AbortSignal; gl?: ProbedGl; assets?: BuildAssetSource } = {},
+  options: {
+    entryName?: string;
+    signal?: AbortSignal;
+    gl?: ProbedGl;
+    assets?: BuildAssetSource;
+    /** More props for every frame (the 3D contact sheet's rendered tiles). */
+    inputProps?: Record<string, unknown>;
+  } = {},
 ): Promise<PreparedBuild> {
   const { signal } = options;
   signal?.throwIfAborted();
@@ -141,10 +148,12 @@ export async function prepareBuildRender(
   }
 
   const keys = options.assets?.keys ?? {};
-  const inputProps: Record<string, unknown> =
-    options.assets && Object.keys(keys).length > 0
+  const inputProps: Record<string, unknown> = {
+    ...options.inputProps,
+    ...(options.assets && Object.keys(keys).length > 0
       ? { assets: assetsProp(new URL(bundle.serveUrl).origin, options.assets.dir, keys) }
-      : {};
+      : {}),
+  };
   const selectStart = Date.now();
   const composition = await selectComposition({
     serveUrl: bundle.serveUrl,

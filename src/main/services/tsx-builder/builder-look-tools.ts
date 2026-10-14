@@ -2,7 +2,10 @@
 // Each checks first and renders the build that passed.
 //
 // - `render_stills` and `contact_sheet` are LOOK ROUNDS: budgeted, counted
-//   toward the `finish` floor, given back when the render fails.
+//   toward the `finish` floor, given back when the render fails. `finish`
+//   wants the final build looked at (P3 D1), so once the budget is spent a
+//   look at a build changed since the last look is still allowed, up to
+//   VERIFY_LOOK_ALLOWANCE. A WebGL piece's sheet renders tile by tile.
 // - `phone_view` (at most MAX_PHONE_VIEWS per run) and `loop_seam` (loops
 //   only) are free. `finish` refuses until both have done their job
 //   (builder-tools.ts), so they record what they saw in the state.
@@ -22,18 +25,19 @@ import { describePurity, PURITY_MAX_FRAMES, PURITY_MAX_SIDE } from './frame-puri
 import {
   buildHash,
   checkForLook,
+  giveBack,
   logEvent,
   STOPPING,
+  takeLook,
   text,
   tracked,
+  VERIFY_LOOK_ALLOWANCE,
   type BuilderState,
   type ToolContent,
   type ToolResult,
 } from './builder-tool-common';
 
 export const MAX_PHONE_VIEWS = 2;
-
-const pad = (n: number) => String(n).padStart(2, '0');
 
 /** A render that threw: the run stopping, or a runtime error in the build. */
 async function lookFailed(state: BuilderState, toolName: string, err: unknown, started: number): Promise<ToolResult> {
@@ -46,34 +50,31 @@ async function lookFailed(state: BuilderState, toolName: string, err: unknown, s
   return text(`Rendering failed — this is a runtime error in your code:\n${message}`, true);
 }
 
-function budgetSpent(state: BuilderState): ToolResult | null {
-  if (state.roundsUsed < state.roundsMax) return null;
-  return text(`The look budget is spent (${state.roundsMax}/${state.roundsMax}). Make any last fix with check, then call finish.`, true);
-}
-
 export function buildLookTools(state: BuilderState) {
-  const roundsLine = () => `Look rounds used: ${state.roundsUsed}/${state.roundsMax}.`;
+  const roundsLine = () =>
+    `Look rounds used: ${state.roundsUsed}/${state.roundsMax}${state.verifyLooks > 0 ? `, plus ${state.verifyLooks}/${VERIFY_LOOK_ALLOWANCE} extra looks at a changed build` : ''}.`;
   const signal = () => (state.signal ? { signal: state.signal } : {});
   /** The signal, and the build's files when it names any. */
   const renderOptions = (build: { assets?: BuildAssetSource }) => ({ ...signal(), ...(build.assets ? { assets: build.assets } : {}) });
 
   const renderStills = tool(
     'render_stills',
-    'Check, then render frames of the current build and SHOW them to you at ~1024 px. One call = one look round (budgeted). Pick frames across the whole duration.',
+    'Check, then render frames of the current build and SHOW them to you at ~1024 px. One call = one look round (budgeted); once the budget is spent, a build you changed since your last look may still be looked at. Pick frames across the whole duration.',
     { frames: z.array(z.number().int()).min(1).max(12).describe('Frame numbers to render (0-based), at most 12') },
     tracked(state, 'rendering', async (args: { frames: number[] }) => {
-      const spent = budgetSpent(state);
-      if (spent) return spent;
+      // Check first: a spent budget still allows a look at a changed build.
       const look = await checkForLook(state);
       if ('reply' in look) return look.reply;
-      state.roundsUsed += 1;
+      const slot = takeLook(state, look.build.code);
+      if (!('verify' in slot)) return slot;
       const started = Date.now();
       try {
         const stills = await renderBuildStills(look.build.code, look.build.config, state.dirs.stillsDir, args.frames, {
           maxSide: 1024,
-          label: `r${pad(state.roundsUsed)}`,
+          label: slot.label,
           ...renderOptions(look.build),
         });
+        state.lastLook = { code: look.build.code };
         for (const still of stills.stills) {
           state.stills.push({ round: state.roundsUsed, frame: still.frame, size: 'model', path: still.path });
         }
@@ -81,6 +82,8 @@ export function buildLookTools(state: BuilderState) {
         await logEvent(state, {
           tool: 'render_stills',
           round: state.roundsUsed,
+          ...(slot.verify ? { verify: state.verifyLooks } : {}),
+          build: buildHash(look.build.code),
           frames,
           ms: stills.ms,
           bundleCached: stills.bundleCached,
@@ -97,8 +100,7 @@ export function buildLookTools(state: BuilderState) {
         }
         return { content };
       } catch (err) {
-        // A render failure is the build's fault (a runtime error), not the budget's.
-        state.roundsUsed -= 1;
+        giveBack(state, slot);
         return lookFailed(state, 'render_stills', err, started);
       }
     }),
@@ -115,23 +117,28 @@ export function buildLookTools(state: BuilderState) {
         .describe(`Frame numbers (0-based), ${CONTACT_SHEET_MAX_FRAMES} at most; shown in frame order`),
     },
     tracked(state, 'rendering', async (args: { frames: number[] }) => {
-      const spent = budgetSpent(state);
-      if (spent) return spent;
       const look = await checkForLook(state);
       if ('reply' in look) return look.reply;
-      state.roundsUsed += 1;
+      const slot = takeLook(state, look.build.code);
+      if (!('verify' in slot)) return slot;
       const started = Date.now();
       try {
         const sheet = await renderContactSheet(look.build.code, look.build.config, state.dirs.stillsDir, args.frames, {
-          label: `r${pad(state.roundsUsed)}-sheet`,
+          label: `${slot.label}-sheet`,
+          // P2 problem 1: a dozen WebGL canvases in one page lose a context.
+          separateTiles: look.build.webgl,
           ...renderOptions(look.build),
         });
+        state.lastLook = { code: look.build.code };
         state.stills.push({ round: state.roundsUsed, frame: sheet.frames[0], frames: sheet.frames, size: 'sheet', path: sheet.path });
         await logEvent(state, {
           tool: 'contact_sheet',
           round: state.roundsUsed,
+          ...(slot.verify ? { verify: state.verifyLooks } : {}),
+          build: buildHash(look.build.code),
           frames: sheet.frames,
           grid: `${sheet.layout.cols}x${sheet.layout.rows}`,
+          tiles: sheet.tiles,
           ms: sheet.ms,
           bundleCached: sheet.bundleCached,
           gl: sheet.gl,
@@ -149,7 +156,7 @@ export function buildLookTools(state: BuilderState) {
           ],
         };
       } catch (err) {
-        state.roundsUsed -= 1;
+        giveBack(state, slot);
         return lookFailed(state, 'contact_sheet', err, started);
       }
     }),

@@ -211,3 +211,23 @@ describe('imageEngine per-model parameter overrides (W2c)', () => {
     }
   });
 });
+
+describe('imageEngine.checkReady (can the provider run now?)', () => {
+  it('trusts a key-based provider, asks one that has readiness(), and names what is missing', async () => {
+    const { provider: keyed } = stubProvider('__ready_keyed');
+    const { provider: cli } = stubProvider('__ready_cli');
+    const readiness = vi.fn(async () => ({ ready: false as const, reason: 'sd-cli is not installed.' }));
+    imageEngine.registerInstance(keyed);
+    imageEngine.registerInstance({ ...cli, readiness } as ImageProvider);
+    try {
+      expect(await imageEngine.checkReady('__ready_keyed')).toEqual({ ready: true, providerId: '__ready_keyed' });
+      expect(await imageEngine.checkReady('__ready_cli')).toEqual({ ready: false, providerId: '__ready_cli', reason: 'sd-cli is not installed.' });
+      readiness.mockRejectedValueOnce(new Error('probe crashed'));
+      expect(await imageEngine.checkReady('__ready_cli')).toMatchObject({ ready: false, reason: 'probe crashed' });
+      expect(await imageEngine.checkReady('__not_registered')).toMatchObject({ ready: false, reason: 'No image provider is set up.' });
+    } finally {
+      imageEngine.unregister('__ready_keyed');
+      imageEngine.unregister('__ready_cli');
+    }
+  });
+});

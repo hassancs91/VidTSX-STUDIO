@@ -47,16 +47,20 @@ interface Session {
   signal: AbortSignal;
 }
 let script: (session: Session) => Promise<void>;
+/** What each session was started with: the usage attribution. */
+const llmCalls: Array<{ featureSource?: string; agentId?: string }> = [];
 vi.mock('../../ipc/llm-handlers', () => ({
   runLlmGenerate: async (
-    _data: unknown,
+    data: { featureSource?: string },
     signal: AbortSignal,
     _onTextDelta: unknown,
     extras: {
       mcpServers: Record<string, { tools: Array<{ name: string; handler: (a: unknown) => Promise<never> }> }>;
       onTurn: (u: unknown) => void;
+      agentId?: string;
     },
   ) => {
+    llmCalls.push({ featureSource: data.featureSource, ...(extras.agentId ? { agentId: extras.agentId } : {}) });
     const tools = extras.mcpServers.builder.tools;
     let n = 0;
     const session: Session = {
@@ -102,6 +106,7 @@ function request(overrides: Partial<BuildRequest> = {}): { req: BuildRequest; ev
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-'));
   releaseBundlesUnder.mockClear();
+  llmCalls.length = 0;
   let checks = 0;
   checkBuild.mockReset().mockImplementation(async () => passed(`// check ${++checks}`));
   renderBuildStills.mockReset().mockImplementation(async (_code, _config, dir: string, frames: number[], opts: { label: string }) => ({
@@ -192,6 +197,8 @@ describe('buildComposition — caps and cancel', () => {
   });
 
   it('a finished run reports rounds, turns, tokens and the phases it went through', async () => {
+    // One build throughout (no edit between the look and finish).
+    checkBuild.mockImplementation(async () => passed('// ball'));
     script = async (s) => {
       s.turn(800);
       await s.call('check');
@@ -271,7 +278,8 @@ describe('buildComposition — the loop seam on the result', () => {
       await s.call('render_stills', { frames: [0, 59] }); // check 1
       await s.call('phone_view', { frame: 30 }); // check 2
       for (let i = 0; i < 3; i++) await s.call('loop_seam'); // checks 3-5: three builds, three JUMPs
-      await s.call('finish', { summary: 'Gave up on the seam.' }); // check 6
+      await s.call('render_stills', { frames: [59] }); // check 6: a look at the final build, past the budget (P3 D1)
+      await s.call('finish', { summary: 'Gave up on the seam.' }); // check 7
     };
     const result = await buildComposition(request(loop).req);
     expect(result).toMatchObject({ ok: true, finished: true, seamOk: false, summary: 'Gave up on the seam.' });
@@ -319,5 +327,55 @@ describe('buildComposition — frame purity on a physics result', () => {
     };
     const result = await buildComposition(request({ maxOutputTokens: 1000 }).req);
     expect(result).toMatchObject({ ok: true, finished: false, stopReason: 'cap-tokens', pureOk: false });
+  });
+});
+
+describe("buildComposition — a caller's folder and usage (P3 part 1)", () => {
+  const finishOne = async (s: Session) => {
+    s.turn(100);
+    await s.call('render_stills', { frames: [0, 59] });
+    await s.call('phone_view', { frame: 30 });
+    await s.call('finish', { summary: 'One bounce.' });
+  };
+
+  it('saves a new build as v1 into the folder the caller made, under its usage tag', async () => {
+    checkBuild.mockImplementation(async () => passed('// ball'));
+    script = finishOne;
+    const into = path.join(tmpDir, 'session', 'work', 'compositions', 'bounce');
+    await fs.mkdir(into, { recursive: true });
+    const result = await buildComposition(request({ into, usage: { featureSource: 'agent', agentId: 'lwh.infographic-loop' } }).req);
+    expect(result).toMatchObject({ ok: true, finished: true, version: { number: 1, folderPath: into } });
+    expect(await fs.readFile(path.join(into, 'v1.tsx'), 'utf-8')).toBe('// ball');
+    // Nothing went to the Creator library.
+    expect(await fs.readdir(path.join(tmpDir, 'projects')).catch(() => [])).toEqual([]);
+    expect(llmCalls).toEqual([{ featureSource: 'agent', agentId: 'lwh.infographic-loop' }]);
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.request).toMatchObject({ into, usage: { featureSource: 'agent', agentId: 'lwh.infographic-loop' } });
+  });
+
+  it('defaults to the Creator: a project in the library, usage tsx-generation', async () => {
+    checkBuild.mockImplementation(async () => passed('// ball'));
+    script = finishOne;
+    const result = await buildComposition(request().req);
+    expect(result.version?.folderPath).toBe(path.join(tmpDir, 'projects', 'bounce-ball'));
+    expect(llmCalls).toEqual([{ featureSource: 'tsx-generation' }]);
+  });
+
+  it('refuses, before the model, a folder that is missing, already holds a version, or comes with editOf', async () => {
+    const missing = path.join(tmpDir, 'nowhere');
+    const used = path.join(tmpDir, 'used');
+    await fs.mkdir(used, { recursive: true });
+    await fs.writeFile(path.join(used, 'v1.tsx'), '// v1');
+    const cases: Array<[Partial<BuildRequest>, RegExp]> = [
+      [{ into: missing }, /does not exist/],
+      [{ into: used }, /already holds v1: continue it with editOf/],
+      [{ into: used, editOf: { folderPath: used } }, /not both/],
+    ];
+    for (const [overrides, error] of cases) {
+      const result = await buildComposition(request(overrides).req);
+      expect(result).toMatchObject({ ok: false, stopReason: 'error' });
+      expect(result.error).toMatch(error);
+    }
+    expect(llmCalls).toEqual([]);
   });
 });

@@ -18,16 +18,19 @@ import {
   describeCheck,
   isPhysicsBuild,
   logEvent,
+  lookedAt,
   pureOkFor,
   runCheck,
   seamOkFor,
   STOPPING,
   text,
   tracked,
+  VERIFY_LOOK_ALLOWANCE,
   type BuilderState,
 } from './builder-tool-common';
 
 export type { BuilderState } from './builder-tool-common';
+export { VERIFY_LOOK_ALLOWANCE } from './builder-tool-common';
 
 export const BUILDER_MCP_SERVER_NAME = 'builder';
 export const BUILDER_TOOL_IDS = [
@@ -63,16 +66,24 @@ export const SEAM_JUMP_ALLOWANCE = 3;
  */
 export const PURITY_IMPURE_ALLOWANCE = 3;
 
-type GateTool = 'phone_view' | 'loop_seam' | 'purity_check';
+type GateTool = 'look' | 'phone_view' | 'loop_seam' | 'purity_check';
 
 /**
  * What `finish` still needs before it accepts `code`, checked after the round
  * floor (P1 part 4b): a prompt-only "before you finish" was skipped by the
  * part 4 smoke, a refusal is not. The looks are free, so edits pay them too.
  * A piece that inlines a physics engine must also measure PURE (P2 part 3).
+ * The build itself must have been looked at (P3 D1), until the extra looks
+ * at a changed build run out.
  */
 function finishGate(state: BuilderState, code: string, physics: boolean): Array<{ tool: GateTool; line: string }> {
   const missing: Array<{ tool: GateTool; line: string }> = [];
+  if (!lookedAt(state, code) && state.verifyLooks < VERIFY_LOOK_ALLOWANCE) {
+    missing.push({
+      tool: 'look',
+      line: 'the code changed after your last look, so nobody has seen this build: render_stills (or contact_sheet) on it first, frames where the change shows. If the look budget is spent, a look at a changed build is still allowed.',
+    });
+  }
   if (state.phoneViews === 0) {
     missing.push({ tool: 'phone_view', line: 'phone_view has not run yet: call it on the frame with the smallest text.' });
   }
@@ -110,7 +121,7 @@ export function buildBuilderToolServer(state: BuilderState) {
 
   const finish = tool(
     'finish',
-    'End the build. Runs a final check; on success the current build becomes the result. Refused until phone_view has run once; on a loop, until the last loop_seam measured this exact build and said OK; on a piece that uses a physics engine, until the last purity_check measured this exact build and said PURE — so run those after your last change. Give a short summary: the picture chosen, what each round changed, the numbers verified, anything in the request you corrected.',
+    'End the build. Runs a final check; on success the current build becomes the result. Refused until you have LOOKED at this exact build (render_stills or contact_sheet after your last change; allowed even when the look budget is spent) and phone_view has run once; on a loop, until the last loop_seam measured this exact build and said OK; on a piece that uses a physics engine, until the last purity_check measured this exact build and said PURE — so run those after your last change. Give a short summary: the picture chosen, what each round changed, the numbers verified, anything in the request you corrected.',
     { summary: z.string().min(1).describe('What you built and why, round by round') },
     tracked(state, 'checking', async (args: { summary: string }) => {
       if (state.finished) return text('Already finished. Reply with one short line and stop.');
@@ -133,13 +144,19 @@ export function buildBuilderToolServer(state: BuilderState) {
       const missing = finishGate(state, result.code, physics);
       if (missing.length > 0) {
         await logEvent(state, { tool: 'finish', refused: true, missing: missing.map((m) => m.tool), build: buildHash(result.code) });
-        return text(
-          `Not yet: finish needs ${missing.length === 1 ? 'this free check' : 'these free checks'} first (no look round):\n- ${missing.map((m) => m.line).join('\n- ')}`,
-          true,
-        );
+        const look = missing.find((m) => m.tool === 'look');
+        const free = missing.filter((m) => m.tool !== 'look');
+        const parts = [
+          ...(look ? [look.line] : []),
+          ...(free.length > 0
+            ? [`finish needs ${free.length === 1 ? 'this free check' : 'these free checks'} first (no look round):\n- ${free.map((m) => m.line).join('\n- ')}`]
+            : []),
+        ];
+        return text(`Not yet: ${parts.join('\nAnd ')}`, true);
       }
       const seamOk = state.expect.loop ? seamOkFor(state, result.code) : undefined;
       const pureOk = physics ? pureOkFor(state, result.code) : undefined;
+      const looked = lookedAt(state, result.code);
       state.finished = { summary: args.summary, code: result.code, config: result.config, physics };
       await logEvent(state, {
         tool: 'finish',
@@ -148,10 +165,13 @@ export function buildBuilderToolServer(state: BuilderState) {
         phoneViews: state.phoneViews,
         seamChecks: state.seamChecks,
         build: buildHash(result.code),
+        looked,
+        ...(state.verifyLooks > 0 ? { verifyLooks: state.verifyLooks } : {}),
         ...(seamOk === undefined ? {} : { seamOk, seamJumps: state.seamJumps.size }),
         ...(pureOk === undefined ? {} : { pureOk, purityChecks: state.purityChecks, impureBuilds: state.impureBuilds.size }),
       });
       const unverified = [
+        ...(looked ? [] : [`the final build NOT looked at: the ${VERIFY_LOOK_ALLOWANCE} extra looks at a changed build were used`]),
         ...(seamOk === false
           ? [`the loop seam NOT verified: loop_seam called ${state.seamJumps.size} builds a JUMP, so the result is marked seamOk: false`]
           : []),

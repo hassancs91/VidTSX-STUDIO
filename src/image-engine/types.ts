@@ -97,6 +97,9 @@ export interface ImageProviderPreset extends ImageProviderConfig {
   credentialId: ProviderKeyId;
 }
 
+/** Can a provider generate right now? `reason` is the message its generate() would throw. */
+export type ImageProviderReadiness = { ready: true } | { ready: false; reason: string };
+
 /** The interface every image provider must implement */
 export interface ImageProvider {
   readonly id: ImageProviderId;
@@ -104,6 +107,12 @@ export interface ImageProvider {
   readonly defaultModel?: string;
   generate(request: ImageGenerationRequest): Promise<ImageGenerationResponse>;
   getSupportedModels(): ImageModelInfo[];
+  /**
+   * Providers that depend on something outside the app (a CLI installed and
+   * signed in, a local model downloaded) say whether it is there. Absent = a
+   * key-based provider: ready once registered.
+   */
+  readiness?(): Promise<ImageProviderReadiness>;
 }
 
 /**

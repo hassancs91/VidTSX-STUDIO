@@ -19,6 +19,7 @@ import type {
   LlmUsageIpc,
 } from '@shared/ipc/types';
 import type { CompositionConfig } from '../composition-config-parser';
+import type { AiFeatureSource } from '@shared/types/ai-usage';
 import type {
   PipelineMode,
   PipelineProgress,
@@ -56,6 +57,12 @@ export interface BuildRequest {
    * the same folder. `version` defaults to the latest.
    */
   editOf?: { folderPath: string; version?: number };
+  /**
+   * A NEW build saved as v1 into this folder, which the caller made first
+   * (Studio reserves a shot folder before it generates; an agent writes into
+   * its workspace). It must exist and hold no version yet. Not with `editOf`.
+   */
+  into?: string;
   /** Parent of a NEW build's project folder. Default: the Creator's projects dir. */
   projectsDir?: string;
   /** Folder name for a new build. Default: from `compositionConfig.id`. */
@@ -65,6 +72,8 @@ export interface BuildRequest {
   providerId?: string;
   model?: string;
   effort?: EffortLevel;
+  /** Whose LLM usage the run is (the usage log). Default: the TSX Creator's, `tsx-generation`. */
+  usage?: BuildUsageTag;
   /** Caps override the budget's (build-run-guard.ts BUDGET_CAPS). */
   maxMinutes?: number;
   maxOutputTokens?: number;
@@ -82,6 +91,12 @@ export interface BuildRequest {
   onProgress?: (event: BuildProgressEvent) => void;
   /** The builder's narration as it streams (what the transcript records). A throwing listener is ignored. */
   onText?: (delta: string) => void;
+}
+
+/** A usage-log tag. `agentId` must come from main, never the renderer (llm-handlers.ts `extras.agentId`). */
+export interface BuildUsageTag {
+  featureSource: AiFeatureSource;
+  agentId?: string;
 }
 
 /** The run's counters at the moment of an event: enough to draw its status line. */

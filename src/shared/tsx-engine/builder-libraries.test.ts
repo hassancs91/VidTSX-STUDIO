@@ -9,6 +9,7 @@ import {
   builderLibraryCatalogue,
   isBuilderLibrary,
   isPhysicsEngine,
+  isWebGlLibrary,
   packageNameOf,
 } from './builder-libraries';
 
@@ -52,6 +53,15 @@ describe('builder library set', () => {
     const root = path.resolve(__dirname, '../../..');
     const pkg = createRequire(path.join(root, 'package.json'))('./package.json') as { dependencies: Record<string, string> };
     for (const lib of BUILDER_LIBRARIES.filter((l) => !l.builtIn)) expect(pkg.dependencies[lib.name], lib.name).toBeTruthy();
+  });
+
+  it('tells the 3D libraries (a WebGL canvas) from the rest', () => {
+    for (const pkg of ['three', '@react-three/fiber', '@react-three/drei', '@react-three/postprocessing', 'postprocessing', '@remotion/three']) {
+      expect(isWebGlLibrary(pkg), pkg).toBe(true);
+    }
+    for (const pkg of ['d3', 'roughjs', '@dimforge/rapier3d-compat', '@vidtsx/three-assets', 'three-stdlib']) {
+      expect(isWebGlLibrary(pkg), pkg).toBe(false);
+    }
   });
 
   it('ships the frame-pure simulation helper as a built-in, and tells engines from it', () => {

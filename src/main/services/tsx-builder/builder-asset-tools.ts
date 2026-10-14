@@ -147,13 +147,17 @@ export function rankLibrary(entries: Array<Pick<LibraryIndexEntry, 'relPath' | '
   return hits.sort((a, b) => b.score - a.score || a.relPath.localeCompare(b.relPath)).slice(0, limit);
 }
 
-/** Is an image provider configured (what generate_image needs)? */
-export function imageGenerationAvailable(): { ok: true; provider: string } | { ok: false } {
+/**
+ * Can the active image provider make an image now (what generate_image needs)?
+ * Registered is not enough (P2 problem 3): the local sd-cli is registered
+ * whether or not it is installed, so B4, B5 and B7 were offered it and failed.
+ */
+export async function imageGenerationAvailable(): Promise<{ ok: true; provider: string } | { ok: false; reason: string }> {
   try {
-    const provider = imageEngine.getActiveProvider();
-    return provider ? { ok: true, provider } : { ok: false };
-  } catch {
-    return { ok: false };
+    const ready = await imageEngine.checkReady();
+    return ready.ready ? { ok: true, provider: ready.providerId } : { ok: false, reason: ready.reason };
+  } catch (err) {
+    return { ok: false, reason: err instanceof Error ? err.message : String(err) };
   }
 }
 
@@ -236,8 +240,8 @@ export function buildAssetTools(state: BuilderState) {
       if (state.imagesGenerated >= state.imagesMax) {
         return text(`generate_image is used up (${state.imagesMax}/${state.imagesMax} this run). Use what you have, or draw it.`, true);
       }
-      const available = imageGenerationAvailable();
-      if (!available.ok) return text('No image provider is configured, so generate_image is not available: draw it, or use the library.', true);
+      const available = await imageGenerationAvailable();
+      if (!available.ok) return text(`generate_image cannot run (${available.reason}): draw it, or use the library.`, true);
       const name = cleanAssetName(args.name.toLowerCase().endsWith('.png') ? args.name : `${args.name}.png`);
       if (!name) return text(`"${args.name}" is not a usable name inside assets/.`, true);
       if (await exists(path.join(assetsDir(), ...name.split('/')))) return text(`assets/${name} already exists: pick another name.`, true);

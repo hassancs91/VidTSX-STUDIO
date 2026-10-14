@@ -15,14 +15,14 @@ vi.mock('./build-check', () => ({ checkBuild: (...args: unknown[]) => checkBuild
 vi.mock('./build-stills', () => ({ renderBuildStills: (...args: unknown[]) => renderBuildStills(...args) }));
 vi.mock('./build-looks', () => ({ PHONE_FEED_WIDTH: 390 }));
 
-import { buildBuilderToolServer, type BuilderState } from './builder-tools';
+import { buildBuilderToolServer, VERIFY_LOOK_ALLOWANCE, type BuilderState } from './builder-tools';
 
 type Handler = (args: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }>; isError?: boolean }>;
 
 const config = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
 const passed = { ok: true, errors: [], code: '// bundle', config, inlinedFiles: [], inlinedPackages: [], assets: [], ms: 5 };
 /** The finish gate met for the stubbed bundle (its own tests are in builder-look-tools.test.ts). */
-const gateMet = { phoneViews: 1, lastSeam: { code: '// bundle', jump: false } };
+const gateMet = { phoneViews: 1, lastSeam: { code: '// bundle', jump: false }, lastLook: { code: '// bundle' } };
 
 async function setup(overrides: Partial<BuilderState> = {}) {
   const runDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-tools-'));
@@ -32,6 +32,9 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     roundsMax: 3,
     roundsMin: 2,
     roundsUsed: 0,
+    // The build the stubs check ('// bundle'): nothing looked at yet.
+    lastLook: null,
+    verifyLooks: 0,
     checks: 0,
     phoneViews: 0,
     seamChecks: 0,
@@ -97,12 +100,37 @@ describe('render_stills', () => {
     expect(state.stills).toEqual([]);
   });
 
-  it('refuses once the look budget is spent', async () => {
-    const { call } = await setup({ roundsUsed: 3 });
+  it('refuses once the look budget is spent and this build has been looked at', async () => {
+    const { call } = await setup({ roundsUsed: 3, lastLook: { code: '// bundle' } });
     const result = await call('render_stills', { frames: [0] });
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('look budget is spent');
+    expect(result.content[0].text).toContain('look budget is spent (3/3) and you have looked at this exact build');
     expect(renderBuildStills).not.toHaveBeenCalled();
+  });
+
+  it(`past the budget, looks at a changed build (${VERIFY_LOOK_ALLOWANCE} times at most), under its own label`, async () => {
+    const { state, call } = await setup({ roundsUsed: 3, lastLook: { code: '// bundle' } });
+    for (let n = 1; n <= VERIFY_LOOK_ALLOWANCE; n++) {
+      checkBuild.mockResolvedValue({ ...passed, code: `// fix ${n}` });
+      const result = await call('render_stills', { frames: [0, 239] });
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0].text).toContain(`Look rounds used: 3/3, plus ${n}/${VERIFY_LOOK_ALLOWANCE} extra looks at a changed build.`);
+      expect(renderBuildStills.mock.calls.at(-1)![4]).toMatchObject({ label: `r03v${n}` });
+      expect(state).toMatchObject({ roundsUsed: 3, verifyLooks: n, lastLook: { code: `// fix ${n}` } });
+    }
+    expect(state.stills.map((s) => path.basename(s.path))).toEqual(['r03v1-f0.jpg', 'r03v1-f239.jpg', 'r03v2-f0.jpg', 'r03v2-f239.jpg']);
+    // The same build again, then a third change: both refused.
+    expect((await call('render_stills', { frames: [0] })).content[0].text).toContain('looked at this exact build');
+    checkBuild.mockResolvedValue({ ...passed, code: '// fix 3' });
+    expect((await call('render_stills', { frames: [0] })).content[0].text).toContain('extra looks at a changed build are used too');
+    expect(renderBuildStills).toHaveBeenCalledTimes(VERIFY_LOOK_ALLOWANCE);
+  });
+
+  it('gives an extra look back when its render fails', async () => {
+    const { state, call } = await setup({ roundsUsed: 3 });
+    renderBuildStills.mockRejectedValueOnce(new Error('ReferenceError: x is not defined'));
+    await call('render_stills', { frames: [0] });
+    expect(state).toMatchObject({ roundsUsed: 3, verifyLooks: 0, lastLook: null });
   });
 });
 
@@ -122,6 +150,32 @@ describe('finish', () => {
     const result = await call('finish', { summary: 'two rounds' });
     expect(result.isError).toBeUndefined();
     expect(state.finished).toMatchObject({ summary: 'two rounds', code: '// bundle' });
+  });
+
+  it('wants the final build looked at: a change after the last look is refused until a look of it', async () => {
+    const { state, call } = await setup({ ...gateMet, roundsUsed: 3, roundsMin: 2 });
+    checkBuild.mockResolvedValue({ ...passed, code: '// changed after the last round' });
+    const refused = await call('finish', { summary: 's' });
+    expect(refused.isError).toBe(true);
+    expect(refused.content[0].text).toContain('the code changed after your last look');
+    // The seam was measured on the earlier build too: both in one refusal.
+    expect(refused.content[0].text).toContain('\nAnd finish needs this free check first');
+    const events = await fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8');
+    expect(events).toContain('"missing":["look","loop_seam"]');
+    await call('render_stills', { frames: [0, 120, 239] });
+    state.lastSeam = { code: '// changed after the last round', jump: false };
+    expect((await call('finish', { summary: 'seen' })).isError).toBeUndefined();
+    expect(await fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8')).toContain('"looked":true,"verifyLooks":1');
+  });
+
+  it(`lets an unseen build through once the ${VERIFY_LOOK_ALLOWANCE} extra looks are used, and says so`, async () => {
+    const { state, call } = await setup({ ...gateMet, roundsUsed: 3, verifyLooks: VERIFY_LOOK_ALLOWANCE });
+    checkBuild.mockResolvedValue({ ...passed, code: '// one more change' });
+    state.lastSeam = { code: '// one more change', jump: false };
+    const result = await call('finish', { summary: 'unseen' });
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain('the final build NOT looked at');
+    expect(await fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8')).toContain('"looked":false');
   });
 
   it('keeps the first finish', async () => {

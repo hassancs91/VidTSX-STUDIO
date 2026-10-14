@@ -19,7 +19,7 @@ import {
   renderPreparedInOrder,
   type BuildAssetSource,
 } from './build-stills';
-import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE, contactSheetSource, type SheetLayout } from './contact-sheet';
+import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE, contactSheetSource, tileSheetSource, type SheetLayout } from './contact-sheet';
 import { measureSeam, type SeamMeasure } from './loop-seam';
 import { measurePurity, PURITY_MAX_FRAMES, PURITY_MAX_SIDE, purityFrames, type PurityMeasure } from './frame-purity';
 import type { CompositionConfig } from '../composition-config-parser';
@@ -57,19 +57,46 @@ export interface LookImage {
 
 const elapsedSince = (started: number, bundleMs: number) => ({ bundle: bundleMs, render: Date.now() - started - bundleMs });
 
-/** `frames` (clamped, deduped, in order, at most 12) as one labelled grid. */
+/**
+ * `frames` (clamped, deduped, in order, at most 12) as one labelled grid.
+ * `separateTiles` (a WebGL piece): each frame renders alone in its own page,
+ * at tile size, and the sheet lays the images out — one WebGL context per
+ * page instead of one per tile (contact-sheet.ts `tileSheetSource`).
+ */
 export async function renderContactSheet(
   code: string,
   config: CompositionConfig,
   outDir: string,
   frames: number[],
-  options: LookOptions,
-): Promise<LookImage & { frames: number[]; layout: SheetLayout }> {
+  options: LookOptions & { separateTiles?: boolean },
+): Promise<LookImage & { frames: number[]; layout: SheetLayout; tiles: 'mounted' | 'separate' }> {
   const started = Date.now();
   const picked = clampFrames(frames, config.durationInFrames).slice(0, CONTACT_SHEET_MAX_FRAMES);
-  const sheet = contactSheetSource(code, config, picked);
   const signal = options.signal ? { signal: options.signal } : {};
-  const prepared = await prepareBuildRender(sheet.code, sheet.config, outDir, { entryName: 'contact-sheet.tsx', ...prepareOptions(options) });
+  let sheet: ReturnType<typeof contactSheetSource>;
+  let prepared: Awaited<ReturnType<typeof prepareBuildRender>>;
+  let bundleMs: number;
+  if (options.separateTiles) {
+    sheet = tileSheetSource(config, picked);
+    // The build's own entry: the bundle render_stills made is reused.
+    const piece = await prepareBuildRender(code, config, outDir, prepareOptions(options));
+    const rendered = await renderPreparedFrames(piece, outDir, picked, { label: `${options.label}-tile`, scale: sheet.layout.scale, ...signal });
+    const tiles: string[] = [];
+    for (const tile of rendered) {
+      tiles.push(`data:image/jpeg;base64,${(await fs.readFile(tile.path)).toString('base64')}`);
+      await fs.rm(tile.path, { force: true });
+    }
+    prepared = await prepareBuildRender(sheet.code, sheet.config, outDir, {
+      entryName: 'tile-sheet.tsx',
+      inputProps: { tiles },
+      ...(options.signal ? { signal: options.signal } : {}),
+    });
+    bundleMs = piece.ms.bundle + prepared.ms.bundle;
+  } else {
+    sheet = contactSheetSource(code, config, picked);
+    prepared = await prepareBuildRender(sheet.code, sheet.config, outDir, { entryName: 'contact-sheet.tsx', ...prepareOptions(options) });
+    bundleMs = prepared.ms.bundle;
+  }
   const [image] = await renderPreparedFrames(prepared, outDir, [0], { label: options.label, ...signal });
   const seen = encodeForModel(image.path, { maxSide: CONTACT_SHEET_MAX_SIDE });
   const file = path.join(outDir, `${options.label}.jpg`);
@@ -81,7 +108,8 @@ export async function renderContactSheet(
     mimeType: 'image/jpeg',
     frames: picked,
     layout: sheet.layout,
-    ms: elapsedSince(started, prepared.ms.bundle),
+    tiles: options.separateTiles ? 'separate' : 'mounted',
+    ms: elapsedSince(started, bundleMs),
     bundleCached: prepared.bundleCached,
     gl: prepared.gl,
   };
