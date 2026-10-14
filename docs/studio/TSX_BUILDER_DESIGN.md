@@ -639,6 +639,47 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   (Electron 41 = Chromium 146, untested) may differ from its export; (6) 3D pieces need production React wherever
 >   they play (the wall's Studio needed React 19 production; the app's Studio editor player under `npm run dev` still).
 
+> **P3 split agreed 2026-10-14** (Hasan: "Ok" on the split and on every recommendation below; one part at a time, his
+> go on each). Parts: **1** builder fixes + caller plumbing (P2 problems 1-3; a build into a reserved empty folder; one
+> main-side "start a build job and wait"; usage attribution per caller) · **2** Creator composer A: the first message
+> builds (budget picker, loop toggle, Auto length = builder decides, progress panel with live stills, kind `build` in the
+> library / auto-open / stream) · **3** Creator composer B: later messages and "Fix with AI" are builder edits, chat
+> thread, Agent tab out, Optimize + Thinking out; P2 problem 5 measured · **4** agents' generate / edit_composition
+> through build jobs (first: probe the Agent SDK's in-process tool timeout with a ~15 min call) · **5** Studio shots +
+> assistant + Refine, 2D · **6** 3D in Studio (P2 problem 6, per-shot `vN.assets`) · **7** the flow node · **8** the
+> pipeline deleted from generation · **9** exit.
+> Decisions: **D1** `finish` refuses a build whose code changed after the last look (render_stills / contact_sheet)
+> until one look of that exact build, allowed past the round cap · **D2** no pack picker in P3 (P4 builds it once, over
+> real packs); P3's Creator exit types the style in words · **D3** composer: budget default Standard, Loop shown,
+> Optimize + Thinking removed · **D4** the Agent tab leaves the Creator in part 3; tsx-composer stays an installed agent
+> until P4 · **D5** agent output = `compositions/<slug>/vN.tsx` + the builder's sidecars, an edit = the next version in
+> that folder · **D6** the agent tool result carries 2-3 final stills · **D7** builds stay one at a time app-wide in P3 ·
+> **D8** 3D files in Studio shots through a per-shot `vN.assets` lookup (no new Studio media kinds) · **D9** an opt-in
+> dev switch runs the renderer on production React for 3D shots under `npm run dev` · **D10** conform / Convert for
+> Studio: verify the bundle step now inlines CONFORMABLE_MODULES without a model, drop those LLM passes, route what is
+> left through a Quick builder edit · **D11** exit at each caller's default budget (Standard): Creator = B2 typed in the
+> composer; agents = the lab's Infographic Loop v0.1 agent on B2 (R0's column-1 setup, builder behind the tool); Studio =
+> a new cutaway brief; flow = explainer-30s; a miss gets one Craft re-run of that brief. P2 problem 4 (B7 no engine):
+> nothing to fix. Problem 5: measured in part 3, any fix later.
+> - **Part 1 DONE `ed551e0`** (builder fixes + caller plumbing). **contact_sheet on a WebGL piece** (check inlined a 3D
+>   library, `isWebGlLibrary`): each frame renders alone in its own page at tile size, then `tileSheetSource` lays the
+>   images out with the 2D sheet's grid and labels; the 2D sheet is unchanged. Free probe (`runs/P3/sheet3d-p1`): B7's
+>   12-tile sheet OK tile by tile and still "reading 'alpha'" when mounted in one page; B5 OK; B4 (2D) mounted, 4 s. Cost:
+>   a 12-tile 3D sheet takes as long as 12 stills (B7 91 s, B5 80 s; B7 paints its textures in code per page).
+>   **D1:** `state.lastLook` = the build the last render_stills / contact_sheet showed; `finish` refuses another build
+>   ("the code changed after your last look") before the free checks, and a look at a changed build is allowed past the
+>   budget (`VERIFY_LOOK_ALLOWANCE` 2, label `rNNvK` so the last round's stills are kept); after those, an unseen build
+>   finishes, logged `looked: false`. Prompt step 6 + tool descriptions. **Image readiness:** optional
+>   `ImageProvider.readiness()` (sd-cli + a ready model; agy / codex installed and signed in), `imageEngine.checkReady()`;
+>   the builder's first message says why generate_image is off. **Plumbing:** `BuildRequest.into` (v1 in an empty folder
+>   the caller made; refused before the model when missing, holding a version, or with editOf) and `usage` (feature
+>   source + agentId). `tsxJobEngine.start(request, owner)` for builds from main (origin agent / studio / flow, `into`,
+>   `usage`; never over IPC): one shared build queue, runs while restored Creator jobs are held without releasing them,
+>   never persisted; snapshot `origin`. `startBuildAndWait()` (tsx-jobs/build-and-wait.ts) = start + follow + cancel by
+>   the caller's signal; the dev entry's followJob runs on it. Quick smoke (`runs/P3/smoke-p1`, Sonnet 5.5): finished,
+>   50 s, 1 round, $0.64 API-eq, seamOk; it changed nothing after its look, so the D1 refusal is proven by unit tests
+>   only. Gates: types 26/10; vitest 373 files / 3192 tests (2 load-flake timeouts pass alone).
+
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
 
