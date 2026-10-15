@@ -49,7 +49,7 @@ describe('buildFirstMessage', () => {
   });
 
   it("points an edit at the builder's round log when the source was kept", () => {
-    const message = buildFirstMessage({ intent: 'Make the coins bigger.', format, seed: { version: 3, fromSrc: true } });
+    const message = buildFirstMessage({ intent: 'Make the coins bigger.', format, seed: { version: 3, kind: 'src' } });
     expect(message.startsWith('Change this composition.')).toBe(true);
     expect(message).toContain('CHANGE: Make the coins bigger.');
     expect(message).toContain('holds v3 as the builder left it: DESIGN.md');
@@ -57,8 +57,35 @@ describe('buildFirstMessage', () => {
   });
 
   it('asks for a DESIGN.md when the edited version predates the builder', () => {
-    const message = buildFirstMessage({ intent: 'Slower.', format, seed: { version: 1, fromSrc: false } });
+    const message = buildFirstMessage({ intent: 'Slower.', format, seed: { version: 1, kind: 'file' } });
     expect(message).toContain('holds v1 as one file, index.tsx');
     expect(message).toContain('there is no DESIGN.md');
+  });
+
+  it('sends the src and pre-builder edit messages as before part 3, word for word', () => {
+    const tail = (kind: 'src' | 'file') => buildFirstMessage({ intent: 'Slower.', format, seed: { version: 2, kind } }).split('\n').slice(-2);
+    expect(tail('src')).toEqual([
+      'Your folder holds v2 as the builder left it: DESIGN.md has its design and round log. Read DESIGN.md and the files first.',
+      'Look at it as it is (render_stills) before you change anything. Keep what works; change what the request asks and what your looks show is needed. Add this edit to the round log in DESIGN.md.',
+    ]);
+    expect(tail('file')[0]).toBe(
+      'Your folder holds v2 as one file, index.tsx. It was made before the builder, so there is no DESIGN.md: start one with what the picture is now, then the change.',
+    );
+  });
+
+  it('points a hand-edited version at HAND-EDITS.diff before the change asked for', () => {
+    const later = buildFirstMessage({ intent: 'Blue ball.', format, seed: { version: 2, kind: 'hand-edits', srcVersion: 1, handEditLines: 4 } });
+    expect(later).toContain('Your folder holds v1 as the builder left it');
+    expect(later).toContain('v2 is v1 with changes made by hand: HAND-EDITS.diff has those changes (4 lines)');
+    expect(later).toContain('make it there first: the user keeps them. Then look at it (render_stills) before the change asked for.');
+    const inPlace = buildFirstMessage({ intent: 'Blue ball.', format, seed: { version: 3, kind: 'hand-edits', srcVersion: 3, handEditLines: 2 } });
+    expect(inPlace).toContain('v3 was changed by hand after the builder saved it: HAND-EDITS.diff');
+  });
+
+  it('says a rewritten bundle is a bundle, and asks for staticFile() again when it names files', () => {
+    const message = buildFirstMessage({ intent: 'Blue ball.', format, seed: { version: 4, kind: 'file', bundle: true, bundleAssets: true, srcVersion: 2 } });
+    expect(message).toContain("holds v4 as one file, index.tsx: the builder's files for v2 bundled into one, then rewritten by hand. DESIGN.md is v2's design");
+    expect(message).toContain("write staticFile('…') for each again");
+    expect(message).not.toContain('made before the builder');
   });
 });

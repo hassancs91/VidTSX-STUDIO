@@ -169,12 +169,14 @@ export async function runBuildJob(ctx: BuildJobContext): Promise<void> {
     const rounds = `${outcome.rounds} round${outcome.rounds === 1 ? '' : 's'}`;
     const ending = outcome.finished ? 'finished' : (outcome.error ?? 'stopped');
     await appendChatTurns(version.folderPath, [
-      { role: 'user', content: ctx.request.prompt },
+      { role: 'user', content: build.threadText?.trim() || ctx.request.prompt },
       {
         role: 'assistant',
         content: build.editOf
-          ? `Applied edit — saved as v${version.number} (${rounds}, ${ending}).`
+          ? `Applied edit — saved as v${version.number} (${build.budget}, ${rounds}, ${ending}).`
           : `Built v${version.number} (${build.budget}, ${rounds}, ${ending}).`,
+        version: version.number,
+        ...(outcome.summary ? { summary: outcome.summary } : {}),
       },
     ]).catch(() => {});
     snap.projectName = path.basename(version.folderPath);

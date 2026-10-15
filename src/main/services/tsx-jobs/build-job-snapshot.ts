@@ -29,6 +29,7 @@ export function initialBuildSnapshot(request: TsxBuildJobRequestIpc): TsxBuildJo
     budget: request.budget,
     ...(request.format ? { format: { ...request.format } } : {}),
     edit: Boolean(request.editOf),
+    ...(request.editOf?.version !== undefined ? { editVersion: request.editOf.version } : {}),
     phase: 'preparing',
     round: 0,
     roundsMax: 0,

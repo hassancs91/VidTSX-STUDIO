@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { Button, Modal, RenderSettingsModal, SkeletonLoader, type RenderSettings } from '@shared/components';
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
 import { CodeEditor, useCodeEditor, usePropsExtractor, PropsPanel } from '@features/editor';
@@ -6,8 +7,7 @@ import { JobStreamView } from './JobStreamView';
 import { useRenderQueue } from '@features/render-queue';
 import { useToast } from '@renderer/contexts/ToastContext';
 import type { MotionProject } from '../types';
-import type { PipelineStepLog, PipelineProgress, PipelineMode } from '@shared/tsx-engine';
-import { useSmoothProgress } from '../hooks/useSmoothProgress';
+import type { PipelineStepLog, PipelineMode } from '@shared/tsx-engine';
 import { useRenderedOutputs } from '../hooks/useRenderedOutputs';
 import { RenderedOutputView } from './RenderedOutputView';
 
@@ -52,13 +52,11 @@ interface MotionPreviewPanelProps {
     usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
   } | null;
   error: string | null;
+  /** A restored pipeline edit / fix of this project: its live output replaces the player, as before part 3. */
   loading: boolean;
-  progress: PipelineProgress | null;
-  editPrompt: string;
-  onEditPromptChange: (value: string) => void;
-  onRegenerate: () => void;
+  /** An edit of this project is running (a builder edit keeps the player): no hand save, no second fix. */
+  busy: boolean;
   onFix: (errorMessage: string, errorLocation?: { line: number; column: number; file: string }) => void;
-  onCancel: () => void;
   onOverwrite: (editedContent: string) => void;
   onSaveNewVersion: (editedContent: string) => void;
   /** Studio shot folders are append-only (SHOT_QUALITY_DESIGN Q2): no
@@ -69,6 +67,8 @@ interface MotionPreviewPanelProps {
   streamJobId?: string | null;
   saving: boolean;
   saveMessage: string | null;
+  /** Under the tabs while a project is open: the thread and the Edit box (P3 part 3). */
+  footer?: ReactNode;
 }
 
 export function MotionPreviewPanel({
@@ -76,20 +76,16 @@ export function MotionPreviewPanel({
   output,
   error,
   loading,
-  progress,
-  editPrompt,
-  onEditPromptChange,
-  onRegenerate,
+  busy,
   onFix,
-  onCancel,
   onOverwrite,
   onSaveNewVersion,
   appendOnly = false,
   streamJobId = null,
   saving,
   saveMessage,
+  footer,
 }: MotionPreviewPanelProps) {
-  const smoothPercent = useSmoothProgress(progress, 'edit');
   const [activeTab, setActiveTab] = useState<Tab>('preview');
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const [isRenderModalOpen, setIsRenderModalOpen] = useState(false);
@@ -332,9 +328,10 @@ export function MotionPreviewPanel({
                         variant="primary"
                         size="sm"
                         onClick={() => onFix(loaderState.error!, loaderState.errorLocation)}
-                        disabled={loading}
+                        disabled={busy}
+                        data-fix-with-ai
                       >
-                        {loading ? 'Fixing...' : 'Fix with AI'}
+                        {busy ? 'An edit is running…' : 'Fix with AI'}
                       </Button>
                     )}
                   </div>
@@ -383,7 +380,7 @@ export function MotionPreviewPanel({
                     variant="secondary"
                     size="sm"
                     onClick={() => setShowOverwriteConfirm(true)}
-                    disabled={saving || loading}
+                    disabled={saving || busy}
                   >
                     Overwrite
                   </Button>
@@ -397,7 +394,7 @@ export function MotionPreviewPanel({
                     codeEditor.cancelPendingSave();
                     onSaveNewVersion(codeEditor.content);
                   }}
-                  disabled={saving || loading}
+                  disabled={saving || busy}
                 >
                   Save as new version
                 </Button>
@@ -497,62 +494,7 @@ export function MotionPreviewPanel({
           )}
         </div>
 
-        {/* Edit prompt area */}
-        {hasContent && (
-          <div
-            className="shrink-0 p-3 flex flex-col gap-2"
-            style={{ borderTop: '0.5px solid var(--color-border)' }}
-          >
-            <span className="text-[11px] text-text-muted font-medium">Edit</span>
-            <textarea
-              className="bg-app-base text-text-primary rounded-[6px] px-3 py-2 resize-none focus:outline-none w-full"
-              style={{
-                fontSize: 11,
-                border: '0.5px solid var(--color-border-input)',
-                height: 56,
-                fontFamily: 'inherit',
-              }}
-              placeholder="Describe changes to apply to this composition..."
-              value={editPrompt}
-              onChange={(e) => onEditPromptChange(e.target.value)}
-              onFocus={(e) => { e.target.style.borderColor = 'var(--color-accent)'; }}
-              onBlur={(e) => { e.target.style.borderColor = 'var(--color-border-input)'; }}
-              disabled={loading}
-            />
-            <div className="flex items-center gap-2">
-              {loading ? (
-                <button
-                  onClick={onCancel}
-                  className="px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-colors cursor-pointer text-red-400 hover:text-white hover:bg-red-500/80"
-                  style={{ border: '1px solid rgba(239,68,68,0.4)' }}
-                >
-                  {progress ? `${progress.stepLabel} — Cancel` : 'Cancel'}
-                </button>
-              ) : (
-                <Button
-                  variant="primary"
-                  onClick={onRegenerate}
-                  disabled={!editPrompt.trim()}
-                >
-                  Apply
-                </Button>
-              )}
-            </div>
-            {loading && progress && (
-              <div className="mt-0.5 flex flex-col gap-1">
-                <div className="h-[3px] rounded-full bg-app-base overflow-hidden">
-                  <div
-                    className="h-full bg-accent rounded-full"
-                    style={{ width: `${smoothPercent}%` }}
-                  />
-                </div>
-                <div className="text-[9px] text-text-dim text-center">
-                  {Math.round(smoothPercent)}%
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {hasContent && footer}
       </div>
 
       {/* Render settings modal */}

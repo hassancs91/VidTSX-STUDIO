@@ -28,7 +28,9 @@ import { pureOkFor, seamOkFor } from './builder-tool-common';
 import { buildFirstMessage } from './build-messages';
 import { BuildProgress } from './build-progress';
 import { capsFor, resolveStopReason, RunGuard, stopMessage } from './build-run-guard';
-import { checkIntoFolder, createRunDirs, projectNameFromId, pruneRunDirs, saveBuildVersion, seedWorkFromVersion, type SeededBuild } from './build-store';
+import { checkIntoFolder, createRunDirs, projectNameFromId, pruneRunDirs, saveBuildVersion } from './build-store';
+import { seedWorkFromVersion, type SeededBuild } from './build-seed';
+import { checkBuild } from './build-check';
 import { ASSETS_DIR, listAssetFiles } from './build-assets';
 import { attachRequestAssets, GENERATED_IMAGES_MAX, imageGenerationAvailable } from './builder-asset-tools';
 import type { BuildRequest, BuildResult } from './types';
@@ -63,7 +65,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   try {
     if (req.into && req.editOf) throw new Error('A build goes either into a new folder (into) or onto a version (editOf), not both.');
     if (req.into) await checkIntoFolder(req.into);
-    if (req.editOf) seed = await seedWorkFromVersion(req.editOf, dirs.workDir);
+    // A bundle changed by hand in place is diffed against vK.src/ bundled again, as `check` bundles it.
+    if (req.editOf) seed = await seedWorkFromVersion(req.editOf, dirs.workDir, { rebundle: async (srcDir) => (await checkBuild(srcDir)).code ?? null });
     // After the seed: a request file that clashes with a version file is an error, not an overwrite.
     if (req.assets?.length) await attachRequestAssets(path.join(dirs.workDir, ASSETS_DIR), req.assets);
   } catch (err) {
@@ -266,7 +269,18 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
         referenceImages: req.referenceImages?.length ?? 0,
         ...(req.assets?.length ? { assets: req.assets.map((a) => a.name ?? path.basename(a.path)) } : {}),
         maxGeneratedImages: state.imagesMax,
-        ...(seed ? { editOf: { folderPath: seed.folderPath, version: seed.version, fromSrc: seed.fromSrc } } : {}),
+        ...(seed
+          ? {
+              editOf: {
+                folderPath: seed.folderPath,
+                version: seed.version,
+                seed: seed.kind,
+                ...(seed.srcVersion !== undefined ? { srcVersion: seed.srcVersion } : {}),
+                ...(seed.handEditLines !== undefined ? { handEditLines: seed.handEditLines } : {}),
+                ...(seed.bundle ? { bundle: true } : {}),
+              },
+            }
+          : {}),
         ...(req.into ? { into: req.into } : {}),
         ...(req.usage ? { usage: req.usage } : {}),
         ...(req.providerId ? { providerId: req.providerId } : {}),

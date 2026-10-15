@@ -3,6 +3,7 @@
 // and its file URL. Pure: the panel only lays these out.
 
 import type { BuildFormat, TsxBuildJobIpc, TsxBuildStillIpc, TsxJobIpc } from '@shared/ipc/types';
+import { isEditJob, jobTitle } from './creator-jobs';
 
 const BUDGET_LABELS: Record<TsxBuildJobIpc['budget'], string> = { quick: 'Quick', standard: 'Standard', craft: 'Craft' };
 
@@ -107,13 +108,22 @@ export function stillUrl(path: string): string {
   return encoded.startsWith('/') ? `file://${encoded}` : `file:///${encoded}`;
 }
 
+/** The panel's header: "Build · bounce-2", or for an edit "Edit · bounce-2 · v2" (the version it continues). */
+export function panelTitle(job: TsxJobIpc): { kind: 'Build' | 'Edit'; name: string } {
+  if (!isEditJob(job)) return { kind: 'Build', name: jobTitle(job) };
+  const from = job.build?.editVersion;
+  return { kind: 'Edit', name: from !== undefined ? `${jobTitle(job)} · v${from}` : jobTitle(job) };
+}
+
 /** The line under a build that stopped: why, in plain words. */
 export function outcomeText(job: TsxJobIpc): { text: string; bad: boolean } | null {
-  if (job.status === 'error') return { text: job.error ?? 'The build failed.', bad: true };
+  if (job.status === 'error') return { text: job.error ?? (isEditJob(job) ? 'The edit failed.' : 'The build failed.'), bad: true };
   if (job.status === 'cancelled') return { text: 'Cancelled. Nothing was saved.', bad: false };
   if (job.status === 'done') {
     if (job.build?.notice) return { text: job.build.notice, bad: false };
-    return { text: job.versionPath ? `Saved as ${job.projectName ?? 'a new project'}.` : 'Finished.', bad: false };
+    if (!job.versionPath) return { text: 'Finished.', bad: false };
+    if (isEditJob(job)) return { text: `Saved as ${job.versionPath.split(/[\\/]/).pop()?.replace(/\.tsx$/, '')}.`, bad: false };
+    return { text: `Saved as ${job.projectName ?? 'a new project'}.`, bad: false };
   }
   return null;
 }

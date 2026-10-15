@@ -38,7 +38,8 @@ import { logEngine } from '../../../logging/log-engine';
 import { checkBuild } from './build-check';
 import { renderBuildStills } from './build-stills';
 import { releaseBundlesUnder } from '../remotion-bundler';
-import { createRunDirs, saveBuildVersion, seedWorkFromVersion } from './build-store';
+import { createRunDirs, saveBuildVersion } from './build-store';
+import { seedWorkFromVersion } from './build-seed';
 import { tsxJobEngine } from '../tsx-jobs/tsx-job-engine';
 import { getTsxBuildsDir } from '../../utils/paths';
 import { enginesProbe, registerProviderFromEnv } from './builder-spike-dispatch';
@@ -169,7 +170,7 @@ async function storeRoundTrip(
   return {
     v1: v1.version,
     v1Stills: v1.stills.length,
-    seed: { version: seed.version, fromSrc: seed.fromSrc, format: seed.format, configId: seed.config?.id },
+    seed: { version: seed.version, kind: seed.kind, format: seed.format, configId: seed.config?.id },
     v2: v2.version,
     projectFiles: await listTree(v1.version.folderPath),
   };

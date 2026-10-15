@@ -7,10 +7,14 @@ import type { TsxJobIpc } from '../../../shared/ipc/types';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { MotionInputPanel } from './MotionInputPanel';
 import { BuildProgressPanel } from './BuildProgressPanel';
-import { MotionAgentPanel } from './MotionAgentPanel';
 import type { MotionInputMode } from './MotionModeToggle';
-import type { MotionAgentRestore } from '../hooks/useMotionAgent';
 import { MotionPreviewPanel } from './MotionPreviewPanel';
+import { ProjectThread } from './ProjectThread';
+import { EditComposer } from './EditComposer';
+import { useProjectThread } from '../hooks/useProjectThread';
+import { jobTitle } from '../services/creator-jobs';
+import { versionNumberOf } from '../services/edit-job-request';
+import { threadVersionPath } from '../services/project-thread';
 import { MotionLibraryPanel } from './MotionLibraryPanel';
 import { MotionJobsStrip } from './MotionJobsStrip';
 import { useTemplateSession } from '../hooks/useTemplateSession';
@@ -35,23 +39,20 @@ function MotionScreenContent() {
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [inputWidth, setInputWidth] = useState(280);
   const [inputCollapsed, setInputCollapsed] = useState(false);
-  // W7: Prompt | Agent. The agent panel stays mounted once opened (hidden in
-  // prompt mode) so a run in flight keeps its view.
+  // Prompt | Templates (the Agent tab left in P3 part 3, D4).
   const [inputMode, setInputMode] = useState<MotionInputMode>('prompt');
-  const [agentOpened, setAgentOpened] = useState(false);
   // Templates (docs/templates-plan.md): the session lives here so the open
-  // template and its form survive a trip to Prompt or Agent and back.
+  // template and its form survive a trip to Prompt and back.
   const [templatesOpened, setTemplatesOpened] = useState(false);
   const templateSession = useTemplateSession();
   const templatesMode = inputMode === 'templates';
   const handleModeChange = useCallback((mode: MotionInputMode) => {
     setInputMode(mode);
-    if (mode === 'agent') setAgentOpened(true);
     if (mode === 'templates') setTemplatesOpened(true);
   }, []);
   // Templates mode swaps the centre panel, so opening a PROJECT from anywhere —
-  // the library, a finished job, an agent's hand-off — has to leave it, or the
-  // project opens out of sight.
+  // the library, a finished job — has to leave it, or the project opens out of
+  // sight.
   const leaveTemplatesMode = useCallback(() => {
     setInputMode((mode) => (mode === 'templates' ? 'prompt' : mode));
   }, []);
@@ -115,6 +116,7 @@ function MotionScreenContent() {
   const openFolderPath = projectManager.project?.folderPath ?? null;
   const creatorJobs = useCreatorJobs({ projectManagerRef, openFolderPath, openVersion, scheduleLibraryRefresh });
   const { openProjectJob, streamJob, centreBuild, watchBuild } = creatorJobs;
+  const thread = useProjectThread(openFolderPath, creatorJobs.threadKey);
 
   const handleBuild = useCallback(async () => {
     clearSaveMessage();
@@ -130,16 +132,22 @@ function MotionScreenContent() {
     watchBuild(job.id);
   }, [leaveTemplatesMode, watchBuild]);
 
-  const handleRegenerate = useCallback(async () => {
+  // Later messages (P3 part 3): the Edit box and "Fix with AI" are builder
+  // edits of the open version. The centre shows the edit like a build; its
+  // result opens when it ends, unless the user left its view.
+  const handleApplyEdit = useCallback(async () => {
     clearSaveMessage();
     const project = projectManager.project;
     if (!project) return;
-    const request = generator.buildEditJob(project.currentContent, project.folderPath);
+    const request = generator.buildEditJob({ folderPath: project.folderPath, versionPath: project.currentVersion });
     if (!request) return;
-    const { error } = await startJob(request);
+    const { jobId, error } = await startJob(request);
     if (error) showToast(error, 'error');
-    else generator.setEditPrompt('');
-  }, [generator, projectManager, startJob, showToast]);
+    else {
+      generator.setEditPrompt('');
+      if (jobId) watchBuild(jobId);
+    }
+  }, [generator, projectManager, startJob, showToast, watchBuild]);
 
   const handleFix = useCallback(async (
     errorMessage: string,
@@ -148,11 +156,19 @@ function MotionScreenContent() {
     clearSaveMessage();
     const project = projectManager.project;
     if (!project) return;
-    const request = generator.buildFixJob(project.currentContent, project.folderPath, errorMessage, errorLocation);
+    // The lines around the error come from the file the preview failed on.
+    const onDisk = await window.api.fileRead({ path: project.currentVersion }).catch(() => null);
+    const request = generator.buildFixJob({
+      target: { folderPath: project.folderPath, versionPath: project.currentVersion },
+      code: onDisk?.content ?? project.currentContent,
+      error: errorMessage,
+      ...(errorLocation ? { location: errorLocation } : {}),
+    });
     if (!request) return;
-    const { error } = await startJob(request);
+    const { jobId, error } = await startJob(request);
     if (error) showToast(error, 'error');
-  }, [generator, projectManager, startJob, showToast]);
+    else if (jobId) watchBuild(jobId);
+  }, [generator, projectManager, startJob, showToast, watchBuild]);
 
   const handleCancelOpenProjectJob = useCallback(() => {
     if (openProjectJob) void cancelJob(openProjectJob.id);
@@ -199,21 +215,11 @@ function MotionScreenContent() {
     await projectManager.loadVersion(filePath, folderPath);
   }, [projectManager, leaveTemplatesMode, watchBuild]);
 
-  // W7: a composition the agent's Motion sink wrote — the library gains a
-  // project (or a version) and the preview loads it, as a prompt-mode job would.
-  const handleAgentVersion = useCallback((versionPath: string, folderPath: string) => {
-    clearSaveMessage();
-    scheduleLibraryRefresh();
-    void projectManagerRef.current.loadVersion(versionPath, folderPath);
-  }, [scheduleLibraryRefresh]);
-
-  // W7: an opened agent session shows what it runs under in the panel's pickers.
-  const { setSelectedProvider, setModel, setSelectedBrandId } = generator;
-  const handleAgentRestore = useCallback((values: MotionAgentRestore) => {
-    if (values.providerId) setSelectedProvider(values.providerId);
-    setModel(values.model ?? '');
-    setSelectedBrandId(values.brandId);
-  }, [setSelectedProvider, setModel, setSelectedBrandId]);
+  const handleOpenThreadVersion = useCallback((version: number) => {
+    const project = projectManager.project;
+    if (!project) return;
+    void handleLoadVersion(threadVersionPath(project.folderPath, version, project.versions), project.folderPath);
+  }, [projectManager.project, handleLoadVersion]);
 
   const handleCreateFolder = useCallback(async (name: string) => {
     await projectManager.createFolder(name);
@@ -317,7 +323,7 @@ function MotionScreenContent() {
           )
         ) : centreBuild ? (
           <span className="text-[10px] text-text-dim truncate max-w-[50%]" title={centreBuild.prompt}>
-            Build / {centreBuild.projectName ?? centreBuild.prompt}
+            {centreBuild.targetFolderPath ? 'Edit' : 'Build'} / {jobTitle(centreBuild)}
           </span>
         ) : projectManager.project && (
           <span className="text-[10px] text-text-dim">
@@ -349,17 +355,6 @@ function MotionScreenContent() {
                 <MotionInputPanel
                   mode={inputMode}
                   onModeChange={handleModeChange}
-                  agentPanel={
-                    <MotionAgentPanel
-                      enabled={agentOpened}
-                      providers={generator.providers}
-                      providerId={generator.selectedProvider}
-                      model={generator.model}
-                      brandId={generator.selectedBrandId}
-                      onRestore={handleAgentRestore}
-                      onVersion={handleAgentVersion}
-                    />
-                  }
                   templatesPanel={
                     <TemplatesPanel
                       enabled={templatesOpened}
@@ -375,14 +370,10 @@ function MotionScreenContent() {
                   onProviderChange={generator.setSelectedProvider}
                   model={generator.model}
                   onModelChange={generator.setModel}
-                  thinkingLevel={generator.thinkingLevel}
-                  onThinkingLevelChange={generator.setThinkingLevel}
                   budget={generator.budget}
                   onBudgetChange={generator.setBudget}
                   seamlessLoop={generator.seamlessLoop}
                   onSeamlessLoopChange={generator.setSeamlessLoop}
-                  loopCount={generator.loopCount}
-                  onLoopCountChange={generator.setLoopCount}
                   fps={generator.fps}
                   onFpsChange={generator.setFps}
                   aspectRatio={generator.aspectRatio}
@@ -394,15 +385,9 @@ function MotionScreenContent() {
                   brands={generator.brands}
                   selectedBrandId={generator.selectedBrandId}
                   onBrandChange={generator.setSelectedBrandId}
-                  optimize={generator.optimize}
-                  onOptimizeChange={generator.setOptimize}
                   referenceImages={generator.referenceImages}
                   onReferenceImagesChange={generator.setReferenceImages}
                   onGenerate={handleBuild}
-                  onCancel={() => {}}
-                  loading={false}
-                  progress={null}
-                  hasProject={projectManager.project !== null}
                   onCollapse={() => setInputCollapsed(true)}
                 />
               </div>
@@ -428,21 +413,35 @@ function MotionScreenContent() {
             project={projectManager.project}
             output={null}
             error={projectManager.error}
-            loading={openProjectJob !== null}
-            progress={openProjectJob
-              ? { step: 'generate', stepLabel: openProjectJob.progress.label, percent: openProjectJob.progress.percent }
-              : null}
-            editPrompt={generator.editPrompt}
-            onEditPromptChange={generator.setEditPrompt}
-            onRegenerate={handleRegenerate}
+            loading={openProjectJob !== null && openProjectJob.kind !== 'build'}
+            busy={openProjectJob !== null}
             onFix={handleFix}
-            onCancel={handleCancelOpenProjectJob}
             onOverwrite={handleOverwrite}
             onSaveNewVersion={handleSaveNewVersion}
             appendOnly={!!(projectManager.project && projectManager.studioProjectIdOf(projectManager.project.folderPath))}
             streamJobId={streamJob?.id ?? null}
             saving={projectManager.loading}
             saveMessage={saveMessage}
+            footer={projectManager.project && (
+              <>
+                <ProjectThread
+                  turns={thread}
+                  currentVersion={versionNumberOf(projectManager.project.currentVersion)}
+                  onOpenVersion={handleOpenThreadVersion}
+                />
+                <EditComposer
+                  prompt={generator.editPrompt}
+                  onPromptChange={generator.setEditPrompt}
+                  budget={generator.editBudget}
+                  onBudgetChange={generator.setEditBudget}
+                  onApply={() => void handleApplyEdit()}
+                  canApply={Boolean(generator.selectedProvider)}
+                  job={openProjectJob}
+                  onCancel={handleCancelOpenProjectJob}
+                  {...(openProjectJob?.kind === 'build' ? { onShowProgress: () => watchBuild(openProjectJob.id) } : {})}
+                />
+              </>
+            )}
           />
         )}
         {/* Library panel with resize handle + collapse */}

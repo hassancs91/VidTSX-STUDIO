@@ -21,10 +21,8 @@ import path from 'path';
 import { createHash, randomUUID } from 'crypto';
 import { createReadStream } from 'fs';
 import { reserveProjectFolder, writeNextVersion, writeDebugSidecar } from '../tsx-jobs/project-store';
-import { parseCompositionConfig, type CompositionConfig } from '../composition-config-parser';
-import { ASSETS_DIR, BUILD_ENTRY } from './constants';
-import { formatFromConfig } from './build-format';
-import type { BuildFormat, BuildStillRecord, BuildStillSize, BuildVersion } from './types';
+import { ASSETS_DIR, HAND_EDITS_FILE } from './constants';
+import type { BuildStillRecord, BuildStillSize, BuildVersion } from './types';
 
 const VERSION_PATTERN = /^v(\d+)\.tsx$/;
 const RUN_PATTERN = /^b\d+-[0-9a-f]{6}$/;
@@ -75,78 +73,13 @@ export async function listVersionNumbers(folderPath: string): Promise<number[]> 
     .sort((a, b) => a - b);
 }
 
-export interface SeededBuild {
-  version: number;
-  folderPath: string;
-  /** False when the version predates the builder: the work folder holds its one file. */
-  fromSrc: boolean;
-  config: CompositionConfig | null;
-  /** The format the version was built to, when it can be told. */
-  format: BuildFormat | null;
+export function sha256Text(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
 }
 
 async function isDirectory(p: string): Promise<boolean> {
   const stat = await fs.stat(p).catch(() => null);
   return stat?.isDirectory() === true;
-}
-
-async function readBuilderFormat(debugPath: string): Promise<BuildFormat | null> {
-  try {
-    const debug = JSON.parse(await fs.readFile(debugPath, 'utf-8')) as {
-      kind?: string;
-      request?: { format?: BuildFormat };
-    };
-    return debug.kind === 'tsx-builder' && debug.request?.format ? debug.request.format : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The version an edit continues: the one asked for, else the latest. Throws when there is none. */
-export async function resolveEditVersion(
-  editOf: { folderPath: string; version?: number },
-): Promise<{ version: number; tsxPath: string }> {
-  const versions = await listVersionNumbers(editOf.folderPath);
-  const version = editOf.version ?? versions[versions.length - 1];
-  if (version === undefined || !versions.includes(version)) {
-    throw new Error(
-      editOf.version !== undefined
-        ? `v${editOf.version}.tsx not found in ${editOf.folderPath}`
-        : `No version to edit in ${editOf.folderPath}`,
-    );
-  }
-  return { version, tsxPath: path.join(editOf.folderPath, `v${version}.tsx`) };
-}
-
-/**
- * Fill `workDir` from a saved version so an edit continues where it stopped:
- * the builder's own `vN.src/` when there is one, otherwise the version's single
- * file as `index.tsx` (any Creator version is a valid one-file source).
- */
-export async function seedWorkFromVersion(
-  editOf: { folderPath: string; version?: number },
-  workDir: string,
-): Promise<SeededBuild> {
-  const { version, tsxPath } = await resolveEditVersion(editOf);
-  const srcDir = path.join(editOf.folderPath, `v${version}.src`);
-  const code = await fs.readFile(tsxPath, 'utf-8');
-  const fromSrc = await isDirectory(srcDir);
-  if (fromSrc) {
-    await fs.cp(srcDir, workDir, { recursive: true });
-  } else {
-    await fs.writeFile(path.join(workDir, BUILD_ENTRY), code, 'utf-8');
-  }
-  // Copies, never links: the builder may rewrite a file in its folder, and a
-  // saved version must not change under it.
-  const assetsDir = path.join(editOf.folderPath, `v${version}.assets`);
-  if (await isDirectory(assetsDir)) {
-    await fs.cp(assetsDir, path.join(workDir, ASSETS_DIR), { recursive: true });
-  }
-  const config = parseCompositionConfig(code);
-  const format =
-    (await readBuilderFormat(path.join(editOf.folderPath, `v${version}.debug.json`))) ??
-    (config ? formatFromConfig(config) : null);
-  return { version, folderPath: editOf.folderPath, fromSrc, config, format };
 }
 
 /** "CompoundInterestCoins" → "compound-interest-coins" (reserveProjectFolder sanitizes the rest). */
@@ -259,7 +192,9 @@ export async function saveBuildVersion(
   const srcDir = path.join(folderPath, `${base}.src`);
   await fs.rm(srcDir, { recursive: true, force: true });
   const workAssets = path.join(input.dirs.workDir, ASSETS_DIR);
-  await fs.cp(input.dirs.workDir, srcDir, { recursive: true, filter: (from) => path.resolve(from) !== path.resolve(workAssets) });
+  // Not saved: assets/ (its own folder below) and an edit's HAND-EDITS.diff (carried over by now; stale for the next edit).
+  const skip = new Set([path.resolve(workAssets), path.resolve(input.dirs.workDir, HAND_EDITS_FILE)]);
+  await fs.cp(input.dirs.workDir, srcDir, { recursive: true, filter: (from) => !skip.has(path.resolve(from)) });
 
   // Cleared first: N is reused after the top version is deleted, and its old files must not serve this one.
   const assetsDir = path.join(folderPath, `${base}.assets`);
@@ -287,6 +222,8 @@ export async function saveBuildVersion(
 
   await writeDebugSidecar(tsxPath, {
     ...input.debug,
+    // What vN.tsx is as saved: an edit tells a hand change from the builder's bundle by it (build-seed.ts).
+    artifactSha256: sha256Text(input.code),
     stills,
     ...(assets ? { assets: { files: assets.files, linkedFromPrevious: assets.linked } } : {}),
   });

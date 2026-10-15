@@ -1,5 +1,6 @@
 import type { TsxJobIpc, TsxJobStatus } from '../../../shared/ipc/types';
 import { useTsxJobs, isJobActive, isJobFinished } from '../contexts/TsxJobsContext';
+import { isEditJob, jobTitle } from '../services/creator-jobs';
 
 const STATUS_LABELS: Record<TsxJobStatus, string> = {
   queued: 'Queued',
@@ -77,19 +78,19 @@ export function MotionJobsStrip({ onOpenJob, onWatchJob }: MotionJobsStripProps)
             className="text-[9px] font-medium uppercase shrink-0"
             style={{ color: statusColor(job.status) }}
           >
-            {KIND_LABELS[job.kind]}
+            {job.kind === 'build' && isEditJob(job) ? 'Edit' : KIND_LABELS[job.kind]}
           </span>
           {onWatchJob && job.kind === 'build' && isJobActive(job) ? (
             <button
               onClick={() => onWatchJob(job)}
               className="text-[10px] text-text-secondary truncate hover:text-text-primary hover:underline cursor-pointer"
-              title={`${job.prompt}\n\nShow this build`}
+              title={`${job.prompt}\n\nShow this ${isEditJob(job) ? 'edit' : 'build'}`}
             >
-              {job.projectName ?? job.prompt}
+              {jobTitle(job)}
             </button>
           ) : (
             <span className="text-[10px] text-text-secondary truncate" title={job.prompt}>
-              {job.projectName ?? job.prompt}
+              {jobTitle(job)}
             </span>
           )}
           <span className="text-[9px] text-text-dim shrink-0">

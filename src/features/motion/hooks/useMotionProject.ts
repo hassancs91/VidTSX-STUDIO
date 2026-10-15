@@ -3,6 +3,7 @@ import type { MotionProject, LibraryState } from '../types';
 import { scanLibrary } from '@shared/services/library-scanner';
 import { useToast } from '@renderer/contexts/ToastContext';
 import { useOpenProject } from '@renderer/contexts/OpenProjectContext';
+import { studioSaveNotice } from '../services/creator-jobs';
 
 /** Highest existing v<N>.tsx number in a version list (0 when none). Saves
  *  must append past the MAX, not past the COUNT — a folder with a deleted
@@ -67,6 +68,18 @@ export function useMotionProject() {
     if (!normalized.startsWith(prefix) || !normalized.includes('/shots/')) return null;
     return normalized.slice(prefix.length).split('/')[0] ?? null;
   }, []);
+
+  /**
+   * A version landed in a folder (a hand save, a finished job): when it is a
+   * Studio shot folder, the library's Studio section rescans and the notice
+   * says where the version went. Null for Creator folders.
+   */
+  const studioSaveNoticeFor = useCallback((folderPath: string, version: number | null): string | null => {
+    const studioProjectId = studioProjectIdOf(folderPath);
+    if (!studioProjectId) return null;
+    setStudioShotsRefreshKey((k) => k + 1);
+    return studioSaveNotice(version, studioProjectId, openProjectIdRef.current);
+  }, [studioProjectIdOf]);
 
   const listVersions = useCallback(async (folderPath: string): Promise<string[]> => {
     try {
@@ -188,16 +201,8 @@ export function useMotionProject() {
 
       // Q2 open-project heads-up: the version lands on disk either way
       // (append-only writes are safe); this is about preview surprise.
-      const studioProjectId = studioProjectIdOf(project.folderPath);
-      if (studioProjectId) {
-        setStudioShotsRefreshKey((k) => k + 1);
-        showToast(
-          studioProjectId === openProjectIdRef.current
-            ? `Saved v${nextNum} into the open Studio project — pick it in the shot's version picker to use it`
-            : `Saved v${nextNum} into Studio project "${studioProjectId}"`,
-          'success',
-        );
-      }
+      const studioNotice = studioSaveNoticeFor(project.folderPath, nextNum);
+      if (studioNotice) showToast(studioNotice, 'success');
 
       const updatedVersions = [...versions, versionPath];
       setProject({
@@ -215,7 +220,7 @@ export function useMotionProject() {
     } finally {
       setLoading(false);
     }
-  }, [project, listVersions, refreshLibrary, studioProjectIdOf, showToast]);
+  }, [project, listVersions, refreshLibrary, studioSaveNoticeFor, showToast]);
 
   const overwriteVersion = useCallback(async (content: string): Promise<boolean> => {
     if (!project) return false;
@@ -579,6 +584,7 @@ export default function MyComposition() {
     loading,
     error,
     studioProjectIdOf,
+    studioSaveNoticeFor,
     studioShotsRefreshKey,
     createProject,
     loadVersion,

@@ -1,7 +1,9 @@
-// `Prompt | Agent | Templates` at the top of the Creator's input panel (W7;
-// Templates: docs/templates-plan.md).
+// `Prompt | Templates` at the top of the Creator's input panel (Templates:
+// docs/templates-plan.md). The Agent tab left in P3 part 3 (TSX_BUILDER_DESIGN.md
+// D4): the Creator talks to the builder itself; tsx-composer stays an installed
+// agent on the Agents page.
 
-export type MotionInputMode = 'prompt' | 'agent' | 'templates';
+export type MotionInputMode = 'prompt' | 'templates';
 
 interface Props {
   mode: MotionInputMode;
@@ -11,7 +13,6 @@ interface Props {
 
 const MODES: Array<{ value: MotionInputMode; label: string; title: string }> = [
   { value: 'prompt', label: 'Prompt', title: 'One prompt, one build: it designs, looks at its frames and improves them' },
-  { value: 'agent', label: 'Agent', title: 'Talk to TSX Composer; every version lands here' },
   { value: 'templates', label: 'Templates', title: 'Ready-made compositions you fill in — no prompt' },
 ];
 

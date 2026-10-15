@@ -227,6 +227,24 @@ describe('tsx-job-engine: build jobs', () => {
     expect(chat).toHaveLength(2);
     expect(chat[0]).toMatchObject({ role: 'user', content: 'A red ball bounces once as a loop.' });
     expect(chat[1].content).toBe('Built v1 (quick, 1 round, finished).');
+    // The Creator's thread links the reply to its version and shows the builder's summary.
+    expect(chat[1]).toMatchObject({ version: 1, summary: 'A red ball, bouncing.' });
+  });
+
+  it("an edit's thread turn says what the user asked (threadText) and the version it saved", async () => {
+    const folder = path.join(tmpDir, 'bounce-edit');
+    generateTsxImpl = await finishedRun(folder);
+    const { jobId } = tsxJobEngine.start(buildRequest(
+      { prompt: 'The Creator preview failed to load this version: …(the whole fix instruction)' },
+      { format: undefined, budget: 'quick', editOf: { folderPath: folder, version: 1 }, threadText: 'Fix with AI: x is not defined' },
+    ));
+    const job = await waitForJob(jobId!);
+    expect(job.status).toBe('done');
+    // The fake builder's start event says edit: false; the version asked for stays on the snapshot.
+    expect(job.build?.editVersion).toBe(1);
+    const chat = JSON.parse(await fs.readFile(path.join(folder, 'chat.json'), 'utf-8'));
+    expect(chat[0]).toMatchObject({ role: 'user', content: 'Fix with AI: x is not defined' });
+    expect(chat[1]).toMatchObject({ role: 'assistant', content: 'Applied edit — saved as v1 (quick, 1 round, finished).', version: 1 });
   });
 
   it('validates the build block at start, and an edit names its target folder', () => {

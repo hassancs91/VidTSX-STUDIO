@@ -5,6 +5,9 @@ export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
+  /** A build's reply: the version it saved, and the builder's own summary of it (P3 part 3, the Creator's thread). */
+  version?: number;
+  summary?: string;
 }
 
 /** Turns passed to the LLM are capped so old projects don't bloat the prompt. */

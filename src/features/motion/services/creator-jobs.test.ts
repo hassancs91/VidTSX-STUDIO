@@ -3,10 +3,13 @@ import type { TsxJobIpc } from '@shared/ipc/types';
 import {
   centreBuildJob,
   isCreatorJob,
+  isEditJob,
   jobOutcome,
+  jobTitle,
   openProjectJob,
   pendingProjectJobs,
   previewStreamJob,
+  studioSaveNotice,
   waitingFor,
 } from './creator-jobs';
 
@@ -100,5 +103,43 @@ describe('jobOutcome', () => {
       .toEqual({ type: 'error', message: 'Generation failed: Unknown error' });
     expect(jobOutcome(job({ status: 'cancelled' }), { openFolderPath: null, watchedJobId: null })).toEqual({ type: 'none' });
     expect(jobOutcome(job(), { openFolderPath: null, watchedJobId: null })).toEqual({ type: 'none' });
+  });
+});
+
+describe('builder edits (part 3)', () => {
+  const saved = { versionPath: 'C:/lib/bounce/v3.tsx', folderPath: 'C:/lib/bounce' };
+  const editBuild = (over: Partial<TsxJobIpc> = {}) => job({ targetFolderPath: saved.folderPath, prompt: 'The Creator preview cannot load v2: …', ...over });
+
+  it('a build with a target folder is an edit, named after its folder until it saves', () => {
+    expect(isEditJob(editBuild())).toBe(true);
+    expect(isEditJob(job({ kind: 'fix', targetFolderPath: 'C:/p' }))).toBe(true);
+    expect(isEditJob(job())).toBe(false);
+    expect(jobTitle(editBuild())).toBe('bounce');
+    expect(jobTitle(editBuild({ projectName: 'bounce' }))).toBe('bounce');
+    expect(jobTitle(job({ prompt: 'a ball' }))).toBe('a ball');
+  });
+
+  it('makes the open project busy without taking the player away', () => {
+    const edit = editBuild();
+    expect(openProjectJob([edit], saved.folderPath)).toBe(edit);
+    expect(openProjectJob([editBuild({ status: 'done' })], saved.folderPath)).toBeNull();
+    expect(previewStreamJob([edit], saved.folderPath)).toBeNull();
+    expect(pendingProjectJobs([edit])).toEqual([]);
+    // It is not the centre's unless watched.
+    expect(centreBuildJob([edit], null, saved.folderPath)).toBeNull();
+    expect(centreBuildJob([edit], edit.id, saved.folderPath)).toBe(edit);
+  });
+
+  it('a watched edit opens its version; an unwatched one is offered; a failure says Edit', () => {
+    const done = editBuild({ status: 'done', ...saved });
+    expect(jobOutcome(done, { openFolderPath: saved.folderPath, watchedJobId: done.id })).toEqual({ type: 'open', ...saved });
+    expect(jobOutcome(done, { openFolderPath: saved.folderPath, watchedJobId: null })).toEqual({ type: 'offer', message: 'New version ready', ...saved });
+    expect(jobOutcome(editBuild({ status: 'error', error: 'cap' }), { openFolderPath: null, watchedJobId: null }))
+      .toEqual({ type: 'error', message: 'Edit failed: cap' });
+  });
+
+  it('a version saved into a Studio shot folder says where it went', () => {
+    expect(studioSaveNotice(4, 'video-10', 'video-10')).toBe("Saved v4 into the open Studio project — pick it in the shot's version picker to use it");
+    expect(studioSaveNotice(4, 'video-10', null)).toBe('Saved v4 into Studio project "video-10"');
   });
 });

@@ -3,17 +3,12 @@ import { Button } from '@shared/components';
 import { ProviderSelect } from '@renderer/components/ProviderSelect';
 import { ModelSelect } from '@renderer/components/ModelSelect';
 import { useModelPicker } from '@renderer/hooks/useModelPicker';
-import { llmModelSupportsThinking } from '@shared/presets/llm-models';
-import { THINKING_UI_OPTIONS } from '@shared/tsx-engine';
-import type { ThinkingLevel } from '../hooks/useMotionGenerator';
 import type { LlmProviderConfig, LlmImageIpc } from '../../../shared/ipc/types';
 import type { StudioBrand } from '@shared/types/asset-library';
-import type { PipelineProgress } from '@shared/tsx-engine';
 import type { BuildBudget } from '@shared/ipc/types';
 import type { AspectRatio } from '../types';
 import { FPS_OPTIONS, ASPECT_RATIO_OPTIONS } from '../types';
 import { BUDGET_CHOICES, budgetHint } from '../services/build-job-request';
-import { useSmoothProgress } from '../hooks/useSmoothProgress';
 import { MotionReferenceImagePicker } from './MotionReferenceImagePicker';
 import { MotionBrandField } from './MotionBrandField';
 import { MotionModeToggle, type MotionInputMode } from './MotionModeToggle';
@@ -25,12 +20,9 @@ const FPS_CHOICES = FPS_OPTIONS.map((n) => ({ value: n, label: String(n) }));
 const RATIO_CHOICES = ASPECT_RATIO_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
 
 interface MotionInputPanelProps {
-  /** W7: `Prompt` starts a build (P3 part 2); `Agent` embeds TSX Composer. */
+  /** `Prompt` starts a build (P3 part 2); `Templates` fills one in. */
   mode: MotionInputMode;
   onModeChange: (mode: MotionInputMode) => void;
-  /** The Agent mode chat, mounted by the screen; hidden in prompt mode so a
-   *  run in flight keeps its view. */
-  agentPanel?: ReactNode;
   /** Templates mode: the gallery or the open template's form. It needs no
    *  provider, model or prompt, so it takes the whole column. */
   templatesPanel?: ReactNode;
@@ -42,15 +34,11 @@ interface MotionInputPanelProps {
   /** Model on the provider; '' = its default. */
   model: string;
   onModelChange: (value: string) => void;
-  thinkingLevel: ThinkingLevel;
-  onThinkingLevelChange: (value: ThinkingLevel) => void;
   budget: BuildBudget;
   onBudgetChange: (value: BuildBudget) => void;
   /** Seamless loop: the last frame flows into frame 0. */
   seamlessLoop: boolean;
   onSeamlessLoopChange: (value: boolean) => void;
-  loopCount: number;
-  onLoopCountChange: (value: number) => void;
   fps: number;
   onFpsChange: (value: number) => void;
   aspectRatio: AspectRatio;
@@ -62,22 +50,15 @@ interface MotionInputPanelProps {
   brands: StudioBrand[];
   selectedBrandId: string;
   onBrandChange: (brandId: string) => void;
-  optimize: boolean;
-  onOptimizeChange: (value: boolean) => void;
   referenceImages: LlmImageIpc[];
   onReferenceImagesChange: (images: LlmImageIpc[]) => void;
   onGenerate: () => void;
-  onCancel: () => void;
-  loading: boolean;
-  progress: PipelineProgress | null;
-  hasProject: boolean;
   onCollapse?: () => void;
 }
 
 export function MotionInputPanel({
   mode,
   onModeChange,
-  agentPanel,
   templatesPanel,
   prompt,
   onPromptChange,
@@ -86,8 +67,6 @@ export function MotionInputPanel({
   onProviderChange,
   model,
   onModelChange,
-  thinkingLevel,
-  onThinkingLevelChange,
   budget,
   onBudgetChange,
   seamlessLoop,
@@ -103,44 +82,27 @@ export function MotionInputPanel({
   brands,
   selectedBrandId,
   onBrandChange,
-  optimize,
-  onOptimizeChange,
   referenceImages,
   onReferenceImagesChange,
   onGenerate,
-  onCancel,
-  loading,
-  progress,
   onCollapse,
 }: MotionInputPanelProps) {
-  const smoothPercent = useSmoothProgress(progress);
   const picker = useModelPicker(selectedProvider);
-  const showThinking = llmModelSupportsThinking(picker.providerId, model || undefined);
-  const agentMode = mode === 'agent';
   const templatesMode = mode === 'templates';
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !loading && prompt.trim()) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && prompt.trim()) {
       onGenerate();
     }
   };
 
-  const brandField = (
-    <MotionBrandField
-      brands={brands}
-      selectedBrandId={selectedBrandId}
-      onChange={onBrandChange}
-      disabled={loading}
-    />
-  );
-
   return (
     <div
-      className={`flex flex-col shrink-0 bg-app-surface h-full ${agentMode || templatesMode ? 'overflow-hidden' : 'overflow-y-auto'}`}
+      className={`flex flex-col shrink-0 bg-app-surface h-full ${templatesMode ? 'overflow-hidden' : 'overflow-y-auto'}`}
     >
-      {/* Mode (W7) + collapse */}
+      {/* Mode + collapse */}
       <div className="px-3 pt-3 pb-2 flex items-center gap-2">
-        <MotionModeToggle mode={mode} onChange={onModeChange} disabled={loading} />
+        <MotionModeToggle mode={mode} onChange={onModeChange} />
         <div className="flex-1" />
         {onCollapse && (
           <button
@@ -156,7 +118,7 @@ export function MotionInputPanel({
       </div>
 
       {/* Prompt */}
-      {!agentMode && !templatesMode && (
+      {!templatesMode && (
         <div className="px-3 pb-3 flex flex-col gap-2">
           <label className="text-[11px] text-text-muted font-medium">What do you want to create?</label>
           <textarea
@@ -173,7 +135,6 @@ export function MotionInputPanel({
             onKeyDown={handleKeyDown}
             onFocus={(e) => { e.target.style.borderColor = 'var(--color-accent)'; }}
             onBlur={(e) => { e.target.style.borderColor = 'var(--color-border-input)'; }}
-            disabled={loading}
           />
         </div>
       )}
@@ -190,7 +151,6 @@ export function MotionInputPanel({
                 onProviderChange(next);
                 onModelChange('');
               }}
-              disabled={loading}
             />
           </div>
 
@@ -201,38 +161,21 @@ export function MotionInputPanel({
               defaultModel={picker.defaultModel}
               value={model}
               onChange={onModelChange}
-              disabled={loading}
             />
           </div>
         </>
       )}
 
-      {templatesMode ? null : agentMode ? (
-        brandField
-      ) : (
+      {!templatesMode && (
         <>
-          <MotionSegmented
-            label="Budget"
-            options={BUDGET_CHOICES}
-            value={budget}
-            onChange={onBudgetChange}
-            disabled={loading}
-            hint={budgetHint(budget)}
-          />
-          <MotionSegmented label="FPS" options={FPS_CHOICES} value={fps} onChange={onFpsChange} disabled={loading} />
-          <MotionSegmented
-            label="Aspect Ratio"
-            options={RATIO_CHOICES}
-            value={aspectRatio}
-            onChange={onAspectRatioChange}
-            disabled={loading}
-          />
+          <MotionSegmented label="Budget" options={BUDGET_CHOICES} value={budget} onChange={onBudgetChange} hint={budgetHint(budget)} />
+          <MotionSegmented label="FPS" options={FPS_CHOICES} value={fps} onChange={onFpsChange} />
+          <MotionSegmented label="Aspect Ratio" options={RATIO_CHOICES} value={aspectRatio} onChange={onAspectRatioChange} />
           <MotionDurationField
             duration={duration}
             onDurationChange={onDurationChange}
             autoDuration={autoDuration}
             onAutoDurationChange={onAutoDurationChange}
-            disabled={loading}
           />
           <MotionCheckField
             name="loop"
@@ -240,87 +183,29 @@ export function MotionInputPanel({
             hint="(the last frame flows into the first)"
             checked={seamlessLoop}
             onChange={onSeamlessLoopChange}
-            disabled={loading}
           />
 
-          {brandField}
-
-          {/* Thinking — hidden on a model the catalog marks as non-thinking (W1) */}
-          <MotionSegmented
-            label="Thinking"
-            options={THINKING_UI_OPTIONS}
-            value={thinkingLevel}
-            onChange={onThinkingLevelChange}
-            disabled={loading}
-            className={showThinking ? '' : 'hidden'}
-          />
-
-          {/* MVP: Loops hidden — fixed at 1. Re-enable when multi-loop support is ready. */}
-
-          {/* Optimize: no effect on a build; leaves the composer in P3 part 3 */}
-          <MotionCheckField
-            name="optimize"
-            label="Optimize"
-            hint="(plan before generating)"
-            checked={optimize}
-            onChange={onOptimizeChange}
-            disabled={loading}
-          />
+          <MotionBrandField brands={brands} selectedBrandId={selectedBrandId} onChange={onBrandChange} />
 
           {/* Reference Images */}
           <div className="px-3 pb-3">
-            <MotionReferenceImagePicker
-              images={referenceImages}
-              onChange={onReferenceImagesChange}
-              disabled={loading}
-            />
+            <MotionReferenceImagePicker images={referenceImages} onChange={onReferenceImagesChange} />
           </div>
 
-          {/* Generate / Cancel */}
           <div className="px-3 pb-3">
-            {loading ? (
-              <button
-                onClick={onCancel}
-                className="w-full px-3 py-1.5 rounded-[6px] text-[12px] font-medium transition-colors cursor-pointer text-red-400 hover:text-white hover:bg-red-500/80"
-                style={{ border: '1px solid rgba(239,68,68,0.4)' }}
-              >
-                {progress ? progress.stepLabel + ' — Cancel' : 'Cancel'}
-              </button>
-            ) : (
-              <Button
-                variant="primary"
-                onClick={onGenerate}
-                disabled={!prompt.trim() || !selectedProvider}
-                className="w-full"
-                data-motion-build
-              >
-                Build
-              </Button>
-            )}
-            {loading && progress ? (
-              <div className="mt-1.5 flex flex-col gap-1">
-                <div className="h-[3px] rounded-full bg-app-base overflow-hidden">
-                  <div className="h-full bg-accent rounded-full" style={{ width: `${smoothPercent}%` }} />
-                </div>
-                <div className="text-[9px] text-text-dim text-center">{Math.round(smoothPercent)}%</div>
-              </div>
-            ) : (
-              <div className="text-[9px] text-text-dim mt-1 text-center">Ctrl+Enter</div>
-            )}
+            <Button
+              variant="primary"
+              onClick={onGenerate}
+              disabled={!prompt.trim() || !selectedProvider}
+              className="w-full"
+              data-motion-build
+            >
+              Build
+            </Button>
+            <div className="text-[9px] text-text-dim mt-1 text-center">Ctrl+Enter</div>
           </div>
         </>
       )}
-
-      {/* The Agent mode chat fills the rest. It stays MOUNTED in prompt mode
-          (hidden) so a run in flight keeps its view; the agent chooses frame,
-          fps and length from the conversation (AGENT.md), so those pickers
-          belong to prompt mode only. */}
-      <div
-        className={`flex-1 min-h-0 flex flex-col ${agentMode ? '' : 'hidden'}`}
-        style={{ borderTop: '0.5px solid var(--color-border)' }}
-      >
-        {agentPanel}
-      </div>
 
       {templatesMode && <div className="flex-1 min-h-0 flex flex-col">{templatesPanel}</div>}
     </div>

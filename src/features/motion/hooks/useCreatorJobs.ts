@@ -4,12 +4,14 @@ import { useToast } from '@renderer/contexts/ToastContext';
 import { useTsxJobs } from '../contexts/TsxJobsContext';
 import {
   centreBuildJob,
+  isJobFinished,
   jobOutcome,
   openProjectJob,
   pendingProjectJobs,
   previewStreamJob,
   waitingFor,
 } from '../services/creator-jobs';
+import { versionNumberOf } from '../services/edit-job-request';
 import type { useMotionProject } from './useMotionProject';
 
 interface Options {
@@ -21,7 +23,7 @@ interface Options {
 }
 
 /**
- * The Creator's side of the job engine (P3 part 2): which jobs show where,
+ * The Creator's side of the job engine (P3 parts 2-3): which jobs show where,
  * which build the centre panel watches, and what a finished job does. The
  * rules are services/creator-jobs.ts; this hook holds the watched build and
  * runs the side effects (open, toast, library refresh).
@@ -54,36 +56,46 @@ export function useCreatorJobs({ projectManagerRef, openFolderPath, openVersion,
 
       const pm = projectManagerRef.current;
       const outcome = jobOutcome(job, { openFolderPath: pm.project?.folderPath ?? null, watchedJobId: watchedRef.current });
-      if (outcome.type === 'open') {
-        scheduleLibraryRefresh();
-        void pm.loadVersion(outcome.versionPath, outcome.folderPath);
-      } else if (outcome.type === 'offer') {
+      if (outcome.type === 'open' || outcome.type === 'offer') {
         const { versionPath, folderPath } = outcome;
+        // A Studio shot folder (append-only): its section rescans, and the toast says where the version went.
+        const studioNotice = pm.studioSaveNoticeFor(folderPath, versionNumberOf(versionPath));
         scheduleLibraryRefresh();
-        showToast(outcome.message, 'success', {
-          label: 'Open',
-          onClick: () => { void projectManagerRef.current.loadVersion(versionPath, folderPath); },
-        });
+        if (outcome.type === 'open') {
+          void pm.loadVersion(versionPath, folderPath);
+          if (studioNotice) showToast(studioNotice, 'success');
+        } else {
+          showToast(studioNotice ?? outcome.message, 'success', {
+            label: 'Open',
+            onClick: () => { void projectManagerRef.current.loadVersion(versionPath, folderPath); },
+          });
+        }
+        if (outcome.notice) showToast(outcome.notice, 'info');
       } else if (outcome.type === 'error') {
         showToast(outcome.message, 'error');
       }
-      if ((outcome.type === 'open' || outcome.type === 'offer') && outcome.notice) showToast(outcome.notice, 'info');
     }
   }, [jobs, showToast, scheduleLibraryRefresh, projectManagerRef]);
 
   const watchBuild = useCallback((jobId: string | null) => setWatchedBuildId(jobId), []);
 
   const centreBuild = centreBuildJob(jobs, watchedBuildId, openFolderPath);
+  // The open folder's thread re-reads when a job that wrote to it ends.
+  const endedHere = openFolderPath
+    ? jobs.filter((j) => isJobFinished(j) && (j.folderPath === openFolderPath || j.targetFolderPath === openFolderPath)).length
+    : 0;
   return {
     /** Running jobs that will add a project: placeholder rows in the library. */
     pendingJobs: pendingProjectJobs(jobs),
-    /** The open project's edit / fix in flight. */
+    /** The open project's edit in flight (a builder edit, or a restored edit / fix). */
     openProjectJob: openProjectJob(jobs, openFolderPath),
     /** The job streaming into the preview panel. */
     streamJob: previewStreamJob(jobs, openFolderPath),
     /** The build the centre panel shows instead of the preview. */
     centreBuild,
     centreBuildWaiting: centreBuild ? waitingFor(centreBuild, jobs, otherBuildActive) : null,
+    /** Changes when a job on the open folder ends: the thread re-reads its chat.json. */
+    threadKey: `${openFolderPath ?? ''}:${endedHere}`,
     watchedBuildId,
     watchBuild,
   };

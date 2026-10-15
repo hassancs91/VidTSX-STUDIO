@@ -17,7 +17,7 @@ import {
   projectNameFromId,
   pruneRunDirs,
   saveBuildVersion,
-  seedWorkFromVersion,
+  sha256Text,
 } from './build-store';
 import { scanCreatorProjects } from '../studio/creator-projects';
 
@@ -90,6 +90,16 @@ describe('saveBuildVersion', () => {
     expect(await fs.readFile(path.join(saved.version.folderPath, 'v1.stills', 'r01-f000.jpg'), 'utf-8')).toBe('jpeg-bytes');
     const debug = JSON.parse(await fs.readFile(saved.version.debugPath, 'utf-8'));
     expect(debug).toMatchObject({ kind: 'tsx-builder', rounds: 1, stills: saved.stills });
+    // What vN.tsx is as saved: an edit tells a hand change by it (build-seed.ts).
+    expect(debug.artifactSha256).toBe(sha256Text(config('CoinPiles')));
+  });
+
+  it("never saves an edit's HAND-EDITS.diff into vN.src/ (the next edit would carry it again)", async () => {
+    const { dirs } = await makeRun(path.join(tmpDir, 'runs'));
+    await write(path.join(dirs.workDir, 'HAND-EDITS.diff'), '--- v1.tsx\n+++ v2.tsx\n');
+    const saved = await saveBuildVersion({ target: { parentDir: path.join(tmpDir, 'projects'), name: 'coin-piles' }, code: config('CoinPiles'), dirs, stills: [], debug: {} });
+    await expect(fs.stat(path.join(saved.version.srcDir, 'HAND-EDITS.diff'))).rejects.toThrow();
+    expect(await fs.readFile(path.join(saved.version.srcDir, 'DESIGN.md'), 'utf-8')).toBe('# Coin piles\n');
   });
 
   it('adds the next version to an existing folder', async () => {
@@ -172,62 +182,6 @@ describe('vN.assets/', () => {
     expect(saved.version.number).toBe(2);
     expect(saved.version.assetsDir).toBeUndefined();
     await expect(fs.stat(path.join(folder, 'v2.assets'))).rejects.toThrow();
-  });
-
-  it('seeds an edit with a COPY of the version files (a rewrite must not reach the saved version)', async () => {
-    const folder = path.join(tmpDir, 'projects', 'robot');
-    await write(path.join(folder, 'v1.tsx'), config('Robot'));
-    await write(path.join(folder, 'v1.src', 'index.tsx'), '// src\n');
-    await write(path.join(folder, 'v1.assets', 'data.json'), '{"a":1}');
-    const work = path.join(tmpDir, 'work');
-    await fs.mkdir(work);
-    await seedWorkFromVersion({ folderPath: folder }, work);
-    await fs.writeFile(path.join(work, 'assets', 'data.json'), '{"a":2}');
-    expect(await fs.readFile(path.join(folder, 'v1.assets', 'data.json'), 'utf-8')).toBe('{"a":1}');
-  });
-});
-
-describe('seedWorkFromVersion', () => {
-  it("continues from the builder's own vN.src/ and its recorded format", async () => {
-    const folder = path.join(tmpDir, 'projects', 'coin-piles');
-    await write(path.join(folder, 'v1.tsx'), config('CoinPiles'));
-    await write(path.join(folder, 'v1.src', 'index.tsx'), '// the source, not the bundle\n');
-    await write(path.join(folder, 'v1.src', 'DESIGN.md'), '# round log\n');
-    const format = { width: 1080, height: 1350, fps: 30, durationInFrames: 240, loop: true };
-    await write(path.join(folder, 'v1.debug.json'), JSON.stringify({ kind: 'tsx-builder', request: { format } }));
-
-    const work = path.join(tmpDir, 'work');
-    await fs.mkdir(work);
-    const seed = await seedWorkFromVersion({ folderPath: folder }, work);
-    expect(seed).toMatchObject({ version: 1, fromSrc: true, format });
-    expect(seed.config?.id).toBe('CoinPiles');
-    expect(await fs.readFile(path.join(work, 'index.tsx'), 'utf-8')).toBe('// the source, not the bundle\n');
-    expect(await fs.readFile(path.join(work, 'DESIGN.md'), 'utf-8')).toBe('# round log\n');
-  });
-
-  it('seeds a pre-builder version as its one file, format from its config', async () => {
-    const folder = path.join(tmpDir, 'projects', 'old-one');
-    await write(path.join(folder, 'v1.tsx'), config('OldOne', 1920, 1080));
-    await write(path.join(folder, 'v2.tsx'), config('OldOne', 1080, 1080));
-    await write(path.join(folder, 'v2.debug.json'), JSON.stringify({ model: 'one-shot', turns: [] }));
-
-    const work = path.join(tmpDir, 'work');
-    await fs.mkdir(work);
-    const seed = await seedWorkFromVersion({ folderPath: folder }, work);
-    expect(seed).toMatchObject({ version: 2, fromSrc: false });
-    expect(seed.format).toEqual({ width: 1080, height: 1080, fps: 30, durationInFrames: 240 });
-    expect(await fs.readFile(path.join(work, 'index.tsx'), 'utf-8')).toBe(config('OldOne', 1080, 1080));
-  });
-
-  it('seeds the version asked for, and refuses one that is not there', async () => {
-    const folder = path.join(tmpDir, 'projects', 'old-one');
-    await write(path.join(folder, 'v1.tsx'), config('OldOne', 1920, 1080));
-    await write(path.join(folder, 'v2.tsx'), config('OldOne', 1080, 1080));
-    const work = path.join(tmpDir, 'work');
-    await fs.mkdir(work);
-    expect((await seedWorkFromVersion({ folderPath: folder, version: 1 }, work)).format?.width).toBe(1920);
-    await expect(seedWorkFromVersion({ folderPath: folder, version: 7 }, work)).rejects.toThrow('v7.tsx not found');
-    await expect(seedWorkFromVersion({ folderPath: path.join(tmpDir, 'empty') }, work)).rejects.toThrow('No version to edit');
   });
 });
 

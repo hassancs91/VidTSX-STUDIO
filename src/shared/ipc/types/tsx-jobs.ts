@@ -66,6 +66,8 @@ export interface TsxBuildJobIpc {
   format?: BuildFormat;
   /** True when the job continues an earlier version (`editOf`). */
   edit: boolean;
+  /** The version an edit continues, when the request named one. */
+  editVersion?: number;
   phase: BuildPhase;
   /** Look rounds used, of `roundsMax`. */
   round: number;
@@ -164,6 +166,8 @@ export interface TsxBuildJobRequestIpc {
   referenceImages?: LlmImageIpc[];
   /** Continue an earlier version (its `vN.src/`); the new version lands in the same folder. */
   editOf?: { folderPath: string; version?: number };
+  /** What the project's thread (chat.json) shows for this request; default: the prompt. A "Fix with AI" sends its error here, not its whole instruction. */
+  threadText?: string;
   /** Folder name for a new build. Default: from `compositionConfig.id`. */
   name?: string;
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';

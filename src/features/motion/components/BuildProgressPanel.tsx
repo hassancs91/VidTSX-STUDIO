@@ -9,6 +9,7 @@ import {
   jobElapsedMs,
   latestLook,
   outcomeText,
+  panelTitle,
   tokensText,
   verdictChips,
 } from '../services/build-panel-view';
@@ -32,9 +33,9 @@ interface Props {
 }
 
 /**
- * The centre panel while the Creator watches a build (P3 part 2): round,
- * phase, checks, tokens and time from the job snapshot, the frames the
- * builder last looked at, and its notes as it writes them.
+ * The centre panel while the Creator watches a build (P3 part 2) or a builder
+ * edit (part 3): round, phase, checks, tokens and time from the job snapshot,
+ * the frames the builder last looked at, and its notes as it writes them.
  */
 export function BuildProgressPanel({ job, waiting, onCancel, onClose }: Props) {
   const active = isJobActive(job);
@@ -50,6 +51,7 @@ export function BuildProgressPanel({ job, waiting, onCancel, onClose }: Props) {
   const checks = checksText(build);
   const tokens = tokensText(build);
   const outcome = outcomeText(job);
+  const title = panelTitle(job);
   const status = job.status === 'queued'
     ? (waiting ? WAITING_TEXT[waiting] : 'Queued')
     : active ? job.progress.label : ENDED_TEXT[job.status] ?? job.status;
@@ -60,8 +62,8 @@ export function BuildProgressPanel({ job, waiting, onCancel, onClose }: Props) {
         className="flex items-center h-[36px] px-3 gap-2 shrink-0 bg-app-surface"
         style={{ borderBottom: '0.5px solid var(--color-border)' }}
       >
-        <span className="text-[11px] font-medium text-text-secondary shrink-0">Build</span>
-        <span className="text-[11px] text-text-dim truncate" title={job.prompt}>{job.projectName ?? job.prompt}</span>
+        <span className="text-[11px] font-medium text-text-secondary shrink-0">{title.kind}</span>
+        <span className="text-[11px] text-text-dim truncate" title={job.prompt}>{title.name}</span>
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {active ? (
             <button

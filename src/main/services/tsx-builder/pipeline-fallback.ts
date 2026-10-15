@@ -14,7 +14,7 @@ import {
   type TsxPipelineOptions,
 } from '../../../shared/tsx-engine';
 import { parseCompositionConfig } from '../composition-config-parser';
-import { resolveEditVersion } from './build-store';
+import { resolveEditVersion } from './build-seed';
 import type { GenerateTsxResult, PipelineBoundRequest, TsxEngineReason } from './types';
 
 /** The pipeline has no loop notion; this line is all it gets of `format.loop`. */

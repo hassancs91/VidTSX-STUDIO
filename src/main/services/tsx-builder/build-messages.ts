@@ -5,8 +5,10 @@
 
 import { formatLine } from './build-format';
 import type { BuildFormat } from './types';
-import type { SeededBuild } from './build-store';
+import { HAND_EDITS_FILE, type SeededBuild } from './build-seed';
 import { formatBytes, type AssetFile } from './build-assets';
+
+export type EditSeed = Pick<SeededBuild, 'version' | 'kind' | 'srcVersion' | 'handEditLines' | 'bundle' | 'bundleAssets'>;
 
 export interface FirstMessageInput {
   intent: string;
@@ -14,7 +16,7 @@ export interface FirstMessageInput {
   brand?: string;
   referenceImageCount?: number;
   /** Present for an edit. */
-  seed?: Pick<SeededBuild, 'version' | 'fromSrc'>;
+  seed?: EditSeed;
   /** What assets/ holds at the start (the request's files, an edit's version files). */
   assets?: AssetFile[];
   /** generate_image this run: the provider and the cap; absent when no provider can run or the cap is 0. */
@@ -61,18 +63,49 @@ function newBuildMessage(input: FirstMessageInput): string {
   ].join('\n');
 }
 
-function editMessage(input: FirstMessageInput, seed: Pick<SeededBuild, 'version' | 'fromSrc'>): string {
-  const folder = seed.fromSrc
-    ? `Your folder holds v${seed.version} as the builder left it: DESIGN.md has its design and round log. Read DESIGN.md and the files first.`
-    : `Your folder holds v${seed.version} as one file, index.tsx. It was made before the builder, so there is no DESIGN.md: start one with what the picture is now, then the change.`;
+/** What the folder holds and what to do with it first (build-seed.ts says how it was filled). */
+function seedLines(seed: EditSeed): string[] {
+  const n = `v${seed.version}`;
+  const k = `v${seed.srcVersion ?? seed.version}`;
+  if (seed.kind === 'src') {
+    return [
+      `Your folder holds ${n} as the builder left it: DESIGN.md has its design and round log. Read DESIGN.md and the files first.`,
+      'Look at it as it is (render_stills) before you change anything.',
+    ];
+  }
+  if (seed.kind === 'hand-edits') {
+    const when = n === k ? `${n} was changed by hand after the builder saved it` : `${n} is ${k} with changes made by hand`;
+    return [
+      `Your folder holds ${k} as the builder left it: DESIGN.md has its design and round log. Read DESIGN.md and the files first.`,
+      `${when}: ${HAND_EDITS_FILE} has those changes (${seed.handEditLines} lines), as a diff of the saved single file, which bundles your files. Find each change in your files and make it there first: the user keeps them. Then look at it (render_stills) before the change asked for.`,
+    ];
+  }
+  if (seed.bundle) {
+    return [
+      `Your folder holds ${n} as one file, index.tsx: the builder's files for ${k} bundled into one, then rewritten by hand. DESIGN.md is ${k}'s design and round log; add what the picture is now.`,
+      ...(seed.bundleAssets
+        ? ["The bundle names its files as __vidtsxAsset('…'); they are in assets/: write staticFile('…') for each again so the check finds them."]
+        : []),
+      'Look at it as it is (render_stills) before you change anything.',
+    ];
+  }
+  return [
+    `Your folder holds ${n} as one file, index.tsx. It was made before the builder, so there is no DESIGN.md: start one with what the picture is now, then the change.`,
+    'Look at it as it is (render_stills) before you change anything.',
+  ];
+}
+
+function editMessage(input: FirstMessageInput, seed: EditSeed): string {
+  const lines = seedLines(seed);
+  const last = lines.pop();
   return [
     'Change this composition.',
     '',
     `CHANGE: ${input.intent}`,
     ...contextLines(input),
     '',
-    folder,
-    'Look at it as it is (render_stills) before you change anything. Keep what works; change what the request asks and what your looks show is needed. Add this edit to the round log in DESIGN.md.',
+    ...lines,
+    `${last} Keep what works; change what the request asks and what your looks show is needed. Add this edit to the round log in DESIGN.md.`,
   ].join('\n');
 }
 

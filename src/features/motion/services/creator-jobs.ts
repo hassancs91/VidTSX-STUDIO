@@ -9,6 +9,9 @@
 //   running. A finished new build opens when nothing is open or when it was
 //   watched — then it is what the user is looking at, so opening it steals
 //   nothing. Otherwise it offers itself in a toast.
+// - Later messages are builder edits (part 3): a `build` with `editOf`, whose
+//   target is the open folder. It drives the open project's busy state as the
+//   pipeline's edit / fix did, and opens its result when it was watched.
 
 import type { TsxJobIpc } from '@shared/ipc/types';
 
@@ -31,26 +34,47 @@ export function isNewProjectJob(job: TsxJobIpc): boolean {
   return job.kind === 'generate' || (job.kind === 'build' && !job.targetFolderPath);
 }
 
+/** A job that adds a version to a project: a builder edit, or the pipeline's edit / fix (restored from before part 3). */
+export function isEditJob(job: TsxJobIpc): boolean {
+  return job.kind === 'edit' || job.kind === 'fix' || (job.kind === 'build' && Boolean(job.targetFolderPath));
+}
+
+function folderName(folderPath: string): string {
+  return folderPath.split(/[\\/]/).filter(Boolean).pop() ?? folderPath;
+}
+
+/** A job's name in the strip, the toolbar and the build panel: the project, else (an edit) its folder, else the prompt. */
+export function jobTitle(job: TsxJobIpc): string {
+  if (job.projectName) return job.projectName;
+  if (isEditJob(job) && job.targetFolderPath) return folderName(job.targetFolderPath);
+  return job.prompt;
+}
+
 /** Running jobs that will add a project: placeholder rows in the library. */
 export function pendingProjectJobs(jobs: TsxJobIpc[]): TsxJobIpc[] {
   return jobs.filter((j) => isNewProjectJob(j) && isJobActive(j));
 }
 
-/** The open project's edit / fix in flight: it drives the preview's overlay. */
+/** The open project's edit in flight (a builder edit, or a restored edit / fix): it makes the project busy. */
 export function openProjectJob(jobs: TsxJobIpc[], openFolderPath: string | null): TsxJobIpc | null {
   if (!openFolderPath) return null;
-  return jobs.find((j) =>
-    (j.kind === 'edit' || j.kind === 'fix') && j.targetFolderPath === openFolderPath && isJobActive(j)) ?? null;
+  return jobs.find((j) => isEditJob(j) && j.targetFolderPath === openFolderPath && isJobActive(j)) ?? null;
 }
 
 function newest(jobs: TsxJobIpc[]): TsxJobIpc | null {
   return [...jobs].sort((a, b) => b.createdAt - a.createdAt)[0] ?? null;
 }
 
-/** Which job streams into the preview panel: the open project's edit / fix, or (nothing open) the newest generation. */
+/**
+ * Which job streams into the preview panel in place of the player: a restored
+ * pipeline edit / fix of the open project, or (nothing open) the newest
+ * generation. A builder edit leaves the player alone: its notes are in the
+ * build panel.
+ */
 export function previewStreamJob(jobs: TsxJobIpc[], openFolderPath: string | null): TsxJobIpc | null {
-  return openProjectJob(jobs, openFolderPath)
-    ?? (openFolderPath ? null : newest(jobs.filter((j) => j.kind === 'generate' && j.status === 'generating')));
+  const editing = openProjectJob(jobs, openFolderPath);
+  if (editing) return editing.kind === 'build' ? null : editing;
+  return openFolderPath ? null : newest(jobs.filter((j) => j.kind === 'generate' && j.status === 'generating'));
 }
 
 /** The build the centre panel shows instead of the preview, if any. */
@@ -80,7 +104,8 @@ export function jobOutcome(
   context: { openFolderPath: string | null; watchedJobId: string | null },
 ): JobOutcome {
   if (job.status === 'error') {
-    return { type: 'error', message: `${job.kind === 'build' ? 'Build' : 'Generation'} failed: ${job.error ?? 'Unknown error'}` };
+    const what = job.kind === 'build' ? (isEditJob(job) ? 'Edit' : 'Build') : 'Generation';
+    return { type: 'error', message: `${what} failed: ${job.error ?? 'Unknown error'}` };
   }
   if (job.status !== 'done' || !job.versionPath || !job.folderPath) return { type: 'none' };
   const { versionPath, folderPath } = job;
@@ -89,8 +114,18 @@ export function jobOutcome(
     if (!context.openFolderPath || context.watchedJobId === job.id) return { type: 'open', versionPath, folderPath, ...notice };
     return { type: 'offer', message: job.kind === 'build' ? 'New build ready' : 'New generation ready', versionPath, folderPath, ...notice };
   }
+  // A builder edit the user watched: its result is what they were waiting for.
+  if (job.kind === 'build' && context.watchedJobId === job.id) return { type: 'open', versionPath, folderPath, ...notice };
   const message = context.openFolderPath === folderPath
     ? 'New version ready'
-    : `New version saved in ${folderPath.split(/[\\/]/).pop()}`;
+    : `New version saved in ${folderName(folderPath)}`;
   return { type: 'offer', message, versionPath, folderPath, ...notice };
+}
+
+/** A version saved into a Studio shot folder (append-only, SHOT_QUALITY_DESIGN Q2): where it went and how to use it. */
+export function studioSaveNotice(version: number | null, studioProjectId: string, openStudioProjectId: string | null): string {
+  const name = version !== null ? `v${version}` : 'a new version';
+  return studioProjectId === openStudioProjectId
+    ? `Saved ${name} into the open Studio project — pick it in the shot's version picker to use it`
+    : `Saved ${name} into Studio project "${studioProjectId}"`;
 }

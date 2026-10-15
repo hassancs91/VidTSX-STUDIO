@@ -1,22 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { BuildBudget, LlmImageIpc, TsxJobStartRequest } from '../../../shared/ipc/types';
 import type { StudioBrand } from '@shared/types/asset-library';
-import type { ThinkingLevel } from '@shared/tsx-engine';
 import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
-// The brand contract is shared with the agent mode's `generate_composition`
-// (W7, decision 7): one block, both modes.
+// The brand contract is shared with the agents' `generate_composition`
+// (W7, decision 7): one block, both callers.
 import { buildBrandInstructions } from '@shared/studio/brand-instructions';
 import type { AspectRatio } from '../types';
 import { buildJobRequest, DEFAULT_BUDGET } from '../services/build-job-request';
-
-export type { ThinkingLevel } from '@shared/tsx-engine';
+import { DEFAULT_EDIT_BUDGET, editJobRequest, fixJobRequest, type EditTarget, type FixInput } from '../services/edit-job-request';
 
 /**
  * Generation options state for the Creator screen. Since generations run as
  * jobs in the main process (TsxJobEngine), this hook no longer executes
  * anything — it holds the input state and builds TsxJobStartRequest payloads.
- * The first message is a `build` job (P3 part 2); edit and fix stay on the
- * pipeline until part 3.
+ * The first message is a `build` job (P3 part 2); the Edit box and "Fix with
+ * AI" are builder edits of the open version (part 3).
  */
 export function useMotionGenerator() {
   const [prompt, setPrompt] = useState('');
@@ -24,8 +22,6 @@ export function useMotionGenerator() {
   const { providers, selectedProvider, setSelectedProvider } = useProviderPicker();
   /** Model on the selected provider; '' = its default (W1). */
   const [model, setModel] = useState('');
-  const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel>('off');
-  const [loopCount, setLoopCount] = useState(1);
   const [fps, setFps] = useState(30);
   const [brands, setBrands] = useState<StudioBrand[]>([]);
   const [selectedBrandId, setSelectedBrandId] = useState<string>('');
@@ -33,8 +29,8 @@ export function useMotionGenerator() {
   const [duration, setDuration] = useState(5);
   const [autoDuration, setAutoDuration] = useState(true);
   const [budget, setBudget] = useState<BuildBudget>(DEFAULT_BUDGET);
+  const [editBudget, setEditBudget] = useState<BuildBudget>(DEFAULT_EDIT_BUDGET);
   const [seamlessLoop, setSeamlessLoop] = useState(false);
-  const [optimize, setOptimize] = useState(true);
   const [referenceImages, setReferenceImages] = useState<LlmImageIpc[]>([]);
 
   // Brands are optional styling — load once; an empty list just hides nothing
@@ -66,48 +62,19 @@ export function useMotionGenerator() {
     });
   }, [prompt, selectedProvider, model, aspectRatio, fps, duration, autoDuration, seamlessLoop, budget, brands, selectedBrandId, referenceImages]);
 
-  const buildEditJob = useCallback((currentCode: string, folderPath: string): TsxJobStartRequest | null => {
-    if (!editPrompt.trim() || !selectedProvider || !currentCode) return null;
+  /** The Edit box: a builder edit of the open version at the Edit row's budget. */
+  const buildEditJob = useCallback((target: EditTarget): TsxJobStartRequest | null => editJobRequest({
+    prompt: editPrompt,
+    providerId: selectedProvider,
+    model,
+    budget: editBudget,
+    target,
+    referenceImages,
+  }), [editPrompt, selectedProvider, model, editBudget, referenceImages]);
 
-    return {
-      kind: 'edit',
-      prompt: editPrompt.trim(),
-      providerId: selectedProvider,
-      options: {
-        ...(model ? { model } : {}),
-        thinkingLevel,
-        maxTurns: loopCount,
-        ...(referenceImages.length > 0 ? { images: referenceImages } : {}),
-      },
-      target: { folderPath, currentCode },
-    };
-  }, [editPrompt, selectedProvider, model, thinkingLevel, loopCount, referenceImages]);
-
-  const buildFixJob = useCallback((
-    currentCode: string,
-    folderPath: string,
-    errorMessage: string,
-    errorLocation?: { line: number; column: number; file: string },
-  ): TsxJobStartRequest | null => {
-    if (!selectedProvider || !currentCode || !errorMessage) return null;
-
-    const locationInfo = errorLocation
-      ? ` at line ${errorLocation.line}, column ${errorLocation.column}`
-      : '';
-    const fixInstruction =
-      `The current TSX composition fails with the following error${locationInfo}:\n\n` +
-      `${errorMessage}\n\n` +
-      `Fix the error. Make the minimal changes needed to resolve the issue ` +
-      `while preserving the intended visual design and behavior.`;
-
-    return {
-      kind: 'fix',
-      prompt: fixInstruction,
-      providerId: selectedProvider,
-      options: { ...(model ? { model } : {}), thinkingLevel, maxTurns: loopCount },
-      target: { folderPath, currentCode },
-    };
-  }, [selectedProvider, model, thinkingLevel, loopCount]);
+  /** "Fix with AI": a Quick builder edit that names the preview's error. */
+  const buildFixJob = useCallback((input: Omit<FixInput, 'providerId' | 'model'>): TsxJobStartRequest | null =>
+    fixJobRequest({ ...input, providerId: selectedProvider, model }), [selectedProvider, model]);
 
   return {
     prompt,
@@ -119,10 +86,6 @@ export function useMotionGenerator() {
     setSelectedProvider,
     model,
     setModel,
-    thinkingLevel,
-    setThinkingLevel,
-    loopCount,
-    setLoopCount,
     fps,
     setFps,
     brands,
@@ -136,10 +99,10 @@ export function useMotionGenerator() {
     setAutoDuration,
     budget,
     setBudget,
+    editBudget,
+    setEditBudget,
     seamlessLoop,
     setSeamlessLoop,
-    optimize,
-    setOptimize,
     referenceImages,
     setReferenceImages,
     buildBuildJob,
