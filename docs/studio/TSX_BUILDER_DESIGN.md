@@ -698,6 +698,32 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   Claude (Subscription) On + default, yet `llmProvidersGet` returns no providers until Save, so the Creator says
 >   "No providers configured" (pre-existing, not fixed). Gates: types 26/10; vitest 375 files green + 1 load flake
 >   (shot-module-resolver, passes alone).
+> - **Part 3 DONE `4a455d8`** (Creator composer B; Hasan "OK" on the plan: hand edits as a diff, builder edits in Studio
+>   shot folders too, the thread above the Edit box, Edit row budget default Standard, Fix = Quick, a watched edit opens
+>   its result). The Edit box and "Fix with AI" start `build` jobs with `editOf` (open folder + version); the watched edit
+>   takes the centre ("Edit · bounce-2 · v2"); left, its result is offered in a toast. `openProjectJob` matches builder
+>   edits: the project is busy (no hand save, no second fix) but the player stays; the Edit box shows round · phase,
+>   "Show progress", Cancel. **Thread** = chat.json above the Edit box (latest exchange, "N earlier"); a build reply now
+>   stores `version` + the builder's `summary`; a fix stores `threadText` "Fix with AI: <error>". Fix = Quick with the
+>   error and the saved file's lines around it. Agent tab out (D4: MotionAgentPanel + useMotionAgent deleted),
+>   Thinking + Optimize out (D3). Studio shot folders: next version, append-only kept, the Studio section rescans and
+>   the toast says where it went (`studioSaveNotice`, shared with hand saves). Known limits until parts 5-6: a kit shot
+>   fails `check` (the Creator lint refuses `@vidtsx/kit`), 3D / `vN.assets` output will not play in Studio yet.
+>   **Hand-edited builder versions** (`build-seed.ts`): vN.tsx is the bundle (galton-bell 326 KB vs 16 KB of source), and
+>   Overwrite / the Code tab's auto-save / Save as new change it without vN.src/. Seeds: `src` (vN.tsx still matches
+>   vN.debug.json `artifactSha256`, new; older versions taken as unchanged), `hand-edits` (newest vK.src/ + vK.assets/
+>   + HAND-EDITS.diff = line diff of vK's bundle vs vN.tsx, esbuild path comments normalised; a bundle changed in place
+>   is remade from vK.src/ by `check`), `file` (pre-builder, or > 400 changed lines: the file + vK's DESIGN.md + the files
+>   it names). HAND-EDITS.diff is never saved into vN.src/. Live (`runs/P3/ui-p3/`, dev app over CDP): Standard edit of a
+>   hand-saved bounce-2 v2 (title "Bounce!" navy) on Sonnet 5.5: seed `hand-edits` (2 lines), kept the hand change, blue
+>   ball + 5-ghost trail, seam OK, finished, 1 round, 5 checks, 77 s, **$0.70 API-eq**; thread showed the reply with its
+>   summary. Fix with AI on a broken copy: Quick, error excerpt lines 891-895, cancelled at 31 ms before any API turn
+>   ($0). Not seen live (the edit ended in 77 s while another project was open): the watched edit opening its result and
+>   the Edit box's busy row; both unit-tested. **P2 problem 5 measured ($0):** galton-bell v1 in the Creator preview
+>   (Electron, Chromium 146.0.7680.72) = the headless shell exactly: frame 150 slots `1 1 2 9 22 29 31 32 20 6 2 2 1`
+>   (158 landed), frame 299 `1 1 5 24 72 89 107 100 67 21 6 2 2` (497); seeking 299 → 0 → 150 repeats. Nothing to fix for
+>   the preview (Chrome 154 is still the odd one). The saved `r06-f150.jpg` predates B6's last physics change, so the
+>   reference was rendered fresh (`runs/P3/p5-galton`). Gates: types 26/10; vitest 380 files / 3252 tests.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
