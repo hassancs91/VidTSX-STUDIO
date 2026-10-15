@@ -766,6 +766,67 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   version of the open project", "a minute or more") and tsx-craft calls itself the tool's own text (P4 retires it from
 >   the Creator); `tsx-deps.ts` has no caller now (part 8); a cancelled agent run logs no usage row (pre-existing). Gates:
 >   types 26/10; vitest 381 files / 3273 tests.
+> - **Part 5 DONE `8ec08b3`** (Studio shots + the Studio assistant + Refine, 2D; Hasan's answers 10-15: 1(b), 2a, 3a,
+>   4a, 5a, 6a, 7 = a budget picker in the Inspector too, 8 = reword the skill). Every shot op is ONE `build` job through
+>   `startBuildAndWait` (origin `studio`, usage `studio-tsx-shot`): **generate** `into` the reserved `shots/<id>/`;
+>   **regenerate** = a fresh build into the same folder (`BuildRequest.retake`: `checkIntoFolder` lets it hold versions,
+>   saved as N+1, a new build's round floor); **edit** = `editOf` the active version at the Inspector's budget (default
+>   Standard); **Refine** = a Quick builder edit ("look, fix only what the frames show"; the old refine constraints minus
+>   "keep imports exactly"). `shot-generator.ts` rewritten (the 4 slots, the pipeline calls and renderShotStills gone;
+>   `validateShotCode` + `buildShotEngineDeps` stay for conform / import / reconcile / package import until part 8).
+>   **Cancel (6a):** the generator owns one controller per shot, chained to the caller's signal; IPC cancel and the
+>   assistant's turn both reach it, queued or running. A cancelled new shot leaves the registry through `shots-adopt`
+>   (no undo step) and its empty folder is released; a failed new shot stays an error shot (Regenerate builds into its
+>   empty folder); a cancelled or failed retake / edit / refine leaves the shot (a retake sends no registry snapshot
+>   until it is ready). **What it is asked (4a, `shot-build-request.ts`):** the built-in pack `studio-shot` (shot craft
+>   reworded for a builder, the contract, the kit MANIFEST; exemplars dropped) + an intent per op (kind + background
+>   rule, brief, the WORDS block verbatim, learned style, media as `assets/<key><ext>` with staticFile); brand = the
+>   request's brand text. **Media (2a, `shot-build-media.ts`):** the shot's media copied into assets/ as `<key><ext>`
+>   (an edit copies only what no `vK.assets/` carries); on save the version's image / video / audio are registered as
+>   project media in place (`attachVersionMedia`, now shared with Import TSX, behaviour unchanged there) and sent as
+>   `importedAssets` + `assetRefs`; keys the shot had keep their asset ids; an edit's new keys are ADDED in the renderer.
+>   A Studio build's `check` refuses other kinds ("cannot play in a Studio shot yet; draw it in code") until part 6.
+>   **Kit (3a):** `check` inlines `@vidtsx/kit` from `getShotKitDir()/core` for EVERY builder build (`bundleShotSource`
+>   `kitDir`; the kit files count as a package; Import TSX keeps it external). It bundles under esbuild (14.6 KB
+>   tree-shaken, 12 inputs). **Behind a transparent shot (1(b), `look-backdrop.ts`):** render_stills, contact_sheet and
+>   phone_view of an overlay / title render a wrapper: `<OffthreadVideo trimBefore={start × fps} muted>` of the footage
+>   (served from the look bundle's asset root, prop `__vidtsxBackdropSrc`, entry `look.tsx`) under the piece, or a grey
+>   checkerboard; loop_seam / purity_check and everything `finish` compares stay on the piece. Footage = the anchor
+>   asset from `sourceStart`; else the master-lane clip the renderer finds (`features/studio/services/shot-footage.ts`)
+>   under the playhead (pool Generate) or **under the clip's start (Inspector ops: applied as the natural extension of
+>   the default, report)**; the asset's proxy when ready, else the original. The first message says what is behind.
+>   Looks also hand every file in assets/ by key (an old D12 shot reading `props.assets.logo` shows its media).
+>   **Assistant:** `generate_tsx_shot` takes `budget` (part 4's schema text), its chip updates per progress label
+>   (`emitProgress`), the result = head + part 4's outcome lines + up to 3 stills of the last look (D6); a pool cancel
+>   returns "cancelled … carry on", not an error. Studio tool server `timeout` = `AGENT_TOOL_TIMEOUT_MS` (3 h); the
+>   private `resolveToolSupport` replaced by the shared one; `studio-make-tsx` reworded for the builder (minutes per
+>   shot, budget, one build at a time, read the returned frames, a pool cancel). **Renderer:** Budget select in the pool
+>   form and the Inspector (`BUDGET_CHOICES` / `budgetHint` moved to `build-budgets.ts`, re-exported for the Creator),
+>   Cancel on the pool card while building and in the Inspector for every op, the footage sent with each op; the
+>   queued card says "Waiting for another build to finish". Seam: `tsx-jobs/build-engine.ts` (`getBuildEngine` +
+>   `setBuildEngineForTests`, shared with the agents' tools). Dev-only free spike mode `backdrop`.
+>   **Live** (dev app over CDP, throwaway profile's Studio root pointed at `runs/P3/studio-p5/` FIRST (it had none, so
+>   the app would have used his real Videos folder), a copy of s3-autocut with the talk put on V1; screenshots
+>   `runs/P3/ui-p5/00-12`): **L0** $0 (`runs/P3/backdrop-p5` + `-clock`): a JPEG look of a transparent overlay shows
+>   **black** behind it today; the wrapper shows the footage frame at the same moment (a testsrc clock clip read 5, 5,
+>   6, 7 at frames 0/20/45/85 from 5.0 s, on stills and inside contact-sheet tiles), the checkerboard reads as
+>   transparent; test-2's kit shot (copied) passes a Studio check with the kit inlined (21 KB). The s3 talk itself is a
+>   flat blue frame. **L1** pool Generate, cutaway 5 s Quick: card progress + Cancel, 53 s, 1 round, landed at the
+>   playhead on a new overlay lane, plays, Inspector v1, **$0.72**. **L2** a second (overlay) Generate cancelled 1.0 s in,
+>   during its first turn: card gone, folder released, no usage row (a cancelled run logs none, pre-existing). **L3**
+>   Refine L1 (Quick edit, seed src): 48 s, v2 adopted, picker v1 + v2, "re-centred vertically … cards enlarged … icons
+>   scaled 1.35", **$0.25** (warm cache). **L4** assistant (fresh session): read the transcript, anchored a title to
+>   "Today we are building the AutoCut feature" (2.38-4.4 s), the chip showed "Generating shot — 90% Round 1/1 ·
+>   Designing and writing", built 70 s with the talk frame behind it in `v1.stills`, proposed; said "a lower-third that
+>   lands in the bottom band over the footage. Each word pops in as it's spoken…" and flagged its own estimate of the
+>   last word's end; **$0.94** (build $0.22 + assistant $0.72, the latter tagged `auto-cut`). Placed and played over the
+>   talk. **Found, not part 5 (apply-shot-proposal.ts, unchanged):** the one overlay lane held L1's cutaway at 0-5 s,
+>   so "Place 1 shot" put the word-synced title at 5.0 s instead of its anchor 2.38 s: off its words. **L5** Inspector
+>   Apply edit at Standard on the title: 76 s, 1 of 3 rounds, v2 adopted, dark band behind the line checked over the
+>   talk frame, **$0.20**. Live total **$2.11 API-eq** + L2's unlogged partial turn. Fixed during the checks: the
+>   Inspector's Budget select was too narrow ("Stanc"). Notes: the grid card's progress strip covers the kind chip
+>   (pre-existing layout); a renderer edit under `npm run dev` reloads the page to Home. Gates: types 26/10; vitest
+>   387 files / 3323 tests (no flakes this run).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
