@@ -89,6 +89,20 @@ describe('save_to_library', () => {
     expect(res.artifact).toMatchObject({ kind: 'composition', payload: { relPath: 'compositions/explainer.tsx' } });
   });
 
+  it("a builder version's files ride beside its library copy as <slug>.assets/ (P3 part 4)", async () => {
+    const folder = path.join(workspace, 'compositions', 'explainer');
+    await fs.mkdir(path.join(folder, 'v2.assets'), { recursive: true });
+    await fs.writeFile(path.join(folder, 'v2.tsx'), 'built');
+    await fs.writeFile(path.join(folder, 'v2.assets', 'logo.png'), 'png');
+    const built: AgentArtifact = { ...composition, payload: { ...composition.payload, relPath: 'compositions/explainer/v2.tsx' } } as AgentArtifact;
+    const res = await saveToLibraryTool.handler({ composition: 'composition-1', folder: 'generated/tsx' }, ctx([built]));
+    expect(res.fields).toEqual({ relPath: 'generated/tsx/explainer.tsx' });
+    expect(await fs.readFile(path.join(root, 'generated', 'tsx', 'explainer.tsx'), 'utf-8')).toBe('built');
+    expect(await fs.readFile(path.join(root, 'generated', 'tsx', 'explainer.assets', 'logo.png'), 'utf-8')).toBe('png');
+    // Only the composition is indexed; the walker skips its .assets/ folder.
+    expect(upserts.map((u) => u.relPath)).toEqual(['generated/tsx/explainer.tsx']);
+  });
+
   it('refuses nothing to save, an unknown id and a job', async () => {
     expect((await saveToLibraryTool.handler({}, ctx([]))).isError).toBe(true);
     expect((await saveToLibraryTool.handler({ video: 'video-9' }, ctx([]))).isError).toBe(true);

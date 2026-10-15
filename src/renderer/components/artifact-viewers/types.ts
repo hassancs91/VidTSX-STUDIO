@@ -16,6 +16,8 @@ export interface ResolvedArtifact {
   text?: string;
   /** `composition`: a live module url, re-served if the store went cold. */
   moduleUrl?: string;
+  /** `composition`: a builder version's files, passed to the player as its `assets` prop. */
+  assets?: Record<string, string>;
   /** `video` / `image-set`: one servable url per file, in payload order. */
   assetUrls?: string[];
 }

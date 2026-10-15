@@ -4,15 +4,19 @@
 // module in a separate webview so a bad composition cannot take the app down.
 // The url comes from `AGENT_ARTIFACT_RESOLVE` rather than off the artifact,
 // because the module store is in-memory and a reopened session's stored url
-// points at nothing (§1.5).
+// points at nothing (§1.5). A builder version's files (`vN.assets/`) come
+// back with it and reach the piece as its `assets` prop, as in the Creator.
 
+import { useMemo } from 'react';
 import { IsolatedPreview } from '@features/player';
 import type { ArtifactViewerProps } from './types';
 import { ViewerFrame } from './ViewerFrame';
 
 export function CompositionViewer({ artifact, resolved, loading, error }: ArtifactViewerProps) {
   const moduleUrl = resolved?.moduleUrl;
+  const assets = resolved?.assets;
   const config = artifact.kind === 'composition' ? artifact.payload.config : null;
+  const inputProps = useMemo(() => (assets ? { assets } : undefined), [assets]);
   return (
     <ViewerFrame
       {...(loading !== undefined ? { loading } : {})}
@@ -21,7 +25,12 @@ export function CompositionViewer({ artifact, resolved, loading, error }: Artifa
       emptyLabel="This composition could not be prepared for preview."
     >
       {moduleUrl && config ? (
-        <IsolatedPreview moduleUrl={moduleUrl} config={config} className="h-full w-full" />
+        <IsolatedPreview
+          moduleUrl={moduleUrl}
+          config={config}
+          {...(inputProps ? { inputProps } : {})}
+          className="h-full w-full"
+        />
       ) : null}
     </ViewerFrame>
   );

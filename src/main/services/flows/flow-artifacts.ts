@@ -12,7 +12,7 @@ import type {
   FlowsRunArtifactActionResponse,
   FlowsRunArtifactResolveResponse,
 } from '../../../shared/ipc/types';
-import { artifactFilesIn, assetUrlFor, ensureCompositionModuleIn } from '../agents/artifact-paths';
+import { artifactFilesIn, assetUrlFor, compositionAssetsIn, ensureCompositionModuleIn } from '../agents/artifact-paths';
 import { runArtifactAction } from '../agents/artifact-actions';
 import { getDefaultBrandId } from '../library/brand-default';
 import { slugifyName } from '../agents/tools/workspace-files';
@@ -45,8 +45,12 @@ export async function resolveRunArtifact(runId: string, artifactId: string): Pro
       const [file] = await artifactFilesIn(workspaceDir, artifact);
       return { success: true, text: await fs.readFile(file, 'utf-8') };
     }
-    case 'composition':
-      return { success: true, moduleUrl: await ensureCompositionModuleIn(workspaceDir, artifact) };
+    case 'composition': {
+      const moduleUrl = await ensureCompositionModuleIn(workspaceDir, artifact);
+      // P3 part 4: a builder version's files, for the player's `assets` prop.
+      const assets = await compositionAssetsIn(workspaceDir, artifact);
+      return { success: true, moduleUrl, ...(assets ? { assets } : {}) };
+    }
     case 'video':
     case 'image-set':
     case 'audio': {

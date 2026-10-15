@@ -117,9 +117,6 @@ export interface AgentSessionCreateRequest {
   /** W4: the brand the session generates under. Absent = the library
    *  default (the pre-W4 behaviour); null = no brand; a string = that one. */
   brandId?: string | null;
-  /** W7: the Creator's Agent mode — compositions also land in a Motion
-   *  project (created by the first one). */
-  motionSink?: boolean;
 }
 
 export interface AgentSessionCreateResponse {
@@ -270,6 +267,8 @@ export interface AgentArtifactResolveResponse {
   text?: string;
   /** `composition`: a live module url, re-transpiled when the store is cold. */
   moduleUrl?: string;
+  /** `composition`: the files a builder version loads, as its player's `assets` prop (name key → url). */
+  assets?: Record<string, string>;
   /** `video` / `image-set`: one servable url per file, in payload order. */
   assetUrls?: string[];
   error?: string;

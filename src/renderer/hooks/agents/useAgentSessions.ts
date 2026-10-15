@@ -42,8 +42,6 @@ export function useAgentSessions(agentId: string | null) {
         title?: string;
         /** W4: undefined = the library default, null = none. */
         brandId?: string | null;
-        /** W7: the Creator's Agent mode — compositions also land in a Motion project. */
-        motionSink?: boolean;
       } = {},
     ): Promise<AgentSession | undefined> => {
       if (!agentId) return undefined;
@@ -54,7 +52,6 @@ export function useAgentSessions(agentId: string | null) {
         ...(options.starter ? { starter: options.starter } : {}),
         ...(options.title ? { title: options.title } : {}),
         ...(options.brandId !== undefined ? { brandId: options.brandId } : {}),
-        ...(options.motionSink ? { motionSink: true } : {}),
       });
       await refresh();
       return result.success ? result.session : undefined;

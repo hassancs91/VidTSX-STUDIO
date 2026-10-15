@@ -115,11 +115,31 @@ describe('run_agent', () => {
     expect(progress[0]).toBe('Motion Post: session s-1');
   });
 
-  it('a composition output is a work file: copied into the run workspace', async () => {
+  it('a composition output is a work file: copied into the run workspace, in its own folder', async () => {
     const ctx = makeToolContext({ workspaceDir: runWorkspace, artifacts: [runDoc] });
     const result = await runAgentTool.handler({ goal: 'x', agentId: 'vidtsx/motion-post', outputKind: 'composition', composition: undefined }, ctx);
-    expect(result.artifact).toMatchObject({ kind: 'composition', payload: { relPath: 'agents/s-1/post.tsx', config: { id: 'Post' } } });
-    expect(await fs.readFile(path.join(runWorkspace, 'agents', 's-1', 'post.tsx'), 'utf-8')).toBe('export default () => null;');
+    expect(result.artifact).toMatchObject({ kind: 'composition', payload: { relPath: 'agents/s-1/post/post.tsx', config: { id: 'Post' } } });
+    expect(await fs.readFile(path.join(runWorkspace, 'agents', 's-1', 'post', 'post.tsx'), 'utf-8')).toBe('export default () => null;');
+  });
+
+  it('a builder version comes back with its source and files (P3 part 4)', async () => {
+    const folder = path.join(sessionWorkspace, 'compositions', 'post');
+    await fs.mkdir(path.join(folder, 'v2.src'), { recursive: true });
+    await fs.mkdir(path.join(folder, 'v2.assets'), { recursive: true });
+    await fs.writeFile(path.join(folder, 'v2.tsx'), 'built', 'utf-8');
+    await fs.writeFile(path.join(folder, 'v2.src', 'index.tsx'), 'source', 'utf-8');
+    await fs.writeFile(path.join(folder, 'v2.assets', 'logo.png'), 'png', 'utf-8');
+    after = {
+      session,
+      artifacts: [
+        { id: 'composition-4', kind: 'composition', title: 'Post', createdAt: 'now', producer: { tool: 'edit_composition', callId: 'c4' }, version: 2, payload: { relPath: 'compositions/post/v2.tsx', config: { id: 'Post', durationInFrames: 90, fps: 30, width: 1080, height: 1080 } } },
+      ],
+    };
+    const result = await runAgentTool.handler({ goal: 'x', agentId: 'vidtsx/motion-post', outputKind: 'composition' }, makeToolContext({ workspaceDir: runWorkspace }));
+    expect(result.artifact).toMatchObject({ kind: 'composition', payload: { relPath: 'agents/s-1/post/v2.tsx' } });
+    const copied = path.join(runWorkspace, 'agents', 's-1', 'post');
+    expect(await fs.readFile(path.join(copied, 'v2.src', 'index.tsx'), 'utf-8')).toBe('source');
+    expect(await fs.readFile(path.join(copied, 'v2.assets', 'logo.png'), 'utf-8')).toBe('png');
   });
 
   it('fails when the agent stopped on a question, or made nothing of the kind', async () => {

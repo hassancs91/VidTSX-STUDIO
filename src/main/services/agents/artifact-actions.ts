@@ -24,6 +24,7 @@ import { sanitizeFolder, slugify, GENERATED_FOLDER } from '../library/library-fi
 import { importShot } from '../studio/shot-import';
 import { getProjectsDir } from '../../utils/paths';
 import { artifactFiles, artifactFilesIn, artifactRoot } from './artifact-paths';
+import { copyCompositionFolder, copyVersionAssets } from './composition-copy';
 import { runWebPageAction } from './web-page-actions';
 import { logEngine } from '../../../logging/log-engine';
 
@@ -64,6 +65,8 @@ async function saveToLibrary(
   const target = resolveLibraryPath(root, relPath);
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.copyFile(absPath, target);
+  // P3 part 4: a composition's files ride beside it as `<slug>.assets/`.
+  if (input.artifact.kind === 'composition') await copyVersionAssets(absPath, target.replace(/\.tsx$/i, '.assets'));
   await upsertEntry(root, relPath, {
     origin: 'generated',
     description: input.artifact.title,
@@ -73,9 +76,11 @@ async function saveToLibrary(
 }
 
 /**
- * A composition becomes a Creator project: `<projectsDir>/<name>/v1.tsx`, which
- * is exactly the folder-of-versions shape the Creator writes itself, so it
- * appears in the project list with no import step of its own.
+ * A composition becomes a Creator project: its whole folder of versions (P3
+ * part 4: the builder already saves the Creator's shape, `vN.tsx` + `vN.src/`
+ * + `vN.assets/` + stills + `chat.json`), opened at the artifact's version. A
+ * flat legacy composition becomes `v1.tsx`. Either way it appears in the
+ * project list with no import step of its own.
  */
 async function openInCreator(
   artifact: AgentArtifact,
@@ -84,8 +89,7 @@ async function openInCreator(
   if (artifact.kind !== 'composition') {
     return { success: false, error: 'Only a composition can be opened in the TSX Creator.' };
   }
-  const code = await fs.readFile(absPath, 'utf-8');
-  const project = await writeCreatorProject(artifact, code);
+  const project = await writeCreatorProject(artifact, absPath);
   return { success: true, navigateTo: 'creator', open: project };
 }
 
@@ -174,13 +178,14 @@ export async function runArtifactAction(
 }
 
 /**
- * A fresh `<projectsDir>/<name>/` folder holding the composition as `v1.tsx`.
- * The name is claimed by `mkdir` failing rather than by a stat-then-create, so
- * two handoffs of the same title cannot both win the same folder.
+ * A fresh `<projectsDir>/<name>/` folder holding the composition's folder of
+ * versions (a flat file: `v1.tsx`). The name is claimed by `mkdir` failing
+ * rather than by a stat-then-create, so two handoffs of the same title cannot
+ * both win the same folder.
  */
 export async function writeCreatorProject(
   artifact: AgentArtifact,
-  code: string,
+  sourcePath: string,
 ): Promise<{ folderPath: string; versionPath: string }> {
   const base = slugify(artifact.title, 'agent-composition');
   const root = getProjectsDir();
@@ -196,7 +201,6 @@ export async function writeCreatorProject(
   }
   const folderPath = path.join(root, name);
   await fs.mkdir(folderPath, { recursive: true });
-  const versionPath = path.join(folderPath, 'v1.tsx');
-  await fs.writeFile(versionPath, code, 'utf-8');
+  const versionPath = await copyCompositionFolder(sourcePath, folderPath);
   return { folderPath, versionPath };
 }

@@ -76,6 +76,20 @@ describe('library-store scan + describe + move + heal', () => {
   });
 });
 
+describe("a composition's .assets/ folder (P3 part 4)", () => {
+  it('is part of the composition beside it, not library items; an orphaned one still is', async () => {
+    const walkRoot = path.join(tmpDir, 'assets-walk');
+    await fs.mkdir(path.join(walkRoot, 'tsx', 'Promo.assets', 'models'), { recursive: true });
+    await fs.mkdir(path.join(walkRoot, 'tsx', 'orphan.assets'), { recursive: true });
+    await fs.writeFile(path.join(walkRoot, 'tsx', 'promo.tsx'), 'code');
+    await fs.writeFile(path.join(walkRoot, 'tsx', 'Promo.assets', 'logo.png'), 'png');
+    await fs.writeFile(path.join(walkRoot, 'tsx', 'Promo.assets', 'models', 'robot.glb'), 'glb');
+    await fs.writeFile(path.join(walkRoot, 'tsx', 'orphan.assets', 'x.png'), 'png');
+    const entries = await scanLibrary(walkRoot);
+    expect(entries.map((e) => e.relPath).sort()).toEqual(['tsx/orphan.assets/x.png', 'tsx/promo.tsx']);
+  });
+});
+
 describe('library-sizes', () => {
   it('computes per-folder recursive sizes, skipping the .vidtsx overlay', async () => {
     invalidateLibrarySizes(root);

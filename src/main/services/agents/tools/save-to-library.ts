@@ -14,6 +14,7 @@ import type { AgentArtifact, AgentArtifactDraft } from '../../../../shared/types
 import { ensureLibraryRoot, resolveLibraryPath } from '../../library/library-paths';
 import { reserveLibraryFile, sanitizeFolder, slugify } from '../../library/library-filing';
 import { artifactRoot } from '../artifact-paths';
+import { copyVersionAssets } from '../composition-copy';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 import { indexLibraryOutput } from './port-media';
@@ -107,7 +108,11 @@ export const saveToLibraryTool: AgentToolDef<SaveToLibraryArgs> = {
       }
       const ext = workFileExtension(artifact);
       const { relPath: target, absPath } = await reserveLibraryFile(root, folder ?? sanitizeFolder(ctx.libraryFolder, 'generated'), slugify(artifact.title, artifact.kind), ext);
-      await fs.copyFile(path.join(ctx.workspaceDir, artifact.payload.relPath), absPath);
+      const source = path.join(ctx.workspaceDir, artifact.payload.relPath);
+      await fs.copyFile(source, absPath);
+      // P3 part 4: a composition's files ride beside it as `<slug>.assets/`
+      // (the library walker skips that folder; the player finds it).
+      if (artifact.kind === 'composition') await copyVersionAssets(source, `${absPath.slice(0, -ext.length)}.assets`);
       await indexLibraryOutput(target, description, ctx.brandId);
       return { ...toolText(`Saved to the library: ${target}.`), fields: { relPath: target }, artifact: draftOf(artifact) };
     } catch (err) {

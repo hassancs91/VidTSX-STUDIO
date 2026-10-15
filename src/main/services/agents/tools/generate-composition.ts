@@ -1,36 +1,55 @@
-// `generate_composition` — a Remotion TSX composition through the full
-// generation pipeline (agents plan §1.3 wave 1).
+// `generate_composition` — a Remotion TSX composition made by the TSX builder
+// (agents plan §1.3 wave 1; TSX_BUILDER_DESIGN.md P3 part 4).
 //
-// BLOCKING is correct here (§1.5): the tool IS an LLM call, exactly as Studio's
-// `generate_tsx_shot` is, and the long-jobs rule covers work that is not.
-// Minutes, not seconds — the model should say what it is making before calling.
+// BLOCKING is correct here (§1.5): the tool waits for one `build` job on the
+// app's job engine (composition-build.ts), which designs, writes files,
+// renders frames, looks and redesigns. Minutes, not seconds — the model
+// should say what it is making before calling. The build saves into a
+// reserved `compositions/<slug>/` (v1 + its source, files and stills), and
+// the result carries the frames the builder last looked at.
 //
 // W8 Stage 1 (flows plan §0.1 item 7): also a node — the "TSX node". The
 // `brief` port is the text in; size, fps, duration, style notes and a per-node
-// brand are inspector config.
+// brand are inspector config. The node binds a provider and model (decision
+// 12's modes, `llm-model-binding.ts`) so a flow can pin the builder's LLM.
 //
-// W8 Stage 3 — the media-load convention for the `image` / `video` ports: the
-// artifact is resolved to its library file and the model is told to show it
-// with `staticFile('<absolute path>')`, the one way the generation prompt
-// already teaches for local files (`generate-2d-prompt.ts`), so the same TSX
-// previews and renders. The node also binds a provider and model (decision
-// 12's modes, `llm-model-binding.ts`) so a flow can pin the composition LLM.
+// Port media: an `image` port's set goes to the builder as reference images
+// (≤4) and its first image into the build's assets/ as a file the piece can
+// show; a `video` port's file goes into assets/ too. The piece loads both
+// with `staticFile('<name>')`, which the builder's check resolves.
 
 import path from 'path';
 import { z } from 'zod';
-import { generateTsxPipeline } from '../../../../shared/tsx-engine';
-import type { AgentToolDef, AgentToolResult } from './types';
+import type { BuildFormat, LlmImageIpc, TsxJobStartRequest } from '../../../../shared/ipc/types';
+import type { AgentToolContext, AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
-import { buildAgentTsxDeps } from '../tsx-deps';
-import { storeComposition } from './composition-file';
+import { compositionDraft, releaseEmptyFolder, reserveCompositionFolder } from './composition-file';
+import { readResultImages, referenceImageFor, runCompositionBuild } from './composition-build';
+import { buildResultText, pickResultStills } from './build-result';
 import { resolveLlmModelBinding } from './llm-model-binding';
-import { resolveImageSet, resolveVideoFile, staticFileExpression } from './port-media';
+import { resolveImageSet, resolveVideoFile } from './port-media';
 import { readSessionBrandInstructions, resolveNodeBrand } from './session-brand';
 
 const MODEL_MODES = ['required', 'preferred', 'default'] as const;
+export const BUILD_BUDGETS = ['quick', 'standard', 'craft'] as const;
+
+/** Reference images from an `image` port. */
+const REFERENCE_IMAGES_MAX = 4;
+
+export const budgetSchema = z
+  .enum(BUILD_BUDGETS)
+  .optional()
+  .describe(
+    'How long the builder may work. quick: ~1-3 min, one look at its frames. standard (default): ~3-10 min, up to 3 looks. craft: up to 60 min, up to 6 looks; only when the user wants a finished piece.',
+  );
+
+export const loopSchema = z
+  .boolean()
+  .optional()
+  .describe('True for a seamless loop: the last frame leads straight back into the first.');
 
 const schema = {
-  title: z.string().min(1).describe('Short name for this composition — names the file.'),
+  title: z.string().min(1).describe('Short name for this composition — names its folder.'),
   brief: z
     .string()
     .min(1)
@@ -38,19 +57,28 @@ const schema = {
   width: z.number().int().positive().optional().describe('Pixels. Default 1920.'),
   height: z.number().int().positive().optional().describe('Pixels. Default 1080.'),
   fps: z.number().int().positive().optional().describe('Default 30.'),
-  durationSeconds: z.number().positive().optional().describe('Default 6.'),
+  durationSeconds: z
+    .number()
+    .positive()
+    .optional()
+    .describe('Length in seconds. Absent = the builder picks a length that fits the brief.'),
+  budget: budgetSchema,
+  loop: loopSchema,
   styleNotes: z
     .string()
     .optional()
     .describe('Extra art-direction the brief does not cover (palette, type, brand rules).'),
-  referenceImage: z.string().optional().describe('An "image-set" artifact id the composition should show (its first image).'),
+  referenceImage: z
+    .string()
+    .optional()
+    .describe('An "image-set" artifact id: the builder sees its images (up to 4) and can show the first one.'),
   referenceVideo: z.string().optional().describe('A "video" artifact id the composition should play.'),
   brandId: z
     .string()
     .nullable()
     .optional()
     .describe('Flows only: a brand for this step; null = no brand; absent = the run\'s brand.'),
-  providerId: z.string().optional().describe('LLM provider for the pipeline; absent = the session\'s or the app default.'),
+  providerId: z.string().optional().describe('LLM provider for the builder; absent = the session\'s or the app default.'),
   model: z.string().optional().describe('Model id on that provider; absent = its default.'),
   modelMode: z
     .enum(MODEL_MODES)
@@ -65,6 +93,8 @@ interface GenerateCompositionArgs {
   height?: number;
   fps?: number;
   durationSeconds?: number;
+  budget?: (typeof BUILD_BUDGETS)[number];
+  loop?: boolean;
   styleNotes?: string;
   referenceImage?: string;
   referenceVideo?: string;
@@ -74,34 +104,56 @@ interface GenerateCompositionArgs {
   modelMode?: (typeof MODEL_MODES)[number];
 }
 
-/** What the model is told about a port's media — the `staticFile` convention. */
-export async function mediaContextNotes(
-  ctx: Parameters<AgentToolDef<GenerateCompositionArgs>['handler']>[1],
+export interface BuildMedia {
+  /** Lines for the builder's brief. */
+  notes: string[];
+  referenceImages: LlmImageIpc[];
+  /** Files for the build's assets/: an absolute path and its name there. */
+  assets: Array<{ path: string; name: string }>;
+}
+
+/** A port's media as the builder takes it: reference images, files in assets/, and a line each in the brief. */
+export async function buildMediaFor(
+  ctx: AgentToolContext,
   args: Pick<GenerateCompositionArgs, 'referenceImage' | 'referenceVideo'>,
-): Promise<string[]> {
-  const notes: string[] = [];
+): Promise<BuildMedia> {
+  const media: BuildMedia = { notes: [], referenceImages: [], assets: [] };
+  const stems = new Set<string>();
   if (args.referenceImage) {
     const { artifact, items } = await resolveImageSet(ctx, args.referenceImage);
     const first = items[0];
     if (!first) throw new Error(`Artifact "${args.referenceImage}" holds no image.`);
-    notes.push(
-      `An image "${artifact.title}" (${first.width}x${first.height}, ${path.basename(first.absPath)}) is part of this composition. Show it with <Img src={${staticFileExpression(first.absPath)}} /> — the src must be exactly that expression.`,
+    for (const item of items.slice(0, REFERENCE_IMAGES_MAX)) {
+      const image = referenceImageFor(item.absPath);
+      if (image) media.referenceImages.push(image);
+    }
+    const name = path.basename(first.absPath);
+    stems.add(path.parse(name).name.toLowerCase());
+    media.assets.push({ path: first.absPath, name });
+    const shown = media.referenceImages.length;
+    media.notes.push(
+      `An image "${artifact.title}" (${first.width}x${first.height}) is part of this composition: it is in assets/ as ${name}. Show it with <Img src={staticFile('${name}')} /> from remotion.` +
+        (shown > 0 ? ` You can see ${shown === 1 ? 'it' : `it and the rest of its set (${shown} images)`} as reference images.` : ''),
     );
   }
   if (args.referenceVideo) {
     const { artifact, absPath } = await resolveVideoFile(ctx, args.referenceVideo);
+    const parsed = path.parse(path.basename(absPath));
+    // Two files with one stem share one assets lookup key, which check refuses.
+    const name = stems.has(parsed.name.toLowerCase()) ? `${parsed.name}-video${parsed.ext}` : parsed.base;
+    media.assets.push({ path: absPath, name });
     const seconds = artifact.kind === 'video' ? artifact.payload.durationSeconds : 0;
-    notes.push(
-      `A video "${artifact.title}" (${seconds.toFixed(1)} s, ${path.basename(absPath)}) is part of this composition. Play it with <OffthreadVideo src={${staticFileExpression(absPath)}} /> from remotion — the src must be exactly that expression — and keep it on screen for its full length unless the brief says otherwise.`,
+    media.notes.push(
+      `A video "${artifact.title}" (${seconds.toFixed(1)} s) is part of this composition: it is in assets/ as ${name}. Play it with <OffthreadVideo src={staticFile('${name}')} /> from remotion, and keep it on screen for its full length unless the brief says otherwise.`,
     );
   }
-  return notes;
+  return media;
 }
 
 export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
   id: 'generate_composition',
   description:
-    'Generate an animated Remotion TSX composition from a brief and show it on the stage. Takes a minute or more — say what you are about to make first. The code may import react, remotion and @vidtsx/kit only, in a single file. Returns a "composition" artifact you can edit or render.',
+    'Build an animated Remotion TSX composition from a brief and show it on the stage. The TSX builder designs it, writes the code, renders frames, looks at them and fixes what it sees, so this takes minutes: quick ~1-3, standard ~3-10, craft up to 60. One build runs at a time in the whole app; a call made while another build runs waits for it. Say what you are about to make first. Any library the builder knows is allowed, 3D and physics included. Returns a "composition" artifact you can edit or render, plus the frames the builder last looked at.',
   schema,
   ports: {
     label: 'Generate Composition',
@@ -113,7 +165,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     ],
     outputs: [{ id: 'composition', label: 'Composition', dataType: 'composition', from: 'artifact' }],
     configSchema: [
-      { kind: 'text', key: 'title', label: 'Title', placeholder: 'Names the file' },
+      { kind: 'text', key: 'title', label: 'Title', placeholder: 'Names the folder' },
       { kind: 'number', key: 'width', label: 'Width', min: 256, max: 7680, step: 2 },
       { kind: 'number', key: 'height', label: 'Height', min: 256, max: 4320, step: 2 },
       { kind: 'number', key: 'fps', label: 'FPS', min: 1, max: 120, step: 1 },
@@ -140,7 +192,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.title);
     const featureSource = ctx.featureSource ?? 'agent';
-    // Decision 12: a node may pin the pipeline's provider and model; an agent
+    // Decision 12: a node may pin the builder's provider and model; an agent
     // session's own provider stays the default.
     const binding = await resolveLlmModelBinding({
       ...(args.providerId ? { providerId: args.providerId } : {}),
@@ -151,62 +203,65 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     if (binding.note) ctx.emitProgress(binding.note);
     const providerId = binding.providerId ?? (binding.note ? undefined : ctx.providerId);
     const model = binding.providerId ? binding.model : ctx.model;
-    const deps = buildAgentTsxDeps(
-      providerId,
-      ctx.signal,
-      featureSource === 'agent' ? ctx.agentId : undefined,
-      featureSource,
-    );
-    // W7 / decision 7: the session's brand reaches the pipeline the way the
-    // Creator's prompt mode sends it — the same block, before any style
-    // notes the agent adds — so both modes build under one contract. A flow
-    // node may override or opt out (§0.1 item 9).
-    const brandId = resolveNodeBrand(args.brandId, ctx.brandId);
-    const brandBlock = await readSessionBrandInstructions(brandId);
-    let contextNotes: string[];
+    // W7 / decision 7: the session's brand reaches the builder as the Creator
+    // sends it. A flow node may override or opt out (§0.1 item 9).
+    const brand = await readSessionBrandInstructions(resolveNodeBrand(args.brandId, ctx.brandId));
+    let media: BuildMedia;
     try {
-      contextNotes = await mediaContextNotes(ctx, args);
+      media = await buildMediaFor(ctx, args);
     } catch (err) {
       return toolText(err instanceof Error ? err.message : String(err), true);
     }
-    const extraInstructions = [brandBlock, args.styleNotes, ...contextNotes].filter(Boolean).join('\n\n');
-    try {
-      const result = await generateTsxPipeline(
-        {
-          prompt: args.brief,
-          ...(providerId ? { providerId } : {}),
-          ...(model ? { model } : {}),
-          promptContext: {
-            videoWidth: args.width ?? 1920,
-            videoHeight: args.height ?? 1080,
-            fps: args.fps ?? 30,
-            durationSeconds: args.durationSeconds ?? 6,
-            imports: 'strict',
-            ...(extraInstructions ? { extraInstructions } : {}),
-          },
-          onProgress: (progress) => ctx.emitProgress(`${args.title}: ${progress.stepLabel}`),
-        },
-        deps,
-      );
-      if (!result.transpileValid) {
-        return toolText(
-          `The composition did not pass the acceptance gate after ${result.fixAttempts} fix attempt(s). Try a simpler brief.`,
-          true,
-        );
-      }
-      const stored = await storeComposition(ctx.workspaceDir, args.title, result.text);
-      const { config } = stored.draft.payload;
-      return {
-        ...toolText(
-          `Composition ready: ${stored.relPath} — ${config.width}x${config.height}, ${(config.durationInFrames / config.fps).toFixed(1)}s at ${config.fps}fps.`,
-        ),
-        artifact: stored.draft,
-      };
-    } catch (err) {
+    const fps = args.fps ?? 30;
+    const format: BuildFormat = {
+      width: args.width ?? 1920,
+      height: args.height ?? 1080,
+      fps,
+      ...(args.durationSeconds ? { durationInFrames: Math.max(1, Math.round(args.durationSeconds * fps)) } : {}),
+      ...(args.loop ? { loop: true } : {}),
+    };
+    const prompt = [args.brief, args.styleNotes?.trim() ? `Style notes: ${args.styleNotes.trim()}` : '', ...media.notes]
+      .filter(Boolean)
+      .join('\n\n');
+    const request: TsxJobStartRequest = {
+      kind: 'build',
+      prompt,
+      ...(providerId ? { providerId } : {}),
+      ...(model ? { options: { model } } : {}),
+      build: {
+        format,
+        budget: args.budget ?? 'standard',
+        ...(brand ? { brand } : {}),
+        ...(media.referenceImages.length ? { referenceImages: media.referenceImages } : {}),
+        ...(media.assets.length ? { assets: media.assets } : {}),
+      },
+    };
+
+    const folder = await reserveCompositionFolder(ctx.workspaceDir, args.title);
+    const outcome = await runCompositionBuild(ctx, args.title, request, folder.absDir);
+    if (!outcome.ok) {
+      await releaseEmptyFolder(folder.absDir);
       return toolText(
-        `Composition generation failed: ${err instanceof Error ? err.message : String(err)}`,
+        outcome.cancelled ? 'The composition build was cancelled.' : `The composition build failed: ${outcome.error}`,
         true,
       );
+    }
+    try {
+      const draft = await compositionDraft(ctx.workspaceDir, outcome.versionPath, args.title);
+      // A flow node's output is the artifact: nobody reads the pictures there.
+      const picked = featureSource === 'flows' ? [] : pickResultStills(outcome.job.build?.stills ?? []);
+      const { stills, images } = await readResultImages(picked);
+      const text = buildResultText({
+        kind: 'generate',
+        title: args.title,
+        relPath: draft.payload.relPath,
+        config: draft.payload.config,
+        build: outcome.job.build,
+        picked: stills,
+      });
+      return { ...toolText(text), artifact: draft, ...(images.length ? { images } : {}) };
+    } catch (err) {
+      return toolText(`The composition was built but could not be shown: ${err instanceof Error ? err.message : String(err)}`, true);
     }
   },
 };

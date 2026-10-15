@@ -41,6 +41,7 @@ export function useArtifactViewerData(
           setResolved({
             ...(result.text !== undefined ? { text: result.text } : {}),
             ...(result.moduleUrl ? { moduleUrl: result.moduleUrl } : {}),
+            ...(result.assets ? { assets: result.assets } : {}),
             ...(result.assetUrls ? { assetUrls: result.assetUrls } : {}),
           });
         } else {

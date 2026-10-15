@@ -47,6 +47,33 @@ export async function reserveWorkspaceFile(
   }
 }
 
+/**
+ * Claim an empty `<parent>/<slug>/` (then `-2`, `-3`, …) by `mkdir` failing
+ * rather than a stat-then-create, so two builds of one title never share a
+ * folder. `parentRel` is workspace-relative; the result is too.
+ */
+export async function reserveFolder(
+  workspaceDir: string,
+  parentRel: string,
+  title: string,
+  fallback: string,
+): Promise<{ relDir: string; absDir: string }> {
+  const base = slugifyName(title, fallback);
+  const parentAbs = path.join(workspaceDir, parentRel);
+  await fs.mkdir(parentAbs, { recursive: true });
+  for (let n = 1; n < 1000; n += 1) {
+    const name = n === 1 ? base : `${base}-${n}`;
+    const absDir = path.join(parentAbs, name);
+    try {
+      await fs.mkdir(absDir);
+      return { relDir: `${parentRel}/${name}`, absDir };
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+    }
+  }
+  throw new Error(`No free folder name for "${base}" in ${parentRel}`);
+}
+
 /** Read a workspace-relative file. The path comes from an artifact payload,
  *  which the store already checked for containment. */
 export function readWorkspaceFile(workspaceDir: string, relPath: string): Promise<string> {

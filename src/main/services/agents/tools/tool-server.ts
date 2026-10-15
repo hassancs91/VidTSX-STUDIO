@@ -26,6 +26,20 @@ const log = logEngine.createLogger('AgentTools');
 
 export const AGENT_MCP_SERVER_NAME = 'vidtsx';
 
+/**
+ * The SDK's per-call wall clock for this server's tools (`createSdkMcpServer`
+ * `timeout`; progress does not extend it). `generate_composition` and
+ * `edit_composition` block for a whole build: a Craft run is capped at 60 min,
+ * and it can wait behind another Craft build in the one-at-a-time queue. The
+ * P3 part 4 probe (runs/P3/toolwait-p4/report.json, SDK 0.3.286) measured it:
+ * with no timeout set a call blocked 15 and 65 min and the agent then read its
+ * text and image; with `timeout: 60_000` the agent got "tool timed out after
+ * 60s" at 60 s while our handler ran on. So it is pinned, not left to
+ * MCP_TOOL_TIMEOUT or the SDK default: 3 h = a queued Craft + its own Craft +
+ * margin.
+ */
+export const AGENT_TOOL_TIMEOUT_MS = 3 * 60 * 60 * 1000;
+
 /** The `allowedTools` name the SDK expects for an in-process MCP tool. */
 export function sdkToolName(id: string): string {
   return `mcp__${AGENT_MCP_SERVER_NAME}__${id}`;
@@ -170,7 +184,7 @@ export function buildAgentToolServer(
   );
 
   return {
-    server: createSdkMcpServer({ name: AGENT_MCP_SERVER_NAME, tools }),
+    server: createSdkMcpServer({ name: AGENT_MCP_SERVER_NAME, tools, timeout: AGENT_TOOL_TIMEOUT_MS }),
     allowedTools: defs.map((def) => sdkToolName(def.id)),
     tools,
   };

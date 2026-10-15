@@ -17,6 +17,7 @@ import type { AgentArtifact } from '../../../shared/types/agents';
 import { ensureLibraryRoot, resolveLibraryPath } from '../library/library-paths';
 import { ensureModuleServer, getModuleServerBaseUrl, storeTranspileResult } from '../module-server';
 import { transpileTsxSource } from '../tsx-transpiler';
+import { versionAssetsProp } from '../tsx-builder/version-assets';
 import { agentWorkspaceDir } from './agent-sessions';
 
 export type ArtifactRoot = 'workspace' | 'library';
@@ -102,4 +103,20 @@ export async function ensureCompositionModuleIn(
     throw new Error(`This composition no longer transpiles: ${result.error}`);
   }
   return storeTranspileResult(result);
+}
+
+/**
+ * The `assets` prop a composition's player needs (P3 part 4): the files a
+ * builder version loads (`vN.assets/`), served by the module server the
+ * player's module comes from. Undefined when the code loads no files.
+ */
+export async function compositionAssetsIn(
+  workspaceDir: string,
+  artifact: Extract<AgentArtifact, { kind: 'composition' }>,
+): Promise<Record<string, string> | undefined> {
+  await ensureModuleServer();
+  const base = getModuleServerBaseUrl();
+  if (!base) return undefined;
+  const assets = await versionAssetsProp(path.join(workspaceDir, artifact.payload.relPath), base).catch(() => null);
+  return assets ?? undefined;
 }

@@ -28,8 +28,10 @@ import { inlineWebPage, loadWebPage } from '../services/agents/web-page-refs';
 import {
   artifactFiles,
   assetUrlFor,
+  compositionAssetsIn,
   ensureCompositionModule,
 } from '../services/agents/artifact-paths';
+import { agentWorkspaceDir } from '../services/agents/agent-sessions';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('AgentRunHandlers');
@@ -121,7 +123,9 @@ export async function handleAgentArtifactResolve(
         }
         case 'composition': {
           const moduleUrl = await ensureCompositionModule(data.agentId, data.sessionId, artifact);
-          return { success: true, moduleUrl };
+          // P3 part 4: a builder version's files, for the player's `assets` prop.
+          const assets = await compositionAssetsIn(agentWorkspaceDir(data.agentId, data.sessionId), artifact);
+          return { success: true, moduleUrl, ...(assets ? { assets } : {}) };
         }
         case 'video':
         case 'image-set':

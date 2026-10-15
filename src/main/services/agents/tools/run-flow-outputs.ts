@@ -12,6 +12,7 @@ import path from 'path';
 import type { AgentArtifact, AgentArtifactDraft } from '../../../../shared/types/agents';
 import type { FlowDoc, FlowPortValue, FlowRunDoc } from '../../../../shared/types/flows';
 import { artifactRoot } from '../artifact-paths';
+import { copyCompositionVersion } from '../composition-copy';
 
 export interface RunOutputValue {
   label: string;
@@ -91,7 +92,13 @@ export async function copyRunOutputs(input: {
         break;
       }
       case 'composition': {
-        const relPath = await copyInto(input.runWorkspace, input.sessionWorkspace, input.runId, artifact.payload.relPath);
+        // P3 part 4: every builder version is `vN.tsx`, so each gets its own
+        // `flows/<runId>/<slug>/`, with its source and files.
+        const relPath = await copyCompositionVersion(
+          path.join(input.runWorkspace, artifact.payload.relPath),
+          input.sessionWorkspace,
+          `flows/${input.runId}`,
+        );
         result.drafts.push({ kind: 'composition', title, payload: { relPath, config: { ...artifact.payload.config } } });
         break;
       }

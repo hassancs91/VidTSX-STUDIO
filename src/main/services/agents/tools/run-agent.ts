@@ -16,6 +16,7 @@ import path from 'path';
 import { z } from 'zod';
 import type { AgentArtifact, AgentArtifactDraft, AgentSession, ArtifactKind } from '../../../../shared/types/agents';
 import { artifactRoot } from '../artifact-paths';
+import { copyCompositionVersion } from '../composition-copy';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 
@@ -102,12 +103,15 @@ async function contextDraft(ctx: { readArtifacts(): AgentArtifact[]; workspaceDi
   const title = `Context — ${label}`;
   if (artifactRoot(artifact) === 'library') return { kind: artifact.kind, title, payload: structuredClone(artifact.payload) } as AgentArtifactDraft;
   if (artifact.kind !== 'composition' && artifact.kind !== 'document') throw new Error(`A ${artifact.kind} cannot be handed to an agent as context.`);
+  if (artifact.kind === 'composition') {
+    // P3 part 4: the version with its source and files, in its own `context/<slug>/`.
+    const relPath = await copyCompositionVersion(path.join(ctx.workspaceDir, artifact.payload.relPath), sessionWorkspace, 'context');
+    return { kind: 'composition', title, payload: { relPath, config: { ...artifact.payload.config } } };
+  }
   const relPath = `context/${path.basename(artifact.payload.relPath)}`;
   await fs.mkdir(path.join(sessionWorkspace, 'context'), { recursive: true });
   await fs.copyFile(path.join(ctx.workspaceDir, artifact.payload.relPath), path.join(sessionWorkspace, relPath));
-  return artifact.kind === 'composition'
-    ? { kind: 'composition', title, payload: { relPath, config: { ...artifact.payload.config } } }
-    : { kind: 'document', title, payload: { relPath } };
+  return { kind: 'document', title, payload: { relPath } };
 }
 
 /** The agent's output as a draft in the RUN's workspace. */
@@ -116,10 +120,14 @@ async function outputDraft(artifact: AgentArtifact, sessionWorkspace: string, ru
     // Library media and jobs: the record is the copy (the file is shared).
     return { kind: artifact.kind, title: artifact.title, payload: structuredClone(artifact.payload) } as AgentArtifactDraft;
   }
+  if (artifact.kind === 'composition') {
+    // P3 part 4: the version with its source and files, in its own `agents/<sessionId>/<slug>/`.
+    const relPath = await copyCompositionVersion(path.join(sessionWorkspace, artifact.payload.relPath), runWorkspace, `agents/${sessionId}`);
+    return { kind: 'composition', title: artifact.title, payload: { relPath, config: { ...artifact.payload.config } } };
+  }
   const relPath = `agents/${sessionId}/${path.basename(artifact.payload.relPath)}`;
   await fs.mkdir(path.dirname(path.join(runWorkspace, relPath)), { recursive: true });
   await fs.copyFile(path.join(sessionWorkspace, artifact.payload.relPath), path.join(runWorkspace, relPath));
-  if (artifact.kind === 'composition') return { kind: 'composition', title: artifact.title, payload: { relPath, config: { ...artifact.payload.config } } };
   if (artifact.kind === 'web-page') return { kind: 'web-page', title: artifact.title, payload: { ...structuredClone(artifact.payload), relPath } };
   return { kind: 'document', title: artifact.title, payload: { relPath } };
 }

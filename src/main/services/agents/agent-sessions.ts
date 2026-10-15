@@ -136,8 +136,6 @@ export interface CreateAgentSessionInput {
   starter?: StarterAnswers;
   /** Library default brand, so generated media is tagged like every other asset. */
   brandId?: string;
-  /** W7: the Creator's Agent mode — see `AgentSession.motionSink`. */
-  motionSink?: boolean;
 }
 
 export async function createAgentSession(
@@ -158,7 +156,6 @@ export async function createAgentSession(
     ...(input.model ? { model: input.model } : {}),
     ...(input.starter ? { starter: input.starter } : {}),
     ...(input.brandId ? { brandId: input.brandId } : {}),
-    ...(input.motionSink ? { motionSink: true } : {}),
   };
   await fs.mkdir(agentWorkspaceDir(input.agentId, id), { recursive: true });
   await writeAgentSession(session);

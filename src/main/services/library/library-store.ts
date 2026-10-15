@@ -56,7 +56,16 @@ async function writeIndex(root: string, index: LibraryIndexFile): Promise<void> 
   invalidateLibrarySizes(root);
 }
 
-/** Walk the assets root; skip dot-entries (`.vidtsx`, `.DS_Store`, …). */
+/**
+ * A composition's files folder (`promo.assets/` beside `promo.tsx`, P3 part 4):
+ * part of that composition, not library items of its own.
+ */
+function isCompositionAssetsDir(name: string, siblings: Set<string>): boolean {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.assets') && siblings.has(`${lower.slice(0, -'.assets'.length)}.tsx`);
+}
+
+/** Walk the assets root; skip dot-entries (`.vidtsx`, `.DS_Store`, …) and compositions' `.assets/` folders. */
 async function listDiskFiles(root: string, dir = root): Promise<DiskFileStat[]> {
   const out: DiskFileStat[] = [];
   let entries;
@@ -65,8 +74,10 @@ async function listDiskFiles(root: string, dir = root): Promise<DiskFileStat[]> 
   } catch {
     return out;
   }
+  const names = new Set(entries.map((e) => e.name.toLowerCase()));
   for (const entry of entries) {
     if (entry.name.startsWith('.')) continue;
+    if (entry.isDirectory() && isCompositionAssetsDir(entry.name, names)) continue;
     const abs = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...(await listDiskFiles(root, abs)));

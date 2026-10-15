@@ -1,17 +1,24 @@
 // `edit_composition` — one instruction applied to an existing composition
-// artifact, producing a NEW version (agents plan §1.3 wave 1).
+// artifact, producing a NEW version (agents plan §1.3 wave 1; P3 part 4).
 //
-// The prior version is never overwritten: a new TSX file is written and a new
-// artifact returned with `supersedes` set, so the runner carries the version
-// forward and the filmstrip keeps every step the user can go back to.
+// The edit is a TSX builder edit (`editOf`): it continues the version's own
+// source (`vN.src/`) and saves `vN+1` in the same `compositions/<slug>/`, so
+// the prior version is never overwritten and the runner carries the artifact
+// version forward (`supersedes`). An older session's flat
+// `compositions/<slug>.tsx` is first copied in as `<slug>/v1.tsx`, which the
+// builder seeds from the file.
 
+import fs from 'fs/promises';
+import path from 'path';
 import { z } from 'zod';
-import { editTsxPipeline } from '../../../../shared/tsx-engine';
+import type { BuildFormat, TsxJobStartRequest } from '../../../../shared/ipc/types';
+import type { AgentArtifact } from '../../../../shared/types/agents';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
-import { buildAgentTsxDeps } from '../tsx-deps';
-import { storeComposition } from './composition-file';
-import { readWorkspaceFile } from './workspace-files';
+import { compositionDraft, compositionVersionOf, reserveCompositionFolder } from './composition-file';
+import { readResultImages, runCompositionBuild } from './composition-build';
+import { buildResultText, pickResultStills } from './build-result';
+import { budgetSchema, loopSchema, type BUILD_BUDGETS } from './generate-composition';
 
 const schema = {
   artifactId: z.string().describe('Composition artifact to edit (e.g. "composition-2").'),
@@ -19,17 +26,35 @@ const schema = {
     .string()
     .min(1)
     .describe('One concrete change. Separate unrelated changes into separate calls.'),
+  budget: budgetSchema,
+  loop: loopSchema,
 };
 
 interface EditCompositionArgs {
   artifactId: string;
   instruction: string;
+  budget?: (typeof BUILD_BUDGETS)[number];
+  loop?: boolean;
+}
+
+/** The version folder to continue: the artifact's own, or a fresh one for a flat legacy file. */
+async function editTarget(
+  workspaceDir: string,
+  prior: Extract<AgentArtifact, { kind: 'composition' }>,
+): Promise<{ folderPath: string; version: number }> {
+  const found = compositionVersionOf(prior.payload.relPath);
+  if (found) return { folderPath: path.join(workspaceDir, found.folderRel), version: found.version };
+  const source = path.join(workspaceDir, prior.payload.relPath);
+  await fs.access(source);
+  const folder = await reserveCompositionFolder(workspaceDir, path.basename(source, path.extname(source)));
+  await fs.copyFile(source, path.join(folder.absDir, 'v1.tsx'));
+  return { folderPath: folder.absDir, version: 1 };
 }
 
 export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
   id: 'edit_composition',
   description:
-    'Apply one change to an existing composition and show the result. Takes a minute or more. Returns a new version of the composition artifact; the previous version stays available.',
+    'Apply one change to an existing composition and show the result. The TSX builder continues the composition\'s own source, looks at its frames and fixes what it sees, so this takes minutes (standard ~3-10). One build runs at a time in the whole app. Returns a new version of the composition artifact, plus the frames the builder last looked at; the previous version stays available.',
   schema,
   // W8 Stage 1 (flows plan §0.1 item 7): composition in, instruction in,
   // composition out — the new version, on the same port type.
@@ -57,44 +82,54 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
     }
 
     ctx.emitProgress(args.instruction);
-    let currentCode: string;
+    let target: { folderPath: string; version: number };
     try {
-      currentCode = await readWorkspaceFile(ctx.workspaceDir, prior.payload.relPath);
+      target = await editTarget(ctx.workspaceDir, prior);
     } catch (err) {
       return toolText(
         `The composition file ${prior.payload.relPath} could not be read: ${err instanceof Error ? err.message : String(err)}`,
         true,
       );
     }
+    // An edit keeps its version's format; `loop` changes only that, never the length.
+    const { width, height, fps } = prior.payload.config;
+    const format: BuildFormat | undefined = args.loop !== undefined ? { width, height, fps, loop: args.loop } : undefined;
+    const request: TsxJobStartRequest = {
+      kind: 'build',
+      prompt: args.instruction,
+      ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
+      ...(ctx.model ? { options: { model: ctx.model } } : {}),
+      build: {
+        budget: args.budget ?? 'standard',
+        editOf: target,
+        ...(format ? { format } : {}),
+      },
+    };
 
-    try {
-      const result = await editTsxPipeline(
-        {
-          currentCode,
-          editInstruction: args.instruction,
-          ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
-          ...(ctx.model ? { model: ctx.model } : {}),
-          onProgress: (progress) => ctx.emitProgress(`${prior.title}: ${progress.stepLabel}`),
-        },
-        buildAgentTsxDeps(ctx.providerId, ctx.signal, ctx.agentId),
-      );
-      if (!result.transpileValid) {
-        return toolText(
-          `The edit did not pass the acceptance gate after ${result.fixAttempts} fix attempt(s); the composition is unchanged. Try a smaller change.`,
-          true,
-        );
-      }
-      const stored = await storeComposition(ctx.workspaceDir, prior.title, result.text);
-      return {
-        ...toolText(`Edited ${prior.title}: ${stored.relPath}.`),
-        artifact: stored.draft,
-        supersedes: prior.id,
-      };
-    } catch (err) {
+    const outcome = await runCompositionBuild(ctx, prior.title, request);
+    if (!outcome.ok) {
       return toolText(
-        `Edit failed: ${err instanceof Error ? err.message : String(err)}`,
+        outcome.cancelled
+          ? 'The edit was cancelled; the composition is unchanged.'
+          : `The edit failed; the composition is unchanged: ${outcome.error}`,
         true,
       );
+    }
+    try {
+      const draft = await compositionDraft(ctx.workspaceDir, outcome.versionPath, prior.title);
+      const picked = (ctx.featureSource ?? 'agent') === 'flows' ? [] : pickResultStills(outcome.job.build?.stills ?? []);
+      const { stills, images } = await readResultImages(picked);
+      const text = buildResultText({
+        kind: 'edit',
+        title: prior.title,
+        relPath: draft.payload.relPath,
+        config: draft.payload.config,
+        build: outcome.job.build,
+        picked: stills,
+      });
+      return { ...toolText(text), artifact: draft, supersedes: prior.id, ...(images.length ? { images } : {}) };
+    } catch (err) {
+      return toolText(`The edit was saved but could not be shown: ${err instanceof Error ? err.message : String(err)}`, true);
     }
   },
 };

@@ -1,7 +1,9 @@
 // The runner over the five-node composition flow (flows plan §6): input_text
 // → generate_text → generate_composition → render_composition →
 // save_to_library, with the REAL registry and invokeTool, a fake LLM, a fake
-// TSX pipeline, and a fake Remotion render standing in for the queue. What
+// build job engine (P3 part 4: generate_composition builds through the job
+// engine; test-build-engine.ts), and a fake Remotion render standing in for
+// the queue. What
 // this proves: the render job settles in main (`flow-render.ts`), the MP4 is
 // filed through the agents' reconciler and lands on the `video` port, the
 // library copy happens, cancel reaches the render, and Resume reruns a
@@ -40,11 +42,6 @@ vi.mock('../frame-extractor', () => ({ probeVideo: async () => ({ duration: 6, w
 vi.mock('../../ipc/llm-handlers', () => ({
   runLlmGenerate: async (req: { prompt: string }) => ({ success: true, text: `SCRIPT for ${req.prompt}` }),
 }));
-vi.mock('../../../shared/tsx-engine', () => ({
-  generateTsxPipeline: async () => ({ text: "import {AbsoluteFill} from 'remotion';\nexport const compositionConfig = {};", transpileValid: true, fixAttempts: 0 }),
-  editTsxPipeline: async () => ({ text: '', transpileValid: false, fixAttempts: 0 }),
-}));
-vi.mock('../agents/tsx-deps', () => ({ buildAgentTsxDeps: () => ({}) }));
 vi.mock('../module-server', () => ({
   ensureModuleServer: async () => 4001,
   getModuleServerBaseUrl: () => 'http://localhost:4001',
@@ -83,6 +80,9 @@ const { invokeTool } = await import('../agents/tools/invoke-tool');
 const { openRunArtifacts, readRunDoc, writeRunDoc } = await import('./flow-run-store');
 const { settleJob } = await import('./flow-jobs');
 const { FlowRunner } = await import('./flow-runner');
+const { setBuildEngineForTests } = await import('../agents/tools/composition-build');
+const { fakeBuildEngine } = await import('../agents/tools/test-build-engine');
+let engine = fakeBuildEngine();
 
 const ALL = { imageProvider: true, videoProvider: true, audioProvider: true };
 
@@ -141,9 +141,12 @@ beforeEach(async () => {
   await fs.mkdir(libraryRoot, { recursive: true });
   renders.length = 0;
   renderBehaviour = 'ok';
+  engine = fakeBuildEngine();
+  setBuildEngineForTests(engine);
 });
 
 afterEach(async () => {
+  setBuildEngineForTests(null);
   await fs.rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
@@ -158,7 +161,10 @@ describe('the five-node composition flow through a main-side render', () => {
 
     // The render was asked for the composition's TSX in the run's workspace, with the tool's job id.
     expect(renders).toHaveLength(1);
-    expect(renders[0].entryPath).toBe(path.join(root, 'flows', doc.id, 'runs', runId, 'files', 'compositions', 'explainer.tsx'));
+    expect(renders[0].entryPath).toBe(path.join(root, 'flows', doc.id, 'runs', runId, 'files', 'compositions', 'explainer', 'v1.tsx'));
+    // The node's build: origin flow, into the run's reserved folder, its seconds as frames.
+    expect(engine.builds[0].owner).toMatchObject({ origin: 'flow', into: path.join(root, 'flows', doc.id, 'runs', runId, 'files', 'compositions', 'explainer') });
+    expect(engine.builds[0].request.build?.format).toEqual({ width: 1920, height: 1080, fps: 30, durationInFrames: 180 });
     expect(renders[0].outputPath).toBe(path.join(libraryRoot, 'flows', 'explainer-test', 'explainer.mp4'));
     expect(renders[0].compositionId).toBe('main');
 

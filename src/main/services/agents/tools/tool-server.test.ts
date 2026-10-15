@@ -11,7 +11,7 @@ import type { AgentJobRequest, AgentRunEvent } from '../../../../shared/types/ag
 import { AgentArtifactStore } from '../artifact-store';
 import { InteractionBroker } from '../interaction-broker';
 import { selectTools } from './registry';
-import { buildAgentToolServer } from './tool-server';
+import { AGENT_TOOL_TIMEOUT_MS, buildAgentToolServer } from './tool-server';
 
 const CAPS = { imageProvider: false, videoProvider: false, audioProvider: false };
 
@@ -29,7 +29,7 @@ type ToolHandler = (
 ) => Promise<{ content: Array<{ type: string; text?: string }>; isError?: boolean }>;
 
 async function build(toolIds: string[]) {
-  const { tools, allowedTools } = buildAgentToolServer(selectTools(toolIds, CAPS).tools, {
+  const { tools, allowedTools, server } = buildAgentToolServer(selectTools(toolIds, CAPS).tools, {
     sessionId: 'session-1',
     agentId: 'vidtsx/test',
     workspaceDir: dir,
@@ -44,7 +44,7 @@ async function build(toolIds: string[]) {
   const byId = new Map<string, ToolHandler>(
     tools.map((t) => [t.name, t.handler as unknown as ToolHandler]),
   );
-  return { byId, allowedTools };
+  return { byId, allowedTools, server };
 }
 
 beforeEach(async () => {
@@ -64,6 +64,12 @@ afterEach(async () => {
 });
 
 describe('agent tool server', () => {
+  it('pins the per-call timeout at 3 h, above a queued Craft build plus its own (P3 part 4)', async () => {
+    const { server } = await build(['write_document']);
+    expect(AGENT_TOOL_TIMEOUT_MS).toBe(3 * 60 * 60 * 1000);
+    expect(server.timeout).toBe(AGENT_TOOL_TIMEOUT_MS);
+  });
+
   it('sends only the allowlisted tools, named for the SDK', async () => {
     const { byId, allowedTools } = await build(['write_document', 'ask_user']);
     expect([...byId.keys()].sort()).toEqual(['ask_user', 'write_document']);

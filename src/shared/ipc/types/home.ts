@@ -26,8 +26,6 @@ export interface HomeAgentSession {
   title: string;
   lastOpenedAt: string;
   artifactCount: number;
-  /** W7: a Creator Agent-mode session; its Motion project when one exists. */
-  motionProjectId?: string;
 }
 
 export type HomeAiRuntimeState = 'installed' | 'missing' | 'broken';

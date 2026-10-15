@@ -105,7 +105,6 @@ async function recentAgentSessions(): Promise<HomeAgentSession[]> {
         title: session.title,
         lastOpenedAt: session.lastOpenedAt,
         artifactCount: session.artifactCount,
-        ...(session.motionProjectId ? { motionProjectId: session.motionProjectId } : {}),
       });
     }
   }

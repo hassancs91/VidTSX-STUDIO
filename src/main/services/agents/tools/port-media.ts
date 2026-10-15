@@ -55,16 +55,6 @@ export function resolveTranscript(
   return { artifact, meta: artifact.payload.transcript };
 }
 
-/**
- * How a composition references library media (the trio's `image` / `video`
- * ports, flows plan §1.2 — the convention Stage 1 left open): the generation
- * prompt already teaches `staticFile('<absolute path>')` for local files, so
- * a port value becomes that expression, forward slashes, quoted for TSX.
- */
-export function staticFileExpression(absPath: string): string {
-  return `staticFile(${JSON.stringify(absPath.replace(/\\/g, '/'))})`;
-}
-
 export interface LibraryOutputOptions {
   /** The run's library folder; `subfolder` nests under it. */
   libraryFolder: string | undefined;

@@ -218,7 +218,6 @@ export async function handleAgentSessionCreate(
       ...(data.model ? { model: data.model } : {}),
       ...(data.starter ? { starter: data.starter } : {}),
       ...(data.brandId !== undefined ? { brandId: data.brandId } : {}),
-      ...(data.motionSink ? { motionSink: true } : {}),
     });
     return { success: true, session };
   } catch (err) {
