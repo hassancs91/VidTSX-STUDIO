@@ -12,7 +12,9 @@
 // modules (`@vidtsx/sim`) are not on disk: their source is embedded in this
 // bundle (`?raw`) and inlined from there, packaged app or not.
 // Anything else is refused with a message that names the package; the LLM
-// "Convert for Studio" pass stays available for those.
+// "Convert for Studio" pass stays available for those. `@vidtsx/kit` stays
+// external (the preview and the export resolve it) unless the caller passes
+// the kit's source folder: the TSX builder's check does (P3 part 5).
 //
 // No electron in here: the caller passes the package search paths.
 
@@ -123,11 +125,15 @@ export function resolveShotMedia(sourcePath: string, ref: string): string | null
   return isFile(beside) ? beside : null;
 }
 
-function importGuard(workingDir: string): esbuild.Plugin {
+const KIT = /^@vidtsx\/kit$/;
+
+function importGuard(workingDir: string, kitDir?: string): esbuild.Plugin {
   return {
     name: 'vidtsx-shot-import',
     setup(build) {
       build.onResolve({ filter: JSX_RUNTIME }, () => ({ path: 'jsx-shim', namespace: 'vidtsx-shim' }));
+      // The builder's check inlines the kit (P3 part 5): its source is react + remotion + its own files.
+      if (kitDir) build.onResolve({ filter: KIT }, () => ({ path: path.join(kitDir, 'index.tsx') }));
       build.onLoad({ filter: /.*/, namespace: 'vidtsx-shim' }, () => ({ contents: JSX_SHIM, loader: 'js' }));
       build.onResolve({ filter: BUILT_IN }, (args) => ({ path: args.path, namespace: BUILT_IN_NS }));
       build.onResolve({ filter: /^\.\/vidtsx-/ }, (args) =>
@@ -182,12 +188,18 @@ function importGuard(workingDir: string): esbuild.Plugin {
   };
 }
 
-/** Throws an Error whose message is meant for the user. */
+/**
+ * Throws an Error whose message is meant for the user. `kitDir`: inline
+ * `@vidtsx/kit` from this folder (the installed kit source) instead of
+ * keeping it external — the builder's check sets it, so a builder piece
+ * carries its own copy of the kit; Import TSX does not.
+ */
 export async function bundleShotSource(
   sourcePath: string,
-  options: { nodePaths?: string[] } = {},
+  options: { nodePaths?: string[]; kitDir?: string } = {},
 ): Promise<ShotBundleResult> {
   const workingDir = path.dirname(sourcePath);
+  const kitDir = options.kitDir ? path.resolve(options.kitDir) : undefined;
   let result: esbuild.BuildResult<{ write: false; metafile: true }>;
   try {
     result = await esbuild.build({
@@ -204,7 +216,7 @@ export async function bundleShotSource(
       define: { 'process.env.NODE_ENV': '"production"' },
       absWorkingDir: workingDir,
       nodePaths: options.nodePaths ?? [],
-      plugins: [importGuard(workingDir)],
+      plugins: [importGuard(workingDir, kitDir)],
     });
   } catch (err) {
     const failure = err as Partial<esbuild.BuildFailure>;
@@ -224,6 +236,10 @@ export async function bundleShotSource(
       continue;
     }
     if (input.includes(':') && !/^[a-zA-Z]:[\\/]/.test(input)) continue; // a plugin namespace (the jsx shim)
+    if (kitDir && path.resolve(workingDir, input).startsWith(kitDir + path.sep)) {
+      packages.add('@vidtsx/kit');
+      continue;
+    }
     const normalized = input.replace(/\\/g, '/');
     const inPackage = /(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(normalized);
     if (inPackage) {

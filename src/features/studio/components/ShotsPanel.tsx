@@ -160,6 +160,7 @@ export function ShotsPanel({
                   used={used}
                   onAdd={() => onAddShot(shot)}
                   onRemove={() => (used > 0 ? setConfirmShotId(shot.id) : onRemoveShot(shot.id))}
+                  onCancel={() => void window.api.studioShotCancel({ projectId, shotId: shot.id })}
                 />
               );
             })}

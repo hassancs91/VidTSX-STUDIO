@@ -37,8 +37,8 @@ import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { getAppRoot } from '../../utils/paths';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { reserveProjectFolder, writeNextVersion } from '../tsx-jobs/project-store';
-import { classifyMediaKind, importMediaFiles } from './media-import';
-import { versionAssetFiles } from '../tsx-builder/version-assets';
+import { importMediaFiles } from './media-import';
+import { attachVersionMedia } from './shot-build-media';
 import { bundleShotSource } from './shot-bundle';
 import { buildShotEngineDeps, validateShotCode } from './shot-generator';
 import { shotJobEvents } from './shot-job-events';
@@ -205,44 +205,6 @@ async function importBundled(
   return { outcome: { shotId, report } };
 }
 
-/**
- * The files a TSX builder version loads (`vN.assets/`, version-assets.ts),
- * registered as project media and keyed for the shot's `assets` prop. Null
- * when the source names no files. Kinds a shot cannot hold (3D models,
- * environment maps, fonts, data) are reported, not attached.
- */
-async function attachVersionMedia(
-  req: ImportShotRequest,
-  source: string,
-): Promise<{ assetRefs: Record<string, string>; assets: Awaited<ReturnType<typeof importMediaFiles>>['assets']; report: StudioShotImportReport } | null> {
-  const files = await versionAssetFiles(req.sourcePath, source);
-  if (files.length === 0) return null;
-  const media = files.filter((f): f is typeof f & { path: string } => f.path !== null && classifyMediaKind(f.path) !== null);
-  const unsupported = files.filter((f) => f.path !== null && classifyMediaKind(f.path) === null).map((f) => f.relPath);
-  const uniquePaths = [...new Set(media.map((f) => f.path))];
-  const { assets } = uniquePaths.length > 0 ? await importMediaFiles(req.projectId, uniquePaths) : { assets: [] };
-  const assetIdByPath = new Map(assets.map((asset) => [asset.path, asset.id]));
-  const assetRefs: Record<string, string> = {};
-  const missingMedia: string[] = [];
-  for (const f of files) {
-    const assetId = f.path ? assetIdByPath.get(f.path) : undefined;
-    if (assetId) assetRefs[f.key] = assetId;
-    else if (!unsupported.includes(f.relPath)) missingMedia.push(f.relPath);
-  }
-  return {
-    assetRefs,
-    assets,
-    report: {
-      inlinedFiles: 0,
-      inlinedPackages: [],
-      media: Object.keys(assetRefs).length,
-      missingMedia,
-      dynamicMediaCalls: 0,
-      ...(unsupported.length > 0 ? { unsupportedMedia: unsupported } : {}),
-    },
-  };
-}
-
 async function readSource(sourcePath: string): Promise<string> {
   if (!/\.[jt]sx$/i.test(sourcePath)) {
     throw new Error(`Only .tsx compositions can be imported (got ${path.basename(sourcePath)}).`);
@@ -276,7 +238,7 @@ export async function importShot(req: ImportShotRequest): Promise<ImportShotOutc
   const gate = await validateShotCode(source);
   if (gate.success) {
     // A TSX builder version already passes the gate; its files sit in vN.assets/.
-    const versionMedia = await attachVersionMedia(req, source);
+    const versionMedia = await attachVersionMedia(req.projectId, req.sourcePath, source);
     const { shotId } = await writeImportedShot(shotsDir, name, source);
     req.onReserved?.(shotId);
     const shot = buildImportedShot(shotId, name, source, 1, versionMedia?.assetRefs);

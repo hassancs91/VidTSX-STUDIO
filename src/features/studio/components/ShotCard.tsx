@@ -1,4 +1,4 @@
-import { Clapperboard, Plus, X } from 'lucide-react';
+import { Clapperboard, Plus, Square, X } from 'lucide-react';
 import type { StudioShot } from '../types';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { describeShotUsage } from '../services/asset-usage';
@@ -18,6 +18,8 @@ interface Props {
   used: number;
   onAdd: () => void;
   onRemove: () => void;
+  /** Stop its build, queued or running (P3 part 5): a new shot leaves the pool, a retake or edit keeps the shot as it was. */
+  onCancel: () => void;
 }
 
 function statusLine(shot: StudioShot, progress: ShotJobProgress | null, generating: boolean): string {
@@ -34,7 +36,7 @@ function statusLine(shot: StudioShot, progress: ShotJobProgress | null, generati
  * video-10 feedback item 5). Double-click or + adds it at the playhead; the X
  * asks first when the shot is on the timeline.
  */
-export function ShotCard({ shot, density, progress, used, onAdd, onRemove }: Props) {
+export function ShotCard({ shot, density, progress, used, onAdd, onRemove, onCancel }: Props) {
   const generating = shot.status === 'generating' || progress?.status === 'generating';
   const status = statusLine(shot, progress, generating);
   const kindChip = (
@@ -66,6 +68,24 @@ export function ShotCard({ shot, density, progress, used, onAdd, onRemove }: Pro
           className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/40 text-text-muted hover:text-accent-light opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
         >
           <Plus size={12} strokeWidth={2} />
+        </button>
+      )}
+      {progress?.status === 'generating' && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onCancel();
+          }}
+          data-shot-cancel={shot.id}
+          title={
+            progress.op === 'generate'
+              ? 'Cancel this build: the shot is dropped from the pool'
+              : 'Cancel this build: the shot keeps its current version'
+          }
+          aria-label={`Cancel the build of ${shot.name}`}
+          className="flex items-center justify-center w-[18px] h-[18px] rounded-[4px] bg-black/40 text-text-muted hover:text-accent-red shrink-0"
+        >
+          <Square size={9} strokeWidth={2.25} />
         </button>
       )}
       {!generating && (

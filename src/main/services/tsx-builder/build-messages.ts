@@ -7,6 +7,7 @@ import { formatLine } from './build-format';
 import type { BuildFormat } from './types';
 import { HAND_EDITS_FILE, type SeededBuild } from './build-seed';
 import { formatBytes, type AssetFile } from './build-assets';
+import { backdropLine } from './look-backdrop';
 
 export type EditSeed = Pick<SeededBuild, 'version' | 'kind' | 'srcVersion' | 'handEditLines' | 'bundle' | 'bundleAssets'>;
 
@@ -23,10 +24,13 @@ export interface FirstMessageInput {
   imageGeneration?: { provider: string; max: number };
   /** Why the image provider cannot run, when the run allows images. */
   imageGenerationOff?: string;
+  /** A transparent Studio shot: the footage its looks show under it, or null = a checkerboard. Absent otherwise. */
+  backdrop?: string | null;
 }
 
 function contextLines(input: FirstMessageInput): string[] {
   const lines = [`FORMAT: ${formatLine(input.format)}`];
+  if (input.backdrop !== undefined) lines.push('', backdropLine(input.backdrop));
   if (input.brand?.trim()) lines.push('', `BRAND (follow it):`, input.brand.trim());
   if (input.referenceImageCount) {
     lines.push(

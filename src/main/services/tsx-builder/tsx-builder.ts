@@ -64,7 +64,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   let seedError: string | null = null;
   try {
     if (req.into && req.editOf) throw new Error('A build goes either into a new folder (into) or onto a version (editOf), not both.');
-    if (req.into) await checkIntoFolder(req.into);
+    if (req.into) await checkIntoFolder(req.into, { retake: req.retake === true });
     // A bundle changed by hand in place is diffed against vK.src/ bundled again, as `check` bundles it.
     if (req.editOf) seed = await seedWorkFromVersion(req.editOf, dirs.workDir, { rebundle: async (srcDir) => (await checkBuild(srcDir)).code ?? null });
     // After the seed: a request file that clashes with a version file is an error, not an overwrite.
@@ -77,6 +77,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
   const state: BuilderState = {
     dirs,
     expect: format ?? { width: 0, height: 0, fps: 0 },
+    ...(req.studioShot ? { studioShot: req.studioShot } : {}),
     roundsMax: BUDGET_ROUNDS[req.budget],
     roundsMin: seed ? EDIT_MIN_ROUNDS : MIN_ROUNDS[req.budget],
     roundsUsed: 0,
@@ -157,6 +158,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     ...(req.brand ? { brand: req.brand } : {}),
     ...(req.referenceImages?.length ? { referenceImageCount: req.referenceImages.length } : {}),
     ...(seed ? { seed } : {}),
+    ...(req.studioShot?.transparent ? { backdrop: req.studioShot.backdrop?.label ?? null } : {}),
     ...(startAssets.length ? { assets: startAssets } : {}),
     ...(imageProvider?.ok ? { imageGeneration: { provider: imageProvider.provider, max: state.imagesMax } } : {}),
     ...(imageProvider && !imageProvider.ok ? { imageGenerationOff: imageProvider.reason } : {}),
@@ -282,6 +284,17 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
             }
           : {}),
         ...(req.into ? { into: req.into } : {}),
+        ...(req.retake ? { retake: true } : {}),
+        ...(req.studioShot
+          ? {
+              studioShot: {
+                transparent: req.studioShot.transparent,
+                ...(req.studioShot.backdrop
+                  ? { backdrop: { file: req.studioShot.backdrop.file, startSeconds: req.studioShot.backdrop.startSeconds } }
+                  : {}),
+              },
+            }
+          : {}),
         ...(req.usage ? { usage: req.usage } : {}),
         ...(req.providerId ? { providerId: req.providerId } : {}),
         effort: req.effort ?? 'medium',

@@ -23,6 +23,7 @@ import { buildFlowTools } from './flow-tools';
 import { buildNotesTools } from './notes-tools';
 import type { StudioToolContext } from './types';
 import { withToolResultEvents } from './tool-result-events';
+import { AGENT_TOOL_TIMEOUT_MS } from '../../agents/tools/tool-server';
 
 export { createTurnState } from './types';
 export type { StudioToolContext, StudioTurnState } from './types';
@@ -77,6 +78,8 @@ export function buildStudioToolServer(ctx: StudioToolContext) {
   return createSdkMcpServer({
     name: 'studio',
     version: '1.0.0',
+    // generate_tsx_shot waits for a whole TSX build (P3 part 5): above any build, as the agents' server.
+    timeout: AGENT_TOOL_TIMEOUT_MS,
     tools: withToolResultEvents(ctx, [
       ...buildTranscriptTools(ctx),
       ...buildCutTools(ctx),

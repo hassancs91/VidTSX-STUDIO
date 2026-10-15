@@ -3,7 +3,7 @@
 // images. Length "Auto" sends no frame count, so the builder decides it.
 
 import type { BuildBudget, LlmImageIpc, TsxJobStartRequest } from '@shared/ipc/types';
-import { BUDGET_CAPS, BUDGET_ROUNDS } from '@shared/tsx-engine/build-budgets';
+import { BUDGET_CHOICES, budgetHint } from '@shared/tsx-engine/build-budgets';
 import type { AspectRatio } from '../types';
 import { ASPECT_RATIO_OPTIONS } from '../types';
 
@@ -27,18 +27,8 @@ export interface ComposerBuildInput {
 
 export const DEFAULT_BUDGET: BuildBudget = 'standard';
 
-export const BUDGET_CHOICES: Array<{ value: BuildBudget; label: string }> = [
-  { value: 'quick', label: 'Quick' },
-  { value: 'standard', label: 'Standard' },
-  { value: 'craft', label: 'Craft' },
-];
-
-/** "up to 3 looks · stops at 30 min": what the picked budget buys. */
-export function budgetHint(budget: BuildBudget): string {
-  const rounds = BUDGET_ROUNDS[budget];
-  const looks = rounds === 1 ? '1 look' : `up to ${rounds} looks`;
-  return `${looks} · stops at ${BUDGET_CAPS[budget].minutes} min`;
-}
+// Moved to the shared budgets module (Studio's pickers show them too); re-exported for the Creator.
+export { BUDGET_CHOICES, budgetHint };
 
 export function buildJobRequest(input: ComposerBuildInput): TsxJobStartRequest | null {
   const prompt = input.prompt.trim();

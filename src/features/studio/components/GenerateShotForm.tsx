@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
+import type { BuildBudget } from '@shared/ipc/types';
+import { BUDGET_CHOICES, budgetHint } from '@shared/tsx-engine/build-budgets';
 
 export interface GenerateShotSpec {
   kind: 'cutaway' | 'overlay';
   brief: string;
   durationSeconds: number;
+  /** How long the TSX builder may work on it (P3 part 5). */
+  budget: BuildBudget;
 }
 
 interface Props {
@@ -22,12 +26,13 @@ export function GenerateShotForm({ onGenerate }: Props) {
   const [kind, setKind] = useState<'cutaway' | 'overlay'>('cutaway');
   const [brief, setBrief] = useState('');
   const [duration, setDuration] = useState('5');
+  const [budget, setBudget] = useState<BuildBudget>('standard');
 
   const submit = () => {
     const trimmed = brief.trim();
     const seconds = Number(duration);
     if (!trimmed || !(seconds > 0)) return;
-    onGenerate({ kind, brief: trimmed, durationSeconds: seconds });
+    onGenerate({ kind, brief: trimmed, durationSeconds: seconds, budget });
     setBrief('');
   };
 
@@ -64,12 +69,17 @@ export function GenerateShotForm({ onGenerate }: Props) {
         />
         <span className="text-[10px] text-text-dim">seconds</span>
         <div className="flex-1" />
+        <div className="w-[112px]" title={budgetHint(budget)} data-shot-budget>
+          <Select value={budget} onChange={(v) => setBudget(v as BuildBudget)} options={BUDGET_CHOICES} />
+        </div>
         <Button variant="primary" size="sm" disabled={!brief.trim()} onClick={submit}>
           Generate
         </Button>
       </div>
       <p className="text-[9px] text-text-dim leading-snug">
-        The clip lands at the playhead when generation finishes. For word-synced titles, ask the Assistant.
+        {BUDGET_CHOICES.find((c) => c.value === budget)?.label}: {budgetHint(budget)}. The builder looks at its frames and
+        fixes them, one build at a time. The clip lands at the playhead when it finishes. For word-synced titles, ask the
+        Assistant.
       </p>
     </div>
   );

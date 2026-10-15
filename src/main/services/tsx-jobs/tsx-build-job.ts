@@ -11,7 +11,7 @@ import { generateTsx } from '../tsx-builder/generate-tsx';
 import { appendChatTurns } from './chat-store';
 import { applyBuildEvent, buildProgress } from './build-job-snapshot';
 import { logEngine } from '../../../logging/log-engine';
-import type { BuildResult, BuildUsageTag, GenerateTsxRequest } from '../tsx-builder/types';
+import type { BuildResult, BuildUsageTag, GenerateTsxRequest, StudioShotBuild } from '../tsx-builder/types';
 import type {
   TsxBuildJobIpc,
   TsxBuildJobRequestIpc,
@@ -35,6 +35,10 @@ export interface TsxJobOwner {
   origin: Exclude<TsxJobOrigin, 'creator'>;
   /** The empty folder the caller made for a new build (BuildRequest.into). */
   into?: string;
+  /** With `into`: a fresh build saved as the folder's next version (Studio's Regenerate). */
+  retake?: boolean;
+  /** A Studio shot: its media kinds and what its looks show behind it (BuildRequest.studioShot). */
+  studioShot?: StudioShotBuild;
   usage?: BuildUsageTag;
 }
 
@@ -67,6 +71,8 @@ function requestFor(ctx: BuildJobContext, build: TsxBuildJobRequestIpc, onText: 
   return {
     intent: request.prompt,
     ...(owner?.into ? { into: owner.into } : {}),
+    ...(owner?.retake ? { retake: true } : {}),
+    ...(owner?.studioShot ? { studioShot: owner.studioShot } : {}),
     ...(owner?.usage ? { usage: owner.usage } : {}),
     ...(build.format ? { format: build.format } : {}),
     budget: build.budget,

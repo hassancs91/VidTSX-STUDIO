@@ -63,6 +63,14 @@ export interface BuildRequest {
    * its workspace). It must exist and hold no version yet. Not with `editOf`.
    */
   into?: string;
+  /**
+   * With `into`: the folder may already hold versions, and this fresh build
+   * (empty work folder, a new build's round floor) is saved as the next one.
+   * Studio's Regenerate (P3 part 5).
+   */
+  retake?: boolean;
+  /** The piece is a Studio shot (P3 part 5): what it may load, and what its looks show behind it. */
+  studioShot?: StudioShotBuild;
   /** Parent of a NEW build's project folder. Default: the Creator's projects dir. */
   projectsDir?: string;
   /** Folder name for a new build. Default: from `compositionConfig.id`. */
@@ -91,6 +99,26 @@ export interface BuildRequest {
   onProgress?: (event: BuildProgressEvent) => void;
   /** The builder's narration as it streams (what the transcript records). A throwing listener is ignored. */
   onText?: (delta: string) => void;
+}
+
+/**
+ * A Studio shot build. `check` refuses files a shot cannot play (Studio media
+ * is image, video and audio), and a transparent shot (overlay, title) is
+ * looked at over what it will play over: `render_stills`, `contact_sheet` and
+ * `phone_view` draw `backdrop` under it, or a grey checkerboard when there is
+ * none (look-backdrop.ts). `loop_seam` and `purity_check` render it alone.
+ */
+export interface StudioShotBuild {
+  transparent: boolean;
+  backdrop?: LookBackdrop;
+}
+
+/** The footage under a transparent shot: a video file, played from `startSeconds` at the shot's frame 0. */
+export interface LookBackdrop {
+  file: string;
+  startSeconds: number;
+  /** For the builder's first message, e.g. `talk.mp4 from 12.4 s`. */
+  label: string;
 }
 
 /** A usage-log tag. `agentId` must come from main, never the renderer (llm-handlers.ts `extras.agentId`). */

@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 }));
 
 import {
+  checkIntoFolder,
   createRunDirs,
   listVersionNumbers,
   projectNameFromId,
@@ -190,5 +191,20 @@ describe('projectNameFromId', () => {
     expect(projectNameFromId('CompoundInterestCoins')).toBe('compound-interest-coins');
     expect(projectNameFromId('DBIndexTree')).toBe('db-index-tree');
     expect(projectNameFromId('Vaccine_Memory2')).toBe('vaccine-memory2');
+  });
+});
+
+describe('checkIntoFolder', () => {
+  it('takes an empty folder, refuses one that holds a version, and lets a retake build into it', async () => {
+    const folder = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-into-'));
+    try {
+      await expect(checkIntoFolder(folder)).resolves.toBeUndefined();
+      await fs.writeFile(path.join(folder, 'v2.tsx'), '// v2', 'utf-8');
+      await expect(checkIntoFolder(folder)).rejects.toThrow(/already holds v2/);
+      await expect(checkIntoFolder(folder, { retake: true })).resolves.toBeUndefined();
+      await expect(checkIntoFolder(path.join(folder, 'missing'), { retake: true })).rejects.toThrow(/does not exist/);
+    } finally {
+      await fs.rm(folder, { recursive: true, force: true });
+    }
   });
 });

@@ -13,7 +13,7 @@ import type {
 import { THINKING_CONFIGS } from '../../../shared/tsx-engine/thinking-config';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { llmEngine } from '../../../engine';
-import { getLlmProviders } from '../settings';
+import { resolveToolSupport } from '../agents/tool-support';
 import { logEngine } from '../../../logging/log-engine';
 import { loadProject } from './project-store';
 import { listMemories } from './agent-memory';
@@ -83,7 +83,8 @@ class StudioAgentService {
         });
       }
 
-      const toolsAvailable = await this.resolveToolSupport(providerId);
+      // Typed tools ride the Agent SDK; other provider types get chat only (one rule app-wide, agents/tool-support.ts).
+      const toolsAvailable = await resolveToolSupport(providerId);
       const mcpServer = toolsAvailable
         ? buildStudioToolServer({
             req,
@@ -198,21 +199,6 @@ class StudioAgentService {
         error: err instanceof Error ? err.message : String(err),
       });
       return undefined;
-    }
-  }
-
-  /** Typed tools ride the Agent SDK; other provider types get chat only. */
-  private async resolveToolSupport(providerId?: string): Promise<boolean> {
-    try {
-      const { providers, activeProvider } = await getLlmProviders();
-      const id = providerId || activeProvider;
-      const config = providers.find((p) => p.id === id);
-      // Unknown config (e.g. fresh subscription default) — the presets are
-      // predominantly agent-sdk, so assume tools work; worst case the model
-      // simply never sees a tool call succeed.
-      return config ? config.type === 'agent-sdk' : true;
-    } catch {
-      return true;
     }
   }
 }

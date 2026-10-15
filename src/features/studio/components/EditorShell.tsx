@@ -48,6 +48,7 @@ import { applyInsertProposal, insertItemPlacement } from '../services/apply-inse
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import { mapCutItemToTimeline } from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
+import { footageAt } from '../services/shot-footage';
 import { formatDuration } from '../services/format-time';
 import { overrideClipTransform } from '../services/canvas-transform';
 import { overrideClipEffect, type EffectParams } from '../services/effect-ops';
@@ -683,11 +684,15 @@ export function EditorShell({ projectId, onBack }: Props) {
     onReady: handleShotReady,
     onError: (message) => showToast(message, 'error'),
     onImportedAssets: handleImportedAssets,
+    // A cancelled new shot is gone: nothing lands at its recorded playhead.
+    onCancelledNew: (shotId) => pendingShotInserts.current.delete(shotId),
   });
 
   const handleGenerateShot = useCallback(
     (spec: GenerateShotSpec) => {
       const insertAt = playback.secondsRef.current;
+      // P3 part 5: what an overlay is looked at over while it builds: the master footage under the playhead.
+      const footage = footageAt(tl.timeline, insertAt);
       void window.api
         .studioShotGenerate({
           projectId,
@@ -695,6 +700,8 @@ export function EditorShell({ projectId, onBack }: Props) {
           kind: spec.kind,
           brief: spec.brief,
           durationSeconds: spec.durationSeconds,
+          budget: spec.budget,
+          ...(footage ? { footage } : {}),
           ...(project?.settings.agent.providerId
             ? { providerId: project.settings.agent.providerId }
             : {}),
@@ -708,7 +715,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           }
         });
     },
-    [projectId, project?.settings.agent.providerId, shotModel, playback, showToast],
+    [projectId, project?.settings.agent.providerId, shotModel, playback, showToast, tl.timeline],
   );
 
   const handleAddShot = useCallback(

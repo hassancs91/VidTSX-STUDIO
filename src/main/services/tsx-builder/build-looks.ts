@@ -37,13 +37,20 @@ export interface LookOptions {
   signal?: AbortSignal;
   /** The build's files (assets/), when its code names any. */
   assets?: BuildAssetSource;
+  /** `code` is a transparent shot's look wrapper (look-backdrop.ts): its entry, and the footage it plays under the piece. */
+  entryName?: string;
+  backdropFile?: string;
 }
 
-/** What prepareBuildRender takes from a look's options. */
+/** What prepareBuildRender takes from a look's options (the entry name is the caller's: a sheet has its own). */
 const prepareOptions = (options: LookOptions) => ({
   ...(options.signal ? { signal: options.signal } : {}),
   ...(options.assets ? { assets: options.assets } : {}),
+  ...(options.backdropFile ? { backdropFile: options.backdropFile } : {}),
 });
+
+/** The piece's own entry: the default, or the look wrapper's. */
+const pieceEntry = (options: LookOptions) => (options.entryName ? { entryName: options.entryName } : {});
 
 export interface LookImage {
   path: string;
@@ -79,7 +86,7 @@ export async function renderContactSheet(
   if (options.separateTiles) {
     sheet = tileSheetSource(config, picked);
     // The build's own entry: the bundle render_stills made is reused.
-    const piece = await prepareBuildRender(code, config, outDir, prepareOptions(options));
+    const piece = await prepareBuildRender(code, config, outDir, { ...prepareOptions(options), ...pieceEntry(options) });
     const rendered = await renderPreparedFrames(piece, outDir, picked, { label: `${options.label}-tile`, scale: sheet.layout.scale, ...signal });
     const tiles: string[] = [];
     for (const tile of rendered) {
@@ -125,7 +132,7 @@ export async function renderPhoneView(
 ): Promise<LookImage & { frame: number; width: number; height: number }> {
   const started = Date.now();
   const signal = options.signal ? { signal: options.signal } : {};
-  const prepared = await prepareBuildRender(code, config, outDir, prepareOptions(options));
+  const prepared = await prepareBuildRender(code, config, outDir, { ...prepareOptions(options), ...pieceEntry(options) });
   const [image] = await renderPreparedFrames(prepared, outDir, [frame], { label: options.label, ...signal });
   const seen = encodeForModel(image.path, { width: PHONE_FEED_WIDTH });
   await fs.writeFile(image.path, seen);

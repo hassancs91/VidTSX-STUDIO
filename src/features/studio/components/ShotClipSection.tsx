@@ -1,16 +1,21 @@
 // Inspector section for a selected tsx clip (D10): the shot behind it —
 // name/kind/anchor readout, folder-scanned version picker (undoable pointer
-// flip), edit-instruction box (→ editTsxPipeline, next version), Regenerate,
-// and "Resize clip to shot length" when the clip and config disagree.
+// flip), edit-instruction box, Regenerate, Refine, and "Resize clip to shot
+// length" when the clip and config disagree. Since P3 part 5 each op is a TSX
+// builder job: Apply edit and Regenerate at the Budget picked here (default
+// Standard), Refine always Quick, Cancel for whichever is running.
 
 import { useEffect, useState } from 'react';
 import { Button } from '@shared/components/Button';
 import { CopyButton } from '@shared/components/CopyButton';
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
+import type { BuildBudget } from '@shared/ipc/types';
+import { BUDGET_CHOICES, budgetHint } from '@shared/tsx-engine/build-budgets';
 import type { StudioClip, StudioMediaAsset, StudioShot } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
+import type { ShotFootage } from '../services/shot-footage';
 import { ShotMediaSection } from './ShotMediaSection';
 
 interface Props {
@@ -21,6 +26,8 @@ interface Props {
   assets: StudioMediaAsset[];
   dispatch: React.Dispatch<TimelineAction>;
   progress: ShotJobProgress | null;
+  /** The master footage under the clip's start: what a transparent shot's builder looks show behind it. */
+  footage?: ShotFootage;
   onError: (message: string) => void;
 }
 
@@ -28,9 +35,12 @@ function fmtSpan(start: number, end: number): string {
   return `${start.toFixed(2)}–${end.toFixed(2)} s`;
 }
 
-export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progress, onError }: Props) {
+const OP_LABEL: Record<string, string> = { edit: 'edit', refine: 'refine', regenerate: 'regenerate', generate: 'build' };
+
+export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progress, footage, onError }: Props) {
   const [versions, setVersions] = useState<number[]>([]);
   const [instruction, setInstruction] = useState('');
+  const [budget, setBudget] = useState<BuildBudget>('standard');
   const busy = progress?.status === 'generating';
 
   // Folder-as-truth version list; refreshed when a run finishes (busy flips)
@@ -62,6 +72,14 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
     ? shot.config.durationInFrames / shot.config.fps
     : null;
   const mismatch = shotSeconds !== null && Math.abs(shotSeconds - clip.duration) > 0.05;
+  // What the registry knows now (main's project.json lags the autosave), and the footage under the clip.
+  const facts = {
+    kind: shot.kind,
+    ...(shot.prompt ? { brief: shot.prompt } : {}),
+    ...(shot.anchor ? { anchor: shot.anchor } : {}),
+    ...(shot.assetRefs ? { assetRefs: shot.assetRefs } : {}),
+    ...(footage ? { footage } : {}),
+  };
 
   const sendEdit = () => {
     const trimmed = instruction.trim();
@@ -74,14 +92,16 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
         shotId: shot.id,
         activeVersion: shot.activeVersion,
         instruction: trimmed,
+        budget,
+        ...facts,
       })
       .then((res) => {
         if (!res.success) onError(res.error ?? 'Failed to start the edit');
       });
   };
 
-  // Q5: one critique-and-revise round per click — stills of the current
-  // version go to the vision model, the revision lands as the next version.
+  // Q5: one Quick builder edit per click — it looks at the current
+  // version's frames and fixes what it sees; the result is the next version.
   const refine = () => {
     if (busy || shot.status !== 'ready') return;
     void window.api
@@ -90,6 +110,7 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
         op: 'refine',
         shotId: shot.id,
         activeVersion: shot.activeVersion,
+        ...facts,
       })
       .then((res) => {
         if (!res.success) onError(res.error ?? 'Failed to start the refine pass');
@@ -106,8 +127,10 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
         kind: shot.kind,
         brief: shot.prompt,
         name: shot.name,
+        budget,
         ...(shot.anchor ? { anchor: shot.anchor } : {}),
         ...(shot.assetRefs ? { assetRefs: shot.assetRefs } : {}),
+        ...(footage ? { footage } : {}),
         ...(shot.config
           ? { durationSeconds: shot.config.durationInFrames / shot.config.fps }
           : {}),
@@ -178,7 +201,15 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
         />
       </label>
 
-      <div className="flex items-center gap-2">
+      <label className="flex items-center gap-2" title={budgetHint(budget)}>
+        <span className="text-[10px] text-text-dim shrink-0">Budget</span>
+        <div className="w-[124px] shrink-0" data-shot-inspector-budget>
+          <Select value={budget} disabled={busy} onChange={(v) => setBudget(v as BuildBudget)} options={BUDGET_CHOICES} />
+        </div>
+        <span className="text-[9px] text-text-dim truncate">{budgetHint(budget)} · Apply edit, Regenerate</span>
+      </label>
+
+      <div className="flex items-center gap-2 flex-wrap">
         <Button variant="secondary" size="sm" disabled={busy || !instruction.trim()} onClick={sendEdit}>
           Apply edit
         </Button>
@@ -187,7 +218,7 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
           size="sm"
           disabled={busy || !shot.prompt}
           onClick={regenerate}
-          title={shot.prompt ? 'Fresh take with the original brief (re-bakes word sync)' : 'No stored brief to regenerate from'}
+          title={shot.prompt ? 'A fresh build from the original brief, saved as the next version (re-bakes word sync)' : 'No stored brief to regenerate from'}
         >
           Regenerate
         </Button>
@@ -196,16 +227,17 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
           size="sm"
           disabled={busy || shot.status !== 'ready'}
           onClick={refine}
-          title="Render stills of this version and run one critique-and-revise pass (vision provider)"
+          title="A Quick builder edit: it looks at this version's frames and fixes only what they show (spacing, legibility, anything clipped), saved as the next version"
         >
           Refine
         </Button>
-        {busy && (progress?.op === 'edit' || progress?.op === 'refine') && (
+        {busy && (
           <Button
             variant="secondary"
             size="sm"
+            data-shot-inspector-cancel
             onClick={() => void window.api.studioShotCancel({ projectId, shotId: shot.id })}
-            title="Stop this run — the current version is kept"
+            title={`Stop the ${OP_LABEL[progress?.op ?? ''] ?? 'build'} — the current version is kept`}
           >
             Cancel
           </Button>

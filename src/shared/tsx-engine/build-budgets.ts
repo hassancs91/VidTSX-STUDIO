@@ -1,6 +1,7 @@
 // The builder's budgets (TSX_BUILDER_DESIGN.md T6): look rounds and hard caps
-// per budget. Shared so the Creator's budget picker (P3 part 2) shows the
-// numbers the builder runs with; main reads them from here.
+// per budget. Shared so the budget pickers (the Creator's, P3 part 2; Studio's
+// pool form and Inspector, part 5) show the numbers the builder runs with;
+// main reads them from here.
 
 import type { BuildBudget, BuildCaps } from '../ipc/types/tsx-build';
 
@@ -17,3 +18,16 @@ export const BUDGET_CAPS: Record<BuildBudget, BuildCaps> = {
   standard: { turns: 90, minutes: 30, outputTokens: 100_000 },
   craft: { turns: 200, minutes: 60, outputTokens: 250_000 },
 };
+
+export const BUDGET_CHOICES: Array<{ value: BuildBudget; label: string }> = [
+  { value: 'quick', label: 'Quick' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'craft', label: 'Craft' },
+];
+
+/** "up to 3 looks · stops at 30 min": what the picked budget buys. */
+export function budgetHint(budget: BuildBudget): string {
+  const rounds = BUDGET_ROUNDS[budget];
+  const looks = rounds === 1 ? '1 look' : `up to ${rounds} looks`;
+  return `${looks} · stops at ${BUDGET_CAPS[budget].minutes} min`;
+}

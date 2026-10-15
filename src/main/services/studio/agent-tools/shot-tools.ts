@@ -1,15 +1,25 @@
-// TSX shots: generate_tsx_shot (one shot through the full pipeline),
-// list_shots (the pool as the agent may see it) and propose_shots (one
+// TSX shots: generate_tsx_shot (one shot built by the TSX builder, P3 part
+// 5), list_shots (the pool as the agent may see it) and propose_shots (one
 // shot-plan proposal for the review panel).
+//
+// generate_tsx_shot BLOCKS for the whole build (minutes; the tool server's
+// timeout is pinned above any build, index.ts) and returns the frames the
+// builder last looked at, as composition tools do (P3 D6). Its chip shows each
+// progress line. A shot cancelled from the pool ends the call with "cancelled",
+// not an error: the assistant carries on with the rest of its pass.
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { StudioShot } from '../../../../shared/types/studio';
 import { buildShotPlanProposal, SHOTS_PER_PASS_CAP } from '../../../../shared/studio/shot-proposal';
 import { formatShotLine } from '../studio-agent-prompt';
-import { shotGenerator } from '../shot-generator';
+import { shotGenerator, ShotCancelledError } from '../shot-generator';
 import { LIBRARY_REF_PREFIX } from '../shot-asset-refs';
+import { budgetSchema } from '../../agents/tools/generate-composition';
+import { buildOutcomeLines, pickResultStills } from '../../agents/tools/build-result';
+import { readResultImages } from '../../agents/tools/composition-build';
 import {
+  emitProgress,
   emitTool,
   errorText,
   reviewBlocked,
@@ -24,7 +34,7 @@ export function buildShotTools(ctx: StudioToolContext): StudioTool[] {
 
   const generateTsxShot = tool(
     'generate_tsx_shot',
-    'Generate ONE TSX shot (cutaway/overlay/title) through the full generation pipeline — takes a minute or more. Anchor it to a transcript span (assetId + sourceStart/sourceEnd, source seconds on word bounds) to bake word-synced timings; titles REQUIRE an anchor. Call once per shot, then call propose_shots ONCE with all of them.',
+    'Build ONE TSX shot (cutaway/overlay/title) with the TSX builder: it designs the shot, writes the code, renders frames, looks at them and fixes what it sees, so each shot takes minutes (quick ~1-3, standard ~3-10). One build runs at a time in the whole app, so shots build one after another; say what you are about to make first. Anchor it to a transcript span (assetId + sourceStart/sourceEnd, source seconds on word bounds) to bake word-synced timings; titles REQUIRE an anchor, and an anchored overlay or title is looked at over the talk footage it plays over. Returns the frames the builder last looked at. Call once per shot, then call propose_shots ONCE with all of them.',
     {
       kind: z.enum(['cutaway', 'overlay', 'title']),
       brief: z.string().describe('What the shot should show — a concrete visual brief, self-contained'),
@@ -33,6 +43,7 @@ export function buildShotTools(ctx: StudioToolContext): StudioTool[] {
       sourceStart: z.number().optional().describe('Anchor span start, source seconds'),
       sourceEnd: z.number().optional().describe('Anchor span end, source seconds'),
       durationSeconds: z.number().optional().describe('Shot length; defaults to the anchor span length, else 5'),
+      budget: budgetSchema,
       assetRefs: z
         .record(z.string(), z.string())
         .optional()
@@ -70,7 +81,7 @@ export function buildShotTools(ctx: StudioToolContext): StudioTool[] {
       }
       emitTool(ctx, 'generate_tsx_shot', args.name ?? args.brief.slice(0, 60));
       try {
-        const shot = await shotGenerator.generate({
+        const { shot, build } = await shotGenerator.generate({
           projectId: req.projectId,
           kind: args.kind,
           brief: args.brief,
@@ -88,22 +99,38 @@ export function buildShotTools(ctx: StudioToolContext): StudioTool[] {
           ...(args.assetRefs && Object.keys(args.assetRefs).length > 0
             ? { assetRefs: args.assetRefs }
             : {}),
+          ...(args.budget ? { budget: args.budget } : {}),
           ...(providerId ? { providerId } : {}),
           // W1: the shot slot, falling back to the planning model.
           ...(req.shotModel || req.model ? { model: req.shotModel || req.model } : {}),
           origin: { by: 'agent' },
           signal,
+          onProgress: (message, percent) => emitProgress(ctx, 'generate_tsx_shot', message, percent),
         });
         generatedShots.set(shot.id, shot);
         const seconds = shot.config
           ? (shot.config.durationInFrames / shot.config.fps).toFixed(1)
           : '?';
-        return text(
-          `Shot ready: id "${shot.id}" (${shot.kind}, ${seconds} s, v${shot.activeVersion}). ` +
-            `Generated ${generatedShots.size}/${SHOTS_PER_PASS_CAP} this pass. ` +
-            'When every shot of this pass is done, call propose_shots ONCE with all of them.',
-        );
+        const { stills, images } = await readResultImages(pickResultStills(build?.stills ?? []));
+        const lines = [
+          `Shot ready: id "${shot.id}" (${shot.kind}, ${seconds} s, v${shot.activeVersion}).`,
+          ...buildOutcomeLines(build, stills),
+          `Generated ${generatedShots.size}/${SHOTS_PER_PASS_CAP} this pass. When every shot of this pass is done, call propose_shots ONCE with all of them.`,
+        ];
+        return {
+          content: [
+            { type: 'text' as const, text: lines.join('\n') },
+            ...images.map((image) => ({ type: 'image' as const, data: image.data, mimeType: image.mimeType })),
+          ],
+        };
       } catch (err) {
+        if (err instanceof ShotCancelledError) {
+          return text(
+            signal.aborted
+              ? 'The shot build was cancelled: this turn was stopped.'
+              : 'The shot build was cancelled from the shot pool, so this shot was not made. Carry on with the rest of the pass; do not build it again unless the user asks.',
+          );
+        }
         return text(`Shot generation failed: ${errorText(err)}`, true);
       }
     },

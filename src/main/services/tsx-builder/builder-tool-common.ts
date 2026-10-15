@@ -15,13 +15,17 @@ import { isPhysicsEngine, isWebGlLibrary } from '../../../shared/tsx-engine/buil
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildStillShown, RunDirs } from './build-store';
 import type { BuildAssetSource } from './build-stills';
-import { ASSETS_DIR, assetKeyMap, formatBytes } from './build-assets';
-import type { BuildFormat, BuildPhase, BuildProgressDetail } from './types';
+import { ASSETS_DIR, assetKeyMap, formatBytes, listAssetFiles } from './build-assets';
+import { shotAssetKey } from '../studio/shot-bundle-finish';
+import { BACKDROP_ENTRY, backdropLookSource } from './look-backdrop';
+import type { BuildFormat, BuildPhase, BuildProgressDetail, StudioShotBuild } from './types';
 
 export interface BuilderState {
   dirs: RunDirs;
   /** The requested frame; `check` fails a config that departs from it. */
   expect: BuildFormat;
+  /** A Studio shot (P3 part 5): check's media kinds, and what a transparent shot's looks draw behind it. */
+  studioShot?: StudioShotBuild;
   roundsMax: number;
   /** finish is refused before this many rounds (unless the budget is spent). */
   roundsMin: number;
@@ -162,7 +166,9 @@ export function tracked<A>(state: BuilderState, phase: BuildPhase, handler: (arg
 
 export async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
   state.checks += 1;
-  const result = await checkBuild(state.dirs.workDir, state.expect);
+  const result = state.studioShot
+    ? await checkBuild(state.dirs.workDir, state.expect, { studioShot: true })
+    : await checkBuild(state.dirs.workDir, state.expect);
   if (result.ok && result.code && result.config) {
     state.lastGood = { code: result.code, config: result.config, check: state.checks, physics: isPhysicsBuild(result.inlinedPackages) };
     const dir = path.join(state.dirs.runDir, 'checkpoints');
@@ -192,10 +198,45 @@ export function describeCheck(result: BuildCheckResult): string {
   return `check passed: ${result.inlinedFiles.length + 1} file(s) bundled (${result.code!.length} bytes), packages: ${result.inlinedPackages.join(', ') || 'none'}${files}; ${c.width}x${c.height}, ${c.fps} fps, ${c.durationInFrames} frames (${(c.durationInFrames / c.fps).toFixed(2)} s).`;
 }
 
-/** The build's assets folder and the keys its code looks up, when it names any. */
-export function assetSourceFor(state: BuilderState, result: BuildCheckResult): BuildAssetSource | undefined {
-  if (result.assets.length === 0) return undefined;
-  return { dir: path.join(state.dirs.workDir, ASSETS_DIR), keys: assetKeyMap(result.assets) };
+/**
+ * The build's assets folder and the keys a look hands it: every file there by
+ * its key, so a shot made before the builder that reads `props.assets.logo`
+ * shows its media in the stills too (P3 part 5), and the keys its staticFile()
+ * calls look up over them. Undefined when there is nothing to hand.
+ */
+export async function assetSourceFor(state: BuilderState, result: BuildCheckResult): Promise<BuildAssetSource | undefined> {
+  const dir = path.join(state.dirs.workDir, ASSETS_DIR);
+  const files = (await listAssetFiles(dir)).filter((f) => f.kind !== null);
+  const keys = { ...Object.fromEntries(files.map((f) => [shotAssetKey(f.relPath), f.relPath])), ...assetKeyMap(result.assets) };
+  return Object.keys(keys).length > 0 ? { dir, keys } : undefined;
+}
+
+/** What render_stills, contact_sheet and phone_view render instead of the piece itself. */
+export interface LookWrapper {
+  code: string;
+  entryName: string;
+  /** The footage under the piece; absent = a checkerboard. */
+  backdropFile?: string;
+}
+
+/**
+ * A transparent Studio shot is looked at over its footage, or a checkerboard
+ * (look-backdrop.ts). A build the wrapper cannot rename (check passed it, so
+ * this should not happen) is looked at alone rather than failing the look.
+ */
+export function lookWrapperFor(state: BuilderState, code: string, config: CompositionConfig): LookWrapper | undefined {
+  const shot = state.studioShot;
+  if (!shot?.transparent) return undefined;
+  const startFrame = shot.backdrop ? shot.backdrop.startSeconds * config.fps : null;
+  try {
+    return {
+      code: backdropLookSource(code, config, startFrame),
+      entryName: BACKDROP_ENTRY,
+      ...(shot.backdrop ? { backdropFile: shot.backdrop.file } : {}),
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 export type CheckedBuild = {
@@ -205,6 +246,8 @@ export type CheckedBuild = {
   assets?: BuildAssetSource;
   /** It inlines a 3D library (isWebGlBuild). */
   webgl: boolean;
+  /** Set for a transparent Studio shot: what the picture looks render. */
+  look?: LookWrapper;
 };
 
 /** The check every look starts with: the build to render, or the reply that ends the call. */
@@ -212,7 +255,8 @@ export async function checkForLook(state: BuilderState): Promise<{ build: Checke
   const result = await runCheck(state);
   if (!result.ok || !result.code || !result.config) return { reply: text(describeCheck(result), true) };
   if (state.signal?.aborted) return { reply: text(STOPPING, true) };
-  const assets = assetSourceFor(state, result);
+  const assets = await assetSourceFor(state, result);
+  const look = lookWrapperFor(state, result.code, result.config);
   return {
     build: {
       code: result.code,
@@ -220,6 +264,7 @@ export async function checkForLook(state: BuilderState): Promise<{ build: Checke
       summary: describeCheck(result),
       webgl: isWebGlBuild(result.inlinedPackages),
       ...(assets ? { assets } : {}),
+      ...(look ? { look } : {}),
     },
   };
 }

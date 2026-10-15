@@ -409,3 +409,55 @@ describe('finish gate', () => {
     expect(state.finished?.summary).toBe('edit');
   });
 });
+
+// P3 part 5 (Hasan's 1(b)): a transparent Studio shot is LOOKED AT over its footage.
+describe('a transparent Studio shot', () => {
+  const piece = "export const compositionConfig = { id: 'shot', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };\nexport default function Shot() { return null; }";
+  const backdrop = { file: path.join(os.tmpdir(), 'talk-proxy.mp4'), startSeconds: 2, label: 'talk.mp4 from 2.0 s' };
+
+  it('sheets and phone-views the look wrapper with the footage, and measures seam and purity on the piece alone', async () => {
+    checkBuild.mockResolvedValue({ ...passed, code: piece });
+    const { state, call } = await setup({ lastLook: { code: piece }, studioShot: { transparent: true, backdrop } });
+    await call('contact_sheet', { frames: [0, 120] });
+    const [sheetCode, , , , sheetOpts] = renderContactSheet.mock.calls[0];
+    expect(sheetCode).toContain('function VidtsxBackdropLook(');
+    expect(sheetCode).toContain('"trimBefore":60');
+    expect(sheetOpts).toMatchObject({ entryName: 'look.tsx', backdropFile: backdrop.file });
+    // What the run records is the piece itself: finish compares against it.
+    expect(state.lastLook).toEqual({ code: piece });
+
+    await call('phone_view', { frame: 30 });
+    expect(renderPhoneView.mock.calls[0][0]).toContain('function VidtsxBackdropLook(');
+    expect(renderPhoneView.mock.calls[0][4]).toMatchObject({ entryName: 'look.tsx', backdropFile: backdrop.file });
+
+    await call('loop_seam');
+    expect(measureLoopSeam.mock.calls[0][0]).toBe(piece);
+    expect(measureLoopSeam.mock.calls[0][3]).not.toHaveProperty('backdropFile');
+    await call('purity_check', {});
+    expect(measureFramePurity.mock.calls[0][0]).toBe(piece);
+    expect(checkBuild.mock.calls[0]).toEqual([state.dirs.workDir, state.expect, { studioShot: true }]);
+  });
+
+  it('draws a checkerboard when no footage is under it, and leaves a cutaway alone', async () => {
+    checkBuild.mockResolvedValue({ ...passed, code: piece });
+    const { call } = await setup({ lastLook: { code: piece }, studioShot: { transparent: true } });
+    await call('phone_view', { frame: 30 });
+    expect(renderPhoneView.mock.calls[0][0]).toContain('"trimBefore":null');
+    expect(renderPhoneView.mock.calls[0][4]).not.toHaveProperty('backdropFile');
+
+    renderPhoneView.mockClear();
+    const cutaway = await setup({ lastLook: { code: piece }, studioShot: { transparent: false } });
+    await cutaway.call('phone_view', { frame: 30 });
+    expect(renderPhoneView.mock.calls[0][0]).toBe(piece);
+    expect(renderPhoneView.mock.calls[0][4]).not.toHaveProperty('entryName');
+  });
+
+  it('hands every file in assets/ to a look by its key, so props.assets.<key> shows its media', async () => {
+    const { state, call } = await setup();
+    await fs.mkdir(path.join(state.dirs.workDir, 'assets'), { recursive: true });
+    await fs.writeFile(path.join(state.dirs.workDir, 'assets', 'logo.png'), 'png');
+    await fs.writeFile(path.join(state.dirs.workDir, 'assets', 'notes.md'), 'not served');
+    await call('phone_view', { frame: 0 });
+    expect(renderPhoneView.mock.calls[0][4].assets).toEqual({ dir: path.join(state.dirs.workDir, 'assets'), keys: { logo: 'logo.png' } });
+  });
+});

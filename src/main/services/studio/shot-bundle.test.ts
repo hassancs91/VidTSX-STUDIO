@@ -214,3 +214,38 @@ describe('helpers', () => {
     expect(finished.dynamicStaticFileCalls).toBe(1);
   });
 });
+
+// P3 part 5 (3a): the builder's check inlines the kit from its installed
+// source, so a builder shot carries its own copy; Import TSX keeps it external.
+describe('the kit, inlined for the builder', () => {
+  const KIT_DIR = path.resolve(__dirname, '../../../../resources/shot-kit/core');
+  const PIECE = [
+    "import React from 'react';",
+    "import { AbsoluteFill } from 'remotion';",
+    "import { TerminalWindow, TypedText, KitIcon } from '@vidtsx/kit';",
+    'export const compositionConfig = { id: "KitShot", durationInFrames: 90, fps: 30, width: 1920, height: 1080 };',
+    'export default function KitShot() {',
+    '  return <AbsoluteFill><TerminalWindow lines={[]} /><TypedText text="npm i" /><KitIcon name="check" /></AbsoluteFill>;',
+    '}',
+  ].join('\n');
+
+  it('bundles the kit source in and keeps only react and remotion as imports', async () => {
+    const entry = await write('kit-shot/index.tsx', PIECE);
+    const result = await bundleShotSource(entry, { kitDir: KIT_DIR });
+    expect(result.code).not.toContain('@vidtsx/kit');
+    const imports = [...result.code.matchAll(/^import .* from ["']([^"']+)["'];?$/gm)].map((m) => m[1]);
+    expect(new Set(imports)).toEqual(new Set(['react', 'remotion']));
+    expect(result.inlinedPackages).toContain('@vidtsx/kit');
+    // The kit's own files are a package, not the piece's files.
+    expect(result.inlinedFiles).toEqual([]);
+    expect(lintShotSource(result.code).ok).toBe(true);
+    expect(parseCompositionConfig(result.code)?.id).toBe('KitShot');
+  });
+
+  it('keeps the kit external without a kit folder (Import TSX)', async () => {
+    const entry = await write('kit-shot-import/index.tsx', PIECE);
+    const result = await bundleShotSource(entry);
+    expect(result.code).toMatch(/from ["']@vidtsx\/kit["']/);
+    expect(result.inlinedPackages).not.toContain('@vidtsx/kit');
+  });
+});

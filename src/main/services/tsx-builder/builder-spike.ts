@@ -33,6 +33,9 @@
 // mode "toolwait" — how long an agent's MCP tool call may block, on a cheap
 // model: wait / server timeout / abort cases (builder-spike-toolwait.ts, P3
 // part 4's probe). Writes `<outDir>/report.json`.
+// mode "backdrop" — free: what a transparent Studio shot's looks show behind
+// it (alone / over the footage / over the checkerboard), with the kit inlined
+// by a Studio check (builder-spike-backdrop.ts, P3 part 5).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -53,6 +56,7 @@ import { glTimingProbe, type GlTimingRequest } from './builder-spike-gl';
 import { purityProbe, type PurityRequest } from './builder-spike-purity';
 import { assetsProbe, type AssetsRequest } from './builder-spike-assets';
 import { toolWaitProbe, type ToolWaitRequest } from './builder-spike-toolwait';
+import { backdropProbe, type BackdropRequest } from './builder-spike-backdrop';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildPack } from './types';
@@ -89,7 +93,8 @@ type SpikeRequest =
   | GlTimingRequest
   | PurityRequest
   | AssetsRequest
-  | ToolWaitRequest;
+  | ToolWaitRequest
+  | BackdropRequest;
 
 async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
@@ -285,7 +290,9 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
                   ? await assetsProbe(req.outDir, req.sources)
                   : req.mode === 'toolwait'
                     ? await toolWaitProbe(req)
-                    : await runFixture(req);
+                    : req.mode === 'backdrop'
+                      ? await backdropProbe(req.outDir, req.sources)
+                      : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

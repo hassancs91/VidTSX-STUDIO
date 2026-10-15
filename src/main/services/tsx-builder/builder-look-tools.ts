@@ -14,6 +14,11 @@
 //   physics engine until it says PURE, so it records its verdict too.
 //
 // Every image shown is recorded in `state.stills` and saved with the version.
+//
+// A transparent Studio shot (P3 part 5): the three picture looks render its
+// look wrapper (footage or a checkerboard under the piece, look-backdrop.ts);
+// loop_seam and purity_check measure the piece alone. Everything the run
+// records (the last look, the seam, purity) is keyed by the piece's own code.
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -33,6 +38,7 @@ import {
   tracked,
   VERIFY_LOOK_ALLOWANCE,
   type BuilderState,
+  type CheckedBuild,
   type ToolContent,
   type ToolResult,
 } from './builder-tool-common';
@@ -56,6 +62,15 @@ export function buildLookTools(state: BuilderState) {
   const signal = () => (state.signal ? { signal: state.signal } : {});
   /** The signal, and the build's files when it names any. */
   const renderOptions = (build: { assets?: BuildAssetSource }) => ({ ...signal(), ...(build.assets ? { assets: build.assets } : {}) });
+  /** What a picture look renders: the look wrapper of a transparent shot, else the piece. */
+  const picture = (build: CheckedBuild) => ({
+    code: build.look?.code ?? build.code,
+    options: {
+      ...renderOptions(build),
+      ...(build.look ? { entryName: build.look.entryName } : {}),
+      ...(build.look?.backdropFile ? { backdropFile: build.look.backdropFile } : {}),
+    },
+  });
 
   const renderStills = tool(
     'render_stills',
@@ -69,10 +84,11 @@ export function buildLookTools(state: BuilderState) {
       if (!('verify' in slot)) return slot;
       const started = Date.now();
       try {
-        const stills = await renderBuildStills(look.build.code, look.build.config, state.dirs.stillsDir, args.frames, {
+        const shown = picture(look.build);
+        const stills = await renderBuildStills(shown.code, look.build.config, state.dirs.stillsDir, args.frames, {
           maxSide: 1024,
           label: slot.label,
-          ...renderOptions(look.build),
+          ...shown.options,
         });
         state.lastLook = { code: look.build.code };
         for (const still of stills.stills) {
@@ -123,11 +139,12 @@ export function buildLookTools(state: BuilderState) {
       if (!('verify' in slot)) return slot;
       const started = Date.now();
       try {
-        const sheet = await renderContactSheet(look.build.code, look.build.config, state.dirs.stillsDir, args.frames, {
+        const shown = picture(look.build);
+        const sheet = await renderContactSheet(shown.code, look.build.config, state.dirs.stillsDir, args.frames, {
           label: `${slot.label}-sheet`,
           // P2 problem 1: a dozen WebGL canvases in one page lose a context.
           separateTiles: look.build.webgl,
-          ...renderOptions(look.build),
+          ...shown.options,
         });
         state.lastLook = { code: look.build.code };
         state.stills.push({ round: state.roundsUsed, frame: sheet.frames[0], frames: sheet.frames, size: 'sheet', path: sheet.path });
@@ -177,9 +194,10 @@ export function buildLookTools(state: BuilderState) {
       state.phoneViews += 1;
       const started = Date.now();
       try {
-        const view = await renderPhoneView(look.build.code, look.build.config, state.dirs.stillsDir, args.frame, {
+        const shown = picture(look.build);
+        const view = await renderPhoneView(shown.code, look.build.config, state.dirs.stillsDir, args.frame, {
           label: `phone${state.phoneViews}`,
-          ...renderOptions(look.build),
+          ...shown.options,
         });
         state.stills.push({ round: state.roundsUsed, frame: view.frame, size: 'phone', path: view.path });
         await logEvent(state, { tool: 'phone_view', n: state.phoneViews, frame: view.frame, ms: view.ms, gl: view.gl, totalMs: Date.now() - started });

@@ -7,28 +7,19 @@
 // timeout is pinned above any build (tool-server.ts).
 //
 // The engine is imported lazily (it pulls in the whole builder), and tests
-// swap in a fake through `setBuildEngineForTests`.
+// swap in a fake through `setBuildEngineForTests` (tsx-jobs/build-engine.ts,
+// shared with Studio shots).
 
 import fs from 'fs/promises';
 import path from 'path';
 import { nativeImage } from 'electron';
 import type { LlmImageIpc, TsxBuildStillIpc, TsxJobIpc, TsxJobStartRequest } from '../../../../shared/ipc/types';
-import { startBuildAndWait, type BuildJobEngine } from '../../tsx-jobs/build-and-wait';
+import { startBuildAndWait } from '../../tsx-jobs/build-and-wait';
+import { getBuildEngine } from '../../tsx-jobs/build-engine';
 import type { TsxJobOwner } from '../../tsx-jobs/tsx-build-job';
 import type { AgentToolContext } from './types';
 
-let engineForTests: BuildJobEngine | null = null;
-
-/** Test seam: a fake engine; null restores the app's. */
-export function setBuildEngineForTests(engine: BuildJobEngine | null): void {
-  engineForTests = engine;
-}
-
-async function buildEngine(): Promise<BuildJobEngine> {
-  if (engineForTests) return engineForTests;
-  const { tsxJobEngine } = await import('../../tsx-jobs/tsx-job-engine');
-  return tsxJobEngine;
-}
+export { setBuildEngineForTests } from '../../tsx-jobs/build-engine';
 
 export type CompositionBuildOutcome =
   | { ok: true; job: TsxJobIpc; versionPath: string }
@@ -54,7 +45,7 @@ export async function runCompositionBuild(
     usage: { featureSource, ...(featureSource === 'agent' ? { agentId: ctx.agentId } : {}) },
   };
   let lastLine = '';
-  const awaited = await startBuildAndWait(await buildEngine(), request, {
+  const awaited = await startBuildAndWait(await getBuildEngine(), request, {
     owner,
     signal: ctx.signal,
     onJob: (job) => {

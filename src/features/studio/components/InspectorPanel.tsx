@@ -8,6 +8,7 @@ import type { AutoCutPhase } from '../hooks/useAutoCut';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { findClip } from '../services/timeline-ops';
+import { footageAt } from '../services/shot-footage';
 import { AgentSettingsSection } from './AgentSettingsSection';
 import { TranscriptSection } from './TranscriptSection';
 import { ReviewCutsSection } from './ReviewCutsSection';
@@ -97,6 +98,8 @@ export function InspectorPanel({
     singleClip?.kind === 'tsx' && singleClip.tsx
       ? (shots.find((s) => s.id === singleClip.tsx?.shotId) ?? null)
       : null;
+  // P3 part 5: the master footage under the clip, for a transparent shot's builder looks.
+  const footageUnderClip = selectedShot && singleClip ? footageAt(timeline, singleClip.timelineStart) : undefined;
 
   return (
     <div className="h-full flex flex-col gap-4 p-3 overflow-y-auto">
@@ -139,6 +142,7 @@ export function InspectorPanel({
             assets={project.assets}
             dispatch={timelineDispatch}
             progress={selectedShot ? getShotProgress(selectedShot.id) : null}
+            {...(footageUnderClip ? { footage: footageUnderClip } : {})}
             onError={onShotError}
           />
         </section>

@@ -78,13 +78,18 @@ export interface BuildResultTextInput {
 }
 
 export function buildResultText(input: BuildResultTextInput): string {
-  const { config, build } = input;
+  const { config } = input;
   const seconds = (config.durationInFrames / config.fps).toFixed(1);
   const head =
     input.kind === 'generate'
       ? `Composition ready: ${input.relPath} — ${config.width}x${config.height}, ${seconds}s at ${config.fps}fps.`
       : `Edited ${input.title}: ${input.relPath} — ${config.width}x${config.height}, ${seconds}s at ${config.fps}fps.`;
-  const lines = [head];
+  return [head, ...buildOutcomeLines(input.build, input.picked)].join('\n');
+}
+
+/** How the build went and which pictures follow: the lines under any caller's own head (Studio's generate_tsx_shot too). */
+export function buildOutcomeLines(build: TsxBuildJobIpc | undefined, picked: TsxBuildStillIpc[]): string[] {
+  const lines: string[] = [];
   if (build) {
     const ending = build.finished ? 'finished' : 'stopped before it finished';
     const checks = [
@@ -97,7 +102,7 @@ export function buildResultText(input: BuildResultTextInput): string {
     if (build.notice) lines.push(build.notice);
     if (build.summary?.trim()) lines.push(`Builder's summary: ${build.summary.trim()}`);
   }
-  const frames = framesLine(input.picked);
+  const frames = framesLine(picked);
   if (frames) lines.push(frames);
-  return lines.join('\n');
+  return lines;
 }

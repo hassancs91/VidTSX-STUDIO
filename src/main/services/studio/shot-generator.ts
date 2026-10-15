@@ -1,65 +1,81 @@
-// TSX shot generation service (TSX_SHOTS_DESIGN.md D8, plus D7 word bake).
-// One service behind BOTH entry points — the agent's generate_tsx_shot tool
-// and the media-pool Generate button — "buttons and chat converge".
+// TSX shot generation (TSX_SHOTS_DESIGN.md D8; on the TSX builder since P3
+// part 5). One service behind every entry point: the assistant's
+// generate_tsx_shot tool, the media-pool Generate button, and the Inspector's
+// Regenerate, Apply edit and Refine — "buttons and chat converge".
 //
-// It drives the shared tsx-engine pipelines with main-process deps, the
-// Creator pattern (tsx-job-engine), plus the shot ACCEPTANCE GATE injected as
-// the pipeline's `tsxValidate` dep: esbuild transpile + the react/remotion-
-// only single-file import lint + a compositionConfig PARSE check. Folding the
-// two extra checks into the validate dep is what makes a lint or config
-// failure a fix-loop error the pipeline repairs — never a latent export
-// failure, and never the parser's silent 300-frame default.
+// Every op is ONE `build` job on the app's job engine (startBuildAndWait), so
+// a shot shares the one-build-at-a-time queue, cancel and progress with the
+// Creator, agents and flows:
+// - generate: a new build `into` the reserved shots/<id>/ (v1);
+// - regenerate: a fresh build into the same folder (`retake`), saved as N+1;
+// - edit: a builder edit of the active version, at the Inspector's budget;
+// - refine: a Quick builder edit that looks and fixes what its frames show.
+// The builder's check is the acceptance gate (the shot lint and the literal
+// config parse run on its bundle), and the builder saves vN.tsx + vN.src/ +
+// vN.stills/ + vN.assets/ itself. What it is asked is shot-build-request.ts;
+// the media in, behind and out is shot-build-media.ts.
+//
+// Cancel: one controller per shot, chained to the caller's signal (an
+// assistant turn), so the pool card, the Inspector and a stopped turn all
+// stop the same run. A cancelled NEW shot leaves the registry and its empty
+// folder is released; a failed new shot stays as an error shot (Regenerate
+// builds into its empty folder); a cancelled or failed retake, edit or refine
+// leaves the shot as it was.
 //
 // Main writes ONLY shots/<id>/ files. The registry lives in the renderer's
 // document (shots-adopt), so main and the autosave never race on project.json.
+// validateShotCode + buildShotEngineDeps stay for conform, import, reconcile
+// and package import until the one-shot pipeline goes (P3 part 8).
 
 import path from 'path';
 import fs from 'fs/promises';
-import {
-  generateTsxPipeline,
-  editTsxPipeline,
-  type TsxEngineDeps,
-  type TsxPipelineResult,
-} from '../../../shared/tsx-engine';
+import type { TsxEngineDeps } from '../../../shared/tsx-engine';
 import type {
+  BuildBudget,
   StudioShotGenerateOp,
   StudioShotJobEvent,
+  TsxBuildJobIpc,
+  TsxJobIpc,
+  TsxJobStartRequest,
   TsxValidateResponse,
 } from '../../../shared/ipc/types';
 import type { StudioClipOrigin, StudioShot, StudioShotKind } from '../../../shared/types/studio';
-import type { StudioBrand } from '../../../shared/types/asset-library';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
-import { buildShotExtraInstructions, buildRefineInstruction } from '../../../shared/studio/shot-prompt';
 import { sliceAnchorWords, type ShotAnchorWord } from '../../../shared/studio/shot-words';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { parseCompositionConfig } from '../composition-config-parser';
-import {
-  reserveProjectFolder,
-  writeNextVersion,
-  writeDebugSidecar,
-  describeSystemPrompt,
-} from '../tsx-jobs/project-store';
-import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from '../tsx-jobs/chat-store';
+import { reserveProjectFolder } from '../tsx-jobs/project-store';
+import { startBuildAndWait } from '../tsx-jobs/build-and-wait';
+import { getBuildEngine } from '../tsx-jobs/build-engine';
+import type { TsxJobOwner } from '../tsx-jobs/tsx-build-job';
+import type { StudioShotBuild } from '../tsx-builder/types';
 import { resolveProjectBrand } from './project-brand';
 import { resolveShotAssetRefs, type ResolvedShotAssetRefs } from './shot-asset-refs';
-import { composeShotStyleMemory, type ShotStyleMemory } from './agent-memory-prompt';
+import { composeShotStyleMemory } from './agent-memory-prompt';
 import { listMemories } from './agent-memory';
-import { renderShotStills } from './shot-stills';
-import type { LlmImageIpc } from '../../../shared/ipc/types/llm';
-import { getShotExemplars } from './shot-exemplars';
-import { ensureProjectKitSnapshot, shotUsesKit } from './shot-kit-pin';
 import { getShotKitPromptInfo } from './shot-kit';
 import { loadProject } from './project-store';
 import { shotJobEvents } from './shot-job-events';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
+import {
+  brandText,
+  editIntent,
+  generateIntent,
+  isTransparentKind,
+  refineIntent,
+  shotBuildRequest,
+  shotFormat,
+  studioShotPack,
+} from './shot-build-request';
+import { attachVersionMedia, backdropFor, shotMediaFiles, versionFileKeys, type FootageSource } from './shot-build-media';
 import { logEngine } from '../../../logging/log-engine';
 
 const log = logEngine.createLogger('ShotGenerator');
 
-/** Same cap as the Creator's job engine — bulk passes run ~4 wide. */
-const MAX_CONCURRENT = 4;
+/** What a queued shot's card says: builds run one at a time, app-wide (P3 D7). */
+export const WAITING_MESSAGE = 'Waiting for another build to finish';
 
 export interface ShotAnchor {
   assetId: string;
@@ -67,7 +83,18 @@ export interface ShotAnchor {
   sourceEnd: number;
 }
 
-export interface GenerateShotRequest {
+interface ShotRunOptions {
+  providerId?: string;
+  /** Shot model (W1); absent = the provider's default. */
+  model?: string;
+  /** The footage under the shot when it has no anchor (the master clip under the playhead or the clip): its looks show it. */
+  footage?: FootageSource;
+  signal?: AbortSignal;
+  /** Each progress line as the shot's card shows it (the assistant's tool chip). */
+  onProgress?: (message: string, percent: number) => void;
+}
+
+export interface GenerateShotRequest extends ShotRunOptions {
   projectId: string;
   kind: StudioShotKind;
   brief: string;
@@ -77,44 +104,56 @@ export interface GenerateShotRequest {
    *  Library values are imported on use; the registry stores project ids. */
   assetRefs?: Record<string, string>;
   durationSeconds?: number;
-  providerId?: string;
-  /** Shot model (W1); absent = the provider's default. */
-  model?: string;
+  /** Default Standard (P3 D11). */
+  budget?: BuildBudget;
   origin: StudioClipOrigin;
-  signal?: AbortSignal;
   /** Fires as soon as the shot folder is reserved (the id exists) — the IPC
-   *  handshake returns then, while the pipeline continues detached. */
+   *  handshake returns then, while the build continues detached. */
   onReserved?: (shotId: string) => void;
 }
 
-export interface EditShotRequest {
+/** What the renderer knows about the shot better than project.json does (the autosave lags). */
+interface ShotFacts {
+  kind?: StudioShotKind;
+  brief?: string;
+  anchor?: ShotAnchor;
+  assetRefs?: Record<string, string>;
+}
+
+export interface EditShotRequest extends ShotRunOptions, ShotFacts {
   projectId: string;
   shotId: string;
-  /** The document's activeVersion — the code the instruction applies to. */
+  /** The document's activeVersion — the version the instruction applies to. */
   activeVersion: number;
   instruction: string;
-  providerId?: string;
-  model?: string;
-  signal?: AbortSignal;
+  /** Default Standard (Hasan 10-15: the Inspector's budget picker). */
+  budget?: BuildBudget;
 }
 
-export interface RefineShotRequest {
+export interface RefineShotRequest extends ShotRunOptions, ShotFacts {
   projectId: string;
   shotId: string;
-  /** The document's activeVersion — the version being critiqued. */
+  /** The document's activeVersion — the version being looked at. */
   activeVersion: number;
-  providerId?: string;
-  model?: string;
-  signal?: AbortSignal;
 }
 
-export interface RegenerateShotRequest extends GenerateShotRequest {
-  shotId: string;
+/** A finished op: the registry entry, and the build that made it (its stills go back to the assistant). */
+export interface ShotBuildOutcome {
+  shot: StudioShot;
+  build?: TsxBuildJobIpc;
+}
+
+/** The run was cancelled (pool card, Inspector, or the caller's signal). Not a failure. */
+export class ShotCancelledError extends Error {
+  constructor() {
+    super('Cancelled');
+    this.name = 'ShotCancelledError';
+  }
 }
 
 type Listener = (event: StudioShotJobEvent) => void;
 
-/** The gate composed into the pipeline's validate dep (see file header). */
+/** The gate composed into the pipeline's validate dep (conform, import, reconcile). */
 export async function validateShotCode(code: string): Promise<TsxValidateResponse> {
   const transpile = await validateTsxCode(code);
   if (!transpile.success) return transpile;
@@ -131,10 +170,9 @@ export async function validateShotCode(code: string): Promise<TsxValidateRespons
 }
 
 /**
- * The engine deps every shot pipeline runs with: the LLM call plus the
- * ACCEPTANCE GATE as `tsxValidate`. Exported because the import service's
- * conform pass (D14) must be validated by the very same gate — one definition
- * of "acceptable shot code", whether it was generated or imported.
+ * The engine deps the one-shot pipeline runs with: the LLM call plus the
+ * ACCEPTANCE GATE as `tsxValidate`. Still used by the import service's
+ * conform pass (D14) until P3 part 8.
  */
 export function buildShotEngineDeps(
   providerId: string | undefined,
@@ -147,8 +185,6 @@ export function buildShotEngineDeps(
         {
           ...req,
           ...(providerId && !req.providerId ? { providerId } : {}),
-          // The project's shot model (W1) — every pipeline step of a shot
-          // runs on it unless the step named one itself.
           ...(model && !req.model ? { model } : {}),
           featureSource: 'studio-tsx-shot',
         },
@@ -158,9 +194,18 @@ export function buildShotEngineDeps(
   };
 }
 
+const runKey = (projectId: string, shotId: string) => `${projectId}:${shotId}`;
+
+function shotConfig(code: string): StudioShot['config'] | undefined {
+  const config = parseCompositionConfig(code);
+  return config
+    ? { durationInFrames: config.durationInFrames, fps: config.fps, width: config.width, height: config.height }
+    : undefined;
+}
+
 class ShotGeneratorService {
-  private running = 0;
-  private waiters: Array<() => void> = [];
+  /** One run per shot: its controller, chained to the caller's signal. */
+  private runs = new Map<string, AbortController>();
 
   onEvent(listener: Listener): () => void {
     return shotJobEvents.onEvent(listener);
@@ -170,35 +215,38 @@ class ShotGeneratorService {
     shotJobEvents.emit(event);
   }
 
-  private async acquireSlot(): Promise<void> {
-    if (this.running < MAX_CONCURRENT) {
-      this.running++;
-      return;
-    }
-    await new Promise<void>((resolve) => this.waiters.push(resolve));
-    this.running++;
+  isRunning(projectId: string, shotId: string): boolean {
+    return this.runs.has(runKey(projectId, shotId));
   }
 
-  private releaseSlot(): void {
-    this.running--;
-    const next = this.waiters.shift();
-    if (next) next();
+  /** Stop the run on a shot, queued or building. False when none is running. */
+  cancel(projectId: string, shotId: string): boolean {
+    const controller = this.runs.get(runKey(projectId, shotId));
+    if (!controller) return false;
+    controller.abort();
+    return true;
   }
 
-  private buildDeps(
-    providerId: string | undefined,
-    signal?: AbortSignal,
-    model?: string,
-  ): TsxEngineDeps {
-    return buildShotEngineDeps(providerId, signal, model);
+  private track(projectId: string, shotId: string, signal?: AbortSignal): { signal: AbortSignal; done: () => void } {
+    const key = runKey(projectId, shotId);
+    if (this.runs.has(key)) throw new Error('This shot is already building: wait for it, or cancel it first.');
+    const controller = new AbortController();
+    const follow = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener('abort', follow, { once: true });
+    this.runs.set(key, controller);
+    return {
+      signal: controller.signal,
+      done: () => {
+        signal?.removeEventListener('abort', follow);
+        if (this.runs.get(key) === controller) this.runs.delete(key);
+      },
+    };
   }
 
   /** Anchor words re-based to shot-local seconds (D7). Throws when the anchor
    *  has no usable transcript — callers surface that as a tool/IPC error. */
-  private async bakeAnchorWords(
-    projectId: string,
-    anchor: ShotAnchor,
-  ): Promise<ShotAnchorWord[]> {
+  private async bakeAnchorWords(projectId: string, anchor: ShotAnchor): Promise<ShotAnchorWord[]> {
     const file = await readTranscriptFile(projectId, anchor.assetId);
     if (!file?.words || file.words.length === 0) {
       throw new Error(
@@ -214,459 +262,368 @@ class ShotGeneratorService {
     return words;
   }
 
+  /** Q6a: the project's learned style (brand-filtered rules + profile). A memory failure never blocks a build. */
+  private async learnedStyle(projectId: string, brandId?: string): Promise<{ rules: string[]; profile?: string } | undefined> {
+    try {
+      const composed = composeShotStyleMemory(await listMemories(), { ...(brandId ? { brandId } : {}) });
+      if (composed.droppedProfile || composed.rulesOverflowBy > 0) {
+        log.warn('Shot style memory over budget', { projectId, droppedProfile: composed.droppedProfile, rulesOverflowBy: composed.rulesOverflowBy });
+      }
+      return composed.styleMemory ?? undefined;
+    } catch (error) {
+      log.warn('Shot style memory read failed — building without it', { error: String(error) });
+      return undefined;
+    }
+  }
+
+  /** D11: the project's brand as the builder's BRAND text. A stale brandId degrades to none. */
+  private async brandFor(projectId: string, brandId: string | undefined, kind: StudioShotKind): Promise<string | undefined> {
+    const brand = await resolveProjectBrand(projectId, brandId);
+    if (brandId && !brand) log.warn('Project brandId has no matching brand — building unbranded', { projectId, brandId });
+    return brand ? brandText(brand, kind) : undefined;
+  }
+
+  /**
+   * One build job, start to end. Progress becomes shot events (the queued
+   * line says it waits for another build); `entry` rides each one for a new
+   * shot, so the pool shows it while it builds. Resolves with the done job;
+   * throws ShotCancelledError on a cancel, an Error on a failure.
+   */
+  private async runBuild(input: {
+    projectId: string;
+    shotId: string;
+    op: StudioShotGenerateOp;
+    request: TsxJobStartRequest;
+    owner: TsxJobOwner;
+    signal: AbortSignal;
+    entry?: StudioShot;
+    onProgress?: (message: string, percent: number) => void;
+  }): Promise<TsxJobIpc & { versionPath: string }> {
+    let last = '';
+    const awaited = await startBuildAndWait(await getBuildEngine(), input.request, {
+      owner: input.owner,
+      signal: input.signal,
+      onJob: (job) => {
+        if (job.status === 'done' || job.status === 'error' || job.status === 'cancelled') return;
+        const message = job.status === 'queued' ? WAITING_MESSAGE : job.progress.label;
+        const percent = Math.round(job.progress.percent);
+        if (`${message}|${percent}` === last) return;
+        last = `${message}|${percent}`;
+        this.emit({
+          projectId: input.projectId,
+          shotId: input.shotId,
+          op: input.op,
+          status: 'generating',
+          percent,
+          message,
+          ...(input.entry ? { shot: input.entry } : {}),
+        });
+        try {
+          input.onProgress?.(message, percent);
+        } catch {
+          /* a listener must not break the run */
+        }
+      },
+    });
+    const job = awaited.final;
+    if (input.signal.aborted || job?.status === 'cancelled') throw new ShotCancelledError();
+    if (awaited.startError || !job) throw new Error(awaited.startError ?? 'The build did not start.');
+    if (job.status === 'done' && job.versionPath) return { ...job, versionPath: job.versionPath };
+    throw new Error(job.error ?? 'The build failed.');
+  }
+
   /**
    * Generate a new shot (op 'generate') or a fresh take of an existing one
-   * (op 'regenerate' — same folder, next version). Resolves with the
-   * registry-shaped entry; rejects on pipeline/gate failure AFTER emitting
-   * the error event, so both awaiting callers and event listeners see it.
+   * (op 'regenerate': same folder, next version). Resolves with the registry
+   * entry; rejects AFTER emitting the cancel or error event, so both awaiting
+   * callers and event listeners see it. A failure before the folder exists
+   * (no transcript for the anchor, a bad asset ref) rejects with no event.
    */
-  async generate(req: GenerateShotRequest, existingShotId?: string): Promise<StudioShot> {
+  async generate(req: GenerateShotRequest, existingShotId?: string): Promise<ShotBuildOutcome> {
     const op: StudioShotGenerateOp = existingShotId ? 'regenerate' : 'generate';
-    const project = await loadProject(req.projectId);
-    const { width, height, fps } = project.settings;
-
-    const durationSeconds =
-      req.durationSeconds ??
-      (req.anchor ? req.anchor.sourceEnd - req.anchor.sourceStart : undefined) ??
-      5;
-    if (!(durationSeconds > 0)) throw new Error('Shot duration must be positive');
-
-    const words = req.anchor ? await this.bakeAnchorWords(req.projectId, req.anchor) : undefined;
-
-    // D12: resolve asset refs BEFORE reserving the folder — a bad ref (unknown
-    // id, missing library file, audio) fails fast with a pointed error and
-    // never leaves a half-born shot. Library refs import on use here.
-    let resolvedRefs: ResolvedShotAssetRefs | undefined;
-    if (req.assetRefs && Object.keys(req.assetRefs).length > 0) {
-      resolvedRefs = await resolveShotAssetRefs(project, req.assetRefs);
-    }
-
-    // D11: the project's active brand rides every generate/regenerate as a
-    // mandatory style contract — read from project.json like width/height/fps,
-    // so the agent tool and the pool button both get it with no plumbing. A
-    // stale brandId (brand deleted) degrades to no brand, never a hard
-    // failure. Edits have no prompt-context channel; "apply the (new) brand
-    // to an existing shot" IS regenerate.
-    const brandId = project.settings.brandId;
-    // Q7f: falls back to <project>/brand.json when the project keeps an
-    // imported package's tokens project-local instead of adopting a brand.
-    const brand = await resolveProjectBrand(req.projectId, brandId);
-
-    // Q6a: learned style rides every generate/regenerate beside the brand
-    // contract — brand-filtered rule/profile memories, budgeted. Store read
-    // degrades to none; a memory failure never blocks generation.
-    let styleMemory: ShotStyleMemory | null = null;
+    // A retake is tracked from the start: its shot id is known.
+    let run = existingShotId ? this.track(req.projectId, existingShotId, req.signal) : null;
     try {
-      const composed = composeShotStyleMemory(await listMemories(), {
-        ...(brandId ? { brandId } : {}),
-      });
-      styleMemory = composed.styleMemory;
-      if (composed.droppedProfile || composed.rulesOverflowBy > 0) {
-        log.warn('Shot style memory over budget', {
-          projectId: req.projectId,
-          droppedProfile: composed.droppedProfile,
-          rulesOverflowBy: composed.rulesOverflowBy,
-        });
+      const project = await loadProject(req.projectId);
+      const durationSeconds =
+        req.durationSeconds ?? (req.anchor ? req.anchor.sourceEnd - req.anchor.sourceStart : undefined) ?? 5;
+      if (!(durationSeconds > 0)) throw new Error('Shot duration must be positive');
+      const words = req.anchor ? await this.bakeAnchorWords(req.projectId, req.anchor) : undefined;
+      // D12: resolve asset refs BEFORE reserving the folder — a bad ref fails
+      // fast and never leaves a half-born shot. Library refs import on use.
+      let resolved: ResolvedShotAssetRefs | undefined;
+      if (req.assetRefs && Object.keys(req.assetRefs).length > 0) resolved = await resolveShotAssetRefs(project, req.assetRefs);
+      const brandId = project.settings.brandId;
+      const [brand, style, kit] = await Promise.all([
+        this.brandFor(req.projectId, brandId, req.kind),
+        this.learnedStyle(req.projectId, brandId),
+        getShotKitPromptInfo(),
+      ]);
+      const transparent = isTransparentKind(req.kind);
+      const footage = req.anchor ? { assetId: req.anchor.assetId, sourceSeconds: req.anchor.sourceStart } : req.footage;
+      const backdrop = transparent && footage ? await backdropFor(req.projectId, project, footage) : undefined;
+
+      let shotId: string;
+      let folderPath: string;
+      if (existingShotId) {
+        shotId = existingShotId;
+        folderPath = path.dirname(await getShotVersionPath(req.projectId, shotId, 1));
+      } else {
+        const shotsDir = path.join(await getProjectDir(req.projectId), 'shots');
+        const reserved = await reserveProjectFolder(req.name ?? req.brief.slice(0, 40), shotsDir);
+        shotId = reserved.name;
+        folderPath = reserved.folderPath;
+        run = this.track(req.projectId, shotId, req.signal);
       }
-    } catch (error) {
-      log.warn('Shot style memory read failed — generating without it', { error: String(error) });
-    }
+      req.onReserved?.(shotId);
 
-    // Q3a: built-in exemplars of this kind ride every generate/regenerate as
-    // the quality bar. Loader degrades to [] — never blocks generation.
-    const exemplars = await getShotExemplars(req.kind);
-    // Q4: the kit manifest rides as the component API. Degrades to null —
-    // the prompt then omits the KIT section and keeps the react+remotion rule.
-    const kit = await getShotKitPromptInfo();
-    if (brandId && !brand) {
-      log.warn('Project brandId has no matching brand — generating unbranded', {
-        projectId: req.projectId,
-        brandId,
-      });
-    }
-
-    // Reserve the folder (new shots) BEFORE any LLM work so the id exists
-    // for progress events; regenerate reuses the existing folder.
-    const projectDir = await getProjectDir(req.projectId);
-    const shotsDir = path.join(projectDir, 'shots');
-    let shotId: string;
-    let folderPath: string;
-    if (existingShotId) {
-      shotId = existingShotId;
-      folderPath = path.dirname(await getShotVersionPath(req.projectId, shotId, 1));
-    } else {
-      const reserved = await reserveProjectFolder(req.name ?? req.brief.slice(0, 40), shotsDir);
-      shotId = reserved.name;
-      folderPath = reserved.folderPath;
-    }
-    req.onReserved?.(shotId);
-
-    const name = req.name ?? shotId;
-    const provisional: StudioShot = {
-      id: shotId,
-      name,
-      kind: req.kind,
-      createdAt: new Date().toISOString(),
-      activeVersion: 1,
-      status: 'generating',
-      ...(req.anchor ? { anchor: req.anchor } : {}),
-      ...(resolvedRefs ? { assetRefs: resolvedRefs.refs } : {}),
-      prompt: req.brief,
-      origin: req.origin,
-    };
-    this.emit({
-      projectId: req.projectId,
-      shotId,
-      op,
-      status: 'generating',
-      percent: 0,
-      message: 'Starting…',
-      shot: provisional,
-      // Library files imported on use ride the FIRST event so the renderer
-      // adopts them into project.assets before the shot could ever serialize.
-      ...(resolvedRefs && resolvedRefs.imported.length > 0
-        ? { importedAssets: resolvedRefs.imported }
-        : {}),
-    });
-
-    await this.acquireSlot();
-    try {
-      const result = await generateTsxPipeline(
-        {
-          prompt: req.brief,
-          promptContext: {
-            videoWidth: width,
-            videoHeight: height,
-            fps,
-            durationSeconds,
-            imports: 'strict',
-            extraInstructions: buildShotExtraInstructions({
-              kind: req.kind,
-              width,
-              height,
-              fps,
-              durationSeconds,
-              ...(words ? { words } : {}),
-              ...(brand ? { brand } : {}),
-              ...(resolvedRefs ? { assets: resolvedRefs.promptAssets } : {}),
-              ...(exemplars.length > 0 ? { exemplars } : {}),
-              ...(kit ? { kit } : {}),
-              ...(styleMemory ? { styleMemory } : {}),
-            }),
-          },
-          mode: '2d',
-          ...(req.providerId ? { providerId: req.providerId } : {}),
-          onProgress: (p) =>
-            this.emit({
-              projectId: req.projectId,
-              shotId,
-              op,
-              status: 'generating',
-              percent: p.percent,
-              message: p.stepLabel,
-              shot: provisional,
-            }),
-        },
-        this.buildDeps(req.providerId, req.signal, req.model),
-      );
-
-      if (req.signal?.aborted) throw new Error('Cancelled');
-      if (!result.transpileValid) {
-        throw new Error(
-          'The generated shot never passed validation (transpile + import lint + config parse) — try a simpler brief or run it again.',
-        );
-      }
-
-      const shot = await this.saveVersion(req.projectId, folderPath, provisional, result, req.brief);
-      this.emit({ projectId: req.projectId, shotId, op, status: 'ready', shot });
-      return shot;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Shot generation failed';
-      const failed: StudioShot = { ...provisional, status: 'error', error: message };
-      this.emit({ projectId: req.projectId, shotId, op, status: 'error', error: message, shot: failed });
-      log.error('Shot generation failed', err, { projectId: req.projectId, shotId });
-      throw err instanceof Error ? err : new Error(message);
-    } finally {
-      this.releaseSlot();
-    }
-  }
-
-  /** Edit round-trip (D9): instruction → next version in the same folder. */
-  async edit(req: EditShotRequest): Promise<StudioShot> {
-    const versionPath = await getShotVersionPath(req.projectId, req.shotId, req.activeVersion);
-    const currentCode = await fs.readFile(versionPath, 'utf-8');
-    const folderPath = path.dirname(versionPath);
-
-    this.emit({
-      projectId: req.projectId,
-      shotId: req.shotId,
-      op: 'edit',
-      status: 'generating',
-      percent: 0,
-      message: 'Editing…',
-    });
-
-    await this.acquireSlot();
-    try {
-      const chatHistory = (await readChatHistory(folderPath))
-        .slice(-CHAT_CONTEXT_LIMIT)
-        .map(({ role, content }) => ({ role, content }));
-      const result = await editTsxPipeline(
-        {
-          currentCode,
-          editInstruction: req.instruction,
-          ...(req.providerId ? { providerId: req.providerId } : {}),
-          ...(chatHistory.length > 0 ? { chatHistory } : {}),
-          onProgress: (p) =>
-            this.emit({
-              projectId: req.projectId,
-              shotId: req.shotId,
-              op: 'edit',
-              status: 'generating',
-              percent: p.percent,
-              message: p.stepLabel,
-            }),
-        },
-        this.buildDeps(req.providerId, req.signal, req.model),
-      );
-
-      if (req.signal?.aborted) throw new Error('Cancelled');
-      if (!result.transpileValid) {
-        throw new Error('The edited shot never passed validation — the previous version is untouched.');
-      }
-
-      const newVersionPath = await writeNextVersion(folderPath, result.text);
-      const version = Number(/v(\d+)\.tsx$/.exec(path.basename(newVersionPath))?.[1]);
-      await this.writeSidecarAndChat(newVersionPath, folderPath, result, req.instruction);
-      await this.pinKitIfUsed(req.projectId, result.text);
-
-      const config = parseCompositionConfig(result.text);
-      const shot: StudioShot = {
-        // Partial snapshot: the renderer merges version+config onto its
-        // registry entry — name/kind/anchor stay whatever the document says.
-        id: req.shotId,
-        name: req.shotId,
-        kind: 'overlay',
+      const entry: StudioShot = {
+        id: shotId,
+        name: req.name ?? shotId,
+        kind: req.kind,
         createdAt: new Date().toISOString(),
-        activeVersion: version,
-        status: 'ready',
-        ...(config
-          ? {
-              config: {
-                durationInFrames: config.durationInFrames,
-                fps: config.fps,
-                width: config.width,
-                height: config.height,
-              },
-            }
-          : {}),
+        activeVersion: 1,
+        status: 'generating',
+        ...(req.anchor ? { anchor: req.anchor } : {}),
+        ...(resolved ? { assetRefs: resolved.refs } : {}),
+        prompt: req.brief,
+        origin: req.origin,
       };
-      this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'edit', status: 'ready', shot });
-      return shot;
-    } catch (err) {
-      if (req.signal?.aborted) {
-        // A user cancel is not a failure: no error toast, the version stays.
-        this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'edit', status: 'canceled' });
-        log.info('Shot edit cancelled', { projectId: req.projectId, shotId: req.shotId });
-        throw err instanceof Error ? err : new Error('Cancelled');
+      // A retake leaves the registry alone until it is ready.
+      const shown = existingShotId ? undefined : entry;
+      this.emit({
+        projectId: req.projectId,
+        shotId,
+        op,
+        status: 'generating',
+        percent: 0,
+        message: 'Starting…',
+        ...(shown ? { shot: shown } : {}),
+        // Library files imported on use ride the FIRST event so the renderer
+        // adopts them into project.assets before the shot could ever serialize.
+        ...(resolved && resolved.imported.length > 0 ? { importedAssets: resolved.imported } : {}),
+      });
+
+      const assetsById = new Map([...project.assets, ...(resolved?.imported ?? [])].map((a) => [a.id, a] as const));
+      const media = resolved ? shotMediaFiles(resolved.refs, assetsById) : { assets: [], notes: [] };
+      const request = shotBuildRequest({
+        prompt: generateIntent({
+          kind: req.kind,
+          brief: req.brief,
+          durationSeconds,
+          ...(words ? { words } : {}),
+          ...(style ? { style } : {}),
+          ...(media.notes.length ? { media: media.notes } : {}),
+        }),
+        threadText: req.brief,
+        budget: req.budget ?? 'standard',
+        pack: studioShotPack(kit),
+        format: shotFormat(project.settings, durationSeconds),
+        ...(brand ? { brand } : {}),
+        ...(media.assets.length ? { assets: media.assets } : {}),
+        ...(req.providerId ? { providerId: req.providerId } : {}),
+        ...(req.model ? { model: req.model } : {}),
+      });
+      const studioShot: StudioShotBuild = { transparent, ...(backdrop ? { backdrop } : {}) };
+
+      try {
+        const job = await this.runBuild({
+          projectId: req.projectId,
+          shotId,
+          op,
+          request,
+          owner: {
+            origin: 'studio',
+            into: folderPath,
+            ...(existingShotId ? { retake: true } : {}),
+            usage: { featureSource: 'studio-tsx-shot' },
+            studioShot,
+          },
+          signal: run!.signal,
+          ...(shown ? { entry: shown } : {}),
+          ...(req.onProgress ? { onProgress: req.onProgress } : {}),
+        });
+        const code = await fs.readFile(job.versionPath, 'utf-8');
+        const attached = await attachVersionMedia(req.projectId, job.versionPath, code, resolved?.refs ?? {});
+        const assetRefs = { ...(resolved?.refs ?? {}), ...(attached?.assetRefs ?? {}) };
+        const config = shotConfig(code);
+        const { assetRefs: _requested, ...rest } = entry;
+        const shot: StudioShot = {
+          ...rest,
+          activeVersion: versionOf(job.versionPath),
+          status: 'ready',
+          ...(config ? { config } : {}),
+          ...(Object.keys(assetRefs).length > 0 ? { assetRefs } : {}),
+        };
+        this.emit({
+          projectId: req.projectId,
+          shotId,
+          op,
+          status: 'ready',
+          shot,
+          ...(attached && attached.assets.length > 0 ? { importedAssets: attached.assets } : {}),
+        });
+        return { shot, ...(job.build ? { build: job.build } : {}) };
+      } catch (err) {
+        if (err instanceof ShotCancelledError) {
+          this.emit({ projectId: req.projectId, shotId, op, status: 'canceled' });
+          // A cancelled new shot leaves no trace: its folder is still empty (a cancelled build saves nothing).
+          if (!existingShotId) await fs.rmdir(folderPath).catch(() => {});
+          log.info('Shot build cancelled', { projectId: req.projectId, shotId, op });
+          throw err;
+        }
+        const message = err instanceof Error ? err.message : 'Shot generation failed';
+        // A failed new shot stays as an error shot (Regenerate builds into its empty folder); a failed retake leaves the shot as it was.
+        this.emit({
+          projectId: req.projectId,
+          shotId,
+          op,
+          status: 'error',
+          error: message,
+          ...(shown ? { shot: { ...shown, status: 'error', error: message } } : {}),
+        });
+        log.error('Shot generation failed', err, { projectId: req.projectId, shotId, op });
+        throw err instanceof Error ? err : new Error(message);
       }
-      const message = err instanceof Error ? err.message : 'Shot edit failed';
-      this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'edit', status: 'error', error: message });
-      log.error('Shot edit failed', err, { projectId: req.projectId, shotId: req.shotId });
-      throw err instanceof Error ? err : new Error(message);
     } finally {
-      this.releaseSlot();
+      run?.done();
     }
   }
 
-  /** Refine round-trip (Q5): render stills of the current version, send them
-   *  with the brief + brand contract through ONE critique-and-revise edit
-   *  pass. User-triggered, capped at one round per click by construction. */
-  async refine(req: RefineShotRequest): Promise<StudioShot> {
-    const versionPath = await getShotVersionPath(req.projectId, req.shotId, req.activeVersion);
-    const currentCode = await fs.readFile(versionPath, 'utf-8');
-    const folderPath = path.dirname(versionPath);
-    const progress = (percent: number, message: string) =>
+  /** Edit round-trip (D9): instruction → the builder edits the active version → the next version. */
+  async edit(req: EditShotRequest): Promise<ShotBuildOutcome> {
+    return this.editVersion(req, 'edit', req.budget ?? 'standard', (facts) =>
+      editIntent({ kind: facts.kind, instruction: req.instruction, ...(facts.media.length ? { media: facts.media } : {}) }),
+    req.instruction);
+  }
+
+  /** Refine (Q5): a Quick builder edit that looks at the active version and fixes only what its frames show. */
+  async refine(req: RefineShotRequest): Promise<ShotBuildOutcome> {
+    return this.editVersion(
+      req,
+      'refine',
+      'quick',
+      (facts) =>
+        refineIntent({
+          kind: facts.kind,
+          ...(facts.brief ? { brief: facts.brief } : {}),
+          ...(facts.styleRules.length ? { styleRules: facts.styleRules } : {}),
+          ...(facts.media.length ? { media: facts.media } : {}),
+        }),
+      `Refine v${req.activeVersion}`,
+    );
+  }
+
+  private async editVersion(
+    req: RefineShotRequest,
+    op: 'edit' | 'refine',
+    budget: BuildBudget,
+    intent: (facts: { kind: StudioShotKind; brief?: string; styleRules: string[]; media: ReturnType<typeof shotMediaFiles>['notes'] }) => string,
+    threadText: string,
+  ): Promise<ShotBuildOutcome> {
+    const run = this.track(req.projectId, req.shotId, req.signal);
+    // Everything after the track reports as an event: the IPC handshake has already returned.
+    try {
+      const versionPath = await getShotVersionPath(req.projectId, req.shotId, req.activeVersion);
+      await fs.access(versionPath).catch(() => {
+        throw new Error(`v${req.activeVersion} of shot ${req.shotId} is missing on disk.`);
+      });
+      const folderPath = path.dirname(versionPath);
+      const project = await loadProject(req.projectId);
+      const stored = project.shots.find((s) => s.id === req.shotId);
+      const kind = req.kind ?? stored?.kind ?? 'overlay';
+      const anchor = req.anchor ?? stored?.anchor;
+      const refs = req.assetRefs ?? stored?.assetRefs ?? {};
+      const brandId = project.settings.brandId;
+      const [brand, style, kit, have] = await Promise.all([
+        this.brandFor(req.projectId, brandId, kind),
+        op === 'refine' ? this.learnedStyle(req.projectId, brandId) : Promise.resolve(undefined),
+        getShotKitPromptInfo(),
+        versionFileKeys(folderPath),
+      ]);
+      const transparent = isTransparentKind(kind);
+      const footage = anchor ? { assetId: anchor.assetId, sourceSeconds: anchor.sourceStart } : req.footage;
+      const backdrop = transparent && footage ? await backdropFor(req.projectId, project, footage) : undefined;
+      // The shot's media the seeded version does not carry already (a shot made before the builder).
+      const media = shotMediaFiles(refs, new Map(project.assets.map((a) => [a.id, a] as const)), have);
+      const brief = req.brief ?? stored?.prompt;
+
       this.emit({
         projectId: req.projectId,
         shotId: req.shotId,
-        op: 'refine',
+        op,
         status: 'generating',
-        percent,
-        message,
+        percent: 0,
+        message: op === 'refine' ? 'Refining…' : 'Editing…',
       });
-
-    try {
-      progress(0, 'Rendering stills…');
-      // Stills ride the bundler/still renderer, not the LLM slot — render
-      // them before queueing for a pipeline slot.
-      const project = await loadProject(req.projectId);
-      const shot = project.shots.find((s) => s.id === req.shotId);
-      const stills = await renderShotStills(req.projectId, req.shotId, 3, req.activeVersion);
-      if (req.signal?.aborted) throw new Error('Cancelled');
-      const images: LlmImageIpc[] = [];
-      for (const stillPath of stills.paths) {
-        images.push({
-          data: (await fs.readFile(stillPath)).toString('base64'),
-          mediaType: 'image/jpeg',
-        });
-      }
-
-      const brandId = project.settings.brandId;
-      const brand = await resolveProjectBrand(req.projectId, brandId);
-      let styleRules: string[] = [];
-      try {
-        styleRules =
-          composeShotStyleMemory(await listMemories(), { ...(brandId ? { brandId } : {}) })
-            .styleMemory?.rules ?? [];
-      } catch {
-        // Refine without learned style rather than not at all.
-      }
-      const instruction = buildRefineInstruction({
-        frames: stills.frames,
-        fps: shot?.config?.fps ?? project.settings.fps,
-        ...(shot?.prompt ? { brief: shot.prompt } : {}),
+      const request = shotBuildRequest({
+        prompt: intent({ kind, ...(brief ? { brief } : {}), styleRules: style?.rules ?? [], media: media.notes }),
+        threadText,
+        budget,
+        pack: studioShotPack(kit),
+        editOf: { folderPath, version: req.activeVersion },
         ...(brand ? { brand } : {}),
-        styleRules,
+        ...(media.assets.length ? { assets: media.assets } : {}),
+        ...(req.providerId ? { providerId: req.providerId } : {}),
+        ...(req.model ? { model: req.model } : {}),
       });
 
-      progress(30, 'Critiquing…');
-      await this.acquireSlot();
-      try {
-        const chatHistory = (await readChatHistory(folderPath))
-          .slice(-CHAT_CONTEXT_LIMIT)
-          .map(({ role, content }) => ({ role, content }));
-        const result = await editTsxPipeline(
-          {
-            currentCode,
-            editInstruction: instruction,
-            images,
-            ...(req.providerId ? { providerId: req.providerId } : {}),
-            ...(chatHistory.length > 0 ? { chatHistory } : {}),
-            onProgress: (p) => progress(30 + Math.round(p.percent * 0.7), p.stepLabel),
-          },
-          this.buildDeps(req.providerId, req.signal, req.model),
-        );
-
-        if (req.signal?.aborted) throw new Error('Cancelled');
-        if (!result.transpileValid) {
-          throw new Error('The refined shot never passed validation — the previous version is untouched.');
-        }
-
-        const newVersionPath = await writeNextVersion(folderPath, result.text);
-        const version = Number(/v(\d+)\.tsx$/.exec(path.basename(newVersionPath))?.[1]);
-        await this.writeSidecarAndChat(
-          newVersionPath,
-          folderPath,
-          result,
-          `Refine pass — stills critique of v${req.activeVersion} (frames ${stills.frames.join(', ')})`,
-        );
-        await this.pinKitIfUsed(req.projectId, result.text);
-
-        const config = parseCompositionConfig(result.text);
-        const refined: StudioShot = {
-          // Partial snapshot, exactly like edit(): the renderer merges
-          // version+config onto its registry entry.
-          id: req.shotId,
-          name: req.shotId,
-          kind: 'overlay',
-          createdAt: new Date().toISOString(),
-          activeVersion: version,
-          status: 'ready',
-          ...(config
-            ? {
-                config: {
-                  durationInFrames: config.durationInFrames,
-                  fps: config.fps,
-                  width: config.width,
-                  height: config.height,
-                },
-              }
-            : {}),
-        };
-        this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'ready', shot: refined });
-        return refined;
-      } finally {
-        this.releaseSlot();
-      }
+      const job = await this.runBuild({
+        projectId: req.projectId,
+        shotId: req.shotId,
+        op,
+        request,
+        owner: {
+          origin: 'studio',
+          usage: { featureSource: 'studio-tsx-shot' },
+          studioShot: { transparent, ...(backdrop ? { backdrop } : {}) },
+        },
+        signal: run.signal,
+        ...(req.onProgress ? { onProgress: req.onProgress } : {}),
+      });
+      const code = await fs.readFile(job.versionPath, 'utf-8');
+      const attached = await attachVersionMedia(req.projectId, job.versionPath, code, refs);
+      const config = shotConfig(code);
+      const shot: StudioShot = {
+        // Partial snapshot: the renderer merges version, config and new
+        // media keys onto its registry entry — name/kind/anchor stay whatever the document says.
+        id: req.shotId,
+        name: req.shotId,
+        kind,
+        createdAt: new Date().toISOString(),
+        activeVersion: versionOf(job.versionPath),
+        status: 'ready',
+        ...(config ? { config } : {}),
+        ...(attached && Object.keys(attached.assetRefs).length > 0 ? { assetRefs: { ...refs, ...attached.assetRefs } } : {}),
+      };
+      this.emit({
+        projectId: req.projectId,
+        shotId: req.shotId,
+        op,
+        status: 'ready',
+        shot,
+        ...(attached && attached.assets.length > 0 ? { importedAssets: attached.assets } : {}),
+      });
+      return { shot, ...(job.build ? { build: job.build } : {}) };
     } catch (err) {
-      if (req.signal?.aborted) {
-        this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'canceled' });
-        log.info('Shot refine cancelled', { projectId: req.projectId, shotId: req.shotId });
-        throw err instanceof Error ? err : new Error('Cancelled');
+      if (err instanceof ShotCancelledError) {
+        // A user cancel is not a failure: no error toast, the version stays.
+        this.emit({ projectId: req.projectId, shotId: req.shotId, op, status: 'canceled' });
+        log.info(`Shot ${op} cancelled`, { projectId: req.projectId, shotId: req.shotId });
+        throw err;
       }
-      const message = err instanceof Error ? err.message : 'Shot refine failed';
-      this.emit({ projectId: req.projectId, shotId: req.shotId, op: 'refine', status: 'error', error: message });
-      log.error('Shot refine failed', err, { projectId: req.projectId, shotId: req.shotId });
+      const message = err instanceof Error ? err.message : `Shot ${op} failed`;
+      this.emit({ projectId: req.projectId, shotId: req.shotId, op, status: 'error', error: message });
+      log.error(`Shot ${op} failed`, err, { projectId: req.projectId, shotId: req.shotId });
       throw err instanceof Error ? err : new Error(message);
+    } finally {
+      run.done();
     }
   }
+}
 
-  private async saveVersion(
-    projectId: string,
-    folderPath: string,
-    provisional: StudioShot,
-    result: TsxPipelineResult,
-    brief: string,
-  ): Promise<StudioShot> {
-    const versionPath = await writeNextVersion(folderPath, result.text);
-    const version = Number(/v(\d+)\.tsx$/.exec(path.basename(versionPath))?.[1]);
-    await this.writeSidecarAndChat(versionPath, folderPath, result, brief);
-    await this.pinKitIfUsed(projectId, result.text);
-
-    // The gate guarantees this parses; the snapshot feeds clip defaults.
-    const config = parseCompositionConfig(result.text);
-    return {
-      ...provisional,
-      activeVersion: version,
-      status: 'ready',
-      ...(config
-        ? {
-            config: {
-              durationInFrames: config.durationInFrames,
-              fps: config.fps,
-              width: config.width,
-              height: config.height,
-            },
-          }
-        : {}),
-    };
-  }
-
-  /** Q4 export pinning: the first accepted kit-importing version snapshots the
-   *  installed kit into <project>/kit/<version>/ (write-once inside). Never
-   *  fails the save — the export path has its own fallback. */
-  private async pinKitIfUsed(projectId: string, source: string): Promise<void> {
-    if (!shotUsesKit(source)) return;
-    await ensureProjectKitSnapshot(projectId).catch(() => {});
-  }
-
-  private async writeSidecarAndChat(
-    versionPath: string,
-    folderPath: string,
-    result: TsxPipelineResult,
-    userText: string,
-  ): Promise<void> {
-    await writeDebugSidecar(versionPath, {
-      model: result.model,
-      durationMs: result.durationMs,
-      timestamp: new Date().toISOString(),
-      prompt: userText,
-      ...describeSystemPrompt(result.systemPrompt),
-      turns: result.debugLog,
-      steps: result.steps,
-      plan: result.plan,
-      mode: result.mode,
-      verified: result.verified,
-      transpileValid: result.transpileValid,
-      fixAttempts: result.fixAttempts,
-      usage: result.usage,
-    }).catch((err) => log.warn('Failed to write shot debug sidecar', { error: String(err) }));
-    await appendChatTurns(folderPath, [
-      { role: 'user', content: userText },
-      { role: 'assistant', content: `Saved ${path.basename(versionPath)}.` },
-    ]).catch(() => {});
-  }
+function versionOf(versionPath: string): number {
+  return Number(/v(\d+)\.tsx$/i.exec(path.basename(versionPath))?.[1]);
 }
 
 export const shotGenerator = new ShotGeneratorService();

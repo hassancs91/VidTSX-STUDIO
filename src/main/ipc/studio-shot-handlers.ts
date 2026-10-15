@@ -82,85 +82,57 @@ export async function handleStudioShotModule(
   }
 }
 
-/** Running edit/refine runs, so a cancel click can stop them. One run per shot. */
-const runControllers = new Map<string, AbortController>();
-
-function runKey(projectId: string, shotId: string): string {
-  return `${projectId}:${shotId}`;
-}
-
-/** Start tracking a run; the returned signal feeds the generator, `done()` untracks it. */
-function trackRun(projectId: string, shotId: string): { signal: AbortSignal; done: () => void } {
-  const key = runKey(projectId, shotId);
-  const controller = new AbortController();
-  runControllers.set(key, controller);
-  return {
-    signal: controller.signal,
-    done: () => {
-      if (runControllers.get(key) === controller) runControllers.delete(key);
-    },
-  };
-}
-
-/** Stop the edit/refine run on a shot, if one is in flight. */
+/** Stop a shot's build, whatever its op and whoever started it (the generator owns one run per shot). */
 export async function handleStudioShotCancel(
   _event: IpcMainInvokeEvent,
   data: StudioShotCancelRequest,
 ): Promise<StudioShotCancelResponse> {
-  const controller = runControllers.get(runKey(data.projectId, data.shotId));
-  if (!controller) return { success: true, cancelled: false };
-  controller.abort();
-  return { success: true, cancelled: true };
+  return { success: true, cancelled: shotGenerator.cancel(data.projectId, data.shotId) };
 }
 
 /**
- * Pool-button generation (D8 "direct user entry"): fast-fail handshake that
- * returns the reserved/target shot id, then the pipeline runs detached —
- * completion arrives as STUDIO_SHOT_JOB_EVENT pushes, exactly like
- * transcript/proxy jobs. The renderer records the playhead at click time and
- * inserts the clip when the ready event lands.
+ * Pool button and Inspector (D8 "direct user entry"): a fast-fail handshake
+ * that returns the shot id, then the build runs detached — progress and the
+ * result arrive as STUDIO_SHOT_JOB_EVENT pushes, exactly like transcript and
+ * proxy jobs. The renderer records the playhead at click time and inserts
+ * the clip when a new shot's ready event lands.
  */
 export async function handleStudioShotGenerate(
   _event: IpcMainInvokeEvent,
   data: StudioShotGenerateRequest,
 ): Promise<StudioShotGenerateResponse> {
   try {
-    if (data.op === 'edit') {
-      if (!data.shotId || !data.activeVersion || !data.instruction?.trim()) {
-        return { success: false, error: 'Edit needs a shot, its active version, and an instruction' };
-      }
-      const run = trackRun(data.projectId, data.shotId);
-      const edit = shotGenerator.edit({
-        signal: run.signal,
-        projectId: data.projectId,
-        shotId: data.shotId,
-        activeVersion: data.activeVersion,
-        instruction: data.instruction,
-        ...(data.providerId ? { providerId: data.providerId } : {}),
-        ...(data.model ? { model: data.model } : {}),
-      });
-      edit
-        .catch((err) => log.warn('Shot edit failed', { error: String(err) }))
-        .finally(run.done);
-      return { success: true, shotId: data.shotId };
-    }
-
-    if (data.op === 'refine') {
+    const common = {
+      ...(data.footage ? { footage: data.footage } : {}),
+      ...(data.providerId ? { providerId: data.providerId } : {}),
+      ...(data.model ? { model: data.model } : {}),
+    };
+    if (data.op === 'edit' || data.op === 'refine') {
       if (!data.shotId || !data.activeVersion) {
-        return { success: false, error: 'Refine needs a shot and its active version' };
+        return { success: false, error: `${data.op === 'edit' ? 'Edit' : 'Refine'} needs a shot and its active version` };
       }
-      const run = trackRun(data.projectId, data.shotId);
-      const refine = shotGenerator.refine({
-        signal: run.signal,
+      if (data.op === 'edit' && !data.instruction?.trim()) {
+        return { success: false, error: 'Edit needs an instruction' };
+      }
+      if (shotGenerator.isRunning(data.projectId, data.shotId)) {
+        return { success: false, error: 'This shot is already building: wait for it, or cancel it first.' };
+      }
+      // What the renderer's registry knows now (project.json lags the autosave).
+      const facts = {
         projectId: data.projectId,
         shotId: data.shotId,
         activeVersion: data.activeVersion,
-        ...(data.providerId ? { providerId: data.providerId } : {}),
-        ...(data.model ? { model: data.model } : {}),
-      });
-      refine
-        .catch((err) => log.warn('Shot refine failed', { error: String(err) }))
-        .finally(run.done);
+        ...(data.kind ? { kind: data.kind } : {}),
+        ...(data.brief ? { brief: data.brief } : {}),
+        ...(data.anchor ? { anchor: data.anchor } : {}),
+        ...(data.assetRefs ? { assetRefs: data.assetRefs } : {}),
+        ...common,
+      };
+      const run =
+        data.op === 'edit'
+          ? shotGenerator.edit({ ...facts, instruction: data.instruction!, ...(data.budget ? { budget: data.budget } : {}) })
+          : shotGenerator.refine(facts);
+      run.catch((err) => log.warn(`Shot ${data.op} ended without a version`, { error: String(err) }));
       return { success: true, shotId: data.shotId };
     }
 
@@ -171,9 +143,9 @@ export async function handleStudioShotGenerate(
       return { success: false, error: 'Regenerate needs the existing shot id' };
     }
     // Wait ONLY for the folder reservation (the id exists from then on) so
-    // the renderer can track the run; the pipeline continues detached and
-    // completion arrives as push events. A pre-pipeline failure (no
-    // transcript for the anchor, bad project id) still fails fast here.
+    // the renderer can track the run; the build continues detached and
+    // completion arrives as push events. A failure before it (no transcript
+    // for the anchor, a bad project id, a shot already building) fails fast here.
     const shotId = await new Promise<string>((resolve, reject) => {
       let reserved = false;
       shotGenerator
@@ -186,8 +158,8 @@ export async function handleStudioShotGenerate(
             ...(data.anchor ? { anchor: data.anchor } : {}),
             ...(data.assetRefs ? { assetRefs: data.assetRefs } : {}),
             ...(data.durationSeconds !== undefined ? { durationSeconds: data.durationSeconds } : {}),
-            ...(data.providerId ? { providerId: data.providerId } : {}),
-            ...(data.model ? { model: data.model } : {}),
+            ...(data.budget ? { budget: data.budget } : {}),
+            ...common,
             origin: { by: 'user' },
             onReserved: (id) => {
               reserved = true;
@@ -197,9 +169,9 @@ export async function handleStudioShotGenerate(
           data.op === 'regenerate' ? data.shotId : undefined,
         )
         .catch((err) => {
-          // After reservation the failure is delivered as an error event.
+          // After reservation the outcome is delivered as an event.
           if (!reserved) reject(err instanceof Error ? err : new Error(String(err)));
-          else log.warn('Shot generation failed after handshake', { error: String(err) });
+          else log.warn('Shot build ended without a version', { error: String(err) });
         });
     });
     return { success: true, shotId };

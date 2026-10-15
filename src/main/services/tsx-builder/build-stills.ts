@@ -31,6 +31,10 @@
 // assets/ folder renders with `inputProps.assets` = each key's asset-root URL
 // on the bundle server that serves this bundle (build-assets.ts), the same
 // prop a saved version is played and exported with.
+//
+// Backdrop (P3 part 5): a transparent Studio shot's looks render a wrapper
+// (look-backdrop.ts) that plays the footage under it; the footage file is
+// served the same way and handed over as BACKDROP_PROP.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -43,6 +47,8 @@ import { probeGlBackend, type ProbedGl } from '../gl-backend-probe';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { Bitmap } from './loop-seam';
 import { assetsProp, type AssetKeyMap } from './build-assets';
+import { assetRootUrl } from '../asset-roots';
+import { BACKDROP_PROP } from './look-backdrop';
 
 /** A build's files: its assets folder and the lookup keys its code uses. */
 export interface BuildAssetSource {
@@ -130,6 +136,8 @@ export async function prepareBuildRender(
     assets?: BuildAssetSource;
     /** More props for every frame (the 3D contact sheet's rendered tiles). */
     inputProps?: Record<string, unknown>;
+    /** A video the look wrapper plays under a transparent shot (look-backdrop.ts). */
+    backdropFile?: string;
   } = {},
 ): Promise<PreparedBuild> {
   const { signal } = options;
@@ -148,10 +156,12 @@ export async function prepareBuildRender(
   }
 
   const keys = options.assets?.keys ?? {};
+  const origin = new URL(bundle.serveUrl).origin;
   const inputProps: Record<string, unknown> = {
     ...options.inputProps,
-    ...(options.assets && Object.keys(keys).length > 0
-      ? { assets: assetsProp(new URL(bundle.serveUrl).origin, options.assets.dir, keys) }
+    ...(options.assets && Object.keys(keys).length > 0 ? { assets: assetsProp(origin, options.assets.dir, keys) } : {}),
+    ...(options.backdropFile
+      ? { [BACKDROP_PROP]: assetRootUrl(origin, path.dirname(options.backdropFile), path.basename(options.backdropFile)) }
       : {}),
   };
   const selectStart = Date.now();
@@ -285,12 +295,23 @@ export async function renderBuildStills(
   config: CompositionConfig,
   outDir: string,
   frames: number[],
-  options: { maxSide?: number; label?: string; signal?: AbortSignal; gl?: ProbedGl; assets?: BuildAssetSource } = {},
+  options: {
+    maxSide?: number;
+    label?: string;
+    signal?: AbortSignal;
+    gl?: ProbedGl;
+    assets?: BuildAssetSource;
+    /** The look wrapper's own entry (look-backdrop.ts), and the footage under it. */
+    entryName?: string;
+    backdropFile?: string;
+  } = {},
 ): Promise<BuildStillsResult> {
   const prepared = await prepareBuildRender(code, config, outDir, {
     ...(options.signal ? { signal: options.signal } : {}),
     ...(options.gl ? { gl: options.gl } : {}),
     ...(options.assets ? { assets: options.assets } : {}),
+    ...(options.entryName ? { entryName: options.entryName } : {}),
+    ...(options.backdropFile ? { backdropFile: options.backdropFile } : {}),
   });
   const renderStart = Date.now();
   const rendered = await renderPreparedFrames(prepared, outDir, frames, {

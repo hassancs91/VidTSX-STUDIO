@@ -49,9 +49,11 @@ interface Session {
 let script: (session: Session) => Promise<void>;
 /** What each session was started with: the usage attribution. */
 const llmCalls: Array<{ featureSource?: string; agentId?: string }> = [];
+/** Each session's first message. */
+const prompts: string[] = [];
 vi.mock('../../ipc/llm-handlers', () => ({
   runLlmGenerate: async (
-    data: { featureSource?: string },
+    data: { featureSource?: string; prompt?: string },
     signal: AbortSignal,
     _onTextDelta: unknown,
     extras: {
@@ -61,6 +63,7 @@ vi.mock('../../ipc/llm-handlers', () => ({
     },
   ) => {
     llmCalls.push({ featureSource: data.featureSource, ...(extras.agentId ? { agentId: extras.agentId } : {}) });
+    prompts.push(data.prompt ?? '');
     const tools = extras.mcpServers.builder.tools;
     let n = 0;
     const session: Session = {
@@ -107,6 +110,7 @@ beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'tsx-builder-'));
   releaseBundlesUnder.mockClear();
   llmCalls.length = 0;
+  prompts.length = 0;
   let checks = 0;
   checkBuild.mockReset().mockImplementation(async () => passed(`// check ${++checks}`));
   renderBuildStills.mockReset().mockImplementation(async (_code, _config, dir: string, frames: number[], opts: { label: string }) => ({
@@ -377,5 +381,49 @@ describe("buildComposition — a caller's folder and usage (P3 part 1)", () => {
       expect(result.error).toMatch(error);
     }
     expect(llmCalls).toEqual([]);
+  });
+});
+
+// P3 part 5: Studio's Regenerate builds into a folder that holds versions; a transparent shot names what is behind it.
+describe('buildComposition — a Studio shot (P3 part 5)', () => {
+  const finishOne = async (s: Session) => {
+    s.turn(100);
+    await s.call('render_stills', { frames: [0, 59] });
+    await s.call('phone_view', { frame: 30 });
+    await s.call('finish', { summary: 'A lower third.' });
+  };
+
+  it('a retake saves a fresh build as the next version of the folder', async () => {
+    checkBuild.mockImplementation(async () => passed('// take 2'));
+    script = finishOne;
+    const into = path.join(tmpDir, 'shots', 'lower-third');
+    await fs.mkdir(into, { recursive: true });
+    await fs.writeFile(path.join(into, 'v1.tsx'), '// take 1');
+    const result = await buildComposition(request({ into, retake: true, usage: { featureSource: 'studio-tsx-shot' } }).req);
+    expect(result).toMatchObject({ ok: true, version: { number: 2, folderPath: into } });
+    expect(await fs.readFile(path.join(into, 'v1.tsx'), 'utf-8')).toBe('// take 1');
+    expect(prompts[0]).toMatch(/^Build this as an animated composition\./);
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.request).toMatchObject({ into, retake: true, usage: { featureSource: 'studio-tsx-shot' } });
+  });
+
+  it('tells a transparent shot what its looks show behind it, and checks with the Studio media rule', async () => {
+    checkBuild.mockImplementation(async () => passed('// overlay'));
+    script = finishOne;
+    const backdrop = { file: path.join(tmpDir, 'talk.mp4'), startSeconds: 12.4, label: 'talk.mp4 from 12.4 s' };
+    const result = await buildComposition(request({ studioShot: { transparent: true, backdrop } }).req);
+    expect(result.ok).toBe(true);
+    expect(prompts[0]).toContain('BEHIND THE PIECE: this is a transparent Studio shot.');
+    expect(prompts[0]).toContain('(talk.mp4 from 12.4 s)');
+    expect(checkBuild.mock.calls.every((call) => call[2]?.studioShot === true)).toBe(true);
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.request.studioShot).toEqual({ transparent: true, backdrop: { file: backdrop.file, startSeconds: 12.4 } });
+
+    prompts.length = 0;
+    await buildComposition(request({ studioShot: { transparent: true } }).req);
+    expect(prompts[0]).toContain('grey checkerboard = transparent');
+    prompts.length = 0;
+    await buildComposition(request({ studioShot: { transparent: false } }).req);
+    expect(prompts[0]).not.toContain('BEHIND THE PIECE');
   });
 });

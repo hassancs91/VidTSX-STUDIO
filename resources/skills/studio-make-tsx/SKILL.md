@@ -1,6 +1,6 @@
 ---
 name: Studio Make TSX
-description: Shot policy for the Studio editing agent — when to reach for generate_tsx_shot, how to write briefs and anchors that produce professional cutaways/overlays/titles, bulk-pass discipline, and the from-scratch (TSX-only video) mode. The composition craft itself (backgrounds, literal config, word sync) is enforced by the generation pipeline; this skill is about USING it well.
+description: Shot policy for the Studio editing agent — when to reach for generate_tsx_shot, how to write briefs and anchors that produce professional cutaways/overlays/titles, bulk-pass discipline, and the from-scratch (TSX-only video) mode. Each shot is made by the TSX builder, which designs it, renders its frames, looks at them and fixes what it sees; the composition craft (backgrounds, literal config, word sync) is its contract. This skill is about USING it well.
 when_to_use: Composed into the Studio Assistant's system prompt for TSX shot work. Not a general-purpose skill.
 ---
 
@@ -18,10 +18,12 @@ Shots are short generated Remotion compositions placed on the timeline:
 
 ## Briefs that work — write a storyboard, not a caption
 
-The pipeline model sees ONLY your brief plus the mechanical contract (exact
-dimensions/fps/duration, background rule, word table, craft rules, exemplar
-shots). It cannot see the footage or the chat. A one-line brief produces a
-generic shot; a storyboard-grade brief produces a designed one. Structure
+The builder sees ONLY your brief plus the shot contract (exact
+dimensions/fps/duration, background rule, word table, craft rules, the kit
+manifest). It cannot read the chat. It does see its own frames — an anchored
+overlay or title over the talk footage it plays over — and fixes what looks
+wrong, but it cannot guess the content you have in mind: a one-line brief
+produces a generic shot; a storyboard-grade brief produces a designed one. Structure
 every brief as **content → regions → beats → mood**:
 
 - **Content** — what the shot says, in one line.
@@ -29,7 +31,7 @@ every brief as **content → regions → beats → mood**:
   card; right 40%: three stat rows", "bottom band: a single pill".
 - **Beats keyed to cue words** — for anchored shots, quote the exact
   transcript words each reveal lands on: "on 'three steps' the row appears;
-  on 'completely free' the badge stamps in". The pipeline receives word
+  on 'completely free' the badge stamps in". The builder receives word
   timings for the whole anchor span, so ANY quoted word is a usable cue —
   this is how cutaways and overlays sync to speech, not just titles.
 - **Density and motion intent** — "calm: two elements, rise-and-settle" or
@@ -50,9 +52,9 @@ Also:
 - Do NOT put timing math, frame counts, or config values in the brief — the
   tool injects the exact duration/fps/word table itself. Cue WORDS, not cue
   seconds.
-- Do NOT restate the craft rules (stagger, easing, density) — the pipeline
-  already enforces them; the brief spends its words on content, regions and
-  beats.
+- Do NOT restate the craft rules (stagger, easing, density) — the builder
+  already has them and checks them in its looks; the brief spends its words
+  on content, regions and beats.
 
 ## Brand
 
@@ -97,8 +99,8 @@ Real media (logos, screenshots, product footage) is what makes shots look
 professional — reach for it instead of describing imagery in the brief:
 
 - Pass media via `assetRefs` on `generate_tsx_shot`: key → a project asset id
-  from the inventory, or a `library:<path>` ref. Keys become `assets.<key>`
-  in the generated code — name them like identifiers (`logo`, `screenshot1`).
+  from the inventory, or a `library:<path>` ref. Each file reaches the builder
+  as `<key>.<ext>` — name keys like identifiers (`logo`, `screenshot1`).
   Images and video only; audio belongs on the timeline.
 - `generate_image(prompt, ...)` makes new art (brand-tagged, filed in the
   library) — logos-adjacent graphics, illustrations, backgrounds. The prompt
@@ -120,16 +122,16 @@ professional — reach for it instead of describing imagery in the brief:
   try) — fixed banners ride EVERY still and ghost across cross-blends; a
   failed click costs nothing (the stills still land, the failure names the
   step).
-- Do not put URLs or file paths in the brief — the pipeline injects an asset
-  table for the refs you pass, and the shot receives real URLs as props.
+- Do not put URLs or file paths in the brief — the tool hands the builder
+  the files for the refs you pass, with their sizes and descriptions.
 - The description on a library/project asset is what you search and design
   against; when you make assets, leave good descriptions behind.
 
 ## The component kit — fake screencasts
 
-The pipeline can import `@vidtsx/kit`: pre-built window chrome (navigable
+The builder can import `@vidtsx/kit`: pre-built window chrome (navigable
 browser, VS Code, terminal, generic window), TypedText, AgentFeed, StatBlock.
-The pipeline model gets the full component manifest automatically — you never
+The builder gets the full component manifest automatically — you never
 list props — but the BRIEF decides whether a kit shot happens. When the
 narration is about software (a website, an editor, a terminal run, an AI agent
 working), ask for the app surface by name and script what it does:
@@ -147,7 +149,7 @@ working), ask for the app surface by name and script what it does:
 
 A screencast-shaped brief WITHOUT the kit vocabulary produces hand-drawn
 chrome — always say "fake browser / VS Code window / terminal window" so the
-pipeline reaches for the kit component.
+builder reaches for the kit component.
 
 ## Anchors
 
@@ -167,11 +169,18 @@ pipeline reaches for the kit component.
 
 ## Pass discipline
 
-- **Plan cheap, generate expensive.** For anything beyond one shot, post the
-  shot list in chat first — anchor times + one-liners — and get a go-ahead
-  before burning pipeline runs.
+- **Plan cheap, build expensive.** Each shot is a builder run of minutes
+  (`budget`: quick ~1-3, standard ~3-10 — the default — craft up to 60), and
+  builds run ONE AT A TIME app-wide, so a pass of shots runs back to back.
+  For anything beyond one shot, post the shot list in chat first — anchor
+  times + one-liners + the budget — and get a go-ahead before starting.
 - Up to **10 shots per pass**; ask before exceeding. Generate one at a time
   with `generate_tsx_shot`, then `propose_shots` ONCE with all of them.
+- Each result comes back with the frames the builder last looked at: check
+  them against the brief before you propose, and say in one line what each
+  shot shows.
+- The user can cancel a shot from the pool while it builds; the tool then
+  says so. Carry on with the rest of the pass and do not rebuild it unasked.
 - If one shot fails, keep going with the rest and report the failure — do not
   abandon the pass.
 - Range asks ("first 5 minutes") read only that transcript slice via

@@ -21,6 +21,7 @@ import type { CaptionAspect, CaptionTemplateDefaults } from '../../studio/captio
 import type { ExportEngineId } from '../../studio/export-engines';
 import type { ChatMessage } from './llm';
 import type { ThinkingLevel } from '../../tsx-engine/types';
+import type { BuildBudget } from './tsx-build';
 
 // Studio (AI video editor) — projects & media IPC contracts.
 
@@ -607,10 +608,12 @@ export interface StudioShotModuleResponse {
 // non-committing `shots-adopt`, so the two never race over project.json.
 // ---------------------------------------------------------------------------
 
-/** 'import' (D14) rides the same job stream as the pipeline ops: a clean
+/** 'import' (D14) rides the same job stream as the build ops: a clean
  *  import emits one 'ready', a conform run emits progress like a generation.
- *  'refine' (Q5) is the stills-critique round: render stills of the active
- *  version, one vision critique-and-revise edit pass, next version. */
+ *  Since P3 part 5 every other op is a TSX builder job: generate = a new
+ *  build, regenerate = a fresh build saved as the next version, edit = a
+ *  builder edit, 'refine' (Q5) = a Quick builder edit that looks at the
+ *  active version's frames and fixes what it sees. */
 export type StudioShotGenerateOp = 'generate' | 'edit' | 'regenerate' | 'import' | 'refine';
 
 export interface StudioShotGenerateRequest {
@@ -633,6 +636,15 @@ export interface StudioShotGenerateRequest {
   activeVersion?: number;
   /** edit: the change instruction (inspector edit box). */
   instruction?: string;
+  /** generate/regenerate/edit: how long the builder may work. Default Standard; refine is always Quick. */
+  budget?: BuildBudget;
+  /**
+   * The footage under the shot on the timeline, when it has no anchor: the
+   * master clip under the playhead (pool Generate) or under the clip
+   * (Inspector). A transparent shot's builder looks show it behind the piece;
+   * absent = a checkerboard.
+   */
+  footage?: { assetId: string; sourceSeconds: number };
   providerId?: string;
   /** The project's shot model (settings.agent.shotModel ?? model). */
   model?: string;
@@ -645,7 +657,7 @@ export interface StudioShotGenerateResponse {
   error?: string;
 }
 
-/** Stop a running shot edit or refine (the run emits a 'canceled' event). */
+/** Stop a shot's build, queued or running, whatever its op (the run emits a 'canceled' event). */
 export interface StudioShotCancelRequest {
   projectId: string;
   shotId: string;
@@ -663,7 +675,8 @@ export interface StudioShotJobEvent {
   projectId: string;
   shotId: string;
   op: StudioShotGenerateOp;
-  /** 'canceled' = the user stopped an edit/refine run; no error to surface. */
+  /** 'canceled' = the run was stopped; no error to surface. A cancelled NEW
+   *  shot (op 'generate') leaves the registry; any other op leaves it as it was. */
   status: 'generating' | 'ready' | 'error' | 'canceled';
   /** 0..100 pipeline progress while 'generating'. */
   percent?: number;
