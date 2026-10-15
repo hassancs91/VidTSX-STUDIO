@@ -724,6 +724,48 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   (158 landed), frame 299 `1 1 5 24 72 89 107 100 67 21 6 2 2` (497); seeking 299 → 0 → 150 repeats. Nothing to fix for
 >   the preview (Chrome 154 is still the odd one). The saved `r06-f150.jpg` predates B6's last physics change, so the
 >   reference was rendered fresh (`runs/P3/p5-galton`). Gates: types 26/10; vitest 380 files / 3252 tests.
+> - **Part 4 DONE `c5a1e10`** (agents' generate / edit_composition; Hasan "Ok for all" on the probe A-D and picks 1-7).
+>   **Probe first** (dev-only spike mode `toolwait`, `runs/P3/toolwait-p4/report.json`; one Haiku 5.5 turn through
+>   `runLlmGenerate` with a probe tool on the agents' own `buildAgentToolServer`, our progress lines only): **A** a call
+>   blocked 900 s, then the model quoted its text word for word and described its image (images arrive after a long
+>   call); **D** 3,900 s (65 min), same; **B** server `timeout: 60_000` → the model got `MCP server "vidtsx" tool
+>   "wait_probe" timed out after 60s` at ~62 s and no image, while our handler ran on to 120 s (a timeout does not stop
+>   the work); **C** an abort at 60 s stopped the tool in 1 ms, the run returned "Request cancelled", cancelled.
+>   Cost **$0.47 + $0.50 + C unreported + $0.59** API-eq: every case writes the session's whole prompt into the cache,
+>   twice when the wait outlives the 5 min cache (the estimate was < $0.05). → **pick 2:** `AGENT_TOOL_TIMEOUT_MS` = 3 h
+>   on `createSdkMcpServer` (a queued Craft + its own Craft + margin), the probe cited in tool-server.ts.
+>   **generate_composition** = one `build` job through `startBuildAndWait` into a reserved `compositions/<slug>/`
+>   (mkdir-claimed, -2…; released if the build fails), owner origin agent | flow, usage = feature source + agentId;
+>   `budget` (default Standard) + `loop`; `durationSeconds` → frames only when given (else the builder decides); prompt
+>   = brief + style notes + file notes, brand in `brand`; image port → ≤4 reference images (JPEG ≤1024 px) + the first in
+>   assets/, video port → assets/ (a same-stem clash renamed `-video`); no `imports: 'strict'`, no absolute-path
+>   staticFile notes (`staticFileExpression` deleted). Progress = `<title>: <job label>` once per change (queued: "queued
+>   (one build runs at a time)"). Result = `build-result.ts`: head + "Built on Standard: N looks, N checks, finished;
+>   loop seam OK" + notice + the builder's summary + which frames; up to 3 frames of the builder's LAST look as image
+>   blocks (none for flows). **edit_composition** = `editOf` the artifact's folder + N (a flat legacy file is copied in
+>   as `<slug>/v1.tsx` first, seed `file`); `budget`, `loop` (sends the version's size + fps + loop, never a length).
+>   **Copies** (`agents/composition-copy.ts`): vN.tsx + vN.src/ + vN.assets/ + vN.debug.json into `<parent>/<slug>/`
+>   for run_agent context in / output out and flow outputs; library saves (tool + stage action) carry `<slug>.assets/`,
+>   and the library walker skips an `X.assets/` beside `X.tsx`; Open in Creator copies the whole folder (every version,
+>   stills, chat.json) and opens the artifact's version. **Players**: agent + flow-run resolve return `assets`
+>   (`compositionAssetsIn`), CompositionViewer passes them as inputProps. **Sink deleted** (module + test, the runner's
+>   `prepareArtifact` seam, `motionSink` on create-session, Home's `motionProjectId`; the `payload.motion?.versionPath`
+>   reads stay for old artifacts). **Live** (dev app, `tsx-composer` session on Sonnet 5.5, `runs/P3/agents-p4/`
+>   screenshots 04-10): **V1** Quick generate "coral ball bounces under Bounce, 4:5 loop": 2.1 min, 1 round,
+>   `compositions/bounce-loop/v1.*`, progress rows in the chat, the stage player plays the kept build (ball clear of the
+>   title), **$1.03 API-eq** (build $0.74 + agent $0.30, both rows `agent` / `vidtsx/tsx-composer`). The agent described
+>   the frames but said they were "from before the fix": a look at the changed build after the budget (`r01v1`) has the
+>   round of the look before it, and the pick grouped by round → fixed (group by look label; test from this case), app
+>   restarted. **V2** Standard edit "blue ball + short fading trail" in the same session after the restart (the session
+>   and its stage came back): 1.4 min, 1 of 3 rounds, `v2.*` beside v1 (v1 untouched), filmstrip v1 + v2, plays,
+>   **$1.04 API-eq** (build $0.74 + agent $0.31). The agent: "These are the builder's round-1 frames, which here are also
+>   its last look, so they match the delivered version" — right; it also said the trail sits above the ball at frame
+>   90, where the still shows it below (correct for the rise): it read the image and got one direction wrong. Flow node:
+>   unit tests only (flow-render runs the five-node flow on a fake engine). Noted, not changed: the progress rows are
+>   chatty (~20 for one Quick build); tsx-composer's AGENT.md still describes the Creator Agent mode ("saved as the next
+>   version of the open project", "a minute or more") and tsx-craft calls itself the tool's own text (P4 retires it from
+>   the Creator); `tsx-deps.ts` has no caller now (part 8); a cancelled agent run logs no usage row (pre-existing). Gates:
+>   types 26/10; vitest 381 files / 3273 tests.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
