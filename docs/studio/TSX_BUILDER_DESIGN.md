@@ -827,6 +827,59 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   Inspector's Budget select was too narrow ("Stanc"). Notes: the grid card's progress strip covers the kind chip
 >   (pre-existing layout); a renderer edit under `npm run dev` reloads the page to Home. Gates: types 26/10; vitest
 >   387 files / 3323 tests (no flakes this run).
+> - **Part 6 DONE `2846aa7`** (3D in Studio: D9 dev switch + D8 per-shot `vN.assets`; Hasan 10-15 "go with
+>   recommended" = 1(a), 2(a), 3(a), 4(a) and the defaults). **D9:** `VIDTSX_DEV_PROD_REACT=1` (renderer config:
+>   optimizer `define` NODE_ENV "production", `esbuild.jsxDev: false`, its own dep cache `node_modules/.vite-prod-react`
+>   as an ABSOLUTE path: a relative `cacheDir` resolves against the renderer root and first landed in
+>   `src/renderer/node_modules`); `import.meta.env.DEV` stays true; packaged builds unchanged. Switch off + a 3D shot →
+>   the tile says "This 3D shot needs production React under npm run dev…" (`features/studio/services/shot-error-hint.ts`).
+>   R3F throws `dispatcher.getOwner is not a function` inside its own reconciler root, NOT through the shot's error
+>   boundary, so `ShotErrorBoundary` also takes the shot's `moduleUrl` and claims an uncaught window error whose stack
+>   names it (`windowErrorHint`). **D8 preview:** `StudioShotModuleResponse.assets` = `versionAssetsProp` of the
+>   version's folder (roots registered on every load, so a restart is fine); the handler moved to
+>   `ipc/studio-shot-module-handler.ts` (studio-shot-handlers.ts 331 → 279 lines). The merge (`assetRefs` win) is
+>   `mergeVersionAssets` in **`src/shared/studio/shot-version-assets.ts`**, not features/studio/services as planned:
+>   the renderer AND the export use it. **D8 export:** `studio/shot-version-files.ts` merges each used shot's files
+>   (looked up on its ORIGINAL version path) into every tsx clip of that shot in TIMELINE, lists the folders in the
+>   sidecar (`StudioExportEntry.assetRoots`) and refuses a builder shot whose code names a file no `vK.assets/` holds
+>   ("Shot "X" (v3): robot.glb is missing from the shot folder (shots/x/v3.assets/)…"); with no `vK.assets/` anywhere
+>   the timeline object comes back unchanged (pre-builder entries byte-identical); `run-export.ts` registers the roots
+>   before any engine (a queued export after a restart). **Builder:** `studioMediaErrors` + `CheckOptions` deleted
+>   (`checkBuild(workDir, expect?)`); the shot pack's media line lists every kind, plus "a 3D overlay or title keeps its
+>   canvas transparent". **Copies (1a, 3a):** `studio/shot-import-files.ts` `carryBuilderFiles`: the non-media files the
+>   code names → the new shot's `v1.assets/` (relPath kept; a .gltf's .bin + textures too), `vN.src/` → `v1.src/`,
+>   `vN.debug.json` → `v1.debug.json`; `ShotImportReport.copiedFiles` (was `unsupportedMedia`), notice "Copied into the
+>   shot's folder: avocado.glb, studio.hdr (they play from there; they are not project media)." **(2a, 3a):** packages
+>   carry `vN.assets/**` (media size cap) and `vN.src/**`, `vN.debug.json` only with the chat opt-in. **Fixed
+>   (pre-existing):** a clean Import TSX returned `{ shotId }` before its report existed (its gate-pass branch called
+>   `onReserved`), so the import panel never showed the notice (part 5's unsupported-media line never showed either);
+>   now only the conform run reserves. Dev-only free spike mode `studio-stills` (`builder-spike-studio.ts`).
+>   **Live** (dev app over CDP, studio root `runs/P3/studio-p5`, the s3-autocut copy, screenshots `runs/P3/ui-p6/`):
+>   **L0a** $0, switch off: Import TSX of `probe-three-avocado` v1 → `v1.assets/` = avocado.glb (8.1 MB) + studio.hdr,
+>   `v1.src/` + `v1.debug.json` copied, wood.jpg + logo.png registered in place; the tile shows the hint (after the
+>   window-error fix). **L0b** $0, switch on: the window's React 19.2.4 is production (`createElement` has no
+>   `getOwner`); the avocado plays in the editor (model, HDR light, wood texture, logo chip) and turns across three
+>   scrubs; console: only THREE's PCFSoftShadowMap deprecation and "Multiple instances of Three.js being imported" (the
+>   shot's inlined three + another copy in the page; harmless so far); a re-import showed the copied-files notice (the
+>   fix, seen live); Home, the Creator preview of the same piece and the Studio timeline work. **L0c** $0:
+>   createExportEntry → `clearAssetRoots()` → re-register from the sidecar → bundle → PNG stills: TIMELINE hands the
+>   avocado clip avocado + studio as `/asset-root/…` and wood + logo as `/asset?path=`; frames 215/255/295 show the
+>   avocado, 160 part 5's title over the talk; 98 s (bundle 63 s). **L1** pool Generate, OVERLAY 5 s Quick, Sonnet
+>   5.5, playhead in the talk, "a small glossy 3D trophy turning in the top-right corner, transparent around it": 2.1
+>   min, 1 round, 4 checks, 8 API turns, 3.7k output tokens; render_stills, a tile-by-tile contact sheet
+>   (`tiles: separate`) and a phone view, all over the talk frame. It saw its round-1 trophy cropped at the top edge,
+>   scaled it to 0.6, moved it down and looked again (D1's verify look); `ThreeCanvas gl={{ alpha: true }}`, no
+>   background. Landed on O1 at 15.9 s, plays over the talk in the preview; **$0.60 API-eq** (one `studio-tsx-shot`
+>   row). L0c stills of it: frames 500/540/600 over the talk; the `{ layer: 'shots' }` still is 98.1 % transparent /
+>   1.8 % opaque. (The spike first reused the composition selected with `{}` and got the whole timeline in the layer
+>   still: renderStill takes the props resolved at select time. The spike now selects again; the export engine already
+>   hands them to renderComposition. L0c's avocado could not show it: a cutaway covers the frame.) L2 not run.
+>   **Noted, not changed:** re-importing the same Creator piece registers its media again (4 image assets for 2 files);
+>   a pool Remove keeps the folder, and the reconcile on the next open adopts it again (Q1c), so a Remove does not
+>   survive a reopen; `shot-generator.test.ts` fails 3 cancel / fail tests even alone on a quiet machine (pre-existing:
+>   the first checks `isRunning` after one `setTimeout(0)` while generate still awaits `fs.mkdir`, the next two hit the
+>   run it leaves, "already building"; test unchanged). Gates: types 26/10; vitest 397 files, all green alone except
+>   that file (full run: 6 more load flakes, timeouts + temp ENOENT).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
