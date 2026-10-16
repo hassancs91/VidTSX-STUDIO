@@ -7,6 +7,7 @@ import { resolveFilterChain } from './filter-chain';
 import { FilteredPicture, type FilteredMediaProps } from './FilteredPicture';
 import { getStudioMediaEngine, getStudioMediaLogLevel } from './media-engine';
 import { SceneMirror, SceneSourceContext, SceneSourceSlot } from './SceneMirror';
+import { ShotTimebase } from './ShotTimebase';
 import type { SerializedClip } from './serialize';
 import { isCovered, usesEqualPowerAudio, type ClipCover } from './transition-windows';
 
@@ -239,15 +240,19 @@ export function ClipRenderer({ clip, components, captionComponent, filterDefinit
     // and a crossfade-in (negative trimBefore) delays frame 0 to the
     // original boundary so baked timings stay put. Shots are visual-only;
     // the master clip's audio keeps playing underneath (cover, not
-    // displace — D2).
+    // displace — D2). A shot authored at another fps or size runs on its own
+    // timebase, scaled to the frame (shot-timebase.ts); the offset stays in
+    // composition frames because ShotTimebase reads its clock inside it.
     case 'tsx': {
       const ShotComponent = clip.tsx ? components?.[clip.tsx.shotId] : undefined;
       if (!ShotComponent) return null;
       const offset = clip.trimBefore ?? 0;
+      const timebase = clip.tsx?.timebase;
+      const shot = <ShotComponent {...clip.tsx?.props} />;
       return (
         <AbsoluteFill style={style}>
           <Sequence from={-offset} layout="absolute-fill">
-            <ShotComponent {...clip.tsx?.props} />
+            {timebase ? <ShotTimebase spec={timebase}>{shot}</ShotTimebase> : shot}
           </Sequence>
         </AbsoluteFill>
       );

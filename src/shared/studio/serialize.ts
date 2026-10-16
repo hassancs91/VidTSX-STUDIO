@@ -18,6 +18,7 @@ import type { StudioBrand } from '../types/asset-library';
 import { clipEnd, spanToFrames, timeToFrame, timelineDurationInFrames } from './time-math';
 import { deriveCaptionGroups, type CaptionWordSource } from './caption-words';
 import { resolveCaptionPalette, resolvedStyle } from './caption-layer';
+import { shotTimebaseFor, type ShotTimebaseSpec } from './shot-timebase';
 
 /** A ramp window at one edge of a serialized clip (Slice E transitions). */
 export interface SerializedTransition {
@@ -62,7 +63,15 @@ export interface SerializedClip {
    *  parallel `components` map by shotId. `props` is the D12 runtime-props
    *  channel: asset refs resolved to per-environment URLs (and, later,
    *  whatever else the serializer derives for the component). */
-  tsx?: { shotId: string; mode: 'cutaway' | 'overlay'; props?: ShotRuntimeProps };
+  tsx?: {
+    shotId: string;
+    mode: 'cutaway' | 'overlay';
+    props?: ShotRuntimeProps;
+    /** The shot's own fps/size/length when they differ from the composition's
+     *  (shot-timebase.ts): the composition runs it on that timebase, scaled to
+     *  the frame. Absent = the shot runs on the composition's own. */
+    timebase?: ShotTimebaseSpec;
+  };
 }
 
 export interface SerializedTrack {
@@ -295,11 +304,13 @@ export function serializeTimeline(
       // Same drop rule for tsx clips whose shot the document can't resolve to
       // renderable code (missing from the registry, still generating, error).
       let tsxProps: ShotRuntimeProps | undefined;
+      let timebase: ShotTimebaseSpec | undefined;
       if (clip.kind === 'tsx') {
         const shot = clip.tsx
           ? project.shots.find((s) => s.id === clip.tsx?.shotId)
           : undefined;
         if (!shot || shot.status !== 'ready') continue;
+        timebase = shotTimebaseFor(shot.config, { fps, width, height });
 
         // Asset refs resolve through the same resolver as clip src, so the
         // preview/export URL asymmetry stays this function's problem (D12).
@@ -378,6 +389,7 @@ export function serializeTimeline(
                 shotId: clip.tsx.shotId,
                 mode: clip.tsx.mode,
                 ...(tsxProps ? { props: tsxProps } : {}),
+                ...(timebase ? { timebase } : {}),
               },
             }
           : {}),

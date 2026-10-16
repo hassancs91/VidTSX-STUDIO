@@ -285,3 +285,48 @@ What it changes in the list above:
     and with an adaptive ratio the image-to-video inherits the still's shape.
 - **Small: package media names.** The UI labels an asset by its file name; a `.vidtsx` import writes
   `media/<uuid>.<ext>`, so an imported pool reads as UUIDs. This import used readable names.
+
+## Fifth project: video-14, a locked master at 4K60 (planned 2026-10-16, verification pending)
+
+`claude-youtube-editor/videos/video-14` (8:05.7, "build desktop apps with Claude Code"): ONE locked master
+(`output/master-tight-h264.mp4`, H.264 3840×2160 59.94 fps, 485.718 s, AAC mono) and 55 TSX shots (35 cutaways,
+20 splits, no overlays: the speaker is never full frame). Unlike video-10 it is imported to be **finished and
+delivered here**: the project is 3840×2160 @ 60 (the delivery spec), Hasan trims/splits/nudges in Studio and
+renders 4K from Studio. Found by reading the render path and dry-bundling all 55 shots before building:
+
+- **Blocker: a shot runs on the PROJECT's clock and size, not its own.** `ClipRenderer` mounts the shot
+  component straight inside the clip's Sequence, so `useCurrentFrame()` counts project frames and
+  `useVideoConfig()` returns the project's fps and size. Every video-14 shot is authored at 1920×1080 and
+  times itself in 30 fps frames (cue frames, `startFrom: Math.round(s * 30)` for its own videos). In a 4K60
+  project each one would play at 2× speed (every cue lands at half its master second) and lay out in the
+  top-left quarter. This is the open delivery-format question at the end of Tier 2 and gap 11's policy ("project
+  format = delivery format; shots render at project resolution with layout scaled; no code until the first 4K
+  export"): this is that first 4K export. Remotion has no public way to give a subtree its own fps; `<Freeze>`
+  shows the frame half (TimelineContext + SequenceContext), and `CompositionManager.currentCompositionMetadata`
+  is what `useVideoConfig()` merges last, so a "shot timebase" wrapper can give a mismatched shot its own clock
+  (`floor(t × shotFps)`), its own config, and its design size scaled to the frame. Shots whose config matches the
+  project (every Studio-generated shot) are untouched.
+- **Import TSX attaches only LITERAL `staticFile('…')` media.** All 55 bundles resolve media through helpers
+  (`lib(name)`, `CastImg`, `AppClip`, `XClip`, `CC_ASSET(name)`, the book's `page(n)`), so `finishShotBundle`
+  sees 0 literal calls and the official import would register none of the ~36 files + 3 template folders: blank
+  images, no screen recordings. The prototype's rule (every media-looking string literal, plus the folder behind a
+  template literal) still has to run beside the official bundle step. Candidate: scan string literals too, and
+  report template folders instead of only counting "dynamic calls".
+- **The preview's `/asset` route refuses fonts and data.** `module-server.ts` allows video/audio/images/3D only;
+  the export route (`remotion-bundler.ts`) also allows `.woff/.woff2/.ttf/.otf/.json/…`. A shot that loads a font
+  file through `staticFile` (video-14's Claude Code extension mock: `codicon.ttf`, 6 shots) renders in export and
+  shows missing glyphs in the preview. There is also no asset kind for a font file.
+- **Fonts are cached per app, not per project.** `@remotion/google-fonts` loads go through the font proxy, which
+  caches to `%APPDATA%/VidTSX Studio/font-cache` and fetches upstream on a miss: an export on a fresh profile
+  or another machine still reaches fonts.gstatic.com mid-render (a dropped request killed the editor's first
+  video-14 render-all). Pre-warming the cache works today; a project-local font folder would make it portable.
+- **Split authoring still missing (gap 4), and the transform route has a limit.** Cut V1 at each split span +
+  `transform` from box/crop is exact only while the shot is opaque outside its hole: with video-14's box (300×420
+  design px, crop cx 0.46, zoom 1.0) the scaled master is 747×420 design px, so any frame where a split shot
+  is transparent outside the box shows master there, where bake.py (which crops the master INTO the box over
+  black) shows black.
+- **Version skew.** Shots are authored against Remotion 4.0.486 (the editor) and render on Studio's 4.0.435; the
+  bundles inline `@remotion/google-fonts` + `@remotion/paths` from 4.0.486 against an external 4.0.435.
+- **Not a gap, recorded:** a 59.94 fps source in a 60 fps project maps by time (`trimBefore = round(sourceIn ×
+  60)`, media time = frame / 60), so there is no drift; the source repeats one frame every ~16.7 s. Only the
+  Standard engine renders it that way; the copy engines were not evaluated for it.

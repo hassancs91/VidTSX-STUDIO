@@ -12,6 +12,7 @@ import { getPreviewHtml } from './preview-html';
 import { getToneExtractHtml } from './tone-extract-html';
 import { registerFontProxy } from './font-proxy';
 import { ASSET_ROOT_ROUTE, serveAssetRoot } from './asset-roots';
+import { ASSET_ROUTE_EXTENSIONS } from './asset-route-extensions';
 import type { TranspileResult } from './tsx-transpiler';
 import { getVendorDir, getShotKitDir } from '../utils/paths';
 import { bundleKitFromDir } from './kit-bundler';
@@ -209,15 +210,10 @@ export async function ensureModuleServer(): Promise<number> {
         return res.status(400).send('Missing or invalid path parameter');
       }
 
-      // Basic security: only serve media files (video, audio, images)
+      // The same allowlist as the export's route (asset-route-extensions.ts), so
+      // a file a shot loads previews and renders alike.
       const ext = path.extname(filePath).toLowerCase();
-      const allowedExtensions = [
-        '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mts', '.m2ts', // video
-        '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.opus',         // audio
-        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.avif', // images
-        '.glb', '.gltf',                                                   // 3D meshes (asset-library GlbViewer)
-      ];
-      if (!allowedExtensions.includes(ext)) {
+      if (!ASSET_ROUTE_EXTENSIONS.has(ext)) {
         return res.status(400).send('Invalid file type');
       }
 

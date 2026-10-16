@@ -15,6 +15,7 @@ import { generateWrapper, cleanupWrapper } from './composition-wrapper';
 import { materializeAbsoluteStaticFiles } from './remotion-static-files';
 import { registerFontProxy } from './font-proxy';
 import { ASSET_ROOT_ROUTE, serveAssetRoot } from './asset-roots';
+import { ASSET_ROUTE_EXTENSIONS } from './asset-route-extensions';
 import { getRemotionBinariesDir } from '../utils/paths';
 import { getAppRoot } from '../utils/paths';
 import {
@@ -103,29 +104,9 @@ async function ensureServer(): Promise<number> {
         return res.status(400).send('Missing or invalid path parameter');
       }
 
-      // Whitelist asset extensions allowed through this endpoint. Kept as an explicit
-      // allowlist (never wildcard) so executables and scripts can never be served even
-      // if a malformed user TSX builds a path. Covers the asset library's full surface:
-      // video / audio / images / 3D / fonts / data.
+      // The same allowlist as the preview's route (asset-route-extensions.ts).
       const ext = path.extname(filePath).toLowerCase();
-      const allowedExtensions = [
-        // video
-        '.mp4', '.webm', '.mov', '.mkv', '.avi', '.m4v', '.mts', '.m2ts',
-        // audio
-        '.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac', '.opus',
-        // images
-        '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.avif',
-        // 3D
-        '.glb', '.gltf', '.obj', '.fbx',
-        // fonts
-        '.woff', '.woff2', '.ttf', '.otf',
-        // data
-        '.json', '.txt', '.csv', '.xml', '.md',
-        // subject-mask blobs the render host reads by range (FILTER_PACKS_DESIGN.md
-        // "As built (masks track)")
-        '.bin',
-      ];
-      if (!allowedExtensions.includes(ext)) {
+      if (!ASSET_ROUTE_EXTENSIONS.has(ext)) {
         return res.status(400).send('Invalid file type');
       }
 
