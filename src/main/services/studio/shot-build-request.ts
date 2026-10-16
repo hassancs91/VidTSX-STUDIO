@@ -44,7 +44,8 @@ const CONTRACT_LINES: readonly string[] = [
   '- compositionConfig: exactly the FORMAT in the request (width, height, fps, durationInFrames) as literal numbers. check enforces it.',
   '- The request says the background rule. A cutaway fills the whole frame with an opaque background. An overlay or a title sets NO background on its root: only its own elements are drawn, and the footage shows through everywhere else. Your looks show a transparent shot over the footage it plays over (or a checkerboard when there is none), so judge it there: contrast against the real picture, not against black.',
   '- Timing: compute every time as seconds x fps from useVideoConfig(); the only literal frame count is in compositionConfig.',
-  '- Media: the files in assets/ load with staticFile(\'<file name>\'). A shot plays images, video and audio only: no 3D models, environment maps, fonts or data files yet (check refuses them); draw those in code.',
+  '- Media: the files in assets/ load with staticFile(\'<file name>\'). Images, video, audio, 3D models (.glb, or .gltf with its .bin and textures), environment maps (.hdr, .exr), fonts and data files all play in a Studio shot.',
+  '- A 3D overlay or title (three / React Three Fiber) keeps its canvas transparent: no scene background (no <color attach="background">, no scene.background), no <Environment background>, no opaque clear colour. The footage shows around the model.',
   '- No progress bar, watermark or debug text unless asked.',
   '- Never depict sexual or explicit content; if the brief asks for it, draw a neutral card saying the content was declined.',
 ];

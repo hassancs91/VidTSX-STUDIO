@@ -12,6 +12,7 @@ import type { ExportEngineId } from '../../../../shared/studio/export-engines';
 import type { RenderPhase } from '../../../../shared/ipc/types';
 import type { StudioProject } from '../../../../shared/types/studio';
 import type { StudioExportEntry } from '../export-entry';
+import { registerShotAssetRoots } from '../shot-version-files';
 import { renderTimelineAudio } from './audio-pass';
 import { finishExport } from './finishing';
 import { resolveExportEngine } from './registry';
@@ -69,6 +70,9 @@ export async function runStudioExport(options: StudioExportRunOptions): Promise<
   try {
     const engine = resolveExportEngine(options.engineId);
     const { entry } = options;
+    // A builder shot's files (vN.assets/) are served from roots this process may not know yet: an
+    // export queued before a restart. Every engine, the audio pass and the dev verify render after this.
+    registerShotAssetRoots(entry.assetRoots);
 
     // 1. Frames — the engine's job.
     options.onProgress('rendering', 0, { done: 0, total: entry.durationInFrames });

@@ -106,8 +106,9 @@ export interface AttachedVersionMedia {
  * registered as project media in place and keyed for the shot's `assets` prop.
  * `known`: keys that already have an asset id (the shot's own refs) keep it,
  * and their file is not registered again. Null when the code names no files.
- * Kinds a shot cannot hold (3D models, environment maps, fonts, data) are
- * reported, not attached.
+ * Kinds that are not project media (3D models, environment maps, fonts, data)
+ * are left out: the shot plays them from its own folder (P3 part 6, D8), and
+ * Import TSX copies them there first (shot-import-files.ts).
  */
 export async function attachVersionMedia(
   projectId: string,
@@ -140,7 +141,6 @@ export async function attachVersionMedia(
       media: Object.keys(assetRefs).length,
       missingMedia,
       dynamicMediaCalls: 0,
-      ...(unsupported.length > 0 ? { unsupportedMedia: unsupported } : {}),
     },
   };
 }

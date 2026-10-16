@@ -1,11 +1,5 @@
-// Studio TSX shots (S4) — preview module resolution (TSX_SHOTS_DESIGN.md D4).
-//
-// The renderer never handles absolute paths: it asks for {projectId, shotId,
-// version} and gets back a module-server URL it can dynamic-import into the
-// in-app <Player>. Transpilation shares the Creator's pipeline
-// (esbuild + import-rewrite to the virtual React/Remotion modules), which is
-// exactly what makes useCurrentFrame() inside the shot track the host Player
-// (Spike 0, PASS 2026-08-14).
+// Studio TSX shots (S4): generate / cancel / import / reconcile / versions.
+// The preview's module resolution (D4) lives in studio-shot-module-handler.ts.
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -18,8 +12,6 @@ import type {
   StudioShotGenerateResponse,
   StudioShotImportRequest,
   StudioShotImportResponse,
-  StudioShotModuleRequest,
-  StudioShotModuleResponse,
   StudioShotVersionsRequest,
   StudioShotVersionsResponse,
   StudioShotsReconcileRequest,
@@ -27,7 +19,6 @@ import type {
   StudioShotLibraryResponse,
 } from '../../shared/ipc/types';
 import { getProjectDir } from '../services/studio/studio-paths';
-import { resolveShotModule } from '../services/studio/shot-module-resolver';
 import { isValidShotId } from '../../shared/studio/shots';
 import { shotGenerator } from '../services/studio/shot-generator';
 import { listCreatorProjects } from '../services/studio/creator-projects';
@@ -35,52 +26,9 @@ import { importShot } from '../services/studio/shot-import';
 import { reconcileShots } from '../services/studio/shot-reconcile';
 import { listStudioShotLibrary } from '../services/studio/studio-shot-library';
 import { getProjectsDir } from '../utils/paths';
-import {
-  ensureModuleServer,
-  getModuleServerBaseUrl,
-  storeTranspileResult,
-} from '../services/module-server';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('StudioShotIpc');
-
-export async function handleStudioShotModule(
-  _event: IpcMainInvokeEvent,
-  data: StudioShotModuleRequest,
-): Promise<StudioShotModuleResponse> {
-  try {
-    await ensureModuleServer();
-    const baseUrl = getModuleServerBaseUrl();
-    if (!baseUrl) {
-      return { success: false, error: 'Module server failed to start' };
-    }
-
-    // Memo → project disk cache → transpile (shot-module-resolver). The URL
-    // is the content hash, so a new version (new content) gets a new URL,
-    // which is what triggers the renderer's re-import.
-    const result = await resolveShotModule(data.projectId, data.shotId, data.version, baseUrl);
-    if (!result.success) {
-      return { success: false, error: result.error };
-    }
-
-    const moduleUrl = storeTranspileResult(result);
-    return {
-      success: true,
-      moduleUrl,
-      config: {
-        durationInFrames: result.config.durationInFrames,
-        fps: result.config.fps,
-        width: result.config.width,
-        height: result.config.height,
-      },
-    };
-  } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Failed to prepare shot module',
-    };
-  }
-}
 
 /** Stop a shot's build, whatever its op and whoever started it (the generator owns one run per shot). */
 export async function handleStudioShotCancel(

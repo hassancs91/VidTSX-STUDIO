@@ -407,7 +407,7 @@ describe('buildComposition — a Studio shot (P3 part 5)', () => {
     expect(debug.request).toMatchObject({ into, retake: true, usage: { featureSource: 'studio-tsx-shot' } });
   });
 
-  it('tells a transparent shot what its looks show behind it, and checks with the Studio media rule', async () => {
+  it('tells a transparent shot what its looks show behind it, and checks it like any build (P3 part 6)', async () => {
     checkBuild.mockImplementation(async () => passed('// overlay'));
     script = finishOne;
     const backdrop = { file: path.join(tmpDir, 'talk.mp4'), startSeconds: 12.4, label: 'talk.mp4 from 12.4 s' };
@@ -415,7 +415,8 @@ describe('buildComposition — a Studio shot (P3 part 5)', () => {
     expect(result.ok).toBe(true);
     expect(prompts[0]).toContain('BEHIND THE PIECE: this is a transparent Studio shot.');
     expect(prompts[0]).toContain('(talk.mp4 from 12.4 s)');
-    expect(checkBuild.mock.calls.every((call) => call[2]?.studioShot === true)).toBe(true);
+    expect(checkBuild.mock.calls.length).toBeGreaterThan(0);
+    expect(checkBuild.mock.calls.every((call) => call.length === 2)).toBe(true);
     const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
     expect(debug.request.studioShot).toEqual({ transparent: true, backdrop: { file: backdrop.file, startSeconds: 12.4 } });
 

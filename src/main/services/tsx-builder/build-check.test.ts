@@ -1,6 +1,6 @@
 // `check` for real (esbuild + every gate) on a temp work folder: the kit is
-// inlined from the installed source (P3 part 5, 3a), and a Studio shot build
-// refuses a file Studio cannot register as media (2a).
+// inlined from the installed source (P3 part 5, 3a), and every file kind loads
+// (a Studio shot plays a version's files from its folder since P3 part 6).
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import fs from 'fs/promises';
 import os from 'os';
@@ -9,7 +9,7 @@ import path from 'path';
 const appRoot = path.resolve(__dirname, '../../../..');
 vi.mock('electron', () => ({ app: { isPackaged: false, getAppPath: () => appRoot, getPath: () => os.tmpdir() } }));
 
-import { checkBuild, kitSourceDir, studioMediaErrors } from './build-check';
+import { checkBuild, kitSourceDir } from './build-check';
 
 let workDir = '';
 const write = async (rel: string, text: string) => {
@@ -47,39 +47,43 @@ describe('checkBuild', () => {
     expect(result.inlinedPackages).toContain('@vidtsx/kit');
   });
 
-  it('refuses a model file in a Studio shot build, and not in any other build', async () => {
+  it('passes a piece that loads a model, an environment map, a font and data (a Studio shot plays them from its folder)', async () => {
     await write(
       'index.tsx',
       [
         "import React from 'react';",
         "import { AbsoluteFill, Img, staticFile } from 'remotion';",
-        "export const compositionConfig = { id: 'Media', durationInFrames: 60, fps: 30, width: 1920, height: 1080 };",
-        "const DATA = [staticFile('logo.png'), staticFile('points.csv')];",
-        'export default function Media() { return <AbsoluteFill><Img src={DATA[0]} /></AbsoluteFill>; }',
+        "export const compositionConfig = { id: 'Files', durationInFrames: 60, fps: 30, width: 1920, height: 1080 };",
+        "const FILES = [staticFile('logo.png'), staticFile('robot.glb'), staticFile('studio.hdr'), staticFile('Inter.ttf'), staticFile('points.json')];",
+        'export default function Files() { return <AbsoluteFill><Img src={FILES[0]} /></AbsoluteFill>; }',
       ].join('\n'),
     );
     await write('assets/logo.png', 'png');
-    await write('assets/points.csv', 'a,b\n1,2\n');
-    expect((await checkBuild(workDir)).errors).toEqual([]);
-    const studio = await checkBuild(workDir, undefined, { studioShot: true });
-    expect(studio.ok).toBe(false);
-    expect(studio.errors).toEqual([
-      "staticFile('points.csv'): a data file cannot play in a Studio shot yet; draw it in code (a shot loads images, video and audio).",
+    await fs.writeFile(path.join(workDir, 'assets', 'robot.glb'), minimalGlb());
+    await write('assets/studio.hdr', '#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 1\n');
+    await write('assets/Inter.ttf', 'ttf');
+    await write('assets/points.json', '[1,2,3]');
+    const result = await checkBuild(workDir, { width: 1920, height: 1080, fps: 30, durationInFrames: 60 });
+    expect(result.errors).toEqual([]);
+    expect(result.ok).toBe(true);
+    expect(result.assets.map((a) => [a.relPath, a.kind])).toEqual([
+      ['logo.png', 'image'],
+      ['robot.glb', 'model'],
+      ['studio.hdr', 'environment'],
+      ['Inter.ttf', 'font'],
+      ['points.json', 'data'],
     ]);
   });
 });
 
-describe('studioMediaErrors', () => {
-  it('lets images, video and audio through and names every other kind', () => {
-    const errors = studioMediaErrors([
-      { ref: 'a.png', relPath: 'a.png', kind: 'image' },
-      { ref: 'clip.mp4', relPath: 'clip.mp4', kind: 'video' },
-      { ref: 'vo.mp3', relPath: 'vo.mp3', kind: 'audio' },
-      { ref: 'robot.glb', relPath: 'robot.glb', kind: 'model' },
-      { ref: 'sky.hdr', relPath: 'sky.hdr', kind: 'environment' },
-      { ref: 'Inter.woff2', relPath: 'Inter.woff2', kind: 'font' },
-    ]);
-    expect(errors.map((e) => e.split(':')[0])).toEqual(["staticFile('robot.glb')", "staticFile('sky.hdr')", "staticFile('Inter.woff2')"]);
-    expect(errors[0]).toContain('a model file cannot play in a Studio shot yet');
-  });
-});
+/** The smallest binary glTF 2.0: the 12-byte header and one JSON chunk. */
+function minimalGlb(): Buffer {
+  const json = Buffer.from('{"asset":{"version":"2.0"}}  ', 'utf8'); // padded to a multiple of 4
+  const header = Buffer.alloc(20);
+  header.writeUInt32LE(0x46546c67, 0);
+  header.writeUInt32LE(2, 4);
+  header.writeUInt32LE(20 + json.length, 8);
+  header.writeUInt32LE(json.length, 12);
+  header.writeUInt32LE(0x4e4f534a, 16);
+  return Buffer.concat([header, json]);
+}

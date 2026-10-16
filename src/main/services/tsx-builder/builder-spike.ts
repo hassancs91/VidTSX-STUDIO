@@ -36,6 +36,10 @@
 // mode "backdrop" — free: what a transparent Studio shot's looks show behind
 // it (alone / over the footage / over the checkerboard), with the kit inlined
 // by a Studio check (builder-spike-backdrop.ts, P3 part 5).
+// mode "studio-stills" — free: a Studio project's export entry (builder shots'
+// files in TIMELINE), the asset roots forgotten and registered again from the
+// sidecar, then PNG stills of the timeline + one shot-layer alpha still
+// (builder-spike-studio.ts, P3 part 6).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -57,6 +61,7 @@ import { purityProbe, type PurityRequest } from './builder-spike-purity';
 import { assetsProbe, type AssetsRequest } from './builder-spike-assets';
 import { toolWaitProbe, type ToolWaitRequest } from './builder-spike-toolwait';
 import { backdropProbe, type BackdropRequest } from './builder-spike-backdrop';
+import { studioStillsProbe, type StudioStillsRequest } from './builder-spike-studio';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildPack } from './types';
@@ -94,7 +99,8 @@ type SpikeRequest =
   | PurityRequest
   | AssetsRequest
   | ToolWaitRequest
-  | BackdropRequest;
+  | BackdropRequest
+  | StudioStillsRequest;
 
 async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
   const entries = names ?? (await fs.readdir(dir)).sort();
@@ -292,7 +298,9 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
                     ? await toolWaitProbe(req)
                     : req.mode === 'backdrop'
                       ? await backdropProbe(req.outDir, req.sources)
-                      : await runFixture(req);
+                      : req.mode === 'studio-stills'
+                        ? await studioStillsProbe(req)
+                        : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

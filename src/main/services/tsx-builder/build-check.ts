@@ -11,15 +11,14 @@
 //
 // The kit (`@vidtsx/kit`) is inlined from its installed source, so a builder
 // piece carries its own copy and plays wherever the piece goes (P3 part 5). A
-// Studio shot build (`studioShot`) may load only what Studio can register as
-// project media: images, video, audio.
+// Studio shot build loads every kind a Creator build does: since P3 part 6 (D8)
+// Studio plays a version's files from its shot folder (`vN.assets/`).
 
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import { bundleShotSource } from '../studio/shot-bundle';
 import { bundleNodePaths } from '../studio/shot-import';
-import { classifyMediaKind } from '../studio/media-import';
 import { getShotKitDir } from '../../utils/paths';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
@@ -47,11 +46,6 @@ export interface BuildCheckResult {
 
 const CODE_FILE = /\.(tsx?|jsx?|mjs)$/i;
 
-export interface CheckOptions {
-  /** A Studio shot: only image, video and audio files may load (Studio media). */
-  studioShot?: boolean;
-}
-
 /** The installed kit's source folder, or undefined when it is missing (the kit then stays external and the import lint names it). */
 export function kitSourceDir(): string | undefined {
   try {
@@ -60,16 +54,6 @@ export function kitSourceDir(): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/** Files a Studio shot cannot hold until 3D comes to Studio (P3 part 6). */
-export function studioMediaErrors(assets: Array<Pick<BuildAsset, 'ref' | 'relPath' | 'kind'>>): string[] {
-  return assets
-    .filter((a) => classifyMediaKind(a.relPath) === null)
-    .map(
-      (a) =>
-        `staticFile('${a.ref}'): ${a.kind === 'data' ? 'a data' : `a ${a.kind}`} file cannot play in a Studio shot yet; draw it in code (a shot loads images, video and audio).`,
-    );
 }
 
 /** drei helpers that download at render (build-offline.ts), in the piece's own files only. */
@@ -83,7 +67,7 @@ async function findOwnNetworkHelpers(workDir: string, inlinedFiles: string[]): P
 }
 
 /** `expect`: the requested frame — a config that departs from it fails the check. */
-export async function checkBuild(workDir: string, expect?: BuildFormat, options: CheckOptions = {}): Promise<BuildCheckResult> {
+export async function checkBuild(workDir: string, expect?: BuildFormat): Promise<BuildCheckResult> {
   const started = Date.now();
   const done = (partial: Omit<BuildCheckResult, 'ms'>): BuildCheckResult => ({
     ...partial,
@@ -131,7 +115,6 @@ export async function checkBuild(workDir: string, expect?: BuildFormat, options:
     bundled.dynamicStaticFileCalls,
   );
   errors.push(...resolved.errors);
-  if (options.studioShot) errors.push(...studioMediaErrors(resolved.assets));
   errors.push(...(await findOwnNetworkHelpers(workDir, bundled.inlinedFiles)));
 
   return done({

@@ -1,8 +1,11 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { shotErrorHint, windowErrorHint } from '../services/shot-error-hint';
 
 interface Props {
   /** Shot display name for the placeholder label. */
   label: string;
+  /** The shot's module URL: an uncaught error from it with a known cause (shot-error-hint.ts) also shows the tile. */
+  moduleUrl?: string;
   children: ReactNode;
 }
 
@@ -31,6 +34,20 @@ export class ShotErrorBoundary extends Component<Props, State> {
     // The placeholder already tells the story; nothing else to do.
   }
 
+  // A 3D shot's own reconciler root (R3F) throws outside this boundary (P3 part 6, D9).
+  private readonly onWindowError = (event: ErrorEvent): void => {
+    const message = windowErrorHint(event.error, this.props.moduleUrl ?? '');
+    if (message !== null && this.state.error === null) this.setState({ error: message });
+  };
+
+  componentDidMount(): void {
+    if (this.props.moduleUrl) window.addEventListener('error', this.onWindowError);
+  }
+
+  componentWillUnmount(): void {
+    window.removeEventListener('error', this.onWindowError);
+  }
+
   render() {
     if (this.state.error !== null) {
       return <ShotPlaceholder label={this.props.label} detail={this.state.error} />;
@@ -39,8 +56,9 @@ export class ShotErrorBoundary extends Component<Props, State> {
   }
 }
 
-/** The labeled tile shown for a crashed (or still-loading) shot. */
+/** The labeled tile shown for a crashed (or still-loading) shot. A known cause reads as its hint; the raw error stays in the tooltip. */
 export function ShotPlaceholder({ label, detail }: { label: string; detail?: string }) {
+  const hint = detail ? shotErrorHint(detail) : null;
   return (
     <div
       style={{
@@ -60,8 +78,8 @@ export function ShotPlaceholder({ label, detail }: { label: string; detail?: str
       }}
     >
       <div style={{ fontSize: 20, fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 13, opacity: 0.7 }}>
-        {detail ?? 'Shot unavailable'}
+      <div style={{ fontSize: 13, opacity: 0.7 }} title={hint ? detail : undefined}>
+        {hint ?? detail ?? 'Shot unavailable'}
       </div>
     </div>
   );

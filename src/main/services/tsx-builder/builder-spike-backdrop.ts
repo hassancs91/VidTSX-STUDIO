@@ -1,6 +1,6 @@
 // The look-backdrop probe for builder-spike.ts (P3 part 5, no model): what a
 // transparent Studio shot's looks show behind it. Each source goes through
-// `check` (a Studio shot build: the kit inlined, Studio media kinds) and then
+// `check` (the kit inlined) and then
 // its frames are rendered as the builder sees them three ways: the piece
 // alone (what a JPEG look showed before part 5), over the footage (the look
 // wrapper with the backdrop video), and over the checkerboard (no footage);
@@ -44,7 +44,7 @@ export async function backdropProbe(outDir: string, sources: BackdropSource[]): 
       if ((await fs.stat(source.path)).isDirectory()) await fs.cp(source.path, workDir, { recursive: true });
       else await fs.copyFile(source.path, path.join(workDir, BUILD_ENTRY));
 
-      const check = await checkBuild(workDir, undefined, { studioShot: true });
+      const check = await checkBuild(workDir);
       const record: Record<string, unknown> = {
         name: source.name,
         check: {

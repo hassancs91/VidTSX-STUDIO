@@ -22,8 +22,15 @@ describe('studioShotPack', () => {
     expect(pack.body).toContain('## The Studio shot contract');
     expect(pack.body).toContain("## Component kit: '@vidtsx/kit' (v1.2.0)");
     expect(pack.body).toContain('- TerminalWindow({ lines })');
-    expect(pack.body).toMatch(/images, video and audio only/);
     expect(pack.body).not.toMatch(/exemplar/i);
+  });
+
+  it('says every file kind plays in a shot, and that a 3D overlay keeps its canvas transparent (P3 part 6)', () => {
+    const body = studioShotPack(null).body;
+    expect(body).toContain('3D models (.glb, or .gltf with its .bin and textures), environment maps (.hdr, .exr), fonts and data files all play in a Studio shot.');
+    expect(body).not.toMatch(/images, video and audio only|draw those in code/);
+    expect(body).toContain('A 3D overlay or title (three / React Three Fiber) keeps its canvas transparent: no scene background');
+    expect(body).toContain('no <Environment background>, no opaque clear colour');
   });
 
   it('leaves the kit out when its manifest is missing', () => {

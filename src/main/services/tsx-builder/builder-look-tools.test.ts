@@ -435,7 +435,8 @@ describe('a transparent Studio shot', () => {
     expect(measureLoopSeam.mock.calls[0][3]).not.toHaveProperty('backdropFile');
     await call('purity_check', {});
     expect(measureFramePurity.mock.calls[0][0]).toBe(piece);
-    expect(checkBuild.mock.calls[0]).toEqual([state.dirs.workDir, state.expect, { studioShot: true }]);
+    // A Studio shot checks like any build: every file kind plays from its shot folder (P3 part 6).
+    expect(checkBuild.mock.calls[0]).toEqual([state.dirs.workDir, state.expect]);
   });
 
   it('draws a checkerboard when no footage is under it, and leaves a cutaway alone', async () => {

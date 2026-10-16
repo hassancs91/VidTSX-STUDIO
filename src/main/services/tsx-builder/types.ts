@@ -69,7 +69,7 @@ export interface BuildRequest {
    * Studio's Regenerate (P3 part 5).
    */
   retake?: boolean;
-  /** The piece is a Studio shot (P3 part 5): what it may load, and what its looks show behind it. */
+  /** The piece is a Studio shot (P3 part 5): what its looks show behind it. */
   studioShot?: StudioShotBuild;
   /** Parent of a NEW build's project folder. Default: the Creator's projects dir. */
   projectsDir?: string;

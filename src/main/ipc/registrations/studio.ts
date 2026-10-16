@@ -42,11 +42,11 @@ import {
   handleStudioShotGenerate,
   handleStudioShotCancel,
   handleStudioShotImport,
-  handleStudioShotModule,
   handleStudioShotVersions,
   handleStudioShotsReconcile,
   handleStudioShotLibrary,
 } from '../studio-shot-handlers';
+import { handleStudioShotModule } from '../studio-shot-module-handler';
 import {
   handleStudioCaptionTemplateModule,
   handleStudioCaptionTemplates,

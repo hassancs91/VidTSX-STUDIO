@@ -140,9 +140,13 @@ export function isSafeEntryPath(name: string): boolean {
   return isSafeZipEntryPath(name, PACKAGE_LIMITS.maxPathLength);
 }
 
-/** Media entries get the generous cap; anything the app parses gets the small one. */
+/** A TSX builder shot's own files (`shots/<id>/vN.assets/…`, P3 part 6): served raw, like media. */
+const SHOT_VERSION_FILE = new RegExp(`^${PACKAGE_DIRS.shots}/[^/]+/v\\d+\\.assets/`);
+
+/** Media entries (and a builder shot's `vN.assets/` files: a 3D model, an HDR, a video) get the generous
+ *  cap; anything the app parses gets the small one. A shot's `vN.tsx` keeps the small cap. */
 export function entrySizeLimit(entryPath: string): number {
-  return entryPath.startsWith(`${PACKAGE_DIRS.media}/`)
+  return entryPath.startsWith(`${PACKAGE_DIRS.media}/`) || SHOT_VERSION_FILE.test(entryPath)
     ? PACKAGE_LIMITS.maxMediaFileBytes
     : PACKAGE_LIMITS.maxDataFileBytes;
 }

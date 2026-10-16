@@ -598,6 +598,12 @@ export interface StudioShotModuleResponse {
   moduleUrl?: string;
   /** The shot's own compositionConfig, parsed from the source. */
   config?: { durationInFrames: number; fps: number; width: number; height: number };
+  /**
+   * The files a builder version loads from its shot folder (`vN.assets/`, or an
+   * earlier `vK.assets/`), key → module-server URL (TSX_BUILDER_DESIGN.md P3
+   * part 6, D8). The shot's own `assetRefs` win for the same key.
+   */
+  assets?: Record<string, string>;
   error?: string;
 }
 

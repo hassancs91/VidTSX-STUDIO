@@ -16,11 +16,14 @@ describe('describeImportReport', () => {
     );
   });
 
-  it("names a builder version's files a shot cannot hold", () => {
+  it("names the builder version's files it copied into the shot folder (P3 part 6)", () => {
     expect(
-      describeImportReport({ inlinedFiles: 0, inlinedPackages: [], media: 1, missingMedia: [], dynamicMediaCalls: 0, unsupportedMedia: ['robot.glb', 'studio.hdr'] }),
+      describeImportReport({ inlinedFiles: 0, inlinedPackages: [], media: 1, missingMedia: [], dynamicMediaCalls: 0, copiedFiles: ['robot.glb', 'studio.hdr'] }),
     ).toBe(
-      'Bundled into one file. 1 media file attached as project asset. Shots take images, video and audio only, so robot.glb, studio.hdr load nothing here (the TSX Creator plays them).',
+      "Bundled into one file. 1 media file attached as project asset. Copied into the shot's folder: robot.glb, studio.hdr (they play from there; they are not project media).",
     );
+    expect(
+      describeImportReport({ inlinedFiles: 0, inlinedPackages: [], media: 0, missingMedia: [], dynamicMediaCalls: 0, copiedFiles: ['models/robot.glb'] }),
+    ).toBe("Bundled into one file. Copied into the shot's folder: models/robot.glb (it plays from there; it is not project media).");
   });
 });

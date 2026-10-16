@@ -39,6 +39,7 @@ import { parseCompositionConfig } from '../composition-config-parser';
 import { reserveProjectFolder, writeNextVersion } from '../tsx-jobs/project-store';
 import { importMediaFiles } from './media-import';
 import { attachVersionMedia } from './shot-build-media';
+import { carryBuilderFiles } from './shot-import-files';
 import { bundleShotSource } from './shot-bundle';
 import { buildShotEngineDeps, validateShotCode } from './shot-generator';
 import { shotJobEvents } from './shot-job-events';
@@ -63,8 +64,9 @@ export interface ImportShotRequest {
   providerId?: string;
   /** Shot model for the conform pass (W1). */
   model?: string;
-  /** Fires once the shot folder exists — the IPC handshake returns then and a
-   *  conform run continues detached (the generator's handshake pattern). */
+  /** Fires once a CONFORM run's shot folder exists — the IPC handshake returns
+   *  then and the run continues detached (the generator's handshake pattern).
+   *  A clean or bundled import returns whole instead, with its report. */
   onReserved?: (shotId: string) => void;
 }
 
@@ -237,10 +239,16 @@ export async function importShot(req: ImportShotRequest): Promise<ImportShotOutc
   // for — never burn an LLM run on a file the gate accepts.
   const gate = await validateShotCode(source);
   if (gate.success) {
-    // A TSX builder version already passes the gate; its files sit in vN.assets/.
+    // A TSX builder version already passes the gate; its files sit in vN.assets/:
+    // media registered in place, the rest (+ vN.src/, vN.debug.json) copied into the shot folder.
     const versionMedia = await attachVersionMedia(req.projectId, req.sourcePath, source);
-    const { shotId } = await writeImportedShot(shotsDir, name, source);
-    req.onReserved?.(shotId);
+    const { shotId, versionPath } = await writeImportedShot(shotsDir, name, source);
+    const carried = await carryBuilderFiles(req.sourcePath, source, versionPath);
+    const report = versionMedia
+      ? { ...versionMedia.report, ...(carried.copied.length > 0 ? { copiedFiles: carried.copied } : {}) }
+      : undefined;
+    // No early handshake (onReserved): a clean import returns whole, like a bundled one, so its
+    // report (what was registered, what was copied) reaches the import panel (P3 part 6).
     const shot = buildImportedShot(shotId, name, source, 1, versionMedia?.assetRefs);
     shotJobEvents.emit({
       projectId: req.projectId,
@@ -250,8 +258,8 @@ export async function importShot(req: ImportShotRequest): Promise<ImportShotOutc
       shot,
       ...(versionMedia && versionMedia.assets.length > 0 ? { importedAssets: versionMedia.assets } : {}),
     });
-    log.info('Imported shot', { projectId: req.projectId, shotId, source: req.sourcePath, ...(versionMedia ? { media: versionMedia.report } : {}) });
-    return versionMedia ? { shotId, report: versionMedia.report } : { shotId };
+    log.info('Imported shot', { projectId: req.projectId, shotId, source: req.sourcePath, ...(report ? { media: report } : {}), carried });
+    return report ? { shotId, report } : { shotId };
   }
 
   const classification = classifyShotImport(source);

@@ -134,11 +134,11 @@ export interface ShotImportReport {
   /** `staticFile()` calls with a computed argument — they resolve to nothing. */
   dynamicMediaCalls: number;
   /**
-   * Files the source loads that a shot cannot hold as project media (a TSX
-   * builder version's 3D models, environment maps, fonts, data): they load
-   * nothing in Studio.
+   * Files a TSX builder version loads that are not project media (3D models,
+   * environment maps, fonts, data): copied into the new shot's `v1.assets/`,
+   * which it plays them from (TSX_BUILDER_DESIGN.md P3 part 6). POSIX paths.
    */
-  unsupportedMedia?: string[];
+  copiedFiles?: string[];
 }
 
 /** One or two plain sentences for the import panel. */
@@ -162,9 +162,10 @@ export function describeImportReport(report: ShotImportReport): string {
       `${report.dynamicMediaCalls} staticFile() call${report.dynamicMediaCalls === 1 ? ' has' : 's have'} a computed path and will load nothing until the matching key is attached.`,
     );
   }
-  if (report.unsupportedMedia && report.unsupportedMedia.length > 0) {
+  if (report.copiedFiles && report.copiedFiles.length > 0) {
+    const one = report.copiedFiles.length === 1;
     parts.push(
-      `Shots take images, video and audio only, so ${report.unsupportedMedia.join(', ')} load${report.unsupportedMedia.length === 1 ? 's' : ''} nothing here (the TSX Creator plays ${report.unsupportedMedia.length === 1 ? 'it' : 'them'}).`,
+      `Copied into the shot's folder: ${report.copiedFiles.join(', ')} (${one ? 'it plays' : 'they play'} from there; ${one ? 'it is' : 'they are'} not project media).`,
     );
   }
   return parts.join(' ');

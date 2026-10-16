@@ -24,7 +24,7 @@ export interface BuilderState {
   dirs: RunDirs;
   /** The requested frame; `check` fails a config that departs from it. */
   expect: BuildFormat;
-  /** A Studio shot (P3 part 5): check's media kinds, and what a transparent shot's looks draw behind it. */
+  /** A Studio shot (P3 part 5): what a transparent shot's looks draw behind it. */
   studioShot?: StudioShotBuild;
   roundsMax: number;
   /** finish is refused before this many rounds (unless the budget is spent). */
@@ -166,9 +166,7 @@ export function tracked<A>(state: BuilderState, phase: BuildPhase, handler: (arg
 
 export async function runCheck(state: BuilderState): Promise<BuildCheckResult> {
   state.checks += 1;
-  const result = state.studioShot
-    ? await checkBuild(state.dirs.workDir, state.expect, { studioShot: true })
-    : await checkBuild(state.dirs.workDir, state.expect);
+  const result = await checkBuild(state.dirs.workDir, state.expect);
   if (result.ok && result.code && result.config) {
     state.lastGood = { code: result.code, config: result.config, check: state.checks, physics: isPhysicsBuild(result.inlinedPackages) };
     const dir = path.join(state.dirs.runDir, 'checkpoints');

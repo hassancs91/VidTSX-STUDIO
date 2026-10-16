@@ -146,6 +146,13 @@ beforeAll(async () => {
   await write(path.join(projectDir, 'shots', 'intro', 'v1.tsx'), 'export default () => null;');
   await write(path.join(projectDir, 'shots', 'intro', 'original.tsx'), '// original');
   await write(path.join(projectDir, 'shots', 'intro', 'chat.json'), '{"messages":[]}');
+  // A TSX builder shot (P3 part 6): its files, its source, its record, its looks.
+  await write(path.join(projectDir, 'shots', 'trophy', 'v1.tsx'), 'export default () => null;');
+  await write(path.join(projectDir, 'shots', 'trophy', 'v1.assets', 'trophy.glb'), Buffer.alloc(256, 5));
+  await write(path.join(projectDir, 'shots', 'trophy', 'v1.assets', 'env', 'studio.hdr'), '#?RADIANCE');
+  await write(path.join(projectDir, 'shots', 'trophy', 'v1.src', 'index.tsx'), '// source');
+  await write(path.join(projectDir, 'shots', 'trophy', 'v1.debug.json'), '{"turns":[]}');
+  await write(path.join(projectDir, 'shots', 'trophy', 'v1.stills', 'r01-f000.jpg'), Buffer.alloc(32, 4));
   await write(path.join(projectDir, 'agent-chat.json'), '{"version":1,"messages":[]}');
   await write(path.join(projectDir, 'kit', '1.2.3', 'index.tsx'), '// kit');
   await write(path.join(projectDir, 'kit', '1.2.3', 'pack.json'), '{"version":"1.2.3"}');
@@ -191,6 +198,23 @@ describe('planPackage (Q7b contents policy)', () => {
     const on = await planPackage(makeProject(), { strategy: 'full', includeChat: true });
     expect(on.files.map((f) => f.path)).toContain('shots/intro/chat.json');
     expect(on.files.some((f) => f.group === 'chat')).toBe(true);
+  });
+
+  it("carries a builder shot's vN.assets/ and vN.src/ always, and its vN.debug.json only with the chat opt-in", async () => {
+    const off = (await planPackage(makeProject(), { strategy: 'full' })).files.map((f) => f.path);
+    expect(off).toEqual(
+      expect.arrayContaining([
+        'shots/trophy/v1.tsx',
+        'shots/trophy/v1.assets/trophy.glb',
+        'shots/trophy/v1.assets/env/studio.hdr',
+        'shots/trophy/v1.src/index.tsx',
+      ]),
+    );
+    expect(off).not.toContain('shots/trophy/v1.debug.json');
+    expect(off).not.toContain('shots/trophy/v1.stills/r01-f000.jpg');
+    const on = (await planPackage(makeProject(), { strategy: 'full', includeChat: true })).files.map((f) => f.path);
+    expect(on).toContain('shots/trophy/v1.debug.json');
+    expect(on).not.toContain('shots/trophy/v1.stills/r01-f000.jpg');
   });
 
   it('reports a missing asset instead of failing the plan', async () => {

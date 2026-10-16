@@ -173,13 +173,18 @@ async function planFolder(
   return out;
 }
 
-/** Shot sources: every version + the pre-conform original. Conversations
- *  (chat.json) ride the same opt-in as the project's agent chat. */
-function shotFileFilter(includeChat: boolean): (relPath: string) => boolean {
+/** Shot sources: every version + the pre-conform original, and a TSX builder
+ *  version's files (`vN.assets/`, what it plays) and source (`vN.src/`, what an
+ *  edit continues) always (P3 part 6). Conversations (chat.json) and builder
+ *  records (`vN.debug.json`: its `turns` are the transcript) ride the same
+ *  opt-in as the project's agent chat. `relPath` = `<shotId>/…`. */
+export function shotFileFilter(includeChat: boolean): (relPath: string) => boolean {
   return (relPath) => {
-    const name = relPath.split('/').pop() ?? '';
+    const parts = relPath.split('/');
+    const name = parts[parts.length - 1] ?? '';
+    if (parts.length > 2 && /^v\d+\.(assets|src)$/.test(parts[1])) return true;
     if (/^v\d+\.tsx$/.test(name) || name === 'original.tsx') return true;
-    return includeChat && name === 'chat.json';
+    return includeChat && (name === 'chat.json' || (parts.length === 2 && /^v\d+\.debug\.json$/.test(name)));
   };
 }
 

@@ -33,6 +33,7 @@ import { prepareTransitionSources } from './export-transitions';
 import { prepareFilterSources } from './export-filters';
 import { buildTrackEntryParts, prepareAnalysisTracks, writeAnalysisTracks } from './export-tracks';
 import { getProjectCacheDir, getShotVersionPath } from './studio-paths';
+import { shotVersionFiles } from './shot-version-files';
 import { writeExportContext } from './export-engines/export-context';
 import type { ExportSource } from '../../../shared/studio/export-source';
 
@@ -60,6 +61,12 @@ export interface StudioExportEntry {
    * copies from the same file; the audio pass reads the originals regardless.
    */
   sourcePaths?: Record<string, string>;
+  /**
+   * The shot folders (`vK.assets/`) a TSX builder shot's files are served from
+   * (shot-version-files.ts, P3 part 6 D8). Registered as asset roots again
+   * before the export renders, which may be after a restart. Absent = none.
+   */
+  assetRoots?: string[];
 }
 
 /**
@@ -249,6 +256,14 @@ export async function createExportEntry(
   for (const shot of usedShots) {
     preparedShots.push(await prepareShotSource(project, shot, assetUrlBase));
   }
+  // A builder shot's own files (vN.assets/) ride in TIMELINE; one named but missing fails here.
+  const versionFiles = await shotVersionFiles(
+    serialized,
+    await Promise.all(
+      usedShots.map(async (shot) => ({ shot, versionPath: await getShotVersionPath(project.id, shot.id, shot.activeVersion) })),
+    ),
+    assetUrlBase,
+  );
   const caption = await prepareCaptionTemplate(project, serialized, assetUrlBase);
   const transitions = await prepareTransitionSources(serialized, project.id, assetUrlBase);
   const filters = await prepareFilterSources(serialized, project.id);
@@ -328,7 +343,7 @@ ${fontLoader}export const compositionConfig = {
   durationInFrames: ${durationInFrames}
 };
 
-const TIMELINE = ${JSON.stringify(serialized)};
+const TIMELINE = ${JSON.stringify(versionFiles.timeline)};
 ${componentsLiteral ? `\nconst SHOT_COMPONENTS = ${componentsLiteral};\n` : ''}${transitionParts.componentsLiteral ? `\nconst TRANSITION_COMPONENTS = ${transitionParts.componentsLiteral};\n` : ''}${filterParts.componentsLiteral ? `\nconst FILTER_DEFINITIONS = ${filterParts.componentsLiteral};\n` : ''}${trackParts.literal ? `\nconst ANALYSIS_TRACKS = ${trackParts.literal};\n` : ''}
 // \`layer\` arrives as a render input prop: the shot-composite export engine
 // renders the shot layer alone with alpha (docs/export-engines-plan.md
@@ -346,6 +361,7 @@ export default function StudioTimelineExport(props: { layer?: 'shots' }) {
   const entry: StudioExportEntry = {
     entryPath, compositionId, width, height, fps, durationInFrames,
     ...(videoSource === 'proxy' ? { source: videoSource, sourcePaths } : {}),
+    ...(versionFiles.assetRoots.length > 0 ? { assetRoots: versionFiles.assetRoots } : {}),
   };
   // The export engines read the document back when the render starts
   // (docs/export-engines-plan.md) — a sidecar beside the entry, same sweep.

@@ -102,6 +102,34 @@ describe('entry size limits', () => {
     // Not the media folder — just a name that starts with the same letters.
     expect(entrySizeLimit('mediafoo/a.mp4')).toBe(PACKAGE_LIMITS.maxDataFileBytes);
   });
+
+  it("gives a builder shot's own files (vN.assets/) the media cap and keeps its code on the small one (P3 part 6)", () => {
+    expect(entrySizeLimit('shots/avocado/v1.assets/avocado.glb')).toBe(PACKAGE_LIMITS.maxMediaFileBytes);
+    expect(entrySizeLimit('shots/avocado/v12.assets/env/studio.hdr')).toBe(PACKAGE_LIMITS.maxMediaFileBytes);
+    expect(entrySizeLimit('shots/avocado/v1.tsx')).toBe(PACKAGE_LIMITS.maxDataFileBytes);
+    expect(entrySizeLimit('shots/avocado/v1.src/index.tsx')).toBe(PACKAGE_LIMITS.maxDataFileBytes);
+    expect(entrySizeLimit('shots/avocado/v1.debug.json')).toBe(PACKAGE_LIMITS.maxDataFileBytes);
+    // Only a version's folder, directly under a shot.
+    expect(entrySizeLimit('shots/v1.assets/a.glb')).toBe(PACKAGE_LIMITS.maxDataFileBytes);
+    expect(entrySizeLimit('shots/avocado/xv1.assets/a.glb')).toBe(PACKAGE_LIMITS.maxDataFileBytes);
+  });
+
+  it('lets a 100 MiB vN.assets entry through the manifest and still refuses a 100 MiB vN.tsx', () => {
+    const big = 100 * 1024 * 1024;
+    const withFile = (filePath: string) =>
+      parsePackageManifest(
+        goodManifest({
+          files: [
+            { path: 'project.json', size: 2, sha256: 'a'.repeat(64) },
+            { path: 'media/asset-1.mp4', size: 10, sha256: 'b'.repeat(64) },
+            { path: filePath, size: big, sha256: 'c'.repeat(64) },
+          ],
+        }),
+      );
+    expect(withFile('shots/avocado/v1.assets/avocado.glb').ok).toBe(true);
+    const code = withFile('shots/avocado/v1.tsx');
+    expect(code.ok === false && code.error).toBe('shots/avocado/v1.tsx exceeds the size limit for its kind.');
+  });
 });
 
 describe('packageMediaPath', () => {

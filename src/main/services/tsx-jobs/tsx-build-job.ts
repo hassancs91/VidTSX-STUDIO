@@ -37,7 +37,7 @@ export interface TsxJobOwner {
   into?: string;
   /** With `into`: a fresh build saved as the folder's next version (Studio's Regenerate). */
   retake?: boolean;
-  /** A Studio shot: its media kinds and what its looks show behind it (BuildRequest.studioShot). */
+  /** A Studio shot: what its looks show behind it (BuildRequest.studioShot). */
   studioShot?: StudioShotBuild;
   usage?: BuildUsageTag;
 }

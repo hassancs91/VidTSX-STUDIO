@@ -1,5 +1,6 @@
 import { createElement, useEffect, useMemo, useRef, type ComponentType } from 'react';
 import { setupVirtualModuleGlobals } from '@features/player';
+import { mergeVersionAssets } from '@shared/studio/shot-version-assets';
 import type { ShotRuntimeProps, StudioShot, StudioTimeline } from '../types';
 import { ShotErrorBoundary, ShotPlaceholder } from '../components/ShotErrorBoundary';
 import { markOpen } from '../services/open-timing';
@@ -110,8 +111,14 @@ async function loadShotComponent(projectId: string, req: ShotLoadRequest): Promi
     throw new Error('Shot module has no component default export');
   }
   const Inner = mod.default;
-  // Forward the serializer's runtime props through the boundary (D12).
+  // Forward the serializer's runtime props through the boundary (D12), with a
+  // builder version's own files under them (D8: the shot's assetRefs win).
+  const files = res.assets;
   const Wrapped: ShotComponent = (props) =>
-    createElement(ShotErrorBoundary, { label: req.label, children: createElement(Inner, props) });
+    createElement(ShotErrorBoundary, {
+      label: req.label,
+      moduleUrl: res.moduleUrl,
+      children: createElement(Inner, mergeVersionAssets(props, files)),
+    });
   return Wrapped;
 }
