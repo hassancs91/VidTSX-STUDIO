@@ -58,6 +58,7 @@ export interface AgentRunRequest {
   prompt: string;
   history: AgentChatMessage[];
   providerId?: string;
+  /** The turn's model: '' = back to the provider default; absent = the session's. */
   model?: string;
 }
 
@@ -148,6 +149,10 @@ export class AgentRunner {
         log.warn('Session provider not registered — using the app default', { requested });
       }
 
+      // A turn that names no model (a card reply, a job note) runs on the
+      // session's choice, the agent's LLM and its tools alike.
+      const model = req.model !== undefined ? req.model || undefined : ctx.session.model;
+
       const toolsAvailable = await resolveToolSupport(providerId);
       // §1.10: `propose_memory` is opt-in. An agent that lists it without
       // declaring `memory: { propose: true }` gets the READ side only — the
@@ -168,7 +173,7 @@ export class AgentRunner {
       const built = toolsAvailable
         ? buildAgentToolServer(
             selection.tools,
-            this.buildToolDeps(ctx, abort.signal, req.model ?? ctx.session.model),
+            this.buildToolDeps(ctx, abort.signal, model),
           )
         : null;
 
@@ -200,7 +205,7 @@ export class AgentRunner {
           featureSource: 'agent',
           ...(ctx.manifest.defaults?.effort ? { effort: ctx.manifest.defaults.effort } : {}),
           ...(providerId ? { providerId } : {}),
-          ...(req.model ? { model: req.model } : {}),
+          ...(model ? { model } : {}),
           ...(sdkTools.length > 0 ? { agentTools: [...sdkTools] } : {}),
           // Bare names in `allowedTools` auto-approve a tool BEFORE `canUseTool`
           // is consulted, so with the file guard on, the SDK tools must stay out

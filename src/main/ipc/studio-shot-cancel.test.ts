@@ -3,16 +3,24 @@
 // the Inspector's budget, the registry's facts and the footage under the clip.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { edit, refine, generate, cancel, isRunning } = vi.hoisted(() => ({
+const { edit, refine, generate, cancel, isRunning, loadProject } = vi.hoisted(() => ({
   edit: vi.fn<(req: Record<string, unknown>) => Promise<unknown>>(),
   refine: vi.fn<(req: Record<string, unknown>) => Promise<unknown>>(),
   generate: vi.fn<(req: Record<string, unknown> & { onReserved?: (id: string) => void }, existing?: string) => Promise<unknown>>(),
   cancel: vi.fn<(projectId: string, shotId: string) => boolean>(),
   isRunning: vi.fn<(projectId: string, shotId: string) => boolean>(),
+  loadProject: vi.fn<(id: string) => Promise<unknown>>(),
 }));
 
 vi.mock('electron', () => ({ dialog: {} }));
-vi.mock('../services/studio/shot-generator', () => ({ shotGenerator: { edit, refine, generate, cancel, isRunning } }));
+vi.mock('../services/studio/shot-generator', () => ({
+  shotGenerator: { edit, refine, generate, cancel, isRunning },
+  shotDefaults: (agent: { providerId?: string; shotModel?: string; model?: string }) => {
+    const model = agent.shotModel || agent.model;
+    return { ...(agent.providerId ? { providerId: agent.providerId } : {}), ...(model ? { model } : {}) };
+  },
+}));
+vi.mock('../services/studio/project-store', () => ({ loadProject }));
 vi.mock('../services/studio/studio-paths', () => ({ getProjectDir: vi.fn() }));
 vi.mock('../services/studio/shot-module-resolver', () => ({ resolveShotModule: vi.fn() }));
 vi.mock('../services/studio/creator-projects', () => ({ listCreatorProjects: vi.fn() }));
@@ -32,10 +40,11 @@ import { handleStudioShotCancel, handleStudioShotGenerate } from './studio-shot-
 const ev = {} as IpcMainInvokeEvent;
 
 beforeEach(() => {
-  for (const fn of [edit, refine, generate, cancel, isRunning]) fn.mockReset();
+  for (const fn of [edit, refine, generate, cancel, isRunning, loadProject]) fn.mockReset();
   edit.mockResolvedValue({});
   refine.mockResolvedValue({});
   isRunning.mockReturnValue(false);
+  loadProject.mockResolvedValue({ settings: { agent: {} } });
 });
 
 describe('shot cancel', () => {
@@ -98,5 +107,29 @@ describe('shot ops', () => {
     const res = await handleStudioShotGenerate(ev, { projectId: 'p1', op: 'regenerate', shotId: 's1', kind: 'title', brief: 'Words.' });
     expect(res).toEqual({ success: false, error: 'Asset talk has no word-level transcript' });
     expect(generate.mock.calls[0][1]).toBe('s1');
+  });
+
+  it("runs an op that names no model (the Inspector's) on the project's shot default", async () => {
+    loadProject.mockResolvedValue({ settings: { agent: { providerId: 'claude-subscription', model: 'a', shotModel: 'claude-opus-5-5' } } });
+    generate.mockImplementation(async (req) => {
+      req.onReserved?.('s1');
+      return new Promise(() => {});
+    });
+    const shot = { providerId: 'claude-subscription', model: 'claude-opus-5-5' };
+
+    await handleStudioShotGenerate(ev, { projectId: 'p1', op: 'edit', shotId: 's1', activeVersion: 1, instruction: 'Amber.' });
+    await handleStudioShotGenerate(ev, { projectId: 'p1', op: 'refine', shotId: 's1', activeVersion: 1 });
+    await handleStudioShotGenerate(ev, { projectId: 'p1', op: 'regenerate', shotId: 's1', kind: 'title', brief: 'Words.' });
+
+    expect(loadProject).toHaveBeenCalledWith('p1');
+    expect(edit.mock.calls[0][0]).toMatchObject(shot);
+    expect(refine.mock.calls[0][0]).toMatchObject(shot);
+    expect(generate.mock.calls[0][0]).toMatchObject(shot);
+  });
+
+  it('keeps the provider and model an op names, and reads no project for them', async () => {
+    await handleStudioShotGenerate(ev, { projectId: 'p1', op: 'refine', shotId: 's1', activeVersion: 1, model: 'claude-sonnet-5-5' });
+    expect(refine).toHaveBeenCalledWith({ projectId: 'p1', shotId: 's1', activeVersion: 1, model: 'claude-sonnet-5-5' });
+    expect(loadProject).not.toHaveBeenCalled();
   });
 });

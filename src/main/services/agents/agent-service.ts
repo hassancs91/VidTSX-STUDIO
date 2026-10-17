@@ -250,7 +250,8 @@ export class AgentService {
       prompt: input.prompt,
       history,
       ...(input.providerId ? { providerId: input.providerId } : {}),
-      ...(input.model ? { model: input.model } : {}),
+      // '' goes through: the session read above still holds the old choice.
+      ...(input.model !== undefined ? { model: input.model } : {}),
     });
 
     const added: AgentChatMessage[] = [{ id: chatId(), role: 'user', text: input.prompt }];

@@ -166,6 +166,26 @@ describe('AgentRunner.send', () => {
     expect(request()).toMatchObject({ maxTurns: 40, effort: 'high' });
   });
 
+  it("runs a turn that names no model (a card reply, a job note) on the session's model", async () => {
+    const { runner, store } = await makeRunner();
+    await runner.send(ctx(store, manifest(), session({ model: 'claude-opus-5-5' })), {
+      prompt: 'Picked: idea a',
+      history: [],
+    });
+    expect(request().model).toBe('claude-opus-5-5');
+  });
+
+  it("lets the turn's own model win, and '' go back to the provider default", async () => {
+    const { runner, store } = await makeRunner();
+    const picked = ctx(store, manifest(), session({ model: 'claude-opus-5-5' }));
+    await runner.send(picked, { prompt: 'hello', history: [], model: 'claude-sonnet-5-5' });
+    expect(request().model).toBe('claude-sonnet-5-5');
+
+    runLlmGenerate.mockClear();
+    await runner.send(picked, { prompt: 'hello', history: [], model: '' });
+    expect(request()).not.toHaveProperty('model');
+  });
+
   it('sends the replay window as messages, oldest first, with the new turn last', async () => {
     const { runner, store } = await makeRunner();
     await runner.send(ctx(store), {

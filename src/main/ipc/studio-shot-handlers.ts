@@ -20,7 +20,8 @@ import type {
 } from '../../shared/ipc/types';
 import { getProjectDir } from '../services/studio/studio-paths';
 import { isValidShotId } from '../../shared/studio/shots';
-import { shotGenerator } from '../services/studio/shot-generator';
+import { shotDefaults, shotGenerator } from '../services/studio/shot-generator';
+import { loadProject } from '../services/studio/project-store';
 import { listCreatorProjects } from '../services/studio/creator-projects';
 import { importShot } from '../services/studio/shot-import';
 import { reconcileShots } from '../services/studio/shot-reconcile';
@@ -39,6 +40,18 @@ export async function handleStudioShotCancel(
 }
 
 /**
+ * The op's provider and model. One that names neither (the Inspector's Apply
+ * edit, Refine and Regenerate) runs on the project's shot default, as the
+ * pool's Generate and Convert do.
+ */
+async function shotChoice(data: StudioShotGenerateRequest): Promise<{ providerId?: string; model?: string }> {
+  if (data.providerId || data.model) {
+    return { ...(data.providerId ? { providerId: data.providerId } : {}), ...(data.model ? { model: data.model } : {}) };
+  }
+  return shotDefaults((await loadProject(data.projectId)).settings.agent);
+}
+
+/**
  * Pool button and Inspector (D8 "direct user entry"): a fast-fail handshake
  * that returns the shot id, then the build runs detached — progress and the
  * result arrive as STUDIO_SHOT_JOB_EVENT pushes, exactly like transcript and
@@ -50,11 +63,7 @@ export async function handleStudioShotGenerate(
   data: StudioShotGenerateRequest,
 ): Promise<StudioShotGenerateResponse> {
   try {
-    const common = {
-      ...(data.footage ? { footage: data.footage } : {}),
-      ...(data.providerId ? { providerId: data.providerId } : {}),
-      ...(data.model ? { model: data.model } : {}),
-    };
+    const footage = data.footage ? { footage: data.footage } : {};
     if (data.op === 'edit' || data.op === 'refine') {
       if (!data.shotId || !data.activeVersion) {
         return { success: false, error: `${data.op === 'edit' ? 'Edit' : 'Refine'} needs a shot and its active version` };
@@ -74,7 +83,8 @@ export async function handleStudioShotGenerate(
         ...(data.brief ? { brief: data.brief } : {}),
         ...(data.anchor ? { anchor: data.anchor } : {}),
         ...(data.assetRefs ? { assetRefs: data.assetRefs } : {}),
-        ...common,
+        ...footage,
+        ...(await shotChoice(data)),
       };
       const run =
         data.op === 'edit'
@@ -90,6 +100,7 @@ export async function handleStudioShotGenerate(
     if (data.op === 'regenerate' && !data.shotId) {
       return { success: false, error: 'Regenerate needs the existing shot id' };
     }
+    const choice = await shotChoice(data);
     // Wait ONLY for the folder reservation (the id exists from then on) so
     // the renderer can track the run; the build continues detached and
     // completion arrives as push events. A failure before it (no transcript
@@ -107,7 +118,8 @@ export async function handleStudioShotGenerate(
             ...(data.assetRefs ? { assetRefs: data.assetRefs } : {}),
             ...(data.durationSeconds !== undefined ? { durationSeconds: data.durationSeconds } : {}),
             ...(data.budget ? { budget: data.budget } : {}),
-            ...common,
+            ...footage,
+            ...choice,
             origin: { by: 'user' },
             onReserved: (id) => {
               reserved = true;
