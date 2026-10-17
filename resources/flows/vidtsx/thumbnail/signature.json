@@ -1,6 +1,6 @@
 {
   "alg": "ed25519",
-  "keyId": "vidtsx-1",
-  "publicKey": "MCowBQYDK2VwAyEA9t8BEX8685J5lz3bkDhG0oRA4ry3AdYY5elbFrHF4qE=",
-  "signature": "nN+ewjcoNdE4MhVVdUbXcdAKl4vCVlFqtYZANNL/F2dKCQsENRN4umE/nEuZn7bmn3GYFBCWS9TnSmUMS7ZmBA=="
+  "keyId": "vidtsx-2",
+  "publicKey": "MCowBQYDK2VwAyEATxMhi+HWSXCl4Q0zL3Idj7dMUyWdog+hUu71yGZVtSs=",
+  "signature": "sqIIit9E1KZpbDzKB6uq+RHg5E/6Wu68y+vHDkWTnPwT/d5vf1hqAz1YJup81hh7V1V4jHeieA17CpwBd0wtAA=="
 }

@@ -22,15 +22,25 @@ export interface AgentPublisher {
 }
 
 /**
- * VidTSX's own key, generated 2026-09-08 with `agent-pack.mjs --genkey`; the
- * private half lives outside the repo, named by `VIDTSX_AGENT_SIGNING_KEY`.
+ * VidTSX's own keys. `vidtsx-2` (2026-10-17) is the signing key: its private
+ * half is Hasan's, at `%USERPROFILE%\.vidtsx\keys\vidtsx-2.pem` (named by the
+ * user env var `VIDTSX_AGENT_SIGNING_KEY`) with a copy in his password manager —
+ * never in a repo or a session. Sign with `--key-id vidtsx-2`. `vidtsx-1`
+ * (2026-09-08) is RETIRED: its private half was lost on 2026-10-17, so it signs
+ * nothing new; it leaves this list once every built-in is re-signed.
  *
  * Adding a key here is a claim about identity, so the bar for a new entry is
  * the same as the bar for shipping code: it says the app vouches for whatever
  * that key signs. A package signed by any OTHER key still installs — it reads
  * "Signed, unverified publisher" — so this list gates the tag, never the user.
+ * A lost key gets a NEW keyId; a keyId is never reused for different bytes.
  */
 export const AGENT_PUBLISHERS: readonly AgentPublisher[] = [
+  {
+    keyId: 'vidtsx-2',
+    name: 'VidTSX',
+    publicKey: 'MCowBQYDK2VwAyEATxMhi+HWSXCl4Q0zL3Idj7dMUyWdog+hUu71yGZVtSs=',
+  },
   {
     keyId: 'vidtsx-1',
     name: 'VidTSX',
