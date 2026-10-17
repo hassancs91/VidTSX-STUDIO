@@ -10,7 +10,9 @@ import { AGENT_PUBLISHERS, findPublisherByKey } from './publishers';
 
 describe('AGENT_PUBLISHERS', () => {
   it('ships VidTSX, so a package we signed can read "Verified by VidTSX"', () => {
-    expect(AGENT_PUBLISHERS.map((p) => p.keyId)).toContain('vidtsx-1');
+    expect(AGENT_PUBLISHERS.map((p) => p.keyId)).toContain('vidtsx-2');
+    // Retired 2026-10-17 (private half lost): it must not come back.
+    expect(AGENT_PUBLISHERS.map((p) => p.publicKey)).not.toContain('MCowBQYDK2VwAyEA9t8BEX8685J5lz3bkDhG0oRA4ry3AdYY5elbFrHF4qE=');
   });
 
   it('every entry is a real ed25519 public key in SPKI DER base64', () => {
@@ -43,9 +45,9 @@ describe('AGENT_PUBLISHERS', () => {
   });
 
   it('finds the shipped key by its bytes, and is not fooled by a claimed keyId', () => {
-    const vidtsx = AGENT_PUBLISHERS.find((p) => p.keyId === 'vidtsx-1');
+    const vidtsx = AGENT_PUBLISHERS.find((p) => p.keyId === 'vidtsx-2');
     expect(findPublisherByKey(vidtsx!.publicKey)).toBe(vidtsx);
-    // An impostor naming its key 'vidtsx-1' carries different bytes.
+    // An impostor naming its key 'vidtsx-2' carries different bytes.
     const impostor = crypto
       .generateKeyPairSync('ed25519')
       .publicKey.export({ format: 'der', type: 'spki' })
