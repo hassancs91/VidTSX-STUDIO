@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Sparkles } from 'lucide-react';
-import type { AgentArtifact, InteractionReply } from '@shared/types/agents';
+import type { AgentArtifact } from '@shared/types/agents';
 import type { AgentArtifactActionKind } from '@shared/ipc/types';
 import type { FlowDoc, FlowPortValue, NodeSpec } from '@shared/types/flows';
 import { getArtifactViewer } from '@renderer/components/artifact-viewers/registry';
@@ -9,14 +9,13 @@ import { useToast } from '@renderer/contexts/ToastContext';
 import type { RunState } from '../hooks/useFlowRun';
 import { useRunArtifactViewer } from '../hooks/useRunArtifactViewer';
 import { useRunArtifactActions } from '../hooks/useRunArtifactActions';
-import { PauseCard } from './PauseCard';
+import { pendingArtifactId, viewerArtifactId } from '../services/pending-artifact';
 import { StepsStrip } from './StepsStrip';
 
 interface Props {
   doc: FlowDoc;
   specs: Record<string, NodeSpec>;
   runState: RunState;
-  onReply: (reply: InteractionReply) => Promise<string | null>;
 }
 
 /** The flow's declared outputs, resolved against the run: artifacts or text. */
@@ -31,22 +30,30 @@ function declaredOutputs(doc: FlowDoc, runState: RunState): Array<{ label: strin
 
 /**
  * The run form's right pane (flows plan §1.4): the flow's `outputs` large
- * through the SHARED viewer registry with the SHARED action bar, a pending
- * checkpoint over it with the shared cards, and the steps strip below.
+ * through the SHARED viewer registry with the SHARED action bar, and the
+ * steps strip below. A pending checkpoint's card sits in the left column
+ * (P3 part 7 follow-up 3(a)); here the viewer shows the piece it reviews.
  */
-export function RunOutputs({ doc, specs, runState, onReply }: Props) {
+export function RunOutputs({ doc, specs, runState }: Props) {
   const { showToast } = useToast();
   const outputs = useMemo(() => declaredOutputs(doc, runState), [doc, runState]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // The first declared output with an artifact is what shows by default; a
-  // new run resets the choice.
+  // waiting checkpoint shows what it reviews instead (a paused composition is
+  // not a declared output). A new run, or a new card, resets the user's pick;
+  // a card clearing keeps it.
   const firstArtifact = outputs.find((o) => o.value.kind === 'artifact');
   const firstId = firstArtifact?.value.kind === 'artifact' ? firstArtifact.value.artifactId : null;
+  const pendingId = useMemo(() => pendingArtifactId(runState.pending?.request.payload, runState.artifacts), [runState.pending, runState.artifacts]);
+  const pendingRequestId = runState.pending?.request.id ?? null;
   useEffect(() => {
     setSelectedId(null);
   }, [runState.runId]);
-  const artifactId = selectedId ?? firstId;
+  useEffect(() => {
+    if (pendingRequestId) setSelectedId(null);
+  }, [pendingRequestId]);
+  const artifactId = viewerArtifactId({ selectedId, pendingId, firstOutputId: firstId });
   const selected: AgentArtifact | null = artifactId ? (runState.artifacts.find((a) => a.id === artifactId) ?? null) : null;
 
   const { resolved, loading, error } = useRunArtifactViewer(runState.runId, selected);
@@ -60,11 +67,9 @@ export function RunOutputs({ doc, specs, runState, onReply }: Props) {
     showToast(result.message, result.ok ? 'success' : 'error');
   };
 
-  const pending = runState.pending;
-
   return (
     <div className="flex flex-col h-full min-h-0 bg-app-player" data-run-outputs>
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative" data-run-viewer={selected?.id ?? ''}>
         {selected && Viewer ? (
           <Viewer artifact={selected} resolved={resolved} loading={loading} {...(error !== undefined ? { error } : {})} />
         ) : textOutputs.length > 0 ? (
@@ -81,23 +86,6 @@ export function RunOutputs({ doc, specs, runState, onReply }: Props) {
         ) : (
           <OutputsEmpty status={runState.status} />
         )}
-        {pending ? (
-          <div className="absolute inset-0 z-10 flex items-stretch justify-center bg-app-player/90 p-4">
-            <PauseCard
-              pending={pending}
-              node={runState.nodes[pending.nodeId]}
-              artifacts={runState.artifacts}
-              assetUrls={runState.assetUrls}
-              busy={runState.replying}
-              revises={Boolean(specs[doc.graph.nodes.find((n) => n.id === pending.nodeId)?.toolId ?? '']?.revisesOnRetry)}
-              onReply={(reply) =>
-                void onReply(reply).then((err) => {
-                  if (err) showToast(err, 'error');
-                })
-              }
-            />
-          </div>
-        ) : null}
       </div>
 
       {selected ? (

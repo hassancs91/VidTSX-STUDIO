@@ -5,10 +5,12 @@ import type { FlowDoc, FlowRunMode, NodeSpec } from '@shared/types/flows';
 import { hasPauseNode, initialParamValues, missingRequiredParams } from '@shared/flows/params';
 import { BrandSelect } from '@renderer/components/agents/BrandSelect';
 import { useAgentBrandList } from '@renderer/hooks/agents/useAgentBrandList';
+import { useToast } from '@renderer/contexts/ToastContext';
 import { isRunActive, type RunOptions, type RunState } from '../hooks/useFlowRun';
 import { needLabel } from '../services/node-style';
 import { ModeSwitch } from './ModeSwitch';
 import { ParamField } from './ParamField';
+import { PauseCard } from './PauseCard';
 import { PricedStepsLine } from './PricedStepsLine';
 import { RunOutputs } from './RunOutputs';
 
@@ -39,9 +41,12 @@ const SECONDARY = 'flex items-center gap-1.5 h-[26px] px-3 rounded-[6px] text-[1
 /**
  * The run form (flows plan §1.4): `params` in order with the shared field
  * components, the brand picker beside the mode switch, the priced-steps
- * line, Run / Cancel / Resume, and the outputs pane on the right.
+ * line, Run / Cancel / Resume, and the outputs pane on the right. While a
+ * checkpoint waits its card takes the params' place, so nothing covers the
+ * viewer (P3 part 7 follow-up 3(a)).
  */
 export function RunFormView({ doc, specs, runState, prefill, onRun, onCancel, onResume, onReply }: Props) {
+  const { showToast } = useToast();
   const pausable = hasPauseNode(doc);
   const [values, setValues] = useState<Record<string, unknown>>(() => initialParamValues(doc.params, prefill));
   const [mode, setMode] = useState<FlowRunMode>(pausable ? 'attended' : 'unattended');
@@ -63,13 +68,28 @@ export function RunFormView({ doc, specs, runState, prefill, onRun, onCancel, on
   const needs = useMemo(() => unmetNeeds(doc, specs), [doc, specs]);
   const blocked = missing.length > 0 ? `${missing[0].label} is required` : needs.length > 0 ? `Needs ${needs.map(needLabel).join(', ')}` : null;
   const effectiveBrand = brandId === undefined ? (brandList.defaultBrandId ?? null) : brandId;
+  const pending = runState.pending;
 
   return (
     <div className="flex h-full min-h-0" data-run-form data-run-form-status={runState.status}>
       <aside className="w-[340px] shrink-0 flex flex-col bg-app-surface" style={{ borderRight: '0.5px solid var(--color-border)' }}>
         <div className="flex-1 min-h-0 overflow-y-auto p-3 flex flex-col gap-3">
-          {doc.description ? <p className="text-[11px] text-text-muted leading-snug">{doc.description}</p> : null}
-          {doc.params.length === 0 ? (
+          {doc.description ? <p className="shrink-0 text-[11px] text-text-muted leading-snug">{doc.description}</p> : null}
+          {pending ? (
+            <PauseCard
+              pending={pending}
+              node={runState.nodes[pending.nodeId]}
+              artifacts={runState.artifacts}
+              assetUrls={runState.assetUrls}
+              busy={runState.replying}
+              revises={Boolean(specs[doc.graph.nodes.find((n) => n.id === pending.nodeId)?.toolId ?? '']?.revisesOnRetry)}
+              onReply={(reply) =>
+                void onReply(reply).then((err) => {
+                  if (err) showToast(err, 'error');
+                })
+              }
+            />
+          ) : doc.params.length === 0 ? (
             <p className="text-[11px] text-text-dim leading-snug">
               This flow has no parameters — every value is fixed on the canvas. Expose a field from the Edit view to ask for it here.
             </p>
@@ -142,7 +162,7 @@ export function RunFormView({ doc, specs, runState, prefill, onRun, onCancel, on
       </aside>
 
       <div className="flex-1 min-w-0">
-        <RunOutputs doc={doc} specs={specs} runState={runState} onReply={onReply} />
+        <RunOutputs doc={doc} specs={specs} runState={runState} />
       </div>
     </div>
   );
