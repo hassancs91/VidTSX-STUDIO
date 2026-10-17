@@ -16,7 +16,7 @@ import { writeNextVersion } from '../tsx-jobs/project-store';
 import { bundleShotSource } from './shot-bundle';
 import { registerBundleMedia } from './shot-bundle-media';
 import { validateShotCode } from './shot-generator';
-import { ORIGINAL_FILE_NAME, bundleNodePaths } from './shot-import';
+import { ORIGINAL_FILE_NAME, bundleNodePaths } from './shot-import-land';
 
 export interface InPlaceBundleRequest {
   projectId: string;

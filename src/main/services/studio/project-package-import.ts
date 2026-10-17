@@ -63,7 +63,7 @@ const log = logEngine.createLogger('ProjectPackageImport');
 export interface ImportShotReport {
   shotId: string;
   name: string;
-  /** ready = the gate passed · convert = only the allowlist gap · error = no. */
+  /** ready = the gate passed (bundled in place or not) · convert = "Convert for Studio" can fix it · error = no. */
   verdict: 'ready' | 'convert' | 'error';
   error?: string;
 }
@@ -249,8 +249,8 @@ async function gateShots(
       continue;
     }
 
-    const classification = classifyShotImport(source);
-    const error = describeImportFailure(classification, gate.error ?? 'Failed the shot gate');
+    const classification = classifyShotImport(source, { syntaxError: gate.syntaxError === true });
+    const error = describeImportFailure(classification, gate.error ?? 'Failed the shot gate', bundled.reason);
     reports.push({
       shotId: shot.id,
       name: shot.name,

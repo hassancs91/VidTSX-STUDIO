@@ -207,6 +207,22 @@ export function refineIntent(input: {
   return lines.join('\n');
 }
 
+/**
+ * Convert for Studio (P3 part 8, D10): a composition written outside Studio
+ * that the bundler could not make a shot. The problems are the gate's and the
+ * bundler's own words; the builder's check is the same gate.
+ */
+export function convertIntent(input: { problems: string[]; media?: ShotMediaNote[] }): string {
+  return [
+    'CONVERT FOR STUDIO: this composition was written outside Studio and does not pass the Studio shot check yet:',
+    ...input.problems.map((p) => `- ${p}`),
+    '',
+    'Make it pass check with the fewest changes. Keep its look, its timing and its compositionConfig exactly as they are (if it has none, add one that matches what it draws). Replace only what check refuses: a library that animates on its own clock becomes frame-driven code from useCurrentFrame(); a package outside the catalogue becomes a small inline equivalent or a catalogue library.',
+    'Studio shots carry no synthesized audio: remove audio synthesis (tone and the like) and keep the picture.',
+    ...editMediaLines(input.media),
+  ].join('\n');
+}
+
 export interface ShotBuildRequestInput {
   prompt: string;
   budget: BuildBudget;

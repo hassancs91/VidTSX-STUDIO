@@ -242,8 +242,9 @@ export async function handleStudioPackageImport(
   }
 }
 
-/** Convert an imported shot that only trips the allowlist gap (Q7d card). The
- *  converted version arrives on the shot job-event stream like any other. */
+/** Convert an imported shot the gate refused (Q7d card): the bundler, then a
+ *  Quick builder edit at the project's shot default (P3 part 8). The converted
+ *  version arrives on the shot job-event stream like any other. */
 export async function handleStudioShotConform(
   _event: IpcMainInvokeEvent,
   data: StudioShotConformRequest,
@@ -252,11 +253,7 @@ export async function handleStudioShotConform(
     if (!data?.projectId || !data?.shotId) {
       return { success: false, error: 'A project and shot are required' };
     }
-    const outcome = await conformShot({
-      projectId: data.projectId,
-      shotId: data.shotId,
-      ...(data.providerId ? { providerId: data.providerId } : {}),
-    });
+    const outcome = await conformShot({ projectId: data.projectId, shotId: data.shotId });
     if (outcome.error) return { success: false, shotId: outcome.shotId, error: outcome.error };
     return { success: true, shotId: outcome.shotId, ...(outcome.version ? { version: outcome.version } : {}) };
   } catch (err) {

@@ -15,7 +15,8 @@
 // hard-fail drop-in would re-add a junk pool card on every focus rescan.
 // They're returned for the banner instead — conformable ones with the source
 // path so the existing "Convert for Studio" flow (useShotImport) can re-enter
-// importShot with conform:true. A per-process memo suppresses re-reporting the
+// importShot with conform:true, which adopts the folder and converts it in
+// place (P3 part 8, P8-8). A per-process memo suppresses re-reporting the
 // same failed folder within a session; a restart honestly reminds again.
 //
 // Folders with no v*.tsx are skipped silently: that is the reserved-but-not-
@@ -48,7 +49,7 @@ export interface ReconcileShotFailure {
   /** Newest version file — what "Convert for Studio" re-enters importShot with. */
   sourcePath: string;
   error: string;
-  /** The only problem is the allowlist gap — Convert is worth offering. */
+  /** The bundler could not fix it and Convert can — worth offering. */
   conformable: boolean;
 }
 
@@ -195,11 +196,11 @@ async function runScan(
       continue;
     }
     seen.add(shotId);
-    const classification = classifyShotImport(code);
+    const classification = classifyShotImport(code, { syntaxError: gate.syntaxError === true });
     failures.push({
       shotId,
       sourcePath: candidate.filePath,
-      error: describeImportFailure(classification, gate.error ?? 'Failed the shot gate'),
+      error: describeImportFailure(classification, gate.error ?? 'Failed the shot gate', bundled.reason),
       conformable: classification.canConform,
     });
     log.warn('Unadoptable shot folder', { projectId, shotId, conformable: classification.canConform });

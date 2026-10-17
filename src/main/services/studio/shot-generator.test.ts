@@ -49,7 +49,7 @@ vi.mock('./media-import', async (original) => ({
 
 import { fakeBuildEngine, type FakeBuildEngine } from '../agents/tools/test-build-engine';
 import { setBuildEngineForTests } from '../tsx-jobs/build-engine';
-import { shotGenerator, ShotCancelledError, WAITING_MESSAGE } from './shot-generator';
+import { shotDefaults, shotGenerator, ShotCancelledError, WAITING_MESSAGE } from './shot-generator';
 
 const CODE = "export const compositionConfig = { id: 'shot', width: 1920, height: 1080, fps: 30, durationInFrames: 150 };\nexport default () => null;";
 let engine: FakeBuildEngine;
@@ -317,5 +317,62 @@ describe('edit and refine', () => {
     await expect(shotGenerator.edit({ projectId: 'p1', shotId: 'badge', activeVersion: 7, instruction: 'x' })).rejects.toThrow(/v7/);
     expect(events.at(-1)).toMatchObject({ op: 'edit', status: 'error' });
     expect(engine.builds).toEqual([]);
+  });
+});
+
+describe('convert (P3 part 8)', () => {
+  const folder = () => path.join(projectDir, 'shots', 'tone-beat');
+  beforeEach(async () => {
+    await fs.mkdir(folder(), { recursive: true });
+    await fs.writeFile(path.join(folder(), 'v1.tsx'), CODE);
+  });
+
+  it('is a Quick builder edit of the version that names the problems, with op "import" events', async () => {
+    const { shot } = await shotGenerator.convert({
+      projectId: 'p1',
+      shotId: 'tone-beat',
+      activeVersion: 1,
+      kind: 'cutaway',
+      problems: ['Import "tone" is not allowed', 'Bundling it into one Studio shot did not work: Package "tone" is not available to shots'],
+      providerId: 'claude-subscription',
+      model: 'claude-sonnet-5-5',
+    });
+    const { request, owner } = engine.builds[0];
+    expect(request).toMatchObject({ providerId: 'claude-subscription', options: { model: 'claude-sonnet-5-5' } });
+    expect(request.build).toMatchObject({ budget: 'quick', editOf: { folderPath: folder(), version: 1 }, threadText: 'Convert v1 for Studio' });
+    expect(request.prompt).toMatch(/^CONVERT FOR STUDIO: /);
+    expect(request.prompt).toContain('- Import "tone" is not allowed');
+    expect(request.prompt).toContain('Package "tone" is not available to shots');
+    expect(request.prompt).toContain('fewest changes');
+    expect(request.prompt).toContain('no synthesized audio');
+    expect(owner).toMatchObject({ origin: 'studio', studioShot: { transparent: false } });
+    expect(shot).toMatchObject({ id: 'tone-beat', activeVersion: 2, status: 'ready' });
+    expect(events[0]).toMatchObject({ op: 'import', status: 'generating', message: 'Converting…' });
+    expect(events.at(-1)).toMatchObject({ op: 'import', status: 'ready', shot: { activeVersion: 2 } });
+  });
+
+  it('its ready snapshot carries every ref the shot keeps (the renderer adopts an import snapshot whole)', async () => {
+    await shotGenerator.convert({ projectId: 'p1', shotId: 'tone-beat', activeVersion: 1, kind: 'cutaway', assetRefs: { logo: 'logo' }, problems: ['x'] });
+    expect(events.at(-1)).toMatchObject({ op: 'import', status: 'ready', shot: { assetRefs: { logo: 'logo' } } });
+  });
+
+  it('a cancel stops it like any other op: a canceled event, the version left as it was', async () => {
+    engine.options.outcome = 'hang';
+    const run = shotGenerator.convert({ projectId: 'p1', shotId: 'tone-beat', activeVersion: 1, kind: 'cutaway', problems: ['x'] });
+    await settle();
+    expect(shotGenerator.isRunning('p1', 'tone-beat')).toBe(true);
+    shotGenerator.cancel('p1', 'tone-beat');
+    await expect(run).rejects.toBeInstanceOf(ShotCancelledError);
+    expect(events.at(-1)).toEqual({ projectId: 'p1', shotId: 'tone-beat', op: 'import', status: 'canceled' });
+    expect(await fs.readdir(folder())).toEqual(['v1.tsx']);
+  });
+});
+
+describe('shotDefaults', () => {
+  it('is the project provider with its shot model, else its model, else nothing', () => {
+    expect(shotDefaults({ providerId: 'openrouter', model: 'a', shotModel: 'b' })).toEqual({ providerId: 'openrouter', model: 'b' });
+    expect(shotDefaults({ model: 'a' })).toEqual({ model: 'a' });
+    expect(shotDefaults({})).toEqual({});
+    expect(shotDefaults(undefined)).toEqual({});
   });
 });

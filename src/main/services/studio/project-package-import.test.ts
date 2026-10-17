@@ -351,20 +351,22 @@ describe('importPackage — the mandatory shot gate (Q7d/Q7e)', () => {
     expect(gate.validateShotCode.mock.calls[0][0]).toContain('export default');
   });
 
-  it('offers Convert when the only problem is the allowlist gap', async () => {
+  it('offers Convert, with the bundler reason, when the bundler cannot fix the shot (P3 part 8)', async () => {
     const project = makeProject();
     const projectDir = path.join(projectsDir(), SOURCE_ID);
     await write(
       path.join(projectDir, 'shots', 'intro', 'v1.tsx'),
-      "import chroma from 'chroma-js';\nexport const compositionConfig = { durationInFrames: 30, fps: 30, width: 1920, height: 1080 };\nexport default () => null;",
+      "import * as Tone from 'tone';\nexport const compositionConfig = { durationInFrames: 30, fps: 30, width: 1920, height: 1080 };\nexport default () => { void Tone; return null; };",
     );
     const dest = path.join(tmpDir, 'convert.vidtsx');
     await writePackage({ project, destPath: dest, strategy: 'none' });
 
-    gate.validateShotCode.mockResolvedValue({ success: false, error: 'Import "chroma-js" is not allowed' });
+    gate.validateShotCode.mockResolvedValue({ success: false, error: 'Import "tone" is not allowed' });
+    inPlace.bundleShotInPlace.mockResolvedValue({ ok: false, reason: 'Package "tone" is not available to shots' });
     const report = await importPackage({ filePath: dest });
     expect(report.shots[0]).toMatchObject({ shotId: 'intro', verdict: 'convert' });
-    expect(report.shots[0].error).toContain('chroma-js');
+    expect(report.shots[0].error).toContain('Package "tone" is not available to shots.');
+    expect(report.shots[0].error).toContain('Convert for Studio');
 
     // The project still opens: the shot is an error card, not a broken preview.
     const imported = await loadImported(report.projectId);

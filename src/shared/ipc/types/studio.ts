@@ -733,10 +733,10 @@ export interface StudioCreatorProjectsResponse {
 /** "Convert for Studio" for a shot already in the project (Q7d import card).
  *  Lands as a NEW VERSION in the SAME shot folder — the id every clip
  *  references must survive the conversion. */
+/** No provider or model: Convert runs at the project's shot default (P3 part 8). */
 export interface StudioShotConformRequest {
   projectId: string;
   shotId: string;
-  providerId?: string;
 }
 
 export interface StudioShotConformResponse {
@@ -753,10 +753,10 @@ export interface StudioShotImportRequest {
   sourcePath?: string;
   /** Display name; derived from the path when absent. */
   name?: string;
-  /** "Convert for Studio": one conform pass before the gate (allowlist gap). */
+  /** "Convert for Studio": after the bundler, the TSX builder makes it a shot (a paid Quick edit, P3 part 8). */
   conform?: boolean;
   providerId?: string;
-  /** The project's shot model, for the conform pass. */
+  /** The project's shot model, for Convert. */
   model?: string;
 }
 
@@ -772,7 +772,7 @@ export interface StudioShotImportResponse {
   /** The file picker was dismissed — not an error. */
   canceled?: boolean;
   error?: string;
-  /** The failure is only the allowlist gap — the caller may offer Convert. */
+  /** The bundler could not fix it and Convert can — the caller may offer Convert. */
   conformable?: boolean;
   /** Echoed back so the Convert action can re-import the same source. */
   sourcePath?: string;
@@ -792,7 +792,7 @@ export interface StudioShotsReconcileFailure {
   /** Newest version file — Convert re-enters the import path with this. */
   sourcePath: string;
   error: string;
-  /** Only the allowlist gap failed — the caller may offer Convert. */
+  /** The bundler could not fix it and Convert can (it is adopted and converted in place). */
   conformable: boolean;
 }
 

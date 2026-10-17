@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  buildConformInstruction,
-  classifyShotImport,
-  deriveImportName,
-  describeImportFailure,
-  isConformableModule,
-} from './shot-import';
+import { classifyShotImport, deriveImportName, describeImportFailure } from './shot-import';
 
 const CLEAN = `import React from 'react';
 import { useCurrentFrame, interpolate } from 'remotion';
@@ -20,114 +14,66 @@ function withImports(...specs: string[]): string {
   return `${specs.map((s, i) => `import X${i} from '${s}';`).join('\n')}\n${CLEAN}`;
 }
 
-describe('isConformableModule', () => {
-  it('accepts the Creator 2d allowlist, including subpaths', () => {
-    expect(isConformableModule('chroma-js')).toBe(true);
-    expect(isConformableModule('@remotion/shapes')).toBe(true);
-    expect(isConformableModule('@remotion/google-fonts/Inter')).toBe(true);
-    expect(isConformableModule('@remotion/transitions/slide')).toBe(true);
-    expect(isConformableModule('tone')).toBe(true);
-  });
-
-  it('rejects anything else — a conform pass can only inline what it knows', () => {
-    expect(isConformableModule('three')).toBe(false);
-    expect(isConformableModule('@react-three/fiber')).toBe(false);
-    expect(isConformableModule('chroma-js-extra')).toBe(false);
-    expect(isConformableModule('./helpers')).toBe(false);
-  });
-});
-
+// P3 part 8 (D10): what reaches the classification is what the bundler could not fix.
 describe('classifyShotImport', () => {
-  it('reports nothing wrong for a file the gate accepts', () => {
-    const result = classifyShotImport(CLEAN);
+  it('lists the packages and offers Convert for a single file that compiles (tone, gsap, three alike)', () => {
+    const result = classifyShotImport(withImports('tone', 'gsap', 'three', '@remotion/google-fonts/Inter'));
     expect(result).toEqual({
-      conformable: [],
-      blocking: [],
+      packages: ['tone', 'gsap', 'three', '@remotion/google-fonts/Inter'],
+      localFiles: [],
       otherErrors: [],
-      canConform: false,
+      syntaxError: false,
+      canConform: true,
     });
   });
 
-  it('flags the allowlist gap as conformable', () => {
+  it('de-duplicates repeated specifiers and sees dynamic imports and requires', () => {
     const result = classifyShotImport(
-      withImports('@remotion/shapes', 'chroma-js', '@remotion/google-fonts/Inter'),
+      `import { Circle } from '@remotion/shapes';\nimport { Rect } from '@remotion/shapes';\n${CLEAN}\nconst c = await import('chroma-js');\nconst t = require('three');\n`,
     );
-    expect(result.conformable).toEqual([
-      '@remotion/shapes',
-      'chroma-js',
-      '@remotion/google-fonts/Inter',
-    ]);
-    expect(result.blocking).toEqual([]);
+    expect(result.packages).toEqual(['@remotion/shapes', 'chroma-js', 'three']);
+  });
+
+  it('keeps a source that imports local files manual: Convert edits one file', () => {
+    const result = classifyShotImport(withImports('./helpers', 'gsap', 'C:/abs/thing'));
+    expect(result.localFiles).toEqual(['./helpers', 'C:/abs/thing']);
+    expect(result.packages).toEqual(['gsap']);
+    expect(result.canConform).toBe(false);
+  });
+
+  it('offers Convert for a missing compositionConfig or default export (the builder writes them)', () => {
+    const noConfig = `import gsap from 'gsap';\nimport React from 'react';\nexport default function Shot() { return React.createElement('div'); }\n`;
+    const result = classifyShotImport(noConfig);
+    expect(result.otherErrors).toHaveLength(1);
+    expect(result.otherErrors[0]).toContain('compositionConfig');
     expect(result.canConform).toBe(true);
   });
 
-  it('de-duplicates repeated specifiers', () => {
-    const result = classifyShotImport(
-      `import { Circle } from '@remotion/shapes';\nimport { Rect } from '@remotion/shapes';\n${CLEAN}`,
-    );
-    expect(result.conformable).toEqual(['@remotion/shapes']);
-  });
-
-  it('treats relative/absolute imports and unknown packages as blocking', () => {
-    const result = classifyShotImport(withImports('./helpers', 'three', 'C:/abs/thing'));
-    expect(result.blocking).toEqual(['./helpers', 'three', 'C:/abs/thing']);
-    expect(result.canConform).toBe(false);
-  });
-
-  it('refuses to conform when a blocking import rides along with a conformable one', () => {
-    const result = classifyShotImport(withImports('@remotion/shapes', 'three'));
-    expect(result.conformable).toEqual(['@remotion/shapes']);
-    expect(result.blocking).toEqual(['three']);
-    expect(result.canConform).toBe(false);
-  });
-
-  it('surfaces non-import gate complaints and blocks conversion on them', () => {
-    const noConfig = `import { Circle } from '@remotion/shapes';
-import React from 'react';
-export default function Shot() { return React.createElement('div'); }
-`;
-    const result = classifyShotImport(noConfig);
-    expect(result.conformable).toEqual(['@remotion/shapes']);
-    expect(result.otherErrors).toHaveLength(1);
-    expect(result.otherErrors[0]).toContain('compositionConfig');
-    expect(result.canConform).toBe(false);
-  });
-
-  it('sees dynamic imports and requires too', () => {
-    const dynamic = `${CLEAN}\nconst c = await import('chroma-js');\nconst t = require('three');\n`;
-    const result = classifyShotImport(dynamic);
-    expect(result.conformable).toEqual(['chroma-js']);
-    expect(result.blocking).toEqual(['three']);
+  it('never offers Convert for a syntax error', () => {
+    const result = classifyShotImport(withImports('gsap'), { syntaxError: true });
+    expect(result).toMatchObject({ syntaxError: true, otherErrors: [], canConform: false });
   });
 });
 
 describe('describeImportFailure', () => {
-  it('offers conversion when that is the whole problem', () => {
-    const classification = classifyShotImport(withImports('@remotion/shapes'));
-    const message = describeImportFailure(classification, 'gate error');
-    expect(message).toContain('@remotion/shapes');
+  it('names the bundler reason and offers Convert, saying it is a paid builder run', () => {
+    const classification = classifyShotImport(withImports('tone'));
+    const message = describeImportFailure(classification, 'gate error', 'Package "tone" is not available to shots (allowed: …).');
+    expect(message).toContain('Package "tone" is not available to shots');
     expect(message).toContain('Convert for Studio');
+    expect(message).toContain('paid');
   });
 
-  it('explains a blocking import instead of offering conversion', () => {
-    const classification = classifyShotImport(withImports('three'));
-    const message = describeImportFailure(classification, 'gate error');
-    expect(message).toContain('three');
-    expect(message).not.toContain('Convert for Studio');
+  it('explains local files instead of offering Convert', () => {
+    const classification = classifyShotImport(withImports('./helpers', 'gsap'));
+    const message = describeImportFailure(classification, 'gate error', 'Package "gsap" is refused');
+    expect(message).toContain('./helpers');
+    expect(message).not.toContain('Convert for Studio" has');
   });
 
-  it('falls back to the gate error when nothing is classifiable', () => {
-    const classification = classifyShotImport(CLEAN);
-    expect(describeImportFailure(classification, 'Unexpected token')).toBe('Unexpected token');
-  });
-});
-
-describe('buildConformInstruction', () => {
-  it('names the modules to remove and keeps the shot contract explicit', () => {
-    const instruction = buildConformInstruction(['@remotion/shapes', 'chroma-js']);
-    expect(instruction).toContain('@remotion/shapes, chroma-js');
-    expect(instruction).toContain("'react' and 'remotion'");
-    expect(instruction).toContain('compositionConfig');
+  it('a syntax error shows the compiler error as is', () => {
+    const classification = classifyShotImport(CLEAN, { syntaxError: true });
+    expect(describeImportFailure(classification, 'Unexpected token', 'esbuild: Unexpected token')).toBe('Unexpected token');
   });
 });
 

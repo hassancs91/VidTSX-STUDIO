@@ -39,7 +39,7 @@ import type {
   TsxJobStartRequest,
   TsxValidateResponse,
 } from '../../../shared/ipc/types';
-import type { StudioClipOrigin, StudioShot, StudioShotKind } from '../../../shared/types/studio';
+import type { StudioAgentSettings, StudioClipOrigin, StudioShot, StudioShotKind } from '../../../shared/types/studio';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
 import { sliceAnchorWords, type ShotAnchorWord } from '../../../shared/studio/shot-words';
 import { runLlmGenerate } from '../../ipc/llm-handlers';
@@ -61,6 +61,7 @@ import { getProjectDir, getShotVersionPath } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
 import {
   brandText,
+  convertIntent,
   editIntent,
   generateIntent,
   isTransparentKind,
@@ -137,6 +138,11 @@ export interface RefineShotRequest extends ShotRunOptions, ShotFacts {
   activeVersion: number;
 }
 
+export interface ConvertShotRequest extends RefineShotRequest {
+  /** Why the version is not a Studio shot: the gate's error and the bundler's reason. */
+  problems: string[];
+}
+
 /** A finished op: the registry entry, and the build that made it (its stills go back to the assistant). */
 export interface ShotBuildOutcome {
   shot: StudioShot;
@@ -153,10 +159,10 @@ export class ShotCancelledError extends Error {
 
 type Listener = (event: StudioShotJobEvent) => void;
 
-/** The gate composed into the pipeline's validate dep (conform, import, reconcile). */
-export async function validateShotCode(code: string): Promise<TsxValidateResponse> {
+/** The shot gate (import, conform, reconcile, package import). `syntaxError`: it failed to compile, so Convert is never offered. */
+export async function validateShotCode(code: string): Promise<TsxValidateResponse & { syntaxError?: boolean }> {
   const transpile = await validateTsxCode(code);
-  if (!transpile.success) return transpile;
+  if (!transpile.success) return { ...transpile, syntaxError: true };
   const lint = lintShotSource(code);
   if (!lint.ok) return { success: false, error: lint.errors.join(' ') };
   if (parseCompositionConfig(code) === null) {
@@ -192,6 +198,12 @@ export function buildShotEngineDeps(
       ),
     tsxValidate: (req) => validateShotCode(req.code),
   };
+}
+
+/** Studio's shot default (W1): the project's provider and its shot model, else its model — what the editor's Generate sends. */
+export function shotDefaults(agent: StudioAgentSettings | undefined): { providerId?: string; model?: string } {
+  const model = agent?.shotModel || agent?.model;
+  return { ...(agent?.providerId ? { providerId: agent.providerId } : {}), ...(model ? { model } : {}) };
 }
 
 const runKey = (projectId: string, shotId: string) => `${projectId}:${shotId}`;
@@ -514,9 +526,24 @@ class ShotGeneratorService {
     );
   }
 
+  /**
+   * Convert for Studio (P3 part 8, D10): a Quick builder edit that makes a
+   * version written outside Studio pass the shot check, as the next version.
+   * Its events are op 'import' (the renderer adopts its snapshot whole).
+   */
+  async convert(req: ConvertShotRequest): Promise<ShotBuildOutcome> {
+    return this.editVersion(
+      req,
+      'import',
+      'quick',
+      (facts) => convertIntent({ problems: req.problems, ...(facts.media.length ? { media: facts.media } : {}) }),
+      `Convert v${req.activeVersion} for Studio`,
+    );
+  }
+
   private async editVersion(
     req: RefineShotRequest,
-    op: 'edit' | 'refine',
+    op: 'edit' | 'refine' | 'import',
     budget: BuildBudget,
     intent: (facts: { kind: StudioShotKind; brief?: string; styleRules: string[]; media: ReturnType<typeof shotMediaFiles>['notes'] }) => string,
     threadText: string,
@@ -554,7 +581,7 @@ class ShotGeneratorService {
         op,
         status: 'generating',
         percent: 0,
-        message: op === 'refine' ? 'Refining…' : 'Editing…',
+        message: op === 'refine' ? 'Refining…' : op === 'import' ? 'Converting…' : 'Editing…',
       });
       const request = shotBuildRequest({
         prompt: intent({ kind, ...(brief ? { brief } : {}), styleRules: style?.rules ?? [], media: media.notes }),
@@ -584,17 +611,20 @@ class ShotGeneratorService {
       const code = await fs.readFile(job.versionPath, 'utf-8');
       const attached = await attachVersionMedia(req.projectId, job.versionPath, code, refs);
       const config = shotConfig(code);
+      const assetRefs = { ...refs, ...(attached?.assetRefs ?? {}) };
+      // An 'import' snapshot is adopted whole (status, version, refs): it carries every ref the shot keeps.
+      const carriesRefs = op === 'import' || (attached !== null && Object.keys(attached.assetRefs).length > 0);
       const shot: StudioShot = {
         // Partial snapshot: the renderer merges version, config and new
         // media keys onto its registry entry — name/kind/anchor stay whatever the document says.
         id: req.shotId,
-        name: req.shotId,
+        name: stored?.name ?? req.shotId,
         kind,
         createdAt: new Date().toISOString(),
         activeVersion: versionOf(job.versionPath),
         status: 'ready',
         ...(config ? { config } : {}),
-        ...(attached && Object.keys(attached.assetRefs).length > 0 ? { assetRefs: { ...refs, ...attached.assetRefs } } : {}),
+        ...(carriesRefs && Object.keys(assetRefs).length > 0 ? { assetRefs } : {}),
       };
       this.emit({
         projectId: req.projectId,

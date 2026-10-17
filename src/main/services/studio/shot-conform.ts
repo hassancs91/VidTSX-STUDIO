@@ -1,26 +1,26 @@
 // "Convert for Studio" for a shot that is ALREADY in a project — the second
-// half of the D14 allowlist story, and what makes the import flow's convert
+// half of the D14 import story, and what makes the import flow's convert
 // card (Q7d) a real button.
 //
-// shot-import.ts conforms a source file on the way IN, before a shot exists, so
-// it is free to reserve a fresh folder. A package import is the other case:
-// the shot folder, its id and the clips that reference that id all arrived
-// together, so a conversion must land as a NEW VERSION IN THE SAME FOLDER.
-// Renaming or re-importing would orphan every clip pointing at the old id.
+// shot-import.ts converts a source file on the way IN, into a folder it
+// reserves. A package import is the other case: the shot folder, its id and
+// the clips that reference that id all arrived together, so a conversion must
+// land as a NEW VERSION IN THE SAME FOLDER. Renaming or re-importing would
+// orphan every clip pointing at the old id.
 //
-// Same one-pass shape as the import conform: one editTsxPipeline run whose
-// validate dep IS the acceptance gate, so a conversion that still fails never
-// reaches disk as a version, and the untouched source is kept as original.tsx.
+// P3 part 8 (D10): the bundler first (shot-bundle-in-place.ts, no model); what
+// it cannot fix goes to the TSX builder as a Quick edit of the active version
+// (shotGenerator.convert, at Studio's shot default), whose check IS the
+// acceptance gate, so a conversion that still fails never lands as a version.
+// The untouched source is kept as original.tsx.
 
 import fs from 'fs/promises';
 import path from 'path';
-import { editTsxPipeline } from '../../../shared/tsx-engine';
 import type { StudioShot } from '../../../shared/types/studio';
-import { buildConformInstruction, classifyShotImport } from '../../../shared/studio/shot-import';
+import { classifyShotImport, describeImportFailure } from '../../../shared/studio/shot-import';
 import { logEngine } from '../../../logging/log-engine';
-import { writeNextVersion } from '../tsx-jobs/project-store';
 import { parseCompositionConfig } from '../composition-config-parser';
-import { buildShotEngineDeps, validateShotCode } from './shot-generator';
+import { ShotCancelledError, shotDefaults, shotGenerator, validateShotCode } from './shot-generator';
 import { bundleShotInPlace, keepOriginal } from './shot-bundle-in-place';
 import { shotJobEvents } from './shot-job-events';
 import { loadProject } from './project-store';
@@ -31,8 +31,6 @@ const log = logEngine.createLogger('ShotConform');
 export interface ConformShotRequest {
   projectId: string;
   shotId: string;
-  providerId?: string;
-  model?: string;
 }
 
 export interface ConformShotOutcome {
@@ -42,8 +40,7 @@ export interface ConformShotOutcome {
   error?: string;
 }
 
-/** Registry entry for the converted version — config re-parsed from the new
- *  source, because a conform pass may legitimately change nothing else. */
+/** Registry entry for a version that passes as it is, or bundled — config re-parsed from its source. */
 function buildConformedShot(shot: StudioShot, code: string, version: number): StudioShot {
   const config = parseCompositionConfig(code);
   const next: StudioShot = {
@@ -66,10 +63,10 @@ function buildConformedShot(shot: StudioShot, code: string, version: number): St
 }
 
 /**
- * Convert an in-project shot to the shot import surface (react + remotion).
- * Progress and the finished registry entry ride the shared shot job-event
- * stream, so the editor adopts the new version exactly as it adopts a
- * generated one.
+ * Make an in-project shot a Studio shot. Progress and the finished registry
+ * entry ride the shared shot job-event stream (op 'import'), so the editor
+ * adopts the new version exactly as it adopts a generated one; the outcome
+ * resolves when it is done.
  */
 export async function conformShot(request: ConformShotRequest): Promise<ConformShotOutcome> {
   const { projectId, shotId } = request;
@@ -85,7 +82,7 @@ export async function conformShot(request: ConformShotRequest): Promise<ConformS
     return { shotId, error: 'The shot has no source file to convert.' };
   }
 
-  // Never burn an LLM run on a file the gate already accepts.
+  // Never burn a model run on a file the gate already accepts.
   const gate = await validateShotCode(source);
   if (gate.success) {
     shotJobEvents.emit({
@@ -117,63 +114,28 @@ export async function conformShot(request: ConformShotRequest): Promise<ConformS
     return { shotId, version: bundled.version };
   }
 
-  const classification = classifyShotImport(source);
+  const gateError = gate.error ?? 'Failed the shot gate';
+  const classification = classifyShotImport(source, { syntaxError: gate.syntaxError === true });
   if (!classification.canConform) {
-    return {
-      shotId,
-      error:
-        'This shot needs a manual edit, not a conversion — it imports local files or packages a conform pass cannot inline.',
-    };
+    return { shotId, error: describeImportFailure(classification, gateError, bundled.reason) };
   }
 
   await keepOriginal(folderPath, source);
-
-  const progress = (percent: number, message: string): void =>
-    shotJobEvents.emit({
-      projectId,
-      shotId,
-      op: 'import',
-      status: 'generating',
-      percent,
-      message: `Converting — ${message}`,
-      shot: { ...shot, status: 'generating' },
-    });
-  progress(0, 'starting');
-
   try {
-    const result = await editTsxPipeline(
-      {
-        currentCode: source,
-        editInstruction: buildConformInstruction(classification.conformable),
-        ...(request.providerId ? { providerId: request.providerId } : {}),
-        ...(request.model ? { model: request.model } : {}),
-        onProgress: (p) => progress(p.percent, p.stepLabel),
-      },
-      buildShotEngineDeps(request.providerId, undefined, request.model),
-    );
-    if (!result.transpileValid) {
-      throw new Error(
-        'The converted composition still fails the shot gate (react + remotion only, default export, compositionConfig) — the original is kept as original.tsx.',
-      );
-    }
-
-    const writtenPath = await writeNextVersion(folderPath, result.text);
-    const version = Number(/v(\d+)\.tsx$/.exec(path.basename(writtenPath))?.[1]);
-    const conformed = buildConformedShot(shot, result.text, version);
-    shotJobEvents.emit({ projectId, shotId, op: 'import', status: 'ready', shot: conformed });
-    log.info('Conformed shot in place', { projectId, shotId, version });
-    return { shotId, version };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Conversion failed';
-    shotJobEvents.emit({
+    const { shot: converted } = await shotGenerator.convert({
       projectId,
       shotId,
-      op: 'import',
-      status: 'error',
-      error: message,
-      shot: { ...shot, status: 'error', error: message },
+      activeVersion: shot.activeVersion,
+      kind: shot.kind,
+      ...(shot.anchor ? { anchor: shot.anchor } : {}),
+      ...(shot.assetRefs ? { assetRefs: shot.assetRefs } : {}),
+      problems: [gateError, `Bundling it into one Studio shot did not work: ${bundled.reason}`],
+      ...shotDefaults(project.settings.agent),
     });
-    log.error('Shot conversion failed', err, { projectId, shotId });
-    return { shotId, error: message };
+    log.info('Converted shot in place', { projectId, shotId, version: converted.activeVersion });
+    return { shotId, version: converted.activeVersion };
+  } catch (err) {
+    if (err instanceof ShotCancelledError) return { shotId, error: 'Conversion cancelled: the shot is as it was.' };
+    return { shotId, error: err instanceof Error ? err.message : 'Conversion failed' };
   }
 }

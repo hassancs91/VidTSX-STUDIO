@@ -21,7 +21,7 @@ vi.mock('./shot-generator', async () => {
     },
   };
 });
-vi.mock('./shot-import', () => ({ ORIGINAL_FILE_NAME: 'original.tsx', bundleNodePaths: () => [NODE_MODULES] }));
+vi.mock('./shot-import-land', () => ({ ORIGINAL_FILE_NAME: 'original.tsx', bundleNodePaths: () => [NODE_MODULES] }));
 const media = vi.hoisted(() => ({ registered: [] as string[][] }));
 vi.mock('./media-import', () => ({
   importMediaFiles: async (_projectId: string, paths: string[]) => {
