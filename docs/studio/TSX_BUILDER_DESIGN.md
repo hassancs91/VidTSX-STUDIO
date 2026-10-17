@@ -981,6 +981,34 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   (gsap's named refusal is short); a cancel during "Preparing" takes seconds to land; every Studio job's card reads
 >   "Waiting for another build to finish" for ~0.1 s even with an empty queue (a job is `queued` for an instant;
 >   shot-generator.ts:294, since part 5).
+> - **Part 9 DONE `82b1dbf` + the exit runs** (D11; Hasan 10-17 "all (a)" = P9-1..P9-5 (a): each caller's default
+>   model = Sonnet 5.5, B-a + B-b fixed first, B2 typed with "Flat bold" in words, a miss gets one Craft re-run on the
+>   same model, walls as below). **B-a:** agent-runner resolves the turn's model once ('' = the provider default,
+>   absent = the session's) for the LLM and the tools alike, and the service forwards ''; before, a turn started by a
+>   card reply ran on the provider default while the builder ran on the picked model. **B-b:** studio-shot-handlers
+>   `shotChoice` fills `shotDefaults` when an Inspector op names no provider / model. **Exit runs** through the real UI
+>   (dev app over CDP, throwaway profile, Studio root `runs/P3/studio-p5/`; every row `claude-sonnet-5-5`; no MP4):
+>   Creator Standard 1.9 min 2/3 rounds $0.51 · Studio cutaway (pool Generate, 5 s) 1.0 min 2/3 $0.64 · flow
+>   explainer-30s "Why ice floats on water, for 10-year-olds." to the checkpoint 2.7 min 3/3 $0.93 + script $0.21, Stop
+>   run → cancelled, render 0 attempts · agent Infographic Loop v0.1 (unsigned, "Unverified") on B2 idea a, build 1.9
+>   min 2/3 $0.63 + turns $0.76, stopped at its approve card · Craft re-runs of the two misses: Creator 2.6 min 4/6
+>   $0.93; agent (same session, "Skip and chat", then the agent's own form answered "Change something first" with the
+>   line) a new composition 3.6 min 4/6 $0.74 + turns $0.80, stopped at the new approve card. All six `finished`,
+>   every loop seam OK. Total **$6.14 API-eq**. Walls `P3-B2`, `P3-B2-agent`, `P3-B2-craft`, `P3-B2-agent-craft`,
+>   `P3-cutaway`, `P3-explainer` on :3920. Details: `ai-video-lab/experiments/studio-unlock-01/FINDINGS-P3.md`.
+>   **Quality:** Studio and flow pass. The Creator and the agent miss column 3 on B2, Standard and Craft alike. The
+>   Creator's Craft piece has coins at true scale split by origin with the payoff on frame 0, but no ghost slots or
+>   per-year delta. The agent's Craft piece has a "Not earned" ghost but is still liquid bands, with a "+$24,000
+>   interest" label fixed at its year-30 value. **Found:** Sonnet 5.5 finished every B2 build at the round floor
+>   (`MIN_ROUNDS` 2 / 4, builder-prompt.ts:18), while P2's Opus Craft runs went past it in 5 of 7; the builder's
+>   look passed a wrong on-screen number; a chat message sent while an agent card waits would make the agent's next
+>   `ask_user` fail (interaction-broker.ts:45-51; the composer stays enabled); asked to rebuild "from the same
+>   sheet", the agent wrote a new one. **Noted, not changed:** the agent's approve card covers its viewer; the flow's
+>   compose node reads "skipped" after Stop run.
+>
+> **P3 exit (10-17): machinery met, quality on two of four callers.** No caller reaches the one-shot pipeline (code +
+> six build jobs). Each entry point produces column-3 class on its brief: **yes** for Studio shots and the flow node,
+> **no** for the TSX Creator and agents on B2 at the defaults (Sonnet 5.5, Standard, plus one Craft re-run each).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
@@ -990,7 +1018,7 @@ point and putting the result on the wall beside R0b column 3, with time, rounds 
 | **P0 spike** (no UI, dev-only IPC or script, behind flag `tsx-builder`) | builder session in main: guarded file tools + `check` + `render_stills` + `finish`; budget Craft; brief B2 | B2 reaches column-3 class from inside the app process, on Windows, with no shell. Also answered: the allowedTools hole; bundle passes the gates (T3); font route works in the isolated `/preview` page; stills time per round on the 1650 Ti laptop |
 | **P1 builder service** | request/result types, build folders + versions (`vN.tsx`, `vN.src/`, debug), all T2 tools except `text_overlaps`, budgets + caps, cancel, progress events, the `generateTsx()` dispatcher, tsx-job hosting (builder only; providers without tools → clear error; OpenRouter models must have tools + image input), unit tests | all four briefs through the job engine at Craft on the wall (`P1-B1..B4`) + one Standard edit of B2 |
 | **P2 no limits** (Rev 2) | T4 Rev 2: the curated library set behind one constant, GPU stills + export, frame-pure physics helper + rule, builder assets folder, packaged-app resolution (asar), no network at render; plus T5 fonts, kit on the render path, prompts aligned | new 3D + physics briefs reach the lab's real3d quality; the four 2D briefs still pass; dev and packaged, offline after the first run |
-| **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline |
+| **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline. **Ran 10-17 (Sonnet 5.5 defaults):** no caller reaches the pipeline (met); column-3 class on Studio + flow, not on the Creator or the agent (B2, Standard + one Craft re-run each); FINDINGS-P3.md |
 | **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent |
 | **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes | stability gate |
 
