@@ -3,7 +3,7 @@
 //   node scripts/agent-pack.mjs <folder> --check
 //   node scripts/agent-pack.mjs <folder> --hash      (rewrite files[] in agent.json)
 //   node scripts/agent-pack.mjs <folder> --out dist/vidtsx.motion-post.vidtsxagent [--key <path>]
-//   node scripts/agent-pack.mjs --genkey [--key-id vidtsx-1]
+//   node scripts/agent-pack.mjs --genkey --key-id vidtsx-3 [--out <path>]   (a NEW key, written to a file)
 //
 // The author's checker IS the install validator: `parseAgentManifest` and
 // `signAgentManifest` are bundled straight out of `src/` with esbuild, so a
@@ -12,7 +12,8 @@
 //
 // The signing PRIVATE key never lives in the repo: `--key <path>`, else the
 // path in `VIDTSX_AGENT_SIGNING_KEY`. Without either, the package is written
-// unsigned, which installs with the "Unverified" tag.
+// unsigned, which installs with the "Unverified" tag. The name it signs under
+// comes from publishers.ts (signing-key.mjs, shared with the other packers).
 
 import fs from 'node:fs/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
@@ -20,6 +21,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { describeSigner, generateKeyFile, readSigningKey } from './signing-key.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const MANIFEST_NAME = 'agent.json';
@@ -69,6 +71,7 @@ async function loadAppRules() {
         "export { AGENT_TOOL_IDS } from './src/shared/agents/tool-ids';",
         "export { ARTIFACT_KINDS, INTERACTION_KINDS } from './src/shared/types/agents';",
         "export { signAgentManifest, canonicalJson } from './src/main/services/agents/agent-signing';",
+        "export { AGENT_PUBLISHERS, findPublisherByKey } from './src/shared/agents/publishers';",
       ].join('\n'),
       resolveDir: REPO_ROOT,
       loader: 'ts',
@@ -140,27 +143,40 @@ async function appVersion() {
 
 // ─── signing ────────────────────────────────────────────────────────────────
 
-async function readSigningKey(flags) {
-  const keyPath = typeof flags.key === 'string' ? flags.key : process.env.VIDTSX_AGENT_SIGNING_KEY;
-  if (!keyPath) return null;
+/** The key and the name it signs under, or null; a problem ends the run with its message. */
+async function signingKey(flags, rules) {
   try {
-    return { pem: await fs.readFile(keyPath, 'utf-8'), keyId: flags['key-id'] ?? 'vidtsx-1' };
+    return await readSigningKey(flags, rules);
   } catch (err) {
-    fail(`Could not read the signing key at ${keyPath}: ${err.message}`);
+    fail(err.message);
   }
 }
 
-function generateKey(flags) {
-  const { privateKey, publicKey } = crypto.generateKeyPairSync('ed25519');
-  const keyId = typeof flags['key-id'] === 'string' ? flags['key-id'] : 'vidtsx-1';
-  console.log('\nPRIVATE KEY — save this OUTSIDE the repo and point');
-  console.log('VIDTSX_AGENT_SIGNING_KEY at the file. It is never committed.\n');
-  console.log(privateKey.export({ format: 'pem', type: 'pkcs8' }).toString());
-  console.log('Add this entry to src/shared/agents/publishers.ts:\n');
+/** A new key straight to a file (never printed), then what to do with it. */
+async function generateKey(flags, rules) {
+  const keyId = flags['key-id'];
+  if (typeof keyId !== 'string') {
+    fail('--genkey needs --key-id <name>: a NEW name, not one already in src/shared/agents/publishers.ts.');
+  }
+  if (rules.AGENT_PUBLISHERS.some((p) => p.keyId === keyId)) {
+    fail(`"${keyId}" is already a key in publishers.ts. A new key gets a new name; a name is never reused.`);
+  }
+  let made;
+  try {
+    made = await generateKeyFile(keyId, typeof flags.out === 'string' ? path.resolve(flags.out) : undefined);
+  } catch (err) {
+    fail(err.message);
+  }
+  console.log(`\n✓ ${keyId}: private key written to ${made.path} (not shown anywhere).`);
+  console.log('\nNow, before anything else:');
+  console.log('  1. Copy that file\'s 3 lines into your password manager — the only copy off this machine.');
+  console.log(`  2. Lock it to your user:  icacls "${made.path}" /inheritance:r /grant:r "${os.userInfo().username}:F"`);
+  console.log(`  3. Point the packers at it:  setx VIDTSX_AGENT_SIGNING_KEY "${made.path}"  (new terminals)`);
+  console.log('  4. Add this entry to src/shared/agents/publishers.ts (public half — safe to commit):\n');
   console.log('  {');
   console.log(`    keyId: '${keyId}',`);
   console.log("    name: 'VidTSX',");
-  console.log(`    publicKey: '${publicKey.export({ format: 'der', type: 'spki' }).toString('base64')}',`);
+  console.log(`    publicKey: '${made.publicKey}',`);
   console.log('  },\n');
 }
 
@@ -194,7 +210,7 @@ async function writePackage(folder, manifest, signature, outFile) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.flags.genkey) {
-    generateKey(args.flags);
+    await generateKey(args.flags, await loadAppRules());
     return;
   }
 
@@ -241,10 +257,10 @@ async function main() {
       ? args.flags.out
       : `${manifest.id.replace('/', '.')}${'.vidtsxagent'}`;
 
-  const key = await readSigningKey(args.flags);
+  const key = await signingKey(args.flags, rules);
   const signature = key ? rules.signAgentManifest(manifest, key.pem, key.keyId) : null;
   await writePackage(path.resolve(folder), manifest, signature, out);
-  console.log(`  ${signature ? `signed as ${key.keyId}` : 'UNSIGNED'} → ${out}\n`);
+  console.log(`  ${signature ? `signed as ${describeSigner(key)}` : 'UNSIGNED'} → ${out}\n`);
 }
 
 main().catch((err) => fail(err?.stack ?? String(err)));

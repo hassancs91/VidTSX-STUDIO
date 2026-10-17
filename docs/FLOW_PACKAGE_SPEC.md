@@ -112,7 +112,7 @@ file has no folder to be the truth of. Only a `.vidtsxflow` installs under
 ## Signing
 
 ```
-node scripts/flow-pack.mjs my-flow --out acme.captions.vidtsxflow --key ~/keys/acme.pem
+node scripts/flow-pack.mjs my-flow --out acme.captions.vidtsxflow --key ~/keys/acme.pem --key-id acme-1
 node scripts/flow-pack.mjs my-flow --sign   # a folder that ships as-is: writes signature.json beside flow.json
 ```
 
@@ -120,8 +120,10 @@ node scripts/flow-pack.mjs my-flow --sign   # a folder that ships as-is: writes 
 the canonical JSON of `flow.json` (keys sorted, no whitespace) — which
 already hashes every packaged file, so one signature covers the tree. The
 key is the same ed25519 key agents use (`node scripts/agent-pack.mjs
---genkey`; the private half lives outside the repo, named by
-`VIDTSX_AGENT_SIGNING_KEY`). One signing module, two manifest names.
+--genkey --key-id <name>`; the private half lives outside the repo, named by
+`VIDTSX_AGENT_SIGNING_KEY`). One signing module, two manifest names. The
+`keyId` comes from the key: one listed in `publishers.ts` signs under its own
+name; any other key needs `--key-id` (see AGENT_PACKAGE_SPEC.md, Signing).
 
 The four outcomes at install — the agents' three states plus built-in:
 

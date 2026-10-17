@@ -25,7 +25,8 @@ export interface AgentPublisher {
  * VidTSX's own keys. `vidtsx-2` (2026-10-17) is the signing key: its private
  * half is Hasan's, at `%USERPROFILE%\.vidtsx\keys\vidtsx-2.pem` (named by the
  * user env var `VIDTSX_AGENT_SIGNING_KEY`) with a copy in his password manager —
- * never in a repo or a session. Sign with `--key-id vidtsx-2`. `vidtsx-1`
+ * never in a repo or a session. The packers name a signature from this list
+ * (scripts/signing-key.mjs), so no `--key-id` is needed. `vidtsx-1`
  * (2026-09-08) is RETIRED: its private half was lost on 2026-10-17, so it signs
  * nothing new; it leaves this list once every built-in is re-signed.
  *

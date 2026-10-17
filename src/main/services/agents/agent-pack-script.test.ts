@@ -132,15 +132,16 @@ describe('agent-pack.mjs', () => {
       '--key',
       keyFile,
       '--key-id',
-      'vidtsx-1',
+      'test-1',
     ]);
-    expect(stdout).toContain('signed as vidtsx-1');
+    // A key that is not in publishers.ts signs under the name it is given (signing-key.mjs).
+    expect(stdout).toContain('signed as test-1 (not in publishers.ts');
 
     const signedDeps: AgentPackageDeps = {
       ...deps,
       publishers: [
         {
-          keyId: 'vidtsx-1',
+          keyId: 'test-1',
           name: 'VidTSX',
           publicKey: publicKey.export({ format: 'der', type: 'spki' }).toString('base64'),
         },
@@ -150,7 +151,7 @@ describe('agent-pack.mjs', () => {
     expect(installed.agent).toMatchObject({
       origin: 'user',
       signature: 'verified',
-      keyId: 'vidtsx-1',
+      keyId: 'test-1',
       manifest: { id: 'vidtsx/pack-test', version: '1.4.0' },
     });
 

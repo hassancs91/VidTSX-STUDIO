@@ -13,9 +13,10 @@
 // one signing module, two manifest names (decision 10).
 //
 // The signing PRIVATE key never lives in the repo: `--key <path>`, else the
-// path in `VIDTSX_AGENT_SIGNING_KEY` (the same `vidtsx-1` key agents use).
-// Without either, the package is written unsigned and installs with the
-// "Unsigned" warning. `--genkey` lives in agent-pack.mjs.
+// path in `VIDTSX_AGENT_SIGNING_KEY` (the same VidTSX key agents use). Without
+// either, the package is written unsigned and installs with the "Unsigned"
+// warning. The name it signs under comes from publishers.ts (signing-key.mjs);
+// `--key-id` only for a key that is not in it. `--genkey` lives in agent-pack.mjs.
 
 import fs from 'node:fs/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
@@ -23,6 +24,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { describeSigner, readSigningKey } from './signing-key.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const MANIFEST_NAME = 'flow.json';
@@ -65,6 +67,7 @@ async function loadAppRules() {
         "export { parseFlowPackageManifest, FlowManifestError, graphToolIds } from './src/shared/flows/flow-package';",
         "export { AGENT_TOOL_IDS } from './src/shared/agents/tool-ids';",
         "export { signAgentManifest, canonicalJson } from './src/main/services/agents/agent-signing';",
+        "export { AGENT_PUBLISHERS, findPublisherByKey } from './src/shared/agents/publishers';",
       ].join('\n'),
       resolveDir: REPO_ROOT,
       loader: 'ts',
@@ -133,13 +136,12 @@ async function appVersion() {
   return pkg.version;
 }
 
-async function readSigningKey(flags) {
-  const keyPath = typeof flags.key === 'string' ? flags.key : process.env.VIDTSX_AGENT_SIGNING_KEY;
-  if (!keyPath) return null;
+/** The key and the name it signs under, or null; a problem ends the run with its message. */
+async function signingKey(flags, rules) {
   try {
-    return { pem: await fs.readFile(keyPath, 'utf-8'), keyId: flags['key-id'] ?? 'vidtsx-1' };
+    return await readSigningKey(flags, rules);
   } catch (err) {
-    fail(`Could not read the signing key at ${keyPath}: ${err.message}`);
+    fail(err.message);
   }
 }
 
@@ -193,7 +195,7 @@ async function main() {
     return;
   }
 
-  const key = await readSigningKey(args.flags);
+  const key = await signingKey(args.flags, rules);
   if (args.flags.sign) {
     // Sign the folder in place: signature.json beside flow.json, over the
     // EXACT bytes on disk (re-hash first so the manifest is what --hash wrote).
@@ -201,14 +203,14 @@ async function main() {
     const onDisk = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
     const signature = rules.signAgentManifest(onDisk, key.pem, key.keyId);
     await fs.writeFile(path.join(path.resolve(folder), 'signature.json'), `${JSON.stringify(signature, null, 2)}\n`, 'utf-8');
-    console.log(`  signed in place as ${key.keyId} → signature.json\n`);
+    console.log(`  signed in place as ${describeSigner(key)} → signature.json\n`);
     return;
   }
 
   const out = typeof args.flags.out === 'string' ? args.flags.out : `${manifest.id.replace('/', '.')}${PACKAGE_EXT}`;
   const signature = key ? rules.signAgentManifest(manifest, key.pem, key.keyId) : null;
   await writePackage(path.resolve(folder), manifest, signature, out);
-  console.log(`  ${signature ? `signed as ${key.keyId}` : 'UNSIGNED'} → ${out}\n`);
+  console.log(`  ${signature ? `signed as ${describeSigner(key)}` : 'UNSIGNED'} → ${out}\n`);
 }
 
 main().catch((err) => fail(err?.stack ?? String(err)));

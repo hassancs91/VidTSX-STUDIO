@@ -216,7 +216,7 @@ node scripts/agent-pack.mjs ./my-agent --check
 node scripts/agent-pack.mjs ./my-agent --out ./acme.storyboard-1.0.0.vidtsxagent
 
 # Pack and sign (see below).
-node scripts/agent-pack.mjs ./my-agent --out ./out.vidtsxagent --key /secure/path/key.pem
+node scripts/agent-pack.mjs ./my-agent --out ./out.vidtsxagent --key /secure/path/key.pem --key-id acme-1
 ```
 
 `--check` reports every problem at once rather than one at a time. It runs the
@@ -232,12 +232,22 @@ It is optional — an unsigned agent installs fine, with a warning — and it ha
 nothing to do with licensing. The app enforces no licences, ever.
 
 ```bash
-node scripts/agent-pack.mjs --genkey        # prints a private key + the entry to publish
+node scripts/agent-pack.mjs --genkey --key-id acme-1   # writes ~/.vidtsx/keys/acme-1.pem (or --out <path>)
 ```
 
-Store the private key **outside your repository** and pass it as `--key <path>`
-or via `VIDTSX_AGENT_SIGNING_KEY`. The script reads the file itself, so the key
-never has to be pasted anywhere.
+`--genkey` writes the private key **straight to a file outside your
+repository** and never prints it; it prints only the public half (the entry
+for `src/shared/agents/publishers.ts`) and refuses to overwrite a file. Keep a
+copy in a password manager. Pass the file as `--key <path>` or via
+`VIDTSX_AGENT_SIGNING_KEY`; the script reads it itself, so the key never has
+to be pasted anywhere.
+
+The name a package is signed under (`keyId`) comes from the key: a key listed
+in `publishers.ts` always signs under its own entry's name, so `--key-id` is
+not needed (and a different one is refused). Any other key must be named with
+`--key-id`, and not with a name a listed key already uses. A lost key gets a
+new name (`vidtsx-1` was lost on 2026-10-17 and replaced by `vidtsx-2`); a
+name is never reused for a different key.
 
 The signature covers the canonical JSON of `agent.json`, which already hashes
 every other file — so signing the manifest signs the package. It lands in the

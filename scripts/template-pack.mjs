@@ -13,8 +13,10 @@
 // (the app additionally runs the D14 composition gate on the entry at install).
 //
 // The signing PRIVATE key never lives in the repo: `--key <path>`, else the
-// path in `VIDTSX_AGENT_SIGNING_KEY` (the `vidtsx-1` key agents and flows use).
+// path in `VIDTSX_AGENT_SIGNING_KEY` (the VidTSX key agents and flows use).
 // Without either, the package is written unsigned and installs with a notice.
+// The name it signs under comes from publishers.ts (signing-key.mjs);
+// `--key-id` only for a key that is not in it.
 
 import fs from 'node:fs/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
@@ -22,6 +24,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { describeSigner, readSigningKey } from './signing-key.mjs';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const MANIFEST_NAME = 'template.json';
@@ -63,6 +66,7 @@ async function loadAppRules() {
         "export { parseTemplatePackageManifest } from './src/shared/templates/template-package';",
         "export { TemplateManifestError } from './src/shared/templates/manifest';",
         "export { signAgentManifest } from './src/main/services/agents/agent-signing';",
+        "export { AGENT_PUBLISHERS, findPublisherByKey } from './src/shared/agents/publishers';",
       ].join('\n'),
       resolveDir: REPO_ROOT,
       loader: 'ts',
@@ -118,13 +122,12 @@ async function appVersion() {
   return pkg.version;
 }
 
-async function readSigningKey(flags) {
-  const keyPath = typeof flags.key === 'string' ? flags.key : process.env.VIDTSX_AGENT_SIGNING_KEY;
-  if (!keyPath) return null;
+/** The key and the name it signs under, or null; a problem ends the run with its message. */
+async function signingKey(flags, rules) {
   try {
-    return { pem: await fs.readFile(keyPath, 'utf-8'), keyId: flags['key-id'] ?? 'vidtsx-1' };
+    return await readSigningKey(flags, rules);
   } catch (err) {
-    fail(`Could not read the signing key at ${keyPath}: ${err.message}`);
+    fail(err.message);
   }
 }
 
@@ -174,10 +177,10 @@ async function main() {
     return;
   }
 
-  const key = await readSigningKey(args.flags);
+  const key = await signingKey(args.flags, rules);
   const signature = key ? (rules.signAgentManifest(manifest, key.pem, key.keyId)) : null;
   await writePackage(path.resolve(folder), manifest, signature, args.flags.out);
-  console.log(`  wrote ${args.flags.out} (${signature ? `signed, key ${key.keyId}` : 'unsigned'})\n`);
+  console.log(`  wrote ${args.flags.out} (${signature ? `signed as ${describeSigner(key)}` : 'unsigned'})\n`);
 }
 
 await main();
