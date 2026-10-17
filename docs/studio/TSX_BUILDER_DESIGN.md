@@ -911,6 +911,76 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   agent-memory = load flake, passes alone; shot-generator = the known 3; save-flow = the new Seconds label, fixed).
 >   **Noted, not changed:** a sheet as the card's picture reads poorly at 56×36 (prefer a model frame of that look?);
 >   the card still covers the viewer; "Round 0/1" before the first look (part 2's nit).
+> - **Part 7 follow-ups DONE `f908815`** (Hasan 10-17 "1. yes 2. ok 3. ok"). **1** Edit Composition gets Generate's
+>   "Generated images" Off / On (shared `GENERATED_IMAGES_FIELD` + `generatedImagesSchema`, default Off;
+>   `generatedImagesOff()`: in a flow absent / Off → `maxGeneratedImages: 0` through `runCompositionEdit`; an agent
+>   keeps the per-budget default). **2** A contact-sheet look as the card / strip picture: a look is frames OR one sheet
+>   (one slot label each), so "pick that look's model frames by label" can never find any; `composition-preview` cuts
+>   the sheet's middle tile instead (`contactSheetLayout` + new `sheetTileRect`, nativeImage, once, saved beside the
+>   sheet as `rNN[vK]-sheet-fNNN.jpg`); a sheet not the layout's size stays the picture. $0 live: part 7's L1
+>   composition-1 → `r01v1-sheet-f780.jpg` (500×281). **3(b)** `buildProgressLabel` names no round before the first
+>   look ("Designing and writing", not "Round 0/1 · …"; Creator, Studio chips, flows); not seen live (needs a paid
+>   build). Gates: types 26/10; vitest 396 files green + shot-generator's known 3.
+> - **3(a) DONE `0975d4a`** (layout A, agreed 10-17). While a checkpoint waits, the PauseCard (card + retry row) takes
+>   the params' place in the run form's 340 px left column; the brand / mode / Cancel footer stays; the 90 % overlay
+>   over the viewer is gone. The viewer auto-selects the piece under review (the first pick candidate / approve item
+>   with an artifact: a paused composition is not a declared output); the user's own strip pick wins, a new run or a
+>   new card resets it, a card clearing keeps it; a form card leaves the viewer as it is. The retry row stacks (line,
+>   full-width note, button). Rules in `features/flows/services/pending-artifact.ts` (`reviewItems`,
+>   `pendingArtifactId`, `viewerArtifactId`; 7 tests; PauseCard reuses `reviewItems`). $0 live (`runs/P3/ui-p7fu/a3-*`,
+>   user flow "3a check — card beside the viewer": Upload Image A = output, Upload Image B paused, Text paused): the
+>   approve card in the left column with B in the viewer (not A), no overlay; the form card with A in the viewer; B
+>   picked in the strip wins and stays after the run. Gates: types 26/10; vitest 391 + load flakes that pass alone +
+>   the known 3.
+> - **Part 8 DONE `a1c7b76` `27c5528` `3b0157f`** (the pipeline deleted, D10; Hasan 10-17 "go with recommendations" =
+>   P8-1..P8-9 all (a)). **(i) the bundler first** (P8-3): wherever a shot already has a folder, a gate failure is
+>   bundled in place before any model: `shot-bundle-in-place.ts` bundles the folder's vN.tsx with Import TSX's bundler
+>   (local files + the library set inline), gates the one file and lands it as vN+1 in the SAME folder (id and clips
+>   stay; the first `original.tsx` kept); its `staticFile()` media become project assets (`shot-bundle-media.ts`,
+>   shared with Import TSX). Callers: Convert on a project shot (`conformShot`), the package import's `gateShots`, the
+>   reconcile scan (a drop-in the bundler fixes is adopted at vN+1, never reported). Tests: the Creator 2D set
+>   (chroma-js, @remotion/paths, transitions, google-fonts) inlines; `tone` is refused by name; in-place (5, real
+>   esbuild); reconcile +2, package import +1. **(ii) Convert = a Quick builder edit** (P8-4/5/6):
+>   `shotGenerator.convert` = `editVersion` with op `import`, Quick, `editOf` the version, `convertIntent` = the gate's
+>   and the bundler's words + "make it pass check with the fewest changes; keep its look, timing and
+>   compositionConfig; no synthesized audio"; tracked (the shot's cancel stops it), queued, chip progress. `conformShot`
+>   = gate → bundler in place → convert at the project's shot default (`shotDefaults`: provider + `shotModel || model`;
+>   the conform IPC drops `providerId`). Import TSX: the bundler first on both passes; Convert lands the source as
+>   v1.tsx + original.tsx, registers it, converts to v2 (`shot-import-convert.ts`). `classifyShotImport`: Convert for
+>   any gate failure the bundler could not fix, except a syntax error (`validateShotCode` flags `syntaxError`) and a
+>   source importing local files (Convert edits one file; stays manual); three / R3F / d3 are no longer "blocking";
+>   `describeImportFailure` names the bundler's reason and says Convert is a paid run. **A failed or cancelled convert
+>   leaves an error shot with its source.** `shot-import-land.ts` = the landing helpers (no cycle). **(iii) P8-8:**
+>   Convert on a reconcile drop-in bundles in place, else adopts the folder and converts it as vN+1: no `<id>-2` copy.
+>   **(iv) deleted** (P8-1 / P8-2 / P8-7, 49 files, −3,593 lines): `TsxJobKind` is `build` only (the engine refuses
+>   any other kind; `restore()` drops a queued generate / edit / fix from an older app with a log line); `generateTsx`
+>   = the builder or a refusal (no engine / mode / fallback; `pipeline-fallback.ts` and the spike's mode3d probe
+>   gone); shared/tsx-engine's generation service, prompt-builder, mode-parser and the pipeline prompts gone; also
+>   `buildAgentTsxDeps`, `buildShotEngineDeps`, `buildShotExtraInstructions`, the dead `buildRefineInstruction`,
+>   `CHAT_CONTEXT_LIMIT`, `useSmoothProgress`, the Creator preview's pipeline live-output view. Stays: `THINKING_*`,
+>   `TSX_CRAFT_RULES` + the tsx-craft render (the signed SKILL.md unchanged, no signing), creator-imports (the
+>   builder's check), `validateShotCode`, `validateAgentCompositionCode`, the step-log types the Creator still shows
+>   for old debug sidecars (P8-7). The engine's 3 pipeline-only tests ported to builds (queue, cancel a queued job,
+>   empty prompt) + restore drops old kinds. Gates: types 26/10; vitest 397 files green + shot-generator's known 3.
+>   **L0** $0 (`runs/P3/ui-p8/01-09`, usage rows 0): Import TSX of a chroma-js + transitions shot → v1 bundled; a
+>   `tone` shot → refused, conformable, new wording. chroma drop-in (`shots/chroma-drop/v1.tsx` + window focus) →
+>   adopted at v2 (193 KB bundle), v1 + original kept, placed, plays. `tone` drop-in → banner + Convert → registered in
+>   place (no `-2`) → cancel during "Preparing" → job `cancelled` (> 3 s to land), error shot "Conversion cancelled:
+>   v1 is the source as imported…". Package of a project with a chroma shot → import: ready at v2, original kept. A
+>   part 5 pipeline sidecar copied into the library shows in the Debug tab; the Creator loads, 0 "Uncaught".
+>   **L1** (10-17, Hasan's go): the banner's Convert on a reconcile drop-in `shots/gsap-drop/v1.tsx` (a gsap timeline:
+>   title from opacity 0 / y 40 over 0.6 s power2.out, dot from scale 0 back.out(2) at −0.2 s, then a 0.5 s scale 1.25
+>   yoyo × 4; 90 frames, 1920×1080). Banner: "Package "gsap" is refused: it animates on its own clock. Animate from
+>   useCurrentFrame() instead. (v1.tsx:7)" + the paid-run line. Converted in place, **ready at v2 in 90.6 s**, 1 round,
+>   3 checks, 7 API turns (look: frames 0/15/25/45/60/89 + a phone view), Sonnet 5.5 (the project's shot default),
+>   **$0.73 API-eq** (one `studio-tsx-shot` row; cache write 164k tokens). No `gsap-drop-2`; v1 + original kept. v2:
+>   no gsap, the same timeline computed from `useCurrentFrame()` with inline power2.out / back.out(2) / sine.inOut,
+>   compositionConfig unchanged, the 4 legs ending at 2.9 s. Placed at 30.30 s: in the Studio preview the title is
+>   fading in at 0.17 s with no dot, the dot overshoots at 0.8 s and peaks at 1.4 s (`runs/P3/ui-p8/10-13`).
+>   **Noted, not changed:** the bundler's "not allowed" reason lists every allowed package, so a `tone` banner is long
+>   (gsap's named refusal is short); a cancel during "Preparing" takes seconds to land; every Studio job's card reads
+>   "Waiting for another build to finish" for ~0.1 s even with an empty queue (a job is `queued` for an instant;
+>   shot-generator.ts:294, since part 5).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
