@@ -2,8 +2,8 @@
   "formatVersion": 2,
   "id": "vidtsx/product-ad",
   "name": "Product ad",
-  "description": "Product photo + description → three hero images (pick one) → a 5 s clip (Kling 2.5 Turbo Pro, ~$0.40) → a composition around it → MP4.",
-  "version": "1.0.0",
+  "description": "Product photo + description → three hero images (pick one) → a 5 s clip (Kling 2.5 Turbo Pro, ~$0.40) → a composition around it, built by the TSX builder at the Budget you pick (it generates no images of its own) → MP4.",
+  "version": "1.1.0",
   "author": {
     "name": "VidTSX",
     "url": "https://vidtsx.com"
@@ -48,6 +48,33 @@
         {
           "nodeId": "n-text",
           "key": "prompt"
+        }
+      ]
+    },
+    {
+      "id": "budget",
+      "label": "Budget",
+      "kind": "select",
+      "description": "How long the TSX builder works on the composition.",
+      "options": [
+        {
+          "value": "quick",
+          "label": "Quick — 1 look · stops at 15 min"
+        },
+        {
+          "value": "standard",
+          "label": "Standard — up to 3 looks · stops at 30 min"
+        },
+        {
+          "value": "craft",
+          "label": "Craft — up to 6 looks · stops at 60 min"
+        }
+      ],
+      "default": "standard",
+      "bind": [
+        {
+          "nodeId": "n-compose",
+          "key": "budget"
         }
       ]
     }
@@ -123,11 +150,14 @@
           "model": "",
           "modelMode": "default",
           "title": "Product ad",
+          "budget": "standard",
           "width": 1920,
           "height": 1080,
           "fps": 30,
           "durationSeconds": 10,
-          "styleNotes": "The provided video is the hero shot: play it full-frame for its whole length, then end on a clean product title card with one line of copy taken from the brief."
+          "loop": "off",
+          "styleNotes": "The provided video is the hero shot: play it full-frame for its whole length, then end on a clean product title card with one line of copy taken from the brief.",
+          "generatedImages": "off"
         },
         "pause": false
       },

@@ -1,6 +1,7 @@
 // The runner's checkpoint paths (flows plan §1.3, decision 4, Stage 2) with
 // a fake registry and a temp store: accept substitutes the chosen image,
-// reject reruns once with the note, a second reject cancels, unattended runs
+// reject reruns once with the note (a revising node edits its rejected output
+// with it, P3 part 7), a second reject cancels, unattended runs
 // never pause, a paused run survives a "restart" as expired and Resume asks
 // again without rerunning, a tool's own `ctx.ask` gets the answer, and a
 // cancel while paused ends the run.
@@ -67,6 +68,25 @@ const tools: Record<string, RegisteredTool> = {
       defaultConfig: {},
     },
     handler: async (args) => ({ ...toolText('used'), fields: { text: `used:${String(args.image)}` } }),
+  },
+  // P3 part 7: a node whose retry REVISES its rejected output (the composition nodes' shape).
+  revise_me: {
+    id: 'revise_me',
+    description: 'one image; a retry edits it',
+    schema: { prompt: z.string(), reviseOf: z.string().optional(), revision: z.string().optional() },
+    ports: {
+      label: 'Revise',
+      category: 'image',
+      inputs: [{ id: 'prompt', label: 'P', dataType: 'text', required: true, argKey: 'prompt' }],
+      outputs: [{ id: 'image', label: 'I', dataType: 'image', from: 'artifact' }],
+      configSchema: [{ kind: 'prompt', key: 'prompt', label: 'Prompt' }],
+      defaultConfig: {},
+      reviseOnRetry: { artifactKey: 'reviseOf', noteKey: 'revision' },
+    },
+    handler: async (args) => ({
+      ...toolText('made one'),
+      artifact: { kind: 'image-set', title: String(args.revision ?? args.prompt), payload: { items: [{ relPath: 'flows/x/a.png', width: 1, height: 1 }] } },
+    }),
   },
   asker: {
     id: 'asker',
@@ -210,6 +230,24 @@ describe('FlowRunner checkpoints', () => {
     const run = await readRunDoc(path.join(root, doc().id, runId));
     expect(run?.status).toBe('success');
     expect(run?.nodes['n-imgs']).toMatchObject({ status: 'done', attempts: 2, rejections: 1 });
+  });
+
+  it('reject with a note on a revising node: the rerun gets the rejected artifact and the note, not a longer prompt', async () => {
+    const revising = doc();
+    revising.graph.nodes[1] = { ...revising.graph.nodes[1], toolId: 'revise_me' };
+    const r = runner();
+    const { runId } = await r.start({ ...base('attended'), doc: revising });
+    const first = await nextPauseRequest();
+    expect(first.request.payload.kind).toBe('approve');
+    await r.reply(runId, rejectReply(first.request.id, 'more fur'));
+    const second = await nextPauseRequest(1);
+    expect(calls.filter((c) => c.tool === 'revise_me').map((c) => c.args)).toEqual([
+      { prompt: 'a fox' },
+      { prompt: 'a fox', reviseOf: 'image-set-1', revision: 'more fur' },
+    ]);
+    r.cancel(runId);
+    await r.wait(runId);
+    expect(second.request.id).not.toBe(first.request.id);
   });
 
   it('a second reject stops the run as cancelled with the rest skipped', async () => {

@@ -25,7 +25,7 @@ import { buildNodeArgs, type NodeOutputs } from './flow-args';
 import { askFromTool, runCheckpoint } from './flow-checkpoint';
 import type { SettleJob } from './flow-jobs';
 import { executeNode } from './flow-node-exec';
-import { withRetryNote } from './flow-pause';
+import { retryArgs } from './flow-pause';
 import type { FlowRunStore } from './flow-run-store';
 import type { ActiveRun, NodeDef, RunCtx, RunHost, StartRunInput, StepOutcome } from './flow-run-types';
 import { validateFlowForRun, type FlowRegistryView } from './flow-validate';
@@ -254,7 +254,7 @@ export class FlowRunner implements RunHost {
     await this.stop(ctx, order.length, 'success');
   }
 
-  /** One attempt of a node: `running` → `done` with outputs, or a reason to stop. */
+  /** One attempt of a node: `running` → `done` with outputs, or a reason to stop. On a retry `prior` holds the rejected outputs. */
   async runOnce(ctx: RunCtx, nodeId: string, def: NodeDef, prior: FlowNodeRunState, retryNote?: string): Promise<StepOutcome> {
     const node = ctx.input.doc.graph.nodes.find((n) => n.id === nodeId);
     if (!node) return { kind: 'stop', status: 'error', error: `Unknown node "${nodeId}".` };
@@ -267,12 +267,14 @@ export class FlowRunner implements RunHost {
     const startedAt = this.now();
     const note = (detail: string) => {
       if (notes.length < MAX_NOTES) notes.push(detail);
+      // P3 part 7 (D-4): the running step shows the latest line; only the event carries it.
+      this.deps.emit({ runId: ctx.runDoc.id, kind: 'node-status', nodeId, state: { ...structuredClone(running), progress: detail } });
     };
     let args = buildNodeArgs({
       node, ports: def.ports, edges: ctx.input.doc.graph.edges, outputs: ctx.outputs,
       params: ctx.input.doc.params, paramValues: ctx.runDoc.params,
     });
-    if (retryNote) args = withRetryNote(args, def.ports.configSchema, retryNote);
+    if (retryNote) args = retryArgs(args, def.ports, prior.outputs, retryNote);
 
     const outcome = await executeNode(this.deps, {
       doc: ctx.input.doc, runDoc: ctx.runDoc, mode: ctx.input.mode, nodeId, def, args, attempts,

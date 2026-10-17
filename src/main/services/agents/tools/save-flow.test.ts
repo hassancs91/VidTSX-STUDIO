@@ -65,7 +65,7 @@ describe('applySaveFlowEdits', () => {
     expect(doc.params.map((p) => [p.id, p.label, p.kind, p.default])).toEqual([
       ['style', 'Style', 'select', 'Bold'],
       ['brief', 'Brief', 'prompt', 'Three beats'],
-      ['durationseconds', 'Seconds', 'number', 6],
+      ['durationseconds', 'Seconds (0 = the builder picks)', 'number', 6],
     ]);
     expect(doc.graph.nodes.map((n) => [n.id, n.pause])).toEqual([['n-compose', false], ['n-render', false]]);
     expect(doc.graph.edges).toEqual(draft.graph.edges);

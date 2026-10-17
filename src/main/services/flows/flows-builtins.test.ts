@@ -29,6 +29,9 @@ import { readFlowFolder, scanFlows } from './flow-store';
 const ALL = { imageProvider: true, videoProvider: true, audioProvider: true };
 const NAMES = ['thumbnail', 'frame-strip', 'explainer-30s', 'product-ad', 'add-effect'] as const;
 const ROOT = path.resolve(__dirname, '../../../../resources/flows/vidtsx');
+const VERSIONS: Record<(typeof NAMES)[number], string> = {
+  thumbnail: '1.0.0', 'frame-strip': '1.0.0', 'explainer-30s': '1.1.0', 'product-ad': '1.1.0', 'add-effect': '1.0.0',
+};
 
 async function load(name: string): Promise<FlowDoc> {
   // The document half of the package manifest (Stage 6) — what the runner sees.
@@ -98,13 +101,13 @@ describe('built-in flow fixtures', () => {
     const flow = await readFlowFolder(path.join(ROOT, name), 'builtin', { manifestContext: { appVersion: '1.1.0', toolIds: listToolIds() } });
     expect(flow, name).not.toBeNull();
     expect(flow!.origin).toBe('builtin');
-    expect(flow!.manifest.version).toBe('1.0.0');
+    expect(flow!.manifest.version).toBe(VERSIONS[name]);
     expect(flow!.manifest.author.name).toBe('VidTSX');
     expect(flow!.manifest.minAppVersion).toBe('1.1.0');
     expect(flow!.manifest.files).toEqual([]);
-    // Unsigned unless VIDTSX_AGENT_SIGNING_KEY was present at build time; the
-    // UI lets `builtin` outrank the tag either way.
-    expect(['unsigned', 'verified']).toContain(flow!.signature);
+    // All five are signed as vidtsx-1 (38e067e): an edited flow.json must be
+    // re-signed in the same commit, or the store skips the folder (null above).
+    expect(flow!.signature).toBe('verified');
     // `requires` is what the packer writes: the graph's tools, and the gates those tools carry.
     const doc = flowDocOf(flow!.manifest);
     const tools = [...new Set(doc.graph.nodes.map((n) => n.toolId))];
@@ -131,5 +134,14 @@ describe('built-in flow fixtures', () => {
     const explainer = await load('explainer-30s');
     expect(explainer.graph.nodes.find((n) => n.toolId === 'generate_composition')?.pause).toBe(true);
     expect(explainer.graph.nodes.find((n) => n.toolId === 'generate_composition')?.config.durationSeconds).toBe(30);
+  });
+
+  it.each(['explainer-30s', 'product-ad'] as const)('%s: the TSX node at Standard, no loop, no generated images; Budget on the run form (P3 part 7)', async (name) => {
+    const doc = await load(name);
+    const compose = doc.graph.nodes.find((n) => n.toolId === 'generate_composition');
+    expect(compose?.config).toMatchObject({ budget: 'standard', loop: 'off', generatedImages: 'off' });
+    const budget = doc.params.find((p) => p.id === 'budget');
+    expect(budget).toMatchObject({ kind: 'select', default: 'standard', bind: [{ nodeId: compose?.id, key: 'budget' }] });
+    expect(budget?.options?.map((o) => (typeof o === 'string' ? o : o.value))).toEqual(['quick', 'standard', 'craft']);
   });
 });

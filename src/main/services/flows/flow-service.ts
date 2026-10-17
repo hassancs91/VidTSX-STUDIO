@@ -20,7 +20,8 @@ import { listFlows, loadFlow } from '../flows-projects-db';
 import { loadRun } from '../flows-runs-db';
 import { getAssetsDir, getFlowRunsDir } from '../../utils/paths';
 import { FlowRunner } from './flow-runner';
-import { flowRunStore } from './flow-run-store';
+import { flowRunStore, RUN_FILES_DIR } from './flow-run-store';
+import { compositionPreviewPath } from './composition-preview';
 import { settleJob } from './flow-jobs';
 import { migrateLegacyRunFolders } from './flow-run-migrate';
 import { ensureFlowCatalog, packageInfoFor } from './flow-catalog';
@@ -223,6 +224,12 @@ class FlowService {
     const assetUrls: Record<string, string[]> = {};
     const root = await ensureLibraryRoot();
     for (const artifact of artifacts) {
+      if (artifact.kind === 'composition') {
+        // P3 part 7 (D-4): a frame of the builder's last look, for the card and the strip.
+        const still = await compositionPreviewPath(path.join(dir, RUN_FILES_DIR), artifact);
+        if (still) assetUrls[artifact.id] = [await assetUrlFor(still)];
+        continue;
+      }
       if (artifactRoot(artifact) !== 'library') continue;
       const relPaths =
         artifact.kind === 'image-set'

@@ -1,6 +1,7 @@
 // A checkpoint after a node (flows plan §1.3, decision 4, W8 Stage 2): what
 // card to raise for the node's primary output, what the reply substitutes on
-// that port, and how a rejection's note reaches the node's prompt.
+// that port, and how a rejection's note reaches the node's prompt — or, for a
+// node that revises (P3 part 7), its rejected output.
 //
 // The card kind follows the OUTPUT: several images → `pick` (one of them),
 // one artifact → `approve`, text or a number → an editable `form`. A pick
@@ -9,7 +10,7 @@
 // already a port value — no second artifact shape for "the one you chose".
 
 import type { AgentArtifact, InteractionCandidate, InteractionPayload } from '../../../shared/types/agents';
-import type { ConfigField, FlowNode, FlowPortValue, PortDef } from '../../../shared/types/flows';
+import type { ConfigField, FlowNode, FlowPortValue, PortDef, ToolPorts } from '../../../shared/types/flows';
 import { FLOW_PAUSE_TEXT_FIELD, type FlowPauseDecision } from '../../../shared/flows/pause-reply';
 import type { AgentArtifactStore } from '../agents/artifact-store';
 import type { NodeOutputs } from './flow-args';
@@ -146,4 +147,25 @@ export function withRetryNote(
   if (!trimmed || !key) return args;
   const base = args[key];
   return { ...args, [key]: typeof base === 'string' && base ? `${base}\n\n${trimmed}` : trimmed };
+}
+
+/**
+ * The rerun's arguments after a rejection. A node whose ports say
+ * `reviseOnRetry` (the composition nodes, P3 part 7 D-3) gets the REJECTED
+ * output's artifact and the note as its instruction, so its tool edits what
+ * the user saw; an empty note, or any other node, reruns with `withRetryNote`.
+ */
+export function retryArgs(
+  args: Record<string, unknown>,
+  ports: Pick<ToolPorts, 'configSchema' | 'outputs' | 'reviseOnRetry'>,
+  rejected: NodeOutputs | undefined,
+  note: string,
+): Record<string, unknown> {
+  const trimmed = note.trim();
+  const port = ports.outputs[0];
+  const value = port ? rejected?.[port.id] : undefined;
+  if (ports.reviseOnRetry && trimmed && value?.kind === 'artifact') {
+    return { ...args, [ports.reviseOnRetry.artifactKey]: value.artifactId, [ports.reviseOnRetry.noteKey]: trimmed };
+  }
+  return withRetryNote(args, ports.configSchema, note);
 }

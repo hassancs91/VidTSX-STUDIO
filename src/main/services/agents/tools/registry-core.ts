@@ -121,6 +121,7 @@ export function listNodeSpecs(capabilities: ToolCapabilities): NodeSpec[] {
       ...(ports.priced ? { priced: true } : {}),
       ...(priceHint ? { priceHint } : {}),
       ...(ports.nondeterministic ? { nondeterministic: true } : {}),
+      ...(ports.reviseOnRetry ? { revisesOnRetry: true } : {}),
     });
   }
   return specs;

@@ -1,14 +1,17 @@
-// `generate_composition` and `edit_composition` on the TSX builder (P3 part 4):
-// one `build` job each through a fake job engine (test-build-engine.ts), into a
-// reserved `compositions/<slug>/`, and back as a `composition` artifact with
-// the frames the builder last looked at. The transpiler and the module server
-// are stubbed — this is about what the tools ask for and what they do with
-// the job's result, not about esbuild or the builder.
+// `generate_composition` on the TSX builder (P3 part 4): one `build` job
+// through a fake job engine (test-build-engine.ts), into a reserved
+// `compositions/<slug>/`, and back as a `composition` artifact with the frames
+// the builder last looked at. Part 7: the node's budget / loop / images
+// fields and the revise path. The transpiler and the module server are
+// stubbed — this is about what the tool asks for and what it does with the
+// job's result, not about esbuild or the builder. `edit_composition`'s tests
+// are in edit-composition.test.ts.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
+import { z } from 'zod';
 import { makeToolContext } from './test-context';
 import { fakeBuildEngine, FAKE_BUILD_CODE, type FakeBuildEngine } from './test-build-engine';
 
@@ -58,7 +61,6 @@ vi.mock('../../settings', () => ({
 }));
 
 const { generateCompositionTool } = await import('./generate-composition');
-const { editCompositionTool } = await import('./edit-composition');
 const { setBuildEngineForTests } = await import('./composition-build');
 
 const CONFIG = { id: 'main', durationInFrames: 120, fps: 30, width: 1080, height: 1920 };
@@ -195,100 +197,6 @@ describe('generate_composition', () => {
   });
 });
 
-describe('edit_composition', () => {
-  const prior = (relPath: string) => ({
-    id: 'composition-1',
-    kind: 'composition' as const,
-    title: 'Promo loop',
-    createdAt: new Date().toISOString(),
-    producer: { tool: 'generate_composition', callId: 'c0' },
-    version: 1,
-    payload: { relPath, config: CONFIG },
-  });
-
-  it('continues the version (editOf) and files vN+1 from the same folder, superseding it', async () => {
-    const folder = path.join(dir, 'compositions', 'promo-loop');
-    await fs.mkdir(folder, { recursive: true });
-    await fs.writeFile(path.join(folder, 'v1.tsx'), FAKE_BUILD_CODE, 'utf-8');
-    const res = await editCompositionTool.handler(
-      { artifactId: 'composition-1', instruction: 'slow the outro' },
-      makeToolContext({ workspaceDir: dir, artifacts: [prior('compositions/promo-loop/v1.tsx')], model: 'claude-sonnet-5-5' }),
-    );
-    expect(res.isError).toBeUndefined();
-    expect(engine.builds[0].request).toEqual({
-      kind: 'build',
-      prompt: 'slow the outro',
-      options: { model: 'claude-sonnet-5-5' },
-      build: { budget: 'standard', editOf: { folderPath: folder, version: 1 } },
-    });
-    // An edit builds onto the version; it reserves no folder.
-    expect(engine.builds[0].owner?.into).toBeUndefined();
-    expect(res.supersedes).toBe('composition-1');
-    expect(res.artifact?.payload).toMatchObject({ relPath: 'compositions/promo-loop/v2.tsx' });
-    expect(res.content[0].text).toContain('Edited Promo loop: compositions/promo-loop/v2.tsx');
-    expect(res.images).toHaveLength(3);
-  });
-
-  it('copies a flat legacy file in as <slug>/v1.tsx first', async () => {
-    await fs.mkdir(path.join(dir, 'compositions'), { recursive: true });
-    await fs.writeFile(path.join(dir, 'compositions', 'promo-loop.tsx'), 'old code', 'utf-8');
-    const res = await editCompositionTool.handler(
-      { artifactId: 'composition-1', instruction: 'x', budget: 'quick' },
-      makeToolContext({ workspaceDir: dir, artifacts: [prior('compositions/promo-loop.tsx')] }),
-    );
-    const folder = path.join(dir, 'compositions', 'promo-loop');
-    expect(engine.builds[0].request.build).toMatchObject({ budget: 'quick', editOf: { folderPath: folder, version: 1 } });
-    expect(await fs.readFile(path.join(folder, 'v1.tsx'), 'utf-8')).toBe('old code');
-    expect(res.artifact?.payload).toMatchObject({ relPath: 'compositions/promo-loop/v2.tsx' });
-    // The flat file stays where the earlier artifact points.
-    expect(await fs.readFile(path.join(dir, 'compositions', 'promo-loop.tsx'), 'utf-8')).toBe('old code');
-  });
-
-  it('`loop` sends the version\'s size and fps with the loop flag, never a length', async () => {
-    const folder = path.join(dir, 'compositions', 'promo-loop');
-    await fs.mkdir(folder, { recursive: true });
-    await fs.writeFile(path.join(folder, 'v1.tsx'), FAKE_BUILD_CODE, 'utf-8');
-    await editCompositionTool.handler(
-      { artifactId: 'composition-1', instruction: 'x', loop: true },
-      makeToolContext({ workspaceDir: dir, artifacts: [prior('compositions/promo-loop/v1.tsx')] }),
-    );
-    expect(engine.builds[0].request.build?.format).toEqual({ width: 1080, height: 1920, fps: 30, loop: true });
-  });
-
-  it('a failed edit leaves the composition unchanged', async () => {
-    engine.options.outcome = 'error';
-    engine.options.error = 'cap';
-    const folder = path.join(dir, 'compositions', 'promo-loop');
-    await fs.mkdir(folder, { recursive: true });
-    await fs.writeFile(path.join(folder, 'v1.tsx'), FAKE_BUILD_CODE, 'utf-8');
-    const res = await editCompositionTool.handler(
-      { artifactId: 'composition-1', instruction: 'x' },
-      makeToolContext({ workspaceDir: dir, artifacts: [prior('compositions/promo-loop/v1.tsx')] }),
-    );
-    expect(res.isError).toBe(true);
-    expect(res.content[0].text).toBe('The edit failed; the composition is unchanged: cap');
-    expect(res.artifact).toBeUndefined();
-  });
-
-  it('refuses an id that is not a composition', async () => {
-    const doc = {
-      id: 'document-1',
-      kind: 'document' as const,
-      title: 'Script',
-      createdAt: new Date().toISOString(),
-      producer: { tool: 'write_document', callId: 'c0' },
-      payload: { relPath: 'documents/script.md' },
-    };
-    const res = await editCompositionTool.handler(
-      { artifactId: 'document-1', instruction: 'x' },
-      makeToolContext({ workspaceDir: dir, artifacts: [doc] }),
-    );
-    expect(res.isError).toBe(true);
-    expect(res.content[0].text).toContain('is a document, not a composition');
-    expect(engine.builds).toEqual([]);
-  });
-});
-
 describe('generate_composition as a node (W8 Stage 3)', () => {
   const image = {
     id: 'image-set-1',
@@ -368,5 +276,83 @@ describe('generate_composition as a node (W8 Stage 3)', () => {
     await generateCompositionTool.handler({ title: 'X', brief: 'b', brandId: '' }, ctx);
     await generateCompositionTool.handler({ title: 'X', brief: 'b', brandId: null }, ctx);
     expect(readSessionBrandInstructions.mock.calls.map((c) => c[0])).toEqual(['node-brand', 'run-brand', undefined]);
+  });
+});
+
+describe('generate_composition: budget, loop, images and the revise path (P3 part 7)', () => {
+  const rejected = {
+    id: 'composition-1',
+    kind: 'composition' as const,
+    title: 'Explainer',
+    createdAt: new Date().toISOString(),
+    producer: { tool: 'generate_composition', callId: 'c0' },
+    version: 1,
+    payload: { relPath: 'compositions/explainer/v1.tsx', config: CONFIG },
+  };
+
+  it("the node's select strings pass zod and reach the build: loop 'on' / 'off', 0 s = the builder picks", async () => {
+    const parsed = z.object(generateCompositionTool.schema).safeParse({ title: 'X', brief: 'b', loop: 'on', generatedImages: 'off', durationSeconds: 0 });
+    expect(parsed.success).toBe(true);
+    await generateCompositionTool.handler({ title: 'X', brief: 'b', loop: 'on', durationSeconds: 0, budget: 'quick' }, makeToolContext({ workspaceDir: dir }));
+    await generateCompositionTool.handler({ title: 'Y', brief: 'b', loop: 'off' }, makeToolContext({ workspaceDir: dir }));
+    expect(engine.builds[0].request.build).toMatchObject({ budget: 'quick', format: { width: 1920, height: 1080, fps: 30, loop: true } });
+    expect(engine.builds[0].request.build?.format).not.toHaveProperty('durationInFrames');
+    expect(engine.builds[1].request.build?.format).not.toHaveProperty('loop');
+  });
+
+  it('generated images: a flow node is Off unless it says On; an agent keeps the builder default unless it says off', async () => {
+    const flows = makeToolContext({ workspaceDir: dir, featureSource: 'flows' });
+    const agent = makeToolContext({ workspaceDir: dir });
+    await generateCompositionTool.handler({ title: 'A', brief: 'b' }, flows);
+    await generateCompositionTool.handler({ title: 'B', brief: 'b', generatedImages: 'on' }, flows);
+    await generateCompositionTool.handler({ title: 'C', brief: 'b' }, agent);
+    await generateCompositionTool.handler({ title: 'D', brief: 'b', generatedImages: false }, agent);
+    expect(engine.builds.map((b) => b.request.build?.maxGeneratedImages)).toEqual([0, undefined, undefined, 0]);
+  });
+
+  it('a revision edits the rejected version at the node budget and model, superseding it, in no new folder', async () => {
+    const folder = path.join(dir, 'compositions', 'explainer');
+    await fs.mkdir(folder, { recursive: true });
+    await fs.writeFile(path.join(folder, 'v1.tsx'), FAKE_BUILD_CODE, 'utf-8');
+    const res = await generateCompositionTool.handler(
+      {
+        title: 'Explainer', brief: 'the script', budget: 'quick', styleNotes: 'Clean', reviseOf: 'composition-1', revision: '  bigger title  ',
+        providerId: 'openrouter', model: 'anthropic/claude-sonnet-4.5', modelMode: 'required',
+      },
+      makeToolContext({ workspaceDir: dir, artifacts: [rejected], featureSource: 'flows' }),
+    );
+    expect(res.isError).toBeUndefined();
+    expect(engine.builds).toHaveLength(1);
+    expect(engine.builds[0].request).toEqual({
+      kind: 'build',
+      prompt: 'bigger title',
+      providerId: 'openrouter',
+      options: { model: 'anthropic/claude-sonnet-4.5' },
+      build: { budget: 'quick', editOf: { folderPath: folder, version: 1 }, maxGeneratedImages: 0 },
+    });
+    expect(engine.builds[0].owner?.into).toBeUndefined();
+    expect(res.supersedes).toBe('composition-1');
+    expect(res.artifact?.payload).toMatchObject({ relPath: 'compositions/explainer/v2.tsx' });
+    expect(await fs.readdir(path.join(dir, 'compositions'))).toEqual(['explainer']);
+  });
+
+  it('a blank revision builds anew', async () => {
+    await generateCompositionTool.handler(
+      { title: 'X', brief: 'b', reviseOf: 'composition-1', revision: '  ' },
+      makeToolContext({ workspaceDir: dir, artifacts: [rejected] }),
+    );
+    expect(engine.builds[0].request.build).not.toHaveProperty('editOf');
+    expect(engine.builds[0].owner?.into).toBe(path.join(dir, 'compositions', 'x'));
+  });
+
+  it("the node's fields: defaults the schema takes, each select's default among its options, revise on retry", () => {
+    const ports = generateCompositionTool.ports!;
+    expect(ports.defaultConfig).toMatchObject({ budget: 'standard', loop: 'off', generatedImages: 'off' });
+    expect(z.object(generateCompositionTool.schema).partial().safeParse(ports.defaultConfig).success).toBe(true);
+    for (const field of ports.configSchema) {
+      if (field.kind === 'select') expect(field.options.map((o) => o.value), field.key).toContain(ports.defaultConfig[field.key]);
+    }
+    expect(ports.configSchema.find((f) => f.key === 'durationSeconds')).toMatchObject({ min: 0 });
+    expect(ports.reviseOnRetry).toEqual({ artifactKey: 'reviseOf', noteKey: 'revision' });
   });
 });

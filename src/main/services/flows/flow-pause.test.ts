@@ -1,6 +1,6 @@
 // The checkpoint planner and its two pure halves (flows plan §1.3, Stage 2):
 // which card a node's primary output raises, what an accept substitutes, and
-// where a rejection's note lands.
+// where a rejection's note lands (part 7: or what a revising node edits).
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
@@ -8,7 +8,7 @@ import os from 'os';
 import path from 'path';
 import type { FlowNode, PortDef } from '../../../shared/types/flows';
 import { AgentArtifactStore } from '../agents/artifact-store';
-import { acceptedOutputs, planPause, withRetryNote, type PausePlan } from './flow-pause';
+import { acceptedOutputs, planPause, retryArgs, withRetryNote, type PausePlan } from './flow-pause';
 
 let root = '';
 let store: AgentArtifactStore;
@@ -98,5 +98,24 @@ describe('withRetryNote', () => {
     expect(withRetryNote({ prompt: '' }, [], 'note')).toEqual({ prompt: 'note' });
     expect(withRetryNote({ width: 1 }, [], 'note')).toEqual({ width: 1 });
     expect(withRetryNote({ prompt: 'a' }, [], '   ')).toEqual({ prompt: 'a' });
+  });
+});
+
+describe('retryArgs (P3 part 7)', () => {
+  const compositionPort: PortDef[] = [{ id: 'composition', label: 'Composition', dataType: 'composition', from: 'artifact' }];
+  const schema = [{ kind: 'prompt' as const, key: 'styleNotes', label: 'Style' }];
+  const revising = { configSchema: schema, outputs: compositionPort, reviseOnRetry: { artifactKey: 'reviseOf', noteKey: 'revision' } };
+  const rejected = { composition: { kind: 'artifact' as const, artifactId: 'composition-1', artifactKind: 'composition' as const } };
+
+  it('a revising node gets the rejected artifact and the trimmed note; its prompt is left alone', () => {
+    expect(retryArgs({ brief: 'b', styleNotes: 'Clean' }, revising, rejected, ' bigger title ')).toEqual({
+      brief: 'b', styleNotes: 'Clean', reviseOf: 'composition-1', revision: 'bigger title',
+    });
+  });
+
+  it('an empty note, or no rejected artifact, reruns as before; a plain node gets the note on its prompt', () => {
+    expect(retryArgs({ styleNotes: 'Clean' }, revising, rejected, '  ')).toEqual({ styleNotes: 'Clean' });
+    expect(retryArgs({ styleNotes: 'Clean' }, revising, undefined, 'x')).toEqual({ styleNotes: 'Clean\n\nx' });
+    expect(retryArgs({ styleNotes: 'Clean' }, { configSchema: schema, outputs: compositionPort }, rejected, 'x')).toEqual({ styleNotes: 'Clean\n\nx' });
   });
 });

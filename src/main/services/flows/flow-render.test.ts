@@ -13,7 +13,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import type { FlowDoc, FlowRunDoc } from '../../../shared/types/flows';
+import type { FlowDoc, FlowRunDoc, FlowRunEvent } from '../../../shared/types/flows';
+import { rejectReply } from '../../../shared/flows/pause-reply';
 
 let root = '';
 let libraryRoot = '';
@@ -112,7 +113,7 @@ const doc: FlowDoc = {
   origin: null,
 };
 
-function runner() {
+function runner(emit: (event: FlowRunEvent) => void = () => {}) {
   return new FlowRunner({
     registry: { getNode },
     capabilities: async () => ALL,
@@ -125,7 +126,7 @@ function runner() {
       persistSummary: async () => {},
     },
     settleJob,
-    emit: () => {},
+    emit,
   });
 }
 
@@ -222,5 +223,62 @@ describe('the five-node composition flow through a main-side render', () => {
     const artifacts = await openRunArtifacts(path.join(root, 'flows', doc.id, 'runs', runId));
     const job = artifacts.list().find((a) => a.kind === 'job');
     expect(job?.kind === 'job' ? job.payload.status : '').toBe('cancelled');
+  });
+});
+
+describe('the TSX node in a flow (P3 part 7)', () => {
+  const withCompose = (config: Record<string, unknown>, pause = false): FlowDoc => ({
+    ...doc,
+    graph: { ...doc.graph, nodes: doc.graph.nodes.map((n) => (n.id === 'n-compose' ? { ...n, pause, config: { ...n.config, ...config } } : n)) },
+  });
+
+  it("the inspector's strings and a run-form Budget param pass zod and reach the build", async () => {
+    const budgeted: FlowDoc = {
+      ...withCompose({ budget: 'standard', loop: 'on', generatedImages: 'off' }),
+      params: [...doc.params, { id: 'budget', label: 'Budget', kind: 'select', options: ['quick', 'standard', 'craft'], bind: [{ nodeId: 'n-compose', key: 'budget' }] }],
+    };
+    const r = runner();
+    const { runId } = await r.start({ ...base, doc: budgeted, params: { topic: 'flows', budget: 'quick' } });
+    await r.wait(runId);
+    const state = await run(runId);
+    expect(state.status, state.error ?? '').toBe('success');
+    expect(engine.builds[0].request.build).toMatchObject({
+      budget: 'quick',
+      format: { width: 1920, height: 1080, fps: 30, durationInFrames: 180, loop: true },
+      maxGeneratedImages: 0,
+    });
+  });
+
+  it('Retry with note edits the rejected composition; Stop run at the second card never renders', async () => {
+    const events: FlowRunEvent[] = [];
+    const pauseAt = async (n: number) => {
+      await vi.waitFor(() => expect(events.filter((e) => e.kind === 'pause-request').length).toBeGreaterThan(n));
+      return events.filter((e) => e.kind === 'pause-request')[n] as Extract<FlowRunEvent, { kind: 'pause-request' }>;
+    };
+    const r = runner((e) => events.push(e));
+    const { runId } = await r.start({ ...base, doc: withCompose({ budget: 'quick' }, true), mode: 'attended' });
+    const first = await pauseAt(0);
+    expect(first.request.payload).toMatchObject({ kind: 'approve', items: [{ artifactId: 'composition-1' }] });
+    await r.reply(runId, rejectReply(first.request.id, 'Make the title twice as big.'));
+    const second = await pauseAt(1);
+
+    const folder = path.join(root, 'flows', doc.id, 'runs', runId, 'files', 'compositions', 'explainer');
+    expect(engine.builds).toHaveLength(2);
+    expect(engine.builds[1].request).toMatchObject({
+      prompt: 'Make the title twice as big.',
+      build: { budget: 'quick', editOf: { folderPath: folder, version: 1 }, maxGeneratedImages: 0 },
+    });
+    expect(engine.builds[1].owner?.into).toBeUndefined();
+    const artifacts = await openRunArtifacts(path.join(root, 'flows', doc.id, 'runs', runId));
+    const revised = artifacts.list().filter((a) => a.kind === 'composition').at(-1);
+    expect(revised).toMatchObject({ version: 2, payload: { relPath: 'compositions/explainer/v2.tsx' } });
+    expect(second.request.payload).toMatchObject({ kind: 'approve', items: [{ artifactId: revised?.id }] });
+
+    await r.reply(runId, { requestId: second.request.id, status: 'cancelled' });
+    await r.wait(runId);
+    const state = await run(runId);
+    expect(state.status).toBe('cancelled');
+    expect(state.nodes['n-compose']).toMatchObject({ status: 'skipped', attempts: 2, rejections: 1 });
+    expect(renders).toHaveLength(0);
   });
 });

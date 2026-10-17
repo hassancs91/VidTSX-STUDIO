@@ -211,6 +211,13 @@ export function CustomNode({ id, data, selected }: NodeProps<FlowCanvasNodeData>
         </div>
       )}
 
+      {runState.status === 'running' && runState.progress && (
+        // P3 part 7 (D-4): the step's latest progress line (a build's round and phase).
+        <div className="px-3 pb-2 -mt-1 text-[10px] text-text-muted line-clamp-2 break-words" title={runState.progress} data-node-progress>
+          {runState.progress}
+        </div>
+      )}
+
       {runState.status === 'done' && <OutputPreview spec={spec} outputs={runState.outputs} />}
 
       {runState.status === 'error' && runState.error && (

@@ -120,6 +120,9 @@ export function NodeInspector({ nodeId, toolId, config, doc, onPatchConfig, onEx
   if (!spec) return <div className="p-3 text-[11px] text-accent-red">Unknown node: {toolId}</div>;
   const unmet = spec.available === false ? (spec.needs ?? []) : [];
   const pause = doc?.graph.nodes.find((n) => n.id === nodeId)?.pause ?? false;
+  // A node saved before a field existed shows that field's default, which is
+  // what its tool does with the key absent (a select would show its FIRST option).
+  const shown = { ...spec.defaultConfig, ...config };
 
   return (
     <div className="flex flex-col gap-3 p-3 overflow-y-auto h-full" data-node-inspector={nodeId}>
@@ -152,7 +155,7 @@ export function NodeInspector({ nodeId, toolId, config, doc, onPatchConfig, onEx
                 </div>
               )}
               <div className={bound ? 'opacity-50 pointer-events-none' : ''} title={bound ? 'Set on the run form' : undefined}>
-                {renderField(field, config, onPatchConfig)}
+                {renderField(field, shown, onPatchConfig)}
               </div>
             </div>
           );

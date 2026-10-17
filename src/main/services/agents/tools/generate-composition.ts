@@ -12,29 +12,30 @@
 // `brief` port is the text in; size, fps, duration, style notes and a per-node
 // brand are inspector config. The node binds a provider and model (decision
 // 12's modes, `llm-model-binding.ts`) so a flow can pin the builder's LLM.
+// Port media (an image set, a video) go to the builder through
+// composition-media.ts.
 //
-// Port media: an `image` port's set goes to the builder as reference images
-// (≤4) and its first image into the build's assets/ as a file the piece can
-// show; a `video` port's file goes into assets/ too. The piece loads both
-// with `staticFile('<name>')`, which the builder's check resolves.
+// P3 part 7: the node also sets the builder's budget, the loop, and whether it
+// may generate images (Off unless the node says On: a flow's priced steps are
+// what its nodes declare). A checkpoint rejected with a note comes back with
+// `reviseOf` + `revision` (`reviseOnRetry`): the builder EDITS the rejected
+// version at the node's budget (composition-edit.ts) instead of building anew.
 
-import path from 'path';
 import { z } from 'zod';
-import type { BuildFormat, LlmImageIpc, TsxJobStartRequest } from '../../../../shared/ipc/types';
-import type { AgentToolContext, AgentToolDef, AgentToolResult } from './types';
+import type { BuildFormat, TsxJobStartRequest } from '../../../../shared/ipc/types';
+import { BUDGET_CHOICES, budgetHint } from '../../../../shared/tsx-engine/build-budgets';
+import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
 import { compositionDraft, releaseEmptyFolder, reserveCompositionFolder } from './composition-file';
-import { readResultImages, referenceImageFor, runCompositionBuild } from './composition-build';
+import { readResultImages, runCompositionBuild } from './composition-build';
+import { runCompositionEdit } from './composition-edit';
+import { buildMediaFor, type BuildMedia } from './composition-media';
 import { buildResultText, pickResultStills } from './build-result';
 import { resolveLlmModelBinding } from './llm-model-binding';
-import { resolveImageSet, resolveVideoFile } from './port-media';
 import { readSessionBrandInstructions, resolveNodeBrand } from './session-brand';
 
 const MODEL_MODES = ['required', 'preferred', 'default'] as const;
 export const BUILD_BUDGETS = ['quick', 'standard', 'craft'] as const;
-
-/** Reference images from an `image` port. */
-const REFERENCE_IMAGES_MAX = 4;
 
 export const budgetSchema = z
   .enum(BUILD_BUDGETS)
@@ -43,10 +44,16 @@ export const budgetSchema = z
     'How long the builder may work. quick: ~1-3 min, one look at its frames. standard (default): ~3-10 min, up to 3 looks. craft: up to 60 min, up to 6 looks; only when the user wants a finished piece.',
   );
 
-export const loopSchema = z
-  .boolean()
-  .optional()
-  .describe('True for a seamless loop: the last frame leads straight back into the first.');
+/** An agent sends a boolean; a flow inspector's select sends 'on' / 'off' (generate-audio's pattern). */
+export const onOff = z.union([z.boolean(), z.enum(['on', 'off'])]);
+
+/** true / 'on' → true, false / 'off' → false; absent (or an edit's 'keep') → undefined. */
+export function isOn(value: boolean | 'on' | 'off' | 'keep' | undefined): boolean | undefined {
+  return value === undefined || value === 'keep' ? undefined : value === true || value === 'on';
+}
+
+/** The composition nodes' Budget select: what each budget buys, as the Creator's picker says it. */
+export const BUDGET_OPTIONS = BUDGET_CHOICES.map((c) => ({ value: c.value, label: `${c.label} — ${budgetHint(c.value)}` }));
 
 const schema = {
   title: z.string().min(1).describe('Short name for this composition — names its folder.'),
@@ -59,11 +66,16 @@ const schema = {
   fps: z.number().int().positive().optional().describe('Default 30.'),
   durationSeconds: z
     .number()
-    .positive()
+    .nonnegative()
     .optional()
-    .describe('Length in seconds. Absent = the builder picks a length that fits the brief.'),
+    .describe('Length in seconds. Absent or 0 = the builder picks a length that fits the brief.'),
   budget: budgetSchema,
-  loop: loopSchema,
+  loop: onOff
+    .optional()
+    .describe('True for a seamless loop: the last frame leads straight back into the first.'),
+  generatedImages: onOff
+    .optional()
+    .describe('Whether the builder may generate images (priced; needs an image provider). Absent = allowed for an agent, off for a flow node.'),
   styleNotes: z
     .string()
     .optional()
@@ -84,6 +96,11 @@ const schema = {
     .enum(MODEL_MODES)
     .optional()
     .describe('required = refuse when the model is unavailable; preferred = fall back; default = app default.'),
+  reviseOf: z
+    .string()
+    .optional()
+    .describe('Flows only: a composition this step built that the user rejected; with `revision`, the builder edits it instead of building anew.'),
+  revision: z.string().optional().describe('Flows only: the change to make to `reviseOf`.'),
 };
 
 interface GenerateCompositionArgs {
@@ -94,7 +111,8 @@ interface GenerateCompositionArgs {
   fps?: number;
   durationSeconds?: number;
   budget?: (typeof BUILD_BUDGETS)[number];
-  loop?: boolean;
+  loop?: boolean | 'on' | 'off';
+  generatedImages?: boolean | 'on' | 'off';
   styleNotes?: string;
   referenceImage?: string;
   referenceVideo?: string;
@@ -102,52 +120,8 @@ interface GenerateCompositionArgs {
   providerId?: string;
   model?: string;
   modelMode?: (typeof MODEL_MODES)[number];
-}
-
-export interface BuildMedia {
-  /** Lines for the builder's brief. */
-  notes: string[];
-  referenceImages: LlmImageIpc[];
-  /** Files for the build's assets/: an absolute path and its name there. */
-  assets: Array<{ path: string; name: string }>;
-}
-
-/** A port's media as the builder takes it: reference images, files in assets/, and a line each in the brief. */
-export async function buildMediaFor(
-  ctx: AgentToolContext,
-  args: Pick<GenerateCompositionArgs, 'referenceImage' | 'referenceVideo'>,
-): Promise<BuildMedia> {
-  const media: BuildMedia = { notes: [], referenceImages: [], assets: [] };
-  const stems = new Set<string>();
-  if (args.referenceImage) {
-    const { artifact, items } = await resolveImageSet(ctx, args.referenceImage);
-    const first = items[0];
-    if (!first) throw new Error(`Artifact "${args.referenceImage}" holds no image.`);
-    for (const item of items.slice(0, REFERENCE_IMAGES_MAX)) {
-      const image = referenceImageFor(item.absPath);
-      if (image) media.referenceImages.push(image);
-    }
-    const name = path.basename(first.absPath);
-    stems.add(path.parse(name).name.toLowerCase());
-    media.assets.push({ path: first.absPath, name });
-    const shown = media.referenceImages.length;
-    media.notes.push(
-      `An image "${artifact.title}" (${first.width}x${first.height}) is part of this composition: it is in assets/ as ${name}. Show it with <Img src={staticFile('${name}')} /> from remotion.` +
-        (shown > 0 ? ` You can see ${shown === 1 ? 'it' : `it and the rest of its set (${shown} images)`} as reference images.` : ''),
-    );
-  }
-  if (args.referenceVideo) {
-    const { artifact, absPath } = await resolveVideoFile(ctx, args.referenceVideo);
-    const parsed = path.parse(path.basename(absPath));
-    // Two files with one stem share one assets lookup key, which check refuses.
-    const name = stems.has(parsed.name.toLowerCase()) ? `${parsed.name}-video${parsed.ext}` : parsed.base;
-    media.assets.push({ path: absPath, name });
-    const seconds = artifact.kind === 'video' ? artifact.payload.durationSeconds : 0;
-    media.notes.push(
-      `A video "${artifact.title}" (${seconds.toFixed(1)} s) is part of this composition: it is in assets/ as ${name}. Play it with <OffthreadVideo src={staticFile('${name}')} /> from remotion, and keep it on screen for its full length unless the brief says otherwise.`,
-    );
-  }
-  return media;
+  reviseOf?: string;
+  revision?: string;
 }
 
 export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
@@ -166,11 +140,30 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     outputs: [{ id: 'composition', label: 'Composition', dataType: 'composition', from: 'artifact' }],
     configSchema: [
       { kind: 'text', key: 'title', label: 'Title', placeholder: 'Names the folder' },
+      { kind: 'select', key: 'budget', label: 'Budget', options: BUDGET_OPTIONS },
       { kind: 'number', key: 'width', label: 'Width', min: 256, max: 7680, step: 2 },
       { kind: 'number', key: 'height', label: 'Height', min: 256, max: 4320, step: 2 },
       { kind: 'number', key: 'fps', label: 'FPS', min: 1, max: 120, step: 1 },
-      { kind: 'number', key: 'durationSeconds', label: 'Seconds', min: 1, max: 600, step: 1 },
+      { kind: 'number', key: 'durationSeconds', label: 'Seconds (0 = the builder picks)', min: 0, max: 600, step: 1 },
+      {
+        kind: 'select',
+        key: 'loop',
+        label: 'Loop',
+        options: [
+          { value: 'off', label: 'No' },
+          { value: 'on', label: 'Seamless loop' },
+        ],
+      },
       { kind: 'prompt', key: 'styleNotes', label: 'Style notes (optional)', rows: 3 },
+      {
+        kind: 'select',
+        key: 'generatedImages',
+        label: 'Generated images',
+        options: [
+          { value: 'off', label: 'Off — the builder draws everything in code' },
+          { value: 'on', label: 'On — it may generate images (priced, needs an image provider)' },
+        ],
+      },
       { kind: 'llm-model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
       {
         kind: 'select',
@@ -185,9 +178,10 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
       { kind: 'text', key: 'brandId', label: 'Brand id (optional)', placeholder: 'run brand' },
     ],
     defaultConfig: {
-      title: 'Composition', width: 1920, height: 1080, fps: 30, durationSeconds: 6, styleNotes: '',
-      providerId: '', model: '', modelMode: 'default',
+      title: 'Composition', budget: 'standard', width: 1920, height: 1080, fps: 30, durationSeconds: 6, loop: 'off',
+      styleNotes: '', generatedImages: 'off', providerId: '', model: '', modelMode: 'default',
     },
+    reviseOnRetry: { artifactKey: 'reviseOf', noteKey: 'revision' },
   },
   async handler(args, ctx): Promise<AgentToolResult> {
     ctx.emitProgress(args.title);
@@ -203,6 +197,22 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     if (binding.note) ctx.emitProgress(binding.note);
     const providerId = binding.providerId ?? (binding.note ? undefined : ctx.providerId);
     const model = binding.providerId ? binding.model : ctx.model;
+    const budget = args.budget ?? 'standard';
+    // D-2: a flow node buys no images unless it says On; an agent keeps the builder's per-budget default.
+    const imagesOff = !(isOn(args.generatedImages) ?? featureSource !== 'flows');
+
+    // D-3: a checkpoint's note on what this node built — edit that version, keep its format.
+    if (args.reviseOf && args.revision?.trim()) {
+      return runCompositionEdit(ctx, {
+        artifactId: args.reviseOf,
+        instruction: args.revision.trim(),
+        budget,
+        ...(providerId ? { providerId } : {}),
+        ...(model ? { model } : {}),
+        ...(imagesOff ? { maxGeneratedImages: 0 } : {}),
+      });
+    }
+
     // W7 / decision 7: the session's brand reaches the builder as the Creator
     // sends it. A flow node may override or opt out (§0.1 item 9).
     const brand = await readSessionBrandInstructions(resolveNodeBrand(args.brandId, ctx.brandId));
@@ -218,7 +228,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
       height: args.height ?? 1080,
       fps,
       ...(args.durationSeconds ? { durationInFrames: Math.max(1, Math.round(args.durationSeconds * fps)) } : {}),
-      ...(args.loop ? { loop: true } : {}),
+      ...(isOn(args.loop) ? { loop: true } : {}),
     };
     const prompt = [args.brief, args.styleNotes?.trim() ? `Style notes: ${args.styleNotes.trim()}` : '', ...media.notes]
       .filter(Boolean)
@@ -230,10 +240,11 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
       ...(model ? { options: { model } } : {}),
       build: {
         format,
-        budget: args.budget ?? 'standard',
+        budget,
         ...(brand ? { brand } : {}),
         ...(media.referenceImages.length ? { referenceImages: media.referenceImages } : {}),
         ...(media.assets.length ? { assets: media.assets } : {}),
+        ...(imagesOff ? { maxGeneratedImages: 0 } : {}),
       },
     };
 

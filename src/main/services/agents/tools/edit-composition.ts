@@ -1,24 +1,16 @@
 // `edit_composition` — one instruction applied to an existing composition
-// artifact, producing a NEW version (agents plan §1.3 wave 1; P3 part 4).
+// artifact, producing a NEW version (agents plan §1.3 wave 1; P3 part 4). The
+// edit itself is composition-edit.ts, shared with `generate_composition`'s
+// revise path (P3 part 7).
 //
-// The edit is a TSX builder edit (`editOf`): it continues the version's own
-// source (`vN.src/`) and saves `vN+1` in the same `compositions/<slug>/`, so
-// the prior version is never overwritten and the runner carries the artifact
-// version forward (`supersedes`). An older session's flat
-// `compositions/<slug>.tsx` is first copied in as `<slug>/v1.tsx`, which the
-// builder seeds from the file.
+// As a node (P3 part 7): Budget and Loop (Keep / On / Off) in the inspector.
+// A checkpoint rejected with a note edits the REJECTED version with the note
+// (`reviseOnRetry`), so the retry builds on what the user saw.
 
-import fs from 'fs/promises';
-import path from 'path';
 import { z } from 'zod';
-import type { BuildFormat, TsxJobStartRequest } from '../../../../shared/ipc/types';
-import type { AgentArtifact } from '../../../../shared/types/agents';
-import type { AgentToolDef, AgentToolResult } from './types';
-import { toolText } from './types';
-import { compositionDraft, compositionVersionOf, reserveCompositionFolder } from './composition-file';
-import { readResultImages, runCompositionBuild } from './composition-build';
-import { buildResultText, pickResultStills } from './build-result';
-import { budgetSchema, loopSchema, type BUILD_BUDGETS } from './generate-composition';
+import type { AgentToolDef } from './types';
+import { runCompositionEdit } from './composition-edit';
+import { BUDGET_OPTIONS, budgetSchema, isOn, type BUILD_BUDGETS } from './generate-composition';
 
 const schema = {
   artifactId: z.string().describe('Composition artifact to edit (e.g. "composition-2").'),
@@ -27,28 +19,17 @@ const schema = {
     .min(1)
     .describe('One concrete change. Separate unrelated changes into separate calls.'),
   budget: budgetSchema,
-  loop: loopSchema,
+  loop: z
+    .union([z.boolean(), z.enum(['on', 'off', 'keep'])])
+    .optional()
+    .describe('True makes the composition a seamless loop, false a plain clip; absent keeps it as it is.'),
 };
 
 interface EditCompositionArgs {
   artifactId: string;
   instruction: string;
   budget?: (typeof BUILD_BUDGETS)[number];
-  loop?: boolean;
-}
-
-/** The version folder to continue: the artifact's own, or a fresh one for a flat legacy file. */
-async function editTarget(
-  workspaceDir: string,
-  prior: Extract<AgentArtifact, { kind: 'composition' }>,
-): Promise<{ folderPath: string; version: number }> {
-  const found = compositionVersionOf(prior.payload.relPath);
-  if (found) return { folderPath: path.join(workspaceDir, found.folderRel), version: found.version };
-  const source = path.join(workspaceDir, prior.payload.relPath);
-  await fs.access(source);
-  const folder = await reserveCompositionFolder(workspaceDir, path.basename(source, path.extname(source)));
-  await fs.copyFile(source, path.join(folder.absDir, 'v1.tsx'));
-  return { folderPath: folder.absDir, version: 1 };
+  loop?: boolean | 'on' | 'off' | 'keep';
 }
 
 export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
@@ -66,70 +47,31 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
       { id: 'instruction', label: 'Instruction', dataType: 'text', required: true, argKey: 'instruction' },
     ],
     outputs: [{ id: 'composition', label: 'Composition', dataType: 'composition', from: 'artifact' }],
-    configSchema: [],
-    defaultConfig: {},
-  },
-  async handler(args, ctx): Promise<AgentToolResult> {
-    const prior = ctx.readArtifacts().find((a) => a.id === args.artifactId);
-    if (!prior) {
-      return toolText(
-        `No artifact "${args.artifactId}" in this session — call list_artifacts for the ids.`,
-        true,
-      );
-    }
-    if (prior.kind !== 'composition') {
-      return toolText(`Artifact "${args.artifactId}" is a ${prior.kind}, not a composition.`, true);
-    }
-
-    ctx.emitProgress(args.instruction);
-    let target: { folderPath: string; version: number };
-    try {
-      target = await editTarget(ctx.workspaceDir, prior);
-    } catch (err) {
-      return toolText(
-        `The composition file ${prior.payload.relPath} could not be read: ${err instanceof Error ? err.message : String(err)}`,
-        true,
-      );
-    }
-    // An edit keeps its version's format; `loop` changes only that, never the length.
-    const { width, height, fps } = prior.payload.config;
-    const format: BuildFormat | undefined = args.loop !== undefined ? { width, height, fps, loop: args.loop } : undefined;
-    const request: TsxJobStartRequest = {
-      kind: 'build',
-      prompt: args.instruction,
-      ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
-      ...(ctx.model ? { options: { model: ctx.model } } : {}),
-      build: {
-        budget: args.budget ?? 'standard',
-        editOf: target,
-        ...(format ? { format } : {}),
+    configSchema: [
+      { kind: 'select', key: 'budget', label: 'Budget', options: BUDGET_OPTIONS },
+      {
+        kind: 'select',
+        key: 'loop',
+        label: 'Loop',
+        options: [
+          { value: 'keep', label: 'Keep — as the version is' },
+          { value: 'on', label: 'Seamless loop' },
+          { value: 'off', label: 'No loop' },
+        ],
       },
-    };
-
-    const outcome = await runCompositionBuild(ctx, prior.title, request);
-    if (!outcome.ok) {
-      return toolText(
-        outcome.cancelled
-          ? 'The edit was cancelled; the composition is unchanged.'
-          : `The edit failed; the composition is unchanged: ${outcome.error}`,
-        true,
-      );
-    }
-    try {
-      const draft = await compositionDraft(ctx.workspaceDir, outcome.versionPath, prior.title);
-      const picked = (ctx.featureSource ?? 'agent') === 'flows' ? [] : pickResultStills(outcome.job.build?.stills ?? []);
-      const { stills, images } = await readResultImages(picked);
-      const text = buildResultText({
-        kind: 'edit',
-        title: prior.title,
-        relPath: draft.payload.relPath,
-        config: draft.payload.config,
-        build: outcome.job.build,
-        picked: stills,
-      });
-      return { ...toolText(text), artifact: draft, supersedes: prior.id, ...(images.length ? { images } : {}) };
-    } catch (err) {
-      return toolText(`The edit was saved but could not be shown: ${err instanceof Error ? err.message : String(err)}`, true);
-    }
+    ],
+    defaultConfig: { budget: 'standard', loop: 'keep' },
+    reviseOnRetry: { artifactKey: 'artifactId', noteKey: 'instruction' },
+  },
+  async handler(args, ctx) {
+    const loop = isOn(args.loop);
+    return runCompositionEdit(ctx, {
+      artifactId: args.artifactId,
+      instruction: args.instruction,
+      ...(args.budget ? { budget: args.budget } : {}),
+      ...(loop !== undefined ? { loop } : {}),
+      ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
+      ...(ctx.model ? { model: ctx.model } : {}),
+    });
   },
 };

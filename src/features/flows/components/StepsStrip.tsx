@@ -48,7 +48,9 @@ export function StepsStrip({ doc, specs, runState, selectedArtifactId, onSelect 
     const primary = spec?.outputs[0]?.id;
     const { text, artifactId } = summarise(primary && state?.outputs ? state.outputs[primary] : undefined);
     const thumb = artifactId ? runState.assetUrls[artifactId]?.[0] : undefined;
-    return { node, label: spec?.label ?? node.toolId, state, text, artifactId, thumb };
+    // P3 part 7 (D-4): a running step shows its latest progress line (a build's round and phase).
+    const progress = state?.status === 'running' ? state.progress : undefined;
+    return { node, label: spec?.label ?? node.toolId, state, text, artifactId, thumb, progress };
   });
   const done = steps.filter((s) => s.state?.status === 'done').length;
 
@@ -67,7 +69,7 @@ export function StepsStrip({ doc, specs, runState, selectedArtifactId, onSelect 
       </button>
       {open && (
         <div className="flex gap-1.5 px-2.5 pb-2 overflow-x-auto">
-          {steps.map(({ node, label, state, text, artifactId, thumb }) => {
+          {steps.map(({ node, label, state, text, artifactId, thumb, progress }) => {
             const selected = artifactId !== null && artifactId === selectedArtifactId;
             const clickable = artifactId !== null;
             return (
@@ -76,7 +78,7 @@ export function StepsStrip({ doc, specs, runState, selectedArtifactId, onSelect 
                 type="button"
                 disabled={!clickable}
                 onClick={() => artifactId && onSelect(artifactId)}
-                title={state?.error ?? text}
+                title={state?.error ?? progress ?? text}
                 className={`flex flex-col shrink-0 w-[112px] rounded-[6px] p-1.5 text-left transition-colors ${
                   selected ? 'bg-app-active' : clickable ? 'bg-app-base hover:bg-app-hover' : 'bg-app-base'
                 } disabled:cursor-default`}
@@ -85,7 +87,11 @@ export function StepsStrip({ doc, specs, runState, selectedArtifactId, onSelect 
                 data-step-status={state?.status ?? 'idle'}
               >
                 <div className="h-[40px] rounded-[4px] bg-app-player overflow-hidden flex items-center justify-center">
-                  {thumb ? (
+                  {progress ? (
+                    <span className="text-[9px] leading-tight text-text-muted line-clamp-3 px-1" data-step-progress>
+                      {progress}
+                    </span>
+                  ) : thumb ? (
                     <img src={thumb} alt={label} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-[10px] text-text-dim truncate px-1">{text || '—'}</span>

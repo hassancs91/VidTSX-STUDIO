@@ -13,6 +13,8 @@ interface Props {
   artifacts: RunState['artifacts'];
   assetUrls: RunState['assetUrls'];
   busy: boolean;
+  /** The node edits its rejected output with the note (P3 part 7) rather than adding it to its prompt. */
+  revises: boolean;
   onReply: (reply: InteractionReply) => void;
 }
 
@@ -44,7 +46,7 @@ function initialValuesFor(pending: PendingCheckpoint, node: FlowNodeRunState | u
  * one thing an agent card lacks — reject this step and rerun it once with a
  * note (decision 5).
  */
-export function PauseCard({ pending, node, artifacts, assetUrls, busy, onReply }: Props) {
+export function PauseCard({ pending, node, artifacts, assetUrls, busy, revises, onReply }: Props) {
   const [note, setNote] = useState('');
   const Card = getInteractionCard(pending.request.payload.kind);
   const previews = useMemo(() => previewsFor(pending, artifacts, assetUrls), [pending, artifacts, assetUrls]);
@@ -81,7 +83,7 @@ export function PauseCard({ pending, node, artifacts, assetUrls, busy, onReply }
           value={note}
           onChange={(e) => setNote(e.target.value)}
           disabled={busy}
-          placeholder="What to change (appended to the prompt)"
+          placeholder={revises ? 'What to change (the builder edits this version)' : 'What to change (appended to the prompt)'}
           className="flex-1 min-w-0 h-[24px] rounded-[6px] bg-app-base px-2 text-[11px] text-text-secondary outline-none focus:border-accent"
           style={{ border: '0.5px solid var(--color-border-input)' }}
           data-pause-note

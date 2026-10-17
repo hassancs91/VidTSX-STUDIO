@@ -89,6 +89,7 @@ export function RunOutputs({ doc, specs, runState, onReply }: Props) {
               artifacts={runState.artifacts}
               assetUrls={runState.assetUrls}
               busy={runState.replying}
+              revises={Boolean(specs[doc.graph.nodes.find((n) => n.id === pending.nodeId)?.toolId ?? '']?.revisesOnRetry)}
               onReply={(reply) =>
                 void onReply(reply).then((err) => {
                   if (err) showToast(err, 'error');

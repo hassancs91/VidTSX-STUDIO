@@ -2,8 +2,8 @@
   "formatVersion": 2,
   "id": "vidtsx/explainer-30s",
   "name": "30-second explainer",
-  "description": "Topic → script → animated Remotion composition (checkpoint) → rendered MP4. LLM turns only; no priced media steps.",
-  "version": "1.0.0",
+  "description": "Topic → script → animated Remotion composition built by the TSX builder at the Budget you pick (checkpoint: approve it, or Retry with a note and the builder edits it) → rendered MP4. LLM turns only: generated images are off, so no priced media steps.",
+  "version": "1.1.0",
   "author": {
     "name": "VidTSX",
     "url": "https://vidtsx.com"
@@ -59,6 +59,33 @@
           "key": "styleNotes"
         }
       ]
+    },
+    {
+      "id": "budget",
+      "label": "Budget",
+      "kind": "select",
+      "description": "How long the TSX builder works on the composition.",
+      "options": [
+        {
+          "value": "quick",
+          "label": "Quick — 1 look · stops at 15 min"
+        },
+        {
+          "value": "standard",
+          "label": "Standard — up to 3 looks · stops at 30 min"
+        },
+        {
+          "value": "craft",
+          "label": "Craft — up to 6 looks · stops at 60 min"
+        }
+      ],
+      "default": "standard",
+      "bind": [
+        {
+          "nodeId": "n-compose",
+          "key": "budget"
+        }
+      ]
     }
   ],
   "graph": {
@@ -105,11 +132,14 @@
           "model": "",
           "modelMode": "default",
           "title": "Explainer",
+          "budget": "standard",
           "width": 1920,
           "height": 1080,
           "fps": 30,
           "durationSeconds": 30,
-          "styleNotes": "Style: Clean — generous whitespace, one accent colour on a light background, calm easing, a clear sans-serif."
+          "loop": "off",
+          "styleNotes": "Style: Clean — generous whitespace, one accent colour on a light background, calm easing, a clear sans-serif.",
+          "generatedImages": "off"
         },
         "pause": true
       },

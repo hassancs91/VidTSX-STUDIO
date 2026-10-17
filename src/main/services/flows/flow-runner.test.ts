@@ -60,6 +60,25 @@ const tools: Record<string, RegisteredTool> = {
       };
     },
   },
+  // P3 part 7: progress lines while it runs (a build's round and phase).
+  chatty: {
+    id: 'chatty',
+    description: 'reports progress',
+    schema: { prompt: z.string() },
+    ports: {
+      label: 'Chatty',
+      category: 'text',
+      inputs: [{ id: 'prompt', label: 'P', dataType: 'text', required: true, argKey: 'prompt' }],
+      outputs: [{ id: 'text', label: 'T', dataType: 'text', from: 'field:text' }],
+      configSchema: [],
+      defaultConfig: {},
+    },
+    handler: async (args, ctx) => {
+      ctx.emitProgress('Round 1/1 · Designing');
+      ctx.emitProgress('Round 1/1 · Rendering frames');
+      return { ...toolText('done'), fields: { text: String(args.prompt) } };
+    },
+  },
   slow: {
     id: 'slow',
     description: 'waits for the test',
@@ -176,6 +195,26 @@ describe('FlowRunner', () => {
     expect(statuses).toEqual(['running', 'success']);
     const artifacts = JSON.parse(await fs.readFile(path.join(root, doc().id, runId, 'artifacts.json'), 'utf-8'));
     expect(artifacts.artifacts).toHaveLength(1);
+  });
+
+  it('a running node streams its latest progress line on the event; run.json keeps only the notes (P3 part 7)', async () => {
+    const chatty = doc();
+    chatty.graph.nodes[2] = { ...chatty.graph.nodes[2], toolId: 'chatty' };
+    chatty.graph.edges = [{ id: 'e1', source: 'n-text', sourceHandle: 'text', target: 'n-img', targetHandle: 'prompt' }];
+    chatty.outputs = [{ nodeId: 'n-img', handle: 'text', label: 'Text' }];
+    const r = runner();
+    const { runId } = await r.start({ ...base, doc: chatty });
+    await r.wait(runId);
+    const states = events.flatMap((e) => (e.kind === 'node-status' && e.nodeId === 'n-img' ? [e.state] : []));
+    expect(states.map((s) => [s.status, s.progress])).toEqual([
+      ['running', undefined],
+      ['running', 'Round 1/1 · Designing'],
+      ['running', 'Round 1/1 · Rendering frames'],
+      ['done', undefined],
+    ]);
+    const run = await readRunDoc(path.join(root, chatty.id, runId));
+    expect(run?.nodes['n-img']).not.toHaveProperty('progress');
+    expect(run?.nodes['n-img'].notes).toEqual(['Round 1/1 · Designing', 'Round 1/1 · Rendering frames']);
   });
 
   it('a failing node marks the rest skipped and the run error, with the tool text as the message', async () => {

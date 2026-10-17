@@ -75,12 +75,24 @@ export type NodeCategory =
   | 'library'
   | 'agent';
 
+/** P3 part 7 (D-3): where a rejected checkpoint's output and note go on the rerun. */
+export interface ReviseOnRetry {
+  /** The argument that receives the rejected output's artifact id. */
+  artifactKey: string;
+  /** The argument that receives the note, as the instruction. */
+  noteKey: string;
+}
+
 export interface ToolPorts {
   inputs: PortDef[];
   outputs: PortDef[];
   configSchema: ConfigField[];
   defaultConfig: Record<string, unknown>;
   category: NodeCategory;
+  /** A rejection with a note REVISES the rejected output (the TSX builder
+   *  edits that version) instead of rerunning the node from scratch; an
+   *  empty note still reruns it. Absent = the note goes on the prompt. */
+  reviseOnRetry?: ReviseOnRetry;
 }
 
 /** Serialisable description of one node; no handler travels with it. */
@@ -104,6 +116,8 @@ export interface NodeSpec {
   priceHint?: string;
   /** Only `run_agent` — the canvas marks the non-deterministic step. */
   nondeterministic?: boolean;
+  /** The checkpoint's note revises the output (`ToolPorts.reviseOnRetry`). */
+  revisesOnRetry?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +281,9 @@ export interface FlowNodeRunState {
   /** Stage 1: the tool's progress lines (a preferred-model fallback, a
    *  pipeline step) — the run log for this node, newest last. */
   notes?: string[];
+  /** P3 part 7 (D-4): the latest progress line of a `running` node, past the
+   *  `notes` cap too. Carried by the node-status event only, never run.json. */
+  progress?: string;
   /** Stage 2: checkpoints the user rejected on this node. The first reject
    *  reruns the node once with the note; the second stops the run (§1.3). */
   rejections?: number;
