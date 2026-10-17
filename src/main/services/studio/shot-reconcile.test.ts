@@ -18,15 +18,25 @@ vi.mock('./shot-generator', () => ({
   },
 }));
 vi.mock('./shot-import', () => ({
-  buildImportedShot: (shotId: string, name: string, _code: string, version: number) => ({
+  buildImportedShot: (shotId: string, name: string, _code: string, version: number, assetRefs?: Record<string, string>) => ({
     id: shotId,
     name,
     kind: 'cutaway',
     createdAt: 'test',
     activeVersion: version,
     status: 'ready',
+    ...(assetRefs && Object.keys(assetRefs).length > 0 ? { assetRefs } : {}),
     origin: { by: 'user' },
   }),
+}));
+// The in-place bundle (P3 part 8) is its own test; here a dial: source → outcome, else "cannot".
+const bundleResults = new Map<string, { ok: true; version: number; code: string; assets: unknown[]; assetRefs: Record<string, string>; report: object }>();
+const bundleCalls: string[] = [];
+vi.mock('./shot-bundle-in-place', () => ({
+  bundleShotInPlace: (req: { source: string; folderPath: string }) => {
+    bundleCalls.push(path.basename(req.folderPath));
+    return Promise.resolve(bundleResults.get(req.source) ?? { ok: false, reason: 'Package "left-pad" is not available to shots' });
+  },
 }));
 
 import { reconcileFingerprint, reconcileShots } from './shot-reconcile';
@@ -47,6 +57,8 @@ beforeEach(async () => {
   tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'shot-reconcile-'));
   gateResults.clear();
   gateCalls = 0;
+  bundleResults.clear();
+  bundleCalls.length = 0;
   // Fresh project id per test — the failure memo is module-level state.
   projectId = `proj-${Math.random().toString(36).slice(2, 8)}`;
 });
@@ -98,6 +110,40 @@ describe('reconcileShots', () => {
 
     const second = await reconcileShots(projectId, []);
     expect(second.failures).toEqual([]); // memo-suppressed this session
+  });
+
+  it('a drop-in the bundler can fix is adopted at vN+1 with its media, never reported (P3 part 8)', async () => {
+    const source = 'import chroma from "chroma-js"; export default () => null;';
+    gateResults.set(source, { success: false, error: 'Import "chroma-js" is not allowed' });
+    bundleResults.set(source, {
+      ok: true,
+      version: 2,
+      code: 'bundled',
+      assets: [{ id: 'asset-1', kind: 'image', path: 'pic.png' }],
+      assetRefs: { pic: 'asset-1' },
+      report: { inlinedFiles: 0, inlinedPackages: ['chroma-js'], media: 1, missingMedia: [], dynamicMediaCalls: 0 },
+    });
+    await makeShotFolder('chroma-drop-in', { 'v1.tsx': source });
+    const events: Array<{ importedAssets?: unknown[] }> = [];
+    const off = shotJobEvents.onEvent((e) => events.push(e));
+    const result = await reconcileShots(projectId, []);
+    off();
+
+    expect(bundleCalls).toEqual(['chroma-drop-in']);
+    expect(result.failures).toEqual([]);
+    expect(result.adopted).toEqual([expect.objectContaining({ id: 'chroma-drop-in', activeVersion: 2, assetRefs: { pic: 'asset-1' } })]);
+    expect(events).toEqual([expect.objectContaining({ shotId: 'chroma-drop-in', status: 'ready', importedAssets: [expect.objectContaining({ id: 'asset-1' })] })]);
+  });
+
+  it('a folder the bundler cannot fix is reported once and not bundled again this session', async () => {
+    const bad = 'import x from "left-pad"; export default () => null;';
+    gateResults.set(bad, { success: false, error: 'Import "left-pad" is not allowed' });
+    await makeShotFolder('pad-drop-in', { 'v1.tsx': bad });
+    expect((await reconcileShots(projectId, [])).failures).toHaveLength(1);
+    const later = new Date(Date.now() + 5000);
+    await fs.utimes(path.join(tmpRoot, projectId, 'shots', 'pad-drop-in', 'v1.tsx'), later, later);
+    expect((await reconcileShots(projectId, [])).failures).toEqual([]);
+    expect(bundleCalls).toEqual(['pad-drop-in']);
   });
 
   it('an unchanged fingerprint skips the gate entirely on the next scan (window focus)', async () => {

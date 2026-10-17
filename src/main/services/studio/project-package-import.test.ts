@@ -16,6 +16,10 @@ const gate = vi.hoisted(() => ({
   ),
   buildShotEngineDeps: vi.fn(),
 }));
+// The in-place bundle (P3 part 8) is its own test; here a dial (default: bundling is not the answer).
+const inPlace = vi.hoisted(() => ({
+  bundleShotInPlace: vi.fn(async (_req: { projectId: string; folderPath: string; version: number; source: string }) => ({ ok: false, reason: 'not bundleable' }) as Record<string, unknown>),
+}));
 const brands = vi.hoisted(() => ({ created: [] as string[] }));
 const presets = vi.hoisted(() => ({ created: [] as Record<string, unknown>[] }));
 
@@ -85,6 +89,7 @@ vi.mock('../kit-bundler', () => ({ readKitPackVersion: async () => '1.2.3' }));
 // The D14 gate itself is proven by shot-import's own tests — here it is a dial,
 // so the import's per-shot verdicts can be exercised in both directions.
 vi.mock('./shot-generator', () => gate);
+vi.mock('./shot-bundle-in-place', () => inPlace);
 
 import type { StudioProject } from '../../../shared/types/studio';
 import { writePackage } from './project-package';
@@ -193,6 +198,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   gate.validateShotCode.mockReset().mockResolvedValue({ success: true });
+  inPlace.bundleShotInPlace.mockReset().mockResolvedValue({ ok: false, reason: 'not bundleable' });
   brands.created.length = 0;
   presets.created.length = 0;
 });
@@ -366,6 +372,31 @@ describe('importPackage — the mandatory shot gate (Q7d/Q7e)', () => {
     expect(imported.shots[0].error).toBeTruthy();
 
     await write(path.join(projectDir, 'shots', 'intro', 'v1.tsx'), 'export default () => null;');
+  });
+
+  it('bundles a failing shot in place first: ready at vN+1 with its media, no Convert offered (P3 part 8)', async () => {
+    const dest = path.join(tmpDir, 'bundled.vidtsx');
+    await writePackage({ project: makeProject(), destPath: dest, strategy: 'none' });
+    gate.validateShotCode.mockResolvedValue({ success: false, error: 'Import "chroma-js" is not allowed' });
+    inPlace.bundleShotInPlace.mockImplementation(async (req) => ({
+      ok: true,
+      version: req.version + 1,
+      code: "export const compositionConfig = { id: 'intro', durationInFrames: 45, fps: 30, width: 1080, height: 1080 };\nexport default () => null;",
+      assets: [{ id: 'pic-asset', kind: 'image', path: path.join(req.folderPath, 'pic.png') }],
+      assetRefs: { pic: 'pic-asset' },
+      report: { inlinedFiles: 0, inlinedPackages: ['chroma-js'], media: 1, missingMedia: [], dynamicMediaCalls: 0 },
+    }));
+    const report = await importPackage({ filePath: dest });
+
+    expect(inPlace.bundleShotInPlace).toHaveBeenCalledTimes(1);
+    const req = inPlace.bundleShotInPlace.mock.calls[0][0];
+    expect(req).toMatchObject({ projectId: report.projectId, version: 1 });
+    expect(req.folderPath).toBe(path.join(projectsDir(), report.projectId, 'shots', 'intro'));
+    expect(report.shots[0]).toEqual({ shotId: 'intro', name: expect.any(String), verdict: 'ready' });
+    const imported = await loadImported(report.projectId);
+    expect(imported.shots[0]).toMatchObject({ status: 'ready', activeVersion: 2, assetRefs: { pic: 'pic-asset' }, config: { durationInFrames: 45, width: 1080, height: 1080 } });
+    expect(imported.shots[0].error).toBeUndefined();
+    expect(imported.assets.map((a) => a.id)).toContain('pic-asset');
   });
 
   it('marks a shot with no source file as an error rather than failing the import', async () => {

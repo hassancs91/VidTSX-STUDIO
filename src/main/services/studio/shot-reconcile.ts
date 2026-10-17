@@ -5,7 +5,8 @@
 // (a Creator composition dragged into shots/ — Q2). The renderer calls this on
 // project open and window focus with the ids it already has (it owns the
 // document); main scans shots/ for folders the registry doesn't know, runs the
-// newest version through the SAME acceptance gate imports use (D14), and
+// newest version through the SAME acceptance gate imports use (D14) — a folder
+// that fails it is first bundled in place as vN+1 (P3 part 8, D10) — and
 // publishes adoptions on the shared shot job-event stream — house rule: shot
 // producers publish there, never a new push channel. The IPC response only
 // summarizes for the toast; the events are the adoption path.
@@ -34,6 +35,7 @@ import type { StudioShot } from '../../../shared/types/studio';
 import { classifyShotImport, describeImportFailure } from '../../../shared/studio/shot-import';
 import { isValidShotId } from '../../../shared/studio/shots';
 import { validateShotCode } from './shot-generator';
+import { bundleShotInPlace } from './shot-bundle-in-place';
 import { buildImportedShot } from './shot-import';
 import { shotJobEvents } from './shot-job-events';
 import { getProjectDir } from './studio-paths';
@@ -175,6 +177,23 @@ async function runScan(
     const seen = reportedFailures.get(projectId) ?? new Set<string>();
     reportedFailures.set(projectId, seen);
     if (seen.has(shotId)) continue;
+
+    // The mechanical step first (P3 part 8, D10): bundled as vN+1 in the folder, then adopted.
+    const bundled = await bundleShotInPlace({ projectId, folderPath: path.dirname(candidate.filePath), version: candidate.version, source: code });
+    if (bundled.ok) {
+      const shot = buildImportedShot(shotId, deriveDisplayName(shotId), bundled.code, bundled.version, bundled.assetRefs);
+      shotJobEvents.emit({
+        projectId,
+        shotId,
+        op: 'import',
+        status: 'ready',
+        shot,
+        ...(bundled.assets.length > 0 ? { importedAssets: bundled.assets } : {}),
+      });
+      adopted.push(shot);
+      log.info('Bundled and adopted shot from disk', { projectId, shotId, version: bundled.version, ...bundled.report });
+      continue;
+    }
     seen.add(shotId);
     const classification = classifyShotImport(code);
     failures.push({

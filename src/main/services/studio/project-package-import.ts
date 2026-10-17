@@ -34,7 +34,9 @@ import {
 import { classifyShotImport, describeImportFailure } from '../../../shared/studio/shot-import';
 import { getTempDir } from '../../utils/paths';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
+import { parseCompositionConfig } from '../composition-config-parser';
 import { validateShotCode } from './shot-generator';
+import { bundleShotInPlace } from './shot-bundle-in-place';
 import { migrateProject, saveProject } from './project-store';
 import {
   applyBrandChoice,
@@ -188,16 +190,20 @@ export function rehomeAssets(
 }
 
 /**
- * The mandatory gate re-run (Q7d/Q7e). A shot that fails is marked 'error' in
- * the registry with the pointed message, so the project still opens and the
- * failure is one card instead of a broken preview.
+ * The mandatory gate re-run (Q7d/Q7e). A shot that fails is first bundled in
+ * place as vN+1 (P3 part 8, D10: the library set inlines with no model); one
+ * that still fails is marked 'error' in the registry with the pointed message,
+ * so the project still opens and the failure is one card instead of a broken
+ * preview. `assets` = media a bundled shot named, registered for the project.
  */
 async function gateShots(
+  projectId: string,
   projectDir: string,
   shots: StudioShot[],
-): Promise<{ shots: StudioShot[]; reports: ImportShotReport[] }> {
+): Promise<{ shots: StudioShot[]; reports: ImportShotReport[]; assets: StudioMediaAsset[] }> {
   const reports: ImportShotReport[] = [];
   const gated: StudioShot[] = [];
+  const assets: StudioMediaAsset[] = [];
 
   for (const shot of shots) {
     const versionPath = path.join(projectDir, 'shots', shot.id, `v${shot.activeVersion}.tsx`);
@@ -220,6 +226,29 @@ async function gateShots(
       continue;
     }
 
+    const bundled = await bundleShotInPlace({
+      projectId,
+      folderPath: path.dirname(versionPath),
+      version: shot.activeVersion,
+      source,
+    });
+    if (bundled.ok) {
+      const config = parseCompositionConfig(bundled.code);
+      const ready: StudioShot = {
+        ...shot,
+        status: 'ready',
+        activeVersion: bundled.version,
+        ...(config ? { config: { durationInFrames: config.durationInFrames, fps: config.fps, width: config.width, height: config.height } } : {}),
+        ...(Object.keys(bundled.assetRefs).length > 0 ? { assetRefs: { ...shot.assetRefs, ...bundled.assetRefs } } : {}),
+      };
+      delete ready.error;
+      assets.push(...bundled.assets);
+      reports.push({ shotId: shot.id, name: shot.name, verdict: 'ready' });
+      gated.push(ready);
+      log.info('Bundled package shot in place', { projectId, shotId: shot.id, version: bundled.version, ...bundled.report });
+      continue;
+    }
+
     const classification = classifyShotImport(source);
     const error = describeImportFailure(classification, gate.error ?? 'Failed the shot gate');
     reports.push({
@@ -230,7 +259,7 @@ async function gateShots(
     });
     gated.push({ ...shot, status: 'error', error });
   }
-  return { shots: gated, reports };
+  return { shots: gated, reports, assets };
 }
 
 /** Import a package as a brand-new project. Throws PackageReadError with a
@@ -317,8 +346,10 @@ export async function importPackage(request: ImportPackageRequest): Promise<Impo
     if (preset.error) warnings.push(preset.error);
 
     report(85, 'Checking shots…');
-    const { shots, reports } = await gateShots(projectDir, document.shots);
-    const { assets, relink } = rehomeAssets(document.assets, media, restored);
+    const { shots, reports, assets: shotMedia } = await gateShots(reserved.name, projectDir, document.shots);
+    const rehomed = rehomeAssets(document.assets, media, restored);
+    const assets = [...rehomed.assets, ...shotMedia];
+    const relink = rehomed.relink;
 
     const settings = { ...document.settings };
     delete settings.brandId;

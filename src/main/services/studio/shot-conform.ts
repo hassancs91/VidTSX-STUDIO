@@ -21,7 +21,7 @@ import { logEngine } from '../../../logging/log-engine';
 import { writeNextVersion } from '../tsx-jobs/project-store';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { buildShotEngineDeps, validateShotCode } from './shot-generator';
-import { ORIGINAL_FILE_NAME } from './shot-import';
+import { bundleShotInPlace, keepOriginal } from './shot-bundle-in-place';
 import { shotJobEvents } from './shot-job-events';
 import { loadProject } from './project-store';
 import { getProjectDir, getShotVersionPath } from './studio-paths';
@@ -98,6 +98,25 @@ export async function conformShot(request: ConformShotRequest): Promise<ConformS
     return { shotId, version: shot.activeVersion };
   }
 
+  // The mechanical step first (P3 part 8, D10): the bundler inlines the library
+  // set with no model, as vN+1 in this folder.
+  const folderPath = path.join(await getProjectDir(projectId), 'shots', shotId);
+  const bundled = await bundleShotInPlace({ projectId, folderPath, version: shot.activeVersion, source });
+  if (bundled.ok) {
+    const conformed = buildConformedShot(shot, bundled.code, bundled.version);
+    if (Object.keys(bundled.assetRefs).length > 0) conformed.assetRefs = { ...shot.assetRefs, ...bundled.assetRefs };
+    shotJobEvents.emit({
+      projectId,
+      shotId,
+      op: 'import',
+      status: 'ready',
+      shot: conformed,
+      ...(bundled.assets.length > 0 ? { importedAssets: bundled.assets } : {}),
+    });
+    log.info('Bundled shot in place', { projectId, shotId, version: bundled.version, ...bundled.report });
+    return { shotId, version: bundled.version };
+  }
+
   const classification = classifyShotImport(source);
   if (!classification.canConform) {
     return {
@@ -107,13 +126,7 @@ export async function conformShot(request: ConformShotRequest): Promise<ConformS
     };
   }
 
-  const folderPath = path.join(await getProjectDir(projectId), 'shots', shotId);
-  const originalPath = path.join(folderPath, ORIGINAL_FILE_NAME);
-  try {
-    await fs.access(originalPath);
-  } catch {
-    await fs.writeFile(originalPath, source, 'utf-8');
-  }
+  await keepOriginal(folderPath, source);
 
   const progress = (percent: number, message: string): void =>
     shotJobEvents.emit({

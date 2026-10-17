@@ -151,6 +151,55 @@ describe('bundleShotSource', () => {
     expect(lintShotSource(bundled.code).errors).toEqual([]);
   }, 30_000);
 
+  // P3 part 8 (D10): what Convert for Studio used to send to a model — chroma-js and the
+  // @remotion/* 2D set — now inlines with no model at all.
+  it('inlines the Creator 2D set (chroma-js, @remotion/paths, transitions, google-fonts) with no model', async () => {
+    const file = await write(
+      'project/src/shots/Creator2d.tsx',
+      [
+        "import React from 'react';",
+        "import { AbsoluteFill, useCurrentFrame } from 'remotion';",
+        "import chroma from 'chroma-js';",
+        "import { evolvePath } from '@remotion/paths';",
+        "import { TransitionSeries, linearTiming } from '@remotion/transitions';",
+        "import { fade } from '@remotion/transitions/fade';",
+        "import { loadFont } from '@remotion/google-fonts/Inter';",
+        "const { fontFamily } = loadFont('normal', { weights: ['700'], subsets: ['latin'] });",
+        "export const compositionConfig = { id: 'Creator2d', durationInFrames: 60, fps: 30, width: 1080, height: 1080 };",
+        'const D = "M 10 10 L 90 90";',
+        'export default () => {',
+        '  const frame = useCurrentFrame();',
+        "  const ink = chroma.mix('#e86a55', '#28968c', frame / 60).hex();",
+        '  const { strokeDasharray, strokeDashoffset } = evolvePath(frame / 60, D);',
+        '  return (',
+        '    <TransitionSeries>',
+        '      <TransitionSeries.Sequence durationInFrames={40}><AbsoluteFill style={{ fontFamily, color: ink }}>A</AbsoluteFill></TransitionSeries.Sequence>',
+        '      <TransitionSeries.Transition presentation={fade()} timing={linearTiming({ durationInFrames: 20 })} />',
+        '      <TransitionSeries.Sequence durationInFrames={40}><svg><path d={D} stroke={ink} strokeDasharray={strokeDasharray} strokeDashoffset={strokeDashoffset} /></svg></TransitionSeries.Sequence>',
+        '    </TransitionSeries>',
+        '  );',
+        '};',
+      ].join('\n'),
+    );
+    const bundled = await bundleShotSource(file, { nodePaths: [path.resolve(__dirname, '../../../../node_modules')] });
+    expect(bundled.inlinedPackages).toEqual(
+      expect.arrayContaining(['chroma-js', '@remotion/paths', '@remotion/transitions', '@remotion/google-fonts']),
+    );
+    expect(bundled.code).not.toMatch(/from "(chroma-js|@remotion\/)/);
+    expect(lintShotSource(bundled.code).errors).toEqual([]);
+    expect(parseCompositionConfig(bundled.code)).toMatchObject({ id: 'Creator2d', durationInFrames: 60, fps: 30, width: 1080, height: 1080 });
+  }, 30_000);
+
+  it('refuses tone by name (not in the library set: a shot has no synthesized audio)', async () => {
+    const file = await write(
+      'project/src/shots/Tone.tsx',
+      "import * as Tone from 'tone';\nexport const compositionConfig = { id: 'x', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nexport default () => { void Tone; return null; };\n",
+    );
+    await expect(bundleShotSource(file, { nodePaths: [path.resolve(__dirname, '../../../../node_modules')] })).rejects.toThrow(
+      /Package "tone" is not available to shots/,
+    );
+  });
+
   it('refuses a media or stylesheet import and says what to do instead', async () => {
     const file = await write('project/src/shots/Css.tsx', "import './x.css';\nexport const compositionConfig = { id: 'x', durationInFrames: 30, fps: 30, width: 100, height: 100 };\nexport default () => null;\n");
     await expect(bundleShotSource(file)).rejects.toThrow(/is not code — a shot cannot import media or stylesheets/);

@@ -37,8 +37,8 @@ import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { getAppRoot } from '../../utils/paths';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { reserveProjectFolder, writeNextVersion } from '../tsx-jobs/project-store';
-import { importMediaFiles } from './media-import';
 import { attachVersionMedia } from './shot-build-media';
+import { registerBundleMedia } from './shot-bundle-media';
 import { carryBuilderFiles } from './shot-import-files';
 import { bundleShotSource } from './shot-bundle';
 import { buildShotEngineDeps, validateShotCode } from './shot-generator';
@@ -172,19 +172,7 @@ async function importBundled(
   }
 
   // Register every media file the source named and that exists on disk.
-  const found = bundle.media.filter((m): m is typeof m & { path: string } => m.path !== null);
-  const uniquePaths = [...new Set(found.map((m) => m.path))];
-  const { assets } = uniquePaths.length > 0
-    ? await importMediaFiles(req.projectId, uniquePaths)
-    : { assets: [] };
-  const assetIdByPath = new Map(assets.map((asset) => [asset.path, asset.id]));
-  const assetRefs: Record<string, string> = {};
-  const missingMedia: string[] = [];
-  for (const media of bundle.media) {
-    const assetId = media.path ? assetIdByPath.get(media.path) : undefined;
-    if (assetId) assetRefs[media.key] = assetId;
-    else missingMedia.push(media.ref);
-  }
+  const { assets, assetRefs, report } = await registerBundleMedia(req.projectId, bundle);
 
   const { shotId } = await writeImportedShot(shotsDir, name, bundle.code, source);
   const shot = buildImportedShot(shotId, name, bundle.code, 1, assetRefs);
@@ -196,13 +184,6 @@ async function importBundled(
     shot,
     ...(assets.length > 0 ? { importedAssets: assets } : {}),
   });
-  const report: StudioShotImportReport = {
-    inlinedFiles: bundle.inlinedFiles.length,
-    inlinedPackages: bundle.inlinedPackages,
-    media: Object.keys(assetRefs).length,
-    missingMedia,
-    dynamicMediaCalls: bundle.dynamicStaticFileCalls,
-  };
   log.info('Bundled and imported shot', { projectId: req.projectId, shotId, source: req.sourcePath, ...report });
   return { outcome: { shotId, report } };
 }
