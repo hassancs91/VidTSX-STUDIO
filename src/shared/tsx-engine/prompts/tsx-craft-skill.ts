@@ -1,10 +1,10 @@
 // The `tsx-craft` skill of the built-in `vidtsx/tsx-composer` agent, rendered
-// from the SAME craft rules the 2D generate prompt is built from (W7).
+// from the craft rules in tsx-craft.ts (W7).
 //
 // Pure: a string in, a string out. `scripts/gen-tsx-craft-skill.mjs` writes
 // the result to `resources/agents/vidtsx/tsx-composer/skills/tsx-craft/SKILL.md`
 // and `tsx-craft-skill.test.ts` asserts the file on disk equals this render,
-// so the prompt and the skill can never say two different things.
+// so the rules and the skill can never say two different things.
 
 import { TSX_CRAFT_RULES } from './tsx-craft';
 

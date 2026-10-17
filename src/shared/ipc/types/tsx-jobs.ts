@@ -1,5 +1,4 @@
 import type { LlmImageIpc } from './llm';
-import type { ThinkingLevel, PipelineMode, TsxPromptContext } from '../../tsx-engine/types';
 import type {
   BuildBudget,
   BuildCaps,
@@ -12,11 +11,11 @@ import type {
 } from './tsx-build';
 
 /**
- * `generate`, `edit`, `fix` run the one-shot pipeline (frozen, Rev 2).
  * `build` runs the TSX builder (TSX_BUILDER_DESIGN.md, P1 part 6): one
  * session that designs, writes files, renders frames, looks and redesigns.
+ * The one-shot pipeline's `generate` / `edit` / `fix` were deleted in P3 part 8.
  */
-export type TsxJobKind = 'generate' | 'edit' | 'fix' | 'build';
+export type TsxJobKind = 'build';
 
 export type TsxJobStatus =
   | 'queued'
@@ -116,18 +115,17 @@ export interface TsxJobIpc {
   kind: TsxJobKind;
   /** Absent = the Creator. */
   origin?: TsxJobOrigin;
-  /** User prompt (generate), edit/fix instruction, or the build's intent. */
+  /** The build's intent (a new piece) or instruction (an edit). */
   prompt: string;
   providerId?: string;
   status: TsxJobStatus;
   progress: TsxJobProgressIpc;
-  /** For edit/fix jobs, a build that edits, and a build into a caller's folder: the folder being written. */
+  /** A build that edits, or a build into a caller's folder: the folder being written. */
   targetFolderPath?: string;
   /** Set on completion. */
   projectName?: string;
   folderPath?: string;
   versionPath?: string;
-  mode?: PipelineMode;
   error?: string;
   usage?: TsxJobUsageIpc;
   /** Build jobs only. */
@@ -140,13 +138,6 @@ export interface TsxJobIpc {
 export interface TsxJobOptionsIpc {
   /** Model on the job's provider; absent = its default (W1). */
   model?: string;
-  thinkingLevel?: ThinkingLevel;
-  maxTurns?: number;
-  optimize?: boolean;
-  promptContext?: TsxPromptContext;
-  maxFixRetries?: number;
-  mode?: PipelineMode;
-  images?: LlmImageIpc[];
 }
 
 /**
@@ -182,16 +173,10 @@ export interface TsxBuildJobRequestIpc {
 
 export interface TsxJobStartRequest {
   kind: TsxJobKind;
-  /** User prompt (generate), edit/fix instruction, or the build's intent. */
+  /** The build's intent (a new piece) or instruction (an edit). */
   prompt: string;
   providerId?: string;
   options?: TsxJobOptionsIpc;
-  /** Required for edit/fix jobs. */
-  target?: {
-    folderPath: string;
-    currentCode: string;
-  };
-  /** Required for build jobs. */
   build?: TsxBuildJobRequestIpc;
 }
 

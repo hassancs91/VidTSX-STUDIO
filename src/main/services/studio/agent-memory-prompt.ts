@@ -99,10 +99,9 @@ function render(rules: StudioMemory[], vocabulary: StudioMemory[], profile: Stud
   return sections.join('\n\n');
 }
 
-/** Data for the shot pipeline's "Learned style" section (Q6a) — the section
- *  text itself is rendered by buildShotExtraInstructions in shared/, which
- *  cannot import from main/; this composer returns plain data instead of a
- *  block string. Same filter and ordering as composeMemoryBlock; rule +
+/** Data for a shot build's "Learned style" lines (Q6a) — shot-build-request.ts
+ *  words them; this composer returns plain data instead of a block string.
+ *  Same filter and ordering as composeMemoryBlock; rule +
  *  profile only (vocabulary is agent-side spelling guidance, not shot
  *  style). Budget: profile drops first, rules are NEVER silently dropped —
  *  overflow is reported for the caller to log. */

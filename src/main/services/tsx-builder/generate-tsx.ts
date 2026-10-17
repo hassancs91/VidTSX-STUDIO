@@ -2,8 +2,7 @@
 // (TSX_BUILDER_DESIGN.md T1, Rev 2). The builder is the only generator: a
 // provider that can run tools gets it (design, build, look, redesign); a
 // provider that cannot is refused with a clear message, not handed a second
-// path. The one-shot pipeline is frozen and reachable only when a caller
-// forces it or asks for 3D (Creator 3D until P2 gives the builder three.js).
+// path (the one-shot pipeline was deleted in P3 part 8).
 // "Can run tools" is the agents' rule, `resolveToolSupport`: an `agent-sdk`
 // provider. Through OpenRouter the model itself is checked first
 // (openrouter-model-check.ts): the builder needs tool use and image input.
@@ -11,10 +10,8 @@
 import { resolveProviderInfo, resolveToolSupport } from '../agents/tool-support';
 import { logEngine } from '../../../logging/log-engine';
 import { buildComposition } from './tsx-builder';
-import { runPipelineFallback } from './pipeline-fallback';
 import { checkBuilderModel } from './openrouter-model-check';
-import type { PipelineMode } from '../../../shared/tsx-engine';
-import type { GenerateTsxRequest, GenerateTsxResult, TsxEngine, TsxEngineChoice } from './types';
+import type { GenerateTsxRequest, GenerateTsxResult, TsxEngineChoice } from './types';
 
 const log = logEngine.createLogger('TsxDispatch');
 
@@ -31,14 +28,8 @@ async function noToolsMessage(providerId?: string): Promise<string> {
   }
 }
 
-/** In order: a forced engine, then 3D, then the provider's tool support (none = refused). */
-export async function chooseTsxEngine(input: {
-  providerId?: string;
-  mode?: PipelineMode;
-  engine?: TsxEngine;
-}): Promise<TsxEngineChoice> {
-  if (input.engine) return { engine: input.engine, reason: 'forced' };
-  if (input.mode === '3d') return { engine: 'pipeline', reason: 'mode-3d' };
+/** The builder when the provider can run tools; otherwise refused. */
+export async function chooseTsxEngine(input: { providerId?: string }): Promise<TsxEngineChoice> {
   if (await resolveToolSupport(input.providerId)) return { engine: 'builder', reason: 'tools' };
   return { engine: 'none', reason: 'no-tools', error: await noToolsMessage(input.providerId) };
 }
@@ -62,27 +53,12 @@ export async function generateTsx(req: GenerateTsxRequest): Promise<GenerateTsxR
   });
   if (choice.engine === 'none') return refused(choice.reason, choice.error);
 
-  if (choice.engine === 'pipeline') {
-    if (!req.fallback) {
-      return {
-        engine: 'pipeline',
-        reason: choice.reason,
-        ok: false,
-        stopReason: 'error',
-        error: 'The one-shot pipeline needs the caller\'s fallback deps (gate and usage attribution); none were given.',
-        elapsedMs: Date.now() - started,
-      };
-    }
-    return runPipelineFallback({ ...req, fallback: req.fallback }, choice.reason, started);
-  }
-
   const gate = await checkBuilderModel(req.providerId, req.model, { signal: req.signal });
   if (!gate.ok) return refused('unfit-model', gate.error);
   if (gate.unchecked) log.warn('Builder model not checked', { reason: gate.unchecked, providerId: req.providerId ?? 'active' });
 
-  const { engine: _engine, mode: _mode, fallback: _fallback, ...buildRequest } = req;
   try {
-    const build = await buildComposition(buildRequest);
+    const build = await buildComposition(req);
     return {
       engine: 'builder',
       reason: choice.reason,

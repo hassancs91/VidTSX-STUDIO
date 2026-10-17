@@ -10,15 +10,12 @@ export interface ChatTurn {
   summary?: string;
 }
 
-/** Turns passed to the LLM are capped so old projects don't bloat the prompt. */
-export const CHAT_CONTEXT_LIMIT = 20;
-
 function chatPath(folderPath: string): string {
   return path.join(folderPath, 'chat.json');
 }
 
 /** Read a project's refinement conversation; missing/corrupt file → empty. */
-export async function readChatHistory(folderPath: string): Promise<ChatTurn[]> {
+async function readChatHistory(folderPath: string): Promise<ChatTurn[]> {
   try {
     const raw = await fs.readFile(chatPath(folderPath), 'utf-8');
     const parsed = JSON.parse(raw);

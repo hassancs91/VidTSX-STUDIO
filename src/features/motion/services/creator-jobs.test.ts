@@ -8,14 +8,14 @@ import {
   jobTitle,
   openProjectJob,
   pendingProjectJobs,
-  previewStreamJob,
   studioSaveNotice,
   waitingFor,
 } from './creator-jobs';
 
-// Where the Creator shows a job and what a finished one does: builds join
-// generations in the library and the centre panel; a watched build opens
-// when it finishes; other callers' jobs are not the Creator's.
+// Where the Creator shows a job and what a finished one does: new builds show
+// in the library and the centre panel; a watched build opens when it
+// finishes; other callers' jobs are not the Creator's. Every job is a build
+// (P3 part 8).
 
 let clock = 0;
 const job = (over: Partial<TsxJobIpc> = {}): TsxJobIpc => ({
@@ -36,21 +36,18 @@ describe('which jobs show where', () => {
     expect(isCreatorJob(job({ origin: 'studio' }))).toBe(false);
   });
 
-  it('library placeholders: running generations and new builds, not edits or finished jobs', () => {
-    const gen = job({ kind: 'generate' });
-    const build = job({ status: 'queued' });
-    const jobs = [gen, build, job({ kind: 'edit', targetFolderPath: 'C:/p' }), job({ targetFolderPath: 'C:/p' }), job({ status: 'done' })];
-    expect(pendingProjectJobs(jobs)).toEqual([gen, build]);
+  it('library placeholders: running new builds, not edits or finished jobs', () => {
+    const running = job();
+    const queued = job({ status: 'queued' });
+    const jobs = [running, queued, job({ targetFolderPath: 'C:/p' }), job({ status: 'done' })];
+    expect(pendingProjectJobs(jobs)).toEqual([running, queued]);
   });
 
-  it('the open project\'s edit / fix in flight, and the preview\'s stream', () => {
-    const edit = job({ kind: 'edit', targetFolderPath: 'C:/p' });
-    const gen = job({ kind: 'generate' });
-    expect(openProjectJob([edit, gen], 'C:/p')).toBe(edit);
+  it('the open project\'s edit in flight', () => {
+    const edit = job({ targetFolderPath: 'C:/p' });
+    const fresh = job();
+    expect(openProjectJob([edit, fresh], 'C:/p')).toBe(edit);
     expect(openProjectJob([edit], 'C:/q')).toBeNull();
-    expect(previewStreamJob([edit, gen], 'C:/p')).toBe(edit);
-    expect(previewStreamJob([edit, gen], null)).toBe(gen);
-    expect(previewStreamJob([gen], 'C:/q')).toBeNull();
   });
 
   it('the centre shows the watched build, else (nothing open) the newest running one', () => {
@@ -61,7 +58,6 @@ describe('which jobs show where', () => {
     expect(centreBuildJob([older, newer], null, null)).toBe(newer);
     expect(centreBuildJob([older, newer], null, 'C:/p')).toBeNull();
     expect(centreBuildJob([older], 'gone', null)).toBe(older);
-    expect(centreBuildJob([job({ kind: 'generate' })], null, null)).toBeNull();
   });
 
   it('a queued build says whose build it waits for', () => {
@@ -85,22 +81,20 @@ describe('jobOutcome', () => {
       .toEqual({ type: 'offer', message: 'New build ready', ...saved });
   });
 
-  it('a capped build carries its notice; a generation and an edit keep their old wording', () => {
+  it('a capped build carries its notice; an unwatched edit is offered by where it saved', () => {
     const capped = job({ status: 'done', ...saved, build: { notice: 'Time ran out; kept the last build that passed check.' } as TsxJobIpc['build'] });
     expect(jobOutcome(capped, { openFolderPath: null, watchedJobId: null }))
       .toMatchObject({ type: 'open', notice: 'Time ran out; kept the last build that passed check.' });
-    expect(jobOutcome(job({ kind: 'generate', status: 'done', ...saved }), { openFolderPath: 'C:/x', watchedJobId: null }))
-      .toMatchObject({ type: 'offer', message: 'New generation ready' });
-    const edit = job({ kind: 'edit', status: 'done', targetFolderPath: saved.folderPath, ...saved });
+    const edit = job({ status: 'done', targetFolderPath: saved.folderPath, ...saved });
     expect(jobOutcome(edit, { openFolderPath: saved.folderPath, watchedJobId: null })).toMatchObject({ type: 'offer', message: 'New version ready' });
     expect(jobOutcome(edit, { openFolderPath: null, watchedJobId: null })).toMatchObject({ type: 'offer', message: 'New version saved in bounce' });
   });
 
-  it('errors name the kind; a cancel or a running job does nothing', () => {
+  it('errors say Build or Edit; a cancel or a running job does nothing', () => {
     expect(jobOutcome(job({ status: 'error', error: 'no tools' }), { openFolderPath: null, watchedJobId: null }))
       .toEqual({ type: 'error', message: 'Build failed: no tools' });
-    expect(jobOutcome(job({ kind: 'generate', status: 'error' }), { openFolderPath: null, watchedJobId: null }))
-      .toEqual({ type: 'error', message: 'Generation failed: Unknown error' });
+    expect(jobOutcome(job({ status: 'error' }), { openFolderPath: null, watchedJobId: null }))
+      .toEqual({ type: 'error', message: 'Build failed: Unknown error' });
     expect(jobOutcome(job({ status: 'cancelled' }), { openFolderPath: null, watchedJobId: null })).toEqual({ type: 'none' });
     expect(jobOutcome(job(), { openFolderPath: null, watchedJobId: null })).toEqual({ type: 'none' });
   });
@@ -112,7 +106,6 @@ describe('builder edits (part 3)', () => {
 
   it('a build with a target folder is an edit, named after its folder until it saves', () => {
     expect(isEditJob(editBuild())).toBe(true);
-    expect(isEditJob(job({ kind: 'fix', targetFolderPath: 'C:/p' }))).toBe(true);
     expect(isEditJob(job())).toBe(false);
     expect(jobTitle(editBuild())).toBe('bounce');
     expect(jobTitle(editBuild({ projectName: 'bounce' }))).toBe('bounce');
@@ -123,7 +116,6 @@ describe('builder edits (part 3)', () => {
     const edit = editBuild();
     expect(openProjectJob([edit], saved.folderPath)).toBe(edit);
     expect(openProjectJob([editBuild({ status: 'done' })], saved.folderPath)).toBeNull();
-    expect(previewStreamJob([edit], saved.folderPath)).toBeNull();
     expect(pendingProjectJobs([edit])).toEqual([]);
     // It is not the centre's unless watched.
     expect(centreBuildJob([edit], null, saved.folderPath)).toBeNull();

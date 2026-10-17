@@ -81,7 +81,7 @@ export interface ResolvedShotAssetRefs {
   /** Library files imported by this resolution — NOT yet in project.json;
    *  the renderer adopts them off the shot job event. */
   imported: StudioMediaAsset[];
-  /** Table for buildShotExtraInstructions. */
+  /** The refs as an asset table (key, kind, size, length, description). */
   promptAssets: ShotPromptAsset[];
 }
 

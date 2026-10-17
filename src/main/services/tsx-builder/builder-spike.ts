@@ -18,8 +18,8 @@
 // pack bodies). Every job event (the whole snapshot) and every narration chunk
 // lands in `<outDir>/progress.jsonl`; `cancelAfterMs` cancels the job. The
 // job saves into the profile's Creator library, as the app does; the project
-// is copied to `<outDir>/projects/`. A job cannot force the one-shot pipeline:
-// part 5's check of it stays in runs/P1/fallback-p5.
+// is copied to `<outDir>/projects/`. The one-shot pipeline was deleted in P3
+// part 8; part 5's check of it stays in runs/P1/fallback-p5.
 // mode "engines" — free: which engine each provider would get, and why.
 // mode "libraries" — free: one source per area of the library set through
 // `check` and the stills path (builder-spike-libraries.ts, P2 part 1).
@@ -118,7 +118,7 @@ async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
 
 async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>> {
   if ('engine' in req || 'projectsDir' in req) {
-    return { error: 'A build job takes neither "engine" nor "projectsDir" (part 5\'s pipeline check: runs/P1/fallback-p5).' };
+    return { error: 'A build job takes neither "engine" nor "projectsDir" (the one-shot pipeline is deleted; part 5\'s check: runs/P1/fallback-p5).' };
   }
   const packs = req.packsDir ? await readPacks(req.packsDir, req.packNames) : [];
   const progressPath = path.join(req.outDir, 'progress.jsonl');

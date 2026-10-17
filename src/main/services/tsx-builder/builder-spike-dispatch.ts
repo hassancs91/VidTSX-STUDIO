@@ -28,7 +28,6 @@ export async function enginesProbe(): Promise<Record<string, unknown>> {
     activeSaved: activeProvider ?? null,
     activeEngine: llmEngine.getActiveProvider(),
     noProviderId: await chooseTsxEngine({}),
-    mode3d: await chooseTsxEngine({ mode: '3d' }),
     providers: rows,
   };
 }

@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { Button, Modal, RenderSettingsModal, SkeletonLoader, type RenderSettings } from '@shared/components';
 import { IsolatedPreview, useComponentLoader, setupVirtualModuleGlobals } from '@features/player';
 import { CodeEditor, useCodeEditor, usePropsExtractor, PropsPanel } from '@features/editor';
-import { JobStreamView } from './JobStreamView';
 import { useRenderQueue } from '@features/render-queue';
 import { useToast } from '@renderer/contexts/ToastContext';
 import type { MotionProject } from '../types';
@@ -63,8 +62,6 @@ interface MotionPreviewPanelProps {
    *  auto-save into the current version, Ctrl+S saves a NEW version, and the
    *  Overwrite button is hidden. */
   appendOnly?: boolean;
-  /** Job whose live LLM output should stream into this panel, if any. */
-  streamJobId?: string | null;
   saving: boolean;
   saveMessage: string | null;
   /** Under the tabs while a project is open: the thread and the Edit box (P3 part 3). */
@@ -81,7 +78,6 @@ export function MotionPreviewPanel({
   onOverwrite,
   onSaveNewVersion,
   appendOnly = false,
-  streamJobId = null,
   saving,
   saveMessage,
   footer,
@@ -256,43 +252,17 @@ export function MotionPreviewPanel({
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex-1 min-h-0 relative flex flex-col">
           {!hasContent && !loading && (
-            streamJobId ? (
-              <JobStreamView
-                jobId={streamJobId}
-                label="Generating — live output"
-                fallback={
-                  <div className="flex items-center justify-center h-full">
-                    <span className="text-[12px] text-text-dim">
-                      Enter a prompt and click Build to start
-                    </span>
-                  </div>
-                }
-              />
-            ) : (
-              <div className="flex items-center justify-center h-full">
-                <span className="text-[12px] text-text-dim">
-                  Enter a prompt and click Build to start
-                </span>
-              </div>
-            )
+            <div className="flex items-center justify-center h-full">
+              <span className="text-[12px] text-text-dim">
+                Enter a prompt and click Build to start
+              </span>
+            </div>
           )}
 
           {loading && (
-            streamJobId ? (
-              <JobStreamView
-                jobId={streamJobId}
-                label="Editing — live output"
-                fallback={
-                  <div className="flex-1 min-h-0 flex items-center justify-center">
-                    <SkeletonLoader variant="generating" />
-                  </div>
-                }
-              />
-            ) : (
-              <div className="flex-1 min-h-0 flex items-center justify-center">
-                <SkeletonLoader variant="generating" />
-              </div>
-            )
+            <div className="flex-1 min-h-0 flex items-center justify-center">
+              <SkeletonLoader variant="generating" />
+            </div>
           )}
 
           {error && (

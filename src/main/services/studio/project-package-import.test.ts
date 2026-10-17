@@ -14,7 +14,6 @@ const gate = vi.hoisted(() => ({
   validateShotCode: vi.fn(
     async (_source: string) => ({ success: true }) as { success: boolean; error?: string },
   ),
-  buildShotEngineDeps: vi.fn(),
 }));
 // The in-place bundle (P3 part 8) is its own test; here a dial (default: bundling is not the answer).
 const inPlace = vi.hoisted(() => ({

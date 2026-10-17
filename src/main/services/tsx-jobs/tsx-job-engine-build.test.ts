@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import type { GenerateTsxRequest, GenerateTsxResult } from '../tsx-builder/types';
-import type { LlmGenerateRequest, LlmGenerateResponse, TsxJobIpc, TsxJobStartRequest } from '@shared/ipc/types';
+import type { TsxJobIpc, TsxJobStartRequest } from '@shared/ipc/types';
 
 // Kind `build` in the job engine (P1 part 6), with generateTsx() faked: the
 // snapshot follows the builder's events, the result lands on the job, builds
@@ -14,20 +14,6 @@ let tmpDir = '';
 
 vi.mock('electron', () => ({
   app: { getPath: () => tmpDir },
-}));
-
-const TSX_OUTPUT = '```tsx\nimport React from "react";\nexport default function Anim() { return null; }\n```';
-vi.mock('../../ipc/llm-handlers', () => ({
-  runLlmGenerate: async (req: LlmGenerateRequest): Promise<LlmGenerateResponse> => ({
-    success: true,
-    text: req.systemPrompt?.includes('project name') ? 'beside-build' : TSX_OUTPUT,
-    model: 'test-model',
-    durationMs: 1,
-    usage: { inputTokens: 10, outputTokens: 20 },
-  }),
-}));
-vi.mock('../../ipc/tsx-handlers', () => ({
-  validateTsxCode: async () => ({ success: true }),
 }));
 
 let generateTsxImpl: (req: GenerateTsxRequest) => Promise<GenerateTsxResult>;
@@ -172,7 +158,7 @@ describe('tsx-job-engine: build jobs', () => {
     offEvent();
     offStream();
 
-    // What the builder received: the job's intent, format, budget, provider, model, its signal, no fallback.
+    // What the builder received: the job's intent, format, budget, provider, model and its signal.
     const req = generateTsxCalls[0];
     expect(req).toMatchObject({
       intent: 'A red ball bounces once as a loop.',
@@ -182,8 +168,6 @@ describe('tsx-job-engine: build jobs', () => {
       model: 'claude-sonnet-5-5',
     });
     expect(req.signal).toBeInstanceOf(AbortSignal);
-    expect(req.fallback).toBeUndefined();
-    expect(req.engine).toBeUndefined();
 
     // The snapshot moved with the events.
     const rendering = seen.find((j) => j.build?.phase === 'rendering')!;
@@ -261,7 +245,7 @@ describe('tsx-job-engine: build jobs', () => {
     expect(queued.build).toMatchObject({ budget: 'standard', edit: true, phase: 'preparing', round: 0, stills: [] });
   });
 
-  it('runs builds one at a time while pipeline jobs run beside them', async () => {
+  it('runs builds one at a time: the second waits queued for the first', async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => { release = resolve; });
     generateTsxImpl = async () => {
@@ -271,12 +255,8 @@ describe('tsx-job-engine: build jobs', () => {
 
     const a = tsxJobEngine.start(buildRequest({ prompt: 'build one' })).jobId!;
     const b = tsxJobEngine.start(buildRequest({ prompt: 'build two' })).jobId!;
-    const gen = tsxJobEngine.start({ kind: 'generate', prompt: 'beside the builds', options: { mode: '2d', optimize: false, maxFixRetries: 0 } }).jobId!;
 
-    // The pipeline job behind the queued build still runs and finishes.
-    const genJob = await waitForJob(gen);
-    expect(genJob.status).toBe('done');
-    expect(generateTsxCalls).toHaveLength(1);
+    await vi.waitFor(() => expect(generateTsxCalls).toHaveLength(1));
     const statuses = Object.fromEntries(tsxJobEngine.list().filter((j) => [a, b].includes(j.id)).map((j) => [j.id, j.status]));
     expect(statuses[a]).toBe('generating');
     expect(statuses[b]).toBe('queued');
@@ -350,7 +330,7 @@ describe('tsx-job-engine: build jobs', () => {
 describe("tsx-job-engine: another caller's builds (P3 part 1)", () => {
   it('carry their origin, folder and usage; run while restored jobs are held, without releasing them; are never persisted', async () => {
     const persistPath = path.join(tmpDir, 'tsx-jobs.json');
-    await fs.writeFile(persistPath, JSON.stringify([{ request: { kind: 'generate', prompt: 'held from the last quit' }, createdAt: 1 }]), 'utf-8');
+    await fs.writeFile(persistPath, JSON.stringify([{ request: buildRequest({ prompt: 'held from the last quit' }), createdAt: 1 }]), 'utf-8');
     await tsxJobEngine.restore();
     const held = tsxJobEngine.list().find((j) => j.prompt === 'held from the last quit')!;
     expect(held.status).toBe('queued');
@@ -366,7 +346,8 @@ describe("tsx-job-engine: another caller's builds (P3 part 1)", () => {
     const owner = { origin: 'agent' as const, into, usage: { featureSource: 'agent' as const, agentId: 'lwh.infographic-loop' } };
     const a = tsxJobEngine.start(buildRequest({ prompt: 'agent build one' }), owner).jobId!;
     const b = tsxJobEngine.start(buildRequest({ prompt: 'agent build two' }), owner).jobId!;
-    expect(tsxJobEngine.start({ kind: 'generate', prompt: 'x' }, owner).error).toBe('Only build jobs can be started by another caller');
+    // A removed pipeline kind (P3 part 8) is refused for any caller.
+    expect(tsxJobEngine.start({ kind: 'generate' as unknown as 'build', prompt: 'x' }, owner).error).toBe('Only build jobs exist: the one-shot pipeline was removed.');
 
     await vi.waitFor(() => expect(generateTsxCalls.map((r) => r.intent)).toEqual(['agent build one']));
     expect(generateTsxCalls[0]).toMatchObject({ into, usage: { featureSource: 'agent', agentId: 'lwh.infographic-loop' } });

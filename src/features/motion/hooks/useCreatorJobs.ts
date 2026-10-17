@@ -8,7 +8,6 @@ import {
   jobOutcome,
   openProjectJob,
   pendingProjectJobs,
-  previewStreamJob,
   waitingFor,
 } from '../services/creator-jobs';
 import { versionNumberOf } from '../services/edit-job-request';
@@ -87,10 +86,8 @@ export function useCreatorJobs({ projectManagerRef, openFolderPath, openVersion,
   return {
     /** Running jobs that will add a project: placeholder rows in the library. */
     pendingJobs: pendingProjectJobs(jobs),
-    /** The open project's edit in flight (a builder edit, or a restored edit / fix). */
+    /** The open project's builder edit in flight. */
     openProjectJob: openProjectJob(jobs, openFolderPath),
-    /** The job streaming into the preview panel. */
-    streamJob: previewStreamJob(jobs, openFolderPath),
     /** The build the centre panel shows instead of the preview. */
     centreBuild,
     centreBuildWaiting: centreBuild ? waitingFor(centreBuild, jobs, otherBuildActive) : null,

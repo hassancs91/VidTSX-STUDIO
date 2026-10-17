@@ -24,12 +24,12 @@
 //
 // Main writes ONLY shots/<id>/ files. The registry lives in the renderer's
 // document (shots-adopt), so main and the autosave never race on project.json.
-// validateShotCode + buildShotEngineDeps stay for conform, import, reconcile
-// and package import until the one-shot pipeline goes (P3 part 8).
+// validateShotCode is the gate import, conform, reconcile and package import
+// run; convert (P3 part 8) is their Quick builder edit when the bundler
+// cannot make a source a shot.
 
 import path from 'path';
 import fs from 'fs/promises';
-import type { TsxEngineDeps } from '../../../shared/tsx-engine';
 import type {
   BuildBudget,
   StudioShotGenerateOp,
@@ -42,7 +42,6 @@ import type {
 import type { StudioAgentSettings, StudioClipOrigin, StudioShot, StudioShotKind } from '../../../shared/types/studio';
 import { lintShotSource } from '../../../shared/studio/shot-lint';
 import { sliceAnchorWords, type ShotAnchorWord } from '../../../shared/studio/shot-words';
-import { runLlmGenerate } from '../../ipc/llm-handlers';
 import { validateTsxCode } from '../../ipc/tsx-handlers';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { reserveProjectFolder } from '../tsx-jobs/project-store';
@@ -173,31 +172,6 @@ export async function validateShotCode(code: string): Promise<TsxValidateRespons
     };
   }
   return { success: true };
-}
-
-/**
- * The engine deps the one-shot pipeline runs with: the LLM call plus the
- * ACCEPTANCE GATE as `tsxValidate`. Still used by the import service's
- * conform pass (D14) until P3 part 8.
- */
-export function buildShotEngineDeps(
-  providerId: string | undefined,
-  signal?: AbortSignal,
-  model?: string,
-): TsxEngineDeps {
-  return {
-    llmGenerate: (req) =>
-      runLlmGenerate(
-        {
-          ...req,
-          ...(providerId && !req.providerId ? { providerId } : {}),
-          ...(model && !req.model ? { model } : {}),
-          featureSource: 'studio-tsx-shot',
-        },
-        signal,
-      ),
-    tsxValidate: (req) => validateShotCode(req.code),
-  };
 }
 
 /** Studio's shot default (W1): the project's provider and its shot model, else its model — what the editor's Generate sends. */

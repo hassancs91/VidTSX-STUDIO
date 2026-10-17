@@ -20,14 +20,6 @@ import type {
 } from '@shared/ipc/types';
 import type { CompositionConfig } from '../composition-config-parser';
 import type { AiFeatureSource } from '@shared/types/ai-usage';
-import type {
-  PipelineMode,
-  PipelineProgress,
-  ThinkingLevel,
-  TsxEngineDeps,
-  TsxPipelineResult,
-  TsxPromptContext,
-} from '@shared/tsx-engine';
 
 export type {
   BuildBudget,
@@ -222,58 +214,22 @@ export interface BuildResult {
   error?: string;
 }
 
-// ─── The dispatcher: builder or one-shot pipeline (generate-tsx.ts) ───
+// ─── The dispatcher: the builder, or a refusal (generate-tsx.ts) ───
 
-/**
- * Who makes the piece: the builder's loop, or the one-shot pipeline. Rev 2:
- * the pipeline is frozen and reachable only when forced or for 3D (Creator
- * 3D until P2); a provider without tools gets a refusal, not the pipeline.
- */
-export type TsxEngine = 'builder' | 'pipeline';
-
-/**
- * Forced by the caller; 3D (the builder makes 2D only); the provider can run
- * tools; it cannot (refused); the model cannot run the builder (refused).
- */
-export type TsxEngineReason = 'forced' | 'mode-3d' | 'tools' | 'no-tools' | 'unfit-model';
+/** The provider can run tools; it cannot (refused); the model cannot run the builder (refused). */
+export type TsxEngineReason = 'tools' | 'no-tools' | 'unfit-model';
 
 export type TsxEngineChoice =
-  | { engine: 'builder'; reason: 'forced' | 'tools' }
-  | { engine: 'pipeline'; reason: 'forced' | 'mode-3d' }
+  | { engine: 'builder'; reason: 'tools' }
   /** Nothing runs: the provider cannot run tools. */
   | { engine: 'none'; reason: 'no-tools'; error: string };
 
-/** What only the one-shot pipeline uses. Packs, budget and caps never reach it. */
-export interface PipelineFallback {
-  /** The caller's own LLM call (usage attribution, signal) and acceptance gate. */
-  deps: TsxEngineDeps;
-  /** Merged under what the request maps to: format, and brand + loop before these extra instructions. */
-  promptContext?: Pick<TsxPromptContext, 'imports' | 'category' | 'extraInstructions' | 'libraryMeshes'>;
-  thinkingLevel?: ThinkingLevel;
-  maxTurns?: number;
-  optimize?: boolean;
-  maxFixRetries?: number;
-  /** Edits only: the conversation so far. */
-  chatHistory?: { role: 'user' | 'assistant'; content: string }[];
-  onProgress?: (progress: PipelineProgress) => void;
-}
-
-export interface GenerateTsxRequest extends BuildRequest {
-  /** Force an engine (dev entry, tests). Absent = by mode, then by provider. */
-  engine?: TsxEngine;
-  /** '3d' always takes the pipeline. Absent = the builder, or the pipeline's own 2D/3D classifier. */
-  mode?: PipelineMode;
-  /** Required by callers that can reach the pipeline (a forced engine or mode '3d'); a pipeline chosen without it is an error. */
-  fallback?: PipelineFallback;
-}
-
-/** A request the pipeline can run: the dispatcher narrows to this before calling it. */
-export type PipelineBoundRequest = GenerateTsxRequest & { fallback: PipelineFallback };
+/** What every caller hands generateTsx(): a builder request (the pipeline and its options are gone, P3 part 8). */
+export type GenerateTsxRequest = BuildRequest;
 
 interface GenerateTsxCommon {
   reason: TsxEngineReason;
   ok: boolean;
-  /** The pipeline's: `finished` when its gate passed, else `cancelled` or `error`. */
   stopReason: BuildStopReason;
   /** The single-file artifact; absent when not `ok`. */
   code?: string;
@@ -286,10 +242,5 @@ interface GenerateTsxCommon {
 export type GenerateTsxResult =
   /** The builder saved its version (`build.version`). `build` is absent only when it threw. */
   | (GenerateTsxCommon & { engine: 'builder'; build?: BuildResult })
-  /**
-   * Nothing saved: the caller saves `code`, as it does today. `pipeline` (with
-   * the raw text even when the gate failed) is absent when the pipeline threw.
-   */
-  | (GenerateTsxCommon & { engine: 'pipeline'; pipeline?: TsxPipelineResult })
   /** Refused before anything ran (`no-tools`, `unfit-model`): `ok: false`, the reason in `error`. */
   | (GenerateTsxCommon & { engine: 'none' });

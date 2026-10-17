@@ -10,9 +10,9 @@
 //   brief, the word table verbatim, learned style rules, and the media in
 //   assets/ by file name. The brand goes as the request's brand text.
 //
-// Refine keeps today's constraints (shared/studio/shot-prompt.ts
-// buildRefineInstruction) except "keep imports exactly": the builder inlines
-// its libraries (Rev 2), and it renders its own frames, so no stills ride in.
+// Refine keeps the pipeline-era refine's constraints except "keep imports
+// exactly": the builder inlines its libraries (Rev 2), and it renders its own
+// frames, so no stills ride in.
 
 import type { BuildBudget, BuildFormat, BuildPack, TsxJobStartRequest } from '../../../shared/ipc/types';
 import type { StudioShotKind } from '../../../shared/types/studio';

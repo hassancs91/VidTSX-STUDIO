@@ -16,9 +16,6 @@ const STATUS_LABELS: Record<TsxJobStatus, string> = {
 };
 
 const KIND_LABELS: Record<TsxJobIpc['kind'], string> = {
-  generate: 'Gen',
-  edit: 'Edit',
-  fix: 'Fix',
   build: 'Build',
 };
 

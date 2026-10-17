@@ -2,19 +2,11 @@ import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { app } from 'electron';
-import { generateTsxPipeline, editTsxPipeline, generateProjectName } from '@shared/tsx-engine';
-import type { TsxEngineDeps } from '@shared/tsx-engine';
-import { lintCreatorImports } from '@shared/tsx-engine/creator-imports';
-import type { PipelineProgress, TsxPipelineResult } from '@shared/tsx-engine';
 import type {
   TsxJobIpc,
   TsxJobStatus,
   TsxJobStartRequest,
 } from '@shared/ipc/types';
-import { runLlmGenerate } from '../../ipc/llm-handlers';
-import { validateTsxCode } from '../../ipc/tsx-handlers';
-import { reserveProjectFolder, writeNextVersion, writeDebugSidecar, describeSystemPrompt } from './project-store';
-import { readChatHistory, appendChatTurns, CHAT_CONTEXT_LIMIT } from './chat-store';
 import { runBuildJob, validateBuildRequest, type TsxJobOwner } from './tsx-build-job';
 import { initialBuildSnapshot } from './build-job-snapshot';
 import { logEngine } from '../../../logging/log-engine';
@@ -22,13 +14,6 @@ import { logEngine } from '../../../logging/log-engine';
 const log = logEngine.createLogger('TsxJobs');
 
 const ACTIVE_STATUSES: TsxJobStatus[] = ['planning', 'generating', 'verifying', 'fixing', 'naming', 'saving'];
-const STEP_STATUS: Record<string, TsxJobStatus> = {
-  plan: 'planning',
-  generate: 'generating',
-  verify: 'verifying',
-  transpile: 'fixing',
-  fix: 'fixing',
-};
 
 interface JobRecord {
   snapshot: TsxJobIpc;
@@ -52,13 +37,13 @@ function isFinished(status: TsxJobStatus): boolean {
 }
 
 /**
- * Concurrent TSX generation jobs, modeled on the download manager: id-keyed
- * records, a maxConcurrent throttle with overflow queueing, per-job abort, and
- * queued-job persistence across restarts. Runs the shared tsx-engine pipeline
- * with main-process deps (direct engine + transpiler calls, per-job signal).
- * Kind `build` runs the TSX builder instead (tsx-build-job.ts): it counts
- * toward maxConcurrent like any job, but builds run one at a time among
- * themselves (each one bundles and renders stills while it works).
+ * TSX build jobs, modeled on the download manager: id-keyed records, a
+ * maxConcurrent throttle with overflow queueing, per-job abort, and
+ * queued-job persistence across restarts. Every job is kind `build`, the TSX
+ * builder (tsx-build-job.ts): builds run one at a time app-wide (each one
+ * bundles and renders stills while it works). The one-shot pipeline's kinds
+ * (generate / edit / fix) were deleted in P3 part 8; a queued one restored
+ * from an older app is dropped with a log line.
  */
 class TsxJobEngine {
   private jobs = new Map<string, JobRecord>();
@@ -107,21 +92,17 @@ class TsxJobEngine {
    */
   start(request: TsxJobStartRequest, owner?: TsxJobOwner): { jobId?: string; error?: string } {
     if (this.shuttingDown) return { error: 'App is shutting down' };
-    if (owner && request.kind !== 'build') return { error: 'Only build jobs can be started by another caller' };
+    // The IPC hands over whatever the renderer sent: the pipeline's kinds are gone.
+    if ((request as { kind: string }).kind !== 'build') return { error: 'Only build jobs exist: the one-shot pipeline was removed.' };
     if (!this.restoring && this.queueHeld && !owner) {
       this.queueHeld = false; // user engaged the generator — release held jobs
     }
     if (!request.prompt?.trim()) return { error: 'Prompt is required' };
-    if ((request.kind === 'edit' || request.kind === 'fix') && !request.target) {
-      return { error: `A target project is required for ${request.kind} jobs` };
-    }
-    if (request.kind === 'build') {
-      const invalid = validateBuildRequest(request);
-      if (invalid) return { error: invalid };
-    }
+    const invalid = validateBuildRequest(request);
+    if (invalid) return { error: invalid };
 
     const id = `tsxjob_${Date.now()}_${randomUUID().slice(0, 8)}`;
-    const targetFolderPath = request.target?.folderPath ?? request.build?.editOf?.folderPath ?? owner?.into;
+    const targetFolderPath = request.build?.editOf?.folderPath ?? owner?.into;
     const record: JobRecord = {
       request,
       ...(owner ? { owner } : {}),
@@ -135,7 +116,7 @@ class TsxJobEngine {
         status: 'queued',
         progress: { step: 'queued', label: 'Queued', percent: 0 },
         ...(targetFolderPath ? { targetFolderPath } : {}),
-        ...(request.kind === 'build' && request.build ? { build: initialBuildSnapshot(request.build) } : {}),
+        ...(request.build ? { build: initialBuildSnapshot(request.build) } : {}),
         createdAt: Date.now(),
       },
     };
@@ -185,14 +166,20 @@ class TsxJobEngine {
     try {
       const raw = await fs.readFile(this.persistPath(), 'utf-8');
       const persisted = JSON.parse(raw) as PersistedJob[];
-      if (Array.isArray(persisted) && persisted.length > 0) {
-        log.info('Restoring queued TSX jobs (held until user engages)', { count: persisted.length });
+      if (!Array.isArray(persisted)) return;
+      // A queued generate / edit / fix from before P3 part 8 has nothing to run on.
+      const builds = persisted.filter((item) => item?.request?.prompt && (item.request as { kind: string }).kind === 'build');
+      const dropped = persisted.length - builds.length;
+      if (dropped > 0) {
+        log.info('Dropped queued TSX jobs of a removed kind (the one-shot pipeline)', { count: dropped });
+        this.schedulePersist();
+      }
+      if (builds.length > 0) {
+        log.info('Restoring queued TSX jobs (held until user engages)', { count: builds.length });
         this.queueHeld = true;
         this.restoring = true;
         try {
-          for (const item of persisted) {
-            if (item?.request?.prompt) this.start(item.request);
-          }
+          for (const item of builds) this.start(item.request);
         } finally {
           this.restoring = false;
         }
@@ -259,20 +246,13 @@ class TsxJobEngine {
     return count;
   }
 
-  private buildRunning(): boolean {
-    for (const record of this.jobs.values()) {
-      if (record.request.kind === 'build' && isActive(record.snapshot.status)) return true;
-    }
-    return false;
-  }
-
   /**
-   * Builds wait for the running build; a queued pipeline job behind one still
-   * starts. While restored jobs are held, only another caller's builds run.
+   * Builds run one at a time: a queued one waits for the running one. While
+   * restored jobs are held, only another caller's builds run.
    */
   private canStart(record: JobRecord): boolean {
     if (this.queueHeld && !record.owner) return false;
-    return record.request.kind !== 'build' || !this.buildRunning();
+    return this.runningCount() === 0;
   }
 
   private pump(): void {
@@ -284,48 +264,10 @@ class TsxJobEngine {
     }
   }
 
-  private buildDeps(record: JobRecord): TsxEngineDeps {
-    const signal = record.abort.signal;
-
-    // Throttle stream deltas: accumulate and flush every 120ms. Only the
-    // generating step's text is forwarded — plan/verify/fix chatter would
-    // just flash non-code text at the user.
-    let buffer = '';
-    let flushTimer: ReturnType<typeof setTimeout> | null = null;
-    const flush = () => {
-      flushTimer = null;
-      if (!buffer) return;
-      const chunk = buffer;
-      buffer = '';
-      this.streamChunk(record.snapshot.id, chunk);
-    };
-    const onTextDelta = (delta: string) => {
-      if (record.snapshot.status !== 'generating') return;
-      buffer += delta;
-      if (!flushTimer) flushTimer = setTimeout(flush, 120);
-    };
-
-    return {
-      llmGenerate: (req) => runLlmGenerate({ ...req, featureSource: 'tsx-generation' }, signal, onTextDelta),
-      tsxValidate: async (req) => {
-        const result = await validateTsxCode(req.code);
-        if (!result.success) return result;
-        // Imports that preview from esm.sh but cannot render in an installed
-        // app are a fix-loop error here, not a render failure later.
-        const importErrors = lintCreatorImports(req.code);
-        return importErrors.length > 0 ? { success: false, error: importErrors.join(' ') } : result;
-      },
-    };
-  }
-
   private streamChunk(jobId: string, chunk: string): void {
     for (const listener of this.streamListeners) {
       try { listener(jobId, chunk); } catch { /* ignore */ }
     }
-  }
-
-  private throwIfAborted(record: JobRecord): void {
-    if (record.abort.signal.aborted) throw new Error('Job cancelled');
   }
 
   /** A run that threw: cancelled when its signal fired, else an error with the message. */
@@ -348,121 +290,17 @@ class TsxJobEngine {
   private async runJob(record: JobRecord): Promise<void> {
     const snap = record.snapshot;
     snap.startedAt = Date.now();
-    snap.status = record.request.kind === 'generate' ? 'planning' : 'generating';
+    snap.status = 'generating';
     snap.progress = { step: 'start', label: 'Starting...', percent: 0 };
     this.emit(record);
     this.schedulePersist();
 
-    if (record.request.kind === 'build') {
-      try {
-        await runBuildJob({
-          ...record,
-          emit: () => this.emit(record),
-          stream: (chunk) => this.streamChunk(record.snapshot.id, chunk),
-        });
-      } catch (err) {
-        this.markFailed(record, err);
-      } finally {
-        this.schedulePersist();
-        this.pump();
-      }
-      return;
-    }
-
-    const deps = this.buildDeps(record);
-    const onProgress = (p: PipelineProgress) => {
-      snap.progress = { step: p.step, label: p.stepLabel, percent: p.percent };
-      const mapped = STEP_STATUS[p.step];
-      if (mapped) snap.status = mapped;
-      this.emit(record);
-    };
-
     try {
-      let result: TsxPipelineResult;
-      let versionPath: string;
-
-      if (record.request.kind === 'generate') {
-        result = await generateTsxPipeline({
-          prompt: record.request.prompt,
-          ...(record.request.providerId ? { providerId: record.request.providerId } : {}),
-          ...record.request.options,
-          onProgress,
-        }, deps);
-        this.throwIfAborted(record);
-
-        snap.status = 'naming';
-        snap.progress = { step: 'naming', label: 'Naming project...', percent: 96 };
-        this.emit(record);
-        const name = await generateProjectName(record.request.prompt, record.request.providerId, deps);
-        this.throwIfAborted(record);
-
-        snap.status = 'saving';
-        snap.progress = { step: 'saving', label: 'Saving...', percent: 98 };
-        this.emit(record);
-        const reserved = await reserveProjectFolder(name);
-        versionPath = await writeNextVersion(reserved.folderPath, result.text);
-        snap.projectName = reserved.name;
-        snap.folderPath = reserved.folderPath;
-
-        // Seed the project's refinement conversation
-        await appendChatTurns(reserved.folderPath, [
-          { role: 'user', content: record.request.prompt },
-          { role: 'assistant', content: `Generated ${path.basename(versionPath)} (${result.mode} mode).` },
-        ]).catch(() => {});
-      } else {
-        const target = record.request.target!;
-        const chatHistory = (await readChatHistory(target.folderPath))
-          .slice(-CHAT_CONTEXT_LIMIT)
-          .map(({ role, content }) => ({ role, content }));
-        result = await editTsxPipeline({
-          currentCode: target.currentCode,
-          editInstruction: record.request.prompt,
-          ...(record.request.providerId ? { providerId: record.request.providerId } : {}),
-          ...record.request.options,
-          ...(chatHistory.length > 0 ? { chatHistory } : {}),
-          onProgress,
-        }, deps);
-        this.throwIfAborted(record);
-
-        snap.status = 'saving';
-        snap.progress = { step: 'saving', label: 'Saving...', percent: 98 };
-        this.emit(record);
-        versionPath = await writeNextVersion(target.folderPath, result.text);
-        snap.folderPath = target.folderPath;
-
-        await appendChatTurns(target.folderPath, [
-          { role: 'user', content: record.request.prompt },
-          { role: 'assistant', content: `Applied ${record.request.kind === 'fix' ? 'fix' : 'edit'} — saved as ${path.basename(versionPath)}.` },
-        ]).catch(() => {});
-      }
-
-      if (result.debugLog) {
-        await writeDebugSidecar(versionPath, {
-          model: result.model,
-          durationMs: result.durationMs,
-          timestamp: new Date().toISOString(),
-          prompt: record.request.prompt,
-          ...describeSystemPrompt(result.systemPrompt),
-          turns: result.debugLog,
-          steps: result.steps,
-          plan: result.plan,
-          mode: result.mode,
-          libraries: result.libraries,
-          verified: result.verified,
-          transpileValid: result.transpileValid,
-          fixAttempts: result.fixAttempts,
-          usage: result.usage,
-        }).catch((err) => log.warn('Failed to write debug sidecar', { error: String(err) }));
-      }
-
-      snap.versionPath = versionPath;
-      snap.mode = result.mode;
-      if (result.usage) snap.usage = result.usage;
-      snap.status = 'done';
-      snap.progress = { step: 'done', label: 'Complete', percent: 100 };
-      snap.completedAt = Date.now();
-      this.emit(record);
-      log.info('Job complete', { id: snap.id, kind: snap.kind, folder: snap.folderPath });
+      await runBuildJob({
+        ...record,
+        emit: () => this.emit(record),
+        stream: (chunk) => this.streamChunk(record.snapshot.id, chunk),
+      });
     } catch (err) {
       this.markFailed(record, err);
     } finally {

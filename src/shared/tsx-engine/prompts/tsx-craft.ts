@@ -1,15 +1,9 @@
-// The craft half of the 2D generate prompt — style presets, layout and
-// typography — as ONE text with two readers (V1 completion plan §2.7, W7):
-//
-//   * `buildGenerate2dPrompt` splices it into the system prompt the code model
-//     writes under, byte for byte where it always was;
-//   * `renderTsxCraftSkill` wraps it as the tsx-composer agent's `tsx-craft`
-//     skill, so the agent that BRIEFS the composition tool speaks the same
-//     vocabulary (preset names, the type scale, the safe zones) as the model
-//     that builds from the brief.
-//
-// Factored, not forked: edit the rules here and both readers move together.
-// `scripts/gen-tsx-craft-skill.mjs` rewrites the SKILL.md, and
+// The craft rules — style presets, layout and typography (V1 completion plan
+// §2.7, W7). Once the craft half of the one-shot pipeline's 2D prompt (deleted
+// in P3 part 8); now read by `renderTsxCraftSkill`, which wraps it as the
+// tsx-composer agent's `tsx-craft` skill, so the agent that BRIEFS the
+// composition tool speaks one vocabulary (preset names, the type scale, the
+// safe zones). `scripts/gen-tsx-craft-skill.mjs` rewrites the SKILL.md, and
 // `tsx-craft-skill.test.ts` fails when the two drift.
 
 export const TSX_CRAFT_RULES = `## Style presets (use when the prompt implies one)

@@ -20,7 +20,7 @@ const LLM_SURFACES = [
   'src/engine', // cloud LLM engine + providers
   'src/llm-engine', // local LLM engine
   'src/main/ipc/llm-handlers.ts',
-  'src/shared/tsx-engine', // TSX generation / edit / verify pipelines
+  'src/main/services/tsx-builder', // TSX generation: the builder (the one-shot pipeline went in P3 part 8)
   'src/main/services/stt', // transcripts
   'src/main/services/studio/studio-agent.ts',
   'src/main/services/studio/studio-agent-prompt.ts',

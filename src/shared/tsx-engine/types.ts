@@ -1,4 +1,7 @@
-import type { LlmImageIpc } from '../ipc/types';
+// What remains of the one-shot pipeline's types after it was deleted (P3
+// part 8, D10): the thinking dial the Studio assistant and AI chat use, and
+// the step log a pipeline-era version's debug sidecar carries — the Creator
+// still shows those old sidecars (P8-7).
 
 export type ThinkingLevel = 'off' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
@@ -9,87 +12,14 @@ export interface ThinkingConfig {
   effort?: EffortLevel;
 }
 
-export interface TsxPromptContext {
-  videoWidth?: number;
-  videoHeight?: number;
-  fps?: number;
-  durationSeconds?: number;
-  category?: string;
-  extraInstructions?: string;
-  /**
-   * Which import gate the output will meet. `'open'` (default) is the Creator:
-   * the packages in `CREATOR_IMPORT_PACKAGES` render. `'strict'` is a gate that
-   * accepts react, remotion and @vidtsx/kit only (Studio shots, agent
-   * compositions) — the 2D prompt then promises nothing else.
-   */
-  imports?: 'open' | 'strict';
-  /**
-   * Saved GLB meshes the 3D prompt may reference (asset library, absolute paths) —
-   * plan §5 step 7 "Library meshes". Empty/undefined = no section in the prompt.
-   */
-  libraryMeshes?: Array<{ path: string; description?: string; generated?: boolean }>;
-}
-
-export interface TsxEditPipelineOptions {
-  currentCode: string;
-  editInstruction: string;
-  providerId?: string;
-  model?: string;
-  thinkingLevel?: ThinkingLevel;
-  maxTurns?: number;
-  maxFixRetries?: number;
-  onProgress?: (progress: PipelineProgress) => void;
-  images?: LlmImageIpc[];
-  /** Prior refinement turns for this project — gives edits conversational continuity. */
-  chatHistory?: { role: 'user' | 'assistant'; content: string }[];
-}
-
+/** A pipeline-era sidecar's steps (`vN.debug.json`). */
 export type PipelineStep = 'plan' | 'generate' | 'verify' | 'transpile' | 'fix';
 
 export type PipelineMode = '2d' | '3d';
-
-export interface PipelineProgress {
-  step: PipelineStep;
-  stepLabel: string;
-  percent: number;
-}
-
-export interface TsxPipelineOptions {
-  prompt: string;
-  providerId?: string;
-  /** Model id on that provider; absent = the provider default (W1). */
-  model?: string;
-  thinkingLevel?: ThinkingLevel;
-  maxTurns?: number;
-  optimize?: boolean;
-  promptContext?: TsxPromptContext;
-  maxFixRetries?: number;
-  mode?: PipelineMode;
-  onProgress?: (progress: PipelineProgress) => void;
-  images?: LlmImageIpc[];
-}
 
 export interface PipelineStepLog {
   step: PipelineStep;
   label: string;
   output: string;
   durationMs: number;
-}
-
-export interface TsxPipelineResult {
-  text: string;
-  model: string;
-  durationMs: number;
-  debugLog?: string[];
-  steps: PipelineStepLog[];
-  plan?: string;
-  mode: PipelineMode;
-  /** Exact system prompt the generate/edit step ran with — recorded in the
-   *  debug sidecar so output changes can be attributed to prompt changes. */
-  systemPrompt?: string;
-  libraries?: string[];
-  verified: boolean;
-  transpileValid: boolean;
-  fixAttempts: number;
-  usage?: { inputTokens: number; outputTokens: number; totalTokens: number };
 }

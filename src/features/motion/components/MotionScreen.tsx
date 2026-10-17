@@ -115,7 +115,7 @@ function MotionScreenContent() {
   // the centre was showing.
   const openFolderPath = projectManager.project?.folderPath ?? null;
   const creatorJobs = useCreatorJobs({ projectManagerRef, openFolderPath, openVersion, scheduleLibraryRefresh });
-  const { openProjectJob, streamJob, centreBuild, watchBuild } = creatorJobs;
+  const { openProjectJob, centreBuild, watchBuild } = creatorJobs;
   const thread = useProjectThread(openFolderPath, creatorJobs.threadKey);
 
   const handleBuild = useCallback(async () => {
@@ -413,13 +413,12 @@ function MotionScreenContent() {
             project={projectManager.project}
             output={null}
             error={projectManager.error}
-            loading={openProjectJob !== null && openProjectJob.kind !== 'build'}
+            loading={false}
             busy={openProjectJob !== null}
             onFix={handleFix}
             onOverwrite={handleOverwrite}
             onSaveNewVersion={handleSaveNewVersion}
             appendOnly={!!(projectManager.project && projectManager.studioProjectIdOf(projectManager.project.folderPath))}
-            streamJobId={streamJob?.id ?? null}
             saving={projectManager.loading}
             saveMessage={saveMessage}
             footer={projectManager.project && (
