@@ -163,15 +163,29 @@ describe('edit_composition', () => {
 });
 
 describe('edit_composition as a node (P3 part 7)', () => {
-  it('declares Budget + Loop with defaults the schema takes, and revises the rejected output on a retry', () => {
+  it('declares Budget, Loop and Generated images with defaults the schema takes, and revises the rejected output on a retry', () => {
     const ports = editCompositionTool.ports!;
-    expect(ports.configSchema.map((f) => f.key)).toEqual(['budget', 'loop']);
-    expect(ports.defaultConfig).toEqual({ budget: 'standard', loop: 'keep' });
+    expect(ports.configSchema.map((f) => f.key)).toEqual(['budget', 'loop', 'generatedImages']);
+    expect(ports.defaultConfig).toEqual({ budget: 'standard', loop: 'keep', generatedImages: 'off' });
     expect(z.object(editCompositionTool.schema).partial().safeParse(ports.defaultConfig).success).toBe(true);
     for (const field of ports.configSchema) {
       if (field.kind === 'select') expect(field.options.map((o) => o.value)).toContain(ports.defaultConfig[field.key]);
     }
     // The retry edits the version the user rejected, with the note as the instruction.
     expect(ports.reviseOnRetry).toEqual({ artifactKey: 'artifactId', noteKey: 'instruction' });
+  });
+
+  it('Generated images: a flow buys none unless On; an agent keeps the builder\'s default unless it says false', async () => {
+    await seedV1();
+    const artifacts = [prior('compositions/promo-loop/v1.tsx')];
+    const flow = makeToolContext({ workspaceDir: dir, artifacts, featureSource: 'flows' });
+    const agent = makeToolContext({ workspaceDir: dir, artifacts });
+    await editCompositionTool.handler({ artifactId: 'composition-1', instruction: 'x' }, flow);
+    await editCompositionTool.handler({ artifactId: 'composition-1', instruction: 'x', generatedImages: 'off' }, flow);
+    await editCompositionTool.handler({ artifactId: 'composition-1', instruction: 'x', generatedImages: 'on' }, flow);
+    await editCompositionTool.handler({ artifactId: 'composition-1', instruction: 'x' }, agent);
+    await editCompositionTool.handler({ artifactId: 'composition-1', instruction: 'x', generatedImages: false }, agent);
+    expect(engine.builds.map((b) => b.request.build?.maxGeneratedImages)).toEqual([0, 0, undefined, undefined, 0]);
+    expect(engine.builds[2].request.build).not.toHaveProperty('maxGeneratedImages');
   });
 });

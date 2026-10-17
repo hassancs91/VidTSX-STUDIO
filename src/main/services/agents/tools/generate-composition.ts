@@ -23,6 +23,7 @@
 
 import { z } from 'zod';
 import type { BuildFormat, TsxJobStartRequest } from '../../../../shared/ipc/types';
+import type { ConfigField } from '../../../../shared/types/flows';
 import { BUDGET_CHOICES, budgetHint } from '../../../../shared/tsx-engine/build-budgets';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
@@ -55,6 +56,26 @@ export function isOn(value: boolean | 'on' | 'off' | 'keep' | undefined): boolea
 /** The composition nodes' Budget select: what each budget buys, as the Creator's picker says it. */
 export const BUDGET_OPTIONS = BUDGET_CHOICES.map((c) => ({ value: c.value, label: `${c.label} — ${budgetHint(c.value)}` }));
 
+export const generatedImagesSchema = onOff
+  .optional()
+  .describe('Whether the builder may generate images (priced; needs an image provider). Absent = allowed for an agent, off for a flow node.');
+
+/** The composition nodes' "Generated images" select (Generate and Edit). */
+export const GENERATED_IMAGES_FIELD: ConfigField = {
+  kind: 'select',
+  key: 'generatedImages',
+  label: 'Generated images',
+  options: [
+    { value: 'off', label: 'Off — the builder draws everything in code' },
+    { value: 'on', label: 'On — it may generate images (priced, needs an image provider)' },
+  ],
+};
+
+/** D-2: a flow node buys no images unless it says On; an agent keeps the builder's per-budget default. */
+export function generatedImagesOff(value: boolean | 'on' | 'off' | undefined, featureSource: string): boolean {
+  return !(isOn(value) ?? featureSource !== 'flows');
+}
+
 const schema = {
   title: z.string().min(1).describe('Short name for this composition — names its folder.'),
   brief: z
@@ -73,9 +94,7 @@ const schema = {
   loop: onOff
     .optional()
     .describe('True for a seamless loop: the last frame leads straight back into the first.'),
-  generatedImages: onOff
-    .optional()
-    .describe('Whether the builder may generate images (priced; needs an image provider). Absent = allowed for an agent, off for a flow node.'),
+  generatedImages: generatedImagesSchema,
   styleNotes: z
     .string()
     .optional()
@@ -155,15 +174,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
         ],
       },
       { kind: 'prompt', key: 'styleNotes', label: 'Style notes (optional)', rows: 3 },
-      {
-        kind: 'select',
-        key: 'generatedImages',
-        label: 'Generated images',
-        options: [
-          { value: 'off', label: 'Off — the builder draws everything in code' },
-          { value: 'on', label: 'On — it may generate images (priced, needs an image provider)' },
-        ],
-      },
+      GENERATED_IMAGES_FIELD,
       { kind: 'llm-model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
       {
         kind: 'select',
@@ -198,8 +209,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     const providerId = binding.providerId ?? (binding.note ? undefined : ctx.providerId);
     const model = binding.providerId ? binding.model : ctx.model;
     const budget = args.budget ?? 'standard';
-    // D-2: a flow node buys no images unless it says On; an agent keeps the builder's per-budget default.
-    const imagesOff = !(isOn(args.generatedImages) ?? featureSource !== 'flows');
+    const imagesOff = generatedImagesOff(args.generatedImages, featureSource);
 
     // D-3: a checkpoint's note on what this node built — edit that version, keep its format.
     if (args.reviseOf && args.revision?.trim()) {

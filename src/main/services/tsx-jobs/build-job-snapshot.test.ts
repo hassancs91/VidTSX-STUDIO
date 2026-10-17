@@ -117,6 +117,10 @@ describe('progress label and percent', () => {
 
   it('say the round and the phase, and move with the rounds', () => {
     expect(buildProgressLabel({ ...base, phase: 'preparing' })).toBe('Preparing');
+    // Before the first look no round is named (it read "Round 0/1 · Designing and writing").
+    expect(buildProgressLabel({ ...base, phase: 'working', round: 0, roundsMax: 1 })).toBe('Designing and writing');
+    expect(buildProgressLabel({ ...base, phase: 'checking', round: 0, roundsMax: 3, stopping: 'cancelled' })).toBe('Checking · stopping (cancelled)');
+    expect(buildProgressLabel({ ...base, phase: 'rendering', round: 1, roundsMax: 1 })).toBe('Round 1/1 · Rendering frames');
     expect(buildProgressLabel({ ...base, phase: 'rendering', round: 2, roundsMax: 3 })).toBe('Round 2/3 · Rendering frames');
     expect(buildProgressLabel({ ...base, phase: 'working', round: 1, roundsMax: 3, stopping: 'cap-tokens' })).toBe('Round 1/3 · Designing and writing · stopping (cap)');
     expect(buildProgressLabel({ ...base, phase: 'checking', round: 1, roundsMax: 3, stopping: 'cancelled' })).toBe('Round 1/3 · Checking · stopping (cancelled)');

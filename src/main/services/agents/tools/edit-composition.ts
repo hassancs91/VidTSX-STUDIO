@@ -3,14 +3,24 @@
 // edit itself is composition-edit.ts, shared with `generate_composition`'s
 // revise path (P3 part 7).
 //
-// As a node (P3 part 7): Budget and Loop (Keep / On / Off) in the inspector.
-// A checkpoint rejected with a note edits the REJECTED version with the note
-// (`reviseOnRetry`), so the retry builds on what the user saw.
+// As a node (P3 part 7): Budget and Loop (Keep / On / Off) in the inspector,
+// and the same "Generated images" Off / On select as Generate (Off in a flow
+// unless it says On). A checkpoint rejected with a note edits the REJECTED
+// version with the note (`reviseOnRetry`), so the retry builds on what the
+// user saw.
 
 import { z } from 'zod';
 import type { AgentToolDef } from './types';
 import { runCompositionEdit } from './composition-edit';
-import { BUDGET_OPTIONS, budgetSchema, isOn, type BUILD_BUDGETS } from './generate-composition';
+import {
+  BUDGET_OPTIONS,
+  budgetSchema,
+  GENERATED_IMAGES_FIELD,
+  generatedImagesOff,
+  generatedImagesSchema,
+  isOn,
+  type BUILD_BUDGETS,
+} from './generate-composition';
 
 const schema = {
   artifactId: z.string().describe('Composition artifact to edit (e.g. "composition-2").'),
@@ -23,6 +33,7 @@ const schema = {
     .union([z.boolean(), z.enum(['on', 'off', 'keep'])])
     .optional()
     .describe('True makes the composition a seamless loop, false a plain clip; absent keeps it as it is.'),
+  generatedImages: generatedImagesSchema,
 };
 
 interface EditCompositionArgs {
@@ -30,6 +41,7 @@ interface EditCompositionArgs {
   instruction: string;
   budget?: (typeof BUILD_BUDGETS)[number];
   loop?: boolean | 'on' | 'off' | 'keep';
+  generatedImages?: boolean | 'on' | 'off';
 }
 
 export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
@@ -59,8 +71,9 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
           { value: 'off', label: 'No loop' },
         ],
       },
+      GENERATED_IMAGES_FIELD,
     ],
-    defaultConfig: { budget: 'standard', loop: 'keep' },
+    defaultConfig: { budget: 'standard', loop: 'keep', generatedImages: 'off' },
     reviseOnRetry: { artifactKey: 'artifactId', noteKey: 'instruction' },
   },
   async handler(args, ctx) {
@@ -72,6 +85,7 @@ export const editCompositionTool: AgentToolDef<EditCompositionArgs> = {
       ...(loop !== undefined ? { loop } : {}),
       ...(ctx.providerId ? { providerId: ctx.providerId } : {}),
       ...(ctx.model ? { model: ctx.model } : {}),
+      ...(generatedImagesOff(args.generatedImages, ctx.featureSource ?? 'agent') ? { maxGeneratedImages: 0 } : {}),
     });
   },
 };

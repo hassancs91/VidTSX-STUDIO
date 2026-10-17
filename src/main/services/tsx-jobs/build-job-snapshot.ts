@@ -54,10 +54,11 @@ export function buildProgressPercent(build: TsxBuildJobIpc): number {
   return Math.min(95, Math.round(5 + rounds * 85));
 }
 
+/** The label every caller shows (Creator panel, Studio chips, flows). A round is a look, so none is named before the first. */
 export function buildProgressLabel(build: TsxBuildJobIpc): string {
   const phase = PHASE_LABELS[build.phase];
   if (build.phase === 'done') return phase;
-  const rounds = build.roundsMax > 0 ? `Round ${build.round}/${build.roundsMax} · ` : '';
+  const rounds = build.roundsMax > 0 && build.round > 0 ? `Round ${build.round}/${build.roundsMax} · ` : '';
   const stopping = build.stopping ? ` · stopping (${build.stopping === 'cancelled' ? 'cancelled' : 'cap'})` : '';
   return `${rounds}${phase}${stopping}`;
 }

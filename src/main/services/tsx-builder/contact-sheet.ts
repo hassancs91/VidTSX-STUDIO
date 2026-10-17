@@ -70,6 +70,12 @@ export function contactSheetLayout(
   };
 }
 
+/** Where cell `i`'s picture sits in the sheet: under its label, at tile size. */
+export function sheetTileRect(layout: SheetLayout, i: number): { x: number; y: number; width: number; height: number } {
+  const cell = layout.cells[i];
+  return { x: cell.x, y: cell.y + LABEL_H, width: layout.tileWidth, height: layout.tileHeight };
+}
+
 const CONFIG_EXPORT = /export\s+const\s+compositionConfig\s*=/;
 const DEFAULT_FUNCTION = /export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/;
 const DEFAULT_EXPORT = /export\s+default\s+/;
