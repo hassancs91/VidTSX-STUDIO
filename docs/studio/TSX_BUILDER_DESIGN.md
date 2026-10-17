@@ -880,6 +880,37 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   the first checks `isRunning` after one `setTimeout(0)` while generate still awaits `fs.mkdir`, the next two hit the
 >   run it leaves, "already building"; test unchanged). Gates: types 26/10; vitest 397 files, all green alone except
 >   that file (full run: 6 more load flakes, timeouts + temp ENOENT).
+> - **Part 7 DONE `2496181`** (the flow node; Hasan 10-16 "lets go with the recommendation" = D-1..D-6 all (a)).
+>   **D-1:** Generate Composition gains Budget (Quick / Standard / Craft, labels from `budgetHint`), Loop on/off,
+>   Seconds min 0 (= the builder picks); Edit Composition gains Budget + Loop Keep / On / Off. Inspector selects send
+>   strings and node args reach zod as-is, so `loop` takes boolean | 'on' | 'off' (`onOff` / `isOn`, generate-audio's
+>   pattern). NodeInspector shows `{ ...defaultConfig, ...config }`, so a node saved before a field existed shows what
+>   its tool does with the key absent (a select showed its FIRST option). **D-2:** "Generated images" Off / On: in a
+>   flow, absent or Off → `maxGeneratedImages: 0`; an agent keeps the per-budget default. Edit Composition has no such
+>   select (D-1 listed Budget + Loop only): in a flow it may still buy images when an image provider is ready (asked).
+>   **D-3:** `ToolPorts.reviseOnRetry { artifactKey, noteKey }` (generate: `reviseOf` + `revision`, flows-only schema
+>   keys; edit: `artifactId` + `instruction`); the runner's `retryArgs` (flow-pause.ts) puts the REJECTED output and
+>   the trimmed note there, so the builder edits the rejected version at the node's budget through the shared edit core
+>   `tools/composition-edit.ts` (`runCompositionEdit`), and the result supersedes it (version + 1). An empty note (an
+>   approve-card ✗) reruns from scratch as before. `NodeSpec.revisesOnRetry` → PauseCard "What to change (the builder
+>   edits this version)". **D-4:** each progress line emits a node-status event with `FlowNodeRunState.progress` (event
+>   only; run.json keeps `notes`) → the running step's line in StepsStrip and on CustomNode (every node, e.g. generate
+>   _text's too); `flows/composition-preview.ts` = the middle frame of `pickResultStills` over `vN.debug.json`'s stills
+>   → `flow-service.get` assetUrls → the approve card's thumb + the strip. **D-5:** explainer-30s + product-ad 1.1.0:
+>   budget standard, loop off, images off, a run-form Budget param, descriptions. Split: `tools/composition-media.ts`
+>   (port media, out of generate-composition.ts, now 278 lines). **Signing (10-17):** the vidtsx-1 private key was
+>   lost; Hasan made vidtsx-2 in his own terminal (file outside every repo + password manager) and re-signed all five
+>   (`9020062`); the packers now take a key's name from publishers.ts and `--genkey` writes to a file
+>   (`scripts/signing-key.mjs`, `d2cef6c`); vidtsx-1 retired (`67d7d50`). **Live** (`runs/P3/ui-p7/`): **L0** $0: all
+>   five built-ins `verified` / vidtsx-2; the cached rows rewritten (not pruned); fields and defaults as above.
+>   **L1** explainer-30s, Checkpoints, Budget Quick on the run form, "How a rainbow forms, for 10-year-olds.":
+>   script $0.21; build 3 min, 1 round, card with the v1 frame (its last look was a contact sheet, so the 56×36 thumb
+>   is a 2×2 grid); Retry with note "Make the step titles twice as big." → an EDIT of v1 at Quick (1.6 min, v2 in the
+>   same folder, titles ~2×) $0.30; card with the v2 frame; Stop run → cancelled, render 0 attempts, no MP4. Build
+>   $0.85; total **$1.36 API-eq** (Sonnet 5.5, all `flows`). Gates: types 26/10; vitest 393 / 400 files (3 failed:
+>   agent-memory = load flake, passes alone; shot-generator = the known 3; save-flow = the new Seconds label, fixed).
+>   **Noted, not changed:** a sheet as the card's picture reads poorly at 56×36 (prefer a model frame of that look?);
+>   the card still covers the viewer; "Round 0/1" before the first look (part 2's nit).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
