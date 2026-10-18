@@ -1060,6 +1060,34 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   holds the same three, edit floor 1. (d) `tsxJobStart` with `core/style-chalk` → "Unknown craft pack …", nothing
 >   queued. **Noted:** a page script's waits crawl while the hidden dev window is minimised (Chromium throttles hidden
 >   timers); restore it first (`runs/P3/ui-p6/restore-window.ps1`).
+> - **Part 2 DONE `f83d03a`** (no signed file). **One clock** in METHOD step 1, for every caller: every number and
+>   label on screen comes from the state the picture draws at that frame; a step label and its values from ONE integer
+>   step (never `Math.round(t)` beside values from the continuous `t`); a result, total or badge only on frames where
+>   the marks and counters show it; no changing number typed in at a fixed value. Step 4: "Read each frame's text
+>   (listed under its label in every look) against your model at that frame". **Frame text in every look (P4-4 a):**
+>   `frame-text.ts` = a page probe that `prepareBuildRender` appends to every look entry (the looks still share one
+>   bundle); after each DOM change it walks the visible HTML and SVG text nodes (opacity along the tree, visibility,
+>   fill / colour alpha, gradient text, inside the frame or the tile) and logs them with their boxes behind a mark;
+>   renderStill's `onBrowserLog` keeps the page's last report (a still is one page, closed right after its screenshot;
+>   a plain log reaches Remotion's console only at verbose). Node merges the boxes into reading-order strings: rows
+>   seeded by the tallest text (a node joins when ≥ 60 % of the shorter height lies inside), close nodes joined, a
+>   stacked line or a wide gap starts a new string, a shadow copy counts once, "(faint)" under 0.35 opacity, ≤ 40 per
+>   frame. render_stills: `Frame N:` + `Text: "…" · "…"` under each label; contact_sheet: a `Frame N: …` line per
+>   tile (a mounted sheet tags each tile `data-vidtsx-frame`; a WebGL sheet reads its per-tile pages). Text on a
+>   canvas, in WebGL or in an image is not listed, and the tool says so. Free, not enforced. Split for size: loop_seam +
+>   purity_check → `builder-measure-tools.ts`, `renderPreparedInOrder` → `build-in-order.ts`. **Spike, $0** (mode
+>   `frametext`, `builder-spike-text.ts`; `ai-video-lab/.../runs/P4/frametext-p2`, `-p2b`): a synthetic piece (split
+>   spans, a tspan, two labels on one row, a shadow copy, a fade-in, a faint label; never listed: `<style>`, SVG
+>   `<title>`, fill-opacity 0, a group at opacity 0, display:none, visibility:hidden, off the frame, a parent at
+>   opacity 0, a canvas) is exact on every frame through stills, the mounted sheet and the tile sheet; the P1 fixture
+>   (F2), B4 chalk, B5 (3D + SVG overlay, tile-by-tile sheet) and P3's agent Craft piece give the same text on two
+>   renders, and sheet = stills (B5 after one fix: rows grouped by centres flipped at tile scale). P3's miss reads
+>   `"YEAR 19" · "$25,000" · … · "+$24,000 interest"` at frame 180 and "YEAR 30" from frame 0. Pixels with vs without
+>   the probe, 3 interleaved renders a side: unchanged or within the render's own noise (WebGL ~300 bytes either way),
+>   except ONE pixel by ≤ 8/255 at B4 frame 65 (every time with, never without). The in-order render (purity_check's
+>   pass) 11.1 vs 11.4 s for 90 frames, 38.1 vs 39.8 s for 240. Gates: types 26/10; full vitest = shot-generator's
+>   known 3 + load flakes that pass alone (temp on D:). Not yet seen through a model (that needs a paid build): the
+>   exit runs (part 5) show whether the builder reads it.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
