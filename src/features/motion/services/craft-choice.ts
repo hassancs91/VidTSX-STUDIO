@@ -4,11 +4,11 @@
 // pack, or "Your own…" = the custom-style pack plus the user's words. No pick
 // sends no packs. Edits send none either: main keeps the version's own.
 
-import type { CraftPackInfo, CraftSuggest } from '@shared/studio/craft-pack';
+import { CUSTOM_STYLE_ID, type CraftPackInfo, type CraftSuggest } from '@shared/studio/craft-pack';
 import type { BuildBudget } from '@shared/ipc/types';
 
 /** The pack behind "Your own…": it tells the builder how to use the user's words. */
-export const CUSTOM_STYLE_ID = 'core/style-custom';
+export { CUSTOM_STYLE_ID };
 
 export interface CraftChoice {
   /** A form pack's id; '' = none. */

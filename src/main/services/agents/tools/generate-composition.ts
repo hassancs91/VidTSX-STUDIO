@@ -20,68 +20,41 @@
 // what its nodes declare). A checkpoint rejected with a note comes back with
 // `reviseOf` + `revision` (`reviseOnRetry`): the builder EDITS the rejected
 // version at the node's budget (composition-edit.ts) instead of building anew.
+//
+// P4 part 3: craft packs (`packs`, the node's Kind + Style:
+// composition-packs.ts), `from` = an earlier composition's own request built
+// again at another budget (composition-rebuild.ts; the requests are planned
+// in composition-plan.ts), and the agent's `builder: true` skills ride along
+// as packs (composition-build.ts).
 
 import { z } from 'zod';
-import type { BuildFormat, TsxJobStartRequest } from '../../../../shared/ipc/types';
-import type { ConfigField } from '../../../../shared/types/flows';
-import { BUDGET_CHOICES, budgetHint } from '../../../../shared/tsx-engine/build-budgets';
 import type { AgentToolDef, AgentToolResult } from './types';
 import { toolText } from './types';
+import {
+  BUDGET_OPTIONS,
+  budgetSchema,
+  GENERATED_IMAGES_FIELD,
+  generatedImagesOff,
+  generatedImagesSchema,
+  onOff,
+} from './composition-args';
+import { kindPackSchema, NO_PACK, PACK_FIELDS, packsSchema, stylePackSchema } from './composition-packs';
+import { MODEL_MODES, plannedBuild, plannedRebuild, type Binding, type GenerateCompositionArgs } from './composition-plan';
 import { compositionDraft, releaseEmptyFolder, reserveCompositionFolder } from './composition-file';
 import { readResultImages, runCompositionBuild } from './composition-build';
 import { runCompositionEdit } from './composition-edit';
-import { buildMediaFor, type BuildMedia } from './composition-media';
 import { buildResultText, pickResultStills } from './build-result';
 import { resolveLlmModelBinding } from './llm-model-binding';
-import { readSessionBrandInstructions, resolveNodeBrand } from './session-brand';
-
-const MODEL_MODES = ['required', 'preferred', 'default'] as const;
-export const BUILD_BUDGETS = ['quick', 'standard', 'craft'] as const;
-
-export const budgetSchema = z
-  .enum(BUILD_BUDGETS)
-  .optional()
-  .describe(
-    'How long the builder may work. quick: ~1-3 min, one look at its frames. standard (default): ~3-10 min, up to 3 looks. craft: up to 60 min, up to 6 looks; only when the user wants a finished piece.',
-  );
-
-/** An agent sends a boolean; a flow inspector's select sends 'on' / 'off' (generate-audio's pattern). */
-export const onOff = z.union([z.boolean(), z.enum(['on', 'off'])]);
-
-/** true / 'on' → true, false / 'off' → false; absent (or an edit's 'keep') → undefined. */
-export function isOn(value: boolean | 'on' | 'off' | 'keep' | undefined): boolean | undefined {
-  return value === undefined || value === 'keep' ? undefined : value === true || value === 'on';
-}
-
-/** The composition nodes' Budget select: what each budget buys, as the Creator's picker says it. */
-export const BUDGET_OPTIONS = BUDGET_CHOICES.map((c) => ({ value: c.value, label: `${c.label} — ${budgetHint(c.value)}` }));
-
-export const generatedImagesSchema = onOff
-  .optional()
-  .describe('Whether the builder may generate images (priced; needs an image provider). Absent = allowed for an agent, off for a flow node.');
-
-/** The composition nodes' "Generated images" select (Generate and Edit). */
-export const GENERATED_IMAGES_FIELD: ConfigField = {
-  kind: 'select',
-  key: 'generatedImages',
-  label: 'Generated images',
-  options: [
-    { value: 'off', label: 'Off — the builder draws everything in code' },
-    { value: 'on', label: 'On — it may generate images (priced, needs an image provider)' },
-  ],
-};
-
-/** D-2: a flow node buys no images unless it says On; an agent keeps the builder's per-budget default. */
-export function generatedImagesOff(value: boolean | 'on' | 'off' | undefined, featureSource: string): boolean {
-  return !(isOn(value) ?? featureSource !== 'flows');
-}
 
 const schema = {
   title: z.string().min(1).describe('Short name for this composition — names its folder.'),
   brief: z
     .string()
     .min(1)
-    .describe('What the composition should show and do, concretely: content, motion, timing.'),
+    .optional()
+    .describe(
+      'What the piece shows and why: the idea and what it should make the viewer understand, the content (exact words and numbers), the motion and what it means. The builder designs the picture itself: leave out layouts, coordinates, pixel sizes and frame-by-frame sheets. Required unless `from` is given.',
+    ),
   width: z.number().int().positive().optional().describe('Pixels. Default 1920.'),
   height: z.number().int().positive().optional().describe('Pixels. Default 1080.'),
   fps: z.number().int().positive().optional().describe('Default 30.'),
@@ -94,16 +67,25 @@ const schema = {
   loop: onOff
     .optional()
     .describe('True for a seamless loop: the last frame leads straight back into the first.'),
+  packs: packsSchema,
   generatedImages: generatedImagesSchema,
   styleNotes: z
     .string()
     .optional()
-    .describe('Extra art-direction the brief does not cover (palette, type, brand rules).'),
+    .describe('Extra art-direction the brief does not cover (palette, type, brand rules); with core/style-custom, the user\'s own words for the look.'),
   referenceImage: z
     .string()
     .optional()
     .describe('An "image-set" artifact id: the builder sees its images (up to 4) and can show the first one.'),
   referenceVideo: z.string().optional().describe('A "video" artifact id the composition should play.'),
+  from: z
+    .string()
+    .optional()
+    .describe(
+      'A composition artifact id to build again from its own request: the same brief, packs, style, format and loop, unchanged, as a new composition. Send only title and budget with it (e.g. to rebuild a Standard piece at craft).',
+    ),
+  kindPack: kindPackSchema,
+  stylePack: stylePackSchema,
   brandId: z
     .string()
     .nullable()
@@ -122,31 +104,10 @@ const schema = {
   revision: z.string().optional().describe('Flows only: the change to make to `reviseOf`.'),
 };
 
-interface GenerateCompositionArgs {
-  title: string;
-  brief: string;
-  width?: number;
-  height?: number;
-  fps?: number;
-  durationSeconds?: number;
-  budget?: (typeof BUILD_BUDGETS)[number];
-  loop?: boolean | 'on' | 'off';
-  generatedImages?: boolean | 'on' | 'off';
-  styleNotes?: string;
-  referenceImage?: string;
-  referenceVideo?: string;
-  brandId?: string | null;
-  providerId?: string;
-  model?: string;
-  modelMode?: (typeof MODEL_MODES)[number];
-  reviseOf?: string;
-  revision?: string;
-}
-
 export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
   id: 'generate_composition',
   description:
-    'Build an animated Remotion TSX composition from a brief and show it on the stage. The TSX builder designs it, writes the code, renders frames, looks at them and fixes what it sees, so this takes minutes: quick ~1-3, standard ~3-10, craft up to 60. One build runs at a time in the whole app; a call made while another build runs waits for it. Say what you are about to make first. Any library the builder knows is allowed, 3D and physics included. Returns a "composition" artifact you can edit or render, plus the frames the builder last looked at.',
+    'Build an animated Remotion TSX composition and show it on the stage. Tell the builder WHAT the piece shows and WHY (the idea, the exact words and numbers, the feel); it designs the picture itself, writes the code, renders frames, looks at them and fixes what it sees, so leave layout and pixels to it. This takes minutes: quick ~1-3, standard ~3-10, craft up to 60. One build runs at a time in the whole app; a call made while another build runs waits for it. Say what you are about to make first. `packs` gives the builder its know-how for a kind of piece and a look; `from` builds an earlier composition\'s request again, e.g. at craft. Any library the builder knows is allowed, 3D and physics included. Returns a "composition" artifact you can edit or render, plus the frames the builder last looked at.',
   schema,
   ports: {
     label: 'Generate Composition',
@@ -173,6 +134,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
           { value: 'on', label: 'Seamless loop' },
         ],
       },
+      ...PACK_FIELDS,
       { kind: 'prompt', key: 'styleNotes', label: 'Style notes (optional)', rows: 3 },
       GENERATED_IMAGES_FIELD,
       { kind: 'llm-model-picker', key: 'model', label: 'Model', providerKeyKey: 'providerId' },
@@ -190,7 +152,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     ],
     defaultConfig: {
       title: 'Composition', budget: 'standard', width: 1920, height: 1080, fps: 30, durationSeconds: 6, loop: 'off',
-      styleNotes: '', generatedImages: 'off', providerId: '', model: '', modelMode: 'default',
+      kindPack: NO_PACK, stylePack: NO_PACK, styleNotes: '', generatedImages: 'off', providerId: '', model: '', modelMode: 'default',
     },
     reviseOnRetry: { artifactKey: 'reviseOf', noteKey: 'revision' },
   },
@@ -208,7 +170,6 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
     if (binding.note) ctx.emitProgress(binding.note);
     const providerId = binding.providerId ?? (binding.note ? undefined : ctx.providerId);
     const model = binding.providerId ? binding.model : ctx.model;
-    const budget = args.budget ?? 'standard';
     const imagesOff = generatedImagesOff(args.generatedImages, featureSource);
 
     // D-3: a checkpoint's note on what this node built — edit that version, keep its format.
@@ -216,50 +177,19 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
       return runCompositionEdit(ctx, {
         artifactId: args.reviseOf,
         instruction: args.revision.trim(),
-        budget,
+        budget: args.budget ?? 'standard',
         ...(providerId ? { providerId } : {}),
         ...(model ? { model } : {}),
         ...(imagesOff ? { maxGeneratedImages: 0 } : {}),
       });
     }
 
-    // W7 / decision 7: the session's brand reaches the builder as the Creator
-    // sends it. A flow node may override or opt out (§0.1 item 9).
-    const brand = await readSessionBrandInstructions(resolveNodeBrand(args.brandId, ctx.brandId));
-    let media: BuildMedia;
-    try {
-      media = await buildMediaFor(ctx, args);
-    } catch (err) {
-      return toolText(err instanceof Error ? err.message : String(err), true);
-    }
-    const fps = args.fps ?? 30;
-    const format: BuildFormat = {
-      width: args.width ?? 1920,
-      height: args.height ?? 1080,
-      fps,
-      ...(args.durationSeconds ? { durationInFrames: Math.max(1, Math.round(args.durationSeconds * fps)) } : {}),
-      ...(isOn(args.loop) ? { loop: true } : {}),
-    };
-    const prompt = [args.brief, args.styleNotes?.trim() ? `Style notes: ${args.styleNotes.trim()}` : '', ...media.notes]
-      .filter(Boolean)
-      .join('\n\n');
-    const request: TsxJobStartRequest = {
-      kind: 'build',
-      prompt,
-      ...(providerId ? { providerId } : {}),
-      ...(model ? { options: { model } } : {}),
-      build: {
-        format,
-        budget,
-        ...(brand ? { brand } : {}),
-        ...(media.referenceImages.length ? { referenceImages: media.referenceImages } : {}),
-        ...(media.assets.length ? { assets: media.assets } : {}),
-        ...(imagesOff ? { maxGeneratedImages: 0 } : {}),
-      },
-    };
+    const bind: Binding = { ...(providerId ? { providerId } : {}), ...(model ? { model } : {}), imagesOff };
+    const planned = args.from ? await plannedRebuild(ctx, args, bind) : await plannedBuild(ctx, args, bind);
+    if ('error' in planned) return toolText(planned.error, true);
 
     const folder = await reserveCompositionFolder(ctx.workspaceDir, args.title);
-    const outcome = await runCompositionBuild(ctx, args.title, request, folder.absDir);
+    const outcome = await runCompositionBuild(ctx, args.title, planned.request, folder.absDir);
     if (!outcome.ok) {
       await releaseEmptyFolder(folder.absDir);
       return toolText(
@@ -280,7 +210,7 @@ export const generateCompositionTool: AgentToolDef<GenerateCompositionArgs> = {
         build: outcome.job.build,
         picked: stills,
       });
-      return { ...toolText(text), artifact: draft, ...(images.length ? { images } : {}) };
+      return { ...toolText(planned.note ? `${planned.note}\n${text}` : text), artifact: draft, ...(images.length ? { images } : {}) };
     } catch (err) {
       return toolText(`The composition was built but could not be shown: ${err instanceof Error ? err.message : String(err)}`, true);
     }

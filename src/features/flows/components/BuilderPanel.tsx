@@ -94,7 +94,10 @@ export function BuilderPanel({ flowId, flowName, onSession, onClose }: Props) {
   }, [sessions.loaded, sessions.sessions, sessionId, providers.providerId, agentMissing, flowId, newSession]);
 
   const name = agent?.manifest.name ?? 'Flow Builder';
-  const request = run.pendingInteraction;
+  // P4-7: "Skip and chat" closes the card and focuses the box, with no turn;
+  // the next message answers the question as skipped (main, sendFromUser).
+  const [focusToken, setFocusToken] = useState(0);
+  const request = run.interactionSkipped ? null : run.pendingInteraction;
   const InteractionCard = request ? getInteractionCard(request.payload.kind) : null;
   const interactionCard =
     request && InteractionCard ? (
@@ -103,7 +106,10 @@ export function BuilderPanel({ flowId, flowName, onSession, onClose }: Props) {
         busy={run.busy}
         restored={run.interactionRestored}
         onAnswer={(values) => void run.answer({ requestId: request.id, status: 'answered', values })}
-        onCancel={() => void run.answer({ requestId: request.id, status: 'cancelled' })}
+        onCancel={() => {
+          run.skipInteraction();
+          setFocusToken((t) => t + 1);
+        }}
       />
     ) : null;
 
@@ -119,7 +125,9 @@ export function BuilderPanel({ flowId, flowName, onSession, onClose }: Props) {
         agentDescription={agent?.manifest.description ?? 'Describe the flow you want; it lands on the canvas as a proposal.'}
         messages={run.messages}
         busy={run.busy}
-        waitingForAnswer={run.pendingInteraction !== null}
+        waitingForAnswer={request !== null}
+        questionSkipped={run.interactionSkipped}
+        focusToken={focusToken}
         {...(run.toolsAvailable !== undefined ? { toolsAvailable: run.toolsAvailable } : {})}
         providers={providers.providers}
         providerId={providers.providerId}

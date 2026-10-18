@@ -21,6 +21,10 @@ interface Props {
   messages: AgentChatRow[];
   busy: boolean;
   waitingForAnswer: boolean;
+  /** P4-7: the user closed the question's card with "Skip and chat"; their next message answers it. */
+  questionSkipped?: boolean;
+  /** Changing it puts the cursor in the box ("Skip and chat"). */
+  focusToken?: number;
   toolsAvailable?: boolean;
   providers: LlmProviderConfig[];
   providerId: string;
@@ -68,6 +72,8 @@ export function AgentChat({
   messages,
   busy,
   waitingForAnswer,
+  questionSkipped,
+  focusToken,
   toolsAvailable,
   providers,
   providerId,
@@ -107,6 +113,10 @@ export function AgentChat({
       box.setSelectionRange(prefill.text.length, prefill.text.length);
     }
   }, [prefill]);
+
+  useEffect(() => {
+    if (focusToken) boxRef.current?.focus();
+  }, [focusToken]);
 
   const submit = (): void => {
     const text = draft.trim();
@@ -178,6 +188,11 @@ export function AgentChat({
         {waitingForAnswer && !interactionCard ? (
           <div className="rounded-[6px] bg-accent-blue/10 px-2 py-1.5 text-[10px] text-accent-blue leading-snug">
             Waiting for your choice — answer it on the right.
+          </div>
+        ) : null}
+        {questionSkipped ? (
+          <div className="rounded-[6px] bg-accent-blue/10 px-2 py-1.5 text-[10px] text-accent-blue leading-snug" data-agent-question-skipped>
+            You skipped the question: your next message answers it.
           </div>
         ) : null}
       </div>

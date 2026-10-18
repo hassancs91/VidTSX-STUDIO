@@ -19,6 +19,7 @@ import type {
 import type { AgentToolContext, AgentToolResult, InteractionAskResult } from './types';
 import type { RegisteredTool } from './registry';
 import type { ToolCallRecord } from '../tool-call-log';
+import type { BuildPack } from '../../tsx-builder/types';
 import { invokeTool } from './invoke-tool';
 import { logEngine } from '../../../../logging/log-engine';
 
@@ -54,6 +55,8 @@ export interface ToolServerDeps {
   model?: string;
   libraryFolder?: string;
   brandId?: string;
+  /** The agent's `builder: true` skills, for the composition tools. */
+  builderPacks?: BuildPack[];
   emit(event: AgentRunEvent): void;
   readArtifacts(): AgentArtifact[];
   ask(payload: InteractionPayload, callId: string): Promise<InteractionAskResult>;
@@ -89,6 +92,7 @@ function buildContext(
     ...(deps.model ? { model: deps.model } : {}),
     ...(deps.libraryFolder ? { libraryFolder: deps.libraryFolder } : {}),
     ...(deps.brandId ? { brandId: deps.brandId } : {}),
+    ...(deps.builderPacks?.length ? { builderPacks: deps.builderPacks } : {}),
     emit: deps.emit,
     emitProgress: (detail) =>
       deps.emit({ sessionId: deps.sessionId, kind: 'progress', tool: toolId, callId, detail }),

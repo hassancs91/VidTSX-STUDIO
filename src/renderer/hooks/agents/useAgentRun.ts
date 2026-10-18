@@ -45,6 +45,8 @@ export function useAgentRun({ agentId, sessionId, providerId, model, onJobReques
   const [pendingInteraction, setPendingInteraction] = useState<InteractionRequest | null>(null);
   /** The pending question came off disk, not off this run's stream (§1.5). */
   const [interactionRestored, setInteractionRestored] = useState(false);
+  /** P4-7: the question whose card "Skip and chat" closed. It still waits in main; the next message answers it. */
+  const [skippedId, setSkippedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [toolsAvailable, setToolsAvailable] = useState<boolean | undefined>(undefined);
   const [loading, setLoading] = useState(false);
@@ -67,10 +69,12 @@ export function useAgentRun({ agentId, sessionId, providerId, model, onJobReques
       setSelectedId(null);
       setPendingInteraction(null);
       setInteractionRestored(false);
+      setSkippedId(null);
       return;
     }
     let disposed = false;
     setLoading(true);
+    setSkippedId(null);
     followLatest.current = true;
     // A run belongs to the session that started it. Without this, switching
     // sessions — or starting a new one — while a turn is in flight carries the
@@ -208,6 +212,18 @@ export function useAgentRun({ agentId, sessionId, providerId, model, onJobReques
   );
 
   /**
+   * P4-7 "Skip and chat": close the card and start NO turn. The question
+   * stays persisted in main until the user's next message, which main sends
+   * as its answer ("The user skipped the card and wrote: …"); reopening the
+   * session shows the card again.
+   */
+  const skipInteraction = useCallback(() => {
+    setSkippedId(pendingInteraction?.id ?? null);
+  }, [pendingInteraction]);
+
+  const interactionSkipped = pendingInteraction !== null && pendingInteraction.id === skippedId;
+
+  /**
    * Selecting an older artifact stops the stage from jumping to each new one;
    * selecting the newest opts back in. Without that, reading a document while
    * the agent works becomes impossible.
@@ -237,6 +253,8 @@ export function useAgentRun({ agentId, sessionId, providerId, model, onJobReques
     select,
     pendingInteraction,
     interactionRestored,
+    interactionSkipped,
+    skipInteraction,
     busy,
     loading,
     toolsAvailable,

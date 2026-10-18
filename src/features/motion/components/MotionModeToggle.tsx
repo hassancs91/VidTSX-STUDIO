@@ -1,7 +1,7 @@
 // `Prompt | Templates` at the top of the Creator's input panel (Templates:
 // docs/templates-plan.md). The Agent tab left in P3 part 3 (TSX_BUILDER_DESIGN.md
-// D4): the Creator talks to the builder itself; tsx-composer stays an installed
-// agent on the Agents page.
+// D4): the Creator talks to the builder itself. The tsx-composer agent behind
+// that tab was removed in P4 part 3.
 
 export type MotionInputMode = 'prompt' | 'templates';
 

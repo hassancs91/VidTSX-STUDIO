@@ -96,3 +96,27 @@ describe('composeAgentSystemPrompt', () => {
     expect(composed).not.toContain('artifact');
   });
 });
+
+// T8 (P4 part 3): a `builder: true` skill goes to the TSX builder in full;
+// the agent's own prompt names it, so a brief does not repeat it.
+describe('composeAgentSystemPrompt — builder skills', () => {
+  it('names a builder skill instead of pasting its body, after the agent\'s own skills', () => {
+    const composed = composeAgentSystemPrompt({
+      promptBody: 'BODY',
+      skills: [
+        ...skills,
+        { id: 'house', name: 'House look', description: 'Two-pixel ink lines, cream ground.', body: 'BUILDER BODY', builder: true },
+      ],
+      toolsAvailable: true,
+    });
+    expect(composed).toContain('## Skill: Social Motion\n\nSKILL BODY');
+    expect(composed).not.toContain('BUILDER BODY');
+    expect(composed).toContain('## Builder packs');
+    expect(composed).toContain('- House look: Two-pixel ink lines, cream ground.');
+    expect(composed.indexOf('## Skill: Social Motion')).toBeLessThan(composed.indexOf('## Builder packs'));
+  });
+
+  it('has no builder block when no skill is marked', () => {
+    expect(composeAgentSystemPrompt({ promptBody: 'BODY', skills, toolsAvailable: true })).not.toContain('Builder packs');
+  });
+});

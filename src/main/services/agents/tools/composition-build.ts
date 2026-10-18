@@ -43,6 +43,8 @@ export async function runCompositionBuild(
     origin: featureSource === 'flows' ? 'flow' : 'agent',
     ...(into ? { into } : {}),
     usage: { featureSource, ...(featureSource === 'agent' ? { agentId: ctx.agentId } : {}) },
+    // T8: the agent's `builder: true` skills, after the request's craft packs, on every build and edit.
+    ...(ctx.builderPacks?.length ? { packs: ctx.builderPacks } : {}),
   };
   let lastLine = '';
   const awaited = await startBuildAndWait(await getBuildEngine(), request, {

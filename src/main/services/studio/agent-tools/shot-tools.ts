@@ -15,7 +15,7 @@ import { buildShotPlanProposal, SHOTS_PER_PASS_CAP } from '../../../../shared/st
 import { formatShotLine } from '../studio-agent-prompt';
 import { shotGenerator, ShotCancelledError } from '../shot-generator';
 import { LIBRARY_REF_PREFIX } from '../shot-asset-refs';
-import { budgetSchema } from '../../agents/tools/generate-composition';
+import { budgetSchema } from '../../agents/tools/composition-args';
 import { buildOutcomeLines, pickResultStills } from '../../agents/tools/build-result';
 import { readResultImages } from '../../agents/tools/composition-build';
 import {

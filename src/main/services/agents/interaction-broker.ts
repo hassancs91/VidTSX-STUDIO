@@ -9,7 +9,8 @@
 // exist so switching later touches this file and nothing else.
 //
 // One question per session at a time: a second `post` is rejected rather than
-// queued, because the user is looking at exactly one card.
+// queued, because the user is looking at exactly one card. A message the user
+// types while a question waits answers it as skipped (`skipWith`, P4-7).
 
 import { randomUUID } from 'crypto';
 import type {
@@ -84,6 +85,24 @@ export class InteractionBroker {
       .map(([field, values]) => `${field}: ${values.join(', ')}`)
       .join('; ');
     return `[Answer to question ${request.id}] ${body || '(no answer given)'}`;
+  }
+
+  /**
+   * P4-7: the user wrote in the chat instead of answering the card ("Skip and
+   * chat" closes it without a turn). Their message answers the question as
+   * skipped, in the same fixed format, so the model's next ask_user is not
+   * refused by a question nobody will answer. `null` when nothing waits.
+   */
+  async skipWith(text: string): Promise<{ requestId: string; message: string } | null> {
+    const request = this.pending;
+    if (!request) return null;
+    this.pending = null;
+    await this.deps.persist(null);
+    this.deps.onCleared?.(request.id);
+    return {
+      requestId: request.id,
+      message: `[Answer to question ${request.id}] The user skipped the card and wrote: ${text}`,
+    };
   }
 
   /** Cancel / new session: drop the pending question without an answer. */

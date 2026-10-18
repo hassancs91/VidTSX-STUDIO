@@ -128,6 +128,11 @@ export class AgentRunner {
     return this.broker(session).resolve(reply);
   }
 
+  /** P4-7: the user typed instead of answering — the pending question, answered as skipped with their text. */
+  skipPending(session: AgentSession, text: string): Promise<{ requestId: string; message: string } | null> {
+    return this.broker(session).skipWith(text);
+  }
+
   async send(ctx: AgentRunContext, req: AgentRunRequest): Promise<AgentRunResult> {
     const sessionId = ctx.session.id;
     if (this.runs.has(sessionId)) {
@@ -248,6 +253,8 @@ export class AgentRunner {
   private buildToolDeps(ctx: AgentRunContext, signal: AbortSignal, model?: string) {
     const sessionId = ctx.session.id;
     const broker = this.broker(ctx.session);
+    // T8: the agent's builder skills go to the TSX builder with its composition calls.
+    const builderPacks = ctx.skills.filter((s) => s.builder).map((s) => ({ name: s.name, body: s.body }));
     return {
       sessionId,
       agentId: ctx.manifest.id,
@@ -257,6 +264,7 @@ export class AgentRunner {
       ...(model ? { model } : {}),
       ...(ctx.libraryFolder ? { libraryFolder: ctx.libraryFolder } : {}),
       ...(ctx.brandId ? { brandId: ctx.brandId } : {}),
+      ...(builderPacks.length ? { builderPacks } : {}),
       emit: (event: AgentRunEvent) => this.hooks.emit(event),
       readArtifacts: (): AgentArtifact[] => ctx.store.list(),
       ask: (payload: InteractionPayload, callId: string) => broker.post(payload, callId),

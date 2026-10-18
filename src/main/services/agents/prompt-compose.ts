@@ -78,6 +78,17 @@ function toolAvailabilityBlock(input: ComposeAgentPromptInput): string | null {
 }
 
 /**
+ * T8 (P4 part 3): a `builder: true` skill is the TSX builder's know-how, so
+ * the agent gets only its name and what it is for — the builder gets the text
+ * with every composition call, and a brief that repeats it is a second copy.
+ */
+function builderPacksBlock(skills: AgentSkill[]): string | null {
+  if (skills.length === 0) return null;
+  const lines = skills.map((s) => `- ${s.name}: ${s.description}`);
+  return `## Builder packs\n\nThe TSX builder gets these in full with every generate_composition and edit_composition call. Your brief need not repeat them.\n\n${lines.join('\n')}`;
+}
+
+/**
  * AGENT.md, then skills, then the starter answers, then tool availability,
  * then memory. Sections are joined the way `composeSystemPrompt` joins skills,
  * so an agent prompt reads like every other composed prompt in the app.
@@ -85,8 +96,10 @@ function toolAvailabilityBlock(input: ComposeAgentPromptInput): string | null {
 export function composeAgentSystemPrompt(input: ComposeAgentPromptInput): string {
   const sections: string[] = [];
   for (const skill of input.skills ?? []) {
-    sections.push(`## Skill: ${skill.name}\n\n${skill.body}`);
+    if (!skill.builder) sections.push(`## Skill: ${skill.name}\n\n${skill.body}`);
   }
+  const builder = builderPacksBlock((input.skills ?? []).filter((s) => s.builder));
+  if (builder) sections.push(builder);
   if (input.starterAnswers) {
     const block = starterBlock(input.starterAnswers, input.starterTree);
     if (block) sections.push(block);

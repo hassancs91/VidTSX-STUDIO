@@ -151,3 +151,35 @@ describe('ask_user tool over the broker', () => {
     expect(res.content[0].text).toContain('one is already waiting');
   });
 });
+
+// P4-7: a message typed while a card waits answers it as skipped, so the next
+// ask_user is not refused by a question nobody will answer.
+describe('InteractionBroker.skipWith', () => {
+  it('answers the pending question as skipped with the text, clears it, and lets the next ask through', async () => {
+    await broker.post(payload, 'call-1');
+    const id = emitted[0].id;
+    const skipped = await broker.skipWith('Go with a');
+    expect(skipped).toEqual({
+      requestId: id,
+      message: `[Answer to question ${id}] The user skipped the card and wrote: Go with a`,
+    });
+    expect(broker.current).toBeNull();
+    expect(persisted).toEqual([emitted[0], null]);
+    expect(cleared).toEqual([id]);
+    expect((await broker.post(payload, 'call-2')).status).toBe('posted');
+  });
+
+  it('does nothing when no question waits', async () => {
+    expect(await broker.skipWith('hello')).toBeNull();
+    expect(persisted).toEqual([]);
+    expect(cleared).toEqual([]);
+  });
+
+  it('a question restored from disk is skipped the same way', async () => {
+    const restored: InteractionRequest = { id: 'q-restored', sessionId: 'session-1', callId: 'c', createdAt: '2026-10-18T00:00:00Z', payload };
+    broker.adopt(restored);
+    expect((await broker.skipWith('Make it blue'))?.message).toBe(
+      '[Answer to question q-restored] The user skipped the card and wrote: Make it blue',
+    );
+  });
+});

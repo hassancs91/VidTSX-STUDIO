@@ -47,7 +47,8 @@ export async function handleAgentRunSend(
   data: AgentRunSendRequest,
 ): Promise<AgentRunSendResponse> {
   try {
-    const result = await agentService.send(data);
+    // Typed by the user: it answers a waiting question as skipped (P4-7).
+    const result = await agentService.sendFromUser(data);
     return {
       success: result.success,
       toolsAvailable: result.toolsAvailable,

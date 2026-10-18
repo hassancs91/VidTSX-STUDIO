@@ -273,6 +273,22 @@ export class AgentService {
   }
 
   /**
+   * A message the user TYPED (the chat box). P4-7: while a question waits, it
+   * answers that question as skipped, with the user's words, so the card goes
+   * and the agent's next ask_user is not refused. Job notes, card replies,
+   * run_agent and a freeze use `send` and leave the question alone.
+   */
+  async sendFromUser(input: AgentSendInput): ReturnType<AgentService['send']> {
+    const session = this.runner.isRunning(input.sessionId) ? null : await readAgentSession(input.agentId, input.sessionId);
+    if (!session) return this.send(input);
+    this.runningAgents.set(input.sessionId, input.agentId);
+    const skipped = await this.runner.skipPending(session, input.prompt);
+    if (!skipped) return this.send(input);
+    await appendInteractionReply(input.agentId, input.sessionId, { requestId: skipped.requestId, at: new Date().toISOString(), status: 'cancelled' });
+    return this.send({ ...input, prompt: skipped.message });
+  }
+
+  /**
    * W1: a provider/model named on a turn STICKS to the session — the chip
    * shows it on reopen and the next turn sends it again. An empty model
    * means back to the provider default. A turn that names nothing (a job note)

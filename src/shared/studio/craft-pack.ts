@@ -24,6 +24,9 @@ export const CRAFT_FILE_EXTENSION = '.md';
 /** A pack is a page or two of guidance; more is not one. */
 export const CRAFT_MAX_BYTES = 64 * 1024;
 
+/** The style pack that turns the user's own words (a request's `style`) into a full style. */
+export const CUSTOM_STYLE_ID = 'core/style-custom';
+
 export type CraftRole = 'form' | 'method' | 'style';
 const ROLES: readonly CraftRole[] = ['form', 'method', 'style'];
 

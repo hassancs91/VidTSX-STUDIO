@@ -145,9 +145,11 @@ export function AgentWorkspace({ agent, onBack, openSession }: Props) {
 
   // A pending question renders through the SHARED registry (§1.3), so a wave-2
   // kind is one registry entry and no change here. `answer` sends it as the
-  // next user message — the non-blocking form (§1.5) — and "Skip and chat"
-  // sends the cancelled reply the broker already understands.
-  const request = run.pendingInteraction;
+  // next user message — the non-blocking form (§1.5). P4-7: "Skip and chat"
+  // closes the card and puts the cursor in the box WITHOUT a turn; the next
+  // message answers the question as skipped (main, sendFromUser).
+  const [focusToken, setFocusToken] = useState(0);
+  const request = run.interactionSkipped ? null : run.pendingInteraction;
   const InteractionCard = request ? getInteractionCard(request.payload.kind) : null;
   const pending =
     request && InteractionCard ? (
@@ -159,7 +161,10 @@ export function AgentWorkspace({ agent, onBack, openSession }: Props) {
         onAnswer={(values) =>
           void run.answer({ requestId: request.id, status: 'answered', values })
         }
-        onCancel={() => void run.answer({ requestId: request.id, status: 'cancelled' })}
+        onCancel={() => {
+          run.skipInteraction();
+          setFocusToken((t) => t + 1);
+        }}
       />
     ) : null;
 
@@ -233,7 +238,9 @@ export function AgentWorkspace({ agent, onBack, openSession }: Props) {
               agentDescription={agent.manifest.description}
               messages={run.messages}
               busy={run.busy}
-              waitingForAnswer={run.pendingInteraction !== null}
+              waitingForAnswer={request !== null}
+              questionSkipped={run.interactionSkipped}
+              focusToken={focusToken}
               {...(run.toolsAvailable !== undefined ? { toolsAvailable: run.toolsAvailable } : {})}
               providers={providers.providers}
               providerId={providers.providerId}

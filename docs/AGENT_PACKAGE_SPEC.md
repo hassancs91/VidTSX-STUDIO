@@ -165,6 +165,21 @@ craft — timing, typography, safe zones, a house vocabulary — not rules the a
 already enforces. Repeating the TSX pipeline's own instructions in a skill only
 creates a second source of truth that will drift.
 
+A skill whose frontmatter says `builder: true` is know-how for the TSX
+builder rather than for your agent: it is sent in full, as a pack, with every
+`generate_composition` and `edit_composition` call the agent makes (after any
+craft packs the call names), and your agent's own prompt only lists its name
+and description. Use it for a house look or a kind of piece the builder should
+always follow; keep the agent's own skills for what the agent decides.
+
+```markdown
+---
+name: House look
+description: Two-pixel ink lines on a cream ground, one red accent.
+builder: true
+---
+```
+
 ## Starters — the first questions, with no tokens spent
 
 A starter is a small decision tree that runs entirely in the app: no provider,

@@ -19,6 +19,7 @@ import type {
 } from '../../../../shared/types/agents';
 import type { AiFeatureSource } from '../../../../shared/types/ai-usage';
 import type { ToolPorts } from '../../../../shared/types/flows';
+import type { BuildPack } from '../../tsx-builder/types';
 
 /** Capability gate, surfaced in the agent UI and named in the system prompt. */
 export type AgentToolNeed = 'image-provider' | 'video-provider' | 'audio-provider'
@@ -99,6 +100,12 @@ export interface AgentToolContext {
   libraryFolder?: string;
   /** Brand to auto-tag output with, when the session has one. */
   brandId?: string;
+  /**
+   * The agent's `builder: true` skills (TSX_BUILDER_DESIGN.md T8): texts the
+   * composition tools send to the TSX builder as packs with every build.
+   * Absent for a flow node and for an agent with none.
+   */
+  builderPacks?: BuildPack[];
   /**
    * Who pays for this call in the usage log (flows plan §0.1 item 14).
    * `invokeTool` sets it — `'agent'` from the tool server, `'flows'` from the

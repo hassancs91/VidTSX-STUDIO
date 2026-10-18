@@ -8,6 +8,11 @@
 // unless it says On). A checkpoint rejected with a note edits the REJECTED
 // version with the note (`reviseOnRetry`), so the retry builds on what the
 // user saw.
+//
+// P4 part 3: an edit names no craft packs, so the builder keeps the ones the
+// version was built with (vN.debug.json `craftPacks` + `style`, P4 part 1);
+// the agent's `builder: true` skills ride along as on every build
+// (composition-build.ts). packs-through-tools.test.ts shows both.
 
 import { z } from 'zod';
 import type { AgentToolDef } from './types';
@@ -20,7 +25,7 @@ import {
   generatedImagesSchema,
   isOn,
   type BUILD_BUDGETS,
-} from './generate-composition';
+} from './composition-args';
 
 const schema = {
   artifactId: z.string().describe('Composition artifact to edit (e.g. "composition-2").'),

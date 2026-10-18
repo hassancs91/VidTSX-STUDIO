@@ -4,6 +4,11 @@
 // (`shared/skills/parse-skill`). Resources beside a SKILL.md are NOT read here:
 // they are for tools to open on demand, so a package with a large reference
 // folder does not silently become a large system prompt.
+//
+// `builder: true` in a skill's frontmatter (TSX_BUILDER_DESIGN.md T8, P4
+// part 3): know-how for the TSX builder, not for the agent. It travels as a
+// pack with the agent's generate_composition and edit_composition calls, and
+// the agent's own prompt only names it (prompt-compose.ts).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -17,6 +22,8 @@ export interface AgentSkill {
   name: string;
   description: string;
   body: string;
+  /** The skill is for the TSX builder: it goes to it as a pack. */
+  builder?: true;
 }
 
 /** Skills in id order, so the composed prompt is stable across runs. */
@@ -46,7 +53,7 @@ export async function loadAgentSkills(agentDir: string): Promise<AgentSkill[]> {
       log.warn('Agent skill missing name/description frontmatter — skipped', { id });
       continue;
     }
-    skills.push({ id, name: meta.name, description: meta.description, body });
+    skills.push({ id, name: meta.name, description: meta.description, body, ...(meta.builder === 'true' ? { builder: true as const } : {}) });
   }
   return skills;
 }
