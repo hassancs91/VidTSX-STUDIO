@@ -1089,6 +1089,47 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   pass) 11.1 vs 11.4 s for 90 frames, 38.1 vs 39.8 s for 240. Gates: types 26/10; full vitest = shot-generator's
 >   known 3 + load flakes that pass alone (temp on D:). Not yet seen through a model (that needs a paid build): the
 >   exit runs (part 5) show whether the builder reads it.
+> - **Part 3 DONE `7ff36dc`** (no signed file; no flow.json touched). **P4-6 (a):** generate-composition.ts split first
+>   (288 → 218 lines: `composition-args.ts` = the shared budget / loop / images args, `composition-packs.ts`,
+>   `composition-plan.ts` = the two request planners, `composition-rebuild.ts`). `packs` = craft pack ids, checked
+>   against the built-in packs BEFORE a folder is reserved (an unknown id names the ones the app has; one style at most;
+>   `core/style-custom` takes the user's words from `styleNotes` and sends them as the builder's STYLE block, not as a
+>   "Style notes:" line). `from` = a composition artifact built again from its own vN.debug.json request: intent
+>   verbatim, `craftPacks`, `style`, format with its loop, brand; budget = the call's or the recorded one; images stay
+>   off when the build had them off; a version that is an edit (its record holds the instruction) walks `editOf` back to
+>   the first build and the result says "That is v1's request: the edits up to vN are not in this build"; refused: any
+>   other shaping argument beside title + budget (named), a build from session media (its record keeps names only), a
+>   flat pre-builder file. Result line: "Rebuilt from X's request, unchanged (its brief, packs, style, format and loop),
+>   at the Craft budget." The flow node: **Kind** + **Style** selects after Loop (`kindPack` / `stylePack`, value
+>   `none` by default; "Your own — the words in Style notes"), configSchema only, so explainer-30s and product-ad build as
+>   before; their options are a fixed list that a test pins to resources/packs (a new built-in pack fails it until it is
+>   offered). **`builder: true`** in a skill's SKILL.md frontmatter (`AgentSkill.builder`): the runner hands those skills
+>   to the tool server as `builderPacks`, every composition build and edit sends them as the owner's packs (after the
+>   craft packs), and the agent's own prompt gets only a "Builder packs" list (name: description), not the body; also in
+>   AGENT_PACKAGE_SPEC.md. Brief + tool description now say what and why, the builder designs (no layouts, coordinates,
+>   pixel sizes or frame-by-frame sheets). **Proved through the tool** (`packs-through-tools.test.ts`: the REAL job
+>   engine and builder, a scripted model, the real pack texts): generate's packs reach the system prompt expanded and in
+>   order, then the builder skill; edit_composition names none and its build still has the same three + the skill +
+>   the STYLE words, v2.debug.json the same `craftPacks`; `from` the edit = v1's intent, packs and style in a new folder.
+>   **P4-7 (a):** "Skip and chat" closes the card, focuses the box and starts NO turn (Agents workspace and the flows
+>   Builder panel; `useAgentRun.skipInteraction`, the chat says "You skipped the question: your next message answers
+>   it."); reopening the session shows the card again. A message the user TYPES (only the chat box's IPC path:
+>   `AgentService.sendFromUser`) while a question waits, skipped or not, answers it in main: `[Answer to question q-…] The
+>   user skipped the card and wrote: <text>` (`InteractionBroker.skipWith`; the lineage log records `cancelled`); job
+>   notes, card replies, run_agent and a freeze keep plain `send` and never touch the card. While a turn runs nothing is
+>   skipped. **P4-9 (a):** removed `resources/agents/vidtsx/tsx-composer/`, `src/shared/tsx-engine/prompts/` (tsx-craft.ts
+>   = TSX_CRAFT_RULES, tsx-craft-skill(.test).ts) and `scripts/gen-tsx-craft-skill.mjs`; motion-post untouched. Gates:
+>   types 26/10; full vitest (temp on D:) = shot-generator's known 3 + four 5 s timeouts (agent-package, agent-store,
+>   project-package, project-package-import) that pass alone. **$0 UI** (dev app, throwaway profile,
+>   `ai-video-lab/.../runs/P4/ui-p4-3`, 0 usage rows since launch): agents = assistant, flow-builder, lwh/infographic-loop
+>   0.1.0 "Unverified", motion-post, web-designer; Home's sessions hold only s-23ef7a41 (the profile's old tsx-composer
+>   session s-2c3ed9cb drops out, nothing errors); the node list carries Kind / Style; a NEW Assistant session
+>   (s-2588ed17) with a pick question planted in session.json shows the card → Skip and chat → card gone, the skipped
+>   line, cursor in the box, no Stop button, no chat.json, question still on disk → back and in again → the card again.
+>   s-23ef7a41 not opened. The typed-answer half is unit-tested only (sending starts a paid turn): it rides on E3.
+>   **Judgment calls, reported:** (1) the node has two selects (Kind + Style, as the Creator), not one; (2) a builder
+>   skill leaves the agent's prompt (named only); (3) `from` on an edit rebuilds the first build's request and says so,
+>   rather than refusing; (4) a skipped card comes back when the session is reopened (the question still waits).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
