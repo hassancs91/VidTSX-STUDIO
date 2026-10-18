@@ -1010,6 +1010,57 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > six build jobs). Each entry point produces column-3 class on its brief: **yes** for Studio shots and the flow node,
 > **no** for the TSX Creator and agents on B2 at the defaults (Sonnet 5.5, Standard, plus one Craft re-run each).
 
+> **P4 plan agreed 10-18** (Hasan closed P3 on 10-17 with the Creator and the agent missing B2; "go with the
+> recommendation" = P4-1..P4-11 all (a); one part per go). Planning fact: P3's four B2 builds ran on Sonnet 5.5 with
+> `packs: []`, while every earlier column-3 B2 (P0 run 2, P1 ink, P2) was Opus 5.5 at Craft with the three lab skills
+> as packs, so P3 changed the model and the packs at once. Decisions: **P4-1** a `craft` kind of the pack container,
+> built-in root only · **P4-2** seven packs rewritten for the builder; the one-clock rule goes into METHOD (part 2) ·
+> **P4-3** Creator Kind + Style beside Brand, a form applies its suggestions visibly, ids sent and resolved in main,
+> edits keep their packs · **P4-4** every look returns each frame's text (a $0 spike first; fallback the one-clock rule
+> alone) · **P4-5** no floor change; the moves go in round 1, a PACK: line per round · **P4-6** generate_composition
+> `packs` + `from`, edit_composition keeps packs, the flow node's Packs select, `builder: true` agent skills travel ·
+> **P4-7** a chat message answers a pending card (Skip and chat starts no turn) · **P4-8** agent v0.2 as a new unsigned
+> lab folder, v0.1 untouched · **P4-9** tsx-composer removed · **P4-10** built-in flows unchanged (no signed file) ·
+> **P4-11** exit on the Sonnet 5.5 default: E1 Creator B2 + Infographic loop + Flat bold (the gate), E2 B1 + Blueprint,
+> E3 agent v0.2 on B2; an Opus 5.5 control only if E1 misses. Parts: 1 craft kind + packs + ids + picker + edits keep
+> packs · 2 one clock + frame text · 3 agents + flows + the card trap + tsx-composer out · 4 v0.2 · 5 exit.
+> - **Part 1 DONE `5889091`** (no signed file). **Format:** `resources/packs/core/pack.json` `craft[]` (id, name, role
+>   `form` | `method` | `style`, description, `with` = full ids it brings, `suggest` = aspectRatio / seconds / loop /
+>   budget), texts `craft/<id>.md` in SKILL.md format, ids `core/<id>`; pure half `shared/studio/craft-pack.ts`
+>   (entries, `expandCraftIds`: each pack then what it brings, nested, once). Main `tsx-builder/craft-packs.ts` reads
+>   the BUILT-IN packs only, once, cached and synchronous (start() checks ids before anything queues); a text missing or
+>   over 64 KB drops that entry. **Craft is not in `PACK_KINDS`**: adding it there would make a `.vidtsxpack` import
+>   install craft texts nothing reads (that is P4-1 (b)) and pull in the Studio import dialog. **The seven** (lifted
+>   from the lab's three skills and rewritten for the builder; the build-sheet section is gone): Infographic loop (form;
+>   brings Concept to picture; suggests 4:5 · 8 s · Loop · Craft; the form, the loop, **the four moves planned before
+>   the first `check`**: countable marks at a stated unit with exact counts, ghost slots of the final shape on every
+>   frame, the step's delta beside each side in the marks' unit, a labelled band / area / bar with a ruler is a chart;
+>   layout + legibility; a look check list; a **PACK:** line in each round-log entry), Concept to picture (method;
+>   three metaphors, pick the one only this idea has), Blueprint, Flat bold, Neon dark, Editorial (each font named from
+>   `@remotion/google-fonts`), Your own style (turns the user's words into a full style in DESIGN.md first). A test keeps
+>   every brief's topic out of the texts. **Ids over IPC:** `TsxBuildJobRequestIpc.packs: string[]` + `style` (the
+>   user's own words); an unknown id or a wrong shape is refused at start; Studio's code-built studio-shot pack moved to
+>   the main-only `TsxJobOwner.packs`; channel `tsxjob:craft-packs` lists them; the dev spike takes `packs` ids and
+>   refuses `packsDir`. **The builder** resolves ids after the seed, puts their texts before a caller's own, records
+>   `craftPacks` (expanded) + `style` in vN.debug.json, and the first message gets a `STYLE (the user's own words; keep
+>   every one)` block. **Edits keep their packs:** an edit that names none (the Creator's Edit box, Fix with AI, any
+>   caller) gets its version's `craftPacks` + `style` (`SeededBuild.craft`; a copy saved by hand keeps vK's); `[]` =
+>   none; an id this app no longer has is skipped and logged. **Creator:** `MotionCraftFields` (Kind = forms, Style =
+>   styles + "Your own…" opening a words box; empty words send no style) above Brand; a Kind sets its suggestions on the
+>   controls and says so under the picker ("Set 4:5 · 8 s · Loop · Craft above; change any of them"); None changes
+>   nothing back (D3's Standard holds without a form); state in `useMotionGenerator`, MotionScreen passes one prop, no
+>   EditorShell. Gates: types 26/10; full vitest green with temp on D: (on C:'s temp, three esbuild test files fail alone
+>   with "Cannot read directory ../../../..: used by another process", a lock in the AppData tree, unrelated); the
+>   known 3 in shot-generator intermittent. **L0 $0** (dev app over CDP, throwaway profile, 0 usage rows since launch,
+>   `ai-video-lab/.../runs/P4/ui-p4-1`): (a) Kind Infographic loop + Flat bold, B2 typed: the controls went Standard ·
+>   16:9 · Auto · no loop → Craft · 4:5 · 8 s · Loop; Build → cancelled at turn 0 (0 tokens); the kept system-prompt.md
+>   = METHOD + `CRAFT: 6 look rounds … before round 4` + `# Craft packs` + Infographic loop, Concept to picture, Flat bold
+>   in that order, no frontmatter. (b) Style "Your own…" + chalkboard words, no Kind: only the Your own style pack.
+>   (c) an Edit ("Make the title twice as big.") of a copy whose v1.debug.json names three packs: its system prompt
+>   holds the same three, edit floor 1. (d) `tsxJobStart` with `core/style-chalk` → "Unknown craft pack …", nothing
+>   queued. **Noted:** a page script's waits crawl while the hidden dev window is minimised (Chromium throttles hidden
+>   timers); restore it first (`runs/P3/ui-p6/restore-window.ps1`).
+
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
 
