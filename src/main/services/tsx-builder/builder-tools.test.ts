@@ -92,7 +92,7 @@ describe('render_stills', () => {
   });
 
   it("puts each frame's on-screen text under its label, before its image", async () => {
-    const { call } = await setup();
+    const { state, call } = await setup();
     const line = { lines: [{ text: 'YEAR 12', faint: false }, { text: '+$24,000 interest', faint: true }], more: 0 };
     renderBuildStills.mockImplementationOnce(async (_code, _config, dir: string, frames: number[]) => ({
       stills: frames.map((frame, i) => ({ frame, path: path.join(dir, `f${frame}.jpg`), data: 'AAAA', mimeType: 'image/jpeg', text: i ? null : line })),
@@ -104,6 +104,9 @@ describe('render_stills', () => {
     expect(result.content.map((c) => c.type)).toEqual(['text', 'text', 'image', 'text', 'image']);
     expect(result.content[1].text).toBe('Frame 0:\nText: "YEAR 12" · "+$24,000 interest" (faint)');
     expect(result.content[3].text).toBe('Frame 120:\nText: not read');
+    // Kept with the version (vN.debug.json events): what the builder read on each frame.
+    const events = await fs.readFile(path.join(state.dirs.runDir, 'events.jsonl'), 'utf-8');
+    expect(events).toContain('"text":{"0":"\\"YEAR 12\\" · \\"+$24,000 interest\\" (faint)","120":"not read"}');
   });
 
   it('gives the round back when the render fails', async () => {

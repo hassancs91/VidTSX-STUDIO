@@ -80,6 +80,8 @@ export function buildLookTools(state: BuilderState) {
           state.stills.push({ round: state.roundsUsed, frame: still.frame, size: 'model', path: still.path });
         }
         const frames = stills.stills.map((s) => s.frame);
+        // What the builder read on each frame, kept in the version's debug events.
+        const shownText = stills.stills.map((s) => describeFrameText(s.text));
         await logEvent(state, {
           tool: 'render_stills',
           round: state.roundsUsed,
@@ -89,6 +91,7 @@ export function buildLookTools(state: BuilderState) {
           ms: stills.ms,
           bundleCached: stills.bundleCached,
           gl: stills.gl,
+          text: Object.fromEntries(frames.map((f, i) => [f, shownText[i]])),
           totalMs: Date.now() - started,
         });
         state.onEvent?.({ type: 'stills', size: 'model', frames, paths: stills.stills.map((s) => s.path) });
@@ -98,8 +101,8 @@ export function buildLookTools(state: BuilderState) {
             text: `${look.build.summary}\nRendered frames ${frames.join(', ')}, in order below. Under each frame's label, the text on that frame (${FRAME_TEXT_NOTE}): read every number against your model at that frame. ${roundsLine()}`,
           },
         ];
-        for (const still of stills.stills) {
-          content.push({ type: 'text', text: `Frame ${still.frame}:\nText: ${describeFrameText(still.text)}` });
+        for (const [i, still] of stills.stills.entries()) {
+          content.push({ type: 'text', text: `Frame ${still.frame}:\nText: ${shownText[i]}` });
           content.push({ type: 'image', data: still.data, mimeType: still.mimeType });
         }
         return { content };
@@ -136,6 +139,8 @@ export function buildLookTools(state: BuilderState) {
         });
         state.lastLook = { code: look.build.code };
         state.stills.push({ round: state.roundsUsed, frame: sheet.frames[0], frames: sheet.frames, size: 'sheet', path: sheet.path });
+        const textOf = new Map((sheet.text ?? []).map((t) => [t.frame, t.text]));
+        const shownText = sheet.frames.map((f) => describeFrameText(textOf.get(f)));
         await logEvent(state, {
           tool: 'contact_sheet',
           round: state.roundsUsed,
@@ -147,12 +152,12 @@ export function buildLookTools(state: BuilderState) {
           ms: sheet.ms,
           bundleCached: sheet.bundleCached,
           gl: sheet.gl,
+          text: Object.fromEntries(sheet.frames.map((f, i) => [f, shownText[i]])),
           totalMs: Date.now() - started,
         });
         state.onEvent?.({ type: 'stills', size: 'sheet', frames: sheet.frames, paths: [sheet.path] });
         const { cols, rows } = sheet.layout;
-        const textOf = new Map((sheet.text ?? []).map((t) => [t.frame, t.text]));
-        const frameText = sheet.frames.map((f) => `Frame ${f}: ${describeFrameText(textOf.get(f))}`).join('\n');
+        const frameText = sheet.frames.map((f, i) => `Frame ${f}: ${shownText[i]}`).join('\n');
         return {
           content: [
             {
