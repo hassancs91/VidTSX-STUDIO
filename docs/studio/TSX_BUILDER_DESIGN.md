@@ -1060,7 +1060,8 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   holds the same three, edit floor 1. (d) `tsxJobStart` with `core/style-chalk` → "Unknown craft pack …", nothing
 >   queued. **Noted:** a page script's waits crawl while the hidden dev window is minimised (Chromium throttles hidden
 >   timers); restore it first (`runs/P3/ui-p6/restore-window.ps1`).
-> - **Part 2 DONE `f83d03a`** (no signed file). **One clock** in METHOD step 1, for every caller: every number and
+> - **Part 2 DONE `f83d03a` + `644d0c5`** (no signed file; the second keeps each look's text per frame in the
+>   look's event, so vN.debug.json shows what the builder read — the transcript keeps only its narration). **One clock** in METHOD step 1, for every caller: every number and
 >   label on screen comes from the state the picture draws at that frame; a step label and its values from ONE integer
 >   step (never `Math.round(t)` beside values from the continuous `t`); a result, total or badge only on frames where
 >   the marks and counters show it; no changing number typed in at a fixed value. Step 4: "Read each frame's text
