@@ -48,6 +48,12 @@ describe('buildJobRequest', () => {
     });
   });
 
+  it('names craft packs by id with the style words (P4); none picked sends none', () => {
+    const request = buildJobRequest(input({ packs: ['core/infographic-loop', 'core/style-custom'], style: 'Chalkboard' }));
+    expect(request?.build).toMatchObject({ packs: ['core/infographic-loop', 'core/style-custom'], style: 'Chalkboard' });
+    expect(buildJobRequest(input({ packs: [] }))?.build).not.toHaveProperty('packs');
+  });
+
   it('refuses an empty prompt or no provider', () => {
     expect(buildJobRequest(input({ prompt: '   ' }))).toBeNull();
     expect(buildJobRequest(input({ providerId: '' }))).toBeNull();

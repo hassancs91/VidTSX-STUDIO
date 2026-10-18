@@ -6,6 +6,7 @@ import {
   handleTsxJobList,
   handleTsxJobClearCompleted,
   handleTsxJobConfigure,
+  handleTsxCraftPacks,
   initTsxJobBroadcast,
 } from '../tsx-job-handlers';
 
@@ -16,4 +17,5 @@ export function registerTsxJobsIpc(): void {
   ipcMain.handle(IPC.TSXJOB_LIST, handleTsxJobList);
   ipcMain.handle(IPC.TSXJOB_CLEAR_COMPLETED, handleTsxJobClearCompleted);
   ipcMain.handle(IPC.TSXJOB_CONFIGURE, handleTsxJobConfigure);
+  ipcMain.handle(IPC.TSXJOB_CRAFT_PACKS, handleTsxCraftPacks);
 }

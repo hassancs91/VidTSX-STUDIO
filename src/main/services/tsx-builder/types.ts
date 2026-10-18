@@ -38,6 +38,15 @@ export interface BuildRequest {
   /** Required for a new build. An edit keeps the seeded version's format unless given. */
   format?: BuildFormat;
   budget: BuildBudget;
+  /**
+   * Craft pack ids (`core/infographic-loop`; craft-packs.ts): their texts go
+   * into the system prompt, each followed by the packs it brings, before
+   * `packs`. An edit without them keeps its version's; `[]` = none.
+   */
+  craftPacks?: string[];
+  /** The user's own words for the look (the Creator's "Your own…" style). An edit without them keeps its version's. */
+  style?: string;
+  /** Pack texts a caller composes in code (Studio's studio-shot pack), after the craft packs. */
   packs?: BuildPack[];
   /** Brand guidance as text (colours, fonts, voice), composed by the caller. */
   brand?: string;

@@ -2,9 +2,9 @@
   "formatVersion": 1,
   "id": "core",
   "name": "Core",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "VidTSX",
-  "description": "The built-in transitions and filters: the everyday ones. More ship as importable packs — VidTSX Transitions — Volume 01 among them.",
+  "description": "The built-in transitions and filters: the everyday ones, plus the craft packs the TSX builder can follow. More ship as importable packs — VidTSX Transitions — Volume 01 among them.",
   "transitions": [
     {
       "id": "push-left",
@@ -106,6 +106,59 @@
       ],
       "requires": [],
       "heavy": true,
+      "version": "1.0.0"
+    }
+  ],
+  "craft": [
+    {
+      "id": "infographic-loop",
+      "name": "Infographic loop",
+      "role": "form",
+      "description": "An animated infographic post: one whole picture on every frame, frame 0 is the poster, a seamless loop, and numbers made of countable marks.",
+      "with": ["core/concept-to-picture"],
+      "suggest": { "aspectRatio": "4:5", "seconds": 8, "loop": true, "budget": "craft" },
+      "version": "1.0.0"
+    },
+    {
+      "id": "concept-to-picture",
+      "name": "Concept to picture",
+      "role": "method",
+      "description": "How to find the one picture that explains an idea: the mechanism, the numbers as countable things, actors doing the work.",
+      "version": "1.0.0"
+    },
+    {
+      "id": "style-blueprint",
+      "name": "Blueprint",
+      "role": "style",
+      "description": "A technical drawing come to life: blueprint blue, a fine grid, white outlines, an amber payoff, monospace type, precise motion.",
+      "version": "1.0.0"
+    },
+    {
+      "id": "style-flat-bold",
+      "name": "Flat bold",
+      "role": "style",
+      "description": "Thick, friendly flat shapes on warm cream, saturated colours, round actors, bouncy motion.",
+      "version": "1.0.0"
+    },
+    {
+      "id": "style-neon-dark",
+      "name": "Neon dark",
+      "role": "style",
+      "description": "A dark control room where the data glows: cyan lines, a magenta payoff, particles along paths.",
+      "version": "1.0.0"
+    },
+    {
+      "id": "style-editorial",
+      "name": "Editorial",
+      "role": "style",
+      "description": "A newspaper's information graphic: newsprint, black rules, one red accent, a serif headline, restrained motion.",
+      "version": "1.0.0"
+    },
+    {
+      "id": "style-custom",
+      "name": "Your own style",
+      "role": "style",
+      "description": "Your own words for the look, turned into a full style (ground, ink, palette, type, details, motion) before the design.",
       "version": "1.0.0"
     }
   ]

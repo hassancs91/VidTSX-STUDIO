@@ -50,6 +50,13 @@ export interface SeededBuild {
   config: CompositionConfig | null;
   /** The format the version was built to, when it can be told. */
   format: BuildFormat | null;
+  /** The craft packs and style words the version was built with (P4): an edit that names none keeps these. */
+  craft?: VersionCraft;
+}
+
+export interface VersionCraft {
+  packs: string[];
+  style?: string;
 }
 
 export interface SeedDeps {
@@ -65,19 +72,28 @@ async function isDirectory(p: string): Promise<boolean> {
 interface BuilderRecord {
   format: BuildFormat | null;
   artifactSha256: string | null;
+  craft: VersionCraft | null;
+}
+
+const NO_RECORD: BuilderRecord = { format: null, artifactSha256: null, craft: null };
+
+function craftOf(request: { craftPacks?: unknown; style?: unknown } | undefined): VersionCraft | null {
+  const packs = Array.isArray(request?.craftPacks) ? request.craftPacks.filter((id): id is string => typeof id === 'string') : [];
+  const style = typeof request?.style === 'string' && request.style.trim() ? request.style.trim() : undefined;
+  return packs.length || style ? { packs, ...(style ? { style } : {}) } : null;
 }
 
 async function readBuilderRecord(folderPath: string, version: number): Promise<BuilderRecord> {
   try {
     const debug = JSON.parse(await fs.readFile(path.join(folderPath, `v${version}.debug.json`), 'utf-8')) as {
       kind?: string;
-      request?: { format?: BuildFormat };
+      request?: { format?: BuildFormat; craftPacks?: unknown; style?: unknown };
       artifactSha256?: string;
     };
-    if (debug.kind !== 'tsx-builder') return { format: null, artifactSha256: null };
-    return { format: debug.request?.format ?? null, artifactSha256: debug.artifactSha256 ?? null };
+    if (debug.kind !== 'tsx-builder') return NO_RECORD;
+    return { format: debug.request?.format ?? null, artifactSha256: debug.artifactSha256 ?? null, craft: craftOf(debug.request) };
   } catch {
-    return { format: null, artifactSha256: null };
+    return NO_RECORD;
   }
 }
 
@@ -147,15 +163,17 @@ export async function seedWorkFromVersion(
   const code = await fs.readFile(tsxPath, 'utf-8');
   const config = parseCompositionConfig(code);
   const own = await readBuilderRecord(folderPath, version);
-  const base = { version, folderPath, config };
-
   const k = await builderSource(folderPath, version);
   if (k === null) {
     await copyFileSeed(tsxPath, code, workDir);
-    return { ...base, kind: 'file', format: own.format ?? (config ? formatFromConfig(config) : null) };
+    const craft = own.craft;
+    return { version, folderPath, config, ...(craft ? { craft } : {}), kind: 'file', format: own.format ?? (config ? formatFromConfig(config) : null) };
   }
 
   const record = k === version ? own : await readBuilderRecord(folderPath, k);
+  // A version saved by hand has no builder record of its own: it keeps vK's packs.
+  const craft = own.craft ?? record.craft;
+  const base = { version, folderPath, config, ...(craft ? { craft } : {}) };
   const saved = await savedBundle(folderPath, k, record, deps);
   if (k === version && saved?.intact) {
     await copySource(folderPath, k, workDir);

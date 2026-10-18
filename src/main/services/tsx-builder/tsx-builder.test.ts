@@ -9,7 +9,9 @@ import path from 'path';
 // real session rejects on abort while a tool may still be running).
 
 let tmpDir = '';
-vi.mock('electron', () => ({ app: { getPath: () => tmpDir, isPackaged: false } }));
+// getAppPath: the real resources/packs, so craft packs resolve to their real texts.
+const REPO_ROOT = path.join(__dirname, '../../../..');
+vi.mock('electron', () => ({ app: { getPath: () => tmpDir, getAppPath: () => REPO_ROOT, isPackaged: false } }));
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   tool: (name: string, _description: string, _schema: unknown, handler: unknown) => ({ name, handler }),
   createSdkMcpServer: (options: unknown) => options,
@@ -51,9 +53,11 @@ let script: (session: Session) => Promise<void>;
 const llmCalls: Array<{ featureSource?: string; agentId?: string }> = [];
 /** Each session's first message. */
 const prompts: string[] = [];
+/** Each session's system prompt. */
+const systems: string[] = [];
 vi.mock('../../ipc/llm-handlers', () => ({
   runLlmGenerate: async (
-    data: { featureSource?: string; prompt?: string },
+    data: { featureSource?: string; prompt?: string; systemPrompt?: string },
     signal: AbortSignal,
     _onTextDelta: unknown,
     extras: {
@@ -64,6 +68,7 @@ vi.mock('../../ipc/llm-handlers', () => ({
   ) => {
     llmCalls.push({ featureSource: data.featureSource, ...(extras.agentId ? { agentId: extras.agentId } : {}) });
     prompts.push(data.prompt ?? '');
+    systems.push(data.systemPrompt ?? '');
     const tools = extras.mcpServers.builder.tools;
     let n = 0;
     const session: Session = {
@@ -111,6 +116,7 @@ beforeEach(async () => {
   releaseBundlesUnder.mockClear();
   llmCalls.length = 0;
   prompts.length = 0;
+  systems.length = 0;
   let checks = 0;
   checkBuild.mockReset().mockImplementation(async () => passed(`// check ${++checks}`));
   renderBuildStills.mockReset().mockImplementation(async (_code, _config, dir: string, frames: number[], opts: { label: string }) => ({
@@ -426,5 +432,64 @@ describe('buildComposition — a Studio shot (P3 part 5)', () => {
     prompts.length = 0;
     await buildComposition(request({ studioShot: { transparent: false } }).req);
     expect(prompts[0]).not.toContain('BEHIND THE PIECE');
+  });
+});
+
+// P4 part 1: craft packs by id. Their texts go into the system prompt before a caller's own packs, the ids
+// and style words go into vN.debug.json, and an edit that names none keeps its version's.
+describe('buildComposition — craft packs (P4)', () => {
+  const finishOne = async (s: Session) => {
+    s.turn(100);
+    await s.call('render_stills', { frames: [0, 59] });
+    await s.call('phone_view', { frame: 30 });
+    await s.call('finish', { summary: 'Piles.' });
+  };
+  const ids = ['core/infographic-loop', 'core/style-custom'];
+  const expanded = ['core/infographic-loop', 'core/concept-to-picture', 'core/style-custom'];
+
+  it("composes the packs' texts in order, records the ids, and an edit keeps them", async () => {
+    checkBuild.mockImplementation(async () => passed('// piles'));
+    script = finishOne;
+    const fresh = await buildComposition(
+      request({ craftPacks: ids, style: 'Chalkboard, wobbly lines', packs: [{ name: 'studio-shot', body: '# Shot rules' }] }).req,
+    );
+    expect(fresh.ok).toBe(true);
+    const order = ['<pack name="Infographic loop">', '<pack name="Concept to picture">', '<pack name="Your own style">', '<pack name="studio-shot">'];
+    const at = order.map((tag) => systems[0].indexOf(tag));
+    expect(at.every((i) => i > 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    expect(systems[0]).not.toContain('name: Infographic loop'); // no frontmatter
+    expect(prompts[0]).toContain("STYLE (the user's own words; keep every one):\nChalkboard, wobbly lines");
+    const debug = JSON.parse(await fs.readFile(fresh.version!.debugPath, 'utf-8'));
+    expect(debug.request).toMatchObject({
+      packs: ['Infographic loop', 'Concept to picture', 'Your own style', 'studio-shot'],
+      craftPacks: expanded,
+      style: 'Chalkboard, wobbly lines',
+    });
+
+    // The edit names none: same packs, same words.
+    await fs.mkdir(path.join(fresh.version!.folderPath, 'v1.src'), { recursive: true });
+    await fs.writeFile(path.join(fresh.version!.folderPath, 'v1.src', 'index.tsx'), '// src');
+    const edit = await buildComposition(request({ format: undefined, intent: 'Bigger title.', editOf: { folderPath: fresh.version!.folderPath } }).req);
+    expect(edit.ok).toBe(true);
+    expect(systems[1]).toContain('<pack name="Concept to picture">');
+    expect(prompts[1]).toContain('Chalkboard, wobbly lines');
+    const editDebug = JSON.parse(await fs.readFile(edit.version!.debugPath, 'utf-8'));
+    expect(editDebug.request).toMatchObject({ craftPacks: expanded, style: 'Chalkboard, wobbly lines' });
+
+    // An explicit [] on an edit means none.
+    await buildComposition(request({ format: undefined, intent: 'Plain.', craftPacks: [], editOf: { folderPath: fresh.version!.folderPath } }).req);
+    expect(systems[2]).not.toContain('# Craft packs');
+  });
+
+  it('a build with no craft packs composes none and records none', async () => {
+    checkBuild.mockImplementation(async () => passed('// ball'));
+    script = finishOne;
+    const result = await buildComposition(request().req);
+    expect(systems[0]).not.toContain('# Craft packs');
+    const debug = JSON.parse(await fs.readFile(result.version!.debugPath, 'utf-8'));
+    expect(debug.request.packs).toEqual([]);
+    expect(debug.request.craftPacks).toBeUndefined();
+    expect(debug.request.style).toBeUndefined();
   });
 });

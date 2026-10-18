@@ -1,9 +1,9 @@
 import type { LlmImageIpc } from './llm';
+import type { CraftPackInfo } from '../../studio/craft-pack';
 import type {
   BuildBudget,
   BuildCaps,
   BuildFormat,
-  BuildPack,
   BuildPhase,
   BuildStillSize,
   BuildStopReason,
@@ -149,8 +149,14 @@ export interface TsxBuildJobRequestIpc {
   /** Required for a new build; an edit keeps its version's format unless given. */
   format?: BuildFormat;
   budget: BuildBudget;
-  /** Pack bodies, verbatim. P4 replaces these with pack ids. */
-  packs?: BuildPack[];
+  /**
+   * Craft pack ids (`core/infographic-loop`), resolved to their texts in main;
+   * an id this app does not have is refused at start. Absent on an edit = the
+   * version's own; `[]` = none.
+   */
+  packs?: string[];
+  /** The user's own words for the look (the "Your own…" style). Absent on an edit = the version's own. */
+  style?: string;
   /** Brand guidance as text (colours, fonts, voice). */
   brand?: string;
   /** Shown to the builder on its first turn. */
@@ -223,4 +229,9 @@ export interface TsxJobEvent {
 export interface TsxJobStreamEvent {
   jobId: string;
   chunk: string;
+}
+
+/** The craft packs a build request may name (TSX_BUILDER_DESIGN.md P4): the built-in ones. */
+export interface TsxCraftPacksResponse {
+  packs: CraftPackInfo[];
 }

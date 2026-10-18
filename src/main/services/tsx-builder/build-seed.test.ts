@@ -29,12 +29,17 @@ async function write(file: string, content: string): Promise<void> {
 }
 
 /** vN as the builder saves it: bundle, src/, debug record (with the bundle's hash unless `hash: false`). */
-async function builderVersion(folder: string, n: number, bundle: string, opts: { hash?: boolean; assets?: Record<string, string> } = {}) {
+async function builderVersion(
+  folder: string,
+  n: number,
+  bundle: string,
+  opts: { hash?: boolean; assets?: Record<string, string>; request?: Record<string, unknown> } = {},
+) {
   await write(path.join(folder, `v${n}.tsx`), bundle);
   await write(path.join(folder, `v${n}.src`, 'index.tsx'), `// v${n} source\n`);
   await write(path.join(folder, `v${n}.src`, 'DESIGN.md'), `# v${n} round log\n`);
   for (const [name, content] of Object.entries(opts.assets ?? {})) await write(path.join(folder, `v${n}.assets`, name), content);
-  const debug = { kind: 'tsx-builder', request: { format }, ...(opts.hash === false ? {} : { artifactSha256: sha256Text(bundle) }) };
+  const debug = { kind: 'tsx-builder', request: { format, ...opts.request }, ...(opts.hash === false ? {} : { artifactSha256: sha256Text(bundle) }) };
   await write(path.join(folder, `v${n}.debug.json`), JSON.stringify(debug));
 }
 
@@ -123,6 +128,22 @@ describe('seedWorkFromVersion', () => {
     expect(diff).toContain('+++ v2.tsx (as it is now)');
     expect(diff).toContain('-const line30 = 30;');
     expect(diff).toContain("+const line30 = 30; const title = 'Bounce!';");
+  });
+
+  it("carries the version's craft packs and style words for an edit that names none; a hand-saved copy keeps vK's", async () => {
+    const folder = path.join(tmpDir, 'projects', 'piles');
+    const v1 = bundleOf('Piles');
+    const craft = { packs: ['core/infographic-loop', 'core/concept-to-picture', 'core/style-custom'], style: 'Chalkboard, wobbly lines' };
+    await builderVersion(folder, 1, v1, { request: { packs: ['Infographic loop'], craftPacks: craft.packs, style: craft.style } });
+    expect((await seedWorkFromVersion({ folderPath: folder }, await workDir())).craft).toEqual(craft);
+
+    await write(path.join(folder, 'v2.tsx'), v1.replace('const line30 = 30;', 'const line30 = 31;'));
+    const handSaved = await seedWorkFromVersion({ folderPath: folder }, await workDir());
+    expect(handSaved).toMatchObject({ version: 2, kind: 'hand-edits', craft });
+
+    // A builder version from before P4 (pack names only) has none.
+    await builderVersion(folder, 3, bundleOf('Piles3'), { request: { packs: [] } });
+    expect((await seedWorkFromVersion({ folderPath: folder }, await workDir())).craft).toBeUndefined();
   });
 
   it('treats a saved-as-new copy with no change as the builder version itself', async () => {

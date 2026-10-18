@@ -1,6 +1,7 @@
 // The Creator composer's first message as a `build` job (TSX_BUILDER_DESIGN.md
 // P3 part 2): the format the user fixed, the budget, brand and reference
-// images. Length "Auto" sends no frame count, so the builder decides it.
+// images, and (P4) the craft packs the Kind and Style pickers name, as ids.
+// Length "Auto" sends no frame count, so the builder decides it.
 
 import type { BuildBudget, LlmImageIpc, TsxJobStartRequest } from '@shared/ipc/types';
 import { BUDGET_CHOICES, budgetHint } from '@shared/tsx-engine/build-budgets';
@@ -23,6 +24,10 @@ export interface ComposerBuildInput {
   /** Brand guidance as text (buildBrandInstructions), if a brand is picked. */
   brand?: string;
   referenceImages: LlmImageIpc[];
+  /** Craft pack ids from the Kind and Style pickers (craftRequest); main resolves them. */
+  packs?: string[];
+  /** "Your own…" style: the user's words. */
+  style?: string;
 }
 
 export const DEFAULT_BUDGET: BuildBudget = 'standard';
@@ -48,6 +53,8 @@ export function buildJobRequest(input: ComposerBuildInput): TsxJobStartRequest |
         ...(input.loop ? { loop: true } : {}),
       },
       budget: input.budget,
+      ...(input.packs?.length ? { packs: input.packs } : {}),
+      ...(input.style ? { style: input.style } : {}),
       ...(input.brand ? { brand: input.brand } : {}),
       ...(input.referenceImages.length > 0 ? { referenceImages: input.referenceImages } : {}),
     },

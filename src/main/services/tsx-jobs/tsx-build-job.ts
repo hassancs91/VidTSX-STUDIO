@@ -8,10 +8,11 @@
 
 import path from 'path';
 import { generateTsx } from '../tsx-builder/generate-tsx';
+import { craftPacksProblem } from '../tsx-builder/craft-packs';
 import { appendChatTurns } from './chat-store';
 import { applyBuildEvent, buildProgress } from './build-job-snapshot';
 import { logEngine } from '../../../logging/log-engine';
-import type { BuildResult, BuildUsageTag, GenerateTsxRequest, StudioShotBuild } from '../tsx-builder/types';
+import type { BuildPack, BuildResult, BuildUsageTag, GenerateTsxRequest, StudioShotBuild } from '../tsx-builder/types';
 import type {
   TsxBuildJobIpc,
   TsxBuildJobRequestIpc,
@@ -40,6 +41,8 @@ export interface TsxJobOwner {
   /** A Studio shot: what its looks show behind it (BuildRequest.studioShot). */
   studioShot?: StudioShotBuild;
   usage?: BuildUsageTag;
+  /** Pack texts the caller composes in code (Studio's studio-shot pack), after the request's craft packs. */
+  packs?: BuildPack[];
 }
 
 export interface BuildJobContext {
@@ -63,6 +66,8 @@ export function validateBuildRequest(request: TsxJobStartRequest): string | null
   if (build.format && !(build.format.width > 0 && build.format.height > 0 && build.format.fps > 0)) {
     return 'A build format needs a positive width, height and fps';
   }
+  // Before anything queues, so a wrong id never reaches the model.
+  if (build.packs !== undefined) return craftPacksProblem(build.packs);
   return null;
 }
 
@@ -76,7 +81,9 @@ function requestFor(ctx: BuildJobContext, build: TsxBuildJobRequestIpc, onText: 
     ...(owner?.usage ? { usage: owner.usage } : {}),
     ...(build.format ? { format: build.format } : {}),
     budget: build.budget,
-    ...(build.packs?.length ? { packs: build.packs } : {}),
+    ...(build.packs ? { craftPacks: build.packs } : {}),
+    ...(build.style?.trim() ? { style: build.style.trim() } : {}),
+    ...(owner?.packs?.length ? { packs: owner.packs } : {}),
     ...(build.brand ? { brand: build.brand } : {}),
     ...(build.referenceImages?.length ? { referenceImages: build.referenceImages } : {}),
     ...(build.editOf ? { editOf: build.editOf } : {}),

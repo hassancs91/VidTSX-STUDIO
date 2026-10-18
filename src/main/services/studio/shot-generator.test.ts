@@ -106,7 +106,8 @@ describe('generate', () => {
     const folder = path.join(projectDir, 'shots', 'live-badge');
     expect(reserved).toBe('live-badge');
     const { request, owner } = engine.builds[0];
-    expect(owner).toEqual({
+    const { packs, ...rest } = owner!;
+    expect(rest).toEqual({
       origin: 'studio',
       into: folder,
       usage: { featureSource: 'studio-tsx-shot' },
@@ -121,8 +122,10 @@ describe('generate', () => {
       assets: [{ path: path.join(tmpDir, 'logo.png'), name: 'logo.png' }],
       threadText: 'A badge that says LIVE.',
     });
-    expect(request.build!.packs![0].name).toBe('studio-shot');
-    expect(request.build!.packs![0].body).toContain('# KIT MANIFEST');
+    // Composed in code, so it rides the main-only owner; the IPC request names no craft packs.
+    expect(packs![0].name).toBe('studio-shot');
+    expect(packs![0].body).toContain('# KIT MANIFEST');
+    expect(request.build!.packs).toBeUndefined();
     expect(request.prompt).toMatch(/^STUDIO SHOT, 5\.0 s: An OVERLAY/);
     expect(request.prompt).toContain("logo.png (image, 512x512). <Img src={staticFile('logo.png')} />");
 

@@ -11,6 +11,7 @@ import type {
   TsxJobConfigureResponse,
   TsxJobEvent,
   TsxJobStreamEvent,
+  TsxCraftPacksResponse,
 } from '../../shared/ipc/types';
 
 export const tsxJobsApi = {
@@ -24,6 +25,8 @@ export const tsxJobsApi = {
     ipcRenderer.invoke(IPC.TSXJOB_CLEAR_COMPLETED),
   tsxJobConfigure: (data: TsxJobConfigureRequest): Promise<TsxJobConfigureResponse> =>
     ipcRenderer.invoke(IPC.TSXJOB_CONFIGURE, data),
+  tsxCraftPacks: (): Promise<TsxCraftPacksResponse> =>
+    ipcRenderer.invoke(IPC.TSXJOB_CRAFT_PACKS),
   onTsxJobEvent: (callback: (data: TsxJobEvent) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: TsxJobEvent) => callback(data);
     ipcRenderer.on(IPC.TSXJOB_EVENT, handler);

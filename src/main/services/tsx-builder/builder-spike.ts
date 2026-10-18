@@ -13,9 +13,9 @@
 // sheet + phone view of the fixture and measures its seam; `seamSources` runs
 // loop_seam on loops whose verdict is known.
 // mode "build" — a real run on one brief as a `build` job on tsxJobEngine (the
-// path the app runs; builder-spike-job.ts), with craft packs read from a
-// folder of skills (`<packsDir>/<name>/SKILL.md`, sent verbatim as the job's
-// pack bodies). Every job event (the whole snapshot) and every narration chunk
+// path the app runs; builder-spike-job.ts), with built-in craft packs named by
+// id (`packs`, P4; a folder of lab skills sent as bodies is gone with the
+// bodies on IPC). Every job event (the whole snapshot) and every narration chunk
 // lands in `<outDir>/progress.jsonl`; `cancelAfterMs` cancels the job. The
 // job saves into the profile's Creator library, as the app does; the project
 // is copied to `<outDir>/projects/`. The one-shot pipeline was deleted in P3
@@ -64,7 +64,6 @@ import { backdropProbe, type BackdropRequest } from './builder-spike-backdrop';
 import { studioStillsProbe, type StudioStillsRequest } from './builder-spike-studio';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
-import type { BuildPack } from './types';
 
 const log = logEngine.createLogger('TsxBuilderSpike');
 
@@ -102,25 +101,13 @@ type SpikeRequest =
   | BackdropRequest
   | StudioStillsRequest;
 
-async function readPacks(dir: string, names?: string[]): Promise<BuildPack[]> {
-  const entries = names ?? (await fs.readdir(dir)).sort();
-  const packs: BuildPack[] = [];
-  for (const name of entries) {
-    const file = path.join(dir, name, 'SKILL.md');
-    try {
-      packs.push({ name, body: await fs.readFile(file, 'utf-8') });
-    } catch {
-      // not a skill folder
-    }
-  }
-  return packs;
-}
-
 async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>> {
   if ('engine' in req || 'projectsDir' in req) {
     return { error: 'A build job takes neither "engine" nor "projectsDir" (the one-shot pipeline is deleted; part 5\'s check: runs/P1/fallback-p5).' };
   }
-  const packs = req.packsDir ? await readPacks(req.packsDir, req.packNames) : [];
+  if ('packsDir' in req) {
+    return { error: 'A build job takes craft pack ids in "packs" (e.g. ["core/infographic-loop"]), not "packsDir": pack bodies no longer travel on a job (P4).' };
+  }
   const progressPath = path.join(req.outDir, 'progress.jsonl');
   await fs.rm(progressPath, { force: true });
   let writes = Promise.resolve();
@@ -130,7 +117,7 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
   };
   // A BYOK preset the throwaway profile has no key for: `<ID>_API_KEY`, this run only.
   const envProvider = req.providerId ? registerProviderFromEnv(req.providerId) : false;
-  const followed = await followJob(tsxJobEngine, jobRequestFor(req, packs), {
+  const followed = await followJob(tsxJobEngine, jobRequestFor(req), {
     write: writeLine,
     ...(req.cancelAfterMs ? { cancelAfterMs: req.cancelAfterMs } : {}),
   });
@@ -139,7 +126,7 @@ async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>
   return {
     mode: 'build',
     via: 'tsx-job',
-    packs: packs.map((p) => p.name),
+    packs: req.packs ?? [],
     providerId: req.providerId ?? 'engine default',
     envProvider,
     requestedModel: req.model ?? 'provider default',

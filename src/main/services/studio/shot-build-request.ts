@@ -226,7 +226,6 @@ export function convertIntent(input: { problems: string[]; media?: ShotMediaNote
 export interface ShotBuildRequestInput {
   prompt: string;
   budget: BuildBudget;
-  pack: BuildPack;
   /** A new build's frame; an edit keeps its version's. */
   format?: BuildFormat;
   editOf?: { folderPath: string; version: number };
@@ -238,6 +237,7 @@ export interface ShotBuildRequestInput {
   model?: string;
 }
 
+/** The job's IPC half. The studio-shot pack (studioShotPack) is composed in code, so it rides the job's owner. */
 export function shotBuildRequest(input: ShotBuildRequestInput): TsxJobStartRequest {
   return {
     kind: 'build',
@@ -246,7 +246,6 @@ export function shotBuildRequest(input: ShotBuildRequestInput): TsxJobStartReque
     ...(input.model ? { options: { model: input.model } } : {}),
     build: {
       budget: input.budget,
-      packs: [input.pack],
       ...(input.format ? { format: input.format } : {}),
       ...(input.editOf ? { editOf: input.editOf } : {}),
       ...(input.brand ? { brand: input.brand } : {}),

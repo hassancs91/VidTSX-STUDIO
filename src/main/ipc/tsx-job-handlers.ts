@@ -12,8 +12,10 @@ import type {
   TsxJobConfigureResponse,
   TsxJobEvent,
   TsxJobStreamEvent,
+  TsxCraftPacksResponse,
 } from '@shared/ipc/types';
 import { tsxJobEngine } from '../services/tsx-jobs/tsx-job-engine';
+import { listCraftPacks } from '../services/tsx-builder/craft-packs';
 import { setTsxJobsMaxConcurrent } from '../services/settings';
 
 let broadcastInitialized = false;
@@ -85,6 +87,15 @@ export async function handleTsxJobConfigure(
     return { success: true, maxConcurrent: tsxJobEngine.getMaxConcurrent() };
   } catch {
     return { success: false, maxConcurrent: tsxJobEngine.getMaxConcurrent() };
+  }
+}
+
+/** The built-in craft packs, for the Creator's Kind and Style pickers (P4). */
+export async function handleTsxCraftPacks(): Promise<TsxCraftPacksResponse> {
+  try {
+    return { packs: listCraftPacks() };
+  } catch {
+    return { packs: [] };
   }
 }
 

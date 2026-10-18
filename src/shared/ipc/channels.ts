@@ -393,6 +393,7 @@ export const IPC = {
   TSXJOB_LIST: 'tsxjob:list',
   TSXJOB_CLEAR_COMPLETED: 'tsxjob:clear-completed',
   TSXJOB_CONFIGURE: 'tsxjob:configure',
+  TSXJOB_CRAFT_PACKS: 'tsxjob:craft-packs',
   TSXJOB_EVENT: 'tsxjob:event',
   TSXJOB_STREAM: 'tsxjob:stream',
 

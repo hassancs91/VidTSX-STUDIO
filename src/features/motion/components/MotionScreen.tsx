@@ -387,6 +387,7 @@ function MotionScreenContent() {
                   onBrandChange={generator.setSelectedBrandId}
                   referenceImages={generator.referenceImages}
                   onReferenceImagesChange={generator.setReferenceImages}
+                  craft={generator.craft}
                   onGenerate={handleBuild}
                   onCollapse={() => setInputCollapsed(true)}
                 />

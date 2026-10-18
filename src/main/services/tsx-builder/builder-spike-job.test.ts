@@ -67,19 +67,19 @@ const REQ: BuildSpikeRequest = {
 };
 
 describe('jobRequestFor', () => {
-  it('maps a new build onto a build job, model in options, packs as bodies', () => {
-    const packs = [{ name: 'loop', body: '# Loop' }];
-    expect(jobRequestFor(REQ, packs)).toEqual({
+  it('maps a new build onto a build job, model in options, craft packs as ids', () => {
+    const packs = ['core/infographic-loop', 'core/style-custom'];
+    expect(jobRequestFor({ ...REQ, packs, style: 'Chalkboard' })).toEqual({
       kind: 'build',
       prompt: 'A ball bounces',
       options: { model: 'claude-opus-5-5' },
-      build: { budget: 'craft', format: REQ.format, packs, maxMinutes: 60 },
+      build: { budget: 'craft', format: REQ.format, packs, style: 'Chalkboard', maxMinutes: 60 },
     });
   });
 
   it('an edit carries editOf and no format; absent fields stay absent', () => {
     const edit: BuildSpikeRequest = { mode: 'build', intent: 'Slower', outDir: 'x', budget: 'standard', editOf: { folderPath: 'D:/p/b2' }, providerId: 'openrouter' };
-    expect(jobRequestFor(edit, [])).toEqual({
+    expect(jobRequestFor(edit)).toEqual({
       kind: 'build',
       prompt: 'Slower',
       providerId: 'openrouter',
@@ -97,7 +97,7 @@ describe('followJob', () => {
       return { jobId: 'j1' };
     });
     const lines: object[] = [];
-    const run = followJob(engine, jobRequestFor(REQ, []), { write: (l) => lines.push(l) });
+    const run = followJob(engine, jobRequestFor(REQ), { write: (l) => lines.push(l) });
     await Promise.resolve();
     engine.chunk('j1', 'DESIGN: ');
     engine.chunk('other', 'not ours');
@@ -124,7 +124,7 @@ describe('followJob', () => {
 
   it('cancels held restored jobs before starting, so ours does not release them', async () => {
     const engine = new FakeEngine([job('held1', 'queued'), job('ran', 'done')]);
-    const run = followJob(engine, jobRequestFor(REQ, []), { write: () => {} });
+    const run = followJob(engine, jobRequestFor(REQ), { write: () => {} });
     await Promise.resolve();
     engine.emit(job('j1', 'error', { error: 'boom' }));
     const followed = await run;
@@ -136,7 +136,7 @@ describe('followJob', () => {
   it('a refused start writes nothing and reports why', async () => {
     const engine = new FakeEngine([], () => ({ error: 'A new build needs a format (width, height, fps)' }));
     const lines: object[] = [];
-    const followed = await followJob(engine, jobRequestFor(REQ, []), { write: (l) => lines.push(l) });
+    const followed = await followJob(engine, jobRequestFor(REQ), { write: (l) => lines.push(l) });
     expect(followed.startError).toMatch(/needs a format/);
     expect(followed.final).toBeUndefined();
     expect(lines).toEqual([]);
@@ -151,7 +151,7 @@ describe('followJob', () => {
       engine.emit(job(id, 'cancelled'));
       return out;
     };
-    const followed = await followJob(engine, jobRequestFor(REQ, []), { write: () => {}, cancelAfterMs: 5 });
+    const followed = await followJob(engine, jobRequestFor(REQ), { write: () => {}, cancelAfterMs: 5 });
     expect(engine.cancelled).toEqual(['j1']);
     expect(followed.final?.status).toBe('cancelled');
     expect(followed.cancelSentAtMs).toBeGreaterThanOrEqual(0);

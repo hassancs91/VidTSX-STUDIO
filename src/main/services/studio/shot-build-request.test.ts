@@ -113,12 +113,10 @@ describe('brandText', () => {
 });
 
 describe('shotBuildRequest', () => {
-  it('is a build job with the pack, the format or the version to edit, and the files', () => {
-    const pack = studioShotPack(null);
+  it('is a build job with the format or the version to edit, and the files; the pack rides the owner, not IPC', () => {
     const fresh = shotBuildRequest({
       prompt: 'p',
       budget: 'standard',
-      pack,
       format: { width: 1920, height: 1080, fps: 30, durationInFrames: 150 },
       assets: [{ path: 'C:/m/logo.png', name: 'logo.png' }],
       threadText: 'the brief',
@@ -132,13 +130,12 @@ describe('shotBuildRequest', () => {
       options: { model: 'claude-sonnet-5-5' },
       build: {
         budget: 'standard',
-        packs: [pack],
         format: { width: 1920, height: 1080, fps: 30, durationInFrames: 150 },
         assets: [{ path: 'C:/m/logo.png', name: 'logo.png' }],
         threadText: 'the brief',
       },
     });
-    const edit = shotBuildRequest({ prompt: 'p', budget: 'quick', pack, editOf: { folderPath: 'F', version: 2 } });
-    expect(edit.build).toEqual({ budget: 'quick', packs: [pack], editOf: { folderPath: 'F', version: 2 } });
+    const edit = shotBuildRequest({ prompt: 'p', budget: 'quick', editOf: { folderPath: 'F', version: 2 } });
+    expect(edit.build).toEqual({ budget: 'quick', editOf: { folderPath: 'F', version: 2 } });
   });
 });

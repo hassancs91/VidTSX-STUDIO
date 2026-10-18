@@ -9,7 +9,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { BuildBudget, BuildFormat, BuildPack, TsxJobIpc, TsxJobStartRequest } from '@shared/ipc/types';
+import type { BuildBudget, BuildFormat, TsxJobIpc, TsxJobStartRequest } from '@shared/ipc/types';
 import { startBuildAndWait, type BuildJobEngine } from '../tsx-jobs/build-and-wait';
 
 export interface BuildSpikeRequest {
@@ -19,8 +19,10 @@ export interface BuildSpikeRequest {
   format?: BuildFormat;
   outDir: string;
   budget: BuildBudget;
-  packsDir?: string;
-  packNames?: string[];
+  /** Built-in craft pack ids (`core/infographic-loop`). */
+  packs?: string[];
+  /** The user's own words for the look (style-custom). */
+  style?: string;
   /** A project folder in the profile's Creator library (a job saves there, as the app does). */
   editOf?: { folderPath: string; version?: number };
   name?: string;
@@ -54,7 +56,7 @@ export interface FollowedJob {
   cancelSentAtMs?: number;
 }
 
-export function jobRequestFor(req: BuildSpikeRequest, packs: BuildPack[]): TsxJobStartRequest {
+export function jobRequestFor(req: BuildSpikeRequest): TsxJobStartRequest {
   return {
     kind: 'build',
     prompt: req.intent,
@@ -63,7 +65,8 @@ export function jobRequestFor(req: BuildSpikeRequest, packs: BuildPack[]): TsxJo
     build: {
       budget: req.budget,
       ...(req.format ? { format: req.format } : {}),
-      ...(packs.length ? { packs } : {}),
+      ...(req.packs ? { packs: req.packs } : {}),
+      ...(req.style ? { style: req.style } : {}),
       ...(req.editOf ? { editOf: req.editOf } : {}),
       ...(req.name ? { name: req.name } : {}),
       ...(req.maxMinutes ? { maxMinutes: req.maxMinutes } : {}),

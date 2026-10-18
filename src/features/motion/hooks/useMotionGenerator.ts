@@ -6,15 +6,21 @@ import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
 // (W7, decision 7): one block, both callers.
 import { buildBrandInstructions } from '@shared/studio/brand-instructions';
 import type { AspectRatio } from '../types';
+import { DURATION_RANGE } from '../types';
 import { buildJobRequest, DEFAULT_BUDGET } from '../services/build-job-request';
 import { DEFAULT_EDIT_BUDGET, editJobRequest, fixJobRequest, type EditTarget, type FixInput } from '../services/edit-job-request';
+import { craftRequest, NO_CRAFT, type CraftChoice } from '../services/craft-choice';
+import type { MotionCraftFieldsProps } from '../components/MotionCraftFields';
+import { useCraftPacks } from './useCraftPacks';
 
 /**
  * Generation options state for the Creator screen. Since generations run as
  * jobs in the main process (TsxJobEngine), this hook no longer executes
  * anything — it holds the input state and builds TsxJobStartRequest payloads.
  * The first message is a `build` job (P3 part 2); the Edit box and "Fix with
- * AI" are builder edits of the open version (part 3).
+ * AI" are builder edits of the open version (part 3). The Kind and Style
+ * pickers (P4) name craft packs on the first message only; an edit keeps the
+ * version's own (main reads them from its vN.debug.json).
  */
 export function useMotionGenerator() {
   const [prompt, setPrompt] = useState('');
@@ -32,6 +38,30 @@ export function useMotionGenerator() {
   const [editBudget, setEditBudget] = useState<BuildBudget>(DEFAULT_EDIT_BUDGET);
   const [seamlessLoop, setSeamlessLoop] = useState(false);
   const [referenceImages, setReferenceImages] = useState<LlmImageIpc[]>([]);
+  const craftPacks = useCraftPacks();
+  const [craftChoice, setCraftChoice] = useState<CraftChoice>(NO_CRAFT);
+
+  /** A Kind sets the settings its form suggests, where the user sees them; None changes nothing back. */
+  const setKind = useCallback((kindId: string) => {
+    setCraftChoice((c) => ({ ...c, kindId }));
+    const suggest = craftPacks.find((p) => p.id === kindId)?.suggest;
+    if (!suggest) return;
+    if (suggest.aspectRatio) setAspectRatio(suggest.aspectRatio);
+    if (suggest.seconds !== undefined) {
+      setDuration(Math.min(DURATION_RANGE.max, Math.max(DURATION_RANGE.min, suggest.seconds)));
+      setAutoDuration(false);
+    }
+    if (suggest.loop !== undefined) setSeamlessLoop(suggest.loop);
+    if (suggest.budget) setBudget(suggest.budget);
+  }, [craftPacks]);
+
+  const craft: MotionCraftFieldsProps = {
+    packs: craftPacks,
+    choice: craftChoice,
+    onKindChange: setKind,
+    onStyleChange: (styleId) => setCraftChoice((c) => ({ ...c, styleId })),
+    onCustomStyleChange: (customStyle) => setCraftChoice((c) => ({ ...c, customStyle })),
+  };
 
   // Brands are optional styling — load once; an empty list just hides nothing
   // (the dropdown shows None plus a hint on where to create them).
@@ -59,8 +89,9 @@ export function useMotionGenerator() {
       budget,
       ...(brand ? { brand: buildBrandInstructions(brand) } : {}),
       referenceImages,
+      ...craftRequest(craftChoice),
     });
-  }, [prompt, selectedProvider, model, aspectRatio, fps, duration, autoDuration, seamlessLoop, budget, brands, selectedBrandId, referenceImages]);
+  }, [prompt, selectedProvider, model, aspectRatio, fps, duration, autoDuration, seamlessLoop, budget, brands, selectedBrandId, referenceImages, craftChoice]);
 
   /** The Edit box: a builder edit of the open version at the Edit row's budget. */
   const buildEditJob = useCallback((target: EditTarget): TsxJobStartRequest | null => editJobRequest({
@@ -105,6 +136,7 @@ export function useMotionGenerator() {
     setSeamlessLoop,
     referenceImages,
     setReferenceImages,
+    craft,
     buildBuildJob,
     buildEditJob,
     buildFixJob,

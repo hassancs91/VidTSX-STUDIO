@@ -48,6 +48,14 @@ describe('buildFirstMessage', () => {
     expect(message).toContain('REFERENCE: 2 images attached.');
   });
 
+  it("carries the user's own style words (P4), new build and edit alike", () => {
+    const style = 'Chalkboard: dark green, chalk-white wobbly lines.';
+    const fresh = buildFirstMessage({ intent: 'Caching.', format, style });
+    expect(fresh).toContain(`STYLE (the user's own words; keep every one):\n${style}`);
+    expect(buildFirstMessage({ intent: 'Slower.', format, style, seed: { version: 2, kind: 'src' } })).toContain(style);
+    expect(buildFirstMessage({ intent: 'Caching.', format, style: '  ' })).not.toContain('STYLE');
+  });
+
   it("points an edit at the builder's round log when the source was kept", () => {
     const message = buildFirstMessage({ intent: 'Make the coins bigger.', format, seed: { version: 3, kind: 'src' } });
     expect(message.startsWith('Change this composition.')).toBe(true);

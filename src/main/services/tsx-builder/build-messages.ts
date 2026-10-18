@@ -15,6 +15,8 @@ export interface FirstMessageInput {
   intent: string;
   format: BuildFormat;
   brand?: string;
+  /** The user's own words for the look (the "Your own…" style). */
+  style?: string;
   referenceImageCount?: number;
   /** Present for an edit. */
   seed?: EditSeed;
@@ -31,6 +33,7 @@ export interface FirstMessageInput {
 function contextLines(input: FirstMessageInput): string[] {
   const lines = [`FORMAT: ${formatLine(input.format)}`];
   if (input.backdrop !== undefined) lines.push('', backdropLine(input.backdrop));
+  if (input.style?.trim()) lines.push('', `STYLE (the user's own words; keep every one):`, input.style.trim());
   if (input.brand?.trim()) lines.push('', `BRAND (follow it):`, input.brand.trim());
   if (input.referenceImageCount) {
     lines.push(

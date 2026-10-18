@@ -15,6 +15,7 @@ import { MotionModeToggle, type MotionInputMode } from './MotionModeToggle';
 import { MotionSegmented } from './MotionSegmented';
 import { MotionDurationField } from './MotionDurationField';
 import { MotionCheckField } from './MotionCheckField';
+import { MotionCraftFields, type MotionCraftFieldsProps } from './MotionCraftFields';
 
 const FPS_CHOICES = FPS_OPTIONS.map((n) => ({ value: n, label: String(n) }));
 const RATIO_CHOICES = ASPECT_RATIO_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
@@ -52,6 +53,8 @@ interface MotionInputPanelProps {
   onBrandChange: (brandId: string) => void;
   referenceImages: LlmImageIpc[];
   onReferenceImagesChange: (images: LlmImageIpc[]) => void;
+  /** Kind and Style: the craft packs a first build names (P4). */
+  craft: MotionCraftFieldsProps;
   onGenerate: () => void;
   onCollapse?: () => void;
 }
@@ -84,6 +87,7 @@ export function MotionInputPanel({
   onBrandChange,
   referenceImages,
   onReferenceImagesChange,
+  craft,
   onGenerate,
   onCollapse,
 }: MotionInputPanelProps) {
@@ -185,6 +189,7 @@ export function MotionInputPanel({
             onChange={onSeamlessLoopChange}
           />
 
+          <MotionCraftFields {...craft} />
           <MotionBrandField brands={brands} selectedBrandId={selectedBrandId} onChange={onBrandChange} />
 
           {/* Reference Images */}

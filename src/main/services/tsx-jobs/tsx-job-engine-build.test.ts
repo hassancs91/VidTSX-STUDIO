@@ -12,8 +12,10 @@ import type { TsxJobIpc, TsxJobStartRequest } from '@shared/ipc/types';
 
 let tmpDir = '';
 
+// getAppPath: the real resources/packs, which start() checks craft pack ids against.
+const REPO_ROOT = path.join(__dirname, '../../../..');
 vi.mock('electron', () => ({
-  app: { getPath: () => tmpDir },
+  app: { getPath: () => tmpDir, getAppPath: () => REPO_ROOT },
 }));
 
 let generateTsxImpl: (req: GenerateTsxRequest) => Promise<GenerateTsxResult>;
@@ -243,6 +245,26 @@ describe('tsx-job-engine: build jobs', () => {
     const queued = tsxJobEngine.list().find((j) => j.id === jobId)!;
     expect(queued.targetFolderPath).toBe('C:/projects/bounce');
     expect(queued.build).toMatchObject({ budget: 'standard', edit: true, phase: 'preparing', round: 0, stills: [] });
+  });
+
+  it('craft packs (P4): an unknown id is refused at start; ids and style words reach the builder, a caller’s texts ride its owner', async () => {
+    expect(tsxJobEngine.start(buildRequest({}, { packs: ['core/style-chalk'] })).error).toMatch(/^Unknown craft pack "core\/style-chalk"/);
+    expect(tsxJobEngine.start(buildRequest({}, { packs: [{ name: 'x', body: 'y' }] as never })).error).toBe('Craft packs are a list of pack ids');
+    expect(generateTsxCalls).toHaveLength(0);
+
+    generateTsxImpl = async () => ({ engine: 'builder', reason: 'tools', ok: false, stopReason: 'error', error: 'stopped', elapsedMs: 1 });
+    const packs = ['core/infographic-loop', 'core/style-custom'];
+    const a = tsxJobEngine.start(buildRequest({}, { packs, style: '  Chalkboard  ' })).jobId!;
+    await waitForJob(a);
+    expect(generateTsxCalls[0]).toMatchObject({ craftPacks: packs, style: 'Chalkboard' });
+    expect(generateTsxCalls[0].packs).toBeUndefined();
+
+    const studioPack = { name: 'studio-shot', body: '# Shot rules' };
+    const b = tsxJobEngine.start(buildRequest({ prompt: 'a shot' }), { origin: 'studio', packs: [studioPack] }).jobId!;
+    await waitForJob(b);
+    expect(generateTsxCalls[1].packs).toEqual([studioPack]);
+    // No `packs` on the request: an edit keeps its version's (the builder reads them).
+    expect(generateTsxCalls[1].craftPacks).toBeUndefined();
   });
 
   it('runs builds one at a time: the second waits queued for the first', async () => {

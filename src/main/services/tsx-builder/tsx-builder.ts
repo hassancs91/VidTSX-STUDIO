@@ -33,6 +33,7 @@ import { seedWorkFromVersion, type SeededBuild } from './build-seed';
 import { checkBuild } from './build-check';
 import { ASSETS_DIR, listAssetFiles } from './build-assets';
 import { attachRequestAssets, GENERATED_IMAGES_MAX, imageGenerationAvailable } from './builder-asset-tools';
+import { resolveCraftPacks } from './craft-packs';
 import type { BuildRequest, BuildResult } from './types';
 
 const FILE_TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep'];
@@ -73,7 +74,10 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     seedError = err instanceof Error ? err.message : String(err);
   }
   const format = req.format ?? seed?.format ?? null;
-  const packs = req.packs ?? [];
+  // An edit that names no craft packs (or style words) keeps its version's.
+  const craft = resolveCraftPacks(req.craftPacks ?? seed?.craft?.packs ?? []);
+  const style = req.style ?? seed?.craft?.style;
+  const packs = [...craft.packs, ...(req.packs ?? [])];
   const state: BuilderState = {
     dirs,
     expect: format ?? { width: 0, height: 0, fps: 0 },
@@ -156,6 +160,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     intent: req.intent,
     format,
     ...(req.brand ? { brand: req.brand } : {}),
+    ...(style ? { style } : {}),
     ...(req.referenceImages?.length ? { referenceImageCount: req.referenceImages.length } : {}),
     ...(seed ? { seed } : {}),
     ...(req.studioShot?.transparent ? { backdrop: req.studioShot.backdrop?.label ?? null } : {}),
@@ -267,6 +272,8 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
         budget: req.budget,
         format,
         packs: packs.map((p) => p.name),
+        ...(craft.ids.length ? { craftPacks: craft.ids } : {}),
+        ...(style ? { style } : {}),
         ...(req.brand ? { brand: req.brand } : {}),
         referenceImages: req.referenceImages?.length ?? 0,
         ...(req.assets?.length ? { assets: req.assets.map((a) => a.name ?? path.basename(a.path)) } : {}),
