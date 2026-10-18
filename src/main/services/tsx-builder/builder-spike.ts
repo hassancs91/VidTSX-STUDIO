@@ -40,6 +40,8 @@
 // files in TIMELINE), the asset roots forgotten and registered again from the
 // sidecar, then PNG stills of the timeline + one shot-layer alpha still
 // (builder-spike-studio.ts, P3 part 6).
+// mode "frametext" — free: each frame's text out of stills and contact sheets,
+// against the expected text, and no pixel changed (builder-spike-text.ts, P4 part 2).
 
 import fs from 'fs/promises';
 import path from 'path';
@@ -62,6 +64,7 @@ import { assetsProbe, type AssetsRequest } from './builder-spike-assets';
 import { toolWaitProbe, type ToolWaitRequest } from './builder-spike-toolwait';
 import { backdropProbe, type BackdropRequest } from './builder-spike-backdrop';
 import { studioStillsProbe, type StudioStillsRequest } from './builder-spike-studio';
+import { frameTextProbe, type FrameTextRequest } from './builder-spike-text';
 import { formatFromConfig } from './build-format';
 import type { CompositionConfig } from '../composition-config-parser';
 
@@ -99,7 +102,8 @@ type SpikeRequest =
   | AssetsRequest
   | ToolWaitRequest
   | BackdropRequest
-  | StudioStillsRequest;
+  | StudioStillsRequest
+  | FrameTextRequest;
 
 async function runBuild(req: BuildSpikeRequest): Promise<Record<string, unknown>> {
   if ('engine' in req || 'projectsDir' in req) {
@@ -287,7 +291,9 @@ export async function runBuilderSpikeFromEnv(): Promise<void> {
                       ? await backdropProbe(req.outDir, req.sources)
                       : req.mode === 'studio-stills'
                         ? await studioStillsProbe(req)
-                        : await runFixture(req);
+                        : req.mode === 'frametext'
+                          ? await frameTextProbe(req.outDir, req.sources)
+                          : await runFixture(req);
   } catch (err) {
     log.error('Builder spike failed', err);
     report = { error: err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err) };

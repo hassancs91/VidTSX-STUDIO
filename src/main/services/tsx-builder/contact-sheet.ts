@@ -12,6 +12,7 @@
 // first, and the sheet only lays those images out.
 
 import type { CompositionConfig } from '../composition-config-parser';
+import { FRAME_TEXT_ATTR } from './frame-text';
 
 export const CONTACT_SHEET_MAX_FRAMES = 12;
 /** Longest side of the sheet, rendered at this size (no downscale after). */
@@ -166,7 +167,7 @@ export default function VidtsxContactSheet(props) {
     S.cells.map((c, i) => h('div', { key: c.frame, style: { position: 'absolute', left: c.x, top: c.y, width: S.tw, height: S.lh + S.th } },
       h('div', { style: { height: S.lh, lineHeight: S.lh + 'px', color: '#e8eaed', fontSize: 14, fontFamily: 'Arial, sans-serif' } },
         'frame ' + c.frame + '  ·  ' + (c.frame / S.fps).toFixed(1) + ' s'),
-      h('div', { style: { position: 'absolute', left: 0, top: S.lh, width: S.tw, height: S.th, overflow: 'hidden' } },
+      h('div', { '${FRAME_TEXT_ATTR}': c.frame, style: { position: 'absolute', left: 0, top: S.lh, width: S.tw, height: S.th, overflow: 'hidden' } },
         ${tile}))));
 }
 `;

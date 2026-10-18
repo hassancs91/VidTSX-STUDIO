@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseCompositionConfig } from '../composition-config-parser';
 import { contactSheetLayout, contactSheetSource, CONTACT_SHEET_MAX_SIDE, tileSheetSource } from './contact-sheet';
+import { FRAME_TEXT_ATTR } from './frame-text';
 
 const portrait = { id: 'CoinPiles', width: 1080, height: 1350, fps: 30, durationInFrames: 240 };
 
@@ -74,6 +75,13 @@ describe('contactSheetSource', () => {
     expect(code).toContain('{"frame":120,');
     expect(code).toContain('h(__VidtsxSequence, { from: 0, durationInFrames: S.d, width: S.w, height: S.h');
     expect(code).toContain('h(__VidtsxFreeze, { frame: c.frame }');
+  });
+
+  it("tags each tile's picture with its frame, and not its label, so the page's text comes back per frame", () => {
+    const { code } = contactSheetSource(bundle, portrait, [0, 120]);
+    const tagged = code.split('\n').find((l) => l.includes(`'${FRAME_TEXT_ATTR}': c.frame`));
+    expect(tagged).toContain('top: S.lh, width: S.tw, height: S.th');
+    expect(code.split('\n').find((l) => l.includes("'frame ' + c.frame"))).not.toContain(FRAME_TEXT_ATTR);
   });
 
   it('keeps a default-exported function declaration callable by its name', () => {

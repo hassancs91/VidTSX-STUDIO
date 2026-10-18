@@ -40,6 +40,20 @@ describe('buildBuilderSystemPrompt', () => {
     expect(prompt).toContain('A chart with a face added is still a chart.');
   });
 
+  it("holds every caller's numbers to one clock, and has each look's frame text read against the model", () => {
+    const prompt = buildBuilderSystemPrompt({ budget: 'standard', packs: [] });
+    const method = prompt.slice(0, prompt.indexOf('## Your budget'));
+    expect(method).toContain('**One clock.** Every number and label on screen comes from the same state the picture draws at that frame.');
+    expect(method).toContain('come from ONE integer step (never a label from `Math.round(t)`');
+    expect(method).toContain('a result, total or badge shows only on frames where the marks and counters already show it');
+    expect(method).toContain('no number that the picture changes is typed in at a fixed value');
+    const look = method.slice(method.indexOf('4. **Look.**'), method.indexOf('5. **Improve'));
+    expect(look).toContain("Read each frame's text (listed under its label in every look) against your model at that frame");
+    expect(method).toContain('`render_stills` — renders frames of the current build (it checks first) and shows them to you at ~1024 px, each with the text on that frame');
+    // P3's miss, by its shape: a fixed final value on every frame. The rule stays generic.
+    expect(method).not.toContain('24,000');
+  });
+
   it('teaches 3D craft after the catalogue: frame-driven, the lab post order, nothing that loads a file', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
     const block = prompt.slice(prompt.indexOf('## 3D'));

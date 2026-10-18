@@ -15,7 +15,12 @@
 // The look tools (builder-look-tools.ts) share the lower steps: one
 // `prepareBuildRender` (bundle + selectComposition) per call, then
 // `renderPreparedFrames` for the frames that call needs (each its own fresh
-// page), or `renderPreparedInOrder` (one page, frames in order: purity_check).
+// page), or `renderPreparedInOrder` (build-in-order.ts: one page, frames in
+// order, for purity_check).
+//
+// Frame text (P4 part 2): every entry carries the frame-text probe
+// (frame-text.ts), so every look bundle is the same bundle whichever tool made
+// it; `frameText` on a render reads what each page logged.
 //
 // Cancel: `signal` kills a webpack bundle in flight and cancels the
 // renderStill in flight (Remotion's cancel signal); selectComposition has no
@@ -39,7 +44,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { nativeImage } from 'electron';
-import { makeCancelSignal, renderFrames, renderStill, selectComposition } from '@remotion/renderer';
+import { makeCancelSignal, renderStill, selectComposition } from '@remotion/renderer';
 import type { VideoConfig } from 'remotion';
 import { bundleComposition } from '../remotion-bundler';
 import { getRemotionBinariesDir } from '../../utils/paths';
@@ -49,6 +54,7 @@ import type { Bitmap } from './loop-seam';
 import { assetsProp, type AssetKeyMap } from './build-assets';
 import { assetRootUrl } from '../asset-roots';
 import { BACKDROP_PROP } from './look-backdrop';
+import { frameTextFor, readFrameTextLog, withFrameTextProbe, type FrameText, type FrameTextGroup } from './frame-text';
 
 /** A build's files: its assets folder and the lookup keys its code uses. */
 export interface BuildAssetSource {
@@ -56,7 +62,7 @@ export interface BuildAssetSource {
   keys: AssetKeyMap;
 }
 
-const STILL_TIMEOUT_MS = 120_000;
+export const STILL_TIMEOUT_MS = 120_000;
 
 export interface BuildStill {
   frame: number;
@@ -64,6 +70,8 @@ export interface BuildStill {
   /** Base64 JPEG, downscaled for the model. */
   data: string;
   mimeType: 'image/jpeg';
+  /** The text on the frame (null when its page reported none). */
+  text: FrameText | null;
 }
 
 export interface BuildStillsResult {
@@ -138,6 +146,8 @@ export async function prepareBuildRender(
     inputProps?: Record<string, unknown>;
     /** A video the look wrapper plays under a transparent shot (look-backdrop.ts). */
     backdropFile?: string;
+    /** false: the entry without the frame-text probe (the spike's pixel comparison). */
+    frameText?: boolean;
   } = {},
 ): Promise<PreparedBuild> {
   const { signal } = options;
@@ -145,7 +155,7 @@ export async function prepareBuildRender(
   const gl = options.gl ?? (await probeGlBackend()).gl;
   await fs.mkdir(outDir, { recursive: true });
   const entryPath = path.join(outDir, options.entryName ?? 'composition.tsx');
-  await fs.writeFile(entryPath, code, 'utf-8');
+  await fs.writeFile(entryPath, options.frameText === false ? code : withFrameTextProbe(code), 'utf-8');
 
   const bundleStart = Date.now();
   const bundle = await bundleComposition(entryPath, signal ? { signal } : undefined);
@@ -184,8 +194,15 @@ export async function prepareBuildRender(
   };
 }
 
-const framePath = (outDir: string, label: string, frame: number, ext: 'png' | 'jpg') =>
+export const framePath = (outDir: string, label: string, frame: number, ext: 'png' | 'jpg') =>
   path.join(outDir, `${label}-f${String(frame).padStart(3, '0')}.${ext}`);
+
+/** A rendered frame; `text` = what its page's frame-text probe last logged (asked with `frameText`). */
+export interface PreparedFrame {
+  frame: number;
+  path: string;
+  text?: FrameTextGroup[] | null;
+}
 
 /**
  * Render `frames` (clamped, in order) of a prepared build to `<outDir>/<label>-fNNN.<ext>`,
@@ -196,20 +213,26 @@ export async function renderPreparedFrames(
   prepared: PreparedBuild,
   outDir: string,
   frames: number[],
-  options: { label: string; imageFormat?: 'jpeg' | 'png'; scale?: number; reverse?: boolean; signal?: AbortSignal },
-): Promise<Array<{ frame: number; path: string }>> {
+  options: { label: string; imageFormat?: 'jpeg' | 'png'; scale?: number; reverse?: boolean; frameText?: boolean; signal?: AbortSignal },
+): Promise<PreparedFrame[]> {
   const { signal } = options;
   const imageFormat = options.imageFormat ?? 'jpeg';
   const binariesDirectory = getRemotionBinariesDir() ?? undefined;
   const { cancel, cancelSignal } = makeCancelSignal();
   signal?.addEventListener('abort', cancel, { once: true });
-  const out: Array<{ frame: number; path: string }> = [];
+  const out: PreparedFrame[] = [];
   const ordered = clampFrames(frames, prepared.composition.durationInFrames);
   if (options.reverse) ordered.reverse();
   try {
     for (const frame of ordered) {
       signal?.throwIfAborted();
       const output = framePath(outDir, options.label, frame, imageFormat === 'png' ? 'png' : 'jpg');
+      // The page's last report wins: it logs after every DOM change and closes after its screenshot.
+      const seen: { groups: FrameTextGroup[] | null } = { groups: null };
+      const onBrowserLog = (log: { text: string }) => {
+        const groups = readFrameTextLog(log.text);
+        if (groups) seen.groups = groups;
+      };
       await renderStill({
         composition: prepared.composition,
         serveUrl: prepared.serveUrl,
@@ -223,67 +246,14 @@ export async function renderPreparedFrames(
         timeoutInMilliseconds: STILL_TIMEOUT_MS,
         binariesDirectory,
         cancelSignal,
+        ...(options.frameText ? { onBrowserLog } : {}),
       });
-      out.push({ frame, path: output });
+      out.push({ frame, path: output, ...(options.frameText ? { text: seen.groups } : {}) });
     }
   } finally {
     signal?.removeEventListener('abort', cancel);
   }
   return out;
-}
-
-/**
- * Render frames 0..max(keep) IN ORDER in ONE page (renderFrames, concurrency 1:
- * the way the preview plays them) and save only `keep` as PNGs at `scale`.
- */
-export async function renderPreparedInOrder(
-  prepared: PreparedBuild,
-  outDir: string,
-  keep: number[],
-  options: { label: string; scale?: number; signal?: AbortSignal },
-): Promise<{ frames: Array<{ frame: number; path: string }>; rendered: number }> {
-  const { signal } = options;
-  const wanted = clampFrames(keep, prepared.composition.durationInFrames);
-  const last = wanted[wanted.length - 1] ?? 0;
-  const buffers = new Map<number, Buffer>();
-  const { cancel, cancelSignal } = makeCancelSignal();
-  signal?.addEventListener('abort', cancel, { once: true });
-  let rendered = 0;
-  try {
-    signal?.throwIfAborted();
-    await renderFrames({
-      composition: prepared.composition,
-      serveUrl: prepared.serveUrl,
-      inputProps: prepared.inputProps,
-      outputDir: null,
-      frameRange: [0, last],
-      concurrency: 1,
-      imageFormat: 'png',
-      ...(options.scale ? { scale: options.scale } : {}),
-      onStart: () => {},
-      onFrameUpdate: (count) => {
-        rendered = count;
-      },
-      onFrameBuffer: (buffer, frame) => {
-        if (wanted.includes(frame)) buffers.set(frame, buffer);
-      },
-      chromiumOptions: { disableWebSecurity: true, gl: prepared.gl },
-      timeoutInMilliseconds: STILL_TIMEOUT_MS,
-      binariesDirectory: getRemotionBinariesDir() ?? undefined,
-      cancelSignal,
-    });
-  } finally {
-    signal?.removeEventListener('abort', cancel);
-  }
-  const frames: Array<{ frame: number; path: string }> = [];
-  for (const frame of wanted) {
-    const buffer = buffers.get(frame);
-    if (!buffer) throw new Error(`The in-order render did not return frame ${frame}.`);
-    const output = framePath(outDir, options.label, frame, 'png');
-    await fs.writeFile(output, buffer);
-    frames.push({ frame, path: output });
-  }
-  return { frames, rendered };
 }
 
 /**
@@ -316,13 +286,14 @@ export async function renderBuildStills(
   const renderStart = Date.now();
   const rendered = await renderPreparedFrames(prepared, outDir, frames, {
     label: options.label ?? 'still',
+    frameText: true,
     ...(options.signal ? { signal: options.signal } : {}),
   });
   const stills: BuildStill[] = [];
-  for (const { frame, path: file } of rendered) {
+  for (const { frame, path: file, text } of rendered) {
     const seen = encodeForModel(file, { maxSide: options.maxSide ?? 1024 });
     await fs.writeFile(file, seen);
-    stills.push({ frame, path: file, data: seen.toString('base64'), mimeType: 'image/jpeg' });
+    stills.push({ frame, path: file, data: seen.toString('base64'), mimeType: 'image/jpeg', text: frameTextFor(text, frame) });
   }
   return {
     stills,

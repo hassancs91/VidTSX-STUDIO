@@ -91,6 +91,21 @@ describe('render_stills', () => {
     expect(renderBuildStills.mock.calls[1][4]).toMatchObject({ maxSide: 1024, label: 'r02' });
   });
 
+  it("puts each frame's on-screen text under its label, before its image", async () => {
+    const { call } = await setup();
+    const line = { lines: [{ text: 'YEAR 12', faint: false }, { text: '+$24,000 interest', faint: true }], more: 0 };
+    renderBuildStills.mockImplementationOnce(async (_code, _config, dir: string, frames: number[]) => ({
+      stills: frames.map((frame, i) => ({ frame, path: path.join(dir, `f${frame}.jpg`), data: 'AAAA', mimeType: 'image/jpeg', text: i ? null : line })),
+      ms: { bundle: 1, render: 1 },
+      bundleCached: true,
+    }));
+    const result = await call('render_stills', { frames: [0, 120] });
+    expect(result.content[0].text).toContain('read every number against your model at that frame');
+    expect(result.content.map((c) => c.type)).toEqual(['text', 'text', 'image', 'text', 'image']);
+    expect(result.content[1].text).toBe('Frame 0:\nText: "YEAR 12" · "+$24,000 interest" (faint)');
+    expect(result.content[3].text).toBe('Frame 120:\nText: not read');
+  });
+
   it('gives the round back when the render fails', async () => {
     const { state, call } = await setup();
     renderBuildStills.mockRejectedValueOnce(new Error('ReferenceError: x is not defined'));

@@ -122,6 +122,28 @@ describe('contact_sheet', () => {
     expect(onEvent.mock.calls.at(-1)![0]).toMatchObject({ type: 'stills', size: 'sheet', frames: [0, 60, 120] });
   });
 
+  it("lists each frame's on-screen text in frame order, under the sheet's description", async () => {
+    const { call } = await setup();
+    renderContactSheet.mockImplementationOnce(async (_code, _config, dir: string) => ({
+      path: path.join(dir, 'sheet.jpg'),
+      data: 'SHEET',
+      mimeType: 'image/jpeg',
+      frames: [0, 60, 120],
+      layout: { cols: 3, rows: 1 },
+      text: [
+        { frame: 0, text: { lines: [{ text: 'YEAR 0', faint: false }, { text: '$10,000', faint: false }], more: 0 } },
+        { frame: 60, text: { lines: [], more: 0 } },
+      ],
+      ms: { bundle: 1, render: 1 },
+      bundleCached: true,
+    }));
+    const result = await call('contact_sheet', { frames: [0, 60, 120] });
+    const head = result.content[0].text!;
+    expect(head).toContain('Text on each frame (HTML and SVG text in reading order');
+    expect(head).toContain('\nFrame 0: "YEAR 0" · "$10,000"\nFrame 60: none\nFrame 120: not read');
+    expect(result.content.map((c) => c.type)).toEqual(['text', 'image']);
+  });
+
   it('renders a WebGL piece tile by tile, and a 2D piece mounted in one page', async () => {
     const { call } = await setup();
     await call('contact_sheet', { frames: [0, 120] });

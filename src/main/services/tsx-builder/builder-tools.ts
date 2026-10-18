@@ -1,7 +1,8 @@
 // The builder's own tools (TSX_BUILDER_DESIGN.md T2), as an in-process MCP
-// server: `check` and `finish` here, the five that render (`render_stills`,
-// `contact_sheet`, `phone_view`, `loop_seam`, `purity_check`) in
-// builder-look-tools.ts, the three that bring files into assets/
+// server: `check` and `finish` here, the five that render: three picture
+// looks (`render_stills`, `contact_sheet`, `phone_view`) in
+// builder-look-tools.ts and two measures (`loop_seam`, `purity_check`) in
+// builder-measure-tools.ts; the three that bring files into assets/
 // (`library_search`, `library_use`, `generate_image`) in builder-asset-tools.ts,
 // the shared state and helpers in builder-tool-common.ts.
 // File work goes through the SDK's Read/Write/Edit/Glob/Grep behind the path
@@ -12,6 +13,7 @@
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { buildLookTools } from './builder-look-tools';
+import { buildMeasureTools } from './builder-measure-tools';
 import { buildAssetTools } from './builder-asset-tools';
 import {
   buildHash,
@@ -188,6 +190,6 @@ export function buildBuilderToolServer(state: BuilderState) {
 
   return createSdkMcpServer({
     name: BUILDER_MCP_SERVER_NAME,
-    tools: [check, ...buildLookTools(state), ...buildAssetTools(state), finish],
+    tools: [check, ...buildLookTools(state), ...buildMeasureTools(state), ...buildAssetTools(state), finish],
   });
 }

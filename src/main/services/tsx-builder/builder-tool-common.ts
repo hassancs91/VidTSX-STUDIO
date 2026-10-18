@@ -148,6 +148,17 @@ export async function logEvent(state: BuilderState, event: Record<string, unknow
   await fs.appendFile(path.join(state.dirs.runDir, 'events.jsonl'), `${line}\n`, 'utf-8').catch(() => {});
 }
 
+/** A render that threw: the run stopping, or a runtime error in the build. */
+export async function lookFailed(state: BuilderState, toolName: string, err: unknown, started: number): Promise<ToolResult> {
+  if (state.signal?.aborted) {
+    await logEvent(state, { tool: toolName, cancelled: true, totalMs: Date.now() - started });
+    return text(STOPPING, true);
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  await logEvent(state, { tool: toolName, error: message });
+  return text(`Rendering failed — this is a runtime error in your code:\n${message}`, true);
+}
+
 /** One tool call: refused once stopped, tracked while in flight, its phase shown while it runs. */
 export function tracked<A>(state: BuilderState, phase: BuildPhase, handler: (args: A) => Promise<ToolResult>) {
   return async (args: A): Promise<ToolResult> => {
