@@ -84,6 +84,26 @@ export function gpuProxyOfferOutcome(
   return { ok: true, text: GPU_PROXY_RESTART_NOTE ? `${base} ${GPU_PROXY_RESTART_NOTE}` : base };
 }
 
+/**
+ * After the download: the open project's 4K videos, for main to re-queue the
+ * proxies this session built (or is building) on x264 — main decides which.
+ */
+export function gpuProxyRebuildTargets(
+  assets: ReadonlyArray<OfferMedia & Pick<StudioMediaAsset, 'id' | 'path'>>,
+): Array<{ assetId: string; path: string }> {
+  return assets.filter(isFourKVideo).map((a) => ({ assetId: a.id, path: a.path }));
+}
+
+/** The ok outcome, plus a line when clips already imported are rebuilding on the GPU. */
+export function withRebuildNote(outcome: { ok: boolean; text: string }, rebuilding: number): { ok: boolean; text: string } {
+  if (!outcome.ok || rebuilding <= 0) return outcome;
+  const note =
+    rebuilding === 1
+      ? 'The 4K clip already in this project is rebuilding on it now.'
+      : `The ${rebuilding} 4K clips already in this project are rebuilding on it now.`;
+  return { ok: true, text: `${outcome.text} ${note}` };
+}
+
 export function readOfferDismissed(storage: ChoiceStorage | undefined): boolean {
   return readStoredChoice(storage, GPU_PROXY_OFFER_DISMISS_KEY, [DISMISSED, ''] as const, '') === DISMISSED;
 }

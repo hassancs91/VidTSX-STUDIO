@@ -489,6 +489,7 @@ export interface ElectronAPI {
   studioProxyEncoderStatus: () => Promise<import('../../shared/ipc/types').StudioProxyEncoderStatusResponse>;
   studioProxyEncoderInstall: () => Promise<import('../../shared/ipc/types').StudioProxyEncoderInstallResponse>;
   studioProxyEncoderSetEnabled: (data: import('../../shared/ipc/types').StudioProxyEncoderSetEnabledRequest) => Promise<import('../../shared/ipc/types').StudioProxyEncoderSetEnabledResponse>;
+  studioProxyEncoderRebuild: (data: import('../../shared/ipc/types').StudioProxyEncoderRebuildRequest) => Promise<import('../../shared/ipc/types').StudioProxyEncoderRebuildResponse>;
   studioMediaPrepare: (data: import('../../shared/ipc/types').StudioMediaPrepareRequest) => Promise<import('../../shared/ipc/types').StudioMediaPrepareResponse>;
   studioMediaRelink: (data: import('../../shared/ipc/types').StudioMediaRelinkRequest) => Promise<import('../../shared/ipc/types').StudioMediaRelinkResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;

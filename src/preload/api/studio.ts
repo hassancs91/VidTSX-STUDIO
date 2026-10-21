@@ -2,6 +2,8 @@ import { ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IPC } from '../../shared/ipc/channels';
 import type {
   StudioProxyEncoderInstallResponse,
+  StudioProxyEncoderRebuildRequest,
+  StudioProxyEncoderRebuildResponse,
   StudioProxyEncoderSetEnabledRequest,
   StudioProxyEncoderSetEnabledResponse,
   StudioProxyEncoderStatusResponse,
@@ -169,6 +171,9 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_INSTALL),
   studioProxyEncoderSetEnabled: (data: StudioProxyEncoderSetEnabledRequest): Promise<StudioProxyEncoderSetEnabledResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_SET_ENABLED, data),
+  // A4: after the card's download, rebuild this session's x264 4K proxies on the GPU.
+  studioProxyEncoderRebuild: (data: StudioProxyEncoderRebuildRequest): Promise<StudioProxyEncoderRebuildResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_PROXY_ENCODER_REBUILD, data),
   studioMediaPrepare: (data: StudioMediaPrepareRequest): Promise<StudioMediaPrepareResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_MEDIA_PREPARE, data),
   studioMediaRelink: (data: StudioMediaRelinkRequest): Promise<StudioMediaRelinkResponse> =>

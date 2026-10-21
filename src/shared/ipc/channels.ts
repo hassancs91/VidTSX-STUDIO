@@ -447,6 +447,7 @@ export const IPC = {
   STUDIO_PROXY_ENCODER_STATUS: 'studio:proxy-encoder:status',
   STUDIO_PROXY_ENCODER_INSTALL: 'studio:proxy-encoder:install',
   STUDIO_PROXY_ENCODER_SET_ENABLED: 'studio:proxy-encoder:set-enabled',
+  STUDIO_PROXY_ENCODER_REBUILD: 'studio:proxy-encoder:rebuild',
   // Studio — timeline preview, background media jobs, export
   STUDIO_MEDIA_PREPARE: 'studio:media:prepare',
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',

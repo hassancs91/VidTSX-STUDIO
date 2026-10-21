@@ -45,6 +45,21 @@ vi.mock('../services/studio/gpu-adapters', () => ({
   detectNvidiaAdapter: async () => gpu.nvidia,
 }));
 
+const rebuildCalls: unknown[][] = [];
+const badProject = { id: 'bad id' };
+vi.mock('../services/studio/studio-paths', () => ({
+  getProjectDir: async (id: string) => {
+    if (id === badProject.id) throw new Error('Invalid project id');
+    return 'C:/root/projects/' + id;
+  },
+}));
+vi.mock('../services/studio/proxy-gpu-rebuild', () => ({
+  rebuildProxiesOnGpu: async (...args: unknown[]) => {
+    rebuildCalls.push(args);
+    return { restarted: ['dji'], rebuilt: [] };
+  },
+}));
+
 import {
   handleStudioProxyEncoderInstall,
   handleStudioProxyEncoderSetEnabled,
@@ -162,5 +177,32 @@ describe('studio proxy encoder handlers', () => {
   it('reports an in-flight download', async () => {
     full.downloading = true;
     expect((await handleStudioProxyEncoderStatus()).downloading).toBe(true);
+  });
+});
+
+describe('studio proxy encoder rebuild (A4: the card clip ends on the GPU)', () => {
+  beforeEach(() => {
+    rebuildCalls.length = 0;
+  });
+
+  it('passes the well-formed assets to the rebuild service and returns its result', async () => {
+    const { handleStudioProxyEncoderRebuild } = await import('./studio-proxy-encoder-handlers');
+    const res = await handleStudioProxyEncoderRebuild(event, {
+      projectId: 'scratch',
+      assets: [
+        { assetId: 'dji', path: 'D:/raw/dji.mp4' },
+        { assetId: 'nopath', path: '' },
+        { assetId: 7, path: 'D:/x.mp4' } as never,
+      ],
+    });
+    expect(res).toEqual({ success: true, restarted: ['dji'], rebuilt: [] });
+    expect(rebuildCalls).toEqual([['scratch', [{ assetId: 'dji', path: 'D:/raw/dji.mp4' }]]]);
+  });
+
+  it('refuses an invalid project id without queuing anything', async () => {
+    const { handleStudioProxyEncoderRebuild } = await import('./studio-proxy-encoder-handlers');
+    const res = await handleStudioProxyEncoderRebuild(event, { projectId: badProject.id, assets: [{ assetId: 'dji', path: 'D:/raw/dji.mp4' }] });
+    expect(res).toEqual({ success: false, error: 'Invalid project id', restarted: [], rebuilt: [] });
+    expect(rebuildCalls).toEqual([]);
   });
 });

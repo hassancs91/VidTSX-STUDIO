@@ -3,7 +3,9 @@ import {
   GPU_PROXY_OFFER_DISMISS_KEY,
   gpuProxyOfferBody,
   gpuProxyOfferOutcome,
+  gpuProxyRebuildTargets,
   isFourKVideo,
+  withRebuildNote,
   readOfferDismissed,
   shouldOfferGpuProxyDownload,
   writeOfferDismissed,
@@ -102,5 +104,30 @@ describe('Not now (session storage)', () => {
     expect(readOfferDismissed(broken)).toBe(false);
     expect(() => writeOfferDismissed(broken)).not.toThrow();
     expect(readOfferDismissed(undefined)).toBe(false);
+  });
+});
+
+describe('after the download: re-queue the 4K proxies still on x264', () => {
+  it('targets the 4K videos only, with their source paths', () => {
+    const assets = [
+      { id: 'dji', kind: 'video' as const, path: 'D:/raw/dji.mp4', probe: { width: 3840, height: 2160 } },
+      { id: 'hd', kind: 'video' as const, path: 'D:/raw/hd.mp4', probe: { width: 1920, height: 1080 } },
+      { id: 'still', kind: 'image' as const, path: 'D:/raw/4k.png', probe: { width: 3840, height: 2160 } },
+      { id: 'portrait', kind: 'video' as const, path: 'D:/raw/p.mp4', probe: { width: 2160, height: 3840 } },
+    ];
+    expect(gpuProxyRebuildTargets(assets)).toEqual([
+      { assetId: 'dji', path: 'D:/raw/dji.mp4' },
+      { assetId: 'portrait', path: 'D:/raw/p.mp4' },
+    ]);
+    expect(gpuProxyRebuildTargets([])).toEqual([]);
+  });
+
+  it('says the clips already imported are rebuilding on the graphics card', () => {
+    const ok = { ok: true, text: 'GPU encoder ready (NVIDIA NVENC): proxies for footage you import from now on build on the graphics card.' };
+    expect(withRebuildNote(ok, 0)).toEqual(ok);
+    expect(withRebuildNote(ok, 1).text).toBe(`${ok.text} The 4K clip already in this project is rebuilding on it now.`);
+    expect(withRebuildNote(ok, 3).text).toBe(`${ok.text} The 3 4K clips already in this project are rebuilding on it now.`);
+    const warn = { ok: false, text: 'Downloaded (Intel Quick Sync). Turn it on in Settings › Rendering.' };
+    expect(withRebuildNote(warn, 2)).toEqual(warn);
   });
 });

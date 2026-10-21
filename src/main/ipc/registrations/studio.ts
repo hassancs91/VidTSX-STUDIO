@@ -69,6 +69,7 @@ import {
 } from '../studio-package-handlers';
 import {
   handleStudioProxyEncoderInstall,
+  handleStudioProxyEncoderRebuild,
   handleStudioProxyEncoderSetEnabled,
   handleStudioProxyEncoderStatus,
 } from '../studio-proxy-encoder-handlers';
@@ -116,6 +117,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_STATUS, handleStudioProxyEncoderStatus);
   ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_INSTALL, handleStudioProxyEncoderInstall);
   ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_SET_ENABLED, handleStudioProxyEncoderSetEnabled);
+  ipcMain.handle(IPC.STUDIO_PROXY_ENCODER_REBUILD, handleStudioProxyEncoderRebuild);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_START, handleStudioTranscribeStart);
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_CANCEL, handleStudioTranscribeCancel);
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);

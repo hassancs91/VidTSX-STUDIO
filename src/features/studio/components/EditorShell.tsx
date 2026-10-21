@@ -119,7 +119,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     restoreVersion,
   } = useStudioProject(projectId);
   const { showToast } = useToast();
-  const gpuProxyOffer = useGpuProxyOffer();
+  const gpuProxyOffer = useGpuProxyOffer(project);
   const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   // Gap 10: the brand's fonts, linked into the document while the project is open.

@@ -1,6 +1,8 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type {
   StudioProxyEncoderInstallResponse,
+  StudioProxyEncoderRebuildRequest,
+  StudioProxyEncoderRebuildResponse,
   StudioProxyEncoderSetEnabledRequest,
   StudioProxyEncoderSetEnabledResponse,
   StudioProxyEncoderStatusResponse,
@@ -16,6 +18,8 @@ import {
   probeProxyEncoders,
 } from '../services/studio/ffmpeg-full';
 import { detectNvidiaAdapter } from '../services/studio/gpu-adapters';
+import { rebuildProxiesOnGpu } from '../services/studio/proxy-gpu-rebuild';
+import { getProjectDir } from '../services/studio/studio-paths';
 import {
   PROXY_GPU_ENCODER_LABELS,
   chooseProxyEncoder,
@@ -71,6 +75,21 @@ export async function handleStudioProxyEncoderInstall(): Promise<StudioProxyEnco
     return { success: true };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'ffmpeg download failed') };
+  }
+}
+
+export async function handleStudioProxyEncoderRebuild(
+  _event: IpcMainInvokeEvent,
+  data: StudioProxyEncoderRebuildRequest,
+): Promise<StudioProxyEncoderRebuildResponse> {
+  try {
+    await getProjectDir(data.projectId); // Validates the id before any job is queued.
+    const assets = (Array.isArray(data.assets) ? data.assets : []).filter(
+      (a) => typeof a?.assetId === 'string' && typeof a.path === 'string' && a.path.length > 0,
+    );
+    return { success: true, ...(await rebuildProxiesOnGpu(data.projectId, assets)) };
+  } catch (err) {
+    return { success: false, error: errorMessage(err, 'Failed to rebuild proxies'), restarted: [], rebuilt: [] };
   }
 }
 

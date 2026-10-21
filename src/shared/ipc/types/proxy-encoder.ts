@@ -51,3 +51,22 @@ export interface StudioProxyEncoderSetEnabledResponse {
   success: boolean;
   error?: string;
 }
+
+/**
+ * After the first-4K-import card's download (A4): the open project's 4K
+ * videos. Main rebuilds the ones whose proxy this session is building (or
+ * built) on x264 — the card's own clip included — on the GPU encoder.
+ */
+export interface StudioProxyEncoderRebuildRequest {
+  projectId: string;
+  assets: Array<{ assetId: string; path: string }>;
+}
+
+export interface StudioProxyEncoderRebuildResponse {
+  success: boolean;
+  error?: string;
+  /** In-flight x264 builds aborted and queued again. */
+  restarted: string[];
+  /** Finished x264 proxies queued again. */
+  rebuilt: string[];
+}

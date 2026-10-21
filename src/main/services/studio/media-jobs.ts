@@ -23,6 +23,8 @@ interface JobRecord {
   analysis?: AnalysisJobOptions;
   abort: AbortController;
   running: boolean;
+  /** `restart()` aborted it: queue a fresh build (force) once this one has exited. */
+  restart?: boolean;
 }
 
 function relPathFor(kind: StudioMediaJobKind, assetId: string): string {
@@ -127,11 +129,35 @@ class StudioMediaJobEngine {
     return null;
   }
 
+  jobState(projectId: string, assetId: string, kind: StudioMediaJobKind): 'running' | 'queued' | 'none' {
+    const job = this.jobs.get(`${projectId}:${assetId}:${kind}`);
+    return !job ? 'none' : job.running ? 'running' : 'queued';
+  }
+
+  /**
+   * Build again from scratch (force), e.g. a proxy on the GPU encoder that
+   * arrived mid-build (A4). A running job is aborted and requeued once its
+   * process has exited (no 'canceled' event — the asset stays 'generating').
+   */
+  async restart(projectId: string, assetId: string, kind: StudioMediaJobKind, sourcePath: string): Promise<void> {
+    const id = `${projectId}:${assetId}:${kind}`;
+    const job = this.jobs.get(id);
+    if (job?.running) {
+      job.restart = true;
+      job.sourcePath = sourcePath;
+      job.abort.abort();
+      return;
+    }
+    if (job) this.jobs.delete(id);
+    await this.request(projectId, assetId, kind, sourcePath, { force: true, sttModelId: job?.sttModelId, analysis: job?.analysis });
+  }
+
   /** Abort one job (the user canceled it) and tell the renderer. */
   cancel(projectId: string, assetId: string, kind: StudioMediaJobKind): boolean {
     const id = `${projectId}:${assetId}:${kind}`;
     const job = this.jobs.get(id);
     if (!job) return false;
+    job.restart = false;
     job.abort.abort();
     if (!job.running) this.jobs.delete(id);
     this.emit({ projectId, assetId, kind, status: 'canceled' });
@@ -142,6 +168,7 @@ class StudioMediaJobEngine {
   cancelProject(projectId: string): void {
     for (const [id, job] of this.jobs) {
       if (job.projectId !== projectId) continue;
+      job.restart = false;
       job.abort.abort();
       if (!job.running) this.jobs.delete(id);
     }
@@ -212,6 +239,10 @@ class StudioMediaJobEngine {
         error: message.slice(0, 300),
       });
     } finally {
+      if (job.restart) {
+        const { projectId, assetId, kind, sourcePath, sttModelId, analysis } = job;
+        void this.request(projectId, assetId, kind, sourcePath, { force: true, sttModelId, analysis });
+      }
       this.pump();
       // No analysis left to do: let the worker go after a while (the next
       // job respawns it — a couple of seconds on DirectML).
