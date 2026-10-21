@@ -1230,6 +1230,19 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > check:types baseline, the $0 bench (RACE on E2 and R2; E1, E3, R1 and both P3 builds keep their P4-12 verdicts), the
 > $0 UI check of the "+" fix, and one paid B1 + Blueprint Creator re-run (≈ $0.45). Parts: 1 race + badge + numbersOk
 > + bench · 2 text_overlaps · 3 cost estimate · 4 traps · 5 docs · 6 exit.
+> - **Part 1 DONE `9c6f3cb`, $0** (no signed file; packs are not signed). `number-race.ts`: a TIME COUNTER = a track
+>   whose values carry a time unit (in the node, or the word right beside it on its line); its RUN = the longest
+>   stretch of changes in one direction (a reset before the count is its own stretch); two runs that start together
+>   (± max(4 f, 15 % of the longer)) must show the same seconds per frame within `RACE_RATE_TOLERANCE` 1.5×, unless the
+>   faster side ends within 2 frames and the slower side's rate would get it there as fast (a right 1000× race). RACE
+>   makes `ok` false, so the finish gate and `numbersOk` cover it with SPLIT (gate line "SPLIT or RACE"). Fixed numbers
+>   that state a ratio are kept as drawn (`badges`) and quoted against the motion. Infographic-loop pack: "A race runs
+>   on one clock." `numbersOk` in TsxBuildJobIpc, `finalBuild`, the spike report and `buildOutcomeLines` ("numbers
+>   checked" / "numbers NOT verified (number_check: split or race)"). Tests 644/644 (tsx-builder + agents +
+>   tsx-jobs, 6 new); check:types 26/10 = baseline. **Bench** (`runs/P5/numbers-p51.json`, 7 sources, in the app):
+>   all 7 as expected: E2 RACE ("2.00" f30-150 vs "2.0" f30-60: motion ~4.0×, counters 1,000×; "50,000× FEWER READS"
+>   quoted), R2 RACE ("2.00 s" f30-210 vs "2.0 ms" f32-90: ~3.1× vs 1,000×; "1000× FASTER" quoted), E1 and R1 OK, E3
+>   and both P3 builds SPLIT, no false race. Sweeps 14-33 s a build.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
