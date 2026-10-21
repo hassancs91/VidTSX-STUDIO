@@ -302,7 +302,7 @@ numbers."
   the CDP-driven ones; the refusal-only-in-Queue-Details note, the strict-preflight note, and the step-4b
   encoder crash recorded as a known issue: seen once, not reproduced in 3 traced back-to-back runs, not
   root-caused, Remotion's `renderMedia` never settles when its pre-encode ffmpeg dies, guard → A5 step 0).
-  Commit: see LOG.md's last line (`docs(studio): A4 — part close …`).
+  Commit `63e8f04` (`docs(studio): A4 — part close: STATUS row + TESTING §18.4 …`).
 
 ## Verified (exact commands + outputs)
 
