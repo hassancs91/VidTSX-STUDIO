@@ -1297,6 +1297,19 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   $0.40, the SDK's own guess for a model it cannot price; the list prices those tokens at $0.14. Two list
 >   notes: OpenRouter prices Sonnet 5.5 cache reads at $0.10/M where the skill and the SDK say $0.20/M (the table
 >   keeps $0.20); a long-prompt price override (≥ 272k prompt tokens) is not read.
+> - **Part 4 DONE `f4e236f`, $0** (no signed file, no resources/, no EditorShell). P5-6 (a). `deep-link.ts`
+>   `deepLinkToApply`: AgentWorkspace consumes a deep link's token the first time the session list has loaded
+>   (applied if the session exists, ignored if not) and keeps it in a ref, so a later list change ("+" creates a
+>   session and refreshes the list) no longer snaps back to the linked session; a new token (Continue clicked
+>   again, `Date.now()` in AgentsScreen) applies again. Driver rule in `docs/ui-automation-cdp.md` "Agents" and a
+>   note atop `docs/studio/TESTING.md`: list sessions with `agentSessionsList`; `agentSessionLoad` is the open path
+>   (rewrites `lastOpenedAt`, registers the run, starts the video watch). Tests: deep-link.test.ts 7 new; agents +
+>   main agents + renderer 422/422; check:types 26/10. **$0 UI check** (dev app, throwaway profile, `runs/P5/ui-p54`,
+>   0 turns): deep link to the Assistant's s-2588ed17 → its row highlighted; "+" → a new session s-4a67796e created
+>   and highlighted, held for 5 s (10 reads), no snap-back; the link dispatched again → s-2588ed17 again; no console
+>   errors. **Judgment call:** checked on the Assistant (no starter, so "+" creates at once: the same create → list
+>   refresh that caused the trap) rather than finishing a starter on Infographic Loop, which would have opened a
+>   session there; s-23ef7a41 and s-a864bd64 not opened. The empty test session is left in the throwaway profile.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
