@@ -29,6 +29,7 @@ import {
   rewriteCssFontUrls,
 } from './font-proxy-rewrite';
 import { isFontUpstreamBlocked } from './font-upstream-dev-overrides';
+import { fetchFontBytes } from './font-upstream-fetch';
 
 export { rewriteFontUrls, rewriteCssFontUrls } from './font-proxy-rewrite';
 
@@ -67,17 +68,8 @@ async function fetchAndCache(url: string, cachePath: string): Promise<void> {
       throw new Error(`Upstream blocked (dev override) for ${url}`);
     }
     log.debug('Fetching font from upstream', { url });
-    const resp = await fetch(url, {
-      // gstatic.com sniffs user-agent for woff2 vs woff — Chrome UA gets woff2.
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    });
-    if (!resp.ok) {
-      throw new Error(`Upstream ${resp.status} for ${url}`);
-    }
-    const buf = Buffer.from(await resp.arrayBuffer());
+    // One retry on a network error or 5xx, never on a 404 (font-upstream-fetch.ts).
+    const buf = await fetchFontBytes(url);
     // Write atomically — write to .tmp then rename — so concurrent reads never
     // observe a partial file.
     const tmp = `${cachePath}.tmp`;

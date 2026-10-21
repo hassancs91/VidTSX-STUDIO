@@ -69,6 +69,32 @@ describe('ensureFontCached (the export preflight warm-up)', () => {
     await expect(ensureFontCached(CSS)).rejects.toThrow(`Upstream 404 for ${B}`);
   });
 
+  it('one blip mid-download (undici `terminated`) is retried once and the file is cached', async () => {
+    let failedOnce = false;
+    vi.stubGlobal('fetch', async (url: string) => {
+      fetched.push(url);
+      if (url === B && !failedOnce) {
+        failedOnce = true;
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(new TypeError('terminated'));
+          },
+        });
+        return new Response(body, { status: 200 });
+      }
+      return new Response(url === CSS ? BODY : `font:${url}`, { status: 200 });
+    });
+    expect(await ensureFontCached(CSS)).toEqual({ fetched: 3, cached: 0 });
+    expect(fetched).toEqual([CSS, A, B, B]);
+    expect((await fs.readdir(cacheDir)).filter((f) => !f.endsWith('.tmp'))).toHaveLength(3);
+  });
+
+  it('a 404 is not retried', async () => {
+    missing = new Set([A]);
+    await expect(ensureFontCached(A)).rejects.toThrow(`Upstream 404 for ${A}`);
+    expect(fetched).toEqual([A]);
+  });
+
   it('throws on a cold cache when the upstream is blocked, without fetching', async () => {
     upstream.blocked = true;
     await expect(ensureFontCached(A)).rejects.toThrow('Upstream blocked (dev override)');

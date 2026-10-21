@@ -30,16 +30,16 @@ export function fontPreflightVerdict(urls: readonly string[], failed: readonly s
   const named = families.slice(0, MAX_NAMED).join(', ');
   const more = families.length > MAX_NAMED ? ` and ${families.length - MAX_NAMED} more` : '';
   const count = failed.length === 1 ? '1 font file' : `${failed.length} font files`;
-  return {
-    ok: false,
-    total: urls.length,
-    failed: [...failed],
-    families,
-    message:
-      `Export not started: this video's shots use Google Fonts that are not downloaded yet (${named}${more}), ` +
+  // Only when NOTHING could be had is "could not be reached" true; when some files came down
+  // (or were cached) and a few did not, the connection worked and blipped (A4 verifier: 2 of 104).
+  const allFailed = failed.length >= urls.length;
+  const message = allFailed
+    ? `Export not started: this video's shots use Google Fonts that are not downloaded yet (${named}${more}), ` +
       `and Google Fonts could not be reached (${count} missing). Connect to the internet and export again; ` +
-      'once downloaded, the fonts stay cached and later exports work offline.',
-  };
+      'once downloaded, the fonts stay cached and later exports work offline.'
+    : `Export not started: ${failed.length} of ${urls.length} font files this video's shots use could not be ` +
+      `downloaded (${named}${more}) — check your connection and export again. The files that did download stay cached.`;
+  return { ok: false, total: urls.length, failed: [...failed], families, message };
 }
 
 /**
