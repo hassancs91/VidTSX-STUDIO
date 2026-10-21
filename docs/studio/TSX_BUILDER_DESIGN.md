@@ -1148,6 +1148,33 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   turn). s-23ef7a41 not opened. **Judgment call, reported:** the starter's format question goes (the frame is fixed at
 >   4:5 as the form pack suggests; the user can still ask for another size in chat). Found: a session created over IPC
 >   (`agentSessionCreate`) opens on the quick starts, not the starter; the starter belongs to "+" (left as is).
+>
+> - **Part 5 DONE: the exit (P4-11 a), 10-21**, $1.29 API-eq in 5 rows (Sonnet 5.5 provider default, Craft, 1080 ×
+>   1350, 8 s, loop; dev app over CDP, throwaway profile; no MP4; detail `ai-video-lab/.../FINDINGS-P4.md`, runs
+>   `runs/P4/exit/`). **E1** Creator, B2 idea verbatim + Kind Infographic loop + Style Flat bold → `compound-interest-3`
+>   v1: 2.2 min, 4/6, 8 checks, 7.2k out, $0.38, seam OK: coins at "◯ = $1,000", ghost slots for all 34 / 101 coins,
+>   "+$800 a year" vs "+$X a year", year-30 payoff on frame 0, ONE clock (`t = floor(yearAt(f))`). **Pass.** **E2**
+>   Creator, B1 + Blueprint → `index-lookup` v1: 2.4 min, 4/6, 9 checks, 11.0k out, $0.39, seam OK: "■ = 10,000 ROWS"
+>   grid scan + "● = 1 STEP" tree path, ghost cells / nodes, per-step deltas, end state on frame 0; the moves carried
+>   over (not overfit), but TWO clocks (scan f30-150, tree f30-60: the motion says ~4×, the counters 1,000×) and a
+>   fixed "50,000× FEWER READS" badge. **E3** agent `lwh/infographic-loop` 0.2.0 on B2 → "Picture ideas" (three ideas,
+>   five parts each, no boxes) → **P4-7 live: pass** ("Skip and chat" started no turn, no Stop, the skipped line, the
+>   box focused; a typed "Go with a" answered the pending pick, the next `ask_user` was accepted) → one
+>   `generate_composition` (brief = idea verbatim + metaphor + frame 0; `packs` core/infographic-loop +
+>   core/style-flat-bold → `craftPacks` + concept-to-picture; craft) → approve card LEFT PENDING. Build 2.7 min, 4/6,
+>   10 checks, 10.4k out, $0.40 (run $0.52): two jars at "1 coin = $200", ghost slots, "+$X this year" with that
+>   year's coins outlined, a live "3.0×", payoff on frame 0; **one clock slip**: YEAR = floor(t) while the totals
+>   interpolate between whole years (f130 "YEAR 7" beside $16,000 / $17,824), although that look's frame text listed
+>   it. Every build finished at the round floor; no build wrote a PACK: line. Walls `P4-B2` (column 3 | P3 Creator
+>   Craft | E1), `P4-B1` (column 3 | E2), `P4-B2-agent` (column 3 | P3 agent Craft | E3). **Found, not changed:** "+"
+>   then the starter creates the new session but the view returns to the session open before, so Send posts the
+>   opening there (E3 ran in part 4's empty check session `s-a864bd64`; the new `s-ac48b151` sits empty); an IPC
+>   `agentSessionLoad` moves a session's `lastOpenedAt`; the agent's approve card still covers its viewer.
+>
+> **P4 exit (10-21): met on B2.** A user picks Infographic loop + a style in the Creator and gets the column-3 result
+> without an agent (E1); the agent v0.2 reaches the same class with one clock slip (E3); B1 carries the moves with two
+> clocks (E2). All three beat P3's B2 runs at a third to a half of the cost. Open for Hasan: the one-clock rule and
+> the PACK: line are prompt-only and not reliably kept (P4-5 (b), a numbers-against-step look check, or P5).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
@@ -1158,7 +1185,7 @@ point and putting the result on the wall beside R0b column 3, with time, rounds 
 | **P1 builder service** | request/result types, build folders + versions (`vN.tsx`, `vN.src/`, debug), all T2 tools except `text_overlaps`, budgets + caps, cancel, progress events, the `generateTsx()` dispatcher, tsx-job hosting (builder only; providers without tools → clear error; OpenRouter models must have tools + image input), unit tests | all four briefs through the job engine at Craft on the wall (`P1-B1..B4`) + one Standard edit of B2 |
 | **P2 no limits** (Rev 2) | T4 Rev 2: the curated library set behind one constant, GPU stills + export, frame-pure physics helper + rule, builder assets folder, packaged-app resolution (asar), no network at render; plus T5 fonts, kit on the render path, prompts aligned | new 3D + physics briefs reach the lab's real3d quality; the four 2D briefs still pass; dev and packaged, offline after the first run |
 | **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline. **Ran 10-17 (Sonnet 5.5 defaults):** no caller reaches the pipeline (met); column-3 class on Studio + flow, not on the Creator or the agent (B2, Standard + one Craft re-run each); FINDINGS-P3.md |
-| **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent |
+| **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent. **Ran 10-21 (Sonnet 5.5 default, Craft):** met on B2 in the Creator (E1); agent v0.2 the same class with one clock slip (E3); B1 + Blueprint carries the moves with two clocks (E2); $1.29 in all; FINDINGS-P4.md |
 | **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes | stability gate |
 
 Rules: CLAUDE.md applies (feature isolation, IPC only, services hold logic, ~300 lines per
