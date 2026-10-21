@@ -1327,6 +1327,33 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   unticked (ticking is his pass; ✎ points at the P0-P5 runs); the draft notes cover the whole branch, T9's two fixes
 >   (Sonnet 5.5 default, the allowedTools gap) and the GPU-auto export included; the SKILLS.md note sits in the
 >   Frontmatter rules.
+> - **Part 6 DONE: the exit (P5-8 a), 10-21, $0.49 API-eq in 1 row** (no code, no signed file, no resources/, no
+>   EditorShell; detail `ai-video-lab/.../FINDINGS-P5.md`, runs `runs/P5/exit-p56*`). **6a ($0):** check:types 26/10 =
+>   baseline; full vitest 418 files / 3525 tests, 1 failure: shot-module-resolver.test.ts "a changed transpiler
+>   fingerprint misses every tier" (`waitForFile` 5 s timeout), passes alone 10/10 on 2 runs, file untouched by P5 =
+>   the baseline's load-flake class. Bench (`runs/P5/exit-p56.json`, spike `numbers`): E2 RACE, R2 RACE, word for word
+>   part 1's; E1, E3, R1 and both P3 builds keep their P4-12 verdicts (not re-run). "+" re-check in the same launch:
+>   deep link → s-2588ed17 highlighted; "+" → a new s-dca45727 highlighted, held 5 s, no snap-back; link again →
+>   s-2588ed17. **6b (the one paid run, on Hasan's go, cap $0.80; stated ≈ $0.45):** Creator, B1 idea verbatim +
+>   Infographic loop + Blueprint, Craft, 4:5 · 8 s · loop, Sonnet 5.5 provider default (E2 / R2's settings) →
+>   `database-index-2` v1: 4.1 min, 5/6 rounds, 13 checks, 14 API turns, 11.1k out, seamOk, **numbersOk**, $0.49.
+>   The builder ran `number_check` itself three times (build 1 SPLIT on a cell-count legend vs fractional counters,
+>   fixed by reading the counters from the integer cell count; builds 2-3 OK; races [] on all three). **The race now
+>   runs on ONE clock:** `progress(f)` f30-216 drives the scan (rows, "0.96s", "48 OF 100 CELLS" at f120 from one
+>   integer), the index side lights all 20 steps within the 3-frame reset ("2ms · 20 STEPS"; its summary: "on the
+>   shared clock it finishes in under a frame"), so 186 frames vs < 1 agrees with "1,000× FASTER" (fixed, now true to
+>   the motion). E2 / R2 were ~4× / ~3× motion against 1,000× counters. Caveats: the tree's walk is not shown in
+>   motion (correct on one clock); text_overlaps not re-run after the last layout edit (free, not a gate). One run is
+>   one sample; the gate never refused, so the pack line ("A race runs on one clock.") is the likely cause.
+>   **Judgment calls:** (1) one app launch for 6a's bench + UI check (`quit: false`); (2) the "+" re-check leaves a
+>   second empty Assistant session s-dca45727 beside s-4a67796e in the throwaway profile, both left for Hasan; (3) 6a
+>   recorded in the handoff only, written here with 6b; (4) the 1 vitest failure counted as the baseline's load-flake
+>   class; (5) 6b's guard: a watcher that cancels once the status passes 17k tokens out (≈ $0.73), since the app's
+>   own Sonnet Craft range reaches $0.92 (not triggered).
+>
+> **P5 exit (10-21): MET.** The stability gate holds (check:types and vitest at baseline, the bench still calls the two
+> P4 races RACE, the "+" fix holds in the UI), and the one paid B1 + Blueprint re-run, P4's open fault, now runs its
+> race on one clock with `numbersOk` reaching the result, at $0.49. P5 total paid: $0.49 API-eq.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
@@ -1338,7 +1365,7 @@ point and putting the result on the wall beside R0b column 3, with time, rounds 
 | **P2 no limits** (Rev 2) | T4 Rev 2: the curated library set behind one constant, GPU stills + export, frame-pure physics helper + rule, builder assets folder, packaged-app resolution (asar), no network at render; plus T5 fonts, kit on the render path, prompts aligned | new 3D + physics briefs reach the lab's real3d quality; the four 2D briefs still pass; dev and packaged, offline after the first run |
 | **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline. **Ran 10-17 (Sonnet 5.5 defaults):** no caller reaches the pipeline (met); column-3 class on Studio + flow, not on the Creator or the agent (B2, Standard + one Craft re-run each); FINDINGS-P3.md |
 | **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent. **Ran 10-21 (Sonnet 5.5 default, Craft):** met on B2 in the Creator (E1); agent v0.2 the same class with one clock slip (E3); B1 + Blueprint carries the moves with two clocks (E2); $1.29 in all; FINDINGS-P4.md. **P4-12 (10-21):** `number_check` + finish gate; B2 re-run one clock and checked OK, B1 re-run still two race clocks (text cannot see it); $0.84. **CLOSED 10-21** |
-| **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes; plus (plan 10-21) a RACE verdict in `number_check`, `numbersOk` to callers, the "+" deep-link fix | stability gate: vitest + check:types baseline, the $0 bench (RACE on E2 / R2, the P4-12 verdicts kept), the "+" fix in the UI, one paid B1 + Blueprint re-run (≈ $0.45) |
+| **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes; plus (plan 10-21) a RACE verdict in `number_check`, `numbersOk` to callers, the "+" deep-link fix | stability gate: vitest + check:types baseline, the $0 bench (RACE on E2 / R2, the P4-12 verdicts kept), the "+" fix in the UI, one paid B1 + Blueprint re-run (≈ $0.45). **Ran 10-21:** gates at baseline (1 load flake, passes alone); E2 / R2 still RACE; "+" holds; B1 + Blueprint re-run `database-index-2` 5/6, numbersOk, the race on ONE clock, $0.49; FINDINGS-P5.md. **Exit met; CLOSED 10-21** |
 
 Rules: CLAUDE.md applies (feature isolation, IPC only, services hold logic, ~300 lines per
 file, Remotion pinned to 4.0.435 with no `^`, `check:types` against the baseline, `npx vitest
