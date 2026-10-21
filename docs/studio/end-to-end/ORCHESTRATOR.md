@@ -10,7 +10,7 @@
 
 | Part | Status | Builders spawned | Verifier result | Commit | Exit numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| A1 | BUILDING | 0 | — | — | — | 2026-10-21 18:42 / — |
+| A1 | VERIFY | 2 | — | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | — | 2026-10-21 18:42 / — |
 | A2 | TODO | | | | | |
 | A3 | TODO | | | | | |
 | A4 | TODO | | | | | |
