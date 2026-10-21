@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS (steps 0, 1, 2, 3 + the orchestrator's "rebuild the triggering clip on the GPU" override done in code + unit tests; next: step 4, the live CDP run for both exits)
+status: IN PROGRESS (steps 0, 1, 2, 3, 3b done in code + unit tests; step 4 GPU half PROVEN LIVE (CDP, no restart, no Settings visit); next: step 4 font half, then the gates + STATUS row + TESTING §18.4)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -166,6 +166,17 @@ numbers."
   - Tests: `proxy-encoders.test.ts:123` (3 cases), `studio-proxy-encoder-handlers.test.ts:86,95,104`
     (auto-on without writing the setting; QSV stays off until opted in; explicit off stays off)
     + the default case now asserts `choice: null`.
+- **Step 4a — the GPU exit, PROVEN LIVE on an isolated profile (2026-10-21, no code change).** A fresh
+  4K import builds its proxy on NVENC without a Settings visit and WITHOUT a restart; the triggering
+  clip itself ends on NVENC (step 3b's rebuild path, `rebuilt`), and a later import goes straight to
+  NVENC. `GPU_PROXY_RESTART_NOTE` stays `null` (recorded decision: no restart needed for proxies —
+  the probe ran 3.7 s AFTER "Full ffmpeg installed", so the A2 mid-extraction suspect did not bite).
+  Kit (all under `.vidtsx-temp/end-to-end/A4/`): `launch.sh` (port 9244, profile `A4/profile`,
+  log `A4/app.log`, env `VIDTSX_MEDIA_PICK=<the DJI clip>` and
+  `VIDTSX_FONT_UPSTREAM_OVERRIDES={"blockWhileExists":".../A4/block-fonts"}`), `cdp.mjs`, `dom.js`,
+  `restore.ps1`, `drive.mjs` (phases `ready | create | gpu | reimport | settings`). Scratch project
+  `A4/root/projects/a4-gpu-proxy` (1080p30, two assets of the DJI clip referenced in place).
+  Stills: `A4/stills/gpu-card-offer.png`, `gpu-card-done.png`, `settings-proxy-gpu-row.png`.
 - **Step 3 — the first-4K-import download card, code + unit tests** (`139a4a9`). Not yet driven.
   - Pure, `src/features/studio/services/gpu-proxy-offer.ts`: `GPU_PROXY_MEASURED` :15 (12 s vs 91 s
     per minute, from `proxy-encoders.ts:7-12`); `GPU_PROXY_RESTART_NOTE` :22 (`null` today — the ONE
@@ -248,6 +259,45 @@ numbers."
 
 ## Verified (exact commands + outputs)
 
+- Step 4a (GPU exit, live). Before: no electron.exe running, ports 9222/5173/9244 free; free space
+  C: 23.11 GB, D: 5.33 GB. `ffprobe -select_streams v:0 … DJI_20261015115644_0366_D.MP4` →
+  `codec_name=hevc|width=3840|height=2160|r_frame_rate=60000/1001`, `duration=20.288000|size=190458332`.
+  `bash A4/launch.sh` (background) → CDP up ~39 s; `node drive.mjs ready` → ready;
+  `node drive.mjs create` → `studioRootSet … root: …\A4\root, projects: 0`, editor up, project
+  `a4-gpu-proxy`. `node drive.mjs gpu` (log `A4/logs/drive-gpu.log`; times UTC):
+  - status before: `enabled:false, installed:false, downloadable:true, downloadBytes:80069496,
+    choice:null, nvidiaAdapter:true`.
+  - 19:31:49.338 Import clicked → 19:31:50.947 `[data-gpu-proxy-offer=offer]`, body "4K preview proxies
+    take about 91 s per minute of footage on the CPU, about 12 s on an NVIDIA graphics card. The GPU
+    encoder is a one-time 76 MB download (full ffmpeg, GPL v3)."
+  - 19:31:51.194 Download clicked. Meanwhile the clip's x264 proxy: seg dir `x264-540p-g1-crf28`
+    19:31:51.577 → final `e261ed3d….mp4` 9,194,150 B at 19:32:15.284 (23.7 s for 20.3 s of 4K60 HEVC
+    ≈ 70 s per minute here).
+  - Main log (`A4/profile/logs/vidtsx-2026-10-21.log`): `Starting download` 19:31:51.178 (80,069,496 B,
+    no Range support) → `Hash verified` 19:33:33.183 → extraction 19:33:33.183–19:33:37.147 →
+    `Full ffmpeg installed` 19:33:37.164 (~106 s total, ≈0.78 MB/s) → `Probed GPU proxy encoders
+    {listed:[nvenc,qsv,amf], working:[nvenc,qsv]}` 19:33:40.832 → `Proxies re-queued on the GPU encoder
+    {projectId:a4-gpu-proxy, encoder:nvenc, restarted:[], rebuilt:[e261ed3d-0cf3-4e82-a662-db2d69fb0451]}`
+    19:33:40.869 (x264 had already finished, so the `rebuilt` branch).
+  - 19:33:40.916 `[data-gpu-proxy-offer=done]`, outcome `ok`: "GPU encoder ready (NVIDIA NVENC): proxies
+    for footage you import from now on build on the graphics card. The 4K clip already in this project
+    is rebuilding on it now."
+  - Seg dir `nvenc-540p-intra-q33` 19:33:41.047 → final `e261ed3d….mp4` 8,738,982 B at 19:33:48.903
+    (7.9 s incl. job start ≈ 23 s per minute), asset `proxy.status: ready`, file has NO `x264 - core`
+    SEI string (`x264-tagged = false`).
+  - status after: `enabled:true, installed:true, detected:nvenc, listed:[nvenc,qsv,amf], choice:null`.
+    `A4/profile/ffmpeg-full/encoders.json` = `{"listed":["nvenc","qsv","amf"],"working":["nvenc","qsv"],…}`;
+    `ffmpeg-full` = 170 MB extracted (zip removed).
+- `node drive.mjs reimport` (`A4/logs/drive-reimport.log`): same clip again → seg dir
+  `nvenc-540p-intra-q33` at +2.2 s, final 8,738,982 B at +8.5 s (6.3 s build), `x264-tagged = false`;
+  no new offer (the card was still on `done`).
+- `node drive.mjs settings` (`A4/logs/drive-settings.log`): `[data-proxy-gpu-detected]` = "Detected:
+  NVIDIA NVENC — on automatically", `[data-proxy-gpu-toggle]` checked, not disabled. Store: `grep -c -a
+  proxyGpuEncoder` over `A4/profile/settings/settings.db{,-shm,-wal}` → 0 / 0 / 0 (control: `studioRoot`
+  → 2 hits in `-wal`), i.e. no `proxyGpuEncoderEnabled` key was written.
+- `A4/profile/font-cache` has 0 files after the GPU half (cold, as the font half needs). The app was
+  stopped with `taskkill /T /F` on the port-9244 main electron.exe; no electron.exe / electron-vite left.
+
 - Step 3b: `npx vitest run src/main/services/studio/media-jobs.test.ts src/main/services/studio/proxy-gpu-rebuild.test.ts src/features/studio/services/gpu-proxy-offer.test.ts src/main/services/studio/proxy-generator.test.ts`
   → `Test Files  4 passed (4)` / `Tests  34 passed (34)` (red before the code: 6 failed);
   `npx vitest run src/main/ipc/studio-proxy-encoder-handlers.test.ts` → `Tests  13 passed (13)`.
@@ -303,15 +353,22 @@ numbers."
 
 ## Next step (ONE concrete instruction)
 
-**The override below is DONE in code (`3d450ba`, see Done "Step 3b") — do not rebuild it; step 4
-proves it live.** In the GPU half, after Download, do NOT re-import first: wait for the card's
-`[data-gpu-proxy-offer-outcome=ok]` (expect "… The 4K clip already in this project is rebuilding on it
-now."), grep the main log for `Proxies re-queued on the GPU encoder` (expect `restarted:[<id>]` or
-`rebuilt:[<id>]`), and while the rebuilt proxy is in flight read
-`<root>/projects/<id>/cache/proxies/<assetId>/` plan file `profile` (`nvenc-540p-intra-q33` = GPU; the
-segment folder is deleted when the proxy finishes, so poll it during the build — or rely on the
-`Probed GPU proxy encoders` line plus the rebuild log line and the NVENC ffmpeg in Task Manager).
-Only if that fails, try the re-import fallback and root-cause.
+**Step 4, font half (the GPU half is DONE live — see Done "Step 4a"; do not redo it).** Add a
+`fonts` phase to `.vidtsx-temp/end-to-end/A4/drive.mjs` modelled on A3's export phase
+(`.vidtsx-temp/end-to-end/A3/drive.mjs`), relaunch with `bash .vidtsx-temp/end-to-end/A4/launch.sh`
+(same profile: full ffmpeg installed, font cache EMPTY, Studio root currently `A4/root`), and on it:
+`studioRootSet` → `.vidtsx-temp/end-to-end/v14-root` (confirm with `studioRootGet`), Settings ›
+Rendering CPU "low", `touch A4/block-fonts`, open video-14, export a 1080p range ≈ 0:06–0:11
+(`V14A1Nobody`) with output into `.vidtsx-temp/end-to-end/A4/export/` → expect the refusal text
+("Export not started: … Google Fonts …") and no scratch dir; `rm A4/block-fonts` → same export →
+completes, record the `Export font preflight` line (`urls`, `filesFetched`, `filesCached`, `failed`)
+and any per-URL failure status codes (see Open problems "strict per URL"); `touch A4/block-fonts`
+→ same export → completes with `filesFetched: 0` and zero `Font upstream blocked` / `Font proxy fetch
+failed` lines between its start and end in `A4/profile/logs/vidtsx-2026-10-21.log`. Free space
+C:/D: first. Then stop the app, the gates (full vitest with the app stopped, check:types), the
+STATUS.md row and TESTING §18.4 (include the step 4a numbers above).
+
+**DONE (`3d450ba` + step 4a live): the override below.** Kept for the record.
 
 **Orchestrator override (2026-10-21), before step 4:** the exit says "a fresh 4K import on this
 PC builds proxies on NVENC without a Settings visit". With the card as built, the 4K clip that
@@ -325,6 +382,7 @@ GPU tools to be seen, the card must say so (`GPU_PROXY_RESTART_NOTE`) and the ex
 measured after that one restart — record which. Then run step 4 as below, and in the GPU half
 check the TRIGGERING clip's proxy profile, not a re-imported one.
 
+(DONE as step 4a — kept for the record; the font-half recipe is in Open problems.)
 Step 4, GPU half FIRST (it needs no video-14 render): write a CDP driver (Write tool) under
 `.vidtsx-temp/end-to-end/A4/` from A1's `launch.sh` (fresh profile `.vidtsx-temp/end-to-end/A4/profile`,
 its own CDP port, e.g. 9244 — A1 used 9241 — and its own log), set the Studio root to `.vidtsx-temp/end-to-end/A4/root`, create
@@ -368,6 +426,11 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   and the export's warnings). `ensureFontCached` throws per URL today; carry the HTTP status in
   the error so `checkExportFonts` / `fontPreflightVerdict` can tell them apart (pure verdict
   first, with tests). If no URL 404s, record "0 failed of N" and leave the strict rule.
+- **ANSWERED in step 4a (2026-10-21): no restart.** The probe ran after the install finished
+  (`Full ffmpeg installed` 19:33:37.164 → `Probed GPU proxy encoders` 19:33:40.832, working
+  `[nvenc,qsv]`), the rebuild and a later import both built `nvenc-540p-intra-q33` in the same
+  process; `GPU_PROXY_RESTART_NOTE` stays `null`. (A2's stale Fast export engine was not re-tested —
+  that is the export-engine status path, not proxies.) Original question kept below.
 - **Step-4 must-record: does a GPU proxy need a restart after the in-app download?** Step 2's
   `resolveProxyGpuEncoder` reads the binary and `encoders.json` fresh per proxy build, so in
   theory no. But A2 saw Fast stay "Needs the GPU encoder download" ~30 s after an in-app install
@@ -379,7 +442,7 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   (`nvenc-540p-intra-q33` = GPU, x264 tag = CPU) in the scratch project's `cache/`. If it fell
   back to x264, cat `<profile>/ffmpeg-full/encoders.json`; fix the root cause in code (preferred)
   or make the card say "restart to apply"; record which.
-- Step-4 recipe for the GPU exit: fresh isolated profile (setting unset), check C:/D: free space,
+- (DONE, step 4a) Step-4 recipe for the GPU exit: fresh isolated profile (setting unset), check C:/D: free space,
   confirm `D:\repos\claude-youtube-editor\videos\video-14\raw\DJI_20261015115644_0366_D.MP4` is
   3840×2160 with ffprobe, scratch project in A4's own scratch root (never the video-14 copy),
   import → the card → Download (80.1 MB into A4's profile only) → (restart only if proven needed)
@@ -408,6 +471,9 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   proof (step 4) and, if proven necessary, a non-null `GPU_PROXY_RESTART_NOTE`.
 - Step 3b DONE (`3d450ba`): do not re-add `jobState`/`restart`, the session encoder record, the
   planner, the `studio:proxy-encoder:rebuild` channel or the card's rebuild note.
+- Step 4a DONE (live, 2026-10-21): do not re-run the GPU half or re-download the full ffmpeg — it is
+  installed in `A4/profile/ffmpeg-full` (170 MB). Do not set `GPU_PROXY_RESTART_NOTE`. Do not delete
+  `A4/root/projects/a4-gpu-proxy` (evidence; its two proxies are the NVENC outputs).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -424,6 +490,10 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
 - 2026-10-21 · agent 5 · ~40 calls · step 3b (orchestrator override: rebuild this session's x264 4K
   proxies on the GPU after the card's download — engine restart, session encoder record, planner, IPC,
   hook, tests, green full run); did not launch the app or look up the media-import dialog stand-in.
+- 2026-10-21 · agent 6 · ~35 calls · step 4a (the GPU exit live on port 9244: ffprobe, fresh scratch
+  project, `VIDTSX_MEDIA_PICK` import → card → 80 MB download → triggering clip rebuilt on NVENC, no
+  restart; re-import straight to NVENC; Settings row auto-on with no key written); did not start the
+  font half (no video-14 open, no export run, font cache still cold).
 - 2026-10-21 · agent 3 · ~30 calls · step 2 (GPU proxies default on when viable: pure resolver,
   tri-state setting, effective status + `choice`, row copy, tests, green full run); did not read
   `media-jobs.ts` or the import UI for step 3.
