@@ -7,6 +7,49 @@
 
 ---
 
+## 2026-10-21 — END-TO-END PLAN: written and DECIDED, build not started
+
+- **What:** `docs/studio/END_TO_END_PLAN.md` — raw files to the finished video inside Studio, editing only
+  (packaging / upload / Notion out of scope by Hasan). Six tracks, each with an exit measured on video-14:
+  **A** 4K project + export (the `remotion/no-react` inlining that orphans the export's delayRender holds,
+  1080p/1440p export presets, font preflight, GPU proxies default, temp + disk preflight, a user-facing A/V
+  check) · **B** the cut (Hasan's 2026-10-15 fitted knobs ported with ZCR / snapHead / minSkip, styles on
+  the preset behind one resolver for all four consumers, learning head/tail/margin from the joins he moves,
+  hard-entry + clipped-tail readouts, the text-edit flag) · **C** visuals (crop + radius on the clip
+  transform, a `split` shot kind with a cropped backdrop for the looks, PipHole in the kit, a transform
+  tool, file tools + writable notes + session continuity + a user skills folder for the assistant) ·
+  **D** voice cleanup (a `cleanAudio` job; ElevenLabs isolation, RNNoise with the 480-sample latency
+  compensated, Mel-Band RoFormer de-reverb on the Python runtime; substitution in the serializer and
+  `clipAudibles`) · **E** SFX as library content (index v2 with kind / probe / tags / usedIn, loudness at
+  generation, reuse-before-generate, the reference catalog importer) · **F** parallel shot builds (the
+  `canStart` gate, a batch tool, a RAM floor).
+- **Verified for the doc (2026-10-21):** five read-only passes over the code, spot-checked — the exact-match
+  externals regex (`shot-bundle.ts:36`), the one-at-a-time gate (`tsx-job-engine.ts:250-256`), the missing
+  1080p export preset on 4K projects (`render-presets.ts:85-89`), GPU proxies off by default
+  (`settings.ts:295-297`), no `snapHead`/ZCR in the Studio snapper, the reset line in Remotion 4.0.435
+  `no-react.mjs:139-146` sitting inside `__vidtsxInit()` of every video-14 bundle.
+- **Decided by Hasan the same day:** all nine checklist items (§4) plus parallel builds, "the agent reads
+  everything as if I am here in Claude Code", the folds into the 4K and cut tracks; the Recorder stays later;
+  **4K tests are 30–60 s ranges, never the full video.** Six sub-questions remain in §4, each with a
+  recommendation.
+- **Order:** A → B → C → D → E → F, 14 sessions (§3). Branch `end-to-end-p0` off main once the uncommitted
+  October work (track-header resize, portaled menu, Recorder entry) is committed — his call (§4 Q6).
+- **Next:** A1 on his "go".
+
+---
+
+
+## 2026-10-04 — Recorder: designed and decided, build not started
+
+- **What:** the screen + camera + mic + system-audio recorder that hands off onto a Studio timeline — Hasan's brief "the best and the smoothest recording tool that integrates with VidTSX Studio". Design doc `docs/studio/RECORDER_DESIGN.md`, written in the house pattern (verified facts → decisions with a recommendation → checklist), **answered and confirmed by Hasan the same day** (Rev 1 + Rev 2).
+- **Decided:** WebCodecs engine with paced constant-frame-rate encode in a hidden engine window, fragmented MP4 appended as it records (crash-safe), separate masters per stream with the microphone inside the camera file (screen file when no camera; Studio's existing *Detach audio* splits it), system audio its own file, audio as a recorder option (Compressed AAC default / Lossless adds WAV masters), recordings in `<studioRoot>/recordings/<session>/`, entry points = a Recorder sidebar screen + Record in Studio's Media tab, control bar as an always-on-top content-protected window, cursor positions recorded (clicks need a native hook — P5), Windows first with the Mac as a P4 gate, one pinned dependency (`mediabunny`) if the P0 spike picks WebCodecs over `MediaRecorder`.
+- **Verified today for the doc:** Electron 41.0.2 = Chromium 146; `setDisplayMediaRequestHandler` + `audio: 'loopback'` (Windows only) in the d.ts; the bundled Remotion ffmpeg has mp4/webm/wav muxers, `amix`/`aresample`/`adelay`, raw `h264`/`wav`/`s16le` demuxers, `gdigrab`/`dshow` devices — and **no `overlay`, `fps` or `select`** (no picture compositing outside a Studio export); Studio's probe takes one audio stream per file; `detachAudio` exists in `clip-update-ops.ts`.
+- **Build order:** P0 spike (measures S1–S5 on the 1650 Ti laptop, decides the engine) → P1 screen + mic behind flag `recorder` → P2 camera + system audio + pause → P3 hand-off + Recordings list → P4 robustness + macOS (ship gate) → P5 zoom/cursor shot pack (own doc). **Nothing built; no dependency added; flag not created.**
+- **Still missing** — the doc's §7, kept for the cold pick-up: portrait/Shorts preset, camera-only and audio-only modes, a teleprompter over the project script, markers/retake hotkeys, mic processing defaults, session rename/delete policy, the clip `groupId` question for keeping the four clips in sync, the P0 harness and clap rig, the hardware-encoder detection method, mac entitlements, THIRD_PARTY_NOTICES, CDP stand-ins, TESTING.md.
+- **Next:** "later" (Hasan). When it starts: §7 A, then P0.
+
+---
+
 ## 2026-10-02 — V1 GO-LIVE: 1.1.0 PUBLISHED
 
 - Hasan said "go". `main` pushed (49 commits), repo flipped **public** (history as-is, his choice), `v1.1.0` tagged; the release workflow passed first time (types, full tests, build, draft with `.exe` + blockmap + `latest.yml`).

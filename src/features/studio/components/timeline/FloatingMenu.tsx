@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface FloatingMenuItem {
   id: string;
@@ -9,8 +10,8 @@ export interface FloatingMenuItem {
 }
 
 interface Props {
-  /** Viewport coordinates — the menu is position:fixed so it can escape the
-   *  track-header column's overflow:hidden. */
+  /** Viewport coordinates — the menu is portaled to document.body and
+   *  position:fixed, so they are measured from the window, never a panel. */
   x: number;
   y: number;
   items: FloatingMenuItem[];
@@ -22,6 +23,14 @@ interface Props {
  * Minimal in-renderer menu for the timeline (track options, add-track kinds).
  * Deliberately NOT the native Electron context menu: this one closes over
  * document state without an IPC round-trip and can be driven in CDP tests.
+ *
+ * Rendered through a portal on document.body: `position: fixed` is measured
+ * from the nearest TRANSFORMED ancestor, not the viewport, so a menu mounted
+ * inside e.g. the track-header column's `translateY` scroll-follow wrapper
+ * landed hundreds of pixels off and was clipped away by the column's
+ * overflow:hidden — the kebab "did nothing" (Hasan, 2026-10-05). The portal
+ * frees the menu from every ancestor's transform, overflow and stacking
+ * context; the viewport coordinates it is given stay valid.
  */
 export function FloatingMenu({ x, y, items, onPick, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
@@ -48,12 +57,25 @@ export function FloatingMenu({ x, y, items, onPick, onClose }: Props) {
   // Keep the menu on-screen when opened near the bottom edge.
   const maxY = typeof window !== 'undefined' ? window.innerHeight - items.length * 26 - 12 : y;
 
-  return (
+  // React synthetic events still bubble through a portal to the React
+  // ancestors (the track header's click-to-select, the ruler's scrub-on-
+  // pointerdown, a pool card's click…). A pick must not double as a click on
+  // whatever opened the menu, so everything stops at the menu root.
+  const stop = (event: React.SyntheticEvent) => event.stopPropagation();
+
+  return createPortal(
     <div
       ref={ref}
       className="fixed z-50 min-w-[132px] py-1 rounded-[6px] bg-app-surface shadow-lg"
       style={{ left: x, top: Math.max(4, Math.min(y, maxY)), border: '0.5px solid var(--color-border)' }}
       role="menu"
+      onClick={stop}
+      onDoubleClick={stop}
+      onPointerDown={stop}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
     >
       {items.map((item) => (
         <button
@@ -73,6 +95,7 @@ export function FloatingMenu({ x, y, items, onPick, onClose }: Props) {
           {item.label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 }

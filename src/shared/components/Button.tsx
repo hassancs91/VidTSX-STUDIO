@@ -14,14 +14,17 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
+  // inline-flex + gap: an icon child sits beside the label instead of above it
+  // (Tailwind's preflight makes <svg> block-level, which stacked "icon / text"
+  // into a two-line button).
   const baseClasses =
-    "rounded-[6px] cursor-pointer transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] cursor-pointer transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed";
 
   const sizeClasses = size === "sm" ? "px-[10px] py-[4px]" : "px-[14px] py-[6px]";
 
   const variantClasses =
     variant === "primary"
-      ? "bg-accent text-white border-none hover:opacity-90"
+      ? "bg-accent text-white font-medium border-none hover:opacity-90"
       : "bg-transparent text-text-secondary hover:bg-app-hover";
 
   return (

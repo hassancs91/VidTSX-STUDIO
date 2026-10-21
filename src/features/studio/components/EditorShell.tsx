@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Captions, ChevronLeft, Settings2, Upload } from 'lucide-react';
+import { ChevronLeft, Loader2, Settings2, Upload } from 'lucide-react';
 import { Button } from '@shared/components/Button';
 import { ErrorBanner } from '@shared/components/ErrorBanner';
 import { useToast } from '@renderer/contexts/ToastContext';
@@ -1175,20 +1175,6 @@ export function EditorShell({ projectId, onBack }: Props) {
           {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
         </span>
         <div className="flex-1" />
-        <button
-          onClick={() => setLeftTab('captions')}
-          title="Captions — pick a style for the master lane (C4)"
-          aria-label="Captions"
-          data-captions-entry
-          className={`flex items-center gap-1 h-[24px] px-1.5 rounded-[6px] text-[11px] transition-colors ${
-            captionLayer?.enabled
-              ? 'text-accent bg-app-active'
-              : 'text-text-muted hover:bg-app-hover hover:text-text-secondary'
-          }`}
-        >
-          <Captions size={13} strokeWidth={1.5} />
-          Captions
-        </button>
         <RenderPrepChip projectId={project.id} />
         <button
           onClick={() => setSettingsOpen(true)}
@@ -1204,6 +1190,7 @@ export function EditorShell({ projectId, onBack }: Props) {
           <Button
             variant="secondary"
             size="sm"
+            className="h-[26px]"
             onClick={() => setExportDialog({ range: exportRange })}
             disabled={exporting}
             title="Render only the I→O range (set with the I and O keys; Shift+I/O clears)"
@@ -1215,11 +1202,17 @@ export function EditorShell({ projectId, onBack }: Props) {
         <Button
           variant="primary"
           size="sm"
+          className="h-[26px] px-3"
+          data-export-button
           onClick={() => setExportDialog({})}
           disabled={exporting}
           title="Render the timeline through the render queue"
         >
-          <Upload size={12} strokeWidth={1.75} />
+          {exporting ? (
+            <Loader2 size={12} strokeWidth={2} className="animate-spin" />
+          ) : (
+            <Upload size={12} strokeWidth={2} />
+          )}
           {exporting ? 'Preparing…' : 'Export'}
         </Button>
       </div>

@@ -13,6 +13,10 @@
   screenshot the user's own screen/apps. Deliberately split from v1 web
   capture (picker UI + OS permissions + recording pipeline = its own
   feature). Source: capture discussion; v1 is web-only by decision.
+  **→ Designed and decided 2026-10-04 as the Recorder:
+  `RECORDER_DESIGN.md` (screen · camera · mic · system audio as separate
+  masters, WebCodecs engine, hand-off onto the timeline). Build not started;
+  its §7 holds the open list. This line moves to STATUS.md when P1 ships.**
 - **Capture presets & scripting** — device-frame presets (phone/laptop
   mockup frames around captures), multi-page capture runs from a URL list.
 - **Fake-screencast skill port** (`fake-screencast` from

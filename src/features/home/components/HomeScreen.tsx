@@ -24,7 +24,10 @@ export function HomeScreen() {
         <span className="text-[13px] font-medium text-text-secondary">Home</span>
       </div>
       <div className="flex-1 overflow-y-auto p-3" {...(summary ? { 'data-home-ready': '' } : {})}>
-        <div className="flex flex-col gap-5 max-w-[1280px]">
+        {/* Full width: the grids are auto-fill (more columns on a wide window),
+            so no cap — a capped column sat left-aligned with empty space on a
+            maximized screen (Hasan, 2026-10-05). */}
+        <div className="flex flex-col gap-5">
           <HomeHeader version={summary?.version ?? ''} update={summary?.update ?? null} />
           {error && <ErrorBanner message={error} />}
           <ContinueSection summary={summary} />

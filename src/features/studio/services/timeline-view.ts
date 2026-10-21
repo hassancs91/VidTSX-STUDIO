@@ -4,8 +4,12 @@
 export const ZOOM_LEVELS = [1, 2, 5, 10, 20, 40, 80, 160, 320, 640];
 export const DEFAULT_ZOOM_INDEX = 4; // 20 px per second
 
-/** Width of the fixed track-header column, in px. */
+/** Default width of the track-header column, in px (the untouched layout). */
 export const TRACK_HEADER_WIDTH = 84;
+/** Drag limits for that column: never narrower than its icons need, never
+ *  wide enough to crowd the lanes out of a small window. */
+export const TRACK_HEADER_MIN_WIDTH = 84;
+export const TRACK_HEADER_MAX_WIDTH = 240;
 export const TRACK_HEIGHT = 56;
 export const RULER_HEIGHT = 22;
 

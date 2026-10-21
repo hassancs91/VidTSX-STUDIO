@@ -13,17 +13,21 @@ import { useAssetTranscripts } from '../hooks/useAssetTranscripts';
 import { usePlayheadFollow } from '../hooks/usePlayheadFollow';
 import { useTimelineShortcuts } from '../hooks/useTimelineShortcuts';
 import { useRippleMode } from '../hooks/useRippleMode';
+import { usePaneSize } from '../hooks/usePaneSize';
 import { clipAt, clipEndTime, findClip, makeClipId } from '../services/timeline-ops';
 import { makeMarkerId } from '../services/marker-ops';
 import { trackMenuItems } from '../services/track-menu';
 import {
   DEFAULT_ZOOM_INDEX,
   RULER_HEIGHT,
+  TRACK_HEADER_MAX_WIDTH,
+  TRACK_HEADER_MIN_WIDTH,
   TRACK_HEADER_WIDTH,
   TRACK_HEIGHT,
   ZOOM_LEVELS,
   secondsToPx,
 } from '../services/timeline-view';
+import { PaneDivider } from './PaneDivider';
 import { ClipContextMenu } from './timeline/ClipContextMenu';
 import { FloatingMenu, type FloatingMenuItem } from './timeline/FloatingMenu';
 import { TimelineRuler } from './timeline/TimelineRuler';
@@ -452,6 +456,16 @@ export function TimelinePanel({
     [assetById],
   );
 
+  // Track-header column width — user-resizable (drag the divider right of the
+  // names) so long track names stay readable; clamped and remembered per
+  // machine like the editor's other panes (Hasan, 2026-10-05).
+  const headerPane = usePaneSize(
+    'trackHeader',
+    TRACK_HEADER_WIDTH,
+    TRACK_HEADER_MIN_WIDTH,
+    TRACK_HEADER_MAX_WIDTH,
+  );
+
   // Track options from the LANE background too — the header cell is narrow
   // and its right-click affordance went unnoticed (Hasan, 2026-08-14).
   // Rename is forwarded to the header, where the inline editor lives.
@@ -508,7 +522,7 @@ export function TimelinePanel({
       <div className="flex flex-1 min-h-0">
         <div
           className="shrink-0 bg-app-surface overflow-hidden"
-          style={{ width: TRACK_HEADER_WIDTH, borderRight: '0.5px solid var(--color-border)' }}
+          style={{ width: headerPane.size, borderRight: '0.5px solid var(--color-border)' }}
         >
           <div
             className="flex items-center px-1"
@@ -534,6 +548,13 @@ export function TimelinePanel({
             ))}
           </div>
         </div>
+
+        <PaneDivider
+          orientation="col"
+          label="Resize track header column"
+          onDelta={headerPane.resizeBy}
+          onEnd={headerPane.persist}
+        />
 
         <div ref={scrollRef} className="flex-1 overflow-auto relative" onWheel={onWheel}>
           <div className="relative" style={{ width: widthPx }}>
