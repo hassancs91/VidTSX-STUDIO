@@ -7,6 +7,7 @@ import { renderAnimatedWebp } from './webp/webp-render';
 import { withBt709FilterTags } from './remotion-color-args';
 import { describeRenderError, offthreadRenderOptions, shouldRetryAfterStarvation } from './remotion-offthread-retry';
 import { resolveGpuBackend } from './gl-backend-probe';
+import { createStallGuard, stallAfterMsFor } from './render-stall-guard';
 import type {
   RenderCodec,
   RenderGpuBackend,
@@ -280,6 +281,14 @@ export async function renderComposition(
       return;
     }
 
+    // A dead encoder can leave renderMedia() unsettled forever (A4): no new
+    // frame for the per-frame timeout + 2 min → cancel and fail the job.
+    const stallGuard = createStallGuard({
+      stallAfterMs: stallAfterMsFor(PER_FRAME_TIMEOUT_MS),
+      cancel,
+      totalFrames: options.frameRange ? options.frameRange[1] - options.frameRange[0] + 1 : totalFrames,
+    });
+
     // One render per attempt: the second attempt only ever runs after the
     // compositor's "No frame found at position" (remotion-offthread-retry.ts).
     const renderOnce = (attempt: number) => renderMedia({
@@ -335,7 +344,8 @@ export async function renderComposition(
       timeoutInMilliseconds: PER_FRAME_TIMEOUT_MS,
       cancelSignal,
       binariesDirectory: getRemotionBinariesDir() ?? undefined,
-      onProgress: ({ progress, renderedFrames }) => {
+      onProgress: ({ progress, renderedFrames, encodedFrames, stitchStage }) => {
+        stallGuard.noteProgress({ renderedFrames, encodedFrames, stitchStage });
         const percent = Math.round(progress * 100);
         activeRender.progress = percent;
 
@@ -351,7 +361,7 @@ export async function renderComposition(
 
     for (let attempt = 0; ; attempt++) {
       try {
-        await renderOnce(attempt);
+        await stallGuard.run(() => renderOnce(attempt));
         return;
       } catch (err) {
         if (!shouldRetryAfterStarvation(err, attempt, activeRender.status === 'cancelled')) throw err;
