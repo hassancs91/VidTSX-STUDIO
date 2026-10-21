@@ -1,3 +1,4 @@
 # A3 — log (append-only, one dated line per agent)
 
 - 2026-10-21 20:40 · orchestrator · HANDOFF.md created, status NEW; shared video-14 copy decided (`.vidtsx-temp/end-to-end/v14-root`).
+- 2026-10-21 20:50 · agent 1 · step 1: `remotion/<subpath>` external in the shot bundle (`shot-bundle.ts:43`, the T7 regex), lint accepts `remotion/no-react` + `remotion/version` only (`shot-lint.ts` `isShotModuleSpecifier`, shot-import classifier shares it), preview maps both to the Player's copy (`virtual-module-files.ts` + new `/virtual/remotion.js/version` route; export already aliased by @remotion/bundler); 5 new tests, the bundle test fails on the old regex; targeted 60/60, types 26/10; static parity: 4.0.486 google-fonts reads only `NoReactInternals.ENABLE_V5_BREAKING_CHANGES`, present in 4.0.435; commit `c3aefe8`. Next: video-14 copy + one-shot re-bundle.

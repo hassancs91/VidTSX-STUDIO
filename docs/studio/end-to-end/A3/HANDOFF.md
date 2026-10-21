@@ -1,5 +1,5 @@
 # A3 — The no-react fix: `remotion/<subpath>` external in shot bundles
-status: NEW
+status: IN PROGRESS (step 1 of 4 done: the code fix + unit tests, commit `c3aefe8`)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 "Learned" lines from A1/A2). Plan §5 calls this part **the highest risk in the plan**.
@@ -87,31 +87,100 @@ then re-bundles all 55 through the import script's bundle step."
   export an output folder under `.vidtsx-temp/end-to-end/A3/`. Keep the machine awake for the
   render (DRIVING.md).
 
+## Steps (the part, numbered)
+
+1. **Code fix + unit tests** — DONE (`c3aefe8`).
+2. **Shared video-14 copy + one-shot re-bundle** — make the copy, edit the COPY's import script
+   (`PROJ` override, `--shots-only`, a single-shot filter), re-bundle `v14-a1-nobody` only.
+3. **One-shot proof** — isolated profile on the copy: the shot in the Player (font load, no stuck
+   hold, no console errors), then the 5 s Standard render at 3840×2160 @ 60 across it, CPU "low".
+   Spike verdict recorded (parity holds → keep; fails → the §5 fallback).
+4. **All 55** — `--shots-only` over the copy, `grep -c remotion_delayRenderHandles` = 0 over the
+   55 `v1.tsx`; full gates, STATUS row, TESTING §18.3, DONE.
+
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+- **`c3aefe8` fix(studio): A3 — keep remotion/<subpath> external in shot bundles.**
+  - `src/main/services/studio/shot-bundle.ts:43` — `EXTERNAL = /^(react|remotion(\/.+)?|@vidtsx\/kit)$/`
+    (the plan's T7 regex; comment :35-42 says why). The `require()` shim path (CJS deps) covers
+    subpaths too: same filter.
+  - `src/shared/studio/shot-lint.ts:22-27` — `REMOTION_SUBPATHS = ['remotion/no-react',
+    'remotion/version']` (remotion 4.0.435's `exports`: `.`, `./version`, `./no-react`,
+    `./package.json`) and `isShotModuleSpecifier()`; :103 the lint uses it. Error text keeps
+    its old prefix ("shots may only import from 'react', 'remotion', and '@vidtsx/kit' (plus
+    remotion's own …)"). An unknown `remotion/foo` is externalized by the bundle step, then
+    rejected by the lint on the artifact.
+  - `src/shared/studio/shot-import.ts:20, 49` — the classifier's private `SHOT_MODULES` set is
+    gone; it uses `isShotModuleSpecifier`.
+  - Preview: `src/main/services/virtual-module-files.ts` (new, pure) — the shared-instance map
+    moved out of `tsx-transpiler.ts` (used at :234) and gained `remotion/no-react` →
+    `remotion.js/no-react`, `remotion/version` → `remotion.js/version`. Before this, a direct
+    `remotion/no-react` import in a transpiled shot went to **esm.sh** (`buildCdnUrl`, no alias)
+    = a second copy, offline failure.
+  - `src/main/services/module-server.ts:136-139` — new route `/virtual/remotion.js/version`;
+    `src/main/services/virtual-modules.ts:346` `getVirtualRemotionVersionModule()` (re-exports
+    `VERSION` from `window.__VIDTSX_REMOTION__`, which remotion's root exports). The
+    `/virtual/remotion.js/no-react` route (:131) already existed; its virtual module exports
+    exactly what 4.0.435 `no-react.mjs:693` exports (`random, interpolate, NoReactInternals`).
+  - Export: nothing to change — `@remotion/bundler` 4.0.435 `dist/webpack-config.js:31-33`
+    aliases `remotion/no-react`, `remotion/version` and `remotion` to the app's one copy.
+  - `src/shared/tsx-engine/builder-libraries.ts:114-115` — comment only.
+  - Tests: `shot-bundle.test.ts:193` (Space Grotesk via `@remotion/google-fonts`: no inlined
+    `remotion`, no `remotion_delayRenderHandles`, the `remotion/no-react` import hoisted above
+    `function __vidtsxInit()`, lint clean); `shot-lint.test.ts:68, 79` (accepts both subpaths;
+    rejects `remotion/foo`, a deep `remotion/dist/...` path, `@remotion/google-fonts/Inter`,
+    `react-dom`); `virtual-module-files.test.ts` (3 tests).
+- **Parity spike, static half:** the editor's inlined google-fonts is
+  `D:\repos\claude-youtube-editor\remotion\node_modules\@remotion\google-fonts` **4.0.486**; its
+  font module imports `continueRender, delayRender` from `remotion` and uses exactly one
+  `NoReactInternals` member, `ENABLE_V5_BREAKING_CHANGES` — present in the app's 4.0.435
+  (`node_modules/remotion/dist/esm/no-react.mjs:508` `= false`, exported :684). So the API the
+  4.0.486 code calls exists; the one-shot render (step 3) is still the decider per §5.
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- `npx vitest run src/shared/studio/shot-lint.test.ts src/main/services/studio/shot-bundle.test.ts src/main/services/virtual-module-files.test.ts src/shared/studio/shot-import.test.ts src/shared/tsx-engine/builder-libraries.test.ts`
+  → `Test Files 5 passed (5) · Tests 60 passed (60)`.
+- Regression proof: with the old regex swapped back (scratch script
+  `swap-external.cjs old`), `npx vitest run src/main/services/studio/shot-bundle.test.ts -t "no-react external"`
+  → `AssertionError: expected [ Array(2) ] to not include 'remotion'` · `1 failed`; restored →
+  `1 passed`.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Full `npx vitest run`: NOT run yet (run it at the part's end with the app stopped, logged).
+- Free space at 20:44: **C: 24.46 GB, D: 6.11 GB**.
 
 ## Next step (ONE concrete instruction)
 
-Read `shot-bundle.ts`, `builder-libraries.ts`, `shot-lint.ts`, `shot-bundle-finish.ts` and how the
-export bundle and the preview module server resolve `remotion` subpaths; then change the
-externals regex and the lint (with unit tests: a bundle importing `@remotion/google-fonts` keeps
-`remotion/no-react` external and contains no `remotion_delayRenderHandles`; the lint accepts
-`remotion/no-react` and still rejects other packages), and make sure both the preview and the
-export entry can resolve every `remotion/<subpath>` a bundle may now import.
+Copy `%USERPROFILE%\Videos\VidTSX Studio\projects\video-14` to
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14` (robocopy /E, ~460 MB;
+re-check D: free first), then in the COPY's `notes/import/` read `build-video14.mjs` and
+`studio-lib.mjs` fully, edit the copy so `PROJ` comes from an env var/argv (default: refuse to run
+on the original path) and add `--shots-only` plus a `--shot <id>` filter, run it with `--dry-run`,
+then for real on `v14-a1-nobody` only — and confirm that shot's `v1.tsx` has 0
+`remotion_delayRenderHandles` and a top-level `from "remotion/no-react"` import.
 
 ## Open problems
 
-(none yet)
+- `src/main/services/virtual-modules.ts` is now 357 lines (it was 339 before A3, already over the
+  ~300 house limit). The version module went there as the natural home; splitting the file is
+  out of A3's scope.
+- The preview half is unit-tested only. The live Player check (§5 "The Player": a font-loading
+  shot, its `delayRender` released, no 404 on `/virtual/remotion.js/*`, no esm.sh request for
+  `remotion`) is step 3.
+- Plan §1.3 text ("the lint still allows only the three externals and rejects subpaths") is now
+  outdated by design (T7); the plan is not edited by builders.
 
 ## Do-not-redo
 
 - A1 DONE, A2 DONE (export disk preflight + job-scoped Remotion temp). Do not touch `main`.
+- Step 1 (`c3aefe8`): the externals regex, the lint widening, the preview map/route and their
+  tests are done and proven to fail without the fix. Do not re-derive them.
+- The parity question is answered statically (one member, present in 4.0.435); only the live
+  render remains.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-21 · agent 1 · ~38 calls · step 1: read the code paths (bundle step, lint, finish,
+  preview transpiler + module server, export webpack aliases), the fix + tests, regression proof,
+  types gate, static parity; commit `c3aefe8`.
