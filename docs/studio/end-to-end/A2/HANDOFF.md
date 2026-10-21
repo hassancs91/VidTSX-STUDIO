@@ -1,7 +1,7 @@
 # A2 — Export disk preflight + cancel/failure cleanup of the job's Remotion assets folder
-status: IN PROGRESS (steps 1–2 done; step 3: bundle-probe leak FIXED `4b1156d` and proven live by
-run (a′) — a cancelled Standard range leaves nothing; Fast cancel (a″) blocked by the Fast engine
-staying "Needs the GPU encoder download" after the download; next = make Fast selectable, then (a″), (b), (c))
+status: DONE (2026-10-21, agent 5) — steps 1–4 done: code `dd77b87`, `88de827`, `4b1156d`; live runs
+(a′) Standard cancel, (a″) Fast cancel, (b) refusal, (c) completion all PASS; gates green; STATUS.md row
++ TESTING.md §18.2 written (docs commit = the one after `0f075ca` whose message names "A2 — done").
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts).
 
@@ -234,6 +234,50 @@ new `snap.mjs` = `take <tag>` / `diff <a> <b>` of the top-level entries of `%TEM
   `stills/fast-cancel-dialog.png`). Cause not investigated (an `enabled:false` toggle, a status
   cached at app start, or a check in `passthrough-engine.ts` — see Next step).
 
+**Step 3 (rest) — live runs, 2026-10-21 17:10–17:15 UTC, agent 5, no src change** (kit unchanged):
+
+- **Why Fast was disabled (≤5-call budget, answer in DRIVING.md "Learned"):** availability =
+  `ffmpeg-full/<extractedDir>/bin/ffmpeg.exe` exists (`ffmpeg-full.ts:70`) + the probe finds a working
+  encoder (`passthrough-engine.ts:89-99` `resolveTools`), asked fresh on every Export-dialog open
+  (`ExportDialog.tsx:146` → `registry.ts:47` `listExportEngineStatus`). The proxy toggle
+  (`enabled:false`) is NOT part of it. On a fresh launch `studioExportEnginesList()` →
+  `remotion/passthrough/shot-composite` all `available:true` (`encoders.json` `working:["nvenc","qsv"]`).
+  Why the same process said "Needs the GPU encoder download" 30 s after the in-app install: not
+  root-caused (a restart fixes it); recorded under Open problems.
+- **(a″) `node drive.mjs run fast-cancel passthrough 5 35 cancel 10` — PASS** (`run-fast-cancel2.log`,
+  `report-fast-cancel.json`, `stills/fast-cancel-dialog.png` = Fast checked, `stills/fast-cancel-queue.png`).
+  Fresh bundle 17:10:54→57 (`Getting compositions` → `Found compositions` 2.2 s); copy span 0→45 %
+  in 5 s, then the browser span; during (17:11:09) job dir `audio-graph.txt, audio.m4a, remotion,
+  span-0000.ts` = 73,317,848 B, `remotion\` = `remotion-v4.0.435-assetsr902vmbxau` (26,117,588 B) + 2
+  Chrome profiles + `react-motion-render*`. Cancel 17:11:10.6 → complete `success:false "renderMedia()
+  got cancelled"` 1.1 s later; persisted `cancelled 829/1800`. Final: `scratchLeft:false`,
+  `newTempEntries:[]`, `outputs:[]`. Estimate logged: engine passthrough, output 68 MB, temp 97 MB.
+- **(c) `node drive.mjs run complete remotion 5 15 complete` (same launch) — PASS**
+  (`run-complete.log`, `report-complete.json`). Fresh bundle, 600/600 frames, `success:true
+  fileSize:4344305`; `A2/out/studio-a2-disk_2026-10-21T17-11-35.mp4` ffprobe: h264 1920×1080 60/1
+  600 frames + aac 470 frames, duration 10.000000. Logged estimate (job `1c2da884…`): output 23 MB,
+  temp 49 MB (copies 26,117,588 + intermediate 23,328,000 + audio 1,920,000) → actual output 5.4× under
+  the estimate (safe side; `H264_BITS_PER_PIXEL_AT_CRF18` NOT raised). `scratchLeft:false`,
+  `newTempEntries:[]`.
+- **`%TEMP%` accounting for this launch** (`node snap.mjs take pre-a2` 17:10:32 → `a2-after` 17:13:18,
+  app stopped; `snapdiff-a2.json`): **fresh entries: none**; net −9,478,665 B (gone: other programs'
+  `playwright_*` folders and the 9,317 B `ec2b5e10-….tmp` from agent 4's launch). `A2/profile`:
+  `bundle-cache` +36,071,454 B (two fresh bundles), `Cache` −2.3 MB, `render-queue` +98,880 B.
+- **(b) refusal** — relaunched with `VIDTSX_EXPORT_DISK_OVERRIDES='{"freeBytes":{"C:":300000000}}'`
+  (`A2_LOG=dev-app-refuse.log`); `node drive.mjs run refuse remotion 5 35 refuse` — PASS
+  (`run-refuse.log`, `report-refuse.json`, `stills/refuse-dialog.png`, `stills/refuse-queue.png`,
+  `stills/refuse-details.png` = the Error row's Details open). Complete `success:false` with
+  `Not enough disk space for this export. C: needs about 609 MB free — temporary files 97 MB (copies of
+  the sources 25 MB, rendered video 67 MB, audio 5 MB) + 512 MB to spare — and has 286 MB.`; log
+  `Export refused: not enough disk space` drives `C: need 101,861,588 free 300,000,000 fits:false` ·
+  `D: need 71,184,000 free 6,777,556,992 fits:true`; persisted `status:error, framesRendered 0`;
+  `scratchLeft:false`, `newTempEntries:[]`, no new file in `A2/out`. The refusal comes after bundling
+  (~10 s), since the preflight runs inside `runStudioExport`.
+
+**Step 4 — gates + docs, agent 5:** full suite + types (below), `Status.md` row (top, 2026-10-21 A2),
+`docs/studio/TESTING.md` `### 18.2 A2`, DRIVING.md "Learned" line (Fast availability), this file,
+LOG.md line; docs commit.
+
 ## Verified (exact commands + outputs)
 
 - `npx vitest run src/main/services/studio/export-engines/disk-estimate.test.ts
@@ -287,8 +331,50 @@ new `snap.mjs` = `take <tag>` / `diff <a> <b>` of the top-level entries of `%TEM
   `temp count 8920, 39,861,207,637 B; profile 34 entries, 313,495,984 B`. App stopped
   (`taskkill /T` on the electron-vite node.exe; 0 electron.exe, ports 9242/5173 free); C: 24.72 GB,
   D: 6.46 GB.
+- Agent 5 live runs: before launch 0 `electron.exe`, ports 9222/9242/5173 free, C: 24.72 GB, D: 6.42 GB.
+  `A2_LOG=dev-app-a2.log nohup bash launch.sh &` → port poll `port up after 2108 ms` → `node drive.mjs
+  ready` → `ready after 3870 ms of polling`; `node drive.mjs setup` → `{"r":{"success":true},"g":{"root":
+  "D:\\repos\\VidTSX-STUDIO\\.vidtsx-temp\\end-to-end\\A2\\studio-root"},"c":{"success":true},"o":
+  {"success":true},"projects":["a2-disk"]}`; 5 A2 electron.exe → BelowNormal. `node cdp.mjs eval
+  "window.api.studioExportEnginesList().then(r=>JSON.stringify(r))"` → `{"engines":[{"id":"remotion",
+  "available":true},{"id":"passthrough","available":true},{"id":"shot-composite","available":true}],
+  "defaultId":"remotion","verifyAvailable":true}`. `node snap.mjs take pre-a2` → `temp count 8921,
+  39,862,175,030 B; profile 34 entries, 313,544,650 B`. (a″) final `{"jobId":"9cae7ce3-faf4-4b10-
+  bb48-b806e19b2967","scratchLeft":false,"newTempEntries":[],"outputs":[],"persisted":{"status":
+  "cancelled",…,"framesRendered":829,"totalFrames":1800}}`. Before (c): C: 24.72, D: 6.39 GB. (c) final
+  `{"jobId":"1c2da884-264e-4c9e-b21d-7f6471c4e4b5","scratchLeft":false,"newTempEntries":[],"outputs":
+  [{"name":"studio-a2-disk_2026-10-21T17-11-35.mp4","bytes":4344305}],"persisted":{"status":"done",…,
+  "fileSize":4344305,"framesRendered":600,"totalFrames":600}}`. App stopped (0 electron.exe, ports
+  free); `node snap.mjs take a2-after` → `temp count 8916, 39,852,696,365 B; profile 33 entries,
+  347,434,056 B`. Before (b): C: 24.71, D: 6.36 GB; `export VIDTSX_EXPORT_DISK_OVERRIDES='{"freeBytes":
+  {"C:":300000000}}'; A2_LOG=dev-app-refuse.log nohup bash launch.sh &` → ready, setup as above,
+  BelowNormal ×5; (b) final `{"jobId":"00ee7ba7-ddf6-4b3d-95c0-9e4d91cc539d","scratchLeft":false,
+  "newTempEntries":[],"outputs":[{"name":"studio-a2-disk_2026-10-21T17-11-35.mp4","bytes":4344305}],
+  "persisted":{"status":"error","error":"Not enough disk space for this export. C: needs about 609 MB
+  free — … — and has 286 MB.",…,"framesRendered":0,"totalFrames":0}}` (the one output is (c)'s). App
+  stopped (0 electron.exe, ports 9242/5173 free); C: 24.73 GB, D: 6.33 GB.
+- Step 4 gates (2026-10-21, app stopped): `npx vitest run > .vidtsx-temp/end-to-end/A2/vitest-full-step4.log`
+  → `Test Files 1 failed | 419 passed | 4 skipped (424) · Tests 3 failed | 3534 passed | 22 skipped
+  (3559)`; the 3 = the known `shot-generator.test.ts` flake (a cancelled new shot… / a failed new
+  shot… / the caller's signal…); `npx vitest run src/main/services/studio/shot-generator.test.ts` →
+  `Test Files 1 passed (1) · Tests 18 passed (18)`. `npm run check:types` →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors
+  (baseline 10) ok`.
 
 ## Next step (ONE concrete instruction)
+
+**None — A2 is DONE (agent 5, 2026-10-21).** The orchestrator decides the Open problems below (the
+22 GB `%TEMP%` Chrome-profile backlog is Hasan's call) and moves on to A3. The paragraphs below are
+the previous round's instruction, kept for the record; all of it ran (Fast cancel included).
+
+**Orchestrator override (2026-10-21):** (a″) the live Fast cancel is OPTIONAL in A2 — spend at
+most ~5 tool calls learning why Fast stays "Needs the GPU encoder download" with `ffmpeg-full`
+installed (toggle? restart? a wrong check?), write the answer as a dated line under "Learned" in
+`docs/studio/end-to-end/DRIVING.md` (A4/A5 need it), and run (a″) only if Fast becomes
+selectable within that budget. The live copy-engine cancel check is moved to A5 (Fast/Fastest on
+video-14). Then run (b) and (c) below, then step 4 (gates, STATUS row, TESTING §18.2). The
+`%TEMP%` puppeteer-profile backlog (22 GB) is Hasan's decision — record, do not delete, do not
+add a sweep in A2.
 
 Make the Fast engine selectable on the isolated profile, then finish step 3: read the Fast
 availability check (grep `Needs the GPU encoder download` in
@@ -316,6 +402,22 @@ app stopped, logged to a file; commit; `status: DONE`).
 
 ## Open problems
 
+- **Fast stayed "Needs the GPU encoder download" in the same process right after an in-app
+  `studioProxyEncoderInstall`** (agent 4's run, 30 s after `installed:true`); a fresh launch lists it
+  available. The check reads the file and the probe on every dialog open, so the stale answer comes
+  from something not found within the 5-call budget (perhaps the probe's cached result or an
+  `encoders.json` written mid-install). Workaround recorded in DRIVING.md "Learned": restart after the
+  install. Not an A2 bug; worth a look in A4/A5 if a user installs and exports in one session.
+- **The preflight runs after bundling** (inside `runStudioExport`): a refused export first spends the
+  bundle time (~10 s cached, ~40 s fresh). Fine for A2's exit; moving it before the bundle would need
+  the estimate in `studio-handlers.ts`. Noted only.
+- **The estimate over-shoots** on this low-motion 1080p60 clip: 10 s range → 4.34 MB actual vs 23 MB
+  estimated output (5.4×). Safe direction (refuses early, never late); revisit with video-14's 4K
+  footage in A5 if refusals become a nuisance on nearly-full drives.
+- **`%TEMP%` `<uuid>.tmp` attribution (from agent 4):** this launch created none that survived
+  (`snapdiff-a2.json` fresh = []), and agent 4's 9,317 B `ec2b5e10-….tmp` was gone by 17:13 — a
+  transient of the app's launch; the four 0 B ones from 17:05 were NOT created by this launch either.
+  No A2 leftover.
 - **RESOLVED (`4b1156d`, proven by run (a′)):** the bundle step's composition listing left a
   ~5.6 MB `%TEMP%\puppeteer_dev_chrome_profile-*` per fresh bundle; it now runs in
   `%TEMP%\vidtsx-studio\export\probe-*`, removed after.
@@ -331,7 +433,10 @@ app stopped, logged to a file; commit; `status: DONE`).
   remove `puppeteer_dev_chrome_profile-*` older than 1 h (same rule as the assets folders — but the
   name is generic puppeteer, so another program's live profile could match). Deleting the existing
   22 GB is Hasan's call; nothing was deleted.
-- **C: accounting (orchestrator: "Must be accounted for before DONE") — partly done.** Run (a′)
+- **C: accounting (orchestrator: "Must be accounted for before DONE") — DONE by agent 5:** over the
+  launch that ran (a″) + (c), `%TEMP%` gained no entry (net −9.5 MB); the only growth was on D: in the
+  isolated profile (`bundle-cache` +36 MB for two fresh bundles). C: 24.72 GB before → 24.73 GB after
+  all three runs. Agent 4's note, kept: **partly done.** Run (a′)
   window: `%TEMP%` net −412 MB, no export/bundle leftovers; the A2 profile (on D:) grew 224 MB
   (ffmpeg-full 178 MB deliberate, Chromium caches 39 MB, bundle-cache 18 MB). Still unattributed:
   five `<uuid>.tmp` in `%TEMP%` (four 0 B born 17:05:21–28 UTC while the app idled on the Export
@@ -372,6 +477,9 @@ app stopped, logged to a file; commit; `status: DONE`).
   the assets folder / render browsers / react-motion-render land in the job scratch. Only Fast cancel
   (a″), (b) refusal and (c) completion remain. Do not rebuild the kit or
   re-search for a test clip (`A2/media/intro-copy.mp4` + `seed.mjs`).
+- (a″) Fast cancel, (b) refusal, (c) completion are DONE (agent 5, evidence above): A2 needs no
+  more live runs. The live Fastest cancel belongs to A5 (video-14). Do not delete the `%TEMP%`
+  Chrome-profile backlog or add a sweep for it without Hasan's decision.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -388,3 +496,7 @@ app stopped, logged to a file; commit; `status: DONE`).
   (`newTempEntries:[]`); `snap.mjs` %TEMP%/profile accounting; full ffmpeg downloaded into the
   isolated profile; Fast still disabled → (a″) not run; found 3,135 stray Chrome profiles (22 GB)
   in %TEMP%; app stopped.
+- 2026-10-21 20:20 · agent 5 · ~45 calls · Fast availability answered (restart after the install; no
+  toggle) → DRIVING.md "Learned"; live (a″) Fast cancel, (c) completion, (b) refusal — all PASS, no
+  new `%TEMP%` entry; full suite (known flake only) + types 26/10; Status.md row, TESTING §18.2;
+  no src change; docs commit; app stopped. **A2 DONE.**

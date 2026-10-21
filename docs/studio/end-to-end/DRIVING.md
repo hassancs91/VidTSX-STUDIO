@@ -78,3 +78,11 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 - 2026-10-21 · A1 · a fresh profile has no editing presets until seeding finishes ("Could not
   seed built-in preset" EEXIST race is harmless); the New Project preset picker appears once
   presets load.
+- 2026-10-21 · A2 · Fast/Fastest in the Export dialog = `<userData>/ffmpeg-full/<extractedDir>/bin/ffmpeg.exe`
+  exists + the encoder probe finds a working GPU encoder (`passthrough-engine.ts` `resolveTools`),
+  asked fresh on every dialog open (`registry.ts` `listExportEngineStatus`). The Settings toggle
+  (`studioProxyEncoderSetEnabled`) is for PROXIES only — not needed: with `enabled:false` Fast was
+  selectable. But in the SAME process right after an in-app `studioProxyEncoderInstall`, Fast still
+  read "Needs the GPU encoder download" 30 s later (not root-caused); after an app restart all three
+  engines were available. So: install the full ffmpeg into the isolated profile, RESTART, then drive
+  Fast/Fastest. Check with `window.api.studioExportEnginesList()` before opening the dialog.

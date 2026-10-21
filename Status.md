@@ -7,6 +7,41 @@
 
 ---
 
+## 2026-10-21 — END-TO-END A2: export disk preflight + cancel/failure cleanup of the job's Remotion temp — DONE
+
+- **What:** part A2 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `dd77b87`,
+  `88de827`, `4b1156d`). Every Studio export (Standard, Fast, Fastest) now runs its Remotion calls in an
+  `AsyncLocalStorage` scope on `os.tmpdir()` (`remotion-temp-scope.ts`), so Remotion's
+  `remotion-v4.0.435-assets*` source copies, its Chrome profiles and `react-motion-render*` land in the
+  job's own scratch `%TEMP%\vidtsx-studio\export\<jobId>\remotion\` and leave with it on success,
+  cancel and failure (`removeDirWithRetry`: 12 × 500 ms, then a background retry); renders outside the
+  scope keep the real temp. The fresh-bundle composition listing runs in its own `export\probe-*`
+  folder (`bundle-compositions.ts`). Before any scratch or output is made, a disk preflight
+  (`export-disk-check.ts`) estimates output + temp per drive (`disk-estimate.ts`: H.264 0.15 bit/px/frame
+  at CRF 18, PCM, AAC, ProRes shot layer) and refuses with the numbers when a drive lacks need + 512 MB.
+  Dev-only `VIDTSX_EXPORT_DISK_OVERRIDES` fakes free space (ignored when packaged). No schema change,
+  no dialog change (an estimate line in the Export dialog is a logged follow-up).
+- **Verified 2026-10-21** (CDP, isolated profile port 9242, scratch root `.vidtsx-temp/end-to-end/A2/`,
+  1080p60 test clip, CPU low, below-normal): **Standard range cancel** after a fresh bundle (127/1800
+  frames) — during, the job scratch held the 26,117,588 B assets copy + 2 Chrome profiles (60.2 MB);
+  12 s after, no scratch, no output, **no new `%TEMP%` entry**. **Fast range cancel** (copy span + browser
+  span, 829/1800) — job dir 73.3 MB during, then nothing left, no new `%TEMP%` entry. **Refusal** with C:
+  faked to 300,000,000 B: queue row Error → Details "Not enough disk space for this export. C: needs about
+  609 MB free — temporary files 97 MB (copies of the sources 25 MB, rendered video 67 MB, audio 5 MB) +
+  512 MB to spare — and has 286 MB."; no scratch, no output file. **Completed** 10 s Standard range:
+  4,344,305 B (H.264 1920×1080 60 fps 600 frames + AAC, 10.000 s) vs estimate 23 MB output / 49 MB temp
+  (5.4× over — the safe side). `%TEMP%` over launch → Fast cancel → complete → stop: 0 new entries.
+  Deliberate disk users: the bundle cache (`<userData>/bundle-cache`, +18 MB per fresh bundle, pruned)
+  and the GPU-encoder ffmpeg download (178 MB, `<userData>/ffmpeg-full`). `npx vitest run` 424 files:
+  419 passed, 1 failed = the known `shot-generator.test.ts` flake (3 tests; alone 18/18 pass);
+  `npm run check:types` web 26 / node 10 = baseline.
+- **Open (Hasan):** `%TEMP%` holds ~3,135 stray `puppeteer_dev_chrome_profile-*` (22 GB, last 10 days)
+  from Remotion callers outside exports (shot stills, TSX builder stills, Creator) and other tools —
+  not deleted, no sweep added.
+- **Next:** A3.
+
+---
+
 ## 2026-10-21 — END-TO-END A1: 4K New Project tile, 1440p + 1080p export presets, undoable frame size — DONE
 
 - **What:** the first part of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `e4803cd`).

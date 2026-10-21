@@ -286,6 +286,18 @@ over CDP on an isolated profile; everything else is unit-tested only.*
 - [x] ✎ No schema change: closing and reopening the project leaves `project.json` byte-identical. *(CDP: 547 B before and after, bytes equal)*
 - [ ] A remembered default export resolution (Settings → Rendering) of 1440p on a project smaller than 1440p falls back to Full. *(unit-tested via `pickResolutionOption`; not driven)*
 
+### 18.2 A2 — export disk preflight + cancel/failure cleanup of the job's Remotion temp
+- [x] ✎ Cancel a **Standard** range export mid-render → during it, Remotion's `remotion-v4.0.435-assets*` copy, its Chrome profiles and `react-motion-render*` sit in `%TEMP%\vidtsx-studio\export\<jobId>\remotion\`; after it, that folder is gone, no output file, no new entry in `%TEMP%`. *(2026-10-21 — CDP runs (a)/(a′), cancelled at 135/1800 and 127/1800: assets copy 26,117,588 B in the job scratch, `newTempEntries:[]` after a fresh bundle)*
+- [x] ✎ Cancel a **Fast** range export (a copied span + a browser span) → the same: nothing left in the scratch, `%TEMP%` or the output folder. *(CDP run (a″), cancelled at 829/1800 in the browser span; job dir 73.3 MB during, nothing after)*
+- [ ] Cancel a **Fastest** export (shot layer) → the same. *(not driven; same scope and cleanup code; moved to A5 on video-14)*
+- [x] An engine that throws → the job scratch, a Remotion assets folder inside it included, is removed; `os.tmpdir()` inside the export is the job's folder, outside it the real temp; a timer left running after the scope reads the real temp. *(unit: `run-export.test.ts`, `remotion-temp-scope.test.ts`)*
+- [x] ✎ A fresh bundle's composition listing leaves no `puppeteer_dev_chrome_profile-*` in `%TEMP%`. *(CDP (a′) after a fresh bundle; unit: `bundle-compositions.test.ts`, also when the listing throws)*
+- [x] ✎ A drive too small for the export refuses before any scratch or output exists, with the numbers in the queue row's Details: "Not enough disk space for this export. C: needs about 609 MB free — temporary files 97 MB (copies of the sources 25 MB, rendered video 67 MB, audio 5 MB) + 512 MB to spare — and has 286 MB." *(CDP run (b) with `VIDTSX_EXPORT_DISK_OVERRIDES='{"freeBytes":{"C:":300000000}}'`; still `.vidtsx-temp/end-to-end/A2/stills/refuse-details.png`; a pre-existing output file keeps its bytes — unit `run-export.test.ts`)*
+- [x] Output and temp on one drive add up; only the short drive is named; the output drive alone short is named as such; Explorer units. *(unit: `disk-preflight.test.ts`; output-drive refusal not driven)*
+- [x] ✎ A completed export still works and its size sits under the estimate. *(CDP run (c): 10 s Standard range → 4,344,305 B, H.264 1920×1080 60 fps 600 frames + AAC, 10.000 s; logged estimate output 23 MB / temp 49 MB)*
+- [ ] `VIDTSX_EXPORT_DISK_OVERRIDES` is ignored in a packaged build. *(code-read only: `disk-dev-overrides.ts` checks `process.defaultApp`; no test, no packaged run)*
+- [ ] The Export dialog shows the estimate before confirm. *(not built — follow-up in `docs/studio/end-to-end/ORCHESTRATOR.md`; the estimate is logged as `Export disk estimate` and shown in a refusal)*
+
 ---
 
 ## Cut-phase hardening follow-ups (not blocking, log as issues)
