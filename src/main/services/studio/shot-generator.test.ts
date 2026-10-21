@@ -4,6 +4,7 @@
 // cancel for every op.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import os from 'os';
 import path from 'path';
 import type { StudioMediaAsset } from '../../../shared/types/studio';
@@ -56,7 +57,12 @@ let engine: FakeBuildEngine;
 let events: StudioShotJobEvent[];
 let off: () => void;
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+/** Wait until the fake engine holds the build. A new shot reserves its folder
+ *  on real disk before the run is tracked, so one timer tick is not enough
+ *  under a loaded full suite: the cancel would miss, and the hung run would
+ *  outlive its test (later tests then read "already building"). */
+const buildStarted = (count = 1) =>
+  vi.waitFor(() => expect(engine.builds.length).toBeGreaterThanOrEqual(count), { timeout: 4000, interval: 5 });
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'shot-generator-'));
@@ -149,11 +155,12 @@ describe('generate', () => {
       assetRefs: { logo: 'logo' },
       origin: { by: 'agent' },
       onReserved: (id) => {
-        // What the builder would save beside v1.
+        // What the builder would save beside v1 — written synchronously, so the
+        // files are there before the build ends (and before afterEach removes the dir).
         const dir = path.join(projectDir, 'shots', id, 'v1.assets');
-        void fs.mkdir(dir, { recursive: true }).then(() =>
-          Promise.all([fs.writeFile(path.join(dir, 'logo.png'), 'png'), fs.writeFile(path.join(dir, 'chart.png'), 'png')]),
-        );
+        fsSync.mkdirSync(dir, { recursive: true });
+        fsSync.writeFileSync(path.join(dir, 'logo.png'), 'png');
+        fsSync.writeFileSync(path.join(dir, 'chart.png'), 'png');
       },
     });
     expect(engine.builds[0].owner?.studioShot).toEqual({ transparent: false });
@@ -193,7 +200,7 @@ describe('generate', () => {
       origin: { by: 'user' },
       onReserved: (shotId) => (id = shotId),
     });
-    await settle();
+    await buildStarted();
     expect(shotGenerator.isRunning('p1', id)).toBe(true);
     expect(shotGenerator.cancel('p1', id)).toBe(true);
     await expect(run).rejects.toBeInstanceOf(ShotCancelledError);
@@ -208,7 +215,7 @@ describe('generate', () => {
     engine.options.outcome = 'hang';
     const turn = new AbortController();
     const run = shotGenerator.generate({ projectId: 'p1', kind: 'cutaway', brief: 'Stats.', origin: { by: 'agent' }, signal: turn.signal });
-    await settle();
+    await buildStarted();
     turn.abort();
     await expect(run).rejects.toBeInstanceOf(ShotCancelledError);
   });
@@ -252,9 +259,10 @@ describe('regenerate', () => {
 
     engine.options.outcome = 'hang';
     const run = shotGenerator.generate({ projectId: 'p1', kind: 'cutaway', brief: 'Badge.', origin: { by: 'user' } }, 'badge');
-    await settle();
+    await buildStarted(2);
     shotGenerator.cancel('p1', 'badge');
     await expect(run).rejects.toBeInstanceOf(ShotCancelledError);
+    expect(engine.cancelled).toEqual(['job-2']);
     expect(events.at(-1)).toEqual({ projectId: 'p1', shotId: 'badge', op: 'regenerate', status: 'canceled' });
     expect(await fs.readdir(folder)).toEqual(['v1.tsx']);
   });
@@ -309,7 +317,7 @@ describe('edit and refine', () => {
     engine.options.outcome = 'hang';
     const first = shotGenerator.refine({ projectId: 'p1', shotId: 'badge', activeVersion: 1, kind: 'cutaway' });
     await expect(shotGenerator.edit({ projectId: 'p1', shotId: 'badge', activeVersion: 1, instruction: 'x' })).rejects.toThrow(/already building/);
-    await settle();
+    await buildStarted();
     shotGenerator.cancel('p1', 'badge');
     await expect(first).rejects.toBeInstanceOf(ShotCancelledError);
     expect(events.at(-1)).toEqual({ projectId: 'p1', shotId: 'badge', op: 'refine', status: 'canceled' });
@@ -362,7 +370,7 @@ describe('convert (P3 part 8)', () => {
   it('a cancel stops it like any other op: a canceled event, the version left as it was', async () => {
     engine.options.outcome = 'hang';
     const run = shotGenerator.convert({ projectId: 'p1', shotId: 'tone-beat', activeVersion: 1, kind: 'cutaway', problems: ['x'] });
-    await settle();
+    await buildStarted();
     expect(shotGenerator.isRunning('p1', 'tone-beat')).toBe(true);
     shotGenerator.cancel('p1', 'tone-beat');
     await expect(run).rejects.toBeInstanceOf(ShotCancelledError);
