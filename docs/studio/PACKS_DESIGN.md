@@ -63,6 +63,34 @@ A pack is a folder with a `pack.json` manifest at its root:
 - **project-starter**: a project folder template, instantiated by copy +
   re-id. Constraint to honor when built: referenced media must live inside
   the pack or the library — never absolute machine paths.
+- **craft** *(TSX Builder P4, 2026-10-18; a kind of the multi-kind
+  container, beside `transitions` and `filters`)*: know-how the TSX builder
+  follows for one build, composed into its system prompt after its house
+  method. `pack.json` lists `craft: [{ id, name, role, description, with?,
+  suggest?, version }]`; each text is `craft/<id>.md` in SKILL.md format
+  (frontmatter `name` + `description`, the body is what the builder reads; at
+  most 64 KB, else skipped with a warning). A `role` says what the pack is
+  for: a **form** is a kind of piece (its rules and the moves that make it
+  good) and may bring other packs (`with`: full ids, expanded nested, each
+  once) and suggest the composer's settings (`suggest`: `aspectRatio`
+  16:9 / 9:16 / 1:1 / 4:5, `seconds`, `loop`, `budget`); a **method** is a way
+  to find the picture; a **style** is a look (one per build at most). Ids are
+  namespaced like every pack item (`core/infographic-loop`). Seven ship in
+  `resources/packs/core/`: the form `infographic-loop` (brings
+  `concept-to-picture`, suggests 4:5, 8 s, loop, Craft), the method
+  `concept-to-picture`, and the styles `style-blueprint`, `style-flat-bold`,
+  `style-neon-dark`, `style-editorial`, `style-custom` (the user's own words
+  for the look, sent as the request's `style`). Callers: the Creator's Kind
+  and Style pickers, the agent tools' `packs` and the flow node's Kind and
+  Style (`docs/AGENT_PACKAGE_SPEC.md`). A request naming an unknown id is
+  refused before it queues; an edit keeps the packs its version was built
+  with (`vN.debug.json` `craftPacks`), and an id this app no longer has is
+  skipped and logged. Code: `src/shared/studio/craft-pack.ts` (format,
+  parsing, `expandCraftIds`), `src/main/services/tsx-builder/craft-packs.ts`
+  (catalogue, read once and cached). **v1 limit: built-in packs only** — the
+  loader reads `resources/packs/`, and a `.vidtsxpack` import does not take
+  `craft` (not in `pack-package.ts`'s `PACK_KINDS`). An agent package carries
+  its own builder know-how as `builder: true` skills (`docs/SKILLS.md`).
 - **transition / video-effect packs: NOT a pack type yet.** Transitions are
   hardcoded serializer geometry; effects don't exist. Both need a pluggable
   surface first (V2 ledger) — packs follow that architecture, not the

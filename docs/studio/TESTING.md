@@ -230,6 +230,46 @@
 - [x] Auditions pin 1×: "Play removed" disables the rate button and shows 1× for the audition's duration, then restores the chosen rate; "Preview result" pins while checked. *(CDP on the editorial-test open proposal)*
 - [x] Session-only: not persisted in the document; export is unaffected (rate is a Player prop, never serialized).
 
+## 17. TSX Builder (every caller builds through one builder)
+
+*Added 2026-10-21 (TSX Builder P5 part 5). Design and evidence:
+`docs/studio/TSX_BUILDER_DESIGN.md` §5. One `build` job engine serves the
+Creator, Studio, agents and flows: it designs, writes files, renders stills,
+looks and redesigns, one build at a time in the whole app. Budgets: Quick 1
+look, Standard 3, Craft 6 (`shared/tsx-engine/build-budgets.ts`). Items marked
+✎ ran in the app during P0-P5 (runs in `ai-video-lab/experiments/studio-unlock-01/runs/`);
+everything else is unit-tested only or never driven by hand. A provider key or
+the Claude subscription is needed for any real build; the cost hint below says
+what a run costs before Start.*
+
+### 17.1 Creator (Prompt mode)
+- [ ] ✎ Type a brief, press **Build** → the centre panel shows the watched build: round · phase, live stills as the builder takes them, then the finished composition in the player. *(P3 part 2; P4 exit E1)*
+- [ ] Aspect (16:9 / 9:16 / 1:1 / 4:5), fps, Auto length (no fixed length), Loop, Budget (default Standard), brand, reference images and provider + model all reach the build (`vN.debug.json` `request`).
+- [ ] ✎ Kind = Infographic loop applies its suggestions where you see them (4:5, 8 s, loop, Craft); Style picks one look; "Your own style" needs words. *(P4 exit E1 / E2)*
+- [ ] Budget hint ends with a cost: "≈ $low–high" on an Anthropic key or an OpenRouter model with listed prices, "on your plan" on the Claude subscription, "cost unknown" otherwise; the edit box shows it too. *(P5 part 3; $0 bench on 35 stored runs, no app click-through)*
+- [ ] Edit box → a builder edit of the open version (default Standard), saved as vN+1; the previous version stays; the edit keeps its version's packs and style. "Fix with AI" = a Quick edit. *(P3 part 3)*
+- [ ] Cancel a running build → it stops within seconds, nothing half-saved; a second Build while one runs queues and says so.
+
+### 17.2 Studio
+- [ ] ✎ Generate a shot from the media pool form → one build into `shots/<id>/`; the clip appears when it is ready; budget hint + cost shown. *(P3 part 5)*
+- [ ] Inspector on a TSX shot: edit with an instruction (default Standard) → vN+1 in the same folder, clips keep their place; Regenerate → a fresh build saved as N+1; **Refine** = a Quick "look, fix only what the frames show" edit.
+- [ ] ✎ The Studio assistant's `generate_tsx_shot` builds through the same engine; its answer carries the build line and the frames. *(P3 part 5)*
+- [ ] ✎ 3D / physics shots preview and export (GPU stills, per-shot `vN.assets`). *(P2 parts 2-3, P3 part 6)*
+- [ ] Cancel a shot build from the Inspector and from the assistant's turn → a new shot leaves no empty clip; a retake / edit leaves the shot as it was.
+
+### 17.3 Agents and flows
+- [ ] ✎ An agent's `generate_composition` blocks for the build and returns a `composition` artifact, the build line ("Built on Craft: 6 looks, … ; loop seam OK, numbers checked") and up to 3 frames; `edit_composition` returns vN+1 and supersedes the old card. *(P3 part 4, P4 exit E3)*
+- [ ] `packs` with an unknown id, two styles, or `core/style-custom` without `styleNotes` → refused with the reason, nothing queued; `from` with any shaping argument → refused. *(unit: composition-packs / packs-through-tools tests)*
+- [ ] A `builder: true` skill in an installed agent reaches the builder (its text in the build's system prompt); the agent's own prompt lists it under "Builder packs" only.
+- [ ] ✎ Flow node Generate Composition: Budget, Loop, Seconds 0 = the builder picks, Kind + Style, Generated images Off by default; a checkpoint rejected with a note edits the rejected version. *(P3 part 7)*
+- [ ] ✎ Deep link (Home → Continue) opens its session once; "+" after it lands in the new session and stays there. *(P5 part 4, $0 UI check `ui-p54`)*
+
+### 17.4 The builder's own checks (read in a build's `vN.debug.json` events)
+- [ ] `finish` is refused until the builder has looked at this exact build and run `phone_view` once; on a loop until `loop_seam` says OK; with a physics engine until `purity_check` says PURE; with numbers that change until `number_check` says OK. After 3 failing builds it may finish anyway, and the result says "NOT verified".
+- [ ] ✎ `number_check` RACE: two time counters that start together but show different seconds per frame (a 1000× race drawn at ~3×) → RACE; a fixed ratio badge is quoted, not blocked. *(P5 part 1 bench: E2 and R2 RACE, E1 / R1 OK, E3 and both P3 builds SPLIT)*
+- [ ] ✎ `text_overlaps` lists text on text and shapes painted over text; never blocks `finish`. *(P5 part 2 bench: the collide control OVERLAPS, the clean control CLEAR)*
+- [ ] Offline after the first run: a build with the network off still bundles, renders stills and exports (the library set is local). *(P2 part 5)*
+
 ---
 
 ## Cut-phase hardening follow-ups (not blocking, log as issues)

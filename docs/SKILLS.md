@@ -78,6 +78,7 @@ Rules:
 - Files / folders starting with `_` or `.` are ignored. Use `_` to keep templates and disabled skills around without activating them.
 - Body is plain markdown. The composer concatenates it verbatim under a `## Skill: {name}` heading.
 - If a flat file and a folder share the same ID (e.g., `pirate-voice.md` AND `pirate-voice/SKILL.md`), the folder wins and a warning is logged.
+- `builder: true` is read only in an **agent package's** skills (`skills/<id>/SKILL.md` inside a `.vidtsxagent`; `src/main/services/agents/agent-skills.ts`). Such a skill is know-how for the TSX builder, not for the agent: its body goes to the builder as a pack, after the call's own craft packs, with every `generate_composition` and `edit_composition` call the agent makes (`agent-runner.ts` `buildToolDeps` → `composition-build.ts`), and the agent's own prompt lists only its name and description under "Builder packs" (`prompt-compose.ts` `builderPacksBlock`). Only the exact value `true` counts. The app's own skills in `resources/skills/` ignore the key (`skills-registry.ts` reads `name`, `description`, `when_to_use`). The builder's built-in know-how lives in craft packs instead (`docs/studio/PACKS_DESIGN.md` → craft). Agent authors: `docs/AGENT_PACKAGE_SPEC.md` → Skills.
 
 ## Adding a skill
 

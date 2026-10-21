@@ -91,6 +91,88 @@ failing the run.
 Listing the tool alone gets the read side only — the agent's remembered rules
 still reach its prompt, it just cannot ask to write new ones.
 
+### `generate_composition` and `edit_composition` — the TSX builder
+
+Both tools hand the work to the app's **TSX builder**, the same one the TSX
+Creator, Studio shots and flows use: it designs the picture, writes the TSX
+files, renders frames, looks at them and redesigns. Your agent says *what* the
+piece shows and *why*; the builder decides the layout and the pixels.
+
+**A call blocks for the whole build.** Minutes, not seconds: Quick ~1-3 min
+(one look at its frames), Standard ~3-10 min (up to 3 looks, the default),
+Craft up to 60 min (up to 6 looks; for a finished piece). The app runs one
+build at a time across the Creator, Studio, agents and flows, so a call made
+while another build runs waits for it; your run's Stop cancels the build,
+queued or running. Have AGENT.md say what is about to be made before the call.
+
+**`generate_composition`** takes:
+
+| argument | meaning |
+|---|---|
+| `title` | names the folder (`compositions/<slug>/`) |
+| `brief` | what the piece shows and why: the idea, the exact words and numbers, the motion and what it means. Leave out layouts, coordinates, pixel sizes and frame-by-frame sheets. Required unless `from` is given |
+| `width`, `height`, `fps` | default 1920 × 1080 at 30 |
+| `durationSeconds` | absent or 0 = the builder picks a length that fits the brief |
+| `budget` | `quick`, `standard` (default) or `craft` |
+| `loop` | `true` for a seamless loop (the builder must measure the seam before it may finish) |
+| `packs` | craft-pack ids, the builder's own know-how for a kind of piece or a look (below) |
+| `styleNotes` | extra art direction; with `core/style-custom`, the user's own words for the look |
+| `generatedImages` | whether the builder may generate images (priced; needs an image provider). Absent = allowed for an agent |
+| `referenceImage` | an `image-set` artifact id: the builder sees up to 4 of its images and can show the first |
+| `referenceVideo` | a `video` artifact id the composition should play |
+| `from` | a composition artifact id to build again from its own recorded request (brief, packs, style, format, loop, brand), unchanged, as a new composition. Send only `title` and `budget` with it: any other shaping argument is refused. An edited version rebuilds its folder's first request (the result says the edits are not in it); a build made from session media cannot be rebuilt this way |
+| `providerId`, `model`, `modelMode` | pin the builder's model; absent = the session's own |
+
+`brandId`, `kindPack`, `stylePack`, `reviseOf` and `revision` are for the flow
+node; an agent leaves them out (it names packs in `packs`; the session's brand
+reaches the builder by itself).
+
+**Craft packs.** The built-in ids today: `core/infographic-loop` (an animated
+infographic post: one whole picture on every frame, a seamless loop, numbers
+drawn as countable marks; it brings `core/concept-to-picture` and suits
+1080 × 1350, 8 s, loop, Craft) and one style at most of `core/style-blueprint`,
+`core/style-flat-bold`, `core/style-neon-dark`, `core/style-editorial`, or
+`core/style-custom` with the words in `styleNotes`. Ids are checked before
+anything is built: an unknown id, two styles, or `core/style-custom` without
+`styleNotes` is refused with the reason. The builder follows a pack, so the
+brief need not repeat it.
+
+**`edit_composition`** takes `artifactId`, one `instruction` (one concrete
+change; split unrelated changes into separate calls), `budget` (default
+Standard), `loop` (`true` / `false`; absent keeps the version's) and
+`generatedImages`. The builder continues the version's own source and saves
+`vN+1` in the same folder; the new artifact supersedes the old one, which
+stays available. An edit keeps its version's format, craft packs and style.
+
+**Both, every time:** your package's `builder: true` skills go to the builder
+as packs after the call's own craft packs (see Skills). The builder needs a
+model with tool use and image input; an OpenRouter model without either is
+refused before the build starts.
+
+**What comes back.** A `composition` artifact (`compositions/<slug>/vN.tsx`
+plus its source folder) and one text block:
+
+```
+Composition ready: compositions/rate-limit/v1.tsx — 1080x1350, 8.0s at 30fps.
+Built on Craft: 6 looks, 14 checks, finished; loop seam OK, numbers checked.
+Builder's summary: ...
+The pictures below are frames 0, 120 and 239 from its last look (round 6), as the builder saw them.
+```
+
+followed by up to three of the frames the builder last looked at (or its last
+contact sheet), so your agent can judge the result without a render. A flow
+node gets the artifact only. The checks line names only the checks that apply (a loop, a physics engine,
+numbers that change on screen):
+`loop seam OK` / `NOT verified`, `physics frame-pure` / `purity NOT verified`,
+`numbers checked` / `numbers NOT verified (number_check: split or race)`. A
+"NOT verified" means the builder finished after three builds that kept
+failing that check; it is a reason to look at those frames, or to edit, not
+an error. `stopped before it finished` means a cap (time, turns or output
+tokens) ended the build before the builder called `finish`, and the result is
+the last build that passed the app's `check`. A failed or
+cancelled build returns an error and no artifact; a failed edit leaves the
+composition unchanged.
+
 ### `sdkTools` — the model's own built-ins
 
 Only `WebSearch` and `WebFetch`, unless `workspace.sdkFileTools` is `true`,
