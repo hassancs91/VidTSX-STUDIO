@@ -11,8 +11,8 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Exit numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | A1 | DONE | 2 | PASS (1 round) | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | 3840×2160 @ 60 from the dialog; Export lists Full, 1440p, 1080p, 720p, 540p, 360p; size edit = one undo step on disk; vitest 3513 pass; types 26/10 | 2026-10-21 18:42 / 19:11 (29 min) |
-| A2 | BUILDING | 1 | — | — | — | 2026-10-21 19:20 / — |
-| A3 | TODO | | | | | |
+| A2 | DONE | 5 | PASS (1 round) | `dd77b87`, `88de827`, `4b1156d` (code); docs `fe82d07` | Standard + Fast cancel → 0 new `%TEMP%` entries, no scratch, no output; refusal "C: needs about 609 MB … has 286 MB" (verifier also D: 580 vs 95 MB); 10 s 1080p60 export 4.3 MB vs 23 MB estimate; types 26/10; vitest green on rerun 3 | 2026-10-21 19:20 / 20:37 (77 min) |
+| A3 | BUILDING | 1 | — | — | — | 2026-10-21 20:40 / — |
 | A4 | TODO | | | | | |
 | A5 | TODO | | | | | |
 | A6 | TODO | | | | | |
@@ -74,3 +74,30 @@
 - A1's frame-size undo means `settings.width/height` are written from the timeline reducer
   (`useTimeline.ts:676-721`): any future code that sets the size through `updateProject`
   instead of the reducer would be silently reverted.
+- 2026-10-21 20:37 · A2 DONE (verifier PASS, 1 round; 5 builders). Continuing to A3 per Hasan's
+  instruction (no stop).
+
+### From A2 (for the track-A stop report)
+
+- **Hasan's decision:** `%TEMP%` holds ~3,135 `puppeteer_dev_chrome_profile-*` folders, **22 GB**,
+  all from the last 10 days — Remotion never deletes its Chrome profile on Windows; every Remotion
+  browser outside an A2 scope leaves one (Studio shot stills, TSX-builder stills, Creator renders,
+  the GPU probe outside an export, other tools). A2 closed only the export and bundle-listing paths.
+  Nothing deleted; no sweep added.
+- Rule note: A2 builder #4 downloaded the full ffmpeg (80.1 MB) into the A2 isolated profile
+  although A2's row does not name it (needed to make Fast selectable for the Fast cancel). Hasan
+  had been told A4/A5 download it.
+- During a render Remotion's headless Chrome writes ~168 MB of `<guid>.tmp` files to the real
+  `%TEMP%` (it inherits `TEMP`; the in-process scope cannot reach a child's env); gone after the
+  cancel; not counted by the estimate (512 MB headroom covered it at 1080p — watch at 4K in A5).
+- Estimate runs ~5.4× high on 1080p footage (safe direction) — recheck on 4K in A5.
+- The disk check runs after bundling (a refused export spends 10–40 s bundling first).
+- Follow-ups, not built: an estimate line in the Export dialog (orchestrator decided the refusal
+  message satisfies "estimate shown"); queue row shows "CPU usage: All cores" though main applies
+  the Settings default (pre-existing display bug); bundling progress shows values like "9244%"
+  (pre-existing); the shared `%TEMP%\vidtsx-studio` scratch is swept by any instance's startup
+  (pre-existing hazard).
+- Fast needs an app restart after the in-app full-ffmpeg install to become selectable
+  (DRIVING.md "Learned"); the live Fastest cancel check moved to A5.
+- The `shot-generator.test.ts` flake also fails when that file runs alone (1 in 5) — not only
+  under full-suite load.
