@@ -450,6 +450,22 @@ throws `not a valid selector`. Match with string methods instead —
 `t.indexOf('(job-') > 0`, `t.endsWith(')')` — or find the element by its own
 words. Nothing in a driver needs a regex.
 
+**List sessions with `agentSessionsList`, never `agentSessionLoad` (2026-10-21, TSX Builder P5-6).**
+`window.api.agentSessionsList({ agentId })` reads the list with no side effects.
+`agentSessionLoad` is the app's OPEN path (`AgentService.openSession`): it rewrites
+the session's `lastOpenedAt` (which reorders Home's Continue cards and the
+workspace's "most recent"), registers the run and starts the video watch. A
+driver that "just checks" a session with it has changed what the next screen
+shows. Read `session.json` on disk, or list, to look; load only to open.
+
+**A deep link opens its session once (P5-6).** Home → Continue (and a driver's
+`vidtsx:agents-open` event with a `sessionId`) carries a token; the workspace
+applies it the first time the session list has loaded and never again, so "+"
+(which creates a session and refreshes the list) lands in the new session's
+starter. Before 10-21 it snapped back to the linked session. To open the same
+session again, dispatch the event again (a new token). Check the highlighted
+row before Send either way.
+
 **The action bar's Render navigates to the Queue screen**, which unmounts the
 workspace and with it the render bridge. A live row on the stage can therefore
 only be observed on a render the AGENT started, never on one started from the

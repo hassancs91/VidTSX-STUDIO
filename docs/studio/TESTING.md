@@ -19,6 +19,13 @@
 > them by hand is optional; everything else has only been unit-tested or never
 > exercised.
 
+> **Drivers (TSX Builder P5-6, 2026-10-21).** List agent sessions with
+> `window.api.agentSessionsList({ agentId })`; `agentSessionLoad` is the open
+> path (it rewrites `lastOpenedAt`, registers the run, starts the video watch),
+> so use it only to open. A deep link (Home → Continue, `vidtsx:agents-open`)
+> opens its session once per token; "+" after it must land in a NEW session's
+> starter. Details: `docs/ui-automation-cdp.md` → "Agents".
+
 ## 1. Projects & browser
 
 - [ ] Create a project in each preset (16:9, 9:16, 1:1) at 30 and 60 fps → folder appears under the studio root with `project.json`, `cache/`, `shots/`, `renders/`. ✎ (landscape+portrait)

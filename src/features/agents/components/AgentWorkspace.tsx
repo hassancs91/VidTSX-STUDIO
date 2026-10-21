@@ -28,6 +28,7 @@ import { MemoryProposalCard } from '@renderer/components/agents/MemoryProposalCa
 import { SessionList } from './SessionList';
 import { StarterFlow } from './StarterFlow';
 import { ArtifactStage } from './stage/ArtifactStage';
+import { deepLinkToApply } from '../services/deep-link';
 
 interface Props {
   agent: InstalledAgent;
@@ -73,11 +74,19 @@ export function AgentWorkspace({ agent, onBack, openSession }: Props) {
   // W6: the deep-linked session wins over "open the most recent" — this
   // effect is declared after the starter's, so its setState lands last in the
   // same commit; a session that no longer exists is ignored (the starter's
-  // own rule then applies).
+  // own rule then applies). P5-6: once per token — a later list change ("+"
+  // creates a session and refreshes the list) must not snap back to it.
   const { loaded: sessionsLoaded } = sessionStore;
+  const consumedLinkToken = useRef<number | null>(null);
   useEffect(() => {
-    if (!openSession || !sessionsLoaded) return;
-    if (sessions.some((s) => s.id === openSession.sessionId)) setSessionId(openSession.sessionId);
+    const decision = deepLinkToApply(
+      openSession,
+      consumedLinkToken.current,
+      sessionsLoaded,
+      sessions.map((s) => s.id),
+    );
+    consumedLinkToken.current = decision.consumedToken;
+    if (decision.apply) setSessionId(decision.apply);
   }, [openSession, sessionsLoaded, sessions, setSessionId]);
 
   const run = useAgentRun({
