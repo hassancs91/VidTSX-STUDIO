@@ -92,6 +92,10 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   requests enable Network and `Page.reload` the renderer first (A3 `drive.mjs player … fresh`).
   Playhead text is `00:08.00/ 08:05.43`. A 5 s 4K60 Standard range on video-14 takes ~4 min at
   CPU low (300 frames, ~1.36 fps).
+- 2026-10-21 · A3 · the video-14 copy is not self-contained: its `project.json` points all 127 media
+  assets at the ORIGINAL's `media\` by absolute path, so the copy's Player/export READ Hasan's
+  files (never write). A CDP recorder attached without a reload sees `Network.loadingFailed` for
+  requests it never saw start (no `url`): default the url before using it.
 
 ## video-14 (track A, from A3 on) — orchestrator rules
 

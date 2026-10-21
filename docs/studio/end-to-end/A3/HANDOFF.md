@@ -1,7 +1,8 @@
 # A3 — The no-react fix: `remotion/<subpath>` external in shot bundles
-status: IN PROGRESS (steps 1–3 of 4 done: the code fix + unit tests, commit `c3aefe8`; the
-shared video-14 copy + `v14-a1-nobody` re-bundled in it; the one-shot proof: Player clean, the
-6–11 s 4K60 Standard render COMPLETED, parity spike verdict = holds, keep T7, no fallback)
+status: DONE (2026-10-21, all 4 steps: the code fix + unit tests, commit `c3aefe8`; the shared
+video-14 copy; the one-shot proof — Player clean, the 6–11 s 4K60 Standard render COMPLETED, parity
+holds, keep T7, no fallback; all 55 re-bundled on the copy, `remotion_delayRenderHandles` = 0 hits;
+gates green; STATUS row + TESTING §18.3 committed)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 "Learned" lines from A1/A2). Plan §5 calls this part **the highest risk in the plan**.
@@ -97,8 +98,9 @@ then re-bundles all 55 through the import script's bundle step."
 3. **One-shot proof** — DONE (2026-10-21, agent 3): Player clean at 8.0 s, the 6–11 s render at
    3840×2160 @ 60 through Standard completed (300/300 frames, 232.7 s wall). Spike verdict:
    **parity holds → keep T7; the §5 fallback is not needed.**
-4. **All 55** — `--shots-only` over the copy, `grep -c remotion_delayRenderHandles` = 0 over the
-   55 `v1.tsx`; full gates, STATUS row, TESTING §18.3, DONE.
+4. **All 55** — DONE (2026-10-21, agent 4): `--shots-only` over the copy (55/55, handles 54 → 0),
+   grep = 0 files / 0 hits over the 55 `v1.tsx`; full gates green; closing Player check at 8 s and
+   30 s clean; STATUS row + TESTING §18.3.
 
 ## Done (file:line, commit hashes)
 
@@ -188,6 +190,23 @@ then re-bundles all 55 through the import script's bundle step."
   - **Spike verdict (§5 "A3 parity"):** the inlined 4.0.486 `@remotion/google-fonts` calling the
     app's one 4.0.435 `remotion/no-react` works in preview and in a real 4K60 export → keep T7,
     no `@remotion/google-fonts` externalization.
+- **Step 4: all 55 + gates + close (agent 4, 2026-10-21 21:06–21:20; repo change = docs only).**
+  - All 55 `shots/<id>/v1.tsx` in the COPY re-bundled by the copy's `build-video14.mjs
+    --shots-only` (log `A3\shots-only-all55.log`, report the copy's
+    `notes/import/shots-only-report.json`: `dry:false`, `problems:[]`, 55 rows). Per file: handles
+    `1 → 0` for 54 shots, `0 → 0` for `V14A1Nobody` (step 2; 124 → 124 KB, i.e. deterministic);
+    KB sum 8,698 → 6,355 (−43 to −44 KB each, e.g. `V14A2Build 278 → 234`, `V14A3HeatMap 122 → 79`).
+    The copy's `project.json` was not written.
+  - Closing Player check, A3 profile (port 9231, root = the copy, log `A3\app-close.log`):
+    8.0 s (`V14A1Nobody`, fresh reload) and 30.0 s (`V14A1Secret`, 28.3–38.6 s, re-bundled in this
+    step 173 → 130 KB) both clean. Reports `A3\report-player-8s-all55.json`,
+    `A3\report-player-30s-all55.json`; stills `A3\stills\player-8s-all55.png`,
+    `A3\stills\player-30s-all55.png` (playhead 00:30.00 on `V14A1Secret`, shot drawn, PiP).
+  - Scratch driver fix (gitignored): `A3\drive.mjs:148` maps a request with no `url` to `""` — a
+    request already in flight when `Network.enable` ran (non-fresh run) has `loadingFailed`
+    without `requestWillBeSent` and crashed the report with `reading 'slice'`.
+  - Docs: `Status.md` top row "END-TO-END A3 … DONE"; `docs/studio/TESTING.md` `### 18.3 A3`
+    (7 checked, 2 open); `DRIVING.md` one "Learned" line; this file; `LOG.md`.
 
 ## Verified (exact commands + outputs)
 
@@ -243,33 +262,74 @@ then re-bundles all 55 through the import script's bundle step."
   - Job scratch `%LOCALAPPDATA%\Temp\vidtsx-studio\export\85b5b100-…` removed after the run
     (`Test-Path` False). Instance stopped (TaskStop on the launcher + the 9231 tree); ports
     9231/5173/3200 free, no `electron.exe`. Free space after: **C: 23.97 GB, D: 5.55 GB**.
+- Step 4 (agent 4). Beforehand: no `electron.exe`, ports 9222/5173/9231/3200 not listening;
+  free space 21:06 **C: 23.95 GB, D: 5.55 GB**.
+  - PowerShell, cwd the copy's `notes\import`:
+    `node build-video14.mjs --shots-only "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14" *> …\A3\shots-only-all55.log`
+    → exit 0; 55 lines `handles 1 → 0  no-react import top-level` (`V14A1Nobody 124 → 124 KB
+    handles 0 → 0`); last line `55/55 shots written; handles after: 0; problems: 0`.
+  - bash, in the copy: `ls shots/*/v1.tsx | wc -l` → 55;
+    `grep -l remotion_delayRenderHandles shots/*/v1.tsx | wc -l` → **0**;
+    `cat shots/*/v1.tsx | grep -c remotion_delayRenderHandles` → **0**;
+    `grep -rl remotion_delayRenderHandles shots | wc -l` → 0;
+    `grep -l '^import .* from "remotion/no-react"' shots/*/v1.tsx | wc -l` → 55. Report sums
+    (node over `shots-only-report.json`): `{ n: 55, dry: false, problems: [], hb: 54, ha: 0, kb: 8698, ka: 6355 }`.
+  - `npx vitest run > .vidtsx-temp/end-to-end/A3/vitest-full.log 2>&1` (no app running) →
+    `Test Files 1 failed | 420 passed | 4 skipped (425)` · `Tests 3 failed | 3540 passed | 22
+    skipped (3565)` · 50.2 s; the 3 failures = the known flake (`shot-generator.test.ts` "a
+    cancelled new shot…", "the caller's signal…", "a failed new shot…"). Rerun alone
+    `npx vitest run src/main/services/studio/shot-generator.test.ts` (log
+    `A3\vitest-rerun-shot-generator.log`) → `Test Files 1 passed (1)` · `Tests 18 passed (18)`.
+  - `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+    `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+  - `A3_LOG=app-close.log bash launch.sh` (background) → `node drive.mjs ready` → `ready after
+    15572 ms of polling`; `window.api.studioRootGet()` →
+    `{"root":"D:\\repos\\VidTSX-STUDIO\\.vidtsx-temp\\end-to-end\\v14-root"}` (no `setup` re-run).
+  - `node drive.mjs player 8 player-8s-all55 fresh` → `timecodes ["00:08.00/ 08:05.43","00:08.00"]`;
+    10 × `hold {"handles":0,"renderReady":true,"sg":true,"inter":true,"faces":25}`;
+    `summary {"final":{"handles":0,"renderReady":true,"sg":true,"inter":true},"virtual":["200 /virtual/remotion.js","200 /virtual/remotion.js/no-react"],"esmSh":0,"non2xx":0,"consoleErrors":10,"exceptions":0}`.
+    The 10 console entries: the 3 Electron dev security warnings ×2 (before and after the reload),
+    the Remotion license note, 3 React "unique key" errors (`AbsoluteFill` / `V14A1WebWall` /
+    `PageDash`, shot code). 1582 requests; non-Vite: `/modules` 55 × 200, `/fonts` 9 × 200,
+    `/virtual` 3 × 200, `/asset` 4 × 206 + 2 × 200.
+  - `node drive.mjs player 30 player-30s-all55` (no reload) → `timecodes ["00:30.00/ 08:05.43","00:30.00"]`;
+    10 samples all `handles 0, renderReady true` (faces 37);
+    `summary {"final":{"handles":0,"renderReady":true,"sg":true,"inter":true},"virtual":[],"esmSh":0,"non2xx":0,"consoleErrors":3,"exceptions":0}`
+    (the 3 = the React key errors; 17 requests, all `/asset` 200/206 — modules and fonts were
+    already loaded). A first attempt landed at 00:29.00 and crashed the report on a url-less
+    request; fixed in the driver (see Done) and rerun.
+  - `grep -iE "delayRender|timeout|timed out|not cleared|error" app-close.log | grep -v DEBUG` →
+    no lines (337-line log).
+  - Stop: TaskStop on the launcher + `Stop-Process` on every process whose command line has
+    `9231` (bash ×2, cmd, node ×2, electron ×2) → `left: 0`, `electron: 0`, nothing listening on
+    9231/5173/3200.
 
 ## Next step (ONE concrete instruction)
 
-Step 4: from the COPY's `notes/import/` (PowerShell, cwd
-`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14\notes\import`), run
-`node build-video14.mjs --shots-only "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14"`
-(expect `55/55 shots written; handles after: 0; problems: 0`, exit 0; `v14-a1-nobody` re-bundles
-to the same 124 KB), then count `remotion_delayRenderHandles` over the copy's 55
-`shots\*\v1.tsx` (must be 0 files / 0 hits; record the per-file before→after from
-`notes/import/shots-only-report.json`), then the gates: full `npx vitest run` with no app
-running, logged to `.vidtsx-temp/end-to-end/A3/vitest-full.log`, and `npm run check:types` (26 /
-10); then the closing CDP click-through on the A3 profile (`bash launch.sh`, `node drive.mjs
-ready`, `node drive.mjs player 8 player-8s-all55 fresh` — the profile already has the copy as
-root; also seek one more font shot, e.g. 30 s, to show a re-bundled neighbour in the Player),
-then the STATUS.md row (git tracks it as `Status.md`) and the TESTING.md `### 18.3 A3` block, commit,
-DONE. No new 4K render is needed: step 3's render is the exit's render (the other 54 shots only
-change by the same bundle-step output, proven by the grep + Player).
+None for A3 — the part is DONE. The orchestrator moves on to A4 (font preflight, GPU proxies),
+which reuses the same video-14 copy and may reuse this kit (`A3\launch.sh`, `drive.mjs`; pick a
+new port and profile per DRIVING.md).
 
 ## Open problems
 
+- **For Hasan (not a blocker):** his own `~/Videos/VidTSX Studio/projects/video-14` still holds
+  the OLD 55 bundles (each with an inlined `remotion/no-react`), so exporting it from his profile
+  still hits the 2026-10-16 timeout until it is re-bundled; the same goes for any other project
+  whose shots were bundled before `c3aefe8` with a `@remotion/*` font load. There is no in-app
+  re-bundle; the copy's script refuses his projects folder by design. Shots built from now on
+  get the fix through the same bundle step.
+- **Copy isolation (for A4–A6):** the copy's `project.json` holds 127 absolute asset paths into
+  the ORIGINAL's `media\` folder (`C:\Users\hasan\Videos\VidTSX Studio\projects\video-14\media\…`;
+  the copy has its own `media\` with the same 127 files). The Player's `/asset` requests read
+  those originals (GET only, seen in `report-player-30s-all55.json`). Nothing writes there, but
+  the copy is not self-contained; rewriting the paths to the copy's `media\` is the orchestrator's
+  call. (Proxies already resolve inside the copy's `cache\proxies`.)
 - `src/main/services/virtual-modules.ts` is now 357 lines (it was 339 before A3, already over the
   ~300 house limit). The version module went there as the natural home; splitting the file is
   out of A3's scope.
 - (Resolved in step 3) the live Player check passed — see Done/Verified.
-- Until step 4 runs, the copy's other 54 `v1.tsx` are the OLD bundles: the preview loads all 55
-  shot modules on open (`/modules` ×55), so an old bundle's `__vidtsxInit` can still reset
-  `window.remotion_delayRenderHandles` when the playhead first reaches it. Step 4 removes that.
+- (Resolved in step 4) all 55 copy bundles are new; no old `__vidtsxInit` can reset the handles
+  in the copy's Player any more.
 - Not measured: the Player's hold behaviour on the OLD bundle (the pre-A3 baseline). The plan
   does not require it; skipped to stay on the copy's single re-bundled shot.
 - The export entry's generated source is in the job scratch and is deleted after the run, so the
@@ -294,6 +354,9 @@ change by the same bundle-step output, proven by the grep + Player).
   (300/300, 232.7 s), parity holds, no fallback. Do not re-render, do not externalize
   `@remotion/google-fonts`. The A3 profile is already set up (root = the copy, CPU low, output
   `A3\export`); reuse it, do not run `setup` against another root.
+- Step 4: all 55 copy bundles are re-bundled (grep = 0) and the gates ran green; do not re-run
+  `--shots-only` on the copy (it is deterministic, `V14A1Nobody` 124 → 124 KB) unless `src/` changes
+  the bundle step again.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -307,3 +370,6 @@ change by the same bundle-step output, proven by the grep + Player).
   8.0 s clean (0 handles, renderReady, `/virtual/remotion.js{,/no-react}` 200, no esm.sh), the
   6–11 s 4K60 Standard render completed (300/300, 232.7 s, ffprobe 3840×2160 60/1 300 frames);
   parity verdict = holds. Handed off at the step boundary.
+- 2026-10-21 · agent 4 · ~35 calls · step 4: all 55 re-bundled on the copy (handles 54 → 0,
+  8,698 → 6,355 KB, grep 0), full vitest (known flake only, rerun 18/18) + types 26/10, closing
+  Player check at 8 s and 30 s clean, STATUS row + TESTING §18.3; part DONE.

@@ -7,6 +7,39 @@
 
 ---
 
+## 2026-10-21 — END-TO-END A3: the no-react fix — `remotion/<subpath>` external in shot bundles — DONE
+
+- **What:** part A3 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `c3aefe8`), the
+  plan's §2 T7. The shot bundle step keeps `remotion/<subpath>` external
+  (`EXTERNAL = /^(react|remotion(\/.+)?|@vidtsx\/kit)$/`, `shot-bundle.ts:43`), so a shot that loads a
+  font through `@remotion/google-fonts` no longer carries its own copy of `remotion/no-react`, whose
+  top-level `window.remotion_delayRenderHandles = []` ran mid-render inside the lazy `__vidtsxInit()`
+  and orphaned the export entry's `'brand fonts'` hold (the 2026-10-16 4K timeout). The lint accepts
+  `remotion/no-react` + `remotion/version` only (`shot-lint.ts` `isShotModuleSpecifier`, shared with the
+  import classifier); the preview maps both to the Player's one copy (`virtual-module-files.ts`, new
+  `/virtual/remotion.js/version` route — before, a direct import went to esm.sh); the export needed
+  nothing (`@remotion/bundler` aliases both subpaths to the app's 4.0.435). No schema change. Parity
+  spike: the inlined 4.0.486 google-fonts uses only `NoReactInternals.ENABLE_V5_BREAKING_CHANGES`,
+  present in 4.0.435 → T7 kept, no fallback.
+- **Verified 2026-10-21** on a copy of video-14 (`.vidtsx-temp/end-to-end/v14-root`, Hasan's project
+  untouched), CDP isolated profile port 9231: **one-shot render** 0:06–0:11 across `V14A1Nobody`,
+  Standard, 3840×2160 @ 60, High, CPU low, below-normal → **completed 300/300 frames in 232.7 s**
+  (~1.36 fps; ffprobe h264 3840×2160 60/1, 300 frames, 4.999 s + AAC), no delayRender timeout, export
+  still = Player still (before: 171 frames in 607 s, cancelled). **All 55** re-bundled by the copy's
+  import script (`--shots-only`): 55/55, 0 problems, `remotion_delayRenderHandles` 54 → 0, 8,698 →
+  6,355 KB; `grep remotion_delayRenderHandles` over the 55 `v1.tsx` = **0 hits**. **Player** at 8.0 s and
+  30.0 s with all 55 re-bundled: 0 handles, `renderReady` true for 30 s each, Space Grotesk + Inter via
+  the font proxy (9 × 200), `/virtual/remotion.js{,/no-react}` 200, 0 esm.sh, 0 non-2xx, 0 exceptions.
+  `npx vitest run` 425 files: 420 passed, 4 skipped, 1 failed = the known `shot-generator.test.ts`
+  flake (3 tests; alone 18/18 pass); `npm run check:types` web 26 / node 10 = baseline.
+- **Open (Hasan):** your own `~/Videos/VidTSX Studio/projects/video-14` still has the OLD 55 bundles
+  (only the copy was re-bundled), as does any other project whose shots were bundled before A3 with a
+  `@remotion/*` font load; there is no in-app re-bundle. The copy's `project.json` points its 127 media
+  assets at the ORIGINAL's `media/` by absolute path (read-only, seen in the Player's `/asset` requests).
+- **Next:** A4.
+
+---
+
 ## 2026-10-21 — END-TO-END A2: export disk preflight + cancel/failure cleanup of the job's Remotion temp — DONE
 
 - **What:** part A2 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `dd77b87`,
