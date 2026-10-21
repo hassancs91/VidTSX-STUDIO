@@ -1198,6 +1198,38 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   OK, numbersOk; each side's counters agree with its own picture, but the race still runs on two clocks (scan f30 →
 >   ~f210 for 2 s, index f30 → f87 for 2 ms: the motion says ~3×, the counters 1,000×), and "1000× FASTER" stays on
 >   every frame (listed, kept). Text alone cannot see a race's time scale.
+>
+> **P4 CLOSED (10-21, Hasan: "lets close P4 and Plan p5").** Exit met on B2 (E1; R1 one clock, checked OK); the B1
+> race still runs on two clocks; `numbersOk` does not yet reach past BuildResult. Both carried into P5.
+
+> **P5 plan agreed 10-21** (Hasan "go recommended" = P5-1..P5-8 all (a); one part per go). Planning facts: the race
+> IS in the text: E2's sweep reads "0.25" + "s" and "1.0" + "ms" at f45 (the unit its own node), R2 prints
+> `secs.toFixed(2)+' s'` / `ms.toFixed(1)+' ms'`; the shown time per frame differs 250× (E2) and 333× (R2), where one
+> time scale means equal rates. What text cannot see is a race of unlike units (ROWS READ vs STEPS). number-check.ts
+> skips races on purpose (same-span pairing). `numbersOk` stops at BuildResult (tsx-build-job.ts `finalBuild`,
+> TsxBuildJobIpc, build-result.ts `buildOutcomeLines`). The "+" trap: AgentWorkspace.tsx re-applies a deep link
+> (`openSession`) on every `sessions` change and `create()` refreshes the list, so the view snaps back to the linked
+> session (E3's driver opened the workspace by deep link; Home → Continue does the same). The load trap is the open
+> path by design (`openSession` writes lastOpenedAt, registers the run, starts the video watch); `agentSessionsList`
+> lists without side effects. The app has no per-token LLM prices; OpenRouter's `/v1/models` (already fetched by
+> openrouter-model-check.ts) carries `pricing`. Decisions:
+> **P5-1** a RACE verdict in `number_check`: time counters (s / ms / µs / min / h in the node or the word beside it)
+> that move at once must show the same time per frame (within 1.5×; a side that ends within 2 frames is consistent),
+> else RACE blocks under the same NUMBER_SPLIT_ALLOWANCE (`numbersOk` covers split and race); one race line in the
+> infographic-loop pack · **P5-2** a fixed ratio badge stays listed, quoted in the RACE message ("the badge says 1000×,
+> the motion ~3×") · **P5-3** `numbersOk` into TsxBuildJobIpc + `finalBuild` + the result line (agents and Studio
+> shots through `buildOutcomeLines`), no renderer UI · **P5-4** `text_overlaps` free, listed, not a gate: text on text
+> (> 20 % of the smaller box) and text on shapes on every swept frame; the probe reports shape boxes; one sweep cached
+> per exact build, shared with `number_check` · **P5-5** a cost estimate before Start beside the budget hint (Creator +
+> Studio pickers): measured tokens per budget × price (a Claude price table for an Anthropic key, OpenRouter
+> `pricing`, "on your plan" on the subscription, "cost unknown" otherwise), checked against stored usage rows ($0, no
+> API-key run); T6's token numbers updated · **P5-6** a deep link applies once per token; the load trap is a driver
+> rule (`agentSessionsList`) in TESTING.md and ui-automation-cdp.md · **P5-7** AGENT_PACKAGE_SPEC
+> generate/edit_composition section, TESTING.md §17 TSX Builder, a draft `docs/release-notes/1.2.0.md` (version
+> his), PACKS_DESIGN `craft`, SKILLS.md `builder: true`; Status.md left to Hasan · **P5-8** exit = vitest +
+> check:types baseline, the $0 bench (RACE on E2 and R2; E1, E3, R1 and both P3 builds keep their P4-12 verdicts), the
+> $0 UI check of the "+" fix, and one paid B1 + Blueprint Creator re-run (≈ $0.45). Parts: 1 race + badge + numbersOk
+> + bench · 2 text_overlaps · 3 cost estimate · 4 traps · 5 docs · 6 exit.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
@@ -1208,8 +1240,8 @@ point and putting the result on the wall beside R0b column 3, with time, rounds 
 | **P1 builder service** | request/result types, build folders + versions (`vN.tsx`, `vN.src/`, debug), all T2 tools except `text_overlaps`, budgets + caps, cancel, progress events, the `generateTsx()` dispatcher, tsx-job hosting (builder only; providers without tools → clear error; OpenRouter models must have tools + image input), unit tests | all four briefs through the job engine at Craft on the wall (`P1-B1..B4`) + one Standard edit of B2 |
 | **P2 no limits** (Rev 2) | T4 Rev 2: the curated library set behind one constant, GPU stills + export, frame-pure physics helper + rule, builder assets folder, packaged-app resolution (asar), no network at render; plus T5 fonts, kit on the render path, prompts aligned | new 3D + physics briefs reach the lab's real3d quality; the four 2D briefs still pass; dev and packaged, offline after the first run |
 | **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline. **Ran 10-17 (Sonnet 5.5 defaults):** no caller reaches the pipeline (met); column-3 class on Studio + flow, not on the Creator or the agent (B2, Standard + one Craft re-run each); FINDINGS-P3.md |
-| **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent. **Ran 10-21 (Sonnet 5.5 default, Craft):** met on B2 in the Creator (E1); agent v0.2 the same class with one clock slip (E3); B1 + Blueprint carries the moves with two clocks (E2); $1.29 in all; FINDINGS-P4.md. **P4-12 (10-21):** `number_check` + finish gate; B2 re-run one clock and checked OK, B1 re-run still two race clocks (text cannot see it); $0.84 |
-| **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes | stability gate |
+| **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent. **Ran 10-21 (Sonnet 5.5 default, Craft):** met on B2 in the Creator (E1); agent v0.2 the same class with one clock slip (E3); B1 + Blueprint carries the moves with two clocks (E2); $1.29 in all; FINDINGS-P4.md. **P4-12 (10-21):** `number_check` + finish gate; B2 re-run one clock and checked OK, B1 re-run still two race clocks (text cannot see it); $0.84. **CLOSED 10-21** |
+| **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes; plus (plan 10-21) a RACE verdict in `number_check`, `numbersOk` to callers, the "+" deep-link fix | stability gate: vitest + check:types baseline, the $0 bench (RACE on E2 / R2, the P4-12 verdicts kept), the "+" fix in the UI, one paid B1 + Blueprint re-run (≈ $0.45) |
 
 Rules: CLAUDE.md applies (feature isolation, IPC only, services hold logic, ~300 lines per
 file, Remotion pinned to 4.0.435 with no `^`, `check:types` against the baseline, `npx vitest
