@@ -452,6 +452,7 @@ export interface ElectronAPI {
   tsxJobClearCompleted: () => Promise<import('../../shared/ipc/types').TsxJobClearCompletedResponse>;
   tsxJobConfigure: (data: import('../../shared/ipc/types').TsxJobConfigureRequest) => Promise<import('../../shared/ipc/types').TsxJobConfigureResponse>;
   tsxCraftPacks: () => Promise<import('../../shared/ipc/types').TsxCraftPacksResponse>;
+  tsxBuildCostEstimate: (data: import('../../shared/ipc/types').TsxBuildCostRequest) => Promise<import('../../shared/ipc/types').TsxBuildCostEstimate>;
   onTsxJobEvent: (callback: (data: import('../../shared/ipc/types').TsxJobEvent) => void) => () => void;
   onTsxJobStream: (callback: (data: import('../../shared/ipc/types').TsxJobStreamEvent) => void) => () => void;
 

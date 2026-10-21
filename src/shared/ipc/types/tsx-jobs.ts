@@ -237,3 +237,20 @@ export interface TsxJobStreamEvent {
 export interface TsxCraftPacksResponse {
   packs: CraftPackInfo[];
 }
+
+/** A builder run's cost before Start (TSX_BUILDER_DESIGN.md P5 part 3). `providerId` absent = the active provider; `model` absent or '' = its default. */
+export interface TsxBuildCostRequest {
+  providerId?: string;
+  model?: string;
+  budget: BuildBudget;
+}
+
+/**
+ * Measured tokens per budget times the model's price: `usd` on an Anthropic
+ * key (the app's Claude price table) or OpenRouter (its `pricing`), `plan` on
+ * the Claude subscription, `unknown` for any other provider or an unpriced model.
+ */
+export type TsxBuildCostEstimate =
+  | { kind: 'usd'; low: number; high: number; source: 'claude' | 'openrouter'; model: string }
+  | { kind: 'plan' }
+  | { kind: 'unknown' };

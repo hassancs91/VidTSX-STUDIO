@@ -3,6 +3,7 @@ import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
 import type { BuildBudget } from '@shared/ipc/types';
 import { BUDGET_CHOICES, budgetHint } from '@shared/tsx-engine/build-budgets';
+import { useBuildCostEstimate } from '@shared/hooks/useBuildCostEstimate';
 
 export interface GenerateShotSpec {
   kind: 'cutaway' | 'overlay';
@@ -14,6 +15,9 @@ export interface GenerateShotSpec {
 
 interface Props {
   onGenerate: (spec: GenerateShotSpec) => void;
+  /** The project's provider and shot model: the hint's cost estimate (P5 part 3). */
+  providerId?: string;
+  model?: string;
 }
 
 /**
@@ -22,11 +26,12 @@ interface Props {
  * the top bar). The Shots tab stays mounted while hidden, so a half-typed
  * brief survives a tab switch.
  */
-export function GenerateShotForm({ onGenerate }: Props) {
+export function GenerateShotForm({ onGenerate, providerId, model }: Props) {
   const [kind, setKind] = useState<'cutaway' | 'overlay'>('cutaway');
   const [brief, setBrief] = useState('');
   const [duration, setDuration] = useState('5');
   const [budget, setBudget] = useState<BuildBudget>('standard');
+  const cost = useBuildCostEstimate(providerId, model, budget);
 
   const submit = () => {
     const trimmed = brief.trim();
@@ -69,7 +74,7 @@ export function GenerateShotForm({ onGenerate }: Props) {
         />
         <span className="text-[10px] text-text-dim">seconds</span>
         <div className="flex-1" />
-        <div className="w-[112px]" title={budgetHint(budget)} data-shot-budget>
+        <div className="w-[112px]" title={budgetHint(budget, cost)} data-shot-budget>
           <Select value={budget} onChange={(v) => setBudget(v as BuildBudget)} options={BUDGET_CHOICES} />
         </div>
         <Button variant="primary" size="sm" disabled={!brief.trim()} onClick={submit}>
@@ -77,7 +82,7 @@ export function GenerateShotForm({ onGenerate }: Props) {
         </Button>
       </div>
       <p className="text-[9px] text-text-dim leading-snug">
-        {BUDGET_CHOICES.find((c) => c.value === budget)?.label}: {budgetHint(budget)}. The builder looks at its frames and
+        {BUDGET_CHOICES.find((c) => c.value === budget)?.label}: {budgetHint(budget, cost)}. The builder looks at its frames and
         fixes them, one build at a time. The clip lands at the playhead when it finishes. For word-synced titles, ask the
         Assistant.
       </p>

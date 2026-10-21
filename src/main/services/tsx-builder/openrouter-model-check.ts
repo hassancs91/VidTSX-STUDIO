@@ -19,9 +19,45 @@ export const MODEL_LIST_TIMEOUT_MS = 10_000;
 /** The list changes rarely; a refetch per app run is plenty. */
 export const MODEL_LIST_TTL_MS = 60 * 60 * 1000;
 
+/** USD per token, from the list's `pricing` (strings there); the cost estimate reads it (P5 part 3). */
+export interface ModelPricing {
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+}
+
 export interface ModelCapabilities {
   tools: boolean;
   imageInput: boolean;
+  /** Absent when the list gives no usable price (none, or -1 for a variable router). */
+  pricing?: ModelPricing;
+}
+
+function perToken(value: unknown): number | undefined {
+  const n = typeof value === 'string' ? Number(value) : typeof value === 'number' ? value : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+/**
+ * A model's `pricing` block; prompt and completion must both be priced. The
+ * cache write is the 1-hour one when listed (Claude models carry
+ * `input_cache_write_1h`; the Agent SDK writes that cache), else the plain one.
+ */
+export function parseOpenRouterPricing(pricing: unknown): ModelPricing | undefined {
+  if (!pricing || typeof pricing !== 'object') return undefined;
+  const p = pricing as Record<string, unknown>;
+  const input = perToken(p.prompt);
+  const output = perToken(p.completion);
+  if (input === undefined || output === undefined) return undefined;
+  const cacheRead = perToken(p.input_cache_read);
+  const cacheWrite = perToken(p.input_cache_write_1h) ?? perToken(p.input_cache_write);
+  return {
+    input,
+    output,
+    ...(cacheRead !== undefined ? { cacheRead } : {}),
+    ...(cacheWrite !== undefined ? { cacheWrite } : {}),
+  };
 }
 
 export type ModelCheck = { ok: true; unchecked?: string } | { ok: false; error: string };
@@ -42,7 +78,7 @@ export function modelListUrl(baseURL: string): string {
   return `${base}/v1/models`;
 }
 
-/** The capability pair per model id from the list's JSON; an unreadable body gives an empty map. */
+/** The capability pair (and the price, when listed) per model id from the list's JSON; an unreadable body gives an empty map. */
 export function parseOpenRouterModels(json: unknown): Map<string, ModelCapabilities> {
   const out = new Map<string, ModelCapabilities>();
   const data = (json as { data?: unknown })?.data;
@@ -52,11 +88,13 @@ export function parseOpenRouterModels(json: unknown): Map<string, ModelCapabilit
       id?: unknown;
       supported_parameters?: unknown;
       architecture?: { input_modalities?: unknown };
+      pricing?: unknown;
     };
     if (typeof row.id !== 'string' || !row.id) continue;
     const params = Array.isArray(row.supported_parameters) ? row.supported_parameters : [];
     const inputs = Array.isArray(row.architecture?.input_modalities) ? row.architecture.input_modalities : [];
-    out.set(row.id, { tools: params.includes('tools'), imageInput: inputs.includes('image') });
+    const pricing = parseOpenRouterPricing(row.pricing);
+    out.set(row.id, { tools: params.includes('tools'), imageInput: inputs.includes('image'), ...(pricing ? { pricing } : {}) });
   }
   return out;
 }

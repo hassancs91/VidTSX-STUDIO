@@ -13,9 +13,12 @@ import type {
   TsxJobEvent,
   TsxJobStreamEvent,
   TsxCraftPacksResponse,
+  TsxBuildCostRequest,
+  TsxBuildCostEstimate,
 } from '@shared/ipc/types';
 import { tsxJobEngine } from '../services/tsx-jobs/tsx-job-engine';
 import { listCraftPacks } from '../services/tsx-builder/craft-packs';
+import { estimateBuildCost } from '../services/tsx-builder/build-cost';
 import { setTsxJobsMaxConcurrent } from '../services/settings';
 
 let broadcastInitialized = false;
@@ -97,6 +100,14 @@ export async function handleTsxCraftPacks(): Promise<TsxCraftPacksResponse> {
   } catch {
     return { packs: [] };
   }
+}
+
+/** A builder run's cost before Start, for the budget hints (P5 part 3). */
+export async function handleTsxBuildCostEstimate(
+  _event: IpcMainInvokeEvent,
+  req: TsxBuildCostRequest,
+): Promise<TsxBuildCostEstimate> {
+  return estimateBuildCost(req);
 }
 
 export async function handleTsxJobClearCompleted(): Promise<TsxJobClearCompletedResponse> {

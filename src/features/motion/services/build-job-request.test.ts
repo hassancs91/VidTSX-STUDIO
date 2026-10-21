@@ -66,4 +66,16 @@ describe('budgetHint', () => {
     expect(budgetHint('standard')).toBe('up to 3 looks · stops at 30 min');
     expect(budgetHint('craft')).toBe('up to 6 looks · stops at 60 min');
   });
+
+  it('adds the cost estimate once it has arrived (P5 part 3)', () => {
+    expect(budgetHint('standard', null)).toBe('up to 3 looks · stops at 30 min');
+    expect(budgetHint('standard', { kind: 'usd', low: 0.5076, high: 0.9276, source: 'claude', model: 'claude-sonnet-5-5' })).toBe(
+      'up to 3 looks · stops at 30 min · ≈ $0.51–0.93',
+    );
+    expect(budgetHint('standard', { kind: 'usd', low: 0.79, high: 0.7898, source: 'claude', model: 'claude-opus-5-5' })).toBe(
+      'up to 3 looks · stops at 30 min · ≈ $0.79',
+    );
+    expect(budgetHint('craft', { kind: 'plan' })).toBe('up to 6 looks · stops at 60 min · on your plan');
+    expect(budgetHint('quick', { kind: 'unknown' })).toBe('1 look · stops at 15 min · cost unknown');
+  });
 });

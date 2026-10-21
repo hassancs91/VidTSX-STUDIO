@@ -22,6 +22,8 @@ export interface ResolvedProviderInfo {
   id: string;
   /** Absent when the id is neither saved nor a preset. */
   type?: ProviderConfig['type'];
+  /** The login or a key; the builder's cost estimate reads it (P5 part 3). */
+  authMode?: ProviderConfig['authMode'];
   baseURL?: string;
   defaultModel?: string;
 }
@@ -41,6 +43,7 @@ export async function resolveProviderInfo(providerId?: string): Promise<Resolved
   return {
     id,
     ...(known?.type ? { type: known.type } : {}),
+    ...(known?.authMode ? { authMode: known.authMode } : {}),
     ...(known?.baseURL ? { baseURL: known.baseURL } : {}),
     ...(known?.defaultModel ? { defaultModel: known.defaultModel } : {}),
   };

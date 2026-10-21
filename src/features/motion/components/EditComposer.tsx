@@ -1,5 +1,6 @@
 import { Button } from '@shared/components';
 import type { BuildBudget, TsxJobIpc } from '@shared/ipc/types';
+import { useBuildCostEstimate } from '@shared/hooks/useBuildCostEstimate';
 import { BUDGET_CHOICES, budgetHint } from '../services/build-job-request';
 
 interface Props {
@@ -7,6 +8,9 @@ interface Props {
   onPromptChange: (value: string) => void;
   budget: BuildBudget;
   onBudgetChange: (value: BuildBudget) => void;
+  /** The Creator's provider and model ('' = its default): the hint's cost estimate (P5 part 3). */
+  providerId: string;
+  model: string;
   onApply: () => void;
   /** A provider is picked: an edit can start. */
   canApply: boolean;
@@ -22,8 +26,9 @@ interface Props {
  * as a builder edit at the picked budget. While an edit of this project runs,
  * the box shows where it is, a way back to its progress, and Cancel.
  */
-export function EditComposer({ prompt, onPromptChange, budget, onBudgetChange, onApply, canApply, job, onCancel, onShowProgress }: Props) {
+export function EditComposer({ prompt, onPromptChange, budget, onBudgetChange, providerId, model, onApply, canApply, job, onCancel, onShowProgress }: Props) {
   const busy = job !== null;
+  const cost = useBuildCostEstimate(providerId || undefined, model, budget);
   const status = !job
     ? ''
     : job.status === 'queued'
@@ -68,7 +73,7 @@ export function EditComposer({ prompt, onPromptChange, budget, onBudgetChange, o
         </div>
       ) : (
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex rounded-[6px] overflow-hidden shrink-0" style={{ border: '0.5px solid var(--color-border)' }} title={budgetHint(budget)}>
+          <div className="flex rounded-[6px] overflow-hidden shrink-0" style={{ border: '0.5px solid var(--color-border)' }} title={budgetHint(budget, cost)}>
             {BUDGET_CHOICES.map((choice, i) => (
               <button
                 key={choice.value}
@@ -83,7 +88,7 @@ export function EditComposer({ prompt, onPromptChange, budget, onBudgetChange, o
               </button>
             ))}
           </div>
-          <span className="text-[9px] text-text-dim truncate">{budgetHint(budget)}</span>
+          <span className="text-[9px] text-text-dim truncate">{budgetHint(budget, cost)}</span>
           <Button variant="primary" className="ml-auto shrink-0" onClick={onApply} disabled={!prompt.trim() || !canApply} data-edit-apply>
             Apply
           </Button>

@@ -3,6 +3,7 @@ import { Button } from '@shared/components';
 import { ProviderSelect } from '@renderer/components/ProviderSelect';
 import { ModelSelect } from '@renderer/components/ModelSelect';
 import { useModelPicker } from '@renderer/hooks/useModelPicker';
+import { useBuildCostEstimate } from '@shared/hooks/useBuildCostEstimate';
 import type { LlmProviderConfig, LlmImageIpc } from '../../../shared/ipc/types';
 import type { StudioBrand } from '@shared/types/asset-library';
 import type { BuildBudget } from '@shared/ipc/types';
@@ -92,6 +93,7 @@ export function MotionInputPanel({
   onCollapse,
 }: MotionInputPanelProps) {
   const picker = useModelPicker(selectedProvider);
+  const cost = useBuildCostEstimate(selectedProvider || undefined, model, budget);
   const templatesMode = mode === 'templates';
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -172,7 +174,7 @@ export function MotionInputPanel({
 
       {!templatesMode && (
         <>
-          <MotionSegmented label="Budget" options={BUDGET_CHOICES} value={budget} onChange={onBudgetChange} hint={budgetHint(budget)} />
+          <MotionSegmented label="Budget" options={BUDGET_CHOICES} value={budget} onChange={onBudgetChange} hint={budgetHint(budget, cost)} />
           <MotionSegmented label="FPS" options={FPS_CHOICES} value={fps} onChange={onFpsChange} />
           <MotionSegmented label="Aspect Ratio" options={RATIO_CHOICES} value={aspectRatio} onChange={onAspectRatioChange} />
           <MotionDurationField

@@ -12,6 +12,7 @@ import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
 import type { BuildBudget } from '@shared/ipc/types';
 import { BUDGET_CHOICES, budgetHint } from '@shared/tsx-engine/build-budgets';
+import { useBuildCostEstimate } from '@shared/hooks/useBuildCostEstimate';
 import type { StudioClip, StudioMediaAsset, StudioShot } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
@@ -28,6 +29,9 @@ interface Props {
   progress: ShotJobProgress | null;
   /** The master footage under the clip's start: what a transparent shot's builder looks show behind it. */
   footage?: ShotFootage;
+  /** The project's provider and shot model: the hint's cost estimate (P5 part 3). */
+  providerId?: string;
+  model?: string;
   onError: (message: string) => void;
 }
 
@@ -37,10 +41,11 @@ function fmtSpan(start: number, end: number): string {
 
 const OP_LABEL: Record<string, string> = { edit: 'edit', refine: 'refine', regenerate: 'regenerate', generate: 'build' };
 
-export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progress, footage, onError }: Props) {
+export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progress, footage, providerId, model, onError }: Props) {
   const [versions, setVersions] = useState<number[]>([]);
   const [instruction, setInstruction] = useState('');
   const [budget, setBudget] = useState<BuildBudget>('standard');
+  const cost = useBuildCostEstimate(providerId, model, budget);
   const busy = progress?.status === 'generating';
 
   // Folder-as-truth version list; refreshed when a run finishes (busy flips)
@@ -201,12 +206,12 @@ export function ShotClipSection({ projectId, clip, shot, assets, dispatch, progr
         />
       </label>
 
-      <label className="flex items-center gap-2" title={budgetHint(budget)}>
+      <label className="flex items-center gap-2" title={budgetHint(budget, cost)}>
         <span className="text-[10px] text-text-dim shrink-0">Budget</span>
         <div className="w-[124px] shrink-0" data-shot-inspector-budget>
           <Select value={budget} disabled={busy} onChange={(v) => setBudget(v as BuildBudget)} options={BUDGET_CHOICES} />
         </div>
-        <span className="text-[9px] text-text-dim truncate">{budgetHint(budget)} · Apply edit, Regenerate</span>
+        <span className="text-[9px] text-text-dim truncate">{budgetHint(budget, cost)} · Apply edit, Regenerate</span>
       </label>
 
       <div className="flex items-center gap-2 flex-wrap">

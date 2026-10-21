@@ -7,6 +7,7 @@ import {
   handleTsxJobClearCompleted,
   handleTsxJobConfigure,
   handleTsxCraftPacks,
+  handleTsxBuildCostEstimate,
   initTsxJobBroadcast,
 } from '../tsx-job-handlers';
 
@@ -18,4 +19,5 @@ export function registerTsxJobsIpc(): void {
   ipcMain.handle(IPC.TSXJOB_CLEAR_COMPLETED, handleTsxJobClearCompleted);
   ipcMain.handle(IPC.TSXJOB_CONFIGURE, handleTsxJobConfigure);
   ipcMain.handle(IPC.TSXJOB_CRAFT_PACKS, handleTsxCraftPacks);
+  ipcMain.handle(IPC.TSXJOB_COST_ESTIMATE, handleTsxBuildCostEstimate);
 }

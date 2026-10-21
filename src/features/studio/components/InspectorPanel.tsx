@@ -91,6 +91,8 @@ export function InspectorPanel({
   onLearnPreset,
   filters,
 }: Props) {
+  // The project shot model (W1), as shot-generator.ts shotDefaults reads it: the budget hint prices it.
+  const shotModel = project.settings.agent.shotModel || project.settings.agent.model;
   // The shot behind the selected tsx clip, when exactly one clip is selected.
   const singleClip =
     selectedClipIds.length === 1 ? (findClip(timeline, selectedClipIds[0])?.clip ?? null) : null;
@@ -143,6 +145,8 @@ export function InspectorPanel({
             dispatch={timelineDispatch}
             progress={selectedShot ? getShotProgress(selectedShot.id) : null}
             {...(footageUnderClip ? { footage: footageUnderClip } : {})}
+            {...(project.settings.agent.providerId ? { providerId: project.settings.agent.providerId } : {})}
+            {...(shotModel ? { model: shotModel } : {})}
             onError={onShotError}
           />
         </section>

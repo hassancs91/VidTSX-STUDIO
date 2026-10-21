@@ -120,6 +120,8 @@ export function ShotsPanel({
               onGenerateShot(spec);
               setFormOpen(false);
             }}
+            {...(providerId ? { providerId } : {})}
+            {...(model ? { model } : {})}
           />
         )}
 

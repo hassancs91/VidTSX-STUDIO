@@ -434,6 +434,8 @@ function MotionScreenContent() {
                   onPromptChange={generator.setEditPrompt}
                   budget={generator.editBudget}
                   onBudgetChange={generator.setEditBudget}
+                  providerId={generator.selectedProvider}
+                  model={generator.model}
                   onApply={() => void handleApplyEdit()}
                   canApply={Boolean(generator.selectedProvider)}
                   job={openProjectJob}
