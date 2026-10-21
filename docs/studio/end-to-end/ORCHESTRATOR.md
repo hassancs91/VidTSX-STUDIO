@@ -10,7 +10,7 @@
 
 | Part | Status | Builders spawned | Verifier result | Commit | Exit numbers | Started / Finished |
 |---|---|---|---|---|---|---|
-| A1 | VERIFY | 2 | — | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | — | 2026-10-21 18:42 / — |
+| A1 | DONE | 2 | PASS (1 round) | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | 3840×2160 @ 60 from the dialog; Export lists Full, 1440p, 1080p, 720p, 540p, 360p; size edit = one undo step on disk; vitest 3513 pass; types 26/10 | 2026-10-21 18:42 / 19:11 (29 min) |
 | A2 | TODO | | | | | |
 | A3 | TODO | | | | | |
 | A4 | TODO | | | | | |
@@ -56,3 +56,19 @@
 ## Stops
 
 (one line per stop: what was reported, what Hasan said)
+- 2026-10-21 19:11 · A1 DONE (verifier PASS, 1 round). Reported: exit numbers, the pre-existing
+  `shot-generator.test.ts` / `shot-module-resolver.test.ts` full-suite flake (reproduced on `main`,
+  green on rerun), cosmetic tile text. Waiting for Hasan's "go" before A2.
+
+## Notes carried forward
+
+- Full-suite flake, NOT caused by the branch: `shot-generator.test.ts` (3 tests from :197) and
+  `shot-module-resolver.test.ts:151` (5000 ms timeout) fail intermittently; the verifier
+  reproduced `shot-generator` failing 2/4 on a detached `main` worktree. A green rerun counts.
+- A1 left for later (unit-tested only, or cosmetic): a remembered 1440p export default on a
+  smaller project falling back to Full (TESTING §18.1 open item); Ctrl+Z with Project settings
+  still open; New Project tile descriptions wrap to two lines and the 4K tile says "4K" twice;
+  `useTimeline.ts` ~850 lines (over the house rule before A1).
+- A1's frame-size undo means `settings.width/height` are written from the timeline reducer
+  (`useTimeline.ts:676-721`): any future code that sets the size through `updateProject`
+  instead of the reducer would be silently reverted.
