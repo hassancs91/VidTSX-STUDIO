@@ -1,5 +1,5 @@
 # A5 — Fastest on video-14 (30–60 s range across a split + a cutaway); Standard at 25 % for the record
-status: NEW
+status: IN PROGRESS (step 0.1 done; next step 0.2)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A2, A3 and A4 drivers are reusable:
@@ -90,20 +90,70 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+- **Step 0.1 — a render that can never end now ends** (`06edaf0`). Root cause confirmed by
+  code-read: Remotion throws "FFmpeg quit … while piping frame N" inside its `onFrameBuffer`
+  (`node_modules/@remotion/renderer/dist/render-media.js:355-367`), nothing awaits it, and every
+  later frame waits forever in `waitForRightTimeOfFrameToBeInserted`, so `renderMedia()` never
+  settles; only its cancel signal ends it (`render-media.js:218-220` → frames cancelled → the
+  final catch kills the stitcher and rejects, `:520-541`). No process-wide `unhandledRejection`
+  listener exists in main and none was added (it would swallow every other rejection's warning
+  and cannot attribute an error to a job).
+  - `src/main/services/render-stall-guard.ts` (new, 125 lines): `stallAfterMsFor(perFrameTimeout)`
+    = per-frame timeout + 2 min, never under 5 min (12 min at the 600 s default — a heavy frame
+    Remotion itself still allows can never trip it; the slowest first 4K frame measured, ~67 s,
+    is far below). `createStallGuard({stallAfterMs, cancel, totalFrames})` → `noteProgress({
+    renderedFrames, encodedFrames, stitchStage})` (a change in any of the three is activity; an
+    identical repeated tick is not) and `run(start)` (fresh clock per attempt; checks every 5 s;
+    on stall → Remotion's cancel, up to 30 s for the render to settle so its processes/temp are
+    released first, then `RenderStalledError`: "Render stalled at frame 66 of 1800: no new frame
+    for 12 min — the renderer or its video encoder stopped responding, so the export was
+    stopped. Export again; …" / "Render stalled before the first frame (0 of 300) …". The
+    message never contains "cancel" (`remotion-renderer.ts` maps such messages to a user cancel).
+  - `src/main/services/remotion-renderer.ts:10` import, `:283-290` guard per job (total = the
+    `frameRange` length or the composition length), `:347-348` every Remotion progress tick fed
+    in, `:364` each attempt (incl. the starvation retry) runs under `stallGuard.run`. Covers every
+    caller of `renderComposition` (Studio Standard, Fast/Fastest browser spans and the Fastest
+    shot layer, the Render page). The webp path is not guarded (own pipeline). The file was
+    434 lines before (already over the 300 rule) and is 444 now — not split in this step.
+  - Tests: `src/main/services/render-stall-guard.test.ts` (12: threshold rule, steady render,
+    slow first frame, the dead encoder at frame 66 of 1800, encoder-only/stage progress counts,
+    repeated tick is not activity, stall before frame 1, render that ignores cancel still ends
+    after the grace, waits for the cancelled render to settle first, own errors pass through and
+    the timer stops, the retry starts a fresh clock) and
+    `src/main/services/remotion-renderer-stall.test.ts` (2: a fake `renderMedia` that reports 66
+    frames of a 1800-frame range then only settles on cancel → `onComplete({success:false,
+    error:"Render stalled at frame 66 of 1800: no new frame for 12 min…"})`, job status
+    `failed`; a render with a frame every 4 min for 80 min at a 30 s per-frame timeout completes
+    untouched).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- 2026-10-21 23:54 `npx vitest run src/main/services/remotion-renderer-stall.test.ts
+  src/main/services/render-stall-guard.test.ts` → 2 files, 14 tests passed.
+- 2026-10-21 23:55 `npx vitest run src/main/services/studio/export-engines src/main/services/remotion
+  src/main/services/render-stall-guard src/main/ipc/render-handlers` → 24 passed | 1 skipped
+  files, 160 passed | 11 skipped tests.
+- 2026-10-21 23:55 `npm run check:types` → web 26 (baseline 26) ok, node 10 (baseline 10) ok.
+- 2026-10-21 23:56 `npx vitest run` (no electron.exe running) → 430 passed | 4 skipped files,
+  3612 passed | 22 skipped tests, 32.0 s, exit 0. Log:
+  `.vidtsx-temp/end-to-end/A5/logs/vitest-step01.log`.
+- Not driven live (a real dead encoder could not be reproduced in A4 4c); the live A5 runs will
+  show the guard staying quiet on a healthy 4K render.
 
 ## Next step (ONE concrete instruction)
 
-Step 0.1: read `src/main/services/remotion-renderer.ts` and how `renderMedia` reports progress and
-errors to the export engines; add the "a dead encoder ends the job" guard test-first.
+Step 0.2: read `src/main/services/font-proxy.ts:59-91` (`fetchAndCache`) and
+`src/main/services/studio/export-engines/font-preflight.ts` (verdict/message at :40-42) with their
+tests; test-first, add ONE retry on a transient fetch error (network error/`terminated` or 5xx —
+never on 404) and make the refusal say "N of M font files could not be downloaded — check your
+connection and export again" when SOME files failed vs the current "Google Fonts could not be
+reached" when ALL did.
 
 ## Open problems
 
-(none yet)
+- `src/main/services/remotion-renderer.ts` is 444 lines (was 434 before A5, already over the
+  ~300 rule). Splitting it (e.g. the encoder-name helpers, the renderMedia option builder) is a
+  separate refactor, not part of A5.
 
 ## Do-not-redo
 
@@ -112,4 +162,4 @@ errors to the export engines; add the "a dead encoder ends the job" guard test-f
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-21 · agent 1 · ~25 calls · step 0.1 (stall guard, `06edaf0`), gates green.
