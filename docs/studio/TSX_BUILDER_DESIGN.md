@@ -1130,6 +1130,24 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   **Judgment calls, reported:** (1) the node has two selects (Kind + Style, as the Creator), not one; (2) a builder
 >   skill leaves the agent's prompt (named only); (3) `from` on an edit rebuilds the first build's request and says so,
 >   rather than refusing; (4) a skipped card comes back when the session is reopened (the question still waits).
+> - **Part 4 DONE** (no VidTSX code, no signed file; $0). **P4-8 (a):** agent v0.2 as a NEW lab folder
+>   `ai-video-lab/experiments/studio-unlock-01/agent-v02/` beside v0.1's `agent/` (v0.1's folder and its
+>   `.vidtsxagent` untouched), `lwh/infographic-loop` **0.2.0**, packed UNSIGNED (`agent-pack.mjs --hash`, `--check`,
+>   `--out lwh.infographic-loop-0.2.0.vidtsxagent` with the signing-key variable unset) → "Unverified". A thin director:
+>   starter = style (Blueprint / Flat bold / Neon dark / Editorial / your own) → idea; "Picture ideas" = three ideas of
+>   five parts each (name, metaphor, frame 0, motion + meaning, numbers; no boxes, no pixel positions) → pick →
+>   `get_brand` → `generate_composition` with brief = the starter idea verbatim + the picked metaphor + its frame 0,
+>   `packs` `core/infographic-loop` + the style's pack (your own = `core/style-custom`, the words in `styleNotes`),
+>   budget craft, 1080 × 1350, 30 fps, 8 s, loop → approve card → `render_composition` on approval. Gone: v0.1's "a
+>   session without a rendered MP4 has failed" line, the build sheet (pixel boxes, frames), the Infographic loop and
+>   Infographic styles skills (now the builder's craft packs). Kept: Concept to picture as the agent's own skill (no
+>   `builder: true`; byte-identical to v0.1's). Added P4-7 (c)'s rule: a chat message while a question waits IS its
+>   answer. **$0 UI** (dev app, throwaway profile, `runs/P4/ui-p4-4`, launch 06:19:41Z, 0 usage rows): installed over
+>   v0.1 through `agentsInstall` (the store's swap) → Agents shows Infographic Loop 0.2.0 "Unverified"; a NEW session
+>   ("+") opens the starter on "Which look?" → Flat bold → the idea → the opening prefilled in the box, not sent (no
+>   turn). s-23ef7a41 not opened. **Judgment call, reported:** the starter's format question goes (the frame is fixed at
+>   4:5 as the form pack suggests; the user can still ask for another size in chat). Found: a session created over IPC
+>   (`agentSessionCreate`) opens on the quick starts, not the starter; the starter belongs to "+" (left as is).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
