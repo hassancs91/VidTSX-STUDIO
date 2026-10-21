@@ -1,5 +1,6 @@
 # A3 — The no-react fix: `remotion/<subpath>` external in shot bundles
-status: IN PROGRESS (step 1 of 4 done: the code fix + unit tests, commit `c3aefe8`)
+status: IN PROGRESS (steps 1–2 of 4 done: the code fix + unit tests, commit `c3aefe8`; the
+shared video-14 copy + `v14-a1-nobody` re-bundled in it)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 "Learned" lines from A1/A2). Plan §5 calls this part **the highest risk in the plan**.
@@ -90,8 +91,8 @@ then re-bundles all 55 through the import script's bundle step."
 ## Steps (the part, numbered)
 
 1. **Code fix + unit tests** — DONE (`c3aefe8`).
-2. **Shared video-14 copy + one-shot re-bundle** — make the copy, edit the COPY's import script
-   (`PROJ` override, `--shots-only`, a single-shot filter), re-bundle `v14-a1-nobody` only.
+2. **Shared video-14 copy + one-shot re-bundle** — DONE (2026-10-21, agent 2; no repo source
+   change, the copy is gitignored).
 3. **One-shot proof** — isolated profile on the copy: the shot in the Player (font load, no stuck
    hold, no console errors), then the 5 s Standard render at 3840×2160 @ 60 across it, CPU "low".
    Spike verdict recorded (parity holds → keep; fails → the §5 fallback).
@@ -136,6 +137,28 @@ then re-bundles all 55 through the import script's bundle step."
   `NoReactInternals` member, `ENABLE_V5_BREAKING_CHANGES` — present in the app's 4.0.435
   (`node_modules/remotion/dist/esm/no-react.mjs:508` `= false`, exported :684). So the API the
   4.0.486 code calls exists; the one-shot render (step 3) is still the decider per §5.
+- **Step 2 — the shared copy + one-shot re-bundle (agent 2, 2026-10-21, nothing in git).**
+  - The copy: `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14`
+    (robocopy /E of the original: 127 dirs, 461 files, 458.17 MB; gitignored by `.gitignore:35`
+    `.vidtsx-temp/`). Studio root for every isolated profile from now on:
+    `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root`.
+  - The COPY's `notes/import/build-video14.mjs` is edited (the original's is untouched):
+    `:25-37` — `PROJ` comes only from `--proj=<dir>` or env `V14_PROJ`, no default ("Refusing to
+    run: pass --proj=…"), and anything under `%USERPROFILE%\Videos\VidTSX Studio\projects` is
+    refused; `--shots-only` and `--shot=<row id | shot id>` (repeatable / comma list).
+    `:97-136` — the `--shots-only` block: needs an existing `project.json`, re-bundles each
+    matching timeline row through `importShot` (Studio's `bundleShotSource` compiled from this
+    repo's `src` by `studio-lib.mjs`), refuses a shot whose lint fails, whose config differs from
+    `project.json`'s or whose media keys differ from its `assetRefs`, then writes ONLY
+    `shots/<id>/v<activeVersion>.tsx` (project.json untouched) and prints KB before→after,
+    `remotion_delayRenderHandles` count before→after, and whether a top-level
+    `from "remotion/no-react"` import sits above `function __vidtsxInit(`. Report:
+    `notes/import/shots-only-report.json` (`-dry.json` for a dry run). Exit 2 on any problem.
+  - `v14-a1-nobody` re-bundled for real (167 → 124 KB); its pre-A3 bundle is kept at
+    `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\A3\v14-a1-nobody.v1.before.tsx`. The other 54
+    `v1.tsx` in the copy are still the OLD bundles (step 4 rewrites them).
+  - The shot on the timeline: shots-track clip `V14A1Nobody`, `timelineStart` 5.6 s, duration
+    11.1 s (5.6–16.7 s); shot config 1920×1080 @ 30, 333 frames.
 
 ## Verified (exact commands + outputs)
 
@@ -148,17 +171,41 @@ then re-bundles all 55 through the import script's bundle step."
 - `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
   `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
 - Full `npx vitest run`: NOT run yet (run it at the part's end with the app stopped, logged).
-- Free space at 20:44: **C: 24.46 GB, D: 6.11 GB**.
+- Free space at 20:44: **C: 24.46 GB, D: 6.11 GB**; after the copy (20:50): **C: 24.45 GB,
+  D: 5.65 GB**.
+- Step 2, from the copy's `notes/import/` (PowerShell):
+  - `node build-video14.mjs --shots-only --dry-run` → `Refusing to run: pass --proj=<project dir>
+    (or V14_PROJ). There is no default.` exit 1.
+  - `node build-video14.mjs --shots-only --dry-run "--proj=$env:USERPROFILE\Videos\VidTSX Studio\projects\video-14"`
+    → `Refusing to run on Hasan's projects folder: …` exit 1.
+  - `node build-video14.mjs --shots-only --dry-run "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14"`
+    → every row `handles 1 → 0  no-react import top-level` (e.g. `V14A5Cracked 175 → 132 KB`),
+    last line `55/55 shots checked (DRY RUN — nothing written); handles after: 0; problems: 0`,
+    exit 0. So all 55 already re-bundle clean with `c3aefe8` (config + media keys match).
+  - `node build-video14.mjs --shots-only --shot=v14-a1-nobody "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14"`
+    → `V14A1Nobody 167 → 124 KB  handles 1 → 0  no-react import top-level` ·
+    `1/1 shots written; handles after: 0; problems: 0` exit 0.
+  - `Select-String … shots\v14-a1-nobody\v1.tsx -Pattern remotion_delayRenderHandles` → 0 hits;
+    `^import .* from "remotion` → lines 7-34, incl. `:14 import { NoReactInternals } from
+    "remotion/no-react";` (four copies, :14/16/18/20, one per inlined google-fonts family), and
+    `function __vidtsxInit` at :38 — below every import.
 
 ## Next step (ONE concrete instruction)
 
-Copy `%USERPROFILE%\Videos\VidTSX Studio\projects\video-14` to
-`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14` (robocopy /E, ~460 MB;
-re-check D: free first), then in the COPY's `notes/import/` read `build-video14.mjs` and
-`studio-lib.mjs` fully, edit the copy so `PROJ` comes from an env var/argv (default: refuse to run
-on the original path) and add `--shots-only` plus a `--shot <id>` filter, run it with `--dry-run`,
-then for real on `v14-a1-nobody` only — and confirm that shot's `v1.tsx` has 0
-`remotion_delayRenderHandles` and a top-level `from "remotion/no-react"` import.
+Step 3, the Player half first: copy `.vidtsx-temp/end-to-end/A1/launch.sh` to
+`.vidtsx-temp/end-to-end/A3/launch.sh` (profile `.vidtsx-temp/end-to-end/A3/profile`, CDP port
+9231, log `.vidtsx-temp/end-to-end/A3/app.log`; follow DRIVING.md "Isolated instance" — check
+9222/5173/electron.exe first), set the Studio root to
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root` (`studioRootSet` → `studioRootGet` →
+`vidtsx:studio-projects-changed`), open `video-14`, seek the Player to 8.0 s (inside the
+`V14A1Nobody` clip, 5.6–16.7 s) and record over CDP (Runtime + Network + Log): the shot's frame
+renders (screenshot to `.vidtsx-temp/end-to-end/A3/stills/player-8s.png`), its Space Grotesk /
+Inter `delayRender` holds are released (no "delayRender … not cleared" / timeout console error
+within 30 s), every `/virtual/remotion.js/*` request is 200, and there is no esm.sh request for
+`remotion`. Then (same instance, C: ≥ 10 GB free, CPU "low", machine held awake) export the
+range 6.0–11.0 s at 3840×2160 @ 60 through Standard to `.vidtsx-temp/end-to-end/A3/export/` and
+record whether it completes with the `'brand fonts'` hold released (render log + wall time) —
+that is the parity spike verdict.
 
 ## Open problems
 
@@ -178,9 +225,17 @@ then for real on `v14-a1-nobody` only — and confirm that shot's `v1.tsx` has 0
   tests are done and proven to fail without the fix. Do not re-derive them.
 - The parity question is answered statically (one member, present in 4.0.435); only the live
   render remains.
+- Step 2: the copy exists (do not re-copy — it would also undo the re-bundle); the copy's
+  `build-video14.mjs` already has `--proj` / `--shots-only` / `--shot=` and refuses the original
+  path; `v14-a1-nobody` is already re-bundled; the all-55 dry run is already clean. Step 4 is
+  just: `node build-video14.mjs --shots-only "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14"`
+  from the copy's `notes/import/`, then the grep.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-21 · agent 1 · ~38 calls · step 1: read the code paths (bundle step, lint, finish,
   preview transpiler + module server, export webpack aliases), the fix + tests, regression proof,
   types gate, static parity; commit `c3aefe8`.
+- 2026-10-21 · agent 2 · ~22 calls · step 2: the video-14 copy (458 MB), the copy's import
+  script guarded + `--shots-only`/`--shot=`, all-55 dry run clean, `v14-a1-nobody` re-bundled
+  (0 handles, top-level `remotion/no-react` import). Handed off at the step boundary.
