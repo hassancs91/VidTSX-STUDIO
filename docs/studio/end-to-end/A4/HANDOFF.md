@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS (step 0 done; next: step 1, font preflight pure op)
+status: IN PROGRESS (steps 0 + 1 done; next: step 2, GPU proxies default on when viable)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -109,8 +109,51 @@ numbers."
   `remotion/version` pass; `remotion/foo` and `remotion/dist/cjs/index.js` still listed as
   packages. `docs/studio/TESTING.md:303` now cites `src/shared/studio/shot-import.test.ts:37`
   (the `src/main/services/studio/shot-import.test.ts` A3 named is the writer's test, no classifier).
+- **Step 1 — export font preflight, code + unit tests** (`3417d46`). Not yet driven in the app.
+  - Pure, `src/main/services/font-proxy-rewrite.ts`: `collectFontUrls` :49 (same `CODE_URL`,
+    de-duped, first-seen order); `collectEntryFontUrls` :66 (decodes the copies' proxied
+    `/fonts?u=` refs back to upstream URLs + raw quoted ones; other hosts / broken encodings
+    dropped); `collectCssFontFileUrls` :81 (a stylesheet body's gstatic `url()`s, now also used
+    by `warmFontCache`); `isFontStylesheetUrl` :90.
+  - Pure, `src/main/services/studio/export-engines/font-preflight.ts`: `fontPreflightVerdict`
+    (ok, or the refusal: "Export not started: this video's shots use Google Fonts that are not
+    downloaded yet (Space Grotesk, Inter), and Google Fonts could not be reached (N font files
+    missing). Connect to the internet and export again; once downloaded, the fonts stay cached
+    and later exports work offline."), `fontFamilyLabels` (gstatic slug → the css2 spelling).
+  - `src/main/services/font-proxy.ts:145` `ensureFontCached(url)` — STRICT warm: the URL and,
+    for a stylesheet, every file it lists are on disk afterwards or it throws (unlike
+    `warmFontCache`, which skips failed files). Returns `{fetched, cached}`.
+  - `src/main/services/font-upstream-dev-overrides.ts`: dev-only (ignored when
+    `!process.defaultApp`) `VIDTSX_FONT_UPSTREAM_OVERRIDES='{"block":true}'` or
+    `'{"blockWhileExists":"<abs path>"}'` (blocked while that file exists — toggle WITHOUT a
+    restart; checked on every fetch). `fetchAndCache` (`font-proxy.ts` ~:60) throws
+    "Upstream blocked (dev override)" and logs WARN `Font upstream blocked (dev override)` — count
+    those lines (and `Font proxy fetch failed`) in the main log as the zero-upstream evidence.
+  - `src/main/services/studio/export-engines/export-font-check.ts` `checkExportFonts(jobId, urls)`:
+    6 workers over `ensureFontCached`, never throws, logs INFO `Export font preflight` with
+    `urls, filesFetched, filesCached, failed, families, ms` (logger `StudioExportFonts`).
+  - `src/main/services/studio/export-entry.ts:76` new optional `StudioExportEntry.fontUrls`
+    (persisted in the export-context sidecar), filled at :369-378 from the shot, caption and
+    transition COPIES as written. Pack filters (verbatim `.js`) and brand fonts (own loader with
+    its own timeout, prefetched on brand save) are not scanned.
+  - `src/main/services/studio/export-engines/run-export.ts:81-92`: after the disk check,
+    `onProgress('preparing', 0, …, 'Checking fonts…')` when there are URLs, then the preflight;
+    a refusal throws the message before the scratch dir exists (the UI shows it as the export's
+    failure via `sendComplete(false, …, message)`, same path as A2's disk refusal). An entry from
+    before A4 (no `fontUrls`) skips it.
 
 ## Verified (exact commands + outputs)
+
+- Step 1: `npx vitest run src/main/services/font-proxy.test.ts src/main/services/font-proxy-rewrite.test.ts src/main/services/font-upstream-dev-overrides.test.ts src/main/services/studio/export-engines/font-preflight.test.ts src/main/services/studio/export-engines/run-export.test.ts src/main/services/brand-fonts.test.ts`
+  → `Test Files  6 passed (6)` / `Tests  38 passed (38)`; run-export alone `5 passed (5)`
+  (2 new: refusal before touching anything; preflight runs before the engine). The real-shot
+  case (`font-proxy-rewrite.test.ts`, skip-if-absent, reads the video-14 copy's
+  `v14-a1-nobody/v1.tsx`) RAN: every Google Fonts URL in the bundle (103 unique) is a quoted
+  literal `collectFontUrls` sees; its 4 stylesheets are Space Grotesk, Inter, JetBrains Mono,
+  Spectral; after `rewriteFontUrls` no raw quoted URL is left.
+- Step 1 full run, no Electron running: `npx vitest run > .vidtsx-temp/end-to-end/A4/logs/vitest-full-step1.log 2>&1`
+  → exit 0, `Test Files  424 passed | 4 skipped (428)`, `Tests  3566 passed | 22 skipped (3588)`, 35.39 s.
+- Step 1 `npm run check:types` → web 26 (baseline 26) ok, node 10 (baseline 10) ok.
 
 - `npx vitest run src/main/services/studio/shot-generator.test.ts` ×5 (Bash loop) →
   `Tests  18 passed (18)` five times.
@@ -128,18 +171,33 @@ numbers."
 
 ## Next step (ONE concrete instruction)
 
-Step 1: add a pure `collectFontUrls(code: string): string[]` beside `rewriteFontUrls` in
-`src/main/services/font-proxy-rewrite.ts` (same `CODE_URL` regex, de-duplicated, order kept) with
-unit tests — including one fed a real bundled shot from the video-14 copy
-(`.vidtsx-temp/end-to-end/v14-root/projects/video-14/shots/v14-a1-nobody/`, copied into a test
-fixture or read in a skip-if-absent test) to confirm the inlined `@remotion/google-fonts` URLs are
-quoted literals it sees (read `font-proxy-rewrite.ts:46` comment: a `css2` stylesheet's own
-`url(...)` woff2 refs are only visible after fetching it, so warming a `css2` URL means fetching
-its woff2s too). Then (same step if budget allows) the preflight service over every shot copy of
-an export, warming through the proxy's cache (`font-proxy.ts:56-87`), with the dev-only
-upstream-block override (A2's `disk-dev-overrides.ts` pattern, `process.defaultApp`).
+Step 2 (GPU proxies default on when viable — code + unit tests, no app run yet): read
+`src/main/services/settings.ts:295-300` (`proxyGpuEncoderEnabled`, no default) and where the
+proxy encoder choice is made (`src/main/services/studio/proxy-encoders.ts` + its caller; keep the
+one-failure x264 latch), then add a PURE resolver, e.g. `effectiveProxyGpuEnabled(setting:
+boolean | undefined, viable: boolean): boolean` (unset → `viable`; explicit true/false wins),
+where "viable" = an NVIDIA adapter present AND the full ffmpeg installed
+(`src/main/services/studio/ffmpeg-full.ts:32-109`) AND its encoder probe passes; unit-test it
+and use it at the proxy-build decision, and make `ProxyGpuEncoderRow.tsx` show the effective
+state (an unset setting reads "On (automatic)" or similar) without writing the setting. Step 3
+after that: the first-4K-import download card; step 4: the CDP run for both exits.
 
 ## Open problems
+
+- Not a blocker, by design (record in the §18 block): the preflight is STRICT — it warms every
+  URL the copies carry, i.e. all weights × subsets `@remotion/google-fonts` inlines (≈100 URLs
+  for video-14's 4 families) plus each family's `css2` URL (`info.url`, metadata the package
+  itself never fetches at render; warming it fetches its woff2s too). A cache the preview filled
+  (only what the browser used) still needs the network ONCE for the first export of a project;
+  after that, exports are offline. Brand fonts (own loader, own timeout, prefetched on brand
+  save) and pack filters are not scanned.
+- For the step-4 CDP font exit, launch with
+  `VIDTSX_FONT_UPSTREAM_OVERRIDES='{"blockWhileExists":"<A4 dir>\\block-fonts"}'` so one session
+  does both halves: block file present + cold font cache (fresh profile) → export → the refusal
+  text; remove the file → export (warms, renders) → create the file → export again → completes
+  with zero `Font upstream blocked` / `Font proxy fetch failed` lines during it and an
+  `Export font preflight … filesFetched: 0` line. Keep ranges 3–5 s at 1080p (see Orchestrator
+  notes).
 
 - Not a blocker: one failing `hang` test in `shot-generator.test.ts` can still leave an orphan
   run that cascades into the next tests (there is no afterEach net — `runs` is private and a
@@ -153,9 +211,14 @@ upstream-block override (A2's `disk-dev-overrides.ts` pattern, `process.defaultA
 - Step 0 DONE (`22593db`, `0afc196`): do not re-investigate the shot-generator flake or re-add the
   classifier case. DRIVING.md's "Known full-suite flake" line for `shot-generator.test.ts` is
   stale (see the A4 "Learned" line there).
+- Step 1 DONE (`3417d46`): do not re-add `collectFontUrls` / the preflight / the dev override;
+  the font half only needs its live CDP proof (step 4).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-21 · agent 1 · ~40 calls · step 0.1 (flake root cause + test fix, 3 green full runs) and
   step 0.2 (classifier case + TESTING §18.3 citation); peeked at `font-proxy-rewrite.ts:1-70` for
   step 1.
+- 2026-10-21 · agent 2 · ~40 calls · step 1 (font preflight: pure collectors + verdict, strict
+  `ensureFontCached`, dev upstream block, entry `fontUrls`, run-export wiring, tests, green full
+  run); did not read the proxy/GPU code for step 2.
