@@ -14,6 +14,7 @@ import type { StudioProject } from '../../../../shared/types/studio';
 import type { StudioExportEntry } from '../export-entry';
 import { registerShotAssetRoots } from '../shot-version-files';
 import { withRemotionTempDir } from './remotion-temp-scope';
+import { removeDirWithRetry } from './remove-dir-retry';
 import { renderTimelineAudio } from './audio-pass';
 import { checkExportDisk } from './export-disk-check';
 import { finishExport } from './finishing';
@@ -190,42 +191,9 @@ async function produceExport(options: StudioExportRunOptions, workDir: string, s
 /**
  * Remove an export's scratch folder (the TS pieces, the joined video, the
  * WAV, a browser span's intermediate, Remotion's copies of the sources).
- * After a cancel the killed ffmpeg, compositor or browser can still hold a
- * file, and Windows refuses the delete (EBUSY/EPERM), so this retries for a
- * few seconds, then keeps trying in the background for two minutes.
  */
 async function removeScratch(dir: string, jobId: string): Promise<void> {
-  for (let attempt = 0; attempt < 12; attempt++) {
-    if (await tryRemove(dir)) return;
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  log.warn('Export scratch folder still locked; retrying in the background', { jobId, dir });
-  let tries = 0;
-  const timer = setInterval(() => {
-    tries++;
-    void tryRemove(dir).then((gone) => {
-      if (gone) {
-        clearInterval(timer);
-        log.info('Export scratch folder removed after a retry', { jobId, dir, tries });
-      } else if (tries >= SCRATCH_RETRY_TRIES) {
-        clearInterval(timer);
-        log.warn('Export scratch folder could not be removed', { jobId, dir });
-      }
-    });
-  }, SCRATCH_RETRY_MS);
-  timer.unref?.();
-}
-
-const SCRATCH_RETRY_MS = 5000;
-const SCRATCH_RETRY_TRIES = 24;
-
-async function tryRemove(dir: string): Promise<boolean> {
-  try {
-    await fs.rm(dir, { recursive: true, force: true });
-  } catch {
-    return false;
-  }
-  return fs.access(dir).then(() => false, () => true);
+  await removeDirWithRetry(dir, 'Export scratch folder', { jobId });
 }
 
 /**
