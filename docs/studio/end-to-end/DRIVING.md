@@ -69,9 +69,9 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 
 - Git tracks the status file as `Status.md` (`git add STATUS.md` stages nothing on Windows).
 - Type gate baseline: web 26 / node 10 (`scripts/check-types.mjs`); it only ratchets down.
-- Known full-suite flake, not caused by this branch: `shot-generator.test.ts` (3 tests from
-  :197) and `shot-module-resolver.test.ts:151` (5000 ms timeout). Reproduced on `main`. Rerun;
-  a green rerun counts.
+- FIXED in A4 step 0 (`22593db`, test-only): the old full-suite flake in `shot-generator.test.ts` (3 tests from
+  :197). From `22593db` on, a red full run is a real failure. `shot-module-resolver.test.ts:151`
+  (5000 ms timeout) can still time out under heavy machine load: rerun once, say so.
 
 ## Learned (append one dated line per lesson)
 
