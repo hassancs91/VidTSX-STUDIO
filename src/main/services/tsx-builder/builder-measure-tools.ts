@@ -169,7 +169,7 @@ export function buildMeasureTools(state: BuilderState) {
 
   const textOverlaps = tool(
     'text_overlaps',
-    'Check, then read every frame\'s text and drawn shapes and list where text sits on other text (more than a fifth of the smaller box) or a drawn shape crosses a text (a line through a word, a word hanging off a panel\'s edge, a marker on a label), with the frames and where. A label on its own pill or card is fine and not listed. Reads HTML and SVG text against rects, circles, ellipses, boxed HTML elements and thin lines; curves, diagonals, canvas, 3D and images are not read. Listed, not enforced: fix what is a collision. Free (no look round); shares its sweep with number_check.',
+    'Check, then read every frame\'s text and drawn shapes and list where text sits on other text (more than a fifth of the smaller one\'s ink) or a shape drawn over a text crosses it (a line through a word, a bar sliding over a label, a marker on it), with the frames and where. A label on its own pill or card, or on a backdrop drawn under it, is fine and not listed. Reads HTML and SVG text against rects, circles, ellipses, boxed HTML elements and thin lines, in document order (z-index is not read); curves, diagonals, canvas, 3D and images are not read. Listed, not enforced: fix what is a collision. Free (no look round); shares its sweep with number_check.',
     {},
     tracked(state, 'rendering', async () => {
       const look = await checkForLook(state);

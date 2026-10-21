@@ -47,11 +47,12 @@ describe('readFrameTextLog', () => {
   });
 
   it('reads shapes when the group lists them, dropping malformed ones', () => {
-    const rect = { k: 'rect', x: 10, y: 20, w: 30, h: 0, o: 0.8 };
+    const rect = { k: 'rect', x: 10, y: 20, w: 30, h: 0, o: 0.8, i: 7 };
+    const word = { ...item('7', 0, 0, 20), i: 5 };
     const log = `${FRAME_TEXT_MARK}${JSON.stringify({
-      groups: [{ frame: 4, items: [], more: 0, shapes: [rect, { k: 'path', x: 'a' }, { x: 1 }], moreShapes: 3 }],
+      groups: [{ frame: 4, items: [word], more: 0, shapes: [rect, { k: 'path', x: 'a' }, { x: 1 }], moreShapes: 3 }],
     })}`;
-    expect(readFrameTextLog(log)).toEqual([{ frame: 4, items: [], more: 0, shapes: [rect], moreShapes: 3 }]);
+    expect(readFrameTextLog(log)).toEqual([{ frame: 4, items: [word], more: 0, shapes: [rect], moreShapes: 3 }]);
   });
 
   it('is null for any other log, bad JSON, and the probe reporting its own error', () => {

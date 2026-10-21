@@ -108,6 +108,7 @@ export function frameTextProbe(shapes: boolean): string {
       : [{ root: document.body, frame: null }];
     return groups.map(({ root, frame }) => {
       const items = [];
+      const owners = [];
       let more = 0;
       if (!root) return { frame, items, more };
       const box = frame === null
@@ -124,6 +125,7 @@ export function frameTextProbe(shapes: boolean): string {
         if (r.width <= 0 || r.height <= 0) continue;
         if (r.right <= box.left || r.left >= box.right || r.bottom <= box.top || r.top >= box.bottom) continue;
         if (items.length >= MAX_ITEMS) { more += 1; continue; }
+        owners.push(el);
         items.push({
           t: raw.replace(/\s+/g, ' ').slice(0, 200),
           x: round(r.left - box.left),
@@ -134,9 +136,15 @@ export function frameTextProbe(shapes: boolean): string {
         });
       }
       if (!SHAPES) return { frame, items, more };
+      // Document order stands for paint order (z-index is not read): each text and shape carries it.
+      const all = root.querySelectorAll('*');
+      const order = new Map();
+      all.forEach((el, i) => order.set(el, i));
+      items.forEach((item, n) => { item.i = order.has(owners[n]) ? order.get(owners[n]) : -1; });
+      const meetsText = (x, y, w, h) => items.some((t) => x <= t.x + t.w && t.x <= x + w && y <= t.y + t.h && t.y <= y + h);
       const shapes = [];
       let moreShapes = 0;
-      for (const el of root.querySelectorAll('*')) {
+      for (const el of all) {
         if (el.closest(SKIP) || el.closest(NOT_DRAWN)) continue;
         let k;
         let o;
@@ -157,15 +165,13 @@ export function frameTextProbe(shapes: boolean): string {
         const r = el.getBoundingClientRect();
         if (r.width <= 0 && r.height <= 0) continue;
         if (r.right < box.left || r.left > box.right || r.bottom < box.top || r.top > box.bottom) continue;
+        const x = round(r.left - box.left);
+        const y = round(r.top - box.top);
+        const w = round(r.width);
+        const h = round(r.height);
+        if (!meetsText(x, y, w, h)) continue; // only shapes that touch a text matter
         if (shapes.length >= MAX_SHAPES) { moreShapes += 1; continue; }
-        shapes.push({
-          k,
-          x: round(r.left - box.left),
-          y: round(r.top - box.top),
-          w: round(r.width),
-          h: round(r.height),
-          o: Math.round(o * 100) / 100,
-        });
+        shapes.push({ k, x, y, w, h, o: Math.round(o * 100) / 100, i: order.get(el) });
       }
       return { frame, items, more, shapes, moreShapes };
     });
@@ -196,9 +202,14 @@ export interface FrameTextItem {
   w: number;
   h: number;
   o: number;
+  /** With shapes only: its element's place in document order (paint order, z-index aside); -1 unknown. */
+  i?: number;
 }
 
-/** One visible drawn shape: its kind (an SVG tag, or "box" for an HTML element with a background or border), box and opacity. */
+/**
+ * One visible drawn shape that touches a text box: its kind (an SVG tag, or "box" for an HTML element with a
+ * background or border), box, opacity and place in document order (a shape after a text is painted over it).
+ */
 export interface FrameShape {
   k: string;
   x: number;
@@ -206,6 +217,7 @@ export interface FrameShape {
   w: number;
   h: number;
   o: number;
+  i?: number;
 }
 
 /**
@@ -237,13 +249,13 @@ const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFi
 function toItem(v: unknown): FrameTextItem | null {
   const i = v as Partial<FrameTextItem> | null;
   if (!i || typeof i.t !== 'string' || ![i.x, i.y, i.w, i.h, i.o].every(finite)) return null;
-  return { t: i.t, x: i.x!, y: i.y!, w: i.w!, h: i.h!, o: i.o! };
+  return { t: i.t, x: i.x!, y: i.y!, w: i.w!, h: i.h!, o: i.o!, ...(finite(i.i) ? { i: i.i } : {}) };
 }
 
 function toShape(v: unknown): FrameShape | null {
   const s = v as Partial<FrameShape> | null;
   if (!s || typeof s.k !== 'string' || ![s.x, s.y, s.w, s.h, s.o].every(finite)) return null;
-  return { k: s.k, x: s.x!, y: s.y!, w: s.w!, h: s.h!, o: s.o! };
+  return { k: s.k, x: s.x!, y: s.y!, w: s.w!, h: s.h!, o: s.o!, ...(finite(s.i) ? { i: s.i } : {}) };
 }
 
 /** The groups a page logged behind the mark, or null (another log, a malformed one, or the probe's own error). */

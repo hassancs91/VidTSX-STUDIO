@@ -4,15 +4,19 @@
 //
 // Input: the number sweep's frames (number-sweep.ts), text boxes plus the
 // drawn shapes the probe lists (frame-text.ts, `shapes`). Then:
-// - TEXT ON TEXT: two shown text nodes whose boxes share more than
-//   TEXT_ON_TEXT_SHARE of the smaller box. The same text drawn again on the
+// - TEXT ON TEXT: two shown text nodes whose INK BANDS (the box less its
+//   top and bottom fifth) share more than TEXT_ON_TEXT_SHARE of the smaller
+//   band. The same text drawn again on the
 //   same spot (a shadow, an outline, a glow) is one text; a pair where either
-//   side is faint is a crossfade, not a collision.
-// - TEXT ON A SHAPE: a shape's box enters the text's CORE (its box less
-//   TEXT_CORE_INSET on each side) while the text is not (nearly) inside the
-//   shape. A line through a word, a word hanging off a panel's edge, a marker
-//   on a label count; a label on its own pill, or a whole caption on a card,
-//   does not. Only shapes whose box is their ink are read: rect, circle,
+//   side is faint, or whose opacities add up to under CROSSFADE_SUM, is a
+//   crossfade, not a collision.
+// - TEXT ON A SHAPE: a shape PAINTED OVER the text (after it in document
+//   order; z-index is not read) whose box enters the text's CORE (its box
+//   less TEXT_CORE_INSET on each side) while the text is not (nearly) inside
+//   the shape. A line through a word, a bar sliding over a label, a marker on
+//   it count; a label on its own pill, a caption on a card, a word on a
+//   backdrop grid or disc drawn under it do not (legibility there is
+//   phone_view's job). Only shapes whose box is their ink are read: rect, circle,
 //   ellipse, an HTML box, and a line or path at most THIN_SHAPE_PX thick (an
 //   axis, a rule). A curve's or a diagonal's box says nothing of where its ink
 //   is, so they are skipped, like text on a canvas, in 3D or in an image.
@@ -23,8 +27,14 @@
 import { FAINT_BELOW, type FrameShape, type FrameTextItem } from './frame-text';
 import type { SweepFrame } from './number-check';
 
-/** Text on text: the share of the smaller box two texts must share. */
+/** Text on text: the share of the smaller ink band two texts must share. */
 export const TEXT_ON_TEXT_SHARE = 0.2;
+/**
+ * Text on text compares ink bands: each box less this share of its height at the top and the bottom. A text
+ * node's box is the font's content area (~1.15-1.4 em) while capitals and digits sit in its middle ~0.7 em, so
+ * lines stacked at lineHeight 1 overlap by box and not by ink (P5 part 2 bench: r1's total, E2 / R2's timers).
+ */
+export const TEXT_INK_INSET = 0.2;
 /** A text's core: its box less this share of its width / height on each side. */
 export const TEXT_CORE_INSET = 0.2;
 /** A text this much inside a shape sits on it (a label on its pill): not a hit. */
@@ -33,6 +43,8 @@ export const TEXT_INSIDE_SHAPE = 0.9;
 export const THIN_SHAPE_PX = 6;
 /** Runs listed for the model; the rest are counted. */
 export const MAX_LISTED_OVERLAPS = 12;
+/** Two texts whose opacities add up to less than this are a crossfade (its sides add up to about one), not a collision. */
+export const CROSSFADE_SUM = 1.5;
 /** The same text this much over itself is a shadow / outline: one text. */
 const SAME_SPOT = 0.5;
 const BOX_KINDS = new Set(['rect', 'circle', 'ellipse', 'box']);
@@ -97,6 +109,18 @@ function enters(s: Box, c: Box): boolean {
   return s.x < c.x + c.w && c.x < s.x + w && s.y < c.y + c.h && c.y < s.y + h;
 }
 
+/** A text's ink band: its box less TEXT_INK_INSET at the top and the bottom (the font's ascent and descent room). */
+function ink(t: Box): Box {
+  return { x: t.x, y: t.y + t.h * TEXT_INK_INSET, w: t.w, h: t.h * (1 - 2 * TEXT_INK_INSET) };
+}
+
+const known = (i: number | undefined): i is number => typeof i === 'number' && i >= 0;
+
+/** Is the shape painted over the text? Document order stands for paint order; without it, assume so. */
+function paintedOver(s: FrameShape, t: FrameTextItem): boolean {
+  return !known(s.i) || !known(t.i) || s.i > t.i;
+}
+
 /** A shape whose box is its ink. */
 export function readableShape(s: FrameShape): boolean {
   return BOX_KINDS.has(s.k) || Math.min(s.w, s.h) <= THIN_SHAPE_PX;
@@ -123,9 +147,10 @@ export function frameOverlaps(items: FrameTextItem[], shapes: FrameShape[]): Hit
     for (let j = i + 1; j < texts.length; j++) {
       const a = texts[i];
       const b = texts[j];
-      const share = shareOfSmaller(a, b);
+      if (a.t.trim() === b.t.trim() && shareOfSmaller(a, b) > SAME_SPOT) continue; // a shadow, an outline, a glow
+      const share = shareOfSmaller(ink(a), ink(b));
       if (share <= TEXT_ON_TEXT_SHARE) continue;
-      if (a.t.trim() === b.t.trim() && share > SAME_SPOT) continue; // a shadow, an outline, a glow
+      if (a.o + b.o < CROSSFADE_SUM) continue; // mid-crossfade: one fades out as the other fades in
       const [first, second] = [a, b].sort((p, q) => (mask(p.t) < mask(q.t) ? -1 : mask(p.t) > mask(q.t) ? 1 : 0));
       hits.push({ key: `T|${mask(first.t)}|${mask(second.t)}`, kind: 'text', texts: [first.t.trim(), second.t.trim()], share, at: box(a) });
     }
@@ -134,7 +159,7 @@ export function frameOverlaps(items: FrameTextItem[], shapes: FrameShape[]): Hit
   for (const t of texts) {
     const c = core(t);
     for (const s of drawn) {
-      if (!enters(s, c)) continue;
+      if (!paintedOver(s, t) || !enters(s, c)) continue;
       const inside = cut(t, s);
       if (inside.w > 0 && inside.h > 0 && (inside.w * inside.h) / (t.w * t.h) >= TEXT_INSIDE_SHAPE) continue; // a label on its shape
       const onCore = cut(c, s);
@@ -200,7 +225,7 @@ const pct = (v: number) => `${Math.round(v * 100)} %`;
 /** What the builder reads. `note`: how the frames were swept (", every 2th frame"). */
 export function describeOverlaps(result: OverlapCheck, note = ''): string {
   const read =
-    'Read: HTML and SVG text against rects, circles, ellipses, HTML boxes (a background or a border) and thin lines; curves, diagonal lines, and anything on a canvas, in 3D or in an image are not read.';
+    'Read: HTML and SVG text against each other (the ink, not the line box) and against rects, circles, ellipses, HTML boxes (a background or a border) and thin lines drawn AFTER the text (on top of it, by document order; z-index is not read); shapes under the text, curves, diagonal lines, and anything on a canvas, in 3D or in an image are not read.';
   const head = `text_overlaps on ${result.swept} frames${note}`;
   const capped = result.moreShapes > 0 ? ` (${result.moreShapes} shapes past the cap not read)` : '';
   if (result.clear) return `${head}: CLEAR, no text on text and no text crossing a drawn shape${capped}.\n${read}`;
@@ -208,7 +233,7 @@ export function describeOverlaps(result: OverlapCheck, note = ''): string {
     const where = `at x ${r.at.x}, y ${r.at.y}`;
     const length = `${span(r)} (${r.frames} swept frame${r.frames === 1 ? '' : 's'})`;
     return r.kind === 'text'
-      ? `- ${quote(r.texts[0])} on ${quote(r.texts[1])}: ${length}, up to ${pct(r.share)} of the smaller box, ${where}`
+      ? `- ${quote(r.texts[0])} on ${quote(r.texts[1])}: ${length}, up to ${pct(r.share)} of the smaller text, ${where}`
       : `- ${quote(r.texts[0])} crossed by a ${r.shape}: ${length}${r.share >= 0.01 ? `, up to ${pct(r.share)} of the text's middle covered` : ''}, ${where}`;
   });
   const rest = result.runs.length - MAX_LISTED_OVERLAPS;

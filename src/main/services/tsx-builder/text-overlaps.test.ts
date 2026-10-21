@@ -17,12 +17,22 @@ describe('text on text', () => {
     expect(frameOverlaps([text('ROWS READ', 100, 100, 200), text('2.0 ms', 290, 100, 120)], [])).toEqual([]);
   });
 
+  it('compares ink, not line boxes: lines stacked at lineHeight 1 pass (r1: a 84 px total under its title)', () => {
+    // Poppins 84 px: content box ~118 px in an 88 px line, so it spills ~15 px onto the 48 px title above.
+    expect(frameOverlaps([text('SIMPLE', 60, 250, 140, 48), text('$34,000', 60, 283, 330, 118)], [])).toEqual([]);
+  });
+
   it('counts a shadow or an outline (the same text on the same spot) once', () => {
     expect(frameOverlaps([text('$25,182', 100, 100, 200), text('$25,182', 103, 103, 200)], [])).toEqual([]);
   });
 
   it('skips a crossfade: either side faint', () => {
     expect(frameOverlaps([text('YEAR 6', 100, 100, 200, 40, 0.2), text('YEAR 7', 100, 100, 200)], [])).toEqual([]);
+  });
+
+  it('skips the middle of a crossfade (both half shown), not a solid text on a ghost', () => {
+    expect(frameOverlaps([text('YEAR 6', 100, 100, 200, 40, 0.5), text('YEAR 7', 100, 100, 200, 40, 0.5)], [])).toEqual([]);
+    expect(frameOverlaps([text('YEAR 6', 100, 100, 200, 40, 0.6), text('YEAR 7', 100, 100, 200)], [])).toHaveLength(1);
   });
 });
 
@@ -45,6 +55,14 @@ describe('text on a shape', () => {
   it('lets a label sit on its own pill or card', () => {
     expect(frameOverlaps([label], [shape('box', 90, 95, 220, 50)])).toEqual([]);
     expect(frameOverlaps([label], [shape('rect', 0, 0, 1080, 1350)])).toEqual([]);
+  });
+
+  it('reads only shapes painted over the text (after it in document order): a backdrop grid or disc is under it', () => {
+    const word = { ...label, i: 10 };
+    expect(frameOverlaps([word], [{ ...shape('line', 0, 120, 1080, 0), i: 3 }])).toEqual([]); // a grid line drawn first
+    expect(frameOverlaps([word], [{ ...shape('circle', 0, 0, 200, 400), i: 2 }])).toEqual([]); // a backdrop disc's edge
+    expect(frameOverlaps([word], [{ ...shape('line', 0, 120, 1080, 0), i: 11 }])).toHaveLength(1); // drawn after: on top
+    expect(frameOverlaps([{ ...word, i: -1 }], [{ ...shape('line', 0, 120, 1080, 0), i: 3 }])).toHaveLength(1); // order unknown: counted
   });
 
   it('ignores a shape that only grazes the edge (an underline)', () => {
