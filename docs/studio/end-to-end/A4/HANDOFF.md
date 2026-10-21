@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS (steps 0, 1, 2 done; next: step 3, the first-4K-import download card)
+status: IN PROGRESS (steps 0, 1, 2, 3 done in code + unit tests; next: step 4, the live CDP run for both exits)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -166,8 +166,66 @@ numbers."
   - Tests: `proxy-encoders.test.ts:123` (3 cases), `studio-proxy-encoder-handlers.test.ts:86,95,104`
     (auto-on without writing the setting; QSV stays off until opted in; explicit off stays off)
     + the default case now asserts `choice: null`.
+- **Step 3 — the first-4K-import download card, code + unit tests** (`139a4a9`). Not yet driven.
+  - Pure, `src/features/studio/services/gpu-proxy-offer.ts`: `GPU_PROXY_MEASURED` :15 (12 s vs 91 s
+    per minute, from `proxy-encoders.ts:7-12`); `GPU_PROXY_RESTART_NOTE` :22 (`null` today — the ONE
+    constant step 4 sets if a restart proves needed); `isFourKVideo` :38 (`kind==='video'` and
+    `max(w,h) ≥ 3840 || min(w,h) ≥ 2160`); `shouldOfferGpuProxyDownload(imported, status, dismissed)`
+    :51 — true only when: not dismissed, status `success`, `downloadable === true` (win32; absent =
+    older main → no card), `nvidiaAdapter !== false` (unknown still offers), not `installed`, not
+    `downloading`, `choice !== false` (DEVIATION from the old Next step's `choice === null`: an
+    explicit `true` with no binary — e.g. the binary was deleted — still gets the offer; only an
+    explicit OFF silences it), and some imported asset is 4K. `gpuProxyOfferBody` :64 (copy: "4K
+    preview proxies take about 91 s per minute of footage on the CPU, about 12 s on an NVIDIA
+    graphics card. The GPU encoder is a one-time 76 MB download (full ffmpeg, GPL v3)." — MiB like
+    the Settings row, 80069496 B = 76 MiB = the plan's "80.1 MB"); `gpuProxyOfferOutcome` :74 (after
+    the install: ok "GPU encoder ready (NVIDIA NVENC): proxies for footage you import from now on
+    build on the graphics card." [+ restart note]; or warns: not installed / no working encoder /
+    installed but not auto-on (QSV/AMF → "Turn it on in Settings › Rendering")).
+  - **"Not now" = per SESSION** (recorded decision): `readOfferDismissed`/`writeOfferDismissed` :87/:91
+    over `stored-choice.ts` against `window.sessionStorage`, key `vidtsx:gpu-proxy-offer` = `dismissed`.
+    Survives editor remounts/project switches, gone at app restart. No settings-schema change.
+  - Main: `src/main/services/studio/gpu-adapters.ts` — pure `hasNvidiaAdapter(info: unknown)` :26
+    (Electron `app.getGPUInfo('basic').gpuDevice[].vendorId === 0x10de`, number or hex string;
+    null when unreadable), `detectNvidiaAdapter()` :40 (once per session, logs INFO `GPU adapters
+    read {nvidia}` under `StudioGpuAdapters`). `FFMPEG_FULL_CATALOGUE.platform = 'win32'`
+    (`ffmpeg-full.ts:43`, also used by `doInstall`'s gate :91).
+  - IPC: `src/shared/ipc/types/proxy-encoder.ts:21,26` new optional `downloadable?`,
+    `nvidiaAdapter?: boolean | null`; handler `studio-proxy-encoder-handlers.ts:34,57`.
+  - Renderer: `src/features/studio/hooks/useGpuProxyOffer.ts:46` (`considerImport(assets)` — cheap
+    gates first, then ONE `studioProxyEncoderStatus` call; `download()` = `studioProxyEncoderInstall`
+    + `onDownloadProgress` ticks filtered on `metadata.type === 'ffmpeg-full'`, then a status refresh
+    → outcome; `dismiss()`, `close()`). Card `src/features/studio/components/GpuProxyOfferCard.tsx`
+    (fixed bottom-LEFT, `bg-app-active`, the CrashReportingPrompt look; hooks
+    `[data-gpu-proxy-offer=offer|downloading|done]`, `[data-gpu-proxy-offer-body]`,
+    `[data-gpu-proxy-offer-download]`, `[data-gpu-proxy-offer-dismiss]`,
+    `[data-gpu-proxy-offer-outcome=ok|warn]`, `[data-gpu-proxy-offer-close]`).
+    `useStudioProject.ts:152` `importMedia()` now also returns the added `assets`;
+    `EditorShell.tsx:122` hook, `:950` `considerImport(result.assets)` after the import toast,
+    `:1608` the card. Only the media-pool Import button path triggers it (drag-drop has no
+    separate import IPC; agent/shot footage imports are not user 4K imports).
+  - What the card does NOT do: the import that triggered it already queued its proxy on x264 (the
+    job starts before the download ends) and keeps it; only LATER imports use NVENC. Exit test:
+    import the 4K clip → card → Download → import the clip AGAIN (a second asset, new proxy job)
+    or into a second fresh scratch project → `nvenc-…` profile. Rebuilding the in-flight x264
+    proxy on the GPU after the download would need a media-jobs "restart proxy" path (none exists
+    in the renderer API) — left out on purpose.
+  - Tests: `src/features/studio/services/gpu-proxy-offer.test.ts` (8: 4K classes, offer/quiet
+    matrix, copy numbers, outcome, session storage incl. a throwing storage);
+    `src/main/services/studio/gpu-adapters.test.ts` (4); handler test `:81-82` asserts
+    `downloadable`/`nvidiaAdapter`, `:86` unknown adapter → `null`.
 
 ## Verified (exact commands + outputs)
+
+- Step 3: `npx vitest run src/main/ipc/studio-proxy-encoder-handlers.test.ts src/main/services/studio/gpu-adapters.test.ts`
+  → `Test Files  2 passed (2)` / `Tests  15 passed (15)`;
+  `npx vitest run src/features/studio/services/gpu-proxy-offer.test.ts` → `Tests  8 passed (8)`.
+- Step 3 `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok`,
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Step 3 full run, 0 electron.exe, ports 9222/5173 free:
+  `npx vitest run > .vidtsx-temp/end-to-end/A4/logs/vitest-full-step3.log 2>&1` → exit 0,
+  `Test Files  426 passed | 4 skipped (430)`, `Tests  3585 passed | 22 skipped (3607)`, 39.83 s.
+- Free space 2026-10-21 ~22:12: C: 23.36 GB, D: 5.39 GB.
 
 - Step 2: `npx vitest run src/main/services/studio/proxy-encoders.test.ts src/main/ipc/studio-proxy-encoder-handlers.test.ts src/main/services/studio/proxy-generator.test.ts`
   → `Test Files  3 passed (3)` / `Tests  43 passed (43)`.
@@ -203,22 +261,21 @@ numbers."
 
 ## Next step (ONE concrete instruction)
 
-Step 3 (the first-4K-import download card — pure op + tests first, then UI; no app run yet):
-read `src/main/services/studio/media-jobs.ts` (the only non-test caller of `proxy-generator`,
-i.e. where an imported video's proxy job starts) and the renderer component that shows Studio
-media-job / proxy progress, then add a PURE predicate, e.g. `shouldOfferGpuProxyDownload({
-width, height, platform, installed, downloading, choice, dismissed })` → true only for a ≥ 4K
-(e.g. `max(w,h) ≥ 3840` or `min ≥ 2160`) video import on win32 when the full ffmpeg is not
-installed, not downloading, the user never chose (`choice === null`) and has not dismissed the
-card; unit-test it; then a card (renderer, `src/features/studio/…`, reading
-`window.api.studioProxyEncoderStatus()` + the import's dimensions) that says, with the measured
-numbers from `proxy-encoders.ts:7-12`, "4K proxies: ~12 s per minute of footage on an NVIDIA
-card vs ~91 s on the CPU — download the GPU encoder (80 MB, GPL)?", a Download button wired to
-`studioProxyEncoderInstall` with progress from `onDownloadProgress` (copy
-`ProxyGpuEncoderRow.tsx:41-72`), and Not now (persist the dismissal as a new optional setting or
-per-session — record which). Whether the card must say "restart to apply" is decided by the
-step-4 live run (Open problems); write the card so that line is one constant. Step 4 after that:
-the CDP run for both exits (recipe in Open problems).
+Step 4, GPU half FIRST (it needs no video-14 render): write a CDP driver (Write tool) under
+`.vidtsx-temp/end-to-end/A4/` from A1's `launch.sh` (fresh profile `.vidtsx-temp/end-to-end/A4/profile`,
+its own CDP port, e.g. 9244 — A1 used 9241 — and its own log), set the Studio root to `.vidtsx-temp/end-to-end/A4/root`, create
+a fresh scratch project, ffprobe the DJI clip (expect 3840×2160), then import it through the media
+pool's Import button with a dialog stand-in (see `docs/ui-automation-cdp.md` / memory
+`VIDTSX_DIALOG_PICK`-style pickers — check which env var `studioMediaImport`'s dialog honours) →
+assert `[data-gpu-proxy-offer=offer]` visible with the 91 s / 12 s copy → click
+`[data-gpu-proxy-offer-download]` (80069496 B into the isolated profile only; free space first) →
+wait for `[data-gpu-proxy-offer=done]` and read `[data-gpu-proxy-offer-outcome]` → WITHOUT a restart
+import the clip again → read the main log's `Probed GPU proxy encoders` line and the new proxy's
+manifest `profile` in the project's `cache/` (`nvenc-540p-intra-q33` = GPU) → if it fell back to
+x264, cat `<profile>/ffmpeg-full/encoders.json`, root-cause (see Open problems) and either fix it or
+set `GPU_PROXY_RESTART_NOTE`; then open Settings › Rendering and confirm "Detected: NVIDIA NVENC — on
+automatically", ticked, and NO `proxyGpuEncoderEnabled` key in the profile's settings store. Then
+the font half (recipe in Open problems), then the gates + STATUS row + TESTING §18.4.
 
 ## Open problems
 
@@ -282,6 +339,9 @@ the CDP run for both exits (recipe in Open problems).
   the font half only needs its live CDP proof (step 4).
 - Step 2 DONE (`4671622`): do not re-add the default-on resolver, the tri-state setting getter,
   the `choice` status field or the row copy; `getProxyGpuEncoderEnabled` is deliberately gone.
+- Step 3 DONE (`139a4a9`): do not re-add the offer predicate, the card, the hook, the
+  `downloadable`/`nvidiaAdapter` status fields or `gpu-adapters.ts`; the card only needs its live
+  proof (step 4) and, if proven necessary, a non-null `GPU_PROXY_RESTART_NOTE`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -291,6 +351,10 @@ the CDP run for both exits (recipe in Open problems).
 - 2026-10-21 · agent 2 · ~40 calls · step 1 (font preflight: pure collectors + verdict, strict
   `ensureFontCached`, dev upstream block, entry `fontUrls`, run-export wiring, tests, green full
   run); did not read the proxy/GPU code for step 2.
+- 2026-10-21 · agent 4 · ~35 calls · step 3 (first-4K-import card: pure predicate/copy/outcome +
+  session dismissal, NVIDIA adapter read from Electron GPU info, `downloadable` status field,
+  hook + card + EditorShell wiring, tests, green full run); did not launch the app or read the
+  media-import dialog code (which env var stands in for its file picker is step 4's first lookup).
 - 2026-10-21 · agent 3 · ~30 calls · step 2 (GPU proxies default on when viable: pure resolver,
   tri-state setting, effective status + `choice`, row copy, tests, green full run); did not read
   `media-jobs.ts` or the import UI for step 3.
