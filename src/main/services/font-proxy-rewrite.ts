@@ -38,6 +38,64 @@ export function rewriteFontUrls(code: string, baseUrl: string): string {
 }
 
 /**
+ * Every Google Fonts URL `rewriteFontUrls` would rewrite in this code, once
+ * each, in first-seen order — the export font preflight's input
+ * (END_TO_END_PLAN §2 T7). `@remotion/google-fonts` inlines its per-subset
+ * `.woff2` URLs (and the family's `css2` URL) as quoted literals, so a bundled
+ * shot's whole font set is visible here. A `css2` stylesheet's own `url(...)`
+ * references are NOT (see `rewriteCssFontUrls`): warming a stylesheet URL
+ * means fetching it and then the files it lists.
+ */
+export function collectFontUrls(code: string): string[] {
+  const seen = new Set<string>();
+  for (const match of code.matchAll(CODE_URL)) seen.add(match[2]);
+  return [...seen];
+}
+
+/** A proxied reference `rewriteFontUrls` wrote: `…/fonts?u=<encoded upstream URL>`. */
+const PROXIED_URL = /\/fonts\?u=([^"'\s`)&]+)/g;
+
+/** A whole string that is one allowed Google Fonts URL. */
+const CODE_URL_ALONE = /^https:\/\/fonts\.(?:gstatic|googleapis)\.com\/[^"'\s]+$/;
+
+/**
+ * The upstream URLs behind the proxied references in an export's shot COPIES
+ * (already passed through `rewriteFontUrls`), plus any raw quoted ones —
+ * once each, first-seen order. Only allowed hosts over https survive.
+ */
+export function collectEntryFontUrls(code: string): string[] {
+  const seen = new Set<string>(collectFontUrls(code));
+  for (const match of code.matchAll(PROXIED_URL)) {
+    let url: string;
+    try {
+      url = decodeURIComponent(match[1]);
+    } catch {
+      continue;
+    }
+    if (CODE_URL_ALONE.test(url)) seen.add(url);
+  }
+  return [...seen];
+}
+
+/** The font files a Google Fonts stylesheet body lists (`url(...)` on gstatic), once each. */
+export function collectCssFontFileUrls(css: string): string[] {
+  const seen = new Set<string>();
+  for (const match of css.matchAll(/url\(\s*["']?(https:\/\/fonts\.gstatic\.com\/[^)"'\s]+)["']?\s*\)/g)) {
+    seen.add(match[1]);
+  }
+  return [...seen];
+}
+
+/** True for a Google Fonts stylesheet URL (`fonts.googleapis.com/css2?…`), false for a font file. */
+export function isFontStylesheetUrl(url: string): boolean {
+  try {
+    return fontCacheExtensionFor(new URL(url)) === '.css';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Rewrite the font references inside a Google Fonts *stylesheet body* so they
  * come back through the proxy as well.
  *

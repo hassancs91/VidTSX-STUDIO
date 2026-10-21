@@ -17,6 +17,7 @@ import { withRemotionTempDir } from './remotion-temp-scope';
 import { removeDirWithRetry } from './remove-dir-retry';
 import { renderTimelineAudio } from './audio-pass';
 import { checkExportDisk } from './export-disk-check';
+import { checkExportFonts } from './export-font-check';
 import { finishExport } from './finishing';
 import { resolveExportEngine } from './registry';
 import { EXPORT_COLOR, type ExportRenderSettings } from './types';
@@ -75,6 +76,18 @@ export async function runStudioExport(options: StudioExportRunOptions): Promise<
     if (!refusal) throw new Error('Cancelled');
     log.warn('Export refused: not enough disk space', { jobId: options.jobId, drives: refusal.drives });
     throw new Error(refusal.message);
+  }
+
+  // Font preflight (T7): every Google Font the shot copies use is cached BEFORE the first
+  // frame, so the render never reaches Google Fonts (the proxy's mid-render 502 path).
+  const fontUrls = options.entry.fontUrls ?? [];
+  if (fontUrls.length > 0) options.onProgress('preparing', 0, undefined, 'Checking fonts…');
+  const fonts = await checkExportFonts(options.jobId, fontUrls);
+  if (signal.aborted || !fonts.ok) {
+    active.delete(options.jobId);
+    if (fonts.ok) throw new Error('Cancelled');
+    log.warn('Export refused: fonts not cached and upstream unreachable', { jobId: options.jobId, failed: fonts.failed.length, families: fonts.families });
+    throw new Error(fonts.message);
   }
 
   const workDir = path.join(getTempDir(), 'export', options.jobId);

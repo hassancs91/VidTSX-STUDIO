@@ -18,6 +18,16 @@ vi.mock('./registry', () => ({ resolveExportEngine: () => ({ produce }) }));
 // The dev free-space stand-in (A2): undefined = the real drive.
 const disk = vi.hoisted(() => ({ freeBytes: undefined as number | undefined }));
 vi.mock('./disk-dev-overrides', () => ({ devFreeBytesFor: () => disk.freeBytes }));
+// The font preflight (A4): the URLs it was asked about, and a refusal to return (null = ok).
+const fonts = vi.hoisted(() => ({ asked: [] as string[][], refusal: null as string | null }));
+vi.mock('./export-font-check', () => ({
+  checkExportFonts: async (_jobId: string, urls: string[]) => {
+    fonts.asked.push(urls);
+    return fonts.refusal
+      ? { ok: false, total: urls.length, failed: urls, families: ['Inter'], message: fonts.refusal }
+      : { ok: true, total: urls.length, failed: [], families: [], message: '' };
+  },
+}));
 
 import { assetRootUrl, clearAssetRoots, resolveAssetRootRequest } from '../../asset-roots';
 import { runStudioExport } from './run-export';
@@ -53,6 +63,8 @@ function run(jobId: string, outputPath = path.join(tmpDir, `${jobId}.mp4`)) {
 
 afterEach(() => {
   disk.freeBytes = undefined;
+  fonts.asked = [];
+  fonts.refusal = null;
   produce.mockReset();
 });
 
@@ -112,6 +124,39 @@ describe('runStudioExport', () => {
     expect(produce).not.toHaveBeenCalled();
     expect(await fs.readFile(outputPath, 'utf8')).toBe('an earlier export');
     await expect(fs.access(path.join(tmpDir, 'export', 'job-small-disk'))).rejects.toThrow();
+  });
+
+  it("refuses with the font preflight's message before touching anything (fonts not cached, upstream down)", async () => {
+    fonts.refusal = 'Export not started: this video\'s shots use Google Fonts that are not downloaded yet (Inter) …';
+    const outputPath = path.join(tmpDir, 'keep-me-too.mp4');
+    await fs.writeFile(outputPath, 'an earlier export');
+    const phases: Array<string | undefined> = [];
+    const fontUrls = ['https://fonts.gstatic.com/s/inter/v20/A.woff2'];
+    await expect(
+      runStudioExport({
+        jobId: 'job-fonts',
+        engineId: 'remotion',
+        project: {} as StudioProject,
+        entry: { ...entryFor(), fontUrls },
+        bundleUrl: 'http://localhost:4100/bundle',
+        outputPath,
+        render: { crf: 18, scale: 1, gpuBackend: 'auto', hardwareAcceleration: 'disable', timeoutInMilliseconds: 1000 },
+        onProgress: (_phase, _percent, _frames, message) => phases.push(message),
+      }),
+    ).rejects.toThrow(fonts.refusal);
+    expect(fonts.asked).toEqual([fontUrls]);
+    expect(phases).toEqual(['Checking fonts…']);
+    expect(produce).not.toHaveBeenCalled();
+    expect(await fs.readFile(outputPath, 'utf8')).toBe('an earlier export');
+    await expect(fs.access(path.join(tmpDir, 'export', 'job-fonts'))).rejects.toThrow();
+  });
+
+  it('runs the font preflight before the engine and goes on when it passes; an entry without fonts asks for none', async () => {
+    produce.mockImplementation(async () => {
+      expect(fonts.asked).toEqual([[]]);
+      throw new Error('stop after the engine started');
+    });
+    await expect(run('job-no-fonts')).rejects.toThrow('stop after the engine started');
   });
 
   it("gives the engine's Remotion temp folders the job's scratch, and removes it after a failure", async () => {
