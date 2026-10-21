@@ -96,6 +96,10 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   assets at the ORIGINAL's `media\` by absolute path, so the copy's Player/export READ Hasan's
   files (never write). A CDP recorder attached without a reload sees `Network.loadingFailed` for
   requests it never saw start (no `url`): default the url before using it.
+- 2026-10-21 · A4 · the `shot-generator.test.ts` full-suite flake is FIXED (`22593db`, test-only:
+  it cancelled a new shot one timer tick after starting it, before the run was tracked); 3
+  consecutive full runs green. A failure there now is real. `shot-module-resolver.test.ts:151`
+  (5000 ms timeout under load) was not seen in those 3 runs but was not touched.
 
 ## video-14 (track A, from A3 on) — orchestrator rules
 

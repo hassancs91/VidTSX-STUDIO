@@ -1,3 +1,4 @@
 # A4 — log (append-only, one dated line per agent)
 
 - 2026-10-21 21:45 · orchestrator · HANDOFF.md created, status NEW; step 0 added (shot-generator flake, shot-import test case).
+- 2026-10-21 22:08 · agent 1 · step 0: `shot-generator.test.ts` flake = test isolation (a new shot reserves its folder on disk before the run is tracked; the test cancelled after one timer tick, the orphaned hang run cascaded "already building" + wrote into later tests' temp dirs) → test waits for the fake engine's build (`buildStarted`), sync writes in `onReserved` (`22593db`); 5/5 alone, 3 consecutive green full runs (421 files, 3543/3544 tests, ~40 s each), types 26/10; classifier case `src/shared/studio/shot-import.test.ts:37` + TESTING §18.3 citation fixed (`0afc196`). C: 23.46 GB, D: 5.41 GB. Next: step 1 (`collectFontUrls` pure op).
