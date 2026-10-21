@@ -1,5 +1,5 @@
 # A1 — 4K tile in New Project, 1080p + 1440p export presets, undoable project-size edits
-status: NEW
+status: IN PROGRESS — code + unit tests committed (`e4803cd`); CDP click-through, STATUS row and TESTING §18 left
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -72,28 +72,76 @@ full recipe):
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+All in commit `e4803cd` (branch `end-to-end-p0`):
+- **Export 1440p + 1080p.** `src/shared/render-presets.ts:55` (`ResolutionPresetId` gains
+  `'1440p'`), `:89-95` (`EXPORT_RESOLUTION_PRESETS` = 1440p, 1080p, 720p, 540p, 360p),
+  `isResolutionPresetId` accepts `'1440p'` (settings + ExportDialog remembered-default guards
+  pick it up). Never-upscale unchanged. The Settings → default export resolution row lists the
+  same ladder (it maps `EXPORT_RESOLUTION_PRESETS`); a remembered rung the project can't offer
+  falls back to Full (`pickResolutionOption`).
+- **New Project reads the shared list.** `src/features/studio/services/project-format.ts:45-88`:
+  `FormatPreset` gains `description`; `FORMAT_PRESETS` (ids `1080p|4k|portrait|square`),
+  `DEFAULT_FORMAT_ID = '1080p'`, `formatOrientation(w,h)`, `formatIdForOrientation(orientation,
+  currentId)` — W5 mapping now keeps a current tile that already fits (4K stays 4K under a 16:9
+  preset). `NewProjectDialog.tsx` drops its local list + `ORIENTATION_FORMAT`, uses these
+  (`:8`, `:38`), grid is 4 columns, each tile has `data-new-project-format=<id>` +
+  `aria-pressed` (`:147`).
+- **Undoable frame size.** `src/features/studio/types.ts` `StudioFrameSize`;
+  `project-format.ts:21-35` `isUsableDimension` + pure `setFrameSize` (same object when unchanged
+  or unusable → no undo step). `src/features/studio/hooks/useTimeline.ts:115` `EditDoc.frame`,
+  `:133` `reset` carries `frame`, `:136` action `set-frame-size`, `:305-307` reducer case, `commit`
+  compares `frame` identity, open-reset passes `settings.width/height`, the sync effect
+  (`:691-692`, `:715`) writes `settings.width/height` back. `EditorShell.tsx` restore-version reset
+  passes the restored doc's size; `:1584` wires `onSetFrameSize` → `tl.dispatch`.
+  `ProjectSettingsDialog.tsx` + `ProjectFormatFields.tsx:44` route typed sizes and the format
+  buttons through `onSetFrameSize` (fps / name / STT stay plain non-undoable edits). No proxy or
+  shot reactions to a size change (plan §5).
+- Tests: `src/shared/render-presets.test.ts` (4K ladder with labels + exact float scale; 1080p
+  lists no 1080p/1440p; 1440p project; 2160×3840 portrait), `project-format.test.ts` (shared
+  list, orientation, W5 mapping), new `src/features/studio/services/frame-size-undo.test.ts`
+  (pure op; one undo step; redo; no step for unchanged/odd; interleaves with a split; reset).
+  Five reducer test fixtures gained `frame: { width: 1920, height: 1080 }`.
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+2026-10-21, after `e4803cd`'s changes:
+- `npx vitest run src/features/studio/services/ src/shared/render-presets.test.ts` →
+  `Test Files 41 passed (41) · Tests 368 passed (368)`.
+- `npx vitest run` (full, logged to a scratch file) → `Test Files 415 passed | 4 skipped (419) ·
+  Tests 3513 passed | 22 skipped (3535)`, 37.96 s.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- NOT yet verified: anything in the live app (no CDP run yet).
 
 ## Next step (ONE concrete instruction)
 
-Read `NewProjectDialog.tsx`, `project-format.ts`, `ProjectFormatFields.tsx`,
-`src/shared/render-presets.ts` and their existing tests; then add `1440p` and `1080p` to
-`EXPORT_RESOLUTION_PRESETS` with unit tests for a 3840×2160 and a 1920×1080 composition (the
-4K one lists Full, 1440p, 1080p, 720p, 540p, 360p; the 1080p one lists no 1080p/1440p).
+Run the CDP click-through on a fresh isolated profile (`.vidtsx-temp/end-to-end/A1/profile`,
+scratch Studio root `.vidtsx-temp/end-to-end/A1/studio-root` set via `studioRootSet` FIRST — see
+the driving notes above and `docs/ui-automation-cdp.md`): open New Project, assert four tiles
+(`[data-new-project-format]` = 1080p, 4k, portrait, square), click `4k`, pick 60 fps, Create;
+assert the scratch `project.json` has `settings` 3840×2160 @ 60; open the editor's Export
+dialog (`[data-export-button]`) and read its resolution select's options — expect `Full
+(3840×2160)`, `1440p (2560×1440)`, `1080p (1920×1080)`, `720p (1280×720)`, `540p (960×540)`,
+`360p (640×360)`; screenshot both dialogs; then open Project settings
+(`[data-project-settings-toggle]`), click `[data-format-preset="1080p"]`, wait for autosave,
+assert 1920×1080 on disk, close the dialog, blur, Ctrl+Z, assert 3840×2160 on disk again. Save
+the driver + stills under `.vidtsx-temp/end-to-end/A1/`. Then write the STATUS.md row and the
+TESTING.md §18 block (shape per §17) and finish.
 
 ## Open problems
 
-(none yet)
+- Unknown until the CDP run: whether the editor's Ctrl+Z handler fires while the Project
+  settings modal is open (the driver closes the modal first, so the exit does not depend on it).
+- `useTimeline.ts` was already ~830 lines (over the 300-line house rule) before A1; A1 added ~20.
+  Splitting it is out of A1's scope — noted, not done.
 
 ## Do-not-redo
 
 - Q6 is done: the October work is committed on `main` as `14d7a63`; you are on
   `end-to-end-p0`. Do not touch `main`.
+- Do not redo the code in `e4803cd` (export ladder, shared New Project tiles, `set-frame-size`)
+  or its unit tests; the gates above already passed on it.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-21 · ~42 calls · all three code items + unit tests, gates green, commit `e4803cd`.
