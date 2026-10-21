@@ -108,3 +108,8 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   isolated profile.
 - The V1 master `D:\repos\claude-youtube-editor\videos\video-14\output\master-tight-h264.mp4` is
   4.05 GB and read-only; every render copies it into the job scratch on C: (check ≥ 10 GB free).
+- The video-14 copy's `project.json` points all 127 media assets at the ORIGINAL project's
+  `media\` by absolute path (A3 finding): the copy's Player and exports READ Hasan's media files.
+  Reading is fine; never relink, re-import, move, rename or delete media from the copy, and never
+  run anything that writes next to a media file. Caches (proxies, waveforms) live in the copy's
+  own `cache/`.
