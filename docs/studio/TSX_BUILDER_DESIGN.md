@@ -1310,6 +1310,23 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   errors. **Judgment call:** checked on the Assistant (no starter, so "+" creates at once: the same create → list
 >   refresh that caused the trap) rather than finishing a starter on Infographic Loop, which would have opened a
 >   session there; s-23ef7a41 and s-a864bd64 not opened. The empty test session is left in the throwaway profile.
+> - **Part 5 DONE `64872cb`, $0** (docs only: no code, no signed file, no resources/, no EditorShell; Status.md left to
+>   Hasan). P5-7 (a). **AGENT_PACKAGE_SPEC** "`generate_composition` and `edit_composition` — the TSX builder": the
+>   arguments (generate-composition.ts:49-105, edit-composition.ts:30-42), budgets (composition-args.ts:109-114),
+>   craft packs and their refusals (composition-packs.ts:179-186, 234-249), `from` (composition-plan.ts:58-89,
+>   composition-rebuild.ts), edits keep format + packs (composition-edit.ts:338-352), blocking and one build at a time
+>   (composition-build.ts, tool-server.ts:32-37), `builder: true` skills after the call's packs (composition-build.ts:46),
+>   tools + image input (openrouter-model-check.ts:103-105), and the result: the artifact, the text, ≤ 3 stills
+>   (build-result.ts:10, 91-109; `finished` false = the last good check kept, tsx-builder.ts:230-233). **TESTING.md §17
+>   TSX Builder**: Creator, Studio, agents + flows, the builder's own checks; items unticked, ✎ + the run that drove
+>   them where one did. **`docs/release-notes/1.2.0.md`** headed DRAFT (version, date and wording his). **PACKS_DESIGN**
+>   `craft` (format, roles, `with` / `suggest`, the seven built-ins, refusals, v1 = built-in only: not in PACK_KINDS).
+>   **SKILLS.md** `builder: true`: agent packages only (agent-skills.ts:56, prompt-compose.ts:81-102); the app's
+>   `resources/skills` ignore it (skills-registry.ts reads name / description / when_to_use). Checks: check:types
+>   26/10; composition-packs, agent-skills, prompt-compose, craft-packs tests 23/23. **Judgment calls:** §17 items left
+>   unticked (ticking is his pass; ✎ points at the P0-P5 runs); the draft notes cover the whole branch, T9's two fixes
+>   (Sonnet 5.5 default, the allowedTools gap) and the GPU-auto export included; the SKILLS.md note sits in the
+>   Frontmatter rules.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
