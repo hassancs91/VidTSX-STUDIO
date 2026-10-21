@@ -13,7 +13,9 @@ import type { RenderPhase } from '../../../../shared/ipc/types';
 import type { StudioProject } from '../../../../shared/types/studio';
 import type { StudioExportEntry } from '../export-entry';
 import { registerShotAssetRoots } from '../shot-version-files';
+import { withRemotionTempDir } from './remotion-temp-scope';
 import { renderTimelineAudio } from './audio-pass';
+import { checkExportDisk } from './export-disk-check';
 import { finishExport } from './finishing';
 import { resolveExportEngine } from './registry';
 import { EXPORT_COLOR, type ExportRenderSettings } from './types';
@@ -63,20 +65,106 @@ export async function runStudioExport(options: StudioExportRunOptions): Promise<
   const controller = new AbortController();
   active.set(options.jobId, controller);
   const { signal } = controller;
+
+  // Disk preflight (T7): before anything is created, so a refusal touches nothing.
+  const disk = await checkExportDisk(options);
+  const refusal = disk.verdict && !disk.verdict.ok ? disk.verdict : null;
+  if (signal.aborted || refusal) {
+    active.delete(options.jobId);
+    if (!refusal) throw new Error('Cancelled');
+    log.warn('Export refused: not enough disk space', { jobId: options.jobId, drives: refusal.drives });
+    throw new Error(refusal.message);
+  }
+
   const workDir = path.join(getTempDir(), 'export', options.jobId);
-  await fs.mkdir(workDir, { recursive: true });
-  const startedAt = Date.now();
+  // Remotion's own temporary folders for this job (its copy of every source, the browser
+  // profile) are made here, so they leave with the scratch on success, cancel and failure.
+  const remotionTemp = path.join(workDir, 'remotion');
+  await fs.mkdir(remotionTemp, { recursive: true });
 
   try {
-    const engine = resolveExportEngine(options.engineId);
-    const { entry } = options;
-    // A builder shot's files (vN.assets/) are served from roots this process may not know yet: an
-    // export queued before a restart. Every engine, the audio pass and the dev verify render after this.
-    registerShotAssetRoots(entry.assetRoots);
+    return await withRemotionTempDir(remotionTemp, () => produceExport(options, workDir, signal));
+  } finally {
+    active.delete(options.jobId);
+    await removeScratch(workDir, options.jobId);
+    if (signal.aborted) await fs.rm(options.outputPath, { force: true }).catch(() => {});
+  }
+}
 
-    // 1. Frames — the engine's job.
-    options.onProgress('rendering', 0, { done: 0, total: entry.durationInFrames });
-    const product = await engine.produce({
+async function produceExport(options: StudioExportRunOptions, workDir: string, signal: AbortSignal): Promise<StudioExportResult> {
+  const startedAt = Date.now();
+  const engine = resolveExportEngine(options.engineId);
+  const { entry } = options;
+  // A builder shot's files (vN.assets/) are served from roots this process may not know yet: an
+  // export queued before a restart. Every engine, the audio pass and the dev verify render after this.
+  registerShotAssetRoots(entry.assetRoots);
+
+  // 1. Frames — the engine's job.
+  options.onProgress('rendering', 0, { done: 0, total: entry.durationInFrames });
+  const product = await engine.produce({
+    jobId: options.jobId,
+    project: options.project,
+    entry,
+    bundleUrl: options.bundleUrl,
+    workDir,
+    render: options.render,
+    color: EXPORT_COLOR,
+    signal,
+    onProgress: (p) => {
+      const percent = p.totalFrames > 0 ? Math.round((p.framesDone / p.totalFrames) * 100) : 0;
+      options.onProgress('rendering', percent, { done: p.framesDone, total: p.totalFrames }, p.message);
+    },
+    onEncoderResolved: options.onEncoderResolved,
+  });
+  const framesDoneAt = Date.now();
+
+  // 2. The one audio pass over the whole timeline (D6/D7) — the engine's
+  // own when it made one in the same pass, else rendered here. The frame
+  // counts stay on every later tick: the queue row persists the last one.
+  const allFrames = { done: entry.durationInFrames, total: entry.durationInFrames };
+  options.onProgress('finishing', 0, allFrames, 'Mixing audio…');
+  let audioPath = product.audioPath;
+  if (!audioPath) {
+    audioPath = path.join(workDir, 'audio.wav');
+    await renderTimelineAudio({
+      bundleUrl: options.bundleUrl,
+      entry,
+      outputPath: audioPath,
+      render: options.render,
+      signal,
+      onProgress: (fraction) => options.onProgress('finishing', Math.round(fraction * 80), allFrames, 'Mixing audio…'),
+    });
+  }
+  const audioDoneAt = Date.now();
+
+  // 3. Mux under the colour policy.
+  options.onProgress('finishing', 80, allFrames, 'Writing the file…');
+  await finishExport({
+    videoPath: product.videoPath,
+    videoDemuxer: product.videoDemuxer,
+    expectedFrames: product.frames,
+    audioPath,
+    outputPath: options.outputPath,
+    color: EXPORT_COLOR,
+    fps: entry.fps,
+    signal,
+    onProgress: (fraction) => options.onProgress('finishing', 80 + Math.round(fraction * 20), allFrames, 'Writing the file…'),
+  });
+  log.info('Export finished', {
+    jobId: options.jobId,
+    engine: options.engineId,
+    frames: entry.durationInFrames,
+    framesMs: framesDoneAt - startedAt,
+    audioPassMs: audioDoneAt - framesDoneAt,
+    muxMs: Date.now() - audioDoneAt,
+  });
+
+  // 4. Dev verification (D5).
+  let message = product.notes?.join(' ');
+  let reportPath: string | undefined;
+  if (options.verifyAgainstEngine && isExportVerifyAvailable()) {
+    options.onProgress('verifying', 0, allFrames, 'Rendering the reference export…');
+    const verified = await verifyExport({
       jobId: options.jobId,
       project: options.project,
       entry,
@@ -85,109 +173,59 @@ export async function runStudioExport(options: StudioExportRunOptions): Promise<
       render: options.render,
       color: EXPORT_COLOR,
       signal,
-      onProgress: (p) => {
-        const percent = p.totalFrames > 0 ? Math.round((p.framesDone / p.totalFrames) * 100) : 0;
-        options.onProgress('rendering', percent, { done: p.framesDone, total: p.totalFrames }, p.message);
-      },
-      onEncoderResolved: options.onEncoderResolved,
-    });
-    const framesDoneAt = Date.now();
-
-    // 2. The one audio pass over the whole timeline (D6/D7) — the engine's
-    // own when it made one in the same pass, else rendered here. The frame
-    // counts stay on every later tick: the queue row persists the last one.
-    const allFrames = { done: entry.durationInFrames, total: entry.durationInFrames };
-    options.onProgress('finishing', 0, allFrames, 'Mixing audio…');
-    let audioPath = product.audioPath;
-    if (!audioPath) {
-      audioPath = path.join(workDir, 'audio.wav');
-      await renderTimelineAudio({
-        bundleUrl: options.bundleUrl,
-        entry,
-        outputPath: audioPath,
-        render: options.render,
-        signal,
-        onProgress: (fraction) => options.onProgress('finishing', Math.round(fraction * 80), allFrames, 'Mixing audio…'),
-      });
-    }
-    const audioDoneAt = Date.now();
-
-    // 3. Mux under the colour policy.
-    options.onProgress('finishing', 80, allFrames, 'Writing the file…');
-    await finishExport({
-      videoPath: product.videoPath,
-      videoDemuxer: product.videoDemuxer,
-      expectedFrames: product.frames,
+      candidate: { engineId: options.engineId, outputPath: options.outputPath },
+      referenceEngineId: options.verifyAgainstEngine,
       audioPath,
-      outputPath: options.outputPath,
-      color: EXPORT_COLOR,
-      fps: entry.fps,
-      signal,
-      onProgress: (fraction) => options.onProgress('finishing', 80 + Math.round(fraction * 20), allFrames, 'Writing the file…'),
+      onProgress: (fraction, note) => options.onProgress('verifying', Math.round(fraction * 100), allFrames, note),
     });
-    log.info('Export finished', {
-      jobId: options.jobId,
-      engine: options.engineId,
-      frames: entry.durationInFrames,
-      framesMs: framesDoneAt - startedAt,
-      audioPassMs: audioDoneAt - framesDoneAt,
-      muxMs: Date.now() - audioDoneAt,
-    });
-
-    // 4. Dev verification (D5).
-    let message = product.notes?.join(' ');
-    let reportPath: string | undefined;
-    if (options.verifyAgainstEngine && isExportVerifyAvailable()) {
-      options.onProgress('verifying', 0, allFrames, 'Rendering the reference export…');
-      const verified = await verifyExport({
-        jobId: options.jobId,
-        project: options.project,
-        entry,
-        bundleUrl: options.bundleUrl,
-        workDir,
-        render: options.render,
-        color: EXPORT_COLOR,
-        signal,
-        candidate: { engineId: options.engineId, outputPath: options.outputPath },
-        referenceEngineId: options.verifyAgainstEngine,
-        audioPath,
-        onProgress: (fraction, note) => options.onProgress('verifying', Math.round(fraction * 100), allFrames, note),
-      });
-      reportPath = verified.reportPath;
-      message = [message, summaryLine(verified.report)].filter(Boolean).join(' ');
-      log.info('Export verified', { jobId: options.jobId, reportPath, summary: verified.report.summary });
-    }
-
-    const stat = await fs.stat(options.outputPath);
-    return { outputPath: options.outputPath, fileSize: stat.size, message, reportPath };
-  } finally {
-    active.delete(options.jobId);
-    await removeScratch(workDir, options.jobId);
-    if (signal.aborted) {
-      await fs.rm(options.outputPath, { force: true }).catch(() => {});
-      await removeEmptyRemotionAssetDirs(startedAt);
-    }
+    reportPath = verified.reportPath;
+    message = [message, summaryLine(verified.report)].filter(Boolean).join(' ');
+    log.info('Export verified', { jobId: options.jobId, reportPath, summary: verified.report.summary });
   }
+
+  const stat = await fs.stat(options.outputPath);
+  return { outputPath: options.outputPath, fileSize: stat.size, message, reportPath };
 }
 
 /**
  * Remove an export's scratch folder (the TS pieces, the joined video, the
- * WAV, a browser span's intermediate). After a cancel the killed ffmpeg or
- * Remotion's own cleanup can still hold a file for a moment, and Windows
- * refuses the delete (EBUSY/EPERM), so this retries for a few seconds and
- * only then reports the leftover.
+ * WAV, a browser span's intermediate, Remotion's copies of the sources).
+ * After a cancel the killed ffmpeg, compositor or browser can still hold a
+ * file, and Windows refuses the delete (EBUSY/EPERM), so this retries for a
+ * few seconds, then keeps trying in the background for two minutes.
  */
 async function removeScratch(dir: string, jobId: string): Promise<void> {
   for (let attempt = 0; attempt < 12; attempt++) {
-    try {
-      await fs.rm(dir, { recursive: true, force: true });
-      await fs.access(dir).then(() => { throw new Error('still there'); }, () => undefined);
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 500));
-    }
+    if (await tryRemove(dir)) return;
+    await new Promise((r) => setTimeout(r, 500));
   }
-  log.warn('Export scratch folder could not be removed', { jobId, dir });
+  log.warn('Export scratch folder still locked; retrying in the background', { jobId, dir });
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    void tryRemove(dir).then((gone) => {
+      if (gone) {
+        clearInterval(timer);
+        log.info('Export scratch folder removed after a retry', { jobId, dir, tries });
+      } else if (tries >= SCRATCH_RETRY_TRIES) {
+        clearInterval(timer);
+        log.warn('Export scratch folder could not be removed', { jobId, dir });
+      }
+    });
+  }, SCRATCH_RETRY_MS);
+  timer.unref?.();
+}
+
+const SCRATCH_RETRY_MS = 5000;
+const SCRATCH_RETRY_TRIES = 24;
+
+async function tryRemove(dir: string): Promise<boolean> {
+  try {
+    await fs.rm(dir, { recursive: true, force: true });
+  } catch {
+    return false;
+  }
+  return fs.access(dir).then(() => false, () => true);
 }
 
 /**
@@ -216,31 +254,4 @@ async function remotionAssetDirs(): Promise<string[]> {
   const tmp = app.getPath('temp');
   const names = await fs.readdir(tmp).catch(() => [] as string[]);
   return names.filter((name) => /^remotion-v\d+\.\d+\.\d+-assets/.test(name)).map((name) => path.join(tmp, name));
-}
-
-/**
- * A cancelled browser span leaves Remotion's asset folder behind as an empty
- * tree (its cleanup removes the files, not the directories). Remove the
- * empty trees that appeared since this export started; a folder holding any
- * file belongs to a live render and is left alone.
- */
-async function removeEmptyRemotionAssetDirs(since: number): Promise<void> {
-  for (const dir of await remotionAssetDirs()) {
-    const stat = await fs.stat(dir).catch(() => null);
-    if (!stat?.isDirectory() || stat.birthtimeMs < since || !(await holdsNoFiles(dir))) continue;
-    await fs.rm(dir, { recursive: true, force: true }).then(
-      () => log.info('Removed a cancelled span\'s empty Remotion asset folder', { dir }),
-      () => undefined,
-    );
-  }
-}
-
-async function holdsNoFiles(dir: string): Promise<boolean> {
-  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => null);
-  if (!entries) return false;
-  for (const entry of entries) {
-    if (!entry.isDirectory()) return false;
-    if (!(await holdsNoFiles(path.join(dir, entry.name)))) return false;
-  }
-  return true;
 }

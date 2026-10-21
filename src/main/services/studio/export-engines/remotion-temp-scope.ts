@@ -14,7 +14,10 @@
 import { AsyncLocalStorage } from 'async_hooks';
 import os from 'os';
 
-const scope = new AsyncLocalStorage<string>();
+/** `open` turns false when the job ends: a timer or handle the export left running reads the real temp. */
+interface TempScope { dir: string; open: boolean }
+
+const scope = new AsyncLocalStorage<TempScope>();
 let installed = false;
 
 function install(): void {
@@ -24,7 +27,10 @@ function install(): void {
   // Remotion calls `require('node:os').tmpdir()` at use time, so the module property is the
   // seam. A default import (never `import * as`) is the one shared builtin object.
   Object.defineProperty(os, 'tmpdir', {
-    value: () => scope.getStore() ?? original(),
+    value: () => {
+      const current = scope.getStore();
+      return current?.open ? current.dir : original();
+    },
     writable: true,
     configurable: true,
     enumerable: true,
@@ -32,7 +38,12 @@ function install(): void {
 }
 
 /** Run `fn` with `os.tmpdir()` answering `dir` (which must exist) for everything it starts. */
-export function withRemotionTempDir<T>(dir: string, fn: () => Promise<T>): Promise<T> {
+export async function withRemotionTempDir<T>(dir: string, fn: () => Promise<T>): Promise<T> {
   install();
-  return scope.run(dir, fn);
+  const current: TempScope = { dir, open: true };
+  try {
+    return await scope.run(current, fn);
+  } finally {
+    current.open = false;
+  }
 }

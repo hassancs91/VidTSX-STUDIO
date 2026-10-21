@@ -40,6 +40,16 @@ describe('withRemotionTempDir', () => {
     expect(parallel).toBe(realTmp);
     expect(os.tmpdir()).toBe(realTmp);
   });
+
+  it('answers the real temp to work the job left running once the job has ended', async () => {
+    let late: Promise<string> = Promise.resolve('');
+    const inside = await withRemotionTempDir(jobDir, async () => {
+      late = new Promise((resolve) => setTimeout(() => resolve(os.tmpdir()), 20));
+      return os.tmpdir();
+    });
+    expect(inside).toBe(jobDir);
+    expect(await late).toBe(realTmp);
+  });
 });
 
 describe('parseExportDiskDevOverrides', () => {
