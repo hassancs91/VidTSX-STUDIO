@@ -100,6 +100,7 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   it cancelled a new shot one timer tick after starting it, before the run was tracked); 3
   consecutive full runs green. A failure there now is real. `shot-module-resolver.test.ts:151`
   (5000 ms timeout under load) was not seen in those 3 runs but was not touched.
+- 2026-10-21 · A4 · PROXIES pick up an in-app full-ffmpeg install in the SAME process (no restart): the card's download → `Probed GPU proxy encoders` 3.7 s after `Full ffmpeg installed` → NVENC proxies at once. A2's restart need is the export-engine (Fast) status path only. The full ffmpeg download ran at ~0.78 MB/s here (~106 s for 80 MB) — budget ~2 min.
 
 ## video-14 (track A, from A3 on) — orchestrator rules
 
@@ -117,4 +118,3 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   Reading is fine; never relink, re-import, move, rename or delete media from the copy, and never
   run anything that writes next to a media file. Caches (proxies, waveforms) live in the copy's
   own `cache/`.
-- 2026-10-21 · A4 · PROXIES pick up an in-app full-ffmpeg install in the SAME process (no restart): the card's download → `Probed GPU proxy encoders` 3.7 s after `Full ffmpeg installed` → NVENC proxies at once. A2's restart need is the export-engine (Fast) status path only. The full ffmpeg download ran at ~0.78 MB/s here (~106 s for 80 MB) — budget ~2 min.
