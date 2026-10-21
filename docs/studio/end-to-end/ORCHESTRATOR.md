@@ -12,8 +12,8 @@
 |---|---|---|---|---|---|---|
 | A1 | DONE | 2 | PASS (1 round) | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | 3840×2160 @ 60 from the dialog; Export lists Full, 1440p, 1080p, 720p, 540p, 360p; size edit = one undo step on disk; vitest 3513 pass; types 26/10 | 2026-10-21 18:42 / 19:11 (29 min) |
 | A2 | DONE | 5 | PASS (1 round) | `dd77b87`, `88de827`, `4b1156d` (code); docs `fe82d07` | Standard + Fast cancel → 0 new `%TEMP%` entries, no scratch, no output; refusal "C: needs about 609 MB … has 286 MB" (verifier also D: 580 vs 95 MB); 10 s 1080p60 export 4.3 MB vs 23 MB estimate; types 26/10; vitest green on rerun 3 | 2026-10-21 19:20 / 20:37 (77 min) |
-| A3 | BUILDING | 1 | — | — | — | 2026-10-21 20:40 / — |
-| A4 | TODO | | | | | |
+| A3 | DONE | 4 | PASS (1 round) | `c3aefe8` (code); docs `2daaef1`, `dea786d`, `7a088ab` | 5 s 4K60 Standard range (0:06–0:11) 300/300 frames in 233 s (verifier 226 s); brand-font hold released (verifier watched it in the render tabs); 55/55 bundles 0 `remotion_delayRenderHandles` (verifier rebuild byte-identical); Player 0 handles after open; types 26/10; vitest: known shot-generator flake failed 3/3 full runs (verifier) | 2026-10-21 20:40 / 21:42 (62 min) |
+| A4 | BUILDING | 1 | — | — | — | 2026-10-21 21:45 / — |
 | A5 | TODO | | | | | |
 | A6 | TODO | | | | | |
 | B1 | TODO | | | | | |
@@ -101,3 +101,23 @@
   (DRIVING.md "Learned"); the live Fastest cancel check moved to A5.
 - The `shot-generator.test.ts` flake also fails when that file runs alone (1 in 5) — not only
   under full-suite load.
+- 2026-10-21 21:42 · A3 DONE (verifier PASS, 1 round; 4 builders). Continuing to A4.
+
+### From A3 (for the track-A stop report)
+
+- **Hasan's own `~/Videos/VidTSX Studio/projects/video-14` still has the 55 OLD bundles** (1
+  `remotion_delayRenderHandles` hit each, untouched by design) — exporting it from his profile
+  will still time out until it is re-bundled; the same holds for any project whose shots were
+  bundled before `c3aefe8` with a `@remotion/*` font load. There is no in-app re-bundle. The
+  fixed copy is `.vidtsx-temp/end-to-end/v14-root/projects/video-14` (its `notes/import/
+  build-video14.mjs` has a guarded `--shots-only --proj=<dir>`; refuses Hasan's folder).
+- Parity spike passed: the inlined 4.0.486 google-fonts code needs only
+  `NoReactInternals.ENABLE_V5_BREAKING_CHANGES`, present in 4.0.435. No §5 fallback.
+- The copy reads all 127 media from the original's `media\` by absolute path (read-only).
+- `virtual-modules.ts` 357 lines (339 before A3; over the house rule).
+- **Gate erosion:** `shot-generator.test.ts` failed in all 3 of the A3 verifier's full runs (plus
+  a loaded-machine run with 9 timeouts); it passes alone. Orchestrator decision: A4's builder
+  root-causes it first (bounded), fixes it only if it is test isolation, records it if it is a
+  product race.
+- Doc over-claim: TESTING §18.3 (:303) cites `shot-import.test.ts` for the shared classifier rule;
+  no such case exists — A4's builder adds it.
