@@ -86,3 +86,15 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   read "Needs the GPU encoder download" 30 s later (not root-caused); after an app restart all three
   engines were available. So: install the full ffmpeg into the isolated profile, RESTART, then drive
   Fast/Fastest. Check with `window.api.studioExportEnginesList()` before opening the dialog.
+
+## video-14 (track A, from A3 on) — orchestrator rules
+
+- Work only on the shared copy `.vidtsx-temp/end-to-end/v14-root/projects/video-14` (set the
+  isolated profile's Studio root to `.vidtsx-temp/end-to-end/v14-root`). The original under
+  `~/Videos/VidTSX Studio/projects/video-14` is Hasan's.
+- `notes/import/build-video14.mjs` hard-codes `PROJ` = the ORIGINAL project path (:27) and
+  `notes/import/warm-fonts.mjs` writes to `%APPDATA%\VidTSX Studio\font-cache` (:19). Never run
+  either from the original folder or unmodified; run edited copies that point at the copy / the
+  isolated profile.
+- The V1 master `D:\repos\claude-youtube-editor\videos\video-14\output\master-tight-h264.mp4` is
+  4.05 GB and read-only; every render copies it into the job scratch on C: (check ≥ 10 GB free).
