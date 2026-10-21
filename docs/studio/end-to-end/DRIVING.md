@@ -118,3 +118,4 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   Reading is fine; never relink, re-import, move, rename or delete media from the copy, and never
   run anything that writes next to a media file. Caches (proxies, waveforms) live in the copy's
   own `cache/`.
+- 2026-10-21 · A4 · a REFUSED export (disk or fonts) shows nothing in the editor: read it in Queue → the row's Details. Two Standard exports back to back (2nd with a cached bundle) crashed once in Remotion's encoder with its `react-motion-render*` folder gone from the job scratch → unhandled rejection, job stuck at "rendering" until Cancel (A4 step 4b, not root-caused yet).

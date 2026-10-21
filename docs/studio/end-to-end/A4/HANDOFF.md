@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS (steps 0, 1, 2, 3, 3b done in code + unit tests; step 4 GPU half PROVEN LIVE (CDP, no restart, no Settings visit); next: step 4 font half, then the gates + STATUS row + TESTING §18.4)
+status: IN PROGRESS (steps 0, 1, 2, 3, 3b done in code + unit tests; step 4a GPU half PROVEN LIVE; step 4b font half: refusal + warm export PROVEN LIVE, the blocked-after-warm export passed its font preflight (0 fetched, 202 cached, 0 upstream lines) but then CRASHED in Remotion's encoder (`react-motion-render*` folder missing → unhandled rejection → job stuck at "rendering" until cancelled) — next: root-cause that crash, re-run the blocked export, then the gates + STATUS row + TESTING §18.4)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -177,6 +177,27 @@ numbers."
   `restore.ps1`, `drive.mjs` (phases `ready | create | gpu | reimport | settings`). Scratch project
   `A4/root/projects/a4-gpu-proxy` (1080p30, two assets of the DJI clip referenced in place).
   Stills: `A4/stills/gpu-card-offer.png`, `gpu-card-done.png`, `settings-proxy-gpu-row.png`.
+- **Step 4b — the font half, PARTLY proven live (2026-10-21, no code change).** Same profile/port as 4a
+  (`A4/profile`, 9244; log `A4/app-fonts.log` = stdout incl. DEBUG lines; JSON main log
+  `A4/profile/logs/vidtsx-2026-10-21.log` = INFO and up). Driver phases ADDED to `A4/drive.mjs`:
+  `setup14` (root → `v14-root`, CPU low, output folder `A4/export`), `export14 <in> <out> <tag>` (open
+  video-14, I/O range, Export range, Standard engine, Resolution `1080p`, confirm, wait for
+  `onRenderComplete`; report `A4/report-<tag>.json` with the preflight/blocked/refused log lines between
+  its start and end, new `%TEMP%\vidtsx-studio\export\*` dirs seen, font-cache count, outputs), `queue
+  <tag>` (Queue nav → Details → lines with "Export not started"). NB: its progress log dedupes on
+  phase+message, so percent-only ticks are hidden — log `pct` changes too next time.
+  - (a) REFUSAL, PROVEN: block file present + cold cache → "Export not started: this video's shots use
+    Google Fonts that are not downloaded yet (Space Grotesk, Inter, JetBrains Mono and 1 more), and
+    Google Fonts could not be reached (103 font files missing). Connect to the internet and export
+    again; …" in the Queue row's Details; no `export\<jobId>` scratch (only the bundle step's own
+    `probe-*`, removed); no output file.
+  - (b) WARM, PROVEN: block removed → preflight `urls 103, filesFetched 145, filesCached 57, failed 0,
+    1394 ms` (fetched/cached count CALLS — inflight joins count as fetched; on disk 105 files, 2.0 MB) →
+    completed in 166.3 s, `studio-video-14_2026-10-21T19-41-21.mp4` 1,362,839 B. **0 failed of 103 →
+    no upstream 404 → the strict per-URL rule stays** (the must-record in Open problems is answered).
+  - (c) BLOCKED AFTER WARM-UP, NOT PROVEN: preflight `filesFetched 0, filesCached 202, failed 0, 21 ms`,
+    **0 `Font upstream blocked` / 0 `Font proxy fetch failed` lines** from its start to the cancel (11 min)
+    — but the render crashed (see Open problems, first item) and never completed.
 - **Step 3 — the first-4K-import download card, code + unit tests** (`139a4a9`). Not yet driven.
   - Pure, `src/features/studio/services/gpu-proxy-offer.ts`: `GPU_PROXY_MEASURED` :15 (12 s vs 91 s
     per minute, from `proxy-encoders.ts:7-12`); `GPU_PROXY_RESTART_NOTE` :22 (`null` today — the ONE
@@ -258,6 +279,39 @@ numbers."
     handler test +2 (`describe('studio proxy encoder rebuild …')`), `gpu-proxy-offer.test.ts:110` (+2).
 
 ## Verified (exact commands + outputs)
+
+- Step 4b (font half, live; times UTC). Before: 0 electron.exe, 9222/5173/9244 free; free space C: 23.09 GB,
+  D: 5.15 GB. `touch A4/block-fonts` BEFORE launch (so the preview could not warm the cache);
+  `A4_LOG=app-fonts.log bash A4/launch.sh` (background) → CDP up ~9 s; `node drive.mjs ready` →
+  ready; `node drive.mjs setup14` → `{"r":{"success":true},"g":{"root":"…\\v14-root"},"c":{"success":true},
+  "o":{"success":true},"projects":["video-14"]}`.
+  - `node drive.mjs export14 6 11 font-1-refuse` (`A4/logs/drive-font-1-refuse.log`): block = true,
+    font-cache 0 → dialog `{"resolution":"1080p","proxySource":false}` → confirm 19:39:44 → bundling (25 s,
+    fresh bundle) → 19:40:10 `complete {"success":false,"error":"Export not started: …(103 font files
+    missing)…"}`; main log `Export font preflight {urls:103, filesFetched:0, filesCached:0, failed:103,
+    families:[Space Grotesk, Inter, JetBrains Mono, Spectral], ms:22}` + WARN `Export refused: fonts not
+    cached and upstream unreachable`; new temp dirs seen = `probe-F9SBFz` only (bundle_compositions'
+    listing, removed); outputs []. `node drive.mjs queue font-1-refuse-queue` → Details shows the message.
+    Stills `A4/stills/font-1-refuse-dialog.png`, `font-1-refuse-after.png` (no toast in the editor — the
+    message lives in the Queue row), `font-1-refuse-queue.png`.
+  - `rm A4/block-fonts`; `node drive.mjs export14 6 11 font-2-warm` (`A4/logs/drive-font-2-warm.log`):
+    confirm 19:41:20.957 → preflight 19:41:30.891 `{urls:103, filesFetched:145, filesCached:57, failed:0,
+    families:[], ms:1394}` → complete 19:44:07 success, 1,362,839 B, elapsed 166.3 s; 0 blocked / 0 proxy
+    fetch failed; `grep -a -c "Upstream [0-9][0-9][0-9]" A4/app-fonts.log` → 0; font-cache 105 files 2.0 MB.
+  - `touch A4/block-fonts`; `node drive.mjs export14 6 11 font-3-blocked` (`A4/logs/drive-font-3-blocked.log`):
+    confirm 19:44:17 → preflight 19:44:17.431 `{urls:103, filesFetched:0, filesCached:202, failed:0, ms:21}`
+    (bundle cached, no GL probe) → Remotion render → stdout `Error: write EOF` + `Error: FFmpeg quit with
+    code 4294967294 while piping frame 66 … Error opening output C:\Users\hasan\AppData\Local\Temp\
+    vidtsx-studio\export\8a739400-…\remotion\react-motion-renderiI6g9U\pre-encode.mkv: No such file or
+    directory … at renderFramesProc.onFrameBuffer (…render-media.js:365:35)`, both as UNHANDLED rejections.
+    At 19:54: scratch `export\8a739400-…` = 3.8 GB holding `remotion\puppeteer_dev_chrome_profile-eJdkkq`
+    + `remotion\remotion-v4.0.435-assets72hqdhyarn` and NO `react-motion-render*`; `renderQueueGet` →
+    `status: rendering, progress: 70`. Main-log scan 19:44:17 → 19:55:41: 0 `Font upstream blocked`,
+    0 `Font proxy fetch failed` (all 125 blocked lines in the log are 19:39:35–19:40:10, i.e. the preview
+    at open + the refusal). Cancelled from the Queue at 19:55:38 → `complete {"success":false,"error":
+    "renderMedia() got cancelled"}`, `%TEMP%\vidtsx-studio\export\` empty afterwards, no output.
+    (The report's `visibleRefusal` text is the Queue Details still open from (a), not this job.)
+  - App stopped: `taskkill /T /F` on the port-9244 electron.exe tree; 0 electron.exe left.
 
 - Step 4a (GPU exit, live). Before: no electron.exe running, ports 9222/5173/9244 free; free space
   C: 23.11 GB, D: 5.33 GB. `ffprobe -select_streams v:0 … DJI_20261015115644_0366_D.MP4` →
@@ -353,6 +407,25 @@ numbers."
 
 ## Next step (ONE concrete instruction)
 
+**Step 4c — root-cause the `react-motion-render*` crash (bounded ~20 calls), then re-run ONLY export (c).**
+Read `node_modules/@remotion/renderer/dist/render-media.js:170-190, 330-370, 540-560` and
+`src/main/services/studio/export-engines/{remotion-temp-scope,run-export,remove-dir-retry}.ts` and find
+what removes the job's `remotion\react-motion-render*` folder between `mkdtempSync` (:176) and the
+pre-encode ffmpeg's open (~frame 66) when a Standard export starts ~10 s after the previous one finished
+and its bundle is CACHED (no `probe-*` listing). Distinguish A4 from A2 first: relaunch
+(`A4_LOG=app-fonts2.log bash .vidtsx-temp/end-to-end/A4/launch.sh`, NO block file, cache warm), `setup14`
+is already persisted (check `studioRootGet`), and run `node drive.mjs export14 6 11 repro-1` then
+`repro-2` back to back. If repro-2 crashes with the block file ABSENT, it is not the font work — record
+the mechanism under Open problems (and fix it in code test-first only if it is in A2/A4-owned code, with a
+unit test); either way also make Remotion's encoder failure end the job (complete with an error) instead of
+an unhandled rejection that leaves it "rendering" forever, if that path is ours. Then: `touch
+A4/block-fonts` → `node drive.mjs export14 6 11 font-3-blocked-b` → must COMPLETE with `filesFetched: 0`
+and 0 `Font upstream blocked` / `Font proxy fetch failed` lines in its window. Free space C:/D: first
+(the job copies the 4.05 GB V1 master into the scratch on C:). Then stop the app, the gates (full vitest
+with the app stopped, check:types), the STATUS.md row and TESTING §18.4 (include the 4a and 4b numbers).
+
+**DONE (step 4b, partly — see Done "Step 4b"): the font-half instruction below.** Kept for the record.
+
 **Step 4, font half (the GPU half is DONE live — see Done "Step 4a"; do not redo it).** Add a
 `fonts` phase to `.vidtsx-temp/end-to-end/A4/drive.mjs` modelled on A3's export phase
 (`.vidtsx-temp/end-to-end/A3/drive.mjs`), relaunch with `bash .vidtsx-temp/end-to-end/A4/launch.sh`
@@ -400,6 +473,26 @@ automatically", ticked, and NO `proxyGpuEncoderEnabled` key in the profile's set
 the font half (recipe in Open problems), then the gates + STATUS row + TESTING §18.4.
 
 ## Open problems
+
+- **BLOCKS THE FONT EXIT (step 4b, 2026-10-21): a Standard export crashed in Remotion's encoder, not in
+  the fonts.** Export (c) (2nd consecutive Standard 1080p export of 0:06–0:11, bundle cached, render began
+  ~1 s after confirm and ~10 s after export (b) finished) passed the font preflight, then Remotion's
+  pre-encode ffmpeg could not open `…\export\<jobId>\remotion\react-motion-render<rand>\pre-encode.mkv`
+  ("No such file or directory", at frame 66): the folder `render-media.js:176` had `mkdtempSync`'d was
+  gone while the job's `puppeteer_dev_chrome_profile-*` and `remotion-v4.0.435-assets*` were still there.
+  Both errors surfaced as UNHANDLED rejections (`write EOF`, `FFmpeg quit … while piping frame 66`); the
+  job then sat at `rendering` / progress 70 for 11 min with a 3.8 GB scratch until cancelled (cancel
+  cleaned it fully). Suspects, unverified: something in the A2 temp scope / scratch cleanup
+  (`remotion-temp-scope.ts`, `removeDirWithRetry`, the previous job's cleanup) or Remotion's own
+  cleanup racing a fast second render; the font preflight only reads/writes `<userData>/font-cache`
+  and ran before the scratch existed. Export (b) and A3's export (both first-after-bundle) completed.
+- **ANSWERED (step 4b): 0 failed of 103** — the warm export's preflight fetched every inlined URL with
+  no 404 (`Upstream <status>` lines in the stdout log: 0). The strict per-URL rule stays; no verdict split.
+- Not a bug, for the §18 block: a refused export shows NOTHING in the editor (no toast); the message is in
+  the Queue row's Details (same as A2's disk refusal). The refusal comes after the bundle step (~25 s on a
+  fresh bundle), because the preflight lives in `runStudioExport`.
+- Cosmetic: progress events arrive as `rendering Starting render…` and THEN `preparing Checking fonts…`
+  (the render handler emits its "Starting render" before `runStudioExport`'s preflight).
 
 - Not a blocker, by design (record in the §18 block): the preflight is STRICT — it warms every
   URL the copies carry, i.e. all weights × subsets `@remotion/google-fonts` inlines (≈100 URLs
@@ -474,6 +567,10 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
 - Step 4a DONE (live, 2026-10-21): do not re-run the GPU half or re-download the full ffmpeg — it is
   installed in `A4/profile/ffmpeg-full` (170 MB). Do not set `GPU_PROXY_RESTART_NOTE`. Do not delete
   `A4/root/projects/a4-gpu-proxy` (evidence; its two proxies are the NVENC outputs).
+- Step 4b (live, 2026-10-21): do not re-run the refusal (a) or the warm export (b) — both are recorded
+  above; the font cache `A4/profile/font-cache` is now WARM (105 files) — do not empty it (export (c)
+  needs it warm; a cold-cache refusal would need a fresh profile). The Studio root of `A4/profile` is now
+  `v14-root` (not `A4/root`); output folder `A4/export` (holds export (b)'s 1,362,839 B mp4 — keep it).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -494,6 +591,11 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   project, `VIDTSX_MEDIA_PICK` import → card → 80 MB download → triggering clip rebuilt on NVENC, no
   restart; re-import straight to NVENC; Settings row auto-on with no key written); did not start the
   font half (no video-14 open, no export run, font cache still cold).
+- 2026-10-21 · agent 7 · ~42 calls · step 4b (font half live: `setup14`/`export14`/`queue` driver phases;
+  refusal with a cold cache + blocked upstream shown in the Queue Details; warm export 166 s, 0 failed of
+  103; blocked-after-warm export passed the preflight with 0 fetched / 0 upstream lines but crashed in
+  Remotion's encoder — `react-motion-render*` missing — cancelled); did not read the Remotion temp-scope
+  code or root-cause the crash.
 - 2026-10-21 · agent 3 · ~30 calls · step 2 (GPU proxies default on when viable: pure resolver,
   tri-state setting, effective status + `choice`, row copy, tests, green full run); did not read
   `media-jobs.ts` or the import UI for step 3.
