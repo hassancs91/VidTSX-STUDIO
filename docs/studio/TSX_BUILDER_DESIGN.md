@@ -382,9 +382,17 @@ offline after the first use. The builder prompt teaches the field. `check` warns
   and the random-frame test. Only Craft offers three picture ideas before building (inside the
   run, no user gate).
 - **Thinking** on (medium) for the builder.
-- **Expected cost [measured]:** Craft ≈ 30–40 min and 170–210k tokens per piece. The UI must
-  show elapsed time, rounds and tokens; on an API key, show the estimated cost before
-  starting.
+- **Expected cost [measured]:** the experiment's Craft piece took ≈ 30–40 min and 170–210k
+  tokens. **In the app (35 stored builder runs, 10-12 to 10-21, P5 part 3):** Sonnet 5.5
+  Quick 0.4–3.2 min, 300–663k tokens (1.1–12.2k output), $0.29–0.85; Standard 1.3–2.6 min,
+  466–722k (2.2–14.7k output), $0.51–0.93; Craft 2.2–3.7 min, 334k–1.18M (7.2–17.0k
+  output), $0.38–0.92 (the 10-21 runs $0.38–0.43). Opus 5.5 Craft 4.9–13.6 min,
+  1.21–3.75M (22.9–65.4k output), $1.55–3.40; Standard (one run) $0.79. Most of the
+  tokens are cache reads, and most of the cost is the cache write of the system prompt
+  (36–174k tokens at 2× input), so on Sonnet the budgets cost about the same. Dollars are
+  API-equivalent (the SDK's `total_cost_usd`). The UI shows elapsed time, rounds and
+  tokens; the budget hint shows the estimate before Start ("≈ $0.51–0.93", "on your
+  plan" on the subscription, "cost unknown" for other providers).
 
 ### T7 — Callers
 - **TSX Creator:**
@@ -1266,6 +1274,29 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   collision in them: no ground truth beyond the controls); number_check verdicts unchanged (E1 / R1 OK, the rest
 >   SPLIT or RACE). Cost: the shape probe runs on every DOM change, so sweeps took 8-58 s (part 1: 14-33 s); E3 and
 >   R2 the slowest. Not read, by design: z-index, text over images / canvas / 3D, shapes under text (phone_view's job).
+> - **Part 3 DONE `5e65f1d`, $0** (no signed file, no resources/, no EditorShell). Plan calls J1-J3 all (a) (Hasan
+>   "go with recommendations"): tokens measured per model where there are runs, else Sonnet 5.5's (J1); the full
+>   range kept, the newest runs at its low end (J2); the edit box shows it too (J3). `build-budgets.ts`
+>   `MEASURED_BUILD_TOKENS`: the cheapest and dearest stored run per model and budget (Sonnet 5.5 Quick / Standard /
+>   Craft, Opus 5.5 Standard / Craft). `build-cost.ts`: a Claude price table (claude-api skill, cached 09-25) and
+>   the rule input + output + cache read + 2× input per cache write (the Agent SDK writes the 1-hour cache).
+>   Answers: an Anthropic key → "≈ $low–high" from the table; OpenRouter → the list's `pricing`
+>   (`parseOpenRouterPricing`, the 1-hour write when listed; a Claude id there uses its measured tokens); the Claude
+>   subscription → "on your plan"; the other Anthropic-compatible presets, local, an unpriced model or no list →
+>   "cost unknown". Tokens only: generated images are not in it. One IPC call `tsxjob:cost-estimate`
+>   (`resolveProviderInfo` now carries `authMode`); `useBuildCostEstimate` feeds `budgetHint(budget, estimate)` in
+>   the Creator (MotionInputPanel, EditComposer) and Studio (GenerateShotForm through ShotsPanel, ShotClipSection
+>   through InspectorPanel with the project shot model). Tests 1810/1810 (tsx-builder, agents, tsx-jobs, motion,
+>   studio, ipc, shared; 22 new); check:types 26/10. **Bench** (`runs/P5/cost-p53.json`, no app run): all 35
+>   stored builder runs have their usage row (matched by `cost_usd`), and the rule gives the SDK's cost within
+>   −0.04 % to −0.64 % (5-minute write at 1.25×: 14-36 % low). The usage table has no cache-write column, so the
+>   tokens come from each build's `debug.json`. Hints: Anthropic key Sonnet 5.5 Quick $0.29-0.85, Standard
+>   $0.51-0.93, Craft $0.38-0.92; Opus 5.5 Quick $0.46-1.63 (Sonnet's tokens), Standard $0.79, Craft $1.55-3.40.
+>   OpenRouter (live public list, 10-21): Sonnet 5.5 $0.23-0.87, Opus 5.5 = the key's, gpt-6.1-sol $0.18-0.62.
+>   Not checkable at $0: the OpenRouter path against a bill. The one OpenRouter row (gpt-6.1-sol, 10-12) stores
+>   $0.40, the SDK's own guess for a model it cannot price; the list prices those tokens at $0.14. Two list
+>   notes: OpenRouter prices Sonnet 5.5 cache reads at $0.10/M where the skill and the SDK say $0.20/M (the table
+>   keeps $0.20); a long-prompt price override (≥ 272k prompt tokens) is not read.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
