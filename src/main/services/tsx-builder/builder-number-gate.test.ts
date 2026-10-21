@@ -3,7 +3,8 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 
-// number_check and its finish gate (P4-12). The renders are stubbed at the
+// number_check and its finish gate (P4-12), and text_overlaps on the same
+// sweep (P5-4). The renders are stubbed at the
 // service boundary (build-looks.ts, number-sweep.ts); the comparison is the
 // real one (number-check.ts).
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
@@ -70,6 +71,8 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     numberChecks: 0,
     lastNumbers: null,
     numberSplitBuilds: new Set(),
+    overlapChecks: 0,
+    lastSweep: null,
     lastGood: null,
     finished: null,
     stills: [],
@@ -112,12 +115,14 @@ describe('number_check', () => {
     const ok = await call('number_check');
     expect(ok.content[0].text).toContain('Verdict: OK');
     expect(sweepFrameText).toHaveBeenCalledWith('// bundle', config, state.dirs.stillsDir, expect.objectContaining({ label: 'numbers1', webgl: false }));
+    // A changed build is swept afresh (the kept sweep is per exact build).
+    checkBuild.mockResolvedValue({ ...passed, code: '// bundle v2' });
     sweepFrameText.mockResolvedValue(sweep(false));
     const split = await call('number_check');
     expect(split.content[0].text).toContain('Verdict: SPLIT');
     expect(split.content[0].text).toMatch(/while "YEAR \d+" held/);
     expect(state.numberSplitBuilds.size).toBe(1);
-    expect(numbersOkFor(state, '// bundle')).toBe(false);
+    expect(numbersOkFor(state, '// bundle v2')).toBe(false);
     expect(await events(state)).toContain('"tool":"number_check","n":2');
   });
 
@@ -183,5 +188,51 @@ describe('finish and moving numbers', () => {
     expect(result.content[0].text).toContain('the numbers NOT verified');
     expect(result.content[0].text).toContain('numbersOk: false');
     expect(await events(state)).toContain(`"numbersOk":false,"numberChecks":${2 * NUMBER_SPLIT_ALLOWANCE},"splitBuilds":${NUMBER_SPLIT_ALLOWANCE}`);
+  });
+});
+
+describe('text_overlaps (P5-4)', () => {
+  /** The year sweep, plus a bar that slides through "$…" on frames 120-139. */
+  function crossed() {
+    const base = sweep(true);
+    return {
+      ...base,
+      frames: base.frames.map((f) => ({
+        ...f,
+        shapes: [{ k: 'rect', x: f.frame >= 120 && f.frame < 140 ? 650 : 1200, y: 880, w: 30, h: 80, o: 1 }],
+        moreShapes: 0,
+      })),
+    };
+  }
+
+  it('is one of the builder tools, and never a finish gate', async () => {
+    expect(BUILDER_TOOL_IDS).toContain('text_overlaps');
+    sweepFrameText.mockResolvedValue(crossed());
+    const { state, call } = await setup();
+    expect((await call('text_overlaps')).content[0].text).toContain('OVERLAPS');
+    expect((await call('finish', { summary: 's' })).isError).toBeUndefined();
+    expect(await events(state)).not.toContain('"missing"');
+  });
+
+  it('lists the run with its frames, and logs it', async () => {
+    sweepFrameText.mockResolvedValue(crossed());
+    const { state, call } = await setup();
+    const r = await call('text_overlaps');
+    expect(r.content[0].text).toContain('crossed by a rect: f120-139 (20 swept frames)');
+    expect(sweepFrameText).toHaveBeenCalledWith('// bundle', config, state.dirs.stillsDir, expect.objectContaining({ label: 'overlaps1' }));
+    expect(await events(state)).toContain('"tool":"text_overlaps","n":1');
+  });
+
+  it('shares one sweep per exact build with number_check', async () => {
+    sweepFrameText.mockResolvedValue(crossed());
+    const { state, call } = await setup();
+    await call('number_check');
+    await call('text_overlaps');
+    expect(sweepFrameText).toHaveBeenCalledTimes(1);
+    expect(await events(state)).toContain('"cached":true');
+    checkBuild.mockResolvedValue({ ...passed, code: '// moved the bar' });
+    await call('text_overlaps');
+    expect(sweepFrameText).toHaveBeenCalledTimes(2);
+    expect(state.lastSweep?.code).toBe('// moved the bar');
   });
 });

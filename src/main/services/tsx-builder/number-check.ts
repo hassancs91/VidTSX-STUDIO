@@ -24,13 +24,18 @@
 //   cannot tell them apart, the builder can.
 // Pure, so it is tested on text alone (number-check.test.ts).
 
-import type { FrameText, FrameTextItem } from './frame-text';
+import type { FrameShape, FrameText, FrameTextItem } from './frame-text';
 import { describeRaces, findRaces, type NumberRace } from './number-race';
 
-/** One frame of the sweep: its visible text nodes, boxes in the piece's own pixels. */
+/**
+ * One frame of the sweep: its visible text nodes, boxes in the piece's own pixels. `shapes`: its drawn
+ * shapes, same pixels (for text_overlaps; number_check reads text only), `moreShapes` past the probe's cap.
+ */
 export interface SweepFrame {
   frame: number;
   items: FrameTextItem[];
+  shapes?: FrameShape[];
+  moreShapes?: number;
 }
 
 /** A step label must change this often to count as one (a two-value toggle is not a counter). */

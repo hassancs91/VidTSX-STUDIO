@@ -3,6 +3,7 @@ import {
   describeFrameText,
   FRAME_TEXT_MARK,
   FRAME_TEXT_PROBE,
+  frameTextProbe,
   frameTextFor,
   frameTextLines,
   MAX_FRAME_LINES,
@@ -25,6 +26,16 @@ describe('the page probe', () => {
     expect(FRAME_TEXT_PROBE).not.toContain('compositionConfig');
     expect(withFrameTextProbe('export default function A() {}')).toMatch(/^export default function A\(\) \{\}\n;\(\(\) => \{/);
   });
+
+  it('lists shapes only when asked (the number sweep), and that probe is valid script too', () => {
+    const shapes = frameTextProbe(true);
+    expect(() => new Function(shapes)()).not.toThrow();
+    expect(shapes).not.toMatch(/\bexport\b/);
+    expect(shapes).toContain('const SHAPES = true;');
+    expect(FRAME_TEXT_PROBE).toContain('const SHAPES = false;');
+    expect(withFrameTextProbe('x', { shapes: true })).toBe(`x\n${shapes}`);
+    expect(withFrameTextProbe('x')).toBe(`x\n${FRAME_TEXT_PROBE}`);
+  });
 });
 
 describe('readFrameTextLog', () => {
@@ -33,6 +44,14 @@ describe('readFrameTextLog', () => {
       groups: [{ frame: null, items: [item('Year 12', 0, 0, 100), { t: 5 }, { t: 'x', x: 'a' }], more: 2 }],
     })}`;
     expect(readFrameTextLog(log)).toEqual([{ frame: null, items: [item('Year 12', 0, 0, 100)], more: 2 }]);
+  });
+
+  it('reads shapes when the group lists them, dropping malformed ones', () => {
+    const rect = { k: 'rect', x: 10, y: 20, w: 30, h: 0, o: 0.8 };
+    const log = `${FRAME_TEXT_MARK}${JSON.stringify({
+      groups: [{ frame: 4, items: [], more: 0, shapes: [rect, { k: 'path', x: 'a' }, { x: 1 }], moreShapes: 3 }],
+    })}`;
+    expect(readFrameTextLog(log)).toEqual([{ frame: 4, items: [], more: 0, shapes: [rect], moreShapes: 3 }]);
   });
 
   it('is null for any other log, bad JSON, and the probe reporting its own error', () => {

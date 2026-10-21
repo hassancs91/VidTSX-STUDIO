@@ -1,4 +1,4 @@
-// The builder's three measuring tools (TSX_BUILDER_DESIGN.md T2): they answer in
+// The builder's four measuring tools (TSX_BUILDER_DESIGN.md T2): they answer in
 // numbers and a verdict, not a picture. Split from builder-look-tools.ts (P4
 // part 2), which keeps the three picture looks.
 //
@@ -11,8 +11,11 @@
 //   number followed across frames, against the step labels beside it
 //   (number-check.ts). `finish` refuses a piece whose looks showed moving
 //   numbers until it says OK on the build being finished.
+// - `text_overlaps` (P5-4) is free and never a gate: text on text and text
+//   crossing a drawn shape on every swept frame (text-overlaps.ts). It reads
+//   the same sweep as number_check: one sweep per exact build, kept.
 //
-// All three measure the piece alone, never a transparent shot's look wrapper.
+// All four measure the piece alone, never a transparent shot's look wrapper.
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -22,12 +25,28 @@ import { describePurity, PURITY_MAX_FRAMES, PURITY_MAX_SIDE } from './frame-puri
 import { buildHash, checkForLook, logEvent, lookFailed, text, tracked, type BuilderState } from './builder-tool-common';
 import type { BuildAssetSource } from './build-stills';
 import { checkNumbers, describeNumberCheck } from './number-check';
-import { sweepFrameText } from './number-sweep';
+import { sweepFrameText, type NumberSweep } from './number-sweep';
+import { checkOverlaps, describeOverlaps } from './text-overlaps';
+import type { CompositionConfig } from '../composition-config-parser';
 
 export function buildMeasureTools(state: BuilderState) {
   const signal = () => (state.signal ? { signal: state.signal } : {});
   /** The signal, and the build's files when it names any. */
   const renderOptions = (build: { assets?: BuildAssetSource }) => ({ ...signal(), ...(build.assets ? { assets: build.assets } : {}) });
+  /** The sweep of this exact build: the kept one, or a fresh one that is kept (number_check and text_overlaps share it). */
+  const sweepFor = async (
+    build: { code: string; config: CompositionConfig; webgl?: boolean; assets?: BuildAssetSource },
+    label: string,
+  ): Promise<{ sweep: NumberSweep; cached: boolean }> => {
+    if (state.lastSweep?.code === build.code) return { sweep: state.lastSweep.sweep, cached: true };
+    const sweep = await sweepFrameText(build.code, build.config, state.dirs.stillsDir, {
+      label,
+      webgl: build.webgl,
+      ...renderOptions(build),
+    });
+    state.lastSweep = { code: build.code, sweep };
+    return { sweep, cached: false };
+  };
 
   const loopSeam = tool(
     'loop_seam',
@@ -116,11 +135,7 @@ export function buildMeasureTools(state: BuilderState) {
       state.numberChecks += 1;
       const started = Date.now();
       try {
-        const sweep = await sweepFrameText(look.build.code, look.build.config, state.dirs.stillsDir, {
-          label: `numbers${state.numberChecks}`,
-          webgl: look.build.webgl,
-          ...renderOptions(look.build),
-        });
+        const { sweep, cached } = await sweepFor(look.build, `numbers${state.numberChecks}`);
         const result = checkNumbers(sweep.frames, look.build.config);
         const build = buildHash(look.build.code);
         // What `finish` holds a piece with moving numbers to: this exact build, this verdict.
@@ -141,6 +156,7 @@ export function buildMeasureTools(state: BuilderState) {
           races: result.races,
           fixed: result.fixed,
           ms: sweep.ms,
+          cached,
           totalMs: Date.now() - started,
         });
         const note = sweep.step > 1 ? `, every ${sweep.step}th frame` : '';
@@ -151,5 +167,41 @@ export function buildMeasureTools(state: BuilderState) {
     }),
   );
 
-  return [loopSeam, purityCheck, numberCheck];
+  const textOverlaps = tool(
+    'text_overlaps',
+    'Check, then read every frame\'s text and drawn shapes and list where text sits on other text (more than a fifth of the smaller box) or a drawn shape crosses a text (a line through a word, a word hanging off a panel\'s edge, a marker on a label), with the frames and where. A label on its own pill or card is fine and not listed. Reads HTML and SVG text against rects, circles, ellipses, boxed HTML elements and thin lines; curves, diagonals, canvas, 3D and images are not read. Listed, not enforced: fix what is a collision. Free (no look round); shares its sweep with number_check.',
+    {},
+    tracked(state, 'rendering', async () => {
+      const look = await checkForLook(state);
+      if ('reply' in look) return look.reply;
+      state.overlapChecks += 1;
+      const started = Date.now();
+      try {
+        const { sweep, cached } = await sweepFor(look.build, `overlaps${state.overlapChecks}`);
+        const result = checkOverlaps(sweep.frames);
+        await logEvent(state, {
+          tool: 'text_overlaps',
+          n: state.overlapChecks,
+          build: buildHash(look.build.code),
+          clear: result.clear,
+          swept: result.swept,
+          step: sweep.step,
+          tiles: sweep.tiles,
+          unread: sweep.unread,
+          shapesRead: result.shapesRead,
+          moreShapes: result.moreShapes,
+          runs: result.runs,
+          ms: sweep.ms,
+          cached,
+          totalMs: Date.now() - started,
+        });
+        const note = sweep.step > 1 ? `, every ${sweep.step}th frame` : '';
+        return text(`${look.build.summary}\n${describeOverlaps(result, note)}`);
+      } catch (err) {
+        return lookFailed(state, 'text_overlaps', err, started);
+      }
+    }),
+  );
+
+  return [loopSeam, purityCheck, numberCheck, textOverlaps];
 }

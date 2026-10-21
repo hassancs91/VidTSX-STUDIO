@@ -14,6 +14,11 @@
 // are merged into reading-order strings here, in Node, where it can be tested.
 // Text drawn on a canvas, in WebGL or inside an image is not in the DOM and is
 // not listed. Free and not enforced: the method asks the builder to read it.
+//
+// With `shapes` (P5-4, the number sweep only), each group also lists the drawn
+// shapes a viewer can see: SVG rect / circle / ellipse / line / polyline /
+// polygon / path, and HTML elements with a visible background or border, as
+// boxes, for text_overlaps (text-overlaps.ts). The looks keep text alone.
 
 export const FRAME_TEXT_MARK = '__vidtsx_frame_text__';
 /** On a mounted contact sheet's tile: the frame that tile shows. */
@@ -24,6 +29,8 @@ const MIN_VISIBLE = 0.05;
 export const FAINT_BELOW = 0.35;
 /** Text nodes one group reports; the rest are counted. */
 const MAX_ITEMS = 400;
+/** Shapes one group reports; the rest are counted. */
+const MAX_SHAPES = 400;
 /** Strings listed per frame for the model; the rest are counted. */
 export const MAX_FRAME_LINES = 40;
 const MAX_LINE_CHARS = 100;
@@ -35,16 +42,23 @@ export const FRAME_TEXT_NOTE =
 /**
  * The page script appended to a look entry. It contains no export and no
  * `compositionConfig`, so the wrapper's parser and the sheet's renames never
- * see it, and it returns at once outside a browser.
+ * see it, and it returns at once outside a browser. `shapes`: also list the
+ * drawn shapes (the number sweep).
  */
-export const FRAME_TEXT_PROBE = String.raw`;(() => {
+export function frameTextProbe(shapes: boolean): string {
+  return String.raw`;(() => {
   if (typeof window === 'undefined' || typeof document === 'undefined' || window.__vidtsxFrameText) return;
   window.__vidtsxFrameText = true;
   const MARK = ${JSON.stringify(FRAME_TEXT_MARK)};
   const ATTR = ${JSON.stringify(FRAME_TEXT_ATTR)};
   const MAX_ITEMS = ${MAX_ITEMS};
+  const MAX_SHAPES = ${MAX_SHAPES};
+  const SHAPES = ${shapes ? 'true' : 'false'};
   const MIN_VISIBLE = ${MIN_VISIBLE};
   const SKIP = 'script,style,noscript,template,title,desc,metadata';
+  const SVG_SHAPES = 'rect,circle,ellipse,line,polyline,polygon,path';
+  const NOT_DRAWN = 'defs,clipPath,mask,marker,pattern,symbol,linearGradient,radialGradient,filter';
+  const SIDES = ['Top', 'Right', 'Bottom', 'Left'];
   const num = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
   const alpha = (c) => {
     if (!c || c === 'none' || c === 'transparent') return 0;
@@ -119,7 +133,41 @@ export const FRAME_TEXT_PROBE = String.raw`;(() => {
           o: Math.round(o * 100) / 100,
         });
       }
-      return { frame, items, more };
+      if (!SHAPES) return { frame, items, more };
+      const shapes = [];
+      let moreShapes = 0;
+      for (const el of root.querySelectorAll('*')) {
+        if (el.closest(SKIP) || el.closest(NOT_DRAWN)) continue;
+        let k;
+        let o;
+        if (el instanceof SVGElement) {
+          if (!el.matches(SVG_SHAPES)) continue;
+          k = el.tagName.toLowerCase();
+          o = chain(el) * paint(el);
+        } else {
+          const s = getComputedStyle(el);
+          if (s.visibility !== 'visible') continue;
+          const fill = Math.max(alpha(s.backgroundColor), s.backgroundImage && s.backgroundImage !== 'none' ? 1 : 0);
+          const border = SIDES.some((side) => num(s['border' + side + 'Width'], 0) > 0 && s['border' + side + 'Style'] !== 'none' && alpha(s['border' + side + 'Color']) > 0) ? 1 : 0;
+          if (!fill && !border) continue;
+          k = 'box';
+          o = chain(el) * Math.max(fill, border);
+        }
+        if (o < MIN_VISIBLE) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 && r.height <= 0) continue;
+        if (r.right < box.left || r.left > box.right || r.bottom < box.top || r.top > box.bottom) continue;
+        if (shapes.length >= MAX_SHAPES) { moreShapes += 1; continue; }
+        shapes.push({
+          k,
+          x: round(r.left - box.left),
+          y: round(r.top - box.top),
+          w: round(r.width),
+          h: round(r.height),
+          o: Math.round(o * 100) / 100,
+        });
+      }
+      return { frame, items, more, shapes, moreShapes };
     });
   };
   const emit = () => {
@@ -130,10 +178,14 @@ export const FRAME_TEXT_PROBE = String.raw`;(() => {
   new MutationObserver(emit).observe(document.documentElement, { subtree: true, childList: true, characterData: true, attributes: true });
 })();
 `;
+}
 
-/** A look entry's code with the probe after it. */
-export function withFrameTextProbe(code: string): string {
-  return `${code}\n${FRAME_TEXT_PROBE}`;
+/** The look's probe: text only. */
+export const FRAME_TEXT_PROBE = frameTextProbe(false);
+
+/** A look entry's code with the probe after it; `shapes` for the number sweep. */
+export function withFrameTextProbe(code: string, options: { shapes?: boolean } = {}): string {
+  return `${code}\n${options.shapes ? frameTextProbe(true) : FRAME_TEXT_PROBE}`;
 }
 
 /** One visible text node: its text (whitespace collapsed, not trimmed), box in its group, and opacity. */
@@ -146,11 +198,26 @@ export interface FrameTextItem {
   o: number;
 }
 
-/** A page's text: one group for a still (`frame` null), one per tile on a mounted sheet. `more` = nodes past the cap. */
+/** One visible drawn shape: its kind (an SVG tag, or "box" for an HTML element with a background or border), box and opacity. */
+export interface FrameShape {
+  k: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  o: number;
+}
+
+/**
+ * A page's text: one group for a still (`frame` null), one per tile on a mounted sheet. `more` = nodes past the cap.
+ * `shapes` / `moreShapes` only when the probe was asked for shapes.
+ */
 export interface FrameTextGroup {
   frame: number | null;
   items: FrameTextItem[];
   more: number;
+  shapes?: FrameShape[];
+  moreShapes?: number;
 }
 
 /** One string on screen. */
@@ -173,6 +240,12 @@ function toItem(v: unknown): FrameTextItem | null {
   return { t: i.t, x: i.x!, y: i.y!, w: i.w!, h: i.h!, o: i.o! };
 }
 
+function toShape(v: unknown): FrameShape | null {
+  const s = v as Partial<FrameShape> | null;
+  if (!s || typeof s.k !== 'string' || ![s.x, s.y, s.w, s.h, s.o].every(finite)) return null;
+  return { k: s.k, x: s.x!, y: s.y!, w: s.w!, h: s.h!, o: s.o! };
+}
+
 /** The groups a page logged behind the mark, or null (another log, a malformed one, or the probe's own error). */
 export function readFrameTextLog(text: string): FrameTextGroup[] | null {
   if (!text.startsWith(FRAME_TEXT_MARK)) return null;
@@ -184,10 +257,16 @@ export function readFrameTextLog(text: string): FrameTextGroup[] | null {
   }
   const groups = (parsed as { groups?: unknown } | null)?.groups;
   if (!Array.isArray(groups)) return null;
-  return groups.map((g: { frame?: unknown; items?: unknown; more?: unknown }) => ({
+  return groups.map((g: { frame?: unknown; items?: unknown; more?: unknown; shapes?: unknown; moreShapes?: unknown }) => ({
     frame: finite(g?.frame) ? g.frame : null,
     items: Array.isArray(g?.items) ? g.items.map(toItem).filter((i): i is FrameTextItem => i !== null) : [],
     more: finite(g?.more) ? g.more : 0,
+    ...(Array.isArray(g?.shapes)
+      ? {
+          shapes: g.shapes.map(toShape).filter((s): s is FrameShape => s !== null),
+          moreShapes: finite(g?.moreShapes) ? g.moreShapes : 0,
+        }
+      : {}),
   }));
 }
 

@@ -3,6 +3,8 @@
 // `check`, then the sweep (number-sweep.ts) and the comparison
 // (number-check.ts), timed; the verdict is held against `expect` (ok / split)
 // and the model's text is kept. The raw sweep is saved per source for reading.
+// The same sweep also goes through text_overlaps (P5-4, text-overlaps.ts),
+// held against `expectOverlaps` (clear / overlaps) when a source names one.
 // Everything stays in `<outDir>/numbers/<name>/`; the run releases its bundles.
 
 import fs from 'fs/promises';
@@ -12,6 +14,7 @@ import { isWebGlBuild } from './builder-tool-common';
 import { BUILD_ENTRY } from './constants';
 import { checkNumbers, describeNumberCheck } from './number-check';
 import { sweepFrameText } from './number-sweep';
+import { checkOverlaps, describeOverlaps } from './text-overlaps';
 import { releaseBundlesUnder } from '../remotion-bundler';
 
 export interface NumbersSource {
@@ -20,6 +23,8 @@ export interface NumbersSource {
   path: string;
   /** The verdict it should get. */
   expect?: 'ok' | 'split';
+  /** The text_overlaps verdict it should get. */
+  expectOverlaps?: 'clear' | 'overlaps';
 }
 
 export interface NumbersRequest {
@@ -58,6 +63,14 @@ export async function numbersProbe(outDir: string, sources: NumbersSource[]): Pr
           splits: result.splits.map((s) => ({ ...s, frames: s.frames.length, firstFrames: s.frames.slice(0, 12) })),
         };
         record.model = describeNumberCheck(result, sweep.step > 1 ? `, every ${sweep.step}th frame` : '');
+        const overlaps = checkOverlaps(sweep.frames);
+        const overlapVerdict = overlaps.clear ? 'clear' : 'overlaps';
+        record.overlaps = {
+          verdict: overlapVerdict,
+          ...(source.expectOverlaps ? { expect: source.expectOverlaps === overlapVerdict ? 'pass' : `FAIL, wanted ${source.expectOverlaps}` } : {}),
+          ...overlaps,
+          model: describeOverlaps(overlaps, sweep.step > 1 ? `, every ${sweep.step}th frame` : ''),
+        };
       } catch (err) {
         record.error = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err);
       }

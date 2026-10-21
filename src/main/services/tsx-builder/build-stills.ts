@@ -146,8 +146,8 @@ export async function prepareBuildRender(
     inputProps?: Record<string, unknown>;
     /** A video the look wrapper plays under a transparent shot (look-backdrop.ts). */
     backdropFile?: string;
-    /** false: the entry without the frame-text probe (the spike's pixel comparison). */
-    frameText?: boolean;
+    /** false: the entry without the frame-text probe (the spike's pixel comparison); 'shapes': the probe also lists drawn shapes (the number sweep). */
+    frameText?: boolean | 'shapes';
   } = {},
 ): Promise<PreparedBuild> {
   const { signal } = options;
@@ -155,7 +155,8 @@ export async function prepareBuildRender(
   const gl = options.gl ?? (await probeGlBackend()).gl;
   await fs.mkdir(outDir, { recursive: true });
   const entryPath = path.join(outDir, options.entryName ?? 'composition.tsx');
-  await fs.writeFile(entryPath, options.frameText === false ? code : withFrameTextProbe(code), 'utf-8');
+  const entry = options.frameText === false ? code : withFrameTextProbe(code, { shapes: options.frameText === 'shapes' });
+  await fs.writeFile(entryPath, entry, 'utf-8');
 
   const bundleStart = Date.now();
   const bundle = await bundleComposition(entryPath, signal ? { signal } : undefined);

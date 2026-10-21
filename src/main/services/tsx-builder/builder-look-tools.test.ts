@@ -72,6 +72,8 @@ async function setup(overrides: Partial<BuilderState> = {}) {
     numberChecks: 0,
     lastNumbers: null,
     numberSplitBuilds: new Set(),
+    overlapChecks: 0,
+    lastSweep: null,
     lastGood: null,
     finished: null,
     stills: [],

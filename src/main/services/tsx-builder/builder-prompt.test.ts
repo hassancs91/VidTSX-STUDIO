@@ -26,7 +26,8 @@ describe('buildBuilderSystemPrompt', () => {
 
   it('says finish enforces a look at the final build, the phone view, the final seam and, on physics, purity', () => {
     const prompt = buildBuilderSystemPrompt({ budget: 'quick', packs: [] });
-    expect(prompt).toContain('`finish` enforces them all');
+    expect(prompt).toContain('`finish` enforces all of them but text_overlaps');
+    expect(prompt).toContain('Run `text_overlaps` once on that build too');
     expect(prompt).toContain('the last look showed exactly the build you are finishing');
     expect(prompt).toContain('once the look budget is spent, a look at a changed build is still allowed');
     expect(prompt).toContain('on a physics piece the last purity_check measured exactly that build and said PURE');

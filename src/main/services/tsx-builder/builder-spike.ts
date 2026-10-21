@@ -43,7 +43,7 @@
 // mode "frametext" — free: each frame's text out of stills and contact sheets,
 // against the expected text, and no pixel changed (builder-spike-text.ts, P4 part 2).
 // mode "numbers" — free: number_check's sweep and verdict on sources whose
-// clock is known (builder-spike-numbers.ts, P4-12).
+// clock is known, and text_overlaps on the same sweep (builder-spike-numbers.ts, P4-12, P5-4).
 
 import fs from 'fs/promises';
 import path from 'path';

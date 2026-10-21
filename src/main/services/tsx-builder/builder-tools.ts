@@ -1,12 +1,12 @@
 // The builder's own tools (TSX_BUILDER_DESIGN.md T2), as an in-process MCP
 // server: `check` and `finish` here, the five that render: three picture
 // looks (`render_stills`, `contact_sheet`, `phone_view`) in
-// builder-look-tools.ts and three measures (`loop_seam`, `purity_check`,
-// `number_check`) in builder-measure-tools.ts; the three that bring files into
+// builder-look-tools.ts and four measures (`loop_seam`, `purity_check`,
+// `number_check`, `text_overlaps`) in builder-measure-tools.ts; the three that bring files into
 // assets/ (`library_search`, `library_use`, `generate_image`) in
 // builder-asset-tools.ts, the shared state and helpers in builder-tool-common.ts.
 // File work goes through the SDK's Read/Write/Edit/Glob/Grep behind the path
-// guard; these eleven are the only other things the builder can do. Every call
+// guard; these twelve are the only other things the builder can do. Every call
 // is appended to the run's events.jsonl so a run can be followed live and
 // audited after.
 
@@ -44,6 +44,7 @@ export const BUILDER_TOOL_IDS = [
   'loop_seam',
   'purity_check',
   'number_check',
+  'text_overlaps',
   'library_search',
   'library_use',
   'generate_image',

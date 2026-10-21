@@ -15,6 +15,7 @@ import { isPhysicsEngine, isWebGlLibrary } from '../../../shared/tsx-engine/buil
 import type { CompositionConfig } from '../composition-config-parser';
 import type { BuildStillShown, RunDirs } from './build-store';
 import type { BuildAssetSource } from './build-stills';
+import type { NumberSweep } from './number-sweep';
 import { ASSETS_DIR, assetKeyMap, formatBytes, listAssetFiles } from './build-assets';
 import { shotAssetKey } from '../studio/shot-bundle-finish';
 import { BACKDROP_ENTRY, backdropLookSource } from './look-backdrop';
@@ -58,6 +59,10 @@ export interface BuilderState {
   lastNumbers: { code: string; ok: boolean } | null;
   /** Builds (by buildHash) that number_check called SPLIT: the same build swept twice counts once. */
   numberSplitBuilds: Set<string>;
+  /** text_overlaps calls (free, listed, never a gate: P5-4). */
+  overlapChecks: number;
+  /** The last number sweep and the build it swept: number_check and text_overlaps share it (P5-4). */
+  lastSweep: { code: string; sweep: NumberSweep } | null;
   /** The last artifact that passed every gate — what a capped run returns. `physics`: it inlines a physics engine. */
   lastGood: { code: string; config: CompositionConfig; check: number; physics: boolean } | null;
   finished: { summary: string; code: string; config: CompositionConfig; physics: boolean } | null;

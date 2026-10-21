@@ -10,7 +10,8 @@
 // each page is one renderStill whose frame-text probe reports a group per
 // tile. A WebGL piece renders frame by frame instead (a page of canvases drops
 // a context, P2 problem 1), on fewer frames. Nothing is shown to the model;
-// the small screenshots are deleted.
+// the small screenshots are deleted. The probe also lists drawn shapes (P5-4),
+// so one sweep serves number_check and text_overlaps (text-overlaps.ts).
 
 import fs from 'fs/promises';
 import { prepareBuildRender, renderPreparedFrames, type BuildAssetSource } from './build-stills';
@@ -78,13 +79,23 @@ export default function VidtsxNumberSweep(props) {
   return { code: source, config: sweepConfig, pages: pages.length };
 }
 
-/** Text boxes from tile pixels back to the piece's own. */
-function toPiece(groups: FrameTextGroup[], scale: number): SweepFrame[] {
+const unscale = <T extends { x: number; y: number; w: number; h: number }>(b: T, scale: number): T => ({
+  ...b,
+  x: b.x / scale,
+  y: b.y / scale,
+  w: b.w / scale,
+  h: b.h / scale,
+});
+
+/** Text and shape boxes from tile pixels back to the piece's own. */
+export function toPiece(groups: FrameTextGroup[], scale: number): SweepFrame[] {
   return groups
     .filter((g) => g.frame !== null)
     .map((g) => ({
       frame: g.frame!,
-      items: g.items.map((i) => ({ ...i, x: i.x / scale, y: i.y / scale, w: i.w / scale, h: i.h / scale })),
+      items: g.items.map((i) => unscale(i, scale)),
+      shapes: (g.shapes ?? []).map((s) => unscale(s, scale)),
+      moreShapes: g.moreShapes ?? 0,
     }));
 }
 
@@ -109,24 +120,30 @@ export async function sweepFrameText(
   const prepareExtra = { ...signal, ...(options.assets ? { assets: options.assets } : {}) };
   if (options.webgl) {
     const { frames, step } = sweepFrames(config.durationInFrames, SWEEP_MAX_FRAMES_GL);
-    const piece = await prepareBuildRender(code, config, outDir, prepareExtra);
+    const piece = await prepareBuildRender(code, config, outDir, { ...prepareExtra, frameText: 'shapes' });
     const rendered = await renderPreparedFrames(piece, outDir, frames, { label: options.label, scale: TILE_SCALE, frameText: true, ...signal });
     await Promise.all(rendered.map((r) => fs.rm(r.path, { force: true })));
-    const read = rendered.map((r) => ({
-      frame: r.frame,
-      items: (r.text ?? []).filter((g) => g.frame === null).flatMap((g) => g.items),
-    }));
+    // A still's page is the piece at its own size (the scale only shrinks the screenshot).
+    const read = rendered.map((r) => {
+      const groups = (r.text ?? []).filter((g) => g.frame === null);
+      return {
+        frame: r.frame,
+        items: groups.flatMap((g) => g.items),
+        shapes: groups.flatMap((g) => g.shapes ?? []),
+        moreShapes: groups.reduce((sum, g) => sum + (g.moreShapes ?? 0), 0),
+      };
+    });
     return { frames: read, step, tiles: 'separate', unread: rendered.filter((r) => !r.text).length, ms: Date.now() - started };
   }
   const { frames, step } = sweepFrames(config.durationInFrames, SWEEP_MAX_FRAMES);
   const sweep = sweepSource(code, config, frames);
-  const prepared = await prepareBuildRender(sweep.code, sweep.config, outDir, { entryName: 'number-sweep.tsx', ...prepareExtra });
+  const prepared = await prepareBuildRender(sweep.code, sweep.config, outDir, { entryName: 'number-sweep.tsx', frameText: 'shapes', ...prepareExtra });
   const pageFrames = Array.from({ length: sweep.pages }, (_, k) => k);
   const rendered = await renderPreparedFrames(prepared, outDir, pageFrames, { label: options.label, frameText: true, ...signal });
   await Promise.all(rendered.map((r) => fs.rm(r.path, { force: true })));
   const read = toPiece(rendered.flatMap((r) => r.text ?? []), TILE_SCALE);
   const seen = new Set(read.map((r) => r.frame));
   // A tile with no visible text still reports its (empty) group; a page that never reported loses its tiles.
-  const all = frames.map((frame) => read.find((r) => r.frame === frame) ?? { frame, items: [] });
+  const all = frames.map((frame) => read.find((r) => r.frame === frame) ?? { frame, items: [], shapes: [], moreShapes: 0 });
   return { frames: all, step, tiles: 'mounted', unread: frames.filter((f) => !seen.has(f)).length, ms: Date.now() - started };
 }
