@@ -26,7 +26,7 @@ const full = {
   installs: 0,
 };
 vi.mock('../services/studio/ffmpeg-full', () => ({
-  FFMPEG_FULL_CATALOGUE: { bytes: 80069496, version: 'n8.1.2-test', licence: 'GPL v3' },
+  FFMPEG_FULL_CATALOGUE: { bytes: 80069496, version: 'n8.1.2-test', licence: 'GPL v3', platform: 'win32' },
   getFfmpegFullBinary: async () => full.binary,
   probeProxyEncoders: async () => ({ listed: full.listed, working: full.working, probedAt: 'now' }),
   isFfmpegFullDownloading: () => full.downloading,
@@ -38,6 +38,11 @@ vi.mock('../services/studio/ffmpeg-full', () => ({
     full.installs++;
     full.binary = 'C:/userData/ffmpeg-full/bin/ffmpeg.exe';
   },
+}));
+
+const gpu = { nvidia: true as boolean | null };
+vi.mock('../services/studio/gpu-adapters', () => ({
+  detectNvidiaAdapter: async () => gpu.nvidia,
 }));
 
 import {
@@ -73,7 +78,15 @@ describe('studio proxy encoder handlers', () => {
       fallback: null,
       downloadBytes: 80069496,
       licence: 'GPL v3',
+      downloadable: process.platform === 'win32',
+      nvidiaAdapter: true,
     });
+  });
+
+  it('reports an unreadable GPU list as unknown (A4 card gate)', async () => {
+    gpu.nvidia = null;
+    expect((await handleStudioProxyEncoderStatus()).nvidiaAdapter).toBeNull();
+    gpu.nvidia = true;
   });
 
   it('the enabled setting round-trips', async () => {

@@ -89,6 +89,8 @@ import { AgentPanel } from './AgentPanel';
 import { ScriptPanel } from './ScriptPanel';
 import { NotesPanel } from './NotesPanel';
 import { useBrandFonts } from '../hooks/useBrandFonts';
+import { useGpuProxyOffer } from '../hooks/useGpuProxyOffer';
+import { GpuProxyOfferCard } from './GpuProxyOfferCard';
 
 interface Props {
   projectId: string;
@@ -117,6 +119,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     restoreVersion,
   } = useStudioProject(projectId);
   const { showToast } = useToast();
+  const gpuProxyOffer = useGpuProxyOffer();
   const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');
   // Gap 10: the brand's fonts, linked into the document while the project is open.
@@ -944,10 +947,11 @@ export function EditorShell({ projectId, onBack }: Props) {
         showToast(`Imported ${result.added} file${result.added === 1 ? '' : 's'}`, 'success');
       }
       for (const err of result.errors) showToast(err, 'error');
+      void gpuProxyOffer.considerImport(result.assets);
     } finally {
       setImporting(false);
     }
-  }, [importMedia, showToast]);
+  }, [importMedia, showToast, gpuProxyOffer.considerImport]);
 
   const handleAddToTimeline = useCallback(
     (asset: StudioMediaAsset) => {
@@ -1601,6 +1605,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         jobs={queueJobs}
         onExport={(choice) => handleExport(choice, exportDialog?.range)}
       />
+      <GpuProxyOfferCard offer={gpuProxyOffer} />
     </div>
   );
 }

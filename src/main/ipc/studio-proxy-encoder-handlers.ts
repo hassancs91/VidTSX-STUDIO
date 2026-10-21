@@ -15,6 +15,7 @@ import {
   isFfmpegFullDownloading,
   probeProxyEncoders,
 } from '../services/studio/ffmpeg-full';
+import { detectNvidiaAdapter } from '../services/studio/gpu-adapters';
 import {
   PROXY_GPU_ENCODER_LABELS,
   chooseProxyEncoder,
@@ -30,6 +31,7 @@ const EMPTY: Omit<StudioProxyEncoderStatusResponse, 'success' | 'error'> = {
   enabled: false,
   installed: false,
   downloading: false,
+  downloadable: process.platform === FFMPEG_FULL_CATALOGUE.platform,
   downloadBytes: FFMPEG_FULL_CATALOGUE.bytes,
   version: FFMPEG_FULL_CATALOGUE.version,
   licence: FFMPEG_FULL_CATALOGUE.licence,
@@ -52,6 +54,7 @@ export async function handleStudioProxyEncoderStatus(): Promise<StudioProxyEncod
       choice: setting ?? null,
       installed: ffmpeg !== null,
       downloading: isFfmpegFullDownloading(),
+      nvidiaAdapter: await detectNvidiaAdapter(),
       detected,
       detectedLabel: detected ? PROXY_GPU_ENCODER_LABELS[detected] : null,
       listed: probe?.listed ?? [],

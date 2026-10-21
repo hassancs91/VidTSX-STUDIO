@@ -39,6 +39,8 @@ export const FFMPEG_FULL_CATALOGUE = {
   sourceUrl: 'https://github.com/BtbN/FFmpeg-Builds',
   /** Folder inside the zip. */
   extractedDir: 'ffmpeg-n8.1.2-50-g1a748fe2cd-win64-gpl-shared-8.1',
+  /** The only platform this build runs on (a win64 zip). */
+  platform: 'win32',
 } as const;
 
 /** Download task id; the renderer filters DOWNLOAD_PROGRESS on metadata.type. */
@@ -86,7 +88,7 @@ export function installFfmpegFull(): Promise<void> {
 }
 
 async function doInstall(): Promise<void> {
-  if (process.platform !== 'win32') {
+  if (process.platform !== FFMPEG_FULL_CATALOGUE.platform) {
     throw new Error('The GPU proxy encoder download is Windows-only for now.');
   }
   const dir = getFfmpegFullDir();

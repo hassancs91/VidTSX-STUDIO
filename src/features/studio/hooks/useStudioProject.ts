@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StudioSnapshotRestoreResponse } from '@shared/ipc/types';
-import type { StudioProject } from '../types';
+import type { StudioMediaAsset, StudioProject } from '../types';
 import { markOpen, resetOpenMarks } from '../services/open-timing';
 
 type Status = 'loading' | 'ready' | 'error';
@@ -148,15 +148,17 @@ export function useStudioProject(projectId: string) {
     added: number;
     errors: string[];
     canceled: boolean;
+    /** The assets this import added (the A4 4K card reads their probes). */
+    assets: StudioMediaAsset[];
   }> => {
     const res = await window.api.studioMediaImport({ projectId });
-    if (!res.success) return { added: 0, errors: [res.error ?? 'Import failed'], canceled: false };
-    if (res.canceled || !res.assets) return { added: 0, errors: [], canceled: true };
+    if (!res.success) return { added: 0, errors: [res.error ?? 'Import failed'], canceled: false, assets: [] };
+    if (res.canceled || !res.assets) return { added: 0, errors: [], canceled: true, assets: [] };
     const assets = res.assets;
     if (assets.length > 0) {
       updateProject((prev) => ({ ...prev, assets: [...prev.assets, ...assets] }));
     }
-    return { added: assets.length, errors: res.errors ?? [], canceled: false };
+    return { added: assets.length, errors: res.errors ?? [], canceled: false, assets };
   }, [projectId, updateProject]);
 
   const removeAsset = useCallback(

@@ -17,6 +17,13 @@ export interface StudioProxyEncoderStatusResponse {
   installed: boolean;
   /** A download/extract is in flight (also true across an app restart resume). */
   downloading: boolean;
+  /** The download exists for this platform (the build is win64-only). Absent = older main. */
+  downloadable?: boolean;
+  /**
+   * An NVIDIA adapter is present (Electron's GPU info, read before the full
+   * ffmpeg exists); null = could not tell. Gates the first-4K-import card (A4).
+   */
+  nvidiaAdapter?: boolean | null;
   /** Zip size of the catalogue entry, for the "Download (~80 MB)" button. */
   downloadBytes: number;
   /** Version and licence shown beside the button. */
