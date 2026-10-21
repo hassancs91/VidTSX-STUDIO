@@ -263,7 +263,7 @@ server and file guard (§2.4).
 | `phone_view { frame }` | renders at the phone display size | the legibility check |
 | `loop_seam` | pixel diff of last frame → frame 0 against neighbouring frames; returns numbers | `nativeImage.toBitmap()`; no new dependency |
 | `finish { summary }` | final check, bundle, save a version, end the run | the only way to end successfully |
-| (later) `text_overlaps` | measures text boxes against drawn shapes in a probe render | P5 |
+| `text_overlaps` | on every swept frame: text on text (ink bands, > 20 % of the smaller) and text crossed by a shape drawn over it (rect / circle / ellipse / HTML box / thin line); runs with frames, listed | P5 part 2; free, never a finish gate; shares `number_check`'s sweep (one per exact build) |
 
 Reference images arrive as image blocks on the first turn. Any image the builder needs to
 *generate* goes through the existing gated `generate_image` (only when the caller allows paid
@@ -1243,6 +1243,29 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 >   all 7 as expected: E2 RACE ("2.00" f30-150 vs "2.0" f30-60: motion ~4.0×, counters 1,000×; "50,000× FEWER READS"
 >   quoted), R2 RACE ("2.00 s" f30-210 vs "2.0 ms" f32-90: ~3.1× vs 1,000×; "1000× FASTER" quoted), E1 and R1 OK, E3
 >   and both P3 builds SPLIT, no false race. Sweeps 14-33 s a build.
+> - **Part 2 DONE `035568d` + `f0c40f8`, $0** (no signed file, no resources/). Plan calls J1-J4 all (a) (Hasan "go").
+>   `text-overlaps.ts`, a free tool `text_overlaps`, listed and never a finish gate. TEXT ON TEXT = two shown text
+>   nodes whose INK BANDS (box less 20 % top and bottom) share > 20 % of the smaller; a shadow of the same text counts
+>   once; a faint side, or a pair whose opacities add up to < 1.5, is a crossfade. TEXT ON A SHAPE = a shape PAINTED
+>   OVER the text (after it in document order; z-index not read) whose box enters the text's core (box less 20 % a
+>   side) while the text is not ≥ 90 % inside it. Shapes read: rect, circle, ellipse, HTML boxes (background or
+>   border), lines / paths ≤ 6 px thick; curves and diagonals are skipped and the answer says so. Hits on consecutive
+>   swept frames join into runs per pair (digits masked), ≤ 12 listed, longest first. `frameTextProbe(shapes)`: only
+>   the sweep asks for shapes (looks keep text alone); each text and shape carries its document order; only shapes
+>   that touch a text box are listed. One sweep per exact build kept in `state.lastSweep`, shared with `number_check`
+>   (logged `cached`). METHOD: a tool line and one step-6 sentence ("finish enforces all of them but text_overlaps").
+>   Spike `numbers` mode reports overlaps from the same sweep (`expectOverlaps`). Tests 668/668 (tsx-builder + agents
+>   + tsx-jobs, 24 new); check:types 26/10. **Bench** (`runs/P5/overlaps-p52.json`, in the app, 9 sources: two
+>   controls in `overlaps-p52/src/` + the 7 of part 1). Run 1 (box rules, `spike-report-run1.json`) passed both
+>   controls but listed ~100 runs on the 7 builds, traced to two artefacts, not collisions: a text node's box is the
+>   font's content area (~1.15-1.4 em, ink in the middle ~0.7 em), so lines stacked at lineHeight 1-1.05 overlap by
+>   box (r1's 84 px total under its title, E2 / R2's timers); and shapes drawn UNDER the text (E2's Blueprint grid of
+>   83 full-frame lines, the 470 px backdrop discs of E3 / P3). Hence the ink bands and paint order (`f0c40f8`, a
+>   judgment call). Run 2: collide OVERLAPS (axis line f0-59, counter on REVENUE f26-59, bar over ROWS READ f20-35);
+>   clean CLEAR (pill, card, shadow, crossfade, underline, digit in circle, curve); the 7 builds CLEAR (no known
+>   collision in them: no ground truth beyond the controls); number_check verdicts unchanged (E1 / R1 OK, the rest
+>   SPLIT or RACE). Cost: the shape probe runs on every DOM change, so sweeps took 8-58 s (part 1: 14-33 s); E3 and
+>   R2 the slowest. Not read, by design: z-index, text over images / canvas / 3D, shapes under text (phone_view's job).
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
