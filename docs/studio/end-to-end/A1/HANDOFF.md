@@ -1,5 +1,5 @@
 # A1 — 4K tile in New Project, 1080p + 1440p export presets, undoable project-size edits
-status: IN PROGRESS — code + unit tests committed (`e4803cd`); CDP click-through, STATUS row and TESTING §18 left
+status: DONE — exit met live (CDP, isolated profile) 2026-10-21; code `e4803cd`, docs + evidence in the commit after `639404f`
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -102,6 +102,16 @@ All in commit `e4803cd` (branch `end-to-end-p0`):
   (pure op; one undo step; redo; no step for unchanged/odd; interleaves with a split; reset).
   Five reducer test fixtures gained `frame: { width: 1920, height: 1080 }`.
 
+Agent 2 (2026-10-21, docs commit after `639404f`; no source change):
+- **CDP click-through** on an isolated instance — exit met (see Verified). Kit under
+  `.vidtsx-temp/end-to-end/A1/` (git-ignored): `launch.sh` (`npx electron-vite dev --
+  --user-data-dir=.vidtsx-temp/end-to-end/A1/profile --remote-debugging-port=9241 …`), `cdp.mjs`
+  (port 9241), `dom.js`, `restore.ps1`, `drive.mjs` (phases `ready | create | export <tag> | undo |
+  reopen`), logs `create.log`, `export-4k.log`, `undo.log`, `reopen.log`, stills in `stills/`.
+  Instance killed afterwards (only the electron.exe with port 9241).
+- `STATUS.md` top row "2026-10-21 — END-TO-END A1 … — DONE"; `docs/studio/TESTING.md` new
+  `## 18. End-to-end plan` with `### 18.1 A1` (5 items checked ✎, 1 unit-only item open).
+
 ## Verified (exact commands + outputs)
 
 2026-10-21, after `e4803cd`'s changes:
@@ -111,29 +121,46 @@ All in commit `e4803cd` (branch `end-to-end-p0`):
   Tests 3513 passed | 22 skipped (3535)`, 37.96 s.
 - `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
   `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
-- NOT yet verified: anything in the live app (no CDP run yet).
+2026-10-21 15:53–15:55 (agent 2), live app, isolated profile `.vidtsx-temp/end-to-end/A1/profile`,
+port 9241, Studio root set first to `.vidtsx-temp/end-to-end/A1/studio-root` (`studioRootSet` →
+`{"success":true}`, root confirmed, 0 projects). Commands run from `.vidtsx-temp/end-to-end/A1/`:
+- `bash launch.sh` (background) → page target "VidTSX Studio" at `http://localhost:5173/`;
+  `node drive.mjs ready` → `ready after 5 ms of polling`.
+- `node drive.mjs create` →
+  `tiles [{"id":"1080p","text":"16:9 1080p YouTube · 1920×1080","pressed":"true"},{"id":"4k","text":"16:9 4K YouTube 4K · 3840×2160","pressed":"false"},{"id":"portrait",…},{"id":"square",…}]`
+  · `dialog state {"name":"A1 4K test","fps":"60","pressed":["4k"]}` · `editor up` ·
+  `disk after create {…\projects\a1-4k-test\project.json","width":3840,"height":2160,"fps":60}`.
+- `node drive.mjs export 4k` → `{"selected":"original","options":[Full (3840×2160), 1440p
+  (2560×1440), 1080p (1920×1080), 720p (1280×720), 540p (960×540), 360p (640×360)]}`.
+- `node drive.mjs undo` → settings fields `{"w":"1920","h":"1080"}` · disk 1920×1080 after 265 ms ·
+  Export now `[Full (1920×1080), 720p (1280×720), 540p (960×540), 360p (640×360)]` · Ctrl+Z → disk
+  3840×2160 (791 ms) · Ctrl+Y → 1920×1080 (786 ms) · Ctrl+Z → 3840×2160 (782 ms) · Export back to
+  the six-rung 4K list.
+- `node drive.mjs reopen` (Back to projects → card → editor, wait 6 s) →
+  `project.json byte-identical = true size 547 → 547`; Export still the 4K list.
+- Stills: `.vidtsx-temp/end-to-end/A1/stills/new-project-default.png`, `new-project-4k-60.png`,
+  `editor-4k.png`, `export-dialog-4k.png`, `settings-1080p.png`, `export-dialog-after-1080p.png`,
+  `export-dialog-after-undo.png`, `export-dialog-after-reopen.png`.
+- Profile log `profile/logs/vidtsx-2026-10-21.log`: no error-level lines; `dev-app.log`: 0 "error".
+- After killing the instance: `npx vitest run` → `Test Files 415 passed | 4 skipped (419) · Tests
+  3513 passed | 22 skipped (3535)`, 37.01 s · `npm run check:types` → `tsconfig.web.check.json: 26
+  errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
 
 ## Next step (ONE concrete instruction)
 
-Run the CDP click-through on a fresh isolated profile (`.vidtsx-temp/end-to-end/A1/profile`,
-scratch Studio root `.vidtsx-temp/end-to-end/A1/studio-root` set via `studioRootSet` FIRST — see
-the driving notes above and `docs/ui-automation-cdp.md`): open New Project, assert four tiles
-(`[data-new-project-format]` = 1080p, 4k, portrait, square), click `4k`, pick 60 fps, Create;
-assert the scratch `project.json` has `settings` 3840×2160 @ 60; open the editor's Export
-dialog (`[data-export-button]`) and read its resolution select's options — expect `Full
-(3840×2160)`, `1440p (2560×1440)`, `1080p (1920×1080)`, `720p (1280×720)`, `540p (960×540)`,
-`360p (640×360)`; screenshot both dialogs; then open Project settings
-(`[data-project-settings-toggle]`), click `[data-format-preset="1080p"]`, wait for autosave,
-assert 1920×1080 on disk, close the dialog, blur, Ctrl+Z, assert 3840×2160 on disk again. Save
-the driver + stills under `.vidtsx-temp/end-to-end/A1/`. Then write the STATUS.md row and the
-TESTING.md §18 block (shape per §17) and finish.
+None — A1 is DONE. The orchestrator records it and stops for Hasan's "go" before A2.
 
 ## Open problems
 
-- Unknown until the CDP run: whether the editor's Ctrl+Z handler fires while the Project
-  settings modal is open (the driver closes the modal first, so the exit does not depend on it).
+- Not driven live (unit-tested only): typed width/height in Project settings (same
+  `onSetFrameSize` path as the format buttons), the W5 preset→tile mapping (a fresh profile has
+  no editing presets, so the preset select is not shown), and a remembered 1440p default on a
+  smaller project falling back to Full. Listed in TESTING §18.1.
+- Ctrl+Z while the Project settings modal is open was not tried (the driver closes it first).
 - `useTimeline.ts` was already ~830 lines (over the 300-line house rule) before A1; A1 added ~20.
   Splitting it is out of A1's scope — noted, not done.
+- Cosmetic: in the 4-column New Project grid the tile descriptions wrap to two lines, and the 4K
+  tile reads "16:9 4K / YouTube 4K · 3840×2160" (4K twice). Left as is.
 
 ## Do-not-redo
 
@@ -141,7 +168,10 @@ TESTING.md §18 block (shape per §17) and finish.
   `end-to-end-p0`. Do not touch `main`.
 - Do not redo the code in `e4803cd` (export ladder, shared New Project tiles, `set-frame-size`)
   or its unit tests; the gates above already passed on it.
+- Do not re-run the CDP click-through, rewrite the STATUS.md A1 row or the TESTING.md §18.1 block;
+  all done by agent 2 with the evidence above.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-21 · ~42 calls · all three code items + unit tests, gates green, commit `e4803cd`.
+- 2026-10-21 · ~35 calls · CDP click-through (exit met), gates re-run green, STATUS row, TESTING §18.1.

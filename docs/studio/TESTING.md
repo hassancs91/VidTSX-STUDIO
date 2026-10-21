@@ -270,6 +270,22 @@ what a run costs before Start.*
 - [ ] ✎ `text_overlaps` lists text on text and shapes painted over text; never blocks `finish`. *(P5 part 2 bench: the collide control OVERLAPS, the clean control CLEAR)*
 - [ ] Offline after the first run: a build with the network off still bundles, renders stills and exports (the library set is local). *(P2 part 5)*
 
+## 18. End-to-end plan (raw files to the finished video)
+
+*Added 2026-10-21 (END_TO_END_PLAN.md, branch `end-to-end-p0`). One block per
+part, checked as the part lands. Design and decisions:
+`docs/studio/END_TO_END_PLAN.md`; per-part state and evidence:
+`docs/studio/end-to-end/<part>/HANDOFF.md`. Items marked ✎ ran in the app
+over CDP on an isolated profile; everything else is unit-tested only.*
+
+### 18.1 A1 — 4K New Project tile, 1440p + 1080p export presets, undoable frame size
+- [x] ✎ New Project offers four format tiles from the shared list: 16:9 1080p (default) · 16:9 4K · 9:16 · 1:1; picking an editing preset whose orientation the current tile already fits keeps it (4K stays 4K under a 16:9 preset). *(2026-10-21 — CDP: tiles `1080p|4k|portrait|square`, 1080p `aria-pressed`; W5 mapping unit-tested in `project-format.test.ts`)*
+- [x] ✎ 4K + 60 fps + Create → a 3840×2160 @ 60 project that opens in the editor. *(CDP: `project.json` settings 3840×2160 @ 60 right after Create)*
+- [x] ✎ A 4K project's Export → Resolution lists Full (3840×2160), 1440p (2560×1440), 1080p (1920×1080), 720p, 540p, 360p; a 1080p project still lists only Full / 720p / 540p / 360p (never upscale). *(CDP on the same project before and after the size change; 1440p and 2160×3840 portrait ladders unit-tested in `render-presets.test.ts`)*
+- [x] ✎ Project settings: a format button or a typed width/height is one undo step; Ctrl+Z / Ctrl+Y walk it back and forth; fps, name and STT model stay plain edits; no proxy or shot work follows a size change. *(CDP drove the format button: 16:9 1080p → 1920×1080 on disk in 265 ms; Ctrl+Z → 3840×2160, Ctrl+Y → 1920×1080, Ctrl+Z → 3840×2160, ~0.8 s each. Typed W/H take the same `onSetFrameSize` path but were not typed live; `frame-size-undo.test.ts` covers unchanged/odd sizes = no step and interleaving with a split)*
+- [x] ✎ No schema change: closing and reopening the project leaves `project.json` byte-identical. *(CDP: 547 B before and after, bytes equal)*
+- [ ] A remembered default export resolution (Settings → Rendering) of 1440p on a project smaller than 1440p falls back to Full. *(unit-tested via `pickResolutionOption`; not driven)*
+
 ---
 
 ## Cut-phase hardening follow-ups (not blocking, log as issues)
