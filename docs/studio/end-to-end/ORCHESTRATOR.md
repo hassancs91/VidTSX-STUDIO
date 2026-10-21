@@ -11,7 +11,7 @@
 | Part | Status | Builders spawned | Verifier result | Commit | Exit numbers | Started / Finished |
 |---|---|---|---|---|---|---|
 | A1 | DONE | 2 | PASS (1 round) | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | 3840×2160 @ 60 from the dialog; Export lists Full, 1440p, 1080p, 720p, 540p, 360p; size edit = one undo step on disk; vitest 3513 pass; types 26/10 | 2026-10-21 18:42 / 19:11 (29 min) |
-| A2 | TODO | | | | | |
+| A2 | BUILDING | 1 | — | — | — | 2026-10-21 19:20 / — |
 | A3 | TODO | | | | | |
 | A4 | TODO | | | | | |
 | A5 | TODO | | | | | |
@@ -59,6 +59,8 @@
 - 2026-10-21 19:11 · A1 DONE (verifier PASS, 1 round). Reported: exit numbers, the pre-existing
   `shot-generator.test.ts` / `shot-module-resolver.test.ts` full-suite flake (reproduced on `main`,
   green on rerun), cosmetic tile text. Waiting for Hasan's "go" before A2.
+- 2026-10-21 19:20 · Hasan: "lets do A2-A6 fully end to end stop after you finish A fully" → run A2…A6
+  and the track A exit without stopping between parts; stop after track A (or on BLOCKED / 3 FAILs).
 
 ## Notes carried forward
 
