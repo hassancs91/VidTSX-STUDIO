@@ -13,8 +13,8 @@
 | A1 | DONE | 2 | PASS (1 round) | `e4803cd` (code), `bd805af` + `8306c8e` (docs) | 3840×2160 @ 60 from the dialog; Export lists Full, 1440p, 1080p, 720p, 540p, 360p; size edit = one undo step on disk; vitest 3513 pass; types 26/10 | 2026-10-21 18:42 / 19:11 (29 min) |
 | A2 | DONE | 5 | PASS (1 round) | `dd77b87`, `88de827`, `4b1156d` (code); docs `fe82d07` | Standard + Fast cancel → 0 new `%TEMP%` entries, no scratch, no output; refusal "C: needs about 609 MB … has 286 MB" (verifier also D: 580 vs 95 MB); 10 s 1080p60 export 4.3 MB vs 23 MB estimate; types 26/10; vitest green on rerun 3 | 2026-10-21 19:20 / 20:37 (77 min) |
 | A3 | DONE | 4 | PASS (1 round) | `c3aefe8` (code); docs `2daaef1`, `dea786d`, `7a088ab` | 5 s 4K60 Standard range (0:06–0:11) 300/300 frames in 233 s (verifier 226 s); brand-font hold released (verifier watched it in the render tabs); 55/55 bundles 0 `remotion_delayRenderHandles` (verifier rebuild byte-identical); Player 0 handles after open; types 26/10; vitest: known shot-generator flake failed 3/3 full runs (verifier) | 2026-10-21 20:40 / 21:42 (62 min) |
-| A4 | BUILDING | 1 | — | — | — | 2026-10-21 21:45 / — |
-| A5 | TODO | | | | | |
+| A4 | DONE | 9 | PASS (1 round) | `3417d46` (fonts), `4671622` (GPU default), `139a4a9` (card), `3d450ba` (re-queue on GPU); test fix `22593db`, `0afc196`; docs `63e8f04` | font: cold+blocked refused (103 files missing); warm 103 URLs 0 failed; blocked-after-warm export completed (fetched 0, cached 202; 1080p 5 s in 161–182 s). GPU: card 1.3–1.6 s after a 4K import; 80,069,496 B download ~80–106 s; triggering clip rebuilt `h264_nvenc` in 6.2–7.9 s (x264 22–24 s); no Settings visit, no settings write, no restart. vitest 428 files / 3598 green; types 26/10 | 2026-10-21 21:45 / 23:49 (124 min) |
+| A5 | BUILDING | 1 | — | — | — | 2026-10-21 23:55 / — |
 | A6 | TODO | | | | | |
 | B1 | TODO | | | | | |
 | B2 | TODO | | | | | |
@@ -121,3 +121,28 @@
   product race.
 - Doc over-claim: TESTING §18.3 (:303) cites `shot-import.test.ts` for the shared classifier rule;
   no such case exists — A4's builder adds it.
+- 2026-10-21 23:49 · A4 DONE (verifier PASS, 1 round; 9 builders). Continuing to A5.
+- 2026-10-21 ~23:20 · Hasan (going to sleep): "when you are done from A, go B end to end … same with
+  multiple agents. will check up when I wake up" → after the track-A exit, run B1…B6 the same way;
+  stop after track B (or on BLOCKED / 3 FAILs). Plan for the Hasan-dependent exits (told to him):
+  B4 built and verified up to "waiting on Hasan's 21-join pass"; B5 = prepare M2 for his by-ear pass,
+  the flag flip stays his; B6 runs. Local whisper preferred for transcripts; the editorial pass runs
+  on his subscription from a COPY of his settings on an isolated profile.
+
+### From A4 (for the stop report)
+
+- Step 0 found the `shot-generator.test.ts` flake was a TEST bug (cancel after one timer tick
+  before the run was tracked; the orphaned run cascaded) — fixed test-only (`22593db`); full suite
+  green 3× in a row since. `shot-module-resolver.test.ts:151` still times out under load sometimes.
+- An encoder crash seen ONCE in A4 step 4b (Remotion's `react-motion-render*` folder vanished
+  mid-render; not reproduced in 3 traced back-to-back runs; no other instance started; our deletes
+  traced and ruled out). Remotion's `renderMedia` never settles when its pre-encode ffmpeg dies, so
+  the job sat at "rendering" 11 min → guard moved to A5 step 0.
+- Verifier finding: `font-proxy.ts:59-91` `fetchAndCache` has no retry; one undici `terminated`
+  blip on 2 of 104 files refused a warm-up export with the untrue "Google Fonts could not be
+  reached" (`font-preflight.ts:40-42`) → moved to A5 step 0. Preflight counters double-count
+  (log only). Card says "76 MB" (MiB) vs the plan's 80.1 MB.
+- Refusals (disk A2, fonts A4) show only in the Queue row's Details, not in the editor.
+- GPU "on automatically" is NVIDIA-only by design (QSV/AMF stay opt-in, speeds unmeasured).
+- The font preflight is strict per URL: a project's FIRST export needs the network once (103
+  files for video-14, ~2 MB), then exports work offline.
