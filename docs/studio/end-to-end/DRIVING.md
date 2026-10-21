@@ -101,6 +101,7 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   consecutive full runs green. A failure there now is real. `shot-module-resolver.test.ts:151`
   (5000 ms timeout under load) was not seen in those 3 runs but was not touched.
 - 2026-10-21 · A4 · PROXIES pick up an in-app full-ffmpeg install in the SAME process (no restart): the card's download → `Probed GPU proxy encoders` 3.7 s after `Full ffmpeg installed` → NVENC proxies at once. A2's restart need is the export-engine (Fast) status path only. The full ffmpeg download ran at ~0.78 MB/s here (~106 s for 80 MB) — budget ~2 min.
+- 2026-10-22 · A5 · %TEMP% gains a zero-byte `.tmpXXXXXX` file every 10–30 s from something outside the app (seen before launch and after a cancel; 53 of them on 2026-10-22) — exclude that pattern from TEMP before/after diffs. video-14's 55 shots tile its whole timeline, so Fast/Fastest copy 0 % of it (cutaway = composite span, PiP split = browser span); a 30 s 4K60 Fastest range took 19.6 min (1.53 fps) at CPU low.
 
 ## video-14 (track A, from A3 on) — orchestrator rules
 

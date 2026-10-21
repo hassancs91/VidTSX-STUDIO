@@ -1,5 +1,5 @@
 # A5 — Fastest on video-14 (30–60 s range across a split + a cutaway); Standard at 25 % for the record
-status: IN PROGRESS (step 0 done — 0.1 `06edaf0`, 0.2 `f84a78d`; next step 1: profile copy + range choice)
+status: IN PROGRESS (step 0 done — 0.1 `06edaf0`, 0.2 `f84a78d`; step 1 done; Fastest cancel PASS; Fastest 80–110 s DONE 1178 s / 1.53 fps; Standard same range IN FLIGHT at hand-off, job `4e20be8d-…`)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A2, A3 and A4 drivers are reusable:
@@ -149,6 +149,70 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
     once), `font-preflight.test.ts` (rewritten: ALL failed → "could not be reached"; SOME failed
     → "3 of 7 font files … could not be downloaded", never "could not be reached"; naming cap).
 
+- **Step 1 — profile copied, range chosen** (agent 3, no source change).
+  - `.vidtsx-temp/end-to-end/A4/profile` (322 MB) → `.vidtsx-temp/end-to-end/A5/profile` (`cp -r`).
+    Free before: C: 32.75 GB, D: 4.44 GB (2026-10-22 00:03 local). The full ffmpeg
+    (`ffmpeg-full/ffmpeg-n8.1.2-50-g1a748fe2cd-win64-gpl-shared-8.1`) was installed in A4 by the
+    in-app card download and carried over; on the fresh launch `studioExportEnginesList()` →
+    `remotion`, `passthrough`, `shot-composite` all `available: true` (no restart needed).
+  - **The range: 80.000–110.000 s = frames 4800–6600 (1800 frames @ 60 fps).** From
+    `v14-root/projects/video-14/project.json` (times in seconds, `timeline.tracks`):
+    V1 `clip_mvba3wua_2e5da5` plain 75.5–89.9 · **split** `clip_mvba3wua_309b03` 89.9–103.15
+    (`transform {x:1615.733, y:596, scale:0.388889}` = the PiP) · `clip_mvba3wua_cc8930` plain
+    103.15–128.35. Shots track: **cutaway** `clip_mvba50vo_ebdf0e` V14A1OneWord 75.5–85.4 ·
+    **cutaway** `clip_mvba50vo_6f306f` V14A1Template 85.4–89.9 · overlay `clip_mvba50vo_8bd7bc`
+    V14A1Scratch 89.9–103.15 (over the split) · **cutaway** `clip_mvba50vo_93c5e8` V14A2Starter
+    103.15–116.85. So the range enters AND leaves one split and crosses three cutaways.
+    Fact for the record: video-14's 55 shot clips tile the whole timeline (cutaway on every
+    plain V1 clip, overlay on every PiP clip), so Fastest copies 0 % anywhere on it — the
+    cutaway stretches are "composite" spans (ProRes 4444 shot layer over copied footage), the
+    split is a browser span (§5 "Copy engines and splits", expected).
+    The 2026-10-16 range 82–102 sits inside this one (`notes/import/range-082-102.json`: Standard,
+    CPU 25 %, 1200 frames, cancelled after 607 s).
+  - Helpers in `.vidtsx-temp/end-to-end/A5/`: `launch.sh` (port **9245**, profile `A5/profile`,
+    log `A5/logs/app.log`), `drive.mjs` (`ready` · `setup` · `run <tag> <engine> <in> <out>
+    <cancel|complete> [cancelAfterSec]` — opens video-14, sets the range by Shift+→ seconds, picks
+    the engine, resolution `original` (= 3840×2160; the dialog has no `4k` option on this
+    project: `original,1440p,1080p,720p,540p,360p`), quality left at the project's `high`, writes
+    `report-<tag>.json` every 30 s and at the end with phases, span plan/done log lines, queue
+    row, ffprobe of the output, free space), `timeline.mjs` (clip lister), `snap.mjs` (A2's TEMP/
+    profile snapshot+diff), `awake-and-priority.ps1` (keep-awake + BelowNormal for render
+    processes under the 9245 electron; stops when `A5/stop.flag` exists; log
+    `A5/logs/awake-priority.log`), `restore.ps1`, `cdp.mjs`, `dom.js`.
+- **Fastest cancel check — PASS** (moved here from A2). `node drive.mjs run fastest-cancel
+  shot-composite 85 95 cancel 30` on 85–95 s (600 frames): span plan `copied 0, composited 49,
+  spans composite:0+24, composite:24+270, browser:294+306`; first frame 8 s after confirm;
+  cancelled from the Queue at frame 24/600 (39 s) → `onRenderComplete {success:false, error:
+  "renderMedia() got cancelled"}`, persisted `status: "cancelled"`; **no output file**, the job
+  scratch `%TEMP%\vidtsx-studio\export\77d05ebe-…` gone (`scratchDirs: []`; it held
+  `audio-graph.txt, audio.m4a, remotion` = 107 MB while running), no new
+  `remotion-v*-assets` / `puppeteer_dev_chrome_profile-*` / `react-motion-render*` entries.
+  Full `%TEMP%` top-level diff (`snap.mjs diff pre-cancel post-cancel` →
+  `A5/snapdiff-cancel.json`): 8 new entries, all zero-byte `.tmpXXXXXX` files — ambient, not
+  the app: `%TEMP%` holds 53 of them born every 10–30 s from 21:01 UTC, i.e. before the app was
+  launched (~21:03) and after the cancel (21:09); `claude/` and a `<uuid>.tmp` grew = not the app.
+  Profile grew 36 MB (bundle-cache +19 MB for the range entry, Chromium Cache, logs, queue).
+  Report: `A5/report-fastest-cancel.json`, still `A5/stills/fastest-cancel-queue.png`.
+- **Fastest, full range 80–110 s, 4K60 — COMPLETE** (job `2f1adadc-1272-43a9-b591-2241c7637d46`).
+  `node drive.mjs run fastest-80-110 shot-composite 80 110 complete`, resolution `original`
+  (3840×2160), quality `high`, CPU low, render processes BelowNormal (awake log shows
+  chrome-headless-shell + ffmpeg set), free before C: 32.54 / D: 4.07 GB, after C: 41.4 / D: 3.89.
+  - Confirm 21:10:24.148 UTC → complete 21:30:02 = **wall 1178.3 s (19.6 min), 1800 frames →
+    1.53 fps**; engine "Export finished" `framesMs 1170846, audioPassMs 0, muxMs 729`.
+  - Span plan `copied 0, composited 56, spans composite:0+324, composite:324+270,
+    browser:594+795, composite:1389+411`; completion message "Copied 0 % and composited 56 % of
+    this timeline (0 copied, 3 composited, 1 rendered spans)". Span done: OneWord composite 324 f
+    in 355.4 s (0.91 fps) · Template composite 270 f in 29.4 s (9.2 fps) · split browser 795 f in
+    556.5 s (1.43 fps) · Starter composite 411 f in 229.3 s (1.79 fps).
+  - Disk estimate logged: temp 13.6 GB (remotion copy 4.05 GB + shot layers 10.26 GB est.),
+    output 268 MB est.; font preflight 103 URLs, 202 cached, 0 fetched, 0 failed.
+  - **Output** `.vidtsx-temp/end-to-end/A5/export/studio-video-14_2026-10-21T21-10-24.mp4`,
+    35,076,111 B: h264 Main yuv420p 3840×2160, 60/1, 1800 frames (1800 packets), 30.000 s,
+    9.08 Mb/s; aac LC 48 kHz stereo 30.000 s (1408 packets). Job scratch gone, no new TEMP
+    entries, persisted `done`, 1800/1800. Report `A5/report-fastest-80-110.json` (ffprobe JSON,
+    span lines, phases), stills `A5/stills/fastest-80-110-{dialog,queue}.png`, driver log
+    `A5/logs/run-fastest-80-110.log`.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-21 23:54 `npx vitest run src/main/services/remotion-renderer-stall.test.ts
@@ -172,29 +236,63 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
   skipped tests, 44.9 s. Log: `.vidtsx-temp/end-to-end/A5/logs/vitest-step02.log`.
 - Step 0.2 not driven live (a mid-body `terminated` cannot be provoked on demand); the A5 cold
   preflight is warm already (A4 profile's font cache is copied).
+- Live (agent 3, 2026-10-22 local; log times are UTC = local − 3 h), no `src/` change:
+  `bash A5/launch.sh` (background) → `node drive.mjs ready` "ready after 4747 ms" → `node
+  drive.mjs setup` → root `…\end-to-end\v14-root`, projects `["video-14"]`, engines all
+  available, `defaultId: "remotion"`. Fastest cancel + Fastest full range as under Done.
+  The stall guard (step 0.1) stayed quiet through the 19.6 min Fastest render (no "stalled" line).
+- **IN FLIGHT at hand-off: Standard, same range.** `node drive.mjs run standard-80-110 remotion 80
+  110 complete` started 2026-10-21T21:30:54.574Z (00:30:54 local), job
+  **`4e20be8d-d22e-492b-8f1d-73e8fd84ce95`**, first frame at ~74 s (21:32:09 UTC, 4/1800).
+  Expected ≈ 22–25 min at CPU low (A3: ~1.36 fps at 4K60) → done ≈ 21:55 UTC / 00:55 local.
+  Driver log `A5/logs/run-standard-80-110.log` (ends with a `report …` line or `FAIL`), report
+  `A5/report-standard-80-110.json` (rewritten every 30 s while running, final at the end).
 
 ## Next step (ONE concrete instruction)
 
-Step 1 (prep, no app launch yet): copy `.vidtsx-temp/end-to-end/A4/profile` to
-`.vidtsx-temp/end-to-end/A5/profile` (check C:/D: free space first and record it), then pick the
-30 s range from the video-14 copy (`.vidtsx-temp/end-to-end/v14-root/projects/video-14`: read
-`notes/import/range-082-102.json` and, from `project.json`, the V1 clips with a non-identity
-`transform` and the shot/cutaway clips) so it holds ≥ 1 split and ≥ 1 cutaway; write the exact
-in/out seconds and frames (60 fps) and the clip ids it contains into this file.
+Finish the Standard record, then the exit: read `A5/logs/run-standard-80-110.log` — if it ends
+with `report …`, take wall time / fps / output / ffprobe from `A5/report-standard-80-110.json`;
+if the driver or app died with the previous agent (no `report` line and nothing on port 9245, or
+the job never finished), relaunch (`bash A5/launch.sh` in the background, `rm -f A5/stop.flag`
+and start `awake-and-priority.ps1` in the background, `node drive.mjs ready && node drive.mjs
+setup`, check C: ≥ 20 GB / D: ≥ 2 GB) and rerun `node drive.mjs run standard-80-110 remotion 80
+110 complete` (if the app is alive but only the driver died: wait until `window.api.
+renderQueueGet()` is idle, THEN read `renderQueueLoad()` for job `4e20be8d-…` and the
+"Export finished" line in `A5/profile/logs/*.log`; the file lands in `A5/export/`). Then stop
+the 9245 process tree + its electron-vite, `touch A5/stop.flag`, run the gates (`npx vitest run`
+logged to `A5/logs/vitest-final.log`, `npm run check:types`), write the STATUS.md row (both
+files' wall time, fps, size, ffprobe; prerequisites installed in A4 by the in-app download and
+carried over) and TESTING.md `### 18.5 A5`, commit, return DONE.
 
 ## Open problems
 
 - `src/main/services/remotion-renderer.ts` is 444 lines (was 434 before A5, already over the
   ~300 rule). Splitting it (e.g. the encoder-name helpers, the renderMedia option builder) is a
   separate refactor, not part of A5.
+- Found, not A5's scope (no fix made): the Render-page/Studio bundling progress is 100× too big —
+  `src/main/ipc/render-handlers.ts:199` sends `Math.round(percent * 100)` but
+  `bundle-worker.ts:73` already passes Remotion's 0–100 value, so `onRenderProgress` reports
+  `bundling 600% … 10000%` (seen in both A5 driver logs). Whether a UI shows it unclamped was
+  not checked.
+- Wording only: the Fast and Fastest rows always say "Needs the GPU encoder download"
+  (`src/shared/studio/export-engines.ts:46,54`, static description) even when it is installed and
+  the row is selectable — reads as stale on a PC that has it.
+- Fastest was NOT faster than Standard's A3 rate on this range (1.53 fps vs A3's ~1.36 fps
+  Standard): every second of video-14 is under a shot, so nothing is copy-only; compare with the
+  Standard number when it lands and say so in STATUS (expected per §5, not a bug).
 
 ## Do-not-redo
 
 - A1–A4 DONE. The video-14 copy's 55 bundles are fixed (A3) — do not re-bundle. The full ffmpeg is
   already installed in A4's profile — copy it, do not download again. Do not touch `main`.
+- Step 1 DONE: `A5/profile` exists (do not copy again); the range is fixed at 80–110 s (frames
+  4800–6600) — Standard must use the SAME range. The Fastest cancel check is DONE (PASS). The
+  Fastest full-range file exists — do not render it again; keep it (A6 + the track exit use it).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-21 · agent 1 · ~25 calls · step 0.1 (stall guard, `06edaf0`), gates green.
 - 2026-10-22 · agent 2 · ~20 calls · step 0.2 (font fetch retry + partial-failure message,
   `f84a78d`), gates green. Step 0 complete.
+- 2026-10-22 · agent 3 · ~50 calls · step 1 (profile copy, range 80–110 s), Fastest cancel check
+  (PASS), Fastest full range (done), Standard started and left running at hand-off; docs only.
