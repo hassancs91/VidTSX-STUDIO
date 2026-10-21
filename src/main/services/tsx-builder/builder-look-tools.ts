@@ -24,6 +24,7 @@ import { renderBuildStills, type BuildAssetSource } from './build-stills';
 import { PHONE_FEED_WIDTH, renderContactSheet, renderPhoneView } from './build-looks';
 import { CONTACT_SHEET_MAX_FRAMES, CONTACT_SHEET_MAX_SIDE } from './contact-sheet';
 import { describeFrameText, FRAME_TEXT_NOTE } from './frame-text';
+import { numbersDiffer } from './number-check';
 import {
   buildHash,
   checkForLook,
@@ -82,6 +83,7 @@ export function buildLookTools(state: BuilderState) {
         const frames = stills.stills.map((s) => s.frame);
         // What the builder read on each frame, kept in the version's debug events.
         const shownText = stills.stills.map((s) => describeFrameText(s.text));
+        if (numbersDiffer(stills.stills.map((s) => s.text))) state.numbersMove = true;
         await logEvent(state, {
           tool: 'render_stills',
           round: state.roundsUsed,
@@ -141,6 +143,7 @@ export function buildLookTools(state: BuilderState) {
         state.stills.push({ round: state.roundsUsed, frame: sheet.frames[0], frames: sheet.frames, size: 'sheet', path: sheet.path });
         const textOf = new Map((sheet.text ?? []).map((t) => [t.frame, t.text]));
         const shownText = sheet.frames.map((f) => describeFrameText(textOf.get(f)));
+        if (numbersDiffer(sheet.frames.map((f) => textOf.get(f)))) state.numbersMove = true;
         await logEvent(state, {
           tool: 'contact_sheet',
           round: state.roundsUsed,

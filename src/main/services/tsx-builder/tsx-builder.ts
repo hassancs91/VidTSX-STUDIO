@@ -24,7 +24,7 @@ import { MAX_TURNS_ERROR } from '../../../engine/providers/claude-session';
 import { describeSystemPrompt } from '../tsx-jobs/project-store';
 import { buildBuilderSystemPrompt, BUDGET_ROUNDS, EDIT_MIN_ROUNDS, MIN_ROUNDS } from './builder-prompt';
 import { buildBuilderToolServer, builderToolName, BUILDER_MCP_SERVER_NAME, BUILDER_TOOL_IDS, type BuilderState } from './builder-tools';
-import { pureOkFor, seamOkFor } from './builder-tool-common';
+import { numbersOkFor, pureOkFor, seamOkFor } from './builder-tool-common';
 import { buildFirstMessage } from './build-messages';
 import { BuildProgress } from './build-progress';
 import { capsFor, resolveStopReason, RunGuard, stopMessage } from './build-run-guard';
@@ -95,6 +95,10 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     purityChecks: 0,
     lastPurity: null,
     impureBuilds: new Set(),
+    numbersMove: false,
+    numberChecks: 0,
+    lastNumbers: null,
+    numberSplitBuilds: new Set(),
     lastGood: null,
     finished: null,
     stills: [],
@@ -230,6 +234,7 @@ export async function buildComposition(req: BuildRequest): Promise<BuildResult> 
     checks: state.checks,
     ...(format.loop && kept ? { seamOk: seamOkFor(state, kept.code) } : {}),
     ...(kept?.physics ? { pureOk: pureOkFor(state, kept.code) } : {}),
+    ...(state.numbersMove && kept ? { numbersOk: numbersOkFor(state, kept.code) } : {}),
     ...(state.imagesGenerated > 0 ? { images: { count: state.imagesGenerated, costUsd: state.imageCostUsd } } : {}),
     ...counters(),
     ...(response.usage ? { usage: response.usage } : {}),

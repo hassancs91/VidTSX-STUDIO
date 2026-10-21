@@ -90,6 +90,22 @@ export function contactSheetSource(
   config: CompositionConfig,
   frames: number[],
 ): { code: string; config: CompositionConfig; layout: SheetLayout } {
+  const { piece, pieceRef } = mountablePiece(code);
+  const layout = contactSheetLayout(config, frames);
+  // Each tile mounts the build, scaled down; props (the build's `assets`) go to every tile.
+  const tile = `h('div', { style: { position: 'absolute', left: 0, top: 0, width: S.w, height: S.h, transform: 'scale(' + S.s + ')', transformOrigin: '0 0' } },
+          h(__VidtsxSequence, { from: 0, durationInFrames: S.d, width: S.w, height: S.h, name: 'frame ' + c.frame },
+            h(__VidtsxFreeze, { frame: c.frame }, h(${pieceRef}, props))))`;
+  return sheetSource(config, layout, `import { Freeze as __VidtsxFreeze, Sequence as __VidtsxSequence } from 'remotion';\n${piece}`, tile);
+}
+
+/**
+ * The build as a component another composition can mount: its config renamed
+ * and its default export a plain declaration named `pieceRef`. Shared by the
+ * contact sheet and the number sweep (number-sweep.ts). Throws when the
+ * artifact lacks the exports every gate requires.
+ */
+export function mountablePiece(code: string): { piece: string; pieceRef: string } {
   if (!CONFIG_EXPORT.test(code)) throw new Error('The build has no `export const compositionConfig`.');
   // Every `compositionConfig` in the build is renamed, references included:
   // the sheet's own config takes the exported name the wrapper reads.
@@ -105,13 +121,7 @@ export function contactSheetSource(
   } else {
     throw new Error('The build has no default export.');
   }
-
-  const layout = contactSheetLayout(config, frames);
-  // Each tile mounts the build, scaled down; props (the build's `assets`) go to every tile.
-  const tile = `h('div', { style: { position: 'absolute', left: 0, top: 0, width: S.w, height: S.h, transform: 'scale(' + S.s + ')', transformOrigin: '0 0' } },
-          h(__VidtsxSequence, { from: 0, durationInFrames: S.d, width: S.w, height: S.h, name: 'frame ' + c.frame },
-            h(__VidtsxFreeze, { frame: c.frame }, h(${pieceRef}, props))))`;
-  return sheetSource(config, layout, `import { Freeze as __VidtsxFreeze, Sequence as __VidtsxSequence } from 'remotion';\n${piece}`, tile);
+  return { piece, pieceRef };
 }
 
 /**

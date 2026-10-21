@@ -1,12 +1,12 @@
 // The builder's own tools (TSX_BUILDER_DESIGN.md T2), as an in-process MCP
 // server: `check` and `finish` here, the five that render: three picture
 // looks (`render_stills`, `contact_sheet`, `phone_view`) in
-// builder-look-tools.ts and two measures (`loop_seam`, `purity_check`) in
-// builder-measure-tools.ts; the three that bring files into assets/
-// (`library_search`, `library_use`, `generate_image`) in builder-asset-tools.ts,
-// the shared state and helpers in builder-tool-common.ts.
+// builder-look-tools.ts and three measures (`loop_seam`, `purity_check`,
+// `number_check`) in builder-measure-tools.ts; the three that bring files into
+// assets/ (`library_search`, `library_use`, `generate_image`) in
+// builder-asset-tools.ts, the shared state and helpers in builder-tool-common.ts.
 // File work goes through the SDK's Read/Write/Edit/Glob/Grep behind the path
-// guard; these ten are the only other things the builder can do. Every call
+// guard; these eleven are the only other things the builder can do. Every call
 // is appended to the run's events.jsonl so a run can be followed live and
 // audited after.
 
@@ -21,6 +21,7 @@ import {
   isPhysicsBuild,
   logEvent,
   lookedAt,
+  numbersOkFor,
   pureOkFor,
   runCheck,
   seamOkFor,
@@ -42,6 +43,7 @@ export const BUILDER_TOOL_IDS = [
   'phone_view',
   'loop_seam',
   'purity_check',
+  'number_check',
   'library_search',
   'library_use',
   'generate_image',
@@ -68,7 +70,14 @@ export const SEAM_JUMP_ALLOWANCE = 3;
  */
 export const PURITY_IMPURE_ALLOWANCE = 3;
 
-type GateTool = 'look' | 'phone_view' | 'loop_seam' | 'purity_check';
+/**
+ * A piece whose number_check still says SPLIT after this many different builds
+ * may finish anyway, marked `numbersOk: false` (like the seam): the check
+ * reads text, and a stubborn false alarm must not burn the run to its cap.
+ */
+export const NUMBER_SPLIT_ALLOWANCE = 3;
+
+type GateTool = 'look' | 'phone_view' | 'loop_seam' | 'purity_check' | 'number_check';
 
 /**
  * What `finish` still needs before it accepts `code`, checked after the round
@@ -107,6 +116,16 @@ function finishGate(state: BuilderState, code: string, physics: boolean): Array<
         : 'purity_check says IMPURE on this build: step the simulation through useSimulation from @vidtsx/sim, then measure again.';
     missing.push({ tool: 'purity_check', line });
   }
+  // P4-12: the one-clock rule as a refusal. Only where a look showed numbers that move.
+  if (state.numbersMove && !numbersOkFor(state, code) && state.numberSplitBuilds.size < NUMBER_SPLIT_ALLOWANCE) {
+    const numbers = state.lastNumbers;
+    const line = !numbers
+      ? 'number_check has not run yet: your looks show numbers that change, so check every frame\'s numbers against the step labels beside them.'
+      : numbers.code !== code
+        ? 'number_check last swept an earlier build (the code changed since): sweep this one.'
+        : 'number_check says SPLIT on this build: draw every number beside a step label from that one integer step, then check again.';
+    missing.push({ tool: 'number_check', line });
+  }
   return missing;
 }
 
@@ -123,7 +142,7 @@ export function buildBuilderToolServer(state: BuilderState) {
 
   const finish = tool(
     'finish',
-    'End the build. Runs a final check; on success the current build becomes the result. Refused until you have LOOKED at this exact build (render_stills or contact_sheet after your last change; allowed even when the look budget is spent) and phone_view has run once; on a loop, until the last loop_seam measured this exact build and said OK; on a piece that uses a physics engine, until the last purity_check measured this exact build and said PURE — so run those after your last change. Give a short summary: the picture chosen, what each round changed, the numbers verified, anything in the request you corrected.',
+    'End the build. Runs a final check; on success the current build becomes the result. Refused until you have LOOKED at this exact build (render_stills or contact_sheet after your last change; allowed even when the look budget is spent) and phone_view has run once; on a loop, until the last loop_seam measured this exact build and said OK; on a piece that uses a physics engine, until the last purity_check measured this exact build and said PURE; when your looks showed numbers that change, until the last number_check swept this exact build and said OK — so run those after your last change. Give a short summary: the picture chosen, what each round changed, the numbers verified, anything in the request you corrected.',
     { summary: z.string().min(1).describe('What you built and why, round by round') },
     tracked(state, 'checking', async (args: { summary: string }) => {
       if (state.finished) return text('Already finished. Reply with one short line and stop.');
@@ -158,6 +177,7 @@ export function buildBuilderToolServer(state: BuilderState) {
       }
       const seamOk = state.expect.loop ? seamOkFor(state, result.code) : undefined;
       const pureOk = physics ? pureOkFor(state, result.code) : undefined;
+      const numbersOk = state.numbersMove ? numbersOkFor(state, result.code) : undefined;
       const looked = lookedAt(state, result.code);
       state.finished = { summary: args.summary, code: result.code, config: result.config, physics };
       await logEvent(state, {
@@ -171,6 +191,7 @@ export function buildBuilderToolServer(state: BuilderState) {
         ...(state.verifyLooks > 0 ? { verifyLooks: state.verifyLooks } : {}),
         ...(seamOk === undefined ? {} : { seamOk, seamJumps: state.seamJumps.size }),
         ...(pureOk === undefined ? {} : { pureOk, purityChecks: state.purityChecks, impureBuilds: state.impureBuilds.size }),
+        ...(numbersOk === undefined ? {} : { numbersOk, numberChecks: state.numberChecks, splitBuilds: state.numberSplitBuilds.size }),
       });
       const unverified = [
         ...(looked ? [] : [`the final build NOT looked at: the ${VERIFY_LOOK_ALLOWANCE} extra looks at a changed build were used`]),
@@ -179,6 +200,9 @@ export function buildBuilderToolServer(state: BuilderState) {
           : []),
         ...(pureOk === false
           ? [`frame purity NOT verified: purity_check called ${state.impureBuilds.size} builds IMPURE, so the result is marked pureOk: false`]
+          : []),
+        ...(numbersOk === false
+          ? [`the numbers NOT verified: number_check called ${state.numberSplitBuilds.size} builds SPLIT, so the result is marked numbersOk: false`]
           : []),
       ];
       if (unverified.length > 0) {

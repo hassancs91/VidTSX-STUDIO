@@ -1,4 +1,4 @@
-// The builder's two measuring tools (TSX_BUILDER_DESIGN.md T2): they answer in
+// The builder's three measuring tools (TSX_BUILDER_DESIGN.md T2): they answer in
 // numbers and a verdict, not a picture. Split from builder-look-tools.ts (P4
 // part 2), which keeps the three picture looks.
 //
@@ -7,8 +7,12 @@
 // - `purity_check` (P2 part 3) is free: the same frames in order in one page
 //   and alone in fresh pages must match. `finish` refuses a piece that uses a
 //   physics engine until it says PURE, so it records its verdict too.
+// - `number_check` (P4-12) is free: the text of (nearly) every frame, each
+//   number followed across frames, against the step labels beside it
+//   (number-check.ts). `finish` refuses a piece whose looks showed moving
+//   numbers until it says OK on the build being finished.
 //
-// Both measure the piece alone, never a transparent shot's look wrapper.
+// All three measure the piece alone, never a transparent shot's look wrapper.
 
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
@@ -17,6 +21,8 @@ import { describeSeam } from './loop-seam';
 import { describePurity, PURITY_MAX_FRAMES, PURITY_MAX_SIDE } from './frame-purity';
 import { buildHash, checkForLook, logEvent, lookFailed, text, tracked, type BuilderState } from './builder-tool-common';
 import type { BuildAssetSource } from './build-stills';
+import { checkNumbers, describeNumberCheck } from './number-check';
+import { sweepFrameText } from './number-sweep';
 
 export function buildMeasureTools(state: BuilderState) {
   const signal = () => (state.signal ? { signal: state.signal } : {});
@@ -100,5 +106,49 @@ export function buildMeasureTools(state: BuilderState) {
     }),
   );
 
-  return [loopSeam, purityCheck];
+  const numberCheck = tool(
+    'number_check',
+    'Check, then read the on-screen text of (nearly) every frame and follow each number across the frames: a number that changes while a step label beside it ("YEAR 7", "STEP 12") holds runs on a second clock, and the verdict is SPLIT with the frames and what they read. Numbers that never change while others move are listed (a unit or a given is fine; a result typed in at its final value is not). Text drawn on a canvas, in 3D or in an image is not read. Free (no look round); run it after your last change.',
+    {},
+    tracked(state, 'rendering', async () => {
+      const look = await checkForLook(state);
+      if ('reply' in look) return look.reply;
+      state.numberChecks += 1;
+      const started = Date.now();
+      try {
+        const sweep = await sweepFrameText(look.build.code, look.build.config, state.dirs.stillsDir, {
+          label: `numbers${state.numberChecks}`,
+          webgl: look.build.webgl,
+          ...renderOptions(look.build),
+        });
+        const result = checkNumbers(sweep.frames, look.build.config);
+        const build = buildHash(look.build.code);
+        // What `finish` holds a piece with moving numbers to: this exact build, this verdict.
+        state.lastNumbers = { code: look.build.code, ok: result.ok };
+        if (!result.ok) state.numberSplitBuilds.add(build);
+        await logEvent(state, {
+          tool: 'number_check',
+          n: state.numberChecks,
+          build,
+          ok: result.ok,
+          swept: result.swept,
+          step: sweep.step,
+          tiles: sweep.tiles,
+          unread: sweep.unread,
+          tracks: result.tracks,
+          stepLabels: result.stepLabels,
+          splits: result.splits.map((s) => ({ step: s.step, other: s.other, frames: s.frames.length, example: s.example })),
+          fixed: result.fixed,
+          ms: sweep.ms,
+          totalMs: Date.now() - started,
+        });
+        const note = sweep.step > 1 ? `, every ${sweep.step}th frame` : '';
+        return text(`${look.build.summary}\n${describeNumberCheck(result, note)}`);
+      } catch (err) {
+        return lookFailed(state, 'number_check', err, started);
+      }
+    }),
+  );
+
+  return [loopSeam, purityCheck, numberCheck];
 }

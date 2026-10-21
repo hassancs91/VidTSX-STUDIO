@@ -208,6 +208,13 @@ export interface BuildResult {
    * (PURITY_IMPURE_ALLOWANCE), or a capped run kept a build not measured PURE.
    */
   pureOk?: boolean;
+  /**
+   * A look showed numbers that move, with a kept build (P4-12): the last
+   * `number_check` swept exactly this build and said OK. False when `finish`
+   * let a split through (NUMBER_SPLIT_ALLOWANCE), or a capped run kept a build
+   * not swept OK.
+   */
+  numbersOk?: boolean;
   /** generate_image calls that made an image this run, and their estimated cost (the provider catalog's price). */
   images?: { count: number; costUsd: number };
   stills: BuildStillRecord[];

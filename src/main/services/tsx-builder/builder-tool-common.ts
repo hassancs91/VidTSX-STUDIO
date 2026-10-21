@@ -50,6 +50,14 @@ export interface BuilderState {
   lastPurity: { code: string; pure: boolean } | null;
   /** Builds (by buildHash) that purity_check called IMPURE: the same build measured twice counts once. */
   impureBuilds: Set<string>;
+  /** A look showed different numbers on different frames: `finish` holds the build to number_check (P4-12). */
+  numbersMove: boolean;
+  /** number_check calls (free). */
+  numberChecks: number;
+  /** The last number_check: the build it swept and its verdict. */
+  lastNumbers: { code: string; ok: boolean } | null;
+  /** Builds (by buildHash) that number_check called SPLIT: the same build swept twice counts once. */
+  numberSplitBuilds: Set<string>;
   /** The last artifact that passed every gate — what a capped run returns. `physics`: it inlines a physics engine. */
   lastGood: { code: string; config: CompositionConfig; check: number; physics: boolean } | null;
   finished: { summary: string; code: string; config: CompositionConfig; physics: boolean } | null;
@@ -136,6 +144,11 @@ export function giveBack(state: BuilderState, slot: LookSlot): void {
 /** True when the last purity_check measured exactly `code` and said PURE. */
 export function pureOkFor(state: BuilderState, code: string): boolean {
   return state.lastPurity !== null && state.lastPurity.code === code && state.lastPurity.pure;
+}
+
+/** True when the last number_check swept exactly `code` and said OK. */
+export function numbersOkFor(state: BuilderState, code: string): boolean {
+  return state.lastNumbers !== null && state.lastNumbers.code === code && state.lastNumbers.ok;
 }
 
 /** True when the last loop_seam measured exactly `code` and said OK. */
