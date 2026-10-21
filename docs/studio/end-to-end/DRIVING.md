@@ -86,6 +86,12 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   read "Needs the GPU encoder download" 30 s later (not root-caused); after an app restart all three
   engines were available. So: install the full ffmpeg into the isolated profile, RESTART, then drive
   Fast/Fastest. Check with `window.api.studioExportEnginesList()` before opening the dialog.
+- 2026-10-21 · A3 · video-14 has no `button[aria-label="V1 options"]` (its video track label is
+  truncated): use `[data-export-button]` visible as the editor-up hook. The preview loads all 55
+  shot modules when the project opens, so to see `/modules`, `/virtual/*` and `/fonts?u=`
+  requests enable Network and `Page.reload` the renderer first (A3 `drive.mjs player … fresh`).
+  Playhead text is `00:08.00/ 08:05.43`. A 5 s 4K60 Standard range on video-14 takes ~4 min at
+  CPU low (300 frames, ~1.36 fps).
 
 ## video-14 (track A, from A3 on) — orchestrator rules
 

@@ -1,6 +1,7 @@
 # A3 — The no-react fix: `remotion/<subpath>` external in shot bundles
-status: IN PROGRESS (steps 1–2 of 4 done: the code fix + unit tests, commit `c3aefe8`; the
-shared video-14 copy + `v14-a1-nobody` re-bundled in it)
+status: IN PROGRESS (steps 1–3 of 4 done: the code fix + unit tests, commit `c3aefe8`; the
+shared video-14 copy + `v14-a1-nobody` re-bundled in it; the one-shot proof: Player clean, the
+6–11 s 4K60 Standard render COMPLETED, parity spike verdict = holds, keep T7, no fallback)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 "Learned" lines from A1/A2). Plan §5 calls this part **the highest risk in the plan**.
@@ -93,9 +94,9 @@ then re-bundles all 55 through the import script's bundle step."
 1. **Code fix + unit tests** — DONE (`c3aefe8`).
 2. **Shared video-14 copy + one-shot re-bundle** — DONE (2026-10-21, agent 2; no repo source
    change, the copy is gitignored).
-3. **One-shot proof** — isolated profile on the copy: the shot in the Player (font load, no stuck
-   hold, no console errors), then the 5 s Standard render at 3840×2160 @ 60 across it, CPU "low".
-   Spike verdict recorded (parity holds → keep; fails → the §5 fallback).
+3. **One-shot proof** — DONE (2026-10-21, agent 3): Player clean at 8.0 s, the 6–11 s render at
+   3840×2160 @ 60 through Standard completed (300/300 frames, 232.7 s wall). Spike verdict:
+   **parity holds → keep T7; the §5 fallback is not needed.**
 4. **All 55** — `--shots-only` over the copy, `grep -c remotion_delayRenderHandles` = 0 over the
    55 `v1.tsx`; full gates, STATUS row, TESTING §18.3, DONE.
 
@@ -159,6 +160,34 @@ then re-bundles all 55 through the import script's bundle step."
     `v1.tsx` in the copy are still the OLD bundles (step 4 rewrites them).
   - The shot on the timeline: shots-track clip `V14A1Nobody`, `timelineStart` 5.6 s, duration
     11.1 s (5.6–16.7 s); shot config 1920×1080 @ 30, 333 frames.
+- **Step 3: the one-shot proof (agent 3, 2026-10-21 20:55–21:05, nothing in git).** All driver
+  files are in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\A3\` (gitignored):
+  `launch.sh` (A2's, port **9231**, profile `A3\profile`, log `A3\app.log`), `cdp.mjs`, `dom.js`,
+  `restore.ps1` (port 9231), `awake.ps1` (keep-awake + BelowNormal on this repo's processes and
+  `chrome-headless-shell`, stops when `A3\awake.stop` exists), `drive.mjs` (phases `ready`,
+  `setup`, `player <sec> <tag> [fresh]`, `export <in> <out> <tag>`; editor-up hook is
+  `[data-export-button]` — `V1 options` does not exist in video-14, its video track label is
+  truncated). The isolated profile now has: Studio root = the copy, CPU "low", output folder
+  `A3\export`, crash-report toast dismissed.
+  - **Player half — clean.** After a `Page.reload` with Network/Runtime/Log on, open video-14,
+    seek to 00:08.00 (inside `V14A1Nobody`): `window.remotion_delayRenderHandles.length` 0 and
+    `remotion_renderReady` true from the first sample (+3 s) to the last (+30 s); `/virtual/remotion.js`
+    and `/virtual/remotion.js/no-react` both 200; 0 esm.sh requests; 0 non-2xx; 0 exceptions;
+    Space Grotesk + Inter faces loaded through the font proxy (`/fonts?u=` ×9, all 200). Report
+    `A3\report-player-8s.json`, still `A3\stills\player-8s.png`.
+  - **Render half — completed.** Range 0:06–0:11, Standard, Full 3840×2160, Quality High, 60 fps
+    (project settings), CPU "low", BelowNormal: 300/300 frames, 232.7 s wall (bundling 6 s,
+    first frame 8.3 s after confirm, rendering ≈ 221 s ≈ 1.36 fps), `success: true`, persisted
+    row `done 300/300`. The export entry carries the `'brand fonts'` hold (video-14's
+    `brand.json` = Space Grotesk / Inter, resolved by `project-brand.ts:41-50` with no
+    `brandId`), and no delayRender timeout occurred → the hold was released. For contrast, the
+    2026-10-16 attempt (82–102 s, old bundles): 171 frames in 607 s, cancelled. Output
+    `A3\export\studio-video-14_2026-10-21T17-59-08.mp4` (4,235,176 bytes); still at timeline
+    8.0 s `A3\stills\export-8s.png` matches the Player still (pill "ALMOST NOBODY BUILDS THIS",
+    laptop "?", PiP). Report `A3\report-std-4k60-6-11.json`, driver log `A3\run-export.log`.
+  - **Spike verdict (§5 "A3 parity"):** the inlined 4.0.486 `@remotion/google-fonts` calling the
+    app's one 4.0.435 `remotion/no-react` works in preview and in a real 4K60 export → keep T7,
+    no `@remotion/google-fonts` externalization.
 
 ## Verified (exact commands + outputs)
 
@@ -189,32 +218,63 @@ then re-bundles all 55 through the import script's bundle step."
     `^import .* from "remotion` → lines 7-34, incl. `:14 import { NoReactInternals } from
     "remotion/no-react";` (four copies, :14/16/18/20, one per inlined google-fonts family), and
     `function __vidtsxInit` at :38 — below every import.
+- Step 3 (bash, from `.vidtsx-temp/end-to-end/A3/`; ports 9222/5173/9231 free and no
+  `electron.exe` running beforehand):
+  - `bash launch.sh` (background) → CDP up; `node drive.mjs ready` → `ready after 8513 ms of polling`.
+  - `node drive.mjs setup` → `{"r":{"success":true},"g":{"root":"D:\\repos\\VidTSX-STUDIO\\.vidtsx-temp\\end-to-end\\v14-root"},"c":{"success":true},"o":{"success":true},"projects":["video-14"]}`.
+  - `node drive.mjs player 8 player-8s fresh` → `timecodes ["00:08.00/ 08:05.43","00:08.00"]`;
+    ten samples `hold {"handles":0,"renderReady":true,"sg":true,"inter":true,"faces":25}`;
+    `summary {"final":{"handles":0,"renderReady":true,"sg":true,"inter":true},"virtual":["200 /virtual/remotion.js","200 /virtual/remotion.js/no-react"],"esmSh":0,"non2xx":0,"consoleErrors":7,"exceptions":0}`.
+    The 7 console entries are benign: 3 Electron security warnings (dev), the Remotion license
+    note, 3 React "unique key" warnings from `V14A1WebWall` / `BrandBg` / `PageDash` (shot code).
+    1582 requests: `127.0.0.1:3200` `/modules` 55, `/fonts` 9, `/asset` 6, `/virtual` 3.
+  - Free space before the render (20:58): **C: 24.41 GB, D: 5.59 GB**. `awake.ps1` in the
+    background (log `A3\awake.log`: BelowNormal set on the `chrome-headless-shell` processes).
+  - `node drive.mjs export 6 11 std-4k60-6-11 > run-export.log` → `dialog` Standard checked
+    (still `A3\stills\std-4k60-6-11-dialog.png`: "Exports 0:06 – 0:11", Full (3840×2160), High,
+    estimate "Standard: about 6 min"); `progress rendering 0% 0/300` at 17:59:16Z … `100% 300/300`
+    at 18:02:56Z; `complete {"jobId":"85b5b100-32b6-4445-a50e-5030c7e31760","success":true,…,"fileSize":4235176} elapsed 232670`;
+    `final {"persisted":{"status":"done","frames":"300/300",…}}`; `exit 0`.
+  - `ffprobe -count_frames` (Remotion's, `node_modules/@remotion/compositor-win32-x64-msvc`) →
+    `codec_name=h264|width=3840|height=2160|r_frame_rate=60/1|duration=4.999000|nb_read_frames=300`;
+    audio `aac` 4.999 s.
+  - `tail -n +596 app.log | grep -iE "delayRender|timeout|timed out|not cleared|brand font|error" | grep -v DEBUG`
+    → no lines (595 = the log's length before the export).
+  - Job scratch `%LOCALAPPDATA%\Temp\vidtsx-studio\export\85b5b100-…` removed after the run
+    (`Test-Path` False). Instance stopped (TaskStop on the launcher + the 9231 tree); ports
+    9231/5173/3200 free, no `electron.exe`. Free space after: **C: 23.97 GB, D: 5.55 GB**.
 
 ## Next step (ONE concrete instruction)
 
-Step 3, the Player half first: copy `.vidtsx-temp/end-to-end/A1/launch.sh` to
-`.vidtsx-temp/end-to-end/A3/launch.sh` (profile `.vidtsx-temp/end-to-end/A3/profile`, CDP port
-9231, log `.vidtsx-temp/end-to-end/A3/app.log`; follow DRIVING.md "Isolated instance" — check
-9222/5173/electron.exe first), set the Studio root to
-`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root` (`studioRootSet` → `studioRootGet` →
-`vidtsx:studio-projects-changed`), open `video-14`, seek the Player to 8.0 s (inside the
-`V14A1Nobody` clip, 5.6–16.7 s) and record over CDP (Runtime + Network + Log): the shot's frame
-renders (screenshot to `.vidtsx-temp/end-to-end/A3/stills/player-8s.png`), its Space Grotesk /
-Inter `delayRender` holds are released (no "delayRender … not cleared" / timeout console error
-within 30 s), every `/virtual/remotion.js/*` request is 200, and there is no esm.sh request for
-`remotion`. Then (same instance, C: ≥ 10 GB free, CPU "low", machine held awake) export the
-range 6.0–11.0 s at 3840×2160 @ 60 through Standard to `.vidtsx-temp/end-to-end/A3/export/` and
-record whether it completes with the `'brand fonts'` hold released (render log + wall time) —
-that is the parity spike verdict.
+Step 4: from the COPY's `notes/import/` (PowerShell, cwd
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14\notes\import`), run
+`node build-video14.mjs --shots-only "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14"`
+(expect `55/55 shots written; handles after: 0; problems: 0`, exit 0; `v14-a1-nobody` re-bundles
+to the same 124 KB), then count `remotion_delayRenderHandles` over the copy's 55
+`shots\*\v1.tsx` (must be 0 files / 0 hits; record the per-file before→after from
+`notes/import/shots-only-report.json`), then the gates: full `npx vitest run` with no app
+running, logged to `.vidtsx-temp/end-to-end/A3/vitest-full.log`, and `npm run check:types` (26 /
+10); then the closing CDP click-through on the A3 profile (`bash launch.sh`, `node drive.mjs
+ready`, `node drive.mjs player 8 player-8s-all55 fresh` — the profile already has the copy as
+root; also seek one more font shot, e.g. 30 s, to show a re-bundled neighbour in the Player),
+then the STATUS.md row (git tracks it as `Status.md`) and the TESTING.md `### 18.3 A3` block, commit,
+DONE. No new 4K render is needed: step 3's render is the exit's render (the other 54 shots only
+change by the same bundle-step output, proven by the grep + Player).
 
 ## Open problems
 
 - `src/main/services/virtual-modules.ts` is now 357 lines (it was 339 before A3, already over the
   ~300 house limit). The version module went there as the natural home; splitting the file is
   out of A3's scope.
-- The preview half is unit-tested only. The live Player check (§5 "The Player": a font-loading
-  shot, its `delayRender` released, no 404 on `/virtual/remotion.js/*`, no esm.sh request for
-  `remotion`) is step 3.
+- (Resolved in step 3) the live Player check passed — see Done/Verified.
+- Until step 4 runs, the copy's other 54 `v1.tsx` are the OLD bundles: the preview loads all 55
+  shot modules on open (`/modules` ×55), so an old bundle's `__vidtsxInit` can still reset
+  `window.remotion_delayRenderHandles` when the playhead first reaches it. Step 4 removes that.
+- Not measured: the Player's hold behaviour on the OLD bundle (the pre-A3 baseline). The plan
+  does not require it; skipped to stay on the copy's single re-bundled shot.
+- The export entry's generated source is in the job scratch and is deleted after the run, so the
+  `'brand fonts'` hold is evidenced indirectly (brand resolved from `brand.json`, render completed,
+  no delayRender timeout in `app.log`), not by reading the entry.
 - Plan §1.3 text ("the lint still allows only the three externals and rejects subpaths") is now
   outdated by design (T7); the plan is not edited by builders.
 
@@ -230,6 +290,10 @@ that is the parity spike verdict.
   path; `v14-a1-nobody` is already re-bundled; the all-55 dry run is already clean. Step 4 is
   just: `node build-video14.mjs --shots-only "--proj=D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\v14-root\projects\video-14"`
   from the copy's `notes/import/`, then the grep.
+- Step 3: the one-shot proof is DONE — Player clean, the 6–11 s 4K60 Standard render completed
+  (300/300, 232.7 s), parity holds, no fallback. Do not re-render, do not externalize
+  `@remotion/google-fonts`. The A3 profile is already set up (root = the copy, CPU low, output
+  `A3\export`); reuse it, do not run `setup` against another root.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -239,3 +303,7 @@ that is the parity spike verdict.
 - 2026-10-21 · agent 2 · ~22 calls · step 2: the video-14 copy (458 MB), the copy's import
   script guarded + `--shots-only`/`--shot=`, all-55 dry run clean, `v14-a1-nobody` re-bundled
   (0 handles, top-level `remotion/no-react` import). Handed off at the step boundary.
+- 2026-10-21 · agent 3 · ~45 calls · step 3: A3 driver kit (launch/cdp/drive/awake), Player at
+  8.0 s clean (0 handles, renderReady, `/virtual/remotion.js{,/no-react}` 200, no esm.sh), the
+  6–11 s 4K60 Standard render completed (300/300, 232.7 s, ffprobe 3840×2160 60/1 300 frames);
+  parity verdict = holds. Handed off at the step boundary.
