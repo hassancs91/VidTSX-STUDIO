@@ -1,5 +1,5 @@
 # A1 — 4K tile in New Project, 1080p + 1440p export presets, undoable project-size edits
-status: DONE — exit met live (CDP, isolated profile) 2026-10-21; code `e4803cd`, docs + evidence in the commit after `639404f`
+status: DONE — exit met live (CDP, isolated profile) 2026-10-21; code `e4803cd`, docs + evidence `bd805af` + follow-up
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -102,7 +102,7 @@ All in commit `e4803cd` (branch `end-to-end-p0`):
   (pure op; one undo step; redo; no step for unchanged/odd; interleaves with a split; reset).
   Five reducer test fixtures gained `frame: { width: 1920, height: 1080 }`.
 
-Agent 2 (2026-10-21, docs commit after `639404f`; no source change):
+Agent 2 (2026-10-21, docs commits `bd805af` + follow-up; no source change):
 - **CDP click-through** on an isolated instance — exit met (see Verified). Kit under
   `.vidtsx-temp/end-to-end/A1/` (git-ignored): `launch.sh` (`npx electron-vite dev --
   --user-data-dir=.vidtsx-temp/end-to-end/A1/profile --remote-debugging-port=9241 …`), `cdp.mjs`
@@ -121,7 +121,7 @@ Agent 2 (2026-10-21, docs commit after `639404f`; no source change):
   Tests 3513 passed | 22 skipped (3535)`, 37.96 s.
 - `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
   `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
-2026-10-21 15:53–15:55 (agent 2), live app, isolated profile `.vidtsx-temp/end-to-end/A1/profile`,
+2026-10-21 18:53–18:55 +0300 (agent 2), live app, isolated profile `.vidtsx-temp/end-to-end/A1/profile`,
 port 9241, Studio root set first to `.vidtsx-temp/end-to-end/A1/studio-root` (`studioRootSet` →
 `{"success":true}`, root confirmed, 0 projects). Commands run from `.vidtsx-temp/end-to-end/A1/`:
 - `bash launch.sh` (background) → page target "VidTSX Studio" at `http://localhost:5173/`;

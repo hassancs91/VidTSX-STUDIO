@@ -7,6 +7,28 @@
 
 ---
 
+## 2026-10-21 — END-TO-END A1: 4K New Project tile, 1440p + 1080p export presets, undoable frame size — DONE
+
+- **What:** the first part of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `e4803cd`).
+  New Project reads the shared `FORMAT_PRESETS` (`project-format.ts`) — four tiles 16:9 1080p · 16:9 4K ·
+  9:16 · 1:1, the W5 preset→orientation mapping keeps a tile that already fits (4K stays 4K under a 16:9
+  preset). Export gains **1440p and 1080p** (`render-presets.ts` ladder 1440p/1080p/720p/540p/360p;
+  never-upscale unchanged, so a 1080p project still lists Full/720p/540p/360p); the Settings default
+  export resolution row lists the same ladder. Project-size edits (typed W/H and the format buttons in
+  Project settings) are one `set-frame-size` timeline action — undo/redo like any edit; fps / name / STT
+  stay plain edits; no proxy or shot reaction to a size change (plan §5). No schema change.
+- **Verified 2026-10-21:** CDP click-through on an isolated profile (port 9241, scratch Studio root
+  `.vidtsx-temp/end-to-end/A1/`): New Project showed tiles `1080p|4k|portrait|square` (1080p pressed);
+  4K + 60 fps + Create → editor up, `project.json` settings **3840×2160 @ 60**; Export resolution listed
+  **Full (3840×2160), 1440p (2560×1440), 1080p (1920×1080), 720p, 540p, 360p**; Project settings → 16:9
+  1080p wrote 1920×1080 to disk in 265 ms and Export then listed Full (1920×1080)/720p/540p/360p;
+  Ctrl+Z → 3840×2160 on disk, Ctrl+Y → 1920×1080, Ctrl+Z → 3840×2160 (~0.8 s each); close + reopen left
+  `project.json` byte-identical. `npx vitest run` 415 files / 3513 tests passed (37.0 s);
+  `npm run check:types` web 26 / node 10 = baseline.
+- **Next:** A2 on Hasan's "go".
+
+---
+
 ## 2026-10-21 — END-TO-END PLAN: written and DECIDED, build not started
 
 - **What:** `docs/studio/END_TO_END_PLAN.md` — raw files to the finished video inside Studio, editing only
