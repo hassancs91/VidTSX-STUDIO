@@ -1,5 +1,5 @@
 # A5 — Fastest on video-14 (30–60 s range across a split + a cutaway); Standard at 25 % for the record
-status: IN PROGRESS (step 0.1 done; next step 0.2)
+status: IN PROGRESS (step 0 done — 0.1 `06edaf0`, 0.2 `f84a78d`; next step 1: profile copy + range choice)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A2, A3 and A4 drivers are reusable:
@@ -125,6 +125,29 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
     error:"Render stalled at frame 66 of 1800: no new frame for 12 min…"})`, job status
     `failed`; a render with a frame every 4 min for 80 min at a 30 s per-frame timeout completes
     untouched).
+- **Step 0.2 — a font fetch blip no longer refuses an export** (`f84a78d`).
+  - `src/main/services/font-upstream-fetch.ts` (new, 60 lines): `fetchFontBytes(url, {retryDelayMs?})`
+    — the upstream GET (same Chrome UA as before) with ONE retry after 500 ms when
+    `isTransientFontFetchError(err)` (`:34`): any network error (fetch rejects, or the body read
+    rejects — undici `TypeError('terminated')`) or a `FontUpstreamStatusError` (`:23`, message
+    unchanged: "Upstream 404 for <url>") with status ≥ 500. Never retried: 404 / any 4xx (429
+    included), the dev-override block (checked before the fetch, outside the retry), fs write
+    errors. One `warn` log line "Font fetch failed; retrying once" per retry.
+  - `src/main/services/font-proxy.ts:32,71-72` `fetchAndCache` downloads through it — so the export
+    preflight (`ensureFontCached`), `warmFontCache` (brand fonts) and the live `/fonts?u=` proxy
+    all get the retry. File 243 → 234 lines.
+  - `src/main/services/studio/export-engines/font-preflight.ts:33-41`: `allFailed = failed.length >=
+    urls.length` keeps the old "… and Google Fonts could not be reached (N font files missing).
+    Connect to the internet …" message; otherwise "Export not started: N of M font files this
+    video's shots use could not be downloaded (families) — check your connection and export
+    again. The files that did download stay cached." (M = URLs checked; a stylesheet counts once
+    with the files it lists, as `total` already did.)
+  - Tests: `font-upstream-fetch.test.ts` (new, 8: transient classifier; one request when fine;
+    retry once on a `terminated` body / a rejected fetch / a 503; 404 never retried; gives up
+    after one retry with the 2nd error; waits the delay), `font-proxy.test.ts` +2 (a `terminated`
+    blip on one file of a stylesheet → fetched `[CSS, A, B, B]`, all 3 cached; a 404 fetched
+    once), `font-preflight.test.ts` (rewritten: ALL failed → "could not be reached"; SOME failed
+    → "3 of 7 font files … could not be downloaded", never "could not be reached"; naming cap).
 
 ## Verified (exact commands + outputs)
 
@@ -139,15 +162,25 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
   `.vidtsx-temp/end-to-end/A5/logs/vitest-step01.log`.
 - Not driven live (a real dead encoder could not be reproduced in A4 4c); the live A5 runs will
   show the guard staying quiet on a healthy 4K render.
+- Step 0.2: 2026-10-21 23:59 `npx vitest run src/main/services/font-upstream-fetch.test.ts
+  src/main/services/font-proxy.test.ts src/main/services/studio/export-engines/font-preflight.test.ts`
+  → first RED (3 files failed: module missing, retry test, SOME message), then after the change
+  3 files, 20 tests passed.
+- 2026-10-22 00:00 `npm run check:types` (no electron.exe running) → web 26 (baseline 26) ok,
+  node 10 (baseline 10) ok.
+- 2026-10-22 00:01 `npx vitest run` → exit 0, 431 passed | 4 skipped files, 3623 passed | 22
+  skipped tests, 44.9 s. Log: `.vidtsx-temp/end-to-end/A5/logs/vitest-step02.log`.
+- Step 0.2 not driven live (a mid-body `terminated` cannot be provoked on demand); the A5 cold
+  preflight is warm already (A4 profile's font cache is copied).
 
 ## Next step (ONE concrete instruction)
 
-Step 0.2: read `src/main/services/font-proxy.ts:59-91` (`fetchAndCache`) and
-`src/main/services/studio/export-engines/font-preflight.ts` (verdict/message at :40-42) with their
-tests; test-first, add ONE retry on a transient fetch error (network error/`terminated` or 5xx —
-never on 404) and make the refusal say "N of M font files could not be downloaded — check your
-connection and export again" when SOME files failed vs the current "Google Fonts could not be
-reached" when ALL did.
+Step 1 (prep, no app launch yet): copy `.vidtsx-temp/end-to-end/A4/profile` to
+`.vidtsx-temp/end-to-end/A5/profile` (check C:/D: free space first and record it), then pick the
+30 s range from the video-14 copy (`.vidtsx-temp/end-to-end/v14-root/projects/video-14`: read
+`notes/import/range-082-102.json` and, from `project.json`, the V1 clips with a non-identity
+`transform` and the shot/cutaway clips) so it holds ≥ 1 split and ≥ 1 cutaway; write the exact
+in/out seconds and frames (60 fps) and the clip ids it contains into this file.
 
 ## Open problems
 
@@ -163,3 +196,5 @@ reached" when ALL did.
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-21 · agent 1 · ~25 calls · step 0.1 (stall guard, `06edaf0`), gates green.
+- 2026-10-22 · agent 2 · ~20 calls · step 0.2 (font fetch retry + partial-failure message,
+  `f84a78d`), gates green. Step 0 complete.
