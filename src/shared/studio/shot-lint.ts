@@ -11,6 +11,21 @@
 
 const ALLOWED_IMPORTS: ReadonlySet<string> = new Set(['react', 'remotion', '@vidtsx/kit']);
 
+/**
+ * remotion's own entry points besides the root (its package `exports`). A
+ * bundled shot keeps them external (END_TO_END_PLAN T7): `@remotion/google-fonts`
+ * imports `remotion/no-react`, and an inlined copy of it resets
+ * `window.remotion_delayRenderHandles` mid-render, orphaning every hold. The
+ * preview serves both from the Player's copy; the export's webpack aliases both
+ * to the app's one copy.
+ */
+export const REMOTION_SUBPATHS: readonly string[] = ['remotion/no-react', 'remotion/version'];
+
+/** What a shot may import: the three shared modules and remotion's own subpaths. */
+export function isShotModuleSpecifier(spec: string): boolean {
+  return ALLOWED_IMPORTS.has(spec) || REMOTION_SUBPATHS.includes(spec);
+}
+
 /** Static `import ... from 'x'` / bare `import 'x'` / `export ... from 'x'`. */
 const STATIC_IMPORT_PATTERN =
   /(?:^|\n)\s*(?:import|export)\s+(?:[^'"\n]*?\sfrom\s+)?['"]([^'"]+)['"]/g;
@@ -62,7 +77,8 @@ export interface ShotLintResult {
 /**
  * The pure half of the shot acceptance gate (the other checks — esbuild
  * transpile and compositionConfig parse — live in main). Rules:
- *   - imports restricted to `react` + `remotion` + `@vidtsx/kit` (no subpaths)
+ *   - imports restricted to `react` + `remotion` + `@vidtsx/kit` (no subpaths
+ *     except remotion's own `remotion/no-react` and `remotion/version`)
  *   - single file: no relative or absolute import paths
  *   - must default-export the component
  *   - must export `const compositionConfig = { ... }` (parsed in main; the
@@ -84,9 +100,9 @@ export function lintShotSource(code: string, options: ShotLintOptions = {}): Sho
       errors.push(
         `Import "${spec}" is not allowed: shots are single-file — inline everything, no relative imports.`,
       );
-    } else if (!ALLOWED_IMPORTS.has(spec)) {
+    } else if (!isShotModuleSpecifier(spec)) {
       errors.push(
-        `Import "${spec}" is not allowed: shots may only import from 'react', 'remotion', and '@vidtsx/kit'.`,
+        `Import "${spec}" is not allowed: shots may only import from 'react', 'remotion', and '@vidtsx/kit' (plus remotion's own ${REMOTION_SUBPATHS.map((s) => `'${s}'`).join(' and ')}).`,
       );
     }
   }

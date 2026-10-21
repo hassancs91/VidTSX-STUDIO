@@ -32,8 +32,15 @@ import VIDTSX_SIM_SOURCE from '../../../shared/tsx-engine/vidtsx-sim.ts?raw';
 import VIDTSX_ASSETS_SOURCE from '../../../shared/tsx-engine/vidtsx-assets.ts?raw';
 import VIDTSX_THREE_ASSETS_SOURCE from '../../../shared/tsx-engine/vidtsx-three-assets.ts?raw';
 
-/** Resolved by the shot preview and the export — never inlined. */
-const EXTERNAL = /^(react|remotion|@vidtsx\/kit)$/;
+/**
+ * Resolved by the shot preview and the export — never inlined. remotion's own
+ * subpaths too (END_TO_END_PLAN T7): an inlined `remotion/no-react` (pulled in
+ * by `@remotion/google-fonts`) runs its top-level
+ * `window.remotion_delayRenderHandles = []` inside `__vidtsxInit()`, i.e.
+ * mid-render, and orphans every delayRender hold. External, it is the app's one
+ * copy, evaluated at module load. The lint accepts only the real subpaths.
+ */
+const EXTERNAL = /^(react|remotion(\/.+)?|@vidtsx\/kit)$/;
 const JSX_RUNTIME = /^react\/jsx-(dev-)?runtime$/;
 /** What a refusal lists. Packages a shot may pull in come from the library set; their own dependencies follow freely. */
 const ALLOWED_TEXT = `react, remotion, @vidtsx/kit, the @remotion/* packages, ${BUILDER_LIBRARIES.filter((l) => !l.name.startsWith('@remotion/'))

@@ -111,7 +111,8 @@ export function bannedLibraryReason(spec: string): string | null {
 /**
  * May the bundle step inline this bare import? The set above, its subpaths, the d3
  * modules, every @remotion/* package (Import TSX has always allowed them) and
- * remotion's own subpaths (`remotion/no-react`). react / remotion stay external.
+ * remotion's own subpaths (`remotion/no-react`). react / remotion stay external, and
+ * so do remotion's subpaths in the shot bundle step (its EXTERNAL rule runs first).
  */
 export function isBuilderLibrary(spec: string): boolean {
   if (bannedLibraryReason(spec)) return false;

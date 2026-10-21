@@ -8,6 +8,7 @@ const log = logEngine.createLogger('Transpiler');
 import { CDN_CONFIG, KNOWN_PACKAGE_VERSIONS } from '@shared/constants';
 import { rewriteFontUrls } from './font-proxy';
 import { rewriteModuleSpecifiers } from './import-rewriter';
+import { virtualModuleFile } from './virtual-module-files';
 import {
   DEFAULT_CONFIG,
   parseCompositionConfig,
@@ -230,7 +231,7 @@ async function rewriteImports(code: string, baseUrl: string): Promise<string> {
   //   - any other bare package → CDN / vendor URL;
   //   - relative paths and URLs → untouched.
   const rewritten = await rewriteModuleSpecifiers(code, (specifier) => {
-    const virtualFile = VIRTUAL_MODULE_FILES[specifier];
+    const virtualFile = virtualModuleFile(specifier);
     if (virtualFile) return { specifier: `${baseUrl}/virtual/${virtualFile}` };
     if (!isBareSpecifier(specifier)) return null;
     const cdnUrl = buildCdnUrl(specifier, baseUrl);
@@ -254,15 +255,6 @@ function isBareSpecifier(specifier: string): boolean {
   if (/^[a-z][a-z0-9+.-]*:/i.test(specifier)) return false; // http:, data:, node:, …
   return true;
 }
-
-/** Packages served by the module server as shared instances (VIRTUAL_PACKAGES). */
-const VIRTUAL_MODULE_FILES: Record<string, string> = {
-  react: 'react.js',
-  'react-dom': 'react-dom.js',
-  'react/jsx-runtime': 'react-jsx-runtime.js',
-  'react/jsx-dev-runtime': 'react-jsx-runtime.js',
-  remotion: 'remotion.js',
-};
 
 /**
  * Pure-ESM packages esm.sh serves with `export *` and NO default export. The AI

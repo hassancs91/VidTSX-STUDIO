@@ -337,3 +337,21 @@ export const { NoReactInternals, interpolate, random } = RemotionNoReact;
 export default RemotionNoReact;
 `;
 }
+
+/**
+ * The virtual 'remotion/version' module: the Player's own remotion VERSION
+ * (remotion re-exports it from its root), so a shot that keeps the subpath
+ * external reads the same version the export's webpack alias resolves.
+ */
+export function getVirtualRemotionVersionModule(): string {
+  return `
+// Virtual remotion/version module - re-exports from window global
+const Remotion = window.__VIDTSX_REMOTION__;
+
+if (!Remotion) {
+  throw new Error('Remotion not available. Ensure window.__VIDTSX_REMOTION__ is set.');
+}
+
+export const VERSION = Remotion.VERSION;
+`;
+}

@@ -7,7 +7,7 @@ import type { Express, Request, Response } from 'express';
 import type { Server } from 'http';
 import path from 'path';
 import fsSync from 'fs';
-import { getVirtualReactModule, getVirtualRemotionModule, getVirtualReactJsxRuntime, getVirtualReactDomModule, getVirtualRemotionNoReactModule, getVirtualRemotionThreeModule } from './virtual-modules';
+import { getVirtualReactModule, getVirtualRemotionModule, getVirtualReactJsxRuntime, getVirtualReactDomModule, getVirtualRemotionNoReactModule, getVirtualRemotionThreeModule, getVirtualRemotionVersionModule } from './virtual-modules';
 import { getPreviewHtml } from './preview-html';
 import { getToneExtractHtml } from './tone-extract-html';
 import { registerFontProxy } from './font-proxy';
@@ -131,6 +131,11 @@ export async function ensureModuleServer(): Promise<number> {
     moduleApp.get('/virtual/remotion.js/no-react', (_req: Request, res: Response) => {
       log.debug('Serving virtual: remotion.js/no-react');
       res.send(getVirtualRemotionNoReactModule());
+    });
+
+    moduleApp.get('/virtual/remotion.js/version', (_req: Request, res: Response) => {
+      log.debug('Serving virtual: remotion.js/version');
+      res.send(getVirtualRemotionVersionModule());
     });
 
     // Serve virtual React module
