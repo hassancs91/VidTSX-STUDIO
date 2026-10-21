@@ -16,6 +16,8 @@
 //   changes, while the label holds. One clock means every number beside a
 //   step label comes from that integer step, so it changes on the label's
 //   frames only. This is what blocks `finish`.
+// - RACE (P5-1, number-race.ts): two time counters ("2.00 s", "2.0 ms") that
+//   start together and show different time per frame. Blocks like a SPLIT.
 // - FIXED: a number shown unchanged on nearly every frame while others move.
 //   A unit or a given ("1 coin = $200", "$10,000 at 8%") is fine; a result
 //   typed in at its final value is not. Listed, never blocking: the text
@@ -23,6 +25,7 @@
 // Pure, so it is tested on text alone (number-check.test.ts).
 
 import type { FrameText, FrameTextItem } from './frame-text';
+import { describeRaces, findRaces, type NumberRace } from './number-race';
 
 /** One frame of the sweep: its visible text nodes, boxes in the piece's own pixels. */
 export interface SweepFrame {
@@ -63,16 +66,18 @@ export function numberShape(text: string): string {
     .trim();
 }
 
-interface Point {
+export interface Point {
   frame: number;
   value: string;
   x: number;
   y: number;
+  /** The node's box: the race check reads the unit written beside it. */
+  box: { x: number; y: number; w: number; h: number };
   /** The nearest text without a digit on that frame ("YEAR" beside a "7"), for the report. */
   context: string;
 }
 
-interface Track {
+export interface Track {
   id: number;
   shape: string;
   points: Point[];
@@ -130,7 +135,7 @@ export function numberTracks(frames: SweepFrame[], piece: { width: number; heigh
     const place = (n: number, track: Track) => {
       const item = numbers[n];
       const c = centre(item);
-      track.points.push({ frame, value: item.t.trim(), x: c.x, y: c.y, context: nearestWord(item, words) });
+      track.points.push({ frame, value: item.t.trim(), x: c.x, y: c.y, box: { x: item.x, y: item.y, w: item.w, h: item.h }, context: nearestWord(item, words) });
       next.push({ track, x: c.x, y: c.y });
     };
     for (const p of pairs) {
@@ -186,8 +191,12 @@ export interface NumberCheck {
   tracks: number;
   stepLabels: number;
   splits: NumberSplit[];
+  /** Time counters that race on different time scales (P5-1, number-race.ts). */
+  races: NumberRace[];
   /** Numbers on (nearly) every frame, never changing, while others move. */
   fixed: string[];
+  /** The fixed ones that state a ratio ("50,000× FEWER READS"), as drawn: quoted against a race's motion (P5-2). */
+  badges: string[];
   /** True when any number on screen changes at all (a piece without moving numbers has nothing to split). */
   moving: boolean;
 }
@@ -240,20 +249,24 @@ export function checkNumbers(frames: SweepFrame[], piece: { width: number; heigh
   }
   splits.sort((a, b) => b.frames.length - a.frames.length);
 
-  const fixed = moving
-    ? tracks
-        .filter((t) => changes.get(t.id)!.length === 0 && t.points.length >= sorted.length * FIXED_SHARE)
-        .map((t) => label(t.points[0]))
+  const fixedTracks = moving
+    ? tracks.filter((t) => changes.get(t.id)!.length === 0 && t.points.length >= sorted.length * FIXED_SHARE)
     : [];
+  const fixed = fixedTracks.map((t) => label(t.points[0]));
+  const badges = fixedTracks.map((t) => t.points[0].value).filter((v) => /\d\s*×|×\s*\d/.test(v));
+
+  const races = findRaces(tracks, sorted, order);
 
   return {
-    ok: splits.length === 0,
+    ok: splits.length === 0 && races.length === 0,
     swept: sorted.length,
     span: [sorted[0]?.frame ?? 0, sorted[sorted.length - 1]?.frame ?? 0],
     tracks: tracks.length,
     stepLabels: steps.length,
     splits,
+    races,
     fixed: [...new Set(fixed)],
+    badges: [...new Set(badges)],
     moving,
   };
 }
@@ -285,9 +298,9 @@ export function describeNumberCheck(check: NumberCheck, note = ''): string {
     lines.push('No number on screen changes: nothing to compare. Verdict: OK.');
     return lines.join('\n');
   }
-  if (check.splits.length === 0) {
-    lines.push('Every number changes only on its step label\'s frames. Verdict: OK.');
-  } else {
+  if (check.splits.length === 0 && check.races.length === 0) {
+    lines.push('Every number changes only on its step label\'s frames, and clocks that race share one time scale. Verdict: OK.');
+  } else if (check.splits.length > 0) {
     lines.push(`Verdict: SPLIT. ${check.splits.length} number${check.splits.length === 1 ? '' : 's'} change${check.splits.length === 1 ? 's' : ''} while a step label holds, so the label and the number run on two clocks:`);
     // Two numbers that read the same (both jars at $10,200 in year 1) are one line.
     const merged = new Map<string, { split: NumberSplit; count: number }>();
@@ -304,6 +317,7 @@ export function describeNumberCheck(check: NumberCheck, note = ''): string {
     if (merged.size > MAX_REPORTED) lines.push(`- + ${merged.size - MAX_REPORTED} more`);
     lines.push('Fix: compute the step as ONE integer per frame and draw every number beside it from that step (or animate the label with the values). Then run number_check again.');
   }
+  lines.push(...describeRaces(check.races, check.badges));
   if (check.fixed.length > 0) {
     const shown = check.fixed.slice(0, MAX_REPORTED).map((f) => `"${f}"`).join(', ');
     const more = check.fixed.length > MAX_REPORTED ? ` + ${check.fixed.length - MAX_REPORTED} more` : '';

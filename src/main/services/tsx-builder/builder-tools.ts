@@ -71,7 +71,7 @@ export const SEAM_JUMP_ALLOWANCE = 3;
 export const PURITY_IMPURE_ALLOWANCE = 3;
 
 /**
- * A piece whose number_check still says SPLIT after this many different builds
+ * A piece whose number_check still says SPLIT (or RACE) after this many different builds
  * may finish anyway, marked `numbersOk: false` (like the seam): the check
  * reads text, and a stubborn false alarm must not burn the run to its cap.
  */
@@ -123,7 +123,7 @@ function finishGate(state: BuilderState, code: string, physics: boolean): Array<
       ? 'number_check has not run yet: your looks show numbers that change, so check every frame\'s numbers against the step labels beside them.'
       : numbers.code !== code
         ? 'number_check last swept an earlier build (the code changed since): sweep this one.'
-        : 'number_check says SPLIT on this build: draw every number beside a step label from that one integer step, then check again.';
+        : 'number_check says SPLIT or RACE on this build: draw every number beside a step label from that one integer step, and both sides of a race from one clock, then check again.';
     missing.push({ tool: 'number_check', line });
   }
   return missing;
@@ -202,7 +202,7 @@ export function buildBuilderToolServer(state: BuilderState) {
           ? [`frame purity NOT verified: purity_check called ${state.impureBuilds.size} builds IMPURE, so the result is marked pureOk: false`]
           : []),
         ...(numbersOk === false
-          ? [`the numbers NOT verified: number_check called ${state.numberSplitBuilds.size} builds SPLIT, so the result is marked numbersOk: false`]
+          ? [`the numbers NOT verified: number_check called ${state.numberSplitBuilds.size} builds SPLIT or RACE, so the result is marked numbersOk: false`]
           : []),
       ];
       if (unverified.length > 0) {

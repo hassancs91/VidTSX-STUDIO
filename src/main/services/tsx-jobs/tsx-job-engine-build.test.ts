@@ -84,6 +84,7 @@ async function finishedRun(folder: string): Promise<(req: GenerateTsxRequest) =>
       rounds: 1,
       checks: 3,
       seamOk: true,
+      numbersOk: true,
       stills: [
         { round: 1, frame: 0, size: 'model' as const, file: 'v1.stills/r01-f000.jpg' },
         { round: 1, frame: 30, size: 'phone' as const, file: 'v1.stills/phone1-f030.jpg' },
@@ -202,6 +203,7 @@ describe('tsx-job-engine: build jobs', () => {
       stopReason: 'finished',
       finished: true,
       seamOk: true,
+      numbersOk: true,
       summary: 'A red ball, bouncing.',
     });
     expect(job.build?.notice).toBeUndefined();

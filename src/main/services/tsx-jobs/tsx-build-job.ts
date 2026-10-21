@@ -129,6 +129,7 @@ function finalBuild(prev: TsxBuildJobIpc, build: BuildResult): TsxBuildJobIpc {
     finished: build.finished,
     ...(build.seamOk !== undefined ? { seamOk: build.seamOk } : {}),
     ...(build.pureOk !== undefined ? { pureOk: build.pureOk } : {}),
+    ...(build.numbersOk !== undefined ? { numbersOk: build.numbersOk } : {}),
     ...(build.images ? { images: build.images } : {}),
     ...(build.summary ? { summary: build.summary } : {}),
     ...(build.ok && build.error ? { notice: build.error } : {}),

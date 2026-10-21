@@ -108,7 +108,7 @@ export function buildMeasureTools(state: BuilderState) {
 
   const numberCheck = tool(
     'number_check',
-    'Check, then read the on-screen text of (nearly) every frame and follow each number across the frames: a number that changes while a step label beside it ("YEAR 7", "STEP 12") holds runs on a second clock, and the verdict is SPLIT with the frames and what they read. Numbers that never change while others move are listed (a unit or a given is fine; a result typed in at its final value is not). Text drawn on a canvas, in 3D or in an image is not read. Free (no look round); run it after your last change.',
+    'Check, then read the on-screen text of (nearly) every frame and follow each number across the frames: a number that changes while a step label beside it ("YEAR 7", "STEP 12") holds runs on a second clock, and the verdict is SPLIT with the frames and what they read. Two time counters that race ("2.00 s" beside "2.0 ms") must show the same time per frame, or the verdict is RACE. Numbers that never change while others move are listed (a unit or a given is fine; a result typed in at its final value is not). Text drawn on a canvas, in 3D or in an image is not read. Free (no look round); run it after your last change.',
     {},
     tracked(state, 'rendering', async () => {
       const look = await checkForLook(state);
@@ -138,6 +138,7 @@ export function buildMeasureTools(state: BuilderState) {
           tracks: result.tracks,
           stepLabels: result.stepLabels,
           splits: result.splits.map((s) => ({ step: s.step, other: s.other, frames: s.frames.length, example: s.example })),
+          races: result.races,
           fixed: result.fixed,
           ms: sweep.ms,
           totalMs: Date.now() - started,

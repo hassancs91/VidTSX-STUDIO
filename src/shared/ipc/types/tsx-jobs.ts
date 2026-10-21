@@ -98,6 +98,8 @@ export interface TsxBuildJobIpc {
   seamOk?: boolean;
   /** Pieces that use a physics engine, with a kept build: the last purity_check measured exactly that build and said PURE. */
   pureOk?: boolean;
+  /** Pieces whose looks showed numbers that change, with a kept build: the last number_check swept exactly that build and said OK (no SPLIT, no RACE). */
+  numbersOk?: boolean;
   summary?: string;
   /** A run that kept a build but did not finish (a cap): why, in one line. */
   notice?: string;

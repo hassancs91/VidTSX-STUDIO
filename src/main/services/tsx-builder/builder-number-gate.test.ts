@@ -157,7 +157,7 @@ describe('finish and moving numbers', () => {
 
     sweepFrameText.mockResolvedValue(sweep(false));
     await call('number_check');
-    expect((await call('finish', { summary: 's' })).content[0].text).toContain('number_check says SPLIT on this build');
+    expect((await call('finish', { summary: 's' })).content[0].text).toContain('number_check says SPLIT or RACE on this build');
 
     checkBuild.mockResolvedValue({ ...passed, code: '// one clock' });
     expect((await call('finish', { summary: 's' })).content[0].text).toContain('number_check last swept an earlier build');

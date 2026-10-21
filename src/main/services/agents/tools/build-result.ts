@@ -95,6 +95,7 @@ export function buildOutcomeLines(build: TsxBuildJobIpc | undefined, picked: Tsx
     const checks = [
       build.seamOk === true ? 'loop seam OK' : build.seamOk === false ? 'loop seam NOT verified' : null,
       build.pureOk === true ? 'physics frame-pure' : build.pureOk === false ? 'physics purity NOT verified' : null,
+      build.numbersOk === true ? 'numbers checked' : build.numbersOk === false ? 'numbers NOT verified (number_check: split or race)' : null,
     ].filter(Boolean);
     lines.push(
       `Built on ${BUDGET_LABELS[build.budget]}: ${plural(build.round, 'look')}, ${plural(build.checks, 'check')}, ${ending}${checks.length ? `; ${checks.join(', ')}` : ''}.`,

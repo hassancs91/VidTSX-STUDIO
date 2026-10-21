@@ -22,6 +22,10 @@ makes it good.
 - **The layout is the reasoning.** Read top to bottom: cause above effect, problem above fix, input above output.
 - **The shock comes from scale on one canvas.** Put the things being compared side by side or one above the other,
   at ONE scale, so the eye measures them.
+- **A race runs on one clock.** When two sides race (a scan against an index, walking against driving), both run
+  from the same `t` at the same rate: shown time = t × one rate for both sides. The slower side's length sets the
+  run; a side 1,000× faster finishes on its first frame, and that instant finish IS the payoff. Two sides that
+  take 6 s and 2 s on screen while their counters say 2 s and 2 ms tell two stories.
 - **Frame 0 is the poster.** At frame 0 every payoff is already visible: counters at their final numbers, piles at
   full height, the result shown. The loop then plays the mechanism and comes back to that state.
 - **Any frame reads.** Hold each payoff for at least 40 % of the loop, and stagger the zones so one zone's payoff

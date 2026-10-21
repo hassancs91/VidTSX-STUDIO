@@ -75,12 +75,12 @@ describe('buildResultText', () => {
       title: 'Promo',
       relPath: 'compositions/promo/v1.tsx',
       config,
-      build: build({ seamOk: true, summary: '  A ball bounces.  ' }),
+      build: build({ seamOk: true, numbersOk: true, summary: '  A ball bounces.  ' }),
       picked,
     });
     expect(text.split('\n')).toEqual([
       'Composition ready: compositions/promo/v1.tsx — 1080x1350, 8.0s at 30fps.',
-      'Built on Standard: 2 looks, 5 checks, finished; loop seam OK.',
+      'Built on Standard: 2 looks, 5 checks, finished; loop seam OK, numbers checked.',
       "Builder's summary: A ball bounces.",
       'The pictures below are frames 0, 120 and 239 from its last look (round 2), as the builder saw them.',
     ]);
@@ -92,12 +92,12 @@ describe('buildResultText', () => {
       title: 'Promo',
       relPath: 'compositions/promo/v2.tsx',
       config,
-      build: build({ budget: 'quick', round: 1, checks: 1, finished: false, pureOk: false, notice: 'Stopped at the 15 min cap.' }),
+      build: build({ budget: 'quick', round: 1, checks: 1, finished: false, pureOk: false, numbersOk: false, notice: 'Stopped at the 15 min cap.' }),
       picked: [still(1, 0, 'sheet', [0, 80, 160])],
     });
     expect(text.split('\n')).toEqual([
       'Edited Promo: compositions/promo/v2.tsx — 1080x1350, 8.0s at 30fps.',
-      'Built on Quick: 1 look, 1 check, stopped before it finished; physics purity NOT verified.',
+      'Built on Quick: 1 look, 1 check, stopped before it finished; physics purity NOT verified, numbers NOT verified (number_check: split or race).',
       'Stopped at the 15 min cap.',
       'The picture below is the contact sheet from its last look (round 1): frames 0, 80, 160, as the builder saw them.',
     ]);

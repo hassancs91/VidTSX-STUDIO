@@ -143,6 +143,7 @@ export async function keepJobResult(final: TsxJobIpc, outDir: string): Promise<R
           finished: build.finished,
           seamOk: build.seamOk,
           pureOk: build.pureOk,
+          numbersOk: build.numbersOk,
           notice: build.notice,
         }
       : {}),
