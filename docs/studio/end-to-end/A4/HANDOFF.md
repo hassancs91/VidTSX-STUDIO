@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS (steps 0, 1, 2, 3 done in code + unit tests; next: step 4, the live CDP run for both exits)
+status: IN PROGRESS (steps 0, 1, 2, 3 + the orchestrator's "rebuild the triggering clip on the GPU" override done in code + unit tests; next: step 4, the live CDP run for both exits)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -215,7 +215,49 @@ numbers."
     `src/main/services/studio/gpu-adapters.test.ts` (4); handler test `:81-82` asserts
     `downloadable`/`nvidiaAdapter`, `:86` unknown adapter → `null`.
 
+- **Step 3b — orchestrator override: the triggering clip ends on the GPU without a re-import, code +
+  unit tests** (`3d450ba`). Not yet driven.
+  - Main session record `src/main/services/studio/proxy-build-encoders.ts:16/:21`
+    (`recordProxyBuildEncoder` / `getProxyBuildEncoder`, key `projectId:assetId`, value `'x264'` or the
+    GPU id; in memory → earlier sessions' proxies are never touched). Written by `generateProxy` right
+    after it resolves the encoder (`proxy-generator.ts:238`; the latch-fallback recursion re-records x264).
+  - Engine `src/main/services/studio/media-jobs.ts:132` `jobState()` (`running|queued|none`), `:142`
+    `restart()` — a RUNNING job gets `restart=true` + abort; `run()`'s `finally` (:242) queues
+    `request(..., {force:true})` only after `produce` rejected, i.e. after ffmpeg's `close` (no file
+    locks); NO `'canceled'` event, so the asset stays `generating` in the document. A queued job is
+    dropped and re-requested; no job → plain force request. `cancel()`/`cancelProject()` clear the flag
+    (a cancel wins).
+  - Pure planner `src/main/services/studio/proxy-gpu-rebuild.ts:23` `planProxyGpuRebuild(job, encoder)`:
+    restart = running+x264, rebuild = none+x264, everything else skip (queued resolves the GPU itself;
+    GPU build; unresolved; no build this session). `rebuildProxiesOnGpu` :33 returns early unless
+    `resolveProxyGpuEncoder()` resolves (so a latch / explicit off / no NVENC leaves x264 alone); logs
+    INFO `Proxies re-queued on the GPU encoder {projectId, encoder, restarted, rebuilt}` (logger
+    `StudioProxyGpuRebuild`) — the live-run evidence line.
+  - IPC `studio:proxy-encoder:rebuild` (`channels.ts`, types `proxy-encoder.ts` Request/Response with
+    `restarted`/`rebuilt`), handler `studio-proxy-encoder-handlers.ts:81` (validates the id via
+    `getProjectDir`, drops malformed assets), registration, preload `studioProxyEncoderRebuild`,
+    `src/renderer/types/electron.d.ts:492`.
+  - Renderer: pure `gpuProxyRebuildTargets` (`gpu-proxy-offer.ts:91`, the 4K videos → `{assetId,path}`)
+    and `withRebuildNote` :98 (ok outcome + "The 4K clip already in this project is rebuilding on it
+    now." / "The N 4K clips …"). Hook `useGpuProxyOffer(project)` (signature changed; `EditorShell.tsx:122`
+    passes `project`), `rebuildOnGpu` :30 runs only when the outcome is ok (:117).
+  - `GPU_PROXY_RESTART_NOTE` still `null` (unproven live — step 4 decides).
+  - Tests: `media-jobs.test.ts` (NEW, 4: restart running → no canceled + 2nd build after exit; force over
+    a file on disk; cancel after restart wins; `queued` state), `proxy-gpu-rebuild.test.ts` (NEW, 4),
+    handler test +2 (`describe('studio proxy encoder rebuild …')`), `gpu-proxy-offer.test.ts:110` (+2).
+
 ## Verified (exact commands + outputs)
+
+- Step 3b: `npx vitest run src/main/services/studio/media-jobs.test.ts src/main/services/studio/proxy-gpu-rebuild.test.ts src/features/studio/services/gpu-proxy-offer.test.ts src/main/services/studio/proxy-generator.test.ts`
+  → `Test Files  4 passed (4)` / `Tests  34 passed (34)` (red before the code: 6 failed);
+  `npx vitest run src/main/ipc/studio-proxy-encoder-handlers.test.ts` → `Tests  13 passed (13)`.
+- Step 3b `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok`,
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok` (first run was web 27: the new API was missing
+  from `src/renderer/types/electron.d.ts` — the ElectronAPI type is hand-declared there, not inferred
+  from the preload; fixed).
+- Step 3b full run, 0 electron.exe, 9222/5173 free:
+  `npx vitest run > .vidtsx-temp/end-to-end/A4/logs/vitest-full-override.log 2>&1` → exit 0,
+  `Test Files  428 passed | 4 skipped (432)`, `Tests  3598 passed | 22 skipped (3620)`, 39.04 s.
 
 - Step 3: `npx vitest run src/main/ipc/studio-proxy-encoder-handlers.test.ts src/main/services/studio/gpu-adapters.test.ts`
   → `Test Files  2 passed (2)` / `Tests  15 passed (15)`;
@@ -260,6 +302,28 @@ numbers."
 - Free space 2026-10-21 ~22:05: C: 23.46 GB, D: 5.41 GB.
 
 ## Next step (ONE concrete instruction)
+
+**The override below is DONE in code (`3d450ba`, see Done "Step 3b") — do not rebuild it; step 4
+proves it live.** In the GPU half, after Download, do NOT re-import first: wait for the card's
+`[data-gpu-proxy-offer-outcome=ok]` (expect "… The 4K clip already in this project is rebuilding on it
+now."), grep the main log for `Proxies re-queued on the GPU encoder` (expect `restarted:[<id>]` or
+`rebuilt:[<id>]`), and while the rebuilt proxy is in flight read
+`<root>/projects/<id>/cache/proxies/<assetId>/` plan file `profile` (`nvenc-540p-intra-q33` = GPU; the
+segment folder is deleted when the proxy finishes, so poll it during the build — or rely on the
+`Probed GPU proxy encoders` line plus the rebuild log line and the NVENC ffmpeg in Task Manager).
+Only if that fails, try the re-import fallback and root-cause.
+
+**Orchestrator override (2026-10-21), before step 4:** the exit says "a fresh 4K import on this
+PC builds proxies on NVENC without a Settings visit". With the card as built, the 4K clip that
+triggered the card keeps its x264 proxy and only a re-import gets NVENC — that misses the exit
+for the very clip the user is waiting on (x264 ≈ 91 s per minute of 4K). Add, test-first: after
+a SUCCESSFUL download from the card, re-queue the proxy of every 4K asset of the open project
+whose proxy is still running or finished on x264 in this session (abort the running x264 job,
+then `force` a new proxy job; the media-jobs engine already supports `force`), so the triggering
+clip ends with an `nvenc-…` proxy without a re-import. If a restart is truly required for the
+GPU tools to be seen, the card must say so (`GPU_PROXY_RESTART_NOTE`) and the exit is then
+measured after that one restart — record which. Then run step 4 as below, and in the GPU half
+check the TRIGGERING clip's proxy profile, not a re-imported one.
 
 Step 4, GPU half FIRST (it needs no video-14 render): write a CDP driver (Write tool) under
 `.vidtsx-temp/end-to-end/A4/` from A1's `launch.sh` (fresh profile `.vidtsx-temp/end-to-end/A4/profile`,
@@ -342,6 +406,8 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
 - Step 3 DONE (`139a4a9`): do not re-add the offer predicate, the card, the hook, the
   `downloadable`/`nvidiaAdapter` status fields or `gpu-adapters.ts`; the card only needs its live
   proof (step 4) and, if proven necessary, a non-null `GPU_PROXY_RESTART_NOTE`.
+- Step 3b DONE (`3d450ba`): do not re-add `jobState`/`restart`, the session encoder record, the
+  planner, the `studio:proxy-encoder:rebuild` channel or the card's rebuild note.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -355,6 +421,9 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   session dismissal, NVIDIA adapter read from Electron GPU info, `downloadable` status field,
   hook + card + EditorShell wiring, tests, green full run); did not launch the app or read the
   media-import dialog code (which env var stands in for its file picker is step 4's first lookup).
+- 2026-10-21 · agent 5 · ~40 calls · step 3b (orchestrator override: rebuild this session's x264 4K
+  proxies on the GPU after the card's download — engine restart, session encoder record, planner, IPC,
+  hook, tests, green full run); did not launch the app or look up the media-import dialog stand-in.
 - 2026-10-21 · agent 3 · ~30 calls · step 2 (GPU proxies default on when viable: pure resolver,
   tri-state setting, effective status + `choice`, row copy, tests, green full run); did not read
   `media-jobs.ts` or the import UI for step 3.
