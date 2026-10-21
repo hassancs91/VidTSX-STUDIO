@@ -8,6 +8,8 @@ import { FORMAT_PRESETS, MAX_DIMENSION, MIN_DIMENSION, fpsOptions, parseDimensio
 interface Props {
   project: StudioProject;
   onUpdate: (updater: (prev: StudioProject) => StudioProject) => void;
+  /** The undoable size edit (A1): the reducer writes settings.width/height. */
+  onSetFrameSize: (width: number, height: number) => void;
 }
 
 function Label({ children }: { children: string }) {
@@ -17,10 +19,11 @@ function Label({ children }: { children: string }) {
 /**
  * Name, frame size, frame rate and speech-to-text model — the project-level
  * settings that had no surface of their own (video-10 feedback item 7).
- * Settings edits are not undoable (the brand / STT precedent). A typed size
- * commits on blur or Enter, so half-typed numbers never reach the Player.
+ * The frame size is one undo step (A1); the other settings edits are not
+ * undoable (the brand / STT precedent). A typed size commits on blur or
+ * Enter, so half-typed numbers never reach the Player.
  */
-export function ProjectFormatFields({ project, onUpdate }: Props) {
+export function ProjectFormatFields({ project, onUpdate, onSetFrameSize }: Props) {
   const { width, height, fps } = project.settings;
   const [widthText, setWidthText] = useState(String(width));
   const [heightText, setHeightText] = useState(String(height));
@@ -38,7 +41,7 @@ export function ProjectFormatFields({ project, onUpdate }: Props) {
     setWidthText(String(nextWidth));
     setHeightText(String(nextHeight));
     if (nextWidth === width && nextHeight === height) return;
-    onUpdate((prev) => ({ ...prev, settings: { ...prev.settings, width: nextWidth, height: nextHeight } }));
+    onSetFrameSize(nextWidth, nextHeight);
   };
 
   const commitSize = () => {

@@ -102,7 +102,7 @@ describe('reducer round-trips (text-based editing)', () => {
   const baseState = (timeline: StudioTimeline) => ({
     projectId: 'p1',
     past: [],
-    present: { timeline, proposals: [], shots: [], captions: null, removedAssets: [] },
+    present: { timeline, proposals: [], shots: [], captions: null, removedAssets: [], frame: { width: 1920, height: 1080 } },
     future: [],
   });
 

@@ -63,7 +63,7 @@ function reduce(...actions: TimelineAction[]) {
       {
         projectId: null,
         past: [],
-        present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [] },
+        present: { timeline: { tracks: [] }, proposals: [], shots: [], captions: null, removedAssets: [], frame: { width: 1920, height: 1080 } },
         future: [],
       },
       {
@@ -73,6 +73,7 @@ function reduce(...actions: TimelineAction[]) {
         proposals: [],
         shots: [],
         captions: null,
+        frame: { width: 1920, height: 1080 },
       },
     ),
   );

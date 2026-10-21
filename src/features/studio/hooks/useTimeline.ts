@@ -4,6 +4,7 @@ import type {
   StudioCaptionLayer,
   StudioCaptionStyle,
   StudioClip,
+  StudioFrameSize,
   StudioMediaAsset,
   StudioProject,
   StudioProposal,
@@ -81,6 +82,7 @@ import {
 } from '../services/proposal-ops';
 import { removeClipsForShot, removeShot, setShotVersion } from '../services/shot-ops';
 import { setShotAssetRefs } from '../services/shot-asset-ops';
+import { setFrameSize } from '../services/project-format';
 
 /** Undo depth. Edit documents are small (a 100-cut edit is a few KB), so
  *  whole-document snapshots are cheaper than maintaining inverse operations. */
@@ -108,6 +110,9 @@ interface EditDoc {
    * persisted — it is reducer state, reset on open.
    */
   removedAssets: RemovedAsset[];
+  /** `settings.width/height` (A1): the size edit is one undo step; fps,
+   *  name and the rest of the settings stay plain autosaved edits. */
+  frame: StudioFrameSize;
 }
 
 /** A pool entry taken out by `remove-asset`: the snapshot and where it sat,
@@ -125,7 +130,10 @@ export type TimelineAction =
       proposals: StudioProposal[];
       shots: StudioShot[];
       captions: StudioCaptionLayer | null;
+      frame: StudioFrameSize;
     }
+  // Project settings → Frame size (typed or a format preset), one undo step.
+  | { type: 'set-frame-size'; width: number; height: number }
   | { type: 'add'; trackId: string; clip: StudioClip; preferredStart?: number }
   | { type: 'move'; clipId: string; seconds: number; toTrackId?: string }
   | {
@@ -237,6 +245,7 @@ const EMPTY_DOC: EditDoc = {
   shots: [],
   captions: null,
   removedAssets: [],
+  frame: { width: 0, height: 0 },
 };
 
 function commit(state: HistoryState, next: EditDoc): HistoryState {
@@ -247,7 +256,8 @@ function commit(state: HistoryState, next: EditDoc): HistoryState {
     next.proposals === state.present.proposals &&
     next.shots === state.present.shots &&
     next.captions === state.present.captions &&
-    next.removedAssets === state.present.removedAssets
+    next.removedAssets === state.present.removedAssets &&
+    next.frame === state.present.frame
   ) {
     return state;
   }
@@ -288,9 +298,14 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
           shots: action.shots,
           captions: action.captions,
           removedAssets: [],
+          frame: action.frame,
         },
         future: [],
       };
+    case 'set-frame-size': {
+      const frame = setFrameSize(doc.frame, action.width, action.height);
+      return commit(state, frame === doc.frame ? doc : { ...doc, frame });
+    }
     case 'add':
       return commit(
         state,
@@ -652,6 +667,7 @@ export function useTimeline(
         proposals: loaded.proposals ?? [],
         shots: loaded.shots ?? [],
         captions: loaded.captions ?? null,
+        frame: { width: loaded.settings.width, height: loaded.settings.height },
       });
     }
   }, [projectId]);
@@ -672,6 +688,8 @@ export function useTimeline(
       doc.proposals === project.proposals &&
       doc.shots === project.shots &&
       doc.captions === (project.captions ?? null) &&
+      doc.frame.width === project.settings.width &&
+      doc.frame.height === project.settings.height &&
       removedIds.size === 0 &&
       restore.length === 0
     ) {
@@ -694,6 +712,7 @@ export function useTimeline(
         timeline: doc.timeline,
         proposals: doc.proposals,
         shots: doc.shots,
+        settings: { ...prev.settings, width: doc.frame.width, height: doc.frame.height },
       };
       // Absent, not null: "no captions" is a MISSING field in project.json.
       if (doc.captions) next.captions = doc.captions;

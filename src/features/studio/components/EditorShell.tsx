@@ -334,6 +334,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         proposals: doc.proposals,
         shots: doc.shots,
         captions: doc.captions ?? null,
+        frame: { width: doc.settings.width, height: doc.settings.height },
       });
       const undoFile = res.undoFile;
       showToast(
@@ -1580,6 +1581,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         onClose={() => setSettingsOpen(false)}
         project={project}
         onUpdate={updateProject}
+        onSetFrameSize={(width, height) => tl.dispatch({ type: 'set-frame-size', width, height })}
         brands={brandList}
         onSetBrand={handleSetBrand}
         presets={presetList}

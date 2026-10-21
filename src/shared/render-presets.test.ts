@@ -28,6 +28,7 @@ describe('renderCrf', () => {
     expect(isRenderQualityLevel('medium')).toBe(true);
     expect(isRenderQualityLevel('ultra')).toBe(false);
     expect(isResolutionPresetId('540p')).toBe(true);
+    expect(isResolutionPresetId('1440p')).toBe(true);
     expect(isResolutionPresetId('2160p')).toBe(false);
   });
 });
@@ -64,6 +65,42 @@ describe('resolutionOptions', () => {
       ['720p', 720, 1280],
       ['540p', 540, 960],
       ['360p', 360, 640],
+    ]);
+  });
+
+  it('offers a 3840×2160 project Full, 1440p, 1080p, 720p, 540p, 360p — exact even dims from the renderer scale', () => {
+    const options = resolutionOptions(3840, 2160, EXPORT_RESOLUTION_PRESETS, 'Full');
+    expect(options.map((o) => [o.value, o.width, o.height])).toEqual([
+      ['original', 3840, 2160],
+      ['1440p', 2560, 1440],
+      ['1080p', 1920, 1080],
+      ['720p', 1280, 720],
+      ['540p', 960, 540],
+      ['360p', 640, 360],
+    ]);
+    expect(options.map((o) => o.label)).toEqual([
+      'Full (3840×2160)',
+      '1440p (2560×1440)',
+      '1080p (1920×1080)',
+      '720p (1280×720)',
+      '540p (960×540)',
+      '360p (640×360)',
+    ]);
+    for (const o of options) {
+      expect(3840 * o.scale).toBe(o.width);
+      expect(2160 * o.scale).toBe(o.height);
+    }
+  });
+
+  it('never upscales: a 1920×1080 project lists no 1080p or 1440p, a 2560×1440 one no 1440p, a 2160×3840 portrait one scales by width', () => {
+    const hd = resolutionOptions(1920, 1080, EXPORT_RESOLUTION_PRESETS, 'Full').map((o) => o.value);
+    expect(hd).not.toContain('1080p');
+    expect(hd).not.toContain('1440p');
+    expect(resolutionOptions(2560, 1440, EXPORT_RESOLUTION_PRESETS, 'Full').map((o) => o.value)).toEqual(['original', '1080p', '720p', '540p', '360p']);
+    expect(resolutionOptions(2160, 3840, EXPORT_RESOLUTION_PRESETS, 'Full').map((o) => [o.value, o.width, o.height]).slice(0, 3)).toEqual([
+      ['original', 2160, 3840],
+      ['1440p', 1440, 2560],
+      ['1080p', 1080, 1920],
     ]);
   });
 

@@ -11,6 +11,8 @@ interface Props {
   onClose: () => void;
   project: StudioProject;
   onUpdate: (updater: (prev: StudioProject) => StudioProject) => void;
+  /** Frame size goes through the edit history (A1) — one Ctrl+Z step. */
+  onSetFrameSize: (width: number, height: number) => void;
   brands: BrandOption[];
   onSetBrand: (brandId: string | null) => void;
   presets: PresetOption[];
@@ -26,13 +28,15 @@ function SectionTitle({ children }: { children: string }) {
  * Project settings (video-10 feedback item 7.4), opened from the top bar next
  * to Export: the project-level settings in one place: name, frame size, fps,
  * STT model, and the Brand + Preset that used to hide in the media pool.
- * Every change lands in the document at once (autosaved, not undoable).
+ * Every change lands in the document at once (autosaved); the frame size is
+ * also one undo step (A1), the rest are not undoable.
  */
 export function ProjectSettingsDialog({
   isOpen,
   onClose,
   project,
   onUpdate,
+  onSetFrameSize,
   brands,
   onSetBrand,
   presets,
@@ -44,7 +48,7 @@ export function ProjectSettingsDialog({
       <div className="w-[460px] max-h-[70vh] overflow-y-auto flex flex-col gap-4" data-project-settings>
         <section className="flex flex-col gap-2">
           <SectionTitle>Project</SectionTitle>
-          <ProjectFormatFields project={project} onUpdate={onUpdate} />
+          <ProjectFormatFields project={project} onUpdate={onUpdate} onSetFrameSize={onSetFrameSize} />
         </section>
         <section className="flex flex-col gap-2">
           <SectionTitle>Brand and preset</SectionTitle>

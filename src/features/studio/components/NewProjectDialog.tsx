@@ -5,25 +5,9 @@ import { Button } from '@shared/components/Button';
 import { Select } from '@shared/components/Select';
 import type { StudioProjectCreateRequest } from '@shared/ipc/types';
 import { usePresetList } from '../hooks/usePresetList';
-
-interface FormatPreset {
-  id: string;
-  label: string;
-  description: string;
-  width: number;
-  height: number;
-}
-
-const FORMAT_PRESETS: FormatPreset[] = [
-  { id: 'landscape', label: 'Landscape', description: 'YouTube · 16:9 · 1920×1080', width: 1920, height: 1080 },
-  { id: 'portrait', label: 'Portrait', description: 'Shorts / Reels · 9:16 · 1080×1920', width: 1080, height: 1920 },
-  { id: 'square', label: 'Square', description: '1:1 · 1080×1080', width: 1080, height: 1080 },
-];
+import { DEFAULT_FORMAT_ID, FORMAT_PRESETS, formatIdForOrientation, type FormatPreset } from '../services/project-format';
 
 const FPS_OPTIONS = ['24', '25', '30', '50', '60'].map((v) => ({ value: v, label: `${v} fps` }));
-
-/** A preset's orientation → the format tile it implies (W5). */
-const ORIENTATION_FORMAT: Record<string, string> = { '16:9': 'landscape', '9:16': 'portrait', '1:1': 'square' };
 
 interface Props {
   isOpen: boolean;
@@ -33,7 +17,7 @@ interface Props {
 
 export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
   const [name, setName] = useState('');
-  const [formatId, setFormatId] = useState('landscape');
+  const [formatId, setFormatId] = useState(DEFAULT_FORMAT_ID);
   const [fps, setFps] = useState('30');
   const [presetId, setPresetId] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -41,7 +25,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
 
   const reset = () => {
     setName('');
-    setFormatId('landscape');
+    setFormatId(DEFAULT_FORMAT_ID);
     setFps('30');
     setPresetId('');
     setSubmitting(false);
@@ -51,9 +35,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
   // format tile — the user can still change it afterwards.
   const choosePreset = (id: string) => {
     setPresetId(id);
-    const orientation = presets.find((p) => p.id === id)?.orientation;
-    const format = orientation ? ORIENTATION_FORMAT[orientation] : undefined;
-    if (format) setFormatId(format);
+    setFormatId((current) => formatIdForOrientation(presets.find((p) => p.id === id)?.orientation, current));
   };
 
   const handleClose = () => {
@@ -99,7 +81,7 @@ export function NewProjectDialog({ isOpen, onClose, onCreate }: Props) {
 
         <div className="flex flex-col gap-2">
           <span className="text-[10px] uppercase tracking-wider text-text-muted">Format</span>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {FORMAT_PRESETS.map((format) => (
               <FormatTile
                 key={format.id}
@@ -162,6 +144,8 @@ function FormatTile({
   return (
     <button
       type="button"
+      data-new-project-format={format.id}
+      aria-pressed={isSelected}
       onClick={onSelect}
       className={[
         'flex flex-col items-center gap-1.5 p-2 rounded-md transition-colors',
