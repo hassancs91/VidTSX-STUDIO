@@ -1,6 +1,7 @@
 # A2 — Export disk preflight + cancel/failure cleanup of the job's Remotion assets folder
-status: IN PROGRESS (steps 1–2 done; step 3 live run (a) Standard cancel DONE and proves the scope
-on disk, but found ONE leftover outside the job scope: the bundle step's Chrome profile; next = fix it, then finish step 3)
+status: IN PROGRESS (steps 1–2 done; step 3: bundle-probe leak FIXED `4b1156d` and proven live by
+run (a′) — a cancelled Standard range leaves nothing; Fast cancel (a″) blocked by the Fast engine
+staying "Needs the GPU encoder download" after the download; next = make Fast selectable, then (a″), (b), (c))
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts).
 
@@ -179,6 +180,60 @@ Result of `node drive.mjs run std-cancel remotion 5 35 cancel 15` (`report-std-c
 - Export dialog: `[data-export-estimate]` was null for this range (the dialog shows no estimate
   before confirm; the estimate is only logged and, on refusal, in the message).
 
+**Step 3 (part) — the bundle-probe leak fixed, commit `4b1156d`** (agent 4):
+
+- Confirmed in code: `bundleComposition` (`src/main/services/remotion-bundler.ts`, MAIN process)
+  called Remotion's `getCompositions(serveUrl)` after every FRESH bundle (cached bundles skip it),
+  outside any export scope → one `%TEMP%\puppeteer_dev_chrome_profile-*` per (re)bundle.
+- `src/main/services/bundle-compositions.ts:12` `listBundleCompositions(serveUrl)` — the
+  `getCompositions` call + metadata mapping, run inside
+  `withOwnRemotionTemp(path.join(getTempDir(), 'export'), …)`; `remotion-bundler.ts:354` calls it
+  (still catches → `[]` + warn as before). The export job's scope was NOT widened.
+- `src/main/services/studio/export-engines/own-remotion-temp.ts:15` `withOwnRemotionTemp(parent, fn)`
+  — `mkdtemp(<parent>/probe-)`, `withRemotionTempDir(dir, fn)`, `finally` `removeDirWithRetry`.
+  A probe folder that stays locked is caught by the background retry and, since it sits under
+  `export/`, by `sweepExportScratch` at the next start.
+- `src/main/services/studio/export-engines/remove-dir-retry.ts:18` `removeDirWithRetry(dir, what,
+  context)` — `run-export.ts`'s `removeScratch`/`tryRemove` moved here unchanged (12 × 500 ms, then
+  a background retry every 5 s × 24, `unref`'d); `run-export.ts` `removeScratch` now calls it.
+- Test `src/main/services/bundle-compositions.test.ts` (2 tests): a mocked `getCompositions` sees
+  `os.tmpdir()` = `<tmp>/export/probe-*`, writes a fake Chrome profile there; after the call the
+  folder is gone and `export/` is empty — also when it throws (error passed on); `os.tmpdir()` is
+  the real temp afterwards.
+
+**Step 3 (part) — live runs on the fixed build, 2026-10-21 16:56–17:06 UTC** (agent 4; kit
+unchanged except `drive.mjs` `openProject` now accepts an already-open editor after a Queue visit,
+the engine pick waits up to 15 s for the radio to enable and FAILS the run if it cannot be checked;
+new `snap.mjs` = `take <tag>` / `diff <a> <b>` of the top-level entries of `%TEMP%` and of
+`A2/profile` (name, recursive bytes, birth, mtime) → `snap-<tag>.json`):
+
+- **(a′) `node drive.mjs run std-cancel2 remotion 5 35 cancel 15` — PASS.** Fresh bundle (new
+  process, in-memory bundle cache empty): `bundling` 16:57:33→16:57:39, log `Getting compositions`
+  16:57:39.832Z → `Found compositions` 16:57:41.160Z (1.3 s incl. the probe folder removal; no
+  `still locked` line). Rendering, cancelled at 127/1800. During (16:57:57) the job's
+  `remotion\` held `remotion-v4.0.435-assetsruzn3ijtnu` (26,117,588 B), two Chrome profiles and
+  `react-motion-render*` (scratch 60,162,459 B). Final: `scratchLeft:false`,
+  **`newTempEntries:[]`**, `outputs:[]`, persisted `cancelled 127/1800`
+  (`report-std-cancel2.json`, `run-std-cancel2.log`, `stills/std-cancel2-queue.png`).
+- `%TEMP%` accounting (`node snap.mjs diff pre-a1 a1-after` → `snapdiff-a1.json`; window = launch
+  16:56:46 → after the runs 17:05:47, incl. the ffmpeg download below): `%TEMP%` net **−412 MB**;
+  NO new `puppeteer_dev_chrome_profile-*`, `remotion-v*-assets*`, `react-motion-render*` or
+  `vidtsx-studio\export\*`. New: `playwright-artifacts-juqsqq` + `playwright_chromiumdev_profile-sRLUAz`
+  (9.4 MB, born 17:05:12 — Playwright, not this app), `claude\` shrank 429 MB (another process),
+  five `<uuid>.tmp` files (four 0 B born 17:05:21–28, one 9,317 B born 16:56:46.4 = the app's
+  launch second) — NOT yet attributed. `A2/profile` net **+224 MB**: `ffmpeg-full` 177,918,482 B
+  (the deliberate GPU-encoder download), `Code Cache` +20 MB, `Cache` +19 MB, `bundle-cache`
+  +18 MB (the bundle cache — a named, pruned cache: `bundle-cache-prune.ts`), the rest < 0.1 MB.
+- **Full ffmpeg installed into the ISOLATED profile** (not copied from Hasan's): `node cdp.mjs
+  evalfile install-ffmpeg.js` (`studioProxyEncoderInstall` + poll) → `installed:true`, `detected:
+  "nvenc"`, `listed:["nvenc","qsv","amf"]`, `enabled:false`, 250,764 ms; D: 6.51 → 6.34 GB.
+- **(a″) Fast cancel NOT run:** the first attempt silently ran Standard (the radio was disabled,
+  the click did nothing — the driver now refuses that). After the install, the Fast row is STILL
+  disabled: "Fast … Copies 90 % of this timeline. Needs the GPU encoder download: Settings ›
+  Rendering › "Faster proxy generation (GPU encoder)" › Download." (`run-fast-cancel.log`,
+  `stills/fast-cancel-dialog.png`). Cause not investigated (an `enabled:false` toggle, a status
+  cached at app start, or a check in `passthrough-engine.ts` — see Next step).
+
 ## Verified (exact commands + outputs)
 
 - `npx vitest run src/main/services/studio/export-engines/disk-estimate.test.ts
@@ -209,69 +264,97 @@ Result of `node drive.mjs run std-cancel remotion 5 35 cancel 15` (`report-std-c
   "newTempEntries":[{"name":"puppeteer_dev_chrome_profile-jNmJPx","birth":"2026-10-21T16:46:50.511Z"}],
   "outputs":[],"persisted":{"status":"cancelled",…,"framesRendered":135,"totalFrames":1800}}`.
   App stopped afterwards (0 A2 electron.exe, ports 9242/5173 free).
+- Bundle-probe fix (2026-10-21 19:53): `npx vitest run src/main/services/bundle-compositions.test.ts
+  src/main/services/studio/export-engines/run-export.test.ts
+  src/main/services/studio/export-engines/remotion-temp-scope.test.ts` → `Test Files 3 passed (3) ·
+  Tests 10 passed (10)`. `npx vitest run src/main/services/ > A2/vitest-services-step3fix.log` →
+  `Test Files 2 failed | 236 passed | 3 skipped (241) · Tests 4 failed | 1854 passed | 18 skipped
+  (1876)` — the 4 are the known flakes (`shot-generator.test.ts` ×3, `shot-module-resolver.test.ts`
+  ×1); `npx vitest run src/main/services/studio/shot-generator.test.ts
+  src/main/services/studio/shot-module-resolver.test.ts` → `Test Files 2 passed (2) · Tests 28
+  passed (28)`. `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`. Commit `4b1156d`.
+- Live runs (agent 4): before launch 0 `electron.exe`, ports 9222/9242/5173 free, C: 24.52 GB,
+  D: 6.56 GB; removed the run-(a) evidence `%TEMP%\puppeteer_dev_chrome_profile-jNmJPx`;
+  `node snap.mjs take pre-a1` → `temp count 8915, 40,293,099,182 B; profile 32 entries`;
+  `A2_LOG=dev-app-a1.log bash launch.sh` (background) → `node drive.mjs ready` → `ready after 84 ms`
+  (port was already listening); `node drive.mjs setup` → `{"r":{"success":true},"g":{"root":
+  "D:\\repos\\VidTSX-STUDIO\\.vidtsx-temp\\end-to-end\\A2\\studio-root"},"c":{"success":true},
+  "o":{"success":true},"projects":["a2-disk"]}`; all 5 A2 electron.exe set BelowNormal (match
+  `end-to-end[/\\]A2[/\\]profile`). (a′) final line: `{"jobId":"3ca67ebb-aab9-4f9f-8553-c5eee8ec125c",
+  "scratchLeft":false,"newTempEntries":[],"outputs":[],"persisted":{"status":"cancelled",…,
+  "framesRendered":127,"totalFrames":1800}}`. After: `node snap.mjs take a1-after` →
+  `temp count 8920, 39,861,207,637 B; profile 34 entries, 313,495,984 B`. App stopped
+  (`taskkill /T` on the electron-vite node.exe; 0 electron.exe, ports 9242/5173 free); C: 24.72 GB,
+  D: 6.46 GB.
 
 ## Next step (ONE concrete instruction)
 
-Close the one leak run (a) found — the `%TEMP%\puppeteer_dev_chrome_profile-*` born at the END of
-bundling (16:46:50.5, before `runStudioExport`'s estimate at 16:46:51.86): read
-`src/main/services/remotion-bundler.ts` around :340-370 (`getCompositions(serveUrl, …)` :355) and
-its caller to confirm it runs in MAIN after a (re)bundle for a Studio export, OUTSIDE
-`withRemotionTempDir`; then run that call inside its own scope — `withRemotionTempDir(<a fresh
-dir under getTempDir()>, () => getCompositions(...))` and remove that dir in `finally` (reuse
-`removeScratch`'s retry from `run-export.ts:197-229` or a shared helper; do not widen the export
-job's scope to the bundle step, the bundle is shared/cached) — with a unit test (mock
-`@remotion/renderer`'s `getCompositions` to assert `os.tmpdir()` is the scoped dir inside it and the
-dir is gone after, also when it throws). Gate: `npx vitest run src/main/services/` +
-`npm run check:types`, commit `fix(studio): A2 — …`. Then RELAUNCH (`A2/launch.sh`, run the
-launcher from bash in the background, `node drive.mjs ready && node drive.mjs setup`, set
-BelowNormal — see Done) and finish step 3 with the kit: (a′) `node drive.mjs run std-cancel2
-remotion 5 35 cancel 15` → `newTempEntries` must be `[]` (delete
-`%TEMP%\puppeteer_dev_chrome_profile-jNmJPx` first — it is this run's evidence, 5.57 MB, made by the
-A2 instance; NOTE the bundle may be cached on the second launch, so to prove the fix re-bundle — e.g.
-touch nothing in src but check `report.during` timing shows "bundling" again, or note that the
-bundle was cached); (a″) `node drive.mjs run fast-cancel passthrough 5 35 cancel 10` (the 3 s
-crossfade at 20 s makes a browser span); (b) stop, relaunch with
-`VIDTSX_EXPORT_DISK_OVERRIDES='{"freeBytes":{"C:":1000000000}}'` exported in the shell that runs
-`launch.sh` (and `A2_LOG=dev-app-refuse.log`), `node drive.mjs run refuse remotion 5 35 refuse` →
-`queueText` must hold `Not enough disk space for this export. C: needs about … and has 954 MB.`,
-`scratchLeft:false`, `A2/out` empty — NOTE the refusal needs C: to need > 954 MB − 512 MB headroom:
-at 97 MB temp for this 30 s range it will NOT refuse; use `{"freeBytes":{"C:":300000000}}` (286 MB)
-or a smaller number, and the message will read `has 286 MB`; (c) stop, relaunch without the override,
-`node drive.mjs run complete remotion 5 15 complete` → record the output bytes in `A2/out` vs the
-logged `Export disk estimate` output for that job (then move/leave the output in `A2/out`, it is
-already in scratch). Then step 4 (STATUS.md row, TESTING.md `### 18.2 A2`, full vitest with the app
-stopped, commit, `status: DONE`).
+Make the Fast engine selectable on the isolated profile, then finish step 3: read the Fast
+availability check (grep `Needs the GPU encoder download` in
+`src/main/services/studio/export-engines/passthrough-engine.ts` and follow it into
+`src/main/services/studio/ffmpeg-full.ts` `getFfmpegFullBinary` :70) to learn whether it needs the
+`studioProxyEncoderSetEnabled({enabled:true})` toggle or only an app restart (the profile now
+holds `ffmpeg-full`, `installed:true, enabled:false`); do NOT change src for this unless the check
+is plainly wrong (if it is, record it under Open problems instead of fixing it in A2). Relaunch
+(`A2_LOG=dev-app-a2.log bash A2/launch.sh` in the background from bash, `node drive.mjs ready &&
+node drive.mjs setup`, BelowNormal on every electron.exe matching `end-to-end[/\\]A2[/\\]profile`),
+enable the toggle via IPC if that is what it needs, `node snap.mjs take pre-a2`, then run:
+(a″) `node drive.mjs run fast-cancel passthrough 5 35 cancel 10` (the 3 s crossfade at 20 s makes
+a browser span; the driver now FAILS if the radio cannot be checked) → `newTempEntries:[]`,
+`scratchLeft:false`, `outputs:[]`; `node snap.mjs take a2-after && node snap.mjs diff pre-a2
+a2-after` and attribute every new `%TEMP%` entry (look at the `<uuid>.tmp` files' content/owner —
+see Open problems); (b) stop, relaunch with `VIDTSX_EXPORT_DISK_OVERRIDES='{"freeBytes":{"C:":300000000}}'`
+exported in the shell that runs `launch.sh` (and `A2_LOG=dev-app-refuse.log`), `node drive.mjs run
+refuse remotion 5 35 refuse` → `queueText` holds `Not enough disk space for this export. C: needs
+about … and has 286 MB.`, `scratchLeft:false`, `A2/out` empty (97 MB temp + 512 MB headroom >
+286 MB, so it refuses); (c) stop, relaunch without the override, `node drive.mjs run complete
+remotion 5 15 complete` → record output bytes in `A2/out` vs the logged `Export disk estimate`
+output for that job. Then step 4 (STATUS.md row — name the bundle cache and the ffmpeg-full
+download as the deliberate disk users; TESTING.md `### 18.2 A2`; full `npx vitest run` with the
+app stopped, logged to a file; commit; `status: DONE`).
 
 ## Open problems
 
-- **Leak found in run (a):** a fresh bundle's composition listing leaves a ~5.6 MB
-  `%TEMP%\puppeteer_dev_chrome_profile-*` per (re)bundle (Remotion's `close()` does not remove the
-  profile on Windows; the render-time profiles are fine now because they sit in the job scratch).
-  Attribution is by timing (born at bundle end, before the job's estimate log, before the GL probe
-  started) — confirm in code before fixing (Next step). The exit says "a cancelled range export
-  leaves nothing", so this is in scope.
-- The Export dialog shows no estimate before confirm (`[data-export-estimate]` absent for the
-  range); §2 asks for "the estimate shown" — today it is shown only in the refusal message and the
-  log. Decide in step 4 whether the refusal message satisfies "estimate shown" (the plan's T7 text
-  reads it as part of the refusal: "refuses … with the estimate shown") — recommended: yes, no
-  dialog change.
-- C: free fell 25.21 → 24.58 GB across run (a) although scratch and output were cleaned; not
-  attributed (Windows / other apps / Electron caches on C:). Re-measure around the next run.
-
+- **RESOLVED (`4b1156d`, proven by run (a′)):** the bundle step's composition listing left a
+  ~5.6 MB `%TEMP%\puppeteer_dev_chrome_profile-*` per fresh bundle; it now runs in
+  `%TEMP%\vidtsx-studio\export\probe-*`, removed after.
+- **For the orchestrator / Hasan (not decided, not acted on):** `%TEMP%` holds **3,135
+  `puppeteer_dev_chrome_profile-*` folders, 22.03 GB, ALL born in the last 10 days** (counted
+  2026-10-21 16:55 UTC, `snap-pre-a1.json`). Remotion never deletes its Chrome profile on Windows,
+  so every Remotion browser OUTSIDE an A2 scope still leaks one: Studio shot stills
+  (`studio/shot-stills.ts` `selectComposition`/`renderStill`), the TSX builder stills
+  (`tsx-builder/build-stills.ts`, `builder-spike-*`), the GL probe when it runs outside an export,
+  Creator renders through `remotion-renderer.ts`, plus other tools on this machine (Playwright,
+  Hasan's installed app, other agents). A2 closes the export + bundle paths only. Options for a
+  later part: wrap those callers in `withOwnRemotionTemp`, and/or extend `sweepExportScratch` to
+  remove `puppeteer_dev_chrome_profile-*` older than 1 h (same rule as the assets folders — but the
+  name is generic puppeteer, so another program's live profile could match). Deleting the existing
+  22 GB is Hasan's call; nothing was deleted.
+- **C: accounting (orchestrator: "Must be accounted for before DONE") — partly done.** Run (a′)
+  window: `%TEMP%` net −412 MB, no export/bundle leftovers; the A2 profile (on D:) grew 224 MB
+  (ffmpeg-full 178 MB deliberate, Chromium caches 39 MB, bundle-cache 18 MB). Still unattributed:
+  five `<uuid>.tmp` in `%TEMP%` (four 0 B born 17:05:21–28 UTC while the app idled on the Export
+  dialog; one 9,317 B born 16:56:46.4, the app's launch second). Run (a)'s 25.21 → 24.58 GB C:
+  drop remains unexplained but is NOT reproduced by (a′) (C: 24.52 before launch → 24.72 after
+  stopping); the 3,135 stray profiles above are the likely long-run C: consumer.
+- **DECIDED by the orchestrator (2026-10-21):** the refusal message with its numbers satisfies
+  "estimate shown" (T7: "refuses … with the estimate shown"). No Export-dialog change in A2; an
+  estimate line in the dialog is logged in ORCHESTRATOR.md as a follow-up. Do not build it.
 - The estimate is a heuristic (bits/pixel): record measured output vs estimate in the CDP step
   and raise `H264_BITS_PER_PIXEL_AT_CRF18` only if it under-estimates.
 - `getTempDir()` (`%TEMP%/vidtsx-studio`) is shared by every app instance, and
   `sweepExportScratch` removes ALL `export/*` at startup: a second instance launched while
-  another renders deletes the live job's scratch — and, after this part, its Remotion copies.
-  Same hazard as before (DRIVING.md already says not to launch while Hasan renders); not fixed
-  in A2.
+  another renders deletes the live job's scratch — and, after this part, its Remotion copies and a
+  live composition probe (the bundle then lists `[]` compositions and warns). Same hazard as
+  before (DRIVING.md already says not to launch while Hasan renders); not fixed in A2.
 - `runStudioExport` deletes `outputPath` on any cancel, even one before finishing began (a
   pre-existing file of the same name). Unchanged; noted only.
 - The dev verify (`verifyAgainstEngine`, dev-only) renders a second, reference export into the
   same scratch; the preflight does not count it. Dev instrument only; not fixed.
 - Path length: Remotion's folders now sit under `%TEMP%\vidtsx-studio\export\<uuid>\remotion\`
-  (~105 chars before Remotion's own names) and the Chromium profile nests deep. If the live run
-  shows a path-length failure, shorten `remotion` → `r` in `run-export.ts` (and the test).
+  (~105 chars before Remotion's own names) and the Chromium profile nests deep. No failure in
+  runs (a)/(a′); if one shows, shorten `remotion` → `r` in `run-export.ts` (and the test).
 
 ## Do-not-redo
 
@@ -282,9 +365,12 @@ stopped, commit, `status: DONE`).
 - Do not rewrite the step-1 helpers; extend them if the wiring needs more inputs.
 - Step 2 (wiring, `88de827`) is done and green: do not re-wire; the process question is
   answered above (all in main).
+- The bundle-probe fix (`4b1156d`) is DONE and (a′) proved it (`newTempEntries:[]` after a fresh
+  bundle): do not redo either. The full ffmpeg is already in `A2/profile/ffmpeg-full` — do not
+  download it again, never copy Hasan's.
 - Run (a) Standard cancel is DONE and its on-disk proof is recorded above: do not re-prove that
-  the assets folder / render browsers / react-motion-render land in the job scratch. Only (a′) after
-  the bundle-step fix, Fast cancel, (b) refusal and (c) completion remain. Do not rebuild the kit or
+  the assets folder / render browsers / react-motion-render land in the job scratch. Only Fast cancel
+  (a″), (b) refusal and (c) completion remain. Do not rebuild the kit or
   re-search for a test clip (`A2/media/intro-copy.mp4` + `seed.mjs`).
 
 ## Agents so far (date · approx tool calls · what they covered)
@@ -297,3 +383,8 @@ stopped, commit, `status: DONE`).
 - 2026-10-21 19:50 · agent 3 · ~42 calls · step 3 kit (`A2/launch.sh`, `seed.mjs`, `drive.mjs`);
   live run (a) Standard range cancel: scope proven on disk, one bundle-step Chrome profile leak
   found in `%TEMP%`; app stopped; no src change, docs commit only.
+- 2026-10-21 20:10 · agent 4 · ~45 calls · bundle-probe leak fixed (`bundle-compositions.ts`,
+  `own-remotion-temp.ts`, `remove-dir-retry.ts`, 2 tests), commit `4b1156d`; live (a′) PASS
+  (`newTempEntries:[]`); `snap.mjs` %TEMP%/profile accounting; full ffmpeg downloaded into the
+  isolated profile; Fast still disabled → (a″) not run; found 3,135 stray Chrome profiles (22 GB)
+  in %TEMP%; app stopped.
