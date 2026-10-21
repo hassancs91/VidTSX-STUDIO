@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS (steps 0 + 1 done; next: step 2, GPU proxies default on when viable)
+status: IN PROGRESS (steps 0, 1, 2 done; next: step 3, the first-4K-import download card)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -141,8 +141,40 @@ numbers."
     a refusal throws the message before the scratch dir exists (the UI shows it as the export's
     failure via `sendComplete(false, …, message)`, same path as A2's disk refusal). An entry from
     before A4 (no `fontUrls`) skips it.
+- **Step 2 — GPU proxies default on when viable, code + unit tests** (`4671622`). Not yet driven.
+  - Pure, `src/main/services/studio/proxy-encoders.ts`: `PROXY_GPU_AUTO_ENCODERS = ['nvenc']`
+    (~:76; QSV/AMF are unmeasured → stay opt-in); `effectiveProxyGpuEnabled(setting, viable)` :82
+    (`setting ?? viable` — explicit true/false wins); `isProxyGpuAutoViable(working)` :87 (the
+    encoder `chooseProxyEncoder` would pick is NVENC — a working NVENC probe encodes frames on the
+    card, so it is also the "NVIDIA adapter present" proof); `decideProxyGpuEncoder(setting,
+    working)` :97 (unset → NVENC only; true → any working, the pre-A4 opt-in; false → none).
+  - `src/main/services/settings.ts:297` `getProxyGpuEncoderSetting(): boolean | undefined`
+    REPLACES `getProxyGpuEncoderEnabled` (gone; it collapsed unset into false). The setter is
+    unchanged, so unticking writes an explicit `false`.
+  - `src/main/services/studio/ffmpeg-full.ts:222` `resolveProxyGpuEncoder`: latch → `false` short-
+    circuits → binary → probe → `decideProxyGpuEncoder`. Called per proxy build
+    (`proxy-generator.ts:236`), reads the binary + `encoders.json` fresh each time, so a download
+    should take effect on the next import WITHOUT a restart — unproven live (see Open problems,
+    A2's stale-Fast observation). One-failure x264 latch untouched.
+  - IPC: `src/shared/ipc/types/proxy-encoder.ts:9-15` `enabled` is now the EFFECTIVE state, new
+    optional `choice?: boolean | null` (null = never chosen); handler
+    `src/main/ipc/studio-proxy-encoder-handlers.ts:44-52`.
+  - Row `src/renderer/components/SettingsModal/rows/ProxyGpuEncoderRow.tsx`: copy no longer says
+    "Off by default"; `[data-proxy-gpu-detected]` reads "Detected: NVIDIA NVENC — on automatically"
+    (unset + viable) or "… — opt-in (only NVIDIA turns on by itself)" (unset, QSV/AMF); the
+    checkbox shows `enabled` without writing; a toggle sets `choice` optimistically (:77).
+  - Tests: `proxy-encoders.test.ts:123` (3 cases), `studio-proxy-encoder-handlers.test.ts:86,95,104`
+    (auto-on without writing the setting; QSV stays off until opted in; explicit off stays off)
+    + the default case now asserts `choice: null`.
 
 ## Verified (exact commands + outputs)
+
+- Step 2: `npx vitest run src/main/services/studio/proxy-encoders.test.ts src/main/ipc/studio-proxy-encoder-handlers.test.ts src/main/services/studio/proxy-generator.test.ts`
+  → `Test Files  3 passed (3)` / `Tests  43 passed (43)`.
+- Step 2 full run, no electron.exe running, 9222/5173 free:
+  `npx vitest run > .vidtsx-temp/end-to-end/A4/logs/vitest-full-step2.log 2>&1` → exit 0,
+  `Test Files  424 passed | 4 skipped (428)`, `Tests  3572 passed | 22 skipped (3594)`, 40.24 s.
+- Step 2 `npm run check:types` → web 26 (baseline 26) ok, node 10 (baseline 10) ok.
 
 - Step 1: `npx vitest run src/main/services/font-proxy.test.ts src/main/services/font-proxy-rewrite.test.ts src/main/services/font-upstream-dev-overrides.test.ts src/main/services/studio/export-engines/font-preflight.test.ts src/main/services/studio/export-engines/run-export.test.ts src/main/services/brand-fonts.test.ts`
   → `Test Files  6 passed (6)` / `Tests  38 passed (38)`; run-export alone `5 passed (5)`
@@ -171,16 +203,22 @@ numbers."
 
 ## Next step (ONE concrete instruction)
 
-Step 2 (GPU proxies default on when viable — code + unit tests, no app run yet): read
-`src/main/services/settings.ts:295-300` (`proxyGpuEncoderEnabled`, no default) and where the
-proxy encoder choice is made (`src/main/services/studio/proxy-encoders.ts` + its caller; keep the
-one-failure x264 latch), then add a PURE resolver, e.g. `effectiveProxyGpuEnabled(setting:
-boolean | undefined, viable: boolean): boolean` (unset → `viable`; explicit true/false wins),
-where "viable" = an NVIDIA adapter present AND the full ffmpeg installed
-(`src/main/services/studio/ffmpeg-full.ts:32-109`) AND its encoder probe passes; unit-test it
-and use it at the proxy-build decision, and make `ProxyGpuEncoderRow.tsx` show the effective
-state (an unset setting reads "On (automatic)" or similar) without writing the setting. Step 3
-after that: the first-4K-import download card; step 4: the CDP run for both exits.
+Step 3 (the first-4K-import download card — pure op + tests first, then UI; no app run yet):
+read `src/main/services/studio/media-jobs.ts` (the only non-test caller of `proxy-generator`,
+i.e. where an imported video's proxy job starts) and the renderer component that shows Studio
+media-job / proxy progress, then add a PURE predicate, e.g. `shouldOfferGpuProxyDownload({
+width, height, platform, installed, downloading, choice, dismissed })` → true only for a ≥ 4K
+(e.g. `max(w,h) ≥ 3840` or `min ≥ 2160`) video import on win32 when the full ffmpeg is not
+installed, not downloading, the user never chose (`choice === null`) and has not dismissed the
+card; unit-test it; then a card (renderer, `src/features/studio/…`, reading
+`window.api.studioProxyEncoderStatus()` + the import's dimensions) that says, with the measured
+numbers from `proxy-encoders.ts:7-12`, "4K proxies: ~12 s per minute of footage on an NVIDIA
+card vs ~91 s on the CPU — download the GPU encoder (80 MB, GPL)?", a Download button wired to
+`studioProxyEncoderInstall` with progress from `onDownloadProgress` (copy
+`ProxyGpuEncoderRow.tsx:41-72`), and Not now (persist the dismissal as a new optional setting or
+per-session — record which). Whether the card must say "restart to apply" is decided by the
+step-4 live run (Open problems); write the card so that line is one constant. Step 4 after that:
+the CDP run for both exits (recipe in Open problems).
 
 ## Open problems
 
@@ -198,6 +236,35 @@ after that: the first-4K-import download card; step 4: the CDP run for both exit
   with zero `Font upstream blocked` / `Font proxy fetch failed` lines during it and an
   `Export font preflight … filesFetched: 0` line. Keep ranges 3–5 s at 1080p (see Orchestrator
   notes).
+- **Step-4 must-record (orchestrator, 2026-10-21): the preflight is strict per URL.** A single
+  upstream 404 for one of the ~103 inlined weight/subset URLs refuses the export exactly like a
+  network outage. In the live run's warm export, record from the `Export font preflight` line how
+  many URLs warmed (`urls`, `filesFetched`, `filesCached`) and whether `failed` is non-empty,
+  and grep the main log for the per-URL failures (status codes). If a 404-for-one-file case is
+  real, before closing the part split the verdict: "upstream unreachable" (network error / 5xx /
+  every URL failing → refuse, today's message) vs "this one file is gone upstream" (a definite
+  404/410 while other URLs succeed → WARN, continue the export, name the family/file in the log
+  and the export's warnings). `ensureFontCached` throws per URL today; carry the HTTP status in
+  the error so `checkExportFonts` / `fontPreflightVerdict` can tell them apart (pure verdict
+  first, with tests). If no URL 404s, record "0 failed of N" and leave the strict rule.
+- **Step-4 must-record: does a GPU proxy need a restart after the in-app download?** Step 2's
+  `resolveProxyGpuEncoder` reads the binary and `encoders.json` fresh per proxy build, so in
+  theory no. But A2 saw Fast stay "Needs the GPU encoder download" ~30 s after an in-app install
+  until a restart (DRIVING.md "Learned"). One suspect, unverified: a status call that probes while
+  the zip is still extracting (`getFfmpegFullBinary` only checks `ffmpeg.exe`, the DLLs may not be
+  out yet) caches `{listed:[],working:[]}` into `encoders.json`, which then sticks until the file is
+  deleted. In the live run: install from the card, then WITHOUT a restart import the 4K clip and
+  read the main log's `Probed GPU proxy encoders` line + the proxy's manifest `profile`
+  (`nvenc-540p-intra-q33` = GPU, x264 tag = CPU) in the scratch project's `cache/`. If it fell
+  back to x264, cat `<profile>/ffmpeg-full/encoders.json`; fix the root cause in code (preferred)
+  or make the card say "restart to apply"; record which.
+- Step-4 recipe for the GPU exit: fresh isolated profile (setting unset), check C:/D: free space,
+  confirm `D:\repos\claude-youtube-editor\videos\video-14\raw\DJI_20261015115644_0366_D.MP4` is
+  3840×2160 with ffprobe, scratch project in A4's own scratch root (never the video-14 copy),
+  import → the card → Download (80.1 MB into A4's profile only) → (restart only if proven needed)
+  → import/rebuild → proxy profile `nvenc-…` without opening Settings; Settings row then reads
+  "Detected: NVIDIA NVENC — on automatically" with the checkbox ticked and no
+  `proxyGpuEncoderEnabled` key written (check the profile's settings store).
 
 - Not a blocker: one failing `hang` test in `shot-generator.test.ts` can still leave an orphan
   run that cascades into the next tests (there is no afterEach net — `runs` is private and a
@@ -213,6 +280,8 @@ after that: the first-4K-import download card; step 4: the CDP run for both exit
   stale (see the A4 "Learned" line there).
 - Step 1 DONE (`3417d46`): do not re-add `collectFontUrls` / the preflight / the dev override;
   the font half only needs its live CDP proof (step 4).
+- Step 2 DONE (`4671622`): do not re-add the default-on resolver, the tri-state setting getter,
+  the `choice` status field or the row copy; `getProxyGpuEncoderEnabled` is deliberately gone.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -222,3 +291,6 @@ after that: the first-4K-import download card; step 4: the CDP run for both exit
 - 2026-10-21 · agent 2 · ~40 calls · step 1 (font preflight: pure collectors + verdict, strict
   `ensureFontCached`, dev upstream block, entry `fontUrls`, run-export wiring, tests, green full
   run); did not read the proxy/GPU code for step 2.
+- 2026-10-21 · agent 3 · ~30 calls · step 2 (GPU proxies default on when viable: pure resolver,
+  tri-state setting, effective status + `choice`, row copy, tests, green full run); did not read
+  `media-jobs.ts` or the import UI for step 3.
