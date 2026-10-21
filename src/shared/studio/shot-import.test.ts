@@ -34,6 +34,16 @@ describe('classifyShotImport', () => {
     expect(result.packages).toEqual(['@remotion/shapes', 'chroma-js', 'three']);
   });
 
+  it("passes remotion's own subpaths like the shot lint (A3), and still lists any other remotion/ path", () => {
+    const result = classifyShotImport(
+      withImports('remotion/no-react', 'remotion/version', 'remotion/foo', 'remotion/dist/cjs/index.js'),
+    );
+    expect(result.packages).toEqual(['remotion/foo', 'remotion/dist/cjs/index.js']);
+    expect(result.localFiles).toEqual([]);
+    expect(result.otherErrors).toEqual([]);
+    expect(classifyShotImport(withImports('remotion/no-react', 'remotion/version')).packages).toEqual([]);
+  });
+
   it('keeps a source that imports local files manual: Convert edits one file', () => {
     const result = classifyShotImport(withImports('./helpers', 'gsap', 'C:/abs/thing'));
     expect(result.localFiles).toEqual(['./helpers', 'C:/abs/thing']);
