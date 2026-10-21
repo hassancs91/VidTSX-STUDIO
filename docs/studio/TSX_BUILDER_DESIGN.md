@@ -1175,6 +1175,29 @@ offline after the first use. The builder prompt teaches the field. `check` warns
 > without an agent (E1); the agent v0.2 reaches the same class with one clock slip (E3); B1 carries the moves with two
 > clocks (E2). All three beat P3's B2 runs at a third to a half of the cost. Open for Hasan: the one-clock rule and
 > the PACK: line are prompt-only and not reliably kept (P4-5 (b), a numbers-against-step look check, or P5).
+>
+> **P4-12 (10-21): the numbers check (AGREED C1-C4 all (a)), DONE: code `c008db3`, $0.84 API-eq.** A free
+> `number_check` tool (builder-measure-tools.ts) and a finish gate like `loop_seam`: once a look shows numbers that
+> change, `finish` wants the last `number_check` on this exact build OK; after `NUMBER_SPLIT_ALLOWANCE` (3) SPLIT
+> builds it finishes with `numbersOk: false` (BuildResult, vN.debug.json; not yet in the agent's result line or IPC).
+> METHOD step 6 names it. `number-sweep.ts` reads the visible text of every frame (≤ 300; the piece mounted 24 frames to
+> a page via contact-sheet.ts `mountablePiece`; WebGL frame by frame, ≤ 60). `number-check.ts` follows each number
+> by shape + position; a step label = a plain whole number with 3+ changes; SPLIT = a number that starts and stops
+> moving with the label changes while it holds; numbers fixed on every frame while others move are listed, never
+> blocking. Two calls made in the build: tracks use raw text nodes (the reading-order lines shift between frames), and
+> a number pairs with a label only over the label's span (E2's tree STEPS end f60, the scan's ROWS READ f150: the two
+> sides of a race, which a correct race also does). PACK: line unchanged (C3 a).
+> - **$0 bench** (spike mode `numbers`, `builder-spike-numbers.ts`, stored sources copied): E1 OK; E3 SPLIT ("YEAR 0"
+>   held while both totals went $10,000 → $10,200 → $10,400, f100-102); P3 Creator Craft SPLIT; P3 agent Craft SPLIT;
+>   E2 OK (its "50,000× FEWER READS" listed). Sweep 16-30 s a build.
+> - **Paid re-runs** (Creator, E1 / E2 settings, Sonnet 5.5 default): **R1** B2 + Flat bold → `compound-interest-4`
+>   v1: 3.3 min, 4/6, 12 checks, 9.1k out, $0.41, seam OK, numbersOk: the builder ran `number_check` itself (rounds 3
+>   and 4, both OK, the gate never refused for it); checked by hand: f110 "YEAR 4" · $13,200 · $13,605 · "+$1,008 this
+>   year" · ×1.03, f180 "YEAR 21" · $26,800 · $50,338 · ×1.88, all the year's exact state. **R2** B1 + Blueprint →
+>   `index-lookup-2` v1: 3.7 min, **5/6** (the first Sonnet build past the floor), 12 checks, 10.0k out, $0.43, seam
+>   OK, numbersOk; each side's counters agree with its own picture, but the race still runs on two clocks (scan f30 →
+>   ~f210 for 2 s, index f30 → f87 for 2 ms: the motion says ~3×, the counters 1,000×), and "1000× FASTER" stays on
+>   every frame (listed, kept). Text alone cannot see a race's time scale.
 
 Each phase ends by re-running the `studio-unlock-01` briefs (B1–B4) through the new entry
 point and putting the result on the wall beside R0b column 3, with time, rounds and tokens.
@@ -1185,7 +1208,7 @@ point and putting the result on the wall beside R0b column 3, with time, rounds 
 | **P1 builder service** | request/result types, build folders + versions (`vN.tsx`, `vN.src/`, debug), all T2 tools except `text_overlaps`, budgets + caps, cancel, progress events, the `generateTsx()` dispatcher, tsx-job hosting (builder only; providers without tools → clear error; OpenRouter models must have tools + image input), unit tests | all four briefs through the job engine at Craft on the wall (`P1-B1..B4`) + one Standard edit of B2 |
 | **P2 no limits** (Rev 2) | T4 Rev 2: the curated library set behind one constant, GPU stills + export, frame-pure physics helper + rule, builder assets folder, packaged-app resolution (asar), no network at render; plus T5 fonts, kit on the render path, prompts aligned | new 3D + physics briefs reach the lab's real3d quality; the four 2D briefs still pass; dev and packaged, offline after the first run |
 | **P3 callers** | Creator merged composer (+4:5, budget, packs, live stills, 3D through the builder), then agents' generate/edit_composition, then Studio shots + assistant + Refine, then the flow node; **then `generateTsxPipeline` is deleted from generation** (Rev 2; conform/import repair passes decided then) | each entry point produces column-3 class on its brief; no caller reaches the one-shot pipeline. **Ran 10-17 (Sonnet 5.5 defaults):** no caller reaches the pipeline (met); column-3 class on Studio + flow, not on the Creator or the agent (B2, Standard + one Craft re-run each); FINDINGS-P3.md |
-| **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent. **Ran 10-21 (Sonnet 5.5 default, Craft):** met on B2 in the Creator (E1); agent v0.2 the same class with one clock slip (E3); B1 + Blueprint carries the moves with two clocks (E2); $1.29 in all; FINDINGS-P4.md |
+| **P4 craft packs + agents** | pack kind `craft`, built-in packs, picker; Infographic Loop agent v0.2 as a thin director (intent + packs, no pixel sheets); tsx-composer retired from the Creator | a user picks Infographic loop + Blueprint in the Creator and gets the column-3 result without an agent. **Ran 10-21 (Sonnet 5.5 default, Craft):** met on B2 in the Creator (E1); agent v0.2 the same class with one clock slip (E3); B1 + Blueprint carries the moves with two clocks (E2); $1.29 in all; FINDINGS-P4.md. **P4-12 (10-21):** `number_check` + finish gate; B2 re-run one clock and checked OK, B1 re-run still two race clocks (text cannot see it); $0.84 |
 | **P5 polish** | `text_overlaps`, cost estimate on API keys, AGENT_PACKAGE_SPEC tool semantics, TESTING.md, release notes | stability gate |
 
 Rules: CLAUDE.md applies (feature isolation, IPC only, services hold logic, ~300 lines per
