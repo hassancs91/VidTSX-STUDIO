@@ -8,7 +8,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 const store = new Map<string, unknown>();
 vi.mock('../services/settings', () => ({
-  getProxyGpuEncoderEnabled: async () => store.get('proxyGpuEncoderEnabled') === true,
+  getProxyGpuEncoderSetting: async () => {
+    const v = store.get('proxyGpuEncoderEnabled');
+    return typeof v === 'boolean' ? v : undefined;
+  },
   setProxyGpuEncoderEnabled: async (enabled: boolean) => {
     store.set('proxyGpuEncoderEnabled', enabled === true);
   },
@@ -61,6 +64,7 @@ describe('studio proxy encoder handlers', () => {
     expect(status).toMatchObject({
       success: true,
       enabled: false,
+      choice: null,
       installed: false,
       downloading: false,
       detected: null,
@@ -77,6 +81,32 @@ describe('studio proxy encoder handlers', () => {
     expect((await handleStudioProxyEncoderStatus()).enabled).toBe(true);
     expect(await handleStudioProxyEncoderSetEnabled(event, { enabled: false })).toEqual({ success: true });
     expect((await handleStudioProxyEncoderStatus()).enabled).toBe(false);
+  });
+
+  it('never chosen + installed + NVENC working: on automatically, without writing the setting (A4)', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['nvenc', 'qsv'];
+    full.working = ['nvenc', 'qsv'];
+    const status = await handleStudioProxyEncoderStatus();
+    expect(status).toMatchObject({ enabled: true, choice: null, detected: 'nvenc' });
+    expect(store.has('proxyGpuEncoderEnabled')).toBe(false);
+  });
+
+  it('never chosen but only an unmeasured encoder works (QSV): stays off until opted in', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['qsv'];
+    full.working = ['qsv'];
+    expect(await handleStudioProxyEncoderStatus()).toMatchObject({ enabled: false, choice: null, detected: 'qsv' });
+    await handleStudioProxyEncoderSetEnabled(event, { enabled: true });
+    expect(await handleStudioProxyEncoderStatus()).toMatchObject({ enabled: true, choice: true });
+  });
+
+  it('a user who turned it off stays off even with NVENC working', async () => {
+    full.binary = 'C:/x/ffmpeg.exe';
+    full.listed = ['nvenc'];
+    full.working = ['nvenc'];
+    await handleStudioProxyEncoderSetEnabled(event, { enabled: false });
+    expect(await handleStudioProxyEncoderStatus()).toMatchObject({ enabled: false, choice: false, detected: 'nvenc' });
   });
 
   it('after install, the status names the working encoder in preference order', async () => {

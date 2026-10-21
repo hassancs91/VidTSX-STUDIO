@@ -19,9 +19,9 @@ import { spawn } from 'child_process';
 import { app } from 'electron';
 import { logEngine } from '../../../logging/log-engine';
 import { enqueueDownload, getAllDownloads } from '../download-manager';
-import { getProxyGpuEncoderEnabled } from '../settings';
+import { getProxyGpuEncoderSetting } from '../settings';
 import {
-  chooseProxyEncoder,
+  decideProxyGpuEncoder,
   encoderProbeArgs,
   parseHardwareEncoders,
   type ProxyGpuEncoder,
@@ -214,15 +214,18 @@ export interface ResolvedProxyGpuEncoder {
 
 /**
  * The encoder the next proxy should use, or null for the bundled x264 path:
- * the setting must be on, the binary installed, an encoder proven working,
- * and no failure latched this session.
+ * the setting on — or never chosen and NVENC working (A4's default) — the
+ * binary installed, an encoder proven working, and no failure latched this
+ * session. Read fresh on every proxy build, so an in-app download takes
+ * effect on the next import without a restart.
  */
 export async function resolveProxyGpuEncoder(): Promise<ResolvedProxyGpuEncoder | null> {
   if (fallback) return null;
-  if (!(await getProxyGpuEncoderEnabled())) return null;
+  const setting = await getProxyGpuEncoderSetting();
+  if (setting === false) return null;
   const ffmpeg = await getFfmpegFullBinary();
   if (!ffmpeg) return null;
   const probe = await probeProxyEncoders(ffmpeg);
-  const encoder = chooseProxyEncoder(probe.working);
+  const encoder = decideProxyGpuEncoder(setting, probe.working);
   return encoder ? { ffmpeg, encoder } : null;
 }

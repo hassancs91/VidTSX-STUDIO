@@ -5,7 +5,7 @@ import type {
   StudioProxyEncoderSetEnabledResponse,
   StudioProxyEncoderStatusResponse,
 } from '../../shared/ipc/types';
-import { getProxyGpuEncoderEnabled, setProxyGpuEncoderEnabled } from '../services/settings';
+import { getProxyGpuEncoderSetting, setProxyGpuEncoderEnabled } from '../services/settings';
 import {
   FFMPEG_FULL_CATALOGUE,
   clearProxyGpuFallback,
@@ -15,7 +15,12 @@ import {
   isFfmpegFullDownloading,
   probeProxyEncoders,
 } from '../services/studio/ffmpeg-full';
-import { PROXY_GPU_ENCODER_LABELS, chooseProxyEncoder } from '../services/studio/proxy-encoders';
+import {
+  PROXY_GPU_ENCODER_LABELS,
+  chooseProxyEncoder,
+  effectiveProxyGpuEnabled,
+  isProxyGpuAutoViable,
+} from '../services/studio/proxy-encoders';
 
 function errorMessage(err: unknown, fallback: string): string {
   return err instanceof Error && err.message ? err.message : fallback;
@@ -36,14 +41,15 @@ const EMPTY: Omit<StudioProxyEncoderStatusResponse, 'success' | 'error'> = {
 
 export async function handleStudioProxyEncoderStatus(): Promise<StudioProxyEncoderStatusResponse> {
   try {
-    const enabled = await getProxyGpuEncoderEnabled();
+    const setting = await getProxyGpuEncoderSetting();
     const ffmpeg = await getFfmpegFullBinary();
     const probe = ffmpeg ? await probeProxyEncoders(ffmpeg) : null;
     const detected = probe ? chooseProxyEncoder(probe.working) : null;
     return {
       success: true,
       ...EMPTY,
-      enabled,
+      enabled: effectiveProxyGpuEnabled(setting, isProxyGpuAutoViable(probe?.working ?? [])),
+      choice: setting ?? null,
       installed: ffmpeg !== null,
       downloading: isFfmpegFullDownloading(),
       detected,

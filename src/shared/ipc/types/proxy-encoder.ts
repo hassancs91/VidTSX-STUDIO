@@ -6,8 +6,13 @@ export type ProxyGpuEncoderId = 'nvenc' | 'qsv' | 'amf';
 export interface StudioProxyEncoderStatusResponse {
   success: boolean;
   error?: string;
-  /** The user's toggle (persisted, default off). */
+  /**
+   * Effective state: the user's explicit choice, or — when they never chose —
+   * on when viable (installed + NVENC working; A4). What the checkbox shows.
+   */
   enabled: boolean;
+  /** The persisted choice; null = never chosen, so `enabled` is automatic. */
+  choice?: boolean | null;
   /** The full ffmpeg binary is on disk. */
   installed: boolean;
   /** A download/extract is in flight (also true across an app restart resume). */

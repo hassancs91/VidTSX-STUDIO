@@ -67,6 +67,42 @@ export function chooseProxyEncoder(working: readonly ProxyGpuEncoder[]): ProxyGp
 }
 
 /**
+ * Encoders that turn GPU proxies on by themselves when the user never chose
+ * (A4, END_TO_END_PLAN §2 T7). Only NVENC: it is the measured path (12 s vs
+ * 91 s above); QSV and AMF stay opt-in until someone measures them. A
+ * working NVENC probe is also the proof an NVIDIA adapter is present — it
+ * encodes real frames on the card.
+ */
+export const PROXY_GPU_AUTO_ENCODERS: readonly ProxyGpuEncoder[] = ['nvenc'];
+
+/**
+ * Is the GPU proxy encoder on? An explicit choice (true/false) always wins —
+ * a user who turned it off stays off. Unset means "on when viable".
+ */
+export function effectiveProxyGpuEnabled(setting: boolean | undefined, viable: boolean): boolean {
+  return setting ?? viable;
+}
+
+/** "Viable" for the automatic default: the encoder the generator would pick is an auto one. */
+export function isProxyGpuAutoViable(working: readonly ProxyGpuEncoder[]): boolean {
+  const encoder = chooseProxyEncoder(working);
+  return encoder !== null && PROXY_GPU_AUTO_ENCODERS.includes(encoder);
+}
+
+/**
+ * The encoder the next proxy uses given the saved choice and the probe's
+ * working list, or null for x264. An explicit "on" uses any working encoder
+ * (the pre-A4 behaviour); unset uses one only when it is viable.
+ */
+export function decideProxyGpuEncoder(
+  setting: boolean | undefined,
+  working: readonly ProxyGpuEncoder[],
+): ProxyGpuEncoder | null {
+  if (!effectiveProxyGpuEnabled(setting, isProxyGpuAutoViable(working))) return null;
+  return chooseProxyEncoder(working);
+}
+
+/**
  * Minimal encode used to prove an encoder actually opens on this machine and
  * driver: two synthetic frames to a null muxer, no media touched. Exit code 0
  * is the verdict.
