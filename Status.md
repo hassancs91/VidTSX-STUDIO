@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-10-21 — END-TO-END A4: export font preflight; GPU proxies default on + the first-4K-import download card — DONE
+
+- **What:** part A4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `3417d46`, `4671622`,
+  `139a4a9`, `3d450ba`; test-only `22593db`, `0afc196`), the plan's §2 T7 slice. **Fonts:** every Studio export
+  now scans the shot, caption and transition COPIES for Google Fonts URLs (new optional
+  `StudioExportEntry.fontUrls`, `export-entry.ts:76`), warms the font cache strictly (`ensureFontCached`,
+  `font-proxy.ts:145`; 6 workers in `export-font-check.ts`) and refuses to start with a clear message when a
+  file is missing and upstream is unreachable (`font-preflight.ts`, wired in `run-export.ts:81-92` before the
+  scratch dir exists) — the font proxy's 502-mid-render path no longer happens. Dev-only
+  `VIDTSX_FONT_UPSTREAM_OVERRIDES` (ignored packaged) blocks upstream for testing. **GPU proxies:** an unset
+  setting now means "on when NVENC works" (`effectiveProxyGpuEnabled`/`decideProxyGpuEncoder`,
+  `proxy-encoders.ts:82,97`); an explicit off stays off, QSV/AMF stay opt-in, the one-failure x264 latch is
+  kept; no setting is written by the default. **The card:** the first 4K import through the media pool offers
+  the full ffmpeg (76 MiB = 80,069,496 B) with the measured 91 s vs 12 s per minute; after the download, main
+  re-queues this session's x264 4K proxies on NVENC (`studio:proxy-encoder:rebuild`, media-jobs `restart()`),
+  so the clip that triggered the card ends on the GPU without a re-import. "Not now" lasts the app session.
+  Step 0 also fixed the `shot-generator.test.ts` full-suite flake (test isolation: it cancelled one timer
+  tick after starting a NEW shot, before the run was tracked). No schema change (optional fields only).
+- **Verified 2026-10-21** over CDP on an isolated profile (port 9244, `.vidtsx-temp/end-to-end/A4/`):
+  **GPU exit** — fresh profile, 3840×2160 HEVC 60 fps DJI clip (20.3 s) → card **1.6 s** after Import →
+  Download **80,069,496 B in ~106 s** → probe `working:[nvenc,qsv]` 3.7 s after install → the TRIGGERING
+  clip's proxy rebuilt as `nvenc-540p-intra-q33` in **7.9 s** (x264 had taken **23.7 s**); re-import straight
+  to NVENC in **6.3 s**; **no restart, no Settings visit**; Settings row "Detected: NVIDIA NVENC — on
+  automatically", ticked, **no `proxyGpuEncoderEnabled` key written**. **Font exit** (video-14 copy, Standard
+  1080p 0:06–0:11, CPU low): cold cache + blocked upstream → refused, "Export not started: … Google Fonts …
+  (103 font files missing) …" in the Queue row's Details, no scratch, no output; unblocked → preflight
+  **103 URLs, 0 failed** (strict per-URL rule stays), completed 166.3 s, 1,362,839 B; **blocked after warm-up →
+  preflight 0 fetched / 202 cached / 0 failed (36 ms), 0 upstream lines, completed in 181.5 s, 1,362,505 B**
+  (h264 1920×1080, 300 frames + AAC). `npx vitest run` **428 files passed, 4 skipped; 3598 tests passed,
+  22 skipped, 46.6 s**; `npm run check:types` web 26 / node 10 = baseline.
+- **Known issue (seen once, not root-caused):** in step 4b a Standard export started ~10 s after the
+  previous one lost its `remotion\react-motion-render*` folder mid-render; Remotion's pre-encode ffmpeg died at
+  frame 66 and `renderMedia()` never settled (its `onFrameBuffer` throw is an unhandled rejection), so the job
+  sat at "rendering" / 70 % for 11 min until Cancel (which cleaned up fully). It did NOT reproduce in 3 traced
+  back-to-back runs (a delete tracer saw nothing in the app delete that folder). A guard that fails the job
+  when the pre-stitcher dies moves to A5 step 0.
+- **Open (Hasan):** a refused export shows nothing in the editor (no toast) — the message lives in Queue →
+  Details (same as A2's disk refusal). The preflight is strict: a project's FIRST export needs the network
+  once even when the preview filled the cache (all weights × subsets, ≈100 URLs for video-14's 4 families);
+  after that, exports work offline. Brand fonts and pack filters are not scanned.
+- **Next:** A5.
+
 ## 2026-10-21 — END-TO-END A3: the no-react fix — `remotion/<subpath>` external in shot bundles — DONE
 
 - **What:** part A3 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, code `c3aefe8`), the

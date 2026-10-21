@@ -1,5 +1,5 @@
 # A4 — Font preflight for exports; GPU proxies default on + the first-4K-import download card
-status: IN PROGRESS — BOTH EXITS PROVEN LIVE (step 4a GPU; step 4b/4c font: refusal, warm, and the blocked-after-warm export COMPLETED in step 4c). Steps 0–3b done in code + unit tests. Step 4b's encoder crash did NOT reproduce in 3 traced back-to-back exports and no in-process code deleted the folder (see Open problems). Next: the part close only — gates + STATUS row + TESTING §18.4.
+status: DONE (2026-10-21, step 5) — both exits proven live (step 4a GPU; step 4c font), gates green at the close (vitest 428 files / 3598 tests, types web 26 / node 10), STATUS.md row + TESTING.md §18.4 written. Step 4b's encoder crash: seen once, not reproduced in 3 traced runs, not root-caused — its guard moves to A5 step 0 (orchestrator).
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line — A2 learned that Fast/GPU tools need an app restart after
@@ -296,7 +296,22 @@ numbers."
     a file on disk; cancel after restart wins; `queued` state), `proxy-gpu-rebuild.test.ts` (NEW, 4),
     handler test +2 (`describe('studio proxy encoder rebuild …')`), `gpu-proxy-offer.test.ts:110` (+2).
 
+- **Step 5 — part close (2026-10-21, no code change, no app run).** Gates green (Verified "Step 5"); STATUS row
+  at the top of `Status.md` ("END-TO-END A4 … — DONE": What / Verified with the measured numbers / Known issue
+  / Open (Hasan) / Next A5); `docs/studio/TESTING.md` `### 18.4 A4` (after §18.3: 16 items, 11 checked, ✎ on
+  the CDP-driven ones; the refusal-only-in-Queue-Details note, the strict-preflight note, and the step-4b
+  encoder crash recorded as a known issue: seen once, not reproduced in 3 traced back-to-back runs, not
+  root-caused, Remotion's `renderMedia` never settles when its pre-encode ffmpeg dies, guard → A5 step 0).
+  Commit: see LOG.md's last line (`docs(studio): A4 — part close …`).
+
 ## Verified (exact commands + outputs)
+
+- Step 5 (close), 0 electron.exe running, ports 9222/5173/9244 free:
+  `npx vitest run > .vidtsx-temp/end-to-end/A4/logs/vitest-full-close.log 2>&1` → exit 0,
+  `Test Files  428 passed | 4 skipped (432)`, `Tests  3598 passed | 22 skipped (3620)`, `Duration  46.64s`
+  (no `shot-module-resolver.test.ts:151` timeout, no rerun needed).
+  `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok`,
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
 
 - Step 4c (live; times UTC). Before: 0 electron.exe, 9222/5173/9244 free; free space C: 36.82 GB, D: 4.94 GB
   (after: C: 33.16 GB, D: 4.90 GB; `%TEMP%\vidtsx-studio\export\` empty). `rm A4/block-fonts`; keep-awake
@@ -452,6 +467,11 @@ numbers."
 - Free space 2026-10-21 ~22:05: C: 23.46 GB, D: 5.41 GB.
 
 ## Next step (ONE concrete instruction)
+
+**None — A4 is DONE.** The orchestrator owns the follow-up: the dead-pre-stitcher guard in
+`remotion-renderer.ts` (Open problems, first item) moves to A5 step 0.
+
+**DONE (step 5 — see Done "Step 5"): the instruction below.** Kept for the record.
 
 **Step 5 — close the part (no app run, no code change needed for the exit).** With no electron.exe
 running and ports 9222/5173 free: `npx vitest run > .vidtsx-temp/end-to-end/A4/logs/vitest-full-close.log 2>&1`
@@ -660,6 +680,8 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   is recorded (3 traced runs, no in-process deleter). `A4/block-fonts` is PRESENT again (leave it or
   remove it; nothing reads it with the app stopped). `A4/launch-trace.sh` needs the scratchpad preload of
   the session that wrote it — use plain `launch.sh` for any future run.
+- Step 5 (2026-10-21): the STATUS.md row and TESTING.md §18.4 are written — do not add a second A4 row or
+  block; amend those in place if a verifier corrects a number.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -689,6 +711,8 @@ the font half (recipe in Open problems), then the gates + STATUS row + TESTING �
   Remotion's render-media + delete paths, scanned every profile's log for the window, relaunched with a
   delete tracer, 3 back-to-back exports all completed incl. the blocked-after-warm one = font exit met);
   did not write the guard, run the gates, or write STATUS/TESTING.
+- 2026-10-21 · agent 9 · ~15 calls · step 5 (part close: full vitest + type gate green, STATUS.md row,
+  TESTING.md §18.4); no app run, no export, no code change; did not write the pre-stitcher guard (A5 step 0).
 - 2026-10-21 · agent 3 · ~30 calls · step 2 (GPU proxies default on when viable: pure resolver,
   tri-state setting, effective status + `choice`, row copy, tests, green full run); did not read
   `media-jobs.ts` or the import UI for step 3.
