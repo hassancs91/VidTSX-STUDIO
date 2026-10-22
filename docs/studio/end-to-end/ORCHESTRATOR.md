@@ -21,7 +21,7 @@
 | B3 | DONE | 5 | PASS (1 round) | `e583d26`, `47bc6a1`, `99d825d`; docs `f27284a`, `1adc017` | Hasan's hand plan (8 clips with keeps), tight: hard entries 0 / 133 joins (analyze_cut 0 / 134), tails 178 / 200 (analyze_cut 181, = his qa-report; 3 bucket-edge misses at +5.8–5.9 dB); live Auto Cut all 9 clips: hard 1 / 164 (0373 @ 323.198 s, untranscribed sound inside his retake cut — true positive), tails 265 / 298 (analyze_cut 1 / 165, 268 / 298); head-0 negatives 101–130 hard; margin 12/18/24 tight 265/265/265 (landings +11.45 → +16.23 dB), natural 6/12/18 106/132/132; auditions cross the join ±1.0 s with cuts applied; vitest 451 / 3814 green (python-models test excluded for disk); types 26/10 | 2026-10-22 14:50 / 16:45 |
 | B4 | **WAITING-HASAN** (built + verified up to his step; verifier PASS round 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
 | B5 | **WAITING-HASAN** (built + verified up to his step; verifier FAIL round 1 → PASS round 2) | 10 | FAIL round 1 (closing the project during a > ~6 s file lock silently loses the edit — close path gives up after 3 flushes; quit has the same older hole) → fix `750c0d0` (main owns the close-time write, 10 min background retry; quit waits 4 s then `.tmp`; recovery on open) | `fb32ab1` (UTF-8 fix); `aa58ee8` (autosave retry + stay dirty; Restore into view); `e69d182` (filler toast counts what was removed); docs `fd9a6b8`, station `8bf5433`, walk `3e7a285`, `bf9e930` (backfill patch prepared, not applied; Status + TESTING §18.11) | long project 21:23.09, 1,820 words, open 231–563 ms, 27/27 seeks at 0 frames, karaoke 0 mismatches; BUG em-dash mojibake | 2026-10-22 / |
-| B6 | VERIFY (round 2) | 3 | FAIL round 1 (record only: flag 4 was cut → 4/6 at default, not 5/6; miss list dropped two 0.300 s spans to float → 52 / 42.03 s) → record fixed `c2a3425` | docs `1c2b59f`, `30e52b2`, `ab9a657` (no src change) | assistant "Cut this video." on all nine raw clips (keyless claude-subscription, sonnet-5-5, 17 turns, 337 s model time, $3.89 notional): overlap **90.5 %** (736.1 / 813.3 s), precision 94.9 % (99.2 % w/o in-keep pauses); Auto Cut alone 67.8 %, editorial alone 48.4 %; misses ≥ 0.3 s 41.4 s (retake 5.2, repeat 5.1, manual 9.7, dead_air 4.0, filler 1.0, pause 13.0, unlisted 3.4); false content cuts 4.3 s; flags 5/6 at his default; proposed bar overlap ≥ 92 % … | 2026-10-22 / |
+| B6 | DONE | 3 | FAIL round 1 (record only: flag 4 was cut → 4/6 at default, not 5/6; miss list dropped two 0.300 s spans to float) → record fixed `c2a3425` → PASS round 2 | docs `1c2b59f`, `30e52b2`, `ab9a657`, `c2a3425` (no src change) | assistant "Cut this video." on all nine raw clips (keyless claude-subscription, sonnet-5-5, 17 turns, 337.164 s model time, $3.89 notional): overlap **90.51 %** (736.106 / 813.315 s), precision 94.89 % (99.24 % w/o in-keep pauses); Auto Cut alone 67.83 %, editorial alone 48.42 %; misses ≥ 0.3 s **52 spans / 42.03 s** (retake 4 / 5.15, repeat 4 / 5.13, manual 1 / 9.70, dead_air 1 / 4.03, filler 1 / 1.04, pause 32 / 13.26, unlisted 9 / 3.72) + 35.18 s slivers; false content cuts ≥ 0.3 s 5 / 4.05 s; flags **4/6** at his default; PROPOSED bar (overlap ≥ 92 %, content misses ≤ 6 s none > 1.5 s, false content cuts ≤ 3 s, precision w/o in-keep pauses ≥ 99 %, ≥ 5/6 flags) — today fails 4 of 5, passes precision | 2026-10-22 / 2026-10-23 |
 | C1 | TODO | | | | | |
 | C2 | TODO | | | | | |
 | C3 | TODO | | | | | |
@@ -455,3 +455,25 @@
 - Housekeeping for Hasan: `…\vidtsx-e2e\B5-verify\station-settings-copy\` holds a copy of the B5
   station profile's `settings.db` (DPAPI-encrypted provider credentials) made by verifier round 1 —
   delete it if unwanted.
+
+### From B6 (for the stop report)
+
+- 2026-10-23 · **B6 DONE** (verifier FAIL round 1 on the record → PASS round 2; 3 builders).
+- The run: the assistant did the EDITORIAL pass first ("Cut this video." → `propose_cuts` per clip,
+  turns 1–8) and only offered Auto Cut at the end, although the app's own workflow
+  (`studio-agent-prompt-tools.ts:64-67`) puts `run_auto_cut` first; the builder answered as a user
+  ("Yes, run Auto Cut …") → 9 `run_auto_cut` turns. Auto Cut then planned over WHOLE clips after the
+  editorial cuts were applied: 199.5 s of its 587.1 s sit inside already-removed spans (94 of 261
+  items wholly) — its card headlines over-count (0373 "−171.2 s of 396.3 s", 85.6 s already cut).
+- **Editorial joins carry hard entries: 8 of 42** (Auto Cut 1 of 164) — every one at a cut item's
+  `sourceEnd` where kept speech resumes (2 of the 8 on the two unchecked fluff items). E2's "hard
+  entries 0" is not met on the editorial pass.
+- Misses that set the bar: a cross-clip retake (all of 0366 superseded by 0369 — the per-clip pass
+  cannot see it), four doubled phrases where the first delivery was kept although the skill says
+  "cut the FIRST" (`studio-clean-cut/SKILL.md:29`), a 3.8 s phantom "M" token in 0376, his flag 2
+  (a 9.7 s off-script line he cut by judgment); flag 4 "Please focus." (his default keep) was cut.
+  4.5 s of his own `cuts[]` sit inside his active keeps (sensitivity: 90.48 % with them in H).
+- The proposed next-round bar is Hasan's to confirm or change (Status.md B6 row, TESTING §18.12).
+- A B6 verifier copied the B6 profile's `settings.db` into the orchestrator's scratchpad (not read —
+  classifier blocked); the orchestrator deleted the copy; DRIVING.md now bans copying credential
+  stores. Cosmetic: Status.md B6 row quotes flag 5's line ending "?" (cuts.json has "—").
