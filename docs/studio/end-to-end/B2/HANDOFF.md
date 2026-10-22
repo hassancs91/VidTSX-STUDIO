@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (Transcript deletes via a resolve IPC) next
+status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button + picker → read-out/override) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -208,6 +208,37 @@ too — keep your D: writes small).
   (no zcr) snaps with the new windowing and the fricative rule off". (The B1 STATUS row + TESTING
   §18.7 "211 ms" wording is still to do — final docs step.)
 
+**Step 3 — resolve IPC + Transcript deletes on the resolved style, snapper `style` required, `b86b279` (2026-10-22, builder #3).**
+
+- IPC `studio:cut-style:resolve`: channel `STUDIO_CUTSTYLE_RESOLVE` (`src/shared/ipc/channels.ts:469`);
+  types `StudioCutStyleSettings` (= `Pick<StudioProjectSettings,'presetId'|'cutStyle'>`),
+  `StudioCutStyleResolveRequest {projectId, settings?}`, `StudioCutStyleResolveResponse {success,
+  resolved?: ResolvedCutStyle, error?}` (`src/shared/ipc/types/studio.ts:390-408`); handler in a
+  NEW file `src/main/ipc/cut-style-handlers.ts` (`handleStudioCutStyleResolve`, try/catch → typed
+  error; kept out of the 657-line `studio-handlers.ts`), registered `registrations/studio.ts:49,129`;
+  preload `studioCutStyleResolve` (`src/preload/api/studio.ts:199`) + the renderer's hand-kept
+  `ElectronAPI` declaration `src/renderer/types/electron.d.ts:507` (NB: the renderer's
+  `window.api` type is THIS file, not `typeof api` — a new preload call needs both).
+- NEW hook `src/features/studio/hooks/useResolvedCutStyle.ts` (71): `useResolvedCutStyle(projectId,
+  settings)` → `{ resolved: ResolvedCutStyle|null, error: string|null }`; re-asks when
+  `presetId` or the JSON of `cutStyle` changes and on `vidtsx:screen-active` → `studio` (a preset
+  edited on the Assets screen); answers are tagged with their project (another project's style
+  never shows) and a sequence ref drops late answers. Called ONCE in `EditorShell.tsx:870`
+  (`const cutStyle = useResolvedCutStyle(projectId, project?.settings ?? null)`) — step 4 reuses
+  this same `cutStyle` for the read-out / Auto Cut / Project settings.
+- `useTextEdit.ts`: new option `cutStyle: ResolvedCutStyleState`; `deleteTokens` (:89-99) toasts
+  and returns false when `resolved` is null ("still loading" info, or the error) and otherwise passes
+  `style: cutStyle.resolved.style`. `EditorShell.tsx:883` passes it.
+- `text-delete.ts:34-38` `PlanTextDeleteInput.style: CutPlanStyle` (REQUIRED), forwarded to
+  `snapCutSpans` at :159.
+- `cut-snap.ts:44-48` `SnapCutSpansInput.style` REQUIRED; `PRE_B2_NATURAL` and the B2 INTERIM
+  comments DELETED (`grep -rn "PRE_B2_NATURAL\|B2 INTERIM" src` → nothing).
+- Tests: `text-delete.test.ts` / `text-restore.test.ts` pass `TEST_NATURAL_STYLE` (4 calls, numbers
+  unchanged); NEW `text-delete.test.ts:44` "snaps with the style it is given" (tight vs natural on
+  the same 'um': tight's cut ends > 50 ms later, never starts later); NEW
+  `src/main/ipc/cut-style-handlers.test.ts` (3: live settings forwarded, no settings → `{}`, error
+  typed not thrown).
+
 ## Verified (exact commands + outputs)
 
 Step 1 (2026-10-22, no electron running — `Get-Process electron` count 0):
@@ -231,26 +262,37 @@ Step 2 (2026-10-22, `Get-Process electron` count 0):
 - `grep -rln "TIGHT_STYLE\|NATURAL_STYLE\|CUT_PLAN_STYLES" src scripts` → only test files and
   `cut-style-test-fixtures.ts` (the `TEST_*` names).
 
+Step 3 (2026-10-22, `Get-Process electron` count 0):
+
+- `npx vitest run src/main/ipc/cut-style-handlers.test.ts src/features/studio/services/text-delete.test.ts src/features/studio/services/text-restore.test.ts src/main/services/studio/editorial-cuts.test.ts src/main/services/studio/cut-style-store.test.ts src/shared/studio/cut-style-resolve.test.ts src/main/services/studio/cut-plan-runner.test.ts`
+  → `Test Files 7 passed (7) · Tests 70 passed (70)`.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok` (first try was 27/26: the missing
+  `electron.d.ts` declaration, fixed).
+- `npx vitest run` (full): runs 1–2 (`.vidtsx-temp/end-to-end/B2/vitest-step3.log`, `-step3b.log`)
+  → `1 failed | 3750 passed`, both times ONLY `shot-module-resolver.test.ts` "a changed transpiler
+  fingerprint misses every tier" (`[ShotModuleCache] Shot module cache write failed` → its
+  `waitForFile` ~1 s poll gave up; code B2 never touches; the file alone → 10/10 passed). Run 3
+  (`-step3c.log`) → `Test Files 444 passed | 5 skipped (449) · Tests 3751 passed | 34 skipped
+  (3785)` (37.9 s). The known load flake family (DRIVING.md "Repo facts").
+
 ## Next step (ONE concrete instruction)
 
-Step 3 — the renderer's Transcript deletes on the resolved style, then make the snapper's `style`
-required: add an IPC `studio:cut-style:resolve` (channel in `src/shared/ipc/channels.ts`, types
-`{ projectId, settings?: { presetId?, cutStyle? } }` → `{ success, resolved?: ResolvedCutStyle,
-error? }` in `src/shared/ipc/types/studio.ts`, handler beside `handleStudioCutPlanRun` calling
-`resolveProjectCutStyle(projectId, { settings })`, registered + exposed in preload like the other
-studio channels); add a small renderer hook (e.g. `src/features/studio/hooks/useResolvedCutStyle.ts`)
-that calls it with the LIVE document's `settings.presetId`/`settings.cutStyle` and re-fetches when
-they change; pass `resolved.style` into `planTextDelete` (`useTextEdit.ts:85` → new required
-`style` on `PlanTextDeleteInput`, `text-delete.ts:25`, forwarded to `snapCutSpans` at :148-154; a
-delete before the style has loaded shows a toast and does nothing); then make
-`SnapCutSpansInput.style` REQUIRED and delete `PRE_B2_NATURAL` (`cut-snap.ts:44-63, 181`), passing
-`TEST_NATURAL_STYLE` in `text-delete.test.ts`/`text-restore.test.ts` (4 calls) so their numbers hold;
-gates green; hand off. AFTER that (step 4+): the Auto Cut button stops passing the session style and
-passes the live `settings` instead (`useAutoCut.ts:18,40,77`, `InspectorPanel.tsx:43`), the
-`TranscriptSection.tsx:254,267-270` picker becomes the read-out (`resolved.displayName`) + an
-override written to `settings.cutStyle` through the reducer (undoable, saved), Project settings
-shows the resolved knobs, the preset editor gets the Cut section (+ `validatePresetInput` checks
-`style.cut`), then CDP click-through and the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
+Step 4 — the Auto Cut button on the resolved style and the `TranscriptSection` picker → read-out
++ project override: (a) add `settings?: StudioCutStyleSettings` to `StudioCutPlanRunRequest`
+(`src/shared/ipc/types/studio.ts:~372`) and pass it through in `handleStudioCutPlanRun`
+(`studio-handlers.ts:465`, `resolveProjectCutStyle(id, { callStyle?, settings })`); (b) re-grep
+`useAutoCut.ts` / `InspectorPanel.tsx` / `TranscriptSection.tsx` for the session style (`styleName`,
+`'tight'`), stop sending `style` from the button and send the live `project.settings`
+`presetId`/`cutStyle` instead; (c) replace the session picker with a read-out of
+`cutStyle.resolved.displayName` (the `cutStyle` from `EditorShell.tsx:870`, thread it down) plus a
+small override control (Preset / tight / natural / relaxed) that writes `settings.cutStyle =
+{ base }` or deletes it, using the SAME `updateProject` settings-edit pattern as the preset picker
+(`EditorShell.tsx:279-289`, saved, not undoable — see Open problems); a unit test for any pure
+helper; gates green; hand off. AFTER that (step 5+): Project settings shows the resolved knobs,
+the preset editor Cut section (+ `validatePresetInput` checks `style.cut`), then the CDP
+click-through on M2 (Auto Cut card headline names the preset's style; a Transcript delete and the
+editorial snap use the same knobs) and the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
 
 ## Open problems
 
@@ -268,8 +310,15 @@ shows the resolved knobs, the preset editor gets the Cut section (+ `validatePre
 - Decision 6 (B1 doc debt) HALF done: the test title is renamed (step 2). Still to do: B1 STATUS
   row + TESTING §18.7 "211 ms" → warm-cache + the verifier's ~5 s cold first open. Do it in the
   final docs step at the latest.
-- (step 2, interim — step 3 removes it) `cut-snap.ts` keeps a private `PRE_B2_NATURAL` fallback for
-  callers that omit `style`; only Transcript deletes still do. Do not ship B2 with it.
+- (RESOLVED in step 3, `b86b279`) the `PRE_B2_NATURAL` fallback is gone; the snapper's `style` is
+  required.
+- (design note for step 4 — not blocking) The earlier Next step said the override goes "through the
+  reducer (undoable, saved)". The timeline reducer's state holds no settings (`present` =
+  timeline/proposals/shots/captions/removedAssets/frame); the preset and brand pickers write
+  settings with a NON-undoable `updateProject` (`EditorShell.tsx:279-289`, "same non-undoable
+  settings edit as the brand"). Following that pattern (saved, not undoable) is the cheap,
+  consistent choice; making settings undoable would widen the reducer. Builder #4: follow the
+  preset-picker pattern unless the orchestrator says otherwise, and say so in STATUS.
 - (step 2, interim) The Auto Cut button still sends the session picker's style, so its card reads
   `tight · requested` until the picker becomes the read-out (step 4). The exit ("the card headline
   names the preset's style") is only met once the button stops sending `style`.
@@ -294,6 +343,9 @@ shows the resolved knobs, the preset editor gets the Cut section (+ `validatePre
 - Step 2: `cut-style-store.ts` (+ test), `cut-plan-runner.test.ts`, the planner/runner/IPC/
   `run_auto_cut`/editorial/headline wiring and the repointed tests are written and green — the old
   constants are gone; do not bring them back (tests use `cut-style-test-fixtures.ts`).
+- Step 3 (`b86b279`): the resolve IPC + `cut-style-handlers.ts` (+ test), `useResolvedCutStyle`,
+  `useTextEdit`/`planTextDelete` on the resolved style, required snapper `style` — written and
+  green. Do not add a second resolve hook: reuse `cutStyle` from `EditorShell.tsx:870`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -302,3 +354,5 @@ shows the resolved knobs, the preset editor gets the Cut section (+ `validatePre
 - 2026-10-22 · builder #2 · ~55 calls · step 2: main loader + `resolveProjectCutStyle`, planner/
   runner/IPC/`run_auto_cut`/editorial/headline on the resolver, constants deleted, keyed plan file,
   tests, gates, rms-envelope test title.
+- 2026-10-22 · builder #3 · ~40 calls · step 3: resolve IPC + hook, Transcript deletes on the
+  resolved style, `PRE_B2_NATURAL` deleted, tests, gates (`b86b279`).
