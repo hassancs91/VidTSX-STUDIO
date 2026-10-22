@@ -17,8 +17,8 @@
 | A5 | DONE | 4 | PASS (1 round) | `06edaf0` (render stall guard), `f84a78d` (font fetch retry); docs `08bf046`, `31542e7` | 80–110 s (frames 4800–6600, split + 3 cutaways) at 3840×2160@60, CPU low: Fastest 1178 s / 1.53 fps, 35.1 MB (verifier re-render 936 s / 1.92 fps, audio MD5 identical); Standard 1046 s / 1.72 fps, 17.0 MB; Fastest copies 0 % of video-14 (all shots); Fastest cancel leaves nothing; vitest 431 / 3623 green; types 26/10 | 2026-10-21 23:55 / 2026-10-22 07:08 (≈ 7 h 13 min, of which ≈ 5 h 40 min idle — see Stops) |
 | A6 | DONE | 7 | FAIL round 1 (off-by-one frame labels → audio −33/−27 ms read "in sync"; ±0.5 s audio search) → PASS round 2 | `bcea695`, `a4b88d3`, `16f1a37`, `1ffa650`, fix `717bc74`; docs `438e004` | "Check A/V" on the queue row: A5 Standard + Fastest IN SYNC −2.6 ms, drift +3.5 ms over 10.1 s, 16/16 probes, ~50 s per check; +100 ms audio FAIL +96.8; video +3 frames FAIL −52.6; verifier-2 copies +20/−20/+26 pass, +31/−25 fail, +1.2 s / −1.0 s fail — every verdict = truth (true shift + the file's own −2.6 ms); vitest 436 / 3670 green; types 26/10 | 2026-10-22 07:15 / 10:20 (3 h 05 min) |
 | B1 | DONE | 4 | PASS (1 round) | `2dc5add` (code); docs `b445885`, `1527602`, `649d8f7`, `cc9a327`, `0030b08` | 0369 (clip 1; 0366 has no joins), Hasan's fitted tight: 6 segments both sides, 12 joins, Δ 0/0 · 0/0 · 0/0 · −10/0 · 0/0 · 0/+20 ms (verifier identical); 8 clips with keeps 348/352 joins within ±20 ms + 2 merge flips (4 at +40/+60 ms, all threshold-edge tails on the 20 ms grid); floors within 0.16 dB; verifier negatives fail as they should (old TIGHT 0/12, ±40 ms shift 7–8/12, knobs off on one side 11/12); v1/v2 waveform → v3 + zcr on open; vitest 439 / 3699 green; types 26/10 | 2026-10-22 10:58 / 12:15 |
-| B2 | VERIFY (round 2) | 7 | FAIL round 1 (agent prompt maps `auto_cut` aggressiveness → `run_auto_cut(style:)`, overriding the resolved style in every preset project) → fix `5ff0c37` | `bc104c3` (step 1), `4f0b33b` (step 2), `b86b279` (step 3), `c50968f` (step 4), `bf46298` (step 5); docs `3a0d510` | | 2026-10-22 12:20 / |
-| B3 | TODO | | | | | |
+| B2 | DONE | 7 | FAIL round 1 (agent prompt maps `auto_cut` aggressiveness → `run_auto_cut(style:)`, overriding the resolved style in every preset project) → fix `5ff0c37` → PASS round 2 | `bc104c3`, `4f0b33b`, `b86b279`, `c50968f`, `bf46298`, fix `5ff0c37`; docs `3a0d510`, `3ce32af` | Card headline live: `Auto Cut (natural + 1 override · preset “YouTube long-form”)`, `relaxed · preset “Course lesson”`, `tight · project override`; Transcript delete edges = `snapEditorialCuts` edges per style (to 1e-9, 3 selections × 4 styles), different styles → different edges; override survives 4K→1080p→undo→redo; real `run_auto_cut` handler: 14/14 control cases (each preset → its style, override, explicit, unknown name refused), 9/14 fail on a stubbed resolver; vitest 448 / 3788 green; types 26/10 | 2026-10-22 12:20 / 14:44 |
+| B3 | BUILDING | 0 | | | | 2026-10-22 14:50 / |
 | B4 | TODO | | | | | |
 | B5 | TODO | | | | | |
 | B6 | TODO | | | | | |
@@ -320,3 +320,14 @@
   each failed only `shot-module-resolver.test.ts:151`, which ALSO failed once ALONE right after a
   full run (then 10/10) — **follow-up for Hasan: that test's 5000 ms timeout is too tight on a
   loaded machine** (not B2's code). Orchestrator accepted the gate under DRIVING.md's rule.
+- 2026-10-22 14:44 · **B2 DONE** (verifier FAIL round 1 → PASS round 2; 7 builders). Continuing to B3.
+- Round-2 non-blocking notes: `studio-clean-cut/SKILL.md:11-12` "Target pacing: content-aggressive
+  + pause-natural" (pre-B2 prose a model could read as a hint toward natural); the prompt never
+  tells the agent the RESOLVED style (with a project override it still reads the preset's
+  "pacing tight" / "Auto Cut runs aggressive" prose — the run is right, the narration may not be;
+  `describePresetCut` re-derives the preset rung and ignores the override); `style: ""` acts as
+  omitted in the handlers (zod rejects it first); Course lesson's PRESET.md says "Auto Cut runs
+  light: remove only dead air longer than two seconds" while relaxed removed 26.9 s of 47.7 s on
+  0369 (pre-B2 prose vs behaviour). No per-knob "off" for opt-ins (decided; follow-up).
+- Disk 14:44: C: 18.6 GB (other sessions; our kept verifier copies on C: ≈ 2.3 GB:
+  `…\vidtsx-e2e\profiles\B1-verify`, `B2-verify`, `B1-verify-root`, `B2-verify-root`), D: 2.04 GB.
