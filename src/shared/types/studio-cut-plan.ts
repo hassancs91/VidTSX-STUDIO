@@ -149,4 +149,41 @@ export interface StudioCutPlan {
   stats: CutPlanStats;
   /** Honest caveats: engine parity, approximate-timing compensation, etc. */
   qaNotes: string[];
+  /** The two plan checks (`runCutQa`, analyze_cut's). Absent on plans written before B3. */
+  qa?: CutQaReport;
+}
+
+/** Which of analyze_cut's checks an item failed (plan T1, B3). */
+export type CutQaKind = 'hard-entry' | 'clipped-tail';
+
+/**
+ * One offending spot found by the cut QA (`runCutQa`). Times are seconds in
+ * the source media of the clip that was cut.
+ */
+export interface CutQaItem {
+  kind: CutQaKind;
+  /**
+   * Where to listen: a hard entry's segment start (the cut-in), or the point
+   * where a clipped tail lands (word end + tail).
+   */
+  sourceTime: number;
+  /** A clipped tail's last word end (analyze_cut lists tails by it). */
+  wordEnd?: number;
+  /** The checked 50 ms window's level over the clip's noise floor, dB (1 decimal). */
+  overDb: number;
+  /** On proposals: the asset/clip the spot belongs to and its timeline time. */
+  assetId?: string;
+  clipId?: string;
+  timelineTime?: number;
+}
+
+/** Counts plus the offending spots — hard entries first, then clipped tails. */
+export interface CutQaReport {
+  hardEntries: number;
+  clippedTails: number;
+  /** Real cut joins checked (the first segment + every skip > 0.75 s). */
+  joinsChecked: number;
+  /** Speech-run atoms whose landing was checked. */
+  atomsChecked: number;
+  items: CutQaItem[];
 }
