@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: FIX (verifier round 1 FAIL: the agent prompt forces `run_auto_cut(style:)` in preset projects — see "Next step") — steps 1–5 `bc104c3` `4f0b33b` `b86b279` `c50968f` `bf46298`; step 6 docs `3a0d510`
+status: DONE (fix round 1, `5ff0c37`) — steps 1–5 `bc104c3` `4f0b33b` `b86b279` `c50968f` `bf46298`; step 6 docs `3a0d510`; verifier round 1 FAIL fixed in `5ff0c37` (awaiting verifier round 2)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -335,7 +335,64 @@ too — keep your D: writes small).
 - Docs: `Status.md` B2 row (top); `docs/studio/TESTING.md` §18.8 B2; decision 6 finished (B1 STATUS row and
   TESTING §18.7: "211 ms" = warm cache + the verifier's ~5 s cold first open); two DRIVING.md "Learned" lines.
 
+**Fix round 1 — the agent's `run_auto_cut` on the resolved style in preset projects (2026-10-22, builder #7, `5ff0c37`).**
+
+- `src/main/services/studio/studio-agent-prompt-tools.ts`: `:11` tool line adds "Omit `style`: the project's cut
+  style (preset or project override) applies; pass one only when the user asked for it."; `:66` generic step 2
+  "`run_auto_cut` (no `style` — the project's cut style applies)"; `:75` EDITING PRESET mapping now "an `auto_cut`
+  step runs `run_auto_cut` WITHOUT `style` — the project's cut style already comes from the preset (or the user's
+  project override), and the step's aggressiveness (light/normal/aggressive) does not pick a style; pass `style`
+  only when the user asked for one in this conversation" (the light/normal → natural, aggressive → tight mapping is
+  GONE).
+- `src/main/services/studio/agent-preset-prompt.ts:52-62` NEW private `describePresetCut` (normalised `cut`; base ??
+  `pacingToCutBase(pacing)` ?? "default"; every knob it sets in `CUT_PLAN_KNOBS` order with `CUT_KNOB_INFO` labels,
+  first letter lower-cased) → `describePresetStyle` puts it right after `pacing`: `pacing tight · cut style natural,
+  lead-in 0.25 s`. Also reaches `preset-summary.ts` and `learn-from-project.ts` (both call `describePresetStyle`).
+- Grep (3) of `resources/skills/**`, `resources/presets/*/PRESET.md`, `src/shared/studio/preset-workflow-lines.ts`,
+  `studio-agent-prompt*.ts`: no other `style:` instruction for `run_auto_cut`. The three PRESET.md "Auto Cut runs
+  light/normal/aggressive: …" lines are prose with no `style` — left as is (seeded presets are user-owned copies).
+- `src/main/services/studio/cut-style-store.ts:109-116` (`describePresetStyle` uses the cut at `agent-preset-prompt.ts:67-68`): `callStyle !== undefined` and not a known name → throws
+  `Unknown cut style "<x>" — use tight, natural, relaxed, or omit it for the project's style.` (both callers wrap in
+  try/catch → typed IPC error / tool error text). Both callers only pass a truthy style.
+- `PresetForm.tsx` 307 → 246 lines: the style grid moved verbatim into NEW
+  `src/features/asset-library/components/PresetStyleFields.tsx` (83; props `style`, `onChange(patch)` = the form's
+  `setStyle`, so the pacing re-prune still runs); `numberOrUndefined` moved with it.
+- Tests: NEW `src/main/services/studio/agent-tools/run-auto-cut.test.ts` (3; the REAL handler from
+  `buildWorkflowTools`, real cut-style-store / preset-store `readPreset` / cut-plan-runner / planner; mocks only I/O
+  edges: `utils/paths.getSkillsDir` → `resources/skills`, `library-paths` → a temp root with the SHIPPED
+  `resources/presets/course-lesson` copied in, `project-store.loadProject` → fixture project, `studio-paths`
+  cache dir, waveform/transcript files): no style → reply + plan `relaxed · preset “Course lesson”`, file
+  `a1-relaxed-${cutStyleKey(shipped relaxed)}.json`, a `proposal` event; override `{base:'natural', head:0.25}` →
+  `natural + 1 override · project override` (plan `styleKey` = key of natural+head 0.25 — `plan.style` carries the
+  planner's timing compensation, so keys are compared); explicit `tight` → `tight · requested`.
+  `studio-agent-prompt.test.ts` +4 (full prompt: no `/run_auto_cut\(style:|style: *"(tight|natural|relaxed)"/`, no
+  "light or normal", contains the WITHOUT-`style` text; each shipped preset's `composePresetBlock` has its
+  `auto_cut (<aggr>)` step, `Style knobs: pacing …`, and no forced style). `agent-preset-prompt.test.ts` +2
+  (cut described: base / pacing-mapped / default / bare base / garbage not mentioned; block knob line).
+  `cut-style-store.test.ts` +1 (unknown name rejected; omitted → the preset's relaxed).
+- Docs: `Status.md` B2 row "Fix round 1" bullet (+ Open/Next updated); `docs/studio/TESTING.md` §18.8 new [x] item
+  "Fix round 1" and the "Not driven live" line notes the real-handler test.
+
 ## Verified (exact commands + outputs)
+
+Fix round 1 (2026-10-22, `tasklist` electron.exe → none running; no app launched, no model call):
+
+- `npx vitest run src/main/services/studio/agent-tools/run-auto-cut.test.ts src/main/services/studio/cut-style-store.test.ts src/main/services/studio/agent-preset-prompt.test.ts src/main/services/studio/studio-agent-prompt.test.ts src/main/services/library`
+  → `Test Files 15 passed (15) · Tests 146 passed (146)`.
+- Negative control: `git show HEAD:src/main/services/studio/studio-agent-prompt-tools.ts` over the file →
+  `npx vitest run src/main/services/studio/studio-agent-prompt.test.ts` → `× no aggressiveness → style mapping; omit
+  \`style\` unless the user asked` · `Tests 1 failed | 12 passed (13)`; new text restored (diff re-checked).
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10
+  errors (baseline 10) ok`; `(npx tsc -p tsconfig.web.check.json --noEmit; npx tsc -p tsconfig.node.check.json
+  --noEmit) | grep -i "PresetForm\|PresetStyleFields\|agent-preset-prompt\|cut-style-store\|run-auto-cut\|studio-agent-prompt"` → no lines.
+- `npx vitest run` (full, default width) ×3 (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B2\vitest-fix1.log`, `-fix1b`,
+  `-fix1c`) → each `Test Files 1 failed | 447 passed | 5 skipped (453) · Tests 1 failed | 3787 passed | 34 skipped
+  (3822)`, ONLY `shot-module-resolver.test.ts:151` "a changed transpiler fingerprint misses every tier" (`Test timed
+  out in 5000ms`, `[ShotModuleCache] Shot module cache write failed`). That file alone: 5 runs — the first (right
+  after full run 2) `1 failed | 9 passed`, the next four `10 passed (10)` (`vitest-fix1-resolver-alone.log` holds
+  the last three). COUNTED: `npx vitest run --maxWorkers=4` (`vitest-fix1d.log`) → `Test Files 448 passed | 5
+  skipped (453) · Tests 3788 passed | 34 skipped (3822)` (91.8 s). Green per DRIVING.md "Vitest gate under load"
+  (see Open problems for the one isolated failure).
 
 Step 1 (2026-10-22, no electron running — `Get-Process electron` count 0):
 
@@ -447,6 +504,15 @@ Step 6 (2026-10-22; before launch: no electron, ports 9222/5173/9281 free, C: 20
 
 ## Next step (ONE concrete instruction)
 
+**Verifier round 2:** re-check the round-1 blocking item against `5ff0c37` — read
+`studio-agent-prompt-tools.ts:11,66,75` and `agent-preset-prompt.ts:52-68`, run `npx vitest run
+src/main/services/studio/agent-tools/run-auto-cut.test.ts src/main/services/studio/studio-agent-prompt.test.ts
+src/main/services/studio/agent-preset-prompt.test.ts src/main/services/studio/cut-style-store.test.ts`, then the
+gates; the rest of B2 passed in round 1 and is unchanged (only `PresetForm.tsx`'s style grid moved verbatim
+into `PresetStyleFields.tsx`).
+
+## Fix round 1 brief (DONE in `5ff0c37`, kept for the record)
+
 **FIX round 1 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier
 round 1").** Make the agent's `run_auto_cut` use the resolved style in preset projects:
 (1) in `src/main/services/studio/studio-agent-prompt-tools.ts:75` (the "EDITING PRESET" line) DROP
@@ -492,6 +558,18 @@ decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, re
 
 ## Open problems
 
+- **(fix round 1, for the orchestrator — not B2 code)** `shot-module-resolver.test.ts:151` ("a changed transpiler
+  fingerprint misses every tier", 5000 ms timeout, `[ShotModuleCache] Shot module cache write failed`) failed in
+  all three default-width full runs AND once when run ALONE (the first isolated run, right after a full run; four
+  later isolated runs passed 10/10). DRIVING.md says a listed flake failing alone "is real"; it is in code B2
+  never touches (the test mocks `studio-paths`, the transpiler and its fingerprint; none of the fix's files are on
+  its import path) and the `--maxWorkers=4` full run was green, so I counted the gate green — the orchestrator may
+  want this test's timeout or its `waitForFile` poll looked at outside B2.
+- (RESOLVED in fix round 1, `5ff0c37`) the verifier's blocking item below: the prompt no longer maps
+  aggressiveness to a style; `describePresetStyle` names a preset's cut; the unknown-call-style minor item is
+  fixed (typed error); `PresetForm.tsx` is 246 lines. Not changed (minor, recorded): `preload/api/studio.ts` 310
+  lines (already over before B2); a project override with a `base` drops the preset's cut knobs (by design);
+  plan files accumulate one per key (~2 KB each).
 - **Verifier round 1 — FAIL (2026-10-22, one blocking item):** the agent prompt forces a style on
   `run_auto_cut`. `studio-agent-prompt-tools.ts:75` ("EDITING PRESET", injected at
   `studio-agent-prompt.ts:137`, untouched by B2) says "`auto_cut` light or normal →
@@ -538,8 +616,8 @@ decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, re
   D: was 2.15 GB at step 4's hand-off and other Claude sessions write to D:. Step 6 must keep D:
   writes near zero (profile, M2 copy, stills, scripts all on C:) and re-check before launching; if D:
   keeps falling the orchestrator decides.
-- (small) `PresetForm.tsx` is 307 lines after step 5 (was 289; the Cut section itself is its own
-  file). If a later part touches it, move the style grid into its own component.
+- (RESOLVED in fix round 1) `PresetForm.tsx` was 307 lines after step 5; the style grid is now
+  `PresetStyleFields.tsx` and the form is 246.
 - Decision 6 (B1 doc debt) HALF done: the test title is renamed (step 2). Still to do: B1 STATUS
   row + TESTING §18.7 "211 ms" → warm-cache + the verifier's ~5 s cold first open. Do it in the
   final docs step at the latest.
@@ -595,6 +673,9 @@ decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, re
   `studio:cut-style:file` IPC (+ test), `useCutStyleFile`, `PresetCutFields`, `ProjectCutStyleFields`
   and their threading — written and green. Do not add a second resolve hook or let the renderer
   read cut-style.json.
+- Fix round 1 (`5ff0c37`): the prompt text (no `run_auto_cut` style mapping), `describePresetCut`, the unknown
+  call-style refusal, `PresetStyleFields.tsx`, `run-auto-cut.test.ts` and the prompt/store tests — written and
+  green. Do not bring back an aggressiveness → style mapping anywhere in the prompt.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -613,3 +694,6 @@ decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, re
 - 2026-10-22 · builder #6 · ~50 calls · step 6: CDP click-through on a C: copy of M2 (presets Cut section,
   Project settings, read-out, override, two Auto Cut cards, survival, Transcript delete = resolved tight,
   editorial same edges), gates, STATUS row, TESTING §18.8, decision 6, DRIVING lines. DONE.
+- 2026-10-22 · builder #7 · ~40 calls · fix round 1: prompt drops the `run_auto_cut` style mapping, preset block
+  names the cut, unknown call style refused, PresetForm split, real-handler + prompt tests, gates, STATUS/TESTING
+  (`5ff0c37`). DONE.
