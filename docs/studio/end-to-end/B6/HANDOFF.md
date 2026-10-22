@@ -1,5 +1,5 @@
 # B6 — The content measurement: Auto Cut + editorial on all nine clips vs `cuts.json`
-status: DONE — the real run measured (overlap 90.5 %, miss list, proposed bar in Status.md 2026-10-23 + TESTING §18.12); gates green
+status: FIX (verifier round 1 FAIL: flags 4/6 not 5/6; miss-list float boundary — record only, see Next step) — was: DONE — the real run measured (overlap 90.5 %, miss list, proposed bar in Status.md 2026-10-23 + TESTING §18.12); gates green
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety, disk rules, the RESERVED stations,
 the vitest gate rules, every "Learned" line incl. the 200 ms project.json poll rule, the
@@ -198,7 +198,38 @@ Step 2 (builder #2, 2026-10-22/23, no `src/` change; kit gitignored; docs commit
 
 ## Next step (ONE concrete instruction)
 
-B6 is DONE: the orchestrator sends a verifier (the exit is a measurement — let it rebuild H and P independently from
+**FIX round 1 (orchestrator, 2026-10-23, after the verifier's FAIL — docs + the scratch measure
+script only; NO new model run, NO app launch):**
+1. **Flag 4 was cut, not "untouched"** — flag 4 = clip 0375 @00:30 "'Please focus.' … default
+   keep", his keep 30.500–31.255; the run's editorial `false_start` item 28.909–31.700 "Please
+   focus." (status accepted) covers it, plus Auto Cut 28.909–30.350 / 31.375–31.700. Correct count:
+   **4 of 6** at his default (1, 3, 5, 6 at default; 2 (default cut) not proposed; 4 (default keep)
+   cut). Fix Status.md (~:50-53 — line 50-51 already lists "Please focus." as a false cut, line 53
+   contradicts it; ~:68-69 the failed-bar list must now include the flags item) and TESTING.md
+   (~:447, ~:449 "5 / 6 ✓" → "4 / 6 ✗"). Match flags by their quoted text + clip + time, not nearest
+   entry.
+2. **Miss-list boundary:** spans of exactly 0.300 s were dropped when float gave 0.29999999999999716
+   (0376 119.084–119.384 unlisted; 0376 122.840–123.140 pause). Fix `measure.py` (compare in integer
+   ms or with an epsilon) and re-run it on the SAME captured `proposals-raw.json` → expected **52
+   spans / 42.03 s**, pause **32 / 13.26 s**, unlisted **9 / 3.72 s**, slivers **35.18 s**, pause median
+   **0.38 s**, pause range **0.30–0.64 s** — record the re-run's own numbers, and fix Status.md
+   (~:39, ~:48-49, ~:63) and TESTING.md (~:447).
+3. **Minor (correct them):** "content 7 / 4.3 s" is labelled "P \ H ≥ 0.3 s" but counts ALL
+   editorial P\H pieces (incl. 0.05 s and 0.17 s) — at ≥ 0.3 s it is 5 / 4.05 s (accepted only 3 /
+   2.30 s); say which one each number is. Model time 222.723 + 114.441 = 337.164 s. Clip 0366 overlap
+   79.15 %.
+4. **Add (verifier finding, not recorded):** Auto Cut ran AFTER the editorial cuts were applied but
+   planned over the whole source — 199.5 s of its 587.1 s fall inside already-applied editorial
+   spans (94 of 261 items wholly), so its card headlines (e.g. 0373 "−171.2 s of 396.3 s") count
+   seconds already removed. A follow-up finding for STATUS (not fixed in B6). Also say in the bar
+   paragraph how "≤ 6 s total" was derived (today 11.32 s; 2.93 s left after the fixes named for the
+   overlap bar), and that the bar now fails 4 of 5 items today (overlap, content misses, false cuts,
+   flags) and passes precision.
+5. Gates are unaffected (no src change) — say so; update HANDOFF.md (status DONE, fix round 1), one
+   LOG.md line, commit (ending with the line "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"),
+   return DONE.
+
+(Previous text, kept:) B6 is DONE: the orchestrator sends a verifier (the exit is a measurement — let it rebuild H and P independently from
 `…\B6\run\proposals-raw.json` and cuts.json, with its own negative/control cases) and puts the proposed bar to Hasan.
 
 (Step 1's instruction, done in step 2, kept for the record:) Relaunch (`bash .vidtsx-temp/end-to-end/B6/launch.sh` from a background Bash call, then
@@ -213,6 +244,20 @@ turn, model, wall time, usage from `debugLog`/`usage`); capture BEFORE any apply
 `python -I -B measure.py …\B6\run\proposals.json`.
 
 ## Open problems
+
+- **Verifier round 1 — FAIL (2026-10-23), record only:** flag 4 cut (4/6 at default, not 5/6 — the
+  bar's flags item fails today); the miss list dropped two exactly-0.300 s spans to float (52 / 42.03 s,
+  not 50 / 41.4 s); "content 7 / 4.3 s" mislabelled as ≥ 0.3 s; model time split; 0366 79.15 %.
+  Everything else PASSED independently: H 813.315 s, P 775.769 s, P∩H 736.106 s, overlap 90.507 %,
+  precision 94.887 % (99.25 % w/o in-keep pauses), accepted-only, Auto Cut alone 67.833 %, editorial
+  alone 48.425 %, per-clip overlaps, content-category misses, the capture (17 cards = project.json
+  proposals = turn log; 39 + 261 items), the keyless provider only (`claude-subscription` /
+  sonnet-5-5, no key provider), controls (∅ → 0 %, H → 100 %, all → 63.391 % precision, ±1 s shift →
+  lower). Hard entries confirmed: editorial 8 / 42 joins vs Auto Cut 1 / 164; editorial-first order
+  confirmed (the app's workflow puts `run_auto_cut` first, `studio-agent-prompt-tools.ts:64-67`).
+  Sensitivity: 4.519 s of his own `cuts[]` sit inside his active keeps (with them in H: 90.48 % /
+  95.38 %). The verifier copied the B6 profile's `settings.db` into the orchestrator's scratchpad
+  (never read — classifier blocked); the orchestrator deleted that copy.
 
 - (for Hasan) **Confirm or change the proposed next-round bar** (Status.md 2026-10-23 B6 row; TESTING §18.12): overlap ≥ 92 %;
   retake + repeat + filler + false_start misses ≤ 6 s, none > 1.5 s (flagged judgment calls excepted); false content cuts

@@ -6,6 +6,12 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 
 ## Never touch
 
+- **Credential stores, in ANY profile (orchestrator, 2026-10-23):** never read, copy or open a
+  `settings.db` (DPAPI-encrypted provider credentials), `~/.claude` credential files, or anything
+  else that holds keys or logins — not Hasan's, not an isolated profile's, not a station's. The
+  permission classifier refuses it as credential exploration; a B5 and a B6 verifier copied a
+  station/scratch `settings.db` anyway (one copy was deleted by the orchestrator, one is listed for
+  Hasan). Usage numbers come from the app log or the turn log, not from database files.
 - `%APPDATA%\VidTSX Studio` (Hasan's profile; it already holds the full ffmpeg, a font cache,
   his bundle cache). Reading/copying out of it is allowed only where a HANDOFF says so; never
   write, delete or launch the app on it.
