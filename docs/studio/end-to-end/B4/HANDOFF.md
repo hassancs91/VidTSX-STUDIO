@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) DONE; step 3 (the learn path: propose_preset_update → report → card → applyPresetLearning) next
+status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) DONE; step 3 (the learn path in main: propose_preset_update → report → card data → accept writes `style.cut`) DONE; step 4 (the card UI) next, then the M2 stand-in
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -199,7 +199,79 @@ Nothing is wired yet: no reducer, IPC, learn path or UI change.
   kept on the second, creator's kept, pre-B4 adjusted item gets none, a no-op drag is identity);
   `snapped` assertions added to `cut-proposal.test.ts` and `editorial-cuts.test.ts`.
 
+**Step 3 — the LEARN PATH in main (builder #3, 2026-10-22; code `2865675`).** The card's UI
+still shows only the knob table (the four new labels); `cutLines` / `cutLearn.joinsList` are not
+rendered yet.
+
+- Types (`src/shared/types/studio-preset.ts`): `StudioPresetCutKnobKey = \`cut.${CutLearnKnob}\``
+  (:158); `StudioPresetKnobKey` = the flat knobs | the four cut keys (:162);
+  `StudioPresetUpdateProposal.cutLearn?: CutLearnReport` (:196) and `cutLines?: string[]` (:199),
+  both optional (pending cards are in memory; `learned[]` entries hold no keys — old presets parse).
+- `src/main/services/studio/learn-cut-knobs.ts` (73): `learnProjectCutKnobs(project)` (:44) —
+  `collectCutLearnJoins(timeline, proposals)`; none → `null` (no cut half on the card); per asset
+  `readTranscriptFile` words + `loadRmsEnvelope` (the editorial snap's loaders; unreadable asset →
+  a card line, its joins teach nothing); `resolveProjectCutStyle(project.id, { settings:
+  project.settings })` (the LIVE document's settings — an unsaved override counts) →
+  `learnCutKnobs` → `cut.<knob>` changes + lines; logs `Cut knobs measured`.
+- `src/main/services/studio/cut-learn-format.ts` (79, pure): `formatCutLearnLines` (:30) — "Cut:
+  learned from N joins you trimmed (H lead-ins, T tails) — learned from your trims; Transcript
+  deletes count once you trim them." · "Lead-in: you kept a median X s before the first word (the
+  style keeps Y s); head Z s reproduces your edges." · "Tail: you kept a median X s after the last
+  word, cut D dB over the floor (the style: …); minTail … and margin … reproduce your edges;
+  maxTail at least N s." · unreadable assets · the report's notes (the < 10 line) · with a project
+  override and changes: "This project's own cut style (Project settings) overrides the preset:
+  accepting teaches the preset; this project keeps its override until you clear it there.";
+  `cutKnobChange` (:64) — the reason per knob (head: median lead-in vs the style's; minTail/margin:
+  median tail + dB vs the style's; maxTail: "at least N s — only known up to the longest tail you
+  kept").
+- `learn-from-project.ts` (153): cut learning in a try/catch (a failure costs the cut half only,
+  :109); changes = flat diff + cut changes; the summary prompt and `buildLearnedSection` (new
+  `cutLines` input, `preset-learn-format.ts`) carry the cut lines; `proposedStyle` via
+  `applyKnobChanges(…, cutFile)` (:117); card gets `cutLearn` + `cutLines` (:145).
+- `src/main/services/studio/preset-knob-apply.ts` (59): `applyKnobChanges` MOVED here from
+  `preset-learn-stats.ts` (now 269) — flat keys set; `cut.<knob>` written with `withPresetCutKnob`
+  (the preset form's own rule: base kept, a value equal to the base's drops the override) when the
+  cut-style file is at hand, else a plain override; `hasCutKnobChanges`, `presetCutProblems`
+  (B2's `cutSpecProblems` with the base style).
+- Accept (`src/main/ipc/preset-learn-handlers.ts:88-92`): re-applies the changes over the preset
+  as it is now through `applyKnobChanges` (loads `cut-style.json` only when a cut key is present),
+  refuses with "The learned cut style is not valid: …" when `presetCutProblems` flags it, then
+  `applyPresetLearning` as before (the card stays pending on that error).
+- Tool result (`agent-tools/preset-tools.ts:68`): "… Cut knobs: learned from N trimmed joins (H
+  lead-ins, T tails), K cut knob changes."
+- **No preset = the existing pattern**: `learnFromProject` returns "This project has no editing
+  preset to learn into — pick one in the Inspector …" — no card, nothing saved; the project
+  override is NOT used as a save target.
+- `src/shared/studio/cut-learn-test-fixtures.ts` (104): step 1's recording builder / styles /
+  `joinsAt` moved out of `cut-learn.test.ts` (which now imports them; its 8 tests unchanged) and
+  `Recording` gains `levels`/`zcr` (what a v3 waveform file holds).
+- Tests: `agent-tools/preset-tools.test.ts` (5) — the REAL `propose_preset_update` handler + the
+  REAL accept handler, real `cut-style.json` (getSkillsDir → `resources/skills`), real preset store
+  on a temp library, the waveform written as a v3 cache file, transcript mocked: 13 joins trimmed to
+  the fitted-tight geometry from the old tight on the preset (`cut: { base:'tight', head 0.11,
+  minTail 0.14, maxTail 0.4, margin 5 }`) → `cut.head 0.11→0.15`, `cut.minTail 0.14→0.08`,
+  `cut.margin 5→12±1`, `cut.maxTail 0.4→0.5` ("at least 0.5 s"), the exact card lines, PRESET.md
+  section; accept → `style.cut = { base:'tight', maxTail:0.5, … }` (head/minTail back to the base);
+  joins at the current style's edges → no cut change (13 joins reported); 9 joins → none + the
+  "Learned from 9 joins — at least 10 …" line; project override → measured against it + the
+  override line; no trimmed join → no `cutLearn`/`cutLines`. `preset-knob-apply.test.ts` (3).
+
 ## Verified (exact commands + outputs)
+
+Step 3:
+
+- `npx vitest run src/main/services/studio/preset-knob-apply.test.ts
+  src/main/services/studio/agent-tools/preset-tools.test.ts …learn-from-project.test.ts
+  …preset-learn-stats.test.ts src/main/ipc/preset-learn-handlers.test.ts
+  src/shared/studio/cut-learn.test.ts src/shared/studio/cut-learn-joins.test.ts` →
+  `Test Files 7 passed (7) · Tests 43 passed (43)` (2.33 s).
+- Subset `npx vitest run src/features/studio src/main/services/studio src/shared/studio
+  src/main/services/agents src/main/ipc` (log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-step3-subset.log`)
+  → `Test Files 240 passed | 2 skipped (242) · Tests 2048 passed | 23 skipped (2071)` (31.52 s).
+  No full run yet (session gate at the end, DRIVING.md rules).
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Disk at step 3: C: 2.26 GB, D: 6.09 GB free. No app launched.
 
 Step 2:
 
@@ -238,22 +310,15 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-Wire the LEARN PATH in main, with unit tests through the real `propose_preset_update` tool
-handler on a fixture project (no LLM; decision 4), then hand off: read `preset-learn-stats.ts`,
-`learn-from-project.ts`, `preset-learn-format.ts`, `preset-store.ts` `applyPresetLearning`
-(~:153-176), `preset-learn-handlers.ts` (:61-97), `agent-tools/preset-tools.ts` (:44-68),
-`studio-preset.ts` (`StudioPresetKnobKey` :146) (none read yet); then (a) widen
-`StudioPresetKnobKey` to the nested cut knobs `cut.head` / `cut.minTail` / `cut.maxTail` /
-`cut.margin` (optional, old `learned[]` entries still parse); (b) in `learn-from-project.ts` load
-each master-lane asset's v3 waveform envelope + words (same loaders B2's `resolveCutStyle` callers
-/ the editorial snap use in main), run `collectCutLearnJoins(project.timeline, project.proposals)`
-→ `learnCutKnobs(inputs, assets, resolveCutStyle(project, preset))` and turn `report.changes` into
-knob changes; (c) `preset-learn-format.ts` prints the card text per the RULED block (n joins, head
-and tail edge counts separately, medians AND fitted values, "maxTail at least N s", "learned from
-your trims; Transcript deletes count once you trim them", < 10 → "Learned from N joins — at least
-10 …"); (d) accept writes `style.cut` through `applyPresetLearning` (base kept, only changed knobs,
-B2's `cutSpecProblems` validation); no preset → say which existing pattern applies. UI (the card)
-and the M2 stand-in are the steps after.
+Step 4 — the card UI, then hand off: in `src/features/studio/components/PresetUpdateCard.tsx`
+(126 lines; the four `cut.*` labels are already in `KNOB_LABEL`) render `proposal.cutLines` (a
+"Cut" block under the knob table, each line as given — main wrote the numbers) and a collapsed
+per-join list from `proposal.cutLearn.joinsList` (asset, tail edge → tail s / dB vs the style's,
+lead-in vs the style's, `skipped`), absent when `cutLearn` is absent (old cards / no trimmed
+join); split the list into its own component if the card would pass ~300 lines; add a renderer
+test only if the card already has one. Do not touch main. Then the M2 stand-in (decision 5, on
+`B2-root` + `profiles\B2\profile`, CDP 9301) is step 5 — it needs the orchestrator's ruling on
+Open problem 7 first (where the start style lives).
 
 ## Open problems
 
@@ -309,6 +374,27 @@ just lose stale tags).
    learn `softGap` (not one of T1's four), so Hasan's 10-15 move "soft landings off" stays a
    style choice, not a learned one — a follow-up if he wants it learned.
 
+Step 3 objections (built this way; the orchestrator to rule; none needs Hasan; 7 matters for
+step 5 and Hasan's station):
+
+7. **A project override makes accept a near no-op for the preset.** The card is measured against
+   the RESOLVED style (right: that is what the joins were snapped with, and the Q4 gate needs it),
+   but accept writes the PRESET, the way the preset form writes a knob (`withPresetCutKnob`: a
+   value equal to the base's drops the override). With ruled 6's start (old tight as a PROJECT
+   override over a base-tight preset), the card proposes head 0.11→0.15, minTail 0.14→0.08,
+   margin 5→12 (the exit is met: "the card proposes"), but accepting changes nothing on the
+   preset except `maxTail 0.5` (the other three already equal base tight), and the project keeps
+   its override (the card says so). **Recommendation:** for the stand-in AND Hasan's station put
+   the old tight on the station project's PRESET (a scratch user preset in that isolated profile's
+   library, `cut: { base:'tight', head:0.11, minTail:0.14, maxTail:0.4, margin:5 }`, no project
+   override) — same starting geometry (softGap 99), and accept then visibly moves the preset back
+   to the fitted tight (the preset-tools test does exactly this). Without a ruling, step 5 follows
+   ruled 6 as written.
+8. **Accept takes every change on the card, `maxTail` included.** From the old tight the fit
+   returns `maxTail 0.5` ("at least 0.5 s" — the cap nearest the current 0.4 that reproduces every
+   tail), so accepting writes a lower cap than the fitted tight's 0.7. Not in the exit; the card
+   says "at least". A per-knob opt-out on the card would be new UI — not built.
+
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
@@ -318,6 +404,10 @@ just lose stale tags).
   record the numbers first).
 - Step 2 is DONE (`c5a6f4c`): edge tags on trim / text-delete, tag drops in split / span cut /
   restore, `snapped` on first drag and at creation, 12 reducer-level tests. Do not re-wire them.
+- Step 3 is DONE (`2865675`): `StudioPresetKnobKey` widened, `learnProjectCutKnobs`,
+  `cut-learn-format.ts`, `preset-knob-apply.ts` (applyKnobChanges moved there), accept through it
+  with B2's check, the tool-result line, the shared fixtures, 8 tests. Do not re-wire the main
+  learn path; the card UI only reads `cutLines` / `cutLearn`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -325,3 +415,6 @@ just lose stale tags).
   report with 17 unit tests; types 26/10; no app launch.
 - 2026-10-22 · builder #2 · ~42 calls · step 2: the signal wired (reducer tags, tag drops,
   `snapped` on drag + creators), 12 tests; subset vitest green; types 26/10; no app launch.
+- 2026-10-22 · builder #3 · ~40 calls · step 3: the learn path in main (knob key widened,
+  learnProjectCutKnobs, card lines, accept writes `style.cut` with B2's check), 8 tests through the
+  real tool + accept handlers; subset vitest green; types 26/10; no app launch.
