@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #5 handed off 2026-10-22 — the automated pre-pass on the machine side is COMPLETE: fillers (13 cut + 2 too tight; toast miscount FIXED `e69d182`), karaoke past the bottom, read-only during an Auto Cut review, save + reopen + restore after reopen all PASS live; full vitest green, types 26/10; next: Hasan's B5 station + HASAN-STEP.md + launcher)
+status: IN PROGRESS (builder #6 handed off 2026-10-22 — the machine half of the pre-pass is COMPLETE (builders #1–#5); Hasan's B5 station is BUILT (long project, 21:23.09, `b5-no-model`, start snapshot), `B5/hasan-station.ps1` written (`-Reset` dry-run OK), `B5/HASAN-STEP.md` DRAFTED — NOT yet click-checked; next: the literal real-input walk-through of HASAN-STEP.md on the station)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -182,6 +182,32 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   as `…\B5\checks\original-project.json`. NB Auto Cut lives in Inspector › "Transcript · <file>" of the
   asset selected in the MEDIA pane — a selected timeline clip shows Clip props instead; the timeline
   does not follow a seek and renders only the clips in view.
+- **Hasan's B5 station BUILT (builder #6, decision 1 + 4):** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-station-root`
+  (580 MB, `cp -r` of `b-root`; 0 `b-root` strings in its project.json) + `…\profiles\B5-station\profile` (377 MB,
+  from `profiles\source\profile`); Studio root set in-app to B5-station-root; long project = nine clips on V1 in raw
+  order, identical to B5-root's (`0366@0+20.288 … 0376@1100.298+182.849`, 1283.148 s, `/ 21:23.09`, A1 0, 0
+  proposals, 0 tags, no presetId/cutStyle); app stopped, then `settings.agent.providerId = "b5-no-model"` (no model
+  call possible); **start snapshot** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\station-start\project.json`
+  (sha256 `2cfaf220…` = the station's project.json).
+- **`docs/studio/end-to-end/B5/hasan-station.ps1`** (B4 pattern): this checkout's `npx electron-vite dev` on the
+  B5-station profile only; guards (paths, B5 code = `src\features\studio\services\autosave.ts`, station already
+  open); `-Reset` (app closed) backs up the station project.json to `…\vidtsx-e2e\B5\station-runs\project.<stamp>.json`
+  then copies the start snapshot back and checks the hash; `-CdpPort N` for automation.
+- **`docs/studio/end-to-end/B5/HASAN-STEP.md` DRAFT** (top banner "NOT YET CLICK-CHECKED"; `[check]` marks the
+  guesses): open the station; how the tab works; what "clean" means (6 points); where to note (row · clock · word ·
+  what was heard, or `…\B5\station-runs\notes.txt`); **Part A** = the Problem 2 by-ear block W1–W8 (bf1–bf4 = i117,
+  132, 398, 471 + i255 "a" 0371 708 ms, i572 "Now", i1288 "or", i1593 "How"; click → listen, delete → listen,
+  Ctrl+Z); **Part B** = 11 kept deletes D11 → D1 in timeline-DESCENDING order so listed clocks stay valid (indices:
+  D1 71–81 · D2 215–253 · D3 165 · D4 551–558 across 0372→0373 · D5 375–405 · D6 1134–1159 · D7 `really` · D8 849–850
+  · D9 1340–1369 · D10 1530–1543 · D11 1700–1705); **Part C** restore D7 + D4, undo/redo; **Part D** "Remove N
+  fillers" + three to listen to; the flip as a one-line diff + commit message (only gate: `feature-flags.ts:73`,
+  read at `EditorShell.tsx:110`); the backfill-fix line is a placeholder (not prepared yet).
+- **Kit, builder #6 (gitignored):** `launch-station.sh` (station profile, CDP **9325**, log `…\B5\station\app.log`);
+  `station-doc.mjs` (real click on the Transcript tab, dumps the in-app doc → `…\B5\station\doc.json` + `doc.txt`);
+  `station-table.mjs` (doc.json + raw AssemblyAI JSON + station project.json → the W/D tables, `…\B5\station\table.json`;
+  its D2 row still says 215–251 — the right range is 215–253, checked: 252–253 = "Other take.", 254 = "However,").
+  `…\B5\station\doc-readable.txt` = the transcript by take with first index (round-to-second heads; the app shows
+  FLOOR, e.g. 12:19 not 12:20).
 
 ## Verified (exact commands + outputs)
 
@@ -365,14 +391,44 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
 - FULL `npx vitest run` (app stopped, log `…\B5\vitest-full-builder5-run1.log`) → **run 1 green**:
   `Test Files 462 passed | 5 skipped (467) · Tests 3895 passed | 34 skipped (3929)`.
 
+**Builder #6 (2026-10-22):** C: 19 GB / D: 33 GB before; nothing on 5173/9321/9325, no electron running.
+- `cp -r …\b-root …\B5-station-root` + `cp -r …\profiles\source\profile …\profiles\B5-station\profile` → 580 MB +
+  377 MB, `grep -c b-root project.json` → 0; C: 19 → 18 GB. (b-root's M2 had V1 0 / A1 0 / 0 proposals — untouched.)
+- `bash launch-station.sh` (background) → `CDP_PORT=9325 B5_ROOT='C:\…\B5-station-root' node drive.mjs ready` →
+  `root before …\v14-root` → `set root {"success":true} …\B5-station-root`, nine clips added, `V1 0366@0.000+20.288 in0
+  x1 | … | 0376@1100.298+182.849 in0 x1`, **`length s 1283.148 toolbar ["/ 21:23.09"]`**, `A1 clips 0 proposals 0`.
+- `CDP_PORT=9325 node station-doc.mjs` → `tokens 1820 paragraphs 192 deletions 0`. `node station-table.mjs` → the W1–W8
+  and D1–D11 rows now in HASAN-STEP.md (W "highlight starts" = app token start, "AssemblyAI's stamp" = raw JSON start
+  + clip timelineStart; moved 1000 ms for all but W5 708 ms). Fillers at the start state: `0:Um@00:00.04 165:uh@02:28.24
+  194:uh@03:05.34 219:uh@03:26.33 231:uh@03:34.41 243:uh@03:42.26 272:uh@04:11.27 580:uh@08:00.08 693:Uh@09:08.30
+  920:uh@11:54.20 928:uh@11:57.15 1331:um@16:28.08 1346:uh@16:45.38 1522:uh@18:06.46 1534:um@18:22.42`.
+- App stopped (matched `--remote-debugging-port=9325` / `profiles/B5-station/profile` / `B5/launch-station.sh`: 4 bash,
+  2 node, 1 cmd, 6 electron) → `left: 0`. C: 17.69 GB / D: 32.60 GB.
+- providerId set + snapshot (node, app stopped) → `clips 9 end 1283.148 audio 0 proposals 0 agent
+  {"providerId":"b5-no-model"} false false tags 0`; sha256 station project.json == station-start = `2cfaf22058164501…`.
+- `powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B5\hasan-station.ps1 -Reset` (app closed) → `Saved
+  the current project to …\B5\station-runs\project.20261022-210952.json. Resetting the station...` → `Station reset:
+  video-14-raw = the nine raw clips on V1 (/ 21:23.09), nothing deleted.` exit 0.
+- No `src/` change this session → vitest / type gate not re-run (last: builder #5, full run green, 26/10).
+- Code facts for HASAN-STEP (read, not yet driven): Space = `playback.togglePlay()` unless `isTextEntry(target)`
+  (`useTimelineShortcuts.ts:~102`; the transcript body is a tabIndex div, not text entry); each take shows
+  `formatDuration(Math.floor(start))` and seeks on click (`TranscriptParagraph.tsx:36-43`); Delete/Backspace with a
+  range deletes, Ctrl+A selects all, Escape clears (`TranscriptPanel.tsx:63-79`); the show/hide-deletions eye and the
+  left tab are per-profile localStorage — leave them at their defaults (deletions SHOWN) after the click-check.
+
 ## Next step (ONE concrete instruction)
 
-Build Hasan's B5 station (decision 1 + 4): check C: > 5 GB, copy `…\vidtsx-e2e\b-root` → `…\vidtsx-e2e\B5-station-root`
-and `…\profiles\source\profile` → `…\profiles\B5-station\profile` (if the classifier refuses, say so — do not
-work around it), put the long project on it (nine clips on V1 in raw order, 21:23.09 — `B5_ROOT=… node drive.mjs
-ready` on an instance launched on the station profile with its own CDP port, then stop it), and write
-`docs/studio/end-to-end/B5/hasan-station.ps1` on B4's pattern (this branch's dev build, station profile only,
-`-Reset` that backs up first); then HASAN-STEP.md.
+Click-check HASAN-STEP.md literally with REAL mouse/keyboard input on the station: launch it THROUGH
+`powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B5\hasan-station.ps1 -CdpPort 9325` (background), then
+drive every instruction as written — Studio → video-14-raw, the Transcript tab and its header ("1,820 words", "Remove 15
+fillers"), Space play/pause with focus in the transcript, find each take by wheel-scrolling to its M:SS head, W1–W8
+(word click → clock == the table's "highlight starts", double-click selects exactly one word — else switch the doc to
+a drag, Delete, Ctrl+Z → disk == start), D11 → D1 in that order (click + SHIFT+click or drag; selection bar count ==
+the table's; toast; pills — does D4 leave two?), Part C (Restore D7 + D4 by real clicks, Ctrl+Z / Ctrl+Shift+Z) and
+Part D (the real "Remove N fillers" number + toast) — write a driver `.vidtsx-temp/end-to-end/B5/station-check.mjs`
+(reuse `deletes.mjs`/`checks.mjs` helpers, poll project.json ≥ 250 ms apart or read `[data-save-state]`), fix every
+wrong instruction/number in HASAN-STEP.md (remove the `[check]` marks and the DRAFT banner only when all pass), then
+close the app, run `hasan-station.ps1 -Reset`, and confirm the station project.json hash == the start snapshot.
 
 ## Open problems
 
@@ -492,7 +548,7 @@ Status row, TESTING §18.11.
 - The B5 scratch copy + profile exist (do not re-copy); the nine clips are already on V1 of
   B5-root's `video-14-raw` (`ready` skips clips already there). The first-half numbers (open time,
   1,820 words / spot table, 27/27 seeks, karaoke, scroll) are recorded — rerun only `spot` after the
-  UTF-8 fix. `B5-station-root` / `profiles\B5-station` are NOT made yet.
+  UTF-8 fix. `B5-station-root` / `profiles\B5-station` were made by builder #6 (below).
 - Problem 1 is FIXED and verified (`fb32ab1`, spot = 0 text mismatches) — do not redo. Delete cases
   inside / across / short / first / last PASSED (table under Verified) — rerun them only after a
   delete-path code change.
@@ -505,6 +561,12 @@ Status row, TESTING §18.11.
   save + reopen + restore-after-reopen are DONE and recorded (Verified) — do not redo. B5-root is back at
   the ORIGINAL project.json (9 clips, 1283.148 s, 0 proposals); the 0369 cut-plan proposal of the read-only
   check was dropped with it.
+- Builder #6: the B5 station (`B5-station-root` + `profiles\B5-station`) EXISTS with the long project, `b5-no-model`
+  and the start snapshot `…\B5\station-start\project.json` — do not re-copy or re-`ready` it; reset it with
+  `hasan-station.ps1 -Reset`. `hasan-station.ps1` and the HASAN-STEP.md draft exist — edit them, don't rewrite from
+  scratch. Remaining after the click-check: the backfill alternative (patch + its test in `withSpokenSpans`, verified,
+  NOT applied — fill HASAN-STEP's placeholder), the flip text checked (done in the draft; grep found no other gate),
+  B4 doc debt (decision 6), Status row, TESTING §18.11.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -521,3 +583,6 @@ Status row, TESTING §18.11.
 - 2026-10-22 · builder #5 · ~50 calls · fillers (found + fixed the toast over-count `e69d182`, tests first),
   karaoke past the bottom, read-only during an Auto Cut review, save + reopen + restore after reopen — all
   PASS live (`checks.mjs`); 0 zero-duration AssemblyAI words, speed 1; full vitest green run 1, types 26/10.
+- 2026-10-22 · builder #6 · ~38 calls · Hasan's B5 station built (copies, long project 21:23.09, `b5-no-model`,
+  start snapshot), `hasan-station.ps1` (+ `-Reset` dry-run), HASAN-STEP.md drafted (W1–W8 by-ear block, D1–D11,
+  restore/undo, fillers, the flip diff) — not yet click-checked.
