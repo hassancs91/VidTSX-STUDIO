@@ -692,6 +692,12 @@ re-measured offline through the real handler (the `negatives.b4.test.ts` pattern
   measured on the synthetic set: 35/40 instead of 32/40, and it would propose values off the form's 0.01 step. Also
   measured: gating on the fit lets one tail false positive through at ±40 ms on own edges (station seed 8: minTail
   0.14 → 0.10); ±20 ms → none.
+  **RULED (orchestrator, 2026-10-22): option (a), for all three knobs.** The station keeps the old-tight start
+  (ruling 7 — it is the real history). Hasan's step PASSES per knob when the row is proposed with its new value in
+  range, OR the row is missing and the card's fitted value for that knob is in range (head 0.12–0.18, minTail
+  0.05–0.11, margin 11–13); the record says which case it was. HASAN-STEP.md §4 updated by the orchestrator. A fit
+  inside the range but ≤ 30 ms from the old value is Q4's threshold working as Hasan specified, and STATUS says so (a
+  lower threshold is his call later). The one ±40 ms own-edge tail false positive is recorded, not fixed.
 - **Verifier round 1 — FAIL (2026-10-22), one deliverable** (fixed in fix round 1, see Done): `HASAN-STEP.md:33-37` (Snap) — Snap is
   on at every editor open (`TimelinePanel.tsx:95` `useState(true)`, not persisted) and pulls an edge
   to any clip edge within 8 px (`snapping.ts:9`); the neighbour's edge sits where the trimmed edge

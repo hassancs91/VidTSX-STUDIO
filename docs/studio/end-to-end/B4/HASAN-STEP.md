@@ -114,11 +114,14 @@ The knob table shows the cut rows as `old → new`:
 | **Cut margin (dB)** `5 → Z` | Z in **11 – 13** (12 ± 1) |
 | Cut tail max (s) | not part of the exit: it reads "at least N s" (only known up to the longest tail you kept; it is only ever raised) |
 
-A missing row means "unchanged" (= the old value, which is outside the pass range): a knob is
-proposed only when the value that reproduces your edges is MORE than 30 ms (1 dB for margin) away
-from the current one (your Q4 answer). **If the Cut lead-in row is missing, write down the number in
-the "Lead-in:" line under the table ("… head X s reproduces your edges")** — a fit of 0.14 is exactly
-30 ms from the old 0.11, so it is not proposed, though it is inside 0.15 ± 0.03; Claude reports both.
+A missing row means "unchanged": a knob is proposed only when the value that reproduces your edges
+is MORE than 30 ms (1 dB for margin) away from the current one (your Q4 answer). **The pass rule
+(orchestrator, 2026-10-22) is the same for all three knobs: PASS if the row is there with its new
+value in range, OR the row is missing and the fitted value in its line under the table ("… head X s
+reproduces your edges", and the same for tail min / margin) is in range.** A fit of 0.14 is exactly
+30 ms from the old 0.11 (and 0.11 from the old 0.14 for tail min), so it is not proposed although it
+is inside the range — write down the number from the line either way; Claude records which case it
+was (that is your Q4 threshold doing what you asked, not a miss).
 Under the
 table, the cut lines say how many joins it learned from (tails and lead-ins counted separately),
 your median lead-in / tail / level next to the style's, and **Show the N joins it measured** lists
