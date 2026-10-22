@@ -212,6 +212,13 @@ C: 18.6 GB, D: 2.04 GB.
 
 ## Next step (ONE concrete instruction)
 
+**Orchestrator override (2026-10-22 15:15 — DISK):** C: is at 1.46 GB free and D: at 1.38 GB
+(other sessions; `%TEMP%` alone is 25.8 GB). This step is CODE ONLY: no app launch, no M2 copy,
+no profile copy, no full `npx vitest run` (one test writes 1.68 GB to `%TEMP%`) — run only the
+targeted test files you touch, plus `npm run check:types`. Check `Get-PSDrive C,D` before every
+test run; if either drive is under 1.0 GB, stop, hand off, and say so. The live exits (b)/(c)
+and the full gate wait until the orchestrator says there is room.
+
 Build the card readout (decision 3 + the DECIDED wording): a new
 `src/features/studio/components/CutQaReadout.tsx` rendered by `ReviewCutsSection.tsx` under the
 note lines (:69-77; both the Auto Cut and the editorial card are `kind: 'cut-plan'` and render
