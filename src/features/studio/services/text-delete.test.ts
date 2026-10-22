@@ -2,11 +2,17 @@ import { describe, it, expect } from 'vitest';
 import type { StudioTimeline } from '@shared/types/studio';
 import { applyTextDelete, planTextDelete } from './text-delete';
 import { buildTranscriptDoc, withSpokenSpans } from './transcript-doc';
+import { TEST_NATURAL_STYLE, TEST_TIGHT_STYLE } from '@shared/studio/cut-style-test-fixtures';
 import { ASSET, makeEnvelope, makeTimeline, master, shots, wordSource } from './text-edit-fixtures';
 
 const envelopes = () => new Map([['a1', makeEnvelope()]]);
 
-function plan(timeline: StudioTimeline, pick: (text: string, index: number) => boolean, withEnvelope = true) {
+function plan(
+  timeline: StudioTimeline,
+  pick: (text: string, index: number) => boolean,
+  withEnvelope = true,
+  style = TEST_NATURAL_STYLE,
+) {
   const doc = buildTranscriptDoc(timeline, wordSource());
   return planTextDelete({
     timeline,
@@ -14,6 +20,7 @@ function plan(timeline: StudioTimeline, pick: (text: string, index: number) => b
     words: wordSource(),
     envelopes: withEnvelope ? envelopes() : new Map(),
     assets: [ASSET],
+    style,
   });
 }
 
@@ -32,6 +39,15 @@ describe('planTextDelete', () => {
     expect(span.to).toBeGreaterThanOrEqual(2.2);
     expect(span.to).toBeLessThan(2.45);
     expect(result.unsnappedAssetIds).toEqual([]);
+  });
+
+  it('snaps with the style it is given (B2: the resolved project style)', () => {
+    const natural = plan(makeTimeline(), (text) => text === 'um').spans[0];
+    const tight = plan(makeTimeline(), (text) => text === 'um', true, TEST_TIGHT_STYLE).spans[0];
+    // Tight keeps a shorter lead-in before 'to' (head 0.11 vs 0.19), so its cut ends later …
+    expect(tight.to).toBeGreaterThan(natural.to + 0.05);
+    // … and never starts later (its tail floor is shorter: minTail 0.14 vs 0.26).
+    expect(tight.from).toBeLessThanOrEqual(natural.from + 1e-6);
   });
 
   it('removes the selected words and nothing else', () => {
@@ -126,6 +142,7 @@ describe('planTextDelete — a word the engine gave no duration', () => {
       words: wordSource(words),
       envelopes: new Map([['a1', makeEnvelope(words, 10)]]),
       assets: [ASSET],
+      style: TEST_NATURAL_STYLE,
     });
     expect(result.spans).toHaveLength(1);
     expect(result.spans[0].from).toBeGreaterThanOrEqual(7.02);

@@ -6,12 +6,13 @@ import type {
   StudioMediaAsset,
   StudioCaptionStyle,
   StudioProject,
+  StudioProjectSettings,
   StudioProposal,
   StudioProposalKind,
   StudioShot,
   StudioShotKind,
 } from '../../types/studio';
-import type { CutPlanStyleName, StudioCutPlan } from '../../types/studio-cut-plan';
+import type { CutPlanStyleName, ResolvedCutStyle, StudioCutPlan } from '../../types/studio-cut-plan';
 import type {
   StudioMemoryProposal,
   StudioStylePromotionProposal,
@@ -383,6 +384,25 @@ export interface StudioCutPlanRunResponse {
   plan?: StudioCutPlan;
   /** Absolute path of the written plan JSON, for external inspection. */
   planPath?: string;
+  error?: string;
+}
+
+/** The project settings the cut-style resolver reads. */
+export type StudioCutStyleSettings = Pick<StudioProjectSettings, 'presetId' | 'cutStyle'>;
+
+export interface StudioCutStyleResolveRequest {
+  projectId: string;
+  /**
+   * The LIVE document's settings (an unsaved override counts); absent = the
+   * project.json on disk.
+   */
+  settings?: StudioCutStyleSettings;
+}
+
+export interface StudioCutStyleResolveResponse {
+  success: boolean;
+  /** Override > preset > default, resolved against the shipped cut-style.json. */
+  resolved?: ResolvedCutStyle;
   error?: string;
 }
 

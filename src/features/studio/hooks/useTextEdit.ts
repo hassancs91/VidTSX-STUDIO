@@ -12,6 +12,7 @@ import { planTextDelete } from '../services/text-delete';
 import { makeClipId } from '../services/timeline-ops';
 import type { TokenRange } from '../services/transcript-selection';
 import { useAssetEnvelopes } from './useAssetEnvelopes';
+import type { ResolvedCutStyleState } from './useResolvedCutStyle';
 import type { TimelineAction } from './useTimeline';
 
 interface Options {
@@ -28,6 +29,8 @@ interface Options {
   rippleAllTracks: boolean;
   /** A proposal is open: the panel reads, it does not edit (the rule Auto Cut obeys). */
   reviewOpen: boolean;
+  /** The project's resolved cut style (useResolvedCutStyle) — deletes snap with it. */
+  cutStyle: ResolvedCutStyleState;
   seek: (seconds: number) => void;
   showToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
@@ -51,6 +54,7 @@ export function useTextEdit({
   dispatch,
   rippleAllTracks,
   reviewOpen,
+  cutStyle,
   seek,
   showToast,
 }: Options) {
@@ -82,7 +86,17 @@ export function useTextEdit({
   const deleteTokens = useCallback(
     (tokens: readonly TranscriptToken[], what: 'word' | 'filler'): boolean => {
       if (readOnly || tokens.length === 0) return false;
-      const plan = planTextDelete({ timeline, tokens, words, envelopes, assets });
+      if (!cutStyle.resolved) {
+        showToast(
+          cutStyle.error
+            ? `Can't delete by text — the cut style did not load: ${cutStyle.error}`
+            : 'The cut style is still loading — try again in a moment',
+          cutStyle.error ? 'error' : 'info',
+        );
+        return false;
+      }
+      const style = cutStyle.resolved.style;
+      const plan = planTextDelete({ timeline, tokens, words, envelopes, assets, style });
       if (plan.blocked === 'locked') {
         showToast('The master track is locked — unlock it to edit by text', 'error');
         return false;
@@ -109,7 +123,7 @@ export function useTextEdit({
       );
       return true;
     },
-    [readOnly, timeline, words, envelopes, assets, dispatch, rippleAllTracks, seek, showToast],
+    [readOnly, cutStyle, timeline, words, envelopes, assets, dispatch, rippleAllTracks, seek, showToast],
   );
 
   const deleteRange = useCallback(

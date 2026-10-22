@@ -111,6 +111,8 @@ import type {
   StudioPackagePlanResponse,
   StudioCutPlanRunRequest,
   StudioCutPlanRunResponse,
+  StudioCutStyleResolveRequest,
+  StudioCutStyleResolveResponse,
   StudioTranscribeCancelRequest,
   StudioTranscribeCancelResponse,
   StudioAnalysisRequest,
@@ -194,6 +196,8 @@ export const studioApi = {
     ipcRenderer.invoke(IPC.STUDIO_ANALYSIS_READ_MASK, data),
   studioCutPlanRun: (data: StudioCutPlanRunRequest): Promise<StudioCutPlanRunResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_CUTPLAN_RUN, data),
+  studioCutStyleResolve: (data: StudioCutStyleResolveRequest): Promise<StudioCutStyleResolveResponse> =>
+    ipcRenderer.invoke(IPC.STUDIO_CUTSTYLE_RESOLVE, data),
   studioAgentSend: (data: StudioAgentSendRequest): Promise<StudioAgentSendResponse> =>
     ipcRenderer.invoke(IPC.STUDIO_AGENT_SEND, data),
   studioAgentCancel: (data: StudioAgentCancelRequest): Promise<StudioAgentCancelResponse> =>

@@ -12,6 +12,7 @@
 
 import { RmsEnvelope, masterLane, snapCutSpans } from '@shared/studio';
 import type { CaptionWordSource, SnappedCut } from '@shared/studio';
+import type { CutPlanStyle } from '@shared/types/studio-cut-plan';
 import type { StudioClip, StudioMediaAsset, StudioTimeline } from '../types';
 import { MIN_CLIP_DURATION, clipEndTime, clipRate } from './timeline-ops';
 import { removeSpanAllTracks, removeSpanFromTrack } from './ripple-ops';
@@ -30,6 +31,11 @@ export interface PlanTextDeleteInput {
   /** RMS envelopes by asset id. A missing one falls back to fixed pads. */
   envelopes: ReadonlyMap<string, RmsEnvelope>;
   assets: readonly StudioMediaAsset[];
+  /**
+   * The project's resolved cut style (B2: override > preset > default, from
+   * main) — the same knobs Auto Cut and the editorial pass snap with.
+   */
+  style: CutPlanStyle;
 }
 
 export interface TextDeletePlan {
@@ -150,6 +156,7 @@ export function planTextDelete(input: PlanTextDeleteInput): TextDeletePlan {
       words,
       duration,
       envelope,
+      style: input.style,
       ...(asset?.transcript?.features ? { features: asset.transcript.features } : {}),
     });
 

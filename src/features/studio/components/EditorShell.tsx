@@ -18,6 +18,7 @@ import { DEFAULT_EXPORT_ENGINE_ID } from '@shared/studio/export-engines';
 import { exportFileSuffix, type ExportSource } from '@shared/studio/export-source';
 import type { StudioAgentAction, StudioShotGenerateOp } from '@shared/ipc/types';
 import { useStudioProject } from '../hooks/useStudioProject';
+import { useResolvedCutStyle } from '../hooks/useResolvedCutStyle';
 import { useStudioThumbnails } from '../hooks/useStudioThumbnails';
 import { useStudioMedia } from '../hooks/useStudioMedia';
 import { useTimeline } from '../hooks/useTimeline';
@@ -865,6 +866,8 @@ export function EditorShell({ projectId, onBack }: Props) {
     return assets.filter((a) => ids.has(a.id));
   }, [captionLayer, transcriptActive, playerTimeline, assets]);
   const captionWords = useAssetTranscripts(projectId, captionAssets);
+  // The project's resolved cut style (B2): override > preset > default, from main.
+  const cutStyle = useResolvedCutStyle(projectId, project?.settings ?? null);
   // Text-based editing (NEXT_FEATURES_DESIGN.md Q5a): the same words, as a
   // document you can delete from. Reads while a proposal is under review.
   const textEdit = useTextEdit({
@@ -877,6 +880,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     dispatch: tl.dispatch,
     rippleAllTracks,
     reviewOpen: activeProposal !== null,
+    cutStyle,
     seek: playback.seek,
     showToast,
   });
