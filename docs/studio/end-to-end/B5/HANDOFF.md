@@ -242,7 +242,9 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   (640 px/s; at least 320 px/s = 4 clicks from the opening 20 px/s, 5–6 from Zoom to fit)" — as B4/HASAN-STEP.md §2 step 2
   (`ZOOM_LEVELS` `timeline-view.ts:4` = 1…20 (default index 4)…320, 640).
 - **Status.md row** (top, "END-TO-END B5 … DONE up to Hasan's step (the EXIT waits for Hasan)") and **TESTING §18.11** (after
-  §18.10; his pass + the flip + the conditional patch as unchecked items) written (builder #8).
+  §18.10; his pass + the flip + the conditional patch as unchecked items) written (builder #8). All of builder #8's work is
+  docs commit **`bf9e930`** (patch, `.gitattributes`, HASAN-STEP "After", B4 doc debt, Status, TESTING, DRIVING, LOG); `src/`
+  unchanged (`git diff --stat 3e7a285 bf9e930 -- src` empty).
 
 ## Verified (exact commands + outputs)
 
