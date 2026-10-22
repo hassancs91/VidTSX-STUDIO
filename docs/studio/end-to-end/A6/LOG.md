@@ -1,3 +1,4 @@
 # A6 — log (append-only, one dated line per agent)
 
 - 2026-10-22 07:15 · orchestrator · HANDOFF.md created, status NEW; probe placement must handle video-14's all-shots timeline.
+- 2026-10-22 07:25 · agent 1 · step 1a done, no app run: pure core part 1 — `src/shared/studio/sync-verdict.ts` (verify_sync report() port: median < 25 ms strict, |slope·span| ≤ 40 ms, ≥ 3 confident, else inconclusive; + = audio behind) and `src/shared/studio/sync-probes.ts` (probes only where the camera picture is visible: cutaways skipped, overlays named, PiP box mapped back to camera px — A5 80–110 s → 16 probes in the split, exportRect 2790,1256 1050×840 ↔ source 2,0 2700×2160); 13 new tests green, no tsc errors in the new files; A5 export contexts copied to `.vidtsx-temp/end-to-end/A6/a5-contexts/` before the 24 h sweep. Full suite + check:types not run. Next: sync-measure.ts DSP + I/O runner, live on the A5 Standard file.
