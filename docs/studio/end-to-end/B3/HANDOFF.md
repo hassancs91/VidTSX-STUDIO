@@ -1,7 +1,10 @@
 # B3 — QA readouts on the cards: hard entries and clipped tails, offending joins listed and auditionable
 status: IN PROGRESS (steps 1–3 done: pure QA module + exit (a) measured; QA wired onto plans and
-both proposal kinds in main; the card readout with auditionable spots. Next: the live exits (b)/(c),
-the full gate, CDP and docs — they wait for disk space)
+both proposal kinds in main; the card readout with auditionable spots. Step 4 live run DONE
+(builder #4): exit (b) met (1 hard entry of 164 joins, explained by the waveform), the negative
+fires (121 of 162), the spot audition plays across the join. **Exit (c) needs the orchestrator's
+call:** the tail COUNT stays 265 at margin 12/18/24 (the landings get louder: mean +11.45 → +14.51
+→ +16.23 dB) — see Open problems. Then: full gate + TESTING §18.9 + STATUS row)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, profiles on C:, the disk
 rules — new artefacts over ~1 MB go to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\`, D: stop line
@@ -221,6 +224,56 @@ C: 18.6 GB, D: 2.04 GB.
     row is disabled and inert; `ReviewCutsSection` without `qa` renders no `data-cut-qa`, with
     `qa` the readout sits under the headline.
 
+- **Step 4 — the live exits (b)/(c) on the REUSED scratch (orchestrator override), builder #4, no
+  code change, nothing committed but docs.** Root `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root`
+  (project.json backed up first to `…\vidtsx-e2e\B3\backup\b2-root-project.before-b3.json`, then
+  reset by `.vidtsx-temp/end-to-end/B3/reset-project.mjs`: no `presetId`/`cutStyle`, empty tracks,
+  no proposals), profile `profiles\B2\profile`, CDP 9291 (`B3/launch.sh`, `B3/cdp.mjs`,
+  `B3/drive.mjs`, `B3/restore.ps1`). All nine clips added to V1 through the pool's "Add to
+  timeline" (0366 at 0 … 0373 at 464.346 … 0376 at 1100.298; original total 1283.09 s). Auto Cut
+  per clip from the Inspector; card read through `[data-cut-qa*]`, `plan.qa` read from the plan
+  file. Card == plan file on every run. Per-run JSON: `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\exits-<tag>.json`.
+  - **Exit (b) — default style (`tight · default`, head 0.15, maxHead 0.3), card per clip
+    (hard of joins / tails of landings):** 0366 0/3, 6/8 · 0369 0/5, 5/6 · 0370 0/11, 15/18 ·
+    0371 0/23, 36/44 · 0372 0/16, 26/28 · **0373 1/53** (red), 84/92 · 0374 0/3, 5/7 · 0375 0/26,
+    50/53 · 0376 0/24, 38/42 → **hard entries 1 of 164 joins, tails 265 of 298 landings**; a rerun
+    at the end gave the identical totals. **The one hard entry, explained:** 0373 cut-in at source
+    323.198 s (`+17.7 dB`); the removed 2.0 s before it (321.193 → 323.198) holds an
+    UNTRANSCRIBED sound at 322.4–322.8 s peaking at −12 dB (speech level; transcript: "ready,"
+    ends 320.733, "before" starts 323.348) that decays through the check window (323.14–323.19:
+    −35 to −36 dB vs floor −53.1/−53.4). Hasan's hand edit never cuts in there: `cuts.json` removes
+    320.01–324.383 as a retake, which is why exit (a) on his keeps read 0. A real hard entry the
+    check is meant to catch, not a QA error.
+  - **Negative** (`settings.cutStyle {base natural, head 0}` → natural has no `maxHead`): **121 of
+    162 joins** hard (per clip 2/3, 4/5, 9/11, 14/22, 13/15, 42/53, 2/3, 16/26, 19/24), tails 97 of
+    298 — the check fires on real material.
+  - **Exit (c) — margin raised as a project knob override** (`settings.cutStyle {margin: N}` set
+    through the app's own project update — the InspectorPanel `onUpdate` prop, the same write the
+    override select does, reached via the React fiber; there is no UI editor for single project
+    knobs, `cut-style-override.ts` calls them hand-written; the readout then reads `tight + 1
+    override · project override` with `margin N` in its title): tails **265 → 265 → 265** at
+    margin 12 / 18 / 24 (per clip identical: 6, 5, 15, 36, 26, 84, 5, 50, 38); the landings get
+    louder — mean tail item **+11.45 → +14.51 → +16.23 dB** over floor (from the plan files) — but
+    no new landing crosses +6 dB: the 33 unflagged landings stay under at every margin. Hard
+    entries 1 → 2 → 2 (margin changes the segmentation: 0371 gains one real join that flags;
+    164 → 170 → 172 joins checked). Extra sweeps: `softMargin` 6 → 12 on tight → 265 → 269;
+    natural base margin 6 → 12 → 18 → 106 → 132 → 132 (a `softMargin 9` run left no JSON — not
+    rerun). **Not the "rises monotonically" the brief expects — see Open problems.**
+  - **Audition (decision 3), 0373's card:** `List the spots (85)` → 20 rows + `Show all 85`; row 1
+    `hard entry 5:23.2 +17.7 dB` maps (fiber `spot.time`) to result time 654.728 = the join; tails
+    follow by dB (23.0, 20.1, 18.5, 17.3, 15.9 …). Clicking row 1 (`B3/audition.json`, playhead text
+    sampled every ~120 ms, ORIGINAL-timeline coordinates while previewing): 784.33 at 123 ms →
+    785.12 at 970 ms → **787.37 at 1386 ms (the removed 2.0 s skipped — cuts applied)** → 788.32
+    at 2361 ms, stopped; then the playhead reads 655.44 (preview restored off). Join edges on the
+    original timeline: left 785.539, right 787.544 → it played from 1.21 s before the join to
+    0.78 s after (≈ 2 s, centred ~0.2 s early — see Open problems).
+  - Stills (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\stills\`): `b3-card-<tag>-0373.png` for
+    every run, `b3-spots-open.png`, `b3-spot-auditioning.png`. The isolated window minimized itself
+    repeatedly: `B3/restore.ps1` (ShowWindow on the electron.exe whose command line has
+    `--remote-debugging-port=9291`) before each batch.
+  - Scratch state left: B2-root's `project.json` = nine clips on V1, no `cutStyle`, no `presetId`,
+    proposals rejected; `cache/cut-plans/` gained the per-style plan files. App stopped.
+
 ## Verified (exact commands + outputs)
 
 - `npx vitest run src/shared/studio/cut-qa.test.ts` → `Test Files 1 passed (1) · Tests 11 passed (11)`.
@@ -259,10 +312,36 @@ C: 18.6 GB, D: 2.04 GB.
   `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors
   (baseline 10) ok`; `npx tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS`, 0 of them in
   CutQa* / cut-proposal / ReviewCutsSection / EditorShell. No app launch, no full vitest (override).
+- **Step 4 (live, builder #4, 2026-10-22 ~15:30–15:55):** `Get-PSDrive C,D` before launch → C:
+  1.97 GB, D: 1.37 GB; no electron running, ports 9222/5173/9291 free. `bash
+  .vidtsx-temp/end-to-end/B3/launch.sh` (background) → `node drive.mjs ready` → root
+  `B2-root`, nine clips on V1. `node drive.mjs run m12-default none` → `TOTALS
+  {"hardEntries":1,"joinsChecked":164,"clippedTails":265,"atomsChecked":298,"cardHard":1,"cardTails":265}`;
+  `run m18 '{"margin":18}'` → `{2,170,265,298,2,265}`; `run m24 '{"margin":24}'` →
+  `{2,172,265,298,2,265}`; `run neg-natural-head0 '{"base":"natural","head":0}'` →
+  `{121,162,97,298,121,97}`; `run sm12 '{"softMargin":12}'` → `{1,164,269,298}`; `run nat-m6
+  '{"base":"natural"}'` → `{2,151,106,298}`; `nat-m12` → `{2,151,132,298}`; `nat-m18` →
+  `{2,151,132,298}`; `run m12-default-rerun none` → `{1,164,265,298,1,265}`. `node drive.mjs
+  audition daf5a84e-…` → samples as in Done. Mean tail dB per style from the plan files: tight m12
+  11.45 · m18 14.51 · m24 16.23 · sm12 11.44; natural m6 12.97 · m12 12.55 · m18 13.17. Stopped:
+  `taskkill /T /F` on the roots of the processes whose command line has
+  `--remote-debugging-port=9291` or the B2 profile path → 0 left; launch task exited 0. Disk after:
+  C: 1.84 GB, D: 1.26 GB. No vitest/types run in this session (no code changed).
 
 ## Next step (ONE concrete instruction)
 
-**Orchestrator override (2026-10-22 15:40 — go, without new copies):** C: 1.98 GB, D: 1.37 GB.
+**Builder #5 (after the orchestrator rules on exit (c) — Open problems, first item):** run the
+gate and write the docs: `Get-PSDrive C,D` (stop under 1.0 GB), then `npx vitest run --exclude
+src/main/services/python-models/service.test.ts` logged to
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\vitest-full-run1.log` (DRIVING.md "Vitest gate while C:
+is low" + "under load"), `npm run check:types`, then the `### 18.9 B3` block in
+`docs/studio/TESTING.md` and the STATUS row in `Status.md` with step 4's measured numbers (and the
+two caveats under Open problems), commit, B3 DONE. If the orchestrator wants a different (c)
+measurement (e.g. `softMargin`, or (c) restated as "count non-decreasing, landings louder"), the
+app run is cheap: relaunch with `B3/launch.sh`, `node drive.mjs ready`, `node drive.mjs run <tag>
+'<spec>'` (~8 s for all nine clips), stop by the 9291 flag.
+
+**(Superseded — done by builder #4) Orchestrator override (2026-10-22 15:40 — go, without new copies):** C: 1.98 GB, D: 1.37 GB.
 Do the live exits WITHOUT new copies: Studio root = the existing scratch
 `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root` (full M2 copy: 9 clips, proxies, v3 waveforms,
 transcripts; its `project.json` has `presetId: youtube-long-form` + `cutStyle {base:tight}` from
@@ -296,7 +375,32 @@ shape of §17/§18.8, the DECIDED wording) and the STATUS row (`Status.md`), and
 
 ## Open problems
 
-- None blocking. Note for the card wording (decision 3): with Hasan's fitted tight (`margin 12`)
+- **ORCHESTRATOR CALL — exit (c) as worded is not what M2 shows (builder #4, 2026-10-22).**
+  Raising `margin` 12 → 18 → 24 on tight leaves the tail COUNT at 265 / 265 / 265 (every clip
+  identical) while each flagged landing gets louder (mean +11.45 → +14.51 → +16.23 dB). Reason
+  from the numbers: at tight's margin 12, 265 of 298 landings already sit above analyze_cut's
+  +6 dB line; the other 33 stay under at every margin (they land in quiet: gap-clamped or soft
+  word ends), so a higher margin can only make flagged landings louder, not flag new ones. The
+  count is monotone non-decreasing (flat), not rising. `softMargin` 6 → 12 moves it 265 → 269;
+  natural's margin 6 → 12 → 18 moves it 106 → 132 → 132. Options: (1) accept (c) as "count never
+  falls and the landings measurably move toward the release as margin rises" (record the mean
+  dB); (2) restate (c) on a knob/base where the count moves (natural margin 6 → 12, or tight
+  `softMargin`); (3) add the mean/worst landing level to the card (a code change — the card
+  currently shows counts only). The QA logic matched analyze_cut on Hasan's keeps (exit (a)), so
+  this is the 6 dB rule's saturation on tight, not a bug. Builder #4 did not pick one.
+- **Audition lands ~0.2 s early (step 4, small, not blocking).** The playhead text (original
+  coordinates while the result preview is on) read 784.33 → 788.32 for a span whose join edges
+  are 785.539 / 787.544 (expected 784.54 → 788.54): ~1.2 s before and ~0.8 s after the join
+  instead of 1.0 / 1.0. Not root-caused: either `mapQaItemToTimeline`'s result timeline and the
+  Player's preview timeline differ by ~0.2 s on 0373 (an earlier cut's edges?), or the time read-out
+  maps result → original with an offset. A verifier should read the Player's frame through the
+  fiber (masks kit `current-player.js`) instead of the text. Also: after the stop the preview is
+  restored OFF and the playhead then reads 655.44 — the result-timeline position kept as an
+  original-timeline time (a different place in 0373). `handlePlayJoin` uses the same
+  `playSpan(…, restorePreview)` path, so that part is pre-existing behaviour, not B3's.
+- **Multi-clip card rows (step 4 confirms the cosmetic note below):** 0373's rows show source
+  `M:SS.d` only; on a single-asset Auto Cut card that is unambiguous (Auto Cut runs per asset).
+- Note for the card wording (decision 3): with Hasan's fitted tight (`margin 12`)
   almost every atom is a "clipped tail" by analyze_cut's 6 dB rule (181 of 200 atoms on video-14,
   and his own report says the same), so the tail count reads as "how many landings ride the
   release", not as errors. Exit (c) relies on exactly this (count rises with `margin`).
@@ -353,6 +457,10 @@ shape of §17/§18.8, the DECIDED wording) and the STATUS row (`Status.md`), and
   `buildQaSpots` / `formatCutTc` in the renderer's `cut-proposal.ts`, `onPlayQaSpot` →
   `handlePlayQaSpot` in EditorShell, 18 new tests. Do not rebuild the card; the live run only
   reads it (fix only what the live run proves wrong).
+- B3 step 4 live run is DONE (builder #4): exit (b) (1 of 164, explained), the negative (121 of
+  162), margin 12/18/24 (265 flat), softMargin/natural sweeps and the spot audition are measured —
+  do not re-run them unless the orchestrator restates (c) or code changes. Do not copy M2 or a
+  profile again: B2-root + `profiles\B2\profile` are the reused scratch.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -364,3 +472,7 @@ shape of §17/§18.8, the DECIDED wording) and the STATUS row (`Status.md`), and
   `propose_cuts`; types 26/10; full vitest red only on a load flake + ENOSPC (C: 1.5 GB free).
 - 2026-10-22 · builder #3 · ~30 calls · step 3 (code only, disk override): the card readout +
   audition mapper + EditorShell handler (`99d825d`); 3 targeted files 32/32, types 26/10.
+- 2026-10-22 · builder #4 · ~44 calls · step 4 live on the reused B2-root/B2 profile (CDP 9291):
+  exit (b) 1 hard entry of 164 joins (0373, an untranscribed sound in a span Hasan cut as a
+  retake), negative 121/162, margin 12/18/24 → tails 265 flat (landings +11.45/+14.51/+16.23 dB),
+  audition plays across the join (~0.2 s early); exit (c) wording raised to the orchestrator.
