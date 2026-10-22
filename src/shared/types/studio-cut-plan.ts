@@ -130,6 +130,13 @@ export interface StudioCutPlan {
   assetId: string;
   createdAt: string;
   styleName: CutPlanStyleName;
+  /**
+   * The resolver's name for the style ("tight · default", "natural · preset
+   * “Shorts”") — the card headline. Absent on plans written before B2.
+   */
+  styleDisplayName?: string;
+  /** `ResolvedCutStyle.key` — part of the plan's file name. Absent before B2. */
+  styleKey?: string;
   /** The knobs actually used, after capability compensation. */
   style: CutPlanStyle;
   transcript: {

@@ -35,32 +35,9 @@ export interface PlanSpan {
   end: number;
 }
 
-/** Reference values that matched the hand-made reference cut (clean-cut skill). */
-export const TIGHT_STYLE: CutPlanStyle = {
-  internalGap: 0.4,
-  head: 0.11,
-  minTail: 0.14,
-  maxTail: 0.4,
-  margin: 5.0,
-  softGap: 1.2,
-  softMaxTail: 0.6,
-  softMargin: 3.0,
-};
-
-export const NATURAL_STYLE: CutPlanStyle = {
-  ...TIGHT_STYLE,
-  head: 0.19,
-  minTail: 0.26,
-  maxTail: 0.45,
-};
-
-// B2 interim: these constants go when the consumers move to resolveCutStyle
-// (cut-style.json is the source of truth). Nothing passes 'relaxed' yet.
-export const CUT_PLAN_STYLES: Record<CutPlanStyleName, CutPlanStyle> = {
-  tight: TIGHT_STYLE,
-  natural: NATURAL_STYLE,
-  relaxed: NATURAL_STYLE,
-};
+// The named styles are DATA (resources/skills/studio-clean-cut/cut-style.json),
+// resolved per project by resolveCutStyle (cut-style-resolve.ts); every caller
+// hands the planner the resolved knobs.
 
 /**
  * Capability compensation (never refusal): with only approximate word timing
@@ -224,7 +201,13 @@ export function internalPauses(
 export interface PlanCutsRequest {
   assetId: string;
   createdAt: string;
+  /** The named base the resolved knobs start from. */
   styleName: CutPlanStyleName;
+  /** The resolved knobs (resolveCutStyle) — capability compensation is applied here. */
+  style: CutPlanStyle;
+  /** The resolver's one-line name and knob key, stored on the plan. */
+  styleDisplayName?: string;
+  styleKey?: string;
   /** Source duration in seconds. */
   duration: number;
   words: PlanWord[];
@@ -239,7 +222,7 @@ export interface PlanCutsRequest {
 
 /** Full mechanical pass: atoms → snapped segments → stats + honest QA notes. */
 export function planCuts(req: PlanCutsRequest): StudioCutPlan {
-  const style = styleForFeatures(CUT_PLAN_STYLES[req.styleName], req.features);
+  const style = styleForFeatures(req.style, req.features);
   const keeps = req.keeps ?? [{ start: 0, end: req.duration }];
   const words = [...req.words].sort((a, b) => a.start - b.start);
 
@@ -266,6 +249,8 @@ export function planCuts(req: PlanCutsRequest): StudioCutPlan {
     assetId: req.assetId,
     createdAt: req.createdAt,
     styleName: req.styleName,
+    ...(req.styleDisplayName !== undefined ? { styleDisplayName: req.styleDisplayName } : {}),
+    ...(req.styleKey !== undefined ? { styleKey: req.styleKey } : {}),
     style,
     transcript: { sttModelId: req.sttModelId, features: req.features },
     segments,

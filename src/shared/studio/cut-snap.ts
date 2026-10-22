@@ -7,9 +7,8 @@
 // job. Pure logic, generic over the caller's category vocabulary.
 
 import type { SttModelFeatures } from '../presets/stt-models';
-import type { CutPlanStyleName } from '../types/studio-cut-plan';
+import type { CutPlanStyle } from '../types/studio-cut-plan';
 import {
-  CUT_PLAN_STYLES,
   planClip,
   styleForFeatures,
   type PlanSpan,
@@ -42,9 +41,27 @@ export interface SnapCutSpansInput<C extends string> {
   duration: number;
   envelope: RmsEnvelope;
   features?: SttModelFeatures;
-  /** Edge style; 'natural' default — authored joins should breathe. */
-  styleName?: CutPlanStyleName;
+  /**
+   * The resolved cut style (resolveCutStyle) — the same knobs Auto Cut uses;
+   * pause compression is switched off here whatever the style says.
+   * B2 INTERIM: optional only while Transcript deletes (text-delete.ts) still
+   * omit it; they fall back to the pre-B2 natural below. B2 step 3 passes the
+   * resolved style from the renderer and makes this required.
+   */
+  style?: CutPlanStyle;
 }
+
+/** B2 INTERIM fallback (the pre-B2 `natural`) — goes in B2 step 3. */
+const PRE_B2_NATURAL: CutPlanStyle = {
+  internalGap: 0.4,
+  head: 0.19,
+  minTail: 0.26,
+  maxTail: 0.45,
+  margin: 5.0,
+  softGap: 1.2,
+  softMaxTail: 0.6,
+  softMargin: 3.0,
+};
 
 export interface SnapCutSpansResult<C extends string> {
   items: SnappedCut<C>[];
@@ -161,7 +178,7 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
   if (hasTrailingKeep) keeps.push({ start: cursor, end: input.duration });
 
   // 4. Snap edges: same planner as Auto Cut, pause compression disabled.
-  const base = styleForFeatures(CUT_PLAN_STYLES[input.styleName ?? 'natural'], input.features);
+  const base = styleForFeatures(input.style ?? PRE_B2_NATURAL, input.features);
   const style = { ...base, internalGap: Number.POSITIVE_INFINITY };
   const cutSpans: PlanSpan[] = merged.map((m) => ({ start: m.start, end: m.end }));
   const segments = planClip(keeps, words, style, input.envelope, cutSpans);

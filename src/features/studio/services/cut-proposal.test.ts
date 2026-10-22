@@ -107,6 +107,12 @@ describe('buildCutProposal', () => {
     expect(lines[0]).toContain('−7.5 s of 20.0 s');
     expect(lines[1]).toBe('1 tail landed at max length');
   });
+
+  it('names the resolved style in the headline when the plan carries it (B2)', () => {
+    const plan = { ...makePlan(), styleDisplayName: 'natural · preset “Shorts”' };
+    const headline = buildCutProposal({ plan, words: [] }).agentNote!.split('\n')[0];
+    expect(headline).toContain('Auto Cut (natural · preset “Shorts”)');
+  });
 });
 
 describe('mapCutItemToTimeline', () => {

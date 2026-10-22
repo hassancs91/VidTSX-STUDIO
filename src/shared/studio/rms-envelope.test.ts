@@ -96,7 +96,7 @@ describe('snapTail — the fricative rule ("path" played as "pa-")', () => {
     expect(faint.snapTail(1.0, 0.08, 0.7, 12, 3500, 5)).toBe(0.08);
   });
 
-  it('a v2 cache (no zcr) behaves exactly like the old snapper', () => {
+  it('a v2 cache (no zcr) snaps with the new windowing and the fricative rule off', () => {
     const old = envelope(
       3,
       [

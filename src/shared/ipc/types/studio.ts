@@ -374,6 +374,7 @@ export interface StudioCutPlanRunRequest {
   assetId: string;
   /** Absolute source path — needed if the RMS envelope must be regenerated. */
   sourcePath: string;
+  /** An explicit style; absent = the project's resolved cut style (B2). */
   style?: CutPlanStyleName;
 }
 

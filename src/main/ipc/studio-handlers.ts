@@ -90,6 +90,7 @@ import { clearCache, getCacheInfo } from '../services/studio/cache-manager';
 import { studioMediaJobs } from '../services/studio/media-jobs';
 import { deleteTranscript } from '../services/studio/asset-transcriber';
 import { runCutPlan } from '../services/studio/cut-plan-runner';
+import { resolveProjectCutStyle } from '../services/studio/cut-style-store';
 import { studioAgent } from '../services/studio/studio-agent';
 import { agentActions } from '../services/studio/agent-actions';
 import { buildAgentSystemPrompt } from '../services/studio/studio-agent-prompt';
@@ -451,18 +452,20 @@ export async function handleStudioTranscribeCancel(
   return { success: studioMediaJobs.cancel(data.projectId, data.assetId, 'transcript') };
 }
 
-/** Run the mechanical auto-cut pass; returns the plan JSON, applies nothing. */
+/**
+ * Run the mechanical auto-cut pass; returns the plan JSON, applies nothing.
+ * The style is the project's resolved one (override > preset > default) unless
+ * the request names one.
+ */
 export async function handleStudioCutPlanRun(
   _event: IpcMainInvokeEvent,
   data: StudioCutPlanRunRequest,
 ): Promise<StudioCutPlanRunResponse> {
   try {
-    const { plan, planPath } = await runCutPlan(
-      data.projectId,
-      data.assetId,
-      data.sourcePath,
-      data.style ?? 'tight',
-    );
+    const cut = await resolveProjectCutStyle(data.projectId, {
+      ...(data.style ? { callStyle: data.style } : {}),
+    });
+    const { plan, planPath } = await runCutPlan(data.projectId, data.assetId, data.sourcePath, cut);
     return { success: true, plan, planPath };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to plan cuts') };

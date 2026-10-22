@@ -1,8 +1,12 @@
 // planClip with cutlib's opt-in style keys (max_head, min_skip, fric_zcr,
 // fric_margin) — the cases tools/cutlib.py's plan_clip docstring records.
 
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { TIGHT_STYLE, planClip, styleForFeatures } from './cut-planner';
+import { planClip, styleForFeatures } from './cut-planner';
+import { parseCutStyleFile } from './cut-style-spec';
+import { TEST_TIGHT_STYLE } from './cut-style-test-fixtures';
 import { mergeShortSkips } from './cut-skip-merge';
 import type { PlanWord } from './cut-planner';
 import { RmsEnvelope } from './rms-envelope';
@@ -126,17 +130,31 @@ describe('mergeShortSkips', () => {
   });
 });
 
-describe('the old styles are untouched by the new knobs', () => {
-  it('TIGHT_STYLE sets none of them (B2 moves the defaults)', () => {
-    expect(TIGHT_STYLE.maxHead).toBeUndefined();
-    expect(TIGHT_STYLE.minSkip).toBeUndefined();
-    expect(TIGHT_STYLE.fricZcr).toBeUndefined();
+describe('the shipped styles and the opt-in knobs (B2)', () => {
+  const shipped = parseCutStyleFile(
+    JSON.parse(readFileSync(path.resolve(process.cwd(), 'resources/skills/studio-clean-cut/cut-style.json'), 'utf8')),
+  );
+
+  it("the shipped tight is Hasan's fitted tight, all four knobs on", () => {
+    expect(shipped.styles.tight).toEqual(FITTED_TIGHT);
+  });
+
+  it('the shipped natural and relaxed set none of them', () => {
+    for (const name of ['natural', 'relaxed'] as const) {
+      const style = shipped.styles[name];
+      expect([style.maxHead, style.minSkip, style.fricZcr, style.fricMargin]).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    }
   });
 
   it('approximate word timing widens max_head with head', () => {
     const widened = styleForFeatures(FITTED_TIGHT, undefined);
     expect(widened.head).toBeCloseTo(0.23, 6);
     expect(widened.maxHead).toBeCloseTo(0.38, 6);
-    expect(styleForFeatures(TIGHT_STYLE, undefined).maxHead).toBeUndefined();
+    expect(styleForFeatures(TEST_TIGHT_STYLE, undefined).maxHead).toBeUndefined();
   });
 });

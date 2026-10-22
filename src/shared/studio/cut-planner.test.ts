@@ -1,8 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  NATURAL_STYLE,
   RmsEnvelope,
-  TIGHT_STYLE,
   internalPauses,
   planClip,
   planCuts,
@@ -11,6 +9,7 @@ import {
   tailFor,
 } from './cut-planner';
 import type { PlanWord } from './cut-planner';
+import { TEST_NATURAL_STYLE as NATURAL_STYLE, TEST_TIGHT_STYLE as TIGHT_STYLE } from './cut-style-test-fixtures';
 import type { SttModelFeatures } from '@shared/presets/stt-models';
 
 const BPS = 50; // matches the waveform cache's PEAKS_PER_SECOND
@@ -238,6 +237,7 @@ describe('planCuts (end to end)', () => {
     assetId: 'asset-1',
     createdAt: '2026-08-08T00:00:00.000Z',
     styleName: 'tight' as const,
+    style: TIGHT_STYLE,
     duration: 5,
     words,
     envelope: env,
@@ -291,9 +291,16 @@ describe('planCuts (end to end)', () => {
 
   it('natural style pads more generously than tight', () => {
     const tight = planCuts(base);
-    const natural = planCuts({ ...base, styleName: 'natural' });
+    const natural = planCuts({ ...base, styleName: 'natural', style: NATURAL_STYLE });
     expect(natural.style).toEqual(NATURAL_STYLE);
     expect(natural.stats.keptDuration).toBeGreaterThan(tight.stats.keptDuration);
+  });
+
+  it('stores the resolver name and key when given (pre-B2 plans have neither)', () => {
+    expect(planCuts(base)).not.toHaveProperty('styleDisplayName');
+    expect(planCuts(base)).not.toHaveProperty('styleKey');
+    const named = planCuts({ ...base, styleDisplayName: 'tight · default', styleKey: 'abcd1234' });
+    expect(named).toMatchObject({ styleName: 'tight', styleDisplayName: 'tight · default', styleKey: 'abcd1234' });
   });
 
   it('words arriving out of order are sorted before planning', () => {

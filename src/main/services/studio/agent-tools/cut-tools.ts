@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { logEngine } from '../../../../logging/log-engine';
 import { readTranscriptFile } from '../asset-transcriber';
 import { loadRmsEnvelope } from '../cut-plan-runner';
+import { resolveProjectCutStyle } from '../cut-style-store';
 import { EDITORIAL_CATEGORIES, buildEditorialProposal, snapEditorialCuts } from '../editorial-cuts';
 import { emitTool, reviewBlocked, text, type StudioTool, type StudioToolContext } from './types';
 
@@ -53,12 +54,22 @@ export function buildCutTools(ctx: StudioToolContext): StudioTool[] {
         return text('Could not load the audio envelope for this asset, so cut edges cannot be snapped. Ask the user to re-import or check the source file.', true);
       }
 
+      // The same resolved style Auto Cut uses (B2); the snapper keeps pause
+      // compression off — silence removal is Auto Cut's job.
+      let cut;
+      try {
+        cut = await resolveProjectCutStyle(req.projectId);
+      } catch (err) {
+        log.error('Editorial pass: cut style unreadable', err);
+        return text('Could not read the cut style, so cut edges cannot be snapped. Ask the user to check the app installation.', true);
+      }
       const snapped = snapEditorialCuts({
         spans: args.cuts,
         words: file.words,
         duration: envelope.duration(),
         envelope,
         features: file.features,
+        style: cut.style,
       });
       if (snapped.items.length === 0) {
         return text(`No usable cuts survived validation (${snapped.notes.join('; ') || 'all spans empty or out of range'}). Check the span times against the transcript.`, true);

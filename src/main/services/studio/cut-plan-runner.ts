@@ -4,7 +4,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import type { StudioCutPlan, CutPlanStyleName } from '../../../shared/types/studio-cut-plan';
+import type { StudioCutPlan, ResolvedCutStyle } from '../../../shared/types/studio-cut-plan';
 import type { WaveformFile } from '../../../shared/types/studio-waveform';
 import { WAVEFORM_VERSION } from '../../../shared/types/studio-waveform';
 import { getProjectCacheDir } from './studio-paths';
@@ -54,12 +54,17 @@ export async function loadRmsEnvelope(
   return new RmsEnvelope(file.rmsDb, file.peaksPerSecond, file.zcr);
 }
 
-/** Run the mechanical auto-cut pass for one transcribed asset. */
+/**
+ * Run the mechanical auto-cut pass for one transcribed asset with the resolved
+ * cut style (cut-style-store `resolveProjectCutStyle`). The plan file is keyed
+ * by style name AND knob key, so an edited preset never reuses a stale plan;
+ * pre-B2 `<asset>-<style>.json` files are left alone (nothing reads them back).
+ */
 export async function runCutPlan(
   projectId: string,
   assetId: string,
   sourcePath: string,
-  styleName: CutPlanStyleName,
+  cut: ResolvedCutStyle,
 ): Promise<RunCutPlanResult> {
   const transcript = await readTranscriptFile(projectId, assetId);
   if (!transcript) {
@@ -74,7 +79,10 @@ export async function runCutPlan(
   const plan = planCuts({
     assetId,
     createdAt: new Date().toISOString(),
-    styleName,
+    styleName: cut.styleName,
+    style: cut.style,
+    styleDisplayName: cut.displayName,
+    styleKey: cut.key,
     // The envelope is the measured audio length and is authoritative. The
     // transcript's duration is wrong in both directions: it stops at the last
     // spoken segment (understating trailing silence) and whisper pads its
@@ -88,7 +96,7 @@ export async function runCutPlan(
   });
 
   const cacheDir = await getProjectCacheDir(projectId);
-  const planPath = path.join(cacheDir, CUT_PLAN_DIR, `${assetId}-${styleName}.json`);
+  const planPath = path.join(cacheDir, CUT_PLAN_DIR, `${assetId}-${cut.styleName}-${cut.key}.json`);
   await fs.mkdir(path.dirname(planPath), { recursive: true });
   await fs.writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8');
 

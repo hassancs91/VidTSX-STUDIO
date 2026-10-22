@@ -17,6 +17,7 @@ import { buildCutProposal } from '../../../../shared/studio/cut-proposal';
 import { transcriptionEngine } from '../../../../transcription-engine';
 import { deleteTranscript, readTranscriptFile, readTranscriptMeta } from '../asset-transcriber';
 import { runCutPlan } from '../cut-plan-runner';
+import { resolveProjectCutStyle } from '../cut-style-store';
 import { studioMediaJobs } from '../media-jobs';
 import {
   emitProgress,
@@ -132,17 +133,21 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
     'Run the mechanical Auto Cut (silence/pause removal from the audio envelope) on one transcribed asset — the same pass as the toolbar button, producing the same cut-plan proposal in the review panel. Not an editorial pass: for retakes/fillers use get_transcript + propose_cuts. One proposal can be open at a time.',
     {
       assetId: z.string().describe('Asset id from the project inventory (must be transcribed)'),
-      style: z.enum(['tight', 'natural']).optional().describe('tight (default) trims pauses hard; natural keeps breathing room'),
+      style: z
+        .enum(['tight', 'natural', 'relaxed'])
+        .optional()
+        .describe("Omit to use the project's cut style (its override, else its preset's, else the default tight). Only pass one when the user asked for it: tight trims pauses hard, natural keeps breathing room, relaxed keeps more"),
     },
     async (args) => {
       const asset = findProjectAsset(ctx, args.assetId);
       if (!asset) return text(`Unknown asset id ${args.assetId}. Use an id from the project inventory.`, true);
-      emitTool(ctx, 'run_auto_cut', `${asset.name} (${args.style ?? 'tight'})`);
+      emitTool(ctx, 'run_auto_cut', `${asset.name} (${args.style ?? 'project style'})`);
       if (reviewBlocked(ctx)) {
         return text('A proposal is already open in the review panel. Ask the user to apply or reject it first (or call accept_proposal if they already said to apply it).', true);
       }
       try {
-        const { plan } = await runCutPlan(req.projectId, args.assetId, asset.path, args.style ?? 'tight');
+        const cut = await resolveProjectCutStyle(req.projectId, args.style ? { callStyle: args.style } : {});
+        const { plan } = await runCutPlan(req.projectId, args.assetId, asset.path, cut);
         const file = await readTranscriptFile(req.projectId, args.assetId);
         const proposal = buildCutProposal({
           plan,
@@ -155,7 +160,7 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
         ctx.state.proposalId = proposal.id;
         ctx.emit({ projectId: req.projectId, kind: 'proposal', proposal });
         return text(
-          `Auto Cut proposed (id "${proposal.id}"): ${proposal.items.length} silence cuts, −${plan.stats.removedDuration.toFixed(1)} s of ${plan.stats.sourceDuration.toFixed(1)} s. ` +
+          `Auto Cut proposed (id "${proposal.id}", style ${cut.displayName}): ${proposal.items.length} silence cuts, −${plan.stats.removedDuration.toFixed(1)} s of ${plan.stats.sourceDuration.toFixed(1)} s. ` +
             'It is in the review panel — tell the user briefly and let them review, or call accept_proposal ONLY if their latest message already said to apply it.',
         );
       } catch (err) {

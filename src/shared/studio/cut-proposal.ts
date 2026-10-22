@@ -99,7 +99,9 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
 
   const removed = spans.reduce((sum, s) => sum + (s.end - s.start), 0);
   const headline =
-    `Auto Cut (${plan.styleName})` +
+    // The resolver's name ("tight · default", "natural · preset “Shorts”");
+    // plans written before B2 only carry the style name.
+    `Auto Cut (${plan.styleDisplayName ?? plan.styleName})` +
     (input.engine ? ` · ${input.engine}` : '') +
     ` · −${removed.toFixed(1)} s of ${duration.toFixed(1)} s` +
     ` · noise floor ${plan.stats.noiseFloorDb.toFixed(0)} dB`;
