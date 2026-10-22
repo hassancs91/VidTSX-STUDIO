@@ -1,6 +1,7 @@
 # B3 — QA readouts on the cards: hard entries and clipped tails, offending joins listed and auditionable
-status: IN PROGRESS (steps 1–2 done: pure QA module + exit (a) measured; QA wired onto plans and
-both proposal kinds in main. Next: the card UI)
+status: IN PROGRESS (steps 1–3 done: pure QA module + exit (a) measured; QA wired onto plans and
+both proposal kinds in main; the card readout with auditionable spots. Next: the live exits (b)/(c),
+the full gate, CDP and docs — they wait for disk space)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, profiles on C:, the disk
 rules — new artefacts over ~1 MB go to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\`, D: stop line
@@ -177,6 +178,48 @@ C: 18.6 GB, D: 2.04 GB.
     entries 1 of 2 joins · tails on a release 1 of 2 landings.`; a cut to the end → 0 hard of 1
     join, 1 tail landing past the cut start (see Open problems). `cut-proposal.test.ts` /
     `editorial-cuts.test.ts` — qa carried + stamped; a pre-B3 plan / no-qa input → no `qa` key.
+- **Step 3: the card readout (decision 3 + the DECIDED wording), `99d825d` (code only, no app
+  launch — disk override):**
+  - `src/features/studio/services/cut-proposal.ts`: `formatCutTc` moved here from
+    ReviewCutsSection (:126); constants `QA_AUDITION_LEAD_S 1`, `QA_AUDITION_SPAN_S 2`,
+    `QA_VISIBLE_SPOTS 20` (:137-140), slack 0.05 s; `QaSpot {item, time}`;
+    `mapQaItemToTimeline(result, proposal, item)` (:160) maps asset + `sourceTime` onto the
+    RESULT timeline (accepted cuts applied — what the Player plays while previewing): first clip
+    of the asset holding the time, master lane (`masterLane`) first; a time inside an ACCEPTED
+    span of the proposal maps to that cut's join (kept edge: `sourceStart` → left piece's end,
+    else `sourceEnd` → right piece's start) — this resolves the "editorial tails inside a removed
+    span" open problem; null = no asset / not on the timeline. Speed ignored, like
+    `mapCutItemToTimeline` and the apply. `buildQaSpots(result, proposal, qa)` (:183) = hard
+    entries in plan order, then tails by `overDb` desc, each mapped.
+  - NEW `src/features/studio/components/CutQaReadout.tsx` (162 lines): line 1
+    `formatHardEntries` (`text-accent-red` when > 0, else neutral; tooltip "the cut-in starts on
+    sound more than 15 dB over the room tone — listen for a hard entry"), line 2
+    `formatReleaseTails` neutral with the DECIDED tooltip; both 0 → one `QA clean` line
+    (`formatCutQaLine`, `text-text-dim`, title = both counts). Toggle `List the spots (N)` /
+    `Hide the spots`; rows capped at 20 + `Show all N`. `CutQaSpotRow` (hook-free, the whole row
+    is a `<button>`: ▶, chip `hard entry`/`tail`, source time, `+X.X dB`; disabled with "This spot
+    is not on the timeline" when unmapped) → `onAudition(time)`. DOM hooks for CDP:
+    `[data-cut-qa="report"|"clean"]`, `[data-cut-qa-hard=N]`, `[data-cut-qa-tails=M]`,
+    `[data-cut-qa-toggle]`, `[data-cut-qa-spot=hard-entry|clipped-tail]`, `[data-cut-qa-show-all]`.
+  - `ReviewCutsSection.tsx`: new required prop `onPlayQaSpot(timelineTime)` (:29); the scratch
+    apply is now a `resultTimeline` memo (:65-69, `resultSeconds` derives from it); `<CutQaReadout>`
+    renders under the headline + count line, above the ⚠ lines, only when `proposal.qa` exists
+    (:83-90) — no `qa` → markup as before. Both cards (Auto Cut, editorial) are `cut-plan` and go
+    through here.
+  - `EditorShell.tsx`: `handlePlayQaSpot` (:635-643) — turns the result preview on if off
+    (restored after, like `handlePlayJoin`), then `playSpan(t − 1, t − 1 + 2, needsRestore)`
+    through the existing audition stop-at; passed as `onPlayQaSpot` (:1483).
+  - Tests: NEW `src/features/studio/services/cut-proposal-qa.test.ts` (9) — fixture apply sanity;
+    hard entry at the cut end → join; Auto Cut tail at the cut start → same join; kept audio →
+    through its piece; a tail inside a removed span → that cut's join; a rejected cut → plays in
+    place; no asset / other asset / trimmed → null; master lane first; `buildQaSpots` order + times.
+    NEW `src/features/studio/components/CutQaReadout.test.ts` (9; Node, no DOM — SSR markup via
+    `renderToStaticMarkup`, the row's click by calling the hook-free `CutQaSpotRow` and firing its
+    `onClick` prop): wording + denominators + red tone + tooltip + collapsed by default; 0 hard
+    entries not red; `QA clean` with no toggle; open-list order 16.4 / 11.5 / 7.2; cap 20 +
+    `Show all 25`; a row click calls the audition with the mapped time (2 = the join); an unmapped
+    row is disabled and inert; `ReviewCutsSection` without `qa` renders no `data-cut-qa`, with
+    `qa` the readout sits under the headline.
 
 ## Verified (exact commands + outputs)
 
@@ -209,32 +252,36 @@ C: 18.6 GB, D: 2.04 GB.
   suite when C: has > ~3 GB free.
 - Disk at step-2 hand-off: **C: 1.5 GB free, D: 1.6 GB free** (C: fell from 19 GB in ~1 h; B3's
   own C: folder is 85 KB — other sessions).
+- **Step 3 (`99d825d`, code only):** `Get-PSDrive C,D` before the run → C: 1.98 GB, D: 1.43 GB.
+  `npx vitest run src/features/studio/services/cut-proposal-qa.test.ts
+  src/features/studio/components/CutQaReadout.test.ts src/features/studio/services/cut-proposal.test.ts`
+  → `Test Files 3 passed (3) · Tests 32 passed (32)`. `npm run check:types` →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors
+  (baseline 10) ok`; `npx tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS`, 0 of them in
+  CutQa* / cut-proposal / ReviewCutsSection / EditorShell. No app launch, no full vitest (override).
 
 ## Next step (ONE concrete instruction)
 
-**Orchestrator override (2026-10-22 15:15 — DISK):** C: is at 1.46 GB free and D: at 1.38 GB
-(other sessions; `%TEMP%` alone is 25.8 GB). This step is CODE ONLY: no app launch, no M2 copy,
-no profile copy, no full `npx vitest run` (one test writes 1.68 GB to `%TEMP%`) — run only the
-targeted test files you touch, plus `npm run check:types`. Check `Get-PSDrive C,D` before every
-test run; if either drive is under 1.0 GB, stop, hand off, and say so. The live exits (b)/(c)
-and the full gate wait until the orchestrator says there is room.
+**WAITS FOR DISK (orchestrator's call):** all B3 code is built (steps 1–3); what remains needs
+the app, the M2 copy (~580 MB) + the B3 profile copy (~377 MB) on C:, and a full vitest run
+(> ~1.7 GB free on C: for `python-models/service.test.ts`). Start only when the orchestrator says
+there is room (C: ≥ ~3 GB, D: ≥ 1.0 GB); check `Get-PSDrive C,D` before every launch/test run.
 
-Build the card readout (decision 3 + the DECIDED wording): a new
-`src/features/studio/components/CutQaReadout.tsx` rendered by `ReviewCutsSection.tsx` under the
-note lines (:69-77; both the Auto Cut and the editorial card are `kind: 'cut-plan'` and render
-there) when `proposal.qa` exists (absent → render exactly as today): line 1
-`formatHardEntries(qa)` in the accent/error tone when > 0, line 2 `formatReleaseTails(qa)` neutral
-with the tooltip "the landing is still more than 6 dB over the room tone — soft landing; listen if
-it sounds cut", or one quiet `QA clean` line; a toggle expands the list (hard entries first, then
-tails by `overDb` desc, ~20 visible + "show all"); each row auditions: map `assetId` +
-`sourceTime` to timeline time with a pure renderer helper next to `mapCutItemToTimeline`
-(`src/features/studio/services/cut-proposal.ts`; first V1 clip playing that asset whose source
-range holds the time — a time inside a span the proposal removes maps to that cut's join, see Open
-problems), then seek ~1 s before and play ~2 s through EditorShell's existing audition stop-at
-(`EditorShell.tsx:545-565`, `auditionRef`/`setAuditioning` — pass a callback down the way the
-cut rows' auditions are wired); add the pure mapper's unit tests and a component test (counts and
-wording, sort order, cap + show all, no-qa proposal renders as before, a row click calls the
-audition with the mapped time); keep files ≤ ~300 lines; then hand off.
+When there is room, do the live part in ONE session: copy M2 into
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\B3-root\projects\` and the source profile to
+`…\profiles\B3\profile` (CDP 9291, `studioRootSet` to `…\B3-root` first), open the copy, put every
+speech clip on V1 through Auto Cut with the default style and read the card through the DOM
+hooks (`[data-cut-qa-hard]`, `[data-cut-qa-tails]`, `[data-cut-qa-toggle]`,
+`[data-cut-qa-spot]`) → **exit (b)**: hard entries 0 (or each listed spot explained by the
+waveform), click one spot and confirm the playhead lands ~1 s before its mapped time with the
+result preview on and stops ~2 s later; **exit (c)**: raise `margin` 12 → 18 → 24 through
+Project settings' cut knobs (`settings.cutStyle`), re-run Auto Cut each time, record the tail
+counts (must rise monotonically), plus the negative (`base natural`, `head 0`, `maxHead` off →
+hard entries > 0); stills to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\`. Then stop your
+instance (match `--remote-debugging-port=9291`, never the bare digits), run the full
+`npx vitest run` gate (DRIVING.md "Vitest gate under load", log to the C: folder), `npm run
+check:types`, write the `### 18.9 B3` block in `docs/studio/TESTING.md` (after `### 18.8 B2`,
+shape of §17/§18.8, the DECIDED wording) and the STATUS row (`Status.md`), and hand off with B3 DONE.
 
 ## Open problems
 
@@ -252,7 +299,19 @@ audition with the mapped time); keep files ≤ ~300 lines; then hand off.
   decision 3 says. Use the same wording on the editorial card and in STATUS/TESTING.
   (Step 2 put these strings in `cut-qa.ts` — `formatHardEntries` / `formatReleaseTails` /
   `formatCutQaLine` — reuse them; don't retype the wording in the component.)
-- **Editorial tails can land inside a removed span (not blocking, for the audition mapper).**
+- **The card's counts are the plan's, not live (step 3, not blocking — say so in TESTING §18.9).**
+  `proposal.qa` is computed once when the plan/proposal is made; rejecting a cut or dragging its
+  edges does NOT recompute the counts (no envelope in the renderer). The spots still map through
+  the CURRENT result timeline, so a click plays what the user will hear now (a spot whose cut was
+  rejected plays in place; one swallowed by a widened cut plays at that cut's join). Live
+  recompute would need the waveform envelope in the renderer — a later part's call, not B3's.
+- **List rows show per-clip SOURCE times (step 3, cosmetic).** A multi-clip Auto Cut card can list
+  two spots with the same `M:SS.d` from different clips; the row has no clip name (the component
+  has no asset list). The click maps through `assetId`, so the audition is right. Add the clip
+  label only if the live run shows it confuses.
+- `EditorShell.tsx` is 1,645 lines (pre-existing, far over the ~300 rule); step 3 added one
+  13-line handler there because the audition state (`playSpan`, `previewResult`) lives there.
+- **RESOLVED in step 3 (`mapQaItemToTimeline`): editorial tails can land inside a removed span.**
   analyze_cut's tail check reads `e + tailFor(e, gap to the next ATOM)` and knows nothing about
   cut spans; Studio's `planClip` additionally clamps a real tail at the next cut's start. Faithful
   to analyze_cut (exit (a) matched with exactly this), but on an editorial card a tail item's
@@ -279,6 +338,10 @@ audition with the mapped time); keep files ≤ ~300 lines; then hand off.
   (editorial snapper) and `StudioProposal.qa` (both builders, items stamped with `assetId`); the
   agent replies end with the QA line. Do not move it into `planCuts` or add an IPC field — the
   toolbar Auto Cut already gets it through the plan it receives.
+- B3 step 3 is DONE (`99d825d`): `CutQaReadout` + `CutQaSpotRow`, `mapQaItemToTimeline` /
+  `buildQaSpots` / `formatCutTc` in the renderer's `cut-proposal.ts`, `onPlayQaSpot` →
+  `handlePlayQaSpot` in EditorShell, 18 new tests. Do not rebuild the card; the live run only
+  reads it (fix only what the live run proves wrong).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -288,3 +351,5 @@ audition with the mapped time); keep files ≤ ~300 lines; then hand off.
 - 2026-10-22 · builder #2 · ~37 calls · step 2: QA on plans (runner), editorial snapper and both
   proposal kinds + wording helpers + agent reply line (`47bc6a1`); new real-handler test for
   `propose_cuts`; types 26/10; full vitest red only on a load flake + ENOSPC (C: 1.5 GB free).
+- 2026-10-22 · builder #3 · ~30 calls · step 3 (code only, disk override): the card readout +
+  audition mapper + EditorShell handler (`99d825d`); 3 targeted files 32/32, types 26/10.
