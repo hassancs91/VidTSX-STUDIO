@@ -7,10 +7,10 @@
 
 ---
 
-## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied) — DONE up to Hasan's step (the EXIT waits for Hasan)
+## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied); verifier fix round 1 (close / quit during a `project.json` lock) in — DONE up to Hasan's step (the EXIT waits for Hasan)
 
-- **What:** part B5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `fb32ab1` → `aa58ee8` → `e69d182`;
-  station + checklist `8bf5433` → `3e7a285`). The §3 row: "`studio-text-edit` on in production after Hasan's pass on M2
+- **What:** part B5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `fb32ab1` → `aa58ee8` → `e69d182`,
+  fix round 1 `750c0d0`; station + checklist `8bf5433` → `3e7a285`). The §3 row: "`studio-text-edit` on in production after Hasan's pass on M2
   (AssemblyAI transcript, by ear, long project)", exit "his pass clean; flag flipped". Both halves of the exit are
   Hasan's; B5 built and verified everything up to them — the machine's half of the pass on the long project with real
   mouse and keyboard over CDP on an isolated profile, the bugs it found fixed (tests first), his station and checklist
@@ -50,13 +50,45 @@
   retry `aa58ee8`** — a Windows `rename` refused while another process held `project.json` (EPERM) left the edit unsaved
   with nothing retrying, so memory and disk diverged (builder #2's "2× long delete" = two correct deletes on top of a
   failed save): main `renameWithRetry` (EPERM/EBUSY/EACCES, 8 tries, ≤ 1.4 s), renderer `createAutosave` (a refused or
-  thrown save stays dirty and retries at 1/2/5/10 s, a flush waits for it, close retries; after 3 failures a persistent red
-  "Save failed — retrying"; `[data-save-state]` on the indicator). Live with a held lock: 6 s → saved at 10.4 s with no
-  further edit; 14 s → the error at 9.9 s, saved at 15.5 s; close during a lock → the edit landed (`rename-retry.test.ts`
-  5, `project-store.test.ts` +2, `autosave.test.ts` 8). (3) **Restore into view `aa58ee8`** — an opened deletion pill near
+  thrown save stays dirty and retries at 1/2/5/10 s, a flush waits for it; after 3 failures a persistent red
+  "Save failed — retrying"; `[data-save-state]` on the indicator). Live with a held lock and the editor open: 6 s → saved
+  at 10.4 s with no further edit; 14 s → the error at 9.9 s, saved at 15.5 s (`rename-retry.test.ts` 5,
+  `project-store.test.ts` +2, `autosave.test.ts` 8). **Closing or quitting DURING a lock was not covered by `aa58ee8`:** its
+  close flush gave up ~7.3 s after the close and dropped the edit — a 4 s lock landed, but the verifier's 10 s lock with
+  the close at +2.3 s (and a quit at +2.0 s) lost it, leaving a `project.json.tmp` nobody read. Fixed in fix round 1
+  (`750c0d0`, next bullet). (3) **Restore into view `aa58ee8`** — an opened deletion pill near
   the bottom put its Restore 14 px below the visible body; it now scrolls into view on open (`DeletionPill.test.ts` 4).
   (4) **Filler toast `e69d182`** — "Removed 15 fillers" when 13 were cut; `TextDeletePlan.removedTokens` counts the words
-  of the runs really cut (`text-delete.test.ts` +3). 29 new tests over the part.
+  of the runs really cut (`text-delete.test.ts` +3). 29 new tests over the part before the fix round.
+- **Verifier round 1 → fix round 1 (`750c0d0`, tests first): close / quit while another program holds `project.json`
+  no longer loses the edit.** A closing editor (and the window's quit-flush request) hands its unsaved document to MAIN
+  in one IPC call (`studio:project:handoff`); main's NEW `project-writer.ts` owns the write from then on — one writer per
+  project, serialized, retries in the background at 1/2/3/5/10/15/30 s for up to 10 min (logged; a reopened editor's save
+  supersedes it); on quit `shutdown.ts` drains pending writes for at most 4 s, else the `.tmp` stays. NEW
+  `project-recovery.ts`: on open, a `project.json.tmp` that parses as a project and is newer than `project.json` is
+  finalized (or opened unsaved while still held) and the editor toasts **"Recovered unsaved changes"** once; an older or
+  corrupt `.tmp` is moved aside as `project.json.tmp.ignored-<time>` (kept, logged, not loaded). Unit: `project-writer.test.ts`
+  (the verifier's model — real `createAutosave` + real `renameWithRetry` vs a 10 s hold, close at +2.0 / 2.3 / 3.0 / 6.2 s →
+  lands; give-up bound; quit → `.tmp` → recovered once; recovery on real files), `autosave.test.ts` +4 (`takeUnsaved`),
+  hook-level `useStudioProject.test.ts` 5 + `useTextEdit.test.ts` 1 (reverting either wiring now fails them).
+  **Live on B5-root (CDP 9321, real double-click on "uh" (i165) + real Delete key, PowerShell holding `project.json` with
+  no sharing for 10 s, disk polled every 250 ms):**
+
+  | case | edit applied | close / quit | result | main log |
+  |---|---|---|---|---|
+  | no lock, close | +0.79 s | "Back to projects" +1.01 s | edit on disk +1.27 s (first poll), no `.tmp` | "Handed-off project save landed" (attempt 1, 4 ms) |
+  | **10 s lock, close (the verifier's case)** | +1.49 s | "Back to projects" +2.34 s | lock released +10.09 s → **edit landed +10.31 s**, `.tmp` gone, 10 clips / 1282.568 s | warn "…refused — retrying in the background" (EPERM) +5.03 s; "…landed" attempt 3, 7,974 ms after the hand-off |
+  | no lock, quit (real WM_CLOSE) | +0.65 s | +0.74 s | edit on disk +1.00 s, app gone +1.07 s; relaunch: no toast | "…landed" (attempt 1, 3 ms) |
+  | **10 s lock, quit (real WM_CLOSE)** | +1.67 s | +2.02 s | app gone +7.25 s (5.2 s: 4 s drain); `project.json` untouched, `.tmp` = the edit; **relaunch → "Recovered unsaved changes" once**, `project.json` = the edit, `.tmp` gone; reopen → no toast | warn "…refused" +3.52 s; warn "Quit while a project save was still refused — project.json.tmp is recovered on the next open" +6.97 s; open: "Recovered unsaved changes from project.json.tmp" |
+  | no lock, quit (`window.close()`) | +0.60 s | +0.68 s | edit on disk +0.95 s, app gone +0.96 s; relaunch: no toast | — (a plain save, below) |
+  | **10 s lock, quit (`window.close()`)** | +1.58 s | +2.01 s | `.tmp` written +2.27 s, app gone +4.09 s; `project.json` untouched; **relaunch → "Recovered unsaved changes" once**, the edit on disk, `.tmp` gone; reopen → no toast | open: "Recovered unsaved changes from project.json.tmp" |
+  | older `.tmp` (valid project, `updatedAt` 2020) | — | open | moved aside `project.json.tmp.ignored-…`, bytes equal, NOT loaded (1,820 words), no toast | warn "Ignored project.json.tmp — kept aside" (older than project.json) |
+  | corrupt `.tmp` (cut-off JSON) | — | open | the same | warn … "not a usable project (Unexpected end of JSON input)" |
+
+  A page-script `window.close()` skips the BrowserWindow `close` event (the flush guard): the `beforeunload` flush saves
+  instead, and a refused one survives through the `.tmp` + recovery. The app never calls it (native frame on Windows; X,
+  Alt+F4 and the taskbar send WM_CLOSE = the hand-off path). B5-root's `project.json` written back byte-equal afterwards
+  (`…\vidtsx-e2e\B5\fix1-live\`, still `…\B5\stills\b5-fix1-after-lock-quit-wm.png`).
 - **The 2026-09-17 open items on this material:** clip speed is 1 on all nine clips (the `trimClip` / `trimClipRippleAll`
   / `applyCutProposal` speed debt does not apply); Hasan's AssemblyAI words hold **0 zero-duration words** (the captions'
   durationless-word drop does not bite here — it stays open for whisper).
@@ -80,7 +112,10 @@
   Opened once through the launcher, read-only — hash unchanged. **`docs/studio/end-to-end/B5/HASAN-STEP.md` walked
   literally** with real input on the scratch copy: part A 8/8 clocks exact, part B 11/11 (bar count = toast count, the
   kept text around each join as written, 1283.148 → 1156.398 s), part C restores + undo/redo, part D "Remove 9 fillers" →
-  `Removed 8 fillers · −12.0 s (1 spot too tight…)`, back to the original with 15 Ctrl+Z.
+  `Removed 8 fillers · −12.0 s (1 spot too tight…)`, back to the original with 15 Ctrl+Z. Fix round 1 (the verifier's
+  wording notes): D5 names which of the two "So here's what I did. I created" is kept (the one followed by "a starter",
+  `06:08.40`) and where the selection ends (`06:07.27`); D2's selection includes the "Other take." that opens the 3:49 take
+  (`03:49.35`–`03:49.51`); part A's stamps read "16–49 ms" (W8 "How" is 49 ms) — clocks from the station's own document.
 - **The flip, prepared NOT applied:** the only production gate is `src/shared/feature-flags.ts:73` (`'studio-text-edit':
   false`, read at `EditorShell.tsx:110`; dev builds force plain flags on) → `true` + the comment `:68-72`; commit message
   `feat(studio): Transcript tab on in production (studio-text-edit) after the B5 by-ear pass on M2` — in HASAN-STEP.md.
@@ -89,7 +124,12 @@
 - **Gates:** full `npx vitest run` (app stopped; C: 17.7 GB → no exclusion) **first run green: 462 files / 3895 tests
   passed, 5 / 34 skipped, 46.8 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\vitest-full-builder8-run1.log`; also green
   after each code commit — builders #4 and #5); `npm run check:types` web 26 / node 10 = baseline. Live CDP click-throughs
-  on isolated profiles throughout (above).
+  on isolated profiles throughout (above). **Fix round 1:** after `750c0d0` full run 3 `--maxWorkers=4` green (465 / 3920;
+  runs 1–2 hit the DRIVING.md load timeouts `shot-module-resolver` / `flow-render`, each green alone); after the live
+  re-check (app stopped, C: 16.5 GB → no exclusion) **full `npx vitest run` first run green: 465 files / 3920 tests passed,
+  5 / 34 skipped, 50.8 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\vitest-full-fix1-builder10-run1.log`); types 26 / 10.
+  25 new tests in the fix round (`project-writer.test.ts` 15, `autosave.test.ts` +4, `useStudioProject.test.ts` 5,
+  `useTextEdit.test.ts` 1).
 - **THE EXIT WAITS FOR HASAN: his by-ear pass per `docs/studio/end-to-end/B5/HASAN-STEP.md`, then his flag flip.**
   (~55–60 min) From `D:\repos\VidTSX-STUDIO`: `powershell -ExecutionPolicy Bypass -File
   docs\studio\end-to-end\B5\hasan-station.ps1` → Studio → `video-14-raw` → Transcript tab; part A (8 short words: does the

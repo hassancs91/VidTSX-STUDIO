@@ -87,7 +87,8 @@ is a listening question. For each row:
    the word start right away (good), or do you hear about a second of something else first — silence,
    a breath, the end of the word before (early)?
 2. **Double-click the word** — the bar reads `1 word · 1.0 s` (W5: `0.7 s`; that second IS the moved
-   start: the real stamp is 16–48 ms long) — **and press Delete.** Listen across the join: did the cut
+   start: AssemblyAI's own stamp is 16–49 ms long — W5 "a" 16 ms, W2 "so" 32 ms, W8 "How" 49 ms, the
+   other five 48 ms) — **and press Delete.** Listen across the join: did the cut
    take sound that was not the word (the end of the word before, a breath you wanted, the start of the
    next word)?
 3. **Ctrl+Z once** — the word is back and the pill is gone. (Each row starts from the untouched project.)
@@ -124,8 +125,8 @@ find the take, click its first bold word (the clock shows the "clock" column), s
 | D7 | one word inside a sentence | 12:19 (0373) | `12:29.47` | **really** (double-click) | `1 word · 0.1 s` | `−0.1 s` | …And it's ▸ a game changer for me. |
 | D8 | stutter | 11:07 (0373) | `11:07.42` | **So that's—** (drag) | `2 words · 0.5 s` | `−5.0 s` | …in the description below. ▸ so that was a 24-minute application. |
 | D4 | across two clips | 7:38 (0372 → 0373) | `07:38.36` | **So you can see the real magic. Okay,** | `8 words · 7.9 s` | `−4.8 s` — TWO pills: `So you can see the real magic.` (end of 0372) and `Okay,` (start of 0373) | …in just one minute. ▸ I clone it, install, |
-| D5 | retake — first words of a clip | 5:47 (0372) | `05:47.59` | **So here's what I did. I built this desktop application starter … Other take.** (up to "So here's what I did. I created a starter…") | `31 words · 19.8 s` | `−20.5 s` | …on the features you want to build. ▸ So here's what I did. I created a starter… |
-| D2 | retake — three takes in a row | 3:24 (0371) | `03:24.17` | **However, a desktop app uh runs locally on your client's— … Other take.** (up to the take "However, a desktop app runs directly and locally") | `39 words · 26.0 s` | `−31.8 s` | …before even your first customer. ▸ However, a desktop app runs directly and locally… |
+| D5 | retake — first words of a clip | 5:47 (0372) | `05:47.59` | **So here's what I did. I built this desktop application starter … boilerplate. Other take.** — "So here's what I did. I created" comes TWICE in a row: the first (takes 6:00 + 6:02, "…I created this desktop application boilerplate. Other take.") is selected; Shift+click the "take." that ends the 6:02 take (`06:07.27`). The second, at **`06:08.40`** (take 6:08), is the one followed by "**a starter**" — it is KEPT. | `31 words · 19.8 s` | `−20.5 s` | …on the features you want to build. ▸ So here's what I did. I created a starter… |
+| D2 | retake — three takes in a row | 3:24 (0371) | `03:24.17` | **However, a desktop app uh runs locally on your client's— … Other take.** — the selection ends INSIDE the 3:49 take: the "Other take." that OPENS it (`03:49.35`) is part of it; Shift+click that "take." (`03:49.51`). The kept "However, a desktop app runs directly and locally…" starts at `03:50.48`. | `39 words · 26.0 s` | `−31.8 s` | …before even your first customer. ▸ However, a desktop app runs directly and locally… |
 | D3 | one filler by hand | 2:26 (0370) | `02:28.24` | **uh** (double-click) | `1 word · 0.6 s` | `−0.6 s` | …if you are ready, let's ▸ get started. |
 | D1 | retake — false start, first words of a clip | 1:09 (0370) | `01:09.49` | **Last week I built this app in just 39— other take.** | `11 words · 4.8 s` | `−5.7 s` | …Look at this. ▸ Last week I built this in just 39 hours. (0369 → 0370) |
 

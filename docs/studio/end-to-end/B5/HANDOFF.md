@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: FIX round 1 IN PROGRESS — the code fix is COMMITTED `750c0d0` (tests first, full vitest green run 3 `--maxWorkers=4`, types 26/10); NOT yet live-re-checked; docs items 2–3 + Status/TESTING not done (builder #9, see Next step) — was: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
+status: DONE up to Hasan's step (fix round 1) — builder #10, 2026-10-22: the verifier's FAIL (close / quit during a `project.json` lock lost the edit) is fixed (`750c0d0`, builder #9) AND live-re-checked on B5-root with real input (10 s hold: close at +2.34 s → the edit landed +10.31 s; real window close / `window.close()` at +2.0 s → `.tmp` left → relaunch "Recovered unsaved changes" once, the edit on disk; controls; older/corrupt `.tmp` kept aside); Status.md:55 + TESTING §18.11 state the real behaviour; HASAN-STEP notes D5 / D2 / "16–49 ms" fixed; full vitest first run green (465 / 3920), types 26/10. **THE EXIT STILL WAITS FOR HASAN** (his by-ear pass, then his flip). — was: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -285,6 +285,30 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
     after; nothing unsaved → no hand-off; quit request inside the debounce → `['handoff','ack']`; `recovered+unsaved` →
     flagged + saved; plain open → not flagged, no save); NEW `useTextEdit.test.ts` (1: "Remove fillers" with one filler
     too tight → toast `Removed 1 filler · −… (1 spot too tight…)`).
+
+- **FIX round 1, items 1 (live) – 4 (builder #10, no `src/` change):**
+  - **Live re-check of `750c0d0` PASSED** on B5-root (CDP 9321) with real input — table under Verified. The verifier's case
+    (10 s hold, edit ~+1.5 s, close +2.3 s) → the edit landed 0.22 s after the release; quit at +2.0 s by the REAL window
+    close (WM_CLOSE) and by `window.close()` → `.tmp` = the edit, `project.json` untouched → relaunch: "Recovered unsaved
+    changes" once, the edit finalized, `.tmp` gone, reopen no toast; controls without a lock write at once; older / corrupt
+    `.tmp` moved aside byte-equal, not loaded. **Finding (not a bug):** a page-script `window.close()` skips BrowserWindow's
+    `close` event (the flush guard) — it saves through `beforeunload` → a plain `save` (no hand-off, no log line); the app
+    never calls it (native frame on Windows; X / Alt+F4 / taskbar = WM_CLOSE = guard → hand-off → 4 s drain), and a refused
+    `beforeunload` save still survives through the `.tmp` + recovery (measured). B5-root's `project.json` written back
+    byte-equal (`b1aec794…`, = `checks\original-project.json` but `updatedAt`); my two `.ignored-*` test files moved to
+    `…\B5\fix1-live\ignored-tmp\`.
+  - **Kit (gitignored):** `.vidtsx-temp/end-to-end/B5/fix1-live.mjs` (`open [label] | back | writeback | run
+    control-close|lock-close|control-quit|lock-quit|control-quit-wm|lock-quit-wm | tmp older|corrupt | logs <iso>`; PowerShell
+    hold with FileShare None, t0 = the handle open; real double-click on i165 "uh" + real Delete; WM_CLOSE via a pre-started
+    PowerShell `PostMessage`; a MutationObserver armed before the card click counts "Recovered unsaved changes" toasts; disk
+    and `.tmp` polled every 250 ms; main log lines from the profile's `logs\vidtsx-*.log`) + `launch-fix1.sh <log name>`.
+  - **Docs:** Status.md B5 row (header + "What" `750c0d0`; the old `:55` claim → what `aa58ee8` really covered; NEW fix-round
+    bullet with the live table; HASAN-STEP wording note; gates); TESTING §18.11 (`:435` corrected, NEW fix-round item, header
+    code/kit, the wording note); HASAN-STEP.md `:90` "16–49 ms" (W1–W8 = 48/32/48/48/16/48/48/49 ms), D5 (`:127` — the kept
+    "So here's what I did. I created" is the one followed by "a starter", `06:08.40`; the selection ends on the "take." that
+    ends the 6:02 take, `06:07.27`), D2 (`:128` — the selection includes the "Other take." that opens the 3:49 take,
+    `03:49.35`–`03:49.51`; the kept "However…" starts `03:50.48`) — clocks from the station's in-app document
+    (`…\B5\station\doc.json`, toolbar rounding; D5's first word `05:47.59` matches the walked clock).
 
 ## Verified (exact commands + outputs)
 
@@ -574,9 +598,49 @@ start (`2CFAF220…`), B5-root sha256 == `…\B5\checks\original-project.json` (
   465 passed | 5 skipped (470) · Tests 3920 passed | 34 skipped (3954)`** — the counted run (DRIVING "Vitest gate under load").
 - Committed `750c0d0` (src only).
 
+**Builder #10 (2026-10-22, FIX round 1 live re-check + items 2–4):** C: 16 / D: 32 GB before; no electron, nothing on
+5173/9321/9325/9222. B5-root `project.json` sha256 `B1AEC794…` = `checks\original-project.json` but `updatedAt` (9 clips,
+1283.148 s) → byte copy `…\B5\fix1-live\project-before.json` (the restore point). All from `.vidtsx-temp/end-to-end/B5`,
+outputs `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\fix1-live\` (`run-*.json`, `open-*.json`, `tmp-*.json`, console logs
+`app-fix1-1…5.log`); times relative to t0 = the PowerShell handle open (lock runs) or the run start (controls).
+- `bash launch-fix1.sh app-fix1-1.log` (bg) → `node fix1-live.mjs open start` → root B5-root, 1,820 tokens, `saved`, 0 toasts.
+- `node fix1-live.mjs run <mode>` (+ `writeback` / `back` / `open` between runs; 5 launches in all — each quit ends the app):
+
+  | run | edit applied (toast) | action | disk / `.tmp` | main log (profile `logs\vidtsx-2026-10-22.log`) |
+  |---|---|---|---|---|
+  | control-close | +0.79 s | "Back to projects" +1.01 s | edit on disk +1.27 s (first poll), no `.tmp` | info "Handed-off project save landed" {attempts 1, afterMs 4} |
+  | **lock-close** (10 s; released +10.09 s) | +1.49 s | "Back to projects" +2.34 s | `project.json` unreadable (held) until the release; **edit on disk +10.32 s, `.tmp` gone**, 10 clips / 1282.568 s | warn "Handed-off project save refused — retrying in the background" (EPERM rename) at +5.03 s; info "…landed" {attempts 3, afterMs 7974} at +10.31 s |
+  | control-quit (`window.close()`) | +0.60 s | `window.close()` +0.68 s | edit on disk +0.95 s, app gone +0.96 s, no `.tmp` | none (the beforeunload plain save) |
+  | → relaunch, `open after-control-quit` | | | 1,819 tokens, pill "uh", 0 recovered toasts | — |
+  | **lock-quit** (`window.close()`; released +10.09 s) | +1.58 s | `window.close()` +2.01 s | `.tmp` appears +2.27 s; app gone +4.09 s; after the release `project.json` = start, `.tmp` = the edit (`updatedAt` 19:51:14.309Z) | none |
+  | → relaunch, `open after-lock-quit` | | card click | **"Recovered unsaved changes" ×1 at +335 ms**, `project.json` = the edit (`updatedAt` 19:51:14.309Z), `.tmp` gone, 1,819 tokens; `back` + `open …-reopen` → 0 toasts | info "Recovered unsaved changes from project.json.tmp" |
+  | control-quit-wm (WM_CLOSE) | +0.65 s | WM_CLOSE +0.74 s (`PostMessage` True) | edit on disk +1.00 s, app gone +1.07 s; relaunch → 0 toasts, 1,819 tokens | info "…landed" {attempts 1, afterMs 3} at +0.79 s |
+  | **lock-quit-wm** (WM_CLOSE; released +10.23 s) | +1.67 s | WM_CLOSE +2.02 s | `.tmp` +2.28 s; app gone **+7.25 s** (5.2 s after the close); `project.json` = start, `.tmp` = the edit | warn "…refused…" +3.52 s; warn "Quit while a project save was still refused — project.json.tmp is recovered on the next open" +6.97 s |
+  | → relaunch, `open after-lock-quit-wm` | | card click | **toast ×1 at +219 ms**, the edit finalized, `.tmp` gone; reopen → 0 toasts (still `…\B5\stills\b5-fix1-after-lock-quit-wm.png`: toast, "1,819 words", `/ 21:22.34`) | info "Recovered unsaved changes from project.json.tmp" |
+  | `tmp older` (valid project, `updatedAt` 2020-01-01) | — | open | not loaded (1,820 tokens, disk = start), 0 toasts, moved to `project.json.tmp.ignored-2026-10-22T19-47-56-063Z`, bytes equal | warn "Ignored project.json.tmp — kept aside" {reason "older than project.json"} |
+  | `tmp corrupt` (74 bytes of cut-off JSON) | — | open | the same, `…ignored-2026-10-22T19-48-13-757Z`, bytes equal | warn … {reason "not a usable project (Unexpected end of JSON input)"} |
+
+  The console logs (`app-fix1-*.log`) carry the same `[StudioProjectWriter]` messages. The delete each time: bar `1 word ·
+  0.6 s`, toast `Removed 1 word · −0.6 s`, 1,820 → 1,819 tokens.
+- `writeback` (project closed) → byte-equal; app stopped (matched `--remote-debugging-port=9321` / `profiles/B5/profile` /
+  `launch-fix1.sh`: 4 bash, 2 node, 1 cmd, 6 electron) → `left: 0`; `sha256sum` B5-root `project.json` == `project-before.json`
+  (`b1aec794…`); the two `.ignored-*` files moved to `…\B5\fix1-live\ignored-tmp\`.
+- `grep "window.close(\|frame: false\|titleBarStyle" src` → only `titleBarStyle: 'hidden'` for macOS (`index.ts:115`) and the
+  guard's own `win.close()` — the app never closes through a page-script `window.close()`.
+- FULL `npx vitest run` (app stopped; C: 16.54 GB → no exclusion; log `…\B5\vitest-full-fix1-builder10-run1.log`) → **run 1
+  green: `Test Files 465 passed | 5 skipped (470) · Tests 3920 passed | 34 skipped (3954)`, 50.8 s**.
+- `npm run check:types` (log `…\B5\check-types-fix1-builder10.log`) → `web: 26 errors (baseline 26) ok · node: 10 errors
+  (baseline 10) ok`. `npx vitest run project-writer.test.ts useStudioProject.test.ts useTextEdit.test.ts autosave.test.ts`
+  → `Test Files 4 passed (4) · Tests 33 passed (33)` (writer 15, autosave 12, hook 5, text-edit 1).
+
 ## Next step (ONE concrete instruction)
 
-**Builder #10: live re-check of `750c0d0` on B5-root (CDP 9321), then items 2–4 below.** The app must be (re)launched —
+**None for a builder — fix round 1 is DONE (builder #10); B5 goes back to WAITING-HASAN** (his by-ear pass per
+`docs/studio/end-to-end/B5/HASAN-STEP.md` on the station, then his flip — see "(Previous text, kept:)" below). The
+orchestrator may send a verifier round 2 on fix round 1 (re-run: `fix1-live.mjs run lock-close` and `run lock-quit-wm` +
+relaunch + `open`, on a fresh scratch copy — never the station).
+
+(Done — builder #10's instruction, kept for the record:) **Builder #10: live re-check of `750c0d0` on B5-root (CDP 9321), then items 2–4 below.** The app must be (re)launched —
 main changed. Extend `.vidtsx-temp/end-to-end/B5/lockcheck.mjs` (gitignored; `close [s]` exists — hold project.json with no
 sharing from PowerShell, delete 271–276 through the Transcript, poll disk ≥ 250 ms, write the original back with the project
 closed) with the verifier's exact timing: **(i) `close`:** hold 10 s, the delete at +1.6 s, real click "Back to projects" at
@@ -588,7 +652,7 @@ the edit, `.tmp` gone; then stop the app and write `…\B5\checks\original-proje
 items 2–4 of the FIX brief below (Status.md:55 / TESTING.md:435 with the new numbers, HASAN-STEP notes, gates only if `src/`
 changes again, Status B5 row + TESTING §18.11, status → DONE up to Hasan's step (fix round 1), commit).
 
-**FIX round 1 brief (orchestrator) — item 1 is DONE in code (`750c0d0`), live check pending:**
+**FIX round 1 brief (orchestrator) — ALL FOUR ITEMS DONE (item 1 code `750c0d0` builder #9, live re-check + items 2–4 builder #10):**
 
 
 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier round 1"):
@@ -628,6 +692,8 @@ B5-root with `station-check.mjs`; a clean pass → he (or a builder on his word)
 
 ## Open problems
 
+- **Verifier round 1 — RESOLVED by fix round 1** (code `750c0d0` builder #9; live re-check, docs and the HASAN-STEP notes
+  builder #10 — see Done / Verified). Original finding, kept:
 - **Verifier round 1 — FAIL (2026-10-22), one item: the autosave close path.** Closing the project
   while `project.json` is held ~10 s loses the edit unless the close comes late in the hold
   (`useStudioProject.ts:11` `CLOSE_FLUSH_TRIES = 3`, cleanup `:66-80`: 3 flushes × ~1.4 s rename
@@ -798,6 +864,11 @@ Status row, TESTING §18.11.
   the gates. Open design notes (not bugs): the snapshot restore (`studio-handlers.ts` ~:252) and the package import still call
   `saveProject` directly (no pending hand-off can exist for an OPEN project — `load` takes it back); the Home card shows
   project.json's `updatedAt` while a hand-off is pending.
+- Builder #10: the LIVE re-check of `750c0d0` (lock-close, lock-quit by WM_CLOSE and by `window.close()`, the three controls,
+  older / corrupt `.tmp`, recovery once + reopen without a toast), the docs (Status.md, TESTING §18.11, HASAN-STEP `:90`,
+  D5, D2) and the gates (full vitest first run green 465 / 3920, types 26/10) are DONE — do not redo. B5-root is back at the
+  pre-run `project.json` (byte-equal). A page-script `window.close()` skipping the flush guard is a known, harmless path (the
+  app never calls it; recovery covers it) — not a bug to chase.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -827,3 +898,7 @@ Status row, TESTING §18.11.
   (hand-off + background retries for minutes + quit drain), `project-recovery.ts` (newer `.tmp` → recovered once; older/corrupt
   kept aside), IPC `studio:project:handoff`, `autosave.takeUnsaved`, hook wiring + hook-level tests (fake React runtime);
   full vitest green (run 3, `--maxWorkers=4`, 3920), types 26/10. No app launched — live re-check is next.
+- 2026-10-22 · builder #10 · ~50 calls · fix round 1 live re-check PASSED on B5-root with real input (`fix1-live.mjs`, 5 launches):
+  10 s lock + close at +2.34 s → landed +10.31 s; quit at +2.0 s (WM_CLOSE and `window.close()`) → `.tmp` → "Recovered unsaved
+  changes" once on relaunch; controls; older/corrupt `.tmp` kept aside; docs (Status, TESTING §18.11, HASAN-STEP notes); full
+  vitest first run green (465 / 3920), types 26/10; status DONE up to Hasan's step (fix round 1).
