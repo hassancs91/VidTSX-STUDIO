@@ -1,10 +1,9 @@
 # B3 — QA readouts on the cards: hard entries and clipped tails, offending joins listed and auditionable
-status: IN PROGRESS (steps 1–3 done: pure QA module + exit (a) measured; QA wired onto plans and
-both proposal kinds in main; the card readout with auditionable spots. Step 4 live run DONE
-(builder #4): exit (b) met (1 hard entry of 164 joins, explained by the waveform), the negative
-fires (121 of 162), the spot audition plays across the join. **Exit (c) needs the orchestrator's
-call:** the tail COUNT stays 265 at margin 12/18/24 (the landings get louder: mean +11.45 → +14.51
-→ +16.23 dB) — see Open problems. Then: full gate + TESTING §18.9 + STATUS row)
+status: DONE (2026-10-22, builder #5) — steps 1–4 done (QA module + exit (a); QA on plans and both
+proposal kinds; the card readout with auditionable spots; the live exits (b)/(c) read as the
+orchestrator DECIDED). Gate: full vitest (python-models/service.test.ts excluded for disk,
+`--maxWorkers=4`) 451 files / 3814 tests passed, first try; types 26/10. STATUS row (top of
+`Status.md`) and TESTING `### 18.9 B3` written. Next: the B3 verifier.
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, profiles on C:, the disk
 rules — new artefacts over ~1 MB go to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\`, D: stop line
@@ -327,8 +326,24 @@ C: 18.6 GB, D: 2.04 GB.
   `taskkill /T /F` on the roots of the processes whose command line has
   `--remote-debugging-port=9291` or the B2 profile path → 0 left; launch task exited 0. Disk after:
   C: 1.84 GB, D: 1.26 GB. No vitest/types run in this session (no code changed).
+- **Step 5 — the part gate + docs (builder #5, 2026-10-22 15:45–15:55, no code change, no app
+  launch):** `Get-PSDrive C,D` → C: 1.84 GB, D: 1.11 GB (above the 1.0 GB stop line); no electron
+  running; CPU ~76 % (other sessions). `git diff --stat main..HEAD --
+  src/main/services/python-models/` → empty. **The counted run:** `npx vitest run --exclude
+  src/main/services/python-models/service.test.ts --maxWorkers=4` (log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\vitest-full-run1.log`, 15:47:14 → 15:49:04) →
+  `Test Files 451 passed | 5 skipped (456)` · `Tests 3814 passed | 34 skipped (3848)` · `Duration
+  104.66s`, exit 0 — green on the first try, no flake to rerun. `npm run check:types` (log
+  `…\B3\check-types-gate.log`) → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`. Disk after: C: 2.4 GB, D: 1.11 GB.
+  Docs: STATUS row (top of `Status.md`, the DECIDED reading of (b)/(c) + follow-ups), TESTING
+  `### 18.9 B3` (after §18.8).
 
 ## Next step (ONE concrete instruction)
+
+**B3 is DONE (builder #5).** Next: the B3 verifier (orchestrator's call) — re-read the card on
+B2-root/`profiles\B2\profile` or a verifier copy per DRIVING.md "Reuse, don't copy", with the
+numbers in STATUS / TESTING §18.9 as the claim to check. The paragraphs below are history.
 
 **DECIDED (orchestrator, 2026-10-22 16:05) — how the exit reads, write it this way in STATUS/TESTING:**
 - **Exit (b) "hard entries 0 at head 0.15"** = met on Hasan's hand-audited plan (exit (a): Studio
@@ -348,7 +363,7 @@ C: 18.6 GB, D: 2.04 GB.
   playhead parking at a result-timeline time read as an original-timeline time after the stop
   (pre-existing, shared with `handlePlayJoin`) are follow-ups in STATUS, not blockers.
 
-**Builder #5 (after the orchestrator rules on exit (c) — Open problems, first item):** run the
+**(Done — builder #5) Builder #5 (after the orchestrator rules on exit (c) — Open problems, first item):** run the
 gate and write the docs: `Get-PSDrive C,D` (stop under 1.0 GB), then `npx vitest run --exclude
 src/main/services/python-models/service.test.ts` logged to
 `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\vitest-full-run1.log` (DRIVING.md "Vitest gate while C:
@@ -393,7 +408,10 @@ shape of §17/§18.8, the DECIDED wording) and the STATUS row (`Status.md`), and
 
 ## Open problems
 
-- **ORCHESTRATOR CALL — exit (c) as worded is not what M2 shows (builder #4, 2026-10-22).**
+- **RULED (orchestrator, 2026-10-22 — see "DECIDED" under Next step; written that way in STATUS and
+  TESTING §18.9 by builder #5): exit (c) = count saturated on tight and non-falling, landings
+  louder; the count rises where not saturated (natural 106 → 132 → 132). No card change.**
+  **ORCHESTRATOR CALL — exit (c) as worded is not what M2 shows (builder #4, 2026-10-22).**
   Raising `margin` 12 → 18 → 24 on tight leaves the tail COUNT at 265 / 265 / 265 (every clip
   identical) while each flagged landing gets louder (mean +11.45 → +14.51 → +16.23 dB). Reason
   from the numbers: at tight's margin 12, 265 of 298 landings already sit above analyze_cut's
@@ -494,3 +512,6 @@ shape of §17/§18.8, the DECIDED wording) and the STATUS row (`Status.md`), and
   exit (b) 1 hard entry of 164 joins (0373, an untranscribed sound in a span Hasan cut as a
   retake), negative 121/162, margin 12/18/24 → tails 265 flat (landings +11.45/+14.51/+16.23 dB),
   audition plays across the join (~0.2 s early); exit (c) wording raised to the orchestrator.
+- 2026-10-22 · builder #5 · ~15 calls · step 5: the part gate (full vitest with python-models
+  excluded for disk, `--maxWorkers=4`, 451 files / 3814 tests green first try; types 26/10),
+  STATUS row + TESTING §18.9 with the DECIDED (b)/(c) reading; B3 DONE.

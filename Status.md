@@ -7,6 +7,83 @@
 
 ---
 
+## 2026-10-22 — END-TO-END B3: QA readouts on the cards — hard entries and clipped tails, offending joins listed and auditionable — DONE
+
+- **What:** part B3 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `e583d26` → `47bc6a1` →
+  `99d825d`), the plan's §2 T1 "two QA readouts". **One pure module** `src/shared/studio/cut-qa.ts` = Hasan's
+  `tools/analyze_cut.py` checks with its exact numbers as named constants, over `RmsEnvelope`: **hard entries**
+  (`entry_check`: a real cut join = the first segment or a source skip > 0.75 s; the 0.05 s window from 0.06 s
+  before the cut-in; flag > 15 dB over the floor) and **clipped tails** (analyze_cut main's loop, per ATOM:
+  landing = word end + `tailFor(gap to the next atom)`, 0.05 s window, flag > 6 dB). Computed in main where the
+  plan / proposal is made: `runCutPlan` writes `plan.qa` (also in the plan file) → `buildCutProposal` carries
+  `proposal.qa` stamped with the asset (the toolbar's Auto Cut gets it with the plan — no IPC change); the
+  editorial snap (`snapCutSpans`) returns `qa` → `buildEditorialProposal` → `proposal.qa`; `run_auto_cut` /
+  `propose_cuts` replies end with the QA line. Schema additions are optional only (`StudioCutPlan.qa?`,
+  `StudioProposal.qa?`): old plans and proposals load and render as before. **UI:** NEW `CutQaReadout.tsx` under
+  the cut card's headline (Auto Cut and editorial both go through `ReviewCutsSection`): **"Hard entries N of J
+  joins"** (red when > 0) and **"Tails on a release M of A landings"** (neutral; tooltip "the landing is still more
+  than 6 dB over the room tone — soft landing; listen if it sounds cut" — analyze_cut's "clipped-tail risks");
+  "QA clean" only when both are 0. `List the spots (N)` → hard entries first, then tails loudest first, 20 rows +
+  `Show all N`; every row is **auditionable**: one click maps the spot onto the RESULT timeline
+  (`mapQaItemToTimeline` — master lane first; a time inside an accepted removed span → that cut's join) and plays
+  ~2 s from ~1 s before it with the result preview on (`handlePlayQaSpot` → the existing `playSpan`).
+- **The exit, measured three ways (2026-10-22; M2 = `video-14-raw`, the nine raw DJI clips):**
+  **(a) the same plan as analyze_cut** — Hasan's hand-audited keeps (`cuts.json`), tight from `cut-style.json`
+  (asserted equal to `cuts.json`'s fitted tight knob for knob), M2's v3 waveforms + transcripts, analyze_cut
+  recomputed read-only (`python -I -B`, its `main` never run): **hard entries 0 / 0 on all nine clips**; tails
+  analyze_cut **181** (5, 11, 20, 12, 63, 4, 39, 27 — exactly Hasan's `qa-report.md`, so that report is current)
+  vs Studio **178** (5, 11, 20, 12, 61, 4, 38, 27): 178 flagged by both, 3 by analyze_cut only, 0 by Studio only —
+  each the 20 ms-bucket read B1 documented (one 0.18 dB read at the 6 dB edge; two Studio tails 60 / 20 ms longer,
+  which at cutlib's landing also read over 6 dB). Hottest real join per clip under 15 dB on both sides (max 0376
+  14.17 / 14.41); floors within 0.16 dB. **(b) "hard entries 0 at `head 0.15`"** — met on Hasan's plan (a), and live
+  on Studio's own Auto Cut over all nine clips (CDP, port 9291, the reused scratch `vidtsx-e2e\B2-root` +
+  `profiles\B2\profile`, default style `tight · default`, head 0.15, maxHead 0.3; card == `plan.qa` in the plan
+  file on every run): **hard entries 1 of 164 joins, tails on a release 265 of 298 landings** (per clip
+  hard/joins · tails/landings: 0366 0/3 · 6/8, 0369 0/5 · 5/6, 0370 0/11 · 15/18, 0371 0/23 · 36/44, 0372 0/16 ·
+  26/28, **0373 1/53** · 84/92, 0374 0/3 · 5/7, 0375 0/26 · 50/53, 0376 0/24 · 38/42; a rerun gave identical
+  totals). The one flag is a **TRUE positive** the check exists to catch: 0373's cut-in at source 323.198 s,
+  **+17.7 dB** — an UNTRANSCRIBED sound at 322.4–322.8 s (peak −12 dB; "ready," ends 320.733, "before" starts
+  323.348) in the removed 2.0 s before it decays into the check window (323.14–323.19 s: −35 / −36 dB over a floor
+  of −53.1 / −53.4); Hasan's edit removes 320.01–324.383 as a retake. Not a lead-in failure (the head snapper cannot
+  know about sound the transcript lacks); the card shows it in red and auditions it. **Negative control:** project
+  override `{base: natural, head: 0}` → **121 of 162 joins** hard (tails 97 of 298). **(c) "raising `margin` shows
+  clipped tails as expected"** — met as: on tight the count is already saturated at margin 12 (265 of 298 landings
+  over +6 dB) and does not fall as margin rises — **265 / 265 / 265 at margin 12 / 18 / 24** (project knob override
+  `settings.cutStyle {margin: N}`; per clip identical) — while the flagged landings get louder, **mean +11.45 →
+  +14.51 → +16.23 dB over the floor** (from the plan files); where the count is not saturated it rises: **natural
+  margin 6 → 12 → 18 → 106 → 132 → 132** (tight `softMargin` 6 → 12: 265 → 269). Hard entries 1 → 2 → 2 at margin
+  12 / 18 / 24 (margin moves the segmentation: 0371 gains one real join, which flags; joins 164 → 170 → 172).
+  **Audition:** 0373's `List the spots (85)` → 20 rows + `Show all 85`, row 1 `hard entry 5:23.2 +17.7 dB`; its
+  click (mapped to result time 654.728 = the join) played across the join with the cuts applied — playhead 784.33
+  → 785.12 → **787.37 (the removed 2.0 s skipped)** → 788.32, stopped, preview restored off. Evidence:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\` (`analyze-cut-ref.json`, `compare-b3-report.json`,
+  `exits-<tag>.json`, `audition.json`, `stills\b3-*.png`); drivers and scratch harness in
+  `.vidtsx-temp/end-to-end/B3/`. TESTING §18.9.
+- **Gates:** `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` **451 files
+  passed, 5 skipped; 3814 tests passed, 34 skipped, 104.7 s** — the counted run, green on the first try (app
+  stopped; log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\vitest-full-run1.log`). **`python-models/service.test.ts`
+  was EXCLUDED for disk** (DRIVING.md "Vitest gate while C: is low": it seeds a 1.68 GB file in `%TEMP%` and fails
+  with `ENOSPC` while C: has < 4 GB free — C: 1.84 GB, D: 1.11 GB before the run; the branch never touches
+  `python-models/`, `git diff --stat main..HEAD -- src/main/services/python-models/` is empty); `--maxWorkers=4`
+  because the CPU sat at ~76 % from other sessions. `npm run check:types` web 26 / node 10 = baseline. New unit
+  tests over the part: `cut-qa.test.ts`, `cut-tools.test.ts` (the real `propose_cuts` handler, no model call),
+  `cut-proposal-qa.test.ts` (9), `CutQaReadout.test.ts` (9), plus QA cases in `cut-plan-runner` / `run-auto-cut` /
+  `cut-proposal` / `editorial-cuts` tests.
+- **Honest notes:** the card's counts are the plan's, not live — rejecting a cut or dragging its edges does not
+  recompute them (no waveform envelope in the renderer); the spots map through the CURRENT result timeline, so a
+  click plays what the user will hear now. On tight the tail count reads "how many landings ride the release" (181
+  of 200 atoms on Hasan's own keeps), not errors — hence the two checks' different weight on the card. The
+  editorial card is proven through the real `propose_cuts` handler on a fixture and the component test (no model
+  call in B3); B6 runs the real editorial pass. `EditorShell.tsx` grew by one 13-line handler (1,645 lines,
+  pre-existing far over ~300). The margin knob was set through the app's own project update (no UI editor exists
+  for a single project knob).
+- **Open (follow-ups, not blockers):** the audition starts ~0.2 s early (1.21 s before / 0.78 s after the join
+  instead of 1.0 / 1.0; not root-caused); after the stop the playhead parks at the result-timeline time read as an
+  original-timeline time (pre-existing, shared with `handlePlayJoin`); a median / worst landing-dB line on the card
+  (the tail count saturates on tight); list rows show source `M:SS.d` with no clip label; no UI for single project
+  cut knobs.
+- **Next:** the B3 verifier; then B4.
+
 ## 2026-10-22 — END-TO-END B2: the default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section — DONE
 
 - **What:** part B2 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `bc104c3` → `4f0b33b` →
