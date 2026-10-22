@@ -446,6 +446,27 @@ to step 6 (read the step-6 notes under Open problems first).
 
 ## Open problems
 
+**RULED (orchestrator, 2026-10-22, after builder #5 — for step 6, Hasan's station):**
+- **His timeline = his own hand plan, not Auto Cut.** The 21 joins he trimmed on 10-15 were
+  sentence joins of preview-tight (his `cuts.json` keeps, retakes already out). Build the station's
+  Act-1 timeline (the raw span behind preview-tight 0:00–1:55, clips 0369…0371 as in
+  `act1-joins.json`) from `cuts.json`'s keeps planned through Studio's planner with the START
+  preset (old tight over base tight) — B3's hand-plan harness does this — written into the
+  station project's `project.json` as clips (no proposal needed: the learner reads trimmed clip
+  edges). Record how many sentence joins it contains.
+- **Ripple on** in the station (the setting or the state the trim reads), so lengthening a lead-in
+  is not stopped by the neighbour clip; HASAN-STEP.md says so.
+- **The start preset carries only `style.cut`** (old tight) and as few flat knobs as possible, so
+  the card does not show unrelated flat-knob changes; if the flat learner still proposes some,
+  HASAN-STEP.md says "ignore the non-cut lines — they come from the scratch preset".
+- **Trigger = the Inspector → Project → "Learn from this video" BUTTON** (no assistant chat): the
+  station's project uses a provider id that is not registered (as `b4-no-model`), so no model call
+  happens; the card reads "(numbers only — no summary model was available)". HASAN-STEP.md names
+  the button and says not to use the Assistant chat in this project.
+- Step 5 (e) negatives first, then the station, then the gates (full vitest per DRIVING.md, types),
+  a short live click-through of the station (open it, see the timeline + the readout, do ONE trim,
+  undo it), STATUS + TESTING §18.10, DONE.
+
 Objections to the orchestrator decisions — built this way, the orchestrator to rule (none needs
 Hasan; none blocks):
 
