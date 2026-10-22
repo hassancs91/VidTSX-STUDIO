@@ -21,10 +21,14 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   9241, its verifier 9251) — pick a fresh one, e.g. 92<part-number>x.
 - **Profiles go on C: from session 2 on (orchestrator, 2026-10-22):** D: is at ~2.8 GB free and
   every profile copy is ~372 MB. A NEW isolated profile (builders and verifiers alike) lives at
-  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>[-verify[N]]\profile` (copied from
-  `.vidtsx-temp/end-to-end/A5/profile`); drivers, logs, stills and reports stay in
-  `.vidtsx-temp/end-to-end/<PART>/`. B1's existing profile stays where it is. Check D: before
-  writing anything sizeable there; if it falls under ~2 GB, stop and report.
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>[-verify[N]]\profile`, **copied from
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\source\profile`** (an identical copy of A5's
+  profile, 2,328 files / 390 MB, made 2026-10-22 12:16 — never launch on `source` itself, never
+  copy from D: again); drivers, logs, stills and reports stay in `.vidtsx-temp/end-to-end/<PART>/`
+  (keep them small). A new profile's Studio root still defaults wrongly: set it first. Check D:
+  before writing anything sizeable there; if it falls under ~2 GB, stop and report. Other Claude
+  sessions on this machine write to C: and D: too — a drop that is not yours is not a reason to
+  stop above the line.
 - Launcher (A1's, worked first time): `.vidtsx-temp/end-to-end/A1/launch.sh` — copy it, change
   the profile path, port and log path, run it in the background from a script FILE.
   `ELECTRON_RUN_AS_NODE` must be unset.

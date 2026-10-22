@@ -16,8 +16,8 @@
 | A4 | DONE | 9 | PASS (1 round) | `3417d46` (fonts), `4671622` (GPU default), `139a4a9` (card), `3d450ba` (re-queue on GPU); test fix `22593db`, `0afc196`; docs `63e8f04` | font: cold+blocked refused (103 files missing); warm 103 URLs 0 failed; blocked-after-warm export completed (fetched 0, cached 202; 1080p 5 s in 161–182 s). GPU: card 1.3–1.6 s after a 4K import; 80,069,496 B download ~80–106 s; triggering clip rebuilt `h264_nvenc` in 6.2–7.9 s (x264 22–24 s); no Settings visit, no settings write, no restart. vitest 428 files / 3598 green; types 26/10 | 2026-10-21 21:45 / 23:49 (124 min) |
 | A5 | DONE | 4 | PASS (1 round) | `06edaf0` (render stall guard), `f84a78d` (font fetch retry); docs `08bf046`, `31542e7` | 80–110 s (frames 4800–6600, split + 3 cutaways) at 3840×2160@60, CPU low: Fastest 1178 s / 1.53 fps, 35.1 MB (verifier re-render 936 s / 1.92 fps, audio MD5 identical); Standard 1046 s / 1.72 fps, 17.0 MB; Fastest copies 0 % of video-14 (all shots); Fastest cancel leaves nothing; vitest 431 / 3623 green; types 26/10 | 2026-10-21 23:55 / 2026-10-22 07:08 (≈ 7 h 13 min, of which ≈ 5 h 40 min idle — see Stops) |
 | A6 | DONE | 7 | FAIL round 1 (off-by-one frame labels → audio −33/−27 ms read "in sync"; ±0.5 s audio search) → PASS round 2 | `bcea695`, `a4b88d3`, `16f1a37`, `1ffa650`, fix `717bc74`; docs `438e004` | "Check A/V" on the queue row: A5 Standard + Fastest IN SYNC −2.6 ms, drift +3.5 ms over 10.1 s, 16/16 probes, ~50 s per check; +100 ms audio FAIL +96.8; video +3 frames FAIL −52.6; verifier-2 copies +20/−20/+26 pass, +31/−25 fail, +1.2 s / −1.0 s fail — every verdict = truth (true shift + the file's own −2.6 ms); vitest 436 / 3670 green; types 26/10 | 2026-10-22 07:15 / 10:20 (3 h 05 min) |
-| B1 | VERIFY | 4 | — | `2dc5add` (step A); docs `b445885` | — | 2026-10-22 10:58 / — |
-| B2 | TODO | | | | | |
+| B1 | DONE | 4 | PASS (1 round) | `2dc5add` (code); docs `b445885`, `1527602`, `649d8f7`, `cc9a327`, `0030b08` | 0369 (clip 1; 0366 has no joins), Hasan's fitted tight: 6 segments both sides, 12 joins, Δ 0/0 · 0/0 · 0/0 · −10/0 · 0/0 · 0/+20 ms (verifier identical); 8 clips with keeps 348/352 joins within ±20 ms + 2 merge flips (4 at +40/+60 ms, all threshold-edge tails on the 20 ms grid); floors within 0.16 dB; verifier negatives fail as they should (old TIGHT 0/12, ±40 ms shift 7–8/12, knobs off on one side 11/12); v1/v2 waveform → v3 + zcr on open; vitest 439 / 3699 green; types 26/10 | 2026-10-22 10:58 / 12:15 |
+| B2 | BUILDING | 0 | | | | 2026-10-22 12:20 / |
 | B3 | TODO | | | | | |
 | B4 | TODO | | | | | |
 | B5 | TODO | | | | | |
@@ -260,3 +260,32 @@
   M2: a v2 waveform regenerated as v3 211 ms after open (byte-identical), 0369 on V1, Auto Cut
   tight → 6 segments / 7 proposals in 21 ms, in-app plan = `planCuts` on the same files; the
   shared M2 `project.json` restored afterwards. Verifier spawned over `e0d7d84..HEAD`.
+- 2026-10-22 12:15 · **B1 DONE** (verifier PASS, 1 round; 4 builders). Continuing to B2.
+- Disk at 12:15: C: 23.7 GB (from 36.4: other Claude sessions' temp — `%TEMP%\claude\bash-edit-diff`
+  5.2 GB, the editor-repo session 3.1 GB — not this run), D: 2.15 GB (other sessions write there
+  too). Moving the A5/B1 profiles off D: was **refused by the permission classifier** (a move
+  deletes the D: copies); instead A5's profile was COPIED to
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\source\profile` (2,328 files, identical) and
+  every new profile copies from there (DRIVING.md). Freeing D: (`A5/profile`, `B1/profile`, 372 MB
+  each) is Hasan's call. The B1 verifier left `…\vidtsx-e2e\profiles\B1-verify` and
+  `…\vidtsx-e2e\B1-verify-root` on C: (964 MB), kept.
+
+### From B1 (for the stop report)
+
+- The only real divergence from cutlib is measurement, not logic: Studio averages 20 ms buckets
+  (`rms-envelope.ts:133-152`) where cutlib reads exact sample windows. It causes all 4 tail
+  misses, both merge flips, and lead-ins up to +150 ms longer than cutlib's (4 of 200 atoms,
+  never a clipped onset). A verifier control (Studio's planner on 20 ms buckets built from
+  cutlib's own WAV) gives the identical 348/352, so the 16 kHz decode adds no error. A finer
+  grid would be a cache/plan change — not done.
+- On 0369 the 17.003 end agrees by coincidence (Studio's bucket level 0.04 dB above the
+  threshold; cutlib passes the step via the fricative rule).
+- Every old waveform regenerates on first open (v1/v2 → v3): 0.1–0.7 s per clip warm; the
+  verifier measured ~5 s for the first open after a fresh launch (cold read of two 300–450 MB
+  clips). STATUS/TESTING say "211 ms" (warm) — B2's builder qualifies it.
+- Small divergences (no effect on video-14): −120 dB clamp vs cutlib's ~−270; floor over every
+  sample vs every 8th; a crossing counted across a bucket boundary; segments rounded to 1 ms
+  before the merge; `cut-planner.ts:76` widens `maxHead` by 0.08 s for approximate word timing
+  (Studio-only). A test title in `rms-envelope.test.ts` ("a v2 cache … exactly like the old
+  snapper") over-claims.
+- `media-jobs.ts` 314 lines (over the house rule).
