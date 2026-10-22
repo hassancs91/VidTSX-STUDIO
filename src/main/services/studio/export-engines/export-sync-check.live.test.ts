@@ -1,0 +1,67 @@
+// Live T8 check against the A5 video-14 exports (END_TO_END_PLAN A6 exit:
+// "the A5 files pass; a file offset by 100 ms on purpose fails") — skipped
+// unless VIDTSX_LIVE_SYNC=1. Needs .vidtsx-temp/end-to-end/A5/export/*.mp4,
+// the preserved export context in .vidtsx-temp/end-to-end/A6/a5-contexts/ and
+// the read-only video-14 master. Reports go to .vidtsx-temp/end-to-end/A6/reports/;
+// the 100 ms file is made there with a stream copy (never beside the A5 files).
+import fs from 'fs/promises';
+import fsSync from 'fs';
+import path from 'path';
+import { describe, expect, it } from 'vitest';
+import type { StudioExportContext } from './export-context';
+import { runFfmpeg } from '../ffmpeg-bin';
+import { checkExportSync } from './export-sync-check';
+
+const LIVE = process.env.VIDTSX_LIVE_SYNC === '1';
+const REPO = path.resolve(__dirname, '../../../../..');
+const BIN = path.join(REPO, 'node_modules', '@remotion', 'compositor-win32-x64-msvc');
+const FFMPEG = path.join(BIN, 'ffmpeg.exe');
+const FFPROBE = path.join(BIN, 'ffprobe.exe');
+const A5 = path.join(REPO, '.vidtsx-temp', 'end-to-end', 'A5', 'export');
+const A6 = path.join(REPO, '.vidtsx-temp', 'end-to-end', 'A6');
+const CONTEXT = path.join(A6, 'a5-contexts', 'studio-entry-video-14-4650cc99.tsx.json');
+const REPORTS = path.join(A6, 'reports');
+const STANDARD = path.join(A5, 'studio-video-14_2026-10-21T21-30-54.mp4');
+const FASTEST = path.join(A5, 'studio-video-14_2026-10-21T21-10-24.mp4');
+const OFFSET = path.join(REPORTS, 'standard-audio-plus-100ms.mp4');
+
+async function project() {
+  const context = JSON.parse(await fs.readFile(CONTEXT, 'utf-8')) as StudioExportContext;
+  return context.project;
+}
+
+async function check(file: string, name: string) {
+  const { report, reportPath } = await checkExportSync({
+    exportPath: file,
+    project: await project(),
+    reportPath: path.join(REPORTS, `${name}.sync.json`),
+    ffmpeg: FFMPEG,
+    ffprobe: FFPROBE,
+  });
+  const v = report.verdict;
+  const statuses = report.probes.map((p) => `${p.t.toFixed(2)}:${p.status}${p.errorMs === null ? '' : `(${p.errorMs})`} a${p.audio?.quality ?? '-'} v${p.video?.quality ?? '-'} (plain ${p.video?.plainQuality ?? '-'}, mask ${p.video?.maskShare ?? '-'})`);
+  console.log(`[${name}] ${v.verdict} offset=${v.offsetMs} drift=${v.driftOverSpanMs} span=${v.spanSec} ${v.confident}/${v.attempted} ${report.elapsedMs} ms\n  ${v.message}\n  ${statuses.join('\n  ')}\n  → ${reportPath}`);
+  return report;
+}
+
+describe.skipIf(!LIVE)('export sync check (live, video-14 A5 exports)', () => {
+  it('passes the A5 Standard export', async () => {
+    await fs.mkdir(REPORTS, { recursive: true });
+    const report = await check(STANDARD, 'a5-standard');
+    expect(report.verdict.verdict).toBe('pass');
+  }, 600_000);
+
+  it('passes the A5 Fastest export', async () => {
+    const report = await check(FASTEST, 'a5-fastest');
+    expect(report.verdict.verdict).toBe('pass');
+  }, 600_000);
+
+  it('fails the Standard export with its audio delayed 100 ms', async () => {
+    if (!fsSync.existsSync(OFFSET)) {
+      await runFfmpeg(FFMPEG, ['-v', 'error', '-nostdin', '-y', '-i', STANDARD, '-itsoffset', '0.1', '-i', STANDARD, '-map', '0:v', '-map', '1:a', '-c', 'copy', OFFSET]);
+    }
+    const report = await check(OFFSET, 'standard-audio-plus-100ms');
+    expect(report.verdict.verdict).toBe('fail');
+    expect(Math.abs((report.verdict.offsetMs ?? 0) - 100)).toBeLessThan(25);
+  }, 600_000);
+});

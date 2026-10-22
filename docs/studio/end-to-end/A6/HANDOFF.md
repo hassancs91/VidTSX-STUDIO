@@ -1,5 +1,5 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: IN PROGRESS (step 1a done)
+status: IN PROGRESS (steps 1a + 1b done — the exit numbers hold outside the app; IPC + UI next)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A5's drivers (`.vidtsx-temp/end-to-end/A5/drive.mjs`,
@@ -127,7 +127,71 @@ Step 1a — the pure core, part 1 (agent 1, commit `bcea695`
   Scratch 9.9–23.15 overlay, Starter 23.15–30 cutaway); `6f4d5c3a` = 85–95 s (600 fr, the Fastest
   cancel); `a5cd21ed` = 6–11 s (300 fr).
 
+Step 1b — the measuring core + the I/O runner, live on the A5 files (agent 2, commit: see LOG.md /
+`git log --grep "A6 — sync check measure"`). No app run, no IPC/UI yet.
+
+- `src/main/services/studio/export-engines/sync-measure.ts` (~240 lines, pure) — `rms`,
+  `locateAudio(needle, haystack)` (normalised xcorr over every lag, prefix-sum energies, parabolic
+  sub-sample peak, null if silent/too short), `zscore(values, mask?)`, `matchFrame(frame, window,
+  mask?)` (verify_sync `match_frame`, over the masked pixels when a mask is given),
+  **`layoutMask(pairs)`** (NEW, see "The overlay finding" below), `exactFrameSeek(n, fps)` =
+  `(n − 0.5)/fps`, `sourceFrameWindow(audioSec, fps)` (first = ceil((audio − 0.8)·fps), 96 frames),
+  `thumbSize` (long side 192, even), `cropScaleFilter`, `classifyProbe` → `ok` + errorMs (0.1 ms) |
+  `silent` | `low-audio` | `low-video`. Constants: 8 kHz, ±0.5 s audio search, audio quality ≥ 0.5,
+  silence RMS 50/32768, min match 0.90, mask residual 0.4, mask ≥ 25 % of the box, mask needs ≥ 3 probes.
+- `src/main/services/studio/export-engines/sync-media.ts` (~120 lines, ffmpeg I/O, below-normal
+  priority) — `probeMedia` (ffprobe json: w, h, fps, duration, hasAudio), `decodeWholeAudio`
+  (`-af aresample=async=1:first_pts=0`, 8 kHz mono WAV pipe), `decodeAudioSpan` (input `-ss`, `-t`),
+  `grabGrayFrames` (input `-ss`, `-frames:v N`, crop→scale→gray, rawvideo over image2pipe).
+- `src/main/services/studio/export-engines/export-sync-check.ts` (288 lines) —
+  `checkExportSync({ exportPath, project, reportPath?, ffmpeg?, ffprobe?, minMatch?, signal?,
+  onProgress? })` → `{ report, reportPath }`; probes the export (fps/size/duration from the FILE),
+  `planSyncProbes`, decodes the export audio once, per probe `readProbe` (audio locate → export
+  thumb + 96 camera thumbs → plain match), then `finishProbes` (one layout mask per box with ≥ 3
+  probes, re-match over it), `syncVerdict`, writes the report (default `syncReportPath` =
+  `<dir>/<name>.sync.json`). Report: version, file, checkedAt, settings, export facts, reference
+  (+ fps), visibleSec, skipped, probes (t, frame, clipId, plannedSourceSec, overlays, windowRms,
+  audio {sec, quality}, video {sec, frame, quality, plainQuality, maskShare}, status, errorMs),
+  verdict, elapsedMs. Plain messages for "no camera clip with sound", "no audio track", "camera never
+  visible long enough".
+- Tests: `sync-measure.test.ts` (15, incl. the mask lifting a half-covered match from < 0.75 to
+  > 0.95 at the right index, a negative control — a window without the shown frame stays < 0.2 under
+  the mask — and mask null with < 3 probes or < 25 % agreement). Live:
+  `export-sync-check.live.test.ts` (3, skipped unless `VIDTSX_LIVE_SYNC=1`; makes the 100 ms file).
+- **The overlay finding.** The plain whole-box match on the A5 split reads 0.65–0.72 on all 16
+  probes (0/16 confident) although its time is right: the `V14A1Scratch` "overlay" shot paints a
+  page background + a rounded portrait card frame over ~56 % of the PiP box (stills:
+  `.vidtsx-temp/end-to-end/A6/reports/diag/export-629-full.png`, `export-629-crop.png` vs
+  `master-5425-crop.png`). No document field says that, so the visible region is found from the
+  data: per pixel, the median over all probes in the same box of |z(export thumb) − z(pass-1 best
+  camera thumb)| < 0.4 → mask (43.8 % of the box kept here); every probe is then re-matched over the
+  mask. The 0.90 bar is unchanged; `plainQuality` stays in the report. Masked: 0.954–0.987.
+- **Frame-seek correction:** step 1a's design said `-ss (frame + 0.5)/fps`; that lands on frame
+  n + 1. Measured 2026-10-22 (scratch `seek-check.mjs`, bundled ffmpeg vs the full build's
+  `select=eq(n,N)` on the export n=700 and the master n=5500): `(n − 0.5)/fps` → frame n,
+  `(n + 0.5)/fps` → n + 1 — as `frame-diff.ts` already does. `exactFrameSeek` uses `(n − 0.5)/fps`.
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-22 07:31 (agent 2): `VIDTSX_LIVE_SYNC=1 npx vitest run
+  src/main/services/studio/export-engines/export-sync-check.live.test.ts` → `Tests 3 passed (3)`,
+  152.8 s. Reports in `.vidtsx-temp/end-to-end/A6/reports/` (A5 folder untouched):
+  - `a5-standard.sync.json` (A5 Standard `…21-30-54.mp4`): **pass**, offset **+0.2 ms**, spread
+    7.3 ms, drift **−2.8 ms over 10.1 s**, **16/16** confident (all used), 52.6 s. Errors (ms):
+    23.7 7.7 8.4 −7.6 −6.9 −6.2 −5.5 28.4 −4.2 13.1 −2.9 14.4 −1.5 15.9 −0.2 0.5 (±1 camera frame at
+    59.94 vs 60 fps). Audio quality 0.98–1.0.
+  - `a5-fastest.sync.json` (A5 Fastest `…21-10-24.mp4`): **pass**, identical numbers (+0.2 ms,
+    −2.8 ms/10.1 s, 16/16), 48.3 s.
+  - `standard-audio-plus-100ms.sync.json` on `standard-audio-plus-100ms.mp4` (made from the Standard
+    file: `ffmpeg -i STD -itsoffset 0.1 -i STD -map 0:v -map 1:a -c copy`; ffprobe audio start_time
+    0.078 = 0.1 − the 1024-sample AAC priming): **fail**, offset **+99.4 ms** ("Out of sync: audio
+    99.4 ms BEHIND the picture (16 of 16 probes)."), errors 91.7–127.8, 51.3 s.
+- First live run, before the mask (07:26): Standard → inconclusive, 0/16, plain match 0.651–0.717
+  (log `reports/live-standard.log`).
+- `npx vitest run src/main/services/studio/export-engines/sync-measure.test.ts` → `Tests 15 passed (15)`.
+- `npx tsc --noEmit -p tsconfig.node.json | grep -E "sync-|export-sync"` → no lines.
+- Free space 07:31: C: 38 GB, D: 3.8 GB (the 100 ms file is 16.9 MB on D:).
+- Full `npx vitest run` and `npm run check:types` NOT run yet (no app code touched outside these files).
 
 - `npx vitest run src/shared/studio/sync-verdict.test.ts src/shared/studio/sync-probes.test.ts`
   → `Test Files 2 passed (2) · Tests 13 passed (13)` (2026-10-22 07:18).
@@ -153,8 +217,8 @@ Step 1a — the pure core, part 1 (agent 1, commit `bcea695`
 - **I/O (main, `export-sync-check.ts`):** export audio decoded WHOLE with
   `-af aresample=async=1:first_pts=0` (otherwise a WAV pipe DROPS a start gap such as the
   `-itsoffset 0.1` file's — the 100 ms would vanish); camera audio decoded once per probe (or one
-  span) with input `-ss`; export frame `-ss (frame+0.5)/60 -frames:v 1`, camera frames 96 from frame
-  `ceil((audioSec − 0.8)·fps)` seeking `(K+0.5)/fps`; both through
+  span) with input `-ss`; export frame `-ss (frame−0.5)/60 -frames:v 1`, camera frames 96 from frame
+  `ceil((audioSec − 0.8)·fps)` seeking `(K−0.5)/fps` (corrected in 1b — `+0.5` lands one frame late); both through
   `crop=W:H:X:Y,scale=TW:TH:flags=area,format=gray` (exportRect / sourceRect, long side 192) →
   `-f image2pipe -vcodec rawvideo -pix_fmt gray -`. Report `<export base>.sync.json`: settings,
   reference, plan.skipped, per-probe rows (t, frame, sourceSec, audio sec/quality, video
@@ -169,13 +233,15 @@ Step 1a — the pure core, part 1 (agent 1, commit `bcea695`
 
 ## Next step (ONE concrete instruction)
 
-Write `src/main/services/studio/export-engines/sync-measure.ts` + `sync-measure.test.ts` test-first
-(the pure DSP above: `rms`, `locateAudio`, `zscore`/`matchFrame`, `sourceFrameWindow`,
-`thumbSize`/`cropScaleFilter`), then `export-sync-check.ts` (the I/O runner), and run it from a
-live vitest/node script — no app — on the A5 **Standard** file
-`.vidtsx-temp/end-to-end/A5/export/studio-video-14_2026-10-21T21-30-54.mp4` with the preserved
-context `.vidtsx-temp/end-to-end/A6/a5-contexts/studio-entry-video-14-4650cc99.tsx.json`, and record
-confident/total, offset and drift before building IPC or UI.
+Step 2 — IPC: add channel `studio:export:sync-check` (+ push event `studio:export:sync-check:progress`)
+in `src/shared/ipc/channels.ts` / `types.ts`, a handler in `src/main/ipc/` (try/catch, typed error)
+that takes `{ exportPath, source: { kind: 'entry', entryPath } | { kind: 'project', projectId,
+rangeIn?, rangeOut? } }`, resolves the document (`readExportContext(entryPath)` → `context.project`;
+else load the project and trim with `trimTimelineToRange` as `studio-handlers.ts:486-497` does) and
+calls `checkExportSync` (one check at a time; cancel by AbortSignal), returning `{ verdict,
+reportPath, probes: {confident, total} }`; expose it in the preload; unit-test the handler with
+mocked electron IPC as the other `*-handlers` tests do. Then step 3 = the queue-row UI + the CDP
+click-through.
 
 ## Open problems
 
@@ -183,13 +249,16 @@ confident/total, offset and drift before building IPC or UI.
   (`export-context.ts:5-7`). A row older than a day cannot be checked from its entry → the check
   must say so plainly (or fall back to the `project` source). Not a §4 question; a design limit to
   record in TESTING §18.6 unless solved.
-- Unmeasured risk: the camera audio decoded with input `-ss` vs. whole-file decode (AAC priming /
-  edit list) could carry a constant bias. The A5 Standard file should read ≈ 0 ms; if it reads a
-  constant ~20 ms, compare one window decoded both ways before trusting it.
-- Unmeasured risk: the split's visible PiP region (1050×840 export px) is under the `v14-a1-scratch`
-  overlay; whether ≥ 3 of 16 probes clear 0.90 is the first live number to get. If not, try the
-  verify_sync remedy (`--min-match 0.85` for graphics-heavy cuts) and report both; a real failure
-  to reach 3 is BLOCKED with numbers (see "The hard part" above), not a lowered bar.
+- RESOLVED (1b): input-`-ss` camera audio shows no bias — the Standard file reads +0.2 ms.
+- RESOLVED (1b): the overlay covers ~56 % of the PiP box; the plain match failed (0/16) and the
+  layout mask fixed it at the unchanged 0.90 bar (16/16). For the verifier: the mask is derived from
+  the data (median residual across ≥ 3 probes of one box), never from one probe alone; a box with
+  < 3 probes keeps the plain match. The negative-control unit test pins that the mask does not
+  invent a match. Worth a sentence in TESTING §18.6.
+- Cost: ~50 s per check of a 30 s 4K range (16 probes × 96 decoded 4K camera frames, below-normal).
+  The UI needs progress (`onProgress` already reports done/total per probe).
+- A 4K export's whole audio is decoded into memory at 8 kHz (4 B/sample: 115 MB per hour) — fine
+  for now; note it if a long export is checked.
 
 ## Do-not-redo
 
@@ -197,8 +266,14 @@ confident/total, offset and drift before building IPC or UI.
 - Step 1a above (verdict + probe planner + their 13 tests; the A5 contexts copy). Reading
   `verify_sync.py`, `verify.ts`, `audio-offset.ts`, `canvas-transform.ts`, the A5 contexts — done,
   summarised above; do not re-read unless changing them.
+- Step 1b above (sync-measure + sync-media + export-sync-check, 15 unit + 3 live tests, the three
+  live reports, the 100 ms file `.vidtsx-temp/end-to-end/A6/reports/standard-audio-plus-100ms.mp4`,
+  the seek check, the overlay diagnosis). Do not re-run the live checks unless the measuring code
+  changes; the reports above are the exit evidence for the measurement.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-22 · agent 1 · ~46 · read the plan/sources, preserved the A5 contexts, built + tested the
   pure verdict and probe planner (step 1a), fixed the rest of the design.
+- 2026-10-22 · agent 2 · ~40 · step 1b: measuring core + runner, live on the A5 files; found the
+  overlay covering the PiP and added the layout mask; corrected the frame seek.
