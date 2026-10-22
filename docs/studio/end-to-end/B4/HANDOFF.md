@@ -232,6 +232,21 @@ Hasan; none blocks):
    so. The stand-in should start from the old tight as a project override over base tight
    (softGap 99 → every join punchy), as decision 5 suggests.
 
+**RULED (orchestrator, 2026-10-22 17:20) — all six accepted as built:**
+1. Accepted: medians = the Q4 gate, values = the fit through the snapper's rules; the card shows
+   BOTH ("you kept a median 0.12 s lead-in; head 0.15 reproduces your edges") so nothing is
+   inferred silently. The STATUS row explains why a raw median would be wrong.
+2. Accepted: text-delete edges are tagged, not samples; a later trim of one is a sample. Say it on
+   the card ("learned from your trims; Transcript deletes count once you trim them").
+3. Accepted: per-edge `edges` + `op` on `StudioClipOrigin`, `by` unchanged, no `at`.
+4. Accepted: ≥ 10 per side; the card reports head-edge and tail-edge counts separately.
+5. Accepted: `maxTail` shown as "at least N s" (not part of the exit).
+6. Accepted, and it applies to **Hasan's station too**: start style = the old pre-October tight
+   (`head 0.11, minTail 0.14, maxTail 0.4, margin 5`) as a project override over base tight
+   (softGap 99, so every join is punchy). Note in STATUS + HASAN-STEP.md: the learn card cannot
+   learn `softGap` (not one of T1's four), so Hasan's 10-15 move "soft landings off" stays a
+   style choice, not a learned one — a follow-up if he wants it learned.
+
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
