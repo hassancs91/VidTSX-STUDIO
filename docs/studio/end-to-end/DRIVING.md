@@ -82,6 +82,13 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 - FIXED in A4 step 0 (`22593db`, test-only): the old full-suite flake in `shot-generator.test.ts` (3 tests from
   :197). From `22593db` on, a red full run is a real failure. `shot-module-resolver.test.ts:151`
   (5000 ms timeout) can still time out under heavy machine load: rerun once, say so.
+- **Vitest gate under load (orchestrator, 2026-10-22, session 2):** other Claude sessions often
+  hold the CPU near 100 %. Known LOAD timeouts — `shot-module-resolver.test.ts:151`,
+  `flow-render.test.ts:255` (1 s `vi.waitFor`), the zip-package suites (agent-package,
+  agent-store, flow-package, pack-package, 5000 ms) — do not fail a part when (a) the file passes
+  alone, and (b) either a full default run is green within 3 tries OR a full run with
+  `npx vitest run --maxWorkers=4` is green. Log every run to a file and name which one counted.
+  Any OTHER failure, or one of these failing alone, is real.
 
 ## Learned (append one dated line per lesson)
 
