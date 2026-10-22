@@ -194,6 +194,11 @@ settings, preset editor Cut section).
   but cannot switch an opt-in knob OFF (e.g. "tight but no fricative rule"). Today the way to get
   no opt-ins is base `natural`/`relaxed`. If the preset editor's Cut section needs "off", add it
   then (e.g. `null` in the spec meaning remove) — decide in that step.
+  **DECIDED (orchestrator, 2026-10-22):** no "off" in B2. The Cut section edits the base and the
+  knob VALUES the base has; an opt-in knob absent from the base is shown as "off (base
+  <name>)" and is not editable; turning the opt-ins off = choosing base natural/relaxed. Keep
+  `CutStyleSpec` as is (no `null`). B4's learning widens only `head`/`minTail`/`maxTail`/`margin`,
+  so nothing needs "off" before Hasan asks for it — note it in STATUS as a follow-up.
 - `validatePresetInput` (`preset.ts:~185`) does not check `style.cut` yet: add it with the preset
   editor Cut section (the normaliser already drops bad values on save/load).
 - Decision 6 (B1 doc debt) NOT done yet: B1 STATUS row + TESTING §18.7 "211 ms" → warm-cache +
