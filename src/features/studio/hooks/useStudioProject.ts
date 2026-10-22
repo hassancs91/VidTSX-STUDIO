@@ -7,8 +7,18 @@ import { createAutosave, type Autosave, type AutosaveState } from '../services/a
 type Status = 'loading' | 'ready' | 'error';
 
 const SAVE_DEBOUNCE_MS = 600;
-/** Flush attempts when the editor closes (each waits for main's own rename retries). */
-const CLOSE_FLUSH_TRIES = 3;
+
+/** Give an unsaved document to main's project writer (B5 fix round 1): main
+ *  owns the write from here — it retries for minutes, independent of this
+ *  editor, and leaves project.json.tmp for recovery on the next open. */
+async function handOffToMain(project: StudioProject): Promise<void> {
+  try {
+    const res = await window.api.studioProjectHandoff({ project });
+    if (!res.success) console.error('[studio] Main refused the unsaved project:', res.error);
+  } catch (err) {
+    console.error('[studio] Could not hand the unsaved project to main:', err);
+  }
+}
 
 /** Loads one project document and owns its in-memory state. Every mutation
  *  goes through `updateProject`, which debounce-persists the whole document
@@ -21,6 +31,8 @@ export function useStudioProject(projectId: string) {
   const [saveState, setSaveState] = useState<AutosaveState>('saved');
   /** The last refusal's message while `saveState` is 'error' (B5 Problem 5). */
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** The open recovered changes that never reached project.json — say so once. */
+  const [recovered, setRecovered] = useState(false);
 
   // One autosave per opened project. A failed save stays dirty and retries
   // (services/autosave.ts) — memory and project.json never silently diverge.
@@ -39,6 +51,7 @@ export function useStudioProject(projectId: string) {
     autosaveRef.current = autosave;
     setStatus('loading');
     setProject(null);
+    setRecovered(false);
     resetOpenMarks();
     markOpen('load:start');
 
@@ -48,6 +61,9 @@ export function useStudioProject(projectId: string) {
       markOpen('load:end');
       if (res.success && res.project) {
         autosave.reset(res.project);
+        // A recovered document is not on disk yet: save it like an edit.
+        if (res.unsaved) autosave.update(res.project);
+        setRecovered(res.recovered === true);
         setProject(res.project);
         setFolderPath(res.folderPath ?? null);
         setStatus('ready');
@@ -58,21 +74,21 @@ export function useStudioProject(projectId: string) {
       }
     })();
 
-    // Editor closing: flush pending edits (a refused save is retried a few
-    // times here, since nothing retries after this), then tell main the
+    // Editor closing: hand anything not yet on disk to main in one call —
+    // main owns that write from now on (a save refused by a held project.json
+    // is retried there for minutes; B5 fix round 1). Then tell main the
     // project is closed so its poster is written now (W6) — a close with
     // nothing dirty would otherwise leave the save-debounced poster waiting
     // on a save that never comes.
     return () => {
       cancelled = true;
+      const unsaved = autosave.takeUnsaved();
+      autosave.dispose();
+      if (autosaveRef.current === autosave) autosaveRef.current = null;
       void (async () => {
         try {
-          for (let i = 0; i < CLOSE_FLUSH_TRIES && !(await autosave.flush()); i += 1) {
-            await new Promise((resolve) => setTimeout(resolve, 500 * (i + 1)));
-          }
+          if (unsaved) await handOffToMain(unsaved);
         } finally {
-          autosave.dispose();
-          if (autosaveRef.current === autosave) autosaveRef.current = null;
           await window.api.studioProjectClose({ id: projectId });
           window.dispatchEvent(new CustomEvent('vidtsx:studio-projects-changed'));
         }
@@ -89,13 +105,22 @@ export function useStudioProject(projectId: string) {
   // app quit, so the debounce alone could lose the last ~600 ms of edits.
   // beforeunload posts the save invoke synchronously before teardown, blur is
   // free insurance, and the main-process close guard defers the close until
-  // this hook acks that the flush landed.
+  // this hook acks. The ack follows a HAND-OFF, not a save: a save refused
+  // by a held project.json would outlast the guard's 1.5 s, so main takes
+  // the document and its shutdown waits for it (B5 fix round 1).
   useEffect(() => {
     const flushNow = () => void flush();
     window.addEventListener('beforeunload', flushNow);
     window.addEventListener('blur', flushNow);
     const unsubscribe = window.api.onStudioFlushRequest(() => {
-      void flush().finally(() => void window.api.studioFlushAck());
+      void (async () => {
+        try {
+          const unsaved = autosaveRef.current?.takeUnsaved() ?? null;
+          if (unsaved) await handOffToMain(unsaved);
+        } finally {
+          await window.api.studioFlushAck();
+        }
+      })();
     });
     return () => {
       window.removeEventListener('beforeunload', flushNow);
@@ -169,6 +194,7 @@ export function useStudioProject(projectId: string) {
     error,
     saveState,
     saveError,
+    recovered,
     updateProject,
     importMedia,
     removeAsset,

@@ -89,6 +89,11 @@ export interface StudioProjectLoadResponse {
   project?: StudioProject;
   /** Absolute project folder — the renderer builds cache/proxy URLs from it. */
   folderPath?: string;
+  /** B5 fix round 1: the document came from a save that never reached
+   *  project.json (a pending hand-off or project.json.tmp) — say so once. */
+  recovered?: boolean;
+  /** …and it is still not on disk (project.json is held): save it. */
+  unsaved?: boolean;
   error?: string;
 }
 
@@ -109,6 +114,17 @@ export interface StudioProjectCloseRequest {
 }
 
 export interface StudioProjectCloseResponse {
+  success: boolean;
+  error?: string;
+}
+
+/** B5 fix round 1: the editor is closing (or the window quitting) with a
+ *  document that is not on disk yet — main owns the write from here. */
+export interface StudioProjectHandoffRequest {
+  project: StudioProject;
+}
+
+export interface StudioProjectHandoffResponse {
   success: boolean;
   error?: string;
 }

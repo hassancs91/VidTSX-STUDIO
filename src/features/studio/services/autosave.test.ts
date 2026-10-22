@@ -157,3 +157,54 @@ describe('createAutosave (B5 Problem 5: a failed save is never forgotten)', () =
     expect(h.save).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('takeUnsaved — handing the document to an owner that outlives the editor (B5 fix round 1)', () => {
+  it('returns the latest dirty document, clears dirty and cancels the debounce', async () => {
+    const h = harness([]);
+    h.autosave.update({ rev: 1 });
+    h.autosave.update({ rev: 2 });
+    expect(h.autosave.takeUnsaved()).toEqual({ rev: 2 });
+    expect(h.autosave.isDirty()).toBe(false);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(h.save).not.toHaveBeenCalled();
+  });
+
+  it('returns null when everything is on disk', async () => {
+    const h = harness([]);
+    expect(h.autosave.takeUnsaved()).toBeNull();
+    h.autosave.update({ rev: 1 });
+    await vi.advanceTimersByTimeAsync(700);
+    expect(h.written).toEqual([{ rev: 1 }]);
+    expect(h.autosave.takeUnsaved()).toBeNull();
+  });
+
+  it('takes a document whose save is still in flight, and a failure of that save no longer retries', async () => {
+    let release: (r: SaveResult) => void = () => {};
+    const save = vi.fn(
+      () =>
+        new Promise<SaveResult>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const autosave = createAutosave<Doc>({ save, onState: () => {}, debounceMs: 600 });
+    autosave.reset({ rev: 0 });
+    autosave.update({ rev: 1 });
+    await vi.advanceTimersByTimeAsync(600); // the save of rev 1 is in flight
+    expect(autosave.isDirty()).toBe(false);
+    expect(autosave.takeUnsaved()).toEqual({ rev: 1 });
+    release({ success: false, error: 'EPERM' });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(autosave.isDirty()).toBe(false);
+  });
+
+  it('a later edit makes the autosave the owner again (retries resume)', async () => {
+    const h = harness([{ success: false, error: 'EPERM' }]);
+    h.autosave.update({ rev: 1 });
+    h.autosave.takeUnsaved();
+    h.autosave.update({ rev: 2 });
+    await vi.advanceTimersByTimeAsync(600); // refused
+    await vi.advanceTimersByTimeAsync(1000); // retried
+    expect(h.written).toEqual([{ rev: 2 }]);
+  });
+});

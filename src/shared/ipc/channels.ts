@@ -429,6 +429,8 @@ export const IPC = {
   STUDIO_PROJECT_DELETE: 'studio:project:delete',
   // W6: the editor closed a project — write its poster now.
   STUDIO_PROJECT_CLOSE: 'studio:project:close',
+  // B5 fix round 1: a closing editor hands its unsaved document to main.
+  STUDIO_PROJECT_HANDOFF: 'studio:project:handoff',
   // Studio — rotating project snapshots + quit-flush handshake (Q10)
   STUDIO_PROJECT_SNAPSHOT_LIST: 'studio:project:snapshot:list',
   STUDIO_PROJECT_SNAPSHOT_RESTORE: 'studio:project:snapshot:restore',

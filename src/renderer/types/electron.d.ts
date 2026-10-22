@@ -475,6 +475,7 @@ export interface ElectronAPI {
   studioProjectSave: (data: import('../../shared/ipc/types').StudioProjectSaveRequest) => Promise<import('../../shared/ipc/types').StudioProjectSaveResponse>;
   studioProjectDelete: (data: import('../../shared/ipc/types').StudioProjectDeleteRequest) => Promise<import('../../shared/ipc/types').StudioProjectDeleteResponse>;
   studioProjectClose: (data: import('../../shared/ipc/types').StudioProjectCloseRequest) => Promise<import('../../shared/ipc/types').StudioProjectCloseResponse>;
+  studioProjectHandoff: (data: import('../../shared/ipc/types').StudioProjectHandoffRequest) => Promise<import('../../shared/ipc/types').StudioProjectHandoffResponse>;
   studioProjectSnapshotList: (data: import('../../shared/ipc/types').StudioSnapshotListRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotListResponse>;
   studioProjectSnapshotRestore: (data: import('../../shared/ipc/types').StudioSnapshotRestoreRequest) => Promise<import('../../shared/ipc/types').StudioSnapshotRestoreResponse>;
   studioProjectBrandGet: (data: import('../../shared/ipc/types').StudioProjectBrandGetRequest) => Promise<import('../../shared/ipc/types').StudioProjectBrandGetResponse>;

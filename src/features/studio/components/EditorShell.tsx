@@ -120,11 +120,20 @@ export function EditorShell({ projectId, onBack }: Props) {
     error,
     saveState,
     saveError,
+    recovered,
     updateProject,
     importMedia,
     restoreVersion,
   } = useStudioProject(projectId);
   const { showToast } = useToast();
+  // B5 fix round 1: the open brought back a save that never reached
+  // project.json (closed or quit while another program held the file).
+  const recoveredShown = useRef(false);
+  useEffect(() => {
+    if (!recovered || recoveredShown.current) return;
+    recoveredShown.current = true;
+    showToast('Recovered unsaved changes', 'info');
+  }, [recovered, showToast]);
   const gpuProxyOffer = useGpuProxyOffer(project);
   const { addJob, jobs: queueJobs } = useRenderQueue();
   const [rightTab, setRightTab] = useState<RightTab>('inspector');

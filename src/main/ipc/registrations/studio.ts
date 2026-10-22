@@ -75,6 +75,7 @@ import {
   handleStudioProxyEncoderStatus,
 } from '../studio-proxy-encoder-handlers';
 import { registerFlushAck } from '../flush-guard';
+import { handleStudioProjectHandoff } from '../studio-project-handoff-handlers';
 import { handleStudioExportSyncCheck, handleStudioExportSyncCheckCancel } from '../studio-sync-check-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
@@ -95,6 +96,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_PROJECT_SAVE, handleStudioProjectSave);
   ipcMain.handle(IPC.STUDIO_PROJECT_DELETE, handleStudioProjectDelete);
   ipcMain.handle(IPC.STUDIO_PROJECT_CLOSE, handleStudioProjectClose);
+  ipcMain.handle(IPC.STUDIO_PROJECT_HANDOFF, handleStudioProjectHandoff);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_LIST, handleStudioProjectSnapshotList);
   ipcMain.handle(IPC.STUDIO_PROJECT_SNAPSHOT_RESTORE, handleStudioProjectSnapshotRestore);
   ipcMain.handle(IPC.STUDIO_PROJECT_BRAND_GET, handleStudioProjectBrandGet);
