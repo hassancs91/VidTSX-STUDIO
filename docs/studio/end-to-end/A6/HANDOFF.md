@@ -1,7 +1,7 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: FIX — round-1 items 1 + 2 FIXED and re-measured out of the app (commit `717bc74`, 11 files, every verdict
-= the truth, measured = true − 2.6 ms); LEFT: re-drive the click-through with the fixed main code, then CORRECT the
-STATUS row + TESTING §18.6 in place (step 5 below). The round-1 numbers in STATUS/TESTING (+0.2 ms, +99.4, −50.5) are WRONG.
+status: DONE — fix round 1 closed (step 5, 2026-10-22 09:13–09:40): the fixed code (`717bc74`) re-driven in the app
+(both A5 rows IN SYNC −2.6 ms, +3.5 ms / 10.1 s, 16/16; +100 ms FAIL +96.8; 3 frames late FAIL −52.6; 27 ms early FAIL
+−29.6; 600 ms early FAIL −602.9), gates green, STATUS row + TESTING §18.6 CORRECTED in place. Next: verifier round 2.
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A5's drivers (`.vidtsx-temp/end-to-end/A5/drive.mjs`,
@@ -324,6 +324,26 @@ timestamps; ±2 s audio search`). No app run (out-of-app live tests only).
 | standard-audio-plus-100ms (builder) | +100 | +96.8 | −3.2 | 3.4 | +3.5 | fail | fail |
 
 = the verifier's predicted "corrected" column exactly (−35.6, −29.6, +7.4, −32.6, −82.6, −35.9, −2.6).
+
+Step 5 — re-drive + close (agent 7, 2026-10-22 09:12–09:40; docs commit, see LOG.md; no `src/` change).
+
+- Isolated app relaunched twice with `A6/launch.sh` (port 9261, `A6_LOG=app-fix1.log` / `app-fix1b.log`; `electron-vite
+  dev` rebuilt main from `717bc74`; no other electron, ports 9222/5173/9261 free; ready 63 s / 18 s), root `v14-root`.
+- **Click-through, fixed code:** A5 Standard row `4e20be8d-…` → IN SYNC, "In sync: audio -2.6 ms vs the picture, drift
+  +3.5 ms over 10.1 s (16 of 16 probes).", 52.5 s; A5 Fastest row `2f1adadc-…` → IN SYNC, same numbers, 48.3 s. Reports
+  (version 2) overwrite the round-1 ones beside the A5 files; per-probe errors identical on both:
+  `7 7.7 -8.3 -7.6 -6.9 -6.3 -5.5 11.7 -4.2 -3.6 -2.9 -2.3 -1.6 15.9 -0.2 0.5`; masked quality 0.954–0.987, plain
+  0.651–0.717, audio ≥ 0.983, mask share 0.438 / 0.439.
+- **IPC (entry source `studio-entry-video-14-4650cc99.tsx` unless said):** `neg/std-audio-early-27ms.mp4` → FAIL −29.6 ms,
+  52.3 s; `neg/std-audio-early-600ms.mp4` → FAIL −602.9 ms, 49.6 s; extra (beyond the step-5 text, so the exit's file is
+  measured IN the app with the fixed code): `ipc/standard-audio-plus-100ms.mp4` → FAIL +96.8 ms, 50.0 s;
+  `ipc/standard-video-plus-3-frames.mp4` (project `video-14` 80–110) → FAIL −52.6 ms, drift −0.9 ms, 50.7 s. All 16/16,
+  17 pushes ending 16/16; every number = the round-2 live table. Round-1 IPC reports copied first to `ipc/round1/`.
+- App stopped twice (only the port-9261 tree; 0 electron/ffmpeg/ffprobe after). STATUS.md A6 row (top) and TESTING.md
+  §18.6 CORRECTED in place (no second row): new numbers, the fix round (repeated first frame + `first + index` labels →
+  passthrough + own timestamps; ±2 s audio; inconclusive names the side), the 11-file table, the −2.6 ms explanation
+  (kept by orchestrator decision: the check measures the FILE's real offset incl. whole-camera-frame placement), and the
+  masked-quality caveat (item 3).
 **The constant −2.6 ms, explained** (`table-round2.txt`, A5 Standard per probe): audio − timeline = **0.0 ± 0.1 ms on
 all 16 probes** (the sound is exact); picture − timeline = the camera-frame quantization of a 59.94 fps camera shown
 in a 60 fps export: on 14 probes it equals (nearest camera frame − timeline time) to ±0.1 ms, on 2 (t 15.18, 19.22)
@@ -337,6 +357,30 @@ Near the bar this means the check reads the export's true picture-vs-sound offse
 − 2.6 ms; e.g. a +26 ms audio shift of this file reads +23.4 → pass, and that IS within 25 ms of its pictures.
 
 ## Verified (exact commands + outputs)
+
+- 2026-10-22 09:12 (agent 7): no electron/ffmpeg running, ports 9222/5173/9261 free; free space C: 37.01 GB, D: 3.06 GB.
+- 2026-10-22 09:13–09:17 (agent 7, app on 9261, cwd `.vidtsx-temp/end-to-end/A6`): `node drive.mjs ready` → `ready after
+  63 s`; `node drive.mjs root` → `"success": true`, root `…\v14-root`; `node drive.mjs queue` → 6 done rows, all
+  `checkButton: true` (`logs/queue-fix1.log`); `node drive.mjs check 4e20be8d-d22e-492b-8f1d-73e8fd84ce95
+  stills/check-standard-fix1.png` → `"verdict": "pass"`, details `Offset -2.6 ms · drift +3.5 ms over 10.1 s · 16 of 16
+  probes confident · 52.5 s` (`logs/check-standard-fix1.log`); `node drive.mjs check 2f1adadc-1272-43a9-b591-2241c7637d46
+  stills/check-fastest-fix1.png` → `"verdict": "pass"`, `… · 48.3 s` (`logs/check-fastest-fix1.log`); `node ipc-check.mjs
+  'D:\…\A6\neg\std-audio-early-27ms.mp4' entry 'D:\…\.vidtsx-temp\studio\studio-entry-video-14-4650cc99.tsx'` → `success
+  true`, `fail`, `offsetMs -29.6`, spread 3.4, drift +3.5 / 10.083 s, 16/16, 17 pushes (`logs/ipc-audio-early-27ms-fix1.log`);
+  same for `std-audio-early-600ms.mp4` → `fail`, `-602.9`, 16/16 (`logs/ipc-audio-early-600ms-fix1.log`).
+- 2026-10-22 09:19–09:21 (agent 7, no electron running): `npm run check:types` → `tsconfig.web.check.json: 26 errors
+  (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok` (`check-types-fix1-close.log`); `npx vitest
+  run` ×3: runs 1 and 2 → `1 failed | 435 passed | 5 skipped (441)`, the ONLY failure both times
+  `shot-module-resolver.test.ts > a changed transpiler fingerprint misses every tier` (:151, "never written" 3887 ms /
+  5019 ms — the known load flake, DRIVING "Repo facts"; two other sessions' `remotion studio` servers were running);
+  that file alone → `Tests 10 passed (10)`; run 3 → `Test Files 436 passed | 5 skipped (441)` · `Tests 3670 passed |
+  34 skipped (3704)`, 36.8 s, exit 0 (`vitest-fix1-close.log`, `-rerun.log`, `-rerun2.log`).
+- 2026-10-22 09:23–09:26 (agent 7, app relaunched on 9261, `ready after 18 s`; no `src/` change since the gates):
+  `node ipc-check.mjs 'D:\…\A6\ipc\standard-audio-plus-100ms.mp4' entry '…studio-entry-video-14-4650cc99.tsx'` → `fail`,
+  `96.8`, spread 3.4, drift +3.5, 16/16, 50.0 s, "Out of sync: audio 96.8 ms BEHIND the picture (16 of 16 probes)."
+  (`logs/ipc-audio-plus-100ms-fix1.log`); `node ipc-check.mjs 'D:\…\A6\ipc\standard-video-plus-3-frames.mp4' project
+  video-14 80 110` → `fail`, `-52.6`, spread 3.1, drift −0.9, 16/16, 50.7 s (`logs/ipc-video-plus-3-frames-fix1.log`).
+  App stopped; 0 electron/ffmpeg/ffprobe left.
 
 - 2026-10-22 08:57 (agent 6): `npx vitest run src/main/services/studio/export-engines/sync-measure.test.ts
   src/shared/studio/sync-verdict.test.ts` → `Tests 27 passed (27)`; with `studio-sync-check-handlers.test.ts` and
@@ -449,7 +493,12 @@ Near the bar this means the check reads the export's true picture-vs-sound offse
 
 ## Next step (ONE concrete instruction)
 
-Step 5 — re-drive and close (BEFORE 2026-10-23 06:44 local, when the sweep removes entry `4650cc99`'s sidecar): with
+None for builders — A6 is DONE (fix round 1 closed in step 5). The verifier's round 2 re-checks on its own profile copy
+(`A6-verify/`, a fresh port) BEFORE 2026-10-23 06:44 local, when the 24 h sweep removes entry `4650cc99`'s sidecar
+(after that, rows say "can no longer be checked"; use `ipc-check.mjs <file> project video-14 80 110` instead, or the
+preserved `a5-contexts/` copy).
+
+(Done in step 5, kept for the record:) Step 5 — re-drive and close (BEFORE 2026-10-23 06:44 local, when the sweep removes entry `4650cc99`'s sidecar): with
 no other electron running, launch the isolated app with `.vidtsx-temp/end-to-end/A6/launch.sh` (port 9261, profile
 `A6/profile`, `electron-vite dev` — it rebuilds main with `717bc74`), set the root (`node drive.mjs root`), run
 `node drive.mjs check 4e20be8d-d22e-492b-8f1d-73e8fd84ce95 stills/check-standard-fix1.png` then
@@ -479,7 +528,11 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 
 ## Open problems
 
-### VERIFIER ROUND 1 — FAIL (2026-10-22) — items 1 + 2 FIXED in `717bc74` (step 4); item 3 → TESTING §18.6 note in step 5
+### VERIFIER ROUND 1 — FAIL (2026-10-22) — items 1 + 2 FIXED in `717bc74` (step 4), re-driven in the app (step 5); item 3 written into TESTING §18.6 + STATUS (step 5). CLOSED.
+
+- Orchestrator decision (2026-10-22, recorded): keep verify_sync's method — the check measures the FILE's real
+  picture-vs-sound offset, including whole-camera-frame placement; the −2.6 ms bias is explained in STATUS and
+  TESTING §18.6, not removed.
 
 - **For the verifier (a judgement, not a §4 question):** measured = the export's real picture-vs-sound offset, which
   for files derived from the A5 Standard is (applied shift − 2.6 ms) — see step 4. A file with audio shifted +26 ms
@@ -578,6 +631,8 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
   TESTING §18.6) — its NUMBERS are superseded by step 4; the UI/IPC behaviour it proved is unchanged.
 - Step 4 (the fix, `717bc74`; the 11-file live re-measure, `reports/live-round2.log`, `table-round2.txt`). Do not
   re-run the live file unless the measuring code changes again (~9 min).
+- Step 5 (the fixed-code click-through + 4 IPC checks, logs `logs/*-fix1.log`, stills `stills/*-fix1*.png`; the gates;
+  the corrected STATUS row + TESTING §18.6). Do not re-drive or re-edit them; a verifier works in `A6-verify/`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -596,3 +651,7 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 - 2026-10-22 · agent 6 · ~50 · FIX round 1 (step 4): frames labelled by their own pts (`-stats_enc_pre`) + passthrough,
   ±2 s FFT audio search, window centred between audio and timeline, inconclusive names the side; 11 files re-measured
   (all verdicts = truth, measured = true − 2.6 ms, explained); gates green (26/10, 436 files / 3670 tests). Left: step 5.
+- 2026-10-22 · agent 7 · ~35 · step 5: re-drove the fixed code on port 9261 (both A5 rows IN SYNC −2.6 ms 16/16; +100 ms
+  FAIL +96.8, 3 frames late FAIL −52.6, 27 ms early FAIL −29.6, 600 ms early FAIL −602.9 via IPC); gates green (26/10,
+  436 files / 3670 tests on the 3rd run — the shot-module-resolver load flake twice); STATUS row + TESTING §18.6
+  corrected in place. Part DONE.
