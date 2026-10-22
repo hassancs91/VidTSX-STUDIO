@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: FIX (verifier round 1 FAIL: close during a file lock loses the edit — see Next step) — was: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
+status: FIX round 1 IN PROGRESS — the code fix is COMMITTED `750c0d0` (tests first, full vitest green run 3 `--maxWorkers=4`, types 26/10); NOT yet live-re-checked; docs items 2–3 + Status/TESTING not done (builder #9, see Next step) — was: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -245,6 +245,46 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   §18.10; his pass + the flip + the conditional patch as unchecked items) written (builder #8). All of builder #8's work is
   docs commit **`bf9e930`** (patch, `.gitattributes`, HASAN-STEP "After", B4 doc debt, Status, TESTING, DRIVING, LOG); `src/`
   unchanged (`git diff --stat 3e7a285 bf9e930 -- src` empty).
+
+- **FIX round 1, item 1 — the code (builder #9, `750c0d0`, tests first):** the DECIDED shape (a)+(b)+(c).
+  - NEW `src/main/services/studio/project-file.ts` — `ProjectFs` (+ `nodeProjectFs`), `projectTmpPath`,
+    `writeProjectFileWith(pfs, dir, project)` (= the old write: `.tmp` then `renameWithRetry`); `project-store.ts:69-72`
+    `writeProjectFile` now delegates to it.
+  - NEW `src/main/services/studio/project-writer.ts` — `createProjectWriter({ fs, projectDir, log, retryDelaysMs,
+    giveUpAfterMs })` + singleton `projectWriter`: per-project serialized chain; `save` (supersedes a pending hand-off at
+    arrival, stamps `updatedAt`); `handOff` (registers synchronously, returns at once; background tries with waits
+    1/2/3/5/10/15/30 s, last repeats, gives up after 10 min or on ENOENT — warn on the first refusal, info on landing,
+    error on give-up; the `.tmp` stays); `load` (a pending hand-off → `{recovered, unsaved}` and taken back; else
+    `recoverProjectTmp`; else project.json); `drain(timeoutMs)` (quit: retries pending now until the bound, then stops
+    scheduling and lets a running write finish ≤ 2 s; warns per id left).
+  - NEW `src/main/services/studio/project-recovery.ts` `recoverProjectTmp` — `.tmp` parses + `migrateProject` + newer
+    (`updatedAt`, else mtime; a missing/corrupt project.json counts as older) → rename over project.json (`finalized`) or,
+    still held, `loaded` (opened unsaved); older / corrupt / not a project → moved aside as
+    `project.json.tmp.ignored-<ISO time>` + `log.warn` (never deleted, never left where the next save overwrites it).
+  - NEW IPC `STUDIO_PROJECT_HANDOFF: 'studio:project:handoff'` (`channels.ts`), `StudioProjectHandoffRequest/Response`
+    + optional `recovered?`/`unsaved?` on `StudioProjectLoadResponse` (`types/studio.ts`), preload
+    `studioProjectHandoff`, `electron.d.ts`; handler NEW `src/main/ipc/studio-project-handoff-handlers.ts` (validates the
+    id), registered in `registrations/studio.ts`; `studio-handlers.ts` load → `projectWriter.load`, save →
+    `projectWriter.save` (snapshot restore + package import still call `saveProject` directly).
+  - `shutdown.ts` `runShutdown` first awaits `projectWriter.drain(PROJECT_WRITE_DRAIN_MS = 4000)`.
+  - Renderer: `autosave.ts` NEW `takeUnsaved()` (latest doc when dirty OR a save is in flight; clears dirty; a later
+    failure of that save no longer re-dirties/reschedules; `update`/`reset` make it the owner again); header no longer
+    claims close/quit flushes. `useStudioProject.ts`: `CLOSE_FLUSH_TRIES` gone — cleanup = `takeUnsaved` → dispose →
+    `handOffToMain` (one IPC) → `studioProjectClose`; the quit flush request = `takeUnsaved` → hand-off → `studioFlushAck`
+    (so the 1.5 s guard is never outrun); load: `res.unsaved` → `autosave.update` (saves it), returns `recovered`.
+    `EditorShell.tsx` toasts **"Recovered unsaved changes"** once (ref-guarded) when `recovered`.
+  - Tests: NEW `project-writer.test.ts` (12: the verifier's model = real `createAutosave` + real `renameWithRetry` +
+    the close path vs a 10 s hold on an in-memory disk, edit +1.6 s, close at 2.0/2.3/3.0/6.2 s → still old at 9.999 s,
+    edit on disk after, `.tmp` gone; give-up after the bound (logged once, `.tmp` kept, 0 timers); a reopened editor's
+    save supersedes a pending hand-off; quit at +2.0 s → `drain(4000)` returns `['p1']`, `.tmp` = edit → a fresh writer's
+    load after the hold → recovered once, then plain; open while still held → `.tmp` loaded unsaved; recovery on REAL
+    files: newer → finalized, older / corrupt / not-a-project → kept aside + 1 warn, none → no flags, save path).
+    `autosave.test.ts` +4 (`takeUnsaved`). NEW `hooks/hook-test-runtime.ts` (a tiny fake React hook runtime for
+    node-env hook tests: `vi.mock('react', …)` + `renderHookOnce`/`rerender`/`unmount`); NEW `useStudioProject.test.ts`
+    (5: unmount with a refused save → `studioProjectHandoff` with the edit then `studioProjectClose`, nothing retries
+    after; nothing unsaved → no hand-off; quit request inside the debounce → `['handoff','ack']`; `recovered+unsaved` →
+    flagged + saved; plain open → not flagged, no save); NEW `useTextEdit.test.ts` (1: "Remove fillers" with one filler
+    too tight → toast `Removed 1 filler · −… (1 spot too tight…)`).
 
 ## Verified (exact commands + outputs)
 
@@ -516,10 +556,42 @@ start (`2CFAF220…`), B5-root sha256 == `…\B5\checks\original-project.json` (
 - `npm run check:types` (log `…\B5\check-types-builder8.log`) → `web: 26 errors (baseline 26) ok · node: 10 errors (baseline
   10) ok`.
 
+**Builder #9 (2026-10-22, FIX round 1 item 1 — code only, NO app launched):** C: 16.56 / D: 32 GB before; no electron.
+- RED first: `npx vitest run src/main/services/studio/project-writer.test.ts src/features/studio/hooks/useStudioProject.test.ts
+  src/features/studio/hooks/useTextEdit.test.ts` → `Test Files 3 failed (3) · Tests 4 failed | 1 passed (5)` (writer:
+  `Cannot find module …/project-writer`; hook: `expected "vi.fn()" to be called 1 times, but got 0 times` ×2, `expected
+  undefined to be true/false`).
+- `useTextEdit.test.ts` on HEAD → `1 passed`; with `useTextEdit.ts:120` reverted to `plural(tokens.length, what)` → `1 failed`
+  (`expected 'Removed 2 fillers · −0.6 s (1 spot to…' to match /^Removed 1 filler …/`); restored (`git checkout`).
+- After the fix: `npx vitest run project-writer.test.ts useStudioProject.test.ts useTextEdit.test.ts autosave.test.ts
+  project-store.test.ts` → `Test Files 5 passed (5) · Tests 39 passed (39)`. Negative: `useStudioProject.ts` from HEAD over the
+  fixed file → `Tests 4 failed | 1 passed (5)`; fixed file back → `5 passed`.
+- `npm run check:types` → `web: 26 errors (baseline 26) ok · node: 10 errors (baseline 10) ok`.
+- FULL vitest (app stopped; C: 16.11 GB → no exclusion; CPU at 100 % from other sessions): run 1 `…\B5\vitest-full-fix1-run1.log`
+  → `1 failed | 464 passed` = `shot-module-resolver.test.ts` "a changed transpiler fingerprint" (DRIVING load list; alone →
+  `10 passed`); run 2 `…-run2.log` → `2 failed` = the same + `flow-render.test.ts` "Retry with note…" (load list; alone →
+  `5 passed`); **run 3 `npx vitest run --maxWorkers=4` (`…\B5\vitest-full-fix1-run3-maxworkers4.log`) → GREEN: `Test Files
+  465 passed | 5 skipped (470) · Tests 3920 passed | 34 skipped (3954)`** — the counted run (DRIVING "Vitest gate under load").
+- Committed `750c0d0` (src only).
+
 ## Next step (ONE concrete instruction)
 
-**FIX round 1 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier
-round 1"):**
+**Builder #10: live re-check of `750c0d0` on B5-root (CDP 9321), then items 2–4 below.** The app must be (re)launched —
+main changed. Extend `.vidtsx-temp/end-to-end/B5/lockcheck.mjs` (gitignored; `close [s]` exists — hold project.json with no
+sharing from PowerShell, delete 271–276 through the Transcript, poll disk ≥ 250 ms, write the original back with the project
+closed) with the verifier's exact timing: **(i) `close`:** hold 10 s, the delete at +1.6 s, real click "Back to projects" at
++2.3 s → expect disk unchanged until the release, then the edit on disk (10 clips, 1279.103 s) within a few seconds, no
+`project.json.tmp` left, main log line "Handed-off project save landed" (app log `…\B5\app.log`); **(ii) `quit`:** hold 10 s,
+delete at +1.6 s, `window.close()` at +2.0 s → the app exits (≤ ~6 s: guard ack + 4 s drain), `project.json.tmp` holds the
+edit, project.json the original; after the hold relaunch, open the project → toast "Recovered unsaved changes" once, disk =
+the edit, `.tmp` gone; then stop the app and write `…\B5\checks\original-project.json`'s content back. Record times. Then
+items 2–4 of the FIX brief below (Status.md:55 / TESTING.md:435 with the new numbers, HASAN-STEP notes, gates only if `src/`
+changes again, Status B5 row + TESTING §18.11, status → DONE up to Hasan's step (fix round 1), commit).
+
+**FIX round 1 brief (orchestrator) — item 1 is DONE in code (`750c0d0`), live check pending:**
+
+
+(orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier round 1"):
 1. **Close during a lock must not lose the edit (the FAIL).** `useStudioProject.ts:11`
    `CLOSE_FLUSH_TRIES = 3` + cleanup `:66-80` give up ~7.3 s after close and `autosave.dispose()`
    drops the dirty doc; a `project.json.tmp` with the edit is left and reopening loads the old file.
@@ -720,6 +792,12 @@ Status row, TESTING §18.11.
 - Builder #8: the backfill patch (made, red-first, `--check` clean, patched tree green, 76/76 counted), the B4 doc debt, the
   gates, the Status row and TESTING §18.11 are DONE — do not redo. Never apply `backfill-fix.patch` or the flip without
   Hasan's word. To recount, recreate the worktree as `backfill-count.b5.test.ts`'s header says.
+- Builder #9: FIX round 1 item 1 is CODED + unit-tested + committed (`750c0d0`; red first, negatives for both hook wirings,
+  full vitest green run 3 `--maxWorkers=4`, types 26/10) — do not redesign it; only the LIVE re-check is left for it. If the
+  live check finds a bug, fix it test-first in `project-writer.ts` / `project-recovery.ts` / `useStudioProject.ts` and rerun
+  the gates. Open design notes (not bugs): the snapshot restore (`studio-handlers.ts` ~:252) and the package import still call
+  `saveProject` directly (no pending hand-off can exist for an OPEN project — `load` takes it back); the Home card shows
+  project.json's `updatedAt` while a hand-off is pending.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -745,3 +823,7 @@ Status row, TESTING §18.11.
 - 2026-10-22 · builder #8 · ~45 calls · backfill fix prepared NOT applied (`B5/backfill-fix.patch`: by engine, red first, `--check`
   clean, patched tree green, 76/76 AssemblyAI starts kept; `.gitattributes` for LF), HASAN-STEP "After" filled, B4 doc debt
   aligned, full vitest green run 1 (3895) + types 26/10, Status.md row + TESTING §18.11; status DONE up to Hasan's step.
+- 2026-10-22 · builder #9 · ~42 calls · FIX round 1 item 1 coded test-first and committed `750c0d0`: main `project-writer.ts`
+  (hand-off + background retries for minutes + quit drain), `project-recovery.ts` (newer `.tmp` → recovered once; older/corrupt
+  kept aside), IPC `studio:project:handoff`, `autosave.takeUnsaved`, hook wiring + hook-level tests (fake React runtime);
+  full vitest green (run 3, `--maxWorkers=4`, 3920), types 26/10. No app launched — live re-check is next.
