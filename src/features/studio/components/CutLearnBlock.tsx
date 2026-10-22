@@ -56,38 +56,32 @@ export function CutLearnBlock({ lines, report, assetNames }: Props) {
         </button>
       )}
       {showJoins && joins.length > 0 && (
-        <div className="max-h-[200px] overflow-y-auto">
-          <table className="w-full text-[10px] leading-snug" data-preset-update-joins>
-            <thead>
-              <tr className="text-text-ghost text-left">
-                <th className="pr-2 font-normal">Join</th>
-                <th className="pr-2 font-normal">Tail you / style</th>
-                <th className="font-normal">Lead-in you / style</th>
-              </tr>
-            </thead>
-            <tbody>
-              {joins.map((join, i) => (
-                <tr key={`${join.ref ?? i}-${i}`} className="align-top" data-preset-update-join={join.ref ?? i}>
-                  <td className="pr-2 text-text-muted">
-                    <div className="whitespace-nowrap">{where(join, assetNames)}</div>
-                    {(join.lastWord || join.nextWord) && (
-                      <div className="text-text-ghost truncate max-w-[140px]">
-                        {join.lastWord ?? '…'} | {join.nextWord ?? '…'}
-                      </div>
-                    )}
-                    {join.skipped && <div className="text-text-ghost">{join.skipped}</div>}
-                  </td>
-                  <td className="pr-2 text-text-primary whitespace-nowrap">
-                    {side(join.tail, join.tailDb, join.styleTail, join.styleTailDb)}
-                    {join.tail !== undefined && join.styleSoft && <span className="text-text-ghost"> (soft)</span>}
-                  </td>
-                  <td className="text-text-primary whitespace-nowrap">
-                    {side(join.leadIn, undefined, join.styleLeadIn, undefined)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        // Stacked rows, not a table: the Assistant column is ~200 px wide, and a
+        // three-column table pushed the numbers off-screen (seen live in B4 step 5).
+        <div className="max-h-[200px] overflow-y-auto space-y-1 text-[10px] leading-snug" data-preset-update-joins>
+          <div className="text-text-ghost">Each join: you / the style</div>
+          {joins.map((join, i) => (
+            <div key={`${join.ref ?? i}-${i}`} data-preset-update-join={join.ref ?? i}>
+              <div className="text-text-muted truncate" title={where(join, assetNames)}>
+                {where(join, assetNames)}
+              </div>
+              {(join.lastWord || join.nextWord) && (
+                <div className="text-text-ghost truncate">
+                  {join.lastWord ?? '…'} | {join.nextWord ?? '…'}
+                </div>
+              )}
+              {join.skipped && <div className="text-text-ghost">{join.skipped}</div>}
+              {join.tail !== undefined && (
+                <div className="text-text-primary">
+                  Tail {side(join.tail, join.tailDb, join.styleTail, join.styleTailDb)}
+                  {join.styleSoft && <span className="text-text-ghost"> (soft)</span>}
+                </div>
+              )}
+              {join.leadIn !== undefined && (
+                <div className="text-text-primary">Lead-in {side(join.leadIn, undefined, join.styleLeadIn, undefined)}</div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>

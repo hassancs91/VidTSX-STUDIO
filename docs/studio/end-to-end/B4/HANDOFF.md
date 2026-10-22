@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) DONE; step 3 (the learn path in main: propose_preset_update → report → card data → accept writes `style.cut`) DONE; step 4 (the card UI + ruling 8's maxTail guard) DONE; step 5 (the M2 stand-in + CDP click-through) next, then Hasan's station (step 6) and the gates/docs (step 7)
+status: IN PROGRESS — steps 1–4 DONE; step 5 (the M2 stand-in) (a)–(d) DONE live on M2 (21 joins → the card proposes head 0.15 / minTail 0.08 / margin 12 exactly; accept moved the preset to `{base:'tight', maxTail:0.5}`; one card layout defect fixed); step 5 (e) (the two negatives on M2 data) next, then Hasan's station (step 6) and the gates/docs (step 7)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -278,7 +278,86 @@ rendered yet.
   passes `project.assets`. (AgentPanel was already 420 lines before B4; +5.)
 - No renderer test: the card had none (the brief's rule).
 
+**Step 5 (a)–(d) — the M2 stand-in, live (builder #5, 2026-10-22; card fix in the commit after
+`0795779`).** Kit in `.vidtsx-temp/end-to-end/B4/` (gitignored): `setup.mjs` (start state; args
+`<studioRoot> <profile> <out>` for Hasan's station), `launch.sh` (CDP 9301, B2 profile, log
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\app.log`), `cdp.mjs`, `restore.ps1`, `drive.mjs`
+(`ready` · `cut` · `trim <ops.json>` · `probe` · `learn <tag> [read]` · `accept` · `shot`),
+`vitest.b4.config.ts` + `targets.b4.test.ts` (`B4_TARGETS=1`).
+
+- (a) Start state (ruling 7): scratch user preset `b4-start-old-tight` ("B4 start — old tight")
+  in `profiles\B2\profile\assets\presets\` (flat knobs copied from youtube-long-form, `style.cut =
+  {base:'tight', head:0.11, minTail:0.14, maxTail:0.4, margin:5}`); `B2-root\projects\video-14-raw`
+  → `settings.presetId` = it, no `cutStyle`, `settings.agent.providerId = 'b4-no-model'` (an id no
+  provider is registered under), timeline + proposals emptied. Backup of the project as B3 left it:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\backup\B2-root-project.before-b4.json`. BEFORE preset:
+  `.vidtsx-temp/end-to-end/B4/preset.before.B2-root.json`.
+- (b) In the app: 0369/0370/0371 on V1, Auto Cut + "Apply N cuts" on each with the preset's style.
+  **Act 1** = the editor's `cuts.json` keeps (read-only) planned with its `styles.tight` through
+  Studio's `planClip`, summed in clip order to 115 s → raw cut-off 0369 → 41.024, 0370 → 82.688,
+  0371 → 188.287 (26 keeps). Studio's Auto Cut is pause-only (keeps the retakes `cuts.json`
+  removed): 47 joins on V1 in that span, **28 sentence joins** (both words inside keeps), **the
+  first 21 in time order used** (0369 ×5, 0370 ×8, 0371 ×8; words + old/fitted edges in
+  `.vidtsx-temp/end-to-end/B4/act1-joins.json`). Targets = the fitted tight's own edges at each join
+  (`measureCutJoins` with `styles.tight`): 42 edges, 39 moved (3 already there: "apps? | Simply,"
+  tail, "costs, | no" and "app | costs" lead-ins), each dispatched as the reducer's `'trim'`
+  (`tl.dispatch` from TimelinePanel's props — what `useClipDrag.ts:274` sends — with
+  `rippleAllTracks: true`, so a lengthened head never clamps at its neighbour).
+- (c) Learn through the BUTTON with no model: Inspector → Project → "Learn from this video" → the
+  card in the Assistant tab, summary "(numbers only — no summary model was available)".
+- (d) "Update preset" → preset `style.cut` = `{ base:'tight', maxTail:0.5 }` (head/minTail/margin
+  overrides dropped = back to the base's 0.15/0.08/12), `learned[]` 1 entry, PRESET.md section
+  appended. AFTER: `.vidtsx-temp/end-to-end/B4/preset.after.B2-root.json`. The flat knobs moved too
+  (pacing normal→tight, shots 1.5→0, SFX 1→0, music quiet→none, captions block→none, transitions
+  crossfade→none, intro 8→0, outro 10→0) — the scratch preset's youtube-long-form values vs a bare
+  M2 timeline (existing flat learning, not B4).
+- **Card defect found live and fixed** (`CutLearnBlock.tsx:58-84`): the per-join table rendered
+  420 px wide inside the ~200 px Assistant column (`th` x 944/1155/1304, wrapper clientWidth 200,
+  scrollWidth 420) — the tail/lead-in numbers were off-screen. Now stacked rows per join (file @
+  edge · words · "Tail you / style" · "Lead-in you / style"); hooks `[data-preset-update-joins]`,
+  `[data-preset-update-join=<ref>]` kept.
+
 ## Verified (exact commands + outputs)
+
+Step 5 (a)–(d) (C: 1.81 GB / D: 5.55 GB before launch; C: 2.43 / D: 5.46 after; app stopped by
+`--remote-debugging-port=9301` / profile path, 0 processes left):
+
+- `node setup.mjs` → `settings {"width":1920,"height":1080,"fps":60,"agent":{"providerId":"b4-no-model"},"presetId":"b4-start-old-tight"}`
+  · `tracks v1:0,a1:0 proposals 0`.
+- `node drive.mjs ready` → readout `tight + 4 overrides · preset “B4 start — old tight”`, title
+  `internalGap 0.4 · head 0.11 · minTail 0.14 · maxTail 0.4 · margin 5 · softGap 99 · …`.
+- No-model proof BEFORE the click: `node drive.mjs probe` → `window.api.llmGenerate({ providerId:
+  'b4-no-model' })` = `{"success":false,"error":"Provider \"b4-no-model\" not registered"}`
+  (`src/engine/llm-engine.ts:77-79` throws before any request). At the click, app.log:
+  `[WARN] [LearnFromProject] Preset summary call returned nothing`. Home: "Providers 0 of 7
+  configured" on this profile.
+- `node drive.mjs cut` → 0369 `Apply 7 cuts` (6 segments), 0370 `Apply 15 cuts` (14), 0371
+  `Apply 31 cuts` (30), every plan `head 0.11 minTail 0.14 maxTail 0.4 margin 5 softGap 99`; V1 =
+  50 clips; 3 cut-plan proposals `applied`, `snapped` on 7/7, 15/15, 31/31 items.
+- `B4_TARGETS=1 npx vitest run --config .vidtsx-temp/end-to-end/B4/vitest.b4.config.ts targets` →
+  `Tests 1 passed (1)`; `act1-joins.json`: `joinsOnV1 47`, `usable 28`, `chosen 21`.
+- `node drive.mjs trim trims-fitted-moved.json` → `trims 39 off-target/untagged 0 []`; disk: V1 50
+  clips, 39 tagged edges (`origin {by:'agent', proposalId, op:'trim', edges:{…:'trim'}}`). Copy:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\project.after-trims.json` (66,636 bytes).
+- `node drive.mjs learn standin` → app.log `[LearnCutKnobs] Cut knobs measured`; card knob rows
+  `Cut lead-in (s) 0.11 → 0.15 median lead-in 0.15 s at 19 joins (the style kept 0.11 s)` ·
+  `Cut tail min (s) 0.14 → 0.08 median tail 0.22 s, 11.4 dB over the floor at 20 joins (the style:
+  0.4 s, 6 dB)` · `Cut tail max (s) 0.4 → 0.5 at least 0.5 s — only known up to the longest tail
+  you kept` · `Cut margin (dB) 5 → 12 …`; cut lines `Cut: learned from 21 joins you trimmed (19
+  lead-ins, 20 tails) — …` · `Lead-in: you kept a median 0.15 s … head 0.15 s reproduces your
+  edges.` · `Tail: you kept a median 0.22 s after the last word, cut 11.4 dB over the floor (the
+  style: 0.4 s, 6 dB); minTail 0.08 s and margin 12 dB reproduce your edges; maxTail at least
+  0.5 s.`; toggle `Show the 21 joins it measured` → 21 rows. **Exit check on the stand-in: head
+  0.15 (target 0.15 ± 0.03), minTail 0.08 (0.08 ± 0.03), margin 12 (12 ± 1) — Δ 0 / 0 / 0.**
+  Full card JSON: `.vidtsx-temp/end-to-end/B4/card-standin.json`.
+- Stills (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\stills\`): `b4-card-standin.png`,
+  `b4-card-standin-cutblock.png`, `b4-card-standin-joins.png` (the full card, before the fix),
+  `b4-card-standin-joins-stacked.png` (after the fix: join list clientWidth 200 = scrollWidth 200,
+  height 200 of 1212 scrollable, 22 children = header + 21 rows).
+- `node drive.mjs accept` → `preset style.cut after {"base":"tight","maxTail":0.5}`; diff
+  before/after: `cut` head/minTail/maxTail/margin 0.11/0.14/0.4/5 → maxTail 0.5 only.
+- `npm run check:types` (after the card fix) → `tsconfig.web.check.json: 26 errors (baseline 26)
+  ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
 
 Step 4:
 
@@ -350,28 +429,21 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-Step 5 — the M2 stand-in (decision 5 as amended by ruling 7) on `B2-root` +
-`profiles\B2\profile`, CDP 9301, no model call: (a) in that profile's preset library create the
-scratch user preset "B4 start — old tight" (`style.cut = {base:'tight', head:0.11, minTail:0.14,
-maxTail:0.4, margin:5}`), assign it to `B2-root\projects\video-14-raw` (`settings.presetId`),
-remove any `settings.cutStyle`, clear its timeline, save that preset.json as the BEFORE copy
-(small, `.vidtsx-temp/end-to-end/B4/`); (b) in the app, Auto Cut + apply over the Act-1 raw span
-(map preview-tight 0:00–1:55 through the editor's `cuts.json` keeps — read-only — to clips
-0369…0371; list the joins used), then trim ≥ 10 (aim 21) sentence joins through the reducer's
-`'trim'` action (what `useClipDrag.ts:274` dispatches) to the FITTED-tight edges (compute them
-with `tailFor`/`styleLeadIn` + `FITTED_TIGHT` on that asset's v3 envelope + transcript words, e.g.
-in an env-flagged scratch vitest like B1's `compare.b1.test.ts`); (c) learn: the Inspector →
-Project "Learn from this video" button (`studioPresetLearn` → `learn-from-project.ts:50`
-`llmSummary`) makes ONE LLM call, so first read `runLlmGenerate` and confirm an unconfigured
-`providerId` fails locally with no network; if it does, set the scratch project's
-`settings.agent.providerId` to such an id, click the button, and screenshot the card's cut block
-+ opened joins list (summary "numbers only"); if it does not, run the REAL `propose_preset_update`
-handler with `summary` set from the scratch harness on the saved project.json instead, and render
-the card live only after a way without a model call is found (else record it as an open problem);
-(d) Accept → the preset's `style.cut` = `{base:'tight'}` + any raised `maxTail` (head/minTail/
-margin back to base = the overrides drop) — save the AFTER preset.json; (e) negatives (decision
-5): joins trimmed to the start preset's own edges → no cut change; < 10 touched joins → the "Learned
-from N joins — at least 10 …" line. Record every number (n, medians, fitted, changes) in Verified.
+Step 5 (e) — the two negatives of decision 5 on the M2 data, through the REAL
+`propose_preset_update` handler with `summary` set (no app, no model). Write a scratch vitest
+`.vidtsx-temp/end-to-end/B4/negatives.b4.test.ts` (`B4_NEG=1`, run with
+`vitest.b4.config.ts`), modelled on `src/main/services/studio/agent-tools/preset-tools.test.ts`
+(temp library holding a copy of `.vidtsx-temp/end-to-end/B4/preset.before.B2-root.json` as the
+project's preset, the real `cut-style.json`), but loading the REAL transcripts / v3 waveforms from
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root\projects\video-14-raw\cache\` (read-only) and
+the project from `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\project.after-trims.json`. Cases:
+(1) as trimmed → the same four `cut.*` changes as the live card (tool path = button path);
+(2) every tagged edge moved back to the START style's own edge (`oldTailEdge` / `oldHeadEdge` in
+`.vidtsx-temp/end-to-end/B4/act1-joins.json`, plus a ≤ 10 ms jitter so they are real moves, tags
+kept) → no `cut.*` change, 21 joins reported; (3) tags kept on only 9 joins (`withoutEdgeTag` on
+the rest) → no `cut.*` change + the line "Learned from 9 joins — at least 10 touched joins are
+needed before the cut knobs change.". Record n / medians / fitted / changes in Verified, then go
+to step 6 (read the step-6 notes under Open problems first).
 
 ## Open problems
 
@@ -472,6 +544,28 @@ Step 4 notes (no ruling needed; for step 5 and Hasan's step):
 - The card's per-join rows name the asset by file name only when `AgentPanel` gets `assets`
   (EditorShell passes them); anywhere else they fall back to the first 8 chars of the asset id.
 
+Step 5 notes (no ruling needed; for step 6, Hasan's station):
+
+- **Retakes are still in after Auto Cut.** Studio's Auto Cut is pause-only; preview-tight (where
+  Hasan trimmed his 21) had the retakes removed by `cuts.json`. On a station made with Auto Cut
+  alone his Act-1 span holds 47 joins, 28 of them sentence joins. Before writing HASAN-STEP.md,
+  check B3's "hand plan" (B3 HANDOFF / TESTING §18.9: a cut plan built from `cuts.json` keeps on
+  eight clips) — if it can be applied on the station as the old-tight-snapped starting proposal,
+  his timeline matches preview-tight's joins; else HASAN-STEP.md must tell him which joins to
+  skip (into / out of a retake) and the stand-in's 21 (`act1-joins.json`) are the list.
+- **Ripple:** the stand-in trims used `rippleAllTracks: true`. Without ripple, lengthening a lead-in
+  clamps at the left neighbour's end (`trimClip`, `timeline-ops.ts:225-239`) unless the tail was
+  shortened first by at least as much. HASAN-STEP.md: turn the ripple toggle on (timeline toolbar)
+  or trim the tail before the head.
+- **Flat knobs on the card:** a station preset copied from youtube-long-form makes the card also
+  propose eight flat knob changes (see step 5 (d)). For a cleaner card, seed the station preset's
+  flat style with the values the stand-in card proposed (pacing tight, shots 0, SFX 0, music none,
+  captions none, transitions [], intro 0, outro 0) — `setup.mjs` would need that option.
+- **No model on the station:** `setup.mjs` sets `settings.agent.providerId = 'b4-no-model'` — fine
+  for the button path ("numbers only" summary). If HASAN-STEP.md tells him to "ask the assistant",
+  that id breaks the chat: name the button path (Inspector → Project → "Learn from this video")
+  and leave the station on the no-model id, or clear it in setup for his station.
+
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
@@ -488,6 +582,11 @@ Step 4 notes (no ruling needed; for step 5 and Hasan's step):
 - Step 4 is DONE: `CutLearnBlock.tsx` + its place on `PresetUpdateCard` + the `assets` →
   `assetNames` plumbing (EditorShell → AgentPanel → card); ruling 8's guard in `fitTails` + its
   test. Change the card only if the live click-through shows a real defect.
+- Step 5 (a)–(d) is DONE live on M2 (B2-root + B2 profile, CDP 9301): start preset, Auto Cut +
+  apply, 21 joins trimmed through the reducer, the button learn with no model, accept, before/after
+  preset.json, stills, the card's stacked-row fix. Do not redo them. The scratch preset in the B2
+  profile is now `{base:'tight', maxTail:0.5}` (accepted); re-run `setup.mjs` only if a later step
+  needs the live start state again (it rewrites the preset and empties the timeline).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -502,3 +601,9 @@ Step 4 notes (no ruling needed; for step 5 and Hasan's step):
   (`CutLearnBlock.tsx`), asset names plumbed from EditorShell; ruling 8 (`maxTail` never fitted
   below the cap) + a test that fails without it; subset vitest green bar the known load timeout
   (passes alone); types 26/10; no app launch.
+- 2026-10-22 · builder #5 · ~55 calls · step 5 (a)–(d) live on M2: start preset (old tight on
+  the preset, no-model provider id), Auto Cut + apply on 0369–0371, Act 1 mapped through
+  `cuts.json`, 21 sentence joins trimmed through the reducer to the fitted-tight edges (39 edges),
+  the button learn → head 0.15 / minTail 0.08 / margin 12 (Δ 0), maxTail "at least 0.5"; accept →
+  `{base:'tight', maxTail:0.5}`; fixed the per-join list overflowing the Assistant column; types
+  26/10; app stopped.
