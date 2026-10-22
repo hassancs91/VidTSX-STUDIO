@@ -25,10 +25,16 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\source\profile`** (an identical copy of A5's
   profile, 2,328 files / 390 MB, made 2026-10-22 12:16 — never launch on `source` itself, never
   copy from D: again); drivers, logs, stills and reports stay in `.vidtsx-temp/end-to-end/<PART>/`
-  (keep them small). A new profile's Studio root still defaults wrongly: set it first. Check D:
-  before writing anything sizeable there; if it falls under ~2 GB, stop and report. Other Claude
-  sessions on this machine write to C: and D: too — a drop that is not yours is not a reason to
-  stop above the line.
+  (keep them small). A new profile's Studio root still defaults wrongly: set it first. Other
+  Claude sessions on this machine write to C: and D: too — a drop that is not yours is not a
+  reason to stop above the line.
+- **D: below 2 GB (orchestrator, 2026-10-22 13:40):** D: hit 1.84 GB from other sessions' writes;
+  freeing our D: profiles was refused by the permission classifier (left for Hasan). From now on
+  any NEW artefact over ~1 MB (stills, logs of full vitest runs, reports, exports, copies) goes
+  to `C:\Users\hasan\AppData\Local\vidtsx-e2e\<PART>\` (drivers and small notes may stay in
+  `.vidtsx-temp/end-to-end/<PART>/`). The stop line is now **1.0 GB free on D:** — check before
+  launching the app (an `electron-vite dev` rewrites `out/`, ~126 MB, in place) and before any
+  vitest run; under 1.0 GB, stop and return BLOCKED.
 - Launcher (A1's, worked first time): `.vidtsx-temp/end-to-end/A1/launch.sh` — copy it, change
   the profile path, port and log path, run it in the background from a script FILE.
   `ELECTRON_RUN_AS_NODE` must be unset.
