@@ -477,3 +477,34 @@
 - A B6 verifier copied the B6 profile's `settings.db` into the orchestrator's scratchpad (not read —
   classifier blocked); the orchestrator deleted the copy; DRIVING.md now bans copying credential
   stores. Cosmetic: Status.md B6 row quotes flag 5's line ending "?" (cuts.json has "—").
+
+## TRACK B EXIT — NOT MET (2026-10-23, fresh offline check, `…\vidtsx-e2e\track-B-exit\`)
+
+| E2 clause | Verdict | Numbers |
+|---|---|---|
+| Studio's tight = his fitted tight | MET | 12/12 knobs (natural 8/8); the B6 run planned with it (key `42f80e70`) |
+| **Hard entries 0** | **NOT MET** | his own plan 0 / 134 real joins; the PRODUCED cut (B6's applied V1, 196 clips) **6 / 146** — all six at the END of an editorial item (Auto Cut-only joins 0 / 113, loudest +11.9 dB) |
+| Median lead-in / tail at joins within ±30 ms of the fitted tight | MET | lead-in 0.150 vs 0.150 s, tail 0.220 vs 0.214 s (real joins incl. clip edges; inner only 0 / 0 ms); tail p10/25/75/90 0.08/0.12/0.32/0.46 vs 0.08/0.12/0.32/0.44 |
+| Content overlap reported, bar set | MET | 90.51 % (re-derived); next-round bar PROPOSED, Hasan confirms |
+| (track exit) editor's `clean-cut` skill marked superseded | WAITING-HASAN | editor repo read-only for this plan |
+
+- **The six hard entries** (0366 4.83 s +28.9 dB, 0366 12.63 +23.7, 0373 204.069 +15.9, 0373 247.86
+  +36.1, 0373 391.59 +22.0, 0375 122.7 +37.2) — Studio's own card QA flagged all six before Apply
+  (within 0.5 dB) and they were applied anyway. Mechanisms: (1) four are WORDLESS slivers (0.15–0.5 s)
+  — an editorial removal's wordless gap is merged away only up to 1.0 s (`MERGE_SILENT_KEEP_MAX`),
+  longer gaps keep the removed word's release, then Auto Cut (planned over the whole clip, after the
+  editorial cuts were applied) removes only the quiet middle and leaves the release as a blip; (2)
+  0373 204.069: the 0.15 s head pad before "so" lands on leftover sound; (3) 0375 122.7: the model's
+  retake span ends 34 ms before "And" and the planner's cut clamp keeps that end, slicing the onset.
+  15 wordless segments exist in the produced cut (0.06–0.5 s), all inside spans Hasan cut.
+- Gates at the exit: types 26/10; tree clean; 180 commits on `end-to-end-p0` ahead of `main`;
+  nothing pushed (no upstream).
+- **Track B status:** B1 B2 B3 B6 DONE; B4 B5 WAITING-HASAN; exit NOT MET on E2's hard-entry clause.
+  Fixing it is a product change outside B1–B6's rows (editorial snap / silent-sliver merge /
+  Auto Cut over already-cut spans) — Hasan decides whether it becomes a part ("B7") before track C.
+
+## Stops (session 2)
+
+- 2026-10-23 · **STOP after the track-B exit** (Hasan's override 2: stop after the track-B exit).
+  Reported: B1–B3, B6 DONE; B4, B5 WAITING-HASAN with exact steps; track-B exit NOT MET (editorial
+  hard entries 6/146); the waiting-on-Hasan list; disk; the classifier refusals. Waiting for Hasan.
