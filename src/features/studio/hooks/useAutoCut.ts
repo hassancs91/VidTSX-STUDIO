@@ -2,10 +2,12 @@
 // invert the plan into a proposal → hand it to the timeline reducer for
 // review. Transcription is a background media job whose completion arrives as
 // a document update, so "chaining" means remembering the request and firing
-// the plan when the asset's transcript turns ready.
+// the plan when the asset's transcript turns ready. The style is the project's
+// resolved one (B2): the button sends the LIVE preset/override settings and
+// main resolves them (override > preset > default) — no session style.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
+import type { StudioCutStyleSettings } from '@shared/ipc/types';
 import type { StudioMediaAsset } from '../types';
 import type { UseTimelineResult } from './useTimeline';
 import { buildCutProposal } from '../services/cut-proposal';
@@ -15,7 +17,6 @@ export type AutoCutPhase = 'idle' | 'transcribing' | 'planning';
 
 interface PendingRun {
   assetId: string;
-  style: CutPlanStyleName;
   /** True once we've seen the job running — only then does a missing
    *  transcript entry mean "cancelled" (it starts out absent). */
   started: boolean;
@@ -28,16 +29,26 @@ interface Options {
   /** Starts the background transcription job; resolves to an error or null. */
   transcribe: (asset: StudioMediaAsset, sttModelId: string) => Promise<string | null>;
   sttModelId: string;
+  /** The live document's preset id and cut-style override (null = read project.json). */
+  cutStyleSettings: StudioCutStyleSettings | null;
   onError: (message: string) => void;
 }
 
-export function useAutoCut({ projectId, assets, tl, transcribe, sttModelId, onError }: Options) {
+export function useAutoCut({
+  projectId,
+  assets,
+  tl,
+  transcribe,
+  sttModelId,
+  cutStyleSettings,
+  onError,
+}: Options) {
   const [phase, setPhase] = useState<AutoCutPhase>('idle');
   const [pending, setPending] = useState<PendingRun | null>(null);
   const planningRef = useRef(false);
 
   const runPlan = useCallback(
-    async (asset: StudioMediaAsset, style: CutPlanStyleName) => {
+    async (asset: StudioMediaAsset) => {
       if (planningRef.current) return;
       planningRef.current = true;
       setPhase('planning');
@@ -46,7 +57,7 @@ export function useAutoCut({ projectId, assets, tl, transcribe, sttModelId, onEr
           projectId,
           assetId: asset.id,
           sourcePath: asset.path,
-          style,
+          ...(cutStyleSettings ? { settings: cutStyleSettings } : {}),
         });
         if (!res.success || !res.plan) {
           onError(res.error ?? 'Failed to plan cuts');
@@ -69,21 +80,21 @@ export function useAutoCut({ projectId, assets, tl, transcribe, sttModelId, onEr
         setPhase('idle');
       }
     },
-    [projectId, tl, onError],
+    [projectId, tl, cutStyleSettings, onError],
   );
 
   /** The Auto Cut button. Transcribes first when the asset has no words yet. */
   const runAutoCut = useCallback(
-    (asset: StudioMediaAsset, style: CutPlanStyleName) => {
+    (asset: StudioMediaAsset) => {
       if (tl.activeProposal) {
         onError('A cut proposal is already open — apply or reject it first.');
         return;
       }
       if (asset.transcript?.status === 'ready') {
-        void runPlan(asset, style);
+        void runPlan(asset);
         return;
       }
-      setPending({ assetId: asset.id, style, started: false });
+      setPending({ assetId: asset.id, started: false });
       if (asset.transcript?.status !== 'generating') {
         setPhase('transcribing');
         void transcribe(asset, sttModelId).then((error) => {
@@ -112,7 +123,7 @@ export function useAutoCut({ projectId, assets, tl, transcribe, sttModelId, onEr
     const status = asset.transcript?.status;
     if (status === 'ready') {
       setPending(null);
-      void runPlan(asset, pending.style);
+      void runPlan(asset);
     } else if (status === 'generating' || status === 'pending') {
       if (!pending.started) setPending({ ...pending, started: true });
     } else if (status === 'error' || (status === undefined && pending.started)) {

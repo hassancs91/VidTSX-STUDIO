@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button + picker → read-out/override) next
+status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button on live settings + picker → read-out/override) DONE (commit after `b86b279`, see Done); step 5 (Project settings knobs + preset editor Cut section) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -239,6 +239,37 @@ too — keep your D: writes small).
   `src/main/ipc/cut-style-handlers.test.ts` (3: live settings forwarded, no settings → `{}`, error
   typed not thrown).
 
+**Step 4 — Auto Cut button on the live settings; picker → read-out + project override (2026-10-22, builder #4; commit `B2 — step 4`, the first commit after `b86b279`).**
+
+- IPC: `StudioCutPlanRunRequest.settings?: StudioCutStyleSettings` (`src/shared/ipc/types/studio.ts:384`,
+  ignored when `style` is set); `handleStudioCutPlanRun` forwards it (`studio-handlers.ts:467`).
+- `useAutoCut.ts`: NO style any more — `runAutoCut(asset)`; option `cutStyleSettings:
+  StudioCutStyleSettings | null` (:33) sent as `settings` (:60); `PendingRun.style` gone.
+  `EditorShell.tsx:360-376` memoises `{presetId?, cutStyle?}` from the live `project.settings`
+  (deps: has-project, presetId, the cutStyle object) and passes it; `:1454` passes the ONE
+  `cutStyle` (from `useResolvedCutStyle`, now `:882`) to `InspectorPanel`.
+- NEW pure `src/features/studio/services/cut-style-override.ts` (37): `CutStyleOverrideChoice =
+  'preset' | CutPlanStyleName`; `cutStyleOverrideChoice(settings.cutStyle)` (normalised `base` ??
+  `'preset'`); `withCutStyleOverride(settings, choice)` sets/clears `base`, KEEPS hand-written knobs,
+  drops garbage, removes `cutStyle` entirely when nothing is left (the project then reads exactly
+  like a pre-B2 one).
+- `InspectorPanel.tsx:47` prop `cutStyle: ResolvedCutStyleState`; `:233-236` passes the override
+  choice and writes it with `onUpdate(prev => ({...prev, settings: withCutStyleOverride(...)}))`
+  (= `updateProject`: saved, NOT undoable — the preset-picker pattern, DECIDED); also passes
+  `presetName`.
+- NEW `src/features/studio/components/AutoCutRunner.tsx` (109; moved out of `TranscriptSection`,
+  now 259 lines, no `useState`/`CutPlanStyleName`): "Style" read-out
+  `[data-cut-style-readout]` = `resolved.displayName` (title = every knob), "Resolving…" while
+  loading, `unavailable` + red error line on a failed resolve; override Select inside
+  `[data-cut-style-override]`: `Preset’s style (<name>)` / `Default style` (no preset) · `Tight|
+  Natural|Relaxed for this project`; the Auto Cut button; help line adds "The style also sets where
+  Transcript deletes and the editorial pass snap."
+- Tests: NEW `src/features/studio/services/cut-style-override.test.ts` (9: read none/base/knobs-only/
+  bare name/garbage; pin, replace, back-to-preset removes `cutStyle`, knobs kept on change/clear,
+  garbage dropped); NEW `src/main/ipc/studio-cut-plan-run-handler.test.ts` (4: live settings
+  forwarded + resolved style handed to `runCutPlan`, no settings → `{}`, explicit style → `callStyle`,
+  typed error and no plan run).
+
 ## Verified (exact commands + outputs)
 
 Step 1 (2026-10-22, no electron running — `Get-Process electron` count 0):
@@ -276,23 +307,42 @@ Step 3 (2026-10-22, `Get-Process electron` count 0):
   (`-step3c.log`) → `Test Files 444 passed | 5 skipped (449) · Tests 3751 passed | 34 skipped
   (3785)` (37.9 s). The known load flake family (DRIVING.md "Repo facts").
 
+Step 4 (2026-10-22, `Get-Process electron` count 0; machine CPU at 100 % from other sessions —
+`vmmemWSL`, WmiPrvSE):
+
+- `npx vitest run src/features/studio/services/cut-style-override.test.ts src/main/ipc/studio-cut-plan-run-handler.test.ts src/main/ipc/cut-style-handlers.test.ts src/main/services/studio/cut-style-store.test.ts src/shared/studio/cut-style-resolve.test.ts src/features/studio/services/text-delete.test.ts`
+  → `Test Files 6 passed (6) · Tests 61 passed (61)`.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`; and `npx tsc -p tsconfig.web.check.json
+  --noEmit | grep -i "AutoCut\|cut-style\|InspectorPanel\|TranscriptSection\|EditorShell\|cut-plan-run"`
+  → no lines (none of the 26 is in a touched file).
+- `npx vitest run` (full) ×3 (`.vidtsx-temp/end-to-end/B2/vitest-step4.log`, `-step4b`, `-step4c`)
+  → each `1 failed | 3763 passed`, ONLY `flow-render.test.ts:255` "Retry with note edits the
+  rejected composition; Stop run…" (`vi.waitFor` 1 s gave up on a pause-request event; flows code,
+  untouched by B2; the file alone → 5/5 passed; B1 hit the same one under load). With fewer
+  workers: `npx vitest run --maxWorkers=4` (`-step4d.log`) → `Test Files 446 passed | 5 skipped
+  (451) · Tests 3764 passed | 34 skipped (3798)` (91.1 s). Green.
+
 ## Next step (ONE concrete instruction)
 
-Step 4 — the Auto Cut button on the resolved style and the `TranscriptSection` picker → read-out
-+ project override: (a) add `settings?: StudioCutStyleSettings` to `StudioCutPlanRunRequest`
-(`src/shared/ipc/types/studio.ts:~372`) and pass it through in `handleStudioCutPlanRun`
-(`studio-handlers.ts:465`, `resolveProjectCutStyle(id, { callStyle?, settings })`); (b) re-grep
-`useAutoCut.ts` / `InspectorPanel.tsx` / `TranscriptSection.tsx` for the session style (`styleName`,
-`'tight'`), stop sending `style` from the button and send the live `project.settings`
-`presetId`/`cutStyle` instead; (c) replace the session picker with a read-out of
-`cutStyle.resolved.displayName` (the `cutStyle` from `EditorShell.tsx:870`, thread it down) plus a
-small override control (Preset / tight / natural / relaxed) that writes `settings.cutStyle =
-{ base }` or deletes it, using the SAME `updateProject` settings-edit pattern as the preset picker
-(`EditorShell.tsx:279-289`, saved, not undoable — see Open problems); a unit test for any pure
-helper; gates green; hand off. AFTER that (step 5+): Project settings shows the resolved knobs,
-the preset editor Cut section (+ `validatePresetInput` checks `style.cut`), then the CDP
-click-through on M2 (Auto Cut card headline names the preset's style; a Transcript delete and the
-editorial snap use the same knobs) and the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
+Step 5 — show the resolved knobs and edit the preset's cut: (a) in `ProjectSettingsDialog.tsx`
+(opened by `[data-project-settings-toggle]`, `EditorShell.tsx:1204`, rendered `:1600`) add a
+read-only "Cut style" block: `cutStyle.resolved.displayName` + every knob of
+`cutStyle.resolved.style` in `CUT_PLAN_KNOBS` order (opt-in knobs the style lacks shown "off"),
+threading the SAME `cutStyle` from `EditorShell.tsx:882` (no second resolve hook); (b) in the
+preset editor `src/features/asset-library/components/PresetForm.tsx` (289 lines — put the new
+section in its own component file) add a Cut section: base select (`From pacing` = unset /
+tight / natural / relaxed) + number inputs for the knobs the base has (absent opt-ins shown
+"off (base <name>)", not editable — DECIDED), writing `style.cut` as a `CutStyleSpec` that holds
+only the knobs that differ from the base (base values need the shipped file: get them over a
+small IPC or the existing resolve IPC — decide, keep main the only reader of cut-style.json);
+(c) `validatePresetInput` (`src/shared/studio/preset.ts:160`) rejects an out-of-bounds `style.cut`
+knob (`CUT_PLAN_KNOB_BOUNDS`) and minTail > maxTail, with unit tests; gates green; hand off.
+AFTER that (step 6): the CDP click-through on a COPY of M2 or with M2's `project.json` backed up
+(Auto Cut card headline names the preset's style — set a preset with `cut.base: natural` or
+pacing normal and see `natural · preset “…”`; switch the override and see `… · project override`;
+a Transcript delete and the editorial snap use the same knobs; the survival check below), then
+the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
 
 ## Open problems
 
@@ -324,13 +374,16 @@ editorial snap use the same knobs) and the docs (STATUS row, TESTING §18.8, dec
   (`useTimeline.ts` ~:676-721, `settings: { ...prev.settings, width, height }`) — add a test or a
   live check that a `cutStyle` set through `updateProject` SURVIVES a later frame-size edit and its
   undo/redo, and a timeline edit + autosave (read `project.json` from disk).
-- (step 2, interim) The Auto Cut button still sends the session picker's style, so its card reads
-  `tight · requested` until the picker becomes the read-out (step 4). The exit ("the card headline
-  names the preset's style") is only met once the button stops sending `style`.
-- (design note for step 4) Live vs disk settings: `resolveProjectCutStyle` reads project.json when
-  no `settings` are passed. The renderer should pass the live document's `presetId`/`cutStyle`
-  (the request field is ready in the store; add it to `StudioCutPlanRunRequest` then) so an unsaved
-  override is honoured. The agent tools read disk, like `get_preset` does.
+  **Step 4 status:** the override is written through `updateProject` (InspectorPanel.tsx:236).
+  Code read: the timeline→project write (`useTimeline.ts:715`) is
+  `settings: { ...prev.settings, width, height }` inside `updateProject((prev) => …)`, so `prev`
+  is the latest document and `cutStyle` is carried — but the DECIDED check is still OWED: do it
+  LIVE in step 6 (set the override in the UI → change frame size → undo → redo → a timeline edit →
+  read `project.json` from disk: `settings.cutStyle` still `{base: …}`).
+- (RESOLVED in step 4) The Auto Cut button no longer sends `style`; it sends the live
+  `presetId`/`cutStyle` (`StudioCutPlanRunRequest.settings`), so its card names the resolved style
+  (`tight · default`, `natural · preset “…”`, `relaxed · project override`). The agent tools still
+  read disk, like `get_preset` does.
 - STATUS must say (decision 4): editorial and Transcript deletes moved from the old natural
   (head 0.19 / minTail 0.26 / maxTail 0.45 / margin 5) to the resolved style — Hasan's fitted tight
   by default (head 0.15 with snap-to-onset up to 0.3, minTail 0.08, maxTail 0.7, margin 12, fricative
@@ -350,7 +403,11 @@ editorial snap use the same knobs) and the docs (STATUS row, TESTING §18.8, dec
   constants are gone; do not bring them back (tests use `cut-style-test-fixtures.ts`).
 - Step 3 (`b86b279`): the resolve IPC + `cut-style-handlers.ts` (+ test), `useResolvedCutStyle`,
   `useTextEdit`/`planTextDelete` on the resolved style, required snapper `style` — written and
-  green. Do not add a second resolve hook: reuse `cutStyle` from `EditorShell.tsx:870`.
+  green. Do not add a second resolve hook: reuse `cutStyle` from `EditorShell.tsx:882`.
+- Step 4: the plan-run IPC `settings` field, `useAutoCut` on live settings (no style),
+  `cut-style-override.ts` (+ test), `AutoCutRunner.tsx` (read-out + override Select), the
+  InspectorPanel/TranscriptSection threading and `studio-cut-plan-run-handler.test.ts` — written and
+  green. Do not reintroduce a session style or a `style` arg on `runAutoCut`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -361,3 +418,5 @@ editorial snap use the same knobs) and the docs (STATUS row, TESTING §18.8, dec
   tests, gates, rms-envelope test title.
 - 2026-10-22 · builder #3 · ~40 calls · step 3: resolve IPC + hook, Transcript deletes on the
   resolved style, `PRE_B2_NATURAL` deleted, tests, gates (`b86b279`).
+- 2026-10-22 · builder #4 · ~42 calls · step 4: plan-run IPC on live settings, Auto Cut without a
+  session style, `AutoCutRunner` read-out + project override, pure override helper, tests, gates.

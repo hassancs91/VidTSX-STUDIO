@@ -377,6 +377,11 @@ export interface StudioCutPlanRunRequest {
   sourcePath: string;
   /** An explicit style; absent = the project's resolved cut style (B2). */
   style?: CutPlanStyleName;
+  /**
+   * The LIVE document's settings the resolver reads (an unsaved override
+   * counts); absent = the project.json on disk. Ignored when `style` is set.
+   */
+  settings?: StudioCutStyleSettings;
 }
 
 export interface StudioCutPlanRunResponse {

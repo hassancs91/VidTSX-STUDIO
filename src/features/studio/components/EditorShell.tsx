@@ -356,12 +356,24 @@ export function EditorShell({ projectId, onBack }: Props) {
 
   // ----- Auto Cut + proposal review -------------------------------------
 
+  // B2: Auto Cut resolves the project's cut style from the LIVE settings.
+  const hasProject = project != null;
+  const livePresetId = project?.settings.presetId;
+  const liveCutStyle = project?.settings.cutStyle;
+  const cutStyleSettings = useMemo(
+    () =>
+      hasProject
+        ? { ...(livePresetId ? { presetId: livePresetId } : {}), ...(liveCutStyle ? { cutStyle: liveCutStyle } : {}) }
+        : null,
+    [hasProject, livePresetId, liveCutStyle],
+  );
   const autoCut = useAutoCut({
     projectId,
     assets,
     tl,
     transcribe,
     sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
+    cutStyleSettings,
     onError: (message) => showToast(message, 'error'),
   });
 
@@ -1439,6 +1451,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 getTranscribeProgress={getTranscribeProgress}
                 onAutoCut={autoCut.runAutoCut}
                 autoCutPhase={autoCut.phase}
+                cutStyle={cutStyle}
                 {...(activePresetName ? { presetName: activePresetName } : {})}
                 onLearnPreset={handleLearnPreset}
                 {...(FILTERS_ENABLED ? { filters: { installed: filterList.installed, onLive: handleLiveEffect, analysisOf: analysis.stateOf, onCancelAnalysis: analysis.cancel } } : {})}

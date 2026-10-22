@@ -1,10 +1,11 @@
 import { Select } from '@shared/components/Select';
 import { TextInput } from '@shared/components/TextInput';
-import type { CutPlanStyleName } from '@shared/types/studio-cut-plan';
 import type { StudioFilterInfo } from '@shared/ipc/types';
 import type { StudioMediaAsset, StudioProject, StudioShot, StudioTimeline } from '../types';
 import type { TranscribeProgress } from '../hooks/useStudioMedia';
 import type { AutoCutPhase } from '../hooks/useAutoCut';
+import type { ResolvedCutStyleState } from '../hooks/useResolvedCutStyle';
+import { cutStyleOverrideChoice, withCutStyleOverride } from '../services/cut-style-override';
 import type { TimelineAction } from '../hooks/useTimeline';
 import type { ShotJobProgress } from '../hooks/useShotJobs';
 import { findClip } from '../services/timeline-ops';
@@ -40,8 +41,10 @@ interface Props {
   /** The Assistant is mid-run — the editorial-pass entry point waits. */
   agentBusy: boolean;
   getTranscribeProgress: (assetId: string) => TranscribeProgress | null;
-  onAutoCut: (asset: StudioMediaAsset, style: CutPlanStyleName) => void;
+  onAutoCut: (asset: StudioMediaAsset) => void;
   autoCutPhase: AutoCutPhase;
+  /** B2: the project's resolved cut style (override > preset > default). */
+  cutStyle: ResolvedCutStyleState;
   /** Present while a cut proposal is open — renders the review list on top. */
   review: ReviewProps | null;
   /** Present while a shot-plan proposal is open (kind-agnostic single slot). */
@@ -81,6 +84,7 @@ export function InspectorPanel({
   getTranscribeProgress,
   onAutoCut,
   autoCutPhase,
+  cutStyle,
   review,
   reviewShots,
   reviewInsert,
@@ -225,6 +229,13 @@ export function InspectorPanel({
             progress={getTranscribeProgress(selectedAsset.id)}
             onAutoCut={onAutoCut}
             autoCutPhase={autoCutPhase}
+            cutStyle={cutStyle}
+            cutStyleOverride={cutStyleOverrideChoice(project.settings.cutStyle)}
+            onCutStyleOverride={(choice) => {
+              // Saved, not undoable — the same settings edit as the preset picker.
+              onUpdate((prev) => ({ ...prev, settings: withCutStyleOverride(prev.settings, choice) }));
+            }}
+            {...(presetName ? { presetName } : {})}
             reviewOpen={review !== null}
           />
         </section>

@@ -464,6 +464,7 @@ export async function handleStudioCutPlanRun(
   try {
     const cut = await resolveProjectCutStyle(data.projectId, {
       ...(data.style ? { callStyle: data.style } : {}),
+      ...(data.settings ? { settings: data.settings } : {}),
     });
     const { plan, planPath } = await runCutPlan(data.projectId, data.assetId, data.sourcePath, cut);
     return { success: true, plan, planPath };
