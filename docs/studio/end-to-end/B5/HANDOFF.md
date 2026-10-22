@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #2 handed off 2026-10-22 — UTF-8 bug FIXED `fb32ab1`; 5 of 10 delete cases pass; a ≥ 60 s delete cut TWICE the selection — investigate next)
+status: IN PROGRESS (builder #3 handed off 2026-10-22 — Problem 4 ROOT-CAUSED, no delete-path bug: the "2×" = two correct deletes after a FAILED save (Problem 5), and the "dead" Restore = its button opening below the fold; next: fix Problem 5 + bring Restore into view, tests first)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -123,6 +123,24 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   (= after), Restore pill(s) by real clicks (content = before), Ctrl+Z × (restores+1) back to the
   original. Writes `…\B5\deletes\<case>.json` = `{ sel, before, after }` for a planTextDelete harness
   (B2's `textdel.b2.test.ts` pattern — NOT written yet). `fillers` and `karaoke-bottom` NOT run yet.
+- **Problem 4 ROOT-CAUSED (builder #3, no `src/` change):** the planner, the selection mapping and the
+  reducer are right. (1) The 124.8 s state = TWO correct deletes: `long` 709–777 (62.49 s) whose
+  autosave FAILED (the 50 ms poller vs `rename`, Problem 5 — bf1 hit the same in that run) so the disk
+  kept the original while memory moved on; then `deletes.mjs` re-read the IN-MEMORY doc, its picker
+  chose `long` = **709–810** ("this … was", 102 words) on the post-delete doc, and that delete starts
+  at the join → one merged gap 101.931 → 226.719 (226.719 = "was".end; "down" starts 226.816, its head
+  pad clamps to the cut end). Proven by the harness below (composition == the bad disk exactly). (2)
+  The "dead" Restore pill: the pill opens IN PLACE (`DeletionPill.tsx:39-66`) and its Restore button
+  lands below the body's visible bottom (button y 488–506, body 102–474, `elementFromPoint` = another
+  SPAN) — the driver's click missed; the restore itself is accepted by `restoreDeletion` (the deletion
+  record's before/after ids match the timeline). App fix to make: scroll the Restore into view on open.
+- **Kit, builder #3 (gitignored, `.vidtsx-temp/end-to-end/B5/`):** `probe-long.mjs [from to] [--delete]`
+  (click + SHIFT+click, then the selection's boundary nodes, the DOM `containsNode` view and the
+  panel's own selection bar at +50/+250/+1000 ms; `--delete` = one Delete, toast, disk, Ctrl+Z);
+  `probe-pill.mjs` (doc deletions + visible pills/Restore); `probe-restore.mjs` (Restore rect vs body,
+  `elementFromPoint`); `undo-to-orig.mjs` (real Ctrl+Z until disk == `deletes\inside.json` before);
+  `longbug.b5.test.ts` + `vitest.b5.config.ts` (harness, `B5_LONGBUG=1`). `deletes.mjs` `waitDisk`
+  now polls every **250 ms** (was 50 — the poll itself broke saves).
 
 ## Verified (exact commands + outputs)
 
@@ -200,14 +218,39 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
   B5-root's `project.json` timeline then put back to the original (9 clips, 1283.148 s, 0 tags) with
   the app stopped. Disk: C: 18.06 GB, D: 32.55 GB.
 
+**Builder #3 (2026-10-22):** C: 18.48 / D: 32.70 GB before launch; nothing on 5173/9321.
+- `bash .vidtsx-temp/end-to-end/B5/launch.sh` (background) → `node drive.mjs ready` → `length s 1283.148
+  toolbar ["/ 21:23.09"]`, A1 0, proposals 0.
+- `node probe-long.mjs 709 777` → after the click: caret in 708's `" "` (offset 1, collapsed); +50/+250/
+  +1000 ms after the real SHIFT+click: DOM `[709,777,69]`, anchor `"found"` @0 (word 709), focus 777's
+  `" "` @1, **selection bar "69 words · 62.5 s"**, body focused → the panel's range IS 709–777.
+- `node probe-long.mjs 709 777 --delete` → toast **"Removed 69 words · −62.5 s"**, disk: 10 clips, 0373 =
+  `0…101.931` + `164.421…396.246` (exact), one Ctrl+Z → `undo → original true`. **Not reproduced.**
+- `node deletes.mjs cases long` (the 250 ms poll) → delete exact (length 1220.658 = 1283.148 − 62.49),
+  undo == original, redo == after, then `disk timeout: long restore` → `node probe-pill.mjs`: one
+  deletion `…:101.931:164.421:clip_mvjthqz1_gsfuih`, before/after ids = the timeline's, 69 words,
+  readOnly false, the pill OPEN with a visible `[data-restore]` → `node probe-restore.mjs` →
+  `{"button":[111,488,46,18],"body":[67,102,299,372],"scrollTop":5712.8,"inView":false,"hit":"SPAN
+  class","hitIsButton":false}`.
+- `$env:B5_LONGBUG='1'; npx vitest run --config .vidtsx-temp/end-to-end/B5/vitest.b5.config.ts` →
+  `Test Files 1 passed (1) · Tests 1 passed (1)`: pickLong(original) = [709,777]; delete → 69 tokens,
+  removedSeconds 62.490; pickLong(post-delete doc) = **[709,810]**; its delete composed on top ==
+  `long-bug-disk.json`'s V1 (asset, timelineStart, sourceIn, duration per clip); a single delete
+  reaches that state only with 171 words (709–879), which the panel never held.
+- `node undo-to-orig.mjs` → `undo 1 disk == original true` · `"Saved"`. App stopped (matched
+  `--remote-debugging-port=9321` / `profiles/B5/profile` / `B5/launch.sh`: 4 bash, 2 node, 1 cmd,
+  6 electron) → `left: 0`. Disk after: C: 18.45 GB, D: 32.70 GB. B5-root is at the ORIGINAL timeline.
+- No `src/` change this session → vitest / type gate not re-run (last: builder #2, green, 26/10).
+
 ## Next step (ONE concrete instruction)
 
-Root-cause Open problem 4 (the ≥ 60 s delete that cut 124.8 s): relaunch (`bash
-.vidtsx-temp/end-to-end/B5/launch.sh` in the background, `node drive.mjs ready`), wrap TimelinePanel's
-`tl.dispatch` from CDP (`fiberProps(el, p => p.tl?.dispatch)`, DRIVING "Learned" B4) to log every
-action's `type` + `spans`, select 709–777 with click + SHIFT+click as `deletes.mjs` does, press Delete
-ONCE, then read the toast, the logged actions and the disk — that tells a double dispatch from one
-wrong span; fix it with a unit test first, then rerun `node deletes.mjs cases long bf1 bf2 bf3 bf4`.
+Fix Problem 5 as RULED, tests first: in `src/main/services/studio/project-store.ts:69-74`
+(`writeProjectFile`) retry the `.tmp` → `project.json` rename on EPERM/EBUSY/EACCES a few times with a
+short backoff (test: a rename that fails twice then succeeds; one that always fails still rejects), and
+in `src/features/studio/hooks/useStudioProject.ts:52-62` (`persist`) re-mark dirty on `success:false`
+(and on a throw), reschedule the save, and after repeated failures show a persistent error (test: a
+failed save followed by `flush()`/close writes the latest doc) — then do the small Restore fix
+(Open problem 6) and rerun live `node deletes.mjs cases long bf1 bf2 bf3 bf4`.
 
 ## Open problems
 
@@ -285,6 +328,23 @@ wrong span; fix it with a unit test first, then rerun `node deletes.mjs cases lo
   (a failing-then-succeeding rename; a failed save followed by close writes the latest doc). Drivers
   poll project.json ≥ 200 ms apart from now on (add a DRIVING.md "Learned" line).
 
+**Builder #3 findings (2026-10-22):**
+- **Problem 4 — ROOT-CAUSED, not a delete-path bug (see Done/Verified):** the "2×" was two correct
+  deletes after a failed save (Problem 5) + `deletes.mjs` re-picking its case on the in-memory doc.
+  Its fix is Problem 5's fix (memory and disk can no longer silently diverge) + the driver's 250 ms
+  poll (done) — plus a driver guard to add: before each case, assert the panel's doc has 1,820 tokens
+  and the disk timeline == `orig`, else stop (never pick cases from a doc that differs from disk).
+  The "ONE Ctrl+Z → original" in builder #2's note does not fit two history steps; it is not in any
+  saved output (the run's summary was never written) — treat it as unverified.
+6. **Small UX bug (fix with Problem 5, test first): an opened deletion pill can hide its own Restore.**
+   `DeletionPill.tsx:39-66` swaps the `¶ 62.5s` chip for the struck-through text + Restore IN PLACE;
+   for a long deletion near the bottom of the view the Restore lands below the transcript body's
+   visible area (measured: 14 px below) and nothing scrolls it in. Fix: on open, scroll the Restore
+   (or the opened span) into view with `scrollIntoView({ block: 'nearest' })` (a ref + effect on
+   `open`; a component test that the opened pill calls it). Keep `deletes.mjs` as is — after the fix
+   its unscrolled click is the check.
+- DRIVING.md "Learned" line added (poll project.json ≥ 200 ms; a failed save desyncs memory from disk).
+
 ## Do-not-redo
 
 - B1–B3 DONE; B4 WAITING-HASAN — do not touch the B4 station or B4's code. Track A DONE. Do not
@@ -296,6 +356,9 @@ wrong span; fix it with a unit test first, then rerun `node deletes.mjs cases lo
 - Problem 1 is FIXED and verified (`fb32ab1`, spot = 0 text mismatches) — do not redo. Delete cases
   inside / across / short / first / last PASSED (table under Verified) — rerun them only after a
   delete-path code change.
+- Problem 4 is ROOT-CAUSED (builder #3: probes + `longbug.b5.test.ts`) — do not re-investigate the
+  planner, the selection mapping or a double dispatch; the 709–777 delete is exact live. Only the
+  Problem 5 fix, the Restore-into-view fix and the live rerun of `long` + bf1–bf4 remain.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -304,3 +367,5 @@ wrong span; fix it with a unit test first, then rerun `node deletes.mjs cases lo
 - 2026-10-22 · builder #2 · ~60 calls · fixed the UTF-8 bug (`fb32ab1`, tests first), spot = 0 text
   mismatches; `deletes.mjs`; 5 delete cases PASS; found the 2× long delete (Problem 4) and the
   failed-save-not-retried issue (Problem 5).
+- 2026-10-22 · builder #3 · ~44 calls · root-caused Problem 4 live + by harness (two correct deletes
+  after a failed save; the Restore opens below the fold), no `src/` change; driver poll → 250 ms.
