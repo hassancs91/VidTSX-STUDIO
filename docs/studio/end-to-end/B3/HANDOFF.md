@@ -330,6 +330,24 @@ C: 18.6 GB, D: 2.04 GB.
 
 ## Next step (ONE concrete instruction)
 
+**DECIDED (orchestrator, 2026-10-22 16:05) — how the exit reads, write it this way in STATUS/TESTING:**
+- **Exit (b) "hard entries 0 at head 0.15"** = met on Hasan's hand-audited plan (exit (a): Studio
+  0 on every clip = analyze_cut 0) and, live on Studio's own Auto Cut over all nine clips, **1 of
+  164 joins** flagged — a TRUE positive the check exists to catch (0373 cut-in 323.198 s, +17.7 dB:
+  an untranscribed sound at 322.4–322.8 s decays into the window; Hasan's edit removes
+  320.01–324.383 as a retake). It is not a lead-in failure (the head snapper cannot know about
+  sound the transcript lacks); the card shows it in red and auditions it. Negative control:
+  `{base: natural, head: 0}` → 121 of 162.
+- **Exit (c) "raising margin shows clipped tails as expected"** = met as: on tight the count is
+  already saturated (265 of 298 landings over +6 dB at margin 12) and does not fall as margin
+  rises (265 / 265 / 265 at 12 / 18 / 24) while the flagged landings get louder (mean +11.45 →
+  +14.51 → +16.23 dB over the floor); where not saturated the count rises (natural margin 6 → 12
+  → 18: 106 → 132 → 132). Record both. No card change (a median/worst-dB line on the card is a
+  follow-up, not B3).
+- The audition starting ~0.2 s early (1.21 s before / 0.78 s after instead of 1.0 / 1.0) and the
+  playhead parking at a result-timeline time read as an original-timeline time after the stop
+  (pre-existing, shared with `handlePlayJoin`) are follow-ups in STATUS, not blockers.
+
 **Builder #5 (after the orchestrator rules on exit (c) — Open problems, first item):** run the
 gate and write the docs: `Get-PSDrive C,D` (stop under 1.0 GB), then `npx vitest run --exclude
 src/main/services/python-models/service.test.ts` logged to
