@@ -1,6 +1,6 @@
 # B1 — ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs
-status: IN PROGRESS (step A `2dc5add` + step 1 M2 setup + step 2 cutlib comparison done — exit
-MET on clip 0369; next: step 3 gates + CDP click-through + STATUS/TESTING)
+status: DONE (step A `2dc5add` + step 1 M2 setup + step 2 cutlib comparison — exit MET on clip
+0369 — + step 3 gates, CDP click-through, STATUS row and TESTING §18.7; awaiting the B1 verifier)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 every "Learned" line) and the **"Track B decisions"** section at the end of
@@ -212,7 +212,53 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   11.8/12.6 straddle +12), 0375·20 (ZCR 3300/4010 straddle 3500), 0373·51 (cutlib +7.1, Studio
   +22.9: a 20 ms window 4 ms into a +35 dB bucket — the power-weighted onset smear).
 
+**Step 3 — gates + click-through + write-up (agent 4, 2026-10-22; no `src/` change):**
+- Full gates green (commands under Verified). Click-through on M2, port 9271, `B1/profile`, driver
+  `.vidtsx-temp/end-to-end/B1/click.mjs open|add|autocut` (CDP via `B1/cdp.mjs`):
+  - Old-cache path: 0369's waveform (`cache/waveforms/6290a63b-….json`) set `"version":3` → `2`
+    (sed, app stopped; backup `B1/backup/0369-waveform-v3.json`); opening `video-14-raw` rewrote it
+    as v3 **211 ms after the project-card click** (`media-jobs.ts:94-99`), sha256 `24bd4e7b…`
+    = the original v3 file (byte-identical), 2383 buckets, zcr 2383.
+  - Pool tile `[data-media-tile=6290a63b-…]` → `contextmenu` → "Add to timeline" → V1 clip
+    `clip_mvjax6ok_dn6vwy` (47.697667 s) in `project.json` within 1 s; tile click → Inspector
+    "Transcript · DJI_20261015115741_0369_D.MP4" with "Re-transcribe" (transcript ready, no STT).
+  - "Auto Cut" (Select default tight) → `cache/cut-plans/6290a63b-…-tight.json` written **21 ms**
+    after the click: style = built-in `TIGHT_STYLE` (head 0.11, minTail 0.14, maxTail 0.4, margin 5,
+    no knobs), 6 segments `[1.756,7.628] [12.63,17.263] [20.45,24.027] [24.238,25.768]
+    [28.048,30.244] [39.891,41.084]`, stats kept 19.001 / removed 28.659 of 47.66 s, floor
+    −54.457 dB; review panel "Auto Cut (tight) · assemblyai · −28.7 s of 47.7 s · noise floor −54 dB",
+    "7 proposed", buttons "Apply 7 cuts" / "Reject all". Copy kept at `B1/inapp-plan-0369-tight.json`;
+    `B1/inapp.b1.test.ts` (`B1_INAPP=1`, scratch config) = the in-app plan equals the pure
+    `planCuts` on the same M2 files (createdAt aside).
+  - Stills: `B1/stills/step3-1-open.png`, `step3-2-added.png`, `step3-3-autocut-review.png`.
+  - **M2 restored** (app stopped): `project.json` copied back from `B1/backup/project.json.pre-step3`
+    (`cmp` identical; the post-run copy with the clip + 7 proposals kept as
+    `backup/project.json.post-step3`), `cache/cut-plans/` removed. Left in M2 by the run (harmless):
+    `cache/poster.jpg` and the on-open snapshot `snapshots/project.2026-10-22T08-50-41-569Z.json`
+    (= the pre-run project). Tree lists `B1/backup/tree-{pre,post}-step3.txt`.
+- Written: the STATUS row (`Status.md` top, "END-TO-END B1 … — DONE") and TESTING.md `### 18.7 B1`.
+
 ## Verified (exact commands + outputs)
+
+- **Step 3** (from the repo root, no app running): `npx vitest run > B1/logs/vitest-full-step3.log`
+  → `Test Files 4 failed | 435 passed | 5 skipped (444) · Tests 4 failed | 3695 passed` — all four
+  5000 ms timeouts in zip-package suites (`agent-package`, `agent-store`, `flow-package`,
+  `pack-package`); those four alone → `4 passed · 61 passed` (2.7 s). Rerun `…step3b.log` → `1
+  failed | 438 passed` — `flow-render.test.ts:255` `vi.waitFor` (1 s) "expected 0 to be greater
+  than 0"; alone → `5 passed`. Rerun `…step3c.log` → **`Test Files 439 passed | 5 skipped (444) ·
+  Tests 3699 passed | 34 skipped (3733) · Duration 36.47s`, exit 0.** `npm run check:types` →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors
+  (baseline 10) ok`. Click-through: `B1_LOG=app-step3.log bash launch.sh` (background) → `node
+  click.mjs open` → `wave before open {"version":2,…` · `editor up` · `wave after open
+  {"version":3,… ms after card click 210.97 bytes 39497 buckets 2383 zcr 2383`; `node click.mjs add`
+  → `menu items ["Transcribe","Add to timeline","Remove from project"]` · `clips on disk
+  [{"track":"v1","id":"clip_mvjax6ok_dn6vwy","duration":47.697667}]` · `transcript label [
+  'Transcript · DJI_20261015115741_0369_D.MP4' ]`; `node click.mjs autocut` → `plan written ms after
+  click 20.8` · `segments 6 […]` · `review buttons [ 'Apply 7 cuts', 'Reject all' ]`. Stopped the
+  tree (bash 21100 → node 56012 → electron 55312 + 5 children): 0 processes left with 9271.
+  `$env:B1_INAPP='1'; npx vitest run --config .vidtsx-temp/end-to-end/B1/vitest.b1.config.ts inapp`
+  → `Test Files 1 passed (1) · Tests 1 passed (1)`. Free space: start C: 36.38 / D: 2.62 GB → end
+  C: 36.36 / D: 2.76 GB.
 
 - `npx vitest run src/shared/studio src/main/services/studio/editorial-cuts.test.ts src/features/studio/services`
   → `Test Files 84 passed (84) · Tests 807 passed (807)` — the existing cut-planner / editorial /
@@ -253,20 +299,15 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   0.02) … -1:0.25 +0:0.02 +1:0.22` · `0371: best +0 (0.03)` · `0373: best +0 (0.02)` · `0376:
   best +0 (0.03)`.
 - Free space before step 2: C: 36.44 GB / D: 2.79 GB (step 2 wrote ~1.3 MB to D:).
-- NOT yet verified: the CDP click-through, the full gates after steps 1–2 (no `src/` changed in
-  steps 1–2; the last full run predates the `cut-skip-merge.ts` split inside `2dc5add`).
+- (Steps 1–2 left the click-through and the post-split full gates open; step 3 ran both — see
+  the Step 3 line at the top of this section.)
 
 ## Next step (ONE concrete instruction)
 
-Step 3 — gates + click-through + write-up: with no app running, run the full `npx vitest run`
-(log to `B1/logs/vitest-full-step3.log`) and `npm run check:types`; then (app stopped) back up
-`cache/waveforms/6290a63b-….json` (0369) in M2 and set its `"version":3` to `2`, `bash launch.sh`
-(port 9271, B1/profile), open `video-14-raw`, confirm that file is rewritten as v3 on open (the
-old-cache path, `media-jobs.ts:94-99`), put clip 0369 on the timeline, run Auto Cut (tight) from
-the Transcript section, read the plan's segments from `cache/cut-plans/` (Studio's built-in tight
-— no new knobs reach the UI until B2) and save stills to `B1/stills/`; stop only port 9271's
-tree; then write the STATUS.md row (git: `Status.md`) with step 2's numbers above and the
-TESTING.md `### 18.7 B1` block, commit, set this file DONE and return `status: DONE`.
+None for the builder — B1 is DONE. Orchestrator: send the B1 verifier (exit = the ±20 ms join
+comparison on 0369 with the same keeps/words/style; commit range `e0d7d84..HEAD` — the only
+`src/` commit is `2dc5add`, the rest are docs; the scratch kit
+under `.vidtsx-temp/end-to-end/B1/` can be re-run, commands under Verified), then start B2.
 
 ## Open problems
 
@@ -310,6 +351,8 @@ TESTING.md `### 18.7 B1` block, commit, set this file DONE and return `status: D
 - Step 2 (exit comparison) is done: do not rebuild `cutlib_joins.py` / `compare.b1.test.ts` /
   `offset_check.py`; re-run them only to re-check (commands under Verified; ~5 s + ~1 s). Do not
   re-investigate the outliers (explained under Done) or the time alignment (lag 0 measured).
+- Step 3 is done: gates green, the click-through ran and M2 was restored. A verifier that drives
+  Auto Cut on M2 should back up and restore `project.json` the same way (M2 is shared by B2–B6).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -319,3 +362,6 @@ TESTING.md `### 18.7 B1` block, commit, set this file DONE and return `status: D
   waveforms, waveform timing, Hasan's AssemblyAI transcripts mapped via `mapJob`); docs-only commit.
 - 2026-10-22 · agent 3 · ~30 calls · step 2: cutlib vs Studio comparison on all nine clips (exit
   met on 0369; 348/352 joins within ±20 ms; outliers explained; lag-0 alignment); docs-only commit.
+- 2026-10-22 · agent 4 · ~37 calls · step 3: full gates (green on the 3rd run; the first two hit
+  only load timeouts outside B1), CDP click-through (v2 → v3 rewrite on open, Add to timeline,
+  Auto Cut tight, in-app plan = pure `planCuts`), M2 restored, STATUS row + TESTING §18.7; DONE.

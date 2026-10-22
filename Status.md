@@ -7,6 +7,56 @@
 
 ---
 
+## 2026-10-22 — END-TO-END B1: ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs — DONE
+
+- **What:** part B1 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `2dc5add`), the plan's §2 T1
+  slice: cutlib's October knobs ported with its exact semantics. `CutPlanStyle` gains four OPTIONAL fields
+  (`maxHead`, `minSkip`, `fricZcr`, `fricMargin`; absent = the old behaviour; `TIGHT_STYLE` / `NATURAL_STYLE` and
+  the UI unchanged — B2 moves the defaults). `RmsEnvelope` moved to `src/shared/studio/rms-envelope.ts`
+  (re-exported from `cut-planner.ts`): overlap-weighted `rmsDb` / `zcr` windows over the 20 ms buckets, a floor
+  from 50 ms windows (cutlib's `floor_db`), `snapTail` with the fricative rule, a new `snapHead` (lead-in walked
+  back up to `maxHead`), the `minSkip` merge (`cut-skip-merge.ts`). **Waveform job v3:** decodes mono **16 kHz**
+  for the whole job (was 8 kHz — fricative energy sits above an 8 kHz file's 4 kHz Nyquist, so cutlib's
+  `fric_zcr 3500` needs 16 kHz) and writes `zcr` (zero crossings per second) per 20 ms bucket beside `peaks` /
+  `rmsDb` (`{version: 3, …, zcr}`; pure `waveform-buckets.ts`). Old v1/v2 waveform files still parse everywhere
+  and regenerate once on project open and before planning (no zcr ⇒ the fricative rule is off). 29 new unit tests
+  (`rms-envelope.test.ts` 13, `cut-planner-knobs.test.ts` 11, `waveform-buckets.test.ts` 5) mirror cutlib's cases.
+- **Material (M2, shared by track B):** Studio project `video-14-raw` in the scratch root on C:
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root`), the nine raw DJI clips of video-14 referenced in place
+  (3840×2160 @ 59.94), NVENC proxies + v3 waveforms for all nine in ~9 min 20 s; Hasan's saved AssemblyAI
+  transcripts mapped through Studio's own `AssemblyAiProvider.mapJob` ($0, no STT call; word counts match all
+  nine). Waveform job alone: **0.1 s for a 47.7 s clip, 0.7 s for 396.2 s** (~570× realtime).
+- **The exit, measured 2026-10-22:** Studio's `planClip` on M2's v3 waveforms vs Hasan's `tools/cutlib.py`
+  `plan_clip` (run read-only, `python -I -B`) on his 16 kHz WAVs, same keeps (`cuts.json`), same AssemblyAI
+  words, Hasan's fitted tight with all four knobs. **"Clip 1" = `0369`** (`0366`, the first raw clip, is cut
+  entirely — keeps `[]`, no joins): **6 segments both sides, 12 joins, start/end deltas 0/0 · 0/0 · 0/0 · −10/0 ·
+  0/0 · 0/+20 ms → all within ±20 ms.** Broader: all eight clips with keeps → **352 joins, 348 within ±20 ms
+  (98.9 %)**, 4 at +40/+60 ms and 2 merge flips (their outer joins within ±20), each a tail knife-edge on the
+  20 ms grid (level within ~0.6 dB of floor + 12 dB, one 2.1 dB, or ZCR straddling 3500) — every one explained
+  with the waveform in `docs/studio/end-to-end/B1/HANDOFF.md`. Noise floors within 0.16 dB on every clip; Studio's
+  v3 buckets equal the WAV's 20 ms RMS at **lag 0** (mean |dB| 0.02–0.03).
+- **Click-through (CDP, isolated profile, port 9271):** the 0369 waveform marked `"version":2` → opening
+  `video-14-raw` rewrote it as v3 **211 ms** after the project card click, byte-identical to the original v3
+  file; pool context menu "Add to timeline" → the clip on V1 (47.7 s); Transcript section → **Auto Cut (tight)**
+  → `cache/cut-plans/…-tight.json` written **21 ms** after the click: built-in tight, 6 segments, 7 proposals,
+  −28.7 s of 47.7 s, noise floor −54.457 dB, review open ("Apply 7 cuts" / "Reject all"); that plan equals the
+  pure `planCuts` on the same files (scratch test). Stills `.vidtsx-temp/end-to-end/B1/stills/step3-{1-open,
+  2-added,3-autocut-review}.png`. M2 restored afterwards (`project.json` byte-identical to before).
+- **Gates:** `npx vitest run` **439 files passed, 5 skipped; 3699 tests passed, 34 skipped, 36.5 s** (app
+  stopped; the two runs before it each failed only load timeouts outside B1 — four zip-package suites at 5000 ms,
+  then `flow-render.test.ts`'s 1 s `vi.waitFor` — all pass alone); `npm run check:types` web 26 / node 10 =
+  baseline.
+- **Honest notes:** existing behaviour moved slightly, by design toward cutlib: every `RmsEnvelope` consumer
+  (Auto Cut, the editorial snap, Transcript deletes) now reads overlap-weighted windows and a 50 ms-window floor,
+  and 16 kHz levels after regeneration; no existing test changed. Every waveform of an old project regenerates on
+  first open (plan §5; cheap — ~570× realtime). The 20 ms grid over-reads a loud bucket edge in the HEAD walk
+  (20 ms head windows: p95 11.4 dB off cutlib's, max 30.8), so Studio's `snapHead` can lead in up to +150 ms
+  longer than cutlib's (4 of 200 atoms on video-14; all inside segments both sides merged, so no join moved; safe
+  direction) — a finer analysis grid would be a cache/plan change, left for B2/B3 to weigh.
+- **Open:** `media-jobs.ts` is 314 lines (310 before B1); D: free space fell ~0.6 GB during M2 setup without a
+  writer found in our folders (other sessions run on this machine).
+- **Next:** the B1 verifier; then B2 (default style values, `resolveCutStyle`, the consumers, the UI).
+
 ## 2026-10-22 — END-TO-END A6: the A/V check ("Check A/V") on the finished Studio export row + report JSON — DONE
 
 - **What:** part A6 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `bcea695`, `a4b88d3`,
