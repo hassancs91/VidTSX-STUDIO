@@ -109,6 +109,11 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   (or `B1-verify-root` with `profiles\B1-verify\profile`). Reset whatever you need inside them
   (e.g. remove `settings.presetId` / `settings.cutStyle`, clear the timeline) — they are not
   shared material. Never modify `b-root` (the shared M2) or `profiles\source`.
+- **Disk recovered (orchestrator, 2026-10-22, B5 on):** C: ~19 GB, D: ~33 GB. New scratch copies
+  (an M2 copy ~580 MB, a profile ~377 MB) are allowed again while C: stays above ~5 GB — check
+  before each. **Reserved, never reuse:** `B1-verify-root` + `profiles\B1-verify` = Hasan's B4
+  station (WAITING-HASAN); `B5-station-root` + `profiles\B5-station` = his B5 station once built.
+  The python-models exclusion in the vitest gate applies only while C: < 4 GB.
 
 ## Learned (append one dated line per lesson)
 
