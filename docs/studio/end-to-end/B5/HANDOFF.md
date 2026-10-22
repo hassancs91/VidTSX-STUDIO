@@ -418,6 +418,15 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
 
 ## Next step (ONE concrete instruction)
 
+**Orchestrator override (2026-10-22):** do the literal walk (deletes, restores, fillers — anything
+that EDITS) on the builders' scratch `B5-root` + `profiles\B5` (CDP 9321) — the same long project,
+reset to the original first — NOT on Hasan's station: overwrites of project files have been refused
+by the permission classifier before, so a `-Reset` after editing the station might not land and
+would leave his station edited. On the station itself only: launch it through `hasan-station.ps1
+-CdpPort 9325`, confirm it opens to the long project (1,820 words, `/ 21:23.09`, Transcript tab there,
+no model provider), make NO edit, close it by its port/profile, and confirm the station's
+project.json sha256 still equals the start snapshot. Everything else below stands.
+
 Click-check HASAN-STEP.md literally with REAL mouse/keyboard input on the station: launch it THROUGH
 `powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B5\hasan-station.ps1 -CdpPort 9325` (background), then
 drive every instruction as written — Studio → video-14-raw, the Transcript tab and its header ("1,820 words", "Remove 15
