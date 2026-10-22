@@ -1,5 +1,5 @@
 # B1 — ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs
-status: IN PROGRESS (step A pure code + waveform job done, `2dc5add`; next: M2 setup)
+status: IN PROGRESS (step A `2dc5add` + step 1 M2 setup done; next: the cutlib comparison)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 every "Learned" line) and the **"Track B decisions"** section at the end of
@@ -126,6 +126,48 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   6 kHz → 12 k crossings/s; within 5 % of cutlib's verbatim zcr on voiced/fricative; −20 dB
   square; chunk-split invariance; `isWaveformStale` v1/v2/v3/missing).
 
+**Step 1 — M2 setup (agent 2, 2026-10-22; scratch only, no `src/` change):**
+- Scratch kit in `.vidtsx-temp/end-to-end/B1/` (gitignored): `launch.sh` (port **9271**, profile
+  `B1/profile` = copy of A5's, 372 MB; exports `VIDTSX_MEDIA_PICK` = the nine raw clips),
+  `cdp.mjs` (A5's, port 9271), `m2.mjs create|state`, `wait.mjs install|wait`, `wavetime.mjs`,
+  `vitest.b1.config.ts` (scratch vitest config — includes ONLY `B1/*.b1.test.ts`, never part of
+  `npx vitest run`), `map-transcripts.b1.test.ts`.
+- **M2 = project `video-14-raw`** at `C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root\projects\video-14-raw`
+  (root set with `studioRootSet`; created with `studioProjectCreate({name:'video-14-raw', width:
+  3840, height: 2160, fps: 60})`; the nine clips imported through the Media Pool's "Import media
+  files" button with `VIDTSX_MEDIA_PICK`, referenced in place). Timeline is EMPTY (V1/A1 only) —
+  the clips are in the pool. Sources are 3840×2160 **@59.94** (project fps 60 — B parts that care
+  should know).
+- **Clip ↔ asset ids** (also `B1/logs/m2-transcripts.json`):
+  `0366 b6ce244a-6cad-492d-9f39-11a89997a8a3` (20.3 s, 27 words) ·
+  `0369 6290a63b-a14f-4933-9be6-a1974b63019d` (47.7 s, 44) ·
+  `0370 904f9373-342a-4452-a406-6a2be25b0ffe` (84.0 s, 97) ·
+  `0371 0c105962-9fc3-44aa-99e5-b3b56c24bf4f` (193.5 s, 207) ·
+  `0372 e29f5e03-95c6-47f2-a22d-08be248a83c5` (118.9 s, 183) ·
+  `0373 daf5a84e-da4d-408e-ae6c-bb23a37f7352` (396.2 s, 602) ·
+  `0374 b798e8d8-116c-426f-aeea-90ca6ccee687` (32.0 s, 40) ·
+  `0375 966e7377-29c0-4654-98d8-98b0ed5fc2f3` (207.7 s, 330) ·
+  `0376 27c786f5-d86a-4b3a-b015-395e4a7842cc` (182.8 s, 290).
+- **Proxies** (NVENC `nvenc-540p-intra`) + **waveforms v3** for all nine: import click ~08:16:50Z →
+  all ready 08:26:08Z (~9 min 20 s, queue 2-at-a-time). Proxy job spans from the job events
+  (`B1/logs/m2-job-events.json`): 0370 50.9 s · 0371 132.0 s · 0372 87.2 s · 0373 338.8 s · 0374
+  31.0 s · 0375 203.8 s · 0376 118.7 s (0366/0369 started before the recorder).
+- **Waveform job wall time ALONE** (`node wavetime.mjs <id> …`: set the file aside, prepare that one
+  asset, wait for its event): **0369 (47.7 s) 0.1 s · 0373 (396.2 s) 0.7 s** (~570× realtime —
+  the 16 kHz audio-only decode is cheap; the mov demuxer skips the discarded video packets).
+  Regenerated files are byte-identical to the first run (deterministic); mtime fresh.
+- Every `cache/waveforms/*.json` starts `{"version":3`, `peaksPerSecond 50`, `zcr.length ===
+  rmsDb.length` (0369: 2383 buckets, 39,497 B; 0373: 19,813 buckets, 325,363 B).
+- **Transcripts:** Hasan's nine saved AssemblyAI responses mapped through Studio's own
+  `AssemblyAiProvider.mapJob` (private, called at runtime; no key, no upload, $0) into
+  `cache/transcripts/<assetId>.json`, built exactly like `asset-transcriber.ts` step 5
+  (`sttModelId 'assemblyai/universal'` = speech_models [universal-3-5-pro, universal-2],
+  `engine 'assemblyai'`, verbatim true, `keytermCount 43`, no alias post-pass); each asset's
+  `transcript` in `project.json` set `{path, status:'ready', hasWords, wordCount, features, …}`
+  with the app STOPPED. Word counts equal the saved responses for all nine (27/44/97/207/183/602/
+  40/330/290). M2 cache on C: = 579 MB.
+- App stopped afterwards (tree of port 9271 only).
+
 ## Verified (exact commands + outputs)
 
 - `npx vitest run src/shared/studio src/main/services/studio/editorial-cuts.test.ts src/features/studio/services`
@@ -137,22 +179,41 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   42 files / 428 tests green).
 - `npm run check:types` (after the split) → `tsconfig.web.check.json: 26 errors (baseline 26) ok`
   · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
-- NOT yet verified: the waveform job on real media (16 kHz decode time, v3 file size), the M2
-  project, the cutlib comparison (the exit), the CDP click-through.
+- Step 1 (M2), from `.vidtsx-temp/end-to-end/B1/`: `bash launch.sh` (background) →
+  `node m2.mjs create` → `root set {"success":true}` · `root get {"root":"C:\\Users\\hasan\\AppData\\Local\\vidtsx-e2e\\b-root"}`
+  · `created {"success":true,"project":{"schemaVersion":1,"id":"video-14-raw",…}}` · `import click true`
+  (11 s). `node wait.mjs install` then `node wait.mjs wait 570` → last line `08:26:08 assets 9
+  waves 9 v3 9 proxyReady 9 events 571` · `ALL DONE`. `node wavetime.mjs 6290a63b-… daf5a84e-…`
+  → `…0369_D.MP4 dur 47.7s wall 0.1s ready … v3 pps 50 buckets 2383 zcr 2383 bytes 39497
+  identical-to-first-run true` · `…0373_D.MP4 dur 396.2s wall 0.7s ready … buckets 19813 zcr
+  19813 bytes 325363 identical-to-first-run true`. With the app stopped, from the repo root:
+  `$env:B1_MAP='1'; npx vitest run --config .vidtsx-temp/end-to-end/B1/vitest.b1.config.ts map-transcripts`
+  → `Test Files 1 passed (1) · Tests 1 passed (1)`; project.json transcripts read back
+  `ready/27 ready/44 ready/97 ready/207 ready/183 ready/602 ready/40 ready/330 ready/290`, 9 files
+  in `cache/transcripts/`.
+- Free space: start C: 37.04 GB / D: 3.82 GB → after the profile copy D: 3.42 → after M2 C: 36.47 /
+  **D: 2.79 GB** (see Open problems).
+- NOT yet verified: the cutlib comparison (the exit), the CDP click-through, the full gates after
+  step 1 (no `src/` changed in step 1).
 
 ## Next step (ONE concrete instruction)
 
-Do the M2 setup exactly as "M2 setup" above says: check free space on C: and D: and write the
-numbers here; copy `.vidtsx-temp/end-to-end/A5/profile` to `.vidtsx-temp/end-to-end/B1/profile`;
-launch an isolated instance on it (CDP port 9271, A1's `launch.sh` copied into `B1/`); set the
-Studio root to `C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root`; create `video-14-raw` and import
-the nine DJI clips in place with `VIDTSX_MEDIA_PICK`; wait for proxies AND waveforms (confirm
-every `cache/waveforms/*.json` starts `{"version":3` and has a `zcr` array; record each clip's
-waveform job wall time — the 16 kHz decode is new); then map Hasan's AssemblyAI transcripts into
-the project's transcript cache through Studio's own AssemblyAI mapper and record clip ids ↔ asset
-ids here. (After M2: the cutlib comparison — a Python driver in `B1/` calling `cutlib.plan_clip`
-read-only with `styles.tight` from cuts.json, and a gated live vitest reading M2's waveform +
-transcript for Studio's side — then gates, CDP, STATUS/TESTING.)
+Build the exit comparison (no app needed): (a) `B1/cutlib_joins.py` — run with
+`python -I -B` (and `sys.dont_write_bytecode = True` BEFORE `import cutlib`, else Python writes
+`tools/__pycache__/` INTO the read-only editor repo) — that puts `D:\repos\claude-youtube-editor\tools`
+on `sys.path`, reads `videos/video-14/work/analysis/cuts.json` (keeps + `styles.tight`) and the
+transcripts, calls `cutlib.plan_clip` (:174) per clip with keeps, and writes every join's
+start/end to `.vidtsx-temp/end-to-end/B1/cutlib-joins.json` (first check how `AudioProbe` finds
+its 16 kHz WAV — `work/audio/<clip>.wav`, read-only; if a WAV is missing, extract it with ffmpeg
+into `B1/audio/`, never into the editor repo); (b) `B1/compare.b1.test.ts` under the scratch
+config (`vitest.b1.config.ts`, gated `B1_COMPARE=1`) that reads M2's v3 waveform
+(`cache/waveforms/<assetId>.json`) + transcript (`cache/transcripts/<assetId>.json`) per the clip ↔
+asset table above, runs Studio's `planClip` with Hasan's fitted tight as a `CutPlanStyle` (the
+four new knobs set) on the same keeps, and writes per-join start/end deltas vs
+`cutlib-joins.json` to `B1/compare-report.json`. Exit = every join within ±20 ms on `0369`
+("clip 1" — `0366` has no keeps) and, cheaply, on every clip with keeps; explain each outlier
+with the waveform there. Then gates, CDP click-through (Auto Cut on M2 — put a clip on the
+timeline first; relaunch with `bash launch.sh`), STATUS/TESTING.
 
 ## Open problems
 
@@ -169,6 +230,14 @@ transcript for Studio's side — then gates, CDP, STATUS/TESTING.)
   not, explain each outlier with the waveform there (a finer analysis grid would be a plan
   change — ask first).
 - `media-jobs.ts` is 314 lines (310 before this part, already over ~300; +4 here).
+- **D: lost ~0.63 GB during step 1 that is NOT accounted for** (3.42 GB after the 0.40 GB profile
+  copy → 2.79 GB after M2). Checked: `B1/profile` still 372 MB, `out/` 125 MB, `node_modules/.vite`
+  89 MB, `B1/logs` ~0 MB; all M2 caches are on C: (579 MB). A full `D:\` scan for recent >20 MB
+  files was too slow and was stopped. Check `Get-PSDrive D` before anything that writes to D:
+  (an `electron-vite dev` launch rewrites `out/`); if it keeps dropping, find the writer before
+  going on. The next steps (Python driver, scratch vitest) write only KBs.
+- Python + the editor repo: importing `tools/cutlib.py` normally writes `tools/__pycache__/` into
+  the READ-ONLY editor repo — use `python -I -B` / `sys.dont_write_bytecode = True`.
 
 ## Do-not-redo
 
@@ -177,8 +246,12 @@ transcript for Studio's side — then gates, CDP, STATUS/TESTING.)
 - Step A (pure DSP + waveform v3, `2dc5add`) is done and green: do not re-port `zcr` /
   `snapHead` / `snapTail` / the merge, and do not re-open the 8 vs 16 kHz question (16 kHz for
   the whole waveform job is decided and committed).
+- Step 1 (M2) is done: do not re-create `video-14-raw`, re-import, rebuild proxies/waveforms or
+  re-map transcripts (B2–B6 share it as-is). Do not re-time the waveform job.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-22 · agent 1 · ~46 calls · step A: pure DSP ports + 29 unit tests, waveform job v3
   (16 kHz + zcr), stale-cache regeneration; commit `2dc5add`.
+- 2026-10-22 · agent 2 · ~48 calls · step 1: M2 `video-14-raw` (nine clips, NVENC proxies, v3
+  waveforms, waveform timing, Hasan's AssemblyAI transcripts mapped via `mapJob`); docs-only commit.
