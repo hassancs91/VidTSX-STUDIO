@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: DONE up to Hasan's step (fix round 1) — builder #9, 2026-10-22: HASAN-STEP.md Snap off + zoom; per-knob gate on |fitted − current|; card wording; one join counted once; gates green (full vitest 457 / 3866, types 26/10). One residual risk for the orchestrator under Open problems ("Fix round 1 — residual"). — was: FIX (verifier round 1 FAIL) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
+status: FIX round 2 (verifier round 2 FAIL: HASAN-STEP.md trim check wrong for lead-ins — see Next step) — was: DONE up to Hasan's step (fix round 1) — builder #9, 2026-10-22: HASAN-STEP.md Snap off + zoom; per-knob gate on |fitted − current|; card wording; one join counted once; gates green (full vitest 457 / 3866, types 26/10). One residual risk for the orchestrator under Open problems ("Fix round 1 — residual"). — was: FIX (verifier round 1 FAIL) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -637,7 +637,44 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-**None for a builder — fix round 1 is DONE.** The orchestrator rules on "Fix round 1 — residual" (Open problems),
+**FIX round 2 (orchestrator, 2026-10-22, after verifier round 2's FAIL — docs only; a THIRD FAIL
+stops the run, so verify every sentence against the real UI before handing back):**
+1. **HASAN-STEP.md:58-61 "Check each trim took" is wrong for lead-ins** (the FAIL). With ripple on
+   (HASAN-STEP.md:34-37), a lead-in trim (the LEFT edge of the right-hand clip) never moves the
+   visible edge — it slides back to the join by design (`ripple-ops.ts:270, 273-274`); only the
+   waveform slides and the timeline total changes (verifier: join stayed at x = 796.6 before / mid /
+   after; total 00:17.12 → 00:17.09). Rewrite the check with a cue that works for BOTH edges: the
+   toolbar total ("/ mm:ss.ff") changes by about the trimmed amount (and the waveform under the
+   join shifts); if the total did not change, the trim did not register — drag again; if it changed
+   more than intended, Ctrl+Z. Say explicitly that a lead-in edge "comes back to the join" with
+   ripple on and that this is normal.
+2. **HASAN-STEP.md:41-46 Snap vs playhead:** turning Snap OFF must come BEFORE placing the playhead
+   on the join (with Snap on, a small drag can snap to the playhead, which lands on the nearest frame,
+   and commit a few-ms trim that looks like a spring-back). Order the steps so Snap is off first.
+3. **Small doc notes:** the join table's times are seconds (hundredths) while the clock shows
+   MM:SS.FF in frames — say so; one consistent time estimate everywhere (25–30 min); the Provider
+   select showing "App default (active provider)" is display-only — don't touch it (already there?
+   keep it).
+4. **Status.md B4 row + TESTING §18.10:** state pass rule (a) (per knob: proposed in range, OR row
+   missing and the card's fitted value in range) and the per-knob gate ≥ 10 edges AND |fitted −
+   current| > 30 ms / > 1 dB; remove the stale median-gate text (Status.md ~:22 "median offset … >
+   30 ms", ~:33 "The medians are the GATE", TESTING ~:414 "Your lead-ins sit within 30 ms of the
+   style's"); fix the trim-check wording there too; "About 20–25 min" → 25–30. Add verifier round
+   2's jitter numbers (rule (a) 39–40/40 at ±20/30/40 ms; own-style false positives 0/40 at ±20/30,
+   5/40 minTail-only at ±40).
+5. **Cheap, also do:** with no summary model the stats sentence appears twice on the card — show it
+   once.
+6. **Verify it yourself before DONE, live with REAL mouse drags** (CDP `Input.dispatchMouseEvent`),
+   on `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root` + `…\profiles\B2\profile` (CDP 9301; reset
+   that scratch project if you need a clean timeline — it is scratch), following the NEW
+   HASAN-STEP.md literally: Snap off, playhead on a join, zoom to 320/640 px/s, one lead-in trim and
+   one tail trim each lengthened and shortened by 30–50 ms — record for each what the doc's cue
+   shows (total before/after) and the disk edge + tag; one deliberately failed trim (Snap on, tiny
+   drag, playhead away) recognisable by the cue. Stills to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`.
+   NEVER Hasan's station. Gates (full vitest per DRIVING.md — the card change is code; types), commit,
+   DONE.
+
+(Previous text, kept:) **None for a builder — fix round 1 is DONE.** The orchestrator rules on "Fix round 1 — residual" (Open problems),
 then re-verifies (verifier round 2) or marks B4 `WAITING-HASAN`; Hasan's step = the updated
 `docs/studio/end-to-end/B4/HASAN-STEP.md` (~25–30 min, Snap off + zoom in).
 
@@ -678,6 +715,22 @@ row and tick TESTING §18.10's first item; his trims stay in the station's `proj
 re-measured offline through the real handler (the `negatives.b4.test.ts` pattern) if needed.
 
 ## Open problems
+
+- **Verifier round 2 — FAIL (2026-10-22), one deliverable:** HASAN-STEP.md:58-61's new "Check each
+  trim took" gives the wrong signal for every lead-in trim (ripple keeps the edge at the join; the
+  doc says that means "did not register — drag again", compounding changes). Secondary:
+  HASAN-STEP.md:41-43 vs :46 (Snap on + playhead on the join → a 5 px drag commits a −4.7 ms trim
+  that looks like a spring-back). Status.md / TESTING §18.10 lack rule (a) and keep stale median-gate
+  text (Status.md :22, :33; TESTING :414) and the old trim-check wording; "20–25 min" in TESTING.
+  Everything else PASSED: full vitest run 1 green (457 / 3866), types 26/10; Snap off → 30–50 ms
+  real-mouse trims at 320/640 px/s register + tag; Snap/zoom/ripple/Learn button exactly where the
+  doc says; no model call; station sha256 unchanged; rule (a) on the station's real 33 joins: 40/40
+  (±20), 40/40 (±30), 39/40 (±40 — misses are minTail fitting 0.04); own-style false positives 0/40
+  at ±20/±30, 5/40 at ±40 (minTail only); different targets 10/10; 9 joins → nothing; per-knob gate
+  confirmed (8 lead-ins → head not proposed, tails proposed); stubs make it fail; card wording and
+  one-join-once live. Still open (not in any fix brief): `apply-cut-proposal.ts:174` tag drop, the
+  clamped-speed end tag, the style edge at removed words; the stats sentence shown twice without a
+  summary model.
 
 - **Fix round 1 — residual (for the orchestrator; not a Hasan question unless Q4 itself is reopened):** the brief's
   test "head 0.15 ± 0.03 proposed in EVERY seed" under ±40 ms jitter cannot hold with Q4's "> 30 ms" and this start:
