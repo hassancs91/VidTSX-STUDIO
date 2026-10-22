@@ -319,6 +319,11 @@ editorial snap use the same knobs) and the docs (STATUS row, TESTING §18.8, dec
   settings edit as the brand"). Following that pattern (saved, not undoable) is the cheap,
   consistent choice; making settings undoable would widen the reducer. Builder #4: follow the
   preset-picker pattern unless the orchestrator says otherwise, and say so in STATUS.
+  **DECIDED (orchestrator, 2026-10-22):** follow the preset-picker pattern (saved, not undoable).
+  Guard against A1's trap: the frame-size undo writes `settings` from the timeline side
+  (`useTimeline.ts` ~:676-721, `settings: { ...prev.settings, width, height }`) — add a test or a
+  live check that a `cutStyle` set through `updateProject` SURVIVES a later frame-size edit and its
+  undo/redo, and a timeline edit + autosave (read `project.json` from disk).
 - (step 2, interim) The Auto Cut button still sends the session picker's style, so its card reads
   `tight · requested` until the picker becomes the read-out (step 4). The exit ("the card headline
   names the preset's style") is only met once the button stops sending `style`.
