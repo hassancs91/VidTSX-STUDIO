@@ -86,7 +86,7 @@ probed, warm fonts, Studio root `v14-root`) to `.vidtsx-temp/end-to-end/A6/profi
 
 ## Done (file:line, commit hashes)
 
-Step 1a — the pure core, part 1 (agent 1, commit: see LOG.md line 2026-10-22 07:25; message
+Step 1a — the pure core, part 1 (agent 1, commit `bcea695`
 `feat(studio): A6 — sync check pure core: verdict + probe placement`). No app run, no `src/` outside these files.
 
 - `src/shared/studio/sync-verdict.ts` (~135 lines) — `syncVerdict(rows, attempted, opts)` = a port of
