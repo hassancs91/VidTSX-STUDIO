@@ -111,9 +111,23 @@ export interface StudioClipTsx {
   mode: 'cutaway' | 'overlay';
 }
 
+/** A user edit that placed a clip edge (plan T1 "the learning signal", B4). */
+export type StudioClipEditOp = 'trim' | 'text-delete';
+
 export interface StudioClipOrigin {
+  /** Who PLACED the clip (learn stats count it); a later user edit keeps it. */
   by: 'user' | 'agent';
   proposalId?: string;
+  /** B4: the last user edit that shaped this clip. Absent = none recorded. */
+  op?: StudioClipEditOp;
+  /**
+   * B4: which user edit last placed each edge, in the clip's source. 'trim' =
+   * the user put the edge there by hand (learn-from-video measures it);
+   * 'text-delete' = a Transcript delete placed it with the resolved cut style
+   * (no timing preference — a later trim of that edge turns it into 'trim').
+   * A split hands each half only the edge it keeps.
+   */
+  edges?: { start?: StudioClipEditOp; end?: StudioClipEditOp };
 }
 
 /** `'crossfade'` / `'dip-to-black'` — the two the engine draws itself — or a
@@ -314,6 +328,12 @@ export interface StudioProposalItem {
   note?: string;
   /** True once the user has dragged this span's edges — provenance stays honest. */
   adjusted?: boolean;
+  /**
+   * B4: the span as the snapper made it (cut plans), kept beside the user's
+   * final `sourceStart/End`. Written at creation, never changed by an edge
+   * drag. Absent on items made before B4 = no learning signal.
+   */
+  snapped?: { sourceStart: number; sourceEnd: number };
   // Shot plans (S4 D8). Placement is source-anchored via assetId/sourceStart
   // above, renderer-mapped at review AND apply (the cut-proposal discipline);
   // `timelineStart` is the fallback for UNANCHORED shots only.
