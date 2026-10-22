@@ -182,7 +182,7 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   as `…\B5\checks\original-project.json`. NB Auto Cut lives in Inspector › "Transcript · <file>" of the
   asset selected in the MEDIA pane — a selected timeline clip shows Clip props instead; the timeline
   does not follow a seek and renders only the clips in view.
-- **Hasan's B5 station BUILT (builder #6, decision 1 + 4):** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-station-root`
+- **Hasan's B5 station BUILT (builder #6, decision 1 + 4; docs commit `8bf5433`):** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-station-root`
   (580 MB, `cp -r` of `b-root`; 0 `b-root` strings in its project.json) + `…\profiles\B5-station\profile` (377 MB,
   from `profiles\source\profile`); Studio root set in-app to B5-station-root; long project = nine clips on V1 in raw
   order, identical to B5-root's (`0366@0+20.288 … 0376@1100.298+182.849`, 1283.148 s, `/ 21:23.09`, A1 0, 0
