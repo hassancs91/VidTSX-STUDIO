@@ -74,6 +74,7 @@ import {
   handleStudioProxyEncoderStatus,
 } from '../studio-proxy-encoder-handlers';
 import { registerFlushAck } from '../flush-guard';
+import { handleStudioExportSyncCheck, handleStudioExportSyncCheckCancel } from '../studio-sync-check-handlers';
 import { studioMediaJobs } from '../../services/studio/media-jobs';
 import { studioAgent } from '../../services/studio/studio-agent';
 import {
@@ -103,6 +104,9 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_MEDIA_RELINK, handleStudioMediaRelink);
   ipcMain.handle(IPC.STUDIO_EXPORT_PREPARE, handleStudioExportPrepare);
   ipcMain.handle(IPC.STUDIO_EXPORT_ENGINES_LIST, handleStudioExportEnginesList);
+  // T8 "Check this export" (A6): progress is pushed to the asking window.
+  ipcMain.handle(IPC.STUDIO_EXPORT_SYNC_CHECK, handleStudioExportSyncCheck);
+  ipcMain.handle(IPC.STUDIO_EXPORT_SYNC_CHECK_CANCEL, handleStudioExportSyncCheckCancel);
   ipcMain.handle(IPC.STUDIO_CACHE_READ, handleStudioCacheRead);
   // Project notes (notes/*.md, video-10 import gap 7)
   ipcMain.handle(IPC.STUDIO_NOTES_LIST, handleStudioNotesList);

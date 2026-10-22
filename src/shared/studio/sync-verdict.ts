@@ -107,7 +107,7 @@ export function syncVerdict(rows: readonly SyncErrorRow[], attempted: number, op
     message = `In sync: audio ${signed(offset)} ms vs the picture, drift ${signed(drift)} ms over ${r1(span)} s ${counted}.`;
   } else if (!inTolerance) {
     const side = offset > 0 ? 'BEHIND' : 'AHEAD of';
-    message = `Out of sync: audio ${r1(Math.abs(offset))} ms ${side} the picture ${counted}.`;
+    message = `Out of sync: audio ${Math.abs(r1(offset))} ms ${side} the picture ${counted}.`;
   } else {
     message = `Out of sync: the offset drifts ${signed(drift)} ms over ${r1(span)} s — not a constant delay ${counted}.`;
   }

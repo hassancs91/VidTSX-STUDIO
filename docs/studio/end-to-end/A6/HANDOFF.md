@@ -1,5 +1,6 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: IN PROGRESS (steps 1a + 1b done — the exit numbers hold outside the app; IPC + UI next)
+status: IN PROGRESS (steps 1a + 1b + 2 done — the exit numbers hold outside the app, incl. the
+3-frame video-late case; IPC done; queue-row UI + CDP click-through next)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A5's drivers (`.vidtsx-temp/end-to-end/A5/drive.mjs`,
@@ -171,7 +172,61 @@ Step 1b — the measuring core + the I/O runner, live on the A5 files (agent 2, 
   `select=eq(n,N)` on the export n=700 and the master n=5500): `(n − 0.5)/fps` → frame n,
   `(n + 0.5)/fps` → n + 1 — as `frame-diff.ts` already does. `exactFrameSeek` uses `(n − 0.5)/fps`.
 
+Step 2 — IPC + the orchestrator's extra measurement (agent 3, commit: see LOG.md / `git log`
+`feat(studio): A6 — sync check IPC; video 3 frames late fails at −50.5 ms`). No app run, no UI yet.
+
+- Channels `src/shared/ipc/channels.ts:456-459`: `STUDIO_EXPORT_SYNC_CHECK` `'studio:export:sync-check'`,
+  `STUDIO_EXPORT_SYNC_CHECK_CANCEL` `'studio:export:sync-check:cancel'`, push
+  `STUDIO_EXPORT_SYNC_CHECK_PROGRESS` `'studio:export:sync-check:progress'`.
+- Types `src/shared/ipc/types/studio-sync-check.ts` (barrel line `types/index.ts:42`):
+  `StudioSyncCheckSource` = `{kind:'entry', entryPath}` | `{kind:'project', projectId, rangeIn?, rangeOut?}`;
+  `StudioSyncCheckRequest {exportPath, source}`; `StudioSyncCheckResponse {success, error?, busy?,
+  cancelled?, verdict?: SyncVerdict, reportPath?, probes?: {confident,total}, elapsedMs?}`;
+  `StudioSyncCheckCancelRequest {exportPath?}` / `…CancelResponse {success, cancelled, error?}`;
+  `StudioSyncCheckProgressEvent {exportPath, done, total}`.
+- Handler `src/main/ipc/studio-sync-check-handlers.ts` (~125 lines): `resolveSyncCheckProject`
+  (entry → `readExportContext`, null → "This export can no longer be checked from the queue: its export
+  data is cleared a day after the export. Export it again to check it."; project → `loadProject` +
+  `trimTimelineToRange` when both range ends are given), `handleStudioExportSyncCheck` (validates,
+  one check at a time → `busy`, `fs.access` the export, `checkExportSync` with an AbortController,
+  progress to `event.sender` unless destroyed, cancelled → `{success:false, cancelled:true}`),
+  `handleStudioExportSyncCheckCancel` (aborts the running check; with `exportPath` only if it matches).
+  Registered in `src/main/ipc/registrations/studio.ts:107-109` (import :77).
+- Preload `src/preload/api/studio-sync-check.ts` (`studioExportSyncCheck`, `studioExportSyncCheckCancel`,
+  `onStudioExportSyncCheckProgress` → unsubscribe), spread in `src/preload/preload.ts:41,91`
+  (`api/studio.ts` is already 303 lines); typed in `src/renderer/types/electron.d.ts:497-500`.
+- Tests `src/main/ipc/studio-sync-check-handlers.test.ts` (6: entry sidecar + progress pushes, swept
+  sidecar message, project range trim, missing file / unknown project / bad request, one-at-a-time +
+  cancel + slot freed, no push to a destroyed window).
+- `src/shared/studio/sync-verdict.ts:110`: the "Out of sync" message now rounds the same way as
+  `offsetMs` (`Math.abs(r1(offset))`; it printed 50.6 for an offsetMs of −50.5).
+- **Extra measurement (orchestrator): video 3 frames late.** Live test case 4 in
+  `export-sync-check.live.test.ts` makes `.vidtsx-temp/end-to-end/A6/reports/standard-video-plus-3-frames.mp4`
+  from the A5 Standard file: `ffmpeg -itsoffset 0.05 -i STD -i STD -map 0:v -map 1:a -c copy`
+  (ffprobe: video start_time 0.050000, audio 0.000000; the original has both at 0). Result:
+  **fail, offset −50.5 ms** ("Out of sync: audio 50.5 ms AHEAD of the picture (16 of 16 probes)."),
+  spread 6.1 ms, drift −7.1 ms over 10.1 s, 16/16 confident, mask on (maskShare 0.439 on every probe,
+  masked quality 0.953–0.984 vs plain 0.654–0.717), 53.2 s. Errors (ms): −26.4 −42.3 −41.7 −57.6
+  −56.9 −56.3 −55.6 −5 −54.2 −37 −52.9 −35.6 −51.6 −50.9 −50.2 −49.5. Report:
+  `.vidtsx-temp/end-to-end/A6/reports/standard-video-plus-3-frames.sync.json`. So the frame side
+  alone moves the answer by the right amount with the learned mask in use (the mask is the same box
+  share as on the in-sync file, 0.439 vs 0.438).
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-22 07:40 (agent 3): `VIDTSX_LIVE_SYNC=1 npx vitest run
+  src/main/services/studio/export-engines/export-sync-check.live.test.ts -t "video delayed 3 frames"`
+  → `Tests 1 passed | 3 skipped (4)`, 53.8 s (log `.vidtsx-temp/end-to-end/A6/reports/live-video-late.log`);
+  verdict as above (run twice: before and after the message-rounding fix; numbers identical).
+- `npx vitest run src/main/ipc/studio-sync-check-handlers.test.ts` → `Tests 6 passed (6)`;
+  `npx vitest run src/shared/studio/sync-verdict.test.ts` → `Tests 7 passed (7)`.
+- `npx tsc --noEmit -p tsconfig.node.json` / `-p tsconfig.web.json`, grepped for
+  `sync-check|studio-sync|preload/|registrations/studio|electron.d.ts` → no lines.
+- Free space 07:37: C: 37.4 GB, D: 3.7 GB (the 3-frame file is ~17 MB on D:).
+- 2026-10-22 07:43 (agent 3, no app running): `npm run check:types` → `tsconfig.web.check.json: 26
+  errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`; full
+  `npx vitest run` → `Test Files 435 passed | 5 skipped (440)` · `Tests 3657 passed | 26 skipped
+  (3683)`, 46.5 s (logs `.vidtsx-temp/end-to-end/A6/check-types-step2.log`, `vitest-step2.log`).
 
 - 2026-10-22 07:31 (agent 2): `VIDTSX_LIVE_SYNC=1 npx vitest run
   src/main/services/studio/export-engines/export-sync-check.live.test.ts` → `Tests 3 passed (3)`,
@@ -233,15 +288,19 @@ Step 1b — the measuring core + the I/O runner, live on the A5 files (agent 2, 
 
 ## Next step (ONE concrete instruction)
 
-Step 2 — IPC: add channel `studio:export:sync-check` (+ push event `studio:export:sync-check:progress`)
-in `src/shared/ipc/channels.ts` / `types.ts`, a handler in `src/main/ipc/` (try/catch, typed error)
-that takes `{ exportPath, source: { kind: 'entry', entryPath } | { kind: 'project', projectId,
-rangeIn?, rangeOut? } }`, resolves the document (`readExportContext(entryPath)` → `context.project`;
-else load the project and trim with `trimTimelineToRange` as `studio-handlers.ts:486-497` does) and
-calls `checkExportSync` (one check at a time; cancel by AbortSignal), returning `{ verdict,
-reportPath, probes: {confident, total} }`; expose it in the preload; unit-test the handler with
-mocked electron IPC as the other `*-handlers` tests do. Then step 3 = the queue-row UI + the CDP
-click-through.
+Step 3a — the queue-row UI (no app run yet): read UI_SPEC.md's queue/row parts, then add
+`src/features/render-queue/hooks/useExportSyncCheck.ts` (calls `window.api.studioExportSyncCheck({
+exportPath: job.outputPath, source: { kind: 'entry', entryPath: job.filePath } })`, follows
+`onStudioExportSyncCheckProgress` filtered by `exportPath`, cancel via `studioExportSyncCheckCancel`,
+states idle / running {done,total} / result / error) and `src/features/render-queue/components/SyncCheckPanel.tsx`
+(verdict line coloured pass/fail/inconclusive, "N of M probes confident", median offset + drift,
+the report path with an Open button via the row's `onOpenFile`), and a "Check A/V" button
+(`data-sync-check-button`) beside Open/Folder in `RenderItem.tsx:168-176` shown only for a `done`
+Studio export row (confirm how a Studio row is told apart — `job.exportEngine` set, or `job.filePath`
+basename starting `studio-entry-`); then step 3b = the CDP click-through on `.vidtsx-temp/end-to-end/A6/profile`
+(copy of the A5 profile, 377 MB — check D: free first, it was 3.7 GB): a 5 s Standard range INSIDE the
+split (e.g. 92–97 s, CPU low, output into `.vidtsx-temp/end-to-end/A6/export/`), click Check A/V on
+its row, screenshot the verdict, read the `.sync.json` beside it.
 
 ## Open problems
 
@@ -270,6 +329,9 @@ click-through.
   live reports, the 100 ms file `.vidtsx-temp/end-to-end/A6/reports/standard-audio-plus-100ms.mp4`,
   the seek check, the overlay diagnosis). Do not re-run the live checks unless the measuring code
   changes; the reports above are the exit evidence for the measurement.
+- Step 2 above (IPC + 6 handler tests; the 3-frames-late file
+  `.vidtsx-temp/end-to-end/A6/reports/standard-video-plus-3-frames.mp4` and its report — the
+  orchestrator's extra measurement is DONE, record it next to the +100 ms case in TESTING §18.6).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -277,3 +339,5 @@ click-through.
   pure verdict and probe planner (step 1a), fixed the rest of the design.
 - 2026-10-22 · agent 2 · ~40 · step 1b: measuring core + runner, live on the A5 files; found the
   overlay covering the PiP and added the layout mask; corrected the frame seek.
+- 2026-10-22 · agent 3 · ~35 · step 2: IPC (channels, types, handler + 6 tests, preload, d.ts);
+  the orchestrator's video-3-frames-late measurement (fail at −50.5 ms, mask on); message rounding fix.

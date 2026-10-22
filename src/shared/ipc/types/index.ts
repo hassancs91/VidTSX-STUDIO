@@ -39,6 +39,7 @@ export * from './studio-preset';
 export * from './studio-transitions';
 export * from './studio-filters';
 export * from './studio-analysis';
+export * from './studio-sync-check';
 export * from './studio-packages';
 export * from './system';
 export * from './ai-runtime';

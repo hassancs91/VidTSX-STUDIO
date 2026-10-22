@@ -494,6 +494,10 @@ export interface ElectronAPI {
   studioMediaRelink: (data: import('../../shared/ipc/types').StudioMediaRelinkRequest) => Promise<import('../../shared/ipc/types').StudioMediaRelinkResponse>;
   studioExportPrepare: (data: import('../../shared/ipc/types').StudioExportPrepareRequest) => Promise<import('../../shared/ipc/types').StudioExportPrepareResponse>;
   studioExportEnginesList: () => Promise<import('../../shared/ipc/types').StudioExportEnginesListResponse>;
+  // Studio — T8 "Check this export" (A/V sync check, END_TO_END_PLAN A6)
+  studioExportSyncCheck: (data: import('../../shared/ipc/types').StudioSyncCheckRequest) => Promise<import('../../shared/ipc/types').StudioSyncCheckResponse>;
+  studioExportSyncCheckCancel: (data?: import('../../shared/ipc/types').StudioSyncCheckCancelRequest) => Promise<import('../../shared/ipc/types').StudioSyncCheckCancelResponse>;
+  onStudioExportSyncCheckProgress: (callback: (event: import('../../shared/ipc/types').StudioSyncCheckProgressEvent) => void) => () => void;
   studioTranscribeStart: (data: import('../../shared/ipc/types').StudioTranscribeStartRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeStartResponse>;
   studioTranscribeCancel: (data: import('../../shared/ipc/types').StudioTranscribeCancelRequest) => Promise<import('../../shared/ipc/types').StudioTranscribeCancelResponse>;
   studioAnalysisRequest: (data: import('../../shared/ipc/types').StudioAnalysisRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisResponse>;

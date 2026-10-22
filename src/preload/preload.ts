@@ -38,6 +38,7 @@ import { imageModelParamsApi } from './api/image-model-params';
 import { videoApi } from './api/video';
 import { sttApi } from './api/stt';
 import { studioApi } from './api/studio';
+import { studioSyncCheckApi } from './api/studio-sync-check';
 import { updaterApi } from './api/updater';
 import { libraryApi } from './api/library';
 import { memoryApi } from './api/memory';
@@ -87,6 +88,7 @@ const api = {
   ...videoApi,
   ...sttApi,
   ...studioApi,
+  ...studioSyncCheckApi,
   ...updaterApi,
   ...libraryApi,
   ...memoryApi,

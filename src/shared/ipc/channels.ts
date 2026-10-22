@@ -453,6 +453,10 @@ export const IPC = {
   STUDIO_MEDIA_JOB_EVENT: 'studio:media:job-event',
   STUDIO_EXPORT_PREPARE: 'studio:export:prepare',
   STUDIO_EXPORT_ENGINES_LIST: 'studio:export:engines:list',
+  // Studio — T8 "Check this export" (A/V sync check, END_TO_END_PLAN A6)
+  STUDIO_EXPORT_SYNC_CHECK: 'studio:export:sync-check',
+  STUDIO_EXPORT_SYNC_CHECK_CANCEL: 'studio:export:sync-check:cancel',
+  STUDIO_EXPORT_SYNC_CHECK_PROGRESS: 'studio:export:sync-check:progress',
   // Studio — per-asset transcription (button-triggered) + auto-cut planning
   STUDIO_TRANSCRIBE_START: 'studio:transcribe:start',
   STUDIO_TRANSCRIBE_CANCEL: 'studio:transcribe:cancel',
