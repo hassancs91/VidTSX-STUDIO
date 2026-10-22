@@ -12,6 +12,7 @@ import type { SttModelFeatures } from '../presets/stt-models';
 import type { ThinkingLevel } from '../tsx-engine/types';
 import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
 import type { StudioClipEffect } from './studio-effects';
+import type { CutStyleSpec } from './studio-cut-plan';
 
 // Caption types are a sibling file (they are a published contract for pack
 // authors), re-exported here so every consumer keeps one import site.
@@ -374,6 +375,13 @@ export interface StudioProjectSettings {
    * preset; a stale id (preset deleted) degrades to none.
    */
   presetId?: string;
+  /**
+   * Cut-style override for this project (plan T1): beats the preset's
+   * `style.cut` / `pacing`. A `base` replaces the preset's choice; knobs
+   * alone layer over it. Absent = the preset's style, then the default in
+   * `cut-style.json`. Read through `resolveCutStyle`, never directly.
+   */
+  cutStyle?: CutStyleSpec;
   /**
    * The Export dialog's last output choice for this project (docs/studio/
    * EXPORT_OUTPUT_OPTIONS_PLAN.md): a resolution preset id and a quality

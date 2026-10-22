@@ -17,6 +17,7 @@ import {
   type StudioPresetStyle,
   type StudioPresetVideoKind,
 } from '../types/studio-preset';
+import { normalizeCutStyleSpec } from './cut-style-spec';
 
 /** What the user authors — id/timestamps are the store's business. */
 export interface StudioPresetInput {
@@ -138,6 +139,8 @@ export function normalizePresetStyle(raw: unknown): StudioPresetStyle {
   if (intro !== undefined) style.introSeconds = intro;
   const outro = boundedNumber(s.outroSeconds, 0, 120);
   if (outro !== undefined) style.outroSeconds = outro;
+  const cut = normalizeCutStyleSpec(s.cut);
+  if (cut) style.cut = cut;
   return style;
 }
 

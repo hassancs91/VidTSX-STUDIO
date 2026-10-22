@@ -54,9 +54,12 @@ export const NATURAL_STYLE: CutPlanStyle = {
   maxTail: 0.45,
 };
 
+// B2 interim: these constants go when the consumers move to resolveCutStyle
+// (cut-style.json is the source of truth). Nothing passes 'relaxed' yet.
 export const CUT_PLAN_STYLES: Record<CutPlanStyleName, CutPlanStyle> = {
   tight: TIGHT_STYLE,
   natural: NATURAL_STYLE,
+  relaxed: NATURAL_STYLE,
 };
 
 /**

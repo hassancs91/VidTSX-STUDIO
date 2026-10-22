@@ -6,7 +6,10 @@
 
 import type { SttModelFeatures } from '../presets/stt-models';
 
-export type CutPlanStyleName = 'tight' | 'natural';
+export type CutPlanStyleName = 'tight' | 'natural' | 'relaxed';
+
+/** Every named style, in the order a picker lists them. */
+export const CUT_PLAN_STYLE_NAMES: readonly CutPlanStyleName[] = ['tight', 'natural', 'relaxed'];
 
 /**
  * Timing knobs from the reference clean-cut pipeline (general — no per-video
@@ -51,6 +54,45 @@ export interface CutPlanStyle {
   fricZcr?: number;
   /** dB over the floor a fricative must still have to count (default 5). */
   fricMargin?: number;
+}
+
+export type CutPlanKnob = keyof CutPlanStyle;
+
+/**
+ * A style choice (plan T1): a named base plus single-knob overrides over it.
+ * The shape of a preset's `style.cut` and a project's `settings.cutStyle`.
+ * Absent `base` = the next rung's base (see `resolveCutStyle`).
+ */
+export type CutStyleSpec = Partial<CutPlanStyle> & { base?: CutPlanStyleName };
+
+/**
+ * `resources/skills/studio-clean-cut/cut-style.json` — the generic default
+ * cut style shipped beside the clean-cut skill, parsed (`parseCutStyleFile`).
+ */
+export interface CutStyleFile {
+  /** The style used when no call, project, preset nor pacing names one. */
+  default: CutPlanStyleName;
+  styles: Record<CutPlanStyleName, CutPlanStyle>;
+}
+
+/** Which rung of the precedence chose the style. */
+export type CutStyleSource = 'call' | 'project' | 'preset' | 'pacing' | 'default';
+
+/** What every consumer snaps with, plus how to name it to the user. */
+export interface ResolvedCutStyle {
+  /** The named base the knobs start from. */
+  styleName: CutPlanStyleName;
+  /** The knobs, overrides applied (before STT capability compensation). */
+  style: CutPlanStyle;
+  source: CutStyleSource;
+  /** Knobs that differ from the base style, in `CUT_PLAN_KNOBS` order. */
+  overrides: CutPlanKnob[];
+  /** The preset's name when the preset (cut or pacing) chose the base. */
+  presetName?: string;
+  /** One line for the card headline, the read-out and Project settings. */
+  displayName: string;
+  /** 8 hex chars that change whenever any knob changes (the plan cache key). */
+  key: string;
 }
 
 /** A span kept in the render, in source seconds. */

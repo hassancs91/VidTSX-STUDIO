@@ -6,6 +6,8 @@
 // optional skills/), selected per project, and written by "learn from this
 // video" only through a card the user accepts.
 
+import type { CutStyleSpec } from './studio-cut-plan';
+
 export type StudioPresetVideoKind = 'short' | 'long' | 'course' | 'custom';
 export type StudioPresetOrientation = '16:9' | '9:16' | '1:1';
 export type StudioPresetPacing = 'tight' | 'normal' | 'relaxed';
@@ -22,6 +24,13 @@ export interface StudioPresetStyle {
   transitions?: string[];
   introSeconds?: number;
   outroSeconds?: number;
+  /**
+   * The cut style (plan T1): a base from `cut-style.json` plus single-knob
+   * overrides. Absent `base` = `pacing` mapped (tight → tight, normal →
+   * natural, relaxed → relaxed), then the file's default. Absent = today's
+   * behaviour through `resolveCutStyle`.
+   */
+  cut?: CutStyleSpec;
 }
 
 /** One workflow step, in the order the agent runs them (the W3 tools). */
@@ -143,7 +152,9 @@ export interface StudioPresetLearnStats {
   cutItemsAdjusted: number;
 }
 
-export type StudioPresetKnobKey = keyof StudioPresetStyle;
+/** The flat knobs learn-from-video may change. `cut` is not one of them
+ *  yet — learning the nested cut knobs is plan part B4. */
+export type StudioPresetKnobKey = Exclude<keyof StudioPresetStyle, 'cut'>;
 
 /** One knob the card proposes to change, with the measurement behind it. */
 export interface StudioPresetKnobChange {
