@@ -47,7 +47,11 @@ import { applyCutProposal } from '../services/apply-cut-proposal';
 import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-proposal';
 import { applyInsertProposal, insertItemPlacement } from '../services/apply-insert-proposal';
 import { buildPreviewTimeMap } from '../services/preview-mapping';
-import { mapCutItemToTimeline } from '../services/cut-proposal';
+import {
+  QA_AUDITION_LEAD_S,
+  QA_AUDITION_SPAN_S,
+  mapCutItemToTimeline,
+} from '../services/cut-proposal';
 import { makeClipId } from '../services/timeline-ops';
 import { footageAt } from '../services/shot-footage';
 import { formatDuration } from '../services/format-time';
@@ -625,6 +629,17 @@ export function EditorShell({ projectId, onBack }: Props) {
       playSpan(join - 1.5, join + 1.5, needsRestore);
     },
     [activeProposal, tl.timeline, previewResult, playSpan, handlePlayRemoved, showToast, rippleAllTracks],
+  );
+
+  /** Hear a cut-QA spot (B3) the way it will sound: ~2 s around it, cuts applied. */
+  const handlePlayQaSpot = useCallback(
+    (timelineTime: number) => {
+      const needsRestore = !previewResult;
+      if (needsRestore) setPreviewResult(true);
+      const start = timelineTime - QA_AUDITION_LEAD_S;
+      playSpan(start, start + QA_AUDITION_SPAN_S, needsRestore);
+    },
+    [previewResult, playSpan],
   );
 
   /** Row click / region click: select the cut and park the playhead on it. */
@@ -1465,6 +1480,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                         onSelectItem: handleSelectCutItem,
                         onPlayRemoved: handlePlayRemoved,
                         onPlayJoin: handlePlayJoin,
+                        onPlayQaSpot: handlePlayQaSpot,
                         previewResult,
                         onTogglePreviewResult: () => setPreviewResult((v) => !v),
                         onApplied: (summary) =>

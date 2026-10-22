@@ -7,9 +7,14 @@ import { useMemo } from 'react';
 import { Button } from '@shared/components/Button';
 import type { StudioCutCategory, StudioProposal, StudioProposalItem, StudioTimeline } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
-import { acceptedRemovedSeconds, timelineEndSeconds } from '../services/cut-proposal';
+import {
+  acceptedRemovedSeconds,
+  formatCutTc as formatTc,
+  timelineEndSeconds,
+} from '../services/cut-proposal';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { useRippleMode } from '../hooks/useRippleMode';
+import { CutQaReadout } from './CutQaReadout';
 
 interface Props {
   proposal: StudioProposal;
@@ -20,16 +25,11 @@ interface Props {
   onSelectItem: (item: StudioProposalItem) => void;
   onPlayRemoved: (item: StudioProposalItem) => void;
   onPlayJoin: (item: StudioProposalItem) => void;
+  /** Audition a cut-QA spot at a RESULT-timeline time (cuts applied). */
+  onPlayQaSpot: (timelineTime: number) => void;
   previewResult: boolean;
   onTogglePreviewResult: () => void;
   onApplied: (summary: string) => void;
-}
-
-/** "M:SS.d" — one decimal, because cut edges live under a second. */
-function formatTc(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds - m * 60;
-  return `${m}:${s < 10 ? '0' : ''}${s.toFixed(1)}`;
 }
 
 const CATEGORY_STYLE: Record<string, { label: string; className: string }> = {
@@ -50,6 +50,7 @@ export function ReviewCutsSection({
   onSelectItem,
   onPlayRemoved,
   onPlayJoin,
+  onPlayQaSpot,
   previewResult,
   onTogglePreviewResult,
   onApplied,
@@ -59,11 +60,13 @@ export function ReviewCutsSection({
   const removed = acceptedRemovedSeconds(proposal);
   const { rippleAllTracks } = useRippleMode();
 
-  // Honest before → after readout: run the real apply on a scratch copy.
-  const resultSeconds = useMemo(
-    () => timelineEndSeconds(applyCutProposal(timeline, proposal, { rippleAllTracks })),
+  // Honest before → after readout: run the real apply on a scratch copy (the
+  // QA spots audition on the same result).
+  const resultTimeline = useMemo(
+    () => applyCutProposal(timeline, proposal, { rippleAllTracks }),
     [timeline, proposal, rippleAllTracks],
   );
+  const resultSeconds = useMemo(() => timelineEndSeconds(resultTimeline), [resultTimeline]);
   const beforeSeconds = useMemo(() => timelineEndSeconds(timeline), [timeline]);
 
   const noteLines = (proposal.agentNote ?? '').split('\n').filter(Boolean);
@@ -77,6 +80,14 @@ export function ReviewCutsSection({
         {proposal.items.length} proposed · −{removed.toFixed(1)} s · {formatTc(beforeSeconds)} →{' '}
         {formatTc(resultSeconds)}
       </div>
+      {proposal.qa && (
+        <CutQaReadout
+          qa={proposal.qa}
+          proposal={proposal}
+          resultTimeline={resultTimeline}
+          onAudition={onPlayQaSpot}
+        />
+      )}
       {noteLines.slice(1).map((line, i) => (
         <div key={i} className="text-[10px] text-amber-500/90 leading-snug">
           ⚠ {line}
