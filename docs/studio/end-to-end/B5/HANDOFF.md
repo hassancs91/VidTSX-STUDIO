@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #6 handed off 2026-10-22 — the machine half of the pre-pass is COMPLETE (builders #1–#5); Hasan's B5 station is BUILT (long project, 21:23.09, `b5-no-model`, start snapshot), `B5/hasan-station.ps1` written (`-Reset` dry-run OK), `B5/HASAN-STEP.md` DRAFTED — NOT yet click-checked; next: the literal real-input walk-through of HASAN-STEP.md on the station)
+status: IN PROGRESS (builder #7 handed off 2026-10-22 — the machine half of the pre-pass is COMPLETE (builders #1–#5); Hasan's B5 station is BUILT (builder #6) and was opened READ-ONLY through `hasan-station.ps1 -CdpPort 9325` (hash unchanged); `B5/HASAN-STEP.md` WALKED LITERALLY with real input on the scratch B5-root (every clock / count / toast as written, corrected, banner replaced); next: the backfill alternative (patch + test, NOT applied), then B4 doc debt, gates, Status row, TESTING §18.11)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -209,6 +209,21 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   `…\B5\station\doc-readable.txt` = the transcript by take with first index (round-to-second heads; the app shows
   FLOOR, e.g. 12:19 not 12:20).
 
+- **Station opened read-only (builder #7, the orchestrator override):** through the launcher itself; 0 edits, the
+  Transcript tab was already the open tab (left there by builder #6) so no tab click either; closed by port/profile;
+  station project.json sha256 == the start snapshot (`2CFAF220…`).
+- **HASAN-STEP.md walked LITERALLY (builder #7) on the scratch B5-root** (CDP 9321, the same long project at the original
+  timeline) with real mouse/keyboard (driver `.vidtsx-temp/end-to-end/B5/station-check.mjs`, gitignored:
+  `open | setup | A | B | C | undo1 | D | back`; take found by real WHEEL scrolling to its M:SS head, word by real click,
+  one word by real double-click, ≤ 6 words by real drag, longer by click + real SHIFT+click, real Delete / Space /
+  Ctrl+Z / Ctrl+Shift+Z keys, pills + Restore by real clicks). Every instruction held; HASAN-STEP.md corrected with the
+  measured values (banner replaced by "Click-checked 2026-10-22"; `[check]` marks gone; bar + toast columns added to
+  part B; D4 = two pills `¶ 4.5s` + `¶ 0.3s`; part D = "Remove 9 fillers" → `Removed 8 fillers · −12.0 s (1 spot too
+  tight…)`; Space/double-click/Escape notes; W1–W8 cut seconds). Outputs `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\walk\`
+  (`station-open.json`, `setup.json`, `A.json`, `B.json`, `C.json` + `C-run1-extra-D6.json`, `undo1.json`, `D.json`,
+  `back.json`), stills `…\B5\stills\b5-station-open-readonly.png`, `b5-walk-setup.png`, `b5-walk-partB.png`, `b5-walk-partD.png`.
+  The only remaining "to prepare" in HASAN-STEP.md is the backfill-fix line under "After".
+
 ## Verified (exact commands + outputs)
 
 All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\`.
@@ -416,28 +431,49 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
   range deletes, Ctrl+A selects all, Escape clears (`TranscriptPanel.tsx:63-79`); the show/hide-deletions eye and the
   left tab are per-profile localStorage — leave them at their defaults (deletions SHOWN) after the click-check.
 
+**Builder #7 (2026-10-22):** C: 17.63 / D: 32.56 GB before; nothing on 5173/9321/9325, no electron; station sha256 ==
+start (`2CFAF220…`), B5-root sha256 == `…\B5\checks\original-project.json` (`19DFB578…`).
+- `powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B5\hasan-station.ps1 -CdpPort 9325` (background) +
+  `CDP_PORT=9325 node station-check.mjs open` → CDP up 20.3 s, app ready 27.1 s, real click Studio → card
+  `["video-14-raw"]` → real click; **`/ 21:23.09`**, no "Not now", tabs Media · Shots · Captions · **Transcript** ·
+  Transitions …, Transcript already open → header **"1,820 words"**, **"Remove 15 fillers"**, first head `0:00`, doc
+  1,820 tokens / 0 deletions / readOnly false, providerId **`b5-no-model`**, `diskUnchanged: true`. Stopped (matched
+  `--remote-debugging-port=9325` / `profiles\B5-station\profile` / the launcher: 1 powershell, 2 cmd, 2 node, 6 electron)
+  → `left: 0`; **station sha256 `2CFAF2205816…` == start** (no `-Reset` needed — nothing was edited).
+- `bash launch.sh` (background) + `node station-check.mjs setup` → `/ 21:23.09`, "1,820 words", "Remove 15 fillers",
+  no "Not now"; real click word 10 → focus in the body; real Space → clock `00:08.28 → 00:09.39` (1.2 s), Space →
+  `00:09.40` held 0.5 s.
+- `node station-check.mjs A` → **8/8**: head == take (wheel steps 0–11), clock == "highlight starts" exactly
+  (`01:49.57 02:05.47 06:02.45 06:45.13 03:51.23 07:55.33 15:51.59 19:06.31`), lit word == the row, Space plays and
+  stops, real double-click → bar `1 word · 1.0 s` (W5 `0.7 s`), Delete → toast `Removed 1 word · −1.0 / −3.2 / −2.2 /
+  −2.9 / −0.7 / −3.3 / −1.8 / −3.6 s`, 1 pill, real Ctrl+Z → disk == start, 1,820 tokens, 0 pills. (For "I"/"a" the
+  double-click at the span's centre selected only the trailing space in the DOM; the panel still maps it to the word.)
+- `node station-check.mjs B` → **11/11** in D11 → D1 order: head == take, clock == the column, bar count == N, toast N
+  == bar N, tokens −N, join text as the column: D11 drag `6 words · 2.1 s` → `−2.9 s`; D10 `14 · 10.1` → `−11.7`; D9
+  `30 · 9.5` → `−19.5`; D6 `26 · 14.8` → `−24.2`; D7 double-click `1 · 0.1` → `−0.1`; D8 drag `2 · 0.5` → `−5.0`; **D4
+  `8 · 7.9` → `−4.8`, TWO pills** "So you can see the real magic." + "Okay,"; D5 `31 · 19.8` → `−20.5`; D2 (215–253)
+  `39 · 26.0` → `−31.8`; D3 double-click `1 · 0.6` → `−0.6`; D1 `11 · 4.8` → `−5.7`. Length 1283.148 → **1156.398**.
+- `node station-check.mjs C` → D7 pill opened `really 0.1s Restore` (elementFromPoint = the button) → restored ("And
+  it's really a game changer for"); D4 `¶ 4.5s` + `¶ 0.3s` restored ("in just one minute. So you can see the real
+  magic. Okay, I clone it,"). **Driver bug in that run:** its D4 filter also matched D6's "…Okay, great." and
+  restored D6 as a third pill, so its Ctrl+Z / Ctrl+Shift+Z ran on D6's Restore (pills 8 → 9 → 8 — the behaviour
+  checked, on the wrong pill); fixed in the driver; `node station-check.mjs undo1` (one real Ctrl+Z) → D6 deleted
+  again = the literal state (9 pills, 1,660 tokens, 1161.307 s). Restores show no toast.
+- `node station-check.mjs D` → button **"Remove 9 fillers"** → toast **`Removed 8 fillers · −12.0 s (1 spot too tight
+  to cut cleanly)`**, left `add a uh desk cleaner.`; "Um" pill `0.06–2.129` `¶ 2.1s`, 0373 "Uh" `84.16–91.126` `¶ 7.0s`.
+- `node station-check.mjs back` → **15 real Ctrl+Z** (11 deletes + 3 restores + fillers) → timeline == original, 1,820
+  tokens, 0 pills, 15 fillers. Disk diff vs `original-project.json`: only `updatedAt`. App stopped (4 bash, 2 node,
+  1 cmd, 6 electron) → `left: 0`. C: 17.29 / D: 32.24 GB.
+- No `src/` change this session → vitest / type gate not re-run (last: builder #5, full run green, 26/10).
+
 ## Next step (ONE concrete instruction)
 
-**Orchestrator override (2026-10-22):** do the literal walk (deletes, restores, fillers — anything
-that EDITS) on the builders' scratch `B5-root` + `profiles\B5` (CDP 9321) — the same long project,
-reset to the original first — NOT on Hasan's station: overwrites of project files have been refused
-by the permission classifier before, so a `-Reset` after editing the station might not land and
-would leave his station edited. On the station itself only: launch it through `hasan-station.ps1
--CdpPort 9325`, confirm it opens to the long project (1,820 words, `/ 21:23.09`, Transcript tab there,
-no model provider), make NO edit, close it by its port/profile, and confirm the station's
-project.json sha256 still equals the start snapshot. Everything else below stands.
-
-Click-check HASAN-STEP.md literally with REAL mouse/keyboard input on the station: launch it THROUGH
-`powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B5\hasan-station.ps1 -CdpPort 9325` (background), then
-drive every instruction as written — Studio → video-14-raw, the Transcript tab and its header ("1,820 words", "Remove 15
-fillers"), Space play/pause with focus in the transcript, find each take by wheel-scrolling to its M:SS head, W1–W8
-(word click → clock == the table's "highlight starts", double-click selects exactly one word — else switch the doc to
-a drag, Delete, Ctrl+Z → disk == start), D11 → D1 in that order (click + SHIFT+click or drag; selection bar count ==
-the table's; toast; pills — does D4 leave two?), Part C (Restore D7 + D4 by real clicks, Ctrl+Z / Ctrl+Shift+Z) and
-Part D (the real "Remove N fillers" number + toast) — write a driver `.vidtsx-temp/end-to-end/B5/station-check.mjs`
-(reuse `deletes.mjs`/`checks.mjs` helpers, poll project.json ≥ 250 ms apart or read `[data-save-state]`), fix every
-wrong instruction/number in HASAN-STEP.md (remove the `[check]` marks and the DRAFT banner only when all pass), then
-close the app, run `hasan-station.ps1 -Reset`, and confirm the station project.json hash == the start snapshot.
+Prepare the backfill alternative (RULED Problem 2 (c)), NOT applied: write a failing-then-passing unit test for
+`withSpokenSpans` (`src/features/studio/services/transcript-doc.ts:107-128`) that says a 32 ms AssemblyAI-style word
+keeps its own start while a ≤ 20 ms whisper-style word is still backfilled, make the one-place change in a scratch
+copy, save the change as a patch `docs/studio/end-to-end/B5/backfill-fix.patch` (test + code, `git apply --check`
+clean on HEAD, then the working tree restored so nothing is applied), and replace HASAN-STEP.md's "[TO PREPARE …]"
+line with how to apply it; then B4 doc debt (decision 6), the gates, Status row, TESTING §18.11.
 
 ## Open problems
 
@@ -576,6 +612,10 @@ Status row, TESTING §18.11.
   scratch. Remaining after the click-check: the backfill alternative (patch + its test in `withSpokenSpans`, verified,
   NOT applied — fill HASAN-STEP's placeholder), the flip text checked (done in the draft; grep found no other gate),
   B4 doc debt (decision 6), Status row, TESTING §18.11.
+- Builder #7: the station's read-only open (hash unchanged) and the LITERAL walk of HASAN-STEP.md (setup, A 8/8, B 11/11,
+  C, D, back to the original with 15 Ctrl+Z) are DONE — do not redo them; rerun `station-check.mjs` only if an
+  instruction in HASAN-STEP.md changes (B5-root is at the original timeline; only `updatedAt` differs from
+  `original-project.json`). Do not launch the station again except read-only.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -595,3 +635,6 @@ Status row, TESTING §18.11.
 - 2026-10-22 · builder #6 · ~38 calls · Hasan's B5 station built (copies, long project 21:23.09, `b5-no-model`,
   start snapshot), `hasan-station.ps1` (+ `-Reset` dry-run), HASAN-STEP.md drafted (W1–W8 by-ear block, D1–D11,
   restore/undo, fillers, the flip diff) — not yet click-checked.
+- 2026-10-22 · builder #7 · ~46 calls · station opened read-only through its launcher (hash unchanged); HASAN-STEP.md
+  walked literally with real input on B5-root (`station-check.mjs`): A 8/8, B 11/11, C, D all as written; doc corrected
+  (bar/toast columns, D4 two pills, "Remove 9 fillers" → 8 cut, banner replaced); B5-root back to the original.
