@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: NEW
+status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; consumers next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -114,30 +114,103 @@ too — keep your D: writes small).
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+**Step 1 — data + pure resolver, `bc104c3` (2026-10-22, builder #1).** No consumer uses it yet.
+
+- `resources/skills/studio-clean-cut/cut-style.json` (41 lines): `version 1`, a `notes` string,
+  `"default": "tight"`, `styles.tight` = Hasan's fitted tight (all 12 knobs, camelCase),
+  `styles.natural` = fitted natural (8 knobs, no opt-ins), `styles.relaxed` = decision 1 values.
+  Ships: `electron-builder.yml:67-70` copies `resources/skills` → `skills` with filter `**/*`.
+- `src/shared/types/studio-cut-plan.ts:9` `CutPlanStyleName` += `'relaxed'`; `:12`
+  `CUT_PLAN_STYLE_NAMES`; `:57-102` `CutPlanKnob`, `CutStyleSpec` (`Partial<CutPlanStyle> &
+  {base?}` — the ONE shape of both a preset's `style.cut` and a project's `settings.cutStyle`),
+  `CutStyleFile`, `CutStyleSource` (`call|project|preset|pacing|default`), `ResolvedCutStyle`
+  (`styleName, style, source, overrides[], presetName?, displayName, key`).
+- `src/shared/types/studio-preset.ts:33` `StudioPresetStyle.cut?: CutStyleSpec`; `:157`
+  `StudioPresetKnobKey = Exclude<keyof StudioPresetStyle, 'cut'>` (learning nested cut knobs is
+  B4 — kept out so the learn card's `from/to: string|number|string[]` stays honest).
+- `src/shared/types/studio.ts:384` `StudioProjectSettings.cutStyle?: CutStyleSpec`. The project
+  loader spreads `settings` as-is (`project-store.ts:53`), so it round-trips with no normaliser;
+  the resolver normalises it on read.
+- `src/shared/studio/cut-style-spec.ts` (123): `CUT_PLAN_KNOBS` (display order, :16),
+  `CUT_PLAN_REQUIRED_KNOBS` (:32), `CUT_PLAN_KNOB_BOUNDS` (:39, generous typo guards; softGap to
+  1000), `isCutPlanStyleName`, `cleanKnob`, `normalizeCutStyleSpec` (:70 — garbage → undefined so a
+  bad spec = an absent one; a bare style name string → `{base}`), `parseCutStyleFile` (:113 —
+  strict, THROWS `cut-style.json: …` naming the problem; also minTail ≤ maxTail, maxHead ≥ head).
+- `src/shared/studio/cut-style-resolve.ts` (143): `resolveCutStyle(file, {callStyle?, project?,
+  preset?})` (:130). Rungs: call (the named style as-is, nothing layered) > project (`base` →
+  `file.styles[base]` + project knobs, preset ignored; knobs only → over the preset's pick, keeps
+  `presetName`) > preset `cut` (base ?? mapped pacing ?? file default, its knobs over it) > pacing
+  mapped (tight/normal/relaxed → tight/natural/relaxed) > `file.default`. `overrides` = knobs whose
+  final value ≠ the base style's. `displayName`: `tight · default`, `natural · preset “Shorts”`,
+  `natural + 1 override · preset “Shorts”`, `relaxed · project override`, `natural · requested`.
+  `cutStyleKey(style)` (:120) = FNV-1a 8 hex over every knob in fixed order (decision 5's key).
+  `pacingToCutBase` (:51, own-property check — `'toString'` maps to nothing).
+- `src/shared/studio/preset.ts:20, 142-143` `normalizePresetStyle` keeps a valid `cut` (old
+  presets gain no `cut` key; a garbage `cut` drops).
+- `src/shared/studio/cut-planner.ts:57-63` INTERIM: `CUT_PLAN_STYLES.relaxed = NATURAL_STYLE` only
+  to keep the widened `Record<CutPlanStyleName,…>` compiling; nothing passes `'relaxed'` yet.
+  These constants (`TIGHT_STYLE`, `NATURAL_STYLE`, `CUT_PLAN_STYLES`) go in step 2.
+- Tests: `src/shared/studio/cut-style-spec.test.ts` (shipped file = decisions 1–2 exactly, incl.
+  relaxed = natural×1.5 rounded; every parse error; normaliser; preset normaliser and `cut`) and
+  `src/shared/studio/cut-style-resolve.test.ts` (every rung, pacing map ×3, preset knobs w/o base
+  on pacing and on default, project base vs knobs-only, call beats all, garbage at every rung,
+  cache key equal/unequal, resolved style is a copy).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+Step 1 (2026-10-22, no electron running — `Get-Process electron` count 0):
+
+- `npx vitest run src/shared/studio/cut-style-spec.test.ts src/shared/studio/cut-style-resolve.test.ts src/shared/studio/preset.test.ts src/shared/studio/cut-planner.test.ts src/shared/studio/cut-planner-knobs.test.ts`
+  → `Test Files 5 passed (5) · Tests 78 passed (78)`.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- `npx vitest run` (full, log `.vidtsx-temp/end-to-end/B2/vitest-step1.log`) →
+  `Test Files 441 passed | 5 skipped (446) · Tests 3730 passed | 34 skipped (3764)` (51.5 s).
 
 ## Next step (ONE concrete instruction)
 
-Write `resources/skills/studio-clean-cut/cut-style.json` (three styles + `default`, decisions 1–2)
-and a pure `src/shared/studio/cut-style-resolve.ts` (`resolveCutStyle` + display name, decision 3)
-with unit tests for every precedence rung and for `pacing` mapping, widen `CutPlanStyleName` to
-include `relaxed`, and add the optional `cut` field to `StudioPresetStyle` and `cutStyle` to the
-project settings type — then hand off before touching the consumers.
+Move the main-process consumers onto the resolver and delete the old constants: add a main
+loader (e.g. `src/main/services/studio/cut-style-store.ts`: read
+`<skillsDir>/studio-clean-cut/cut-style.json` via `utils/paths.ts` (:114-119), `parseCutStyleFile`,
+cache once; plus `resolveForProject(project, callStyle?)` that loads the project's preset by
+`settings.presetId` from `preset-store` (stale id → no preset)); make `planCuts` take the resolved
+`style` + `styleName` instead of `CUT_PLAN_STYLES[req.styleName]` (`cut-planner.ts:~241`) and store
+`displayName`/`key` on the plan as OPTIONAL fields; key the plan cache by
+`${assetId}-${styleName}-${key}.json` in `cut-plan-runner.ts:62-91` (an old `<asset>-tight.json`
+must still load or be ignored without error); make the IPC auto-cut `style` optional = resolved
+(re-grep `studio-handlers.ts` near :460), `run_auto_cut`'s enum gain `relaxed` with an explicit
+style still winning (`agent-tools/workflow-tools.ts:~135`); give the editorial snap
+(`cut-tools.ts:56-62` → `cut-snap.ts:164`) the resolved style with pause compression still off;
+change the card headline `cut-proposal.ts:102` to show `displayName` (fall back to `styleName` for
+old plans); delete `TIGHT_STYLE`/`NATURAL_STYLE`/`CUT_PLAN_STYLES` and repoint their tests
+(`cut-planner.test.ts`, `cut-planner-knobs.test.ts:130` "TIGHT_STYLE sets none of them" becomes
+a test on the file's tight) — unit tests for the loader and the cache key, gates green, then hand
+off before the renderer (Transcript deletes via a new resolve IPC, picker read-out, Project
+settings, preset editor Cut section).
 
 ## Open problems
 
-(none yet)
+- (design note, not blocking) `CutStyleSpec` is `Partial<CutPlanStyle>`: a spec can change a knob
+  but cannot switch an opt-in knob OFF (e.g. "tight but no fricative rule"). Today the way to get
+  no opt-ins is base `natural`/`relaxed`. If the preset editor's Cut section needs "off", add it
+  then (e.g. `null` in the spec meaning remove) — decide in that step.
+- `validatePresetInput` (`preset.ts:~185`) does not check `style.cut` yet: add it with the preset
+  editor Cut section (the normaliser already drops bad values on save/load).
+- Decision 6 (B1 doc debt) NOT done yet: B1 STATUS row + TESTING §18.7 "211 ms" → warm-cache +
+  the verifier's ~5 s cold first open; rename the test title in
+  `src/shared/studio/rms-envelope.test.ts`. Do it in the final docs step at the latest.
 
 ## Do-not-redo
 
 - B1 (DSP, waveform v3, the four knobs, the cutlib comparison) is DONE — do not re-port or
   re-measure it. Track A is DONE. Do not touch `main`. The editor repo is READ-ONLY (Python on it
   `-I -B`).
+- Step 1 (`bc104c3`): `cut-style.json`, the types, `cut-style-spec.ts`, `cut-style-resolve.ts`
+  and their tests are written and green — extend them, do not rewrite them. The fitted values in
+  the file were copied from `cuts.json` → `styles` (re-read 2026-10-22) and are pinned by
+  `cut-style-spec.test.ts`; no need to re-read `cuts.json`.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-22 · builder #1 · ~33 calls · step 1: cut-style.json, types, pure spec/resolver +
+  tests, gates (`bc104c3`).
