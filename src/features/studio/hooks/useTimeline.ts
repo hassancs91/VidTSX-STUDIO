@@ -71,6 +71,7 @@ import {
 } from '../services/effect-ops';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { applyTextDelete, type TimelineSpan } from '../services/text-delete';
+import { tagTextDeleteEdges, tagTrimmedEdge } from '../services/clip-edit-tags';
 import { restoreDeletion } from '../services/text-restore';
 import { applyInsertProposal } from '../services/apply-insert-proposal';
 import { applyShotProposal, insertShotClip } from '../services/apply-shot-proposal';
@@ -319,20 +320,20 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         state,
         withTimeline(doc, moveClip(doc.timeline, action.clipId, action.seconds, action.toTrackId)),
       );
-    case 'trim':
+    case 'trim': {
+      const trimmed = (action.rippleAllTracks ? trimClipRippleAll : trimClip)(
+        doc.timeline,
+        action.clipId,
+        action.edge,
+        action.seconds,
+        action.sourceDuration,
+      );
+      // B4: a user trim tags the edge it moved (the learning signal).
       return commit(
         state,
-        withTimeline(
-          doc,
-          (action.rippleAllTracks ? trimClipRippleAll : trimClip)(
-            doc.timeline,
-            action.clipId,
-            action.edge,
-            action.seconds,
-            action.sourceDuration,
-          ),
-        ),
+        withTimeline(doc, tagTrimmedEdge(doc.timeline, trimmed, action.clipId, action.edge)),
       );
+    }
     case 'split':
       return commit(state, withTimeline(doc, splitClip(doc.timeline, action.clipId, action.seconds)));
     case 'remove':
@@ -371,7 +372,10 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
         state,
         withTimeline(
           doc,
-          applyTextDelete(doc.timeline, action.spans, { rippleAllTracks: action.allTracks }),
+          tagTextDeleteEdges(
+            doc.timeline,
+            applyTextDelete(doc.timeline, action.spans, { rippleAllTracks: action.allTracks }),
+          ),
         ),
       );
     case 'text-restore':

@@ -7,7 +7,7 @@
 // cut. Locked tracks never move. Markers (absolute timeline seconds) follow
 // the same rule. Pure; the identical object comes back when nothing changes.
 
-import { masterLane } from '@shared/studio';
+import { masterLane, withoutEdgeTag } from '@shared/studio';
 import type { StudioClip, StudioMarker, StudioTimeline, StudioTrack } from '../types';
 import {
   MIN_CLIP_DURATION,
@@ -54,8 +54,9 @@ export function cutSpanFromClips(
     const rightDuration = end - to;
     const hasLeft = leftDuration >= MIN_CLIP_DURATION;
     const hasRight = rightDuration >= MIN_CLIP_DURATION;
+    // B4: a piece's edge at the cut is new, so it drops that edge's edit tag.
     if (hasLeft) {
-      const left: StudioClip = { ...clip, duration: leftDuration };
+      const left: StudioClip = withoutEdgeTag({ ...clip, duration: leftDuration }, 'end');
       if (hasRight) {
         // Same convention as splitClip: the two pieces are separate cuts now,
         // so a fade or transition at the removed middle would be audible.
@@ -67,7 +68,7 @@ export function cutSpanFromClips(
     if (hasRight) {
       const offset = to - start;
       const right: StudioClip = {
-        ...clip,
+        ...withoutEdgeTag(clip, 'start'),
         id: hasLeft ? newId() : clip.id,
         timelineStart: from,
         duration: rightDuration,

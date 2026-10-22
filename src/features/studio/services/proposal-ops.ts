@@ -50,7 +50,12 @@ export function setProposalItemStatus(
   });
 }
 
-/** Move one item's edges (drag). Marks the item user-adjusted. */
+/**
+ * Move one item's edges (drag). Marks the item user-adjusted. B4: the span
+ * before the FIRST drag is kept as `snapped` (when the creator did not already
+ * write it), so learn-from-video can see where the user moved each edge; an
+ * item adjusted before B4 has no snapped span and stays without one.
+ */
 export function setProposalItemSpan(
   proposals: StudioProposal[],
   proposalId: string,
@@ -62,7 +67,14 @@ export function setProposalItemSpan(
     if (proposal.status !== 'proposed') return proposal;
     return withItem(proposal, itemId, (item) => {
       if (item.sourceStart === sourceStart && item.sourceEnd === sourceEnd) return item;
-      return { ...item, sourceStart, sourceEnd, adjusted: true };
+      const from = item.sourceStart;
+      const to = item.sourceEnd;
+      const snapped =
+        item.snapped ??
+        (!item.adjusted && from !== undefined && to !== undefined
+          ? { sourceStart: from, sourceEnd: to }
+          : undefined);
+      return { ...item, ...(snapped ? { snapped } : {}), sourceStart, sourceEnd, adjusted: true };
     });
   });
 }

@@ -66,6 +66,8 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
     assetId: input.assetId,
     sourceStart: item.sourceStart,
     sourceEnd: item.sourceEnd,
+    // B4: the snapped span, kept beside the final one an edge drag writes.
+    snapped: { sourceStart: item.sourceStart, sourceEnd: item.sourceEnd },
     category: item.category as StudioCutCategory,
     ...(item.text ? { text: item.text } : {}),
     ...(item.note ? { note: item.note } : {}),

@@ -81,6 +81,13 @@ describe('buildCutProposal', () => {
     ]);
     expect(proposal.kind).toBe('cut-plan');
     expect(proposal.status).toBe('proposed');
+    // B4: every item keeps the planner's span beside the one a drag rewrites.
+    expect(proposal.items.map((i) => i.snapped)).toEqual([
+      { sourceStart: 0, sourceEnd: 1 },
+      { sourceStart: 5, sourceEnd: 8 },
+      { sourceStart: 12, sourceEnd: 14.5 },
+      { sourceStart: 19, sourceEnd: 20 },
+    ]);
   });
 
   it('starts every item accepted — review is veto-based', () => {

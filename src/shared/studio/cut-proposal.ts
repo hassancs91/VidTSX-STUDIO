@@ -92,6 +92,8 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
       assetId: plan.assetId,
       sourceStart: span.start,
       sourceEnd: span.end,
+      // B4: the planner's span, kept beside the final one an edge drag writes.
+      snapped: { sourceStart: span.start, sourceEnd: span.end },
       category: categoryForGap(gap),
       ...(inside.length > 0 ? { text: inside.join(' ') } : {}),
       note: parts.join(' '),

@@ -249,6 +249,11 @@ describe('buildEditorialProposal', () => {
     });
     expect(proposal.items[1].status).toBe('rejected');
     expect(proposal.items[1].category).toBe('fluff');
+    // B4: the snapped span is kept beside the final one an edge drag writes.
+    expect(proposal.items.map((i) => i.snapped)).toEqual([
+      { sourceStart: 1, sourceEnd: 2 },
+      { sourceStart: 4, sourceEnd: 5 },
+    ]);
   });
 
   it('writes an honest headline plus the summary and fluff hint', () => {
