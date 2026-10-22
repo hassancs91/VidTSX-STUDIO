@@ -4,6 +4,7 @@ import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StudioProject } from '../../../shared/types/studio';
 import type { StudioPresetEntry, StudioPresetStyle } from '../../../shared/types/studio-preset';
+import type { CutPlanStyleName } from '../../../shared/types/studio-cut-plan';
 import { cutStyleKey } from '../../../shared/studio/cut-style-resolve';
 
 const env = vi.hoisted(() => ({
@@ -122,6 +123,17 @@ describe('resolveProjectCutStyle', () => {
     env.project = null;
     const r = await resolveProjectCutStyle('p1', { callStyle: 'relaxed' });
     expect(r).toMatchObject({ styleName: 'relaxed', source: 'call', displayName: 'relaxed · requested' });
+  });
+
+  it('an unknown call style is refused, never quietly the file default (verifier B2 round 1)', async () => {
+    env.presets.set('course', preset('course', { pacing: 'relaxed' }, 'Course lesson'));
+    env.project = project({ presetId: 'course' });
+    const junk = 'loose' as unknown as CutPlanStyleName;
+    await expect(resolveProjectCutStyle('p1', { callStyle: junk })).rejects.toThrow(
+      /Unknown cut style "loose" — use tight, natural, relaxed/,
+    );
+    // Omitting it is the project's style, not the default.
+    expect(await resolveProjectCutStyle('p1')).toMatchObject({ styleName: 'relaxed', source: 'pacing' });
   });
 
   it('an unreadable project resolves to the default instead of failing', async () => {

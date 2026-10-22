@@ -69,9 +69,31 @@
   (e.g. `null` = remove). The agent tools still read the project from disk (like `get_preset`), the button reads
   the live document; they agree once autosave lands (<1 s). B1's finding stands (Studio's `snapHead` can lead in up
   to +150 ms longer than cutlib's where a 20 ms bucket edge is loud) — B3 measures.
-- **Open:** `PresetForm.tsx` is 307 lines (move the style grid out when next touched); the Project settings modal's
-  X has no aria-label/title (pre-existing).
-- **Next:** the B2 verifier; then B3.
+- **Fix round 1 (2026-10-22, after the verifier's FAIL):** the agent's `run_auto_cut` did NOT use the resolved style
+  in preset projects — the prompt's "EDITING PRESET" mapping (`auto_cut` light/normal → `run_auto_cut(style:
+  "natural")`, aggressive → `"tight"`) sent a call style, the top rung, so the agent's Auto Cut skipped the project
+  override and the preset's cut (Course lesson: agent natural, button / Transcript deletes / editorial relaxed). Now
+  `studio-agent-prompt-tools.ts` says an `auto_cut` step runs `run_auto_cut` WITHOUT `style` (the project's cut style
+  comes from the preset or the project override; the step's aggressiveness does not pick a style; pass `style` only
+  when the user asked for one in this conversation) — the tool line and the generic workflow step say the same — and
+  the preset block's knob line names a preset's own cut (`describePresetStyle`: `pacing tight · cut style natural,
+  lead-in 0.25 s`). No other prompt/skill text instructs a style (grep of `resources/skills/**`,
+  `resources/presets/*/PRESET.md` — their "Auto Cut runs light/normal/aggressive" lines are prose and name no
+  `style` — `preset-workflow-lines.ts`, `studio-agent-prompt*.ts`). An unknown style name in a call is now refused
+  with a typed error instead of silently becoming the file default. `PresetForm.tsx` 307 → 246 lines (the style
+  grid moved to `PresetStyleFields.tsx`, 83). **Evidence (no model call needed):** NEW `run-auto-cut.test.ts` runs
+  the REAL `run_auto_cut` handler with the real cut-style store, preset-store, runner and planner, the shipped
+  `cut-style.json` and the shipped Course lesson preset on a fixture project: no style → reply and plan `relaxed ·
+  preset “Course lesson”`, plan file `a1-relaxed-<key of the shipped relaxed>.json`; project override `{base:
+  natural, head: 0.25}` → `natural + 1 override · project override`; explicit `tight` (the user asked) → `tight ·
+  requested`. `studio-agent-prompt.test.ts` +4 (the full prompt and the block of each of the three shipped presets
+  contain no `run_auto_cut(style:` / `style: "<name>"`; run against the old prompt text the test FAILS),
+  `agent-preset-prompt.test.ts` +2, `cut-style-store.test.ts` +1 (unknown name refused; omitted = the preset's
+  relaxed). Gates: `npm run check:types` web 26 / node 10 = baseline; `npx vitest run --maxWorkers=4` **448 files
+  passed, 5 skipped; 3788 tests passed, 34 skipped, 91.8 s** (the counted run; three default-width runs each had only
+  the known `shot-module-resolver.test.ts:151` 5 s load timeout).
+- **Open:** the Project settings modal's X has no aria-label/title (pre-existing).
+- **Next:** the B2 verifier (round 2); then B3.
 
 ## 2026-10-22 — END-TO-END B1: ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs — DONE
 

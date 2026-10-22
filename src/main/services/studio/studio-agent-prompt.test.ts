@@ -1,6 +1,10 @@
+import fs from 'fs/promises';
+import path from 'path';
 import { describe, it, expect } from 'vitest';
 import { buildAgentSystemPrompt, formatShotLine } from './studio-agent-prompt';
+import { composePresetBlock } from './agent-preset-prompt';
 import type { StudioShot } from '@shared/types/studio';
+import type { StudioPresetEntry } from '@shared/types/studio-preset';
 
 function shot(overrides: Partial<StudioShot> = {}): StudioShot {
   return {
@@ -59,6 +63,31 @@ describe('buildAgentSystemPrompt — shot pool section', () => {
     const prompt = buildAgentSystemPrompt({ ...base, shots: [] });
     expect(prompt).toContain('(empty — no shots generated or imported yet)');
   });
+});
+
+describe('buildAgentSystemPrompt — run_auto_cut takes the project cut style (B2 fix round 1)', () => {
+  const FORCED_STYLE = /run_auto_cut\(style:|style: *"(tight|natural|relaxed)"/;
+
+  it('no aggressiveness → style mapping; omit `style` unless the user asked', () => {
+    const prompt = buildAgentSystemPrompt({ projectName: 'T', assets: [], shots: [], toolsAvailable: true, reviewOpen: false });
+    expect(prompt).not.toMatch(FORCED_STYLE);
+    expect(prompt).not.toContain('light or normal');
+    expect(prompt).toContain('an `auto_cut` step runs `run_auto_cut` WITHOUT `style`');
+    expect(prompt).toContain('does not pick a style; pass `style` only when the user asked for one in this conversation');
+  });
+
+  it.each(['course-lesson', 'talking-head-short', 'youtube-long-form'])(
+    'the shipped %s preset block forces no style either, and names its cut style source',
+    async (id) => {
+      const dir = path.resolve(process.cwd(), 'resources/presets', id);
+      const json = JSON.parse(await fs.readFile(path.join(dir, 'preset.json'), 'utf-8')) as Omit<StudioPresetEntry, 'id' | 'body'>;
+      const body = await fs.readFile(path.join(dir, 'PRESET.md'), 'utf-8');
+      const { block } = composePresetBlock({ ...json, id, body });
+      expect(block).toMatch(/\d\. auto_cut \((light|normal|aggressive)\)/);
+      expect(block).toMatch(/Style knobs: pacing (tight|normal|relaxed)/);
+      expect(block).not.toMatch(FORCED_STYLE);
+    },
+  );
 });
 
 describe('buildAgentSystemPrompt — W3 state block and workflows', () => {

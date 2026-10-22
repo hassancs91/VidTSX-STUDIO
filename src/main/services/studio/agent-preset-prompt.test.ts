@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { composePresetBlock, describePresetStyle } from './agent-preset-prompt';
-import type { StudioPresetEntry } from '../../../shared/types/studio-preset';
+import type { StudioPresetEntry, StudioPresetStyle } from '../../../shared/types/studio-preset';
 
 function preset(overrides: Partial<StudioPresetEntry> = {}): StudioPresetEntry {
   return {
@@ -25,6 +25,31 @@ describe('describePresetStyle', () => {
     expect(describePresetStyle({ shotsPerMinute: 1.5, introSeconds: 8, transitions: ['crossfade'] })).toBe(
       'about 1.5 shots per minute · transitions crossfade · intro 8 s',
     );
+  });
+
+  it("names the preset's own cut style next to pacing (B2 fix round 1)", () => {
+    // base + the knobs it sets — so "pacing tight" is not read as the cut style
+    expect(describePresetStyle({ pacing: 'tight', cut: { base: 'natural', head: 0.25 } })).toBe(
+      'pacing tight · cut style natural, lead-in 0.25 s',
+    );
+    // no base: the style its pacing maps to (normal → natural); knobs in display order
+    expect(describePresetStyle({ pacing: 'normal', cut: { margin: 8, head: 0.2, fricZcr: 4000 } })).toBe(
+      'pacing normal · cut style natural, lead-in 0.2 s, decay margin 8 dB, fricative ZCR 4000 /s',
+    );
+    // neither base nor pacing: the file default
+    expect(describePresetStyle({ cut: { minTail: 0.1 } })).toBe('cut style default, tail min 0.1 s');
+    // a bare base; a garbage cut is not mentioned
+    expect(describePresetStyle({ cut: { base: 'relaxed' } })).toBe('cut style relaxed');
+    expect(describePresetStyle({ pacing: 'relaxed', cut: { base: 'loose' } as unknown as StudioPresetStyle['cut'] })).toBe(
+      'pacing relaxed',
+    );
+  });
+
+  it('a preset with a cut puts it in the prompt block\'s knob line', () => {
+    const block = composePresetBlock(
+      preset({ style: { pacing: 'tight', cut: { base: 'natural', head: 0.25 }, captions: 'karaoke' } }),
+    ).block;
+    expect(block).toContain('Style knobs: pacing tight · cut style natural, lead-in 0.25 s · captions karaoke.');
   });
 });
 

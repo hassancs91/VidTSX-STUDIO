@@ -15,7 +15,8 @@ import type {
   ResolvedCutStyle,
 } from '../../../shared/types/studio-cut-plan';
 import type { StudioPreset } from '../../../shared/types/studio-preset';
-import { parseCutStyleFile } from '../../../shared/studio/cut-style-spec';
+import { CUT_PLAN_STYLE_NAMES } from '../../../shared/types/studio-cut-plan';
+import { isCutPlanStyleName, parseCutStyleFile } from '../../../shared/studio/cut-style-spec';
 import { resolveCutStyle } from '../../../shared/studio/cut-style-resolve';
 import { logEngine } from '../../../logging/log-engine';
 import { getSkillsDir } from '../../utils/paths';
@@ -105,7 +106,14 @@ export async function resolveProjectCutStyle(
   opts: ResolveProjectCutStyleOptions = {},
 ): Promise<ResolvedCutStyle> {
   const file = await loadCutStyleFile();
-  if (opts.callStyle) return resolveCutStyle(file, { callStyle: opts.callStyle });
+  if (opts.callStyle !== undefined) {
+    // An explicit style is the top rung — a name the file does not have must
+    // not quietly become the file default (verifier B2 round 1): refuse it.
+    if (!isCutPlanStyleName(opts.callStyle)) {
+      throw new Error(`Unknown cut style "${String(opts.callStyle)}" — use ${CUT_PLAN_STYLE_NAMES.join(', ')}, or omit it for the project's style.`);
+    }
+    return resolveCutStyle(file, { callStyle: opts.callStyle });
+  }
   const settings = opts.settings ?? (await readSettings(projectId));
   const preset = await readProjectPreset(settings?.presetId);
   return resolveCutStyle(file, { project: settings ? { settings } : null, preset });
