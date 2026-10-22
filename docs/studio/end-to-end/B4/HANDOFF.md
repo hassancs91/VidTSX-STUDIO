@@ -395,6 +395,18 @@ step 5 and Hasan's station):
    tail), so accepting writes a lower cap than the fitted tight's 0.7. Not in the exit; the card
    says "at least". A per-knob opt-out on the card would be new UI — not built.
 
+**RULED (orchestrator, 2026-10-22 18:05):**
+- **7 — accepted (supersedes ruling 6's "project override" for BOTH the stand-in and Hasan's
+  station):** the start style lives on the station project's PRESET — a scratch user preset in that
+  isolated profile (e.g. "B4 start — old tight": `style.cut = {base:'tight', head:0.11,
+  minTail:0.14, maxTail:0.4, margin:5}`), assigned to the project, NO `settings.cutStyle`. Accept
+  must then visibly move that preset to the fitted tight (head 0.15 / minTail 0.08 / margin 12 —
+  the base values, so the overrides drop); record the preset.json before/after.
+- **8 — accepted as built:** `maxTail` is a lower bound — it is only ever RAISED (to the longest
+  tail the user kept), never lowered below the current cap; the card says "at least N s". Add a
+  unit test that a user whose tails are all shorter than the current cap gets no `maxTail`
+  change. No per-knob opt-out (follow-up).
+
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
