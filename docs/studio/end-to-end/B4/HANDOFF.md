@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) DONE; step 3 (the learn path in main: propose_preset_update → report → card data → accept writes `style.cut`) DONE; step 4 (the card UI) next, then the M2 stand-in
+status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) DONE; step 3 (the learn path in main: propose_preset_update → report → card data → accept writes `style.cut`) DONE; step 4 (the card UI + ruling 8's maxTail guard) DONE; step 5 (the M2 stand-in + CDP click-through) next, then Hasan's station (step 6) and the gates/docs (step 7)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -256,7 +256,47 @@ rendered yet.
   "Learned from 9 joins — at least 10 …" line; project override → measured against it + the
   override line; no trimmed join → no `cutLearn`/`cutLines`. `preset-knob-apply.test.ts` (3).
 
+**Step 4 — the card UI + ruling 8 (builder #4, 2026-10-22; code `f39a220`).** No main code touched.
+
+- Ruling 8 (maxTail only raised): `fitTails` skips every cap below the style's
+  (`src/shared/studio/cut-learn-fit.ts:86`, `if (M < m || M < style.maxTail) continue;`). Test
+  `cut-learn.test.ts:98` "never lowers maxTail …": user tails clipped at 0.15 s under the fitted
+  tight (cap 0.7) → other knobs change, no `maxTail` change, `fitted.maxTail` 0.7. **It FAILED
+  without the guard** (`expected { knob: 'maxTail', from: 0.7, … } to be undefined` — the fit
+  lowered the cap), passes with it; the step-1/3 numbers (old tight → maxTail 0.5) are unchanged.
+- `src/features/studio/components/CutLearnBlock.tsx` (95, new): `proposal.cutLines` each as one
+  dim line (main wrote every number; the block computes none), then a toggle "Show the N joins it
+  measured" → a scrollable table (max 200 px): Join = `<file name> @ <edge s>` + `lastWord |
+  nextWord` + `skipped`; "Tail you / style" = `tail s · tailDb dB / styleTail s · styleTailDb dB`
+  (+ "(soft)" when the style lands it soft); "Lead-in you / style". Hooks:
+  `[data-preset-update-cut]`, `[data-preset-update-cut-line]`, `[data-preset-update-toggle-joins]`,
+  `[data-preset-update-joins]`, `[data-preset-update-join=<ref>]`.
+- `PresetUpdateCard.tsx:88-90` renders the block under the knob table only when `cutLines` is
+  non-empty (old cards / no trimmed join → nothing new); new optional prop `assetNames` (:13).
+  `AgentPanel.tsx:103` builds `assetNames` (id → file name via `assetName` from
+  `services/agent-chat-format.ts`) from a new optional `assets` prop; `EditorShell.tsx:1535`
+  passes `project.assets`. (AgentPanel was already 420 lines before B4; +5.)
+- No renderer test: the card had none (the brief's rule).
+
 ## Verified (exact commands + outputs)
+
+Step 4:
+
+- `npx vitest run src/shared/studio/cut-learn.test.ts src/shared/studio/cut-learn-joins.test.ts
+  src/main/services/studio/agent-tools/preset-tools.test.ts` → `Test Files 3 passed (3) · Tests
+  23 passed (23)`. Same file set with `cut-learn-fit.ts` stashed → `Tests 1 failed | 8 passed (9)`
+  in `cut-learn.test.ts` (the new test; guard restored after).
+- Subset `npx vitest run src/features/studio src/main/services/studio src/shared/studio
+  src/main/services/agents src/main/ipc` (log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-step4-subset.log`)
+  → `Test Files 1 failed | 239 passed | 2 skipped (242) · Tests 1 failed | 2048 passed | 23
+  skipped (2072)` (36.61 s) — the one failure is the KNOWN load timeout
+  `shot-module-resolver.test.ts` "a changed transpiler fingerprint misses every tier" (5032 ms);
+  alone: `npx vitest run src/main/services/studio/shot-module-resolver.test.ts` → `Tests 10
+  passed (10)` (593 ms). DRIVING.md load rule.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Disk at step 4: C: 2.3 GB, D: 5.8 GB free. No app launched — the card is NOT yet seen live
+  (step 5's click-through).
 
 Step 3:
 
@@ -310,15 +350,28 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-Step 4 — the card UI, then hand off: in `src/features/studio/components/PresetUpdateCard.tsx`
-(126 lines; the four `cut.*` labels are already in `KNOB_LABEL`) render `proposal.cutLines` (a
-"Cut" block under the knob table, each line as given — main wrote the numbers) and a collapsed
-per-join list from `proposal.cutLearn.joinsList` (asset, tail edge → tail s / dB vs the style's,
-lead-in vs the style's, `skipped`), absent when `cutLearn` is absent (old cards / no trimmed
-join); split the list into its own component if the card would pass ~300 lines; add a renderer
-test only if the card already has one. Do not touch main. Then the M2 stand-in (decision 5, on
-`B2-root` + `profiles\B2\profile`, CDP 9301) is step 5 — it needs the orchestrator's ruling on
-Open problem 7 first (where the start style lives).
+Step 5 — the M2 stand-in (decision 5 as amended by ruling 7) on `B2-root` +
+`profiles\B2\profile`, CDP 9301, no model call: (a) in that profile's preset library create the
+scratch user preset "B4 start — old tight" (`style.cut = {base:'tight', head:0.11, minTail:0.14,
+maxTail:0.4, margin:5}`), assign it to `B2-root\projects\video-14-raw` (`settings.presetId`),
+remove any `settings.cutStyle`, clear its timeline, save that preset.json as the BEFORE copy
+(small, `.vidtsx-temp/end-to-end/B4/`); (b) in the app, Auto Cut + apply over the Act-1 raw span
+(map preview-tight 0:00–1:55 through the editor's `cuts.json` keeps — read-only — to clips
+0369…0371; list the joins used), then trim ≥ 10 (aim 21) sentence joins through the reducer's
+`'trim'` action (what `useClipDrag.ts:274` dispatches) to the FITTED-tight edges (compute them
+with `tailFor`/`styleLeadIn` + `FITTED_TIGHT` on that asset's v3 envelope + transcript words, e.g.
+in an env-flagged scratch vitest like B1's `compare.b1.test.ts`); (c) learn: the Inspector →
+Project "Learn from this video" button (`studioPresetLearn` → `learn-from-project.ts:50`
+`llmSummary`) makes ONE LLM call, so first read `runLlmGenerate` and confirm an unconfigured
+`providerId` fails locally with no network; if it does, set the scratch project's
+`settings.agent.providerId` to such an id, click the button, and screenshot the card's cut block
++ opened joins list (summary "numbers only"); if it does not, run the REAL `propose_preset_update`
+handler with `summary` set from the scratch harness on the saved project.json instead, and render
+the card live only after a way without a model call is found (else record it as an open problem);
+(d) Accept → the preset's `style.cut` = `{base:'tight'}` + any raised `maxTail` (head/minTail/
+margin back to base = the overrides drop) — save the AFTER preset.json; (e) negatives (decision
+5): joins trimmed to the start preset's own edges → no cut change; < 10 touched joins → the "Learned
+from N joins — at least 10 …" line. Record every number (n, medians, fitted, changes) in Verified.
 
 ## Open problems
 
@@ -407,6 +460,18 @@ step 5 and Hasan's station):
   unit test that a user whose tails are all shorter than the current cap gets no `maxTail`
   change. No per-knob opt-out (follow-up).
 
+Step 4 notes (no ruling needed; for step 5 and Hasan's step):
+
+- **The deterministic path exists:** Inspector → Project → "Learn from this video"
+  (`PresetLearnSection.tsx`, IPC `preset-learn-handlers.ts:42` → `learnFromProject`) computes every
+  number in code and puts the same card in the Assistant tab — HASAN-STEP.md should name it (or
+  "ask the assistant: learn from this video"). Its one-sentence `summary` IS a model call
+  (`learn-from-project.ts:50`, the project's agent provider) unless `summary` is passed (the tool
+  path's argument); on failure the card says "numbers only". Fine for Hasan; for OUR stand-in it
+  means the button may only be clicked with a provider that cannot reach a model (step 5 (c)).
+- The card's per-join rows name the asset by file name only when `AgentPanel` gets `assets`
+  (EditorShell passes them); anywhere else they fall back to the first 8 chars of the asset id.
+
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
@@ -420,6 +485,9 @@ step 5 and Hasan's station):
   `cut-learn-format.ts`, `preset-knob-apply.ts` (applyKnobChanges moved there), accept through it
   with B2's check, the tool-result line, the shared fixtures, 8 tests. Do not re-wire the main
   learn path; the card UI only reads `cutLines` / `cutLearn`.
+- Step 4 is DONE: `CutLearnBlock.tsx` + its place on `PresetUpdateCard` + the `assets` →
+  `assetNames` plumbing (EditorShell → AgentPanel → card); ruling 8's guard in `fitTails` + its
+  test. Change the card only if the live click-through shows a real defect.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -430,3 +498,7 @@ step 5 and Hasan's station):
 - 2026-10-22 · builder #3 · ~40 calls · step 3: the learn path in main (knob key widened,
   learnProjectCutKnobs, card lines, accept writes `style.cut` with B2's check), 8 tests through the
   real tool + accept handlers; subset vitest green; types 26/10; no app launch.
+- 2026-10-22 · builder #4 · ~30 calls · step 4: the card's cut block + collapsed per-join list
+  (`CutLearnBlock.tsx`), asset names plumbed from EditorShell; ruling 8 (`maxTail` never fitted
+  below the cap) + a test that fails without it; subset vitest green bar the known load timeout
+  (passes alone); types 26/10; no app launch.
