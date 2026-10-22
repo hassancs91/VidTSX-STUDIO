@@ -3,8 +3,11 @@ import { Button } from '@shared/components';
 import type { RenderQueueJob } from '@shared/ipc/types';
 import { RenderProgress } from './RenderProgress';
 import { RenderItemDetails } from './RenderItemDetails';
+import { SyncCheckPanel } from './SyncCheckPanel';
 import { getFormatLabel, formatResolution, formatFileSize } from '../services/queue-manager';
+import { isSyncCheckableJob } from '../services/sync-check';
 import { useJobProgress } from '../contexts/RenderQueueContext';
+import { useExportSyncCheck } from '../hooks/useExportSyncCheck';
 
 interface RenderItemProps {
   job: RenderQueueJob;
@@ -58,6 +61,7 @@ export function RenderItem({ job, onCancel, onRetry, onOpenFile, onOpenFolder }:
   const [expanded, setExpanded] = useState(false);
   const liveProgress = useJobProgress(job.status === 'rendering' ? job.id : undefined);
   const progress = liveProgress?.percent ?? job.progress;
+  const syncCheck = useExportSyncCheck(job);
 
   const getStatusText = () => {
     switch (job.status) {
@@ -174,6 +178,17 @@ export function RenderItem({ job, onCancel, onRetry, onOpenFile, onOpenFolder }:
               <Button variant="secondary" onClick={() => onOpenFolder(job.outputPath)}>
                 Folder
               </Button>
+              {isSyncCheckableJob(job) && (
+                <Button
+                  variant="secondary"
+                  onClick={() => void syncCheck.start()}
+                  disabled={syncCheck.state.status === 'running'}
+                  title="Check that sound and picture line up, against the first camera clip's file"
+                  data-sync-check-button
+                >
+                  Check A/V
+                </Button>
+              )}
             </>
           )}
           {job.status === 'error' && (
@@ -206,6 +221,14 @@ export function RenderItem({ job, onCancel, onRetry, onOpenFile, onOpenFolder }:
           </div>
         </div>
       )}
+
+      {/* "Check A/V" progress + verdict (T8) */}
+      <SyncCheckPanel
+        state={syncCheck.state}
+        onCancel={() => void syncCheck.cancel()}
+        onDismiss={syncCheck.dismiss}
+        onOpenReport={onOpenFile}
+      />
 
       {/* Expanded details panel */}
       {expanded && <RenderItemDetails job={job} />}

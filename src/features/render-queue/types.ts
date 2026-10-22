@@ -40,3 +40,21 @@ export interface AddJobOptions {
   /** 'proxy' = a draft read from the preview proxies (docs/studio/EXPORT_OUTPUT_OPTIONS_PLAN.md). */
   exportSource?: import('@shared/studio/export-source').ExportSource;
 }
+
+/**
+ * The queue row's "Check A/V" state (T8, END_TO_END_PLAN A6): idle until the
+ * button is clicked; running with probes done of total (0 of 0 while main
+ * reads the export); then the verdict with the report beside the file, or a
+ * plain error.
+ */
+export type SyncCheckState =
+  | { status: 'idle' }
+  | { status: 'running'; done: number; total: number }
+  | {
+      status: 'result';
+      verdict: import('@shared/studio/sync-verdict').SyncVerdict;
+      reportPath?: string;
+      probes?: { confident: number; total: number };
+      elapsedMs?: number;
+    }
+  | { status: 'error'; message: string };
