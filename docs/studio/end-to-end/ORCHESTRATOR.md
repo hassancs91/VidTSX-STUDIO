@@ -20,8 +20,8 @@
 | B2 | DONE | 7 | FAIL round 1 (agent prompt maps `auto_cut` aggressiveness → `run_auto_cut(style:)`, overriding the resolved style in every preset project) → fix `5ff0c37` → PASS round 2 | `bc104c3`, `4f0b33b`, `b86b279`, `c50968f`, `bf46298`, fix `5ff0c37`; docs `3a0d510`, `3ce32af` | Card headline live: `Auto Cut (natural + 1 override · preset “YouTube long-form”)`, `relaxed · preset “Course lesson”`, `tight · project override`; Transcript delete edges = `snapEditorialCuts` edges per style (to 1e-9, 3 selections × 4 styles), different styles → different edges; override survives 4K→1080p→undo→redo; real `run_auto_cut` handler: 14/14 control cases (each preset → its style, override, explicit, unknown name refused), 9/14 fail on a stubbed resolver; vitest 448 / 3788 green; types 26/10 | 2026-10-22 12:20 / 14:44 |
 | B3 | DONE | 5 | PASS (1 round) | `e583d26`, `47bc6a1`, `99d825d`; docs `f27284a`, `1adc017` | Hasan's hand plan (8 clips with keeps), tight: hard entries 0 / 133 joins (analyze_cut 0 / 134), tails 178 / 200 (analyze_cut 181, = his qa-report; 3 bucket-edge misses at +5.8–5.9 dB); live Auto Cut all 9 clips: hard 1 / 164 (0373 @ 323.198 s, untranscribed sound inside his retake cut — true positive), tails 265 / 298 (analyze_cut 1 / 165, 268 / 298); head-0 negatives 101–130 hard; margin 12/18/24 tight 265/265/265 (landings +11.45 → +16.23 dB), natural 6/12/18 106/132/132; auditions cross the join ±1.0 s with cuts applied; vitest 451 / 3814 green (python-models test excluded for disk); types 26/10 | 2026-10-22 14:50 / 16:45 |
 | B4 | **WAITING-HASAN** (built + verified up to his step; verifier PASS round 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
-| B5 | VERIFY (round 2) | 10 | FAIL round 1 (closing the project during a > ~6 s file lock silently loses the edit — close path gives up after 3 flushes; quit has the same older hole) → fix `750c0d0` (main owns the close-time write, 10 min background retry; quit waits 4 s then `.tmp`; recovery on open) | `fb32ab1` (UTF-8 fix); `aa58ee8` (autosave retry + stay dirty; Restore into view); `e69d182` (filler toast counts what was removed); docs `fd9a6b8`, station `8bf5433`, walk `3e7a285`, `bf9e930` (backfill patch prepared, not applied; Status + TESTING §18.11) | long project 21:23.09, 1,820 words, open 231–563 ms, 27/27 seeks at 0 frames, karaoke 0 mismatches; BUG em-dash mojibake | 2026-10-22 / |
-| B6 | TODO | | | | | |
+| B5 | **WAITING-HASAN** (built + verified up to his step; verifier FAIL round 1 → PASS round 2) | 10 | FAIL round 1 (closing the project during a > ~6 s file lock silently loses the edit — close path gives up after 3 flushes; quit has the same older hole) → fix `750c0d0` (main owns the close-time write, 10 min background retry; quit waits 4 s then `.tmp`; recovery on open) | `fb32ab1` (UTF-8 fix); `aa58ee8` (autosave retry + stay dirty; Restore into view); `e69d182` (filler toast counts what was removed); docs `fd9a6b8`, station `8bf5433`, walk `3e7a285`, `bf9e930` (backfill patch prepared, not applied; Status + TESTING §18.11) | long project 21:23.09, 1,820 words, open 231–563 ms, 27/27 seeks at 0 frames, karaoke 0 mismatches; BUG em-dash mojibake | 2026-10-22 / |
+| B6 | BUILDING | 0 | | | | 2026-10-22 / |
 | C1 | TODO | | | | | |
 | C2 | TODO | | | | | |
 | C3 | TODO | | | | | |
@@ -412,3 +412,46 @@
   "medians differ" (the ruling replaced it).
 - Permission classifier refused several file overwrites/copies during verification (scratch
   project restores); verifiers did not work around it.
+
+### B5 — WAITING-HASAN (2026-10-22): what Hasan must do
+
+- **His step:** follow `docs/studio/end-to-end/B5/HASAN-STEP.md` on his B5 station (run
+  `powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B5\hasan-station.ps1` — this
+  branch's dev build on `…\vidtsx-e2e\B5-station-root` + `…\profiles\B5-station`; never his own
+  profile): the long project (all nine raw clips, 21:23, 1,820 AssemblyAI words) in the Transcript
+  tab — Part A: 8 words the whisper backfill moves earlier (does the highlight start where he hears
+  the word? does deleting it lose sound before it?); Part B: 11 deletes (retakes, a filler, a word
+  in a sentence, a phrase, a stutter, one across 0372→0373), each played across the join; Part C
+  restore + undo/redo; Part D "Remove N fillers". "Clean" = no clipped starts/ends, no click, no
+  word lost or doubled, restore exact.
+- **Then his calls:** (1) if Part A says the moved starts are wrong → apply
+  `docs/studio/end-to-end/B5/backfill-fix.patch` (prepared + tested, not applied; the commands and
+  commit message are in HASAN-STEP.md "After"); (2) if the pass is clean → flip
+  `src/shared/feature-flags.ts:73` `'studio-text-edit': false` → `true` (the one-line diff + commit
+  message are in HASAN-STEP.md). Record the result in Status.md's B5 row and TESTING §18.11.
+
+### From B5 (for the stop report)
+
+- Four real bugs fixed on the way, each with a test that fails without it: cached transcript text
+  decoded byte-per-char (em-dashes/curly quotes/Arabic garbled) `fb32ab1`; autosave lost an edit
+  after one failed save + the Restore button below the fold `aa58ee8`; the filler toast over-counted
+  `e69d182`; **closing or quitting during a Windows file lock lost the edit** — main now owns the
+  close-time write (10 min background retry), quit leaves `project.json.tmp`, and the next open
+  recovers it once ("Recovered unsaved changes") `750c0d0`.
+- Measured on the long project: tab open 231–563 ms, 27/27 seeks on the frame, karaoke 0 wrong
+  frames, ten delete kinds each one undo step + exact restore, Auto Cut review → read-only, reopen
+  keeps everything; AssemblyAI verbatim emits 15 fillers (13 cut, 2 too tight to cut cleanly); a
+  filler inside a pause takes the pause (7.0 s once).
+- Open question for his ears: `withSpokenSpans` moves 76 short AssemblyAI words earlier (25 by
+  ≥ 0.5 s) — a word delete then cuts 1.0–3.6 s; the prepared patch (backfill whisper only) moves 0.
+- Follow-ups (verifier round 2, non-blocking): `project-writer.ts:134` deletes a newer pending
+  hand-off after an older write lands (one-line fix `if (pending.get(id) === entry)`; unreachable
+  today); a snapshot RESTORE refused by a file lock leaves a `.tmp` that the next open applies
+  silently (the pre-restore undo snapshot exists; restore path not serialized with the writer); a
+  kill during the few-ms `.tmp` rewrite can truncate it (then kept aside, edit lost); recovery
+  doesn't check the project id (hand-copied folders only); no unit test for the load/save handlers
+  through the writer, the quit drain, or the toast; the quit drain eats into the 10 s shutdown
+  budget.
+- Housekeeping for Hasan: `…\vidtsx-e2e\B5-verify\station-settings-copy\` holds a copy of the B5
+  station profile's `settings.db` (DPAPI-encrypted provider credentials) made by verifier round 1 —
+  delete it if unwanted.
