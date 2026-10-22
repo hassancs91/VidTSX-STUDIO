@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — steps 1–4 DONE; step 5 (the M2 stand-in) (a)–(d) DONE live on M2 (21 joins → the card proposes head 0.15 / minTail 0.08 / margin 12 exactly; accept moved the preset to `{base:'tight', maxTail:0.5}`; one card layout defect fixed); step 5 (e) (the two negatives on M2 data) next, then Hasan's station (step 6) and the gates/docs (step 7)
+status: IN PROGRESS — steps 1–5 DONE; step 5 (the M2 stand-in) DONE: (a)–(d) live on M2 (21 joins → the card proposes head 0.15 / minTail 0.08 / margin 12 exactly; accept moved the preset to `{base:'tight', maxTail:0.5}`; one card layout defect fixed) and (e) the two negatives on the M2 data through the real handler (own-style edges → 0 cut changes at 21 joins; 9 joins → 0 + the "at least 10" line); Hasan's station (step 6) next, then the gates/docs (step 7)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -316,7 +316,50 @@ rendered yet.
   edge · words · "Tail you / style" · "Lead-in you / style"); hooks `[data-preset-update-joins]`,
   `[data-preset-update-join=<ref>]` kept.
 
+**Step 5 (e) — the two negatives on the M2 data (builder #6, 2026-10-22; no `src/` change).**
+Scratch test `.vidtsx-temp/end-to-end/B4/negatives.b4.test.ts` (gitignored kit, `B4_NEG=1`, run
+with `vitest.b4.config.ts`): the REAL `propose_preset_update` handler with `summary` passed (no
+model; `llm-handlers` mocked to fail anyway), the real learn path + real `cut-style.json`, the
+REAL v3 waveforms and transcripts read from `B2-root\projects\video-14-raw\cache` (read-only;
+`generateWaveform` mocked to throw, `getProjectCacheDir` → that folder), the project =
+`…\vidtsx-e2e\B4\project.after-trims.json`, the preset = a temp-library copy of
+`preset.before.B2-root.json`'s style (old tight on the preset). Three cases; per-case JSON
+(n, medians, fitted, changes, card lines, tool text) in `.vidtsx-temp/end-to-end/B4/negatives-1-as-trimmed.json`,
+`negatives-2-own-style.json`, `negatives-3-nine-joins.json`.
+
+- (1) As trimmed → the live card's four `cut.*` changes exactly (tool path = button path).
+- (2) All 39 tagged edges moved back to the START style's own edges (`oldTailEdge` /
+  `oldHeadEdge` from `act1-joins.json`, jitter −10/−5/0/+5/+10 ms, tags kept, V1 re-laid end to
+  end) → **0 cut changes at 21 joins**, fitted = the current knobs.
+- (3) Tags kept on the first 9 joins only (`withoutEdgeTag` on every other edge) → **0 cut
+  changes**, the card line "Learned from 9 joins — at least 10 touched joins are needed before
+  the cut knobs change."
+
 ## Verified (exact commands + outputs)
+
+Step 5 (e) (C: 2.40 GB / D: 5.32 GB free before the run; no app launched):
+
+- `B4_NEG=1 npx vitest run --config .vidtsx-temp/end-to-end/B4/vitest.b4.config.ts negatives` →
+  `Test Files 1 passed (1) · Tests 3 passed (3)` (3.22 s).
+- (1) `joins 21, headEdges 19, tailEdges 20`; medians `leadIn 0.15 (style 0.11) · tail 0.22
+  (style 0.4) · tailDb 11.4 (style 6)`; fitted `head 0.15, minTail 0.08, maxTail 0.5, margin 12`;
+  changes `cut.head 0.11→0.15 · cut.minTail 0.14→0.08 · cut.maxTail 0.4→0.5 · cut.margin 5→12`;
+  tool text `… Cut knobs: learned from 21 trimmed joins (19 lead-ins, 20 tails), 4 cut knob
+  changes.`; card lines identical to the live card's (step 5 (c)).
+- (2) `joins 21, headEdges 19, tailEdges 20`; medians `leadIn 0.11 (style 0.11) · tail 0.393
+  (style 0.4) · tailDb 6.1 (style 6)`; fitted `head 0.11, minTail 0.14, maxTail 0.4, margin 5`;
+  `changes []`; lines add "Your lead-ins sit within 30 ms of the style's (median +0 ms): head
+  unchanged." · "Your tails sit within 30 ms and 1 dB of the style's (median +0 ms, +0.1 dB):
+  tail knobs unchanged."; tool text `… (19 lead-ins, 20 tails), 0 cut knob changes.`
+- (3) `joins 9, headEdges 8, tailEdges 9`; medians `leadIn 0.15 (0.11) · tail 0.18 (0.4) · tailDb
+  10.5 (5.9)`; fitted `{}`; `changes []`; lines end "Learned from 9 joins — at least 10 touched
+  joins are needed before the cut knobs change."; tool text `… from 9 trimmed joins (8 lead-ins,
+  9 tails), 0 cut knob changes.`
+- Station facts read for step 6 (read-only): `B1-verify-root\projects\video-14-raw\project.json`
+  settings `{"width":3840,"height":2160,"fps":60,"agent":{}}`, tracks `v1:1, a1:0`, 2 proposals;
+  0369/0370/0371 assets present with the SAME ids as B2-root (`6290a63b…`, `904f9373…`,
+  `0c105962…`), v3 waveforms, transcripts 44 / 97 / 207 words. `profiles\B1-verify\profile\assets\presets`
+  holds only the three built-ins (no B4 preset yet).
 
 Step 5 (a)–(d) (C: 1.81 GB / D: 5.55 GB before launch; C: 2.43 / D: 5.46 after; app stopped by
 `--remote-debugging-port=9301` / profile path, 0 processes left):
@@ -428,21 +471,36 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-Step 5 (e) — the two negatives of decision 5 on the M2 data, through the REAL
-`propose_preset_update` handler with `summary` set (no app, no model). Write a scratch vitest
-`.vidtsx-temp/end-to-end/B4/negatives.b4.test.ts` (`B4_NEG=1`, run with
-`vitest.b4.config.ts`), modelled on `src/main/services/studio/agent-tools/preset-tools.test.ts`
-(temp library holding a copy of `.vidtsx-temp/end-to-end/B4/preset.before.B2-root.json` as the
-project's preset, the real `cut-style.json`), but loading the REAL transcripts / v3 waveforms from
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root\projects\video-14-raw\cache\` (read-only) and
-the project from `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\project.after-trims.json`. Cases:
-(1) as trimmed → the same four `cut.*` changes as the live card (tool path = button path);
-(2) every tagged edge moved back to the START style's own edge (`oldTailEdge` / `oldHeadEdge` in
-`.vidtsx-temp/end-to-end/B4/act1-joins.json`, plus a ≤ 10 ms jitter so they are real moves, tags
-kept) → no `cut.*` change, 21 joins reported; (3) tags kept on only 9 joins (`withoutEdgeTag` on
-the rest) → no `cut.*` change + the line "Learned from 9 joins — at least 10 touched joins are
-needed before the cut knobs change.". Record n / medians / fitted / changes in Verified, then go
-to step 6 (read the step-6 notes under Open problems first).
+Step 6 — build Hasan's station on `C:\Users\hasan\AppData\Local\vidtsx-e2e\B1-verify-root` +
+`profiles\B1-verify\profile` exactly as the RULED block "after builder #5 — for step 6" and
+decision 6 say, with one re-runnable scratch script `.vidtsx-temp/end-to-end/B4/station.b4.test.ts`
+(`B4_STATION=1`, `vitest.b4.config.ts`; model it on `setup.mjs` + `targets.b4.test.ts`, and on
+B3's hand plan `.vidtsx-temp/end-to-end/B3/compare.b3.test.ts:60-70`): first copy the station's
+current `project.json` to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\backup\B1-verify-root-project.before-b4.json`
+(once — never overwrite an existing backup); write a scratch preset "B4 start — old tight" into
+`profiles\B1-verify\profile\assets\presets\<id>\` (`style.cut = {base:'tight', head:0.11,
+minTail:0.14, maxTail:0.4, margin:5}`, flat knobs = the values the stand-in card proposed so the
+card shows no flat changes: pacing tight, shotsPerMinute 0, sfxPerMinute 0, musicBed none,
+captions none, transitions [], introSeconds 0, outroSeconds 0 — read the preset.json shape from
+`preset.before.B2-root.json`); set the station project's `settings.presetId` to it, no
+`cutStyle`, `settings.agent.providerId = 'b4-no-model'`, `proposals: []`; and write V1 = the
+editor's `cuts.json` keeps (READ-ONLY) of 0369 / 0370 / 0371 up to the Act-1 cut-off (0369 →
+41.024, 0370 → 82.688, 0371 → 188.287 s, `act1-joins.json` `cutoff`) planned through `planClip`
+with the START style (old tight resolved over base tight from `resources/skills/studio-clean-cut/cut-style.json`)
+as contiguous untagged clips (asset ids as in `targets.b4.test.ts`), A1 empty; log and record the
+clip count and the number of sentence joins (same-asset neighbours). Then find where the timeline's
+ripple toggle lives (persisted or session state) and turn it on for the station if it persists
+(else HASAN-STEP.md tells him to switch it on); write the launcher (`docs/studio/end-to-end/B4/hasan-station.ps1`,
+modelled on `.vidtsx-temp/end-to-end/B4/launch.sh`: this branch's dev build, `--user-data-dir` =
+the B1-verify profile, never his own) and `docs/studio/end-to-end/B4/HASAN-STEP.md` (decision 6 +
+the ruled points: open video-14-raw, the Act-1 span, ripple on, "trim each sentence join the way
+you want it (about 21)", Inspector → Project → "Learn from this video" (not the Assistant chat),
+pass = head 0.15 ± 0.03 / minTail 0.08 ± 0.03 / margin 12 ± 1, maxTail reads "at least", softGap is
+not learned, the time it should take); then click-check the station live (launch it via the
+launcher on a fresh CDP port, open the project, see the timeline + the readout `tight + 4 overrides
+· preset "B4 start — old tight"`, do ONE trim through the reducer and undo it, stop the app by its
+`--remote-debugging-port`), re-run the station script so it is back at its start state, and
+record everything in Done / Verified.
 
 ## Open problems
 
@@ -607,6 +665,10 @@ Step 5 notes (no ruling needed; for step 6, Hasan's station):
   preset.json, stills, the card's stacked-row fix. Do not redo them. The scratch preset in the B2
   profile is now `{base:'tight', maxTail:0.5}` (accepted); re-run `setup.mjs` only if a later step
   needs the live start state again (it rewrites the preset and empties the timeline).
+- Step 5 (e) is DONE (no `src/` change): `negatives.b4.test.ts` on the M2 data through the real
+  handler — (1) as trimmed = the live card, (2) own-style edges → 0 cut changes at 21 joins,
+  (3) 9 joins → 0 + the "at least 10" line. Re-run it (3 s) only if `src/shared/studio/cut-learn*`
+  or the learn path changes.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -627,3 +689,7 @@ Step 5 notes (no ruling needed; for step 6, Hasan's station):
   the button learn → head 0.15 / minTail 0.08 / margin 12 (Δ 0), maxTail "at least 0.5"; accept →
   `{base:'tight', maxTail:0.5}`; fixed the per-join list overflowing the Assistant column; types
   26/10; app stopped.
+- 2026-10-22 · builder #6 · ~17 calls · step 5 (e): the two negatives on the M2 data through the
+  real `propose_preset_update` handler (real v3 waveforms + transcripts, no model) — as trimmed =
+  the live card's four changes; own-style edges → 0 cut changes at 21 joins; 9 joins → 0 + the
+  "at least 10" line; read the station's start facts for step 6; no app launch, no `src/` change.
