@@ -1,6 +1,7 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: IN PROGRESS (steps 1a + 1b + 2 + 3a done — the exit numbers hold outside the app, incl. the
-3-frame video-late case; IPC done; queue-row UI built, not yet driven; CDP click-through (3b) next)
+status: DONE (2026-10-22, agent 5) — steps 1a + 1b + 2 + 3a + 3b done; exit met through the app (both A5
+files IN SYNC +0.2 ms 16/16 from their queue rows; +100 ms FAIL +99.4 ms and video-3-frames-late FAIL −50.5 ms
+through the IPC); gates green; STATUS row + TESTING §18.6 written. Awaiting the verifier.
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A5's drivers (`.vidtsx-temp/end-to-end/A5/drive.mjs`,
@@ -252,7 +253,48 @@ Step 3a — the queue-row UI (agent 4, commit `1ffa650`
   The A5 profile also has older A4 rows (entry `54d68c0e`, A4 export folder) — `done`, so they also show
   the button; do not click those.
 
+Step 3b — the CDP click-through + part close (agent 5, docs commit — see LOG.md; no `src/` change).
+
+- Profile `.vidtsx-temp/end-to-end/A6/profile` = `cp -rp` of the A5 profile (377 MB). Launcher
+  `.vidtsx-temp/end-to-end/A6/launch.sh` (A5's, port **9261**, `electron-vite dev`; no other electron was
+  running), helpers `cdp.mjs` / `dom.js` / `restore.ps1` (port 9261), drivers **`drive.mjs`** (`ready`, `root`,
+  `queue` — rows with the job read from the React fiber, `check <jobId> <png>` — clicks the VISIBLE
+  `[data-sync-check-button]`, polls the panel every 2 s to a verdict, screenshots the row + the window,
+  `cancel <jobId> <ms>`, `panel <jobId>`) and **`ipc-check.mjs`** (`window.api.studioExportSyncCheck` over CDP
+  with progress pushes counted; `entry <entryPath>` or `project <id> <in> <out>`).
+- Ready 21 s after launch; root set to `v14-root`; Queue lists 6 `done` Studio rows, all with a visible
+  Check A/V (4 A4 1080p rows on entry `54d68c0e` — not clicked — and the two A5 rows).
+- **A5 Standard** row `4e20be8d-…` → IN SYNC, +0.2 ms, drift −2.8 ms / 10.1 s, 16/16, 56.3 s; report
+  `.vidtsx-temp/end-to-end/A5/export/studio-video-14_2026-10-21T21-30-54.sync.json` (9,477 B). **A5 Fastest**
+  row `2f1adadc-…` → IN SYNC, same numbers, 51.7 s; report `…T21-10-24.sync.json` (9,477 B). Per-probe errors
+  identical to the step-1b live reports; mask share 0.438 / 0.439.
+- **Negative files through the app** (copies in `.vidtsx-temp/end-to-end/A6/ipc/` so the live test's reports
+  stay): `standard-audio-plus-100ms.mp4` (entry source `studio-entry-video-14-4650cc99.tsx`) → **fail +99.4 ms**,
+  16/16, 52.8 s, 17 progress pushes; `standard-video-plus-3-frames.mp4` (**project** source `video-14` 80–110)
+  → **fail −50.5 ms**, drift −7.1 ms / 10.1 s, 16/16, 52.7 s. Both = the live-test numbers.
+- **Cancel** on the Standard row at probe 1/16 → panel gone ≤ 2 s, button enabled, 0 ffmpeg/ffprobe
+  processes, the earlier `.sync.json` mtime unchanged (07:54:13).
+- App stopped (only the port-9261 tree); gates run with no electron running. STATUS.md row (top) and
+  TESTING.md `### 18.6 A6` written.
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-22 07:52–07:58 (agent 5, isolated app port 9261): `node drive.mjs check 4e20be8d-d22e-492b-8f1d-73e8fd84ce95
+  stills/check-standard.png` → `"verdict": "pass"`, details `Offset +0.2 ms · drift -2.8 ms over 10.1 s · 16 of 16
+  probes confident · 56.3 s` (log `.vidtsx-temp/end-to-end/A6/logs/check-standard.log`); `node drive.mjs check
+  2f1adadc-1272-43a9-b591-2241c7637d46 stills/check-fastest.png` → `"verdict": "pass"`, `… · 51.7 s`
+  (`logs/check-fastest.log`); `node ipc-check.mjs '…\A6\ipc\standard-audio-plus-100ms.mp4' entry
+  '…\.vidtsx-temp\studio\studio-entry-video-14-4650cc99.tsx'` → `"verdict": "fail", "offsetMs": 99.4`, 16/16
+  (`logs/ipc-audio-plus-100ms.log`); `node ipc-check.mjs '…\A6\ipc\standard-video-plus-3-frames.mp4' project video-14
+  80 110` → `"verdict": "fail", "offsetMs": -50.5`, 16/16 (`logs/ipc-video-plus-3-frames.log`); `node drive.mjs cancel
+  4e20be8d-… 7000` → before `running | probe 1 of 16`, +2 s `{"status":"none","buttonDisabled":false}`
+  (`logs/cancel-standard.log`). Stills: `.vidtsx-temp/end-to-end/A6/stills/check-standard.png`,
+  `check-standard-full.png`, `check-fastest.png`, `check-fastest-full.png`.
+- 2026-10-22 08:00 (agent 5, no electron running): `npm run check:types` → `tsconfig.web.check.json: 26 errors
+  (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`; `npx vitest run` → `Test Files 436
+  passed | 5 skipped (441)` · `Tests 3665 passed | 26 skipped (3691)`, 37.4 s (logs
+  `.vidtsx-temp/end-to-end/A6/check-types-step3b.log`, `vitest-step3b.log`).
+- Free space 07:55: C: 37.4 GB, D: 3.4 GB (after the 377 MB profile copy and the two 17 MB `ipc/` copies).
 
 - 2026-10-22 07:47 (agent 4): `npx vitest run src/features/render-queue/services/sync-check.test.ts` →
   `Tests 8 passed (8)`; `npx tsc --noEmit -p tsconfig.web.json | grep -E "render-queue|sync-check|SyncCheck"`
@@ -337,7 +379,12 @@ Step 3a — the queue-row UI (agent 4, commit `1ffa650`
 
 ## Next step (ONE concrete instruction)
 
-Step 3b — the CDP click-through (no render needed): check D: free (3.8 GB at 07:50; the profile copy is
+None for builders — A6 is DONE. The verifier re-runs the click-through on its own profile copy
+(`A6-verify/`, a fresh port) with `.vidtsx-temp/end-to-end/A6/drive.mjs` + `ipc-check.mjs` (copy them, change the
+port) — before 2026-10-23 06:44 local, when the 24 h sweep removes entry `4650cc99`'s sidecar (after that the
+rows say "can no longer be checked"; use `ipc-check.mjs … project video-14 80 110` instead).
+
+(Superseded, kept for the record — the step 3b instruction:) Step 3b — the CDP click-through (no render needed): check D: free (3.8 GB at 07:50; the profile copy is
 ~377 MB), copy `.vidtsx-temp/end-to-end/A5/profile` to `.vidtsx-temp/end-to-end/A6/profile`, launch an
 isolated instance on it (A5's `launch.sh`, a fresh CDP port e.g. 9261, `ELECTRON_RUN_AS_NODE` unset;
 `electron-vite dev` only if no dev app is running), set the Studio root to `.vidtsx-temp/end-to-end/v14-root`,
@@ -355,7 +402,8 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
   (`export-context.ts:5-7`). A row older than a day cannot be checked from its entry → the check
   must say so plainly (or fall back to the `project` source). Not a §4 question; a design limit to
   record in TESTING §18.6 unless solved.
-- The UI checks queue rows only (`entry` source). The +100 ms and 3-frames-late files were made with
+- DONE in 3b (through the IPC on copies in `A6/ipc/`, both numbers recorded above). The UI checks queue rows
+  only (`entry` source). The +100 ms and 3-frames-late files were made with
   ffmpeg, so they have no row: their UI-less evidence is the live test + reports. If 3b wants them
   through the app, call `window.api.studioExportSyncCheck({ exportPath, source: { kind: 'project',
   projectId: 'video-14', rangeIn: 80, rangeOut: 110 } })` over CDP — it OVERWRITES the live test's
@@ -390,6 +438,8 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 - Step 2 above (IPC + 6 handler tests; the 3-frames-late file
   `.vidtsx-temp/end-to-end/A6/reports/standard-video-plus-3-frames.mp4` and its report — the
   orchestrator's extra measurement is DONE, record it next to the +100 ms case in TESTING §18.6).
+- Step 3b above (the click-through, the IPC runs on the `ipc/` copies, the cancel, the gates, STATUS row,
+  TESTING §18.6). Builders: nothing left; only the verifier re-drives it.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -402,3 +452,6 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 - 2026-10-22 · agent 4 · ~30 · step 3a: queue-row UI (service + 8 tests, hook, panel, "Check A/V" button);
   found the two A5 exit rows in the A5 profile's queue DB (sidecar valid until 2026-10-23 06:44 local);
   gates green (26/10, 436 files / 3665 tests).
+- 2026-10-22 · agent 5 · ~35 · step 3b: CDP click-through on port 9261 (both A5 rows IN SYNC +0.2 ms 16/16;
+  +100 ms FAIL +99.4 ms and video-3-frames-late FAIL −50.5 ms via IPC on copies; cancel); gates green (26/10,
+  436 files / 3665 tests); STATUS row + TESTING §18.6. Part DONE.

@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-22 — END-TO-END A6: the A/V check ("Check A/V") on the finished Studio export row + report JSON — DONE
+
+- **What:** part A6 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `bcea695`, `a4b88d3`,
+  `16f1a37`, `1ffa650`), the plan's §2 T8: a user-facing port of the editor's `verify_sync.py`. **Verdict**
+  (`src/shared/studio/sync-verdict.ts`): pass iff median |offset| < 25 ms and |drift × span| ≤ 40 ms over ≥ 3
+  confident probes, else fail; < 3 confident = "Not enough to judge" (never a pass); + = audio behind the
+  picture. **Probes** (`src/shared/studio/sync-probes.ts`): the reference is the first camera clip's file in the
+  export (audio-bearing, speed 1); probes sit only where that picture is visible — cutaway shots are skipped with
+  a reason, overlays are named, a PiP box is mapped back to camera pixels through the clip's transform.
+  **Measure** (`src/main/services/studio/export-engines/sync-measure.ts`, `sync-media.ts`,
+  `export-sync-check.ts`): 8 kHz xcorr locates each 2 s export audio window in the camera audio, a z-score frame
+  match finds the shown camera frame within ±0.8 s, error = video − audio; a **layout mask** learned from all
+  probes of one box (median residual) handles an overlay painting over part of the PiP. Report
+  `<export>.sync.json` beside the file. **IPC** `studio:export:sync-check` (+ cancel, progress push), source =
+  the queue row's export entry or a project + range. **UI:** "Check A/V" on a finished Studio export row
+  (`RenderItem.tsx:181`) → progress "probe N of 16" + Cancel → a green/red/amber verdict line, offset · drift ·
+  probes · time, the report name + "Open report". No schema change.
+- **Measured 2026-10-22** on the two A5 exit files (video-14 copy, 80–110 s 4K60; reference = the 4.05 GB
+  59.94 fps master), live click-through over CDP on an isolated profile (port 9261, `.vidtsx-temp/end-to-end/A6/`):
+  **A5 Standard** → **IN SYNC, offset +0.2 ms, drift −2.8 ms over 10.1 s, 16 of 16 probes confident, 56.3 s**;
+  **A5 Fastest** → **IN SYNC, the same numbers, 51.7 s** (reports written beside each file in
+  `.vidtsx-temp/end-to-end/A5/export/`). Negative files (made with an ffmpeg stream copy, no queue row; checked
+  through the app's IPC over CDP, reports in `.vidtsx-temp/end-to-end/A6/ipc/`): **audio +100 ms → FAIL, +99.4 ms**
+  ("audio 99.4 ms BEHIND the picture", 16/16, 52.8 s); **video 3 frames late → FAIL, −50.5 ms** ("audio 50.5 ms
+  AHEAD", 16/16, 52.7 s, via the project + range source). Same numbers as the out-of-app live tests. Cancel
+  mid-check → panel back to idle in < 2 s, button re-enabled, no ffmpeg left, the earlier report untouched.
+  `npx vitest run` **436 files passed, 5 skipped; 3665 tests passed, 26 skipped, 37.4 s**; `npm run check:types`
+  web 26 / node 10 = baseline.
+- **Honest note:** on video-14 the plain whole-frame match found **0 of 16** probes (0.65–0.72): the
+  `V14A1Scratch` overlay paints a card over ~56 % of the PiP and no document field says so. The mask derived
+  from the data (≥ 3 probes of one box agreeing) lifts the match to 0.95–0.99 at the unchanged 0.90 bar; a
+  negative-control test pins that it cannot invent a match. ~50 s per check of a 30 s 4K range.
+- **Open (by design / not built):** the queue row reads the export's context sidecar, which the 24 h sweep
+  removes — an older row says "This export can no longer be checked from the queue … Export it again to check it"
+  (handler-tested, not driven: the A4 sidecar was still present); only Studio export rows can be checked (no
+  "check any file" picker); "Open report" not clicked live (it opens the OS default app).
+- **Next:** the A6 verifier; then B1 (A6 is track A's last row).
+
 ## 2026-10-22 — END-TO-END A5: Fastest on video-14 (30 s 4K60 range, split + cutaways); Standard at 25 % for the record — DONE
 
 - **What:** part A5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `06edaf0`, `f84a78d`), the
