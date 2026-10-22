@@ -1,5 +1,5 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: DONE (2026-10-22, agent 5) — steps 1a + 1b + 2 + 3a + 3b done; exit met through the app (both A5
+status: FIX — verifier round 1 FAILED (2026-10-22): frame labels off by one camera frame on ~1/3 of seeks → wrong verdicts near ±25 ms; see Open problems "VERIFIER ROUND 1"
 files IN SYNC +0.2 ms 16/16 from their queue rows; +100 ms FAIL +99.4 ms and video-3-frames-late FAIL −50.5 ms
 through the IPC); gates green; STATUS row + TESTING §18.6 written. Awaiting the verifier.
 
@@ -397,6 +397,54 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 `{kind:'project'}` IPC path or note that the 100 ms file has no queue row (the live test is its evidence).
 
 ## Open problems
+
+### VERIFIER ROUND 1 — FAIL (2026-10-22) — fix these before anything else
+
+1. **Off-by-one camera frame on ~1/3 of seeks (the FAIL).**
+   `src/main/services/studio/export-engines/sync-media.ts:102` — `grabGrayFrames` pipes frames
+   through `image2pipe` without `-fps_mode passthrough`; on about a third of seeks the bundled
+   ffmpeg n7.1 emits the FIRST frame TWICE (proven: a window starting at frame 5415 decodes as true
+   frames [5415, 5415, 5416, 5417]; starting at 5416 it is correct; a continuous decode from 60
+   frames earlier has no repeat; with `-fps_mode passthrough` the repeat is gone — N=5415 hashes
+   `35196b6d 35196b6d` → `35196b6d 08fa3f9b`, and `08fa3f9b` is frame 5416; same at N=5505).
+   `export-sync-check.ts:151-152, 177` computes `frame = pictures.first + best.index`, assuming
+   index 0 is frame `first` and no frame repeats; `sync-measure.ts:160-181` (`exactFrameSeek`) says
+   the half-frame seek "keeps n" — true for frame 0 only. On those seeks every later frame in the
+   96-frame window is labelled one camera frame late (+16.7 ms). 5–7 of 16 windows per check have
+   the repeat. verify_sync reads real timestamps (`-copyts` + `showinfo`, `verify_sync.py:81-99`).
+   Consequence (verifier's own files, shifts measured independently by xcorr):
+   | true shift | app read | corrected | app verdict |
+   |---|---|---|---|
+   | audio −33 ms (early) | −23.2 | −35.6 | **PASS — wrong** |
+   | audio −27 ms (early) | −18.9 | −29.6 | **PASS — wrong** |
+   | audio +10 ms (late) | +19.8 | +7.4 | pass |
+   | audio −30 ms | −26.6 | −32.6 | fail |
+   | audio −80 ms | −76.6 | −82.6 | fail |
+   | video 2 frames late | −33.9 | −35.9 | fail |
+   | 0 (A5 Standard) | +0.2 | −2.6 | pass |
+   Predicted wrong passes for audio 23–28 and 32–33 ms early, wrong fails for 17–19 and 22–24 ms
+   late. After correction the spread drops from 6–10.7 ms to 3.1–3.4 ms and every offset = true
+   shift − 2.6 ms.
+   **Fix:** decode with `-fps_mode passthrough` AND make the frame label robust (verify the decoded
+   frame identity / derive labels from real timestamps, not from `first + index`); add a unit
+   regression test for a window whose first frame repeats; then re-run ALL of the verifier's files
+   in `.vidtsx-temp/end-to-end/A6-verify/neg/` (`std-audio-early-27ms`, `-30ms`, `-33ms`, `-80ms`,
+   `-600ms`, `std-audio-late-10ms`, `std-video-late-2f` — copy them into your A6 folder before
+   writing any report) plus the A5 Standard/Fastest files and the two builder negatives, and record
+   a table: true shift vs measured vs verdict. Every verdict must match the truth (|true| < 25 ms
+   ⇒ pass, ≥ 25 ms ⇒ fail); the measured offsets should sit within a few ms of the truth (explain
+   any constant bias, e.g. the −2.6 ms).
+2. **A large offset reads "inconclusive" and blames the picture.** The audio search covers only
+   ±0.5 s around the planned time (`sync-measure.ts:18`, `export-sync-check.ts:137-138`), so the
+   −600 ms file returns "Not enough to judge: only 0 of 16 probes found the camera picture
+   confidently" (`sync-verdict.ts:88`) — audio quality 0.08–0.15; it was the AUDIO that was not
+   found. verify_sync locates audio over the whole source and would call it out of sync. Widen the
+   audio search (e.g. ±2 s, or a coarse full-range pass) so −600 ms FAILS with ≈ −600 ms, and make
+   the inconclusive message name the side that failed (audio vs picture).
+3. (Caveat, no fix required) Match quality is computed over pixels chosen BECAUSE they agree, so
+   0.95–0.99 overstates confidence and the 0.90 bar is weaker than it looks; the report keeps each
+   probe's unmasked quality — mention this in TESTING §18.6.
+
 
 - The queue-row path depends on the export context sidecar, which the 24 h sweep removes
   (`export-context.ts:5-7`). A row older than a day cannot be checked from its entry → the check
