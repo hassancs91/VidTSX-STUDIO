@@ -159,6 +159,23 @@ short word, first / last word of a clip — each one undo step, edges = the reso
 
 ## Open problems
 
+**RULED (orchestrator, 2026-10-22, after builder #1):**
+- **Problem 1 (em-dash mojibake):** a real bug — fix it (UTF-8 decode via `TextDecoder` like
+  `analysis-io.ts:15-17`, unit test first with an em-dash, curly quotes and an Arabic word), check
+  every other `atob(` → text path in `src/features/studio` for the same bug, and re-run the spot
+  check to 0 text mismatches.
+- **Problem 2 (`withSpokenSpans` backfill moving short AssemblyAI words earlier):** no code change
+  now — it needs ears. (a) In the pre-pass, measure the evidence for the moved words (sound before
+  the token, ZCR, whether the energy run is continuous with the word) and DELETE-test 3–5 of the
+  biggest moves (does the delete cut audible speech before the token?). (b) Put 6–8 of them on
+  HASAN-STEP.md as a separate by-ear block ("click the word — does the highlight start where you
+  hear the word? delete it — did you lose sound before it?") with their timecodes and words. (c)
+  Write the alternative ready for his answer: restrict the backfill to transcripts/engines that
+  need it (whisper's near-zero words, e.g. duration ≤ ~20 ms or by engine) — a one-place change
+  with its test, described in HASAN-STEP.md and STATUS as "if these sound wrong, this is the fix";
+  do NOT apply it.
+- **Problem 3:** include one play past the bottom of the view in the karaoke check.
+
 1. **BUG (real, to fix next): non-ASCII text is mojibake in the Transcript tab.** All 32 em-dash
    words (`39—`, `application—`, `I—` …) show as `39â` + two C1 control chars (char codes
    `e2 80 94` as three Latin-1 characters). The cache file is correct UTF-8 (`3339e28094`);
