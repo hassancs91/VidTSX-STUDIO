@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #4 handed off 2026-10-22 — Problem 5 FIXED (`aa58ee8`: main rename retry + renderer autosave that never forgets a failed save, live-verified with a locked project.json) and Problem 6 FIXED (opened pill scrolls its Restore into view); `long` + bf1–bf4 PASS live; full vitest green, types 26/10; next: fillers + karaoke-bottom, then read-only/Auto Cut + save/reopen)
+status: IN PROGRESS (builder #5 handed off 2026-10-22 — the automated pre-pass on the machine side is COMPLETE: fillers (13 cut + 2 too tight; toast miscount FIXED `e69d182`), karaoke past the bottom, read-only during an Auto Cut review, save + reopen + restore after reopen all PASS live; full vitest green, types 26/10; next: Hasan's B5 station + HASAN-STEP.md + launcher)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -166,6 +166,22 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   `[data-save-state]` every 100 ms and the disk every 500 ms; `close` clicks "Back to projects" at once,
   then writes the original project.json back with the project closed). `deletes.mjs` now also stops
   when the in-app doc does not hold 1,820 tokens before a case (Problem 4 lesson).
+- **Problem 7 FIXED (builder #5, `e69d182`, tests first): the delete toast over-counted.** "Remove 15
+  fillers" cut 13 (two "uh" sit inside their neighbours' pads: 0371 i231 62.660–62.700 between "app"
+  …62.660 and "runs" 62.748…; 0373 i580 15.780–15.820 between "a" …15.780 and "desk" 15.847…) but
+  toasted "Removed **15** fillers · −13.8 s (2 spots too tight to cut cleanly)". `text-delete.ts`:
+  `Run.count`, `TextDeletePlan.removedTokens` (words of every run that was cut; `:41-53`, `:63-80`,
+  `:163-172`); `useTextEdit.ts:120` toasts `plan.removedTokens`. `text-delete.test.ts` NEW describe
+  "counting what a delete really removes (B5)" (3 tests, the real 0373 "a · uh · desk" times; red
+  first: `expected undefined to be 1`).
+- **Kit, builder #5 (gitignored):** `.vidtsx-temp/end-to-end/B5/checks.mjs` — `readonly` (delete 271–276
+  by click + SHIFT+click + Delete key; real clicks Media tab → 0369's tile → "Auto Cut" → Transcript tab;
+  read-only checks with real input; real "Reject all"; resumable when the 271–276 delete is already on
+  disk) and `reopen` (a second delete, "Back to projects", the project card, Transcript tab, compare,
+  Restore both pills by real clicks, close, write the ORIGINAL project.json back). Saves the original
+  as `…\B5\checks\original-project.json`. NB Auto Cut lives in Inspector › "Transcript · <file>" of the
+  asset selected in the MEDIA pane — a selected timeline clip shows Clip props instead; the timeline
+  does not follow a seek and renders only the clips in view.
 
 ## Verified (exact commands + outputs)
 
@@ -304,13 +320,59 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
 - FULL `npx vitest run` (app stopped, log `…\B5\vitest-full-builder4-run1.log`) → **run 1 green**:
   `Test Files 462 passed | 5 skipped (467) · Tests 3892 passed | 34 skipped (3926)` (42 s).
 
+**Builder #5 (2026-10-22):** C: 18.43 / D: 32.62 GB before launch; nothing on 5173/9321, no electron.
+- `bash launch.sh` (background) → `node drive.mjs ready` → `length s 1283.148 toolbar ["/ 21:23.09"]`, A1 0, proposals 0.
+- `node deletes.mjs fillers` (BEFORE the fix) → real click **"Remove 15 fillers"** → toast `Removed 15 fillers ·
+  −13.8 s (2 spots too tight to cut cleanly)`, **13 pills** (0366 "Um" `0.06–2.129` ¶ 2.1s · 0370 "uh" 0.6s ·
+  0371 ×4 (0.2/0.1/0.3/0.9 s) · 0373 ×3 ("Uh" `84.16–91.126` ¶ 7.0s = the filler 84.16–86.74 + the 4.5 s pause
+  to "Do" 91.276 less its 0.15 s lead-in — the tight style's edges · 0.4 · 0.6 s) · 0375 ×3 · 0376 ×1),
+  length 1283.148 → **1269.354**, 22 clips, 19 clips carry edge tags, fillers left `227:uh 574:uh` (= original
+  i231 / i580, both too tight — see Problem 7), real Ctrl+Z → disk == original (**one undo step**). → Problem 7
+  fixed (tests first, `e69d182`); `npx vitest run src/features/studio/services/text-delete.test.ts` before →
+  `3 failed | 14 passed` (`expected undefined to be 1 / 3 / +0`), after → `17 passed`.
+- After the fix (HMR), `node drive.mjs ready` + `node deletes.mjs fillers` → toast **`Removed 13 fillers · −13.8 s
+  (2 spots too tight to cut cleanly)`**, same 13 pills / 1269.354 / 22 clips / one undo step. `…\B5\deletes\fillers.json`,
+  still `b5-fillers-removed.png`.
+- `node deletes.mjs karaoke-bottom` (Problem 3) → click the last fully visible word (i 776), play 20 s:
+  **1,155 frames, lit word out of view on 1 frame** (the crossing frame before the scroll), **36 body scroll
+  events**, scrollTop 6159 → 6217, lit 776 → 804 (29 changes). The auto-scroll works. `…\B5\deletes\karaoke-bottom.json`,
+  still `b5-karaoke-bottom.png`.
+- `node checks.mjs readonly` → delete 271–276 (`Removed 6 words`, 10 clips) → Media tab → 0369 tile → "Auto Cut"
+  (Inspector "Transcript · DJI_…_0369_D.MP4") → Transcript tab: banner **"A review is open — apply or reject it to
+  edit by text."**, `edit.readOnly` true, "Remove 14 fillers" `disabled`, Auto Cut title "Apply or reject the open
+  cut proposal first", proposal on disk (7 items); click 300 + SHIFT+click 305 → bar "6 words · 2.2 s" with
+  **Delete disabled**; real **Delete key → timeline on disk unchanged, 1,814 tokens**; the pill opens to its struck
+  text "application— uh other take. For example," with **0 Restore buttons**; a word click still seeks (word 1000
+  "it's": playhead frame 44740 == want 44740). Real click **"Reject all"** → read-only false, banner gone, fillers
+  button enabled, timeline unchanged, the proposal kept on disk as `status: "rejected"`. `…\B5\checks\readonly.json`,
+  still `b5-readonly-review.png`. (First two tries stopped in the driver: clip not rendered off-view, then the
+  Auto Cut button lives under the Media-pane selection — see Kit; the 271–276 delete of try 1 was resumed.)
+- `node checks.mjs reopen` → a second delete (indices 555–560 of the 1,814-token doc = original 561–566 "it,
+  install, and simply run. And", inside 0373 — NOT the across-clip case; across was covered by builder #2)
+  `Removed 6 words · −4.3 s`, 11 clips, 1274.759 s, "Saved" → real click "Back to projects" (disk unchanged by the
+  close) → real click on the project card → Transcript tab: **1,808 tokens, doc text equal, the 2 deletions equal
+  (ids + text), 2 pills, disk unchanged by the open, 4 `'text-delete'` edge tags** → Restore both pills by real
+  clicks AFTER the reopen (no in-memory history) → length **1283.148**, per-asset source cover == original, 1,820
+  tokens, 0 pills (13 contiguous clips) → closed, the original project.json written back (`originalWrittenBack: true`;
+  disk: 9 clips, 1283.148 s, 0 proposals). `…\B5\checks\reopen.json`, still `b5-reopened.png`.
+- 2026-09-17 open items on THIS material: **clip speed is 1** on all nine clips (no `speed` field), so the
+  `trimClip` / `trimClipRippleAll` / `applyCutProposal` speed debt does not apply here; **captions dropping
+  durationless words: Hasan's nine AssemblyAI responses hold 0 zero-duration words** (1,820 words; 42 ≤ 20 ms,
+  128 < 50 ms — those short words are Problem 2's backfill, not the caption drop).
+- App stopped (matched `--remote-debugging-port=9321` / `profiles/B5/profile` / `B5/launch.sh`: 4 bash, 2 node,
+  1 cmd, 6 electron) → `left: 0`. C: 18.38 / D: 32.59 GB.
+- `npm run check:types` → `web: 26 errors (baseline 26) ok · node: 10 errors (baseline 10) ok`.
+- FULL `npx vitest run` (app stopped, log `…\B5\vitest-full-builder5-run1.log`) → **run 1 green**:
+  `Test Files 462 passed | 5 skipped (467) · Tests 3895 passed | 34 skipped (3929)`.
+
 ## Next step (ONE concrete instruction)
 
-Launch (`bash launch.sh` in the background, `node drive.mjs ready`), then run `node deletes.mjs fillers`
-(AssemblyAI's 15 fillers: tint, "Remove 15 fillers", one undo step back to the original) and
-`node deletes.mjs karaoke-bottom` (Problem 3: the lit word must scroll into view past the bottom), and
-record both under Verified; then write and run the two remaining decision-3 checks (read-only while an
-Auto Cut review is open; save + reopen keeps deletions/pills/tags).
+Build Hasan's B5 station (decision 1 + 4): check C: > 5 GB, copy `…\vidtsx-e2e\b-root` → `…\vidtsx-e2e\B5-station-root`
+and `…\profiles\source\profile` → `…\profiles\B5-station\profile` (if the classifier refuses, say so — do not
+work around it), put the long project on it (nine clips on V1 in raw order, 21:23.09 — `B5_ROOT=… node drive.mjs
+ready` on an instance launched on the station profile with its own CDP port, then stop it), and write
+`docs/studio/end-to-end/B5/hasan-station.ps1` on B4's pattern (this branch's dev build, station profile only,
+`-Reset` that backs up first); then HASAN-STEP.md.
 
 ## Open problems
 
@@ -413,6 +475,16 @@ alternative (prepared, not applied), the B4 doc debt (decision 6), Status row, T
 - Note for STATUS: the save indicator is now `[data-save-state]` (`saved|pending|error`); a driver
   can read it instead of racing project.json.
 
+**Builder #5 (2026-10-22):** Problem 3 CLOSED (karaoke-bottom PASS). Problem 7 (toast over-count) FOUND +
+FIXED (`e69d182`). The machine half of decision 3 is complete — nothing open in the delete path. For
+HASAN-STEP.md: (a) "Remove N fillers" leaves fillers that sit inside their neighbours' pads (2 of 15 here —
+the toast says so) and takes the pause around a filler with it (one "Uh" in 0373 = 7.0 s: 84.16 → 91.126) —
+ears: does that join sound natural; (b) the Problem 2 by-ear block = bf1–bf4 (Verified, builder #4) + 2–4 more
+from `…\B5\backfill.json`. Remaining (builder #6+): station, HASAN-STEP.md + `hasan-station.ps1` (literally
+click-checked with real input), the flip (grep every production gate of `studio-text-edit`) and the backfill
+alternative (one place in `withSpokenSpans`, with its test) prepared NOT applied, B4 doc debt (decision 6),
+Status row, TESTING §18.11.
+
 ## Do-not-redo
 
 - B1–B3 DONE; B4 WAITING-HASAN — do not touch the B4 station or B4's code. Track A DONE. Do not
@@ -429,6 +501,10 @@ alternative (prepared, not applied), the B4 doc debt (decision 6), Status row, T
 - Problem 5 (autosave) and Problem 6 (Restore into view) are FIXED + live-verified (`aa58ee8`,
   `lockcheck.mjs` retry/retry 14/close; `long` + bf1–bf4 PASS) — do not redo. All ten delete cases
   have now passed; rerun them only after a delete-path code change.
+- Builder #5: fillers (before + after the toast fix), karaoke-bottom, read-only during an Auto Cut review,
+  save + reopen + restore-after-reopen are DONE and recorded (Verified) — do not redo. B5-root is back at
+  the ORIGINAL project.json (9 clips, 1283.148 s, 0 proposals); the 0369 cut-plan proposal of the read-only
+  check was dropped with it.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -442,3 +518,6 @@ alternative (prepared, not applied), the B4 doc debt (decision 6), Status row, T
 - 2026-10-22 · builder #4 · ~50 calls · fixed Problem 5 (rename retry + autosave service) and Problem 6
   (`aa58ee8`, tests first); live lock checks (retry / persistent error / close); `long` + bf1–bf4
   PASS; full vitest green run 1, types 26/10.
+- 2026-10-22 · builder #5 · ~50 calls · fillers (found + fixed the toast over-count `e69d182`, tests first),
+  karaoke past the bottom, read-only during an Auto Cut review, save + reopen + restore after reopen — all
+  PASS live (`checks.mjs`); 0 zero-duration AssemblyAI words, speed 1; full vitest green run 1, types 26/10.
