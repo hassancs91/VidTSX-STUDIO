@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button on live settings + picker → read-out/override) DONE (commit after `b86b279`, see Done); step 5 (Project settings knobs + preset editor Cut section) next
+status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button on live settings + picker → read-out/override) DONE `c50968f`; step 5 (Project settings knobs + preset editor Cut section) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -239,7 +239,7 @@ too — keep your D: writes small).
   `src/main/ipc/cut-style-handlers.test.ts` (3: live settings forwarded, no settings → `{}`, error
   typed not thrown).
 
-**Step 4 — Auto Cut button on the live settings; picker → read-out + project override (2026-10-22, builder #4; commit `B2 — step 4`, the first commit after `b86b279`).**
+**Step 4 — Auto Cut button on the live settings; picker → read-out + project override (2026-10-22, builder #4, `c50968f`).**
 
 - IPC: `StudioCutPlanRunRequest.settings?: StudioCutStyleSettings` (`src/shared/ipc/types/studio.ts:384`,
   ignored when `style` is set); `handleStudioCutPlanRun` forwards it (`studio-handlers.ts:467`).
