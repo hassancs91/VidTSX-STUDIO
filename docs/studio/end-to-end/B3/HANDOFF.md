@@ -1,5 +1,6 @@
 # B3 — QA readouts on the cards: hard entries and clipped tails, offending joins listed and auditionable
-status: IN PROGRESS (step 1 of the exit done: pure QA module + exit (a) measured)
+status: IN PROGRESS (steps 1–2 done: pure QA module + exit (a) measured; QA wired onto plans and
+both proposal kinds in main. Next: the card UI)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, profiles on C:, the disk
 rules — new artefacts over ~1 MB go to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\`, D: stop line
@@ -142,6 +143,40 @@ C: 18.6 GB, D: 2.04 GB.
   delta is the 20 ms-bucket measurement B1 documented, none is a logic difference. (Segment counts
   differ on 0370 10/11 and 0371 24/23 = B1's two merge flips; 0373 checks 43/42 real joins — one
   skip sits on the 0.75 s edge on one side; neither side flags anything there.)
+- **Step 2: QA wired onto plans and both proposal kinds (decision 2), `47bc6a1`:**
+  - `src/shared/studio/cut-qa.ts`: `qaForPlan({segments, keeps, words, style, envelope})` (:111-133)
+    re-derives the planner's atoms (`splitAtoms(keeps, sorted words, style.internalGap)`) and runs
+    `runCutQa`, so `planCuts` stays QA-free; `withQaAsset(report, assetId)` (:136-138) stamps items
+    (keeps an asset already named). The card wording DECIDED above now lives here:
+    `formatHardEntries` → `Hard entries N of J joins` (:162), `formatReleaseTails` → `Tails on a
+    release M of A landings` (:167), `formatCutQaLine` → both joined (`… · tails on a release …`)
+    or `QA clean` only when both counts are 0 (:172). The check logic (:50-109) is unchanged.
+  - Auto Cut: `cut-plan-runner.ts:98-112` — after `planCuts`, `plan.qa = qaForPlan` over the same
+    one keep `[0, envelope.duration()]` `planCuts` defaults to and `planned.style` (the
+    compensated knobs); the plan file on disk carries `qa`. `buildCutProposal`
+    (`src/shared/studio/cut-proposal.ts:118`) copies it to `proposal.qa` via `withQaAsset` (the
+    renderer's Auto Cut button gets the plan over IPC and builds the proposal with this same
+    function, so the toolbar path carries it with no IPC change). `run_auto_cut`'s reply ends with
+    the QA line (`workflow-tools.ts:165`).
+  - Editorial: `snapCutSpans` (`src/shared/studio/cut-snap.ts:208-209`) returns optional `qa`
+    from ITS segments, keeps and pause-compression-off style (`internalGap ∞` → one atom per
+    keep); absent when no span survived. `buildEditorialProposal` takes optional `qa` →
+    `proposal.qa` (`editorial-cuts.ts:52-53, :94`); `propose_cuts` passes it and ends its reply
+    with the QA line (`cut-tools.ts:87, :98`). The Transcript panel's text delete also gets `qa`
+    from `snapCutSpans` and ignores it.
+  - Type: `StudioProposal.qa?: CutQaReport` (`src/shared/types/studio.ts:336-341`). Proposals are
+    persisted as-is (`project-store.ts:56` passes `doc.proposals` through), so `qa` survives a save.
+  - Tests (all new cases): `cut-qa.test.ts` — wording with denominators / "QA clean"; `qaForPlan`
+    splits at `internalGap` (3 atoms) vs ∞ (2), real join flags at +18 dB; `withQaAsset`.
+    `cut-plan-runner.test.ts` — plan.qa `{0,0,joins 2,atoms 2,[]}` and identical in the plan file.
+    `run-auto-cut.test.ts` — via the REAL handler: plan.qa, `proposal.qa` equal, reply contains
+    `QA clean.`. NEW `src/main/services/studio/agent-tools/cut-tools.test.ts` — `propose_cuts`
+    through the REAL handler on a fixture, no model call (decision 4): a retake cut inside
+    continuous speech → `hardEntries 1 of 2 joins` (the item's `sourceTime` == the cut's
+    `sourceEnd`, > 15 dB), `clippedTails 1` (wordEnd 0.9), assetId `a1`, reply contains `Hard
+    entries 1 of 2 joins · tails on a release 1 of 2 landings.`; a cut to the end → 0 hard of 1
+    join, 1 tail landing past the cut start (see Open problems). `cut-proposal.test.ts` /
+    `editorial-cuts.test.ts` — qa carried + stamped; a pre-B3 plan / no-qa input → no `qa` key.
 
 ## Verified (exact commands + outputs)
 
@@ -156,20 +191,43 @@ C: 18.6 GB, D: 2.04 GB.
   "tailsBoth":178,"tailsRefOnly":3,"tailsStudioOnly":0}`.
 - `npm run check:types` → `web: 26 errors (baseline 26) ok`, `node: 10 errors (baseline 10) ok`.
 - Disk at hand-off: C: 19 GB free, D: 2.1 GB free.
+- **Step 2 (`47bc6a1`):** `npx vitest run src/main/services/studio/agent-tools/cut-tools.test.ts
+  src/main/services/studio/agent-tools/run-auto-cut.test.ts
+  src/main/services/studio/cut-plan-runner.test.ts src/main/services/studio/editorial-cuts.test.ts
+  src/features/studio/services/cut-proposal.test.ts src/shared/studio/cut-qa.test.ts` →
+  `Test Files 6 passed (6) · Tests 49 passed (49)`. `npx vitest run src/shared/studio
+  src/main/services/studio src/features/studio` → 171 files passed, 1 failed =
+  `shot-module-resolver.test.ts` "a changed transpiler fingerprint…" (DRIVING.md's known load
+  timeout; alone → `10 passed (10)`). `npm run check:types` → `tsconfig.web.check.json: 26 errors
+  (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+  Full `npx vitest run` (log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\vitest-step2-run1.log`)
+  → `Test Files 2 failed | 448 passed | 5 skipped (455)`, `Tests 3 failed | 3804 passed`:
+  `shot-module-resolver.test.ts` (load flake, green alone) and 2 × `python-models/service.test.ts`
+  with **`ENOSPC: no space left on device, ftruncate`** at `service.test.ts:77` (it seeds a
+  1.68 GB model file in %TEMP% on C:, which had 1.5 GB free) — environmental, unrelated to B3;
+  it fails alone for the same reason. This run does NOT count as the part's gate: rerun the full
+  suite when C: has > ~3 GB free.
+- Disk at step-2 hand-off: **C: 1.5 GB free, D: 1.6 GB free** (C: fell from 19 GB in ~1 h; B3's
+  own C: folder is 85 KB — other sessions).
 
 ## Next step (ONE concrete instruction)
 
-Wire the QA into main (decision 2) and through to the proposal: in
-`src/main/services/studio/cut-plan-runner.ts` `runCutPlan` (:63-103) attach `plan.qa = runCutQa({
-segments: plan.segments, atoms: splitAtoms(keeps ?? [{start:0,end:duration}], words sorted,
-plan.style.internalGap), style: plan.style, envelope })` (consider a small `qaForPlan` helper in
-`cut-qa.ts` so the runner stays thin); in the editorial path (`editorial-cuts.ts`
-`snapEditorialCuts` → `cut-snap.ts` `snapCutSpans`, which plans with `internalGap: +Infinity` at
-:166-169) compute the same report from ITS segments/keeps/style; then carry the report onto the
-proposal (`buildCutProposal`, `cut-proposal.ts:68-117`, and `buildEditorialProposal`) as an
-optional field with each item's `assetId`/`clipId` and `timelineTime` mapped from the clip's
-placement — with handler-level unit tests (Auto Cut plan-run handler; the real cut-tool handler on
-a fixture, no LLM — decision 4) and an old-proposal-without-qa test; then hand off.
+Build the card readout (decision 3 + the DECIDED wording): a new
+`src/features/studio/components/CutQaReadout.tsx` rendered by `ReviewCutsSection.tsx` under the
+note lines (:69-77; both the Auto Cut and the editorial card are `kind: 'cut-plan'` and render
+there) when `proposal.qa` exists (absent → render exactly as today): line 1
+`formatHardEntries(qa)` in the accent/error tone when > 0, line 2 `formatReleaseTails(qa)` neutral
+with the tooltip "the landing is still more than 6 dB over the room tone — soft landing; listen if
+it sounds cut", or one quiet `QA clean` line; a toggle expands the list (hard entries first, then
+tails by `overDb` desc, ~20 visible + "show all"); each row auditions: map `assetId` +
+`sourceTime` to timeline time with a pure renderer helper next to `mapCutItemToTimeline`
+(`src/features/studio/services/cut-proposal.ts`; first V1 clip playing that asset whose source
+range holds the time — a time inside a span the proposal removes maps to that cut's join, see Open
+problems), then seek ~1 s before and play ~2 s through EditorShell's existing audition stop-at
+(`EditorShell.tsx:545-565`, `auditionRef`/`setAuditioning` — pass a callback down the way the
+cut rows' auditions are wired); add the pure mapper's unit tests and a component test (counts and
+wording, sort order, cap + show all, no-qa proposal renders as before, a row click calls the
+audition with the mapped time); keep files ≤ ~300 lines; then hand off.
 
 ## Open problems
 
@@ -185,6 +243,23 @@ a fixture, no LLM — decision 4) and an old-proposal-without-qa test; then hand
   tails = 0. The expandable list puts hard entries first, then tails sorted by dB over floor
   (highest first, cap the visible list at ~20 with "show all"). Each item auditionable as
   decision 3 says. Use the same wording on the editorial card and in STATUS/TESTING.
+  (Step 2 put these strings in `cut-qa.ts` — `formatHardEntries` / `formatReleaseTails` /
+  `formatCutQaLine` — reuse them; don't retype the wording in the component.)
+- **Editorial tails can land inside a removed span (not blocking, for the audition mapper).**
+  analyze_cut's tail check reads `e + tailFor(e, gap to the next ATOM)` and knows nothing about
+  cut spans; Studio's `planClip` additionally clamps a real tail at the next cut's start. Faithful
+  to analyze_cut (exit (a) matched with exactly this), but on an editorial card a tail item's
+  `sourceTime` can sit inside the span being removed (`cut-tools.test.ts` "a cut to the end"
+  shows it: landing > the cut's `sourceStart`). Auto Cut has no cut spans, so its landing = the
+  segment end. The audition mapper should clamp such a time to the kept edge (the join) so the
+  click plays what the user will hear.
+- **Disk is the next risk (for the orchestrator).** At 15:05: C: 1.5 GB free (19 GB an hour
+  earlier — other sessions), D: 1.6 GB. The live exits (b)/(c) need a C: copy of M2 (580 MB, all
+  of it `cache/` — proxies + waveforms) plus the B3 profile copy (377 MB) ≈ 0.96 GB, leaving
+  ~0.5 GB on C:. The full vitest gate also needs > ~1.7 GB free on C: (`python-models/
+  service.test.ts` seeds a 1.68 GB file in %TEMP% → ENOSPC now). DONE parts' scratch on C:
+  (`vidtsx-e2e\B2-root`, `B2-verify*`, `B1-verify-root`, profiles) is the orchestrator's/Hasan's
+  call to free; this builder deleted nothing.
 
 ## Do-not-redo
 
@@ -193,9 +268,16 @@ a fixture, no LLM — decision 4) and an old-proposal-without-qa test; then hand
   (Python on it `-I -B`; never run a tool's `main` that writes into it).
 - B3 step 1 is DONE (`e583d26`): do not rewrite `cut-qa.ts` or re-run exit (a) unless the QA
   logic changes — rerun the two scratch commands under "Verified" only to re-check after a change.
+- B3 step 2 is DONE (`47bc6a1`): QA is on `StudioCutPlan.qa` (runner), `SnapCutSpansResult.qa`
+  (editorial snapper) and `StudioProposal.qa` (both builders, items stamped with `assetId`); the
+  agent replies end with the QA line. Do not move it into `planCuts` or add an IPC field — the
+  toolbar Auto Cut already gets it through the plan it receives.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-22 · builder #1 · ~27 calls · step 1: `cut-qa.ts` + 11 tests (`e583d26`), analyze_cut
   reference script + gated compare → exit (a) measured (0/0 hard entries, 181 vs 178 tails, 3
   deltas explained).
+- 2026-10-22 · builder #2 · ~37 calls · step 2: QA on plans (runner), editorial snapper and both
+  proposal kinds + wording helpers + agent reply line (`47bc6a1`); new real-handler test for
+  `propose_cuts`; types 26/10; full vitest red only on a load flake + ENOSPC (C: 1.5 GB free).
