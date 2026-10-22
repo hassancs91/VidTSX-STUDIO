@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) next
+status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) DONE; step 3 (the learn path: propose_preset_update → report → card → applyPresetLearning) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -164,7 +164,59 @@ Nothing is wired yet: no reducer, IPC, learn path or UI change.
   "Learned from N joins — at least 10 …", within-threshold, soft landings, skipped edges.
 - Tests: `cut-learn.test.ts` (8), `cut-learn-joins.test.ts` (9).
 
+**Step 2 — the learning SIGNAL wired (builder #2, 2026-10-22; code `c5a6f4c`).** The learn path
+(stats → card → preset) is still untouched.
+
+- `src/shared/studio/clip-edge-tags.ts` (31): `withEdgeTag(clip, edge, op)` (:15) — sets
+  `origin.edges[edge]` + `origin.op`, keeps `by`/`proposalId`, absent origin → `{ by: 'user' }`;
+  `withoutEdgeTag(clip, edge)` (:22) — identity when that edge has no tag, drops `edges` when empty
+  (keeps `op`). Re-exported from `@shared/studio` (`index.ts`, beside `snapCutSpans`).
+- `src/features/studio/services/clip-edit-tags.ts` (70): `tagTrimmedEdge(before, after, clipId,
+  edge)` (:22) tags `'trim'` only when that edge's SOURCE second moved (a trim the neighbour/source
+  blocks tags nothing); `tagTextDeleteEdges(before, after)` (:41) tags every master-lane edge whose
+  source second moved, and the start of a new-id piece (the right half of a clip the delete went
+  through), `'text-delete'`. Identity when nothing to tag.
+- Reducer (`src/features/studio/hooks/useTimeline.ts`): `'trim'` (:323) runs `trimClip` /
+  `trimClipRippleAll` then `tagTrimmedEdge`; `'text-delete'` (:370) wraps `applyTextDelete` in
+  `tagTextDeleteEdges`. Undo = the history's untagged document (nothing extra). The only `'trim'`
+  dispatchers are user UI (`useClipDrag.ts:274`, `ShotClipSection.tsx:267`); the only
+  `'text-delete'` dispatcher is `useTextEdit.ts:113`.
+- Ops that REWRITE an edge drop its tag (each piece keeps only the edge it keeps):
+  `splitClip` (`timeline-ops.ts:185,190`), `cutSpanFromClips` (`ripple-ops.ts:59,71` — range
+  delete, ripple, text delete), `restoreDeletion` (`text-restore.ts:73` — the two rejoined edges).
+- `setProposalItemSpan` (`proposal-ops.ts:59`, :72): the first drag of an item with no `snapped`
+  and not yet `adjusted` keeps the pre-drag span as `snapped`; later drags never change it; an item
+  adjusted before B4 gets none (old data = no signal). Creators write it at creation:
+  `buildCutProposal` (`src/shared/studio/cut-proposal.ts:96` — Auto Cut button and `run_auto_cut`)
+  and `buildEditorialProposal` (`src/main/services/studio/editorial-cuts.ts:70` — the editorial
+  snap / `propose_cuts`). These are the only two `kind: 'cut-plan'` creators (grep).
+- Tests: `src/features/studio/services/clip-edit-tags.test.ts` (12, through the real reducer:
+  tag + keep `by`/`proposalId` + undo; no-origin start trim; blocked trim tags nothing; ripple-all
+  trim; both sides of a join trimmed → `collectCutLearnJoins` = ONE join, both touched, tail 2.8 /
+  head 4.2; split and range delete keep only the outer tags; Transcript delete of "um" tags
+  `'text-delete'` (no learn join), a later trim turns it into a `'trim'` sample, undo walks back to
+  `'text-delete'` then to no origin; restore drops both rejoined tags; `snapped` on first drag,
+  kept on the second, creator's kept, pre-B4 adjusted item gets none, a no-op drag is identity);
+  `snapped` assertions added to `cut-proposal.test.ts` and `editorial-cuts.test.ts`.
+
 ## Verified (exact commands + outputs)
+
+Step 2:
+
+- `npx vitest run src/features/studio/services/clip-edit-tags.test.ts …cut-proposal.test.ts
+  src/main/services/studio/editorial-cuts.test.ts …text-restore.test.ts …text-delete.test.ts
+  …ripple-ops.test.ts …timeline-ops.test.ts src/shared/studio/cut-learn.test.ts
+  src/shared/studio/cut-learn-joins.test.ts` → `Test Files 9 passed (9) · Tests 118 passed (118)`.
+- Subset run `npx vitest run src/features/studio src/main/services/studio src/shared/studio
+  src/main/services/agents src/main/ipc` (log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-step2-subset.log`)
+  → `Test Files 238 passed | 2 skipped (240) · Tests 2040 passed | 23 skipped (2063)` (22.45 s).
+  No full run yet (the session gate is at the end, DRIVING.md rules).
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Disk at step 2: C: 2.32 GB, D: 6.44 GB free. No app launched.
+
+Step 1:
+
 
 - `npx vitest run src/shared/studio/cut-learn.test.ts src/shared/studio/cut-learn-joins.test.ts`
   → `Test Files 2 passed (2) · Tests 17 passed (17)` (1.34 s). Covered: one join's lead-in 0.1 /
@@ -186,17 +238,22 @@ Nothing is wired yet: no reducer, IPC, learn path or UI change.
 
 ## Next step (ONE concrete instruction)
 
-Wire the learning SIGNAL (not the learn path yet), with unit tests, then hand off: (a) the
-`'trim'` reducer case (`useTimeline.ts:322`, `trimClip`/`trimClipRippleAll` in
-`timeline-ops.ts:209` / `ripple-ops.ts`) tags the moved edge `origin.edges[edge] = 'trim'` +
-`op: 'trim'` (keep `by`/`proposalId`; absent origin → `{ by: 'user' }`; undo restores the untagged
-clip as today); `splitClip` hands each half only the edge it keeps; the `'text-delete'` case tags
-the edges it creates `'text-delete'`; (b) `setProposalItemSpan` (`proposal-ops.ts:54-68`) writes
-`snapped` = the pre-drag span when absent and the item is not yet `adjusted`, and every cut-plan
-item creator (Auto Cut `cut-proposal.ts`, the editorial snap, `run_auto_cut` / `propose_cuts`)
-writes `snapped` at creation. Then the learn path is the step after: read `preset-learn-stats.ts`,
-`learn-from-project.ts`, `preset-learn-format.ts`, `preset-store.ts` `applyPresetLearning`,
-`preset-learn-handlers.ts`, `agent-tools/preset-tools.ts` (NOT read yet).
+Wire the LEARN PATH in main, with unit tests through the real `propose_preset_update` tool
+handler on a fixture project (no LLM; decision 4), then hand off: read `preset-learn-stats.ts`,
+`learn-from-project.ts`, `preset-learn-format.ts`, `preset-store.ts` `applyPresetLearning`
+(~:153-176), `preset-learn-handlers.ts` (:61-97), `agent-tools/preset-tools.ts` (:44-68),
+`studio-preset.ts` (`StudioPresetKnobKey` :146) (none read yet); then (a) widen
+`StudioPresetKnobKey` to the nested cut knobs `cut.head` / `cut.minTail` / `cut.maxTail` /
+`cut.margin` (optional, old `learned[]` entries still parse); (b) in `learn-from-project.ts` load
+each master-lane asset's v3 waveform envelope + words (same loaders B2's `resolveCutStyle` callers
+/ the editorial snap use in main), run `collectCutLearnJoins(project.timeline, project.proposals)`
+→ `learnCutKnobs(inputs, assets, resolveCutStyle(project, preset))` and turn `report.changes` into
+knob changes; (c) `preset-learn-format.ts` prints the card text per the RULED block (n joins, head
+and tail edge counts separately, medians AND fitted values, "maxTail at least N s", "learned from
+your trims; Transcript deletes count once you trim them", < 10 → "Learned from N joins — at least
+10 …"); (d) accept writes `style.cut` through `applyPresetLearning` (base kept, only changed knobs,
+B2's `cutSpecProblems` validation); no preset → say which existing pattern applies. UI (the card)
+and the M2 stand-in are the steps after.
 
 ## Open problems
 
@@ -232,6 +289,11 @@ Hasan; none blocks):
    so. The stand-in should start from the old tight as a project override over base tight
    (softGap 99 → every join punchy), as decision 5 suggests.
 
+Step 2 notes (no ruling needed): a TSX shot clip trimmed in the Inspector (`ShotClipSection`)
+is tagged too — harmless, the collector reads media clips only; only MASTER-lane edges get
+`'text-delete'` tags (the collector reads the master lane only; ripple-all pieces on other lanes
+just lose stale tags).
+
 **RULED (orchestrator, 2026-10-22 17:20) — all six accepted as built:**
 1. Accepted: medians = the Q4 gate, values = the fit through the snapper's rules; the card shows
    BOTH ("you kept a median 0.12 s lead-in; head 0.15 reproduces your edges") so nothing is
@@ -254,8 +316,12 @@ Hasan; none blocks):
 - Step 1 is DONE: the schema fields and the four `src/shared/studio/cut-learn*.ts` modules + their
   17 tests — extend them, do not rewrite them (unless the stand-in on M2 disproves the fit; then
   record the numbers first).
+- Step 2 is DONE (`c5a6f4c`): edge tags on trim / text-delete, tag drops in split / span cut /
+  restore, `snapped` on first drag and at creation, 12 reducer-level tests. Do not re-wire them.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-22 · builder #1 · ~37 calls · step 1: schema + pure join collector / measurement / fit /
   report with 17 unit tests; types 26/10; no app launch.
+- 2026-10-22 · builder #2 · ~42 calls · step 2: the signal wired (reducer tags, tag drops,
+  `snapped` on drag + creators), 12 tests; subset vitest green; types 26/10; no app launch.
