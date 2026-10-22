@@ -8,7 +8,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StudioProject } from '../../../../shared/types/studio';
+import type { StudioProject, StudioProposal } from '../../../../shared/types/studio';
 import type { StudioCutPlan } from '../../../../shared/types/studio-cut-plan';
 import { WAVEFORM_VERSION } from '../../../../shared/types/studio-waveform';
 import { cutStyleKey } from '../../../../shared/studio/cut-style-resolve';
@@ -133,6 +133,12 @@ describe('run_auto_cut (real handler) snaps with the project’s resolved cut st
     expect(plan.styleKey).toBe(cutStyleKey(shipped.styles.relaxed));
     expect(name).toBe(`a1-relaxed-${cutStyleKey(shipped.styles.relaxed)}.json`);
     expect(events).toContainEqual(expect.objectContaining({ kind: 'proposal' }));
+    // B3: the plan's QA rides on the plan file, the proposal and the reply.
+    expect(plan.qa).toMatchObject({ hardEntries: 0, joinsChecked: 2, atomsChecked: 2 });
+    const proposal = (events.find((e) => (e as { kind?: string }).kind === 'proposal') as { proposal: StudioProposal })
+      .proposal;
+    expect(proposal.qa).toEqual(plan.qa);
+    expect(res.content[0].text).toContain('QA clean.');
   });
 
   it('the project override beats the preset', async () => {

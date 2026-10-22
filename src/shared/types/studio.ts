@@ -12,7 +12,7 @@ import type { SttModelFeatures } from '../presets/stt-models';
 import type { ThinkingLevel } from '../tsx-engine/types';
 import type { CaptionRuntimeProps, StudioCaptionLayer } from './studio-captions';
 import type { StudioClipEffect } from './studio-effects';
-import type { CutStyleSpec } from './studio-cut-plan';
+import type { CutQaReport, CutStyleSpec } from './studio-cut-plan';
 
 // Caption types are a sibling file (they are a published contract for pack
 // authors), re-exported here so every consumer keeps one import site.
@@ -333,6 +333,12 @@ export interface StudioProposal {
   createdAt: string;
   agentNote?: string;
   items: StudioProposalItem[];
+  /**
+   * Cut-plan proposals: analyze_cut's two checks on the plan that made them
+   * (hard entries, tails on a release), items stamped with their asset. Absent
+   * on proposals made before B3 and on every other kind.
+   */
+  qa?: CutQaReport;
 }
 
 // ---------------------------------------------------------------------------

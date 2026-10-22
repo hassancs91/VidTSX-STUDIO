@@ -14,6 +14,8 @@ import type {
   StudioProposal,
   StudioProposalItem,
 } from '../../../shared/types/studio';
+import type { CutQaReport } from '../../../shared/types/studio-cut-plan';
+import { withQaAsset } from '../../../shared/studio/cut-qa';
 import {
   snapCutSpans,
   type CutSpanInput,
@@ -47,6 +49,8 @@ export interface BuildEditorialProposalInput {
   /** The agent's one-line summary of the pass, shown under the headline. */
   summary?: string;
   qaNotes?: string[];
+  /** The snapped plan's QA readout (`snapCutSpans` → `qa`); absent = none shown. */
+  qa?: CutQaReport;
   createdAt?: string;
 }
 
@@ -87,5 +91,6 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
     createdAt: input.createdAt ?? new Date().toISOString(),
     agentNote: lines.join('\n'),
     items,
+    ...(input.qa ? { qa: withQaAsset(input.qa, input.assetId) } : {}),
   };
 }

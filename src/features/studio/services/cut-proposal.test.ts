@@ -47,6 +47,30 @@ function makePlan(overrides: Partial<StudioCutPlan> = {}): StudioCutPlan {
 }
 
 describe('buildCutProposal', () => {
+  it("carries the plan's QA readout with every item stamped with the asset (B3)", () => {
+    const qa = {
+      hardEntries: 1,
+      clippedTails: 1,
+      joinsChecked: 3,
+      atomsChecked: 3,
+      items: [
+        { kind: 'hard-entry' as const, sourceTime: 8, overDb: 16.2 },
+        { kind: 'clipped-tail' as const, sourceTime: 5.1, wordEnd: 4.8, overDb: 7 },
+      ],
+    };
+    const proposal = buildCutProposal({ plan: makePlan({ qa }), words: [] });
+    expect(proposal.qa).toMatchObject({ hardEntries: 1, clippedTails: 1, joinsChecked: 3, atomsChecked: 3 });
+    expect(proposal.qa?.items.map((i) => [i.kind, i.sourceTime, i.assetId])).toEqual([
+      ['hard-entry', 8, 'asset1'],
+      ['clipped-tail', 5.1, 'asset1'],
+    ]);
+  });
+
+  it('a pre-B3 plan (no qa) makes a proposal without a qa field', () => {
+    const proposal = buildCutProposal({ plan: makePlan(), words: [] });
+    expect('qa' in proposal).toBe(false);
+  });
+
   it('inverts keeps into cut spans, including leading and trailing silence', () => {
     const proposal = buildCutProposal({ plan: makePlan(), words: [] });
     expect(proposal.items.map((i) => [i.sourceStart, i.sourceEnd])).toEqual([

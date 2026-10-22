@@ -11,6 +11,7 @@ import { getProjectCacheDir } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
 import { generateWaveform, waveformRelPath } from './waveform-generator';
 import { RmsEnvelope, planCuts } from '../../../shared/studio/cut-planner';
+import { qaForPlan } from '../../../shared/studio/cut-qa';
 
 export const CUT_PLAN_DIR = 'cut-plans';
 
@@ -76,7 +77,8 @@ export async function runCutPlan(
 
   const envelope = await loadRmsEnvelope(projectId, assetId, sourcePath);
 
-  const plan = planCuts({
+  const duration = envelope.duration();
+  const planned = planCuts({
     assetId,
     createdAt: new Date().toISOString(),
     styleName: cut.styleName,
@@ -88,12 +90,24 @@ export async function runCutPlan(
     // spoken segment (understating trailing silence) and whisper pads its
     // final decode window past the real end (measured 41.7 s on a 39.4 s
     // file — "the transcript lies about time").
-    duration: envelope.duration(),
+    duration,
     words: transcript.words,
     envelope,
     sttModelId: transcript.sttModelId,
     features: transcript.features,
   });
+  // B3: analyze_cut's two checks on the plan just made — the same single keep
+  // over the whole source that planCuts defaulted to, and the knobs it used.
+  const plan: StudioCutPlan = {
+    ...planned,
+    qa: qaForPlan({
+      segments: planned.segments,
+      keeps: [{ start: 0, end: duration }],
+      words: transcript.words,
+      style: planned.style,
+      envelope,
+    }),
+  };
 
   const cacheDir = await getProjectCacheDir(projectId);
   const planPath = path.join(cacheDir, CUT_PLAN_DIR, `${assetId}-${cut.styleName}-${cut.key}.json`);

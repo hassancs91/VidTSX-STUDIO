@@ -278,4 +278,18 @@ describe('buildEditorialProposal', () => {
     const ids = new Set(proposal.items.map((i) => i.id));
     expect(ids.size).toBe(proposal.items.length);
   });
+
+  it('carries a QA readout stamped with the asset, and none when not given (B3)', () => {
+    const qa = {
+      hardEntries: 1,
+      clippedTails: 0,
+      joinsChecked: 2,
+      atomsChecked: 2,
+      items: [{ kind: 'hard-entry' as const, sourceTime: 2, overDb: 21.4 }],
+    };
+    const withQa = buildEditorialProposal({ assetId: 'a', items, removedSeconds: 2, sourceDuration: 40, qa });
+    expect(withQa.qa).toEqual({ ...qa, items: [{ ...qa.items[0], assetId: 'a' }] });
+    const without = buildEditorialProposal({ assetId: 'a', items, removedSeconds: 2, sourceDuration: 40 });
+    expect('qa' in without).toBe(false);
+  });
 });

@@ -11,6 +11,7 @@
 
 import type { StudioCutPlan } from '../types/studio-cut-plan';
 import type { StudioCutCategory, StudioProposal, StudioProposalItem } from '../types/studio';
+import { withQaAsset } from './cut-qa';
 
 /** Spans shorter than this are not worth a cut (≈ one 25 fps frame). */
 export const MIN_CUT_SPAN = 0.05;
@@ -113,5 +114,7 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
     createdAt: input.createdAt ?? new Date().toISOString(),
     agentNote: [headline, ...plan.qaNotes].join('\n'),
     items,
+    // B3: the plan's QA readout, items stamped with the asset (absent on pre-B3 plans).
+    ...(plan.qa ? { qa: withQaAsset(plan.qa, plan.assetId) } : {}),
   };
 }

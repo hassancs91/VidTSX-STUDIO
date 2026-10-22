@@ -19,8 +19,8 @@
 // edge disagreements with analyze_cut on real material.
 
 import type { CutPlanStyle, CutQaItem, CutQaReport } from '../types/studio-cut-plan';
-import { tailFor } from './cut-planner';
-import type { PlanSpan } from './cut-planner';
+import { splitAtoms, tailFor } from './cut-planner';
+import type { PlanSpan, PlanWord } from './cut-planner';
 import type { RmsEnvelope } from './rms-envelope';
 
 /** A segment start more than this after the previous segment's end is a real cut join. */
@@ -108,6 +108,35 @@ export function runCutQa(input: CutQaInput): CutQaReport {
   };
 }
 
+export interface PlanQaInput {
+  /** The plan's segments in source order. */
+  segments: readonly PlanSpan[];
+  /** The keeps the plan was made from (Auto Cut: one keep over the whole source). */
+  keeps: readonly PlanSpan[];
+  /** Transcript words, any order. */
+  words: readonly PlanWord[];
+  /** The knobs the plan used — its `internalGap` splits the atoms, as the planner did. */
+  style: CutPlanStyle;
+  envelope: RmsEnvelope;
+}
+
+/**
+ * Both checks on a finished plan: re-derives the planner's atoms
+ * (`splitAtoms(keeps, words, style.internalGap)`, analyze_cut's `split_atoms`)
+ * and runs `runCutQa`. Called by whoever made the plan — the Auto Cut runner
+ * and the editorial snapper — so the planner itself stays QA-free.
+ */
+export function qaForPlan(input: PlanQaInput): CutQaReport {
+  const words = [...input.words].sort((a, b) => a.start - b.start);
+  const atoms = splitAtoms([...input.keeps], words, input.style.internalGap);
+  return runCutQa({ segments: input.segments, atoms, style: input.style, envelope: input.envelope });
+}
+
+/** A report whose items name the asset they were measured on (proposals carry it). */
+export function withQaAsset(report: CutQaReport, assetId: string): CutQaReport {
+  return { ...report, items: report.items.map((item) => ({ ...item, assetId: item.assetId ?? assetId })) };
+}
+
 /** Several clips' reports as one (a card that spans clips); item order is kept per kind. */
 export function mergeCutQa(reports: readonly CutQaReport[]): CutQaReport {
   const items = reports.flatMap((r) => r.items);
@@ -123,10 +152,30 @@ export function mergeCutQa(reports: readonly CutQaReport[]): CutQaReport {
   };
 }
 
-/** The card's QA line: "Hard entries 0 · clipped tails 12", or "QA clean". */
+// Card wording (orchestrator decision, B3): the two checks carry different
+// weight and always a denominator. A hard entry is an error; a tail "on a
+// release" is informational (analyze_cut's "clipped-tail risk": the landing
+// still reads > 6 dB over the room tone — a soft landing, listen if it sounds
+// cut). With a tight style most landings ride the release by design.
+
+/** "Hard entries 0 of 37 joins". */
+export function formatHardEntries(report: CutQaReport): string {
+  return `Hard entries ${report.hardEntries} of ${plural(report.joinsChecked, 'join')}`;
+}
+
+/** "Tails on a release 178 of 200 landings". */
+export function formatReleaseTails(report: CutQaReport): string {
+  return `Tails on a release ${report.clippedTails} of ${plural(report.atomsChecked, 'landing')}`;
+}
+
+/** One line for text surfaces (agent replies, logs), or "QA clean" when nothing is flagged. */
 export function formatCutQaLine(report: CutQaReport): string {
   if (report.hardEntries === 0 && report.clippedTails === 0) return 'QA clean';
-  return `Hard entries ${report.hardEntries} · clipped tails ${report.clippedTails}`;
+  return `${formatHardEntries(report)} · ${formatReleaseTails(report).replace(/^T/, 't')}`;
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
 function round1(n: number): number {

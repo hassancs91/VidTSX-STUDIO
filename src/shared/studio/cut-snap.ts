@@ -7,7 +7,8 @@
 // job. Pure logic, generic over the caller's category vocabulary.
 
 import type { SttModelFeatures } from '../presets/stt-models';
-import type { CutPlanStyle } from '../types/studio-cut-plan';
+import type { CutPlanStyle, CutQaReport } from '../types/studio-cut-plan';
+import { qaForPlan } from './cut-qa';
 import {
   planClip,
   styleForFeatures,
@@ -53,6 +54,11 @@ export interface SnapCutSpansResult<C extends string> {
   removedSeconds: number;
   /** Honest QA readout: merges, clamps, drops. */
   notes: string[];
+  /**
+   * analyze_cut's two checks (cut-qa.ts) on the snapped plan — its segments,
+   * keeps and pause-compression-off style. Absent when no span survived.
+   */
+  qa?: CutQaReport;
 }
 
 const MIN_CUT_SPAN = 0.05;
@@ -199,7 +205,8 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
   }
 
   const removedSeconds = items.reduce((sum, i) => sum + (i.sourceEnd - i.sourceStart), 0);
-  return { items, removedSeconds: round3(removedSeconds), notes };
+  const qa = qaForPlan({ segments, keeps, words, style, envelope: input.envelope });
+  return { items, removedSeconds: round3(removedSeconds), notes, qa };
 }
 
 function round3(n: number): number {

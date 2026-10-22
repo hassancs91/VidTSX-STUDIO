@@ -81,6 +81,14 @@ describe('runCutPlan (B2: resolved style in, keyed plan file out)', () => {
     expect(b.plan.style.head).toBe(0.25);
   });
 
+  it('runs the cut QA on the plan it made and writes it into the plan file (B3)', async () => {
+    const { plan, planPath } = await runCutPlan('p1', 'a1', 'src.mp4', resolved('tight'));
+    // Two speech runs 2.1 s apart: the first segment + one real join; two atoms
+    // whose tails land in the -55 dB room tone (floor) → nothing flagged.
+    expect(plan.qa).toEqual({ hardEntries: 0, clippedTails: 0, joinsChecked: 2, atomsChecked: 2, items: [] });
+    expect(JSON.parse(await fs.readFile(planPath, 'utf-8')).qa).toEqual(plan.qa);
+  });
+
   it('a pre-B2 plan file beside it is left alone and breaks nothing', async () => {
     const old = path.join(env.cacheDir, CUT_PLAN_DIR, 'a1-tight.json');
     await fs.mkdir(path.dirname(old), { recursive: true });
