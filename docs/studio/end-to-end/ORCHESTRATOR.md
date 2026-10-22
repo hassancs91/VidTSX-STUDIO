@@ -185,3 +185,42 @@
   (pixels chosen because they agree). History rows (after "Clear completed") have no Check A/V. A
   row can be checked only while its export context exists (24 h sweep). The error ignores the
   export frame's own pts (≤ 1 ms here).
+- 2026-10-22 ~11:05 · **TRACK A EXIT: PASS** (fresh check, `.vidtsx-temp/end-to-end/track-A-exit/`):
+  both A5 files 1800/1800 frames, decode clean; app A/V check −2.6 ms median, drift +3.5 ms over
+  10.1 s, 16/16 probes on both; 14 timeline seconds vs the editor's `video-14-preview.mp4` — same
+  content/layout/phase within one export frame (SSIM 0.96–0.99; split rows PSNR ~22.5 dB because
+  the PREVIEW's split segment is range-squeezed 16–235, 31.7–43.1 dB after the same squeeze;
+  103.1333 s SSIM 0.77 because the editor rounded the 103.15 cut to its 30 fps grid — the exact
+  cut frames match at 0.993); `%TEMP%\vidtsx-studio\export` empty, no Remotion asset /
+  react-motion-render folders; the 7 puppeteer profiles created since the branch start all loaded
+  Remotion's own `localhost:3000/3001/3911` servers (other repos' `remotion studio`), none from
+  VidTSX (`127.0.0.1:3100`). Track A DONE. Starting track B per Hasan's overnight instruction.
+
+### From the track-A exit (for the stop report)
+
+- The editor's preview is NOT a pixel reference for split segments (range-squeezed) and is
+  offset by up to one 30 fps frame at mid-frame cuts.
+- The A/V check measures drift only where the camera picture is visible (10.1 s of the 30 s
+  range on video-14 — the split); cutaways are skipped by design.
+- The vitest suite leaves ~4k temp folders (176 MB) in `%TEMP%` (`tsx-builder-looks-*`,
+  `agent-pack-*`, …) — test hygiene, pre-existing.
+
+## Track B decisions (orchestrator, 2026-10-22)
+
+- **M2** = a new Studio project `video-14-raw` from the nine DJI clips in
+  `D:\repos\claude-youtube-editor\videos\video-14\raw\` (12.4 GB, referenced in place, read-only),
+  in a scratch Studio root on **C:** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root`) so proxies
+  and caches land on C: (plan T9). Created in B1 step 1 and shared by B1–B6 and their verifiers.
+- **Transcripts for M2** = Hasan's own saved AssemblyAI responses
+  (`…\videos\video-14\work\transcripts\<clip>.json`, universal-3-5-pro, verbatim + keyterms — the
+  words `cuts.json` was cut from), mapped through Studio's own AssemblyAI provider mapping into the
+  project's transcript cache. $0, no download, no new STT call; satisfies B5's "AssemblyAI
+  transcript". Hasan's profile has NO whisper binary/model, and no B row names a download.
+- **Profile** for B parts: a copy of `.vidtsx-temp/end-to-end/A5/profile` (full ffmpeg + NVENC
+  proxies on by default, warm fonts). Studio root re-pointed to the C: root.
+- **cutlib comparisons** run Hasan's `tools/cutlib.py` read-only from a script in our scratch
+  (outputs only into `.vidtsx-temp/end-to-end/`); the editor repo is never written.
+- **B4 / B5 depend on Hasan** (his 21-join pass; his by-ear pass + the flag flip): build and verify
+  everything up to his step, mark the part `WAITING-HASAN`, continue. B6 runs.
+- **Track B exit** item "the editor's clean-cut skill marked superseded" edits the editor repo,
+  which this plan treats as read-only → left for Hasan.
