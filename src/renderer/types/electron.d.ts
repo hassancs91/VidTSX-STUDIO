@@ -505,6 +505,7 @@ export interface ElectronAPI {
   studioAnalysisReadMask: (data: import('../../shared/ipc/types').StudioAnalysisReadMaskRequest) => Promise<import('../../shared/ipc/types').StudioAnalysisReadMaskResponse>;
   studioCutPlanRun: (data: import('../../shared/ipc/types').StudioCutPlanRunRequest) => Promise<import('../../shared/ipc/types').StudioCutPlanRunResponse>;
   studioCutStyleResolve: (data: import('../../shared/ipc/types').StudioCutStyleResolveRequest) => Promise<import('../../shared/ipc/types').StudioCutStyleResolveResponse>;
+  studioCutStyleFile: () => Promise<import('../../shared/ipc/types').StudioCutStyleFileResponse>;
   studioAgentSend: (data: import('../../shared/ipc/types').StudioAgentSendRequest) => Promise<import('../../shared/ipc/types').StudioAgentSendResponse>;
   studioShotsReconcile: (data: import('../../shared/ipc/types').StudioShotsReconcileRequest) => Promise<import('../../shared/ipc/types').StudioShotsReconcileResponse>;
   studioAgentChatLoad: (data: import('../../shared/ipc/types').StudioAgentChatLoadRequest) => Promise<import('../../shared/ipc/types').StudioAgentChatLoadResponse>;

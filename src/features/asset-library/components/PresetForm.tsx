@@ -3,6 +3,9 @@ import type { StudioPresetEntry, StudioPresetStyle } from '@shared/types/studio-
 import { PRESET_BODY_MAX, PRESET_PROMPT_BUDGET } from '@shared/types/studio-preset';
 import { validatePresetInput, type StudioPresetInput } from '@shared/studio/preset';
 import { formatWorkflowLines, parseWorkflowLines } from '@shared/studio/preset-workflow-lines';
+import { cutSpecProblems, presetCutBase, withPresetCutBase } from '@shared/studio/preset-cut';
+import { useCutStyleFile } from '../hooks/useCutStyleFile';
+import { PresetCutFields } from './PresetCutFields';
 
 const EMPTY: StudioPresetInput = {
   name: '',
@@ -56,16 +59,24 @@ export function PresetForm({
   );
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const cutStyles = useCutStyleFile();
 
-  const setStyle = (patch: Partial<StudioPresetStyle>) =>
-    setInput({ ...input, style: { ...input.style, ...patch } });
+  const setStyle = (patch: Partial<StudioPresetStyle>) => {
+    const style = { ...input.style, ...patch };
+    // A pacing change can move the cut's base: re-prune knobs the new base lacks or equals.
+    const file = cutStyles.file;
+    setInput({ ...input, style: file && 'pacing' in patch ? withPresetCutBase(style, style.cut?.base, file) : style });
+  };
 
   const numberOrUndefined = (v: string): number | undefined => (v.trim() === '' ? undefined : Number(v));
 
   const submit = async () => {
     const parsed = parseWorkflowLines(workflowText);
     const next: StudioPresetInput = { ...input, workflow: parsed.steps };
-    const problems = [...parsed.errors, ...validatePresetInput(next)];
+    const cutBase = cutStyles.file ? cutStyles.file.styles[presetCutBase(next.style, cutStyles.file)] : undefined;
+    const problems = [
+      ...new Set([...parsed.errors, ...validatePresetInput(next), ...cutSpecProblems(next.style.cut, cutBase)]),
+    ];
     if (problems.length > 0) {
       setErrors(problems);
       return;
@@ -235,6 +246,13 @@ export function PresetForm({
           />
         </label>
       </div>
+
+      <PresetCutFields
+        style={input.style}
+        file={cutStyles.file}
+        fileError={cutStyles.error}
+        onChange={(style) => setInput({ ...input, style })}
+      />
 
       <label className="flex flex-col gap-1 text-[10px] text-text-muted">
         <span>

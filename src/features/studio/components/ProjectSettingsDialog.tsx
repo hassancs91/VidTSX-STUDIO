@@ -3,8 +3,10 @@ import type { StudioProject } from '../types';
 import type { BrandOption } from '../hooks/useBrandList';
 import type { PresetOption } from '../hooks/usePresetList';
 import type { ProjectBrandState } from '../hooks/useProjectBrand';
+import type { ResolvedCutStyleState } from '../hooks/useResolvedCutStyle';
 import { ProjectFormatFields } from './ProjectFormatFields';
 import { ProjectBrandFields } from './ProjectBrandFields';
+import { ProjectCutStyleFields } from './ProjectCutStyleFields';
 
 interface Props {
   isOpen: boolean;
@@ -18,6 +20,8 @@ interface Props {
   presets: PresetOption[];
   onSetPreset: (presetId: string | null) => void;
   projectBrand: ProjectBrandState;
+  /** The resolved cut style (B2) — read-only here. */
+  cutStyle: ResolvedCutStyleState;
 }
 
 function SectionTitle({ children }: { children: string }) {
@@ -27,7 +31,8 @@ function SectionTitle({ children }: { children: string }) {
 /**
  * Project settings (video-10 feedback item 7.4), opened from the top bar next
  * to Export: the project-level settings in one place: name, frame size, fps,
- * STT model, and the Brand + Preset that used to hide in the media pool.
+ * STT model, the Brand + Preset that used to hide in the media pool, and the
+ * cut style those resolve to (B2, read-only).
  * Every change lands in the document at once (autosaved); the frame size is
  * also one undo step (A1), the rest are not undoable.
  */
@@ -42,6 +47,7 @@ export function ProjectSettingsDialog({
   presets,
   onSetPreset,
   projectBrand,
+  cutStyle,
 }: Props) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Project settings">
@@ -62,6 +68,10 @@ export function ProjectSettingsDialog({
             projectBrand={projectBrand}
             onLeave={onClose}
           />
+        </section>
+        <section className="flex flex-col gap-2">
+          <SectionTitle>Cut style</SectionTitle>
+          <ProjectCutStyleFields cutStyle={cutStyle} />
         </section>
       </div>
     </Modal>

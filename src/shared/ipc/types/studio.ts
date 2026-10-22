@@ -12,7 +12,7 @@ import type {
   StudioShot,
   StudioShotKind,
 } from '../../types/studio';
-import type { CutPlanStyleName, ResolvedCutStyle, StudioCutPlan } from '../../types/studio-cut-plan';
+import type { CutPlanStyleName, CutStyleFile, ResolvedCutStyle, StudioCutPlan } from '../../types/studio-cut-plan';
 import type {
   StudioMemoryProposal,
   StudioStylePromotionProposal,
@@ -408,6 +408,13 @@ export interface StudioCutStyleResolveResponse {
   success: boolean;
   /** Override > preset > default, resolved against the shipped cut-style.json. */
   resolved?: ResolvedCutStyle;
+  error?: string;
+}
+
+/** The shipped cut styles (cut-style.json, parsed by main) — the preset editor's bases. */
+export interface StudioCutStyleFileResponse {
+  success: boolean;
+  file?: CutStyleFile;
   error?: string;
 }
 

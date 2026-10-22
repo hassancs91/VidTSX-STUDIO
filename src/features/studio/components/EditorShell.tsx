@@ -1608,6 +1608,7 @@ export function EditorShell({ projectId, onBack }: Props) {
         presets={presetList}
         onSetPreset={handleSetPreset}
         projectBrand={projectBrand}
+        cutStyle={cutStyle}
       />
       <ExportDialog
         isOpen={exportDialog !== null}

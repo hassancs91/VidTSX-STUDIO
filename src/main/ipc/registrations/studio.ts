@@ -46,7 +46,7 @@ import {
   handleStudioShotsReconcile,
   handleStudioShotLibrary,
 } from '../studio-shot-handlers';
-import { handleStudioCutStyleResolve } from '../cut-style-handlers';
+import { handleStudioCutStyleFile, handleStudioCutStyleResolve } from '../cut-style-handlers';
 import { handleStudioShotModule } from '../studio-shot-module-handler';
 import {
   handleStudioCaptionTemplateModule,
@@ -127,6 +127,7 @@ export function registerStudioIpc(): void {
   ipcMain.handle(IPC.STUDIO_TRANSCRIBE_CANCEL, handleStudioTranscribeCancel);
   ipcMain.handle(IPC.STUDIO_CUTPLAN_RUN, handleStudioCutPlanRun);
   ipcMain.handle(IPC.STUDIO_CUTSTYLE_RESOLVE, handleStudioCutStyleResolve);
+  ipcMain.handle(IPC.STUDIO_CUTSTYLE_FILE, handleStudioCutStyleFile);
   ipcMain.handle(IPC.STUDIO_AGENT_SEND, handleStudioAgentSend);
   ipcMain.handle(IPC.STUDIO_AGENT_CANCEL, handleStudioAgentCancel);
   ipcMain.handle(IPC.STUDIO_AGENT_ACTION_RESULT, handleStudioAgentActionResult);

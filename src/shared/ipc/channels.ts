@@ -467,6 +467,7 @@ export const IPC = {
   STUDIO_CUTPLAN_RUN: 'studio:cutplan:run',
   // The project's resolved cut style (B2) — the renderer's Transcript deletes snap with it.
   STUDIO_CUTSTYLE_RESOLVE: 'studio:cut-style:resolve',
+  STUDIO_CUTSTYLE_FILE: 'studio:cut-style:file',
   // Studio — editing agent (Assistant tab chat)
   STUDIO_AGENT_SEND: 'studio:agent:send',
   STUDIO_AGENT_CANCEL: 'studio:agent:cancel',

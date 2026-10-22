@@ -5,10 +5,11 @@
 
 import type { IpcMainInvokeEvent } from 'electron';
 import type {
+  StudioCutStyleFileResponse,
   StudioCutStyleResolveRequest,
   StudioCutStyleResolveResponse,
 } from '../../shared/ipc/types';
-import { resolveProjectCutStyle } from '../services/studio/cut-style-store';
+import { loadCutStyleFile, resolveProjectCutStyle } from '../services/studio/cut-style-store';
 
 export async function handleStudioCutStyleResolve(
   _event: IpcMainInvokeEvent,
@@ -23,6 +24,18 @@ export async function handleStudioCutStyleResolve(
     return {
       success: false,
       error: err instanceof Error && err.message ? err.message : 'Failed to resolve the cut style',
+    };
+  }
+}
+
+/** The parsed cut-style.json — the preset editor shows each base's knobs (main stays its only reader). */
+export async function handleStudioCutStyleFile(): Promise<StudioCutStyleFileResponse> {
+  try {
+    return { success: true, file: await loadCutStyleFile() };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error && err.message ? err.message : 'Failed to read the cut styles',
     };
   }
 }

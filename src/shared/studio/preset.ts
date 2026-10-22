@@ -18,6 +18,7 @@ import {
   type StudioPresetVideoKind,
 } from '../types/studio-preset';
 import { normalizeCutStyleSpec } from './cut-style-spec';
+import { cutSpecProblems } from './preset-cut';
 
 /** What the user authors — id/timestamps are the store's business. */
 export interface StudioPresetInput {
@@ -193,6 +194,7 @@ export function validatePresetInput(input: StudioPresetInput): string[] {
   if (style.introSeconds !== undefined && boundedNumber(style.introSeconds, 0, 120) === undefined) errors.push('Intro seconds must be between 0 and 120.');
   if (style.outroSeconds !== undefined && boundedNumber(style.outroSeconds, 0, 120) === undefined) errors.push('Outro seconds must be between 0 and 120.');
   if ((style.transitions ?? []).length > TRANSITIONS_MAX) errors.push(`At most ${TRANSITIONS_MAX} transitions.`);
+  errors.push(...cutSpecProblems(style.cut));
   if (typeof input.body !== 'string') {
     errors.push('The preset body must be text.');
   } else if (input.body.length > PRESET_BODY_MAX) {

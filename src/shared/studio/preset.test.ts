@@ -41,6 +41,15 @@ describe('validatePresetInput', () => {
   it('caps the body', () => {
     expect(validatePresetInput({ ...INPUT, body: 'x'.repeat(PRESET_BODY_MAX + 1) }).join(' ')).toMatch(/PRESET.md is limited/);
   });
+
+  it('checks the cut style (B2): bounds and the tail range; a sane cut passes', () => {
+    expect(validatePresetInput({ ...INPUT, style: { cut: { base: 'natural', head: 0.25 } } })).toEqual([]);
+    const errors = validatePresetInput({ ...INPUT, style: { cut: { margin: 600, minTail: 0.9, maxTail: 0.5 } } });
+    expect(errors).toEqual([
+      'Cut decay margin must be between 0 and 60 dB.',
+      'Cut tail min is above tail max.',
+    ]);
+  });
 });
 
 describe('normalizePresetWorkflow', () => {

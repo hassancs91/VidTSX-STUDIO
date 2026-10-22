@@ -4,9 +4,10 @@ import type { ResolvedCutStyle } from '../../shared/types/studio-cut-plan';
 import { TEST_TIGHT_STYLE } from '../../shared/studio/cut-style-test-fixtures';
 
 const resolveProjectCutStyle = vi.hoisted(() => vi.fn());
-vi.mock('../services/studio/cut-style-store', () => ({ resolveProjectCutStyle }));
+const loadCutStyleFile = vi.hoisted(() => vi.fn());
+vi.mock('../services/studio/cut-style-store', () => ({ resolveProjectCutStyle, loadCutStyleFile }));
 
-import { handleStudioCutStyleResolve } from './cut-style-handlers';
+import { handleStudioCutStyleFile, handleStudioCutStyleResolve } from './cut-style-handlers';
 
 const event = {} as IpcMainInvokeEvent;
 const RESOLVED: ResolvedCutStyle = {
@@ -41,5 +42,25 @@ describe('handleStudioCutStyleResolve', () => {
     resolveProjectCutStyle.mockRejectedValue(new Error('cut-style.json: not valid JSON (x)'));
     const res = await handleStudioCutStyleResolve(event, { projectId: 'proj' });
     expect(res).toEqual({ success: false, error: 'cut-style.json: not valid JSON (x)' });
+  });
+});
+
+describe('handleStudioCutStyleFile', () => {
+  beforeEach(() => {
+    loadCutStyleFile.mockReset();
+  });
+
+  it('hands over the parsed file', async () => {
+    const file = { default: 'tight', styles: { tight: TEST_TIGHT_STYLE } };
+    loadCutStyleFile.mockResolvedValue(file);
+    expect(await handleStudioCutStyleFile()).toEqual({ success: true, file });
+  });
+
+  it('returns a typed error instead of throwing', async () => {
+    loadCutStyleFile.mockRejectedValue(new Error('cut-style.json: style "relaxed" is missing'));
+    expect(await handleStudioCutStyleFile()).toEqual({
+      success: false,
+      error: 'cut-style.json: style "relaxed" is missing',
+    });
   });
 });
