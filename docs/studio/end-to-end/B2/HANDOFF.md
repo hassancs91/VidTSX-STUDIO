@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button on live settings + picker → read-out/override) DONE `c50968f`; step 5 (Project settings knobs + preset editor Cut section) next
+status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button on live settings + picker → read-out/override) DONE `c50968f`; step 5 (Project settings knobs + preset editor Cut section + validator) DONE `bf46298`; step 6 (CDP click-through + docs) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -270,6 +270,51 @@ too — keep your D: writes small).
   forwarded + resolved style handed to `runCutPlan`, no settings → `{}`, explicit style → `callStyle`,
   typed error and no plan run).
 
+**Step 5 — Project settings knob read-out; preset editor Cut section; validator (2026-10-22, builder #5, `bf46298`).**
+
+- NEW pure `src/shared/studio/cut-style-labels.ts` (35): `CUT_KNOB_INFO` (label/unit/step/hint per
+  knob — e.g. head = "Lead-in" s, margin = "Decay margin" dB, fricZcr = "Fricative ZCR" /s),
+  `formatCutKnob` (`0.15 s`, `12 dB`, `3500 /s`, `off`).
+- NEW pure `src/shared/studio/preset-cut.ts` (102): `presetCutBase(style, file)` (= resolver rung 3:
+  `cut.base` ?? mapped pacing ?? file default); `withPresetCutBase(style, base|undefined, file)` (sets/
+  clears base; drops knobs EQUAL to the new base and opt-ins it LACKS; an empty cut is removed);
+  `withPresetCutKnob(style, knob, value|undefined, file)` (stores a knob only when it differs from the
+  base; undefined/equal removes; never sets an opt-in the base lacks); `cutSpecProblems(spec, base?)`
+  (bad base, non-object, every out-of-bounds knob via `CUT_PLAN_KNOB_BOUNDS`, minTail > maxTail,
+  maxHead < head — with `base`, knobs the spec leaves to the base count too; a bare style name is fine).
+- `src/shared/studio/preset.ts:197` `validatePresetInput` → `cutSpecProblems(style.cut)` (spec-level;
+  main's preset-store runs it on save too).
+- IPC `studio:cut-style:file` (main stays the ONLY reader of cut-style.json): channel
+  `STUDIO_CUTSTYLE_FILE` (`channels.ts:470`), `StudioCutStyleFileResponse {success, file?:
+  CutStyleFile, error?}` (`ipc/types/studio.ts:415`), `handleStudioCutStyleFile` (`cut-style-handlers.ts:32`
+  → `loadCutStyleFile()`), registered `registrations/studio.ts:130`, preload `studioCutStyleFile`
+  (`preload/api/studio.ts:202`) + `electron.d.ts:508`.
+- NEW hook `src/features/asset-library/hooks/useCutStyleFile.ts` (40): asks once per mount →
+  `{file, error}`.
+- NEW `src/features/asset-library/components/PresetCutFields.tsx` (154) `[data-preset-cut]`: summary
+  `[data-preset-cut-summary]` (`tight + 1 override`); base select `[data-preset-cut-base]` (`From pacing
+  (<mapped>)` / `Default (tight)` when no pacing = unset; Tight/Natural/Relaxed); one input per knob the
+  base has `[data-preset-cut-knob="<knob>"]` (local text, placeholder = base value, empty = back to the
+  base, overridden labels in accent); an opt-in the base lacks → `[data-preset-cut-off="<knob>"]`
+  "off (base natural)" (a hand-written one in preset.json shows read-only "4000 /s (preset.json)");
+  live problems in amber `[data-preset-cut-problems]`.
+- `PresetForm.tsx` (now 307 lines): `useCutStyleFile()` (:62); `setStyle` re-prunes the cut on a
+  PACING change (:64-69, `withPresetCutBase(style, style.cut?.base, file)`); submit adds
+  `cutSpecProblems(next.style.cut, <base style>)` and de-dupes messages (:76-79); renders
+  `<PresetCutFields>` after the style grid (:250).
+- NEW `src/features/studio/components/ProjectCutStyleFields.tsx` (61) `[data-project-cut-style]`:
+  `[data-project-cut-style-name]` = `resolved.displayName`; every knob `[data-project-cut-knob="<knob>"]`
+  in `CUT_PLAN_KNOBS` order (`formatCutKnob`; absent opt-ins "off"; `resolved.overrides` in accent);
+  "Resolving…" / red error otherwise. `ProjectSettingsDialog.tsx:72-75` new section "Cut style"
+  (prop `cutStyle`), `EditorShell.tsx:1611` passes the SAME `cutStyle` (no second resolve hook).
+- Tests: NEW `src/shared/studio/preset-cut.test.ts` (11, against the SHIPPED cut-style.json: base
+  rungs; knob stored only when ≠ base, equal/undefined removes and the cut goes, base kept when the
+  last knob goes, opt-in not settable on natural; what it writes is what `resolveCutStyle` reads
+  (`tight + 1 override · preset “Shorts”`); base change drops equal knobs + lacking opt-ins; back to
+  pacing removes the cut; pacing re-prune; `cutSpecProblems` ok/bad/bounds/ranges with and without
+  base; `formatCutKnob`); `preset.test.ts` +1 (validator: sane cut passes, margin 600 + inverted tail
+  → exactly two messages); `cut-style-handlers.test.ts` +2 (file handed over; typed error).
+
 ## Verified (exact commands + outputs)
 
 Step 1 (2026-10-22, no electron running — `Get-Process electron` count 0):
@@ -323,26 +368,44 @@ Step 4 (2026-10-22, `Get-Process electron` count 0; machine CPU at 100 % from ot
   workers: `npx vitest run --maxWorkers=4` (`-step4d.log`) → `Test Files 446 passed | 5 skipped
   (451) · Tests 3764 passed | 34 skipped (3798)` (91.1 s). Green.
 
+Step 5 (2026-10-22, `tasklist` electron.exe → none running):
+
+- `npx vitest run src/shared/studio/preset-cut.test.ts src/shared/studio/preset.test.ts` →
+  `Test Files 2 passed (2) · Tests 23 passed (23)`; `npx vitest run src/main/ipc/cut-style-handlers.test.ts`
+  → `Tests 5 passed (5)`.
+- `npx vitest run src/shared/studio/preset-cut.test.ts src/shared/studio/preset.test.ts src/main/ipc/cut-style-handlers.test.ts src/shared/studio/cut-style-spec.test.ts src/shared/studio/cut-style-resolve.test.ts src/main/services/studio/cut-style-store.test.ts src/main/services/library`
+  → `Test Files 17 passed (17) · Tests 180 passed (180)`.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`; `(npx tsc -p tsconfig.web.check.json
+  --noEmit; npx tsc -p tsconfig.node.check.json --noEmit) | grep -i "preset-cut\|PresetCut\|PresetForm\|cut-style\|ProjectCutStyle\|ProjectSettingsDialog\|useCutStyleFile\|EditorShell\|preset.ts\|preset.test"`
+  → no lines.
+- `npx vitest run` (full, default workers, FIRST try; log `.vidtsx-temp/end-to-end/B2/vitest-step5.log`)
+  → `Test Files 447 passed | 5 skipped (452) · Tests 3778 passed | 34 skipped (3812)` (35.8 s). Green.
+- NOT yet seen live: the Cut section and the Project settings block have only been type-checked and
+  unit-tested through their pure ops — step 6 drives them.
+
 ## Next step (ONE concrete instruction)
 
-Step 5 — show the resolved knobs and edit the preset's cut: (a) in `ProjectSettingsDialog.tsx`
-(opened by `[data-project-settings-toggle]`, `EditorShell.tsx:1204`, rendered `:1600`) add a
-read-only "Cut style" block: `cutStyle.resolved.displayName` + every knob of
-`cutStyle.resolved.style` in `CUT_PLAN_KNOBS` order (opt-in knobs the style lacks shown "off"),
-threading the SAME `cutStyle` from `EditorShell.tsx:882` (no second resolve hook); (b) in the
-preset editor `src/features/asset-library/components/PresetForm.tsx` (289 lines — put the new
-section in its own component file) add a Cut section: base select (`From pacing` = unset /
-tight / natural / relaxed) + number inputs for the knobs the base has (absent opt-ins shown
-"off (base <name>)", not editable — DECIDED), writing `style.cut` as a `CutStyleSpec` that holds
-only the knobs that differ from the base (base values need the shipped file: get them over a
-small IPC or the existing resolve IPC — decide, keep main the only reader of cut-style.json);
-(c) `validatePresetInput` (`src/shared/studio/preset.ts:160`) rejects an out-of-bounds `style.cut`
-knob (`CUT_PLAN_KNOB_BOUNDS`) and minTail > maxTail, with unit tests; gates green; hand off.
-AFTER that (step 6): the CDP click-through on a COPY of M2 or with M2's `project.json` backed up
-(Auto Cut card headline names the preset's style — set a preset with `cut.base: natural` or
-pacing normal and see `natural · preset “…”`; switch the override and see `… · project override`;
-a Transcript delete and the editorial snap use the same knobs; the survival check below), then
-the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
+Step 6 — the CDP click-through, then the docs. Drive on profile
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\B2\profile` (copy of `…\profiles\source\profile`,
+CDP 9281, DRIVING.md launcher), on a COPY of M2 in your own C: root or with M2's `project.json`
+backed up and restored (`cmp` identical). Show, with stills + disk reads: (1) Assets › Presets ›
+edit a preset → the Cut section (`[data-preset-cut]`): pick base Natural, change Lead-in to 0.25,
+Save → `preset.json` on disk has `style.cut = {base:"natural", head:0.25}`; an untouched preset
+saved again gains NO `cut` key; a bad value (Decay margin 600) shows the error and does not save;
+(2) in Studio on that preset: Project settings `[data-project-cut-style-name]` reads
+`natural + 1 override · preset “<name>”` with Lead-in 0.25 s in accent and the four opt-ins "off";
+the Inspector read-out `[data-cut-style-readout]` says the same; Auto Cut on one clip → the
+proposal card headline `Auto Cut (natural + 1 override · preset “<name>”)` (THE EXIT); (3) the
+override Select → Tight for this project → read-out + Project settings say `tight · project
+override` and a second Auto Cut card says so; (4) a Transcript delete and the editorial snap use
+the same knobs (e.g. capture the resolved `key`/`style` the delete path receives, or compare the
+delete's cut edges with `snapCutSpans` on the same style in a node script); (5) the OWED survival
+check (Open problems): override set → frame size change → undo → redo → a timeline edit → read
+`project.json`: `settings.cutStyle` still `{base:"tight"}`. Restore the preset you edited (or use a
+copied preset) and M2. Then the docs: STATUS row (top, dated, house format, measured numbers;
+say decisions 1 and 4 and the "no off" follow-up), TESTING §18.8 B2 (after §18.7, §17 shape),
+decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, return DONE.
 
 ## Open problems
 
@@ -355,8 +418,15 @@ the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
   <name>)" and is not editable; turning the opt-ins off = choosing base natural/relaxed. Keep
   `CutStyleSpec` as is (no `null`). B4's learning widens only `head`/`minTail`/`maxTail`/`margin`,
   so nothing needs "off" before Hasan asks for it — note it in STATUS as a follow-up.
-- `validatePresetInput` (`preset.ts:~185`) does not check `style.cut` yet: add it with the preset
-  editor Cut section (the normaliser already drops bad values on save/load).
+- (RESOLVED in step 5, `bf46298`) `validatePresetInput` checks `style.cut` (`preset.ts:197` →
+  `cutSpecProblems`).
+- **Disk, D: = 1.84 GB at step 5 hand-off (2026-10-22 ~13:25), under the ~2 GB line.** Not from
+  B2's writes: step 5 wrote source files (KBs) and `.vidtsx-temp/end-to-end/B2` is 44 KB in total;
+  D: was 2.15 GB at step 4's hand-off and other Claude sessions write to D:. Step 6 must keep D:
+  writes near zero (profile, M2 copy, stills, scripts all on C:) and re-check before launching; if D:
+  keeps falling the orchestrator decides.
+- (small) `PresetForm.tsx` is 307 lines after step 5 (was 289; the Cut section itself is its own
+  file). If a later part touches it, move the style grid into its own component.
 - Decision 6 (B1 doc debt) HALF done: the test title is renamed (step 2). Still to do: B1 STATUS
   row + TESTING §18.7 "211 ms" → warm-cache + the verifier's ~5 s cold first open. Do it in the
   final docs step at the latest.
@@ -408,6 +478,10 @@ the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
   `cut-style-override.ts` (+ test), `AutoCutRunner.tsx` (read-out + override Select), the
   InspectorPanel/TranscriptSection threading and `studio-cut-plan-run-handler.test.ts` — written and
   green. Do not reintroduce a session style or a `style` arg on `runAutoCut`.
+- Step 5 (`bf46298`): `cut-style-labels.ts`, `preset-cut.ts` (+ test), the validator hook-up, the
+  `studio:cut-style:file` IPC (+ test), `useCutStyleFile`, `PresetCutFields`, `ProjectCutStyleFields`
+  and their threading — written and green. Do not add a second resolve hook or let the renderer
+  read cut-style.json.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -420,3 +494,6 @@ the docs (STATUS row, TESTING §18.8, decision 6 B1 text).
   resolved style, `PRE_B2_NATURAL` deleted, tests, gates (`b86b279`).
 - 2026-10-22 · builder #4 · ~42 calls · step 4: plan-run IPC on live settings, Auto Cut without a
   session style, `AutoCutRunner` read-out + project override, pure override helper, tests, gates.
+- 2026-10-22 · builder #5 · ~30 calls · step 5: Project settings knob read-out, preset editor Cut
+  section + `studio:cut-style:file` IPC, pure preset-cut ops + labels, validator, tests, gates
+  (`bf46298`).
