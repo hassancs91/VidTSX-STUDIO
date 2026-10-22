@@ -15,7 +15,7 @@
 | A3 | DONE | 4 | PASS (1 round) | `c3aefe8` (code); docs `2daaef1`, `dea786d`, `7a088ab` | 5 s 4K60 Standard range (0:06–0:11) 300/300 frames in 233 s (verifier 226 s); brand-font hold released (verifier watched it in the render tabs); 55/55 bundles 0 `remotion_delayRenderHandles` (verifier rebuild byte-identical); Player 0 handles after open; types 26/10; vitest: known shot-generator flake failed 3/3 full runs (verifier) | 2026-10-21 20:40 / 21:42 (62 min) |
 | A4 | DONE | 9 | PASS (1 round) | `3417d46` (fonts), `4671622` (GPU default), `139a4a9` (card), `3d450ba` (re-queue on GPU); test fix `22593db`, `0afc196`; docs `63e8f04` | font: cold+blocked refused (103 files missing); warm 103 URLs 0 failed; blocked-after-warm export completed (fetched 0, cached 202; 1080p 5 s in 161–182 s). GPU: card 1.3–1.6 s after a 4K import; 80,069,496 B download ~80–106 s; triggering clip rebuilt `h264_nvenc` in 6.2–7.9 s (x264 22–24 s); no Settings visit, no settings write, no restart. vitest 428 files / 3598 green; types 26/10 | 2026-10-21 21:45 / 23:49 (124 min) |
 | A5 | DONE | 4 | PASS (1 round) | `06edaf0` (render stall guard), `f84a78d` (font fetch retry); docs `08bf046`, `31542e7` | 80–110 s (frames 4800–6600, split + 3 cutaways) at 3840×2160@60, CPU low: Fastest 1178 s / 1.53 fps, 35.1 MB (verifier re-render 936 s / 1.92 fps, audio MD5 identical); Standard 1046 s / 1.72 fps, 17.0 MB; Fastest copies 0 % of video-14 (all shots); Fastest cancel leaves nothing; vitest 431 / 3623 green; types 26/10 | 2026-10-21 23:55 / 2026-10-22 07:08 (≈ 7 h 13 min, of which ≈ 5 h 40 min idle — see Stops) |
-| A6 | FIX | 5 | FAIL (round 1: off-by-one frame labels → audio −33/−27 ms read "in sync") | — | — | 2026-10-22 07:15 / — |
+| A6 | DONE | 7 | FAIL round 1 (off-by-one frame labels → audio −33/−27 ms read "in sync"; ±0.5 s audio search) → PASS round 2 | `bcea695`, `a4b88d3`, `16f1a37`, `1ffa650`, fix `717bc74`; docs `438e004` | "Check A/V" on the queue row: A5 Standard + Fastest IN SYNC −2.6 ms, drift +3.5 ms over 10.1 s, 16/16 probes, ~50 s per check; +100 ms audio FAIL +96.8; video +3 frames FAIL −52.6; verifier-2 copies +20/−20/+26 pass, +31/−25 fail, +1.2 s / −1.0 s fail — every verdict = truth (true shift + the file's own −2.6 ms); vitest 436 / 3670 green; types 26/10 | 2026-10-22 07:15 / 10:20 (3 h 05 min) |
 | B1 | TODO | | | | | |
 | B2 | TODO | | | | | |
 | B3 | TODO | | | | | |
@@ -169,3 +169,19 @@
 - The stall guard (a dead encoder now fails the job after ~12 min of no frames) and the font fetch
   retry are unit-tested only; neither failure could be provoked live.
 - `remotion-renderer.ts` 444 lines (434 before; over the house rule).
+- 2026-10-22 10:20 · A6 DONE (verifier FAIL round 1 → PASS round 2; 7 builders). Deleted the isolated
+  profiles of A1–A4, A6 and the A1–A3 verifiers (D: 2.5 → 3.9 GB); kept A5's. Next: the track-A exit.
+
+### From A6 (for the stop report)
+
+- Round 1 caught a real measurement bug: the bundled ffmpeg repeats the first decoded frame on
+  ~1/3 of seeks unless `-fps_mode passthrough`; frame labels were one camera frame late → files
+  27 and 33 ms out read "in sync". Fixed (`717bc74`) with passthrough + per-frame timestamps.
+- The −2.6 ms on the A5 files is the file's real picture-vs-sound offset (59.94 fps camera frames
+  placed in a 60 fps export); orchestrator decision: keep verify_sync's method (verifier-2 agreed).
+- Open (non-blocking): offsets between ~1.6 and 2 s get the right FAIL verdict but a wrong number
+  (+1800 ms read +1693 ms) — the 96-frame picture window is 1.6 s wide while the audio search is
+  ±2 s; the masked match then clears 0.90 on wrong frames. The masked quality overstates confidence
+  (pixels chosen because they agree). History rows (after "Clear completed") have no Check A/V. A
+  row can be checked only while its export context exists (24 h sweep). The error ignores the
+  export frame's own pts (≤ 1 ms here).
