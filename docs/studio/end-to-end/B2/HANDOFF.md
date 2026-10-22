@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: DONE (builder) — steps 1–5 `bc104c3` `4f0b33b` `b86b279` `c50968f` `bf46298`; step 6 (CDP click-through + STATUS row + TESTING §18.8 + decision 6 docs) DONE in the docs commit that carries this line; next = the B2 verifier
+status: FIX (verifier round 1 FAIL: the agent prompt forces `run_auto_cut(style:)` in preset projects — see "Next step") — steps 1–5 `bc104c3` `4f0b33b` `b86b279` `c50968f` `bf46298`; step 6 docs `3a0d510`
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -447,9 +447,25 @@ Step 6 (2026-10-22; before launch: no electron, ports 9222/5173/9281 free, C: 20
 
 ## Next step (ONE concrete instruction)
 
-None for the builder — B2 is DONE. Orchestrator: spawn the B2 verifier over `bc104c3^..HEAD` (the five
-code commits + their hand-off docs + this docs commit) with the exit, DRIVING.md's rules and its own
-profile/port/M2 copy.
+**FIX round 1 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier
+round 1").** Make the agent's `run_auto_cut` use the resolved style in preset projects:
+(1) in `src/main/services/studio/studio-agent-prompt-tools.ts:75` (the "EDITING PRESET" line) DROP
+the mapping "`auto_cut` light or normal → `run_auto_cut(style: "natural")`, aggressive → `style:
+"tight"`" and say instead: an `auto_cut` step runs `run_auto_cut` WITHOUT `style` (the project's
+cut style comes from the preset / project override; pass `style` only when the user asked for
+one in this conversation); the step's aggressiveness does not pick a style. (2) In
+`src/main/services/studio/agent-preset-prompt.ts` `describePresetStyle` (:45-56): when the preset
+has `style.cut`, describe it (base + the overridden knobs, e.g. "cut natural, lead-in 0.25 s"),
+so the agent does not read "pacing tight" as the cut style. (3) Grep every other prompt/skill
+text (`resources/skills/**`, `resources/presets/**/PRESET.md`, `preset-workflow-lines.ts`,
+`studio-agent-prompt*.ts`) for a `style:` instruction to `run_auto_cut` and fix the same way.
+(4) Unit tests: the prompt text no longer contains a `run_auto_cut(style:` mapping; a preset with
+`cut` is described; `run_auto_cut` with no style resolves to the project's style for a Course
+lesson project (relaxed) — through the real tool handler with a fixture project. (5) Cheap, also
+do: `cut-style-store.ts:108` — an unknown style name in a call must not silently fall to the file
+default (reject with a typed error, or ignore it and resolve the project's style; test it);
+split `PresetForm.tsx` (307 lines) under 300. (6) Update the STATUS B2 row ("All four consumers
+…") and TESTING §18.8 with the fix and its evidence; gates; commit; return DONE.
 
 ## Step 6 brief (kept for the record)
 
@@ -475,6 +491,26 @@ say decisions 1 and 4 and the "no off" follow-up), TESTING §18.8 B2 (after §18
 decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, return DONE.
 
 ## Open problems
+
+- **Verifier round 1 — FAIL (2026-10-22, one blocking item):** the agent prompt forces a style on
+  `run_auto_cut`. `studio-agent-prompt-tools.ts:75` ("EDITING PRESET", injected at
+  `studio-agent-prompt.ts:137`, untouched by B2) says "`auto_cut` light or normal →
+  `run_auto_cut(style: "natural")`, aggressive → `style: "tight"`". A call argument is the top
+  precedence rung (`cut-style-store.ts:108` then resolves the bare name, ignoring project and
+  preset), and all three shipped presets have an `auto_cut` step (`resources/presets/*/preset.json:8`)
+  — so in every preset project the agent's Auto Cut drops the project override and the preset's
+  `style.cut`; e.g. Course lesson (pacing relaxed, auto_cut light): agent cuts **natural**, the
+  button / Transcript deletes / editorial use **relaxed** (live: "relaxed · preset “Course lesson”",
+  key `3185f040`). Contradicts the tool's own description (`agent-tools/workflow-tools.ts:139`
+  "Omit to use the project's cut style … Only pass one when the user asked for it"). Related:
+  `agent-preset-prompt.ts:45-56` `describePresetStyle` never mentions `cut`. STATUS (24-25) and
+  TESTING §18.8 don't mention it. Minor (non-blocking): `cut-style-store.ts:108` an unknown style
+  name falls to the file default, not the project's style; `PresetForm.tsx` 289 → 307 lines;
+  `preload/api/studio.ts` 303 → 310 (already over); a project override with a `base` drops the
+  preset's cut knobs (matches the code comments — fine); plan files accumulate one per key (~2 KB).
+  Everything else PASSED (gates first try; 28/28 own negative/control cases incl. corrupt/missing
+  cut-style.json → typed errors, UI shows "unavailable", recovers without restart; live exit;
+  survival both orders).
 
 - **(step 6 incident, for the orchestrator)** Stopping the B2 instance, my PowerShell filter matched
   CommandLine `*9281*` and also killed three `chrome.exe` child processes of ANOTHER session's headless
