@@ -1,5 +1,5 @@
 # B1 — ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs
-status: NEW
+status: IN PROGRESS (step A pure code + waveform job done, `2dc5add`; next: M2 setup)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 every "Learned" line) and the **"Track B decisions"** section at the end of
@@ -84,28 +84,101 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+**Step A — pure DSP ports + waveform job v3, commit `2dc5add`** (agent 1, 2026-10-22):
+- `src/shared/types/studio-cut-plan.ts:30-53` — `CutPlanStyle` gains OPTIONAL `maxHead`,
+  `minSkip`, `fricZcr`, `fricMargin` (absent = old behaviour, cutlib's "opt-in style keys").
+  `TIGHT_STYLE` / `NATURAL_STYLE` unchanged (B2 moves the defaults).
+- `src/shared/studio/rms-envelope.ts` (new, 157 lines) — `RmsEnvelope` moved out of
+  `cut-planner.ts` (re-exported there, `cut-planner.ts:22-25`, so every importer is unchanged).
+  Ctor takes an optional 3rd arg `zcrBuckets`. `rmsDb` (:43) and `zcr` (:54) are
+  **overlap-weighted** over the 20 ms buckets (`windowMean` :133) — cutlib measures exact sample
+  windows; the old floor-to-bucket window read up to one bucket early. `floorDb` (:60) = 10th
+  percentile of **50 ms windows** (cutlib `floor_db`; was the 10th pct of 20 ms buckets).
+  `snapTail` (:82) = cutlib `snap_tail` incl. the fricative rule; `snapHead` (:109) = cutlib
+  `snap_head` (same float arithmetic: `o += 0.02`, `t -= 0.01`). `hasZcr()`; no zcr ⇒ `zcr()` = 0
+  ⇒ the fricative rule is off (v2 caches).
+- `src/shared/studio/cut-planner.ts` — `tailFor` passes `fricZcr/fricMargin` (:121-130);
+  `planClip` snaps the lead-in with `snapHead` when `maxHead` (:166-178); merge at :194 when
+  `minSkip || maxHead` (cutlib :213-222); `styleForFeatures` widens `maxHead` with `head` (:76).
+  285 lines.
+- `src/shared/studio/cut-skip-merge.ts` (new) — `mergeShortSkips(segments, minSkip, cuts)`
+  (cutlib's merge; the merged segment keeps the first start/speechStart, the later end/landing).
+- `src/main/services/studio/waveform-buckets.ts` (new) — pure `WaveformBucketizer`: peaks,
+  rmsDb (0.1 dB) and `zcr` per bucket (crossings × sr / samples, cutlib's sign rule `x < 0`; a
+  crossing is counted in the bucket of the sample that completes it, carried across chunks).
+- `src/main/services/studio/waveform-generator.ts` — decodes **mono 16 kHz** for the WHOLE job
+  (was 8 kHz; RMS now from 16 kHz too, like cutlib's WAVs); writes `{version: 3,
+  peaksPerSecond: 50, peaks, rmsDb, zcr}` (:130); `isWaveformStale(path)` (:54) reads the first
+  64 bytes for `"version"` < 3 (unreadable ⇒ stale).
+- `src/shared/types/studio-waveform.ts` — `WAVEFORM_SAMPLE_RATE = 16000`, `WAVEFORM_VERSION = 3`,
+  `version: 1 | 2 | 3`, optional `zcr`.
+- Old caches: `media-jobs.ts:94-99` treats a v1/v2 waveform as not ready → regenerates it once
+  on open (plan §5); `cut-plan-runner.ts:47` regenerates before planning when version < 3 and
+  passes `file.zcr`; `useAssetEnvelopes.ts` passes `zcr` when present. A v2 file still parses
+  everywhere (the peaks reader is unchanged).
+- New tests: `src/shared/studio/rms-envelope.test.ts` (13: weighted windows, 50 ms floor, zcr;
+  "path" → "pa-": fricative tail 0.08 → 0.18; room tone at ZCR 1500 never qualifies; a hiss at ≤
+  floor + fricMargin does not; v2 = the old snapper; "Every" 0.16 s early → lead-in 0.19; clean
+  onset → head; capped at maxHead; a fricative onset only with fric_zcr),
+  `src/shared/studio/cut-planner-knobs.test.ts` (11: max_head in planClip; "whyyy" 60 ms hole →
+  merged at min_skip 0.12; a cut between blocks it; overlap merge at min_skip 0; TIGHT untouched;
+  styleForFeatures), `src/main/services/studio/waveform-buckets.test.ts` (5: 1 kHz → 2 k and
+  6 kHz → 12 k crossings/s; within 5 % of cutlib's verbatim zcr on voiced/fricative; −20 dB
+  square; chunk-split invariance; `isWaveformStale` v1/v2/v3/missing).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- `npx vitest run src/shared/studio src/main/services/studio/editorial-cuts.test.ts src/features/studio/services`
+  → `Test Files 84 passed (84) · Tests 807 passed (807)` — the existing cut-planner / editorial /
+  text-delete tests are unchanged and green with the weighted windows + 50 ms floor.
+- `npx vitest run` (full, app not running) → `Test Files 439 passed | 5 skipped (444) · Tests
+  3699 passed | 34 skipped (3733)`, exit 0 — log `.vidtsx-temp/end-to-end/B1/logs/vitest-full-step1.log`
+  (run just before the `cut-skip-merge.ts` split; after it `npx vitest run src/shared/studio` →
+  42 files / 428 tests green).
+- `npm run check:types` (after the split) → `tsconfig.web.check.json: 26 errors (baseline 26) ok`
+  · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- NOT yet verified: the waveform job on real media (16 kHz decode time, v3 file size), the M2
+  project, the cutlib comparison (the exit), the CDP click-through.
 
 ## Next step (ONE concrete instruction)
 
-Read `cut-planner.ts`, `studio-cut-plan.ts`, `waveform-generator.ts` and `tools/cutlib.py` (236
-lines) in full, then write the pure DSP ports (`zcr`, `snapHead`, fricative-aware `snapTail`,
-`minSkip` merge) with unit tests that mirror cutlib's cases. (M2 setup must be done before the exit
-comparison; order it after the pure code.)
+Do the M2 setup exactly as "M2 setup" above says: check free space on C: and D: and write the
+numbers here; copy `.vidtsx-temp/end-to-end/A5/profile` to `.vidtsx-temp/end-to-end/B1/profile`;
+launch an isolated instance on it (CDP port 9271, A1's `launch.sh` copied into `B1/`); set the
+Studio root to `C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root`; create `video-14-raw` and import
+the nine DJI clips in place with `VIDTSX_MEDIA_PICK`; wait for proxies AND waveforms (confirm
+every `cache/waveforms/*.json` starts `{"version":3` and has a `zcr` array; record each clip's
+waveform job wall time — the 16 kHz decode is new); then map Hasan's AssemblyAI transcripts into
+the project's transcript cache through Studio's own AssemblyAI mapper and record clip ids ↔ asset
+ids here. (After M2: the cutlib comparison — a Python driver in `B1/` calling `cutlib.plan_clip`
+read-only with `styles.tight` from cuts.json, and a gated live vitest reading M2's waveform +
+transcript for Studio's side — then gates, CDP, STATUS/TESTING.)
 
 ## Open problems
 
-(none yet)
+- **Existing behaviour moved slightly (by design, toward cutlib):** every consumer of
+  `RmsEnvelope` (Auto Cut, the editorial snap, Transcript deletes) now reads overlap-weighted
+  windows and a 50 ms-window floor, and (after regeneration) 16 kHz levels. No existing test
+  changed; say so in the STATUS row.
+- **Every waveform of an old project regenerates on first open** (v2 → v3; plan §5 accepted
+  it). On the video-14 copy that is 127 decodes at the media queue's 2-at-a-time. Not timed
+  yet; the 16 kHz decode doubles the JS sample loop. Measure on M2's nine clips.
+- **20 ms grid vs cutlib's exact windows:** `snapHead` walks 10 ms steps over 20 ms windows; the
+  weighted model assumes uniform energy inside a bucket, so a ±1-step (10–20 ms) disagreement is
+  possible at a sharp onset. The exit comparison will show whether joins stay within ±20 ms; if
+  not, explain each outlier with the waveform there (a finer analysis grid would be a plan
+  change — ask first).
+- `media-jobs.ts` is 314 lines (310 before this part, already over ~300; +4 here).
 
 ## Do-not-redo
 
 - Track A is DONE (A1–A6 + track exit PASS). Do not touch `main`. The editor repo
   `D:\repos\claude-youtube-editor` is READ-ONLY.
+- Step A (pure DSP + waveform v3, `2dc5add`) is done and green: do not re-port `zcr` /
+  `snapHead` / `snapTail` / the merge, and do not re-open the 8 vs 16 kHz question (16 kHz for
+  the whole waveform job is decided and committed).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-22 · agent 1 · ~46 calls · step A: pure DSP ports + 29 unit tests, waveform job v3
+  (16 kHz + zcr), stale-cache regeneration; commit `2dc5add`.
