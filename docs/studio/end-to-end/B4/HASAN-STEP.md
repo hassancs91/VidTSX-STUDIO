@@ -52,17 +52,23 @@ not joins). For each join you care about:
 
 1. **Playhead on the join:** click the ruler (the strip of times above V1) at the join; the playhead
    jumps there.
-2. **Zoom in 4 times** with the + magnifier ("Zoom in", or Ctrl+scroll over the timeline). The
-   timeline opens at 20 px per second, where 30–50 ms is about one pixel; 4 clicks = 320 px/s, where
-   30 ms ≈ 10 px — enough. A 5th click (640 px/s, the top) doubles that, but the join can land at the
-   right edge of the timeline; drag the scrollbar under the tracks to bring it back.
+2. **Zoom in until the + magnifier greys out** ("Zoom in", or Ctrl+scroll over the timeline) — at
+   least to 320 px/s, where 30 ms ≈ 10 px. How many clicks depends on where you start: from the
+   20 px/s the project opens at, 4 clicks = 320 px/s; from "Zoom to fit" (step 6) the start is lower
+   (5–20 px/s depending on the window width), so it takes 5–6 clicks. When + is grey you are at the
+   top (640 px/s). If the join lands at the right edge of the timeline, drag the scrollbar under the
+   tracks to bring it back. (A verifier at only 80 px/s still got valid trims — this is precision,
+   not correctness — but zoom in fully.)
 3. **Read the total before you drag:** the grey `/ 01:46.47` right of the clock at the left end of
    the timeline toolbar. Both read MM:SS.FF — the two digits after the dot are **frames** (60 per
    second, 1 frame ≈ 17 ms), not hundredths.
 4. **Drag one edge, grabbing it in the LOWER half of the clip**, below the small square that sits on
    the join (hovering a clip lights a thin bar at each of its edges — that bar is the handle). The
    square is "Add transition" and the top corners of each clip hold the fade dots ("Fade in" /
-   "Fade out") — grabbing either of those does not trim.
+   "Fade out") — grabbing either of those does not trim. The square opens a transition menu
+   (Crossfade / Dip to black …): press Escape. A fade dot dragged inward WRITES a short fade (a dark
+   wedge appears in that top corner): press Ctrl+Z once to remove it (only if the wedge appeared —
+   don't undo a good trim).
    - the **right edge of the left clip** = the tail after the last word;
    - the **left edge of the right clip** = the lead-in before the next word.
 5. **Check it took — the total is the sign, for both edges.** A trim changes the total by the amount
@@ -74,8 +80,8 @@ not joins). For each join you care about:
      lengthen), and everything after it moves. For a lead-in the total and the waveform are the only
      signs.
    - **Total unchanged** = the trim did not register (Snap still lit, you grabbed the square or a
-     fade dot, or you moved under 2 px) — check the magnet is dark and drag again from the lower
-     half. **Total moved more than you meant, or the wrong way** = Ctrl+Z (Undo) and drag again.
+     fade dot — see step 4 for the menu / the fade wedge — or you moved under 2 px) — check the
+     magnet is dark and drag again from the lower half. **Total moved more than you meant, or the wrong way** = Ctrl+Z (Undo) and drag again.
 6. Listen across the join, adjust, then **Zoom to fit** (Shift+Z, the last toolbar button) to see the
    whole Act and go to the next join.
 
@@ -147,7 +153,8 @@ was (that is your Q4 threshold doing what you asked, not a miss).
 Under the
 table, the cut lines say how many joins it learned from (tails and lead-ins counted separately),
 your median lead-in / tail / level next to the style's, and **Show the N joins it measured** lists
-every join with "you / style" numbers. There should be no non-cut rows (pacing, shots, music …);
+every join with "you / style" numbers (its "@ 7.33 s" is the time inside the SOURCE clip, not the
+timeline time in the join table above). There should be no non-cut rows (pacing, shots, music …);
 if any appear, ignore them — they come from the scratch preset. `softGap` (your 10-15 "soft
 landings off") is not one of the learned knobs: it stays a style choice (a follow-up if you want
 it learned).

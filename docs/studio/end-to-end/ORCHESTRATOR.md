@@ -19,7 +19,7 @@
 | B1 | DONE | 4 | PASS (1 round) | `2dc5add` (code); docs `b445885`, `1527602`, `649d8f7`, `cc9a327`, `0030b08` | 0369 (clip 1; 0366 has no joins), Hasan's fitted tight: 6 segments both sides, 12 joins, Δ 0/0 · 0/0 · 0/0 · −10/0 · 0/0 · 0/+20 ms (verifier identical); 8 clips with keeps 348/352 joins within ±20 ms + 2 merge flips (4 at +40/+60 ms, all threshold-edge tails on the 20 ms grid); floors within 0.16 dB; verifier negatives fail as they should (old TIGHT 0/12, ±40 ms shift 7–8/12, knobs off on one side 11/12); v1/v2 waveform → v3 + zcr on open; vitest 439 / 3699 green; types 26/10 | 2026-10-22 10:58 / 12:15 |
 | B2 | DONE | 7 | FAIL round 1 (agent prompt maps `auto_cut` aggressiveness → `run_auto_cut(style:)`, overriding the resolved style in every preset project) → fix `5ff0c37` → PASS round 2 | `bc104c3`, `4f0b33b`, `b86b279`, `c50968f`, `bf46298`, fix `5ff0c37`; docs `3a0d510`, `3ce32af` | Card headline live: `Auto Cut (natural + 1 override · preset “YouTube long-form”)`, `relaxed · preset “Course lesson”`, `tight · project override`; Transcript delete edges = `snapEditorialCuts` edges per style (to 1e-9, 3 selections × 4 styles), different styles → different edges; override survives 4K→1080p→undo→redo; real `run_auto_cut` handler: 14/14 control cases (each preset → its style, override, explicit, unknown name refused), 9/14 fail on a stubbed resolver; vitest 448 / 3788 green; types 26/10 | 2026-10-22 12:20 / 14:44 |
 | B3 | DONE | 5 | PASS (1 round) | `e583d26`, `47bc6a1`, `99d825d`; docs `f27284a`, `1adc017` | Hasan's hand plan (8 clips with keeps), tight: hard entries 0 / 133 joins (analyze_cut 0 / 134), tails 178 / 200 (analyze_cut 181, = his qa-report; 3 bucket-edge misses at +5.8–5.9 dB); live Auto Cut all 9 clips: hard 1 / 164 (0373 @ 323.198 s, untranscribed sound inside his retake cut — true positive), tails 265 / 298 (analyze_cut 1 / 165, 268 / 298); head-0 negatives 101–130 hard; margin 12/18/24 tight 265/265/265 (landings +11.45 → +16.23 dB), natural 6/12/18 106/132/132; auditions cross the join ±1.0 s with cuts applied; vitest 451 / 3814 green (python-models test excluded for disk); types 26/10 | 2026-10-22 14:50 / 16:45 |
-| B4 | VERIFY (round 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
+| B4 | **WAITING-HASAN** (built + verified up to his step; verifier PASS round 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
 | B5 | TODO | | | | | |
 | B6 | TODO | | | | | |
 | C1 | TODO | | | | | |
@@ -372,3 +372,43 @@
   final 'th', late tokens, 60 ms holes and drawn-out finals; he gated plans on `edge_audit` /
   `skip_audit` (audio the plan SKIPS over floor + 18 dB unless inside a cut) — not in the plan's B3
   row; a candidate follow-up readout.
+
+### B4 — WAITING-HASAN (2026-10-22): what Hasan must do
+
+- **His step (~25–30 min):** follow `docs/studio/end-to-end/B4/HASAN-STEP.md`: run
+  `powershell -ExecutionPolicy Bypass -File docs\studio\end-to-end\B4\hasan-station.ps1` (this
+  branch's dev build on the isolated station profile — never his own profile/projects), open
+  `video-14-raw`, turn **Snap off first**, and for about 21 of the 33 sentence joins: ruler click at
+  the join, zoom in until + greys out, drag the tail and/or the lead-in from the LOWER half of the
+  clip to where he wants it, checking the toolbar total moved (a lead-in edge returning to the join
+  is normal with ripple on). Then Inspector → PROJECT → **Learn from this video** (not the Assistant
+  chat; don't touch the Provider dropdown) and read the card in the Assistant tab.
+- **Pass (rule (a), per knob):** the row is proposed in range, OR missing with the card's fitted
+  value in range — head 0.12–0.18, minTail 0.05–0.11, margin 11–13. He reports the three numbers +
+  "learned from N joins" (a screenshot is enough); the orchestrator/next session records them in
+  Status.md's B4 row and ticks TESTING §18.10's first item. His trims stay in the station's
+  `project.json` (re-measurable offline). `-Reset` restores the start state (backs up first).
+- **Verified for him (round 3, literal walk-through with real mouse input on a copy of the
+  station's timeline):** 44/44 drags registered with the doc's total cue, 21 joins → card head
+  0.11 → 0.15, minTail 0.14 → 0.08, margin 5 → 12 (rows); controls on the station's real joins:
+  rule (a) 19–20/20 at ±40 ms jitter, 0/20 false positives on own-style edges, stubs fail.
+  Wording notes from round 3 (zoom from the fit view, fade-dot wedge, transition menu, source-time
+  "@") were applied to HASAN-STEP.md by the orchestrator; Status.md:92/:114 and TESTING.md:410 still
+  say "4 clicks = 320 px/s" (true from the opening zoom only) — small doc debt for the next builder.
+
+### From B4 (for the stop report)
+
+- Gate changed in fix round 1 (orchestrator, within Q4): a cut knob is proposed when ≥ 10 touched
+  edges on its side AND |fitted − current| > 30 ms (> 1 dB margin); the card shows medians and fitted
+  values. A fit inside the pass range but ≤ 30 ms from the start (0.14 from 0.11) is not proposed —
+  Q4's threshold as Hasan set it; rule (a) reads the fitted value then.
+- Learn card limits: `softGap` not learned (his 10-15 "soft landings off" stays a style choice);
+  `maxTail` only raised ("at least"); no per-knob opt-out; Transcript-delete edges count only once
+  trimmed. Product follow-ups: Snap is not persisted and is on at every open; the "Add transition"
+  square and fade dots sit on the trim handles (grab low); the Provider select shows "App default"
+  for an unregistered id; ripple mode lives in renderer localStorage; `apply-cut-proposal.ts:174`
+  drops tags on edges a later cut doesn't rewrite; a clamped speed change keeps the end tag;
+  `AgentPanel.tsx` 425 / `EditorShell.tsx` ~1,650 lines. The plan's T1 text (~:417-424) still says
+  "medians differ" (the ruling replaced it).
+- Permission classifier refused several file overwrites/copies during verification (scratch
+  project restores); verifiers did not work around it.
