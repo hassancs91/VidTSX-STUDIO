@@ -262,6 +262,17 @@ C: 18.6 GB, D: 2.04 GB.
 
 ## Next step (ONE concrete instruction)
 
+**Orchestrator override (2026-10-22 15:40 — go, without new copies):** C: 1.98 GB, D: 1.37 GB.
+Do the live exits WITHOUT new copies: Studio root = the existing scratch
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root` (full M2 copy: 9 clips, proxies, v3 waveforms,
+transcripts; its `project.json` has `presetId: youtube-long-form` + `cutStyle {base:tight}` from
+B2 — remove both first so the default tight applies; it is scratch, no backup needed) and profile
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\B2\profile` (CDP 9291). Then the full gate per
+DRIVING.md "Vitest gate while C: is low" (`--exclude src/main/services/python-models/service.test.ts`).
+Stop lines 1.0 GB on BOTH drives: check before the launch and before the full test run. Stills
+and logs small, under `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\`. The rest of the paragraph
+below still applies except its copy/space conditions.
+
 **WAITS FOR DISK (orchestrator's call):** all B3 code is built (steps 1–3); what remains needs
 the app, the M2 copy (~580 MB) + the B3 profile copy (~377 MB) on C:, and a full vitest run
 (> ~1.7 GB free on C: for `python-models/service.test.ts`). Start only when the orchestrator says

@@ -95,6 +95,20 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   alone, and (b) either a full default run is green within 3 tries OR a full run with
   `npx vitest run --maxWorkers=4` is green. Log every run to a file and name which one counted.
   Any OTHER failure, or one of these failing alone, is real.
+- **Vitest gate while C: is low (orchestrator, 2026-10-22 15:40):** `src/main/services/python-models/service.test.ts`
+  writes ~1.68 GB to `%TEMP%` (C:) and fails with `ENOSPC` when C: is short; the branch never
+  touches `python-models/` (`git diff --stat main..HEAD -- src/main/services/python-models/` is
+  empty). While C: has < 4 GB free, the counted full run is `npx vitest run --exclude
+  src/main/services/python-models/service.test.ts` (with `--maxWorkers=4` under load) — say so
+  in STATUS. Stop line for C: is **1.0 GB** too: check `Get-PSDrive C,D` before every launch and
+  every full test run.
+- **Reuse, don't copy, while disk is low (orchestrator, 2026-10-22 15:40):** C: copies of M2 and
+  profiles from DONE parts already exist under `C:\Users\hasan\AppData\Local\vidtsx-e2e\` and ARE
+  scratch: builders reuse `B2-root` (full M2 copy, 9 clips, proxies + v3 waveforms + transcripts)
+  with `profiles\B2\profile`; verifiers reuse `B2-verify-root` with `profiles\B2-verify\profile`
+  (or `B1-verify-root` with `profiles\B1-verify\profile`). Reset whatever you need inside them
+  (e.g. remove `settings.presetId` / `settings.cutStyle`, clear the timeline) — they are not
+  shared material. Never modify `b-root` (the shared M2) or `profiles\source`.
 
 ## Learned (append one dated line per lesson)
 
