@@ -127,8 +127,8 @@ Step 1a — the pure core, part 1 (agent 1, commit `bcea695`
   Scratch 9.9–23.15 overlay, Starter 23.15–30 cutaway); `6f4d5c3a` = 85–95 s (600 fr, the Fastest
   cancel); `a5cd21ed` = 6–11 s (300 fr).
 
-Step 1b — the measuring core + the I/O runner, live on the A5 files (agent 2, commit: see LOG.md /
-`git log --grep "A6 — sync check measure"`). No app run, no IPC/UI yet.
+Step 1b — the measuring core + the I/O runner, live on the A5 files (agent 2, commit `a4b88d3`
+`feat(studio): A6 — sync check measure + runner; A5 files pass, +100 ms fails`). No app run, no IPC/UI yet.
 
 - `src/main/services/studio/export-engines/sync-measure.ts` (~240 lines, pure) — `rms`,
   `locateAudio(needle, haystack)` (normalised xcorr over every lag, prefix-sum energies, parabolic
