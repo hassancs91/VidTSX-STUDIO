@@ -31,6 +31,7 @@ vi.mock('./proxy-generator', () => ({
 vi.mock('./waveform-generator', () => ({
   waveformRelPath: (assetId: string) => `waveforms/${assetId}.json`,
   generateWaveform: async () => 'waveforms/x.json',
+  isWaveformStale: async () => false,
 }));
 vi.mock('./asset-transcriber', () => ({
   readTranscriptMeta: async () => null,

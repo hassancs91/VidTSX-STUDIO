@@ -19,7 +19,10 @@ import type {
   StudioCutPlan,
   CutPlanStyleName,
 } from '../types/studio-cut-plan';
-import { RMS_SILENCE_DB } from '../types/studio-waveform';
+import { RmsEnvelope } from './rms-envelope';
+import { mergeShortSkips } from './cut-skip-merge';
+
+export { RmsEnvelope };
 
 export interface PlanWord {
   text: string;
@@ -70,60 +73,11 @@ export function styleForFeatures(
   return {
     ...base,
     head: base.head + 0.08,
+    ...(base.maxHead !== undefined ? { maxHead: base.maxHead + 0.08 } : {}),
     minTail: base.minTail + 0.06,
     maxTail: base.maxTail + 0.2,
     softMaxTail: base.softMaxTail + 0.2,
   };
-}
-
-/**
- * RMS envelope over the waveform cache's per-bucket dB values — the port of
- * cutlib's AudioProbe, reading pre-bucketed levels instead of raw WAV samples.
- */
-export class RmsEnvelope {
-  private floor: number | null = null;
-
-  constructor(
-    private readonly buckets: number[],
-    private readonly bucketsPerSecond: number,
-  ) {}
-
-  /** Audio length covered by the envelope, seconds. */
-  duration(): number {
-    return this.buckets.length / this.bucketsPerSecond;
-  }
-
-  /** Mean power over [t, t+win), in dB. Out-of-range ⇒ silence (decayed). */
-  rmsDb(t: number, win = 0.05): number {
-    const a = Math.max(0, Math.floor(t * this.bucketsPerSecond));
-    const b = Math.min(this.buckets.length, Math.floor((t + win) * this.bucketsPerSecond));
-    if (b <= a) return RMS_SILENCE_DB;
-    let power = 0;
-    for (let i = a; i < b; i++) power += Math.pow(10, this.buckets[i] / 10);
-    return 10 * Math.log10(power / (b - a) + 1e-12);
-  }
-
-  /** Noise floor = 10th percentile of bucket levels (cutlib's floor_db). */
-  floorDb(): number {
-    if (this.floor === null) {
-      if (this.buckets.length === 0) return RMS_SILENCE_DB;
-      const sorted = [...this.buckets].sort((x, y) => x - y);
-      this.floor = sorted[Math.floor(sorted.length / 10)];
-    }
-    return this.floor;
-  }
-
-  /**
-   * Seconds to keep after wordEnd so the word's release fully decays to the
-   * noise floor. Small for clean words, larger for long-release endings.
-   */
-  snapTail(wordEnd: number, minTail: number, maxTail: number, margin = 5.0): number {
-    const floor = this.floorDb();
-    for (let o = minTail; o <= maxTail; o += 0.02) {
-      if (this.rmsDb(wordEnd + o) <= floor + margin) return Math.round(o * 1000) / 1000;
-    }
-    return maxTail;
-  }
 }
 
 /** Speech-run atoms: keeps split at pauses ≥ internalGap. */
@@ -163,9 +117,17 @@ export function tailFor(
   style: CutPlanStyle,
 ): { tail: number; soft: boolean } {
   const soft = gap === null || gap >= style.softGap;
+  const fricMargin = style.fricMargin ?? 5.0;
   let tail = soft
-    ? envelope.snapTail(wordEnd, style.minTail, style.softMaxTail, style.softMargin)
-    : envelope.snapTail(wordEnd, style.minTail, style.maxTail, style.margin);
+    ? envelope.snapTail(
+        wordEnd,
+        style.minTail,
+        style.softMaxTail,
+        style.softMargin,
+        style.fricZcr,
+        fricMargin,
+      )
+    : envelope.snapTail(wordEnd, style.minTail, style.maxTail, style.margin, style.fricZcr, fricMargin);
   if (gap !== null) {
     // Never cross into the next atom's lead-in.
     tail = Math.min(tail, Math.max(gap - style.head - 0.06, style.minTail * 0.5));
@@ -201,7 +163,20 @@ export function planClip(
     const gap = i + 1 < atoms.length ? atoms[i + 1].start - e : null;
     const { tail, soft } = tailFor(envelope, e, gap, style);
     // The very first atom gets a slightly roomier open (nothing precedes it).
-    const openHead = i > 0 ? style.head : Math.min(0.25, style.head * 2);
+    let openHead = i > 0 ? style.head : Math.min(0.25, style.head * 2);
+    if (style.maxHead) {
+      openHead = Math.max(
+        openHead,
+        envelope.snapHead(
+          s,
+          style.head,
+          style.maxHead,
+          style.margin,
+          style.fricZcr,
+          style.fricMargin ?? 5.0,
+        ),
+      );
+    }
     let segStart = Math.max(s - openHead, 0);
     let segEnd = e + tail;
     for (const cut of spans) {
@@ -216,7 +191,7 @@ export function planClip(
       soft,
     });
   }
-  return segments;
+  return style.minSkip || style.maxHead ? mergeShortSkips(segments, style.minSkip ?? 0, spans) : segments;
 }
 
 /** Pauses ≥ threshold that sit INSIDE kept speech (dead air while talking). */

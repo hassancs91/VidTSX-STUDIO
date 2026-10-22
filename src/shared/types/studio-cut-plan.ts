@@ -26,6 +26,31 @@ export interface CutPlanStyle {
   softGap: number;
   softMaxTail: number;
   softMargin: number;
+  /**
+   * Opt-in (absent = the fixed `head` lead-in): snap each lead-in back to the
+   * word's real audio onset — walk back while the level is above floor +
+   * `margin` (or still a fricative), plus 30 ms, at least `head`, at most this.
+   * cutlib `snap_head`.
+   */
+  maxHead?: number;
+  /**
+   * Opt-in: merge two kept segments whose skipped stretch is shorter than this
+   * (or that overlap) unless an explicit cut lies between them. cutlib's
+   * `min_skip` — a fake ASR pause (a 50 ms token over a long vowel) otherwise
+   * leaves a hole that drops speech. Overlapping segments merge whenever
+   * `maxHead` is set, even without this.
+   */
+  minSkip?: number;
+  /**
+   * Opt-in fricative rule, zero crossings per second (cutlib `fric_zcr`):
+   * while the sound is still a fricative (ZCR ≥ this and level above floor +
+   * `fricMargin`), a tail keeps walking and a lead-in keeps reaching back,
+   * even below floor + `margin`. Needs a waveform cache with `zcr` (v3);
+   * without it the rule is off.
+   */
+  fricZcr?: number;
+  /** dB over the floor a fricative must still have to count (default 5). */
+  fricMargin?: number;
 }
 
 /** A span kept in the render, in source seconds. */

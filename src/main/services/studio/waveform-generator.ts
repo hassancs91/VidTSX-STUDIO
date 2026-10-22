@@ -1,13 +1,18 @@
 import fs from 'fs/promises';
 import path from 'path';
 import type { WaveformFile } from '../../../shared/types/studio-waveform';
-import { PEAKS_PER_SECOND, RMS_SILENCE_DB } from '../../../shared/types/studio-waveform';
+import {
+  PEAKS_PER_SECOND,
+  WAVEFORM_SAMPLE_RATE,
+  WAVEFORM_VERSION,
+} from '../../../shared/types/studio-waveform';
 import { getProjectCacheDir } from './studio-paths';
 import { getFfmpegBinary, runFfmpeg } from './ffmpeg-bin';
+import { WaveformBucketizer } from './waveform-buckets';
 
 export const WAVEFORM_DIR = 'waveforms';
 
-const SAMPLE_RATE = 8000;
+const SAMPLE_RATE = WAVEFORM_SAMPLE_RATE;
 const SAMPLES_PER_PEAK = SAMPLE_RATE / PEAKS_PER_SECOND;
 
 export function waveformRelPath(assetId: string): string {
@@ -41,19 +46,34 @@ export function findWavDataOffset(buf: Buffer): number | null {
   return null;
 }
 
-function bucketRmsDb(sumSquares: number, count: number): number {
-  if (count === 0) return RMS_SILENCE_DB;
-  const rms = Math.sqrt(sumSquares / count) / 32768;
-  if (rms <= 0) return RMS_SILENCE_DB;
-  return Math.max(RMS_SILENCE_DB, Math.round(20 * Math.log10(rms) * 10) / 10);
+/**
+ * True when a cached waveform predates the current format (no `zcr`, 8 kHz
+ * levels) and should be regenerated. Reads only the head of the file —
+ * `version` is the first key the generator writes. Unreadable ⇒ stale.
+ */
+export async function isWaveformStale(filePath: string): Promise<boolean> {
+  try {
+    const handle = await fs.open(filePath, 'r');
+    try {
+      const head = Buffer.alloc(64);
+      const { bytesRead } = await handle.read(head, 0, head.length, 0);
+      const match = /"version"\s*:\s*(\d+)/.exec(head.toString('utf-8', 0, bytesRead));
+      return !match || Number(match[1]) < WAVEFORM_VERSION;
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return true;
+  }
 }
 
 /**
- * Decode the asset to mono 8 kHz PCM and reduce it to per-bucket peaks (what
- * the timeline draws — where sound *is*) plus per-bucket RMS dB (what the
- * auto-cut noise-floor / snap-to-audio analysis reads). Both are computed in
- * TypeScript from the piped samples because Remotion's stripped ffmpeg has no
- * volumedetect filter to lean on.
+ * Decode the asset to mono 16 kHz PCM and reduce it to per-bucket peaks (what
+ * the timeline draws — where sound *is*), RMS dB and zero crossings per second
+ * (what the auto-cut noise-floor / snap-to-audio / fricative analysis reads;
+ * cutlib reads 16 kHz WAVs, and fricatives live above 8 kHz audio's 4 kHz
+ * Nyquist). Computed in TypeScript from the piped samples because Remotion's
+ * stripped ffmpeg has no volumedetect filter to lean on.
  */
 export async function generateWaveform(
   projectId: string,
@@ -62,33 +82,8 @@ export async function generateWaveform(
   signal?: AbortSignal,
 ): Promise<string> {
   const ffmpeg = await getFfmpegBinary('ffmpeg');
-  const peaks: number[] = [];
-  const rmsDb: number[] = [];
-
-  let bucketPeak = 0;
-  let bucketSumSquares = 0;
-  let samplesInBucket = 0;
-  let carry: Buffer | null = null;
+  const buckets = new WaveformBucketizer(SAMPLE_RATE, SAMPLES_PER_PEAK);
   let header: Buffer | null = Buffer.alloc(0);
-
-  const takeSamples = (buffer: Buffer) => {
-    const usable = buffer.length - (buffer.length % 2);
-    // A 16-bit sample can straddle a chunk boundary — keep the odd byte over.
-    carry = usable < buffer.length ? buffer.subarray(usable) : null;
-    for (let i = 0; i < usable; i += 2) {
-      const sample = buffer.readInt16LE(i);
-      const amplitude = Math.abs(sample) / 32768;
-      if (amplitude > bucketPeak) bucketPeak = amplitude;
-      bucketSumSquares += sample * sample;
-      if (++samplesInBucket >= SAMPLES_PER_PEAK) {
-        peaks.push(Math.round(bucketPeak * 1000) / 1000);
-        rmsDb.push(bucketRmsDb(bucketSumSquares, samplesInBucket));
-        bucketPeak = 0;
-        bucketSumSquares = 0;
-        samplesInBucket = 0;
-      }
-    }
-  };
 
   const consume = (chunk: Buffer) => {
     if (header !== null) {
@@ -97,10 +92,10 @@ export async function generateWaveform(
       if (offset === null) return;
       const rest = header.subarray(offset);
       header = null;
-      takeSamples(rest);
+      buckets.push(rest);
       return;
     }
-    takeSamples(carry ? Buffer.concat([carry, chunk]) : chunk);
+    buckets.push(chunk);
   };
 
   await runFfmpeg(
@@ -128,15 +123,17 @@ export async function generateWaveform(
     { signal, onStdout: consume, priority: 'below-normal' },
   );
 
-  if (samplesInBucket > 0) {
-    peaks.push(Math.round(bucketPeak * 1000) / 1000);
-    rmsDb.push(bucketRmsDb(bucketSumSquares, samplesInBucket));
-  }
-
+  const { peaks, rmsDb, zcr } = buckets.finish();
   const cacheDir = await getProjectCacheDir(projectId);
   const outputPath = path.join(cacheDir, WAVEFORM_DIR, `${assetId}.json`);
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
-  const file: WaveformFile = { version: 2, peaksPerSecond: PEAKS_PER_SECOND, peaks, rmsDb };
+  const file: WaveformFile = {
+    version: WAVEFORM_VERSION,
+    peaksPerSecond: PEAKS_PER_SECOND,
+    peaks,
+    rmsDb,
+    zcr,
+  };
   await fs.writeFile(outputPath, JSON.stringify(file), 'utf-8');
   return waveformRelPath(assetId);
 }

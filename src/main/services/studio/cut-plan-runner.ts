@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import type { StudioCutPlan, CutPlanStyleName } from '../../../shared/types/studio-cut-plan';
 import type { WaveformFile } from '../../../shared/types/studio-waveform';
+import { WAVEFORM_VERSION } from '../../../shared/types/studio-waveform';
 import { getProjectCacheDir } from './studio-paths';
 import { readTranscriptFile } from './asset-transcriber';
 import { generateWaveform, waveformRelPath } from './waveform-generator';
@@ -20,8 +21,9 @@ export interface RunCutPlanResult {
 }
 
 /**
- * The RMS envelope comes from the waveform cache. Version-1 files predate the
- * rmsDb buckets, so those regenerate once (the peaks side is identical).
+ * The RMS envelope comes from the waveform cache. Files before version 3
+ * predate the zcr buckets (and v1 the rmsDb ones), so those regenerate once
+ * (the peaks side is unchanged in shape).
  * Shared with the editorial pass (studio-agent), which snaps agent-authored
  * cut spans against the same envelope.
  */
@@ -42,14 +44,14 @@ export async function loadRmsEnvelope(
   };
 
   let file = await read();
-  if (!file?.rmsDb || file.rmsDb.length === 0) {
+  if (!file?.rmsDb || file.rmsDb.length === 0 || (file.version ?? 1) < WAVEFORM_VERSION) {
     await generateWaveform(projectId, assetId, sourcePath);
     file = await read();
   }
   if (!file?.rmsDb || file.rmsDb.length === 0 || !file.peaksPerSecond) {
     throw new Error('Could not compute the audio envelope for this asset');
   }
-  return new RmsEnvelope(file.rmsDb, file.peaksPerSecond);
+  return new RmsEnvelope(file.rmsDb, file.peaksPerSecond, file.zcr);
 }
 
 /** Run the mechanical auto-cut pass for one transcribed asset. */
