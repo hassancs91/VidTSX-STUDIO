@@ -91,8 +91,41 @@ describe('learnCutKnobs', () => {
     expect(report.joins).toBe(13);
     expect(report.changes).toEqual([]);
     expect(report.fitted).toEqual({ head: 0.11, minTail: 0.14, maxTail: 0.4, margin: 5 });
-    expect(report.notes.join(' ')).toMatch(/lead-ins sit within 30 ms/);
-    expect(report.notes.join(' ')).toMatch(/tails sit within 30 ms and 1 dB/);
+    expect(report.notes.join(' ')).toMatch(/lead-ins fit head 0\.11 s, within 30 ms of the current 0\.11 s/);
+    expect(report.notes.join(' ')).toMatch(/tails fit within 30 ms and 1 dB of the current tail knobs/);
+  });
+
+  // Verifier round 1: with jitter the MEDIAN offset from the style's lead-ins
+  // falls under 30 ms (joins where the onset rule gives both styles the same
+  // lead-in add zeros) while the fit still reads the user's head — the gate is
+  // on |fitted − current| now. 24 joins, ±40 ms uniform on both edges, 40 seeds.
+  // The fit lands in 0.15 ± 0.03 in every seed; it is PROPOSED whenever it sits
+  // more than 30 ms from the current 0.11, i.e. at 0.15 or above on the 10 ms
+  // grid (Q4's "> 30 ms") — 32 of the 40 seeds (the rest fit 0.13 / 0.14).
+  // Under the old median-offset gate the same seeds proposed far fewer.
+  it('±40 ms jitter on fitted-tight edges: the head fit stays in 0.15 ± 0.03 and is proposed whenever it moved > 30 ms', () => {
+    const rec = recording([...RATES, ...RATES.slice(0, 11)]);
+    const exact = joinsAt(rec, FITTED_TIGHT, 24);
+    let proposed = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const report = learnCutKnobs(jitter(exact, seed, 0.04), assetsOf(rec), OLD_TIGHT);
+      expect(report.headEdges, `seed ${seed}`).toBe(24);
+      const fit = report.fitted.head as number;
+      expect(Math.abs(fit - 0.15), `seed ${seed}: fitted head ${fit}`).toBeLessThanOrEqual(0.03 + 1e-9);
+      const head = report.changes.find((c) => c.knob === 'head');
+      expect(head !== undefined, `seed ${seed}: fitted head ${fit}`).toBe(Math.abs(fit - 0.11) > 0.03 + 1e-9);
+      if (head) proposed++;
+    }
+    expect(proposed).toBe(32);
+  }, 60_000); // 40 full fits: ~0.4 s alone, > 5 s under the full suite's load
+
+  it('±20 ms jitter on the current style\'s own edges: never proposes a head', () => {
+    const rec = recording([...RATES, ...RATES.slice(0, 11)]);
+    const exact = joinsAt(rec, OLD_TIGHT, 24);
+    for (let seed = 1; seed <= 8; seed++) {
+      const report = learnCutKnobs(jitter(exact, seed, 0.02), assetsOf(rec), OLD_TIGHT);
+      expect(report.changes.find((c) => c.knob === 'head'), `seed ${seed}`).toBeUndefined();
+    }
   });
 
   it('never lowers maxTail: tails all shorter than the current cap leave it alone (ruling 8)', () => {
@@ -146,3 +179,25 @@ describe('learnCutKnobs', () => {
     expect(report.notes.join(' ')).toMatch(/13 of 13 tails land soft under this style \(gap ≥ 1\.2 s\)/);
   });
 });
+
+/** Both edges of every join moved by a seeded uniform ±amp (s). */
+function jitter(joins: CutLearnJoinInput[], seed: number, amp: number): CutLearnJoinInput[] {
+  const rand = seeded(seed);
+  return joins.map((j) => ({
+    ...j,
+    tailEdge: (j.tailEdge as number) + (rand() * 2 - 1) * amp,
+    headEdge: (j.headEdge as number) + (rand() * 2 - 1) * amp,
+  }));
+}
+
+/** mulberry32 — a seeded uniform [0, 1) for reproducible jitter. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}

@@ -115,4 +115,20 @@ describe('collectCutLearnJoins', () => {
     const joins = collectCutLearnJoins(timeline, [cutPlan([item('i1', [4, 10], [3.8, 10])])]);
     expect(joins.map((j) => [j.source, j.tailEdge, j.tailTouched])).toEqual([['trim', 4.1, true]]);
   });
+
+  it('a join whose head was dragged on the proposal and whose tail was trimmed counts ONCE (verifier round 1)', () => {
+    const timeline = {
+      tracks: [{ id: 'v1', kind: 'video' as const, name: 'V1', clips: [clip('c1', 'A', 0, 0, 3.9, { end: 'trim' }), clip('c2', 'A', 3.9, 10, 3)] }],
+    };
+    // Snapped head at 10.2, dragged to 10; the tail (4) was then trimmed to 3.9.
+    const joins = collectCutLearnJoins(timeline, [cutPlan([item('i1', [4, 10], [4, 10.2])])]);
+    expect(joins).toEqual([
+      { assetId: 'A', tailEdge: 3.9, headEdge: 10, tailTouched: true, headTouched: true, source: 'trim', ref: 'c1|c2' },
+    ]);
+    // A drag at a join no trim touched stays its own join.
+    const plain = { tracks: [{ id: 'v1', kind: 'video' as const, name: 'V1', clips: [clip('c1', 'A', 0, 0, 4), clip('c2', 'A', 4, 10, 3)] }] };
+    expect(collectCutLearnJoins(plain, [cutPlan([item('i1', [4, 10], [4, 10.2])])])).toEqual([
+      { assetId: 'A', tailEdge: 4, headEdge: 10, tailTouched: false, headTouched: true, source: 'proposal', ref: 'i1' },
+    ]);
+  });
 });

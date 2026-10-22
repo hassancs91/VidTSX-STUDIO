@@ -74,7 +74,9 @@ export function buildLearnedSection(input: {
   lines.push(
     input.changes.length > 0
       ? `- Knobs: ${input.changes.map(formatKnobChange).join('; ')}`
-      : '- Knobs: unchanged — the edit matched the preset',
+      : (input.cutLines?.length ?? 0) > 0
+        ? '- Knobs: unchanged — no knob moved past the learning thresholds'
+        : '- Knobs: unchanged — the edit matched the preset',
   );
   return lines.join('\n');
 }

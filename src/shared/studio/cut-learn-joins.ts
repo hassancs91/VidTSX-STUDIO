@@ -36,7 +36,33 @@ export function collectCutLearnJoins(
   proposals: StudioProposal[],
 ): CutLearnJoinInput[] {
   const clips = masterLane(timeline)?.clips ?? [];
-  return [...clipLearnJoins(clips), ...proposalLearnJoins(proposals, clips)];
+  const trims = clipLearnJoins(clips);
+  const dragged = proposalLearnJoins(proposals, clips).filter((p) => !mergeIntoTrimJoin(trims, p));
+  return [...trims, ...dragged];
+}
+
+/**
+ * One physical join, two signals (verifier round 1): a proposal drag moved one
+ * edge and a trim the other. The drag's touched side joins the trim join that
+ * holds the same edge, so the card counts that join once. Mutates `trims` (the
+ * caller's fresh array); false = no such trim join, keep the drag as its own.
+ */
+function mergeIntoTrimJoin(trims: CutLearnJoinInput[], p: CutLearnJoinInput): boolean {
+  const near = (a: number | undefined, b: number | undefined) =>
+    a !== undefined && b !== undefined && Math.abs(a - b) <= SAME_EDGE;
+  const i = trims.findIndex(
+    (t) =>
+      t.assetId === p.assetId &&
+      (!p.headTouched || near(t.headEdge, p.headEdge)) &&
+      (!p.tailTouched || near(t.tailEdge, p.tailEdge)),
+  );
+  if (i < 0) return false;
+  trims[i] = {
+    ...trims[i],
+    headTouched: trims[i].headTouched || p.headTouched,
+    tailTouched: trims[i].tailTouched || p.tailTouched,
+  };
+  return true;
 }
 
 /** Joins whose edges the user trimmed on the master lane. */

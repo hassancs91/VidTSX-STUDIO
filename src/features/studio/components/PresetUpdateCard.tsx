@@ -81,6 +81,8 @@ export function PresetUpdateCard({ proposal, error, resolving, onAccept, onRejec
             ))}
           </tbody>
         </table>
+      ) : proposal.cutLines && proposal.cutLines.length > 0 ? (
+        <div className="text-[10px] text-text-dim">No knob changes proposed — the cut lines below say what was measured.</div>
       ) : (
         <div className="text-[10px] text-text-dim">Knobs unchanged — the edit matched the preset; only the notes grow.</div>
       )}

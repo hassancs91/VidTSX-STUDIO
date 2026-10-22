@@ -1,9 +1,14 @@
 // Learn the cut knobs from the user's joins (plan T1 "the learning signal",
-// B4): measure the touched joins (cut-learn-measure), gate on Q4 (≥ 10 joins,
-// the user's median offset from the style's own edges > 30 ms or > 1 dB), fit
-// the knobs (cut-learn-fit) and propose only those that move by more than the
-// same thresholds. Joins the user never touched teach nothing; the report
-// says how many joins it learned from and lists each one. Pure.
+// B4): measure the touched joins (cut-learn-measure), fit the knobs
+// (cut-learn-fit) and propose a knob when Q4 holds for it: ≥ 10 touched edges
+// on its side AND the fitted value differs from the current one by more than
+// 30 ms (1 dB for `margin`). The gate is on the FIT, not on the median offset
+// from the style's own edges: at joins where the onset rule gives both styles
+// the same lead-in the offset is 0, which dilutes the median below 30 ms while
+// the fit still lands on the user's knob (B4 verifier round 1). The medians
+// stay on the report — the card shows them beside the fitted values. Joins the
+// user never touched teach nothing; the report says how many joins it learned
+// from and lists each one. Pure.
 
 import type { CutPlanStyle } from '../types/studio-cut-plan';
 import {
@@ -58,14 +63,11 @@ export function learnCutKnobs(
     notes.push(`${tails.length} tails touched — at least ${CUT_LEARN_MIN_JOINS} needed to learn the tail.`);
   }
 
-  // Q4 gate per side: the user's median offset from the style's own edges.
+  // The user's median offset from the style's own edges — reported in the
+  // "unchanged" notes only; the gate is on the fitted values (header).
   const headOffset = median(headRows.map((r) => (r.leadIn as number) - (r.styleLeadIn as number)));
   const tailOffset = median(tailRows.map((r) => (r.tail as number) - (r.styleTail as number)));
   const levelOffset = median(tailRows.map((r) => (r.tailDb as number) - (r.styleTailDb as number)));
-  const headDiffers = headOffset !== undefined && Math.abs(headOffset) > CUT_LEARN_MIN_SECONDS + EPS;
-  const tailDiffers =
-    (tailOffset !== undefined && Math.abs(tailOffset) > CUT_LEARN_MIN_SECONDS + EPS) ||
-    (levelOffset !== undefined && Math.abs(levelOffset) > CUT_LEARN_MIN_DB + EPS);
 
   let head = style.head;
   let margin = style.margin;
@@ -83,19 +85,24 @@ export function learnCutKnobs(
     if (enoughHeads && margin !== style.margin) fitted.head = head = fitHead(heads, style, margin);
   }
 
-  if (enoughHeads && headDiffers) {
-    pushChange(changes, 'head', style.head, head, heads.length, CUT_LEARN_MIN_SECONDS);
-  } else if (enoughHeads) {
-    notes.push(`Your lead-ins sit within 30 ms of the style's (median ${signedMs(headOffset)}): head unchanged.`);
-  }
-  if (enoughTails && tailDiffers) {
-    pushChange(changes, 'minTail', style.minTail, fitted.minTail as number, tails.length, CUT_LEARN_MIN_SECONDS);
-    pushChange(changes, 'maxTail', style.maxTail, fitted.maxTail as number, tails.length, CUT_LEARN_MIN_SECONDS);
-    pushChange(changes, 'margin', style.margin, fitted.margin as number, tails.length, CUT_LEARN_MIN_DB);
-  } else if (enoughTails) {
+  // Q4 gate per knob: ≥ 10 edges on its side (above) and |fitted − current|
+  // > 30 ms (> 1 dB for margin).
+  if (enoughHeads && !pushChange(changes, 'head', style.head, head, heads.length, CUT_LEARN_MIN_SECONDS)) {
     notes.push(
-      `Your tails sit within 30 ms and 1 dB of the style's (median ${signedMs(tailOffset)}, ${signedDb(levelOffset)}): tail knobs unchanged.`,
+      `Your lead-ins fit head ${sec(head)}, within 30 ms of the current ${sec(style.head)} (median offset from the style's lead-ins ${signedMs(headOffset)}): head unchanged.`,
     );
+  }
+  if (enoughTails) {
+    const moved = [
+      pushChange(changes, 'minTail', style.minTail, fitted.minTail as number, tails.length, CUT_LEARN_MIN_SECONDS),
+      pushChange(changes, 'maxTail', style.maxTail, fitted.maxTail as number, tails.length, CUT_LEARN_MIN_SECONDS),
+      pushChange(changes, 'margin', style.margin, fitted.margin as number, tails.length, CUT_LEARN_MIN_DB),
+    ];
+    if (!moved.some(Boolean)) {
+      notes.push(
+        `Your tails fit within 30 ms and 1 dB of the current tail knobs (median offset from the style's tails ${signedMs(tailOffset)}, ${signedDb(levelOffset)}): tail knobs unchanged.`,
+      );
+    }
   }
 
   const soft = tailRows.filter((r) => r.styleSoft).length;
@@ -127,8 +134,14 @@ function pushChange(
   to: number,
   samples: number,
   threshold: number,
-): void {
-  if (Math.abs(to - from) > threshold + EPS) changes.push({ knob, from, to, samples });
+): boolean {
+  if (Math.abs(to - from) <= threshold + EPS) return false;
+  changes.push({ knob, from, to, samples });
+  return true;
+}
+
+function sec(s: number): string {
+  return `${Math.round(s * 1000) / 1000} s`;
 }
 
 function median(values: number[]): number | undefined {

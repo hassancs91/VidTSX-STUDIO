@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: FIX (verifier round 1 FAIL: HASAN-STEP.md Snap + head-gate slack — see Next step) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
+status: DONE up to Hasan's step (fix round 1) — builder #9, 2026-10-22: HASAN-STEP.md Snap off + zoom; per-knob gate on |fitted − current|; card wording; one join counted once; gates green (full vitest 457 / 3866, types 26/10). One residual risk for the orchestrator under Open problems ("Fix round 1 — residual"). — was: FIX (verifier round 1 FAIL) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -390,7 +390,61 @@ REAL v3 waveforms and transcripts read from `B2-root\projects\video-14-raw\cache
   `…\B3-verify\audition-0373-hard.json`); the "~0.2 s early" follow-up removed; the parked-playhead follow-up's
   "655.44" re-read as clock `10:55.44` = 655.73 s (the claim itself stands).
 
+**Fix round 1 (builder #9, 2026-10-22; code + docs in one commit, see LOG.md).**
+
+- Gate (`src/shared/studio/cut-learn.ts`): the median-offset gate (`headDiffers` / `tailDiffers`) is gone; each knob
+  is proposed by `pushChange` (now returns boolean) when ≥ 10 edges on its side AND |fitted − current| > 30 ms (> 1 dB
+  margin). Notes when nothing moves: "Your lead-ins fit head X s, within 30 ms of the current Y s (median offset from
+  the style's lead-ins …): head unchanged." · "Your tails fit within 30 ms and 1 dB of the current tail knobs (median
+  offset from the style's tails …, … dB): tail knobs unchanged." Header + `studio-cut-learn.ts` Q4 comments updated.
+  Head grid unchanged (10 ms = the preset form's `step: 0.01`, `cut-style-labels.ts:18`).
+- Joins (`src/shared/studio/cut-learn-joins.ts` `collectCutLearnJoins` + `mergeIntoTrimJoin`): a proposal-drag join
+  whose touched edge(s) equal a trim join's edge(s) (same asset, ±2 ms) is merged into it (touched flags OR-ed,
+  `source: 'trim'`, the trim's `ref`).
+- Card (`PresetUpdateCard.tsx:84-86`): no knob changes + cut lines → "No knob changes proposed — the cut lines below
+  say what was measured."; PRESET.md (`preset-learn-format.ts` `buildLearnedSection`): "- Knobs: unchanged — no knob
+  moved past the learning thresholds" when cut lines exist.
+- Tests: `cut-learn.test.ts` 11 (own-style note regexes updated; NEW 40-seed ±40 ms jitter on fitted-tight edges over
+  24 synthetic joins → fit within 0.15 ± 0.03 in 40/40, proposed iff |fit − 0.11| > 30 ms, 32/40 proposed, 60 s
+  timeout; NEW own-style ±20 ms → no head in 8/8). **With the old `cut-learn.ts` the jitter test FAILS** (seed 7: fit
+  0.15, not proposed). `cut-learn-joins.test.ts` 10 (NEW: dragged head + trimmed tail → ONE join; a lone drag stays).
+- HASAN-STEP.md: Snap off (magnet "Snap to edges and playhead", right-hand toolbar group left of the magnifiers; ON at
+  every open; why small trims snapped back); zoom in at each join (ruler click → playhead; Zoom in / Ctrl+scroll 4–5×
+  → 320 / 640 px/s; Shift+Z back); how a registered trim looks (edge stays, ripple shifts the rest) vs not (springs
+  back); a missing `Cut lead-in` row → note "head X s" from the Lead-in line; time 25–30 min. Wording from source
+  (`TimelineToolbar.tsx:128-138`, `timeline-view.ts:4-5`, `snapping.ts:9`, `TimelinePanel.tsx:342-366`); no UI drive.
+- Scratch `.vidtsx-temp/end-to-end/B4/jitter.b4.test.ts` (`B4_JITTER=1`): the station's 33 joins (`station.json`
+  fitted / start edges) + seeded jitter, the station's real transcripts + v3 waveforms via `readTranscriptFile` /
+  `loadRmsEnvelope` (read-only cache, `generateWaveform` mocked to throw), start style = cut-style.json tight + the old
+  knobs → `learnCutKnobs`. Output `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\jitter-station.json` (new gate) and
+  `jitter-station.old-gate.json` (the same run with HEAD's `cut-learn.ts`, restored after).
+
 ## Verified (exact commands + outputs)
+
+Fix round 1 (C: 19.1–19.5 GB / D: 5.1–5.3 GB free; no electron.exe running; no app launched; station not touched):
+
+- `npx vitest run src/shared/studio/cut-learn.test.ts src/shared/studio/cut-learn-joins.test.ts
+  src/main/services/studio/agent-tools/preset-tools.test.ts …preset-knob-apply.test.ts …learn-from-project.test.ts
+  …preset-learn-stats.test.ts src/main/ipc/preset-learn-handlers.test.ts src/features/studio/services/clip-edit-tags.test.ts`
+  → `Test Files 8 passed (8) · Tests 59 passed (59)`.
+- Old gate check: HEAD's `cut-learn.ts` swapped in → `cut-learn.test.ts` `Tests 2 failed | 9 passed (11)` (the
+  own-style note wording + "seed 7: fitted head 0.15: expected false to be true"); fixed file restored → 11 passed.
+- `$env:B4_JITTER='1'; npx vitest run --config .vidtsx-temp/end-to-end/B4/vitest.b4.config.ts jitter` → 1 passed.
+  New gate: `33 joins, fitted ±40 ms: head proposed 9/10, fitted head 0.14–0.16` · `±30 ms: 10/10, 0.15–0.16` ·
+  `±20 ms: 10/10, 0.15–0.16` · `first 21 joins, fitted ±40 ms: 8/10, 0.13–0.16` · `START edges ±20 ms: 0/10,
+  0.1–0.11` · `START edges ±40 ms: 0/10, 0.08–0.12` (tail false positive: seed 8 minTail 0.14 → 0.1). Misses: 33 joins
+  seed 9 fit 0.14 (median lead-in 0.143); 21 joins seed 6 fit 0.13, seed 9 fit 0.14. Old gate, same seeds: 2/10 ·
+  4/10 · 7/10 · 4/10 · 0/10 · 0/10.
+- `$env:B4_NEG='1'; npx vitest run --config .vidtsx-temp/end-to-end/B4/vitest.b4.config.ts negatives` → `Tests 3
+  passed (3)`; (1) changes head 0.11→0.15, minTail 0.14→0.08, maxTail 0.4→0.5, margin 5→12; (2) `[]`, fitted = the
+  current knobs, the two new "unchanged" lines; (3) `[]` + "Learned from 9 joins — …".
+- `npm run check:types` (log `…\B4\check-types-fix1.log`) → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Full `npx vitest run` (no exclusion: C: ≥ 4 GB) run 1 (log `…\B4\vitest-full-fix1-run1.log`) → `1 failed | 456
+  passed | 5 skipped (462) · Tests 1 failed | 3865 passed` — the NEW 40-seed test, `Test timed out in 5000ms` under
+  load (alone 4.3 s for the file); given `60_000` → alone `Tests 11 passed (11)`. **Run 2 (COUNTED, log
+  `…\B4\vitest-full-fix1-run2.log`) → `Test Files 457 passed | 5 skipped (462) · Tests 3866 passed | 34 skipped
+  (3900)`, 43.09 s.**
 
 Step 7 (C: 2.26 GB / D: 4.98 GB free before the runs, C: 2.26 / D: 4.88 before run 2; no electron.exe running, no
 listener on 5173 / 9222 / 9301 / 9311 / 3200; other sessions' Remotion studios + MCP servers kept the CPU at 100 %):
@@ -583,6 +637,11 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
+**None for a builder — fix round 1 is DONE.** The orchestrator rules on "Fix round 1 — residual" (Open problems),
+then re-verifies (verifier round 2) or marks B4 `WAITING-HASAN`; Hasan's step = the updated
+`docs/studio/end-to-end/B4/HASAN-STEP.md` (~25–30 min, Snap off + zoom in).
+
+(Fix round 1 brief, kept — DONE by builder #9:)
 **FIX round 1 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier
 round 1"):**
 1. **HASAN-STEP.md (the FAIL):** before the trimming section, tell him to turn **Snap off first**
@@ -620,7 +679,20 @@ re-measured offline through the real handler (the `negatives.b4.test.ts` pattern
 
 ## Open problems
 
-- **Verifier round 1 — FAIL (2026-10-22), one deliverable:** `HASAN-STEP.md:33-37` (Snap) — Snap is
+- **Fix round 1 — residual (for the orchestrator; not a Hasan question unless Q4 itself is reopened):** the brief's
+  test "head 0.15 ± 0.03 proposed in EVERY seed" under ±40 ms jitter cannot hold with Q4's "> 30 ms" and this start:
+  the station starts at head 0.11, 40 ms under 0.15, and the head grid is 10 ms (= the preset form's step), so a fit of
+  0.14 is exactly 30 ms away (not proposed) and 0.13 is 20 ms. The fit itself is right every time (0.15 ± 0.03 in 40/40
+  synthetic seeds, 0.13–0.16 on the station's real joins) — only the proposal drops: synthetic 32/40 proposed, station
+  9/10 (33 joins) / 8/10 (21 joins) at ±40 ms, 10/10 at ±30 and ±20 ms. The unit test asserts what holds (fit in range
+  every seed; proposed iff > 30 ms; 32/40) — NOT the brief's "every seed". Options (not taken — each changes a ruling
+  or the station): (a) count a missing `Cut lead-in` row as a pass when the card's Lead-in line reads "head X s" with X
+  in 0.12–0.18 (HASAN-STEP.md already tells Hasan to note X — the exit text says "proposes"); (b) start the station's
+  head farther from 0.15 (e.g. 0.08: a reset of Hasan's station, ruling 7's start changes); (c) a 5 ms head grid —
+  measured on the synthetic set: 35/40 instead of 32/40, and it would propose values off the form's 0.01 step. Also
+  measured: gating on the fit lets one tail false positive through at ±40 ms on own edges (station seed 8: minTail
+  0.14 → 0.10); ±20 ms → none.
+- **Verifier round 1 — FAIL (2026-10-22), one deliverable** (fixed in fix round 1, see Done): `HASAN-STEP.md:33-37` (Snap) — Snap is
   on at every editor open (`TimelinePanel.tsx:95` `useState(true)`, not persisted) and pulls an edge
   to any clip edge within 8 px (`snapping.ts:9`); the neighbour's edge sits where the trimmed edge
   started, so any trim < 8 px snaps back — no edit, no tag. At 20 px/s (default zoom,
@@ -828,6 +900,10 @@ Step 6 notes (no ruling needed; for step 7's STATUS row):
 - Step 7 is DONE: the counted full vitest (run 2, `--exclude python-models --maxWorkers=4`) and types
   26/10; the Status.md B4 row, TESTING §18.10 and the B3 doc debt (decision 7) are written. Re-run the
   gates only if `src/` changes.
+- Fix round 1 is DONE: the per-knob gate on |fitted − current|, the join merge, the card / PRESET.md wording, the 3
+  new tests, HASAN-STEP.md Snap + zoom, `jitter.b4.test.ts` + its two JSONs, gates (457 / 3866, 26/10), Status.md +
+  TESTING §18.10. Do not re-run the old-gate comparison (it swaps `cut-learn.ts` in the working tree). The station was
+  NOT touched (no launch, no reset).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -863,3 +939,8 @@ Step 6 notes (no ruling needed; for step 7's STATUS row):
   disk, 4 workers under 100 % CPU); types 26/10; Status.md B4 row, TESTING §18.10 (Hasan's step
   unchecked), decision 7 (B3 doc debt) from the B3 verifier's files; station re-read on disk at its
   start state; no app launch, no `src/` change.
+- 2026-10-22 · builder #9 · ~50 calls · fix round 1: HASAN-STEP.md Snap off + zoom + "did it take"; the gate moved to
+  |fitted − current| per knob (station ±40 ms jitter: head proposed 2/10 → 9/10); card / PRESET.md "unchanged"
+  wording; drag + trim at one join = one join; 3 new tests (the jitter one fails on the old gate); full vitest run 2
+  green (457 / 3866), types 26/10; residual (0.13 / 0.14 fits not proposed from 0.11) left to the orchestrator; no app
+  launch, station untouched.

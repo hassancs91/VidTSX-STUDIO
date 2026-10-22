@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step (the EXIT waits for Hasan)
+## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix round 1 in (the EXIT waits for Hasan)
 
 - **What:** part B4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `92d846f` → `c5a6f4c` →
   `2865675` → `f39a220` → `a734ff5`), the plan's §2 T1 "The learning signal". **The signal** (optional fields only —
@@ -62,16 +62,43 @@
   overrides · preset “B4 start — old tight”`, one trim tagged and undone; app stopped, station reset (`-Reset`).
   Re-read on disk at step 7: provider `b4-no-model`, preset `b4-start-old-tight`, V1 36 / A1 0, 0 proposals, 0
   tagged clips, preset `style.cut` = the old tight, `learned[]` empty.
+- **FIX round 1 (after the B4 verifier's round-1 FAIL, 2026-10-22):** (1) **HASAN-STEP.md** now says to turn **Snap
+  off** before the first trim (the magnet "Snap to edges and playhead" is ON at every editor open,
+  `TimelinePanel.tsx:95`; it pulls an edge to any clip edge within 8 px, and the neighbour's edge sits where the dragged
+  edge started, so a small trim snapped back — no edit, no tag) and to **zoom in** at each join (playhead on the join,
+  Zoom in 4–5× from the default 20 px/s: 320 px/s = 30 ms ≈ 10 px, 640 px/s ≈ 19 px), how to see a trim took (the edge
+  stays, ripple shifts the rest) or not (it springs back), and that a missing `Cut lead-in` row means the fit sat ≤ 30
+  ms from 0.11 (read "head X s" off the Lead-in line); time now ~25–30 min. (2) **The head gate (orchestrator
+  decision):** each knob is proposed when ≥ 10 edges on its side AND **|fitted − current| > 30 ms (> 1 dB for
+  margin)** — no longer on the median offset from the style's own edges, which joins where the onset rule gives both
+  styles the same lead-in dilute (`src/shared/studio/cut-learn.ts`; the card still shows the medians and the fitted
+  values). Seeded ±40 ms jitter on the **station's real 33 joins** (`.vidtsx-temp/end-to-end/B4/jitter.b4.test.ts`,
+  `B4_JITTER=1`, the learn path's own loaders read-only, 10 seeds; `…\vidtsx-e2e\B4\jitter-station.json` /
+  `jitter-station.old-gate.json`): head proposed **old gate 2/10 → new 9/10** (±30 ms 4 → 10/10, ±20 ms 7 → 10/10;
+  first 21 joins ±40 ms 4 → 8/10); fitted head 0.13–0.16 in every run; own (start) edges ±20 / ±40 ms → head 0/10
+  both gates, one tail false positive at ±40 ms (minTail 0.14 → 0.10, seed 8). **Not fully closed:** the start head
+  0.11 is only 40 ms under 0.15 and Q4 proposes only moves > 30 ms on the 10 ms knob grid, so a fit of 0.13 / 0.14
+  (inside 0.15 ± 0.03) is NOT proposed — the misses above are exactly those; unit test over 40 synthetic seeds: fit in
+  0.15 ± 0.03 in 40/40, proposed in 32/40 (it fails under the old gate). (3) The card no longer says "Knobs unchanged —
+  the edit matched the preset" above cut lines (now "No knob changes proposed — the cut lines below say what was
+  measured"; PRESET.md: "no knob moved past the learning thresholds"); a join whose head was dragged on the proposal
+  and whose tail was trimmed counts once (`collectCutLearnJoins` merges the drag into the trim join). Station
+  untouched (data, not code).
 - **THE EXIT WAITS FOR HASAN** (the §3 row: "after Hasan re-does his 21 Act-1 joins on M2, the card proposes `head`,
   `minTail`, `margin` within ±30 ms / ±1 dB of the fitted tight"). What he must do — **`docs/studio/end-to-end/B4/HASAN-STEP.md`**
-  (~20–25 min): from `D:\repos\VidTSX-STUDIO` run `powershell -ExecutionPolicy Bypass -File
+  (~25–30 min): from `D:\repos\VidTSX-STUDIO` run `powershell -ExecutionPolicy Bypass -File
   docs\studio\end-to-end\B4\hasan-station.ps1` → Studio → `video-14-raw` (V1 = 36 clips, 01:46.47, ripple buttons
-  lit) → trim each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no
+  lit) → **Snap off, zoom in at each join** → trim each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no
   splits, deletes or Transcript edits → nothing selected → Inspector → PROJECT → **Learn from this video** (not the
   Assistant chat; leave the Provider dropdown alone) → Assistant tab → pass = **`Cut lead-in` 0.12–0.18, `Cut tail
   min` 0.05–0.11, `Cut margin` 11–13**; screenshot the card or note the three numbers + "learned from N joins", then
   tell Claude. `-Reset` restarts the station (saving his trims first under `…\vidtsx-e2e\B4\station-runs\`).
-- **Gates:** `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` — **run 2 is
+- **Gates (fix round 1, C: 19 GB free → no exclusion):** `npx vitest run` run 1 red only on the NEW 40-seed jitter
+  test timing out at 5 s under the suite's load (my own test; given a 60 s timeout, 11/11 alone) → **run 2 counted:
+  457 files / 3866 tests passed, 5 / 34 skipped, 43.1 s** (`…\vidtsx-e2e\B4\vitest-full-fix1-run*.log`); types 26/10.
+  The M2 negatives (`negatives.b4.test.ts`) re-run: unchanged outcomes (as-trimmed = the four changes; own-style → 0;
+  9 joins → 0 + the "at least 10" line).
+- **Gates (build):** `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` — **run 2 is
   the counted run: 456 files passed, 5 skipped; 3852 tests passed, 34 skipped, 96.0 s** (app stopped; log
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full-run2.log`). Run 1 (same command, log `…\B4\vitest-full.log`)
   had 2 failures, both on DRIVING.md's known-load list — `flow-render.test.ts:255` (the 1 s `vi.waitFor`) and

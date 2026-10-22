@@ -5,8 +5,9 @@
 you fitted on 10-15 (`head 0.15 · minTail 0.08 · margin 12`). Everything up to your step is built
 and verified (an automated stand-in reached 0.15 / 0.08 / 12 on the same footage).
 
-**Time: about 20–25 minutes** — first launch ~1 min, ~21 joins at 45–60 s each (find, listen, drag
-two edges, listen again) ≈ 15–20 min, learn + read the card ~2 min.
+**Time: about 25–30 minutes** — first launch ~1 min, Snap off once, ~21 joins at 60–70 s each
+(put the playhead on it, zoom in, listen, drag two edges, check they stayed, listen again) ≈ 20–25
+min, learn + read the card ~2 min.
 
 **Nothing of yours is touched.** The station is this branch's dev build (`end-to-end-p0`; your
 installed 1.1.0 has no B1–B4) on a scratch profile
@@ -33,8 +34,19 @@ in Media → the Auto Cut readout says `tight + 4 overrides · preset "B4 start 
 **Ripple must be on:** in the timeline toolbar the two buttons right of the trash can — **Auto
 ripple** and **Ripple all tracks** — are both lit (they are on by default on this profile). With
 them on, lengthening a lead-in pushes the rest of the timeline instead of stopping at the
-neighbour clip. If an edge jumps to a neighbour or the playhead while you drag, turn **Snap** (the
-magnet, right end of the toolbar) off.
+neighbour clip.
+
+**Turn Snap OFF before the first trim — it is ON every time the project opens.** It is the magnet
+("Snap to edges and playhead") in the group at the right end of the timeline toolbar, just left of
+the two magnifiers; lit = on, click it once so it goes dark. With Snap on, an edge pulls to any clip
+edge or the playhead within 8 px — and the neighbour's edge sits exactly where the edge you are
+dragging started, so a small trim snaps straight back: no edit, nothing learned.
+
+**Zoom in to the top levels at each join.** The timeline opens at 20 px per second, where a 30–50 ms
+move is one pixel. Click the ruler at the join (the playhead goes there; zoom keeps the playhead in
+view), then **Zoom in** (the + magnifier, or Ctrl+scroll over the timeline) 4–5 times from the
+default: 4 clicks = 320 px/s (30 ms ≈ 10 px), 5 clicks = 640 px/s, the top (30 ms ≈ 19 px). Zoom
+to fit (Shift+Z) takes you back to the whole Act. The zoom also resets when the project reopens.
 
 ## 2. Trim each sentence join the way you want it (about 21)
 
@@ -42,6 +54,13 @@ A join = two neighbouring clips from the SAME source clip. For each one you care
 
 - drag the **right edge of the left clip** to where you want the tail after the last word to end;
 - drag the **left edge of the right clip** to where you want the lead-in before the next word.
+
+**Check each trim took:** after you let go, the clip edge stays where you dropped it and (ripple on)
+everything to its right shifts by the same amount. If the edge springs back to where it started, the
+trim did not register (Snap is still on, or the move was too small at this zoom) — turn Snap off /
+zoom in and drag again. (Each registered trim also writes a tag on that clip edge in the station's
+`project.json` — `"origin": {"by": …, "op": "trim", "edges": {"end": "trim"}}` — which is what the
+learner reads; you do not need to look.)
 
 Listen, adjust, Undo (Ctrl+Z) works. **Only drag edges** in this project: no splits, deletes or
 Transcript edits (a Transcript delete is not a learning sample until you trim it; a split or delete
@@ -95,7 +114,12 @@ The knob table shows the cut rows as `old → new`:
 | **Cut margin (dB)** `5 → Z` | Z in **11 – 13** (12 ± 1) |
 | Cut tail max (s) | not part of the exit: it reads "at least N s" (only known up to the longest tail you kept; it is only ever raised) |
 
-A missing row means "unchanged" (= the old value, which is outside the pass range). Under the
+A missing row means "unchanged" (= the old value, which is outside the pass range): a knob is
+proposed only when the value that reproduces your edges is MORE than 30 ms (1 dB for margin) away
+from the current one (your Q4 answer). **If the Cut lead-in row is missing, write down the number in
+the "Lead-in:" line under the table ("… head X s reproduces your edges")** — a fit of 0.14 is exactly
+30 ms from the old 0.11, so it is not proposed, though it is inside 0.15 ± 0.03; Claude reports both.
+Under the
 table, the cut lines say how many joins it learned from (tails and lead-ins counted separately),
 your median lead-in / tail / level next to the style's, and **Show the N joins it measured** lists
 every join with "you / style" numbers. There should be no non-cut rows (pacing, shots, music …);

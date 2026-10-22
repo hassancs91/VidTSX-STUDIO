@@ -5,11 +5,11 @@
 /** The cut knobs learn-from-video may propose (plan T1). */
 export type CutLearnKnob = 'head' | 'minTail' | 'maxTail' | 'margin';
 
-/** Q4 (answered): at least this many touched joins before anything is proposed. */
+/** Q4 (answered): at least this many touched edges on a knob's side before it is proposed. */
 export const CUT_LEARN_MIN_JOINS = 10;
-/** Q4: a time knob moves only when the user differs by MORE than this (s). */
+/** Q4: a time knob moves only when its fitted value differs from the current by MORE than this (s). */
 export const CUT_LEARN_MIN_SECONDS = 0.03;
-/** Q4: a level knob moves only when the user differs by MORE than this (dB). */
+/** Q4: a level knob moves only when its fitted value differs from the current by MORE than this (dB). */
 export const CUT_LEARN_MIN_DB = 1;
 
 /** Where a touched edge came from. */
