@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #1 handed off 2026-10-22 — first half of the pre-pass done; one real bug found)
+status: IN PROGRESS (builder #2 handed off 2026-10-22 — UTF-8 bug FIXED `fb32ab1`; 5 of 10 delete cases pass; a ≥ 60 s delete cut TWICE the selection — investigate next)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -105,7 +105,24 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   0375@892.608+207.691 · 0376@1100.298+182.849`, every clip `sourceIn 0`, no `speed` field (= 1),
   A1 empty, 0 proposals, no `presetId`/`cutStyle` → **length 1,283.148 s, toolbar `/ 21:23.09`**
   (21.4 min — the "30-min document" of decision 3 is this one).
-- **First half of the pre-pass (decision 3), numbers below under Verified.** No source change yet.
+- **First half of the pre-pass (decision 3), numbers below under Verified.**
+- **Problem 1 FIXED (builder #2, `fb32ab1`):** NEW `src/features/studio/services/cache-text.ts`
+  `decodeBase64Utf8` (atob → bytes → `TextDecoder`, ASCII fast path) + `cache-text.test.ts` (5: em-dash,
+  curly quotes + accent + Arabic, ASCII unchanged, a transcript file round-trip, empty); NEW
+  `src/features/studio/hooks/useAssetTranscripts.test.ts` (2: `fetchTranscriptWords` keeps "39—",
+  "don’t", "مرحبا" through a stubbed `window.api.studioCacheRead`; a failed read → []). Red first
+  (the fetch test showed `39â`, `donât`, `ÙØ±Ø­Ø¨Ø§`). Every `atob(` → text path in
+  `src/features/studio` now goes through the helper: `useAssetTranscripts.ts:36` (THE bug — Transcript
+  tab + cut-review context), `useAssetEnvelopes.ts:54` and `useStudioMedia.ts:214` (ASCII waveform JSON
+  — were not broken, now safe), `analysis-io.ts:16` (was already right; now the one helper).
+  `grep -rn "atob(" src/features/studio` → only `cache-text.ts:11`. (Outside studio:
+  `tools/VoiceAITesterScreen.tsx:103` decodes AUDIO bytes — binary, correct as is.)
+- **Kit, builder #2 (gitignored):** `.vidtsx-temp/end-to-end/B5/deletes.mjs` — `cases [name…] | undo N |
+  fillers | karaoke-bottom` (see its header); a case = real drag-select (or click + real SHIFT+click
+  when > 25 words), real Delete key, disk diff, toast, pills, real Ctrl+Z (= before), Ctrl+Shift+Z
+  (= after), Restore pill(s) by real clicks (content = before), Ctrl+Z × (restores+1) back to the
+  original. Writes `…\B5\deletes\<case>.json` = `{ sel, before, after }` for a planTextDelete harness
+  (B2's `textdel.b2.test.ts` pattern — NOT written yet). `fillers` and `karaoke-bottom` NOT run yet.
 
 ## Verified (exact commands + outputs)
 
@@ -147,15 +164,50 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
 - App stopped: processes matched by `--remote-debugging-port=9321` / the `profiles/B5/profile` path
   (2 bash, 2 node, 1 cmd, 6 electron) → `left: 0`. Disk after: C: 18.32 GB, D: 32.89 GB.
 
+**Builder #2 (2026-10-22):**
+- `npx vitest run src/features/studio/services/cache-text.test.ts src/features/studio/hooks/useAssetTranscripts.test.ts`
+  BEFORE the fix → `2 failed` (import error; `"39â", "donât", "ÙØ±Ø­Ø¨Ø§"`); after → green; with
+  `src/features/studio/services/` → `Test Files 46 passed (46) · Tests 409 passed (409)`.
+- `npm run check:types` → `web: 26 errors (baseline 26) ok · node: 10 errors (baseline 10) ok`.
+- FULL `npx vitest run` NOT run yet (do it at the next green checkpoint, app stopped, logged to a file).
+- Relaunch (C: 17.83 / D: 32.67 GB before), `node drive.mjs ready` → `length s 1283.148 toolbar
+  ["/ 21:23.09"]`; `node drive.mjs spot` → `tokens app 1820 expected 1820 mismatches 76`, kinds
+  `{"sourceStart":76,"start":76}` = **0 text / 0 DOM mismatches** (only the 76 backfill starts, Problem 2);
+  all 32 em-dash words render (`39— | client's— | application— | … | in—`). punctuated 291, capitalised 268.
+- `node deletes.mjs cases inside` / `… across long short first last bf1 bf2 bf3 bf4` (each case starts
+  from the ORIGINAL timeline, checked on disk). PASS rows (selection = intended, toast, pills, tags,
+  1 undo step, redo exact, restore content-equal, back to original):
+  | case | tokens | selected | toast | delete→disk | V1 after | pills | `'text-delete'` edges |
+  |---|---|---|---|---|---|---|---|
+  | inside (0371) | 271–276 "application— uh other take. For example," 3.73 s | drag 6/6 | `Removed 6 words · −4.0 s` | 967 ms | 10 clips, 1279.103 s | 1 `¶ 4.0s` | end + start of the join |
+  | across 0372→0373 | 555–560 "the real magic. Okay, I clone" | drag 6/6 | `Removed 6 words · −2.1 s` | 766 ms | 11 clips, 1281.064 s | 2 (`¶ 1.1s` "the real magic." · `¶ 1.0s` "Okay, I clone") | 4 edges (two joins) |
+  | short (0375) | 1372 "one" 65 ms | drag 1/1 | `Removed 1 word · −0.1 s` | 903 ms | 10, 1283.083 s | 1 `¶ 0.1s` | 2 |
+  | first of 0370 | 71 "Last" | drag 1/1 | `Removed 1 word · −0.3 s` | 731 ms | 10, 1282.809 s (keeps 0370's 1.83 s head) | 1 | 2 |
+  | last of 0374 | 1199 "business." | drag 1/1 | `Removed 1 word · −0.4 s` | 726 ms | 10, 1282.761 s (keeps the 9.3 s tail) | 1 | 2 |
+  Every PASS row: tokens 1,820 → 1,814 / 1,819 after; Ctrl+Z → disk == before; Ctrl+Shift+Z → disk ==
+  after; Restore → length 1283.148, per-asset source cover == original, clips contiguous, doc text ==
+  original, 0 pills; Ctrl+Z ×(restores+1) → disk == ORIGINAL. Files `…\B5\deletes\{inside,across,short,first,last}.json`.
+- **bf1** (0370 "I", i 117, backfilled start 41.956 vs AssemblyAI 42.956): delete cut source
+  **41.956 → 43.004** (the cut starts at the BACKFILLED start, 1.0 s before the stamp — Problem 2's
+  effect, measured); undo/redo fine; the Restore click restored in memory but the UI showed **"Save
+  failed"** and the disk kept the deleted state — see Open problem 5 (my 50 ms disk poller vs Windows
+  `rename`). `node deletes.mjs undo 2` → `disk == original true · "Saved"`.
+- **long** (0373, 709–777 "found the file service … So", 62.49 s; first try: a scrolling drag selected
+  only 777 → driver switched to click + SHIFT+click, second try selected 709–777) → see Open problem 4.
+  bf2–bf4 not run (the run stopped at bf1).
+- App stopped (matched `--remote-debugging-port=9321` / `profiles/B5/profile` / `B5/launch.sh`: 4 bash,
+  2 node, 1 cmd, 6 electron) → `left: 0`. The bad long-case state saved as `…\B5\deletes\long-bug-disk.json`;
+  B5-root's `project.json` timeline then put back to the original (9 clips, 1283.148 s, 0 tags) with
+  the app stopped. Disk: C: 18.06 GB, D: 32.55 GB.
+
 ## Next step (ONE concrete instruction)
 
-Fix Open problem 1 (unit test first: `fetchTranscriptWords` / a base64→UTF-8 decode on a cache file
-holding "39—" must return "39—"; then decode with `TextDecoder` the way `analysis-io.ts:15-17` does),
-relaunch with `bash .vidtsx-temp/end-to-end/B5/launch.sh` (background) + `node drive.mjs ready`, confirm
-`node drive.mjs spot` shows 0 text mismatches (only the 76 backfill starts left), then start the
-second half of decision 3 (the deletes: inside one clip, across a clip boundary, ≥ 60 s, a single
-short word, first / last word of a clip — each one undo step, edges = the resolved tight style,
-`'text-delete'` tags, restore pills, undo/redo) in a new `drive.mjs` command.
+Root-cause Open problem 4 (the ≥ 60 s delete that cut 124.8 s): relaunch (`bash
+.vidtsx-temp/end-to-end/B5/launch.sh` in the background, `node drive.mjs ready`), wrap TimelinePanel's
+`tl.dispatch` from CDP (`fiberProps(el, p => p.tl?.dispatch)`, DRIVING "Learned" B4) to log every
+action's `type` + `spans`, select 709–777 with click + SHIFT+click as `deletes.mjs` does, press Delete
+ONCE, then read the toast, the logged actions and the disk — that tells a double dispatch from one
+wrong span; fix it with a unit test first, then rerun `node deletes.mjs cases long bf1 bf2 bf3 bf4`.
 
 ## Open problems
 
@@ -197,6 +249,30 @@ short word, first / last word of a clip — each one undo step, edges = the reso
    be a small change in `withSpokenSpans`.
 3. The karaoke auto-scroll was not exercised (see Verified) — the delete half should include one
    play that runs the lit word past the bottom of the view (e.g. click the last visible word, play 20 s).
+   (`node deletes.mjs karaoke-bottom` is written for this — not run yet.)
+4. **BUG (suspected real, builder #2): a 62.49 s Transcript delete removed 124.8 s.** Case `long`:
+   tokens 709–777 of 0373 ("found" 101.931 → "So" 164.209–164.421 source), selected by a real click +
+   SHIFT+click; the driver's DOM check read the selection as exactly 709–777 (69 words). After ONE real
+   Delete keypress the disk held 0373 as `0 … 101.931` + `226.719 … 396.246` — the cut ran on to "was"
+   (226.507–226.719, i.e. 11:31 "My D drive was"), **62.3 s past the selection ≈ the next 69 words**.
+   ONE Ctrl+Z returned the disk to the original and Ctrl+Shift+Z back to the 124.8 s cut (so it is one
+   history step, or two dispatches inside one save debounce that undo… — unknown). The single pill read
+   `daf5…:101.931:226.719`; its Restore click changed nothing on disk ("Saved" shown — a REFUSED
+   restore, unlike bf1). Hypotheses: (a) the same range deleted twice (after the first cut the indices
+   709–777 point at the next 69 words); (b) the panel's `range` (from `useTranscriptSelection`'s
+   anchor/focus mapping) differs from the DOM selection after a SHIFT+click; (c) a planTextDelete span
+   bug on long runs. The toast text was not captured. Evidence: `…\B5\deletes\long-bug-disk.json` (the
+   project.json after it). The five drag-selected cases (≤ 6 words, no shift) were all exact.
+5. **Robustness (general, not Transcript-specific — orchestrator's call): a failed autosave loses the
+   edit's save.** `useStudioProject.ts` `persist` clears `dirtyRef` BEFORE `studioProjectSave`, and on
+   `success:false` only shows "Save failed" — nothing retries and the unmount/blur `flush()` sees
+   "not dirty", so closing the project after a failed save keeps the OLD file (until any later edit
+   re-saves the whole doc). Trigger seen here: `project-store.ts:69-74` `writeProjectFile` = write
+   `.tmp` + `fs.rename`, and on Windows `rename` fails (EPERM) while another process has project.json
+   open — my driver polled it every 50 ms (antivirus / indexers / sync tools do the same). Re-sending
+   the same in-memory project from CDP saved fine. Small fix if wanted: retry the rename on
+   EPERM/EBUSY (main) and re-dirty + reschedule on failure (renderer). Drivers: poll project.json
+   less often (≥ 200 ms) or watch the "Saved" indicator.
 
 ## Do-not-redo
 
@@ -206,8 +282,14 @@ short word, first / last word of a clip — each one undo step, edges = the reso
   B5-root's `video-14-raw` (`ready` skips clips already there). The first-half numbers (open time,
   1,820 words / spot table, 27/27 seeks, karaoke, scroll) are recorded — rerun only `spot` after the
   UTF-8 fix. `B5-station-root` / `profiles\B5-station` are NOT made yet.
+- Problem 1 is FIXED and verified (`fb32ab1`, spot = 0 text mismatches) — do not redo. Delete cases
+  inside / across / short / first / last PASSED (table under Verified) — rerun them only after a
+  delete-path code change.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-22 · builder #1 · ~44 calls · scratch copies, long project (21:23.09), kit, first half of
   the pre-pass; found the UTF-8 mojibake bug and the AssemblyAI backfill question.
+- 2026-10-22 · builder #2 · ~60 calls · fixed the UTF-8 bug (`fb32ab1`, tests first), spot = 0 text
+  mismatches; `deletes.mjs`; 5 delete cases PASS; found the 2× long delete (Problem 4) and the
+  failed-save-not-retried issue (Problem 5).
