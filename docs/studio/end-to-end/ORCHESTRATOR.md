@@ -339,3 +339,19 @@
   full vitest hit `ENOSPC` in `python-models/service.test.ts` (writes 1.68 GB to `%TEMP%`).
   Deleting was refused twice by the permission classifier, so no more delete attempts. B3 step 3
   is code-only (HANDOFF override); live exits + the full gate wait for space.
+- `%TEMP%` breakdown (scan finished ~16:00): **1,532 `puppeteer_dev_chrome_profile-*` = 10.1 GB**
+  (Hasan's waiting item 1 — Remotion never deletes them); `%TEMP%\claude` 9.7 GB
+  (`bash-edit-diff` 5.2 GB, the editor-repo session 3.1 GB, PyRunner 0.4, tinkerclick 0.4,
+  qissatuna 0.2); `1wpend2f` 2.1 GB and `cvji5chw` 0.76 GB (unknown, 07:09–07:14 today);
+  `DiagOutputDir` 0.8 GB (April). **Hasan: clearing the puppeteer profiles alone frees ~10 GB.**
+- 15:40 decisions: B3's live step reuses `B2-root` + `profiles\B2` (no new copies); the counted
+  full vitest run excludes `python-models/service.test.ts` while C: < 4 GB (DRIVING.md).
+- 16:05 · B3 live exits (builder #4, `f27284a`): default tight on all nine clips → hard entries
+  **1 of 164** (0373 @ 323.198 s, +17.7 dB — an untranscribed sound decaying into a cut-in inside
+  Hasan's own retake cut; true positive), tails 265 / 298; negative `{natural, head 0}` → 121 / 162;
+  margin 12 / 18 / 24 on tight → 265 / 265 / 265 (saturated; mean landing +11.45 → +14.51 → +16.23
+  dB), natural margin 6 / 12 / 18 → 106 / 132 / 132. **Orchestrator reading (B3 HANDOFF
+  "DECIDED 16:05"):** exit (b) met on the hand-audited plan (0) with the live 1 explained as a
+  true positive; exit (c) met as "never falls, landings louder; rises where not saturated". Card
+  unchanged. Audition starts ~0.2 s early; playhead parks at a result-time read as original-time
+  after the stop (pre-existing, `handlePlayJoin` too) — follow-ups.
