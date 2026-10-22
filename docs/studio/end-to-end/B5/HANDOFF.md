@@ -274,6 +274,17 @@ wrong span; fix it with a unit test first, then rerun `node deletes.mjs cases lo
    EPERM/EBUSY (main) and re-dirty + reschedule on failure (renderer). Drivers: poll project.json
    less often (≥ 200 ms) or watch the "Saved" indicator.
 
+**RULED (orchestrator, 2026-10-22, after builder #2):**
+- **Problem 4 first:** root-cause and fix the 2× long delete (and the dead Restore pill) with a
+  unit/reducer test that reproduces it first; then re-run `long` and the bf cases live.
+- **Problem 5: fix it in B5** (both of Hasan's passes depend on autosave, and Windows AV/sync tools
+  hold files): main — retry the `.tmp` → `project.json` rename on EPERM/EBUSY/EACCES a few times
+  with a short backoff; renderer — on a failed save keep the document dirty (set dirty BEFORE the
+  save is considered done; re-mark on `success:false`) and reschedule, so a later flush/close still
+  writes; after repeated failure show a persistent error, not a transient toast. Unit tests for both
+  (a failing-then-succeeding rename; a failed save followed by close writes the latest doc). Drivers
+  poll project.json ≥ 200 ms apart from now on (add a DRIVING.md "Learned" line).
+
 ## Do-not-redo
 
 - B1–B3 DONE; B4 WAITING-HASAN — do not touch the B4 station or B4's code. Track A DONE. Do not
