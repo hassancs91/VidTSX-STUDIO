@@ -117,7 +117,7 @@ export function useTextEdit({
       if (plan.skippedRuns > 0) notes.push(`${plural(plan.skippedRuns, 'spot')} too tight to cut cleanly`);
       if (plan.unsnappedAssetIds.length > 0) notes.push('no audio envelope — edges are padded, not snapped');
       showToast(
-        `Removed ${plural(tokens.length, what)} · −${plan.removedSeconds.toFixed(1)} s` +
+        `Removed ${plural(plan.removedTokens, what)} · −${plan.removedSeconds.toFixed(1)} s` +
           (notes.length > 0 ? ` (${notes.join('; ')})` : ''),
         notes.length > 0 ? 'info' : 'success',
       );

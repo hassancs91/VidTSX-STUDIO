@@ -125,6 +125,51 @@ describe('planTextDelete', () => {
   });
 });
 
+describe('planTextDelete — counting what a delete really removes (B5)', () => {
+  // AssemblyAI on video-14-raw: 0373 "a 15.654–15.780 · uh 15.780–15.820 · desk 15.847–16.168"
+  // — the "uh" sits inside the pads of its neighbours, so "Remove fillers" can't cut it.
+  const words = [
+    { text: 'Hello', start: 0.5, end: 0.9 },
+    { text: 'um', start: 1.2, end: 1.5 },
+    { text: 'today', start: 1.9, end: 2.3 },
+    { text: 'a', start: 3.0, end: 3.126 },
+    { text: 'uh', start: 3.126, end: 3.166 },
+    { text: 'desk', start: 3.193, end: 3.514 },
+    { text: 'cleaner.', start: 3.514, end: 4.0 },
+  ];
+  const planFor = (pick: (text: string) => boolean) => {
+    const timeline = makeTimeline();
+    const doc = buildTranscriptDoc(timeline, wordSource(words));
+    return planTextDelete({
+      timeline,
+      tokens: doc.tokens.filter((t) => pick(t.text)),
+      words: wordSource(words),
+      envelopes: new Map([['a1', makeEnvelope(words)]]),
+      assets: [ASSET],
+      style: TEST_TIGHT_STYLE,
+    });
+  };
+
+  it('counts only the words its spans remove — a run too tight to cut is not "removed"', () => {
+    const result = planFor((text) => text === 'um' || text === 'uh');
+    expect(result.spans).toHaveLength(1);
+    expect(result.skippedRuns).toBe(1);
+    expect(result.removedTokens).toBe(1);
+  });
+
+  it('counts every word of a run it cuts', () => {
+    const result = planFor((text) => text === 'Hello' || text === 'um' || text === 'today');
+    expect(result.skippedRuns).toBe(0);
+    expect(result.removedTokens).toBe(3);
+  });
+
+  it('removes nothing when every run is too tight', () => {
+    const result = planFor((text) => text === 'uh');
+    expect(result.spans).toHaveLength(0);
+    expect(result.removedTokens).toBe(0);
+  });
+});
+
 describe('planTextDelete — a word the engine gave no duration', () => {
   it('cuts the gap it was spoken in, and the words around it survive', () => {
     const words = withSpokenSpans([
