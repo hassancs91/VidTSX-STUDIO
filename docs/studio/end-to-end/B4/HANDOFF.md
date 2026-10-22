@@ -278,8 +278,7 @@ rendered yet.
   passes `project.assets`. (AgentPanel was already 420 lines before B4; +5.)
 - No renderer test: the card had none (the brief's rule).
 
-**Step 5 (a)–(d) — the M2 stand-in, live (builder #5, 2026-10-22; card fix in the commit after
-`0795779`).** Kit in `.vidtsx-temp/end-to-end/B4/` (gitignored): `setup.mjs` (start state; args
+**Step 5 (a)–(d) — the M2 stand-in, live (builder #5, 2026-10-22; card fix + docs `a734ff5`).** Kit in `.vidtsx-temp/end-to-end/B4/` (gitignored): `setup.mjs` (start state; args
 `<studioRoot> <profile> <out>` for Hasan's station), `launch.sh` (CDP 9301, B2 profile, log
 `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\app.log`), `cdp.mjs`, `restore.ps1`, `drive.mjs`
 (`ready` · `cut` · `trim <ops.json>` · `probe` · `learn <tag> [read]` · `accept` · `shot`),
