@@ -19,6 +19,12 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 - One folder per part: `.vidtsx-temp/end-to-end/<PART>/` (profile, scratch root, driver,
   stills, logs). Verifiers use `<PART>-verify/`. Each agent picks its own CDP port (A1 used
   9241, its verifier 9251) — pick a fresh one, e.g. 92<part-number>x.
+- **Profiles go on C: from session 2 on (orchestrator, 2026-10-22):** D: is at ~2.8 GB free and
+  every profile copy is ~372 MB. A NEW isolated profile (builders and verifiers alike) lives at
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>[-verify[N]]\profile` (copied from
+  `.vidtsx-temp/end-to-end/A5/profile`); drivers, logs, stills and reports stay in
+  `.vidtsx-temp/end-to-end/<PART>/`. B1's existing profile stays where it is. Check D: before
+  writing anything sizeable there; if it falls under ~2 GB, stop and report.
 - Launcher (A1's, worked first time): `.vidtsx-temp/end-to-end/A1/launch.sh` — copy it, change
   the profile path, port and log path, run it in the background from a script FILE.
   `ELECTRON_RUN_AS_NODE` must be unset.
