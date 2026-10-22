@@ -64,8 +64,12 @@ export function buildPresetTools(ctx: StudioToolContext): StudioTool[] {
         state.presetProposalCreated = true;
         ctx.emit({ projectId: req.projectId, kind: 'preset-update-proposal', proposal: result.proposal });
         const changes = result.proposal.knobChanges.length;
+        const cut = result.proposal.cutLearn;
+        const cutLine = cut
+          ? ` Cut knobs: learned from ${cut.joins} trimmed join${cut.joins === 1 ? '' : 's'} (${cut.headEdges} lead-ins, ${cut.tailEdges} tails), ${cut.changes.length} cut knob change${cut.changes.length === 1 ? '' : 's'}.`
+          : '';
         return text(
-          `Preset-update card shown to the user for "${result.proposal.presetName}": ${changes} knob change${changes === 1 ? '' : 's'} and a "Learned from" section. ${result.proposal.statsSummary} Do not treat any of it as saved, and do not propose another card this turn.`,
+          `Preset-update card shown to the user for "${result.proposal.presetName}": ${changes} knob change${changes === 1 ? '' : 's'} and a "Learned from" section. ${result.proposal.statsSummary}${cutLine} Do not treat any of it as saved, and do not propose another card this turn.`,
         );
       } catch (err) {
         return text(errorText(err), true);

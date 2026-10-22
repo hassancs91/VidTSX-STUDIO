@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioProject } from '../../../shared/types/studio';
 import { STUDIO_SCHEMA_VERSION } from '../../../shared/types/studio';
 import { buildLearnedSection, formatStatsSummary } from './preset-learn-format';
-import { applyKnobChanges, computeLearnStats, diffPresetKnobs, inferPacing } from './preset-learn-stats';
+import { computeLearnStats, diffPresetKnobs, inferPacing } from './preset-learn-stats';
+import { applyKnobChanges } from './preset-knob-apply';
 
 function clip(overrides: Partial<StudioClip> & { id: string; timelineStart: number; duration: number }): StudioClip {
   return { kind: 'video', assetId: 'footage', sourceIn: 0, ...overrides };

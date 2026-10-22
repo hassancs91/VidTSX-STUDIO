@@ -21,7 +21,9 @@ import {
   hasPendingPresetProposal,
   removePresetProposal,
 } from '../services/studio/agent-preset-proposals';
+import { loadCutStyleFile } from '../services/studio/cut-style-store';
 import { learnFromProject } from '../services/studio/learn-from-project';
+import { applyKnobChanges, hasCutKnobChanges, presetCutProblems } from '../services/studio/preset-knob-apply';
 import { studioAgent } from '../services/studio/studio-agent';
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -80,9 +82,13 @@ export async function handleStudioPresetProposalResolve(
     // The knobs are re-applied over the preset as it is NOW, so an edit made
     // in the form since the card was minted survives on every knob the card
     // does not touch.
-    const style = { ...preset.style };
-    for (const change of proposal.knobChanges) {
-      (style as Record<string, unknown>)[change.key] = change.to;
+    // Nested `cut.<knob>` changes go over the preset's cut base the way the
+    // form writes them (B4), and must pass B2's cut check.
+    const cutFile = hasCutKnobChanges(proposal.knobChanges) ? await loadCutStyleFile() : null;
+    const style = applyKnobChanges(preset.style, proposal.knobChanges, cutFile);
+    const problems = cutFile ? presetCutProblems(style, cutFile) : [];
+    if (problems.length > 0) {
+      return { success: false, error: `The learned cut style is not valid: ${problems.join(' ')}` };
     }
     await applyPresetLearning(root, proposal.presetId, {
       style,

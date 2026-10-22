@@ -19,6 +19,10 @@ const KNOB_LABEL: Record<StudioPresetKnobChange['key'], string> = {
   transitions: 'Transitions',
   introSeconds: 'Intro (s)',
   outroSeconds: 'Outro (s)',
+  'cut.head': 'Cut lead-in (s)',
+  'cut.minTail': 'Cut tail min (s)',
+  'cut.maxTail': 'Cut tail max (s)',
+  'cut.margin': 'Cut margin (dB)',
 };
 
 function knobValue(v: string | number | string[] | undefined): string {
