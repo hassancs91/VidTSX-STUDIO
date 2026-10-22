@@ -134,7 +134,7 @@ Step 1 (builder #1, 2026-10-22, no `src/` change; kit gitignored under `.vidtsx-
    `C:\Users\hasan\AppData\Local\vidtsx-e2e\B6\measure\measure.json` by default.
    **H on video-14 = 813.315 s** of 1,283.0 s raw (his keeps = ~470 s; review.md's tight = 484 s).
 
-Step 2 (builder #2, 2026-10-22/23, no `src/` change; kit gitignored):
+Step 2 (builder #2, 2026-10-22/23, no `src/` change; kit gitignored; docs commit `30e52b2`):
 
 6. **Setup** (`node run.mjs setup` on the relaunched app): root = B6-root, `video-14-raw` open, nine clips added to V1 in
    raw order → **1,283.148 s**; `settings` = `{width 3840, height 2160, fps 60, agent: {}}` (no providerId, no preset, no
