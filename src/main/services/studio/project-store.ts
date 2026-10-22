@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { shell } from 'electron';
 import { logEngine } from '../../../logging/log-engine';
+import { renameWithRetry } from '../../utils/rename-retry';
 import {
   STUDIO_SCHEMA_VERSION,
   STUDIO_SCRIPT_MAX_CHARS,
@@ -65,12 +66,14 @@ export function migrateProject(raw: unknown, folderId: string): StudioProject {
   };
 }
 
-/** Atomic write: temp file in the same folder, then rename over project.json. */
+/** Atomic write: temp file in the same folder, then rename over project.json.
+ *  The rename retries Windows' transient lock errors (an AV scan, an indexer,
+ *  a sync client or a script reading project.json) — B5 Problem 5. */
 async function writeProjectFile(projectDir: string, project: StudioProject): Promise<void> {
   const finalPath = getProjectFilePath(projectDir);
   const tmpPath = `${finalPath}.tmp`;
   await fs.writeFile(tmpPath, JSON.stringify(project, null, 2), 'utf-8');
-  await fs.rename(tmpPath, finalPath);
+  await renameWithRetry(tmpPath, finalPath);
 }
 
 function toSummary(project: StudioProject, folderPath: string, hasPoster: boolean): StudioProjectSummary {

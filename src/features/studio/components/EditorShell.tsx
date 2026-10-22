@@ -119,6 +119,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     status,
     error,
     saveState,
+    saveError,
     updateProject,
     importMedia,
     restoreVersion,
@@ -1207,9 +1208,22 @@ export function EditorShell({ projectId, onBack }: Props) {
         >
           {project.settings.width}×{project.settings.height} · {project.settings.fps} fps
         </button>
-        <span className="text-[10px] text-text-ghost">
-          {saveState === 'pending' ? 'Saving…' : saveState === 'error' ? 'Save failed' : 'Saved'}
-        </span>
+        {saveState === 'error' ? (
+          // B5 Problem 5: persistent until a save lands — the edits stay in
+          // memory and the save keeps retrying every few seconds.
+          <span
+            data-save-state="error"
+            role="alert"
+            title={`Could not save project.json: ${saveError ?? 'unknown error'}. Your edits are kept and the save is retried every few seconds — another program (antivirus, sync, backup) may be holding the file.`}
+            className="text-[10px] font-medium text-accent-red"
+          >
+            Save failed — retrying
+          </span>
+        ) : (
+          <span data-save-state={saveState} className="text-[10px] text-text-ghost">
+            {saveState === 'pending' ? 'Saving…' : 'Saved'}
+          </span>
+        )}
         <div className="flex-1" />
         <RenderPrepChip projectId={project.id} />
         <button

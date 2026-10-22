@@ -36,7 +36,28 @@ export function DeletionPill({ deletion, readOnly, onRestore }: Props) {
   }
 
   return (
+    <OpenedDeletion deletion={deletion} readOnly={readOnly} onRestore={onRestore} onHide={() => setOpen(false)} />
+  );
+}
+
+/** Callback ref for the opened pill (B5 Open problem 6): the pill opens IN
+ *  PLACE, and a long deletion near the bottom of the transcript pushed its
+ *  Restore below the visible body — scroll the least needed to show it. */
+export function revealOnOpen(el: HTMLElement | null): void {
+  el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+
+interface OpenedProps extends Props {
+  onHide: () => void;
+}
+
+/** The opened pill: struck-through text, its length and a Restore (hidden
+ *  while read-only). Hook-free so it can be rendered by a plain call. */
+export function OpenedDeletion({ deletion, readOnly, onRestore, onHide }: OpenedProps) {
+  const label = `${deletion.seconds.toFixed(1)}s`;
+  return (
     <span
+      ref={readOnly ? revealOnOpen : undefined}
       data-deletion={deletion.id}
       data-open="true"
       className="select-none inline align-baseline mx-[2px] px-[5px] py-[1px] rounded-[4px] bg-app-hover"
@@ -44,7 +65,7 @@ export function DeletionPill({ deletion, readOnly, onRestore }: Props) {
     >
       <button
         type="button"
-        onClick={() => setOpen(false)}
+        onClick={onHide}
         title="Hide the deleted text"
         className="text-text-dim line-through decoration-text-ghost hover:text-text-muted"
       >
@@ -53,6 +74,7 @@ export function DeletionPill({ deletion, readOnly, onRestore }: Props) {
       <span className="ml-[6px] text-[9px] text-text-dim">{label}</span>
       {!readOnly && (
         <button
+          ref={revealOnOpen}
           type="button"
           data-restore={deletion.id}
           onClick={() => onRestore(deletion)}
