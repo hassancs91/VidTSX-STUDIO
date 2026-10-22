@@ -253,7 +253,7 @@ Step 3a — the queue-row UI (agent 4, commit `1ffa650`
   The A5 profile also has older A4 rows (entry `54d68c0e`, A4 export folder) — `done`, so they also show
   the button; do not click those.
 
-Step 3b — the CDP click-through + part close (agent 5, docs commit — see LOG.md; no `src/` change).
+Step 3b — the CDP click-through + part close (agent 5, docs commit `a7fbb1b`; no `src/` change).
 
 - Profile `.vidtsx-temp/end-to-end/A6/profile` = `cp -rp` of the A5 profile (377 MB). Launcher
   `.vidtsx-temp/end-to-end/A6/launch.sh` (A5's, port **9261**, `electron-vite dev`; no other electron was
