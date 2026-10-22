@@ -1,0 +1,2 @@
+# git apply needs the patch in LF; a CRLF checkout of it (core.autocrlf) does not apply to LF files.
+*.patch text eol=lf

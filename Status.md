@@ -7,6 +7,104 @@
 
 ---
 
+## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied) — DONE up to Hasan's step (the EXIT waits for Hasan)
+
+- **What:** part B5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `fb32ab1` → `aa58ee8` → `e69d182`;
+  station + checklist `8bf5433` → `3e7a285`). The §3 row: "`studio-text-edit` on in production after Hasan's pass on M2
+  (AssemblyAI transcript, by ear, long project)", exit "his pass clean; flag flipped". Both halves of the exit are
+  Hasan's; B5 built and verified everything up to them — the machine's half of the pass on the long project with real
+  mouse and keyboard over CDP on an isolated profile, the bugs it found fixed (tests first), his station and checklist
+  (walked literally), the flip and the backfill alternative written down and NOT applied.
+- **Material / the long project:** M2 `video-14-raw` (nine raw DJI clips 3840×2160 59.94 fps in a 60 fps project, v3
+  waveforms, Hasan's AssemblyAI transcripts mapped through Studio's `AssemblyAiProvider.mapJob`, 27/44/97/207/183/602/40/
+  330/290 = **1,820 words**) on the scratch copy `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-root` + `…\profiles\B5\profile`
+  (CDP 9321). Long project = all nine clips on V1 in raw order, nothing cut, speed 1 → **1,283.148 s, toolbar `/ 21:23.09`**.
+- **Open and read:** header **"1,820 words"**, 192 takes; tab click → all 1,820 words in the DOM in **405 / 139 / 241 ms**,
+  first paint **563 / 231 / 360 ms** (three cold mounts — the pane unmounts on a tab switch). Every token vs Hasan's raw
+  AssemblyAI JSON: 1,820 = 1,820, AssemblyAI's text kept (291 punctuated, 268 capitalised), a 27-word time table equal;
+  after the UTF-8 fix **0 text mismatches** (the only differences left are the 76 backfilled starts, below).
+- **Seek / karaoke / scroll:** a real click on the first / middle / last word of every clip → **27/27 playhead frame =
+  round(word start × 60), 0 frames off**, the word lit; the clip's video within −14…+16 ms of the word (≤ one source
+  frame). Karaoke, 12 s from words 900 and 1700: **0 mismatched frames** (rAF p50 16.7 / p95 17.1 ms); played past the
+  bottom of the view (20 s from word 776): the lit word out of view on 1 of 1,155 frames, 36 auto-scrolls. Wheel scroll
+  of the whole document (11,846 px) top → bottom in 3.3 s: p95 29.9 ms, 0 long tasks.
+- **Ten delete cases** (real drag, or click + real SHIFT+click; real Delete key; each from the original timeline): inside
+  0371 (6 words, `Removed 6 words · −4.0 s`), across 0372 → 0373 (6 words, two pills, four tagged edges), one short word
+  ("one" 65 ms, `−0.1 s`), the first word of 0370, the last word of 0374, a long selection 0373 709–777 (**69 words, `−62.5
+  s`**, exact), and four single short words whose start the backfill moved (bf1–bf4, `−1.0 / −3.2 / −2.2 / −2.9 s`).
+  **Every one:** ONE undo step, redo exact, the cut edges the RESOLVED tight style's (B2), both new edges tagged
+  `'text-delete'` (B4), Restore by a real click → length 1283.148, per-asset source cover == original, doc text ==
+  original; Ctrl+Z back to the original on disk.
+- **Fillers:** AssemblyAI in verbatim mode DOES emit them on M2 — **um ×3, uh ×12** (counted in the raw JSON = what the
+  tab tints). "Remove 15 fillers" → **13 cut in one undo step, −13.8 s** (1283.148 → 1269.354, 22 clips); 2 "uh" sit
+  inside their neighbours' pads ("too tight to cut cleanly") and stay; one 0373 "Uh" takes its 4.5 s pause with it
+  (`¶ 7.0s`, the tight style's edges — on Hasan's listening list).
+- **Read-only while an Auto Cut review is open** (real Media → tile → Auto Cut): banner "A review is open — apply or reject
+  it to edit by text.", the bar's Delete and "Remove 14 fillers" disabled, the Delete key changes nothing on disk, an
+  opened pill shows no Restore, a word click still seeks frame-exact; "Reject all" → editable. **Save + reopen:** two
+  deletes, "Back to projects", reopen → 1,808 tokens, both deletions and 4 `'text-delete'` tags intact; both restored by
+  real clicks AFTER the reopen (no in-memory history) → 1283.148 s, 1,820 tokens.
+- **The four bugs fixed (tests first, red before each):** (1) **UTF-8 `fb32ab1`** — all 32 em-dash words (`39—` …) showed
+  as mojibake (`atob` → one char per byte); NEW `cache-text.ts` `decodeBase64Utf8` (`TextDecoder`), every `atob(` → text
+  path in `src/features/studio` goes through it (`cache-text.test.ts` 5, `useAssetTranscripts.test.ts` 2). (2) **Autosave
+  retry `aa58ee8`** — a Windows `rename` refused while another process held `project.json` (EPERM) left the edit unsaved
+  with nothing retrying, so memory and disk diverged (builder #2's "2× long delete" = two correct deletes on top of a
+  failed save): main `renameWithRetry` (EPERM/EBUSY/EACCES, 8 tries, ≤ 1.4 s), renderer `createAutosave` (a refused or
+  thrown save stays dirty and retries at 1/2/5/10 s, a flush waits for it, close retries; after 3 failures a persistent red
+  "Save failed — retrying"; `[data-save-state]` on the indicator). Live with a held lock: 6 s → saved at 10.4 s with no
+  further edit; 14 s → the error at 9.9 s, saved at 15.5 s; close during a lock → the edit landed (`rename-retry.test.ts`
+  5, `project-store.test.ts` +2, `autosave.test.ts` 8). (3) **Restore into view `aa58ee8`** — an opened deletion pill near
+  the bottom put its Restore 14 px below the visible body; it now scrolls into view on open (`DeletionPill.test.ts` 4).
+  (4) **Filler toast `e69d182`** — "Removed 15 fillers" when 13 were cut; `TextDeletePlan.removedTokens` counts the words
+  of the runs really cut (`text-delete.test.ts` +3). 29 new tests over the part.
+- **The 2026-09-17 open items on this material:** clip speed is 1 on all nine clips (the `trimClip` / `trimClipRippleAll`
+  / `applyCutProposal` speed debt does not apply); Hasan's AssemblyAI words hold **0 zero-duration words** (the captions'
+  durationless-word drop does not bite here — it stays open for whisper).
+- **The backfill question (for Hasan's ears) and its prepared fix:** `withSpokenSpans`
+  (`src/features/studio/services/transcript-doc.ts`) gives a word stamped < 50 ms the silence before it (≤ 1 s) — written
+  for whisper.cpp's 0–20 ms stamps — and it also fires on AssemblyAI: **76 of 1,820 starts move earlier, 25 by ≥ 0.5 s**;
+  in 33 of the 37 gaps ≥ 150 ms the RMS peaks ≥ 15 dB over the floor, so whether the word sits there is a listening
+  question (a click seeks up to 1 s early; deleting one such word cut 0.7–3.6 s of source). HASAN-STEP part A puts 8 of
+  them to his ears. **Prepared, NOT applied: `docs/studio/end-to-end/B5/backfill-fix.patch`** (code + test): backfill by
+  the transcript's engine — whisper (or none recorded) keeps it, AssemblyAI / ElevenLabs words stay as delivered. A
+  duration rule cannot separate them (whisper's "the" is 20 ms, AssemblyAI's "a" 16 ms: "≤ 20 ms" would still move 28 of
+  the 76, W5's 708 ms among them). On M2's real words the patch leaves **76 of 76 at their own start** (0 moved;
+  `…\vidtsx-e2e\B5\backfill\count.json`). Red first on HEAD (`2 failed | 16 passed`), `git apply --check` clean on HEAD
+  (it also applies to a CRLF checkout), the patched tree: `transcript-doc` + `text-delete` 35/35, `src/features/studio`
+  49 files / 436 tests, types 26 / 10. `docs/studio/end-to-end/B5/.gitattributes` keeps the patch LF (a CRLF copy does
+  not apply to this checkout's LF files).
+- **Hasan's station:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5-station-root` + `…\profiles\B5-station\profile`, the same
+  long project (`/ 21:23.09`), `settings.agent.providerId = "b5-no-model"` (no model call possible), start snapshot
+  `…\vidtsx-e2e\B5\station-start\project.json` (sha256 `2cfaf220…`); launcher `docs/studio/end-to-end/B5/hasan-station.ps1`
+  (this branch's dev build on the station profile only; `-Reset` backs his project up, then restores the snapshot).
+  Opened once through the launcher, read-only — hash unchanged. **`docs/studio/end-to-end/B5/HASAN-STEP.md` walked
+  literally** with real input on the scratch copy: part A 8/8 clocks exact, part B 11/11 (bar count = toast count, the
+  kept text around each join as written, 1283.148 → 1156.398 s), part C restores + undo/redo, part D "Remove 9 fillers" →
+  `Removed 8 fillers · −12.0 s (1 spot too tight…)`, back to the original with 15 Ctrl+Z.
+- **The flip, prepared NOT applied:** the only production gate is `src/shared/feature-flags.ts:73` (`'studio-text-edit':
+  false`, read at `EditorShell.tsx:110`; dev builds force plain flags on) → `true` + the comment `:68-72`; commit message
+  `feat(studio): Transcript tab on in production (studio-text-edit) after the B5 by-ear pass on M2` — in HASAN-STEP.md.
+- **B4 doc debt (decision 6):** B4's row above and TESTING §18.10 said "zoom in 4× (320 px/s)" — now "zoom in until the +
+  magnifier greys out (at least 320 px/s = 4 clicks from the opening zoom, 5–6 from Zoom to fit)", as B4/HASAN-STEP.md.
+- **Gates:** full `npx vitest run` (app stopped; C: 17.7 GB → no exclusion) **first run green: 462 files / 3895 tests
+  passed, 5 / 34 skipped, 46.8 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\vitest-full-builder8-run1.log`; also green
+  after each code commit — builders #4 and #5); `npm run check:types` web 26 / node 10 = baseline. Live CDP click-throughs
+  on isolated profiles throughout (above).
+- **THE EXIT WAITS FOR HASAN: his by-ear pass per `docs/studio/end-to-end/B5/HASAN-STEP.md`, then his flag flip.**
+  (~55–60 min) From `D:\repos\VidTSX-STUDIO`: `powershell -ExecutionPolicy Bypass -File
+  docs\studio\end-to-end\B5\hasan-station.ps1` → Studio → `video-14-raw` → Transcript tab; part A (8 short words: does the
+  highlight start early? does deleting it eat sound before the word?), part B (11 kept deletes — retakes, a stutter, a
+  filler by hand, a word inside a sentence, a phrase, across two clips — each played across its join), part C (restore +
+  undo), part D ("Remove 9 fillers"). "Clean" = no clipped word start or end, no click, no word lost or doubled, a
+  natural pause, Restore exact. Then the flip (the one-line diff in HASAN-STEP.md) — and, only if part A sounds wrong,
+  `git apply docs/studio/end-to-end/B5/backfill-fix.patch` first.
+- **Honest notes:** the flag is still `false` (production hides the tab) and the backfill patch is not applied, so the
+  station runs the backfill as it is; ElevenLabs transcripts are unverified either way (none in this material — the
+  patch leaves them as delivered; adding `'elevenlabs'` to its one set restores the backfill for them); the patch takes
+  `transcript-doc.ts` from 290 to 305 lines and reads `engine`, which the `StudioAssetTranscript.features` comment asks
+  consumers not to branch on — no `features` flag says "durationless words"; `EditorShell.tsx` stays far over ~300 lines
+  (pre-existing).
+
 ## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix rounds 1–2 in (the EXIT waits for Hasan)
 
 - **What:** part B4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `92d846f` → `c5a6f4c` →
@@ -89,8 +187,9 @@
   trim took" was WRONG for lead-ins — with ripple on, a lead-in trim slides the clip back so its edge returns to the
   join (`ripple-ops.ts:266-279`); only the waveform and the timeline total move. **HASAN-STEP.md §2 now:** Snap off
   FIRST (before the playhead is placed — with Snap on a small drag can snap to the playhead, which stands on the
-  nearest frame, and commit a few-ms trim); per join: ruler click → Zoom in 4× (320 px/s; a 5th click can put the join
-  at the viewport's right edge) → read the toolbar total `/ MM:SS.FF` (frames, 60/s) → drag from the clip's **lower
+  nearest frame, and commit a few-ms trim); per join: ruler click → zoom in until the + magnifier greys out (640 px/s,
+  the top; at least 320 px/s = 4 clicks from the opening 20 px/s, 5–6 from Zoom to fit — aligned with B4/HASAN-STEP.md
+  in B5; at the top the join can sit at the viewport's right edge: scroll it back) → read the toolbar total `/ MM:SS.FF` (frames, 60/s) → drag from the clip's **lower
   half** (found live: the 12 px "Add transition" square sits on every join at mid-height and the 9 px "Fade in/out"
   dots in the top corners — grabbing them does not trim) → **the total moves by about the trim for BOTH edges** (30–50
   ms = 2–3 frames; tail edge stays where dropped, lead-in edge comes back to the join — normal); unchanged = drag
@@ -111,7 +210,8 @@
   `minTail`, `margin` within ±30 ms / ±1 dB of the fitted tight"). What he must do — **`docs/studio/end-to-end/B4/HASAN-STEP.md`**
   (~25–30 min): from `D:\repos\VidTSX-STUDIO` run `powershell -ExecutionPolicy Bypass -File
   docs\studio\end-to-end\B4\hasan-station.ps1` → Studio → `video-14-raw` (V1 = 36 clips, 01:46.47, ripple buttons
-  lit) → **Snap off FIRST, then per join: playhead on it, zoom in 4×, drag an edge from the clip's lower half, check
+  lit) → **Snap off FIRST, then per join: playhead on it, zoom in until the + magnifier greys out (4 clicks from the
+  opening zoom reach 320 px/s, 5–6 from Zoom to fit), drag an edge from the clip's lower half, check
   the toolbar total moved by about the trim** (a lead-in edge comes back to the join with ripple on — normal) → trim
   each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no splits, deletes or
   Transcript edits → nothing selected → Inspector → PROJECT → **Learn from this video** (not the Assistant chat; leave

@@ -1,0 +1,153 @@
+B5 backfill fix — prepared 2026-10-22, NOT applied. Hasan's call after part A of
+docs/studio/end-to-end/B5/HASAN-STEP.md (W1-W8).
+
+What: `withSpokenSpans` (src/features/studio/services/transcript-doc.ts) gives a word
+stamped < 50 ms the silence before it (up to 1 s). It was written for whisper.cpp, which
+stamps some real words 0-20 ms long at the next word's start. AssemblyAI times every word
+in ms and its short words are measured ("a" 16 ms, "I" 32-48 ms). On M2 (nine clips, 1,820
+AssemblyAI words) HEAD moves 76 starts earlier, 25 of them by >= 0.5 s. A duration rule
+cannot tell the two apart (whisper's "the" is 20 ms, AssemblyAI's "a" 16 ms; a <= 20 ms
+rule still moves 28 of the 76, up to 708 ms), so the backfill now goes by the transcript's
+engine: whisper (or no engine recorded) keeps it; AssemblyAI and ElevenLabs words stay as
+delivered. On M2: 76 of 76 moved words keep their own start (0 moved).
+
+Apply (repo root, clean tree):
+  git apply docs/studio/end-to-end/B5/backfill-fix.patch
+  npx vitest run src/features/studio/services/transcript-doc.test.ts src/features/studio/services/text-delete.test.ts
+  npm run check:types
+  git add src/features/studio/services/transcript-doc.ts src/features/studio/services/transcript-doc.test.ts src/features/studio/hooks/useTextEdit.ts
+  git commit -m "fix(studio): Transcript tab keeps AssemblyAI and ElevenLabs word starts (backfill whisper only)"
+
+diff --git a/src/features/studio/hooks/useTextEdit.ts b/src/features/studio/hooks/useTextEdit.ts
+index cbb7fe0..d4a8fa1 100644
+--- a/src/features/studio/hooks/useTextEdit.ts
++++ b/src/features/studio/hooks/useTextEdit.ts
+@@ -4,7 +4,7 @@ import type { CaptionWordSource } from '@shared/studio';
+ import type { StudioMediaAsset, StudioTimeline } from '../types';
+ import {
+   buildTranscriptDoc,
+-  withSpokenSpans,
++  spokenWordSource,
+   type TranscriptDeletion,
+   type TranscriptToken,
+ } from '../services/transcript-doc';
+@@ -60,8 +60,8 @@ export function useTextEdit({
+ }: Options) {
+   // The document and the delete planner read the SAME normalised words.
+   const words = useMemo<CaptionWordSource>(
+-    () => (active ? new Map([...rawWords].map(([id, list]) => [id, withSpokenSpans(list)])) : rawWords),
+-    [active, rawWords],
++    () => (active ? spokenWordSource(rawWords, assets) : rawWords),
++    [active, rawWords, assets],
+   );
+   const doc = useMemo(
+     () => (active ? buildTranscriptDoc(playerTimeline, words) : EMPTY_DOC),
+diff --git a/src/features/studio/services/transcript-doc.test.ts b/src/features/studio/services/transcript-doc.test.ts
+index f381d81..6597e5d 100644
+--- a/src/features/studio/services/transcript-doc.test.ts
++++ b/src/features/studio/services/transcript-doc.test.ts
+@@ -1,7 +1,7 @@
+ import { describe, it, expect } from 'vitest';
+ import { deriveCaptionSegments } from '@shared/studio';
+ import type { StudioTimeline } from '@shared/types/studio';
+-import { buildTranscriptDoc, tokenIndexAt, withSpokenSpans } from './transcript-doc';
++import { buildTranscriptDoc, spokenWordSource, tokenIndexAt, withSpokenSpans } from './transcript-doc';
+ import { WORDS, makeTimeline, wordSource } from './text-edit-fixtures';
+ 
+ const texts = (timeline: StudioTimeline) => buildTranscriptDoc(timeline, wordSource()).tokens.map((t) => t.text);
+@@ -179,4 +179,41 @@ describe('withSpokenSpans', () => {
+       ['simple.', 7.98, 9.31],
+     ]);
+   });
++
++  // AssemblyAI, verbatim from M2 (B5, clips 0370 and 0371): every word is timed
++  // in ms and none is durationless — "I" 48 ms and "a" 16 ms are measurements.
++  // Backfilled, they started 1.0 s and 0.71 s early (76 of the 1,820 words moved).
++  const assemblyAi = [
++    { text: 'video,', start: 41.412, end: 41.894 },
++    { text: 'I', start: 42.956, end: 43.004 },
++    { text: 'will', start: 43.101, end: 43.261 },
++    { text: 'However,', start: 78.777, end: 79.373 },
++    { text: 'a', start: 80.081, end: 80.097 },
++    { text: 'desktop', start: 80.145, end: 80.547 },
++  ];
++
++  it('leaves the words of an engine that times every word as they are (AssemblyAI, ElevenLabs)', () => {
++    expect(withSpokenSpans(assemblyAi, 'assemblyai')).toEqual(assemblyAi);
++    expect(withSpokenSpans(assemblyAi, 'elevenlabs')).toEqual(assemblyAi);
++  });
++
++  it('still backfills whisper, and a transcript with no engine recorded', () => {
++    expect(withSpokenSpans(whisper, 'whisper')[1]).toEqual({ text: 'is', start: 7.02, end: 7.82 });
++    expect(withSpokenSpans(assemblyAi)[4]).toEqual({ text: 'a', start: 79.373, end: 80.097 });
++  });
++
++  it('picks the rule per asset, by the engine its transcript came from', () => {
++    const source = spokenWordSource(
++      new Map([
++        ['w', whisper],
++        ['aai', assemblyAi],
++      ]),
++      [
++        { id: 'w', transcript: { engine: 'whisper' } },
++        { id: 'aai', transcript: { engine: 'assemblyai' } },
++      ],
++    );
++    expect(source.get('w')?.[1]).toEqual({ text: 'is', start: 7.02, end: 7.82 });
++    expect(source.get('aai')).toEqual(assemblyAi);
++  });
+ });
+diff --git a/src/features/studio/services/transcript-doc.ts b/src/features/studio/services/transcript-doc.ts
+index cadf27e..7f17cc8 100644
+--- a/src/features/studio/services/transcript-doc.ts
++++ b/src/features/studio/services/transcript-doc.ts
+@@ -14,7 +14,7 @@
+ 
+ import { TAKE_GAP_SECONDS, isFillerWord, masterLane } from '@shared/studio';
+ import type { CaptionWordSource, SourceWord } from '@shared/studio';
+-import type { StudioClip, StudioTimeline } from '../types';
++import type { StudioAssetTranscript, StudioClip, StudioTimeline } from '../types';
+ import { clipEndTime, clipRate } from './timeline-ops';
+ 
+ export interface TranscriptToken {
+@@ -108,6 +108,10 @@ function lowerBound(words: readonly SourceWord[], t: number): number {
+ const MAX_BACKFILL_SECONDS = 1;
+ /** Nobody says a word in less than this — a shorter stamp is the engine giving up, not speech. */
+ const MIN_SPOKEN_SECONDS = 0.05;
++/** Only whisper leaves words durationless: AssemblyAI / ElevenLabs time every word in ms (M2: "a"
++ *  16 ms is measured, whisper's "the" 20 ms is not — no threshold tells them apart). No `features`
++ *  flag says this, so the rule reads `engine`. */
++const BACKFILLED_ENGINES: ReadonlySet<string> = new Set(['whisper']);
+ 
+ /**
+  * whisper.cpp stamps some real words with no duration to speak of (0–20 ms), at
+@@ -116,9 +120,11 @@ const MIN_SPOKEN_SECONDS = 0.05;
+  * the gap before its stamp. Give it that gap as its span, so
+  * it can be read, lit, selected and cut like any other word. Run the asset's
+  * words through this ONCE and hand the result to both the document and the
+- * delete planner — they must agree on where every word is.
++ * delete planner — they must agree on where every word is. `engine` is the
++ * transcript's; other engines' words come back as they are (none = whisper's rule).
+  */
+-export function withSpokenSpans(words: readonly SourceWord[]): SourceWord[] {
++export function withSpokenSpans(words: readonly SourceWord[], engine?: StudioAssetTranscript['engine']): SourceWord[] {
++  if (engine !== undefined && !BACKFILLED_ENGINES.has(engine)) return [...words];
+   return words.map((word, i) => {
+     if (word.end - word.start >= MIN_SPOKEN_SECONDS) return word;
+     const previousEnd = i > 0 ? words[i - 1].end : 0;
+@@ -127,6 +133,15 @@ export function withSpokenSpans(words: readonly SourceWord[]): SourceWord[] {
+   });
+ }
+ 
++/** Every asset's words through `withSpokenSpans`, by the engine of its own transcript. */
++export function spokenWordSource(
++  words: CaptionWordSource,
++  assets: readonly { id: string; transcript?: Pick<StudioAssetTranscript, 'engine'> }[],
++): CaptionWordSource {
++  const engines = new Map(assets.map((asset) => [asset.id, asset.transcript?.engine]));
++  return new Map([...words].map(([id, list]) => [id, withSpokenSpans(list, engines.get(id))]));
++}
++
+ /** Take number per word: a new take starts after a gap > TAKE_GAP_SECONDS. */
+ function takeIndices(words: readonly SourceWord[]): number[] {
+   const takes: number[] = new Array(words.length);

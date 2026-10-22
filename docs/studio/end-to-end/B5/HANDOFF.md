@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #7 handed off 2026-10-22 — the machine half of the pre-pass is COMPLETE (builders #1–#5); Hasan's B5 station is BUILT (builder #6) and was opened READ-ONLY through `hasan-station.ps1 -CdpPort 9325` (hash unchanged); `B5/HASAN-STEP.md` WALKED LITERALLY with real input on the scratch B5-root (every clock / count / toast as written, corrected, banner replaced); next: the backfill alternative (patch + test, NOT applied), then B4 doc debt, gates, Status row, TESTING §18.11)
+status: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -212,7 +212,7 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
 - **Station opened read-only (builder #7, the orchestrator override):** through the launcher itself; 0 edits, the
   Transcript tab was already the open tab (left there by builder #6) so no tab click either; closed by port/profile;
   station project.json sha256 == the start snapshot (`2CFAF220…`).
-- **HASAN-STEP.md walked LITERALLY (builder #7) on the scratch B5-root** (CDP 9321, the same long project at the original
+- **HASAN-STEP.md walked LITERALLY (builder #7, docs commit `3e7a285`) on the scratch B5-root** (CDP 9321, the same long project at the original
   timeline) with real mouse/keyboard (driver `.vidtsx-temp/end-to-end/B5/station-check.mjs`, gitignored:
   `open | setup | A | B | C | undo1 | D | back`; take found by real WHEEL scrolling to its M:SS head, word by real click,
   one word by real double-click, ≤ 6 words by real drag, longer by click + real SHIFT+click, real Delete / Space /
@@ -223,6 +223,26 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   (`station-open.json`, `setup.json`, `A.json`, `B.json`, `C.json` + `C-run1-extra-D6.json`, `undo1.json`, `D.json`,
   `back.json`), stills `…\B5\stills\b5-station-open-readonly.png`, `b5-walk-setup.png`, `b5-walk-partB.png`, `b5-walk-partD.png`.
   The only remaining "to prepare" in HASAN-STEP.md is the backfill-fix line under "After".
+- **Backfill alternative PREPARED, NOT applied (builder #8, RULED Problem 2 (c)):** `docs/studio/end-to-end/B5/backfill-fix.patch`
+  (header = why + how to apply + the commit message; then `git diff` of 3 files): `transcript-doc.ts` — `BACKFILLED_ENGINES =
+  {'whisper'}`, `withSpokenSpans(words, engine?)` returns the words as delivered for any other engine (no engine = the old
+  rule), NEW `spokenWordSource(words, assets)` (each asset's words by its own `transcript.engine`); `useTextEdit.ts:61-65`
+  calls `spokenWordSource(rawWords, assets)` (dep `assets` added); `transcript-doc.test.ts` +3 tests (real M2 words: 0370
+  "video, I will" with "I" 48 ms, 0371 "However, a desktop" with "a" 16 ms — kept for `'assemblyai'` / `'elevenlabs'`; whisper
+  and no-engine still backfilled; per-asset by engine). **Why by engine, not by duration:** whisper stamps on a 10 ms grid
+  (its durationless words are 0/10/20 ms — the existing "the 18.05–18.07" test), AssemblyAI in ms with real 14–17 ms words
+  (35 of its 129 words < 50 ms are 16 ms); "≤ 20 ms" would leave 48 of the 76 alone and still move 28 (4 by ≥ 0.5 s, W5's 708
+  ms among them). No `features` flag distinguishes the two (both `wordTimestamps: true`), hence `engine` (the
+  `StudioAssetTranscript.features` comment prefers flags — noted in Status). **On M2: 76 of 76 moved words keep their own
+  start.** Made in a scratch `git worktree` (`.vidtsx-temp/end-to-end/B5/backfill-wt`, removed after; the committed tree never
+  carried it). NEW `docs/studio/end-to-end/B5/.gitattributes` (`*.patch text eol=lf`): a CRLF copy of the patch does NOT apply
+  to this checkout's LF files (tested). HASAN-STEP.md "After" filled (the apply + check + commit commands), banner updated.
+- **B4 doc debt (decision 6, builder #8):** Status.md B4 row (the fix-round-2 line and the "THE EXIT WAITS" line) and TESTING
+  §18.10 (the exit item and the fix-round-2 item): "zoom in 4× (320 px/s)" → "zoom in until the + magnifier greys out
+  (640 px/s; at least 320 px/s = 4 clicks from the opening 20 px/s, 5–6 from Zoom to fit)" — as B4/HASAN-STEP.md §2 step 2
+  (`ZOOM_LEVELS` `timeline-view.ts:4` = 1…20 (default index 4)…320, 640).
+- **Status.md row** (top, "END-TO-END B5 … DONE up to Hasan's step (the EXIT waits for Hasan)") and **TESTING §18.11** (after
+  §18.10; his pass + the flip + the conditional patch as unchecked items) written (builder #8).
 
 ## Verified (exact commands + outputs)
 
@@ -466,14 +486,41 @@ start (`2CFAF220…`), B5-root sha256 == `…\B5\checks\original-project.json` (
   1 cmd, 6 electron) → `left: 0`. C: 17.29 / D: 32.24 GB.
 - No `src/` change this session → vitest / type gate not re-run (last: builder #5, full run green, 26/10).
 
+**Builder #8 (2026-10-22):** C: 17.29 / D: 32.08 GB before; no electron, nothing on 5173/9321/9325. No app launched.
+- Real-data rule check (read-only, `…\B5\backfill.json` + B5-root's cache): the 76 moved words by AssemblyAI duration
+  `{14:1, 16:24, 17:3, 32:8, 33:5, 40:1, 48:19, 49:14, 50:1}` ms → "≤ 20 ms" keeps 48, moves 28 (4 ≥ 500 ms, max 708);
+  "≤ 10 ms" would keep 76 but drop whisper's own 20 ms "the" (its existing test). → by engine.
+- `git worktree add --detach .vidtsx-temp/end-to-end/B5/backfill-wt HEAD` → test edits only →
+  `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/features/studio/services/transcript-doc.test.ts` (cwd =
+  the worktree) → **`Tests 2 failed | 16 passed (18)`** (`expected [ … ] to deeply equal [ … ]` — "a" 80.081 → 79.373;
+  `spokenWordSource is not a function`) — `…\vidtsx-e2e\B5\backfill\red-before-fix.log`. Code → the same + `text-delete.test.ts`
+  → `Tests 35 passed (35)` (`green-after-fix.log`).
+- `$env:B5_BACKFILL='1'; npx vitest run --config .vidtsx-temp/end-to-end/B5/vitest.b5.config.ts backfill-count` (HEAD's
+  `withSpokenSpans` vs the worktree's `spokenWordSource` on B5-root's nine transcript files, read-only) →
+  `{"engines":["assemblyai"],"assets":9,"words":1820,"headMoved":76,"headMovedAtLeast500ms":25,"patchMoved":0,
+  "patchUntouchedOfHeadMoved":76,"durationRule20msStillMoved":28}` (`…\B5\backfill\count.json`, 76 rows).
+- Patch written from the worktree's `git diff` (+ header) → in the main checkout `git apply --check -v
+  docs/studio/end-to-end/B5/backfill-fix.patch` → `Checking patch src/features/studio/hooks/useTextEdit.ts... /
+  transcript-doc.test.ts... / transcript-doc.ts...` exit 0. Worktree `git checkout -- .` → `git apply <the patch file>`
+  (CRLF working files) → 3 files modified → `vitest run transcript-doc.test.ts text-delete.test.ts` → `Test Files 2 passed
+  (2) · Tests 35 passed (35)`; `vitest run src/features/studio` → `Test Files 49 passed (49) · Tests 436 passed (436)`;
+  `tsc -p tsconfig.web.check.json --noEmit` → 26 errors, `tsconfig.node.check.json` → 10 (= baseline; none in the touched
+  files) — logs `…\B5\backfill\patched-*.log`. A CRLF copy of the patch → `git apply --check` FAILS on this checkout (`patch
+  does not apply` ×3) → `B5/.gitattributes` `*.patch text eol=lf` (`git check-attr` → `text: set`, `eol: lf`).
+- Worktree reset and `git worktree remove --force` (only its vitest cache was untracked, no links) → `git worktree list` =
+  the main checkout only; `git status` = docs only, `src/` untouched.
+- FULL `npx vitest run` (app stopped, C: 17.7 GB → no exclusion; log `…\B5\vitest-full-builder8-run1.log`) → **run 1 green:
+  `Test Files 462 passed | 5 skipped (467) · Tests 3895 passed | 34 skipped (3929)`, 46.8 s**.
+- `npm run check:types` (log `…\B5\check-types-builder8.log`) → `web: 26 errors (baseline 26) ok · node: 10 errors (baseline
+  10) ok`.
+
 ## Next step (ONE concrete instruction)
 
-Prepare the backfill alternative (RULED Problem 2 (c)), NOT applied: write a failing-then-passing unit test for
-`withSpokenSpans` (`src/features/studio/services/transcript-doc.ts:107-128`) that says a 32 ms AssemblyAI-style word
-keeps its own start while a ≤ 20 ms whisper-style word is still backfilled, make the one-place change in a scratch
-copy, save the change as a patch `docs/studio/end-to-end/B5/backfill-fix.patch` (test + code, `git apply --check`
-clean on HEAD, then the working tree restored so nothing is applied), and replace HASAN-STEP.md's "[TO PREPARE …]"
-line with how to apply it; then B4 doc debt (decision 6), the gates, Status row, TESTING §18.11.
+None for a builder — **B5 is WAITING-HASAN.** Hasan runs his by-ear pass per `docs/studio/end-to-end/B5/HASAN-STEP.md` on
+the station (`hasan-station.ps1`), reports part A's yes/no per word and any problem rows, then decides the flip. After his
+report: if part A says the highlights come early / deletes eat sound, apply `B5/backfill-fix.patch` (its tests + types,
+commit as written in its header) and have him re-listen to part A; problem rows in parts B–D → a builder reproduces them on
+B5-root with `station-check.mjs`; a clean pass → he (or a builder on his word) applies the flip diff in HASAN-STEP.md.
 
 ## Open problems
 
@@ -616,6 +663,9 @@ Status row, TESTING §18.11.
   C, D, back to the original with 15 Ctrl+Z) are DONE — do not redo them; rerun `station-check.mjs` only if an
   instruction in HASAN-STEP.md changes (B5-root is at the original timeline; only `updatedAt` differs from
   `original-project.json`). Do not launch the station again except read-only.
+- Builder #8: the backfill patch (made, red-first, `--check` clean, patched tree green, 76/76 counted), the B4 doc debt, the
+  gates, the Status row and TESTING §18.11 are DONE — do not redo. Never apply `backfill-fix.patch` or the flip without
+  Hasan's word. To recount, recreate the worktree as `backfill-count.b5.test.ts`'s header says.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -638,3 +688,6 @@ Status row, TESTING §18.11.
 - 2026-10-22 · builder #7 · ~46 calls · station opened read-only through its launcher (hash unchanged); HASAN-STEP.md
   walked literally with real input on B5-root (`station-check.mjs`): A 8/8, B 11/11, C, D all as written; doc corrected
   (bar/toast columns, D4 two pills, "Remove 9 fillers" → 8 cut, banner replaced); B5-root back to the original.
+- 2026-10-22 · builder #8 · ~45 calls · backfill fix prepared NOT applied (`B5/backfill-fix.patch`: by engine, red first, `--check`
+  clean, patched tree green, 76/76 AssemblyAI starts kept; `.gitattributes` for LF), HASAN-STEP "After" filled, B4 doc debt
+  aligned, full vitest green run 1 (3895) + types 26/10, Status.md row + TESTING §18.11; status DONE up to Hasan's step.

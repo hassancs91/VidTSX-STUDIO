@@ -4,7 +4,8 @@
 > mouse/keyboard input on a copy of this station (same project, same 1,820 words): all 8 part-A clocks,
 > all 11 part-B clocks, selection counts and toasts, part C and part D came out as written. The station
 > itself was opened through `hasan-station.ps1` read-only and is untouched (its `project.json` = the start
-> snapshot). Still open before this goes to Hasan: the backfill-fix patch under "After" (not prepared yet).
+> snapshot). The backfill fix under "After" is prepared as a patch (checked to apply on this branch, its
+> tests pass) and NOT applied — the station runs the code as it is.
 
 **What it proves (B5's exit):** the Transcript tab (text-based editing, flag `studio-text-edit`, on in
 dev builds, hidden in production) holds up on a long project, on AssemblyAI transcripts, by ear. If
@@ -158,9 +159,23 @@ Then close the window (everything autosaves).
 
 - Tell Claude: part A's yes/no per word, and any problem rows from parts B–D (or "all clean").
 - **If part A sounds wrong** (highlights come early / a delete eats sound before the word), the fix is
-  prepared, not applied: limit the backfill to whisper-style near-zero stamps (≤ 20 ms) — one place in
-  `withSpokenSpans` (`src/features/studio/services/transcript-doc.ts`) with its test. **[TO PREPARE —
-  next builder: the patch file + its test, verified to apply.]** Say "apply the backfill fix".
+  prepared, not applied: `docs/studio/end-to-end/B5/backfill-fix.patch` limits the backfill to whisper
+  transcripts — one place in `withSpokenSpans` (`src/features/studio/services/transcript-doc.ts`, by the
+  transcript's engine; AssemblyAI and ElevenLabs words keep the times they came with) + the one call in
+  `useTextEdit.ts` + 3 tests. On this project it leaves **all 76** moved words at AssemblyAI's own start
+  (a "≤ 20 ms" rule would still move 28 of them, W5 among them — AssemblyAI's "a" is 16 ms). Say "apply
+  the backfill fix", or from the repo folder with a clean tree:
+
+  ```powershell
+  git apply docs/studio/end-to-end/B5/backfill-fix.patch
+  npx vitest run src/features/studio/services/transcript-doc.test.ts src/features/studio/services/text-delete.test.ts
+  npm run check:types
+  git add src/features/studio/services/transcript-doc.ts src/features/studio/services/transcript-doc.test.ts src/features/studio/hooks/useTextEdit.ts
+  git commit -m "fix(studio): Transcript tab keeps AssemblyAI and ElevenLabs word starts (backfill whisper only)"
+  ```
+
+  (Restart the station afterwards: part A's clocks then read AssemblyAI's stamps — the "AssemblyAI's
+  stamp" column.) If part A sounds RIGHT, the patch is not needed — leave it.
 - To redo from scratch (app closed): `hasan-station.ps1 -Reset` — it first saves your `project.json`
   under `C:\Users\hasan\AppData\Local\vidtsx-e2e\B5\station-runs\`.
 
