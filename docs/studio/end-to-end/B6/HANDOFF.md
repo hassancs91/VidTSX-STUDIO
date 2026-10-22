@@ -1,5 +1,5 @@
 # B6 — The content measurement: Auto Cut + editorial on all nine clips vs `cuts.json`
-status: NEW
+status: IN PROGRESS — step 1 done (material, provider answered: keyless runs, measure.py); next = the real run
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety, disk rules, the RESERVED stations,
 the vitest gate rules, every "Learned" line incl. the 200 ms project.json poll rule, the
@@ -83,32 +83,112 @@ the run).
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+Step 1 (builder #1, 2026-10-22, no `src/` change; kit gitignored under `.vidtsx-temp/end-to-end/B6/`):
+
+1. **Material (decision 2).** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B6-root\projects\video-14-raw`
+   = a `cp -r` of `b-root\projects\video-14-raw` (580 MB; `project.json` sha256 `ebe94fd7…3dda`, equal
+   to b-root's, still equal after step 1 — nothing opened yet). Profile
+   `…\vidtsx-e2e\profiles\B6\profile` = a copy of `profiles\source\profile` (377 MB, 2,328 = 2,328
+   files). Outputs folder `…\vidtsx-e2e\B6\` (`app.log`, `measure-synthetic\`). Disk before the
+   copies: C: 15.91 GB / D: 31.49 GB; after the launch C: 15.52 / D: 31.59. The copy still carries
+   b-root's `agent-chat.json` and timeline — reset both in step 2 (it is scratch).
+2. **Kit:** `launch.sh` (CDP 9331, profile above, log `…\B6\app.log`; unsets `ELECTRON_RUN_AS_NODE`
+   **and every `CLAUDE*` / `ANTHROPIC*` env var** — this agent's shell exports `CLAUDECODE`,
+   `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_CHILD_SESSION`, `CLAUDE_CODE_MESSAGING_SOCKET/TOKEN`, … which
+   the app's `claude.exe` child would otherwise inherit; no `ANTHROPIC_API_KEY` was set, names checked
+   only), `cdp.mjs` (B5's, port 9331), `probe.mjs ready|providers|turn` (readiness + `studioRootSet`
+   to B6-root; provider list through the app's IPC, safe fields only; one keyless turn).
+3. **How the assistant's provider is chosen (code):**
+   - `src/main/services/studio/studio-agent.ts:76-84` — a turn uses `req.providerId` (the project's,
+     sent by `src/features/studio/hooks/useStudioAgent.ts:226,249`) when registered, else the app's
+     active provider (warn "Project provider not registered — using app default").
+   - `src/main/services/llm-init.ts:82-90` + `:117-128` — with NO saved provider configs,
+     `buildDefaultConfigs` registers the keyless `claude-subscription` and `local`, both enabled. With
+     saved configs (`:44-80`) `claude-subscription` is registered only if saved (the presets loop
+     registers only `local` and shared-key presets) — not our case.
+   - `src/engine/presets.ts:4-10` — `claude-subscription` = type `agent-sdk`, authMode
+     `subscription`, default model `claude-sonnet-5-5`. `src/engine/providers/claude-provider.ts:68-89`
+     — no baseURL / no apiKey → empty env → no `env` option (`:164-167`), so the bundled `claude.exe`
+     inherits main's `process.env` (hence the launcher's strip); `settingSources: []` (`:158`).
+   - On the B6 profile: `llmProvidersGet` → saved providers `[]`, `activeProvider:
+     "claude-subscription"` — **the keyless provider IS the app default on this profile as it is.**
+     Step 2 must still check the project's `settings.agent.providerId` (absent, or
+     `claude-subscription`; b-root never set a `b4-no-model`-style id as far as step 1 saw — verify).
+4. **One probe turn (allowed):** `window.api.llmGenerate({ prompt: 'Reply with the single word OK.',
+   providerId: 'claude-subscription' })` → `success: true`, text `OK`, model `claude-sonnet-5-5`,
+   1 turn, wall 8,495 ms (API 5,487 ms), tokens in 901 / out 13; the SDK's notional `costUsd` 0.2313
+   (claude-haiku-4-5 899/9 $0.0009 — the SDK's own side call; claude-sonnet-5-5 2/4 $0.2304, i.e. the
+   system-prompt cache write). Keyless: no key anywhere in the env, `settingSources: []`, no
+   credential file read or copied by us. **Not BLOCKED.**
+5. **`measure.py`** (`python -I -B`, imports `cutlib` read-only for `active_keeps` only, refuses an
+   out-dir inside the editor repo): input `{"items":[{"clip":"0370","kind":"autocut"|"editorial",
+   "s":…, "e":…}]}` in raw-clip source seconds; per clip + total H, P, P∩H, overlap, precision (all /
+   autocut / editorial); misses H \ P ≥ 0.3 s labelled `cat` of the overlapped `cuts[]` entry, else
+   `pause` (gap `t: silence`), else `unlisted` with `where` = `head` / `gap:clip_end` / `gap:cut` /
+   `in-keep`, plus the words inside; false cuts P \ H ≥ 0.3 s labelled `fluff:<status>` /
+   `content` / `pause-in-keep` with their words, and `false_by_label_all` (every P \ H second, any
+   length — Auto Cut compresses pauses INSIDE his keeps, which H does not count, so read precision
+   with and without `pause-in-keep`); `judgment.flags` (each flag → the `cuts[]`/`keeps[]` entry it
+   quotes within [at−5, at+15] s, its proposed fraction) and `judgment.fluff` (proposed fraction per
+   suggestion). Words from Hasan's `work/transcripts/<clip>.json` (read-only). Outputs →
+   `C:\Users\hasan\AppData\Local\vidtsx-e2e\B6\measure\measure.json` by default.
+   **H on video-14 = 813.315 s** of 1,283.0 s raw (his keeps = ~470 s; review.md's tight = 484 s).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- `python -I -B .vidtsx-temp/end-to-end/B6/measure.py --selftest` → `selftest OK: P=H, P=empty,
+  P=keeps, 0370 hand case; H total 813.315 s over 9 clips; 0370 miss {… 's': 3.0, 'e': 7.732, 'cat':
+  'retake' …}; false {'clip': '0370', 's': 8.0, 'e': 9.0, 'label': 'content', 'text': 'Last week I
+  built this'}` (asserts: P=H → overlap 1.0 / precision 1.0 / no misses / no false; P=∅ → overlap
+  0, misses = all H spans ≥ 0.3 s; P=keeps → overlap 0, precision 0; the hand case's exact numbers).
+- `python -I -B measure.py synthetic-proposals.json C:/…/B6/measure-synthetic` (0370 autocut 0–3,
+  editorial 8–9; 0373 editorial 33.0–37.3 = fluff #1; 0366 autocut whole clip) → `overlap 0.0287
+  precision 0.8171 H 813.32 s P 28.59 s P∩H 23.36 s`; autocut precision 1.0, editorial 0.0132;
+  per clip 0366 1.0/1.0, 0370 0.0587/0.75; false cuts = `content` 1.0 s + `fluff:suggested` 4.23 s;
+  fluff #1 proposed_fraction 1.0. Flags map to: 1 → 0375 143.41 keep ("and he's sharing…"), 2 →
+  0373 112.306–121.903 cut ("So this boilerplate…"), 3 → 0373 365.551–370.432 cut ("Just the first
+  scan…"), 4 → 0375 32.99 keep, 5 → 0376 78.186 keep, 6 → 0373 91.276 keep — 2/3/6 checked by text;
+  4 and 5 are nearest-entry guesses (eyeball them when writing STATUS).
+- `ls -la tools/__pycache__` in the editor repo: newest file 2026-10-16 — nothing written by B6.
+- `node probe.mjs ready` → ready after 24.7 s, root `C:/Users/hasan/AppData/Local/vidtsx-e2e/B6-root`;
+  `node probe.mjs providers` → `{"active":"claude-subscription","providers":[]}`;
+  `node probe.mjs turn` → as Done 4.
+- App stopped: processes selected by `--remote-debugging-port=9331` / `profiles/B6/profile` only,
+  `taskkill /T /F` on the launcher's node → `left: 0`.
 
 ## Next step (ONE concrete instruction)
 
-Set up the B6 scratch copy + profile (decision 2), find out from the provider CODE how the
-assistant's provider is chosen for a project and whether the keyless Claude provider can run a turn
-on the isolated profile as it is (one tiny probe turn is allowed; no credential files read or
-copied — if it cannot, return BLOCKED), and
-write `.vidtsx-temp/end-to-end/B6/measure.py` (or `.mjs`) that computes H per clip from `cuts.json`
-with cutlib's `active_keeps` and can take a proposals JSON — test it on a synthetic proposal set —
-then hand off before the real run.
+Relaunch (`bash .vidtsx-temp/end-to-end/B6/launch.sh` from a background Bash call, then
+`node probe.mjs ready`), and on B6-root's `video-14-raw` — app CLOSED on the project while editing
+disk, or through the app — reset `agent-chat.json`, confirm `settings.agent.providerId` is absent or
+`claude-subscription` and the resolved cut style is tight, lay all nine clips on V1 in raw order
+(B5's long project: 1,283.148 s, see B5 HANDOFF / `B5/drive.mjs`), then write `capture.mjs` that
+snapshots every proposal on the project (proposal items' clip + `sourceStart/sourceEnd`, kind
+Auto Cut vs editorial) into `…\vidtsx-e2e\B6\run\proposals.json` in measure.py's format, and run the
+real pass in the Assistant tab with real input — prompt exactly `Cut this video.` (record it, every
+turn, model, wall time, usage from `debugLog`/`usage`); capture BEFORE any apply; then
+`python -I -B measure.py …\B6\run\proposals.json`.
 
 ## Open problems
 
-(none yet)
+- (note, not blocking) The SDK reports a notional `costUsd` even on the subscription ($0.23 for the
+  1-turn probe, mostly a system-prompt cache write); on a subscription it is not billed per token
+  but counts against Hasan's plan limits. Record `usage` for every turn of the real run (decision 1
+  caps it at two full editorial passes).
+- (definition) H counts only time OUTSIDE his keeps; his tight plan also compresses pauses ≥ 0.4 s
+  INSIDE keeps. Those Auto Cut spans show up as `pause-in-keep` false cuts — report precision both
+  with and without them in STATUS.
 
 ## Do-not-redo
 
 - B1–B3 DONE; B4/B5 WAITING-HASAN — never touch their stations (`B1-verify-root` +
   `profiles\B1-verify`; `B5-station-root` + `profiles\B5-station`). Track A DONE. Do not touch
   `main`. The editor repo is READ-ONLY.
+- Step 1 done: the B6 copies exist (do not re-copy); the provider question is answered (keyless
+  `claude-subscription` is the B6 profile's default and ran a turn — do not probe again);
+  `measure.py` + selftest exist.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-22 · builder #1 · ~40 · step 1: B6 copies + profile, launcher (env strip), provider choice
+  from code, one keyless probe turn (OK, 8.5 s), `measure.py` + selftest + synthetic run.
