@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — steps 1–5 DONE; step 5 (the M2 stand-in) DONE: (a)–(d) live on M2 (21 joins → the card proposes head 0.15 / minTail 0.08 / margin 12 exactly; accept moved the preset to `{base:'tight', maxTail:0.5}`; one card layout defect fixed) and (e) the two negatives on the M2 data through the real handler (own-style edges → 0 cut changes at 21 joins; 9 joins → 0 + the "at least 10" line); Hasan's station (step 6) next, then the gates/docs (step 7)
+status: IN PROGRESS — steps 1–6 DONE; step 5 (the M2 stand-in) DONE: (a)–(d) live on M2 (21 joins → the card proposes head 0.15 / minTail 0.08 / margin 12 exactly; accept moved the preset to `{base:'tight', maxTail:0.5}`; one card layout defect fixed) and (e) the two negatives on the M2 data through the real handler (own-style edges → 0 cut changes at 21 joins; 9 joins → 0 + the "at least 10" line); step 6 DONE: Hasan's station ready + click-checked (36 clips / 33 joins of his hand plan with the old tight; launcher + HASAN-STEP.md; in-memory dry run → 0.15 / 0.08 / 12); step 7 (gates, STATUS, TESTING §18.10, B3 doc debt) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -335,7 +335,81 @@ REAL v3 waveforms and transcripts read from `B2-root\projects\video-14-raw\cache
   changes**, the card line "Learned from 9 joins — at least 10 touched joins are needed before
   the cut knobs change."
 
+**Step 6 — Hasan's station (builder #7, 2026-10-22; docs commit, see LOG.md; no `src/` change).**
+
+- Kit (gitignored, `.vidtsx-temp/end-to-end/B4/`): `station.b4.test.ts` (`B4_STATION=1`, re-runnable =
+  the RESET): (1) backup once → `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\backup\B1-verify-root-project.before-b4.json`
+  (17,913 bytes, the station as B1's verifier left it: 1 clip on V1, 2 proposals); scratch preset
+  `b4-start-old-tight` "B4 start — old tight" in `profiles\B1-verify\profile\assets\presets\` = the
+  profile's youtube-long-form preset.json with flat knobs `pacing tight, shotsPerMinute 0,
+  sfxPerMinute 0, musicBed none, captions none, transitions [], intro 0, outro 0` and `style.cut =
+  {base:'tight', head:0.11, minTail:0.14, maxTail:0.4, margin:5}` (copy:
+  `.vidtsx-temp/end-to-end/B4/preset.before.B1-verify-root.json`); project `settings.presetId` = it,
+  no `cutStyle`, `agent.providerId = 'b4-no-model'`, `proposals: []`; **V1 = the editor's `cuts.json`
+  keeps (read-only) of 0369/0370/0371 up to the Act-1 cut-off (`act1-joins.json`), each planned with
+  `planClip` + `cuts` under the START style (`resolveCutStyle` over the preset = tight + the four old
+  knobs, asserted), whole segments starting before the cut-off, laid contiguous and untagged
+  (`clip_b4st<clip>_<nn>`); A1 empty → 36 clips (0369 ×6, 0370 ×10, 0371 ×20), 0 merges, 33 joins
+  (same-asset neighbours), 1:46.787.** `station.json` = the 33 joins (time, words, start + fitted-tight
+  edges). (2) in-memory dry run (nothing written to the station): start state through the REAL
+  `propose_preset_update` → no flat change; every join trimmed to the fitted tight's edges through the
+  REAL `timelineReducer` `'trim'` (ripple all; 66 ops, 60 moved) → the card (`station-dryrun.json`).
+  `station-check.mjs` (`open` · `readout` · `trim`, `CDP_PORT=9311`) = the click-check driver.
+- `docs/studio/end-to-end/B4/hasan-station.ps1` (new): checks the profile/project/node_modules and that
+  the checkout has `src\shared\studio\cut-learn.ts`, refuses if the station's electron is already
+  running (matched by the profile path), unsets `ELECTRON_RUN_AS_NODE`, runs `npx.cmd electron-vite
+  dev -- --user-data-dir=<B1-verify profile>` (+ `--remote-debugging-port` only with `-CdpPort`);
+  `-Reset` saves `project.json` + `preset.json` to `…\vidtsx-e2e\B4\station-runs\<stamp>` then runs
+  the station script.
+- `docs/studio/end-to-end/B4/HASAN-STEP.md` (new): decision 6 + the ruled points — open
+  video-14-raw, Act 1 = the whole 36-clip timeline (preview-tight 0:00–1:55), ripple buttons lit,
+  Snap off if edges jump, "trim each sentence join the way you want it (about 21)" by dragging edges
+  only, the 33 joins listed, Inspector → PROJECT → "Learn from this video" (not the Assistant chat;
+  don't touch the Provider dropdown), pass = head 0.12–0.18 / minTail 0.05–0.11 / margin 11–13,
+  maxTail "at least", softGap not learned, non-cut rows to ignore, ~20–25 min, `-Reset`.
+- Ripple: `useRippleMode.ts` keeps the mode in renderer `localStorage['studio.ripple.mode']`
+  (default `'all'` when absent); trims ripple only in `'all'` (`useClipDrag.ts:279`). On the station
+  it was absent (= `'all'`); the click-check set it to `'all'` explicitly (not found in the leveldb
+  after the kill — likely unflushed; harmless, the default is `'all'`).
+
 ## Verified (exact commands + outputs)
+
+Step 6 (C: 2.27 GB / D: 5.29 GB free before launch; no electron/vite/9311/5173 listener before):
+
+- `$env:B4_STATION='1'; npx vitest run --config .vidtsx-temp/end-to-end/B4/vitest.b4.config.ts station`
+  → `Test Files 1 passed (1) · Tests 2 passed (2)` (2.70 s). `station.json`: `clips 36, perAsset
+  {0369:6, 0370:10, 0371:20}, merged 0, joins 33, act1Seconds 106.787, tracks v1:36,a1:0, proposals 0`,
+  settings `{"width":3840,"height":2160,"fps":60,"agent":{"providerId":"b4-no-model"},"presetId":"b4-start-old-tight"}`.
+  Dry run (`station-dryrun.json`): `ops 66, moved 60`; tool text `… 1:44 long, 20.2 cuts/min … Cut
+  knobs: learned from 33 trimmed joins (30 lead-ins, 30 tails), 4 cut knob changes.`; medians
+  `leadIn 0.15 (style 0.11) · tail 0.21 (0.4) · tailDb 11.2 (6)`; fitted `head 0.15, minTail 0.08,
+  maxTail 0.5, margin 12`; knobChanges exactly `cut.head 0.11→0.15 · cut.minTail 0.14→0.08 ·
+  cut.maxTail 0.4→0.5 · cut.margin 5→12` (no flat change, also none at the start state).
+- Launch through the launcher: `powershell -NoProfile -ExecutionPolicy Bypass -File
+  docs\studio\end-to-end\B4\hasan-station.ps1 -CdpPort 9311` (log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\station-app.log`: Vite on 5173, `DevTools listening on
+  ws://127.0.0.1:9311`, main init 269 ms).
+- `CDP_PORT=9311 node station-check.mjs open` → `studio root before
+  {"root":"C:/Users/hasan/AppData/Local/vidtsx-e2e/B1-verify-root"}` (already set), `ripple mode
+  before null` → set `all` + reload → `all`; Auto ripple + "Ripple all tracks — …" active; live `tl`
+  V1 36 = disk 36; Inspector (nothing selected) → `PROJECT` section "Preset B4 start — old tight" +
+  enabled "Learn from this video" (heads `Project / AI Assistant`). Stills
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\stills\b4-station-open.png` (36 clips, 01:46.47, both
+  ripple buttons lit), `b4-station-inspector.png`.
+- `node station-check.mjs readout` → `tight + 4 overrides · preset “B4 start — old tight”`, title
+  `internalGap 0.4 · head 0.11 · minTail 0.14 · maxTail 0.4 · margin 5 · softGap 99 · …`
+  (`b4-station-readout.png`); probe `window.api.llmGenerate({ providerId: 'b4-no-model' })` →
+  `{"success":false,"error":"Provider \"b4-no-model\" not registered"}`.
+- `node station-check.mjs trim` → join 1 "Code. | But" tail 7.568 → 7.328 through `tl.dispatch('trim',
+  rippleAllTracks: true)` → disk `end 7.328, origin {"by":"user","op":"trim","edges":{"end":"trim"}}`,
+  next clip pulled 5.812 → 5.572 (`b4-station-one-trim.png`); `undo` → `end 7.568, origin null, next
+  5.812, clips 36`.
+- Stopped by `--remote-debugging-port=9311` / the B1-verify profile path / `hasan-station.ps1` command
+  lines (11 processes: launcher, npx, electron-vite, electron + children) → `left: 0`, no listener on
+  5173 / 9311 / 3200.
+- Reset through the launcher: `hasan-station.ps1 -Reset` → `Saved … station-runs (*.20261022-173323.json)`
+  (project 22,253 B, preset 1,086 B), `Tests 2 passed (2)`; disk after: settings as above, `v1:36,a1:0
+  proposals 0 tagged 0 end 106.787`.
 
 Step 5 (e) (C: 2.40 GB / D: 5.32 GB free before the run; no app launched):
 
@@ -471,36 +545,21 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-Step 6 — build Hasan's station on `C:\Users\hasan\AppData\Local\vidtsx-e2e\B1-verify-root` +
-`profiles\B1-verify\profile` exactly as the RULED block "after builder #5 — for step 6" and
-decision 6 say, with one re-runnable scratch script `.vidtsx-temp/end-to-end/B4/station.b4.test.ts`
-(`B4_STATION=1`, `vitest.b4.config.ts`; model it on `setup.mjs` + `targets.b4.test.ts`, and on
-B3's hand plan `.vidtsx-temp/end-to-end/B3/compare.b3.test.ts:60-70`): first copy the station's
-current `project.json` to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\backup\B1-verify-root-project.before-b4.json`
-(once — never overwrite an existing backup); write a scratch preset "B4 start — old tight" into
-`profiles\B1-verify\profile\assets\presets\<id>\` (`style.cut = {base:'tight', head:0.11,
-minTail:0.14, maxTail:0.4, margin:5}`, flat knobs = the values the stand-in card proposed so the
-card shows no flat changes: pacing tight, shotsPerMinute 0, sfxPerMinute 0, musicBed none,
-captions none, transitions [], introSeconds 0, outroSeconds 0 — read the preset.json shape from
-`preset.before.B2-root.json`); set the station project's `settings.presetId` to it, no
-`cutStyle`, `settings.agent.providerId = 'b4-no-model'`, `proposals: []`; and write V1 = the
-editor's `cuts.json` keeps (READ-ONLY) of 0369 / 0370 / 0371 up to the Act-1 cut-off (0369 →
-41.024, 0370 → 82.688, 0371 → 188.287 s, `act1-joins.json` `cutoff`) planned through `planClip`
-with the START style (old tight resolved over base tight from `resources/skills/studio-clean-cut/cut-style.json`)
-as contiguous untagged clips (asset ids as in `targets.b4.test.ts`), A1 empty; log and record the
-clip count and the number of sentence joins (same-asset neighbours). Then find where the timeline's
-ripple toggle lives (persisted or session state) and turn it on for the station if it persists
-(else HASAN-STEP.md tells him to switch it on); write the launcher (`docs/studio/end-to-end/B4/hasan-station.ps1`,
-modelled on `.vidtsx-temp/end-to-end/B4/launch.sh`: this branch's dev build, `--user-data-dir` =
-the B1-verify profile, never his own) and `docs/studio/end-to-end/B4/HASAN-STEP.md` (decision 6 +
-the ruled points: open video-14-raw, the Act-1 span, ripple on, "trim each sentence join the way
-you want it (about 21)", Inspector → Project → "Learn from this video" (not the Assistant chat),
-pass = head 0.15 ± 0.03 / minTail 0.08 ± 0.03 / margin 12 ± 1, maxTail reads "at least", softGap is
-not learned, the time it should take); then click-check the station live (launch it via the
-launcher on a fresh CDP port, open the project, see the timeline + the readout `tight + 4 overrides
-· preset "B4 start — old tight"`, do ONE trim through the reducer and undo it, stop the app by its
-`--remote-debugging-port`), re-run the station script so it is back at its start state, and
-record everything in Done / Verified.
+Step 7 — the session gates and docs, then DONE (no app launch needed; Hasan's station is ready and
+must stay at its start state — do NOT launch on the B1-verify profile or re-run the station script
+unless the station changes): check `Get-PSDrive C,D` (stop line 1.0 GB); run the full vitest with
+no app running, logged to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full.log` — while C:
+has < 4 GB free the counted run is `npx vitest run --exclude src/main/services/python-models/service.test.ts`
+(add `--maxWorkers=4` under load; DRIVING.md's load-timeout rule: a known-load file must pass alone);
+`npm run check:types` (≤ web 26 / node 10); then write the Status.md row (top, dated 2026-10-22, house
+format: what B4 built, the stand-in numbers 21 joins → head 0.15 / minTail 0.08 / margin 12 Δ 0,
+the negatives, the station's dry run 33 joins → the same, why the card fits rather than takes a raw
+median (ruling 1), maxTail only raised, softGap not learned, "the exit itself waits for Hasan —
+`docs/studio/end-to-end/B4/HASAN-STEP.md`", and the vitest command that counted), the TESTING.md
+`### 18.10 B4` block after `### 18.9 B3` (TESTING §17 shape), and the B3 doc-debt fix (decision 7:
+Status.md's B3 row + TESTING §18.9 — "audition starts ~0.2 s early (1.21 s before / 0.78 s after)"
+→ the toolbar clock misread, the B3 verifier measured ±0.99 s; "on all nine clips" → eight (0366
+has no keeps); add the 133 vs 134 joins flip (0373 seg 17)); commit, update HANDOFF, return DONE.
 
 ## Open problems
 
@@ -644,6 +703,18 @@ Step 5 notes (no ruling needed; for step 6, Hasan's station):
   that id breaks the chat: name the button path (Inspector → Project → "Learn from this video")
   and leave the station on the no-model id, or clear it in setup for his station.
 
+Step 6 notes (no ruling needed; for step 7's STATUS row):
+
+- **The station's Act 1 holds 33 joins, not 21.** His hand plan (`cuts.json` keeps, retakes out)
+  under the old tight gives 36 clips over 1:46.8 — the planner also splits a keep at internal pauses
+  (≥ `internalGap` 0.4 s), so some joins are mid-sentence ("Simply, | uh", "locally | on", "both |
+  My", "Code | or", "focus | on"). HASAN-STEP.md lists all 33 and says "about 21": joins he leaves
+  alone teach nothing. The dry run proves the station can reach the pass if he lands the fitted
+  tight's edges; his own ears decide the real numbers.
+- **The Inspector's AI Assistant "Provider" dropdown shows "App default (active provider)"** for the
+  unregistered `b4-no-model` id (display only — the probe still fails locally). Re-picking a provider
+  there would make the learn button's summary a real model call; HASAN-STEP.md says not to touch it.
+
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
@@ -669,6 +740,12 @@ Step 5 notes (no ruling needed; for step 6, Hasan's station):
   handler — (1) as trimmed = the live card, (2) own-style edges → 0 cut changes at 21 joins,
   (3) 9 joins → 0 + the "at least 10" line. Re-run it (3 s) only if `src/shared/studio/cut-learn*`
   or the learn path changes.
+- Step 6 is DONE: Hasan's station (B1-verify-root + B1-verify profile) is at its START state
+  (36 untagged clips, 33 joins, preset "B4 start — old tight", no proposals, provider `b4-no-model`),
+  click-checked through `hasan-station.ps1 -CdpPort 9311` and reset with `-Reset`. Do not launch on
+  it, trim on it or re-run `station.b4.test.ts` (that IS the reset) unless the station must change —
+  it is Hasan's now. The backup `…\B4\backup\B1-verify-root-project.before-b4.json` is the only copy
+  of the station as B1's verifier left it — never overwrite it.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -693,3 +770,9 @@ Step 5 notes (no ruling needed; for step 6, Hasan's station):
   real `propose_preset_update` handler (real v3 waveforms + transcripts, no model) — as trimmed =
   the live card's four changes; own-style edges → 0 cut changes at 21 joins; 9 joins → 0 + the
   "at least 10" line; read the station's start facts for step 6; no app launch, no `src/` change.
+- 2026-10-22 · builder #7 · ~36 calls · step 6: Hasan's station — `station.b4.test.ts` (backup, start
+  preset with zeroed flat knobs, V1 = his `cuts.json` keeps planned with the old tight: 36 clips / 33
+  joins; in-memory dry run through the real reducer + handler → 0.15 / 0.08 / 12, no flat rows),
+  `hasan-station.ps1` (+ `-Reset`, `-CdpPort`), HASAN-STEP.md; click-checked live on CDP 9311 (open,
+  readout, no-model probe, one trim tagged + undone), app stopped (0 left), station reset; no `src/`
+  change.
