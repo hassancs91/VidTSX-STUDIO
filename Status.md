@@ -7,6 +7,72 @@
 
 ---
 
+## 2026-10-22 — END-TO-END B2: the default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section — DONE
+
+- **What:** part B2 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `bc104c3` → `4f0b33b` →
+  `b86b279` → `c50968f` → `bf46298`), the plan's §2 T1 slice. **Data:** `resources/skills/studio-clean-cut/cut-style.json`
+  (ships via `electron-builder.yml` `extraResources` `skills/**/*`) holds three named styles — `tight` = Hasan's
+  fitted tight from `cuts.json` (all twelve knobs incl. B1's `maxHead 0.3 / minSkip 0.12 / fricZcr 3500 /
+  fricMargin 5`), `natural` = his fitted natural (eight knobs, no opt-ins), `relaxed` = natural with every time
+  knob ×1.5 (`internalGap 0.6, head 0.32, minTail 0.39, maxTail 0.68, softGap 1.8, softMaxTail 1.05`, dB margins
+  unchanged — **orchestrator decision 1; it is data, Hasan can change it**) — and `"default": "tight"`. The old
+  `TIGHT_STYLE` / `NATURAL_STYLE` / `CUT_PLAN_STYLES` constants are gone. **One pure resolver**
+  `resolveCutStyle(file, {callStyle?, project?, preset?})` (`src/shared/studio/cut-style-resolve.ts`): per-call
+  style (the agent's `run_auto_cut({style})`) > project `settings.cutStyle` > preset `style.cut` (`base` + partial
+  knobs) > preset `pacing` mapped (tight/normal/relaxed → tight/natural/relaxed) > the file's default; it returns
+  the knobs, a display name (`tight · default`, `natural + 1 override · preset “YouTube long-form”`,
+  `tight · project override`) and an 8-hex key. **All four consumers on it:** the Auto Cut button (sends the live
+  `presetId`/`cutStyle`), `run_auto_cut` (enum + `relaxed`; omitted = the project's style), the editorial snap and
+  Transcript deletes (renderer gets the resolved style over the new `studio:cut-style:resolve` IPC; main is the only
+  reader of the file). The plan cache file is now `<asset>-<style>-<key>.json`, so an edited preset never reuses a
+  stale plan; old `<asset>-tight.json` files are left in place (nothing reads plans back). **UI:** the Transcript
+  section's session picker became `AutoCutRunner` — a read-out of the resolved style (title = every knob) and an
+  override Select (`Preset’s style (<name>)` / Tight · Natural · Relaxed for this project) stored on the project as
+  `settings.cutStyle = {base}` (saved, NOT undoable — the preset-picker pattern; choosing the preset again removes
+  the key); Project settings gains a "Cut style" block (name + all twelve knobs, opt-ins absent = "off",
+  overrides in accent); the preset editor gains a Cut section (base select + one input per knob the base has;
+  only knobs that differ from the base are stored; out-of-range values refused by `validatePresetInput`). Schema
+  additions are optional only: a project without `cutStyle` and a preset without `cut` resolve exactly as before
+  through the new path.
+- **The exit, live 2026-10-22 (CDP, isolated profile on C:, port 9281, on a COPY of M2 in
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root` — the shared M2 was never opened):** Assets › Presets ›
+  YouTube long-form › Cut: base Natural, Lead-in 0.25 → Save → `preset.json` `style.cut = {"base":"natural","head":0.25}`
+  (pacing stays `normal`); Talking-head short saved untouched → no `cut` key; Course lesson Decay margin 600 → "Cut
+  decay margin must be between 0 and 60 dB." in the section and the form, Save refused, file byte-identical. In
+  Studio, preset = YouTube long-form → Project settings and the Inspector read-out both say **`natural + 1 override ·
+  preset “YouTube long-form”`** (Lead-in 0.25 s in accent, Onset reach / Min skip / Fricative ZCR / Fricative margin
+  "off"); **Auto Cut on 0369 → card headline `Auto Cut (natural + 1 override · preset “YouTube long-form”) · assemblyai
+  · −27.8 s of 47.7 s · noise floor -54 dB`**, plan `…-natural-15b4f39a.json` written 10 ms after the click. Override →
+  Tight for this project → disk `settings.cutStyle = {"base":"tight"}`, read-out and Project settings `tight · project
+  override` (twelve knobs), Auto Cut → `Auto Cut (tight · project override) · … −29.8 s of 47.7 s` (`…-tight-42f80e70.json`,
+  22 ms). **Same knobs for editorial and Transcript deletes:** a Transcript delete of words 12–23 ("But I noticed …
+  business.", 3.9 s selected) → "Removed 12 words · −13.1 s", cut at **[7.328, 20.41] s = `planTextDelete` with the
+  resolved tight exactly** (the preset's natural + head 0.25 would cut [7.628, 20.31], plain natural [7.628, 20.35]);
+  the editorial snapper (`snapEditorialCuts`) with the same resolved style on the same words lands on [7.328, 20.41]
+  too; the resolve IPC with the live settings and from disk (the editorial / agent path) give the same key
+  `42f80e70`. **Override survives** 4K → 1080p → undo → redo → the Transcript delete: `settings.cutStyle` stays
+  `{"base":"tight"}` on disk after every step. Back to "Preset’s style" → the `cutStyle` key is removed and the card
+  names the preset again. Stills `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2\stills\b2-{1..10}-*.png`; driver
+  `.vidtsx-temp/end-to-end/B2/drive.mjs`, scratch check `textdel.b2.test.ts` (`B2_TEXTDEL=1`, scratch config).
+- **Gates:** `npx vitest run` **447 files passed, 5 skipped; 3778 tests passed, 34 skipped, 42.0 s** (app stopped,
+  first try); `npm run check:types` web 26 / node 10 = baseline. New unit tests over the part: `cut-style-spec` /
+  `cut-style-resolve` (every rung, garbage at every rung, the key), `cut-style-store` (9), `cut-plan-runner` (3),
+  `cut-style-handlers` (5), `studio-cut-plan-run-handler` (4), `cut-style-override` (9), `preset-cut` (11), plus the
+  repointed planner / editorial / text-delete / proposal tests.
+- **Honest notes:** (decision 4) **editorial and Transcript deletes moved from the old natural** (head 0.19 / minTail
+  0.26 / maxTail 0.45 / margin 5) **to the resolved style — Hasan's fitted tight by default** (head 0.15 with the
+  onset walk up to 0.3, minTail 0.08, maxTail 0.7, margin 12, the fricative rule, min-skip 0.12), so authored joins
+  land tighter unless the preset or project says natural; both keep pause compression off (an editorial-pass
+  choice, not a style). Auto Cut's default stays tight (now the fitted one). The project override is saved but not
+  undoable, like the preset and brand pickers. A spec cannot switch an opt-in knob OFF over a tight base
+  (`CutStyleSpec` = partial values; "no fricative rule" = base natural/relaxed) — **follow-up when Hasan asks**
+  (e.g. `null` = remove). The agent tools still read the project from disk (like `get_preset`), the button reads
+  the live document; they agree once autosave lands (<1 s). B1's finding stands (Studio's `snapHead` can lead in up
+  to +150 ms longer than cutlib's where a 20 ms bucket edge is loud) — B3 measures.
+- **Open:** `PresetForm.tsx` is 307 lines (move the style grid out when next touched); the Project settings modal's
+  X has no aria-label/title (pre-existing).
+- **Next:** the B2 verifier; then B3.
+
 ## 2026-10-22 — END-TO-END B1: ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs — DONE
 
 - **What:** part B1 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `2dc5add`), the plan's §2 T1
@@ -36,8 +102,9 @@
   with the waveform in `docs/studio/end-to-end/B1/HANDOFF.md`. Noise floors within 0.16 dB on every clip; Studio's
   v3 buckets equal the WAV's 20 ms RMS at **lag 0** (mean |dB| 0.02–0.03).
 - **Click-through (CDP, isolated profile, port 9271):** the 0369 waveform marked `"version":2` → opening
-  `video-14-raw` rewrote it as v3 **211 ms** after the project card click, byte-identical to the original v3
-  file; pool context menu "Add to timeline" → the clip on V1 (47.7 s); Transcript section → **Auto Cut (tight)**
+  `video-14-raw` rewrote it as v3 **211 ms** after the project card click (warm cache — the app had already read
+  the clip; the B1 verifier measured **~5 s** for the first open after a fresh launch, a cold read of two clips
+  at 2 jobs at once), byte-identical to the original v3 file; pool context menu "Add to timeline" → the clip on V1 (47.7 s); Transcript section → **Auto Cut (tight)**
   → `cache/cut-plans/…-tight.json` written **21 ms** after the click: built-in tight, 6 segments, 7 proposals,
   −28.7 s of 47.7 s, noise floor −54.457 dB, review open ("Apply 7 cuts" / "Reject all"); that plan equals the
   pure `planCuts` on the same files (scratch test). Stills `.vidtsx-temp/end-to-end/B1/stills/step3-{1-open,

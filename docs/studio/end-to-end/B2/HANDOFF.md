@@ -1,5 +1,5 @@
 # B2 — The default cut style file; `resolveCutStyle`; all four consumers; picker → preset read-out + project override; Project settings knobs; preset editor Cut section
-status: IN PROGRESS — step 1 (data + pure resolver) DONE `bc104c3`; step 2 (main-process consumers) DONE `4f0b33b`; step 3 (resolve IPC + Transcript deletes, snapper style required) DONE `b86b279`; step 4 (Auto Cut button on live settings + picker → read-out/override) DONE `c50968f`; step 5 (Project settings knobs + preset editor Cut section + validator) DONE `bf46298`; step 6 (CDP click-through + docs) next
+status: DONE (builder) — steps 1–5 `bc104c3` `4f0b33b` `b86b279` `c50968f` `bf46298`; step 6 (CDP click-through + STATUS row + TESTING §18.8 + decision 6 docs) DONE in the docs commit that carries this line; next = the B2 verifier
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, profiles on C:,
 every "Learned" line) and the **"Track B decisions"** section of
@@ -315,6 +315,26 @@ too — keep your D: writes small).
   base; `formatCutKnob`); `preset.test.ts` +1 (validator: sane cut passes, margin 600 + inverted tail
   → exactly two messages); `cut-style-handlers.test.ts` +2 (file handed over; typed error).
 
+**Step 6 — CDP click-through + docs (2026-10-22, builder #6; no `src/` change).**
+
+- Material: a COPY of M2 → `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root\projects\video-14-raw` (580 MB,
+  proxies/waveforms/transcripts included; proxy paths are relative). The shared M2
+  (`…\vidtsx-e2e\b-root\…\project.json`, mtime 11:28) was never opened. Profile
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\B2\profile` (copy of `profiles\source`, 377 MB), CDP 9281.
+  The three built-in presets I saved in that profile were restored from the backups in `…\vidtsx-e2e\B2\`
+  (`*.preset.orig.json`) after the app stopped.
+- Kit (local, `.vidtsx-temp/end-to-end/B2/`, git-ignored): `launch.sh`, `cdp.mjs` (port 9281), `drive.mjs`
+  (`ready|preset|studio|autocut <tag>|override|survive|textdel <from> <to>|resolve|retake2`),
+  `textdel.b2.test.ts` + `vitest.b2.config.ts`. Artefacts on C: `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2\`:
+  `stills\b2-{1-preset-cut-opened,2-preset-cut-natural-head,3-preset-cut-margin-600-refused,4-project-settings-preset,
+  5-inspector-readout-preset,6-autocut-preset,6-autocut-override,7-inspector-readout-override,
+  8-project-settings-override,9-transcript-selection,10-transcript-deleted}.png`, `textdel-{before,after,sel}.json`,
+  `resolved-live.json`, `vitest-step6.log`, `app.log`. NB `b2-4`, `b2-8`, `b2-9` show the Project settings
+  modal on top (that is their subject for 4/8; for 9 the selection sits under it); `b2-5/6/7/10` were retaken
+  with the modal closed (`retake2`).
+- Docs: `Status.md` B2 row (top); `docs/studio/TESTING.md` §18.8 B2; decision 6 finished (B1 STATUS row and
+  TESTING §18.7: "211 ms" = warm cache + the verifier's ~5 s cold first open); two DRIVING.md "Learned" lines.
+
 ## Verified (exact commands + outputs)
 
 Step 1 (2026-10-22, no electron running — `Get-Process electron` count 0):
@@ -384,7 +404,54 @@ Step 5 (2026-10-22, `tasklist` electron.exe → none running):
 - NOT yet seen live: the Cut section and the Project settings block have only been type-checked and
   unit-tested through their pure ops — step 6 drives them.
 
+Step 6 (2026-10-22; before launch: no electron, ports 9222/5173/9281 free, C: 20 GB, D: 1.9 GB):
+
+- `bash .vidtsx-temp/end-to-end/B2/launch.sh` (background) → `node drive.mjs ready` → root before
+  `D:\…\v14-root` → after `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2-root`; `studioCutStyleFile()` → success,
+  default `tight`, styles `tight,natural,relaxed`.
+- `node drive.mjs preset` → YouTube long-form opened: summary `natural`, base `""` ("From pacing (natural)"), eight
+  knob inputs at natural's values, four `off (base natural)`; base Natural + head 0.25 → summary `natural + 1
+  override`; disk `style.cut {"base":"natural","head":0.25}`, pacing `normal`. Talking-head short (summary `tight`,
+  twelve inputs) saved untouched → `has cut key false`. Course lesson margin 600 → problems + form errors `Cut decay
+  margin must be between 0 and 60 dB.`; disk unchanged `true`, mtime same `true`.
+- `node drive.mjs studio` → Project settings before preset `tight · default` (twelve knobs: 0.4 s, 0.15 s, 0.08 s,
+  0.7 s, 12 dB, 99 s, 0.6 s, 6 dB, 0.3 s, 0.12 s, 3500 /s, 5 dB); preset picker → disk `presetId
+  "youtube-long-form"` → `natural + 1 override · preset “YouTube long-form”`, `Lead-in0.25 s [accent]`, four `off`;
+  Inspector read-out the same, title `internalGap 0.4 · head 0.25 · minTail 0.26 · maxTail 0.45 · margin 6 · softGap
+  1.2 · softMaxTail 0.7 · softMargin 3`, override options `Preset’s style (YouTube long-form)` + three `… for this project`.
+- `node drive.mjs autocut preset` → `6290a63b-…-natural-15b4f39a.json` 10 ms after the click, plan
+  `styleDisplayName "natural + 1 override · preset “YouTube long-form”"`, 6 segments; headline `Auto Cut (natural + 1
+  override · preset “YouTube long-form”) · assemblyai · −27.8 s of 47.7 s · noise floor -54 dB`; `Apply 7 cuts` /
+  `Reject all` → rejected.
+- `node drive.mjs override` → disk `cutStyle {"base":"tight"}`; read-out + Project settings `tight · project
+  override`. `node drive.mjs autocut override` → `…-tight-42f80e70.json` 22 ms; headline `Auto Cut (tight · project
+  override) · assemblyai · −29.8 s of 47.7 s · noise floor -54 dB`.
+- `node drive.mjs survive` → `3840x2160 {"base":"tight"}` → 1080p `1920x1080 {"base":"tight"}` → undo `3840x2160
+  {"base":"tight"}` → redo `1920x1080 {"base":"tight"}`.
+- `node drive.mjs textdel 12 23` → selection `12 words · 3.9 s`; toast `Removed 12 words · −13.1 s`; disk settings
+  after: `cutStyle {"base":"tight"}` (the timeline edit of the survival check); V1 = `[0, 7.328)` + sourceIn `20.41`.
+- `node drive.mjs resolve` → live settings `tight · project override` key `42f80e70`; from disk (editorial path)
+  same; `same key true`.
+- `$env:B2_TEXTDEL='1'; npx vitest run --config .vidtsx-temp/end-to-end/B2/vitest.b2.config.ts --silent=false` →
+  `Tests 1 passed`; logged: `live {"from":7.328,"to":20.41} | tight {"from":7.328,"to":20.41} | preset natural+head
+  {"from":7.628,"to":20.31} | natural {"from":7.628,"to":20.35}` and `editorial [[7.328,20.33]]` before the
+  `features` fix → after passing `transcript.features` (as both real callers do) `editorial` = [7.328, 20.41]
+  (asserted, < 1e-6).
+- `node drive.mjs retake2` (modal closed by a real click on its X) → back to `Preset’s style` → disk settings
+  without `cutStyle`, card `Auto Cut (natural + 1 override · preset “YouTube long-form”) …` again; Tight again →
+  `tight · project override` card; final disk `cutStyle {"base":"tight"}` (the COPY only).
+- App stopped (only its processes; see Open problems for the over-wide filter). Then `npm run check:types` →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`;
+  `npx vitest run` (full, first try, log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B2\vitest-step6.log`) →
+  `Test Files 447 passed | 5 skipped (452) · Tests 3778 passed | 34 skipped (3812)` (42.0 s). D: 1.7 GB after.
+
 ## Next step (ONE concrete instruction)
+
+None for the builder — B2 is DONE. Orchestrator: spawn the B2 verifier over `bc104c3^..HEAD` (the five
+code commits + their hand-off docs + this docs commit) with the exit, DRIVING.md's rules and its own
+profile/port/M2 copy.
+
+## Step 6 brief (kept for the record)
 
 Step 6 — the CDP click-through, then the docs. Drive on profile
 `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\B2\profile` (copy of `…\profiles\source\profile`,
@@ -408,6 +475,16 @@ say decisions 1 and 4 and the "no off" follow-up), TESTING §18.8 B2 (after §18
 decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, return DONE.
 
 ## Open problems
+
+- **(step 6 incident, for the orchestrator)** Stopping the B2 instance, my PowerShell filter matched
+  CommandLine `*9281*` and also killed three `chrome.exe` child processes of ANOTHER session's headless
+  Playwright Chrome (`--user-data-dir=…\Temp\playwright_chromiumdev_profile-k2uRzH`; its args contain those
+  digits). Its browser was still running afterwards (a respawned `--gpu-recent-crash-count=1` GPU process; 85
+  chrome.exe alive); not Hasan's own Chrome profile as far as the surviving siblings show, but a tab of that
+  session's automation may have crashed. Lesson added to DRIVING.md (match `--remote-debugging-port=<port>` or the
+  profile path).
+- (RESOLVED in step 6) the OWED survival check passed live (frame size → undo → redo → Transcript delete:
+  `settings.cutStyle` stays `{"base":"tight"}`); decision 6 docs done.
 
 - (design note, not blocking) `CutStyleSpec` is `Partial<CutPlanStyle>`: a spec can change a knob
   but cannot switch an opt-in knob OFF (e.g. "tight but no fricative rule"). Today the way to get
@@ -497,3 +574,6 @@ decision 6's B1 text (211 ms = warm cache + ~5 s cold first open) — commit, re
 - 2026-10-22 · builder #5 · ~30 calls · step 5: Project settings knob read-out, preset editor Cut
   section + `studio:cut-style:file` IPC, pure preset-cut ops + labels, validator, tests, gates
   (`bf46298`).
+- 2026-10-22 · builder #6 · ~50 calls · step 6: CDP click-through on a C: copy of M2 (presets Cut section,
+  Project settings, read-out, override, two Auto Cut cards, survival, Transcript delete = resolved tight,
+  editorial same edges), gates, STATUS row, TESTING §18.8, decision 6, DRIVING lines. DONE.
