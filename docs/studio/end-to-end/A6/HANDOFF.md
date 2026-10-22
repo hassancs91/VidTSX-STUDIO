@@ -1,6 +1,6 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: IN PROGRESS (steps 1a + 1b + 2 done — the exit numbers hold outside the app, incl. the
-3-frame video-late case; IPC done; queue-row UI + CDP click-through next)
+status: IN PROGRESS (steps 1a + 1b + 2 + 3a done — the exit numbers hold outside the app, incl. the
+3-frame video-late case; IPC done; queue-row UI built, not yet driven; CDP click-through (3b) next)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A5's drivers (`.vidtsx-temp/end-to-end/A5/drive.mjs`,
@@ -212,7 +212,56 @@ Step 2 — IPC + the orchestrator's extra measurement (agent 3, commit `16f1a37`
   alone moves the answer by the right amount with the learned mask in use (the mask is the same box
   share as on the in-sync file, 0.439 vs 0.438).
 
+Step 3a — the queue-row UI (agent 4, commit `1ffa650`
+`feat(studio): A6 — "Check A/V" on the finished Studio export row`). No app run.
+
+- `src/features/render-queue/services/sync-check.ts` (92 lines, pure): `isSyncCheckableJob(job)` :22 =
+  `status 'done'` · not `muted` · `exportEngine` set (only `EditorShell.tsx:1042` sets it — every Studio
+  export row) · `filePath` basename `studio-entry-*.tsx` (the entry whose `.json` sidecar the check
+  reads); `syncCheckStateFromResponse(res)` :30 (verdict → result; cancelled → idle; busy → "Another
+  A/V check is running. Wait for it to finish, then try again."; else `res.error`);
+  `summarizeSyncCheck(verdict, probes?, elapsedMs?)` :66 → `{tone, label ('In sync' / 'Out of sync' /
+  'Not enough to judge'), message (the verdict's sentence), details ("Offset +0.2 ms · drift -2.8 ms
+  over 10.1 s · 16 of 16 probes confident · 52.6 s")}`; `syncCheckProgressText` :89 ("Checking A/V:
+  reading the export…" at 0 of 0, then "Checking A/V: probe 3 of 16").
+- `src/features/render-queue/types.ts:50` `SyncCheckState` = idle | running {done,total} | result
+  {verdict, reportPath?, probes?, elapsedMs?} | error {message}.
+- `src/features/render-queue/hooks/useExportSyncCheck.ts` (60 lines): `start` calls
+  `studioExportSyncCheck({ exportPath: job.outputPath, source: { kind: 'entry', entryPath: job.filePath } })`;
+  subscribes to `onStudioExportSyncCheckProgress` only while running, filtered by `exportPath`
+  (main echoes the request's string — `studio-sync-check-handlers.ts:90`); `cancel` →
+  `studioExportSyncCheckCancel({ exportPath })`; `dismiss` → idle.
+- `src/features/render-queue/components/SyncCheckPanel.tsx` (104 lines): under the row (marginLeft 76,
+  like the error details), `data-sync-check-panel=<status>`; running: `[data-sync-check-progress]` text +
+  `[data-sync-check-cancel]`; error: `[data-sync-check-error]`; result: `[data-sync-check-verdict=<pass|fail|inconclusive>]`
+  with a chip (green / red / amber = `--color-accent-green|red|amber`), the message,
+  `[data-sync-check-details]`, `[data-sync-check-report=<full path>]` (file name shown) + "Open report"
+  (the row's `onOpenFile`), and Hide.
+- `src/features/render-queue/components/RenderItem.tsx` (237 lines): hook :64; "Check A/V" button
+  :181-190 (`[data-sync-check-button]`, after Open/Folder, disabled while running); panel :226-231.
+- Tests `src/features/render-queue/services/sync-check.test.ts` (8).
+- **Click-through material found (read-only, from a scratchpad COPY of the A5 profile's
+  `render-queue/render.db` + `-wal`; table `render_queue`):** the two A5 exit rows are present and
+  `done`, both with `file_path` `D:\repos\VidTSX-STUDIO\.vidtsx-temp\studio\studio-entry-video-14-4650cc99.tsx`:
+  id `2f1adadc-1272-43a9-b591-2241c7637d46` engine `shot-composite` (= Fastest) →
+  `…\A5\export/studio-video-14_2026-10-21T21-10-24.mp4`; id `4e20be8d-d22e-492b-8f1d-73e8fd84ce95` engine
+  `remotion` (= Standard) → `…\A5\export/studio-video-14_2026-10-21T21-30-54.mp4` (note the mixed
+  `\`/`/` separators in `output_path`). Their sidecar `.vidtsx-temp/studio/studio-entry-video-14-4650cc99.tsx.json`
+  exists, mtime 2026-10-22 06:44:49 +0300 → the 24 h sweep removes it at an app start after
+  **2026-10-23 06:44 local (03:44 UTC)**; the A6 copy `a5-contexts/` holds the same file if it is gone.
+  The A5 profile also has older A4 rows (entry `54d68c0e`, A4 export folder) — `done`, so they also show
+  the button; do not click those.
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-22 07:47 (agent 4): `npx vitest run src/features/render-queue/services/sync-check.test.ts` →
+  `Tests 8 passed (8)`; `npx tsc --noEmit -p tsconfig.web.json | grep -E "render-queue|sync-check|SyncCheck"`
+  → no lines.
+- 2026-10-22 07:50 (agent 4, no electron.exe running): `npm run check:types` → `tsconfig.web.check.json:
+  26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`; full
+  `npx vitest run` → `Test Files 436 passed | 5 skipped (441)` · `Tests 3665 passed | 26 skipped (3691)`,
+  35.6 s (logs `.vidtsx-temp/end-to-end/A6/check-types-step3a.log`, `vitest-step3a.log`).
+- Free space 07:50: C: 38 GB, D: 3.8 GB.
 
 - 2026-10-22 07:40 (agent 3): `VIDTSX_LIVE_SYNC=1 npx vitest run
   src/main/services/studio/export-engines/export-sync-check.live.test.ts -t "video delayed 3 frames"`
@@ -288,19 +337,17 @@ Step 2 — IPC + the orchestrator's extra measurement (agent 3, commit `16f1a37`
 
 ## Next step (ONE concrete instruction)
 
-Step 3a — the queue-row UI (no app run yet): read UI_SPEC.md's queue/row parts, then add
-`src/features/render-queue/hooks/useExportSyncCheck.ts` (calls `window.api.studioExportSyncCheck({
-exportPath: job.outputPath, source: { kind: 'entry', entryPath: job.filePath } })`, follows
-`onStudioExportSyncCheckProgress` filtered by `exportPath`, cancel via `studioExportSyncCheckCancel`,
-states idle / running {done,total} / result / error) and `src/features/render-queue/components/SyncCheckPanel.tsx`
-(verdict line coloured pass/fail/inconclusive, "N of M probes confident", median offset + drift,
-the report path with an Open button via the row's `onOpenFile`), and a "Check A/V" button
-(`data-sync-check-button`) beside Open/Folder in `RenderItem.tsx:168-176` shown only for a `done`
-Studio export row (confirm how a Studio row is told apart — `job.exportEngine` set, or `job.filePath`
-basename starting `studio-entry-`); then step 3b = the CDP click-through on `.vidtsx-temp/end-to-end/A6/profile`
-(copy of the A5 profile, 377 MB — check D: free first, it was 3.7 GB): a 5 s Standard range INSIDE the
-split (e.g. 92–97 s, CPU low, output into `.vidtsx-temp/end-to-end/A6/export/`), click Check A/V on
-its row, screenshot the verdict, read the `.sync.json` beside it.
+Step 3b — the CDP click-through (no render needed): check D: free (3.8 GB at 07:50; the profile copy is
+~377 MB), copy `.vidtsx-temp/end-to-end/A5/profile` to `.vidtsx-temp/end-to-end/A6/profile`, launch an
+isolated instance on it (A5's `launch.sh`, a fresh CDP port e.g. 9261, `ELECTRON_RUN_AS_NODE` unset;
+`electron-vite dev` only if no dev app is running), set the Studio root to `.vidtsx-temp/end-to-end/v14-root`,
+open the Queue screen, and on the two A5 exit rows (ids `4e20be8d…` Standard, then `2f1adadc…` Fastest —
+find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-10-24.mp4`) click the VISIBLE
+`[data-sync-check-button]`, poll `[data-sync-check-progress]` until `[data-sync-check-verdict]` appears
+(~50 s each, one at a time), screenshot each verdict into `.vidtsx-temp/end-to-end/A6/stills/`, and read the
+`.sync.json` written beside each file in `.vidtsx-temp/end-to-end/A5/export/` (expect pass ≈ +0.2 ms,
+16/16 — the numbers in "Verified" below); then, for the +100 ms failure through the UI, use the
+`{kind:'project'}` IPC path or note that the 100 ms file has no queue row (the live test is its evidence).
 
 ## Open problems
 
@@ -308,6 +355,15 @@ its row, screenshot the verdict, read the `.sync.json` beside it.
   (`export-context.ts:5-7`). A row older than a day cannot be checked from its entry → the check
   must say so plainly (or fall back to the `project` source). Not a §4 question; a design limit to
   record in TESTING §18.6 unless solved.
+- The UI checks queue rows only (`entry` source). The +100 ms and 3-frames-late files were made with
+  ffmpeg, so they have no row: their UI-less evidence is the live test + reports. If 3b wants them
+  through the app, call `window.api.studioExportSyncCheck({ exportPath, source: { kind: 'project',
+  projectId: 'video-14', rangeIn: 80, rangeOut: 110 } })` over CDP — it OVERWRITES the live test's
+  `.sync.json` beside that file (same default name). The project source reads the copy's CURRENT
+  document, so it is only valid while the copy is unchanged since A5.
+- "Check A/V" also shows on the A5 profile's older A4 rows (`done`, entry `54d68c0e`, sidecar swept
+  after 2026-10-22 23:43 local) — expected; clicking one after the sweep must show the plain
+  "can no longer be checked" message (a cheap extra check for 3b, optional).
 - RESOLVED (1b): input-`-ss` camera audio shows no bias — the Standard file reads +0.2 ms.
 - RESOLVED (1b): the overlay covers ~56 % of the PiP box; the plain match failed (0/16) and the
   layout mask fixed it at the unchanged 0.90 bar (16/16). For the verifier: the mask is derived from
@@ -329,6 +385,8 @@ its row, screenshot the verdict, read the `.sync.json` beside it.
   live reports, the 100 ms file `.vidtsx-temp/end-to-end/A6/reports/standard-audio-plus-100ms.mp4`,
   the seek check, the overlay diagnosis). Do not re-run the live checks unless the measuring code
   changes; the reports above are the exit evidence for the measurement.
+- Step 3a above (the queue-row UI: service + 8 tests, hook, panel, button; commit `1ffa650`). The A5
+  profile's queue rows are already identified (ids + entry + sidecar expiry above) — do not re-query.
 - Step 2 above (IPC + 6 handler tests; the 3-frames-late file
   `.vidtsx-temp/end-to-end/A6/reports/standard-video-plus-3-frames.mp4` and its report — the
   orchestrator's extra measurement is DONE, record it next to the +100 ms case in TESTING §18.6).
@@ -341,3 +399,6 @@ its row, screenshot the verdict, read the `.sync.json` beside it.
   overlay covering the PiP and added the layout mask; corrected the frame seek.
 - 2026-10-22 · agent 3 · ~35 · step 2: IPC (channels, types, handler + 6 tests, preload, d.ts);
   the orchestrator's video-3-frames-late measurement (fail at −50.5 ms, mask on); message rounding fix.
+- 2026-10-22 · agent 4 · ~30 · step 3a: queue-row UI (service + 8 tests, hook, panel, "Check A/V" button);
+  found the two A5 exit rows in the A5 profile's queue DB (sidecar valid until 2026-10-23 06:44 local);
+  gates green (26/10, 436 files / 3665 tests).
