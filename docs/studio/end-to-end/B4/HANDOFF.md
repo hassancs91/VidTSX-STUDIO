@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: IN PROGRESS — steps 1–6 DONE; step 5 (the M2 stand-in) DONE: (a)–(d) live on M2 (21 joins → the card proposes head 0.15 / minTail 0.08 / margin 12 exactly; accept moved the preset to `{base:'tight', maxTail:0.5}`; one card layout defect fixed) and (e) the two negatives on the M2 data through the real handler (own-style edges → 0 cut changes at 21 joins; 9 joins → 0 + the "at least 10" line); step 6 DONE: Hasan's station ready + click-checked (36 clips / 33 joins of his hand plan with the old tight; launcher + HASAN-STEP.md; in-memory dry run → 0.15 / 0.08 / 12); step 7 (gates, STATUS, TESTING §18.10, B3 doc debt) next
+status: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -372,7 +372,45 @@ REAL v3 waveforms and transcripts read from `B2-root\projects\video-14-raw\cache
   it was absent (= `'all'`); the click-check set it to `'all'` explicitly (not found in the leveldb
   after the kill — likely unflushed; harmless, the default is `'all'`).
 
+**Step 7 — gates + docs (builder #8, 2026-10-22; docs commit, see LOG.md; no `src/` change, no app launch).**
+
+- Full vitest per DRIVING.md (C: < 4 GB → python-models excluded; CPU at 100 % → `--maxWorkers=4`): run 1 red only
+  on two known-load files, both green alone; **run 2 green = the counted run**. Types 26/10.
+- `Status.md`: the B4 row at the top (dated 2026-10-22; what was built, why the card fits rather than takes a raw
+  median, maxTail only raised, softGap not learned, the stand-in Δ 0, the negatives, the station + its dry run, the
+  gates, "THE EXIT WAITS FOR HASAN" with his steps and HASAN-STEP.md, honest notes, follow-ups).
+- `docs/studio/TESTING.md`: `### 18.10 B4` after §18.9 — Hasan's step is the first, UNCHECKED exit item; the
+  stand-in, accept, card, negatives, station, signal / measurement / learn-path items checked.
+- Decision 7 (B3 doc debt) DONE in Status.md's B3 row and TESTING §18.9: "hard entries 0 / 0 on all nine clips" →
+  eight clips with keeps (0366 has none); the 133 vs 134 joins flip at 0373 seg 17 added (Studio skip 0.738 s vs
+  analyze_cut 0.798 s across the 0.75 s line; Studio's seg 16 ends 63.566 vs 63.506 — from
+  `…\vidtsx-e2e\B3-verify\compare.txt` / `details.txt`); the audition numbers re-read as `formatClock` MM:SS.FF (60 fps
+  frames): `13:04.33` → `13:08.32` = 784.55 → 788.53 s around the join 785.539 / 787.544 = **±0.99 s** (the B3
+  verifier's video-element read: source 320.200 → 321.075, 323.217 → 324.112 around 321.193 / 323.198,
+  `…\B3-verify\audition-0373-hard.json`); the "~0.2 s early" follow-up removed; the parked-playhead follow-up's
+  "655.44" re-read as clock `10:55.44` = 655.73 s (the claim itself stands).
+
 ## Verified (exact commands + outputs)
+
+Step 7 (C: 2.26 GB / D: 4.98 GB free before the runs, C: 2.26 / D: 4.88 before run 2; no electron.exe running, no
+listener on 5173 / 9222 / 9301 / 9311 / 3200; other sessions' Remotion studios + MCP servers kept the CPU at 100 %):
+
+- Run 1: `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` (log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full.log`) → `Test Files 2 failed | 454 passed | 5 skipped (461)
+  · Tests 2 failed | 3850 passed | 34 skipped (3886)` (86.95 s): `flow-render.test.ts:255` (`vi.waitFor` → `expected 0
+  to be greater than 0`) and `shot-module-resolver.test.ts:151` ("a changed transpiler fingerprint misses every
+  tier": `never written: …\shot-module-cache-jyHmPF\…\v1.json` from the test's 100 × 10 ms `waitForFile`) — both on
+  DRIVING.md's known-load list.
+- Alone: `npx vitest run src/main/services/studio/shot-module-resolver.test.ts src/main/services/flows/flow-render.test.ts`
+  (log `…\B4\vitest-alone-run1.log`) → `Test Files 2 passed (2) · Tests 15 passed (15)`.
+- **Run 2 (COUNTED):** the same command (log `…\B4\vitest-full-run2.log`) → `Test Files 456 passed | 5 skipped (461)
+  · Tests 3852 passed | 34 skipped (3886)`, `Duration 96.02s`, exit 0.
+- `npm run check:types` (log `…\B4\check-types.log`) → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Station read-only re-check (no launch, no script): `B1-verify-root\projects\video-14-raw\project.json` (22,253 B,
+  17:33) settings `{"width":3840,"height":2160,"fps":60,"agent":{"providerId":"b4-no-model"},"presetId":"b4-start-old-tight"}`,
+  tracks `v1:36,a1:0`, proposals 0, clips with `origin` 0; `profiles\B1-verify\profile\assets\presets\b4-start-old-tight\preset.json`
+  `style.cut {"base":"tight","head":0.11,"minTail":0.14,"maxTail":0.4,"margin":5}`, `learned[]` 0.
 
 Step 6 (C: 2.27 GB / D: 5.29 GB free before launch; no electron/vite/9311/5173 listener before):
 
@@ -545,21 +583,15 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-Step 7 — the session gates and docs, then DONE (no app launch needed; Hasan's station is ready and
-must stay at its start state — do NOT launch on the B1-verify profile or re-run the station script
-unless the station changes): check `Get-PSDrive C,D` (stop line 1.0 GB); run the full vitest with
-no app running, logged to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full.log` — while C:
-has < 4 GB free the counted run is `npx vitest run --exclude src/main/services/python-models/service.test.ts`
-(add `--maxWorkers=4` under load; DRIVING.md's load-timeout rule: a known-load file must pass alone);
-`npm run check:types` (≤ web 26 / node 10); then write the Status.md row (top, dated 2026-10-22, house
-format: what B4 built, the stand-in numbers 21 joins → head 0.15 / minTail 0.08 / margin 12 Δ 0,
-the negatives, the station's dry run 33 joins → the same, why the card fits rather than takes a raw
-median (ruling 1), maxTail only raised, softGap not learned, "the exit itself waits for Hasan —
-`docs/studio/end-to-end/B4/HASAN-STEP.md`", and the vitest command that counted), the TESTING.md
-`### 18.10 B4` block after `### 18.9 B3` (TESTING §17 shape), and the B3 doc-debt fix (decision 7:
-Status.md's B3 row + TESTING §18.9 — "audition starts ~0.2 s early (1.21 s before / 0.78 s after)"
-→ the toolbar clock misread, the B3 verifier measured ±0.99 s; "on all nine clips" → eight (0366
-has no keeps); add the 133 vs 134 joins flip (0373 seg 17)); commit, update HANDOFF, return DONE.
+None for a builder — B4 is DONE up to Hasan's step. The orchestrator marks B4 `WAITING-HASAN` and
+moves on (a B4 verifier is the orchestrator's call; a verifier must NOT launch on, trim on or reset
+Hasan's station — B1-verify-root + `profiles\B1-verify` — it is his). **Hasan's step:**
+`docs/studio/end-to-end/B4/HASAN-STEP.md` (~20–25 min: run `hasan-station.ps1`, open `video-14-raw`,
+trim about 21 of the 33 sentence joins by dragging edges, Inspector → PROJECT → "Learn from this
+video", read the card: pass = `Cut lead-in` 0.12–0.18, `Cut tail min` 0.05–0.11, `Cut margin`
+11–13). When he reports back: record his three numbers + "learned from N joins" in Status.md's B4
+row and tick TESTING §18.10's first item; his trims stay in the station's `project.json` and can be
+re-measured offline through the real handler (the `negatives.b4.test.ts` pattern) if needed.
 
 ## Open problems
 
@@ -746,6 +778,9 @@ Step 6 notes (no ruling needed; for step 7's STATUS row):
   it, trim on it or re-run `station.b4.test.ts` (that IS the reset) unless the station must change —
   it is Hasan's now. The backup `…\B4\backup\B1-verify-root-project.before-b4.json` is the only copy
   of the station as B1's verifier left it — never overwrite it.
+- Step 7 is DONE: the counted full vitest (run 2, `--exclude python-models --maxWorkers=4`) and types
+  26/10; the Status.md B4 row, TESTING §18.10 and the B3 doc debt (decision 7) are written. Re-run the
+  gates only if `src/` changes.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -776,3 +811,8 @@ Step 6 notes (no ruling needed; for step 7's STATUS row):
   `hasan-station.ps1` (+ `-Reset`, `-CdpPort`), HASAN-STEP.md; click-checked live on CDP 9311 (open,
   readout, no-model probe, one trim tagged + undone), app stopped (0 left), station reset; no `src/`
   change.
+- 2026-10-22 · builder #8 · ~35 calls · step 7: gates — full vitest run 1 red only on the two known-load
+  files (both green alone), run 2 green and counted (456 files / 3852 tests, python-models excluded for
+  disk, 4 workers under 100 % CPU); types 26/10; Status.md B4 row, TESTING §18.10 (Hasan's step
+  unchecked), decision 7 (B3 doc debt) from the B3 verifier's files; station re-read on disk at its
+  start state; no app launch, no `src/` change.

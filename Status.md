@@ -7,6 +7,100 @@
 
 ---
 
+## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step (the EXIT waits for Hasan)
+
+- **What:** part B4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `92d846f` → `c5a6f4c` →
+  `2865675` → `f39a220` → `a734ff5`), the plan's §2 T1 "The learning signal". **The signal** (optional fields only —
+  old projects / proposals / presets open untouched): every cut-plan proposal item keeps its `snapped` span beside
+  the user's final span (written by both creators, Auto Cut / `run_auto_cut` and the editorial snap /
+  `propose_cuts`, and kept from the pre-drag span on the first drag); a user trim tags the moved edge
+  `origin.edges[edge] = 'trim'` (`by` / `proposalId` kept, so learn stats still count who placed the clip); a
+  Transcript delete tags the edges it creates `'text-delete'` (not a sample until the user trims it); split / range
+  delete / ripple / restore drop the tags of edges they rewrite; undo restores the untagged clip. **The measurement**
+  (pure, `src/shared/studio/cut-learn*.ts`): at every touched edge, tail = edge − last word end and its level over
+  the floor (the snapper's 50 ms window), lead-in = first word start − edge, each beside the RESOLVED style's own
+  edge at that join (B2's resolver); Q4 gate per side — ≥ 10 edges AND the user's median offset from the style's own
+  edges > 30 ms (tail: or > 1 dB). **The learn path:** `StudioPresetKnobKey` widens to `cut.head` / `cut.minTail` /
+  `cut.maxTail` / `cut.margin`; `propose_preset_update` and Inspector → PROJECT → "Learn from this video" (same
+  code, every number computed in code) put the knob rows + cut lines + a collapsible per-join list on the learn card
+  (NEW `CutLearnBlock.tsx`); accept writes `style.cut` through `applyPresetLearning` (base kept; a value equal to
+  the base's drops the override; B2's `cutSpecProblems` refuses an invalid result). No preset → "no editing preset to
+  learn into", nothing saved (the existing pattern; the project override is not a save target).
+- **Why the card FITS instead of taking a raw median (ruling 1):** the snapper's tail is not a knob value — with the
+  fitted tight (minTail 0.08, margin 12) the tails it keeps run ~0.14–0.22 s and land a few dB UNDER floor + 12 (its
+  20 ms walk stops at the first window at or below the line), so a raw median would propose minTail ≈ 0.2 s (the
+  stand-in's median tail is 0.22 s — far outside 0.08 ± 0.03) and a margin read off landings that sit at or under
+  the line. The medians are the GATE; the values come from an L1 fit through the snapper's own
+  rules (it equals the median where the rule is a constant, as for the lead-in). The card shows both: "you kept a
+  median 0.22 s after the last word, cut 11.4 dB over the floor (the style: 0.4 s, 6 dB); minTail 0.08 s and margin
+  12 dB reproduce your edges". **`maxTail` is only ever raised** (ruling 8: identifiable only up to the longest tail
+  kept; the card says "at least N s"; a test fails without the guard). **`softGap` is not learned** (not one of
+  T1's four): Hasan's 10-15 "soft landings off" stays a style choice — a follow-up if he wants it learned.
+- **The stand-in exit, live on M2 (CDP 9301, the reused scratch `vidtsx-e2e\B2-root` + `profiles\B2\profile`; no
+  model call — the project's provider id `b4-no-model` is registered by nothing, proven "not registered" before the
+  click):** start = the old pre-October tight on a scratch PRESET (ruling 7: `style.cut = {base:'tight', head 0.11,
+  minTail 0.14, maxTail 0.4, margin 5}`, softGap 99) → Auto Cut + apply on 0369 / 0370 / 0371 (7 / 15 / 31 cuts,
+  `snapped` on every item) → Act 1 = the raw span behind preview-tight 0:00–1:55 mapped through `cuts.json`'s keeps →
+  47 joins on V1, 28 sentence joins, **the first 21 trimmed** (39 edges, through the reducer's `'trim'` that the
+  edge drag dispatches, ripple all) to the fitted tight's own edges → "Learn from this video" → **`Cut lead-in 0.11 →
+  0.15`, `Cut tail min 0.14 → 0.08`, `Cut margin 5 → 12`** (`Cut tail max 0.4 → 0.5`, "at least"), "learned from 21
+  joins you trimmed (19 lead-ins, 20 tails)" — **Δ 0 / 0 / 0 vs the exit's 0.15 / 0.08 / 12.** Accept → the preset's
+  `style.cut` = `{base:'tight', maxTail:0.5}` (back to base tight's values, before/after recorded). One live defect
+  fixed: the per-join list rendered 420 px wide in the ~200 px Assistant column → stacked rows (`a734ff5`).
+- **The negatives** (the REAL `propose_preset_update` handler on the stand-in's M2 data — real v3 waveforms and
+  transcripts, no model): all 39 tagged edges at the START style's own edges (±≤ 10 ms) → **0 cut changes at 21
+  joins** (medians +0 ms lead-in, +0 ms / +0.1 dB tail); tags on 9 joins only → **0 changes** + "Learned from 9 joins
+  — at least 10 touched joins are needed before the cut knobs change."; as trimmed = the live card exactly.
+- **Hasan's station (ready, click-checked, at its start state):** Studio root `C:\Users\hasan\AppData\Local\vidtsx-e2e\B1-verify-root`
+  + profile `…\vidtsx-e2e\profiles\B1-verify\profile` (scratch; never his own profile or projects); V1 = his own
+  `cuts.json` keeps of 0369 / 0370 / 0371 to the Act-1 cut-off (retakes out) planned with the old tight → **36 clips,
+  33 joins, 1:46.8** (the planner also splits keeps at internal pauses, so a few joins are mid-sentence); preset "B4
+  start — old tight" with the flat knobs zeroed (the card shows cut rows only). In-memory dry run (nothing written):
+  every join trimmed to the fitted tight's edges through the REAL reducer + handler → **33 joins (30 lead-ins, 30
+  tails) → head 0.15 / minTail 0.08 / margin 12** (maxTail ≥ 0.5), no flat rows. Launched once through
+  `docs/studio/end-to-end/B4/hasan-station.ps1 -CdpPort 9311`: project opens, ripple lit, readout `tight + 4
+  overrides · preset “B4 start — old tight”`, one trim tagged and undone; app stopped, station reset (`-Reset`).
+  Re-read on disk at step 7: provider `b4-no-model`, preset `b4-start-old-tight`, V1 36 / A1 0, 0 proposals, 0
+  tagged clips, preset `style.cut` = the old tight, `learned[]` empty.
+- **THE EXIT WAITS FOR HASAN** (the §3 row: "after Hasan re-does his 21 Act-1 joins on M2, the card proposes `head`,
+  `minTail`, `margin` within ±30 ms / ±1 dB of the fitted tight"). What he must do — **`docs/studio/end-to-end/B4/HASAN-STEP.md`**
+  (~20–25 min): from `D:\repos\VidTSX-STUDIO` run `powershell -ExecutionPolicy Bypass -File
+  docs\studio\end-to-end\B4\hasan-station.ps1` → Studio → `video-14-raw` (V1 = 36 clips, 01:46.47, ripple buttons
+  lit) → trim each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no
+  splits, deletes or Transcript edits → nothing selected → Inspector → PROJECT → **Learn from this video** (not the
+  Assistant chat; leave the Provider dropdown alone) → Assistant tab → pass = **`Cut lead-in` 0.12–0.18, `Cut tail
+  min` 0.05–0.11, `Cut margin` 11–13**; screenshot the card or note the three numbers + "learned from N joins", then
+  tell Claude. `-Reset` restarts the station (saving his trims first under `…\vidtsx-e2e\B4\station-runs\`).
+- **Gates:** `npx vitest run --exclude src/main/services/python-models/service.test.ts --maxWorkers=4` — **run 2 is
+  the counted run: 456 files passed, 5 skipped; 3852 tests passed, 34 skipped, 96.0 s** (app stopped; log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full-run2.log`). Run 1 (same command, log `…\B4\vitest-full.log`)
+  had 2 failures, both on DRIVING.md's known-load list — `flow-render.test.ts:255` (the 1 s `vi.waitFor`) and
+  `shot-module-resolver.test.ts:151` (its 1 s background-write poll, "never written") — both passed alone (`…\B4\vitest-alone-run1.log`,
+  2 files / 15 tests). **`python-models/service.test.ts` was EXCLUDED for disk** (DRIVING.md "Vitest gate while C:
+  is low": C: 2.26 GB, D: 4.98 GB free before the runs; the branch never touches `python-models/`); `--maxWorkers=4`
+  because the CPU sat at 100 % from other sessions. `npm run check:types` web 26 / node 10 = baseline. New tests over
+  the part (38): `cut-learn.test.ts` (9), `cut-learn-joins.test.ts` (9), `clip-edit-tags.test.ts` (12, through the
+  real reducer), `agent-tools/preset-tools.test.ts` (5, the REAL `propose_preset_update` + accept handlers, real
+  `cut-style.json` and preset store), `preset-knob-apply.test.ts` (3), plus `snapped` cases in `cut-proposal` /
+  `editorial-cuts` tests.
+- **Honest notes:** joins the user never touches teach nothing; counts are per side (head edges → `head`, tail edges
+  → the tail knobs) and the card's "joins" = joins with ≥ 1 measured edge; all tails are fitted as punchy landings
+  (under a small `softGap` the report says how many landed soft); accept takes every change on the card, `maxTail`
+  included; with a project override the card measures against the override but accept teaches the preset (the card
+  says so). The stand-in preset (copied from YouTube long-form) also moved eight flat knobs on accept — the existing
+  flat learning against a bare timeline, not B4; the station's preset has them zeroed. The stand-in's targets are the
+  fitted tight's own edges (Hasan's 21 individual 10-15 edits are not recorded anywhere), so the real proof is his redo.
+  `AgentPanel.tsx` grew to 425 lines (420 before B4) and `EditorShell.tsx` by one line (1,646) — both pre-existing
+  far over ~300.
+- **Open (follow-ups, not blockers):** a per-knob opt-out on the learn card; learning `softGap` if Hasan wants it;
+  the Inspector's AI Assistant "Provider" dropdown shows "App default (active provider)" for an unregistered provider
+  id (display only); the ripple mode lives in renderer `localStorage`, not in the project. Also in this commit, the
+  B3 doc debt (decision 7): the B3 row and TESTING §18.9 now say eight clips with keeps (not nine) for the hand plan,
+  add the 133 vs 134 joins flip (0373 seg 17), and replace "audition starts ~0.2 s early" with the toolbar-clock
+  misread (the audition plays ±0.99 s, as designed). TESTING §18.10.
+- **Next:** the orchestrator marks B4 `WAITING-HASAN` (his step above) and continues; the B4 verifier is the
+  orchestrator's call.
+
 ## 2026-10-22 — END-TO-END B3: QA readouts on the cards — hard entries and clipped tails, offending joins listed and auditionable — DONE
 
 - **What:** part B3 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `e583d26` → `47bc6a1` →
@@ -30,7 +124,11 @@
 - **The exit, measured three ways (2026-10-22; M2 = `video-14-raw`, the nine raw DJI clips):**
   **(a) the same plan as analyze_cut** — Hasan's hand-audited keeps (`cuts.json`), tight from `cut-style.json`
   (asserted equal to `cuts.json`'s fitted tight knob for knob), M2's v3 waveforms + transcripts, analyze_cut
-  recomputed read-only (`python -I -B`, its `main` never run): **hard entries 0 / 0 on all nine clips**; tails
+  recomputed read-only (`python -I -B`, its `main` never run): **hard entries 0 / 0 on all eight clips with keeps**
+  (0366 has none — Hasan cut it whole; corrected in B4 from "nine", per the B3 verifier); joins checked Studio
+  **133** vs analyze_cut **134** — one real-join flip at 0373 seg 17 (Studio's skip 0.738 s vs analyze_cut's
+  0.798 s across the 0.75 s real-join line, because Studio's seg 16 ends 60 ms later, 63.566 vs 63.506 — the same
+  20 ms-bucket read; not hard either way, +4.8 dB at that cut-in); tails
   analyze_cut **181** (5, 11, 20, 12, 63, 4, 39, 27 — exactly Hasan's `qa-report.md`, so that report is current)
   vs Studio **178** (5, 11, 20, 12, 61, 4, 38, 27): 178 flagged by both, 3 by analyze_cut only, 0 by Studio only —
   each the 20 ms-bucket read B1 documented (one 0.18 dB read at the 6 dB edge; two Studio tails 60 / 20 ms longer,
@@ -54,8 +152,11 @@
   margin 6 → 12 → 18 → 106 → 132 → 132** (tight `softMargin` 6 → 12: 265 → 269). Hard entries 1 → 2 → 2 at margin
   12 / 18 / 24 (margin moves the segmentation: 0371 gains one real join, which flags; joins 164 → 170 → 172).
   **Audition:** 0373's `List the spots (85)` → 20 rows + `Show all 85`, row 1 `hard entry 5:23.2 +17.7 dB`; its
-  click (mapped to result time 654.728 = the join) played across the join with the cuts applied — playhead 784.33
-  → 785.12 → **787.37 (the removed 2.0 s skipped)** → 788.32, stopped, preview restored off. Evidence:
+  click (mapped to result time 654.728 = the join) played across the join with the cuts applied — toolbar clock
+  `13:04.33` → `13:05.12` → **`13:07.37` (the removed 2.0 s skipped)** → `13:08.32` (MM:SS.FF in 60 fps frames,
+  `formatClock`) = 784.55 → 785.20 → 787.62 → 788.53 s around the join edges 785.539 / 787.544, i.e. **0.99 s
+  before to 0.99 s after** (the B3 verifier read the same from the video element: source 320.200 → 321.075, skip,
+  323.217 → 324.112 around 321.193 / 323.198), stopped, preview restored off. Evidence:
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\B3\` (`analyze-cut-ref.json`, `compare-b3-report.json`,
   `exits-<tag>.json`, `audition.json`, `stills\b3-*.png`); drivers and scratch harness in
   `.vidtsx-temp/end-to-end/B3/`. TESTING §18.9.
@@ -77,9 +178,11 @@
   call in B3); B6 runs the real editorial pass. `EditorShell.tsx` grew by one 13-line handler (1,645 lines,
   pre-existing far over ~300). The margin knob was set through the app's own project update (no UI editor exists
   for a single project knob).
-- **Open (follow-ups, not blockers):** the audition starts ~0.2 s early (1.21 s before / 0.78 s after the join
-  instead of 1.0 / 1.0; not root-caused); after the stop the playhead parks at the result-timeline time read as an
-  original-timeline time (pre-existing, shared with `handlePlayJoin`); a median / worst landing-dB line on the card
+- **Open (follow-ups, not blockers):** (the earlier "audition starts ~0.2 s early, 1.21 s before / 0.78 s after"
+  is withdrawn — corrected in B4 from the B3 verifier: it took the toolbar clock's frames for hundredths
+  (`formatClock`, `src/features/studio/services/timeline-view.ts:43-52`, MM:SS.FF in 60 fps frames); the audition
+  plays **±0.99 s** around the join, as designed); after the stop the playhead parks at the result-timeline time
+  read as an original-timeline time (pre-existing, shared with `handlePlayJoin`); a median / worst landing-dB line on the card
   (the tail count saturates on tight); list rows show source `M:SS.d` with no clip label; no UI for single project
   cut knobs.
 - **Next:** the B3 verifier; then B4.
