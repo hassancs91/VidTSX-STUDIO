@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-23 — END-TO-END B6: the content measurement — the Studio assistant's real cut pass (editorial + Auto Cut) on all nine raw clips vs Hasan's `cuts.json`: **overlap 90.5 %**, the miss list, the proposed bar for the next round — DONE (a measurement; no `src/` change)
+## 2026-10-23 — END-TO-END B6: the content measurement — the Studio assistant's real cut pass (editorial + Auto Cut) on all nine raw clips vs Hasan's `cuts.json`: **overlap 90.5 %**, the miss list, the proposed bar for the next round — DONE (a measurement; no `src/` change; verifier fix round 1 corrected the record)
 
 - **What:** part B6 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, docs only). The §3 row: "Auto Cut + editorial
   on all nine clips vs `cuts.json` — proposed cut seconds ∩ his cut seconds / his cut seconds, and the spans he cut that the
@@ -25,7 +25,8 @@
   turn 1 typed → 7 auto turns = the editorial pass, one clip per turn (0366 → 0376; 0374 read with 0375, no cuts) → the
   assistant stopped and OFFERED Auto Cut ("I can run Auto Cut for the pauses, then plan shots and captions") → turn 9
   typed as the user: **`Yes, run Auto Cut for the pauses on all nine clips.`** → 8 auto turns, one `run_auto_cut` per clip
-  → it stopped offering shots/captions (not taken). Model time 222.8 s editorial + 114.2 s Auto Cut = **337 s**; tokens
+  → it stopped offering shots/captions (not taken). Model time (the usage rows' `durationMs`) 222.723 s editorial (turns
+  1–8) + 114.441 s Auto Cut (turns 9–17) = **337.164 s**; tokens
   in 57,067 / out 17,621 / cache-read 2,524,453; the SDK's notional cost $3.89 (subscription — counts against the plan,
   not billed per token). One full pass used of the two allowed. Proposals: **39 editorial items** (27 retake, 6 filler, 4
   false_start, 2 fluff) + **261 Auto Cut items** (153 long_pause, 108 dead_air); after applying, the scratch edit is
@@ -34,10 +35,12 @@
   of every proposed span in source time = 775.8 s. **Overlap |P∩H| / |H| = 736.1 / 813.3 = 90.5 %**; precision |P∩H| / |P|
   = 94.9 % (**99.2 %** without Auto Cut's compressions of pauses INSIDE his keeps, 34.0 s, which his tight also compresses
   but H does not count). Accepted items only (no unchecked fluff): 90.5 % / 95.1 %. Auto Cut alone: overlap 67.8 %,
-  precision 94.0 %; editorial alone: 48.4 %, 98.9 %. Per clip overlap: 0366 79.1 · 0369 93.5 · 0370 93.5 · 0371 95.9 ·
+  precision 94.0 %; editorial alone: 48.4 %, 98.9 %. Per clip overlap: 0366 79.15 · 0369 93.5 · 0370 93.5 · 0371 95.9 ·
   0372 96.4 · 0373 87.0 · 0374 86.9 · 0375 90.6 · 0376 87.8 %.
-- **The miss list** (H \ P = 77.2 s; spans ≥ 0.3 s = 50 spans / 41.4 s, the other 35.8 s are slivers < 0.3 s at cut edges =
-  join geometry, not content): **retake 4 / 5.2 s** (0366 15.6–18.8 "Today everyone is building websites." — he cut ALL of
+- **The miss list** (H \ P = 77.2 s; spans ≥ 0.3 s = **52 spans / 42.03 s**, the other 35.18 s are slivers < 0.3 s at cut
+  edges = join geometry, not content; fix round 1: two spans of exactly 0.300 s — 0376 119.084–119.384 unlisted, 0376
+  122.840–123.140 pause — had been dropped by a float compare, 0.29999999999999716 < 0.3; `measure.py` now compares in
+  integer ms): **retake 4 / 5.2 s** (0366 15.6–18.8 "Today everyone is building websites." — he cut ALL of
   0366, superseded by the take that opens 0369: a cross-clip retake the per-clip pass cannot see; 0373 247.9–248.4; 0375
   14.5–15.1 "The same—"; 0375 132.7–133.6 "Another take." — a slate left in) · **repeat 4 / 5.1 s** (doubled phrases whose
   first delivery stayed: 0371 31.9–33.4 "a website,", 0373 25.2–26.8 "and clean up, moves everything.", 0373 83.6–84.2 "You
@@ -45,36 +48,61 @@
   by the Claude Code SDK…" = his judgment-call flag 2, default cut) · **dead_air 1 / 4.0 s** (0376 168.1–172.1, a phantom
   "M" token 3.8 s long: the assistant left it — "probably silence or a phantom token" — and Auto Cut did not cut it either,
   presumably keeping the token's span as speech; not traced in code) ·
-  **filler 1 / 1.0 s** (0374 "okay,") · **pause 31 / 13.0 s** (inside his keep gaps, median 0.40 s, max 0.64 s — at the
-  style's 0.4 s internal gap) · **unlisted 8 / 3.4 s** (clip tails / cut-gap slivers).
-- **False cuts** (P \ H ≥ 0.3 s, excluding pause-in-keep): content 7 / 4.3 s (0369 "Look at this." = the rejected fluff
-  card; 0370 "uh"; 0373 "before being ready." 1.0 s, "Okay, great." 1.2 s; 0375 "Please focus."; accepted-only 5 / 2.5 s)
-  + 3 slivers / 1.4 s inside his fluff suggestions. **Judgment calls:** his six `flags[]` — 5 of 6 land on his default
-  (flag 3 "his instruction: cut" proposed 100 %; flags 1/4/5/6 "keep" untouched); flag 2 (default cut, 9.7 s) not proposed.
-  His four `fluff_suggestions` (suggest-only): proposed 0 / 1 / 15 / 0 % — the pass's own two fluff spans were elsewhere.
+  **filler 1 / 1.0 s** (0374 "okay,") · **pause 32 / 13.26 s** (inside his keep gaps, 0.30–0.64 s, median 0.38 s — around
+  the style's 0.4 s internal gap) · **unlisted 9 / 3.72 s** (clip tails / cut-gap slivers).
+- **False cuts** (P \ H, excluding pause-in-keep; every content piece comes from an editorial item): content at ≥ 0.3 s
+  **5 / 4.05 s** (0369 "Look at this." 0.52 s = the rejected fluff card; 0370 "uh" 0.58 s; 0373 "before being ready."
+  0.96 s, "Okay, great." 1.24 s = the unchecked fluff item; 0375 "Please focus." 0.76 s = his flag 4) — accepted-only
+  3 / 2.30 s; counting every content piece
+  (also 0371 "uh" 0.05 s and 0375 "um" 0.17 s) 7 / 4.27 s, accepted-only 5 / 2.52 s. Inside his fluff suggestions 2 / 1.25 s
+  at ≥ 0.3 s (3 / 1.40 s, every piece). **Judgment calls:** his six `flags[]`, each matched to the `cuts[]`/`keeps[]` entry
+  by its quoted text + clip + time — **4 of 6 land on his default**: flag 3 ("his instruction: cut", 0373 365.551–370.432)
+  proposed 100 %; flags 1 / 5 / 6 (default keep: 0375 143.41 "and he's sharing his game…", 0376 69.747 "Since this project is
+  a desktop application?", 0373 91.276 "Do you see this?") untouched; flag 2 (default cut, 0373 112.306–121.903, 9.7 s) not
+  proposed; **flag 4 (default keep, 0375 30.500–31.255 "Please focus.") cut** — the editorial `false_start` item
+  28.909–31.700 "Please focus." (accepted) covers it, plus Auto Cut 28.909–30.350 / 31.375–31.700. (Fix round 1: the first
+  record matched flag 4 to the nearest keep, "it builds the app…" 32.99 s, and counted 5 of 6.) His four
+  `fluff_suggestions` (suggest-only): proposed 0 / 1 / 15 / 0 % — the pass's own two fluff spans were elsewhere.
 - **Also seen (findings, not fixed — B6 is a measurement):** for "Cut this video." the assistant ran the editorial pass
   FIRST and only offered Auto Cut afterwards (the prompt's "edit this video" order is Auto Cut first); the editorial snap
   left **hard entries on 8 of 42 editorial joins** (2/4, 1/2, 0/3, 0/5, 0/4, 4/12, 1/7, 0/5) vs Auto Cut's 1 of 164 —
   E2's "hard entries 0" is not met on the editorial joins; 0369's only proposal was one fluff span, so 0369 got no
-  editorial cut at all.
+  editorial cut at all. **Auto Cut ran AFTER the editorial cuts were applied but planned over each clip's whole source**
+  (found by the verifier, added in fix round 1): 199.5 s of its 587.1 s fall inside already-applied editorial spans (94 of
+  its 261 items wholly inside), so its card headlines count seconds already removed — 0373's card says "−171.2 s of
+  396.3 s", and 85.6 s of those 171.2 s were already cut by the applied editorial items. A follow-up for the next round,
+  not fixed in B6.
 - **Proposed bar for the next round (Hasan confirms):** with the same run shape (one real pass, `Cut this video.` + the
   Auto Cut follow-up) — **overlap ≥ 92 %**, **retake + repeat + filler + false_start misses ≤ 6 s in total with none > 1.5 s**
   (his flagged judgment calls excepted), **false content cuts ≤ 3 s**, **precision without pause-in-keep ≥ 99 %**, **≥ 5 of
-  6 flags at his default**. Reason: of the 77.2 s missed, 35.8 s are sub-0.3 s edge slivers and 13.0 s are 0.4–0.64 s pauses
-  at the style's own threshold — join geometry and the style, owned by B1–B3, not by the editorial pass. The content misses
-  are few and named: the cross-clip retake (3.3 s), four first-of-a-doubled-phrase deliveries (5.1 s, the policy's own "cut
-  the FIRST" rule), a slate left in (0.8 s), the phantom-token dead air (4.0 s). Fixing just the cross-clip retake, the
-  repeats and the phantom token adds ≈ 12.4 s → 748.5 / 813.3 = 92.0 %; flag 2 (9.7 s) stays a judgment call, so the bar
-  does not demand it. Today's run fails the first item (90.5 %), the second (11.3 s; two misses > 1.5 s: 0366's 3.3 s retake,
-  0373's 1.6 s repeat) and the third (4.3 s all spans; 2.5 s accepted-only passes).
+  6 flags at his default**. Reason: of the 77.2 s missed, 35.18 s are sub-0.3 s edge slivers and 13.26 s are 0.30–0.64 s
+  pauses in his keep gaps, around the style's own threshold — join geometry and the style, owned by B1–B3, not by the
+  editorial pass. The content misses are few and named: the cross-clip retake (3.3 s), four first-of-a-doubled-phrase
+  deliveries (5.1 s, the policy's own "cut the FIRST" rule), a slate left in (0.8 s), the phantom-token dead air (4.0 s).
+  Fixing just the cross-clip retake, the repeats and the phantom token adds ≈ 12.4 s → 748.5 / 813.3 = 92.0 %; flag 2
+  (9.7 s) stays a judgment call, so the bar does not demand it. The **≤ 6 s** comes from the same fixes: today's retake +
+  repeat + filler + false_start misses are **11.32 s** (retake 5.15 + repeat 5.13 + filler 1.04; no false_start miss); the
+  fixes named for the overlap bar (the cross-clip retake 3.26 s + the four repeats 5.13 s) leave **2.93 s** (three short
+  retakes 0.50 / 0.56 / 0.84 s + the 1.04 s filler), and 6 s is that remainder with ~3 s of headroom. **Today's run fails 4
+  of the 5 items** — overlap (90.5 %), content misses (11.32 s; two > 1.5 s: 0366's 3.26 s retake, 0373's 1.60 s repeat),
+  false content cuts (4.05 s at ≥ 0.3 s; accepted-only 2.30 s would pass) and flags (4 of 6: flag 4 cut, flag 2 not
+  proposed) — and passes precision without pause-in-keep (99.2 %).
 - **Gates:** `npx vitest run` **465 files / 3,920 tests passed** (5 / 34 skipped) on the first run, app stopped, log
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\B6\vitest-run1.log`; `npm run check:types` web 26 / node 10 (baseline 26 / 10);
   the live click-through IS the run (17 real turns, every card answered by a real click). Editor repo untouched
   (`tools/__pycache__` newest 2026-10-16; `measure.py` runs cutlib `python -I -B`, read-only); `b-root`'s `project.json` hash
   unchanged (`ebe94fd7…`). Evidence: `…\vidtsx-e2e\B6\run\` (`turns.jsonl` = every turn's prompt, reply, tool calls, usage;
   `proposals-raw.json` = the 17 cards as captured; `proposals.json` / `proposals-accepted.json`), `…\B6\measure\measure.json`
-  + `…\B6\measure-accepted\measure.json`; kit (gitignored) `.vidtsx-temp/end-to-end/B6/` (`run.mjs`, `measure.py`, `launch.sh`,
-  `cdp.mjs`, `probe.mjs`, `restore.ps1`). TESTING.md §18.12; HANDOFF `docs/studio/end-to-end/B6/HANDOFF.md`.
+  + `…\B6\measure-accepted\measure.json` (round 0, kept); kit (gitignored) `.vidtsx-temp/end-to-end/B6/` (`run.mjs`,
+  `measure.py`, `launch.sh`, `cdp.mjs`, `probe.mjs`, `restore.ps1`). TESTING.md §18.12; HANDOFF
+  `docs/studio/end-to-end/B6/HANDOFF.md`.
+- **Fix round 1 (2026-10-23, verifier FAIL on the record, not the measurement):** docs + the gitignored `measure.py` only —
+  0.3 s compared in integer ms; flags matched by quoted text + clip + time (no nearest-entry fallback); new outputs
+  `miss_summary`, `false_by_label_min` (≥ 0.3 s), per-category min / median / max, `flags_at_default`; selftest adds the
+  boundary and the six flag entries. Re-run on the SAME capture (`proposals.json` = `proposals-raw.json` derived, 300 = 300
+  items identical; `proposals-accepted.json` = raw minus the 2 unchecked fluff items) → `…\B6\measure-fix1\measure.json` +
+  `…\B6\measure-accepted-fix1\measure.json`: H / P / P∩H / overlap / precision unchanged; misses 52 / 42.03 s; flags 4 of 6.
+  No new model run, no app launch, no `src/` change → the gates above are unaffected (not re-run).
 
 ## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied); verifier fix round 1 (close / quit during a `project.json` lock) in — DONE up to Hasan's step (the EXIT waits for Hasan)
 

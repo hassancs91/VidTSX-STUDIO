@@ -1,5 +1,5 @@
 # B6 — The content measurement: Auto Cut + editorial on all nine clips vs `cuts.json`
-status: FIX (verifier round 1 FAIL: flags 4/6 not 5/6; miss-list float boundary — record only, see Next step) — was: DONE — the real run measured (overlap 90.5 %, miss list, proposed bar in Status.md 2026-10-23 + TESTING §18.12); gates green
+status: DONE (fix round 1) — the record corrected per the verifier round 1 brief (flags 4 of 6; misses 52 / 42.03 s with the 0.3 s test in integer ms; content false cuts at ≥ 0.3 s 5 / 4.05 s; model time 337.164 s; 0366 79.15 %; the Auto Cut-over-applied-editorial finding; the bar fails 4 of 5 today) — overlap 90.5 % unchanged; gates unaffected (no `src/` change)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety, disk rules, the RESERVED stations,
 the vitest gate rules, every "Learned" line incl. the 200 ms project.json poll rule, the
@@ -152,7 +152,8 @@ Step 2 (builder #2, 2026-10-22/23, no `src/` change; kit gitignored; docs commit
    …\B6\measure-accepted`): overlap **0.9051**, precision 0.9489 (accepted-only 0.9049 / 0.9510); autocut 0.6783 / 0.9397;
    editorial 0.4842 / 0.9893; misses by cat {retake 4 / 5.153, repeat 4 / 5.133, manual 1 / 9.699, dead_air 1 / 4.03,
    filler 1 / 1.036, pause 31 / 12.957, unlisted 8 / 3.42}; false ≥ 0.3 s 35.679 s = pause-in-keep 44 / 33.997 + content 7 /
-   4.271 + fluff:suggested 3 / 1.395. Written up in Status.md (2026-10-23 B6 row) with the proposed bar, and TESTING §18.12.
+   4.271 + fluff:suggested 3 / 1.395. (Corrected in fix round 1, Done 10–12: pause 32 / 13.257 and unlisted 9 / 3.72 with
+   the 0.3 s test in ms; the 44 / 7 / 3 split is EVERY P\H piece — at ≥ 0.3 s it is 25 / 30.377 + 5 / 4.051 + 2 / 1.251.) Written up in Status.md (2026-10-23 B6 row) with the proposed bar, and TESTING §18.12.
 9. **Driver bug found and fixed (not product):** the first loop read the Assistant's `agent` props from the textarea's
    `__reactFiber$` — a STALE alternate: busy / pending stayed frozen at "I proposed cuts for" for ~12 min while main had
    finished the turn in 25.9 s (the AI-usage row, 20:55:04Z, and a visible Send button proved it). `run.mjs` now reads
@@ -160,7 +161,57 @@ Step 2 (builder #2, 2026-10-22/23, no `src/` change; kit gitignored; docs commit
    reconnect; `wake()` restores the window (`restore.ps1`) and sets `Page.setWebLifecycleState active` once a minute.
    DRIVING.md "Learned" 2026-10-23 · B6.
 
+Fix round 1 (builder #3, 2026-10-23, docs + the gitignored kit only; NO app launch, NO model call, no `src/` change):
+
+10. **`measure.py`** (`.vidtsx-temp/end-to-end/B6/measure.py`): the ≥ 0.3 s test for misses AND false cuts is
+    `long_enough(s, e)` = `round((e - s) * 1000) >= 300` (every input is ms-precise: max 3 decimals in both
+    `proposals.json` and `cuts.json`, checked); flags are matched by `flag_entry()` = the default's quoted line first
+    ("keep 'Do you see this?'"), then the issue's quoted lines in order (≥ 2 words; first 5 words as a contiguous run;
+    the quote regex lets "he's" sit inside a quote), within the flag's clip and [at−5, at+15] s; several hits → an entry
+    that STARTS with the quote first (flag 5's line also sits inside the 0376 retake cut 53.005–69.197), then nearest
+    `at`; no match → `entry: null` (no nearest-entry fallback). New outputs: `miss_summary` (H\P, count, seconds,
+    slivers), per-category `d_min / d_median / d_max`, `false_by_label_min` (≥ 0.3 s), `flags[].at_default` (keep →
+    proposed < 50 %, cut → ≥ 50 %) + `flags_at_default`; the printout adds per-clip overlap and the flag lines.
+    Selftest adds the boundary (119.084–119.384 and 122.84–123.14 pass, 0.299 fails, 0.300 / 0.301 pass) and the six
+    flag entries (1 → 0375 143.41 keep, 2 → 0373 112.306 cut, 3 → 0373 365.551 cut, 4 → 0375 30.5 keep, 5 → 0376
+    69.747 keep, 6 → 0373 91.276 keep; P = ∅ → 4 at default; P = 0375 28.909–31.700 → 2, 3, 4 off default).
+11. **Re-run on the same capture:** `proposals.json` re-derived from `proposals-raw.json` with run.mjs's `CLIPS`
+    map → 300 = 300 items, identical (clip, kind, s, e); `proposals-accepted.json` = raw minus the 2 unchecked fluff
+    items (0369 29.924–40.52, 0373 393.36–394.6). Outputs to NEW folders `…\B6\measure-fix1\` and
+    `…\B6\measure-accepted-fix1\` (round 0's `measure\` / `measure-accepted\` kept; the unfixed script reproduced
+    round 0's `measure.json` byte-for-byte first, into the scratchpad).
+12. **Record corrected** — Status.md B6 row (heading; model time; 0366 79.15; miss list 52 / 42.03 s, pause 32 /
+    13.26 s 0.30–0.64 s median 0.38 s, unlisted 9 / 3.72 s, slivers 35.18 s; false cuts split ≥ 0.3 s 5 / 4.05 s vs every
+    piece 7 / 4.27 s (accepted 3 / 2.30 vs 5 / 2.52); flags 4 of 6 with flag 4's spans; the Auto Cut-over-applied-
+    editorial finding; the bar paragraph's ≤ 6 s derivation + "fails 4 of 5"; a fix-round-1 bullet) and TESTING §18.12
+    (:447, :448, :449, :450 + a new fix-round-1 line).
+
 ## Verified (exact commands + outputs)
+
+- Fix round 1: `python -I -B .vidtsx-temp/end-to-end/B6/measure.py --selftest` → `selftest OK: P=H, P=empty, P=keeps,
+  0370 hand case, 0.3 s boundary in ms, flag entries 1-6; H total 813.315 s over 9 clips; …`.
+- Fix round 1: `python -I -B measure.py C:/Users/hasan/AppData/Local/vidtsx-e2e/B6/run/proposals.json
+  C:/Users/hasan/AppData/Local/vidtsx-e2e/B6/measure-fix1` → `overlap 0.9051 precision 0.9489 H 813.32 s P 775.77 s
+  P∩H 736.11 s`; autocut 0.6783 / 0.9397 (P 587.08 s); editorial 0.4842 / 0.9893 (P 398.12 s); misses by cat retake 4 /
+  5.153 (max 3.259), pause 32 / 13.257 (0.30 / median 0.38 / 0.64), unlisted 9 / 3.72, repeat 4 / 5.133 (max 1.597),
+  manual 1 / 9.699, filler 1 / 1.036, dead_air 1 / 4.03; `miss summary {"h_minus_p": 77.209, "count": 52, "seconds":
+  42.028, "slivers_lt_0_3": 35.181}`; all P\H pause-in-keep 44 / 33.997, content 7 / 4.271, fluff:suggested 3 / 1.395;
+  ≥ 0.3 s pause-in-keep 25 / 30.377, content 5 / 4.051, fluff:suggested 2 / 1.251 (false-cut s ≥ 0.3 = 35.679,
+  unchanged); per-clip 0366 0.7915 · 0369 0.9351 · 0370 0.9347 · 0371 0.9587 · 0372 0.9635 · 0373 0.8698 · 0374 0.8688 ·
+  0375 0.9057 · 0376 0.8779; `flags at default: 4 of 6` (2 cut proposed 0.0 OFF; 4 → 30.5 keep proposed 1.0 OFF); fluff
+  fractions [0.0, 0.0125, 0.1548, 0.0].
+- Fix round 1: same on `proposals-accepted.json` → `…\B6\measure-accepted-fix1` → `overlap 0.9049 precision 0.951`,
+  editorial 0.4719 / 0.9935; misses identical (52 / 42.028); all content 5 / 2.516, ≥ 0.3 s content 3 / 2.296; flags 4 of 6.
+- Fix round 1 checks (scratch Python on the captured files, read-only): turns.jsonl usage `durationMs` turns 1–8 =
+  222,723 ms, turns 9–17 = 114,441 ms (sum 337,164); 0366 P∩H / H = 16.058 / 20.288 = 79.150 %; every content P\H piece
+  is from an editorial item (0371 "uh" 0.05 s and 0375 "um" 0.17 s are the two < 0.3 s); Auto Cut (clamped) 587.084 s,
+  199.504 s inside the accepted editorial union, 94 of 261 items wholly inside (0 partly); 0373's card (turn 14) "−171.2 s
+  of 396.3 s", 85.626 s of 0373's Auto Cut inside its applied editorial spans; flag 4 region: editorial `false_start`
+  28.909–31.700 "Please focus." accepted + Auto Cut 28.909–30.350 / 31.375–31.700, his keep 30.500–31.255; flag 5's keep
+  0376 69.747–71.980 untouched (editorial ends 69.597, Auto Cut resumes 72.32). Content-category misses: 0366 15.58–18.839
+  retake 3.259, 0371 31.926–33.415 repeat 1.489, 0373 25.219–26.816 repeat 1.597, 0373 83.586–84.16 repeat 0.574, 0373
+  247.86–248.36 retake 0.5, 0373 319.72–321.193 repeat 1.473, 0374 19.868–20.904 filler 1.036, 0375 14.542–15.1 retake
+  0.558, 0375 132.732–133.568 retake 0.836 (sum 11.322; minus 3.259 + 5.133 = 2.930).
 
 - Step 2: `node run.mjs setup` → `length s 1283.148 settings {"width":3840,"height":2160,"fps":60,"agent":{}} proposals 0`;
   loops → `…\B6\run\loop1.log` … `loop5.log` (loop1/2 = the stale-fiber driver, killed by their own command line
@@ -198,6 +249,11 @@ Step 2 (builder #2, 2026-10-22/23, no `src/` change; kit gitignored; docs commit
 
 ## Next step (ONE concrete instruction)
 
+B6 is DONE after fix round 1: the orchestrator sends verifier round 2 on the corrected record (re-check the
+fix-round-1 numbers against `…\B6\run\proposals-raw.json` + cuts.json independently — flags by quoted text + clip +
+time, the 0.3 s boundary in ms) and then puts the proposed bar to Hasan.
+
+(The fix round 1 brief, DONE 2026-10-23 by builder #3 — see Done 10–12; kept for the record:)
 **FIX round 1 (orchestrator, 2026-10-23, after the verifier's FAIL — docs + the scratch measure
 script only; NO new model run, NO app launch):**
 1. **Flag 4 was cut, not "untouched"** — flag 4 = clip 0375 @00:30 "'Please focus.' … default
@@ -245,7 +301,7 @@ turn, model, wall time, usage from `debugLog`/`usage`); capture BEFORE any apply
 
 ## Open problems
 
-- **Verifier round 1 — FAIL (2026-10-23), record only:** flag 4 cut (4/6 at default, not 5/6 — the
+- **Verifier round 1 — FAIL (2026-10-23), record only — FIXED in fix round 1 (Done 10–12):** flag 4 cut (4/6 at default, not 5/6 — the
   bar's flags item fails today); the miss list dropped two exactly-0.300 s spans to float (52 / 42.03 s,
   not 50 / 41.4 s); "content 7 / 4.3 s" mislabelled as ≥ 0.3 s; model time split; 0366 79.15 %.
   Everything else PASSED independently: H 813.315 s, P 775.769 s, P∩H 736.106 s, overlap 90.507 %,
@@ -261,13 +317,18 @@ turn, model, wall time, usage from `debugLog`/`usage`); capture BEFORE any apply
 
 - (for Hasan) **Confirm or change the proposed next-round bar** (Status.md 2026-10-23 B6 row; TESTING §18.12): overlap ≥ 92 %;
   retake + repeat + filler + false_start misses ≤ 6 s, none > 1.5 s (flagged judgment calls excepted); false content cuts
-  ≤ 3 s; precision without pause-in-keep ≥ 99 %; ≥ 5 of 6 flags at his default.
+  ≤ 3 s; precision without pause-in-keep ≥ 99 %; ≥ 5 of 6 flags at his default. Today it fails 4 of 5 (overlap 90.5 %,
+  content misses 11.32 s, false content 4.05 s at ≥ 0.3 s, flags 4 of 6) and passes precision (99.2 %).
+- (finding, added in fix round 1, not fixed) Auto Cut ran after the editorial cuts were applied but planned over the whole
+  source: 199.5 s of its 587.1 s inside already-applied editorial spans (94 of 261 items wholly) — its card headlines
+  count seconds already removed (0373 "−171.2 s of 396.3 s", 85.6 s already cut).
 - (findings, not fixed — B6 is a measurement) cross-clip retake invisible to the per-clip pass (0366); four doubled-phrase
   first deliveries kept; a 3.8 s phantom "M" token keeps 4 s of dead air through both passes (0376 168–172); "Cut this
   video." → editorial first, Auto Cut only offered; editorial joins: hard entries 8 of 42 (E2's "hard entries 0" — the
   join-geometry half — is not met on editorial joins).
-- (eyeball) flags 4 and 5 are mapped to the nearest `keeps[]` entry by `measure.py` (step 1 note); both read 0 % proposed
-  either way.
+- (eyeball — RESOLVED in fix round 1) flags 4 and 5 were mapped to the nearest `keeps[]` entry by `measure.py`; now
+  matched by quoted text + clip + time: flag 4 → 0375 30.500–31.255 "Please focus." (proposed 100 %, OFF default), flag 5
+  → 0376 69.747–71.980 "Since this project is a desktop application?" (0 %, at default).
 - (note, not blocking) The SDK reports a notional `costUsd` even on the subscription ($0.23 for the
   1-turn probe, mostly a system-prompt cache write); on a subscription it is not billed per token
   but counts against Hasan's plan limits. Record `usage` for every turn of the real run (decision 1
@@ -287,6 +348,8 @@ turn, model, wall time, usage from `debugLog`/`usage`); capture BEFORE any apply
 - Step 2 done: the ONE real pass ran (17 turns) and is applied on B6-root's scratch — do not run another pass to "improve"
   the numbers (decision 1 allows one retry only for a FAILED pass; this one completed). Re-measure from
   `…\B6\run\proposals.json` / `proposals-raw.json` instead.
+- Fix round 1 done: `measure.py` fixed (ms boundary, flag matching) and re-run → `…\B6\measure-fix1\`,
+  `…\B6\measure-accepted-fix1\`; Status.md + TESTING §18.12 corrected. Do not re-fix; a verifier re-checks.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -294,3 +357,5 @@ turn, model, wall time, usage from `debugLog`/`usage`); capture BEFORE any apply
   from code, one keyless probe turn (OK, 8.5 s), `measure.py` + selftest + synthetic run.
 - 2026-10-22/23 · builder #2 · ~95 · step 2: setup, the real 17-turn pass (stale-fiber driver bug found and fixed in the
   kit), measurement, gates, Status.md row + TESTING §18.12 → DONE.
+- 2026-10-23 · builder #3 · ~35 · fix round 1: `measure.py` (0.3 s in integer ms, flags by quoted text + clip + time,
+  selftest), re-run on the same capture, Status.md + TESTING §18.12 corrected → DONE (fix round 1).
