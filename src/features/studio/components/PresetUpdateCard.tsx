@@ -63,7 +63,12 @@ export function PresetUpdateCard({ proposal, error, resolving, onAccept, onRejec
         )}
       </div>
 
-      <div className="text-[10px] text-text-dim leading-snug">{proposal.statsSummary}</div>
+      {/* With no summary model the summary IS the stats sentence — show it once. */}
+      {proposal.statsSummary !== proposal.summary && (
+        <div className="text-[10px] text-text-dim leading-snug" data-preset-update-stats>
+          {proposal.statsSummary}
+        </div>
+      )}
 
       {changes.length > 0 ? (
         <table className="w-full text-[10px] leading-snug" data-preset-update-knobs>

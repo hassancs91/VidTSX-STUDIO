@@ -6,8 +6,8 @@ you fitted on 10-15 (`head 0.15 · minTail 0.08 · margin 12`). Everything up to
 and verified (an automated stand-in reached 0.15 / 0.08 / 12 on the same footage).
 
 **Time: about 25–30 minutes** — first launch ~1 min, Snap off once, ~21 joins at 60–70 s each
-(put the playhead on it, zoom in, listen, drag two edges, check they stayed, listen again) ≈ 20–25
-min, learn + read the card ~2 min.
+(put the playhead on it, zoom in, listen, drag two edges, check the total after each, listen again)
+≈ 21–25 min, learn + read the card ~2 min.
 
 **Nothing of yours is touched.** The station is this branch's dev build (`end-to-end-p0`; your
 installed 1.1.0 has no B1–B4) on a scratch profile
@@ -36,39 +36,61 @@ ripple** and **Ripple all tracks** — are both lit (they are on by default on t
 them on, lengthening a lead-in pushes the rest of the timeline instead of stopping at the
 neighbour clip.
 
-**Turn Snap OFF before the first trim — it is ON every time the project opens.** It is the magnet
-("Snap to edges and playhead") in the group at the right end of the timeline toolbar, just left of
-the two magnifiers; lit = on, click it once so it goes dark. With Snap on, an edge pulls to any clip
-edge or the playhead within 8 px — and the neighbour's edge sits exactly where the edge you are
-dragging started, so a small trim snaps straight back: no edit, nothing learned.
-
-**Zoom in to the top levels at each join.** The timeline opens at 20 px per second, where a 30–50 ms
-move is one pixel. Click the ruler at the join (the playhead goes there; zoom keeps the playhead in
-view), then **Zoom in** (the + magnifier, or Ctrl+scroll over the timeline) 4–5 times from the
-default: 4 clicks = 320 px/s (30 ms ≈ 10 px), 5 clicks = 640 px/s, the top (30 ms ≈ 19 px). Zoom
-to fit (Shift+Z) takes you back to the whole Act. The zoom also resets when the project reopens.
-
 ## 2. Trim each sentence join the way you want it (about 21)
 
-A join = two neighbouring clips from the SAME source clip. For each one you care about:
+**First — before you click anything in the timeline — turn Snap OFF.** Snap is ON every time the
+project opens (again after a restart or a `-Reset`). It is the magnet ("Snap to edges and playhead")
+in the group at the right end of the timeline toolbar, just left of the two magnifiers; lit = on —
+click it once so it goes dark. Why first: with Snap on, a dragged edge pulls to any clip edge or to
+the playhead within 8 px. The neighbour's edge sits exactly where the edge you drag starts, so a
+small trim snaps straight back (nothing changes); and once the playhead stands on a join, a small
+drag can snap to the playhead instead — it stands on the nearest frame, a few ms off the edge — and
+commit a few-ms trim you would not notice.
 
-- drag the **right edge of the left clip** to where you want the tail after the last word to end;
-- drag the **left edge of the right clip** to where you want the lead-in before the next word.
+A join = two neighbouring clips from the SAME source clip (the 0369→0370 and 0370→0371 changes are
+not joins). For each join you care about:
 
-**Check each trim took:** after you let go, the clip edge stays where you dropped it and (ripple on)
-everything to its right shifts by the same amount. If the edge springs back to where it started, the
-trim did not register (Snap is still on, or the move was too small at this zoom) — turn Snap off /
-zoom in and drag again. (Each registered trim also writes a tag on that clip edge in the station's
-`project.json` — `"origin": {"by": …, "op": "trim", "edges": {"end": "trim"}}` — which is what the
-learner reads; you do not need to look.)
+1. **Playhead on the join:** click the ruler (the strip of times above V1) at the join; the playhead
+   jumps there.
+2. **Zoom in 4 times** with the + magnifier ("Zoom in", or Ctrl+scroll over the timeline). The
+   timeline opens at 20 px per second, where 30–50 ms is about one pixel; 4 clicks = 320 px/s, where
+   30 ms ≈ 10 px — enough. A 5th click (640 px/s, the top) doubles that, but the join can land at the
+   right edge of the timeline; drag the scrollbar under the tracks to bring it back.
+3. **Read the total before you drag:** the grey `/ 01:46.47` right of the clock at the left end of
+   the timeline toolbar. Both read MM:SS.FF — the two digits after the dot are **frames** (60 per
+   second, 1 frame ≈ 17 ms), not hundredths.
+4. **Drag one edge, grabbing it in the LOWER half of the clip**, below the small square that sits on
+   the join (hovering a clip lights a thin bar at each of its edges — that bar is the handle). The
+   square is "Add transition" and the top corners of each clip hold the fade dots ("Fade in" /
+   "Fade out") — grabbing either of those does not trim.
+   - the **right edge of the left clip** = the tail after the last word;
+   - the **left edge of the right clip** = the lead-in before the next word.
+5. **Check it took — the total is the sign, for both edges.** A trim changes the total by the amount
+   you moved: up when you lengthened (tail dragged right, lead-in dragged left), down when you
+   shortened; 30–50 ms is 2–3 frames (e.g. `/ 01:46.47` → `/ 01:46.50`). What the edge itself does:
+   - a **tail** edge stays where you dropped it, and everything to its right moves with it;
+   - a **lead-in** edge **comes back to the join** when you let go — that is normal with ripple on:
+     the right clip keeps its place, its waveform slides (earlier audio appears at its start when you
+     lengthen), and everything after it moves. For a lead-in the total and the waveform are the only
+     signs.
+   - **Total unchanged** = the trim did not register (Snap still lit, you grabbed the square or a
+     fade dot, or you moved under 2 px) — check the magnet is dark and drag again from the lower
+     half. **Total moved more than you meant, or the wrong way** = Ctrl+Z (Undo) and drag again.
+6. Listen across the join, adjust, then **Zoom to fit** (Shift+Z, the last toolbar button) to see the
+   whole Act and go to the next join.
 
-Listen, adjust, Undo (Ctrl+Z) works. **Only drag edges** in this project: no splits, deletes or
-Transcript edits (a Transcript delete is not a learning sample until you trim it; a split or delete
-at a join drops what you did there). Joins you leave alone teach nothing; it needs at least 10
-trimmed tails and 10 trimmed lead-ins before it changes a knob. The 0369→0370 and 0370→0371 clip
-changes are not joins.
+(Each registered trim also writes a tag on that clip edge in the station's `project.json` —
+`"origin": {"by": …, "op": "trim", "edges": {"end": "trim"}}` — which is what the learner reads; you
+do not need to look.)
 
-The 33 joins on the station (timeline time of the join · last word | next word):
+**Only drag edges** in this project: no splits, deletes or Transcript edits (a Transcript delete is
+not a learning sample until you trim it; a split or delete at a join drops what you did there).
+Joins you leave alone teach nothing; it needs at least 10 trimmed tails and 10 trimmed lead-ins
+before it changes a knob.
+
+The 33 joins on the station (timeline time of the join · last word | next word). The **at** column
+is seconds with hundredths (M:SS.hh); the toolbar clock shows MM:SS.FF in frames — e.g. join 2 at
+0:10.25 reads `00:10.15` on the clock (0.25 s = frame 15):
 
 | # | at | clip | words | # | at | clip | words |
 |---|---|---|---|---|---|---|---|
@@ -99,7 +121,7 @@ Press Escape / click an empty part of the timeline so nothing is selected → **
 is ready, open the **Assistant** tab.
 
 Do **not** type in the Assistant chat in this project and do **not** change the AI Assistant
-"Provider" dropdown: the project is set to a provider id that does not exist (`b4-no-model`), so
+"Provider" dropdown (it shows "App default (active provider)" — display only, leave it): the project is set to a provider id that does not exist (`b4-no-model`), so
 the button makes no model call and the card's summary reads "(numbers only — no summary model was
 available)". That is expected.
 

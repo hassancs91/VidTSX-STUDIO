@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: FIX round 2 (verifier round 2 FAIL: HASAN-STEP.md trim check wrong for lead-ins — see Next step) — was: DONE up to Hasan's step (fix round 1) — builder #9, 2026-10-22: HASAN-STEP.md Snap off + zoom; per-knob gate on |fitted − current|; card wording; one join counted once; gates green (full vitest 457 / 3866, types 26/10). One residual risk for the orchestrator under Open problems ("Fix round 1 — residual"). — was: FIX (verifier round 1 FAIL) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
+status: DONE up to Hasan's step (fix round 2) — builder #10, 2026-10-22: HASAN-STEP.md §2 = Snap off FIRST, then per join playhead → Zoom in 4× → read the total → drag from the clip's LOWER half (the "Add transition" square and the fade dots do not trim) → the toolbar total is the sign for both edges (a lead-in edge comes back to the join — normal); live with real mouse drags on B2-root (8 rows + the misses, see Verified); card shows the stats sentence once; Status.md / TESTING §18.10 carry pass rule (a) + the per-knob gate; gates green (full vitest 457 / 3866 first run, types 26/10). — was: FIX round 2 (verifier round 2 FAIL: HASAN-STEP.md trim check wrong for lead-ins) — was: DONE up to Hasan's step (fix round 1) — builder #9, 2026-10-22: HASAN-STEP.md Snap off + zoom; per-knob gate on |fitted − current|; card wording; one join counted once; gates green (full vitest 457 / 3866, types 26/10). One residual risk for the orchestrator under Open problems ("Fix round 1 — residual"). — was: FIX (verifier round 1 FAIL) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -419,7 +419,79 @@ REAL v3 waveforms and transcripts read from `B2-root\projects\video-14-raw\cache
   knobs → `learnCutKnobs`. Output `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\jitter-station.json` (new gate) and
   `jitter-station.old-gate.json` (the same run with HEAD's `cut-learn.ts`, restored after).
 
+**Fix round 2 (builder #10, 2026-10-22; code + docs in one commit, see LOG.md).**
+
+- HASAN-STEP.md §2 rewritten (§1/§3/§4 numbering kept): **Snap OFF first, before anything is clicked in the
+  timeline** (why: the 8 px pull to the neighbour edge AND to the playhead, which stands on the nearest frame); then a
+  numbered per-join routine — playhead on the join (ruler click), **Zoom in 4×** (320 px/s; a 5th click = 640 px/s
+  can put the join at the right edge of the timeline → drag the scrollbar under the tracks), **read the total**
+  (`/ MM:SS.FF`, frames, 1 frame ≈ 17 ms), **drag from the clip's LOWER half** (the mid-height 12 px "Add transition"
+  square `data-join-for` — `TransitionJoins.tsx:73-95`, `onPointerDown` stops propagation — and the 9 px top-corner
+  "Fade in"/"Fade out" dots do not trim), **the total is the sign for both edges** (± the trim, 30–50 ms = 2–3
+  frames; a tail edge stays where dropped; a lead-in edge comes back to the join with ripple on — normal,
+  `ripple-ops.ts:266-279`; total unchanged = not registered (Snap lit, square/fade dot grabbed, < 2 px —
+  `useClipDrag.ts:216-222`) → drag again; moved too much → Ctrl+Z), then Shift+Z. The join table says its times are
+  seconds with hundredths while the clock is MM:SS.FF in frames (join 2 at 0:10.25 = clock `00:10.15`, seen live);
+  the Provider dropdown's "App default (active provider)" is display only; time 25–30 min everywhere (the routine sums
+  to ≈ 21–25 min of joins).
+- Card (`src/features/studio/components/PresetUpdateCard.tsx:66-71`): the stats sentence renders only when it differs
+  from the summary (`statsSummary !== summary`; with no summary model `learn-from-project.ts:125-127` sets
+  summary = the stats sentence) — shown once; hook `[data-preset-update-stats]`.
+- Status.md B4 row: the per-knob gate (≥ 10 edges AND |fitted − current| > 30 ms / > 1 dB) replaces the stale median-gate
+  text (:22, :33); the fix-1 trim check marked wrong; the EXIT bullet carries pass rule (a) + the new routine; a fix
+  round 2 bullet (live drag table, verifier round 2's jitter numbers). TESTING §18.10: the exit item rewritten (rule (a),
+  the gate, the total cue, 25–30 min); the negatives' note text = the post-fix-1 wording; fix round 1's trim check marked
+  wrong; a fix round 2 item.
+- Kit (gitignored): `.vidtsx-temp/end-to-end/B4/fix2-prep.mjs` (B2-root V1 = the station's 36 start clips, read
+  read-only from B1-verify-root; backup `…\vidtsx-e2e\B4\backup\B2-root-project.before-fix2.json`, 66,636 B),
+  `fix2-launch.sh` (CDP 9301, B2 profile, log `…\B4\app-fix2.log`), `fix2-drag.mjs` (`open` · `state` · `snap` ·
+  `ruler <s>` · `zoomin <n>` · `fit` · `drag <clipId> <start|end> <ms> <tag>` — real `Input.dispatchMouseEvent`
+  press/move/release; rows → `…\vidtsx-e2e\B4\fix2-drags.json`).
+
 ## Verified (exact commands + outputs)
+
+Fix round 2 (C: 19.28 GB / D: 33.37 GB free before launch; no electron.exe and no listener on 5173 / 9222 / 9301 /
+9311 / 3200 before; Hasan's station NOT touched — only its `project.json` READ by `fix2-prep.mjs`):
+
+- `node fix2-prep.mjs` → `backup …B2-root-project.before-fix2.json 66636` · `settings {"width":1920,"height":1080,
+  "fps":60,"agent":{"providerId":"b4-no-model"},"presetId":"b4-start-old-tight"}` · `tracks v1:36,a1:0 proposals 0
+  end 106.787`.
+- `bash fix2-launch.sh` (background) → `node fix2-drag.mjs open` → root `C:/Users/hasan/AppData/Local/vidtsx-e2e/B2-root`,
+  ripple `[true,true]`, `{"snapOn":true,"pps":20,"clock":"00:00.00","total":"/ 01:46.47"}`, disk V1 36, end 106.787
+  (still `stills\b4-fix2-00-open.png`).
+- Following the NEW HASAN-STEP.md: `snap` → `snapOn:false` (Snap off FIRST) → `ruler 10.25` → clock `00:10.15`
+  (= 10.25 s; the join 0369_02 | 0369_03 at 10.245) → `zoomin 4` → `pps 320`, the join at x 356 of a ~1185 px
+  viewport (`b4-fix2-01-zoom320.png`) → `zoomin 1` → `pps 640`, the join at x ≈ 1186 = the RIGHT EDGE (the driver's
+  `scrollIntoView` brought it back; Hasan: the scrollbar).
+- Real-mouse drags (`node fix2-drag.mjs drag …`; `fix2-drags.json`; stills `stills\b4-fix2-<tag>.png`), Snap off unless
+  said; "edge x" = the dragged handle's CSS x before → after; disk = B2-root `project.json`:
+
+  | # | edge (clip) | drag | px/s | total before → after | edge x | disk edge | tag after |
+  |---|---|---|---|---|---|---|---|
+  | 1 | lead-in (0369_03 start) | −40 ms (−13 px), lengthen | 320 | `/ 01:46.47` → `/ 01:46.50` | 356 → 356 (back at the join) | sourceIn 20.450 → 20.409 (−41 ms) | `edges.start: 'trim'`, `op: 'trim'` |
+  | 2 | lead-in (0369_03 start) | +40 ms (+13 px), shorten | 320 | `/ 01:46.50` → `/ 01:46.47` | 356 → 356 | sourceIn 20.409 → 20.450 (+41) | kept |
+  | 3 | tail (0369_02 end) | +50 ms (+32 px), lengthen | 640 | `/ 01:46.47` → `/ 01:46.50` | 352.8 → 384.8 (stays where dropped) | end 10.245 → 10.295 (+50) | `edges.end: 'trim'` |
+  | 4 | tail (0369_02 end) | −30 ms (−19 px), shorten | 640 | `/ 01:46.50` → `/ 01:46.48` | 384.8 → 365.8 | end 10.295 → 10.265 (−30) | kept |
+  | 5 | lead-in (0369_03 start) | −40 ms (−26 px), lengthen | 640 | `/ 01:46.48` → `/ 01:46.51` | 367.4 → 367.4 | sourceIn 20.450 → 20.409 (−41) | kept |
+  | 6 | lead-in (0369_03 start) | +40 ms (+26 px), shorten | 640 | `/ 01:46.51` → `/ 01:46.48` | 367.4 → 367.4 | sourceIn 20.409 → 20.450 (+41) | kept |
+  | 7 | **failed on purpose:** tail (0369_03 end), **Snap ON**, playhead away (10.25 s, the edge at 13.842) | +6 ms (+4 px) | 640 | `/ 01:46.48` → `/ 01:46.48` (**unchanged = the doc's "not registered"**) | 1186.3 → 1186.3 | end 13.842 → 13.842 | no `edges.end` (only the start tag from rows 1–2/5–6) |
+  | 8 | tail (0369_03 end), Snap ON, ruler at 13.822 (clock `00:13.49`; the join had moved to 13.842 by row 4's ripple, so the playhead was 16 px off) | +8 ms (+5 px) | 640 | unchanged | 681.5 → 681.5 | unchanged | none — snapped back to the neighbour; the verifier's Snap-to-playhead case (−4.7 ms) was NOT re-created here |
+
+  Grabs that did NOT trim (recorded in `fix2-drags.json` before the routine above; each showed total unchanged): 2 at
+  the handle's mid-height — the pointer log (`pointerdown` capture on `window`) and `elementFromPoint` = `<button
+  data-join-for="clip_b4st0369_02" title="Add transition">` (12 × 12 px, z-20, `top: 50%`); 1 at 640 px/s mid-height
+  on the square again; 2 at the end handle's top (y = top + 8) → target `div[title="Fade out"]` (9 px dot,
+  `top-[1px]`, z-10); and 2 lead-in grabs at y = top + 8 at 320 px/s whose target was not logged (the same point
+  then trimmed in rows 1–2's runs — not explained; the total cue catches it). From the lower half (y = top + 38 of
+  48.4 px): 4/4 registered (rows 3–6).
+- App stopped by `--remote-debugging-port=9301` / the B2 profile path / `fix2-launch.sh` command lines (13 processes)
+  → `left: 0`; no listener on 5173 / 9301.
+- `npm run check:types` (log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\check-types-fix2.log`) →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Full `npx vitest run` (no exclusion: C: 19 GB; app stopped; log
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\vitest-full-fix2-run1.log`) → **run 1 green, COUNTED: `Test Files 457
+  passed | 5 skipped (462)` · `Tests 3866 passed | 34 skipped (3900)`, 51.88 s, exit 0.** (No new test: the card had
+  none — step 4's rule; the change is a render condition.)
 
 Fix round 1 (C: 19.1–19.5 GB / D: 5.1–5.3 GB free; no electron.exe running; no app launched; station not touched):
 
@@ -637,6 +709,12 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
+**None for a builder — fix round 2 is DONE.** The orchestrator re-verifies (verifier round 3 — on `B2-verify-root` +
+`profiles\B2-verify\profile`, never Hasan's station) or marks B4 `WAITING-HASAN`; Hasan's step = the updated
+`docs/studio/end-to-end/B4/HASAN-STEP.md` (~25–30 min). Note for a verifier driving drags by CDP: grab the handle in
+its LOWER half (y ≈ top + 38 of 48 px) — mid-height is the "Add transition" square, the top corners the fade dots.
+
+(Fix round 2 brief, kept — DONE by builder #10:)
 **FIX round 2 (orchestrator, 2026-10-22, after verifier round 2's FAIL — docs only; a THIRD FAIL
 stops the run, so verify every sentence against the real UI before handing back):**
 1. **HASAN-STEP.md:58-61 "Check each trim took" is wrong for lead-ins** (the FAIL). With ripple on
@@ -716,6 +794,17 @@ re-measured offline through the real handler (the `negatives.b4.test.ts` pattern
 
 ## Open problems
 
+- **Fix round 2 — findings (no ruling needed; for the orchestrator / a verifier):** (1) the timeline's join square
+  ("Add transition", 12 px at mid-height, `TransitionJoins.tsx`) and the clips' top-corner fade dots sit ON the trim
+  handles — a grab there does nothing to the edge; HASAN-STEP.md now says "lower half" (not a product fix — a
+  follow-up could inset the square or raise the handles above it). (2) The 5th Zoom-in click (320 → 640 px/s) put the
+  join at the viewport's right edge (x ≈ 1186 of ~1185 CSS px, window as launched) — the doc recommends 4 clicks and
+  says to drag the scrollbar after a 5th. (3) Two lead-in grabs at the handle's upper part (y = top + 8) at 320 px/s did
+  not trim and their target was not logged; the same point trimmed twice right after — unexplained; the total cue
+  catches it. (4) The verifier's "Snap on + playhead on the join → −4.7 ms trim" was NOT re-created (row 8's playhead
+  was 16 px off the moved join); the doc orders Snap off before the playhead as the brief asked. Still open from
+  earlier rounds (not in any fix brief): `apply-cut-proposal.ts:174` tag drop, the clamped-speed end tag, the style
+  edge at removed words.
 - **Verifier round 2 — FAIL (2026-10-22), one deliverable:** HASAN-STEP.md:58-61's new "Check each
   trim took" gives the wrong signal for every lead-in trim (ripple keeps the edge at the join; the
   doc says that means "did not register — drag again", compounding changes). Secondary:
@@ -963,6 +1052,11 @@ Step 6 notes (no ruling needed; for step 7's STATUS row):
   new tests, HASAN-STEP.md Snap + zoom, `jitter.b4.test.ts` + its two JSONs, gates (457 / 3866, 26/10), Status.md +
   TESTING §18.10. Do not re-run the old-gate comparison (it swaps `cut-learn.ts` in the working tree). The station was
   NOT touched (no launch, no reset).
+- Fix round 2 is DONE: HASAN-STEP.md §2 routine (Snap first, 4× zoom, total as the sign, lower-half grab), the card's
+  stats-once condition, Status.md / TESTING §18.10 rule (a) + gate wording, the live real-mouse drag table on B2-root
+  (`fix2-drag.mjs`, `fix2-drags.json`, stills `b4-fix2-*.png`), gates (457 / 3866 first run, 26/10). B2-root's
+  `video-14-raw` now holds the station's 36 clips with the rows' trims (0369_02 end +20 ms net, 0369_03 start tagged
+  at its original second) — scratch; `fix2-prep.mjs` re-lays the start clips. The station was only READ.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -1003,3 +1097,9 @@ Step 6 notes (no ruling needed; for step 7's STATUS row):
   wording; drag + trim at one join = one join; 3 new tests (the jitter one fails on the old gate); full vitest run 2
   green (457 / 3866), types 26/10; residual (0.13 / 0.14 fits not proposed from 0.11) left to the orchestrator; no app
   launch, station untouched.
+- 2026-10-22 · builder #10 · ~55 calls · fix round 2: HASAN-STEP.md §2 rewritten (Snap off first; per-join routine;
+  the toolbar total as the sign for both edges — lead-in edges come back to the join; grab the lower half — the "Add
+  transition" square and fade dots sit on the handles, found live); card stats sentence once; Status.md / TESTING
+  §18.10 rule (a) + per-knob gate + verifier round 2's jitter numbers; live real-mouse drags on B2-root (CDP 9301):
+  lead-in ±41 ms at 320 and 640 px/s, tail +50 / −30 ms at 640, a failed Snap-on trim — each read by the total, disk
+  and tag; full vitest 457 / 3866 first run, types 26/10; station only read.

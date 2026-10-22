@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix round 1 in (the EXIT waits for Hasan)
+## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix rounds 1–2 in (the EXIT waits for Hasan)
 
 - **What:** part B4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `92d846f` → `c5a6f4c` →
   `2865675` → `f39a220` → `a734ff5`), the plan's §2 T1 "The learning signal". **The signal** (optional fields only —
@@ -19,8 +19,8 @@
   delete / ripple / restore drop the tags of edges they rewrite; undo restores the untagged clip. **The measurement**
   (pure, `src/shared/studio/cut-learn*.ts`): at every touched edge, tail = edge − last word end and its level over
   the floor (the snapper's 50 ms window), lead-in = first word start − edge, each beside the RESOLVED style's own
-  edge at that join (B2's resolver); Q4 gate per side — ≥ 10 edges AND the user's median offset from the style's own
-  edges > 30 ms (tail: or > 1 dB). **The learn path:** `StudioPresetKnobKey` widens to `cut.head` / `cut.minTail` /
+  edge at that join (B2's resolver); Q4 gate per knob (since fix round 1) — ≥ 10 edges on its side AND |fitted −
+  current| > 30 ms (margin: > 1 dB). **The learn path:** `StudioPresetKnobKey` widens to `cut.head` / `cut.minTail` /
   `cut.maxTail` / `cut.margin`; `propose_preset_update` and Inspector → PROJECT → "Learn from this video" (same
   code, every number computed in code) put the knob rows + cut lines + a collapsible per-join list on the learn card
   (NEW `CutLearnBlock.tsx`); accept writes `style.cut` through `applyPresetLearning` (base kept; a value equal to
@@ -30,8 +30,9 @@
   fitted tight (minTail 0.08, margin 12) the tails it keeps run ~0.14–0.22 s and land a few dB UNDER floor + 12 (its
   20 ms walk stops at the first window at or below the line), so a raw median would propose minTail ≈ 0.2 s (the
   stand-in's median tail is 0.22 s — far outside 0.08 ± 0.03) and a margin read off landings that sit at or under
-  the line. The medians are the GATE; the values come from an L1 fit through the snapper's own
-  rules (it equals the median where the rule is a constant, as for the lead-in). The card shows both: "you kept a
+  the line. The values come from an L1 fit through the snapper's own rules (it equals the median where the rule is a
+  constant, as for the lead-in); the gate is on the fit (|fitted − current|, per knob), the medians are shown, not gated
+  on. The card shows both: "you kept a
   median 0.22 s after the last word, cut 11.4 dB over the floor (the style: 0.4 s, 6 dB); minTail 0.08 s and margin
   12 dB reproduce your edges". **`maxTail` is only ever raised** (ruling 8: identifiable only up to the longest tail
   kept; the card says "at least N s"; a test fails without the guard). **`softGap` is not learned** (not one of
@@ -66,8 +67,8 @@
   off** before the first trim (the magnet "Snap to edges and playhead" is ON at every editor open,
   `TimelinePanel.tsx:95`; it pulls an edge to any clip edge within 8 px, and the neighbour's edge sits where the dragged
   edge started, so a small trim snapped back — no edit, no tag) and to **zoom in** at each join (playhead on the join,
-  Zoom in 4–5× from the default 20 px/s: 320 px/s = 30 ms ≈ 10 px, 640 px/s ≈ 19 px), how to see a trim took (the edge
-  stays, ripple shifts the rest) or not (it springs back), and that a missing `Cut lead-in` row means the fit sat ≤ 30
+  Zoom in 4–5× from the default 20 px/s: 320 px/s = 30 ms ≈ 10 px, 640 px/s ≈ 19 px), how to see a trim took (that
+  check was WRONG for lead-ins — replaced in fix round 2, below), and that a missing `Cut lead-in` row means the fit sat ≤ 30
   ms from 0.11 (read "head X s" off the Lead-in line); time now ~25–30 min. (2) **The head gate (orchestrator
   decision):** each knob is proposed when ≥ 10 edges on its side AND **|fitted − current| > 30 ms (> 1 dB for
   margin)** — no longer on the median offset from the style's own edges, which joins where the onset rule gives both
@@ -84,15 +85,41 @@
   measured"; PRESET.md: "no knob moved past the learning thresholds"); a join whose head was dragged on the proposal
   and whose tail was trimmed counts once (`collectCutLearnJoins` merges the drag into the trim join). Station
   untouched (data, not code).
+- **FIX round 2 (after the B4 verifier's round-2 FAIL, 2026-10-22; docs + one card line):** the round-1 "check each
+  trim took" was WRONG for lead-ins — with ripple on, a lead-in trim slides the clip back so its edge returns to the
+  join (`ripple-ops.ts:266-279`); only the waveform and the timeline total move. **HASAN-STEP.md §2 now:** Snap off
+  FIRST (before the playhead is placed — with Snap on a small drag can snap to the playhead, which stands on the
+  nearest frame, and commit a few-ms trim); per join: ruler click → Zoom in 4× (320 px/s; a 5th click can put the join
+  at the viewport's right edge) → read the toolbar total `/ MM:SS.FF` (frames, 60/s) → drag from the clip's **lower
+  half** (found live: the 12 px "Add transition" square sits on every join at mid-height and the 9 px "Fade in/out"
+  dots in the top corners — grabbing them does not trim) → **the total moves by about the trim for BOTH edges** (30–50
+  ms = 2–3 frames; tail edge stays where dropped, lead-in edge comes back to the join — normal); unchanged = drag
+  again; too much = Ctrl+Z. The join table's times are seconds while the clock shows frames (0:10.25 = `00:10.15`).
+  **Live, real mouse (CDP `Input.dispatchMouseEvent`) on the scratch B2-root laid out as the station (36 clips), Snap
+  off:** lead-in −41 / +41 ms at 320 px/s → total `01:46.47 → 01:46.50 → 01:46.47`, edge x 356 → 356 (back at the
+  join), `sourceIn` 20.450 → 20.409 → 20.450, tag `edges.start: 'trim'`; tail +50 / −30 ms at 640 px/s → `01:46.47 →
+  01:46.50 → 01:46.48`, edge x 352.8 → 384.8 → 365.8, end 10.245 → 10.295 → 10.265, tag `edges.end: 'trim'`; lead-in
+  ∓41 ms at 640 → `01:46.48 → 01:46.51 → 01:46.48`; **a failed trim** (Snap on, playhead away, 4 px) → total
+  unchanged, disk unchanged, no tag — the doc's cue. Grabs on the square / a fade dot changed nothing (pointer target
+  logged). The card shows the stats sentence once when there is no summary model (`PresetUpdateCard.tsx:66-71`).
+  Verifier round 2's numbers, recorded: rule (a) on the station's real 33 joins with seeded jitter **40/40 (±20 ms),
+  40/40 (±30), 39/40 (±40 — the miss is minTail fitting 0.04)**; own-style false positives **0/40 at ±20 / ±30, 5/40
+  at ±40 (minTail only)**. Gates: full `npx vitest run` (no exclusion, C: 19 GB) **first run green: 457 files / 3866
+  tests passed, 5 / 34 skipped, 51.9 s** (`…\vidtsx-e2e\B4\vitest-full-fix2-run1.log`); types 26/10. Hasan's station
+  was only read (its 36 start clips copied into the scratch B2-root's project).
 - **THE EXIT WAITS FOR HASAN** (the §3 row: "after Hasan re-does his 21 Act-1 joins on M2, the card proposes `head`,
   `minTail`, `margin` within ±30 ms / ±1 dB of the fitted tight"). What he must do — **`docs/studio/end-to-end/B4/HASAN-STEP.md`**
   (~25–30 min): from `D:\repos\VidTSX-STUDIO` run `powershell -ExecutionPolicy Bypass -File
   docs\studio\end-to-end\B4\hasan-station.ps1` → Studio → `video-14-raw` (V1 = 36 clips, 01:46.47, ripple buttons
-  lit) → **Snap off, zoom in at each join** → trim each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no
-  splits, deletes or Transcript edits → nothing selected → Inspector → PROJECT → **Learn from this video** (not the
-  Assistant chat; leave the Provider dropdown alone) → Assistant tab → pass = **`Cut lead-in` 0.12–0.18, `Cut tail
-  min` 0.05–0.11, `Cut margin` 11–13**; screenshot the card or note the three numbers + "learned from N joins", then
-  tell Claude. `-Reset` restarts the station (saving his trims first under `…\vidtsx-e2e\B4\station-runs\`).
+  lit) → **Snap off FIRST, then per join: playhead on it, zoom in 4×, drag an edge from the clip's lower half, check
+  the toolbar total moved by about the trim** (a lead-in edge comes back to the join with ripple on — normal) → trim
+  each sentence join the way he wants it (about 21 of the 33 listed) by dragging clip edges only — no splits, deletes or
+  Transcript edits → nothing selected → Inspector → PROJECT → **Learn from this video** (not the Assistant chat; leave
+  the Provider dropdown alone) → Assistant tab → **pass rule (a), per knob (orchestrator, 2026-10-22): the row is
+  proposed with its new value in range, OR the row is missing and the card's fitted value for that knob is in range**
+  — `Cut lead-in` / head 0.12–0.18, `Cut tail min` / minTail 0.05–0.11, `Cut margin` / margin 11–13; the record says
+  which case each knob was (a fit inside the range but ≤ 30 ms from the start value is Q4's threshold working as
+  specified). Screenshot the card or note the three numbers + "learned from N joins", then tell Claude. `-Reset` restarts the station (saving his trims first under `…\vidtsx-e2e\B4\station-runs\`).
 - **Gates (fix round 1, C: 19 GB free → no exclusion):** `npx vitest run` run 1 red only on the NEW 40-seed jitter
   test timing out at 5 s under the suite's load (my own test; given a 60 s timeout, 11/11 alone) → **run 2 counted:
   457 files / 3866 tests passed, 5 / 34 skipped, 43.1 s** (`…\vidtsx-e2e\B4\vitest-full-fix1-run*.log`); types 26/10.
