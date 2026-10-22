@@ -1,7 +1,7 @@
 # A6 — The user-facing A/V check (T8) on the queue row + report JSON
-status: FIX — verifier round 1 FAILED (2026-10-22): frame labels off by one camera frame on ~1/3 of seeks → wrong verdicts near ±25 ms; see Open problems "VERIFIER ROUND 1"
-files IN SYNC +0.2 ms 16/16 from their queue rows; +100 ms FAIL +99.4 ms and video-3-frames-late FAIL −50.5 ms
-through the IPC); gates green; STATUS row + TESTING §18.6 written. Awaiting the verifier.
+status: FIX — round-1 items 1 + 2 FIXED and re-measured out of the app (commit `717bc74`, 11 files, every verdict
+= the truth, measured = true − 2.6 ms); LEFT: re-drive the click-through with the fixed main code, then CORRECT the
+STATUS row + TESTING §18.6 in place (step 5 below). The round-1 numbers in STATUS/TESTING (+0.2 ms, +99.4, −50.5) are WRONG.
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A5's drivers (`.vidtsx-temp/end-to-end/A5/drive.mjs`,
@@ -277,7 +277,77 @@ Step 3b — the CDP click-through + part close (agent 5, docs commit `a7fbb1b`; 
 - App stopped (only the port-9261 tree); gates run with no electron running. STATUS.md row (top) and
   TESTING.md `### 18.6 A6` written.
 
+Step 4 — FIX round 1 (agent 6, commit `717bc74` `fix(studio): A6 — sync check labels camera frames by their own
+timestamps; ±2 s audio search`). No app run (out-of-app live tests only).
+
+- **Item 1 (frame labels).** `sync-media.ts:96-134` `grabGrayFrames` now runs `-fps_mode passthrough` (no
+  constant-rate fill → no repeated first frame) and `-stats_enc_pre pipe:2 -stats_enc_pre_fmt 'syncframe {ni} {tbi} {ptsi}'`
+  (works with `-v error`; the bundled n7.1 has NO framecrc/framemd5/hash muxer and `-v error` hides `-debug_ts`);
+  returns `{ frames, times }`, each time = `-ss` + ptsi·tbi (file time, the audio side's `-ss` convention); a frame
+  without a stats line THROWS ("Could not read the frame times …") instead of being guessed.
+  `sync-measure.ts` `SYNC_FRAME_STATS_FMT`, `parseFrameStats(text, seekSec)` (:217-236), `exactFrameSeek` doc now says
+  it only AIMS. `export-sync-check.ts` labels the best match by `pictures.times[best.index].sec` (:180-186; no more
+  `first + index`), `video.frame = round(sec·fps)`, new `video.exportSec` (the export frame's own time; ≤ 0.3 ms from
+  `t` on every file). Report `version: 2`. Proof captured live (bundled ffmpeg, master, seek `exactFrameSeek(5415)` =
+  90.331908): cfr → stats `ni 165,165,166,167` (= the repeat, `dup=1` in the stats line); passthrough → `165..168`.
+- **Item 2 (large offsets).** `SYNC_AUDIO_SEARCH_SEC` 0.5 → **2** (`sync-measure.ts:19-24`); the xcorr is now an FFT
+  (`sync-xcorr.ts`, new, 74 lines, `crossCorrelate`), `locateAudio` keeps its energy normalisation + parabolic peak
+  and skips windows ~90 dB below the needle. The 96-frame camera window is centred between the audio's and the
+  timeline's time (`sourceFrameWindow((audio.sec + probe.sourceSec)/2)`, `export-sync-check.ts:152`) → a picture up
+  to 1.6 s from its sound stays in the window. `syncVerdict` takes `misses {silent, lowAudio, lowVideo}` +
+  `audioSearchSec` (`sync-verdict.ts:40-68`): "Not enough to judge: only 0 of 16 probes could be measured (3 needed):
+  16 did not find the export's sound in the camera file's sound within ±2 s of where the timeline puts it." /
+  "… N found the sound but not the camera picture near it; N were silent."
+- Tests: `sync-measure.test.ts` +4 (19: stats parser on the captured passthrough lines; **regression: a window whose
+  first frame repeats** — stats `165,165,166,167` → labels 5415,5415,5416,5417 and a match at index 2 = 5416 where
+  `first + index` said 5417; FFT = direct sum at every lag; locateAudio finds a window 1.9 s off-centre in a ±2 s
+  haystack), `sync-verdict.test.ts` +1 (8: the side named). Live file +8 (12): the real read at seek 5415 → frames
+  5415..5418, frame 0 ≠ frame 1; the verifier's 7 files judged against the truth (verdict = truth, |measured − truth| < 6 ms).
+- The verifier's files copied to `.vidtsx-temp/end-to-end/A6/neg/` (7 × ~17 MB, the 2f file 43.6 MB); round-1 reports
+  kept in `.vidtsx-temp/end-to-end/A6/reports/round1/`; round-2 reports in `.vidtsx-temp/end-to-end/A6/reports/*.sync.json`;
+  table script `.vidtsx-temp/end-to-end/A6/reports/table.mjs` → `table-round2.txt`.
+
+**Round-2 table (out of the app, 2026-10-22 08:58–09:07, every file 16/16 confident, mask on, 48.7–52.5 s each):**
+
+| file | true (ms) | measured | measured − true | spread | drift / span | verdict | truth |
+|---|---|---|---|---|---|---|---|
+| A5 Standard `…T21-30-54.mp4` | 0 | −2.6 | −2.6 | 3.4 | +3.5 / 10.1 s | pass | pass |
+| A5 Fastest `…T21-10-24.mp4` | 0 | −2.6 | −2.6 | 3.4 | +3.5 / 10.1 s | pass | pass |
+| std-audio-late-10ms | +10 | +7.4 | −2.6 | 3.4 | +3.5 | pass | pass |
+| std-audio-early-27ms | −27 | −29.6 | −2.6 | 3.4 | +3.5 | **fail** (round 1: PASS −18.9) | fail |
+| std-audio-early-30ms | −30 | −32.6 | −2.6 | 3.4 | +3.5 | fail | fail |
+| std-audio-early-33ms | −33 | −35.6 | −2.6 | 3.4 | +3.5 | **fail** (round 1: PASS −23.2) | fail |
+| std-audio-early-80ms | −80 | −82.6 | −2.6 | 3.4 | +3.5 | fail | fail |
+| std-audio-early-600ms | −600 | **−602.9** | −2.9 | 3.4 | +3.5 | **fail** (round 1: inconclusive 0/16) | fail |
+| std-video-late-2f | −33.3 | −35.9 | −2.6 | 3.1 | −0.5 | fail | fail |
+| standard-video-plus-3-frames (builder) | −50 | −52.6 | −2.6 | 3.1 | −0.9 | fail | fail |
+| standard-audio-plus-100ms (builder) | +100 | +96.8 | −3.2 | 3.4 | +3.5 | fail | fail |
+
+= the verifier's predicted "corrected" column exactly (−35.6, −29.6, +7.4, −32.6, −82.6, −35.9, −2.6).
+**The constant −2.6 ms, explained** (`table-round2.txt`, A5 Standard per probe): audio − timeline = **0.0 ± 0.1 ms on
+all 16 probes** (the sound is exact); picture − timeline = the camera-frame quantization of a 59.94 fps camera shown
+in a 60 fps export: on 14 probes it equals (nearest camera frame − timeline time) to ±0.1 ms, on 2 (t 15.18, 19.22)
+it is the next frame (+16.7 ms); the median of those 16 values is −2.6 ms. Nearest-frame quantization averages 0
+over all phases, but the 59.94-vs-60 beat moves the phase only 0.06 frame/s, so 16 probes over 10.1 s sample ~0.6 of
+one cycle and their median lands at −2.6 ms. So −2.6 ms is a real property of the A5 export at these 16 times (its
+pictures are whole camera frames, on median 2.6 ms before their sound), not a measurement error, and every file
+derived from it inherits it. (The +100 ms file's −3.2 and the −600 ms file's −2.9:
+the ffmpeg `-itsoffset` stream copies are not exactly ±100/600 ms — AAC priming; ffprobe audio start 0.078.)
+Near the bar this means the check reads the export's true picture-vs-sound offset, which here is the applied shift
+− 2.6 ms; e.g. a +26 ms audio shift of this file reads +23.4 → pass, and that IS within 25 ms of its pictures.
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-22 08:57 (agent 6): `npx vitest run src/main/services/studio/export-engines/sync-measure.test.ts
+  src/shared/studio/sync-verdict.test.ts` → `Tests 27 passed (27)`; with `studio-sync-check-handlers.test.ts` and
+  `render-queue/services/sync-check.test.ts` → 41 passed.
+- 2026-10-22 08:57: `VIDTSX_LIVE_SYNC=1 npx vitest run …/export-sync-check.live.test.ts -t "5415"` → `Tests 1 passed | 11 skipped`, 1.4 s.
+- 2026-10-22 08:58–09:07: `VIDTSX_LIVE_SYNC=1 npx vitest run src/main/services/studio/export-engines/export-sync-check.live.test.ts`
+  → `Tests 12 passed (12)`, exit 0 (log `.vidtsx-temp/end-to-end/A6/reports/live-round2.log`); `node table.mjs` → the
+  table above (`table-round2.txt`). Free space before: C: 38 GB, D: 3.2 GB (3.1 GB after the 160 MB `neg/` copy).
+- 2026-10-22 09:10 (no electron running): `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok`
+  · `tsconfig.node.check.json: 10 errors (baseline 10) ok`; `npx vitest run` → `Test Files 436 passed | 5 skipped (441)`
+  · `Tests 3670 passed | 34 skipped (3704)`, 46.4 s (logs `.vidtsx-temp/end-to-end/A6/check-types-fix1.log`, `vitest-fix1.log`).
 
 - 2026-10-22 07:52–07:58 (agent 5, isolated app port 9261): `node drive.mjs check 4e20be8d-d22e-492b-8f1d-73e8fd84ce95
   stills/check-standard.png` → `"verdict": "pass"`, details `Offset +0.2 ms · drift -2.8 ms over 10.1 s · 16 of 16
@@ -379,7 +449,18 @@ Step 3b — the CDP click-through + part close (agent 5, docs commit `a7fbb1b`; 
 
 ## Next step (ONE concrete instruction)
 
-None for builders — A6 is DONE. The verifier re-runs the click-through on its own profile copy
+Step 5 — re-drive and close (BEFORE 2026-10-23 06:44 local, when the sweep removes entry `4650cc99`'s sidecar): with
+no other electron running, launch the isolated app with `.vidtsx-temp/end-to-end/A6/launch.sh` (port 9261, profile
+`A6/profile`, `electron-vite dev` — it rebuilds main with `717bc74`), set the root (`node drive.mjs root`), run
+`node drive.mjs check 4e20be8d-d22e-492b-8f1d-73e8fd84ce95 stills/check-standard-fix1.png` then
+`… check 2f1adadc-1272-43a9-b591-2241c7637d46 stills/check-fastest-fix1.png` (expect IN SYNC −2.6 ms, +3.5 ms / 10.1 s,
+16/16), then `node ipc-check.mjs` on `A6/neg/std-audio-early-27ms.mp4` and `A6/neg/std-audio-early-600ms.mp4` with
+`entry '…\.vidtsx-temp\studio\studio-entry-video-14-4650cc99.tsx'` (expect FAIL −29.6 / −602.9), stop only the
+port-9261 tree, rerun the gates, then CORRECT IN PLACE the STATUS.md A6 row (git path `Status.md`, lines 10-46) and
+TESTING.md §18.6 (:345-359): the new numbers, the bug (repeated first frame, labels `first + index`) and its fix,
+the round-2 table above with the −2.6 ms explanation, item 3's caveat, the inconclusive message now naming the side.
+
+(Superseded, round 1:) None for builders — A6 is DONE. The verifier re-runs the click-through on its own profile copy
 (`A6-verify/`, a fresh port) with `.vidtsx-temp/end-to-end/A6/drive.mjs` + `ipc-check.mjs` (copy them, change the
 port) — before 2026-10-23 06:44 local, when the 24 h sweep removes entry `4650cc99`'s sidecar (after that the
 rows say "can no longer be checked"; use `ipc-check.mjs … project video-14 80 110` instead).
@@ -398,7 +479,14 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 
 ## Open problems
 
-### VERIFIER ROUND 1 — FAIL (2026-10-22) — fix these before anything else
+### VERIFIER ROUND 1 — FAIL (2026-10-22) — items 1 + 2 FIXED in `717bc74` (step 4); item 3 → TESTING §18.6 note in step 5
+
+- **For the verifier (a judgement, not a §4 question):** measured = the export's real picture-vs-sound offset, which
+  for files derived from the A5 Standard is (applied shift − 2.6 ms) — see step 4. A file with audio shifted +26 ms
+  would read +23.4 → pass; a strict "applied shift ≥ 25 ⇒ fail" rule would call that wrong, but the file's pictures
+  really are 23.4 ms (median) from their sound. Removing the render's own frame quantization (compare against the
+  nearest camera frame to the timeline time) would make measured = applied shift, at the cost of verify_sync's
+  semantics; not done. Per-probe quantization is ±8.3 ms (half a 59.94 fps frame); the median over 16 probes narrows it.
 
 1. **Off-by-one camera frame on ~1/3 of seeks (the FAIL).**
    `src/main/services/studio/export-engines/sync-media.ts:102` — `grabGrayFrames` pipes frames
@@ -487,7 +575,9 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
   `.vidtsx-temp/end-to-end/A6/reports/standard-video-plus-3-frames.mp4` and its report — the
   orchestrator's extra measurement is DONE, record it next to the +100 ms case in TESTING §18.6).
 - Step 3b above (the click-through, the IPC runs on the `ipc/` copies, the cancel, the gates, STATUS row,
-  TESTING §18.6). Builders: nothing left; only the verifier re-drives it.
+  TESTING §18.6) — its NUMBERS are superseded by step 4; the UI/IPC behaviour it proved is unchanged.
+- Step 4 (the fix, `717bc74`; the 11-file live re-measure, `reports/live-round2.log`, `table-round2.txt`). Do not
+  re-run the live file unless the measuring code changes again (~9 min).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -503,3 +593,6 @@ find each by its file name `studio-video-14_2026-10-21T21-30-54.mp4` / `…T21-1
 - 2026-10-22 · agent 5 · ~35 · step 3b: CDP click-through on port 9261 (both A5 rows IN SYNC +0.2 ms 16/16;
   +100 ms FAIL +99.4 ms and video-3-frames-late FAIL −50.5 ms via IPC on copies; cancel); gates green (26/10,
   436 files / 3665 tests); STATUS row + TESTING §18.6. Part DONE.
+- 2026-10-22 · agent 6 · ~50 · FIX round 1 (step 4): frames labelled by their own pts (`-stats_enc_pre`) + passthrough,
+  ±2 s FFT audio search, window centred between audio and timeline, inconclusive names the side; 11 files re-measured
+  (all verdicts = truth, measured = true − 2.6 ms, explained); gates green (26/10, 436 files / 3670 tests). Left: step 5.
