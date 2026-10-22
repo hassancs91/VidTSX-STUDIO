@@ -1,5 +1,6 @@
 # B1 — ZCR in the waveform job; snapHead, fricative-aware snapTail, minSkip; the four knobs
-status: IN PROGRESS (step A `2dc5add` + step 1 M2 setup done; next: the cutlib comparison)
+status: IN PROGRESS (step A `2dc5add` + step 1 M2 setup + step 2 cutlib comparison done — exit
+MET on clip 0369; next: step 3 gates + CDP click-through + STATUS/TESTING)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 every "Learned" line) and the **"Track B decisions"** section at the end of
@@ -168,6 +169,49 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   40/330/290). M2 cache on C: = 579 MB.
 - App stopped afterwards (tree of port 9271 only).
 
+**Step 2 — the exit comparison (agent 3, 2026-10-22; scratch only, no `src/` change):**
+- `.vidtsx-temp/end-to-end/B1/cutlib_joins.py` (run `python -I -B`; `sys.dont_write_bytecode`
+  before `import cutlib`; `tools/__pycache__/cutlib.cpython-313.pyc` mtime stayed 2026-10-15
+  19:17:22) — for every clip of `cuts.json`: `active_keeps`, `cuts`, `load_words` (only
+  `work/transcripts/` exists, no `transcripts-u35`), `styles.tight`, `cutlib.plan_clip` → segs,
+  plus per-atom `tail_for` / `snap_head` and full **waveform traces** at the exact points the
+  snappers read (tail `[o, rms50, zcr30]`, head `[t, rms20, zcr20]`). WAVs = the editor's
+  `work/audio/<clip>.wav` (all nine exist, read-only). → `B1/cutlib-joins.json` (1.19 MB, 4.8 s).
+- `.vidtsx-temp/end-to-end/B1/compare.b1.test.ts` (scratch config, gated `B1_COMPARE=1`) — M2's
+  v3 waveform + mapped transcript per asset (word counts asserted equal to cutlib's), Studio's
+  `planClip` with Hasan's fitted tight as a `CutPlanStyle` (all four knobs set), the same keeps +
+  cuts; segments paired by **overlap components** (a merge on one side only = a "merge flip");
+  each atom's tail/head walk replayed at cutlib's trace points (first decision divergence,
+  level over floor + zcr on both sides) → `B1/compare-report.json`.
+- `.vidtsx-temp/end-to-end/B1/offset_check.py` (numpy, read-only, prints) — Studio's v3 buckets
+  vs the WAV's 20 ms RMS at lags −80…+80 ms.
+- **Result — clip 1 = `0369` (first clip with keeps; `0366` keeps `[]`): 6 segments both sides,
+  12 joins, deltas start/end (ms) `0/0 · 0/0 · 0/0 · −10/0 · 0/0 · 0/+20` → all within ±20 ms. EXIT
+  MET.** Floors: cutlib −54.473 / Studio −54.457 dB.
+- **All eight clips with keeps:** 177 segments each side (0370 10/11, 0371 24/23 cancel out) →
+  176 overlap components = **352 joins, 348 within ±20 ms (98.9 %)**, histogram `0:306 · ±10:9 · ±20:33 · 40:1 · 60:3`,
+  plus **2 merge flips** (outer joins of both within ±20). 200 atoms: tail differs on 40 (max
+  60 ms), snapped head on 19 (4 over 20 ms, max 150 ms — all four inside segments both sides
+  merged, so no join moved). No soft/punchy flip. Floors within 0.16 dB on every clip.
+- **Alignment / level check:** Studio's v3 buckets equal the WAV's 20 ms RMS **at lag 0** (mean
+  |dB| 0.02–0.03 on 0369/0371/0373/0376; ±1 ms → 0.22–0.25) — the 16 kHz decode of the MP4 is
+  sample-aligned with cutlib's WAVs. At the snappers' own points: 50 ms tail windows |Δ| median
+  0.16 dB, p95 0.62, max 3.06 (2,222 points); 20 ms head windows median 0.49, **p95 11.42, max
+  30.75 dB** (1,686 points; signed mean +1.67 — see Open problems).
+- **Every outlier explained with the waveform (all TAIL knife-edges on the 20 ms grid; each is
+  "first step where the two sides decide differently"; margin 12 dB, fric_zcr 3500, fric_margin 5):**
+  | clip · atom (word end) | Δ join | what the window read (over floor) |
+  |---|---|---|
+  | 0371 · 20 (154.254) | end +40 | o=0.24: both +10.1 dB (fricative band 5–12); ZCR cutlib 3367 / Studio 3537 straddle 3500 → Studio keeps walking |
+  | 0373 · 16 (63.066) | end +60 | o=0.44: cutlib +11.88 / Studio +12.37 dB straddle +12 |
+  | 0373 · 17 (65.148) | end +60 | o=0.38: both +7.5 dB; ZCR 3426 / 3910 straddle 3500 |
+  | 0376 · 26 (151.075) | end +60 | o=0.14: cutlib +11.68 / Studio +12.22 dB straddle +12 |
+  | 0370 · 6 (60.527) — flip | end −20, Studio skips 60.747→60.887 (140 ms) | o=0.22: cutlib +10.94 dB with ZCR **exactly 3500** (≥ → fricative, walks on to 0.24) / Studio +11.8, ZCR 3147 → stops; cutlib's skip is then 60.887−60.767 = 0.11999… < `min_skip` 0.12 in float → merges |
+  | 0371 · 4 (36.136) — flip | tail +60 → Studio merges 36.276→36.407 (131 ms) | o=0.14: cutlib +10.15 / Studio +12.24 dB (window starts 0.8 bucket in) → Studio walks to 0.20 → skip 0.071 < 0.12 → merge |
+  The four large head divergences (absorbed by merges): 0372·4, 0375·28 (level 9.3/12.6 and
+  11.8/12.6 straddle +12), 0375·20 (ZCR 3300/4010 straddle 3500), 0373·51 (cutlib +7.1, Studio
+  +22.9: a 20 ms window 4 ms into a +35 dB bucket — the power-weighted onset smear).
+
 ## Verified (exact commands + outputs)
 
 - `npx vitest run src/shared/studio src/main/services/studio/editorial-cuts.test.ts src/features/studio/services`
@@ -193,27 +237,36 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   in `cache/transcripts/`.
 - Free space: start C: 37.04 GB / D: 3.82 GB → after the profile copy D: 3.42 → after M2 C: 36.47 /
   **D: 2.79 GB** (see Open problems).
-- NOT yet verified: the cutlib comparison (the exit), the CDP click-through, the full gates after
-  step 1 (no `src/` changed in step 1).
+- Step 2 (exit comparison), from the repo root, app not running:
+  `python -I -B .vidtsx-temp/end-to-end/B1/cutlib_joins.py` → `0366: keeps 0 words 27 segs 0` ·
+  `0369: keeps 5 words 44 segs 6 floor -54.473…` · `0370: … segs 10` · `0371: … segs 24` ·
+  `0372: … segs 9` · `0373: keeps 45 words 602 segs 61` · `0374: … segs 5` · `0375: … segs 33` ·
+  `0376: … segs 29` · `wrote …\B1\cutlib-joins.json (4.8s)`; `tools/__pycache__` listing
+  unchanged before/after (cutlib.pyc 2026-10-15 19:17:22).
+  `$env:B1_COMPARE='1'; npx vitest run --config .vidtsx-temp/end-to-end/B1/vitest.b1.config.ts compare`
+  → `Test Files 1 passed (1) · Tests 1 passed (1)`; `compare-report.json` summary
+  `{"joinsTotal":352,"joinsWithin":348,"joinsOutside":4,"mergeFlips":2,"tolMs":20,
+  "tailLevelDiffDb50ms":{"points":2222,"median":0.16,"p95":0.62,"max":3.06,"meanSigned":0.06},
+  "headLevelDiffDb20ms":{"points":1686,"median":0.49,"p95":11.42,"max":30.75,"meanSigned":1.67}}`;
+  per clip maxAbs ms `0369 20 · 0370 20 · 0371 40 · 0372 20 · 0373 60 · 0374 20 · 0375 20 · 0376 60`.
+  `python -I -B .vidtsx-temp/end-to-end/B1/offset_check.py` → `0369: … best lag +0 ms (mean|dB|
+  0.02) … -1:0.25 +0:0.02 +1:0.22` · `0371: best +0 (0.03)` · `0373: best +0 (0.02)` · `0376:
+  best +0 (0.03)`.
+- Free space before step 2: C: 36.44 GB / D: 2.79 GB (step 2 wrote ~1.3 MB to D:).
+- NOT yet verified: the CDP click-through, the full gates after steps 1–2 (no `src/` changed in
+  steps 1–2; the last full run predates the `cut-skip-merge.ts` split inside `2dc5add`).
 
 ## Next step (ONE concrete instruction)
 
-Build the exit comparison (no app needed): (a) `B1/cutlib_joins.py` — run with
-`python -I -B` (and `sys.dont_write_bytecode = True` BEFORE `import cutlib`, else Python writes
-`tools/__pycache__/` INTO the read-only editor repo) — that puts `D:\repos\claude-youtube-editor\tools`
-on `sys.path`, reads `videos/video-14/work/analysis/cuts.json` (keeps + `styles.tight`) and the
-transcripts, calls `cutlib.plan_clip` (:174) per clip with keeps, and writes every join's
-start/end to `.vidtsx-temp/end-to-end/B1/cutlib-joins.json` (first check how `AudioProbe` finds
-its 16 kHz WAV — `work/audio/<clip>.wav`, read-only; if a WAV is missing, extract it with ffmpeg
-into `B1/audio/`, never into the editor repo); (b) `B1/compare.b1.test.ts` under the scratch
-config (`vitest.b1.config.ts`, gated `B1_COMPARE=1`) that reads M2's v3 waveform
-(`cache/waveforms/<assetId>.json`) + transcript (`cache/transcripts/<assetId>.json`) per the clip ↔
-asset table above, runs Studio's `planClip` with Hasan's fitted tight as a `CutPlanStyle` (the
-four new knobs set) on the same keeps, and writes per-join start/end deltas vs
-`cutlib-joins.json` to `B1/compare-report.json`. Exit = every join within ±20 ms on `0369`
-("clip 1" — `0366` has no keeps) and, cheaply, on every clip with keeps; explain each outlier
-with the waveform there. Then gates, CDP click-through (Auto Cut on M2 — put a clip on the
-timeline first; relaunch with `bash launch.sh`), STATUS/TESTING.
+Step 3 — gates + click-through + write-up: with no app running, run the full `npx vitest run`
+(log to `B1/logs/vitest-full-step3.log`) and `npm run check:types`; then (app stopped) back up
+`cache/waveforms/6290a63b-….json` (0369) in M2 and set its `"version":3` to `2`, `bash launch.sh`
+(port 9271, B1/profile), open `video-14-raw`, confirm that file is rewritten as v3 on open (the
+old-cache path, `media-jobs.ts:94-99`), put clip 0369 on the timeline, run Auto Cut (tight) from
+the Transcript section, read the plan's segments from `cache/cut-plans/` (Studio's built-in tight
+— no new knobs reach the UI until B2) and save stills to `B1/stills/`; stop only port 9271's
+tree; then write the STATUS.md row (git: `Status.md`) with step 2's numbers above and the
+TESTING.md `### 18.7 B1` block, commit, set this file DONE and return `status: DONE`.
 
 ## Open problems
 
@@ -224,11 +277,17 @@ timeline first; relaunch with `bash launch.sh`), STATUS/TESTING.
 - **Every waveform of an old project regenerates on first open** (v2 → v3; plan §5 accepted
   it). On the video-14 copy that is 127 decodes at the media queue's 2-at-a-time. Not timed
   yet; the 16 kHz decode doubles the JS sample loop. Measure on M2's nine clips.
-- **20 ms grid vs cutlib's exact windows:** `snapHead` walks 10 ms steps over 20 ms windows; the
-  weighted model assumes uniform energy inside a bucket, so a ±1-step (10–20 ms) disagreement is
-  possible at a sharp onset. The exit comparison will show whether joins stay within ±20 ms; if
-  not, explain each outlier with the waveform there (a finer analysis grid would be a plan
-  change — ask first).
+- **20 ms grid vs cutlib's exact windows — MEASURED (step 2), not a blocker:** joins 348/352
+  within ±20 ms; the 4 outliers (+40/+60 ms) and 2 merge flips are tail knife-edges (level within
+  0.6 dB of floor + 12, one 2.1 dB; or ZCR straddling 3500) — table under Done. The 50 ms tail
+  windows read within 0.62 dB p95. **The 20 ms head windows do not:** the overlap-weighted
+  POWER mean assumes uniform energy inside a bucket, so a window that touches 4 ms of a loud
+  bucket reads up to +23–30 dB over the truth (p95 11.4 dB, signed mean +1.67) → Studio's
+  `snapHead` can walk back FURTHER than cutlib's (4 of 200 atoms over 20 ms, max +150 ms, up to
+  `maxHead`). On video-14 all four sit inside segments both sides merged, so no join moved, and
+  the bias is in the safe direction (more lead-in, never a shaved onset). Fixing it needs a finer
+  analysis grid (e.g. 5–10 ms buckets for rms/zcr) = a cache-format/plan change — NOT done; for
+  the orchestrator / B2 to weigh if B2's by-ear or hard-entry checks show long lead-ins.
 - `media-jobs.ts` is 314 lines (310 before this part, already over ~300; +4 here).
 - **D: lost ~0.63 GB during step 1 that is NOT accounted for** (3.42 GB after the 0.40 GB profile
   copy → 2.79 GB after M2). Checked: `B1/profile` still 372 MB, `out/` 125 MB, `node_modules/.vite`
@@ -248,6 +307,9 @@ timeline first; relaunch with `bash launch.sh`), STATUS/TESTING.
   the whole waveform job is decided and committed).
 - Step 1 (M2) is done: do not re-create `video-14-raw`, re-import, rebuild proxies/waveforms or
   re-map transcripts (B2–B6 share it as-is). Do not re-time the waveform job.
+- Step 2 (exit comparison) is done: do not rebuild `cutlib_joins.py` / `compare.b1.test.ts` /
+  `offset_check.py`; re-run them only to re-check (commands under Verified; ~5 s + ~1 s). Do not
+  re-investigate the outliers (explained under Done) or the time alignment (lag 0 measured).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -255,3 +317,5 @@ timeline first; relaunch with `bash launch.sh`), STATUS/TESTING.
   (16 kHz + zcr), stale-cache regeneration; commit `2dc5add`.
 - 2026-10-22 · agent 2 · ~48 calls · step 1: M2 `video-14-raw` (nine clips, NVENC proxies, v3
   waveforms, waveform timing, Hasan's AssemblyAI transcripts mapped via `mapJob`); docs-only commit.
+- 2026-10-22 · agent 3 · ~30 calls · step 2: cutlib vs Studio comparison on all nine clips (exit
+  met on 0369; 348/352 joins within ±20 ms; outliers explained; lag-0 alignment); docs-only commit.
