@@ -212,7 +212,8 @@ download, $0. Record clip ids ↔ asset ids. Never write next to the raw clips.
   11.8/12.6 straddle +12), 0375·20 (ZCR 3300/4010 straddle 3500), 0373·51 (cutlib +7.1, Studio
   +22.9: a 20 ms window 4 ms into a +35 dB bucket — the power-weighted onset smear).
 
-**Step 3 — gates + click-through + write-up (agent 4, 2026-10-22; no `src/` change):**
+**Step 3 — gates + click-through + write-up (agent 4, 2026-10-22; no `src/` change; docs commit
+`cc9a327`):**
 - Full gates green (commands under Verified). Click-through on M2, port 9271, `B1/profile`, driver
   `.vidtsx-temp/end-to-end/B1/click.mjs open|add|autocut` (CDP via `B1/cdp.mjs`):
   - Old-cache path: 0369's waveform (`cache/waveforms/6290a63b-….json`) set `"version":3` → `2`
