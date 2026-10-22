@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
+status: FIX (verifier round 1 FAIL: close during a file lock loses the edit — see Next step) — was: DONE up to Hasan's step (builder #8, 2026-10-22) — the machine half of the pre-pass COMPLETE (builders #1–#5, four bugs fixed: `fb32ab1`, `aa58ee8`, `e69d182`); Hasan's station BUILT (#6) and HASAN-STEP.md WALKED LITERALLY (#7, `3e7a285`); the backfill fix PREPARED as `B5/backfill-fix.patch` (NOT applied); the flip PREPARED in HASAN-STEP.md (NOT applied); B4 doc debt aligned; gates green (full vitest 462 files / 3895 tests first run, types 26/10); Status.md row + TESTING §18.11 written. **THE EXIT WAITS FOR HASAN: his by-ear pass per `B5/HASAN-STEP.md`, then his flag flip.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -518,13 +518,65 @@ start (`2CFAF220…`), B5-root sha256 == `…\B5\checks\original-project.json` (
 
 ## Next step (ONE concrete instruction)
 
-None for a builder — **B5 is WAITING-HASAN.** Hasan runs his by-ear pass per `docs/studio/end-to-end/B5/HASAN-STEP.md` on
+**FIX round 1 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier
+round 1"):**
+1. **Close during a lock must not lose the edit (the FAIL).** `useStudioProject.ts:11`
+   `CLOSE_FLUSH_TRIES = 3` + cleanup `:66-80` give up ~7.3 s after close and `autosave.dispose()`
+   drops the dirty doc; a `project.json.tmp` with the edit is left and reopening loads the old file.
+   DECIDED shape: (a) on close, the renderer hands its last dirty document to MAIN in one IPC call
+   and MAIN owns the write from then on — it keeps retrying the rename in the background with
+   backoff (for minutes, not seconds; bounded, logged), independent of the editor's lifecycle;
+   (b) on app quit, main waits a bounded time for pending writes and otherwise leaves the
+   `.tmp`; (c) **recovery on open:** when `project.json.tmp` exists, parses as a project, and is
+   newer than `project.json` (updatedAt / mtime), main finalizes it (rename) or loads it and the
+   editor says "Recovered unsaved changes" once; a corrupt/older `.tmp` is ignored (kept, logged —
+   never deleted silently). Tests first: the verifier's unit model (real `createAutosave` + real
+   `renameWithRetry` + the close path vs a 10 s lock, close at 2/3 s → must land), a quit-during-lock
+   test, the recovery test (newer valid `.tmp` → recovered; older or corrupt → ignored). Also the
+   older quit path the verifier found (`flush-guard.ts:10` `FLUSH_TIMEOUT_MS = 1500`,
+   `useStudioProject.ts:97-99` acks after a failed flush) is covered by (b)+(c). Fix the header claim
+   in `autosave.ts:9-11`. Add a hook-level test for the wiring (`useStudioProject` close path;
+   `useTextEdit.ts:120` uses `removedTokens`) — the verifier found reverting them failed nothing.
+   Live re-check on the B5 scratch (`B5-root`, CDP 9321): the verifier's exact case (10 s hold, edit
+   at +1.6 s, close at +2.3 s → the edit is on disk after the hold; quit at +2.0 s → recovered on
+   next open).
+2. **Docs:** `Status.md:55` and `TESTING.md:435` "close during a lock → the edit landed" — state the
+   real, fixed behaviour with the new numbers.
+3. **HASAN-STEP.md wording (notes):** D5 (`:127`) — "So here's what I did. I created" occurs twice
+   in a row; say which one (the one followed by "a starter") and give its clock; D2 (`:128`) — the
+   selection must include the "Other take." that opens the 3:49 take; `:90` "16–48 ms" → W8 is 49 ms.
+4. Gates (full vitest per DRIVING.md, types), update Status.md B5 row + TESTING §18.11, commit,
+   return DONE.
+
+(Previous text, kept:) None for a builder — **B5 is WAITING-HASAN.** Hasan runs his by-ear pass per `docs/studio/end-to-end/B5/HASAN-STEP.md` on
 the station (`hasan-station.ps1`), reports part A's yes/no per word and any problem rows, then decides the flip. After his
 report: if part A says the highlights come early / deletes eat sound, apply `B5/backfill-fix.patch` (its tests + types,
 commit as written in its header) and have him re-listen to part A; problem rows in parts B–D → a builder reproduces them on
 B5-root with `station-check.mjs`; a clean pass → he (or a builder on his word) applies the flip diff in HASAN-STEP.md.
 
 ## Open problems
+
+- **Verifier round 1 — FAIL (2026-10-22), one item: the autosave close path.** Closing the project
+  while `project.json` is held ~10 s loses the edit unless the close comes late in the hold
+  (`useStudioProject.ts:11` `CLOSE_FLUSH_TRIES = 3`, cleanup `:66-80`: 3 flushes × ~1.4 s rename
+  retry + 500/1000/1500 ms waits → gives up ~7.3 s after close, `autosave.dispose()` drops the
+  doc; no error shown (editor unmounted); a `project.json.tmp` with the edit is left; reopen = old
+  state). Live: close at +2.7 s and +2.3 s → lost; +6.2 s → landed. Unit model agrees (close at
+  2/3 s under a 10 s lock writes nothing; 4–6 s lands). Docs overstate it (`Status.md:55`,
+  `TESTING.md:435`). Older, not B5's: quit during a lock also loses it (`flush-guard.ts:10`
+  `FLUSH_TIMEOUT_MS = 1500`, `useStudioProject.ts:97-99` acks after a failed flush; live
+  `window.close()` at +2.0 s → lost, `.tmp` left); `autosave.ts:9-11` header over-claims. No
+  endless loop (open: 1/2/5 s then 10 s; dispose stops timers; caps hold). Test gap: the hook wiring
+  (`useStudioProject.ts`, `useTextEdit.ts:120`) has no test — reverting it fails nothing.
+  HASAN-STEP.md notes (not FAIL): D5 duplicate phrase (`:127`), D2 must include "Other take."
+  (`:128`), `:90` "16–48 ms" vs W8 49 ms. Everything else PASSED: gates first run (462 / 3895),
+  types 26/10, flag still false; each src fix's negative fails as it should; live on its own copy:
+  1,820 words, 32 em-dashes right, 12/12 seeks, deletes inside/across clips one undo step + tags +
+  exact restore, open-editor lock → "Save failed — retrying" then "Saved", Auto Cut review →
+  read-only; HASAN-STEP.md parts A–D walked literally (8/8, 11/11, C, D 9 → 8 + 1 left); the station
+  read-only matches; the patch applies, its tests fail on HEAD, moves 0 of 76 (HEAD 76), whisper
+  still backfilled. Leftover: `…\vidtsx-e2e\B5-verify\station-settings-copy\` holds a copy of the
+  station profile's `settings.db` (DPAPI-encrypted provider credentials) — kept, listed for Hasan.
 
 **RULED (orchestrator, 2026-10-22, after builder #1):**
 - **Problem 1 (em-dash mojibake):** a real bug — fix it (UTF-8 decode via `TextDecoder` like
