@@ -177,6 +177,14 @@ a fixture, no LLM — decision 4) and an old-proposal-without-qa test; then hand
   almost every atom is a "clipped tail" by analyze_cut's 6 dB rule (181 of 200 atoms on video-14,
   and his own report says the same), so the tail count reads as "how many landings ride the
   release", not as errors. Exit (c) relies on exactly this (count rises with `margin`).
+  **DECIDED (orchestrator, 2026-10-22):** the card shows the two checks with different weight and
+  always with a denominator: **"Hard entries 0 of 37 joins"** (an error class: red/accent when
+  > 0) and **"Tails on a release 178 of 200 landings"** (informational, neutral tone; tooltip:
+  "the landing is still more than 6 dB over the room tone — soft landing; listen if it sounds
+  cut"; analyze_cut calls them "clipped-tail risks"). "QA clean" only when hard entries = 0 AND
+  tails = 0. The expandable list puts hard entries first, then tails sorted by dB over floor
+  (highest first, cap the visible list at ~20 with "show all"). Each item auditionable as
+  decision 3 says. Use the same wording on the editorial card and in STATUS/TESTING.
 
 ## Do-not-redo
 
