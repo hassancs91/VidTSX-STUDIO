@@ -325,7 +325,7 @@ timestamps; ±2 s audio search`). No app run (out-of-app live tests only).
 
 = the verifier's predicted "corrected" column exactly (−35.6, −29.6, +7.4, −32.6, −82.6, −35.9, −2.6).
 
-Step 5 — re-drive + close (agent 7, 2026-10-22 09:12–09:40; docs commit, see LOG.md; no `src/` change).
+Step 5 — re-drive + close (agent 7, 2026-10-22 09:12–09:40; docs commit `438e004`; no `src/` change).
 
 - Isolated app relaunched twice with `A6/launch.sh` (port 9261, `A6_LOG=app-fix1.log` / `app-fix1b.log`; `electron-vite
   dev` rebuilt main from `717bc74`; no other electron, ports 9222/5173/9261 free; ready 63 s / 18 s), root `v14-root`.
