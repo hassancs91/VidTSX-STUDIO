@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BookOpenCheck } from 'lucide-react';
 import type { StudioPresetKnobChange, StudioPresetUpdateProposal } from '@shared/types/studio-preset';
+import { CutLearnBlock } from './CutLearnBlock';
 
 interface Props {
   proposal: StudioPresetUpdateProposal;
@@ -8,6 +9,8 @@ interface Props {
   resolving: boolean;
   onAccept: () => void;
   onReject: () => void;
+  /** Asset id → file name, for the cut block's per-join rows. */
+  assetNames?: ReadonlyMap<string, string>;
 }
 
 const KNOB_LABEL: Record<StudioPresetKnobChange['key'], string> = {
@@ -35,7 +38,7 @@ function knobValue(v: string | number | string[] | undefined): string {
  *  the preset — a knob diff with the numbers behind each row, and the
  *  "Learned from" section accept appends to PRESET.md. One click writes the
  *  preset; nothing is inferred silently. */
-export function PresetUpdateCard({ proposal, error, resolving, onAccept, onReject }: Props) {
+export function PresetUpdateCard({ proposal, error, resolving, onAccept, onReject, assetNames }: Props) {
   const [showSection, setShowSection] = useState(false);
   const changes = proposal.knobChanges;
 
@@ -80,6 +83,10 @@ export function PresetUpdateCard({ proposal, error, resolving, onAccept, onRejec
         </table>
       ) : (
         <div className="text-[10px] text-text-dim">Knobs unchanged — the edit matched the preset; only the notes grow.</div>
+      )}
+
+      {proposal.cutLines && proposal.cutLines.length > 0 && (
+        <CutLearnBlock lines={proposal.cutLines} report={proposal.cutLearn} assetNames={assetNames} />
       )}
 
       <button

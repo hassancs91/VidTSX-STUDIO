@@ -81,7 +81,9 @@ export function fitTails(samples: CutLearnTailSample[], style: CutPlanStyle, hea
         return hit ? hit.o : Number.POSITIVE_INFINITY;
       });
       for (const M of maxes) {
-        if (M < m) continue;
+        // maxTail is a lower bound (ruling 8): only known up to the longest
+        // tail kept, so it is only ever RAISED, never fitted below the cap.
+        if (M < m || M < style.maxTail) continue;
         let err = 0;
         samples.forEach((s, i) => {
           let tail = stops[i] <= M + 1e-9 ? stops[i] : M;

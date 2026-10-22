@@ -95,6 +95,19 @@ describe('learnCutKnobs', () => {
     expect(report.notes.join(' ')).toMatch(/tails sit within 30 ms and 1 dB/);
   });
 
+  it('never lowers maxTail: tails all shorter than the current cap leave it alone (ruling 8)', () => {
+    const rec = recording(RATES);
+    // The user clips every slow release at 0.15 s — a lower cap would fit best,
+    // but the cap is a lower bound: other knobs move, maxTail does not.
+    const user = joinsAt(rec, { ...FITTED_TIGHT, maxTail: 0.15 }, RATES.length);
+    const report = learnCutKnobs(user, assetsOf(rec), FITTED_TIGHT);
+    expect(report.tailEdges).toBe(13);
+    expect(report.joinsList.every((j) => (j.tail as number) <= 0.15 + 1e-6)).toBe(true);
+    expect(report.changes.length).toBeGreaterThan(0);
+    expect(report.changes.find((c) => c.knob === 'maxTail')).toBeUndefined();
+    expect(report.fitted.maxTail).toBe(0.7);
+  });
+
   it('proposes nothing under 10 touched joins and says how many it saw', () => {
     const rec = recording(RATES);
     const report = learnCutKnobs(joinsAt(rec, FITTED_TIGHT, 9), assetsOf(rec), OLD_TIGHT);

@@ -1532,6 +1532,7 @@ export function EditorShell({ projectId, onBack }: Props) {
                 agent={agentChat}
                 settings={project.settings.agent}
                 onSettingsChange={updateAgentSettings}
+                assets={project.assets}
               />
             )}
           </div>

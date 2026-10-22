@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Brain,
@@ -19,7 +19,8 @@ import { usePresetProposals } from '../hooks/usePresetProposals';
 import { MemoryDialog } from '@renderer/components/memory/MemoryDialog';
 import { ModelPickerChip } from '@renderer/components/ModelPickerChip';
 import { useProviderPicker } from '@renderer/hooks/useProviderPicker';
-import type { StudioAgentSettings } from '../types';
+import type { StudioAgentSettings, StudioMediaAsset } from '../types';
+import { assetName } from '../services/agent-chat-format';
 import { MemoryProposalCard } from './MemoryProposalCard';
 import { StylePromotionCard } from './StylePromotionCard';
 import { VocabularyProposalCard } from './VocabularyProposalCard';
@@ -78,11 +79,13 @@ interface Props {
    *  applies to the next turn and sticks with the project. */
   settings: StudioAgentSettings;
   onSettingsChange: (patch: Partial<StudioAgentSettings>) => void;
+  /** The project's media — names the joins on the learn card's cut block. */
+  assets?: StudioMediaAsset[];
 }
 
 /** The Assistant tab: chat with the editing agent. Cut proposals it creates
  *  land on the timeline + Inspector review flow — never applied directly. */
-export function AgentPanel({ projectId, projectName, agent, settings, onSettingsChange }: Props) {
+export function AgentPanel({ projectId, projectName, agent, settings, onSettingsChange, assets }: Props) {
   // The draft outlives this panel (item 4): the right panel unmounts it on
   // every tab switch, so the text is kept per project in sessionStorage.
   const { draft, setDraft, clear: clearDraft } = useAgentDraft(projectId);
@@ -97,6 +100,7 @@ export function AgentPanel({ projectId, projectName, agent, settings, onSettings
   const stylePromotions = useStylePromotions(projectId);
   const vocabulary = useVocabularyProposals(projectId);
   const presetUpdates = usePresetProposals(projectId);
+  const assetNames = useMemo(() => new Map((assets ?? []).map((a) => [a.id, assetName(a)])), [assets]);
   const { providers } = useProviderPicker();
 
   const { messages, busy, send, cancel, clear, contextUsage, toolsAvailable } = agent;
@@ -196,6 +200,7 @@ export function AgentPanel({ projectId, projectName, agent, settings, onSettings
             resolving={presetUpdates.resolving}
             onAccept={() => void presetUpdates.accept(p)}
             onReject={() => void presetUpdates.reject(p)}
+            assetNames={assetNames}
           />
         ))}
         {presetUpdates.lastOutcome && presetUpdates.proposals.length === 0 && (
