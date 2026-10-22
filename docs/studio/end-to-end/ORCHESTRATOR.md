@@ -16,7 +16,7 @@
 | A4 | DONE | 9 | PASS (1 round) | `3417d46` (fonts), `4671622` (GPU default), `139a4a9` (card), `3d450ba` (re-queue on GPU); test fix `22593db`, `0afc196`; docs `63e8f04` | font: cold+blocked refused (103 files missing); warm 103 URLs 0 failed; blocked-after-warm export completed (fetched 0, cached 202; 1080p 5 s in 161–182 s). GPU: card 1.3–1.6 s after a 4K import; 80,069,496 B download ~80–106 s; triggering clip rebuilt `h264_nvenc` in 6.2–7.9 s (x264 22–24 s); no Settings visit, no settings write, no restart. vitest 428 files / 3598 green; types 26/10 | 2026-10-21 21:45 / 23:49 (124 min) |
 | A5 | DONE | 4 | PASS (1 round) | `06edaf0` (render stall guard), `f84a78d` (font fetch retry); docs `08bf046`, `31542e7` | 80–110 s (frames 4800–6600, split + 3 cutaways) at 3840×2160@60, CPU low: Fastest 1178 s / 1.53 fps, 35.1 MB (verifier re-render 936 s / 1.92 fps, audio MD5 identical); Standard 1046 s / 1.72 fps, 17.0 MB; Fastest copies 0 % of video-14 (all shots); Fastest cancel leaves nothing; vitest 431 / 3623 green; types 26/10 | 2026-10-21 23:55 / 2026-10-22 07:08 (≈ 7 h 13 min, of which ≈ 5 h 40 min idle — see Stops) |
 | A6 | DONE | 7 | FAIL round 1 (off-by-one frame labels → audio −33/−27 ms read "in sync"; ±0.5 s audio search) → PASS round 2 | `bcea695`, `a4b88d3`, `16f1a37`, `1ffa650`, fix `717bc74`; docs `438e004` | "Check A/V" on the queue row: A5 Standard + Fastest IN SYNC −2.6 ms, drift +3.5 ms over 10.1 s, 16/16 probes, ~50 s per check; +100 ms audio FAIL +96.8; video +3 frames FAIL −52.6; verifier-2 copies +20/−20/+26 pass, +31/−25 fail, +1.2 s / −1.0 s fail — every verdict = truth (true shift + the file's own −2.6 ms); vitest 436 / 3670 green; types 26/10 | 2026-10-22 07:15 / 10:20 (3 h 05 min) |
-| B1 | BUILDING (session 2) | 2 | — | `2dc5add` (step A); docs `b445885` | — | 2026-10-22 10:58 / — |
+| B1 | BUILDING (session 2) | 3 | — | `2dc5add` (step A); docs `b445885` | — | 2026-10-22 10:58 / — |
 | B2 | TODO | | | | | |
 | B3 | TODO | | | | | |
 | B4 | TODO | | | | | |
@@ -248,3 +248,10 @@
   C: (`C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>…`, DRIVING.md); no DONE-part
   profile is left to delete (only A5's, the copy source). Python on cutlib runs `-I -B` (no
   `__pycache__` in the editor repo).
+- B1 builder #3 → HANDOFF (`649d8f7`, docs only): **exit met on 0369** — 12 joins, deltas
+  0/0 · 0/0 · 0/0 · −10/0 · 0/0 · 0/+20 ms; all eight clips with keeps 348/352 joins within ±20 ms
+  (4 at +40/+60 ms + 2 merge flips, each a threshold-edge tail on the 20 ms grid, explained in
+  HANDOFF.md); waveform vs cutlib's WAV at 0 ms lag. Open (for B2/B3, not blocking): bucket
+  averaging over-reads a loud bucket edge in the HEAD walk → Studio lead-ins can run up to
+  +150 ms longer than cutlib's (4 of 200 atoms; safe direction; none moved a join on video-14);
+  a finer grid would be a cache/plan change.
