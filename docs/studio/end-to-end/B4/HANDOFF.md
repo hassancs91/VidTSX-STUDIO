@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
+status: FIX (verifier round 1 FAIL: HASAN-STEP.md Snap + head-gate slack — see Next step) — was: DONE up to Hasan's step (2026-10-22, builder #8) — steps 1–7 DONE: the signal, the learn path and the card built; the M2 stand-in live (21 joins → head 0.15 / minTail 0.08 / margin 12, Δ 0) + the two negatives; Hasan's station ready at its start state; gates green (full vitest run 2 counted, types 26/10); Status.md row, TESTING §18.10 and the B3 doc debt written. **The EXIT waits for Hasan's redo on the station — `docs/studio/end-to-end/B4/HASAN-STEP.md`; the orchestrator marks B4 `WAITING-HASAN`.**
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -583,7 +583,32 @@ Step 1:
 
 ## Next step (ONE concrete instruction)
 
-None for a builder — B4 is DONE up to Hasan's step. The orchestrator marks B4 `WAITING-HASAN` and
+**FIX round 1 (orchestrator, 2026-10-22, after the verifier's FAIL — see Open problems "Verifier
+round 1"):**
+1. **HASAN-STEP.md (the FAIL):** before the trimming section, tell him to turn **Snap off first**
+   (the magnet at the right end of the timeline toolbar — it is ON every time the editor opens,
+   `TimelinePanel.tsx:95`) and to **zoom in to the highest levels** (+; at 20 px/s a 30–50 ms move is
+   1 px, Snap swallows < 8 px) so 30–50 ms moves are visible and register; say what a trim that did
+   not register looks like (the edge springs back) and how to check one took (the clip edge moved;
+   optional: a tag appears on disk). Re-check every other instruction against the real UI.
+2. **The head gate (DECIDED):** gate each knob on **|fitted − current| > 30 ms (> 1 dB for
+   `margin`) with ≥ 10 touched edges on that side**, instead of the median offset from the style's
+   own edges — the median is diluted by joins where the onset rule gives both styles the same
+   lead-in (verifier: with ±40 ms seeded jitter the fit still read 0.14–0.16 while the median offset
+   fell to 23–28 ms, so the head row vanished 5/5). Keep Q4's thresholds; the card keeps showing the
+   medians AND the fitted values. Tests: the existing unit/handler tests stay green (own-style edges
+   → no change; 9 joins → nothing); add a jitter test (seeded ±40 ms on fitted-tight edges over ≥ 20
+   synthetic joins → head 0.15 ± 0.03 proposed in every seed) and run the same jitter on the
+   station's real 33-join data in a scratch test (C: outputs), recording the per-seed results.
+3. **Cheap, also do:** `PresetUpdateCard.tsx:85` "Knobs unchanged — the edit matched the preset"
+   must not show above cut lines with changes; count physical joins once on the card when a join's
+   head came from a proposal drag and its tail from a timeline trim (`cut-learn-joins.ts:96-123` +
+   `clipLearnJoins`) — or say "edges" instead of "joins" if dedupe is not cheap.
+4. Do NOT reset or launch on Hasan's station unless the fix changes what the station must hold (it
+   should not — the station state is data, not code). Gates (full vitest per DRIVING.md, types),
+   update Status.md B4 row + TESTING §18.10 with the fix, commit, return DONE.
+
+(Previous text, kept:) None for a builder — B4 is DONE up to Hasan's step. The orchestrator marks B4 `WAITING-HASAN` and
 moves on (a B4 verifier is the orchestrator's call; a verifier must NOT launch on, trim on or reset
 Hasan's station — B1-verify-root + `profiles\B1-verify` — it is his). **Hasan's step:**
 `docs/studio/end-to-end/B4/HASAN-STEP.md` (~20–25 min: run `hasan-station.ps1`, open `video-14-raw`,
@@ -594,6 +619,28 @@ row and tick TESTING §18.10's first item; his trims stay in the station's `proj
 re-measured offline through the real handler (the `negatives.b4.test.ts` pattern) if needed.
 
 ## Open problems
+
+- **Verifier round 1 — FAIL (2026-10-22), one deliverable:** `HASAN-STEP.md:33-37` (Snap) — Snap is
+  on at every editor open (`TimelinePanel.tsx:95` `useState(true)`, not persisted) and pulls an edge
+  to any clip edge within 8 px (`snapping.ts:9`); the neighbour's edge sits where the trimmed edge
+  started, so any trim < 8 px snaps back — no edit, no tag. At 20 px/s (default zoom,
+  `timeline-view.ts:4-5`) 8 px = 400 ms; at 320 px/s 25 ms. Fitted-vs-old lead-in is +40 ms at almost
+  every station join. Verifier live: 3–6 px drags silently did nothing; 10–12 px took. **Risk (head
+  gate slack):** per-join gap 40 ms vs the 30 ms median-offset gate (`cut-learn.ts:62-65`); seeded
+  jitter on fitted edges: ±20 ms → head proposed 5/5, ±30 ms 2/5, ±40 ms 0/5 (the fit still 0.14–0.16,
+  median offset 0.023–0.028). Minor: a join with a proposal-dragged head + a trimmed tail counts as
+  two "joins" (`cut-learn-joins.ts:96-123` + `clipLearnJoins`; live "4 joins" for 3);
+  `apply-cut-proposal.ts:174` overwrites `origin` and drops tags on edges a later cut does not
+  rewrite (loses signal, never invents it); a speed change clamped by the next clip moves the end
+  edge and keeps its tag (`clip-update-ops.ts:128`); `PresetUpdateCard.tsx:85` "Knobs unchanged —
+  the edit matched the preset" shows above cut lines with large differences; the measurement's
+  "style edge" ignores the planner's clamp at removed words (`cut-learn-measure.ts:105-108`) — noise
+  the fit absorbs. Everything else PASSED: gates first try (456 / 3852), the diff review, 10/10
+  own controls on real M2 data incl. a DIFFERENT target (0.22 / 0.12 / 8 → head 0.22, margin 8;
+  0.20 / 0.22 / 9 → exactly that), own-style → 0 changes, 9 joins → nothing, text-delete only → no
+  samples, maxTail never lowered, the proposal-drag path → 0.15 / 0.08 / 12, a stubbed fit fails
+  control (a); live `snapped` / tags / undo / the card at 200 px; the station on disk and
+  `hasan-station.ps1` correct.
 
 **RULED (orchestrator, 2026-10-22, after builder #5 — for step 6, Hasan's station):**
 - **His timeline = his own hand plan, not Auto Cut.** The 21 joins he trimmed on 10-15 were
