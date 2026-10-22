@@ -172,7 +172,7 @@ Step 1b — the measuring core + the I/O runner, live on the A5 files (agent 2, 
   `select=eq(n,N)` on the export n=700 and the master n=5500): `(n − 0.5)/fps` → frame n,
   `(n + 0.5)/fps` → n + 1 — as `frame-diff.ts` already does. `exactFrameSeek` uses `(n − 0.5)/fps`.
 
-Step 2 — IPC + the orchestrator's extra measurement (agent 3, commit: see LOG.md / `git log`
+Step 2 — IPC + the orchestrator's extra measurement (agent 3, commit `16f1a37`
 `feat(studio): A6 — sync check IPC; video 3 frames late fails at −50.5 ms`). No app run, no UI yet.
 
 - Channels `src/shared/ipc/channels.ts:456-459`: `STUDIO_EXPORT_SYNC_CHECK` `'studio:export:sync-check'`,
