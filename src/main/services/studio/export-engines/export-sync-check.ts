@@ -3,9 +3,10 @@
  * finished export against the first camera clip's file, with verify_sync's
  * verdict. Probes are placed where the camera picture is visible
  * (`planSyncProbes`); per probe the export's 2 s audio window is located in
- * the camera audio near where the timeline says it should be, then the
- * export's frame (only the camera's visible box) is located among the camera
- * frames ±0.8 s around where the audio says. The report JSON is written
+ * the camera audio within ±2 s of where the timeline says it should be, then
+ * the export's frame (only the camera's visible box) is located among 96
+ * camera frames centred between the audio's and the timeline's time, each
+ * labelled by its own timestamp. The report JSON (version 2) is written
  * beside the export (`<name>.sync.json`).
  */
 import fs from 'fs/promises';
@@ -32,6 +33,7 @@ import {
   rms,
   sourceFrameWindow,
   thumbSize,
+  type DecodedFrameTime,
   type FrameMatch,
   type SyncProbeStatus,
 } from './sync-measure';
@@ -64,14 +66,17 @@ export interface SyncProbeRow {
   overlays: string[];
   windowRms: number;
   audio: { sec: number; quality: number } | null;
-  /** `quality` is the decisive match (over the layout mask when there is one); `plainQuality` the whole-box pass 1. */
-  video: { sec: number; frame: number; quality: number; plainQuality: number; maskShare: number | null } | null;
+  /**
+   * `sec`/`frame` are the matched camera frame's OWN timestamp (never `first + index`); `exportSec` the
+   * export frame's. `quality` is the decisive match (over the layout mask when there is one); `plainQuality` the whole-box pass 1.
+   */
+  video: { sec: number; frame: number; exportSec: number; quality: number; plainQuality: number; maskShare: number | null } | null;
   status: SyncProbeStatus;
   errorMs: number | null;
 }
 
 export interface SyncCheckReport {
-  version: 1;
+  version: 2;
   file: string;
   checkedAt: string;
   settings: {
@@ -123,7 +128,7 @@ interface ProbeReads {
   probe: SyncProbe;
   windowRms: number;
   audio: SyncProbeRow['audio'];
-  pictures: { target: Uint8Array; frames: Uint8Array[]; first: number; plain: FrameMatch } | null;
+  pictures: { target: Uint8Array; targetSec: number; frames: Uint8Array[]; times: DecodedFrameTime[]; plain: FrameMatch } | null;
 }
 
 async function readProbe(probe: SyncProbe, ctx: ProbeContext): Promise<ProbeReads> {
@@ -142,16 +147,17 @@ async function readProbe(probe: SyncProbe, ctx: ProbeContext): Promise<ProbeRead
   if (!audio) return { probe, windowRms, audio, pictures: null };
 
   const thumb = thumbSize(probe.exportRect);
-  const [target] = await grabGrayFrames(
+  const exported = await grabGrayFrames(
     ctx.ffmpeg, ctx.exportPath, exactFrameSeek(probe.frame, ctx.exportFacts.fps), 1, cropScaleFilter(probe.exportRect, thumb), thumb, ctx.signal,
   );
   const src = probe.sourceRect;
   const { x: sx, y: sy } = ctx.referenceScale;
   const sourceRect = { x: Math.round(src.x * sx), y: Math.round(src.y * sy), width: Math.round(src.width * sx), height: Math.round(src.height * sy) };
-  const window = sourceFrameWindow(audio.sec, ctx.referenceFps);
-  const frames = await grabGrayFrames(ctx.ffmpeg, ctx.reference.path, window.seekSec, window.count, cropScaleFilter(sourceRect, thumb), thumb, ctx.signal);
+  const window = sourceFrameWindow((audio.sec + probe.sourceSec) / 2, ctx.referenceFps);
+  const { frames, times } = await grabGrayFrames(ctx.ffmpeg, ctx.reference.path, window.seekSec, window.count, cropScaleFilter(sourceRect, thumb), thumb, ctx.signal);
+  const [target] = exported.frames;
   if (!target || frames.length === 0) return { probe, windowRms, audio, pictures: null };
-  return { probe, windowRms, audio, pictures: { target, frames, first: window.first, plain: matchFrame(target, frames) } };
+  return { probe, windowRms, audio, pictures: { target, targetSec: exported.times[0].sec, frames, times, plain: matchFrame(target, frames) } };
 }
 
 const rectKey = (probe: SyncProbe) => JSON.stringify([probe.exportRect, probe.sourceRect]);
@@ -174,10 +180,11 @@ function finishProbes(reads: ProbeReads[], ctx: ProbeContext): SyncProbeRow[] {
     if (pictures) {
       const mask = masks.get(rectKey(probe)) ?? null;
       const best = mask ? matchFrame(pictures.target, pictures.frames, mask) : pictures.plain;
-      const frame = pictures.first + best.index;
+      const { sec } = pictures.times[best.index];
       video = {
-        sec: r4(frame / ctx.referenceFps),
-        frame,
+        sec: r4(sec),
+        frame: Math.round(sec * ctx.referenceFps),
+        exportSec: r4(pictures.targetSec),
         quality: r3(best.quality),
         plainQuality: r3(pictures.plain.quality),
         maskShare: mask ? r3(mask.reduce((a, b) => a + b, 0) / mask.length) : null,
@@ -264,13 +271,15 @@ export async function checkExportSync(options: SyncCheckOptions): Promise<{ repo
     }
     rows.push(...finishProbes(reads, ctx));
     const confident = rows.flatMap((row) => (row.errorMs === null ? [] : [{ t: row.t, errorMs: row.errorMs }]));
+    const count = (status: SyncProbeStatus) => rows.filter((row) => row.status === status).length;
+    const misses = { silent: count('silent'), lowAudio: count('low-audio'), lowVideo: count('low-video') };
     verdict = plan.probes.length === 0
       ? withMessage(syncVerdict([], 0), 'Nothing to check: the camera picture is never visible long enough in this export.')
-      : syncVerdict(confident, plan.probes.length);
+      : syncVerdict(confident, plan.probes.length, { misses, audioSearchSec: SYNC_AUDIO_SEARCH_SEC });
   }
 
   const report: SyncCheckReport = {
-    version: 1,
+    version: 2,
     file: options.exportPath,
     checkedAt: new Date().toISOString(),
     settings: settingsOf(minMatch),

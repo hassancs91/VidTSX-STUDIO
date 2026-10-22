@@ -37,10 +37,35 @@ export interface SyncVerdict {
   message: string;
 }
 
+/** Why the probes that are not in `rows` gave no error — named in the "not enough" message. */
+export interface SyncMisses {
+  silent: number;
+  /** The export's sound was not found in the camera file's sound. */
+  lowAudio: number;
+  /** The sound was found, the camera picture was not. */
+  lowVideo: number;
+}
+
 export interface SyncVerdictOptions {
   toleranceMs?: number;
   driftLimitMs?: number;
   minProbes?: number;
+  misses?: SyncMisses;
+  /** The audio search's reach either side of the timeline's time (s), for the message. */
+  audioSearchSec?: number;
+}
+
+function notEnoughMessage(confident: number, attempted: number, minProbes: number, options: SyncVerdictOptions): string {
+  const head = `Not enough to judge: only ${confident} of ${attempted} probes could be measured (${minProbes} needed)`;
+  const m = options.misses;
+  if (!m) return `${head}.`;
+  const reach = options.audioSearchSec ? ` within ±${options.audioSearchSec} s of where the timeline puts it` : '';
+  const parts = [
+    m.lowAudio > 0 ? `${m.lowAudio} did not find the export's sound in the camera file's sound${reach}` : '',
+    m.lowVideo > 0 ? `${m.lowVideo} found the sound but not the camera picture near it` : '',
+    m.silent > 0 ? `${m.silent} ${m.silent === 1 ? 'was' : 'were'} silent` : '',
+  ].filter(Boolean);
+  return parts.length ? `${head}: ${parts.join('; ')}.` : `${head}.`;
 }
 
 /** numpy.median: the mean of the two middle values for an even count. */
@@ -85,7 +110,7 @@ export function syncVerdict(rows: readonly SyncErrorRow[], attempted: number, op
       attempted,
       confident,
       used: 0,
-      message: `Not enough to judge: only ${confident} of ${attempted} probes found the camera picture confidently (${minProbes} needed).`,
+      message: notEnoughMessage(confident, attempted, minProbes, options),
     };
   }
   const t = rows.map((r) => r.t);

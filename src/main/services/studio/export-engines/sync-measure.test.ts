@@ -7,11 +7,13 @@ import {
   layoutMask,
   locateAudio,
   matchFrame,
+  parseFrameStats,
   rms,
   sourceFrameWindow,
   thumbSize,
   zscore,
 } from './sync-measure';
+import { crossCorrelate } from './sync-xcorr';
 
 /** Deterministic noise in [-0.5, 0.5] (a speech stand-in xcorr can lock onto). */
 function noise(count: number, seed = 1): Float32Array {
@@ -137,6 +139,58 @@ describe('frame addressing', () => {
     expect(w.count).toBe(96);
     expect(w.seekSec).toBeCloseTo((w.first - 0.5) / fps, 9);
     expect(sourceFrameWindow(0.3, fps).first).toBe(0);
+  });
+});
+
+describe('frame identity from ffmpeg per-frame stats (A6 verifier round 1)', () => {
+  const fps = 60000 / 1001;
+  // The bundled ffmpeg n7.1 at the video-14 master, seek exactFrameSeek(5415) = 90.331908, 4 frames,
+  // `-stats_enc_pre pipe:2 -stats_enc_pre_fmt SYNC_FRAME_STATS_FMT` (captured 2026-10-22).
+  const repeated = 'syncframe 165 1/60000 501\nsyncframe 165 1/60000 501\nsyncframe 166 1/60000 1502\nsyncframe 167 1/60000 2503\n';
+  const passthrough = 'syncframe 165 1/60000 501\r\nsyncframe 166 1/60000 1502\r\nsyncframe 167 1/60000 2503\r\nsyncframe 168 1/60000 3504\r\n';
+  const frames = (text: string) => parseFrameStats(text, 90.331908).map((t) => Math.round(t.sec * fps));
+
+  it('reads each emitted frame its own time (passthrough: 5415..5418)', () => {
+    expect(frames(passthrough)).toEqual([5415, 5416, 5417, 5418]);
+    // Within half a 1/60000 tick: the -ss offset is rounded into the input time base.
+    expect(parseFrameStats(passthrough, 90.331908)[0].sec).toBeCloseTo(5415 / fps, 4);
+    expect(parseFrameStats('[mov @ 0x1] some warning\nsyncframe 3 1/60 x\n', 0)).toEqual([]);
+  });
+
+  it('labels a window whose FIRST FRAME REPEATS by timestamp, not by first + index', () => {
+    // The constant-rate fill emitted true frames [5415, 5415, 5416, 5417]; the old label first + index said 5415..5418.
+    const times = parseFrameStats(repeated, 90.331908);
+    expect(times.map((t) => t.decoded)).toEqual([165, 165, 166, 167]);
+    expect(frames(repeated)).toEqual([5415, 5415, 5416, 5417]);
+    const [a, b, c] = [gray(64, 1), gray(64, 2), gray(64, 3)];
+    const best = matchFrame(b, [a, a, b, c]);
+    expect(best.index).toBe(2);
+    expect(Math.round(times[best.index].sec * fps)).toBe(5416);
+    const first = 5415; // the window's planned first frame
+    expect(first + best.index).toBe(5417); // what the old label said: one camera frame (16.7 ms) late
+  });
+});
+
+describe('crossCorrelate (FFT)', () => {
+  it('equals the direct sum at every lag', () => {
+    const hay = noise(3000, 5);
+    const needle = noise(700, 9);
+    const fast = crossCorrelate(needle, hay);
+    expect(fast.length).toBe(2301);
+    for (const lag of [0, 1, 777, 1500, 2300]) {
+      let dot = 0;
+      for (let i = 0; i < needle.length; i++) dot += needle[i] * hay[lag + i];
+      expect(fast[lag]).toBeCloseTo(dot, 6);
+    }
+    expect(crossCorrelate(noise(10), noise(5)).length).toBe(0);
+  });
+
+  it('lets locateAudio find a window 1.9 s off-centre in a ±2 s haystack', () => {
+    const hay = noise(SYNC_AUDIO_RATE * 6, 13); // 2 s window + 2 × 2 s search
+    const lag = Math.round(SYNC_AUDIO_RATE * 0.1); // planned at 2 s, found 1.9 s early
+    const found = locateAudio(hay.slice(lag, lag + SYNC_AUDIO_RATE * 2), hay)!;
+    expect(found.lag).toBeCloseTo(lag, 1);
+    expect(found.quality).toBeGreaterThan(0.999);
   });
 });
 

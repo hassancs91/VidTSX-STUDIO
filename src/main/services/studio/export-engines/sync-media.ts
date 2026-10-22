@@ -2,14 +2,15 @@
  * T8 "Check this export": the ffmpeg reads the sync check needs, all with the
  * bundled (stripped) ffmpeg/ffprobe — WAV over a pipe for audio (no raw PCM
  * muxer), the rawvideo encoder over image2pipe for gray thumbnails (no
- * `select`/`fps`/`showinfo`, so frames are addressed by an exact seek).
+ * `select`/`fps`/`showinfo`: frames are reached by an exact seek and
+ * identified by their own timestamps from `-stats_enc_pre`).
  * Every child runs at below-normal priority: the check is background work.
  */
 import { spawn } from 'child_process';
 import { runFfmpeg } from '../ffmpeg-bin';
 import { parseWavPcm16 } from './audio-offset';
 import type { SyncSize } from '../../../../shared/studio/sync-probes';
-import { SYNC_AUDIO_RATE } from './sync-measure';
+import { SYNC_AUDIO_RATE, SYNC_FRAME_STATS_FMT, parseFrameStats, type DecodedFrameTime } from './sync-measure';
 
 export interface MediaFacts {
   width: number;
@@ -86,7 +87,20 @@ export async function decodeAudioSpan(ffmpeg: string, file: string, startSec: nu
   return parseWavPcm16(Buffer.concat(chunks));
 }
 
-/** Up to `count` consecutive frames from `seekSec`, through `filter` (crop → thumb → gray), one Uint8Array each. */
+export interface GrayFrames {
+  frames: Uint8Array[];
+  /** Each frame's own time in the file, read from ffmpeg's per-frame stats (same order as `frames`). */
+  times: DecodedFrameTime[];
+}
+
+/**
+ * Up to `count` consecutive frames from `seekSec`, through `filter` (crop →
+ * thumb → gray), one Uint8Array each, with each frame's real timestamp.
+ * `-fps_mode passthrough` stops the image2pipe muxer's constant-rate fill
+ * (it repeated the first frame on ~1/3 of seeks); the timestamps come from
+ * `-stats_enc_pre` on stderr (no showinfo/framecrc in the bundled build), and
+ * a frame without one fails the read rather than being guessed.
+ */
 export async function grabGrayFrames(
   ffmpeg: string,
   file: string,
@@ -95,16 +109,26 @@ export async function grabGrayFrames(
   filter: string,
   thumb: SyncSize,
   signal?: AbortSignal,
-): Promise<Uint8Array[]> {
+): Promise<GrayFrames> {
   const chunks: Buffer[] = [];
+  let stats = '';
+  const seek = seekSec.toFixed(6);
   await runFfmpeg(
     ffmpeg,
-    ['-v', 'error', '-nostdin', '-ss', seekSec.toFixed(6), '-i', file, '-an', '-frames:v', String(count), '-vf', filter, '-f', 'image2pipe', '-vcodec', 'rawvideo', '-pix_fmt', 'gray', '-'],
-    { signal, priority: 'below-normal', onStdout: (chunk) => chunks.push(chunk) },
+    [
+      '-v', 'error', '-nostdin', '-ss', seek, '-i', file, '-an', '-frames:v', String(count), '-fps_mode', 'passthrough', '-vf', filter,
+      '-stats_enc_pre', 'pipe:2', '-stats_enc_pre_fmt', SYNC_FRAME_STATS_FMT,
+      '-f', 'image2pipe', '-vcodec', 'rawvideo', '-pix_fmt', 'gray', '-',
+    ],
+    { signal, priority: 'below-normal', onStdout: (chunk) => chunks.push(chunk), onStderr: (text) => { stats += text; } },
   );
   const all = Buffer.concat(chunks);
   const size = thumb.width * thumb.height;
   const frames: Uint8Array[] = [];
   for (let at = 0; at + size <= all.length; at += size) frames.push(new Uint8Array(all.subarray(at, at + size)));
-  return frames;
+  const times = parseFrameStats(stats, Number(seek));
+  if (times.length !== frames.length) {
+    throw new Error(`Could not read the frame times of ${file} at ${seek} s (${frames.length} frames, ${times.length} times).`);
+  }
+  return { frames, times };
 }

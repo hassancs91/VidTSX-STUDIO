@@ -59,7 +59,18 @@ describe('sync verdict (verify_sync.py report(), T8)', () => {
     const v = syncVerdict(rows([1, 2]), 16);
     expect(v.verdict).toBe('inconclusive');
     expect(v.offsetMs).toBeNull();
-    expect(v.message).toBe('Not enough to judge: only 2 of 16 probes found the camera picture confidently (3 needed).');
+    expect(v.message).toBe('Not enough to judge: only 2 of 16 probes could be measured (3 needed).');
     expect(syncVerdict([], 0).verdict).toBe('inconclusive');
+  });
+
+  it('names the side that failed when it knows why (A6 verifier round 1: the audio, not the picture)', () => {
+    const audio = syncVerdict([], 16, { misses: { silent: 0, lowAudio: 16, lowVideo: 0 }, audioSearchSec: 2 });
+    expect(audio.message).toBe(
+      "Not enough to judge: only 0 of 16 probes could be measured (3 needed): 16 did not find the export's sound in the camera file's sound within ±2 s of where the timeline puts it.",
+    );
+    const mixed = syncVerdict(rows([1, 2]), 16, { misses: { silent: 1, lowAudio: 0, lowVideo: 13 } });
+    expect(mixed.message).toBe(
+      'Not enough to judge: only 2 of 16 probes could be measured (3 needed): 13 found the sound but not the camera picture near it; 1 was silent.',
+    );
   });
 });

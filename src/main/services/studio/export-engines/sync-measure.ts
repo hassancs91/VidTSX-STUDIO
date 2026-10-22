@@ -11,11 +11,16 @@
  * is `export-sync-check.ts`.
  */
 import type { SyncRect, SyncSize } from '../../../../shared/studio/sync-probes';
+import { crossCorrelate } from './sync-xcorr';
 
 /** verify_sync's `SR`: audio is compared at 8 kHz mono. */
 export const SYNC_AUDIO_RATE = 8000;
-/** How far either side of the planned camera time the audio search reaches. */
-export const SYNC_AUDIO_SEARCH_SEC = 0.5;
+/**
+ * How far either side of the planned camera time the audio search reaches
+ * (verify_sync searches the whole source; ±2 s keeps a gross offset — the
+ * verifier's −600 ms file — a measured FAIL instead of "not found").
+ */
+export const SYNC_AUDIO_SEARCH_SEC = 2;
 export const SYNC_MIN_AUDIO_QUALITY = 0.5;
 /** A window quieter than this (int16 RMS 50) is silence — nothing to locate. */
 export const SYNC_SILENCE_RMS = 50 / 32768;
@@ -50,14 +55,15 @@ export function locateAudio(needle: Float32Array, haystack: Float32Array): Audio
   const energy = new Float64Array(haystack.length + 1);
   for (let i = 0; i < haystack.length; i++) energy[i + 1] = energy[i] + haystack[i] * haystack[i];
 
+  const dots = crossCorrelate(needle, haystack);
+  // A window ~90 dB quieter than the needle is digital silence (and FFT round-off there is not a match).
+  const floor = needleEnergy * 1e-9;
   const scores = new Float64Array(lags);
   let best = -1;
   for (let lag = 0; lag < lags; lag++) {
     const windowEnergy = energy[lag + n] - energy[lag];
-    if (windowEnergy <= 0) continue;
-    let dot = 0;
-    for (let i = 0; i < n; i++) dot += needle[i] * haystack[lag + i];
-    scores[lag] = dot / Math.sqrt(needleEnergy * windowEnergy);
+    if (windowEnergy <= floor) continue;
+    scores[lag] = dots[lag] / Math.sqrt(needleEnergy * windowEnergy);
     if (best < 0 || scores[lag] > scores[best]) best = lag;
   }
   if (best < 0) return null;
@@ -159,10 +165,12 @@ export function layoutMask(
 }
 
 /**
- * Input seek that makes frame `n` (pts n / fps) the first decoded frame: an
- * accurate seek drops every frame before the seek time, so half a frame early
- * keeps n and drops n − 1 (frame-diff.ts, checked again 2026-10-22 on the
- * video-14 export and master).
+ * Input seek aimed at frame `n` (pts n / fps): an accurate seek drops every
+ * frame before the seek time, so half a frame early keeps n and drops n − 1.
+ * It only AIMS: without `-fps_mode passthrough` the bundled ffmpeg n7.1 emits
+ * the first frame twice on about a third of seeks (A6 verifier round 1), so a
+ * frame's identity is always read from its own timestamp (`parseFrameStats`),
+ * never from `first + index`.
  */
 export function exactFrameSeek(frame: number, fps: number): number {
   return frame <= 0 ? 0 : (frame - 0.5) / fps;
@@ -174,10 +182,35 @@ export interface FrameWindow {
   seekSec: number;
 }
 
-/** The camera frames to search: from 0.8 s before the audio's time, 96 of them (verify_sync `measure`). */
-export function sourceFrameWindow(audioSec: number, fps: number, beforeSec = SYNC_FRAME_BEFORE_SEC, count = SYNC_FRAME_COUNT): FrameWindow {
-  const first = Math.max(0, Math.ceil((audioSec - beforeSec) * fps - 1e-9));
+/**
+ * The camera frames to search: 96 of them from 0.8 s before `centerSec`
+ * (verify_sync `measure` centres on the audio's time; the check centres
+ * between the audio's time and the timeline's, so a picture up to 1.6 s from
+ * its sound is still inside the window).
+ */
+export function sourceFrameWindow(centerSec: number, fps: number, beforeSec = SYNC_FRAME_BEFORE_SEC, count = SYNC_FRAME_COUNT): FrameWindow {
+  const first = Math.max(0, Math.ceil((centerSec - beforeSec) * fps - 1e-9));
   return { first, count, seekSec: exactFrameSeek(first, fps) };
+}
+
+/** ffmpeg's `-stats_enc_pre_fmt`: per emitted frame, its decoded-frame index and input pts (relative to the input `-ss`). */
+export const SYNC_FRAME_STATS_FMT = 'syncframe {ni} {tbi} {ptsi}';
+
+export interface DecodedFrameTime {
+  /** The decoder's frame index (two emitted frames with one index = a repeated frame). */
+  decoded: number;
+  /** The frame's own time in the file (s, from its start; the `-ss` convention the audio side uses). */
+  sec: number;
+}
+
+/** Each emitted frame's real time, from the `SYNC_FRAME_STATS_FMT` lines of an ffmpeg run that input-seeked to `seekSec`. */
+export function parseFrameStats(text: string, seekSec: number): DecodedFrameTime[] {
+  const out: DecodedFrameTime[] = [];
+  for (const m of text.matchAll(/^syncframe (-?\d+) (\d+)\/(\d+) (-?\d+)\s*$/gm)) {
+    const [num, den, pts] = [Number(m[2]), Number(m[3]), Number(m[4])];
+    if (den > 0) out.push({ decoded: Number(m[1]), sec: seekSec + (pts * num) / den });
+  }
+  return out;
 }
 
 const roundEven = (v: number) => Math.max(2, Math.round(v / 2) * 2);
