@@ -1,5 +1,5 @@
 # B5 — `studio-text-edit` on in production after Hasan's pass on M2 (AssemblyAI transcript, by ear, long project)
-status: IN PROGRESS (builder #3 handed off 2026-10-22 — Problem 4 ROOT-CAUSED, no delete-path bug: the "2×" = two correct deletes after a FAILED save (Problem 5), and the "dead" Restore = its button opening below the fold; next: fix Problem 5 + bring Restore into view, tests first)
+status: IN PROGRESS (builder #4 handed off 2026-10-22 — Problem 5 FIXED (`aa58ee8`: main rename retry + renderer autosave that never forgets a failed save, live-verified with a locked project.json) and Problem 6 FIXED (opened pill scrolls its Restore into view); `long` + bf1–bf4 PASS live; full vitest green, types 26/10; next: fillers + karaoke-bottom, then read-only/Auto Cut + save/reopen)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; the disk rules — the low-disk
 "reuse, don't copy" rule is relaxed now, see below; the vitest gate rules; the process-kill lesson;
@@ -141,6 +141,31 @@ row (git tracks it as `Status.md`), the TESTING.md §18 block (`### 18.11 B5`, a
   `elementFromPoint`); `undo-to-orig.mjs` (real Ctrl+Z until disk == `deletes\inside.json` before);
   `longbug.b5.test.ts` + `vitest.b5.config.ts` (harness, `B5_LONGBUG=1`). `deletes.mjs` `waitDisk`
   now polls every **250 ms** (was 50 — the poll itself broke saves).
+- **Problem 5 FIXED (builder #4, `aa58ee8`, tests first):** NEW `src/main/utils/rename-retry.ts`
+  `renameWithRetry` (EPERM/EBUSY/EACCES, 8 tries, wait 50 ms × n → 1.4 s worst case; any other code
+  thrown at once) + `rename-retry.test.ts` (5: fails twice then succeeds, EACCES, always refused still
+  rejects after N, ENOENT not retried, backoff 50 → 100 ms); `project-store.ts:69-77` `writeProjectFile`
+  uses it; `project-store.test.ts:64-102` (2: `saveProject` lands after two EPERM refusals; a lock that
+  never clears rejects with EBUSY and the old file stays). NEW `src/features/studio/services/autosave.ts`
+  `createAutosave` (debounce 600 ms; a refused OR thrown save re-marks dirty and reschedules 1/2/5/10 s,
+  last repeats; `flush` waits for a save in flight then writes what is still dirty; `reset` on
+  load/restore; after 3 failures in a row state `'error'` until a save lands) + `autosave.test.ts` (8).
+  `useStudioProject.ts` now drives it (one autosave per opened project; the close cleanup retries its
+  flush 3× at 0.5/1/1.5 s, then disposes and closes; returns `saveError`). `EditorShell.tsx:1210-1227`:
+  `[data-save-state]` on the indicator; on `'error'` a persistent red **"Save failed — retrying"**
+  (`role="alert"`, title = the error + "your edits are kept…"). Red first: the main tests failed on the
+  old `fs.rename` (EPERM at `project-store.ts:73`); the 8 autosave tests run against a port of the OLD
+  hook logic (`.vidtsx-temp/end-to-end/B5/old-autosave.ts` + `autosave-old.b5.test.ts`, scratch config)
+  → **4 failed | 4 passed** (the dirty-after-failure, throw, reschedule and persistent-error tests).
+- **Problem 6 FIXED (builder #4, `aa58ee8`, test first):** `DeletionPill.tsx` — the opened view is now
+  the hook-free `OpenedDeletion` (same markup) and its Restore button (or, read-only, the opened span)
+  gets the callback ref `revealOnOpen` = `scrollIntoView({ block: 'nearest', inline: 'nearest' })`.
+  NEW `DeletionPill.test.ts` (4; red first: `OpenedDeletion is not a function`).
+- **Kit, builder #4 (gitignored):** `lockcheck.mjs retry [s] | close [s]` (holds project.json open with
+  NO sharing from PowerShell for s seconds, deletes 271–276 through the Transcript, samples
+  `[data-save-state]` every 100 ms and the disk every 500 ms; `close` clicks "Back to projects" at once,
+  then writes the original project.json back with the project closed). `deletes.mjs` now also stops
+  when the in-app doc does not hold 1,820 tokens before a case (Problem 4 lesson).
 
 ## Verified (exact commands + outputs)
 
@@ -242,15 +267,50 @@ All on the B5 instance (CDP 9321), `cd .vidtsx-temp/end-to-end/B5`; JSON in `C:\
   6 electron) → `left: 0`. Disk after: C: 18.45 GB, D: 32.70 GB. B5-root is at the ORIGINAL timeline.
 - No `src/` change this session → vitest / type gate not re-run (last: builder #2, green, 26/10).
 
+**Builder #4 (2026-10-22):** C: 18.03 / D: 32.43 GB before launch; nothing on 5173/9321.
+- `npx vitest run src/main/utils/rename-retry.test.ts src/main/services/studio/project-store.test.ts`
+  before the fix → `2 failed` files (import error; `EPERM … at writeProjectFile project-store.ts:73`);
+  after → with `autosave.test.ts` `Tests 19 passed (19)`. `DeletionPill.test.ts` before → `4 failed`
+  (`OpenedDeletion is not a function`), after → `4 passed`.
+- `npx vitest run src/features/studio src/main/services/studio src/main/utils src/main/ipc` →
+  `Test Files 151 passed | 2 skipped (153) · Tests 1217 passed | 23 skipped (1240)`.
+- `npm run check:types` → `web: 26 errors (baseline 26) ok · node: 10 errors (baseline 10) ok`.
+- `bash launch.sh` (background) → `node drive.mjs ready` → `length s 1283.148 toolbar ["/ 21:23.09"]`.
+- `node lockcheck.mjs retry` (6 s lock) → indicator `Saving…` at 3.85 s (delete at 3.79 s) … lock
+  released 9.59 s → disk changed **10.42 s** with NO further edit (10 clips, 1279.103 s = builder #2's
+  `inside`), `Saved`; in-app 1,814 tokens; real Ctrl+Z → disk == original. `…\B5\lockcheck\retry-6s.json`.
+- `node lockcheck.mjs retry 14` → `Saving…` 1.87 s → **`error|Save failed — retrying` 9.93 s** (3rd
+  failure) → lock released 15.29 s → `Saved` 15.45 s, disk 1279.103 s; Ctrl+Z → original.
+  `…\B5\lockcheck\retry-14s.json`.
+- `node lockcheck.mjs close 4` → delete 3.25 s, real click "Back to projects" 3.42 s (Home shown), lock
+  released 7.03 s → **disk got the edit at 8.36 s** (10 clips, 1279.103 s) — the close flush retried
+  and landed; original project.json written back (project closed). `…\B5\lockcheck\close.json`.
+- `node drive.mjs ready` → `node deletes.mjs cases long bf1 bf2 bf3 bf4` (log
+  `…\B5\deletes\run-b4-builder4.log`, summary `summary-long-bf1-bf2-bf3-bf4.json`) → **5/5 PASS**
+  (selection exact, toast, 2 `'text-delete'` edges, 1 undo step, redo exact, Restore by the driver's
+  UNSCROLLED click → length 1283.148, cover/order/text equal, 0 pills, back to ORIGINAL):
+  | case | selected | toast | length after | pill (source cut) |
+  |---|---|---|---|---|
+  | long 0373 709–777 | SHIFT+click 69 | `Removed 69 words · −62.5 s` | 1220.658 | 101.931–164.421 |
+  | bf1 0370 i117 "I" | 1 | `Removed 1 word · −1.0 s` | 1282.100 | 41.956–43.004 |
+  | bf2 0370 i132 "so" | 1 | `Removed 1 word · −3.2 s` | 1279.967 | 55.651–58.832 |
+  | bf3 0372 i398 "I" | 1 | `Removed 1 word · −2.2 s` | 1280.962 | 16.115–18.301 |
+  | bf4 0372 i471 "And" | 1 | `Removed 1 word · −2.9 s` | 1280.231 | 57.861–60.778 |
+  The Restore of `long` (the case that failed for builders #2/#3) now works by the plain click — the
+  Problem 6 fix live. Problem 2 data: deleting ONE backfilled word (a 1.03–1.05 s span) cut 1.0 / 3.2 /
+  2.2 / 2.9 s of source — the backfilled start plus the tight-style snap; ears decide (HASAN-STEP block).
+- App stopped (matched `--remote-debugging-port=9321` / `profiles/B5/profile` / `B5/launch.sh`: 2 bash,
+  2 node, 1 cmd, 6 electron) → `left: 0`. B5-root is at the ORIGINAL timeline. C: 18.44 / D: 32.62 GB.
+- FULL `npx vitest run` (app stopped, log `…\B5\vitest-full-builder4-run1.log`) → **run 1 green**:
+  `Test Files 462 passed | 5 skipped (467) · Tests 3892 passed | 34 skipped (3926)` (42 s).
+
 ## Next step (ONE concrete instruction)
 
-Fix Problem 5 as RULED, tests first: in `src/main/services/studio/project-store.ts:69-74`
-(`writeProjectFile`) retry the `.tmp` → `project.json` rename on EPERM/EBUSY/EACCES a few times with a
-short backoff (test: a rename that fails twice then succeeds; one that always fails still rejects), and
-in `src/features/studio/hooks/useStudioProject.ts:52-62` (`persist`) re-mark dirty on `success:false`
-(and on a throw), reschedule the save, and after repeated failures show a persistent error (test: a
-failed save followed by `flush()`/close writes the latest doc) — then do the small Restore fix
-(Open problem 6) and rerun live `node deletes.mjs cases long bf1 bf2 bf3 bf4`.
+Launch (`bash launch.sh` in the background, `node drive.mjs ready`), then run `node deletes.mjs fillers`
+(AssemblyAI's 15 fillers: tint, "Remove 15 fillers", one undo step back to the original) and
+`node deletes.mjs karaoke-bottom` (Problem 3: the lit word must scroll into view past the bottom), and
+record both under Verified; then write and run the two remaining decision-3 checks (read-only while an
+Auto Cut review is open; save + reopen keeps deletions/pills/tags).
 
 ## Open problems
 
@@ -345,6 +405,14 @@ failed save followed by `flush()`/close writes the latest doc) — then do the s
    its unscrolled click is the check.
 - DRIVING.md "Learned" line added (poll project.json ≥ 200 ms; a failed save desyncs memory from disk).
 
+**Builder #4 (2026-10-22):** Problems 4, 5 and 6 are CLOSED (`aa58ee8`; Verified above). Still open
+for the rest of the pre-pass: fillers, karaoke-bottom (3), read-only during an Auto Cut review,
+save + reopen, the 2026-09-17 items on this material, then the station, HASAN-STEP.md (with the
+Problem 2 by-ear block — bf1–bf4 above are its first four candidates), the flip and the backfill
+alternative (prepared, not applied), the B4 doc debt (decision 6), Status row, TESTING §18.11.
+- Note for STATUS: the save indicator is now `[data-save-state]` (`saved|pending|error`); a driver
+  can read it instead of racing project.json.
+
 ## Do-not-redo
 
 - B1–B3 DONE; B4 WAITING-HASAN — do not touch the B4 station or B4's code. Track A DONE. Do not
@@ -357,8 +425,10 @@ failed save followed by `flush()`/close writes the latest doc) — then do the s
   inside / across / short / first / last PASSED (table under Verified) — rerun them only after a
   delete-path code change.
 - Problem 4 is ROOT-CAUSED (builder #3: probes + `longbug.b5.test.ts`) — do not re-investigate the
-  planner, the selection mapping or a double dispatch; the 709–777 delete is exact live. Only the
-  Problem 5 fix, the Restore-into-view fix and the live rerun of `long` + bf1–bf4 remain.
+  planner, the selection mapping or a double dispatch; the 709–777 delete is exact live.
+- Problem 5 (autosave) and Problem 6 (Restore into view) are FIXED + live-verified (`aa58ee8`,
+  `lockcheck.mjs` retry/retry 14/close; `long` + bf1–bf4 PASS) — do not redo. All ten delete cases
+  have now passed; rerun them only after a delete-path code change.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -369,3 +439,6 @@ failed save followed by `flush()`/close writes the latest doc) — then do the s
   failed-save-not-retried issue (Problem 5).
 - 2026-10-22 · builder #3 · ~44 calls · root-caused Problem 4 live + by harness (two correct deletes
   after a failed save; the Restore opens below the fold), no `src/` change; driver poll → 250 ms.
+- 2026-10-22 · builder #4 · ~50 calls · fixed Problem 5 (rename retry + autosave service) and Problem 6
+  (`aa58ee8`, tests first); live lock checks (retry / persistent error / close); `long` + bf1–bf4
+  PASS; full vitest green run 1, types 26/10.
