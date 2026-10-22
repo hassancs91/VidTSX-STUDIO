@@ -1,5 +1,5 @@
 # A5 — Fastest on video-14 (30–60 s range across a split + a cutaway); Standard at 25 % for the record
-status: IN PROGRESS (step 0 done — 0.1 `06edaf0`, 0.2 `f84a78d`; step 1 done; Fastest cancel PASS; Fastest 80–110 s DONE 1178 s / 1.53 fps; Standard same range IN FLIGHT at hand-off, job `4e20be8d-…`)
+status: DONE (step 0 done — 0.1 `06edaf0`, 0.2 `f84a78d`; step 1 done; Fastest cancel PASS; Fastest 80–110 s 1178 s / 1.53 fps; Standard same range 1046 s / 1.72 fps; gates green; STATUS row + TESTING §18.5 written — awaiting the verifier)
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety rules, launcher, repo facts,
 video-14 rules, every "Learned" line). A2, A3 and A4 drivers are reusable:
@@ -213,6 +213,20 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
     span lines, phases), stills `A5/stills/fastest-80-110-{dialog,queue}.png`, driver log
     `A5/logs/run-fastest-80-110.log`.
 
+- **Standard, same range 80–110 s, 4K60, CPU low — COMPLETE** (job `4e20be8d-d22e-492b-8f1d-73e8fd84ce95`,
+  agent 3's run, closed by agent 4). Started 21:30:54.574 UTC, complete 21:48:20 → **wall 1046.4 s (17.4 min),
+  1800 frames → 1.72 fps**; engine "Export finished" `framesMs 1040634, audioPassMs 0, muxMs 4647`; disk
+  estimate temp 4.0 GB / output 268 MB; font preflight 103 URLs, 202 cached, 0 failed. **Output**
+  `.vidtsx-temp/end-to-end/A5/export/studio-video-14_2026-10-21T21-30-54.mp4`, 17,002,605 B: h264 High yuv420p
+  3840×2160 60/1, 1800 frames, 29.999 s, 4.26 Mb/s; aac LC 48 kHz stereo 30.000 s (1408 packets). Persisted
+  `done` 1800/1800, scratch gone, `newTempEntries: []`. Free before C: 41.35 / D: 3.89, after C: 39.68 / D: 3.73.
+  Report `A5/report-standard-80-110.json`, stills `A5/stills/standard-80-110-{dialog,queue}.png`, driver log
+  `A5/logs/run-standard-80-110.log`.
+- **Exit closed (agent 4, 2026-10-22, docs only):** the 9245 app tree (electron 52140 + children; the
+  electron-vite chain exited with it) and the awake script (`A5/stop.flag` → log "stopped" 06:31:26 local)
+  stopped after confirming `%TEMP%\vidtsx-studio\export` empty; 0 electron.exe left. STATUS.md row
+  "2026-10-22 — END-TO-END A5" (top) and TESTING.md `### 18.5 A5` written.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-21 23:54 `npx vitest run src/main/services/remotion-renderer-stall.test.ts
@@ -247,22 +261,32 @@ leaves nothing (before/after diff of `%TEMP%` top-level entries and the job scra
   Expected ≈ 22–25 min at CPU low (A3: ~1.36 fps at 4K60) → done ≈ 21:55 UTC / 00:55 local.
   Driver log `A5/logs/run-standard-80-110.log` (ends with a `report …` line or `FAIL`), report
   `A5/report-standard-80-110.json` (rewritten every 30 s while running, final at the end).
+- **LANDED after the hand-off (agent 3, uncommitted note):** Standard COMPLETE at 21:48:20 UTC —
+  wall 1046.4 s (17.4 min), 1800 frames → **1.72 fps**; persisted `done` 1800/1800; job scratch
+  gone, no new TEMP entries. Output `A5/export/studio-video-14_2026-10-21T21-30-54.mp4`,
+  17,002,605 B: h264 3840×2160 60/1, 1800 frames, 29.999 s; aac 48 kHz stereo 30.000 s (1408
+  packets). Free after: C: 39.68 / D: 3.73 GB. So Standard (1.72 fps) beat Fastest (1.53 fps) on
+  this all-shots range, and its file is half the size (x264 CRF vs NVENC). The 9245 app and the
+  awake script were still running when this was written — stop them before the gates.
+- Agent 4, 2026-10-22 06:31 local: `A5/logs/run-standard-80-110.log` ends with `report …` (job
+  `complete … success:true … elapsed 1046421`, `final … scratchLeft:false, newTempEntries:[], persisted
+  done 1800/1800, fps 1.7201`). ffprobe (`A5/profile/ffmpeg-full/…/bin/ffprobe.exe -show_entries … -of
+  compact`) on both files:
+  `21-10-24.mp4` (Fastest) h264 Main 3840×2160 yuv420p 60/1 dur 30.000000 9076073 b/s nb_frames 1800 · aac LC
+  48000 2 ch 30.000000 nb_frames 1408 · format size 35076111;
+  `21-30-54.mp4` (Standard) h264 High 3840×2160 yuv420p 60/1 dur 29.999000 4255086 b/s nb_frames 1800 · aac LC
+  48000 2 ch 30.000000 nb_frames 1408 · format size 17002605.
+  `grep -ci 'Render stalled' A5/profile/logs/*.log` → 0. Free now C: 41 GB, D: 3.5 GB.
+- Agent 4, 2026-10-22 06:31 `npx vitest run` (app stopped, 0 electron.exe) → exit 0, **431 passed | 4 skipped
+  files, 3623 passed | 22 skipped tests, 43.26 s**. Log: `.vidtsx-temp/end-to-end/A5/logs/vitest-final.log`.
+- Agent 4, 2026-10-22 `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok`,
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
 
 ## Next step (ONE concrete instruction)
 
-Finish the Standard record, then the exit: read `A5/logs/run-standard-80-110.log` — if it ends
-with `report …`, take wall time / fps / output / ffprobe from `A5/report-standard-80-110.json`;
-if the driver or app died with the previous agent (no `report` line and nothing on port 9245, or
-the job never finished), relaunch (`bash A5/launch.sh` in the background, `rm -f A5/stop.flag`
-and start `awake-and-priority.ps1` in the background, `node drive.mjs ready && node drive.mjs
-setup`, check C: ≥ 20 GB / D: ≥ 2 GB) and rerun `node drive.mjs run standard-80-110 remotion 80
-110 complete` (if the app is alive but only the driver died: wait until `window.api.
-renderQueueGet()` is idle, THEN read `renderQueueLoad()` for job `4e20be8d-…` and the
-"Export finished" line in `A5/profile/logs/*.log`; the file lands in `A5/export/`). Then stop
-the 9245 process tree + its electron-vite, `touch A5/stop.flag`, run the gates (`npx vitest run`
-logged to `A5/logs/vitest-final.log`, `npm run check:types`), write the STATUS.md row (both
-files' wall time, fps, size, ffprobe; prerequisites installed in A4 by the in-app download and
-carried over) and TESTING.md `### 18.5 A5`, commit, return DONE.
+None for the builder — A5's exit is met (both files complete, wall times and fps in STATUS.md). Verifier:
+check the STATUS row and TESTING §18.5 against `A5/report-{fastest,standard}-80-110.json` and ffprobe of the
+two files in `A5/export/` (do NOT re-render; A6 and the track exit measure these files).
 
 ## Open problems
 
@@ -277,9 +301,10 @@ carried over) and TESTING.md `### 18.5 A5`, commit, return DONE.
 - Wording only: the Fast and Fastest rows always say "Needs the GPU encoder download"
   (`src/shared/studio/export-engines.ts:46,54`, static description) even when it is installed and
   the row is selectable — reads as stale on a PC that has it.
-- Fastest was NOT faster than Standard's A3 rate on this range (1.53 fps vs A3's ~1.36 fps
-  Standard): every second of video-14 is under a shot, so nothing is copy-only; compare with the
-  Standard number when it lands and say so in STATUS (expected per §5, not a bug).
+- Fastest was NOT faster than Standard on this range (1.53 fps vs Standard's 1.72 fps on the same
+  range): every second of video-14 is under a shot, so nothing is copy-only (expected per §5, not a
+  bug; said so in STATUS). Disk estimate at 4K runs high (output 268 MB est. vs 35.1 / 17.0 MB) —
+  safe direction, recorded in TESTING §18.5.
 
 ## Do-not-redo
 
@@ -288,6 +313,8 @@ carried over) and TESTING.md `### 18.5 A5`, commit, return DONE.
 - Step 1 DONE: `A5/profile` exists (do not copy again); the range is fixed at 80–110 s (frames
   4800–6600) — Standard must use the SAME range. The Fastest cancel check is DONE (PASS). The
   Fastest full-range file exists — do not render it again; keep it (A6 + the track exit use it).
+- The Standard file on the same range exists (`A5/export/studio-video-14_2026-10-21T21-30-54.mp4`) — do not
+  render it again; keep it. Gates, STATUS row and TESTING §18.5 are DONE.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -296,3 +323,5 @@ carried over) and TESTING.md `### 18.5 A5`, commit, return DONE.
   `f84a78d`), gates green. Step 0 complete.
 - 2026-10-22 · agent 3 · ~50 calls · step 1 (profile copy, range 80–110 s), Fastest cancel check
   (PASS), Fastest full range (done), Standard started and left running at hand-off; docs only.
+- 2026-10-22 · agent 4 · ~15 calls · Standard record closed (1046 s / 1.72 fps), app + awake script
+  stopped, gates green, STATUS row + TESTING §18.5; docs only. Part DONE.

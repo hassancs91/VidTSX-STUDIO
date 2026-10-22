@@ -7,6 +7,44 @@
 
 ---
 
+## 2026-10-22 — END-TO-END A5: Fastest on video-14 (30 s 4K60 range, split + cutaways); Standard at 25 % for the record — DONE
+
+- **What:** part A5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `06edaf0`, `f84a78d`), the
+  plan's §2 T7 measurement. **Step 0 (two fixes):** a render whose Remotion pre-encode ffmpeg dies can no longer
+  hang — `render-stall-guard.ts` (wired in `remotion-renderer.ts` for every engine and the Render page) fails the
+  job "Render stalled at frame X of Y …" after the per-frame timeout + 2 min (min 5 min, 12 min at default) with
+  no new frame, cancelling Remotion first so its processes and temp are released; one font fetch blip no longer
+  refuses an export — `font-upstream-fetch.ts` retries a network error / 5xx once (never a 4xx), and the
+  preflight says "N of M font files … could not be downloaded — check your connection" unless ALL failed.
+  **Prerequisites:** the full ffmpeg (NVENC) was installed in A4 by the in-app card download and carried over
+  in a copy of A4's profile; on a fresh launch all three engines were available (no second download, no
+  restart). **Range:** 80.000–110.000 s = frames 4800–6600 (1800 @ 60 fps) of the video-14 copy — enters and
+  leaves the PiP split `clip_mvba3wua_309b03` (89.9–103.15 s) and crosses the cutaways `V14A1OneWord`,
+  `V14A1Template`, `V14A2Starter`. Both files kept in `.vidtsx-temp/end-to-end/A5/export/` for A6 and the
+  track exit. No schema change.
+- **Measured 2026-10-22** over CDP on an isolated profile (port 9245, `.vidtsx-temp/end-to-end/A5/`),
+  3840×2160 @ 60, Quality high, CPU low (25 %), render processes below normal, machine held awake:
+  **Fastest** — wall **1178.3 s (19.6 min), 1.53 fps**; span plan copied 0 / composited 56 % (OneWord composite
+  324 f in 355.4 s · Template composite 270 f in 29.4 s · the split as a browser span 795 f in 556.5 s · Starter
+  composite 411 f in 229.3 s); `studio-video-14_2026-10-21T21-10-24.mp4` **35,076,111 B**, h264 Main 3840×2160
+  60/1, 1800 frames, 30.000 s, 9.08 Mb/s + AAC 48 kHz stereo 30.000 s. **Standard** — wall **1046.4 s
+  (17.4 min), 1.72 fps**; `studio-video-14_2026-10-21T21-30-54.mp4` **17,002,605 B**, h264 High 3840×2160 60/1,
+  1800 frames, 29.999 s, 4.26 Mb/s + AAC 48 kHz stereo 30.000 s. Both: 1800/1800 persisted `done`, job scratch
+  gone, no new `%TEMP%` entries, 0 "Render stalled" lines. **Fastest cancel** (moved from A2) PASS: 85–95 s
+  cancelled at 24/600 → `cancelled`, no output, scratch (107 MB while running) gone, no Remotion/Chrome
+  leftovers in `%TEMP%`. Disk estimate at 4K runs high (safe): output 268 MB estimated vs 35.1 / 17.0 MB.
+  `npx vitest run` **431 files passed, 4 skipped; 3623 tests passed, 22 skipped, 43.3 s**; `npm run
+  check:types` web 26 / node 10 = baseline.
+- **Honest note:** Fastest copies **0 %** of video-14 — its 55 shots tile the whole timeline (a cutaway on
+  every plain clip, an overlay on every PiP), so every span is composited or rendered in the browser (plan §5
+  "Copy engines and splits", expected). On this range **Standard (1.72 fps) beat Fastest (1.53 fps)** and wrote
+  a file half the size (x264 CRF vs NVENC). Fastest pays off only on footage with no shot over it.
+- **Open (found, no fix made):** bundling progress is sent 100× too big (`render-handlers.ts:199` →
+  "bundling 600% … 10000%"); the Fast/Fastest rows always read "Needs the GPU encoder download" even when it
+  is installed (`export-engines.ts:46,54`); `remotion-renderer.ts` is 444 lines (over the ~300 rule before A5);
+  a real dead encoder was not driven live (unit-tested only).
+- **Next:** A6 (the A/V check on these two files).
+
 ## 2026-10-21 — END-TO-END A4: export font preflight; GPU proxies default on + the first-4K-import download card — DONE
 
 - **What:** part A4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `3417d46`, `4671622`,
