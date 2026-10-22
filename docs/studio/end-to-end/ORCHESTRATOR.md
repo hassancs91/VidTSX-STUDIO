@@ -14,8 +14,8 @@
 | A2 | DONE | 5 | PASS (1 round) | `dd77b87`, `88de827`, `4b1156d` (code); docs `fe82d07` | Standard + Fast cancel → 0 new `%TEMP%` entries, no scratch, no output; refusal "C: needs about 609 MB … has 286 MB" (verifier also D: 580 vs 95 MB); 10 s 1080p60 export 4.3 MB vs 23 MB estimate; types 26/10; vitest green on rerun 3 | 2026-10-21 19:20 / 20:37 (77 min) |
 | A3 | DONE | 4 | PASS (1 round) | `c3aefe8` (code); docs `2daaef1`, `dea786d`, `7a088ab` | 5 s 4K60 Standard range (0:06–0:11) 300/300 frames in 233 s (verifier 226 s); brand-font hold released (verifier watched it in the render tabs); 55/55 bundles 0 `remotion_delayRenderHandles` (verifier rebuild byte-identical); Player 0 handles after open; types 26/10; vitest: known shot-generator flake failed 3/3 full runs (verifier) | 2026-10-21 20:40 / 21:42 (62 min) |
 | A4 | DONE | 9 | PASS (1 round) | `3417d46` (fonts), `4671622` (GPU default), `139a4a9` (card), `3d450ba` (re-queue on GPU); test fix `22593db`, `0afc196`; docs `63e8f04` | font: cold+blocked refused (103 files missing); warm 103 URLs 0 failed; blocked-after-warm export completed (fetched 0, cached 202; 1080p 5 s in 161–182 s). GPU: card 1.3–1.6 s after a 4K import; 80,069,496 B download ~80–106 s; triggering clip rebuilt `h264_nvenc` in 6.2–7.9 s (x264 22–24 s); no Settings visit, no settings write, no restart. vitest 428 files / 3598 green; types 26/10 | 2026-10-21 21:45 / 23:49 (124 min) |
-| A5 | BUILDING | 1 | — | — | — | 2026-10-21 23:55 / — |
-| A6 | TODO | | | | | |
+| A5 | DONE | 4 | PASS (1 round) | `06edaf0` (render stall guard), `f84a78d` (font fetch retry); docs `08bf046`, `31542e7` | 80–110 s (frames 4800–6600, split + 3 cutaways) at 3840×2160@60, CPU low: Fastest 1178 s / 1.53 fps, 35.1 MB (verifier re-render 936 s / 1.92 fps, audio MD5 identical); Standard 1046 s / 1.72 fps, 17.0 MB; Fastest copies 0 % of video-14 (all shots); Fastest cancel leaves nothing; vitest 431 / 3623 green; types 26/10 | 2026-10-21 23:55 / 2026-10-22 07:08 (≈ 7 h 13 min, of which ≈ 5 h 40 min idle — see Stops) |
+| A6 | BUILDING | 1 | — | — | — | 2026-10-22 07:15 / — |
 | B1 | TODO | | | | | |
 | B2 | TODO | | | | | |
 | B3 | TODO | | | | | |
@@ -146,3 +146,26 @@
 - GPU "on automatically" is NVIDIA-only by design (QSV/AMF stay opt-in, speeds unmeasured).
 - The font preflight is strict per URL: a project's FIRST export needs the network once (103
   files for video-14, ~2 MB), then exports work offline.
+- 2026-10-22 07:08 · A5 DONE (verifier PASS, 1 round; 4 builders). **Orchestrator stall:** builder
+  #3 handed back with its Standard render still running as its own background work; the render
+  landed at 21:48 UTC, but builder #3 never re-reported and the orchestrator waited for a
+  notification until Hasan asked "what now?" at 03:30 UTC (≈ 5 h 40 min idle). Fix: every builder
+  brief now says "never hand back while a render or other long job you started is still running".
+  Freed D: by deleting the A4-verify and A5-verify isolated profiles (723 MB; reports and exports
+  kept). Continuing to A6.
+
+### From A5 (for the stop report)
+
+- video-14 is all shots, so Fastest copies 0 % of it; on 80–110 s the builder measured Fastest
+  1.53 fps vs Standard 1.72 fps, but the verifier's Fastest re-run did 1.92 fps (another session's
+  QA load during the builder's run) — single runs, not a ranking.
+- Fastest's progress goes BACKWARDS between spans (94 % → 77 %, "about N min left" resets): each
+  span reports its frames twice (layer render, then the ffmpeg pass); a 167 s stretch with no
+  progress event inside span 0.
+- Bundling progress is reported 100× (`render-handlers.ts:199`, "bundling 10000%"); Fast/Fastest
+  rows always say "Needs the GPU encoder download" even when installed (`export-engines.ts:46,54`).
+- The disk estimate is high at 4K (268 MB output estimated vs 17–35 MB actual; 13.6 GB temp) —
+  safe direction, but it could refuse an export on a nearly full disk that would have fit.
+- The stall guard (a dead encoder now fails the job after ~12 min of no frames) and the font fetch
+  retry are unit-tested only; neither failure could be provoked live.
+- `remotion-renderer.ts` 444 lines (434 before; over the house rule).
