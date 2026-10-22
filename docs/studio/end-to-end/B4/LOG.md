@@ -1,3 +1,4 @@
 # B4 — log (append-only, one dated line per agent)
 
 - 2026-10-22 16:50 · orchestrator · HANDOFF.md created (§3 row, T1 learning signal, the 21-join reference, decisions 1–7 incl. the automated stand-in and Hasan's station).
+- 2026-10-22 16:30 · builder #1 · step 1 DONE `92d846f` (code, nothing wired): optional schema (`StudioProposalItem.snapped`, `StudioClipOrigin.op` + per-edge `edges`), pure `cut-learn-joins` / `-measure` / `-fit` / `cut-learn` (Q4 gates per side, L1 fit through the snapper's rules), 17 unit tests (13 joins at fitted-tight geometry from old tight → head 0.15 / minTail 0.08 / margin 12±1; own-style edges → no change; 9 joins → nothing); types 26/10; C: 2.43 / D: 6.44 GB; six objections under Open problems (medians = gate, values = fit; text-delete edges not samples; per-edge origin, no `at`); next = tags + `snapped` wiring.

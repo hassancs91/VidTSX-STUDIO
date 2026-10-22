@@ -1,5 +1,5 @@
 # B4 — The learning signal: snapped span beside the final span; user trims and text deletes tagged; learn-from-video measures the joins and proposes the cut knobs
-status: NEW
+status: IN PROGRESS — step 1 (schema + pure measurement/fit) DONE; step 2 (tags + `snapped` wiring) next
 
 Read `docs/studio/end-to-end/DRIVING.md` with this file (safety; ALL the disk rules — stop lines
 1.0 GB on C: and D:, artefacts > 1 MB to `C:\Users\hasan\AppData\Local\vidtsx-e2e\B4\`, "Reuse,
@@ -127,29 +127,120 @@ Disk at hand-off: C: ~2.4 GB, D: ~1.4 GB.
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+**Step 1 — schema + the pure learning modules (builder #1, 2026-10-22; code `92d846f`).**
+Nothing is wired yet: no reducer, IPC, learn path or UI change.
+
+- Schema, optional only (`src/shared/types/studio.ts`): `StudioClipEditOp = 'trim' | 'text-delete'`
+  (:115); `StudioClipOrigin` gains `op?` (:122) and per-edge `edges?: { start?, end? }` (:130) —
+  `by`/`proposalId` keep meaning "who PLACED the clip" (applied cut pieces are `by:'agent'`,
+  `apply-cut-proposal.ts:174`; learn stats count clips by it). `StudioProposalItem.snapped?:
+  { sourceStart, sourceEnd }` (:336).
+- Types `src/shared/types/studio-cut-learn.ts` (94 lines): `CutLearnKnob`, Q4 constants
+  `CUT_LEARN_MIN_JOINS = 10`, `CUT_LEARN_MIN_SECONDS = 0.03`, `CUT_LEARN_MIN_DB = 1`,
+  `CutLearnJoinInput`, `CutLearnJoin` (the card row), `CutLearnMedians`, `CutLearnChange`,
+  `CutLearnReport` (`joins`, `headEdges`, `tailEdges`, `medians`, `fitted`, `changes`, `notes`,
+  `joinsList`).
+- `src/shared/studio/cut-learn-joins.ts` (136): `collectCutLearnJoins(timeline, proposals)` (:34)
+  on `masterLane`; `clipLearnJoins` (:43) — edges tagged `'trim'`; two neighbouring same-source
+  clips = ONE join (left end = tail edge, right start = head edge); `'text-delete'` edges are not
+  samples; `proposalLearnJoins` (:91) — accepted items of applied/partial cut plans whose final ≠
+  `snapped` (> 1 ms), counted only while the master lane still has that edge untrimmed (a trim
+  supersedes; a lost edge is stale; no `snapped` = old data = nothing).
+- `src/shared/studio/cut-learn-measure.ts` (168): `measureCutJoins` (:68) — per TOUCHED edge:
+  tail = edge − last word (start < edge) end, `tailDb` = `rmsDb(edge)` − floor (50 ms, the
+  snapper's), lead-in = first word (end > edge) start − edge; beside each the resolved style's own
+  edge at that join (`tailFor` with the planner's gap, `styleLeadIn` (:53) = planner rule) and
+  `styleSoft`; edges > 1.5 s after / > 1.0 s before their word are skipped ("not a landing").
+- `src/shared/studio/cut-learn-fit.ts` (134): `fitHead` (:34), `fitTails` (:58) — L1 fit in whole
+  ms over grids (head/minTail 0–0.40 step 0.01, maxTail 0.10–1.50 step 0.05, margin 0–30 step
+  0.5, each plus the current value) through the snapper's own rules (snapTail's 20 ms walk from
+  minTail, the cap, the gap clamp; lead-in = max(head, snapHead reach)). Ties: current wins if
+  among the best; else the largest minTail, the middle of the margin/head plateau, the maxTail
+  nearest the current.
+- `src/shared/studio/cut-learn.ts` (161): `learnCutKnobs(inputs, assets, style)` (:25) — measure →
+  medians → Q4 gate PER SIDE (≥ 10 edges AND the user's median offset from the style's own edges
+  > 30 ms, or > 1 dB at the tail) → fit (head with the current margin, tails with that head, head
+  again with the fitted margin) → `changes` only for knobs moving > 30 ms / > 1 dB; notes for
+  "Learned from N joins — at least 10 …", within-threshold, soft landings, skipped edges.
+- Tests: `cut-learn.test.ts` (8), `cut-learn-joins.test.ts` (9).
 
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- `npx vitest run src/shared/studio/cut-learn.test.ts src/shared/studio/cut-learn-joins.test.ts`
+  → `Test Files 2 passed (2) · Tests 17 passed (17)` (1.34 s). Covered: one join's lead-in 0.1 /
+  tail 0.3 / `tailDb` 7.6 / the style's own edges; untouched joins and unknown clips teach
+  nothing; a far edge is skipped; **13 joins trimmed to the fitted-tight geometry with the OLD
+  tight as the style (head 0.11 / minTail 0.14 / maxTail 0.4 / margin 5 over base tight) → fitted
+  head 0.15, minTail 0.08, margin within ±1 dB of 12, changes head/minTail/margin/maxTail (maxTail
+  0.4 → 0.5: only known up to the longest tail kept)**; joins at the current style's own edges →
+  `changes: []`, fitted = current; 9 joins → nothing, note "Learned from 9 joins — at least 10
+  touched joins are needed before the cut knobs change."; lead-ins +30 ms → nothing, +40 ms →
+  head +0.04; natural (softGap 1.2) → "13 of 13 tails land soft …"; trims pair into one join,
+  one-sided joins, different sources, text-delete edges, speed; proposal drags on/off the
+  timeline, superseded by a trim, old items without `snapped`, rejected items, unapplied plans;
+  `collectCutLearnJoins` counts a join once.
+- `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- Disk at step 1: C: 2.43 GB, D: 6.44 GB free. No app launched, no full vitest run (no
+  reducer/IPC code touched yet).
 
 ## Next step (ONE concrete instruction)
 
-Read the four files named in "Learning today" + `proposal-ops.ts` + the clip trim reducer path,
-then add the optional schema (decision 1) and the pure measurement module (decision 2) with unit
-tests (touched-join detection from snapped vs final, lead-in / tail / tail-level, medians, the
-30 ms / 1 dB / ≥ 10 thresholds, the per-join list) — then hand off before wiring the tags into the
-reducers and the learn path.
+Wire the learning SIGNAL (not the learn path yet), with unit tests, then hand off: (a) the
+`'trim'` reducer case (`useTimeline.ts:322`, `trimClip`/`trimClipRippleAll` in
+`timeline-ops.ts:209` / `ripple-ops.ts`) tags the moved edge `origin.edges[edge] = 'trim'` +
+`op: 'trim'` (keep `by`/`proposalId`; absent origin → `{ by: 'user' }`; undo restores the untagged
+clip as today); `splitClip` hands each half only the edge it keeps; the `'text-delete'` case tags
+the edges it creates `'text-delete'`; (b) `setProposalItemSpan` (`proposal-ops.ts:54-68`) writes
+`snapped` = the pre-drag span when absent and the item is not yet `adjusted`, and every cut-plan
+item creator (Auto Cut `cut-proposal.ts`, the editorial snap, `run_auto_cut` / `propose_cuts`)
+writes `snapped` at creation. Then the learn path is the step after: read `preset-learn-stats.ts`,
+`learn-from-project.ts`, `preset-learn-format.ts`, `preset-store.ts` `applyPresetLearning`,
+`preset-learn-handlers.ts`, `agent-tools/preset-tools.ts` (NOT read yet).
 
 ## Open problems
 
-(none yet)
+Objections to the orchestrator decisions — built this way, the orchestrator to rule (none needs
+Hasan; none blocks):
+
+1. **Decision 2 "medians vs the resolved style → proposals": the medians are the GATE, the
+   numbers come from a fit.** The snapper's tail is not a knob value: with the fitted tight
+   (minTail 0.08, margin 12) the tails it keeps run ~0.14 s (Hasan's audit) and land a few dB
+   UNDER floor + 12 (the 20 ms walk stops at the first window at or below it) — the raw median
+   tail / landing level would propose minTail ≈ 0.14 and margin ≈ 9–10, failing the exit. So:
+   Q4 gate = the user's median offset from the style's own edges at the same joins (> 30 ms, or
+   > 1 dB at the tail, ≥ 10 edges); values = the L1 fit through the snapper's own rules (it IS
+   the median where the rule is a constant — a lead-in without `maxHead`). The card shows both
+   the medians and the fitted values. To confirm on M2 in the stand-in.
+2. **Text-delete edges are NOT samples** (decision 2 lists "a text-delete edge"). The resolved
+   style placed them, so they carry no timing preference and would pull the fit toward the
+   current style — and would bias Hasan's step if he also removes retakes in the Transcript.
+   They are tagged `'text-delete'` so a later trim of one is distinguishable (the §1.1 point) and
+   becomes a sample.
+3. **Decision 1's `origin {by:'user', op, at?}` → `op` + per-edge `edges` on the existing
+   `StudioClipOrigin`, `by` kept, no `at`.** A trim moves ONE edge; without the per-edge record
+   the untouched edge of a trimmed clip would be measured. `by` already means who placed the clip
+   (applied cut pieces are `by:'agent'`; learn stats count clips by it). `at` would make the
+   reducers impure and nothing reads it.
+4. **Per edge, not per join:** a join with only its tail trimmed gives a tail sample only; ≥ 10 is
+   counted per side (head edges → `head`; tail edges → `minTail`/`maxTail`/`margin`); the card's
+   "joins" = joins with ≥ 1 measured edge.
+5. **`maxTail` is only identifiable up to the longest tail kept** (the fit returns the cap nearest
+   the current one that reproduces every tail): the card should say "at least". Not in the exit.
+6. **All tails are fitted as punchy landings.** Under a style with a small `softGap` (natural
+   1.2) the joins land soft and a learned `margin`/`maxTail` does not reach them; the report says
+   so. The stand-in should start from the old tight as a project override over base tight
+   (softGap 99 → every join punchy), as decision 5 suggests.
 
 ## Do-not-redo
 
 - B1, B2, B3 are DONE — do not re-port the snapper, change the resolver/precedence, or the QA
   checks. Track A is DONE. Do not touch `main`. The editor repo is READ-ONLY.
+- Step 1 is DONE: the schema fields and the four `src/shared/studio/cut-learn*.ts` modules + their
+  17 tests — extend them, do not rewrite them (unless the stand-in on M2 disproves the fit; then
+  record the numbers first).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-22 · builder #1 · ~37 calls · step 1: schema + pure join collector / measurement / fit /
+  report with 17 unit tests; types 26/10; no app launch.
