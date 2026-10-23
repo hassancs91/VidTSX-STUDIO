@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (steps 1–4 + 4b done and committed — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`; next: step 5 = the decision-4 kits, then the live exit run when the resource guard allows)
+status: BUILDING (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits: B1 / B2 / B3-offline numbers UNCHANGED; next: the live exit run, once the resource guard allows — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -336,6 +336,43 @@ carries no items to main), a card the user unticked / dragged mid-turn, and `ins
   tests in `shot-ops` / `apply-shot-proposal` ran green over the moved expression). The exit run (one card per turn,
   answered by clicks) does not exercise this path.
 
+### Step 5 — the decision-4 kits, re-run from copies (builder #9, 2026-10-23; no `src/` change, kit gitignored)
+
+Neither B1's nor B2's kit copies project data (source read): B1's `compare.b1.test.ts` reads `B1/cutlib-joins.json` + b-root's
+`cache/waveforms` + `cache/transcripts` and WRITES `B1/compare-report.json` (would overwrite B1's); B2's `textdel.b2.test.ts`
+only reads (`…\vidtsx-e2e\B2\textdel-{before,after,sel}.json`, `B2-root`'s caches, `profiles\B2`'s preset — no credential
+store) and writes nothing; B3's offline `compare.b3.test.ts` reads `…\B3\analyze-cut-ref.json` and WRITES `…\B3\compare-b3-report.json`.
+So no copy waited on the guard. Copies in `.vidtsx-temp/end-to-end/B7/` (gated `$env:B7_KITS='1'`, config `vitest.b7.config.ts` =
+B1's with the include changed): `compare-b1.b7.test.ts`, `compare-b3.b7.test.ts` (logic byte-identical to the originals; only the
+gate, the input dir and the output path changed — `diff` shows exactly those lines), `textdel-b2.b7.test.ts` (B2's logic + a JSON
+report + `expect.soft`), `probe-textdel.b7.test.ts` (prints the landing inputs), `compare-kits.mjs` (diffs the reports). Every
+output is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\` (`b1-compare-report.json`, `b3-compare-report.json`,
+`b2-textdel-report.json`); B1's / B2's / B3's own files untouched.
+
+| Kit | Part's recorded numbers | B7 now | Difference |
+|---|---|---|---|
+| B1 cutlib reproduction | 352 joins, **348 within ±20 ms**, 4 outside, **2 merge flips**; tail level diff median 0.16 / p95 0.62 / max 3.06 dB; head 0.49 / 11.42 / 30.75 | identical | **none — the whole report is equal as JSON** (every clip, component, atom) |
+| B3 offline QA vs analyze_cut | hard entries ref 0 / Studio 0; clipped tails ref 181 / Studio 178 (both 178, ref-only 3, Studio-only 0) | identical | **none — whole report equal as JSON** |
+| B2 Transcript delete, 0369 words 12–23 | live [7.328, 20.41]; tight [7.328, 20.41]; preset natural+head 0.25 [7.628, 20.31]; natural [7.628, 20.35]; editorial [7.328, 20.41] | identical (all five, 0 ms) | **none** (see the preset note below) |
+
+Why none (not just "by luck"): B7 left `cut-planner.ts`, `cut-qa.ts`, `rms-envelope.ts`, `text-delete.ts` and `cut-style.json`
+untouched (`git diff --stat 4b5f3e7..HEAD` lists only `cut-snap.ts` + `editorial-cuts.ts` among the cut code; `resources/` empty),
+and B1's / B3's kits call `planClip` / `runCutQa` directly. The B2 delete DOES go through B7's code: `landCutEnd` fires (the editorial
+note "1 cut end moved off a removed word's release or a kept word's lead-in"; probe: authored end 16.663 = "business." → landed
+17.303 at tight, 17.423 at natural / natural+head — the measured release 0.58 / 0.70 s + 0.06 s lookback), but it lands inside a
+3.9 s pause (16.663 → "And" 20.56; +1.4–10 dB over the floor from 17.0 s on), far before the kept word's lead-in, so `planClip`'s
+segment start (20.56 − head: 20.41 / 20.31 / 20.35) is unchanged — the intended change, with no visible effect on this cut.
+
+**Input drift found (not B7, not a regression):** the first run gave preset natural+head `to` 20.35 (+40 ms vs B2's 20.31) because
+`profiles\B2\…\youtube-long-form\preset.json` no longer carries `style.cut` (mtime 2026-10-22 13:40:32; keys now `pacing,
+shotsPerMinute, sfxPerMinute, musicBed, captions, transitions, introSeconds, outroSeconds`) — it resolves to plain natural
+(`natural · preset “YouTube long-form”`, key `61f095ee`) = natural's own edges. B2 recorded with `style.cut {"base":"natural","head":0.25}`
+(B2 HANDOFF.md:470-471). The B7 copy rebuilds that in memory (nothing written) → `natural + 1 override · preset “YouTube long-form”`,
+key **`15b4f39a`** (= B2's plan file `…-natural-15b4f39a.json`, B2 HANDOFF.md:479) → [7.628, 20.31], equal to B2. The on-disk preset
+is reported alongside (`presetOnDisk` → [7.628, 20.35]).
+
+B3's LIVE Auto Cut numbers (hard 1 / 164 at tight, whole clips) cannot be re-measured without the app — see Open problems.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -418,8 +455,82 @@ carries no items to main), a card the user unticked / dragged mid-turn, and `ins
   src/main/services/studio/agent-actions.test.ts --maxWorkers=2` → `Test Files 5 passed (5) · Tests 36 passed (36)`.
 - 2026-10-23 · builder #8 · guard `3.9 GB; 99.9 / 102.3` · `npm run check:types` → `tsconfig.web.check.json: 26 errors
   (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok` (first try). Then the step-4b commit.
+- 2026-10-23 · builder #9 · step 5 · guard `3.8 GB C: free; commit 99.9 / 102.3 GB` · `$env:B7_KITS='1'; npx vitest run
+  --config .vidtsx-temp/end-to-end/B7/vitest.b7.config.ts compare-b1 compare-b3 textdel-b2 --maxWorkers=2` (log
+  `B7/kits-run1.log`) → `Test Files 3 passed (3) · Tests 3 passed (3)`; `node .vidtsx-temp/end-to-end/B7/compare-kits.mjs` →
+  B1 `{"joinsTotal":352,"joinsWithin":348,"joinsOutside":4,"mergeFlips":2,…}` = recorded (2026-10-22T08:41Z), `whole-report
+  differences: NONE`; B3 `{"refHard":0,"studioHard":0,"refTails":181,"studioTails":178,"tailsBoth":178,"tailsRefOnly":3,
+  "tailsStudioOnly":0}` = recorded (2026-10-22T11:50Z), `NONE`; B2 four edges 0 / 0 ms, `presetNaturalHead was [7.628,20.31]
+  now [7.628,20.35]` (the preset drift above).
+- 2026-10-23 · builder #9 · guard `3.8 GB; 99.9 / 102.3` · probe `npx vitest run --config … probe-textdel --maxWorkers=2
+  --silent=false --reporter=verbose` (vitest 4 hides a passing test's console without `--silent=false`) → words 16–21 s
+  `real 15.96–16.238, business. 16.303–16.663, And 20.56–…`; tight `head 0.15 maxHead 0.3 release 0.58 lo 17.303 landed 17.303`;
+  natural / preset-on-disk `head 0.21 maxHead 0 release 0.7 lo 17.423 landed 17.423`.
+- 2026-10-23 · builder #9 · guard `3.8 GB; 100.1 / 102.3` · after rebuilding B2's recorded preset in the copy: the same 3-kit
+  command (log `B7/kits-run2.log`) → `Test Files 3 passed (3) · Tests 3 passed (3)`; `compare-kits.mjs` → preset only
+  `natural + 1 override · preset “YouTube long-form” 15b4f39a`; **all five B2 edges `d 0 / 0 ms`**; B1, B3 `NONE` again.
+- No `npm run check:types` / targeted vitest needed for step 5: no tracked file changed except HANDOFF.md and LOG.md.
 
 ## Next step (ONE concrete instruction)
+
+**Run the live exit run (decisions 5 + 6, with the orchestrator's 15:00 amendment) and measure it — but START ONLY when the
+guard reads C: ≥ 3 GB AND (C: free + commit headroom) ≥ 8 GB** (headroom = total − used in the guard line). At builder #9's
+hand-off: `3.8 GB C: free; commit 100.1 / 102.3 GB` → 3.8 + 2.2 = **6.0 GB → NOT yet**. If it is still under 8 GB, do nothing
+else and hand back saying so. Re-check the guard before the copies, before the launch, before every `run.mjs loop` call and
+before the measurement; C: < 3 GB at any point → stop the app (step 7) and hand off. D: stop line 1.0 GB (DRIVING.md).
+
+0. **Pre-flight:** no `electron.exe` running (`Get-CimInstance Win32_Process -Filter "Name='electron.exe'"`; 0 at builder #9's
+   hand-off) — if one is, it is Hasan's: follow DRIVING.md (never kill it, never a second `electron-vite dev`; run
+   `electron.exe .` on its Vite server with your own profile + port). Port **9347** free (B7's CDP port; nothing listened on it,
+   5173, 9222 or 9331 at hand-off). D: free ≥ 2 GB (30.3 GB at hand-off).
+1. **Material on D: (never modify `b-root` or `profiles\source`):**
+   `robocopy "C:\Users\hasan\AppData\Local\vidtsx-e2e\b-root\projects\video-14-raw" "D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\B7\root\projects\video-14-raw" /E /NFL /NDL /NJH /NP`
+   (~580 MB; robocopy exit 0–7 = success) → `project.json` sha256 must equal b-root's (B6 recorded `ebe94fd7…3dda`).
+   `robocopy "C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\source\profile" "D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\B7\profile" /E /XF settings.db settings.db-wal settings.db-shm /NFL /NDL /NJH /NP`
+   (~377 MB) — **the profile's credential store `settings\settings.db` (+ `-wal`, `-shm`) is NOT copied** (this run's rule: never
+   copy a credential store; see Open problems); the app creates a fresh one → no saved providers → `llm-init.ts:82-90` registers the
+   keyless `claude-subscription` as the active provider (B6 HANDOFF "How the assistant's provider is chosen"). Never open either
+   folder's `settings\`.
+2. **Kit:** copy `.vidtsx-temp/end-to-end/B6/{run.mjs,cdp.mjs,probe.mjs,launch.sh,restore.ps1,measure.py}` and
+   `C:\Users\hasan\AppData\Local\vidtsx-e2e\track-B-exit\exit_check.py` into `.vidtsx-temp/end-to-end/B7/`, then re-point (and grep
+   each copy for `B6`, `9331`, `track-B-exit` afterwards — none may be left except in comments that say "copied from"):
+   `cdp.mjs:7` PORT `9331` → `9347`; `probe.mjs:6` + `run.mjs:14` ROOT → `D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/root`;
+   `run.mjs:16` OUT → `C:/Users/hasan/AppData/Local/vidtsx-e2e/B7/run`; `launch.sh:11` `--user-data-dir="D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/profile"
+   --remote-debugging-port=9347`, `:14` log → `/c/Users/hasan/AppData/Local/vidtsx-e2e/B7/app.log` (KEEP the `ELECTRON_RUN_AS_NODE`
+   unset and the strip of every `CLAUDE*` / `ANTHROPIC*` env var); `restore.ps1` filter → `*--remote-debugging-port=9347*`;
+   `measure.py:33` DEFAULT_OUT → `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\measure`; `exit_check.py:21` B6_PROJECT →
+   `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\B7\root\projects\video-14-raw\project.json`, `:22` B6_RAW →
+   `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\run\proposals-raw.json`, `:23` OUT → `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\exit`.
+   `python -I -B .vidtsx-temp/end-to-end/B7/measure.py --selftest` must pass before the run.
+3. **Launch:** `bash .vidtsx-temp/end-to-end/B7/launch.sh` in the background (a script FILE, DRIVING.md); then
+   `node .vidtsx-temp/end-to-end/B7/probe.mjs ready` (waits for `window.api` + the Studio nav, `studioRootSet` → the B7 root,
+   `studioRootGet` must echo it) and `node … probe.mjs providers` → expect `{"active":"claude-subscription","providers":[]}`. Do NOT
+   run `probe.mjs turn` (the exit budget is the ONE pass). A minimized window: `powershell -File …/B7/restore.ps1`.
+4. **Setup:** `node .vidtsx-temp/end-to-end/B7/run.mjs setup` → expect length **1283.148 s**, settings `{width 3840, height 2160,
+   fps 60, agent: {}}` (no `providerId`, no preset, no `cutStyle` → tight · default), **0 proposals**, empty `agent-chat.json`,
+   transcripts ready 27/44/97/207/183/602/40/330/290 = 1,820 words (B6 HANDOFF Done 6). Anything else → fix the copy (it is scratch),
+   not the app.
+5. **The ONE pass (B6's run shape):** `node .vidtsx-temp/end-to-end/B7/run.mjs loop "Cut this video."` — it types with real input,
+   captures every NEW card from `project.json` BEFORE answering it (`proposals-raw.json`), answers with a real click (`Apply N cuts`
+   = the accepted items; `Reject all` when 0 are accepted — with B7 a card whose cuts all start unchecked by QA is such a card), and
+   lets "Review outcome" auto-continue. Resume as B6 did (`loop --resume`, `loop --continue`); if the assistant OFFERS Auto Cut instead
+   of running it, `loop "Yes, run Auto Cut for the pauses on all nine clips."` (exactly). A second pass only if the harness broke the
+   first (say so). Record per card: items, how many started unchecked by QA (`qaFlag` on the item), and whether the reply named them.
+6. **Capture:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\run\` = `turns.jsonl`, `proposals-raw.json`, `proposals.json`; make
+   `proposals-accepted.json` = `proposals.json` minus the items that were not `accepted` at Apply (B6 HANDOFF.md:179 did the same).
+7. **Stop the app:** only processes whose command line has `--remote-debugging-port=9347` or `.vidtsx-temp/end-to-end/B7/profile`
+   (+ the `electron-vite` you started) — `taskkill /T /F /PID <pid>`; confirm 0 left. Never select by a bare number.
+8. **Measure:** `python -I -B .vidtsx-temp/end-to-end/B7/exit_check.py` → hard entries on the APPLIED cut (analyze_cut
+   `entry_check` on real joins, `REAL_JOIN 0.75`) — **exit: 0** (baseline 6 / 146) — with per-join detail for any left; median
+   lead-in / tail at joins vs the fitted tight — **exit: within ±30 ms** (baseline lead-in 0.150 vs 0.150 s, tail 0.220 vs 0.214 s).
+   `python -I -B .vidtsx-temp/end-to-end/B7/measure.py C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\run\proposals.json C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\measure`
+   and the same on `proposals-accepted.json` → `…\B7\measure-accepted` — **exit: overlap ≥ 0.905** (baseline 0.9051 all /
+   0.9049 accepted-only); report both. Run every Python from the repo root, never from inside the editor repo.
+9. Write it up: Done + Verified here (commands + outputs), a TESTING.md block in §17's shape, one LOG.md line; commit docs only
+   (`docs(studio): B7 — …`). Any exit clause missed → Open problems with the per-join numbers; the fix is a NEW step (red test
+   from the failing join first), not a second pass.
+
+## Next step — superseded (kept for reference: builder #8's step 5 instruction)
 
 Step 5 = the decision-4 kits (orchestrator decision 4; Open problems › "Decision-4 kits"), read-only: first check
 whether B1's `.vidtsx-temp/end-to-end/B1/compare.b1.test.ts` and B2's `textdel.b2.test.ts` copy any project data
@@ -457,18 +568,30 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 - **Resource guard (blocks the live pass, scratch copies, the full suite):** builder #5 read C: 5.4 → 4.4 GB and
   commit 98.5–98.9 of 100.2–101.3 GB (headroom ~1.5–2.4 GB; the page file grew while `check:types` ran). The live
-  exit run needs C: ≥ 8 GB AND headroom ≥ 6 GB. Not caused by this run (no app, no copies, no full suite).
-- **Decision-4 kits not yet re-run (do before the exit, read-only):** (1) B1's cutlib reproduction
-  `.vidtsx-temp/end-to-end/B1/compare.b1.test.ts` (`$env:B1_COMPARE='1'; npx vitest run --config
-  .vidtsx-temp/end-to-end/B1/vitest.b1.config.ts compare`) calls `planClip`/`tailFor` directly on Hasan's cuts —
-  `cut-planner.ts` is untouched by B7 (`a31080a` changes only `cut-snap.ts`, `cut-snap-landing.ts`,
-  `editorial-cuts.ts` + tests), so 348/352 cannot move, but it OVERWRITES B1's `compare-report.json` — copy the kit
-  to `.vidtsx-temp/end-to-end/B7/` and re-point its output first. (2) B2's `textdel.b2.test.ts` (`B2_TEXTDEL=1`,
-  `vitest.b2.config.ts`) DOES go through the changed code (`planTextDelete` + `snapEditorialCuts` on `B2-root`) and
-  writes to `…\vidtsx-e2e\B2` — copy + re-point the output to `…\vidtsx-e2e\B7\` before running; a moved edge there
-  is expected only where the landing rule fires (cut-in in a removed word's release) — report each moved edge.
-  (3) B3's live Auto Cut numbers (hard 1/164) need the app — part of the live pass.
-  Builder #8 (step 4b) did NOT start step 5 (hand-off at ~55 tool calls); nothing of it exists yet in `B7/`.
+  exit run needs (orchestrator 15:00, supersedes this file's header gate) C: ≥ 3 GB AND C: free + commit headroom ≥ 8 GB,
+  scratch on D:. Builder #9's hand-off: 3.8 + 2.2 = 6.0 GB → not yet. Not caused by this run (no app, no copies, no full suite).
+- RESOLVED (step 5, builder #9): the decision-4 kits — B1 348/352 + 2 merge flips, B3-offline 0/0 hard + 178/181 tails, B2's
+  five Transcript-delete edges: all UNCHANGED (Done › Step 5). Correction to the old note: B2's `textdel.b2.test.ts` writes
+  nothing (it only reads `…\vidtsx-e2e\B2`); B1's and B3's kits are the ones that overwrite their own reports.
+- **For the orchestrator (not blocking, decide before the live run): the profile copy vs. the credential-store rule.** Decision 5
+  says copy `profiles\source\profile`; that folder holds `settings\settings.db` (+ `-wal`, `-shm`; existence checked with
+  `Test-Path` only, never opened) and B6's whole-folder copy carried it (`profiles\B6\profile\settings\settings.db` exists). This
+  run's rule is "never read, copy or open a credential store (any settings.db)". The Next step therefore copies the profile
+  WITHOUT those three files (`robocopy … /XF settings.db settings.db-wal settings.db-shm`): the app creates a fresh store, which by
+  `llm-init.ts:82-90` makes the keyless `claude-subscription` the active provider — the same provider B6 ran with. Unknown: any
+  OTHER app setting kept only in that db (B6 recorded `{"active":"claude-subscription","providers":[]}` and nothing else from it);
+  the full-ffmpeg install lives in `<userData>/ffmpeg-full/` (a folder, copied) and the proxies in the project cache. If the
+  orchestrator wants the db copied as B6 did, say so in the Next step; otherwise the exclusion stands.
+- **B3's LIVE Auto Cut numbers (hard 1 / 164 at tight over whole, untouched clips) are not re-measured** — they need the app, and
+  the exit run does not reproduce them (its Auto Cut cards plan over the timeline's keeps after the editorial cards, a different
+  denominator). By construction they cannot move: the planner, QA and envelope code are untouched, and an untouched clip plans
+  byte-for-byte as before (`normalizeKeeps` → whole source, pinned by `cut-plan-runner.test.ts:113`). The one visible change is
+  that 0373 @ 323.198's cut now starts UNCHECKED on its card (step 3). If the orchestrator wants a live number, it is B3's
+  `drive.mjs` Auto Cut step on its own fresh copy — not part of B7's exit.
+- Found (input drift, outside B7): `profiles\B2\profile\assets\presets\youtube-long-form\preset.json` lost its `style.cut`
+  (`{"base":"natural","head":0.25}` when B2 recorded) — mtime 2026-10-22 13:40:32. Anyone re-running B2's original
+  `textdel.b2.test.ts` today gets preset natural+head [7.628, 20.35], not 20.31, and its `presetNat ≠ live` assertion still holds.
+  Not touched (B2's scratch); B7's copy rebuilds the recorded preset in memory.
 - Not fixed, left listed (orchestrator: fix only if the same few lines — it is not): the CUT-OUT side mirror (an
   authored START early in the gap after a kept word truncates that word's tail via `cut-planner.ts:163`). A
   mirror of `landCutEnd` needs `tailFor`'s gap-dependent tail (punchy vs soft, the next-atom clamp), not the
@@ -502,6 +625,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 5 (the decision-4 kits) is DONE: B1 / B3-offline reports equal to the recorded ones as JSON, B2's five edges equal. Don't
+  re-run them unless `cut-planner` / `cut-qa` / `rms-envelope` / `cut-snap*` / `text-delete` / `editorial-cuts` change again — then
+  the one command in Verified (builder #9) + `node .vidtsx-temp/end-to-end/B7/compare-kits.mjs`.
 - Step 4b is DONE, green and committed: don't rebuild `sourceKeepsAfter`, `applyProposalByKind`, the action result's
   `sourceKeeps` wire or `noteAppliedKeeps` / `withTurnKeeps`. Touching them → run builder #8's two Verified sets.
 - Step 4 (item 4 + the readout suffix) is DONE, green and committed: don't rebuild `cut-keeps.ts`, `planCutSpans`, the
@@ -547,3 +673,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   timeline as it is; one `applyProposalByKind` for reducer / preview / agent apply; 3 red → green, 37 files 358/358 +
   5 files 36/36, check:types web 26 / node 10; no existing expectation changed; committed; step 5 not started. C: 3.9 GB
   throughout, commit 99.7–99.9 / 102.3 GB.
+- 2026-10-23 · builder #9 · ~42 calls · step 5: copied B1's / B3's compare kits and B2's text-delete kit into `B7/` (outputs →
+  `…\vidtsx-e2e\B7\`), ran them under the guard: B1 348/352 + 2 flips, B3-offline 0/0 + 178/181, B2's five edges — all unchanged
+  (the landing fires on B2's delete but inside a 3.9 s pause); found B2's preset drift (input, not code) and the profile's
+  `settings.db` vs. the credential rule (Open problems); wrote the live exit run as the Next step. No `src/` change, no app, no
+  model call. C: 3.8 GB, commit 99.9–100.1 / 102.3 GB throughout.
