@@ -1,9 +1,14 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (step 1 done; step 2 fix WRITTEN, NOT YET RUN — C: under 1.0 GB, uncommitted)
+status: BUILDING (steps 1–2 done and committed — `a31080a`; next: item 5, QA-flagged items unchecked)
 
-> **Disk override (orchestrator, 2026-10-23) still in force:** C: had 0.25–0.32 GB free all through
-> builder #4 (checked 4×). Until C: ≥ 5 GB: code + targeted unit tests only; check `Get-PSDrive C`
-> before each test command and stop/hand off under 1.0 GB. Builder #4 ran NO test (C: < 1.0 GB).
+> **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
+> commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
+> Before EVERY test / type-check command run
+> `powershell -NoProfile -Command "$os=Get-CimInstance Win32_OperatingSystem; '{0:N1} GB C: free; commit {1:N1} / {2:N1} GB' -f ((Get-PSDrive C).Free/1GB), (($os.TotalVirtualMemorySize-$os.FreeVirtualMemory)/1MB), ($os.TotalVirtualMemorySize/1MB)"`.
+> C: ≥ 3 GB: code, targeted `npx vitest run <files> --maxWorkers=2`, `npm run check:types` only.
+> Scratch copies, any app launch, the full `npx vitest run`, the live pass: only once C: ≥ 8 GB AND commit
+> headroom ≥ 6 GB. C: < 3 GB: stop and hand off at once. (Builder #5 saw C: 5.4 → 4.4 GB during its run:
+> the page file grew 100.2 → 101.3 GB while `check:types` ran.)
 
 ## Goal (the row — added 2026-10-23 by Hasan's session-3 instruction — + the exit)
 
@@ -160,11 +165,28 @@ Corrections found on the way (facts, not guesses):
   (b) the produced cut; (c) no wordless produced segment near it; mechanism 1: the 0366 4.83–5.89, 12.63–14.34
   and 0373 247.86–249.35 gaps sit inside one item; 0373 391.59's fluff stays its own `rejected` item.
 
-### Step 2 — the fix for mechanisms 1–3 (builder #4, 2026-10-23, WRITTEN, NOT RUN, NOT COMMITTED)
+### Step 2 — the fix for mechanisms 1–3 (written by builder #4, run + fixed + committed by builder #5, 2026-10-23, commit `a31080a`)
 
-Working tree (all uncommitted): `M src/shared/studio/cut-snap.ts`, `M src/main/services/studio/editorial-cuts.ts`,
-`?? src/shared/studio/cut-snap-landing.ts` (new), `?? src/main/services/studio/editorial-cuts-b7.test.ts` (builder #3's
-red test, edited). Commit all four together once the run below is green.
+Commit `a31080a` (5 files): `src/shared/studio/cut-snap.ts`, `src/shared/studio/cut-snap-landing.ts` (new),
+`src/main/services/studio/editorial-cuts.ts`, `src/main/services/studio/editorial-cuts-b7.test.ts` (new, 229 lines),
+`src/features/studio/services/text-delete.test.ts`.
+
+**Builder #5's changes to builder #4's code (what the first run showed):**
+- `cut-snap-landing.ts:51-56` — the release is now MEASURED: `envelope.snapTail(a, 0, softMaxTail, …)` (floor 0)
+  instead of `snapTail(a, style.minTail, …)`. minTail is the tail a KEPT word is given; flooring the removed word's
+  release with it made a short clean gap read as "never decays" (natural minTail 0.26 + 0.06 lookback > the 0.25 s
+  gap after 'um' in the text-edit fixture → the cut landed 10 ms before 'to'). All 26 B7 tests stay green with it.
+- `text-delete.test.ts:44-79` — **one expectation changed, provably wrong under B7:** B2's "snaps with the style it is
+  given" asserted `tight.to > natural.to + 0.05` in the 0.25 s gap after 'um' (`text-edit-fixtures.ts`, um 1.95–2.20,
+  to 2.45). There both styles' lead-ins (head 0.19 / 0.11 + styleForFeatures' +0.08 → 0.27 / 0.19) start inside um's
+  release + the QA's 60 ms entry lookback, so pre-B7 both cut-ins were HARD ENTRIES by the shipped QA: natural 2.20
+  (+40.0 dB over the floor at `rmsDb(cutIn − 0.06, 0.05)`), tight 2.26 (+36.0 dB) — measured with a throw-away
+  vitest probe (deleted). The assertion required one of the two to stay a hard entry. Kept its intent (the style
+  reaches the snap) on a roomier gap: the same test with 'um' ending 2.00 (0.45 s of quiet before 'to'), same
+  assertions; plus a new pin `lands the cut-in past the removed word's release in a short gap, whatever the style
+  (B7)` (both styles → 2.28, entry window under 15 dB).
+- `editorial-cuts-b7.test.ts:97-103` — type-only: the accepted items' source bounds are optional on the proposal type;
+  the cuts are now built with a `flatMap` guard (check:types node had 6 new TS errors there).
 
 - **(a) merge key** — `cut-snap.ts`: new optional `mergeKey?: (category: C) => string` on `SnapCutSpansInput` (:51-58, field :58).
   Step 2 (:154-181): a wordless gap merges when ≤ `MERGE_SILENT_KEEP_MAX` (today) OR when both sides' dominant
@@ -216,23 +238,62 @@ red test, edited). Commit all four together once the run below is green.
   floor sanity; 391.59's fluff stays rejected; 391.59 produced cut already clean under Auto-Cut-over-keeps
   (its sliver came only from Auto Cut planning the whole clip); no sliver at 204.069 / 122.7 / 391.59.
 
+- 2026-10-23 · builder #5 · guard read `5.4 GB C: free; commit 98.5 / 100.2 GB` · HANDOFF's 9-file set
+  (`npx vitest run …editorial-cuts-b7… …editorial-cuts… …cut-tools… …text-delete… …text-restore… …cut-planner…
+  …cut-planner-knobs… …cut-qa… …run-auto-cut… --maxWorkers=2`) with builder #4's code as written →
+  `Tests 1 failed | 118 passed (119)`: **editorial-cuts-b7.test.ts 26 / 26 green**; red = text-delete
+  `snaps with the style it is given (B2…)` (`expected 2.44 to be greater than 2.49`). After the minTail→0 release
+  fix: still red (`expected 2.28 to be greater than 2.33`) → the expectation change above.
+- 2026-10-23 · builder #5 · guard `5.4 GB; commit 98.8 / 100.2` · every cut test file (23 files: the 9 above +
+  apply-cut-proposal, cut-style-spec, cut-style-resolve, rms-envelope, cut-style-override,
+  studio-cut-plan-run-handler, preset-cut, cut-style-handlers, cut-style-store, cut-plan-runner, cut-proposal-qa,
+  cut-proposal, cut-learn-joins, cut-learn; `--maxWorkers=2`) → `Test Files 23 passed (23) · Tests 263 passed (263)`.
+  This covers decision 4's unit side (B1's cutlib reproduction tests in cut-planner / cut-learn, B2's per-style
+  edges in cut-planner-knobs / cut-style-*, B3's card QA in cut-proposal-qa / cut-qa); B3's LIVE Auto Cut numbers
+  (hard 1/164) are NOT re-run — that is the live pass.
+- 2026-10-23 · builder #5 · guard `5.4 GB; commit 98.6 / 100.2` · `npm run check:types` → first
+  `tsconfig.node.check.json: 16 errors (baseline 10) FAIL` (6 in editorial-cuts-b7.test.ts:100-117), after the
+  type-only test fix → `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors
+  (baseline 10) ok`, exit 0.
+- 2026-10-23 · builder #5 · guard `4.4 GB; commit 98.9 / 101.3` · `npx vitest run
+  src/main/services/studio/editorial-cuts-b7.test.ts src/features/studio/services/text-delete.test.ts --maxWorkers=2`
+  → `Test Files 2 passed (2) · Tests 44 passed (44)`. Then commit `a31080a`.
+
 ## Next step (ONE concrete instruction)
 
-When `Get-PSDrive C` shows ≥ 1.0 GB free, run (one command, from the repo root)
-`npx vitest run src/main/services/studio/editorial-cuts-b7.test.ts src/main/services/studio/editorial-cuts.test.ts src/main/services/studio/agent-tools/cut-tools.test.ts src/features/studio/services/text-delete.test.ts src/features/studio/services/text-restore.test.ts src/shared/studio/cut-planner.test.ts src/shared/studio/cut-planner-knobs.test.ts src/shared/studio/cut-qa.test.ts src/main/services/studio/agent-tools/run-auto-cut.test.ts`
-and `npm run check:types` (baseline web 26 / node 10); expect `editorial-cuts-b7.test.ts` 26 / 26 green (23 + the
-three guards) and the rest unchanged; fix only inside `cut-snap.ts` / `cut-snap-landing.ts` / `editorial-cuts.ts`
-if anything is red (the hand-expected numbers are in step 2); record both outputs under Verified and commit the
-four files together ("fix(studio): B7 — editorial cuts merge wordless gaps and land cut-ins off leftover sound").
-After that (later steps, in order): item 5 (QA-flagged items `rejected` with the reason, both card
-builders, the agent's reply names them), item 4 (Auto Cut over the timeline's keeps: `runCutPlan` takes the
-asset's kept source ranges from the button and from `run_auto_cut`; `buildCutProposal` proposes only inside
-them and its headline counts only that), then the live exit run once C: ≥ 5 GB (orchestrator decision 5).
+Step 3 = item 5 (decision 1), pure op + unit tests first: add one shared pure function (new file, e.g.
+`src/shared/studio/cut-qa-flags.ts`) that takes a card's items + its `CutQaReport` and returns, per item, the
+`hard-entry` QA item(s) whose `sourceTime` is that item's join (the kept segment start = the item's `sourceEnd`,
+±0.02 s, same asset); write its red tests first on a synthetic envelope (like the `B7 guards` describe in
+`editorial-cuts-b7.test.ts`: a card whose QA has a hard entry at one item's join and none at the other's — the six
+real cases no longer produce one); then call it in BOTH card builders — `buildEditorialProposal`
+(`src/main/services/studio/editorial-cuts.ts:73`, status by category today) and `buildCutProposal`
+(`src/shared/studio/cut-proposal.ts:91`, all `accepted` today) — so a flagged item is built `status: 'rejected'`
+with the reason (e.g. "unchecked: hard entry +N dB at T — QA") on the row's existing note/reason field (check the
+item type and what the card row renders before adding a field; optional fields only). After that, in the same
+step: make the `propose_cuts` / `run_auto_cut` tool results tell the model which items were unchecked and why
+(find where each tool builds its result text; `delivery-tools.ts:68` `accept_proposal` already takes `accepted`
+only), with a unit test each.
+Later steps, in order: item 4 (Auto Cut over the timeline's keeps: `runCutPlan` takes the asset's kept source
+ranges from the button and from `run_auto_cut`; `buildCutProposal` proposes only inside them and its headline
+counts only that); the decision-4 kits (below); then the live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB
+(the resource guard; orchestrator decision 5).
 
 ## Open problems
 
-- **C: disk (blocks every test run):** 0.25–0.32 GB free during builder #4 (it was 1.10 GB for builder #3). The
-  step-2 fix is unverified until a test run is allowed. Not caused by this run (no app, no copies, no vitest).
+- **Resource guard (blocks the live pass, scratch copies, the full suite):** builder #5 read C: 5.4 → 4.4 GB and
+  commit 98.5–98.9 of 100.2–101.3 GB (headroom ~1.5–2.4 GB; the page file grew while `check:types` ran). The live
+  exit run needs C: ≥ 8 GB AND headroom ≥ 6 GB. Not caused by this run (no app, no copies, no full suite).
+- **Decision-4 kits not yet re-run (do before the exit, read-only):** (1) B1's cutlib reproduction
+  `.vidtsx-temp/end-to-end/B1/compare.b1.test.ts` (`$env:B1_COMPARE='1'; npx vitest run --config
+  .vidtsx-temp/end-to-end/B1/vitest.b1.config.ts compare`) calls `planClip`/`tailFor` directly on Hasan's cuts —
+  `cut-planner.ts` is untouched by B7 (`a31080a` changes only `cut-snap.ts`, `cut-snap-landing.ts`,
+  `editorial-cuts.ts` + tests), so 348/352 cannot move, but it OVERWRITES B1's `compare-report.json` — copy the kit
+  to `.vidtsx-temp/end-to-end/B7/` and re-point its output first. (2) B2's `textdel.b2.test.ts` (`B2_TEXTDEL=1`,
+  `vitest.b2.config.ts`) DOES go through the changed code (`planTextDelete` + `snapEditorialCuts` on `B2-root`) and
+  writes to `…\vidtsx-e2e\B2` — copy + re-point the output to `…\vidtsx-e2e\B7\` before running; a moved edge there
+  is expected only where the landing rule fires (cut-in in a removed word's release) — report each moved edge.
+  (3) B3's live Auto Cut numbers (hard 1/164) need the app — part of the live pass.
 - Not fixed, left listed (orchestrator: fix only if the same few lines — it is not): the CUT-OUT side mirror (an
   authored START early in the gap after a kept word truncates that word's tail via `cut-planner.ts:163`). A
   mirror of `landCutEnd` needs `tailFor`'s gap-dependent tail (punchy vs soft, the next-atom clamp), not the
@@ -258,8 +319,10 @@ them and its headline counts only that), then the live exit run once C: ≥ 5 GB
 - The six cases' fixture is extracted (`cut-snap-b7.fixture.json`); don't re-extract unless a case is wrong.
 - The mechanism map above (step 1) is done; don't re-read cut-snap / cut-planner / cut-qa / cut-proposal /
   cut-plan-runner / workflow-tools / cut-tools to re-derive it — read only what the fix touches.
-- Step 2's code is written (see Done › Step 2): don't rewrite it — RUN it, then fix only what a red test shows.
-  The per-case envelope numbers come from `probe-b7.mjs`; don't re-derive them by hand.
+- Step 2 is DONE, green and committed (`a31080a`): don't re-run its test set to "check" it unless your change
+  touches cut-snap / cut-snap-landing / editorial-cuts / text-delete — then run the 23-file cut set in Verified.
+  The per-case envelope numbers come from `probe-b7.mjs`; don't re-derive them by hand. The B2 text-delete
+  expectation change is argued in Done › Step 2 (both pre-B7 cut-ins were hard entries) — don't revert it.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -269,3 +332,7 @@ them and its headline counts only that), then the live exit run once C: ≥ 5 GB
 - 2026-10-23 · builder #4 · ~35 calls · step 2 code (merge key + loud-gap guard, `landCutEnd` in the new
   `cut-snap-landing.ts`), B7 test moved to the shipped tight style + three guard tests, `probe-b7.mjs`; ran NO test
   (C: 0.25–0.32 GB free, under the override's 1.0 GB stop); nothing committed (not a green checkpoint).
+- 2026-10-23 · builder #5 · ~38 calls · ran step 2: B7 tests 26/26 green as written; fixed the landing's release
+  floor (minTail → 0, measured release); changed B2's text-delete style expectation (proved both pre-B7 cut-ins were
+  hard entries) + a B7 pin; type-only fix in the B7 test; 23 cut test files 263/263 green, check:types at baseline
+  (web 26 / node 10); committed `a31080a`; wrote step 3 (item 5) as the next step. Resource guard in force.
