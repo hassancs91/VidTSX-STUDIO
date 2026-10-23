@@ -1,136 +1,115 @@
-# Next session — END_TO_END_PLAN.md after track B
+# Next session — END_TO_END_PLAN.md, session 4 (from B7's verifier on)
 
-> Written 2026-10-23 01:30 by the session-2 orchestrator, at the stop Hasan set ("stop after the
-> track-B exit"). Session 1 ran Q6, A1–A6, the track-A exit and B1 step A; session 2 ran B1 (rest)
-> → B6 and the track-B exit. Everything is in `ORCHESTRATOR.md` (table, "From B1…B6", "B4/B5 —
-> WAITING-HASAN", "TRACK B EXIT").
+> Written 2026-10-23 17:45 by the session-3 orchestrator, at Hasan's stop ("please stop after this task
+> that is running now"). Session 1: Q6, A1–A6, track-A exit, B1 step A. Session 2: B1 → B6, the track-B
+> exit (NOT MET). Session 3: B4/B5 deferred to Hasan's real-video test, B7 built (DONE-PARTIAL). Everything
+> is in `ORCHESTRATOR.md` (table, "Session 3", "For Hasan's real-video test", "Stops (session 3)").
 
 ## State right now
 
-- **Branch** `end-to-end-p0`, ~182 commits ahead of `main` (`main` = `14d7a63`, local only).
-  **Nothing pushed.** Tree clean after the orchestrator's last commit. No app, agent or job running.
-- **Track A: DONE.** **Track B:** B1, B2, B3, B6 DONE (each passed an independent verifier — B2 and
-  B6 on round 2); **B4 and B5 WAITING-HASAN** (built and verified up to his step); **track-B exit
-  NOT MET** — E2's "hard entries 0" fails on the cut the assistant produced (6 of 146 real joins,
-  all at the end of an editorial item; Auto Cut 0/113); the other clauses are met (style = his fitted
-  tight 12/12; median lead-in/tail 0/+6 ms; overlap 90.51 % reported, next-round bar proposed).
-- **Disk (01:27):** C: 15.6 GB, D: 31.7 GB free (someone freed D: during session 2). Session-2
-  scratch on C: under `C:\Users\hasan\AppData\Local\vidtsx-e2e\` (`profiles\source` = the copy
-  source; B1–B6 scratch roots/profiles; verifier folders). **Reserved, never reuse:**
-  `B1-verify-root` + `profiles\B1-verify` = Hasan's B4 station; `B5-station-root` +
-  `profiles\B5-station` = his B5 station.
+- **Branch** `end-to-end-p0`, local only, **nothing pushed**. Tree clean after the orchestrator's last
+  commit. No app, agent, test run or log watcher of this run is running (Hasan's own PowerShell window
+  for `B4\hasan-station.ps1` may still be open — his; its app is closed).
+- **Track A:** DONE. **Track B:** B1 B2 B3 B6 DONE; **B4, B5 DEFERRED-HASAN** (his real-video test);
+  **B7 DONE-PARTIAL, verifier NOT run** — hard entries 0 and lead-in / tail medians met on all three live
+  passes and every replay; applied overlap 0.9020 on the last allowed pass (bar 0.905) → "missed on model
+  variance" (decision 12; replays 0.9091 / 0.9125 / 0.9061 / 0.9060), WAITING-HASAN (overlap).
+  **Track-B exit: not re-run since session 2.** Tracks C–F: not started.
+- **Resources (17:40):** C: 28.9 GB, D: ~27.7 GB free; memory commit ~95 / 107 GB. **Read "Lessons" on the
+  page file before anything heavy.**
+- **Reserved, never reuse:** `…\vidtsx-e2e\B1-verify-root` + `profiles\B1-verify` (B4 station, holds
+  Hasan's 14 trims), `B5-station-root` + `profiles\B5-station`. Read-only evidence: `b-root`,
+  `profiles\source`, every B6/B7 run scratch + capture (`.vidtsx-temp/end-to-end/B7/{root,profile,pass2,pass3}`,
+  `…\vidtsx-e2e\B6\run`, `…\B7\{run,pass2,pass3,replay*}`).
 
-## Waiting on Hasan (exact steps in the files named)
+## Session 4 — what to run, in order
 
-1. **B4** — redo ~21 Act-1 joins on his B4 station and read the learn card:
-   `docs/studio/end-to-end/B4/HASAN-STEP.md` (~25–30 min; run `B4/hasan-station.ps1`; Snap OFF
-   first; pass rule (a): head 0.12–0.18, minTail 0.05–0.11, margin 11–13).
-2. **B5** — by-ear pass of the Transcript tab on the 21-min long project:
-   `docs/studio/end-to-end/B5/HASAN-STEP.md` (run `B5/hasan-station.ps1`); then his calls: apply
-   `B5/backfill-fix.patch` if Part A says the moved word starts are wrong; flip
-   `src/shared/feature-flags.ts:73` `studio-text-edit` → true if the pass is clean (diffs + commit
-   messages are in HASAN-STEP.md).
-3. **B6** — confirm or change the PROPOSED next-round bar (Status.md B6 row / TESTING §18.12).
-4. **Track-B exit** — decide whether to fix the editorial hard entries now (a "B7": the 1.0 s
-   silent-sliver merge `MERGE_SILENT_KEEP_MAX`, editorial cut-ins at a removed word's end / inside
-   a head pad / the cut clamp slicing an onset, Auto Cut planning over already-cut spans, and the
-   assistant applying cards its own QA flagged) or move to track C; and mark the editor repo's
-   `clean-cut` skill superseded for cutting (that repo is read-only for this plan).
-5. **Carried from track A** (ORCHESTRATOR "From A…"): the `%TEMP%` puppeteer profiles (1,532 /
-   10.1 GB at 16:00 on 10-22) and whether the app should sweep its own; his real `video-14` still has
-   the 55 OLD bundles; the A-track follow-up bugs list.
-6. **Housekeeping:** `…\vidtsx-e2e\B5-verify\station-settings-copy\` holds a copy of the B5 station
-   profile's `settings.db` (made by a verifier) — delete it if unwanted; D:'s
-   `.vidtsx-temp/end-to-end/A5/profile` and `B1/profile` (DONE parts' profiles) can go; the scratch
-   folders on C: can go once B4/B5 are done (keep the two stations until then).
-7. Merging `end-to-end-p0` into `main` and pushing are his calls.
+1. **B7 verifier** (fresh agent, verifier brief + the overrides below). Give it B7's row + exit (B7
+   HANDOFF "Goal"), decisions 8 and 12 (the applied-cut bar; the outcome rule), DRIVING.md's safety
+   rules, the commit range `ce88c11..707c476`, and "no earlier verifier findings" — not the builders'
+   conclusions. It re-measures from the three captures (`…\B7\run`, `pass2`, `pass3`) with its OWN
+   scripts, rebuilds at least one replay independently, and builds negative / control cases (e.g. revert
+   one fix in a scratch worktree → hard entries come back on the six track-B-exit cases; a note-quoting
+   case where decision 13's cap must hold). No new live pass unless the record cannot be checked
+   otherwise (then one, on fresh D: scratch). FAIL → fix rounds as usual (three FAILs → stop).
+2. **Track-B exit**, fresh and offline (like session 2's checker, `…\vidtsx-e2e\track-B-exit\`), with
+   B4/B5 DEFERRED-HASAN and B7's overlap WAITING-HASAN stated; report in five lines.
+3. **Tracks C → D → E → F** with each track's exit, no stop between parts (Hasan's session-3 scope); stop
+   at the end, on BLOCKED, or after three verifier FAILs on one part. Defaults in force (ORCHESTRATOR
+   "Session 3"): no paid-key calls (ElevenLabs in D0/D3, SFX generation in E2/E3 → mocks, live call on
+   Hasan's list); downloads only where a row names them (D4's runtime ~2.76 GB on C: keeping ≥ 10 GB
+   free; D0's weights sized first); model calls on the keyless subscription only.
 
 ## How to resume (paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`)
 
 ```
-You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, session 3: finalize track B, then
-move to track C. Follow docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the
-builder and verifier briefs, the stop report, the "things you never do") with the overrides below.
-Read first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md; the top of Status.md;
-docs/studio/end-to-end/NEXT-SESSION.md; docs/studio/end-to-end/ORCHESTRATOR.md (all of it, esp.
-"Answers in force", "B4/B5 — WAITING-HASAN", "From B6", "TRACK B EXIT"); docs/studio/end-to-end/DRIVING.md;
-docs/studio/end-to-end/B4/HASAN-STEP.md; docs/studio/end-to-end/B5/HASAN-STEP.md;
-docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, session 4. Follow
+docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the builder and verifier briefs, the
+stop report, the "things you never do") with the overrides below. Read first: CLAUDE.md;
+docs/studio/END_TO_END_PLAN.md; the top of Status.md (the B7 entry); docs/studio/end-to-end/NEXT-SESSION.md;
+docs/studio/end-to-end/ORCHESTRATOR.md (all of it, esp. "Answers in force", "Track B decisions",
+"TRACK B EXIT", "Session 3", "For Hasan's real-video test"); docs/studio/end-to-end/DRIVING.md;
+docs/studio/end-to-end/B7/HANDOFF.md (decisions 1–13); docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
 
-PHASE 1 — my hands-on steps (I do them; you guide, judge and record)
-1. First, before anything else, give me ONE numbered checklist of everything I must do to finalize
-   track B, in order. For each step: the exact command or click path, how long it takes, what I
-   send back to you, and what counts as pass. Build it from B4/HASAN-STEP.md, B5/HASAN-STEP.md,
-   the B6 bar (Status.md B6 row), and NEXT-SESSION.md "Waiting on Hasan". Keep it short enough to
-   follow with the app open. Then wait for me.
-2. While I do the station passes, start NO builder and change NO src/ (my stations run this
-   branch's dev build; an edit would reload or restart it under me).
-3. When I report B4 (the three numbers + "learned from N joins", or a screenshot): judge it by pass
-   rule (a); have a small builder record it in Status.md's B4 row and tick TESTING §18.10's exit
-   item; mark B4 DONE in ORCHESTRATOR.md — or, if it misses, say why with the numbers and propose
-   the next move.
-4. When I report B5 (Part A yes/no per word, any problem rows, and my two calls — apply
-   B5/backfill-fix.patch or not; flip studio-text-edit or not): spawn a builder to apply exactly
-   what I decided (the prepared patch and/or the one-line flip, with the gates), then a verifier;
-   record B5 DONE.
-5. Record my answer on the B6 next-round bar (confirmed / changed to …).
-6. The editor repo's clean-cut skill ("marked superseded for cutting"): ask me whether I do it
-   myself or you may edit that one file in D:\repos\claude-youtube-editor — only on my explicit yes.
-
-PHASE 2 — B7, then the track-B exit (after my passes are done)
-7. Add part B7 to ORCHESTRATOR.md: "Editorial cuts leave no hard entries". Scope = the mechanisms
-   the track-B exit found (ORCHESTRATOR "TRACK B EXIT"): the 1.0 s MERGE_SILENT_KEEP_MAX
-   silent-sliver merge; editorial cut-ins landing in a removed word's release or a head pad on
-   leftover sound; the planner's cut clamp slicing an onset; Auto Cut planning over spans the
-   editorial pass already removed; and whether the assistant may apply a card its own QA flags.
-   Exit: the real assistant pass ("Cut this video." on all nine M2 clips, the keyless subscription
-   provider, one pass) gives 0 hard entries on the applied cut, overlap ≥ 90.5 % (no regression),
-   median lead-in / tail within ±30 ms of the fitted tight. Builder(s) + verifier as usual.
-8. Then the track-B exit, fresh and offline (like session 2's checker). Track B is final when the
-   exit passes and B4 and B5 are DONE. Report it in five lines.
-
-PHASE 3 — track C
-9. After the track-B exit passes, continue straight into track C: C1, C2, C3, C4, C5, then the
-   track-C exit, without stopping between parts. Stop after the track-C exit, on BLOCKED, or after
-   three verifier FAILs on one part. [Change this line to "stop and wait for my go" if you want a
-   pause before C.]
+Run, without stopping between parts: the B7 verifier → the track-B exit (fresh, offline) → C1…C5 →
+track-C exit → D0…D5 → track-D exit → E1…E4 → track-E exit → F0…F2 → track-F exit. Stop at the end, on
+BLOCKED, or after three verifier FAILs on one part. Anything that needs my hands, ears or keys: build +
+verify up to it, mark it DEFERRED-HASAN, add it to ORCHESTRATOR's "For Hasan's real-video test" list,
+continue. [Change this paragraph if you want a stop somewhere.]
 
 OVERRIDES for the whole run
-- Answers in force: ORCHESTRATOR.md Q1–Q6 (Q3 for C4: the assistant writes only in notes/).
-- Model calls only through the app's own keyless Claude subscription provider, only as much as a
-  part needs (B7's one assistant pass; track C's TSX builds and assistant turns); never a paid API
-  key provider; never read, copy or open a credential store (settings.db, ~/.claude, any profile's).
-- Every builder brief adds: "Also read docs/studio/end-to-end/DRIVING.md and the 'Track B
-  decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md with the Edit/Write tools. Never hand back
-  while a job you started is still running. Select your own processes by --remote-debugging-port or
-  profile path, never a bare number. Never touch Hasan's stations (B1-verify-root +
-  profiles\B1-verify, B5-station-root + profiles\B5-station) unless the part says so."
-- Anything written for me to do by hand is walked literally with real mouse input by the builder
-  AND the verifier before it reaches me.
-- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings — never
-  the builder's conclusions — and build their own negative and control cases.
-- The orchestrator writes only under docs/studio/end-to-end/ and commits after each update. Never
-  push; merging end-to-end-p0 into main is my call.
+- Answers in force: ORCHESTRATOR.md Q1–Q6 (Q3 for C4: the assistant writes only in notes/) and the
+  session-3 defaults (no paid-key calls; downloads only where a row names them; keyless subscription only).
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a part
+  needs; never a paid API key provider; never read, copy or open a credential store (settings.db,
+  ~/.claude, any profile's) — profile copies exclude settings.db*.
+- Resource guard (session 3): before any launch, copy or full test run check C: free AND memory commit
+  headroom (Windows grows C:\pagefile.sys when commit nears the limit); live steps need C: ≥ 3 GB and
+  (C: free + headroom) ≥ 6 GB, a watchdog that stops only our app if C: < 1.5 GB; full vitest with
+  --maxWorkers=2 while headroom < 10 GB; big scratch on D:.
+- Every builder brief adds: "Also read docs/studio/end-to-end/DRIVING.md and the 'Track B decisions'
+  section of ORCHESTRATOR.md. Edit HANDOFF.md with the Edit/Write tools. Never hand back while a job you
+  started is still running. Select your own processes by --remote-debugging-port or profile path, never
+  a bare number. Never touch Hasan's stations (B1-verify-root + profiles\B1-verify, B5-station-root +
+  profiles\B5-station). Write HANDOFF.md as you go and commit early (agents can die on API errors)."
+- Anything written for me to do by hand is walked literally with real mouse input by the builder AND the
+  verifier before it reaches me — and goes on the real-video list, not to me mid-run.
+- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings — never the
+  builder's conclusions — and build their own negative and control cases.
+- The orchestrator writes only under docs/studio/end-to-end/ and commits after each update. Never push;
+  merging end-to-end-p0 into main is my call.
 ```
 
-## Lessons from session 2 (apply them)
+## Waiting on Hasan (the real-video list lives in ORCHESTRATOR "For Hasan's real-video test")
 
-- **Instructions for Hasan must be walked literally with real mouse input before they ship.** B4's
-  HASAN-STEP.md failed two verifier rounds that reducer-driven tests could not see: Snap (on at
-  every open, 8 px pull) swallowed 30–50 ms trims; with ripple on a lead-in edge returns to the join,
-  so "the edge stays where you dropped it" was wrong; the transition square / fade dots sit on the
-  trim handles.
-- **Verifiers that rebuild the measurement find record errors** (B6: a float at the 0.3 s boundary,
-  a flag counted as untouched that was cut) and real bugs (B5: closing during a Windows file lock
-  lost the edit).
-- **The permission classifier refuses deletes/moves of scratch data and anything touching credential
-  stores.** Don't work around it; decide another way (B1/B2 disk: copy instead of move, lower the
-  stop line, reuse scratch) or leave it for Hasan.
-- **Other Claude sessions share this machine** (CPU at 100 %, C:/D: swinging by 10+ GB): the vitest
-  gate rules in DRIVING.md ("under load", "while C: is low"); never kill by a bare port number (a
-  session-2 builder killed another session's Chrome that way).
-- **A finished builder can hold an idle background shell** and re-notify; check its processes
-  yourself, and stop the task if its work is committed.
-- **Poll project.json no faster than every 200 ms** — a 50 ms poller blocked the app's rename on
-  Windows and caused a phantom "2× delete".
+- B4 (≥ 10 joins per side **by ear**, then Learn, rule (a)); B5 (by-ear Transcript pass + his two calls:
+  the backfill patch, the `studio-text-edit` flip); B6's next-round bar (still PROPOSED); B7's overlap
+  bar on a real pass + listening to 0376 @ 119.084; the editor repo's `clean-cut` (later `make-tsx`,
+  `clean-audio`) skills marked superseded — or his yes for the orchestrator to edit those files.
+- Machine: memory commit was at 99–104 of 100–107 GB for hours on 2026-10-23 (Docker/WSL `vmmemWSL`
+  ~23 GB, VS Code ~16 GB, Chrome ~13 GB, Claude Code ~12 GB); the page file grew to 36.5 GB and took C:
+  to 0.25 GB once. Quitting Docker Desktop / `wsl --shutdown` when unused frees the most; a restart resets
+  the page file.
+- Carried: `%TEMP%` puppeteer profiles (Remotion leftovers, ~10 GB on 10-22) and whether the app should
+  sweep its own; his real `video-14` still has the 55 OLD bundles; the A-track follow-up bugs; the
+  housekeeping deletes (B5-verify `station-settings-copy\`, D:'s `A5/profile` + `B1/profile`, the C:
+  scratch once B4/B5 are done); merging / pushing `end-to-end-p0`.
+
+## Lessons from session 3 (apply them)
+
+- **C: can fill without a single file being written:** when memory commit nears the limit, Windows
+  extends `C:\pagefile.sys` (here 36.5 GB). Check `Win32_OperatingSystem` commit vs limit, not only free
+  disk; keep vitest at `--maxWorkers=2`; put big scratch on D:.
+- **Two builders died on API `ECONNREFUSED`** (no proxy; the orchestrator's calls worked) — respawn with
+  the same brief, and have builders write HANDOFF.md / commit early.
+- **One live assistant pass is a noisy measurement of content overlap** (84–90 % across three passes of
+  near-identical code: the model skipped a clip's Auto Cut, proposed different filler spans, ran the
+  steps in a different order). A deterministic **replay** of the captured passes through the final code
+  separates code regressions from model variance — use it for any exit measured on one model run.
+- **The model's notes quote the take it KEEPS** ("Final '…' wins"): a rule keyed on "words the note
+  names" moved five real retracts into kept speech until a size cap (≤ 2 words, ≤ 0.4 s) was added.
+  Test note-driven rules on real captures, not only on note-less fixtures.
+- Builders still slip on "Edit tool only" for HANDOFF.md (sed / scripts) — harmless so far; keep saying it.
+- Hasan does not do long hands-on passes mid-build (memory `hasan-defers-hands-on-tests`): collect them
+  for his real-video test.
 - Git tracks the status file as `Status.md`.
