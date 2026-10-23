@@ -22,7 +22,7 @@
 | B4 | **DEFERRED-HASAN** (built + verified up to his step; verifier PASS round 3; his 2026-10-23 station attempt trimmed by the waveform's look — not a valid sample; the exit moves to his real-video test, see Session 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
 | B5 | **DEFERRED-HASAN** (built + verified up to his step; verifier FAIL round 1 → PASS round 2; by-ear pass moved to his real-video test — flag stays off, backfill patch not applied, see Session 3) | 10 | FAIL round 1 (closing the project during a > ~6 s file lock silently loses the edit — close path gives up after 3 flushes; quit has the same older hole) → fix `750c0d0` (main owns the close-time write, 10 min background retry; quit waits 4 s then `.tmp`; recovery on open) | `fb32ab1` (UTF-8 fix); `aa58ee8` (autosave retry + stay dirty; Restore into view); `e69d182` (filler toast counts what was removed); docs `fd9a6b8`, station `8bf5433`, walk `3e7a285`, `bf9e930` (backfill patch prepared, not applied; Status + TESTING §18.11) | long project 21:23.09, 1,820 words, open 231–563 ms, 27/27 seeks at 0 frames, karaoke 0 mismatches; BUG em-dash mojibake | 2026-10-22 / |
 | B6 | DONE | 3 | FAIL round 1 (record only: flag 4 was cut → 4/6 at default, not 5/6; miss list dropped two 0.300 s spans to float) → record fixed `c2a3425` → PASS round 2 | docs `1c2b59f`, `30e52b2`, `ab9a657`, `c2a3425` (no src change) | assistant "Cut this video." on all nine raw clips (keyless claude-subscription, sonnet-5-5, 17 turns, 337.164 s model time, $3.89 notional): overlap **90.51 %** (736.106 / 813.315 s), precision 94.89 % (99.24 % w/o in-keep pauses); Auto Cut alone 67.83 %, editorial alone 48.42 %; misses ≥ 0.3 s **52 spans / 42.03 s** (retake 4 / 5.15, repeat 4 / 5.13, manual 1 / 9.70, dead_air 1 / 4.03, filler 1 / 1.04, pause 32 / 13.26, unlisted 9 / 3.72) + 35.18 s slivers; false content cuts ≥ 0.3 s 5 / 4.05 s; flags **4/6** at his default; PROPOSED bar (overlap ≥ 92 %, content misses ≤ 6 s none > 1.5 s, false content cuts ≤ 3 s, precision w/o in-keep pauses ≥ 99 %, ≥ 5/6 flags) — today fails 4 of 5, passes precision | 2026-10-22 / 2026-10-23 |
-| B7 | BUILDING (added session 3: editorial cuts leave no hard entries) | 1 | | | | 2026-10-23 11:56 / |
+| B7 | **PAUSED — C: disk** (added session 3: editorial cuts leave no hard entries; step 1 `31feae2`; step-2 fix written, UNTESTED, uncommitted in the tree) | 4 (#1, #2 died on API ECONNREFUSED before any work) | | | | 2026-10-23 11:56 / |
 | C1 | TODO | | | | | |
 | C2 | TODO | | | | | |
 | C3 | TODO | | | | | |
@@ -557,3 +557,20 @@
 - **B6:** confirm or change the next-round bar (Status.md B6 row).
 - **Editor repo:** mark `D:\repos\claude-youtube-editor\.claude\skills\clean-cut\SKILL.md`
   superseded for cutting (or allow the orchestrator to edit that one file).
+
+- 2026-10-23 12:00–13:05 · **C: disk emergency (not this run):** C: fell from 18 GB free (~11:00) to
+  1.05 GB (12:24) and 0.25 GB (13:00); this run copied nothing and launched nothing after the
+  station closed (11:55). Not pinned down: no single file > 200 MB written in 3 h was found;
+  Docker Desktop's `docker_data.vhdx` (243.9 GB) is being written (LastWriteTime 13:00) but did
+  not grow in a 30 s watch. Hasan asked to free C: (candidates: `%TEMP%\puppeteer_dev_chrome_profile-*`
+  ~10 GB, `%TEMP%\claude` 8.75 GB, Docker). B7 builders #3–#4 ran under a code-only override
+  (targeted tests only, no copies/launches/full suite while C: < 5 GB); #4 stopped before ANY
+  test because C: was under 1.0 GB. **The run is paused below 1.0 GB on C:** — no builder starts.
+  Two B7 builders (#1, #2) died on API `ECONNREFUSED` (no proxy configured; the orchestrator's own
+  calls worked) — treated as transient.
+- B7 state at the pause: step 1 committed (`31feae2`, `06d2da9`: mechanisms mapped, six-case
+  fixture); builder #4's step-2 fix in the working tree, UNCOMMITTED and UNTESTED
+  (`src/shared/studio/cut-snap.ts`, new `cut-snap-landing.ts`, `src/main/services/studio/editorial-cuts.ts`,
+  test `editorial-cuts-b7.test.ts`); its HANDOFF `f327293` names the targeted test set to run next.
+  Builder #4 made two HANDOFF.md edits with a node script instead of the Edit tool (content checked
+  by itself; noted).
