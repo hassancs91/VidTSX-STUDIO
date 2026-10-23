@@ -1,5 +1,7 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING — exit NOT MET yet (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); **step 8 = the fresh live pass of the step-7 code (decision 9's pass for this round), 2026-10-23 15:57–16:04: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 84.79 % all proposed / 84.18 % applied ✗** — the model skipped Auto Cut on 0371 (47.0 s of H) and one authored end (0375 195.0) found no quiet gap on its straddled word's side (4.96 s); next: step 9 — see Next step)
+status: BUILDING — exit NOT MET yet (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); **step 8 = the fresh live pass of the step-7 code (decision 9's pass for this round), 2026-10-23 15:57–16:04: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 84.79 % all proposed / 84.18 % applied ✗** — the model skipped Auto Cut on 0371 (47.0 s of H) and one authored end (0375 195.0) found no quiet gap on its straddled word's side (4.96 s); **step 9 (a) DONE + committed** (builder #13: `run_auto_cut` /
+`propose_cuts` end with the clips on the timeline still without a card of this run, in timeline order; a prompt line says take the
+next one from it); next: step 9 (b) — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -676,6 +678,40 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   [0, ~2.67] that step 7 (a) proposes (step 6's run predates it; H 0–2.422 s) → with it ≈ **0.906**. So both fixes are needed and the bar
   is then met by ~1 s of H only — model variance (±5 s per call above ≈ ±0.6 pp) decides the last pass either way.
 
+### Step 9 (a) — the tool results list the clips still without a card of this run (builder #13, 2026-10-23, commit: the one carrying this line, "B7 — step 9 (a)")
+
+- **New pure op** `src/shared/studio/cut-sweep.ts` (110 lines): `cutRunKind(proposal)` (:18 — a `cut-plan` card whose `agentNote`
+  starts "Auto Cut" → `'auto-cut'` (`buildCutProposal`'s headline), "Editorial" → `'editorial'` (`buildEditorialProposal`'s
+  "Editorial cut · …"), anything else null); `timelineMediaAssets(timeline)` (:36 — every asset of a video/audio clip once, ordered by
+  its first clip's `timelineStart`; linked audio folds in, shots / non-media clips add nothing); `assetsCardedThisRun(proposals, kind,
+  current?)` (:56); `clipsWithoutCard({ timeline, proposals, kind, current?, alsoDone? })` (:96 — the timeline's assets in timeline
+  order minus the run's carded ones; **null when the timeline holds < 2 media assets** — no line for a one-clip project);
+  `formatCutRunLine(kind, names)` (:105 → "Clips on the timeline still without an Auto Cut card in this run (timeline order): A, B. " /
+  "Every clip on the timeline has an editorial card in this run. ").
+- **What "this run" is (a choice — Open problems):** the cut cards of that kind made after the newest cut card of the OTHER kind
+  (creation order by `createdAt`; this call's card is the newest), walked forward; a card for an asset the run already holds that is
+  NOT the previous card's asset starts a new run (a second sweep of the same kind), a retry of the clip just carded stays in it. Any
+  status counts as done (applied, partial, rejected, open). No chat history is used (`ChatMessage` has no timestamps; a typed "Move
+  on." must not restart the run). Pass 2: the editorial run (8 cards, none for 0374) ends at the first Auto Cut card; at turn 11 the
+  Auto Cut run = 0366 0369 + 0370 (this call).
+- **Main:** new `src/main/services/studio/agent-tools/cut-run-line.ts` (34 lines) `cutRunLine(ctx, kind, { current?, alsoDone? })` —
+  `loadProject` (the cards answered in earlier turns are on disk; the renderer autosaves within a second), + this call's card, names
+  from `projectInventory(ctx)` (fallback the id); `''` when the project cannot be read or `clipsWithoutCard` is null.
+  `run_auto_cut` appends it after the QA-unchecked line (`workflow-tools.ts:174`); its "Nothing to cut" branch appends it with
+  `alsoDone: [assetId]` (`:164-166`). `propose_cuts` appends it the same way (`cut-tools.ts:102`).
+- **Prompt:** new line `CLIP-BY-CLIP RUNS` after the `[next: …]` rule (`studio-agent-prompt-tools.ts:82`): take the next clip from the
+  list, never count the clips yourself, name it in the `[next: …]` line; a clip already read / run with nothing to cut needs no card
+  (say so, take the one after it); the pass is over when the list says every clip has a card.
+- **Tests (red first — Verified):** `src/shared/studio/cut-sweep.test.ts` (new, 11 tests: the two kinds; timeline order with linked
+  audio + a shot clip; pass 2 turn 11 → 0371…0376; the skip (0372 after 0370) → 0371 first; every status counts; the editorial run
+  keeps 0374 listed; a second sweep / a retry; an Auto Cut card from before the editorial run does not count; `alsoDone`; one-clip
+  timeline → null; the two line texts) and `src/main/services/studio/agent-tools/cut-run-sweep.test.ts` (new, 5 tests through the REAL
+  `run_auto_cut` + `propose_cuts` handlers, nine M2-named assets split twice each on V1, project on disk = pass 2's cards: turn 11 →
+  "…(timeline order): DJI_0371_D.MP4, …, DJI_0376_D.MP4."; turn 12 (the skip) → 0371 first; the last clip → "Every clip …"; no project
+  → no line; `propose_cuts` on 0375 → "…editorial card…: DJI_0374_D.MP4, DJI_0376_D.MP4."). **Deviation (on purpose):** one new test
+  file for both real handlers instead of adding to `run-auto-cut.test.ts` (289 lines — the ~300-line rule) and `cut-tools.test.ts` (no
+  `project-store` mock; its tests now read no project → no line, unchanged). **No existing expectation changed.**
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -887,7 +923,56 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   --short` before the docs → only `docs/studio/end-to-end/B7/HANDOFF.md`. No vitest gate / check:types run (exit not met → no gates; no
   tracked code changed).
 
+- 2026-10-23 · builder #13 · step 9 (a) · guard `29.0 GB C: free; commit 102.7 / 107.3 GB` · RED first (tests written, no op):
+  `npx vitest run src/shared/studio/cut-sweep.test.ts --maxWorkers=2` → `Test Files 1 failed · Tests no tests` (module missing).
+  Op written, handlers not wired: guard `29.0; 102.5 / 107.3` · `npx vitest run src/shared/studio/cut-sweep.test.ts
+  src/main/services/studio/agent-tools/cut-run-sweep.test.ts --maxWorkers=2` → `Tests 4 failed | 12 passed (16)` — the four handler
+  tests (`expected 'Auto Cut proposed (id "prop_…' to contain 'Clips on the timeline still without a…'`, same for `propose_cuts`
+  "Proposal created: 1 cuts (−2.6 s; 1 r…"); the "no project → no line" guard passes already.
+- 2026-10-23 · builder #13 · wired (`cutRunLine` in both handlers + the prompt line) · guard `29.0; 102.5 / 107.3` · the two new files +
+  `cut-tools`, `run-auto-cut`, `studio-agent-prompt`, `llm-hook-absence` → `Test Files 6 passed (6) · Tests 47 passed (47)`. Guard
+  `29.0; 102.6 / 107.3` · builder #11's set `npx vitest run cut- text-delete text-restore rms-envelope studio-agent-prompt CutQaReadout
+  agent-chat-format editorial-cuts useStudioAgent run-auto-cut useTimeline apply- agent-actions agent-tools studio-agent
+  --maxWorkers=2` (log `.vidtsx-temp/end-to-end/B7/vitest-s9a.log`) → `Test Files 40 passed (40) · Tests 397 passed (397)` (= 381 + the 16
+  new). `npm run check:types` (first run) → web had 2 NEW errors `cut-sweep.ts(42,…) Property 'start' does not exist on type
+  'StudioClip'` (the clip's position is `timelineStart`; the fixtures had used `start` too, so the tests passed) → fixed in the op and
+  both fixtures; guard `29.0; 102.5 / 107.3` · the two new files → `Tests 16 passed (16)`; `npm run check:types` (log
+  `B7/types-s9a.log`) → `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`,
+  exit 0; guard `29.0; 103.0 / 107.3` · `npx vitest run agent-tools studio-agent-prompt --maxWorkers=2` → `Test Files 11 passed (11) ·
+  Tests 56 passed (56)`. Decision-4 kits NOT re-run: no cut-planner / cut-qa / rms-envelope / cut-snap* / text-delete / editorial-cuts
+  change (Do-not-redo's rule).
+
 ## Next step (ONE concrete instruction)
+
+**Step 9 (b) — `endOutOfSpeech`'s fallback to the other side, bounded by decision 11, red-first; then commit and hand off.** In
+`src/shared/studio/cut-snap-landing.ts` (`endOutOfSpeech` ~:103-125, `landCutEnd` :50 — verify the lines) keep decision 10's side as
+the first choice; ONLY when it yields no candidate that lands quiet within `QUIET_GAP_SEEK_S`, take the nearest quiet candidate on the
+other side, and accept it only if every word it would remove past the authored end is named by the item itself — the span's authored
+`note` (the snapper's input span carries `note?`, `cut-snap.ts:26`; `snapEditorialCuts` gets the model's `cuts[].note`): match the
+crossed words' normalized text (lower case, punctuation stripped) against the note's words; when the span has no note, cap the
+fallback at the straddled word + one more word and ≤ 0.4 s of kept speech (decision 11); a fallback that lands adds the item note
+"extended past "<words>" to land on quiet" (the row shows it). Otherwise today's behaviour (end stays, the card's QA unchecks it, the
+reply names it). Red tests in `src/main/services/studio/editorial-cuts-b7-speech.test.ts` on the step-7 fixture's 0375 window
+(`speechCases`; `.vidtsx-temp/end-to-end/B7/print-p2.b7.test.ts` shows how the real `snapEditorialCuts` is called): pass 2's authored
+`190.9–195.0` with its real note ("First 'before starting selling the app, before starting to sell uh other take,' superseded by
+'before you sell the application.' Edges estimated; needs an ear.") → end ≈ **195.779** (Hasan 195.799), card QA no hard entry at the
+join, item `accepted`, the "extended past" note; the SAME span with a note that does not name "other take," (e.g. "Retake of the
+selling line.") → end stays 195.0, item `rejected` with its `qaFlag`; step 6's `190.8–195.1` still → 195.779; the five other step-7
+cases unchanged. Then the Verified 40-file set (builder #13's command), the decision-4 kits (builder #11's kit command +
+`node .vidtsx-temp/end-to-end/B7/compare-kits.mjs`), `npm run check:types` (web 26 / node 10), guard before each; commit "fix(studio):
+B7 — step 9 (b): …".
+
+**After (b) (the orchestrator's brief, unchanged):** step 9 (c) = decision 12's deterministic replays — the authored editorial spans and
+the Auto Cut runs captured in B6 (`…\vidtsx-e2e\B6\run\`), step 6 (`…\B7\run\`) and pass 2 (`…\B7\pass2\run\`) fed offline through the
+FINAL code (real envelopes + words from the read-only scratch caches; authored span → `snapEditorialCuts` + `buildEditorialProposal`;
+Auto Cut → the keeps-limited `runCutPlan` path over the replayed timeline), applied the way each run was answered → applied overlap
+(`measure.py`) + hard entries (`exit_check.py`'s method) per replay, outputs in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\replay\`;
+write how each captured item maps onto the final code. A replay < 0.905 is a code regression — find it and fix it red-first. Then the cut
+test set + B7 tests, the decision-4 kits, check:types; commit at each green checkpoint. **No live pass in step 9:** write the last pass's
+Next step on fresh scratch `.vidtsx-temp/end-to-end/B7/pass3/` (a copy of `pass2-kit.mjs` re-pointed), port **9349**, outputs
+`…\vidtsx-e2e\B7\pass3\`.
+
+## Next step — superseded (kept for reference: builder #12's step 9 instruction; (a) DONE by builder #13)
 
 **Step 9 — fix the two mechanisms pass 2 lost the overlap to, each red-first from pass 2's real case (decision 3), then hand back for
 the orchestrator's LAST allowed pass (decision 9: this was the round's one pass; one more in B7; a third miss goes to Hasan):**
@@ -1055,6 +1140,15 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
+- **NEW (step 9 (a)), for the orchestrator — choices made inside step 9 (a) (not Hasan's; say if you want them otherwise):**
+  (1) "this run" = the cut cards of that kind after the newest card of the other kind, with a non-consecutive repeat starting a new
+  sweep (Done › Step 9 (a)) — no chat history (no timestamps on `ChatMessage`; a typed "Move on." must not restart the run). Edge it
+  gets wrong: a second same-kind sweep that does NOT start on a clip the first sweep carded (e.g. a sweep restarted mid-way) counts the
+  earlier sweep's later clips as done. (2) A clip the model read / ran and left uncut has no card, so it stays listed (pass 2: 0374
+  in the editorial run) — the prompt line tells the model to say so and take the one after it; nothing records "reviewed, nothing to
+  cut" across turns. The model could revisit it once (a re-read, maybe a card) — watch for it in the last pass. (3) The line is read
+  from `project.json` on disk + the call's own card: a card answered < ~1 s before the tool runs (autosave lag) could be missed; in the
+  run shape a model turn always sits between. (4) No line for a project whose timeline holds < 2 media assets.
 - **NEW (step 8) — the exit is NOT met on overlap, second miss** (step 6 0.8723, pass 2 **0.8418** applied / 0.8479 all proposed; hard
   entries 0 / 121 and the medians 0 / −14 ms are met). Causes and numbers in Done › Step 8; the fix is step 9 (Next step). For the
   orchestrator: (1) decision 9 leaves ONE more pass in B7; by arithmetic both step-9 fixes bring pass 2's capture to ≈ 0.903–0.906
@@ -1159,6 +1253,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 9 (a) is DONE, green and committed: don't rebuild `cut-sweep.ts` / `cut-run-line.ts`, the two handlers' appended line or the
+  `CLIP-BY-CLIP RUNS` prompt line. Touching them → `npx vitest run cut-sweep cut-run-sweep cut-tools run-auto-cut studio-agent-prompt
+  --maxWorkers=2` + check:types.
 - Step 8 (the fresh live pass of the step-7 code) is DONE and measured — this round's ONE pass is spent and was NOT harness-broken: don't
   re-run it on the step-7 code and don't re-measure it; every number is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\pass2\` (`run\`
   capture + `run-summary.json`, `exit\`, `measure\`, `measure-accepted\`, `overlap-causes.json`, `counterfactual.json`,
@@ -1245,3 +1342,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   measured: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 0.8479 all / 0.8418 applied ✗ — the model skipped Auto Cut on 0371
   (47.0 s) and 0375's authored 195.0 found no quiet gap on decision 10's side (4.96 s; reproduced with the real code); counterfactual both
   fixed ≈ 0.903–0.906; wrote step 9. No `src/` change; app, watchdog, drivers stopped (0 left).
+- 2026-10-23 · builder #13 · ~45 calls · step 9 (a): pure `cut-sweep.ts` (which clips still lack a card of this run) + main
+  `cut-run-line.ts`, appended to the `run_auto_cut` (incl. "Nothing to cut") and `propose_cuts` results, the `CLIP-BY-CLIP RUNS` prompt
+  line; 4 handler tests red → green (16 new tests in 2 new files), 40 files 397/397, check:types web 26 / node 10 (after fixing 2 new
+  errors: `timelineStart`, not `start`); no expectation changed; committed; wrote step 9 (b) as the Next step. No app, no model call,
+  no kit (no snap/planner change). C: 29.0 GB throughout, commit 102.5–103.0 / 107.3 GB.

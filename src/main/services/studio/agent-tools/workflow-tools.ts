@@ -21,6 +21,7 @@ import { deleteTranscript, readTranscriptFile, readTranscriptMeta } from '../ass
 import { runCutPlan } from '../cut-plan-runner';
 import { resolveProjectCutStyle } from '../cut-style-store';
 import { studioMediaJobs } from '../media-jobs';
+import { cutRunLine } from './cut-run-line';
 import {
   emitProgress,
   emitTool,
@@ -160,7 +161,9 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
           ...(file?.engine ? { engine: file.engine } : {}),
         });
         if (proposal.items.length === 0) {
-          return text('Nothing to cut — the planner found no removable silence.');
+          // B7 step 9 (a): this clip is done for the run even without a card.
+          const runLine = await cutRunLine(ctx, 'auto-cut', { alsoDone: [args.assetId] });
+          return text(`Nothing to cut — the planner found no removable silence. ${runLine}`.trim());
         }
         ctx.state.proposalId = proposal.id;
         ctx.emit({ projectId: req.projectId, kind: 'proposal', proposal });
@@ -168,6 +171,7 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
           `Auto Cut proposed (id "${proposal.id}", style ${cut.displayName}): ${proposal.items.length} silence cuts, −${removed.toFixed(1)} s of ${total.toFixed(1)} s${plan.keeps ? ' still on the timeline' : ''}. ` +
             (plan.qa ? `${formatCutQaLine(plan.qa)}. ` : '') +
             formatQaUncheckedForAgent(proposal.items) +
+            (await cutRunLine(ctx, 'auto-cut', { current: proposal })) +
             'It is in the review panel — tell the user briefly and let them review, or call accept_proposal ONLY if their latest message already said to apply it.',
         );
       } catch (err) {

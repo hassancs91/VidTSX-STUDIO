@@ -10,6 +10,7 @@ import { readTranscriptFile } from '../asset-transcriber';
 import { loadRmsEnvelope } from '../cut-plan-runner';
 import { resolveProjectCutStyle } from '../cut-style-store';
 import { EDITORIAL_CATEGORIES, buildEditorialProposal, snapEditorialCuts } from '../editorial-cuts';
+import { cutRunLine } from './cut-run-line';
 import { emitTool, reviewBlocked, text, type StudioTool, type StudioToolContext } from './types';
 
 const log = logEngine.createLogger('StudioAgent');
@@ -98,6 +99,7 @@ export function buildCutTools(ctx: StudioToolContext): StudioTool[] {
           `${snapped.notes.length > 0 ? `Adjustments: ${snapped.notes.join('; ')}. ` : ''}` +
           `${snapped.qa ? `${formatCutQaLine(snapped.qa)}. ` : ''}` +
           formatQaUncheckedForAgent(proposal.items) +
+          (await cutRunLine(ctx, 'editorial', { current: proposal })) +
           'It is now in the review panel — summarize your findings for the user and let them review. Do not call propose_cuts again.',
       );
     },
