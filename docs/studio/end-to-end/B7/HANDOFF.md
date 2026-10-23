@@ -521,7 +521,7 @@ sound throughout (20 ms profile), "These"'s walk-back runs the full maxHead (ons
 lands it at +14.5 dB (under 15 by 0.5 dB — marginal, the real QA decides in the test). The onset cap moves NONE of the step-1 cases
 (0373 204.069's walk stops at the token → 204.209 kept; all ten step-1 span ends equal).
 
-### Step 7 — the two overlap mechanisms, red-first (builder #11, 2026-10-23, commit: the step-7 commit on top of `5c5434b`)
+### Step 7 — the two overlap mechanisms, red-first (builder #11, 2026-10-23, commit `ca51e9f`)
 
 **(a) Wordless keeps under keeps-limited Auto Cut** — new pure op `keepsWithWords(keeps, words)` (`src/shared/studio/cut-keeps.ts:104`,
 a keep stays when a word's MIDPOINT lies in `[start, end)`). `runCutPlan` (`src/main/services/studio/cut-plan-runner.ts:94`) hands
