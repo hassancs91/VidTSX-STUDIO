@@ -134,7 +134,7 @@ Callers: `upsertEntry` ×13 (capture, generate-{audio,image,video}, render-jobs,
     the per-root chain). Unit tests mock `./library-probe` (no real ffprobe in new tests); suites that do
     not mock it fall back gracefully (probe fails → undefined) — watch their timing in the full run.
 
-### Built (builder #1)
+### Built (builder #1) — commit `cd978c3`
 
 - **Kind table** — `src/shared/media-kinds.ts:11-48` (`MEDIA_EXT_KIND`, `extensionOf`, `mediaKindOf`,
   `isPlayableMediaKind`, `extensionsOfKind`) + `src/shared/media-kinds.test.ts` (6 tests, red first:
