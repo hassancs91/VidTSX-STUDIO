@@ -7,6 +7,158 @@
 
 ---
 
+## 2026-10-23 — END-TO-END B7: editorial cuts leave no hard entries — EXIT PARTIAL (overlap waits for Hasan)
+
+- **What:** part B7 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`). It is not a row in the plan's §3: Hasan
+  added it on 2026-10-23 (session 3) after the track-B exit failed on E2's "hard entries 0" (B6's applied cut **6 / 146**,
+  all six at the end of an editorial item). The row: the produced cut of the assistant's real pass leaves no hard entries.
+  Scope = the five mechanisms the track-B exit found: (1) the 1.0 s wordless-sliver merge cap, (2) editorial cut-ins on a
+  removed word's leftover sound, (3) the planner's clamp slicing an onset (0375 122.7), (4) Auto Cut planning over spans
+  the editorial pass already removed (B6: 199.5 s of its 587.1 s), (5) cuts the card's own QA flags reaching Apply. Exit,
+  on ONE real pass (`Cut this video.`, all nine M2 clips, the keyless `claude-subscription`, B6's run shape): **0 hard
+  entries** on the applied cut; **content overlap ≥ 90.5 %** of Hasan's cut seconds (orchestrator decision 8: read on the
+  APPLIED cut, the all-proposed number beside it); **median lead-in / tail within ±30 ms** of the fitted tight. **Result:
+  hard entries 0 and both medians are met on all three live runs and every replay; overlap is not — the last allowed pass
+  missed it by 2.40 s of H, on model variance (decision 12) → EXIT PARTIAL — WAITING-HASAN (overlap).**
+- **The code** (every fix red-first; every change in the shared snap / planner / card code that all consumers use — T1's
+  one-resolver rule):
+  - `31feae2` — the five mechanisms mapped to file:line; fixture `src/shared/studio/cut-snap-b7.fixture.json` (the real 20 ms
+    buckets + words around B6's six hard entries).
+  - `a31080a` — mechanisms 1–3: a wordless gap between two cuts of the same kind merges at any length unless > 1.0 s of it is
+    loud (`cut-snap.ts` `mergeKey`, `LOUD_GAP_MAX_S`); a cut end moves out of the removed word's MEASURED release and out of
+    the kept word's lead-in (new `cut-snap-landing.ts` `landCutEnd`); B2's text-delete style test moved to a roomier gap
+    (both pre-B7 cut-ins there were hard entries, +40.0 / +36.0 dB).
+  - `eaf682d` — item 5: a cut whose join carries a card-QA hard entry starts unchecked with its reason (new `cut-qa-flags.ts`,
+    optional `StudioProposalItem.qaFlag`) on both cards; `propose_cuts` / `run_auto_cut` name it and the reply must; both
+    Apply paths (the click, `accept_proposal`) take only checked items.
+  - `2102419` — item 4: Auto Cut (button and `run_auto_cut`, one `runCutPlan` path) plans over the asset's timeline keeps
+    (new `cut-keeps.ts`, `plan.keeps`, own `-k<tag>` plan file); the card proposes only inside them and headlines "−X s of
+    Y s still on the timeline"; the QA readout adds "— N unchecked by QA".
+  - `d1d253a` — step 4b: `run_auto_cut` after `accept_proposal` in one turn plans over the timeline as the apply left it
+    (the renderer returns `sourceKeeps` computed with the reducer's own `applyProposalByKind`; main overlays them).
+  - `ca51e9f` — step 7: keeps-limited Auto Cut plans only the keeps that hold words, so a wordless clip head / tail is one
+    card item (`keepsWithWords`); an authored editorial end inside a word or a too-short gap lands in the nearest quiet
+    inter-word gap within 1.5 s, on the side holding most of the straddled word (decision 10), with the kept word's
+    walked-onset cap (`endOutOfSpeech`, editorial-only `seekQuietGap`).
+  - `ecaa5bd` — step 9 (a): `run_auto_cut` (incl. "Nothing to cut") and `propose_cuts` results end with the clips on the
+    timeline still without a card of this run, in timeline order (new `cut-sweep.ts`, `agent-tools/cut-run-line.ts`) + the
+    `CLIP-BY-CLIP RUNS` prompt line.
+  - `47b7acf` — step 9 (b), decision 11: when that side has no quiet gap, the other side's is taken only across words the
+    item's own note names as one run (no note → ≤ 2 words, ≤ 0.4 s); the row says `extended past "…" to land on quiet`.
+  - `1b74b73` — decision 13: a retract that would re-keep covered words the item names goes forward instead, within
+    decision 11's cap (step 6's 0375 slate "Another take." 132.732 → 133.826; Hasan's hand 133.816).
+  - Docs: `06d2da9` `f327293` `8b980b3` `734cc74` `965e736` `7ade6bc` `bed6d6c` `0db1b88` `d9cdc13` `629f803` `277f724`
+    `b40e390` + this entry's commit. Kits (gitignored): `.vidtsx-temp/end-to-end/B7/`.
+- **The three live runs** (decision 5's shape: each ONE pass on a FRESH D: copy of the shared M2 + a profile copied WITHOUT
+  `settings.db`; the keyless `claude-subscription`, every turn `claude-sonnet-5-5`; cut style tight · default; every card
+  captured from `project.json` before a real-click answer — Apply = the checked items, "Reject all" when none; measured with
+  `exit_check.py` (analyze_cut `entry_check` on real joins > 0.75 s) and B6's `measure.py`; none broken by the harness —
+  decision 9's three passes are spent):
+
+  | Run (code) | Hard entries (applied) | Lead-in / tail median vs fitted tight | Overlap applied (the bar) / all proposed | Turns · model time · notional | Items editorial + Auto Cut · applied · QA-unchecked | Final V1 |
+  |---|---|---|---|---|---|---|
+  | B6 baseline (pre-B7) | 6 / 146 | 0 / +6 ms | 0.9049 / 0.9051 | 17 · 337.2 s · $3.89 | 39 + 261 · 298 · — | 196 clips · 509.149 s |
+  | Step 6 (`d1d253a`) | **0 / 137** | 0 / −4 ms | 0.8723 / 0.8974 | 17 · 345.0 s · $4.01 | 35 + 163 · 190 · 6 (named) | 187 · 534.285 s |
+  | Pass 2 (`ca51e9f`) | **0 / 121** | 0 / −14 ms | 0.8418 / 0.8479 | 16 · 323.8 s · $2.82 | 33 + 142 · 173 · 1 (named) | 160 · 561.346 s |
+  | **Pass 3 (`1b74b73`, the last)** | **0 / 137** | **0 / −14 ms** | **0.9020 / 0.9024** (2.40 s of H short) | 17 · 355.1 s · $3.97 | 31 + 171 · 201 · 0 | 181 · 510.509 s |
+
+  - **Step 6:** turn 1's reply had no `[next: …]` marker, so `Move on.` was typed (decision 9 records it); turn 8 offered
+    Auto Cut → B6's answer `Yes, run Auto Cut for the pauses on all nine clips.`; turn 17 re-ran Auto Cut on 0375 ("nothing
+    to cut" — item 4 working). Overlap lost to six authored ends in continuous speech left unchecked by QA (15.05 s) and to
+    wordless clip heads / 0373's tail kept whole by keeps-limited Auto Cut (12.27 s) → step 7.
+  - **Pass 2:** turn 1 carried its marker (no `Move on.`); B6's Auto Cut answer after turn 8's offer; the Auto Cut sweep
+    **skipped 0371** (turn 11 miscounted, turn 12 ran 0372, turn 16 said all nine were cut — 47.0 s of H), and 0375's
+    authored 195.0 inside the slate "other" found no quiet gap on decision 10's side (unchecked, 4.96 s) → step 9 (a) / (b).
+  - **Pass 3:** turn 1 ran `run_auto_cut` on 0366 FIRST (the prompt's order; every earlier run started editorial), then
+    editorial cards alone for 0366 0370 0371 0372 0373 0375 0376; 0369 / 0374 got none ("nothing to cut" — the same applied
+    cut as the earlier runs' Reject all on 0369's lone fluff); turn 8 ended the editorial pass **without a marker and
+    without offering Auto Cut**. B6's Auto Cut answer was typed at the same point as in every earlier run, and nothing
+    else — **accepted by the orchestrator as the run shape** (every run got the same input at the same point); **the model
+    did not offer it** (without it the cut after turn 8 measures 0.4581). Then one `run_auto_cut` per clip and all nine got a
+    card (step 9 (a)'s list held; turn 17's "Nothing to cut" on 0373 named 0376 next). 0 cuts unchecked by QA; every card's
+    QA 0 hard entries. Per clip applied: 0366 0.839 · 0369 0.930 · 0370 0.940 · 0371 0.962 · 0372 0.967 · 0373 0.850 · 0374
+    0.869 · 0375 0.908 · 0376 0.880. Where its overlap went (vs B6's applied 735.952 s: −9.209 lost, +6.907 gained; 0 s inside
+    a QA-unchecked item, 0.27 s in the unchecked fluff): the model's own spans in 0373 — "Just the first scan cleaned up 42
+    gigabytes…" 365.651–370.432 (his flag 3, 4.78 s; only B6 cut it), "Uh" 84.16–86.82 (2.66 s; B6 / step 6), "uh"
+    252.9–253.47 (0.57 s; step 6 authored it); gained B6's doubled-phrase misses 0373 25.219–26.816 and 319.72–321.193.
+  - Every run: Hasan's own plan 0 / 134 hard entries; produced speeds 1, monotonic; B6's slivers (0366 4.83 / 12.63, 0373
+    247.86 / 391.59) gone; pass 3 has no wordless produced segment at all.
+- **The replays (decision 12)** — each capture fed offline through the FINAL code (the snap + `buildEditorialProposal` on
+  the captured `propose_cuts` args, the real `runCutPlan` over the replayed timeline's keeps, the real `applyCutProposal`,
+  answered as live; b-root's real envelopes and words; B6's args are cut at 600 chars, so its items replay from the snapped
+  card); kit `replay.b7.test.ts` + `exit_check_replay.py` + `replay-split.py`:
+
+  | Replay | Applied overlap (live) | All proposed | Hard entries | Medians lead / tail | Model share: H no authored span covers | Code share: H inside an authored span, not applied | Shortfall to 0.905·H |
+  |---|---|---|---|---|---|---|---|
+  | B6 | 0.9091 (0.9049) | 0.9102 | 0 / 135 | 0 / −14 ms | 24.551 s | 0.205 s | 0 |
+  | Step 6 | 0.9125 (0.8723) | 0.9143 | 0 / 134 | 0 / −4 ms | 22.143 s | 0.415 s | 0 |
+  | Pass 2 | 0.8480 (0.8418) | 0.8488 | 0 / 122 | 0 / −14 ms | 27.957 s + 50.828 s (0371, no Auto Cut card) | 0.378 s | 46.341 s |
+  | Pass 2 + 0371's Auto Cut card | 0.9061 | 0.9069 | 0 / 132 | 0 / −14 ms | 27.957 s | 0.378 s | 0 |
+  | **Pass 3** | **0.9020 (= live)** | 0.9024 | **0 / 137** | 0 / −14 ms | 30.123 s | 0.427 s | **2.400 s** |
+  | Pass 3 + step 6's two 0373 fillers (`84.16–86.74`, `252.9–253.32`) | **0.9060** | 0.9064 | 0 / 137 | 0 / −14 ms | 26.557 s | 0.427 s | 0 |
+
+  The code share is edge-level in every replay (the tight 0.15 s head pad before a kept word an authored span reached —
+  four in pass 3) and smaller than any shortfall: no code regression.
+- **Outcome (decision 12):** the live pass is the exit (Hasan's wording) and misses the overlap bar by 2.40 s of H; every
+  replay has 0 hard entries; the B6 and step-6 replays clear 0.905, pass 2's misses only by the clip the model skipped (0.9061
+  with it), and pass 3's own capture misses only by spans the model did not author this time (it did in step 6; with them
+  0.9060) → **"missed on model variance" — B7 = EXIT PARTIAL — WAITING-HASAN (overlap)**, onto his real-video list; the run
+  continues to the track-B exit.
+- **The orchestrator's decisions, as they landed:** 1 (item 5) → `eaf682d`; live 6 / 1 / 0 cuts unchecked, every one named
+  in its reply, none ticked. 2 (item 4) → `2102419` + `d1d253a`. 3 → every fix red-first from the real cases. 4 (no
+  regression) → B1's cutlib reproduction 348 / 352 joins + 2 merge flips (report JSON-equal), B3's offline QA 0 / 0 hard +
+  178 / 181 tails (JSON-equal), B2's five Transcript-delete edges 0 ms — after every snap change (kit runs 1–5); B3's LIVE
+  Auto Cut numbers (hard 1 / 164) were not re-measured (they need the app; an untouched clip plans byte-for-byte as before,
+  pinned by `cut-plan-runner.test.ts`). 5–7 → three fresh copies, profiles without `settings.db`, nothing waited on Hasan.
+  8 → the bar read on the applied cut. 9 → step 6, pass 2, pass 3. 10 → "nearest quiet gap by time" = the word rule on all
+  five real cases. 11 → `47b7acf`. 12 → the replays above. 13 → `1b74b73`, built with decision 11's cap (≤ 2 words, ≤ 0.4 s)
+  instead of the literal "end unchanged" branch: naming alone moved five real retracts, because the model's notes quote the
+  winning take too.
+- **Gates (this entry, 2026-10-23, HEAD `b40e390` = the code of `1b74b73`):** guard `28.9 GB C: free; commit 95.0 / 107.3 GB`
+  (C: ≥ 4 GB → no python-models exclusion); full `npx vitest run --maxWorkers=2`, app stopped, **first run green: 471 files /
+  4,030 tests passed, 5 / 34 skipped, 145.2 s** (the counted run; log `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\vitest-full.log`);
+  `npm run check:types` → web 26 / node 10 = baseline (`…\B7\types-final.log`). At each code step: the targeted cut / agent
+  set green (last: decision 13's 40 files / 412 tests), check:types 26 / 10, the decision-4 kits unchanged. The three live
+  passes ARE the click-through (real input on isolated profiles over CDP).
+- **Follow-ups (not fixed in B7 — orchestrator rulings 2026-10-23):**
+  - **Step 9 (a)'s list has gaps:** the editorial list never names the clips still lacking Auto Cut (pass 3 ran Auto Cut on
+    0366 only, then editorial alone; nothing told the model eight clips lacked it until the user's message); 0369 / 0374 stay
+    listed after a read with nothing to cut (nothing records "reviewed, nothing to cut"), so 0369 was re-read 3× (turns 3, 5,
+    7); turn 17 claimed 0373 "got no Auto Cut card" (turn 13 carded it). Also by construction: a second same-kind sweep that
+    does not start on a carded clip counts the earlier sweep's clips as done; a card answered < ~1 s before the tool runs can
+    be missed (autosave lag); no line for a timeline with < 2 media assets.
+  - **The cut-out mirror:** an authored START early in the gap after a kept word truncates that word's tail
+    (`cut-planner.ts:163`); a mirror of `landCutEnd` needs `tailFor`'s gap-dependent tail. None of the real cases needed it.
+  - **0376 @ 119.084 at +14.4 dB** (0.6 dB under the hard-entry bar; the gap never drops below +9 dB — breath / room — and the
+    cut keeps 0.3 s of it before "These"): clean by the shipped QA, marginal by ear.
+  - **The readout counting:** the card's QA counts are still the plan's, not recomputed over the checked items (only "— N
+    unchecked by QA" was added); the plan file's `stats.removedDuration` / `sourceDuration` stay whole-source (nothing
+    user-facing reads them).
+  - **`run_auto_cut` and a hand edit during a turn:** the agent's own applies reach the next tool in the turn (step 4b), but a
+    timeline edit the USER makes mid-turn is not seen until the next turn.
+  - **Model behaviour / the prompt:** the `[next: …]` marker missed at step 6 turn 1 and pass 3 turn 8; the "Cut this video."
+    order varies by run (editorial first then an Auto Cut offer, or Auto Cut on the first clip only then editorial alone,
+    with no offer); content every run misses: 0373 112.3–122.0 (his flag 2, 9.7 s) and 0366's cross-clip retake (3.26 s).
+  - **Choices inside B7 (the orchestrator's to change):** decision 13 applies only to the straddled-word retract, and a slate
+    whose forward crossing is > 0.4 s of speech stays in the cut (the literal reading is a two-line change in
+    `cut-snap-landing.ts` `endOutOfSpeech`); step 9 (b)'s fallback is symmetric (a retract fallback also needs named words —
+    no real case takes it); the quiet-gap seek is editorial only (a Transcript delete in continuous speech keeps the user's
+    words; QA still flags it, item 5's rule does not apply to text deletes); `QUIET_GAP_SEEK_S = 1.5`; the Auto Cut plan's QA
+    reads the spoken keeps only.
+  - Smaller: the wordless gap 0373 391.988–393.36 between an applied retake and the unchecked fluff "Okay," stays as the card
+    leaves it; B3's 0373 @ 323.198 true positive now starts unchecked on its card, so that pause stays in the produced cut;
+    B2's scratch preset `profiles\B2\…\youtube-long-form\preset.json` lost its `style.cut` (input drift outside B7, untouched).
+- **For Hasan's real-video list:** the overlap bar (≥ 90.5 % on the applied cut) on a real pass; 0376 @ 119.084 (+14.4 dB) by
+  ear. B6's next-round bar stays PROPOSED.
+- **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\` — step 6 `run\` (`turns.jsonl`, `proposals-raw.json`,
+  `proposals.json`, `proposals-accepted.json`, `run-summary.json`), `exit\`, `measure\`, `measure-accepted\`,
+  `overlap-causes.json`, `s7-landed.json`, `s7-expected-overlap.json`; `pass2\` and `pass3\` (the same layout; pass 3 adds
+  `measure-turns1-8\`); `replay\` (`b6`, `s6`, `p2`, `p2-plus-0371`, `p3`, `p3-plus-s6fillers`, `replay-summary.json`,
+  `replay-split.out`; earlier rounds `replay-s9c\`, `replay-d13\`); the decision-4 kit reports `b1-compare-report.json`,
+  `b2-textdel-report.json`, `b3-compare-report.json`; the gates `vitest-full.log`, `types-final.log`. Applied runs on D: (kept
+  as evidence): `.vidtsx-temp/end-to-end/B7/{root,profile}`, `B7/pass2/`, `B7/pass3/`. `b-root` unchanged (every copy's
+  `project.json` sha256 `EBE94FD7…123DDA` = b-root's). TESTING.md §18.13; HANDOFF `docs/studio/end-to-end/B7/HANDOFF.md`.
+
 ## 2026-10-23 — END-TO-END B6: the content measurement — the Studio assistant's real cut pass (editorial + Auto Cut) on all nine raw clips vs Hasan's `cuts.json`: **overlap 90.5 %**, the miss list, the proposed bar for the next round — DONE (a measurement; no `src/` change; verifier fix round 1 corrected the record)
 
 - **What:** part B6 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`, docs only). The §3 row: "Auto Cut + editorial

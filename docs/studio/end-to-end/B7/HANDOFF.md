@@ -1,5 +1,14 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING — pass 3 DONE: exit PARTIAL — WAITING-HASAN (overlap, missed on model variance); the DONE-PARTIAL gates + record are the Next step (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); **step 8 = the fresh live pass of the step-7 code (decision 9's pass for this round), 2026-10-23 15:57–16:04: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 84.79 % all proposed / 84.18 % applied ✗** — the model skipped Auto Cut on 0371 (47.0 s of H) and one authored end (0375 195.0) found no quiet gap on its straddled word's side (4.96 s); **step 9 (a) DONE + committed** (builder #13: `run_auto_cut` /
+status: DONE-PARTIAL — EXIT PARTIAL — WAITING-HASAN (overlap)
+
+**Builder #18 (2026-10-23, the DONE-PARTIAL path, no `src/` change):** full `npx vitest run --maxWorkers=2` (app stopped) first run
+green — **471 files / 4,030 tests passed, 5 / 34 skipped, 145.2 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\vitest-full.log`);
+`npm run check:types` **web 26 / node 10** = baseline; Status.md top entry "END-TO-END B7: editorial cuts leave no hard entries —
+EXIT PARTIAL (overlap waits for Hasan)"; TESTING.md §18.13; this file; LOG.md. **Hard entries 0 on every live run (0 / 137 · 0 / 121 ·
+0 / 137) and every replay; medians met; the overlap bar (applied ≥ 0.905) missed by the last pass (0.9020, 2.40 s of H) on model
+variance — on Hasan's real-video list.** History of the build (kept):
+
+status was: BUILDING — pass 3 DONE: exit PARTIAL — WAITING-HASAN (overlap, missed on model variance); the DONE-PARTIAL gates + record are the Next step (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); **step 8 = the fresh live pass of the step-7 code (decision 9's pass for this round), 2026-10-23 15:57–16:04: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 84.79 % all proposed / 84.18 % applied ✗** — the model skipped Auto Cut on 0371 (47.0 s of H) and one authored end (0375 195.0) found no quiet gap on its straddled word's side (4.96 s); **step 9 (a) DONE + committed** (builder #13: `run_auto_cut` /
 `propose_cuts` end with the clips on the timeline still without a card of this run, in timeline order; a prompt line says take the
 next one from it); **step 9 (b) DONE + committed** (builder #14: an authored end whose straddled word's side has no quiet gap
 lands on the other side only across words the item's own note names — decision 11; pass 2's 0375 195.0 → 195.779); **step 9 (c)
@@ -955,6 +964,25 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   not author this time (it authored them in step 6), and adding those two lifts it to 0.9060 → "missed on model variance" — B7 = EXIT
   PARTIAL — WAITING-HASAN (overlap), onto his real-video list.**
 
+### DONE-PARTIAL — the gates and the record (builder #18, 2026-10-23; no `src/` change, no app, no model call)
+
+- **Orchestrator rulings on pass 3's open problems (applied in the record):** (1) typing B6's exact Auto Cut answer after turn 8
+  although the model did not offer it is ACCEPTED as the run shape (every run got the same input at the same point) — recorded
+  in Status / TESTING with "the model did not offer it" (and the 0.4581 of the cut as of turn 8); (2) the step-9 (a) list's gaps
+  (the editorial list never names the clips lacking Auto Cut; 0369 / 0374 stay listed after a read with nothing to cut → 0369
+  re-read 3×; turn 17's wrong claim about 0373) are FOLLOW-UPS, recorded in Status / TESTING, not fixed in B7.
+- **Gates** (Verified › DONE-PARTIAL): full suite first run green 471 files / 4,030 tests (the counted run; no load timeout, no
+  rerun, no python-models exclusion — C: 28.9 GB); check:types web 26 / node 10.
+- **Status.md:** new top entry `## 2026-10-23 — END-TO-END B7: editorial cuts leave no hard entries — EXIT PARTIAL (overlap waits
+  for Hasan)` — the row and exit, the code (the nine code commits one line each + the docs commits), the three live runs table (B6
+  baseline, step 6, pass 2, pass 3: hard entries, medians, applied / all-proposed overlap, turns, model time, notional, items,
+  QA-unchecked, final V1) with each run's run-shape notes, pass 3's loss list, the replays table with the model / code split, the
+  outcome by decision 12, the decisions' outcomes, the gates, the follow-ups, Hasan's list, the evidence paths.
+- **TESTING.md §18.13** (after §18.12, the same shape): the Material line; `- [x] ✎` the three live passes, item 5, item 4, step 7,
+  step 9 (a); `- [x]` the replays, mechanisms 1–3, step 4b, step 9 (b), decision 13, the decision-4 kits, the gates (each with its
+  test files); `- [ ] ✎` the overlap exit (WAITING-HASAN); `- [ ]` the follow-ups and 0376 @ 119.084 by ear.
+- Read-only check: b-root's `project.json` sha256 `EBE94FD77F17895993F7D8159E294DB75E52FD515765B751C78EB2C635123DDA` (unchanged).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -1279,7 +1307,28 @@ Guard before the copies / the launch / the pass / the replays: `28.9 GB C: free;
   0.902, … "shortfall_s": 2.4, "model_s": 30.123, "code_s": 0.427}`, `exit: hard 0 / 137`; `p3-plus-s6fillers {… "overlap_applied": 0.906, …
   "shortfall_s": 0.0, "model_s": 26.557, "code_s": 0.427}`, `exit: hard 0 / 137`; b6 / s6 / p2 / p2-plus-0371 lines = decision 13's.
 
+### Verified — DONE-PARTIAL gates (builder #18, 2026-10-23, HEAD `b40e390`, no `src/` change)
+
+- Before the full run: no `electron.exe` running, no vitest running; guard `powershell -NoProfile -Command "$os=…"` → `28.9 GB C:
+  free; commit 95.0 / 107.3 GB` (C: ≥ 3 GB and C: + headroom 41.2 ≥ 6 GB → run; C: ≥ 4 GB → no python-models exclusion); D: 26.7 GB.
+- `npx vitest run --maxWorkers=2 *> C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\vitest-full.log` (17:34:14–17:36:41, exit 0) →
+  `Test Files  471 passed | 5 skipped (476)` · `Tests  4030 passed | 34 skipped (4064)` · `Duration  145.17s`. First run green =
+  the counted run (no DRIVING.md load timeout, no rerun needed).
+- Guard `28.9 GB C: free; commit 94.8 / 107.3 GB` → `npm run check:types *> …\B7\types-final.log` (exit 0) →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`.
+- `Get-FileHash …\vidtsx-e2e\b-root\projects\video-14-raw\project.json -Algorithm SHA256` →
+  `EBE94FD77F17895993F7D8159E294DB75E52FD515765B751C78EB2C635123DDA` (= every copy's; b-root unchanged).
+- `git status --short` before the commit → `Status.md`, `docs/studio/TESTING.md`, `docs/studio/end-to-end/B7/HANDOFF.md`,
+  `docs/studio/end-to-end/B7/LOG.md` only.
+
 ## Next step (ONE concrete instruction)
+
+**B7 is DONE-PARTIAL — no builder step is left.** For the orchestrator: run B7's verifier (or accept the record), add B7's
+real-video item to "For Hasan's real-video test" in ORCHESTRATOR.md (the overlap bar ≥ 90.5 % on the applied cut of a real
+pass; 0376 @ 119.084 at +14.4 dB by ear is already listed there), and continue to the fresh track-B exit check (decision 12: "the run continues to
+the track-B exit"). Nothing in `src/` is pending; every follow-up is listed in Status.md's B7 entry and TESTING §18.13.
+
+## Next step — superseded (kept for reference: builder #17's DONE-PARTIAL instruction; DONE by builder #18)
 
 **The DONE-PARTIAL path (decision 12's outcome is recorded in Done › Pass 3: "missed on model variance", EXIT PARTIAL — WAITING-HASAN
 (overlap)) — the gates, the record, the commit; no app, no model call, no `src/` change.** (1) Guard, then the full suite with the app
@@ -1577,6 +1626,15 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
+- **State at DONE-PARTIAL (builder #18):** no blocker; no `src/` work pending; the full suite and check:types are green. Open for
+  Hasan: the overlap bar on a real pass (WAITING-HASAN) and 0376 @ 119.084 by ear. Open as follow-ups (recorded in Status.md's B7
+  entry and TESTING §18.13, not fixed in B7): the step-9 (a) list gaps (orchestrator ruling below), the cut-out mirror, the
+  readout counting, the `run_auto_cut` hand-edit-during-a-turn gap, the model / prompt behaviours, and the choices listed below
+  (decision 13's cap, step 9 (b)'s symmetric fallback, step 7's editorial-only seek / 1.5 s / spoken-keeps QA) — each the
+  orchestrator's to change.
+- **RULED (orchestrator, after pass 3) on the two pass-3 items below:** (1) the typed Auto Cut answer after turn 8 is ACCEPTED as
+  the run shape (every run got the same input at the same point) — the record says the model did not offer it; (2) the step-9 (a)
+  list gaps are FOLLOW-UPS, recorded in Status / TESTING, not fixed in B7.
 - **NEW (pass 3, builder #17) — for the orchestrator: a run-shape call I made, not covered word for word by decision 5 / the Next step.**
   The run shape types B6's Auto Cut answer "when the editorial pass ends offering Auto Cut". Pass 3's turn 8 ended the editorial pass with
   NO offer and no `[next: …]` marker ("That finishes the editorial pass on every clip.") — the model had run Auto Cut on 0366 only (turn 1,
@@ -1739,6 +1797,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- **B7 is DONE-PARTIAL** (builder #18): the gates are run (full suite 471 / 4,030 first run green, check:types 26 / 10) and the
+  record is written (Status.md top entry, TESTING §18.13, this file, LOG.md) — don't re-run them or rewrite the record unless a
+  verifier names a defect; no live pass is left (decision 9's three are spent), and the overlap exit is Hasan's.
 - **Pass 3** (builder #17) is DONE, measured and replayed — decision 9's LAST live pass is spent (not harness-broken): no fourth pass, don't
   re-measure it. Everything is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\pass3\` (`run\` capture + `run-summary.json` + `loop1/2.log`,
   `exit\`, `measure\`, `measure-accepted\`, `measure-turns1-8\`, `overlap-causes.json`) and `…\B7\replay\p3\`, `…\B7\replay\p3-plus-s6fillers\`,
@@ -1874,3 +1935,7 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   hard 0 / 137 ✓, medians 0 / −14 ms ✓, overlap 0.9024 all / 0.9020 applied ✗ (2.40 s short); replays: p3 = live, + step 6's two 0373 fillers
   → 0.9060, hard 0 → decision 12: missed on model variance, EXIT PARTIAL — WAITING-HASAN (overlap); wrote the DONE-PARTIAL path as the Next
   step. No `src/` change, no full vitest, no check:types; app, watchdog, drivers stopped (0 left).
+- 2026-10-23 · builder #18 · ~25 calls · the DONE-PARTIAL path: full `npx vitest run --maxWorkers=2` (app stopped) first run green 471 files /
+  4,030 tests; check:types web 26 / node 10; Status.md top entry, TESTING §18.13, this file's sections, LOG.md; orchestrator rulings on pass 3
+  applied (run shape accepted, step-9 (a) gaps = follow-ups); committed. No `src/` change, no app, no model call. C: 28.9 GB, commit 94.8–95.0 /
+  107.3 GB.
