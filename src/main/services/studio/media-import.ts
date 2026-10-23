@@ -60,7 +60,15 @@ interface FfprobeStream {
   height?: number;
   r_frame_rate?: string;
   avg_frame_rate?: string;
+  disposition?: { attached_pic?: number };
 }
+
+/**
+ * A real picture stream — NOT an attached picture (an mp3's ID3 cover, an m4a's
+ * artwork), which ffprobe also lists as `codec_type: 'video'` (E1 V1-1/V1-2).
+ */
+const isRealVideoStream = (s: FfprobeStream): boolean =>
+  s.codec_type === 'video' && s.disposition?.attached_pic !== 1;
 
 function parseFps(stream: FfprobeStream | undefined): number | undefined {
   const rate = stream?.r_frame_rate ?? stream?.avg_frame_rate;
@@ -109,10 +117,11 @@ export async function probeMedia(filePath: string, kind: StudioAssetKind): Promi
     streams?: FfprobeStream[];
     format?: { duration?: string };
   };
-  const videoStream = data.streams?.find((s) => s.codec_type === 'video');
+  const videoStream = data.streams?.find(isRealVideoStream);
   const audioStream = data.streams?.find((s) => s.codec_type === 'audio');
   let duration = kind === 'image' ? 0 : parseFloat(data.format?.duration ?? '0') || 0;
-  // The bundled ffprobe counts a LAME mp3's encoder delay + padding (~25–50 ms) in its duration.
+  // The bundled ffprobe counts a LAME mp3's encoder delay + padding in its duration
+  // (measured −41…−70 ms; lower sample rates trim more). Cover art does not block it.
   if (!videoStream && audioStream?.codec_name === 'mp3') {
     duration = gaplessDuration(duration, await readMp3Gapless(filePath));
   }
