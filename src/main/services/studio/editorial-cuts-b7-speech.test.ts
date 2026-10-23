@@ -41,7 +41,7 @@ interface SpeechCase {
 
 const FIXTURE = JSON.parse(
   readFileSync(fileURLToPath(new URL('../../../shared/studio/cut-snap-b7.fixture.json', import.meta.url)), 'utf-8'),
-) as { clips: Record<string, FixtureClip>; speechCases: SpeechCase[] };
+) as { clips: Record<string, FixtureClip>; speechCases: SpeechCase[]; retractCases: SpeechCase[]; speechCaseNotes: Record<string, string> };
 
 const TIGHT = (
   JSON.parse(
@@ -233,4 +233,66 @@ describe('B7 step 9 (b) — the other side, only through words the item names (p
     expect(r.item.status).toBe('accepted');
     expect(r.item.note).toContain('extended past "other take," to land on quiet');
   });
+});
+
+// B7 decision 13 — step 6's 0375 retake 129.1–133.2 (HANDOFF Done › Step 9 (c)): the end sits 0.119 s into the slate
+// "take." (0.288 s kept), so decision 10 retracts — but the nearest quiet gap on that side is before "Another", and
+// landing there re-keeps "Another", a word the span covers and the item's note names ("'Another take.' slate").
+// That side then has no usable gap; decision 11's fallback goes forward through "take." to the gap before "And".
+describe('B7 decision 13 — a retract may not re-keep the item\'s own words (step 6 0375 129.1–133.2)', () => {
+  const c = FIXTURE.retractCases.find((k) => k.clip === '0375' && k.at === 133.2)!;
+  const withNote = (note: string | undefined) =>
+    snapCase({
+      ...c,
+      authored: c.authored.map((s) =>
+        s.end !== 133.2 ? s : { start: s.start, end: s.end, category: s.category, ...(note !== undefined ? { note } : {}) },
+      ),
+    });
+  const hardAt = (r: ReturnType<typeof snapCase>) =>
+    (r.proposal.qa?.items ?? []).filter((q) => q.kind === 'hard-entry' && Math.abs(q.sourceTime - r.end) <= 0.02);
+  const RETRACT = 132.732; // before "Another" (132.902) — today's landing, the slate stays in the cut
+
+  it('with its real note the end goes forward past "take." into the gap before "And", near Hasan\'s 133.816, checked', () => {
+    const r = withNote(c.authored.find((s) => s.end === 133.2)?.note);
+    expect(r.end).toBeGreaterThan(c.expect[0]);
+    expect(r.end).toBeLessThan(c.expect[1]);
+    expect(Math.abs(r.end - (c.hand ?? NaN))).toBeLessThanOrEqual(0.1);
+    expect(hardAt(r)).toEqual([]);
+    expect(r.item.status).toBe('accepted');
+    expect(r.item.qaFlag).toBeUndefined();
+    expect(r.item.note).toContain('extended past "take." to land on quiet');
+    const hard = findHardEntries(producedSegments(c), envelopeFor(c)).items.filter((i) => Math.abs(i.sourceTime - r.end) < NEAR_S);
+    expect(hard).toEqual([]);
+  });
+
+  it('a note that does not name "Another" leaves the retract as today (before "Another", checked, no note)', () => {
+    const r = withNote('Retake of the advice line.');
+    expect(r.end).toBe(RETRACT);
+    expect(r.item.status).toBe('accepted');
+    expect(r.item.note ?? '').not.toMatch(/extended past|stopped before/);
+  });
+
+  it('an item with no text names no words: the retract stays as today', () => {
+    const r = withNote(undefined);
+    expect(r.end).toBe(RETRACT);
+    expect(r.item.status).toBe('accepted');
+  });
+
+  it('names "Another" but not "take.": the forward side is not allowed → the retract stays as today', () => {
+    const r = withNote("The 'Another' slate.");
+    expect(r.end).toBe(RETRACT);
+    expect(r.item.note ?? '').not.toMatch(/extended past|stopped before/);
+  });
+
+  // The step-7 cases with their REAL step-6 notes: notes quote the winning take too ("Final 'The same AI, Claude Code,'
+  // wins"), so a retract there re-keeps named words — but forward it would cross more than decision 11's cap.
+  for (const k of FIXTURE.speechCases) {
+    it(`${label(k)} with its real step-6 note lands where it does without one`, () => {
+      const span = authoredSpan(k);
+      const note = FIXTURE.speechCaseNotes[`${k.clip}@${k.at}`];
+      const r = snapCase({ ...k, authored: k.authored.map((s) => (s === span ? { ...s, note } : s)) });
+      expect(r.end).toBe(snapCase(k).end);
+      expect(r.item.note ?? '').not.toMatch(/extended past|stopped before/);
+    });
+  }
 });

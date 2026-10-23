@@ -5,8 +5,10 @@ next one from it); **step 9 (b) DONE + committed** (builder #14: an authored end
 lands on the other side only across words the item's own note names — decision 11; pass 2's 0375 195.0 → 195.779); **step 9 (c)
 DONE** (builder #15: decision 12's deterministic replays through the final code — applied overlap **B6 0.9091 · step 6 0.9115 ·
 pass 2 0.8480**, hard entries **0** on all three, lead-in / tail medians within 0 / −14 ms; pass 2's whole shortfall is the clip the
-model skipped — the same capture with 0371's Auto Cut card replayed gives **0.9061** — so no code share, nothing to fix); next: **pass 3,
-the LAST allowed live pass** — see Next step)
+model skipped — the same capture with 0371's Auto Cut card replayed gives **0.9061** — so no code share, nothing to fix); **decision 13
+DONE + committed** (builder #16: a decision-10 retract that would re-keep words the span covers and the item's note names goes forward
+instead, through decision 11's fallback AND its cap — step 6's 0375 slate 132.732 → 133.826; replays B6 0.9091 · step 6 **0.9125** ·
+pass 2 0.8480, hard 0 on all); next: **pass 3, the LAST allowed live pass** — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -814,6 +816,40 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   2's 0373 83.586–86.82 "You see now? Uh").
 - **Expectations met / changed:** none in `src/`; no test expectation touched.
 
+### Decision 13 — a retract may not re-keep the item's own words (builder #16, 2026-10-23, commit: the one carrying this line, "B7 — decision 13")
+
+- **`src/shared/studio/cut-snap-landing.ts`** (201 → 232 lines): `endOutOfSpeech` (:128) — when decision 10's side is `'before'` and its
+  nearest quiet gap would re-keep words the span wholly covers (not the straddled word) that the item's text names (`retractRekeepsNamed`
+  :207, the same contiguous-run matcher, now `textNames` :215), it first tries the forward side through `otherSide(input, 'after', true)`
+  (:151, builder #14's fallback block moved verbatim into a function) — allowed only when the crossed words are named AND within decision
+  11's cap (≤ `FALLBACK_MAX_WORDS` 2 words, ≤ `FALLBACK_MAX_SPEECH_S` 0.4 s past the end; `fallbackAllowed(…, capped)` :195; matchers `retractRekeepsNamed` :208, `textNames` :215;
+  describe at `editorial-cuts-b7-speech.test.ts:242`). If that is
+  refused, the retract stays (HEAD's landing). Decision 11's path itself is unchanged (`capped` false). An item with no text names nothing →
+  unchanged (every B6 replay item).
+- **Why the cap (measured, not in decision 13's text — Open problems):** the first version (naming only) moved FIVE real retracts in the
+  replays, not one: step 6 0371 `93.5–101` (100.553 → 101.849, past "example,"), 0371 `174.86–182` (181.432 → 186.702, past "simply
+  focus"), 0373 `25.1–30` (29.311 → 31.34, past "up moves everything,"), 0375 `15.3–18.3` (17.92 → 23.592, past "same AI, Claude Code,"),
+  pass 2's 0373 `27.63–30` (29.311 → 31.34). The model's notes quote the WINNING take too ("Final 'The same AI, Claude Code,' wins"), so the
+  retract's re-kept words (the kept take's first words: "For", "so you can", "and clean", "The") are "named", and forward the named
+  kept take was crossed (1.3–5.7 s of kept speech each). The slate differs measurably: forward it crosses only the straddled "take."
+  (0.288 s) to a quiet gap; the four others cross 0.49 s ("example,") to 3+ words.
+- **Fixture** `src/shared/studio/cut-snap-b7.fixture.json` (+2 keys only; `source`/`clips`/`cases`/`speechCases` equal to HEAD's as JSON):
+  `retractCases` = step 6's 0375 window 126.375–136.2 s (492 buckets, 26 words, the authored `129.1–133.2` WITH its note "'And I gave, …'
+  stumbles and 'Another take.' slate. Final 'And I give him this advice,' wins. …", expect gap 133.488–133.976, hand **133.816** = B1's
+  cutlib tight segment start); `speechCaseNotes` = the six step-7 cases' real step-6 notes. Made by `.vidtsx-temp/end-to-end/B7/extract-b7-d13.mjs
+  <in> <out>` (read-only over `B7/root` + `…\B7\run\`), run on `git show HEAD:<fixture>`.
+- **Tests** (`src/main/services/studio/editorial-cuts-b7-speech.test.ts`, 236 → 298 lines, new describe "B7 decision 13", 10 tests): the
+  real note → end in 133.488–133.976 within 0.1 s of 133.816 (**133.826**), QA clean, `accepted`, row note `extended past "take." to land on
+  quiet`, no produced hard entry near it; a note not naming "Another" → 132.732 (today), no crossing note; no note → 132.732; names
+  "Another" but not "take." → 132.732; and the six step-7 cases WITH their real step-6 notes land exactly where they do without one, no
+  crossing note. Red first (Verified). **No existing expectation changed.** pass 2's `190.9–195.0` and step 6's `190.8–195.1` (the 9 (b)
+  tests) and the five other step-7 cases unchanged.
+- **Replays** (builder #15's kit, unchanged; builder #15's outputs kept as `…\vidtsx-e2e\B7\replay-s9c\`, the new ones in `…\B7\replay\`):
+  the ONLY replayed item that moved is step 6's 0375 retake `127.875–132.732` → `127.875–133.826` (+ the 0375 Auto Cut card loses its
+  `133.568–133.806` long_pause, now inside the retake). Deltas vs builder #15: **B6** applied 0.9091 (±0), all 0.9102 (±0), hard 0 / 135 (±0);
+  **step 6** applied **0.9125 (+0.0010)**, all 0.9143 (+0.0011), precision 0.9489 (±0), hard 0 / 134 (±0), code share 0.883 → 0.415 s, medians
+  0 / −4 ms (±0); **pass 2** 0.8480 (±0), 0.8488, hard 0 / 122; **pass 2 + 0371** 0.9061 (±0), hard 0 / 132. None worse.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -1077,6 +1113,29 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   `s6 … 0.9115 … 0.0 … 0.883`; `p2 … 0.848 … "shortfall_s": 46.341, "model_s": 78.785, "code_s": 0.378` (`no_autocut_card` 50.828);
   `p2-plus-0371 … 0.9061 … 0.0 … 0.378`; `b6-live-baseline … 0.9049 … "pause_residual": 52.658` (all in `…\B7\replay\replay-split.out`).
 
+### Verified — decision 13 (builder #16, 2026-10-23, from HEAD `02b34d2`)
+
+Guard before every command: `28.9–29.0 GB C: free; commit 98.8–100.2 / 107.3 GB` (never under 28.9 GB). No app launch, no full vitest,
+no model call.
+- RED first (fixture + 4 tests, no code): `npx vitest run src/main/services/studio/editorial-cuts-b7-speech.test.ts --maxWorkers=2` →
+  `Tests 2 failed | 27 passed (29)` — `AssertionError: expected 132.732 to be greater than 133.488` (the real note) and the "names Another"
+  test (`expected 132.732 to be 133.2`, my first expectation, later corrected — see below). First code (naming only) → 29 passed, the
+  "names Another" pin then read 133.806 (the planner's own segment start for an authored end left mid-"take.").
+- The 40-file set on the naming-only code → `Test Files 40 passed (40) · Tests 406 passed (406)`; kits unchanged; check:types 26 / 10 ok;
+  the replays → FIVE retracts moved (Done › Decision 13 "Why the cap"; s6 applied 0.9132 but precision 0.9489 → 0.941). Not committed.
+- RED again for the refinement (the six real-note pins + "names Another" → retract stays): same command → `Tests 4 failed | 31 passed (35)`
+  — `expected 182.37 to be 181.432`, `expected 31.34 to be 29.311`, `expected 18.3 to be 17.92`, `expected 133.806 to be 132.732`.
+  Refined (the cap) → `Tests 35 passed (35)`.
+- `bash .vidtsx-temp/end-to-end/B7/verify-d13.sh` (guard before each command; logs in `.vidtsx-temp/end-to-end/B7/`):
+  builder #13's 40-file command (`vitest-d13.log`) → `Test Files 40 passed (40) · Tests 412 passed (412)` (= 402 + 10 new);
+  `B7_KITS=1 … vitest.b7.config.ts compare-b1 compare-b3 textdel-b2` (`kits-run5.log`) → `3 passed (3)`; `compare-kits.mjs` → B1
+  `joinsWithin 348 / 352, mergeFlips 2`, `whole-report differences: NONE`; B3 `refHard 0, studioHard 0, studioTails 178 / refTails 181`,
+  `NONE`; B2 live / tight / presetNaturalHead / natural / editorial all `d 0 / 0 ms`; `npm run check:types` (`types-d13.log`) →
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`; `B7_KITS=1 … replay`
+  (`replay-run2.log`) → `5 passed (5)`; per tag `measure.py` ×2 + `exit_check_replay.py` (rc 0 ×4) + `replay-split.py` → the numbers in
+  Done › Decision 13; `python -I -B .vidtsx-temp/end-to-end/B7/diff-replays-d13.py` → only s6's 0375 editorial item + its Auto Cut
+  long_pause differ from `replay-s9c`.
+
 ## Next step (ONE concrete instruction)
 
 **Pass 3 — the LAST allowed live pass (decision 9) of HEAD's code, measured as step 8, its capture replayed as step 9 (c), the
@@ -1109,8 +1168,9 @@ did not); then the relaxed gate (top of this file: C: ≥ 3 GB AND C: free + com
    replay has 0 hard entries and is ≥ 0.905 or below it ONLY by items the model did not propose / clips it skipped in that capture (no
    code share) → **"missed on model variance", B7 = EXIT PARTIAL — WAITING-HASAN (overlap)**, onto his real-video list, the run
    continues to the track-B exit; a live hard entry, or a miss with a code share left → **EXIT NOT MET**, to Hasan with the numbers
-   (decision 9: the third miss). Replays so far: B6 0.9091, step 6 0.9115, pass 2 0.8480 (model only; 0.9061 with its skipped card),
-   0 hard entries each. This is the LAST allowed pass — no fourth.
+   (decision 9: the third miss). Replays so far (HEAD with decision 13): B6 0.9091, step 6 0.9125, pass 2 0.8480 (model only; 0.9061
+   with its skipped card), 0 hard entries each; builder #15's (pre-decision-13) outputs are kept in `…\B7\replay-s9c\` — compare p3
+   against `…\B7\replay\`. This is the LAST allowed pass — no fourth.
 6. **DONE path** (EXIT MET or EXIT PARTIAL): full `npx vitest run --maxWorkers=2` (only when the guard allows a full run; log to a file;
    rerun any 5000 ms-timeout file alone — the known load flake), `npm run check:types` (baseline web 26 / node 10), the `STATUS.md` entry
    with every run's numbers (step 6, pass 2, pass 3 live; the B6 / step 6 / pass 2 / pass 3 replays + the pass-2 counterfactual),
@@ -1358,8 +1418,18 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
-- **(builder #15, step 9 (c) — for the orchestrator; not blocking pass 3, not a shortfall) A decision-10 retract can re-keep a word the
-  item removed.** Step 6's 0375 retake `129.1–133.2` (replayed through HEAD): the end lies inside the slate "take." (0.119 s in / 0.288
+- **NEW (decision 13, builder #16) — for the orchestrator; a choice, not Hasan's; not blocking pass 3.** Decision 13's text read
+  literally (a retract over named covered words "counts as having no usable gap"; "if neither side works … end unchanged, unchecked,
+  named") is NOT what was built, because measured on the real notes it moves the step-7 cases the same instruction says must not move:
+  the model's notes quote the winning take as well as the removed one, so in five real retracts the re-kept words are "named" (Done ›
+  Decision 13 "Why the cap"). Built instead: the forward side is taken only when it is allowed by decision 11 AND within decision 11's
+  no-text cap (≤ 2 words, ≤ 0.4 s past the end); otherwise the retract stays as at HEAD (never "end unchanged" — that would turn a
+  checked retract into an authored end mid-word). Consequence: a slate whose forward crossing is longer than 0.4 s of speech stays in
+  the cut on the retract (as before decision 13). The literal reading changes only `endOutOfSpeech`'s two-line decision-13 branch
+  (`cut-snap-landing.ts:139-145`) — say if you want it. Also by choice: decision 13 is applied only to decision 10's straddled-word
+  retract, not to an end in a short gap (no straddled word → nearest gap either side, unchanged), and an item with no text names nothing.
+- (builder #15, step 9 (c)) **RESOLVED by decision 13 (builder #16): step 6's 0375 `129.1–133.2` now lands 133.826.** Original text:
+  **A decision-10 retract can re-keep a word the item removed.** Step 6's 0375 retake `129.1–133.2` (replayed through HEAD): the end lies inside the slate "take." (0.119 s in / 0.288
   kept → retract); the gap "Another"→"take." is 0 s, so `endOutOfSpeech`'s nearest quiet gap on that side is before "Another" → the end
   lands 132.732 and the slate "Another take." stays in the cut (0.468 s of H; Hasan cut it whole). Forward, "take."→"And" (133.488 →
   133.976) is a 0.488 s gap. Decision 11 bounds only the fallback to the OTHER side; the primary side may cross any number of the span's
@@ -1491,6 +1561,11 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- **Decision 13** (builder #16) is DONE, green and committed: don't rebuild `retractRekeepsNamed` / `textNames` / `otherSide` or the
+  capped branch, and don't re-run its replays (outputs in `…\B7\replay\`, builder #15's in `…\B7\replay-s9c\`) except to add pass 3's
+  capture. A cut-snap* change → `bash .vidtsx-temp/end-to-end/B7/verify-d13.sh` (40-file set, kits, check:types, replays + diff).
+  Any new editorial-landing test must also run WITH the real notes (`speechCaseNotes`) — the note-free fixture hid the first version's harm.
+
 - **Step 9 (c)'s replays** (builder #15): B6 / step 6 / pass 2 + the pass-2 counterfactual are measured (Done › Step 9 (c), outputs in
   `…\vidtsx-e2e\B7\replay\`). Re-run them only to add a NEW capture (pass 3: add a `CAPTURES` entry + a `TAGS` entry); the kit is
   `replay.b7.test.ts` + `exit_check_replay.py` + `replay-split.py`.
@@ -1602,3 +1677,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   step 6 0.9115 · pass 2 0.8480 (+ its skipped 0371 card 0.9061), hard entries 0 on all, medians ≤ 14 ms; no code share → nothing to
   fix, no `src/` change; one non-blocking finding (a retract re-keeps "Another", Open problems); wrote pass 3 as the Next step. No app,
   no model call, no full vitest. C: 29.0 GB throughout, commit 99.3–99.4 / 107.3 GB.
+- 2026-10-23 · builder #16 · ~62 calls (over the ~40 budget: stopped at the green checkpoint rather than leave a harmful uncommitted
+  version) · decision 13: fixture `retractCases` + `speechCaseNotes` from step 6's evidence; red first; a naming-only first version moved
+  five real retracts in the replays (notes quote the winning take) → refined with decision 11's cap, red again, green; 40 files 412/412,
+  kits unchanged, check:types 26 / 10, replays B6 ±0 · step 6 +0.0010 (0.9125) · pass 2 ±0, hard 0 on all; committed; pass 3 stays the
+  Next step. One process slip: two line-number fixes in this file were applied with a Python string replace, not the Edit tool. No app,
+  no model call, no full vitest. C: 28.9–29.0 GB throughout.

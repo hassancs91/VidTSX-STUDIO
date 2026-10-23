@@ -121,7 +121,8 @@ function landAt(input: LandCutEndInput, end: number): number {
  * floor. A straddled word goes with the side that holds most of it (decision
  * 10: mostly inside the span → the gaps after it; mostly kept → before it).
  * Step 9 (b): when that side has none, the other side's nearest, but only
- * across words the item's text names (decision 11; fallbackAllowed).
+ * across words the item's text names (decision 11; fallbackAllowed). A
+ * retract that would re-keep words the item names has none (decision 13).
  * The cut keeps removing at least one whole word and stays clear of the next.
  */
 function endOutOfSpeech(input: LandCutEndInput): LandedCutEnd {
@@ -136,16 +137,27 @@ function endOutOfSpeech(input: LandCutEndInput): LandedCutEnd {
   }
   const side = inWord ? (e - inWord.start > inWord.end - e ? 'after' : 'before') : undefined;
   const first = nearestQuietGap(input, side);
+  if (first && side === 'before' && retractRekeepsNamed(input, first.g1)) {
+    // Decision 13: the retract would re-keep words the item names → forward instead, but only within decision 11's
+    // cap too — notes quote the winning take as well, and its first words must not be crossed (B7 HANDOFF Done).
+    const forward = otherSide(input, 'after', true);
+    if (forward) return forward;
+  }
   if (first || !side) return { end: first ? first.g1 : e };
-  const dir = side === 'after' ? 'before' : 'after';
+  return otherSide(input, side === 'after' ? 'before' : 'after', false) ?? { end: e };
+}
+
+/** Step 9 (b): the nearest quiet gap on `dir`, if the words the move flips may be crossed (fallbackAllowed). */
+function otherSide(input: LandCutEndInput, dir: 'after' | 'before', capped: boolean): LandedCutEnd | undefined {
+  const e = input.span.end;
   const other = nearestQuietGap(input, dir);
-  if (!other) return { end: e };
+  if (!other) return undefined;
   // The words whose fate the move flips: past e up to the gap (extend), or from the gap up to e (retract).
-  const crossed = words.filter((w) =>
+  const crossed = input.words.filter((w) =>
     dir === 'after' ? w.end > e + 0.02 && w.end <= other.g0 + 0.02 : w.start >= other.g1 - 0.02 && w.start < e - 0.02,
   );
   const speech = crossed.reduce((s, w) => s + (dir === 'after' ? w.end - Math.max(w.start, e) : Math.min(w.end, e) - w.start), 0);
-  if (!fallbackAllowed(crossed, speech, input.note)) return { end: e };
+  if (!fallbackAllowed(crossed, speech, input.note, capped)) return undefined;
   return { end: other.g1, crossed: { dir, text: crossed.map((w) => w.text).join(' ') } };
 }
 
@@ -178,13 +190,32 @@ function nearestQuietGap(
  * Decision 11: with item text, the crossed words must appear in it, in order
  * and together (lower case, punctuation stripped); with none, at most
  * FALLBACK_MAX_WORDS words and FALLBACK_MAX_SPEECH_S of their speech.
+ * `capped` (decision 13) asks for both: named AND within the cap.
  */
-function fallbackAllowed(crossed: PlanWord[], speech: number, note: string | undefined): boolean {
+function fallbackAllowed(crossed: PlanWord[], speech: number, note: string | undefined, capped: boolean): boolean {
   if (crossed.length === 0) return false;
+  const withinCap = crossed.length <= FALLBACK_MAX_WORDS && speech <= FALLBACK_MAX_SPEECH_S + 1e-6;
+  if (tokens(note ?? '').length === 0) return withinCap;
+  return textNames(crossed, note) && (!capped || withinCap);
+}
+
+/**
+ * Decision 13 (the mirror of decision 11): a retract to `g1` re-keeps the words
+ * from `g1` up to the authored end; those the span wholly covers (not the
+ * straddled word) must not be words the item's text names. An item with no
+ * text names none, so its retract is unchanged.
+ */
+function retractRekeepsNamed(input: LandCutEndInput, g1: number): boolean {
+  const e = input.span.end;
+  const covered = input.words.filter((w) => w.start >= g1 - 0.02 && w.start < e - 0.02 && w.end <= e + 0.02);
+  return covered.length > 0 && textNames(covered, input.note);
+}
+
+/** The words appear in the text in order and together (lower case, punctuation stripped). */
+function textNames(words: PlanWord[], note: string | undefined): boolean {
   const said = tokens(note ?? '');
-  if (said.length === 0) return crossed.length <= FALLBACK_MAX_WORDS && speech <= FALLBACK_MAX_SPEECH_S + 1e-6;
-  const run = tokens(crossed.map((w) => w.text).join(' '));
-  if (run.length === 0) return false;
+  const run = tokens(words.map((w) => w.text).join(' '));
+  if (said.length === 0 || run.length === 0) return false;
   for (let i = 0; i + run.length <= said.length; i++) {
     if (run.every((t, k) => said[i + k] === t)) return true;
   }
