@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE
+## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE (fix round 1 after verifier FAIL 1)
 
 - **What:** part E1 of `docs/studio/END_TO_END_PLAN.md` (track E, session 4; worktree branch `end-to-end-p0-e`, cut from
   `end-to-end-p0` @ `5d77600` — orchestrator decision E-d1). Row: "Index v2: `kind`, `probe` on upsert, `tags`, `audio`,
@@ -34,8 +34,10 @@
     while relPath + size + mtime still match); `library-migrate.ts` at app start (beside `sweepExportScratch` in
     `src/main/index.ts`): backup once, back-fill `kind`, write `rev: 2`, kick the back-fill — idempotent; `list_assets`
     library rows via `agent-tools/library-listing.ts`: `entry.kind` + duration `toFixed(2)` s, `length unknown (probing)`
-    while a media entry has no probe.
+    while a media entry has no probe (fix round 1: `(unreadable)` for a failed one).
   - `a3f48d8` — the live finding (below): `src/main/services/studio/mp3-gapless.ts` + its `probeMedia` wiring.
+  - Fix round 1 (verifier FAIL 1): `eb533e4` — `probeMedia` skips attached-picture streams (`disposition.attached_pic`)
+    when it picks the video stream; `36a0586` — the probe stamp (below).
   - Docs: `26daa16` `24c83c6` `590cee9` `0c63adf` `af915f8` + this entry's commit. Kit (gitignored):
     `.vidtsx-temp/end-to-end/E1/`.
 - **E-d5 downgrade safety (control test, red first):** `pre-e1-control.test.ts` runs the FROZEN pre-E1 store on an
@@ -68,9 +70,33 @@
   reports a LAME / Lavf mp3's `format.duration` as frames × 1152 / rate, i.e. WITH the encoder delay + end padding (+44 ms on
   a 1.3 s tone; ffprobe n8 trims them). `mp3-gapless.ts` reads the Xing/Info + LAME tag (frame count, delay, padding;
   MPEG-1/2/2.5, ID3v2 skipped) and trims only when ffprobe's value equals the untrimmed frame total within 1 ms (a newer
-  ffprobe that already trims is left alone); `probeMedia` applies it to audio-only mp3. **`probeMedia` is also Studio's
-  import probe: an mp3 imported into a Studio project now gets its gapless length (−25…−50 ms vs before); already-saved
-  projects keep their stored probe.**
+  ffprobe that already trims is left alone); `probeMedia` applies it to every mp3 without a real video stream. **`probeMedia`
+  is also Studio's import probe: an mp3 imported into a Studio project now gets its gapless length — measured −30…−70 ms
+  vs before (cover-art 44.1 kHz −30.2, narration −41, catalog sfx −42.4, 48 kHz tone −44, long VBR −50.4, 22.05 kHz `.MP3`
+  −70.2; lower sample rates trim more); already-saved projects keep their stored probe.**
+- **Fix round 1 (verifier FAIL 1, 2026-10-23), red first:**
+  - **V1-1 / V1-2 — cover art:** an ID3 cover picture is a "video" stream to ffprobe (mjpeg / png, `attached_pic: 1`), so
+    an mp3 with cover art skipped the gapless trim (+30.2 ms, over the exit's 10 ms) and was recorded as `codec: mjpeg,
+    width: 320`. `probeMedia` (`media-import.ts`) now picks the first video stream that is NOT an attached picture: the
+    trim applies, `codec` / `width` / `height` / `fps` come from the real streams. Consumers checked: Studio's asset kind
+    and lane come from the extension (`classifyMediaKind`), audio gets no thumbnail; only `AssetCard`'s "· W×H", the shot
+    asset refs' and `builder-asset-tools`' optional `width` / `height` read those fields — an mp3 now carries none (correct). A video with
+    cover art keeps its real stream. Unit `media-import-probe.test.ts` (4; 3 red on `184e996`).
+  - **V1-4 / V1-5 — the probe stamp:** `LibraryIndexV2Fields.probeStamp?: { size, mtimeMs, failed? }` (optional; entry +
+    tombstone) = the file version a probe — or a failed probe — was measured on. `library-probe-state.ts` (pure)
+    `probeStateOf` → `ok` (stamp fits, or no stamp: trusted) / `stale` (stamp ≠ the entry's size/mtime: an older app kept
+    the probe across a rewrite) / `failed` (failed on this very version) / `missing`. Upsert, reconcile and the back-fill
+    stamp what they measure; a failure is stamped (persisted — the back-fill's in-memory no-retry set is gone), so an
+    unreadable file is not retried until it changes, across restarts, and lists as `length unknown (unreadable)`; a stale
+    probe lists as `(probing)` (never the stale number) and the back-fill (kicked by every scan and at start) re-probes
+    it. Unit `library-probe-stamp.test.ts` (4; 3 red on `eb533e4`).
+  - **Live re-measure (the real `probeMedia` + `list_assets`, E1 profile, app stopped):** `e1-seed\cover-art.mp3` (3.0 s
+    LAME 44.1 kHz sine + a 320×320 png cover, made by the profile's ffmpeg-full; independent ffprobe n8.1.2: `3.000000`,
+    streams mp3 + png `attached_pic=1`; the bundled n7.1 raw: `3.030204`) → the REAL `upsertEntry` → index `probe
+    {duration: 3, hasAudio: true, codec: mp3}` (no width), stamped; the REAL `list_assets(scope:'library')` → `3.00 s`;
+    all 11 timed rows within 10 ms (index 0 ms for all; printed ≤ 3.5 ms) — `…\vidtsx-e2e\E1\fix1-cover-art.json`. Backup
+    `index.v1-backup.json` still sha256 `b495fdfa…cefcd`.
+  - **Known limit:** an ffprobe TIMEOUT (15 s) is stamped as a failure too — that file is retried only once it changes.
 - **Gates (2026-10-23, HEAD `a3f48d8`):** guard 54.8 GB C: free, 25.7 GB D:, commit headroom 51.5 / 99.7 GB → default
   workers; no E1 instance running. Full vitest from the worktree (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs
   run`): **474 files passed, 3 failed, 5 skipped (482); 4,058 tests passed, 9 failed, 35 skipped (4,102); 34.9 s**, no load
@@ -87,6 +113,15 @@
   re-run from the main checkout when track E lands. Types: `tsc -p tsconfig.web.check.json` → 26, `-p
   tsconfig.node.check.json` → 10 = baseline. E1's own suites (`media-kinds` 6, `pre-e1-control` 5, `library-migrate` 9,
   `library-reconcile-v2` 8, `library-listing` 4, `mp3-gapless` 6) green in that run.
+- **Gates after fix round 1 (2026-10-23 ~21:40, HEAD `36a0586` + docs):** guard C: 52.3 GB free, D: 25.8 GB, commit
+  headroom 56.4 / 99.7 GB → default workers; no E1 instance running. Full vitest from the worktree: **476 files passed, 3
+  failed, 5 skipped (484); 4,066 tests passed, 9 failed, 35 skipped (4,110); 47.3 s** (`…\E1\fix1\vitest-full-3.log`) —
+  the 3 files / 9 tests are the same E-d2a resolution suites, each failing only on resolution (`@remotion/paths … is not
+  installed`; `Could not resolve "chroma-js"` ×2 / `"roughjs"` / `"@remotion/shapes"` / `"@react-three/fiber"` /
+  `"@remotion/google-fonts/SpaceGrotesk"`); rule (a) not repeated (nothing in the setup changed since builder #5's try);
+  rule (b) re-run on the new diff (32 files): none in any of their graphs (`…\E1\fix1\import-graph.txt`). E1 suites + the
+  E-d5 control: `src/main/services/library` + listing + probe + gapless + kinds + asset-library → 21 files, 169 tests
+  green. Types: web 26, node 10 = baseline.
 - **Not measured / open:** the first Assets scan of a BIG drop (≤ 20 inline probes per scan, the rest to the back-fill) —
   the seeded drop of 3 changed files was instant; a library-root override changed at runtime is migrated at the next start
   (until then it reads fine: kinds derived on read, the first E1 write backs it up and writes rev 2). E2 fills `tags` /

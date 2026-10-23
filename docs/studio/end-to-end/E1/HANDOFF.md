@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: FIX (verifier round 1 FAIL — V1-1…V1-5 under Open problems; orchestrator 2026-10-23 ~22:00)
+status: DONE (fix round 1 after verifier round 1 FAIL — V1-1…V1-5 fixed, see "Fix round 1"; builder #6, 2026-10-23 ~21:45)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -297,6 +297,52 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
 - **Docs:** Status.md entry at the top (2026-10-23 E1, DONE, with the measured numbers, the mp3 side effect on Studio
   imports and the E-d2a gate statement); TESTING.md §18.14 (after §18.13, E-d10).
 
+### Fix round 1 (builder #6, 2026-10-23 21:20–21:45) — commits `eb533e4`, `36a0586`, + the docs commit after them
+
+- **V1-1 / V1-2 (MUST), red first — `eb533e4`:** `src/main/services/studio/media-import.ts:56-71` — `FfprobeStream` gains
+  `disposition?.attached_pic`; `isRealVideoStream` (a video stream that is NOT an attached picture); `probeMedia` (:121)
+  picks `videoStream` with it, so a cover-art mp3 gets the gapless trim (:124-127) and `codec` / `width` / `height` / `fps`
+  from the real streams. Test `src/main/services/studio/media-import-probe.test.ts` (4; `child_process.spawn`,
+  `@remotion/renderer`, `../../utils/paths` and `readMp3Gapless` mocked): RED on `184e996` = 3 failed (`expected +0 to be
+  1` — trim skipped; `expected 'mjpeg' to be 'mp3'`; a video with cover art got `width: 320`), 1 passed (plain mp3) →
+  4/4 green. Consumers of an mp3's `width` / `codec`: Studio kind + lane come from the extension (`classifyMediaKind`),
+  `generateThumbnail` returns null for audio; only `AssetCard.tsx:57` ("· W×H"), `shot-asset-refs.ts:70`,
+  `shot-build-media.ts:51`, `builder-asset-tools.ts:143` read width/height, all optional → an mp3 now carries none
+  (correct). `video-edit.ts` / `export-sync-check.ts` have their own local `probeMedia` (untouched).
+- **V1-3 (MUST):** Status.md + TESTING §18.14 + the `media-import.ts` comment now state the measured range −30…−70 ms
+  (cover-art 44.1 kHz −30.2, narration −41, catalog sfx −42.4, 48 kHz tone −44, long VBR −50.4, 22.05 kHz −70.2; lower
+  sample rates trim more).
+- **V1-4 + V1-5 (SHOULD, both done — one shared stamp), red first — `36a0586`:**
+  `src/shared/types/asset-library.ts` `LibraryIndexV2Fields.probeStamp?: LibraryProbeStamp { size, mtimeMs, failed?: true }`
+  (optional, entry + tombstone). NEW `src/main/services/library/library-probe-state.ts` (pure): `makeProbeStamp`,
+  `probeStateOf` → `none | ok | stale | failed | missing` (no stamp on a probe = trusted, so pre-fix E1 probes stay ok),
+  `needsProbe` (missing | stale). Wired: `library-backfill.ts` (work list = `needsProbe`; every result patched with a
+  stamp, a failure stamped `failed` and a stale probe that no longer reads removed; the in-memory per-process failed set
+  is GONE — persisted instead); `library-store.ts` (`kickBackfillIfNeeded` uses `needsProbe`; `upsertEntry` stamps the
+  stat it measured, a failure stamped `failed`, an unchanged file whose re-probe failed keeps the old probe + stamp);
+  `library-reconcile.ts` (touched / new → stamp when probed; tombstones carry the stamp; resurrect keeps the tombstone's
+  stamp with its probe, else stamps a fresh probe; moved keeps it — a rename keeps size + mtime);
+  `agent-tools/library-listing.ts` (`ok` → duration; `failed` → `length unknown (unreadable)`; `missing` / `stale` →
+  `length unknown (probing)`, never the stale number). The start-up migration already kicks the back-fill on every start
+  (`library-migrate.ts:58`, also when nothing migrates), so a stale probe left by an older app is re-probed at the next
+  start or the next scan. Test `src/main/services/library/library-probe-stamp.test.ts` (4; a "new process" =
+  `vi.resetModules()` + a fresh `library-backfill` import): RED on `eb533e4` = 3 failed (no stamp on a failed upsert;
+  `late.wav` listed `(probing)` after a failed back-fill; `hires.flac` rewritten by the FROZEN pre-E1 `upsertEntry`
+  listed `2.50 s`), 1 passed (move / unstamped guard) → 4/4 green.
+- **Live re-measure (E1 profile, app stopped — no launch, so no E-d4 needed):** made
+  `<profile>\assets\e1-seed\cover-art.mp3` with the profile's ffmpeg-full (3.0 s 550 Hz sine, libmp3lame 128k 44.1 kHz,
+  + a 320×320 png cover, `-map 0 -map 1 -c copy -id3v2_version 3 -disposition:v attached_pic`); scratch
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix1\{tone.mp3,cover.png}`. Independent ffprobe n8.1.2: `stream mp3
+  attached_pic=0 | stream png 320 attached_pic=1 | format duration=3.000000`; the bundled Remotion ffprobe n7.1 raw:
+  `3.030204` (= the verifier's +30.2 ms). Kit `upsert.e1.test.ts` (`E1_UPSERT=e1-seed/cover-art.mp3`, the REAL
+  `upsertEntry` → REAL `probeMedia`) 1/1 → index entry `probe {duration: 3, hasAudio: true, codec: "mp3"}` (no width),
+  `probeStamp {size: 49998, mtimeMs: 1792780699801.7952}`; kit `list-assets.e1.test.ts` (`E1_REPORT=fix1-cover-art`, the
+  REAL `list_assets` handler) 1/1 → `library:e1-seed/cover-art.mp3 (audio, 3.00 s, generated)`; 11 timed rows, index 0 ms
+  off the independent ffprobe for all 11, printed ≤ 3.5 ms (opus 2.61, aac 1.53) —
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix1-cover-art.json`. `index.v1-backup.json` sha256 still `b495fdfa…cefcd`.
+  The E1 profile's library now holds 19 entries (+ `cover-art.mp3`).
+- **Known limit (in Status):** a 15 s ffprobe TIMEOUT is stamped as a failure too — retried only once the file changes.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 20:25, from the worktree root:
@@ -359,17 +405,34 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
     media-import.ts) … NONE` · `scripts/builder-unpack.mjs: 1 … NONE`.
   - Types: `tsc -p tsconfig.web.check.json --noEmit | grep -c 'error TS'` → **26**; `-p tsconfig.node.check.json` → **10**.
 
+- Builder #6 (fix round 1), 2026-10-23, Bash from the worktree root (logs under `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\`):
+  - `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/media-import-probe.test.ts`
+    on `184e996` → `Tests 3 failed | 1 passed (4)` (`fix1-probe-red.log`); after the fix, with `mp3-gapless.test.ts` →
+    `Test Files 2 passed (2)`, `Tests 10 passed (10)`.
+  - `node …/vitest.mjs run src/main/services/library/library-probe-stamp.test.ts` on `eb533e4` → `Tests 3 failed | 1
+    passed (4)` (`fix1-stamp-red.log`); after the fix `node …/vitest.mjs run src/main/services/library
+    src/main/services/studio/agent-tools/library-listing.test.ts src/main/services/studio/media-import-probe.test.ts
+    src/main/services/studio/mp3-gapless.test.ts src/shared/media-kinds.test.ts src/features/asset-library` →
+    `Test Files 21 passed (21)`, `Tests 169 passed (169)` (incl. the E-d5 control `pre-e1-control.test.ts` 5/5).
+  - Types: `tsc -p tsconfig.node.check.json --noEmit` → **10** `error TS`; `-p tsconfig.web.check.json` → **26**.
+  - Resources 21:37: `limitKB=104541096 freeKB=59126856` (headroom 56.4 GB); C: 52.3 GB, D: 25.8 GB free; 0 E1 instances.
+  - Full run: `node …/vitest.mjs run > …\E1\fix1\vitest-full-3.log` → `Test Files 3 failed | 476 passed | 5 skipped
+    (484)`, `Tests 9 failed | 4066 passed | 35 skipped (4110)`, `Duration 47.27s`; the 9 = `builder-libraries` 1
+    (`@remotion/paths (builder-libraries.ts) is not installed`), `shot-bundle` 5 + `shot-bundle-in-place` 3 (`Could not
+    resolve` chroma-js ×2, roughjs, @remotion/shapes, @react-three/fiber, @remotion/google-fonts/SpaceGrotesk) — E-d2a only.
+  - Rule (b): `git diff --name-only 5d77600..HEAD > …\E1\fix1\diff-list.txt` (32) → `node …\E1\import-graph.cjs <wt>
+    …\E1\fix1\diff-list.txt` rc 0 → all four graphs "touched by the E diff: NONE" (`…\E1\fix1\import-graph.txt`).
+  - Live: see "Fix round 1" (`…\E1\fix1\upsert-cover-art.log`, `…\E1\fix1\list-assets-cover-art.log`,
+    `…\E1\fix1-cover-art.json`).
+
 ## Next step (ONE concrete instruction)
 
-FIX round 1 (orchestrator, 2026-10-23): fix V1-1 below red-first (an mp3-with-cover-art case in a unit test
-that fails on `a3f48d8`), then V1-2, V1-3, and V1-4 / V1-5 as each says; re-run the E1 suites + the full
-worktree gate + types; re-measure one cover-art mp3 live (or with the real `probeMedia` + `list_assets`
-handler on the E1 profile's library) against an independent ffprobe; update Status.md's E1 entry and
-TESTING §18.14 to match; commit; return DONE.
+None for builders — E1 is DONE after fix round 1; the orchestrator runs the E1 verifier round 2 (focus: a cover-art mp3
+through `probeMedia` / `list_assets`, the probe stamp's failed / stale cases, the old-app rewrite → re-probe).
 
 ## Open problems
 
-### Verifier round 1 — FAIL (2026-10-23 ~21:55; findings verbatim in substance, fix all marked MUST)
+### Verifier round 1 — FAIL (2026-10-23; ALL FIXED in fix round 1 — V1-1/V1-2 `eb533e4`, V1-3 docs, V1-4/V1-5 `36a0586`)
 
 - **V1-1 (MUST — the exit): an mp3 with embedded cover art is listed 30 ms too long.**
   `src/main/services/studio/media-import.ts:116` `if (!videoStream && audioStream?.codec_name === 'mp3')`:
@@ -435,6 +498,8 @@ TESTING §18.14 to match; commit; return DONE.
   upsert path, both `list_assets` reports, the mp3 fix + its rebuild/relaunch. The E1 profile's library is
   now POST-migration (17 + 1 files) — do not expect the pre-E1 state there any more.
 - The gates (builder #5): full run #2, E-d2a (a) + (b), types; the Status.md entry and TESTING §18.14.
+- Fix round 1 (builder #6): V1-1…V1-5 code + red-first tests, the live cover-art re-measure, full run #3, rule (b) on the
+  new diff, types, the Status / TESTING updates. `cover-art.mp3` is already in the E1 profile's library.
 
 ## For Hasan (real-video list candidates)
 
@@ -460,3 +525,7 @@ TESTING §18.14 to match; commit; return DONE.
 - 2026-10-23 · builder #5 · ~30 · the gates: full vitest run #2 (counted; only the 3 E-d2a resolution suites red),
   E-d2a (a) tried (same 9 failures, nothing written in the main checkout) + (b) import-graph check (no E file in any
   graph, `vi.mock` honoured), types 26/10; Status.md entry + TESTING §18.14; closing commit. DONE; nothing running.
+- 2026-10-23 · builder #6 (fix round 1) · ~40 · V1-1/V1-2 attached pictures not video (red→green, `eb533e4`); V1-4/V1-5
+  probe stamp (red→green, `36a0586`); V1-3 measured range in docs; live cover-art re-measure via the real `upsertEntry` +
+  `list_assets` (3.000 vs 3.000, app not launched); full run #3 + rule (b) + types 26/10; Status / TESTING. DONE; nothing
+  running.
