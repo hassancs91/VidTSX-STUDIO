@@ -19,9 +19,10 @@
 | B1 | DONE | 4 | PASS (1 round) | `2dc5add` (code); docs `b445885`, `1527602`, `649d8f7`, `cc9a327`, `0030b08` | 0369 (clip 1; 0366 has no joins), Hasan's fitted tight: 6 segments both sides, 12 joins, Δ 0/0 · 0/0 · 0/0 · −10/0 · 0/0 · 0/+20 ms (verifier identical); 8 clips with keeps 348/352 joins within ±20 ms + 2 merge flips (4 at +40/+60 ms, all threshold-edge tails on the 20 ms grid); floors within 0.16 dB; verifier negatives fail as they should (old TIGHT 0/12, ±40 ms shift 7–8/12, knobs off on one side 11/12); v1/v2 waveform → v3 + zcr on open; vitest 439 / 3699 green; types 26/10 | 2026-10-22 10:58 / 12:15 |
 | B2 | DONE | 7 | FAIL round 1 (agent prompt maps `auto_cut` aggressiveness → `run_auto_cut(style:)`, overriding the resolved style in every preset project) → fix `5ff0c37` → PASS round 2 | `bc104c3`, `4f0b33b`, `b86b279`, `c50968f`, `bf46298`, fix `5ff0c37`; docs `3a0d510`, `3ce32af` | Card headline live: `Auto Cut (natural + 1 override · preset “YouTube long-form”)`, `relaxed · preset “Course lesson”`, `tight · project override`; Transcript delete edges = `snapEditorialCuts` edges per style (to 1e-9, 3 selections × 4 styles), different styles → different edges; override survives 4K→1080p→undo→redo; real `run_auto_cut` handler: 14/14 control cases (each preset → its style, override, explicit, unknown name refused), 9/14 fail on a stubbed resolver; vitest 448 / 3788 green; types 26/10 | 2026-10-22 12:20 / 14:44 |
 | B3 | DONE | 5 | PASS (1 round) | `e583d26`, `47bc6a1`, `99d825d`; docs `f27284a`, `1adc017` | Hasan's hand plan (8 clips with keeps), tight: hard entries 0 / 133 joins (analyze_cut 0 / 134), tails 178 / 200 (analyze_cut 181, = his qa-report; 3 bucket-edge misses at +5.8–5.9 dB); live Auto Cut all 9 clips: hard 1 / 164 (0373 @ 323.198 s, untranscribed sound inside his retake cut — true positive), tails 265 / 298 (analyze_cut 1 / 165, 268 / 298); head-0 negatives 101–130 hard; margin 12/18/24 tight 265/265/265 (landings +11.45 → +16.23 dB), natural 6/12/18 106/132/132; auditions cross the join ±1.0 s with cuts applied; vitest 451 / 3814 green (python-models test excluded for disk); types 26/10 | 2026-10-22 14:50 / 16:45 |
-| B4 | **WAITING-HASAN** (built + verified up to his step; verifier PASS round 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
-| B5 | **WAITING-HASAN** (built + verified up to his step; verifier FAIL round 1 → PASS round 2) | 10 | FAIL round 1 (closing the project during a > ~6 s file lock silently loses the edit — close path gives up after 3 flushes; quit has the same older hole) → fix `750c0d0` (main owns the close-time write, 10 min background retry; quit waits 4 s then `.tmp`; recovery on open) | `fb32ab1` (UTF-8 fix); `aa58ee8` (autosave retry + stay dirty; Restore into view); `e69d182` (filler toast counts what was removed); docs `fd9a6b8`, station `8bf5433`, walk `3e7a285`, `bf9e930` (backfill patch prepared, not applied; Status + TESTING §18.11) | long project 21:23.09, 1,820 words, open 231–563 ms, 27/27 seeks at 0 frames, karaoke 0 mismatches; BUG em-dash mojibake | 2026-10-22 / |
+| B4 | **DEFERRED-HASAN** (built + verified up to his step; verifier PASS round 3; his 2026-10-23 station attempt trimmed by the waveform's look — not a valid sample; the exit moves to his real-video test, see Session 3) | 10 | FAIL round 2 (HASAN-STEP.md's "check each trim took": with ripple on a registered lead-in trim looks like a spring-back → he would re-drag and compound; STATUS/TESTING lack rule (a), stale gate text) ← | FAIL round 1 (HASAN-STEP.md: Snap swallows < 8 px trims — his 30–50 ms edits would silently not register; risk: head gate on the median offset vanishes under ±40 ms hand jitter) → fix `def34cc` (Snap off + zoom in HASAN-STEP; gate on \|fitted − current\|; station ±40 ms: head proposed 9/10 vs 2/10) | `92d846f` (step 1), `c5a6f4c` (step 2), `2865675` (step 3), `f39a220` (step 4), `a734ff5` (card fix); docs `9abdabe`, `76c2da0` (station), `e1d306e` | stand-in live on M2: 21 Act-1 sentence joins trimmed to fitted edges from preset "old tight" → card head 0.11→0.15, minTail 0.14→0.08, margin 5→12, maxTail ≥ 0.5 (19 lead-ins / 20 tails); accept → `style.cut {base:tight, maxTail:0.5}`; no model call | 2026-10-22 16:50 / |
+| B5 | **DEFERRED-HASAN** (built + verified up to his step; verifier FAIL round 1 → PASS round 2; by-ear pass moved to his real-video test — flag stays off, backfill patch not applied, see Session 3) | 10 | FAIL round 1 (closing the project during a > ~6 s file lock silently loses the edit — close path gives up after 3 flushes; quit has the same older hole) → fix `750c0d0` (main owns the close-time write, 10 min background retry; quit waits 4 s then `.tmp`; recovery on open) | `fb32ab1` (UTF-8 fix); `aa58ee8` (autosave retry + stay dirty; Restore into view); `e69d182` (filler toast counts what was removed); docs `fd9a6b8`, station `8bf5433`, walk `3e7a285`, `bf9e930` (backfill patch prepared, not applied; Status + TESTING §18.11) | long project 21:23.09, 1,820 words, open 231–563 ms, 27/27 seeks at 0 frames, karaoke 0 mismatches; BUG em-dash mojibake | 2026-10-22 / |
 | B6 | DONE | 3 | FAIL round 1 (record only: flag 4 was cut → 4/6 at default, not 5/6; miss list dropped two 0.300 s spans to float) → record fixed `c2a3425` → PASS round 2 | docs `1c2b59f`, `30e52b2`, `ab9a657`, `c2a3425` (no src change) | assistant "Cut this video." on all nine raw clips (keyless claude-subscription, sonnet-5-5, 17 turns, 337.164 s model time, $3.89 notional): overlap **90.51 %** (736.106 / 813.315 s), precision 94.89 % (99.24 % w/o in-keep pauses); Auto Cut alone 67.83 %, editorial alone 48.42 %; misses ≥ 0.3 s **52 spans / 42.03 s** (retake 4 / 5.15, repeat 4 / 5.13, manual 1 / 9.70, dead_air 1 / 4.03, filler 1 / 1.04, pause 32 / 13.26, unlisted 9 / 3.72) + 35.18 s slivers; false content cuts ≥ 0.3 s 5 / 4.05 s; flags **4/6** at his default; PROPOSED bar (overlap ≥ 92 %, content misses ≤ 6 s none > 1.5 s, false content cuts ≤ 3 s, precision w/o in-keep pauses ≥ 99 %, ≥ 5/6 flags) — today fails 4 of 5, passes precision | 2026-10-22 / 2026-10-23 |
+| B7 | TODO (added session 3: editorial cuts leave no hard entries) | | | | | |
 | C1 | TODO | | | | | |
 | C2 | TODO | | | | | |
 | C3 | TODO | | | | | |
@@ -508,3 +509,51 @@
 - 2026-10-23 · **STOP after the track-B exit** (Hasan's override 2: stop after the track-B exit).
   Reported: B1–B3, B6 DONE; B4, B5 WAITING-HASAN with exact steps; track-B exit NOT MET (editorial
   hard entries 6/146); the waiting-on-Hasan list; disk; the classifier refusals. Waiting for Hasan.
+
+## Session 3 (started 2026-10-23, from NEXT-SESSION.md)
+
+- Start: head `4b5f3e7`, tree clean, no app running, C: 18 GB / D: 31.2 GB free. Both stations at
+  their start state (B5 `project.json` = the start snapshot hash; B4 36 clips, 0 trim tags).
+- Checklist given (11 steps). **Hasan's B4 attempt:** on the B4 station he trimmed 14 joins
+  (3 lead-ins, 13 tails) **by the waveform's look, not by ear** (his answer); the card: `Cut tail
+  min (s) 0.14 → 0.01`, `Cut margin (dB) 5 → 21.5` (median tail 0.096 s, +17.9 dB over the floor
+  at 13 joins; the start style 0.4 s / 5.9 dB), no lead-in row (3 < 10; median lead-in 0.051 s),
+  timeline 1:43. Verdict: rule (a) missed on both tail knobs, lead-in not judgeable — and not a
+  valid sample (eyeballed tails end in the word's audible decay; his 10-15 tight ends tails at
+  +12 dB, median ~0.21 s). He was told not to press Update preset. His trims stay in the station's
+  `project.json` (`B1-verify-root`) for a later offline re-measure.
+- **Hasan, 2026-10-23:** "thats too much, can we just continue working, and I will do full testing
+  on a real new video later. I want to finish all other phases" →
+  - **B4, B5 → DEFERRED-HASAN**: their exits move to his real-video test at the end.
+    `studio-text-edit` stays `false`; `B5/backfill-fix.patch` stays unapplied. The two stations
+    stay reserved and untouched.
+  - **B6 next-round bar:** not answered → stays PROPOSED.
+  - **Editor-repo track-exit items** (B: `clean-cut` superseded; later C: `make-tsx` review rules;
+    D: `clean-audio`): not answered → his, collected below. The editor repo stays read-only.
+  - **Run scope now:** B7 → track-B exit (fresh, offline) → C1…C5 → track-C exit → D0…D5 → track-D
+    exit → E1…E4 → track-E exit → F0…F2 → track-F exit; one part at a time, builder + verifier
+    each, no stop between parts; stop at the end, on BLOCKED, or after three verifier FAILs on one
+    part. Anything that needs his hands, ears or keys: build + verify up to it, mark
+    DEFERRED-HASAN, add it to the list below, continue.
+  - The parallel track-C session (offered, not answered) is moot: no station in use → one
+    session, in order.
+- **Orchestrator defaults for the rest of the run** (told to Hasan; he can override):
+  - **Paid providers:** no call on a paid key (ElevenLabs isolation in D0/D3, SFX generation in
+    E2/E3) — the orchestrator never handles a key and isolated profiles hold none; those paths are
+    built and verified against mocks/fixtures; the one live call goes on his list.
+  - **Downloads** only where a row names them: D0's trial runtime lock / the de-reverb weights
+    (sizes from D0) and D4's new Python runtime (~2.76 GB per the plan's sizing), into an isolated
+    profile on C:, after a free-space check (C: must keep ≥ 10 GB after the download).
+  - **Model calls** on the app's keyless Claude subscription only: B7's one assistant pass; C's TSX
+    builds and assistant turns; F0's spike builds; F2's four-shot batch.
+
+### For Hasan's real-video test (collected; he runs these at the end)
+
+- **B4:** re-do ≥ 10 joins on EACH side (lead-ins and tails) **by ear**, then Learn → rule (a)
+  (head 0.12–0.18, minTail 0.05–0.11, margin 11–13), on the real video or the B4 station.
+- **B5:** the by-ear Transcript-tab pass (B5/HASAN-STEP.md parts A–D, or the same checks on the real
+  video); then his two calls: apply `B5/backfill-fix.patch` (if word starts come early) and flip
+  `studio-text-edit` (if clean).
+- **B6:** confirm or change the next-round bar (Status.md B6 row).
+- **Editor repo:** mark `D:\repos\claude-youtube-editor\.claude\skills\clean-cut\SKILL.md`
+  superseded for cutting (or allow the orchestrator to edit that one file).
