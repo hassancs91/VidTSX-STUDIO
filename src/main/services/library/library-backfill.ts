@@ -6,6 +6,7 @@ import { isTimedMediaKind } from '../../../shared/media-kinds';
 import { getLibraryIndexPath, resolveLibraryPath } from './library-paths';
 import { loadIndex, serialize, writeIndex } from './library-index-io';
 import { probeLibraryFile } from './library-probe';
+import { makeProbeStamp, needsProbe } from './library-probe-state';
 
 const log = logEngine.createLogger('LibraryBackfill');
 
@@ -16,18 +17,21 @@ const log = logEngine.createLogger('LibraryBackfill');
  * small batches with two ffprobes at a time, one index write per batch under
  * the store's chain, and an entry is only patched while its relPath + size +
  * mtime still match what was probed (an edit or a move in between wins).
- * A file whose probe failed is not retried until it changes (per process).
+ * Every result is stamped with the size + mtime it was measured on (fix
+ * round 1): a failed probe is not retried until the file changes (across
+ * restarts), and a stale probe (an older app kept it across a rewrite) is
+ * re-probed.
  */
 
 export const BACKFILL_BATCH = 8;
 export const BACKFILL_CONCURRENCY = 2;
 
 export interface BackfillResult {
-  /** Timed entries without a probe when the pass started. */
+  /** Timed entries with a missing or stale probe when the pass started. */
   candidates: number;
   probed: number;
   failed: number;
-  /** Entries patched into the index. */
+  /** Entries patched into the index (probes and failure stamps). */
   written: number;
   ms: number;
 }
@@ -36,25 +40,14 @@ interface Probed {
   relPath: string;
   size: number;
   mtimeMs: number;
-  probe: StudioAssetProbe;
+  /** Undefined = ffprobe failed on this size + mtime. */
+  probe: StudioAssetProbe | undefined;
 }
 
 const running = new Map<string, Promise<BackfillResult>>();
 const rerun = new Set<string>();
-const failedByRoot = new Map<string, Set<string>>();
 
-const fileKey = (e: Pick<LibraryIndexEntry, 'relPath' | 'size' | 'mtimeMs'>): string =>
-  `${e.relPath}|${e.size ?? ''}|${e.mtimeMs ?? ''}`;
-
-function failedSet(root: string): Set<string> {
-  let set = failedByRoot.get(root);
-  if (!set) {
-    set = new Set();
-    failedByRoot.set(root, set);
-  }
-  return set;
-}
-
+/** Undefined when the entry is not timed media or its file is gone. */
 async function probeOne(root: string, entry: LibraryIndexEntry): Promise<Probed | undefined> {
   if (!isTimedMediaKind(entry.kind)) return undefined;
   const abs = resolveLibraryPath(root, entry.relPath);
@@ -65,7 +58,7 @@ async function probeOne(root: string, entry: LibraryIndexEntry): Promise<Probed 
     return undefined; // gone — the next scan tombstones it
   }
   const probe = await probeLibraryFile(abs, entry.kind);
-  return probe ? { relPath: entry.relPath, size: stat.size, mtimeMs: stat.mtimeMs, probe } : undefined;
+  return { relPath: entry.relPath, size: stat.size, mtimeMs: stat.mtimeMs, probe };
 }
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -94,9 +87,11 @@ function patchProbes(root: string, probed: Probed[]): Promise<number> {
     let patched = 0;
     for (const p of probed) {
       const e = index.entries.find((x) => x.relPath === p.relPath);
-      if (!e || e.probe) continue;
+      if (!e || !needsProbe(e)) continue;
       if ((e.size !== undefined && e.size !== p.size) || (e.mtimeMs !== undefined && e.mtimeMs !== p.mtimeMs)) continue;
-      e.probe = p.probe;
+      if (p.probe) e.probe = p.probe;
+      else delete e.probe; // a stale probe that no longer reads is not kept
+      e.probeStamp = makeProbeStamp(p, !p.probe);
       patched += 1;
     }
     if (patched > 0) await writeIndex(root, index);
@@ -106,20 +101,17 @@ function patchProbes(root: string, probed: Probed[]): Promise<number> {
 
 async function backfillOnce(root: string): Promise<BackfillResult> {
   const started = Date.now();
-  const failed = failedSet(root);
   const index = await loadIndex(root);
-  const todo = index.entries.filter((e) => isTimedMediaKind(e.kind) && !e.probe && !failed.has(fileKey(e)));
+  const todo = index.entries.filter(needsProbe);
   const result: BackfillResult = { candidates: todo.length, probed: 0, failed: 0, written: 0, ms: 0 };
   for (let i = 0; i < todo.length; i += BACKFILL_BATCH) {
     const batch = todo.slice(i, i + BACKFILL_BATCH);
-    const probed = await mapLimit(batch, BACKFILL_CONCURRENCY, (e) => probeOne(root, e));
-    const ok = probed.filter((p): p is Probed => p !== undefined);
-    batch.forEach((e, j) => {
-      if (!probed[j]) failed.add(fileKey(e));
-    });
-    result.probed += ok.length;
-    result.failed += batch.length - ok.length;
-    if (ok.length > 0) result.written += await patchProbes(root, ok);
+    const results = await mapLimit(batch, BACKFILL_CONCURRENCY, (e) => probeOne(root, e));
+    const measured = results.filter((p): p is Probed => p !== undefined);
+    const ok = measured.filter((p) => p.probe !== undefined).length;
+    result.probed += ok;
+    result.failed += batch.length - ok;
+    if (measured.length > 0) result.written += await patchProbes(root, measured);
   }
   result.ms = Date.now() - started;
   if (result.candidates > 0) log.info('Library probe back-fill pass', { root, ...result });

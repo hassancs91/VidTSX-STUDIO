@@ -51,6 +51,21 @@ export interface LibraryIndexV2Fields {
   audio?: LibraryAudioMeta;
   /** Ids of the projects a `library:` ref of this file landed in (E2). */
   usedIn?: string[];
+  /**
+   * The file version (size + mtime) `probe` was measured on — with `failed`, the version
+   * whose probe failed (E1 fix round 1). A stamp that no longer matches the entry's
+   * size/mtime marks the probe stale (an older app refreshed size/mtime but kept it) and
+   * it is re-probed; a failed stamp stops retries until the file changes. A probe with no
+   * stamp (written before the stamp existed) is trusted.
+   */
+  probeStamp?: LibraryProbeStamp;
+}
+
+/** See `LibraryIndexV2Fields.probeStamp`. */
+export interface LibraryProbeStamp {
+  size: number;
+  mtimeMs: number;
+  failed?: true;
 }
 
 export interface LibraryIndexEntry extends LibraryIndexV2Fields {

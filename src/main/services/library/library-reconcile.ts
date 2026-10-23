@@ -6,6 +6,7 @@ import type {
 } from '../../../shared/types/asset-library';
 import type { StudioAssetProbe } from '../../../shared/types/studio';
 import { mediaKindOf } from '../../../shared/media-kinds';
+import { makeProbeStamp } from './library-probe-state';
 
 /**
  * Disk-vs-index reconcile (ASSET_LIBRARY_DESIGN.md L1): new files gain
@@ -47,6 +48,7 @@ function toTombstone(entry: LibraryIndexEntry, now: string): LibraryTombstone {
     missingSince: now,
     kind: entry.kind,
     probe: entry.probe,
+    probeStamp: entry.probeStamp,
     tags: entry.tags,
     audio: entry.audio,
     usedIn: entry.usedIn,
@@ -68,6 +70,8 @@ function resurrect(
     addedAt: tomb.addedAt,
     kind: mediaKindOf(file.relPath),
     probe,
+    // The tombstone's own probe keeps its stamp; a fresh one is stamped with this file.
+    probeStamp: probe === tomb.probe ? tomb.probeStamp : probe ? makeProbeStamp(file) : undefined,
     tags: tomb.tags,
     audio: tomb.audio,
     usedIn: tomb.usedIn,
@@ -100,11 +104,13 @@ export async function reconcileIndex(
     }
     const kind = mediaKindOf(file.relPath);
     if (entry.size !== file.size || entry.mtimeMs !== file.mtimeMs) {
+      const probe = await probeOf(file.relPath, kind);
       kept.push({
         ...entry,
         kind,
         hash: await hashOf(file.relPath),
-        probe: await probeOf(file.relPath, kind),
+        probe,
+        probeStamp: probe ? makeProbeStamp(file) : undefined,
         size: file.size,
         mtimeMs: file.mtimeMs,
       });
@@ -146,13 +152,15 @@ export async function reconcileIndex(
       kept.push(resurrect(tomb, file, hash, tomb.probe ?? (await probeOf(file.relPath, kind))));
       continue;
     }
+    const probe = await probeOf(file.relPath, kind);
     kept.push({
       relPath: file.relPath,
       hash,
       origin: 'imported',
       addedAt: nowIso,
       kind,
-      probe: await probeOf(file.relPath, kind),
+      probe,
+      ...(probe ? { probeStamp: makeProbeStamp(file) } : {}),
       size: file.size,
       mtimeMs: file.mtimeMs,
     });

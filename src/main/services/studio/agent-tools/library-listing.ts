@@ -1,5 +1,6 @@
 import type { LibraryIndexEntry, PlayableMediaKind } from '../../../../shared/types/asset-library';
 import { isPlayableMediaKind, isTimedMediaKind, mediaKindOf } from '../../../../shared/media-kinds';
+import { probeStateOf } from '../../library/library-probe-state';
 
 /** Library listings are capped so a large root cannot flood the context. */
 export const LIBRARY_LIST_CAP = 150;
@@ -14,14 +15,18 @@ export interface LibraryListingFilter {
  * One `list_assets(scope:'library')` row (E1): the ref, the kind from the
  * index (the one extension table) and, for audio/video, the ffprobe duration
  * to the hundredth (≤ 5 ms rounding) — or "length unknown (probing)" while the
- * back-fill has not reached the file yet.
+ * back-fill has not reached the file (or a stale probe) yet, and "length unknown
+ * (unreadable)" when ffprobe failed on this very version of the file.
  */
 export function formatLibraryRow(entry: LibraryIndexEntry, kind: PlayableMediaKind, refPrefix: string): string {
-  const length = isTimedMediaKind(kind)
-    ? entry.probe
+  const state = probeStateOf({ ...entry, kind });
+  const length = !isTimedMediaKind(kind)
+    ? ''
+    : entry.probe && state === 'ok'
       ? `, ${entry.probe.duration.toFixed(2)} s`
-      : ', length unknown (probing)'
-    : '';
+      : state === 'failed'
+        ? ', length unknown (unreadable)'
+        : ', length unknown (probing)';
   const brand = entry.brandId ? `, brand: ${entry.brandId}` : '';
   const description = entry.description ? ` — "${entry.description}"` : '';
   return `- ${refPrefix}${entry.relPath} (${kind}${length}, ${entry.origin}${brand})${description}`;

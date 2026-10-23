@@ -14,6 +14,7 @@ import { LIBRARY_META_DIR, resolveLibraryPath, toLibraryRelPath } from './librar
 import { loadIndex, serialize, writeIndex } from './library-index-io';
 import { probeLibraryFile } from './library-probe';
 import { scheduleProbeBackfill } from './library-backfill';
+import { makeProbeStamp, needsProbe } from './library-probe-state';
 
 const log = logEngine.createLogger('LibraryStore');
 
@@ -38,7 +39,7 @@ function budgetedProber(root: string): ProbeOf {
 
 /** A timed entry still lacking a probe → the back-fill catches up, off this chain. */
 function kickBackfillIfNeeded(root: string, entries: LibraryIndexEntry[]): void {
-  if (entries.some((e) => isTimedMediaKind(e.kind) && !e.probe)) void scheduleProbeBackfill(root);
+  if (entries.some(needsProbe)) void scheduleProbeBackfill(root);
 }
 
 /**
@@ -151,12 +152,15 @@ export async function upsertEntry(
     const index = await loadIndex(root);
     const existing = index.entries.find((e) => e.relPath === relPath);
     const sameFile = existing?.size === stat.size && existing?.mtimeMs === stat.mtimeMs;
+    const keepOld = !probe && sameFile && existing?.probe !== undefined;
     const entry: LibraryIndexEntry = {
       ...(existing ?? { addedAt: new Date().toISOString() }),
       relPath,
       origin: meta.origin,
       kind,
-      probe: probe ?? (sameFile ? existing?.probe : undefined),
+      probe: probe ?? (keepOld ? existing?.probe : undefined),
+      // Fix round 1: stamped with the version measured; a failure is stamped too (no retry until it changes).
+      probeStamp: !isTimedMediaKind(kind) ? undefined : keepOld ? existing?.probeStamp : makeProbeStamp(stat, !probe),
       ...(hash !== undefined ? { hash } : {}),
       ...(meta.description !== undefined ? { description: meta.description } : {}),
       ...(meta.brandId !== undefined ? { brandId: meta.brandId } : {}),
