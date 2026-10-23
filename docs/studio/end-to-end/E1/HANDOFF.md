@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: DONE (fix round 2, builder #7, 2026-10-23 ~22:35 — V2-1 fixed red-first `d3908c3`, V2-2 + W1–W3 in the docs; gates re-run green per E-d2a; ready for verifier round 3)
+status: STOPPED (verifier round 3 FAIL on the records only — R1, R2; the third FAIL on E1 stops the run; orchestrator 2026-10-23 23:00)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -500,10 +500,46 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
 
 ## Next step (ONE concrete instruction)
 
-Orchestrator: run verifier round 3 on E1 (HEAD after the fix-round-2 docs commit); `wt/out` is still the `a3f48d8` build
-— a verifier who launches must rebuild it first (DRIVING "Track E" recipe).
+**STOPPED — waiting for Hasan's "go"** (third verifier FAIL on one part = the run's stop rule). When he says go: a
+DOCS-ONLY fix round 3 — correct R1 and R2 below in `Status.md`, `docs/studio/TESTING.md` §18.14, the code comment
+`src/main/services/studio/media-import.ts:123-125` (comment text only) and this file; say in Status that reconcile
+does not stamp failed probes (N1) and name the header-length mp3 case (N2); then a verifier round 4 on the records
+only (the exit, gates and controls passed in round 3 at `a35aef3`).
 
 ## Open problems
+
+### Verifier round 3 — FAIL on the RECORDS only (2026-10-23 ~22:55; the exit, the gates, E-d5 and every earlier finding PASS)
+
+- **R1 (records): a resurrected E1 tombstone loses the new fields under an OLD scan.** `Status.md:48` and
+  `TESTING.md:484` say "a tombstone the E1 code already made keeps every field under every old write". False when
+  the pre-E1 scan RESURRECTS it (the same bytes come back while an old app runs): pre-E1 `resurrect()`
+  (`pre-e1-control/library-reconcile.ts:45-60`) builds the entry from 8 named fields — `kind`, `probe`,
+  `probeStamp`, `tags`, `usedIn`, `audio` lost (every pre-E1 field kept: hash, description, brandId, origin,
+  addedAt). The next E1 start restores `kind` + `probe` (back-fill); `tags` / `audio` / `usedIn` are gone. E-d5
+  (pre-E1 fields) holds; the record of which NEW fields survive must name this path.
+- **R2 (records, same class as V2-2): the mp3 trim range is still understated.** `Status.md:76-80`,
+  `TESTING.md:485`, `media-import.ts:123-125` (comment), this file's V2-2 line say "about −25 to −115 ms". Measured
+  (real Studio import, pre-E1 `probeMedia` vs HEAD): 8 kHz MPEG-2.5 CBR −156.0 ms, 11.025 kHz VBR −151.0, 44.1 kHz
+  with cover −45.1, 44.1 kHz CBR −32.1; library, bundled n7.1 raw vs product: 8 kHz −160, 12 kHz −116, 16 kHz
+  −72 / −90, 22.05 kHz −71.8…−76.2, 24 kHz −52 / −70, 32 kHz −48 / −52, 44.1 / 48 kHz −26.9…−50.2 — in every case
+  the product equals two independent ffprobes and the decoded sample count. Suggested wording: "(encoder delay +
+  padding) / sample rate: about −25 ms at 48 kHz to −160 ms at 8 kHz; the lower the rate, the more".
+- **N1 (note):** reconcile does not stamp failed probes (`library-reconcile.ts`: no stamp when `probeOf` returns
+  undefined) — `Status.md:98-99` says upsert, reconcile and back-fill all do. On a fresh scan 9 of 20 inline probes
+  failed unstamped; the back-fill re-probed then stamped them (~1–2 s of "(probing)").
+- **N2 (note):** a truncated mp3 whose Xing header says 5.0 s (9 KB, decodes 0.52 s) lists "5.00 s" — the same as
+  both independent ffprobes (header length). `.aac` random bytes → 1.57 s = gyan's estimate (the named limit).
+- **N3 (note, nit):** `upsertEntry` probes before the chain's `stat`; a rewrite in that gap would stamp an old
+  probe with the new size/mtime.
+- **N4 (note → orchestrator, done):** E-d2a rule (a) is unsound — `vitest.config.ts` builds its aliases with
+  `resolve('src/…')` (relative to the cwd), so `--root <wt>` from the main checkout loads the MAIN checkout's
+  `@shared` / `@main`. Rule (a) is withdrawn in DRIVING.md; rule (b) is the gate.
+- **N5 (note, pre-E1):** proxy jobs fail for `audio-only-cover.mp4` / `mp3-only.mp4` imports and `mp3-only` has no
+  thumbnail; the proxy uses only `probe.duration` (unchanged) — not E1's.
+- **Safety disclosure (verifier round 3):** at its launch 1 the isolated profile's Studio root still defaulted to
+  Hasan's real projects folder for ~3 minutes before it set its scratch root — the Home screen LISTED his projects;
+  nothing was opened or written. A shell-escaping slip set a malformed root for seconds; nothing was created.
+- Evidence: `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1-verify3\`, scripts `.vidtsx-temp/end-to-end/E1-verify3/`.
 
 ### Verifier round 2 — FAIL (2026-10-23 ~22:40; V1-1, V1-2, V1-5, E-d5, the exit for every readable file all PASS) — ALL ADDRESSED in fix round 2 (V2-1 `d3908c3`; V2-2, W1–W3 docs; W1 also pinned in the control test)
 

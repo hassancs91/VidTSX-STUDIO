@@ -188,13 +188,17 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   "chroma-js"` …); they look under `<root>/node_modules` only. A `node_modules` junction in the worktree was
   **refused by the permission classifier** (shared resource) — do not create one, copy one or work around
   it. Rule: the counted full run is the worktree run (`--maxWorkers=2` while headroom < 10 GB), green
-  except those three files, each failing ONLY with a package-resolution error; for those three, (a) try
-  them on the worktree's code with `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --root
-  D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E/wt <the three files>` started from the MAIN checkout's
-  directory, only after reading that none of the three writes relative to `process.cwd()` (≤ 5 tool calls;
-  nothing may be written into the main checkout); if that does not resolve them, (b) show they are
-  independent of track E's diff (none of the files `git diff --name-only 5d77600..HEAD` lists is in their
-  import graph) and say so in STATUS. Any other failure is real (DRIVING's load-timeout rule still applies).
+  except those three files, each failing ONLY with a package-resolution error; for those three, show they
+  are independent of track E's diff (none of the files `git diff --name-only 5d77600..HEAD` lists is in
+  their import graph; say the method: static walk / esbuild metafile, `vi.mock`'d modules not followed)
+  and say so in STATUS. Any other failure is real (DRIVING's load-timeout rule still applies).
+  **WITHDRAWN 2026-10-23 23:00 — the former rule (a)** (`--root <wt>` started from the main checkout's
+  directory): `vitest.config.ts` builds its aliases with `resolve('src/…')`, relative to the cwd, so that
+  run loads the MAIN checkout's `@shared` / `@main` code (E1 verifier round 3). Do not use it as evidence.
+- **Studio root FIRST (E1 verifier round 3, 2026-10-23):** a fresh isolated profile's Studio root defaults to
+  Hasan's real projects folder and the Home screen lists them on launch. Set `studioRootSet` in the first
+  CDP call after the page is ready, before any navigation, and check it with `studioRootGet`; pass the path
+  from a FILE-based driver (shell escaping mangled it twice in E1).
 - **Launch recipe from the worktree (E1 builder #4, 2026-10-23, worked first time, twice):**
   1. Build the worktree's own `out/` (app stopped; rewrites only `wt/out`, ~125 MB, ~2 min), Bash from the
      worktree root: `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node

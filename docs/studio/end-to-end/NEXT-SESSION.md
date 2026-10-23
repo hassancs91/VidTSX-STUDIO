@@ -5,7 +5,35 @@
 > exit (NOT MET). Session 3: B4/B5 deferred to Hasan's real-video test, B7 built (DONE-PARTIAL). Everything
 > is in `ORCHESTRATOR.md` (table, "Session 3", "For Hasan's real-video test", "Stops (session 3)").
 
-## State right now
+## Session 4 (track E only, 2026-10-23 20:05–23:00) — STOPPED after three verifier FAILs on E1
+
+- **Where it lives:** ALL track-E work is on the local branch **`end-to-end-p0-e`** in the worktree
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (cut from `end-to-end-p0` @ `5d77600`; ORCHESTRATOR
+  "Session 4 — track E", decisions E-d1…E-d10, E-d2a). **Not merged into `end-to-end-p0`**: the main checkout
+  had another session's uncommitted files (now incl. `src/main/index.ts`, which E1 also changes) and Hasan's
+  dev app ran from it. Before ANY later session works on `end-to-end-p0` (B7 verifier, track-B exit, C, D, F),
+  land `end-to-end-p0-e` first (`git merge end-to-end-p0-e` in the main checkout once its own work is
+  committed) or continue on `end-to-end-p0-e` — otherwise E1's code and this file's state fork.
+- **E1:** built + exit MET (verifier round 3: 68/68 timed rows within 10 ms of an independent ffprobe, 19/19
+  unreadable files listed unreadable, migration + byte-identical backup, idempotent, E-d5 control deep-equal, both
+  negatives caught; full worktree vitest 477 files / 4,079 tests green except the three package-resolution suites
+  (E-d2a rule (b)); types 26/10). **Verifier FAIL ×3** — round 1 cover-art mp3 +30 ms (fixed), round 2 a garbage
+  `.flac` listed 0.00 s (fixed), round 3 **records only** (R1: an old scan's resurrect drops the new fields of an
+  E1 tombstone; R2: the mp3 trim range reaches −160 ms at 8 kHz). Next for E1: a docs-only fix round 3 + a
+  records-only verifier round 4 (E1 HANDOFF "Next step"). **E2, E4, E3, the track-E exit: not started.**
+- **Files E1 changed that C / D / F also touch:** `src/main/services/studio/media-import.ts` (`probeMedia`:
+  mp3 gapless trim via new `mp3-gapless.ts`; attached-picture streams are not video — affects every import's
+  duration / width / codec for mp3s and cover-art audio), `src/main/index.ts` (startup migration call beside
+  `sweepExportScratch`), `src/shared/media-kinds.ts` (new — the one extension→kind table, now used by
+  `media-import.ts` `classifyMediaKind` / `MEDIA_DIALOG_FILTERS` and the Assets screen's `file-type.ts`), the
+  library store / reconcile / index IO (`src/main/services/library/*`), `agent-tools/project-tools.ts`
+  (`list_assets` library rows via new `agent-tools/library-listing.ts`), `src/shared/types/asset-library.ts`
+  (optional `kind`, `tags`, `audio`, `usedIn`, `probeStamp`; `rev`). D (voice cleanup) and C4 (file tools / the
+  assistant's reach) are the likeliest to meet these.
+- **TESTING §18 numbering (E-d10):** E1 = §18.14 (written); E2 → 18.15, E4 → 18.16, E3 → 18.17; C/D/F continue
+  from 18.18.
+
+## State before session 4 (session 3's stop)
 
 - **Branch** `end-to-end-p0`, local only, **nothing pushed**. Tree clean after the orchestrator's last
   commit. No app, agent, test run or log watcher of this run is running (Hasan's own PowerShell window

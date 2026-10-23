@@ -34,7 +34,7 @@
 | D3 | TODO | | | | | |
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
-| E1 | FIX (worktree `end-to-end-p0-e`, see "Session 4 — track E") | 7 | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) | | | 2026-10-23 20:25 / |
+| E1 | **STOPPED — 3 verifier FAILs** (exit MET; round 3 failed the RECORDS only — waiting for Hasan's go for a docs-only round) | 7 | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10 | 2026-10-23 20:25 / 23:00 |
 | E2 | TODO | | | | | |
 | E3 | TODO (runs after E4) | | | | | |
 | E4 | TODO (runs before E3) | | | | | |
@@ -723,3 +723,34 @@
   STATUS. Hasan: allowing that junction would make the worktree gate whole.
 - **E-d10 TESTING §18 numbering:** E1 → 18.14, E2 → 18.15, E4 → 18.16, E3 → 18.17; C, D, F (later)
   continue from 18.18. Status.md rows at the top as usual — in the worktree's `Status.md`.
+
+### Session 4 log
+
+- 2026-10-23 20:25–21:15 · E1 builders #1–#5: one kind table (`src/shared/media-kinds.ts`), index fields +
+  `rev: 2` with `version: 1` kept (E-d5), probe on upsert / reconcile, background back-fill, migration with a
+  one-time backup, `list_assets` durations; live on an isolated profile from the worktree's own build (launch
+  recipe in DRIVING "Track E"); a live bug fixed red-first: the bundled ffprobe n7.1 counts a LAME mp3's encoder
+  delay + padding (`mp3-gapless.ts` in `probeMedia` — Studio imports of mp3s get shorter, see E1 R2 for the range).
+- 20:50 · the orchestrator's `node_modules` junction in the worktree was **refused by the permission classifier**
+  (Modify Shared Resources); not worked around → E-d2a.
+- 21:55 · verifier round 1 FAIL (cover-art mp3 +30 ms) → builder #6 → 22:40 verifier round 2 FAIL (garbage `.flac`
+  listed 0.00 s; the mp3 range) → builder #7 → 22:55 verifier round 3 FAIL on the records only (R1, R2). Every
+  round's exit / gate / control checks passed once its findings were fixed; no finding was a regression of
+  another fix.
+- 23:00 · E-d2a rule (a) WITHDRAWN (verifier round 3: `vitest.config.ts` aliases resolve against the cwd, so
+  `--root <wt>` from the main checkout loads the main checkout's code); rule (b) is the gate.
+- Safety notes for Hasan: verifier round 3's isolated profile LISTED his real projects folder on its Home screen for
+  ~3 minutes before it set its scratch Studio root (nothing opened or written) — DRIVING "Studio root FIRST" added.
+  Hasan's dev app (started 20:01) was closed by 22:59; the main checkout's foreign uncommitted files grew to 10
+  modified + 6 untracked (`electron.vite.config.mjs`, `src/main/index.ts`, `app-main.ts`, splash files, …).
+- Resources at the stop: C: 51.3 GB, D: 25.7 GB free; commit 47.0 / 99.7 GB. Nothing of this run is running.
+- Left on disk (scratch, Hasan's call): profiles `…\vidtsx-e2e\profiles\E1`, `E1-verify`, `E1-verify2`,
+  `E1-verify3` (~372 MB each) + `E1-verify3`'s small profile copies; evidence `…\vidtsx-e2e\E1*\`; the worktree
+  `.vidtsx-temp\end-to-end\E\wt` (its `out/` ~127 MB).
+
+## Stops (session 4)
+
+- 2026-10-23 23:00 · **STOP — three verifier FAILs on E1** (Hasan's stop rule). E1's exit is met and its gates
+  pass; round 3 failed the Status / TESTING records only (R1, R2). Not started: E2, E4, E3, the track-E exit.
+  Proposed next: Hasan's "go" → a docs-only fix round 3 (R1, R2, N1, N2) + a records-only verifier round 4, then
+  E2 → E4 → E3 → exit as briefed. Track E is on `end-to-end-p0-e`, not merged (NEXT-SESSION.md).
