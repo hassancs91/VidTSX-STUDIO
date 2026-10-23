@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits: B1 / B2 / B3-offline numbers UNCHANGED; next: the live exit run, once the resource guard allows — see Next step)
+status: BUILDING — exit NOT MET (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; next: step 7 = the two overlap mechanisms — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -9,6 +9,9 @@ status: BUILDING (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102
 > Scratch copies, any app launch, the full `npx vitest run`, the live pass: only once C: ≥ 8 GB AND commit
 > headroom ≥ 6 GB. C: < 3 GB: stop and hand off at once. (Builder #5 saw C: 5.4 → 4.4 GB during its run:
 > the page file grew 100.2 → 101.3 GB while `check:types` ran.)
+> **Relaxed (orchestrator, Session 3, after step 5):** live steps may start at C: ≥ 3 GB AND C: free + commit headroom ≥ 6 GB,
+> with the background watchdog (`B7/watchdog.ps1`, stops only the B7 app at C: < 1.5 GB); a full vitest run uses
+> `--maxWorkers=2`. Step 6 ran under this form (C: min 2.811 GB while the app ran; the page file grew to 103.264 GB).
 
 ## Goal (the row — added 2026-10-23 by Hasan's session-3 instruction — + the exit)
 
@@ -373,6 +376,114 @@ is reported alongside (`presetOnDisk` → [7.628, 20.35]).
 
 B3's LIVE Auto Cut numbers (hard 1 / 164 at tight, whole clips) cannot be re-measured without the app — see Open problems.
 
+### Step 6 — the live exit run (builder #10, 2026-10-23; no `src/` change)
+
+- **Gate** (orchestrator, relaxed: C: ≥ 3 GB AND C: free + commit headroom ≥ 6 GB): first reading 15:05 `3.848 GB C:; commit
+  100.233 / 102.258` → 5.873 → wait loop (`B7/gate-wait.ps1`, every 5 min, ≤ 30 min) → met at its first check 15:05:46
+  (`3.848; 100.102 / 102.258; sum 6.004`); before the launch 15:08:54 `3.831; 100.078 / 102.258; sum 6.011`.
+- **Material on D:** `robocopy b-root\projects\video-14-raw → .vidtsx-temp/end-to-end/B7/root/projects/video-14-raw` (41 files,
+  579.40 MB, exit 1 = copied); `project.json` sha256 `EBE94FD7…123DDA` = b-root's. `robocopy profiles\source\profile →
+  .vidtsx-temp/end-to-end/B7/profile /XF settings.db settings.db-wal settings.db-shm` (2,325 of 2,328 files, 371.81 MB; the 3
+  skipped = the credential store, never opened); `Test-Path` on the three → False.
+- **Kit** (`.vidtsx-temp/end-to-end/B7/`, gitignored): `run.mjs`, `cdp.mjs`, `probe.mjs`, `launch.sh`, `restore.ps1`,
+  `measure.py` copied from B6, `exit_check.py` from `…\vidtsx-e2e\track-B-exit\`; re-pointed by `repoint-kit.mjs` (exact
+  replacements): port 9347, root `D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/root`, OUT `…\vidtsx-e2e\B7\run`, profile
+  `D:/…/B7/profile`, log `…\vidtsx-e2e\B7\app.log`, `measure.py` DEFAULT_OUT `…\B7\measure`, `exit_check.py` `RUN_PROJECT` = the B7
+  project, `RUN_RAW` = `…\B7\run\proposals-raw.json`, OUT `…\B7\exit`. `grep -nE 'B6|9331|track-B-exit'` → only "copied from"
+  comments. The launcher keeps `unset ELECTRON_RUN_AS_NODE` and the strip of every `CLAUDE*` / `ANTHROPIC*` var. Two driver
+  additions in `run.mjs` (recording only, no change to how a card is answered): a turn that runs BOTH `propose_cuts` and
+  `run_auto_cut` labels each card by its `agentNote` / categories (step 4b's path); each captured card records `accepted` and
+  `qaUnchecked` (items with `qaFlag`); tool args / results kept to 4,000 / 2,000 chars (B6 cut args at 600).
+  `python -I -B …/B7/measure.py --selftest` → `selftest OK: …H total 813.315 s over 9 clips…`.
+- **Watchdog** `B7/watchdog.ps1` (background; every 10 s; C: < 1.5 GB → `taskkill /T /F` only electron.exe whose CommandLine
+  contains `.vidtsx-temp/end-to-end/B7/profile`; log `B7/watchdog.log`; stops on `B7/watchdog.stop`), started 15:09:01.
+- **Launch** `bash …/B7/launch.sh` (background) → `probe.mjs ready` `readyAfterMs 75475`, root echoed
+  `D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/root`; `probe.mjs providers` → `{"active":"claude-subscription",
+  "providers":[]}`. **Setup** `run.mjs setup` → V1 = the nine clips in raw order, `length s 1283.148`, settings
+  `{"width":3840,"height":2160,"fps":60,"agent":{}}`, proposals 0, transcripts ready 27/44/97/207/183/602/40/330/290, chat 0 —
+  all equal to B6's. Guard after setup (app running) 15:11:31 `3.829 GB C:; commit 101.385 / 102.258`.
+- **The pass (ONE, run to its end; the harness did not break it):** 17 turns, all `claude-sonnet-5-5` on the keyless
+  `claude-subscription`, 15:11:45–15:21:10. Loops (logs `…\vidtsx-e2e\B7\run\loop1..3.log`):
+  - `loop1` = `run.mjs loop "Cut this video."` → turn 1 (0366 editorial), Apply 1 cut, then "applied, no auto-continue": the
+    reply did NOT end with the `[next: …]` marker (`agent-chat-format.ts:33`) — it ended "Review the card and apply it. Then tell
+    me to move on and I'll start the next clip (0369)." (B6's turn 1 had the marker → the editor auto-continued). **Deviation from
+    B6's shape, forced by the model, not the harness:** answered as the reply asked, typed exactly `Move on.`
+  - `loop2` = `loop "Move on."` → turns 2–8 (turn 2 typed, 3–8 the editor's own "Review outcome" auto-continues), one editorial
+    card per clip (0374 read with 0375 in turn 7, no cuts); turn 8 ended without a marker and offered "Auto Cut for the silences,
+    then shots and captions".
+  - `loop3` = `loop "Yes, run Auto Cut for the pauses on all nine clips."` (B6's exact answer) → turns 9–17, one `run_auto_cut`
+    per clip, every reply with the marker → auto-continued; turn 17 first called `run_auto_cut` on 0375 again by mistake ("it
+    found nothing to cut, because you had already applied that card" — item 4 working; no card made), then 0376; it ended
+    offering shots / captions (not taken, as in B6).
+  - Watchdog never fired: C: min **2.811 GB** (the page file grew 102.258 → 103.264 GB at launch), commit max 102.727 /
+    103.264 GB. App stopped 15:22 (`taskkill /T /F` on the launcher's bash, `--remote-debugging-port=9347` / B7-profile filter →
+    `left: 0`, `electron total: 0`); watchdog stopped by its stop file (`watchdog stop (stop file); min C: 2.811 GB`, 0 left).
+- **The run table** (`node …/B7/summarize-run.mjs` → `…\B7\run\run-summary.json`; usage = the app's AI-usage rows per turn):
+
+  | Turn | Source | Tool(s) | Model s | In / out tok | Card (clip, kind) | Items | Accepted | QA-unchecked | Answer → disk |
+  |---|---|---|---|---|---|---|---|---|---|
+  | 1 | typed `Cut this video.` | get_transcript, propose_cuts 4 | 18.0 | 904 / 1,235 | 0366 ed. | 1 (4 merged) | 1 | 0 | Apply 1 → applied |
+  | 2 | typed `Move on.` | get_transcript, propose_cuts 1 | 29.9 | 1,107 / 901 | 0369 ed. | 1 fluff | 0 | 0 | Reject all → rejected |
+  | 3 | auto | get_transcript, propose_cuts 3 | 21.8 | 1,401 / 1,163 | 0370 ed. | 3 | 3 | 0 | Apply 3 → applied |
+  | 4 | auto | get_transcript ×4, propose_cuts 5 | 32.6 | 1,745 / 3,062 | 0371 ed. | 5 | 3 | **2** (named) | Apply 3 → partial |
+  | 5 | auto | get_transcript, propose_cuts 4 | 26.5 | 2,217 / 1,960 | 0372 ed. | 4 (1 fluff) | 3 | 0 | Apply 3 → partial |
+  | 6 | auto | get_transcript, propose_cuts 12 | 46.0 | 2,702 / 4,687 | 0373 ed. | 10 | 9 | **1** (named) | Apply 9 → partial |
+  | 7 | auto | get_transcript 0374 + 0375, propose_cuts 7 | 38.0 | 3,442 / 2,669 | 0375 ed. | 7 | 5 | **2** (named) | Apply 5 → partial |
+  | 8 | auto | get_transcript, propose_cuts 5 | 24.6 | 4,030 / 1,852 | 0376 ed. | 4 | 3 | **1** (named, +18.5 dB) | Apply 3 → partial |
+  | 9 | typed `Yes, run Auto Cut …` | run_auto_cut 0366 | 12.4 | 4,554 / 427 | 0366 AC | 1 | 1 | 0 | Apply 1 → applied |
+  | 10–17 | auto | run_auto_cut 0369…0376 (17: 0375 again + 0376) | 11.1 / 9.5 / 13.3 / 13.9 / 10.0 / 11.2 / 10.0 / 16.2 | 4,738–5,890 / 251–479 | AC 0369 0370 0371 0372 0373 0374 0375 0376 | 7 / 10 / 20 / 8 / 54 / 6 / 30 / 27 | all | 0 | Apply all → applied |
+
+  Totals: **17 turns, model time 345.0 s** (editorial 237.4 s, Auto Cut 107.6 s; B6 337.2 s), tokens in **64,662** / out **20,298**
+  / cache-read **2,629,604**, SDK notional **$4.01** (B6 $3.89). **198 items** (editorial 35, Auto Cut 163; B6 39 + 261), **190
+  applied** (27 + 163). **6 items started unchecked by QA, all 6 named in their turn's reply, none ticked** (left in the video):
+  0371 24.721–33.633 false_start +37.4 dB, 0371 167.064–182.37 retake +35.2, 0373 25.1–30.0 retake +39.0, 0375 15.3–18.3 retake
+  +41.7, 0375 190.733–195.1 retake +36.3, 0376 116.465–119.374 retake +18.5. Unchecked fluff: 0369 (lone card → Reject all),
+  0372 (1). Auto Cut cards: 0 QA hard entries on all nine; headlines now read "of X s still on the timeline" (0373 "95.8 s of
+  279.9 s"; B6 "171.2 s of 396.3 s"). Final V1: **187 clips, 534.285 s** (B6 196 / 509.149 s).
+- **Measured** (`exit_check.py` → `…\B7\exit\`; `measure.py` → `…\B7\measure\`, `…\B7\measure-accepted\`):
+
+  | Exit clause | Target | B7 | B6 / track-B exit baseline | Verdict |
+  |---|---|---|---|---|
+  | Hard entries on the applied cut (analyze_cut `entry_check`, real joins `> 0.75 s`) | 0 | **0 / 137** (editorial-class 0 / 24, Auto Cut-only 0 / 107, clip starts 0 / 6) | 6 / 146 | **MET** |
+  | Median lead-in at real joins incl. clip edges vs fitted tight | ±30 ms | **0.150 vs 0.150 s (0 ms)**; inner only 0 ms | 0.150 vs 0.150 | **MET** |
+  | Median tail, same | ±30 ms | **0.210 vs 0.214 s (−4 ms)**; inner only 0.200 vs 0.200 (0 ms) | 0.220 vs 0.214 | **MET** |
+  | Overlap \|P∩H\| / \|H\|, all proposed items (B6's headline) | ≥ 0.905 | **0.8974** (P∩H 729.857 of H 813.315 s; precision 0.9415) | 0.9051 | **NOT MET** |
+  | Same, accepted (= applied) items only | ≥ 0.905 | **0.8723** (709.491 s; precision 0.9476) | 0.9049 | **NOT MET** |
+
+  Also: Hasan's own plan 0 / 134 (unchanged); tight / natural knobs equal to cuts.json; produced speeds [1], monotonic; the
+  V1 = raw − removals cross-check differs on the SAME six clips as B6's baseline (0369 0371 0372 0374 0375 0376, −0.009…−0.038 s,
+  one segment fewer) — not a B7 change; wordless segments ≤ 0.3 s: 1 (0366 [0, 0.06], +13.3 dB, clip start; B6 had 15
+  wordless segments 0.06–0.5 s). The B6 slivers B7 targeted are gone (gained vs B6: 0366 4.83–5.074, 5.745–5.89, 12.63–12.775,
+  14.194–14.34, 2.129–2.28; 0373 247.86–248.36, 249.205–249.35, 391.59–391.768).
+- **Where the overlap went** (`python -I -B …/B7/overlap-causes.py` → `…\B7\overlap-causes.json`; B6 applied 735.952 s of H →
+  B7 applied 709.491 s: −33.727 lost, +7.266 gained):
+  1. **15.049 s inside the six QA-unchecked items** (item 5's rule kept them in; 18.936 s of H inside them is unapplied). Per
+     item — every one is an AUTHORED end the snap could not fix (the model's notes say "edges estimated, needs an ear"):
+     - **0371 33.6 → 33.633** (+37.4): authored 31.38–33.6 ends on filler "uh" (33.55–33.60), which runs into the kept "a" at 33.643
+       (43 ms gap) → no quiet point; `landCutEnd` caps at "a" − 0.01. The nearest quiet gap is BEFORE "uh" (website, 33.335 →
+       uh 33.55); Hasan cut 32.446–33.535 (keeps "uh").
+     - **0371 182.0 → 182.37** (+35.2): authored end inside "simply" (181.879–182.492) of the kept "so you can simply focus" (starts
+       "so" 181.492). Quiet gap BEFORE: take, 181.153 → so 181.492; Hasan 181.413.
+     - **0373 30.0** (+39.0): authored end inside "up" (29.944–30.138) of the kept redo "and clean up…" (starts "and" 29.461).
+       Quiet gap BEFORE: take— 28.994 → and 29.461; Hasan 29.354.
+     - **0375 18.3** (+41.7): inside "same" (18.151–18.49) of the kept "The same AI" ("The" 18.07). Quiet gap BEFORE: take.
+       17.536 → The 18.07; Hasan 17.996.
+     - **0375 195.1** (+36.3): inside the SLATE "other" (194.941–195.181; "take," ends 195.599) — the end is too EARLY. Quiet gap
+       AFTER: take, 195.599 → before 195.839; Hasan 195.799 (the "lost" 195.1–195.689 is that slate).
+     - **0376 119.374** (+18.5): authored 117.13–118.9 is in the 644 ms gap "you." 118.74 → "These" 119.384; `landCutEnd` measured a
+       release that never decays and capped at "These" − 0.01 — the known open problem (an onset earlier than its token).
+  2. **10.923 s of clip-HEAD silence kept whole** (0375 0–3.372, 0371 0–2.422, 0372 0–2.247, 0370 0–1.582, 0376 0–1.300) **+ 1.346 s
+     at 0373's tail** (394.899–396.245): after the editorial apply, the stretch before a clip's first editorial cut (and after
+     0373's last) is a WORDLESS keep on the timeline; Auto Cut now plans over the keeps (item 4) and `planClip` keeps a wordless
+     keep whole (`cut-planner.ts:72-74` — the Open problem builder #7 noted). Produced V1 first segments: 0370 [0, 1.83], 0371
+     [0, 2.67], 0372 [0, 2.5], 0375 [0, 3.62], 0376 [0, 1.55], all without words; 0373's last [394.899, 396.246] without words.
+     Whole-clip Auto Cut (B6) removed them as the leading / trailing silence item.
+  3. **Model variance, ≈ net 0:** 0373 365.651–370.432 "Just the first scan…" (his flag 3, `manual`) not proposed this time
+     (4.781 s); gained 0376 168.05–172.08 the stray "M" (`dead_air`, 4.03 s, now cut). Rest of "lost": 0373 188.6–189.0 0.4 s,
+     0375 15.1–15.3 0.2 s, three ≤ 0.15 s pieces.
+  Counterfactuals (same capture, arithmetic only): applied + the six items → 0.8956; + the head / tail silences → applied
+  0.8874, all proposed ≈ 0.9125; both → ≈ 0.9107 applied. **Both mechanisms must be fixed for the applied cut to reach 0.905.**
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -470,8 +581,82 @@ B3's LIVE Auto Cut numbers (hard 1 / 164 at tight, whole clips) cannot be re-mea
   command (log `B7/kits-run2.log`) → `Test Files 3 passed (3) · Tests 3 passed (3)`; `compare-kits.mjs` → preset only
   `natural + 1 override · preset “YouTube long-form” 15b4f39a`; **all five B2 edges `d 0 / 0 ms`**; B1, B3 `NONE` again.
 - No `npm run check:types` / targeted vitest needed for step 5: no tracked file changed except HANDOFF.md and LOG.md.
+- 2026-10-23 · builder #10 · step 6 · guard (the orchestrator's relaxed form) `powershell -NoProfile -Command "$os=…"` →
+  15:05 `3.848 GB C:; commit 100.233 / 102.258` (sum 5.873 → `B7/gate-wait.ps1` in the background) → `GATE MET` 15:05:46 (sum
+  6.004); before the launch 15:08:54 sum 6.011; after setup (app up) `3.829; 101.385 / 102.258`. D: 30.3 → 29.4 GB.
+- `robocopy …b-root\projects\video-14-raw …\B7\root\projects\video-14-raw /E` → `Files 41 41 … Bytes 579.40 m`, exit 1;
+  `Get-FileHash` both `EBE94FD77F17895993F7D8159E294DB75E52FD515765B751C78EB2C635123DDA`, `equal: True`. `robocopy
+  …profiles\source\profile …\B7\profile /E /XF settings.db settings.db-wal settings.db-shm` → `Files 2328 2325 3`, exit 1;
+  `Test-Path` ×3 → `False`.
+- `node .vidtsx-temp/end-to-end/B7/repoint-kit.mjs` → every replacement `ok` or already in place ("all replacements in place");
+  `grep -nE 'B6|9331|track-B-exit'` over the seven kit files → only the "copied from" comment lines; `node --check run.mjs` ok;
+  `python -I -B .vidtsx-temp/end-to-end/B7/measure.py --selftest` → `selftest OK: P=H, P=empty, P=keeps, 0370 hand case, 0.3 s
+  boundary in ms, flag entries 1-6; H total 813.315 s over 9 clips; …`.
+- `node …/B7/probe.mjs ready` → `{"readyAfterMs": 75475, "root": {"root": "D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/root"}}`;
+  `probe.mjs providers` → `{"active": "claude-subscription", "providers": [], "keys": ["providers","activeProvider","presets"]}`.
+  `probe.mjs turn` NOT run (the budget is the pass).
+- `node …/B7/run.mjs setup` (log `…\B7\run\setup.log`) → `V1 0366@0.000+20.288 | 0369@20.288+47.698 | … | 0376@1100.298+182.849`,
+  `length s 1283.148 settings {"width":3840,"height":2160,"fps":60,"agent":{}} proposals 0 transcripts [["0366","ready",27],…,
+  ["0376","ready",290]]`, `chat messages 0`.
+- `run.mjs loop "Cut this video."` → `loop1.log` ends `loop ends: applied, no auto-continue (no [next:] marker)` after turn 1;
+  `run.mjs loop "Move on."` → `loop2.log` turns 2–8, same end; `run.mjs loop "Yes, run Auto Cut for the pauses on all nine
+  clips."` → `loop3.log` turns 9–17, same end. `turns.jsonl` 17 lines; `proposals-raw.json` 17 cards.
+- `node …/B7/summarize-run.mjs` → `{"turns":17,"modelS":345,"inTok":64662,"outTok":20298,"cacheRead":2629604,"costUsd":4.01,
+  "cards":17,"items":198,"itemsEditorial":35,"itemsAutocut":163,"qaUnchecked":6,"appliedItems":190,"editorialApplied":27,
+  "autocutApplied":163,"finalV1Clips":187,"finalV1Seconds":534.285}` + the per-turn / per-card lines in the table above; writes
+  `proposals-accepted.json` (190 items = the items still `accepted` on a card whose disk status is applied / partial).
+- `python -I -B .vidtsx-temp/end-to-end/B7/exit_check.py` (stdout `…\B7\exit-run1.out`) → `hard_entries.produced_total 0`,
+  `produced_real_joins_checked 137`, per clip all 0, `hasan_plan_total 0 / 134`; `by_join_class` autocut-only 0 / 107, clip-start
+  0 / 6, editorial 0 / 24 (`over15_any_join` 2 — non-real joins ≤ 0.75 s); `card_qa_hard_entries` editorial 6 / autocut 0;
+  geometry real joins incl. clip edges lead 0.15 vs 0.15, tail 0.21 vs 0.214 (`diff ms {'lead': 0.0, 'tail': -4.0}`), inner
+  only `{'lead': 0.0, 'tail': 0.0}`.
+- `python -I -B .vidtsx-temp/end-to-end/B7/measure.py C:/…/B7/run/proposals.json C:/…/B7/measure` → `"H": 813.315, "P": 775.213,
+  "PH": 729.857, "overlap": 0.8974, "precision": 0.9415, "autocut_overlap": 0.4413, "editorial_overlap": 0.4945`; same on
+  `proposals-accepted.json` → `…\B7\measure-accepted` → `"P": 748.725, "PH": 709.491, "overlap": 0.8723, "precision": 0.9476,
+  "editorial_overlap": 0.4311`.
+- `python -I -B .vidtsx-temp/end-to-end/B7/overlap-causes.py` → `{"H": 813.315, "b6": 735.952, "b7": 709.491, "b7_all": 729.857,
+  "b7_plus_qa": 728.427, "lost": 33.727, "gained": 7.266, "lost_in_qa": 15.049, "lost_in_fluff": 0.0, "lost_rest": 18.678,
+  "qa_H": 36.995, "qa_H_not_applied": 18.936, …}`; `lost (not QA / fluff) by cat: {"retake": {"n": 8, "s": 12.112}, "unlisted":
+  {"n": 3, "s": 1.612}, "pause": {"n": 1, "s": 0.14}, "manual": {"n": 1, "s": 4.781}}`. Words at the six cut-ins from Hasan's
+  `work/transcripts/<clip>.json` (scratch `…\B7\qa-items.py` + one inline read; read-only).
+- Processes after the stop: `left: 0`, `electron total: 0`; watchdog `watchdog procs: 0`. `git status --short` → only
+  `docs/studio/end-to-end/B7/HANDOFF.md` (no `src/` change). No vitest / check:types run (exit not met → no gates; no tracked
+  code changed).
 
 ## Next step (ONE concrete instruction)
+
+**Step 7 — fix the two mechanisms that cost the overlap, each red-first from the live run's real cases (decision 3), in the shared
+code every consumer uses; then hand back so the orchestrator decides the exit re-run** (a fresh live pass of the FIXED code is
+the exit run of step 7, not a retry of step 6 — step 6's one pass is spent and was not broken by the harness). Both are needed:
+the arithmetic in Done › Step 6 gives applied 0.8874 with (a) alone, 0.8956 with (b)'s six items alone, ≈ 0.9107 with both.
+
+(a) **Wordless keeps under Auto Cut over the timeline.** In `runCutPlan` (`src/main/services/studio/cut-plan-runner.ts:77`, the
+one path of the button and `run_auto_cut`): a timeline keep that holds no transcript word (by word midpoint) gets no segment —
+leave it out of the keeps handed to `planCuts`, keep it in `plan.keeps` and the QA, so `planCutSpans` makes it one item ("an empty
+keep is one item", `cut-proposal.test.ts:113`) — what whole-clip Auto Cut always did with the stretch before the first word and
+after the last. NOT in `planClip` (`cut-planner.ts:72-74`: B1's cutlib reproduction relies on a wordless keep kept whole). Red test
+in `cut-plan-runner.test.ts`: keeps [0, 3.62] (no word) + [7.928, 20] → no segment inside [0, 3.62], the card has item [0, 3.62],
+the headline counts it. Real cases: 0375 [0, 3.62], 0370 [0, 1.83], 0371 [0, 2.67], 0372 [0, 2.5], 0376 [0, 1.55], 0373
+[394.899, 396.246].
+
+(b) **An authored end in continuous speech.** In `landCutEnd` (`src/shared/studio/cut-snap-landing.ts`, step 2b of `cut-snap.ts`;
+today a no-op when the span ends mid-word): when the authored end lies inside a word, or in an inter-word gap too short for the
+style's lead-in + `QA_ENTRY_LOOKBACK_S` (no quiet cut-in before the next word), move it to the NEAREST inter-word gap — backward
+or forward, by time from the authored end — that is long enough and whose cut-in window reads ≤ `QA_HARD_ENTRY_DB` over the floor,
+then let the existing rule land it in that gap. Where it must land (Hasan's hand in brackets): 0371 33.6 → before "uh" (gap
+33.335–33.55) [33.535]; 0371 182.0 → before "so" (181.153–181.492) [181.413]; 0373 30.0 → before "and" (28.994–29.461) [29.354];
+0375 18.3 → before "The" (17.536–18.07) [17.996]; 0375 195.1 → FORWARD after "take," (195.599–195.839) [195.799]. And 0376 119.374
+(the open problem "onset earlier than its token"): cap the landing at the kept word's `snapHead`-walked onset, not token − 0.01.
+Fixtures: add the six windows to `cut-snap-b7.fixture.json` with `extract-b7.mjs` re-pointed read-only at
+`.vidtsx-temp/end-to-end/B7/root` + `…\vidtsx-e2e\B7\run\` (spans = the snapped items in `proposals-raw.json`; authored ends in
+`turns.jsonl` args, kept whole this time). First run the rule on the fixtures by a probe: if "nearest quiet gap" does not give
+all six, write what does under Open problems BEFORE coding.
+
+Then, as after every snap change: the 26-file cut set (Verified, builder #6) + `editorial-cuts-b7.test.ts` green; the decision-4
+kits (builder #9's one command + `compare-kits.mjs`: B1 348/352, B3 0/0 + 178/181, B2's five edges — expect unchanged; B2's delete
+goes through `landCutEnd`); `npm run check:types` web 26 / node 10. Guard before every test command.
+
+## Next step — superseded (kept for reference: builder #9's live-run instruction, DONE as step 6)
 
 **Run the live exit run (decisions 5 + 6, with the orchestrator's 15:00 amendment) and measure it — but START ONLY when the
 guard reads C: ≥ 3 GB AND (C: free + commit headroom) ≥ 8 GB** (headroom = total − used in the guard line). At builder #9's
@@ -566,6 +751,20 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
+- **NEW (step 6) — the exit is NOT met on overlap:** 0.8974 all proposed / 0.8723 applied vs ≥ 0.905 (hard entries 0 / 137 and
+  the medians are met). Causes and per-cut numbers in Done › Step 6; the fix is step 7 (Next step). For the orchestrator: (1) a
+  re-run of the exit after step 7 needs a new live pass (one more keyless subscription pass, ~345 s model time, ~$4 notional) —
+  your call, as decision 5 budgeted one; (2) item 5's rule by itself costs overlap whenever a flagged cut stays unchecked — after
+  step 7 (b) any still-flagged cut is a real bad join the user must hear, and the overlap bar is measured on the applied cut, so a
+  cut the snap cannot fix will count against the bar. If you want the bar measured on all PROPOSED items (B6's headline) instead,
+  say so; step 7 (a) alone brings that one to ≈ 0.9125.
+- **NEW (step 6), model behaviour, not fixed:** turn 1's reply had no `[next: …]` marker although it was the first step of a
+  multi-step run (the prompt rule `studio-agent-prompt-tools.ts:81`), so the editor did not auto-continue and the user had to type
+  `Move on.`; turn 8 also ended without one (it offered Auto Cut — the same as B6). B6's turn 1 had it. Model variance; a finding
+  for the prompt, not an exit item.
+- **NEW (step 6), not fixed:** the 0373 tail after the unchecked fluff "Okay," — produced [394.899, 396.246] without words (1.35 s)
+  — is the same wordless-keep mechanism as the clip heads (step 7 (a) covers it). The wordless gap 391.988–393.36 between the
+  accepted retake and that fluff (noted before) stays as it was.
 - **Resource guard (blocks the live pass, scratch copies, the full suite):** builder #5 read C: 5.4 → 4.4 GB and
   commit 98.5–98.9 of 100.2–101.3 GB (headroom ~1.5–2.4 GB; the page file grew while `check:types` ran). The live
   exit run needs (orchestrator 15:00, supersedes this file's header gate) C: ≥ 3 GB AND C: free + commit headroom ≥ 8 GB,
@@ -625,6 +824,12 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 6 (the live exit run) is DONE and measured — its ONE pass is spent (not harness-broken): don't re-run it on the same code
+  and don't re-measure it; every number is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\` (`run\` capture + `run-summary.json`,
+  `exit\exit-check.json` + `produced-joins.json`, `measure\`, `measure-accepted\`, `overlap-causes.json`). The scratch
+  (`.vidtsx-temp/end-to-end/B7/root`, `B7/profile` — no `settings.db`) now holds the APPLIED run: a new exit pass needs a FRESH
+  copy (Done › Step 6's two robocopy commands into empty folders), never this one. The kit (`run.mjs` … `exit_check.py`,
+  `repoint-kit.mjs`, `watchdog.ps1`, `gate-wait.ps1`, `summarize-run.mjs`, `overlap-causes.py`) is ready as is.
 - Step 5 (the decision-4 kits) is DONE: B1 / B3-offline reports equal to the recorded ones as JSON, B2's five edges equal. Don't
   re-run them unless `cut-planner` / `cut-qa` / `rms-envelope` / `cut-snap*` / `text-delete` / `editorial-cuts` change again — then
   the one command in Verified (builder #9) + `node .vidtsx-temp/end-to-end/B7/compare-kits.mjs`.
@@ -678,3 +883,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   (the landing fires on B2's delete but inside a 3.9 s pause); found B2's preset drift (input, not code) and the profile's
   `settings.db` vs. the credential rule (Open problems); wrote the live exit run as the Next step. No `src/` change, no app, no
   model call. C: 3.8 GB, commit 99.9–100.1 / 102.3 GB throughout.
+- 2026-10-23 · builder #10 · ~60 calls · step 6: the live exit run under the relaxed gate (waited for sum ≥ 6 GB; watchdog armed, never
+  fired, C: min 2.811 GB): M2 + profile (no `settings.db`) copied to D:, kit copied + re-pointed, keyless `claude-subscription`
+  confirmed, B6's setup reproduced, ONE pass of 17 turns (typed `Cut this video.`, `Move on.` — the model's turn 1 had no `[next:]`
+  marker — and B6's Auto Cut yes), every card captured before a real-click answer; measured: hard entries 0 / 137 ✓, medians 0 /
+  −4 ms ✓, overlap 0.8974 / 0.8723 ✗; attributed the gap (six QA-unchecked authored ends in continuous speech; wordless clip-head
+  keeps kept whole by Auto Cut over keeps); wrote step 7. No `src/` change; app, watchdog stopped (0 left).
