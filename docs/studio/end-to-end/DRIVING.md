@@ -175,6 +175,19 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   (outside the worktree's tree). Profiles: `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>…\profile`,
   copied from `profiles\source\profile` WITHOUT `settings\settings.db*`. The library root of such a profile
   is `<profile>\assets` — confirm from the running app before any library write.
+- **The vitest gate from the worktree (orchestrator, 2026-10-23 20:50):** three files cannot resolve
+  packages from a worktree with no `node_modules` of its own — `builder-libraries.test.ts` (`@remotion/paths
+  … is not installed`), `shot-bundle.test.ts` and `shot-bundle-in-place.test.ts` (esbuild `Could not resolve
+  "chroma-js"` …); they look under `<root>/node_modules` only. A `node_modules` junction in the worktree was
+  **refused by the permission classifier** (shared resource) — do not create one, copy one or work around
+  it. Rule: the counted full run is the worktree run (`--maxWorkers=2` while headroom < 10 GB), green
+  except those three files, each failing ONLY with a package-resolution error; for those three, (a) try
+  them on the worktree's code with `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --root
+  D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E/wt <the three files>` started from the MAIN checkout's
+  directory, only after reading that none of the three writes relative to `process.cwd()` (≤ 5 tool calls;
+  nothing may be written into the main checkout); if that does not resolve them, (b) show they are
+  independent of track E's diff (none of the files `git diff --name-only 5d77600..HEAD` lists is in their
+  import graph) and say so in STATUS. Any other failure is real (DRIVING's load-timeout rule still applies).
 - Launch recipe from the worktree: (the first builder who launches writes the working one here.)
 
 ## video-14 (track A, from A3 on) — orchestrator rules

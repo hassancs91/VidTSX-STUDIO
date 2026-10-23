@@ -34,7 +34,7 @@
 | D3 | TODO | | | | | |
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
-| E1 | BUILDING (worktree `end-to-end-p0-e`, see "Session 4 — track E") | 1 | | | | 2026-10-23 20:25 / |
+| E1 | BUILDING (worktree `end-to-end-p0-e`, see "Session 4 — track E") | 3 | | | | 2026-10-23 20:25 / |
 | E2 | TODO | | | | | |
 | E3 | TODO (runs after E4) | | | | | |
 | E4 | TODO (runs before E3) | | | | | |
@@ -714,5 +714,12 @@
 - **E-d9 Model calls** only where a part needs them (E3's whoosh case, the track-E exit), through the
   isolated instance's keyless `claude-subscription` (a profile without `settings.db` defaults to it, as in
   B6/B7); a handful of turns.
+- **E-d2a (20:50) The vitest gate from the worktree:** three files fail there only on package
+  resolution (`builder-libraries`, `shot-bundle`, `shot-bundle-in-place` — they look under
+  `<root>/node_modules`). The orchestrator's `node_modules` junction in the worktree was **refused by the
+  permission classifier** ("Modify Shared Resources"); not worked around. Rule in DRIVING.md "Track E": the
+  worktree run green except those three, each failing only on resolution; for them `--root <wt>` from the
+  main checkout's directory if it writes nothing there, else an import-graph independence check; stated in
+  STATUS. Hasan: allowing that junction would make the worktree gate whole.
 - **E-d10 TESTING §18 numbering:** E1 → 18.14, E2 → 18.15, E4 → 18.16, E3 → 18.17; C, D, F (later)
   continue from 18.18. Status.md rows at the top as usual — in the worktree's `Status.md`.
