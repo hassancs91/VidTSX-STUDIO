@@ -56,6 +56,12 @@ export interface SnapCutSpansInput<C extends string> {
    * different keys, only gaps up to MERGE_SILENT_KEEP_MAX merge.
    */
   mergeKey?: (category: C) => string;
+  /**
+   * B7 step 7: an end authored in continuous speech moves to the nearest quiet
+   * inter-word gap before it lands (cut-snap-landing `seekQuietGap`). The
+   * editorial pass sets it; Transcript deletes do not (the user picked the words).
+   */
+  seekQuietGap?: boolean;
 }
 
 export interface SnapCutSpansResult<C extends string> {
@@ -200,6 +206,7 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
       style: base,
       envelope: input.envelope,
       minGap: MIN_CUT_SPAN,
+      seekQuietGap: input.seekQuietGap,
     });
     if (Math.abs(end - merged[j].end) > 0.02) moved++;
     merged[j].end = end;

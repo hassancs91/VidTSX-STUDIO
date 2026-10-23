@@ -110,6 +110,25 @@ describe('runCutPlan (B2: resolved style in, keyed plan file out)', () => {
     expect((proposal.agentNote ?? '').split('\n')[0]).toContain(`of ${(1.5 + 2.05).toFixed(1)} s`);
   });
 
+  it('a timeline keep that holds no word gets no segment: the card proposes it whole and the headline counts it (B7 step 7)', async () => {
+    const cut = resolved('tight');
+    // Applied cuts removed "Hello there." (0–1.0 s) and 2.5–2.9 s; 1.0–2.5 s is room tone left on the timeline —
+    // the step-6 run's clip heads (0375 [0, 3.62], 0370 [0, 1.83], …) and 0373's tail are such keeps.
+    const keeps = [
+      { start: 1.0, end: 2.5 },
+      { start: 2.9, end: 5 },
+    ];
+    const { plan } = await runCutPlan('p1', 'a1', 'src.mp4', cut, keeps);
+    expect(plan.keeps).toEqual(keeps);
+    expect(plan.segments.some((s) => s.end > 1.0 + 1e-6 && s.start < 2.5 - 1e-6)).toBe(false);
+    expect(plan.segments[0].start).toBe(2.9);
+    // The QA reads the plan's own atoms: no clipped tail for a keep the plan does not keep.
+    expect(plan.qa?.atomsChecked).toBe(1);
+    const proposal = buildCutProposal({ plan, words: [] });
+    expect(proposal.items.some((i) => i.sourceStart === 1.0 && i.sourceEnd === 2.5)).toBe(true);
+    expect((proposal.agentNote ?? '').split('\n')[0]).toContain('of 3.6 s');
+  });
+
   it('keeps that cover the whole source plan exactly as without keeps (B7)', async () => {
     const cut = resolved('tight');
     const whole = await runCutPlan('p1', 'a1', 'src.mp4', cut);

@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioTimeline } from '../types/studio';
-import { cutsBetweenKeeps, keepsTag, keepsTotal, normalizeKeeps, sourceKeepsAfter, timelineKeepsForAsset } from './cut-keeps';
+import {
+  cutsBetweenKeeps,
+  keepsTag,
+  keepsTotal,
+  keepsWithWords,
+  normalizeKeeps,
+  sourceKeepsAfter,
+  timelineKeepsForAsset,
+} from './cut-keeps';
+
+describe('keepsWithWords (B7 step 7)', () => {
+  it("drops the keeps that hold no word — the step-6 run's clip heads and 0373's tail", () => {
+    const words = [
+      { start: 7.95, end: 8.2 },
+      { start: 8.3, end: 8.6 },
+      { start: 19.0, end: 19.4 },
+    ];
+    expect(
+      keepsWithWords(
+        [
+          { start: 0, end: 3.62 },
+          { start: 7.928, end: 20 },
+        ],
+        words,
+      ),
+    ).toEqual([{ start: 7.928, end: 20 }]);
+    expect(keepsWithWords([{ start: 394.899, end: 396.246 }], [{ start: 393.36, end: 394.6 }])).toEqual([]);
+  });
+
+  it('a word straddling a keep edge belongs to the keep holding its midpoint', () => {
+    const words = [{ start: 3.5, end: 3.8 }];
+    const keeps = [
+      { start: 0, end: 3.62 },
+      { start: 3.62, end: 5 },
+    ];
+    expect(keepsWithWords(keeps, words)).toEqual([{ start: 3.62, end: 5 }]);
+  });
+});
 
 function clip(id: string, kind: StudioClip['kind'], assetId: string, sourceIn: number, duration: number, speed?: number): StudioClip {
   return { id, kind, assetId, start: 0, duration, sourceIn, ...(speed ? { speed } : {}) } as unknown as StudioClip;

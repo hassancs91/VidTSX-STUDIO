@@ -12,7 +12,7 @@ import { readTranscriptFile } from './asset-transcriber';
 import { generateWaveform, waveformRelPath } from './waveform-generator';
 import { RmsEnvelope, planCuts } from '../../../shared/studio/cut-planner';
 import { qaForPlan } from '../../../shared/studio/cut-qa';
-import { cutsBetweenKeeps, keepsTag, normalizeKeeps, type CutKeep } from '../../../shared/studio/cut-keeps';
+import { cutsBetweenKeeps, keepsTag, keepsWithWords, normalizeKeeps, type CutKeep } from '../../../shared/studio/cut-keeps';
 
 export const CUT_PLAN_DIR = 'cut-plans';
 
@@ -88,6 +88,10 @@ export async function runCutPlan(
 
   const duration = envelope.duration();
   const keeps = normalizeKeeps(timelineKeeps, duration);
+  // B7 step 7: a keep with no word gets no segment — the planner only sees the
+  // keeps that hold speech, the rest count as cut (so `planCutSpans` proposes
+  // each wordless keep as one item: `plan.keeps` keeps them all).
+  const spoken = keeps ? keepsWithWords(keeps, transcript.words) : undefined;
   const planned = planCuts({
     assetId,
     createdAt: new Date().toISOString(),
@@ -105,17 +109,18 @@ export async function runCutPlan(
     envelope,
     sttModelId: transcript.sttModelId,
     features: transcript.features,
-    ...(keeps ? { keeps, cuts: cutsBetweenKeeps(keeps, duration) } : {}),
+    ...(spoken ? { keeps: spoken, cuts: cutsBetweenKeeps(spoken, duration) } : {}),
   });
   // B3: analyze_cut's two checks on the plan just made — over the keeps
-  // planCuts used (B7: the timeline's; else one over the whole source) and
-  // the knobs it used.
+  // planCuts used (B7: the timeline's that hold speech; else one over the
+  // whole source) and the knobs it used. A wordless keep is no atom of the
+  // plan, so it has no tail to check.
   const plan: StudioCutPlan = {
     ...planned,
     ...(keeps ? { keeps } : {}),
     qa: qaForPlan({
       segments: planned.segments,
-      keeps: keeps ?? [{ start: 0, end: duration }],
+      keeps: spoken ?? [{ start: 0, end: duration }],
       words: transcript.words,
       style: planned.style,
       envelope,

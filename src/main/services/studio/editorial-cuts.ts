@@ -45,7 +45,9 @@ function editorialMergeKey(category: EditorialCategory): string {
 
 /** The shared snapper (src/shared/studio/cut-snap.ts), typed to the agent's categories. */
 export function snapEditorialCuts(input: SnapEditorialCutsInput): SnapEditorialCutsResult {
-  return snapCutSpans({ mergeKey: editorialMergeKey, ...input });
+  // B7 step 7: the model's edges are estimates ("needs an ear") — an end it
+  // put in continuous speech moves to the nearest quiet gap.
+  return snapCutSpans({ mergeKey: editorialMergeKey, seekQuietGap: true, ...input });
 }
 
 export interface BuildEditorialProposalInput {

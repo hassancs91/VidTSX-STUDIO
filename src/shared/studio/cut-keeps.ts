@@ -94,6 +94,25 @@ export function normalizeKeeps(
   return whole ? undefined : clamped;
 }
 
+/**
+ * The keeps that hold at least one transcript word (by the word's midpoint).
+ * B7 step 7: after an editorial apply, the stretch before a clip's first cut
+ * (and after its last) is a wordless keep on the timeline; the planner keeps a
+ * wordless keep whole (B1's cutlib rule), so Auto Cut over the keeps left it in.
+ * Whole-clip Auto Cut always cut that silence — this restores it.
+ */
+export function keepsWithWords(
+  keeps: readonly CutKeep[],
+  words: readonly { start: number; end: number }[],
+): CutKeep[] {
+  return keeps.filter((k) =>
+    words.some((w) => {
+      const mid = (w.start + w.end) / 2;
+      return mid >= k.start && mid < k.end;
+    }),
+  );
+}
+
 /** The spans between the keeps inside `[0, duration]` — what applied cuts removed. */
 export function cutsBetweenKeeps(keeps: readonly CutKeep[], duration: number): CutKeep[] {
   const out: CutKeep[] = [];

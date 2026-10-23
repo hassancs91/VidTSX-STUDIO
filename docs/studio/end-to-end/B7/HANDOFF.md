@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING — exit NOT MET (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; next: step 7 = the two overlap mechanisms — see Next step)
+status: BUILDING — exit NOT MET yet (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); next: the orchestrator's fresh live pass — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -498,6 +498,74 @@ B3's LIVE Auto Cut numbers (hard 1 / 164 at tight, whole clips) cannot be re-mea
   Counterfactuals (same capture, arithmetic only): applied + the six items → 0.8956; + the head / tail silences → applied
   0.8874, all proposed ≈ 0.9125; both → ≈ 0.9107 applied. **Both mechanisms must be fixed for the applied cut to reach 0.905.**
 
+### Step 7 (b) — the probe, BEFORE coding (builder #11, 2026-10-23; analysis only)
+
+Fixture: `.vidtsx-temp/end-to-end/B7/extract-b7-s7.mjs <old fixture> <out>` (read-only over the step-6 scratch
+`B7/root` + `…\vidtsx-e2e\B7\run\`): adds clips 0371 / 0376 and `speechCases` = per case the real buckets of
+`[snapped item start − 1.5, end + 3]`, the words, the AUTHORED spans (`turns.jsonl` args, complete this time — 1,265–1,735
+chars) and the snapped items. Probe `.vidtsx-temp/end-to-end/B7/probe-b7-s7.mjs <fixture>` (replicates `rms-envelope.ts` +
+`landCutEnd` at the shipped tight; a candidate gap = two consecutive words ≥ `head + QA_ENTRY_LOOKBACK_S` = 0.21 s apart, landed
+by today's rule with the end at the gap's far word, quiet = the cut-in's QA window ≤ +15 dB):
+
+| Case (authored span) | Trigger | Nearest quiet gap by time | Word rule (decision 10) | Lands (QA dB) | Hasan |
+|---|---|---|---|---|---|
+| 0371 31.38–33.6 | short gap "uh"→"a" 0.043 s | back 33.335–33.55 (0.05 s away) | no straddled word → nearest | **33.535** (+5.7) | 33.535 |
+| 0371 174.86–182 | inside "simply" (0.121 in / 0.492 kept) | back 181.153–181.492 (0.508) | back (mostly kept) | **181.433** (+4.9) | 181.413 |
+| 0373 25.1–30.0 | inside "up" (0.056 / 0.138) | back 28.994–29.461 (0.539) | back | **29.311** (+5.6) | 29.354 |
+| 0375 15.3–18.3 | inside "same" (0.149 / 0.19) | back 17.536–18.07 (0.23) | back | **17.92** (+1.4) | 17.996 |
+| 0375 190.8–195.1 | inside "other" (0.159 / 0.081) | fwd 195.599–195.839 (0.499) | fwd (mostly inside) | **195.779** (+5.8) | 195.799 |
+| 0376 117.13–118.9 | none (0.644 s gap) | — | — | onset cap: **119.074** (+14.5; today 119.374 +18.5) | — |
+
+**"Nearest quiet gap by time" and the word rule give the same gap on all five; no case differs.** 0376: the gap holds +14–19 dB
+sound throughout (20 ms profile), "These"'s walk-back runs the full maxHead (onset 119.084); capping the landing at that onset − 0.01
+lands it at +14.5 dB (under 15 by 0.5 dB — marginal, the real QA decides in the test). The onset cap moves NONE of the step-1 cases
+(0373 204.069's walk stops at the token → 204.209 kept; all ten step-1 span ends equal).
+
+### Step 7 — the two overlap mechanisms, red-first (builder #11, 2026-10-23, commit: the step-7 commit on top of `5c5434b`)
+
+**(a) Wordless keeps under keeps-limited Auto Cut** — new pure op `keepsWithWords(keeps, words)` (`src/shared/studio/cut-keeps.ts:104`,
+a keep stays when a word's MIDPOINT lies in `[start, end)`). `runCutPlan` (`src/main/services/studio/cut-plan-runner.ts:94`) hands
+`planCuts` only the spoken keeps (`keeps: spoken, cuts: cutsBetweenKeeps(spoken, …)`, :112) and stamps ALL timeline keeps on
+`plan.keeps` (unchanged line) → `planCutSpans` proposes each wordless keep as one item and the headline counts it. One path for the
+button and `run_auto_cut` (both call `runCutPlan`). `planClip` untouched (B1's wordless-atom rule). **Deviation from the Next step's
+wording (on purpose):** the plan's QA reads the SPOKEN keeps (:123), not all keeps — the QA re-derives the planner's atoms from its
+keeps, and a wordless keep the plan does not keep would be checked for a clipped tail it does not have (the red test pins
+`atomsChecked 1`); whole-clip Auto Cut's QA never had such an atom either.
+
+**(b) An authored end in continuous speech** — `src/shared/studio/cut-snap-landing.ts` (129 lines): `landCutEnd` (:50) =
+`landAt(input, seekQuietGap ? endOutOfSpeech(input) : span.end)`; `landAt` (:54) is the old body plus the **onset cap** (:63-70): with
+`style.maxHead`, the kept word's walked onset (`snapHead(kept.start, 0, maxHead, …)`; a walk that reached maxHead → `kept.start −
+maxHead`) − 0.01 caps the landing when it lies past the removed word's end `a` (else the old `kept − 0.01` stays, so a walk that runs
+back into the removed word changes nothing). `endOutOfSpeech` (:103): only when the end is inside a word or in a gap shorter than
+`style.head + QA_ENTRY_LOOKBACK_S` (and the word before it is inside the span); candidates = inter-word gaps ≥ that length whose near
+word is inside the span and that start before the next cut, within `QUIET_GAP_SEEK_S = 1.5` s (:37) of the authored end; a straddled
+word fixes the side (decision 10, :113: more of it inside → after it, else before); each candidate is landed by `landAt` with the end at
+its far word and kept only if the landed cut-in's QA window (`rmsDb(landed − 0.06, 0.05)`) reads ≤ floor + `QA_HARD_ENTRY_DB`; the
+nearest by time wins. **Editorial only:** new optional `SnapCutSpansInput.seekQuietGap` (`cut-snap.ts:61-64`, passed at :209);
+`snapEditorialCuts` sets it (`editorial-cuts.ts:50`); Transcript deletes do not (the user picked the words — pinned by a test). The
+onset cap applies to both.
+
+**Real-code ends** (`print-s7.b7.test.ts` → `…\vidtsx-e2e\B7\s7-landed.json`; starts unchanged): 0371 33.633 → **33.535** (Hasan
+33.535), 182.37 → **181.432** (181.413), 0373 30.0 → **29.311** (29.354), 0375 18.3 → **17.92** (17.996), 195.1 → **195.779** (195.799),
+0376 119.374 → **119.084** (the item end = planClip's segment start, the full 0.3 s maxHead pad before "These"); card QA hard 0 at all
+six joins; each starts **checked**.
+
+**Tests (red first — Verified):** new `src/main/services/studio/editorial-cuts-b7-speech.test.ts` (170 lines, 20 tests: per case the
+end lands in the expected gap and within 0.1 s of Hasan's hand, the card's QA has no hard entry at the join and the item is `accepted`
+with no `qaFlag`, the produced cut — card applied + Auto Cut over the keeps — has no hard entry within 1 s; a Transcript delete without
+the seek keeps 0373's mid-word 30.0); `cut-plan-runner.test.ts:113` (keeps [1.0, 2.5] wordless + [2.9, 5]: no segment in the
+wordless keep, `segments[0].start 2.9`, `qa.atomsChecked 1`, the card has item [1.0, 2.5], headline "of 3.6 s");
+`cut-keeps.test.ts:13` (2 tests: the step-6 run's 0375 head [0, 3.62] and 0373 tail dropped; a straddling word goes with its
+midpoint). Fixture `src/shared/studio/cut-snap-b7.fixture.json` 21.5 → 63.6 KB (old content unchanged; + clips 0371 / 0376 and
+`speechCases`), made by `.vidtsx-temp/end-to-end/B7/extract-b7-s7.mjs`. **No existing expectation changed.**
+
+**Expected overlap on the step-6 capture (arithmetic, no model run):** `python -I -B .vidtsx-temp/end-to-end/B7/expected-overlap-s7.py`
+(the six items re-landed by the real code and applied; every wordless keep the applied editorial items leave — 0366 [0, 0.06], 0370
+[0, 1.83], 0371 [0, 2.67], 0372 [0, 2.5], 0373 [394.899, 396.245], 0375 [0, 3.62], 0376 [0, 1.55] — proposed by Auto Cut and applied,
+as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0.9123** (P∩H 742.017 of 813.315 s, precision 0.949),
+**all proposed 0.9141**; (a) alone 0.8890, (b) alone 0.8956 — both clear the 0.905 bar only together, as step 6 predicted
+(0.9107 estimated then). Model variance (step 6: ≈ net 0, ±4.8 s per call) is not in this number.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -636,8 +704,53 @@ B3's LIVE Auto Cut numbers (hard 1 / 164 at tight, whole clips) cannot be re-mea
 - Processes after the stop: `left: 0`, `electron total: 0`; watchdog `watchdog procs: 0`. `git status --short` → only
   `docs/studio/end-to-end/B7/HANDOFF.md` (no `src/` change). No vitest / check:types run (exit not met → no gates; no tracked
   code changed).
+- 2026-10-23 · builder #11 · step 7 · `node .vidtsx-temp/end-to-end/B7/extract-b7-s7.mjs src/shared/studio/cut-snap-b7.fixture.json
+  <scratchpad>/fixture-s7.json` → six cases, authored spans 31.38–33.6 / 174.86–182 / 25.1–30 / 15.3–18.3 / 190.8–195.1 / 117.13–118.9,
+  `bytes 63642`; `node …/B7/probe-b7-s7.mjs <fixture>` → the table in Done › Step 7 (b) — the probe; copied over the tracked fixture.
+- 2026-10-23 · builder #11 · guard `48.5 GB C: free; commit 101.3 / 103.3 GB` · RED first (tests written, no code): `npx vitest run
+  src/main/services/studio/editorial-cuts-b7-speech.test.ts src/main/services/studio/cut-plan-runner.test.ts
+  src/shared/studio/cut-keeps.test.ts --maxWorkers=2` → `Test Files 3 failed (3) · Tests 15 failed | 21 passed (36)`:
+  `keepsWithWords is not a function` ×2; runner `expected true to be false` (a segment inside the wordless keep); speech cases
+  `expected 33.633 to be less than 33.55`, `expected 182.37 to be less than 181.492`, `expected 30 to be less than 29.461`,
+  `expected 18.3 to be less than 18.07`, `expected 195.1 to be greater than 195.599`, and the card-QA test for all six (`expected [
+  { kind: 'hard-entry', …(3) } ] to deeply equal []`; 0376's end already lay in its gap); the Transcript-delete pin failed on a
+  field name in the test (`i.start` → `i.sourceStart`, test-only). The produced-cut tests passed red too (an unchecked item is not
+  applied → no join). After the fix (same guard) the 3 files + `editorial-cuts-b7.test.ts` → `Test Files 4 passed (4) · Tests 63
+  passed (63)`.
+- 2026-10-23 · builder #11 · guard `48.5 GB; 101.3 / 103.3` · `$env:B7_KITS='1'; npx vitest run --config
+  .vidtsx-temp/end-to-end/B7/vitest.b7.config.ts print-s7 --silent=false --maxWorkers=2` → `Tests 1 passed (1)`, writes
+  `…\vidtsx-e2e\B7\s7-landed.json` (ends in Done › Step 7). `python -I -B .vidtsx-temp/end-to-end/B7/expected-overlap-s7.py` →
+  `applied_b_only overlap 0.8956` · `applied_a_and_b 0.9123 (P 781.92, PH 742.017, precision 0.949)` · `all_a_and_b 0.9141` ·
+  `applied_a_only 0.889`; writes `…\vidtsx-e2e\B7\s7-expected-overlap.json`.
+- 2026-10-23 · builder #11 · guard `48.1 GB; 102.8 / 103.3` · `npx vitest run cut- text-delete text-restore rms-envelope
+  studio-agent-prompt CutQaReadout agent-chat-format editorial-cuts useStudioAgent run-auto-cut useTimeline apply- agent-actions
+  agent-tools studio-agent --maxWorkers=2` (builder #8's set ⊇ builder #6's 26 cut files; log `B7/vitest-s7.log`) → `Test Files 38
+  passed (38) · Tests 381 passed (381)` (= 358 + the 23 new).
+- 2026-10-23 · builder #11 · guard `28.6 GB; 102.6 / 104.3` (C: fell 48 → 28.6 GB and the page file grew between two commands; no
+  job of ours ran) · `$env:B7_KITS='1'; npx vitest run --config .vidtsx-temp/end-to-end/B7/vitest.b7.config.ts compare-b1 compare-b3
+  textdel-b2 --maxWorkers=2` (log `B7/kits-run3.log`) → `Test Files 3 passed (3) · Tests 3 passed (3)`; `node
+  .vidtsx-temp/end-to-end/B7/compare-kits.mjs` → B1 `joinsWithin 348 / 352, mergeFlips 2`, `whole-report differences: NONE`; B3
+  `refHard 0, studioHard 0, studioTails 178 / refTails 181`, `NONE`; B2 live / tight / presetNaturalHead / natural / editorial all
+  `d 0 / 0 ms` (the editorial delete's end 16.663 sits before a 3.9 s pause → no seek; the onset cap does not bind).
+- 2026-10-23 · builder #11 · guard `28.6 GB; 102.7 / 104.3` · `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline
+  26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`, exit 0 (first try). Then the step-7 commit.
 
 ## Next step (ONE concrete instruction)
+
+**The orchestrator's call (decision 9: this is the step-7 fix round's ONE fresh live pass; at most one more after it):** run the live
+exit run on the step-7 code exactly as step 6 did (Done › Step 6 = the recipe; the kit is ready), but on NEW scratch — never the step-6
+evidence: robocopy b-root's `projects\video-14-raw` and `profiles\source\profile` (`/XF settings.db settings.db-wal settings.db-shm`)
+into EMPTY `.vidtsx-temp/end-to-end/B7/pass2/root/projects/video-14-raw` and `.vidtsx-temp/end-to-end/B7/pass2/profile`; copy the kit
+(`run.mjs`, `cdp.mjs`, `probe.mjs`, `launch.sh`, `restore.ps1`, `measure.py`, `exit_check.py`, `summarize-run.mjs`, `overlap-causes.py`,
+`watchdog.ps1`) into `B7/pass2/` and re-point every path (root, profile, `…\vidtsx-e2e\B7\pass2\run`, `…\pass2\exit`, `…\pass2\measure*`,
+app log; port **9348**; grep the copies for `B7/root`, `B7/profile`, `9347`, `vidtsx-e2e\B7\run` → none left); same gate + watchdog
+(matching the pass2 profile path); type exactly `Cut this video.` (and `Move on.` / B6's Auto Cut answer when the model asks, as in
+step 6); measure with the pass2 copies of `exit_check.py` + `measure.py` (applied AND all proposed). **Expect:** hard entries 0, medians
+within ±30 ms, overlap on the applied cut ≈ 0.91 (0.9123 on step 6's model choices) — model variance can move it a few seconds of H;
+the six step-6 cases' kind (authored ends in continuous speech) should now start checked, and no clip should open on a wordless
+Auto Cut keep. Any new QA-unchecked item → record its authored span, words and dB as step 6 did (the next fix's red test).
+
+## Next step — superseded (kept for reference: builder #10's step 7 instruction, DONE as step 7)
 
 **Step 7 — fix the two mechanisms that cost the overlap, each red-first from the live run's real cases (decision 3), in the shared
 code every consumer uses; then hand back so the orchestrator decides the exit re-run** (a fresh live pass of the FIXED code is
@@ -765,7 +878,20 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
-- **NEW (step 6) — the exit is NOT met on overlap:** 0.8974 all proposed / 0.8723 applied vs ≥ 0.905 (hard entries 0 / 137 and
+- **NEW (step 7), for the orchestrator — choices made inside step 7 (not Hasan's; say if you want them otherwise):**
+  (1) the quiet-gap seek is EDITORIAL ONLY (`seekQuietGap`, set by `snapEditorialCuts`): a Transcript delete keeps the words the user
+  selected even when its end sits in continuous speech (QA still flags it; item 5's rule does not apply to text deletes). The 0376
+  onset cap applies to both. (2) New constant `QUIET_GAP_SEEK_S = 1.5` s — how far from the authored end the seek looks either way;
+  it also bounds how much kept speech a forward move can remove (all six real moves are 0.05–0.54 s). No gap within it → the end
+  stays and the card's QA unchecks the cut as before. (3) Auto Cut over keeps: the plan's QA reads the SPOKEN keeps (Done › Step 7 (a)).
+  (4) 0376 lands at +14.4 dB in a gap that never drops below +9 dB (breath / room) — 0.6 dB under the bar; the produced audio keeps
+  0.3 s of that sound before "These". Clean by the shipped QA, marginal by ear (Hasan's real-video test).
+- RESOLVED by step 7 (b) (pending the live pass): the six QA-unchecked authored ends of step 6. RESOLVED by step 7 (a): the wordless
+  clip heads / 0373 tail, and the older note that a user-made wordless keep survives Auto Cut whole (Auto Cut now proposes any
+  wordless timeline keep as one item; `planClip` itself still keeps a wordless keep whole for B1's cutlib reproduction). RESOLVED by
+  the onset cap: "`landCutEnd` lands 10 ms before the kept word's TOKEN… if the onset starts earlier" (0376 is that case).
+- **(step 6) — the exit is NOT met on overlap** (step 7 fixed both mechanisms; expected applied 0.9123 on the step-6 capture; needs
+  the fresh pass — Next step): 0.8974 all proposed / 0.8723 applied vs ≥ 0.905 (hard entries 0 / 137 and
   the medians are met). Causes and per-cut numbers in Done › Step 6; the fix is step 7 (Next step). For the orchestrator: (1) a
   re-run of the exit after step 7 needs a new live pass (one more keyless subscription pass, ~345 s model time, ~$4 notional) —
   your call, as decision 5 budgeted one; (2) item 5's rule by itself costs overlap whenever a flagged cut stays unchecked — after
@@ -838,6 +964,10 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 7 is DONE, green and committed: don't rebuild `keepsWithWords`, the runner's spoken-keeps rule, `endOutOfSpeech` / the onset
+  cap / `seekQuietGap`, or re-extract `speechCases` (`extract-b7-s7.mjs`). Touching cut-snap* / editorial-cuts / cut-plan-runner /
+  cut-keeps again → the Verified 38-file set + the decision-4 kits (one command + `compare-kits.mjs`) + check:types. The expected
+  overlap on the step-6 capture is `expected-overlap-s7.py` (re-run it only if a landing changes; it reads `s7-landed.json`).
 - Step 6 (the live exit run) is DONE and measured — its ONE pass is spent (not harness-broken): don't re-run it on the same code
   and don't re-measure it; every number is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\` (`run\` capture + `run-summary.json`,
   `exit\exit-check.json` + `produced-joins.json`, `measure\`, `measure-accepted\`, `overlap-causes.json`). The scratch
@@ -903,3 +1033,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   marker — and B6's Auto Cut yes), every card captured before a real-click answer; measured: hard entries 0 / 137 ✓, medians 0 /
   −4 ms ✓, overlap 0.8974 / 0.8723 ✗; attributed the gap (six QA-unchecked authored ends in continuous speech; wordless clip-head
   keeps kept whole by Auto Cut over keeps); wrote step 7. No `src/` change; app, watchdog stopped (0 left).
+- 2026-10-23 · builder #11 · ~40 calls · step 7: extracted the six step-6 cases (authored spans complete) + probed the rule BEFORE
+  coding (nearest quiet gap = decision 10's word rule on all five; 0376 needs the onset cap; no step-1 case moves); (a) `keepsWithWords`
+  + spoken keeps in `runCutPlan`; (b) `endOutOfSpeech` + onset cap in `cut-snap-landing.ts`, editorial-only `seekQuietGap`; 15 red →
+  green (23 new tests), 38 files 381/381, kits unchanged, check:types web 26 / node 10; no expectation changed; expected overlap on
+  the step-6 capture 0.9123 applied / 0.9141 all; committed. No app, no model call. C: 2.8 → 48.5 → 28.6 GB (not ours).
