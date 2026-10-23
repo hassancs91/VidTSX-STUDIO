@@ -7,6 +7,97 @@
 
 ---
 
+## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE
+
+- **What:** part E1 of `docs/studio/END_TO_END_PLAN.md` (track E, session 4; worktree branch `end-to-end-p0-e`, cut from
+  `end-to-end-p0` @ `5d77600` — orchestrator decision E-d1). Row: "Index v2: `kind`, `probe` on upsert, `tags`, `audio`,
+  `usedIn`; one kind table; migration". Exit: `list_assets(scope:'library')` shows durations for every audio file.
+  **Result: met.** On an isolated profile seeded in the PRE-E1 index format (written by the frozen pre-E1 code) with all
+  seven audio extensions + png + avif + mp4, after the migration the REAL `list_assets` handler prints a duration for
+  every audio file and the video, each within 10 ms of an independent ffprobe (index 0 ms off for all 11, printed ≤ 3.5 ms
+  = `toFixed(2)` rounding); a file added after the migration (upsert) and a reconcile pass (touched / moved / new) keep or
+  refresh `probe`.
+- **The code:**
+  - `cd978c3` — ONE extension → kind table `src/shared/media-kinds.ts` (`MEDIA_EXT_KIND`, `mediaKindOf`, …; the union of
+    the two old tables: `.opus .mts .m2ts .aac` in, `.avif` an image) replaces `media-import.ts`'s sets and the renderer's
+    `file-type.ts` table (`AssetCategory = LibraryAssetKind`); index types gain `kind? tags? audio? usedIn?` on entries and
+    tombstones (tombstones also `probe?`) and `LibraryIndexFile.rev?: 2` with `version: 1` KEPT (E-d5); frozen pre-E1
+    `library-store.ts` / `library-reconcile.ts` copies in `src/main/services/library/pre-e1-control/` (`git show 5d77600:…`,
+    import paths only) for the control test.
+  - `6005a7e` — `library-index-io.ts` (the one per-root serialize chain; `loadIndex` derives a missing `kind` on read;
+    `writeIndex` always writes `version: 1, rev: 2`, and its first write per root per process copies a pre-rev-2 on-disk
+    index to `.vidtsx/index.v1-backup.json` once, `flag: 'wx'`); `library-probe.ts` (the app's `probeMedia` = Remotion's
+    ffprobe, audio / video only, 15 s cap, never throws); `upsertEntry` probes before the chain and writes `kind` + `probe`,
+    passes `tags` / `audio` through; `reconcileIndex` takes an injected prober — touched → probe REFRESHED (was cleared),
+    moved → kept, resurrected → the tombstone's, new → probed; `scanLibrary` probes ≤ 20 files inline per scan and hands the
+    rest to `library-backfill.ts` (deduped per root, batches of 8, 2 ffprobes at a time, one write per batch, patches only
+    while relPath + size + mtime still match); `library-migrate.ts` at app start (beside `sweepExportScratch` in
+    `src/main/index.ts`): backup once, back-fill `kind`, write `rev: 2`, kick the back-fill — idempotent; `list_assets`
+    library rows via `agent-tools/library-listing.ts`: `entry.kind` + duration `toFixed(2)` s, `length unknown (probing)`
+    while a media entry has no probe.
+  - `a3f48d8` — the live finding (below): `src/main/services/studio/mp3-gapless.ts` + its `probeMedia` wiring.
+  - Docs: `26daa16` `24c83c6` `590cee9` `0c63adf` `af915f8` + this entry's commit. Kit (gitignored):
+    `.vidtsx-temp/end-to-end/E1/`.
+- **E-d5 downgrade safety (control test, red first):** `pre-e1-control.test.ts` runs the FROZEN pre-E1 store on an
+  E1-written index: the old `loadIndex` reads it whole (`version: 1` + `rev: 2` is NOT its empty index); old
+  `setDescription` / `upsertEntry` keep every field, old and new, and `rev`; an old `scanLibrary` keeps everything on
+  untouched + moved entries, clears `probe` on touched ones, tombstones lose `kind probe tags audio usedIn`, new files get
+  no `kind`, and `rev` is DROPPED → the next E1 start re-migrates (backup kept from the first run, kinds back, the back-fill
+  re-probes). **Every pre-E1 field survives every old write** — Hasan's installed 1.1.x app and the main branch read an E1
+  library without loss.
+- **The live click-through** (the worktree's own build `wt/out`, no Vite server, CDP 9261; profile
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E1\profile` copied from `source` WITHOUT `settings.db`; library root
+  confirmed `<profile>\assets`, `isOverride: false`):
+  - Seed `assets\e1-seed\`: `tone-a.mp3` 1.3 s · `tone-b.wav` 2.25 · `tone-c.m4a` 3.1 · `tone-d.ogg` 1.75 · `tone-e.opus`
+    2.6 · `tone-f.flac` 0.9 · `tone-g.aac` 1.5 · `still.png` · `still.avif` · `clip.mp4` 2 s; the index (16 entries incl.
+    6 preset files) written by the frozen pre-E1 `scanLibrary` (no `rev` / `kind` / `probe`), sha256 `b495fdfa…cefcd`.
+  - Launch 1: `Library index migrated to rev 2 {fromRev: null, entries: 16, kindsFilled: 16, backedUp: true}`; **probe
+    back-fill 8 files in 347 ms** (probed 8, failed 0, written 8); `index.v1-backup.json` sha256 = the pristine seed;
+    `index.json` `version: 1, rev: 2`, kinds 7 audio / 1 video / 2 image / 6 data, `probe` on the 8 timed entries only.
+    Launch 2: no migration line (idempotent), backup unchanged.
+  - Assets screen: `e1-seed` lists all 10 files ("10 items · 612 KB"; `.opus` / `.aac` as audio cards, `.avif` draws its
+    thumbnail — the bundled ffprobe reads it, av1 640×360) — still `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\assets-screen.png`.
+  - Reconcile (the Assets `Refresh` button): touched `tone-b.wav` → probe refreshed 2.25 → 3.4 s; moved `tone-f.flac` →
+    keeps 0.9 s + hash; new `late-h.wav` → 1.15 s inline. Upsert: `late-upsert.mp3` (1.7 s) through the REAL
+    `upsertEntry` + Remotion ffprobe → `kind: audio`, `probe {duration: 1.7, codec: mp3}`.
+  - `list_assets(scope:'library')` (the REAL `buildProjectTools(ctx)` handler): after the migration every audio file + the
+    video had a duration, all within 10 ms of an independent ffprobe (n8.1.2) **except `tone-a.mp3` (1.344 vs 1.300 s)** →
+    the live bug; final, after the fix: **11 rows, index 0 ms off for all 11, printed ≤ 3.5 ms** (opus 2.6065 → 2.61,
+    aac 1.527682 → 1.53).
+- **Live bug, fixed red-first — mp3 durations (a side effect on Studio imports):** the bundled Remotion ffprobe (n7.1)
+  reports a LAME / Lavf mp3's `format.duration` as frames × 1152 / rate, i.e. WITH the encoder delay + end padding (+44 ms on
+  a 1.3 s tone; ffprobe n8 trims them). `mp3-gapless.ts` reads the Xing/Info + LAME tag (frame count, delay, padding;
+  MPEG-1/2/2.5, ID3v2 skipped) and trims only when ffprobe's value equals the untrimmed frame total within 1 ms (a newer
+  ffprobe that already trims is left alone); `probeMedia` applies it to audio-only mp3. **`probeMedia` is also Studio's
+  import probe: an mp3 imported into a Studio project now gets its gapless length (−25…−50 ms vs before); already-saved
+  projects keep their stored probe.**
+- **Gates (2026-10-23, HEAD `a3f48d8`):** guard 54.8 GB C: free, 25.7 GB D:, commit headroom 51.5 / 99.7 GB → default
+  workers; no E1 instance running. Full vitest from the worktree (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs
+  run`): **474 files passed, 3 failed, 5 skipped (482); 4,058 tests passed, 9 failed, 35 skipped (4,102); 34.9 s**, no load
+  timeout (the counted run; log `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\vitest-full-2.log`). **The worktree gate
+  (E-d2a):** the three failing files are exactly the worktree-only package-resolution suites, each failing ONLY on
+  resolution — `builder-libraries.test.ts` 1 (`@remotion/paths … is not installed`), `shot-bundle.test.ts` 5 and
+  `shot-bundle-in-place.test.ts` 3 (esbuild `Could not resolve "chroma-js" / "roughjs" / "@remotion/shapes" /
+  "@react-three/fiber" / "@remotion/google-fonts/…"`). (a) `--root <wt>` started from the main checkout's directory does
+  not resolve them — the same 9 failures (`vitest-rule-a.log`; nothing written in the main checkout) — because all three
+  look packages up from `__dirname` / the script's own location, not the cwd; (b) **none of their import graphs holds a
+  file of `git diff --name-only 5d77600..HEAD`** (esbuild metafile, the suite's `vi.mock`'d modules not loaded):
+  builder-libraries 2 local modules, shot-bundle 15, shot-bundle-in-place 23 (it reaches `media-import.ts` only as
+  `vi.mock('./media-import')`), `scripts/builder-unpack.mjs` 1 (`…\E1\import-graph.txt`, script `import-graph.cjs`). They
+  re-run from the main checkout when track E lands. Types: `tsc -p tsconfig.web.check.json` → 26, `-p
+  tsconfig.node.check.json` → 10 = baseline. E1's own suites (`media-kinds` 6, `pre-e1-control` 5, `library-migrate` 9,
+  `library-reconcile-v2` 8, `library-listing` 4, `mp3-gapless` 6) green in that run.
+- **Not measured / open:** the first Assets scan of a BIG drop (≤ 20 inline probes per scan, the rest to the back-fill) —
+  the seeded drop of 3 changed files was instant; a library-root override changed at runtime is migrated at the next start
+  (until then it reads fine: kinds derived on read, the first E1 write backs it up and writes rev 2). E2 fills `tags` /
+  `audio` / `usedIn`; E3 adds kind / query filtering and shows them. `CAPABILITY_GAPS.md` unchanged (E3 writes the G4 note).
+- **For Hasan:** allowing a `node_modules` junction in the worktree would make track E's vitest gate whole (E-d2a).
+  Nothing for the real-video list.
+- **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\` — `index.pre-e1.seeded.json`, `after-migration.json`,
+  `final.json`, `assets-screen.png`, `vitest-full-1.log`, `vitest-full-2.log` (counted), `vitest-rule-a.log`,
+  `import-graph.txt` / `import-graph.cjs`, `build.log`; the profile `…\profiles\E1\profile`; kit `.vidtsx-temp/end-to-end/E1/`.
+  TESTING.md §18.14; HANDOFF `docs/studio/end-to-end/E1/HANDOFF.md`.
+
 ## 2026-10-23 — END-TO-END B7: editorial cuts leave no hard entries — EXIT PARTIAL (overlap waits for Hasan)
 
 - **What:** part B7 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`). It is not a row in the plan's §3: Hasan

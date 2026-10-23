@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: IN PROGRESS (builder #4 handed off 2026-10-23 ~21:00 — live click-through DONE and the exit MET on the isolated profile (one live bug found + fixed red-first: mp3 durations); left: the full-vitest gate, Status.md, TESTING §18.14)
+status: DONE (builder #5, 2026-10-23 ~21:15 — exit MET live (builder #4); gates passed (full vitest per E-d2a, types 26/10); Status.md entry + TESTING §18.14 written and committed — ready for the verifier)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -277,6 +277,26 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   The watchdog ran for both launches; its 2nd run exited 30 s in on ONE empty WMI answer (C: never below
   54 GB) → kit `watchdog.ps1` now exits only after 3 consecutive misses. Nothing of mine is running.
 
+### Gates + close (builder #5, 2026-10-23 20:59–21:15) — no `src/` change; the closing commit follows `a3f48d8`
+
+- **Resources (20:59):** C: 54.8 GB free, D: 25.7 GB, commit limit 99.7 GB, headroom 51.5 GB → default workers. No
+  E1 instance running (Hasan's dev app from the main checkout untouched).
+- **Full run #2 = the counted run** (HEAD `a3f48d8`): green except the three E-d2a resolution suites, each failing only
+  on package resolution; no LOAD timeout this time (run #1's `pack-package` flake did not recur).
+- **E-d2a (a):** read first — none of the three writes relative to `process.cwd()` (tests write only under
+  `os.tmpdir()`; `builder-unpack.mjs --check` writes nothing; all package lookups are `__dirname` / script-location
+  relative: `builder-libraries.test.ts:46,53`, `shot-bundle.test.ts:90…221`, `shot-bundle-in-place.test.ts:10`). Ran
+  them with `--root <wt>` from the main checkout's directory → the SAME 9 failures (expected: the cwd plays no part);
+  nothing in the main checkout newer than the run (top two levels + `node_modules/.vite*`, `.vitest`).
+- **E-d2a (b):** import graphs via esbuild metafiles (packages external, Vite `?raw` imports as leaves, each suite's
+  `vi.mock`'d modules not loaded) vs `git diff --name-only 5d77600..HEAD` (27 files): NONE in any graph. Note:
+  without the mock rule, `shot-bundle-in-place.test.ts`'s static graph DOES reach E1 code (`media-import.ts` →
+  `mp3-gapless.ts`, `media-kinds.ts`, library store …) — but the suite replaces `./media-import`, `./shot-generator`
+  and `./shot-import-land` with `vi.mock` (`shot-bundle-in-place.test.ts:13-31`), so none of it loads there.
+  Script: `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs`; output `…\E1\import-graph.txt`.
+- **Docs:** Status.md entry at the top (2026-10-23 E1, DONE, with the measured numbers, the mp3 side effect on Studio
+  imports and the E-d2a gate statement); TESTING.md §18.14 (after §18.13, E-d10).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 20:25, from the worktree root:
@@ -319,31 +339,36 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   - Live: the exit tables in `…\vidtsx-e2e\E1\after-migration.json` (1 mp3 out by 44 ms → the fix) and
     `…\vidtsx-e2e\E1\final.json` (all 11 within 10 ms; index 0 ms) — numbers under "Live check" above.
 
+- Builder #5, 2026-10-23 (the gates):
+  - Resources: `Get-CimInstance Win32_OperatingSystem` → `limitKB=104541096 freeKB=53985372` (headroom 51.5 GB);
+    `Get-PSDrive` → C: 54.8 GB, D: 25.7 GB free.
+  - Bash from the worktree root:
+    `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run > C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/vitest-full-2.log 2>&1`
+    → `Test Files  3 failed | 474 passed | 5 skipped (482)`, `Tests  9 failed | 4058 passed | 35 skipped (4102)`,
+    `Duration  34.94s`. Failures: `builder-libraries.test.ts` 1 (`Error: @remotion/paths (builder-libraries.ts) is not
+    installed`), `shot-bundle.test.ts` 5 (`Could not resolve "roughjs"` / `"@remotion/shapes"` / `"@react-three/fiber"` /
+    `"chroma-js"` / `"@remotion/google-fonts/SpaceGrotesk"`), `shot-bundle-in-place.test.ts` 3 (`ok: false`; the one
+    message printed: `Could not resolve "chroma-js" (v1.tsx…`) — nothing else.
+  - Rule (a), Bash: `cd /d/repos/VidTSX-STUDIO && node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --root
+    D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E/wt <the three files> > …/E1/vitest-rule-a.log` → `Test Files  3
+    failed (3)`, `Tests  9 failed | 23 passed (32)`, 9 resolution-error lines; `find` for main-checkout entries newer
+    than a stamp → none.
+  - Rule (b): `node …\E1\import-graph.cjs <wt> <diff list>` (rc 0) →
+    `builder-libraries.test.ts: 2 local modules … NONE` · `shot-bundle.test.ts: 15 … NONE` ·
+    `shot-bundle-in-place.test.ts: 23 … (vi.mock'd, not loaded: shot-generator.ts, shot-import-land.ts,
+    media-import.ts) … NONE` · `scripts/builder-unpack.mjs: 1 … NONE`.
+  - Types: `tsc -p tsconfig.web.check.json --noEmit | grep -c 'error TS'` → **26**; `-p tsconfig.node.check.json` → **10**.
+
 ## Next step (ONE concrete instruction)
 
-Run the gates and close E1: with no app running and resources re-checked (headroom ≥ 10 GB → default
-workers, else `--maxWorkers=2`), from the worktree root run the full suite
-`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run > C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/vitest-full-2.log 2>&1`
-and apply DRIVING "Track E" → "The vitest gate from the worktree" (E-d2a) to the three resolution files
-((a) `--root <wt>` started from the main checkout's directory, only after reading that none of the three
-writes relative to `process.cwd()`; else (b) the import-graph check against `git diff --name-only
-5d77600..HEAD`, which now also lists `media-import.ts` + `mp3-gapless.ts` — check shot-bundle's graph for
-`media-import`); confirm types 26/10; then write the Status.md entry (top, dated, house format, the
-measured numbers from "Live check" above incl. the mp3 fix, the back-fill 347 ms, the gate rule) and the
-TESTING.md §18.14 block (§17 shape, §18.13 house format), commit with explicit paths, and return DONE.
+None for a builder — E1 is DONE. Orchestrator: send E1 to its verifier (evidence under "Live check", "Gates + close"
+and in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\`; the E1 profile's library is post-migration).
 
 ## Open problems
 
-- **ORCHESTRATOR DECISION NEEDED — the full-vitest gate cannot be fully green from ANY worktree
-  (environment, not E1):** three suites resolve packages from the repo root's OWN `node_modules`, which
-  the worktree does not have (E-d2): `builder-libraries.test.ts` (`scripts/builder-unpack.mjs`
-  `findPackageDir(name, root, root)` → `@remotion/paths … is not installed`), `shot-bundle.test.ts` and
-  `shot-bundle-in-place.test.ts` (esbuild `Could not resolve "chroma-js"` etc.). E1 touches none of that
-  code. This hits every track-E part's gate. Do NOT create a `node_modules` junction in the worktree to
-  fix it (Vite's dev dep cache would then land in the main checkout's `node_modules/.vite`, Hasan's live
-  app). Proposed rule: the gate = a full run green except these 3 files, each failing ONLY with a
-  package-resolution error (checked in the log), plus the LOAD-flake rule; they are re-run from the main
-  checkout when track E lands. Say so in STATUS.
+- **RESOLVED by E-d2a (orchestrator, 20:50):** the worktree cannot resolve packages for three suites
+  (`builder-libraries`, `shot-bundle`, `shot-bundle-in-place`); the gate rule was applied as written (see "Gates +
+  close") and stated in STATUS. Hasan: allowing a `node_modules` junction in the worktree would make the gate whole.
 - **Live-only facts:** (1) `.avif` — ANSWERED: the bundled ffprobe reads it (av1, 640×360) and the
   Assets screen draws its thumbnail; (3) back-fill on the seeded library — ANSWERED: 8 files in 347 ms;
   (2) still unmeasured: the first Assets scan of a BIG drop with ≤ 20 inline probes (the seeded drop of 3
@@ -368,6 +393,7 @@ TESTING.md §18.14 block (§17 shape, §18.13 house format), commit with explici
 - The whole live click-through (builder #4): migration on disk, the Assets still, the reconcile pass, the
   upsert path, both `list_assets` reports, the mp3 fix + its rebuild/relaunch. The E1 profile's library is
   now POST-migration (17 + 1 files) — do not expect the pre-E1 state there any more.
+- The gates (builder #5): full run #2, E-d2a (a) + (b), types; the Status.md entry and TESTING §18.14.
 
 ## For Hasan (real-video list candidates)
 
@@ -390,3 +416,6 @@ TESTING.md §18.14 block (§17 shape, §18.13 house format), commit with explici
   tables; live bug (mp3 +44 ms) fixed red-first (`mp3-gapless.ts`), rebuilt, re-verified; DRIVING launch
   recipe + a Learned line; kit `restore.ps1` + watchdog 3-miss fix. Handed off at the tool-call budget
   (gates + Status + TESTING left; nothing running).
+- 2026-10-23 · builder #5 · ~30 · the gates: full vitest run #2 (counted; only the 3 E-d2a resolution suites red),
+  E-d2a (a) tried (same 9 failures, nothing written in the main checkout) + (b) import-graph check (no E file in any
+  graph, `vi.mock` honoured), types 26/10; Status.md entry + TESTING §18.14; closing commit. DONE; nothing running.
