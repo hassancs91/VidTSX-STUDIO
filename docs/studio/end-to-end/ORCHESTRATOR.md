@@ -586,3 +586,13 @@
   `vmmemWSL` 22.8 GB; C: 3.9 GB, D: 30.3 GB). **Decision:** B7's live-run scratch (the M2 copy + the
   profile copy, ~1 GB) goes on **D:** (`.vidtsx-temp/end-to-end/B7/`), not C:, so C: only has to
   absorb page-file growth; the live run may start when C: ≥ 3 GB AND (C: free + commit headroom) ≥ 8 GB.
+- 2026-10-23 · B7 step 5 (`bed6d6c`): the B1 / B2 / B3 offline kits reproduce their recorded numbers exactly
+  (B1 348/352 + 2 flips, report JSON-equal; B3 0/0 hard, 178/181 tails; B2 five edges 0 ms). Side
+  finding: B2's scratch preset `profiles\B2\…\youtube-long-form\preset.json` lost its
+  `style.cut {base:natural, head:0.25}` (mtime 2026-10-22 13:40) — scratch drift, not code.
+- **Decisions (orchestrator):** (1) the live-run profile copy EXCLUDES `settings.db` (+ `-wal` / `-shm`)
+  — the credential rule; a fresh store makes the keyless `claude-subscription` the default, as in B6.
+  (2) **Resource gate relaxed** for live steps: C: ≥ 3 GB AND (C: free + commit headroom) ≥ 6 GB
+  (was 8), with a background watchdog that stops OUR app (matched by its profile path) if C: < 1.5 GB;
+  the live run adds ~2 GB commit; Hasan has been told Docker/WSL holds ~23 GB. (3) A full vitest run
+  while commit headroom < 10 GB uses `--maxWorkers=2` (counts as the gate under DRIVING.md's load rule).
