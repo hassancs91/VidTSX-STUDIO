@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (steps 1–4 + 4b done and committed — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b = the commit after `c9de463`; next: step 5 = the decision-4 kits, then the live exit run when the resource guard allows)
+status: BUILDING (steps 1–4 + 4b done and committed — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`; next: step 5 = the decision-4 kits, then the live exit run when the resource guard allows)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -302,7 +302,7 @@ How a card reaches Apply (step 1 › 5, re-checked): the user's Apply click and 
   arg match counts the explicit `undefined` (measured: the run failed with `expected "vi.fn()" to be called with
   arguments: [ 'proj', 'a1', 'C:/clip.mp4', …(1) ]`). Behaviour unchanged.
 
-### Step 4b — `run_auto_cut` plans over the timeline as it is when the tool runs (builder #8, 2026-10-23, orchestrator addition)
+### Step 4b — `run_auto_cut` plans over the timeline as it is when the tool runs (builder #8, 2026-10-23, orchestrator addition, commit `d1d253a`)
 
 Closes step 4's open problem (an `accept_proposal` then `run_auto_cut` in ONE turn planned over the turn-start keeps).
 Better than the sketched fix (main subtracting its own copy of the card's accepted spans): the RENDERER — which owns the
