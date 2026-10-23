@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: DONE (builder #5, 2026-10-23 ~21:15 — exit MET live (builder #4); gates passed (full vitest per E-d2a, types 26/10); Status.md entry + TESTING §18.14 written and committed — ready for the verifier)
+status: FIX (verifier round 1 FAIL — V1-1…V1-5 under Open problems; orchestrator 2026-10-23 ~22:00)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -361,10 +361,51 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
 
 ## Next step (ONE concrete instruction)
 
-None for a builder — E1 is DONE. Orchestrator: send E1 to its verifier (evidence under "Live check", "Gates + close"
-and in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\`; the E1 profile's library is post-migration).
+FIX round 1 (orchestrator, 2026-10-23): fix V1-1 below red-first (an mp3-with-cover-art case in a unit test
+that fails on `a3f48d8`), then V1-2, V1-3, and V1-4 / V1-5 as each says; re-run the E1 suites + the full
+worktree gate + types; re-measure one cover-art mp3 live (or with the real `probeMedia` + `list_assets`
+handler on the E1 profile's library) against an independent ffprobe; update Status.md's E1 entry and
+TESTING §18.14 to match; commit; return DONE.
 
 ## Open problems
+
+### Verifier round 1 — FAIL (2026-10-23 ~21:55; findings verbatim in substance, fix all marked MUST)
+
+- **V1-1 (MUST — the exit): an mp3 with embedded cover art is listed 30 ms too long.**
+  `src/main/services/studio/media-import.ts:116` `if (!videoStream && audioStream?.codec_name === 'mp3')`:
+  an ID3 cover picture appears in ffprobe as a "video" stream (mjpeg, `disposition.attached_pic: 1`), so
+  the gapless trim is skipped and the bundled ffprobe's untrimmed value lands in the index. Verifier's
+  `cover-art.mp3` (3.000 s; ffprobe 2025-11 gyan, n8.1.2 and a decoded sample count all 3.0000): index
+  3.030204, `list_assets` "3.03 s" (+30.2 ms > 10 ms). `readMp3Gapless` reads that file fine (frames 116,
+  startPad 576, endPad 756) and `gaplessDuration(3.030204, info)` returns 3.000 — only the guard stops it.
+  A live Studio import of the same file also gives 3.030204. `mp3-gapless.test.ts` has no cover-art case.
+- **V1-2 (MUST — same root cause): the cover picture's fields are recorded as the audio file's.**
+  `media-import.ts:122,126` take `width` / `codec` from the attached picture: the audio file is stored as
+  `codec: 'mjpeg', width: 320`, and E1 now persists that into the library index. Treat `attached_pic`
+  streams as not-video everywhere `probeMedia` picks the video stream (pre-existing in `probeMedia`, but
+  E1 makes it durable) — check what consumers read `hasVideo` / `width` for an imported mp3 so the fix does
+  not change a Studio import's lane / kind.
+- **V1-3 (MUST — the record):** Status.md E1 entry and TESTING §18.14 say the mp3 change is "25–50 ms";
+  measured live it is −41 ms (narration), −70.2 ms (22.05 kHz `.MP3`), −42.4 ms (catalog sfx), −50.4 ms
+  (long VBR) — state the measured range (lower sample rates trim more).
+- **V1-4 (SHOULD):** `list_assets` prints `length unknown (probing)` for files that can never be probed
+  (a garbage `.mp3`, an empty `.wav` — the back-fill fails them on every start). Do not promise "probing"
+  for a failed probe: e.g. stamp a failed probe with the size + mtime it was tried at, skip it in the
+  back-fill until those change, and print `length unknown (unreadable)`; or the smallest change that
+  stops the false promise. Unit-test it.
+- **V1-5 (SHOULD if ≤ ~30 lines + a test, else record in Status as a known limit):** mixed old/new app on
+  one library — an OLD `upsertEntry` on a file rewritten in place refreshes `size` / `mtimeMs` but keeps
+  E1's `probe`, so the new code lists a stale duration forever (verifier: `hires.flac` rewritten to
+  4.0 s, listed 2.5 s even after Refresh). A probe stamped with the size + mtime it measured would let
+  the reader / back-fill notice and re-probe (shares the stamp with V1-4).
+- Not findings (verifier confirmed): migration + byte-identical backup, idempotency, E-d5 control (old
+  reader 28/28 deep-equal; old writes keep every pre-E1 field), old-write → re-migrate keeps the first
+  backup, no-index / unreadable-index starts destroy nothing, reconcile refresh / keep / probe / tombstone
+  resurrect, upsert 0 ms, negatives N1–N3 fail on revert, gates (474 files / 4,058 tests + the 3 E-d2a
+  suites, rule (b) independent graphs; types 26/10), the click-through stills. Verifier's evidence:
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1-verify\`, harness `.vidtsx-temp/end-to-end/E1-verify/`.
+
+### Earlier (builders)
 
 - **RESOLVED by E-d2a (orchestrator, 20:50):** the worktree cannot resolve packages for three suites
   (`builder-libraries`, `shot-bundle`, `shot-bundle-in-place`); the gate rule was applied as written (see "Gates +
