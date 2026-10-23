@@ -342,6 +342,8 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix1-cover-art.json`. `index.v1-backup.json` sha256 still `b495fdfa…cefcd`.
   The E1 profile's library now holds 19 entries (+ `cover-art.mp3`).
 - **Known limit (in Status):** a 15 s ffprobe TIMEOUT is stamped as a failure too — retried only once the file changes.
+- **`wt/out` is STALE** (built from `a3f48d8`, before fix round 1): rebuild with the DRIVING "Track E" recipe before any
+  live launch.
 
 ## Verified (exact commands + outputs)
 
