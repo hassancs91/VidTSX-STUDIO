@@ -334,6 +334,12 @@ export interface StudioProposalItem {
    * drag. Absent on items made before B4 = no learning signal.
    */
   snapped?: { sourceStart: number; sourceEnd: number };
+  /**
+   * B7: the card's own QA heard a hard entry where kept speech resumes after
+   * this cut (its loudest one), so the cut was built unchecked. Absent = a
+   * clean join, or a card made before B7. See shared/studio/cut-qa-flags.ts.
+   */
+  qaFlag?: { kind: 'hard-entry'; sourceTime: number; overDb: number };
   // Shot plans (S4 D8). Placement is source-anchored via assetId/sourceStart
   // above, renderer-mapped at review AND apply (the cut-proposal discipline);
   // `timelineStart` is the fallback for UNANCHORED shots only.

@@ -16,6 +16,7 @@ import type {
 } from '../../../shared/types/studio';
 import type { CutQaReport } from '../../../shared/types/studio-cut-plan';
 import { withQaAsset } from '../../../shared/studio/cut-qa';
+import { formatQaUncheckedNote, uncheckQaFlaggedItems } from '../../../shared/studio/cut-qa-flags';
 import {
   snapCutSpans,
   type CutSpanInput,
@@ -66,9 +67,11 @@ export interface BuildEditorialProposalInput {
  * Wrap snapped editorial cuts as a StudioProposal for the review UI.
  * Retakes/false starts/fillers start ACCEPTED (veto-based review); fluff
  * starts REJECTED — the clean-cut policy is "suggest, don't auto-remove".
+ * B7: a cut the plan's QA still hears a hard entry after starts REJECTED too,
+ * with the reason in `qaFlag` (shared/studio/cut-qa-flags.ts).
  */
 export function buildEditorialProposal(input: BuildEditorialProposalInput): StudioProposal {
-  const items: StudioProposalItem[] = input.items.map((item, i) => ({
+  const built: StudioProposalItem[] = input.items.map((item, i) => ({
     id: `cut_${i}_${Math.random().toString(36).slice(2, 8)}`,
     status: item.category === 'fluff' ? 'rejected' : 'accepted',
     assetId: input.assetId,
@@ -80,6 +83,8 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
     ...(item.text ? { text: item.text } : {}),
     ...(item.note ? { note: item.note } : {}),
   }));
+  const qa = input.qa ? withQaAsset(input.qa, input.assetId) : undefined;
+  const items = uncheckQaFlaggedItems(built, qa);
 
   const fluffCount = input.items.filter((i) => i.category === 'fluff').length;
   const headline =
@@ -92,6 +97,8 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
       `${fluffCount} fluff suggestion${fluffCount === 1 ? '' : 's'} start unchecked — tick the ones you agree with.`,
     );
   }
+  const qaUnchecked = formatQaUncheckedNote(items);
+  if (qaUnchecked) lines.push(qaUnchecked);
   lines.push(...(input.qaNotes ?? []));
 
   return {
@@ -101,6 +108,6 @@ export function buildEditorialProposal(input: BuildEditorialProposalInput): Stud
     createdAt: input.createdAt ?? new Date().toISOString(),
     agentNote: lines.join('\n'),
     items,
-    ...(input.qa ? { qa: withQaAsset(input.qa, input.assetId) } : {}),
+    ...(qa ? { qa } : {}),
   };
 }

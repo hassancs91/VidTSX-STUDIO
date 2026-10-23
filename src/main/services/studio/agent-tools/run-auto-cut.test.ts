@@ -157,3 +157,30 @@ describe('run_auto_cut (real handler) snaps with the project’s resolved cut st
     expect((await onlyPlan()).plan.styleName).toBe('tight');
   });
 });
+
+describe('run_auto_cut (real handler) — B7 item 5, QA-flagged cuts start unchecked', () => {
+  it('untranscribed sound right before "Next": its cut-in is a hard entry, that cut starts unchecked and the reply names it', async () => {
+    const rmsDb = Array.from({ length: 5 * BPS }, (_, i) => {
+      const t = i / BPS;
+      return (t >= 0.2 && t < 0.9) || (t >= 2.0 && t < 3.8) ? -20 : -55;
+    });
+    await fs.writeFile(
+      path.join(env.cacheDir, 'waveforms', 'a1.json'),
+      JSON.stringify({ version: WAVEFORM_VERSION, peaksPerSecond: BPS, rmsDb }),
+      'utf-8',
+    );
+    const { tool, events } = runAutoCut();
+    const res = await tool.handler({ assetId: 'a1', style: 'tight' }, {});
+    expect(res.isError).toBeUndefined();
+    const proposal = (events.find((e) => (e as { kind?: string }).kind === 'proposal') as { proposal: StudioProposal })
+      .proposal;
+    const hard = (proposal.qa?.items ?? []).filter((q) => q.kind === 'hard-entry');
+    expect(hard).toHaveLength(1);
+    const flagged = proposal.items.filter((i) => i.qaFlag);
+    expect(flagged).toHaveLength(1);
+    expect(flagged[0]).toMatchObject({ status: 'rejected', sourceEnd: hard[0].sourceTime });
+    expect(proposal.items.filter((i) => !i.qaFlag).every((i) => i.status === 'accepted')).toBe(true);
+    expect(res.content[0].text).toContain('1 cut starts unchecked because the QA hears a hard entry');
+    expect(res.content[0].text).toContain('name it in your reply');
+  });
+});

@@ -130,6 +130,22 @@ describe('propose_cuts (real handler) carries the cut QA on the editorial card',
     expect(res.content[0].text).toContain('Hard entries 1 of 2 joins · tails on a release 1 of 2 landings.');
   });
 
+  it('B7 item 5: that flagged cut starts unchecked, its row says why, and the tool result names it', async () => {
+    const { tool, events } = proposeCuts();
+    const res = await tool.handler(
+      { assetId: 'a1', cuts: [{ start: 1.0, end: 2.4, category: 'retake', note: 'second take wins' }], summary: 'One retake.' },
+      {},
+    );
+    const cut = emittedProposal(events).items[0];
+    expect(cut.status).toBe('rejected');
+    expect(cut.qaFlag).toMatchObject({ kind: 'hard-entry', sourceTime: cut.sourceEnd });
+    expect(cut.note).toBe('second take wins');
+    const textOut = res.content[0].text;
+    expect(textOut).toContain('1 cut starts unchecked because the QA hears a hard entry where speech resumes after it: ');
+    expect(textOut).toContain(`${(cut.sourceStart ?? 0).toFixed(2)}–${(cut.sourceEnd ?? 0).toFixed(2)} s retake`);
+    expect(textOut).toContain('name it in your reply');
+  });
+
   it('a cut to the end: no join to enter, one landing — checked as analyze_cut does (unclamped)', async () => {
     // Cutting "seven eight" to the end leaves one keep: the only real join is
     // the first segment (cut-in from room tone → no hard entry). Its one atom

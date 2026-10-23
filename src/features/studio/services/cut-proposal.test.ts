@@ -66,6 +66,25 @@ describe('buildCutProposal', () => {
     ]);
   });
 
+  it('a cut whose join the QA hears as a hard entry is built unchecked with its reason; the rest stay accepted (B7)', () => {
+    const qa = {
+      hardEntries: 1,
+      clippedTails: 0,
+      joinsChecked: 3,
+      atomsChecked: 3,
+      items: [{ kind: 'hard-entry' as const, sourceTime: 8, overDb: 16.2 }],
+    };
+    const proposal = buildCutProposal({ plan: makePlan({ qa }), words: [] });
+    expect(proposal.items.map((i) => [i.sourceEnd, i.status])).toEqual([
+      [1, 'accepted'],
+      [8, 'rejected'],
+      [14.5, 'accepted'],
+      [20, 'accepted'],
+    ]);
+    expect(proposal.items[1].qaFlag).toEqual({ kind: 'hard-entry', sourceTime: 8, overDb: 16.2 });
+    expect(proposal.agentNote).toContain('1 cut starts unchecked');
+  });
+
   it('a pre-B3 plan (no qa) makes a proposal without a qa field', () => {
     const proposal = buildCutProposal({ plan: makePlan(), words: [] });
     expect('qa' in proposal).toBe(false);

@@ -15,6 +15,7 @@ import {
 } from '../../../../shared/presets/stt-models';
 import { buildCutProposal } from '../../../../shared/studio/cut-proposal';
 import { formatCutQaLine } from '../../../../shared/studio/cut-qa';
+import { formatQaUncheckedForAgent } from '../../../../shared/studio/cut-qa-flags';
 import { transcriptionEngine } from '../../../../transcription-engine';
 import { deleteTranscript, readTranscriptFile, readTranscriptMeta } from '../asset-transcriber';
 import { runCutPlan } from '../cut-plan-runner';
@@ -163,6 +164,7 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
         return text(
           `Auto Cut proposed (id "${proposal.id}", style ${cut.displayName}): ${proposal.items.length} silence cuts, −${plan.stats.removedDuration.toFixed(1)} s of ${plan.stats.sourceDuration.toFixed(1)} s. ` +
             (plan.qa ? `${formatCutQaLine(plan.qa)}. ` : '') +
+            formatQaUncheckedForAgent(proposal.items) +
             'It is in the review panel — tell the user briefly and let them review, or call accept_proposal ONLY if their latest message already said to apply it.',
         );
       } catch (err) {

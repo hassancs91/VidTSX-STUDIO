@@ -5,6 +5,7 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import { logEngine } from '../../../../logging/log-engine';
 import { formatCutQaLine } from '../../../../shared/studio/cut-qa';
+import { formatQaUncheckedForAgent } from '../../../../shared/studio/cut-qa-flags';
 import { readTranscriptFile } from '../asset-transcriber';
 import { loadRmsEnvelope } from '../cut-plan-runner';
 import { resolveProjectCutStyle } from '../cut-style-store';
@@ -96,6 +97,7 @@ export function buildCutTools(ctx: StudioToolContext): StudioTool[] {
         `Proposal created: ${snapped.items.length} cuts (−${snapped.removedSeconds.toFixed(1)} s; ${breakdown}). ` +
           `${snapped.notes.length > 0 ? `Adjustments: ${snapped.notes.join('; ')}. ` : ''}` +
           `${snapped.qa ? `${formatCutQaLine(snapped.qa)}. ` : ''}` +
+          formatQaUncheckedForAgent(proposal.items) +
           'It is now in the review panel — summarize your findings for the user and let them review. Do not call propose_cuts again.',
       );
     },

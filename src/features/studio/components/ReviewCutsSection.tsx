@@ -5,6 +5,7 @@
 
 import { useMemo } from 'react';
 import { Button } from '@shared/components/Button';
+import { formatQaFlag } from '@shared/studio/cut-qa-flags';
 import type { StudioCutCategory, StudioProposal, StudioProposalItem, StudioTimeline } from '../types';
 import type { TimelineAction } from '../hooks/useTimeline';
 import {
@@ -219,6 +220,11 @@ function CutItemRow({
             {rejected ? 'kept' : `−${gap.toFixed(1)} s`}
           </span>
         </div>
+        {item.qaFlag && (
+          <div className="text-[10px] text-accent-red truncate" title={formatQaFlag(item.qaFlag)}>
+            {formatQaFlag(item.qaFlag)}
+          </div>
+        )}
         {item.note && <div className="text-[10px] text-text-muted truncate">{item.note}</div>}
         {item.text && (
           <div className="text-[10px] text-text-dim truncate" title="Words inside the cut span">

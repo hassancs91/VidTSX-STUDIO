@@ -226,4 +226,34 @@ describe('B7 guards (synthetic: 50 buckets/s, −20 dB sound on a −55 dB room)
     expect(snapped.items).toHaveLength(1);
     expect(snapped.items[0].sourceEnd).toBeGreaterThanOrEqual(4.5);
   });
+
+  it('item 5: a cut the QA still hears a hard entry after is built UNCHECKED with its reason; the clean one stays accepted', () => {
+    // "cut" never decays into "kept" (one run of sound 1.0–3.0), so no landing
+    // can be quiet: the cut-in after the first retake stays a hard entry. The
+    // second retake ends in 2 s of room tone before "more." — a clean join.
+    const words: PlanWord[] = [
+      { text: 'start', start: 0.2, end: 0.6 },
+      { text: 'cut', start: 1.0, end: 2.0 },
+      { text: 'kept', start: 2.5, end: 3.0 },
+      { text: 'again', start: 5.0, end: 6.0 },
+      { text: 'more.', start: 8.0, end: 9.0 },
+    ];
+    const snapped = snapSynthetic([[0.2, 0.6], [1, 3], [5, 6], [8, 9]], words, [[1, 2], [5, 6]]);
+    expect(snapped.items).toHaveLength(2);
+    const proposal = buildEditorialProposal({
+      assetId: 'syn',
+      items: snapped.items,
+      removedSeconds: snapped.removedSeconds,
+      sourceDuration: 10,
+      ...(snapped.qa ? { qa: snapped.qa } : {}),
+    });
+    const [first, second] = proposal.items;
+    expect(proposal.qa?.items.some((q) => q.kind === 'hard-entry' && Math.abs(q.sourceTime - (first.sourceEnd ?? 0)) < 0.02)).toBe(true);
+    expect(first.status).toBe('rejected');
+    expect(first.qaFlag?.kind).toBe('hard-entry');
+    expect(first.qaFlag?.overDb ?? 0).toBeGreaterThan(15);
+    expect(second.status).toBe('accepted');
+    expect(second.qaFlag).toBeUndefined();
+    expect(proposal.agentNote).toContain('1 cut starts unchecked');
+  });
 });

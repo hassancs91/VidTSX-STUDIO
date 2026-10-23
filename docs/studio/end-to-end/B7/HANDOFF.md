@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (steps 1–2 done and committed — `a31080a`; next: item 5, QA-flagged items unchecked)
+status: BUILDING (steps 1–3 done and committed — `a31080a`, step 3 = item 5 in the commit after `8b980b3`; next: item 4, Auto Cut over the timeline's keeps)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -225,6 +225,38 @@ Commit `a31080a` (5 files): `src/shared/studio/cut-snap.ts`, `src/shared/studio/
   with the shipped tight knobs: per case the release tails, head pads, hard-window dB at candidate cut-ins, 20 ms
   profile, loud seconds per gap).
 
+### Step 3 — item 5: QA-flagged cuts start unchecked, in both card builders, named in the tool results (builder #6, 2026-10-23, the commit after `8b980b3`)
+
+How a card reaches Apply (step 1 › 5, re-checked): the user's Apply click and the agent's `accept_proposal`
+(`delivery-tools.ts:68`, takes no item ids — applies the open card's `accepted` items) are the only paths; both take
+`status === 'accepted'` only. So building a flagged cut `rejected` covers both; no auto-apply path exists.
+- **New pure op** `src/shared/studio/cut-qa-flags.ts` (85 lines): `QA_FLAG_JOIN_TOLERANCE_S = 0.02` (:17);
+  `hardEntriesAtItemJoins(items, report)` (:22) — per item, the QA `hard-entry` items whose `sourceTime` is the item's
+  `sourceEnd` (±0.02 s; the snapper's `sourceEnd` = the next segment's start, `cut-snap.ts` step 5), same asset when both
+  are stamped; `uncheckQaFlaggedItems(items, report)` (:39) — flagged items → `status: 'rejected'` + `qaFlag` = the
+  loudest one; clean items returned as the same objects; `formatQaFlag` (:53, the row's text "Unchecked by QA: hard entry
+  +15.9 dB where speech resumes — play it; tick to cut anyway"); `formatQaUncheckedNote` (:58, the card note's line
+  "1 cut starts unchecked — …"); `formatQaUncheckedLine` (:68, names each: "203.50–204.21 s retake (+15.9 dB)");
+  `formatQaUncheckedForAgent` (:86, that line + "Apply leaves it in the video unless the user ticks it — name it in your
+  reply.").
+- **Schema (optional field only):** `StudioProposalItem.qaFlag?: { kind: 'hard-entry'; sourceTime; overDb }`
+  (`src/shared/types/studio.ts:342`). Old projects open untouched (absent = clean / pre-B7 card).
+- **Both card builders call it:** `buildEditorialProposal` (`src/main/services/studio/editorial-cuts.ts:86-87`, note line
+  :100) and `buildCutProposal` (`src/shared/studio/cut-proposal.ts:105-107`, note line in `agentNote`) — the Auto Cut
+  button (`useAutoCut.ts:71`, via the features re-export) and `run_auto_cut` share it. Category rules unchanged (fluff
+  still `rejected`; a flagged fluff gains the `qaFlag` reason). Headlines unchanged (item 4 changes the Auto Cut one).
+- **Tool results:** `propose_cuts` (`agent-tools/cut-tools.ts:100`) and `run_auto_cut` (`agent-tools/workflow-tools.ts:167`)
+  append `formatQaUncheckedForAgent(proposal.items)` after the QA line. The agent prompt's review paragraph
+  (`studio-agent-prompt-tools.ts:85`) now says a QA-flagged cut also starts unchecked and the reply must name it.
+- **Row:** `ReviewCutsSection.tsx:223-227` shows `formatQaFlag` in `text-accent-red` above the note (truncate + title).
+- **Tests (each red before the fix — see Verified):** `src/shared/studio/cut-qa-flags.test.ts` (new, 10 tests);
+  `editorial-cuts-b7.test.ts:230` (synthetic: "cut" runs straight into "kept", the cut-in stays +35 dB → item 0
+  `rejected` + `qaFlag` > 15 dB, item 1 accepted, note says "1 cut starts unchecked"); `cut-proposal.test.ts:69`
+  (hard entry at 8 s → item [5, 8] rejected, the other three accepted); `cut-tools.test.ts:133` (the real handler's
+  continuous-speech retake: the cut starts unchecked, the agent's note survives, the result names "1.xx–2.xx s retake"
+  and "name it in your reply"); `run-auto-cut.test.ts:161` (untranscribed sound 2.0–3.0 s before "Next": one hard entry,
+  that cut rejected at its `sourceEnd`, the rest accepted, the reply names it). **No existing expectation changed.**
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -258,26 +290,43 @@ Commit `a31080a` (5 files): `src/shared/studio/cut-snap.ts`, `src/shared/studio/
 - 2026-10-23 · builder #5 · guard `4.4 GB; commit 98.9 / 101.3` · `npx vitest run
   src/main/services/studio/editorial-cuts-b7.test.ts src/features/studio/services/text-delete.test.ts --maxWorkers=2`
   → `Test Files 2 passed (2) · Tests 44 passed (44)`. Then commit `a31080a`.
+- 2026-10-23 · builder #6 · guard `4.4 GB C: free; commit 98.8 / 101.3 GB` · RED first: `npx vitest run
+  src/shared/studio/cut-qa-flags.test.ts src/main/services/studio/editorial-cuts-b7.test.ts
+  src/features/studio/services/cut-proposal.test.ts src/main/services/studio/agent-tools/cut-tools.test.ts
+  src/main/services/studio/agent-tools/run-auto-cut.test.ts --maxWorkers=2` → `Test Files 5 failed (5) · Tests 4 failed |
+  45 passed (49)`: cut-qa-flags `Cannot find module './cut-qa-flags'`; the B7 synthetic, cut-proposal and cut-tools tests
+  `expected 'accepted' to be 'rejected'` (the B7 one's precondition — a hard entry at item 0's end — already held);
+  run-auto-cut `expected [] to have a length of 1`. After the fix (guard `4.4 GB; 98.9 / 101.3`) → `Test Files 5 passed
+  (5) · Tests 59 passed (59)`.
+- 2026-10-23 · builder #6 · guard `4.4 GB; 98.8 / 101.3` · the 23-file cut set of builder #5 + `cut-qa-flags`,
+  `run-auto-cut`, `studio-agent-prompt`, `CutQaReadout` (26 files, `--maxWorkers=2`) → `Test Files 26 passed (26) ·
+  Tests 299 passed (299)`.
+- 2026-10-23 · builder #6 · guard `4.4 GB; 99.0 / 101.3` · `npm run check:types` → first 1 new node error
+  (`cut-qa-flags.test.ts(58,38)` excess property on the `Pick` type; test-only fix), then (guard `4.4 GB; 98.9 / 101.3`)
+  `tsconfig.web.check.json: 26 errors (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`, exit 0;
+  `npx vitest run src/shared/studio/cut-qa-flags.test.ts --maxWorkers=2` → `Tests 10 passed (10)`. Then the step-3 commit.
 
 ## Next step (ONE concrete instruction)
 
-Step 3 = item 5 (decision 1), pure op + unit tests first: add one shared pure function (new file, e.g.
-`src/shared/studio/cut-qa-flags.ts`) that takes a card's items + its `CutQaReport` and returns, per item, the
-`hard-entry` QA item(s) whose `sourceTime` is that item's join (the kept segment start = the item's `sourceEnd`,
-±0.02 s, same asset); write its red tests first on a synthetic envelope (like the `B7 guards` describe in
-`editorial-cuts-b7.test.ts`: a card whose QA has a hard entry at one item's join and none at the other's — the six
-real cases no longer produce one); then call it in BOTH card builders — `buildEditorialProposal`
-(`src/main/services/studio/editorial-cuts.ts:73`, status by category today) and `buildCutProposal`
-(`src/shared/studio/cut-proposal.ts:91`, all `accepted` today) — so a flagged item is built `status: 'rejected'`
-with the reason (e.g. "unchecked: hard entry +N dB at T — QA") on the row's existing note/reason field (check the
-item type and what the card row renders before adding a field; optional fields only). After that, in the same
-step: make the `propose_cuts` / `run_auto_cut` tool results tell the model which items were unchecked and why
-(find where each tool builds its result text; `delivery-tools.ts:68` `accept_proposal` already takes `accepted`
-only), with a unit test each.
-Later steps, in order: item 4 (Auto Cut over the timeline's keeps: `runCutPlan` takes the asset's kept source
-ranges from the button and from `run_auto_cut`; `buildCutProposal` proposes only inside them and its headline
-counts only that); the decision-4 kits (below); then the live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB
-(the resource guard; orchestrator decision 5).
+Step 4 = item 4 (decision 2), pure op + red unit tests first: give `buildCutProposal`
+(`src/shared/studio/cut-proposal.ts:72`) an optional `keeps?: Array<{ start; end }>` input (the asset's source ranges
+still ON the timeline) — spans are inverted only INSIDE the keeps (a gap between two keeps is not a cut item; a keep's
+own head/tail silence is), and the headline reads `−removed of <kept total>` (absent = today's whole-source behaviour,
+so old callers and pre-B7 plans are unchanged); red tests in `src/features/studio/services/cut-proposal.test.ts` with
+`makePlan()` + two keeps. Then the plumbing, one code path for both callers: `runCutPlan`
+(`src/main/services/studio/cut-plan-runner.ts:81-110`) takes optional `keeps` and passes them to `planCuts` (it already
+takes `keeps`/`cuts`, `cut-planner.ts:215-229`) and to the QA (today `[0, duration]`) — check the plan cache key/file
+name so a keeps-limited plan never serves a whole-clip request (or vice versa); the IPC request
+(`studio-handlers.ts:481`, its request type in `src/shared/ipc/types/`) gains optional `keeps`; the button
+(`src/features/studio/hooks/useAutoCut.ts:71`) derives them from the timeline's clips of that asset (find an existing
+helper that maps clips to source ranges in `features/studio/services/` before writing one) and passes them to both the
+IPC and `buildCutProposal`; `run_auto_cut` (`agent-tools/workflow-tools.ts:152-158`) derives them the same way from the
+project document it can load (find whether `req` carries the timeline or use `loadProject(req.projectId)` — the same pure
+helper, moved to `src/shared/studio/` if both sides need it). A unit test each (cut-proposal, cut-plan-runner,
+run-auto-cut real handler with a project whose timeline holds two clips of `a1`). Note on the item-4 step (Open
+problems): `planClip` keeps a wordless keep whole.
+Later steps, in order: the decision-4 kits (Open problems, read-only copies, outputs to `…\vidtsx-e2e\B7\`); then the
+live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard; orchestrator decision 5).
 
 ## Open problems
 
@@ -309,7 +358,19 @@ counts only that); the decision-4 kits (below); then the live exit run once C: �
   wordless gap between an accepted cut and an unchecked fluff (0373 391.988–393.36) is kept by the card and,
   once the fluff is applied too, is such a user-made wordless keep.
 
+- New (step 3), not blocking: the card's QA readout (`CutQaReadout`, "Hard entries N of M joins") is computed at plan
+  time (B3's note) and still counts the hard entries of cuts that now start UNCHECKED — the readout says "Hard entries
+  1 of …" while Apply would produce none. The row's red reason explains it; recomputing the readout over the accepted
+  items is a follow-up if the verifier finds it misleading.
+- New (step 3), for the live pass: B3's one Auto Cut true positive (0373 @ 323.198, hard 1/164) will now start
+  UNCHECKED on its card, so that pause stays in the produced cut (decision 1's rule; decision 4 allowed the true
+  positive to stay — it now stays off the timeline instead). A hard entry at a clip's FIRST segment unchecks the
+  leading-silence item `[0, seg0.start]` (keeps the head room tone, no join).
+
 ## Do-not-redo
+
+- Step 3 (item 5) is DONE, green and committed: don't rebuild `cut-qa-flags.ts` or re-derive the Apply paths (only
+  `accepted` items reach the timeline: the Apply click and `accept_proposal`).
 
 - B6's measurement and the track-B exit's numbers are the baseline (overlap 90.51 %; 6 / 146 hard
   entries on the produced cut; lead-in 0.150 vs 0.150 s, tail 0.220 vs 0.214 s). Don't re-run B6.
@@ -336,3 +397,6 @@ counts only that); the decision-4 kits (below); then the live exit run once C: �
   floor (minTail → 0, measured release); changed B2's text-delete style expectation (proved both pre-B7 cut-ins were
   hard entries) + a B7 pin; type-only fix in the B7 test; 23 cut test files 263/263 green, check:types at baseline
   (web 26 / node 10); committed `a31080a`; wrote step 3 (item 5) as the next step. Resource guard in force.
+- 2026-10-23 · builder #6 · ~40 calls · step 3 (item 5): `cut-qa-flags.ts` + optional `qaFlag`, both card builders
+  uncheck QA-flagged cuts, both tool results name them, prompt line, row reason; 5 red tests → green; 26 cut test files
+  299/299; check:types web 26 / node 10; committed; wrote step 4 (item 4). C: 4.4 GB, commit 98.8–99.0 / 101.3 GB.

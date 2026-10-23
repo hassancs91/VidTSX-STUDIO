@@ -12,6 +12,7 @@
 import type { StudioCutPlan } from '../types/studio-cut-plan';
 import type { StudioCutCategory, StudioProposal, StudioProposalItem } from '../types/studio';
 import { withQaAsset } from './cut-qa';
+import { formatQaUncheckedNote, uncheckQaFlaggedItems } from './cut-qa-flags';
 
 /** Spans shorter than this are not worth a cut (≈ one 25 fps frame). */
 export const MIN_CUT_SPAN = 0.05;
@@ -64,7 +65,9 @@ export interface BuildCutProposalInput {
 
 /**
  * Invert the plan's keep-segments into cut items. Every item starts
- * `accepted` — the review flow is veto-based, not approval-based.
+ * `accepted` — the review flow is veto-based, not approval-based — except a
+ * cut the plan's QA hears a hard entry after (B7): it starts unchecked, the
+ * reason in `qaFlag` (cut-qa-flags.ts).
  */
 export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
   const { plan, words } = input;
@@ -79,7 +82,7 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
   }
   if (duration - cursor >= MIN_CUT_SPAN) spans.push({ start: cursor, end: duration });
 
-  const items: StudioProposalItem[] = spans.map((span, i) => {
+  const built: StudioProposalItem[] = spans.map((span, i) => {
     const gap = span.end - span.start;
     const { before, after, inside } = contextAround(words, span.start, span.end);
     const parts: string[] = [];
@@ -99,6 +102,9 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
       note: parts.join(' '),
     };
   });
+  const qa = plan.qa ? withQaAsset(plan.qa, plan.assetId) : undefined;
+  const items = uncheckQaFlaggedItems(built, qa);
+  const qaUnchecked = formatQaUncheckedNote(items);
 
   const removed = spans.reduce((sum, s) => sum + (s.end - s.start), 0);
   const headline =
@@ -114,9 +120,9 @@ export function buildCutProposal(input: BuildCutProposalInput): StudioProposal {
     kind: 'cut-plan',
     status: 'proposed',
     createdAt: input.createdAt ?? new Date().toISOString(),
-    agentNote: [headline, ...plan.qaNotes].join('\n'),
+    agentNote: [headline, ...(qaUnchecked ? [qaUnchecked] : []), ...plan.qaNotes].join('\n'),
     items,
     // B3: the plan's QA readout, items stamped with the asset (absent on pre-B3 plans).
-    ...(plan.qa ? { qa: withQaAsset(plan.qa, plan.assetId) } : {}),
+    ...(qa ? { qa } : {}),
   };
 }
