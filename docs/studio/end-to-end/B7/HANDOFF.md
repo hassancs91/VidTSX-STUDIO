@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (steps 1–3 done and committed — `a31080a`, step 3 = item 5 in the commit after `8b980b3`; next: item 4, Auto Cut over the timeline's keeps)
+status: BUILDING (steps 1–3 done and committed — `a31080a`, step 3 = item 5 `eaf682d`; next: item 4, Auto Cut over the timeline's keeps)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -225,7 +225,7 @@ Commit `a31080a` (5 files): `src/shared/studio/cut-snap.ts`, `src/shared/studio/
   with the shipped tight knobs: per case the release tails, head pads, hard-window dB at candidate cut-ins, 20 ms
   profile, loud seconds per gap).
 
-### Step 3 — item 5: QA-flagged cuts start unchecked, in both card builders, named in the tool results (builder #6, 2026-10-23, the commit after `8b980b3`)
+### Step 3 — item 5: QA-flagged cuts start unchecked, in both card builders, named in the tool results (builder #6, 2026-10-23, commit `eaf682d`)
 
 How a card reaches Apply (step 1 › 5, re-checked): the user's Apply click and the agent's `accept_proposal`
 (`delivery-tools.ts:68`, takes no item ids — applies the open card's `accepted` items) are the only paths; both take
