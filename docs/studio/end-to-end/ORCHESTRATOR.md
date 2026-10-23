@@ -574,3 +574,10 @@
   test `editorial-cuts-b7.test.ts`); its HANDOFF `f327293` names the targeted test set to run next.
   Builder #4 made two HANDOFF.md edits with a node script instead of the Edit tool (content checked
   by itself; noted).
+- 2026-10-23 13:20 · **Cause found:** memory, not files. Commit charge **99.0 of 100.2 GB** (RAM 63.7 GB
+  + `C:\pagefile.sys`, system-managed, grown to **36.5 GB**; current use 4.1 GB, peak 9.0 GB) — Windows
+  extends the page file on C: as commit nears the limit. Top commit holders: `vmmemWSL` (Docker/WSL)
+  22.9 GB, VS Code 16.4 GB (53 procs), Chrome 12.7 GB (75), Claude Code 11.7 GB (18 procs — other
+  sessions), node 6.8 GB (38). Not this run's (paused; no app, agent or job of ours running). Hasan's
+  call: free memory (Docker / WSL, editor windows, old sessions) and/or C: files; a restart resets the
+  page file. The run resumes when C: is back above the stop line.
