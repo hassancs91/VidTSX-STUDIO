@@ -1,5 +1,9 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (step 1 done; red tests written, fix next)
+status: BUILDING (step 1 done; step 2 fix WRITTEN, NOT YET RUN — C: under 1.0 GB, uncommitted)
+
+> **Disk override (orchestrator, 2026-10-23) still in force:** C: had 0.25–0.32 GB free all through
+> builder #4 (checked 4×). Until C: ≥ 5 GB: code + targeted unit tests only; check `Get-PSDrive C`
+> before each test command and stop/hand off under 1.0 GB. Builder #4 ran NO test (C: < 1.0 GB).
 
 ## Goal (the row — added 2026-10-23 by Hasan's session-3 instruction — + the exit)
 
@@ -156,7 +160,54 @@ Corrections found on the way (facts, not guesses):
   (b) the produced cut; (c) no wordless produced segment near it; mechanism 1: the 0366 4.83–5.89, 12.63–14.34
   and 0373 247.86–249.35 gaps sit inside one item; 0373 391.59's fluff stays its own `rejected` item.
 
+### Step 2 — the fix for mechanisms 1–3 (builder #4, 2026-10-23, WRITTEN, NOT RUN, NOT COMMITTED)
+
+Working tree (all uncommitted): `M src/shared/studio/cut-snap.ts`, `M src/main/services/studio/editorial-cuts.ts`,
+`?? src/shared/studio/cut-snap-landing.ts` (new), `?? src/main/services/studio/editorial-cuts-b7.test.ts` (builder #3's
+red test, edited). Commit all four together once the run below is green.
+
+- **(a) merge key** — `cut-snap.ts`: new optional `mergeKey?: (category: C) => string` on `SnapCutSpansInput` (:51-58, field :58).
+  Step 2 (:154-181): a wordless gap merges when ≤ `MERGE_SILENT_KEEP_MAX` (today) OR when both sides' dominant
+  categories share a key AND `loudSeconds(gap) ≤ LOUD_GAP_MAX_S = 1.0` (the orchestrator's guard: seconds above
+  floor + `QA_HARD_ENTRY_DB` (15 dB), 20 ms steps — `loudSeconds` :115-125, `LOUD_GAP_MAX_S` :80). `editorial-cuts.ts:37-48` (key :41, wrapper :46-48):
+  `snapEditorialCuts` passes `editorialMergeKey` (`fluff` → 'fluff', else 'cut'); a caller's own key wins.
+  Text-delete (`text-delete.ts:161`) passes no key → today's ≤ 1.0 s rule unchanged there.
+- **(b) cut-in landing** — new `src/shared/studio/cut-snap-landing.ts` `landCutEnd` (the 300-line rule forced the
+  split; cut-snap.ts is 271 lines), called from new step 2b in `cut-snap.ts:187-209` on every merged span, after
+  the merge, before the keeps. Rule: `a` = last removed word's end, `kept` = next word if it starts before the next
+  cut; `lo = min(a + snapTail(a, minTail, softMaxTail, softMargin, fricZcr, fricMargin) + QA_ENTRY_LOOKBACK_S (0.06),
+  cap)` with `cap = min(kept.start − 0.01, nextCutStart − MIN_CUT_SPAN)` (or `nextCutStart − MIN_CUT_SPAN` with no
+  kept word); `hi = kept.start − (planClip's own lead-in: head, roomier on the first atom, ≥ snapHead when maxHead)`;
+  **end = max(lo, min(end, hi))** — pushed forward only out of the release, pulled back only out of the lead-in; an
+  end already between the two is left alone (so an end the author put over untranscribed sound is not pulled back).
+  No-op when the span removes no word, ends mid-word, or `cap ≤ a`. A note "N cut ends moved off …" joins `notes`.
+  The +0.06 = the QA entry lookback, so the cut-in's QA window reads exactly the window snapTail found decayed.
+- **The cut-OUT mirror** (open problem below) is NOT fixed: it needs `tailFor`'s gap-dependent tail (not the same
+  few lines); none of the six needs it. Left listed.
+- **Test edits** (`editorial-cuts-b7.test.ts`, now 226 lines): (1) **the style is now the SHIPPED tight**
+  (`resources/skills/studio-clean-cut/cut-style.json` `.styles.tight`, read like the fixture) instead of
+  `TEST_TIGHT_STYLE` — builder #3's test used the test fixture style (head 0.11, no maxHead/fricZcr/minSkip), which
+  is not what B6 planned with; every number in step 1 (204.069 = 204.219 − 0.15, 122.584) is the shipped knobs.
+  Still red before the fix by the probe below (hard @ authored ends 29.1 / 24.2 / 15.9 / 36.0 / 21.9 / 37.1 dB).
+  (2) new `describe('B7 guards …')`, three synthetic tests: 0.5 s of loud sound in a 3 s wordless gap → merged;
+  **1.5 s of loud non-speech sound → NOT merged (the orchestrator's guard)**; an end placed past the release over
+  untranscribed sound is not pulled back.
+- **Expected by hand** (probe numbers, shipped tight, NOT a test run): 0366 4.83 / 12.63 and 0373 247.86 gaps hold
+  0.26 / 0.26 / 0.44 s over +15 dB → merged; 0373 204.069 → end 204.209 (lo capped at "so" − 0.01; hard window
+  +11.1 dB; Hasan's hand 204.209); 0373 391.59 → end 391.988 (+5.1 dB), fluff (key differs, gap 1.77 s) stays its own
+  `rejected` item; 0375 122.7 → end 122.584 (= hi, +0.8 dB; Hasan's plan segment start). Existing tests checked by
+  hand: `editorial-cuts.test.ts` (all assertions are ranges/counts; edges unchanged or inside them),
+  `cut-tools.test.ts:107` (cut end 2.4 → 2.49, still the hard entry at `cut.sourceEnd`, +40 dB), text-delete /
+  text-restore (assert surviving words and self-consistent sums; the end only moves inside the wordless gap).
+- Analysis kit: `.vidtsx-temp/end-to-end/B7/probe-b7.mjs <fixture.json>` (prints only; replicates rms-envelope.ts
+  with the shipped tight knobs: per case the release tails, head pads, hard-window dB at candidate cut-ins, 20 ms
+  profile, loud seconds per gap).
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
+  (analysis, prints only) → the numbers quoted in step 2. **No vitest / check:types run by builder #4** —
+  `Get-PSDrive C` read 0.32, 0.31, 0.25 GB free before each would-be test command (< 1.0 GB → stop, per the override).
 
 - 2026-10-23 · `npx vitest run src/main/services/studio/editorial-cuts-b7.test.ts` (C: 1.10 GB free) →
   `Tests 17 failed | 6 passed (23)`. RED as intended: every case's card QA has a hard entry at its join
@@ -167,19 +218,12 @@ Corrections found on the way (facts, not guesses):
 
 ## Next step (ONE concrete instruction)
 
-Make the 23 tests in `editorial-cuts-b7.test.ts` green by changing ONLY `src/shared/studio/cut-snap.ts`
-(+ the editorial wrapper passing a merge key): (a) step 2 — a wordless gap between two cuts merges at ANY
-length when both spans share the caller's merge key (new optional `mergeKey?: (category: C) => string` on
-`SnapCutSpansInput`; `snapEditorialCuts` passes `c === 'fluff' ? 'fluff' : 'cut'`; spans with different keys
-keep today's ≤ `MERGE_SILENT_KEEP_MAX` rule so `editorial-cuts.test.ts:131` holds); (b) a new step between
-merge and keeps — for each merged span with kept material after it, when its end lies in the wordless gap
-after its last removed word (`a` = max `w.end` of words with `w.end ≤ end + 0.02` inside the span) and before
-the next word / next span start `s`, set `end = min(a + envelope.snapTail(a, minTail, softMaxTail, softMargin,
-fricZcr, fricMargin), s − 0.01)` (if the fixtures still read hot at the new cut-in, add the 0.05 s QA window
-to the release before taking the min — check against the fixtures, don't guess): this pulls 0375's 122.7
-back so the head pad lands at ≈ 122.58 and pushes 0373 204.069 → ≈ 204.209 and 391.59 past "on."'s release.
-Then run `npx vitest run src/main/services/studio/editorial-cuts-b7.test.ts src/main/services/studio/editorial-cuts.test.ts src/shared/studio/cut-planner.test.ts src/shared/studio/cut-planner-knobs.test.ts src/shared/studio/cut-qa.test.ts src/main/services/studio/agent-tools/run-auto-cut.test.ts`
-and `npm run check:types` (baseline web 26 / node 10), record both, and commit test + fix together.
+When `Get-PSDrive C` shows ≥ 1.0 GB free, run (one command, from the repo root)
+`npx vitest run src/main/services/studio/editorial-cuts-b7.test.ts src/main/services/studio/editorial-cuts.test.ts src/main/services/studio/agent-tools/cut-tools.test.ts src/features/studio/services/text-delete.test.ts src/features/studio/services/text-restore.test.ts src/shared/studio/cut-planner.test.ts src/shared/studio/cut-planner-knobs.test.ts src/shared/studio/cut-qa.test.ts src/main/services/studio/agent-tools/run-auto-cut.test.ts`
+and `npm run check:types` (baseline web 26 / node 10); expect `editorial-cuts-b7.test.ts` 26 / 26 green (23 + the
+three guards) and the rest unchanged; fix only inside `cut-snap.ts` / `cut-snap-landing.ts` / `editorial-cuts.ts`
+if anything is red (the hand-expected numbers are in step 2); record both outputs under Verified and commit the
+four files together ("fix(studio): B7 — editorial cuts merge wordless gaps and land cut-ins off leftover sound").
 After that (later steps, in order): item 5 (QA-flagged items `rejected` with the reason, both card
 builders, the agent's reply names them), item 4 (Auto Cut over the timeline's keeps: `runCutPlan` takes the
 asset's kept source ranges from the button and from `run_auto_cut`; `buildCutProposal` proposes only inside
@@ -187,13 +231,22 @@ them and its headline counts only that), then the live exit run once C: ≥ 5 GB
 
 ## Open problems
 
-- Not blocking (decide in the fix, write the choice down): the CUT-OUT side has the mirror issue (an
-  authored START early in the gap after a kept word truncates that word's tail via `cut-planner.ts:163`) —
-  none of the six needs it; leave it unless a test shows a regression.
+- **C: disk (blocks every test run):** 0.25–0.32 GB free during builder #4 (it was 1.10 GB for builder #3). The
+  step-2 fix is unverified until a test run is allowed. Not caused by this run (no app, no copies, no vitest).
+- Not fixed, left listed (orchestrator: fix only if the same few lines — it is not): the CUT-OUT side mirror (an
+  authored START early in the gap after a kept word truncates that word's tail via `cut-planner.ts:163`). A
+  mirror of `landCutEnd` needs `tailFor`'s gap-dependent tail (punchy vs soft, the next-atom clamp), not the
+  release walk; none of the six needs it.
+- New, not blocking (no fixture): when a removed word's sound runs straight into the kept word, `landCutEnd`
+  lands the cut 10 ms before the kept word's TOKEN (Hasan's own hand at 0373 204.209). If that word's real onset
+  starts earlier than its token, that cut-in can slice the onset; the card's QA still sees it (item 5 then
+  unchecks it). A refinement would cap at the snapHead-walked onset instead.
 - Not blocking: with Auto Cut over the timeline's keeps (item 4), `planClip` keeps a WORDLESS keep whole
   (`cut-planner.ts:72-74`). After (a) the editorial pass no longer leaves wordless keeps between two applied
   cuts, but one the user creates (unchecking one of two neighbouring items) would survive Auto Cut whole.
-  Today's whole-clip Auto Cut trims it. Note it on the item-4 step; no fixture case hits it.
+  Today's whole-clip Auto Cut trims it. Note it on the item-4 step; no fixture case hits it. Also left: the
+  wordless gap between an accepted cut and an unchecked fluff (0373 391.988–393.36) is kept by the card and,
+  once the fluff is applied too, is such a user-made wordless keep.
 
 ## Do-not-redo
 
@@ -205,9 +258,14 @@ them and its headline counts only that), then the live exit run once C: ≥ 5 GB
 - The six cases' fixture is extracted (`cut-snap-b7.fixture.json`); don't re-extract unless a case is wrong.
 - The mechanism map above (step 1) is done; don't re-read cut-snap / cut-planner / cut-qa / cut-proposal /
   cut-plan-runner / workflow-tools / cut-tools to re-derive it — read only what the fix touches.
+- Step 2's code is written (see Done › Step 2): don't rewrite it — RUN it, then fix only what a red test shows.
+  The per-case envelope numbers come from `probe-b7.mjs`; don't re-derive them by hand.
 
 ## Agents so far (date · approx tool calls · what they covered)
 
 - 2026-10-23 · builders #1, #2 · died on API connection errors before writing anything.
 - 2026-10-23 · builder #3 · ~45 calls · step 1 (mechanism map, corrections) + the fixture + the red tests;
   disk override in force (code + targeted tests only; C: 1.10 GB free at hand-off).
+- 2026-10-23 · builder #4 · ~35 calls · step 2 code (merge key + loud-gap guard, `landCutEnd` in the new
+  `cut-snap-landing.ts`), B7 test moved to the shipped tight style + three guard tests, `probe-b7.mjs`; ran NO test
+  (C: 0.25–0.32 GB free, under the override's 1.0 GB stop); nothing committed (not a green checkpoint).
