@@ -9,17 +9,18 @@ import type {
   StudioAssetProbe,
   StudioMediaAsset,
 } from '../../../shared/types/studio';
+import { extensionsOfKind, isPlayableMediaKind, mediaKindOf } from '../../../shared/media-kinds';
 import { getProjectCacheDir, getProjectDir } from './studio-paths';
 import { parseSvgDimensions } from './svg-dimensions';
 
 const log = logEngine.createLogger('StudioMediaImport');
 
-const VIDEO_EXTS = new Set(['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.mts', '.m2ts']);
-const AUDIO_EXTS = new Set(['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus']);
-// SVG (video-10 import gap 6): the asset route already serves it and Chromium
-// draws it in an <img>, so it is an image clip like any other — only the probe
-// and the thumbnail differ, because ffmpeg/ffprobe cannot read SVG (below).
-const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif', '.svg']);
+// The extension → kind table is shared with the Assets screen and the library
+// index (src/shared/media-kinds.ts, E1). SVG (video-10 import gap 6): the asset
+// route already serves it and Chromium draws it in an <img>, so it is an image
+// clip like any other — only the probe and the thumbnail differ, because
+// ffmpeg/ffprobe cannot read SVG (below).
+const bare = (exts: string[]): string[] => exts.map((e) => e.slice(1));
 
 function isSvg(filePath: string): boolean {
   return path.extname(filePath).toLowerCase() === '.svg';
@@ -28,19 +29,17 @@ function isSvg(filePath: string): boolean {
 export const MEDIA_DIALOG_FILTERS = [
   {
     name: 'Media',
-    extensions: [...VIDEO_EXTS, ...AUDIO_EXTS, ...IMAGE_EXTS].map((e) => e.slice(1)),
+    extensions: bare([...extensionsOfKind('video'), ...extensionsOfKind('audio'), ...extensionsOfKind('image')]),
   },
-  { name: 'Video', extensions: [...VIDEO_EXTS].map((e) => e.slice(1)) },
-  { name: 'Audio', extensions: [...AUDIO_EXTS].map((e) => e.slice(1)) },
-  { name: 'Images', extensions: [...IMAGE_EXTS].map((e) => e.slice(1)) },
+  { name: 'Video', extensions: bare(extensionsOfKind('video')) },
+  { name: 'Audio', extensions: bare(extensionsOfKind('audio')) },
+  { name: 'Images', extensions: bare(extensionsOfKind('image')) },
 ];
 
+/** video / audio / image from the one kind table; null for anything a timeline cannot play. */
 export function classifyMediaKind(filePath: string): StudioAssetKind | null {
-  const ext = path.extname(filePath).toLowerCase();
-  if (VIDEO_EXTS.has(ext)) return 'video';
-  if (AUDIO_EXTS.has(ext)) return 'audio';
-  if (IMAGE_EXTS.has(ext)) return 'image';
-  return null;
+  const kind = mediaKindOf(filePath);
+  return isPlayableMediaKind(kind) ? kind : null;
 }
 
 async function getBinaryPath(type: 'ffmpeg' | 'ffprobe'): Promise<string> {

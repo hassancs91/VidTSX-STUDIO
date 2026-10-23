@@ -1,13 +1,8 @@
 import type { TreeNode } from '@shared/ipc/types';
+import type { LibraryAssetKind } from '@shared/types/asset-library';
 
-export type AssetCategory =
-  | 'video'
-  | 'audio'
-  | 'image'
-  | 'model3d'
-  | 'font'
-  | 'data'
-  | 'other';
+/** The library kind from the one extension table (src/shared/media-kinds.ts). */
+export type AssetCategory = LibraryAssetKind;
 
 export interface AssetEntry {
   // Underlying tree node from FILE_LIST. Always either a file or folder; we only
