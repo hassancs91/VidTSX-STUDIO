@@ -161,6 +161,22 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 
 - 2026-10-23 · B6 · **The Assistant's live state:** `agent` props read up from the textarea's `__reactFiber$` were a STALE alternate — busy / pending frozen at the first streamed words for 12 min while the turn had ended in 26 s (the AI-usage row and the visible Send button said so). Read busy from a visible `button[title="Stop the assistant"]`, and the props by walking DOWN from the container's `__reactContainer$….stateNode.current` (B6 `run.mjs` `findCur`). A cut card with 0 accepted items (a lone fluff) has a disabled Apply — answer it with "Reject all"; the editor's "Review outcome" turn still continues the run. Per-turn usage: `window.api.aiUsageGetLog({ limit })` rows (`featureSource 'auto-cut'` for Studio assistant turns).
 
+## Track E (session 4, 2026-10-23) — the worktree
+
+- Track E works ONLY in the worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch
+  `end-to-end-p0-e`). The main checkout `D:\repos\VidTSX-STUDIO` has another session's uncommitted files and
+  Hasan's own dev app running from it (his real profile, Vite 5173): never edit, stage, stash, build or
+  launch there, never touch its `out/`, never `git stash` anywhere. Commit with explicit paths.
+- No `node_modules` in the worktree; never `npx` / `npm` there. Tests:
+  `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run [files]`; types:
+  `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` (and
+  `tsconfig.node.check.json`), count `error TS` lines — baseline web 26 / node 10.
+- Per-part scratch (drivers, small logs, kits): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\<PART>\`
+  (outside the worktree's tree). Profiles: `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\<PART>…\profile`,
+  copied from `profiles\source\profile` WITHOUT `settings\settings.db*`. The library root of such a profile
+  is `<profile>\assets` — confirm from the running app before any library write.
+- Launch recipe from the worktree: (the first builder who launches writes the working one here.)
+
 ## video-14 (track A, from A3 on) — orchestrator rules
 
 - Work only on the shared copy `.vidtsx-temp/end-to-end/v14-root/projects/video-14` (set the

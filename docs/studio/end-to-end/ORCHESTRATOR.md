@@ -34,10 +34,10 @@
 | D3 | TODO | | | | | |
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
-| E1 | TODO | | | | | |
+| E1 | BUILDING (worktree `end-to-end-p0-e`, see "Session 4 — track E") | 1 | | | | 2026-10-23 20:25 / |
 | E2 | TODO | | | | | |
-| E3 | TODO | | | | | |
-| E4 | TODO | | | | | |
+| E3 | TODO (runs after E4) | | | | | |
+| E4 | TODO (runs before E3) | | | | | |
 | F0 | TODO | | | | | |
 | F1 | TODO | | | | | |
 | F2 | TODO | | | | | |
@@ -637,3 +637,82 @@
 - 2026-10-23 17:40 · **STOP at Hasan's word** ("please stop after this task that is running now", during
   builder #18). Not started: the B7 verifier, the track-B exit, tracks C–F. Hand-off for session 4:
   `docs/studio/end-to-end/NEXT-SESSION.md`.
+
+## Session 4 — track E only (started 2026-10-23 ~20:05, Hasan's paste-in)
+
+- **Scope (Hasan):** track E only, in the order **E1 → E2 → E4 → E3 → track-E exit** (E4 before E3: E3's
+  whoosh case needs the imported library). No stop between parts; stop after the track-E exit, on BLOCKED,
+  or after three verifier FAILs on one part. NOT this session: B7's verifier, the track-B exit, tracks C, D,
+  F (they resume later from NEXT-SESSION.md). Q2 in force for E2: generated SFX normalized at generation to
+  −20 LUFS under −1.5 dBFS.
+- **Start state:** main checkout `D:\repos\VidTSX-STUDIO` on `end-to-end-p0` @ `5d77600`, **NOT clean**:
+  7 modified + 3 untracked files (`TimelinePanel.tsx`, `CutRegionLayer.tsx`, `RulerMarkers.tsx`,
+  `TimelineRuler.tsx`, `useClipDrag.ts`, `system-info.ts`, `ipc/types/system.ts`; new `useScrubDrag.ts`,
+  `edge-autoscroll.ts` + test), written 19:56–20:01 — not this run's. **Hasan's own dev app is running from
+  that checkout** (`npm run dev` from a VS Code terminal at 20:01, his real profile `%APPDATA%\VidTSX Studio`,
+  Vite on 5173; electron-vite 5.0.0 has no main watch, so renderer edits there would hot-reload into his
+  app). Resources: C: 55.7 GB, D: 26.0 GB free; commit 52.2 / 99.7 GB (headroom 47.5 GB). Port 9247 is
+  NordVPN's, not an app.
+
+### Track E decisions (orchestrator, 2026-10-23)
+
+- **E-d1 Worktree.** All track-E code AND docs live in a git worktree at
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` on the local branch **`end-to-end-p0-e`**, cut from
+  `end-to-end-p0` @ `5d77600` (created by the orchestrator, git infrastructure only). Reason: Hasan is live in
+  the main checkout (his dev app + another session's uncommitted edits); track-E work in progress must not
+  hot-reload into his app, reach his next restart (an index migration on his REAL library), or mix with
+  the other session's files in a commit or a gate. Nobody on track E edits, stages, stashes or commits in
+  the main checkout, and nobody uses `git stash` at all (the stash stack is shared). How track E lands on
+  `end-to-end-p0` is decided at the stop (a fast-forward when nothing there has moved and Hasan is not
+  mid-work, otherwise left for him with the one command).
+- **E-d2 Tooling in the worktree.** The worktree has no `node_modules`; node and Vite resolve the main
+  checkout's by walking up. Never `npx` / `npm` there (npx would fetch from the registry; an install would
+  rewrite the shared `node_modules`). Tests: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`
+  from the worktree root. Types: `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p
+  tsconfig.web.check.json --noEmit` and `-p tsconfig.node.check.json`, counting `error TS` lines against
+  the baseline web 26 / node 10 (what `scripts/check-types.mjs` does — it calls `npx`, so not from here).
+  The app runs only from the worktree's own build (`out/` inside the worktree), never from the main
+  checkout's `out/`; the first builder who launches writes the working recipe into DRIVING.md "Track E".
+- **E-d3 Profiles and the library.** New isolated profiles are copies of
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\source\profile` **excluding `settings\settings.db*`**
+  (credential rule), at `…\vidtsx-e2e\profiles\E<n>[-verify[N]]\profile`. Without a settings store there is
+  no `assetsRootOverride`, so the library root is `<profile>\assets` (`library-paths.ts:27-30`) — confirm
+  it from the running app before any migration, import or generation, and stop if it resolves anywhere
+  else. The source profile's `assets\` holds only 4 `.json` + 3 `.md` (no media). Hasan's real library
+  (`%APPDATA%\VidTSX Studio\assets`) is never read, copied or written.
+- **E-d4 Before any launch:** Hasan's app shares `%TEMP%\vidtsx-studio` with every instance and a new
+  instance's startup sweep can delete a live export's scratch — check his app (`electron.exe` with his
+  `--user-data-dir`) has no ffmpeg / Remotion children and nothing in `%TEMP%\vidtsx-studio\export` changed
+  in the last 10 minutes; if it is exporting, wait. Never stop his processes; select ours by
+  `--remote-debugging-port=<port>` or the profile path. CDP ports for track E: 926x builders, 927x
+  verifiers, 9280 the exit (never 9247).
+- **E-d5 Downgrade safety of the index (E1).** Hasan's installed 1.1.x app and the main-branch code read
+  the SAME `%APPDATA%\VidTSX Studio\assets\.vidtsx\index.json` as any dev build he runs, and today's
+  `loadIndex` (`library-store.ts:42`) returns an EMPTY index for `version !== 1` — its next write rebuilds
+  the index from a disk scan, losing descriptions, origins, brand ids, hashes and tombstones. So an index
+  written by E1's code must be read WITHOUT LOSS by the pre-E1 reader: a control test runs the pre-E1
+  `loadIndex` + its upsert / reconcile writes (from `git show 5d77600:…`) on an E1-written index and keeps
+  every pre-E1 field; the builder records whether the new fields survive an old write. The plan's "index
+  version 2" is met by a revision marker the old reader ignores (e.g. `version: 1` + `rev: 2`) or any
+  mechanism that passes the control; the migration leaves a one-time backup of the pre-migration index.
+  (Within T6's intent and the house rule "old projects open untouched".)
+- **E-d6 Paid providers.** No ElevenLabs call and no key in any profile. Generation (E2, E3, the exit) is
+  built and verified with a **stand-in**: a locally made sound entering at the engine boundary (the HTTP
+  response / engine result), everything after it real (save → normalize → probe → index → import →
+  insert). A stand-in seam reachable in the live app is dev-only (inert when packaged) and named in
+  STATUS. The one live ElevenLabs call goes on Hasan's real-video list.
+- **E-d7 Loudness (Q2).** −20 LUFS integrated under a −1.5 dBFS peak ceiling (palette defaults); the rule
+  for the case where −20 LUFS would push the peak over the ceiling is ported from the editor repo's
+  `gen_sfx.py` (read-only; Python only with `-I -B`). The product path must work on the bundled (stripped)
+  ffmpeg — check `-filters` / `-muxers` / `-encoders` first (no `volumedetect` there); the full ffmpeg is an
+  optional download and is not assumed. LUFS is verified with a meter independent of the product code
+  (e.g. the source profile's `ffmpeg-full` `ebur128`); tolerance ±0.5 LU where the ceiling does not bind.
+- **E-d8 Library content (E4).** The importer takes an explicit target library (no implicit default) and
+  has a dry run; in this run it only ever targets an isolated profile's library. The reference catalogs
+  (`D:\repos\claude-youtube-editor\media\library\{sfx,music}\`, 45 + 6 clips, 1.3 + 7.6 MB) are read-only;
+  4 of the 45 SFX (synth chords) carry no `category` / `license`.
+- **E-d9 Model calls** only where a part needs them (E3's whoosh case, the track-E exit), through the
+  isolated instance's keyless `claude-subscription` (a profile without `settings.db` defaults to it, as in
+  B6/B7); a handful of turns.
+- **E-d10 TESTING §18 numbering:** E1 → 18.14, E2 → 18.15, E4 → 18.16, E3 → 18.17; C, D, F (later)
+  continue from 18.18. Status.md rows at the top as usual — in the worktree's `Status.md`.
