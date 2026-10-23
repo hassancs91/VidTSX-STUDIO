@@ -48,27 +48,69 @@
 ## How to resume (paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`)
 
 ```
-You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, resuming a run. Follow
-docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the builder and verifier briefs,
-the stop report, the "things you never do"), with the overrides below. Read first: CLAUDE.md;
-docs/studio/END_TO_END_PLAN.md; the top of Status.md; docs/studio/end-to-end/NEXT-SESSION.md;
-docs/studio/end-to-end/ORCHESTRATOR.md (table, "Answers in force", "Stops", every "From …"
-section, "Track B decisions", "B4/B5 — WAITING-HASAN", "TRACK B EXIT"); docs/studio/end-to-end/DRIVING.md;
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, session 3: finalize track B, then
+move to track C. Follow docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the
+builder and verifier briefs, the stop report, the "things you never do") with the overrides below.
+Read first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md; the top of Status.md;
+docs/studio/end-to-end/NEXT-SESSION.md; docs/studio/end-to-end/ORCHESTRATOR.md (all of it, esp.
+"Answers in force", "B4/B5 — WAITING-HASAN", "From B6", "TRACK B EXIT"); docs/studio/end-to-end/DRIVING.md;
+docs/studio/end-to-end/B4/HASAN-STEP.md; docs/studio/end-to-end/B5/HASAN-STEP.md;
 docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
 
-Overrides for this run:
-1. Answers: ORCHESTRATOR.md "Answers in force" (Q1–Q6).
-2. Scope: <Hasan fills in — e.g. "record my B4/B5 results", "B7: fix the editorial hard
-   entries, then re-run the track-B exit", or "start track C at C1">.
-3. Every builder brief adds: "Also read docs/studio/end-to-end/DRIVING.md and the 'Track B
-   decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md with the Edit/Write tools. Never hand back
-   while a job you started is still running. Never read, copy or open a credential store
-   (settings.db, ~/.claude). Select your own processes by --remote-debugging-port or profile path,
-   never a bare number."
-4. Verifiers: the exit, DRIVING.md's safety rules, the commit range, earlier verifier findings —
-   never the builder's conclusions; their own negative and control cases where the exit is a
-   measurement; instructions written for Hasan are walked LITERALLY with real input.
-5. The orchestrator writes only under docs/studio/end-to-end/ and commits after each update.
+PHASE 1 — my hands-on steps (I do them; you guide, judge and record)
+1. First, before anything else, give me ONE numbered checklist of everything I must do to finalize
+   track B, in order. For each step: the exact command or click path, how long it takes, what I
+   send back to you, and what counts as pass. Build it from B4/HASAN-STEP.md, B5/HASAN-STEP.md,
+   the B6 bar (Status.md B6 row), and NEXT-SESSION.md "Waiting on Hasan". Keep it short enough to
+   follow with the app open. Then wait for me.
+2. While I do the station passes, start NO builder and change NO src/ (my stations run this
+   branch's dev build; an edit would reload or restart it under me).
+3. When I report B4 (the three numbers + "learned from N joins", or a screenshot): judge it by pass
+   rule (a); have a small builder record it in Status.md's B4 row and tick TESTING §18.10's exit
+   item; mark B4 DONE in ORCHESTRATOR.md — or, if it misses, say why with the numbers and propose
+   the next move.
+4. When I report B5 (Part A yes/no per word, any problem rows, and my two calls — apply
+   B5/backfill-fix.patch or not; flip studio-text-edit or not): spawn a builder to apply exactly
+   what I decided (the prepared patch and/or the one-line flip, with the gates), then a verifier;
+   record B5 DONE.
+5. Record my answer on the B6 next-round bar (confirmed / changed to …).
+6. The editor repo's clean-cut skill ("marked superseded for cutting"): ask me whether I do it
+   myself or you may edit that one file in D:\repos\claude-youtube-editor — only on my explicit yes.
+
+PHASE 2 — B7, then the track-B exit (after my passes are done)
+7. Add part B7 to ORCHESTRATOR.md: "Editorial cuts leave no hard entries". Scope = the mechanisms
+   the track-B exit found (ORCHESTRATOR "TRACK B EXIT"): the 1.0 s MERGE_SILENT_KEEP_MAX
+   silent-sliver merge; editorial cut-ins landing in a removed word's release or a head pad on
+   leftover sound; the planner's cut clamp slicing an onset; Auto Cut planning over spans the
+   editorial pass already removed; and whether the assistant may apply a card its own QA flags.
+   Exit: the real assistant pass ("Cut this video." on all nine M2 clips, the keyless subscription
+   provider, one pass) gives 0 hard entries on the applied cut, overlap ≥ 90.5 % (no regression),
+   median lead-in / tail within ±30 ms of the fitted tight. Builder(s) + verifier as usual.
+8. Then the track-B exit, fresh and offline (like session 2's checker). Track B is final when the
+   exit passes and B4 and B5 are DONE. Report it in five lines.
+
+PHASE 3 — track C
+9. After the track-B exit passes, continue straight into track C: C1, C2, C3, C4, C5, then the
+   track-C exit, without stopping between parts. Stop after the track-C exit, on BLOCKED, or after
+   three verifier FAILs on one part. [Change this line to "stop and wait for my go" if you want a
+   pause before C.]
+
+OVERRIDES for the whole run
+- Answers in force: ORCHESTRATOR.md Q1–Q6 (Q3 for C4: the assistant writes only in notes/).
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a
+  part needs (B7's one assistant pass; track C's TSX builds and assistant turns); never a paid API
+  key provider; never read, copy or open a credential store (settings.db, ~/.claude, any profile's).
+- Every builder brief adds: "Also read docs/studio/end-to-end/DRIVING.md and the 'Track B
+  decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md with the Edit/Write tools. Never hand back
+  while a job you started is still running. Select your own processes by --remote-debugging-port or
+  profile path, never a bare number. Never touch Hasan's stations (B1-verify-root +
+  profiles\B1-verify, B5-station-root + profiles\B5-station) unless the part says so."
+- Anything written for me to do by hand is walked literally with real mouse input by the builder
+  AND the verifier before it reaches me.
+- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings — never
+  the builder's conclusions — and build their own negative and control cases.
+- The orchestrator writes only under docs/studio/end-to-end/ and commits after each update. Never
+  push; merging end-to-end-p0 into main is my call.
 ```
 
 ## Lessons from session 2 (apply them)
