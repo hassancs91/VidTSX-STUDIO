@@ -8,7 +8,8 @@
 
 import type { SttModelFeatures } from '../presets/stt-models';
 import type { CutPlanStyle, CutQaReport } from '../types/studio-cut-plan';
-import { qaForPlan } from './cut-qa';
+import { QA_HARD_ENTRY_DB, qaForPlan } from './cut-qa';
+import { landCutEnd } from './cut-snap-landing';
 import {
   planClip,
   styleForFeatures,
@@ -47,6 +48,14 @@ export interface SnapCutSpansInput<C extends string> {
    * pause compression is switched off here whatever the style says.
    */
   style: CutPlanStyle;
+  /**
+   * Two cuts whose categories map to the same key merge through a wordless
+   * gap of ANY length (B7: the removed word's release left in such a gap
+   * became a blip once Auto Cut took the quiet middle) — unless the gap holds
+   * more than LOUD_GAP_MAX_S of loud non-speech sound. Without a key, or with
+   * different keys, only gaps up to MERGE_SILENT_KEEP_MAX merge.
+   */
+  mergeKey?: (category: C) => string;
 }
 
 export interface SnapCutSpansResult<C extends string> {
@@ -64,6 +73,13 @@ export interface SnapCutSpansResult<C extends string> {
 const MIN_CUT_SPAN = 0.05;
 /** A wordless keep this short between two cuts is dead air — merge through it. */
 const MERGE_SILENT_KEEP_MAX = 1.0;
+/**
+ * A same-key wordless gap holding more loud sound than this (a demo sound,
+ * laughter) is not merged blindly: it stays kept and Auto Cut decides.
+ */
+const LOUD_GAP_MAX_S = 1.0;
+/** Step of the loud-time scan, seconds (one RMS bucket at 50/s). */
+const LOUD_STEP_S = 0.02;
 
 interface MergedSpan<C extends string> extends PlanSpan {
   categories: Map<C, number>;
@@ -96,6 +112,17 @@ function hasWordsBetween(words: PlanWord[], a: number, b: number): boolean {
   return words.some((w) => w.start >= a - 0.02 && w.end <= b + 0.02);
 }
 
+/** Seconds of [from, to) louder than the cut QA's hard-entry bar (floor + 15 dB). */
+function loudSeconds(envelope: RmsEnvelope, from: number, to: number): number {
+  const bar = envelope.floorDb() + QA_HARD_ENTRY_DB;
+  let loud = 0;
+  for (let t = from; t < to; t += LOUD_STEP_S) {
+    const win = Math.min(LOUD_STEP_S, to - t);
+    if (envelope.rmsDb(t, win) > bar) loud += win;
+  }
+  return loud;
+}
+
 /**
  * Validate, merge, and snap authored spans against the real audio.
  * Returned items are sorted and non-overlapping; each maps 1:1 onto a gap
@@ -126,16 +153,23 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
 
   // 2. Merge overlaps, and merge through wordless slivers between cuts — an
   //    isolated silent chunk bracketed by two cuts is never worth keeping.
+  //    Same-key cuts merge through a wordless gap of any length unless it
+  //    holds loud non-speech sound (then Auto Cut decides).
   clamped.sort((a, b) => a.start - b.start);
   const merged: MergedSpan<C>[] = [];
   let mergedCount = 0;
+  const { mergeKey } = input;
   for (const span of clamped) {
     const prev = merged[merged.length - 1];
     if (prev) {
       const gap = span.start - prev.end;
       // A keep narrower than MIN_CUT_SPAN can't survive step 3 — merging here
       // keeps cuts and keeps strictly alternating.
-      const silentSliver = gap <= MERGE_SILENT_KEEP_MAX && !hasWordsBetween(words, prev.end, span.start);
+      const sameKey = !!mergeKey && mergeKey(dominantCategory(prev)) === mergeKey(dominantCategory(span));
+      const silentSliver =
+        !hasWordsBetween(words, prev.end, span.start) &&
+        (gap <= MERGE_SILENT_KEEP_MAX ||
+          (sameKey && loudSeconds(input.envelope, prev.end, span.start) <= LOUD_GAP_MAX_S));
       if (gap < MIN_CUT_SPAN || silentSliver) {
         mergeInto(prev, span);
         mergedCount++;
@@ -148,6 +182,30 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
 
   if (merged.length === 0) {
     return { items: [], removedSeconds: 0, notes };
+  }
+
+  // 2b. Land each cut's far edge off the removed word's release and out of
+  //     the next kept word's lead-in (landCutEnd). Spans stay sorted and at
+  //     least MIN_CUT_SPAN apart, so step 3's alternation holds.
+  const base = styleForFeatures(input.style, input.features);
+  let moved = 0;
+  for (let j = 0; j < merged.length; j++) {
+    const nextCutStart = j + 1 < merged.length ? merged[j + 1].start : input.duration;
+    const firstAtom = j === 0 && merged[0].start < MIN_CUT_SPAN;
+    const end = landCutEnd({
+      span: merged[j],
+      nextCutStart,
+      firstAtom,
+      words,
+      style: base,
+      envelope: input.envelope,
+      minGap: MIN_CUT_SPAN,
+    });
+    if (Math.abs(end - merged[j].end) > 0.02) moved++;
+    merged[j].end = end;
+  }
+  if (moved > 0) {
+    notes.push(`${moved} cut end${moved === 1 ? '' : 's'} moved off a removed word's release or a kept word's lead-in`);
   }
 
   // 3. Keeps = complement of the cuts. Keeps and cuts strictly alternate;
@@ -169,7 +227,6 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
   if (hasTrailingKeep) keeps.push({ start: cursor, end: input.duration });
 
   // 4. Snap edges: same planner as Auto Cut, pause compression disabled.
-  const base = styleForFeatures(input.style, input.features);
   const style = { ...base, internalGap: Number.POSITIVE_INFINITY };
   const cutSpans: PlanSpan[] = merged.map((m) => ({ start: m.start, end: m.end }));
   const segments = planClip(keeps, words, style, input.envelope, cutSpans);

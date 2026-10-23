@@ -34,9 +34,17 @@ export type EditorialCutItem = SnappedCut<EditorialCategory>;
 export type SnapEditorialCutsInput = SnapCutSpansInput<EditorialCategory>;
 export type SnapEditorialCutsResult = SnapCutSpansResult<EditorialCategory>;
 
+/**
+ * Cuts that start in the same review state merge through any wordless gap
+ * between them (B7); an accepted removal never swallows an unchecked fluff.
+ */
+function editorialMergeKey(category: EditorialCategory): string {
+  return category === 'fluff' ? 'fluff' : 'cut';
+}
+
 /** The shared snapper (src/shared/studio/cut-snap.ts), typed to the agent's categories. */
 export function snapEditorialCuts(input: SnapEditorialCutsInput): SnapEditorialCutsResult {
-  return snapCutSpans(input);
+  return snapCutSpans({ mergeKey: editorialMergeKey, ...input });
 }
 
 export interface BuildEditorialProposalInput {

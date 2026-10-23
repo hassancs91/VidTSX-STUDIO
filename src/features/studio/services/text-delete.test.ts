@@ -3,7 +3,8 @@ import type { StudioTimeline } from '@shared/types/studio';
 import { applyTextDelete, planTextDelete } from './text-delete';
 import { buildTranscriptDoc, withSpokenSpans } from './transcript-doc';
 import { TEST_NATURAL_STYLE, TEST_TIGHT_STYLE } from '@shared/studio/cut-style-test-fixtures';
-import { ASSET, makeEnvelope, makeTimeline, master, shots, wordSource } from './text-edit-fixtures';
+import { QA_ENTRY_LOOKBACK_S, QA_ENTRY_WINDOW_S, QA_HARD_ENTRY_DB } from '@shared/studio/cut-qa';
+import { ASSET, WORDS, makeEnvelope, makeTimeline, master, shots, wordSource } from './text-edit-fixtures';
 
 const envelopes = () => new Map([['a1', makeEnvelope()]]);
 
@@ -42,12 +43,38 @@ describe('planTextDelete', () => {
   });
 
   it('snaps with the style it is given (B2: the resolved project style)', () => {
-    const natural = plan(makeTimeline(), (text) => text === 'um').spans[0];
-    const tight = plan(makeTimeline(), (text) => text === 'um', true, TEST_TIGHT_STYLE).spans[0];
+    // A short 'um' (ends 2.00) leaves 0.45 s of quiet before 'to', so both
+    // styles' lead-ins sit clear of its release and the style decides the edge.
+    const words = WORDS.map((w) => (w.text === 'um' ? { ...w, end: 2.0 } : w));
+    const planWith = (style: typeof TEST_NATURAL_STYLE) => {
+      const timeline = makeTimeline();
+      return planTextDelete({
+        timeline,
+        tokens: buildTranscriptDoc(timeline, wordSource(words)).tokens.filter((t) => t.text === 'um'),
+        words: wordSource(words),
+        envelopes: new Map([['a1', makeEnvelope(words)]]),
+        assets: [ASSET],
+        style,
+      }).spans[0];
+    };
+    const natural = planWith(TEST_NATURAL_STYLE);
+    const tight = planWith(TEST_TIGHT_STYLE);
     // Tight keeps a shorter lead-in before 'to' (head 0.11 vs 0.19), so its cut ends later …
     expect(tight.to).toBeGreaterThan(natural.to + 0.05);
     // … and never starts later (its tail floor is shorter: minTail 0.14 vs 0.26).
     expect(tight.from).toBeLessThanOrEqual(natural.from + 1e-6);
+  });
+
+  it('lands the cut-in past the removed word\'s release in a short gap, whatever the style (B7)', () => {
+    // 'um' sounds to 2.22; 'to' at 2.45. Both styles' lead-ins (head + 0.08
+    // feature compensation) start inside um's release + the QA's 60 ms entry
+    // lookback, so both land at the first clean point instead of a hard entry.
+    const env = makeEnvelope();
+    for (const style of [TEST_NATURAL_STYLE, TEST_TIGHT_STYLE]) {
+      const span = plan(makeTimeline(), (text) => text === 'um', true, style).spans[0];
+      expect(span.to).toBeCloseTo(2.28, 3);
+      expect(env.rmsDb(span.to - QA_ENTRY_LOOKBACK_S, QA_ENTRY_WINDOW_S) - env.floorDb()).toBeLessThan(QA_HARD_ENTRY_DB);
+    }
   });
 
   it('removes the selected words and nothing else', () => {
