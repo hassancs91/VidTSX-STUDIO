@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: IN PROGRESS (builder #1 handed off 2026-10-23 — kind table + types + control copies done)
+status: IN PROGRESS (builder #2 handed off 2026-10-23 — ALL E1 code + unit tests done at `6005a7e`; live click-through, full-run gate, Status/TESTING left)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -148,7 +148,48 @@ Callers: `upsertEntry` ×13 (capture, generate-{audio,image,video}, render-jobs,
 - **E-d5 control copies** — `src/main/services/library/pre-e1-control/library-store.ts` (200 lines) and
   `library-reconcile.ts` (149): `git show 5d77600:…` + a 4-line header, only the relative import paths
   rewritten (sed: `../../../logging|shared` → 4 levels, `../studio/media-import` → `../../studio/…`,
-  `./library-paths|sizes` → `../`). Not imported by app code. **The control TEST is not written yet.**
+  `./library-paths|sizes` → `../`). Not imported by app code.
+
+### Built (builder #2) — commit `6005a7e` (design §3–§10 all built; nothing left in code)
+
+- **E-d5 control test, RED first** — `src/main/services/library/pre-e1-control.test.ts` (5 tests). Red at
+  20:26 (`./library-index-io` missing), green after the build. It runs the FROZEN pre-E1 store on an
+  index written by the E1 code. **Findings (pinned):** the old `loadIndex` reads the E1 index whole
+  (`version: 1` + `rev: 2` → NOT the empty index; every entry incl. the new fields); old
+  `setDescription` / `upsertEntry` keep EVERY field, old and new, and keep `rev: 2`; old `scanLibrary`:
+  untouched + moved entries keep everything, touched keep all but `probe` (cleared; hash refreshed),
+  tombstones keep the pre-E1 fields only (lose `kind probe tags audio usedIn`), new files get no `kind`,
+  and `rev` is DROPPED → the next E1 start re-migrates (backup = the old-written bytes, kinds back,
+  back-fill re-probes). Every pre-E1 field survives every old write.
+- **IO** — `library-index-io.ts` (127 lines): `serialize` (the one per-root chain), `parseIndex`,
+  `withKinds`, `loadIndex` (:60, kind derived on read), `backupIndexOnce` (:72, `flag: 'wx'` = never
+  overwritten), `writeIndex` (:101, always `version: 1, rev: 2`; first write per root per process backs
+  up an on-disk index lacking rev 2), `updateIndex`.
+- **Probe** — `library-probe.ts` `probeLibraryFile` (audio/video only via `probeMedia`, 15 s race, never
+  throws). `isTimedMediaKind` added to `src/shared/media-kinds.ts`.
+- **Reconcile** — `library-reconcile.ts`: optional `probeOf` (5th arg, default → undefined); every
+  output entry gets `kind` from the table; touched → probe REFRESHED; moved → kept; tombstones carry
+  `kind probe tags audio usedIn`; resurrect → tombstone's probe else probed; new → probed.
+- **Store** — `library-store.ts`: `scanLibrary` passes a budgeted prober (`SCAN_PROBE_BUDGET = 20` inline
+  ffprobes per scan) and kicks the back-fill when a timed entry still lacks a probe; `upsertEntry`
+  probes BEFORE the chain, writes `kind` + `probe` (keeps the old probe only for an unchanged file),
+  passes `tags` / `audio` through; re-exports `loadIndex`.
+- **Back-fill** — `library-backfill.ts` `scheduleProbeBackfill(root)`: deduped per root (a request
+  mid-pass queues one more pass; the promise settles after all), batches of 8, 2 ffprobes at a time,
+  one write per batch, patches only while relPath + size + mtime match, never recreates a gone index,
+  does not retry an unchanged failed file (per process). Returns `{candidates, probed, failed, written,
+  ms}` and logs `Library probe back-fill pass` (read the timing for the seeded library from the app log).
+- **Migration** — `library-migrate.ts` `migrateLibraryIndex(root)` → `{migrated, backedUp, kindsFilled,
+  skipped?}`; `migrateLibraryIndexAtStartup()` hooked in `src/main/index.ts` right after
+  `sweepExportScratch` (dynamic import, `void …catch`). Logs `Library index migrated to rev 2`.
+- **list_assets** — `src/main/services/studio/agent-tools/library-listing.ts` `formatLibraryListing`
+  (pure): playable kinds only (as before), `entry.kind`, `toFixed(2)` s for audio/video, `length
+  unknown (probing)` with no probe; `project-tools.ts` calls it (the old inline loop + cap removed).
+- **Unit tests** (written after their modules — only the control test was red-first):
+  `library-reconcile-v2.test.ts` (8), `library-migrate.test.ts` (9: migration of a pre-E1 index with
+  all six audio extensions, idempotence, no-index / unreadable / non-v1 untouched, backup on a plain E1
+  write, upsert probe + pass-through, failed-probe no-retry, scan budget + back-fill, size/mtime guard,
+  gone index), `agent-tools/library-listing.test.ts` (4).
 
 ## Verified (exact commands + outputs)
 
@@ -159,27 +200,80 @@ Callers: `upsertEntry` ×13 (capture, generate-{audio,image,video}, render-jobs,
   → **10**; `-p tsconfig.web.check.json` → **26** (= baseline, with the control copies in the tree).
 - `node …/vitest.mjs run src/shared/media-kinds.test.ts src/main/services/library src/features/asset-library src/main/services/studio/media-import`
   → `Test Files 14 passed (14)`, `Tests 129 passed (129)`.
-- No launch, copy or full run yet → no resource numbers needed yet (take them before the first one).
+- Builder #2, 2026-10-23, from the worktree root:
+  - `node …/vitest.mjs run src/main/services/library/pre-e1-control.test.ts` BEFORE the modules →
+    `Test Files 1 failed (1)`, `Tests no tests` (red: `./library-index-io` cannot be resolved); after →
+    5/5 green.
+  - `node …/vitest.mjs run src/main/services/library/library-migrate.test.ts src/main/services/library/library-reconcile-v2.test.ts`
+    → `Test Files 2 passed (2)`, `Tests 17 passed (17)`.
+  - `node …/vitest.mjs run src/main/services/studio/agent-tools src/main/services/library src/shared src/features/asset-library src/main/services/studio/media-import`
+    → `Test Files 1 failed | 110 passed (111)`, `Tests 1 failed | 988 passed (989)` — the one failure is
+    `src/shared/tsx-engine/builder-libraries.test.ts` "electron-builder.yml unpacks every package…":
+    `Error: @remotion/paths (builder-libraries.ts) is not installed` — WORKTREE-ONLY (see Open problems).
+  - Types: `tsc -p tsconfig.node.check.json` → **10**, `-p tsconfig.web.check.json` → **26** (= baseline).
+  - Resources 2026-10-23 ~20:40 (before the full run): C: 55.2 GB free, D: 26.0 GB free, commit limit
+    99.7 GB, headroom 51.8 GB → default workers.
+  - FULL RUN #1 (`node …/vitest.mjs run`, default workers, Hasan's dev app running; log
+    `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\vitest-full-1.log`): `Test Files 4 failed | 472 passed |
+    5 skipped (481)`, `Tests 10 failed | 4051 passed | 35 skipped (4096)`, 56 s. The 4 files:
+    `pack-package.test.ts` (1 — `Test timed out in 5000ms` + ENOENT; a known LOAD flake per DRIVING;
+    alone → `Tests 14 passed (14)`), and three WORKTREE-ONLY resolution failures (see Open problems):
+    `shot-bundle.test.ts` (5), `shot-bundle-in-place.test.ts` (3) — esbuild `Could not resolve
+    "chroma-js" / "roughjs" / "@remotion/shapes" / "@react-three/fiber" / "@remotion/google-fonts/…"`,
+    and `builder-libraries.test.ts` (1). None is in code E1 touched (`git diff --stat 5d77600 HEAD --
+    shot-bundle*.ts pack-package.ts scripts electron-builder.yml src/shared/tsx-engine` is empty).
 
 ## Next step (ONE concrete instruction)
 
-Write `src/main/services/library/pre-e1-control.test.ts` RED-first against the design (§8) — it imports
-the NEW `library-store` / a new `library-migrate` (missing → red) and the frozen
-`pre-e1-control/library-store`, writes an E1 index, runs the old `loadIndex` / `upsertEntry` /
-`setDescription` / `scanLibrary` (touched + moved + deleted + new file) on it and pins the survivors —
-then build design §10 (`library-index-io.ts`, `library-probe.ts`) and §3–§7 (reconcile `probeOf`,
-upsert probe, back-fill, migration) until it and new unit tests for each are green; then §9
-(`list_assets`) and the startup hook in `src/main/index.ts` beside `sweepExportScratch` (:227).
+Do the live E1 check on an isolated profile from the worktree's OWN build, and write the launch recipe
+into DRIVING.md "Track E": (a) resource + E-d4 checks; (b) copy `profiles\source\profile` →
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E1\profile` WITHOUT `settings\settings.db*`; (c) make
+real audio files `.mp3 .wav .m4a .ogg .opus .flac` (+ `.aac`), a `.png` and an `.mp4` with the source
+profile's `ffmpeg-full` (`profiles\source\profile\ffmpeg-full\…\bin\ffmpeg.exe`; output to
+`<profile>\assets\e1-seed\…`), and write a PRE-E1 `<profile>\assets\.vidtsx\index.json` with a node
+`.mjs` in `.vidtsx-temp\end-to-end\E1\` that mimics the pre-E1 reconcile output (`{version:1, entries:
+[{relPath, hash, origin:'imported', addedAt, size, mtimeMs}], tombstones:[]}`, hash = `hashFileHead`,
+`media-import.ts:126`) — keep the source profile's 7 existing assets files in it too; (d) build:
+`node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` from the worktree
+(NODE_OPTIONS=--max-old-space-size=8192; writes `wt/out` only; a build has no Vite dep cache) and
+launch `D:/repos/VidTSX-STUDIO/node_modules/electron/dist/electron.exe <wt> --user-data-dir=<profile>
+--remote-debugging-port=9261` (ELECTRON_RUN_AS_NODE unset; add `--inspect=9262` for the main
+process), with the C: watchdog; (e) confirm the library root is `<profile>\assets` before reading
+results, then check disk (backup = the seeded bytes, rev 2, kinds, probes after the `Library probe
+back-fill pass` log line — record its `ms`), each duration vs an independent `ffprobe` (≤ 10 ms), a file
+added after migration (drop one in, open Assets → scan → probe), a touched + a renamed file keep / refresh
+probe, a still of the Assets screen listing every file, and the `list_assets(scope:'library')` output from
+the real handler WITHOUT a model call (main inspector `require` of the built chunk that holds
+`buildProjectTools`, or a scratch vitest config whose one driver test calls `buildProjectTools(ctx)`'s
+`list_assets` handler with `getLibraryRoot` mocked to `<profile>\assets`); then the gates.
 
 ## Open problems
 
-(none)
+- **ORCHESTRATOR DECISION NEEDED — the full-vitest gate cannot be fully green from ANY worktree
+  (environment, not E1):** three suites resolve packages from the repo root's OWN `node_modules`, which
+  the worktree does not have (E-d2): `builder-libraries.test.ts` (`scripts/builder-unpack.mjs`
+  `findPackageDir(name, root, root)` → `@remotion/paths … is not installed`), `shot-bundle.test.ts` and
+  `shot-bundle-in-place.test.ts` (esbuild `Could not resolve "chroma-js"` etc.). E1 touches none of that
+  code. This hits every track-E part's gate. Do NOT create a `node_modules` junction in the worktree to
+  fix it (Vite's dev dep cache would then land in the main checkout's `node_modules/.vite`, Hasan's live
+  app). Proposed rule: the gate = a full run green except these 3 files, each failing ONLY with a
+  package-resolution error (checked in the log), plus the LOAD-flake rule; they are re-run from the main
+  checkout when track E lands. Say so in STATUS.
+- **Live-only facts still unmeasured:** (1) does the bundled (Remotion) ffprobe read `.avif`
+  (design §1 — `.avif` is now importable as an image; images are not probed, so it only matters for
+  Studio import's `probeMedia` width/height); (2) how long the inline scan probes (≤ 20) make the first
+  Assets-screen scan of a big drop take; (3) the back-fill `ms` on the seeded library.
+- `list_assets` output prints `length unknown (probing)` for a media entry without a probe; durations use
+  `toFixed(2)` (≤ 5 ms rounding, inside the exit's 10 ms).
+- A library-root override changed at runtime is not migrated until the next start (its index still reads
+  fine: kinds derived on read; the first E1 write backs it up and writes rev 2; scans kick the back-fill).
 
 ## Do-not-redo
 
 - The design note above (code already read: the §1.6 files, all callers listed in it).
 - The kind table and its wiring; the type additions; the frozen control copies (re-create them only if
   5d77600's files are found to differ — they were taken by `git show`).
+- ALL of design §3–§10 (built + unit-tested at `6005a7e`); the E-d5 control test and its findings.
 
 ## For Hasan (real-video list candidates)
 
@@ -189,3 +283,6 @@ upsert probe, back-fill, migration) until it and new unit tests for each are gre
 
 - 2026-10-23 · builder #1 · ~40 · design note; kind table (red→green) + wiring; v2 types; frozen pre-E1
   control copies; checkpoint commit. Handed off at the tool-call budget.
+- 2026-10-23 · builder #2 · ~40 · E-d5 control test red→green + findings; index IO / probe / reconcile /
+  store / back-fill / migration / startup hook / list_assets formatter + 21 new unit tests (`6005a7e`);
+  types 26/10; full run #1. Handed off at the tool-call budget (live check not started).
