@@ -34,7 +34,7 @@
 | D3 | TODO | | | | | |
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
-| E1 | FIX (worktree `end-to-end-p0-e`, see "Session 4 — track E") | 6 | FAIL round 1 (mp3 with cover art +30 ms: `media-import.ts:116` skips the gapless trim; cover fields recorded as the audio's) | | | 2026-10-23 20:25 / |
+| E1 | FIX (worktree `end-to-end-p0-e`, see "Session 4 — track E") | 7 | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) | | | 2026-10-23 20:25 / |
 | E2 | TODO | | | | | |
 | E3 | TODO (runs after E4) | | | | | |
 | E4 | TODO (runs before E3) | | | | | |

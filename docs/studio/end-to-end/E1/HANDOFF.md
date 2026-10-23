@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: DONE (fix round 1 after verifier round 1 FAIL — V1-1…V1-5 fixed, see "Fix round 1"; builder #6, 2026-10-23 ~21:45)
+status: FIX (verifier round 2 FAIL — V2-1 garbage file listed 0.00 s, V2-2 mp3 range, W1–W3 docs; orchestrator 2026-10-23 ~22:45; LAST fix round)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -429,10 +429,42 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
 
 ## Next step (ONE concrete instruction)
 
-None for builders — E1 is DONE after fix round 1; the orchestrator runs the E1 verifier round 2 (focus: a cover-art mp3
-through `probeMedia` / `list_assets`, the probe stamp's failed / stale cases, the old-app rewrite → re-probe).
+FIX round 2 (orchestrator, 2026-10-23 ~22:45 — the LAST fix round before a stop: a third FAIL stops the run): fix
+V2-1 red-first (a unit test with a probe result whose duration is missing / 0 / non-finite that fails on `1312e09`),
+then V2-2 and W1–W3 (docs only); re-run the E1 suites + the E-d5 control + the full worktree gate + types; re-measure
+a garbage `.flac` (random bytes; your own) through the real `upsertEntry` / back-fill + `list_assets` → "length
+unknown (unreadable)"; update Status.md's E1 entry + TESTING §18.14; commit; return DONE.
 
 ## Open problems
+
+### Verifier round 2 — FAIL (2026-10-23 ~22:40; V1-1, V1-2, V1-5, E-d5, the exit for every readable file all PASS)
+
+- **V2-1 (MUST): a file ffprobe "reads" without a duration is listed as a successful 0.00 s probe.** Verifier's
+  `v2/broken/garbage.flac` (random bytes): ffprobe (bundled n7.1, gyan, n8.1.2) exits rc 0, a flac stream with
+  `sample_rate=0`, `channels=0`, `format.duration` `N/A`; ffmpeg cannot decode it (rc 183).
+  `src/main/services/studio/media-import.ts:122` `parseFloat(data.format?.duration ?? '0') || 0` makes it
+  `{duration: 0, codec: 'flac', hasAudio: true}`; `src/main/services/library/library-probe.ts:28` accepts it and
+  stamps it good; `agent-tools/library-listing.ts:25-26` prints `(audio, 0.00 s, imported)` in every listing —
+  contradicting Status.md:89-90 / TESTING.md:487 ("a file ffprobe cannot read lists as `length unknown
+  (unreadable)`"). Fix: the LIBRARY probe treats an audio / video probe without a finite duration > 0 as a
+  failed probe (stamped failed, listed unreadable). Whether Studio's own import (`probeMedia` callers outside
+  the library) should change too: decide by reading what a 0-duration import does today and say so; do not
+  widen the change beyond what you can test. Related ffprobe quirk (record only, not a fix): random bytes named
+  `.aac` give rc 0 and an estimated 0.792 s (gyan prints the same) → lists "0.79 s" — a known limit of
+  ffprobe, name it in Status.
+- **V2-2 (MUST, docs + the code comment `media-import.ts:123-124`):** the mp3 trim change is stated as
+  "−30…−70 ms"; the verifier measured **−27.0 ms** (48 kHz VBR mono) to **−115.0 ms** (11.025 kHz MPEG-2.5 CBR,
+  2.3510 → 2.2360); 22.05 kHz −53.8…−70.0, 32 kHz −62.0, 44.1/48 kHz −28.0…−51.2. State it as "about −25 to
+  −115 ms; the lower the sample rate, the more" (or the exact measured range from both verifiers).
+- **W1 (docs):** "tombstones lose kind/probe/…" applies only to tombstones the OLD scan creates; E1 tombstones
+  that already exist keep those fields under every old write.
+- **W2 (docs):** the consumer list for the attached-picture change should name face / mask tracking (an
+  audio + cover `.mp4` now stops with "Could not read the frame size of the source" instead of reading the
+  picture's 600×600), export-spans and sync-probes (fall back to the composition size), proxies — none
+  changes for a real video (verifier: 11 real-video files identical pre-E1 vs HEAD).
+- **W3 (docs, optional):** rule (b)'s module counts differ by method between agents; say the method.
+- Verifier round 2 evidence: `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1-verify2\`, scripts
+  `.vidtsx-temp/end-to-end/E1-verify2/` (its seed has the garbage `.flac` / `.aac` — make your own).
 
 ### Verifier round 1 — FAIL (2026-10-23; ALL FIXED in fix round 1 — V1-1/V1-2 `eb533e4`, V1-3 docs, V1-4/V1-5 `36a0586`)
 
