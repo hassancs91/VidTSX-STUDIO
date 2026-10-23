@@ -4,7 +4,8 @@
 
 import type { StudioAgentAssetInfo } from '@shared/ipc/types';
 import type { StudioAgentChatMessage } from '@shared/ipc/types';
-import type { StudioMediaAsset, StudioProposal } from '../types';
+import type { StudioMediaAsset, StudioProposal, StudioTimeline } from '../types';
+import { timelineKeepsForAsset } from '@shared/studio/cut-keeps';
 
 /**
  * Context budget for the estimate meter. The engine doesn't report real token
@@ -54,9 +55,12 @@ export function assetName(asset: StudioMediaAsset): string {
   return asset.path.split(/[\\/]/).pop() ?? asset.id;
 }
 
-export function toAgentAsset(asset: StudioMediaAsset): StudioAgentAssetInfo {
+/** `timeline` (B7): stamps the asset's source ranges on it as `sourceKeeps`. */
+export function toAgentAsset(asset: StudioMediaAsset, timeline?: StudioTimeline): StudioAgentAssetInfo {
   const ready = asset.transcript?.status === 'ready';
+  const keeps = timeline && asset.kind !== 'image' ? timelineKeepsForAsset(timeline, asset.id) : [];
   return {
+    ...(keeps.length > 0 ? { sourceKeeps: keeps } : {}),
     id: asset.id,
     name: assetName(asset),
     kind: asset.kind,

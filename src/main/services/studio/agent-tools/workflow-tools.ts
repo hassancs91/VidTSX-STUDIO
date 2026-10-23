@@ -13,7 +13,7 @@ import {
   findSttEntry,
   sttEntriesWithTimestamps,
 } from '../../../../shared/presets/stt-models';
-import { buildCutProposal } from '../../../../shared/studio/cut-proposal';
+import { buildCutProposal, planCutSpans } from '../../../../shared/studio/cut-proposal';
 import { formatCutQaLine } from '../../../../shared/studio/cut-qa';
 import { formatQaUncheckedForAgent } from '../../../../shared/studio/cut-qa-flags';
 import { transcriptionEngine } from '../../../../transcription-engine';
@@ -149,7 +149,10 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
       }
       try {
         const cut = await resolveProjectCutStyle(req.projectId, args.style ? { callStyle: args.style } : {});
-        const { plan } = await runCutPlan(req.projectId, args.assetId, asset.path, cut);
+        // B7: over the asset's source ranges still on the timeline (the renderer
+        // stamps them on the inventory) — the button's code path, same keeps rule.
+        const { plan } = await runCutPlan(req.projectId, args.assetId, asset.path, cut, asset.sourceKeeps);
+        const { removed, total } = planCutSpans(plan);
         const file = await readTranscriptFile(req.projectId, args.assetId);
         const proposal = buildCutProposal({
           plan,
@@ -162,7 +165,7 @@ export function buildWorkflowTools(ctx: StudioToolContext): StudioTool[] {
         ctx.state.proposalId = proposal.id;
         ctx.emit({ projectId: req.projectId, kind: 'proposal', proposal });
         return text(
-          `Auto Cut proposed (id "${proposal.id}", style ${cut.displayName}): ${proposal.items.length} silence cuts, −${plan.stats.removedDuration.toFixed(1)} s of ${plan.stats.sourceDuration.toFixed(1)} s. ` +
+          `Auto Cut proposed (id "${proposal.id}", style ${cut.displayName}): ${proposal.items.length} silence cuts, −${removed.toFixed(1)} s of ${total.toFixed(1)} s${plan.keeps ? ' still on the timeline' : ''}. ` +
             (plan.qa ? `${formatCutQaLine(plan.qa)}. ` : '') +
             formatQaUncheckedForAgent(proposal.items) +
             'It is in the review panel — tell the user briefly and let them review, or call accept_proposal ONLY if their latest message already said to apply it.',

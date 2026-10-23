@@ -15,7 +15,7 @@ import type {
   StudioAgentOpenProposal,
 } from '@shared/ipc/types';
 import type { ThinkingLevel } from '@shared/tsx-engine/types';
-import type { StudioMediaAsset, StudioProposal, StudioShot } from '../types';
+import type { StudioMediaAsset, StudioProposal, StudioShot, StudioTimeline } from '../types';
 import {
   estimateContextUsage,
   hasNextStepMarker,
@@ -55,6 +55,8 @@ export interface UseStudioAgentOptions {
   sttModelId?: string | undefined;
   captions?: { templateId: string; enabled: boolean } | undefined;
   timelineDurationSeconds?: number | undefined;
+  /** B7: the live timeline — each asset's `sourceKeeps` (what `run_auto_cut` plans over). */
+  timeline?: StudioTimeline | undefined;
   /** W4: the project script as the editor holds it. */
   script?: string | undefined;
   providerId?: string | undefined;
@@ -236,7 +238,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
           projectName: opts.projectName,
           prompt: trimmed,
           history,
-          assets: opts.assets.map(toAgentAsset),
+          assets: opts.assets.map((asset) => toAgentAsset(asset, opts.timeline)),
           shots: opts.shots,
           reviewOpen: opts.reviewOpen,
           ...(opts.openProposal ? { openProposal: opts.openProposal } : {}),

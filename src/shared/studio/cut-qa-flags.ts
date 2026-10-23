@@ -93,3 +93,13 @@ export function formatQaUncheckedForAgent(items: readonly StudioProposalItem[]):
 function countPhrase(n: number): string {
   return n === 1 ? '1 cut starts' : `${n} cuts start`;
 }
+
+/**
+ * The card's QA readout suffix (B7): the readout counts the plan's hard
+ * entries, so say how many of those cuts start unchecked — Apply leaves them
+ * out (" — 1 unchecked by QA"); '' when none is still unchecked.
+ */
+export function formatQaUncheckedSuffix(items: ReadonlyArray<Pick<StudioProposalItem, 'status' | 'qaFlag'>>): string {
+  const n = items.filter((i) => i.qaFlag && i.status === 'rejected').length;
+  return n > 0 ? ` — ${n} unchecked by QA` : '';
+}

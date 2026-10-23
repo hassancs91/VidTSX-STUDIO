@@ -12,6 +12,7 @@ import { readTranscriptFile } from './asset-transcriber';
 import { generateWaveform, waveformRelPath } from './waveform-generator';
 import { RmsEnvelope, planCuts } from '../../../shared/studio/cut-planner';
 import { qaForPlan } from '../../../shared/studio/cut-qa';
+import { cutsBetweenKeeps, keepsTag, normalizeKeeps, type CutKeep } from '../../../shared/studio/cut-keeps';
 
 export const CUT_PLAN_DIR = 'cut-plans';
 
@@ -66,6 +67,14 @@ export async function runCutPlan(
   assetId: string,
   sourcePath: string,
   cut: ResolvedCutStyle,
+  /**
+   * B7: the asset's source ranges still on the timeline (cut-keeps
+   * `timelineKeepsForAsset`). The plan runs over them only: the spans between
+   * them are passed as cuts (no lead-in or tail reaches into what is already
+   * cut) and are not proposed again. Absent / covering the whole source =
+   * the whole-source plan of before.
+   */
+  timelineKeeps?: readonly CutKeep[],
 ): Promise<RunCutPlanResult> {
   const transcript = await readTranscriptFile(projectId, assetId);
   if (!transcript) {
@@ -78,6 +87,7 @@ export async function runCutPlan(
   const envelope = await loadRmsEnvelope(projectId, assetId, sourcePath);
 
   const duration = envelope.duration();
+  const keeps = normalizeKeeps(timelineKeeps, duration);
   const planned = planCuts({
     assetId,
     createdAt: new Date().toISOString(),
@@ -95,14 +105,17 @@ export async function runCutPlan(
     envelope,
     sttModelId: transcript.sttModelId,
     features: transcript.features,
+    ...(keeps ? { keeps, cuts: cutsBetweenKeeps(keeps, duration) } : {}),
   });
-  // B3: analyze_cut's two checks on the plan just made — the same single keep
-  // over the whole source that planCuts defaulted to, and the knobs it used.
+  // B3: analyze_cut's two checks on the plan just made — over the keeps
+  // planCuts used (B7: the timeline's; else one over the whole source) and
+  // the knobs it used.
   const plan: StudioCutPlan = {
     ...planned,
+    ...(keeps ? { keeps } : {}),
     qa: qaForPlan({
       segments: planned.segments,
-      keeps: [{ start: 0, end: duration }],
+      keeps: keeps ?? [{ start: 0, end: duration }],
       words: transcript.words,
       style: planned.style,
       envelope,
@@ -110,7 +123,10 @@ export async function runCutPlan(
   };
 
   const cacheDir = await getProjectCacheDir(projectId);
-  const planPath = path.join(cacheDir, CUT_PLAN_DIR, `${assetId}-${cut.styleName}-${cut.key}.json`);
+  // B7: a keeps-limited plan gets its own file (tagged by its keeps), so it
+  // never shares one with the whole-source plan of the same style.
+  const name = `${assetId}-${cut.styleName}-${cut.key}${keeps ? `-${keepsTag(keeps)}` : ''}.json`;
+  const planPath = path.join(cacheDir, CUT_PLAN_DIR, name);
   await fs.mkdir(path.dirname(planPath), { recursive: true });
   await fs.writeFile(planPath, JSON.stringify(plan, null, 2), 'utf-8');
 

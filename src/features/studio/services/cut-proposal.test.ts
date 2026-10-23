@@ -85,6 +85,47 @@ describe('buildCutProposal', () => {
     expect(proposal.agentNote).toContain('1 cut starts unchecked');
   });
 
+  it('a plan over the timeline keeps proposes only inside them and its headline counts only what it removes now (B7)', () => {
+    // An applied cut already removed 6–10 s: the timeline keeps [0,6] and [10,20].
+    const plan = makePlan({
+      keeps: [
+        { start: 0, end: 6 },
+        { start: 10, end: 20 },
+      ],
+      segments: [
+        { start: 1, end: 5, speechStart: 1.11, speechEnd: 4.8, soft: false },
+        { start: 10.5, end: 12, speechStart: 10.61, speechEnd: 11.8, soft: false },
+        { start: 14.5, end: 19, speechStart: 14.61, speechEnd: 18.8, soft: true },
+      ],
+    });
+    const proposal = buildCutProposal({ plan, words: [] });
+    expect(proposal.items.map((i) => [i.sourceStart, i.sourceEnd])).toEqual([
+      [0, 1],
+      [5, 6],
+      [10, 10.5],
+      [12, 14.5],
+      [19, 20],
+    ]);
+    // 1 + 1 + 0.5 + 2.5 + 1 = 6.0 s removed of the 16.0 s still on the timeline (not "of 20.0").
+    expect((proposal.agentNote ?? '').split('\n')[0]).toContain('−6.0 s of 16.0 s');
+  });
+
+  it('a plan whose keeps hold no segment proposes the whole keep, and a segment past a keep is clipped to it (B7)', () => {
+    const plan = makePlan({
+      keeps: [
+        { start: 2, end: 4 },
+        { start: 9, end: 13 },
+      ],
+      segments: [{ start: 8.5, end: 12, speechStart: 9.1, speechEnd: 11.8, soft: false }],
+    });
+    const proposal = buildCutProposal({ plan, words: [] });
+    expect(proposal.items.map((i) => [i.sourceStart, i.sourceEnd])).toEqual([
+      [2, 4],
+      [12, 13],
+    ]);
+    expect((proposal.agentNote ?? '').split('\n')[0]).toContain('−3.0 s of 6.0 s');
+  });
+
   it('a pre-B3 plan (no qa) makes a proposal without a qa field', () => {
     const proposal = buildCutProposal({ plan: makePlan(), words: [] });
     expect('qa' in proposal).toBe(false);

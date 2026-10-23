@@ -398,6 +398,12 @@ export interface StudioCutPlanRunRequest {
    * counts); absent = the project.json on disk. Ignored when `style` is set.
    */
   settings?: StudioCutStyleSettings;
+  /**
+   * B7: the asset's source ranges still on the timeline (cut-keeps
+   * `timelineKeepsForAsset`) — the plan runs over them only. Absent = the
+   * whole source.
+   */
+  keeps?: Array<{ start: number; end: number }>;
 }
 
 export interface StudioCutPlanRunResponse {
@@ -454,6 +460,12 @@ export interface StudioAgentAssetInfo {
     /** Verbatim disfluencies preserved — the editorial pass depends on this. */
     verbatim?: boolean;
   };
+  /**
+   * B7: the source ranges of this asset still on the timeline when the turn
+   * started (cut-keeps `timelineKeepsForAsset`) — `run_auto_cut` plans over
+   * them only. Absent = not on the timeline (or an older renderer): the whole source.
+   */
+  sourceKeeps?: Array<{ start: number; end: number }>;
 }
 
 export interface StudioAgentSendRequest {

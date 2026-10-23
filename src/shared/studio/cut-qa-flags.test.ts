@@ -8,6 +8,7 @@ import {
   formatQaUncheckedLine,
   hardEntriesAtItemJoins,
   uncheckQaFlaggedItems,
+  formatQaUncheckedSuffix,
 } from './cut-qa-flags';
 
 function item(id: string, sourceStart: number, sourceEnd: number, over: Partial<StudioProposalItem> = {}): StudioProposalItem {
@@ -112,5 +113,20 @@ describe('the reason text', () => {
     expect(formatQaUncheckedLine(out)).toBe(
       '1 cut starts unchecked because the QA hears a hard entry where speech resumes after it: 203.50–204.21 s retake (+15.9 dB)',
     );
+  });
+});
+
+describe('formatQaUncheckedSuffix (B7: the readout says how many hard entries start unchecked)', () => {
+  const flag = { kind: 'hard-entry' as const, sourceTime: 8, overDb: 16.2 };
+  it('counts the QA-flagged cuts still unchecked, not ones the user ticked or clean ones', () => {
+    expect(
+      formatQaUncheckedSuffix([
+        { status: 'rejected', qaFlag: flag },
+        { status: 'accepted', qaFlag: flag },
+        { status: 'rejected' },
+        { status: 'accepted' },
+      ]),
+    ).toBe(' — 1 unchecked by QA');
+    expect(formatQaUncheckedSuffix([{ status: 'accepted' }])).toBe('');
   });
 });

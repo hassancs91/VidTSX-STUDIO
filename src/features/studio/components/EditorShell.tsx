@@ -483,6 +483,7 @@ export function EditorShell({ projectId, onBack }: Props) {
     sttModelId: project?.settings.sttModelId ?? DEFAULT_STT_MODEL,
     captions: tl.captions ? { templateId: tl.captions.templateId, enabled: tl.captions.enabled } : undefined,
     timelineDurationSeconds: timelineDuration(tl.timeline),
+    timeline: tl.timeline,
     script: project?.script,
     providerId: project?.settings.agent.providerId,
     model: project?.settings.agent.model,

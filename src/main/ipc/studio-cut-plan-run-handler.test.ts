@@ -38,7 +38,7 @@ describe('handleStudioCutPlanRun', () => {
     const settings = { presetId: 'p1', cutStyle: { base: 'natural' as const } };
     const res = await handleStudioCutPlanRun(event, { ...REQ, settings });
     expect(resolveProjectCutStyle).toHaveBeenCalledWith('proj', { settings });
-    expect(runCutPlan).toHaveBeenCalledWith('proj', 'a1', 'C:/clip.mp4', RESOLVED);
+    expect(runCutPlan).toHaveBeenCalledWith('proj', 'a1', 'C:/clip.mp4', RESOLVED, undefined);
     expect(res).toEqual({ success: true, plan: { segments: [] }, planPath: 'C:/p.json' });
   });
 
@@ -50,6 +50,12 @@ describe('handleStudioCutPlanRun', () => {
   it('passes an explicit style through as the call style', async () => {
     await handleStudioCutPlanRun(event, { ...REQ, style: 'relaxed' });
     expect(resolveProjectCutStyle).toHaveBeenCalledWith('proj', { callStyle: 'relaxed' });
+  });
+
+  it('forwards the timeline keeps to the runner (B7)', async () => {
+    const keeps = [{ start: 0, end: 4 }, { start: 9, end: 20 }];
+    await handleStudioCutPlanRun(event, { ...REQ, keeps });
+    expect(runCutPlan).toHaveBeenCalledWith('proj', 'a1', 'C:/clip.mp4', RESOLVED, keeps);
   });
 
   it('returns a typed error instead of throwing', async () => {

@@ -478,7 +478,7 @@ export async function handleStudioCutPlanRun(
       ...(data.style ? { callStyle: data.style } : {}),
       ...(data.settings ? { settings: data.settings } : {}),
     });
-    const { plan, planPath } = await runCutPlan(data.projectId, data.assetId, data.sourcePath, cut);
+    const { plan, planPath } = await runCutPlan(data.projectId, data.assetId, data.sourcePath, cut, data.keeps);
     return { success: true, plan, planPath };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to plan cuts') };

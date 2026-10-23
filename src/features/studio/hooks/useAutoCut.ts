@@ -12,6 +12,7 @@ import type { StudioMediaAsset } from '../types';
 import type { UseTimelineResult } from './useTimeline';
 import { buildCutProposal } from '../services/cut-proposal';
 import { fetchTranscriptWords } from './useAssetTranscripts';
+import { timelineKeepsForAsset } from '@shared/studio/cut-keeps';
 
 export type AutoCutPhase = 'idle' | 'transcribing' | 'planning';
 
@@ -25,7 +26,7 @@ interface PendingRun {
 interface Options {
   projectId: string;
   assets: StudioMediaAsset[];
-  tl: Pick<UseTimelineResult, 'dispatch' | 'activeProposal' | 'selectCut'>;
+  tl: Pick<UseTimelineResult, 'dispatch' | 'activeProposal' | 'selectCut' | 'timeline'>;
   /** Starts the background transcription job; resolves to an error or null. */
   transcribe: (asset: StudioMediaAsset, sttModelId: string) => Promise<string | null>;
   sttModelId: string;
@@ -53,11 +54,15 @@ export function useAutoCut({
       planningRef.current = true;
       setPhase('planning');
       try {
+        // B7: plan over what is ON the timeline — spans an applied cut already
+        // removed are not proposed again (main normalizes; none = whole source).
+        const keeps = timelineKeepsForAsset(tl.timeline, asset.id);
         const res = await window.api.studioCutPlanRun({
           projectId,
           assetId: asset.id,
           sourcePath: asset.path,
           ...(cutStyleSettings ? { settings: cutStyleSettings } : {}),
+          ...(keeps.length > 0 ? { keeps } : {}),
         });
         if (!res.success || !res.plan) {
           onError(res.error ?? 'Failed to plan cuts');

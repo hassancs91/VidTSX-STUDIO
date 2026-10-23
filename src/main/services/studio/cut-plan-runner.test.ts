@@ -38,6 +38,7 @@ vi.mock('./asset-transcriber', () => ({
 }));
 
 import { CUT_PLAN_DIR, runCutPlan } from './cut-plan-runner';
+import { buildCutProposal } from '../../../shared/studio/cut-proposal';
 
 const BPS = 50;
 
@@ -87,6 +88,35 @@ describe('runCutPlan (B2: resolved style in, keyed plan file out)', () => {
     // whose tails land in the -55 dB room tone (floor) → nothing flagged.
     expect(plan.qa).toEqual({ hardEntries: 0, clippedTails: 0, joinsChecked: 2, atomsChecked: 2, items: [] });
     expect(JSON.parse(await fs.readFile(planPath, 'utf-8')).qa).toEqual(plan.qa);
+  });
+
+  it('plans over the timeline keeps it is given: the applied cut is clamped, recorded and not re-proposed; its own file (B7)', async () => {
+    const cut = resolved('tight');
+    const whole = await runCutPlan('p1', 'a1', 'src.mp4', cut);
+    // An applied cut removed 1.5–2.95 s; "Next" starts at 3.0, its 0.11 s head pad wants 2.89.
+    const keeps = [
+      { start: 0, end: 1.5 },
+      { start: 2.95, end: 5 },
+    ];
+    const { plan, planPath } = await runCutPlan('p1', 'a1', 'src.mp4', cut, keeps);
+    expect(plan.keeps).toEqual(keeps);
+    expect(plan.segments.every((s) => keeps.some((k) => s.start >= k.start - 1e-6 && s.end <= k.end + 1e-6))).toBe(true);
+    expect(plan.segments[1].start).toBe(2.95); // the lead-in stops at the applied cut
+    expect(planPath).not.toBe(whole.planPath);
+    expect(path.basename(planPath)).toMatch(new RegExp(`^a1-tight-${cut.key}-k[0-9a-z]+\\.json$`));
+    expect(path.basename(whole.planPath)).toBe(`a1-tight-${cut.key}.json`);
+    const proposal = buildCutProposal({ plan, words: [] });
+    expect(proposal.items.some((i) => (i.sourceStart ?? 0) < 2.95 && (i.sourceEnd ?? 0) > 1.5 + 1e-6)).toBe(false);
+    expect((proposal.agentNote ?? '').split('\n')[0]).toContain(`of ${(1.5 + 2.05).toFixed(1)} s`);
+  });
+
+  it('keeps that cover the whole source plan exactly as without keeps (B7)', async () => {
+    const cut = resolved('tight');
+    const whole = await runCutPlan('p1', 'a1', 'src.mp4', cut);
+    const same = await runCutPlan('p1', 'a1', 'src.mp4', cut, [{ start: 0, end: 5 }]);
+    expect(same.planPath).toBe(whole.planPath);
+    expect('keeps' in same.plan).toBe(false);
+    expect(same.plan.segments).toEqual(whole.plan.segments);
   });
 
   it('a pre-B2 plan file beside it is left alone and breaks nothing', async () => {

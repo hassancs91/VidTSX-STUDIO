@@ -144,6 +144,12 @@ export interface StudioCutPlan {
     /** Snapshot recorded at transcription time — drives compensation. */
     features?: SttModelFeatures;
   };
+  /**
+   * B7: the source ranges still ON the timeline the plan was made over (the
+   * spans between them were already cut). Absent = the whole source — plans
+   * written before B7, and an asset that is untouched or not on the timeline.
+   */
+  keeps?: Array<{ start: number; end: number }>;
   segments: CutPlanSegment[];
   internalPauses: CutPlanPause[];
   stats: CutPlanStats;

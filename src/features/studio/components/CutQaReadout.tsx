@@ -9,6 +9,7 @@
 
 import { useMemo, useState } from 'react';
 import { formatCutQaLine, formatHardEntries, formatReleaseTails } from '@shared/studio/cut-qa';
+import { formatQaUncheckedSuffix } from '@shared/studio/cut-qa-flags';
 import type { CutQaReport } from '@shared/types/studio-cut-plan';
 import type { StudioProposal, StudioTimeline } from '../types';
 import {
@@ -71,6 +72,8 @@ export function CutQaReadout({
         title={HARD_TOOLTIP}
       >
         {formatHardEntries(qa)}
+        {/* B7: those cuts start unchecked — Apply leaves them out. */}
+        {formatQaUncheckedSuffix(proposal.items)}
       </div>
       <div
         data-cut-qa-tails={qa.clippedTails}

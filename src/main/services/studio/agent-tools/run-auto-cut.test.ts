@@ -8,7 +8,8 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { StudioProject, StudioProposal } from '../../../../shared/types/studio';
+import type { StudioClip, StudioProject, StudioProposal, StudioTimeline } from '../../../../shared/types/studio';
+import { timelineKeepsForAsset } from '../../../../shared/studio/cut-keeps';
 import type { StudioCutPlan } from '../../../../shared/types/studio-cut-plan';
 import { WAVEFORM_VERSION } from '../../../../shared/types/studio-waveform';
 import { cutStyleKey } from '../../../../shared/studio/cut-style-resolve';
@@ -74,10 +75,11 @@ function project(settings: Partial<StudioProject['settings']>): StudioProject {
   return { settings: { width: 1920, height: 1080, fps: 30, agent: {}, ...settings } } as StudioProject;
 }
 
-function runAutoCut(): { tool: ToolLike; events: unknown[] } {
+function runAutoCut(sourceKeeps?: Array<{ start: number; end: number }>): { tool: ToolLike; events: unknown[] } {
   const events: unknown[] = [];
+  const asset = { id: 'a1', name: 'clip.mp4', kind: 'video', path: 'src.mp4', ...(sourceKeeps ? { sourceKeeps } : {}) };
   const ctx = {
-    req: { projectId: 'p1', assets: [{ id: 'a1', name: 'clip.mp4', kind: 'video', path: 'src.mp4' }], reviewOpen: false },
+    req: { projectId: 'p1', assets: [asset], reviewOpen: false },
     signal: new AbortController().signal,
     emit: (e: unknown) => events.push(e),
     state: { proposalId: null, generatedShots: new Map(), importedAssets: new Map() },
@@ -182,5 +184,46 @@ describe('run_auto_cut (real handler) — B7 item 5, QA-flagged cuts start unche
     expect(proposal.items.filter((i) => !i.qaFlag).every((i) => i.status === 'accepted')).toBe(true);
     expect(res.content[0].text).toContain('1 cut starts unchecked because the QA hears a hard entry');
     expect(res.content[0].text).toContain('name it in your reply');
+  });
+});
+
+describe('run_auto_cut (real handler) — B7 item 4, plans over the timeline keeps', () => {
+  it("two clips of a1 on the timeline (an applied cut removed 1.2–2.9 s): nothing inside the cut is proposed and the reply counts only what stays", async () => {
+    const timeline: StudioTimeline = {
+      tracks: [
+        {
+          id: 'v1',
+          kind: 'video',
+          name: 'V1',
+          clips: [
+            { id: 'c1', kind: 'video', assetId: 'a1', start: 0, duration: 1.2, sourceIn: 0 } as unknown as StudioClip,
+            { id: 'c2', kind: 'video', assetId: 'a1', start: 1.2, duration: 2.1, sourceIn: 2.9 } as unknown as StudioClip,
+          ],
+        },
+      ],
+    };
+    // The renderer stamps the inventory from the live timeline (agent-chat-format toAgentAsset).
+    const keeps = timelineKeepsForAsset(timeline, 'a1');
+    expect(keeps).toEqual([
+      { start: 0, end: 1.2 },
+      { start: 2.9, end: 5 },
+    ]);
+    const { tool, events } = runAutoCut(keeps);
+    const res = await tool.handler({ assetId: 'a1', style: 'tight' }, {});
+    expect(res.isError).toBeUndefined();
+    const { name, plan } = await onlyPlan();
+    expect(plan.keeps).toEqual(keeps);
+    expect(name).toMatch(/-k[0-9a-z]+\.json$/);
+    const proposal = (events.find((e) => (e as { kind?: string }).kind === 'proposal') as { proposal: StudioProposal })
+      .proposal;
+    // No item reaches into the applied cut; every item lies inside one keep.
+    for (const item of proposal.items) {
+      const start = item.sourceStart ?? 0;
+      const end = item.sourceEnd ?? 0;
+      expect(keeps.some((k) => start >= k.start - 1e-6 && end <= k.end + 1e-6)).toBe(true);
+    }
+    const removed = proposal.items.reduce((sum, i) => sum + ((i.sourceEnd ?? 0) - (i.sourceStart ?? 0)), 0);
+    expect(res.content[0].text).toContain(`−${removed.toFixed(1)} s of 3.3 s still on the timeline`);
+    expect((proposal.agentNote ?? '').split('\n')[0]).toContain(`−${removed.toFixed(1)} s of 3.3 s`);
   });
 });
