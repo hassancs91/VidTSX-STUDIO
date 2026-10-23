@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: IN PROGRESS (builder #2 handed off 2026-10-23 — ALL E1 code + unit tests done at `6005a7e`; live click-through, full-run gate, Status/TESTING left)
+status: IN PROGRESS (builder #3 handed off 2026-10-23 — ALL E1 code + unit tests done at `6005a7e`; live-check kit + seeded profile + worktree build ready, app not yet launched; live click-through, full-run gate, Status/TESTING left)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -191,6 +191,44 @@ Callers: `upsertEntry` ×13 (capture, generate-{audio,image,video}, render-jobs,
   write, upsert probe + pass-through, failed-probe no-retry, scan budget + back-fill, size/mtime guard,
   gone index), `agent-tools/library-listing.test.ts` (4).
 
+### Live-check prep (builder #3, 2026-10-23 20:39–) — no `src/` change
+
+All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside the worktree, gitignored):
+- **Resources + E-d4 at 20:39:** C: 55.2 GB free, D: 26.0 GB, commit limit 99.7 GB, headroom 51.1 GB.
+  Hasan's app = `electron.exe .` (pid 41748, `--user-data-dir=C:\Users\hasan\AppData\Roaming\VidTSX Studio`)
+  with NO ffmpeg / ffprobe / Remotion children; `%TEMP%\vidtsx-studio\export` does not exist → not exporting.
+  Ports 9261 / 9262 / 9266 free.
+- **Profile (b) DONE:** `robocopy profiles\source\profile profiles\E1\profile /E /XF settings.db*` → 371.9 MB,
+  `settings\` empty. Path `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E1\profile`. Its `assets\` had
+  only `presets\` (3 × `preset.json` + `PRESET.md`, + `.seeded.json`) — no index before the seed.
+- **Media (c) DONE:** `node seed-media.mjs <profile> e1-seed` (the PROFILE COPY's `ffmpeg-full` n8.1.2) →
+  `<profile>\assets\e1-seed\` `tone-a.mp3` 1.3 s · `tone-b.wav` 2.25 · `tone-c.m4a` 3.1 · `tone-d.ogg`
+  (vorbis) 1.75 · `tone-e.opus` 2.6 · `tone-f.flac` 0.9 · `tone-g.aac` (ADTS) 1.5 · `still.png` · `still.avif`
+  (libaom, for the open `.avif` question) · `clip.mp4` (2 s h264 + aac). `only=late-h.wav,tone-b-longer.wav`
+  makes the post-migration / touch cases.
+- **Pre-E1 index (c) DONE — written BY the frozen pre-E1 code** (more faithful than mimicking it):
+  `seed-index.e1.test.ts` runs `pre-e1-control/library-store.ts` `scanLibrary(<profile>\assets)` through
+  the scratch config `vitest.e1.config.ts` (root = the E1 folder, **`cacheDir` pinned to `E1\.vite-cache`** —
+  with no package.json there Vite would otherwise cache into the main checkout's `node_modules`; checked:
+  main `node_modules\.vite-temp` untouched since 09/17, its `.vite` results predate the run). Result:
+  `{version:1, entries:16, tombstones:[]}` (10 seed + 6 preset files; `.seeded.json` skipped), no `rev`,
+  no `kind`, no `probe`; sha256 `b495fdfaa027bf200c5941be693835574665b048963c927f4f0eb91db03cefcd`; copy
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\index.pre-e1.seeded.json` (the backup must equal it).
+- **Drivers written, NOT yet run:** `launch.sh` (worktree build, no Vite server, CDP 9261), `watchdog.ps1`
+  (stops only processes whose command line holds `vidtsx-e2e\profiles\E1\profile` when C: < 1.5 GB; exits
+  when that instance is gone), `cdp.mjs` (`wait` / `eval` / `assets` / `shot`), `list-assets.e1.test.ts`
+  (REAL `buildProjectTools(ctx)` `list_assets({scope:'library'})` with the real `getLibraryRoot()` —
+  electron `userData` = the E1 profile, settings-db mocked to "no override" — + an independent ffprobe
+  (the profile's ffmpeg-full) per audio/video entry, report → `…\vidtsx-e2e\E1\<E1_REPORT>.json`),
+  `upsert.e1.test.ts` (REAL `upsertEntry` with the real Remotion ffprobe on a file added after the
+  migration; run ONLY while the E1 app is stopped).
+- **Build (d) DONE (launch NOT yet tried):** from the worktree root, Bash:
+  `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/build.log 2>&1`
+  → rc 0 in **113 s** (`✓ built in 1m 39s` for the renderer), only "use client" warnings; writes
+  `wt/out/{main,preload,renderer}` (127 MB; gitignored by `out/`); packages resolve from the main
+  checkout's `node_modules` by walking up (read-only). The main checkout's `out/main/index.js` stayed at
+  20:01 (Hasan's). A build leaves no Vite dep cache.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 20:25, from the worktree root:
@@ -225,27 +263,27 @@ Callers: `upsertEntry` ×13 (capture, generate-{audio,image,video}, render-jobs,
 
 ## Next step (ONE concrete instruction)
 
-Do the live E1 check on an isolated profile from the worktree's OWN build, and write the launch recipe
-into DRIVING.md "Track E": (a) resource + E-d4 checks; (b) copy `profiles\source\profile` →
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E1\profile` WITHOUT `settings\settings.db*`; (c) make
-real audio files `.mp3 .wav .m4a .ogg .opus .flac` (+ `.aac`), a `.png` and an `.mp4` with the source
-profile's `ffmpeg-full` (`profiles\source\profile\ffmpeg-full\…\bin\ffmpeg.exe`; output to
-`<profile>\assets\e1-seed\…`), and write a PRE-E1 `<profile>\assets\.vidtsx\index.json` with a node
-`.mjs` in `.vidtsx-temp\end-to-end\E1\` that mimics the pre-E1 reconcile output (`{version:1, entries:
-[{relPath, hash, origin:'imported', addedAt, size, mtimeMs}], tombstones:[]}`, hash = `hashFileHead`,
-`media-import.ts:126`) — keep the source profile's 7 existing assets files in it too; (d) build:
-`node D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build` from the worktree
-(NODE_OPTIONS=--max-old-space-size=8192; writes `wt/out` only; a build has no Vite dep cache) and
-launch `D:/repos/VidTSX-STUDIO/node_modules/electron/dist/electron.exe <wt> --user-data-dir=<profile>
---remote-debugging-port=9261` (ELECTRON_RUN_AS_NODE unset; add `--inspect=9262` for the main
-process), with the C: watchdog; (e) confirm the library root is `<profile>\assets` before reading
-results, then check disk (backup = the seeded bytes, rev 2, kinds, probes after the `Library probe
-back-fill pass` log line — record its `ms`), each duration vs an independent `ffprobe` (≤ 10 ms), a file
-added after migration (drop one in, open Assets → scan → probe), a touched + a renamed file keep / refresh
-probe, a still of the Assets screen listing every file, and the `list_assets(scope:'library')` output from
-the real handler WITHOUT a model call (main inspector `require` of the built chunk that holds
-`buildProjectTools`, or a scratch vitest config whose one driver test calls `buildProjectTools(ctx)`'s
-`list_assets` handler with `getLibraryRoot` mocked to `<profile>\assets`); then the gates.
+Launch the worktree build on the seeded E1 profile and do the live checks, using the kit in
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (steps (a)–(d) are DONE — profile, media, pre-E1
+index, build; never redo them; if `src/` changes, rebuild with the command under "Live-check prep"):
+re-check resources + E-d4 (Hasan's app has no ffmpeg/Remotion children, no fresh `%TEMP%\vidtsx-studio\export`),
+start `watchdog.ps1` in the background (`powershell -NoProfile -File …\watchdog.ps1`), run `bash launch.sh`
+in the background (Bash `run_in_background`), then `node cdp.mjs wait`; FIRST
+`node cdp.mjs eval "window.api.libraryRootGet()"` must say `…\profiles\E1\profile\assets` (stop otherwise);
+before visiting Assets read the disk: `index.v1-backup.json` sha256 = `b495fdfa…cefcd`, `rev: 2`,
+`version: 1`, a `kind` on all 16 entries, a `probe` on the 7 audio + 1 video after the app log
+(`C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\app.log` or `<profile>\logs\`) shows `Library index migrated to rev 2`
+and `Library probe back-fill pass` (record its `ms`); run `list-assets.e1.test.ts` (command in its header,
+`E1_REPORT=after-migration`) for the exit table; `node cdp.mjs assets` + `node cdp.mjs shot
+C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/assets-screen.png` (restore the window first if minimised) and
+look at the still; then on disk: `node seed-media.mjs <profile> e1-seed only=late-h.wav,tone-b-longer.wav`,
+copy `tone-b-longer.wav` OVER `tone-b.wav` (touched), rename `tone-f.flac` → `tone-f-moved.flac` (moved),
+leave `late-h.wav` (new) → leave Assets and click it again (rescan) → disk: tone-b's probe refreshed to
+~3.4 s, tone-f-moved keeps 0.9 s, late-h gets ~1.15 s; stop ONLY the E1 instance (by
+`--remote-debugging-port=9261` / profile path), copy a fresh mp3 to `e1-seed\late-upsert.mp3`, run
+`upsert.e1.test.ts`, re-run `list-assets.e1.test.ts` (`E1_REPORT=final`); write the working launch recipe
+into DRIVING.md "Track E" → "Launch recipe from the worktree"; then the gates (DRIVING "Track E" vitest
+rule; types), Status.md + TESTING §18.14.
 
 ## Open problems
 
@@ -274,6 +312,9 @@ the real handler WITHOUT a model call (main inspector `require` of the built chu
 - The kind table and its wiring; the type additions; the frozen control copies (re-create them only if
   5d77600's files are found to differ — they were taken by `git show`).
 - ALL of design §3–§10 (built + unit-tested at `6005a7e`); the E-d5 control test and its findings.
+- Live-check prep (a)–(d): the E1 profile copy, the seed media, the pre-E1 index (re-seeding would need
+  the index deleted first — `seed-index.e1.test.ts` refuses an existing one; the pristine copy is
+  `…\vidtsx-e2e\E1\index.pre-e1.seeded.json`), the kit files, the worktree build.
 
 ## For Hasan (real-video list candidates)
 
@@ -286,3 +327,8 @@ the real handler WITHOUT a model call (main inspector `require` of the built chu
 - 2026-10-23 · builder #2 · ~40 · E-d5 control test red→green + findings; index IO / probe / reconcile /
   store / back-fill / migration / startup hook / list_assets formatter + 21 new unit tests (`6005a7e`);
   types 26/10; full run #1. Handed off at the tool-call budget (live check not started).
+- 2026-10-23 · builder #3 · ~42 · live-check prep: resources + E-d4, E1 profile copy (no settings.db),
+  real seed media (7 audio exts + png + avif + mp4), the pre-E1 index written by the frozen pre-E1 scan,
+  scratch vitest config (own cacheDir), launcher / watchdog / CDP / list_assets / upsert drivers, the
+  worktree build (113 s, rc 0). No `src/` change; the app was NOT launched (no processes left running).
+  Handed off at the tool-call budget.
