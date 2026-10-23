@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING — exit NOT MET yet (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); next: the orchestrator's fresh live pass — see Next step)
+status: BUILDING — exit NOT MET yet (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); **step 8 = the fresh live pass of the step-7 code (decision 9's pass for this round), 2026-10-23 15:57–16:04: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 84.79 % all proposed / 84.18 % applied ✗** — the model skipped Auto Cut on 0371 (47.0 s of H) and one authored end (0375 195.0) found no quiet gap on its straddled word's side (4.96 s); next: step 9 — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -566,6 +566,100 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
 **all proposed 0.9141**; (a) alone 0.8890, (b) alone 0.8956 — both clear the 0.905 bar only together, as step 6 predicted
 (0.9107 estimated then). Model variance (step 6: ≈ net 0, ±4.8 s per call) is not in this number.
 
+### Step 8 — the fresh live pass of the step-7 code (builder #12, 2026-10-23; no `src/` change) — exit NOT MET (overlap)
+
+- **Gate** 15:53 `29.0 GB C:; commit 102.2 / 104.3` (sum 31.1) → copies; 15:56:54 `29.007; 103.423 / 105.276` before the pass.
+- **Fresh scratch on D:** `B7/pass2/` did not exist; `robocopy b-root\projects\video-14-raw → B7/pass2/root/projects/video-14-raw`
+  (41 files, 579.40 MB, exit 1); `project.json` sha256 `EBE94FD7…123DDA` = b-root's; `robocopy profiles\source\profile →
+  B7/pass2/profile /XF settings.db settings.db-wal settings.db-shm` (2,325 of 2,328, 371.81 MB; the 3 skipped never opened);
+  `Test-Path` ×3 → False. The step-6 scratch (`B7/root`, `B7/profile`) and capture (`…\vidtsx-e2e\B7\run\`) untouched.
+- **Kit** `B7/pass2/` made by `.vidtsx-temp/end-to-end/B7/pass2-kit.mjs` (copies the ten step-6 kit files from `B7/` and
+  re-points every path: root / profile → `B7/pass2/…`, port 9347 → **9348**, outputs → `…\vidtsx-e2e\B7\pass2\{run,exit,measure*,
+  overlap-causes.json,app.log}`; `overlap-causes.py` explains pass 2 vs B6's applied cut). Grep of the copies for `B7/root`,
+  `B7/profile`, `9347`, `vidtsx-e2e\B7\run` → none (one "copied from track-B-exit" comment left); `node --check` ×4 ok;
+  `measure.py --selftest` OK (H 813.315 s).
+- **Watchdog** `B7/pass2/watchdog.ps1` (pass2 profile path) started 15:55:25. **Launch** `bash B7/pass2/launch.sh` → `probe.mjs
+  ready` `readyAfterMs 15257`, root `D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/pass2/root`; `probe.mjs providers` →
+  `{"active":"claude-subscription","providers":[]}`. **Setup** = step 6's exactly (V1 nine clips raw order, 1283.148 s, settings
+  `{"width":3840,"height":2160,"fps":60,"agent":{}}`, 0 proposals, transcripts 27/44/97/207/183/602/40/330/290, chat 0).
+- **The pass (ONE, run to its end; the harness did not break it):** 16 turns, all `claude-sonnet-5-5` on the keyless
+  `claude-subscription`, 15:57:00–16:03:50. Loops (logs `…\vidtsx-e2e\B7\pass2\run\loop1.log`, `loop2.log`):
+  - `loop1` = `run.mjs loop "Cut this video."` → turns 1–8, one editorial card per clip (0374 read with 0375 in turn 7, no cuts).
+    **Turn 1's reply ended WITH the `[next: …]` marker this time** (step 6's did not) → the editor auto-continued; **no "Move on."
+    was typed** (decision 9's case did not arise). Turn 8 ended without a marker, offering "you can run Auto Cut and then shots or
+    captions" (as B6 / step 6).
+  - `loop2` = `loop "Yes, run Auto Cut for the pauses on all nine clips."` (B6's exact answer) → turns 9–16, one `run_auto_cut` per
+    clip, every reply with the marker → auto-continued — **but 0371 was never Auto Cut**: turn 11 (0370) said "I'll run Auto Cut on
+    clip 0371 next. Five clips are still waiting" (six were) and its marker named `…0371_D.MP4`; turn 12 ran `run_auto_cut` on **0372**
+    (args `{"assetId": "e29f5e03-…"}`) and the count went on from there; turn 16 (0376) ended "After that, all nine clips are cut, and
+    the next steps are shots and captions." (not taken, as in B6). **Model behaviour, not the harness** (every card was answered as the
+    run shape says; the run shape has no corrective prompt) — so no second pass in this round.
+  - Watchdog never fired (C: min **28.574 GB**; commit max 105.6 / 107.3 GB). App stopped 16:05 (`taskkill /T /F` on the launcher's
+    bash / npx / electron-vite tree and every process whose CommandLine has `--remote-debugging-port=9348` or the pass2 profile →
+    `left: 0`, `electron total: 0`); watchdog stopped by its stop file (`watchdog stop (stop file); min C: 28.574 GB`, 0 left).
+- **The run table** (`node .vidtsx-temp/end-to-end/B7/pass2/summarize-run.mjs` → `…\B7\pass2\run\run-summary.json`; usage = the
+  app's AI-usage rows per turn):
+
+  | Turn | Source | Tool(s) | Model s | In / out tok | Card (clip, kind) | Items | Accepted | QA-unchecked | Answer → disk |
+  |---|---|---|---|---|---|---|---|---|---|
+  | 1 | typed `Cut this video.` | get_transcript, propose_cuts 2 | 19.9 | 904 / 1,284 | 0366 ed. | 1 (merged) | 1 | 0 | Apply 1 → applied |
+  | 2 | auto | get_transcript, propose_cuts 1 | 14.8 | 1,165 / 713 | 0369 ed. | 1 fluff | 0 | 0 | Reject all → rejected |
+  | 3 | auto | get_transcript, propose_cuts 3 | 20.2 | 1,394 / 1,018 | 0370 ed. | 3 | 3 | 0 | Apply 3 → applied |
+  | 4 | auto | get_transcript, propose_cuts 5 | 31.0 | 1,758 / 2,868 | 0371 ed. | 5 | 5 | 0 | Apply 5 → applied |
+  | 5 | auto | get_transcript, propose_cuts 3 | 21.0 | 2,314 / 1,549 | 0372 ed. | 3 | 3 | 0 | Apply 3 → applied |
+  | 6 | auto | get_transcript ×4, propose_cuts 10 | 43.8 | 2,730 / 4,471 | 0373 ed. | 9 | 9 | 0 | Apply 9 → applied |
+  | 7 | auto | get_transcript 0374 + 0375, propose_cuts 7 | 40.1 | 3,545 / 3,191 | 0375 ed. | 7 | 6 | **1** (named) | Apply 6 → partial |
+  | 8 | auto | get_transcript, propose_cuts 5 | 26.4 | 4,170 / 1,890 | 0376 ed. | 4 | 4 | 0 | Apply 4 → applied |
+  | 9 | typed `Yes, run Auto Cut …` | run_auto_cut 0366 | 10.2 | 4,692 / 453 | 0366 AC | 2 | 2 | 0 | Apply 2 → applied |
+  | 10–16 | auto | run_auto_cut 0369 0370 **0372** 0373 0374 0375 0376 | 16.1 / 22.1 / 10.4 / 13.2 / 10.5 / 13.7 / 10.4 | 4,865–5,924 / 232–301 | AC 0369 0370 0372 0373 0374 0375 0376 | 7 / 11 / 8 / 53 / 6 / 29 / 26 | all | 0 | Apply all → applied |
+
+  Totals: **16 turns, model time 323.8 s** (editorial 217.2 s, Auto Cut 106.6 s; step 6 345.0 s, B6 337.2 s), tokens in **60,450** /
+  out **19,378** / cache-read **2,585,491**, SDK notional **$2.82** (step 6 $4.01). **175 items** (editorial 33, Auto Cut 142; step 6
+  35 + 163), **173 applied** (31 + 142). **1 item started unchecked by QA, named in its turn's reply ("Unchecked cut: the 3:11 cut
+  (190.73–195.00 s) starts unticked because the card hears a hard entry where the speech resumes (+40.5 dB)"), not ticked** (left in
+  the video). Unchecked fluff: 0369 (lone card → Reject all). Auto Cut cards: 0 QA hard entries on all eight. The step-6 kind (authored
+  ends in continuous speech) now starts checked everywhere but this one: editorial QA hard entries 1 card item (step 6: 6). Final V1:
+  **160 clips, 561.346 s** (step 6 187 / 534.285 s; B6 196 / 509.149 s) — the 27 s more is 0371's uncut pauses.
+- **Measured** (`exit_check.py` → `…\B7\pass2\exit\`; `measure.py` → `…\B7\pass2\measure\`, `…\B7\pass2\measure-accepted\`):
+
+  | Exit clause | Target | Pass 2 | Step 6 | B6 / track-B exit baseline | Verdict |
+  |---|---|---|---|---|---|
+  | Hard entries on the applied cut (analyze_cut `entry_check`, real joins `> 0.75 s`) | 0 | **0 / 121** (editorial-class 0 / 29, Auto Cut-only 0 / 91, clip start 0 / 1) | 0 / 137 | 6 / 146 | **MET** |
+  | Median lead-in at real joins incl. clip edges vs fitted tight | ±30 ms | **0.150 vs 0.150 s (0 ms)**; inner only 0 ms | 0 ms | 0 ms | **MET** |
+  | Median tail, same | ±30 ms | **0.200 vs 0.214 s (−14 ms)**; inner only 0.180 vs 0.200 (−20 ms) | −4 ms | +6 ms | **MET** |
+  | Overlap \|P∩H\| / \|H\|, all proposed items (B6's headline) | ≥ 0.905 (decision 8: reported) | **0.8479** (P∩H 689.580 of 813.315 s; precision 0.9483) | 0.8974 | 0.9051 | — |
+  | Same, accepted (= applied) items only — **the bar (decision 8)** | ≥ 0.905 | **0.8418** (684.663 s; precision 0.9487) | 0.8723 | 0.9049 | **NOT MET** |
+
+  Also: Hasan's own plan 0 / 134 (unchanged); tight / natural knobs equal to cuts.json; produced speeds [1], monotonic per clip; the
+  V1 = raw − removals cross-check differs on five clips (0369 0372 0374 0375 0376, −0.009…−0.038 s, one segment fewer — the same
+  pre-existing kind as B6 / step 6); wordless produced segments 1 = **0371 [0, 2.67]** (Auto Cut never ran there; slivers ≤ 0.3 s
+  without words: 0). Per-clip applied overlap: 0366 0.839 · 0369 0.930 · 0370 0.940 · **0371 0.610** · 0372 0.967 · 0373 0.843 ·
+  0374 0.869 · 0375 0.869 · 0376 0.920 (step 6: 0.836 / 0.930 / 0.904 / 0.906 / 0.937 / 0.840 / 0.869 / 0.822 / 0.883 — step 7's two
+  fixes show on 0370 0372 0375 0376).
+- **Where the overlap went** (`python -I -B .vidtsx-temp/end-to-end/B7/pass2/overlap-causes.py` → `…\B7\pass2\overlap-causes.json`;
+  B6 applied 735.952 s of H → pass 2 applied 684.663 s: −59.838 lost, +8.549 gained):
+  1. **47.003 s in 0371 — no Auto Cut card** (above): 0371's pauses all stay — 113.614–126.799 (13.2 s), 24.721–31.226 (6.5), 188.287–
+     193.451 clip tail (5.2), 147.939–152.12 (4.2), 132.154–135.991 (3.8), 38.296–42.015 (3.7), 154.534–157.849 (3.3), 140.705–143.536
+     (2.8), 0–2.422 clip head (2.4), 161.104–162.948 (1.8), smaller.
+  2. **4.956 s at 0375's QA-unchecked retake** (H 190.733–195.0 inside the item 4.267 s + "other take," 195.0–195.689): the model
+     authored `190.9–195.0` ("First 'before starting selling the app, before starting to sell uh other take,' superseded by 'before you
+     sell the application.' Edges estimated; needs an ear."). Words: `uh 194.16–194.8`, `other 194.941–195.181`, `take, 195.181–195.599`,
+     `before 195.839–196.144`; floor −53.43 dBFS. The end 195.0 lies INSIDE "other" with 0.059 s of it in the span and 0.181 s kept →
+     decision 10 puts the end BEFORE "other" → the only gap there, "uh"→"other", is 0.141 s (< head 0.15 + lookback 0.06 = 0.21) and every
+     earlier pair touches ("to sell uh" continuous) → no candidate within `QUIET_GAP_SEEK_S` → the end stays at 195.0 → QA +40.5 dB
+     (20 ms profile +35.8 dB at 195.00) → unchecked. The OTHER side has the quiet gap "take,"→"before" (195.599–195.839, +4.6–6.3 dB at
+     195.70–195.78): with step 6's authored 195.1 (more of "other" inside → forward) the same code lands **195.779** (Hasan 195.799) — both
+     reproduced with the REAL `snapEditorialCuts` on the step-7 fixture (`print-p2.b7.test.ts` → `…\B7\pass2\p2-0375-195.json`: step6
+     `[190.733, 195.779]` no hard entry; pass2 `[190.733, 195]` hard `{sourceTime 195, overDb 40.5}` = the live card).
+  3. **Model variance:** 0373 365.651–370.432 "Just the first scan cleaned up 42 gigabytes…" (his flag 3, `manual`, 4.781 s) not
+     proposed — the same miss as step 6; 0373 84.16–86.82 "Uh" (`repeat`, 2.660 s) not proposed this time (B6 / step 6 cut it); gained
+     0376 168.05–172.08 the stray "M" (`dead_air`, 4.03 s, as step 6). Rest ≤ 0.2 s pieces.
+  Counterfactuals (same capture, arithmetic only; `python -I -B .vidtsx-temp/end-to-end/B7/pass2/counterfactual-p2.py` →
+  `…\B7\pass2\counterfactual.json`; 0371's Auto Cut estimated with step 6's 20 APPLIED 0371 Auto Cut items): applied + 0371 Auto Cut
+  **0.8966**; + 0375 landed at 195.779 **0.8480**; **both 0.9028** (all proposed + both 0.9036). The estimate lacks the 0371 head item
+  [0, ~2.67] that step 7 (a) proposes (step 6's run predates it; H 0–2.422 s) → with it ≈ **0.906**. So both fixes are needed and the bar
+  is then met by ~1 s of H only — model variance (±5 s per call above ≈ ±0.6 pp) decides the last pass either way.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -734,8 +828,75 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   `d 0 / 0 ms` (the editorial delete's end 16.663 sits before a 3.9 s pause → no seek; the onset cap does not bind).
 - 2026-10-23 · builder #11 · guard `28.6 GB; 102.7 / 104.3` · `npm run check:types` → `tsconfig.web.check.json: 26 errors (baseline
   26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok`, exit 0 (first try). Then the step-7 commit.
+- 2026-10-23 · builder #12 · step 8 · gate (relaxed form) 15:53 `29.0 GB C: free; commit 102.2 / 104.3 GB` (sum 31.1); before the pass
+  15:56:54 `29.007; 103.423 / 105.276`; before loop2 16:01:35 `28.581; 105.607 / 107.289` (sum 30.3). D: 29.1 → 28.1 GB. No
+  `electron.exe` running and nothing on 9348 / 9347 / 5173 / 9222 before the launch.
+- `robocopy …b-root\projects\video-14-raw …\B7\pass2\root\projects\video-14-raw /E /NFL /NDL /NJH /NP` → `Files 41 41 … Bytes 579.40 m`,
+  exit 1; `Get-FileHash` both `EBE94FD77F17895993F7D8159E294DB75E52FD515765B751C78EB2C635123DDA`, `equal: True`; `robocopy
+  …profiles\source\profile …\B7\pass2\profile /E /XF settings.db settings.db-wal settings.db-shm` → `Files 2328 2325 3`, exit 1;
+  `Test-Path` ×3 → `False`.
+- `node .vidtsx-temp/end-to-end/B7/pass2-kit.mjs` → per file the replacements (run.mjs root / OUT / port / comments; launch.sh profile /
+  port / log; exit_check.py RUN_PROJECT / RUN_RAW / OUT; …), `LEFT exit_check.py:6` (the "copied from track-B-exit" comment only);
+  Grep of `B7/pass2/*` for `B7/root|B7/profile|9347|vidtsx-e2e\B7\run` → only `pass2` paths. `node --check` run / cdp / probe /
+  summarize-run → 0; `python -I -B .vidtsx-temp/end-to-end/B7/pass2/measure.py --selftest` → `selftest OK: … H total 813.315 s over 9 clips`.
+- `bash .vidtsx-temp/end-to-end/B7/pass2/launch.sh` (background) → `node …/pass2/probe.mjs ready` `{"readyAfterMs": 15257, "root": {"root":
+  "D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/B7/pass2/root"}}`; `probe.mjs providers` → `{"active": "claude-subscription",
+  "providers": [], …}`; `probe.mjs turn` NOT run. `node …/pass2/run.mjs setup` (log `…\B7\pass2\run\setup.log`) → `V1 0366@0.000+20.288 |
+  … | 0376@1100.298+182.849`, `length s 1283.148 settings {"width":3840,"height":2160,"fps":60,"agent":{}} proposals 0 transcripts
+  [["0366","ready",27],…,["0376","ready",290]]`, `chat messages 0`.
+- `run.mjs loop "Cut this video."` → `loop1.log` turns 1–8, ends `[261.5s] loop ends: applied, no auto-continue (no [next:] marker)`;
+  `run.mjs loop "Yes, run Auto Cut for the pauses on all nine clips."` → `loop2.log` turns 9–16, ends the same at 156.8 s. `turns.jsonl`
+  16 lines; `proposals-raw.json` 16 cards.
+- `node .vidtsx-temp/end-to-end/B7/pass2/summarize-run.mjs` (→ `…\B7\pass2\summarize.out`) → `{"turns":16,"modelS":323.8,"inTok":60450,
+  "outTok":19378,"cacheRead":2585491,"costUsd":2.82,"cards":16,"items":175,"itemsEditorial":33,"itemsAutocut":142,"qaUnchecked":1,
+  "appliedItems":173,"editorialApplied":31,"autocutApplied":142,"finalV1Clips":160,"finalV1Seconds":561.346}`; card T7 `0375 7 items,
+  6 accepted, … 1 QA-unchecked [{"s":190.733,"e":195,"cat":"retake","overDb":40.5,"mentionedByTime":true}] … → partial`.
+- `python -I -B .vidtsx-temp/end-to-end/B7/pass2/exit_check.py` (stdout `…\B7\pass2\exit-run.out`) → `hard_entries.produced_total 0`,
+  `produced_real_joins_checked 121`, per clip all 0, `hasan_plan_total 0` / 134; `by_join_class` autocut-only 0 / 91, clip-start 0 / 1,
+  editorial 0 / 29; `card_qa_hard_entries` editorial 1 (0375 t 195, 40.5 dB, `is_a_produced_cut_in false`) / autocut 0; geometry
+  `difference_produced_minus_hasan_ms` real joins incl. clip edges `{"lead": 0.0, "tail": -14.0}`, inner only `{"lead": 0.0, "tail":
+  -20.0}`; `segments_without_words 1`, `slivers_le_0_3s_no_words []`.
+- `python -I -B …/pass2/measure.py C:/…/B7/pass2/run/proposals.json C:/…/B7/pass2/measure` → `"H": 813.315, "P": 727.129, "PH": 689.58,
+  "overlap": 0.8479, "precision": 0.9484, "autocut_overlap": 0.3694, "editorial_overlap": 0.4907`; same on `proposals-accepted.json` →
+  `…\pass2\measure-accepted` → `"P": 721.689, "PH": 684.663, "overlap": 0.8418, "precision": 0.9487`.
+- `python -I -B …/pass2/overlap-causes.py` → `{"H": 813.315, "b6": 735.952, "b7": 684.663, "b7_all": 689.58, "lost": 59.838, "gained":
+  8.549, "lost_in_qa": 4.267, "lost_rest": 55.571, …}`; per clip 0371 `lost_rest 47.003`; `lost (not QA / fluff) by cat: {"retake": {"n": 3,
+  "s": 3.311}, "pause": {"n": 8, "s": 39.417}, "unlisted": {"n": 2, "s": 5.28}, "repeat": {"n": 2, "s": 2.749}, "manual": {"n": 1, "s":
+  4.781}}`. `python -I -B …/pass2/counterfactual-p2.py` → `applied+0371_autocut 0.8966`, `applied+0375_landed 0.848`, `applied+both
+  0.9028`, `all+both 0.9036` (`n_0371_autocut_items_from_step6 20`).
+- guard `28.572 GB; 104.664 / 107.289` · `$env:B7_KITS='1'; npx vitest run --config .vidtsx-temp/end-to-end/B7/vitest.b7.config.ts print-p2
+  --silent=false --maxWorkers=2` (log `…\B7\pass2\print-p2.log`) → `Tests 1 passed (1)`; `p2-0375-195.json`: step6 `items [{"s": 190.733,
+  "e": 195.779}] hard []`; pass2 `items [{"s": 190.733, "e": 195}] hard [{"sourceTime": 195, "overDb": 40.5}]`, `notes []`.
+- Processes after the stop: `left: 0`, `electron total: 0`; no `node …pass2/run.mjs` left; watchdog `watchdog procs: 0`. `git status
+  --short` before the docs → only `docs/studio/end-to-end/B7/HANDOFF.md`. No vitest gate / check:types run (exit not met → no gates; no
+  tracked code changed).
 
 ## Next step (ONE concrete instruction)
+
+**Step 9 — fix the two mechanisms pass 2 lost the overlap to, each red-first from pass 2's real case (decision 3), then hand back for
+the orchestrator's LAST allowed pass (decision 9: this was the round's one pass; one more in B7; a third miss goes to Hasan):**
+
+(a) **The per-clip sweep must not depend on the model's own clip count** (47.0 s of H). In main, where the tool results are built
+(`run_auto_cut` — `src/main/services/studio/agent-tools/workflow-tools.ts` around :150-170; `propose_cuts` — `agent-tools/cut-tools.ts`
+around :100; verify the lines), append the clips on the timeline that still have NO card of that pass, in timeline order, computed from
+the project (a `cut-plan` proposal per asset of that pass — Auto Cut cards are `buildCutProposal`'s, editorial cards' `agentNote` starts
+"Editorial"; any status counts as done, including rejected / partial), e.g. "Clips still without Auto Cut: DJI_…0371_D.MP4, …" or
+"Every clip on the timeline has had Auto Cut." — and one prompt line (`studio-agent-prompt-tools.ts`, the `[next: …]` rule ~:81) telling
+the model to take the next clip from that list. Red tests: `run-auto-cut.test.ts` (real handler; a project with three of nine assets
+already carrying Auto Cut cards → the result lists the other six in timeline order, the first being the one after the last done) and the
+same for `cut-tools.test.ts`; pass 2's case as the fixture shape (turn 11 = 0370 done, 0371 next). (b) **`endOutOfSpeech` falls back to the
+other side when the straddled word's side has no quiet gap** (`src/shared/studio/cut-snap-landing.ts` ~:103-125, decision 10 + the new
+Open problem): keep decision 10's side as the first choice; only when it yields no candidate that lands quiet within `QUIET_GAP_SEEK_S`,
+take the nearest quiet candidate on the other side. Red test in `editorial-cuts-b7-speech.test.ts` from the step-7 fixture's 0375 window
+(already holds it — `print-p2.b7.test.ts` shows how): authored `190.9–195.0` (pass 2's) → end **195.779** (Hasan 195.799), card QA no
+hard entry at the join, item `accepted`; step 6's 190.8–195.1 still → 195.779; the five other step-7 cases unchanged. Then, as after
+every snap / runner change: the Verified 38-file set (builder #11's command) + the decision-4 kits (builder #9's one command +
+`compare-kits.mjs`) + `npm run check:types` (web 26 / node 10), guard before each. Before handing back, recompute the expected overlap on
+pass 2's capture: the exact 0371 Auto Cut by running the REAL `runCutPlan` path offline over pass 2's 0371 timeline keeps (a kit test
+reading `B7/pass2/root`'s project + cache read-only, like `compare-b1.b7.test.ts`) instead of step 6's items, + 0375 re-landed → record
+it beside `counterfactual-p2.py`'s 0.9028. **Expect for the last pass:** ≈ 0.906 applied — inside model variance of the bar.
+
+## Next step — superseded (kept for reference: builder #11's pass instruction, DONE as step 8)
 
 **The orchestrator's call (decision 9: this is the step-7 fix round's ONE fresh live pass; at most one more after it):** run the live
 exit run on the step-7 code exactly as step 6 did (Done › Step 6 = the recipe; the kit is ready), but on NEW scratch — never the step-6
@@ -878,6 +1039,23 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
+- **NEW (step 8) — the exit is NOT met on overlap, second miss** (step 6 0.8723, pass 2 **0.8418** applied / 0.8479 all proposed; hard
+  entries 0 / 121 and the medians 0 / −14 ms are met). Causes and numbers in Done › Step 8; the fix is step 9 (Next step). For the
+  orchestrator: (1) decision 9 leaves ONE more pass in B7; by arithmetic both step-9 fixes bring pass 2's capture to ≈ 0.903–0.906
+  applied, i.e. the bar is then reached by about 1 s of H, and model variance per run is several seconds (0373 "Just the first scan…"
+  4.78 s missed in both runs; 0373 "Uh" 2.66 s missed in pass 2 only) — the last pass may miss by variance alone even with both fixes;
+  if it does, it goes to Hasan with the numbers (decision 9). (2) Not a harness break: the run shape has no corrective prompt, so the
+  skipped clip counts.
+- **NEW (step 8), for the orchestrator — a choice inside step 9 (b), not covered by decision 10:** decision 10 puts the end on the side
+  of the straddled word that holds most of it; at 0375 195.0 that side (before "other") has no quiet inter-word gap within 1.5 s, the
+  other side has one (after "take,", 195.779 ≈ Hasan's 195.799). Step 9 (b) proposes "decision 10's side first; only when it has no
+  quiet candidate, the nearest quiet one on the other side" — which removes the kept 0.181 s of "other" + "take," here (a slate the
+  model's own note says it meant to cut). The alternative is today's: the cut stays unchecked (4.96 s of H left in). Say if you want it
+  otherwise.
+- **NEW (step 8), model behaviour:** the Auto Cut sweep skipped 0371 — turn 11 miscounted ("Five clips are still waiting" after 0370; six
+  were) and, although its own `[next: …]` marker named 0371, turn 12 ran 0372; turn 16 then said "all nine clips are cut". Nothing in the
+  tool results tells the model which clips still lack a card (step 9 (a) adds that). Turn 1 HAD the `[next: …]` marker this time (step 6's
+  did not) — the marker miss of step 6 did not repeat.
 - **NEW (step 7), for the orchestrator — choices made inside step 7 (not Hasan's; say if you want them otherwise):**
   (1) the quiet-gap seek is EDITORIAL ONLY (`seekQuietGap`, set by `snapEditorialCuts`): a Transcript delete keeps the words the user
   selected even when its end sits in continuous speech (QA still flags it; item 5's rule does not apply to text deletes). The 0376
@@ -886,7 +1064,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   stays and the card's QA unchecks the cut as before. (3) Auto Cut over keeps: the plan's QA reads the SPOKEN keeps (Done › Step 7 (a)).
   (4) 0376 lands at +14.4 dB in a gap that never drops below +9 dB (breath / room) — 0.6 dB under the bar; the produced audio keeps
   0.3 s of that sound before "These". Clean by the shipped QA, marginal by ear (Hasan's real-video test).
-- RESOLVED by step 7 (b) (pending the live pass): the six QA-unchecked authored ends of step 6. RESOLVED by step 7 (a): the wordless
+- RESOLVED by step 7 (b) (pass 2 confirms the kind: every authored end in continuous speech started checked except one new variant,
+  0375 195.0 — step 9 (b)): the six QA-unchecked authored ends of step 6. RESOLVED by step 7 (a): the wordless
   clip heads / 0373 tail, and the older note that a user-made wordless keep survives Auto Cut whole (Auto Cut now proposes any
   wordless timeline keep as one item; `planClip` itself still keeps a wordless keep whole for B1's cutlib reproduction). RESOLVED by
   the onset cap: "`landCutEnd` lands 10 ms before the kept word's TOKEN… if the onset starts earlier" (0376 is that case).
@@ -964,6 +1143,12 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 8 (the fresh live pass of the step-7 code) is DONE and measured — this round's ONE pass is spent and was NOT harness-broken: don't
+  re-run it on the step-7 code and don't re-measure it; every number is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\pass2\` (`run\`
+  capture + `run-summary.json`, `exit\`, `measure\`, `measure-accepted\`, `overlap-causes.json`, `counterfactual.json`,
+  `p2-0375-195.json`). Its scratch (`.vidtsx-temp/end-to-end/B7/pass2/root`, `pass2/profile` — no `settings.db`) holds the APPLIED run =
+  evidence: the last pass needs a FRESH copy (e.g. `B7/pass3/`, made by a copy of `pass2-kit.mjs` re-pointed to pass3 + port 9349),
+  never pass2's or step 6's.
 - Step 7 is DONE, green and committed: don't rebuild `keepsWithWords`, the runner's spoken-keeps rule, `endOutOfSpeech` / the onset
   cap / `seekQuietGap`, or re-extract `speechCases` (`extract-b7-s7.mjs`). Touching cut-snap* / editorial-cuts / cut-plan-runner /
   cut-keeps again → the Verified 38-file set + the decision-4 kits (one command + `compare-kits.mjs`) + check:types. The expected
@@ -1038,3 +1223,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   + spoken keeps in `runCutPlan`; (b) `endOutOfSpeech` + onset cap in `cut-snap-landing.ts`, editorial-only `seekQuietGap`; 15 red →
   green (23 new tests), 38 files 381/381, kits unchanged, check:types web 26 / node 10; no expectation changed; expected overlap on
   the step-6 capture 0.9123 applied / 0.9141 all; committed. No app, no model call. C: 2.8 → 48.5 → 28.6 GB (not ours).
+- 2026-10-23 · builder #12 · ~65 calls · step 8: the fresh live pass of the step-7 code (decision 9) on new D: scratch `B7/pass2/` (M2 +
+  profile without `settings.db`, kit re-pointed by `pass2-kit.mjs`, port 9348, watchdog armed — never fired, C: min 28.57 GB); ONE pass,
+  16 turns / 323.8 s model / $2.82 notional (turn 1 had its `[next:]` marker → no "Move on."; B6's Auto Cut yes typed after turn 8);
+  measured: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 0.8479 all / 0.8418 applied ✗ — the model skipped Auto Cut on 0371
+  (47.0 s) and 0375's authored 195.0 found no quiet gap on decision 10's side (4.96 s; reproduced with the real code); counterfactual both
+  fixed ≈ 0.903–0.906; wrote step 9. No `src/` change; app, watchdog, drivers stopped (0 left).
