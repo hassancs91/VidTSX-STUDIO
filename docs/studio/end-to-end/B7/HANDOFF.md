@@ -91,6 +91,20 @@ Claude subscription provider, ONE pass, run shape as B6 — gives:
    `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\`. Report per-join detail for any hard entry left.
 7. Hasan's hands are NOT available (he defers hands-on checks to a real-video test later): nothing in
    B7 may wait on him. If a decision is truly his, write it under Open problems and return BLOCKED.
+8. **(orchestrator, after step 6) The overlap bar is measured on the APPLIED cut** — what the user gets;
+   the 0-hard-entries clause is on the applied cut too, so both clauses read the same cut. Report the
+   all-proposed number beside it (B6's headline; B6 applied 0.9049 ≈ proposed 0.9051, so the baseline is
+   the same either way). Unchecking a flagged cut must not be how the hard entries reach 0 while content
+   is lost: the fix is to make the flagged cut land cleanly so it can stay checked.
+9. **(orchestrator, after step 6) One fresh live pass per fix round is allowed** (step 7's exit run, on
+   a fresh D: copy; the step-6 scratch is evidence — keep it). At most two more passes in B7 (this round
+   + one more); a third miss goes to Hasan with the numbers. Turn 1's "Move on." (the model's reply had
+   no `[next: …]` marker) is part of the run shape when it happens — record it, and record the marker
+   miss as a finding (the editorial pass should continue on its own).
+10. **(orchestrator) For (b), the straddled word belongs to the side that holds most of it** (inside the
+   span → extend past it; mostly kept → retract before it), then land in that gap's quiet — check that
+   "nearest quiet gap by time" gives the same answer on all six real cases; where they differ, use the
+   word rule and list the case.
 
 ## Done (file:line, commit hashes)
 

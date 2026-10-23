@@ -596,3 +596,11 @@
   (was 8), with a background watchdog that stops OUR app (matched by its profile path) if C: < 1.5 GB;
   the live run adds ~2 GB commit; Hasan has been told Docker/WSL holds ~23 GB. (3) A full vitest run
   while commit headroom < 10 GB uses `--maxWorkers=2` (counts as the gate under DRIVING.md's load rule).
+- 2026-10-23 15:40 · **B7 live exit run (step 6, one pass, `0db1b88`): hard entries 0 / 137 (was 6 / 146) ·
+  lead-in 0 ms · tail −4 ms · overlap NOT met** — all-proposed 0.8974, applied 0.8723 (bar 0.905). Causes:
+  15.05 s inside six QA-unchecked cuts whose authored ends sit in continuous speech; 12.27 s of wordless
+  keeps (clip heads) kept whole by keeps-limited Auto Cut; model variance ≈ net 0. Run: 17 turns,
+  345.0 s model time, $4.01 notional; turn 1 lacked the `[next: …]` marker → "Move on." typed. C: fell to
+  2.81 GB during the run (page file 103.3 GB); watchdog never fired. **Decisions** (B7 HANDOFF 8–10): the
+  overlap bar reads the APPLIED cut; one fresh pass per fix round, at most two more; the straddled word
+  goes with the side holding most of it. Next: step 7 (both fixes, red-first), then a fresh pass.
