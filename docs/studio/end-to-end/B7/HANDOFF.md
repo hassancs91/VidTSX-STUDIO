@@ -105,6 +105,22 @@ Claude subscription provider, ONE pass, run shape as B6 — gives:
    span → extend past it; mostly kept → retract before it), then land in that gap's quiet — check that
    "nearest quiet gap by time" gives the same answer on all six real cases; where they differ, use the
    word rule and list the case.
+11. **(orchestrator, after step 8) Step 9 (b)'s fallback to the other side is allowed only through
+   words the item itself says it removes** — the item's own quoted text / the model's authored text for
+   that span (0375: "…other take." is in the retake item, so extending past "other take," to the quiet
+   gap after it matches the item's intent). If the words it would cross are not the item's, keep today's
+   behaviour (the cut stays unchecked and is named). If items carry no text to match, cap the fallback at
+   the straddled word + one more word and ≤ 0.4 s of kept speech, and the row says "extended past … to
+   land on quiet". Never silently remove words the item did not name.
+12. **(orchestrator, after step 8) Separate code from model variance.** Besides the last live pass, compute
+   a DETERMINISTIC replay: the authored editorial spans and the Auto Cut runs captured in B6
+   (`…\vidtsx-e2e\B6\run\`), step 6 (`…\B7\run\`) and pass 2 (`…\B7\pass2\run\`) fed through the FINAL
+   code (snap + keeps-limited Auto Cut, real envelopes and words, offline), applied the way each run was
+   answered → applied overlap and hard entries per replay. The live pass stays the exit (Hasan's
+   wording). If the live pass misses the overlap bar while the replays are ≥ 0.905 with 0 hard entries,
+   the record says "missed on model variance", B7 is marked EXIT PARTIAL — WAITING-HASAN (overlap), it
+   goes on his real-video list, and the run continues to the track-B exit. If a replay itself is
+   < 0.905, that is a code regression to fix first.
 
 ## Done (file:line, commit hashes)
 

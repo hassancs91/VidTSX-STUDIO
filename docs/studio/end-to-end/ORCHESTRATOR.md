@@ -604,3 +604,14 @@
   2.81 GB during the run (page file 103.3 GB); watchdog never fired. **Decisions** (B7 HANDOFF 8–10): the
   overlap bar reads the APPLIED cut; one fresh pass per fix round, at most two more; the straddled word
   goes with the side holding most of it. Next: step 7 (both fixes, red-first), then a fresh pass.
+- 2026-10-23 · **B7 pass 2 (step 8, fixed code, one pass, `629f803`): hard entries 0 / 121 · lead-in 0 ms ·
+  tail −14 ms · overlap applied 0.8418 (all-proposed 0.8479) — NOT met.** Causes: the model skipped
+  Auto Cut on 0371 (47.0 s; it later said "all nine clips are cut"); 0375's authored retake end 195.0
+  inside the slate "other" has no quiet gap on decision 10's side → unchecked (4.96 s); model variance
+  (0373 flag 3 4.78 s, "Uh" 2.66 s). 16 turns, 323.8 s model time, $2.82 notional; turn 1 carried its
+  marker this time. **Decisions** (B7 HANDOFF 11–12): the slate fallback only through words the item
+  itself names; a deterministic replay of B6 / step-6 / pass-2 captures through the final code separates
+  code regression from model variance; a live miss with clean replays → B7 EXIT PARTIAL —
+  WAITING-HASAN (overlap) and the run continues. Next: step 9 (tool results list the clips still
+  without a card + the bounded fallback + the replays), then the last allowed pass.
+- For Hasan's list (B7): 0376 @ 119.084 lands +14.4 dB (0.6 dB under the bar) — listen on the real video.
