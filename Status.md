@@ -104,7 +104,7 @@
   `…\B6\measure-accepted-fix1\measure.json`: H / P / P∩H / overlap / precision unchanged; misses 52 / 42.03 s; flags 4 of 6.
   No new model run, no app launch, no `src/` change → the gates above are unaffected (not re-run).
 
-## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied); verifier fix round 1 (close / quit during a `project.json` lock) in — DONE up to Hasan's step (the EXIT waits for Hasan)
+## 2026-10-22 — END-TO-END B5: the Transcript tab (`studio-text-edit`) on the long raw recording — automated pre-pass, four bugs fixed, Hasan's station + by-ear checklist, the flip and a backfill fix prepared (NOT applied); verifier fix round 1 (close / quit during a `project.json` lock) in — DONE up to Hasan's step — exit DEFERRED to Hasan's real-video test (2026-10-23)
 
 - **What:** part B5 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `fb32ab1` → `aa58ee8` → `e69d182`,
   fix round 1 `750c0d0`; station + checklist `8bf5433` → `3e7a285`). The §3 row: "`studio-text-edit` on in production after Hasan's pass on M2
@@ -241,8 +241,12 @@
   `transcript-doc.ts` from 290 to 305 lines and reads `engine`, which the `StudioAssetTranscript.features` comment asks
   consumers not to branch on — no `features` flag says "durationless words"; `EditorShell.tsx` stays far over ~300 lines
   (pre-existing).
+- **2026-10-23 — exit deferred:** the by-ear pass was not run (Hasan's decision, quoted in the B4 entry's 2026-10-23
+  bullet below); `src/shared/feature-flags.ts` `studio-text-edit` stays `false`;
+  `docs/studio/end-to-end/B5/backfill-fix.patch` stays unapplied; the B5 station is untouched (its `project.json` still
+  equals the start snapshot); the pass + his two calls (apply the patch, flip the flag) move to his real-video test.
 
-## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix rounds 1–2 in (the EXIT waits for Hasan)
+## 2026-10-22 — END-TO-END B4: the learning signal — snapped span beside the final span; user trims and Transcript deletes tagged; learn-from-video measures the joins and proposes the cut knobs — DONE up to Hasan's step, fix rounds 1–2 in — exit DEFERRED to Hasan's real-video test (2026-10-23)
 
 - **What:** part B4 of `docs/studio/END_TO_END_PLAN.md` (branch `end-to-end-p0`; code `92d846f` → `c5a6f4c` →
   `2865675` → `f39a220` → `a734ff5`), the plan's §2 T1 "The learning signal". **The signal** (optional fields only —
@@ -391,6 +395,15 @@
   misread (the audition plays ±0.99 s, as designed). TESTING §18.10.
 - **Next:** the orchestrator marks B4 `WAITING-HASAN` (his step above) and continues; the B4 verifier is the
   orchestrator's call.
+- **2026-10-23 — Hasan's station attempt; exit deferred:** on the B4 station he trimmed 14 joins (3 lead-ins, 13 tails)
+  **by the waveform's look, not by ear**; the card proposed `Cut tail min (s) 0.14 → 0.01` and `Cut margin (dB) 5 →
+  21.5` (median tail 0.096 s, +17.9 dB over the floor at 13 joins; the start style 0.4 s / 5.9 dB), no lead-in row (3 <
+  10; median lead-in 0.051 s). Rule (a) missed on both tail knobs, the lead-in not judgeable — and not a valid sample
+  (eyeballed tails end in the word's audible decay; his 10-15 tight ends tails at +12 dB, median ~0.21 s on M2). Update
+  preset was not pressed; his trims stay in the station's `project.json`
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B1-verify-root`) for a later offline re-measure. Hasan: "thats too much, can
+  we just continue working, and I will do full testing on a real new video later" → the exit (≥ 10 joins per side, set
+  by ear, then Learn, rule (a)) moves to his real-video test. ORCHESTRATOR.md "Session 3".
 
 ## 2026-10-22 — END-TO-END B3: QA readouts on the cards — hard entries and clipped tails, offending joins listed and auditionable — DONE
 
