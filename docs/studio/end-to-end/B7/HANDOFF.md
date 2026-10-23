@@ -82,7 +82,7 @@ Claude subscription provider, ONE pass, run shape as B6 — gives:
 
 ## Done (file:line, commit hashes)
 
-### Step 1 — where the five mechanisms live, and how each of the six arises (builder #3, 2026-10-23)
+### Step 1 — where the five mechanisms live, and how each of the six arises (builder #3, 2026-10-23, commit `31feae2`)
 
 The authored spans are in B6's turn log (`C:\Users\hasan\AppData\Local\vidtsx-e2e\B6\run\turns.jsonl`,
 each `propose_cuts` call's `args`; snapped cards in `…\B6\run\proposals-raw.json`). The model authors
