@@ -12,7 +12,7 @@ import { EXPORT_ENGINES, isExportEngineId } from '../../../../shared/studio/expo
 import { agentActions } from '../agent-actions';
 import { listCaptionTemplates } from '../caption-packs';
 import { loadProject } from '../project-store';
-import { emitTool, errorText, text, type StudioTool, type StudioToolContext } from './types';
+import { emitTool, errorText, noteAppliedKeeps, text, type StudioTool, type StudioToolContext } from './types';
 
 const POSITIONS = ['bottom', 'center', 'top'] as const;
 
@@ -91,6 +91,8 @@ export function buildDeliveryTools(ctx: StudioToolContext): StudioTool[] {
       if (!result.success) return text(`Could not apply the proposal: ${result.error ?? 'unknown error'}`, true);
       // The panel is free again — a later tool this turn may propose.
       if (state.proposalId === args.proposalId) state.proposalId = null;
+      // B7 step 4b: a later run_auto_cut this turn plans over the timeline as it is now.
+      noteAppliedKeeps(state, result.sourceKeeps);
       return text(`${result.message ?? 'Applied.'} (One undo step — Ctrl+Z reverts it.)`);
     },
   );

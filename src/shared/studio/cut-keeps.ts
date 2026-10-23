@@ -3,8 +3,9 @@
 // the spans between them are what applied cuts already removed, so they are
 // neither proposed again nor counted in the card's headline. Pure — the Auto
 // Cut button derives the keeps from the live timeline, `run_auto_cut` from the
-// turn's asset inventory (the renderer fills it from the same timeline), and
-// both hand them to the one runner (cut-plan-runner `runCutPlan`).
+// turn's asset inventory (the renderer fills it from the same timeline, and
+// refreshes it after every apply it performs for the turn — `sourceKeepsAfter`),
+// and both hand them to the one runner (cut-plan-runner `runCutPlan`).
 //
 // All times are source-media seconds.
 
@@ -48,6 +49,26 @@ export function timelineKeepsForAsset(timeline: StudioTimeline, assetId: string)
     }
   }
   return mergeKeeps(spans, KEEP_JOIN_GAP_S);
+}
+
+/**
+ * B7 step 4b: what the renderer reports back after an apply — for every asset
+ * with a video/audio clip on `before` or `after`, its keeps on `after` (`[]`
+ * = none left). Main overlays them on the turn's inventory, so a later
+ * `run_auto_cut` in the SAME turn plans over the timeline as it is now.
+ */
+export function sourceKeepsAfter(before: StudioTimeline, after: StudioTimeline): Record<string, CutKeep[]> {
+  const ids = new Set<string>();
+  for (const timeline of [before, after]) {
+    for (const track of timeline.tracks) {
+      for (const clip of track.clips) {
+        if (clip.assetId && (clip.kind === 'video' || clip.kind === 'audio')) ids.add(clip.assetId);
+      }
+    }
+  }
+  const out: Record<string, CutKeep[]> = {};
+  for (const id of ids) out[id] = timelineKeepsForAsset(after, id);
+  return out;
 }
 
 /**

@@ -17,6 +17,8 @@ export interface AgentActionResult {
   success: boolean;
   message?: string;
   error?: string;
+  /** B7 step 4b: the timeline's source ranges per asset after an apply. */
+  sourceKeeps?: StudioAgentActionResultRequest['sourceKeeps'];
 }
 
 interface PendingAction {
@@ -85,6 +87,7 @@ export class AgentActionBridge {
       success: result.success,
       ...(result.message ? { message: result.message } : {}),
       ...(result.error ? { error: result.error } : {}),
+      ...(result.sourceKeeps ? { sourceKeeps: result.sourceKeeps } : {}),
     });
     return true;
   }

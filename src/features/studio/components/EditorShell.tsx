@@ -39,13 +39,15 @@ import { useAnalysisTracks } from '../hooks/useAnalysisTracks';
 import { analysisNoun, exportAnalysisBlockers } from '../services/analysis-status';
 import { usePlayback } from '../hooks/usePlayback';
 import { useAutoCut } from '../hooks/useAutoCut';
-import { useStudioAgent } from '../hooks/useStudioAgent';
+import { useStudioAgent, type AgentActionOutcome } from '../hooks/useStudioAgent';
 import type { ShotImportFailure } from '../hooks/useShotImport';
 import { DEFAULT_STT_MODEL } from '@shared/presets/stt-models';
 import { clipFromAsset, trackForAsset } from '../services/clip-factory';
 import { applyCutProposal } from '../services/apply-cut-proposal';
 import { applyShotProposal, shotItemPlacement } from '../services/apply-shot-proposal';
-import { applyInsertProposal, insertItemPlacement } from '../services/apply-insert-proposal';
+import { insertItemPlacement } from '../services/apply-insert-proposal';
+import { applyProposalByKind } from '../services/apply-proposal';
+import { sourceKeepsAfter } from '@shared/studio/cut-keeps';
 import { buildPreviewTimeMap } from '../services/preview-mapping';
 import {
   QA_AUDITION_LEAD_S,
@@ -538,11 +540,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   /** What the Player plays: the result preview while reviewing, else the edit. */
   const playerTimeline = useMemo(() => {
     if (activeProposal && previewResult) {
-      return activeProposal.kind === 'shot-plan'
-        ? applyShotProposal(tl.timeline, activeProposal, tl.shots)
-        : activeProposal.kind === 'insert-plan'
-          ? applyInsertProposal(tl.timeline, activeProposal)
-          : applyCutProposal(tl.timeline, activeProposal, { rippleAllTracks });
+      return applyProposalByKind(tl.timeline, activeProposal, tl.shots, { rippleAllTracks });
     }
     return tl.timeline;
   }, [tl.timeline, tl.shots, activeProposal, previewResult, rippleAllTracks]);
@@ -1108,7 +1106,7 @@ export function EditorShell({ projectId, onBack }: Props) {
   // in chat (apply, export) or a reversible setting (captions); every one is
   // a normal reducer/queue path — one undo step, the usual toasts.
   const handleAgentAction = useCallback(
-    async (action: StudioAgentAction): Promise<{ success: boolean; message?: string; error?: string }> => {
+    async (action: StudioAgentAction): Promise<AgentActionOutcome> => {
       if (action.type === 'apply-proposal') {
         const open = tl.activeProposal;
         if (!open || open.id !== action.proposalId) {
@@ -1116,11 +1114,17 @@ export function EditorShell({ projectId, onBack }: Props) {
         }
         const accepted = open.items.filter((i) => i.status === 'accepted').length;
         if (accepted === 0) return { success: false, error: 'Every item is unticked — nothing to apply.' };
+        // B7 step 4b: the source ranges after this apply (the reducer runs the same
+        // applyProposalByKind) — a later run_auto_cut this turn plans over them.
+        const sourceKeeps = sourceKeepsAfter(
+          tl.timeline,
+          applyProposalByKind(tl.timeline, open, tl.shots, { rippleAllTracks }),
+        );
         tl.dispatch({ type: 'proposal-apply', proposalId: open.id, rippleAllTracks });
         const noun = open.kind === 'cut-plan' ? 'cut' : open.kind === 'shot-plan' ? 'shot' : 'clip';
         const summary = `Applied ${accepted} ${noun}${accepted === 1 ? '' : 's'} of ${open.items.length} from chat`;
         showToast(`${summary} — Ctrl+Z undoes the whole apply`, 'success');
-        return { success: true, message: summary };
+        return { success: true, message: summary, sourceKeeps };
       }
       if (action.type === 'export') {
         let engineId = action.engineId;

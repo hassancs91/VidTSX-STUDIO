@@ -546,6 +546,14 @@ export interface StudioAgentActionResultRequest {
   /** What happened, in the renderer's words — relayed to the model. */
   message?: string;
   error?: string;
+  /**
+   * B7 step 4b (an applied proposal): per asset with a media clip before or
+   * after the apply, its source ranges still on the timeline AFTER it
+   * (cut-keeps `sourceKeepsAfter`; `[]` = none left). Main overlays them on the
+   * turn's `sourceKeeps`, so `run_auto_cut` later in the same turn plans over
+   * the timeline as it is then. Absent = nothing changed / an older renderer.
+   */
+  sourceKeeps?: Record<string, Array<{ start: number; end: number }>>;
 }
 
 export interface StudioAgentActionResultResponse {

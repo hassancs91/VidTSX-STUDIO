@@ -14,6 +14,7 @@ import {
   emitTool,
   errorText,
   findProjectAsset,
+  noteAppliedKeeps,
   projectInventory,
   reviewBlocked,
   text,
@@ -125,6 +126,7 @@ export function buildInsertTools(ctx: StudioToolContext): StudioTool[] {
         if (!result.success) {
           return text(`The insert was proposed but could not be applied: ${result.error ?? 'unknown error'}. It stays in the review panel.`, true);
         }
+        noteAppliedKeeps(state, result.sourceKeeps);
         return text(`${result.message ?? 'Applied.'} (One undo step — Ctrl+Z reverts it.)`);
       } catch (err) {
         return text(`Insert failed: ${errorText(err)}`, true);

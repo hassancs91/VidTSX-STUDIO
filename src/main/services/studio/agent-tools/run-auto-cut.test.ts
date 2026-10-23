@@ -58,8 +58,11 @@ vi.mock('../asset-transcriber', () => ({
 }));
 vi.mock('../../../../transcription-engine', () => ({ transcriptionEngine: {} }));
 vi.mock('../media-jobs', () => ({ studioMediaJobs: {} }));
+vi.mock('../caption-packs', () => ({ listCaptionTemplates: async () => [] }));
 
 const { buildWorkflowTools } = await import('./workflow-tools');
+const { buildDeliveryTools } = await import('./delivery-tools');
+const { agentActions } = await import('../agent-actions');
 const { CUT_PLAN_DIR } = await import('../cut-plan-runner');
 const { loadCutStyleFile, resetCutStyleCache } = await import('../cut-style-store');
 
@@ -225,5 +228,62 @@ describe('run_auto_cut (real handler) — B7 item 4, plans over the timeline kee
     const removed = proposal.items.reduce((sum, i) => sum + ((i.sourceEnd ?? 0) - (i.sourceStart ?? 0)), 0);
     expect(res.content[0].text).toContain(`−${removed.toFixed(1)} s of 3.3 s still on the timeline`);
     expect((proposal.agentNote ?? '').split('\n')[0]).toContain(`−${removed.toFixed(1)} s of 3.3 s`);
+  });
+});
+
+describe('run_auto_cut (real handler) — B7 step 4b, after accept_proposal in the SAME turn', () => {
+  it('plans over the timeline as the apply left it, not the turn-start inventory', async () => {
+    // Turn start: the whole clip on the timeline. The editorial card (created
+    // this turn) removes 1.2–2.9 s; the renderer applies it through the real
+    // action bridge and answers with a1's source ranges after the apply.
+    const afterApply = [
+      { start: 0, end: 1.2 },
+      { start: 2.9, end: 5 },
+    ];
+    const events: unknown[] = [];
+    const ctx = {
+      req: {
+        projectId: 'p1',
+        assets: [{ id: 'a1', name: 'clip.mp4', kind: 'video', path: 'src.mp4', sourceKeeps: [{ start: 0, end: 5 }] }],
+        reviewOpen: false,
+      },
+      signal: new AbortController().signal,
+      emit: (e: unknown) => {
+        events.push(e);
+        const ev = e as { kind?: string; requestId?: string };
+        if (ev.kind !== 'action' || !ev.requestId) return;
+        const requestId = ev.requestId;
+        queueMicrotask(() =>
+          agentActions.resolve({
+            projectId: 'p1',
+            requestId,
+            success: true,
+            message: 'Applied 1 cut of 1 from chat',
+            sourceKeeps: { a1: afterApply },
+          }),
+        );
+      },
+      state: { proposalId: 'editorial-1', generatedShots: new Map(), importedAssets: new Map() },
+    } as unknown as StudioToolContext;
+    const tools = [...buildDeliveryTools(ctx), ...buildWorkflowTools(ctx)] as unknown as ToolLike[];
+    const accept = tools.find((t) => t.name === 'accept_proposal');
+    const autoCut = tools.find((t) => t.name === 'run_auto_cut');
+    if (!accept || !autoCut) throw new Error('tools missing');
+
+    const applied = await accept.handler({ proposalId: 'editorial-1' }, {});
+    expect(applied.isError).toBeUndefined();
+    const res = await autoCut.handler({ assetId: 'a1', style: 'tight' }, {});
+    expect(res.isError).toBeUndefined();
+
+    const { plan } = await onlyPlan();
+    expect(plan.keeps).toEqual(afterApply);
+    const proposal = (events.find((e) => (e as { kind?: string }).kind === 'proposal') as { proposal: StudioProposal })
+      .proposal;
+    for (const item of proposal.items) {
+      const start = item.sourceStart ?? 0;
+      const end = item.sourceEnd ?? 0;
+      expect(afterApply.some((k) => start >= k.start - 1e-6 && end <= k.end + 1e-6)).toBe(true);
+    }
+    expect(res.content[0].text).toContain('of 3.3 s still on the timeline');
   });
 });

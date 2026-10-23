@@ -38,6 +38,8 @@ export interface AgentActionOutcome {
   success: boolean;
   message?: string;
   error?: string;
+  /** B7 step 4b: an apply's source ranges per asset after it (cut-keeps `sourceKeepsAfter`). */
+  sourceKeeps?: Record<string, Array<{ start: number; end: number }>>;
 }
 
 export interface UseStudioAgentOptions {
@@ -196,6 +198,7 @@ export function useStudioAgent(options: UseStudioAgentOptions) {
               success: outcome.success,
               ...(outcome.message ? { message: outcome.message } : {}),
               ...(outcome.error ? { error: outcome.error } : {}),
+              ...(outcome.sourceKeeps ? { sourceKeeps: outcome.sourceKeeps } : {}),
             }),
           );
       }

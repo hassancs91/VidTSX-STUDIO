@@ -1,5 +1,5 @@
 # B7 — Editorial cuts leave no hard entries
-status: BUILDING (steps 1–4 done and committed — `a31080a`, item 5 `eaf682d`, item 4 `2102419`; next: the decision-4 kits, then the live exit run when the resource guard allows)
+status: BUILDING (steps 1–4 + 4b done and committed — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b = the commit after `c9de463`; next: step 5 = the decision-4 kits, then the live exit run when the resource guard allows)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -302,6 +302,40 @@ How a card reaches Apply (step 1 › 5, re-checked): the user's Apply click and 
   arg match counts the explicit `undefined` (measured: the run failed with `expected "vi.fn()" to be called with
   arguments: [ 'proj', 'a1', 'C:/clip.mp4', …(1) ]`). Behaviour unchanged.
 
+### Step 4b — `run_auto_cut` plans over the timeline as it is when the tool runs (builder #8, 2026-10-23, orchestrator addition)
+
+Closes step 4's open problem (an `accept_proposal` then `run_auto_cut` in ONE turn planned over the turn-start keeps).
+Better than the sketched fix (main subtracting its own copy of the card's accepted spans): the RENDERER — which owns the
+document and performs the apply — reports every touched asset's source ranges AFTER the apply, computed with the same
+function the reducer commits with. That also covers a card that was open before the turn (`req.openProposal`, which
+carries no items to main), a card the user unticked / dragged mid-turn, and `insert_asset` with `apply`.
+- **Pure op** `sourceKeepsAfter(before, after)` (`src/shared/studio/cut-keeps.ts:60`) — every asset with a video/audio
+  clip on either timeline → its `timelineKeepsForAsset(after, id)` (`[]` = none left).
+- **One apply function** `applyProposalByKind(timeline, proposal, shots, { rippleAllTracks })` (new
+  `src/features/studio/services/apply-proposal.ts`, 21 lines) — now used by the reducer's `proposal-apply`
+  (`useTimeline.ts:521`, same expression as before, moved), the Player's result preview (`EditorShell.tsx:543`) and the
+  agent's apply (`EditorShell.tsx:1119-1127`: `sourceKeeps = sourceKeepsAfter(tl.timeline, applyProposalByKind(…))`,
+  computed BEFORE the dispatch from the same `tl.timeline`, returned with the result). Unused imports dropped
+  (`useTimeline.ts:72-76`, `EditorShell.tsx:48`).
+- **Wire (optional fields only):** `StudioAgentActionResultRequest.sourceKeeps?` (`src/shared/ipc/types/studio.ts:556`);
+  `AgentActionOutcome.sourceKeeps?` + forwarded (`useStudioAgent.ts:42`, `:201`); `AgentActionResult.sourceKeeps?`
+  + `resolve` forwards it (`src/main/services/studio/agent-actions.ts:21`, `:90`). An older renderer sends none → the
+  turn-start keeps, today's behaviour. EditorShell's handler is now typed `Promise<AgentActionOutcome>`.
+- **Main:** `StudioTurnState.sourceKeeps?: Map` (`agent-tools/types.ts:42`, created on first use); `noteAppliedKeeps(state,
+  result.sourceKeeps)` (`types.ts:117`) after a successful `accept_proposal` (`delivery-tools.ts:95`) and `insert_asset`
+  apply (`insert-tools.ts:129`); `findProjectAsset` / `projectInventory` overlay them (`withTurnKeeps`, `types.ts:128`;
+  `[]` → `sourceKeeps` absent = the inventory's rule for an asset not on the timeline = whole source). `run_auto_cut`
+  (`workflow-tools.ts:154`) is unchanged: it reads `asset.sourceKeeps` from `findProjectAsset` → the same `runCutPlan`
+  path as the button.
+- **Tests (red first — see Verified):** `run-auto-cut.test.ts` new describe "B7 step 4b" (the REAL `accept_proposal` +
+  `run_auto_cut` handlers on one ctx, the REAL action bridge answered by a stand-in renderer with `sourceKeeps {a1:
+  [0,1.2] [2.9,5]}`; turn-start inventory = the whole clip `[0,5]` → `plan.keeps` = the post-apply keeps, every item inside
+  one, reply "of 3.3 s still on the timeline"); `cut-keeps.test.ts` new describe `sourceKeepsAfter` (2 tests: a cut, a
+  removed asset → `[]`, an inserted asset; non-media clips name no asset). **No existing expectation changed.**
+- Not unit-tested: the `EditorShell` handler's two lines (a component; the pure pieces are tested and the reducer's apply
+  tests in `shot-ops` / `apply-shot-proposal` ran green over the moved expression). The exit run (one card per turn,
+  answered by clicks) does not exercise this path.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -369,6 +403,21 @@ How a card reaches Apply (step 1 › 5, re-checked): the user's Apply click and 
   src/main/services/studio/agent-tools/run-auto-cut.test.ts --maxWorkers=2` → `Tests 5 passed (5)`. Then the step-4 commit.
   **The page file grew 101.3 → 102.3 GB during this run and C: touched 3.2 GB** — the next builder should expect to sit
   near the 3 GB stop line.
+- 2026-10-23 · builder #8 · step 4b · guard `3.9 GB C: free; commit 99.9 / 102.3 GB` · RED first (tests written, no code):
+  `npx vitest run src/main/services/studio/agent-tools/run-auto-cut.test.ts src/shared/studio/cut-keeps.test.ts
+  --maxWorkers=2` → `Test Files 2 failed (2) · Tests 3 failed | 10 passed (13)`: `sourceKeepsAfter is not a function` ×2;
+  step 4b real-handler test `expected undefined to deeply equal [ { start: +0, end: 1.2 }, …(1) ]` (`plan.keeps` absent =
+  planned over the whole source from the turn-start inventory). After the fix (same guard) → `Test Files 2 passed (2) ·
+  Tests 13 passed (13)`.
+- 2026-10-23 · builder #8 · guard `3.9 GB; 99.7 / 102.3` · `npx vitest run cut- text-delete text-restore rms-envelope
+  studio-agent-prompt CutQaReadout agent-chat-format editorial-cuts useStudioAgent run-auto-cut useTimeline apply-
+  agent-actions agent-tools studio-agent --maxWorkers=2` (log `.vidtsx-temp/end-to-end/B7/vitest-4b.log`) → `Test Files 37
+  passed (37) · Tests 358 passed (358)`. Then (guard `3.9 GB; 99.9 / 102.3`) the reducer-apply + insert/accept users:
+  `npx vitest run src/features/studio/services/shot-ops.test.ts src/features/studio/services/apply-shot-proposal.test.ts
+  src/main/services/studio/agent-tools/audio-tools.test.ts src/main/services/studio/agent-tools/flow-tools.test.ts
+  src/main/services/studio/agent-actions.test.ts --maxWorkers=2` → `Test Files 5 passed (5) · Tests 36 passed (36)`.
+- 2026-10-23 · builder #8 · guard `3.9 GB; 99.9 / 102.3` · `npm run check:types` → `tsconfig.web.check.json: 26 errors
+  (baseline 26) ok` · `tsconfig.node.check.json: 10 errors (baseline 10) ok` (first try). Then the step-4b commit.
 
 ## Next step (ONE concrete instruction)
 
@@ -379,7 +428,10 @@ off saying so); if not, copy each kit into `.vidtsx-temp/end-to-end/B7/`, re-poi
 `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\` (never overwrite B1's `compare-report.json` or `…\vidtsx-e2e\B2`), run them
 with the resource guard before each, and record B1's join count (expect 348/352 unchanged — `cut-planner.ts` is untouched
 by B7) and every edge B2's text-delete pass moved (expected only where `landCutEnd` fires). After that: the live exit run
-(decision 5) once C: ≥ 8 GB and commit headroom ≥ 6 GB.
+(decision 5) — NB the orchestrator's 2026-10-23 15:00 decision (ORCHESTRATOR.md, end of "Session 3") supersedes
+decision 5's C: paths and this file's header gate: the M2 copy and the profile copy go on **D:** under
+`.vidtsx-temp/end-to-end/B7/` (not `…\vidtsx-e2e\B7-root` / `profiles\B7`), and the run may start when C: ≥ 3 GB AND
+(C: free + commit headroom) ≥ 8 GB. At builder #8's hand-off: C: 3.9 GB + headroom 2.4 GB = 6.3 GB → not yet.
 
 (Done — kept for reference) Old step 4 = item 4 (decision 2), pure op + red unit tests first: give `buildCutProposal`
 (`src/shared/studio/cut-proposal.ts:72`) an optional `keeps?: Array<{ start; end }>` input (the asset's source ranges
@@ -416,6 +468,7 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   writes to `…\vidtsx-e2e\B2` — copy + re-point the output to `…\vidtsx-e2e\B7\` before running; a moved edge there
   is expected only where the landing rule fires (cut-in in a removed word's release) — report each moved edge.
   (3) B3's live Auto Cut numbers (hard 1/164) need the app — part of the live pass.
+  Builder #8 (step 4b) did NOT start step 5 (hand-off at ~55 tool calls); nothing of it exists yet in `B7/`.
 - Not fixed, left listed (orchestrator: fix only if the same few lines — it is not): the CUT-OUT side mirror (an
   authored START early in the gap after a kept word truncates that word's tail via `cut-planner.ts:163`). A
   mirror of `landCutEnd` needs `tailFor`'s gap-dependent tail (punchy vs soft, the next-atom clamp), not the
@@ -434,12 +487,11 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 - RESOLVED (step 4): the card's QA readout counted the hard entries of cuts that start unchecked — it now reads
   "Hard entries 1 of 42 joins — 1 unchecked by QA" (`formatQaUncheckedSuffix`). The counts themselves are still the
   plan's (not recomputed over the accepted items).
-- New (step 4), not blocking the exit run: `run_auto_cut`'s keeps are the TURN-START timeline (`sourceKeeps` on the
-  inventory). If one turn calls `accept_proposal` on an editorial card and then `run_auto_cut` (only when the user's
-  message said to apply), the keeps are stale and Auto Cut re-proposes inside the just-applied spans (today's behaviour,
-  no worse). Fix when needed: keep the created proposal on `StudioTurnState` and subtract its accepted items' spans from
-  `sourceKeeps` after a successful `accept_proposal`. The exit run (cards answered by clicks, one card per turn) never
-  hits it.
+- RESOLVED (step 4b, builder #8): `run_auto_cut`'s keeps were the TURN-START timeline, so `accept_proposal` then
+  `run_auto_cut` in one turn re-proposed inside the just-applied spans. Now the renderer answers every apply with the
+  post-apply source ranges (`sourceKeepsAfter` over `applyProposalByKind`, the reducer's own function) and main overlays
+  them for the rest of the turn. Left: a hand edit by the USER on the timeline during a turn (not an apply the agent
+  asked for) still isn't seen until the next turn — no tool reads the live timeline between applies.
 - Note (step 4): the Auto Cut card of a clip whose editorial card is applied now headlines "−X s of <seconds still on
   the timeline>"; the plan file's `stats.removedDuration`/`sourceDuration` are still whole-source numbers (`cut-planner.ts`
   untouched; nothing user-facing reads them now).
@@ -450,6 +502,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 4b is DONE, green and committed: don't rebuild `sourceKeepsAfter`, `applyProposalByKind`, the action result's
+  `sourceKeeps` wire or `noteAppliedKeeps` / `withTurnKeeps`. Touching them → run builder #8's two Verified sets.
 - Step 4 (item 4 + the readout suffix) is DONE, green and committed: don't rebuild `cut-keeps.ts`, `planCutSpans`, the
   runner's keeps/file-name rule or the `sourceKeeps` plumbing. Touching them again → run the Verified name-filter set.
 
@@ -488,3 +542,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   `runCutPlan` (cuts + QA + own file), the IPC, the button and `run_auto_cut` (renderer-stamped `sourceKeeps`); the
   readout's "— N unchecked by QA"; 2 red → green, 26 test files 300/300, check:types web 26 / node 10; one handler
   expectation changed (explicit `undefined` arg); committed. C: 4.4 → 3.2 → 3.9 GB, page file 101.3 → 102.3 GB.
+- 2026-10-23 · builder #8 · ~55 calls · step 4b (orchestrator addition): the renderer reports post-apply `sourceKeeps`
+  with every apply result, main overlays them for the turn → `run_auto_cut` after `accept_proposal` plans over the
+  timeline as it is; one `applyProposalByKind` for reducer / preview / agent apply; 3 red → green, 37 files 358/358 +
+  5 files 36/36, check:types web 26 / node 10; no existing expectation changed; committed; step 5 not started. C: 3.9 GB
+  throughout, commit 99.7–99.9 / 102.3 GB.

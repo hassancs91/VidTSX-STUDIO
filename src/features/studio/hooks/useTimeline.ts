@@ -69,12 +69,11 @@ import {
   type EffectDefaults,
   type EffectParams,
 } from '../services/effect-ops';
-import { applyCutProposal } from '../services/apply-cut-proposal';
+import { applyProposalByKind } from '../services/apply-proposal';
 import { applyTextDelete, type TimelineSpan } from '../services/text-delete';
 import { tagTextDeleteEdges, tagTrimmedEdge } from '../services/clip-edit-tags';
 import { restoreDeletion } from '../services/text-restore';
-import { applyInsertProposal } from '../services/apply-insert-proposal';
-import { applyShotProposal, insertShotClip } from '../services/apply-shot-proposal';
+import { insertShotClip } from '../services/apply-shot-proposal';
 import {
   addProposal,
   closeProposal,
@@ -519,14 +518,9 @@ export function timelineReducer(state: HistoryState, action: TimelineAction): Hi
     case 'proposal-apply': {
       const proposal = doc.proposals.find((p) => p.id === action.proposalId);
       if (!proposal || proposal.status !== 'proposed') return state;
-      const applyByKind =
-        proposal.kind === 'shot-plan'
-          ? applyShotProposal(doc.timeline, proposal, doc.shots)
-          : proposal.kind === 'insert-plan'
-            ? applyInsertProposal(doc.timeline, proposal)
-            : applyCutProposal(doc.timeline, proposal, {
-                rippleAllTracks: action.rippleAllTracks,
-              });
+      const applyByKind = applyProposalByKind(doc.timeline, proposal, doc.shots, {
+        rippleAllTracks: action.rippleAllTracks,
+      });
       const timeline = pruneTransitions(applyByKind);
       const applied = timeline !== doc.timeline;
       const proposals = closeProposal(doc.proposals, action.proposalId, applied);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { StudioClip, StudioTimeline } from '../types/studio';
-import { cutsBetweenKeeps, keepsTag, keepsTotal, normalizeKeeps, timelineKeepsForAsset } from './cut-keeps';
+import { cutsBetweenKeeps, keepsTag, keepsTotal, normalizeKeeps, sourceKeepsAfter, timelineKeepsForAsset } from './cut-keeps';
 
 function clip(id: string, kind: StudioClip['kind'], assetId: string, sourceIn: number, duration: number, speed?: number): StudioClip {
   return { id, kind, assetId, start: 0, duration, sourceIn, ...(speed ? { speed } : {}) } as unknown as StudioClip;
@@ -72,5 +72,28 @@ describe('cutsBetweenKeeps / keepsTotal / keepsTag (B7)', () => {
     expect(keepsTag(keeps)).toBe(keepsTag([...keeps]));
     expect(keepsTag(keeps)).not.toBe(keepsTag([{ start: 1, end: 6 }]));
     expect(keepsTag(keeps)).toMatch(/^k[0-9a-z]+$/);
+  });
+});
+
+describe('sourceKeepsAfter (B7 step 4b — what the renderer reports after an apply)', () => {
+  const track = (clips: StudioClip[]): StudioTimeline => ({ tracks: [{ id: 'v1', kind: 'video', name: 'V1', clips }] });
+
+  it("every asset with a media clip before or after the apply, with its keeps AFTER it ([] = none left)", () => {
+    const before = track([clip('c1', 'video', 'a1', 0, 5), clip('c2', 'video', 'a2', 0, 4)]);
+    // A cut removed a1's 1.2–2.9 s and the whole of a2; an insert placed a3.
+    const after = track([clip('c1', 'video', 'a1', 0, 1.2), clip('c1b', 'video', 'a1', 2.9, 2.1), clip('c3', 'video', 'a3', 1, 2)]);
+    expect(sourceKeepsAfter(before, after)).toEqual({
+      a1: [
+        { start: 0, end: 1.2 },
+        { start: 2.9, end: 5 },
+      ],
+      a2: [],
+      a3: [{ start: 1, end: 3 }],
+    });
+  });
+
+  it('non-media clips name no asset', () => {
+    const before = track([clip('s', 'sfx', 'a9', 0, 2)]);
+    expect(sourceKeepsAfter(before, before)).toEqual({});
   });
 });
