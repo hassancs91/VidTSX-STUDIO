@@ -2,58 +2,43 @@ import path from 'path';
 import fs from 'fs/promises';
 import { logEngine } from '../../../logging/log-engine';
 import type {
+  LibraryAssetKind,
   LibraryAssetOrigin,
+  LibraryAudioMeta,
   LibraryIndexEntry,
-  LibraryIndexFile,
 } from '../../../shared/types/asset-library';
+import { isTimedMediaKind, mediaKindOf } from '../../../shared/media-kinds';
 import { hashFileHead } from '../studio/media-import';
-import { reconcileIndex, type DiskFileStat } from './library-reconcile';
-import {
-  LIBRARY_META_DIR,
-  getLibraryIndexPath,
-  resolveLibraryPath,
-  toLibraryRelPath,
-} from './library-paths';
-import { invalidateLibrarySizes } from './library-sizes';
+import { reconcileIndex, type DiskFileStat, type ProbeOf } from './library-reconcile';
+import { LIBRARY_META_DIR, resolveLibraryPath, toLibraryRelPath } from './library-paths';
+import { loadIndex, serialize, writeIndex } from './library-index-io';
+import { probeLibraryFile } from './library-probe';
+import { scheduleProbeBackfill } from './library-backfill';
 
 const log = logEngine.createLogger('LibraryStore');
 
-const EMPTY_INDEX: LibraryIndexFile = { version: 1, entries: [], tombstones: [] };
-
 /**
- * Index overlay IO + reconcile scan (ASSET_LIBRARY_DESIGN.md L1). All
- * functions take the assets root explicitly — only library-paths.ts knows
- * about settings — so everything here tests against a plain temp dir.
- * Serialized via a per-root promise chain: scans and writes never interleave.
+ * Index overlay scan + writes (ASSET_LIBRARY_DESIGN.md L1; the file IO and
+ * the per-root serialize chain live in library-index-io.ts). All functions
+ * take the assets root explicitly — only library-paths.ts knows about
+ * settings — so everything here tests against a plain temp dir.
  */
-const opChains = new Map<string, Promise<unknown>>();
 
-function serialize<T>(root: string, op: () => Promise<T>): Promise<T> {
-  const prev = opChains.get(root) ?? Promise.resolve();
-  const next = prev.then(op, op);
-  opChains.set(root, next);
-  return next;
+/** ffprobe calls one scan makes inline; the rest go to the back-fill (E1). */
+export const SCAN_PROBE_BUDGET = 20;
+
+function budgetedProber(root: string): ProbeOf {
+  let left = SCAN_PROBE_BUDGET;
+  return async (relPath: string, kind: LibraryAssetKind) => {
+    if (!isTimedMediaKind(kind) || left <= 0) return undefined;
+    left -= 1;
+    return probeLibraryFile(resolveLibraryPath(root, relPath), kind);
+  };
 }
 
-export async function loadIndex(root: string): Promise<LibraryIndexFile> {
-  try {
-    const raw = await fs.readFile(getLibraryIndexPath(root), 'utf-8');
-    const parsed = JSON.parse(raw) as LibraryIndexFile;
-    if (parsed.version !== 1 || !Array.isArray(parsed.entries)) return { ...EMPTY_INDEX };
-    return { ...parsed, tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
-  } catch {
-    return { ...EMPTY_INDEX };
-  }
-}
-
-/** Atomic write (tmp + rename), mirroring project-store's writeProjectFile. */
-async function writeIndex(root: string, index: LibraryIndexFile): Promise<void> {
-  const finalPath = getLibraryIndexPath(root);
-  await fs.mkdir(path.dirname(finalPath), { recursive: true });
-  const tmpPath = `${finalPath}.tmp`;
-  await fs.writeFile(tmpPath, JSON.stringify(index, null, 2), 'utf-8');
-  await fs.rename(tmpPath, finalPath);
-  invalidateLibrarySizes(root);
+/** A timed entry still lacking a probe → the back-fill catches up, off this chain. */
+function kickBackfillIfNeeded(root: string, entries: LibraryIndexEntry[]): void {
+  if (entries.some((e) => isTimedMediaKind(e.kind) && !e.probe)) void scheduleProbeBackfill(root);
 }
 
 /**
@@ -93,7 +78,11 @@ async function listDiskFiles(root: string, dir = root): Promise<DiskFileStat[]> 
   return out;
 }
 
-/** Scan disk, reconcile against the stored index, persist, return entries. */
+/**
+ * Scan disk, reconcile against the stored index, persist, return entries.
+ * Edited and new audio/video files are probed inline up to
+ * SCAN_PROBE_BUDGET; the back-fill fills the rest in the background.
+ */
 export function scanLibrary(root: string): Promise<LibraryIndexEntry[]> {
   return serialize(root, async () => {
     const index = await loadIndex(root);
@@ -102,9 +91,11 @@ export function scanLibrary(root: string): Promise<LibraryIndexEntry[]> {
       index,
       diskFiles,
       (relPath) => hashFileHead(resolveLibraryPath(root, relPath)),
-      new Date().toISOString()
+      new Date().toISOString(),
+      budgetedProber(root)
     );
     await writeIndex(root, next);
+    kickBackfillIfNeeded(root, next.entries);
     log.debug('Library scan complete', {
       files: diskFiles.length,
       entries: next.entries.length,
@@ -134,25 +125,43 @@ export function setDescription(root: string, relPath: string, description: strin
  * here — with the origin, description, and brand tag they are born with, and
  * the hash/size/mtime bookkeeping that keeps the next scan from re-keying
  * them. Updates in place if the relPath is already indexed.
+ *
+ * E1: also writes `kind` and, for audio/video, `probe` — ffprobe runs BEFORE
+ * the chain so a slow probe never holds other index ops; a failed probe keeps
+ * the old one only when the file is unchanged, else the back-fill retries.
+ * `tags` / `audio` pass through (filled by E2 / E4).
  */
-export function upsertEntry(
+export async function upsertEntry(
   root: string,
   relPath: string,
-  meta: { origin: LibraryAssetOrigin; description?: string; brandId?: string },
+  meta: {
+    origin: LibraryAssetOrigin;
+    description?: string;
+    brandId?: string;
+    tags?: string[];
+    audio?: LibraryAudioMeta;
+  },
 ): Promise<LibraryIndexEntry> {
-  return serialize(root, async () => {
-    const absPath = resolveLibraryPath(root, relPath); // traversal guard
+  const absPath = resolveLibraryPath(root, relPath); // traversal guard
+  const kind = mediaKindOf(relPath);
+  const probe = await probeLibraryFile(absPath, kind);
+  const result = await serialize(root, async () => {
     const stat = await fs.stat(absPath); // throws if the file is not on disk
     const hash = await hashFileHead(absPath);
     const index = await loadIndex(root);
     const existing = index.entries.find((e) => e.relPath === relPath);
+    const sameFile = existing?.size === stat.size && existing?.mtimeMs === stat.mtimeMs;
     const entry: LibraryIndexEntry = {
       ...(existing ?? { addedAt: new Date().toISOString() }),
       relPath,
       origin: meta.origin,
+      kind,
+      probe: probe ?? (sameFile ? existing?.probe : undefined),
       ...(hash !== undefined ? { hash } : {}),
       ...(meta.description !== undefined ? { description: meta.description } : {}),
       ...(meta.brandId !== undefined ? { brandId: meta.brandId } : {}),
+      ...(meta.tags !== undefined ? { tags: meta.tags } : {}),
+      ...(meta.audio !== undefined ? { audio: meta.audio } : {}),
       size: stat.size,
       mtimeMs: stat.mtimeMs,
     };
@@ -167,6 +176,8 @@ export function upsertEntry(
     await writeIndex(root, index);
     return entry;
   });
+  kickBackfillIfNeeded(root, [result]);
+  return result;
 }
 
 /**
@@ -192,4 +203,4 @@ export async function findLibraryFileByHash(root: string, hash: string): Promise
   return fromEntries(await scanLibrary(root));
 }
 
-export { LIBRARY_META_DIR };
+export { LIBRARY_META_DIR, loadIndex };

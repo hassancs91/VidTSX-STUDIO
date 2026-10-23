@@ -43,6 +43,11 @@ export function isPlayableMediaKind(kind: LibraryAssetKind): kind is PlayableMed
   return kind === 'video' || kind === 'audio' || kind === 'image';
 }
 
+/** The kinds that have a length — the library probes these (ffprobe duration). */
+export function isTimedMediaKind(kind: LibraryAssetKind | undefined): kind is 'video' | 'audio' {
+  return kind === 'video' || kind === 'audio';
+}
+
 /** Every extension of one kind, in table order (dialog filters). */
 export function extensionsOfKind(kind: LibraryAssetKind): string[] {
   return Object.keys(MEDIA_EXT_KIND).filter((ext) => MEDIA_EXT_KIND[ext] === kind);

@@ -1,8 +1,11 @@
 import type {
+  LibraryAssetKind,
   LibraryIndexEntry,
   LibraryIndexFile,
   LibraryTombstone,
 } from '../../../shared/types/asset-library';
+import type { StudioAssetProbe } from '../../../shared/types/studio';
+import { mediaKindOf } from '../../../shared/media-kinds';
 
 /**
  * Disk-vs-index reconcile (ASSET_LIBRARY_DESIGN.md L1): new files gain
@@ -12,7 +15,15 @@ import type {
  *
  * Pure logic — fs access arrives as a snapshot plus an injected hasher,
  * so the algorithm is unit-testable without electron or a real disk.
+ *
+ * Index v2 (E1): every entry leaves with `kind` from the one extension table;
+ * an injected `probeOf` refreshes `probe` for edited-in-place files and fills
+ * it for new ones (it may return undefined — the back-fill catches up);
+ * moves keep everything; tombstones carry probe + the v2 fields so the same
+ * bytes coming back resurrect them.
  */
+
+export type ProbeOf = (relPath: string, kind: LibraryAssetKind) => Promise<StudioAssetProbe | undefined>;
 
 export interface DiskFileStat {
   /** POSIX-separator path relative to the assets root. */
@@ -34,13 +45,19 @@ function toTombstone(entry: LibraryIndexEntry, now: string): LibraryTombstone {
     origin: entry.origin,
     addedAt: entry.addedAt,
     missingSince: now,
+    kind: entry.kind,
+    probe: entry.probe,
+    tags: entry.tags,
+    audio: entry.audio,
+    usedIn: entry.usedIn,
   };
 }
 
 function resurrect(
   tomb: LibraryTombstone,
   file: DiskFileStat,
-  hash: string | undefined
+  hash: string | undefined,
+  probe: StudioAssetProbe | undefined
 ): LibraryIndexEntry {
   return {
     relPath: file.relPath,
@@ -49,6 +66,11 @@ function resurrect(
     brandId: tomb.brandId,
     origin: tomb.origin,
     addedAt: tomb.addedAt,
+    kind: mediaKindOf(file.relPath),
+    probe,
+    tags: tomb.tags,
+    audio: tomb.audio,
+    usedIn: tomb.usedIn,
     size: file.size,
     mtimeMs: file.mtimeMs,
   };
@@ -58,7 +80,8 @@ export async function reconcileIndex(
   index: LibraryIndexFile,
   diskFiles: DiskFileStat[],
   hashOf: (relPath: string) => Promise<string | undefined>,
-  nowIso: string
+  nowIso: string,
+  probeOf: ProbeOf = async () => undefined
 ): Promise<LibraryIndexFile> {
   const byRelPath = new Map(index.entries.map((e) => [e.relPath, e]));
   const onDisk = new Map(diskFiles.map((f) => [f.relPath, f]));
@@ -67,24 +90,26 @@ export async function reconcileIndex(
   const unclaimed: DiskFileStat[] = [];
 
   // Pass 1 — files whose rel path is already indexed stay; a changed
-  // size/mtime means edited-in-place, so the hash (and any cached probe)
-  // is stale and gets refreshed/dropped.
+  // size/mtime means edited-in-place, so the hash and the probe are stale
+  // and get refreshed (the probe left undefined if probeOf cannot now).
   for (const file of diskFiles) {
     const entry = byRelPath.get(file.relPath);
     if (!entry) {
       unclaimed.push(file);
       continue;
     }
+    const kind = mediaKindOf(file.relPath);
     if (entry.size !== file.size || entry.mtimeMs !== file.mtimeMs) {
       kept.push({
         ...entry,
+        kind,
         hash: await hashOf(file.relPath),
-        probe: undefined,
+        probe: await probeOf(file.relPath, kind),
         size: file.size,
         mtimeMs: file.mtimeMs,
       });
     } else {
-      kept.push(entry);
+      kept.push(entry.kind === kind ? entry : { ...entry, kind });
     }
   }
 
@@ -105,13 +130,20 @@ export async function reconcileIndex(
     const moved = hash ? missingByHash.get(hash) : undefined;
     if (moved && !claimedHashes.has(hash as string)) {
       claimedHashes.add(hash as string);
-      kept.push({ ...moved, relPath: file.relPath, size: file.size, mtimeMs: file.mtimeMs });
+      kept.push({
+        ...moved,
+        relPath: file.relPath,
+        kind: mediaKindOf(file.relPath),
+        size: file.size,
+        mtimeMs: file.mtimeMs,
+      });
       continue;
     }
+    const kind = mediaKindOf(file.relPath);
     const tomb = hash ? tombByHash.get(hash) : undefined;
     if (tomb && !claimedHashes.has(hash as string)) {
       claimedHashes.add(hash as string);
-      kept.push(resurrect(tomb, file, hash));
+      kept.push(resurrect(tomb, file, hash, tomb.probe ?? (await probeOf(file.relPath, kind))));
       continue;
     }
     kept.push({
@@ -119,6 +151,8 @@ export async function reconcileIndex(
       hash,
       origin: 'imported',
       addedAt: nowIso,
+      kind,
+      probe: await probeOf(file.relPath, kind),
       size: file.size,
       mtimeMs: file.mtimeMs,
     });
