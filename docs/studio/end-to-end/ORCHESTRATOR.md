@@ -615,3 +615,9 @@
   WAITING-HASAN (overlap) and the run continues. Next: step 9 (tool results list the clips still
   without a card + the bounded fallback + the replays), then the last allowed pass.
 - For Hasan's list (B7): 0376 @ 119.084 lands +14.4 dB (0.6 dB under the bar) — listen on the real video.
+- 2026-10-23 · **B7 replays (step 9 (c), `277f724`) — no code regression:** final code on B6's capture
+  applied 0.9091 / hard 0 of 135 (live 0.9049 / 6 of 146); step 6's 0.9115 / 0 of 134; pass 2's 0.8480 /
+  0 of 122 — its whole shortfall is the 0371 Auto Cut the model skipped (+ that card → 0.9061). Steps
+  9 (a) `ecaa5bd` (tool results list the clips without a card) and 9 (b) `47b7acf` (the bounded slate
+  fallback) in. **Decision 13** (B7 HANDOFF): the retract side may not un-remove the item's own words
+  (step 6's 0375 "Another take." case) — fixed before pass 3.

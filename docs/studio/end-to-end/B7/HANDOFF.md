@@ -128,6 +128,15 @@ Claude subscription provider, ONE pass, run shape as B6 — gives:
    the record says "missed on model variance", B7 is marked EXIT PARTIAL — WAITING-HASAN (overlap), it
    goes on his real-video list, and the run continues to the track-B exit. If a replay itself is
    < 0.905, that is a code regression to fix first.
+13. **(orchestrator, after step 9 (c)) The retract side may not un-remove the item's own words either**
+   (the mirror of decision 11). When decision 10's side would land the end before words the span covers
+   and the item names (step 6's 0375 `129.1–133.2`: retracting before "Another" keeps the spoken slate
+   "Another take." in the cut), that side counts as having no usable gap, and decision 11's fallback
+   (forward through words the item names, to the quiet gap after them — here after "take.") applies.
+   If neither side works, today's behaviour stays (end unchanged, unchecked, named). Fix it red-first
+   from that case BEFORE pass 3 (plus a negative: a retract over words the item does NOT name is
+   unchanged), then the cut set, the kits, `check:types`, and the three replays again (expect none
+   worse; report the deltas).
 
 ## Done (file:line, commit hashes)
 
