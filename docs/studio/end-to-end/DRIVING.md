@@ -161,6 +161,13 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
 
 - 2026-10-23 · B6 · **The Assistant's live state:** `agent` props read up from the textarea's `__reactFiber$` were a STALE alternate — busy / pending frozen at the first streamed words for 12 min while the turn had ended in 26 s (the AI-usage row and the visible Send button said so). Read busy from a visible `button[title="Stop the assistant"]`, and the props by walking DOWN from the container's `__reactContainer$….stateNode.current` (B6 `run.mjs` `findCur`). A cut card with 0 accepted items (a lone fluff) has a disabled Apply — answer it with "Reject all"; the editor's "Review outcome" turn still continues the run. Per-turn usage: `window.api.aiUsageGetLog({ limit })` rows (`featureSource 'auto-cut'` for Studio assistant turns).
 
+- 2026-10-23 · E1 · The Assets screen scans the library on its FIRST mount only; going Home and back
+  does NOT rescan (it stays mounted) — click its visible `Refresh` button to drive a reconcile pass. The
+  root view shows folders (`e1-seed`, `presets`): `dblclick` the folder's card to list files. The bundled
+  Remotion ffprobe n7.1 counts a LAME mp3's encoder delay + padding in `format.duration` (+44 ms on a
+  1.3 s tone; ffprobe n8 trims it) — fixed in `probeMedia` via `mp3-gapless.ts`; compare durations against
+  an independent ffprobe of a NEWER build, and expect old-build numbers for mp3 to differ.
+
 ## Track E (session 4, 2026-10-23) — the worktree
 
 - Track E works ONLY in the worktree `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch
@@ -188,7 +195,22 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   nothing may be written into the main checkout); if that does not resolve them, (b) show they are
   independent of track E's diff (none of the files `git diff --name-only 5d77600..HEAD` lists is in their
   import graph) and say so in STATUS. Any other failure is real (DRIVING's load-timeout rule still applies).
-- Launch recipe from the worktree: (the first builder who launches writes the working one here.)
+- **Launch recipe from the worktree (E1 builder #4, 2026-10-23, worked first time, twice):**
+  1. Build the worktree's own `out/` (app stopped; rewrites only `wt/out`, ~125 MB, ~2 min), Bash from the
+     worktree root: `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+     D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > <log> 2>&1` (rc 0, only
+     "use client" warnings). Rebuild after every `src/` change before a live check.
+  2. Launch with NO Vite server (`ELECTRON_RENDERER_URL` unset → main loads `out/renderer/index.html`), from
+     a script FILE run with Bash `run_in_background` (kit `E1/launch.sh`): `cd <wt>; unset
+     ELECTRON_RUN_AS_NODE ELECTRON_RENDERER_URL; exec D:/repos/VidTSX-STUDIO/node_modules/electron/dist/electron.exe .
+     --user-data-dir=<profile> --remote-debugging-port=926x --disable-features=CalculateNativeWinOcclusion
+     --disable-backgrounding-occluded-windows --disable-renderer-backgrounding > <app.log> 2>&1`. Ready
+     (`window.api` + a visible nav button) in under 10 s; the window opens MINIMISED — restore it without
+     activating (kit `E1/restore.ps1`) in the same call as a CDP screenshot, else `captureScreenshot` hangs.
+  3. Stop: PowerShell, `Get-CimInstance Win32_Process -Filter "Name='electron.exe'"` whose CommandLine holds
+     the profile path → `Stop-Process`. **Filter by Name too**: an unfiltered CommandLine match also hits
+     the PowerShell/bash running the stop command (the path is in its own command line) — it killed its
+     own shell once (exit 255). The background launcher then reports exit 127 (killed `exec`) — expected.
 
 ## video-14 (track A, from A3 on) — orchestrator rules
 

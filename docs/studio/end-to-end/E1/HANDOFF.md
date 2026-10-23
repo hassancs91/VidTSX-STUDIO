@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: IN PROGRESS (builder #3 handed off 2026-10-23 — ALL E1 code + unit tests done at `6005a7e`; live-check kit + seeded profile + worktree build ready, app not yet launched; live click-through, full-run gate, Status/TESTING left)
+status: IN PROGRESS (builder #4 handed off 2026-10-23 ~21:00 — live click-through DONE and the exit MET on the isolated profile (one live bug found + fixed red-first: mp3 durations); left: the full-vitest gate, Status.md, TESTING §18.14)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -229,6 +229,54 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   checkout's `node_modules` by walking up (read-only). The main checkout's `out/main/index.js` stayed at
   20:01 (Hasan's). A build leaves no Vite dep cache.
 
+### Live check + live bug fix (builder #4, 2026-10-23 20:46–20:57) — see the commit after `af915f8`
+
+- **Resources + E-d4:** 20:46 C: 55.0 GB free, D: 25.8 GB, commit limit 99.7 GB, headroom 50.8 GB; 20:55
+  C: 54.9, headroom 49.7. No ffmpeg / ffprobe / Remotion process anywhere, no `%TEMP%\vidtsx-studio\export`
+  → Hasan's app not exporting (both launches). Ports 9261/9262/9266 free.
+- **Launch 1 (20:46, build of `6005a7e`):** ready at once; `libraryRootGet()` → `root` =
+  `…\profiles\E1\profile\assets`, `isOverride: false`. Profile log: `Library index migrated to rev 2`
+  `{fromRev: null, entries: 16, tombstones: 0, kindsFilled: 16, backedUp: true}` at 17:46:33.217Z, then
+  `Library probe back-fill pass {candidates: 8, probed: 8, failed: 0, written: 8, ms: 347}` (348 ms after).
+  Disk: `index.v1-backup.json` sha256 `b495fdfa…cefcd` = the pristine pre-E1 copy; `index.json`
+  `version: 1, rev: 2`, 16 entries all with `kind` (7 audio, 1 video, 2 image, 6 data), `probe` on the
+  7 audio + the video, none on images/data.
+- **`list_assets` after migration** (`E1_REPORT=after-migration` → `…\vidtsx-e2e\E1\after-migration.json`):
+  a duration for every audio file and the video; all within 10 ms of the independent ffprobe (n8.1.2)
+  EXCEPT `tone-a.mp3`: index 1.344 s / printed 1.34 vs ffprobe 1.300 (the seed is a 1.3 s sine) → **the
+  live bug**.
+- **The bug:** the bundled Remotion ffprobe (n7.1) prints `format.duration` = frames × 1152 / rate for a
+  LAME mp3 (56 × 1152 / 48000 = 1.344), i.e. WITH the encoder delay (576) + end padding (1536 samples);
+  n8.1.2 trims them (1.300). Pre-existing in `probeMedia` (Studio import has the same +25–50 ms on every
+  LAME mp3), surfaced by E1's exit.
+- **Fix, red first:** `src/main/services/studio/mp3-gapless.test.ts` (6 tests) red at 20:51 (module
+  missing), then `src/main/services/studio/mp3-gapless.ts` (96 lines: `parseMp3Gapless` = ffmpeg's
+  `mp3_parse_info_tag` fields — Xing/Info frame count + LAME/Lavf/Lavc delay/padding, MPEG-1/2/2.5, ID3v2
+  skip; `gaplessDuration` trims ONLY when ffprobe's value equals the untrimmed frame total within 1 ms, so a
+  newer ffprobe that already trims is left alone) → 6/6 green. Wired in `media-import.ts:15` (import) + `:114-118`
+  (`probeMedia`: no video stream + codec `mp3` → `gaplessDuration(duration, await readMp3Gapless(path))`).
+- **Rebuild** (20:53, the recipe above) rc 0 in 124 s → **launch 2** (20:56): NO `LibraryMigrate` line
+  (idempotent: rev 2 + every kind → no write), backup unchanged.
+- **Assets screen** (launch 1): the root lists folders `e1-seed` (612 KB) + `presets`; `e1-seed` lists all
+  10 files — still `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\assets-screen.png` (looked at: 7 audio
+  cards with the note icon incl. `.opus` + `.aac`, `.avif` and `.png` draw thumbnails, `.mp4` a video card,
+  "10 items · 612 KB").
+- **Reconcile pass** (launch 1, Assets `Refresh` button — Home→Assets does NOT rescan): `tone-b.wav`
+  overwritten by a 3.4 s file (touched) → probe REFRESHED 2.25 → 3.4 (hash refreshed); `tone-f.flac` →
+  `tone-f-moved.flac` (moved) → keeps probe 0.9 + hash; `late-h.wav` (new) → probe 1.15 inline (no
+  back-fill needed). Log `Library scan complete {files: 17, entries: 17, tombstones: 0}`.
+  Launch 2: `touch tone-a.mp3` + first Assets visit → probe refreshed 1.344 → **1.3** by the fixed probe.
+- **Upsert path** (app stopped): `late-upsert.mp3` (1.7 s sine, 44.1 kHz LAME, made by the profile's
+  ffmpeg-full) → `upsert.e1.test.ts` (REAL `upsertEntry`, real Remotion ffprobe) 1/1 → entry `kind: audio`,
+  `probe {duration: 1.7, codec: mp3}`, hash, size, mtime.
+- **`list_assets` final** (`E1_REPORT=final` → `…\vidtsx-e2e\E1\final.json`, 1/1 green): 11 rows, every
+  audio file + the video with a duration; diff vs independent ffprobe: index 0 ms for all 11; printed ≤
+  3.5 ms (`toFixed(2)` rounding: opus 2.6065→2.61, aac 1.527682→1.53).
+- **`.avif`** (open question): the bundled ffprobe reads it (`codec_name=av1|width=640|height=360`).
+- **Stopped:** both E1 instances by profile path (Name `electron.exe`); `wt/out` holds the fixed build.
+  The watchdog ran for both launches; its 2nd run exited 30 s in on ONE empty WMI answer (C: never below
+  54 GB) → kit `watchdog.ps1` now exits only after 3 consecutive misses. Nothing of mine is running.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 20:25, from the worktree root:
@@ -261,29 +309,28 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
     and `builder-libraries.test.ts` (1). None is in code E1 touched (`git diff --stat 5d77600 HEAD --
     shot-bundle*.ts pack-package.ts scripts electron-builder.yml src/shared/tsx-engine` is empty).
 
+- Builder #4, 2026-10-23, from the worktree root:
+  - `node …/vitest.mjs run src/main/services/studio/mp3-gapless.test.ts` before the module →
+    `Test Files 1 failed (1)`, `Tests no tests` (red); after → `Tests 6 passed (6)`.
+  - Types after the fix: `tsc -p tsconfig.node.check.json` → **10**; `-p tsconfig.web.check.json` → **26**.
+  - `node …/vitest.mjs run src/main/services/studio src/main/services/library src/shared/media-kinds.test.ts src/features/asset-library`
+    → the only failures were the 8 tests of `shot-bundle-in-place.test.ts` (3) + `shot-bundle.test.ts` (5),
+    the known worktree-only resolution suites (summary line not captured — the full run will count).
+  - Live: the exit tables in `…\vidtsx-e2e\E1\after-migration.json` (1 mp3 out by 44 ms → the fix) and
+    `…\vidtsx-e2e\E1\final.json` (all 11 within 10 ms; index 0 ms) — numbers under "Live check" above.
+
 ## Next step (ONE concrete instruction)
 
-Launch the worktree build on the seeded E1 profile and do the live checks, using the kit in
-`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (steps (a)–(d) are DONE — profile, media, pre-E1
-index, build; never redo them; if `src/` changes, rebuild with the command under "Live-check prep"):
-re-check resources + E-d4 (Hasan's app has no ffmpeg/Remotion children, no fresh `%TEMP%\vidtsx-studio\export`),
-start `watchdog.ps1` in the background (`powershell -NoProfile -File …\watchdog.ps1`), run `bash launch.sh`
-in the background (Bash `run_in_background`), then `node cdp.mjs wait`; FIRST
-`node cdp.mjs eval "window.api.libraryRootGet()"` must say `…\profiles\E1\profile\assets` (stop otherwise);
-before visiting Assets read the disk: `index.v1-backup.json` sha256 = `b495fdfa…cefcd`, `rev: 2`,
-`version: 1`, a `kind` on all 16 entries, a `probe` on the 7 audio + 1 video after the app log
-(`C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\app.log` or `<profile>\logs\`) shows `Library index migrated to rev 2`
-and `Library probe back-fill pass` (record its `ms`); run `list-assets.e1.test.ts` (command in its header,
-`E1_REPORT=after-migration`) for the exit table; `node cdp.mjs assets` + `node cdp.mjs shot
-C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/assets-screen.png` (restore the window first if minimised) and
-look at the still; then on disk: `node seed-media.mjs <profile> e1-seed only=late-h.wav,tone-b-longer.wav`,
-copy `tone-b-longer.wav` OVER `tone-b.wav` (touched), rename `tone-f.flac` → `tone-f-moved.flac` (moved),
-leave `late-h.wav` (new) → leave Assets and click it again (rescan) → disk: tone-b's probe refreshed to
-~3.4 s, tone-f-moved keeps 0.9 s, late-h gets ~1.15 s; stop ONLY the E1 instance (by
-`--remote-debugging-port=9261` / profile path), copy a fresh mp3 to `e1-seed\late-upsert.mp3`, run
-`upsert.e1.test.ts`, re-run `list-assets.e1.test.ts` (`E1_REPORT=final`); write the working launch recipe
-into DRIVING.md "Track E" → "Launch recipe from the worktree"; then the gates (DRIVING "Track E" vitest
-rule; types), Status.md + TESTING §18.14.
+Run the gates and close E1: with no app running and resources re-checked (headroom ≥ 10 GB → default
+workers, else `--maxWorkers=2`), from the worktree root run the full suite
+`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run > C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/vitest-full-2.log 2>&1`
+and apply DRIVING "Track E" → "The vitest gate from the worktree" (E-d2a) to the three resolution files
+((a) `--root <wt>` started from the main checkout's directory, only after reading that none of the three
+writes relative to `process.cwd()`; else (b) the import-graph check against `git diff --name-only
+5d77600..HEAD`, which now also lists `media-import.ts` + `mp3-gapless.ts` — check shot-bundle's graph for
+`media-import`); confirm types 26/10; then write the Status.md entry (top, dated, house format, the
+measured numbers from "Live check" above incl. the mp3 fix, the back-fill 347 ms, the gate rule) and the
+TESTING.md §18.14 block (§17 shape, §18.13 house format), commit with explicit paths, and return DONE.
 
 ## Open problems
 
@@ -297,10 +344,13 @@ rule; types), Status.md + TESTING §18.14.
   app). Proposed rule: the gate = a full run green except these 3 files, each failing ONLY with a
   package-resolution error (checked in the log), plus the LOAD-flake rule; they are re-run from the main
   checkout when track E lands. Say so in STATUS.
-- **Live-only facts still unmeasured:** (1) does the bundled (Remotion) ffprobe read `.avif`
-  (design §1 — `.avif` is now importable as an image; images are not probed, so it only matters for
-  Studio import's `probeMedia` width/height); (2) how long the inline scan probes (≤ 20) make the first
-  Assets-screen scan of a big drop take; (3) the back-fill `ms` on the seeded library.
+- **Live-only facts:** (1) `.avif` — ANSWERED: the bundled ffprobe reads it (av1, 640×360) and the
+  Assets screen draws its thumbnail; (3) back-fill on the seeded library — ANSWERED: 8 files in 347 ms;
+  (2) still unmeasured: the first Assets scan of a BIG drop with ≤ 20 inline probes (the seeded drop of 3
+  changed files was instant) — say so in STATUS, not a gate.
+- **Behaviour change outside the library (from the mp3 fix):** `probeMedia` is also Studio's import
+  probe, so a LAME/Lavf mp3 imported into a Studio project now gets its gapless length (−25…−50 ms vs
+  before). Already-saved projects keep their stored probe. Mention in STATUS.
 - `list_assets` output prints `length unknown (probing)` for a media entry without a probe; durations use
   `toFixed(2)` (≤ 5 ms rounding, inside the exit's 10 ms).
 - A library-root override changed at runtime is not migrated until the next start (its index still reads
@@ -315,6 +365,9 @@ rule; types), Status.md + TESTING §18.14.
 - Live-check prep (a)–(d): the E1 profile copy, the seed media, the pre-E1 index (re-seeding would need
   the index deleted first — `seed-index.e1.test.ts` refuses an existing one; the pristine copy is
   `…\vidtsx-e2e\E1\index.pre-e1.seeded.json`), the kit files, the worktree build.
+- The whole live click-through (builder #4): migration on disk, the Assets still, the reconcile pass, the
+  upsert path, both `list_assets` reports, the mp3 fix + its rebuild/relaunch. The E1 profile's library is
+  now POST-migration (17 + 1 files) — do not expect the pre-E1 state there any more.
 
 ## For Hasan (real-video list candidates)
 
@@ -332,3 +385,8 @@ rule; types), Status.md + TESTING §18.14.
   scratch vitest config (own cacheDir), launcher / watchdog / CDP / list_assets / upsert drivers, the
   worktree build (113 s, rc 0). No `src/` change; the app was NOT launched (no processes left running).
   Handed off at the tool-call budget.
+- 2026-10-23 · builder #4 · ~42 · live click-through (2 launches from `wt/out`, CDP 9261): migration +
+  backup + back-fill on disk, Assets still, reconcile (touched/moved/new), upsert, `list_assets` exit
+  tables; live bug (mp3 +44 ms) fixed red-first (`mp3-gapless.ts`), rebuilt, re-verified; DRIVING launch
+  recipe + a Learned line; kit `restore.ps1` + watchdog 3-miss fix. Handed off at the tool-call budget
+  (gates + Status + TESTING left; nothing running).
