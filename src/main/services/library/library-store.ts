@@ -14,7 +14,7 @@ import { LIBRARY_META_DIR, resolveLibraryPath, toLibraryRelPath } from './librar
 import { loadIndex, serialize, writeIndex } from './library-index-io';
 import { probeLibraryFile } from './library-probe';
 import { scheduleProbeBackfill } from './library-backfill';
-import { makeProbeStamp, needsProbe } from './library-probe-state';
+import { hasUsableDuration, makeProbeStamp, needsProbe } from './library-probe-state';
 
 const log = logEngine.createLogger('LibraryStore');
 
@@ -152,7 +152,8 @@ export async function upsertEntry(
     const index = await loadIndex(root);
     const existing = index.entries.find((e) => e.relPath === relPath);
     const sameFile = existing?.size === stat.size && existing?.mtimeMs === stat.mtimeMs;
-    const keepOld = !probe && sameFile && existing?.probe !== undefined;
+    // An old 0 s probe (fix-round-1 code, V2-1) is not kept: the failure is stamped instead.
+    const keepOld = !probe && sameFile && hasUsableDuration(existing?.probe);
     const entry: LibraryIndexEntry = {
       ...(existing ?? { addedAt: new Date().toISOString() }),
       relPath,

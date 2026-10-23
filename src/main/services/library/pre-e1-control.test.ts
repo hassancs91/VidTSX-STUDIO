@@ -177,4 +177,19 @@ describe('E-d5: an E1-written index under the pre-E1 code', () => {
     expect(await fs.readFile(getLibraryIndexPath(root), 'utf-8')).toBe(migratedBytes);
     expect(await fs.readFile(getLibraryIndexBackupPath(root), 'utf-8')).toBe(oldWritten);
   });
+
+  // Fix round 2, W1: only tombstones the OLD scan creates lose the new fields.
+  it('a tombstone the E1 code made keeps every field under every old write', async () => {
+    await fs.rm(path.join(root, 'sfx', 'a.mp3'));
+    await newStore.scanLibrary(root); // an E1 tombstone
+    const tomb0 = (await readRaw()).tombstones.find((t) => t.relPath === 'sfx/a.mp3');
+    expect(tomb0).toMatchObject({ kind: 'audio', usedIn: ['proj-1'], description: 'a whoosh, short' });
+    expect(tomb0?.probe?.duration).toBe(2.5);
+
+    await oldStore.setDescription(root, 'clip.mp4', 'a clip');
+    await oldStore.upsertEntry(root, 'img/logos/c.png', { origin: 'generated' });
+    await fs.writeFile(path.join(root, 'late.txt'), 'another-new-file');
+    await oldStore.scanLibrary(root);
+    expect((await readRaw()).tombstones.find((t) => t.relPath === 'sfx/a.mp3')).toEqual(tomb0);
+  });
 });

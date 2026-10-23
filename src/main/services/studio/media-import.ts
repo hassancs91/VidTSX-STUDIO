@@ -121,7 +121,8 @@ export async function probeMedia(filePath: string, kind: StudioAssetKind): Promi
   const audioStream = data.streams?.find((s) => s.codec_type === 'audio');
   let duration = kind === 'image' ? 0 : parseFloat(data.format?.duration ?? '0') || 0;
   // The bundled ffprobe counts a LAME mp3's encoder delay + padding in its duration
-  // (measured −30…−70 ms; lower sample rates trim more). Cover art does not block it.
+  // (measured trims about −25 to −115 ms: 44.1/48 kHz −27…−51, 22.05 kHz −54…−70,
+  // 11.025 kHz −115; the lower the sample rate, the more). Cover art does not block it.
   if (!videoStream && audioStream?.codec_name === 'mp3') {
     duration = gaplessDuration(duration, await readMp3Gapless(filePath));
   }
