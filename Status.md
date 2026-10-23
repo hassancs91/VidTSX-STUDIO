@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE (fix round 1 after verifier FAIL 1)
+## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE (fix round 2 after verifier FAIL 2)
 
 - **What:** part E1 of `docs/studio/END_TO_END_PLAN.md` (track E, session 4; worktree branch `end-to-end-p0-e`, cut from
   `end-to-end-p0` @ `5d77600` — orchestrator decision E-d1). Row: "Index v2: `kind`, `probe` on upsert, `tags`, `audio`,
@@ -38,13 +38,15 @@
   - `a3f48d8` — the live finding (below): `src/main/services/studio/mp3-gapless.ts` + its `probeMedia` wiring.
   - Fix round 1 (verifier FAIL 1): `eb533e4` — `probeMedia` skips attached-picture streams (`disposition.attached_pic`)
     when it picks the video stream; `36a0586` — the probe stamp (below).
+  - Fix round 2 (verifier FAIL 2): `d3908c3` — a library probe without a finite duration > 0 is a failed probe (below).
   - Docs: `26daa16` `24c83c6` `590cee9` `0c63adf` `af915f8` + this entry's commit. Kit (gitignored):
     `.vidtsx-temp/end-to-end/E1/`.
 - **E-d5 downgrade safety (control test, red first):** `pre-e1-control.test.ts` runs the FROZEN pre-E1 store on an
   E1-written index: the old `loadIndex` reads it whole (`version: 1` + `rev: 2` is NOT its empty index); old
   `setDescription` / `upsertEntry` keep every field, old and new, and `rev`; an old `scanLibrary` keeps everything on
-  untouched + moved entries, clears `probe` on touched ones, tombstones lose `kind probe tags audio usedIn`, new files get
-  no `kind`, and `rev` is DROPPED → the next E1 start re-migrates (backup kept from the first run, kinds back, the back-fill
+  untouched + moved entries, clears `probe` on touched ones, tombstones THE OLD SCAN CREATES lose `kind probe tags audio
+  usedIn` (a tombstone the E1 code already made keeps every field under every old write — pinned in fix round 2), new
+  files get no `kind`, and `rev` is DROPPED → the next E1 start re-migrates (backup kept from the first run, kinds back, the back-fill
   re-probes). **Every pre-E1 field survives every old write** — Hasan's installed 1.1.x app and the main branch read an E1
   library without loss.
 - **The live click-through** (the worktree's own build `wt/out`, no Vite server, CDP 9261; profile
@@ -71,17 +73,25 @@
   a 1.3 s tone; ffprobe n8 trims them). `mp3-gapless.ts` reads the Xing/Info + LAME tag (frame count, delay, padding;
   MPEG-1/2/2.5, ID3v2 skipped) and trims only when ffprobe's value equals the untrimmed frame total within 1 ms (a newer
   ffprobe that already trims is left alone); `probeMedia` applies it to every mp3 without a real video stream. **`probeMedia`
-  is also Studio's import probe: an mp3 imported into a Studio project now gets its gapless length — measured −30…−70 ms
-  vs before (cover-art 44.1 kHz −30.2, narration −41, catalog sfx −42.4, 48 kHz tone −44, long VBR −50.4, 22.05 kHz `.MP3`
-  −70.2; lower sample rates trim more); already-saved projects keep their stored probe.**
+  is also Studio's import probe: an mp3 imported into a Studio project now gets its gapless length — about −25 to −115 ms
+  vs before, the lower the sample rate, the more (both verifiers, measured: 44.1 / 48 kHz −27.0…−51.2 — e.g. 48 kHz VBR
+  mono −27.0, cover-art 44.1 kHz −30.2, narration −41, catalog sfx −42.4, 48 kHz tone −44, long VBR −50.4; 32 kHz −62.0;
+  22.05 kHz −53.8…−70.2; 11.025 kHz MPEG-2.5 CBR −115.0, 2.3510 → 2.2360 s); already-saved projects keep their stored
+  probe.**
 - **Fix round 1 (verifier FAIL 1, 2026-10-23), red first:**
   - **V1-1 / V1-2 — cover art:** an ID3 cover picture is a "video" stream to ffprobe (mjpeg / png, `attached_pic: 1`), so
     an mp3 with cover art skipped the gapless trim (+30.2 ms, over the exit's 10 ms) and was recorded as `codec: mjpeg,
     width: 320`. `probeMedia` (`media-import.ts`) now picks the first video stream that is NOT an attached picture: the
-    trim applies, `codec` / `width` / `height` / `fps` come from the real streams. Consumers checked: Studio's asset kind
-    and lane come from the extension (`classifyMediaKind`), audio gets no thumbnail; only `AssetCard`'s "· W×H", the shot
-    asset refs' and `builder-asset-tools`' optional `width` / `height` read those fields — an mp3 now carries none (correct). A video with
-    cover art keeps its real stream. Unit `media-import-probe.test.ts` (4; 3 red on `184e996`).
+    trim applies, `codec` / `width` / `height` / `fps` come from the real streams. Studio's asset kind and lane come from
+    the extension (`classifyMediaKind`), audio gets no thumbnail. Consumers of the Studio probe's `width` / `height`
+    (completed in fix round 2, W2): face / mask tracking (`face-track-job.ts:137`, `mask-track-job.ts:146`) — an
+    audio-only file with cover art (e.g. an audio + cover `.mp4`) now stops with "Could not read the frame size of the
+    source" instead of tracking the picture's 600×600; `export-spans.ts:190` ("unknown source size") and
+    `sync-probes.ts:141` fall back to the composition size; proxies (`proxy-generator.ts:231`); `AssetCard`'s "· W×H"; the
+    shot asset refs' / build media's / `builder-asset-tools`' optional `width` / `height` — an mp3 now carries none
+    (correct). **None changes for a real video** (verifier 2: 11 real-video files probe identically pre-E1 vs HEAD; a video
+    with cover art keeps its real stream). `services/media/ffmpeg-run.ts` (agents, video-edit, captions, content safety)
+    has its own probe — untouched. Unit `media-import-probe.test.ts` (4; 3 red on `184e996`).
   - **V1-4 / V1-5 — the probe stamp:** `LibraryIndexV2Fields.probeStamp?: { size, mtimeMs, failed? }` (optional; entry +
     tombstone) = the file version a probe — or a failed probe — was measured on. `library-probe-state.ts` (pure)
     `probeStateOf` → `ok` (stamp fits, or no stamp: trusted) / `stale` (stamp ≠ the entry's size/mtime: an older app kept
@@ -97,6 +107,30 @@
     all 11 timed rows within 10 ms (index 0 ms for all; printed ≤ 3.5 ms) — `…\vidtsx-e2e\E1\fix1-cover-art.json`. Backup
     `index.v1-backup.json` still sha256 `b495fdfa…cefcd`.
   - **Known limit:** an ffprobe TIMEOUT (15 s) is stamped as a failure too — that file is retried only once it changes.
+- **Fix round 2 (verifier FAIL 2, 2026-10-23), red first — `d3908c3`:**
+  - **V2-1 — a file ffprobe "reads" without a duration:** random bytes named `.flac` give ffprobe rc 0, a flac stream with
+    `sample_rate=0` and `format.duration=N/A`; `probeMedia`'s `parseFloat(…) || 0` (pre-E1, `media-import.ts`) made it
+    `{duration: 0, codec: flac}`, which the library stamped good and listed `0.00 s`. Now `probeLibraryFile`
+    (`library-probe.ts`) treats an audio / video probe without a finite duration > 0 as a FAILED probe (returns undefined →
+    upsert / reconcile / back-fill stamp it `failed` → `length unknown (unreadable)`); `probeStateOf`
+    (`library-probe-state.ts`, `hasUsableDuration`) never trusts such a probe already in an index (written by the
+    fix-round-1 code): `stale` → listed `(probing)` → the back-fill re-probes and stamps it failed; `upsertEntry` no longer
+    keeps one for an unchanged file. Unit `library-probe-duration.test.ts` (12; all 12 red on `1312e09`'s code).
+  - **Studio's own import is NOT changed (decided):** a 0-duration import today (pre-E1 behaviour, E1 did not touch it)
+    lands in the pool with `probe.duration 0` — no duration badge (`MediaThumbnail.tsx:31`), a dropped clip is 0.1 s
+    (`clip-factory.ts:38`), analysis treats it as unbounded (`analysis-status.ts:103`). Rejecting it at import would change
+    a Studio flow E1's tests do not cover; left as is (a candidate follow-up, not E1).
+  - **Live re-measure (my own garbage files, E1 profile, app stopped — no launch):** `assets\e1-fix2\` = 64 KiB random
+    `garbage.flac` / `.mp3` / `.wav` / `.aac` + a 0-byte `empty.wav`; the REAL `upsertEntry` (flac, mp3, empty wav), the
+    FROZEN pre-E1 `upsertEntry` then the REAL back-fill (wav, aac: `candidates 2, probed 1, failed 1`; a second pass
+    `candidates 0` — nothing retried unchanged), the REAL `list_assets(scope:'library')`. `garbage.flac`: the real
+    `probeMedia` returns `{duration: 0, codec: flac}` (independent ffprobe n8.1.2: `sample_rate=0 | duration=N/A`, rc 0)
+    → stamped failed, `(audio, length unknown (unreadable), imported)`; `.mp3` / `.wav` / `empty.wav` (ffprobe rc 1) →
+    unreadable too; the 11 real timed rows unchanged (`3.00 s`, `1.30 s`, …). Report
+    `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix2\garbage.json`, driver `.vidtsx-temp/end-to-end/E1/garbage.e1.test.ts`.
+  - **Known limit (an ffprobe quirk, recorded, not fixed):** random bytes named `.aac` give ffprobe rc 0 and an ESTIMATED
+    length (ADTS: mine 0.956783 s in both the bundled and the n8.1.2 ffprobe, `sample_rate=0`; verifier 2's 0.792 s) → it
+    lists as a duration (`0.96 s`), not unreadable.
 - **Gates (2026-10-23, HEAD `a3f48d8`):** guard 54.8 GB C: free, 25.7 GB D:, commit headroom 51.5 / 99.7 GB → default
   workers; no E1 instance running. Full vitest from the worktree (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs
   run`): **474 files passed, 3 failed, 5 skipped (482); 4,058 tests passed, 9 failed, 35 skipped (4,102); 34.9 s**, no load
@@ -122,6 +156,19 @@
   rule (b) re-run on the new diff (32 files): none in any of their graphs (`…\E1\fix1\import-graph.txt`). E1 suites + the
   E-d5 control: `src/main/services/library` + listing + probe + gapless + kinds + asset-library → 21 files, 169 tests
   green. Types: web 26, node 10 = baseline.
+- **Gates after fix round 2 (2026-10-23 ~22:19, HEAD `d3908c3`):** guard C: 51.9 GB free, D: 25.7 GB, commit headroom
+  52.6 / 99.7 GB (`limitKB=104541096 freeKB=55164952`) → default workers; no E1 instance running. Full vitest from the
+  worktree: **477 files passed, 3 failed, 5 skipped (485); 4,079 tests passed, 9 failed, 35 skipped (4,123); 33.1 s**
+  (`…\E1\fix2\vitest-full-4.log`) — the 3 files / 9 tests are the same E-d2a suites with the SAME failure messages as
+  run #3 (resolution only: `@remotion/paths … is not installed`; `Could not resolve` chroma-js ×2 / roughjs /
+  @remotion/shapes / @react-three/fiber / @remotion/google-fonts/SpaceGrotesk, and the `ok: false` results they cause);
+  rule (b) re-run on the 33-file diff: none in any graph (`…\E1\fix2\import-graph.txt`). **Rule (b)'s method (W3):** per
+  suite an esbuild bundle metafile from the test file, packages external, Vite `?raw` imports as leaves (text, not
+  followed), the suite's `vi.mock`'d local modules not followed; "local modules" = the non-package inputs of that
+  metafile. Another method (e.g. a static walk that follows `vi.mock`'d modules) counts differently — what is checked is
+  that no file of `git diff --name-only 5d77600..HEAD` is in any graph. E1 suites + the E-d5 control
+  (`src/main/services/library` + listing + probe + gapless + kinds + asset-library) → 22 files, 181 tests green; the
+  control alone 6/6. Types: web 26, node 10 = baseline.
 - **Not measured / open:** the first Assets scan of a BIG drop (≤ 20 inline probes per scan, the rest to the back-fill) —
   the seeded drop of 3 changed files was instant; a library-root override changed at runtime is migrated at the next start
   (until then it reads fine: kinds derived on read, the first E1 write backs it up and writes rev 2). E2 fills `tags` /
@@ -130,7 +177,9 @@
   Nothing for the real-video list.
 - **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\` — `index.pre-e1.seeded.json`, `after-migration.json`,
   `final.json`, `assets-screen.png`, `vitest-full-1.log`, `vitest-full-2.log` (counted), `vitest-rule-a.log`,
-  `import-graph.txt` / `import-graph.cjs`, `build.log`; the profile `…\profiles\E1\profile`; kit `.vidtsx-temp/end-to-end/E1/`.
+  `import-graph.txt` / `import-graph.cjs`, `build.log`; `fix1\` (round 1); `fix2\` (round 2: `v2-1-red.log`,
+  `v2-1-green.log`, `e1-suites.log`, `control.log`, `garbage.json`, `garbage-run.log`, `vitest-full-4.log`,
+  `diff-list.txt`, `import-graph.txt`); the profile `…\profiles\E1\profile`; kit `.vidtsx-temp/end-to-end/E1/`.
   TESTING.md §18.14; HANDOFF `docs/studio/end-to-end/E1/HANDOFF.md`.
 
 ## 2026-10-23 — END-TO-END B7: editorial cuts leave no hard entries — EXIT PARTIAL (overlap waits for Hasan)

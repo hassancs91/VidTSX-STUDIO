@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: FIX (verifier round 2 FAIL — V2-1 garbage file listed 0.00 s, V2-2 mp3 range, W1–W3 docs; orchestrator 2026-10-23 ~22:45; LAST fix round)
+status: DONE (fix round 2, builder #7, 2026-10-23 ~22:35 — V2-1 fixed red-first `d3908c3`, V2-2 + W1–W3 in the docs; gates re-run green per E-d2a; ready for verifier round 3)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -345,6 +345,41 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
 - **`wt/out` is STALE** (built from `a3f48d8`, before fix round 1): rebuild with the DRIVING "Track E" recipe before any
   live launch.
 
+### Fix round 2 (builder #7, 2026-10-23 22:05–22:35) — commit `d3908c3` + the docs commit after it
+
+- **V2-1 (MUST), red first — `d3908c3`:** `src/main/services/library/library-probe-state.ts` — new pure
+  `hasUsableDuration(probe)` (finite duration > 0); `probeStateOf` returns `stale` for a probe without one (a 0 s probe the
+  fix-round-1 code wrote is re-probed, never listed). `src/main/services/library/library-probe.ts` `probeLibraryFile`: a
+  probe from `probeMedia` without a usable duration → warn `Library probe has no duration` + `undefined` (the caller stamps
+  it failed: upsert `library-store.ts:164`, back-fill `library-backfill.ts:92-94`, reconcile leaves it unprobed → the
+  back-fill fails it). `library-store.ts` `upsertEntry` `keepOld` (:155-156) keeps an old probe only when it is usable.
+  Test `src/main/services/library/library-probe-duration.test.ts` (12; the REAL `probeLibraryFile` / store / back-fill /
+  listing, only `probeMedia` replaced): duration 0 / NaN / Infinity / −1 / missing → undefined; a 0 s video → undefined,
+  2.5 s passes; upsert → stamped failed + `(unreadable)`; back-fill of a pre-E1 entry → failed, no retry; a scan's new
+  file → not 0 s; a 0 s probe already in the index (stamped / unstamped) → `stale` + `(probing)` → back-fill → failed;
+  an unchanged file's old 0 s probe not kept. **RED: 12/12 failed** on the unchanged code (`git diff --stat 1312e09 HEAD
+  -- src` empty) → green 12/12.
+- **Studio's own import (decided, not changed):** a 0-duration import (pre-E1 code: `parseFloat(…) || 0` is at
+  `5d77600:media-import.ts:114`) lands in the pool with `probe.duration 0` — no duration badge (`MediaThumbnail.tsx:31`),
+  a 0.1 s clip (`clip-factory.ts:38`), unbounded analysis range (`analysis-status.ts:103`). Rejecting it at import would
+  change a Studio flow E1 cannot test here — recorded in Status as a candidate follow-up.
+- **W1 pinned (beyond docs):** `pre-e1-control.test.ts` 6th test — an E1-made tombstone (`sfx/a.mp3`: kind, probe 2.5,
+  usedIn, description) is deep-equal after old `setDescription` + old `upsertEntry` + old `scanLibrary` (with a new
+  file). Only tombstones the OLD scan creates lose the new fields.
+- **V2-2:** the range "about −25 to −115 ms; the lower the sample rate, the more" with both verifiers' numbers in the
+  `media-import.ts:123-125` comment, Status and TESTING §18.14.
+- **W2:** the width / height consumer list in Status + TESTING: face / mask tracking (`face-track-job.ts:137`,
+  `mask-track-job.ts:146` — an audio-only file with cover art now stops with "Could not read the frame size of the
+  source"), `src/shared/studio/export-spans.ts:190` + `sync-probes.ts:141` (composition size), `proxy-generator.ts:231`,
+  `AssetCard.tsx:57`, shot refs / build media / `builder-asset-tools`; `services/media/ffmpeg-run.ts` has its own probe.
+- **W3:** rule (b)'s method stated in Status + TESTING (esbuild metafile per suite, packages external, `?raw` leaves,
+  `vi.mock`'d modules not followed; other methods count differently — the check is "no E-diff file in any graph").
+- **Live re-measure (no launch; app stopped; my own garbage):** kit `.vidtsx-temp/end-to-end/E1/garbage.e1.test.ts`
+  creates `<E1 profile>\assets\e1-fix2\` 64 KiB random `garbage.flac` (sha256 `bdd6b2658b32…`), `garbage.mp3`
+  (`9daa90b9a367…`), `garbage.wav` (`3db768bd525f…`), `garbage.aac` (`38761dd6bf94…`) + 0-byte `empty.wav`; REAL
+  `upsertEntry` (flac, mp3, empty), FROZEN pre-E1 `upsertEntry` then REAL `scheduleProbeBackfill` (wav, aac), REAL
+  `list_assets(scope:'library')`. Results in "Verified". The E1 profile's library now holds these 5 too (24 entries).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 20:25, from the worktree root:
@@ -427,17 +462,50 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   - Live: see "Fix round 1" (`…\E1\fix1\upsert-cover-art.log`, `…\E1\fix1\list-assets-cover-art.log`,
     `…\E1\fix1-cover-art.json`).
 
+- Builder #7 (fix round 2), 2026-10-23, Bash from the worktree root (logs under `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix2\`):
+  - `git diff --stat 1312e09 HEAD -- src` → empty; `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+    src/main/services/library/library-probe-duration.test.ts` → `Tests 12 failed (12)` (`v2-1-red.log`; e.g. `expected {
+    duration: +0, hasAudio: true, …(1) } to be undefined`, `expected 'ok' to be 'stale'`); after the fix → `Tests 12 passed
+    (12)` (`v2-1-green.log`).
+  - `node …/vitest.mjs run src/main/services/library src/main/services/studio/agent-tools/library-listing.test.ts
+    src/main/services/studio/media-import-probe.test.ts src/main/services/studio/mp3-gapless.test.ts
+    src/shared/media-kinds.test.ts src/features/asset-library` → `Test Files 22 passed (22)`, `Tests 181 passed (181)`
+    (`e1-suites.log`); `node …/vitest.mjs run src/main/services/library/pre-e1-control.test.ts` (E-d5 control + W1) →
+    `Tests 6 passed (6)` (`control.log`).
+  - Types: `tsc -p tsconfig.web.check.json --noEmit | grep -c "error TS"` → **26**; `-p tsconfig.node.check.json` → **10**.
+  - Resources 22:18 (PowerShell `Get-CimInstance Win32_OperatingSystem` / `Get-PSDrive`): `limitKB=104541096
+    freeKB=55164952` (headroom 52.6 GB) → default workers; C: 51.9 GB, D: 25.7 GB free; E1 instances (`electron.exe` with
+    the E1 profile path): 0.
+  - Live garbage re-measure: `node …/vitest.mjs run --config D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E1/vitest.e1.config.ts
+    garbage` → `Tests 1 passed (1)` (`garbage-run.log`, report `garbage.json`): `backfill1 {candidates: 2, probed: 1,
+    failed: 1, written: 2, ms: 39}`, `backfill2 {candidates: 0, …}`;
+    `garbage.flac` real `probeMedia` `{duration: 0, hasAudio: true, codec: "flac"}`, independent n8.1.2
+    `stream|codec_name=flac|sample_rate=0|channels=0 | format|duration=N/A (rc 0)` → index no probe, `probeStamp {size:
+    65536, mtimeMs: 1792783103988.762, failed: true}`, row `- library:e1-fix2/garbage.flac (audio, length unknown
+    (unreadable), imported)`; `garbage.mp3` (ffprobe rc 1, "Failed to find two consecutive MPEG audio frames"),
+    `empty.wav` and `garbage.wav` (rc 1, "Invalid data found when processing input") → stamped failed, `(unreadable)`;
+    `garbage.aac` → bundled + n8.1.2 both `duration=0.956783` (rc 0, `sample_rate=0 channels=6`) → `0.96 s` (the known
+    ffprobe limit, recorded). The 11 real timed rows unchanged (`clip.mp4 2.00 s`, `cover-art.mp3 3.00 s`, `tone-a.mp3
+    1.30 s`, … `tone-g.aac 1.53 s`); index `version 1, rev 2`, 24 entries.
+  - Full run: `node …/vitest.mjs run > …\E1\fix2\vitest-full-4.log` (22:18:46–22:19:20) → `Test Files 3 failed | 477 passed
+    | 5 skipped (485)`, `Tests 9 failed | 4079 passed | 35 skipped (4123)`, `Duration 33.14s`; the failure messages
+    (`grep "^(Assertion)?Error: "`) are IDENTICAL to `fix1\vitest-full-3.log`: `@remotion/paths (builder-libraries.ts) is not
+    installed` (builder-libraries 1), `Could not resolve` chroma-js / roughjs / @remotion/shapes / @react-three/fiber /
+    @remotion/google-fonts/SpaceGrotesk (shot-bundle 5), shot-bundle-in-place 3 (`ok: false` from `Could not resolve
+    "chroma-js"`) — E-d2a only; no load timeout.
+  - Rule (b): `git diff --name-only 5d77600..HEAD > …\E1\fix2\diff-list.txt` (33 files) → `node
+    C:/Users/hasan/AppData/Local/vidtsx-e2e/E1/import-graph.cjs <wt> …\E1\fix2\diff-list.txt` rc 0 → builder-libraries 2,
+    shot-bundle 15, shot-bundle-in-place 23 (vi.mock'd: shot-generator, shot-import-land, media-import),
+    builder-unpack.mjs 1 local modules — "touched by the E diff: NONE" for all four (`…\E1\fix2\import-graph.txt`).
+
 ## Next step (ONE concrete instruction)
 
-FIX round 2 (orchestrator, 2026-10-23 ~22:45 — the LAST fix round before a stop: a third FAIL stops the run): fix
-V2-1 red-first (a unit test with a probe result whose duration is missing / 0 / non-finite that fails on `1312e09`),
-then V2-2 and W1–W3 (docs only); re-run the E1 suites + the E-d5 control + the full worktree gate + types; re-measure
-a garbage `.flac` (random bytes; your own) through the real `upsertEntry` / back-fill + `list_assets` → "length
-unknown (unreadable)"; update Status.md's E1 entry + TESTING §18.14; commit; return DONE.
+Orchestrator: run verifier round 3 on E1 (HEAD after the fix-round-2 docs commit); `wt/out` is still the `a3f48d8` build
+— a verifier who launches must rebuild it first (DRIVING "Track E" recipe).
 
 ## Open problems
 
-### Verifier round 2 — FAIL (2026-10-23 ~22:40; V1-1, V1-2, V1-5, E-d5, the exit for every readable file all PASS)
+### Verifier round 2 — FAIL (2026-10-23 ~22:40; V1-1, V1-2, V1-5, E-d5, the exit for every readable file all PASS) — ALL ADDRESSED in fix round 2 (V2-1 `d3908c3`; V2-2, W1–W3 docs; W1 also pinned in the control test)
 
 - **V2-1 (MUST): a file ffprobe "reads" without a duration is listed as a successful 0.00 s probe.** Verifier's
   `v2/broken/garbage.flac` (random bytes): ffprobe (bundled n7.1, gyan, n8.1.2) exits rc 0, a flac stream with
@@ -512,8 +580,10 @@ unknown (unreadable)"; update Status.md's E1 entry + TESTING §18.14; commit; re
   (2) still unmeasured: the first Assets scan of a BIG drop with ≤ 20 inline probes (the seeded drop of 3
   changed files was instant) — say so in STATUS, not a gate.
 - **Behaviour change outside the library (from the mp3 fix):** `probeMedia` is also Studio's import
-  probe, so a LAME/Lavf mp3 imported into a Studio project now gets its gapless length (−25…−50 ms vs
-  before). Already-saved projects keep their stored probe. Mention in STATUS.
+  probe, so a LAME/Lavf mp3 imported into a Studio project now gets its gapless length (about −25 to −115 ms vs
+  before, the lower the sample rate the more — V2-2). Already-saved projects keep their stored probe. In STATUS.
+- **Known limits (fix round 2, in STATUS):** random bytes named `.aac` get an estimated ffprobe length (rc 0) and list as
+  a duration; Studio's own import of a 0-duration file is unchanged (pre-E1 behaviour — a candidate follow-up).
 - `list_assets` output prints `length unknown (probing)` for a media entry without a probe; durations use
   `toFixed(2)` (≤ 5 ms rounding, inside the exit's 10 ms).
 - A library-root override changed at runtime is not migrated until the next start (its index still reads
@@ -534,6 +604,9 @@ unknown (unreadable)"; update Status.md's E1 entry + TESTING §18.14; commit; re
 - The gates (builder #5): full run #2, E-d2a (a) + (b), types; the Status.md entry and TESTING §18.14.
 - Fix round 1 (builder #6): V1-1…V1-5 code + red-first tests, the live cover-art re-measure, full run #3, rule (b) on the
   new diff, types, the Status / TESTING updates. `cover-art.mp3` is already in the E1 profile's library.
+- Fix round 2 (builder #7): V2-1 code + `library-probe-duration.test.ts` (red 12/12 → green), W1 control case, V2-2 / W2 /
+  W3 docs, the live garbage re-measure (`assets\e1-fix2\` is in the E1 profile's library — re-running
+  `garbage.e1.test.ts` reuses the same files), full run #4, rule (b) on the 33-file diff, types.
 
 ## For Hasan (real-video list candidates)
 
@@ -563,3 +636,7 @@ unknown (unreadable)"; update Status.md's E1 entry + TESTING §18.14; commit; re
   probe stamp (red→green, `36a0586`); V1-3 measured range in docs; live cover-art re-measure via the real `upsertEntry` +
   `list_assets` (3.000 vs 3.000, app not launched); full run #3 + rule (b) + types 26/10; Status / TESTING. DONE; nothing
   running.
+- 2026-10-23 · builder #7 (fix round 2) · ~40 · V2-1 duration-less probe = failed probe (red 12/12 → green, `d3908c3`);
+  W1 pinned in the E-d5 control (6/6); V2-2 range, W2 consumers, W3 method in Status / TESTING / the code comment; live
+  garbage re-measure through the real upsert / back-fill / `list_assets` (app not launched); full run #4 + rule (b) +
+  types 26/10. DONE; nothing running.
