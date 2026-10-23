@@ -9,7 +9,7 @@
 import type { SttModelFeatures } from '../presets/stt-models';
 import type { CutPlanStyle, CutQaReport } from '../types/studio-cut-plan';
 import { QA_HARD_ENTRY_DB, qaForPlan } from './cut-qa';
-import { landCutEnd } from './cut-snap-landing';
+import { landCutEndDetail } from './cut-snap-landing';
 import {
   planClip,
   styleForFeatures,
@@ -198,7 +198,7 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
   for (let j = 0; j < merged.length; j++) {
     const nextCutStart = j + 1 < merged.length ? merged[j + 1].start : input.duration;
     const firstAtom = j === 0 && merged[0].start < MIN_CUT_SPAN;
-    const end = landCutEnd({
+    const { end, crossed } = landCutEndDetail({
       span: merged[j],
       nextCutStart,
       firstAtom,
@@ -207,9 +207,12 @@ export function snapCutSpans<C extends string>(input: SnapCutSpansInput<C>): Sna
       envelope: input.envelope,
       minGap: MIN_CUT_SPAN,
       seekQuietGap: input.seekQuietGap,
+      ...(merged[j].notes.length > 0 ? { note: merged[j].notes.join(' ') } : {}),
     });
     if (Math.abs(end - merged[j].end) > 0.02) moved++;
     merged[j].end = end;
+    // B7 step 9 (b): the row names the words a fallback to the other side crossed.
+    if (crossed) merged[j].notes.push(`${crossed.dir === 'after' ? 'extended past' : 'stopped before'} "${crossed.text}" to land on quiet`);
   }
   if (moved > 0) {
     notes.push(`${moved} cut end${moved === 1 ? '' : 's'} moved off a removed word's release or a kept word's lead-in`);

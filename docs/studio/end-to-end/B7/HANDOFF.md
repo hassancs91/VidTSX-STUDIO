@@ -1,7 +1,9 @@
 # B7 — Editorial cuts leave no hard entries
 status: BUILDING — exit NOT MET yet (steps 1–5 done — `a31080a`, item 5 `eaf682d`, item 4 `2102419`, step 4b `d1d253a`, step 5 = the decision-4 kits unchanged; step 6 = the live exit run, ONE pass, 2026-10-23 15:11–15:21: **hard entries 0 / 137 ✓, lead-in / tail medians 0 / −4 ms ✓, overlap 89.74 % all proposed / 87.23 % applied ✗ (bar 90.5 %)**; **step 7 DONE + committed** (both overlap mechanisms fixed, red-first; expected on the step-6 capture by arithmetic: applied **0.9123**, all proposed 0.9141); **step 8 = the fresh live pass of the step-7 code (decision 9's pass for this round), 2026-10-23 15:57–16:04: hard entries 0 / 121 ✓, medians 0 / −14 ms ✓, overlap 84.79 % all proposed / 84.18 % applied ✗** — the model skipped Auto Cut on 0371 (47.0 s of H) and one authored end (0375 195.0) found no quiet gap on its straddled word's side (4.96 s); **step 9 (a) DONE + committed** (builder #13: `run_auto_cut` /
 `propose_cuts` end with the clips on the timeline still without a card of this run, in timeline order; a prompt line says take the
-next one from it); next: step 9 (b) — see Next step)
+next one from it); **step 9 (b) DONE + committed** (builder #14: an authored end whose straddled word's side has no quiet gap
+lands on the other side only across words the item's own note names — decision 11; pass 2's 0375 195.0 → 195.779); next: step 9 (c)
+— the deterministic replays — see Next step)
 
 > **Resource guard (orchestrator, 2026-10-23 13:55) — in force:** the machine sits near its memory
 > commit limit (98.5–98.9 of 100.2–101.3 GB, other workloads) and Windows grows `C:\pagefile.sys` onto C:.
@@ -712,6 +714,28 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   file for both real handlers instead of adding to `run-auto-cut.test.ts` (289 lines — the ~300-line rule) and `cut-tools.test.ts` (no
   `project-store` mock; its tests now read no project → no line, unchanged). **No existing expectation changed.**
 
+### Step 9 (b) — the other side, only through words the item names (builder #14, 2026-10-23, commit: the one carrying this line, "B7 — step 9 (b)")
+
+- **`src/shared/studio/cut-snap-landing.ts`** (129 → 201 lines): `LandCutEndInput.note?` (:35-40, the item's own text);
+  `LandedCutEnd { end; crossed?: { dir; text } }` (:43); `FALLBACK_MAX_WORDS = 2`, `FALLBACK_MAX_SPEECH_S = 0.4` (:51-52, decision 11's
+  no-text cap); `landCutEndDetail` (:70, `landCutEnd` :65 is now its `.end`). `endOutOfSpeech` (:127) keeps decision 10's side as the
+  first choice (`nearestQuietGap(input, side)` :153 = the old loop, moved verbatim); ONLY when that side has no quiet candidate within
+  `QUIET_GAP_SEEK_S` it takes the other side's nearest quiet one, and accepts it only if `fallbackAllowed` (:182): with item text, the
+  crossed words' tokens (lower case, punctuation stripped, curly apostrophes → `'`) appear as ONE CONTIGUOUS RUN in the text's tokens;
+  without text, ≤ 2 words and ≤ 0.4 s of their speech past / before the authored end. "Crossed" = the words whose fate the move flips
+  (extend: past the end up to the gap; retract: from the gap up to the end). Otherwise today's behaviour (the end stays → the card's
+  QA unchecks it → the reply names it).
+- **`src/shared/studio/cut-snap.ts`** (279 → 281 lines) step 2b (:201-215): passes the merged span's notes as `note` (joined), and when
+  the landing crossed words pushes `extended past "<words>" to land on quiet` (or `stopped before "<words>" …` for a retract) onto the
+  item's notes → the row's note (`editorial-cuts.ts:86` carries `item.note`). Transcript deletes (no `seekQuietGap`) never reach it.
+- **Real case** (pass 2's `190.9–195.0` + its real note, quoting "…to sell uh other take,"): crossed "other take," (0.599 s past
+  195.0) → named in the note → end **195.779** (Hasan 195.799), QA clean, `accepted`, row note "… · extended past "other take," to land
+  on quiet". The same span with "Retake of the selling line." → 195.0, `rejected` + `qaFlag` (+40.5 dB), as live. No note → 195.0 (0.599
+  s > 0.4). Step 6's `190.8–195.1` → 195.779 by decision 10's own side (no fallback note). The six step-7 cases unchanged.
+- **Tests (red first — Verified):** `src/main/services/studio/editorial-cuts-b7-speech.test.ts` new describe at :176 (5 tests; the
+  fixture's `authored` gains an optional `note`): the four of the Next step + a no-note accept (the "take," token cut to 195.3 → 0.30 s,
+  two words → lands, named). **No existing expectation changed.** Decision-4 kits unchanged (below).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-23 · builder #4 · `node .vidtsx-temp/end-to-end/B7/probe-b7.mjs src/shared/studio/cut-snap-b7.fixture.json`
@@ -941,8 +965,65 @@ as the run answered every Auto Cut card; scored by `measure.py`) → **applied 0
   exit 0; guard `29.0; 103.0 / 107.3` · `npx vitest run agent-tools studio-agent-prompt --maxWorkers=2` → `Test Files 11 passed (11) ·
   Tests 56 passed (56)`. Decision-4 kits NOT re-run: no cut-planner / cut-qa / rms-envelope / cut-snap* / text-delete / editorial-cuts
   change (Do-not-redo's rule).
+- 2026-10-23 · builder #14 · step 9 (b) · guard `28.9 GB C: free; commit 103.9 / 107.3 GB` · RED first (5 tests written, no code):
+  `npx vitest run src/main/services/studio/editorial-cuts-b7-speech.test.ts --maxWorkers=2` → `Tests 2 failed | 23 passed (25)` — the two
+  fallback-accept tests (`AssertionError: expected 195 to be greater than 195.599` / `… than 195.3`); the three "stays / unchanged" pins
+  pass on the old code. Code written → guard `28.9; 103.9 / 107.3` · same command → `Tests 25 passed (25)`.
+- guard `28.9; 103.8 / 107.3` · builder #13's set `npx vitest run cut- text-delete text-restore rms-envelope studio-agent-prompt
+  CutQaReadout agent-chat-format editorial-cuts useStudioAgent run-auto-cut useTimeline apply- agent-actions agent-tools studio-agent
+  --maxWorkers=2` (log `.vidtsx-temp/end-to-end/B7/vitest-s9b.log`) → `Test Files 40 passed (40) · Tests 402 passed (402)` (= 397 + 5 new).
+- guard `28.9; 103.9 / 107.3` · `$env:B7_KITS='1'; npx vitest run --config .vidtsx-temp/end-to-end/B7/vitest.b7.config.ts compare-b1
+  compare-b3 textdel-b2 --maxWorkers=2` (log `B7/kits-run4.log`) → `Test Files 3 passed (3) · Tests 3 passed (3)`; `node
+  .vidtsx-temp/end-to-end/B7/compare-kits.mjs` → B1 `joinsWithin 348 / 352, mergeFlips 2`, `whole-report differences: NONE`; B3 `refHard 0,
+  studioHard 0, studioTails 178 / refTails 181`, `NONE`; B2 live / tight / presetNaturalHead / natural / editorial all `d 0 / 0 ms`.
+- guard `28.9; 103.7 / 107.3` · `npm run check:types` (log `B7/types-s9b.log`) → `tsconfig.web.check.json: 26 errors (baseline 26) ok` ·
+  `tsconfig.node.check.json: 10 errors (baseline 10) ok`, exit 0 (first try). Then the step 9 (b) commit.
 
 ## Next step (ONE concrete instruction)
+
+**Step 9 (c) — decision 12's deterministic replays, offline, through the final code (HEAD = the step 9 (b) commit); then the last
+pass's Next step.** Write ONE gated kit test `.vidtsx-temp/end-to-end/B7/replay.b7.test.ts` (copy the gate + loader pattern of
+`compare-b1.b7.test.ts`; run `$env:B7_KITS='1'; npx vitest run --config .vidtsx-temp/end-to-end/B7/vitest.b7.config.ts replay
+--maxWorkers=2`, guard first; it WRITES only under `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\replay\<b6|s6|p2>\`) that replays each
+capture — B6 `…\vidtsx-e2e\B6\run\`, step 6 `…\B7\run\`, pass 2 `…\B7\pass2\run\` (`turns.jsonl` + `proposals-raw.json` +
+`proposals.json`, all read-only) — card by card in capture order over a replayed timeline that starts as the nine clips whole:
+1. **Inputs:** words + RMS envelope per clip from `b-root`'s caches, read-only (every scratch is a byte copy of b-root's M2 — sha256
+   `EBE94FD7…`, Done › Step 6/8 — so the caches are the same; `compare-b1.b7.test.ts` shows the reads); style = the shipped tight
+   (`resources/skills/studio-clean-cut/cut-style.json .styles.tight`; check the cards' recorded style name/key in `proposals-raw.json`
+   and say if any differs).
+2. **Editorial card → final code:** that turn's AUTHORED spans + notes from its `propose_cuts` args in `turns.jsonl` (step 6 / pass 2
+   keep 4,000 chars = complete; **B6 cut args at 600 chars** — where an args string is truncated, use that card's snapped items from
+   B6's `proposals-raw.json` as spans with their categories and no note, and list every such item) → `snapEditorialCuts` +
+   `buildEditorialProposal` exactly as `editorial-cuts-b7-speech.test.ts` `snapCase` calls them. Applied the way the run answered:
+   "Apply" → the REPLAYED card's `accepted` items (the click applied the card's default ticks; check `proposals.json` for any item whose
+   final status differs from its built status — none expected — and replay that tick too); "Reject all" → nothing.
+3. **Auto Cut card → final code:** the REAL `runCutPlan` (`src/main/services/studio/cut-plan-runner.ts:65`) with `vi.mock` on its I/O
+   only (`readTranscriptFile` / `loadRmsEnvelope` → the b-root reads; `getProjectCacheDir` → `…\B7\replay\cache\` — it writes a plan
+   file, never into a scratch) and `timelineKeeps` = the replayed timeline's source ranges for that asset (the same merge as
+   `timelineKeepsForAsset`, `cut-keeps.ts`), then `buildCutProposal` → its `accepted` items applied (every Auto Cut card in the three
+   runs was answered "Apply" — verify per card).
+4. **Not reproducible, kept as captured:** a clip the model never carded stays uncarded (pass 2: 0371 has no Auto Cut card; B6 /
+   step 6: check), spans the model never authored stay unproposed, the order of cards is the capture's.
+5. **Score per replay:** write the replayed cuts in the shapes `measure.py` reads (`proposals.json` = all proposed items,
+   `proposals-accepted.json` = applied) → copies of `measure.py` → applied overlap + all-proposed overlap; hard entries = `exit_check.py`'s
+   method (analyze_cut `entry_check` on real joins `> 0.75 s`) on the replayed produced segments (feed it the replayed timeline in the
+   shape it reads, or factor its join check into the copy) → hard entries / real joins + lead-in / tail medians.
+Expected on the arithmetic so far: step 6 ≈ 0.9123 applied (`expected-overlap-s7.py`), pass 2 ≈ 0.848 (0371 skipped; 0375 landed —
+`counterfactual-p2.py` `applied+0375_landed`), B6 not estimated (baseline 0.9049). **Outcome rule:** a replay < 0.905 applied is a CODE
+REGRESSION unless its whole shortfall is items the model did not propose / clips it skipped in that capture — split each replay's
+loss into those two (per clip; `overlap-causes.py`'s categories) and report both; a code share → fix it red-first (the case as a
+fixture test) before anything else. Record in Done › Step 9 (c) the mapping table (captured item kind → final-code path → what the
+replay cannot reproduce), the per-replay numbers, and the outputs. Then write the LAST pass as the Next step for a fresh agent:
+fresh scratch `.vidtsx-temp/end-to-end/B7/pass3/` (a copy of `pass2-kit.mjs` re-pointed: root / profile → `B7/pass3/…`, port **9349**,
+outputs `C:\Users\hasan\AppData\Local\vidtsx-e2e\B7\pass3\{run,exit,measure,measure-accepted,app.log}`), the two robocopy commands of
+Done › Step 8 into EMPTY folders (profile `/XF settings.db settings.db-wal settings.db-shm`), the relaxed gate + watchdog, B6's run
+shape (decision 5), measured as step 8; and decision 12's outcome rule verbatim: live ≥ 0.905 applied with 0 hard entries + medians →
+EXIT MET; live < 0.905 while every replay has 0 hard entries and is ≥ 0.905 or below it ONLY by items the model did not propose /
+clips it skipped in that capture (no code share) → "missed on model variance", B7 = EXIT PARTIAL — WAITING-HASAN (overlap), onto his
+real-video list, the run continues to the track-B exit; a live hard entry, or a miss with a code share left → EXIT NOT MET, to Hasan
+with the numbers (decision 9: the third miss). This is the LAST allowed pass (decision 9).
+
+## Next step — superseded (kept for reference: builder #13's step 9 (b) instruction; (b) DONE by builder #14)
 
 **Step 9 (b) — `endOutOfSpeech`'s fallback to the other side, bounded by decision 11, red-first; then commit and hand off.** In
 `src/shared/studio/cut-snap-landing.ts` (`endOutOfSpeech` ~:103-125, `landCutEnd` :50 — verify the lines) keep decision 10's side as
@@ -1140,6 +1221,16 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Open problems
 
+- Choice (step 9 (b), builder #14 — not a Hasan decision, decision 11 covers it): the fallback rule is SYMMETRIC. A retract
+  fallback (decision 10 said "after", that side had no quiet gap, the quiet one is before the straddled word) must also cross only
+  words the item's text names (they would now stay in the video), and the row says `stopped before "<words>" to land on quiet`. The
+  Next step's literal wording ("every word it would remove past the authored end") would let every retract through; the symmetric
+  rule is stricter (an end never moves across words the item's text does not name, either way). No real case takes the retract
+  branch. Matching = the crossed words as ONE contiguous token run in the note (not a bag of words: "Retake of the selling line." does
+  not name "other take,"). If the orchestrator wants the literal reading, it is a one-line change in `fallbackAllowed`.
+- Fact for 9 (c): B6's `turns.jsonl` keeps only 600 chars of each tool call's args, so B6's authored spans AND notes are partly lost;
+  a B6 replay item rebuilt from its snapped card item has no note → step 9 (b)'s fallback can only take the no-text cap there.
+
 - **NEW (step 9 (a)), for the orchestrator — choices made inside step 9 (a) (not Hasan's; say if you want them otherwise):**
   (1) "this run" = the cut cards of that kind after the newest card of the other kind, with a non-consecutive repeat starting a new
   sweep (Done › Step 9 (a)) — no chat history (no timestamps on `ChatMessage`; a typed "Move on." must not restart the run). Edge it
@@ -1253,6 +1344,9 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
 
 ## Do-not-redo
 
+- Step 9 (b) is DONE, green and committed: don't rebuild `landCutEndDetail` / `nearestQuietGap` / `fallbackAllowed` or the step-2b
+  note. Touching cut-snap* again → builder #14's 40-file set + the decision-4 kits (one command + `compare-kits.mjs`) + check:types.
+
 - Step 9 (a) is DONE, green and committed: don't rebuild `cut-sweep.ts` / `cut-run-line.ts`, the two handlers' appended line or the
   `CLIP-BY-CLIP RUNS` prompt line. Touching them → `npx vitest run cut-sweep cut-run-sweep cut-tools run-auto-cut studio-agent-prompt
   --maxWorkers=2` + check:types.
@@ -1347,3 +1441,8 @@ live exit run once C: ≥ 8 GB and commit headroom ≥ 6 GB (the resource guard;
   line; 4 handler tests red → green (16 new tests in 2 new files), 40 files 397/397, check:types web 26 / node 10 (after fixing 2 new
   errors: `timelineStart`, not `start`); no expectation changed; committed; wrote step 9 (b) as the Next step. No app, no model call,
   no kit (no snap/planner change). C: 29.0 GB throughout, commit 102.5–103.0 / 107.3 GB.
+- 2026-10-23 · builder #14 · ~30 calls · step 9 (b): `endOutOfSpeech`'s fallback to the other side, bounded by decision 11 (the item's
+  note must name the crossed words as one run; no note → ≤ 2 words, ≤ 0.4 s), the row note "extended past …"; 2 red → green (5 new
+  tests), 40 files 402/402, decision-4 kits unchanged, check:types web 26 / node 10; no expectation changed; committed; wrote step 9
+  (c) + the pass-3 outline as the Next step. Handed off after (b) (a step finished; 9 (c) needs a fresh read budget). No app, no model
+  call. C: 28.9 GB throughout, commit 103.7–104.1 / 107.3 GB.

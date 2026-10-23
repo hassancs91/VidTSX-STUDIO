@@ -36,7 +36,7 @@ interface SpeechCase {
   rmsDb: number[];
   zcr?: number[];
   words: PlanWord[];
-  authored: Array<{ start: number; end: number; category: EditorialCategory }>;
+  authored: Array<{ start: number; end: number; category: EditorialCategory; note?: string }>;
 }
 
 const FIXTURE = JSON.parse(
@@ -166,5 +166,71 @@ describe('B7 step 7 — an authored end in continuous speech lands in the neares
     const envelope = envelopeFor(c);
     const snapped = snapCutSpans({ spans: c.authored, words: c.words, duration: envelope.duration(), envelope, features: MEASURED, style: TIGHT });
     expect(snapped.items.find((i) => i.sourceStart <= 25.1 + 1e-6 && i.sourceEnd > 25.1)?.sourceEnd).toBe(30);
+  });
+});
+
+// B7 step 9 (b) — pass 2's 0375 retake (HANDOFF Done › Step 8 "Where the overlap went" 2): the model authored
+// 190.9–195.0, inside "other" (0.059 s in, 0.181 s kept), so decision 10 looks before "other" — where "to sell uh
+// other" runs on with no quiet gap. Decision 11: the end may go to the other side ("take," → "before") only
+// through words the item's own text names; without text, at most the straddled word + one more and ≤ 0.4 s.
+describe('B7 step 9 (b) — the other side, only through words the item names (pass 2 0375 190.9–195.0)', () => {
+  const c = FIXTURE.speechCases.find((k) => k.clip === '0375' && k.at === 195.1)!;
+  const PASS2_NOTE =
+    "First 'before starting selling the app, before starting to sell uh other take,' superseded by 'before you sell the application.' Edges estimated; needs an ear.";
+  const GAP: [number, number] = [195.599, 195.839];
+  const HAND = 195.799;
+  const withSpan = (start: number, end: number, note: string | undefined, words: PlanWord[] = c.words) =>
+    snapCase({
+      ...c,
+      words,
+      authored: c.authored.map((s) =>
+        Math.abs(s.end - 195.1) < 0.01 ? { ...s, start, end, ...(note !== undefined ? { note } : {}) } : s,
+      ),
+    });
+  const hardAt = (r: ReturnType<typeof snapCase>) =>
+    (r.proposal.qa?.items ?? []).filter((q) => q.kind === 'hard-entry' && Math.abs(q.sourceTime - r.end) <= 0.02);
+
+  it('with its real note (it quotes "…uh other take,") the end lands after "take," near Hasan\'s 195.799, checked, the row says so', () => {
+    const r = withSpan(190.9, 195.0, PASS2_NOTE);
+    expect(r.end).toBeGreaterThan(GAP[0]);
+    expect(r.end).toBeLessThan(GAP[1]);
+    expect(Math.abs(r.end - HAND)).toBeLessThanOrEqual(0.1);
+    expect(hardAt(r)).toEqual([]);
+    expect(r.item.status).toBe('accepted');
+    expect(r.item.qaFlag).toBeUndefined();
+    expect(r.item.note).toContain('extended past "other take," to land on quiet');
+  });
+
+  it('with a note that does not name "other take," the end stays at 195.0 and the cut starts unchecked by QA', () => {
+    const r = withSpan(190.9, 195.0, 'Retake of the selling line.');
+    expect(r.end).toBe(195);
+    expect(r.item.status).toBe('rejected');
+    expect(r.item.qaFlag?.overDb).toBeGreaterThan(15);
+    expect(r.item.note ?? '').not.toContain('extended past');
+  });
+
+  it("step 6's 190.8–195.1 (mostly inside \"other\") still lands there by decision 10's own side — no fallback note", () => {
+    const r = withSpan(190.8, 195.1, PASS2_NOTE);
+    expect(r.end).toBeGreaterThan(GAP[0]);
+    expect(r.end).toBeLessThan(GAP[1]);
+    expect(Math.abs(r.end - HAND)).toBeLessThanOrEqual(0.1);
+    expect(r.item.status).toBe('accepted');
+    expect(r.item.note ?? '').not.toContain('extended past');
+  });
+
+  it('without a note the fallback is capped: "other take," holds 0.599 s past 195.0 (> 0.4 s) → stays, unchecked', () => {
+    const r = withSpan(190.9, 195.0, undefined);
+    expect(r.end).toBe(195);
+    expect(r.item.status).toBe('rejected');
+  });
+
+  it('without a note, two words and ≤ 0.4 s past the end ("take," token cut to 195.3: 0.30 s) → lands on quiet, named on the row', () => {
+    const words = c.words.map((w) => (w.start === 195.181 ? { ...w, end: 195.3 } : w));
+    const r = withSpan(190.9, 195.0, undefined, words);
+    expect(r.end).toBeGreaterThan(195.3);
+    expect(r.end).toBeLessThan(GAP[1]);
+    expect(hardAt(r)).toEqual([]);
+    expect(r.item.status).toBe('accepted');
+    expect(r.item.note).toContain('extended past "other take," to land on quiet');
   });
 });
