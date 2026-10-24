@@ -5,7 +5,8 @@ status: BUILDING
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 + E-d2a in ORCHESTRATOR.md
 > "Session 4 — track E" and the session-5 overrides ("Session 5") bind this part. E1 (`a35aef3` + fix round 3)
 > is the base: `kind` / `probe` / `probeStamp` / `tags` / `audio` / `usedIn` exist as optional index fields;
-> since `841e311` (builder #2) generation writes `tags` + `audio`; `usedIn` is still written by NOBODY (§4 is next).
+> since `841e311` (builder #2) generation writes `tags` + `audio`; since `68bbe44` (builder #3) `usedIn` is written on
+> the three landings (§4 done). §5 the listing row is next, then the live step.
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -276,7 +277,7 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   applied to the pre-encode true peak; on an mp3 with transients the post-encode peak can sit a few tenths of a dB
   off the ceiling — recorded as measured (one re-encode, the gen_sfx rule), not forced; the WAV fixtures pin the rule
   exactly, the mp3 fixture pins the loudness + duration.
-- NOT built yet (after builder #2): `usedIn` (§4), the listing row (§5), their tests (§6), the live check.
+- NOT built yet (after builder #3): the listing row (§5) + its tests, the live check.
 
 ### Built (builder #2) — commit `841e311` (design §1 "Call site", §2 stand-in, §3 args)
 
@@ -321,6 +322,48 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   the file; a provider registered first stays active). The agents' `generate-audio.test.ts` mock gains `normalized: true`
   — no arg change there, green.
 
+### Built (builder #3) — commit `68bbe44` (design §4 `usedIn`: the helper + the three seams)
+
+- `src/main/services/library/library-used-in.ts` (93 lines, new): `addUsedIn(entry, projectId): boolean` (:22-26, pure —
+  appends once, false when already there); `markLibraryUsedIn(root, relPaths, projectId)` (:32-69) → `updateIndex` on the
+  per-root chain (`library-index-io.ts:118`, so the file keeps `version: 1, rev: 2` and never interleaves with a scan),
+  dedupes the input, patches EXISTING entries only, `mutate` returns `changed` so nothing is written when nothing changed;
+  an unknown relPath is `log.warn`ed ("not in the library index yet — left to the next scan") and skipped; the whole
+  patch sits in try/catch → a failed write is `log.warn`ed ("index patch failed — the import stands"), never thrown; a
+  blank `projectId` or an empty list returns at once. `markLibraryUsedInForPaths(projectId, absPaths)` (:75-93) →
+  `getLibraryRoot()` + `libraryRelPathOf` keeps only paths UNDER the root (outside paths are ordinary pool files — no
+  log), then `markLibraryUsedIn`; its own try/catch covers a root-resolution failure.
+- `src/main/services/library/library-paths.ts:63-75` `libraryRelPathOf(root, abs): string | null` — `path.relative` of the
+  two resolved paths; null when `''` (the root itself), absolute (another drive), `..` or starting with `..<sep>` (a parent
+  or a sibling — `<root>-other\x.mp3`, `<root>2\x.mp3`, `<root>.mp3` all yield `..\…`); a name under the root that merely
+  starts with dots (`..hidden.mp3`) is inside. Case-insensitive on Windows because `path.win32.relative` is.
+- The three seams: (1) `src/main/services/studio/agent-tools/library-import.ts` (66 lines) imports the helper (:10),
+  computes the canonical key once (`toLibraryRelPath`, :49) and marks with `project.id` BEFORE both returns — the
+  existing-asset return (:50-53) and the fresh import (:62, before the turn state + `assets-imported` emit, so the index is
+  patched by the time the renderer adopts the asset); a missing file / failed import throws before any mark. (2)
+  `src/main/services/studio/shot-asset-refs.ts` (167 lines): `landed: string[]` (:104-106) collects
+  `toLibraryRelPath(libraryRoot, absPath)` for every library ref after its hash (:135, existing or imported), ONE
+  `markLibraryUsedIn(libraryRoot, landed, project.id)` after the loop (:162-164) — a throw inside the loop marks nothing.
+  (3) `src/main/ipc/studio-handlers.ts` `handleStudioMediaImport` (:299-301) calls `markLibraryUsedInForPaths(data.projectId,
+  assets.map((a) => a.path))` after `importMediaFiles` — **wired but covered by the helper's test only** (the handler has no
+  test; `studio-handlers.ts` is 674 lines, over the ~300 rule before E2 — not E2's to split).
+- Tests (19 new, red first — `…\E2\c-red.log`: `library-used-in.test.ts` "Cannot find module", 7 failed | 14 passed —
+  the cases asserting "not marked" passed before the code, as they should): `library-used-in.test.ts` (8; `electron` +
+  `../settings-db` + `log-engine` mocked, a REAL index written with `writeIndex` per case: patch existing only + unknown
+  warned + every other entry / tombstone `toEqual` before; dedupe within a call and against the file, append across
+  projects; no rewrite (bytes + mtime) on an identical call / empty list / blank project / unknown-only; a failed write
+  (a DIRECTORY at `<index>.tmp`) resolves, warns, bytes unchanged; a file-as-root resolves; `markLibraryUsedInForPaths`
+  marks the under-root path only — the `<root>-other\…` sibling trap and a far path dropped, no warn, and an all-outside
+  call does not touch the index; empty / blank never throw), `library-paths.test.ts` (4: inside → POSIX key =
+  `toLibraryRelPath`, `..hidden.mp3` inside, unnormalized input resolved; root / parent / outside → null; the three
+  sibling-prefix traps → null; win32-only: drive-letter case both ways, upper-cased path, another drive → null),
+  `agent-tools/library-import.test.ts` (4, new file; `library-paths` / `library-used-in` / `library-store` /
+  `project-store` / `media-import` mocked, a real temp file: existing asset returned + marked `(libRoot, [rel], 'p1')`,
+  no import, no emit; fresh import with `./generated/…` spelling → description carried, `importedAssets` + the emit,
+  marked with the canonical key; missing file / failed import → throws, not marked), `shot-asset-refs.test.ts` (+3: two
+  library refs — one already a project asset by path, one imported — plus a plain id → refs rewritten, ONE mark with
+  both relPaths and `project.id`; no library ref → no mark, no import; a missing file → throws, no mark).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-24 · builder #1 · from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
@@ -343,45 +386,64 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   Tests 67 passed (67)` — `…\E2\b-green-1.log`.
 - Types on `841e311`: `tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS` lines; `-p tsconfig.node.check.json` → 10;
   none in the new or edited files (`…\E2\tsc-web-2.log`, `tsc-node-2.log`).
+- 2026-10-24 · builder #3 · red, from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/library/library-used-in.test.ts src/main/services/library/library-paths.test.ts
+  src/main/services/studio/agent-tools/library-import.test.ts src/main/services/studio/shot-asset-refs.test.ts` BEFORE the
+  code → `Test Files 4 failed (4) · Tests 7 failed | 14 passed (21)` + "Cannot find module '/src/main/services/library/
+  library-used-in'" — `…\E2\c-red.log`. AFTER (same four) → `Test Files 4 passed (4) · Tests 29 passed (29)` —
+  `…\E2\c-green-1.log`. Neighbouring suites `… run src/main/services/library src/main/services/studio/agent-tools
+  src/main/services/studio/shot-asset-refs.test.ts` (incl. `pre-e1-control.test.ts`, the normalizer, the call-site and
+  stand-in suites) → `Test Files 33 passed (33) · Tests 251 passed (251) · Duration 5.21s` — `…\E2\c-green-2.log`.
+- Types on `68bbe44`: `tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS` lines; `-p tsconfig.node.check.json` → 10;
+  none in the new or edited files (`…\E2\tsc-web-3.log`, `tsc-node-3.log`).
 - No launch, no profile copy, no live step yet (no resource check needed so far).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #3:** design §4 `usedIn`, red first. Read ONLY: `src/main/services/library/library-index-io.ts` (the per-root
-serialize chain — builder #1: `updateIndex` :118; the grep `export async function updateIndex` found nothing, so it is
-declared differently — read the file), `library-paths.ts:20-70` (`getLibraryRoot` :27, `toLibraryRelPath` :59 — see what it
-returns for a path OUTSIDE the root; the design's `libraryRelPathOf(root, abs): string | null` is the null-returning
-sibling), `src/main/services/studio/agent-tools/library-import.ts:31-60` (`importLibraryFile`: `root = getLibraryRoot()`,
-`existing = matchExistingAsset(...)` → `return existing` at :47; the fresh import returns `asset` at :60 — mark before BOTH
-returns), `src/main/services/studio/shot-asset-refs.ts:93-153` + the existing `shot-asset-refs.test.ts` (the only seam with a
-test today; `library-import.ts` and `src/main/ipc/studio-handlers.ts` have none, `library-paths.ts` has none), `studio-
-handlers.ts:275-302`, and `usedIn?: string[]` in `src/shared/types/asset-library.ts` (`LibraryIndexV2Fields`).
-(1) Tests: new `src/main/services/library/library-used-in.test.ts` — `addUsedIn(entry, 'p1')` → true + `usedIn: ['p1']`,
-again → false (dedup), other fields untouched; `markLibraryUsedIn(root, ['a.mp3', 'unknown.mp3'], 'p1')` on a REAL temp
-index (write it with the real index-io helpers; `electron` mocked like `library-filing.test.ts`) → `a.mp3` patched,
-`unknown.mp3` left out and logged, every other entry byte-equal, a second identical call does NOT rewrite the file (bytes /
-mtime), an unreadable root never throws; `markLibraryUsedInForPaths('p1', [absUnderRoot, absOutside])` → only the inside
-path marked. New `library-paths.test.ts`: `libraryRelPathOf` inside → POSIX rel path, outside and the sibling-prefix trap
-(`<root>2\x.mp3`) → null, drive-letter case on Windows. Seam tests: new `library-import.test.ts` (mock `../../library/
-library-used-in`, `../project-store`, `../media-import`, `../../library/library-store`, `../../library/library-paths`,
-`../../library/hash` or wherever `hashFileHead` comes from) — `importLibraryFile` calls `markLibraryUsedIn(root,
-[relPath], 'p1')` on BOTH returns; `shot-asset-refs.test.ts` + one case: two `library:` refs (one already a project asset,
-one imported) → ONE `markLibraryUsedIn` call carrying both relPaths and `project.id`. The pool import (3) has no handler
-test: unit-test `markLibraryUsedInForPaths` and SAY in this HANDOFF that `handleStudioMediaImport` is wired but covered by
-the helper's test only. `pre-e1-control.test.ts` must stay green. Run → red. (2) Code: `src/main/services/library/
-library-used-in.ts` (`addUsedIn`, `markLibraryUsedIn`, `markLibraryUsedInForPaths` as designed — EXISTING entries only,
-deduplicated, `mutate` returns false when nothing changed so nothing is written, never throws, warn-logs), `libraryRelPathOf`
-in `library-paths.ts`, the three seams: `importLibraryFile` marks before each `return`; `resolveShotAssetRefs` collects
-the library relPaths it resolved (existing or imported) and marks ONCE after the loop with `project.id`;
-`handleStudioMediaImport` (`studio-handlers.ts:297`) marks `assets.map(a => a.path)` after `importMediaFiles`. Run → green;
-types 26 / 10; commit `feat(studio): E2 — usedIn written on the three library landings` (explicit paths); update this
-HANDOFF. Then §5 the listing row: `formatLibraryRow` (`agent-tools/library-listing.ts`) appends, only when present,
-` · category: motion` · ` · tags: whoosh, air` · ` · −20.0 LUFS` (U+2212, one decimal — the same form as `signed()` in
-`audio-tools.ts:61-63`; move it to a tiny `src/main/services/library/format-level.ts` if you want one source) + ` (not
-normalized)` when `audio.normalizeError` · ` · used in: p1, p2`; the E1 rows print unchanged (the E1 listing tests hold);
-tests in `library-listing.test.ts`; commit `feat(studio): E2 — list_assets rows show category, tags, LUFS, usedIn`; hand
-off with the HANDOFF updated. The live step ("How the exit is measured") is builder #4's or later — read DRIVING
-"Track E" and the resource guard first.
+**Builder #4:** design §5 the listing row, red first. Read ONLY: `src/main/services/studio/agent-tools/library-listing.ts`
+(`formatLibraryRow` — E1 prints `(kind, N.NN s, origin, brand) — "description"`; the listing is capped at 150 rows) and its
+`library-listing.test.ts` (E1's rows are compared as EXACT strings — append after the description so they hold),
+`audio-tools.ts:55-75` (`signed()` :61-63 + `describeLevel` :66-74 — the `−20.0 LUFS` form: U+2212 for negatives, one decimal;
+if you want one source, move `signed` to a tiny `src/main/services/library/format-level.ts` and import it from both — then
+`audio-tools.test.ts` must stay green unchanged), and `LibraryAudioMeta` / `LibraryIndexV2Fields` in
+`src/shared/types/asset-library.ts:27-70` (`audio.category`, `audio.loudnessLufs`, `audio.normalizeError`, `tags`, `usedIn`).
+(1) Tests in `library-listing.test.ts`, run red first: an entry with everything → `… — "a whoosh" · category: motion · tags:
+whoosh, air · −20.0 LUFS · used in: p1, p2` (that order: category · tags · LUFS · used in; tags and project ids joined
+with `, `); an un-normalized entry (`audio.normalizeError` set) → the LUFS clause reads ` · −12.3 LUFS (not normalized)`
+when `loudnessLufs` is a number and ` · not normalized` when it is undefined; an entry with NONE of the fields → the E1
+string exactly (the existing E1 cases pin this — add one with `tags: []` / `usedIn: []` / `audio: {}` → no suffix either);
+an entry with only `tags`; an entry with only `usedIn`. (2) Code: `formatLibraryRow` appends each clause only when present
+(`category` non-empty, `tags.length > 0`, `loudnessLufs` finite or `normalizeError`, `usedIn.length > 0`), nothing else
+changes — no filtering, no `kind` / `query` args (E3's). Run green, then the neighbouring suites (`src/main/services/library`,
+`src/main/services/studio/agent-tools`, `shot-asset-refs.test.ts`) → green; types 26 / 10; commit `feat(studio): E2 —
+list_assets rows show category, tags, LUFS, usedIn` (explicit paths — do NOT stage `docs/studio/end-to-end/E4/HANDOFF.md`,
+which carries someone else's uncommitted 7 lines in this worktree); update this HANDOFF (Done / Verified / Agents) and
+hand off. The Next step you write is the LIVE step — the plan, drawn from "How the exit is measured" + DRIVING "Track E" +
+the session-5 resource guard: (a) the resource check + E-d4 (Hasan's `electron.exe` count, `%TEMP%\vidtsx-studio\export`
+quiet); (b) the profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E2\profile` copied from `profiles\source\
+profile` WITHOUT `settings\settings.db*` (never read or copy any `settings.db`); (c) the stand-in mp3, made by the SOURCE
+profile's `ffmpeg-full` (`…\profiles\source\profile\ffmpeg-full\ffmpeg-n8.1.2-…\bin\ffmpeg.exe`, reading it is fine): ~2.0 s
+of band-limited noise with a short tail, deliberately far from −20 LUFS and with a peak near 0 dBFS (so the gain AND the
+ceiling matter), written to `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\standin\<name>.mp3` (it MUST be an mp3 —
+builder #2's note); (d) the REAL-handler exit driver after E1's kit (`…\E1\upsert.e1.test.ts` / `list-assets.e1.test.ts`
++ `vitest.e1.config.ts` with its own `cacheDir`; app STOPPED; `vi.mock('electron')` with `app.isPackaged: false` and
+`getPath('userData')` = the E2 profile; `../settings-db` → no override so `getLibraryRoot()` = `<profile>\assets`;
+`VIDTSX_AUDIO_STANDIN_FILE` set BEFORE `initAudioGenerationEngine`): `buildAudioTools(ctx)` → `generate_sfx({ prompt,
+durationSeconds: 2, category: 'motion', tags: ['whoosh','air'] })` → check the file under `generated/sfx-<slug>.mp3`, the
+index entry (`kind 'audio'`, `origin 'generated'`, `probe.duration`, `tags`, `audio.{category, loudnessLufs, peakDbfs,
+peakKind 'true', source 'standin', model 'standin'}`, `usedIn [<projectId>]` from the tool's own import), then
+`insert_asset({ assetId: 'library:<relPath>', lane: 'audio', … })` → `usedIn` still `[<projectId>]` (dedup), then
+`list_assets(scope:'library')` → the §5 row; (e) the INDEPENDENT meter on the generated file: `ffmpeg-full -i <file> -af
+ebur128=peak=true -f null -` (integrated I within −20 ± 0.5, true peak ≤ −1.5 dBTP) and `-af astats` (sample peak), plus
+an independent `ffprobe` duration within 10 ms of `probe.duration`; the recorded `loudnessLufs` / `peakDbfs` within ±0.5 of
+the meter; (f) the live CDP click-through (the worktree's own `out/` rebuilt first — DRIVING "Launch recipe", ~2 min; CDP
+port 9262; Studio root FIRST to `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\root` with one small fresh project
+BEFORE any navigation; the Assets screen → `generated` folder shows the sound with its duration — one screenshot; stop
+the app by Name + profile path). No model call is needed (E-d9). The ceiling-binding, short-transient and music cases are
+already unit-tested through the real bundled ffmpeg (builder #1's (B), (C); builder #2's music path) — the live step
+needs only the one stand-in sound. Then the records: Status.md row at the top, TESTING §18.15 (E-d10), the V4-N1 / V4-N2
+notes under "Carried from E1", the stand-in seam named in STATUS, builder #2's four Open-problem notes answered in
+Status.
 
 ## Open problems
 
@@ -396,6 +458,20 @@ off with the HANDOFF updated. The live step ("How the exit is measured") is buil
 - (builder #2, for the live step) The stand-in file must be an mp3 (the engine's `ext` is `.mp3`, by design left as is);
   the exit's locally made sound (band-limited noise, peak near 0 dBFS, not at −20 LUFS) therefore goes through
   `ffmpeg-full` into an mp3 BEFORE it is named in `VIDTSX_AUDIO_STANDIN_FILE`.
+- (builder #3, note, not blocking) `handleStudioMediaImport`'s `usedIn` mark (`studio-handlers.ts:299-301`) is wired but
+  covered by the helper's test only (`library-used-in.test.ts` → `markLibraryUsedInForPaths`); the handler has no test and
+  the file is 674 lines (over the ~300 rule since long before E2). The live step's pool-import check, if wanted: drop a copy
+  of a library file by path through `studioMediaImport` and read `usedIn` — optional, the plan's exit does not need it.
+- (builder #3, note) The marks are awaited inline (one index read + at most one atomic write per landing, on the per-root
+  chain). `generate_sfx` → its own `importLibraryFile` marks; a following `insert_asset` on the same ref re-marks (a read,
+  no write). A second `generate_sfx` in the same turn finds the asset in `ctx.state.importedAssets` and re-marks likewise.
+- (builder #3, note) In `resolveShotAssetRefs` the ONE mark comes after the loop, so a later ref that throws (missing file,
+  failed import) leaves earlier refs unmarked — consistent with the call failing as a whole (its `imported` list is lost
+  too). A file under the root that the index has never seen (a fresh copy before the next reconcile) is logged and left
+  to the next scan, as designed (§4) — the scan's upsert does NOT know the project id, so that one landing is never
+  recorded; acceptable (T6 says "written when a ref lands"; the index normally knows every file by then).
+- (builder #3, housekeeping) The worktree has an UNCOMMITTED 7-line change in `docs/studio/end-to-end/E4/HANDOFF.md`
+  (someone else's — present before builder #3 started; left unstaged, not E2's). Commit with explicit paths only.
 
 ## Do-not-redo
 
@@ -408,6 +484,9 @@ off with the HANDOFF updated. The live step ("How the exit is measured") is buil
 - Builder #2's call site, `normalizeTags`, the `category` / `tags` args, the stand-in provider + `registerDevStandinProvider`
   and their 24 new / updated tests (green at `841e311`; the red run is under Verified). The answer's `−20.0 LUFS` form
   (U+2212, one decimal) is pinned by `audio-tools.test.ts` — the §5 listing row should print the same form, not redesign it.
+- Builder #3's `library-used-in.ts`, `libraryRelPathOf`, the three seams and their 19 tests (green at `68bbe44`; the red
+  run is under Verified). The pool-import seam stays helper-tested only (said under Open problems) — do not write a
+  `studio-handlers` test for it unless a verifier asks.
 
 ## For Hasan (real-video list candidates)
 
@@ -426,3 +505,9 @@ off with the HANDOFF updated. The live step ("How the exit is measured") is buil
   built design §1 "Call site" + §2 stand-in + §3 args red → green (24 new / updated tests; 9 files / 67 green incl. the
   E-d5 control and the normalizer suites), types 26 / 10, commit `841e311`; records + hand-off after the step. No launch,
   no profile copy, no live step.
+- 2026-10-24 · builder #3 · ~32 · read the brief's docs (HANDOFF in full, DRIVING "Never touch" / "Repo facts" / "Track E",
+  ORCHESTRATOR session 4 + 5, PLAN T6) and ≈ 1,500 lines of code (only the files the Next step named: index-io, library-paths,
+  library-import, shot-asset-refs + its test, the handler's import block + :275-302, the V2 fields, the test-mock patterns
+  of `library-filing.test.ts` / `audio-generation-standin.test.ts` / `audio-tools.test.ts`); built design §4 red → green (19
+  new tests in 4 files; neighbouring suites 33 files / 251 green), types 26 / 10, commit `68bbe44`; records + hand-off
+  after the step (the 30 % rule: one numbered step). No launch, no profile copy, no live step.
