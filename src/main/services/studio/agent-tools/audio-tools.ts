@@ -21,6 +21,7 @@ import {
   type GenerateAudioAssetRequest,
   type GeneratedAudioAsset,
 } from '../../library/generate-audio-asset';
+import { signed } from '../../library/format-level';
 import { LIBRARY_REF_PREFIX } from '../shot-asset-refs';
 import { importLibraryFile } from './library-import';
 import {
@@ -55,11 +56,6 @@ const CATEGORY_HINT_SFX =
   'Sound category, one word from the library vocabulary: motion / tension / emphasis / snap / foley / reward / texture / impact';
 const CATEGORY_HINT_MUSIC = 'Music category, one word: bed / sting / intro / outro / loop / transition';
 const TAGS_HINT = 'Search tags for the library (lower-cased, deduplicated, at most 20): "whoosh", "air", "fast"';
-
-/** A signed number with a typographic minus, one decimal — the listing's form. */
-function signed(n: number, digits = 1): string {
-  return n.toFixed(digits).replace(/^-/, '−');
-}
 
 /** What the clip measures (E2): the loudness line, or the honest "kept raw" line. */
 function describeLevel(filed: GeneratedAudioAsset): string {

@@ -49,3 +49,56 @@ describe('list_assets library rows (E1)', () => {
     expect(rows[LIBRARY_LIST_CAP]).toMatch(/capped at 150/);
   });
 });
+
+describe('list_assets library rows (E2: category · tags · LUFS · used in)', () => {
+  const sfx = (extra: Partial<LibraryIndexEntry> = {}): LibraryIndexEntry =>
+    e('generated/sfx-a-whoosh.mp3', {
+      kind: 'audio',
+      origin: 'generated',
+      probe: { duration: 2.0012, hasAudio: true },
+      description: 'a whoosh',
+      ...extra,
+    });
+  const E1_ROW = '- library:generated/sfx-a-whoosh.mp3 (audio, 2.00 s, generated) — "a whoosh"';
+  const list = (entry: LibraryIndexEntry): string => formatLibraryListing([entry], {}, 'library:');
+
+  it('appends category, tags, the LUFS and the projects — in that order, after the description', () => {
+    const row = list(
+      sfx({
+        tags: ['whoosh', 'air'],
+        audio: {
+          category: 'motion',
+          loudnessLufs: -20.04,
+          peakDbfs: -8.2,
+          peakKind: 'true',
+          source: 'standin',
+          model: 'standin',
+          gainDb: -7.96,
+        },
+        usedIn: ['p1', 'p2'],
+      }),
+    );
+    expect(row).toBe(`${E1_ROW} · category: motion · tags: whoosh, air · −20.0 LUFS · used in: p1, p2`);
+  });
+
+  it('says when the file was kept un-normalized — with the measured LUFS when there is one', () => {
+    expect(list(sfx({ audio: { loudnessLufs: -12.34, normalizeError: 'apply failed: unsupported container' } }))).toBe(
+      `${E1_ROW} · −12.3 LUFS (not normalized)`,
+    );
+    expect(list(sfx({ audio: { normalizeError: 'measure failed: ffmpeg exited 1' } }))).toBe(`${E1_ROW} · not normalized`);
+  });
+
+  it('prints the E1 row exactly when none of the fields carries a value', () => {
+    expect(list(sfx())).toBe(E1_ROW);
+    expect(list(sfx({ tags: [], usedIn: [], audio: {} }))).toBe(E1_ROW);
+    expect(list(sfx({ audio: { category: '', loudnessLufs: Number.NaN, source: 'standin', model: 'standin' } }))).toBe(E1_ROW);
+  });
+
+  it('prints a lone tags clause, a lone used-in clause, and the suffix without a description', () => {
+    expect(list(sfx({ tags: ['whoosh'] }))).toBe(`${E1_ROW} · tags: whoosh`);
+    expect(list(sfx({ usedIn: ['p1'] }))).toBe(`${E1_ROW} · used in: p1`);
+    expect(list(sfx({ description: undefined, audio: { category: 'motion' }, usedIn: ['p1'] }))).toBe(
+      '- library:generated/sfx-a-whoosh.mp3 (audio, 2.00 s, generated) · category: motion · used in: p1',
+    );
+  });
+});

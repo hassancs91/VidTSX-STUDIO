@@ -1,6 +1,7 @@
 import type { LibraryIndexEntry, PlayableMediaKind } from '../../../../shared/types/asset-library';
 import { isPlayableMediaKind, isTimedMediaKind, mediaKindOf } from '../../../../shared/media-kinds';
 import { probeStateOf } from '../../library/library-probe-state';
+import { signed } from '../../library/format-level';
 
 /** Library listings are capped so a large root cannot flood the context. */
 export const LIBRARY_LIST_CAP = 150;
@@ -29,7 +30,30 @@ export function formatLibraryRow(entry: LibraryIndexEntry, kind: PlayableMediaKi
         : ', length unknown (probing)';
   const brand = entry.brandId ? `, brand: ${entry.brandId}` : '';
   const description = entry.description ? ` — "${entry.description}"` : '';
-  return `- ${refPrefix}${entry.relPath} (${kind}${length}, ${entry.origin}${brand})${description}`;
+  return `- ${refPrefix}${entry.relPath} (${kind}${length}, ${entry.origin}${brand})${description}${formatMetaSuffix(entry)}`;
+}
+
+/**
+ * The E2 suffix after the description — `· category: motion · tags: whoosh, air
+ * · −20.0 LUFS · used in: p1, p2` — each clause only when the entry carries it,
+ * so an entry without the T6 fields prints exactly as in E1. A file the
+ * normalize step could not level says so: ` · −12.3 LUFS (not normalized)` with
+ * its measured value, ` · not normalized` without one.
+ */
+function formatMetaSuffix(entry: LibraryIndexEntry): string {
+  const clauses: string[] = [];
+  const audio = entry.audio;
+  if (audio?.category) clauses.push(`category: ${audio.category}`);
+  if (entry.tags && entry.tags.length > 0) clauses.push(`tags: ${entry.tags.join(', ')}`);
+  const lufs = audio?.loudnessLufs;
+  const notNormalized = Boolean(audio?.normalizeError);
+  if (typeof lufs === 'number' && Number.isFinite(lufs)) {
+    clauses.push(`${signed(lufs)} LUFS${notNormalized ? ' (not normalized)' : ''}`);
+  } else if (notNormalized) {
+    clauses.push('not normalized');
+  }
+  if (entry.usedIn && entry.usedIn.length > 0) clauses.push(`used in: ${entry.usedIn.join(', ')}`);
+  return clauses.map((clause) => ` · ${clause}`).join('');
 }
 
 /** The library listing: playable kinds only (what insert_asset / assetRefs take), filtered, capped. */
