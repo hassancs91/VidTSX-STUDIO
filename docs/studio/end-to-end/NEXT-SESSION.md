@@ -1,11 +1,143 @@
-# Next session — END_TO_END_PLAN.md, session 5 (track E, continued)
+# Next session — END_TO_END_PLAN.md, session 6 (track E, continued)
+
+> **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
+> `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
+> session-3 one. Session 5 (2026-10-24 08:30–12:55, track E only) stopped at Hasan's word ("stop after this task is
+> done") after E2 builder #5's live step. Written by the session-5 orchestrator.
+
+## State at the end of session 5 (2026-10-24 12:55)
+
+- **Branch / tree:** worktree `end-to-end-p0-e` @ the commit after `4eb6bf5` (this file's commit), clean; **not merged**
+  into `end-to-end-p0` (main checkout @ `5d77600`, still carrying another session's 16 uncommitted files incl.
+  `src/main/index.ts`; Hasan's dev app was not running all session). Nothing of this run is running (0 `electron.exe`;
+  the E2 watchdog exited by itself). Resources: C: 46.7 GB, D: 23.5 GB free; commit 64.2 / 99.7 GB.
+- **E1 — DONE.** Docs-only fix round 3 (`8a1a60c`: R1 resurrect path, R2 mp3 range −25 ms @ 48 kHz → −160 ms @ 8 kHz,
+  N1 reconcile does not stamp failures, N2 header-length mp3) + verifier round 4 PASS on the records (4 notes, none a
+  failure — ORCHESTRATOR "Session 5 log" 09:35). The E1 row in ORCHESTRATOR is final.
+- **E2 — code complete, live exit MET, records + verifier PENDING.** Code: `60b5537` (the loudness normalizer on the
+  bundled ffmpeg: loudnorm analysis → the gen_sfx gain rule −20 LUFS under a −1.5 dBTP ceiling → one `volume` re-encode,
+  mp3 192k; failure keeps the bytes), `841e311` (normalize between write and upsert; `audio {category, loudnessLufs,
+  peakDbfs, peakKind:'true', source, model, gainDb, normalizeError?}` + `tags`; `category` / `tags` args on `generate_sfx`
+  / `generate_music`; the DEV-ONLY stand-in provider `standin` — `!app.isPackaged` && `VIDTSX_AUDIO_STANDIN_FILE`),
+  `68bbe44` (`library-used-in.ts`: `usedIn` written on the three landings — `importLibraryFile`, `resolveShotAssetRefs`,
+  the pool import for paths under the library root via `libraryRelPathOf`), `3084668` (the `list_assets` row suffix
+  ` · category · tags · −20.0 LUFS · used in`, `format-level.ts`). Live exit (builder #5, `4eb6bf5`, E2 HANDOFF "Live
+  step" + "Verified"): main case recorded −20.27 LUFS / −10.79 dBTP (gain −10.71) vs independent ebur128 −20.2 / TP −10.8 /
+  astats −10.79, probe 2.000 = ffprobe; `usedIn ["e2-exit"]`; the row; ceiling case +4.18 clamp → −23.44 LUFS, TP −1.79;
+  music path identical; Assets › `generated` still; gates: worktree vitest 485 / 4,138 green except the 3 E-d2a suites
+  (rule (b) NONE of 68 files), types 26 / 10. Evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\` (`exit.json`,
+  `exit-summary.md`, `assets-generated.png`, logs); kit `.vidtsx-temp/end-to-end/E2/`. **Not done:** the Status.md entry,
+  TESTING §18.15, the V4-N1 fix (E2 HANDOFF "Next step" = builder #6, records only; do NOT re-run the drivers — each run
+  adds a generated file to the E2 profile's library), and the E2 verifier (first round).
+- **E4, E3, the track-E exit — not started.** Their HANDOFF.md files are prepared (`666919d`, `c3663f8`): the exit
+  measurements, the facts, E2's settled semantics (`peakKind`, `normalizeTags`, the row suffix). Order stays E4 → E3.
+- **Files E changed that C / D / F also touch** (`git diff --name-only 5d77600..HEAD -- src/`, 55 files): E1's list
+  (`media-import.ts` `probeMedia` — mp3 gapless trim, attached pictures not video; `src/main/index.ts` startup migration;
+  `src/shared/media-kinds.ts`; `src/main/services/library/*`; `agent-tools/project-tools.ts` + `library-listing.ts`;
+  `src/shared/types/asset-library.ts`) PLUS E2's: `src/main/ipc/studio-handlers.ts` (the pool import marks `usedIn` —
+  C4 / D touch this handler file), `src/main/services/studio/shot-asset-refs.ts` (`generate_tsx_shot` assetRefs mark
+  `usedIn` — track C's shot work), `agent-tools/library-import.ts`, `agent-tools/audio-tools.ts` (new args + answer text
+  — C4's assistant reach, D3's ElevenLabs isolation shares the audio engine), `src/main/services/library/
+  generate-audio-asset.ts` (normalize step; also used by the agents' `generate-audio.ts`), `src/main/services/
+  audio-generation-init.ts` (stand-in registration at the end — D0/D3 register providers here too),
+  `src/audio-engine/generation/index.ts` + `providers/standin-audio-provider.ts`, `library-filing.ts`
+  (`normalizeTags`), `library-paths.ts` (`libraryRelPathOf`). Before ANY later session works on `end-to-end-p0` (B7
+  verifier, track-B exit, C, D, F): land `end-to-end-p0-e` first (`git merge end-to-end-p0-e` in the main checkout once
+  its own work is committed) or keep working on `end-to-end-p0-e` — otherwise the branches fork.
+- **TESTING §18 numbering (E-d10):** E1 = §18.14 (written); E2 → 18.15 (to write), E4 → 18.16, E3 → 18.17; C/D/F from 18.18.
+- **Left on disk (scratch, Hasan's call):** profiles `…\vidtsx-e2e\profiles\E1`, `E1-verify`, `E1-verify2`, `E1-verify3`,
+  `E2` (~372 MB each; E2's library holds 4 generated mp3s); evidence `…\vidtsx-e2e\E1*\`, `E1-verify4\`, `E2\`; the
+  project `.vidtsx-temp\end-to-end\E2\root`; the worktree (`out/` ~127 MB, built at `3084668`).
+
+## Session 6 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
+
+```
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
+session 6. Track E lives on the local branch end-to-end-p0-e in the git worktree
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt — read every doc below FROM THAT WORKTREE (the main
+checkout's copies are older). Follow docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the
+builder and verifier briefs, the stop report, the "things you never do") with the overrides below. Read
+first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md (esp. §0 E5, §1.6, T6, §3 Track E, §5); the top of
+Status.md (the E1 entry — E2's is not written yet); docs/studio/end-to-end/NEXT-SESSION.md (state + lessons);
+docs/studio/end-to-end/ORCHESTRATOR.md ("Answers in force", "Session 4 — track E" with decisions E-d1…E-d10 +
+E-d2a, "Session 5" + its log and stop, "For Hasan's real-video test"); docs/studio/end-to-end/DRIVING.md (esp.
+"Track E"); docs/studio/end-to-end/E2/HANDOFF.md (all of it — "Done", "Verified", "Next step", "Open problems");
+docs/studio/end-to-end/E4/HANDOFF.md and E3/HANDOFF.md (prepared); docs/ui-automation-cdp.md;
+docs/studio/TESTING.md §17–18.
+
+FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
+say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
+
+SCOPE, in order, no stop between parts: (1) E2 — a RECORDS-only builder #6 (E2 HANDOFF "Next step": the
+Status.md entry at the top, TESTING §18.15, the V4-N1 fix; no src change, no re-run of the exit drivers), then
+the E2 VERIFIER (first round: the exit, the gates, its own negative and control cases — on ITS OWN profile
+copy E2-verify without settings.db*, its own stand-in sounds through the dev seam, an independent meter; it
+may read the E2 profile's library read-only); fix rounds as usual, three FAILs → stop. (2) E4 → E3 → the
+track-E exit (E4 before E3: E3's exit — the whoosh case — needs the imported library). Stop after the
+track-E exit, on BLOCKED, or after three verifier FAILs on one part. Do NOT touch B7's verifier, the track-B
+exit, or tracks C, D, F. Anything that needs my hands, ears or keys: build + verify up to it, mark it
+DEFERRED-HASAN, add it to ORCHESTRATOR's "For Hasan's real-video test" list, continue.
+
+OVERRIDES for the whole run
+- Answers in force: ORCHESTRATOR.md Q1–Q6 — Q2 for E2: generated SFX normalized at generation to −20 LUFS
+  under −1.5 dBFS — and decisions E-d1…E-d10, E-d2a (rule (a) withdrawn).
+- Paid providers: no call on a paid key. ElevenLabs generation (E2, any generation in E3) is built and
+  verified against a stand-in (E2's dev-only provider: VIDTSX_AUDIO_STANDIN_FILE, non-packaged builds only);
+  the one live ElevenLabs call goes on my real-video list. E3's exit itself needs no generation.
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a part needs
+  (E3's assistant turns, the track-E exit); never a paid API key provider; never read, copy or open a
+  credential store (settings.db, ~/.claude, any profile's) — profile copies exclude settings.db*.
+- The library: every index migration, import and generation runs on an ISOLATED profile; never my
+  %APPDATA%\VidTSX Studio library or my projects. E4 reads the reference sfx/ and music/ catalogs named in
+  the plan's §1.6 read-only; the editor repo D:\repos\claude-youtube-editor is never written (Python there
+  only with -I -B).
+- Resource guard: before any launch, copy or full test run check C: free AND memory commit headroom
+  (Windows grows C:\pagefile.sys when commit nears the limit); live steps need C: ≥ 3 GB and (C: free +
+  headroom) ≥ 6 GB, with a watchdog that stops only our app if C: < 1.5 GB; full vitest with
+  --maxWorkers=2 while headroom < 10 GB; big scratch on D:.
+- Every builder brief adds: "Work only in the worktree (E-d1, E-d2; never npx/npm there, never git stash,
+  never touch the main checkout, its out/ or node_modules). Also read docs/studio/end-to-end/DRIVING.md and
+  the 'Track B decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md with the Edit/Write tools. Never hand
+  back while a job you started is still running. Select your own processes by --remote-debugging-port or
+  profile path plus Name='electron.exe', never a bare number. Set the isolated profile's Studio root in the
+  first CDP call. Never touch Hasan's stations (B1-verify-root + profiles\B1-verify, B5-station-root +
+  profiles\B5-station) or any B6/B7 run scratch. Write HANDOFF.md as you go and commit early (agents can die
+  on API errors)."
+- Anything written for me to do by hand is walked literally with real mouse input by the builder AND the
+  verifier before it reaches me — and goes on the real-video list, not to me mid-run.
+- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings — never the
+  builder's conclusions — and build their own negative and control cases.
+- The orchestrator writes only under docs/studio/end-to-end/ (in the worktree) and commits after each
+  update. At the stop, update NEXT-SESSION.md's state (track E's result) so the later B7-verifier → B exit →
+  C → D → F resume stays correct, and say there what E changed in files C/D/F also touch. Never push;
+  landing end-to-end-p0-e on end-to-end-p0, and merging end-to-end-p0 into main, are my calls.
+```
+
+## Lessons from session 5 (apply them)
+
+- **Prepare the next parts' HANDOFFs while a builder runs** (the orchestrator wrote E2/E4/E3's from the code facts): the
+  builders then start at a design note, not a code survey — but never commit while a builder may be committing
+  (one git index in the worktree); commit at the hand-off points.
+- **A docs-only fix round is a real round:** the records can be false while the code is right (E1 R1). Verifiers
+  checking records need the earlier findings verbatim and the evidence files, not the builder's "Done".
+- **R128 gating bites test design:** a burst train with silence between bursts is NOT quiet to an EBU meter (the
+  relative gate drops the silence) — a ceiling-binding fixture must be uniform across its 400 ms blocks (three tries).
+- **A decoded mp3 can exceed full scale** (+0.6 dBTP on a −0.3 dBFS source after libmp3lame) — measure the ENCODED
+  file, and expect the re-encode after normalization to land ~0.3 dB under the true-peak ceiling.
+- **The audio engine is a process singleton** that keeps the first stand-in; run cases that need different stand-ins
+  as separate vitest invocations.
+- **The engine initialises lazily** in the live app (first use) — a dev seam's registration log line appears then, not
+  at launch; the stopped-app driver's stdout is the evidence.
+- The Assets screen (pre-E3) prints no duration anywhere; E3's details panel adds the sound fields.
+- Builders still slip on "no scripts for HANDOFF.md"; keep saying it. Git tracks the status file as `Status.md`.
+
 
 > **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
 > `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
 > session-3 one. Session 4 (2026-10-23, track E only) stopped after three verifier FAILs on E1 — the third on the
 > records alone. Hasan, 2026-10-24: "lets continue in a new session".
 
-## Session 5 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
+## Earlier: session 5's paste-in (2026-10-24, superseded by the session-6 one above)
 
 ```
 You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),

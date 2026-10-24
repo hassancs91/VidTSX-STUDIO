@@ -35,9 +35,9 @@
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
 | E1 | **DONE** (exit MET in round 3; fix round 3 docs-only; verifier round 4 PASS on the records) | 8 (#8 = docs-only round 3) | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) → docs fix `8a1a60c` → **PASS round 4** (records; 4 notes V4-N1…N4, none a failure) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3`, fix round 3 `8a1a60c` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10; round 4: E1 suites 20 files / 170 tests, types 26/10, `8a1a60c` changes 4 `//` lines in `src/` | 2026-10-23 20:25 / 2026-10-24 09:35 |
-| E2 | TODO | | | | | |
-| E3 | TODO (runs after E4) | | | | | |
-| E4 | TODO (runs before E3) | | | | | |
+| E2 | **LIVE EXIT MET — records + verifier PENDING** (Hasan's stop after builder #5: the Status.md entry, TESTING §18.15 and the V4-N1 fix are builder #6's records step; the verifier has not run) | 5 | not run | code `60b5537` (normalizer) `841e311` (call site, args, dev stand-in) `68bbe44` (`usedIn` on the three landings) `3084668` (listing row); docs `70bb70f` `59b8e93` `1e36cbc` `bbfd17e` `4eb6bf5` | stand-in in −9.3 LUFS / +0.6 dBTP → recorded −20.27 LUFS / −10.79 dBTP (gain −10.71); independent ffmpeg-full ebur128 −20.2 LUFS, TP −10.8, astats −10.79; probe 2.000 s = ffprobe n8 (0 ms); `tags [whoosh, air]`, `category motion`, `source`/`model` standin; `usedIn ["e2-exit"]` after the tool's own import, unchanged after `insert_asset`; `list_assets` row shows duration · category · tags · −20.3 LUFS · used in; ceiling case gain +4.18 (clamped, wanted +7.4), −23.44 LUFS, TP −1.79 (0.3 dB under the ceiling after the mp3 re-encode); music path identical; live: Assets › `generated` lists the 4 files (still), Studio root set first; worktree vitest 485 files / 4,138 tests green except the 3 E-d2a suites (rule (b): NONE of 68 files); types 26/10 | 2026-10-24 09:40 / live 10:36 (stopped 12:55 before the records) |
+| E3 | TODO (runs after E4) — HANDOFF.md prepared (`666919d`: the whoosh-case measurement, prompt-rule lines, Assets screen facts, B6 live-assistant kit) | | | | | |
+| E4 | TODO (runs before E3) — HANDOFF.md prepared (`666919d` + `c3663f8`: catalogs inspected read-only, dry run / byte identity / idempotency, E2's settled field semantics) | | | | | |
 | F0 | TODO | | | | | |
 | F1 | TODO | | | | | |
 | F2 | TODO | | | | | |
@@ -557,6 +557,11 @@
 - **B6:** confirm or change the next-round bar (Status.md B6 row).
 - **Editor repo:** mark `D:\repos\claude-youtube-editor\.claude\skills\clean-cut\SKILL.md`
   superseded for cutting (or allow the orchestrator to edit that one file).
+- **E2 (session 5):** the ONE live ElevenLabs `generate_sfx` call on his real key / profile — the real response must go
+  through the same normalize → probe → index → import path the dev stand-in exercised (E-d6); then listen to the
+  generated sound (−20 LUFS under −1.5 dBTP) against a catalog whoosh. The dev stand-in (`VIDTSX_AUDIO_STANDIN_FILE`,
+  dev builds only) is inert in a packaged app — nothing to do there.
+- **E1 (session 4):** allowing a `node_modules` junction in the worktree would make track E's vitest gate whole (E-d2a).
 
 - 2026-10-23 12:00–13:05 · **C: disk emergency (not this run):** C: fell from 18 GB free (~11:00) to
   1.05 GB (12:24) and 0.25 GB (13:00); this run copied nothing and launched nothing after the
@@ -802,3 +807,29 @@
 - 10:55 · E2 builder #2 HANDOFF: call site (normalize between write and upsert; `audio` meta, `tags`), `category` + `tags` args on both tools, the dev-only stand-in provider (`standin`, `VIDTSX_AUDIO_STANDIN_FILE`, `!app.isPackaged`, costUsd 0) — red 11 → green 67 tests, types 26 / 10 — `841e311`; docs `59b8e93`. Builder #3 spawned (§4 `usedIn` seams, §5 listing row).
 - 11:30 · E2 builder #3 HANDOFF: §4 `usedIn` — `library-used-in.ts` (index patch on the serialize chain, existing entries only, dedupe, never throws into an import), `libraryRelPathOf` (null outside the root incl. sibling-prefix folders), the three seams (`importLibraryFile` both returns, `resolveShotAssetRefs` once, the pool import for paths under the root) — red 7 → green 29 (19 new), neighbours 33 files / 251 green, types 26 / 10 — `68bbe44`; docs `1e36cbc`. Orchestrator: E4 HANDOFF pinned E2's settled semantics (`peakKind`, `normalizeTags`, the row suffix, catalog `source` verbatim). Builder #4 spawned (§5 listing row, then the live step).
 - 12:05 · E2 builder #4 HANDOFF: §5 the listing row (`format-level.ts` `signed()`, the row suffix ` · category · tags · −20.0 LUFS · used in`, un-normalized form; E1 strings exact) — red 3 → green 16, neighbours 34 files / 257, types 26 / 10 — `3084668`; docs `bbfd17e`. Live prep without a launch: profile E2 (2,325 files, 0 `settings.db*`), stand-ins `standin.mp3` (−9.3 LUFS, +0.6 dBTP) and `standin-quiet.mp3` (−27.4 LUFS, −5.7 dBTP, ceiling-binding — a gated burst train is not quiet to R128, three tries). Builder #5 spawned (the live step: rebuild, REAL-handler drivers, CDP 9262, records, gates).
+- 12:50 · E2 builder #5 HANDOFF (~38 calls): the LIVE step — rebuild of `wt/out` at `3084668` (2 m 30 s); the exit through
+  the REAL handlers on the E2 profile with the app stopped (two drivers, the engine singleton keeps the first stand-in):
+  main case −20.27 LUFS recorded / −20.2 independent, TP −10.8, gain −10.71, probe 2.000 = ffprobe; `usedIn ["e2-exit"]`
+  after the tool's import and after `insert_asset`; the `list_assets` row; the ceiling case (+4.18 clamp, −23.44 LUFS,
+  TP −1.79); the music path; live CDP 9262 (Studio root FIRST, library root `<profile>\assets`, Assets › `generated`
+  lists the 4 generated files — still `…\vidtsx-e2e\E2\assets-generated.png`); gates: full worktree vitest 485 / 4,138
+  green except the 3 E-d2a suites, rule (b) NONE, types 26 / 10. Findings for the records: the Assets screen prints no
+  duration (pre-E2 UI — E3's playback/details work shows the sound fields); the live app initialises the audio engine
+  lazily, so the stand-in's log line appears on first use; the first ~5 s before `studioRootSet` the Home screen listed
+  Hasan's projects (nothing opened — the standing "Studio root FIRST" note). Docs `4eb6bf5`. **No `src/` change in the
+  live step.**
+- 12:55 · **Hasan: "stop after this task is done"** (received during builder #5) → no records builder, no E2 verifier, E4 / E3
+  not started. Resources at the stop: C: 46.7 GB, D: 23.5 GB free; commit 64.2 / 99.7 GB; 0 `electron.exe`; the E2
+  watchdog exited on its own (10:36). Left on disk (scratch, Hasan's call): profile `…\vidtsx-e2e\profiles\E2` (its library
+  now holds 4 generated mp3s under `assets\generated\`), evidence `…\vidtsx-e2e\E2\` (exit.json, exit-summary.md, the still,
+  logs), the project `.vidtsx-temp\end-to-end\E2\root\projects\e2-exit`, kits `.vidtsx-temp\end-to-end\E2\`, the worktree's
+  `out/` (built at `3084668`).
+
+## Stops (session 5)
+
+- 2026-10-24 12:55 · **STOP at Hasan's word** ("stop after this task is done", during E2 builder #5). Done this session:
+  E1 DONE (docs-only fix round 3 `8a1a60c`, verifier round 4 PASS on the records); E2 code complete + live exit MET
+  (`3084668`), **records (Status.md entry, TESTING §18.15, V4-N1) NOT written, verifier NOT run**; E3 + E4 HANDOFFs
+  prepared. Not started: E4, E3, the track-E exit. Hand-off for session 6: the worktree's
+  `docs/studio/end-to-end/NEXT-SESSION.md`. Track E is still on `end-to-end-p0-e`, not merged; the main checkout still
+  carries the other session's 16 uncommitted files (incl. `src/main/index.ts`, which E1 also changes).
