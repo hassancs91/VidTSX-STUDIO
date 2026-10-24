@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: DONE (fix round 3 — docs only — finished 2026-10-24 08:50 by builder #8: R1, R2, N1, N2 recorded in Status.md, TESTING §18.14 and the `media-import.ts:123-126` comment; gates green — E1 suites + E-d5 control 20 files / 170 tests, types 26 / 10; next: verifier round 4 on the records only — E1's last round)
+status: DONE — verifier round 4 PASS on the records (2026-10-24 09:35; notes V4-N1…N4 in ORCHESTRATOR.md "Session 5 log"); the exit, gates and controls passed in round 3
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md

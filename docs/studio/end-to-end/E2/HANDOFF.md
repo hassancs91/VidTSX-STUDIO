@@ -122,6 +122,12 @@ rule (b); `tsc` web 26 / node 10; Status.md row at the top; TESTING §18.15 — 
 - **mp3 after a re-encode:** `libmp3lame` through the `mp3` muxer writes a Xing/Info + LAME tag (encoder delay +
   padding) → E1's `mp3-gapless.ts` trims the probe exactly; the independent ffprobe n8 trims it too. Keep the
   original extension (the catalogs are mp3) unless the design argues otherwise — state the bitrate.
+- **Carried from E1's verifier round 4 (docs, small — do them in E2's Status / TESTING pass):** (V4-N1) the E1 entry's W2
+  line (`Status.md:98`, `TESTING.md:486`) lists proxies (`proxy-generator.ts:231`) among the consumers of the probe's
+  width / height, but `proxy-generator.ts` reads only `probe.duration` and `probe.hasAudio` (`:251`, `:321`) — drop
+  proxies from that list (the fix-round-3 sentence at `Status.md:199` is the right one; it may say "duration + hasAudio");
+  (V4-N2) if you touch `src/main/services/library/pre-e1-control.test.ts`, rename the case at `:182` so its title says
+  what it pins ("keeps every field under old writes that do not resurrect it") — a test-title rename only.
 - **§5 items touching E2:** none directly ("arnndn availability" is track D's). Docs to update when built:
   STATUS per part, TESTING §18 (18.15).
 - **Session-5 overrides:** no paid-key call; model calls not needed for E2; isolated profile only; the resource

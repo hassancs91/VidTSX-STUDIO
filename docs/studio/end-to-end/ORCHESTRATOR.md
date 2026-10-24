@@ -34,7 +34,7 @@
 | D3 | TODO | | | | | |
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
-| E1 | **STOPPED — 3 verifier FAILs** (exit MET; round 3 failed the RECORDS only — waiting for Hasan's go for a docs-only round) | 7 | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10 | 2026-10-23 20:25 / 23:00 |
+| E1 | **DONE** (exit MET in round 3; fix round 3 docs-only; verifier round 4 PASS on the records) | 8 (#8 = docs-only round 3) | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) → docs fix `8a1a60c` → **PASS round 4** (records; 4 notes V4-N1…N4, none a failure) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3`, fix round 3 `8a1a60c` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10; round 4: E1 suites 20 files / 170 tests, types 26/10, `8a1a60c` changes 4 `//` lines in `src/` | 2026-10-23 20:25 / 2026-10-24 09:35 |
 | E2 | TODO | | | | | |
 | E3 | TODO (runs after E4) | | | | | |
 | E4 | TODO (runs before E3) | | | | | |
@@ -784,3 +784,17 @@
 - 08:40 · E1 HANDOFF set to `FIX` (docs-only fix round 3; the round-3 findings R1, R2, N1, N2 were already under Open
   problems); builder #8 spawned with "no `src/` change except the comment text at `media-import.ts:123-125`".
 - 09:05 · builder #8 DONE: `8a1a60c` (Status.md, TESTING §18.14, the `media-import.ts:123-126` comment — 3 −/4 + lines, all `//`; HANDOFF, LOG). E1 suites 20 files / 170 tests green, types 26 / 10. E2 HANDOFF.md + LOG.md drafted by the orchestrator (status NEW). Verifier round 4 (records only, E1's last) spawned.
+- 09:35 · **E1 verifier round 4 PASS** (records only): `8a1a60c` changes no code (one hunk, 3 −/4 + `//` lines in
+  `media-import.ts`); R1 / R2 / N1 / N2 recorded truthfully (every number cross-checked against round 3's evidence
+  files, every file:line pointer lands); E1 suites 20 / 170 green, types 26 / 10. **E1 DONE.** Notes carried
+  forward (not failures): **V4-N1** `Status.md:98` + `TESTING.md:486` (W2) list proxies among the consumers of the
+  probe's width / height, but `proxy-generator.ts` reads only `probe.duration` + `probe.hasAudio` — the entry's two
+  statements disagree, the fix-round-3 one is right → E2's Status pass fixes the W2 line (docs); **V4-N2** the control
+  test title `pre-e1-control.test.ts:182` ("keeps every field under every old write") overstates what the case pins
+  (a `src/` rename — E2's builder may rename it when it touches the library tests; TESTING §18.14 may cite verifier
+  3's harness `E1-verify3\harness\resurrect.v3.test.ts` for the resurrect clause); **V4-N3** on a resurrect with no
+  tombstone probe and a failed inline probe the entry carries the tombstone's (possibly failed) stamp — the record
+  ("the reconcile never creates a failed stamp") stays true; **V4-N4** scope note, no change. Logs
+  `…\vidtsx-e2e\E1-verify4\`.
+- 09:40 · E3 + E4 HANDOFF.md / LOG.md drafted by the orchestrator (status NEW; E4 before E3). E2 builder #1 spawned
+  (CDP 9262, profile E2).
