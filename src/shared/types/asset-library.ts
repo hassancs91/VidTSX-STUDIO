@@ -27,14 +27,24 @@ export type PlayableMediaKind = 'video' | 'audio' | 'image';
 export interface LibraryAudioMeta {
   /** e.g. motion / tension / emphasis / snap / foley / reward / texture / impact. */
   category?: string;
-  /** Integrated loudness, LUFS. */
+  /** Integrated loudness, LUFS. Generation (E2) records the value RE-MEASURED after its normalize step. */
   loudnessLufs?: number;
-  /** Sample peak, dBFS. */
+  /**
+   * Peak, dBFS. Generation (E2) writes the TRUE peak (dBTP — `loudnorm`'s `input_tp`, re-measured after the
+   * re-encode; it is ≥ the sample peak, so the −1.5 ceiling on it holds for the sample peak too) with
+   * `peakKind: 'true'`; the catalog importer (E4) carries the catalogs' SAMPLE peak with `peakKind: 'sample'`.
+   */
   peakDbfs?: number;
-  /** Where the sound came from (e.g. 'elevenlabs', 'synth'). */
+  /** Which peak `peakDbfs` is; absent = unknown (written before E2). */
+  peakKind?: 'true' | 'sample';
+  /** Where the sound came from — the audio provider id ('elevenlabs', the dev 'standin') or e.g. 'synth'. */
   source?: string;
   /** The generating model, when one made it. */
   model?: string;
+  /** The gain the normalize step applied at generation, dB (0 = already at the target, or nothing to apply). */
+  gainDb?: number;
+  /** Set when the normalize step failed and the file was kept as generated (un-normalized). */
+  normalizeError?: string;
 }
 
 /**

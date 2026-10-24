@@ -1,5 +1,5 @@
 # E2 — Generation writes loudness-normalized files with category/tags; `usedIn` written on every landing
-status: NEW
+status: BUILDING
 
 > Track E, session 5. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 + E-d2a in ORCHESTRATOR.md
@@ -145,7 +145,103 @@ rule (b); `tsc` web 26 / node 10; Status.md row at the top; TESTING §18.15 — 
 
 ## Done (file:line, commit hashes)
 
-(nothing yet)
+### Design note (builder #1, 2026-10-24 — read before building; it binds the rest of E2)
+
+Code read: `generate-audio-asset.ts` (all), `audio-generation-engine.ts` (`registerInstance` :92 — "the door for a
+keyless provider", `generate` :116-160: **`ext: '.mp3'` is hard-coded** at :158, `costUsd = rate × durationSec`, rate 0 →
+`0`), `types.ts`, `audio-generation-init.ts` (all; the BYOK loop :49-62), `audio-tools.ts` (all), `library-import.ts`
+(all), `library-listing.ts` (all) + its test, `library-store.ts` (all; `upsertEntry` :135-186 returns the entry WITH
+`probe`), `library-index-io.ts` (all; `updateIndex` :118 = the chain), `library-paths.ts` (all), `asset-library.ts`
+(all), `shot-asset-refs.ts:93-153`, `studio-handlers.ts:275-302`, `ffmpeg-bin.ts` (`getFfmpegBinary`, `runFfmpeg` with
+`onStderr` — the spawn helper the normalizer reuses), `media-import.ts` (`probeMedia` :99-140, `hashFileHead`,
+`importMediaFiles`' callers), `shot-build-media.ts:112-130`, `shot-bundle-media.ts:1-45`, the three audio tests,
+`vitest.config.ts`, `utils/paths.ts` (imports `electron` → every real-ffmpeg test mocks `../../utils/paths` to
+`getRemotionBinariesDir: () => null`, like E1's `media-import-probe.test.ts`; `@remotion/renderer` then resolves the
+compositor package from the main checkout's `node_modules`, as E1's kit proved). Bundled ffmpeg n7.1 re-checked
+2026-10-24: `sine anullsrc loudnorm volume aformat aresample atrim apad amix concat` present; **no `anoisesrc`**, no
+`ebur128 / astats / volumedetect / alimiter`; encoders `libmp3lame aac libfdk_aac libopus opus pcm_s16le`; muxers
+`mp3 wav mp4 ogg opus null`.
+
+1. **The normalize step (a).** Two modules under `src/main/services/library/`:
+   - `audio-loudness-rule.ts` (pure, no IO): `LOUDNESS_TARGET_LUFS = -20`, `LOUDNESS_CEILING_DBFS = -1.5`,
+     `LOUDNESS_GATED_BELOW_LUFS = -50`, `LOUDNESS_MIN_GAIN_DB = 0.1`; `parseLoudnormStats(stderr)` → `{ inputI, inputTp }`
+     (numbers; `-inf` → `-Infinity`; null when the JSON block is missing); `planLoudnessGain(stats, target, ceiling)` =
+     the `gen_sfx.py normalize_clip()` rule verbatim: peak unmeasurable (`-Infinity` / NaN) → leave (gain 0, `gated`);
+     I not finite or I < −50 → `gain = ceiling − peak` (`gated`); else `gain = target − I`, and if `peak + gain >
+     ceiling` → `gain = ceiling − peak` (`clamped`); |gain| < 0.1 → `skipped` (gain 0). Returns `{ gainDb, clamped, gated,
+     skipped }`.
+   - `audio-normalize.ts` (ffmpeg, ≤ 300 lines): `measureLoudness(abs)` = ONE `loudnorm` analysis pass
+     (`-i abs -af loudnorm=I=-20:TP=-1.5:LRA=11:print_format=json -f null -`, `input_i` / `input_tp` read off stderr —
+     `input_tp` is a TRUE peak, dBTP, 4× oversampled); `applyGain(abs, gainDb)` = ONE re-encode `-af volume=<g>dB`
+     into `<abs>.norm-tmp<ext>` then `fs.rename` over the original, **same extension**, codec by extension: `.mp3` →
+     `libmp3lame -b:a 192k` (one step above ElevenLabs' `mp3_44100_128`, so the second lossy generation adds little;
+     sample rate / channels kept), `.wav` → `pcm_s16le`, `.m4a` / `.aac` → `aac -b:a 192k`, `.ogg` / `.opus` →
+     `libopus -b:a 128k`, anything else → failure "unsupported container"; `normalizeAudioFile(abs, { signal? })` =
+     measure → plan → (apply → re-measure) → `AudioNormalizeResult { normalized, loudnessLufs?, peakDbfs?, gainDb,
+     clamped, gated, skipped, error?, before?: { loudnessLufs?, peakDbfs? } }`. **It never throws and never loses
+     bytes:** any ffmpeg failure (missing binary, non-zero exit, 120 s timeout via `AbortSignal`, bad JSON) deletes the
+     temp output, leaves the original untouched and returns `normalized: false` + `error` (with the measured values
+     when the measure pass worked). `skipped` and digital silence (peak `-inf`) return `normalized: true, gainDb 0`
+     without a re-encode. `loudnessLufs` / `peakDbfs` are the RE-MEASURED values after the re-encode (what the file
+     actually is — an mp3 re-encode can move the peak by a few tenths of a dB on transients; recorded truthfully, the
+     ceiling is applied pre-encode to the true peak).
+   - Call site: `generateAudioAsset` between `fs.writeFile` and `upsertEntry` (passes `req.signal`); the `audio`
+     meta it writes = `{ category?, loudnessLufs?, peakDbfs?, peakKind: 'true', source: result.providerId, model:
+     result.model, gainDb, normalizeError? }`; `tags` when given. `GeneratedAudioAsset` gains `normalized`,
+     `loudnessLufs?`, `peakDbfs?`, `normalizeError?`, `category?`, `tags?`, and **`durationSeconds` becomes the index
+     probe's duration** (`upsertEntry`'s returned `probe.duration`) when it exists, else the engine's figure. The tool's
+     answer prints LUFS / peak / category / tags, and on a failure says "NOT loudness-normalized (<reason>) — the raw
+     file is kept".
+   - Types (`asset-library.ts`, optional only): `LibraryAudioMeta` gains `peakKind?: 'true' | 'sample'` (E2 writes
+     `'true'`; E4 maps the catalogs' sample peak with `'sample'`), `gainDb?`, `normalizeError?`; the `peakDbfs` comment
+     says which peak each writer stores.
+2. **The stand-in (b), E-d6.** `src/audio-engine/generation/providers/standin-audio-provider.ts`:
+   `StandinAudioProvider(filePath)` with `id = 'standin'`; `generate()` reads the file's bytes (the file **must be an
+   mp3** — the engine's `ext` is hard-coded `.mp3`, :158, left as is), returns `{ bytes, contentType: 'audio/mpeg', model:
+   'standin' }`; `pricePerSecondUsd` → `0` so the engine records `costUsd 0`. Registration `src/main/services/
+   audio-generation-standin.ts` `registerDevStandinProvider()`: only when `!app.isPackaged` AND `process.env.
+   VIDTSX_AUDIO_STANDIN_FILE` names an existing file; called at the END of `initAudioGenerationEngine` (after the BYOK
+   loop, so a real key — registered first — stays the active provider; `activeId ??=`). Inert when packaged; named in
+   STATUS. The exit driver (app stopped, E1-kit pattern) sets the env var and mocks `electron` (`app.isPackaged: false`,
+   `app.getPath('userData')` = the E2 profile).
+3. **`category` + `tags` (c).** `generate_sfx` / `generate_music` gain `category?: string` (described with the catalog
+   vocabulary motion / tension / emphasis / snap / foley / reward / texture / impact; music: bed / sting / …; free
+   string, trimmed + lower-cased) and `tags?: string[]` (`normalizeTags` in `library-filing.ts`: trim, lower-case,
+   dedupe, drop empties, cap 20). `GenerateAudioAssetRequest` gains `category?` / `tags?`. The design derives NO extra
+   tags (the kind is the filename prefix, the category has its own field). `audio.source` = the provider id
+   (`elevenlabs` / `standin`), `audio.model` = the engine result's model. The agents' `generate_audio` tool keeps its
+   args (it gets the normalization for free); its test stays green with a `normalized: true` mock.
+4. **`usedIn` (d).** `src/main/services/library/library-used-in.ts`: pure `addUsedIn(entry, projectId): boolean`;
+   `markLibraryUsedIn(root, relPaths, projectId)` → `updateIndex` on the per-root chain (E-d5 serialize path, `rev: 2`),
+   patches EXISTING entries only (a file under the root the index has never seen is left to the next scan — logged),
+   deduplicated, returns false from `mutate` when nothing changed (no write), never throws (warn) so no import fails
+   on an index hiccup; `markLibraryUsedInForPaths(projectId, absPaths)` = the same for absolute paths, keeping only
+   those under `getLibraryRoot()` (new pure `libraryRelPathOf(root, abs): string | null` in `library-paths.ts`). The
+   three seams: (1) `importLibraryFile` marks on BOTH returns (existing asset and fresh import) — so `generate_sfx`'s
+   own import writes `usedIn` and `insert_asset`'s `resolveAssetRef` re-marks (a no-op); (2) `resolveShotAssetRefs`
+   collects every library relPath it resolved (existing or imported) and marks once after the loop with `project.id`;
+   (3) `handleStudioMediaImport` calls `markLibraryUsedInForPaths(data.projectId, assets.map(a => a.path))` after
+   `importMediaFiles`. `shot-build-media.ts` / `shot-bundle-media.ts` import a shot's own `vN.assets/` and
+   `staticFile()` files from the shot folder — a library file cannot reach them; stated, not wired.
+5. **The listing row (e).** `formatLibraryRow` appends, after the description and only when present: ` · category:
+   motion` · ` · tags: whoosh, air` · ` · −20.0 LUFS` (one decimal; ` (not normalized)` when `normalizeError`) · ` · used
+   in: p1, p2`. Entries without the fields print exactly as in E1 (the E1 listing tests hold unchanged).
+6. **Tests (f), red first.** `audio-loudness-rule.test.ts` (parse incl. `-inf`; the rule table: down / up / clamp /
+   gated −70 and `-inf` I / skip < 0.1 / silence). `audio-normalize.test.ts` through the REAL bundled ffmpeg (only
+   `../../utils/paths` mocked) on fixtures written from JS as 48 kHz mono 16-bit PCM WAVs (no ffmpeg source filters
+   needed; `anoisesrc` is absent anyway): (A) a 1 kHz tone at ≈ −12 LUFS with a 5 ms spike to −0.3 dBFS → gain ≈ −8,
+   not clamped, I_out −20 ± 0.5, peak ≤ −1.5; (B) a click train at ≈ −31 LUFS, peak −6 dBFS → clamp: gain = 4.5,
+   `clamped`, I_out ≈ −26.5 (honestly above −20), peak −1.5 ± 0.1; (C) a 0.3 s burst → `gated` → peak at −1.5; (D) a
+   6 s tone + LCG-noise bed at ≈ −30 LUFS → gain up, I_out −20 ± 0.5; (E) an mp3 made from (A) by the bundled ffmpeg →
+   `.mp3` kept, I_out −20 ± 0.5, duration within 10 ms by the real `probeMedia` (the gapless trim); (F) the failure
+   policy: an unsupported extension and a bogus binary → bytes unchanged, `normalized: false`, `error`. Independent
+   checks inside the tests: the sample peak of a WAV output read from its PCM in JS (no ffmpeg), LUFS by a second
+   analysis pass (the live exit's independent meter is `ffmpeg-full`'s `ebur128` + `astats`). Then: `generate-audio-
+   asset.test.ts` (mock `./audio-normalize`; `audio` / `tags` reach `upsertEntry`; a failed normalize is recorded and the
+   file kept; `durationSeconds` from the probe), `audio-tools.test.ts` (category / tags pass through; LUFS in the text;
+   the not-normalized text), `library-used-in.test.ts` (add / dedupe / unknown relPath / other fields untouched / no
+   write when unchanged / paths outside the root dropped), seam tests for (1) and (2) with the import mocked,
+   `library-listing.test.ts` (+ the E2 extras).
 
 ## Verified (exact commands + outputs)
 
