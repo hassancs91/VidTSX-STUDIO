@@ -60,6 +60,7 @@ import type {
 import { getStudioProjectsRoot, setStudioProjectsRoot } from '../services/settings';
 import { getDefaultBrandId } from '../services/library/brand-default';
 import { readBrand } from '../services/library/brand-store';
+import { markLibraryUsedInForPaths } from '../services/library/library-used-in';
 import { readPreset } from '../services/library/preset-store';
 import {
   createProject,
@@ -295,6 +296,9 @@ export async function handleStudioMediaImport(
       filePaths = result.filePaths;
     }
     const { assets, errors } = await importMediaFiles(data.projectId, filePaths);
+    // A pool import of a file that lies under the library root is a `library:`
+    // landing too (T6 usedIn) — an index patch that never fails the import.
+    await markLibraryUsedInForPaths(data.projectId, assets.map((a) => a.path));
     return { success: true, assets, errors: errors.length > 0 ? errors : undefined };
   } catch (err) {
     return { success: false, error: errorMessage(err, 'Failed to import media') };

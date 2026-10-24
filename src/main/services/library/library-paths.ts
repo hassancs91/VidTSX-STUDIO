@@ -60,6 +60,20 @@ export function toLibraryRelPath(root: string, absPath: string): string {
   return path.relative(root, absPath).split(path.sep).join('/');
 }
 
+/**
+ * The index key of an absolute path that lies UNDER `root`, else null — the
+ * root itself, a parent, another drive, and a sibling folder that merely shares
+ * the root as a string prefix (`<root>-other\x.mp3`) are all outside. Case-
+ * insensitive on Windows (path.relative is), separators normalized to POSIX.
+ */
+export function libraryRelPathOf(root: string, absPath: string): string | null {
+  const rel = path.relative(path.resolve(root), path.resolve(absPath));
+  if (rel === '' || path.isAbsolute(rel) || rel === '..' || rel.startsWith(`..${path.sep}`)) {
+    return null;
+  }
+  return rel.split(path.sep).join('/');
+}
+
 /** Resolve a library-relative path, refusing anything that escapes the root. */
 export function resolveLibraryPath(root: string, relPath: string): string {
   const resolved = path.resolve(root, relPath);

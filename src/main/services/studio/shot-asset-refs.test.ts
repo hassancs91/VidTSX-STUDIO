@@ -1,11 +1,35 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
-import type { StudioMediaAsset } from '../../../shared/types/studio';
+import type { StudioMediaAsset, StudioProject } from '../../../shared/types/studio';
+
+let libRoot = '';
+
+const mocks = vi.hoisted(() => ({
+  markLibraryUsedIn: vi.fn(async (): Promise<void> => undefined),
+  importMediaFiles: vi.fn(),
+  hashFileHead: vi.fn(async () => 'h-fresh'),
+  loadIndex: vi.fn(),
+}));
 
 // Module chain reaches settings-db/electron (library-paths, media-import) —
-// the pure functions under test never touch it (library-store.test.ts pattern).
+// the pure functions under test never touch it (library-store.test.ts pattern);
+// resolveShotAssetRefs runs against a temp library root with everything behind
+// IO mocked (the import, the hash, the index, the usedIn mark).
 vi.mock('electron', () => ({
   app: { getPath: () => 'C:/tmp', isPackaged: false },
+}));
+vi.mock('../library/library-paths', () => ({
+  getLibraryRoot: () => libRoot,
+  resolveLibraryPath: (root: string, rel: string) => path.resolve(root, rel),
+  toLibraryRelPath: (root: string, abs: string) => path.relative(root, abs).split(path.sep).join('/'),
+}));
+vi.mock('../library/library-used-in', () => ({ markLibraryUsedIn: mocks.markLibraryUsedIn }));
+vi.mock('../library/library-store', () => ({ loadIndex: mocks.loadIndex }));
+vi.mock('./media-import', () => ({
+  hashFileHead: mocks.hashFileHead,
+  importMediaFiles: mocks.importMediaFiles,
 }));
 
 import {
@@ -13,6 +37,7 @@ import {
   isValidRefKey,
   matchExistingAsset,
   parseLibraryRef,
+  resolveShotAssetRefs,
 } from './shot-asset-refs';
 
 function asset(overrides: Partial<StudioMediaAsset> = {}): StudioMediaAsset {
@@ -107,5 +132,71 @@ describe('buildPromptAssets', () => {
 
   it('rejects unknown ids', () => {
     expect(() => buildPromptAssets({ x: 'nope' }, new Map())).toThrow(/unknown asset/i);
+  });
+});
+
+describe('resolveShotAssetRefs — the usedIn landing for generate_tsx_shot assetRefs (E2)', () => {
+  let existingAbs = '';
+  let freshAbs = '';
+
+  beforeAll(async () => {
+    libRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vidtsx-shot-refs-test-'));
+    existingAbs = path.join(libRoot, 'logos', 'logo.png');
+    freshAbs = path.join(libRoot, 'logos', 'fresh.png');
+    await fs.mkdir(path.dirname(existingAbs), { recursive: true });
+    await fs.writeFile(existingAbs, Buffer.from('png-1'));
+    await fs.writeFile(freshAbs, Buffer.from('png-2'));
+  });
+
+  afterAll(async () => {
+    await fs.rm(libRoot, { recursive: true, force: true });
+  });
+
+  beforeEach(() => {
+    mocks.markLibraryUsedIn.mockClear();
+    mocks.importMediaFiles.mockReset();
+    mocks.loadIndex.mockReset();
+    mocks.loadIndex.mockResolvedValue({
+      version: 1,
+      entries: [{ relPath: 'logos/fresh.png', origin: 'imported', addedAt: '', description: 'fresh logo' }],
+      tombstones: [],
+    });
+  });
+
+  it('marks every library relPath it resolved — existing or imported — ONCE, with the project id', async () => {
+    const existing = asset({ id: 'a1', path: existingAbs, hash: 'h-existing' });
+    const project = { id: 'p1', assets: [existing] } as unknown as StudioProject;
+    mocks.importMediaFiles.mockResolvedValue({
+      assets: [asset({ id: 'a2', path: freshAbs, hash: 'h-fresh' })],
+      errors: [],
+    });
+
+    const out = await resolveShotAssetRefs(project, {
+      logo: 'library:logos/logo.png',
+      other: 'library:logos/fresh.png',
+      plain: 'a1',
+    });
+
+    expect(out.refs).toEqual({ logo: 'a1', other: 'a2', plain: 'a1' });
+    expect(out.imported.map((a) => a.id)).toEqual(['a2']);
+    expect(out.imported[0].description).toBe('fresh logo');
+    expect(mocks.importMediaFiles).toHaveBeenCalledTimes(1);
+    expect(mocks.importMediaFiles).toHaveBeenCalledWith('p1', [freshAbs]);
+    expect(mocks.markLibraryUsedIn).toHaveBeenCalledTimes(1);
+    expect(mocks.markLibraryUsedIn).toHaveBeenCalledWith(libRoot, ['logos/logo.png', 'logos/fresh.png'], 'p1');
+  });
+
+  it('marks nothing when no library ref is present', async () => {
+    const project = { id: 'p1', assets: [asset({ id: 'a1' })] } as unknown as StudioProject;
+    const out = await resolveShotAssetRefs(project, { logo: 'a1' });
+    expect(out.refs).toEqual({ logo: 'a1' });
+    expect(mocks.markLibraryUsedIn).not.toHaveBeenCalled();
+    expect(mocks.importMediaFiles).not.toHaveBeenCalled();
+  });
+
+  it('a missing library file throws before anything is marked', async () => {
+    const project = { id: 'p1', assets: [] } as unknown as StudioProject;
+    await expect(resolveShotAssetRefs(project, { x: 'library:logos/nope.png' })).rejects.toThrow(/not found/i);
+    expect(mocks.markLibraryUsedIn).not.toHaveBeenCalled();
   });
 });

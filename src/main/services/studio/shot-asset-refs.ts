@@ -14,6 +14,7 @@ import type { StudioMediaAsset, StudioProject } from '../../../shared/types/stud
 import type { ShotPromptAsset } from '../../../shared/studio/shot-prompt';
 import { getLibraryRoot, resolveLibraryPath, toLibraryRelPath } from '../library/library-paths';
 import { loadIndex } from '../library/library-store';
+import { markLibraryUsedIn } from '../library/library-used-in';
 import { importMediaFiles, hashFileHead } from './media-import';
 
 export const LIBRARY_REF_PREFIX = 'library:';
@@ -100,6 +101,9 @@ export async function resolveShotAssetRefs(
   // Lazy: only touched when a library ref shows up.
   let libraryRoot: string | null = null;
   let descriptions: Map<string, string> | null = null;
+  // Every library relPath resolved here (existing or imported) lands in this
+  // project → `usedIn`, marked once after the loop (T6, E2).
+  const landed: string[] = [];
 
   for (const [key, value] of Object.entries(rawRefs)) {
     if (!isValidRefKey(key)) {
@@ -128,6 +132,7 @@ export async function resolveShotAssetRefs(
 
     const hash = await hashFileHead(absPath);
     const existing = matchExistingAsset([...known.values()], absPath, hash);
+    landed.push(toLibraryRelPath(libraryRoot, absPath));
     if (existing) {
       refs[key] = existing.id;
       continue;
@@ -155,5 +160,8 @@ export async function resolveShotAssetRefs(
     refs[key] = asset.id;
   }
 
+  if (libraryRoot !== null && landed.length > 0) {
+    await markLibraryUsedIn(libraryRoot, landed, project.id);
+  }
   return { refs, imported, promptAssets: buildPromptAssets(refs, known) };
 }
