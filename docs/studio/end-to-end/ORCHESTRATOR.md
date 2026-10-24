@@ -783,3 +783,4 @@
 
 - 08:40 · E1 HANDOFF set to `FIX` (docs-only fix round 3; the round-3 findings R1, R2, N1, N2 were already under Open
   problems); builder #8 spawned with "no `src/` change except the comment text at `media-import.ts:123-125`".
+- 09:05 · builder #8 DONE: `8a1a60c` (Status.md, TESTING §18.14, the `media-import.ts:123-126` comment — 3 −/4 + lines, all `//`; HANDOFF, LOG). E1 suites 20 files / 170 tests green, types 26 / 10. E2 HANDOFF.md + LOG.md drafted by the orchestrator (status NEW). Verifier round 4 (records only, E1's last) spawned.
