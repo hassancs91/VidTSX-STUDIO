@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: FIX (docs-only fix round 3 — Hasan's go, session 5, orchestrator 2026-10-24 08:40; the records-only findings R1, R2, N1, N2 under Open problems; then verifier round 4 on the records only — E1's last round)
+status: DONE (fix round 3 — docs only — finished 2026-10-24 08:50 by builder #8: R1, R2, N1, N2 recorded in Status.md, TESTING §18.14 and the `media-import.ts:123-126` comment; gates green — E1 suites + E-d5 control 20 files / 170 tests, types 26 / 10; next: verifier round 4 on the records only — E1's last round)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -367,7 +367,9 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   usedIn, description) is deep-equal after old `setDescription` + old `upsertEntry` + old `scanLibrary` (with a new
   file). Only tombstones the OLD scan creates lose the new fields.
 - **V2-2:** the range "about −25 to −115 ms; the lower the sample rate, the more" with both verifiers' numbers in the
-  `media-import.ts:123-125` comment, Status and TESTING §18.14.
+  `media-import.ts:123-125` comment, Status and TESTING §18.14. **Superseded in fix round 3 (R2):** verifier 3 measured
+  down to −160 ms at 8 kHz — now "(encoder delay + padding) / sample rate: about −25 ms at 48 kHz to −160 ms at 8 kHz;
+  the lower the rate, the more" in all three places (the comment is `media-import.ts:123-126` now, four lines).
 - **W2:** the width / height consumer list in Status + TESTING: face / mask tracking (`face-track-job.ts:137`,
   `mask-track-job.ts:146` — an audio-only file with cover art now stops with "Could not read the frame size of the
   source"), `src/shared/studio/export-spans.ts:190` + `sync-probes.ts:141` (composition size), `proxy-generator.ts:231`,
@@ -379,6 +381,34 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
   (`9daa90b9a367…`), `garbage.wav` (`3db768bd525f…`), `garbage.aac` (`38761dd6bf94…`) + 0-byte `empty.wav`; REAL
   `upsertEntry` (flac, mp3, empty), FROZEN pre-E1 `upsertEntry` then REAL `scheduleProbeBackfill` (wav, aac), REAL
   `list_assets(scope:'library')`. Results in "Verified". The E1 profile's library now holds these 5 too (24 entries).
+
+### Fix round 3 (builder #8, 2026-10-24 08:40–08:50) — DOCS ONLY; the docs commit follows `2047d49`
+
+- **Resources (08:42, `Get-PSDrive C,D`):** C: 47.5 GB free, D: 25.8 GB free. No launch, no profile copy, no full run → no
+  E-d4 check needed; nothing of mine running at any point.
+- **Code read to confirm the findings (no `src/` behaviour change):** the pre-E1 `resurrect()`
+  `src/main/services/library/pre-e1-control/library-reconcile.ts:45-60` names `relPath hash description brandId origin addedAt
+  size mtimeMs` only — R1 holds (`kind probe probeStamp tags usedIn audio` lost when an old scan resurrects an E1 tombstone;
+  the old `toTombstone` `:33-43` is the already-recorded "tombstones the old scan creates" case; a surviving E1 tombstone
+  passes through `filter` untouched = W1). The E1 `library-reconcile.ts:74` / `:113` / `:163` stamp only when `probe` is
+  truthy — no `failed` stamp anywhere in the reconcile (N1 holds); upsert `library-store.ts:164` `makeProbeStamp(stat,
+  !probe)` and the back-fill `library-backfill.ts:94` `makeProbeStamp(p, !p.probe)` stamp a failure
+  (`library-probe-state.ts:19-23`).
+- **R1** — `Status.md:44-56` (the E-d5 bullet: an old scan that RESURRECTS an E1 tombstone rebuilds it from the pre-E1 fields
+  only; the earlier "keeps every field under every old write" named as false); `docs/studio/TESTING.md:484` (the E-d5 item).
+- **R2** — `Status.md:76-88` (the mp3 bullet: "(encoder delay + padding) / sample rate: about −25 ms at 48 kHz to −160 ms at
+  8 kHz; the lower the rate, the more" with every number verifiers 1–3 measured); `TESTING.md:485`;
+  `src/main/services/studio/media-import.ts:123-126` (comment text only — `git diff -U0`: 3 `-` / 4 `+` lines, all `//`).
+- **N1** — `Status.md:103-115` (the probe-stamp bullet: upsert + back-fill stamp a failure, the reconcile does not — a scan's
+  inline failure is left unstamped (`missing`) and the back-fill the scan kicks re-probes and stamps it; verifier 3's 9 of 20,
+  ~1–2 s) and `Status.md:128-129` (the V2-1 sentence that said "upsert / reconcile / back-fill stamp it failed");
+  `TESTING.md:487`.
+- **N2** — `Status.md:186-199` (new "Fix round 3" bullet with the "Known limit (N2)" line at `:193`: a truncated mp3 lists its
+  Xing header length, `5.00 s` for 0.52 s of audio, the same as both independent ffprobes; verifier 3's `.aac` 1.57 s; N3 /
+  N5 noted as not findings); `TESTING.md:488` (appended to the V2-1 item's "Known limit").
+- **Also:** `Status.md:10` heading → "DONE (fix round 3, docs only, after verifier FAIL 3 on the records)"; the gates bullet
+  `Status.md:200-206`; `TESTING.md:489` gates item appended; this file (V2-2 line, the "Earlier" range line, the round-3
+  header + R1/R2/N1/N2 marked recorded, Next step, Do-not-redo, Agents so far); `LOG.md` one line.
 
 ## Verified (exact commands + outputs)
 
@@ -498,9 +528,27 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
     shot-bundle 15, shot-bundle-in-place 23 (vi.mock'd: shot-generator, shot-import-land, media-import),
     builder-unpack.mjs 1 local modules — "touched by the E diff: NONE" for all four (`…\E1\fix2\import-graph.txt`).
 
+- Builder #8 (fix round 3, docs only), 2026-10-24, Bash from the worktree root (logs under
+  `C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix3\`):
+  - Resources 08:42 (PowerShell `Get-PSDrive C,D`): C: 47.5 GB free, D: 25.8 GB free. No E1 instance; nothing launched.
+  - `git diff -U0 -- src/main/services/studio/media-import.ts | grep -E '^[-+]' | grep -vE '^(\+\+\+|---)' | grep -vE
+    '^[-+]\s*//'` → empty (the diff is 3 `-` / 4 `+` lines, every one a `//` comment line).
+  - `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library
+    src/main/services/studio/agent-tools/library-listing.test.ts src/main/services/studio/media-import-probe.test.ts
+    src/main/services/studio/mp3-gapless.test.ts src/shared/media-kinds.test.ts > …\fix3\e1-suites.log` → rc 0,
+    `Test Files 20 passed (20)`, `Tests 170 passed (170)`, `Duration 3.47s` (the E-d5 control `pre-e1-control.test.ts` is in
+    `src/main/services/library`; fix round 2's 22 / 181 also counted `src/features/asset-library`).
+  - `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit | grep -c "error TS"`
+    → **26**; `-p tsconfig.node.check.json` → **10** = baseline (`tsc-web.log`, `tsc-node.log`).
+
 ## Next step (ONE concrete instruction)
 
-**Fix round 3 — DOCS ONLY (builder #8, session 5).** Correct R1 and R2 (Open problems, "Verifier round 3") and record
+**None for a builder — E1 is DONE (fix round 3, docs only, 2026-10-24, builder #8).** Orchestrator: verifier round 4 on
+the RECORDS only (the R1 / R2 / N1 / N2 wording in `Status.md` (E1 entry), `docs/studio/TESTING.md` §18.14 and the
+`media-import.ts:123-126` comment) — E1's last round. Nothing in `src/` changed behaviour in this round; `wt/out` is still
+builder #4's build (`a3f48d8`, before fix rounds 1–3) — rebuild with the DRIVING "Track E" recipe before any live launch.
+
+*(The instruction fix round 3 was built from, kept for the record:)* Correct R1 and R2 (Open problems, "Verifier round 3") and record
 N1 and N2 in exactly these places, nothing else in `src/`:
 1. `Status.md` E1 entry — (R1) the E-d5 bullet (`Status.md:48` today: "a tombstone the E1 code already made keeps every
    field under every old write") must say which new fields survive which old write: an old `setDescription` /
@@ -530,26 +578,28 @@ N2`), set `status: DONE`, return. No app launch, no profile copy, no full vitest
 
 ## Open problems
 
-### Verifier round 3 — FAIL on the RECORDS only (2026-10-23 ~22:55; the exit, the gates, E-d5 and every earlier finding PASS)
+### Verifier round 3 — FAIL on the RECORDS only (2026-10-23 ~22:55; the exit, the gates, E-d5 and every earlier finding PASS) — R1, R2, N1, N2 ALL RECORDED in fix round 3 (docs only, 2026-10-24, builder #8; see "Fix round 3" under Done for file:line)
 
-- **R1 (records): a resurrected E1 tombstone loses the new fields under an OLD scan.** `Status.md:48` and
+- **R1 (records) — recorded in fix round 3 (docs): a resurrected E1 tombstone loses the new fields under an OLD scan.** `Status.md:48` and
   `TESTING.md:484` say "a tombstone the E1 code already made keeps every field under every old write". False when
   the pre-E1 scan RESURRECTS it (the same bytes come back while an old app runs): pre-E1 `resurrect()`
   (`pre-e1-control/library-reconcile.ts:45-60`) builds the entry from 8 named fields — `kind`, `probe`,
   `probeStamp`, `tags`, `usedIn`, `audio` lost (every pre-E1 field kept: hash, description, brandId, origin,
   addedAt). The next E1 start restores `kind` + `probe` (back-fill); `tags` / `audio` / `usedIn` are gone. E-d5
   (pre-E1 fields) holds; the record of which NEW fields survive must name this path.
-- **R2 (records, same class as V2-2): the mp3 trim range is still understated.** `Status.md:76-80`,
+- **R2 (records, same class as V2-2) — recorded in fix round 3 (docs): the mp3 trim range is still understated.** `Status.md:76-80`,
   `TESTING.md:485`, `media-import.ts:123-125` (comment), this file's V2-2 line say "about −25 to −115 ms". Measured
   (real Studio import, pre-E1 `probeMedia` vs HEAD): 8 kHz MPEG-2.5 CBR −156.0 ms, 11.025 kHz VBR −151.0, 44.1 kHz
   with cover −45.1, 44.1 kHz CBR −32.1; library, bundled n7.1 raw vs product: 8 kHz −160, 12 kHz −116, 16 kHz
   −72 / −90, 22.05 kHz −71.8…−76.2, 24 kHz −52 / −70, 32 kHz −48 / −52, 44.1 / 48 kHz −26.9…−50.2 — in every case
   the product equals two independent ffprobes and the decoded sample count. Suggested wording: "(encoder delay +
   padding) / sample rate: about −25 ms at 48 kHz to −160 ms at 8 kHz; the lower the rate, the more".
-- **N1 (note):** reconcile does not stamp failed probes (`library-reconcile.ts`: no stamp when `probeOf` returns
+- **N1 (note) — recorded in fix round 3 (docs):** reconcile does not stamp failed probes (`library-reconcile.ts`: no stamp when `probeOf` returns
   undefined) — `Status.md:98-99` says upsert, reconcile and back-fill all do. On a fresh scan 9 of 20 inline probes
-  failed unstamped; the back-fill re-probed then stamped them (~1–2 s of "(probing)").
-- **N2 (note):** a truncated mp3 whose Xing header says 5.0 s (9 KB, decodes 0.52 s) lists "5.00 s" — the same as
+  failed unstamped; the back-fill re-probed then stamped them (~1–2 s of "(probing)"). Confirmed by builder #8 in the
+  code: `library-reconcile.ts:74` / `:113` / `:163` stamp only when `probe` is truthy; upsert `library-store.ts:164`
+  `makeProbeStamp(stat, !probe)` and back-fill `library-backfill.ts:94` `makeProbeStamp(p, !p.probe)` stamp a failure.
+- **N2 (note) — recorded in fix round 3 (docs):** a truncated mp3 whose Xing header says 5.0 s (9 KB, decodes 0.52 s) lists "5.00 s" — the same as
   both independent ffprobes (header length). `.aac` random bytes → 1.57 s = gyan's estimate (the named limit).
 - **N3 (note, nit):** `upsertEntry` probes before the chain's `stat`; a rewrite in that gap would stamp an old
   probe with the new size/mtime.
@@ -638,8 +688,9 @@ N2`), set `status: DONE`, return. No app launch, no profile copy, no full vitest
   (2) still unmeasured: the first Assets scan of a BIG drop with ≤ 20 inline probes (the seeded drop of 3
   changed files was instant) — say so in STATUS, not a gate.
 - **Behaviour change outside the library (from the mp3 fix):** `probeMedia` is also Studio's import
-  probe, so a LAME/Lavf mp3 imported into a Studio project now gets its gapless length (about −25 to −115 ms vs
-  before, the lower the sample rate the more — V2-2). Already-saved projects keep their stored probe. In STATUS.
+  probe, so a LAME/Lavf mp3 imported into a Studio project now gets its gapless length — shorter by (encoder delay +
+  padding) / sample rate, about −25 ms at 48 kHz to −160 ms at 8 kHz, the lower the rate the more (V2-2, then R2 in fix
+  round 3). Already-saved projects keep their stored probe. In STATUS.
 - **Known limits (fix round 2, in STATUS):** random bytes named `.aac` get an estimated ffprobe length (rc 0) and list as
   a duration; Studio's own import of a 0-duration file is unchanged (pre-E1 behaviour — a candidate follow-up).
 - `list_assets` output prints `length unknown (probing)` for a media entry without a probe; durations use
@@ -665,6 +716,9 @@ N2`), set `status: DONE`, return. No app launch, no profile copy, no full vitest
 - Fix round 2 (builder #7): V2-1 code + `library-probe-duration.test.ts` (red 12/12 → green), W1 control case, V2-2 / W2 /
   W3 docs, the live garbage re-measure (`assets\e1-fix2\` is in the E1 profile's library — re-running
   `garbage.e1.test.ts` reuses the same files), full run #4, rule (b) on the 33-file diff, types.
+- Fix round 3 (builder #8, docs only): the R1 / R2 / N1 / N2 wording in Status, TESTING §18.14, the `media-import.ts:123-126`
+  comment, this file and LOG.md; the E1-suite + E-d5-control gate and the type counts on that commit. No live re-measure was
+  needed (nothing in `src/` changed behaviour) and none was done.
 
 ## For Hasan (real-video list candidates)
 
@@ -698,3 +752,7 @@ N2`), set `status: DONE`, return. No app launch, no profile copy, no full vitest
   W1 pinned in the E-d5 control (6/6); V2-2 range, W2 consumers, W3 method in Status / TESTING / the code comment; live
   garbage re-measure through the real upsert / back-fill / `list_assets` (app not launched); full run #4 + rule (b) +
   types 26/10. DONE; nothing running.
+- 2026-10-24 · builder #8 (fix round 3, DOCS ONLY) · ~35 · read the resurrect / stamp code to confirm R1 and N1 (file:line);
+  R1 resurrect path, R2 mp3 range (−25 ms at 48 kHz … −160 ms at 8 kHz), N1 who stamps a failed probe, N2 truncated-mp3
+  header length — in Status / TESTING §18.14 / the `media-import.ts` comment (comment text only, checked with `git diff`);
+  E1 suites + E-d5 control + types as the gate; no launch, no profile copy, no full run. DONE; nothing running.

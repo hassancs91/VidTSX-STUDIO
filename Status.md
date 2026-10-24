@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE (fix round 2 after verifier FAIL 2)
+## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE (fix round 3, docs only, after verifier FAIL 3 on the records)
 
 - **What:** part E1 of `docs/studio/END_TO_END_PLAN.md` (track E, session 4; worktree branch `end-to-end-p0-e`, cut from
   `end-to-end-p0` @ `5d77600` — orchestrator decision E-d1). Row: "Index v2: `kind`, `probe` on upsert, `tags`, `audio`,
@@ -44,10 +44,15 @@
 - **E-d5 downgrade safety (control test, red first):** `pre-e1-control.test.ts` runs the FROZEN pre-E1 store on an
   E1-written index: the old `loadIndex` reads it whole (`version: 1` + `rev: 2` is NOT its empty index); old
   `setDescription` / `upsertEntry` keep every field, old and new, and `rev`; an old `scanLibrary` keeps everything on
-  untouched + moved entries, clears `probe` on touched ones, tombstones THE OLD SCAN CREATES lose `kind probe tags audio
-  usedIn` (a tombstone the E1 code already made keeps every field under every old write — pinned in fix round 2), new
-  files get no `kind`, and `rev` is DROPPED → the next E1 start re-migrates (backup kept from the first run, kinds back, the back-fill
-  re-probes). **Every pre-E1 field survives every old write** — Hasan's installed 1.1.x app and the main branch read an E1
+  untouched + moved entries, clears `probe` on touched ones, tombstones THE OLD SCAN CREATES lose `kind probe probeStamp
+  tags audio usedIn`, and a tombstone the E1 code already made keeps every field only while it STAYS a tombstone (old
+  `setDescription` / `upsertEntry`, an old scan that does not resurrect it — pinned in fix round 2): **an old scan that
+  RESURRECTS it** (the same bytes back while an old app runs) rebuilds the entry from the pre-E1 fields only — the frozen
+  `resurrect()` (`pre-e1-control/library-reconcile.ts:45-60`) names `relPath hash description brandId origin addedAt size
+  mtimeMs`, so `kind`, `probe`, `probeStamp`, `tags`, `usedIn`, `audio` are LOST; the next E1 start restores `kind` (derived
+  on read, written by the migration) and `probe` (the back-fill), while `tags` / `audio` / `usedIn` are gone (fix round 3,
+  R1 — the earlier record "keeps every field under every old write" was false); new files get no `kind`, and `rev` is
+  DROPPED → the next E1 start re-migrates (backup kept from the first run, kinds back, the back-fill re-probes). **Every pre-E1 field survives every old write** — Hasan's installed 1.1.x app and the main branch read an E1
   library without loss.
 - **The live click-through** (the worktree's own build `wt/out`, no Vite server, CDP 9261; profile
   `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E1\profile` copied from `source` WITHOUT `settings.db`; library root
@@ -73,11 +78,14 @@
   a 1.3 s tone; ffprobe n8 trims them). `mp3-gapless.ts` reads the Xing/Info + LAME tag (frame count, delay, padding;
   MPEG-1/2/2.5, ID3v2 skipped) and trims only when ffprobe's value equals the untrimmed frame total within 1 ms (a newer
   ffprobe that already trims is left alone); `probeMedia` applies it to every mp3 without a real video stream. **`probeMedia`
-  is also Studio's import probe: an mp3 imported into a Studio project now gets its gapless length — about −25 to −115 ms
-  vs before, the lower the sample rate, the more (both verifiers, measured: 44.1 / 48 kHz −27.0…−51.2 — e.g. 48 kHz VBR
-  mono −27.0, cover-art 44.1 kHz −30.2, narration −41, catalog sfx −42.4, 48 kHz tone −44, long VBR −50.4; 32 kHz −62.0;
-  22.05 kHz −53.8…−70.2; 11.025 kHz MPEG-2.5 CBR −115.0, 2.3510 → 2.2360 s); already-saved projects keep their stored
-  probe.**
+  is also Studio's import probe: an mp3 imported into a Studio project now gets its gapless length — shorter than before by
+  (encoder delay + padding) / sample rate: about −25 ms at 48 kHz to −160 ms at 8 kHz; the lower the rate, the more
+  (verifier rounds 1–3, measured; in every case the product equals two independent ffprobes and the decoded sample count:
+  8 kHz MPEG-2.5 CBR −156.0 on a real Studio import / −160 in the library; 11.025 kHz VBR −151.0, MPEG-2.5 CBR −115.0
+  (2.3510 → 2.2360 s); 12 kHz −116; 16 kHz −72 / −90; 22.05 kHz −53.8…−76.2; 24 kHz −52 / −70; 32 kHz −48…−62.0;
+  44.1 / 48 kHz −26.9…−51.2 — e.g. 48 kHz VBR mono −27.0, cover-art 44.1 kHz −30.2, 44.1 kHz CBR −32.1, narration −41,
+  catalog sfx −42.4, 48 kHz tone −44, 44.1 kHz with cover on a Studio import −45.1, long VBR −50.4); fix round 3, R2 — the
+  earlier "about −25 to −115 ms" understated it; already-saved projects keep their stored probe.**
 - **Fix round 1 (verifier FAIL 1, 2026-10-23), red first:**
   - **V1-1 / V1-2 — cover art:** an ID3 cover picture is a "video" stream to ffprobe (mjpeg / png, `attached_pic: 1`), so
     an mp3 with cover art skipped the gapless trim (+30.2 ms, over the exit's 10 ms) and was recorded as `codec: mjpeg,
@@ -95,11 +103,16 @@
   - **V1-4 / V1-5 — the probe stamp:** `LibraryIndexV2Fields.probeStamp?: { size, mtimeMs, failed? }` (optional; entry +
     tombstone) = the file version a probe — or a failed probe — was measured on. `library-probe-state.ts` (pure)
     `probeStateOf` → `ok` (stamp fits, or no stamp: trusted) / `stale` (stamp ≠ the entry's size/mtime: an older app kept
-    the probe across a rewrite) / `failed` (failed on this very version) / `missing`. Upsert, reconcile and the back-fill
-    stamp what they measure; a failure is stamped (persisted — the back-fill's in-memory no-retry set is gone), so an
-    unreadable file is not retried until it changes, across restarts, and lists as `length unknown (unreadable)`; a stale
-    probe lists as `(probing)` (never the stale number) and the back-fill (kicked by every scan and at start) re-probes
-    it. Unit `library-probe-stamp.test.ts` (4; 3 red on `eb533e4`).
+    the probe across a rewrite) / `failed` (failed on this very version) / `missing`. Upsert (`library-store.ts:164`) and the
+    back-fill (`library-backfill.ts:94`) stamp what they measure, a failure too (`failed: true`, persisted — the back-fill's
+    in-memory no-retry set is gone), so an unreadable file is not retried until it changes, across restarts, and lists as
+    `length unknown (unreadable)`. The reconcile does NOT stamp a failed probe — it stamps only a probe it got
+    (`library-reconcile.ts:74`, `:113`, `:163`), so a file that fails inline during a scan is left with no probe and no stamp
+    (`missing`), and the back-fill the scan kicks re-probes and stamps it (fix round 3, N1 — the earlier "upsert, reconcile
+    and the back-fill stamp" was wrong about the reconcile; verifier 3: 9 of 20 inline probes failed on a fresh scan and
+    listed `(probing)` for ~1–2 s until the back-fill stamped them). A stale probe lists as `(probing)` (never the stale
+    number) and the back-fill (kicked by every scan and at start) re-probes it. Unit `library-probe-stamp.test.ts` (4; 3 red
+    on `eb533e4`).
   - **Live re-measure (the real `probeMedia` + `list_assets`, E1 profile, app stopped):** `e1-seed\cover-art.mp3` (3.0 s
     LAME 44.1 kHz sine + a 320×320 png cover, made by the profile's ffmpeg-full; independent ffprobe n8.1.2: `3.000000`,
     streams mp3 + png `attached_pic=1`; the bundled n7.1 raw: `3.030204`) → the REAL `upsertEntry` → index `probe
@@ -112,7 +125,8 @@
     `sample_rate=0` and `format.duration=N/A`; `probeMedia`'s `parseFloat(…) || 0` (pre-E1, `media-import.ts`) made it
     `{duration: 0, codec: flac}`, which the library stamped good and listed `0.00 s`. Now `probeLibraryFile`
     (`library-probe.ts`) treats an audio / video probe without a finite duration > 0 as a FAILED probe (returns undefined →
-    upsert / reconcile / back-fill stamp it `failed` → `length unknown (unreadable)`); `probeStateOf`
+    upsert and the back-fill stamp it `failed` → `length unknown (unreadable)`; the reconcile leaves such an entry unprobed
+    and unstamped, and the back-fill it kicks fails it — N1); `probeStateOf`
     (`library-probe-state.ts`, `hasUsableDuration`) never trusts such a probe already in an index (written by the
     fix-round-1 code): `stale` → listed `(probing)` → the back-fill re-probes and stamps it failed; `upsertEntry` no longer
     keeps one for an unchanged file. Unit `library-probe-duration.test.ts` (12; all 12 red on `1312e09`'s code).
@@ -169,6 +183,27 @@
   that no file of `git diff --name-only 5d77600..HEAD` is in any graph. E1 suites + the E-d5 control
   (`src/main/services/library` + listing + probe + gapless + kinds + asset-library) → 22 files, 181 tests green; the
   control alone 6/6. Types: web 26, node 10 = baseline.
+- **Fix round 3 (verifier FAIL 3 on the RECORDS only, 2026-10-24) — docs only, no behaviour change in `src/`:** the exit,
+  the gates, E-d5 and every earlier finding passed verifier 3; its findings were wrong or missing statements in this entry,
+  TESTING §18.14 and one code comment. Corrected above: **R1** (E-d5 — an old scan that RESURRECTS an E1 tombstone loses
+  the new fields; the earlier "keeps every field under every old write" was false), **R2** (the mp3 trim range is
+  (delay + padding) / sample rate, −25 ms at 48 kHz to −160 ms at 8 kHz; "−25 to −115" understated it), **N1** (the
+  reconcile does not stamp a failed probe; upsert and the back-fill do). The `media-import.ts:123-126` comment carries the
+  R2 range (comment text only). Recorded:
+  - **Known limit (N2, an ffprobe limit, recorded, not fixed):** a TRUNCATED mp3 whose Xing header announces the full
+    length (verifier 3: 9 KB, 5.0 s in the header, 0.52 s of audio) lists the header length (`5.00 s`) — the same as both
+    independent ffprobes (n8.1.2, gyan 2025-11): the duration comes from the header, not from decoding. Same class as the
+    `.aac` estimate above (verifier 3's random `.aac` bytes: 1.57 s = gyan's estimate).
+  - Not findings (verifier 3): N3 — `upsertEntry` probes before the chain's `stat`, so a rewrite in that gap would stamp an
+    old probe with the new size / mtime (nit, open); N5 — proxy jobs fail for an audio-only `.mp4` with cover art and an
+    `mp3-only.mp4` has no thumbnail — pre-E1 behaviour (the proxy reads only `probe.duration`, unchanged by E1).
+- **Gates after fix round 3 (2026-10-24 08:46, docs only):** guard C: 47.5 GB free, D: 25.8 GB; no E1 instance, no launch, no
+  profile copy, no full run (nothing in `src/` changed behaviour — `git diff` of `media-import.ts` shows comment lines only).
+  E1 suites + the E-d5 control from the worktree (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/library src/main/services/studio/agent-tools/library-listing.test.ts
+  src/main/services/studio/media-import-probe.test.ts src/main/services/studio/mp3-gapless.test.ts
+  src/shared/media-kinds.test.ts`): **20 files, 170 tests passed, 3.5 s** (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\fix3\e1-suites.log`).
+  Types: `tsc -p tsconfig.web.check.json` → 26, `-p tsconfig.node.check.json` → 10 = baseline (`…\E1\fix3\tsc-web.log`, `tsc-node.log`).
 - **Not measured / open:** the first Assets scan of a BIG drop (≤ 20 inline probes per scan, the rest to the back-fill) —
   the seeded drop of 3 changed files was instant; a library-root override changed at runtime is migrated at the next start
   (until then it reads fine: kinds derived on read, the first E1 write backs it up and writes rev 2). E2 fills `tags` /
