@@ -1,3 +1,75 @@
+# Next session — END_TO_END_PLAN.md, session 5 (track E, continued)
+
+> **This file's current copy lives on branch `end-to-end-p0-e`** (worktree
+> `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`); the main checkout's copy (branch `end-to-end-p0`) is the
+> session-3 one. Session 4 (2026-10-23, track E only) stopped after three verifier FAILs on E1 — the third on the
+> records alone. Hasan, 2026-10-24: "lets continue in a new session".
+
+## Session 5 — paste into a new Claude Code session at `D:\repos\VidTSX-STUDIO`
+
+```
+You are the ORCHESTRATOR for docs/studio/END_TO_END_PLAN.md, track E only (SFX as library content),
+session 5. Track E lives on the local branch end-to-end-p0-e in the git worktree
+D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt — read every doc below FROM THAT WORKTREE (the main
+checkout's copies are older). Follow docs/studio/END_TO_END_RUN.md (the loop, the 30 % hand-off rule, the
+builder and verifier briefs, the stop report, the "things you never do") with the overrides below. Read
+first: CLAUDE.md; docs/studio/END_TO_END_PLAN.md (esp. §0 E5, §1.6, T6, §3 Track E, §5); the top of
+Status.md (the E1 entry); docs/studio/end-to-end/NEXT-SESSION.md (state + lessons); docs/studio/end-to-end/
+ORCHESTRATOR.md ("Answers in force", "Session 4 — track E" with decisions E-d1…E-d10 + E-d2a, "Session 4
+log", "For Hasan's real-video test"); docs/studio/end-to-end/DRIVING.md (esp. "Track E": the worktree
+rules, the launch recipe, the vitest-gate rule, "Studio root FIRST"); docs/studio/end-to-end/E1/HANDOFF.md;
+docs/ui-automation-cdp.md; docs/studio/TESTING.md §17–18.
+
+FIRST check the main checkout: if its uncommitted work is gone/committed and Hasan's dev app is not running,
+say so in one line; either way keep working in the worktree (decision E-d1) unless I say to land it.
+
+SCOPE, in order, no stop between parts: (1) E1 — a DOCS-ONLY fix round 3 (E1 HANDOFF "Next step": R1, R2,
+N1, N2 in Status.md, TESTING §18.14, the media-import.ts:123-125 comment text, HANDOFF) and a verifier
+round 4 that checks the records only (the exit, gates and controls passed in round 3 at a35aef3; it
+re-checks that the docs commit changed no code); a FAIL there stops the run again. (2) E2 → E4 → E3 → the
+track-E exit (E4 before E3: E3's exit — the whoosh case — needs the imported library). Stop after the
+track-E exit, on BLOCKED, or after three verifier FAILs on one part (E1's count continues at 3 → round 4
+is its last). Do NOT touch B7's verifier, the track-B exit, or tracks C, D, F. Anything that needs my
+hands, ears or keys: build + verify up to it, mark it DEFERRED-HASAN, add it to ORCHESTRATOR's "For Hasan's
+real-video test" list, continue.
+
+OVERRIDES for the whole run
+- Answers in force: ORCHESTRATOR.md Q1–Q6 — Q2 for E2: generated SFX normalized at generation to −20 LUFS
+  under −1.5 dBFS — and decisions E-d1…E-d10, E-d2a (rule (a) withdrawn).
+- Paid providers: no call on a paid key. ElevenLabs generation (E2, any generation in E3) is built and
+  verified against a stand-in (a locally made sound through the same save / normalize / index path); the
+  one live ElevenLabs call goes on my real-video list. E3's exit itself needs no generation.
+- Model calls only through the app's own keyless Claude subscription provider, only as much as a part needs
+  (E3's assistant turns, the track-E exit); never a paid API key provider; never read, copy or open a
+  credential store (settings.db, ~/.claude, any profile's) — profile copies exclude settings.db*.
+- The library: every index migration, import and generation runs on an ISOLATED profile; never my
+  %APPDATA%\VidTSX Studio library or my projects. E4 reads the reference sfx/ and music/ catalogs named in
+  the plan's §1.6 read-only; the editor repo D:\repos\claude-youtube-editor is never written (Python there
+  only with -I -B).
+- Resource guard: before any launch, copy or full test run check C: free AND memory commit headroom
+  (Windows grows C:\pagefile.sys when commit nears the limit); live steps need C: ≥ 3 GB and (C: free +
+  headroom) ≥ 6 GB, with a watchdog that stops only our app if C: < 1.5 GB; full vitest with
+  --maxWorkers=2 while headroom < 10 GB; big scratch on D:.
+- Every builder brief adds: "Work only in the worktree (E-d1, E-d2; never npx/npm there, never git stash,
+  never touch the main checkout, its out/ or node_modules). Also read docs/studio/end-to-end/DRIVING.md and
+  the 'Track B decisions' section of ORCHESTRATOR.md. Edit HANDOFF.md with the Edit/Write tools. Never hand
+  back while a job you started is still running. Select your own processes by --remote-debugging-port or
+  profile path plus Name='electron.exe', never a bare number. Set the isolated profile's Studio root in the
+  first CDP call. Never touch Hasan's stations (B1-verify-root + profiles\B1-verify, B5-station-root +
+  profiles\B5-station) or any B6/B7 run scratch. Write HANDOFF.md as you go and commit early (agents can die
+  on API errors)."
+- Anything written for me to do by hand is walked literally with real mouse input by the builder AND the
+  verifier before it reaches me — and goes on the real-video list, not to me mid-run.
+- Verifiers get the exit, DRIVING.md's safety rules, the commit range and earlier findings — never the
+  builder's conclusions — and build their own negative and control cases.
+- The orchestrator writes only under docs/studio/end-to-end/ (in the worktree) and commits after each
+  update. At the stop, update NEXT-SESSION.md's state (track E's result) so the later B7-verifier → B exit →
+  C → D → F resume stays correct, and say there what E changed in files C/D/F also touch. Never push;
+  landing end-to-end-p0-e on end-to-end-p0, and merging end-to-end-p0 into main, are my calls.
+```
+
+## Earlier: session 4's header (2026-10-23)
+
 # Next session — END_TO_END_PLAN.md, session 4 (from B7's verifier on)
 
 > Written 2026-10-23 17:45 by the session-3 orchestrator, at Hasan's stop ("please stop after this task
