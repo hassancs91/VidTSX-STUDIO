@@ -243,26 +243,90 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
    write when unchanged / paths outside the root dropped), seam tests for (1) and (2) with the import mocked,
    `library-listing.test.ts` (+ the E2 extras).
 
+### Built (builder #1) — commit `60b5537` (design §1 "normalize step" only; the call site is NOT wired yet)
+
+- `src/main/services/library/audio-loudness-rule.ts` (pure, 85 lines): `LOUDNESS_TARGET_LUFS = -20`,
+  `LOUDNESS_CEILING_DBFS = -1.5`, `LOUDNESS_GATED_BELOW_LUFS = -50`, `LOUDNESS_MIN_GAIN_DB = 0.1`;
+  `parseLoudnormStats(stderr)` (`input_i` / `input_tp`, `-inf` → `-Infinity`, null without a block);
+  `planLoudnessGain(stats, target?, ceiling?)` → `{ gainDb (0.01 dB), clamped, gated, skipped }` — the `gen_sfx.py` rule.
+- `src/main/services/library/audio-normalize.ts` (≈170 lines): `measureLoudness(abs, opts)` (one `loudnorm=I:TP:LRA=11:
+  print_format=json` pass, `-vn -f null -`, stats off a 16 KB stderr tail), `applyGain(abs, gainDb, signal)` (one
+  re-encode `-af volume=<g>dB` into `<abs>.norm-tmp<ext>` → `fs.rename` over the original; `ENCODE_BY_EXT`: `.mp3`
+  libmp3lame **192k** `-f mp3`, `.wav` pcm_s16le, `.m4a` aac 192k `-f mp4`, `.aac` aac `-f adts`, `.ogg`/`.opus` libopus
+  128k; else "unsupported container"), `normalizeAudioFile(abs, { targetLufs?, ceilingDbfs?, signal? })` →
+  `AudioNormalizeResult { normalized, loudnessLufs?, peakDbfs?, gainDb, clamped, gated, skipped, error?, before? }`;
+  `NORMALIZE_TIMEOUT_MS` 120 s per pass (an `AbortController` fed by the timer and the caller's signal; a timeout reads
+  "ffmpeg timed out after 120 s", a caller abort "Cancelled"). Failure policy as designed: measure failed → `normalized:
+  false, error: 'measure failed: …'`, nothing written; apply failed → the temp output removed, the original untouched,
+  `error: 'apply failed: …'`, `loudnessLufs` / `peakDbfs` = the measured (unchanged) file; re-measure failed → applied,
+  predicted values recorded + a warn. Uses `getFfmpegBinary` / `runFfmpeg` from `../studio/ffmpeg-bin` (the
+  library→studio import already exists for `hashFileHead`).
+- `src/shared/types/asset-library.ts:27-51` `LibraryAudioMeta` gains `peakKind?: 'true' | 'sample'`, `gainDb?`,
+  `normalizeError?` (optional); the `peakDbfs` comment names the two writers (E2 true peak, E4 sample peak).
+- Tests: `audio-loudness-rule.test.ts` (10: parse incl. `-inf` / non-number; down / up / clamp / gated −70 and `-inf` /
+  the −50 edge / skip < 0.1 (0.1 applied) / silence / custom target+ceiling) and `audio-normalize.test.ts` (8, the REAL
+  bundled ffmpeg, only `../../utils/paths` mocked; fixtures = JS-written 48 kHz mono 16-bit WAVs: (A) tone + 5 ms spike
+  → down, not clamped, −20 ± 0.5, peak ≤ −1.5, JS sample peak within 0.3 dB of `tp + gain`, second analysis pass −20 ±
+  0.5; (B) click train → `clamped`, `gainDb = −1.5 − tp` ± 0.02, peak −1.5 ± 0.1, LUFS < −22; (C) 0.3 s burst → `gated`,
+  peak −1.5 ± 0.1 — so the bundled `loudnorm` reports a gated / `-inf` (or < −50) integrated value for a 0.3 s file;
+  (D) 6 s bed → up > 5 dB, −20 ± 0.5; (E) a 128k mp3 of (A) → `.mp3` kept, −20 ± 0.5, gapless duration (ffprobe −
+  LAME delay/padding) within 10 ms of the input and of 3.000 s; (F) WAV bytes named `.flac` → `apply failed:
+  unsupported container`, bytes byte-equal, measured values recorded, no temp file; an empty `.mp3` → `measure failed`,
+  still 0 bytes; `AbortSignal.abort()` → `Cancelled`, bytes unchanged). **Known limit (for the record):** the ceiling is
+  applied to the pre-encode true peak; on an mp3 with transients the post-encode peak can sit a few tenths of a dB
+  off the ceiling — recorded as measured (one re-encode, the gen_sfx rule), not forced; the WAV fixtures pin the rule
+  exactly, the mp3 fixture pins the loudness + duration.
+- NOT built yet: the call site in `generateAudioAsset` + `audio` / `tags` (design §1 "Call site", §3), the stand-in (§2),
+  `usedIn` (§4), the listing row (§5), the remaining tests of §6, the live check.
+
 ## Verified (exact commands + outputs)
 
-(nothing yet)
+- 2026-10-24 · builder #1 · from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/library/audio-loudness-rule.test.ts src/main/services/library/audio-normalize.test.ts` BEFORE the
+  implementation existed → `Test Files 2 failed (2) · Tests no tests` ("Error: Cannot find module './audio-loudness-rule'
+  …", "Cannot find module '/src/main/services/library/audio-normalize'") — `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\
+  a-red.log`; AFTER → `Test Files 2 passed (2) · Tests 18 passed (18) · Duration 3.64s` — `…\E2\a-green-1.log`.
+- Types on `60b5537`: `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.web.check.json --noEmit` →
+  26 `error TS` lines; `-p tsconfig.node.check.json` → 10; none in the new or edited files (`…\E2\tsc-web-1.log`,
+  `tsc-node-1.log`).
+- Bundled ffmpeg toolset re-check (2026-10-24, `node_modules/@remotion/compositor-win32-x64-msvc/ffmpeg.exe -filters /
+  -encoders / -muxers`, n7.1): in the design note's first paragraph. Node for the tests: v22.14.0.
+- No launch, no profile copy, no live step yet (no resource check needed so far).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #1:** read this file, then the files named under "§1.6 facts" (≈ 700 lines; do not read more than you
-need), and write a **design note** here (under Done) before building: (a) the normalize step — where it runs
-(inside `generateAudioAsset` between `fs.writeFile` and `upsertEntry`, as a pure service, e.g.
-`src/main/services/library/audio-normalize.ts` ≤ 300 lines: measure (loudnorm analysis JSON) → gain rule (gen_sfx) →
-apply (`volume`, one re-encode, same ext) → re-measure → `{ loudnessLufs, peakDbfs, gainDb, clamped, gated }`), its
-failure policy (ffmpeg missing / fails → the file is kept un-normalized and the entry says so — never lose the
-generated bytes), and how it is unit-tested through the REAL bundled ffmpeg (fixtures made with `anullsrc` /
-`sine` / `anoisesrc` if present — check `-filters`; otherwise write PCM wavs from a few lines of JS); (b) the stand-in
-provider (E-d6) — dev-only, env-named file, `costUsd 0`, `source 'standin'`; (c) `category` + `tags` on
-`generate_sfx` / `generate_music` and the `audio` record (`source` = the provider id, `model` = the engine's);
-(d) the `usedIn` helper in `library-store.ts` + the three seams; (e) the `list_assets` row format; (f) the test
-list, red first. Then build (a) + its tests, commit at a green checkpoint, and hand off or continue by the 30 %
-rule. Pure ops with unit tests first, then the seams, then the live check (rebuild `wt/out` after every `src/`
-change — ~2 min).
+**Builder #2:** wire the call site, the stand-in and the args — design §1 "Call site", §2, §3 — red first. (1) Tests:
+update `src/main/services/library/generate-audio-asset.test.ts` (add `vi.mock('./audio-normalize', …)` →
+`normalizeAudioFile` mock resolving `{ normalized: true, loudnessLufs: -20.01, peakDbfs: -8.2, gainDb: -8, clamped:
+false, gated: false, skipped: false }`; `upsertEntry` must receive `{ origin, description, brandId?, tags: [...],
+audio: { category?, loudnessLufs, peakDbfs, peakKind: 'true', source: 'elevenlabs', model: 'eleven_text_to_sound_v2',
+gainDb } }`; a `normalized: false, error: 'apply failed: x'` mock → `audio.normalizeError: 'apply failed: x'` and the
+file still on disk; `durationSeconds` = `upsertEntry`'s returned `probe.duration` when present, else the engine's 3;
+`tags` normalized — trim / lower-case / dedupe / cap 20; `category` lower-cased), update `src/main/services/studio/
+agent-tools/audio-tools.test.ts` (`generate_sfx({ prompt, category: 'motion', tags: ['Whoosh', 'air'] })` passes
+`category` + `tags` to `generateAudioAsset`; the answer text contains the LUFS (`−20.0 LUFS`) and the probed
+duration; a `normalized: false` result → the text says "NOT loudness-normalized (<error>) — the raw file is kept";
+`generate_music` likewise), and give the agents' `src/main/services/agents/tools/generate-audio.test.ts` mock
+`normalized: true` (keep it green — no arg change there). Run the three → red. (2) Code: `generate-audio-asset.ts`
+(request gains `category?: string`, `tags?: string[]`; after `fs.writeFile`: `const norm = await
+normalizeAudioFile(absPath, { signal: req.signal })`; `upsertEntry(root, relPath, { origin, description, brandId?,
+tags?, audio })` with the `audio` meta of design §1; result gains `normalized`, `loudnessLufs?`, `peakDbfs?`,
+`normalizeError?`, `category?`, `tags?`, and `durationSeconds = entry.probe?.duration ?? result.durationSec`);
+`normalizeTags(tags?: string[]): string[] | undefined` in `library-filing.ts` (+ 2 cases in `library-filing.test.ts`);
+`audio-tools.ts` (both tools: `category: z.string().min(1).max(40).optional()` described with motion / tension /
+emphasis / snap / foley / reward / texture / impact (music: bed / sting / …), `tags: z.array(z.string().min(1)).max(20)
+.optional()`; the answer line as designed); the stand-in: `src/audio-engine/generation/providers/standin-audio-provider.ts`
+(`StandinAudioProvider(filePath)`, `id 'standin'`, `generate()` → `{ bytes: await fs.readFile(filePath), contentType:
+'audio/mpeg', model: 'standin' }`, `pricePerSecondUsd() → 0`) + its test (bytes back; through
+`createAudioGenerationEngine().registerInstance(provider)` → `generate({ kind:'sfx', prompt:'x', durationSec: 2 })`
+gives `providerId 'standin'`, `model 'standin'`, `costUsd 0`, `ext '.mp3'`); `src/main/services/audio-generation-standin.ts`
+`registerDevStandinProvider(): boolean` (only when `!app.isPackaged` AND `process.env.VIDTSX_AUDIO_STANDIN_FILE` names
+an existing file; `log.warn` naming the file when it registers — it is a dev seam), called at the END of
+`initAudioGenerationEngine` in `audio-generation-init.ts` (after the BYOK loop; `audio-generation-init` has no test —
+unit-test the helper with `electron` mocked: packaged → false / no env → false / file missing → false / ok → registered).
+Run → green; types 26 / 10; commit `feat(studio): E2 — generation records loudness, category, tags; the dev stand-in
+provider` (explicit paths); then continue with §4 (`usedIn`: `library-used-in.ts` + `libraryRelPathOf` + the three
+seams, tests red first) and §5 (the listing row) by the 30 % rule — hand off after a step with the HANDOFF updated.
 
 ## Open problems
 
@@ -270,7 +334,12 @@ change — ~2 min).
 
 ## Do-not-redo
 
-(nothing yet)
+- The design note (code already read: the list in its first paragraph — do not re-read those files beyond the lines
+  you edit).
+- `audio-loudness-rule.ts` + `audio-normalize.ts` + their 18 tests (green at `60b5537`; the red run is recorded under
+  Verified). The `LibraryAudioMeta` additions.
+- The bundled-ffmpeg toolset re-check of 2026-10-24 (`anoisesrc` absent; `sine` / `anullsrc` present — the fixtures are
+  JS-written WAVs anyway).
 
 ## For Hasan (real-video list candidates)
 
@@ -279,4 +348,7 @@ change — ~2 min).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
-(none yet)
+- 2026-10-24 · builder #1 · ~30 · read the brief's docs (HANDOFF, DRIVING, ORCHESTRATOR B/4/5, PLAN §1.6 / T6 / track E,
+  TESTING §17 / §18.14, E1 design + fix rounds + do-not-redo) and ≈ 1,600 lines of code; wrote the design note (a)–(f);
+  built design §1's normalizer + rule red → green (18 tests through the real bundled ffmpeg), types 26 / 10, commit
+  `60b5537`; records + hand-off. No launch, no profile copy, no live step.
