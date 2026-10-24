@@ -798,3 +798,4 @@
   `…\vidtsx-e2e\E1-verify4\`.
 - 09:40 · E3 + E4 HANDOFF.md / LOG.md drafted by the orchestrator (status NEW; E4 before E3). E2 builder #1 spawned
   (CDP 9262, profile E2).
+- 10:20 · E2 builder #1 HANDOFF (~30 calls): design note (a)–(f); the normalizer `audio-loudness-rule.ts` + `audio-normalize.ts` on the bundled ffmpeg (loudnorm analysis → gen_sfx gain rule → one `volume` re-encode, mp3 192k, failure keeps the bytes), 18 real-ffmpeg tests red → green, types 26 / 10 — `60b5537`; docs `70bb70f`. `peakDbfs` = TRUE peak (dBTP) for generated sounds, `peakKind` field added. Builder #2 spawned (call site + stand-in + args).
