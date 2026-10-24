@@ -7,8 +7,11 @@ status: BUILDING
 > is the base: `kind` / `probe` / `probeStamp` / `tags` / `audio` / `usedIn` exist as optional index fields;
 > since `841e311` (builder #2) generation writes `tags` + `audio`; since `68bbe44` (builder #3) `usedIn` is written on
 > the three landings (§4 done); since `3084668` (builder #4) the listing row prints category / tags / LUFS / `usedIn`
-> (§5 done — the code of E2 is complete). The LIVE step is next; the E2 profile and the two stand-in sounds are
-> already made and measured (builder #4, under Verified) — nothing left to design.
+> (§5 done — the code of E2 is complete). **The LIVE step is DONE (builder #5, 2026-10-24): the exit's items 1–4,
+> the ceiling-binding case and the music path ran through the REAL handlers on the E2 profile with the stand-ins,
+> every number is in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit.json` + `exit-summary.md`; the live CDP
+> click-through (port 9262) and its still are taken; the gates ran (under Verified).** The RECORDS are next
+> (Status.md entry, TESTING §18.15, V4-N1, HANDOFF DONE, LOG) — nothing left to measure.
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -392,6 +395,44 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   `standin-quiet.mp3` (the ceiling-binding sound: a uniform 1 ms burst train, see Verified for its I / peak — its gain to
   −20 pushes the peak over −1.5, so the clamp rule must fire).
 
+### Live step (builder #5, 2026-10-24 — no `src/` change; drivers + evidence only)
+
+- **Scratch kit** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\` (copied from E1's and adapted): `launch.sh` (profile
+  `profiles/E2/profile`, port **9262**, log `…\vidtsx-e2e\E2\app-1.log`, `export VIDTSX_AUDIO_STANDIN_FILE=C:/Users/hasan/AppData/
+  Local/vidtsx-e2e/E2/standin.mp3` before the `exec`), `restore.ps1` / `watchdog.ps1` (E2 marks, watchdog log `…\E2\watchdog.log`),
+  `vitest.e2.config.ts` (`include: ['*.e2.test.ts']`, own `cacheDir`), `cdp.mjs` (E1's on 9262), **`live.mjs`** (`root` = `studioRootSet`
+  FIRST + `studioRootGet` + `libraryRootGet`; `assets` = Assets nav → `button[title="Refresh"]` → `dblclick` on the `generated`
+  tile (`div[title="generated"]` → parent tile `[title=<abs path>]`) → tile names (`div[title$=.mp3]`) → click the whoosh tile →
+  visible leaf texts; `shot` = `restore.ps1` spawned in the SAME call, then `Page.captureScreenshot` raced against 20 s),
+  **`e2-common.ts`** (constants; the INDEPENDENT meter = `ffmpeg-full` n8.1.2 via `spawnSync` — `ebur128=peak=true` → I + true
+  peak, `astats=measure_overall=Peak_level` → sample peak, `ffprobe` → duration / size / bit_rate / sample_rate; `ensureProject`
+  refuses a projects dir that is not under the E2 root; `makeCtx` = a real `createTurnState()` + `req { projectId, projectName,
+  prompt '', history [], assets [], shots [], reviewOpen false }`; `parseToolAnswer`; `writeExit` merges keys into `exit.json`),
+  **`exit-main.e2.test.ts`** (items 1–4 with `standin.mp3`), **`exit-ceiling.e2.test.ts`** (the ceiling case + the music path with
+  `standin-quiet.mp3`; a second vitest invocation because the engine singleton keeps the first stand-in). Mocks in each driver:
+  `electron` (`app.getPath('userData')` = the E2 profile, `isPackaged: false`), the worktree's `settings-db` (`getValue(
+  'studioProjectsRoot')` → `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\root`, everything else `undefined` → library root
+  `<profile>\assets`, credentials `{}` — no key anywhere), `utils/paths` partial (`getRemotionBinariesDir: () => null`, the rest
+  original), `ai-usage` (no usage row). Everything else is REAL: `initAudioGenerationEngine` → `registerDevStandinProvider`;
+  `buildAudioTools` → `generate_sfx` / `generate_music` → `generateAudioAsset` → `normalizeAudioFile` (bundled ffmpeg) →
+  `upsertEntry` (real probe) → `importLibraryFile` (+ `markLibraryUsedIn`); `buildInsertTools` → `insert_asset` → `resolveAssetRef`;
+  `buildProjectTools` → `list_assets`; `createProject`.
+- **The worktree build** `wt/out` rebuilt at `3084668` (`…\E2\build-1.log`: `✓ built in 2m 30s`, rc 0, 3 "use client" warnings).
+- **The project**: `…\E2\root\projects\e2-exit` (`createProject('e2-exit', 1920, 1080, 30)`; `project.json` keeps `assets: []` —
+  main never writes it; the generate tool's import reaches the renderer as an `assets-imported` event, which the stopped-app
+  driver only records: `{ id 'e2ec8044-…', kind 'audio', path '<profile>\assets\generated\sfx-a-short-airy-whoosh-2.mp3', probe
+  { duration 2 } }` — the pool references the library file in place, no copy under the project).
+- **The live library** (`<profile>\assets`, index `version 1 / rev 2`, 4 entries, all `usedIn ["e2-exit"]`, all `probe.duration 2`):
+  `generated/sfx-a-short-airy-whoosh.mp3` (run 1 — the product was right, the DRIVER's meter helper read stdout only; kept),
+  `generated/sfx-a-short-airy-whoosh-2.mp3` (THE exit), `generated/sfx-a-quiet-tick-train.mp3` (the ceiling case),
+  `generated/music-a-soft-bed.mp3` (the music path). Each 49,571 bytes, 44.1 kHz mono, ffprobe `bit_rate 198284` (the 192k
+  re-encode).
+- **Evidence** in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\`: `exit.json` (every number), `exit-summary.md` (what was measured by
+  what, with tolerances — the records' source), `exit-run-1.log` (run 1, the driver bug), `exit-run-2.log` (the main case, green),
+  `exit-ceiling-run-1.log` (green), `app-1.log` (the live app), `assets-generated.png` (the still: `Assets / generated`, four
+  tiles with descriptions, the whoosh's details panel), `build-1.log`, `watchdog.log`, `diff-list.txt` + `import-graph.txt` (rule
+  (b)), `vitest-full-1.log`, `tsc-web-5.log` / `tsc-node-5.log`.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-24 · builder #1 · from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
@@ -456,13 +497,99 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
     recorded LUFS ≈ **−23.2** (honestly above −20), peak −1.5 ± a few tenths after the mp3 re-encode. (Two earlier tries
     failed the R128 gate: a gated 9 %-duty noise-burst train read −19.8 LUFS; a 2 ms / 100 ms train read −24.2 LUFS with a
     −6.2 dBTP peak → +4.2 of gain lands at −2.0, under the ceiling — not binding; both replaced.)
-- No launch, no build, no driver run yet.
+- No launch, no build, no driver run yet (builder #4).
+- 2026-10-24 · builder #5 · **resource guard** 10:23:44 (before the build): `Get-PSDrive C,D` → C: 46.76 GB, D: 23.83 GB free;
+  `FreeVirtualMemory` → 36.22 GB headroom; `electron.exe` 0; `%TEMP%\vidtsx-studio\export` absent. 10:30:38 (before the launch):
+  C: 46.72 / D: 23.81; headroom 36.69; `electron.exe` 0; export dir absent. Watchdog (`…\E2\watchdog.ps1`, background) log: `10:31:31
+  watchdog start` … `10:36:23 E2 instance gone (3 checks), watchdog exit` (never fired).
+- builder #5 · **build** (Bash, worktree root): `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > …\E2\build-1.log 2>&1` → `✓ built in 2m 30s`, rc 0,
+  3 "use client" warnings; `out/main/index.js` 3,041,233 bytes 10:24, `out/renderer/index.html` 10:27.
+- builder #5 · **the exit drivers** (worktree root, app stopped): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  --config D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E2/vitest.e2.config.ts exit-main > …\E2\exit-run-2.log 2>&1` → `Test Files
+  1 passed (1) · Tests 1 passed (1) · Duration 2.25s` (run 1, `exit-run-1.log`, failed in the DRIVER's meter helper after the product
+  had already written `sfx-a-short-airy-whoosh.mp3` correctly); `… exit-ceiling > …\E2\exit-ceiling-run-1.log` → `1 passed · 2.73s`.
+  Driver stdout: `[AudioGenerationStandin] DEV stand-in audio provider "standin" registered (VIDTSX_AUDIO_STANDIN_FILE)` ·
+  `[AudioGenerationInit] Engine initialized` · `providers: ["standin"] active: standin` · `[AudioNormalize] Loudness normalized`.
+  **Main** (`standin.mp3` in −9.3 LUFS / +0.6 dBTP / +0.54 dBFS): `generate_sfx({ prompt 'a short airy whoosh', durationSeconds 2,
+  category 'motion', tags ['whoosh','air'] })` 466 ms → `generated/sfx-a-short-airy-whoosh-2.mp3`, 49,571 B; entry `kind audio`,
+  `origin generated`, `tags ["whoosh","air"]`, `audio { category motion, loudnessLufs −20.27, peakDbfs −10.79, peakKind true,
+  source standin, model standin, gainDb −10.71 }`, `probe { duration 2, hasAudio true, codec mp3 }`, `usedIn ["e2-exit"]`;
+  independent (`ffmpeg-full` n8.1.2): ebur128 **I −20.2 LUFS**, **true peak −10.8 dBTP**, astats sample peak **−10.79 dBFS**, ffprobe
+  `duration 2.000000` (diff **0 ms**), 44.1 kHz mono, bit_rate 198,284 → I − (−20) = **−0.2 LU**; recorded − meter **−0.07 LU** /
+  **+0.01 dB**; gain −10.71 vs the unclamped −20 − (−9.3) = −10.7. Answer: `Sound effect ready: project asset id "e2ec8044-…"
+  (library:generated/sfx-a-short-airy-whoosh-2.mp3, 2.00 s, $0.000). Loudness −20.3 LUFS, peak −10.8 dBTP. Filed with category:
+  motion · tags: whoosh, air. …`. `insert_asset({ assetId 'library:generated/sfx-a-short-airy-whoosh-2.mp3', lane 'audio', at 0 })` →
+  `Insert proposed (id "prop_mvm2whpg_zumvj2"): Insert "sfx-a-short-airy-whoosh-2.mp3" as audio at 0:00.0 · 2.0 s …`; `usedIn` after
+  generate `["e2-exit"]`, after insert `["e2-exit"]` (one entry). `list_assets({ scope 'library' })` row: `- library:generated/
+  sfx-a-short-airy-whoosh-2.mp3 (audio, 2.00 s, generated) — "a short airy whoosh" · category: motion · tags: whoosh, air · −20.3 LUFS
+  · used in: e2-exit` (printed 2.00 s vs ffprobe 2.000, 0 ms). **Ceiling** (`standin-quiet.mp3` in −27.4 LUFS / −5.7 dBTP / −5.73
+  dBFS): `generate_sfx({ prompt 'a quiet tick train', durationSeconds 2, category 'snap', tags ['tick','quiet'] })` →
+  `generated/sfx-a-quiet-tick-train.mp3`; `audio { category snap, loudnessLufs −23.44, peakDbfs −1.79, peakKind true, source
+  standin, model standin, gainDb 4.18 }`, `usedIn ["e2-exit"]`; **gain +4.18 = the clamp** (−1.5 − TP_in; expected +4.2, the wanted
+  −20 − (−27.4) = +7.4 refused); independent: **I −23.4 LUFS** (honestly short of −20), **true peak −1.8 dBTP**, sample peak **−1.83
+  dBFS**, ffprobe 2.000000 (0 ms); recorded − meter −0.04 LU / +0.01 dB; meter TP − ceiling = **−0.3 dB** (the mp3 re-encode, builder
+  #1's known limit). Answer: `… Loudness −23.4 LUFS, peak −1.8 dBTP. Filed with category: snap · tags: tick, quiet.` **Music**:
+  `generate_music({ prompt 'a soft bed', durationSeconds 3 })` → `generated/music-a-soft-bed.mp3`, `audio { loudnessLufs −23.44,
+  peakDbfs −1.79, peakKind true, source standin, model standin, gainDb 4.18 }` (no category), `probe.duration 2` (the stand-in's
+  real length; ffprobe 2.000000, 0 ms), meter I −23.4 / TP −1.8, `usedIn ["e2-exit"]`; answer `Music ready: project asset id
+  "266dace6-…" (library:generated/music-a-soft-bed.mp3, 2.00 s, $0.000). Loudness −23.4 LUFS, peak −1.8 dBTP.` Index after: `version 1,
+  rev 2`, 4 entries. All in `…\E2\exit.json` (+ `exit-summary.md`).
+- builder #5 · **live CDP 9262**: `bash …\E2\launch.sh` (Bash `run_in_background`; the launcher later reports exit 127 = the killed
+  `exec`, expected) → `node cdp.mjs wait` → `ready after ~0 s of polling` (`app-1.log`: `Main-process init complete in 398ms`; no
+  stand-in line — lazy init, see Open problems). `node live.mjs root` → `studioRootGet BEFORE: {"root":"C:\\Users\\hasan\\Videos\\
+  VidTSX Studio"}` · `studioRootSet → {"success":true}` · `studioRootGet AFTER: {"root":"D:\\repos\\VidTSX-STUDIO\\.vidtsx-temp\\
+  end-to-end\\E2\\root"}` · `libraryRootGet → {"success":true,"root":"C:\\Users\\hasan\\AppData\\Local\\vidtsx-e2e\\profiles\\E2\\
+  profile\\assets", …, "isOverride":false}` · title `VidTSX Studio`, nav buttons Home … Assets … Queue. `node live.mjs assets` →
+  `clicked Assets: true` · `clicked Refresh: true` · `root view names: ["generated","194 KB","presets","9.1 KB"]` · `open folder:
+  dblclicked C:\…\profiles\E2\profile\assets\generated` · `generated folder tiles: ["music-a-soft-bed.mp3","sfx-a-quiet-tick-train.
+  mp3","sfx-a-short-airy-whoosh-2.mp3","sfx-a-short-airy-whoosh.mp3"]` · `select: clicked sfx-a-short-airy-whoosh-2.mp3` · visible
+  texts: `Audio`, `generated`, the four names + descriptions (`a soft bed`, `a quiet tick train`, `a short airy whoosh` ×2), `audio
+  (mp3)`, `generated/sfx-a-short-airy-whoosh-2.mp3`. `node live.mjs shot C:/…/E2/assets-generated.png` → `restore: restored pid 48392
+  (was iconic: True) (rc 0)` · `wrote … 73513 bytes` (checked by eye: breadcrumb `Assets / generated`, four tiles, the details panel
+  Type `audio (mp3)` / Size 48.4 KB / Origin generated / Added 10/24/2026 / Path `generated/sfx-a-short-airy-whoosh-2.mp3`, footer
+  `4 items · 194 KB`; v1.1.0 BETA). Stop (PowerShell): `Get-CimInstance Win32_Process -Filter "Name='electron.exe'" | Where-Object {
+  CommandLine -like '*--remote-debugging-port=9262*' -or … '*profiles\E2\profile*' } | Stop-Process` → `E2 electron.exe before: 4`,
+  `electron.exe after (all): 0` at 10:35:49.
+- builder #5 · **gates** (app stopped): rule (b) — `git diff --name-only 5d77600..HEAD > …\E2\diff-list.txt` (68 files) then `node
+  C:\…\vidtsx-e2e\E1\import-graph.cjs <wt> …\E2\diff-list.txt` (esbuild metafile per suite, packages external, `?raw` as leaves,
+  `vi.mock`'d modules not followed) → `builder-libraries.test.ts: 2 local modules in graph; touched by the E diff: NONE` ·
+  `shot-bundle.test.ts: 15 …: NONE` · `shot-bundle-in-place.test.ts: 23 … (vi.mock'd, not loaded: shot-generator.ts,
+  shot-import-land.ts, media-import.ts): NONE` · `scripts/builder-unpack.mjs: 1 …: NONE` (`…\E2\import-graph.txt`). Full run (default
+  workers — headroom 36 GB): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run > …\E2\vitest-full-1.log 2>&1` → `Test
+  Files 3 failed | 485 passed | 5 skipped (493) · Tests 9 failed | 4138 passed | 35 skipped (4182) · Start at 10:36:10 · Duration
+  51.80s`; the 3 = exactly the E-d2a suites — `builder-libraries.test.ts` (1: `Error: @remotion/paths (builder-libraries.ts) is not
+  installed`), `shot-bundle-in-place.test.ts` (3: `Could not resolve "chroma-js"`), `shot-bundle.test.ts` (5: `Could not resolve
+  "roughjs"` / `"@remotion/shapes"` / `"@react-three/fiber"` / `"chroma-js"` …) — resolution only; no timeouts. Types:
+  `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS` lines; `-p tsconfig.node.check.json` → **10**; none in E2's files
+  (`…\E2\tsc-web-5.log`, `tsc-node-5.log`).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #5 — the LIVE step (the exit, "How the exit is measured" items 1–4 + the ceiling and music cases + the
-click-through), then the records.** The code is complete (`3084668`); the E2 profile and both stand-ins exist and are
-measured (Verified) — do not remake them. Scratch: drivers + small logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\
+**Builder #6 — the RECORDS only (no new measurement, no launch, no build, no driver run; everything is measured and under
+Verified / `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit-summary.md` + `exit.json`).** In order: (1) read `Status.md:10-219`
+(E1's entry = the house format) and `docs/studio/TESTING.md:476-493` (§18.14's shape); (2) write the E2 `Status.md` entry at the
+TOP, dated 2026-10-24, titled like E1's, with: What · The code (every E2 commit: `60b5537` normalizer + rule, `841e311` call site +
+stand-in + args, `68bbe44` usedIn seams, `3084668` listing row — what each did, file:line from "Done") · the loudness rule
+(−20 LUFS under −1.5 dBTP, the `gen_sfx.py` clamp / gated / skip rule) and the bundled-ffmpeg toolset (`loudnorm` analysis pass +
+`volume`; no `ebur128` / `astats` there) · the stand-in named as DEV-ONLY (`VIDTSX_AUDIO_STANDIN_FILE`, `!app.isPackaged`, after
+the BYOK loop, `costUsd 0`, mp3 only) · `peakKind 'true'` = dBTP from `loudnorm` `input_tp` (E4's catalog import writes `'sample'`)
+· bitrate libmp3lame 192k (one step above ElevenLabs' 128k) · the un-normalized policy (file kept, `audio.normalizeError`, the
+answer's "NOT loudness-normalized (…) — the raw file is kept", the row's `(not normalized)` / `not normalized`; a Cancelled normalize
+is recorded, not retried) · builder #2's notes answered ("Generating at ElevenLabs…" progress line left as is; `normalized` a
+required boolean; the agents' `generate_audio` unchanged) · the `usedIn` seams (three; the pool-import one helper-tested only) ·
+the listing row · the live click-through WITH the numbers (from Verified: main / ceiling / music, the meter, the CDP outputs,
+the still path) and the Assets-screen-has-no-duration note · gates (import graph method + the 3 suites, 485 / 4138, tsc 26 / 10)
+· not measured (the live ElevenLabs call; `generate_tsx_shot` assetRefs and the pool import seams unit-tested only; the short-
+transient case only as a unit test (C) — no live 0.3 s stand-in) · for Hasan (the one live ElevenLabs `generate_sfx`) · evidence
+paths; (3) TESTING §18.15 after §18.14's shape, items marked ✎ where they ran in the app over CDP (only the Assets click-through
+did; the handlers ran in the stopped-app drivers on the live index); (4) V4-N1: `Status.md:98` + `TESTING.md:486` — drop proxies
+from the probe width / height consumer list (`proxy-generator.ts` reads `duration` + `hasAudio` only); V4-N2 NOT needed
+(`pre-e1-control.test.ts` untouched); (5) commit `docs(studio): E2 — records (Status entry, TESTING §18.15, V4-N1)` with explicit
+paths (`Status.md` spelling), set this file's `status: DONE`, append the LOG line, commit again, return the evidence. The code is
+complete (`3084668`); the E2 profile, both stand-ins, the build, the drivers, the still exist — do not remake or re-run them.
+
+(The plan builder #5 followed, kept for the record:) Scratch: drivers + small logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\
 E2\`, everything over ~1 MB (build / app / full-vitest logs, stills, `exit.json`) in `C:\Users\hasan\AppData\Local\vidtsx-e2e\
 E2\`. Never touch Hasan's `%APPDATA%\VidTSX Studio`, his projects, `profiles\source`, the B4 / B5 stations or any B6 / B7
 scratch; never read, copy or open a `settings.db`.
@@ -594,7 +721,29 @@ scratch; never read, copy or open a `settings.db`.
   keeps the first `activeId` (`??=`): to run the main AND the ceiling case through the real handlers, either use TWO driver
   files run as two vitest invocations (each with its own `VIDTSX_AUDIO_STANDIN_FILE` set before any import), or check
   `audio-generation-init.ts` `unregister` (:52) / the engine's `unregister` resets `activeId` before re-registering — the two
-  files are the simpler path.
+  files are the simpler path. **Done so (builder #5): two driver files, two invocations — worked.**
+- (builder #5, for the records) **The Assets screen prints no duration** anywhere: a tile shows the name + the description
+  (`AssetTile.tsx:135`), the details panel shows Type / Size / Origin / Added / Path (`AssetDetailsPanel.tsx:86-90`) — pre-E2 UI,
+  unchanged. The plan's "shows the generated sound … with its duration" is met by the index (`probe.duration 2`) and the
+  `list_assets` row (`2.00 s`) from the stopped-app driver on the SAME live index, as E1 recorded it. Whether the details panel
+  should print `probe.duration` (and the LUFS / tags) is a UI addition for Hasan's call, not E2's exit.
+- (builder #5, note) Run 1 of the main driver left `generated/sfx-a-short-airy-whoosh.mp3` in the live library (the product path was
+  fully right — same values as run 2; the driver's meter helper used `execFileSync`, which returns stdout only while ffmpeg prints
+  its summary to stderr → fixed with `spawnSync`). The exit's numbers are run 2's `…-whoosh-2.mp3`. The Assets still shows both.
+- (builder #5, note) The live app initialises the audio engine lazily (`ensureAudioGenerationEngine` at `generate-audio-asset.ts:97`,
+  `agents/tool-support.ts:74`; eagerly only on a key save, `provider-keys-handlers.ts:66`), so `app-1.log` has no stand-in line — the
+  stopped-app driver's stdout has it (`[AudioGenerationStandin] DEV stand-in audio provider "standin" registered
+  (VIDTSX_AUDIO_STANDIN_FILE)`); the live app was not asked to generate (no model turn, E-d9). The launcher exported the env var
+  anyway.
+- (builder #5, safety note) `studioRootGet` BEFORE the first call answered `C:\Users\hasan\Videos\VidTSX Studio` — the fresh profile's
+  Home listed Hasan's projects for the ~5 s between readiness and `live.mjs root` (nothing opened, nothing written; DRIVING "Studio
+  root FIRST" followed — it was the first CDP call after `wait`).
+- (builder #5, note) `insert_asset` answers `Insert proposed (id "prop_…"): Insert "sfx-a-short-airy-whoosh-2.mp3" as audio at
+  0:00.0 · 2.0 s` — a review card, not applied (apply is the renderer's); its `resolveAssetRef` re-marks `usedIn` (a read, no write:
+  still exactly `["e2-exit"]`). `list_assets({ scope: 'library', kind: 'audio' })` ignores `kind` (E3's arg) — the row is the same.
+- (builder #5, note) `generate_music` with `durationSeconds: 3` (the engine's `MUSIC_MIN_SECONDS`) → the stand-in's 2.0 s file; the
+  index `probe.duration` is the real 2.0 s and the answer prints `2.00 s` (the probe wins over the request, as designed); no
+  `category` given → none written (`audio` without `category`), tags none.
 
 ## Do-not-redo
 
@@ -616,6 +765,10 @@ scratch; never read, copy or open a `settings.db`.
   Verified) — reuse them; remake a stand-in only if its file is gone (the recipes are under Verified).
 - The environment snapshot of 10:12 is NOT a substitute for the resource guard: run `Get-PSDrive C,D` + the headroom
   check again right before the build, the driver and the launch.
+- (builder #5) The worktree build at `3084668` (`wt/out`, `build-1.log`) — rebuild only after a `src/` change. The two exit drivers
+  and `exit.json` / `exit-summary.md` (re-running them adds MORE generated files to the live library — `-3.mp3` …; do not re-run
+  for the records). The live click-through + the still `assets-generated.png`. The import-graph run (`…\E2\import-graph.txt`) —
+  re-run only if the diff list changes (a `src/` commit).
 
 ## For Hasan (real-video list candidates)
 
@@ -647,3 +800,10 @@ scratch; never read, copy or open a `settings.db`.
   snapshot, the E2 profile copy (no `settings.db*`), the two stand-in mp3s made + measured with `ffmpeg-full` (three
   tries for the ceiling-binding one — the R128-gating lesson under Open problems); records + hand-off at the step
   boundary. No launch, no build, no driver run.
+- 2026-10-24 · builder #5 · ~36 · read the brief's docs (HANDOFF in full, DRIVING in full, ORCHESTRATOR session 4 + 5, CDP doc
+  Launch / Minimal driver / visibility rule, the E1 kit) and ≈ 450 lines of code (only what the drivers needed: `agent-tools/types.ts`,
+  `audio-generation-init.ts`, `createProject`, `studio-paths.ts` / `settings.ts` root resolution, the preload names, `AssetTile` /
+  `AssetDetailsPanel` hooks); rebuilt `wt/out`; wrote the E2 kit + the two REAL-handler drivers; ran the exit (items 1–4, the
+  ceiling case, the music path — all within tolerance, numbers in `exit.json`); the live click-through on 9262 (Studio root first,
+  library root confirmed, Assets → generated, the still); the gates (import graph, full vitest, tsc); records + hand-off at the
+  step boundary (the records are the next step). No `src/` change.
