@@ -1,6 +1,7 @@
 import { audioGenerationEngine, AUDIO_GENERATION_PRESETS } from '../../audio-engine/generation';
 import { getProviderCredentials } from './settings';
 import { aiUsageService } from './ai-usage';
+import { registerDevStandinProvider } from './audio-generation-standin';
 import { logEngine } from '../../logging/log-engine';
 
 const log = logEngine.createLogger('AudioGenerationInit');
@@ -60,6 +61,9 @@ export async function initAudioGenerationEngine(): Promise<void> {
         });
       }
     }
+    // E2 / E-d6: the dev stand-in, after the BYOK loop so a real key stays
+    // active; inert when packaged or when VIDTSX_AUDIO_STANDIN_FILE is unset.
+    registerDevStandinProvider();
     log.info('Engine initialized', {
       providerCount: audioGenerationEngine.getProviders().length,
       active: audioGenerationEngine.getActiveProvider() ?? 'none',
