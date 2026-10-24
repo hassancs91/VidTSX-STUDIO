@@ -73,6 +73,13 @@ Plus the session gates (DRIVING "Track E": worktree vitest green except the thre
     LAME encoder delay + padding that E1's probe trims (−27…−51 ms at 44.1 / 48 kHz — E1 R2). The index `probe` is
     measured by the product (trimmed); compare it against an independent ffprobe n8 (trimmed), and REPORT the
     deltas to `duration_s` without failing on them.
+- **Settled by E2 (builders #1–#2, `60b5537` / `841e311` — read E2's HANDOFF "Done" §1–§3 for the detail):** `LibraryAudioMeta`
+  gained optional `peakKind: 'true' | 'sample'`, `gainDb`, `normalizeError`; E2 writes a TRUE peak (dBTP, loudnorm) with
+  `peakKind: 'true'` — the catalogs' `peak_dbfs` is a SAMPLE peak → E4 writes `peakKind: 'sample'`. `normalizeTags()` in
+  `library-filing.ts` (trim / lower-case / dedupe / cap 20) is the one tag normalizer — use it. The `list_assets` row
+  appends ` · category: … · tags: … · −20.0 LUFS · used in: …` after the description (E1's exact-string tests hold).
+  `audio.source` for generated sounds is the provider id (`elevenlabs` / `standin`); for the catalogs keep the catalog's
+  `source` string verbatim (`elevenlabs:sound-generation`, `elevenlabs:music`, the gen_chords.py text) — say so.
 - **§1.6 facts:** `LibraryIndexEntry` / `LibraryAudioMeta` in `src/shared/types/asset-library.ts` (optional fields
   only — a new `license?` is an optional addition); `upsertEntry(root, relPath, { origin, description?, brandId?,
   tags?, audio? })` (`src/main/services/library/library-store.ts:135`) probes through `probeLibraryFile` and writes
