@@ -799,3 +799,4 @@
 - 09:40 · E3 + E4 HANDOFF.md / LOG.md drafted by the orchestrator (status NEW; E4 before E3). E2 builder #1 spawned
   (CDP 9262, profile E2).
 - 10:20 · E2 builder #1 HANDOFF (~30 calls): design note (a)–(f); the normalizer `audio-loudness-rule.ts` + `audio-normalize.ts` on the bundled ffmpeg (loudnorm analysis → gen_sfx gain rule → one `volume` re-encode, mp3 192k, failure keeps the bytes), 18 real-ffmpeg tests red → green, types 26 / 10 — `60b5537`; docs `70bb70f`. `peakDbfs` = TRUE peak (dBTP) for generated sounds, `peakKind` field added. Builder #2 spawned (call site + stand-in + args).
+- 10:55 · E2 builder #2 HANDOFF: call site (normalize between write and upsert; `audio` meta, `tags`), `category` + `tags` args on both tools, the dev-only stand-in provider (`standin`, `VIDTSX_AUDIO_STANDIN_FILE`, `!app.isPackaged`, costUsd 0) — red 11 → green 67 tests, types 26 / 10 — `841e311`; docs `59b8e93`. Builder #3 spawned (§4 `usedIn` seams, §5 listing row).
