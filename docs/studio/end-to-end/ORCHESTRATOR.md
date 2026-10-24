@@ -754,3 +754,32 @@
   pass; round 3 failed the Status / TESTING records only (R1, R2). Not started: E2, E4, E3, the track-E exit.
   Proposed next: Hasan's "go" → a docs-only fix round 3 (R1, R2, N1, N2) + a records-only verifier round 4, then
   E2 → E4 → E3 → exit as briefed. Track E is on `end-to-end-p0-e`, not merged (NEXT-SESSION.md).
+
+## Session 5 — track E continued (started 2026-10-24 08:30, Hasan's paste-in from NEXT-SESSION.md)
+
+- **Scope (Hasan):** (1) E1 — a DOCS-ONLY fix round 3 (R1, R2, N1, N2) and a records-only verifier round 4 (E1's
+  last: a FAIL there stops the run); (2) E2 → E4 → E3 → the track-E exit, no stop between parts. Stop after the
+  exit, on BLOCKED, or after three verifier FAILs on one part. NOT this session: B7's verifier, the track-B exit,
+  tracks C, D, F. Anything needing Hasan's hands / ears / keys → DEFERRED-HASAN + the real-video list.
+- **Start state (08:38):** worktree `end-to-end-p0-e` @ `00f89b2`, clean. Main checkout `end-to-end-p0` @
+  `5d77600`, still NOT clean — the other session's 10 modified + 6 untracked files (splash / scrub-drag / edge
+  autoscroll; `src/main/index.ts` among them) are unchanged and uncommitted since session 4's stop; **Hasan's dev app
+  is NOT running** (0 `electron.exe`). Port 5173 is a Vite server of `D:\repos\kimi-lab` (pid 6356, not VidTSX; we
+  launch with no Vite server anyway). Resources: C: 47.5 GB, D: 25.6 GB free; commit 54.7 / 99.7 GB (headroom 45 GB →
+  default vitest workers allowed); `C:\pagefile.sys` 36 GB allocated, 175 MB in use. **E-d1 stands:** all work stays
+  in the worktree; landing on `end-to-end-p0` is Hasan's call.
+- **Overrides in force** (the session-5 paste): Q1–Q6 (Q2 for E2: −20 LUFS under −1.5 dBFS), E-d1…E-d10, E-d2a rule
+  (b) only; no paid-key call — ElevenLabs via the E-d6 stand-in, the live call on Hasan's list; model calls only via
+  the keyless `claude-subscription` and only where a part needs them (E3, the exit); isolated profiles only; the
+  reference catalogs read-only; the resource guard (C: ≥ 3 GB and C: + headroom ≥ 6 GB for live steps, watchdog at
+  1.5 GB, `--maxWorkers=2` while headroom < 10 GB); the builder-brief additions (worktree only, no npx/npm/stash,
+  Studio root FIRST, process selection by port / profile path + Name, HANDOFF via Edit/Write, commit early).
+- **CDP ports this session:** E1 verifier round 4 → 9275; E2 builders 9262 / verifiers 9272; E4 builders 9264 /
+  verifiers 9274; E3 builders 9263 / verifiers 9273; the track-E exit 9280. Profiles: `…\vidtsx-e2e\profiles\E2`,
+  `E2-verify`, `E4`, `E4-verify`, `E3`, `E3-verify`, `E-exit` (copied from `source` WITHOUT `settings.db*`).
+- **TESTING §18 numbering (E-d10):** E2 → 18.15, E4 → 18.16, E3 → 18.17.
+
+### Session 5 log
+
+- 08:40 · E1 HANDOFF set to `FIX` (docs-only fix round 3; the round-3 findings R1, R2, N1, N2 were already under Open
+  problems); builder #8 spawned with "no `src/` change except the comment text at `media-import.ts:123-125`".

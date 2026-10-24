@@ -1,5 +1,5 @@
 # E1 — Index v2: `kind`, `probe` on upsert, `tags`, `audio`, `usedIn`; one kind table; migration
-status: STOPPED (verifier round 3 FAIL on the records only — R1, R2; the third FAIL on E1 stops the run; orchestrator 2026-10-23 23:00)
+status: FIX (docs-only fix round 3 — Hasan's go, session 5, orchestrator 2026-10-24 08:40; the records-only findings R1, R2, N1, N2 under Open problems; then verifier round 4 on the records only — E1's last round)
 
 > Track E, session 4. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 in ORCHESTRATOR.md
@@ -500,11 +500,33 @@ All kit files in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E1\` (outside t
 
 ## Next step (ONE concrete instruction)
 
-**STOPPED — waiting for Hasan's "go"** (third verifier FAIL on one part = the run's stop rule). When he says go: a
-DOCS-ONLY fix round 3 — correct R1 and R2 below in `Status.md`, `docs/studio/TESTING.md` §18.14, the code comment
-`src/main/services/studio/media-import.ts:123-125` (comment text only) and this file; say in Status that reconcile
-does not stamp failed probes (N1) and name the header-length mp3 case (N2); then a verifier round 4 on the records
-only (the exit, gates and controls passed in round 3 at `a35aef3`).
+**Fix round 3 — DOCS ONLY (builder #8, session 5).** Correct R1 and R2 (Open problems, "Verifier round 3") and record
+N1 and N2 in exactly these places, nothing else in `src/`:
+1. `Status.md` E1 entry — (R1) the E-d5 bullet (`Status.md:48` today: "a tombstone the E1 code already made keeps every
+   field under every old write") must say which new fields survive which old write: an old `setDescription` /
+   `upsertEntry` / untouched / moved entry keeps all of them; an old scan that RESURRECTS an E1 tombstone (the same bytes
+   back while an old app runs) rebuilds the entry from the pre-E1 fields only — `kind`, `probe`, `probeStamp`, `tags`,
+   `usedIn`, `audio` are lost (the next E1 start restores `kind` + `probe` through the back-fill; `tags` / `audio` /
+   `usedIn` are gone); every pre-E1 field survives. (R2) the mp3 range (`Status.md:76-80`) → "(encoder delay + padding) /
+   sample rate: about −25 ms at 48 kHz to −160 ms at 8 kHz; the lower the rate, the more" with the verifier-3 numbers
+   (8 kHz MPEG-2.5 CBR −156.0 / −160, 11.025 kHz −151.0 / −115.0, 12 kHz −116, 16 kHz −72 / −90, 22.05 kHz −54…−76,
+   24 kHz −52 / −70, 32 kHz −48…−62, 44.1 / 48 kHz −27…−51). (N1) the probe-stamp bullet (`Status.md:98-99`): reconcile
+   does NOT stamp a failed probe (no stamp when `probeOf` returns undefined); upsert and the back-fill do — on a fresh
+   scan a file that fails inline is left unstamped and the back-fill re-probes and stamps it (verifier 3: 9 of 20 inline
+   failures, ~1–2 s of "(probing)"). (N2) a "Known limit" line: a truncated mp3 whose Xing header announces the full length
+   (9 KB, 5.0 s in the header, 0.52 s of audio) lists the header length ("5.00 s") — the same as both independent ffprobes.
+2. `docs/studio/TESTING.md` §18.14 — the same R1 wording in the E-d5 item (`:484`) and the same R2 range in the mp3 item
+   (`:485`); N2 appended to the V2-1 item's "Known limit".
+3. `src/main/services/studio/media-import.ts:123-125` — the COMMENT text only (the new range); no code token changes;
+   `git diff --stat` of the commit must show only comment lines in that file.
+4. This file: the V2-2 line (`:369`), the "Earlier" range line (`:619`), mark R1 / R2 / N1 / N2 "recorded in fix round 3
+   (docs)" under Open problems, add a "Fix round 3" entry under Done, an "Agents so far" line, a LOG.md line.
+Then run the E1 suites + the E-d5 control (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+src/main/services/library src/main/services/studio/agent-tools/library-listing.test.ts
+src/main/services/studio/media-import-probe.test.ts src/main/services/studio/mp3-gapless.test.ts src/shared/media-kinds.test.ts
+src/shared/types` — they must stay green, since a comment edit cannot change behaviour), `tsc` web / node counts
+(26 / 10), commit with explicit paths (`docs(studio): E1 — fix round 3 (docs only): R1 resurrect path, R2 mp3 range, N1,
+N2`), set `status: DONE`, return. No app launch, no profile copy, no full vitest run (nothing in `src/` changes).
 
 ## Open problems
 
