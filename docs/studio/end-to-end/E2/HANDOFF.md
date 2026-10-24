@@ -6,7 +6,9 @@ status: BUILDING
 > "Session 4 — track E" and the session-5 overrides ("Session 5") bind this part. E1 (`a35aef3` + fix round 3)
 > is the base: `kind` / `probe` / `probeStamp` / `tags` / `audio` / `usedIn` exist as optional index fields;
 > since `841e311` (builder #2) generation writes `tags` + `audio`; since `68bbe44` (builder #3) `usedIn` is written on
-> the three landings (§4 done). §5 the listing row is next, then the live step.
+> the three landings (§4 done); since `3084668` (builder #4) the listing row prints category / tags / LUFS / `usedIn`
+> (§5 done — the code of E2 is complete). The LIVE step is next; the E2 profile and the two stand-in sounds are
+> already made and measured (builder #4, under Verified) — nothing left to design.
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -277,7 +279,7 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   applied to the pre-encode true peak; on an mp3 with transients the post-encode peak can sit a few tenths of a dB
   off the ceiling — recorded as measured (one re-encode, the gen_sfx rule), not forced; the WAV fixtures pin the rule
   exactly, the mp3 fixture pins the loudness + duration.
-- NOT built yet (after builder #3): the listing row (§5) + its tests, the live check.
+- NOT built yet (after builder #4): the live check only (the code is complete).
 
 ### Built (builder #2) — commit `841e311` (design §1 "Call site", §2 stand-in, §3 args)
 
@@ -364,6 +366,32 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   library refs — one already a project asset by path, one imported — plus a plain id → refs rewritten, ONE mark with
   both relPaths and `project.id`; no library ref → no mark, no import; a missing file → throws, no mark).
 
+### Built (builder #4) — commit `3084668` (design §5 the listing row)
+
+- `src/main/services/library/format-level.ts` (8 lines, new): `signed(n, digits = 1)` → `toFixed` with a typographic minus
+  (U+2212) — the ONE LUFS / dB form; `audio-tools.ts` now imports it (its local copy removed, :59-62 before) and
+  `audio-tools.test.ts` stayed green unchanged.
+- `src/main/services/studio/agent-tools/library-listing.ts` (57 lines): `formatLibraryRow` (:21-33) appends
+  `formatMetaSuffix(entry)` (:35-57) after the description: ` · category: <audio.category>` (non-empty) · ` · tags: a, b`
+  (`tags.length > 0`, joined `, `) · ` · −20.0 LUFS` when `audio.loudnessLufs` is finite, with ` (not normalized)` appended
+  when `audio.normalizeError` is set, or ` · not normalized` when the error is set without a number · ` · used in: p1, p2`
+  (`usedIn.length > 0`). Nothing else changed — no filtering, no `kind` / `query` args (E3's). An entry without the
+  fields (or with `tags: []` / `usedIn: []` / `audio: {}` / `category: ''` / a NaN LUFS) prints exactly the E1 string.
+- Tests (red first — `…\E2\d-red.log`): `library-listing.test.ts` (+4 in a new describe: everything in order; un-normalized
+  with / without a number; none of the fields → E1 exactly, incl. the empty-array / `{}` / `''` / NaN entry; lone tags /
+  lone used-in / the suffix with no description), `format-level.test.ts` (2, new file).
+
+### Prepared for the live step (builder #4, 2026-10-24 — no launch, no app run)
+
+- The E2 profile exists: `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E2\profile`, robocopy of `profiles\source\profile`
+  with `/E /XF settings.db*` — 2,325 files, 371.9 MB, **zero `settings\settings.db*`** (checked), `assets\` present (the
+  library root once the app confirms it). Not launched on yet; its Studio root is still the default (set it FIRST).
+- Two stand-in mp3s in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\` (made by the SOURCE profile's `ffmpeg-full` n8.1.2,
+  libmp3lame 128k, 44.1 kHz mono, 2.000 s, 33,062 bytes each; recipes + the independent measurements under Verified):
+  `standin.mp3` (the exit's sound: −9.3 LUFS, true peak +0.6 dBTP — far from −20, peak over full scale) and
+  `standin-quiet.mp3` (the ceiling-binding sound: a uniform 1 ms burst train, see Verified for its I / peak — its gain to
+  −20 pushes the peak over −1.5, so the clamp rule must fire).
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-24 · builder #1 · from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
@@ -396,54 +424,129 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   stand-in suites) → `Test Files 33 passed (33) · Tests 251 passed (251) · Duration 5.21s` — `…\E2\c-green-2.log`.
 - Types on `68bbe44`: `tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS` lines; `-p tsconfig.node.check.json` → 10;
   none in the new or edited files (`…\E2\tsc-web-3.log`, `tsc-node-3.log`).
-- No launch, no profile copy, no live step yet (no resource check needed so far).
+- 2026-10-24 · builder #4 · red, from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/studio/agent-tools/library-listing.test.ts src/main/services/library/format-level.test.ts` BEFORE the
+  code → `Test Files 2 failed (2) · Tests 3 failed | 5 passed (8)` + "Cannot find module './format-level'" (the
+  none-of-the-fields case passes before the code, as it should) — `…\E2\d-red.log`. AFTER (+ `audio-tools.test.ts`,
+  unchanged) → `Test Files 3 passed (3) · Tests 16 passed (16)` — `…\E2\d-green-1.log`. Neighbouring suites `… run
+  src/main/services/library src/main/services/studio/agent-tools src/main/services/studio/shot-asset-refs.test.ts` →
+  `Test Files 34 passed (34) · Tests 257 passed (257) · Duration 4.99s` — `…\E2\d-green-2.log`.
+- Types on `3084668`: `tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS` lines; `-p tsconfig.node.check.json` → 10;
+  none in `format-level` / `library-listing` / `audio-tools` (`…\E2\tsc-web-4.log`, `tsc-node-4.log`).
+- Environment snapshot 2026-10-24 10:12 (builder #4; re-run before any launch): `Get-PSDrive C,D` → C: 47.11 GB, D: 23.83 GB
+  free; `Win32_OperatingSystem.FreeVirtualMemory` → 37.25 GB headroom; `electron.exe` count 0; `%TEMP%\vidtsx-studio\export`
+  0 files written in the last 10 min; E1 kit present (`cdp.mjs garbage.e1.test.ts launch.sh list-assets.e1.test.ts
+  restore.ps1 seed-index.e1.test.ts seed-media.mjs upsert.e1.test.ts vitest.e1.config.ts watchdog.ps1`); the independent
+  meter `…\profiles\source\profile\ffmpeg-full\ffmpeg-n8.1.2-50-g1a748fe2cd-win64-gpl-shared-8.1\bin\ffmpeg.exe` present
+  (+ `ffprobe.exe` beside it).
+- Profile copy (builder #4): `robocopy <source\profile> C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E2\profile /E /XF
+  settings.db* /NFL /NDL /NJH /NP /R:1 /W:1` → rc 1 (= copied), `Bytes: 371.90 m` in 0:00:03; afterwards `Test-Path
+  <E2>\settings\settings.db` → False, `settings.db*` count in `<E2>\settings` → 0, 2,325 files, `<E2>\assets` exists.
+- Stand-ins (builder #4; `ffmpeg-full` n8.1.2 = the independent meter; both 2.000 s, 44.1 kHz mono, libmp3lame 128k,
+  33,062 bytes; in `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\`):
+  - `standin.mp3` — `-f lavfi -i "anoisesrc=d=2:c=pink:r=44100:a=1:s=42" -af "highpass=f=300,lowpass=f=4000,afade=t=out:
+    st=1.2:d=0.8:curve=exp,volume=12dB,alimiter=limit=0.9661:level=false:attack=1:release=30" -ac 1 -c:a libmp3lame -b:a
+    128k`. Measured: `-af ebur128=peak=true -f null -` → **I −9.3 LUFS, true peak +0.6 dBTP**; `-af astats` → sample peak
+    **+0.54 dBFS**, RMS −11.73 dB; `ffprobe` → `duration=2.000000`, `sample_rate=44100 channels=1 bit_rate=128000`. (An
+    earlier try at +6 dB never reached the limiter: −14.0 LUFS / −2.8 dBTP — replaced.)
+  - `standin-quiet.mp3` — `-f lavfi -i "aevalsrc='0.5*sin(2*PI*2000*t)*lt(mod(t,0.1),0.001)':s=44100:d=2:c=mono" -c:a
+    libmp3lame -b:a 128k` (a uniform train of 1 ms 2 kHz bursts every 100 ms at −6 dBFS). Measured: ebur128 → **I −27.4
+    LUFS, true peak −5.7 dBTP**; astats → sample peak **−5.73 dBFS**, RMS −29.44 dB; ffprobe → `duration=2.000000`. Expected
+    through the product: wanted gain −20 − (−27.4) = +7.4 → peak +1.7 > −1.5 → **clamped**, gain = −1.5 − (−5.7) = **+4.2**,
+    recorded LUFS ≈ **−23.2** (honestly above −20), peak −1.5 ± a few tenths after the mp3 re-encode. (Two earlier tries
+    failed the R128 gate: a gated 9 %-duty noise-burst train read −19.8 LUFS; a 2 ms / 100 ms train read −24.2 LUFS with a
+    −6.2 dBTP peak → +4.2 of gain lands at −2.0, under the ceiling — not binding; both replaced.)
+- No launch, no build, no driver run yet.
 
 ## Next step (ONE concrete instruction)
 
-**Builder #4:** design §5 the listing row, red first. Read ONLY: `src/main/services/studio/agent-tools/library-listing.ts`
-(`formatLibraryRow` — E1 prints `(kind, N.NN s, origin, brand) — "description"`; the listing is capped at 150 rows) and its
-`library-listing.test.ts` (E1's rows are compared as EXACT strings — append after the description so they hold),
-`audio-tools.ts:55-75` (`signed()` :61-63 + `describeLevel` :66-74 — the `−20.0 LUFS` form: U+2212 for negatives, one decimal;
-if you want one source, move `signed` to a tiny `src/main/services/library/format-level.ts` and import it from both — then
-`audio-tools.test.ts` must stay green unchanged), and `LibraryAudioMeta` / `LibraryIndexV2Fields` in
-`src/shared/types/asset-library.ts:27-70` (`audio.category`, `audio.loudnessLufs`, `audio.normalizeError`, `tags`, `usedIn`).
-(1) Tests in `library-listing.test.ts`, run red first: an entry with everything → `… — "a whoosh" · category: motion · tags:
-whoosh, air · −20.0 LUFS · used in: p1, p2` (that order: category · tags · LUFS · used in; tags and project ids joined
-with `, `); an un-normalized entry (`audio.normalizeError` set) → the LUFS clause reads ` · −12.3 LUFS (not normalized)`
-when `loudnessLufs` is a number and ` · not normalized` when it is undefined; an entry with NONE of the fields → the E1
-string exactly (the existing E1 cases pin this — add one with `tags: []` / `usedIn: []` / `audio: {}` → no suffix either);
-an entry with only `tags`; an entry with only `usedIn`. (2) Code: `formatLibraryRow` appends each clause only when present
-(`category` non-empty, `tags.length > 0`, `loudnessLufs` finite or `normalizeError`, `usedIn.length > 0`), nothing else
-changes — no filtering, no `kind` / `query` args (E3's). Run green, then the neighbouring suites (`src/main/services/library`,
-`src/main/services/studio/agent-tools`, `shot-asset-refs.test.ts`) → green; types 26 / 10; commit `feat(studio): E2 —
-list_assets rows show category, tags, LUFS, usedIn` (explicit paths — do NOT stage `docs/studio/end-to-end/E4/HANDOFF.md`,
-which carries someone else's uncommitted 7 lines in this worktree); update this HANDOFF (Done / Verified / Agents) and
-hand off. The Next step you write is the LIVE step — the plan, drawn from "How the exit is measured" + DRIVING "Track E" +
-the session-5 resource guard: (a) the resource check + E-d4 (Hasan's `electron.exe` count, `%TEMP%\vidtsx-studio\export`
-quiet); (b) the profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E2\profile` copied from `profiles\source\
-profile` WITHOUT `settings\settings.db*` (never read or copy any `settings.db`); (c) the stand-in mp3, made by the SOURCE
-profile's `ffmpeg-full` (`…\profiles\source\profile\ffmpeg-full\ffmpeg-n8.1.2-…\bin\ffmpeg.exe`, reading it is fine): ~2.0 s
-of band-limited noise with a short tail, deliberately far from −20 LUFS and with a peak near 0 dBFS (so the gain AND the
-ceiling matter), written to `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\standin\<name>.mp3` (it MUST be an mp3 —
-builder #2's note); (d) the REAL-handler exit driver after E1's kit (`…\E1\upsert.e1.test.ts` / `list-assets.e1.test.ts`
-+ `vitest.e1.config.ts` with its own `cacheDir`; app STOPPED; `vi.mock('electron')` with `app.isPackaged: false` and
-`getPath('userData')` = the E2 profile; `../settings-db` → no override so `getLibraryRoot()` = `<profile>\assets`;
-`VIDTSX_AUDIO_STANDIN_FILE` set BEFORE `initAudioGenerationEngine`): `buildAudioTools(ctx)` → `generate_sfx({ prompt,
-durationSeconds: 2, category: 'motion', tags: ['whoosh','air'] })` → check the file under `generated/sfx-<slug>.mp3`, the
-index entry (`kind 'audio'`, `origin 'generated'`, `probe.duration`, `tags`, `audio.{category, loudnessLufs, peakDbfs,
-peakKind 'true', source 'standin', model 'standin'}`, `usedIn [<projectId>]` from the tool's own import), then
-`insert_asset({ assetId: 'library:<relPath>', lane: 'audio', … })` → `usedIn` still `[<projectId>]` (dedup), then
-`list_assets(scope:'library')` → the §5 row; (e) the INDEPENDENT meter on the generated file: `ffmpeg-full -i <file> -af
-ebur128=peak=true -f null -` (integrated I within −20 ± 0.5, true peak ≤ −1.5 dBTP) and `-af astats` (sample peak), plus
-an independent `ffprobe` duration within 10 ms of `probe.duration`; the recorded `loudnessLufs` / `peakDbfs` within ±0.5 of
-the meter; (f) the live CDP click-through (the worktree's own `out/` rebuilt first — DRIVING "Launch recipe", ~2 min; CDP
-port 9262; Studio root FIRST to `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\root` with one small fresh project
-BEFORE any navigation; the Assets screen → `generated` folder shows the sound with its duration — one screenshot; stop
-the app by Name + profile path). No model call is needed (E-d9). The ceiling-binding, short-transient and music cases are
-already unit-tested through the real bundled ffmpeg (builder #1's (B), (C); builder #2's music path) — the live step
-needs only the one stand-in sound. Then the records: Status.md row at the top, TESTING §18.15 (E-d10), the V4-N1 / V4-N2
-notes under "Carried from E1", the stand-in seam named in STATUS, builder #2's four Open-problem notes answered in
-Status.
+**Builder #5 — the LIVE step (the exit, "How the exit is measured" items 1–4 + the ceiling and music cases + the
+click-through), then the records.** The code is complete (`3084668`); the E2 profile and both stand-ins exist and are
+measured (Verified) — do not remake them. Scratch: drivers + small logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\
+E2\`, everything over ~1 MB (build / app / full-vitest logs, stills, `exit.json`) in `C:\Users\hasan\AppData\Local\vidtsx-e2e\
+E2\`. Never touch Hasan's `%APPDATA%\VidTSX Studio`, his projects, `profiles\source`, the B4 / B5 stations or any B6 / B7
+scratch; never read, copy or open a `settings.db`.
+
+0. **Resource guard + E-d4, right before each of (a), (b) and (c):** `Get-PSDrive C,D`; headroom = `(Get-CimInstance
+   Win32_OperatingSystem).FreeVirtualMemory / 1MB` GB; go only with C: ≥ 3 GB AND (C: free + headroom) ≥ 6 GB (10:12:
+   47.1 / 23.8 / 37.3). Start the watchdog once: copy `…\E1\watchdog.ps1` → `…\E2\watchdog.ps1`, point its profile match at
+   `profiles\E2\profile` (it stops only OUR electron.exe when C: < 1.5 GB), run it in the background. E-d4: `Get-CimInstance
+   Win32_Process -Filter "Name='electron.exe'"` — a process without `--user-data-dir` is Hasan's: then launch only if
+   `%TEMP%\vidtsx-studio\export` has had no write in the last 10 min (0 processes / 0 writes at 10:12).
+(a) **Rebuild the worktree's own `out/`** (DRIVING "Track E" step 1; Bash from the worktree root, ~2 min, can run in the
+   background while (b) is written): `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+   D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > /c/Users/hasan/AppData/Local/vidtsx-e2e/
+   E2/build-1.log 2>&1` → rc 0, only "use client" warnings. Rebuild again after any later `src/` change.
+(b) **The exit through the REAL handlers, app STOPPED** — a scratch vitest driver after E1's kit (`…\E1\upsert.e1.test.ts`
+   / `list-assets.e1.test.ts`: copy their `vi.mock('electron')` / `../settings-db` / log mocks; `…\E1\vitest.e1.config.ts` →
+   `…\E2\vitest.e2.config.ts` with its own `cacheDir` under `E2\` and the driver file(s) as `include`); run from the
+   worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --config D:/repos/VidTSX-STUDIO/
+   .vidtsx-temp/end-to-end/E2/vitest.e2.config.ts > /c/Users/hasan/AppData/Local/vidtsx-e2e/E2/exit-run-1.log 2>&1`. Use
+   TWO driver files (`exit-main.e2.test.ts`, `exit-ceiling.e2.test.ts`) run as two invocations — the engine is a singleton
+   and keeps the first stand-in (Open problems). In each: `process.env.VIDTSX_AUDIO_STANDIN_FILE` = the mp3 (main:
+   `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\standin.mp3`; ceiling: `…\standin-quiet.mp3`) at the TOP, before any import;
+   `vi.mock('electron')` → `app.isPackaged: false`, `app.getPath('userData')` = `C:\Users\hasan\AppData\Local\vidtsx-e2e\
+   profiles\E2\profile` (so the real `getLibraryRoot()` = `<profile>\assets`); if the normalizer needs it, mock the
+   WORKTREE's `src/main/utils/paths` → `getRemotionBinariesDir: () => null` as `audio-normalize.test.ts` does (then
+   `@remotion/renderer` finds the compositor's ffmpeg in the main checkout's `node_modules` — E1 proved it). The project:
+   create ONE small project under `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\root\projects\<id>` the project-store
+   way (read `src/main/services/studio/project-store.ts` for the create / load functions and the `project.json` shape — or
+   create it LIVE first in (c) with `studioProjectCreate` and run the driver against it afterwards); build the
+   `StudioToolContext` (`agent-tools/types.ts`: `req.projectId`, `state.importedAssets`, the emit) the way
+   `audio-tools.test.ts` / `library-import.test.ts` do, but with the REAL project on disk and the REAL services unmocked.
+   Then, in order: `initAudioGenerationEngine()` (`src/main/services/audio-generation-init.ts`; the warn names the stand-in
+   file — capture it); `buildAudioTools(ctx)` → `generate_sfx({ prompt: 'a short airy whoosh', durationSeconds: 2, category:
+   'motion', tags: ['whoosh', 'air'] })` → read the index (`library-index-io.ts` names the file under `<profile>\assets`) →
+   the entry `generated/sfx-<slug>.mp3`: **item 1** `kind 'audio'`, `origin 'generated'`, `tags ['whoosh','air']`, `audio.
+   {category 'motion', loudnessLufs, peakDbfs, peakKind 'true', source 'standin', model 'standin', gainDb ≈ −10.7}`,
+   `probe.duration`; `usedIn [<projectId>]` already (the tool's own `importLibraryFile` marks — say so, item 3 first half);
+   then the insert tools → `insert_asset({ assetId: 'library:generated/sfx-<slug>.mp3', lane: 'audio', at: 0 })` → `usedIn`
+   still exactly `[<projectId>]` (**item 3**, dedup); then `list_assets({ scope: 'library', kind: 'audio' })` → **item 4**:
+   the row `- library:generated/sfx-<slug>.mp3 (audio, 2.0x s, generated) — "a short airy whoosh" · category: motion ·
+   tags: whoosh, air · −20.0 LUFS · used in: <projectId>` (the LUFS within ±0.5 of −20.0, one decimal). **Item 2, the
+   independent meter** on `<profile>\assets\generated\sfx-<slug>.mp3` with `ffmpeg-full` (`…\source\profile\ffmpeg-full\
+   ffmpeg-n8.1.2-50-g1a748fe2cd-win64-gpl-shared-8.1\bin\ffmpeg.exe`): `-af ebur128=peak=true -f null -` → I within −20 ± 0.5
+   LU and true peak ≤ −1.5 dBTP; `-af astats` → sample peak ≤ −1.5 dBFS; `ffprobe.exe -show_entries format=duration` within
+   10 ms of `probe.duration` (n8 trims the LAME delay / padding like `mp3-gapless.ts`); the recorded `loudnessLufs` /
+   `peakDbfs` within ±0.5 of the meter. Ceiling file (second driver): expect `audio.gainDb ≈ +4.2` (= −1.5 − TP_in),
+   `loudnessLufs ≈ −23.2` (above −20 — honest), `peakDbfs` −1.5 ± a few tenths (mp3 re-encode; builder #1's known limit) and
+   the meter agreeing within ±0.5; the music path in the same second driver: `generate_music({ prompt: 'a soft bed',
+   durationSeconds: <MUSIC_MIN_SECONDS or more — check src/audio-engine/generation> })` → `generated/music-<slug>.mp3`,
+   `audio.source 'standin'`, the same normalize (the stand-in returns the same 2 s file whatever the request; the index
+   `probe.duration` is the real 2.0 s). Write every number to `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit.json` +
+   `exit-summary.md` (what was measured by what, with tolerances).
+(c) **LIVE CDP, port 9262:** copy `…\E1\launch.sh` → `…\E2\launch.sh` (profile `C:/Users/hasan/AppData/Local/vidtsx-e2e/
+   profiles/E2/profile`, port 9262, log `C:/Users/hasan/AppData/Local/vidtsx-e2e/E2/app-1.log`, and `export
+   VIDTSX_AUDIO_STANDIN_FILE=C:/Users/hasan/AppData/Local/vidtsx-e2e/E2/standin.mp3` before the `exec` so the stand-in
+   registers in the live app — the log line `DEV stand-in audio provider "standin" registered` appears when the engine
+   initialises; check WHEN `initAudioGenerationEngine` runs — if only lazily on first use, say so and rely on the driver
+   for the stand-in evidence); run with Bash `run_in_background`; ready = `window.api` + a visible nav button. FIRST CDP call,
+   from a FILE-based driver (`…\E2\cdp.mjs` after `…\E1\cdp.mjs`): `window.api.studioRootSet({ root: 'D:\\repos\\VidTSX-
+   STUDIO\\.vidtsx-temp\\end-to-end\\E2\\root' })` → `studioRootGet` echoes it; then confirm the library root is
+   `<profile>\assets` (grep `src/shared/ipc/preload.ts` for a library-root getter; else the app log); then the Assets
+   screen → `Refresh` (E1: it scans on first mount only) → `dblclick` the `generated` folder card → the generated sound(s)
+   listed with duration; ONE still, `restore.ps1` (port 9262) in the SAME call as `Page.captureScreenshot` (race it against
+   a timeout) → `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\assets-generated.png`. `list_assets` cannot run live without a
+   model turn (E-d9) → say "the stopped-app driver on the live index is the `list_assets` evidence". Stop: PowerShell
+   `Get-CimInstance Win32_Process -Filter "Name='electron.exe'" | Where-Object { $_.CommandLine -like '*--remote-debugging-
+   port=9262*' -or $_.CommandLine -like '*profiles\E2\profile*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`
+   — never a bare number. (If (b) ran before (c), the live index already has the entries and the Assets screen shows them;
+   if you create the project live first, run (b) after and take the still after a `Refresh`.)
+(d) **Records:** `Status.md` entry at the TOP in the house format (copy the E1 entry's shape) with: the measured numbers
+   (stand-in I / TP in → file I / TP / sample peak out, `gainDb`, `probe.duration` vs ffprobe), the stand-in named
+   (`VIDTSX_AUDIO_STANDIN_FILE`, dev-only, `!app.isPackaged`, after the BYOK loop), `peakKind 'true'` (dBTP from `loudnorm`
+   `input_tp`), the bitrate (libmp3lame 192k re-encode of ElevenLabs' 128k), the un-normalized policy (file kept, `audio.
+   normalizeError`, the answer's "NOT loudness-normalized" line, the row's `(not normalized)` / `not normalized`), builder
+   #2's four Open-problem notes answered ("Generating at ElevenLabs…" progress line left as is; a Cancelled normalize is
+   recorded, not retried; `normalized` required; the mp3-only stand-in), the V4-N1 edit (`Status.md:98` + `TESTING.md:486`:
+   drop proxies from the probe width / height consumers — `proxy-generator.ts` reads `duration` + `hasAudio` only) and V4-N2
+   only if `pre-e1-control.test.ts` is touched; TESTING §18.15 block (E-d10, after §18.14's shape). Then the gates: the full
+   worktree vitest run with the app stopped (`node …/vitest.mjs run > C:\…\E2\vitest-full-1.log 2>&1`; `--maxWorkers=2` while
+   headroom < 10 GB), green except the three E-d2a resolution suites (`builder-libraries.test.ts`, `shot-bundle.test.ts`,
+   `shot-bundle-in-place.test.ts`, each failing ONLY on package resolution) with rule (b): none of `git diff --name-only
+   5d77600..HEAD` is in their import graph (static walk; say the method); tsc 26 / 10; commit (`docs(studio): E2 — …`, explicit
+   paths, `Status.md` spelling); HANDOFF `status: DONE` + LOG line; return the evidence. Hand off at any numbered boundary
+   when near 40 calls; never hand back with the app or a build running.
 
 ## Open problems
 
@@ -472,6 +575,26 @@ Status.
   recorded; acceptable (T6 says "written when a ref lands"; the index normally knows every file by then).
 - (builder #3, housekeeping) The worktree has an UNCOMMITTED 7-line change in `docs/studio/end-to-end/E4/HANDOFF.md`
   (someone else's — present before builder #3 started; left unstaged, not E2's). Commit with explicit paths only.
+  **Resolved by builder #4's start:** `git status` was clean at `c3663f8` (the orchestrator committed it) — nothing foreign
+  is pending in the worktree now; keep committing with explicit paths anyway.
+- (builder #4, for the live step) `standin.mp3` decodes to a TRUE peak of **+0.6 dBTP** (sample peak +0.54 dBFS): the
+  mp3 encode overshoots the −0.3 dBFS limiter and a decoded mp3 may exceed full scale. The normalizer reads
+  `loudnorm`'s `input_tp` (≈ +0.6) and applies ≈ −10.7 dB (= −20 − (−9.3)), so the ceiling cannot bind on this file — as
+  the main case should be; the ceiling is exercised by `standin-quiet.mp3`. Record the live `input_tp` the product saw
+  (`audio.gainDb` = −20 − I_in when not clamped) next to the independent numbers.
+- (builder #4, lesson, R128 gating) A **gated** burst train (noise bursts between digital silence) is NOT "quiet" to an
+  EBU R128 meter: the relative gate (−10 LU under the ungated mean) drops the silent blocks and the integrated value is
+  the loudness of the bursts alone (a 9 %-duty train of −6 dBFS white-noise bursts read **−19.8 LUFS**; a −34 LUFS bed +
+  one −6 dBFS burst would read ≈ −20 for the same reason). A ceiling-binding file must be UNIFORM over its 400 ms blocks
+  (every block the same loudness): a sample-accurate `aevalsrc` train of short tone bursts every 100 ms. The product's
+  `loudnorm` gates the same way, so the live case's recorded `loudnessLufs` on such a file is honest.
+- (builder #4, note) `robocopy`'s exit code 1 means "files copied" — the PowerShell tool reports it as a failure; read
+  the summary lines, not the rc. The copy of the 372 MB profile took 3 s.
+- (builder #4, for the live step) The engine is a module singleton (`ensureAudioGenerationEngine`), and `registerInstance`
+  keeps the first `activeId` (`??=`): to run the main AND the ceiling case through the real handlers, either use TWO driver
+  files run as two vitest invocations (each with its own `VIDTSX_AUDIO_STANDIN_FILE` set before any import), or check
+  `audio-generation-init.ts` `unregister` (:52) / the engine's `unregister` resets `activeId` before re-registering — the two
+  files are the simpler path.
 
 ## Do-not-redo
 
@@ -487,6 +610,12 @@ Status.
 - Builder #3's `library-used-in.ts`, `libraryRelPathOf`, the three seams and their 19 tests (green at `68bbe44`; the red
   run is under Verified). The pool-import seam stays helper-tested only (said under Open problems) — do not write a
   `studio-handlers` test for it unless a verifier asks.
+- Builder #4's `format-level.ts` + the §5 suffix in `library-listing.ts` and their 6 tests (green at `3084668`; the red run
+  is under Verified). The row's form is pinned by exact strings — do not restyle it.
+- The E2 profile copy (`profiles\E2\profile`, no `settings.db*`) and the two stand-in mp3s with their measurements (under
+  Verified) — reuse them; remake a stand-in only if its file is gone (the recipes are under Verified).
+- The environment snapshot of 10:12 is NOT a substitute for the resource guard: run `Get-PSDrive C,D` + the headroom
+  check again right before the build, the driver and the launch.
 
 ## For Hasan (real-video list candidates)
 
@@ -511,3 +640,10 @@ Status.
   of `library-filing.test.ts` / `audio-generation-standin.test.ts` / `audio-tools.test.ts`); built design §4 red → green (19
   new tests in 4 files; neighbouring suites 33 files / 251 green), types 26 / 10, commit `68bbe44`; records + hand-off
   after the step (the 30 % rule: one numbered step). No launch, no profile copy, no live step.
+- 2026-10-24 · builder #4 · ~28 · read the brief's docs (HANDOFF in full, DRIVING in full) and ≈ 250 lines of code (only
+  the files the Next step named: `library-listing.ts` + its test, `audio-tools.ts:1-16` / `:50-79`, `asset-library.ts:20-75`);
+  built design §5 red → green (6 new tests in 2 files; `audio-tools.test.ts` unchanged green; neighbouring suites 34 files /
+  257 green), types 26 / 10, commit `3084668`; then the launch-free preparations of the live step: the environment
+  snapshot, the E2 profile copy (no `settings.db*`), the two stand-in mp3s made + measured with `ffmpeg-full` (three
+  tries for the ceiling-binding one — the R128-gating lesson under Open problems); records + hand-off at the step
+  boundary. No launch, no build, no driver run.
