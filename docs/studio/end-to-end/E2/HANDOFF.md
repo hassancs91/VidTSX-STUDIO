@@ -4,8 +4,8 @@ status: BUILDING
 > Track E, session 5. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 + E-d2a in ORCHESTRATOR.md
 > "Session 4 — track E" and the session-5 overrides ("Session 5") bind this part. E1 (`a35aef3` + fix round 3)
-> is the base: `kind` / `probe` / `probeStamp` / `tags` / `audio` / `usedIn` exist as optional index fields and
-> `tags` / `audio` / `usedIn` are still written by NOBODY.
+> is the base: `kind` / `probe` / `probeStamp` / `tags` / `audio` / `usedIn` exist as optional index fields;
+> since `841e311` (builder #2) generation writes `tags` + `audio`; `usedIn` is still written by NOBODY (§4 is next).
 
 ## Goal (the §3 row verbatim + the exit)
 
@@ -276,8 +276,50 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   applied to the pre-encode true peak; on an mp3 with transients the post-encode peak can sit a few tenths of a dB
   off the ceiling — recorded as measured (one re-encode, the gen_sfx rule), not forced; the WAV fixtures pin the rule
   exactly, the mp3 fixture pins the loudness + duration.
-- NOT built yet: the call site in `generateAudioAsset` + `audio` / `tags` (design §1 "Call site", §3), the stand-in (§2),
-  `usedIn` (§4), the listing row (§5), the remaining tests of §6, the live check.
+- NOT built yet (after builder #2): `usedIn` (§4), the listing row (§5), their tests (§6), the live check.
+
+### Built (builder #2) — commit `841e311` (design §1 "Call site", §2 stand-in, §3 args)
+
+- `src/main/services/library/generate-audio-asset.ts` (178 lines): `GenerateAudioAssetRequest` gains `category?` /
+  `tags?` (:52-55); after `fs.writeFile` → `normalizeAudioFile(absPath, { signal? })` (:131) BEFORE `upsertEntry`, so the
+  probe + hash describe the levelled file; `normalizeCategory` (trim + lower-case, :108-111) and `normalizeTags`; the
+  `audio` meta (:134-143) = `{ category?, loudnessLufs?, peakDbfs?, peakKind: 'true', source: result.providerId, model:
+  result.model, gainDb, normalizeError? }`; `upsertEntry(root, relPath, { origin, description, brandId?, tags?, audio })`
+  (:148-154); `GeneratedAudioAsset` gains `normalized` (REQUIRED boolean), `loudnessLufs?`, `peakDbfs?`, `normalizeError?`,
+  `category?`, `tags?` (:66-85); `durationSeconds` = the upsert's `probe.duration` when finite and > 0, else the engine's
+  figure (:155-156). A failed normalize is recorded (`audio.normalizeError`, descriptor `normalized: false`), never thrown.
+- `src/main/services/library/library-filing.ts:59-74` `TAGS_MAX = 20`, `normalizeTags(tags?)` → trim / lower-case / drop
+  empties / dedupe / cap 20, `undefined` when nothing is left (an entry never carries an empty `tags: []`).
+- `src/main/services/studio/agent-tools/audio-tools.ts` (175 lines): both tools gain `category: z.string().min(1).max(40)
+  .optional()` (hints `CATEGORY_HINT_SFX` motion / tension / emphasis / snap / foley / reward / texture / impact;
+  `CATEGORY_HINT_MUSIC` bed / sting / intro / outro / loop / transition) and `tags: z.array(z.string().min(1)).max(20)
+  .optional()`, passed through untouched (the library step normalizes). The answer: `Sound effect ready: project asset id
+  "asset-9" (library:generated/sfx-a-whoosh.mp3, 2.97 s, $0.006, brand: acme-test). Loudness −20.0 LUFS, peak −8.2 dBTP.
+  Filed with category: motion · tags: whoosh, air. It is in the project inventory now — place it …` — `signed()` prints a
+  typographic minus (U+2212), one decimal (:61-63); on `normalized: false` the level clause is ` NOT loudness-normalized
+  (<normalizeError>) — the raw file is kept.` (`describeLevel`, :66-74); duration `toFixed(2)`; the tool descriptions
+  name the normalization + category / tags.
+- Stand-in (§2, E-d6): `src/audio-engine/generation/providers/standin-audio-provider.ts` (33 lines) `StandinAudioProvider
+  (filePath)`, `id 'standin'` (`STANDIN_AUDIO_PROVIDER_ID`), `generate()` → `{ bytes: await fs.readFile(filePath),
+  contentType: 'audio/mpeg', model: 'standin' }`, `pricePerSecondUsd() → 0` (the engine then records `costUsd 0`);
+  exported from `src/audio-engine/generation/index.ts`. `src/main/services/audio-generation-standin.ts` (49 lines)
+  `STANDIN_AUDIO_FILE_ENV = 'VIDTSX_AUDIO_STANDIN_FILE'`, `registerDevStandinProvider(): boolean` — `!app || app.isPackaged`
+  → false; env unset / blank → false; `fs.statSync(path.resolve(file)).isFile()` false → `log.warn` + false; else
+  `registerInstance(new StandinAudioProvider(abs))` + `log.warn('DEV stand-in audio provider "standin" registered
+  (VIDTSX_AUDIO_STANDIN_FILE)', { file, active })` → true; never throws. Called at the END of `initAudioGenerationEngine`
+  after the BYOK loop (`audio-generation-init.ts:66-68`), so a real key stays `activeId` (`registerInstance` uses `??=`).
+- Tests (red first — `…\E2\b-red.log`: 11 failed + 2 files "Cannot find module"): `generate-audio-asset.test.ts` (9:
+  `./audio-normalize` mocked; call order normalize < upsert and the `{ signal }` argument; the `audio` meta on the upsert;
+  stale brand; category lower-cased + tags normalized / capped at 20; failed normalize → `normalizeError` on the entry,
+  bytes kept, descriptor `normalized: false`; `durationSeconds` from `probe.duration` else the engine's 3; the music path
+  → `source: 'standin', model: 'standin'`), `audio-tools.test.ts` (6: category + tags reach `generateAudioAsset`; `2.97 s`,
+  `−20.0 LUFS`, `peak −8.2 dBTP`, `category: motion`, `tags: whoosh, air`; the not-normalized line; `generate_music`
+  likewise), `library-filing.test.ts` (+2 `normalizeTags`), `standin-audio-provider.test.ts` (3: bytes back as
+  `audio/mpeg` / through `createAudioGenerationEngine()` → `providerId 'standin'`, `model 'standin'`, `costUsd 0`, `ext
+  '.mp3'`, `durationSec 2` / a missing file rejects), `audio-generation-standin.test.ts` (6: the env name; packaged → false
+  even with the file; no env → false; missing file → false + one warn; ok → true, listed, active, price 0, the warn names
+  the file; a provider registered first stays active). The agents' `generate-audio.test.ts` mock gains `normalized: true`
+  — no arg change there, green.
 
 ## Verified (exact commands + outputs)
 
@@ -291,46 +333,69 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   `tsc-node-1.log`).
 - Bundled ffmpeg toolset re-check (2026-10-24, `node_modules/@remotion/compositor-win32-x64-msvc/ffmpeg.exe -filters /
   -encoders / -muxers`, n7.1): in the design note's first paragraph. Node for the tests: v22.14.0.
+- 2026-10-24 · builder #2 · red, from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  src/main/services/library/generate-audio-asset.test.ts src/main/services/studio/agent-tools/audio-tools.test.ts
+  src/main/services/agents/tools/generate-audio.test.ts src/main/services/library/library-filing.test.ts
+  src/audio-engine/generation/providers/standin-audio-provider.test.ts src/main/services/audio-generation-standin.test.ts`
+  BEFORE the code → `Test Files 5 failed | 1 passed (6) · Tests 11 failed | 23 passed (34)` (+ "Cannot find module
+  './standin-audio-provider'" / "…/audio-generation-standin"; the agents' test green) — `…\E2\b-red.log`. AFTER (the
+  six + `pre-e1-control.test.ts` + `audio-normalize.test.ts` + `audio-loudness-rule.test.ts`) → `Test Files 9 passed (9) ·
+  Tests 67 passed (67)` — `…\E2\b-green-1.log`.
+- Types on `841e311`: `tsc -p tsconfig.web.check.json --noEmit` → 26 `error TS` lines; `-p tsconfig.node.check.json` → 10;
+  none in the new or edited files (`…\E2\tsc-web-2.log`, `tsc-node-2.log`).
 - No launch, no profile copy, no live step yet (no resource check needed so far).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #2:** wire the call site, the stand-in and the args — design §1 "Call site", §2, §3 — red first. (1) Tests:
-update `src/main/services/library/generate-audio-asset.test.ts` (add `vi.mock('./audio-normalize', …)` →
-`normalizeAudioFile` mock resolving `{ normalized: true, loudnessLufs: -20.01, peakDbfs: -8.2, gainDb: -8, clamped:
-false, gated: false, skipped: false }`; `upsertEntry` must receive `{ origin, description, brandId?, tags: [...],
-audio: { category?, loudnessLufs, peakDbfs, peakKind: 'true', source: 'elevenlabs', model: 'eleven_text_to_sound_v2',
-gainDb } }`; a `normalized: false, error: 'apply failed: x'` mock → `audio.normalizeError: 'apply failed: x'` and the
-file still on disk; `durationSeconds` = `upsertEntry`'s returned `probe.duration` when present, else the engine's 3;
-`tags` normalized — trim / lower-case / dedupe / cap 20; `category` lower-cased), update `src/main/services/studio/
-agent-tools/audio-tools.test.ts` (`generate_sfx({ prompt, category: 'motion', tags: ['Whoosh', 'air'] })` passes
-`category` + `tags` to `generateAudioAsset`; the answer text contains the LUFS (`−20.0 LUFS`) and the probed
-duration; a `normalized: false` result → the text says "NOT loudness-normalized (<error>) — the raw file is kept";
-`generate_music` likewise), and give the agents' `src/main/services/agents/tools/generate-audio.test.ts` mock
-`normalized: true` (keep it green — no arg change there). Run the three → red. (2) Code: `generate-audio-asset.ts`
-(request gains `category?: string`, `tags?: string[]`; after `fs.writeFile`: `const norm = await
-normalizeAudioFile(absPath, { signal: req.signal })`; `upsertEntry(root, relPath, { origin, description, brandId?,
-tags?, audio })` with the `audio` meta of design §1; result gains `normalized`, `loudnessLufs?`, `peakDbfs?`,
-`normalizeError?`, `category?`, `tags?`, and `durationSeconds = entry.probe?.duration ?? result.durationSec`);
-`normalizeTags(tags?: string[]): string[] | undefined` in `library-filing.ts` (+ 2 cases in `library-filing.test.ts`);
-`audio-tools.ts` (both tools: `category: z.string().min(1).max(40).optional()` described with motion / tension /
-emphasis / snap / foley / reward / texture / impact (music: bed / sting / …), `tags: z.array(z.string().min(1)).max(20)
-.optional()`; the answer line as designed); the stand-in: `src/audio-engine/generation/providers/standin-audio-provider.ts`
-(`StandinAudioProvider(filePath)`, `id 'standin'`, `generate()` → `{ bytes: await fs.readFile(filePath), contentType:
-'audio/mpeg', model: 'standin' }`, `pricePerSecondUsd() → 0`) + its test (bytes back; through
-`createAudioGenerationEngine().registerInstance(provider)` → `generate({ kind:'sfx', prompt:'x', durationSec: 2 })`
-gives `providerId 'standin'`, `model 'standin'`, `costUsd 0`, `ext '.mp3'`); `src/main/services/audio-generation-standin.ts`
-`registerDevStandinProvider(): boolean` (only when `!app.isPackaged` AND `process.env.VIDTSX_AUDIO_STANDIN_FILE` names
-an existing file; `log.warn` naming the file when it registers — it is a dev seam), called at the END of
-`initAudioGenerationEngine` in `audio-generation-init.ts` (after the BYOK loop; `audio-generation-init` has no test —
-unit-test the helper with `electron` mocked: packaged → false / no env → false / file missing → false / ok → registered).
-Run → green; types 26 / 10; commit `feat(studio): E2 — generation records loudness, category, tags; the dev stand-in
-provider` (explicit paths); then continue with §4 (`usedIn`: `library-used-in.ts` + `libraryRelPathOf` + the three
-seams, tests red first) and §5 (the listing row) by the 30 % rule — hand off after a step with the HANDOFF updated.
+**Builder #3:** design §4 `usedIn`, red first. Read ONLY: `src/main/services/library/library-index-io.ts` (the per-root
+serialize chain — builder #1: `updateIndex` :118; the grep `export async function updateIndex` found nothing, so it is
+declared differently — read the file), `library-paths.ts:20-70` (`getLibraryRoot` :27, `toLibraryRelPath` :59 — see what it
+returns for a path OUTSIDE the root; the design's `libraryRelPathOf(root, abs): string | null` is the null-returning
+sibling), `src/main/services/studio/agent-tools/library-import.ts:31-60` (`importLibraryFile`: `root = getLibraryRoot()`,
+`existing = matchExistingAsset(...)` → `return existing` at :47; the fresh import returns `asset` at :60 — mark before BOTH
+returns), `src/main/services/studio/shot-asset-refs.ts:93-153` + the existing `shot-asset-refs.test.ts` (the only seam with a
+test today; `library-import.ts` and `src/main/ipc/studio-handlers.ts` have none, `library-paths.ts` has none), `studio-
+handlers.ts:275-302`, and `usedIn?: string[]` in `src/shared/types/asset-library.ts` (`LibraryIndexV2Fields`).
+(1) Tests: new `src/main/services/library/library-used-in.test.ts` — `addUsedIn(entry, 'p1')` → true + `usedIn: ['p1']`,
+again → false (dedup), other fields untouched; `markLibraryUsedIn(root, ['a.mp3', 'unknown.mp3'], 'p1')` on a REAL temp
+index (write it with the real index-io helpers; `electron` mocked like `library-filing.test.ts`) → `a.mp3` patched,
+`unknown.mp3` left out and logged, every other entry byte-equal, a second identical call does NOT rewrite the file (bytes /
+mtime), an unreadable root never throws; `markLibraryUsedInForPaths('p1', [absUnderRoot, absOutside])` → only the inside
+path marked. New `library-paths.test.ts`: `libraryRelPathOf` inside → POSIX rel path, outside and the sibling-prefix trap
+(`<root>2\x.mp3`) → null, drive-letter case on Windows. Seam tests: new `library-import.test.ts` (mock `../../library/
+library-used-in`, `../project-store`, `../media-import`, `../../library/library-store`, `../../library/library-paths`,
+`../../library/hash` or wherever `hashFileHead` comes from) — `importLibraryFile` calls `markLibraryUsedIn(root,
+[relPath], 'p1')` on BOTH returns; `shot-asset-refs.test.ts` + one case: two `library:` refs (one already a project asset,
+one imported) → ONE `markLibraryUsedIn` call carrying both relPaths and `project.id`. The pool import (3) has no handler
+test: unit-test `markLibraryUsedInForPaths` and SAY in this HANDOFF that `handleStudioMediaImport` is wired but covered by
+the helper's test only. `pre-e1-control.test.ts` must stay green. Run → red. (2) Code: `src/main/services/library/
+library-used-in.ts` (`addUsedIn`, `markLibraryUsedIn`, `markLibraryUsedInForPaths` as designed — EXISTING entries only,
+deduplicated, `mutate` returns false when nothing changed so nothing is written, never throws, warn-logs), `libraryRelPathOf`
+in `library-paths.ts`, the three seams: `importLibraryFile` marks before each `return`; `resolveShotAssetRefs` collects
+the library relPaths it resolved (existing or imported) and marks ONCE after the loop with `project.id`;
+`handleStudioMediaImport` (`studio-handlers.ts:297`) marks `assets.map(a => a.path)` after `importMediaFiles`. Run → green;
+types 26 / 10; commit `feat(studio): E2 — usedIn written on the three library landings` (explicit paths); update this
+HANDOFF. Then §5 the listing row: `formatLibraryRow` (`agent-tools/library-listing.ts`) appends, only when present,
+` · category: motion` · ` · tags: whoosh, air` · ` · −20.0 LUFS` (U+2212, one decimal — the same form as `signed()` in
+`audio-tools.ts:61-63`; move it to a tiny `src/main/services/library/format-level.ts` if you want one source) + ` (not
+normalized)` when `audio.normalizeError` · ` · used in: p1, p2`; the E1 rows print unchanged (the E1 listing tests hold);
+tests in `library-listing.test.ts`; commit `feat(studio): E2 — list_assets rows show category, tags, LUFS, usedIn`; hand
+off with the HANDOFF updated. The live step ("How the exit is measured") is builder #4's or later — read DRIVING
+"Track E" and the resource guard first.
 
 ## Open problems
 
-(none yet)
+- (builder #2, note, not blocking) The tool's progress line still reads "Generating at ElevenLabs…" when the stand-in
+  answers (`audio-tools.ts` `emitProgress`); cosmetic — the answer text itself names nothing provider-specific. Fix only if
+  a later step touches that line; say so in Status if not.
+- (builder #2, note) A caller abort DURING the normalize pass returns `normalized: false, error: 'Cancelled'`, and the raw
+  file is indexed with `audio.normalizeError: 'Cancelled'` (the bytes are kept, the turn is cancelled anyway). Re-running
+  the normalizer on an existing entry is not in E2's scope — one line in Status.
+- (builder #2, note) `GeneratedAudioAsset.normalized` is a REQUIRED boolean; tsc confirmed the agents' `generate-audio.ts`
+  compiles unchanged (it reads none of the new fields — its answer does not print the LUFS; E2 does not change it).
+- (builder #2, for the live step) The stand-in file must be an mp3 (the engine's `ext` is `.mp3`, by design left as is);
+  the exit's locally made sound (band-limited noise, peak near 0 dBFS, not at −20 LUFS) therefore goes through
+  `ffmpeg-full` into an mp3 BEFORE it is named in `VIDTSX_AUDIO_STANDIN_FILE`.
 
 ## Do-not-redo
 
@@ -340,6 +405,9 @@ seams, tests red first) and §5 (the listing row) by the 30 % rule — hand off 
   Verified). The `LibraryAudioMeta` additions.
 - The bundled-ffmpeg toolset re-check of 2026-10-24 (`anoisesrc` absent; `sine` / `anullsrc` present — the fixtures are
   JS-written WAVs anyway).
+- Builder #2's call site, `normalizeTags`, the `category` / `tags` args, the stand-in provider + `registerDevStandinProvider`
+  and their 24 new / updated tests (green at `841e311`; the red run is under Verified). The answer's `−20.0 LUFS` form
+  (U+2212, one decimal) is pinned by `audio-tools.test.ts` — the §5 listing row should print the same form, not redesign it.
 
 ## For Hasan (real-video list candidates)
 
@@ -352,3 +420,9 @@ seams, tests red first) and §5 (the listing row) by the 30 % rule — hand off 
   TESTING §17 / §18.14, E1 design + fix rounds + do-not-redo) and ≈ 1,600 lines of code; wrote the design note (a)–(f);
   built design §1's normalizer + rule red → green (18 tests through the real bundled ffmpeg), types 26 / 10, commit
   `60b5537`; records + hand-off. No launch, no profile copy, no live step.
+- 2026-10-24 · builder #2 · ~42 · read the brief's docs (HANDOFF in full, DRIVING "Never touch" / "Isolated instance" /
+  "Repo facts" / "Track E", ORCHESTRATOR session-4 decisions + session 5, PLAN T6 + the E2 row, TESTING §17 / §18.14) and
+  ≈ 1,100 lines of code (the six files of the step + the engine / provider / normalize / store / index-io signatures);
+  built design §1 "Call site" + §2 stand-in + §3 args red → green (24 new / updated tests; 9 files / 67 green incl. the
+  E-d5 control and the normalizer suites), types 26 / 10, commit `841e311`; records + hand-off after the step. No launch,
+  no profile copy, no live step.
