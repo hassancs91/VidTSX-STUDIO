@@ -1006,3 +1006,17 @@
   DOM event order is left to the live check. `AssetLibraryScreen.tsx` 464 lines (456 before E3). **Orchestrator note:** the log
   times above 16:20 were corrected to the commit clock at 19:57 (they had drifted ahead by up to 2 h 20 min). Builder #3 spawned
   (the live step: Assets over CDP first, then the importer, the tool-level checks, the model turns).
+- 20:40 · E3 builder #3 HANDOFF — the LIVE step, all exit measurements met, no code change (`7ba2141` docs): Studio root first,
+  library root `<E3 profile>\assets`; E4's importer (dry run, then 51 copied). Assets over CDP: the shared tile `<audio>` on
+  `whoosh-soft` `paused false`, `readyState 4`, `src` = its module-server URL; `piano-a-min` `currentTime` 0.415 → 1.433 in 1.0 s; the
+  details `<audio controls>` plays, a tile play pauses it; `tag:whoosh` chip 45 → 4 tiles; sound rows shown; still
+  `…\vidtsx-e2e\E3\assets-details.png`. Real handlers (app stopped): no provider → `generate_sfx('a soft airy whoosh …')` top 3
+  (whoosh-soft / whoosh-wind / whoosh-reverse), "nothing was generated", index byte-identical; cuckoo → the no-provider notice;
+  with its own stand-in (−25.8 LUFS) the cuckoo generated once → −20.26 recorded / −20.2 by `ebur128`, `usedIn`; asked again →
+  from the library; `force: true` generated. **Live, keyless `claude-subscription` (sonnet-5-5), no stand-in, 3 turns, 0 retries:**
+  "Add a soft whoosh at the first cut." on two fresh projects → `list_assets` → `insert_asset("library:sfx/whoosh-soft.mp3", audio,
+  at 2.8)` card, no generation, `usedIn` 16 → 17 → 18 — PASS ×2; the cuckoo → `list_assets` ×2, `generate_sfx` → no-provider, the
+  assistant offered `chime-reward` asking first — PASS. Open (not E3 defects): `list_assets` "whoosh" also lists `flame-snuff`
+  ("no whoosh" — the listing has no negation rule); usage rows say `featureSource "auto-cut"`; details-play pausing a STILL-playing
+  tile not seen live (the other direction was); an empty scratch project `e3-whoosh-1`. Builder #4 spawned (gates + records + the
+  E2 / E4 Status title fixes).
