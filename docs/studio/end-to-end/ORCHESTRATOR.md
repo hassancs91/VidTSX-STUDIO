@@ -35,9 +35,9 @@
 | D4 | TODO | | | | | |
 | D5 | TODO | | | | | |
 | E1 | **DONE** (exit MET in round 3; fix round 3 docs-only; verifier round 4 PASS on the records) | 8 (#8 = docs-only round 3) | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) → docs fix `8a1a60c` → **PASS round 4** (records; 4 notes V4-N1…N4, none a failure) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3`, fix round 3 `8a1a60c` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10; round 4: E1 suites 20 files / 170 tests, types 26/10, `8a1a60c` changes 4 `//` lines in `src/` | 2026-10-23 20:25 / 2026-10-24 09:35 |
-| E2 | **DONE** (verifier FAIL round 1 → fix round 1 → PASS round 2) | 8 (#6 = records only, #7–#8 = fix round 1) | FAIL round 1 (F1 the −1.5 ceiling over after the mp3 re-encode on a 0.25 s burst; F2 shot-ref `usedIn` mark before validation) → fix `f990487` (E-d11 corrective re-encode from the original; mark after validation; `pool-import.ts` seam + test; one-line `normalizeError`; gated answer) → **PASS round 2** | code `60b5537` (normalizer) `841e311` (call site, args, dev stand-in) `68bbe44` (`usedIn` on the three landings) `3084668` (listing row) `f990487` (fix round 1); docs `70bb70f` `59b8e93` `1e36cbc` `bbfd17e` `4eb6bf5`, records `3249cbe` `b238d7f`, fix-round records `fd964ad` `d86497a` (branch `end-to-end-p0-e`) | stand-in in −9.3 LUFS / +0.6 dBTP → recorded −20.27 LUFS / −10.79 dBTP (gain −10.71); independent ffmpeg-full ebur128 −20.2 LUFS, TP −10.8, astats −10.79; probe 2.000 s = ffprobe n8 (0 ms); `tags [whoosh, air]`, `category motion`, `source`/`model` standin; `usedIn ["e2-exit"]` after the tool's own import, unchanged after `insert_asset`; `list_assets` row shows duration · category · tags · −20.3 LUFS · used in; ceiling case gain +4.18 (clamped, wanted +7.4), −23.44 LUFS, TP −1.79 (0.3 dB under the ceiling after the mp3 re-encode); music path identical; live: Assets › `generated` lists the 4 files (still), Studio root set first; worktree vitest 485 files / 4,138 tests green except the 3 E-d2a suites (rule (b): NONE of 68 files); types 26/10; **after fix round 1 (verifier round 2):** a 0.25 s gated burst −1.884 dBTP / −1.871 dBFS (1 corrective pass; was −1.3 over), five new transients worst −1.546 dBTP, 110-run sweep never over; vitest 487 / 4,149 + the 3 E-d2a suites; types 26/10 | 2026-10-24 09:40 / live 10:36 (stopped 12:55 before the records); session 6 2026-10-28 16:10 / 18:35 (records, FAIL 1, fix, PASS 2) |
-| E3 | BUILDING (after E4) — HANDOFF.md prepared (`666919d` + `d2e305e`: the whoosh-case measurement, prompt-rule lines, Assets screen facts, B6 live-assistant kit, session-6 notes) | 1 | | | | 2026-10-28 21:40 / |
-| E4 | **DONE** (verifier FAIL round 1 + FAIL round 2, both on the records only → PASS round 3; exit and code sound in every round) | 5 (#4 = fix round 1 test + records, #5 = fix round 2 records + audit) | FAIL round 1 (records: R1 moved-clip claim, R2 pointer; E-d12) → fix `4fa1551` + `51dff42` → FAIL round 2 (records: R3 a stale git-state line) → fix `ff7f302` `76744ad` → **PASS round 3** (records, ~190 statements) | code `4aed92f` `5247ed9`, test `4fa1551`; docs `dc41822` `ad7b415` `ff95d1c` `8dba927` `ce9aaac` `bdeb722`, fix records `51dff42` `d1d7f8d` `ff7f302` `76744ad` (branch `end-to-end-p0-e`) | 51 / 51 sha256-identical, probe = ffprobe n8.1.2 0 ms (vs catalog `duration_s`: 38 × 0, 12 × ≤ +0.5 ms, `camera-shutter` −42 ms), fields mapped, `usedIn` verbatim + a Studio id kept on re-run; dry run tree hash equal; re-run byte-equal; changed copy → 1 entry's tags; vitest 489 / 4,165 + the 3 E-d2a suites; types 26/10 | 2026-10-28 18:40 / 21:35 |
+| E2 | **DONE** (verifier FAIL round 1 → fix round 1 → PASS round 2) | 8 (#6 = records only, #7–#8 = fix round 1) | FAIL round 1 (F1 the −1.5 ceiling over after the mp3 re-encode on a 0.25 s burst; F2 shot-ref `usedIn` mark before validation) → fix `f990487` (E-d11 corrective re-encode from the original; mark after validation; `pool-import.ts` seam + test; one-line `normalizeError`; gated answer) → **PASS round 2** | code `60b5537` (normalizer) `841e311` (call site, args, dev stand-in) `68bbe44` (`usedIn` on the three landings) `3084668` (listing row) `f990487` (fix round 1); docs `70bb70f` `59b8e93` `1e36cbc` `bbfd17e` `4eb6bf5`, records `3249cbe` `b238d7f`, fix-round records `fd964ad` `d86497a` (branch `end-to-end-p0-e`) | stand-in in −9.3 LUFS / +0.6 dBTP → recorded −20.27 LUFS / −10.79 dBTP (gain −10.71); independent ffmpeg-full ebur128 −20.2 LUFS, TP −10.8, astats −10.79; probe 2.000 s = ffprobe n8 (0 ms); `tags [whoosh, air]`, `category motion`, `source`/`model` standin; `usedIn ["e2-exit"]` after the tool's own import, unchanged after `insert_asset`; `list_assets` row shows duration · category · tags · −20.3 LUFS · used in; ceiling case gain +4.18 (clamped, wanted +7.4), −23.44 LUFS, TP −1.79 (0.3 dB under the ceiling after the mp3 re-encode); music path identical; live: Assets › `generated` lists the 4 files (still), Studio root set first; worktree vitest 485 files / 4,138 tests green except the 3 E-d2a suites (rule (b): NONE of 68 files); types 26/10; **after fix round 1 (verifier round 2):** a 0.25 s gated burst −1.884 dBTP / −1.871 dBFS (1 corrective pass; was −1.3 over), five new transients worst −1.546 dBTP, 110-run sweep never over; vitest 487 / 4,149 + the 3 E-d2a suites; types 26/10 | 2026-10-24 09:40 / live 10:36 (stopped 12:55 before the records); session 6 2026-10-28 16:09 / 17:42 (records, FAIL 1, fix, PASS 2) |
+| E3 | BUILDING (after E4) — HANDOFF.md prepared (`666919d` + `d2e305e`: the whoosh-case measurement, prompt-rule lines, Assets screen facts, B6 live-assistant kit, session-6 notes) | 1 | | | | 2026-10-28 19:28 / |
+| E4 | **DONE** (verifier FAIL round 1 + FAIL round 2, both on the records only → PASS round 3; exit and code sound in every round) | 5 (#4 = fix round 1 test + records, #5 = fix round 2 records + audit) | FAIL round 1 (records: R1 moved-clip claim, R2 pointer; E-d12) → fix `4fa1551` + `51dff42` → FAIL round 2 (records: R3 a stale git-state line) → fix `ff7f302` `76744ad` → **PASS round 3** (records, ~190 statements) | code `4aed92f` `5247ed9`, test `4fa1551`; docs `dc41822` `ad7b415` `ff95d1c` `8dba927` `ce9aaac` `bdeb722`, fix records `51dff42` `d1d7f8d` `ff7f302` `76744ad` (branch `end-to-end-p0-e`) | 51 / 51 sha256-identical, probe = ffprobe n8.1.2 0 ms (vs catalog `duration_s`: 38 × 0, 12 × ≤ +0.5 ms, `camera-shutter` −42 ms), fields mapped, `usedIn` verbatim + a Studio id kept on re-run; dry run tree hash equal; re-run byte-equal; changed copy → 1 entry's tags; vitest 489 / 4,165 + the 3 E-d2a suites; types 26/10 | 2026-10-28 17:42 / 19:28 |
 | F0 | TODO | | | | | |
 | F1 | TODO | | | | | |
 | F2 | TODO | | | | | |
@@ -869,7 +869,7 @@
   the music answer reused the ceiling case's project asset id because the stand-in wrote two byte-identical files
   (`matchExistingAsset` by hash, `library-import.ts:46`, pre-E2) — a stand-in artefact, recorded. E2 → VERIFY; verifier
   round 1 spawned (CDP 9272, profile `E2-verify`), range `666919d..HEAD`.
-- 16:50 · **E2 verifier round 1 FAIL** (~84 calls): **F1** the −1.5 ceiling is not held after the mp3 re-encode (its 0.25 s
+- 16:46 · **E2 verifier round 1 FAIL** (~84 calls): **F1** the −1.5 ceiling is not held after the mp3 re-encode (its 0.25 s
   stereo burst, gated branch +7.2 dB → −1.3 dBTP / −1.268 dBFS sample by `ffmpeg-full`; the rule lands exactly on the ceiling
   pre-encode, one lossy re-encode, never enforced; inherited from `gen_sfx.py`) — exit item 2 missed on the short-transient case;
   **F2** `resolveShotAssetRefs` marks `usedIn` before `buildPromptAssets` validates (an audio ref throws "visual-only" after the
@@ -881,7 +881,7 @@
   re-encode from the ORIGINAL with less gain (≤ 2 corrective passes); chosen over a fixed margin (keeps `gen_sfx`'s result where
   nothing overshoots). E2 HANDOFF → `status: FIX`, Next step = fix round 1 (F1, F2, N3 test, N2 + N5 text, live re-check with the
   verifier's `v-short.mp3`, gates, records). Builder #7 spawned. E2 FAIL count: 1 of 3.
-- 17:15 · E2 builder #7 HANDOFF (steps 1–4): `f990487` — E-d11 in `audio-normalize.ts` (281 lines: encode original → temp,
+- 17:04 · E2 builder #7 HANDOFF (steps 1–4): `f990487` — E-d11 in `audio-normalize.ts` (281 lines: encode original → temp,
   re-measure, ≤ 2 corrective passes from the ORIGINAL at gain − overshoot − 0.1 dB, keep the lowest if still over; `gainDb` =
   applied; result-only `correctivePasses` / `overCeiling`), `audio-loudness-rule.ts` (`isOverCeiling`, `correctiveGain`; the 0.1 dB
   skip no longer keeps a file whose peak is over the ceiling — within E-d11), F2 order fixed, N3 `pool-import.ts`
@@ -889,15 +889,15 @@
   every red recorded (the F1 red: a JS 0.25 s stereo noise-burst mp3 → −1.44 > −1.5); 10 files / 74 green; tsc 26 / 10. One
   case written with its code (not red-first), said in HANDOFF. `d350e6c` docs. Builder #8 spawned (steps 5–7: live re-check,
   gates + rebuild, records).
-- 17:35 · E2 builder #8 DONE (`fd964ad`, `d86497a`; no `src/` change after `f990487`): real handlers, app stopped, meter
+- 17:23 · E2 builder #8 DONE (`fd964ad`, `d86497a`; no `src/` change after `f990487`): real handlers, app stopped, meter
   `ffmpeg-full` — the verifier's `v-short.mp3` → gated, 1 corrective pass (first encode −1.27), gain +6.87, recorded −1.88 dBTP,
   meter TP −1.9 / sample −1.871; `standin-quiet` → clamped, 0 passes, −23.44 / −1.79 vs meter −23.4 / −1.8 / −1.832; control
   `standin.mp3` → −20.27 / −10.79 vs −20.2 / −10.8 (= builder #5's exit); probe = ffprobe 0 ms on all three (`…\E2\fix1.json`).
   Gates: worktree vitest `--maxWorkers=2` 487 passed / 3 failed (the E-d2a suites, resolution only) / 5 skipped files, 4,149 /
   9 / 35 tests; rule (b) on the 71-file diff list NONE; tsc 26 / 10; `wt/out` rebuilt (17:16). Records corrected. Not exercised:
-  a SECOND corrective pass (the cap of 2). Resources 17:36: C: 40.4 GB, headroom 18.7 GB. E2 verifier round 2 spawned (CDP 9272,
+  a SECOND corrective pass (the cap of 2). Resources 17:23: C: 40.4 GB, headroom 18.7 GB. E2 verifier round 2 spawned (CDP 9272,
   its own `E2-verify` profile may be reused — verifier scratch).
-- 18:35 · **E2 verifier round 2 PASS → E2 DONE.** Its own numbers: gates first try, default workers (headroom 16.9 GB) — 487
+- 17:42 · **E2 verifier round 2 PASS → E2 DONE.** Its own numbers: gates first try, default workers (headroom 16.9 GB) — 487
   passed / 3 failed (E-d2a, resolution only; its own walk 0 / 0 / 1 erased `import type`) / 5 skipped files, 4,149 / 9 / 35 tests,
   85 s; tsc 26 / 10. Ten real-handler runs on `E2-verify`, every encode read the ORIGINAL, no temps left: `v-short` 1 corrective
   pass → −1.884 dBTP / −1.871 dBFS; five NEW short / transient stand-ins (48 kHz mono click, 0.15 s stereo tone, inter-sample-peak
@@ -915,11 +915,11 @@
   `describeLevel` `audio-tools.ts:61-70` (now :61-76) and `n3-red.log` under C: (it is in the D: kit); (5) the app CREATES a
   fresh `settings.db` in an isolated profile at launch (`E2-verify`, 16:41) — no keys, never read; (6) resolving the same image
   ref twice imports it again (main never writes `project.json`; pre-existing; `usedIn` stays deduped).
-- 18:40 · E4 builder #1 spawned (CDP 9264, profile `E4`).
-- 18:55 · E4 builder #1 HANDOFF (~37 calls): design note; `4aed92f` — `catalog-import-map.ts` (pure parse / map / diff) +
+- 17:42 · E4 builder #1 spawned (CDP 9264, profile `E4`).
+- 17:54 · E4 builder #1 HANDOFF (~37 calls): design note; `4aed92f` — `catalog-import-map.ts` (pure parse / map / diff) +
   `catalog-import.ts` (`planCatalogImport` = the read-only dry run; `applyCatalogImport` copies no-overwrite, re-checks sha256,
   upserts through the app's `upsertEntry`; a moved clip found by content hash, not re-copied — after a rescan only, see R1 /
-  E-d12 at 20:10); relPaths `sfx/<file>` /
+  E-d12 at 18:44); relPaths `sfx/<file>` /
   `music/<file>`; `audio.license` (new optional), `peakKind 'sample'`, catalog `source` verbatim, `used_in` → `usedIn` merged
   (`mergeUsedIn`; `upsertEntry` takes optional `usedIn`); chords' description "(no licence recorded in the catalog)";
   `requested_ms` / `force_instrumental` / `function` dropped (listed per clip in the plan); `duration_s` not stored (index
@@ -928,7 +928,7 @@
   that drops its whole tag list does not clear the entry's tags. Slip: a HANDOFF edit by a Python script failed, so `dc41822`
   carries only line-number fixes and `ad7b415` the records — the next brief repeats "Edit/Write tools only". E3 HANDOFF gets
   session-6 notes. Builder #2 spawned (the script, smoke, live run, gates).
-- 19:20 · E4 builder #2 HANDOFF (~45 calls): `5247ed9` `scripts/import-sfx-library.mjs` (esbuild bundle of the service;
+- 18:10 · E4 builder #2 HANDOFF (~45 calls): `5247ed9` `scripts/import-sfx-library.mjs` (esbuild bundle of the service;
   `electron` / `settings-db` stubs that throw; `--library` + `--from` required, `--dry-run`, `--report`; refuses a missing / non-
   folder library or one inside `--from`); no `src/` change; `wt/out` rebuilt. Smoke on a scratch root, then LIVE on the E4
   profile (CDP 9264, Studio root first, library root `<profile>\assets` confirmed, app stopped before the import): dry run tree
@@ -942,12 +942,12 @@
   the app's own scan added 6 `presets/` entries, changed none of the 51. The editor repo's `git status` shows its catalogs
   modified — Hasan's own edits (sfx mtime 2026-10-10, music 2026-07-17); orchestrator check: no file in that repo written since
   16:00 today. Builder #3 spawned (gates + records).
-- 19:45 · E4 builder #3 DONE (docs only; `8dba927` gates, `ce9aaac` records — Status.md E4 entry :10-150 at the top, TESTING
+- 18:21 · E4 builder #3 DONE (docs only; `8dba927` gates, `ce9aaac` records — Status.md E4 entry :10-150 at the top, TESTING
   §18.16 :509-520, ✎ only on the Assets click-through; `bdeb722` HANDOFF DONE + LOG). Gates (headroom 29.5 GB → default
   workers): worktree vitest 489 passed / 3 failed (E-d2a, resolution only) / 5 skipped files, 4,165 / 9 / 35 tests, 74 s; rule (b)
   on the 76-file diff list NONE; tsc 26 / 10. Hasan's own import command recorded (not run). E4 → VERIFY; verifier round 1
   spawned (CDP 9274, profile `E4-verify`), range `1722c62..HEAD`.
-- 20:10 · **E4 verifier round 1 FAIL — records only** (~86 calls): exit met in its own measurement, code sound, gates green.
+- 18:44 · **E4 verifier round 1 FAIL — records only** (~86 calls): exit met in its own measurement, code sound, gates green.
   **R1** TESTING:518 / Status:133 claim a hand-moved clip is never re-copied — true only after a rescan (`planClip` looks only
   through index entries, `catalog-import.ts:114-121`; the unit test rescans first, `:200`); its N6: a move without a rescan →
   copied again (duplicate). **R2** `checkArgs` pointer :74-80 → :74-83. Notes N1 (the dry-run test's snapshot lists files only —
@@ -955,19 +955,19 @@
   closed by stating the condition (finding an un-indexed moved clip would need the importer to scan, and a scan writes the index,
   which the dry run must never do; the consequence is a duplicate file, nothing lost; remedy: one rescan in the app first — on
   Hasan's list). Fix round 1 = builder #4: N1 test-only red-first + R1 / R2 / N2 records. E4 FAIL count: 1 of 3.
-- 20:25 · E4 builder #4 DONE: `4fa1551` (test only — the dry-run `snapshot` records folders; the M1 mutation "dry run makes an
+- 18:51 · E4 builder #4 DONE: `4fa1551` (test only — the dry-run `snapshot` records folders; the M1 mutation "dry run makes an
   empty `sfx/`" RED `expected [ 'sfx/' ] to deeply equal []`, reverted byte-identical, green 7 / 7; library suites 25 files / 219;
   tsc 26 / 10), `51dff42` (records: R1 condition at TESTING:518 + Status code bullet / :139-149 / For Hasan, R2 `checkArgs`
   :74-83, N1 / N2, the FAIL → fix line), `d1d7f8d` (HANDOFF DONE + LOG). `git diff --stat 3a39dc7..HEAD -- src/ scripts/` = the
   test file only; no rebuild needed. E4 verifier round 2 spawned (records + the test change + gates; CDP 9274 not needed).
-- 20:50 · **E4 verifier round 2 FAIL — one stale records line (R3):** `Status.md:22` "`src/` last changed in `4aed92f` — `git
+- 19:04 · **E4 verifier round 2 FAIL — one stale records line (R3):** `Status.md:22` "`src/` last changed in `4aed92f` — `git
   diff --stat 4aed92f..HEAD -- src/` is empty" became false with fix round 1's own test commit `4fa1551`. Everything else passed:
   code byte-identical since round 1, N1's test catches four folder mutations, gates 489 / 4,165 + the 3 E-d2a suites, rule (b)
   NONE, tsc 26 / 10; R1 R2 N1 N2 FIXED. Notes: "`unchanged`" after a rescan holds only for an unchanged catalog entry (else
   `update`, no copy); the conflict "no entry" claim cites no evidence file. **E4 FAIL count 2 of 3 — a third stops the run.**
   Fix round 2 = builder #5, records only: R3, the two notes, and an AUDIT of every git-state / "since" / "HEAD" / count /
   pointer statement in the E4 entry + §18.16 (table in the HANDOFF), so round 3 meets no stale line.
-- 21:10 · E4 builder #5 DONE (records only, ~63 calls): `ff7f302` (R3 → the "The code" header quotes the git commands and their
+- 19:16 · E4 builder #5 DONE (records only, ~63 calls): `ff7f302` (R3 → the "The code" header quotes the git commands and their
   output "as of fix round 2's commits"; note 1 `unchanged` / `update`; note 2 cites `E4-verify\neg-lib\.vidtsx\index.json` — 49
   entries, none at the conflict / missing relPaths; the round-2 line), `76744ad` (HANDOFF DONE with a 36-row audit table — 23 true,
   13 changed: title, docs-commit list, two console-only figures marked as such, `{unchanged: 50, update: 1}`, the build stamp, the
@@ -975,7 +975,7 @@
   log -1 -- src/` `4fa1551`, non-test `4aed92f`, `4aed92f..HEAD -- src/` = `4fa1551`, scripts `5247ed9`, `893b305..HEAD -- src/
   scripts/` empty. Seen in passing (not E4's): the E2 Status title still reads "the E2 verifier round 2 is next" → E3's builder
   updates the finished parts' titles. E4 verifier round 3 (records only — E4's LAST) spawned.
-- 21:35 · **E4 verifier round 3 PASS (records only) → E4 DONE.** Fix round 2 changed docs only (`893b305..HEAD -- src/ scripts/`
+- 19:28 · **E4 verifier round 3 PASS (records only) → E4 DONE.** Fix round 2 changed docs only (`893b305..HEAD -- src/ scripts/`
   empty; `catalog-import.ts` blob `c6342087…` at `4aed92f` = HEAD); the four git commands in the "The code" header re-run at HEAD =
   the record; note 1 checked against `decide` / `applyItem`; note 2's index file 49 entries, none at the two relPaths. Its own audit:
   ~190 statements (every pointer, count, hash, timing, evidence number, the editor-repo digest re-hashed today `569a3cbe` = round 1's)
@@ -984,8 +984,8 @@
   saved evidence file (`isOverride: false`, the resource-guard figures, robocopy — consistent with its own count 2,325 / 371.8 MiB);
   "stat + sha256" wording (the code reads the file); `76744ad` not named by hash; "the profile's ffmpeg-full" = the source
   profile's build.
-- 21:40 · E3 builder #1 spawned (CDP 9263, profile `E3`; first step: design note + matcher + prompt rule).
-- 22:00 · E3 builder #1 HANDOFF (~57 calls): design note (a)–(f); `6224040` — `sound-match.ts` (224 lines, pure: prompt coverage by
+- 19:28 · E3 builder #1 spawned (CDP 9263, profile `E3`; first step: design note + matcher + prompt rule).
+- 19:42 · E3 builder #1 HANDOFF (~57 calls): design note (a)–(f); `6224040` — `sound-match.ts` (224 lines, pure: prompt coverage by
   tags / file name / category / description, rarer words weigh more, negation ignored, swoosh = whoosh; top 3 at ≥ 50 % coverage or
   ≥ 30 % when the head noun matches), `sound-reuse.ts` (the lookup + E2's row format) called in `generate_sfx` BEFORE the provider
   check, `force` on both tools; `generate_music` same rule (a `compositionPlan` skips it; a bed shorter than the request is not
@@ -995,3 +995,14 @@
   first at 1.00; cuckoo clock chime / dog bark → no match; "warm lo-fi bed" → `lofi-warm` (none at ≥ 120 s). Only the matcher was
   red-first (handler / listing / prompt tests written after their code — said in HANDOFF). `audio-tools.test.ts` 302 lines. Builder
   #2 spawned (the Assets screen: chip filter, `AudioPreview`, chips + sound fields).
+- 19:57 · E3 builder #2 HANDOFF (~67 calls): `8bde97c` — the Assets screen in `src/features/asset-library/` (imports `@shared` + its
+  own files only): `asset-search.ts` chip filter (origin / tag, red first: 14 failing + 3 missing modules) and every-word text search
+  over name / description / tags / category; `sound-fields.ts` (Duration, Category, Loudness / "not normalized" / "no LUFS
+  reading", Peak + kind, Source, Model, Licence, Used in); `asset-urls.ts` (module-server URL, `null` → quiet fallback);
+  `exclusive-playback.ts` + `useAudioPlayback.ts` (ONE `<audio data-asset-audio="tile">` for every tile; the details player claims
+  playback and pauses it); `TilePlayButton.tsx` (`data-tile-play`), `AudioPreview.tsx` (`<audio controls preload="none">`, "Can't
+  play this file."), `AssetChips.tsx`; 5 files / 38 green; tsc 26 / 10; `wt/out` rebuilt (19:52); profile `E3` copied (0
+  `settings.db*`); G4 note at `CAPABILITY_GAPS.md:129` (`00c1f74`). No component tests (vitest is node-only, `*.test.ts`); the hook's
+  DOM event order is left to the live check. `AssetLibraryScreen.tsx` 464 lines (456 before E3). **Orchestrator note:** the log
+  times above 16:20 were corrected to the commit clock at 19:57 (they had drifted ahead by up to 2 h 20 min). Builder #3 spawned
+  (the live step: Assets over CDP first, then the importer, the tool-level checks, the model turns).
