@@ -172,14 +172,14 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
 
 ### Built (builder #1) — the service + tests (design §1–§6, §8; the script §7 NOT built yet)
 
-- `src/main/services/library/catalog-import-map.ts` (165 lines, pure): `parseCatalog` :92, `mapCatalogClip` :106,
-  `changedFields` :151, `NO_LICENCE_NOTE` :16, dropped fields `requested_ms / force_instrumental / function` :19.
-- `src/main/services/library/catalog-import.ts` (196 lines): `CatalogSource` :31, actions :45, `planCatalogImport` :131
-  (read-only), `applyCatalogImport` :178 (refuses a plan made for another root), `copyIn` :155 (`COPYFILE_EXCL` + sha256
-  re-check, removes a bad copy), moved-file lookup by `hashFileHead` + sha256 :119-125.
+- `src/main/services/library/catalog-import-map.ts` (156 lines, pure): `parseCatalog` :91, `mapCatalogClip` :104,
+  `changedFields` :147, `NO_LICENCE_NOTE` :16, dropped fields `requested_ms / force_instrumental / function` :19.
+- `src/main/services/library/catalog-import.ts` (198 lines): `CatalogSource` :31, actions :44, `planCatalogImport` :127
+  (read-only), `applyCatalogImport` :181 (refuses a plan made for another root), `copyIn` :149 (`COPYFILE_EXCL` + sha256
+  re-check, removes a bad copy), moved-file lookup by `hashFileHead` + sha256 :116-122.
 - `src/shared/types/asset-library.ts:48-52` — `LibraryAudioMeta.license?` (optional, verbatim).
-- `src/main/services/library/library-used-in.ts:28-40` — `mergeUsedIn` (pure). `library-store.ts` — `upsertEntry` meta
-  `usedIn?` :144, merged inside the chain :170 (doc comment :133-134).
+- `src/main/services/library/library-used-in.ts:28-41` — `mergeUsedIn` (pure). `library-store.ts` — `upsertEntry` meta
+  `usedIn?` :146, merged inside the chain :173 (doc comment :134-135).
 - Tests: `catalog-import-map.test.ts` (8), `catalog-import.test.ts` (7, real bundled ffprobe, WAV fixtures),
   `library-used-in.test.ts` (+1 `mergeUsedIn`), `pre-e1-control.test.ts` (fixture `audio` gains `peakKind: 'sample'` +
   `license`, asserted :91; the old-code rewrite keeps `audio` whole — `toEqual` at :139).
