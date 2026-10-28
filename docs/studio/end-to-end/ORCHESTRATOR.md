@@ -875,3 +875,11 @@
   re-encode from the ORIGINAL with less gain (≤ 2 corrective passes); chosen over a fixed margin (keeps `gen_sfx`'s result where
   nothing overshoots). E2 HANDOFF → `status: FIX`, Next step = fix round 1 (F1, F2, N3 test, N2 + N5 text, live re-check with the
   verifier's `v-short.mp3`, gates, records). Builder #7 spawned. E2 FAIL count: 1 of 3.
+- 17:15 · E2 builder #7 HANDOFF (steps 1–4): `f990487` — E-d11 in `audio-normalize.ts` (281 lines: encode original → temp,
+  re-measure, ≤ 2 corrective passes from the ORIGINAL at gain − overshoot − 0.1 dB, keep the lowest if still over; `gainDb` =
+  applied; result-only `correctivePasses` / `overCeiling`), `audio-loudness-rule.ts` (`isOverCeiling`, `correctiveGain`; the 0.1 dB
+  skip no longer keeps a file whose peak is over the ceiling — within E-d11), F2 order fixed, N3 `pool-import.ts`
+  `importMediaFilesMarkingLibrary` + test (red with the mark commented out), N2 `summarizeFfmpegError`, N5 `loudnessGated` answer;
+  every red recorded (the F1 red: a JS 0.25 s stereo noise-burst mp3 → −1.44 > −1.5); 10 files / 74 green; tsc 26 / 10. One
+  case written with its code (not red-first), said in HANDOFF. `d350e6c` docs. Builder #8 spawned (steps 5–7: live re-check,
+  gates + rebuild, records).
