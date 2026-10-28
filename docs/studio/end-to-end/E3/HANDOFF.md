@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF
+status: DONE
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -299,6 +299,35 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
 
 ## Verified (exact commands + outputs)
 
+- **Fix round 1, builder #6 (2026-10-28, worktree root, HEAD `55b223a`, tree clean; no `src/` change, no launch, no model
+  turn):**
+  - **CPU measurement** (21:28:31; `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\cpu-fix1-6.txt`): guard C: 49.3 GB, D: 43.8 GB,
+    headroom 28.3 GB, 0 `electron.exe`, 16 logical cores; `Win32_Processor LoadPercentage` 85 / 84 (before / after the 5 s);
+    per-process CPU over 5 s (Δ CPU-seconds / 5 s / 16 cores): **`vmmemWSL` 74.8 %** of all cores, `OLED Care
+    Screensaver.scr` 5.6 %, `System` 1.7 %, `WmiPrvSE` 1.5 %, the rest ≤ 0.5 %; sum 88.3 %. The external load persists →
+    **E-d13** (DRIVING "Track E"; builder #5's three default tries + one `--maxWorkers=4` run already failed DRIVING's normal
+    rule under the same load — table below).
+  - **E-d13 counted run** (21:28:47 → 21:32:22, HEAD `55b223a`, tree clean): `node
+    D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --maxWorkers=2 --testTimeout=20000 --hookTimeout=20000 >
+    C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\vitest-full-fix1-ed13.log 2>&1` → `Test Files 4 failed | 494 passed | 5
+    skipped (503)` · `Tests 10 failed | 4228 passed | 35 skipped (4273)` · `Duration 212.58s`; 0 "timed out". Failed: the
+    3 E-d2a suites, resolution only (`builder-libraries` 1 — `@remotion/paths (builder-libraries.ts) is not installed`;
+    `shot-bundle` 5 — `Could not resolve` roughjs / @remotion/shapes / @react-three/fiber / chroma-js /
+    @remotion/google-fonts/SpaceGrotesk; `shot-bundle-in-place` 3 — chroma-js) + `shot-module-resolver.test.ts` 1 "a changed
+    transpiler fingerprint misses every tier" (`Error: never written: …\shot-module-cache-cHFdyZ\…\v1.json` from its own
+    `waitForFile` :55, called :158 — an explicit wait, not the 20 s timeout; DRIVING's named known list `:151`).
+  - **Alone** (21:32:48): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+    src/main/services/studio/shot-module-resolver.test.ts > …\E3\vitest-fix1-ed13-alone.log 2>&1` → rc 0, `Test Files 1
+    passed (1)` · `Tests 10 passed (10)`; `git diff --name-only 5d77600..HEAD | grep -c shot-module-resolver` → 0 (not E's).
+    → **The E-d13 gate is MET** (one full run; no other failure, no persisting 20 s timeout).
+  - Rule (b): `git diff --name-only 5d77600..HEAD` at `55b223a` = `diff-list-fix1.txt` byte-for-byte (101 paths; Status.md,
+    TESTING.md, E3 HANDOFF / LOG already in it) → builder #5's `import-graph-fix1.txt` (NONE) holds; tsc 26 / 10 from
+    `788c8d2` holds (`src/` unchanged since).
+  - **Records commit `f593515`** — Status.md E3 entry **:10-325** (E4's now :327), TESTING **§18.17 :524-538** (new F1 item
+    :531). Re-checked AFTER `f593515`: `git diff --name-only 5d77600..HEAD` still = `diff-list-fix1.txt` (101); `git log -1
+    --format=%h -- src/` → `788c8d2`; `git diff --stat 788c8d2..HEAD -- src/ scripts/` empty → the `wt/out` build at
+    `788c8d2` is the current code; `out/main/index.js` 21:22:29 / `out/renderer/index.html` 21:25:49, `whilst` 1 hit.
+
 - **Fix round 1 (builder #5, 2026-10-28, worktree root):**
   - **F1 red** at HEAD `7a0d6ad` + the new test file only: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
     src/main/services/library/sound-match-placement.test.ts` (log `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\fix1-red.log`)
@@ -499,7 +528,11 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**Builder #6 (fix round 1, continued): get the COUNTED full worktree vitest run, then write the records (step 4 below).**
+**E3 verifier round 2** (orchestrator: spawn it — CDP 9273, its own `profiles\E3-verify` copy WITHOUT `settings.db*`; range
+`7a0d6ad..HEAD` for the fix (`b176881` `788c8d2` + the records `f593515`), the earlier findings F1 + notes 1–7 under "Verifier
+round 1"; the records to check: Status.md E3 entry :10-325, TESTING §18.17 :524-538). Fix round 1 is DONE (builders #5–#6).
+
+(Done by builder #6, 2026-10-28 — kept for the record:) **Builder #6 (fix round 1, continued): get the COUNTED full worktree vitest run, then write the records (step 4 below).**
 Steps 1–2 and the rest of step 3 are DONE (Built / Verified "Fix round 1"; commits `b176881`, `788c8d2`; `wt/out` rebuilt —
 see the build line in Verified). First check `(Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average)`,
 the guard and 0 `electron.exe`; run `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run >
@@ -587,8 +620,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   controls>` renders as a light pill on the dark theme; `TilePlayButton` is a role=button span inside the tile `<button>` (as the copy
   control).
 
-- **Fix round 1 (builder #5) — open, none blocking:** (1) the counted full run is owed (Next step) — the machine was at
-  79–99 % CPU from another session for all five runs. (2) `after` / `before` + a clause still weigh as 0.5 qualifiers
+- **Fix round 1 (builder #5) — open, none blocking:** (1) ~~the counted full run is owed~~ DONE by builder #6 under E-d13
+  (`vmmemWSL` 74.8 % of all cores; 494 / 4 / 5 files — the 3 E-d2a suites + `shot-module-resolver:151`, 10 / 10 alone; see
+  Verified); records in `f593515`. (2) `after` / `before` + a clause still weigh as 0.5 qualifiers
   (a preposition just as often): "a hit after the logo lands" 0.39 / "a whoosh before the slide changes" 0.32 — they match,
   but near the 0.3 floor. (3) For the records (step 4): negation only drops words, never demotes ("a whoosh but not soft"
   still ranks `whoosh-soft` first); `list_assets` "whoosh" also lists `dash-zip` (and `flame-snuff`); the native `<audio
@@ -652,3 +686,8 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   clauses dropped) → green, `b176881`; the real-index old-vs-new driver (16 changed, 0 lost); the `generate_music` `force`
   pin + the `audio-tools.test.ts` split, M2b red, `788c8d2`; gates (5 full runs under another session's ~95 % CPU) + rule
   (b) + tsc + the `wt/out` rebuild. No launch, no model turn. Step 4 (records) handed to builder #6.
+- 2026-10-28 · builder #6 (fix round 1, continued) · ~42 calls · CPU measured (`vmmemWSL` 74.8 %) → the E-d13 counted run
+  (494 / 4 / 5 files, 4,228 / 10 / 35 tests; the 3 E-d2a suites + `shot-module-resolver:151`, 10 / 10 alone); rule (b) list
+  unchanged (101); the records (Status.md E3 entry :10-325, TESTING §18.17 :524-538 — F1 + numbers, the test split, the
+  verifier's two measured items, the new open notes, the gates) `f593515`; HANDOFF DONE. No `src/` change, no launch, no
+  model turn.
