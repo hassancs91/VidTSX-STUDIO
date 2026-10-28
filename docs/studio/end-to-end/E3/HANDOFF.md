@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF — fix round 3: items 1–3 DONE (builder #9: the corpus `574edbc`, the matcher fix `02e2a10`; builder #10: the miss rule `7967c6f`); item 4a–4c DONE by builder #11 (the regression report vs `788c8d2` + `09e81ea` over all 809 rows, the 7,554-probe broad set read and classified — no "worse" first, one class noted; gates counted under DRIVING's normal rule; `wt/out` rebuilt at `7967c6f`; no `src/` change — code HEAD stays `7967c6f`); item 4d (the records) IN PROGRESS by builder #12: Status.md E3 entry + TESTING §18.17 written (every evidence file re-read first — one count corrected: 48 `*` rows, not 38), committing; then the re-checks, HANDOFF DONE + LOG; then verifier round 4 = E3's LAST
+status: DONE — fix round 3 complete: items 1–3 (builder #9 the corpus `574edbc` + the matcher fix `02e2a10`; builder #10 the miss rule `7967c6f`), item 4a–4c (builder #11: the regression report vs `788c8d2` + `09e81ea` over all 809 rows, the 7,554-probe broad set read and classified — no "worse" first, one class noted; gates counted under DRIVING's normal rule; `wt/out` rebuilt at `7967c6f`; docs + scratch only — code HEAD `7967c6f`), item 4d the records (builder #12, `3cff0be`: Status.md E3 entry :10-852, TESTING §18.17 :524-540; every evidence file re-read first — the `*` row count corrected to 48 and three line-count nits stated; the re-checks after the commit all true). Next: **E3 verifier round 4 — E3's LAST, bar E-d15 (i)–(iv)**
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -572,6 +572,62 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
 
 ## Verified (exact commands + outputs)
 
+- **Fix round 3, builder #12 (2026-10-29, records only; worktree root; HEAD `78f32d9` → `3cff0be`; no `src/` / `scripts/`
+  change, no gate re-run, no rebuild, no launch, no model turn, no test run — the logs read with `grep` / `wc` / `git show`):**
+  - **Evidence re-read before writing** (every count checked against its file): `fix3-corpus-red.log` `Test Files 4 failed | 1
+    passed (5)` · `Tests 88 failed | 726 passed (814)`, `Start at 00:05:57` · `fix3-green.log` `47 passed (47)` / `1181 passed
+    (1181)`, 00:11:55 · `fix3-try1.log` `1 failed | 1091 passed (1092)` · `fix3-mi-mj-red.log` two runs, each `Test Files 1 failed
+    (1)` · `Tests 1 failed | 2 passed (3)` × "MI — the bonus is capped …" / "MJ — the bonus is applied after the threshold …" ·
+    `fix3-miss-red.log` `5 failed | 3 passed (8)` · `11 failed | 832 passed (843)`, 00:25:18 · `fix3-miss-green.log` `1 failed | 47
+    passed (48)` · `3 failed | 1184 passed (1187)` · `fix3-miss-green-2.log` `5 passed (5)` · `814 passed (814)` ·
+    `fix3-miss-green-3.log` `48 passed (48)` · `1187 passed (1187)`, 00:31:33 · the five drivers' logs each `1 passed (1)`
+    (`tools-noprovider-fix3` 00:30:58, `tools-standin-fix3` 00:31:00, `catalog-fix3` 00:44:21, `broad-fix3` 00:44:30, `probe-fix3`
+    00:49:27) · `catalog-order-fix3.txt` (133,703 bytes): the header (61 entries / 57 pool / 51 audio, the 4 `generated/` names, SHA
+    `876f9f61…c16c95` + mtime `2026-10-28T22:31:02.584Z` UNCHANGED, rows 809 = 150 + 194 + 204 + 129 + 132), the two `OLD =` lines
+    (358 / 165 / 19 / 114 / 3 / 4 and 301 / 116 / 19 / 55 / 7 / 7) and the strict lists (:1104-1113, :2041-2057) naming exactly the
+    rows recorded · `broad-probes-fix3-summary.txt` (786,471 bytes) + the head of `broad-probes-fix3.txt` (1,657,184 bytes): base
+    words 243, probes 7554, the two `vs` lines (4596 / 2555 / 491 / 1939 / 35 / 469; 3892 / 1803 / 12 / 1744 / 7 / 4), 2786 / 471;
+    **the class labels re-counted from the summary** (`grep -o "vs 788c8d2: .*" | sed 's/ — WORSE?$//' | sed 's/.* — //' | sort |
+    uniq -c`): vs 788 — carrier 1930 · swap new-carrier 90 · new miss NO carrier 467 · swap old-carrier new-carrier 21 · new miss
+    carrier-in-nearest 24 · STRANGER 9 · swap old-carrier 14; vs 09e — 1736 · 40 · 12 (carrier in nearest) · 8 · 3 · 4 — identical to
+    builder #11's analyzer output · `probe-fix3.txt` 98 lines, the 22 phrasings, every number quoted in Built "builder #11" matches ·
+    `diff-list-fix3.txt` 99 lines (98 `src/`, 1 `scripts/`) · `import-graph-fix3.txt` the four "touched by the E diff: NONE" lines ·
+    `build-fix3.log` "✓ built in 10.39s" / "192ms" / "2m 32s", nothing on `grep -i "warn\|error" | grep -v "use client"` ·
+    `cpu-fix3.txt` 00:47:45, 16 cores, 28 / 29, sum 19.6 %, `vmmemWSL` 7.8 %, OLED 4.9 %, System 1.7 %, C: 46.4 / D: 43.8 /
+    headroom 27.6 / 74.0 GB, electron 0 · `vitest-full-fix3.log` `4 failed | 502 passed | 5 skipped (511)` · `10 failed | 5096 passed
+    | 35 skipped (5141)` · 71.36 s, `Start at 00:49:59`, "HEAD 1d7d5ed", `flow-render.test.ts:255:94` "expected 1 to be greater than
+    1", 0 "timed out" · `vitest-fix3-flow-render-alone.log` `1 passed (1)` · `5 passed (5)` · 8.54 s, 00:51:35 · `vitest-full-fix3-2.log`
+    `3 failed | 503 passed | 5 skipped (511)` · `9 failed | 5097 passed | 35 skipped (5141)` · 59.75 s, 00:51:49, 0 "timed out", the 9
+    FAIL lines = builder-libraries 1 + shot-bundle-in-place 3 + shot-bundle 5 · `tsc-web-fix3.log` 26 / `tsc-node-fix3.log` 10 `error
+    TS`, 0 lines naming an E3 file · `tools-noprovider-fix3.json` `at 2026-10-28T22:30:59.830Z`, `providers []` / `active null`, SHA
+    `e5352386…12c5` ×2 + mtime `…T18:13:42.105Z` ×2, "No library sound matched" ×2 (the grandfather clock + the cooking-show bed),
+    "No audio provider is configured …" ×2 (the dog bark + the bagpipe reel), `generatedBefore` = the two live-step files, the refs
+    as recorded · `tools-standin-fix3.json` `at …T22:31:01.633Z`, `active "standin"`, `duration 1.6`, `loudnessLufs -20.26`,
+    `peakDbfs -16.67`, `"I": -20.2`, `TP -16.7`, `category foley`, `generated/sfx-a-dog-bark.mp3` + `…-cuckoo-clock-chime-2.mp3`
+    present, `already has 1 sound matching "a dog bark"` · `git log` for every hash + time (`574edbc` 00:05:59, `02e2a10` 00:12:04,
+    `7967c6f` 00:30:57, `1d7d5ed` 00:37:59) · `git show --stat` of `574edbc` / `02e2a10` / `7967c6f` (5 / 5 / 11 files; `7967c6f`
+    +290 / −71) · `wc -l` at `7967c6f`: `sound-match.ts` 181, `-words.ts` 211, `-vocab.ts` 90, `-corpus-rows.ts` 79, fixture 71,
+    corpus test 192, r3 files 69 / 86 / 57 / 45, `-words.test.ts` 115, `-bonus.test.ts` 47, `sound-match.test.ts` 144, placement
+    test 105, `sound-reuse.ts` 74, `audio-tools.ts` 199, `audio-tools-miss.test.ts` 180, `-reuse.test.ts` 173, `audio-tools.test.ts`
+    202, `library-listing.ts` 93, `project-tools.ts` 80, prompt tools 87, prompt test 200 · the source wording quoted
+    (`sound-reuse.ts:48` / :50, `audio-tools.ts:60-64`, the prompt test :122, `audio-tools-miss.test.ts` 5 `it(`, the ten `∅` rows
+    with their "recall (fix 3)" comments, `matchStrength` :114 / `STEM_STRENGTH` :35, `hit.equal` `sound-match.ts:159`,
+    `rankLibrarySounds` :135, `nearestLibrarySounds` :179, `run` / `running` in `sound-match-words.test.ts:12` + :31).
+  - **Discrepancies found (recorded, not copied):** (1) the `*` rows — `grep -o "\['[^']*', '\*'"` over the four r3 files → 46
+    (`-senses`) + 2 (`-ordinary`) = **48**, not the 38 of Built "builder #9" / the session-8 log (the HANDOFF's own enumeration
+    has ~50 entries); the records say 48 and name the discrepancy. (2) `sound-match-corpus-rows.ts` was **62** lines at `574edbc`
+    (`git show --stat`: 62 insertions), not 58 — 79 now. (3) `sound-match-bonus.test.ts` is **47** lines (Built "builder #9" says 52
+    once; Next step said 47). (4) The `574edbc` message's 87 vs the log's 88 (known). Everything else matched its file.
+  - **Records commit `3cff0be`** — Status.md E3 entry **:10-852** (E4's heading now :854): the title; the new fix-round-3 bullet
+    :137-421 (round 3's findings + E-d15, the corpus, the fix, the miss rule, 4a, 4b, the bar); the code header :422- (fix round 3's
+    files per commit) + the matcher / sound-reuse / audio-tools / prompt / tests pointers as of `7967c6f`; the `wt/out` line (rebuilt
+    at `7967c6f`); Gates :645- (this round's; fix round 2's kept as history); open items (16)–(23) :777-; For Hasan; evidence :821-.
+    TESTING **§18.17 :524-540** (Material :525, the new F3 item :533, the prompt rule :534 with the five sentences, Gates :539
+    extended, Not measured :540). **Re-checked AFTER `3cff0be`:** `git log -1 --format=%h -- src/` → `7967c6f`; `git diff --stat
+    7967c6f..HEAD -- src/ scripts/` → empty; `git diff --name-only 5d77600..HEAD -- src/ scripts/ | wc -l` → 99 and `diff -q` against
+    `E3\diff-list-fix3.txt` → identical; `out/main/index.js` 00:54:49 (3,064,094 bytes), "No library sound matched" 1 hit; `git
+    status --short` → empty. No stale line → no re-commit of the records.
+
 - **Fix round 3, builder #11 (2026-10-29 00:40–01:00 local, worktree root, HEAD `1d7d5ed` (docs) with `src/` = `7967c6f` —
   `git log -1 --format=%h -- src/` → `7967c6f` before and after; `git status --short` empty before the records commit; NO `src/` /
   `scripts/` change, no launch, no model turn):**
@@ -979,7 +1035,17 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 3, continued — builder #12: item 4d, THE RECORDS (items 1–3 and 4a–4c are DONE — builder #9 `574edbc` `02e2a10`,
+**E3 verifier round 4 — E3's LAST; the bar is E-d15 (i)–(iv)** (orchestrator: spawn it — CDP 9273, its own `profiles\E3-verify`
+copy WITHOUT `settings.db*` may be reused (verifier scratch; its library holds its own stand-in files under `generated/`); range
+`e98190f..HEAD` — the corpus `574edbc`, the matcher `02e2a10`, the miss rule `7967c6f`, the records `3cff0be` (the other commits in
+the range are docs); the records to check: Status.md E3 entry **:10-852** (the fix-round-3 bullet :137-421, the code list :422-,
+the `wt/out` line, Gates :645-, open items (16)–(23) :777-, evidence :821-), TESTING **§18.17 :524-540** (the F3 item :533, the
+prompt rule :534, Gates :539, Not measured :540). The builders' E3 profile is read-only evidence (its index holds 4 `generated/`
+entries — never run the stand-in driver on it; the regression / broad drivers exclude `generated/`). A FAIL there stops the run
+(E-d15); a PASS → the track-E exit (`E-exit/HANDOFF.md`; its step 6 reads the miss rule). Fix round 3 is DONE (builders #9–#12);
+no `src/` change since `7967c6f`, `wt/out` is its build.
+
+(Item 4d DONE by builder #12, 2026-10-29 — kept for the record:) **FIX ROUND 3, continued — builder #12: item 4d, THE RECORDS (items 1–3 and 4a–4c are DONE — builder #9 `574edbc` `02e2a10`,
 builder #10 `7967c6f`, builder #11 docs-only — do not redo them; no `src/` change, no gate re-run, no rebuild, no launch, no model turn
 is needed). Edit / Write tools only. (1) The Status.md E3 entry (:10-453 as of `1d7d5ed`): its title → "…— DONE (fix round 3 after
 verifier round 3 FAIL on F3, a matcher defect — builders #9–#11, E-d15: stem hits weigh less, openers / adverbs, the miss rule; fix round
@@ -1276,6 +1342,18 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - Its scratch: `…\E3-verify\r3\lib-profile` (51 clip copies + 10 stand-in files), projects `e3v3-noprov` / `e3v3-standin` under
   `.vidtsx-temp\end-to-end\E3-verify\r3\root\projects`. Nothing running; the worktree clean.
 
+### Fix round 3 (builder #12, the records) — notes, none blocking
+
+- **The `*` row count is 48**, not 38: `grep` of the rows whose expected is exactly `'*'` over the four r3 files → 46 in
+  `-senses`, 2 in `-ordinary` (+ 1 in the 150-row file, fix round 2's). Built "builder #9" and the session-8 log keep their 38;
+  the records say 48 and name the discrepancy (Status item (22), TESTING "Fix round 3 notes"). A verifier counting rows should
+  expect 48.
+- `sound-match-corpus-rows.ts` 62 → 79 (not 58 → 79) and `sound-match-bonus.test.ts` 47 lines (not 52) — as `git show --stat` /
+  `wc -l` say; stated in the records. The `574edbc` message's 87 (the log: 88) stays a known typo.
+- The Status.md E3 entry is now 843 lines (:10-852): the four verifier / fix bullets carry each round's material in full. A later
+  cleanup could fold the round-1 / round-2 bullets into one history paragraph once E3 is PASSED — not this round's.
+- Builder #12 wrote docs only; the Status / LOG phrase "builders #9–#12" covers the code + drivers (#9–#11) and the records (#12).
+
 ### Fix round 3 (builder #11) — notes for the records, none blocking
 
 - **The adjective + verb-form class (Built "builder #11", the one noted class):** "a soft knocking" / "a gentle knocking" / "a soft
@@ -1540,3 +1618,10 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   gates (CPU 19.6 % → the normal rule; run 1 `flow-render:255` alone 5 / 5 → run 2 counted 503 / 3 / 5 files, 5,097 / 9 / 35 tests; rule
   (b) NONE over 99; tsc 26 / 10); `wt/out` rebuilt at `7967c6f`. No `src/` change, no launch, no model turn. Item 4d (the records)
   handed to builder #12.
+- 2026-10-29 · builder #12 (fix round 3, item 4d — records only) · ~28 calls · every cited evidence file re-read (the D: kit logs /
+  reports, the C: outputs, the two driver records, `git show --stat`, `wc -l`, the source wording); Status.md E3 entry (the title;
+  the F3 → fix round 3 bullet; the code list + pointers at `7967c6f`; `wt/out` at `7967c6f`; Gates under DRIVING's normal rule;
+  open items 16–23; For Hasan; evidence) and TESTING §18.17 (Material, the F3 item, the prompt rule, Gates, Not measured) —
+  `3cff0be`; four discrepancies recorded (48 `*` rows not 38; `-rows.ts` 62 not 58; `-bonus.test.ts` 47 not 52; 87 vs 88);
+  re-checks after the commit all true; HANDOFF DONE. No `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no
+  model turn.
