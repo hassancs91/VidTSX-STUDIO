@@ -1276,3 +1276,15 @@
   (named LOAD timeout, 5 / 5 alone) → **run 2 counted: 503 / 3 / 5 files (511), 5,097 / 9 / 35 tests (5,141), 59.75 s**, only the 3
   E-d2a suites; rule (b) NONE of 99 paths; tsc 26 / 10; `wt/out` rebuilt at `7967c6f` (rc 0; `out/main/index.js` 00:54:49 holds "No
   library sound matched"). `5fabb15` HANDOFF + LOG. Tree clean. Builder #12 (item 4d — the records) spawned.
+- 01:20 · E3 builder #12 DONE (~28 calls, 19 min; records only — no `src/` change, no gate run, no rebuild, no launch, no model turn):
+  `3cff0be` Status.md E3 entry **:10-852** (the title → "DONE (fix round 3 after verifier round 3 FAIL on F3 … builders #9–#12, decision
+  E-d15 …; the E3 verifier round 4 — E3's last — is next)"; the round-3 bullet :137-421 — F3, E-d15, the 659-row corpus (red 88 / 659),
+  the fix (0.6 / the equal-hit head rule / openers / F3c / vocab), the miss rule with its wording + both drivers + the corrected cuckoo
+  fact, the regression report, the 7,554-probe set, the gates, E-d15's bar in one sentence; code list at `7967c6f`; open items (16)–(23);
+  evidence) + TESTING §18.17 **:524-540** (the F3 item :533, the prompt rule :534, Gates :539, Not measured :540); `5852abf` HANDOFF
+  DONE + LOG. Every evidence file re-read first — **four count nits recorded, not guessed**: the open `*` corpus rows are **48** (46
+  `-senses` + 2 `-ordinary`), not the 38 builder #9's HANDOFF and the 00:14 log line above say; `sound-match-corpus-rows.ts` was 62 lines
+  at `574edbc`; `sound-match-bonus.test.ts` is 47; `574edbc`'s message says 87 red where the log says 88. **Orchestrator re-check at
+  `5852abf`:** `git log -1 -- src/` `7967c6f`, `7967c6f..HEAD -- src/ scripts/` empty, the diff list 99 paths, `grep -o "'\*'"` → 47 in
+  `-senses` (one is a comment) + 2 in `-ordinary` = 48 rows, `out/main/index.js` 00:54:49 holds "No library sound matched" ×1, tree
+  clean, 0 `electron.exe`. E3 → VERIFY; **verifier round 4 — E3's LAST (E-d15 (i)–(iv)) spawned**, range `e98190f..HEAD`.
