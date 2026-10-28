@@ -910,3 +910,14 @@
   fresh `settings.db` in an isolated profile at launch (`E2-verify`, 16:41) — no keys, never read; (6) resolving the same image
   ref twice imports it again (main never writes `project.json`; pre-existing; `usedIn` stays deduped).
 - 18:40 · E4 builder #1 spawned (CDP 9264, profile `E4`).
+- 18:55 · E4 builder #1 HANDOFF (~37 calls): design note; `4aed92f` — `catalog-import-map.ts` (pure parse / map / diff) +
+  `catalog-import.ts` (`planCatalogImport` = the read-only dry run; `applyCatalogImport` copies no-overwrite, re-checks sha256,
+  upserts through the app's `upsertEntry`; a moved clip found by content hash, not re-copied); relPaths `sfx/<file>` /
+  `music/<file>`; `audio.license` (new optional), `peakKind 'sample'`, catalog `source` verbatim, `used_in` → `usedIn` merged
+  (`mergeUsedIn`; `upsertEntry` takes optional `usedIn`); chords' description "(no licence recorded in the catalog)";
+  `requested_ms` / `force_instrumental` / `function` dropped (listed per clip in the plan); `duration_s` not stored (index
+  measures); `pre-e1-control.test.ts` extended for the new fields (E-d5). Red 3 files → green 5 files / 41; tsc 26 / 10. To
+  state in STATUS: a re-run re-applies catalog description / tags / audio over in-app edits (only `usedIn` merges); a catalog
+  that drops its whole tag list does not clear the entry's tags. Slip: a HANDOFF edit by a Python script failed, so `dc41822`
+  carries only line-number fixes and `ad7b415` the records — the next brief repeats "Edit/Write tools only". E3 HANDOFF gets
+  session-6 notes. Builder #2 spawned (the script, smoke, live run, gates).
