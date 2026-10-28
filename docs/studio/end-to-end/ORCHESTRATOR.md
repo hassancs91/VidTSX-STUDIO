@@ -833,3 +833,26 @@
   prepared. Not started: E4, E3, the track-E exit. Hand-off for session 6: the worktree's
   `docs/studio/end-to-end/NEXT-SESSION.md`. Track E is still on `end-to-end-p0-e`, not merged; the main checkout still
   carries the other session's 16 uncommitted files (incl. `src/main/index.ts`, which E1 also changes).
+
+## Session 6 — track E continued (started 2026-10-28 16:05, Hasan's paste-in from NEXT-SESSION.md)
+
+- **Scope (Hasan):** (1) E2 — a RECORDS-only builder #6 (Status.md entry, TESTING §18.15, V4-N1; no `src/` change, no
+  re-run of the exit drivers), then the E2 verifier (round 1: the exit, the gates, its own negative / control cases on ITS
+  OWN profile copy `E2-verify` without `settings.db*`, its own stand-in sounds through the dev seam, an independent meter;
+  it may read the E2 profile's library read-only); fix rounds as usual, three FAILs → stop. (2) E4 → E3 → the track-E exit,
+  no stop between parts. Stop after the track-E exit, on BLOCKED, or after three verifier FAILs on one part. NOT this
+  session: B7's verifier, the track-B exit, tracks C, D, F.
+- **Start state (16:08):** worktree `end-to-end-p0-e` @ `276150f`, clean. Main checkout `end-to-end-p0` @ `5d77600`, still
+  NOT clean (the other session's 10 modified + 6 untracked files, unchanged); **Hasan's dev app is NOT running** (0
+  `electron.exe`). E-d1 stands. Reference catalogs present (`…\media\library\{sfx,music}\catalog.json`).
+- **Resources (16:08):** C: 21.6 GB, D: 44.0 GB free; **memory commit 103.9 / 108.3 GB — headroom 4.5 GB** (Brave ~35 GB,
+  `vmmemWSL` ~27 GB, Chrome ~7, Claude Code ~6.5, VS Code ~6); `C:\pagefile.sys` allocated 45.7 GB, 13 GB in use. So: full
+  vitest only with `--maxWorkers=2`; live steps allowed (C: + headroom ≈ 26 GB ≥ 6) with the watchdog; profile copies
+  (~372 MB) allowed while C: > 5 GB. Big scratch stays on D: where it can.
+- **CDP ports / profiles this session:** E2 verifier 9272 (`profiles\E2-verify`); E4 builders 9264 / verifiers 9274
+  (`E4`, `E4-verify`); E3 builders 9263 / verifiers 9273 (`E3`, `E3-verify`); the track-E exit 9280 (`E-exit`). All copied
+  from `profiles\source\profile` WITHOUT `settings\settings.db*`.
+
+### Session 6 log
+
+- 16:10 · E2 builder #6 (records only) spawned.
