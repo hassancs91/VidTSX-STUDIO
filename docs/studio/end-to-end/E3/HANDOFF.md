@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: DONE
+status: FIX
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -405,11 +405,78 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**Orchestrator:** E3 → VERIFY — spawn the E3 verifier round 1 (CDP 9273, its own `profiles\E3-verify` copy WITHOUT
+**FIX ROUND 1 — builder #5 (orchestrator, 2026-10-28; verifier round 1 FAILED on F1, a matcher defect — see "Verifier round 1"
+under Open problems).** In order, red first, commit at each green checkpoint:
+1. **F1 — the head clause ends at a subordinating conjunction.** `src/main/services/library/sound-match.ts` (`CLAUSE_CUT`
+   :45-48, `headClause` :104-117, `promptTerms` :125-131): a placement clause introduced by `when` / `while` / `until` / `once` / `if` /
+   `because` / `whenever` / `as soon as` (and any other you find that behaves the same — say which) must END the head clause, so the
+   sound words stay the head and the placement words count only as qualifiers (or not at all — your call, stated, with the reason).
+   RED FIRST: add the verifier's prompts to `sound-match.test.ts` on a fixture that mirrors the real catalog entries they hit (the
+   whooshes, `impact-soft` / `impact-deep-soft`, `ui-click-soft`, `chime-reward` / `chime-magic`, `riser-soft`, `ui-toggle-on`) —
+   "a quick whoosh when the slide changes", "a whoosh while the card flies in", "a deep impact hit when the logo lands", "an impact
+   when the logo lands", "a hit when the logo lands", "a click when the button is pressed", "a chime when the answer is right", "a
+   tension riser until the reveal", "a whoosh once the scene switches" (must offer a whoosh, not only `ui-toggle-on`) — run them
+   RED on the current code (record), then fix → green; keep EVERY existing matcher test green (incl. the no-match cases: "a cuckoo
+   clock chime", "a dog bark", and the music duration rule). Then a stopped-app driver over a REAL imported index (read-only: the E3
+   profile's `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E3\profile\assets`, or the verifier's `E3-verify` — read only) printing
+   the top 3 for the nine prompts + the earlier ranking set (`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\catalog-order.txt`) →
+   `…\E3\catalog-order-fix1.txt`; no prompt that matched before may lose its match or its first result unless you say why.
+2. **Note 2 — `generate_music` `force` gets a test** (the verifier's mutation M2b — `generate_music` ignoring `force` — left 12 / 12
+   green): pin it in `audio-tools.test.ts` (or a split file — it is 302 lines; splitting it is fine and preferred), and prove the
+   mutation now fails (record the red).
+3. **Gates + rebuild:** full worktree vitest (default workers when headroom ≥ 10 GB, else `--maxWorkers=2`), green except the three
+   E-d2a suites (rule (b) re-run on the new diff list), tsc 26 / 10; rebuild `wt/out` (main code changed) with no app running.
+4. **Records** (Status.md E3 entry + TESTING §18.17; every git / build statement "as of `<hash>`"): the F1 fix + its numbers; a line
+   "verifier round 1 FAIL (F1 matcher: subordinate clauses) → fix round 1 `<hash>`"; move the two items the verifier MEASURED out of
+   "Not measured" with its evidence (a GENERATED file played on screen: tile 0.427 → 1.545 s / details 0.258 → 1.281 s; the details
+   player pausing a STILL-playing tile at 2.496 s and the reverse — `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\live-assets.json`;
+   origin chips 56 → 5 / 51); add to "Not measured / open": negation only drops words, never demotes ("a whoosh but not soft" still ranks
+   `whoosh-soft` first); `list_assets` "whoosh" also lists `dash-zip`; the native `<audio controls>` renders as a light pill on the dark
+   theme; and — for later tracks, not E3's — **the live assistant could not see where the cut was when ONE source asset is split into
+   two V1 clips** (verifier's whoosh turn 1 asked for the cut time; the builders' two-asset projects hid it). Commit, HANDOFF `status:
+   DONE`, LOG line, commit.
+
+(Superseded 2026-10-28 by the FAIL above:) **Orchestrator:** E3 → VERIFY — spawn the E3 verifier round 1 (CDP 9273, its own `profiles\E3-verify` copy WITHOUT
 `settings.db*`; range `ceb250c..HEAD`; the records to check: Status.md E3 entry :10-233, TESTING §18.17 :524-537). Builder
 #4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
+
+### Verifier round 1 — FAIL (2026-10-28; its own profile `profiles\E3-verify`, CDP 9273; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\`, kit `.vidtsx-temp\end-to-end\E3-verify\`)
+
+- **F1 (code defect, not an exit miss) — the head-word rule breaks on "when / while / until / once …" prompts, so `generate_sfx`
+  generates although the library has the sound.** `sound-match.ts:45-48` `CLAUSE_CUT` has no `when` / `while` / `until` / `once` /
+  `if` / `because` (`when` is in `STOP_WORDS` :52 — dropped, but it does not end the clause) → `headClause` :104-117 runs to the
+  sentence end → `headWord` :119-123 picks the placement word ("changes", "lands", "pressed", "right", "reveal") → `promptTerms`
+  :125-131 gives every placement word weight 1 with a high idf (no clip has them) → coverage under the threshold (:214). On the real
+  imported index (51 clips; `c-matcher.json`) NO match for: "a quick whoosh when the slide changes" (4 whooshes exist — the exit's own
+  sound), "a whoosh while the card flies in", "a deep impact hit when the logo lands", "an impact when the logo lands", "a hit when the
+  logo lands", "a click when the button is pressed", "a chime when the answer is right", "a tension riser until the reveal"; WRONG
+  sound: "a whoosh once the scene switches" → only `ui-toggle-on` 0.30. Without the clause they match ("a deep impact hit" →
+  impact-soft / impact-deep-soft 0.65; "click" → ui-click-soft 1.00; "chime" → both chimes 1.00). Through the real handler
+  (`b-noprov.json`) "a deep impact hit when the logo lands" → "No audio provider is configured" — with a key, a paid duplicate. It
+  breaks the row's promise for a common phrasing; the prompt rule (search first) softens it, the tool's guard is the backstop.
+- Passed (its own numbers): gates — counted run 3 (`--maxWorkers=4`; runs 1–2 load timeouts incl. `agent-memory` /
+  `project-package-import`, all green alone 3 / 43) 493 / 3 / 5 files, 4,215 / 9 / 35 tests, the 3 E-d2a suites resolution only; its
+  own runtime import graph 0 changed files; tsc 26 / 10. Its own prompts (whooshes / swoosh / riser / click / lo-fi bed → the right
+  clips; cow / steam train / "a" / 600 s music / orchestral → provider notice); `list_assets` incl. a no-match → "No matching assets in
+  the library."; the index byte-identical; with its stand-in (−17.2 LUFS) a train whistle generated once (−20.27 recorded / `ebur128`
+  −20.2, TP −9.8), the identical ask then FOUND (0 new files), `force` generated; music likewise. Mutations M1 M2 M3 M3b M4 M4b M5 M6 M7
+  M8 M9 caught; **M2b (`generate_music` ignoring `force`) NOT caught**. Live CDP 9273: tile + details play; **the details player
+  pausing a STILL-playing tile (2.496 s) and the reverse**; **a GENERATED file plays** (tile 0.427 → 1.545 s, details 0.258 → 1.281 s);
+  sound fields for a generated (−20.3 LUFS, −9.8 dBTP · true peak, source standin) and a catalog clip (−20.0, −1.6 dBFS · sample peak,
+  licence, 16 used-in); chips `origin:generated` 56 → 5, `origin:imported` 56 → 51, `tag:whoosh` → 4. Live whoosh (its own words, 2
+  turns, keyless sonnet-5-5): turn 1 found `whoosh-soft` and said no generation was needed but ASKED where the cut is (one source asset
+  split into two V1 clips — the assistant saw an 8 s asset and a 6 s timeline); turn 2 (cut at 3.0 s, naming the clip it proposed) →
+  `insert_asset(library:sfx/whoosh-soft.mp3, audio, at 2.75)` card, `generated/` 5 → 5, `usedIn` 16 → 17 — PASS with that caveat.
+  Records: ~95 pointers + 25 numbers true; titles of E2 / E4 only.
+- Notes (non-blocking): **1** negation only drops words, never demotes ("a whoosh but not soft" / "without air" still rank
+  `whoosh-soft` first; "soft" alone → three unrelated soft clips); **2** M2b test gap; **3** the assistant's view of a split source
+  clip (a capability gap for later tracks, not E3's); **4** two "Not measured" items are now measured (above) — update the records;
+  **5** `list_assets` "whoosh" lists `flame-snuff` and `dash-zip` (recorded); **6** the importer rewrites the gitignored
+  `wt/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs`; **7** nits: a log start time 20:17:55 vs 20:17:56; the native `<audio
+  controls>` renders as a light pill on the dark theme; `TilePlayButton` is a role=button span inside the tile `<button>` (as the copy
+  control).
 
 - None blocking.
 - `AssetLibraryScreen.tsx` is **464** lines (it was 456 before E3 — already over the ~300 rule); E3 added +8 net (the
