@@ -7,18 +7,22 @@
 // tags, file name, category and description (a word few clips carry weighs
 // more than "soft", which most catalog clips carry), and a match needs either
 // half the weight covered, or the prompt's HEAD word (the sound itself — the
-// last word of its first clause) plus 30 %. Words after a negation ("no music,
-// no metallic ring" — the catalog prompts are full of them) never count. A
-// prompt's placement words ("… when the slide changes", "… until the reveal")
-// say WHEN the sound plays: they never count in the coverage, so they cannot
-// sink a match (F1), but one that names a clip in its tags / name / category
-// ("a snap when the TRAP closes") adds a small ranking bonus — never a match.
-// The words themselves (tokens, inflections, the head word) are in
-// `sound-match-words.ts` (fix round 2, F2).
+// last word of its first clause) hit by an EQUAL word plus 30 %. Words after a
+// negation ("no music, no metallic ring" — the catalog prompts are full of
+// them) never count. A prompt's placement words ("… when the slide changes",
+// "… until the reveal") say WHEN the sound plays: they never count in the
+// coverage, so they cannot sink a match (F1), but one that names a clip in its
+// tags / name / category ("a snap when the TRAP closes") adds a small ranking
+// bonus — never a match. A verb-form stem hit ("running" on a `run` tag) weighs
+// `STEM_STRENGTH` of the field, so it never ties an equal hit (F3a). The words
+// themselves (tokens, inflections, the head word) are in `sound-match-words.ts`.
+//
+// The miss rule (E-d15): when nothing matches, `nearestLibrarySounds` gives the
+// candidates that still scored — the tool shows them instead of generating.
 
 import type { LibraryIndexEntry } from '../../../shared/types/asset-library';
 import { mediaKindOf } from '../../../shared/media-kinds';
-import { promptTerms, soundTokens, wordsMatch } from './sound-match-words';
+import { matchStrength, promptTerms, soundTokens } from './sound-match-words';
 
 export { headWord, soundTokens } from './sound-match-words';
 
@@ -42,6 +46,13 @@ export interface SoundMatch {
   placementHits: number;
 }
 
+export interface SoundRanking {
+  /** Above the match threshold, best first. */
+  matches: SoundMatch[];
+  /** Below it but scoring (coverage > 0), best first — the "closest library sounds" of a miss. */
+  nearest: SoundMatch[];
+}
+
 /** Above this probed length an unlabelled clip is music, not an effect (the SFX generator's own maximum). */
 const SFX_MAX_SECONDS = 30;
 const MATCH_COVERAGE = 0.5;
@@ -50,6 +61,7 @@ const HEAD_MATCH_COVERAGE = 0.3;
 const PLACEMENT_BONUS = 0.05;
 const PLACEMENT_BONUS_MAX = 0.1;
 const FIELD_WEIGHT = { tag: 1, name: 1, category: 0.9, description: 0.6 } as const;
+const STRONG_FIELDS = new Set<keyof EntryFields>(['tag', 'name', 'category']);
 
 interface EntryFields {
   tag: string[];
@@ -57,6 +69,16 @@ interface EntryFields {
   category: string[];
   description: string[];
 }
+
+interface Hit {
+  /** Field weight × word strength (0 = none). */
+  weight: number;
+  /** Hit in a tag, the file name or the category (whatever the strength). */
+  strong: boolean;
+  /** Hit by an equal word (or a plural / -y form) — what the head rule needs. */
+  equal: boolean;
+}
+const NO_HIT: Hit = { weight: 0, strong: false, equal: false };
 
 function fieldsOf(entry: LibraryIndexEntry): EntryFields {
   const file = entry.relPath.split('/').pop() ?? entry.relPath;
@@ -68,11 +90,15 @@ function fieldsOf(entry: LibraryIndexEntry): EntryFields {
   };
 }
 
-/** The best field weight a word hits on an entry (0 = none). */
-function hitWeight(word: string, fields: EntryFields): number {
-  let best = 0;
+/** The best hit a word makes on an entry. */
+function hitOf(word: string, fields: EntryFields): Hit {
+  let best = NO_HIT;
   for (const field of ['tag', 'name', 'category', 'description'] as const) {
-    if (FIELD_WEIGHT[field] > best && fields[field].some((w) => wordsMatch(word, w))) best = FIELD_WEIGHT[field];
+    if (FIELD_WEIGHT[field] <= best.weight) continue;
+    let strength = 0;
+    for (const w of fields[field]) strength = Math.max(strength, matchStrength(word, w));
+    const weight = FIELD_WEIGHT[field] * strength;
+    if (weight > best.weight) best = { weight, strong: STRONG_FIELDS.has(field), equal: strength === 1 };
   }
   return best;
 }
@@ -99,43 +125,57 @@ function isCandidate(entry: LibraryIndexEntry, opts: SoundMatchOptions): boolean
 
 const rankOf = (m: SoundMatch): number => m.coverage + Math.min(PLACEMENT_BONUS_MAX, PLACEMENT_BONUS * m.placementHits);
 
-/** The library sounds that fit the prompt, best first (at most `limit`, default 3); [] = generate. */
-export function matchLibrarySounds(entries: LibraryIndexEntry[], prompt: string, opts: SoundMatchOptions): SoundMatch[] {
+const byRank = (a: SoundMatch, b: SoundMatch): number =>
+  rankOf(b) - rankOf(a) ||
+  b.strongHits - a.strongHits ||
+  (b.entry.usedIn?.length ?? 0) - (a.entry.usedIn?.length ?? 0) ||
+  a.entry.relPath.localeCompare(b.entry.relPath);
+
+/** Every candidate scored for the prompt, split at the match threshold; each list at most `limit` long. */
+export function rankLibrarySounds(entries: LibraryIndexEntry[], prompt: string, opts: SoundMatchOptions): SoundRanking {
   const { terms, bonus, head } = promptTerms(prompt);
   const candidates = entries.filter((e) => isCandidate(e, opts)).map((entry) => ({ entry, fields: fieldsOf(entry) }));
-  if (terms.length === 0 || candidates.length === 0) return [];
+  if (terms.length === 0 || candidates.length === 0) return { matches: [], nearest: [] };
   const n = candidates.length;
   const idf = new Map<string, number>();
   for (const { word } of terms) {
-    const df = candidates.filter((c) => hitWeight(word, c.fields) > 0).length;
+    const df = candidates.filter((c) => hitOf(word, c.fields).weight > 0).length;
     idf.set(word, Math.log((n + 1) / (df + 0.5)));
   }
   const total = terms.reduce((sum, t) => sum + t.weight * (idf.get(t.word) ?? 0), 0);
-  if (total <= 0) return [];
+  if (total <= 0) return { matches: [], nearest: [] };
 
-  const scored: SoundMatch[] = [];
+  const matches: SoundMatch[] = [];
+  const nearest: SoundMatch[] = [];
   for (const { entry, fields } of candidates) {
     let covered = 0;
     let strongHits = 0;
     let headHit = false;
     for (const { word, weight } of terms) {
-      const hit = hitWeight(word, fields);
-      if (hit === 0) continue;
-      covered += hit * weight * (idf.get(word) ?? 0);
-      if (hit >= FIELD_WEIGHT.category) strongHits += 1;
-      if (word === head) headHit = true;
+      const hit = hitOf(word, fields);
+      if (hit.weight === 0) continue;
+      covered += hit.weight * weight * (idf.get(word) ?? 0);
+      if (hit.strong) strongHits += 1;
+      if (word === head && hit.equal) headHit = true;
     }
+    if (covered <= 0) continue;
     const coverage = covered / total;
-    if (coverage < MATCH_COVERAGE && !(headHit && coverage >= HEAD_MATCH_COVERAGE)) continue;
-    const placementHits = bonus.filter((w) => hitWeight(w, fields) >= FIELD_WEIGHT.category).length;
-    scored.push({ entry, coverage, strongHits, placementHits });
+    // The bonus is applied in the RANK only, after the threshold: a non-match stays one whatever its bonus.
+    const placementHits = bonus.filter((w) => hitOf(w, fields).strong).length;
+    const match: SoundMatch = { entry, coverage, strongHits, placementHits };
+    if (coverage >= MATCH_COVERAGE || (headHit && coverage >= HEAD_MATCH_COVERAGE)) matches.push(match);
+    else nearest.push(match);
   }
-  scored.sort(
-    (a, b) =>
-      rankOf(b) - rankOf(a) ||
-      b.strongHits - a.strongHits ||
-      (b.entry.usedIn?.length ?? 0) - (a.entry.usedIn?.length ?? 0) ||
-      a.entry.relPath.localeCompare(b.entry.relPath),
-  );
-  return scored.slice(0, opts.limit ?? 3);
+  const limit = opts.limit ?? 3;
+  return { matches: matches.sort(byRank).slice(0, limit), nearest: nearest.sort(byRank).slice(0, limit) };
+}
+
+/** The library sounds that fit the prompt, best first (at most `limit`, default 3); [] = no match. */
+export function matchLibrarySounds(entries: LibraryIndexEntry[], prompt: string, opts: SoundMatchOptions): SoundMatch[] {
+  return rankLibrarySounds(entries, prompt, opts).matches;
+}
+
+/** On a miss: the candidates that still scored, best first (E-d15 — shown instead of generating); [] = a true miss. */
+export function nearestLibrarySounds(entries: LibraryIndexEntry[], prompt: string, opts: SoundMatchOptions): SoundMatch[] {
+  return rankLibrarySounds(entries, prompt, opts).nearest;
 }

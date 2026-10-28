@@ -1,11 +1,19 @@
 // The words of the sound matcher (E3): a text's content tokens, a prompt's weighted terms, head word and
-// placement words, and when two words are the same word. Pure.
+// placement words, and how strongly two words are the same word. Pure. The word sets are in
+// `sound-match-vocab.ts`.
 //
-// Same word = equal, or the same stem under known English inflections only (fix round 2, F2 — the old "one is
-// a prefix of the other, ≤ 3 letters longer" rule matched `rung` to `run` and `sparkle` to `spark`). The
-// endings: plural / 3rd person -s, -es (after s x z ch sh), -ies → y; verb -ing, -ed; adjective -y; then a
-// doubled final consonant is undoubled (popping → pop) and a silent e dropped (closes / closing / close).
-// Not -er / -est / -ly: they make other words (riser ≠ rise, timer ≠ time, shutter ≠ shut).
+// Same word (fix round 2, F2; round 3, F3a): equal, or the same stem under known English inflections only —
+// plural / 3rd person -s, -es (after s x z ch sh), -ies → y; verb -ing, -ed; adjective -y; a doubled final
+// consonant undoubled (popping → pop) and a silent e dropped (closes / closing / close). Not -er / -est / -ly.
+// A plural and an adjective -y name the same sound at FULL strength (clicks = click, airy = air); a verb
+// form matches at `STEM_STRENGTH` only — "running" / "shutting" / "moving" name an action more often than
+// the clip tagged `run` / `shut` / `move`, so such a hit never ties or beats an equal hit (F3a). Two words
+// that both have no inflection never match through the silent-e drop alone (hop ≠ hope, bit ≠ bite).
+
+import {
+  CLAUSE_CUT, COMPARATIVES, NEGATIONS, OPENER_FILLERS, OPENERS, PARTICLES, PLACEMENT, QUANTIFIERS, SAME_SOUND,
+  STOP_WORDS,
+} from './sound-match-vocab';
 
 export interface Term {
   word: string;
@@ -23,33 +31,8 @@ export interface PromptTerms {
 
 /** Words after the head clause ("… with a short tail") describe the sound; they weigh half. */
 export const QUALIFIER_WEIGHT = 0.5;
-
-const NEGATIONS = new Set(['no', 'not', 'non', 'without', 'never']);
-/** Spellings of one sound that share no stem ("swish" stays its own word — the catalog tags it apart). */
-const SAME_SOUND: Readonly<Record<string, string>> = { swoosh: 'whoosh', woosh: 'whoosh', swooshes: 'whoosh' };
-const CLAUSE_CUT = new Set([
-  'for', 'with', 'at', 'like', 'into', 'on', 'in', 'of', 'to', 'from', 'that', 'which', 'as', 'over', 'under', 'between',
-  'after', 'before', 'during', 'across', 'through',
-]);
-/**
- * A prompt's subordinating conjunctions: from one of these to the clause end the words say WHEN the sound plays
- * ("when the slide changes", "until the reveal", "as soon as …") — placement words, not the sound (F1). "as" is
- * one unless "a" / "an" follows ("as a transition" names the sound's role — a qualifier through the cut above).
- */
-const PLACEMENT = new Set([
-  'when', 'whenever', 'while', 'whilst', 'until', 'till', 'once', 'if', 'unless', 'because', 'where', 'wherever', 'as',
-]);
-const STOP_WORDS = new Set([
-  'a', 'an', 'the', 'and', 'or', 'but', 'so', 'as', 'at', 'be', 'by', 'do', 'if', 'in', 'is', 'it', 'me', 'my', 'of', 'on',
-  'to', 'up', 'us', 'we', 'for', 'with', 'into', 'onto', 'from', 'that', 'this', 'these', 'those', 'which', 'when', 'where',
-  'then', 'than', 'very', 'some', 'any', 'its', 'our', 'your', 'their', 'was', 'were', 'are', 'has', 'have', 'had', 'will',
-  'can', 'just', 'also', 'like', 'about', 'over', 'under', 'one', 'two', 'three', 'four', 'five', 'second', 'seconds', 'sec',
-  'sound', 'sounds', 'sfx', 'effect', 'effects', 'audio', 'clip', 'clips', 'video', 'music', 'track', 'add', 'make', 'use',
-  'place', 'need', 'want', 'please', 'give', 'get', 'put', 'first', 'next', 'last', 'cut', 'between', 'after', 'before',
-  'during', 'across', 'through', 'whenever', 'while', 'whilst', 'until', 'till', 'once', 'unless', 'because', 'wherever',
-]);
-/** Particles name no sound: "the title slides OUT" must not lift whoosh-wind through its `drawn-out` tag. Bonus only. */
-const PARTICLES = new Set(['out', 'off', 'down', 'away', 'back', 'around', 'along', 'past']);
+/** A verb-form stem hit ("running" on a `run` tag) against an equal hit's 1 — less than a description hit (0.6 × 1). */
+export const STEM_STRENGTH = 0.6;
 
 /** Split into clauses on punctuation; each clause a list of lower-case raw words. */
 function clauses(text: string): string[][] {
@@ -59,10 +42,12 @@ function clauses(text: string): string[][] {
     .map((c) => c.match(/[a-z0-9]+(?:[-'][a-z0-9]+)*/g) ?? []);
 }
 
+const canonical = (word: string): string => SAME_SOUND[word] ?? COMPARATIVES[word] ?? word;
+
 /** One raw word → its tokens: a hyphenated word yields its joined form and its long parts (not after a "no-"). */
 function expand(raw: string): string[] {
   const bare = raw.split("'")[0];
-  const word = SAME_SOUND[bare] ?? bare;
+  const word = canonical(bare);
   if (!word.includes('-')) return word.length >= 2 && !STOP_WORDS.has(word) && !/^\d+$/.test(word) ? [word] : [];
   const parts = word.split('-');
   const joined = parts.join('');
@@ -83,44 +68,89 @@ export function soundTokens(text: string): string[] {
 }
 
 const VOWEL = /[aeiouy]/;
-const stemCache = new Map<string, string>();
 
-/** A word's stem under the known inflections above (a stem keeps ≥ 3 letters and a vowel). */
-export function wordStem(word: string): string {
-  const cached = stemCache.get(word);
-  if (cached !== undefined) return cached;
+interface Stem {
+  stem: string;
+  /** The inflection stripped: none, a plural / -y (full strength), or a verb form (`STEM_STRENGTH`). */
+  stripped: 'none' | 'full' | 'verb';
+}
+const stemCache = new Map<string, Stem>();
+
+/** -s / -es / -ies off; the SAME_SOUND map applied (swooshes → whoosh). */
+function singular(word: string): string {
   let s = word;
   if (s.length >= 5 && s.endsWith('ies')) s = `${s.slice(0, -3)}y`;
   else if (s.length >= 5 && /(?:s|x|z|ch|sh)es$/.test(s)) s = s.slice(0, -2);
   else if (s.length >= 4 && s.endsWith('s') && !/(?:ss|us|is)$/.test(s)) s = s.slice(0, -1);
+  return SAME_SOUND[s] ?? s;
+}
+
+function stemOf(word: string): Stem {
+  const cached = stemCache.get(word);
+  if (cached !== undefined) return cached;
+  let s = singular(word);
+  let stripped: Stem['stripped'] = s === word ? 'none' : 'full';
   const m = /^(.+?)(ing|ed|y)$/.exec(s);
   // Not "speed" → "spe" (-ed after e) nor "play" → "pla" (-y after a vowel); ll ss zz ff stay doubled.
   if (m && m[1].length >= 3 && VOWEL.test(m[1]) && !(m[2] === 'ed' && m[1].endsWith('e')) && !(m[2] === 'y' && /[aeiou]$/.test(m[1]))) {
     s = /([bcdgkmnprtv])\1$/.test(m[1]) ? m[1].slice(0, -1) : m[1];
+    stripped = m[2] === 'y' ? 'full' : 'verb';
   }
   if (s.length >= 4 && s.endsWith('e')) s = s.slice(0, -1);
-  stemCache.set(word, s);
-  return s;
+  const out: Stem = { stem: SAME_SOUND[s] ?? s, stripped };
+  stemCache.set(word, out);
+  return out;
+}
+
+/** A word's stem under the known inflections above (a stem keeps ≥ 3 letters and a vowel). */
+export function wordStem(word: string): string {
+  return stemOf(word).stem;
+}
+
+/**
+ * How strongly two words are the same word: 1 (equal; a plural or -y form — whooshes / airy), `STEM_STRENGTH`
+ * (a verb form — ticking / popped), 0 (different: rung / run, sparkle / spark, hop / hope).
+ */
+export function matchStrength(a: string, b: string): number {
+  if (a === b) return 1;
+  if (a.length < 3 || b.length < 3) return 0;
+  const sa = stemOf(a);
+  const sb = stemOf(b);
+  if (sa.stem !== sb.stem || (sa.stripped === 'none' && sb.stripped === 'none')) return 0;
+  return sa.stripped === 'verb' || sb.stripped === 'verb' ? STEM_STRENGTH : 1;
 }
 
 /** Equal, or the same stem: air/airy, whoosh/whooshes, tick/ticking, pop/popping — never rung/run, sparkle/spark. */
 export function wordsMatch(a: string, b: string): boolean {
-  if (a === b) return true;
-  return a.length >= 3 && b.length >= 3 && wordStem(a) === wordStem(b);
+  return matchStrength(a, b) > 0;
 }
 
+/** A placement starts here: a conjunction, or a multi-word opener ("every time", "the moment", "the exact moment"). */
 function startsPlacement(words: string[], i: number): boolean {
-  return PLACEMENT.has(words[i]) && !(words[i] === 'as' && (words[i + 1] === 'a' || words[i + 1] === 'an'));
+  const w = words[i];
+  if (PLACEMENT.has(w)) return !(w === 'as' && (words[i + 1] === 'a' || words[i + 1] === 'an'));
+  const completions = OPENERS[w];
+  if (!completions) return false;
+  const next = words[i + 1];
+  if (next !== undefined && completions.includes(next)) return true;
+  return next !== undefined && OPENER_FILLERS.has(next) && words[i + 2] !== undefined && completions.includes(words[i + 2]);
 }
 
-/** The head words (up to a preposition once a content word was seen) and the rest of a phrase. */
+/** The head words (up to a preposition once a content word was seen; restarted after "a bit OF") and the rest. */
 function cutHead(words: string[]): { head: string[]; tail: string[] } {
-  const head: string[] = [];
+  let head: string[] = [];
+  let taken = 0;
   for (const raw of words) {
+    if (raw === 'of' && head.length > 0 && QUANTIFIERS.has(head[head.length - 1])) {
+      head = [];
+      taken += 1;
+      continue;
+    }
     if (CLAUSE_CUT.has(raw) && hasContent(head)) break;
     head.push(raw);
+    taken += 1;
   }
-  return { head, tail: words.slice(head.length) };
+  return { head, tail: words.slice(taken) };
 }
 
 /**
@@ -146,20 +176,22 @@ export function promptTerms(prompt: string): PromptTerms {
   const at = split.findIndex((c) => hasContent(c.sound));
   let head: string[];
   let qualifiers: string[];
-  let placement: string[] = [];
+  let placement: string[];
   if (at >= 0) {
     const cut = cutHead(split[at].sound);
     head = cut.head;
     qualifiers = [cut.tail.join(' '), ...split.slice(at + 1).map((c) => c.sound.join(' '))];
     placement = split.map((c) => c.placement.join(' '));
   } else {
-    // Every clause is placement: the uncut words, the placement words as half-weight qualifiers (as before F1).
+    // Every clause opens with a placement: the sound starts at its last "a" / "an"; the words before it are
+    // placement (bonus only, as with a comma — fix round 3), the rest of that clause qualifiers.
     const i = all.findIndex(hasContent);
     if (i < 0) return { terms: [], bonus: [], head: undefined };
     const k = soundStart(all[i]);
     const cut = cutHead(all[i].slice(k));
     head = cut.head;
-    qualifiers = [all[i].slice(0, k).join(' '), cut.tail.join(' '), ...all.filter((_, j) => j !== i).map((c) => c.join(' '))];
+    qualifiers = [cut.tail.join(' '), ...all.filter((_, j) => j !== i).map((c) => c.join(' '))];
+    placement = [all[i].slice(0, k).join(' ')];
   }
   const weights = new Map<string, number>();
   const headTokens = soundTokens(head.join(' '));
