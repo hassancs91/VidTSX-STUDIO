@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: HANDOFF
+status: DONE
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -310,7 +310,30 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   trap-snap · "a door knock" → knock-solid | chess-piece-capture · "a dog bark" → no match · music "warm lo-fi bed" →
   lofi-warm · "calm ambient bed under speech" → ambient-pad 0.64 · "upbeat corporate rock with drums" → no match · "warm
   lo-fi bed" ≥ 120 s → no match.
-- Not yet run (after builder #2): the full worktree vitest (still not run after builder #3 — the gates).
+- The gates (builder #4, 2026-10-28 20:17–20:24, no app running — 0 `electron.exe`; HEAD `5d602fb`, tree clean, `src/` as of
+  `8bde97c` = the `wt/out` build): guard C: 50.0 GB, D: 43.8 GB, headroom 27.7 GB → default workers. From the worktree root
+  `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run > C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\vitest-full-1.log
+  2>&1` → `Test Files 4 failed | 492 passed | 5 skipped (501)` · `Tests 10 failed | 4214 passed | 35 skipped (4259)` · 86.05 s;
+  the 4th file `flow-render.test.ts:255` ("expected 0 to be greater than 0" in its 1 s `vi.waitFor` — DRIVING's known LOAD
+  timeout) → alone `vitest run src/main/services/flows/flow-render.test.ts` → `1 passed (1)` · `5 passed (5)`
+  (`vitest-flow-render-alone.log`); re-check (C: 50 GB, headroom 27.9 GB, 0 electron) → full run 2 (`vitest-full-2.log`, the
+  COUNTED run) → `Test Files 3 failed | 493 passed | 5 skipped (501)` · `Tests 9 failed | 4215 passed | 35 skipped (4259)` ·
+  75.31 s, 0 "timed out"; the 3 files / 9 tests = `builder-libraries` 1 (`@remotion/paths (builder-libraries.ts) is not
+  installed`), `shot-bundle` 5 (`Could not resolve` roughjs / @remotion/shapes / @react-three/fiber / chroma-js /
+  @remotion/google-fonts/SpaceGrotesk), `shot-bundle-in-place` 3 (`Could not resolve "chroma-js"`) — resolution only.
+- Rule (b): `git diff --name-only 5d77600..HEAD > …\E3\diff-list.txt` at HEAD `5d602fb` → 99 files (84 under `src/`); `node
+  C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs <wt> …\E3\diff-list.txt > …\E3\import-graph.txt` → rc 0:
+  `builder-libraries.test.ts: 2 local modules … NONE`, `shot-bundle.test.ts: 15 … NONE`, `shot-bundle-in-place.test.ts: 23
+  … (vi.mock'd, not loaded: shot-generator.ts, shot-import-land.ts, media-import.ts) … NONE`, `scripts/builder-unpack.mjs: 1
+  … NONE` (method: esbuild metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d modules not followed).
+- Types: `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS` (`…\E3\tsc-web.log`); `-p tsconfig.node.check.json` →
+  **10** (`tsc-node.log`); 0 error lines name an E3 file (asset-library, sound-match, sound-reuse, audio-tools,
+  library-listing, project-tools, studio-agent-prompt). No gate failure → no `src/` change, no rebuild.
+- Records commit `bc2cc9b`: Status.md E3 entry **:10-233** (above E4's, now :235); TESTING **§18.17 :524-537**; titles —
+  E4 "…; the E4 verifier round 3 is next)" → "…; the E4 verifier round 3 PASSED on the records (2026-10-28))" (Status :235),
+  E2 "…; the E2 verifier round 2 is next)" → "…; the E2 verifier round 2 PASSED (2026-10-28))" (Status :437). Re-checked
+  AFTER `bc2cc9b`: `git diff --name-only 5d77600..HEAD` still 99 files (the four docs files it touches were already in the
+  list); `git diff --stat 5d602fb..HEAD -- src/ scripts/` empty; `git log -1 --format=%h -- src/` → `8bde97c`.
 
 ### The live step (builder #3, 2026-10-28, ~20:00–20:15 local) — ALL exit measurements PASS; no code change
 
@@ -382,11 +405,9 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**Builder #4 (gates + records):** with no app running and the guard passed, run the full worktree vitest from the
-worktree root (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --maxWorkers=2` if headroom < 10 GB; log to
-`…\E3\full-vitest.log`; green except the three E-d2a resolution suites + rule (b)) and `tsc` web / node (26 / 10), then
-write the Status.md entry at the top, TESTING **§18.17** from the "live step" record above + `live.json`, and the E2 / E4
-Status TITLE fixes; set this HANDOFF to DONE-pending-verifier. No new live run is needed.
+**Orchestrator:** E3 → VERIFY — spawn the E3 verifier round 1 (CDP 9273, its own `profiles\E3-verify` copy WITHOUT
+`settings.db*`; range `ceb250c..HEAD`; the records to check: Status.md E3 entry :10-233, TESTING §18.17 :524-537). Builder
+#4 (gates + records) is done: gates green (Verified above), records committed; no code change, no live run.
 
 ## Open problems
 
@@ -436,3 +457,6 @@ Status TITLE fixes; set this HANDOFF to DONE-pending-verifier. No new live run i
 - 2026-10-28 · builder #3 · ~42 calls · the live step: 2 launches (no stand-in), import 51, Assets screen CDP (play,
   one-at-a-time, chips 45 → 4, still), tool level (no provider + stand-in, two drivers), whoosh ×2 + cuckoo live — all
   PASS, no code change. Gates / records not started.
+- 2026-10-28 · builder #4 · ~38 calls · the gates (2 full worktree vitest runs — run 2 counted, run 1's `flow-render`
+  load timeout passed alone; rule (b) NONE over 99 files; tsc 26 / 10), Status.md E3 entry, TESTING §18.17, the E2 / E4
+  title fixes (`bc2cc9b`); HANDOFF DONE. No `src/` change, no launch, no model turn.
