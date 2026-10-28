@@ -1111,3 +1111,26 @@
   placement clauses) + FAIL 2 (F2 loose prefix match) — fix round 2 code + corpus done (`09e81ea`), its records and verifier round 3
   (E3's LAST, bar E-d14) NOT run**; the track-E exit NOT run. Decisions this session: E-d11, E-d12, E-d13, E-d14. Nothing pushed;
   `end-to-end-p0-e` not merged.
+
+## Session 7 — track E continued (started 2026-10-28 22:25, Hasan's paste-in from NEXT-SESSION.md)
+
+- **Scope (Hasan):** (1) E3 — a RECORDS-only builder #8 (E3 HANDOFF "Next step" step 5; no `src/` change), then E3 verifier
+  round 3 — **E3's LAST** (two FAILs already; a third stops the run), bar **E-d14**; (2) the track-E exit (NEXT-SESSION "The track-E
+  exit"). Stop after the exit, on BLOCKED, or on E3's third FAIL. NOT this session: B7's verifier, the track-B exit, tracks C, D, F.
+- **Start state (22:25):** worktree `end-to-end-p0-e` @ `d5011e4`, clean. Main checkout `end-to-end-p0` @ `5d77600`, still NOT clean
+  (the other session's 10 modified + 6 untracked files, unchanged); **Hasan's dev app is NOT running** (0 `electron.exe`). E-d1 stands.
+- **Resources (22:26):** C: 48.1 GB, D: 43.8 GB free; memory commit 64.1 / 97.7 GB (headroom 33.6 GB → default vitest workers allowed);
+  CPU `LoadPercentage` 82 at one sample, per-process over 5 s `vmmemWSL` 18.5 % of 16 cores — the verifier measures again before its
+  counted run (DRIVING's normal rule, or E-d13 under external load).
+- **Overrides in force** (the session-7 paste): Q1–Q6, E-d1…E-d14, E-d2a rule (b) only; no paid-key call (generation only through E2's
+  dev-only stand-in); model calls only via the keyless `claude-subscription` (the exit: ≤ 3 turns + 1 retry on an API error); isolated
+  profiles only; the resource guard; the builder-brief additions (worktree only; DRIVING + "Track B decisions"; HANDOFF / Status /
+  TESTING by Edit / Write only; no job left running; process selection by port / profile path + Name; Studio root FIRST; never Hasan's
+  stations or B6 / B7 scratch; HANDOFF as you go, commit early; every git / tree / build statement "as of `<hash>`", re-checked after
+  the commit).
+- **CDP ports / profiles this session:** E3 verifier round 3 → 9273 (`profiles\E3-verify`, may be reused — verifier scratch); the
+  track-E exit → 9280 (`profiles\E-exit`, copied from `source` WITHOUT `settings\settings.db*`).
+
+### Session 7 log
+
+- 22:27 · E3 builder #8 (records only — fix round 2 step 5) spawned.
