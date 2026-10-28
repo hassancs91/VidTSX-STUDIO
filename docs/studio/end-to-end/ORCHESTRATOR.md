@@ -967,3 +967,11 @@
   `update`, no copy); the conflict "no entry" claim cites no evidence file. **E4 FAIL count 2 of 3 — a third stops the run.**
   Fix round 2 = builder #5, records only: R3, the two notes, and an AUDIT of every git-state / "since" / "HEAD" / count /
   pointer statement in the E4 entry + §18.16 (table in the HANDOFF), so round 3 meets no stale line.
+- 21:10 · E4 builder #5 DONE (records only, ~63 calls): `ff7f302` (R3 → the "The code" header quotes the git commands and their
+  output "as of fix round 2's commits"; note 1 `unchanged` / `update`; note 2 cites `E4-verify\neg-lib\.vidtsx\index.json` — 49
+  entries, none at the conflict / missing relPaths; the round-2 line), `76744ad` (HANDOFF DONE with a 36-row audit table — 23 true,
+  13 changed: title, docs-commit list, two console-only figures marked as such, `{unchanged: 50, update: 1}`, the build stamp, the
+  gates' / rule (b)'s HEAD pinned to `cf5328d`, editor-repo status dated, a blob wording). Orchestrator spot-check at HEAD: `git
+  log -1 -- src/` `4fa1551`, non-test `4aed92f`, `4aed92f..HEAD -- src/` = `4fa1551`, scripts `5247ed9`, `893b305..HEAD -- src/
+  scripts/` empty. Seen in passing (not E4's): the E2 Status title still reads "the E2 verifier round 2 is next" → E3's builder
+  updates the finished parts' titles. E4 verifier round 3 (records only — E4's LAST) spawned.
