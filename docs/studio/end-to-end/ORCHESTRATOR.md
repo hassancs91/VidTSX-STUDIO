@@ -36,7 +36,7 @@
 | D5 | TODO | | | | | |
 | E1 | **DONE** (exit MET in round 3; fix round 3 docs-only; verifier round 4 PASS on the records) | 8 (#8 = docs-only round 3) | FAIL round 1 (mp3 with cover art +30 ms; cover fields recorded as the audio's) → fix `eb533e4` `36a0586` → FAIL round 2 (a garbage `.flac` probed "0.00 s" instead of unreadable; mp3 trim range in the docs) → fix `d3908c3` → FAIL round 3 (records: R1 resurrected-tombstone claim, R2 mp3 range −160 ms at 8 kHz) → docs fix `8a1a60c` → **PASS round 4** (records; 4 notes V4-N1…N4, none a failure) | code `cd978c3` `6005a7e` `a3f48d8` `eb533e4` `36a0586` `d3908c3`; docs to `a35aef3`, fix round 3 `8a1a60c` (branch `end-to-end-p0-e`) | round 3: 68/68 timed rows within 10 ms (index Δ 0.0 ms, printed ≤ 5.0 ms), 19/19 unreadable listed unreadable; migration 82 entries, backup byte-identical, idempotent; E-d5 old reader 86 + 2 tombstones deep-equal; negatives N1 (V2-1) / N2 (attached pic) caught; vitest 477 files / 4,079 tests + the 3 E-d2a suites; types 26/10; round 4: E1 suites 20 files / 170 tests, types 26/10, `8a1a60c` changes 4 `//` lines in `src/` | 2026-10-23 20:25 / 2026-10-24 09:35 |
 | E2 | **DONE** (verifier FAIL round 1 → fix round 1 → PASS round 2) | 8 (#6 = records only, #7–#8 = fix round 1) | FAIL round 1 (F1 the −1.5 ceiling over after the mp3 re-encode on a 0.25 s burst; F2 shot-ref `usedIn` mark before validation) → fix `f990487` (E-d11 corrective re-encode from the original; mark after validation; `pool-import.ts` seam + test; one-line `normalizeError`; gated answer) → **PASS round 2** | code `60b5537` (normalizer) `841e311` (call site, args, dev stand-in) `68bbe44` (`usedIn` on the three landings) `3084668` (listing row) `f990487` (fix round 1); docs `70bb70f` `59b8e93` `1e36cbc` `bbfd17e` `4eb6bf5`, records `3249cbe` `b238d7f`, fix-round records `fd964ad` `d86497a` (branch `end-to-end-p0-e`) | stand-in in −9.3 LUFS / +0.6 dBTP → recorded −20.27 LUFS / −10.79 dBTP (gain −10.71); independent ffmpeg-full ebur128 −20.2 LUFS, TP −10.8, astats −10.79; probe 2.000 s = ffprobe n8 (0 ms); `tags [whoosh, air]`, `category motion`, `source`/`model` standin; `usedIn ["e2-exit"]` after the tool's own import, unchanged after `insert_asset`; `list_assets` row shows duration · category · tags · −20.3 LUFS · used in; ceiling case gain +4.18 (clamped, wanted +7.4), −23.44 LUFS, TP −1.79 (0.3 dB under the ceiling after the mp3 re-encode); music path identical; live: Assets › `generated` lists the 4 files (still), Studio root set first; worktree vitest 485 files / 4,138 tests green except the 3 E-d2a suites (rule (b): NONE of 68 files); types 26/10; **after fix round 1 (verifier round 2):** a 0.25 s gated burst −1.884 dBTP / −1.871 dBFS (1 corrective pass; was −1.3 over), five new transients worst −1.546 dBTP, 110-run sweep never over; vitest 487 / 4,149 + the 3 E-d2a suites; types 26/10 | 2026-10-24 09:40 / live 10:36 (stopped 12:55 before the records); session 6 2026-10-28 16:09 / 17:42 (records, FAIL 1, fix, PASS 2) |
-| E3 | **FIX** (after E4) — code `6224040` (matcher, tools, prompt rule) `8bde97c` (Assets screen); live step met (`7ba2141`); records `bc2cc9b`; verifier round 1 FAIL (F1 matcher: subordinate clauses) → fix `b176881` `788c8d2` + records `f593515`; verifier round 2 FAIL (F2 matcher: loose prefix rule) → fix round 2 = builder #7 (corpus, E-d14) | 7 | FAIL round 1 (F1) → FAIL round 2 (F2) | code `6224040` `8bde97c`; docs `00c1f74` `7ba2141` `bc2cc9b` `0ca8148` | live keyless whoosh ×2 → `library:sfx/whoosh-soft.mp3` card, no generation, `usedIn` 16 → 18; cuckoo → no-provider notice + a library alternative offered; tool level top 3 before the provider check, `force` generates; tile `<audio>` plays (0.415 → 1.433 s in 1.0 s), chip 45 → 4; vitest 493 / 4,215 + the 3 E-d2a suites; types 26/10 | 2026-10-28 19:28 / |
+| E3 | **FIX — round 2 code done, records + verifier round 3 PENDING** (session 6 stopped at Hasan's word) — code `6224040` (matcher, tools, prompt rule) `8bde97c` (Assets screen); live step met (`7ba2141`); verifier round 1 FAIL (F1 placement clauses) → fix `b176881` `788c8d2`; verifier round 2 FAIL (F2 loose prefix match) → fix round 2 `09e81ea` (corpus 150 rows, E-d14) — its Status / TESTING records NOT written; verifier round 3 = E3's LAST | 7 | FAIL round 1 (F1) → FAIL round 2 (F2) → round 3 not run | code `6224040` `8bde97c`, fix 1 `b176881` `788c8d2`, fix 2 `09e81ea`; docs `00c1f74` `7ba2141` `bc2cc9b` `0ca8148` `f593515` `b2b0de8` `8d76856` | live keyless whoosh ×2 → `library:sfx/whoosh-soft.mp3` card, no generation, `usedIn` 16 → 18; cuckoo → no-provider notice + a library alternative offered; tool level top 3 before the provider check, `force` generates; tile `<audio>` plays (0.415 → 1.433 s in 1.0 s), chip 45 → 4; vitest 493 / 4,215 + the 3 E-d2a suites; types 26/10 | 2026-10-28 19:28 / (stopped 22:15) |
 | E4 | **DONE** (verifier FAIL round 1 + FAIL round 2, both on the records only → PASS round 3; exit and code sound in every round) | 5 (#4 = fix round 1 test + records, #5 = fix round 2 records + audit) | FAIL round 1 (records: R1 moved-clip claim, R2 pointer; E-d12) → fix `4fa1551` + `51dff42` → FAIL round 2 (records: R3 a stale git-state line) → fix `ff7f302` `76744ad` → **PASS round 3** (records, ~190 statements) | code `4aed92f` `5247ed9`, test `4fa1551`; docs `dc41822` `ad7b415` `ff95d1c` `8dba927` `ce9aaac` `bdeb722`, fix records `51dff42` `d1d7f8d` `ff7f302` `76744ad` (branch `end-to-end-p0-e`) | 51 / 51 sha256-identical, probe = ffprobe n8.1.2 0 ms (vs catalog `duration_s`: 38 × 0, 12 × ≤ +0.5 ms, `camera-shutter` −42 ms), fields mapped, `usedIn` verbatim + a Studio id kept on re-run; dry run tree hash equal; re-run byte-equal; changed copy → 1 entry's tags; vitest 489 / 4,165 + the 3 E-d2a suites; types 26/10 | 2026-10-28 17:42 / 19:28 |
 | F0 | TODO | | | | | |
 | F1 | TODO | | | | | |
@@ -568,6 +568,21 @@
   <a folder outside the editor repo>\import-dry.json`, then the same without `--dry-run`. Note: a re-run re-applies the
   catalog's description / tags / audio fields over in-app edits of those 51 entries (only `usedIn` merges). If he has moved
   library clips by hand, open the app once (Assets → Refresh) before the run, else a moved clip is copied again (E-d12).
+- **E3 (session 6):** by ear — an Assets tile and the details player play the right sound (the DOM said `!paused`, `currentTime`
+  advancing); a placed library whoosh sounds right in the real editor; the one live ElevenLabs generation through the reuse rule
+  with `force: true` (with E2's call). Watch the reuse offers in real use (the matcher is a heuristic; E-d14's corpus is the bar —
+  a phrasing it ranks badly is a new corpus row). Known limits: negation does not demote; "after / before …" clauses sit near the
+  0.30 floor; "a ding" finds nothing (no clip says ding / ring).
+- **For later tracks (found in E3, not E's to fix):** the live assistant cannot see where a cut is when ONE source asset is split
+  into two V1 clips (it saw an 8 s asset and a 6 s timeline and asked for the cut time) — C4's "assistant's reach" is the natural home.
+- **Machine (session 6):** memory commit swung between 0.5 and 34 GB of headroom (Brave ~35 GB, `vmmemWSL` ~27 GB), and `vmmemWSL`
+  (Docker / WSL) held 60–80 % of all 16 cores for long stretches (21:00–21:50) — test runs timed out under it (E-d13 was added).
+  Quitting Docker Desktop / `wsl --shutdown` when unused frees both.
+- **Scratch left on disk (session 6, Hasan's call):** profiles `…\vidtsx-e2e\profiles\E2-verify`, `E4`, `E4-verify`, `E3`, `E3-verify`
+  (~372 MB each + their libraries: E4 / E3 / E3-verify hold the 51 catalog clips ~9 MB, E2-verify / E3-verify a few stand-in mp3s)
+  and evidence `…\vidtsx-e2e\E2-verify\`, `E4\`, `E4-verify\`, `E3\`, `E3-verify\`; kits under `.vidtsx-temp\end-to-end\{E2-verify,
+  E4, E4-verify, E3, E3-verify}\`; the gitignored bundle `wt\.vidtsx-temp\import-sfx-library\`. Each isolated profile also holds a
+  `settings.db` the app CREATED on first launch (no keys; never opened).
 
 - 2026-10-23 12:00–13:05 · **C: disk emergency (not this run):** C: fell from 18 GB free (~11:00) to
   1.05 GB (12:24) and 0.25 GB (13:00); this run copied nothing and launched nothing after the
@@ -1069,3 +1084,30 @@
   loose prefix); round 3 fails the matcher only for a corpus row, a regression vs `788c8d2`, or a same-class case — a different-class
   imperfection is a note for Hasan's list. Fix round 2 = builder #7 (corpus first, suffix-based word matching, placement words
   bonus-only, the comma-less fallback, the regression report, gates, records). **E3 FAIL count 2 of 3 — a third stops the run.**
+- 22:00 · **Hasan: "please stop after the current task finishes"** (received while builder #7 ran) → builder #7 finishes fix round 2;
+  NO E3 verifier round 3, NO track-E exit this session. Hand-off for session 7: NEXT-SESSION.md.
+- 22:15 · E3 builder #7 HANDOFF (fix round 2 steps 1–4, ~62 calls) — **the last task of session 6**: `09e81ea` — the CORPUS
+  (`sound-match-corpus.test.ts`, 150 rows from the builders' 70 + both verifier rounds, right outcome by plain meaning; fixture
+  `sound-match-corpus.fixture.ts` = the 51 catalog clips verbatim from the E3 index, read-only, hash unchanged): red 10 / 151 on `0e168cf`
+  → green; the fix: word handling split into `sound-match-words.ts` (179 lines; `sound-match.ts` 250 → 141) — words match when equal or
+  same stem by known inflections only (-s, -es after s/x/z/ch/sh, -ies→y, -ing, -ed not after e, -y not after a vowel; doubled consonant
+  undoubled, silent e dropped; -er / -est / -ly left out: riser ≠ rise, shutter ≠ shut) → `rung` ≠ `run`, `sparkle` ≠ `spark`;
+  placement words out of the coverage, +0.05 rank bonus per hit on a matched clip (cap 0.10, particles like "out" excluded); a comma-less
+  leading clause → the sound starts at the last "a" / "an". `sound-match-words.test.ts` written after the code (not red-first — said).
+  Regression on the real index (`E3\catalog-order-fix2.txt`): 24 of 150 rows changed — 7 first results = the 7 intended fixes, 2 matches
+  lost = the two wrong `dash-zip` offers, lower prefix-rule artefacts removed (warm-shimmer for "riser", trap-snap for "camera shutter",
+  zap-electric for "sparkle"), **no row lost a correct match or first result**. Gates (CPU idle 5.4 % → the NORMAL rule): counted run 2
+  at `09e81ea` 497 / 3 / 5 files, 4,420 / 9 / 35 tests, only the E-d2a suites (run 1 also `flow-render:255`, alone 5 / 5); rule (b) on
+  105 paths NONE; tsc 26 / 10; `wt/out` rebuilt at `09e81ea`. Open (stated, not fixed): "a ding" / "a bell ringing once" find nothing
+  (no clip says ding / ring); after / before near the floor; the comma-less impact prompt offers impact-soft only. **NOT done: step 5,
+  the records** (Status.md E3 entry + TESTING §18.17 for fix round 2) → session 7's first builder.
+
+## Stops (session 6)
+
+- 2026-10-28 22:15 · **STOP at Hasan's word** ("please stop after the current task finishes", during E3 builder #7). Done this session:
+  **E2 DONE** (records, verifier FAIL 1 — F1 the −1.5 ceiling after the mp3 re-encode, F2 the shot-ref mark order — fix round 1 with
+  E-d11, PASS round 2); **E4 DONE** (importer + script; verifier FAIL 1 + FAIL 2 on the records only, E-d12; PASS round 3); **E3 built,
+  live exit measured** (the whoosh case ×2 placed from the library on the keyless subscription, no generation), **verifier FAIL 1 (F1
+  placement clauses) + FAIL 2 (F2 loose prefix match) — fix round 2 code + corpus done (`09e81ea`), its records and verifier round 3
+  (E3's LAST, bar E-d14) NOT run**; the track-E exit NOT run. Decisions this session: E-d11, E-d12, E-d13, E-d14. Nothing pushed;
+  `end-to-end-p0-e` not merged.
