@@ -231,7 +231,66 @@ CDP (play `whoosh-soft`, chips, still). Turn budget: 4 model turns + the `llmGen
   Red first for the matcher (module missing → "no tests", 1 failed file); the handler / listing / prompt tests were
   written right after their code (not run red — say so if a verifier asks).
 
+### Built (builder #2, 2026-10-28) — (c) the Assets screen, (d) the G4 note; commit `8bde97c` (+ the docs commit)
+
+All under `src/features/asset-library/` (imports only `@shared/*`, React and the feature's own files; no Node, no fs —
+the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the module server the screen already asked for).
+- `services/asset-search.ts` (119 lines): `ChipFilter = { origin } | { tag }` `:16`, `SearchableMeta` `:19`,
+  `matchesChip` `:35` (no chip = everything; a chip never matches an unindexed file; tags case-insensitive),
+  `sameChip` `:43`, `chipLabel` `:50` ("Origin: generated" / "Tag: whoosh"), `chipsOf` `:55` (origin first, tags
+  deduped, blanks dropped); `filterAssets` `:90` now takes `metaOf` (the index entry) + an optional `chip`, and the text
+  search matches name + description + **tags + sound category**, every whitespace word required (one word = the old
+  substring, so strictly broader — the same rule as `list_assets`).
+- `services/sound-fields.ts` (61, NEW): `formatDuration` `:17` ("1.2 s" / "1:05"), `soundFieldsOf` `:35` → rows in order
+  Duration (`probe.duration`) · Category · Loudness ("−20.0 LUFS"; "not normalized" when `normalizeError`; else "no
+  LUFS reading") · Peak ("−1.9 dBTP · true peak" / "−3.3 dBFS · sample peak" / plain dBFS when the kind is unknown) ·
+  Source · Model · Licence · Used in (`usedIn` joined); a row only when present. U+2212 minus, as E2's answers print it.
+- `services/asset-urls.ts` (31, NEW): `moduleAssetUrl` `:10` (no server → `null`), `selectedAssetUrls` `:23` (image /
+  glb / audio) — replaced the screen's two inline URL blocks.
+- `services/exclusive-playback.ts` (30, NEW): `createExclusivePlayback` `:19` — `claim` pauses the previous player,
+  `release` forgets the current one. `hooks/useAudioPlayback.ts` (85, NEW) `:27`: the ONE screen-owned `<audio
+  data-asset-audio="tile" hidden preload="none">` (rendered by the screen with `sharedProps`, `AssetLibraryScreen.tsx:246`)
+  plays every tile; `toggle(path, url)` swaps `src` / pauses; `onPlay` re-claims the slot (`:72` — a `src` swap can fire
+  `pause` → release first); an `AbortError` from a fast re-click is not a failure; `error` / a rejected `play()` →
+  `failedPath`. The details player calls `claim` on play → the tile player pauses: one sound at a time.
+- Components (NEW): `TilePlayButton.tsx` (61) — a `role="button"` span inside the tile's `<button>` (like the copy
+  control; stops propagation, so no select), bottom-left round 28 px, play / pause SVG, accent when playing,
+  `data-tile-play="idle|playing|failed"`; no server → dim + "Can't play — the preview server isn't running"; failed →
+  red + "Can't play this file". `AudioPreview.tsx` (50) — `<audio controls preload="none" data-asset-audio="details">`
+  (`colorScheme: dark`), `onError` → "Can't play this file."; no URL → "Playback needs the preview server, which isn't
+  running." (`data-audio-preview="unavailable|failed"`). `AssetChips.tsx` (44) — `chipsOf(meta)` as 10 px pills
+  (origin outlined in accent-light, tags on surface, the active one accent), `data-chip="origin:x|tag:y"`, click sets /
+  clears the screen's chip.
+- Wiring: `AssetTile.tsx:125` (`audio?: TileAudio`), `AssetGrid.tsx:52` `audioFor` (`:93`), `AssetDetailsPanel.tsx:98`
+  AudioPreview, `:99` AssetChips, `:105` the sound rows (label column 48 → 56 px, `:149`; the Origin row kept),
+  `AssetSearchBar.tsx:56` the removable chip pill (`data-chip-filter`; placeholder "Search name, description or tag…"),
+  `AssetLibraryScreen.tsx:84` playback, chip state + `searching` includes the chip, `:215` `selectedAssetUrls`, `:291`
+  `onClearChip`, `:324` `onAudioPlay={playback.claim}`.
+- Tests (red first, recorded below): `asset-search.test.ts` (195; the old 4 fixtures moved to `metaOf` + 12 new),
+  `sound-fields.test.ts` (6), `asset-urls.test.ts` (5), `exclusive-playback.test.ts` (3). No component test: the vitest
+  config is `environment: 'node'`, `include: src/**/*.test.ts` — the logic sits in the services / hook (house rule).
+- (d) `docs/studio/CAPABILITY_GAPS.md:129` — the G4 "Narrowed by E (2026-10-28)" note, as design note (d) + the screen.
+- Live plan started: `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E3\profile` copied (below). Nothing launched,
+  no importer run, no model turn.
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-28, builder #2, worktree root, HEAD `c3f9276` + the new test files only — **red**: `node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/features/asset-library/services/` → `asset-search.test.ts`
+  14 failed (`matchesChip is not a function`, `description.toLowerCase is not a function`, the chip assertions
+  `expected [ 'whoosh-soft.mp3', …(4) ] to deeply equal [ 'whoosh-soft.mp3', 'airy-01.mp3' ]`), and `asset-urls.test.ts` /
+  `exclusive-playback.test.ts` / `sound-fields.test.ts` `Error: Cannot find module './…'`.
+- After the services: same command → `Test Files 5 passed (5)` · `Tests 38 passed (38)`; after the components:
+  `vitest run src/features/asset-library/` → `5 passed (5)` · `38 passed (38)`.
+- `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS` (none under `asset-library`); `-p
+  tsconfig.node.check.json` → **10**. Commit `8bde97c`.
+- `wt/out` rebuilt (resource guard first: C: 50.7 GB, D: 43.8 GB, headroom 28.7 GB; no app on the worktree / 9263):
+  `unset ELECTRON_RUN_AS_NODE; export NODE_OPTIONS=--max-old-space-size=8192; node
+  D:/repos/VidTSX-STUDIO/node_modules/electron-vite/bin/electron-vite.js build > …\E3\build-b2.log` → rc 0, renderer
+  "✓ built in 2m 28s"; `out/renderer/assets/index-Cxk4oc3v.js` contains `data-tile-play`.
+- Profile copy (guard: C: 50.7 GB, headroom 29 GB): `robocopy …\profiles\source\profile …\profiles\E3\profile /E /XF
+  settings.db*` → rc 1 (copied), Files 2328 total / 2325 copied / 3 skipped (the `settings.db*` files); afterwards
+  `settings.db*` under the E3 profile: **0**; 371.8 MB; `<profile>\assets` exists (from the source copy).
 
 - 2026-10-28, worktree root, HEAD `ceb250c` + the working tree above:
   `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/studio-agent-prompt.test.ts
@@ -251,22 +310,31 @@ CDP (play `whoosh-soft`, chips, still). Turn budget: 4 model turns + the `llmGen
   trap-snap · "a door knock" → knock-solid | chess-piece-capture · "a dog bark" → no match · music "warm lo-fi bed" →
   lofi-warm · "calm ambient bed under speech" → ambient-pad 0.64 · "upbeat corporate rock with drums" → no match · "warm
   lo-fi bed" ≥ 120 s → no match.
-- Not yet run: the full worktree vitest, a `wt/out` rebuild, anything live.
+- Not yet run (after builder #2): the full worktree vitest, anything live (`wt/out` IS rebuilt at `8bde97c`).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #2:** build (c), the Assets screen — read `UI_SPEC.md` (chips, icon buttons, the details-panel rows), then
-`src/features/asset-library/` (`AssetTile.tsx`, `AssetDetailsPanel.tsx`, `AssetLibraryScreen.tsx` around `:315`,
-`services/asset-search.ts` + its test, `AssetSearchBar.tsx`) and the module server `/asset` handler; then, red first in
-`asset-search.test.ts`, a pure chip filter (`{ origin } | { tag }`) + tag-aware text search; then `AudioPreview.tsx`
-(details `<audio controls preload="none">`) + a play / pause icon button on audio tiles driven by ONE screen-owned
-audio element, `AssetChips.tsx` (origin + tag chips that set the chip filter, a removable pill by the search bar), and the
-sound fields (Category, Loudness, Peak by `peakKind`, Source, Model, Licence, Used in) — per the design note (c); files
-≤ 300 lines; `tsc` 26 / 10; commit. Then (d) the G4 note, then the live plan (f).
+**Builder #3:** run the live plan (f) from the copied E3 profile — no model turn until the Assets-screen check is
+recorded: guard + E-d4 → launch `wt/out` on CDP **9263** with `--user-data-dir=…\profiles\E3\profile` (E1 kit
+`launch.sh`, WITHOUT `VIDTSX_AUDIO_STANDIN_FILE`), first CDP call `studioRootSet('D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\root')`,
+then `libraryRootGet()` must equal `<profile>\assets` → STOP the app → E4's importer `--library <profile>\assets` dry
+run, then the real run (E4 HANDOFF for the exact command) → relaunch (watchdog on) → Assets screen over CDP (filter
+clicks to `offsetParent !== null`; restore the window with E1's `restore.ps1` in the same call): click the
+`[data-tile-play]` of `sfx/whoosh-soft.mp3` → read `audio[data-asset-audio="tile"]` `paused === false`, `currentTime`
+advancing over ~1 s, `readyState ≥ 2`, `src` = `<server>/asset?path=<encoded abs path>`; select it → the details
+panel shows `audio[data-asset-audio="details"]`, the `[data-chip]` pills and the sound rows; click `[data-chip="tag:whoosh"]`
+→ the grid narrows (tile count before / after, `[data-chip-filter]` pill present); one still of the details panel →
+`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\`. Then the tool-level checks (exit item 2) and the model turns (whoosh ×2,
+negative, stand-in control) per (f).
 
 ## Open problems
 
-- None blocking. Design choices a verifier may question (stated, not open): `generate_music` follows the same rule (the
+- None blocking.
+- `AssetLibraryScreen.tsx` is **464** lines (it was 456 before E3 — already over the ~300 rule); E3 added +8 net (the
+  inline URL blocks moved to `asset-urls.ts`). A split (e.g. the rename / delete / dialogs block) is a later cleanup,
+  not E3's.
+- Untested by unit: the hook's DOM event order (`pause` on a `src` swap before `play`) — the live CDP check covers it
+  (play tile A, then tile B: only B's path is `playingPath`; play the details player: the tile player pauses). Design choices a verifier may question (stated, not open): `generate_music` follows the same rule (the
   plan's T6 bullet names only `generate_sfx`; reason in the note (a)); `list_assets`' query broadened to all-words over
   path + description + tags + category (strictly broader than before for one word).
 - `audio-tools.test.ts` is 302 lines (the ~300 rule) — split the E3 describe into its own file if it grows.
@@ -275,6 +343,9 @@ sound fields (Category, Loudness, Peak by `peakKind`, Source, Model, Licence, Us
 
 - The design note (a)–(f) and the matcher / tool / prompt build above — extend, do not redesign. The real-catalog
   order was recorded (`E3\catalog-order.txt`); the unit fixture pins the same shape.
+- (c) the Assets screen (`8bde97c`) and (d) the G4 note — done and green; the `wt/out` rebuild at `8bde97c`; the E3
+  profile copy (re-copy only if it is found damaged — verify `settings.db*` = 0 either way; the app creates a fresh
+  store at its first launch, expected, never read it).
 
 ## For Hasan (real-video list candidates)
 
@@ -286,3 +357,6 @@ sound fields (Category, Loudness, Peak by `peakKind`, Source, Model, Licence, Us
 - 2026-10-28 · builder #1 · ~40 calls · design note (a)–(f); built (a) the matcher + `generate_sfx` / `generate_music`
   reuse with `force` + the broadened `list_assets` query, (b) the prompt rule, pinned; the real-catalog order recorded;
   39 test files green, tsc 26 / 10; committed. UI, G4 note, live and gates not started.
+- 2026-10-28 · builder #2 · ~38 calls · (c) the Assets screen, red first (chip filter + tag search, sound fields, URLs,
+  one-at-a-time playback; 5 files / 38 tests), the components + wiring, tsc 26 / 10, `8bde97c`; (d) the G4 note;
+  `wt/out` rebuilt; the E3 profile copied. Nothing launched, no importer, no model turn.
