@@ -1,5 +1,5 @@
 # E4 — The importer over the reference `sfx/` and `music/` catalogs
-status: DONE
+status: FIX
 
 > Track E, session 5 — **runs BEFORE E3** (E3's exit, the whoosh case, needs the imported library). **Work only in
 > the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are
@@ -302,7 +302,32 @@ Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-t
 
 ## Next step (ONE concrete instruction)
 
-**E4 verifier:** check the records against the evidence — Status.md E4 entry (lines 10–150, commit `ce9aaac`), TESTING §18.16
+**FIX ROUND 1 — builder #4 (orchestrator, 2026-10-28; verifier round 1 FAILED on the RECORDS only — see "Verifier round 1"
+under Open problems; decision E-d12 below).** No product-code change. In order: (1) **N1, test-only, red first:** in
+`src/main/services/library/catalog-import.test.ts` make the dry-run `snapshot` (:46-53) record DIRECTORIES as well as files
+(e.g. a `dir/` line per folder), then prove it catches the verifier's mutation M1: temporarily make `planCatalogImport` /
+the dry-run path create an empty `sfx/` folder (or `fs.mkdir` it in the test's dry-run call path) → the dry-run test goes RED
+(record the command + output), revert the mutation → green; run `src/main/services/library` + `scripts`-related E4 suites +
+`pre-e1-control.test.ts`, and tsc web / node (26 / 10). (2) **R1:** `docs/studio/TESTING.md:518` and `Status.md:133` (and any
+other line claiming it, e.g. the code bullet for `planClip`): a moved clip is found by `hashFileHead` + sha256 ONLY through an
+index entry that already records its new place — i.e. after the app (or `scanLibrary`) has rescanned the library; a clip moved
+outside the app and NOT yet rescanned is copied again to its catalog place (a duplicate file, nothing lost) — cite the
+verifier's N6 evidence (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\negatives.txt` / `stage2.txt` — read them for the
+exact wording / numbers) and the unit test's `scanLibrary(root)` at `catalog-import.test.ts:200`. Add a line to "For Hasan":
+open the app once (Assets → Refresh) before running the importer on a library where clips were moved by hand. (3) **R2:**
+`Status.md:45` `checkArgs` (:74-80) → (:74-83), the two "inside --from" refusals at :81-82 (re-read the script at HEAD). (4) **N2**
+(optional, one line in the records): the dry run with an index PRESENT is shown by verifier round 1 (digests equal, its
+`lib-*.json` / `dry-*.log`) — the builders' live dry run had no index yet. (5) A line "verifier round 1 FAIL (records: R1, R2)
+→ fix round 1 `<hash>`" in the Status entry and §18.16. Commit the test (`test(studio): E4 — …`) and the docs (`docs(studio):
+E4 — …`) with explicit paths; HANDOFF `status: DONE`, LOG line, commit. Rebuild `wt/out` is NOT needed (test + docs only — the
+app bundle does not include tests; say so).
+
+**E-d12 (orchestrator, 2026-10-28):** R1 is closed by stating the condition, not by a code change. The importer runs with the
+app closed; finding a hand-moved clip without an index entry would need the importer to scan the library itself, and a scan
+writes the index — which the dry run must never do. The consequence of the stated limit is a duplicate copy of a clip (an extra
+file, nothing lost, nothing overwritten), and the remedy is one rescan in the app before the run (on Hasan's list).
+
+(Superseded 2026-10-28 by the FAIL above:) **E4 verifier:** check the records against the evidence — Status.md E4 entry (lines 10–150, commit `ce9aaac`), TESTING §18.16
 (lines 509–520), the gates above (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\vitest-full-1.log`, `import-graph.txt`, `tsc-*.log`)
 and the live evidence (`exit.json`, `live-*.json`, `index.after-*.json`, the three stills) — on the verifier's OWN isolated profile /
 scratch root if anything is re-run (never the E4 profile's library, which E3 may use; never Hasan's library).
@@ -348,7 +373,35 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
 
 ## Open problems
 
-(none blocking.) Two stated semantics for STATUS: (1) the catalog is the truth for the mapped fields, so a re-run
+### Verifier round 1 — FAIL on the records only (2026-10-28; its own profile `profiles\E4-verify`, CDP 9274; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\`, kit `.vidtsx-temp\end-to-end\E4-verify\`)
+
+- **R1 (records defect).** `docs/studio/TESTING.md:518` "a moved file (same bytes elsewhere, found by `hashFileHead` + sha256) is
+  not re-copied" holds only when the index already records the new place: the cited unit test rescans first
+  (`catalog-import.test.ts:200` `await scanLibrary(root)`), and `planClip` (`catalog-import.ts:114-121`) looks only through index
+  entries whose `hash` matches. Verifier case N6: in a scratch library `sfx/chime-reward.mp3` moved to `favs/` WITHOUT a rescan →
+  the importer planned `copy` and left two copies; after the app's own scan the same kind of move (`camera-shutter` → `my-favs/`)
+  → `unchanged`, no copy, index byte-equal. `Status.md:133` says the same as TESTING. → E-d12 under Next step.
+- **R2 (records nit).** `Status.md:45` "`checkArgs` (:74-80) holds the refusals" — the function spans :74-83; the two "inside
+  --from" refusals are at :81-82.
+- Notes (non-blocking): **N1** the dry-run unit test's `snapshot` (`catalog-import.test.ts:46-53`) lists files only, so a dry run
+  that creates an empty folder passes (mutation M1: 24 / 24 green; M1b "dry run writes a file" caught); the code creates none.
+  **N2** the builders' live dry run had no `index.json` yet — "incl. `.vidtsx/index.json`" is shown only by the verifier's dry runs
+  with an index present (digests equal). **N3** the esbuild bundle write `wt/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs`
+  is the one write outside `--library` / `--report` (gitignored, documented). **N4** the Assets tiles show no duration (the exit's
+  durations are in the index + `list_assets`, as recorded). **N5** rule (b) counts differ by method (2 / 15 / 23 / 1 vs its
+  esbuild 2 / 12 / 20) — both NONE.
+- What passed (the verifier's own numbers): gates (default workers, headroom 31 GB) 489 / 3 / 5 files, 4,165 / 9 / 35 tests, the 3
+  E-d2a suites resolution only; its own esbuild graph 0 / 0 / 0 (control: `catalog-import.test.ts` → 16 hits); tsc 26 / 10. Its own
+  profile + its own reader: dry run tree hash equal (fresh and with an index); 51 copied in 4.77 s; 51 / 51 sha256-identical, every
+  field = the catalog, `usedIn` verbatim, probe = ffprobe n8.1.2 0 ms; re-run byte-equal; a project join through the real
+  `importLibraryFile` survives a re-run; its own changed copy (4 entries: category, a `used_in` id, a prompt, a tag REMOVED) → exactly
+  those 4 entries / fields changed, the project id kept; `list_assets` whoosh row ✓; the editor library tree digest unchanged.
+  Negatives: 5 refusals rc 2 (nothing written), conflict + missing source in one run (sha kept, no entry), no writes outside
+  `--library` / `--report` but the bundle; E-d5 its own control on its imported index (no pre-E1 field lost; new fields kept);
+  mutations M1b / M2 / M3 / M4 caught. Live CDP 9274 (Studio root first): `sfx` / `music` / its moved folder listed; the app's scan
+  re-keyed the moved entry with all fields.
+
+(none blocking before verifier round 1.) Two stated semantics for STATUS: (1) the catalog is the truth for the mapped fields, so a re-run
 re-applies `description` / `tags` / `audio` over an in-app edit of them (only `usedIn` merges); (2) `upsertEntry` keeps
 the existing `tags` when the mapped `tags` is `undefined`, so a catalog that DROPS its whole tag list does not clear the
 entry's tags (a changed list replaces them). Builder #2 adds: (3) design note "no tag needs normalizing" was wrong —
