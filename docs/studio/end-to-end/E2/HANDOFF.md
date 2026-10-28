@@ -455,7 +455,75 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   `proxy-generator.ts` reads `probe.duration` (:240) and `probe.hasAudio` (:251, :321) only. V4-N2 not needed
   (`pre-e1-control.test.ts` untouched).
 
+### Fix round 1, steps 1–4 (builder #7, 2026-10-28) — commit `f990487` (code + tests; steps 5–7 NOT done yet)
+
+- **F1 / E-d11 — the ceiling holds on the ENCODED file.** `src/main/services/library/audio-loudness-rule.ts` (109 lines):
+  `LOUDNESS_CEILING_MARGIN_DB = 0.1` (:20 — the corrective pass aims 0.1 dB under the ceiling: the codec's peak error moves a
+  little between two encodes a few tenths of a dB apart, so the first corrective pass should hold; the second is the backstop),
+  `LOUDNESS_MAX_CORRECTIVE_PASSES = 2` (:22); `isOverCeiling(peak, ceiling)` (:102) compares the RECORDED two-decimal peak (a file
+  that records −1.50 is at the ceiling, not over; `-Infinity` / NaN never over); `correctiveGain(applied, measuredPeak, ceiling)`
+  (:107) = round2(applied − (peak − ceiling) − 0.1); and the 0.1 dB skip no longer keeps a file whose peak is already over the
+  ceiling (:92 — `plan(−20.05, −1.45)` → gain −0.05 applied, not skipped; a deviation from `gen_sfx.py`'s skip, inside E-d11).
+  `src/main/services/library/audio-normalize.ts` (281 lines, under the ~300 rule — `summarizeFfmpegError` is the first thing to move
+  out if it grows): `applyGain` is gone; `encodeWithGain(src, out, gain)` (:130) encodes into a temp; `encodeUnderCeiling` (:193)
+  encodes the ORIGINAL → `<abs>.norm-tmp<ext>`, re-measures the TEMP (`measureEncoded` :176 — a failed re-measure records the
+  predicted values as before and stops), and while the temp records over the ceiling encodes the ORIGINAL again with
+  `correctiveGain` into `.norm-tmp1<ext>` / `.norm-tmp2<ext>` (never from an encoded temp — one lossy generation); `choosePass`
+  (:227) takes the last pass when it holds, else the lowest measured peak; `normalizeAudioFile` (:237) renames the chosen temp
+  over the original, removes the others, and returns `gainDb` = the gain ACTUALLY applied (the corrective pass's), the chosen
+  temp's re-measured LUFS / peak, `correctivePasses` (new optional result field: re-encodes after the first) and `overCeiling:
+  true` (new optional result field + `log.warn`, only when every pass stayed over — not expected). The result fields are NOT
+  written to the index (the recorded `peakDbfs` already shows an overshoot; `audio.gainDb` is the applied gain). Any failure
+  still keeps the original untouched (every temp removed; `fs.rm` in the cleanup can no longer mask the original error — N6).
+- **F2** `src/main/services/studio/shot-asset-refs.ts:163-168`: `buildPromptAssets(refs, known)` runs FIRST (:164), then
+  `markLibraryUsedIn` (:166) — an audio ref's "visual-only" throw now marks nothing.
+- **N3** `src/main/services/studio/pool-import.ts` (15 lines, new) `importMediaFilesMarkingLibrary(projectId, filePaths)` =
+  `importMediaFiles` → `markLibraryUsedInForPaths(projectId, assets.map(a => a.path))` → the import result; `studio-handlers.ts:299`
+  calls it (the handler's direct `markLibraryUsedInForPaths` / `importMediaFiles` imports removed; import at :85; the file got 1
+  line shorter).
+- **N2** `audio-normalize.ts:155` `summarizeFfmpegError(message, absPath?)`: from `ffmpeg exited with code N: <stderr>` the FIRST
+  stderr line that reads as an error (`ERROR_LINE` :148 — error / invalid / no decoder / not found / unsupported / failed / could
+  not / cannot / unable / denied / no such; the `[ctx @ 0x…]` prefix stripped, so banner / `Input #0` / `Duration` / `Stream` /
+  "Estimating duration" warning lines are skipped), else the last line; the absolute path shortened to the file name; prefixed
+  `ffmpeg: `; capped at `NORMALIZE_ERROR_MAX_CHARS = 200` (:33). The verifier's mp2-in-`.mp3` text becomes `measure failed:
+  ffmpeg: Decoding requested, but no decoder found for: mp2`. Non-ffmpeg messages (`Cancelled`, `unsupported container ".flac"`,
+  `ffmpeg timed out after 120 s`) pass unchanged. The full stderr stays in the `log.warn`.
+- **N5** `generate-audio-asset.ts:80` `GeneratedAudioAsset.loudnessGated?: true` (set at :176 when `normalized && gated`);
+  `audio-tools.ts:65-70` `describeLevel`: ` Peak-normalized to −1.6 dBTP — too short or too quiet for a loudness (LUFS) reading.`
+  (silence: ` Silent — no loudness or peak to level; kept as generated.`). The index is unchanged (no new field).
+- Tests (34 → 40 in the five F/N files; all green): `audio-normalize-ceiling.test.ts` (new, 130 lines — the REAL bundled ffmpeg,
+  `runFfmpeg` wrapped in a spy: a 0.25 s 44.1 kHz STEREO LCG white-noise burst at ≈ −10 dBFS, 3 ms ramps, mp3 128k by the bundled
+  ffmpeg → gated, `peakDbfs ≤ −1.5`, decoded to s16 WAV by the bundled ffmpeg → JS sample peak ≤ −1.5, `correctivePasses ≥ 1`, no
+  `overCeiling`, `gainDb < −1.5 − before.peak`, every encode's `-i` = the original, `.mp3` kept, no temp left); `audio-loudness-
+  rule.test.ts` (+4: the skip-over-ceiling rule, the constants, `isOverCeiling`, `correctiveGain`); `audio-normalize.test.ts` (+1
+  `summarizeFfmpegError` on the verifier's exact stderr + the `Invalid data` / `Cancelled` / 500-char cases; (F) "unreadable" now
+  asserts one line, ≤ 230 chars, no temp-dir path); `shot-asset-refs.test.ts` (+1 F2); `pool-import.test.ts` (new, 2: import →
+  mark order + arguments + the result returned as is; a failed import marks nothing); `audio-tools.test.ts` (+1 N5);
+  `generate-audio-asset.test.ts` (+1 `loudnessGated` on the descriptor, not on a failed one; + an `undefined` check in the failed
+  case) — **this one was written WITH the code, not run red first** (the N5 red is `audio-tools.test.ts`).
+
 ## Verified (exact commands + outputs)
+
+- 2026-10-28 · builder #7 (fix round 1) · every run from the worktree root, logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\
+  E2\`: **F2 red** `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/studio/shot-asset-refs.test.ts`
+  → `× a library AUDIO ref beside a valid image ref throws "visual-only" and marks NOTHING` · `AssertionError: expected "vi.fn()" to not
+  be called at all, but actually been called 1 times` · `Tests 1 failed | 13 passed (14)` (`f2-red.log`); after the fix `Tests 14
+  passed (14)` (`f2-green.log`). **N3 red = the mutation** (the module written with the mark commented out): `…vitest.mjs run
+  src/main/services/studio/pool-import.test.ts` → `× imports, then marks every imported asset path …` · `AssertionError: expected
+  "vi.fn()" to be called 1 times, but got 0 times` · `Tests 1 failed | 1 passed (2)` (`n3-red.log`); mark restored → green. **F1 red**
+  `…vitest.mjs run src/main/services/library/audio-normalize-ceiling.test.ts` (old normalizer) → `AssertionError: expected -1.44 to be
+  less than or equal to -1.5` · `Tests 1 failed (1)` (`f1-red.log` — the JS fixture reproduces the verifier's overshoot: one pass
+  records −1.44 dBTP). **Rule red** `…run src/main/services/library/audio-loudness-rule.test.ts` → 4 × (the skip rule, constants,
+  `isOverCeiling`, `correctiveGain` — not exported yet) · `Tests 4 failed | 10 passed (14)` (`f1-rule-red.log`). **N2 red** `…run
+  src/main/services/library/audio-normalize.test.ts` → `expected 'measure failed: ffmpeg exited with co…' not to match /[\r\n]/` +
+  `TypeError: summarizeFfmpegError is not a function` · `Tests 2 failed | 7 passed (9)` (`n2-red.log`). **N5 red** `…run src/main/
+  services/studio/agent-tools/audio-tools.test.ts` → `Tests 1 failed | 6 passed (7)` (`n5-red.log`). **Green** (one test-arithmetic
+  fix in my own `correctiveGain` case: peak −0.8 not −1.2 under a −1 ceiling): `…run` audio-tools, generate-audio-asset,
+  audio-normalize-ceiling, audio-normalize, audio-loudness-rule, pool-import, shot-asset-refs, library-used-in, library-import,
+  `src/main/ipc/studio-cut-plan-run-handler.test.ts` (imports `studio-handlers`) → `Test Files 10 passed (10) · Tests 74 passed (74)`
+  (`fix1-green.log`). **Types** `node D:/repos/VidTSX-STUDIO/node_modules/typescript/bin/tsc -p tsconfig.node.check.json --noEmit` →
+  10 `error TS` (none in a touched file), `-p tsconfig.web.check.json` → 26 (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\tsc-node-fix1.log`
+  / `tsc-web-fix1.log`). Resource snapshot at the start: C: 29.3 GB free, D: 47.0 GB, headroom 14.1 GB, 0 `electron.exe`.
 
 - 2026-10-24 · builder #1 · from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
   src/main/services/library/audio-loudness-rule.test.ts src/main/services/library/audio-normalize.test.ts` BEFORE the
@@ -597,8 +665,22 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
 
 ## Next step (ONE concrete instruction)
 
+**FIX ROUND 1, continued — builder #8: steps 1–4 are DONE (builder #7, `f990487`, see "Fix round 1, steps 1–4" under Done and
+its Verified entry — do not redo them); do steps 5, 6 and 7 below, in order, exactly as written there.** Notes for them: (5) the
+live re-check driver is NEW (`exit-short.e2.test.ts` + a new ceiling driver, e.g. `exit-ceiling-fix1.e2.test.ts`, each its own
+vitest invocation with `--config D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E2/vitest.e2.config.ts <file>`; copy the mocks
+and helpers from `exit-ceiling.e2.test.ts` + `e2-common.ts`, read them first; use NEW prompts so new file names land, e.g. `a
+short noise hit fix1` / `a quiet tick train fix1`); record per case in `fix1.json`: the product's `audio.gainDb` / `loudnessLufs`
+/ `peakDbfs` (index) and `correctivePasses` if the driver can see it (it is in the `log.info` "Loudness normalized" line on stdout,
+not in the index), the independent `ebur128=peak=true` I + TP, `astats` sample peak, ffprobe duration vs `probe.duration`; the
+pass criterion is TP ≤ −1.5 dBTP AND sample peak ≤ −1.5 dBFS on both. (6) the diff list for rule (b) now also contains the fix
+round's files (`git diff --name-only 5d77600..HEAD`). (7) also record in Status / TESTING: the result fields `correctivePasses` /
+`overCeiling` (result only, not indexed), the skip-over-ceiling tweak to the `gen_sfx` rule, the `loudnessGated` descriptor flag +
+the new answer text, `summarizeFfmpegError`'s line rule, `pool-import.ts`, and that `generate-audio-asset.test.ts`'s new case was
+written with the code (not red first).
+
 **FIX ROUND 1 — builder #7 (orchestrator, 2026-10-28; verifier round 1 FAILED on F1 + F2, see "Verifier round 1" under Open
-problems).** In order, red first for every code change, commit at each green checkpoint:
+problems).** In order, red first for every code change, commit at each green checkpoint (steps 1–4 DONE by builder #7, `f990487`):
 1. **F1 — the ceiling holds on the ENCODED file (decision E-d11, below).** In `src/main/services/library/audio-normalize.ts`
    (`normalizeAudioFile` / `applyGain`, now 172 lines — split if it passes ~300): keep the ORIGINAL bytes until the end; encode
    original → temp with the planned gain; re-measure the TEMP (the product's own `loudnorm` pass); if its true peak is over the
@@ -808,6 +890,13 @@ scratch; never read, copy or open a `settings.db`.
   root first, Assets › generated 7 files, index fields kept after the app's own scan; records' numbers and ~60 pointers checked
   (all right except N1); V4-N1 fixed.
 
+- (builder #7, notes for the records — not blocking) (a) The skip tweak (`audio-loudness-rule.ts:92`) is the only change to the
+  ported `gen_sfx` rule: a |gain| < 0.1 dB is still skipped unless the file's recorded peak is over the ceiling (then the small
+  negative gain is applied and the encode is checked like any other) — within E-d11 ("a property of the FILE"). (b) The verifier's
+  N4 (case-differing under-root path not marked) and N7 / N8 are left as they were (notes, no fix asked). (c) The `log.info` lines
+  of the normalizer did not show in the vitest output of the unit runs (the log engine is quiet there); the exit drivers printed
+  the stand-in warn before, so check their stdout for "Loudness normalized" before relying on it for `correctivePasses`.
+  (d) `audio-normalize.ts` is 281 lines — move `summarizeFfmpegError` (+ `ERROR_LINE`) to its own file if anything grows it.
 - (builder #2, note, not blocking) The tool's progress line still reads "Generating at ElevenLabs…" when the stand-in
   answers (`audio-tools.ts` `emitProgress`); cosmetic — the answer text itself names nothing provider-specific. Fix only if
   a later step touches that line; say so in Status if not.
@@ -892,6 +981,10 @@ scratch; never read, copy or open a `settings.db`.
 
 ## Do-not-redo
 
+- (builder #7) Fix round 1 steps 1–4 (`f990487`): the E-d11 encode loop + `isOverCeiling` / `correctiveGain` / the skip tweak,
+  the F2 reorder, `pool-import.ts`, `summarizeFfmpegError`, `loudnessGated` + the answer text, and their tests (red runs under
+  Verified; 10 files / 74 green; tsc 26 / 10). `wt/out` is NOT rebuilt yet (step 6); the live re-check has NOT run (step 5).
+
 - The design note (code already read: the list in its first paragraph — do not re-read those files beyond the lines
   you edit).
 - `audio-loudness-rule.ts` + `audio-normalize.ts` + their 18 tests (green at `60b5537`; the red run is recorded under
@@ -959,3 +1052,8 @@ scratch; never read, copy or open a `settings.db`.
   evidence (`exit-summary.md`, `exit.json`, the gate logs) and `grep -n` line checks of the E2 files; wrote the Status entry
   (`Status.md:10-192`), TESTING §18.15 (`:492-506`), V4-N1 (Status W2 line now :282, TESTING :486); commit `3249cbe`; HANDOFF
   DONE + LOG. No `src/` change (`git diff --stat 3084668..HEAD -- src/` empty), no build, no launch, no driver run, no vitest.
+- 2026-10-28 · builder #7 (fix round 1) · ~40 · read CLAUDE.md, this HANDOFF (Next step, Open problems, Do-not-redo, the design
+  note's head), the verifier's `run-mp2neg.json` error text, and ≈ 900 lines of code (`audio-normalize.ts` + its test, `audio-loudness-
+  rule.ts` + its test, `shot-asset-refs.ts:50-167` + its test, `studio-handlers.ts` imports + :280-306, `audio-tools.ts:40-103`,
+  `generate-audio-asset.ts:64-178`, the two audio test excerpts); built fix-round steps 1–4 red → green, tsc 26 / 10, commit
+  `f990487`; HANDOFF + LOG. No build, no launch, no driver run, no full vitest (steps 5–7 are builder #8's).
