@@ -502,6 +502,32 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
   `generate-audio-asset.test.ts` (+1 `loudnessGated` on the descriptor, not on a failed one; + an `undefined` check in the failed
   case) — **this one was written WITH the code, not run red first** (the N5 red is `audio-tools.test.ts`).
 
+### Fix round 1, step 5 — the live re-check (builder #8, 2026-10-28; no `src/` change; driver + evidence only)
+
+- Driver `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\fix1.e2.test.ts` (new; ONE file, `E2_FIX1_CASE=short|ceiling|main`,
+  ONE vitest invocation per stand-in — the engine singleton keeps the first stand-in). Mocks = `exit-ceiling.e2.test.ts`'s
+  (`electron` → the E2 profile, `isPackaged false`; `settings-db` → the E2 scratch Studio root; `utils/paths`
+  `getRemotionBinariesDir: () => null`; `ai-usage`) plus ONE pass-through spy on `normalizeAudioFile` (the real function runs
+  unchanged; its result is recorded because `correctivePasses` / `overCeiling` / `before` are result-only). Everything else REAL
+  (`initAudioGenerationEngine` → the stand-in; `generate_sfx` → `generateAudioAsset` → the bundled-ffmpeg normalizer →
+  `upsertEntry` → `importLibraryFile` + the mark). Meter = `ffmpeg-full` n8.1.2 (`e2-common.ts` `independentMeter`). Numbers
+  written to `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\fix1.json` BEFORE the assertions; logs `fix1-short.log` /
+  `fix1-ceiling.log` / `fix1-main.log` beside it. New library files (project `e2-exit`): `generated/sfx-a-short-noise-hit-fix1.mp3`,
+  `generated/sfx-a-quiet-tick-train-fix1.mp3`, `generated/sfx-a-short-airy-whoosh-fix1.mp3`.
+- **short** (the verifier's `v-short.mp3`, read-only; meter in: I −70 (gated) / TP −8.7 dBTP / sample −8.705 dBFS / 0.25 s, 44.1 kHz
+  stereo): gated branch, **1 corrective pass**, applied `gainDb` **+6.87** (planned +7.2 = −1.5 − (−8.7); the first encode re-measured
+  −1.27 — derived from `correctiveGain`: 6.87 = 7.2 − (−1.27 + 1.5) − 0.1, the verifier's exact F1 overshoot), recorded `peakDbfs`
+  **−1.88** (no LUFS — gated), `overCeiling` absent; meter out: **TP −1.9 dBTP**, **sample −1.871 dBFS** (0.37 under), I −70;
+  recorded − meter TP **+0.02**; probe 0.25 = ffprobe 0.250000 (**0 ms**); `usedIn ["e2-exit"]`; answer "… (library:generated/
+  sfx-a-short-noise-hit-fix1.mp3, 0.25 s, $0.000). Peak-normalized to −1.9 dBTP — too short or too quiet for a loudness (LUFS)
+  reading. Filed with category: impact · tags: noise, hit. …". **F1 holds on the live path.**
+- **ceiling** (`standin-quiet.mp3`; in −27.4 / −5.7 / −5.727 / 2.0 s): clamped, **0 corrective passes** (the first encode already
+  under), `gainDb` **+4.18**, recorded **−23.44 LUFS / −1.79 dBTP**; meter out **I −23.4**, **TP −1.8**, **sample −1.832** (0.33
+  under); recorded − meter **−0.04 LU / +0.01 dB**; 0 ms. The same numbers as builder #5's exit (no regression).
+- **main** control (`standin.mp3`; in −9.3 / +0.6 / +0.538 / 2.0 s): not clamped, **0 corrective passes**, `gainDb` **−10.71**,
+  recorded **−20.27 / −10.79**; meter out **I −20.2** (−0.2 LU from −20), TP −10.8, sample −10.791; recorded − meter −0.07 / +0.01;
+  0 ms. Identical to builder #5's exit.
+
 ## Verified (exact commands + outputs)
 
 - 2026-10-28 · builder #7 (fix round 1) · every run from the worktree root, logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\
