@@ -985,3 +985,13 @@
   "stat + sha256" wording (the code reads the file); `76744ad` not named by hash; "the profile's ffmpeg-full" = the source
   profile's build.
 - 21:40 · E3 builder #1 spawned (CDP 9263, profile `E3`; first step: design note + matcher + prompt rule).
+- 22:00 · E3 builder #1 HANDOFF (~57 calls): design note (a)–(f); `6224040` — `sound-match.ts` (224 lines, pure: prompt coverage by
+  tags / file name / category / description, rarer words weigh more, negation ignored, swoosh = whoosh; top 3 at ≥ 50 % coverage or
+  ≥ 30 % when the head noun matches), `sound-reuse.ts` (the lookup + E2's row format) called in `generate_sfx` BEFORE the provider
+  check, `force` on both tools; `generate_music` same rule (a `compositionPlan` skips it; a bed shorter than the request is not
+  offered); `list_assets` library query now matches EVERY word across path / description / tags / category (was the whole phrase —
+  "soft whoosh" found nothing); the prompt rule (`studio-agent-prompt-tools.ts` :21 :31 :32 :70 :75) pinned at
+  `studio-agent-prompt.test.ts:93`. 39 files / 314 green, tsc 26 / 10. On the real catalogs: the three whoosh asks → `whoosh-soft`
+  first at 1.00; cuckoo clock chime / dog bark → no match; "warm lo-fi bed" → `lofi-warm` (none at ≥ 120 s). Only the matcher was
+  red-first (handler / listing / prompt tests written after their code — said in HANDOFF). `audio-tools.test.ts` 302 lines. Builder
+  #2 spawned (the Assets screen: chip filter, `AudioPreview`, chips + sound fields).
