@@ -7,7 +7,7 @@
 
 ---
 
-## 2026-10-28 — END-TO-END E4: the importer over the reference `sfx/` and `music/` catalogs — 45 + 6 clips in the library with fields mapped, `used_in` preserved, licences noted — DONE (fix round 1 after verifier round 1 FAIL on the records; the E4 verifier round 2 is next)
+## 2026-10-28 — END-TO-END E4: the importer over the reference `sfx/` and `music/` catalogs — 45 + 6 clips in the library with fields mapped, `used_in` preserved, licences noted — DONE (fix round 2, records only, after verifier round 2 FAIL on one stale records line; the E4 verifier round 3 is next)
 
 - **What:** part E4 of `docs/studio/END_TO_END_PLAN.md` (track E, session 6; worktree branch `end-to-end-p0-e`, E-d1; E-d8 is
   this part's decision). Row: "The importer over the reference `sfx/` and `music/` catalogs". Exit: "45 + 6 clips in the
@@ -19,7 +19,12 @@
   and "no licence recorded in the catalog" on the 4 synth chords; the dry run wrote nothing (tree hash equal); a re-run
   left `index.json` byte-equal; the REAL `list_assets(… query: 'whoosh')` row prints `whoosh-soft` with 0.68 s, `motion`,
   its tags, −20.0 LUFS and its `used_in`. No model or provider call (E-d9). Hasan's library was never the target.
-- **The code** (pointers read at HEAD; `src/` last changed in `4aed92f` — `git diff --stat 4aed92f..HEAD -- src/` is empty):
+- **The code** (every file:line pointer below re-read at HEAD by fix round 2). Product code last changed in `4aed92f` (`src/`)
+  and `5247ed9` (`scripts/`); since `4aed92f` `src/` changed ONLY in the test `catalog-import.test.ts` (`4fa1551`, fix round 1),
+  and every later commit is docs: `git log -1 --format=%h -- src/ ':(exclude)*.test.ts'` → `4aed92f`; `git log --format=%h
+  4aed92f..HEAD -- src/` → `4fa1551`; `git diff --stat 4aed92f..HEAD -- src/` → `src/main/services/library/catalog-import.test.ts
+  | 7 +++++--` (1 file changed, 5 insertions(+), 2 deletions(-)); `git log -1 --format=%h -- scripts/` → `5247ed9` (output as of
+  fix round 2's commits, which change docs only):
   - `4aed92f` — the service. `src/main/services/library/catalog-import-map.ts` (156 lines, pure, no IO): `CatalogSection`
     (:13), `NO_LICENCE_NOTE` (:16), `DROPPED_FIELDS` (:19), `fileProblem` (:62 — a `file` with `..`, an absolute path or a
     non-audio extension), `parseCatalog` (:91, narrows `unknown`, per-clip problems), `mapCatalogClip` (:104),
@@ -45,8 +50,11 @@
     (`settingsStub` :106, resolve hook :116 — never a settings store), `@shared/ @main/ @logging/ @audio-engine/` → `src/`,
     every other bare package external. `checkArgs` (:74-83) holds the refusals (the two "inside --from" ones at :81-82); `itemLine` (:145), `summarize` (:164),
     `main` (:170).
-  - Docs: `dc41822` `ad7b415` (builder #1), `ff95d1c` (builder #2), `8dba927` (builder #3, gates) + this entry's commit;
-    session logs `d2e305e` `cf5328d`. Kit (gitignored): `.vidtsx-temp/end-to-end/E4/`.
+  - Docs: `dc41822` `ad7b415` (builder #1), `ff95d1c` (builder #2), `8dba927` (builder #3, gates), `ce9aaac` (this entry +
+    TESTING §18.16, builder #3), `bdeb722` (builder #3, HANDOFF DONE); fix round 1: `4fa1551` (the test), `51dff42` (records),
+    `d1d7f8d` (HANDOFF); fix round 2: records only (the last round line of this entry); orchestrator: session logs `d2e305e`
+    `cf5328d` `aac8d57` `71a9c27`, verifier verdicts `3a39dc7` (round 1) `893b305` (round 2). Kit (gitignored):
+    `.vidtsx-temp/end-to-end/E4/`.
 - **The relPath scheme (stable):** `sfx/<basename of file>` and `music/<basename of file>` under the assets root — for all
   51 that is `sfx/<id>.mp3` / `music/<id>.mp3` (`sfx/whoosh-soft.mp3`, `music/ambient-pad.mp3`). The source is `<catalog
   folder>/<file>` (`clips/<id>.mp3`); `palette.json` beside each catalog (the generation recipes) is not imported.
@@ -91,7 +99,7 @@
   after the import and after the re-run). A run against a changed COPY of the sfx catalog (`wind-soft` + tag `e4-changed`,
   `--sfx-catalog …\.vidtsx-temp\end-to-end\E4\sfx-catalog.changed.json`, the original never touched) → `{unchanged: 50,
   update: 1}`, the one update `sfx/wind-soft.mp3` `changes: ["tags"]` (`live-4-changed.json`; `index-diff` = that entry's
-  `tags` only; index `fea08f505f25…`); the original catalog again → `{update: 1}` on the same entry, the tag gone, index back
+  `tags` only; index `fea08f505f25…`); the original catalog again → `{unchanged: 50, update: 1}` on the same entry, the tag gone, index back
   to `de91fc4c606c…` (`live-5-back.json`). A Studio project id: the REAL `markLibraryUsedIn(root, ['sfx/whoosh-soft.mp3'],
   'e4-exit')` → the 16 editor ids + `e4-exit`; the importer again → `{unchanged: 51}`, index byte-equal (`17f8783bc66b…`,
   `live-6-after-mark.json`) — the Studio id is kept.
@@ -102,8 +110,10 @@
 - **The tag dedupe:** `trap-snap`'s catalog list holds `snap` twice (`["trap","snap","shut","latch","catch","mechanism",
   "snap"]`); its entry has six tags (`normalizeTags` dedupe); every other list is verbatim (`exit.json`
   `summary.tagsNormalizedBy`). The design note's "no tag needs normalizing" was wrong on this one clip.
-- **The live run** (builder #2, 2026-10-28; the worktree's own build `wt/out` at `5247ed9`, CDP 9264, watchdog on): profile
-  copied from `profiles\source\profile` with `robocopy … /XF settings.db*` (2,325 files / 371.8 MB, 0 `settings.db*`); Studio
+- **The live run** (builder #2, 2026-10-28; the worktree's own build `wt/out`, built at `5247ed9` — `out/main/index.js`
+  17:58, `out/renderer/index.html` 18:01 that day, no rebuild since; CDP 9264, watchdog on): profile
+  copied from `profiles\source\profile` with `robocopy … /XF settings.db*` (2,325 files / 371.8 MB, 0 `settings.db*` — builder
+  #2's console figures, no log file kept); Studio
   root set FIRST (`…\.vidtsx-temp\end-to-end\E4\root`); `libraryRootGet` → `<profile>\assets`, `isOverride: false`; library
   before: 7 files (`presets/`), no index. The app was STOPPED before the importer wrote (one writer at a time — the script's
   `upsertEntry` chain is its own process's). Import: `live-2-import.json` rc 0, `{copy: 51}`, 0 failed, 5.439 s. Exit check
@@ -124,22 +134,30 @@
   51 imported entries changed (`index.after-app-scan.json`); `app-2.log` 0 errors; the app stopped by profile path + name.
 - **The Assets screen prints NO duration** (E2's finding — pre-E2 UI: tile = name + description); the exit's "files and
   durations" is met by the files on screen + the durations in the index and the `list_assets` row.
-- **Gates (builder #3, 2026-10-28, app stopped, HEAD `cf5328d` — `src/` as of `4aed92f`; `wt/out` at `5247ed9` is current — no
-  rebuild):** guard C: 53.1 GB / D: 43.8 GB, headroom 29.5 GB → default workers. Full worktree vitest `node
+- **Gates (builder #3, 2026-10-28, app stopped, HEAD then `cf5328d` — `src/` at that commit as of `4aed92f`; `wt/out` built at
+  `5247ed9` matched it — no rebuild; the only `src/` change since is the test `4fa1551`, see "The code"):** guard C: 53.1 GB / D: 43.8 GB, headroom 29.5 GB → default workers. Full worktree vitest `node
   D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` → **489 files passed, 3 failed, 5 skipped (497); 4,165 tests
   passed, 9 failed, 35 skipped (4,209); 74.43 s**, 0 timeouts (`…\E4\vitest-full-1.log`) — the 3 files / 9 tests are E-d2a's
   suites, each only on package resolution (`builder-libraries` 1 `@remotion/paths … is not installed`; `shot-bundle` 5
   `roughjs` / `@remotion/shapes` / `@react-three/fiber` / `chroma-js` / `@remotion/google-fonts/SpaceGrotesk`;
   `shot-bundle-in-place` 3 — the three tests that import `chroma-js`, `Could not resolve "chroma-js"`). Rule (b): the 76 files
-  of `git diff --name-only 5d77600..HEAD` (`…\E4\diff-list.txt`) vs their import graphs (`…\E1\import-graph.cjs`: esbuild
+  of `git diff --name-only 5d77600..cf5328d` (`…\E4\diff-list.txt`, run at HEAD `cf5328d`; fix round 2: the file = that list,
+  and `5d77600..HEAD` still names the same 76 — the later commits touch only files already in it) vs their import graphs (`…\E1\import-graph.cjs`: esbuild
   metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d modules not followed) → 2 / 15 / 23 / 1 local
   modules, touched by the E diff: **NONE** (`…\E4\import-graph.txt`). Types web **26** / node **10**, no line names an E4
   file (`…\E4\tsc-web.log`, `tsc-node.log`).
 - **Not measured / open:** an import into a library with an in-app edit of a mapped field (behaviour (1) above is by design
   and unit-shaped, not driven live); a `conflict` (different bytes at the target) is unit-tested here
-  (`catalog-import.test.ts`; verifier round 1 ran it live: skipped, the file's sha kept, no entry). **A clip moved by hand**
+  (`catalog-import.test.ts`; verifier round 1 ran it live on its own scratch library, with a missing source in the same run →
+  `{conflict: 1, copy: 49, missing-source: 1}`: skipped, the file's sha before = after `4f5f84c56992e672`
+  (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\negatives.txt`), no entry — the index check printed there crashed
+  with `MODULE_NOT_FOUND` (`negatives.txt:43-49`, the verifier's own `node -e` driver, not the product), so the evidence is
+  its persisted `…\E4-verify\neg-lib\.vidtsx\index.json`, opened by fix round 2: 49 entries, none at `sfx/whoosh-soft.mp3`
+  (the conflict) or `sfx/camera-shutter.mp3` (the missing source)). **A clip moved by hand**
   is found (`hashFileHead` + sha256) ONLY through an index entry that already records its new place — after the app
-  (Assets → Refresh) or `scanLibrary` rescanned the library; the unit test rescans first (`catalog-import.test.ts:203`
+  (Assets → Refresh) or `scanLibrary` rescanned the library: then it is not re-copied — `unchanged` when its catalog entry is
+  unchanged, `update` (fields only, at the moved place, still no copy) when its mapped fields changed (`decide`,
+  `catalog-import.ts:89-92`, called at :121); the unit test rescans first (`catalog-import.test.ts:203`
   `await scanLibrary(root)`, :200 before fix round 1). A clip moved outside the app and NOT yet rescanned is copied again
   to its catalog place — a duplicate file, nothing lost, nothing overwritten (E-d12: the importer never scans, because a
   scan writes the index and a dry run must not). Verifier round 1 N6 on its own scratch library: `sfx/chime-reward.mp3`
@@ -147,9 +165,14 @@
   `camera-shutter` moved to `my-favs/` → `unchanged · my-favs/camera-shutter.mp3`, `{unchanged: 51}`, no copy
   (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\negatives.txt`, `dry-3-moved.log`, `import-6-moved.log`). The importer
   while the app runs (not supported — one writer at a time; the app was stopped);
-  durations / LUFS / tags in the Assets screen (none exist; tag chips are E3's). The editor repo was never written: its
-  `git status` shows `media/library/sfx/catalog.json`, `media/library/catalog.json` and `faces/README.md` modified —
-  pre-existing (Hasan's older edits; `sfx/catalog.json` mtime 2026-10-10), not ours.
+  durations / LUFS / tags in the Assets screen (none exist; tag chips are E3's). The editor repo was never written: the importer
+  only reads it (a `--library` / `--report` inside `--from` refuses) and verifier round 1's digest of
+  `D:\repos\claude-youtube-editor\media\library` is equal before / after its runs (`569a3cbe…`, 176 files · 11 dirs —
+  `…\E4-verify\editor-before.json` / `editor-after.json`). Its working tree was already dirty, by Hasan's own edits: fix
+  round 2's `git --no-optional-locks status --porcelain -- media faces` (2026-10-28) → modified `media/library/catalog.json`
+  (mtime 2026-10-16), `media/library/faces/README.md` (2026-08-15), `media/library/sfx/catalog.json` (2026-10-10 11:18,
+  sha256 `50555ee1…`), `media/library/sfx/palette.json` (2026-10-10), plus untracked files (`books/`, logos, nine
+  `sfx/clips/*.mp3`, project folders) — none ours (builder #2 had listed the first three).
 - **For Hasan:** importing the catalogs into HIS real library is his run, after he has read a dry run — NOT run here. With
   the app CLOSED, from the repo once track E has landed (the script is on `end-to-end-p0-e`), and `--library` = his library
   root as the app reports it (the default is shown; use his override if he set one): `node scripts/import-sfx-library.mjs
@@ -161,10 +184,21 @@
   the code passed). R1: the moved-clip claim now carries its rescan condition (above, "Not measured / open", and TESTING
   §18.16); R2: the `checkArgs` pointer is :74-83. N1 (test only): the dry-run snapshot records folders — red with mutation
   M1 (`fs.mkdir(<root>/sfx)` in `planCatalogImport`: "expected [ 'sfx/' ] to deeply equal []", 1 failed | 6 passed (7)),
-  the mutation reverted (`catalog-import.ts` byte-identical to HEAD) → 7 / 7; N2 recorded under the dry run. No product-code
-  change (`git diff 3a39dc7..HEAD -- src/ scripts/` = `catalog-import.test.ts` only), so no rebuild — `wt/out` at `5247ed9`
-  stays current (tests are not in the app bundle). Targeted runs: `src/main/services/library` + `library-listing.test.ts` 25
-  files / 219 tests passed; types web 26 / node 10 (`…\.vidtsx-temp\end-to-end\E4\fix1-*.log`).
+  the mutation reverted (`catalog-import.ts` byte-identical to its committed blob `c6342087…`, which is still the blob at HEAD)
+  → 7 / 7; N2 recorded under the dry run. No product-code change (`git diff 3a39dc7..HEAD -- src/ scripts/` =
+  `catalog-import.test.ts` only — still so at HEAD), so no rebuild — `wt/out` built at `5247ed9` stays current (tests are
+  not in the app bundle). Targeted runs: `src/main/services/library` + `library-listing.test.ts` 25 files / 219 tests
+  passed; types web 26 / node 10 (`…\.vidtsx-temp\end-to-end\E4\fix1-*.log`).
+- **Verifier round 2 FAIL (records: R3) → fix round 2** (records only, 2026-10-28; the code, the exit and the gates passed
+  again — evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\r2\`). R3: "The code" header claimed `git diff --stat
+  4aed92f..HEAD -- src/` was empty — false since `4fa1551`; it now quotes the commands and their output. Notes: (1) a
+  rescanned moved clip is `unchanged` OR `update` (fields only), never re-copied ("Not measured / open", TESTING §18.16); (2)
+  the conflict's "no entry" cites the persisted `neg-lib` index (49 entries). An audit re-checked every git / tree / build
+  statement, count, hash and file:line pointer in this entry and §18.16 against HEAD or its evidence file (the table is in
+  the HANDOFF's Verified); the changed lines: this entry's title, "The code" header, the Docs commit list, the changed-COPY
+  "back" counts, the live-run build stamp + robocopy source, the Gates header and rule-(b) range (`5d77600..cf5328d`), the
+  conflict evidence, the moved-clip outcome, the editor-repo status and this fix-round-1 line's HEAD wording. No `src/`,
+  `scripts/` or test change: `git diff --stat 893b305..HEAD -- src/ scripts/` is empty.
 - **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\` — `exit.json` (every number), `exit-verify-2.log`,
   `live-1-dry.json` … `live-6-after-mark.json`, `index.after-{import,rerun,changed,back,mark,app-scan}.json`,
   `tree-before-dry.json` / `tree-after-dry.json`, `assets-{root,sfx,music}.png`, `app-1.log` / `app-2.log`, `build-1.log`,
