@@ -7,6 +7,190 @@
 
 ---
 
+## 2026-10-24 — END-TO-END E2: generation writes loudness-normalized files with category / tags; `usedIn` written on every landing — DONE (builder records; the E2 verifier is next)
+
+- **What:** part E2 of `docs/studio/END_TO_END_PLAN.md` (track E, session 5, records in session 6; worktree branch
+  `end-to-end-p0-e`, E-d1). Row: "Generation writes loudness-normalized files with category/tags; `usedIn` written on
+  every landing". Exit: a generated SFX appears with duration, tags, −20 LUFS, and the project id after insert.
+  **Result: met** on an isolated profile, with a DEV-ONLY stand-in at the engine boundary (no ElevenLabs call, E-d6) and
+  everything after it real: the REAL `generate_sfx` handler filed `generated/sfx-a-short-airy-whoosh-2.mp3` with
+  `probe.duration 2` (independent ffprobe n8.1.2: 2.000000 s, 0 ms off), `tags ["whoosh","air"]`, category `motion`,
+  −20.27 LUFS recorded / **−20.2 LUFS on an independent `ebur128`**, true peak −10.8 dBTP, and `usedIn ["e2-exit"]` — still
+  one entry after the REAL `insert_asset`; the REAL `list_assets(scope:'library')` row prints all of it.
+- **The code** (line numbers are HEAD's; no `src/` change after `3084668`):
+  - `60b5537` — the normalizer. `src/main/services/library/audio-loudness-rule.ts` (pure): `LOUDNESS_TARGET_LUFS = -20`
+    (:6), `LOUDNESS_CEILING_DBFS = -1.5` (:8), `LOUDNESS_GATED_BELOW_LUFS = -50` (:10), `LOUDNESS_MIN_GAIN_DB = 0.1` (:12),
+    `parseLoudnormStats` (:44; `input_i` / `input_tp`, `-inf` → `-Infinity`), `planLoudnessGain` (:59; the rule below).
+    `src/main/services/library/audio-normalize.ts` (172 lines): `measureLoudness` (:105; ONE `loudnorm=I=-20:TP=-1.5:LRA=11:
+    print_format=json` analysis pass, `-vn -f null -`), `applyGain` (:117; ONE re-encode `-af volume=<g>dB` into
+    `<abs>.norm-tmp<ext>`, then `fs.rename` over the original — same extension; codec by extension: `.mp3` libmp3lame
+    `NORMALIZE_MP3_BITRATE = '192k'` (:24), `.wav` pcm_s16le, `.m4a` / `.aac` aac 192k (:30-31), `.ogg` / `.opus` libopus
+    128k, anything else "unsupported container"), `normalizeAudioFile` (:142) → `AudioNormalizeResult { normalized,
+    loudnessLufs?, peakDbfs?, gainDb, clamped, gated, skipped, error?, before? }`; `NORMALIZE_TIMEOUT_MS` 120 s per pass
+    (:22). `src/shared/types/asset-library.ts:27-47` `LibraryAudioMeta` gains `peakKind?: 'true' | 'sample'` (:39),
+    `gainDb?` (:45), `normalizeError?` (:47) — optional only (E-d5).
+  - `841e311` — the call site, the args, the stand-in. `src/main/services/library/generate-audio-asset.ts` (178 lines):
+    `GenerateAudioAssetRequest` gains `category?` / `tags?` (:53, :55); `normalizeAudioFile(absPath, { signal })` (:135) runs
+    after `fs.writeFile` and BEFORE `upsertEntry` (:152), so the index's probe + hash describe the levelled file; the `audio`
+    meta = `{ category?, loudnessLufs?, peakDbfs?, peakKind: 'true' (:142), source: <provider id>, model, gainDb,
+    normalizeError? }`; `normalizeCategory` (:102, trim + lower-case); `GeneratedAudioAsset` gains `normalized` (a REQUIRED
+    boolean), `loudnessLufs?`, `peakDbfs?`, `normalizeError?`, `category?`, `tags?`; `durationSeconds` = the upsert's
+    `probe.duration` (:159) when finite and > 0, else the engine's figure. `library-filing.ts:60-74` `TAGS_MAX = 20` +
+    `normalizeTags` (trim, lower-case, drop empties, dedupe, cap; `undefined` when nothing is left). `agent-tools/
+    audio-tools.ts`: `generate_sfx` (:113-114) / `generate_music` (:144-145) gain `category` (1–40 chars; hints
+    `CATEGORY_HINT_SFX` :55 motion / tension / emphasis / snap / foley / reward / texture / impact, `CATEGORY_HINT_MUSIC` :57
+    bed / sting / intro / outro / loop / transition) and `tags` (≤ 20); the answer prints `Loudness −20.3 LUFS, peak −10.8
+    dBTP. Filed with category: motion · tags: whoosh, air.` (U+2212, one decimal). The stand-in: below.
+  - `68bbe44` — `usedIn`. `src/main/services/library/library-used-in.ts` (93 lines): `addUsedIn` (:22, pure),
+    `markLibraryUsedIn(root, relPaths, projectId)` (:32) → `updateIndex` on main's per-root serialize chain (the file keeps
+    `version: 1, rev: 2`), existing entries only, deduplicated, no write when nothing changed, never throws (a failed patch
+    is warned, the import stands); `markLibraryUsedInForPaths(projectId, absPaths)` (:75) keeps only paths under
+    `getLibraryRoot()` via `libraryRelPathOf` (`library-paths.ts:69`; null for the root itself, another drive, a parent, or
+    a sibling-prefix `<root>-other\…`). The three seams: below.
+  - `3084668` — the listing row: `src/main/services/library/format-level.ts` `signed()` (the one U+2212 LUFS / dB form, now
+    shared with `audio-tools.ts`); `agent-tools/library-listing.ts` `formatLibraryRow` (:22) + `formatMetaSuffix` (:43).
+  - Docs: `12cf9df` (HANDOFF prepared), `70bb70f` `59b8e93` `1e36cbc` `bbfd17e` `4eb6bf5` (builders #1–#5) + this entry's
+    commit. Kit (gitignored): `.vidtsx-temp/end-to-end/E2/`.
+- **The loudness rule (E-d7, Hasan's Q2):** −20 LUFS integrated under a −1.5 dBTP ceiling, ported from the editor repo's
+  `tools/gen_sfx.py` `normalize_clip()`: measure I + peak; peak unmeasurable → leave; I not finite or I < −50 (EBU R128
+  gated the clip — e.g. a 0.3 s transient) → peak-normalize to the ceiling (`gain = ceiling − peak`); else `gain = target −
+  I`, and if `peak + gain > ceiling` → `gain = ceiling − peak` (clamped — the recorded LUFS is then honestly above −20);
+  |gain| < 0.1 dB → skip; ONE re-encode with `volume`; re-measure and record what the file now is. **Toolset: the bundled
+  (stripped) Remotion ffmpeg n7.1 only** — `loudnorm` (its analysis pass prints `input_i` / `input_tp` as JSON) +
+  `volume`; it has NO `ebur128`, `astats`, `volumedetect`, `alimiter` or `dynaudnorm`, and the full ffmpeg (an optional
+  download) is not assumed. **`peakKind: 'true'`:** E2's `audio.peakDbfs` is a TRUE peak in dBTP (`loudnorm`'s `input_tp`,
+  4× oversampled); the reference catalogs' `peak_dbfs` is a sample peak, which E4's import writes with `peakKind: 'sample'`;
+  true ≥ sample, so a −1.5 dBTP ceiling is at least as safe. **Bitrate:** an mp3 stays an mp3, re-encoded with libmp3lame
+  **192k** — one step above ElevenLabs' `mp3_44100_128`, so the second lossy generation adds little (sample rate / channels
+  kept; the live files read `bit_rate 198284`). **Known limit:** the ceiling is applied to the pre-encode true peak; after
+  the mp3 re-encode the peak can sit a few tenths of a dB off it (live: −1.8 dBTP on the clamped file) — recorded as
+  measured, not forced.
+- **The un-normalized policy:** the normalizer never throws and never loses bytes. A failed measure or apply (missing
+  binary, non-zero exit, the 120 s timeout, bad JSON, an unsupported container) removes the temp output and keeps the
+  original; the entry records `audio.normalizeError`; the tool answers "NOT loudness-normalized (<reason>) — the raw file is
+  kept." (`describeLevel`, `audio-tools.ts:61-63`); the `list_assets` row prints ` · −12.3 LUFS (not normalized)` with a
+  measured value or ` · not normalized` without one. A caller abort DURING the normalize pass is recorded the same way
+  (`normalizeError: 'Cancelled'`, bytes kept) and not retried — re-normalizing an existing entry is not in E2.
+- **The DEV-ONLY stand-in (E-d6, named here as required):** `src/audio-engine/generation/providers/
+  standin-audio-provider.ts` `StandinAudioProvider(filePath)` — `id 'standin'` (:18), `generate()` returns the file's bytes
+  as `audio/mpeg` with model `standin` (:27), `pricePerSecondUsd` → 0 (:30), so the engine records **`costUsd 0`** (the
+  answer prints `$0.000`). Registered by `src/main/services/audio-generation-standin.ts` `registerDevStandinProvider()` ONLY
+  when **`!app.isPackaged`** (:23) AND **`VIDTSX_AUDIO_STANDIN_FILE`** (:18) names an existing file (else false; a missing
+  file is warned), called at the END of `initAudioGenerationEngine` (`audio-generation-init.ts:66`) — **after the BYOK
+  loop**, so a real key registered first stays the active provider (`registerInstance` keeps the first `activeId`).
+  **Inert in a packaged build.** The file must be an **mp3** (the engine's `ext` is hard-coded `.mp3`,
+  `audio-generation-engine.ts:155`, left as is). The live app initialises the engine lazily (first generation, an Agents
+  tool, or a key save), so the stand-in's warn line appears on first use, not at launch.
+- **Builder #2's notes, answered:** the tool's progress line still reads "Generating at ElevenLabs…" when the stand-in
+  answers (`audio-tools.ts:80`; cosmetic, the answer itself names no provider) — left as is; `GeneratedAudioAsset.normalized`
+  is a REQUIRED boolean (tsc: the agents' `generate-audio.ts` compiles unchanged); the agents' `generate_audio` tool keeps
+  its args and gets the normalization for free (its answer prints no LUFS; its test mock gained `normalized: true`); a
+  Cancelled normalize is recorded, not retried (above); the stand-in is mp3 only (above).
+- **`usedIn` — the three landings of a `library:` ref (T6):** (1) `importLibraryFile` (`agent-tools/library-import.ts:51`,
+  `:62`) marks with `project.id` before BOTH returns (an existing project asset and a fresh import) — reached by
+  `insert_asset`'s `resolveAssetRef`, by `generate_sfx` / `generate_music`'s own import and by every tool taking a
+  `library:` ref; (2) `resolveShotAssetRefs` (`src/main/services/studio/shot-asset-refs.ts:164`) marks every library ref
+  it resolved, ONCE after its loop (`generate_tsx_shot` assetRefs; a ref that throws marks nothing); (3) the pool import
+  `handleStudioMediaImport` (`src/main/ipc/studio-handlers.ts:301`) marks the imported paths that lie under the library
+  root — **wired, but covered by the helper's test only** (`library-used-in.test.ts` → `markLibraryUsedInForPaths`; the
+  handler has no test, and the file is 674 lines — over the ~300 rule since before E2, not split here).
+  `shot-build-media.ts` / `shot-bundle-media.ts` import a shot's own files — a library file cannot reach them; not wired.
+  A `usedIn` write is an index patch, never a `project.json` write. A file under the root that the index has never seen is
+  logged and left to the next scan — the scan does not know the project id, so that one landing is not recorded.
+- **The listing row (`list_assets(scope:'library')`):** after the description, only when present, ` · category: motion`
+  · ` · tags: whoosh, air` · ` · −20.3 LUFS` (one decimal; `(not normalized)` as above) · ` · used in: e2-exit`. An entry
+  without the fields prints exactly E1's row (pinned). No `kind` / `query` filtering — E3's (the handler ignores an extra
+  `kind` arg today).
+- **The live exit (2026-10-24, builder #5; the worktree at `3084668`, its own build `wt/out` rebuilt — `✓ built in
+  2m 30s`):** profile `C:\Users\hasan\AppData\Local\vidtsx-e2e\profiles\E2\profile` (copied from `source` WITHOUT
+  `settings.db*`; library root confirmed live: `<profile>\assets`, `isOverride: false`), Studio root
+  `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E2\root`, project `e2-exit` (`createProject('e2-exit', 1920, 1080, 30)`).
+  The REAL handlers ran in stopped-app vitest drivers on that live index (`exit-main.e2.test.ts`, `exit-ceiling.e2.test.ts`
+  — two invocations, the engine singleton keeps the first stand-in); mocked only `electron` (userData = the profile,
+  `isPackaged: false`), `settings-db` (the Studio root; no credentials), `utils/paths` (`getRemotionBinariesDir: () => null`
+  → the bundled ffmpeg) and `ai-usage`. Driver stdout: `[AudioGenerationStandin] DEV stand-in audio provider "standin"
+  registered (VIDTSX_AUDIO_STANDIN_FILE)`, providers `["standin"]`, active `standin`. **Independent meter:** the SOURCE
+  profile's `ffmpeg-full` n8.1.2 — `ebur128=peak=true` (integrated I + true peak), `astats` (sample peak), ffprobe n8
+  (duration, LAME delay / padding trimmed).
+  - **Main** — stand-in `standin.mp3` (band-limited pink noise, 2.000 s, 44.1 kHz mono, 128k; in: −9.3 LUFS, true peak
+    +0.6 dBTP, sample peak +0.54 dBFS): `generate_sfx({ prompt: 'a short airy whoosh', durationSeconds: 2, category:
+    'motion', tags: ['whoosh','air'] })` 466 ms → `generated/sfx-a-short-airy-whoosh-2.mp3` (49,571 B, `bit_rate 198284`).
+    Entry: `kind audio`, `origin generated`, `tags ["whoosh","air"]`, `audio { category motion, loudnessLufs −20.27,
+    peakDbfs −10.79, peakKind true, source standin, model standin, gainDb −10.71 }`, `probe { duration 2, hasAudio true,
+    codec mp3 }`. Meter: **I −20.2 LUFS** (−0.2 LU off target; recorded − meter −0.07 LU), **true peak −10.8 dBTP**
+    (recorded − meter +0.01 dB), sample peak −10.79 dBFS, ffprobe 2.000000 s (**0 ms** off `probe.duration`). Gain −10.71
+    = −20 − I_in (expected −10.7; not clamped). Answer: `Sound effect ready: project asset id "e2ec8044-…"
+    (library:generated/sfx-a-short-airy-whoosh-2.mp3, 2.00 s, $0.000). Loudness −20.3 LUFS, peak −10.8 dBTP. Filed with
+    category: motion · tags: whoosh, air. …`. **`usedIn`:** `["e2-exit"]` already after the generate tool's OWN import
+    (`importLibraryFile` marks); then the REAL `insert_asset({ assetId: 'library:generated/sfx-a-short-airy-whoosh-2.mp3',
+    lane: 'audio', at: 0 })` → `Insert proposed (id "prop_mvm2whpg_zumvj2"): Insert "sfx-a-short-airy-whoosh-2.mp3" as
+    audio at 0:00.0 · 2.0 s` (a review card; its `resolveAssetRef` re-marks) → still exactly `["e2-exit"]` (deduplicated).
+    The REAL `list_assets({ scope: 'library' })` row: `- library:generated/sfx-a-short-airy-whoosh-2.mp3 (audio, 2.00 s,
+    generated) — "a short airy whoosh" · category: motion · tags: whoosh, air · −20.3 LUFS · used in: e2-exit`.
+  - **Ceiling-binding** — `standin-quiet.mp3` (a uniform train of 1 ms 2 kHz bursts every 100 ms at −6 dBFS; in: −27.4
+    LUFS, −5.7 dBTP, sample −5.73 dBFS): `generate_sfx({ prompt: 'a quiet tick train', durationSeconds: 2, category:
+    'snap', tags: ['tick','quiet'] })` 555 ms → `generated/sfx-a-quiet-tick-train.mp3`. The wanted +7.4 dB would put the
+    peak at +1.7 → **clamped, `gainDb` +4.18** (expected −1.5 − (−5.7) = +4.2); recorded −23.44 LUFS / −1.79 dBTP; meter
+    **I −23.4 LUFS** (honestly short of −20; recorded − meter −0.04 LU), **true peak −1.8 dBTP** (0.3 dB under the ceiling
+    after the mp3 re-encode — the known limit; recorded − meter +0.01 dB), sample peak −1.83 dBFS; ffprobe 2.000000 (0 ms);
+    `usedIn ["e2-exit"]`. Answer `… Loudness −23.4 LUFS, peak −1.8 dBTP. Filed with category: snap · tags: tick, quiet.`
+  - **Music path** — same driver, same stand-in: `generate_music({ prompt: 'a soft bed', durationSeconds: 3 })` (3 = the
+    engine's music minimum) 232 ms → `generated/music-a-soft-bed.mp3`, the same normalize (`gainDb` 4.18, −23.44 LUFS,
+    −1.79 dBTP; meter −23.4 / −1.8), no category given → none written, `probe.duration 2` (the real length wins over the
+    requested 3; ffprobe 2.000000, 0 ms), `usedIn ["e2-exit"]`. Answer `Music ready: project asset id "266dace6-…" (…, 2.00
+    s, $0.000). Loudness −23.4 LUFS, peak −1.8 dBTP.` — the SAME project asset id as the tick train: the two files are
+    byte-identical (one stand-in through the same gain; index hash `836dabd6…` on both), so the import's
+    `matchExistingAsset(known, absPath, hash)` (`library-import.ts:46`, pre-E2) returned the earlier asset; the music
+    entry's `usedIn` was still marked. A stand-in artefact, not a finding.
+  - Index after: `version 1, rev 2`, 4 entries — the 4th, `generated/sfx-a-short-airy-whoosh.mp3`, is run 1 of the main
+    driver (same product values; that run then failed in the DRIVER's meter helper — `execFileSync` read stdout only, fixed
+    with `spawnSync`; the file is kept).
+  - **CDP click-through** (port 9262, the worktree build, no Vite server; the launcher exported `VIDTSX_AUDIO_STANDIN_FILE`;
+    `app-1.log`: `Main-process init complete in 398ms`, no stand-in line — lazy init, nothing generated live, E-d9): FIRST
+    call `studioRootSet` (BEFORE: `C:\Users\hasan\Videos\VidTSX Studio`, the default — Home listed Hasan's projects for
+    ~5 s, nothing opened or written) → AFTER: the E2 root; `libraryRootGet` → `<profile>\assets`, `isOverride: false`.
+    Assets → `Refresh` → root `generated` (194 KB) + `presets` → dblclick `generated` → tiles `music-a-soft-bed.mp3`,
+    `sfx-a-quiet-tick-train.mp3`, `sfx-a-short-airy-whoosh-2.mp3`, `sfx-a-short-airy-whoosh.mp3` (each with its
+    description) → the whoosh selected → details Type `audio (mp3)`, Size 48.4 KB, Origin generated, Path
+    `generated/sfx-a-short-airy-whoosh-2.mp3`; footer `4 items · 194 KB`. Still
+    `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\assets-generated.png` (73,513 B). Stopped by port / profile +
+    `Name='electron.exe'` (4 → 0).
+  - **The Assets screen prints no duration anywhere** (a tile = name + description, `AssetTile.tsx:135`; the details panel
+    = Type / Size / Origin / Added / Path, `AssetDetailsPanel.tsx:86-90` — pre-E2 UI, unchanged). The exit's "appears with
+    duration" is met by the index (`probe.duration 2`) and the `list_assets` row (`2.00 s`) on the same live index, as E1
+    recorded it. The tag chips are E3's row; a duration / LUFS line in the details panel is Hasan's call.
+- **Gates (2026-10-24, builder #5, app stopped, HEAD `3084668` + docs):** guard before the launch C: 46.72 GB / D: 23.81 GB
+  free, headroom 36.69 GB → default workers; watchdog never fired. Full vitest from the worktree (`node
+  D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run`): **485 files passed, 3 failed, 5 skipped (493); 4,138 tests
+  passed, 9 failed, 35 skipped (4,182); 51.80 s**, no timeouts (`…\E2\vitest-full-1.log`). The 3 files / 9 tests are
+  exactly E-d2a's suites, each failing ONLY on package resolution — `builder-libraries.test.ts` 1 (`@remotion/paths … is not
+  installed`), `shot-bundle-in-place.test.ts` 3 (`Could not resolve "chroma-js"`), `shot-bundle.test.ts` 5 (`roughjs` /
+  `@remotion/shapes` / `@react-three/fiber` / `chroma-js`). Rule (b): none of the 68 files of `git diff --name-only
+  5d77600..HEAD` is in their import graphs — esbuild metafile per suite, packages external, `?raw` as leaves, `vi.mock`'d
+  modules not followed (`…\E1\import-graph.cjs`): builder-libraries 2 local modules, shot-bundle 15, shot-bundle-in-place 23
+  (`shot-generator.ts`, `shot-import-land.ts`, `media-import.ts` vi.mock'd, not loaded), `scripts/builder-unpack.mjs` 1 —
+  NONE touched (`…\E2\import-graph.txt`). Types: `tsc -p tsconfig.web.check.json` → 26, `-p tsconfig.node.check.json` → 10
+  = baseline, none in E2's files (`tsc-web-5.log`, `tsc-node-5.log`; also 26 / 10 at each of the four code commits). Every
+  step red first: (a) 18 tests, (b) 9 files / 67 (incl. the E-d5 control), (c) 4 files / 29 (neighbours 33 / 251), (d) 3
+  files / 16 (neighbours 34 / 257) — logs `…\E2\a-red.log` … `d-green-2.log`. The records (builder #6, 2026-10-28) are
+  docs only (`git diff --stat 3084668..HEAD -- src/` empty) — nothing re-run.
+- **Also in this entry's commit — E1 verifier round 4, V4-N1:** the E1 entry's W2 line below and TESTING §18.14 no longer
+  list proxies among the consumers of the probe's width / height (`proxy-generator.ts` reads `probe.duration` (:240) and
+  `probe.hasAudio` (:251, :321) only). V4-N2 not needed (`pre-e1-control.test.ts` untouched).
+- **Not measured / open:** the live ElevenLabs call (E-d6 — for Hasan); the `generate_tsx_shot` assetRefs seam and the pool
+  import seam are unit-tested only (the pool import through the helper's test); the short-transient case (< ~0.4 s, R128
+  gated → peak to the ceiling) only as unit (C) — no live 0.3 s stand-in; a normalize failure only as unit (F); the Assets
+  screen shows no duration / LUFS / tags (above).
+- **For Hasan:** one live ElevenLabs `generate_sfx` (a real key, his profile) — the real response through the same
+  normalize / probe / index path as the stand-in (real-video list). Whether the Assets details panel should print the
+  duration / LUFS.
+- **Evidence:** `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\` — `exit.json` (every number), `exit-summary.md` (what was
+  measured by what, with tolerances), `exit-run-1.log` / `exit-run-2.log` (main) / `exit-ceiling-run-1.log`, `app-1.log`,
+  `assets-generated.png`, `build-1.log`, `standin.mp3` / `standin-quiet.mp3`, `a-red.log` … `d-green-2.log`,
+  `vitest-full-1.log`, `diff-list.txt` + `import-graph.txt`, `tsc-web-1…5.log` / `tsc-node-1…5.log`, `watchdog.log`; the
+  profile `…\profiles\E2\profile`; kit `.vidtsx-temp/end-to-end/E2/` (`launch.sh`, `live.mjs`, `cdp.mjs`, `e2-common.ts`,
+  the two drivers, `vitest.e2.config.ts`). TESTING.md §18.15; HANDOFF `docs/studio/end-to-end/E2/HANDOFF.md`.
+
 ## 2026-10-23 — END-TO-END E1: library index v2 — `kind`, `probe` on upsert, `tags` / `audio` / `usedIn`, one kind table, the migration — DONE (fix round 3, docs only, after verifier FAIL 3 on the records)
 
 - **What:** part E1 of `docs/studio/END_TO_END_PLAN.md` (track E, session 4; worktree branch `end-to-end-p0-e`, cut from
@@ -95,7 +279,7 @@
     (completed in fix round 2, W2): face / mask tracking (`face-track-job.ts:137`, `mask-track-job.ts:146`) — an
     audio-only file with cover art (e.g. an audio + cover `.mp4`) now stops with "Could not read the frame size of the
     source" instead of tracking the picture's 600×600; `export-spans.ts:190` ("unknown source size") and
-    `sync-probes.ts:141` fall back to the composition size; proxies (`proxy-generator.ts:231`); `AssetCard`'s "· W×H"; the
+    `sync-probes.ts:141` fall back to the composition size; `AssetCard`'s "· W×H"; the
     shot asset refs' / build media's / `builder-asset-tools`' optional `width` / `height` — an mp3 now carries none
     (correct). **None changes for a real video** (verifier 2: 11 real-video files probe identically pre-E1 vs HEAD; a video
     with cover art keeps its real stream). `services/media/ffmpeg-run.ts` (agents, video-edit, captions, content safety)
