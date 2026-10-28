@@ -1006,7 +1006,7 @@
   DOM event order is left to the live check. `AssetLibraryScreen.tsx` 464 lines (456 before E3). **Orchestrator note:** the log
   times above 16:20 were corrected to the commit clock at 19:57 (they had drifted ahead by up to 2 h 20 min). Builder #3 spawned
   (the live step: Assets over CDP first, then the importer, the tool-level checks, the model turns).
-- 20:40 · E3 builder #3 HANDOFF — the LIVE step, all exit measurements met, no code change (`7ba2141` docs): Studio root first,
+- 20:16 · E3 builder #3 HANDOFF — the LIVE step, all exit measurements met, no code change (`7ba2141` docs): Studio root first,
   library root `<E3 profile>\assets`; E4's importer (dry run, then 51 copied). Assets over CDP: the shared tile `<audio>` on
   `whoosh-soft` `paused false`, `readyState 4`, `src` = its module-server URL; `piano-a-min` `currentTime` 0.415 → 1.433 in 1.0 s; the
   details `<audio controls>` plays, a tile play pauses it; `tag:whoosh` chip 45 → 4 tiles; sound rows shown; still
