@@ -1,5 +1,5 @@
 # E4 — The importer over the reference `sfx/` and `music/` catalogs
-status: FIX
+status: DONE
 
 > Track E, session 5 — **runs BEFORE E3** (E3's exit, the whoosh case, needs the imported library). **Work only in
 > the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are
@@ -215,7 +215,67 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
 - Scratch helper (not in the repo): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\tree-hash.mjs <root> [out.json]` —
   one sha256 over every file (relPath + sha256, sorted) incl. `.vidtsx/index.json`.
 
+### Fix round 2 (builder #5) — records only
+
+- `ff7f302` — Status.md E4 entry + TESTING §18.16: R3 (the "The code" header now quotes `git log` / `git diff` output),
+  note 1 (a rescanned moved clip: `unchanged` or `update`, never re-copied), note 2 (the conflict's "no entry" cites the
+  persisted `…\E4-verify\neg-lib\.vidtsx\index.json`), the audit's changes (table below), the "verifier round 2 FAIL (records:
+  R3) → fix round 2" line in both. + this commit: the `ff7f302` hash in those two lines, the smoke "after" hash qualified
+  (Status), this HANDOFF, LOG line. No `src/`, `scripts/` or test change.
+
 ## Verified (exact commands + outputs)
+
+Builder #5, 2026-10-28 — FIX ROUND 2, RECORDS ONLY (no build, no launch, no importer run, no profile copy, no vitest; evidence
+files READ only — read-only node readers in the session scratchpad `audit1.mjs` / `audit2.mjs`, never writing; the editor repo
+read with `git --no-optional-locks status` and `stat` only). HEAD before = `893b305`. Line numbers (S = Status.md, T = docs/studio/TESTING.md) are those
+at fix round 2's FINAL commit (the one that sets this status DONE; `ff7f302` had Status :92 onward one line higher).
+
+THE AUDIT (statement · line · check command · result · action):
+
+| # | statement | line | check | result | action |
+|---|---|---|---|---|---|
+| 1 | title "fix round 1 …; verifier round 2 is next" | S:10 | `git log --oneline -3` | `893b305` = verifier round 2 FAIL | **CHANGED** → fix round 2 / round 3 next |
+| 2 | branch `end-to-end-p0-e` | S:12 | `git branch --show-current` | `end-to-end-p0-e` | ok |
+| 3 | 51/51 bytes, 51/51 fields, `usedIn` 51 (41), max \|Δ\| 0 ms, licence 47, chords 4 | S:17-19, T:512-514 | `exit.json` summary; `index.after-mark.json` (count `audio.license`) | bytesEqual 51, fieldsEqual 51, usedInVerbatim 51, usedInNonEmpty 41, maxAbsProbeVsFfprobeMs 0, license 47, noLicence 4 | ok |
+| 4 | "`src/` last changed in `4aed92f` — `git diff --stat 4aed92f..HEAD -- src/` is empty" (R3) | S:22 (now S:22-27) | `git log -1 --format=%h -- src/` · `git diff --stat 4aed92f..HEAD -- src/` | `4fa1551` · `catalog-import.test.ts \| 7 +++++--` | **CHANGED** → S:22-27 quotes: `git log -1 -- src/ ':(exclude)*.test.ts'` → `4aed92f`; `git log 4aed92f..HEAD -- src/` → `4fa1551`; the diff stat; `git log -1 -- scripts/` → `5247ed9` |
+| 5 | 156 / 198 / 212 lines | S:28, :31, :45 | `wc -l` | 156 / 198 / 212 | ok |
+| 6 | map pointers :13 :16 :19 :62 :91 :104 :134 :147 | S:28-31 | `grep -n` | all match | ok |
+| 7 | import pointers :31 :44 :94 :116-122 :117 :127 :149 :152 :160 :181 | S:31-38 | `grep -n`, `sed -n 94,126p` | all match (:116 comment, :117 `hashFileHead`, :118-122 loop) | ok |
+| 8 | `asset-library.ts:52`, `library-used-in.ts:33`, `library-store.ts` :146 / :173 | S:38-40 | `grep -n` | match | ok |
+| 9 | tests (8) / (7) / (+1) | S:41-44, T:511-513 | `grep -cE "^\s*(it\|test)\("` at HEAD and `4aed92f^` | 8 / 7 / 9 (8 before) | ok |
+| 10 | script pointers :135-136 :85 :92 :106 :116 :74-83 :81-82 :145 :164 :170 | S:45-52 | `grep -n`, `sed -n 83p; 135,136p` | match (:83 `}`, :135 `esbuild.build({`, :136 platform/format) | ok |
+| 11 | docs commits "+ this entry's commit" | S:53-57 | `git log -1 <hash>` each | all exist; "this entry's commit" = 3 commits by now | **CHANGED** → explicit list (`ce9aaac` `bdeb722`, `4fa1551` `51dff42` `d1d7f8d`, fix round 2, orchestrator `aac8d57` `71a9c27` `3a39dc7` `893b305`) |
+| 12 | dry run 0.475 s, `{copy: 51}`, 0 problems, `6ca7edd6…` 7 files 9,446 B | S:89-91, T:511 | `live-1-dry.json`; `tree-{before,after}-dry.json` | 0.475, copy 51, 0; both `6ca7edd6…`, 7 rows, 9446 B, `indexSha null` | ok |
+| 13 | smoke `e3b0c442…` before = after | S:92-93 | `smoke-tree-before.txt`; grep of `smoke-dry.log` | before filed (0 files); after not in any file | **CHANGED** → "after printed by builder #2's console, not filed" (commit 2) |
+| 14 | N1 `4fa1551`, snapshot lists folders | S:93-95, T:511 | `git log -1 4fa1551`; `sed -n 44,58p catalog-import.test.ts` | match | ok |
+| 15 | `132decf2…` 59 files · 7 dirs | S:97-98, T:511 | `stage2.txt`; `lib-4-before-dry2.json` / `lib-5-after-dry2.json` | both `132decf2…`, 59 rows, 7 dirs | ok |
+| 16 | re-run 0.352 s; `de91fc4c606c` / `fea08f505f25` / `17f8783bc66b`; changed COPY → wind-soft `tags`; "back → `{update: 1}`" | S:99-106, T:515 | `live-3..6.json` summaries; sha256 of `index.after-*.json`; key diff import→changed | 0.352; de91… (import, rerun, back), fea0… (changed), 17f8… (mark); diff = `sfx/wind-soft.mp3:tags`; live-5 = `{unchanged: 50, update: 1}` | **CHANGED** S:103 → `{unchanged: 50, update: 1}` |
+| 17 | `trap-snap` six tags | S:111-113, T:515 | `exit.json` `tagsNormalizedBy`; entry tags | 7 → 6 | ok |
+| 18 | "`wt/out` at `5247ed9`" (present tense) | S:114-115 | `ls -l --time-style=full-iso out/main/index.js out/renderer/index.html`; `git log -1 5247ed9` | 17:58:43 / 18:01:33 (`5247ed9` committed 17:57; no product-code commit since) | **CHANGED** → "built at `5247ed9` — stamps, no rebuild since" |
+| 19 | robocopy 2,325 files / 371.8 MB | S:116-117 | grep `2,325\|371.8` over E4 + kit logs | in no file | **CHANGED** → "builder #2's console figures, no log file kept" |
+| 20 | import 5.439 s; exit numbers; durations 38 × 0, 12 × +0.2…+0.5 (6 sfx +0.2, 6 music +0.4…+0.5), camera-shutter −42 | S:120-125, T:512 | `live-2-import.json`; `exit.json` `probeVsCatalogMs` | match | ok |
+| 21 | `list_assets` 6 rows (names), whoosh row; probe 0.6802494, peak −1.6, model | S:125-131, T:516 | `exit.json` `listing`; `index.after-mark.json` | match | ok |
+| 22 | stills: "3 items · 8.6 MB" (music 7.5 MB, sfx 1.1 MB, presets 9.1 KB), "45 items · 1.1 MB", "6 items · 7.5 MB" | S:132-134, T:517 | the three PNGs viewed | match | ok |
+| 23 | after the app scan 57 entries (+6 presets), none of 51 changed; `app-2.log` 0 errors | S:134-135, T:517 | entry-by-entry compare after-mark vs after-app-scan; `grep -ci error` | 57 / 6 / 0 changed; 0 | ok |
+| 24 | gates "HEAD `cf5328d` — `src/` as of `4aed92f`; `wt/out` … is current" | S:138-139, T:519 | `git log 4aed92f..HEAD -- src/` (`4fa1551` 18:47 > `cf5328d` 18:10) | true for `cf5328d`; present tense ambiguous | **CHANGED** → "HEAD then"; the later test commit named |
+| 25 | vitest 489/3/5 files, 4,165/9/35 tests, 74.43 s, 0 timeouts, the 9 FAILs | S:139-144, T:519 | grep `vitest-full-1.log` | match (0 "timed out") | ok |
+| 26 | "76 files of `git diff --name-only 5d77600..HEAD`" | S:145-146, T:519 | `wc -l diff-list.txt`; `diff` vs `git diff --name-only 5d77600..cf5328d` and `..HEAD` | 76; file = `..cf5328d` = `..HEAD` (names) | **CHANGED** → `5d77600..cf5328d` (+ "still the same 76 at HEAD") |
+| 27 | rule (b) 2 / 15 / 23 / 1, NONE; tsc 26 / 10, 0 E4 lines | S:147-148, T:519 | `import-graph.txt`; `grep -c "error TS"` | match | ok |
+| 28 | conflict "no entry" (note 2) | S:151-157, T:518 | opened `…\E4-verify\neg-lib\.vidtsx\index.json`; `negatives.txt`, `neg-report.json` | 49 entries, none at `sfx/whoosh-soft.mp3` / `sfx/camera-shutter.mp3`; `{conflict 1, copy 49, missing-source 1}`; sha `4f5f84c5…` before = after; `MODULE_NOT_FOUND` at `negatives.txt:43-49` (the verifier's `node -e`) | **CHANGED** (evidence cited) |
+| 29 | moved clip "then it is `unchanged`" (note 1) | S:157-161, T:518 | `sed -n 89,92p catalog-import.ts` (`decide`), :121 | `update` when `changedFields` non-empty | **CHANGED** → `unchanged` or `update` (fields only, no copy) |
+| 30 | `scanLibrary(root)` :203 (:200 before fix round 1) | S:161-162, T:518 | `grep -n` at HEAD / `git show 3a39dc7:` | 203 / 200 | ok |
+| 31 | N6: "chime-reward copies now: 2", `unchanged · my-favs/camera-shutter.mp3`, `{unchanged: 51}` | S:164-167, T:518 | grep `negatives.txt`, `import-6-moved.log` | match | ok |
+| 32 | editor repo "`git status` shows sfx/catalog.json, catalog.json, faces/README.md modified" | S:169-176 | `git -C D:/repos/claude-youtube-editor --no-optional-locks status --porcelain -- media faces`; `stat`; `editor-{before,after}.json` | 4 modified (+ `sfx/palette.json`) + untracked; mtimes 2026-08-15…10-16; digest `569a3cbe…` equal | **CHANGED** → dated, complete, verifier digest cited |
+| 33 | fix-round-1 line: "byte-identical to HEAD", `3a39dc7..HEAD` = test only, `wt/out` current, red 1 \| 6 (7), 25 / 219, 26 / 10 | S:184-192, T:520 | `git rev-parse HEAD:src/main/services/library/catalog-import.ts`; `git diff --stat 3a39dc7..HEAD -- src/ scripts/`; `fix1-*.log` | `c6342087…`; test only; logs match | **CHANGED** → "its committed blob `c6342087…`, still the blob at HEAD", "still so at HEAD" (+ T:520 `51dff42`) |
+| 34 | evidence list (every file) | S:203-210 | existence check (audit1.mjs) | all exist | ok |
+| 35 | material "at `5247ed9` (`src/` as of `4aed92f`)" | T:510 | `git log` | historical, true | ok |
+| 36 | the round-2 line: `ff7f302`, `git diff --stat 893b305..HEAD -- src/ scripts/` empty | S:193-202, T:521 | re-run after commit 2 (below) | — | new |
+
+Post-commit git-state checks (re-run at the final HEAD — see the report / LOG line): `git log -1 --format=%h -- src/` → `4fa1551`;
+`git log -1 --format=%h -- src/ ':(exclude)*.test.ts'` → `4aed92f`; `git log --format=%h 4aed92f..HEAD -- src/` → `4fa1551`;
+`git diff --stat 4aed92f..HEAD -- src/` → the test, 7 lines; `git log -1 --format=%h -- scripts/` → `5247ed9`; `git diff --stat
+3a39dc7..HEAD -- src/ scripts/` → the test only; `git diff --stat 893b305..HEAD -- src/ scripts/` → empty; `git diff --name-only
+5d77600..HEAD` = the 76 names of `diff-list.txt`; `HEAD:…/catalog-import.ts` = `c6342087…`.
 
 Builder #4, 2026-10-28 — FIX ROUND 1 (test + docs only; no app launch, no importer run, no profile copy; logs in
 `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\fix1-*.log`):
@@ -328,7 +388,14 @@ Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-t
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 2 — builder #5, RECORDS ONLY (orchestrator, 2026-10-28; verifier round 2 FAILED on one stale line, R3 — see
+**E4 verifier round 3, records only:** check fix round 2 (`ff7f302` + the DONE commit) against HEAD and the evidence — R3
+(Status.md:22-27 quotes `git log` / `git diff` output that holds at HEAD), note 1 (S:157-161, T:518 — `decide`,
+`catalog-import.ts:89-92`), note 2 (S:151-157, T:518 — `…\E4-verify\neg-lib\.vidtsx\index.json`, 49 entries), the audit table under
+Verified (36 rows; every **CHANGED** row), the round-2 lines (S:193-202, T:521) and that `git diff --stat 893b305..HEAD -- src/
+scripts/` is empty (so the round-1 gates, exit evidence and `wt/out` built at `5247ed9` still stand). Nothing to re-run live;
+on the verifier's OWN scratch only if anything is (never the E4 profile's library, never Hasan's).
+
+(Done 2026-10-28 by builder #5 — see Verified:) **FIX ROUND 2 — builder #5, RECORDS ONLY (orchestrator, 2026-10-28; verifier round 2 FAILED on one stale line, R3 — see
 "Verifier round 2" under Open problems). E4 has 2 of 3 FAILs: a third stops the run, so this round must leave NO false
 statement in the E4 records.** No `src/`, `scripts/` or test change. In order: (1) **R3:** `Status.md:22` "`src/` last changed in
 `4aed92f` — `git diff --stat 4aed92f..HEAD -- src/` is empty" is false since `4fa1551` → "product code last changed in `4aed92f`;
@@ -443,6 +510,10 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
   confirms it, but Status cites no file; **3** with `vi.mock`'d modules followed, `shot-bundle-in-place` hits 18 files (rule (b) as
   written does not follow them); **4** vitest from the worktree updates the gitignored `wt/node_modules/.vite/vitest/…/results.json`.
 
+**Fix round 2 (builder #5, 2026-10-28): R3, notes 1, 2 CLOSED** in the records (`ff7f302` + the DONE commit), plus the audit's
+other changes (Verified, 36 rows). Notes 3 / 4 need no records change (rule (b) as written does not follow `vi.mock`'d modules —
+already stated; the gitignored vitest cache is not E4's). Not edited (orchestrator's file): `ORCHESTRATOR.md:921`. Nothing open.
+
 **Fix round 1 (builder #4, 2026-10-28): R1, R2, N1, N2 CLOSED** — R1 + R2 + N2 in the records (`51dff42`), N1 by the test
 (`4fa1551`, red with M1 → green); N3 / N4 / N5 need no change (already recorded). Nothing open.
 
@@ -494,6 +565,7 @@ files on screen + the durations in the index / `list_assets` row.
 - The gates at `cf5328d` (`8dba927`) and the records — Status.md E4 entry, TESTING §18.16 (`ce9aaac`). Re-run the gates only if
   `src/` changes.
 - Fix round 1: the N1 test (`4fa1551`, red → green) and the R1 / R2 / N2 / fix-round records (`51dff42`).
+- Fix round 2: R3 / notes 1–2 / the audit (`ff7f302` + the DONE commit) — re-audit only the lines a later change touches.
 
 ## For Hasan (real-video list candidates)
 
@@ -515,3 +587,6 @@ files on screen + the durations in the index / `list_assets` row.
 - 2026-10-28 · builder #4 (fix round 1) · ~35 calls · N1 test (`snapshot` records folders) red with M1 → green (`4fa1551`);
   records R1 / R2 / N2 + the verifier-round-1 line in Status.md + TESTING §18.16 (`51dff42`); library suites 25 files / 219
   tests; tsc 26 / 10; status DONE (this commit). No product-code change, no rebuild, no app launch, no importer run.
+- 2026-10-28 · builder #5 (fix round 2) · ~50 calls · records only: R3 (the "The code" header quotes git output), notes 1–2,
+  a 36-row audit of the E4 Status entry + TESTING §18.16 (13 rows changed), the round-2 lines (`ff7f302`); status DONE (this
+  commit). No `src/` / `scripts/` / test change, no build, no launch, no importer run, no vitest.

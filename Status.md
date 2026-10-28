@@ -89,7 +89,8 @@
   failed clip, else 0. **Proof:** live on the E4 library, `live-1-dry.json` → rc 0, `{copy: 51}`, 0 problems, 0.475 s; a
   sha256 over every file of the target tree incl. `.vidtsx/index.json` `6ca7edd6…` (7 files, 9,446 B) before = after
   (`tree-before-dry.json` / `tree-after-dry.json`); on the scratch smoke root no folder was created (empty-tree hash
-  `e3b0c442…` before = after). Unit: the tree snapshot is equal and no `.vidtsx/` appears; since fix round 1
+  `e3b0c442…`, 0 files, before — `…\.vidtsx-temp\end-to-end\E4\smoke-tree-before.txt` — = after, the after hash printed by
+  builder #2's console, not filed). Unit: the tree snapshot is equal and no `.vidtsx/` appears; since fix round 1
   (`4fa1551`, verifier round 1 N1) the snapshot lists every FOLDER as well as every file, so a dry run that creates an
   empty folder fails it (red with the verifier's mutation M1, green reverted). The live dry run above ran before any
   `index.json` existed, so its "incl. `.vidtsx/index.json`" was vacuous (N2); the dry run with an index PRESENT is verifier
@@ -189,7 +190,7 @@
   `catalog-import.test.ts` only — still so at HEAD), so no rebuild — `wt/out` built at `5247ed9` stays current (tests are
   not in the app bundle). Targeted runs: `src/main/services/library` + `library-listing.test.ts` 25 files / 219 tests
   passed; types web 26 / node 10 (`…\.vidtsx-temp\end-to-end\E4\fix1-*.log`).
-- **Verifier round 2 FAIL (records: R3) → fix round 2** (records only, 2026-10-28; the code, the exit and the gates passed
+- **Verifier round 2 FAIL (records: R3) → fix round 2 `ff7f302`** (records only, 2026-10-28; the code, the exit and the gates passed
   again — evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\r2\`). R3: "The code" header claimed `git diff --stat
   4aed92f..HEAD -- src/` was empty — false since `4fa1551`; it now quotes the commands and their output. Notes: (1) a
   rescanned moved clip is `unchanged` OR `update` (fields only), never re-copied ("Not measured / open", TESTING §18.16); (2)
