@@ -8,7 +8,9 @@
 // more than "soft", which most catalog clips carry), and a match needs either
 // half the weight covered, or the prompt's HEAD word (the sound itself — the
 // last word of its first clause) plus 30 %. Words after a negation ("no music,
-// no metallic ring" — the catalog prompts are full of them) never count.
+// no metallic ring" — the catalog prompts are full of them) never count, and
+// neither do a prompt's placement words ("… when the slide changes", "… until
+// the reveal"): they say WHEN the sound plays, not what it is.
 
 import type { LibraryIndexEntry } from '../../../shared/types/asset-library';
 import { mediaKindOf } from '../../../shared/media-kinds';
@@ -45,6 +47,17 @@ const SAME_SOUND: Readonly<Record<string, string>> = { swoosh: 'whoosh', woosh: 
 const CLAUSE_CUT = new Set([
   'for', 'with', 'at', 'like', 'into', 'on', 'in', 'of', 'to', 'from', 'that', 'which', 'as', 'over', 'under', 'between',
   'after', 'before', 'during', 'across', 'through',
+]);
+/**
+ * A prompt's subordinating conjunctions: from one of these to the clause end the words say WHEN the sound plays
+ * ("when the slide changes", "until the reveal", "once the scene switches", "as soon as …"), so they are dropped
+ * like negated words — they never pick the head word nor weigh as qualifiers. No catalog clip describes the scene
+ * event, so such a word hits nothing and, carrying the highest idf, only dilutes the coverage; when it does hit, it
+ * is a coincidence ("switches" → a toggle's `switch` tag). "as" is one unless "a" / "an" follows ("as a
+ * transition" names the sound's role — the preposition cut keeps it as a qualifier).
+ */
+const PLACEMENT = new Set([
+  'when', 'whenever', 'while', 'whilst', 'until', 'till', 'once', 'if', 'unless', 'because', 'where', 'wherever', 'as',
 ]);
 const STOP_WORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'so', 'as', 'at', 'be', 'by', 'do', 'if', 'in', 'is', 'it', 'me', 'my', 'of', 'on',
@@ -101,9 +114,21 @@ export function soundTokens(text: string): string[] {
   return [...new Set(clauseTokens(text).flat())];
 }
 
+function startsPlacement(words: string[], i: number): boolean {
+  return PLACEMENT.has(words[i]) && !(words[i] === 'as' && (words[i + 1] === 'a' || words[i + 1] === 'an'));
+}
+
+/** The prompt's clauses, each cut where a placement clause starts ("a whoosh when the slide changes" → "a whoosh"). */
+function promptClauses(prompt: string): string[][] {
+  return clauses(prompt).map((words) => {
+    const at = words.findIndex((_, i) => startsPlacement(words, i));
+    return at >= 0 ? words.slice(0, at) : words;
+  });
+}
+
 /** The head clause's raw words: the first clause, cut before a preposition once a content word was seen. */
 function headClause(prompt: string): { head: string[]; rest: string } {
-  const all = clauses(prompt);
+  const all = promptClauses(prompt);
   const at = all.findIndex((c) => c.some((w) => expand(w).length > 0));
   const first = at >= 0 ? all[at] : [];
   const head: string[] = [];
