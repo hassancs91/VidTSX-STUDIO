@@ -310,22 +310,83 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   trap-snap · "a door knock" → knock-solid | chess-piece-capture · "a dog bark" → no match · music "warm lo-fi bed" →
   lofi-warm · "calm ambient bed under speech" → ambient-pad 0.64 · "upbeat corporate rock with drums" → no match · "warm
   lo-fi bed" ≥ 120 s → no match.
-- Not yet run (after builder #2): the full worktree vitest, anything live (`wt/out` IS rebuilt at `8bde97c`).
+- Not yet run (after builder #2): the full worktree vitest (still not run after builder #3 — the gates).
+
+### The live step (builder #3, 2026-10-28, ~20:00–20:15 local) — ALL exit measurements PASS; no code change
+
+Kit (NEW, scratch, not committed): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\` — `launch.sh` (E1's, profile E3,
+CDP 9263, `RUN=n` → `…\vidtsx-e2e\E3\app-n.log`, NO stand-in env), `watchdog.ps1` (E1's, E3 profile mark), `restore.ps1` /
+`cdp.mjs` (B6's, port 9263), `e3.mjs` (`root` · `probe` · `assets` · `assets2` · `case <name> "<ask>"`; B6's `findCur`
+agent reader), `vitest.e3.config.ts` (E2's) + `tools-noprovider.e3.test.ts` / `tools-standin.e3.test.ts` (E2's mocks:
+electron userData = E3 profile, settings-db → only the Studio root, `getRemotionBinariesDir: () => null`, ai-usage
+sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (+ `live-assets*.json`, `turns.jsonl`,
+`tools-*.json`, `assets-details.png`, `assets-full.png`, `import*.json|log`).
+- **Guard** before each launch / the import: C: 50.3 GB, D: 43.8 GB, headroom 28.3–28.8 GB; no electron.exe; no
+  `%TEMP%\vidtsx-studio\export`. Watchdog ran for each launch (log `…\E3\watchdog.log`).
+- **Step 1** — launch 1 (no stand-in): first call `studioRootSet(E3\root)` → `studioRootGet` = `D:\…\E3\root`;
+  `libraryRootGet` = `C:\…\profiles\E3\profile\assets` (`isOverride false`); active provider `claude-subscription`. App
+  stopped (4 processes, 0 left). Importer from the worktree root: `node scripts/import-sfx-library.mjs --library
+  <profile>\assets --from D:\repos\claude-youtube-editor --dry-run --report …\E3\import-dry.json` → rc 0, `items 51, copy
+  51, problems 0`; same without `--dry-run` (`--report …\E3\import.json`) → rc 0, `items 51, copy 51, problems 0, failed 0,
+  4.699 s, probe−catalog −42…0 ms`; `sfx\` 45 files, `music\` 6; noLicence = the 4 piano chords (as E4).
+- **Step 3a (tool level, no provider, app stopped)** — `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+  --config D:/repos/VidTSX-STUDIO/.vidtsx-temp/end-to-end/E3/vitest.e3.config.ts tools-noprovider` → 1 passed; engine
+  `providers [] active null`, no stand-in env. `generate_sfx({ prompt: 'a soft airy whoosh for a transition' })` → 19 ms,
+  not an error, "The library already has 3 sounds matching … — nothing was generated (no cost, no provider needed):"
+  `sfx/whoosh-soft.mp3` (0.68 s · motion · tags whoosh, transition, cutaway, air, swipe, motion · −20.0 LUFS · used in
+  16 editor ids) | `sfx/whoosh-wind.mp3` (1.20 s) | `sfx/whoosh-reverse.mp3` (0.88 s) → the matches come BEFORE the
+  provider check. `list_assets(library, audio, 'whoosh')` → rows incl. the 4 whoosh-tagged clips + dash-zip + flame-snuff;
+  `list_assets(…, 'cuckoo clock')` → "No matching assets in the library." (not an error); `generate_sfx('a cuckoo clock
+  chime')` → isError "No audio provider is configured. Ask the user to add an ElevenLabs key in AI → Providers." (no
+  crash); `generate_music('warm lo-fi bed', 30)` → `music/lofi-warm.mp3`. Index byte-identical before / after, no
+  `generated/` file. (Run BEFORE the live turns on purpose — see step 3b.)
+- **Step 2 — Assets screen** (launch 2, no stand-in; first call `studioRootSet`; the `sfx` folder opened by a
+  double-click on its folder tile): `[data-tile-play]` of `whoosh-soft.mp3` (real mouse click) → after 0.4 s the shared
+  `audio[data-asset-audio="tile"]` `paused false, currentTime 0.21, readyState 4, duration 0.680`, `src` =
+  `http://127.0.0.1:3200/asset?path=C%3A%5C…%5Csfx%5Cwhoosh-soft.mp3` (decoded = the tile's path); after 1.6 s it had played
+  to its end (0.68). On the longest sfx (`piano-a-min.mp3`, 2.6 s): `paused false`, `currentTime 0.415 → 1.433` over 1.0 s,
+  button `data-tile-play="playing"`. Details panel (`assets-details.png`): `<audio controls>` present; chips `origin:imported`
+  + 6 tags; rows "Duration 0.7 s · Category motion · Loudness −20.0 LUFS · Peak −1.6 dBFS · sample peak · Source
+  elevenlabs:sound-generation · Model eleven_text_to_sound_v2 · Licence ElevenLabs generated … · Used in short-1-chess …
+  video-2". Details `play()` → `paused false, 0.459 → 1.474` over 1 s; then a tile play on whoosh-soft → the details player
+  `paused true` (1.593) and the tile plays whoosh-soft (one sound at a time). Chip `tag:whoosh` → tiles **45 → 4**
+  (whoosh-data-burst / -wind / -soft / -reverse), pill "Tag: whoosh ×"; cleared → 45; chip `origin:imported` → 45 → 45, pill
+  "Origin: imported ×" (every sfx is imported — nothing to narrow here; unit-tested).
+- **Step 4 — the whoosh case LIVE** (launch 2, NO stand-in env, keyless `claude-subscription`; probe
+  `llmGenerate({ prompt: 'Say OK', providerId: 'claude-subscription' })` → success, "OK", 9.5 s, claude-sonnet-5-5).
+  THREE FRESH projects (e3-w1, e3-w2, e3-cuckoo), each with `clip-a.mp4` + `clip-b.mp4` (3 s each, made with ffmpeg-full
+  into `…\E3\media`; added via `studioMediaImport` + the app's `studioProjectLoad`/`Save` (the editor not open yet — the
+  renderer normally adds them, `useStudioProject.ts:170-176`), then the Media pool's "Add to timeline" ×2 → V1 0–3 | 3–6 s,
+  the first cut at 3.0 s). One typed turn each (real input):
+  - **e3-w1** "Add a soft whoosh at the first cut." → `list_assets(library, audio, "whoosh")` → `insert_asset(assetId
+    "library:sfx/whoosh-soft.mp3", lane audio, at 2.8)` → card `prop_mvsfivc6_ihb0uj` kind `insert-plan` status `proposed`
+    (2.8 s, 0.680 s); `generated/` none before / after; `whoosh-soft` usedIn 16 → 17 (+`e3-w1`); usage 1 row
+    claude-subscription / claude-sonnet-5-5 / featureSource `auto-cut` / 910 in · 681 out; 23.4 s. **PASS.**
+  - **e3-w2** same ask → `list_assets(…, "soft whoosh")` → `insert_asset("library:sfx/whoosh-soft.mp3", audio, 2.8)` →
+    `prop_mvsfket2_qnj0tr` insert-plan proposed; no generation; usedIn 17 → 18 (+`e3-w2`); 1 usage row; 24.4 s. **PASS.**
+  - **e3-cuckoo** "Add a cuckoo clock chime at the first cut." → `list_assets("cuckoo")` "No matching assets" →
+    `list_assets("chime")` → `generate_sfx(prompt "A wooden cuckoo clock chime: …", 2 s, category …)` → isError "No audio
+    provider is configured …"; no card, no generation; reply "I couldn't add a cuckoo chime. The library has no cuckoo
+    sound, and generating one needs an ElevenLabs key …" + offers `chime-reward` as a stand-in, asks first. **PASS.**
+  3 model turns + the probe; 0 retries. App stopped (5 processes, 0 left).
+- **Step 3b (stand-in control, app stopped, a SEPARATE vitest invocation — run AFTER the live negative so the generated
+  cuckoo could not answer it)**: `… vitest.mjs run --config …\E3\vitest.e3.config.ts tools-standin` → 1 passed;
+  `VIDTSX_AUDIO_STANDIN_FILE = …\E3\standin-e3.mp3` (own: sine 880 Hz 1.6 s, −25.8 LUFS in → a gain-UP case); engine
+  active `standin`. `generate_sfx({ prompt: 'a cuckoo clock chime', category: 'ui', tags: ['cuckoo','clock','chime'] })`
+  → ONE new file `generated/sfx-a-cuckoo-clock-chime.mp3`: duration 1.6, tags cuckoo/clock/chime, category ui,
+  `loudnessLufs −20.26`, `peakDbfs −16.67` (true), source standin, usedIn `["e3-tools"]`; independent ffmpeg-full ebur128
+  **I −20.2 LUFS, TP −16.7**. The SAME ask again (`{ prompt: 'a cuckoo clock chime' }`) → "The library already has 1
+  sound matching … — nothing was generated", `library:generated/sfx-a-cuckoo-clock-chime.mp3 … used in: e3-tools`, 0 new
+  files (a generated sound is found before it is regenerated). `generate_sfx({ prompt: 'soft whoosh', force: true })` → 1
+  new file `generated/sfx-soft-whoosh.mp3` (generated although 3 library whooshes match).
 
 ## Next step (ONE concrete instruction)
 
-**Builder #3:** run the live plan (f) from the copied E3 profile — no model turn until the Assets-screen check is
-recorded: guard + E-d4 → launch `wt/out` on CDP **9263** with `--user-data-dir=…\profiles\E3\profile` (E1 kit
-`launch.sh`, WITHOUT `VIDTSX_AUDIO_STANDIN_FILE`), first CDP call `studioRootSet('D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E3\root')`,
-then `libraryRootGet()` must equal `<profile>\assets` → STOP the app → E4's importer `--library <profile>\assets` dry
-run, then the real run (E4 HANDOFF for the exact command) → relaunch (watchdog on) → Assets screen over CDP (filter
-clicks to `offsetParent !== null`; restore the window with E1's `restore.ps1` in the same call): click the
-`[data-tile-play]` of `sfx/whoosh-soft.mp3` → read `audio[data-asset-audio="tile"]` `paused === false`, `currentTime`
-advancing over ~1 s, `readyState ≥ 2`, `src` = `<server>/asset?path=<encoded abs path>`; select it → the details
-panel shows `audio[data-asset-audio="details"]`, the `[data-chip]` pills and the sound rows; click `[data-chip="tag:whoosh"]`
-→ the grid narrows (tile count before / after, `[data-chip-filter]` pill present); one still of the details panel →
-`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\`. Then the tool-level checks (exit item 2) and the model turns (whoosh ×2,
-negative, stand-in control) per (f).
+**Builder #4 (gates + records):** with no app running and the guard passed, run the full worktree vitest from the
+worktree root (`node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --maxWorkers=2` if headroom < 10 GB; log to
+`…\E3\full-vitest.log`; green except the three E-d2a resolution suites + rule (b)) and `tsc` web / node (26 / 10), then
+write the Status.md entry at the top, TESTING **§18.17** from the "live step" record above + `live.json`, and the E2 / E4
+Status TITLE fixes; set this HANDOFF to DONE-pending-verifier. No new live run is needed.
 
 ## Open problems
 
@@ -338,6 +399,15 @@ negative, stand-in control) per (f).
   plan's T6 bullet names only `generate_sfx`; reason in the note (a)); `list_assets`' query broadened to all-words over
   path + description + tags + category (strictly broader than before for one word).
 - `audio-tools.test.ts` is 302 lines (the ~300 rule) — split the E3 describe into its own file if it grows.
+- From the live step (none blocking, none a code defect of E3): (1) `list_assets(query: 'whoosh')` also lists
+  `flame-snuff` whose description says "no whoosh" — the listing query is a plain word match (the matcher's negation rule
+  is not applied there); harmless (the model picked whoosh-soft both times), a later polish. (2) The Studio assistant's
+  usage rows carry `featureSource: "auto-cut"` for an SFX turn — a label question for the usage log, not E3's. (3) The
+  stand-in returns identical bytes every call, so the `force` whoosh got the SAME project asset id as the cuckoo (the pool
+  dedups by hash) — a stand-in artifact (real generations differ). (4) Not observed live: details-play pausing a tile
+  that is STILL playing (both tile sounds had ended first); the other direction (tile pauses the details player) was.
+  (5) An empty project `e3-whoosh-1` sits in the E3 root from the first `case` attempt (the driver then seeded assets
+  through load/save) — scratch, harmless.
 
 ## Do-not-redo
 
@@ -346,6 +416,9 @@ negative, stand-in control) per (f).
 - (c) the Assets screen (`8bde97c`) and (d) the G4 note — done and green; the `wt/out` rebuild at `8bde97c`; the E3
   profile copy (re-copy only if it is found damaged — verify `settings.db*` = 0 either way; the app creates a fresh
   store at its first launch, expected, never read it).
+- The live step (builder #3): the import into the E3 library (51 clips — the library now ALSO holds two generated
+  stand-in files under `generated/`), the Assets-screen CDP check, the tool-level checks (both drivers), the three live
+  turns. Do NOT re-run the model turns (E-d9 budget spent: 3 turns + the probe).
 
 ## For Hasan (real-video list candidates)
 
@@ -360,3 +433,6 @@ negative, stand-in control) per (f).
 - 2026-10-28 · builder #2 · ~38 calls · (c) the Assets screen, red first (chip filter + tag search, sound fields, URLs,
   one-at-a-time playback; 5 files / 38 tests), the components + wiring, tsc 26 / 10, `8bde97c`; (d) the G4 note;
   `wt/out` rebuilt; the E3 profile copied. Nothing launched, no importer, no model turn.
+- 2026-10-28 · builder #3 · ~42 calls · the live step: 2 launches (no stand-in), import 51, Assets screen CDP (play,
+  one-at-a-time, chips 45 → 4, still), tool level (no provider + stand-in, two drivers), whoosh ×2 + cuckoo live — all
+  PASS, no code change. Gates / records not started.
