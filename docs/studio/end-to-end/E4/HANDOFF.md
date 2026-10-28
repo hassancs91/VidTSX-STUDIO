@@ -217,6 +217,22 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
 
 ## Verified (exact commands + outputs)
 
+Builder #3, 2026-10-28 — THE GATES (app stopped: 0 `electron.exe`; HEAD `cf5328d`; `git diff --stat 4aed92f..HEAD -- src/` empty →
+no `src/` change since the service commit, `wt/out` at `5247ed9` is current, no rebuild). Outputs `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\`:
+- Guard: `Get-PSDrive C,D` → C 53.1 GB, D 43.8 GB free; headroom `(Get-CimInstance Win32_OperatingSystem).FreeVirtualMemory/1MB` →
+  29.5 GB (≥ 10 → default workers).
+- Full worktree vitest, from the worktree root: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run` >
+  `vitest-full-1.log` 2>&1 → `Test Files 3 failed | 489 passed | 5 skipped (497)` · `Tests 9 failed | 4165 passed | 35 skipped
+  (4209)` · `Duration 74.43s`; 0 "Test timed out". The 3 files / 9 tests = E-d2a's suites, resolution only: `builder-libraries` 1
+  (`@remotion/paths (builder-libraries.ts) is not installed`), `shot-bundle` 5 (`Could not resolve` `roughjs` / `@remotion/shapes` /
+  `@react-three/fiber` / `chroma-js` / `@remotion/google-fonts/SpaceGrotesk`), `shot-bundle-in-place` 3 (all three import
+  `chroma-js` — `Could not resolve "chroma-js" (v1.tsx:1)`; the two that pass do not import it).
+- Rule (b): `git diff --name-only 5d77600..HEAD` → `diff-list.txt` (76 files); `node C:\Users\hasan\AppData\Local\vidtsx-e2e\E1\import-graph.cjs
+  <wt> diff-list.txt` → `import-graph.txt`: builder-libraries 2 / shot-bundle 15 / shot-bundle-in-place 23 (vi.mock'd, not loaded:
+  shot-generator.ts, shot-import-land.ts, media-import.ts) / builder-unpack.mjs 1 local modules — touched by the E diff: **NONE**.
+- Types: `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS`; `-p tsconfig.node.check.json` → **10** (baseline); 0 lines
+  naming an E4 file (`tsc-web.log`, `tsc-node.log`).
+
 Builder #2, 2026-10-28 — the smoke on a SCRATCH root `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\smoke-root` (logs in
 `…\end-to-end\E4\smoke-*.log`, reports `…\vidtsx-e2e\E4\smoke-{dry,import,rerun}.json`):
 - Refusals: no `--library` → rc 2 "--library is required (there is no default library)"; `--library C:\nope\none` →
