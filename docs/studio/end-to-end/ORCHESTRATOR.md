@@ -921,3 +921,17 @@
   that drops its whole tag list does not clear the entry's tags. Slip: a HANDOFF edit by a Python script failed, so `dc41822`
   carries only line-number fixes and `ad7b415` the records — the next brief repeats "Edit/Write tools only". E3 HANDOFF gets
   session-6 notes. Builder #2 spawned (the script, smoke, live run, gates).
+- 19:20 · E4 builder #2 HANDOFF (~45 calls): `5247ed9` `scripts/import-sfx-library.mjs` (esbuild bundle of the service;
+  `electron` / `settings-db` stubs that throw; `--library` + `--from` required, `--dry-run`, `--report`; refuses a missing / non-
+  folder library or one inside `--from`); no `src/` change; `wt/out` rebuilt. Smoke on a scratch root, then LIVE on the E4
+  profile (CDP 9264, Studio root first, library root `<profile>\assets` confirmed, app stopped before the import): dry run tree
+  hash equal; 51 copied in 5.4 s; re-run 51 unchanged, tree + `index.json` byte-equal; a changed catalog COPY (one tag on
+  `wind-soft`) → 1 update, that entry's `tags` only, reverted by the original; `markLibraryUsedIn` appended `e4-exit` to
+  `whoosh-soft`'s 16 editor ids and a re-run kept it. Exit driver (real handlers): 51 / 51 sha256-identical, fields mapped,
+  `usedIn` verbatim, probe = ffprobe n8.1.2 0 ms; vs catalog `duration_s` 38 × 0 ms, 12 × +0.2…+0.5 ms (3-decimal rounding),
+  `camera-shutter` −42 ms (LAME trim); chords "no licence recorded"; `trap-snap`'s catalog tags hold `snap` twice → deduped
+  (the design note's "no tag needs normalizing" was wrong; the driver expects the deduped list). `list_assets` whoosh row ✓.
+  Assets: root `music` / `sfx` / `presets`, `sfx` 45 items 1.1 MB, `music` 6 items 7.5 MB (stills `…\vidtsx-e2e\E4\assets-*.png`);
+  the app's own scan added 6 `presets/` entries, changed none of the 51. The editor repo's `git status` shows its catalogs
+  modified — Hasan's own edits (sfx mtime 2026-10-10, music 2026-07-17); orchestrator check: no file in that repo written since
+  16:00 today. Builder #3 spawned (gates + records).
