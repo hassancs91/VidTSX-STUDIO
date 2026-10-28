@@ -195,6 +195,13 @@ follow, plus what earlier parts learned. Orchestrator-maintained; builders add a
   **WITHDRAWN 2026-10-23 23:00 — the former rule (a)** (`--root <wt>` started from the main checkout's
   directory): `vitest.config.ts` builds its aliases with `resolve('src/…')`, relative to the cwd, so that
   run loads the MAIN checkout's `@shared` / `@main` code (E1 verifier round 3). Do not use it as evidence.
+- **E-d13 — the vitest gate under EXTERNAL CPU load (orchestrator, 2026-10-28 21:30):** when another process (measured — e.g.
+  `vmmemWSL` at ~60 % of all cores, 21:27) holds the CPU and DRIVING's load rule above cannot be met in 3 default tries + one
+  `--maxWorkers=4` run, the counted full run is `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run --maxWorkers=2
+  --testTimeout=20000 --hookTimeout=20000` (4× the 5000 ms default; it does not change explicit `vi.waitFor` / per-test timeouts). It
+  must be green except the three E-d2a suites (resolution only) and DRIVING's named known list (`flow-render.test.ts:255`,
+  `shot-module-resolver.test.ts:151`, the zip-package suites), each of those green ALONE. Record the CPU measurement (top processes
+  over 5 s) with the run, and say in STATUS that E-d13 was used. Any other failure, or a timeout that persists at 20 s, is real.
 - **Studio root FIRST (E1 verifier round 3, 2026-10-23):** a fresh isolated profile's Studio root defaults to
   Hasan's real projects folder and the Home screen lists them on launch. Set `studioRootSet` in the first
   CDP call after the page is ready, before any navigation, and check it with `studioRootGet`; pass the path

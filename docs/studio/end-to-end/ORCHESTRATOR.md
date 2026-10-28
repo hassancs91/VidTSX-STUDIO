@@ -1038,3 +1038,16 @@
   turn 1 asked where the cut is: one source asset split into two V1 clips is invisible to the assistant — a later-track gap) → library
   card, no generation. Fix round 1 = builder #5 (F1 red-first with the nine prompts, a real-index ranking re-run, the M2b test,
   gates + rebuild, records incl. the two newly measured items and the split-clip gap). E3 FAIL count: 1 of 3.
+- 21:27 · E3 builder #5 HANDOFF (~63 calls): `b176881` F1 fix — a `PLACEMENT` set (`when whenever while whilst until till once if
+  unless because where wherever as`; "as" only when not followed by "a" / "an") drops the placement clause to its end (weight 0 —
+  catalog clips describe sounds, not scene events); a leading clause is skipped whole; `after` / `before` unchanged (half-weight
+  qualifiers; "a hit after the logo lands" 0.39, "a whoosh before the slide changes" 0.32 — near the 0.30 floor); red 11 / 13 on a
+  21-entry fixture copied from the real index → green, library + agent-tools 38 / 301. Real index (read-only): 16 of 70 prompts
+  changed, all to the right sound, none lost a match or its first result; every no-match stayed. `788c8d2` — `audio-tools.test.ts`
+  split (302 → 202 + `audio-tools-reuse.test.ts` 173) + the `generate_music` `force` test (M2b red 1 / 13). tsc 26 / 10; rule (b)
+  NONE on 101 files; `wt/out` rebuilt at `788c8d2` (3 m 21 s). **Gate NOT counted:** five full runs (default ×3, mw4, mw2) each had 1–3
+  5000 ms timeouts beyond the E-d2a suites (`flow-render:255`, `shot-module-resolver:151`, `render-jobs`, `project-package`,
+  `agent-memory`), every one green alone, none importing changed code. CPU at 21:27: 68 %, `vmmemWSL` 61.7 % of all cores (Docker /
+  WSL — not ours). **Decision E-d13** (DRIVING "Track E"): under measured external load the counted run is `--maxWorkers=2
+  --testTimeout=20000 --hookTimeout=20000`, green except the E-d2a suites and DRIVING's named known list (each green alone); stated in
+  STATUS. Builder #6 spawned (the counted run under E-d13, then the records).
