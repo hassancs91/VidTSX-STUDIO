@@ -11,6 +11,15 @@ import {
   CopyIcon,
 } from '@shared/components/library-icons';
 import type { AssetEntry } from '../types';
+import { TilePlayButton } from './TilePlayButton';
+
+/** An audio tile's play control state (E3) — one screen-owned player drives every tile. */
+export interface TileAudio {
+  playing: boolean;
+  failed: boolean;
+  url: string | null;
+  onToggle: () => void;
+}
 
 interface AssetTileProps {
   entry: AssetEntry;
@@ -27,6 +36,8 @@ interface AssetTileProps {
   onDrop: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
   isDropTarget: boolean;
+  /** Present on audio files only. */
+  audio?: TileAudio;
 }
 
 function CategoryIcon({ entry }: { entry: AssetEntry }) {
@@ -56,6 +67,7 @@ export function AssetTile({
   onDrop,
   onDragLeave,
   isDropTarget,
+  audio,
 }: AssetTileProps) {
   const isFolder = entry.node.type === 'folder';
   const isImage = entry.category === 'image';
@@ -110,6 +122,7 @@ export function AssetTile({
             <CategoryIcon entry={entry} />
           </span>
         )}
+        {audio && !isFolder && <TilePlayButton {...audio} />}
         {!isFolder && (
           <span
             role="button"

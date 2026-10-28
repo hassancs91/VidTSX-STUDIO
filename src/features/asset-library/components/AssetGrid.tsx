@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { AssetTile } from './AssetTile';
 import { AssetContextMenu } from './AssetContextMenu';
 import type { AssetEntry } from '../types';
+import type { AudioPlayback } from '../hooks/useAudioPlayback';
+import { moduleAssetUrl } from '../services/asset-urls';
 
 interface AssetGridProps {
   entries: AssetEntry[];
@@ -18,6 +20,8 @@ interface AssetGridProps {
   onMove: (sourcePath: string, targetFolder: string) => void;
   /** Optional per-tile subtitle (folder size, description). */
   subtitleFor?: (entry: AssetEntry) => string | undefined;
+  /** The screen's one shared player — audio tiles get a play / pause control (E3). */
+  playback?: Pick<AudioPlayback, 'playingPath' | 'failedPath' | 'toggle'>;
 }
 
 interface MenuState {
@@ -42,7 +46,20 @@ export function AssetGrid(props: AssetGridProps) {
     onDelete,
     onMove,
     subtitleFor,
+    playback,
   } = props;
+
+  const audioFor = (entry: AssetEntry) => {
+    if (!playback || entry.node.type !== 'file' || entry.category !== 'audio') return undefined;
+    const path = entry.node.path;
+    const url = moduleAssetUrl(moduleServerUrl, path);
+    return {
+      playing: playback.playingPath === path,
+      failed: playback.failedPath === path,
+      url,
+      onToggle: () => void playback.toggle(path, url),
+    };
+  };
 
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
@@ -73,6 +90,7 @@ export function AssetGrid(props: AssetGridProps) {
             moduleServerUrl={moduleServerUrl}
             subtitle={subtitleFor?.(entry)}
             isDropTarget={dropTargetPath === entry.node.path}
+            audio={audioFor(entry)}
             onOpen={() => onOpen(entry.node.path)}
             onSelect={() => onSelect(entry.node.path)}
             onCopyPath={() => onCopyUrl(entry.node.path)}
