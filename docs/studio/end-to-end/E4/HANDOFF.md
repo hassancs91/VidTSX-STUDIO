@@ -1,5 +1,5 @@
 # E4 — The importer over the reference `sfx/` and `music/` catalogs
-status: FIX
+status: DONE
 
 > Track E, session 5 — **runs BEFORE E3** (E3's exit, the whoosh case, needs the imported library). **Work only in
 > the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are
@@ -198,7 +198,7 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
    mocked only) — **fixtures are WAVs written from JS, not copies of the real clips** (a unit suite must not depend on
    another repo on disk; the 51 real mp3s go through the live run): dry run writes nothing; import byte-identical +
    fields + probe; re-run byte-equal index; changed catalog → one entry; Studio id in `usedIn` kept; conflict not
-   overwritten; moved file not re-copied. `library-used-in.test.ts` + `mergeUsedIn`; `pre-e1-control.test.ts` extended
+   overwritten; moved file not re-copied (after a rescan only — R1 / E-d12, fix round 1). `library-used-in.test.ts` + `mergeUsedIn`; `pre-e1-control.test.ts` extended
    with `audio.license` (E-d5).
 
 ### Built (builder #2) — the script (design §7)
@@ -216,6 +216,32 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
   one sha256 over every file (relPath + sha256, sorted) incl. `.vidtsx/index.json`.
 
 ## Verified (exact commands + outputs)
+
+Builder #4, 2026-10-28 — FIX ROUND 1 (test + docs only; no app launch, no importer run, no profile copy; logs in
+`D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\fix1-*.log`):
+- N1 test change: `catalog-import.test.ts` `snapshot` (:45-57) pushes a `<rel>/` line per folder before recursing, plus
+  `<rel> <sha256>` per file. RED first — mutation M1 applied TEMPORARILY with the Edit tool in `planCatalogImport`
+  (`catalog-import.ts`, after `loadIndex`: `await fs.mkdir(path.join(libraryRoot, 'sfx'), { recursive: true });`), then
+  `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library/catalog-import.test.ts` → rc 1,
+  `× the dry run (plan) writes nothing and states every file, target and the mapped fields` · `AssertionError: expected [ 'sfx/' ]
+  to deeply equal []` · `Test Files 1 failed (1)` · `Tests 1 failed | 6 passed (7)` (`fix1-red.log`). (Before the change the same
+  mutation passed — the verifier's M1: 24 / 24, `…\E4-verify\mutate.txt`.)
+- GREEN: the mutation removed with the Edit tool; `git hash-object src/main/services/library/catalog-import.ts` = `HEAD:` blob
+  `c6342087…` (byte-identical); `git diff --name-only -- src/ scripts/` → only `catalog-import.test.ts`; the same command → rc 0,
+  `Test Files 1 passed (1)` · `Tests 7 passed (7)` (`fix1-green.log`).
+- Targeted suites: `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run src/main/services/library
+  src/main/services/studio/agent-tools/library-listing.test.ts` → rc 0, `Test Files 25 passed (25)` · `Tests 219 passed (219)`,
+  6.41 s (the 24 library files incl. `catalog-import*.test.ts`, `library-used-in.test.ts`, `pre-e1-control.test.ts`; no test
+  exists for `scripts/`) (`fix1-suites.log`).
+- Types: `tsc -p tsconfig.web.check.json --noEmit` → **26** `error TS`; `-p tsconfig.node.check.json` → **10**; 0 lines naming an
+  E4 file (`fix1-tsc-web.log`, `fix1-tsc-node.log`).
+- Commits: `4fa1551` (test, `catalog-import.test.ts` only), `51dff42` (records: Status.md + TESTING §18.16), + this HANDOFF / LOG
+  commit. `git diff --stat 3a39dc7..HEAD -- src/ scripts/` → `catalog-import.test.ts | 7 +++++--` only. No rebuild: `wt/out` at
+  `5247ed9` stays current (no product code changed; tests are not in the app bundle).
+- Records changed (`51dff42`): TESTING.md:511 (item 1: N1 + N2), :518 (R1: the rescan condition, verifier N6 evidence, test
+  :203, "For Hasan"), :520 new (the verifier-round-1 → fix-round-1 line); Status.md:10 (title), :27-29 (`planClip` lookup through
+  index entries only), :46 (R2 `checkArgs` :74-83, refusals :81-82), :84-89 (N1 + N2), :139-149 (R1, was :132-134), :157-159
+  ("For Hasan" — open the app once first), :160-167 new (the fix-round line).
 
 Builder #3, 2026-10-28 — THE GATES (app stopped: 0 `electron.exe`; HEAD `cf5328d`; `git diff --stat 4aed92f..HEAD -- src/` empty →
 no `src/` change since the service commit, `wt/out` at `5247ed9` is current, no rebuild). Outputs `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\`:
@@ -302,7 +328,15 @@ Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-t
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 1 — builder #4 (orchestrator, 2026-10-28; verifier round 1 FAILED on the RECORDS only — see "Verifier round 1"
+**E4 verifier round 2:** check fix round 1 against the evidence — `4fa1551` (the test: `snapshot` records folders; re-apply M1
+and see it red, `fix1-red.log` / `fix1-green.log`), `51dff42` (records: TESTING §18.16 :511 / :518 / :520, Status.md E4 entry
+:10 / :27-29 / :46 / :84-89 / :139-149 / :157-167 — the "Records changed" line under Verified) and that `git diff --stat
+3a39dc7..HEAD -- src/ scripts/` is the test file only (so the round-1 gates, exit evidence and `wt/out` at `5247ed9` still stand).
+Re-run anything on the verifier's OWN profile / scratch only (never the E4 profile's library — E3 may use it; never Hasan's).
+Not edited here (orchestrator's file): `ORCHESTRATOR.md:921` (session-6 log) still says "a moved clip found by content hash,
+not re-copied" — its :950-954 record R1 / E-d12.
+
+(Done 2026-10-28 by builder #4 — see Verified:) **FIX ROUND 1 — builder #4 (orchestrator, 2026-10-28; verifier round 1 FAILED on the RECORDS only — see "Verifier round 1"
 under Open problems; decision E-d12 below).** No product-code change. In order: (1) **N1, test-only, red first:** in
 `src/main/services/library/catalog-import.test.ts` make the dry-run `snapshot` (:46-53) record DIRECTORIES as well as files
 (e.g. a `dir/` line per folder), then prove it catches the verifier's mutation M1: temporarily make `planCatalogImport` /
@@ -373,6 +407,9 @@ and hand off or continue by the 30 % rule; the script, the live run on the E4 pr
 
 ## Open problems
 
+**Fix round 1 (builder #4, 2026-10-28): R1, R2, N1, N2 CLOSED** — R1 + R2 + N2 in the records (`51dff42`), N1 by the test
+(`4fa1551`, red with M1 → green); N3 / N4 / N5 need no change (already recorded). Nothing open.
+
 ### Verifier round 1 — FAIL on the records only (2026-10-28; its own profile `profiles\E4-verify`, CDP 9274; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4-verify\`, kit `.vidtsx-temp\end-to-end\E4-verify\`)
 
 - **R1 (records defect).** `docs/studio/TESTING.md:518` "a moved file (same bytes elsewhere, found by `hashFileHead` + sha256) is
@@ -420,11 +457,14 @@ files on screen + the durations in the index / `list_assets` row.
   three Assets stills). The E4 library now holds the 51 clips (whoosh-soft `usedIn` ends with `e4-exit`) — E3 may use it.
 - The gates at `cf5328d` (`8dba927`) and the records — Status.md E4 entry, TESTING §18.16 (`ce9aaac`). Re-run the gates only if
   `src/` changes.
+- Fix round 1: the N1 test (`4fa1551`, red → green) and the R1 / R2 / N2 / fix-round records (`51dff42`).
 
 ## For Hasan (real-video list candidates)
 
 - Importing the catalogs into HIS real library (`%APPDATA%\VidTSX Studio\assets`) — the one run of the importer with
   his library as the explicit target, after he has read the dry run.
+- Before that run, if clips were moved by hand in his library: open the app once (Assets → Refresh) so the moves are indexed —
+  else each moved clip is copied again to its catalog place (a duplicate, nothing lost; E-d12).
 
 ## Agents so far (date · approx tool calls · what they covered)
 
@@ -436,3 +476,6 @@ files on screen + the durations in the index / `list_assets` row.
 - 2026-10-28 · builder #3 · ~38 calls · the gates (vitest 489 / 3 / 5 files, 4,165 / 9 / 35 tests, 74.43 s; rule (b) none;
   tsc 26 / 10 — `8dba927`); Status.md E4 entry (lines 10–150) + TESTING §18.16 (lines 509–520) (`ce9aaac`); status DONE (this
   commit). No `src/` change, no rebuild, no app launch, no importer run.
+- 2026-10-28 · builder #4 (fix round 1) · ~35 calls · N1 test (`snapshot` records folders) red with M1 → green (`4fa1551`);
+  records R1 / R2 / N2 + the verifier-round-1 line in Status.md + TESTING §18.16 (`51dff42`); library suites 25 files / 219
+  tests; tsc 26 / 10; status DONE (this commit). No product-code change, no rebuild, no app launch, no importer run.
