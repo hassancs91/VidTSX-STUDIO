@@ -201,7 +201,33 @@ all fields + requested_ms / force_instrumental; every `file` is `clips/<id>.mp3`
    overwritten; moved file not re-copied. `library-used-in.test.ts` + `mergeUsedIn`; `pre-e1-control.test.ts` extended
    with `audio.license` (E-d5).
 
+### Built (builder #2) — the script (design §7)
+
+- `scripts/import-sfx-library.mjs` (~220 lines): esbuild-bundles `catalog-import.ts` (`platform node`, `cjs`) into
+  `<repo>/.vidtsx-temp/import-sfx-library/catalog-import.bundle.cjs` with ONE plugin: `electron` → a stub (`isPackaged
+  false`, `getPath('userData')` THROWS, other names → `<tmp>/vidtsx-import-sfx-library/<name>`), the repo's
+  `settings-db` → a generated stub (every export of the real file, each throws), `@shared/ @main/ @logging/
+  @audio-engine/` → `src/`, every other bare specifier external. Refuses (exit 2) without `--library` / `--from`, a
+  non-folder `--library`, a `--library` (or `--report`) inside `--from`. Prints one line per item (action · relPath ·
+  sha256[0..12] · category · [tags] · LUFS · peak(kind) · used_in · dropped · changes · notes; after a write `probe` and
+  `probe-catalog` ms) + a `summary` JSON; `--report` writes `{summary, problems, items}`. Exit 1 on any conflict /
+  missing-source / problem / failed clip.
+- Scratch helper (not in the repo): `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\tree-hash.mjs <root> [out.json]` —
+  one sha256 over every file (relPath + sha256, sorted) incl. `.vidtsx/index.json`.
+
 ## Verified (exact commands + outputs)
+
+Builder #2, 2026-10-28 — the smoke on a SCRATCH root `C:\Users\hasan\AppData\Local\vidtsx-e2e\E4\smoke-root` (logs in
+`…\end-to-end\E4\smoke-*.log`, reports `…\vidtsx-e2e\E4\smoke-{dry,import,rerun}.json`):
+- Refusals: no `--library` → rc 2 "--library is required (there is no default library)"; `--library C:\nope\none` →
+  rc 2 "is not an existing folder — refusing"; `--library D:\repos\claude-youtube-editor\media` → rc 2 "lies inside
+  --from".
+- Dry run: `node scripts/import-sfx-library.mjs --library <smoke-root> --from D:/repos/claude-youtube-editor --dry-run`
+  → rc 0, `counts {copy: 51}`, 0 problems, `noLicence` = the 4 `piano-*` chords; tree hash before = after
+  (`e3b0c442…` empty, 0 files — no folder created).
+- Import: rc 0, `{copy: 51}`, 0 failed, 5.7 s, `probe − duration_s` −42…0 ms (n 51); `whoosh-soft` probe 0.680 s;
+  tree `075bc26e…` 52 files (51 + `index.json`) 9,069,944 B; dirs `.vidtsx music sfx`.
+- Re-run: rc 0, `{unchanged: 51}`, 0.38 s; tree `075bc26e…` and `index.json` sha256 `271c1d08…` BYTE-EQUAL.
 
 Builder #1, 2026-10-28 (worktree root; logs in `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E4\`):
 - Resource guard before the runs: `Get-PSDrive C,D` → C 53.3 GB, D 43.8 GB free; headroom
