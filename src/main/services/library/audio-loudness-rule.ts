@@ -1,6 +1,7 @@
 // The loudness rule generated sound is filed under (T6 / Q2, E-d7): −20 LUFS integrated under a −1.5 dBFS
-// true-peak ceiling — the editor repo's `gen_sfx.py normalize_clip()` rule, ported verbatim. Pure: no IO and no
-// ffmpeg here; audio-normalize.ts measures and applies.
+// true-peak ceiling — the editor repo's `gen_sfx.py normalize_clip()` rule, ported verbatim, plus E-d11 (the
+// ceiling must hold on the ENCODED file: the skip never keeps an over-ceiling peak, and the corrective-pass
+// helpers below). Pure: no IO and no ffmpeg here; audio-normalize.ts measures and applies.
 
 /** Integrated loudness every generated sound is normalized to (the SFX palette's `target_lufs`). */
 export const LOUDNESS_TARGET_LUFS = -20;
@@ -10,6 +11,15 @@ export const LOUDNESS_CEILING_DBFS = -1.5;
 export const LOUDNESS_GATED_BELOW_LUFS = -50;
 /** A gain this small is not worth a re-encode. */
 export const LOUDNESS_MIN_GAIN_DB = 0.1;
+/**
+ * E-d11: the ceiling is a property of the ENCODED file. When a lossy re-encode lands the true peak over it, the
+ * corrective pass re-encodes from the original with the gain lowered by the overshoot PLUS this margin — the
+ * codec's peak error moves a little between two encodes at gains a few tenths apart, so aiming 0.1 dB under the
+ * ceiling makes the corrective pass hold first time (the second pass is the backstop).
+ */
+export const LOUDNESS_CEILING_MARGIN_DB = 0.1;
+/** At most this many corrective re-encodes after the first (each from the ORIGINAL — one lossy generation). */
+export const LOUDNESS_MAX_CORRECTIVE_PASSES = 2;
 
 export interface LoudnessStats {
   /** Integrated loudness, LUFS (`-Infinity` when nothing passed the gate). */
@@ -77,7 +87,23 @@ export function planLoudnessGain(
       clamped = true;
     }
   }
-  gainDb = Math.round(gainDb * 100) / 100;
-  const skipped = Math.abs(gainDb) < LOUDNESS_MIN_GAIN_DB;
+  gainDb = round2(gainDb);
+  // The 0.1 dB skip keeps the file as it is — never one whose peak is already over the ceiling (E-d11).
+  const skipped = Math.abs(gainDb) < LOUDNESS_MIN_GAIN_DB && !isOverCeiling(peak, ceiling);
   return { gainDb: skipped ? 0 : gainDb, clamped, gated, skipped };
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * Is this true peak over the ceiling AS RECORDED (two decimals — the index's `peakDbfs` precision)? A file that
+ * records as −1.50 is at the ceiling, not over it. Digital silence (`-Infinity`) and NaN are never over.
+ */
+export function isOverCeiling(peakDbtp: number, ceiling = LOUDNESS_CEILING_DBFS): boolean {
+  return Number.isFinite(peakDbtp) && round2(peakDbtp) > ceiling;
+}
+
+/** The corrective pass's gain (E-d11): the applied gain minus the measured overshoot minus the margin, 0.01 dB. */
+export function correctiveGain(appliedGainDb: number, measuredPeakDbtp: number, ceiling = LOUDNESS_CEILING_DBFS): number {
+  return round2(appliedGainDb - (measuredPeakDbtp - ceiling) - LOUDNESS_CEILING_MARGIN_DB);
 }

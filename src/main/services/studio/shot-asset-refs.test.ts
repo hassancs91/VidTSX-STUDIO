@@ -199,4 +199,21 @@ describe('resolveShotAssetRefs — the usedIn landing for generate_tsx_shot asse
     await expect(resolveShotAssetRefs(project, { x: 'library:logos/nope.png' })).rejects.toThrow(/not found/i);
     expect(mocks.markLibraryUsedIn).not.toHaveBeenCalled();
   });
+
+  it('a library AUDIO ref beside a valid image ref throws "visual-only" and marks NOTHING (verifier round 1, F2)', async () => {
+    const soundAbs = path.join(libRoot, 'sfx', 'hit.mp3');
+    await fs.mkdir(path.dirname(soundAbs), { recursive: true });
+    await fs.writeFile(soundAbs, Buffer.from('mp3-1'));
+    const existing = asset({ id: 'a1', path: existingAbs, hash: 'h-existing' });
+    const project = { id: 'p1', assets: [existing] } as unknown as StudioProject;
+    mocks.importMediaFiles.mockResolvedValue({
+      assets: [asset({ id: 'a9', kind: 'audio', path: soundAbs, hash: 'h-fresh', probe: { duration: 1, hasAudio: true } })],
+      errors: [],
+    });
+
+    await expect(
+      resolveShotAssetRefs(project, { logo: 'library:logos/logo.png', snd: 'library:sfx/hit.mp3' }),
+    ).rejects.toThrow(/visual-only/);
+    expect(mocks.markLibraryUsedIn).not.toHaveBeenCalled();
+  });
 });

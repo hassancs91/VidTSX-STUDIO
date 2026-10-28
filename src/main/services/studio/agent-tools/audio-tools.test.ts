@@ -141,6 +141,27 @@ describe('Studio audio tools', () => {
     expect(answer).not.toContain('LUFS');
   });
 
+  it('a gated clip (too short / too quiet for a loudness reading) says it was peak-normalized and gives the peak (N5)', async () => {
+    generateAudioAsset.mockResolvedValue({
+      relPath: 'generated/sfx-a-tick.mp3',
+      kind: 'sfx',
+      durationSeconds: 0.25,
+      description: 'a tick',
+      providerId: 'elevenlabs',
+      model: 'eleven_text_to_sound_v2',
+      normalized: true,
+      loudnessGated: true,
+      peakDbfs: -1.62,
+    });
+    const { ctx } = makeCtx();
+    const res = await toolsByName(ctx).generate_sfx.handler({ prompt: 'a tick' }, {});
+    const answer = res.content[0].text;
+    expect(answer).toContain(
+      '(library:generated/sfx-a-tick.mp3, 0.25 s). Peak-normalized to −1.6 dBTP — too short or too quiet for a loudness (LUFS) reading.',
+    );
+    expect(answer).not.toContain('Loudness peak');
+  });
+
   it('generate_music is instrumental by default, takes a prompt + length + category + tags, and refuses with neither prompt nor plan', async () => {
     const { ctx } = makeCtx();
     const tools = toolsByName(ctx);

@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../utils/paths', () => ({ getRemotionBinariesDir: () => null }));
 
-const { measureLoudness, normalizeAudioFile } = await import('./audio-normalize');
+const { measureLoudness, normalizeAudioFile, summarizeFfmpegError } = await import('./audio-normalize');
 const { getFfmpegBinary, runFfmpeg } = await import('../studio/ffmpeg-bin');
 const { gaplessDuration, readMp3Gapless } = await import('../studio/mp3-gapless');
 
@@ -210,8 +210,33 @@ describe('normalizeAudioFile — the real bundled ffmpeg', () => {
     const r = await normalizeAudioFile(p);
     expect(r.normalized).toBe(false);
     expect(r.error).toMatch(/measure failed/);
+    // N2 (verifier round 1): ONE line — no CR/LF, capped, no absolute path (the full stderr is in the log only).
+    expect(r.error).not.toMatch(/[\r\n]/);
+    expect(r.error!.length).toBeLessThanOrEqual(230);
+    expect(r.error).not.toContain(dir);
     expect((await fs.stat(p)).size).toBe(0);
     expect(await tempFiles()).toEqual([]);
+  });
+
+  it('(N2) summarizeFfmpegError keeps the first line that reads as an error, without the path', () => {
+    const abs = 'C:\\Users\\u\\assets\\generated\\sfx-x.mp3';
+    const stderr = [
+      '[mp3 @ 000001b57b7d7cc0] Estimating duration from bitrate, this may be inaccurate',
+      `Input #0, mp3, from '${abs}':`,
+      '  Duration: 00:00:02.21, start: 0.000000, bitrate: 192 kb/s',
+      '  Stream #0:0: Audio: mp2 (mp3), 48000 Hz, stereo, s16p, 192 kb/s',
+      '[aist#0:0/mp2 @ 000001b57b7f2a00] Decoding requested, but no decoder found for: mp2',
+      'Error opening output file -.',
+      'Error opening output files: Invalid argument',
+    ].join('\r\n');
+    expect(summarizeFfmpegError(`ffmpeg exited with code 4294967274: ${stderr}`, abs)).toBe(
+      'ffmpeg: Decoding requested, but no decoder found for: mp2',
+    );
+    expect(summarizeFfmpegError(`ffmpeg exited with code 1: ${abs}: Invalid data found when processing input`, abs)).toBe(
+      'ffmpeg: sfx-x.mp3: Invalid data found when processing input',
+    );
+    expect(summarizeFfmpegError('Cancelled')).toBe('Cancelled');
+    expect(summarizeFfmpegError(`ffmpeg exited with code 1: ${'x'.repeat(500)}`).length).toBeLessThanOrEqual(200);
   });
 
   it('(F) a cancelled signal → not normalized, bytes unchanged', async () => {

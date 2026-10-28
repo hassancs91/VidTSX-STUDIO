@@ -160,8 +160,10 @@ export async function resolveShotAssetRefs(
     refs[key] = asset.id;
   }
 
+  // Validate FIRST (an audio ref throws "visual-only" here): a failed call lands nothing, so it marks nothing.
+  const promptAssets = buildPromptAssets(refs, known);
   if (libraryRoot !== null && landed.length > 0) {
     await markLibraryUsedIn(libraryRoot, landed, project.id);
   }
-  return { refs, imported, promptAssets: buildPromptAssets(refs, known) };
+  return { refs, imported, promptAssets };
 }

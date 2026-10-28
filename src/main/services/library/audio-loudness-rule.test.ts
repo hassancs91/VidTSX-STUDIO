@@ -2,7 +2,11 @@
 // pure — the ffmpeg side is audio-normalize.test.ts.
 import { describe, expect, it } from 'vitest';
 import {
+  correctiveGain,
+  isOverCeiling,
   LOUDNESS_CEILING_DBFS,
+  LOUDNESS_CEILING_MARGIN_DB,
+  LOUDNESS_MAX_CORRECTIVE_PASSES,
   LOUDNESS_TARGET_LUFS,
   parseLoudnormStats,
   planLoudnessGain,
@@ -85,5 +89,36 @@ describe('planLoudnessGain (the gen_sfx.py rule)', () => {
       gated: false,
       skipped: false,
     });
+  });
+
+  it('the 0.1 dB skip never keeps a file whose peak is OVER the ceiling (E-d11)', () => {
+    expect(plan(-20.05, -1.45)).toEqual({ gainDb: -0.05, clamped: true, gated: false, skipped: false });
+    expect(plan(-70, -1.45)).toEqual({ gainDb: -0.05, clamped: false, gated: true, skipped: false });
+    // At the ceiling as recorded (two decimals) is not over: still skipped.
+    expect(plan(-20.05, -1.4951)).toMatchObject({ gainDb: 0, skipped: true });
+  });
+});
+
+describe('the encoded-file ceiling check (E-d11)', () => {
+  it('constants: a 0.1 dB margin, at most two corrective passes', () => {
+    expect(LOUDNESS_CEILING_MARGIN_DB).toBe(0.1);
+    expect(LOUDNESS_MAX_CORRECTIVE_PASSES).toBe(2);
+  });
+
+  it('isOverCeiling compares the RECORDED (two-decimal) peak; silence and NaN are never over', () => {
+    expect(isOverCeiling(-1.44)).toBe(true);
+    expect(isOverCeiling(-1.494)).toBe(true);
+    expect(isOverCeiling(-1.4951)).toBe(false);
+    expect(isOverCeiling(-1.5)).toBe(false);
+    expect(isOverCeiling(-1.86)).toBe(false);
+    expect(isOverCeiling(-Infinity)).toBe(false);
+    expect(isOverCeiling(Number.NaN)).toBe(false);
+    expect(isOverCeiling(-0.9, -1)).toBe(true);
+  });
+
+  it('correctiveGain lowers the applied gain by the overshoot plus the margin', () => {
+    expect(correctiveGain(7.22, -1.44)).toBe(7.06);
+    expect(correctiveGain(4.18, -1.27)).toBe(3.85);
+    expect(correctiveGain(-8, -0.8, -1)).toBe(-8.3);
   });
 });

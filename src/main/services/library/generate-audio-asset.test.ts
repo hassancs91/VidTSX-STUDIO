@@ -183,6 +183,26 @@ describe('generateAudioAsset', () => {
       },
     });
     expect(asset).toMatchObject({ normalized: false, normalizeError: 'apply failed: x', loudnessLufs: -12.3, peakDbfs: -0.4 });
+    expect(asset.loudnessGated).toBeUndefined();
+  });
+
+  it('a gated clip (peak-normalized: no loudness reading) is flagged on the descriptor for the answer (N5); a failed gated one is not', async () => {
+    normalizeAudioFile.mockResolvedValue({
+      normalized: true,
+      peakDbfs: -1.62,
+      gainDb: 6.95,
+      clamped: false,
+      gated: true,
+      skipped: false,
+      correctivePasses: 1,
+    });
+    const asset = await generateAudioAsset({ kind: 'sfx', prompt: 'tick' });
+    expect(asset).toMatchObject({ normalized: true, loudnessGated: true, peakDbfs: -1.62 });
+    expect(asset.loudnessLufs).toBeUndefined();
+    expect(upsertEntry.mock.calls[0][2].audio).toMatchObject({ peakDbfs: -1.62, gainDb: 6.95 });
+
+    normalizeAudioFile.mockResolvedValue({ normalized: false, gainDb: 0, clamped: false, gated: true, skipped: false, error: 'apply failed: y' });
+    expect((await generateAudioAsset({ kind: 'sfx', prompt: 'tick' })).loudnessGated).toBeUndefined();
   });
 
   it('durationSeconds is the index probe’s duration when the upsert returns one, else the engine’s figure', async () => {

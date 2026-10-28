@@ -76,6 +76,8 @@ export interface GeneratedAudioAsset {
   loudnessLufs?: number;
   /** True peak after the step, dBTP. */
   peakDbfs?: number;
+  /** EBU R128 gated the clip (too short / too quiet to integrate): it was PEAK-normalized to the ceiling instead. */
+  loudnessGated?: true;
   normalizeError?: string;
   category?: string;
   tags?: string[];
@@ -171,6 +173,7 @@ export async function generateAudioAsset(req: GenerateAudioAssetRequest): Promis
     normalized: norm.normalized,
     ...(norm.loudnessLufs !== undefined ? { loudnessLufs: norm.loudnessLufs } : {}),
     ...(norm.peakDbfs !== undefined ? { peakDbfs: norm.peakDbfs } : {}),
+    ...(norm.normalized && norm.gated ? { loudnessGated: true as const } : {}),
     ...(norm.error ? { normalizeError: norm.error } : {}),
     ...(category ? { category } : {}),
     ...(tags ? { tags } : {}),

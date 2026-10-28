@@ -62,6 +62,12 @@ function describeLevel(filed: GeneratedAudioAsset): string {
   if (!filed.normalized) {
     return ` NOT loudness-normalized (${filed.normalizeError ?? 'unknown reason'}) — the raw file is kept.`;
   }
+  if (filed.loudnessGated) {
+    // EBU R128 gated it (N5): there is no integrated loudness to report — the peak was levelled instead.
+    return filed.peakDbfs !== undefined
+      ? ` Peak-normalized to ${signed(filed.peakDbfs)} dBTP — too short or too quiet for a loudness (LUFS) reading.`
+      : ' Silent — no loudness or peak to level; kept as generated.';
+  }
   const parts: string[] = [];
   if (filed.loudnessLufs !== undefined) parts.push(`${signed(filed.loudnessLufs)} LUFS`);
   if (filed.peakDbfs !== undefined) parts.push(`peak ${signed(filed.peakDbfs)} dBTP`);
