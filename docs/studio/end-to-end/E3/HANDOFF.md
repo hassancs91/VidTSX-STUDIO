@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: FIX — fix round 3 (Hasan's go 2026-10-28 23:34, decision E-d15: items 1–4 incl. the miss rule), then verifier round 4 = E3's LAST
+status: FIX — fix round 3 in progress: items 1–2 DONE by builder #9 (the corpus `574edbc`, the matcher fix `02e2a10`, tree clean); items 3 (the miss rule, E-d15) and 4 (regression + broad probes + gates + rebuild + records) are builder #10's; then verifier round 4 = E3's LAST
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -328,7 +328,122 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   the no-comma fallback / placement-only prompts — written after the code, not run red); the corpus green; `sound-match.test.ts`
   (14) and `sound-match-placement.test.ts` (13) untouched and green.
 
+### Built (builder #9, fix round 3, 2026-10-29) — items 1–2: the corpus `574edbc`, the matcher fix `02e2a10`
+
+- **Item 1 — the corpus extended (E-d15 (i)):** every probe of verifier round 3 (`…\E3-verify\r3\b-probes.txt` 513 probes /
+  508 distinct, `c-probes2.txt` 148 lines, `c-probes3.txt` 48) not already one of the 150 rows — **659 new rows** (695 probes
+  read, 1 already a row, 35 duplicates across the three files) — in four files over the SAME 51-clip fixture, sharing
+  `src/main/services/library/sound-match-corpus-rows.ts` (58 lines: `CorpusRow` / `CorpusOpts`, the id sets `W IMPACT HIT THUD
+  CLICK CHIME POP CRASH ZAP KNOCK WIND SNAP FAIL`, `NO_DASH` / `NO_TRAP` / `NO_SNUFF`, `corpusRun`, `describeCorpus(title, rows,
+  count)`): `sound-match-corpus-r3-inflections.test.ts` (b-probes "inflections", 194 rows), `…-r3-senses.test.ts` (b-probes
+  "collisions" + c-probes2 running / shutting / moving / senses + c-probes3, 204), `…-r3-placement.test.ts` (b-probes
+  "placement" + c-probes2 "placementAdverbs", 129), `…-r3-ordinary.test.ts` (b-probes "ordinary" + "music", 132). The 150-row
+  file is untouched. Coverage of the probe list checked by a scratch script (want 659 / got 659 / missing 0 / extra 0 / dups 0).
+  Outcomes by plain meaning in the file's conventions; **'*' (open) on 38 rows** — polysemy ("a shocking reveal / hit / moment",
+  "a building collapse" kept as crash-tumble|riser-soft, "a key turning in a lock", "winding up / down", "slowing down", "a pitch
+  going down", "taking off", "a car / plane taking off", "a stinging slap"), sounds the library has no clip for ("a zipper",
+  "zipping a jacket", "a speeding car", "waves crashing", "a fire crackling" ×2, "firing a gun" ×2, "breaking news", "a
+  breakdown", "a dies roll", "a wind-up toy", "a sweeping broom", "sweeping strings", "a puffy cloud", "a lightning strike", "a
+  floating island ambience", "a capture card", "a marking pen", "a rush of moving air", "a shutting / taking / closing sound", "a
+  gate / case closing"), a tag that is the only trace ("stories", "singles", "hopes", "going", "a gone moment", "lighting",
+  "sliding", "positively", "a magical moment"), and music "background music" / "a background bed while the host talks" (every bed
+  fits). **'x|∅' (recall rows — the library has the sound but the phrasing is a different class)**: the noun + participle
+  heads ("a tap running", "water running over rocks", "a stream running through a forest", "running creek", "running water
+  ambience", "wind blowing", "the wind blowing", "a wind blowing softly"), "a machine / system / phone shutting down", "a
+  computer shutting off", the -er / -en forms ("a runner", "eaten", "a buildup"), "a timer beep", "a dying battery", "a
+  heart thumping", "a vacuum sucking", "a gliding plane", "a car skidding", "a rocket taking off", "a lid / box shutting",
+  "message sent", "taking a picture", "typed text appearing", "a shattering window", "a popped balloon", "a clicky button", "a
+  positive ding", "a stamped letter", "stamping feet", "a breaking news sting", "a running joke sting", "a swinging / sliding
+  door", "a scanning laser", "puffing", "woooosh", "a warm bed under the voice" (music 60). **`not` rows (never offered):**
+  `dash-zip` on 17 running / water rows, `trap-snap` on "shutting down" / "shutting off" / "a shutting down sound",
+  `flame-snuff` on the three "wind blowing" rows, `page-flip` on "when the / a card flips a whoosh". Accepted on purpose (stated):
+  "a running whoosh" → `W|dash-zip` (dash-zip's description IS "a quick zippy whoosh" with footsteps — a whoosh of something
+  running; it ranks first at 0.60 through its `run` tag + the description's whoosh, the whooshes at 0.41), "a whoosh going down"
+  → `W|power-down`, "a softer whoosh" / "a whoosh but softer" → W (whoosh-soft first after the comparative map).
+  **Red on `09e81ea`** (`node …/vitest.mjs run src/main/services/library/sound-match-corpus` → `E3\fix3-corpus-red.log`):
+  `Test Files 4 failed | 1 passed (5)` · `Tests 88 failed | 726 passed (814)` — **88 / 659 rows** (the commit message of
+  `574edbc` says 87 — a typo; the log is right): the F3 rows (running water ×8, shutting ×4, moving air ×4, "a brook running over
+  stones", "a stream running through a forest", "a tap running", "water running from a tap / over rocks"), the F1-class openers /
+  adverbs / trailing words / wrappers (47 rows: every "right / exactly / precisely / only / even / shortly / immediately / soon
+  …", "every / each / any time", "the (exact) moment / instant / second", "here / there / now / later / again / too", "could you
+  add", "something like", "would be nice", "the same whoosh again", "when the user taps the button a click"), F3c
+  (swooshing ×2, swooshed, wooshing ×2), the quantifier-of rows (9: "a bit of static / a whoosh", "a little bit of static", "a
+  tiny bit of wind", "a burst of static", "a kind / sort / type / different type of whoosh"), "a hop" (hope/hop stem collision),
+  "a deeper impact", "a long whoosh" (impact-deep-soft's `long-tail`), "turning off" (page-flip's `turn`), "wind blowing" ×2
+  (flame-snuff), "while the host talks a calm bed" (music), "a moving whoosh", "a chime right after the answer".
+- **Item 2 — the fix (`02e2a10`; 47 files / 1,181 tests green in `library/` + `agent-tools/` + the prompt test —
+  `E3\fix3-green.log`; `sound-match.ts` 141 → **181** lines, `sound-match-words.ts` 179 → **211**, NEW `sound-match-vocab.ts`
+  **90** (the word sets moved out: NEGATIONS, SAME_SOUND, COMPARATIVES, CLAUSE_CUT, PLACEMENT, OPENERS, OPENER_FILLERS,
+  QUANTIFIERS, PARTICLES, STOP_WORDS), NEW `sound-match-bonus.test.ts` 52):**
+  - **F3a (the factor, stated):** `matchStrength(a, b)` (`sound-match-words.ts`) = **1** for an equal word, a plural / -es /
+    -ies pair or an adjective -y pair (clicks = click, whooshes = whoosh, airy = air, whooshy = whoosh, stories = story),
+    **`STEM_STRENGTH` = 0.6** for a verb form (-ing / -ed: running / run, shutting / shut, moving / move, ticking / tick,
+    popped / pop — the same as an equal hit in the description, so a stem hit on a tag never ties an equal tag hit and ranks
+    like a description hit), **0** when the words differ and neither carries an inflection (the silent-e drop alone made hop =
+    hope, bit = bite — gone; rung ≠ run, sparkle ≠ spark, riser ≠ rise, shutter ≠ shut stay). `hitOf()` (`sound-match.ts`) =
+    field weight × strength; **the head rule needs an EQUAL hit** (`word === head && hit.equal`), so "a tap running" (head
+    `running`, a stem hit on dash-zip's `run`) cannot match through the 0.30 head rule — dash-zip 0.26 on "a tap running",
+    0.30 on "running water" (no head), 0.32 on "a running stream", trap-snap 0.32 on "shutting down", chess-piece-thock 0.38 on
+    "moving air" — all below the 0.5 line, so NOT offered (`not` rows green); stream-soft 0.50 / 0.46, power-down 0.46,
+    wind-soft 0.60 first. The pinned pair `run` / `running` in `sound-match-words.test.ts:11` STAYS a match (at 0.6): the
+    corpus decided — "a running sound" / "running" / "someone running fast" / "running footsteps" → dash-zip are right by
+    plain meaning, and single -ing words ("whooshing", "clicking", "chiming", "humming", "hitting") still match through the
+    0.5 line (coverage = 0.6 on their one term). `strongHits` counts a tag / name / category hit of any strength;
+    `placementHits` likewise (so "appears" → pop-reveal's `appear` tag still earns the bonus).
+  - **F3b:** `OPENERS` = `every time`, `each time`, `any time`, `the moment`, `the instant`, `the second`, `the minute` (one
+    filler adjective allowed inside: `the exact moment`, `the very instant`; `OPENER_FILLERS` = exact very precise same first
+    next last) and the one-word `anytime` — `startsPlacement()` treats them exactly like `when` (anywhere in the clause, so "a
+    whoosh AT the moment the slide changes" works too). STOP_WORDS gained the adverbs `right exactly precisely only even
+    shortly immediately soon straight directly really quite`, the trailing `here there now later again too anymore instead`,
+    the wrappers `could would should you maybe probably perhaps something anything someone somebody anyone thing things stuff
+    nice good great fine cool ok okay thanks thank`, the determiners `same another other more every each all both several
+    many multiple few`, `being`, and the opener nouns `time moment instant minute exact precise` — none names a catalog
+    sound; "exactly" / "precise" no longer hit party-popper's / crunch-bite's "Exactly ONE …" or clock-tick-soft's "precise".
+    `promptTerms('a whoosh shortly after the cut')` → terms [whoosh], head whoosh. **The no-comma leading clause** ("when the
+    logo lands a deep impact hit") now yields its placement words as BONUS words (logo, lands), not half-weight qualifiers —
+    the corpus decided ("when the user taps the button a click" → CLICK needs it; the old expectation in
+    `sound-match-words.test.ts` changed accordingly, said in the test name). **Quantifier-of:** `QUANTIFIERS` = bit kind sort
+    type lot lots touch hint piece pieces couple few pair bunch burst series amount — `cutHead()` restarts the head clause
+    after "<quantifier> of" ("a bit of static" → static, "a little bit of static", "a kind of whoosh", "a piece of glass
+    breaking" → breaking). **COMPARATIVES** (explicit map, no -er rule): softer deeper louder quieter quicker faster slower
+    longer shorter lower higher harder warmer brighter darker bigger smaller lighter heavier gentler calmer → their base,
+    applied in `expand()` to prompts and entries alike ("a softer whoosh" → whoosh-soft, "a deeper impact" → impact-deep-soft,
+    "a long whoosh" → whoosh-wind through its "Longer and softer" description).
+  - **F3c:** `SAME_SOUND` is applied to the stem in `stemOf()` / `singular()` as well as to the raw word in `expand()`:
+    swooshing / swooshed / wooshing / swooshy / swooshes = whoosh (0.6 / 0.6 / 0.6 / 1 / 1).
+  - **MI / MJ pinned** (`sound-match-bonus.test.ts`): MI — two clips, A covers click (tag) + tail (tag) = 1.00, B click (tag)
+    + tail (description) = 0.867 with THREE placement hits (trap, latch, shut): capped +0.10 → 0.967 second; the cap dropped →
+    1.017 first. MJ — ten clips (idf sharp 1.48 / snap 1.99): B covers sharp only = 0.427, misses the head word, three
+    placement hits: a non-match that `nearestLibrarySounds` lists; the bonus before the threshold → 0.527 → a match.
+    Plus the true-miss case ("a cuckoo clock chime" → no match AND no nearest). **Proved** (`E3\fix3-mi-mj-red.log`): MI
+    applied by sed (`m.coverage + PLACEMENT_BONUS * m.placementHits`) → `Tests 1 failed | 2 passed (3)` × "MI — the bonus is
+    capped …"; restored; MJ applied (`rankOf(match) >= MATCH_COVERAGE || (headHit && rankOf(match) >= HEAD_MATCH_COVERAGE)`)
+    → `1 failed | 2 passed` × "MJ — …"; restored by `git checkout -- sound-match.ts`; `git diff --stat` EMPTY after, HEAD
+    `02e2a10`.
+  - **For item 3, already in place:** `rankLibrarySounds(entries, prompt, opts) → { matches, nearest }` and
+    `nearestLibrarySounds()` in `sound-match.ts` — `nearest` = the candidates with coverage > 0 below the threshold, sorted by
+    the same rank, at most `limit`; `matchLibrarySounds()` = `.matches` (unchanged signature). The tool / answer / prompt side
+    is NOT done.
+
 ## Verified (exact commands + outputs)
+
+- **Fix round 3, builder #9 (2026-10-29, worktree root, base `d363526` → `574edbc` → `02e2a10`; tree clean; no `src/` change
+  outside `library/`; no launch, no model turn, no gate re-run, no rebuild):**
+  - Probe dedupe: scratch `dedupe-probes.cjs` over the 150-row test + the three probe files → `{"existing":150,"total":695,
+    "inExisting":1,"dup":35,"kept":659}`; `check-rows.cjs` over the four row files → `want 659 / got 659 / missing [] / extra []
+    / dups []` (scratchpad `C:\Users\hasan\AppData\Local\Temp\claude\d--repos-VidTSX-STUDIO\6bb10a3a-…\scratchpad\`, session
+    scratch — the probe list it checked = `probe-keys-new.txt` there).
+  - Corpus red at `09e81ea` code (`574edbc` = the rows only): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+    src/main/services/library/sound-match-corpus > …\E3\fix3-corpus-red.log` → rc 1, `Test Files 4 failed | 1 passed (5)` ·
+    `Tests 88 failed | 726 passed (814)` (the 150-row file green; 88 `×` rows).
+  - After the fix, first try (`E3\fix3-try1.log`, `vitest run src/main/services/library/`): `1 failed | 1091 passed (1092)` —
+    only the old no-comma expectation in `sound-match-words.test.ts`. After the words-test update + the bonus test: `vitest run
+    src/main/services/library/ src/main/services/studio/agent-tools/ src/main/services/studio/studio-agent-prompt.test.ts`
+    → try 2: `2 failed | 1179 passed` ("the exact moment" gave bonus [exact, slide, changes]; and `pre-e1-control.test.ts` "a
+    pre-E1 index …" `expected { candidates: +0, probed: +0 … } to match object { candidates: 7, probed: 7 …}` — a disk-timing
+    flake, green on the re-run, unrelated code) → `exact` / `precise` added to STOP_WORDS → **`Test Files 47 passed (47)` ·
+    `Tests 1181 passed (1181)`** (`E3\fix3-green.log`), commit `02e2a10`.
+  - MI / MJ reds as in Built (`E3\fix3-mi-mj-red.log`); `git diff --stat` empty and `git status --short` empty after.
 
 - **Fix round 2 records, builder #8 (2026-10-28, worktree root, HEAD `532559a`, tree clean except the orchestrator's untracked
   `docs/studio/end-to-end/E-exit/`; no `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no model turn):**
@@ -624,7 +739,35 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 3 — builder #9 (Hasan's go 2026-10-28 23:34 = decision E-d15 in ORCHESTRATOR.md "Session 7": items 1–4 below, item 3
+**FIX ROUND 3, continued — builder #10: items 3–4 below (items 1–2 are DONE by builder #9 — Built / Verified "Fix round 3";
+do not redo them). Red first, commit at each green checkpoint, hand off per the 30 % rule.** What is in place for item 3:
+`rankLibrarySounds()` / `nearestLibrarySounds()` in `sound-match.ts` (the pure half). To build (the design, so it is not
+re-derived): (a) `agent-tools/sound-reuse.ts` — `libraryReuseAnswer()` returns `{ kind: 'match' | 'nearest'; text: string } |
+null` (null = a TRUE miss: `matches` and `nearest` both empty — or the index unreadable); a new `formatNearestSounds(nearest,
+prompt, toolName)` wording DIFFERENT from the match case: `No library sound matched "<prompt>" well — nothing was generated (no
+cost, no provider needed). The closest library sounds:` + the E2 `formatLibraryRow` rows + `If one of them fits, place it with
+insert_asset(assetId: "library:<first>", lane: "audio", at: …). If none fits, call <tool> again with force: true to generate a
+new one.`; (b) `audio-tools.ts` `:132-135` / `:172-178`: `if (reuse) return text(reuse.text)` (both kinds generate nothing;
+`force` skips the lookup as now; a `compositionPlan` music call skips it; keep `minDurationSec` for the nearest too — a bed
+that cannot cover the asked length is useless either way: stated choice); `REUSE_NOTE` + `FORCE_HINT` each gain one sentence
+("on a miss it answers the three closest library sounds instead of generating; only when nothing in the library scores does
+it generate without force"); (c) `studio-agent-prompt-tools.ts` `:21` / `:31` / `:32` / `:70` / `:75` say the miss rule in one
+sentence each, pinned in `studio-agent-prompt.test.ts` (extend the E3 describe); (d) tests red first in a NEW
+`agent-tools/audio-tools-miss.test.ts` (the reuse test is 173 lines; same mocks — read `audio-tools-reuse.test.ts` first): a
+miss answers the nearest three with the index's candidates and calls neither the engine nor `hasAudioProvider` nor the
+normalizer; a true miss (a prompt with no word in any clip, e.g. "a cuckoo clock chime" on the whoosh-only mock) generates; `force`
+generates; music likewise; the answer text contains `force: true` and differs from "The library already has"; (e) the corpus
+RECALL assertion in `sound-match-corpus-rows.ts` `describeCorpus()`: for every row whose expected is not '*' and holds a
+clip id, some allowed clip must be in `matches` ∪ `nearestLibrarySounds(…)` (top 3 each) — the 'x|∅' rows are where it
+bites; a row whose clip scores 0 there (e.g. "a dying battery" → power-down has no word of it) becomes '∅' — list those
+rows (they are plain-meaning corrections, not taste); (f) the stopped-app REAL-handler drivers (`E3\tools-noprovider.e3.test.ts`,
+`tools-standin.e3.test.ts`, `vitest.e3.config.ts`): the cuckoo with no provider → the nearest three named, 0 files, index
+byte-identical; the stand-in: a no-word prompt generates, the cuckoo with `force: true` generates once, the whoosh / lofi
+answers unchanged. Then item 4 exactly as written below (the regression report also vs `788c8d2` AND `09e81ea`; the broad
+probe set; gates; rebuild; records — Status.md E3 entry + TESTING §18.17 with the numbers above and the open notes under
+"Fix round 3 (builder #9)").
+
+(Items 1–2 DONE by builder #9, 2026-10-29 — kept for the record:) **FIX ROUND 3 — builder #9 (Hasan's go 2026-10-28 23:34 = decision E-d15 in ORCHESTRATOR.md "Session 7": items 1–4 below, item 3
 INCLUDED — read E-d15 for the exact miss rule and verifier round 4's bar).** Verifier round 3 FAILED on F3 (Open problems →
 "Verifier round 3"). Red first, commit at each green checkpoint, hand off per the 30 % rule:
 1. **Corpus first:** add verifier round 3's probes (`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3-verify\r3\b-probes.txt`,
@@ -812,6 +955,29 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - Its scratch: `…\E3-verify\r3\lib-profile` (51 clip copies + 10 stand-in files), projects `e3v3-noprov` / `e3v3-standin` under
   `.vidtsx-temp\end-to-end\E3-verify\r3\root\projects`. Nothing running; the worktree clean.
 
+### Fix round 3 (builder #9) — notes for the records, none blocking
+
+- **First results that CHANGED vs `09e81ea` on purpose, each with its reason** (the regression report of item 4 will list them
+  against both old versions): "a running whoosh" → dash-zip 0.60 first (its description is "a quick zippy whoosh" — accepted in
+  the corpus as `W|dash-zip`; a note, not a defect: the whooshes follow at 0.41); "winding down" → power-down 0.50 first
+  (old: whoosh-wind / wind-soft 0.53 — "winding" is now a 0.6 stem hit on `wind`; '*' row); "a key turning in a lock" →
+  keys-typing-soft 0.50 (plural `keys` = `key`; '*'); "a door slamming" → knock-solid alone (stamp-hit's `slam` is a stem
+  hit, 0.30 — not offered; the corpus accepts either); "air moving" / "moving air" → chess-piece-thock no longer offered at all
+  (0.38, no equal head); "a long whoosh" → whoosh-wind 0.78 first (was impact-deep-soft 0.62); "a softer whoosh" →
+  whoosh-soft 1.00 (was whoosh-wind 0.75); "a deeper impact" → impact-deep-soft 1.00 (was impact-soft 0.36 by usedIn).
+- **Still open by design (different class, Hasan's list):** a noun + participle head ("water running over rocks", "a tap
+  running", "wind blowing") finds nothing above the threshold — the right clip is now a NEAREST candidate (item 3 shows it);
+  -er / -en forms ("a runner", "eaten", "a buildup", "a zipper") stay unmatched; negation still only drops words; "a hop" is
+  now ∅ (hope ≠ hop) — the chimes are not offered for it any more.
+- `wordsMatch('run', 'running')` stays TRUE (at strength 0.6) — the words test row :11 was kept, the strength test added.
+- The commit message of `574edbc` says "red 87 / 659"; the log says 88 (3 of the 91 failures in the first run were the row-count
+  pins, fixed before the recorded run). History not rewritten; the records must say 88.
+- `pre-e1-control.test.ts` flaked once in the library run ("candidates 0 / probed 0", a disk-timing case like DRIVING's load
+  flakes), green on the immediate re-run with no code change in between.
+- Scratch left in the session scratchpad only (`dedupe-probes.cjs`, `check-rows.cjs`, `b-probes-compact*.txt`,
+  `probe-keys-new.txt`) — nothing new under `.vidtsx-temp\end-to-end\E3\` except the logs `fix3-corpus-red.log`,
+  `fix3-try1.log`, `fix3-green.log`, `fix3-mi-mj-red.log`.
+
 ### Fix round 2 (builder #7) — open notes for the records, none blocking
 
 - **Round-2 notes, where they stand now:** N1 (a leading placement clause WITHOUT a comma drops the sound) — **handled** by
@@ -929,6 +1095,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - The live step (builder #3): the import into the E3 library (51 clips — the library now ALSO holds two generated
   stand-in files under `generated/`), the Assets-screen CDP check, the tool-level checks (both drivers), the three live
   turns. Do NOT re-run the model turns (E-d9 budget spent: 3 turns + the probe).
+- Fix round 3 items 1–2 (builder #9): the 659-row corpus extension (`574edbc`, red 88 / 659 recorded) and the matcher fix
+  `02e2a10` (F3a / F3b / F3c, quantifier-of, comparatives, MI / MJ pinned and proved). Do NOT re-derive the rows or the
+  factor; add rows. The regression report / broad probes / gates / rebuild for `02e2a10` are NOT done (item 4).
 - Fix round 2 steps 1–4 (builder #7): the corpus (fixture + 150 rows, red 10 / 150 recorded), the F2 / bonus / no-comma fix
   (`09e81ea`), the real-index old-vs-new report (`E3\catalog-order-fix2.txt` — re-run only if the matcher changes again:
   `catalog-fix2.e3.test.ts`), the gates and the `wt/out` rebuild (Verified). Do NOT re-derive the corpus rows; add to them.
@@ -979,3 +1148,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   after it all true; HANDOFF DONE. No `src/` / `scripts/` change, no gate re-run, no rebuild, no launch, no model turn.
 - 2026-10-28 22:37–23:14 · verifier round 3 (orchestrator-spawned; E3's last) · ~113 calls · FAIL on F3 (Open problems → "Verifier
   round 3"); gates, corpus (150 / 150, expectations fair), the tool level, the build and the records all true. No launch, no model call.
+- 2026-10-28/29 · builder #9 (fix round 3, items 1–2) · ~40 calls · the corpus extended with verifier round 3's 659 probes
+  (four row files + the shared rows helper; red 88 / 659 on `09e81ea`, `574edbc`); the matcher fix (`sound-match-vocab.ts`
+  new, `matchStrength` 1 / 0.6 / 0, the equal-hit head rule, openers / adverbs / trailing / wrappers / quantifier-of /
+  comparatives, SAME_SOUND on the stem, the no-comma clause → bonus, `rankLibrarySounds` + `nearestLibrarySounds`), 47 files /
+  1,181 tests green, MI / MJ pinned and proved, `02e2a10`. Items 3–4 (the miss rule's tool / prompt / tests / drivers, the
+  regression + broad probes, gates, rebuild, records) handed to builder #10. No launch, no model turn, no gate run.
