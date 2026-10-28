@@ -1,5 +1,5 @@
 # E3 — Reuse-before-generate (prompt rule, `generate_sfx` top-3 matches, `force`); Assets screen playback + origin/tag chips
-status: FIX — fix round 3 in progress: items 1–2 DONE by builder #9 (the corpus `574edbc`, the matcher fix `02e2a10`, tree clean); items 3 (the miss rule, E-d15) and 4 (regression + broad probes + gates + rebuild + records) are builder #10's; then verifier round 4 = E3's LAST
+status: HANDOFF — fix round 3 in progress: items 1–3 DONE (builder #9: the corpus `574edbc`, the matcher fix `02e2a10`; builder #10: the miss rule `7967c6f` — tool / answer / prompt / tests / the corpus recall assertion / the two real-handler drivers; tree clean); item 4 (the regression report vs `788c8d2` + `09e81ea`, the broad probe set, gates, rebuild, records) is builder #11's; then verifier round 4 = E3's LAST
 
 > Track E, session 5 — **runs AFTER E4** (the exit, the whoosh case, needs the imported library). **Work only in the
 > worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt` (branch `end-to-end-p0-e`); paths below are relative
@@ -423,9 +423,96 @@ the index arrives over the existing `LIBRARY_INDEX_GET` IPC, URLs from the modul
   - **For item 3, already in place:** `rankLibrarySounds(entries, prompt, opts) → { matches, nearest }` and
     `nearestLibrarySounds()` in `sound-match.ts` — `nearest` = the candidates with coverage > 0 below the threshold, sorted by
     the same rank, at most `limit`; `matchLibrarySounds()` = `.matches` (unchanged signature). The tool / answer / prompt side
-    is NOT done.
+    is NOT done. (Builder #10: DONE — below.)
+
+### Built (builder #10, fix round 3, 2026-10-29) — item 3, the miss rule (E-d15): `7967c6f`
+
+- **(a) `agent-tools/sound-reuse.ts` (45 → 74 lines):** `ReuseAnswer = { kind: 'match' | 'nearest'; text }` `:27`;
+  `formatSoundMatches` `:34` (wording unchanged); NEW `formatNearestSounds(nearest, prompt, toolName)` `:46` — `No library sound
+  matched "<prompt>" well — nothing was generated (no cost, no provider needed). The closest library sounds:` + E2's
+  `formatLibraryRow` rows + `If one of them fits, place it with insert_asset(assetId: "library:<first>", lane: "audio", at: …) — a
+  library ref works as the asset id. If none fits, call <tool> again with force: true to generate a new one.`;
+  `libraryReuseAnswer()` `:61` runs `rankLibrarySounds` — matches → `match`, else nearest → `nearest`, else (nothing scores — a
+  TRUE miss) `null`; the index unreadable → `null` (generation proceeds, as before).
+- **(b) `audio-tools.ts` (198 → 199):** `if (reuse) return text(reuse.text)` `:135` / `:179` — both kinds generate nothing;
+  `force` skips the lookup as before (`:132` / `:172`); a `compositionPlan` call never looks; `minDurationSec = durationSeconds`
+  applies to the nearest too (a bed that cannot cover the asked length is useless either way — stated choice: `durationSeconds:
+  90` on a library whose longest bed is 57 s leaves NO candidate → a true miss → generates). `FORCE_HINT` `:60` + one sentence
+  ("The same on a miss: the tool answers the closest library sounds instead of generating, and force: true is the only way to
+  generate while anything in the library scores."); `REUSE_NOTE` `:63` + one ("On a miss it answers the three closest library
+  sounds instead of generating; only when nothing in the library scores does it generate without force.").
+- **(c) `studio-agent-prompt-tools.ts` (87; one sentence each):** `:21` "Even a sound the library lacks starts there: on a miss
+  generate_sfx / generate_music answer the closest library sounds before anything is generated."; `:31` "When nothing matches well
+  it STILL generates nothing: it answers the three closest library sounds — place one that fits, or call again with `force: true`
+  to generate; it generates without `force` only when nothing in the library scores at all."; `:32` "and the same miss rule — the
+  closest library beds instead of a new track, `force: true` to generate"; `:70` "A miss answers the closest library sounds, not a
+  new file — call again with `force: true` only when none of them fits either."; `:75` "on a miss either tool answers the closest
+  library sounds instead of generating — `force: true` generates when none fits". Pinned: `studio-agent-prompt.test.ts` `:122` (a
+  fifth `it` in the E3 describe; 200 lines).
+- **(d) `agent-tools/audio-tools-miss.test.ts` (NEW, 180 lines; the reuse test's mocks + its 4-entry library; 5 tests):** a near
+  miss ("a cuckoo clock chime, tick tock, wind, airy" — clock / tick / tock / wind / airy hit, cuckoo / chime — the head — do not)
+  answers the three nearest (clock-tick-soft first, then the two whooshes) with the exact wording, and `hasAudioProvider`, the
+  engine and the import are never called; a one-word near miss ("a cuckoo clock chime" → clock-tick-soft alone, nothing else); a
+  TRUE miss ("a dog bark") generates, and says "No audio provider" without one; `force` on a miss generates without looking;
+  music — "a warm bed for a cooking show" → lofi-warm as the nearest, `durationSeconds: 90` → generates, a plan never looks.
+  `audio-tools-reuse.test.ts` (173): its "no match" test now asks "a dog bark" (the cuckoo's "clock" is a near miss on that
+  mock — said in the test name). **Red first** (`E3\fix3-miss-red.log`, the tests before the code): `Tests 11 failed | 832 passed
+  (843)` — the 3 miss tests, the prompt pin, 7 corpus recall rows.
+- **(e) The corpus RECALL assertion:** `sound-match-corpus-rows.ts` (58 → 79) — `corpusRank()` `:40` (matches + nearest as ids),
+  `expectCorpusRow()` `:56`: the first result as before; then, for a row whose expected is not '*' and names a clip, some allowed
+  clip must be in matches ∪ nearest (top 3 each); then the `not` list (on `matches` only — a `not` clip MAY be a near miss: the
+  model reads its description and decides); `describeCorpus` calls it, and the 150-row `sound-match-corpus.test.ts` (208 → 192)
+  calls it too (its own runner removed). **Rows → '∅' — plain-meaning corrections, each with a comment in its file: 10.** The named
+  clip carries NO word of the prompt, so no rule can reach it (a synonym gap, not a ranking fault): r3 "taking a picture"
+  (camera-shutter says photo / capture; chess-piece-capture is the one near miss), "a buildup" (riser-soft says build / build-up),
+  "a runner" (runner ≠ run — no -er), "eaten" (crunch-bite's `eat`; no -en), "a tap running" and "running creek" (stream-soft:
+  stream / brook / water / trickle / babbling — neither word; dash-zip is the one near miss and still never a MATCH — `NO_DASH`
+  kept), "woooosh" (an elongated spelling); the 150-row file "a ding", "a ding if correct", "a ding when the answer is right" (the
+  chimes say "bell notes", no `ding` — fix round 2's N3). Row counts unchanged (150 + 194 + 204 + 129 + 132).
+- **(f) The REAL-handler drivers** — kit `E3\tools-noprovider-fix3.e3.test.ts` / `tools-standin-fix3.e3.test.ts` (copies of
+  builder #3's, which stay untouched), both PASS (Verified). **A stated fact corrected:** on the E3 profile "a cuckoo clock chime"
+  is a MATCH — its library holds `generated/sfx-a-cuckoo-clock-chime.mp3` from the live step (found before regenerated, the E2
+  promise) — so the near-miss prompts there are "a grandfather clock chiming midnight" (sfx: clock / chiming score on the
+  generated cuckoo, clock-tick-soft and the chimes; grandfather / midnight on nothing) and "a warm bed for a cooking show"
+  (music); the true-miss prompt is "a dog bark" (no word of it in any clip, generated ones included).
 
 ## Verified (exact commands + outputs)
+
+- **Fix round 3, builder #10 (2026-10-29 00:05–00:40 local, worktree root, base `c0fb9ab` → `7967c6f`; tree clean after; `src/`
+  touched only under `library/` + `studio/`; no launch, no model turn, no gate re-run, no rebuild):**
+  - **Red** (the tests before the code): `node D:/repos/VidTSX-STUDIO/node_modules/vitest/vitest.mjs run
+    src/main/services/studio/agent-tools/audio-tools-miss.test.ts src/main/services/studio/agent-tools/audio-tools-reuse.test.ts
+    src/main/services/studio/studio-agent-prompt.test.ts src/main/services/library/sound-match-corpus > E3\fix3-miss-red.log` → rc 1,
+    `Test Files 5 failed | 3 passed (8)` · `Tests 11 failed | 832 passed (843)`: `audio-tools-miss` × 3 (both sfx near misses and
+    the music one — the code still generated), the prompt pin × 1, recall × 7 (`recall — matches ∅ · nearest ∅` for a buildup / a
+    runner / eaten / woooosh; `nearest chess-piece-capture` for taking a picture; `nearest dash-zip` for a tap running / running creek).
+  - **Green** after the code (`vitest run src/main/services/library/ src/main/services/studio/agent-tools/
+    src/main/services/studio/studio-agent-prompt.test.ts`): first `E3\fix3-miss-green.log` `1 failed | 47 passed` — the three "a
+    ding" rows of the 150-row file (recall: the chimes carry no `ding`) → '∅' → the corpus alone `E3\fix3-miss-green-2.log` `Test
+    Files 5 passed (5)` · `Tests 814 passed (814)`; the whole set `E3\fix3-miss-green-3.log` (`Start at 00:31:33`) → **`Test Files
+    48 passed (48)` · `Tests 1187 passed (1187)`**. Commit `7967c6f` (11 files under `src/`, +290 / −71; `git status --short` empty).
+  - **The no-provider driver** (`vitest run --config E3\vitest.e3.config.ts tools-noprovider-fix3` → rc 0, `E3\tools-noprovider-fix3.log`;
+    record `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\tools-noprovider-fix3.json`, `at 2026-10-28T22:30:59Z`): `getLibraryRoot()` =
+    `<E3 profile>\assets`; engine `providers [] / active null`, `VIDTSX_AUDIO_STANDIN_FILE` unset; **the index SHA-256
+    `e5352386092d5849715abefe89eb33599b84f774f51bae556998bc9fd92912c5` + mtime `2026-10-28T18:13:42.105Z` identical before / after;
+    `generated/` 2 → 2 files.** Calls: whoosh → `The library already has 3 sounds matching …` whoosh-soft / whoosh-wind / whoosh-reverse
+    (30 ms; as before); **the near miss "a grandfather clock chiming midnight" → `No library sound matched "…" well — nothing was
+    generated (no cost, no provider needed). The closest library sounds:` generated/sfx-a-cuckoo-clock-chime · sfx/clock-tick-soft ·
+    sfx/chime-reward + "call generate_sfx again with force: true" (6 ms, isError false, no provider notice)**; the cuckoo → a MATCH
+    (1 sound, the generated cuckoo); the true miss "a dog bark" → `No audio provider is configured …` (isError true, nothing written);
+    music: "warm lo-fi bed" 30 s → the lofi-warm match (unchanged); "a warm bed for a cooking show" 30 s → the miss answer with
+    lofi-warm · lullaby-tender · ambient-pad; "bagpipe reel" 30 s → the provider notice; `list_assets` "whoosh" → 7 rows (the generated
+    soft-whoosh, dash-zip, flame-snuff, the four whooshes — as before), "grandfather midnight" → "No matching assets in the library.".
+  - **The stand-in driver** (`… tools-standin-fix3` → rc 0, `E3\tools-standin-fix3.log`; record `…\vidtsx-e2e\E3\tools-standin-fix3.json`,
+    `at 2026-10-28T22:31:01Z`; engine `providers ["standin"] / active "standin"`): "a dog bark" (category foley, tags dog / bark) →
+    **generated ONCE** → `generated/sfx-a-dog-bark.mp3` 1.60 s, tags [dog, bark], category foley, −20.26 LUFS / −16.67 dBTP (true),
+    source standin, `usedIn ["e3-tools"]`; independent ffmpeg-full `ebur128` I −20.2 LUFS / TP −16.7 (531 ms); the same ask → `The
+    library already has 1 sound matching "a dog bark"` (found, 0 new); **the near miss "a grandfather clock chiming midnight" WITH the
+    provider registered → the miss answer (the same three), 0 new files**; the cuckoo with `force: true` → generated once →
+    `generated/sfx-a-cuckoo-clock-chime-2.mp3` (308 ms); the whoosh → the 3-match answer, 0 new; lofi 30 s → the match, 0 new.
+    **`generated/` 2 → 4 entries — the E3 profile's index CHANGED by this run** (item 4's regression driver stamps the index as it is
+    now; `generated/` is outside its pool, the 51-clip fixture check still holds). The dog and the cuckoo-2 share one project asset
+    id (`2e89e21f-…`) — the stand-in's identical bytes dedup in the pool (builder #3's note (3)).
 
 - **Fix round 3, builder #9 (2026-10-29, worktree root, base `d363526` → `574edbc` → `02e2a10`; tree clean; no `src/` change
   outside `library/`; no launch, no model turn, no gate re-run, no rebuild):**
@@ -739,7 +826,51 @@ sink). All numbers: **`C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\live.json`** (
 
 ## Next step (ONE concrete instruction)
 
-**FIX ROUND 3, continued — builder #10: items 3–4 below (items 1–2 are DONE by builder #9 — Built / Verified "Fix round 3";
+**FIX ROUND 3, continued — builder #11: item 4 (items 1–3 are DONE — builder #9 `574edbc` `02e2a10`, builder #10 `7967c6f`; do
+not redo them). Exactly the session-8 brief's item 4, in this order; commit at each green checkpoint; hand off per the 30 % rule:**
+(1) **The regression report** over the WHOLE extended corpus (150 + 659 rows) on the real index, READ-ONLY (SHA-256 + mtime before /
+after — take "before" from the index AS IT IS NOW: builder #10's stand-in driver added two `generated/` entries; the pool excludes
+`generated/`): copy `E3\catalog-fix2.e3.test.ts` → `catalog-fix3.e3.test.ts`; old = `788c8d2` (`E3\sound-match-788.ts`, present) AND
+`09e81ea` (`git show 09e81ea:src/main/services/library/sound-match.ts` and `…/sound-match-words.ts` into the kit as
+`sound-match-09e.ts` / `sound-match-words-09e.ts`, the relative import between them re-pointed) vs HEAD → `E3\catalog-order-fix3.txt`:
+every changed row (old first / new first, old top 3 / new top 3, and for a new miss the nearest 3 from `nearestLibrarySounds`), a
+summary (rows, changed, first changed, matches lost, matches gained), and the statement that no row lost a CORRECT match or first
+result — or which did and why (builder #9's intentional first changes are listed under Open problems "Fix round 3 (builder #9)");
+the rows = the four r3 files' arrays + the 150-row file's (import them, or extract with a scratch script as `corpus-extract.cjs` did).
+(2) **The BROAD probe set** (E-d15; required before "no regression"): every inflection (-s, -es, -ing, -ed, -y; -er where it is a
+real word) of every tag / category / file-name word of the 51 catalog clips, bare and as "a <word>" / "a <word> sound" / "a soft
+<word>"; plus each base phrase with the placement openers (`… when the slide changes`, `… every time the slide changes`, `… the
+moment the logo lands`, `… right at the first cut`, `… shortly after the cut`, `… exactly when the slide changes`, `… only when …`)
+and a leading adverb / wrapper ("right …", "just …", "could you add …"); old (`788c8d2`, `09e81ea`) vs new, old / new top 3 per probe
+(+ the nearest 3 on a new miss) → `E3\broad-probes-fix3.txt` (> ~1 MB → `C:\Users\hasan\AppData\Local\vidtsx-e2e\E3\`) with a
+summary (probes, changed, first changed, worse firsts); READ the changed rows yourself: every changed first must be an improvement
+or a documented tie; a worse first on an ordinary phrasing where the library has the sound = fix it (then the corpus + the miss
+tests green again, commit) or return BLOCKED with the case; list every worse first in HANDOFF. (3) **Gates:** CPU first
+(`Get-CimInstance Win32_Processor | Measure-Object LoadPercentage -Average` + the top processes over 5 s →
+`…\vidtsx-e2e\E3\cpu-fix3.txt`); the resource guard; 0 `electron.exe` of ours; the full worktree vitest →
+`…\vidtsx-e2e\E3\vitest-full-fix3.log` (DRIVING's normal rule, or E-d13 under measured load — say which run counted), green except
+the three E-d2a suites; rule (b): `git diff --name-only 5d77600..HEAD -- src/ scripts/` → `E3\diff-list-fix3.txt`, the three
+suites' import graphs → `E3\import-graph-fix3.txt` (the fix-2 method); tsc web 26 / node 10 (`…\vidtsx-e2e\E3\tsc-web-fix3.log` /
+`tsc-node-fix3.log`). (4) **Rebuild `wt/out`** (DRIVING "Track E" step 1; 0 `electron.exe` first; log `E3\build-fix3.log`); confirm
+`out/main/index.js` holds "No library sound matched" and note its mtime vs the last `src/` commit. (5) **Records:** the Status.md E3
+entry (its title → "…; verifier round 3 FAIL on F3, a matcher defect → fix round 3 (builders #9–#11, E-d15: the miss rule); the E3
+verifier round 4 — E3's last — is next"; a new "**Verifier round 3 FAIL (F3 matcher: the -ing stem `running` → `run` hit dash-zip's
+`run` tag) → fix round 3 `02e2a10` `7967c6f` `<yours>`**" bullet in the style of the round-1 / round-2 bullets, carrying everything
+in Built / Verified "builder #9" + "builder #10": F3a / F3b / F3c with the 0.6 factor and the equal-hit head rule; the corpus
+extension — 659 rows in four files, red 88 / 659 on `09e81ea`, the 38 `*` rows, the recall rows; the miss rule — its wording, the
+tool / prompt sentences, its tests, the real-handler results, the 10 '∅' recall rows and why; the regression numbers vs BOTH old
+versions; the broad-probe numbers + the worse-firsts list; MI / MJ pinned with their reds; builder #9's intentional first changes;
+the gates + the `wt/out` line; E-d15's bar in one sentence), the code list + line counts (`sound-match.ts` 181,
+`sound-match-words.ts` 211, `sound-match-vocab.ts` 90, `sound-match-corpus-rows.ts` 79, `sound-reuse.ts` 74, `audio-tools.ts` 199,
+`audio-tools-miss.test.ts` 180, the corpus files), "Not measured / open" carried + what the miss rule changes for the live cuckoo
+case (it now answers the closest library sounds; on the E3 profile the cuckoo is a MATCH on the live step's generated cuckoo; the
+live turn is the track-E exit's); TESTING §18.17 likewise (a new item after the F2 item, the Gates item extended, the "Not measured"
+item updated). Every git / tree / build statement "as of `<hash>`", re-checked AFTER the records commit (`git log -1 --format=%h --
+src/`, `git diff --stat <code-hash>..HEAD -- src/ scripts/` empty, the diff list count unchanged). Commit (explicit paths), HANDOFF
+`status: DONE` with Next step = "E3 verifier round 4 — E3's LAST; the bar is E-d15 (i)–(iv) (CDP 9273, `profiles\E3-verify` may be
+reused; range `e98190f..HEAD`; the records to check: Status.md E3 entry :<lines>, TESTING §18.17 :<lines>)", the LOG line, commit.
+
+(Item 3 DONE by builder #10, 2026-10-29 — kept for the record:) **FIX ROUND 3, continued — builder #10: items 3–4 below (items 1–2 are DONE by builder #9 — Built / Verified "Fix round 3";
 do not redo them). Red first, commit at each green checkpoint, hand off per the 30 % rule.** What is in place for item 3:
 `rankLibrarySounds()` / `nearestLibrarySounds()` in `sound-match.ts` (the pure half). To build (the design, so it is not
 re-derived): (a) `agent-tools/sound-reuse.ts` — `libraryReuseAnswer()` returns `{ kind: 'match' | 'nearest'; text: string } |
@@ -955,6 +1086,30 @@ under Open problems).** In order, red first, commit at each green checkpoint:
 - Its scratch: `…\E3-verify\r3\lib-profile` (51 clip copies + 10 stand-in files), projects `e3v3-noprov` / `e3v3-standin` under
   `.vidtsx-temp\end-to-end\E3-verify\r3\root\projects`. Nothing running; the worktree clean.
 
+### Fix round 3 (builder #10) — notes for the records, none blocking
+
+- **A stated fact corrected:** the session-8 brief's driver line "with no provider, 'a cuckoo clock chime' → the nearest three
+  named" does not hold on the E3 profile — its library holds `generated/sfx-a-cuckoo-clock-chime.mp3` from builder #3's live step,
+  so the cuckoo is a MATCH there (the E2 promise: found before regenerated). The fix-3 drivers show the miss rule on "a grandfather
+  clock chiming midnight" (sfx) and "a warm bed for a cooking show" (music) and record the cuckoo's match. On a clean 51-clip library
+  (the verifier's own `lib-profile`) the cuckoo IS a near miss (`clock` → clock-tick-soft, `chime` → the two chimes); the unit test
+  pins the one-word near miss on the mock. What the miss rule changes for the live cuckoo case: a turn asking for a sound the
+  library lacks now gets the closest library sounds first and must call `force: true` to generate — one extra tool call (E-d15).
+- **A `not` clip may be a NEAR miss** (by design): "a tap running" / "running creek" show dash-zip as the one closest sound — never a
+  match (`NO_DASH` holds on `matches`); the model reads "a quick zippy whoosh … footsteps" and decides. E-d15 calls a stranger in the
+  near-miss list a note, not a failure.
+- **Ten corpus rows became '∅'** (Built (e)): the named clip carries no word of the prompt, so the recall promise could never hold —
+  a synonym gap (ding ×3, picture, buildup, runner, eaten, woooosh, tap / creek), not a ranking fault; "a ding" ×3 were already a
+  known gap (fix round 2 N3).
+- `minDurationSec` applies to the nearest too (stated choice): `generate_music(…, durationSeconds: 90)` on a library whose longest
+  bed is 57 s has NO candidate → a true miss → generates without `force`; a bed shorter than the asked length is never shown.
+- The E3 profile's index now holds 4 `generated/` entries (the stand-in driver added `sfx-a-dog-bark.mp3` and
+  `sfx-a-cuckoo-clock-chime-2.mp3`); item 4's regression driver excludes `generated/` and must stamp the index as it is now. The
+  dog and the cuckoo-2 share one project asset id (identical stand-in bytes → pool dedup; builder #3's note (3)).
+- The files builder #10 wrote are LF (git's "LF will be replaced by CRLF" warnings at commit; the older files are CRLF) — cosmetic.
+- The old `tools-noprovider.e3.test.ts:88` (builder #3) would now fail on this profile — its cuckoo expectation predates the
+  generated cuckoo and the miss rule; it is kept as the live step's record, the fix-3 copies are the current drivers.
+
 ### Fix round 3 (builder #9) — notes for the records, none blocking
 
 - **First results that CHANGED vs `09e81ea` on purpose, each with its reason** (the regression report of item 4 will list them
@@ -1097,7 +1252,10 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   turns. Do NOT re-run the model turns (E-d9 budget spent: 3 turns + the probe).
 - Fix round 3 items 1–2 (builder #9): the 659-row corpus extension (`574edbc`, red 88 / 659 recorded) and the matcher fix
   `02e2a10` (F3a / F3b / F3c, quantifier-of, comparatives, MI / MJ pinned and proved). Do NOT re-derive the rows or the
-  factor; add rows. The regression report / broad probes / gates / rebuild for `02e2a10` are NOT done (item 4).
+  factor; add rows. The regression report / broad probes / gates / rebuild for `02e2a10` + `7967c6f` are NOT done (item 4).
+- Fix round 3 item 3 (builder #10, `7967c6f`): the miss rule's tool / answer / prompt / tests, the corpus recall assertion + the
+  10 '∅' rows, the two fix-3 real-handler drivers (PASS; records `…\vidtsx-e2e\E3\tools-noprovider-fix3.json` /
+  `tools-standin-fix3.json`). Do NOT re-run the stand-in driver (each run adds generated files to the E3 profile's library).
 - Fix round 2 steps 1–4 (builder #7): the corpus (fixture + 150 rows, red 10 / 150 recorded), the F2 / bonus / no-comma fix
   (`09e81ea`), the real-index old-vs-new report (`E3\catalog-order-fix2.txt` — re-run only if the matcher changes again:
   `catalog-fix2.e3.test.ts`), the gates and the `wt/out` rebuild (Verified). Do NOT re-derive the corpus rows; add to them.
@@ -1154,3 +1312,9 @@ under Open problems).** In order, red first, commit at each green checkpoint:
   comparatives, SAME_SOUND on the stem, the no-comma clause → bonus, `rankLibrarySounds` + `nearestLibrarySounds`), 47 files /
   1,181 tests green, MI / MJ pinned and proved, `02e2a10`. Items 3–4 (the miss rule's tool / prompt / tests / drivers, the
   regression + broad probes, gates, rebuild, records) handed to builder #10. No launch, no model turn, no gate run.
+- 2026-10-29 00:05–00:40 · builder #10 (fix round 3, item 3) · ~24 calls · the miss rule (E-d15): `sound-reuse.ts` (`ReuseAnswer`,
+  `formatNearestSounds`), `audio-tools.ts` (`reuse.text`, the FORCE_HINT / REUSE_NOTE sentences), the five prompt sentences pinned,
+  `audio-tools-miss.test.ts` (5 tests; red first — 11 failed incl. 7 recall rows), the corpus recall assertion (`expectCorpusRow`;
+  10 rows → '∅'), green 48 files / 1,187 tests, `7967c6f`; the two real-handler drivers PASS (no provider: the index byte-identical,
+  the near miss answers the generated cuckoo / clock-tick-soft / chime-reward; stand-in: the dog generated once then found, the near
+  miss generates nothing, the cuckoo `force` generates). Item 4 handed to builder #11. No launch, no model turn, no gate run, no rebuild.
