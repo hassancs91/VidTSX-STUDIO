@@ -1,5 +1,5 @@
 # E2 — Generation writes loudness-normalized files with category/tags; `usedIn` written on every landing
-status: DONE
+status: FIX
 
 > Track E, session 5. **Work only in the worktree** `D:\repos\VidTSX-STUDIO\.vidtsx-temp\end-to-end\E\wt`
 > (branch `end-to-end-p0-e`); paths below are relative to it. Decisions E-d1…E-d10 + E-d2a in ORCHESTRATOR.md
@@ -597,7 +597,62 @@ compositor package from the main checkout's `node_modules`, as E1's kit proved).
 
 ## Next step (ONE concrete instruction)
 
-**E2 is DONE on the builder side. Orchestrator: spawn the E2 verifier, round 1** (ORCHESTRATOR "Session 6": the exit, the gates,
+**FIX ROUND 1 — builder #7 (orchestrator, 2026-10-28; verifier round 1 FAILED on F1 + F2, see "Verifier round 1" under Open
+problems).** In order, red first for every code change, commit at each green checkpoint:
+1. **F1 — the ceiling holds on the ENCODED file (decision E-d11, below).** In `src/main/services/library/audio-normalize.ts`
+   (`normalizeAudioFile` / `applyGain`, now 172 lines — split if it passes ~300): keep the ORIGINAL bytes until the end; encode
+   original → temp with the planned gain; re-measure the TEMP (the product's own `loudnorm` pass); if its true peak is over the
+   ceiling, re-encode from the ORIGINAL (never from the already-encoded temp — one lossy generation only) with the gain lowered
+   by the overshoot plus a small margin (0.1 dB is a sane start — state what you chose and why); at most two corrective passes;
+   then rename the temp over the original. Applies to EVERY branch (gated, clamped, and an unclamped target whose peak lands
+   within a few tenths of the ceiling). Record `gainDb` = the gain actually applied, and the re-measured LUFS / peak; if the
+   corrective passes still leave it over (not expected), keep the lowest result, `log.warn`, and say so in the result (a field
+   or the error text — your call, stated). The failure policy is unchanged (a failure never loses the bytes). Red test FIRST
+   through the REAL bundled ffmpeg on an **mp3** fixture that overshoots today (the verifier's case: a ~0.25 s noise burst →
+   the gated branch; build the noise in JS like the existing fixtures — `anoisesrc` is absent from the bundled ffmpeg — then
+   mp3 it with the bundled ffmpeg; if a JS fixture will not overshoot on the current code, find one that does — e.g. vary the
+   burst, sample rate or stereo — and say what reproduced it); assert the product's re-measured true peak ≤ −1.5 and, inside
+   the test, an independent check (decode the output to PCM with the bundled ffmpeg and compute the sample peak in JS ≤ −1.5
+   dBFS). Keep the existing 18 normalizer tests green; the (C) case's WAV expectation stays.
+2. **F2 — `resolveShotAssetRefs` marks only after the refs validate.** `src/main/services/studio/shot-asset-refs.ts:163-166`:
+   compute `buildPromptAssets(refs, known)` FIRST, then `markLibraryUsedIn`, then return. Red test first in
+   `shot-asset-refs.test.ts`: a library AUDIO ref (plus a valid image ref) → the call throws "visual-only" AND
+   `markLibraryUsedIn` was NOT called.
+3. **N3 — the pool-import seam gets a test** (the verifier's mutation M3: removing the mark at `studio-handlers.ts:299-301` left
+   47 files / 352 tests green). Make the seam testable without growing the 674-line handler (e.g. a small exported function —
+   `importMediaFilesMarkingLibrary(projectId, filePaths)` or similar — that the handler calls, in a file of its own or beside
+   `library-used-in.ts`), and pin it with a test that FAILS when the mark is removed (prove it: run it once with the mark
+   commented out, record the red).
+4. **N2 + N5 — the answer text.** `normalizeError` stores ONE line (the first meaningful stderr line, trimmed, capped ~200
+   chars, no CRLF; keep the full stderr in the log only) — `audio-normalize.ts`; and the gated answer no longer reads
+   "Loudness peak −1.3 dBTP." with no LUFS clause (`audio-tools.ts` `describeLevel`): say it was peak-normalized (too short /
+   too quiet for a loudness reading) and give the peak. Pin both in the existing tests.
+5. **Live re-check (stopped-app drivers, the E2 kit; the app is NOT needed):** rebuild nothing for this; run the short-transient
+   case through the REAL handlers on the E2 profile with the VERIFIER's stand-in
+   `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2-verify\standins\v-short.mp3` (read-only — set `VIDTSX_AUDIO_STANDIN_FILE` to it;
+   a new driver file `exit-short.e2.test.ts` in `.vidtsx-temp\end-to-end\E2\`, its own invocation), and re-run the ceiling case
+   with `standin-quiet.mp3` in a new driver (or the existing one — a new generated file name is fine); measure the outputs with
+   the INDEPENDENT meter (`ffmpeg-full` n8.1.2 `ebur128=peak=true` + `astats`) → true peak ≤ −1.5 dBTP and sample peak ≤ −1.5
+   dBFS on both; write the numbers to `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\fix1.json`.
+6. **Gates + rebuild:** full worktree vitest **`--maxWorkers=2`** (memory headroom is under 10 GB this session) with no app
+   running, logged to `…\vidtsx-e2e\E2\vitest-full-2.log` — green except the three E-d2a suites, each only on package
+   resolution; rule (b) re-run (the diff list changed: `git diff --name-only 5d77600..HEAD`, then the import-graph walk); tsc web
+   26 / node 10. Then rebuild `wt/out` (DRIVING "Track E" step 1, no app running) so the verifier finds a current build.
+7. **Records:** in the E2 `Status.md` entry and TESTING §18.15 — correct the over-claims (`Status.md:65-67` "a few tenths off
+   it" → the ceiling now holds on the encoded file, with the new numbers; `:92-93` + `TESTING.md:504` "a throw marks nothing" →
+   true after the F2 fix, say what changed; `TESTING.md:501` "−1.5 ± 0.1" → what holds for WAV vs mp3), N1 (`Status.md:158`
+   `AssetTile.tsx:135` → `:139-140`), the pool-import seam's new test, a line "verifier round 1 FAIL (F1 ceiling over after the
+   mp3 re-encode; F2 shot-ref mark before validation) → fix round 1 `<hashes>`", and the gate numbers. Commit with explicit
+   paths, set `status: DONE`, LOG line, return the evidence.
+
+**E-d11 (orchestrator, 2026-10-28, within Q2 "under −1.5 dBFS"):** the −1.5 ceiling is a property of the FILE the library
+keeps, not of the pre-encode plan. A lossy re-encode can push the true peak a few tenths over (verifier: 0.25 s burst, gated
+branch, +7.2 dB → −1.27 recorded / −1.3 dBTP / −1.268 dBFS sample by `ffmpeg-full`). So after the encode the product
+re-measures and, when over, re-encodes from the ORIGINAL with less gain (corrective pass, at most two). Chosen over a fixed
+pre-encode margin because it keeps the `gen_sfx.py` result exactly where no overshoot happens and lands clamped files as close to
+the ceiling as the encoder allows. `gen_sfx.py` has the same single-pass hole (inherited) — the editor repo stays read-only.
+
+(Superseded 2026-10-28 by the FAIL above:) **E2 is DONE on the builder side. Orchestrator: spawn the E2 verifier, round 1** (ORCHESTRATOR "Session 6": the exit, the gates,
 its own negative / control cases on ITS OWN profile copy `profiles\E2-verify` without `settings.db*`, CDP 9272, its own stand-in
 sounds through the dev seam `VIDTSX_AUDIO_STANDIN_FILE`, an independent meter; the E2 profile's library read-only). Its inputs:
 `Status.md:10-192`, `docs/studio/TESTING.md:492-506`, this file, `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2\exit.json` +
@@ -713,6 +768,45 @@ scratch; never read, copy or open a `settings.db`.
    when near 40 calls; never hand back with the app or a build running.
 
 ## Open problems
+
+### Verifier round 1 — FAIL (2026-10-28; its own profile `profiles\E2-verify`, CDP 9272; evidence `C:\Users\hasan\AppData\Local\vidtsx-e2e\E2-verify\`, kit `.vidtsx-temp\end-to-end\E2-verify\`)
+
+- **F1 (code defect + exit miss on the short-transient case + records defect) — the −1.5 ceiling is not held after the mp3
+  re-encode.** Stand-in `v-short.mp3` (0.25 s, 44.1 kHz stereo noise burst; meter in: I −70 LUFS (gated), TP −8.7 dBTP) →
+  real `generate_sfx` → `generated/sfx-verifier-short-noise-hit.mp3`: gated branch, gain +7.2 (= −1.5 − (−8.7)), recorded
+  `peakDbfs −1.27`; independent `ffmpeg-full`: ebur128 TP **−1.3 dBTP**, astats sample peak **−1.268 dBFS** — ~0.23 dB OVER −1.5
+  (Q2 "under −1.5 dBFS"; exit item 2 "peak ≤ −1.5"). Cause: `audio-loudness-rule.ts:72` (gated `gainDb = ceiling − peak`) and
+  `:75-76` (clamp) land exactly on the ceiling; `audio-normalize.ts:154-171` does one lossy libmp3lame 192k re-encode, then
+  re-measures and records, never enforcing; the engine always writes `.mp3` (`audio-generation-engine.ts:155`), so every
+  gated / clamped generation can overshoot. Unit (C) (`audio-normalize.test.ts:162-168`) uses a lossless WAV; the builders' and
+  the verifier's clamped cases happened to land under (−1.8, −1.86). Inherited from `gen_sfx.py` (same single pass). Records:
+  `TESTING.md:501` "peak-normalized to −1.5 ± 0.1" (true for WAV only); `Status.md:65-67` "a few tenths of a dB off it" does not
+  say it can go OVER. → E-d11 under Next step.
+- **F2 (code defect + records defect) — `resolveShotAssetRefs` writes `usedIn` before the refs validate.**
+  `shot-asset-refs.ts:163-165` marks, then `:166` `buildPromptAssets` throws for an audio ref (`:62-66` "shots are visual-only
+  (D2)") → `generate_tsx_shot` fails but the index lists the project for an asset it never got. Evidence `run-short.json`:
+  `shotC.threw` "Asset ref 'snd' is audio — shots are visual-only…", `usedInAfterShotC ["e2v-a","e2v-c"]`; also
+  `sfx-verifier-loud-pink-burst.mp3` ended `usedIn [e2v-a, e2v-b, e2v-c]` the same way. Records: `Status.md:92-93` +
+  `TESTING.md:504` "a throw marks nothing" — false for this throw.
+- Notes (non-blocking): **N1** `Status.md:158` points at `AssetTile.tsx:135` (`<CopyIcon />`); the name is :139-140. **N2**
+  `normalizeError` stores the whole multi-line ffmpeg stderr (CRLF, the absolute user path, exit code 4294967274) and the answer
+  prints all of it. **N3** the pool-import seam has no test (mutation M3: mark removed → 47 files / 352 tests green); live it
+  works (`studioMediaImport` into `e2v-b` → `usedIn [a, c]` → `[a, c, b]`). **N4** a path whose under-root part differs in case
+  (`GENERATED/SFX-….MP3`) is not marked (index keys case-sensitive) — logged, left to the next scan. **N5** a gated file's answer
+  reads "Loudness peak −1.3 dBTP." with no LUFS clause. **N6** in `applyGain`'s catch `fs.rm` could mask the original error (still
+  caught upstream). **N7** the port matches `gen_sfx` (true peak instead of sample peak — stricter, documented; the 0.1 dB skip =
+  `apply_gain`). **N8** `wt/node_modules/.vite` (one 48 KB cache file from 2026-10-23 20:19) — an earlier run's, harmless.
+- What passed (for the record — the verifier's own numbers): gates — full worktree vitest `--maxWorkers=2` 3 failed | 485
+  passed | 5 skipped files, 9 failed | 4,138 passed | 35 skipped tests (the 3 E-d2a suites, resolution only; its own import-graph
+  walk: 0 / 0 / 1 hits, the one an erased `import type`), tsc 26 / 10; loud stand-in (−7.2 LUFS / +0.2 dBTP in) → recorded −20.28
+  / −12.9, meter I −20.3 / TP −12.9 / astats −12.896, probe 2.5 = ffprobe 2.500000; `usedIn [A]` → `[A]` (dedupe) → `[A, B]`; the
+  row with category / tags / −20.3 LUFS / used in; ceiling (−34.7 / −13.5 in) → gain +11.99 clamped, −23.07 / −1.86 recorded, meter
+  −23.0 / −1.9 / −1.873; music −20.26 / −12.7 vs meter −20.2 / −12.7; at-target −20.01 → gain 0, bytes md5-identical; an mp2-in-
+  `.mp3` → bytes kept, `normalizeError`, "NOT loudness-normalized … the raw file is kept", row "· not normalized"; the stand-in gate
+  (unset / packaged / missing → not registered; control → `["standin"]`); six outside-root paths → null, index unchanged;
+  mutations M1 (normalize call removed → 3 / 9 fail), M2 (`importLibraryFile` marks removed → 2 / 4 fail); live CDP 9272 Studio
+  root first, Assets › generated 7 files, index fields kept after the app's own scan; records' numbers and ~60 pointers checked
+  (all right except N1); V4-N1 fixed.
 
 - (builder #2, note, not blocking) The tool's progress line still reads "Generating at ElevenLabs…" when the stand-in
   answers (`audio-tools.ts` `emitProgress`); cosmetic — the answer text itself names nothing provider-specific. Fix only if
